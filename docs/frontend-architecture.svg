@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1330" height="1130" viewBox="0 0 1330 1130" role="img">
 <title>PetaJournal frontends: browser, SwiftUI, WinUI3, Emacs, todo and stickies</title>
-<desc>Three frontends share one core, and a fourth is planned. The browser frontend is one WASM binary with shell-leptos (Rust, Leptos) and peta-core (Rust, Crux), and talks to the server with fetch and EventSource. It shows an item from the HTML that flatmarkdown-ast2html makes of its AST, and adds the link targets, the image sizes and the code colours itself. It parses no Markdown: the HTML of a copy comes from the AST of the server too. The SwiftUI frontend is frontend-swiftui (SwiftUI), connected by bincode over BoltFFI to a Rust library with shell-native, peta-core and server-client (Rust, ureq). shell-native makes the HTML of an item with flatmarkdown-ast2html, and the app draws it. The WinUI3 frontend is planned. It will use the same Rust library with shell-native. The Emacs frontend is peta-journal.el (Emacs Lisp), connected by JSON lines over stdin and stdout to a Rust process with shell-emacs, peta-core and server-client. Two more frontends do not use the core. The todo frontend (TypeScript, React) talks to the server with fetch and EventSource, and renders the AST with flatmarkdown-ast2react, a TypeScript package. The stickies frontend (C#, WinUI3) talks to the server with HttpClient, and renders the AST with flatmarkdown-ast2html. The local server is journal-server (Rust, axum) with REST and SSE at /api/events. It also serves MCP at /mcp. The server keeps its pages in a SQLite database. It syncs the pages with .md files in a local folder, in both directions. An AI agent talks to it as an MCP client over Streamable HTTP.</desc>
+<desc>Three frontends share one core, and a fourth is planned. The browser frontend is one WASM binary with shell-leptos (Rust, Leptos) and peta-core (Rust, Crux), and talks to the server with fetch and EventSource. It shows an item from the HTML that flatmarkdown-ast2html makes of its AST, and adds the link targets, the image sizes and the code colours itself. It parses no Markdown: the HTML of a copy comes from the AST of the server too. The SwiftUI frontend is frontend-swiftui (SwiftUI), connected by bincode over BoltFFI to a Rust library with shell-native, peta-core and server-client (Rust, ureq). shell-native makes the HTML of an item with flatmarkdown-ast2html, and the app draws it. The WinUI3 frontend is planned. It will use the same Rust library with shell-native. The Emacs frontend is peta-journal.el (Emacs Lisp), connected by JSON lines over stdin and stdout to a Rust process with shell-emacs, peta-core and server-client. Two more frontends do not use the core. The todo frontend (TypeScript, React) talks to the server with fetch and EventSource, and renders the AST with flatmarkdown-ast2react, a TypeScript package. The stickies frontend (C#, WinUI3) talks to the server with HttpClient, and renders the AST with flatmarkdown-ast2html. The local server is journal-server (Rust, axum) with REST and SSE at /api/events. It also serves MCP at /mcp. The server keeps its pages in a SQLite database. It syncs the pages with .md files in a local folder outside the server, in both directions. A cloud storage service such as Dropbox may sync that folder with remote machines. An AI agent talks to it as an MCP client over Streamable HTTP.</desc>
 <defs>
 <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#5F5E5A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></marker>
 <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#993C1D" stroke-width="1.5" stroke-opacity="0.16" /></pattern>
@@ -200,24 +200,28 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <rect x="906" y="31" width="58" height="22" rx="11" style="fill:#F1EFE8;stroke:#5F5E5A" />
 <text x="935" y="42" text-anchor="middle" dominant-baseline="central" style="fill:#2C2C2A">予定</text>
 </g>
-<polygon class="frame" points="20,592 46,540 1284,540 1310,592 1284,644 46,644" stroke-linejoin="round" style="fill:url(#hatch)" />
+<polygon class="frame" points="20,592 46,540 1114,540 1140,592 1114,644 46,644" stroke-linejoin="round" style="fill:url(#hatch)" />
 <text class="th" x="60" y="562" dominant-baseline="central">ローカルサーバ</text>
 <g class="coral">
-<rect x="525" y="556" width="280" height="76" rx="8" />
-<text class="th" x="665" y="583" text-anchor="middle" dominant-baseline="central">journal-server（Rust, axum）</text>
-<text x="665" y="605" text-anchor="middle" dominant-baseline="central">REST・SSE /api/events　MCP /mcp</text>
+<rect x="440" y="556" width="280" height="76" rx="8" />
+<text class="th" x="580" y="583" text-anchor="middle" dominant-baseline="central">journal-server（Rust, axum）</text>
+<text x="580" y="605" text-anchor="middle" dominant-baseline="central">REST・SSE /api/events　MCP /mcp</text>
 </g>
 <g class="gray store">
-<path d="M184 548H236L244 556H366a4 4 0 0 1 4 4V584a4 4 0 0 1 -4 4H184a4 4 0 0 1 -4 -4V552a4 4 0 0 1 4 -4Z" />
-<text class="th" x="275" y="572" text-anchor="middle" dominant-baseline="central">ローカルフォルダ（.md）</text>
-<path d="M180 601a95 5 0 0 1 190 0V631a95 5 0 0 1 -190 0Z" />
-<path d="M180 601a95 5 0 0 0 190 0" style="fill:none" />
-<text class="th" x="275" y="620" text-anchor="middle" dominant-baseline="central">DB（SQLite）</text>
+<path d="M1164 538H1216L1224 546H1306a4 4 0 0 1 4 4V574a4 4 0 0 1 -4 4H1164a4 4 0 0 1 -4 -4V542a4 4 0 0 1 4 -4Z" />
+<text class="th" x="1235" y="562" text-anchor="middle" dominant-baseline="central">ローカルフォルダ（.md）</text>
+<path d="M890 601a95 5 0 0 1 190 0V631a95 5 0 0 1 -190 0Z" />
+<path d="M890 601a95 5 0 0 0 190 0" style="fill:none" />
+<text class="th" x="985" y="620" text-anchor="middle" dominant-baseline="central">DB（SQLite）</text>
 </g>
-<line class="arr" x1="372" y1="572" x2="523" y2="572" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="447" y="558" text-anchor="middle" dominant-baseline="central">書き出し・取り込み</text>
-<line class="arr" x1="372" y1="620" x2="523" y2="620" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="447" y="634" text-anchor="middle" dominant-baseline="central">読み書き</text>
+<line class="arr" x1="722" y1="562" x2="1158" y2="562" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="805" y="577" text-anchor="middle" dominant-baseline="central">書き出し・取り込み</text>
+<line class="arr" x1="722" y1="620" x2="888" y2="620" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="805" y="606" text-anchor="middle" dominant-baseline="central">読み書き</text>
+<rect class="frame" x="1160" y="604" width="150" height="48" rx="12" />
+<text class="th" x="1235" y="619" text-anchor="middle" dominant-baseline="central">クラウドストレージ</text>
+<text x="1235" y="639" text-anchor="middle" dominant-baseline="central">リモートPCと同期</text>
+<line class="arr" x1="1235" y1="580" x2="1235" y2="602" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 
 <g class="chip">
 <rect x="82" y="167" width="62" height="18" rx="9" />
@@ -234,8 +238,8 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="536" y="330" text-anchor="middle" dominant-baseline="central">ast</text>
 <rect x="1234" y="459" width="36" height="18" rx="9" />
 <text x="1252" y="468" text-anchor="middle" dominant-baseline="central">ast</text>
-<rect x="709" y="547" width="88" height="18" rx="9" />
-<text x="753" y="556" text-anchor="middle" dominant-baseline="central">flatmarkdown</text>
+<rect x="624" y="547" width="88" height="18" rx="9" />
+<text x="668" y="556" text-anchor="middle" dominant-baseline="central">flatmarkdown</text>
 </g>
 
 <rect class="frame" x="20" y="690" width="416" height="108" rx="14" />
