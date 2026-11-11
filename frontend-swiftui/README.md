@@ -156,7 +156,7 @@ Windows has Control. Control in this table is the Control key.
 |---|---|
 | Enter | splits the item at the cursor |
 | Shift+Enter | breaks the line inside the item |
-| Control+Enter | makes the item a task, then steps its state |
+| Command+Enter, Control+Enter | makes the item a task, then steps its state |
 | Tab, Shift+Tab | indents, outdents |
 | Up, Down on the first or last line | goes to the item before or after |
 | Left at the start, Right at the end | goes to the end of the item before, the start of the item after |
@@ -182,6 +182,9 @@ While items are selected, no item has the cursor and the keys mean this:
 | Command+Z, Control+Z | undo; with Shift, redo |
 
 A click into the text of an item also ends the selection.
+
+A click on the box of a task steps its state, as the key does: open, running, done, and then
+no task any more.
 
 Each window is a sticky with a page of its own. Its title bar shows the name of the page, and
 the tools of the sticky at the right. The tools are hidden while the window does not have the
