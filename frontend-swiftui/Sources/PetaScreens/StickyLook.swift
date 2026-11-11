@@ -14,10 +14,12 @@ public final class StickyLook: ObservableObject {
     /// The search box is on screen. This is not kept: the box is closed in the next run.
     @Published public var searching = false
 
-    /// The colors the menu of a sticky offers. They are those of the stickies app for Windows.
+    /// The colors the menu of a sticky offers. They are the colors of the cards of Petasti
+    /// (sosuisen/petasti, `cardColors`), without its transparent one: a sticky is a paper here.
     public static let colors: [(name: String, hex: String)] = [
-        ("Yellow", StickySettings.yellow), ("Pink", "#FFD1DC"), ("Green", "#D0F0C0"), ("Blue", "#D0E8FF"),
-        ("White", "#FFFFFF"),
+        ("Yellow", StickySettings.yellow), ("Red", "#FFCAC4"), ("Green", "#EDFFC4"), ("Blue", "#D1E1FF"),
+        ("Orange", "#FFDD9E"), ("Purple", "#F8D0FF"), ("White", "#FFFFFF"), ("Gray", "#E0E0E0"),
+        ("Light Gray", "#F8F8F8"),
     ]
 
     public init(color: String = StickySettings.yellow, alwaysOnTop: Bool = false, zoom: Double = 1) {
