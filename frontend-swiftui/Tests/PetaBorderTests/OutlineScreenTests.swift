@@ -207,6 +207,18 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertEqual(bodies(), ["to do"])
     }
 
+    // タスクの前にも、バレットが出る。バレットのあとに、タスクの状態が並ぶ。
+    func testATaskHasABulletBeforeItsState() async throws {
+        let editor = editors()[0]
+        type("to do", into: editor)
+        XCTAssertEqual(shell.view.outline.rows[0].marks, ["•"])
+
+        press(Self.returnKey, "\r", .control, in: editor)
+
+        try await waitUntil("the item is a task") { self.shell.view.outline.rows[0].task == .notStarted }
+        XCTAssertEqual(shell.view.outline.rows[0].marks, ["•", "☐"])
+    }
+
     // Shift+Option+下矢印は、項目を下へ動かす。カーソルは、その項目に残る。
     func testShiftOptionDownMovesTheItemDown() async throws {
         try await twoItems()
