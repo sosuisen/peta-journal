@@ -136,6 +136,11 @@ when the cursor leaves it, the shell tells the core that the edit is over (`Shel
 as the web frontend does, and the item shows its decoration again. The marks before the text
 (the bullet, the box of a task) are drawn by the screen, not taken from the HTML.
 
+A click on a link of an item that shows its decoration opens what the link names
+(`Shell.follow`): a wikilink opens its page in that sticky, a hashtag the page of the tag in the
+folder of the tags, and any other link opens in the browser. Such a click does not put the
+cursor in the item. A click beside the links does, and the item shows its Markdown.
+
 ## Keys
 
 The keys are those of the web frontend, but for folding: there the Mac has Command where
@@ -214,7 +219,8 @@ PETA_E2E_SERVER=$PWD/../journal-server-rust/target/release/journal-server swift 
 
 `OutlineScreenTests` put the screen in a window and give its editors the text and the keys as
 AppKit does: typing, composing, Enter, the arrows, Tab and Backspace. No key of a real keyboard
-is pressed, so they do not show that an input method works with the editors.
+is pressed, so they do not show that an input method works with the editors. A click on a link
+is handed to the text view the way a window hands it over; the window of a test takes no click.
 
 `TypingSpeedTests` measures one key on a page of 1000 items, with the views in a real window. It
 prints the times and fails on none of them. Run it optimized, and alone:
