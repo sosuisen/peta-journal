@@ -98,6 +98,11 @@ public final class Shell: ObservableObject {
                 renderedEnd: UInt64(shown.upperBound + 1)))
     }
 
+    /// The user clicked the mark of a task: its state goes one step on, as with the key.
+    public func clickedTask(of itemId: String) {
+        send(.taskCycle(itemId: itemId))
+    }
+
     /// The user put the cursor in the item.
     public func startEditing(_ itemId: String) {
         send(.editRequested(itemId: itemId, cursor: 0))

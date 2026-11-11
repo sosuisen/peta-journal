@@ -311,6 +311,22 @@ final class ShellTests: XCTestCase {
         try await waitUntil("the task is running") { shell.view.outline.rows[0].task == .running }
     }
 
+    // タスクの印をクリックすると、タスクの状態が進む。項目を編集していなくてもよい。
+    func testAClickOnTheMarkOfATaskStepsItsState() async throws {
+        let shell = try await shellWithPage()
+        let first = shell.view.outline.rows[0].item.id
+        shell.startEditing(first)
+        shell.typed("to do", into: first)
+        XCTAssertTrue(shell.pressed(.taskCycle, in: first, editor("to do", cursor: 0)))
+        try await waitUntil("the item is a task") { shell.view.outline.rows[0].task == .notStarted }
+        shell.finishEditing(first)
+
+        shell.clickedTask(of: first)
+        try await waitUntil("the task is running") { shell.view.outline.rows[0].task == .running }
+        shell.clickedTask(of: first)
+        try await waitUntil("the task is done") { shell.view.outline.rows[0].task == .done }
+    }
+
     // 折りたたむキーは子の項目を隠し、開くキーは子の項目を表示する。切り替えではない。
     func testTheFoldKeyHidesTheChildrenAndTheUnfoldKeyShowsThem() async throws {
         let shell = try await shellWithPage()
