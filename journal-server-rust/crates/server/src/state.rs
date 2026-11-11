@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use crate::application::configuration;
+use crate::application::{configuration, folder_chooser};
 use crate::config::Settings;
 use crate::infrastructure::pending_delete_prompt::PendingDeletePrompt;
 use crate::infrastructure::watch::MarkdownFolderWatcher;
@@ -230,12 +230,12 @@ impl AppState {
 
         // Startup steps, in the order of the Java server
         if options.interactive {
-            configuration::check_configuration(&config, &export);
-        } else {
-            let dir = config.markdown_dir();
-            if !dir.trim().is_empty() {
-                export.export_all_if_empty(&dir);
-            }
+            folder_chooser::ask_for_markdown_dir(&config);
+        }
+        let dir = config.markdown_dir();
+        if !dir.trim().is_empty() {
+            configuration::ensure_sub_dirs(std::path::Path::new(&dir));
+            export.export_all_if_empty(&dir);
         }
         startup::rebuild_search_index(&pages, &items, &search);
         // After the rebuild, which skips an index that is not empty: the new pages are indexed
