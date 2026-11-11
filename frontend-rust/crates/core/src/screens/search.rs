@@ -163,6 +163,9 @@ pub fn key(model: &mut Model, key: SearchKey) -> Cmd {
 
 /// An entry of the flat list was chosen: a page, the create entry, or an item.
 pub fn result_clicked(model: &mut Model, index: usize) -> Cmd {
+    if offers_today(model) && index == 0 {
+        return Command::all([clear(model), navigate::to_url("/today", false)]);
+    }
     let titles = create_titles(model);
     let page_count = model.search.page_results.len();
     if index < page_count {
