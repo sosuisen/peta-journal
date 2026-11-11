@@ -222,7 +222,8 @@ AppKit does: typing, composing, Enter, the arrows, Tab and Backspace. No key of 
 is pressed, so they do not show that an input method works with the editors. A click on a link
 is handed to the text view the way a window hands it over; the window of a test takes no click.
 
-`TypingSpeedTests` measures one key on a page of 1000 items, with the views in a real window. It
+`TypingSpeedTests` measures a page of 1000 items, with the views in a real window: one key, and
+with items that have decoration, a jump of one screen and the cursor going to another item. It
 prints the times and fails on none of them. Run it optimized, and alone:
 
 ```
@@ -232,6 +233,13 @@ PETA_E2E_SERVER=$PWD/../journal-server-rust/target/release/journal-server \
 
 On an M1 MacBook Air (2026-11-11): the event into the core 0.07 ms, the view model out of the
 core and read in Swift 4.9 ms, the window drawn again 4.2 ms.
+
+With decoration (ADR 025), same day: the text of one item is made in 2.5 ms. After a jump of one
+screen (26 new rows) the rows are drawn with their Markdown after 55 ms, the texts are then made
+in one go that holds the main thread for 72 ms, and the rows show their decoration after 178 ms.
+So a jump shows Markdown for about a tenth of a second. Scrolling line by line makes one or two
+texts at a time. The cursor going to another item takes 16 ms in the shell and the core and
+27 ms to draw; about 10 ms of that is for drawing all rows in view again.
 
 The tests start the server themselves, on ports 18094, 18095 and 18097, with all its files in a temporary folder.
 They check that the server writes its Markdown there before they use it, so the notes of whoever
