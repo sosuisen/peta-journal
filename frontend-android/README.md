@@ -71,6 +71,11 @@ Gradle properties:
 They can also stand in `~/.gradle/gradle.properties`, as `dropboxKey=...` and
 `dropboxFolder=...`. An app that is built without a key syncs nothing and shows no sign-in.
 
+The Dropbox app signs in when the device has it. The browser signs in when it does not. The
+Dropbox app must be signed in itself. When it is signed out, it only says that it could not
+connect to Dropbox and asks to check the network. The network is fine then: sign in again in
+the Dropbox app, and try once more.
+
 The app syncs when it comes to the front and when "Sync" is touched. The first sync downloads
 every Markdown file, several at a time. A later sync asks Dropbox only for what changed. A
 file that Dropbox lost is deleted in the app, and so is its page, without a question.
