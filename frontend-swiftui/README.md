@@ -65,6 +65,12 @@ under `generated/`. Run it again after a change in Rust.
   the core counts, and back. The core calls from its own threads; `Shell` moves each request to the main
   thread, in order.
 
+- `ShownText` makes the text of an item as it is to be shown: with its decoration, not as
+  Markdown (ADR 025). It does not read the AST. `itemHtml` of the core library makes HTML of
+  the AST, with flatmarkdown-ast2html, and macOS turns the HTML into text with attributes.
+  `ShownText` puts text in the place of the three things macOS drops (the checkbox of a task
+  list, the line between two parts, an image). The screen does not use it yet.
+
 ## Build and run the app
 
 The app needs a running journal server (see `BUILD.md` at the top of the repository).

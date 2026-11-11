@@ -9,9 +9,11 @@ boltffi::scaffolding!();
 
 #[cfg(feature = "ffi")]
 pub mod ffi;
+mod html;
 mod server;
 mod shell;
 
+pub use html::item_html;
 pub use server::connect;
 pub use shell::{BorderError, Host, NativeShell, NothingThere, ShellEffect, ShellEffectFfi};
 
