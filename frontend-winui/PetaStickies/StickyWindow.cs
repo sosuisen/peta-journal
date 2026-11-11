@@ -621,9 +621,9 @@ internal sealed class StickyWindow : Window
         )
             return;
         var now = (
-            (int)rows[panel.FirstVisibleIndex].Row.Index,
-            (int)rows[Math.Max(panel.FirstCacheIndex, 0)].Row.Index,
-            (int)rows[Math.Max(panel.LastCacheIndex, panel.FirstVisibleIndex)].Row.Index
+            (int)rows[panel.FirstVisibleIndex].Row.Position,
+            (int)rows[Math.Max(panel.FirstCacheIndex, 0)].Row.Position,
+            (int)rows[Math.Max(panel.LastCacheIndex, panel.FirstVisibleIndex)].Row.Position
         );
         if (seen == now)
             return;

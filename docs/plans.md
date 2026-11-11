@@ -451,7 +451,8 @@
     - [x] Kotlinの型が、今の型で生成でき、コンパイルが通るか。`facet_generate`の0.19.1と0.22.3を試す。0.22.3を使う（2026-11-11）
       - 0.19.1（Cruxが連れてくる版）は、生成できるがコンパイルが通らない。`PropertyValue`の変種`List`が、Kotlinの`List`を隠す。C#のときと同じ種類の不具合である
       - 0.22.3は、`index`という名前のフィールドを拒む。生成するコードの中の変数と重なるためである。`Event::SearchResultClicked`、`view.rs`の3つの型の、4つが当たる
-      - `#[facet(rename = "...")]`で名前を付け替えると、65個の型が生成でき、コンパイルが通った。バイトの並びは変わらない。ただし、SwiftとC#の型でも名前が変わる。Rustのフィールドの名前を変えるか、`rename`を付けるかを、ADR 030で決める
+      - `#[facet(rename = "...")]`で名前を付け替えると、65個の型が生成でき、コンパイルが通った。バイトの並びは変わらない。ただし、SwiftとC#の型でも名前が変わる
+      - [x] Rustのフィールドの名前を変える（2026-11-11にユーザーが決めた）。`Row`と`SearchEntry`と`Event::SearchResultClicked`は`position`、`WikiView`は`selected_index`にした。付け替えなしで、Kotlinの型が生成できる。Emacsのシェルの`search_result`のメッセージも`position`にした
     - [x] `boltffi pack android`が、`arm64-v8a`と`x86_64`でビルドできるか。エミュレーターなしのJVMのテストが動くか。ビルドできた。JVMのテストは、手でリンクすれば動く（2026-11-11）
       - `crate-type`に`staticlib`が要る。`.so`は69MB、記号を外すと61MBである。`x86_64`だけを入れたデバッグ版のAPKは74MBだった
       - 生成されたKotlin（34KB）はコンパイルが通り、エミュレーターの上のアプリから、取り込み、日本語の検索、ビューモデルの復元ができた

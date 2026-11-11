@@ -57,7 +57,7 @@ fn typing_inside_a_link_offers_page_names_after_a_pause() {
     let wiki = h.view().outline.wiki;
     assert_eq!(wiki.suggestions, ["Todo", "Tools"]);
     assert_eq!(wiki.item_id.as_deref(), Some("a"));
-    assert_eq!((wiki.index, wiki.x, wiki.y), (0, 10.0, 24.0));
+    assert_eq!((wiki.selected_index, wiki.x, wiki.y), (0, 10.0, 24.0));
     assert!(h.view().outline.rows[0].suggestions_visible);
 }
 
@@ -113,17 +113,17 @@ fn a_failed_search_leaves_no_suggestions() {
 fn arrow_keys_move_the_pick_and_wrap_around() {
     let mut h = editing("[[To]]");
     key(&mut h, "ArrowDown");
-    assert_eq!(h.view().outline.wiki.index, 0);
+    assert_eq!(h.view().outline.wiki.selected_index, 0);
 
     offers(&mut h, &["Todo", "Tools", "Top"]);
     typed_in_link(&mut h, "To");
     h.fire_timers();
     key(&mut h, "ArrowUp");
-    assert_eq!(h.view().outline.wiki.index, 2);
+    assert_eq!(h.view().outline.wiki.selected_index, 2);
     key(&mut h, "ArrowDown");
-    assert_eq!(h.view().outline.wiki.index, 0);
+    assert_eq!(h.view().outline.wiki.selected_index, 0);
     key(&mut h, "Tab");
-    assert_eq!(h.view().outline.wiki.index, 0);
+    assert_eq!(h.view().outline.wiki.selected_index, 0);
 }
 
 // Enter は選ばれた候補で `[[` と `]]` の間の文を置き換え、カーソルをその直後に置き、入力として保存を予約し、ポップアップを閉じる。

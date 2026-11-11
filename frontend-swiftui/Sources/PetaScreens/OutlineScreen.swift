@@ -141,7 +141,7 @@ private struct ItemEditor: View {
             }
             ItemText(
                 item: row.item, isEditing: row.isEditing, shown: texts.text(of: row.item, zoom: zoom),
-                texts: texts, changes: texts.changes, heading: row.editedHeading, isFirst: row.index == 0,
+                texts: texts, changes: texts.changes, heading: row.editedHeading, isFirst: row.position == 0,
                 request: shell.view.outline.focusRequest, order: shell.focus, shell: shell, cursors: cursors,
                 zoom: zoom)
         }
@@ -223,7 +223,7 @@ private final class SeenRows: ObservableObject {
             waits = false
             // Only a journal does something with it, and every time costs a view model
             guard case .journal = shell.view.screen else { return }
-            let places = shell.view.outline.rows.filter { ids.contains($0.item.id) }.map { Int($0.index) }
+            let places = shell.view.outline.rows.filter { ids.contains($0.item.id) }.map { Int($0.position) }
             guard let first = places.min(), let last = places.max(), told != first...last else { return }
             told = first...last
             shell.scrolled(top: first, shown: first...last)

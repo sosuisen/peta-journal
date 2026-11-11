@@ -23,7 +23,7 @@ pub fn WikiSuggestions() -> impl IntoView {
                         key=|(i, s)| (*i, s.clone())
                         children={
                                                         move |(i, title)| {
-                                let selected = move || wiki.with(|w| w.index == i);
+                                let selected = move || wiki.with(|w| w.selected_index == i);
                                                                 let t = title.clone();
                                 view! {
                                     <div

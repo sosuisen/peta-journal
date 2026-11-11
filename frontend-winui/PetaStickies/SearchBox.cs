@@ -110,7 +110,7 @@ internal sealed class SearchBox : StackPanel
             return;
         foreach (var entry in search.Results)
         {
-            var chosen = search.SelectedIndex == entry.Index;
+            var chosen = search.SelectedIndex == entry.Position;
             var row = Entry(entry, chosen);
             entries.Children.Add(row);
             // The arrow keys may choose an entry that is out of sight
@@ -151,7 +151,7 @@ internal sealed class SearchBox : StackPanel
             CornerRadius = new CornerRadius(3),
             Background = chosen ? Chosen : Clear,
         };
-        var index = entry.Index;
+        var index = entry.Position;
         row.Tapped += (_, e) =>
         {
             e.Handled = true;

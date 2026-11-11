@@ -65,9 +65,9 @@ fn creates(h: &Harness) -> Vec<String> {
     creates.map(|r| r.title).collect()
 }
 
-fn entry(index: usize, kind: SearchKind, title: &str) -> SearchEntry {
+fn entry(position: usize, kind: SearchKind, title: &str) -> SearchEntry {
     SearchEntry {
-        index,
+        position,
         kind,
         title: title.into(),
         snippet: String::new(),
@@ -152,7 +152,7 @@ fn the_query_today_is_matched_without_its_case_and_the_spaces_around_it() {
 fn open_today_opens_the_journal_of_today_and_clears_the_query() {
     let mut h = Harness::new();
     typed(&mut h, "today");
-    h.send(Event::SearchResultClicked { index: 0 });
+    h.send(Event::SearchResultClicked { position: 0 });
     assert_eq!(urls(&h), ["/today"]);
     assert_eq!(h.view().search.query, "");
     assert!(h.pending_timer_ids().is_empty());
@@ -165,7 +165,7 @@ fn the_entries_below_open_today_open_what_they_show_and_the_arrow_keys_pass_open
     let mut h = Harness::new();
     // Open Today, Today I learned, create "today", Diary: four entries
     searched(&mut h, "today", hits());
-    h.send(Event::SearchResultClicked { index: 1 });
+    h.send(Event::SearchResultClicked { position: 1 });
     assert_eq!(urls(&h), ["/pages/Today I learned"]);
 
     searched(&mut h, "today", hits());
@@ -313,7 +313,7 @@ fn opening_a_result_ends_the_running_search() {
     let mut h = Harness::new();
     searched(&mut h, "plan", vec![page_hit("Plans")]);
     typed(&mut h, "plans");
-    h.send(Event::SearchResultClicked { index: 0 });
+    h.send(Event::SearchResultClicked { position: 0 });
     assert!(!h.view().search.searching);
 }
 
@@ -434,16 +434,16 @@ fn a_page_hit_opens_the_page_and_an_item_hit_jumps_to_the_item() {
         "plan",
         vec![page_hit("Plans"), item_hit("Diary", "i1")],
     );
-    h.send(Event::SearchResultClicked { index: 2 });
+    h.send(Event::SearchResultClicked { position: 2 });
     assert_eq!(urls(&h), ["/pages/Diary#i1"]);
     assert_eq!(h.view().search.query, "");
     assert!(h.view().search.results.is_empty());
 
     searched(&mut h, "plan", vec![page_hit("Plans")]);
-    h.send(Event::SearchResultClicked { index: 0 });
+    h.send(Event::SearchResultClicked { position: 0 });
     assert_eq!(urls(&h), ["/pages/Diary#i1", "/pages/Plans"]);
 
-    h.send(Event::SearchResultClicked { index: 9 });
+    h.send(Event::SearchResultClicked { position: 9 });
     assert_eq!(urls(&h).len(), 2);
 }
 
@@ -452,7 +452,7 @@ fn a_page_hit_opens_the_page_and_an_item_hit_jumps_to_the_item() {
 fn the_create_entry_opens_the_new_page() {
     let mut h = on_doc_page();
     searched(&mut h, "Plan", vec![]);
-    h.send(Event::SearchResultClicked { index: 1 });
+    h.send(Event::SearchResultClicked { position: 1 });
     assert_eq!(urls(&h), ["/pages/notes/Plan"]);
     assert_eq!(h.view().search.query, "");
 }
@@ -462,11 +462,11 @@ fn the_create_entry_opens_the_new_page() {
 fn a_bad_file_name_is_refused_and_a_journal_name_is_not_checked() {
     let mut h = Harness::new();
     searched(&mut h, "a:b", vec![]);
-    h.send(Event::SearchResultClicked { index: 0 });
+    h.send(Event::SearchResultClicked { position: 0 });
     assert!(urls(&h).is_empty());
     assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
 
     searched(&mut h, "2026-02-10", vec![]);
-    h.send(Event::SearchResultClicked { index: 0 });
+    h.send(Event::SearchResultClicked { position: 0 });
     assert_eq!(urls(&h), ["/pages/2026-02-10"]);
 }

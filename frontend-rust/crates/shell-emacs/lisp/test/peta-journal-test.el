@@ -1060,12 +1060,12 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   "Search results of the kind page, with TITLES."
   (vconcat (seq-map-indexed
             (lambda (title index)
-              (list :index index :kind "page" :title title :snippet ""))
+              (list :position index :kind "page" :title title :snippet ""))
             titles)))
 
 (defun peta-journal-test--choice ()
   "The number the core gave to the selected result, or nil."
-  (plist-get (peta-journal--search-entry) :index))
+  (plist-get (peta-journal--search-entry) :position))
 
 (defun peta-journal-test--search-text ()
   "What the list of search results shows, without its marks."
@@ -1076,9 +1076,9 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 (ert-deftest peta-journal-results-show-pages-creates-and-items ()
   (peta-journal-test--with-search
     (peta-journal--on-search
-     (vector (list :index 0 :kind "page" :title "設計メモ" :snippet "")
-             (list :index 1 :kind "create" :title "設計" :snippet "")
-             (list :index 2 :kind "item" :title "Quarkus" :snippet "<b>設計</b>の方針"))
+     (vector (list :position 0 :kind "page" :title "設計メモ" :snippet "")
+             (list :position 1 :kind "create" :title "設計" :snippet "")
+             (list :position 2 :kind "item" :title "Quarkus" :snippet "<b>設計</b>の方針"))
      nil)
     (should (equal (peta-journal-test--search-text)
                    "  設計メモ\n  [新規] 設計\n  Quarkus: 設計の方針\n"))))
@@ -1100,7 +1100,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 (ert-deftest peta-journal-the-choice-is-the-number-from-the-core ()
   (peta-journal-test--with-search
     (peta-journal--on-search
-     (vector (list :index 7 :kind "page" :title "a" :snippet "")) nil)
+     (vector (list :position 7 :kind "page" :title "a" :snippet "")) nil)
     (should (= (peta-journal-test--choice) 7))))
 
 ;; 同じ結果がまた届いても選択は動かない。結果が変われば先頭へ戻る。

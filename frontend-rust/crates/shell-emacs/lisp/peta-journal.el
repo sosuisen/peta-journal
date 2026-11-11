@@ -1482,7 +1482,7 @@ opens it, and C-g closes the search."
       ;; A recent page is not a result of the core, so it has a path and no number
       (if-let* ((path (plist-get chosen :path)))
           (peta-journal--go "go_to_page" :path path)
-        (peta-journal--go "search_result" :index (plist-get chosen :index))))
+        (peta-journal--go "search_result" :position (plist-get chosen :position))))
     (if-let* ((window (get-buffer-window page)))
         (select-window window)
       (pop-to-buffer-same-window page))))
