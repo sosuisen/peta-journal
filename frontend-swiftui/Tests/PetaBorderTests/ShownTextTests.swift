@@ -107,7 +107,7 @@ final class ShownTextTests: XCTestCase {
         XCTAssertTrue(shown.contains("[images/b.png]"))
     }
 
-    // リンクは、表示するテキストに残る。ウィキリンクとハッシュタグはページを指し、外のリンクはそのままである。
+    // リンクは、表示するテキストに残る。ウィキリンクはページを、ハッシュタグはタグを指し、外のリンクはそのままである。
     func testLinksStayInTheShownText() {
         let html =
             "<p><a href=\"notes/Idea\" data-wikilink=\"true\">Idea</a> <a href=\"todo\" class=\"hashtag\">#todo</a> "
@@ -119,10 +119,9 @@ final class ShownTextTests: XCTestCase {
         shown.enumerateAttribute(.link, in: NSRange(location: 0, length: shown.length)) { link, range, _ in
             if let link = link as? URL { links[(shown.string as NSString).substring(with: range)] = link }
         }
-        XCTAssertEqual(links["Idea"].flatMap(ShownText.page), "notes/Idea")
-        XCTAssertEqual(links["#todo"].flatMap(ShownText.page), "todo")
-        XCTAssertEqual(links["out"], URL(string: "https://example.com/a"))
-        XCTAssertNil(links["out"].flatMap(ShownText.page))
+        XCTAssertEqual(links["Idea"].flatMap(ShownText.target), .page("notes/Idea"))
+        XCTAssertEqual(links["#todo"].flatMap(ShownText.target), .tag("todo"))
+        XCTAssertEqual(links["out"].flatMap(ShownText.target), .out(URL(string: "https://example.com/a")!))
     }
 
     // 表示するテキストの終わりに、余分な改行はない。

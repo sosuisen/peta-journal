@@ -14,10 +14,13 @@ final class OutlineScreenTests: XCTestCase {
     private var window: NSWindow!
     /// What the shell put on the clipboard.
     private var copied: String?
+    /// What the shell opened in the browser.
+    private var browsed: URL?
 
     override func setUp() async throws {
         server = try JournalServer(port: 18094)
-        shell = Shell(server: server.address, url: "/pages/screen", clipboard: { nil }, copy: { [weak self] in self?.copied = $0 })
+        shell = Shell(server: server.address, url: "/pages/screen", clipboard: { nil }, copy: { [weak self] in self?.copied = $0 },
+            browse: { [weak self] in self?.browsed = $0 })
         try await waitUntil("the page is shown") { !self.shell.view.outline.rows.isEmpty }
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 600, height: 400), styleMask: [.titled],
@@ -70,6 +73,83 @@ final class OutlineScreenTests: XCTestCase {
     private func type(_ text: String, into editor: NSTextView) {
         window.makeFirstResponder(editor)
         editor.insertText(text, replacementRange: editor.selectedRange())
+    }
+
+    /// Two items: the first has links and is shown with its decoration, and the cursor is in
+    /// the second, which is empty.
+    private func itemWithLinksAndTheCursorInTheNext() async throws {
+        let editor = editors()[0]
+        type("[[Idea]] #todo [out](https://example.com/a) plain", into: editor)
+        editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        try await waitUntil("there are two editors") { self.editors().count == 2 }
+        try await waitUntil("the cursor is in the new item") { self.focused === self.editors()[1] }
+        try await waitUntil("the first item is decorated") { self.editors()[0].string == "Idea #todo out plain" }
+    }
+
+    /// A click on the first letter of the word. The window of a test takes no click: the tests
+    /// do not come to the front. So this does what a window does with one: it asks which view
+    /// is there, gives it the cursor if the view takes it, and then hands it the click.
+    private func click(on word: String, in editor: NSTextView) throws {
+        let letter = NSRange(location: (editor.string as NSString).range(of: word).location, length: 1)
+        let layout = try XCTUnwrap(editor.layoutManager)
+        let container = try XCTUnwrap(editor.textContainer)
+        let glyphs = layout.glyphRange(forCharacterRange: letter, actualCharacterRange: nil)
+        let box = layout.boundingRect(forGlyphRange: glyphs, in: container)
+        let origin = editor.textContainerOrigin
+        let place = editor.convert(NSPoint(x: origin.x + box.midX, y: origin.y + box.midY), to: nil)
+        func mouse(_ type: NSEvent.EventType) throws -> NSEvent {
+            try XCTUnwrap(
+                NSEvent.mouseEvent(
+                    with: type, location: place, modifierFlags: [], timestamp: 0,
+                    windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+        }
+        // A text view waits for the button to come up before it goes on
+        NSApp.postEvent(try mouse(.leftMouseUp), atStart: false)
+        let hit = try XCTUnwrap(window.contentView?.hitTest(place))
+        if hit.acceptsFirstResponder { window.makeFirstResponder(hit) }
+        hit.mouseDown(with: try mouse(.leftMouseDown))
+    }
+
+    // 装飾付きの項目のウィキリンクをクリックすると、そのページが開く。
+    func testAClickOnAWikilinkOpensItsPage() async throws {
+        try await itemWithLinksAndTheCursorInTheNext()
+
+        try click(on: "Idea", in: editors()[0])
+
+        XCTAssertEqual(shell.url, "/pages/Idea")
+    }
+
+    // 装飾付きの項目のハッシュタグをクリックすると、タグのフォルダーにあるそのタグのページが開く。
+    func testAClickOnAHashtagOpensThePageOfTheTag() async throws {
+        try await itemWithLinksAndTheCursorInTheNext()
+
+        try click(on: "#todo", in: editors()[0])
+
+        XCTAssertEqual(shell.url, "/pages/\(shell.view.config.tagsDir)todo")
+    }
+
+    // 装飾付きの項目の外へのリンクをクリックすると、ブラウザで開く。項目は編集にならず、ページもそのままである。
+    func testAClickOnALinkThatLeadsOutOpensItInTheBrowser() async throws {
+        try await itemWithLinksAndTheCursorInTheNext()
+
+        try click(on: "out", in: editors()[0])
+
+        XCTAssertEqual(browsed, URL(string: "https://example.com/a"))
+        XCTAssertEqual(shell.url, "/pages/screen")
+        XCTAssertEqual(editors()[0].string, "Idea #todo out plain")
+        XCTAssertTrue(focused === editors()[1])
+    }
+
+    // 装飾付きの項目の、リンクでない文字をクリックすると、その項目がMarkdownになってカーソルが入る。
+    func testAClickBesideTheLinksPutsTheCursorInTheItem() async throws {
+        try await itemWithLinksAndTheCursorInTheNext()
+
+        try click(on: "plain", in: editors()[0])
+
+        XCTAssertTrue(focused === editors()[0])
+        XCTAssertEqual(editors()[0].string, "[[Idea]] #todo [out](https://example.com/a) plain")
+        XCTAssertNil(browsed)
+        XCTAssertEqual(shell.url, "/pages/screen")
     }
 
     // 入力した文字は、コアに届く。
