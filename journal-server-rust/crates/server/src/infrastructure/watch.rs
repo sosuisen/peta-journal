@@ -19,6 +19,7 @@ use journal_core::infrastructure::export::file_sync_state::FileSyncStateReposito
 use journal_core::infrastructure::export::import_service::{MarkdownImportService, Outcome};
 use journal_core::infrastructure::export::path_mapper;
 use journal_core::infrastructure::export::reconcile_service::MarkdownReconcileService;
+use journal_core::journal::FolderWatch;
 
 const MAX_RETRIES: i32 = 3;
 
@@ -281,5 +282,14 @@ impl MarkdownFolderWatcher {
             tracing::info!("{new_missing} markdown file(s) deleted; asking the user what to do");
             self.prompt.notify_new_missing();
         }
+    }
+}
+
+/// Lets the journal restart the watcher when the markdown directory setting changes.
+pub struct WatcherRestart(pub Arc<MarkdownFolderWatcher>);
+
+impl FolderWatch for WatcherRestart {
+    fn restart(&self) {
+        self.0.restart();
     }
 }

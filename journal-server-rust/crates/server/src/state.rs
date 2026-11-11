@@ -5,7 +5,7 @@ use std::sync::Arc;
 use crate::application::{configuration, folder_chooser};
 use crate::config::Settings;
 use crate::infrastructure::pending_delete_prompt::PendingDeletePrompt;
-use crate::infrastructure::watch::MarkdownFolderWatcher;
+use crate::infrastructure::watch::{MarkdownFolderWatcher, WatcherRestart};
 use crate::presentation::sse::SseBroadcaster;
 use journal_core::application::atlas_service::AtlasService;
 use journal_core::application::combined_search::CombinedSearchService;
@@ -221,6 +221,9 @@ impl AppState {
                 journal_service: Arc::clone(&journal_service),
                 atlas: Arc::clone(&atlas),
                 extensions: Arc::clone(&extensions),
+                config: Arc::clone(&config),
+                export: Arc::clone(&export),
+                folder_watch: Arc::new(WatcherRestart(Arc::clone(&watcher))),
                 pages: pages.clone(),
                 items: items.clone(),
                 properties: properties.clone(),

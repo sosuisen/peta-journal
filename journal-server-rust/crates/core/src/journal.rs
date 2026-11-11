@@ -6,16 +6,21 @@
 //! answer. The answers are the JSON shapes of the REST API.
 //!
 //! The operations come here one area at a time. The search, the pages, the items, the
-//! journals and the atlas pages are here. The other areas are still in the handlers of the
-//! journal server.
+//! journals, the atlas pages and the settings are here. The other areas are still in the
+//! handlers of the journal server.
 
 mod atlas;
+mod config;
 mod items;
 mod journals;
 mod pages;
 mod search;
 
 pub use atlas::{AtlasCalloutInput, AtlasGroupInput, AtlasLinkInput, AtlasTitleInput};
+pub use config::{
+    AddPropertyDefinitionInput, ConfigAnswer, FolderWatch, PropertyDefinitionDto,
+    PropertyDefinitionsAnswer, UpdateConfigInput,
+};
 pub use items::{
     BatchAnswer, BatchInput, BatchOpInput, CreateItemInput, CursorDto, DeletedItemsAnswer,
     FlatMarkdownAnswer, FlatMarkdownInput, ItemAnswer, ItemIdsInput, ItemsAnswer, MergeItemsInput,
@@ -36,6 +41,7 @@ use hmtid::Hmtid;
 
 use crate::application::atlas_service::AtlasService;
 use crate::application::combined_search::CombinedSearchService;
+use crate::application::config_service::ConfigService;
 use crate::application::extension_service::ExtensionService;
 use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
 use crate::application::item_service::ItemService;
@@ -43,6 +49,7 @@ use crate::application::journal_service::JournalService;
 use crate::application::page_service::PageService;
 use crate::domain::client_id::ClientId;
 use crate::dto::ItemDtoAssembler;
+use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 /// Who made a change. The clients that show pages are told with it (ADR-015).
@@ -67,6 +74,9 @@ pub struct JournalServices {
     pub journal_service: Arc<JournalService>,
     pub atlas: Arc<AtlasService>,
     pub extensions: Arc<ExtensionService>,
+    pub config: Arc<ConfigService>,
+    pub export: Arc<MarkdownExportService>,
+    pub folder_watch: Arc<dyn FolderWatch>,
     pub pages: PageRepository,
     pub items: ItemRepository,
     pub properties: PropertyRepository,
