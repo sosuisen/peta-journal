@@ -1,0 +1,6 @@
+# The settings of the analyzers for the tests only.
+
+[*.cs]
+# CA1707 forbids underscores in names. The name of a test is a sentence that states a fact,
+# and the underscores are the spaces of that sentence.
+dotnet_diagnostic.CA1707.severity = none

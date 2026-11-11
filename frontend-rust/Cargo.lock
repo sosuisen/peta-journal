@@ -662,7 +662,7 @@ dependencies = [
  "crossbeam-channel",
  "crux_macros",
  "facet",
- "facet_generate",
+ "facet_generate 0.19.1",
  "futures",
  "log",
  "serde",
@@ -1024,6 +1024,27 @@ version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "173892540182391eb72ad3df47af1249e4823bdbeb257c40578a9db71a6d994a"
 dependencies = [
+ "derive_builder",
+ "facet",
+ "facet-generate-attrs",
+ "heck",
+ "include_dir",
+ "indent",
+ "indoc",
+ "regex",
+ "serde",
+ "serde_json",
+ "textwrap",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "facet_generate"
+version = "0.22.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f89e743a60f1e1d79bdddfb7b599278ab35095532b9ba9848827b1be8a98616"
+dependencies = [
+ "anyhow",
  "derive_builder",
  "facet",
  "facet-generate-attrs",
@@ -2124,6 +2145,7 @@ dependencies = [
  "chrono",
  "crux_core",
  "facet",
+ "facet_generate 0.22.3",
  "flatmarkdown",
  "flatmarkdown-ast",
  "flatmarkdown-ast2html",

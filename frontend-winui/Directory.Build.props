@@ -1,0 +1,14 @@
+<Project>
+  <!-- Settings for the hand-written projects under frontend-winui. The projects under
+       generated/ are made by tools, and their code is not held to these rules. -->
+  <PropertyGroup Condition="!$(MSBuildProjectDirectory.Contains('generated'))">
+    <!-- The analyzers of the .NET SDK, with the rules that Microsoft recommends. -->
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- Without this, a build at the command line skips the code style rules (IDExxxx). -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <!-- A warning does not stop the build. The rules that must hold are errors, one by one.
+         Not TreatWarningsAsErrors: it would also stop the build for rules nobody chose.
+         "nullable" is the group of the null safety warnings of the compiler (CS86xx). -->
+    <WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
+  </PropertyGroup>
+</Project>

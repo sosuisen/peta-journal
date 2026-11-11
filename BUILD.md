@@ -177,16 +177,21 @@ shell (ADR 024). The types that cross to such a shell are generated from the Rus
 
 ```
 cd peta-journal/frontend-rust
-cargo run -p peta-shell-native --features facet_typegen --bin codegen -- <folder>
+cargo run -p peta-shell-native --features facet_typegen --bin codegen -- swift <folder>
+cargo run -p peta-shell-native --features facet_typegen --bin codegen -- csharp <folder>
 ```
 
-This writes the Swift package `PetaTypes` under `<folder>/swift`. The generated code is not kept
-in the repository. The tests of the generation need the feature too:
+The first writes the Swift package `PetaTypes` under `<folder>/swift`, and the second the C#
+project `PetaTypes` under `<folder>/csharp`. The generated code is not kept in the repository.
+
+The C# types are not written by the generator that Crux brings (facet_generate 0.19): its C# does
+not compile for these types. `src/codegen.rs` calls a later version of the same generator
+directly (ADR 028). The tests of the generation need the feature too:
 `cargo test -p peta-shell-native --features facet_typegen`.
 
 The feature `ffi` adds the entrance for a shell in another language (`src/ffi.rs`), made with
 BoltFFI. `frontend-swiftui/README.md` describes how the SwiftUI shell is built from both, and the
-tools it needs.
+tools it needs. `frontend-winui/README.md` does so for the WinUI shell.
 
 A type that crosses has `#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]`. The
 generator reads the shape of the Rust type, not what serde writes. A type with a hand-written
@@ -207,6 +212,12 @@ cargo build --release -p peta-shell-emacs
 The shell for macOS, a Walking Skeleton so far: it opens one page and saves what is typed into an
 item. `frontend-swiftui/README.md` describes the tools, the build of the app and the tests. Its
 tests do not run in CI.
+
+## WinUI frontend (frontend-winui)
+
+The shell for Windows. It is the same app as the SwiftUI shell: stickies that each show one page
+(ADR 028). `frontend-winui/README.md` describes the tools, the build of the app and the tests.
+Its tests do not run in CI.
 
 ## Atlas crate (atlas-rust)
 

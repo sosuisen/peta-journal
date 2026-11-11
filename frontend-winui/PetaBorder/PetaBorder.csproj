@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- What the shell does without WinUI: the core behind its border, what one window shows, the
+       keys, the text of an item as it is shown, and the file of the stickies. It has no WinUI
+       in it, so "dotnet test" can test it. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>PetaBorder</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- The projects under generated/ are made from the Rust crates by generate.ps1. -->
+  <ItemGroup>
+    <ProjectReference Include="..\generated\csharp\PetaTypes.csproj" />
+    <ProjectReference Include="..\generated\PetaCore\BoltFFI.CSharp.csproj" />
+    <!-- The core itself. The project of BoltFFI only packs it into its NuGet package, so it is
+         copied from here to wherever this project is used. -->
+    <Content
+      Include="..\generated\PetaCore\runtimes\win-x64\native\peta_shell_native.dll"
+      Link="peta_shell_native.dll"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <!-- Reads the HTML of an item (ADR 028). -->
+    <PackageReference Include="AngleSharp" Version="1.10.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PetaBorder.Tests" />
+  </ItemGroup>
+</Project>
