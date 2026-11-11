@@ -14,7 +14,7 @@ cargo test
 | Crate | What it is |
 |---|---|
 | `crates/hmtid` | HMTID (human-readable monotonic timestamp identifier), a port of the `hmtid` npm package |
-| `crates/core` | `journal-core`, the library under the server (ADR 029): `domain/` (models, fractional index, hashtags), `application/` (page, item, journal and search use cases, extensions), `infrastructure/` (SQLite, tantivy search, markdown export/import/reconcile), `dto` (the answers as JSON). It does not depend on tokio or axum |
+| `crates/core` | `journal-core`, the library under the server (ADR 029): `domain/` (models, fractional index, hashtags), `application/` (page, item, journal and search use cases, extensions), `infrastructure/` (SQLite, tantivy search, markdown export/import/reconcile), `dto` (the answers as JSON). It does not depend on tokio or axum. Its `extensions` feature, on by default, runs the scripts of the extension functions with QuickJS; a build without it runs none |
 | `crates/server` | The server over `journal-core`: `presentation/` (REST, SSE, MCP, the files of the web frontend), the folder watcher, the periodic tasks, and what hands over to the OS (folder dialog, launcher) |
 
 ## Client ID
