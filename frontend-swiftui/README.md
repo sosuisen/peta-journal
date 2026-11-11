@@ -168,7 +168,7 @@ A sticky is light in every color, also when the Mac is in dark mode.
 The button with the pin keeps the sticky on top of the windows of other apps, until it is
 pressed again.
 
-The menu with the two letters zooms the items of the sticky: Command+Plus makes them a tenth
+The zoom of the items of a sticky has keys only: Command+Plus makes them a tenth
 larger, Command+Minus a tenth smaller, and Command+0 gives the usual size. The zoom stays
 between 30% and 300%. Color, pin and zoom are kept with each sticky.
 

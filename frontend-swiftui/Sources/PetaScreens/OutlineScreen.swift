@@ -20,8 +20,7 @@ public struct OutlineScreen: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // An empty window says nothing: the state of the server is always shown. The name
-            // of the page is in the title bar
+            // Items that do not come need a reason. The name of the page is in the title bar
             if !status.isEmpty {
                 Text(status).font(.caption).foregroundStyle(.secondary).padding([.horizontal, .bottom])
             }
@@ -29,6 +28,8 @@ public struct OutlineScreen: View {
             if look.searching || shell.url == nil {
                 SearchBox(shell: shell) { look.searching = false }
                     .padding([.horizontal, .bottom])
+                    // The title bar is right above
+                    .padding(.top, 6)
                     // What was found comes before the items: they share the window otherwise,
                     // and only a few entries are seen
                     .layoutPriority(1)
@@ -80,12 +81,12 @@ public struct OutlineScreen: View {
         .scrollContentBackground(.hidden)
     }
 
+    /// What is wrong with the server, or nothing.
     private var status: String {
         if shell.url == nil { return "" }
-        let items = shell.view.outline.rows.count
         // Not a switch: the optimizing compiler of Swift 6.4.2 crashes on one over this enum
         let connection = shell.view.connection
-        if connection == .connected { return "Items: \(items)" }
+        if connection == .connected { return "" }
         if connection == .connecting { return "Connecting to the journal server…" }
         return "No connection to the journal server"
     }
