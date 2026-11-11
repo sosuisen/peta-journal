@@ -213,6 +213,12 @@ The shell for macOS, a Walking Skeleton so far: it opens one page and saves what
 item. `frontend-swiftui/README.md` describes the tools, the build of the app and the tests. Its
 tests do not run in CI.
 
+## WinUI frontend (frontend-winui)
+
+The shell for Windows. It is the same app as the SwiftUI shell: stickies that each show one page
+(ADR 028). `frontend-winui/README.md` describes the tools, the build of the app and the tests.
+Its tests do not run in CI.
+
 ## Atlas crate (atlas-rust)
 
 `atlas-rust` is the crate `peta-atlas`. The server and the frontend both use it, and so can

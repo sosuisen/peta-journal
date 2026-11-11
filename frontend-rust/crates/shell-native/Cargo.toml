@@ -3,7 +3,7 @@ name = "peta-shell-native"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "PetaJournal native frontends: the Crux core behind a border of bytes, for the SwiftUI and WinUI3 shells (ADR 024)"
+description = "PetaJournal native frontends: the Crux core behind a border of bytes, for the SwiftUI and WinUI shells (ADR 024)"
 
 # What a native shell links with: the SwiftUI shell with the static library, and the WinUI shell
 # with the dynamic one (BoltFFI packs no other for C#)
