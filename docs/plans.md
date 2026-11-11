@@ -370,6 +370,16 @@
     - [ ] 設定
     - [ ] サービスの組み立てを、`AppState::build`から`journal-core`へ移す。embed版が同じ組み立てを使う
     - ジャーナル、アトラス、設定、同期、アセットのハンドラーは、まだ中身を読んでいない（2026-11-11）。下ろしにくい処理があれば、ADR 029を見直す
+  - [ ] MCPのページと項目の答えを、RESTの形にそろえる（2026-11-11にユーザーが決めた）
+    - 今のMCPは、ページと項目を、RESTと違う形で書く。入口の答えはRESTの形なので、MCPは、その答えから今の形へ書き直している（`mcp.rs`の`page_record_json`と`item_record_json`）。そろえると、この書き直しが要らなくなる
+    - 違いは4つある
+      - 日付（`createdDate`、`modifiedDate`）: MCPはISO 8601の文字（`2026-11-11T10:00:00Z`）、RESTはミリ秒の数
+      - プロパティ（`properties`）: MCPにはなく、RESTにはある
+      - 親のないページの`parentId`: MCPは`null`、RESTは空の文字
+      - トランスクルージョンの木（`transcludedTrees`）: MCPの`get_page_by_id`にはなく、RESTの`GET /api/pages/{id}`にはある
+    - 今の形で書いている道具は、`get_page_by_id`、`get_or_create_doc`、`update_page`、`get_recent_pages`、`get_backlinks`、`get_or_create_journal`、`get_most_recent_journal_before`と、項目の道具のうち4つである。項目の道具のほかのもの（`get_item`、`update_item`など）は、すでにRESTの形（`ItemDto`）で書いている
+    - MCPの答えが変わるので、MCPを使う側を先に確かめる。`peta-journal`、`kcg-lecture`、`report`などのスキルと、日付を文字として読んでいるところである
+    - 入口へ下ろし終えてから行う。途中でそろえると、下ろす作業と答えの変更が1つのPRに混ざる
   - [ ] 変わったページの知らせを、外から渡すトレイトにする。ジャーナルサーバーは`SseBroadcaster`で実装する
   - [ ] フロントエンドの側に、`shell-native`の`Host`を`journal-core`で実装するクレートを作る。答えはJSONに書いて、コアの`rest.rs`の読み取りに渡す
   - [ ] 構成図（`docs/frontend-architecture.svg`）に、`journal-core`とembed版を描き足す
