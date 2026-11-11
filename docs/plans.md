@@ -425,6 +425,12 @@
     - 直す方法の候補は、戻り値を`Result<T, AppError>`と書くことである。書き換えは広い。ほかの方法があるかは、調べていない
   - [x] 変わったページの知らせを、外から渡すトレイトにする。ジャーナルサーバーは`SseBroadcaster`で実装する。トレイトは`CoreHost`にまとめた
   - [ ] フロントエンドの側に、`shell-native`の`Host`を`journal-core`で実装するクレートを作る。答えはJSONに書いて、コアの`rest.rs`の読み取りに渡す
+    - [x] `ApiOp`を入口`Journal`で行う（`frontend-rust/crates/embedded-journal`の`EmbeddedJournal::call`）。パスは読まない。`ApiOp`ごとに入口の操作を呼び、入力はRESTの要求の本文から読み、答えはJSONにして`rest.rs`の読み取りに渡す
+      - 既定では、拡張関数なしの`journal-core`を使う。`extensions`フィーチャーで入る
+      - フォルダー選択、URLを開く、エクスポート先を開く、アップロードは、アプリの中のジャーナルにはない。エラーを返す
+      - エラーのHTTPの状態は、`AppError::http_status`にまとめた。サーバーも同じものを使う
+      - フロントエンドのワークスペースには、ミューテーションテストの設定がない。このクレートには回していない
+    - [ ] `Host`を実装する。`call`は上の`EmbeddedJournal`、`events`は`CoreHost`の知らせを`SseEvent`にして流す。定期の仕事（索引のコミット、書き出し、スキャン）を誰が回すかも、ここで決める
   - [ ] 構成図（`docs/frontend-architecture.svg`）に、`journal-core`とembed版を描き足す
 - [ ] Androidのシェルを作る。最初の版は、Dropboxからの取り込み、検索、ページの表示までである。編集とアップロードは、次の版にする
   - ファイルは、Dropbox SDKでAPIを通して取る。Dropbox SDKは、PCのDropboxアプリの役をする。アプリ内のフォルダーとDropboxの間で、ファイルを運ぶだけである
