@@ -25,12 +25,16 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,6 +43,7 @@ import net.sosuisen.petajournal.types.Row
 import net.sosuisen.petajournal.types.ScreenView
 import net.sosuisen.petajournal.types.SearchEntry
 import net.sosuisen.petajournal.types.SearchKind
+import net.sosuisen.petajournal.types.TaskState
 import net.sosuisen.petajournal.types.ViewModel
 
 /** The name that the tests find the search field by. */
@@ -153,6 +158,7 @@ private fun OutlineRow(row: Row, tagsDir: String, onPage: (String) -> Unit) {
         }
         Row(Modifier.padding(start = row.indentPx.dp, top = 3.dp, bottom = 3.dp)) {
             Text(if (row.showBullet) "•" else "", modifier = Modifier.width(22.dp))
+            row.task?.let { TaskMark(it) }
             Column {
                 for (block in blocks) {
                     when (block) {
@@ -164,6 +170,24 @@ private fun OutlineRow(row: Row, tagsDir: String, onPage: (String) -> Unit) {
             }
         }
     }
+}
+
+/**
+ * Where a task stands, as a checkbox. It only shows: the first version changes nothing, so a
+ * touch does not move the task on.
+ */
+@Composable
+private fun TaskMark(state: TaskState) {
+    val (box, name) = when (state) {
+        TaskState.NOTSTARTED -> ToggleableState.Off to "Task not started"
+        TaskState.RUNNING -> ToggleableState.Indeterminate to "Task running"
+        TaskState.DONE -> ToggleableState.On to "Task done"
+    }
+    TriStateCheckbox(
+        state = box,
+        onClick = null,
+        modifier = Modifier.padding(end = 6.dp, top = 2.dp).semantics { contentDescription = name },
+    )
 }
 
 /** The lines of the code as they were written. A long line is scrolled sideways, not broken. */

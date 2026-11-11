@@ -2,7 +2,9 @@ package net.sosuisen.petajournal
 
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -198,6 +200,33 @@ class JournalScreenTest {
         type("ghost")
         compose.waitUntil(WAIT_MS) { shell.view.search.results.any { it.kind == SearchKind.CREATE } }
         assertEquals(emptyList<String>(), shell.view.search.results.filter { it.kind == SearchKind.PAGE }.map { it.title })
+    }
+
+    /** The line that the core writes above an item in a file, with the properties of the item. */
+    private fun above(id: Char, properties: String = "") =
+        "<!-- @ 2020-01-01-00-00-00-AAAAAA$id idx=\"a${id}\"$properties -->" + NL
+
+    // タスクの項目には、その状態の印が付く。まだ始めていない、進行中、済みの3つである。
+    @Test
+    fun a_task_shows_the_mark_of_its_state() {
+        download(
+            "notes.md",
+            above('A') + "- [ ] buy milk" + NL + NL +
+                above('B', " begin=\"2020-01-01T00:00:00Z\"") + "- [ ] write the report" + NL + NL +
+                above('C', " end=\"2020-01-02T00:00:00Z\"") + "- [x] call home" + NL + NL +
+                above('D') + "not a task" + NL,
+        )
+
+        openNotes()
+
+        waitFor("call home")
+        // The mark of the file is not part of the text
+        compose.onNode(hasText("buy milk")).assertExists()
+        val marks = compose.onAllNodes(hasContentDescription("Task", substring = true)).fetchSemanticsNodes()
+        assertEquals(
+            listOf("Task not started", "Task running", "Task done"),
+            marks.map { it.config[SemanticsProperties.ContentDescription].single() },
+        )
     }
 
     // ページを作る結果（今日のジャーナル、入力した名前のページ）は、結果に出ない。最初の版は何も変えない。
