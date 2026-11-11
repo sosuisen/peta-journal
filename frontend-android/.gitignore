@@ -1,2 +1,7 @@
-# Made by `boltffi pack android` from frontend-rust/crates/shell-android
+# Made by generate.ps1 from the Rust crates
 generated/
+# Gradle and the Android build
+.gradle/
+build/
+local.properties
+.kotlin/

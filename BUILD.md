@@ -206,7 +206,8 @@ generator reads the shape of the Rust type, not what serde writes. A type with a
 `crates/shell-android` holds the core for the Android shell. It has no journal server to ask:
 the journal core (`journal-server-rust/crates/core`) runs inside the app (ADR 029). The shell
 puts Markdown files into a folder of the app and calls `sync()`, which takes them in and makes
-them found by the search. Nothing runs at times of its own: no watcher, no scan, no export.
+them found by the search. `sync()` also deletes the pages of the files that have gone, without
+asking (ADR 030). Nothing runs at times of its own: no watcher, no scan, no export.
 
 BoltFFI packs the crate for Android, and the generator writes the Kotlin types beside it:
 
@@ -220,6 +221,7 @@ boltffi pack android --release
 This needs the Android NDK (`ANDROID_NDK_HOME`) and the Rust targets `aarch64-linux-android` and
 `x86_64-linux-android`. The output is `frontend-android/generated`: the libraries under
 `jniLibs`, and the Kotlin under `kotlin`. It is not kept in the repository.
+`frontend-android/generate.ps1` runs both steps.
 
 The tests of the crate run on the development machine, with `cargo test -p peta-shell-android`.
 
@@ -244,6 +246,13 @@ tests do not run in CI.
 The shell for Windows. It is the same app as the SwiftUI shell: stickies that each show one page
 (ADR 028). `frontend-winui/README.md` describes the tools, the build of the app and the tests.
 Its tests do not run in CI.
+
+## Android frontend (frontend-android)
+
+The shell for Android, in Kotlin with Jetpack Compose. It is a Walking Skeleton so far: a page
+is searched for and opened, and nothing is changed. The journal core runs inside the app (ADR
+029, ADR 030). `frontend-android/README.md` describes the tools, the build of the app and the
+tests. Its tests need a device or an emulator, and do not run in CI.
 
 ## Atlas crate (atlas-rust)
 
