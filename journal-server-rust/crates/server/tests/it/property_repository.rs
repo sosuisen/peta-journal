@@ -1,7 +1,7 @@
 //! The property repository on a database of its own.
 
+use journal_core::infrastructure::persistence::PropertyRepository;
 use journal_server::config::Settings;
-use journal_server::infrastructure::persistence::PropertyRepository;
 use journal_server::state::{AppState, BuildOptions};
 use serde_json::json;
 

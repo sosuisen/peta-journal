@@ -3,8 +3,10 @@
 
 use std::sync::atomic::{AtomicI64, Ordering};
 
+use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
+use journal_core::infrastructure::persistence::db::now_millis;
+
 use crate::infrastructure::launcher;
-use crate::infrastructure::persistence::db::now_millis;
 
 #[derive(Debug)]
 pub struct PendingDeletePrompt {
@@ -28,10 +30,11 @@ impl PendingDeletePrompt {
             self.http_port
         )
     }
+}
 
-    /// Called whenever missing files are pending. Opens the browser unless it was opened within
-    /// the cooldown.
-    pub fn notify_new_missing(&self) {
+impl MissingFilesPrompt for PendingDeletePrompt {
+    /// Opens the browser unless it was opened within the cooldown.
+    fn notify_new_missing(&self) {
         let now = now_millis();
         let last = self.last_opened_at.load(Ordering::SeqCst);
         if now - last < self.cooldown_seconds * 1000 {

@@ -1,6 +1,3 @@
-pub mod export;
-pub mod files;
 pub mod launcher;
-pub mod persistence;
-pub mod search;
+pub mod pending_delete_prompt;
 pub mod watch;

@@ -1,4 +1,5 @@
-# `cargo cov` measures the test coverage of the server crate with cargo-llvm-cov. It prints a
+# `cargo cov` measures the test coverage of the core and server crates with cargo-llvm-cov. The
+# tests of the server crate run most of the core crate, so the two are measured together. It prints a
 # table per file; `cargo cov --html` writes a browsable report to target/llvm-cov/html/.
 # Setup, once: `rustup component add llvm-tools-preview` and
 # `cargo install cargo-llvm-cov --locked`.
@@ -11,13 +12,15 @@
 # - src/main.rs: the entry point, which binds the port and waits for Ctrl-C
 # - application/folder_chooser.rs: the native folder dialog (osascript, PowerShell, zenity)
 # - infrastructure/launcher.rs: opens a URL or a folder with the OS
-# - infrastructure/export/pending_delete_prompt.rs: opens the browser through the launcher
-# cargo-mutants skips the same files; see .cargo/mutants.toml.
+# - infrastructure/pending_delete_prompt.rs: opens the browser through the launcher
+# All four are in the server crate. cargo-mutants skips the same files; see .cargo/mutants.toml.
 [alias]
 cov = [
     "llvm-cov",
+    "-p", "journal-core",
     "-p", "journal-server",
-    "--ignore-filename-regex", "src/main\\.rs$|application/folder_chooser\\.rs$|infrastructure/launcher\\.rs$|export/pending_delete_prompt\\.rs$",
+    # `[/\\]`: the paths have backslashes on Windows
+    "--ignore-filename-regex", "src[/\\\\]main\\.rs$|application[/\\\\]folder_chooser\\.rs$|infrastructure[/\\\\]launcher\\.rs$|infrastructure[/\\\\]pending_delete_prompt\\.rs$",
 ]
 
 # `cargo run` serves the web frontend from the folder `trunk build` writes (ADR 010), so no

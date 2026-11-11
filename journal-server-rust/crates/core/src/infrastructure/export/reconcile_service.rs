@@ -15,9 +15,15 @@ use super::export_service::{mtime_millis, MarkdownExportService};
 use super::file_sync_state::{FileSyncState, FileSyncStateRepository};
 use super::import_service::{MarkdownImportService, Outcome};
 use super::path_mapper;
-use super::pending_delete_prompt::PendingDeletePrompt;
 
 const TOP_DIRS: [&str; 2] = ["docs", "journals"];
+
+/// Asks the user what to do about the files that went missing. Nothing is deleted from the
+/// database until the user decides. The journal server opens a page in the browser.
+pub trait MissingFilesPrompt: Send + Sync {
+    /// Called whenever missing files are pending.
+    fn notify_new_missing(&self);
+}
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ScanSummary {
@@ -33,7 +39,7 @@ pub struct MarkdownReconcileService {
     import: Arc<MarkdownImportService>,
     file_sync_state: FileSyncStateRepository,
     pages: PageRepository,
-    prompt: Arc<PendingDeletePrompt>,
+    prompt: Arc<dyn MissingFilesPrompt>,
     search: Arc<dyn SearchIndex>,
     scanning: AtomicBool,
     scan_requested: AtomicBool,
@@ -46,7 +52,7 @@ impl MarkdownReconcileService {
         import: Arc<MarkdownImportService>,
         file_sync_state: FileSyncStateRepository,
         pages: PageRepository,
-        prompt: Arc<PendingDeletePrompt>,
+        prompt: Arc<dyn MissingFilesPrompt>,
         search: Arc<dyn SearchIndex>,
     ) -> MarkdownReconcileService {
         MarkdownReconcileService {

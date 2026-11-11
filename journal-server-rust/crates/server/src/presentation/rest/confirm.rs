@@ -6,7 +6,7 @@ use axum::routing::post;
 use axum::{Json, Router};
 use serde::Deserialize;
 
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, HttpResult};
 use crate::state::SharedState;
 
 pub fn routes() -> Router<SharedState> {
@@ -23,12 +23,10 @@ async fn answer(
     State(state): State<SharedState>,
     Path(request_id): Path<String>,
     Json(req): Json<AnswerRequest>,
-) -> AppResult<StatusCode> {
+) -> HttpResult<StatusCode> {
     if state.confirm.answer(&request_id, req.ok) {
         Ok(StatusCode::OK)
     } else {
-        Err(AppError::not_found(format!(
-            "No question waits for an answer: {request_id}"
-        )))
+        Err(AppError::not_found(format!("No question waits for an answer: {request_id}")).into())
     }
 }

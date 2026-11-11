@@ -1536,48 +1536,65 @@ dependencies = [
 ]
 
 [[package]]
+name = "journal-core"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "chrono-tz",
+ "flatmarkdown",
+ "hex",
+ "hmtid",
+ "lindera",
+ "lindera-analysis",
+ "lindera-tantivy",
+ "parking_lot",
+ "peta-atlas",
+ "regex",
+ "rquickjs",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tantivy",
+ "tempfile",
+ "thiserror",
+ "tracing",
+ "unicode-normalization",
+]
+
+[[package]]
 name = "journal-server"
 version = "1.0.0"
 dependencies = [
  "anyhow",
  "axum",
  "chrono",
- "chrono-tz",
  "clap",
- "flatmarkdown",
  "futures",
- "hex",
  "hmtid",
  "html-escape",
  "http-body-util",
- "lindera",
- "lindera-analysis",
- "lindera-tantivy",
+ "journal-core",
  "mime_guess",
  "notify",
  "open",
  "parking_lot",
- "peta-atlas",
  "regex",
  "reqwest",
  "rmcp",
- "rquickjs",
  "rusqlite",
  "schemars",
  "serde",
  "serde_json",
- "sha2",
  "socket2",
- "tantivy",
  "tempfile",
- "thiserror",
  "tokio",
  "tokio-stream",
  "tower",
  "tower-http",
  "tracing",
  "tracing-subscriber",
- "unicode-normalization",
  "uuid",
 ]
 

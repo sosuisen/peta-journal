@@ -12,8 +12,8 @@ path = "src/main.rs"
 
 [dependencies]
 hmtid = { path = "../hmtid" }
-peta-atlas = { path = "../../../atlas-rust" }
-flatmarkdown = "=0.7.0"
+# The pages and items, their markdown folder, and the search (ADR 029)
+journal-core = { path = "../core" }
 
 # Web
 axum = { version = "0.8", features = ["multipart", "json", "query", "tokio", "http1"] }
@@ -25,43 +25,28 @@ futures = "0.3"
 http-body-util = "0.1"
 socket2 = "0.6.5"
 
-# Extension functions
-rquickjs = "0.14.0"
-
 # MCP
 rmcp = { version = "0.9", features = ["server", "macros", "transport-streamable-http-server"] }
-
-# Data
-rusqlite = { version = "0.37", features = ["bundled"] }
-tantivy = "0.26"
-lindera-tantivy = { version = "5.0", features = ["embed-ipadic"] }
-lindera = "5"
-lindera-analysis = "5"
 
 # Serialization and time
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }
-chrono-tz = "0.10"
 
 # Files and OS
 notify = "8"
 open = "5"
 mime_guess = "2"
-sha2 = "0.10"
-hex = "0.4"
 html-escape = "0.2"
 schemars = "1"
 
 # Misc
 anyhow = "1"
-thiserror = "2"
 clap = { version = "4", features = ["derive", "env"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 regex = "1"
 parking_lot = "0.12"
-unicode-normalization = "0.1.26"
 uuid = "1.29.2"
 
 [dev-dependencies]
@@ -69,3 +54,5 @@ reqwest = { version = "0.12", features = ["json", "multipart"] }
 # The MCP tests talk to the server as an MCP client does
 rmcp = { version = "0.9", features = ["client", "transport-streamable-http-client-reqwest"] }
 tempfile = "3"
+# A test writes old indexes straight into the database
+rusqlite = { version = "0.37", features = ["bundled"] }

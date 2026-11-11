@@ -5,9 +5,9 @@ use std::time::SystemTime;
 
 use chrono::{TimeZone, Utc};
 use hmtid::Hmtid;
+use journal_core::domain::model::{Item, ItemPosition, Page};
 use journal_server::application::asset_names::{self, Rename};
 use journal_server::config::{AssetNamesStep, Settings};
-use journal_server::domain::model::{Item, ItemPosition, Page};
 use journal_server::state::{AppState, BuildOptions, SharedState};
 use serde_json::json;
 

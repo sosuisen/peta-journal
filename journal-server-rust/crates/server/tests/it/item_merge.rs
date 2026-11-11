@@ -5,10 +5,10 @@ use std::path::Path;
 use std::time::{Duration, SystemTime};
 
 use hmtid::Hmtid;
-use journal_server::domain::model::ItemPosition;
-use journal_server::infrastructure::export::export_service::format_instant;
-use journal_server::infrastructure::export::import_service::Outcome;
-use journal_server::infrastructure::persistence::db::now_millis;
+use journal_core::domain::model::ItemPosition;
+use journal_core::infrastructure::export::export_service::format_instant;
+use journal_core::infrastructure::export::import_service::Outcome;
+use journal_core::infrastructure::persistence::db::now_millis;
 use regex::Regex;
 
 use super::atlas_sync::{two_devices, Device, ATLAS};

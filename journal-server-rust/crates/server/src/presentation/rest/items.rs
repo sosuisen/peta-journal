@@ -8,13 +8,13 @@ use axum::{Extension, Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
-use crate::application::item_service::{BatchOp, MoveRequest, TaskState};
-use crate::application::paste::PasteMode;
-use crate::domain::model::{Item, ItemPosition};
-use crate::error::{parse_id, AppError, AppResult};
+use crate::error::{parse_id, AppError, AppResult, HttpResult};
 use crate::presentation::client_id::ClientId;
-use crate::presentation::dto::{ItemDto, ItemFields};
 use crate::state::{blocking, SharedState};
+use journal_core::application::item_service::{BatchOp, MoveRequest, TaskState};
+use journal_core::application::paste::PasteMode;
+use journal_core::domain::model::{Item, ItemPosition};
+use journal_core::dto::{ItemDto, ItemFields};
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
@@ -411,7 +411,7 @@ async fn create_item(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<CreateItemRequest>,
-) -> AppResult<Json<ItemResponse>> {
+) -> HttpResult<Json<ItemResponse>> {
     let page_id = parse_id(required(req.page_id.as_deref(), "pageId")?)?;
     let client_id = match req.id.as_deref() {
         Some(s) if !s.is_empty() => Some(parse_id(s)?),
@@ -436,7 +436,7 @@ async fn get_item(
     State(state): State<SharedState>,
     Path(id): Path<String>,
     Query(q): Query<FieldsQuery>,
-) -> AppResult<Response> {
+) -> HttpResult<Response> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let dto = state
@@ -458,7 +458,7 @@ async fn update_item(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<UpdateItemRequest>,
-) -> AppResult<Json<ItemResponse>> {
+) -> HttpResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let item = state.item_service.update_item(
@@ -480,7 +480,7 @@ async fn paste(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<PasteRequest>,
-) -> AppResult<Json<PasteResponse>> {
+) -> HttpResult<Json<PasteResponse>> {
     let item_id = parse_id(&id)?;
     let mode = match req.mode.as_deref() {
         None | Some("auto") => PasteMode::Auto,
@@ -489,7 +489,8 @@ async fn paste(
         Some(other) => {
             return Err(AppError::bad_request(format!(
                 "mode must be auto, flat or raw, but was {other}"
-            )))
+            ))
+            .into())
         }
     };
     blocking(move || {
@@ -522,7 +523,7 @@ async fn split(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<SplitRequest>,
-) -> AppResult<Json<SplitResponse>> {
+) -> HttpResult<Json<SplitResponse>> {
     let item_id = parse_id(&id)?;
     let root_id = req.root_id.as_deref().map(parse_id).transpose()?;
     blocking(move || {
@@ -549,7 +550,7 @@ async fn stash(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<StashRequest>,
-) -> AppResult<Json<StashResponse>> {
+) -> HttpResult<Json<StashResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let stashed = state.item_service.stash(&item_id, req.body.as_deref())?;
@@ -569,7 +570,7 @@ async fn apply_batch(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<BatchRequest>,
-) -> AppResult<Json<BatchResponse>> {
+) -> HttpResult<Json<BatchResponse>> {
     let ops = req
         .ops
         .into_iter()
@@ -592,7 +593,7 @@ async fn delete_items(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<DeleteItemsRequest>,
-) -> AppResult<Json<DeleteItemsResponse>> {
+) -> HttpResult<Json<DeleteItemsResponse>> {
     let item_ids = parse_ids(req.item_ids, "itemIds")?;
     blocking(move || {
         // The items are gone after the deletion: the pages that show them are found first
@@ -612,7 +613,7 @@ async fn merge_items(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<MergeItemsRequest>,
-) -> AppResult<Json<ItemResponse>> {
+) -> HttpResult<Json<ItemResponse>> {
     let item_id = parse_id(req.item_id.as_deref().unwrap_or(""))?;
     let into_id = parse_id(req.into_id.as_deref().unwrap_or(""))?;
     blocking(move || {
@@ -645,7 +646,7 @@ async fn merge_items(
 async fn transcluded_items(
     State(state): State<SharedState>,
     Json(req): Json<TranscludedItemsRequest>,
-) -> AppResult<Json<TranscludedItemsResponse>> {
+) -> HttpResult<Json<TranscludedItemsResponse>> {
     let ids = parse_ids(req.item_ids, "itemIds")?;
     blocking(move || {
         let mut item_ids = Vec::new();
@@ -663,7 +664,7 @@ async fn delete_item(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-) -> AppResult<StatusCode> {
+) -> HttpResult<StatusCode> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let pages = state
@@ -683,7 +684,7 @@ async fn set_transclusion(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<SetTransclusionRequest>,
-) -> AppResult<Json<ItemResponse>> {
+) -> HttpResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     let source_id = parse_id(required(req.source_item_id.as_deref(), "sourceItemId")?)?;
     blocking(move || {
@@ -700,7 +701,7 @@ async fn remove_transclusion(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-) -> AppResult<Json<ItemResponse>> {
+) -> HttpResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let item = state.item_service.remove_transclusion(&item_id)?;
@@ -715,7 +716,7 @@ async fn remove_transclusion(
 async fn get_items_by_types(
     State(state): State<SharedState>,
     Query(q): Query<TypesQuery>,
-) -> AppResult<Response> {
+) -> HttpResult<Response> {
     blocking(move || {
         let types: Vec<String> = match q.types.as_deref().filter(|t| !t.is_empty()) {
             Some(t) => t.split(',').map(|s| s.to_string()).collect(),
@@ -741,7 +742,7 @@ async fn cycle_task(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-) -> AppResult<Json<ItemResponse>> {
+) -> HttpResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let item = state.item_service.cycle_task(&item_id)?;
@@ -757,7 +758,7 @@ async fn move_items(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<MoveItemsRequest>,
-) -> AppResult<Json<ItemsResponse>> {
+) -> HttpResult<Json<ItemsResponse>> {
     let position = parse_position(req.position.as_deref())?;
     let ids = parse_ids(req.item_ids, "itemIds")?;
     let target = parse_id(required(req.target_page_id.as_deref(), "targetPageId")?)?;
@@ -783,7 +784,7 @@ async fn shift_levels(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<ShiftLevelsRequest>,
-) -> AppResult<Json<ItemsResponse>> {
+) -> HttpResult<Json<ItemsResponse>> {
     let ids = parse_ids(req.item_ids, "itemIds")?;
     blocking(move || {
         let items = state.item_service.shift_levels(&ids, req.delta)?;
@@ -808,7 +809,7 @@ async fn upsert_property(
     Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
     Json(req): Json<UpsertPropertyRequest>,
-) -> AppResult<Json<ItemResponse>> {
+) -> HttpResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let item = state.item_service.set_property(
@@ -830,7 +831,7 @@ async fn delete_property(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
-) -> AppResult<Json<ItemResponse>> {
+) -> HttpResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let item = state.item_service.delete_property(&item_id, &key)?;
@@ -844,7 +845,7 @@ async fn delete_property(
 }
 
 fn export_response(
-    r: crate::application::item_service::TreeMarkdownExport,
+    r: journal_core::application::item_service::TreeMarkdownExport,
 ) -> Json<ExportTreeMarkdownResponse> {
     Json(ExportTreeMarkdownResponse {
         tree_markdown: r.tree_markdown,
@@ -856,7 +857,7 @@ fn export_response(
 async fn export_tree_markdown(
     State(state): State<SharedState>,
     Json(req): Json<ExportTreeMarkdownRequest>,
-) -> AppResult<Json<ExportTreeMarkdownResponse>> {
+) -> HttpResult<Json<ExportTreeMarkdownResponse>> {
     let ids = parse_ids(req.item_ids, "itemIds")?;
     blocking(move || {
         Ok(export_response(
@@ -869,7 +870,7 @@ async fn export_tree_markdown(
 async fn export_page_markdown(
     State(state): State<SharedState>,
     Query(q): Query<PageIdQuery>,
-) -> AppResult<Json<ExportTreeMarkdownResponse>> {
+) -> HttpResult<Json<ExportTreeMarkdownResponse>> {
     let page_id = parse_id(required(q.page_id.as_deref(), "pageId")?)?;
     blocking(move || {
         Ok(export_response(
@@ -882,7 +883,7 @@ async fn export_page_markdown(
 async fn export_subtree_markdown(
     State(state): State<SharedState>,
     Query(q): Query<ItemIdQuery>,
-) -> AppResult<Json<ExportTreeMarkdownResponse>> {
+) -> HttpResult<Json<ExportTreeMarkdownResponse>> {
     let item_id = parse_id(required(q.item_id.as_deref(), "itemId")?)?;
     blocking(move || {
         Ok(export_response(
@@ -895,7 +896,7 @@ async fn export_subtree_markdown(
 async fn import_tree_markdown(
     State(state): State<SharedState>,
     Json(req): Json<ImportTreeMarkdownRequest>,
-) -> AppResult<Json<ImportTreeMarkdownResponse>> {
+) -> HttpResult<Json<ImportTreeMarkdownResponse>> {
     Ok(Json(ImportTreeMarkdownResponse {
         flat_markdown: state
             .item_service
@@ -908,7 +909,7 @@ async fn import_tree_markdown(
 async fn parse_flat_markdown(
     State(state): State<SharedState>,
     Json(req): Json<ParseFlatMarkdownRequest>,
-) -> AppResult<Json<ParseFlatMarkdownResponse>> {
+) -> HttpResult<Json<ParseFlatMarkdownResponse>> {
     blocking(move || {
         let page = state
             .splitter

@@ -3,7 +3,7 @@
 //! normalization, katakana stemming and lower casing.
 //!
 //! Writes only queue documents on the index writer, which is cheap; the commit that makes them
-//! durable and searchable runs in the background (see `start_background_commits`), before any
+//! durable and searchable runs in the background (see `commit_pending`), before any
 //! search that would otherwise miss pending writes, and on `flush()`. An item save therefore
 //! does not pay the commit (about 25 ms) on the request path.
 
@@ -11,7 +11,6 @@ use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 use hmtid::Hmtid;
 use lindera::dictionary::load_dictionary;
@@ -201,7 +200,9 @@ impl TantivySearchService {
     }
 
     /// Commits the pending writes, if any, and reloads the reader. Cheap when nothing is pending.
-    fn commit_pending(&self) {
+    /// Whoever runs the index calls this every `COMMIT_INTERVAL`: the index starts no task of
+    /// its own (ADR 029).
+    pub fn commit_pending(&self) {
         if !self.dirty.load(Ordering::SeqCst) {
             return;
         }
@@ -209,19 +210,6 @@ impl TantivySearchService {
         if self.dirty.load(Ordering::SeqCst) {
             self.commit(&mut writer);
         }
-    }
-
-    /// Commits pending writes every `COMMIT_INTERVAL` on the async runtime.
-    pub fn start_background_commits(self: &Arc<Self>) {
-        let me = Arc::clone(self);
-        tokio::spawn(async move {
-            let mut tick = tokio::time::interval(COMMIT_INTERVAL);
-            loop {
-                tick.tick().await;
-                let s = Arc::clone(&me);
-                let _ = tokio::task::spawn_blocking(move || s.commit_pending()).await;
-            }
-        });
     }
 
     /// Commits and reloads the reader. The caller holds the writer lock, so no write can land in

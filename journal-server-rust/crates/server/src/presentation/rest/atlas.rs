@@ -7,11 +7,11 @@ use axum::routing::{delete, post, put};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
-use crate::domain::bounds::Bounds;
-use crate::domain::model::Item;
-use crate::error::{parse_id, AppResult};
-use crate::presentation::dto::ItemDto;
+use crate::error::{parse_id, AppResult, HttpResult};
 use crate::state::{blocking, SharedState};
+use journal_core::domain::bounds::Bounds;
+use journal_core::domain::model::Item;
+use journal_core::dto::ItemDto;
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
@@ -73,7 +73,7 @@ async fn add_link(
     State(state): State<SharedState>,
     Path(id): Path<String>,
     Json(req): Json<LinkRequest>,
-) -> AppResult<Json<ItemsResponse>> {
+) -> HttpResult<Json<ItemsResponse>> {
     let atlas_id = parse_id(&id)?;
     blocking(move || {
         let bounds = req.bounds.parse::<Bounds>()?;
@@ -87,7 +87,7 @@ async fn set_link(
     State(state): State<SharedState>,
     Path((id, item_id)): Path<(String, String)>,
     Json(req): Json<LinkRequest>,
-) -> AppResult<Json<ItemsResponse>> {
+) -> HttpResult<Json<ItemsResponse>> {
     let atlas_id = parse_id(&id)?;
     let item_id = parse_id(&item_id)?;
     blocking(move || {
@@ -101,7 +101,7 @@ async fn group(
     State(state): State<SharedState>,
     Path(id): Path<String>,
     Json(req): Json<GroupRequest>,
-) -> AppResult<Json<ItemsResponse>> {
+) -> HttpResult<Json<ItemsResponse>> {
     let atlas_id = parse_id(&id)?;
     blocking(move || {
         let items = state.atlas.group(&atlas_id, &req.cards, &req.target);
@@ -114,7 +114,7 @@ async fn ungroup(
     State(state): State<SharedState>,
     Path(id): Path<String>,
     Json(req): Json<GroupRequest>,
-) -> AppResult<Json<ItemsResponse>> {
+) -> HttpResult<Json<ItemsResponse>> {
     let atlas_id = parse_id(&id)?;
     blocking(move || {
         let items = state.atlas.ungroup(&atlas_id, &req.cards);
@@ -127,7 +127,7 @@ async fn set_group_title(
     State(state): State<SharedState>,
     Path((id, item_id)): Path<(String, String)>,
     Json(req): Json<TitleRequest>,
-) -> AppResult<Json<ItemsResponse>> {
+) -> HttpResult<Json<ItemsResponse>> {
     let atlas_id = parse_id(&id)?;
     let item_id = parse_id(&item_id)?;
     blocking(move || {
@@ -143,7 +143,7 @@ async fn add_callout(
     State(state): State<SharedState>,
     Path(id): Path<String>,
     Json(req): Json<CalloutRequest>,
-) -> AppResult<Json<ItemsResponse>> {
+) -> HttpResult<Json<ItemsResponse>> {
     let atlas_id = parse_id(&id)?;
     blocking(move || {
         let bounds = req.bounds.parse::<Bounds>()?;
@@ -159,7 +159,7 @@ async fn set_callout(
     State(state): State<SharedState>,
     Path((id, item_id)): Path<(String, String)>,
     Json(req): Json<CalloutRequest>,
-) -> AppResult<Json<ItemsResponse>> {
+) -> HttpResult<Json<ItemsResponse>> {
     let atlas_id = parse_id(&id)?;
     let item_id = parse_id(&item_id)?;
     blocking(move || {
@@ -174,7 +174,7 @@ async fn set_callout(
 async fn remove(
     State(state): State<SharedState>,
     Path((id, item_id)): Path<(String, String)>,
-) -> AppResult<Json<ItemsResponse>> {
+) -> HttpResult<Json<ItemsResponse>> {
     let atlas_id = parse_id(&id)?;
     let item_id = parse_id(&item_id)?;
     blocking(move || {

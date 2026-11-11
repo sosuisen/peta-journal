@@ -8,10 +8,10 @@ use axum::{Form, Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::model::Page;
-use crate::error::{AppError, AppResult};
-use crate::infrastructure::export::file_sync_state::FileSyncState;
+use crate::error::{AppError, AppResult, HttpResult};
 use crate::state::{blocking, SharedState};
+use journal_core::domain::model::Page;
+use journal_core::infrastructure::export::file_sync_state::FileSyncState;
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
@@ -42,7 +42,7 @@ struct ScanResponse {
     exported: i32,
 }
 
-async fn status(State(state): State<SharedState>) -> AppResult<Json<StatusResponse>> {
+async fn status(State(state): State<SharedState>) -> HttpResult<Json<StatusResponse>> {
     blocking(move || {
         let root = state.export.markdown_root();
         Ok(Json(StatusResponse {
@@ -60,7 +60,7 @@ async fn status(State(state): State<SharedState>) -> AppResult<Json<StatusRespon
 }
 
 /// Runs a full folder scan now and waits for it. Returns zeros if a scan is already running.
-async fn scan(State(state): State<SharedState>) -> AppResult<Json<ScanResponse>> {
+async fn scan(State(state): State<SharedState>) -> HttpResult<Json<ScanResponse>> {
     blocking(move || {
         let s = state.reconcile.scan();
         Ok(Json(ScanResponse {
@@ -121,7 +121,7 @@ fn load_rows(state: &SharedState) -> AppResult<Vec<Row>> {
     Ok(rows)
 }
 
-async fn pending_page(State(state): State<SharedState>) -> AppResult<Html<String>> {
+async fn pending_page(State(state): State<SharedState>) -> HttpResult<Html<String>> {
     blocking(move || Ok(Html(render(&load_rows(&state)?, &[])))).await
 }
 
@@ -141,7 +141,7 @@ async fn pending_submit(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Form(form): Form<PendingForm>,
-) -> AppResult<Response> {
+) -> HttpResult<Response> {
     // Only accept submissions from this page itself, not from other sites
     let origin = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok());
     let referer = headers.get(header::REFERER).and_then(|v| v.to_str().ok());

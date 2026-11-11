@@ -2,37 +2,40 @@
 
 use std::sync::Arc;
 
-use crate::application::atlas_service::AtlasService;
-use crate::application::combined_search::CombinedSearchService;
-use crate::application::config_service::ConfigService;
-use crate::application::confirm_service::ConfirmService;
-use crate::application::extension_functions::ExtensionFunctionService;
-use crate::application::extension_runtime::ExtensionRuntime;
-use crate::application::extension_service::ExtensionService;
-use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
-use crate::application::item_service::ItemService;
-use crate::application::journal_service::JournalService;
-use crate::application::markdown_parser::MarkdownParser;
-use crate::application::page_service::PageService;
-use crate::application::startup;
+use crate::application::configuration;
 use crate::config::Settings;
-use crate::domain::id_generator::IdGenerator;
-use crate::domain::search::SearchIndex;
-use crate::infrastructure::export::export_queue_repository::ExportQueueRepository;
-use crate::infrastructure::export::export_service::MarkdownExportService;
-use crate::infrastructure::export::file_sync_state::FileSyncStateRepository;
-use crate::infrastructure::export::import_service::MarkdownImportService;
-use crate::infrastructure::export::item_merger::ItemMerger;
-use crate::infrastructure::export::outline_parser::OutlineMarkdownParser;
-use crate::infrastructure::export::page_matcher::PageMatcher;
-use crate::infrastructure::export::pending_delete_prompt::PendingDeletePrompt;
-use crate::infrastructure::export::reconcile_service::MarkdownReconcileService;
-use crate::infrastructure::persistence::database_initializer;
-use crate::infrastructure::persistence::{Db, ItemRepository, PageRepository, PropertyRepository};
-use crate::infrastructure::search::TantivySearchService;
+use crate::infrastructure::pending_delete_prompt::PendingDeletePrompt;
 use crate::infrastructure::watch::MarkdownFolderWatcher;
-use crate::presentation::dto::ItemDtoAssembler;
 use crate::presentation::sse::SseBroadcaster;
+use journal_core::application::atlas_service::AtlasService;
+use journal_core::application::combined_search::CombinedSearchService;
+use journal_core::application::config_service::ConfigService;
+use journal_core::application::confirm_service::ConfirmService;
+use journal_core::application::extension_functions::ExtensionFunctionService;
+use journal_core::application::extension_runtime::ExtensionRuntime;
+use journal_core::application::extension_service::ExtensionService;
+use journal_core::application::flat_markdown_splitter::FlatMarkdownSplitter;
+use journal_core::application::item_service::ItemService;
+use journal_core::application::journal_service::JournalService;
+use journal_core::application::markdown_parser::MarkdownParser;
+use journal_core::application::page_service::PageService;
+use journal_core::application::startup;
+use journal_core::domain::id_generator::IdGenerator;
+use journal_core::domain::search::SearchIndex;
+use journal_core::dto::ItemDtoAssembler;
+use journal_core::infrastructure::export::export_queue_repository::ExportQueueRepository;
+use journal_core::infrastructure::export::export_service::MarkdownExportService;
+use journal_core::infrastructure::export::file_sync_state::FileSyncStateRepository;
+use journal_core::infrastructure::export::import_service::MarkdownImportService;
+use journal_core::infrastructure::export::item_merger::ItemMerger;
+use journal_core::infrastructure::export::outline_parser::OutlineMarkdownParser;
+use journal_core::infrastructure::export::page_matcher::PageMatcher;
+use journal_core::infrastructure::export::reconcile_service::MarkdownReconcileService;
+use journal_core::infrastructure::persistence::database_initializer;
+use journal_core::infrastructure::persistence::{
+    Db, ItemRepository, PageRepository, PropertyRepository,
+};
+use journal_core::infrastructure::search::{TantivySearchService, COMMIT_INTERVAL};
 
 pub struct AppState {
     pub settings: Settings,
@@ -165,7 +168,7 @@ impl AppState {
             item_merger,
             file_sync_state.clone(),
             Arc::clone(&export),
-            sse.clone(),
+            Arc::new(sse.clone()),
             Arc::clone(&page_service),
             std::time::Duration::from_secs(settings.import_copy_wait_secs),
         ));
@@ -179,7 +182,7 @@ impl AppState {
             Arc::clone(&import),
             file_sync_state.clone(),
             pages.clone(),
-            Arc::clone(&prompt),
+            prompt.clone(),
             Arc::clone(&search),
         ));
         let watcher = Arc::new(MarkdownFolderWatcher::new(
@@ -210,7 +213,7 @@ impl AppState {
 
         // Startup steps, in the order of the Java server
         if options.interactive {
-            startup::check_configuration(&config, &export);
+            configuration::check_configuration(&config, &export);
         } else {
             let dir = config.markdown_dir();
             if !dir.trim().is_empty() {
@@ -253,10 +256,27 @@ impl AppState {
         }))
     }
 
+    /// Commits the pending writes of the search index every `COMMIT_INTERVAL`. The index
+    /// starts no task of its own (ADR 029).
+    ///
+    /// The tests start this task alone. The other tasks would do their work at times a test
+    /// does not know.
+    pub fn start_index_commits(&self) {
+        let index = Arc::clone(&self.tantivy);
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(COMMIT_INTERVAL);
+            loop {
+                tick.tick().await;
+                let index = Arc::clone(&index);
+                let _ = tokio::task::spawn_blocking(move || index.commit_pending()).await;
+            }
+        });
+    }
+
     /// Starts the periodic tasks: the search index commits, the export queue, the folder scans
     /// and the folder watcher.
     pub fn start_background_tasks(self: &Arc<Self>) {
-        self.tantivy.start_background_commits();
+        self.start_index_commits();
 
         let export = Arc::clone(&self.export);
         let every = std::time::Duration::from_secs(self.settings.export_interval_secs);
@@ -299,16 +319,15 @@ impl AppState {
     }
 }
 
-/// Runs blocking work (SQLite, the search index, the file system) off the async runtime.
-pub async fn blocking<T, F>(f: F) -> crate::error::AppResult<T>
+/// Runs blocking work (SQLite, the search index, the file system) off the async runtime. The
+/// error of the work comes out as a handler answers with it.
+pub async fn blocking<T, F>(f: F) -> crate::error::HttpResult<T>
 where
     T: Send + 'static,
     F: FnOnce() -> crate::error::AppResult<T> + Send + 'static,
 {
     match tokio::task::spawn_blocking(f).await {
-        Ok(r) => r,
-        Err(e) => Err(crate::error::AppError::internal(format!(
-            "Task failed: {e}"
-        ))),
+        Ok(r) => Ok(r?),
+        Err(e) => Err(crate::error::AppError::internal(format!("Task failed: {e}")).into()),
     }
 }

@@ -755,7 +755,7 @@
 
 ### サーバーで拡張関数を動かす
 
-出典: `journal-server-rust/crates/server/src/application/extension_runtime.rs`、`confirm_service.rs`、`journal-server-rust/crates/server/tests/extensions/main.rs`
+出典: `journal-server-rust/crates/core/src/application/extension_runtime.rs`、`confirm_service.rs`、`journal-server-rust/crates/server/tests/extensions/main.rs`
 
 - 拡張の`main.js`は、サーバーのQuickJSで動く
   - `onPageCreate(page)`はページの情報を受け取り、`peta.createItem`で頼んだ項目が返る。`createItem`が返すIDは、次の項目の置き場所に使える

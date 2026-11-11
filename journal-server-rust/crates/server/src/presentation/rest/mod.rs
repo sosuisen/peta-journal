@@ -18,6 +18,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
 
+use crate::error::HttpError;
 use crate::presentation::client_id::ClientId;
 use crate::state::SharedState;
 
@@ -51,7 +52,7 @@ async fn require_client_id(mut request: Request, next: Next) -> Response {
     if may_change && request.uri().path() != FORM_PATH {
         match ClientId::of(request.headers()) {
             Ok(client) => request.extensions_mut().insert(client),
-            Err(refusal) => return refusal.into_response(),
+            Err(refusal) => return HttpError(refusal).into_response(),
         };
     }
     next.run(request).await

@@ -3,9 +3,9 @@ use axum::routing::get;
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
-use crate::error::AppResult;
-use crate::presentation::dto::{search_result_dto, SearchResultDto};
+use crate::error::HttpResult;
 use crate::state::{blocking, SharedState};
+use journal_core::dto::{search_result_dto, SearchResultDto};
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
@@ -29,7 +29,7 @@ struct SearchResponse {
 async fn search_page_names(
     State(state): State<SharedState>,
     Query(q): Query<SearchQuery>,
-) -> AppResult<Json<SearchResponse>> {
+) -> HttpResult<Json<SearchResponse>> {
     let query = q.q.unwrap_or_default();
     let max_results = q.max_results.unwrap_or(20);
     blocking(move || {
@@ -46,7 +46,7 @@ async fn search_page_names(
 async fn search_combined(
     State(state): State<SharedState>,
     Query(q): Query<SearchQuery>,
-) -> AppResult<Json<SearchResponse>> {
+) -> HttpResult<Json<SearchResponse>> {
     let query = q.q.unwrap_or_default();
     let max_results = q.max_results.unwrap_or(20);
     blocking(move || {
@@ -61,7 +61,7 @@ async fn search_combined(
 async fn search_by_tag(
     State(state): State<SharedState>,
     Query(q): Query<SearchQuery>,
-) -> AppResult<Json<SearchResponse>> {
+) -> HttpResult<Json<SearchResponse>> {
     let tag = q.q.unwrap_or_default();
     let max_results = q.max_results.unwrap_or(20);
     blocking(move || {

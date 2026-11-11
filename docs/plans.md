@@ -343,10 +343,10 @@
 - [ ] ジャーナルサーバーの中身を、ライブラリ`journal-core`として切り出す（ADR 029）
   - 目的は、Androidのシェルが、PCと同じ中身をアプリに組み込んで使うことである。REST、MCP、embed版が、同じ入口（`Journal`）を通る
   - ジャーナルサーバーの動きは変えない。RESTとMCPの答えは、切り出しの前と同じである。既存の結合テストで守る
-  - [ ] クレートを分ける。`journal-server-rust/crates/core`に、`domain`、`application`、`persistence`、`export`、検索の索引、答えの型を移す。入口はまだ作らない
+  - [x] クレートを分ける。`journal-server-rust/crates/core`に、`domain`、`application`、`persistence`、`export`、検索の索引、答えの型を移す。入口はまだ作らない
     - `AppError`は`journal-core`に置き、HTTPの状態への直し方は`journal-server`に残す
     - カバレッジとミューテーションテストの設定を、2つのクレートに合わせて直す
-  - [ ] 索引の確定を、索引の実装の中のtokioから外へ出す。`journal-core`は、tokioに依存しない
+  - [x] 索引の確定を、索引の実装の中のtokioから外へ出す。`journal-core`は、tokioに依存しない
   - [ ] 拡張関数（`rquickjs`）を、フィーチャーにする。外したビルドが通ることを確かめる
   - [ ] 入口`Journal`を作り、ハンドラーとMCPの処理を下ろす。検索、ページ、項目、ジャーナル、アトラス、設定の順に、1つずつ行う
     - 下ろすのは、要求の値の確かめ、拡張関数の呼び出し、変わったページの知らせ、答えの組み立てである
