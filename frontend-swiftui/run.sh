@@ -33,14 +33,14 @@ if [ "$generate" = yes ] || [ ! -d generated ]; then
 fi
 xcodegen generate --quiet
 # Only what went wrong is shown: the whole log of xcodebuild is thousands of lines
-if ! xcodebuild -project PetaJournal.xcodeproj -scheme PetaJournal -configuration "$configuration" \
+if ! xcodebuild -project PetaStickies.xcodeproj -scheme PetaStickies -configuration "$configuration" \
     -derivedDataPath build build >build.log 2>&1; then
     grep -E "error:|BUILD FAILED" build.log || tail -n 30 build.log
     echo "The build failed. The whole log is in $here/build.log" >&2
     exit 1
 fi
 
-if pkill -x PetaJournal; then
-    while pgrep -x PetaJournal >/dev/null; do sleep 0.1; done
+if pkill -x PetaStickies; then
+    while pgrep -x PetaStickies >/dev/null; do sleep 0.1; done
 fi
-open "build/Build/Products/$configuration/PetaJournal.app" --args "$@"
+open "build/Build/Products/$configuration/PetaStickies.app" --args "$@"

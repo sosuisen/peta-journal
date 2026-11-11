@@ -58,7 +58,7 @@ public final class StickyStore {
     /// The file of the app, in the folder of the user for the data of apps.
     public static var standardFile: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return support.appendingPathComponent("PetaJournal").appendingPathComponent("stickies.json")
+        return support.appendingPathComponent("PetaStickies").appendingPathComponent("stickies.json")
     }
 
     /// Reads the file. A file that is not there, or cannot be read, gives no stickies.

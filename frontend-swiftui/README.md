@@ -1,9 +1,9 @@
 # SwiftUI frontend (frontend-swiftui)
 
-The SwiftUI shell of PetaJournal for macOS. It is a Walking Skeleton so far (ADR 024): the app
-opens one page, shows its items as an outline, and what is typed into an item is saved. The
-keys of the outline work as in the web frontend (see "Keys" below). It has no sidebar and no
-search yet, and items cannot be selected.
+The SwiftUI shell of PetaJournal for macOS. The app is named PetaStickies: each window is a
+sticky that shows one page. It is a Walking Skeleton so far (ADR 024): a page is searched for
+and opened in a sticky, its items are shown as an outline and can be edited, and the stickies
+are kept between runs. The keys of the outline work as in the web frontend (see "Keys" below).
 
 The core is the same Crux core as in the web and the Emacs frontends. `frontend-rust/crates/shell-native`
 wraps it for a shell that is not written in Rust. Calls to the journal server, timers and the
@@ -83,29 +83,29 @@ By hand, the steps are:
 ```
 cd peta-journal/frontend-swiftui
 ./generate.sh
-xcodegen generate     # makes PetaJournal.xcodeproj from project.yml
-xcodebuild -project PetaJournal.xcodeproj -scheme PetaJournal -derivedDataPath build build
-open build/Build/Products/Debug/PetaJournal.app
+xcodegen generate     # makes PetaStickies.xcodeproj from project.yml
+xcodebuild -project PetaStickies.xcodeproj -scheme PetaStickies -derivedDataPath build build
+open build/Build/Products/Debug/PetaStickies.app
 ```
 
 This is the Debug build of the Swift code. It reads the view model about three times slower than
 the Release build: add `-configuration Release` to judge the speed of the app (the app is then
 under `build/Build/Products/Release`).
 
-Or open `PetaJournal.xcodeproj` in Xcode and run it there. The project is not kept in the
+Or open `PetaStickies.xcodeproj` in Xcode and run it there. The project is not kept in the
 repository: run `xcodegen generate` again after a change in `project.yml` or a new file in `App/`.
 
 Without arguments the app shows the stickies of the run before, with their pages, places and
 sizes, from the server at `http://localhost:8087`. A sticky that was closed does not come back.
 The first time there is one sticky without a page: it shows the search box, to search for a
-page. The stickies are kept in `~/Library/Application Support/PetaJournal/stickies.json`;
+page. The stickies are kept in `~/Library/Application Support/PetaStickies/stickies.json`;
 `-stickies <file>` names another file.
 
 With `-url` the app shows only that page, and neither reads nor keeps stickies. To choose the
 server and the page:
 
 ```
-open build/Build/Products/Debug/PetaJournal.app --args -server http://localhost:8087 -url /pages/notes
+open build/Build/Products/Debug/PetaStickies.app --args -server http://localhost:8087 -url /pages/notes
 ```
 
 `open` only brings a running app to the front: it starts no new one, and the arguments and a new

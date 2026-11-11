@@ -1,7 +1,7 @@
-# The Xcode project of the app. XcodeGen makes PetaJournal.xcodeproj from this file:
+# The Xcode project of the app. XcodeGen makes PetaStickies.xcodeproj from this file:
 #   xcodegen generate
 # The project itself is not kept in the repository.
-name: PetaJournal
+name: PetaStickies
 options:
   bundleIdPrefix: petajournal
   deploymentTarget:
@@ -11,7 +11,7 @@ packages:
   PetaBorder:
     path: .
 targets:
-  PetaJournal:
+  PetaStickies:
     type: application
     platform: macOS
     sources:
