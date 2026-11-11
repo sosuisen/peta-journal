@@ -4,60 +4,17 @@
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use hmtid::Hmtid;
-use journal_core::application::atlas_service::AtlasEvents;
-use journal_core::application::confirm_service::ConfirmEvents;
-use journal_core::application::extension_service::ExtensionEvents;
 use journal_core::assembly::{CoreHost, CoreSettings, JournalCore};
-use journal_core::infrastructure::export::import_service::ImportEvents;
 use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
-use journal_core::journal::{ChangedBy, FolderWatch, JournalEvents};
-use peta_core::effects::{ApiOp, ApiOutput, ApiResult, AtlasChange};
+use journal_core::journal::FolderWatch;
+use peta_core::effects::{ApiOp, ApiOutput, ApiResult, AtlasChange, SseEvent};
 use peta_core::model::{BatchOp, Item, ItemPosition, PageWithItems, PasteMode};
 use peta_core::rest::ClientId;
-use peta_embedded_journal::EmbeddedJournal;
+use peta_embedded_journal::{EmbeddedJournal, EventQueue};
+use serde_json::{json, Value};
 
-/// The app around the journal. It keeps the changes it was told of, each as the page and the
-/// client that made the change.
-#[derive(Default)]
-struct App {
-    told: Mutex<Vec<(String, String)>>,
-    /// The questions of the extensions, each by the ID to answer it with
-    asked: Mutex<Vec<String>>,
-}
-
-impl JournalEvents for App {
-    fn page_changed(&self, page_id: &Hmtid, by: &ChangedBy) {
-        let client = match by {
-            ChangedBy::Client(client) => client.as_str().to_string(),
-            ChangedBy::Mcp => "mcp".to_string(),
-        };
-        self.told
-            .lock()
-            .unwrap()
-            .push((page_id.to_string(), client));
-    }
-}
-
-impl AtlasEvents for App {
-    fn atlas_changed(&self, _atlas_id: &Hmtid) {}
-}
-
-impl ImportEvents for App {
-    fn page_changed(&self, _page_id: &Hmtid) {}
-}
-
-impl ExtensionEvents for App {
-    fn page_changed(&self, _page_id: &Hmtid) {}
-}
-
-impl ConfirmEvents for App {
-    /// The app shows the question. The answer comes later, as an `ApiOp`
-    fn ask_user(&self, request_id: &str, _message: &str) -> bool {
-        self.asked.lock().unwrap().push(request_id.to_string());
-        true
-    }
-}
+/// An app that has no folder to watch and asks nothing about missing files.
+struct App;
 
 impl MissingFilesPrompt for App {
     fn notify_new_missing(&self) {}
@@ -70,9 +27,36 @@ impl FolderWatch for App {
 struct Fixture {
     journal: EmbeddedJournal,
     core: JournalCore,
-    app: Arc<App>,
+    events: Arc<EventQueue>,
+    /// What the frontend core got from the event stream so far
+    heard: Arc<Mutex<Vec<SseEvent>>>,
+    reader: Option<std::thread::JoinHandle<()>>,
     client_id: ClientId,
     _dir: tempfile::TempDir,
+}
+
+impl Drop for Fixture {
+    fn drop(&mut self) {
+        self.events.close();
+        if let Some(reader) = self.reader.take() {
+            let _ = reader.join();
+        }
+    }
+}
+
+/// Waits until the value is there. The limit only stops a test that would wait for ever.
+fn eventually<T>(what: &str, mut value: impl FnMut() -> Option<T>) -> T {
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        if let Some(value) = value() {
+            return value;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "timed out waiting for {what}"
+        );
+        std::thread::sleep(Duration::from_millis(10));
+    }
 }
 
 /// Takes the value out of the answer of the given kind.
@@ -93,7 +77,7 @@ impl Fixture {
             .unwrap();
         let config_dir = dir.path().join("config");
         std::fs::create_dir_all(&config_dir).unwrap();
-        let app = Arc::new(App::default());
+        let events = Arc::new(EventQueue::default());
         let core = JournalCore::build(
             &CoreSettings {
                 db_path: dir.path().join("journal.db"),
@@ -104,13 +88,9 @@ impl Fixture {
                 export_overwrite_wait: Duration::from_secs(60),
             },
             CoreHost {
-                journal_events: app.clone(),
-                atlas_events: app.clone(),
-                import_events: app.clone(),
-                extension_events: app.clone(),
-                confirm_events: app.clone(),
-                missing_files: app.clone(),
-                folder_watch: app.clone(),
+                events: events.clone(),
+                missing_files: Arc::new(App),
+                folder_watch: Arc::new(App),
             },
         )
         .unwrap();
@@ -121,13 +101,37 @@ impl Fixture {
             Arc::clone(&core.confirm),
             &client_id,
         );
+        // The frontend core reads the event stream from its start
+        let heard = Arc::new(Mutex::new(Vec::new()));
+        let reader = {
+            let (events, heard) = (events.clone(), heard.clone());
+            std::thread::spawn(move || events.read(&mut |event| heard.lock().unwrap().push(event)))
+        };
+        eventually("the event stream to open", || {
+            heard.lock().unwrap().first().cloned()
+        });
         Fixture {
             journal,
             core,
-            app,
+            events,
+            heard,
+            reader: Some(reader),
             client_id,
             _dir: dir,
         }
+    }
+
+    /// The messages of the event stream so far, as JSON
+    fn messages(&self) -> Vec<Value> {
+        self.heard
+            .lock()
+            .unwrap()
+            .iter()
+            .filter_map(|event| match event {
+                SseEvent::Message(data) => Some(serde_json::from_str(data).unwrap()),
+                _ => None,
+            })
+            .collect()
     }
 
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
@@ -769,10 +773,41 @@ fn the_app_is_told_of_a_change_with_the_id_of_this_frontend() {
 
     f.item(&page, "a change");
 
+    let told = eventually("the message of the change", || f.messages().pop());
     assert_eq!(
-        *f.app.told.lock().unwrap(),
-        [(page, f.client_id.as_str().to_string())]
+        told,
+        json!({
+            "type": "pagesUpdated",
+            "pageId": page,
+            "source": "app",
+            "clientId": f.client_id.as_str(),
+        })
     );
+}
+
+// イベントの流れは、開いてから始まり、閉じるとエラーで終わる。
+#[test]
+fn the_event_stream_opens_and_ends_with_an_error_when_it_is_closed() {
+    let mut f = Fixture::new();
+
+    f.events.close();
+    f.reader.take().unwrap().join().unwrap();
+
+    assert_eq!(*f.heard.lock().unwrap(), [SseEvent::Open, SseEvent::Error]);
+}
+
+// 誰も読んでいないときのメッセージは、捨てられる。
+#[test]
+fn a_message_is_dropped_while_no_one_reads() {
+    use journal_core::events::EventSink;
+    let events = EventQueue::default();
+
+    assert!(!events.send("lost".into()));
+
+    events.close();
+    let mut heard = Vec::new();
+    events.read(&mut |event| heard.push(event));
+    assert_eq!(heard, [SseEvent::Open, SseEvent::Error]);
 }
 
 // ジャーナルが断った操作は、エラーとして答えられる。
@@ -804,12 +839,10 @@ fn the_question_of_an_extension_gets_the_answer_of_the_frontend() {
     let f = Fixture::new();
     let confirm = Arc::clone(&f.core.confirm);
     let asking = std::thread::spawn(move || confirm.confirm("Go on?"));
-    let request_id = loop {
-        if let Some(id) = f.app.asked.lock().unwrap().first() {
-            break id.clone();
-        }
-        std::thread::sleep(Duration::from_millis(10));
-    };
+    let question = eventually("the question", || f.messages().pop());
+    assert_eq!(question["type"], json!("confirm"));
+    assert_eq!(question["message"], json!("Go on?"));
+    let request_id = question["requestId"].as_str().unwrap().to_string();
 
     let answered = f.call(ApiOp::AnswerConfirm {
         request_id,

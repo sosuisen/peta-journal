@@ -430,7 +430,10 @@
       - フォルダー選択、URLを開く、エクスポート先を開く、アップロードは、アプリの中のジャーナルにはない。エラーを返す
       - エラーのHTTPの状態は、`AppError::http_status`にまとめた。サーバーも同じものを使う
       - フロントエンドのワークスペースには、ミューテーションテストの設定がない。このクレートには回していない
-    - [ ] `Host`を実装する。`call`は上の`EmbeddedJournal`、`events`は`CoreHost`の知らせを`SseEvent`にして流す。定期の仕事（索引のコミット、書き出し、スキャン）を誰が回すかも、ここで決める
+    - [x] 変更の知らせと拡張機能の質問を、フロントエンドのコアに流す（`EventQueue`）。ジャーナルには`EventSink`として渡し、シェルは`read`で`SseEvent`として読む
+      - メッセージのJSONは、`journal-core`の`events.rs`（`ClientMessages`）が書く。サーバーの`SseBroadcaster`は、運ぶだけになった。`CoreHost`の中身は、7つから3つになった（`events`、`missing_files`、`folder_watch`）
+      - 誰も読んでいないときのメッセージは捨てる。クライアントのつながっていないサーバーと同じである
+    - [ ] `Host`を実装する。`call`は`EmbeddedJournal::call`、`events`は`EventQueue::read`を呼ぶだけである。置き場所（`shell-native`のフィーチャーか、Androidのためのクレートか）と、定期の仕事（索引のコミット、書き出し、スキャン）を誰が回すかは、ADR 030で決める
   - [ ] 構成図（`docs/frontend-architecture.svg`）に、`journal-core`とembed版を描き足す
 - [ ] Androidのシェルを作る。最初の版は、Dropboxからの取り込み、検索、ページの表示までである。編集とアップロードは、次の版にする
   - ファイルは、Dropbox SDKでAPIを通して取る。Dropbox SDKは、PCのDropboxアプリの役をする。アプリ内のフォルダーとDropboxの間で、ファイルを運ぶだけである

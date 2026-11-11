@@ -5,6 +5,10 @@
 //! and read by the same code of the frontend core that reads the answer of the server. The
 //! frontend core cannot tell the two apart.
 
+mod events;
+
+pub use events::EventQueue;
+
 use std::sync::Arc;
 
 use journal_core::application::confirm_service::ConfirmService;

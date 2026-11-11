@@ -7,5 +7,6 @@ pub mod assembly;
 pub mod domain;
 pub mod dto;
 pub mod error;
+pub mod events;
 pub mod infrastructure;
 pub mod journal;
