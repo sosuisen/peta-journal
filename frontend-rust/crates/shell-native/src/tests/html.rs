@@ -42,17 +42,6 @@ fn an_ast_that_cannot_be_read_is_an_error() {
 
 const APP: &str = "http://localhost:8087";
 
-// コピーのASTから、HTMLができる。リストの入れ子も残る。
-#[test]
-fn the_ast_of_a_copy_becomes_html() {
-    let ast = ast_of("- a **bold**\n  - b");
-
-    assert_eq!(
-        copied_html(&ast, APP, "tags/"),
-        "<ul>\n<li>a <strong>bold</strong><ul>\n<li>b</li>\n</ul>\n</li>\n</ul>\n"
-    );
-}
-
 // コピーのHTMLでは、ウィキリンクが、ブラウザ版でそのページを開くふつうのリンクになる。表示する文字は変わらない。
 #[test]
 fn a_wikilink_of_a_copy_opens_its_page_in_the_browser() {
@@ -72,29 +61,6 @@ fn a_hashtag_of_a_copy_opens_the_page_of_the_tag_in_the_browser() {
     assert_eq!(
         copied_html(&ast, APP, "tags/"),
         "<ul>\n<li>a<ul>\n<li>about <a href=\"http://localhost:8087/pages/tags/topic\">#topic</a></li>\n</ul>\n</li>\n</ul>\n"
-    );
-}
-
-// 空白や日本語を含むページ名は、1つのURLとして読めるように符号化される。ページの中の場所を指す # は残る。
-#[test]
-fn a_page_name_of_a_copy_is_encoded_into_one_url() {
-    let ast = ast_of("[[Other Page]] [[メモ#place]]");
-
-    assert_eq!(
-        copied_html(&ast, APP, ""),
-        "<p><a href=\"http://localhost:8087/pages/Other%20Page\">Other Page</a> \
-         <a href=\"http://localhost:8087/pages/%E3%83%A1%E3%83%A2#place\">メモ#place</a></p>\n"
-    );
-}
-
-// 外のサイトへのリンクは、そのままである。
-#[test]
-fn a_link_of_a_copy_to_another_site_stays_as_it_is() {
-    let ast = ast_of("[site](https://example.com)");
-
-    assert_eq!(
-        copied_html(&ast, APP, "tags/"),
-        "<p><a href=\"https://example.com\">site</a></p>\n"
     );
 }
 

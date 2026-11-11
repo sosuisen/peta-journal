@@ -11,10 +11,10 @@ path = "src/main.rs"
 
 [dependencies]
 peta-core = { path = "../core" }
+peta-page-links = { path = "../page-links" }
 peta-atlas = { path = "../../../atlas-rust", features = ["marks"] }
 flatmarkdown-ast = { workspace = true }
 flatmarkdown-ast2html = "=0.7.0"
-percent-encoding = "2.3.2"
 crux_core = "=0.20.0"
 leptos = { version = "0.8", features = ["csr"] }
 leptos_router = { version = "0.8" }
