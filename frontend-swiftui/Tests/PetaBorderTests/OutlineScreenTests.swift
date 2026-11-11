@@ -110,22 +110,24 @@ final class OutlineScreenTests: XCTestCase {
         hit.mouseDown(with: try mouse(.leftMouseDown))
     }
 
-    // 装飾付きの項目のウィキリンクをクリックすると、そのページが開く。
-    func testAClickOnAWikilinkOpensItsPage() async throws {
+    // 装飾付きの項目のウィキリンクをクリックすると、そのページがブラウザ版で開く。付箋紙のページは変わらない。
+    func testAClickOnAWikilinkOpensItsPageInTheBrowser() async throws {
         try await itemWithLinksAndTheCursorInTheNext()
 
         try click(on: "Idea", in: editors()[0])
 
-        XCTAssertEqual(shell.url, "/pages/Idea")
+        XCTAssertEqual(browsed, URL(string: "\(server.address)/pages/Idea"))
+        XCTAssertEqual(shell.url, "/pages/screen")
     }
 
-    // 装飾付きの項目のハッシュタグをクリックすると、タグのフォルダーにあるそのタグのページが開く。
-    func testAClickOnAHashtagOpensThePageOfTheTag() async throws {
+    // 装飾付きの項目のハッシュタグをクリックすると、タグのフォルダーにあるそのタグのページがブラウザ版で開く。付箋紙のページは変わらない。
+    func testAClickOnAHashtagOpensThePageOfTheTagInTheBrowser() async throws {
         try await itemWithLinksAndTheCursorInTheNext()
 
         try click(on: "#todo", in: editors()[0])
 
-        XCTAssertEqual(shell.url, "/pages/\(shell.view.config.tagsDir)todo")
+        XCTAssertEqual(browsed, URL(string: "\(server.address)/pages/\(shell.view.config.tagsDir)todo"))
+        XCTAssertEqual(shell.url, "/pages/screen")
     }
 
     // 装飾付きの項目の外へのリンクをクリックすると、ブラウザで開く。項目は編集にならず、ページもそのままである。
