@@ -1,0 +1,5 @@
+# Made by generate.ps1 from the Rust crates
+/generated/
+# What dotnet and msbuild build
+bin/
+obj/
