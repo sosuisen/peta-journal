@@ -478,7 +478,7 @@
       - リンクは、ウィキリンクもハッシュタグも`LinkAnnotation.Url`になる。`data-wikilink`と`class="hashtag"`は消える。見分ける手がかりは`href`だけである
       - 描けないもの: インラインのコード（飾りなし）、引用（飾りなし）、ハイライト（飾りなし）、コードブロック（改行が消える）、表（セルの文字がつながる）、画像（置き換え文字1つになる）
       - コードブロック、表、画像を描くには、`fromHtml`だけでは足りない。最初の版でどこまで描くかと、ASTから直接描くかを、ADR 030で決める
-  - [ ] ADR 030を書く。Dropbox SDKでの同期、端末でのDBとフォルダーの置き場所、定期の仕事を誰が回すか、Kotlinの型、HTMLの描き方を決める
+  - [x] ADR 030を書く。Dropbox SDKでの同期、端末でのDBとフォルダーの置き場所、定期の仕事を誰が回すか、Kotlinの型、HTMLの描き方を決める 受理された（2026-11-12）。`docs/adr/adr-030-the-android-shell-with-dropbox-sdk-sync-and-compose.md`にある
   - [ ] `frontend-android`を作る
   - [ ] Androidでページを作れるようにするときに、拡張関数を入れるかを見直す（ADR 029のAlternative 7）。`rquickjs`の`bindgen`には、LLVMが要る
 
