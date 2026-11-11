@@ -201,6 +201,22 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(sticky.window.frame, frame)
     }
 
+    // タイトルバーだけにしている間は、フォーカスがあってもツールは隠れる。元に戻すと、ツールが出る。
+    func testTheToolsAreHiddenWhileTheStickyIsRolledUp() async throws {
+        let sticky = desk.add()
+        let tools = try XCTUnwrap(sticky.window.titlebarAccessoryViewControllers.first)
+        let gotFocus = Notification(name: NSWindow.didBecomeKeyNotification, object: sticky.window)
+        desk.windowDidBecomeKey(gotFocus)
+
+        desk.roll(sticky)
+        XCTAssertTrue(tools.view.isHidden)
+        desk.windowDidBecomeKey(gotFocus)
+        XCTAssertTrue(tools.view.isHidden)
+
+        desk.roll(sticky)
+        XCTAssertFalse(tools.view.isHidden)
+    }
+
     // 紙の上のダブルクリックでは、付箋紙の大きさは変わらない。
     func testADoubleClickOnThePaperDoesNotChangeTheSticky() async throws {
         let sticky = desk.add()

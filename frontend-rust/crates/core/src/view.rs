@@ -277,7 +277,8 @@ pub struct SidebarView {
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct SearchView {
     pub query: String,
-    /// The pages, the create entries and the items, in display order.
+    /// The entry of today's journal, the pages, the create entries and the items, in display
+    /// order.
     pub results: Vec<SearchEntry>,
     pub show_dropdown: bool,
     pub selected_index: Option<usize>,
@@ -300,6 +301,8 @@ pub struct SearchEntry {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SearchKind {
+    /// Opens today's journal.
+    Today,
     Page,
     Create,
     Item,
@@ -540,8 +543,13 @@ fn search(model: &Model) -> SearchView {
     let creates = crate::screens::search::create_titles(model)
         .into_iter()
         .map(|title| (SearchKind::Create, title, String::new()));
-    let results = hits(SearchKind::Page, &model.search.page_results)
+    let today = crate::screens::search::offers_today(model).then(|| {
+        let title = "Open Today".to_string();
+        (SearchKind::Today, title, String::new())
+    });
+    let results = today
         .into_iter()
+        .chain(hits(SearchKind::Page, &model.search.page_results))
         .chain(creates)
         .chain(hits(SearchKind::Item, &model.search.item_results))
         .enumerate()

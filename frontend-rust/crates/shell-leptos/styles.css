@@ -158,6 +158,8 @@ app-search-bar { display: block; flex: 1; max-width: 350px; }
 .item-snippet mark { background: #fff3b0; }
 .search-create { padding: 8px 12px; cursor: pointer; color: #007bff; border-top: 1px solid #eee; }
 .search-create:hover, .search-create.selected { background: #f5f5f5; }
+.search-today { padding: 8px 12px; cursor: pointer; color: #007bff; border-bottom: 1px solid #eee; }
+.search-today:hover, .search-today.selected { background: #f5f5f5; }
 
 /* ---- settings (settings.ts) ---- */
 /* The content area does not scroll: each screen scrolls by itself, as the outline does */

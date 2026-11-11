@@ -77,6 +77,12 @@ pub fn search_failed(model: &mut Model, timer_id: u64) -> Cmd {
     done()
 }
 
+/// Whether the list starts with the entry that opens today's journal: the query is `today` in
+/// any case. It does not wait for the answer of the search.
+pub fn offers_today(model: &Model) -> bool {
+    model.search.query.trim().eq_ignore_ascii_case("today")
+}
+
 /// The titles offered by the "create" entries between the page and item results, in display
 /// order. The second entry puts the page in the directory of the open doc page. Each entry is
 /// left out when its page already exists. Journals and root pages have no directory, so they
@@ -121,7 +127,8 @@ fn page_exists(model: &Model, path: &str) -> bool {
 }
 
 pub fn key(model: &mut Model, key: SearchKey) -> Cmd {
-    let total = model.search.page_results.len()
+    let total = usize::from(offers_today(model))
+        + model.search.page_results.len()
         + create_titles(model).len()
         + model.search.item_results.len();
     match key {
@@ -155,8 +162,16 @@ pub fn key(model: &mut Model, key: SearchKey) -> Cmd {
     }
 }
 
-/// An entry of the flat list was chosen: a page, the create entry, or an item.
+/// An entry of the flat list was chosen: today's journal, a page, the create entry, or an item.
 pub fn result_clicked(model: &mut Model, index: usize) -> Cmd {
+    let index = if offers_today(model) {
+        match index.checked_sub(1) {
+            Some(below) => below,
+            None => return Command::all([clear(model), navigate::to_url("/today", false)]),
+        }
+    } else {
+        index
+    };
     let titles = create_titles(model);
     let page_count = model.search.page_results.len();
     if index < page_count {

@@ -70,6 +70,11 @@ pub fn SearchBar() -> impl IntoView {
                                 let is_selected = selected == Some(index);
                                 let click = move |_: web_sys::MouseEvent| core.send(Event::SearchResultClicked { index });
                                 match kind {
+                                    SearchKind::Today => view! {
+                                        <div class="search-today" class:selected=is_selected on:mousedown=click>
+                                            {title}
+                                        </div>
+                                    }.into_any(),
                                     SearchKind::Page => view! {
                                         <div class="search-result" class:selected=is_selected on:mousedown=click>
                                             <div class="result-page">
