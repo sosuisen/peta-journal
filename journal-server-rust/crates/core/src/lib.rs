@@ -3,6 +3,7 @@
 //! app that embeds it call it (ADR 029).
 
 pub mod application;
+pub mod assembly;
 pub mod domain;
 pub mod dto;
 pub mod error;

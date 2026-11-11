@@ -1,6 +1,7 @@
 //! Everything the handlers and the scheduled tasks share, built once at startup.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::application::{configuration, folder_chooser};
 use crate::config::Settings;
@@ -8,35 +9,28 @@ use crate::infrastructure::pending_delete_prompt::PendingDeletePrompt;
 use crate::infrastructure::watch::{MarkdownFolderWatcher, WatcherRestart};
 use crate::presentation::sse::SseBroadcaster;
 use journal_core::application::atlas_service::AtlasService;
-use journal_core::application::combined_search::CombinedSearchService;
 use journal_core::application::config_service::ConfigService;
 use journal_core::application::confirm_service::ConfirmService;
 use journal_core::application::extension_functions::ExtensionFunctionService;
-use journal_core::application::extension_runtime::ExtensionRuntime;
 use journal_core::application::extension_service::ExtensionService;
 use journal_core::application::flat_markdown_splitter::FlatMarkdownSplitter;
 use journal_core::application::item_service::ItemService;
 use journal_core::application::journal_service::JournalService;
 use journal_core::application::markdown_parser::MarkdownParser;
 use journal_core::application::page_service::PageService;
-use journal_core::application::startup;
+use journal_core::assembly::{CoreHost, CoreSettings, JournalCore};
 use journal_core::domain::id_generator::IdGenerator;
 use journal_core::domain::search::SearchIndex;
 use journal_core::dto::ItemDtoAssembler;
-use journal_core::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use journal_core::infrastructure::export::export_service::MarkdownExportService;
 use journal_core::infrastructure::export::file_sync_state::FileSyncStateRepository;
 use journal_core::infrastructure::export::import_service::MarkdownImportService;
-use journal_core::infrastructure::export::item_merger::ItemMerger;
-use journal_core::infrastructure::export::outline_parser::OutlineMarkdownParser;
-use journal_core::infrastructure::export::page_matcher::PageMatcher;
 use journal_core::infrastructure::export::reconcile_service::MarkdownReconcileService;
-use journal_core::infrastructure::persistence::database_initializer;
 use journal_core::infrastructure::persistence::{
     Db, ItemRepository, PageRepository, PropertyRepository,
 };
 use journal_core::infrastructure::search::{TantivySearchService, COMMIT_INTERVAL};
-use journal_core::journal::{Journal, JournalServices};
+use journal_core::journal::Journal;
 
 pub struct AppState {
     pub settings: Settings,
@@ -78,180 +72,79 @@ pub struct BuildOptions {
 }
 
 impl AppState {
-    /// Opens the database and the search index, wires the services and runs the startup steps
-    /// (configuration check, index rebuild, tag pages, atlas pages).
+    /// Builds the journal core (ADR 029) with what the server does for it, and runs the
+    /// startup steps (configuration check, index rebuild, tag pages, atlas pages).
     pub fn build(settings: Settings, options: BuildOptions) -> anyhow::Result<SharedState> {
-        let ids = Arc::new(IdGenerator::new());
-        let db = Arc::new(Db::open(&settings.db_path)?);
-        database_initializer::initialize(&db, &ids)?;
-
-        let pages = PageRepository::new(Arc::clone(&db));
-        let items = ItemRepository::new(Arc::clone(&db));
-        let properties = PropertyRepository::new(Arc::clone(&db));
-        let export_queue = ExportQueueRepository::new(Arc::clone(&db));
-        let file_sync_state = FileSyncStateRepository::new(Arc::clone(&db));
-
-        let tantivy = Arc::new(TantivySearchService::open(&settings.index_dir)?);
-        let search: Arc<dyn SearchIndex> = tantivy.clone();
-        let config = Arc::new(ConfigService::new(settings.config_dir.clone()));
-        let parser = MarkdownParser;
-        let splitter = FlatMarkdownSplitter::new(parser.clone());
         let sse = SseBroadcaster::new();
-
-        let export = Arc::new(MarkdownExportService::new(
-            Arc::clone(&config),
-            export_queue.clone(),
-            file_sync_state.clone(),
-            pages.clone(),
-            items.clone(),
-            properties.clone(),
-            std::time::Duration::from_secs(settings.export_overwrite_wait_secs),
-        ));
-        let atlas = Arc::new(AtlasService::new(
-            pages.clone(),
-            items.clone(),
-            properties.clone(),
-            parser.clone(),
-            Arc::clone(&search),
-            Arc::clone(&export),
-            Arc::clone(&ids),
-            Arc::new(sse.clone()),
-        ));
-        let page_service = Arc::new(PageService::new(
-            pages.clone(),
-            items.clone(),
-            Arc::clone(&search),
-            Arc::clone(&export),
-            properties.clone(),
-            Arc::clone(&ids),
-            Arc::clone(&config),
-            Arc::clone(&atlas),
-        ));
-        let item_service = Arc::new(ItemService::new(
-            items.clone(),
-            parser.clone(),
-            Arc::clone(&search),
-            Arc::clone(&export),
-            properties.clone(),
-            Arc::clone(&ids),
-            Arc::clone(&page_service),
-        ));
-        let journal_service = Arc::new(JournalService::new(
-            pages.clone(),
-            items.clone(),
-            Arc::clone(&search),
-            Arc::clone(&config),
-            Arc::clone(&item_service),
-            Arc::clone(&ids),
-            Arc::clone(&export),
-        ));
-        let combined_search = Arc::new(CombinedSearchService::new(
-            pages.clone(),
-            Arc::clone(&search),
-            properties.clone(),
-            items.clone(),
-        ));
-
-        let page_matcher = PageMatcher::new(
-            pages.clone(),
-            items.clone(),
-            Arc::clone(&search),
-            Arc::clone(&ids),
-            Arc::clone(&page_service),
-        );
-        let item_merger = ItemMerger::new(
-            items.clone(),
-            parser.clone(),
-            Arc::clone(&search),
-            Arc::clone(&ids),
-        );
-        let import = Arc::new(MarkdownImportService::new(
-            OutlineMarkdownParser::new(splitter.clone()),
-            page_matcher,
-            item_merger,
-            file_sync_state.clone(),
-            Arc::clone(&export),
-            Arc::new(sse.clone()),
-            Arc::clone(&page_service),
-            std::time::Duration::from_secs(settings.import_copy_wait_secs),
-        ));
         let prompt = Arc::new(PendingDeletePrompt::new(
             settings.port,
             settings.import_delete_prompt_cooldown_secs,
         ));
-        let reconcile = Arc::new(MarkdownReconcileService::new(
-            settings.import_enabled,
-            Arc::clone(&export),
-            Arc::clone(&import),
-            file_sync_state.clone(),
-            pages.clone(),
-            prompt.clone(),
-            Arc::clone(&search),
-        ));
+        let watcher_restart = Arc::new(WatcherRestart::default());
+        let core = JournalCore::build(
+            &CoreSettings {
+                db_path: settings.db_path.clone(),
+                index_dir: settings.index_dir.clone(),
+                config_dir: settings.config_dir.clone(),
+                import_enabled: settings.import_enabled,
+                import_copy_wait: Duration::from_secs(settings.import_copy_wait_secs),
+                export_overwrite_wait: Duration::from_secs(settings.export_overwrite_wait_secs),
+            },
+            CoreHost {
+                journal_events: Arc::new(sse.clone()),
+                atlas_events: Arc::new(sse.clone()),
+                import_events: Arc::new(sse.clone()),
+                extension_events: Arc::new(sse.clone()),
+                confirm_events: Arc::new(sse.clone()),
+                missing_files: prompt.clone(),
+                folder_watch: watcher_restart.clone(),
+            },
+        )?;
         let watcher = Arc::new(MarkdownFolderWatcher::new(
             settings.import_enabled,
             settings.import_debounce_ms,
-            Arc::clone(&export),
-            import.clone(),
-            Arc::clone(&reconcile),
-            file_sync_state.clone(),
-            Arc::clone(&prompt),
-            Arc::clone(&search),
+            Arc::clone(&core.export),
+            core.import.clone(),
+            Arc::clone(&core.reconcile),
+            core.file_sync_state.clone(),
+            prompt,
+            Arc::clone(&core.search),
         ));
-        let functions = Arc::new(ExtensionFunctionService::load(Arc::clone(&config)));
-        // A person may step away before answering, so the wait is long
-        let confirm = Arc::new(ConfirmService::new(
-            Arc::new(sse.clone()),
-            std::time::Duration::from_secs(60),
-        ));
-        let extensions = Arc::new(ExtensionService::new(
-            ExtensionRuntime::new(Arc::new(splitter.clone()), Arc::clone(&ids))
-                .with_confirmer(confirm.clone()),
-            Arc::clone(&functions),
-            Arc::clone(&item_service),
-            Arc::clone(&page_service),
-            Arc::new(sse.clone()),
-        ));
-        let dtos = ItemDtoAssembler::new(properties.clone(), items.clone());
-        let journal = Arc::new(Journal::new(
-            JournalServices {
-                combined_search,
-                page_service: Arc::clone(&page_service),
-                item_service: Arc::clone(&item_service),
-                journal_service: Arc::clone(&journal_service),
-                atlas: Arc::clone(&atlas),
-                extensions: Arc::clone(&extensions),
-                config: Arc::clone(&config),
-                export: Arc::clone(&export),
-                folder_watch: Arc::new(WatcherRestart(Arc::clone(&watcher))),
-                pages: pages.clone(),
-                items: items.clone(),
-                properties: properties.clone(),
-                splitter: splitter.clone(),
-                dtos: dtos.clone(),
-            },
-            Arc::new(sse.clone()),
-        ));
+        watcher_restart.set(Arc::clone(&watcher));
 
-        // Startup steps, in the order of the Java server
         if options.interactive {
-            folder_chooser::ask_for_markdown_dir(&config);
-        }
-        let dir = config.markdown_dir();
-        if !dir.trim().is_empty() {
+            folder_chooser::ask_for_markdown_dir(&core.config);
             // Only the server makes the folders. A command run by hand must not make a
             // markdown directory that is not there, as when its drive is not mounted
-            if options.interactive {
-                configuration::ensure_sub_dirs(std::path::Path::new(&dir));
-            }
-            export.export_all_if_empty(&dir);
+            configuration::ensure_sub_dirs(&core.config.markdown_dir());
         }
-        startup::rebuild_search_index(&pages, &items, &search);
-        // After the rebuild, which skips an index that is not empty: the new pages are indexed
-        // one by one as they are created
-        startup::ensure_tag_pages(&page_service);
-        startup::bring_atlases_up_to_date(&atlas);
+        core.start_up();
 
+        let JournalCore {
+            db,
+            config,
+            pages,
+            items,
+            properties,
+            file_sync_state,
+            search,
+            tantivy,
+            parser,
+            splitter,
+            export,
+            import,
+            reconcile,
+            item_service,
+            page_service,
+            atlas,
+            journal_service,
+            journal,
+            functions,
+            extensions,
+            confirm,
+            dtos,
+            ids,
+        } = core;
         Ok(Arc::new(AppState {
             settings,
             db,
