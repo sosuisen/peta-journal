@@ -15,17 +15,35 @@ struct SearchBox: View {
             SearchField(shell: shell, query: search.query, onClose: onClose)
                 .frame(height: 22)
             if search.showDropdown {
-                ForEach(search.results, id: \.index) { entry in
-                    Button {
-                        shell.pick(entry.index)
-                    } label: {
-                        SearchEntryRow(entry: entry, isChosen: search.selectedIndex == entry.index)
+                // More entries than the window is high are scrolled: they would push the
+                // screen out of the window. Fewer take only the room they need
+                ViewThatFits(in: .vertical) {
+                    entries(of: search)
+                    ScrollViewReader { scroll in
+                        ScrollView { entries(of: search) }
+                            // The arrow keys may choose an entry that is out of sight
+                            .onChange(of: search.selectedIndex) { chosen in
+                                if let chosen { scroll.scrollTo(chosen) }
+                            }
                     }
-                    .buttonStyle(.plain)
                 }
                 if search.results.isEmpty, !search.searching, !search.query.isEmpty {
                     Text("Nothing found").font(.caption).foregroundStyle(.secondary)
                 }
+            }
+        }
+    }
+
+    private func entries(of search: SearchView) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(search.results, id: \.index) { entry in
+                Button {
+                    shell.pick(entry.index)
+                } label: {
+                    SearchEntryRow(entry: entry, isChosen: search.selectedIndex == entry.index)
+                }
+                .buttonStyle(.plain)
+                .id(entry.index)
             }
         }
     }
