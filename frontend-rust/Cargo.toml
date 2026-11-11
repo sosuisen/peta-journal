@@ -4,6 +4,7 @@ members = [
     "crates/core",
     "crates/page-links",
     "crates/server-client",
+    "crates/embedded-journal",
     "crates/shell-leptos",
     "crates/shell-emacs",
     "crates/shell-native",

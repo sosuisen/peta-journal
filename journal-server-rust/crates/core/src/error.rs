@@ -19,6 +19,17 @@ pub enum AppError {
 pub type AppResult<T> = Result<T, AppError>;
 
 impl AppError {
+    /// The HTTP status of the error. An app that embeds the core has no HTTP, and still
+    /// answers its frontend with this number: the frontend reads the answers of the REST API.
+    pub fn http_status(&self) -> u16 {
+        match self {
+            AppError::BadRequest(_) => 400,
+            AppError::NotFound(_) => 404,
+            AppError::Conflict(_) => 409,
+            AppError::Internal(_) => 500,
+        }
+    }
+
     pub fn bad_request(msg: impl Into<String>) -> AppError {
         AppError::BadRequest(msg.into())
     }

@@ -23,24 +23,11 @@ impl From<AppError> for HttpError {
 
 impl IntoResponse for HttpError {
     fn into_response(self) -> Response {
-        match self.0 {
-            AppError::BadRequest(msg) => {
-                (StatusCode::BAD_REQUEST, Json(json!({ "error": msg }))).into_response()
-            }
-            AppError::NotFound(msg) => {
-                (StatusCode::NOT_FOUND, Json(json!({ "error": msg }))).into_response()
-            }
-            AppError::Conflict(msg) => {
-                (StatusCode::CONFLICT, Json(json!({ "error": msg }))).into_response()
-            }
-            AppError::Internal(e) => {
-                tracing::error!("Internal error: {e:#}");
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({ "error": e.to_string() })),
-                )
-                    .into_response()
-            }
+        if let AppError::Internal(e) = &self.0 {
+            tracing::error!("Internal error: {e:#}");
         }
+        let status = StatusCode::from_u16(self.0.http_status())
+            .expect("the status of an error is a status of HTTP");
+        (status, Json(json!({ "error": self.0.to_string() }))).into_response()
     }
 }

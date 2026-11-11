@@ -29,6 +29,8 @@ cov = [
     "-p",
     "peta-server-client",
     "-p",
+    "peta-embedded-journal",
+    "-p",
     "peta-shell-emacs",
     "-p",
     "peta-shell-native",
