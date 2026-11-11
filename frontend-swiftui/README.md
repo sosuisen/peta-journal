@@ -183,6 +183,12 @@ While items are selected, no item has the cursor and the keys mean this:
 
 A click into the text of an item also ends the selection.
 
+An item whose body is one heading line (`## Title`) shows its Markdown at the size of its
+heading, in bold, also while it is edited: the text keeps its size when the cursor goes in and
+out. The sizes of the five levels are those of the web frontend (1.6, 1.4, 1.2, 1.1 and 1 times
+the usual size). The bullet and the box of a task keep their size and stand in the middle of
+the first line, however high it is.
+
 The bullet of an item is a dot. While the children of the item are hidden, a pale circle lies
 around the dot, as in the web frontend.
 
