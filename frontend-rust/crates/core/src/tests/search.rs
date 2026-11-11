@@ -102,6 +102,35 @@ fn the_query_is_searched_after_a_pause_and_the_results_are_listed_with_their_num
     assert_eq!(search.selected_index, None);
 }
 
+// 検索語が `today` なら、答えを待たずに `Open Today` が出る。答えが届いたあとも、一覧の先頭にある。
+#[test]
+fn the_query_today_puts_open_today_at_the_top_of_the_list_before_the_answer_arrives() {
+    let mut h = Harness::new();
+    typed(&mut h, "today");
+    assert_eq!(
+        h.view().search.results,
+        [entry(0, SearchKind::Today, "Open Today")]
+    );
+
+    h.api.answer_next(
+        "SearchCombined",
+        Ok(ApiOutput::SearchResults(vec![
+            item_hit("Diary", "i1"),
+            page_hit("Today I learned"),
+        ])),
+    );
+    h.fire_timers();
+    assert_eq!(
+        h.view().search.results,
+        [
+            entry(0, SearchKind::Today, "Open Today"),
+            entry(1, SearchKind::Page, "Today I learned"),
+            entry(2, SearchKind::Create, "today"),
+            entry(3, SearchKind::Item, "Diary"),
+        ]
+    );
+}
+
 // `#タグ` を含む検索語では、ページ作成の項目は出ない。
 #[test]
 fn a_query_with_a_tag_offers_no_page_to_create() {
