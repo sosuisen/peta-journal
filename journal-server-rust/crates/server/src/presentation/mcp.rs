@@ -12,14 +12,16 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::error::{parse_id, AppError, AppResult};
+use crate::error::{AppError, AppResult};
 use crate::state::{blocking, SharedState};
-use journal_core::application::item_service::MoveRequest;
 use journal_core::domain::journal_name::JournalName;
-use journal_core::domain::model::{Item, ItemPosition, Page};
+use journal_core::domain::model::{Item, Page};
 use journal_core::dto::{item_dto, page_dto, BacklinkEntryDto, ItemDto, ItemFields, PageDto};
 use journal_core::infrastructure::export::export_service::format_instant;
-use journal_core::journal::ChangedBy;
+use journal_core::journal::{
+    ChangedBy, CreateItemInput, ItemIdsInput, MoveItemsInput, PropertyInput, TransclusionInput,
+    TreeMarkdownInput, UpdateItemInput,
+};
 
 // ---- JSON of the domain records, the way the Java server's Jackson wrote them ----
 
@@ -88,10 +90,6 @@ fn backlink_json(e: &BacklinkEntryDto) -> Value {
     })
 }
 
-fn item_dto_json(dto: &ItemDto) -> Value {
-    serde_json::to_value(dto).unwrap_or(Value::Null)
-}
-
 fn ok(value: Value) -> Result<CallToolResult, McpError> {
     Ok(CallToolResult::success(vec![Content::text(
         value.to_string(),
@@ -115,28 +113,9 @@ where
     blocking(f).await.map_err(|refusal| mcp_error(refusal.0))
 }
 
-/// Tells the clients that a tool changed the page. A client that shows the page reads it again.
-/// An MCP client has no client ID, so the change has its own source and not `app` (ADR-015).
-fn tell(state: &SharedState, page_id: &str) {
-    state.sse.broadcast_pages_updated_from(page_id, "mcp");
-}
-
-fn tell_all(state: &SharedState, page_ids: impl IntoIterator<Item = impl AsRef<str>>) {
-    for page_id in page_ids {
-        tell(state, page_id.as_ref());
-    }
-}
-
-fn id(s: &str) -> Result<hmtid::Hmtid, McpError> {
-    parse_id(s).map_err(mcp_error)
-}
-
-fn ids(csv: &str) -> Result<Vec<hmtid::Hmtid>, McpError> {
-    csv.split(',').map(|s| id(s.trim())).collect()
-}
-
-fn position(s: &str) -> Result<ItemPosition, McpError> {
-    ItemPosition::parse(s).map_err(|m| McpError::invalid_params(m, None))
+/// The IDs of a comma-separated list, as the journal takes them.
+fn id_texts(csv: &str) -> Vec<String> {
+    csv.split(',').map(|s| s.trim().to_string()).collect()
 }
 
 // ---- tool arguments ----
@@ -372,14 +351,6 @@ impl JournalMcp {
         })
     }
 
-    fn export_json(r: journal_core::application::item_service::TreeMarkdownExport) -> Value {
-        json!({
-            "treeMarkdown": r.tree_markdown,
-            "ast": r.ast,
-            "flatMarkdown": r.flat_markdown,
-        })
-    }
-
     // ---- items ----
 
     #[tool(
@@ -390,17 +361,11 @@ impl JournalMcp {
         Parameters(a): Parameters<GetItemArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let item_id = id(&a.item_id)?;
-        let dto = run(move || {
-            state
-                .dtos
-                .to_dto(&state.item_service.get_item_by_id(&item_id)?)
-        })
-        .await?;
+        let r = run(move || state.journal.get_item(&a.item_id)).await?;
         if let Some(fields) = ItemFields::parse(Some(&a.fields)) {
-            return ok(Value::Object(fields.of(&dto)));
+            return ok(Value::Object(fields.of(&r.item)));
         }
-        ok(json!({ "item": item_dto_json(&dto) }))
+        ok(answer_json(&r))
     }
 
     #[tool(
@@ -411,17 +376,15 @@ impl JournalMcp {
         Parameters(a): Parameters<CreateItemArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let page_id = id(&a.page_id)?;
-        let pos = position(&a.position)?;
-        let item = run(move || {
-            let item = state
-                .item_service
-                .create_item(&page_id, &pos, a.level, &a.body, None)?;
-            tell(&state, page_id.as_str());
-            Ok(item)
-        })
-        .await?;
-        ok(json!({ "item": item_json(&item) }))
+        let input = CreateItemInput {
+            page_id: Some(a.page_id),
+            position: Some(a.position),
+            level: a.level,
+            body: Some(a.body),
+            id: None,
+        };
+        let r = run(move || state.journal.create_item(input, &ChangedBy::Mcp)).await?;
+        ok(json!({ "item": item_record_json(&r.item) }))
     }
 
     #[tool(
@@ -432,22 +395,21 @@ impl JournalMcp {
         Parameters(a): Parameters<UpdateItemArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let item_id = id(&a.item_id)?;
-        let level = if a.level < 1 { None } else { Some(a.level) };
-        let collapsed = match a.collapsed.as_deref() {
-            None | Some("null") => None,
-            Some(s) => Some(s == "true"),
+        let input = UpdateItemInput {
+            body: a.body,
+            level: if a.level < 1 { None } else { Some(a.level) },
+            collapsed: match a.collapsed.as_deref() {
+                None | Some("null") => None,
+                Some(s) => Some(s == "true"),
+            },
         };
-        let item = run(move || {
-            let item =
-                state
-                    .item_service
-                    .update_item(&item_id, a.body.as_deref(), level, collapsed)?;
-            tell_all(&state, state.item_service.pages_showing(&[item_id])?);
-            Ok(item)
+        let r = run(move || {
+            state
+                .journal
+                .update_item(&a.item_id, input, &ChangedBy::Mcp)
         })
         .await?;
-        ok(json!({ "item": item_json(&item) }))
+        ok(json!({ "item": item_record_json(&r.item) }))
     }
 
     #[tool(description = "Delete an item by its ID")]
@@ -456,16 +418,7 @@ impl JournalMcp {
         Parameters(a): Parameters<ItemIdArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let item_id = id(&a.item_id)?;
-        run(move || {
-            let pages = state
-                .item_service
-                .pages_showing(std::slice::from_ref(&item_id))?;
-            state.item_service.delete_item(&item_id)?;
-            tell_all(&state, pages);
-            Ok(())
-        })
-        .await?;
+        run(move || state.journal.delete_item(&a.item_id, &ChangedBy::Mcp)).await?;
         ok(json!({ "deleted": true }))
     }
 
@@ -477,22 +430,15 @@ impl JournalMcp {
         Parameters(a): Parameters<MoveItemsArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let item_ids = ids(&a.item_ids)?;
-        let target = id(&a.target_page_id)?;
-        let pos = position(&a.position)?;
-        let items = run(move || {
-            let moved = state.item_service.move_edited_items(&MoveRequest {
-                item_ids: &item_ids,
-                target_page_id: &target,
-                position: &pos,
-                level_delta: a.level_delta,
-                body: None,
-            })?;
-            tell_all(&state, moved.page_ids.iter().map(|id| id.as_str()));
-            Ok(moved.items)
-        })
-        .await?;
-        ok(json!({ "items": items_json(&items) }))
+        let input = MoveItemsInput {
+            item_ids: Some(id_texts(&a.item_ids)),
+            target_page_id: Some(a.target_page_id),
+            position: Some(a.position),
+            level_delta: Some(a.level_delta),
+            body: None,
+        };
+        let r = run(move || state.journal.move_items(input, &ChangedBy::Mcp)).await?;
+        ok(json!({ "items": item_records_json(&r.items) }))
     }
 
     #[tool(description = "Get all items with the specified types (e.g. all 'task' items)")]
@@ -502,8 +448,8 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let types: Vec<String> = a.types.split(',').map(|s| s.to_string()).collect();
-        let items = run(move || state.item_service.get_items_by_types(&types, None)).await?;
-        ok(json!({ "items": items_json(&items) }))
+        let r = run(move || state.journal.items_by_types(&types, None)).await?;
+        ok(json!({ "items": item_records_json(&r.items) }))
     }
 
     #[tool(
@@ -514,9 +460,11 @@ impl JournalMcp {
         Parameters(a): Parameters<ItemIdsArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let item_ids = ids(&a.item_ids)?;
-        let r = run(move || state.item_service.export_tree_markdown(&item_ids)).await?;
-        ok(Self::export_json(r))
+        let input = ItemIdsInput {
+            item_ids: Some(id_texts(&a.item_ids)),
+        };
+        let r = run(move || state.journal.export_tree_markdown(input)).await?;
+        ok(answer_json(&r))
     }
 
     #[tool(
@@ -527,9 +475,8 @@ impl JournalMcp {
         Parameters(a): Parameters<ItemIdArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let item_id = id(&a.item_id)?;
-        let r = run(move || state.item_service.export_subtree_markdown(&item_id)).await?;
-        ok(Self::export_json(r))
+        let r = run(move || state.journal.export_subtree_markdown(Some(&a.item_id))).await?;
+        ok(answer_json(&r))
     }
 
     #[tool(
@@ -540,14 +487,8 @@ impl JournalMcp {
         Parameters(a): Parameters<ItemIdArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let item_id = id(&a.item_id)?;
-        let dto = run(move || {
-            let item = state.item_service.cycle_task(&item_id)?;
-            tell(&state, item.page_id.as_str());
-            state.dtos.to_dto(&item)
-        })
-        .await?;
-        ok(json!({ "item": item_dto_json(&dto) }))
+        let r = run(move || state.journal.cycle_task(&a.item_id, &ChangedBy::Mcp)).await?;
+        ok(answer_json(&r))
     }
 
     #[tool(
@@ -558,15 +499,16 @@ impl JournalMcp {
         Parameters(a): Parameters<SetTransclusionArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let item_id = id(&a.item_id)?;
-        let source = id(&a.source_item_id)?;
-        let dto = run(move || {
-            let item = state.item_service.set_transclusion(&item_id, &source)?;
-            tell(&state, item.page_id.as_str());
-            state.dtos.to_dto(&item)
+        let input = TransclusionInput {
+            source_item_id: Some(a.source_item_id),
+        };
+        let r = run(move || {
+            state
+                .journal
+                .set_transclusion(&a.item_id, input, &ChangedBy::Mcp)
         })
         .await?;
-        ok(json!({ "item": item_dto_json(&dto) }))
+        ok(answer_json(&r))
     }
 
     #[tool(description = "Remove a transclusion from an item, clearing its body.")]
@@ -575,14 +517,13 @@ impl JournalMcp {
         Parameters(a): Parameters<ItemIdArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let item_id = id(&a.item_id)?;
-        let dto = run(move || {
-            let item = state.item_service.remove_transclusion(&item_id)?;
-            tell(&state, item.page_id.as_str());
-            state.dtos.to_dto(&item)
+        let r = run(move || {
+            state
+                .journal
+                .remove_transclusion(&a.item_id, &ChangedBy::Mcp)
         })
         .await?;
-        ok(json!({ "item": item_dto_json(&dto) }))
+        ok(answer_json(&r))
     }
 
     #[tool(
@@ -593,17 +534,17 @@ impl JournalMcp {
         Parameters(a): Parameters<UpsertPropertyArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let item_id = id(&a.item_id)?;
-        let dto = run(move || {
-            let item =
-                state
-                    .item_service
-                    .set_property(&item_id, &a.key, &a.value_type, &a.value)?;
-            tell(&state, item.page_id.as_str());
-            state.dtos.to_dto(&item)
+        let input = PropertyInput {
+            value_type: Some(a.value_type),
+            value: Some(a.value),
+        };
+        let r = run(move || {
+            state
+                .journal
+                .set_item_property(&a.item_id, &a.key, input, &ChangedBy::Mcp)
         })
         .await?;
-        ok(json!({ "item": item_dto_json(&dto) }))
+        ok(answer_json(&r))
     }
 
     #[tool(description = "Convert tree markdown (indented list format) to flat markdown.")]
@@ -611,11 +552,11 @@ impl JournalMcp {
         &self,
         Parameters(a): Parameters<TreeMarkdownArgs>,
     ) -> Result<CallToolResult, McpError> {
-        let flat = self
-            .state
-            .item_service
-            .import_tree_markdown(&a.tree_markdown);
-        ok(json!({ "flatMarkdown": flat }))
+        ok(answer_json(&self.state.journal.import_tree_markdown(
+            TreeMarkdownInput {
+                tree_markdown: Some(a.tree_markdown),
+            },
+        )))
     }
 
     // ---- pages ----
@@ -659,9 +600,8 @@ impl JournalMcp {
         Parameters(a): Parameters<PageIdArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let page_id = id(&a.page_id)?;
-        let r = run(move || state.item_service.export_page_markdown(&page_id)).await?;
-        ok(Self::export_json(r))
+        let r = run(move || state.journal.export_page_markdown(Some(&a.page_id))).await?;
+        ok(answer_json(&r))
     }
 
     #[tool(description = "Update a page's title or directory path")]

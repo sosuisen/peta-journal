@@ -1,20 +1,21 @@
-use std::collections::BTreeMap;
-
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
-use hmtid::Hmtid;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-use crate::error::{parse_id, AppError, AppResult, HttpResult};
+use crate::error::HttpResult;
 use crate::presentation::client_id::ClientId;
 use crate::state::{blocking, SharedState};
-use journal_core::application::item_service::{BatchOp, MoveRequest, TaskState};
-use journal_core::application::paste::PasteMode;
-use journal_core::domain::model::{Item, ItemPosition};
-use journal_core::dto::{ItemDto, ItemFields};
+use journal_core::dto::ItemFields;
+use journal_core::journal::{
+    BatchAnswer, BatchInput, ChangedBy, CreateItemInput, DeletedItemsAnswer, FlatMarkdownAnswer,
+    FlatMarkdownInput, ItemAnswer, ItemIdsInput, ItemsAnswer, MergeItemsInput, MoveItemsInput,
+    ParsedItemsAnswer, PasteAnswer, PasteInput, PropertyInput, ShiftLevelsInput, SplitAnswer,
+    SplitInput, StashAnswer, StashInput, TranscludedItemsAnswer, TransclusionInput,
+    TreeMarkdownAnswer, TreeMarkdownInput, UpdateItemInput,
+};
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
@@ -49,297 +50,6 @@ pub fn routes() -> Router<SharedState> {
 }
 
 #[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct CreateItemRequest {
-    page_id: Option<String>,
-    position: Option<String>,
-    level: i32,
-    body: Option<String>,
-    id: Option<String>,
-}
-
-#[derive(Serialize)]
-struct ItemResponse<I = ItemDto> {
-    item: I,
-}
-
-#[derive(Serialize)]
-struct ItemsResponse<I = ItemDto> {
-    items: Vec<I>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct UpdateItemRequest {
-    body: Option<String>,
-    level: Option<i32>,
-    collapsed: Option<bool>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct MoveItemsRequest {
-    item_ids: Option<Vec<String>>,
-    target_page_id: Option<String>,
-    position: Option<String>,
-    level_delta: Option<i32>,
-    /// The body the editor of the first item has now, when it is not saved yet
-    body: Option<String>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct DeleteItemsRequest {
-    item_ids: Option<Vec<String>>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(default)]
-struct BatchRequest {
-    ops: Vec<BatchOpRequest>,
-}
-
-#[derive(Deserialize)]
-#[serde(tag = "op", rename_all = "camelCase")]
-enum BatchOpRequest {
-    #[serde(rename_all = "camelCase")]
-    Create {
-        id: String,
-        page_id: String,
-        position: String,
-        level: i32,
-        #[serde(default)]
-        body: String,
-    },
-    Update {
-        id: String,
-        body: Option<String>,
-        level: Option<i32>,
-        collapsed: Option<bool>,
-        task: Option<TaskStateRequest>,
-    },
-    #[serde(rename_all = "camelCase")]
-    Move {
-        ids: Vec<String>,
-        page_id: String,
-        position: String,
-    },
-    Delete {
-        id: String,
-    },
-}
-
-impl BatchOpRequest {
-    fn parse(self) -> AppResult<BatchOp> {
-        Ok(match self {
-            BatchOpRequest::Create {
-                id,
-                page_id,
-                position,
-                level,
-                body,
-            } => BatchOp::Create {
-                id: parse_id(&id)?,
-                page_id: parse_id(&page_id)?,
-                position: parse_position(Some(&position))?,
-                level,
-                body,
-            },
-            BatchOpRequest::Update {
-                id,
-                body,
-                level,
-                collapsed,
-                task,
-            } => BatchOp::Update {
-                id: parse_id(&id)?,
-                body,
-                level,
-                collapsed,
-                task: task.map(|task| TaskState {
-                    task: task.task,
-                    begin: task.begin,
-                    end: task.end,
-                    plan: task.plan,
-                }),
-            },
-            BatchOpRequest::Move {
-                ids,
-                page_id,
-                position,
-            } => BatchOp::Move {
-                ids: parse_ids(Some(ids), "ids")?,
-                page_id: parse_id(&page_id)?,
-                position: parse_position(Some(&position))?,
-            },
-            BatchOpRequest::Delete { id } => BatchOp::Delete { id: parse_id(&id)? },
-        })
-    }
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct MergeItemsRequest {
-    item_id: Option<String>,
-    into_id: Option<String>,
-    /// The body an editor has now for the item that goes away, when it is not saved yet.
-    body: Option<String>,
-    /// The same for the item that takes the text.
-    into_body: Option<String>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct PasteRequest {
-    body: Option<String>,
-    cursor: usize,
-    text: Option<String>,
-    mode: Option<String>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct CursorDto {
-    item_id: String,
-    position: usize,
-}
-
-#[derive(Serialize)]
-struct PasteResponse {
-    items: Vec<ItemDto>,
-    cursor: CursorDto,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct SplitRequest {
-    body: Option<String>,
-    cursor: usize,
-    /// The transclusion that shows the item, for an item of another page shown below it.
-    root_id: Option<String>,
-}
-
-#[derive(Serialize)]
-struct SplitResponse {
-    item: ItemDto,
-    created: ItemDto,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(default)]
-struct StashRequest {
-    /// The text the editor of the item has now, when it is not saved yet.
-    body: Option<String>,
-}
-
-/// The items a batch wrote, and the empty items made on the pages it left without an item
-#[derive(Serialize)]
-struct BatchResponse {
-    items: Vec<ItemDto>,
-    created: Vec<ItemDto>,
-}
-
-/// The empty items made on the pages a deletion left without an item
-#[derive(Serialize)]
-struct DeleteItemsResponse {
-    created: Vec<ItemDto>,
-}
-
-#[derive(Serialize)]
-struct StashResponse {
-    heading: ItemDto,
-    created: bool,
-    items: Vec<ItemDto>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct ShiftLevelsRequest {
-    item_ids: Option<Vec<String>>,
-    delta: i32,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct ExportTreeMarkdownRequest {
-    item_ids: Option<Vec<String>>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct TranscludedItemsRequest {
-    item_ids: Option<Vec<String>>,
-}
-
-/// The ids, among those asked about, of the items some other item transcludes
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct TranscludedItemsResponse {
-    item_ids: Vec<String>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ExportTreeMarkdownResponse {
-    tree_markdown: String,
-    ast: String,
-    flat_markdown: String,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct ImportTreeMarkdownRequest {
-    tree_markdown: Option<String>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ImportTreeMarkdownResponse {
-    flat_markdown: String,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(default)]
-struct ParseFlatMarkdownRequest {
-    markdown: Option<String>,
-}
-
-#[derive(Serialize)]
-struct ParsedFlatItem {
-    level: i32,
-    id: Option<String>,
-    properties: BTreeMap<String, String>,
-    body: String,
-}
-
-#[derive(Serialize)]
-struct ParseFlatMarkdownResponse {
-    items: Vec<ParsedFlatItem>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct UpsertPropertyRequest {
-    value_type: Option<String>,
-    value: Option<String>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct TaskStateRequest {
-    task: bool,
-    begin: Option<String>,
-    end: Option<String>,
-    plan: Option<String>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct SetTransclusionRequest {
-    source_item_id: Option<String>,
-}
-
-#[derive(Deserialize, Default)]
 #[serde(default)]
 struct FieldsQuery {
     fields: Option<String>,
@@ -349,7 +59,6 @@ struct FieldsQuery {
 #[serde(rename_all = "camelCase", default)]
 struct TypesQuery {
     types: Option<String>,
-    /// Leaves out the items that have a value for this property, as in `withoutProperty=end`
     without_property: Option<String>,
     fields: Option<String>,
 }
@@ -366,68 +75,15 @@ struct ItemIdQuery {
     item_id: Option<String>,
 }
 
-fn required<'a>(value: Option<&'a str>, name: &str) -> AppResult<&'a str> {
-    value.ok_or_else(|| AppError::bad_request(format!("{name} is required")))
-}
-
-fn parse_ids(ids: Option<Vec<String>>, name: &str) -> AppResult<Vec<Hmtid>> {
-    let ids = ids.ok_or_else(|| AppError::bad_request(format!("{name} is required")))?;
-    ids.iter().map(|s| parse_id(s)).collect()
-}
-
-fn parse_position(position: Option<&str>) -> AppResult<ItemPosition> {
-    ItemPosition::parse(position.unwrap_or("")).map_err(AppError::bad_request)
-}
-
-/// An item as the API answers with it, with its properties.
-fn item_response(state: &SharedState, item: &Item) -> AppResult<Json<ItemResponse>> {
-    Ok(Json(ItemResponse {
-        item: state.dtos.to_dto(item)?,
-    }))
-}
-
-fn items_response(state: &SharedState, items: &[Item]) -> AppResult<Json<ItemsResponse>> {
-    Ok(Json(ItemsResponse {
-        items: state.dtos.to_dtos(items)?,
-    }))
-}
-
-fn broadcast_to_transcluders(
-    state: &SharedState,
-    client: &ClientId,
-    source_item_id: &Hmtid,
-    exclude_page_id: &str,
-) -> AppResult<()> {
-    for t in state.items.find_transcluders(source_item_id)? {
-        let page_id = t.page_id.to_string();
-        if page_id != exclude_page_id {
-            state.sse.broadcast_pages_updated(client, &page_id);
-        }
-    }
-    Ok(())
-}
-
 async fn create_item(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
-    Json(req): Json<CreateItemRequest>,
-) -> HttpResult<Json<ItemResponse>> {
-    let page_id = parse_id(required(req.page_id.as_deref(), "pageId")?)?;
-    let client_id = match req.id.as_deref() {
-        Some(s) if !s.is_empty() => Some(parse_id(s)?),
-        _ => None,
-    };
-    let position = parse_position(req.position.as_deref())?;
+    Json(req): Json<CreateItemInput>,
+) -> HttpResult<Json<ItemAnswer>> {
     blocking(move || {
-        let item = state.item_service.create_item(
-            &page_id,
-            &position,
-            req.level,
-            req.body.as_deref().unwrap_or_default(),
-            client_id,
-        )?;
-        state.sse.broadcast_pages_updated(&client, page_id.as_str());
-        item_response(&state, &item)
+        Ok(Json(
+            state.journal.create_item(req, &ChangedBy::Client(client))?,
+        ))
     })
     .await
 }
@@ -437,18 +93,12 @@ async fn get_item(
     Path(id): Path<String>,
     Query(q): Query<FieldsQuery>,
 ) -> HttpResult<Response> {
-    let item_id = parse_id(&id)?;
     blocking(move || {
-        let dto = state
-            .dtos
-            .to_dto(&state.item_service.get_item_by_id(&item_id)?)?;
-        match ItemFields::parse(q.fields.as_deref()) {
-            Some(fields) => Ok(Json(ItemResponse {
-                item: fields.of(&dto),
-            })
-            .into_response()),
-            None => Ok(Json(ItemResponse { item: dto }).into_response()),
-        }
+        let whole = state.journal.get_item(&id)?;
+        Ok(match ItemFields::parse(q.fields.as_deref()) {
+            Some(fields) => Json(whole.with_fields(&fields)).into_response(),
+            None => Json(whole).into_response(),
+        })
     })
     .await
 }
@@ -457,20 +107,14 @@ async fn update_item(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-    Json(req): Json<UpdateItemRequest>,
-) -> HttpResult<Json<ItemResponse>> {
-    let item_id = parse_id(&id)?;
+    Json(req): Json<UpdateItemInput>,
+) -> HttpResult<Json<ItemAnswer>> {
     blocking(move || {
-        let item = state.item_service.update_item(
-            &item_id,
-            req.body.as_deref(),
-            req.level,
-            req.collapsed,
-        )?;
-        let page_id = item.page_id.to_string();
-        state.sse.broadcast_pages_updated(&client, &page_id);
-        broadcast_to_transcluders(&state, &client, &item_id, &page_id)?;
-        item_response(&state, &item)
+        Ok(Json(state.journal.update_item(
+            &id,
+            req,
+            &ChangedBy::Client(client),
+        )?))
     })
     .await
 }
@@ -479,41 +123,14 @@ async fn paste(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-    Json(req): Json<PasteRequest>,
-) -> HttpResult<Json<PasteResponse>> {
-    let item_id = parse_id(&id)?;
-    let mode = match req.mode.as_deref() {
-        None | Some("auto") => PasteMode::Auto,
-        Some("flat") => PasteMode::Flat,
-        Some("raw") => PasteMode::Raw,
-        Some(other) => {
-            return Err(AppError::bad_request(format!(
-                "mode must be auto, flat or raw, but was {other}"
-            ))
-            .into())
-        }
-    };
+    Json(req): Json<PasteInput>,
+) -> HttpResult<Json<PasteAnswer>> {
     blocking(move || {
-        let pasted = state.item_service.paste(
-            &item_id,
-            req.body.as_deref().unwrap_or_default(),
-            req.cursor,
-            req.text.as_deref().unwrap_or_default(),
-            mode,
-        )?;
-        // The first item is the one written to: the source item, when a transclusion was
-        // pasted into
-        let written = &pasted.items[0];
-        let page_id = written.page_id.to_string();
-        state.sse.broadcast_pages_updated(&client, &page_id);
-        broadcast_to_transcluders(&state, &client, &written.id, &page_id)?;
-        Ok(Json(PasteResponse {
-            items: state.dtos.to_dtos(&pasted.items)?,
-            cursor: CursorDto {
-                item_id: pasted.cursor_item_id.to_string(),
-                position: pasted.cursor,
-            },
-        }))
+        Ok(Json(state.journal.paste(
+            &id,
+            req,
+            &ChangedBy::Client(client),
+        )?))
     })
     .await
 }
@@ -522,46 +139,30 @@ async fn split(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-    Json(req): Json<SplitRequest>,
-) -> HttpResult<Json<SplitResponse>> {
-    let item_id = parse_id(&id)?;
-    let root_id = req.root_id.as_deref().map(parse_id).transpose()?;
+    Json(req): Json<SplitInput>,
+) -> HttpResult<Json<SplitAnswer>> {
     blocking(move || {
-        let split = state.item_service.split(
-            &item_id,
-            root_id.as_ref(),
-            req.body.as_deref().unwrap_or_default(),
-            req.cursor,
-        )?;
-        for page_id in &split.page_ids {
-            state.sse.broadcast_pages_updated(&client, page_id.as_str());
-        }
-        Ok(Json(SplitResponse {
-            item: state.dtos.to_dto(&split.item)?,
-            created: state.dtos.to_dto(&split.created)?,
-        }))
+        Ok(Json(state.journal.split(
+            &id,
+            req,
+            &ChangedBy::Client(client),
+        )?))
     })
     .await
 }
 
-/// Sends an item with its descendants under the `# Stash` heading of its page (ADR 011).
 async fn stash(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-    Json(req): Json<StashRequest>,
-) -> HttpResult<Json<StashResponse>> {
-    let item_id = parse_id(&id)?;
+    Json(req): Json<StashInput>,
+) -> HttpResult<Json<StashAnswer>> {
     blocking(move || {
-        let stashed = state.item_service.stash(&item_id, req.body.as_deref())?;
-        for page_id in &stashed.page_ids {
-            state.sse.broadcast_pages_updated(&client, page_id.as_str());
-        }
-        Ok(Json(StashResponse {
-            heading: state.dtos.to_dto(&stashed.heading)?,
-            created: stashed.created,
-            items: state.dtos.to_dtos(&stashed.items)?,
-        }))
+        Ok(Json(state.journal.stash(
+            &id,
+            req,
+            &ChangedBy::Client(client),
+        )?))
     })
     .await
 }
@@ -569,22 +170,12 @@ async fn stash(
 async fn apply_batch(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
-    Json(req): Json<BatchRequest>,
-) -> HttpResult<Json<BatchResponse>> {
-    let ops = req
-        .ops
-        .into_iter()
-        .map(BatchOpRequest::parse)
-        .collect::<AppResult<Vec<_>>>()?;
+    Json(req): Json<BatchInput>,
+) -> HttpResult<Json<BatchAnswer>> {
     blocking(move || {
-        let applied = state.item_service.apply_batch(&ops)?;
-        for page_id in &applied.page_ids {
-            state.sse.broadcast_pages_updated(&client, page_id.as_str());
-        }
-        Ok(Json(BatchResponse {
-            items: state.dtos.to_dtos(&applied.items)?,
-            created: state.dtos.to_dtos(&applied.created)?,
-        }))
+        Ok(Json(
+            state.journal.apply_batch(req, &ChangedBy::Client(client))?,
+        ))
     })
     .await
 }
@@ -592,19 +183,14 @@ async fn apply_batch(
 async fn delete_items(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
-    Json(req): Json<DeleteItemsRequest>,
-) -> HttpResult<Json<DeleteItemsResponse>> {
-    let item_ids = parse_ids(req.item_ids, "itemIds")?;
+    Json(req): Json<ItemIdsInput>,
+) -> HttpResult<Json<DeletedItemsAnswer>> {
     blocking(move || {
-        // The items are gone after the deletion: the pages that show them are found first
-        let pages = state.item_service.pages_showing(&item_ids)?;
-        let created = state.item_service.delete_items(&item_ids)?;
-        for page_id in pages {
-            state.sse.broadcast_pages_updated(&client, &page_id);
-        }
-        Ok(Json(DeleteItemsResponse {
-            created: state.dtos.to_dtos(&created)?,
-        }))
+        Ok(Json(
+            state
+                .journal
+                .delete_items(req, &ChangedBy::Client(client))?,
+        ))
     })
     .await
 }
@@ -612,52 +198,21 @@ async fn delete_items(
 async fn merge_items(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
-    Json(req): Json<MergeItemsRequest>,
-) -> HttpResult<Json<ItemResponse>> {
-    let item_id = parse_id(req.item_id.as_deref().unwrap_or(""))?;
-    let into_id = parse_id(req.into_id.as_deref().unwrap_or(""))?;
+    Json(req): Json<MergeItemsInput>,
+) -> HttpResult<Json<ItemAnswer>> {
     blocking(move || {
-        // The merged item goes away: its transcluders are found first so their pages can be told
-        let transcluders = state.items.find_transcluders(&item_id)?;
-        let item_page_id = state.item_service.get_item_page_id(&item_id)?;
-        let into = state.item_service.merge_item(
-            &item_id,
-            &into_id,
-            req.body.as_deref(),
-            req.into_body.as_deref(),
-        )?;
-        let page_id = into.page_id.to_string();
-        state.sse.broadcast_pages_updated(&client, &page_id);
-        if let Some(item_page_id) = item_page_id {
-            state.sse.broadcast_pages_updated(&client, &item_page_id);
-        }
-        broadcast_to_transcluders(&state, &client, &into_id, &page_id)?;
-        for t in transcluders {
-            state
-                .sse
-                .broadcast_pages_updated(&client, t.page_id.as_str());
-        }
-        item_response(&state, &into)
+        Ok(Json(
+            state.journal.merge_items(req, &ChangedBy::Client(client))?,
+        ))
     })
     .await
 }
 
-/// Which of the items are transcluded by other items, as a client asks before it deletes them.
 async fn transcluded_items(
     State(state): State<SharedState>,
-    Json(req): Json<TranscludedItemsRequest>,
-) -> HttpResult<Json<TranscludedItemsResponse>> {
-    let ids = parse_ids(req.item_ids, "itemIds")?;
-    blocking(move || {
-        let mut item_ids = Vec::new();
-        for id in ids {
-            if !state.items.find_transcluders(&id)?.is_empty() {
-                item_ids.push(id.to_string());
-            }
-        }
-        Ok(Json(TranscludedItemsResponse { item_ids }))
-    })
-    .await
+    Json(req): Json<ItemIdsInput>,
+) -> HttpResult<Json<TranscludedItemsAnswer>> {
+    blocking(move || Ok(Json(state.journal.transcluded_items(req)?))).await
 }
 
 async fn delete_item(
@@ -665,15 +220,8 @@ async fn delete_item(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
 ) -> HttpResult<StatusCode> {
-    let item_id = parse_id(&id)?;
     blocking(move || {
-        let pages = state
-            .item_service
-            .pages_showing(std::slice::from_ref(&item_id))?;
-        state.item_service.delete_item(&item_id)?;
-        for page_id in pages {
-            state.sse.broadcast_pages_updated(&client, &page_id);
-        }
+        state.journal.delete_item(&id, &ChangedBy::Client(client))?;
         Ok(StatusCode::NO_CONTENT)
     })
     .await
@@ -683,16 +231,14 @@ async fn set_transclusion(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-    Json(req): Json<SetTransclusionRequest>,
-) -> HttpResult<Json<ItemResponse>> {
-    let item_id = parse_id(&id)?;
-    let source_id = parse_id(required(req.source_item_id.as_deref(), "sourceItemId")?)?;
+    Json(req): Json<TransclusionInput>,
+) -> HttpResult<Json<ItemAnswer>> {
     blocking(move || {
-        let item = state.item_service.set_transclusion(&item_id, &source_id)?;
-        state
-            .sse
-            .broadcast_pages_updated(&client, item.page_id.as_str());
-        item_response(&state, &item)
+        Ok(Json(state.journal.set_transclusion(
+            &id,
+            req,
+            &ChangedBy::Client(client),
+        )?))
     })
     .await
 }
@@ -701,14 +247,13 @@ async fn remove_transclusion(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-) -> HttpResult<Json<ItemResponse>> {
-    let item_id = parse_id(&id)?;
+) -> HttpResult<Json<ItemAnswer>> {
     blocking(move || {
-        let item = state.item_service.remove_transclusion(&item_id)?;
-        state
-            .sse
-            .broadcast_pages_updated(&client, item.page_id.as_str());
-        item_response(&state, &item)
+        Ok(Json(
+            state
+                .journal
+                .remove_transclusion(&id, &ChangedBy::Client(client))?,
+        ))
     })
     .await
 }
@@ -722,18 +267,13 @@ async fn get_items_by_types(
             Some(t) => t.split(',').map(|s| s.to_string()).collect(),
             None => Vec::new(),
         };
-        let items = state
-            .item_service
-            .get_items_by_types(&types, q.without_property.as_deref())?;
-        let dtos = state.dtos.to_dtos(&items)?;
-        let response = match ItemFields::parse(q.fields.as_deref()) {
-            Some(fields) => Json(ItemsResponse {
-                items: fields.of_each(&dtos),
-            })
-            .into_response(),
-            None => Json(ItemsResponse { items: dtos }).into_response(),
-        };
-        Ok(response)
+        let whole = state
+            .journal
+            .items_by_types(&types, q.without_property.as_deref())?;
+        Ok(match ItemFields::parse(q.fields.as_deref()) {
+            Some(fields) => Json(whole.with_fields(&fields)).into_response(),
+            None => Json(whole).into_response(),
+        })
     })
     .await
 }
@@ -742,14 +282,11 @@ async fn cycle_task(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-) -> HttpResult<Json<ItemResponse>> {
-    let item_id = parse_id(&id)?;
+) -> HttpResult<Json<ItemAnswer>> {
     blocking(move || {
-        let item = state.item_service.cycle_task(&item_id)?;
-        state
-            .sse
-            .broadcast_pages_updated(&client, item.page_id.as_str());
-        item_response(&state, &item)
+        Ok(Json(
+            state.journal.cycle_task(&id, &ChangedBy::Client(client))?,
+        ))
     })
     .await
 }
@@ -757,49 +294,27 @@ async fn cycle_task(
 async fn move_items(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
-    Json(req): Json<MoveItemsRequest>,
-) -> HttpResult<Json<ItemsResponse>> {
-    let position = parse_position(req.position.as_deref())?;
-    let ids = parse_ids(req.item_ids, "itemIds")?;
-    let target = parse_id(required(req.target_page_id.as_deref(), "targetPageId")?)?;
+    Json(req): Json<MoveItemsInput>,
+) -> HttpResult<Json<ItemsAnswer>> {
     blocking(move || {
-        let moved = state.item_service.move_edited_items(&MoveRequest {
-            item_ids: &ids,
-            target_page_id: &target,
-            position: &position,
-            level_delta: req.level_delta.unwrap_or(0),
-            body: req.body.as_deref(),
-        })?;
-        for page_id in &moved.page_ids {
-            state.sse.broadcast_pages_updated(&client, page_id.as_str());
-        }
-        items_response(&state, &moved.items)
+        Ok(Json(
+            state.journal.move_items(req, &ChangedBy::Client(client))?,
+        ))
     })
     .await
 }
 
-/// Indents or outdents a group of items in one request. The change is relative, so requests that
-/// arrive out of order still add up correctly.
 async fn shift_levels(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
-    Json(req): Json<ShiftLevelsRequest>,
-) -> HttpResult<Json<ItemsResponse>> {
-    let ids = parse_ids(req.item_ids, "itemIds")?;
+    Json(req): Json<ShiftLevelsInput>,
+) -> HttpResult<Json<ItemsAnswer>> {
     blocking(move || {
-        let items = state.item_service.shift_levels(&ids, req.delta)?;
-        let mut seen: Vec<String> = Vec::new();
-        for item in &items {
-            let page_id = item.page_id.to_string();
-            if !seen.contains(&page_id) {
-                state.sse.broadcast_pages_updated(&client, &page_id);
-                seen.push(page_id);
-            }
-        }
-        for item in &items {
-            broadcast_to_transcluders(&state, &client, &item.id, item.page_id.as_str())?;
-        }
-        items_response(&state, &items)
+        Ok(Json(
+            state
+                .journal
+                .shift_levels(req, &ChangedBy::Client(client))?,
+        ))
     })
     .await
 }
@@ -808,21 +323,15 @@ async fn upsert_property(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
-    Json(req): Json<UpsertPropertyRequest>,
-) -> HttpResult<Json<ItemResponse>> {
-    let item_id = parse_id(&id)?;
+    Json(req): Json<PropertyInput>,
+) -> HttpResult<Json<ItemAnswer>> {
     blocking(move || {
-        let item = state.item_service.set_property(
-            &item_id,
+        Ok(Json(state.journal.set_item_property(
+            &id,
             &key,
-            req.value_type.as_deref().unwrap_or("text"),
-            req.value.as_deref().unwrap_or(""),
-        )?;
-        state
-            .sse
-            .broadcast_pages_updated(&client, item.page_id.as_str());
-        // The DTO is built after the upsert, so it carries the new property
-        item_response(&state, &item)
+            req,
+            &ChangedBy::Client(client),
+        )?))
     })
     .await
 }
@@ -831,50 +340,31 @@ async fn delete_property(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
-) -> HttpResult<Json<ItemResponse>> {
-    let item_id = parse_id(&id)?;
+) -> HttpResult<Json<ItemAnswer>> {
     blocking(move || {
-        let item = state.item_service.delete_property(&item_id, &key)?;
-        state
-            .sse
-            .broadcast_pages_updated(&client, item.page_id.as_str());
-        // The DTO is built after the delete, so the property is already gone from it
-        item_response(&state, &item)
+        Ok(Json(state.journal.delete_item_property(
+            &id,
+            &key,
+            &ChangedBy::Client(client),
+        )?))
     })
     .await
-}
-
-fn export_response(
-    r: journal_core::application::item_service::TreeMarkdownExport,
-) -> Json<ExportTreeMarkdownResponse> {
-    Json(ExportTreeMarkdownResponse {
-        tree_markdown: r.tree_markdown,
-        ast: r.ast,
-        flat_markdown: r.flat_markdown,
-    })
 }
 
 async fn export_tree_markdown(
     State(state): State<SharedState>,
-    Json(req): Json<ExportTreeMarkdownRequest>,
-) -> HttpResult<Json<ExportTreeMarkdownResponse>> {
-    let ids = parse_ids(req.item_ids, "itemIds")?;
-    blocking(move || {
-        Ok(export_response(
-            state.item_service.export_tree_markdown(&ids)?,
-        ))
-    })
-    .await
+    Json(req): Json<ItemIdsInput>,
+) -> HttpResult<Json<TreeMarkdownAnswer>> {
+    blocking(move || Ok(Json(state.journal.export_tree_markdown(req)?))).await
 }
 
 async fn export_page_markdown(
     State(state): State<SharedState>,
     Query(q): Query<PageIdQuery>,
-) -> HttpResult<Json<ExportTreeMarkdownResponse>> {
-    let page_id = parse_id(required(q.page_id.as_deref(), "pageId")?)?;
+) -> HttpResult<Json<TreeMarkdownAnswer>> {
     blocking(move || {
-        Ok(export_response(
-            state.item_service.export_page_markdown(&page_id)?,
+        Ok(Json(
+            state.journal.export_page_markdown(q.page_id.as_deref())?,
         ))
     })
     .await
@@ -883,11 +373,12 @@ async fn export_page_markdown(
 async fn export_subtree_markdown(
     State(state): State<SharedState>,
     Query(q): Query<ItemIdQuery>,
-) -> HttpResult<Json<ExportTreeMarkdownResponse>> {
-    let item_id = parse_id(required(q.item_id.as_deref(), "itemId")?)?;
+) -> HttpResult<Json<TreeMarkdownAnswer>> {
     blocking(move || {
-        Ok(export_response(
-            state.item_service.export_subtree_markdown(&item_id)?,
+        Ok(Json(
+            state
+                .journal
+                .export_subtree_markdown(q.item_id.as_deref())?,
         ))
     })
     .await
@@ -895,37 +386,14 @@ async fn export_subtree_markdown(
 
 async fn import_tree_markdown(
     State(state): State<SharedState>,
-    Json(req): Json<ImportTreeMarkdownRequest>,
-) -> HttpResult<Json<ImportTreeMarkdownResponse>> {
-    Ok(Json(ImportTreeMarkdownResponse {
-        flat_markdown: state
-            .item_service
-            .import_tree_markdown(req.tree_markdown.as_deref().unwrap_or("")),
-    }))
+    Json(req): Json<TreeMarkdownInput>,
+) -> HttpResult<Json<FlatMarkdownAnswer>> {
+    Ok(Json(state.journal.import_tree_markdown(req)))
 }
 
-/// Splits Flat Markdown into items by the rules of the spec. Nothing is stored.
-/// Bodies keep their GFM task prefix, so they can be passed to the create endpoint as-is.
 async fn parse_flat_markdown(
     State(state): State<SharedState>,
-    Json(req): Json<ParseFlatMarkdownRequest>,
-) -> HttpResult<Json<ParseFlatMarkdownResponse>> {
-    blocking(move || {
-        let page = state
-            .splitter
-            .split(req.markdown.as_deref().unwrap_or(""))?;
-        Ok(Json(ParseFlatMarkdownResponse {
-            items: page
-                .items
-                .into_iter()
-                .map(|i| ParsedFlatItem {
-                    level: i.level,
-                    id: i.id.clone(),
-                    properties: i.properties_map(),
-                    body: i.body,
-                })
-                .collect(),
-        }))
-    })
-    .await
+    Json(req): Json<FlatMarkdownInput>,
+) -> HttpResult<Json<ParsedItemsAnswer>> {
+    blocking(move || Ok(Json(state.journal.parse_flat_markdown(req)?))).await
 }

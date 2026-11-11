@@ -369,6 +369,29 @@ async fn shift_level_moves_a_group_by_a_relative_amount() {
     );
 }
 
+// shift-levelは項目をいくつも変えるが、ページの変更は1回だけクライアントに知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_page_once_when_a_group_is_shifted() {
+    let page = new_doc_page("items-shift-event").await;
+    let rows = fill(&page.id, &["a", "b", "c"]).await;
+    let other_page = new_doc_page("items-shift-event-after").await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    let (status, resp) = post(
+        "/api/items/shift-level",
+        json!({ "itemIds": [rows[1].id, rows[2].id], "delta": 1 }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    // The events come in order: what is read up to this one holds all those of the shift
+    create_item(&other_page.id, "last", 1, "after the shift").await;
+
+    let other = format!("\"pageId\":\"{}\"", other_page.id);
+    let seen = events_until(&mut events, &other).await;
+    let shifted_page = format!("\"pageId\":\"{}\"", page.id);
+    assert_eq!(seen.matches(&shifted_page).count(), 1, "{seen}");
+}
+
 // ---- Items: moving ----
 
 // 部分木は、同じページの兄弟を越えて移動する。
