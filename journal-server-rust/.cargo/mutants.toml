@@ -9,6 +9,10 @@ exclude_globs = [
     "crates/server/src/application/folder_chooser.rs",
     "crates/server/src/infrastructure/launcher.rs",
     "crates/server/src/infrastructure/pending_delete_prompt.rs",
+    # The runtime of a build without the `extensions` feature (2026-11-11). The mutants run
+    # with the default features, and that build does not compile this file. Its test runs
+    # with `cargo test -p journal-core --no-default-features`.
+    "crates/core/src/application/extension_runtime/none.rs",
 ]
 
 # Every mutant runs the tests of the whole workspace. By default a mutant runs the tests of
@@ -22,7 +26,12 @@ test_workspace = true
 #   the index still commits before the next search and every second, so a search finds the
 #   file anyway. The flush only makes the index durable at once, for a crash in that second,
 #   and a test cannot open the index from disk while the server holds it.
+# - The two functions that start the periodic tasks (2026-11-11). Only main.rs, which is
+#   skipped, calls `start_background_tasks`. The tests call `start_index_commits`, but without
+#   its commits a search still finds what was written, so its work does not show.
 exclude_re = [
+    "replace AppState::start_index_commits with \\(\\)",
+    "replace AppState::start_background_tasks with \\(\\)",
     "replace - with \\+ in MarkdownFolderWatcher::flush_pending",
     "delete match arm Outcome::Imported \\| Outcome::Conflict in MarkdownFolderWatcher::flush_pending",
 ]
