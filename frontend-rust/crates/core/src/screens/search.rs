@@ -77,6 +77,12 @@ pub fn search_failed(model: &mut Model, timer_id: u64) -> Cmd {
     done()
 }
 
+/// Whether the list starts with the entry that opens today's journal: the query is `today` in
+/// any case. It does not wait for the answer of the search.
+pub fn offers_today(model: &Model) -> bool {
+    model.search.query.trim().eq_ignore_ascii_case("today")
+}
+
 /// The titles offered by the "create" entries between the page and item results, in display
 /// order. The second entry puts the page in the directory of the open doc page. Each entry is
 /// left out when its page already exists. Journals and root pages have no directory, so they

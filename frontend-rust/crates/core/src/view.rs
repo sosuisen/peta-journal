@@ -543,7 +543,7 @@ fn search(model: &Model) -> SearchView {
     let creates = crate::screens::search::create_titles(model)
         .into_iter()
         .map(|title| (SearchKind::Create, title, String::new()));
-    let today = (model.search.query == "today").then(|| {
+    let today = crate::screens::search::offers_today(model).then(|| {
         let title = "Open Today".to_string();
         (SearchKind::Today, title, String::new())
     });
