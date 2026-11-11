@@ -64,8 +64,9 @@ public enum ShownText {
         """
         body { font: \(size)px -apple-system; }
         p, ul, ol, blockquote, pre, table, h1, h2, h3, h4, h5, h6 { margin: 0; }
-        h1 { font-size: 1.6em; } h2 { font-size: 1.4em; } h3 { font-size: 1.2em; }
-        h4, h5, h6 { font-size: 1em; }
+        h1 { font-size: \(Row.headingScales[0])em; } h2 { font-size: \(Row.headingScales[1])em; }
+        h3 { font-size: \(Row.headingScales[2])em; } h4 { font-size: \(Row.headingScales[3])em; }
+        h5, h6 { font-size: \(Row.headingScales[4])em; }
         code, pre { font-family: Menlo; }
         a { color: #0a58ca; }
         mark { background: #fff3a3; }

@@ -125,18 +125,23 @@ private struct ItemEditor: View {
         HStack(alignment: .top) {
             // Without the bullet an item with no text cannot be seen
             ForEach(Array(row.marks.enumerated()), id: \.offset) { place, mark in
-                let line = NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: NSFont.systemFontSize * zoom))
+                let size = NSFont.systemFontSize * zoom
+                let line = NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: size))
+                // The first line of a heading is higher. The marks keep their size and stand
+                // in the middle of it, as in the web frontend
+                let first = NSLayoutManager().defaultLineHeight(
+                    for: .boldSystemFont(ofSize: size * row.firstLineScale))
                 if place == 0 {
-                    Bullet(mark: mark, line: line)
+                    Bullet(mark: mark, line: line, first: first)
                 } else {
                     // The mark after the bullet is the state of a task: a click steps it
-                    TaskBox(mark: mark, line: line)
+                    TaskBox(mark: mark, line: line, first: first)
                         .onTapGesture { shell.clickedTask(of: row.item.id) }
                 }
             }
             ItemText(
                 item: row.item, isEditing: row.isEditing, shown: texts.text(of: row.item, zoom: zoom),
-                texts: texts, changes: texts.changes, isFirst: row.index == 0,
+                texts: texts, changes: texts.changes, heading: row.editedHeading, isFirst: row.index == 0,
                 request: shell.view.outline.focusRequest, order: shell.focus, shell: shell, cursors: cursors,
                 zoom: zoom)
         }
@@ -148,8 +153,10 @@ private struct ItemEditor: View {
 /// not stand in the middle of its line.
 private struct Bullet: View {
     let mark: String
-    /// How high a line of the text of the item is. The bullet stands in the middle of the first.
+    /// How high a line of the usual text is: the bullet is as large as that says.
     let line: CGFloat
+    /// How high the first line of the item is. The bullet stands in the middle of it.
+    let first: CGFloat
 
     var body: some View {
         let side = (line * 0.85).rounded()
@@ -161,7 +168,7 @@ private struct Bullet: View {
         }
         .foregroundStyle(.secondary)
         .frame(width: side, height: side)
-        .frame(height: line)
+        .frame(height: max(line, first))
     }
 }
 
@@ -170,8 +177,10 @@ private struct Bullet: View {
 /// and are of different sizes, and none stands in the middle of its line.
 private struct TaskBox: View {
     let mark: String
-    /// How high a line of the text of the item is. The box stands in the middle of the first.
+    /// How high a line of the usual text is: the box is as large as that says.
     let line: CGFloat
+    /// How high the first line of the item is. The box stands in the middle of it.
+    let first: CGFloat
 
     var body: some View {
         // Half as large again as the letter was
@@ -193,7 +202,7 @@ private struct TaskBox: View {
         }
         .foregroundStyle(.secondary)
         .frame(width: side, height: side)
-        .frame(height: line)
+        .frame(height: max(line, first))
         .contentShape(Rectangle())
     }
 }

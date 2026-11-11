@@ -15,3 +15,24 @@ extension Row {
         return [bullet, task == .running ? "⊟" : "☐"]
     }
 }
+
+extension Row {
+    /// How much larger than the usual text a heading of each level is, from the first to the
+    /// fifth. The web frontend has the same sizes.
+    public static let headingScales: [Double] = [1.6, 1.4, 1.2, 1.1, 1]
+
+    /// The level of the heading when the whole body is one heading line, and 0 otherwise. Such
+    /// an item is edited at the size of its heading, in bold: the text does not jump when the
+    /// cursor goes in.
+    public var editedHeading: Int {
+        headingLine ? Int(headingLevel) : 0
+    }
+
+    /// How much larger than the usual text the first line of the item is drawn. The marks
+    /// before the text stand in the middle of that line. An item that is edited shows its
+    /// Markdown, which is large only when it is one heading line.
+    public var firstLineScale: Double {
+        let level = isEditing ? editedHeading : Int(headingLevel)
+        return (1...5).contains(level) ? Row.headingScales[level - 1] : 1
+    }
+}
