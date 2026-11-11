@@ -118,4 +118,18 @@ test.describe('journal', () => {
     // The server plans the task in the request that makes it one: no second request writes the plan
     expect(writes).toEqual([`POST /api/items/${item.id}/cycle-task`]);
   });
+
+  test('the query today in any case puts Open Today on top of the search list, and choosing it opens today\'s journal', async ({ page }) => {
+    await page.goto(`/pages/${shiftDays(todayName, -1)}`);
+    await page.locator('app-outline-item').first().waitFor();
+
+    await page.locator('.search-input').fill('Today');
+    await expect(page.locator('.search-dropdown > *').first()).toHaveText('Open Today');
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator('.search-today')).toHaveClass(/selected/);
+    await page.keyboard.press('Enter');
+
+    await expect(page).toHaveURL(/\/today$/);
+    await expect(page.locator('.search-input')).toHaveValue('');
+  });
 });
