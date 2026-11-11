@@ -19,7 +19,8 @@ cov = [
     "llvm-cov",
     "-p", "journal-core",
     "-p", "journal-server",
-    "--ignore-filename-regex", "src/main\\.rs$|application/folder_chooser\\.rs$|infrastructure/launcher\\.rs$|infrastructure/pending_delete_prompt\\.rs$",
+    # `[/\\]`: the paths have backslashes on Windows
+    "--ignore-filename-regex", "src[/\\\\]main\\.rs$|application[/\\\\]folder_chooser\\.rs$|infrastructure[/\\\\]launcher\\.rs$|infrastructure[/\\\\]pending_delete_prompt\\.rs$",
 ]
 
 # `cargo run` serves the web frontend from the folder `trunk build` writes (ADR 010), so no
