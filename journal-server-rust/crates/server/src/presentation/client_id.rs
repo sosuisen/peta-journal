@@ -1,55 +1,27 @@
-//! The ID that a client names itself with on every change request (ADR-015).
-
-use std::str::FromStr;
+//! Reads the ID that a client names itself with from a change request (ADR-015).
+//!
+//! The middleware of the REST API reads it from the header and puts it on the request. A
+//! handler that tells the other clients of its change takes it as `Extension<ClientId>`.
 
 use axum::http::HeaderMap;
+
+pub use journal_core::domain::client_id::ClientId;
 
 use crate::error::{AppError, AppResult};
 
 /// The header that carries the ID.
 pub const HEADER: &str = "x-client-id";
 
-/// A UUID that one running client made for itself, kept as the client wrote it. The server
-/// sends it back in that form, so the client finds its own ID by comparing text.
-///
-/// It only tells the clients apart: anyone can send any ID, so it proves nothing about who
-/// the client is.
-///
-/// The middleware of the REST API reads it from the header and puts it on the request. A
-/// handler that tells the other clients of its change takes it as `Extension<ClientId>`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClientId(String);
-
-impl ClientId {
-    /// The ID that the headers of a request name.
-    pub fn of(headers: &HeaderMap) -> AppResult<ClientId> {
-        let value = headers.get(HEADER).ok_or_else(|| {
-            AppError::bad_request(
-                "The X-Client-Id header is required. \
-                 Send a UUID that this client made for itself when it started",
-            )
-        })?;
-        // A value that is not text is not a UUID either
-        value.to_str().unwrap_or_default().parse()
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl FromStr for ClientId {
-    type Err = AppError;
-
-    fn from_str(s: &str) -> AppResult<ClientId> {
-        match uuid::Uuid::try_parse(s) {
-            Ok(_) => Ok(ClientId(s.to_string())),
-            Err(_) => Err(AppError::bad_request(
-                "The X-Client-Id header must be a UUID, \
-                 like 123e4567-e89b-42d3-a456-426614174000",
-            )),
-        }
-    }
+/// The ID that the headers of a request name.
+pub fn of(headers: &HeaderMap) -> AppResult<ClientId> {
+    let value = headers.get(HEADER).ok_or_else(|| {
+        AppError::bad_request(
+            "The X-Client-Id header is required. \
+             Send a UUID that this client made for itself when it started",
+        )
+    })?;
+    // A value that is not text is not a UUID either
+    Ok(value.to_str().unwrap_or_default().parse::<ClientId>()?)
 }
 
 #[cfg(test)]
@@ -65,28 +37,28 @@ mod tests {
         )])
     }
 
-    // ヘッダーのUUIDは、書かれたとおりの文字でIDになる。
+    // ヘッダーのUUIDが、IDになる。
     #[test]
-    fn the_uuid_of_the_header_is_the_id_as_it_is_written() {
-        let written = "123E4567-e89b-42d3-a456-426614174000";
+    fn the_uuid_of_the_header_is_the_id() {
+        let written = "123e4567-e89b-42d3-a456-426614174000";
 
-        let id = ClientId::of(&headers_with(written)).unwrap();
+        let id = of(&headers_with(written)).unwrap();
 
-        assert_eq!(id.as_str(), written);
+        assert_eq!(id, written.parse().unwrap());
     }
 
     // ヘッダーがなければ、IDは読めない。
     #[test]
     fn no_header_gives_no_id() {
-        let refusal = ClientId::of(&HeaderMap::new()).unwrap_err();
+        let refusal = of(&HeaderMap::new()).unwrap_err();
 
         assert!(matches!(refusal, AppError::BadRequest(_)));
     }
 
-    // UUIDでない文字列は、IDとして読めない。
+    // UUIDでないヘッダーは、IDとして読めない。
     #[test]
-    fn a_text_that_is_not_a_uuid_is_no_id() {
-        let refusal = ClientId::of(&headers_with("emacs")).unwrap_err();
+    fn a_header_that_is_not_a_uuid_gives_no_id() {
+        let refusal = of(&headers_with("emacs")).unwrap_err();
 
         assert!(matches!(refusal, AppError::BadRequest(_)));
     }

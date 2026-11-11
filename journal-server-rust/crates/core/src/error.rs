@@ -66,6 +66,12 @@ impl From<crate::domain::bounds::NotBounds> for AppError {
     }
 }
 
+impl From<crate::domain::client_id::NotAClientId> for AppError {
+    fn from(e: crate::domain::client_id::NotAClientId) -> Self {
+        AppError::BadRequest(e.to_string())
+    }
+}
+
 impl From<crate::domain::journal_name::NotAJournalName> for AppError {
     fn from(e: crate::domain::journal_name::NotAJournalName) -> Self {
         AppError::BadRequest(e.to_string())

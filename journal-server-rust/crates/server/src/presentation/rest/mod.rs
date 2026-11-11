@@ -19,7 +19,7 @@ use axum::routing::get;
 use axum::Router;
 
 use crate::error::HttpError;
-use crate::presentation::client_id::ClientId;
+use crate::presentation::client_id;
 use crate::state::SharedState;
 
 /// The form of the page about missing files posts here. A form of a browser cannot add a
@@ -50,7 +50,7 @@ pub fn router() -> Router<SharedState> {
 async fn require_client_id(mut request: Request, next: Next) -> Response {
     let may_change = [Method::POST, Method::PUT, Method::DELETE].contains(request.method());
     if may_change && request.uri().path() != FORM_PATH {
-        match ClientId::of(request.headers()) {
+        match client_id::of(request.headers()) {
             Ok(client) => request.extensions_mut().insert(client),
             Err(refusal) => return HttpError(refusal).into_response(),
         };
