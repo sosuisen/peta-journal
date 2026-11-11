@@ -433,18 +433,37 @@
     - [x] 変更の知らせと拡張機能の質問を、フロントエンドのコアに流す（`EventQueue`）。ジャーナルには`EventSink`として渡し、シェルは`read`で`SseEvent`として読む
       - メッセージのJSONは、`journal-core`の`events.rs`（`ClientMessages`）が書く。サーバーの`SseBroadcaster`は、運ぶだけになった。`CoreHost`の中身は、7つから3つになった（`events`、`missing_files`、`folder_watch`）
       - 誰も読んでいないときのメッセージは捨てる。クライアントのつながっていないサーバーと同じである
-    - [ ] `Host`を実装する。`call`は`EmbeddedJournal::call`、`events`は`EventQueue::read`を呼ぶだけである。置き場所（`shell-native`のフィーチャーか、Androidのためのクレートか）と、定期の仕事（索引のコミット、書き出し、スキャン）を誰が回すかは、ADR 030で決める
+    - [ ] `Host`を実装する。`call`は`EmbeddedJournal::call`、`events`は`EventQueue::read`を呼ぶだけである。置き場所は、Androidのためのクレートである（2026-11-11にユーザーが決めた）。`shell-native`には足さない
+      - 定期の仕事は、最初の版では誰も回さない（2026-11-11にユーザーが決めた。ADR 030に書く）。Kotlinが、Dropboxからのダウンロードのあとに`sync()`を1回呼ぶ。Rustは、その場でフォルダーをスキャンし、索引を確定して戻る。書き出しの待ち行列は回さない。最初の版はページを変えないためである
+      - 理由: ファイルが変わる時を知っているのはKotlinである。Androidは裏に回ったアプリのスレッドを止めるので、Rustの中のタイマーは当てにできない。裏での同期が要るなら、WorkManagerがKotlinから`sync()`を呼ぶ
+      - 編集を入れる次の版で、索引のコミットと書き出しを回すスレッドをどこに置くかを決める
   - [ ] 構成図（`docs/frontend-architecture.svg`）に、`journal-core`とembed版を描き足す
 - [ ] Androidのシェルを作る。最初の版は、Dropboxからの取り込み、検索、ページの表示までである。編集とアップロードは、次の版にする
   - ファイルは、Dropbox SDKでAPIを通して取る。Dropbox SDKは、PCのDropboxアプリの役をする。アプリ内のフォルダーとDropboxの間で、ファイルを運ぶだけである
   - Android SDK、AVD、Gradleのキャッシュは、`D:\Android`にある（2026-11-11に移した）。元の場所には、ジャンクションを残してある
   - [ ] 捨てるブランチで確かめる
     - [x] `journal-core`に当たる依存が、Android（`arm64`）向けにビルドできるか。`rquickjs`のほかは通った。tantivyとlinderaを入れたライブラリは53.0MBだった（2026-11-11）
-    - [ ] 端末かエミュレーターで、SQLite、tantivy、辞書が動くか。メモリーが足りるか
-    - [ ] Kotlinの型が、今の型で生成でき、コンパイルが通るか。`facet_generate`の0.19.1と0.22.3を試す
-    - [ ] `boltffi pack android`が、`arm64-v8a`と`x86_64`でビルドできるか。エミュレーターなしのJVMのテストが動くか
+    - 確かめに使ったコードは、ワークツリー`.claude/worktrees/spike-android-checks`にある（コミットしていない）。`frontend-rust/crates/shell-android`は、`Host`のクレートの下書きになる
+    - [x] 端末かエミュレーターで、SQLite、tantivy、辞書が動くか。メモリーが足りるか。エミュレーター（`x86_64`、Android 15、メモリー2GB）で動いた（2026-11-11）
+      - 2000ページ（項目は6000個）で、組み立ては1.4秒、書き込みは24秒、検索は4〜17msだった。メモリーの最大は37MB、DBは3.8MB、索引は632KBだった
+      - アプリの中では、コアを開くのに352ms、1ファイルの`sync()`に495msかかった。ネイティブのヒープは約20MBだった
+      - `docs`、`journals`、`assets`のフォルダーを作る`ensure_sub_dirs`は、サーバーのクレートにある。Androidのクレートからは呼べない
+    - [x] Kotlinの型が、今の型で生成でき、コンパイルが通るか。`facet_generate`の0.19.1と0.22.3を試す。0.22.3を使う（2026-11-11）
+      - 0.19.1（Cruxが連れてくる版）は、生成できるがコンパイルが通らない。`PropertyValue`の変種`List`が、Kotlinの`List`を隠す。C#のときと同じ種類の不具合である
+      - 0.22.3は、`index`という名前のフィールドを拒む。生成するコードの中の変数と重なるためである。`Event::SearchResultClicked`、`view.rs`の3つの型の、4つが当たる
+      - `#[facet(rename = "...")]`で名前を付け替えると、65個の型が生成でき、コンパイルが通った。バイトの並びは変わらない。ただし、SwiftとC#の型でも名前が変わる。Rustのフィールドの名前を変えるか、`rename`を付けるかを、ADR 030で決める
+    - [x] `boltffi pack android`が、`arm64-v8a`と`x86_64`でビルドできるか。エミュレーターなしのJVMのテストが動くか。ビルドできた。JVMのテストは、手でリンクすれば動く（2026-11-11）
+      - `crate-type`に`staticlib`が要る。`.so`は69MB、記号を外すと61MBである。`x86_64`だけを入れたデバッグ版のAPKは74MBだった
+      - 生成されたKotlin（34KB）はコンパイルが通り、エミュレーターの上のアプリから、取り込み、日本語の検索、ビューモデルの復元ができた
+      - エミュレーターなしのJVM向けの`desktop_pack`は、Windowsでは通らない。BoltFFI 0.32.1が`rust-lld.exe`をCのコンパイラーとして使う。それを外しても、静的ライブラリのリンクが記号の重複（`LNK2005`）で止まる
+      - 回避: PC向けの`cdylib`をビルドし、`jni_glue.c`を`cl`でそのインポートライブラリにリンクする。この形で、PCのJVMから同じ確かめが通った。`jni.h`のあるJDKと、Visual Studioの開発者シェルが要る
+      - Android Gradle Plugin 9.5.1は、Gradle 9.6.0以上を求める。Composeの今の版（BOM 2026.09.00）は、`compileSdk` 37を求める。手元のSDKは36までである
     - [ ] Dropbox SDKで、PKCEの認証、再帰の一覧、ダウンロードが通るか。Dropboxのアプリの登録は、ユーザーが行う
-    - [ ] Composeの`AnnotatedString.fromHtml`が、`ast_to_html`のHTMLをどこまで描けるか
+    - [x] Composeの`AnnotatedString.fromHtml`が、`ast_to_html`のHTMLをどこまで描けるか。文字の飾りとリンクまでである（2026-11-11、Compose BOM 2025.10.00）
+      - 描けるもの: 太字、斜体、取り消し線、見出し、上付きと下付き、リンク
+      - リンクは、ウィキリンクもハッシュタグも`LinkAnnotation.Url`になる。`data-wikilink`と`class="hashtag"`は消える。見分ける手がかりは`href`だけである
+      - 描けないもの: インラインのコード（飾りなし）、引用（飾りなし）、ハイライト（飾りなし）、コードブロック（改行が消える）、表（セルの文字がつながる）、画像（置き換え文字1つになる）
+      - コードブロック、表、画像を描くには、`fromHtml`だけでは足りない。最初の版でどこまで描くかと、ASTから直接描くかを、ADR 030で決める
   - [ ] ADR 030を書く。Dropbox SDKでの同期、端末でのDBとフォルダーの置き場所、定期の仕事を誰が回すか、Kotlinの型、HTMLの描き方を決める
   - [ ] `frontend-android`を作る
   - [ ] Androidでページを作れるようにするときに、拡張関数を入れるかを見直す（ADR 029のAlternative 7）。`rquickjs`の`bindgen`には、LLVMが要る
