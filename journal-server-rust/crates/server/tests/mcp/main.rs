@@ -619,6 +619,39 @@ async fn page_names_and_item_text_are_searched() {
     );
 }
 
+// 検索の結果は、maxResultsの数までである。0のときは、既定の数になる。
+#[tokio::test]
+async fn a_search_gives_at_most_max_results_and_the_default_number_for_zero() {
+    let mcp = connect().await;
+    let page = new_doc_page("McpSearchLimit").await;
+    let word = format!("ibex{}", nanos());
+    fill(
+        &page.id,
+        &[&format!("one {word}"), &format!("another {word}")],
+    )
+    .await;
+
+    let one = call(
+        &mcp,
+        "search_combined",
+        json!({ "query": word, "maxResults": 1 }),
+    )
+    .await;
+    let by_default = call(
+        &mcp,
+        "search_combined",
+        json!({ "query": word, "maxResults": 0 }),
+    )
+    .await;
+
+    assert_eq!(one["results"].as_array().unwrap().len(), 1, "{one}");
+    assert_eq!(
+        by_default["results"].as_array().unwrap().len(),
+        2,
+        "{by_default}"
+    );
+}
+
 // ---- Config ----
 
 // 設定は読み書きできる。
