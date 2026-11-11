@@ -14,6 +14,8 @@ public final class Sticky: Identifiable {
     public fileprivate(set) var rolledUp = false
     /// The height of the window before it was rolled up.
     fileprivate var fullHeight: CGFloat = 0
+    /// The window is the one that is worked in.
+    fileprivate var hasFocus = false
     fileprivate var hears: Set<AnyCancellable> = []
 
     fileprivate init(id: String, window: NSWindow, shell: Shell, look: StickyLook) {
@@ -158,7 +160,8 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
             }
             .store(in: &sticky.hears)
         window.makeKeyAndOrderFront(nil)
-        buttons.isHidden = !window.isKeyWindow
+        sticky.hasFocus = window.isKeyWindow
+        showTools(of: sticky)
         return sticky
     }
 
@@ -199,6 +202,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         }
         window.setFrame(
             NSRect(x: frame.minX, y: frame.maxY - height, width: frame.width, height: height), display: true)
+        showTools(of: sticky)
         keep(sticky)
     }
 
@@ -227,20 +231,27 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         sticky(of: notification).map { keep($0) }
     }
 
-    /// The tools are for the sticky that is worked on. On the others they are only in the way
-    /// of the paper.
     public func windowDidBecomeKey(_ notification: Notification) {
-        showTools(true, of: notification)
+        focus(true, of: notification)
     }
 
     public func windowDidResignKey(_ notification: Notification) {
-        showTools(false, of: notification)
+        focus(false, of: notification)
     }
 
-    private func showTools(_ shown: Bool, of notification: Notification) {
+    private func focus(_ has: Bool, of notification: Notification) {
+        guard let sticky = sticky(of: notification) else { return }
+        sticky.hasFocus = has
+        showTools(of: sticky)
+    }
+
+    /// The tools are for the sticky that is worked on. On the others they are only in the way
+    /// of the paper, and a sticky that is rolled up has no paper to work on.
+    private func showTools(of sticky: Sticky) {
+        let shown = sticky.hasFocus && !sticky.rolledUp
         // The view, not its controller: hiding the controller leaves the view on screen
         // until the title bar is laid out again
-        sticky(of: notification)?.window.titlebarAccessoryViewControllers.forEach { $0.view.isHidden = !shown }
+        sticky.window.titlebarAccessoryViewControllers.forEach { $0.view.isHidden = !shown }
     }
 
     /// The app is ending. The windows that macOS closes from here on were not closed by the
