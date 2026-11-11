@@ -49,11 +49,15 @@ internal sealed class StickyDesk
             store?.Put(sticky);
     }
 
-    /// <summary>A sticky that the user closed does not come back.</summary>
-    public void Closed(StickyWindow closed)
+    /// <summary>
+    /// A sticky that the user closed with the button of its title bar does not come back.
+    /// A window that was closed in any other way was not put away by the user: Alt+F4,
+    /// the taskbar, or Windows that ends the session.
+    /// </summary>
+    public void Closed(StickyWindow closed, bool byButton)
     {
         stickies.Remove(closed);
-        if (!ending)
+        if (byButton && !ending)
             store?.Remove(closed.Id);
     }
 

@@ -11,15 +11,21 @@ public sealed class StickyLook
     private bool searching;
 
     /// <summary>
-    /// The colors the menu of a sticky offers. They are those of the stickies app for Windows.
+    /// The colors the menu of a sticky offers. They are the colors of the cards of Petasti
+    /// (sosuisen/petasti, <c>cardColors</c>), without its transparent one: a sticky is a paper
+    /// here. The SwiftUI shell offers the same.
     /// </summary>
     public static IReadOnlyList<(string Name, string Hex)> Colors { get; } =
     [
         ("Yellow", StickySettings.Yellow),
-        ("Pink", "#FFD1DC"),
-        ("Green", "#D0F0C0"),
-        ("Blue", "#D0E8FF"),
+        ("Red", "#FFCAC4"),
+        ("Green", "#EDFFC4"),
+        ("Blue", "#D1E1FF"),
+        ("Orange", "#FFDD9E"),
+        ("Purple", "#F8D0FF"),
         ("White", "#FFFFFF"),
+        ("Gray", "#E0E0E0"),
+        ("Light Gray", "#F8F8F8"),
     ];
 
     public StickyLook(

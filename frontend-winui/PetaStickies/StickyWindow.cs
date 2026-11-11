@@ -79,6 +79,9 @@ internal sealed class StickyWindow : Window
     private bool hasFocus;
     private bool closed;
 
+    /// <summary>The user is closing the window with the button of its title bar.</summary>
+    private bool closedByButton;
+
     /// <summary>The height of the window before it was rolled up, in pixels.</summary>
     private int fullHeight;
 
@@ -205,7 +208,7 @@ internal sealed class StickyWindow : Window
             closed = true;
             Native.RemoveWindowSubclass(handle, hears, 1);
             Shell.Dispose();
-            desk.Closed(this);
+            desk.Closed(this, closedByButton);
         };
         Name();
         Draw();
@@ -239,11 +242,11 @@ internal sealed class StickyWindow : Window
         var grip = new Border { Background = Clear, Child = name };
         bar.Children.Add(grip);
         SetTitleBar(grip);
-        tools.Children.Add(Tool("", "Search pages (Ctrl+F)", ToggleSearch));
+        tools.Children.Add(Tool("\uE721", "Search pages (Ctrl+F)", ToggleSearch));
         var pinned = Tool("", "Keep on top of other windows", TogglePin);
         pinned.Content = pin;
         tools.Children.Add(pinned);
-        var colors = Tool("", "Color", () => { });
+        var colors = Tool("\uE790", "Color", () => { });
         var menu = new MenuFlyout();
         foreach (var (title, hex) in StickyLook.Colors)
         {
@@ -253,7 +256,7 @@ internal sealed class StickyWindow : Window
         }
         colors.Flyout = menu;
         tools.Children.Add(colors);
-        tools.Children.Add(Tool("", "New sticky (Ctrl+N)", () => desk.Add()));
+        tools.Children.Add(Tool("\uE710", "New sticky (Ctrl+N)", () => desk.Add()));
         Grid.SetColumn(tools, 1);
         bar.Children.Add(tools);
 
@@ -366,7 +369,7 @@ internal sealed class StickyWindow : Window
     {
         var (red, green, blue) = StickyLook.Rgb(Look.Color);
         root.Background = new SolidColorBrush(Color.FromArgb(255, red, green, blue));
-        pin.Glyph = Look.AlwaysOnTop ? "" : "";
+        pin.Glyph = Look.AlwaysOnTop ? "\uE841" : "\uE718";
         var bar = AppWindow.TitleBar;
         bar.ButtonBackgroundColor = Colors.Transparent;
         bar.ButtonInactiveBackgroundColor = Colors.Transparent;
@@ -684,11 +687,14 @@ internal sealed class StickyWindow : Window
         hand(text);
     }
 
-    private static void Copy(string text)
+    private static void Copy(string text, string? html)
     {
         var content = new DataPackage();
         // The other apps of Windows expect its line breaks
         content.SetText(text.Replace("\r\n", "\n").Replace("\n", "\r\n"));
+        // An app that takes rich text reads this, and keeps lists, bold and links
+        if (html is not null)
+            content.SetHtmlFormat(HtmlFormatHelper.CreateHtmlFormat(html));
         try
         {
             Clipboard.SetContent(content);
@@ -839,6 +845,12 @@ internal sealed class StickyWindow : Window
             case Native.WmNcLeftButtonDoubleClick when wParam == Native.HitCaption:
                 Roll();
                 return IntPtr.Zero;
+            // The button of the title bar comes with the place of the mouse. Alt+F4, the
+            // taskbar and the end of the session come without one, and keep the sticky
+            case Native.WmSysCommand
+                when (wParam.ToInt64() & 0xFFF0) == Native.SysClose && lParam != IntPtr.Zero:
+                closedByButton = true;
+                return Native.DefSubclassProc(window, message, wParam, lParam);
             case Native.WmGetMinMaxInfo:
             {
                 var result = Native.DefSubclassProc(window, message, wParam, lParam);

@@ -11,8 +11,14 @@ public sealed partial class Shell : IDisposable
     private readonly Border border;
     private readonly Action<Action> onMainThread;
     private readonly Action<Action<string?>> clipboard;
-    private readonly Action<string> copy;
+    private readonly Action<string, string?> copy;
     private readonly Action<Uri> browse;
+
+    /// <summary>
+    /// The address of the journal server. It serves the web frontend too, so a link that
+    /// another app is to open starts with it.
+    /// </summary>
+    private readonly string server;
 
     /// <summary>The questions that wait behind the one on screen.</summary>
     private readonly Queue<Question> later = new();
@@ -34,14 +40,16 @@ public sealed partial class Shell : IDisposable
     /// Reads the text on the clipboard when the core asks for it, and hands it over on the
     /// main thread. No text is <c>null</c>.
     /// </param>
-    /// <param name="copy">Puts text on the clipboard.</param>
+    /// <param name="copy">
+    /// Puts text on the clipboard, with the same as HTML when there is any.
+    /// </param>
     /// <param name="browse">Opens an address outside the journal.</param>
     public Shell(
         string server,
         string? url,
         Action<Action> onMainThread,
         Action<Action<string?>> clipboard,
-        Action<string> copy,
+        Action<string, string?> copy,
         Action<Uri> browse
     )
     {
@@ -53,6 +61,7 @@ public sealed partial class Shell : IDisposable
         this.clipboard = clipboard;
         this.copy = copy;
         this.browse = browse;
+        this.server = server;
         // The main thread keeps the requests in order. The first ones may come before the
         // border is there, and are still handled after this constructor
         border = new Border(server, requests => onMainThread(() => Handle(requests)));
@@ -102,23 +111,30 @@ public sealed partial class Shell : IDisposable
     }
 
     /// <summary>
-    /// The user clicked a link of a shown item. A wikilink and a hashtag open their page here,
-    /// as in the web frontend; any other link opens in the browser.
+    /// The user clicked a link of a shown item. Every link opens in the browser: a wikilink
+    /// and a hashtag open their page in the web frontend, which the journal server serves.
+    /// The sticky keeps its page.
     /// </summary>
     public void Follow(LinkTarget link)
     {
         switch (link)
         {
             case LinkTarget.Page page:
-                Open($"/pages/{page.Path}");
+                Browse(PetaCore.PetaNative.WikilinkUrl(server, page.Path));
                 break;
             case LinkTarget.Tag tag:
-                Open($"/pages/{View.Config.TagsDir}{tag.Name}");
+                Browse(PetaCore.PetaNative.HashtagUrl(server, View.Config.TagsDir, tag.Name));
                 break;
             case LinkTarget.Out outside:
                 browse(outside.Address);
                 break;
         }
+    }
+
+    private void Browse(string address)
+    {
+        if (Uri.TryCreate(address, UriKind.Absolute, out var there))
+            browse(there);
     }
 
     /// <summary>
@@ -276,12 +292,14 @@ public sealed partial class Shell : IDisposable
                 Ask(new Question(id, message, QuestionKind.Prompt));
                 break;
             case UiOp.CopyText { Value: var text }:
-                copy(text);
+                copy(text, null);
                 break;
-            // Markdown goes as plain text. Its AST comes with it, for a shell that also puts
-            // HTML on the clipboard (ADR 027): no rich text is made here
-            case UiOp.CopyMarkdown { Markdown: var markdown }:
-                copy(markdown);
+            case UiOp.CopyMarkdown { Markdown: var markdown, Ast: var ast }:
+                // The HTML is for other apps (ADR 027). Its links to pages open the web
+                // frontend, as those of a copy made there: this app has no address that
+                // another app opens
+                var html = PetaCore.PetaNative.CopiedHtml(ast, server, View.Config.TagsDir);
+                copy(markdown, html.Length == 0 ? null : html);
                 break;
             case UiOp.ReadClipboardText:
                 clipboard(text =>

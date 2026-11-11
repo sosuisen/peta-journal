@@ -11,6 +11,8 @@ internal static class Native
 {
     public const uint WmGetMinMaxInfo = 0x0024;
     public const uint WmNcLeftButtonDoubleClick = 0x00A3;
+    public const uint WmSysCommand = 0x0112;
+    public const long SysClose = 0xF060;
     public const int HitCaption = 2;
 
     public delegate IntPtr SubclassProc(
