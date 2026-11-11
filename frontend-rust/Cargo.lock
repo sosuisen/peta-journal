@@ -2117,6 +2117,7 @@ dependencies = [
  "flatmarkdown",
  "flatmarkdown-ast",
  "flatmarkdown-ast2html",
+ "percent-encoding",
  "peta-core",
  "peta-server-client",
  "serde",
