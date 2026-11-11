@@ -34,6 +34,7 @@ impl Journal {
     ) -> AppResult<SearchAnswer> {
         let max_results = max_results.unwrap_or(DEFAULT_MAX_RESULTS);
         let results = self
+            .services
             .combined_search
             .search_page_names_internal(query, max_results)?;
         Ok(SearchAnswer::of(&results))
@@ -46,7 +47,7 @@ impl Journal {
         max_results: Option<usize>,
     ) -> AppResult<SearchAnswer> {
         let max_results = max_results.unwrap_or(DEFAULT_MAX_RESULTS);
-        let results = self.combined_search.search(query, max_results)?;
+        let results = self.services.combined_search.search(query, max_results)?;
         Ok(SearchAnswer::of(&results))
     }
 
@@ -54,9 +55,10 @@ impl Journal {
     pub fn search_by_tag(&self, tag: &str, max_results: Option<usize>) -> AppResult<SearchAnswer> {
         let max_results = max_results.unwrap_or(DEFAULT_MAX_RESULTS);
         let ids = self
+            .services
             .properties
             .find_item_ids_by_tag_value_ignoring_case(tag, max_results as i64)?;
-        let results = self.combined_search.results_for_items(&ids)?;
+        let results = self.services.combined_search.results_for_items(&ids)?;
         Ok(SearchAnswer::of(&results))
     }
 }

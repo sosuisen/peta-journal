@@ -13,6 +13,7 @@ use journal_core::application::atlas_service::AtlasEvents;
 use journal_core::application::confirm_service::ConfirmEvents;
 use journal_core::application::extension_service::ExtensionEvents;
 use journal_core::infrastructure::export::import_service::ImportEvents;
+use journal_core::journal::{ChangedBy, JournalEvents};
 
 use crate::presentation::client_id::ClientId;
 
@@ -83,6 +84,16 @@ impl ExtensionEvents for SseBroadcaster {
 impl ImportEvents for SseBroadcaster {
     fn page_changed(&self, page_id: &hmtid::Hmtid) {
         self.broadcast_pages_updated_from(page_id.as_str(), "file");
+    }
+}
+
+/// A change made through the journal (ADR 029), by a client or by an MCP tool.
+impl JournalEvents for SseBroadcaster {
+    fn page_changed(&self, page_id: &hmtid::Hmtid, by: &ChangedBy) {
+        match by {
+            ChangedBy::Client(client) => self.broadcast_pages_updated(client, page_id.as_str()),
+            ChangedBy::Mcp => self.broadcast_pages_updated_from(page_id.as_str(), "mcp"),
+        }
     }
 }
 

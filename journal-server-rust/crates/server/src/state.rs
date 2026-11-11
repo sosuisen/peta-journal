@@ -36,7 +36,7 @@ use journal_core::infrastructure::persistence::{
     Db, ItemRepository, PageRepository, PropertyRepository,
 };
 use journal_core::infrastructure::search::{TantivySearchService, COMMIT_INTERVAL};
-use journal_core::journal::Journal;
+use journal_core::journal::{Journal, JournalServices};
 
 pub struct AppState {
     pub settings: Settings,
@@ -151,7 +151,6 @@ impl AppState {
             properties.clone(),
             items.clone(),
         ));
-        let journal = Arc::new(Journal::new(combined_search, properties.clone()));
 
         let page_matcher = PageMatcher::new(
             pages.clone(),
@@ -214,6 +213,18 @@ impl AppState {
             Arc::new(sse.clone()),
         ));
         let dtos = ItemDtoAssembler::new(properties.clone(), items.clone());
+        let journal = Arc::new(Journal::new(
+            JournalServices {
+                combined_search,
+                page_service: Arc::clone(&page_service),
+                item_service: Arc::clone(&item_service),
+                extensions: Arc::clone(&extensions),
+                pages: pages.clone(),
+                properties: properties.clone(),
+                dtos: dtos.clone(),
+            },
+            Arc::new(sse.clone()),
+        ));
 
         // Startup steps, in the order of the Java server
         if options.interactive {

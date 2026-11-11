@@ -16,16 +16,22 @@ use crate::error::{parse_id, AppError, AppResult};
 use crate::state::{blocking, SharedState};
 use journal_core::application::item_service::MoveRequest;
 use journal_core::domain::journal_name::JournalName;
-use journal_core::domain::model::{BacklinkEntry, Item, ItemPosition, Page};
-use journal_core::dto::{ItemDto, ItemFields};
+use journal_core::domain::model::{Item, ItemPosition, Page};
+use journal_core::dto::{item_dto, page_dto, BacklinkEntryDto, ItemDto, ItemFields, PageDto};
 use journal_core::infrastructure::export::export_service::format_instant;
+use journal_core::journal::ChangedBy;
 
 // ---- JSON of the domain records, the way the Java server's Jackson wrote them ----
 
-fn page_json(p: &Page) -> Value {
+// These tools have always written a page and an item as such a record: the dates as text, no
+// properties. The answers of the journal (ADR 029) carry the same values in the shape of the
+// REST API, so a record is written from that shape.
+
+fn page_record_json(p: &PageDto) -> Value {
     json!({
-        "id": p.id.to_string(),
-        "parentId": p.parent_id.as_ref().map(|x| x.to_string()),
+        "id": p.id,
+        // The REST shape has an empty text for no parent
+        "parentId": Some(&p.parent_id).filter(|id| !id.is_empty()),
         "dirPath": p.dir_path,
         "name": p.name,
         "type": p.page_type,
@@ -34,11 +40,11 @@ fn page_json(p: &Page) -> Value {
     })
 }
 
-fn item_json(i: &Item) -> Value {
+fn item_record_json(i: &ItemDto) -> Value {
     json!({
-        "id": i.id.to_string(),
-        "pageId": i.page_id.to_string(),
-        "parentItemId": i.parent_item_id.as_ref().map(|x| x.to_string()),
+        "id": i.id,
+        "pageId": i.page_id,
+        "parentItemId": i.parent_item_id,
         "dirPath": i.dir_path,
         "name": i.name,
         "type": i.item_type,
@@ -50,8 +56,20 @@ fn item_json(i: &Item) -> Value {
         "ast": i.ast,
         "collapsed": i.collapsed,
         "types": i.types,
-        "transcludeItemId": i.transclude_item_id.as_ref().map(|x| x.to_string()),
+        "transcludeItemId": i.transclude_item_id,
     })
+}
+
+fn item_records_json(items: &[ItemDto]) -> Value {
+    Value::Array(items.iter().map(item_record_json).collect())
+}
+
+fn page_json(p: &Page) -> Value {
+    page_record_json(&page_dto(p))
+}
+
+fn item_json(i: &Item) -> Value {
+    item_record_json(&item_dto(i, None, None))
 }
 
 fn items_json(items: &[Item]) -> Value {
@@ -63,10 +81,10 @@ fn answer_json(answer: &impl serde::Serialize) -> Value {
     serde_json::to_value(answer).expect("an answer of the journal is plain data")
 }
 
-fn backlink_json(e: &BacklinkEntry) -> Value {
+fn backlink_json(e: &BacklinkEntryDto) -> Value {
     json!({
-        "sourcePage": page_json(&e.source_page),
-        "sourceItem": e.source_item.as_ref().map(item_json),
+        "sourcePage": page_record_json(&e.source_page),
+        "sourceItem": e.source_item.as_ref().map(item_record_json),
     })
 }
 
@@ -608,14 +626,8 @@ impl JournalMcp {
         Parameters(a): Parameters<PageIdArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let page_id = id(&a.page_id)?;
-        let (page, items) = run(move || {
-            let page = state.page_service.require_page(&page_id)?;
-            let items = state.page_service.get_page_items(&page.id)?;
-            Ok((page, items))
-        })
-        .await?;
-        ok(json!({ "page": page_json(&page), "items": items_json(&items) }))
+        let r = run(move || state.journal.get_page(&a.page_id)).await?;
+        ok(json!({ "page": page_record_json(&r.page), "items": item_records_json(&r.items) }))
     }
 
     #[tool(
@@ -627,18 +639,16 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || {
-            let mut r = state
-                .page_service
-                .get_or_create_doc(Some(&a.title), Some(&a.dir_path))?;
-            if r.created {
-                r.items = state.extensions.page_created(&r.page)?;
-            }
-            Ok(r)
+            state
+                .journal
+                .get_or_create_doc(Some(&a.title), Some(&a.dir_path))
         })
         .await?;
-        ok(
-            json!({ "page": page_json(&r.page), "items": items_json(&r.items), "created": r.created }),
-        )
+        ok(json!({
+            "page": page_record_json(&r.page),
+            "items": item_records_json(&r.items),
+            "created": r.created,
+        }))
     }
 
     #[tool(
@@ -660,22 +670,19 @@ impl JournalMcp {
         Parameters(a): Parameters<UpdatePageArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let page_id = id(&a.page_id)?;
+        // An empty title keeps the current one, as no title does
         let title = a.title.filter(|t| !t.is_empty());
-        let page = run(move || {
-            let (page, changed) = state.item_service.update_page(
-                &page_id,
+        let r = run(move || {
+            state.journal.update_page(
+                &a.page_id,
                 title.as_deref(),
                 a.dir_path.as_deref(),
                 a.overwrite,
-            )?;
-            tell(&state, page_id.as_str());
-            // The pages whose tags the rename of a tag page rewrote
-            tell_all(&state, changed.iter().map(|id| id.as_str()));
-            Ok(page)
+                &ChangedBy::Mcp,
+            )
         })
         .await?;
-        ok(json!({ "page": page_json(&page) }))
+        ok(json!({ "page": page_record_json(&r.page) }))
     }
 
     #[tool(description = "Delete a page and all its items")]
@@ -684,13 +691,7 @@ impl JournalMcp {
         Parameters(a): Parameters<PageIdArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let page_id = id(&a.page_id)?;
-        run(move || {
-            state.page_service.delete_page(&page_id)?;
-            tell(&state, page_id.as_str());
-            Ok(())
-        })
-        .await?;
+        run(move || state.journal.delete_page(&a.page_id, &ChangedBy::Mcp)).await?;
         ok(json!({ "deleted": true }))
     }
 
@@ -763,9 +764,8 @@ impl JournalMcp {
         Parameters(a): Parameters<PageIdArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let page_id = id(&a.page_id)?;
-        let entries = run(move || state.page_service.get_backlinks(&page_id)).await?;
-        ok(json!({ "entries": entries.iter().map(backlink_json).collect::<Vec<_>>() }))
+        let r = run(move || state.journal.backlinks(&a.page_id)).await?;
+        ok(json!({ "entries": r.entries.iter().map(backlink_json).collect::<Vec<_>>() }))
     }
 
     // ---- journals ----
@@ -820,19 +820,13 @@ impl JournalMcp {
         Parameters(a): Parameters<RecentPagesArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let max = if a.max_results > 0 { a.max_results } else { 10 };
-        let page_type = if a.page_type.is_empty() {
-            None
-        } else {
-            Some(a.page_type)
-        };
-        let pages = run(move || {
+        let r = run(move || {
             state
-                .page_service
-                .get_recent_pages(max, page_type.as_deref())
+                .journal
+                .recent_pages(Some(a.max_results), Some(&a.page_type))
         })
         .await?;
-        ok(json!({ "pages": pages.iter().map(page_json).collect::<Vec<_>>() }))
+        ok(json!({ "pages": r.pages.iter().map(page_record_json).collect::<Vec<_>>() }))
     }
 }
 

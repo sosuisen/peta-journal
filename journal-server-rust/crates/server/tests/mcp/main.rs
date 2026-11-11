@@ -539,6 +539,7 @@ async fn the_most_recently_touched_page_comes_first_among_recent_pages() {
 
     // Other tests create pages at the same time, so only the relative order is checked
     let ids = field_of_each(&docs, "pages", "id");
+    assert!(ids.len() >= 12, "more than the default: {}", ids.len());
     let pos = |id: &str| ids.iter().position(|v| v == &json!(id));
     assert!(pos(&newer.id).unwrap() < pos(&older.id).unwrap(), "{ids:?}");
     assert!(field_of_each(&docs, "pages", "type")
