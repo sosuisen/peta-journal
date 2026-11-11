@@ -763,6 +763,38 @@ async fn tasks_can_be_listed_by_type() {
     assert!(ids.contains(&json!(item.id)));
 }
 
+// 型を指定しない一覧は、空である。
+#[tokio::test]
+async fn items_listed_without_a_type_are_none() {
+    let page = new_doc_page("items-no-type-list").await;
+    fill(&page.id, &["an item"]).await;
+
+    let (status, resp) = get("/api/items").await;
+
+    assert_eq!(status, 200);
+    assert_eq!(resp["items"], json!([]));
+}
+
+// ページのIDがない作成は断られる。
+#[tokio::test]
+async fn an_item_without_a_page_id_is_refused() {
+    let (status, resp) = post(
+        "/api/items",
+        json!({ "position": "last", "level": 1, "body": "nowhere" }),
+    )
+    .await;
+
+    assert_eq!(status, 400, "{resp}");
+}
+
+// 項目のIDの並びがない削除は断られる。
+#[tokio::test]
+async fn a_deletion_without_item_ids_is_refused() {
+    let (status, resp) = post("/api/items/delete", json!({})).await;
+
+    assert_eq!(status, 400, "{resp}");
+}
+
 // 型での一覧は、指定したプロパティを持つ項目を除ける。終わったタスク（end）を除いた一覧に使う。
 #[tokio::test]
 async fn items_listed_by_type_can_leave_out_those_with_a_property() {
