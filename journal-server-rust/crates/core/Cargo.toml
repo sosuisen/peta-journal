@@ -5,13 +5,19 @@ edition.workspace = true
 license.workspace = true
 description = "PetaJournal journal core: the pages and items in SQLite, their markdown folder, and the search, without a server around them (ADR 029)"
 
+[features]
+default = ["extensions"]
+# Runs the scripts of the extension functions with QuickJS (ADR 009). A build without it has
+# the same API and runs no script. rquickjs has no ready bindings for Android (ADR 029).
+extensions = ["dep:rquickjs"]
+
 [dependencies]
 hmtid = { path = "../hmtid" }
 peta-atlas = { path = "../../../atlas-rust" }
 flatmarkdown = "=0.7.0"
 
 # Extension functions
-rquickjs = "0.14.0"
+rquickjs = { version = "0.14.0", optional = true }
 
 # Data
 rusqlite = { version = "0.37", features = ["bundled"] }

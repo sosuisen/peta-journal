@@ -1,0 +1,694 @@
+//! Runs the `main.js` of an extension function with QuickJS (see ADR 009).
+//!
+//! The script never touches the database. What it asks for is collected as requests, and the
+//! caller writes them after the script has ended. So a failed script leaves nothing behind.
+
+use std::cell::RefCell;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
+
+use anyhow::{anyhow, Context as _};
+use rquickjs::{CatchResultExt, Context, Ctx, Function, Object, Runtime, Value};
+use serde::{Deserialize, Serialize};
+
+use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
+use crate::domain::id_generator::IdGenerator;
+use crate::domain::model::ItemPosition;
+
+use super::{Confirmer, ExtensionEvent, ExtensionLimits, ItemRequest, PageInfo};
+
+const MAIN_FILE: &str = "main.js";
+
+fn page_of(event: &ExtensionEvent) -> &PageInfo {
+    match event {
+        ExtensionEvent::PageCreate(page) | ExtensionEvent::PageTagAdd(page, _) => page,
+    }
+}
+
+/// A page create holds up the opening of the page, so its script may not wait for the user.
+fn may_ask_user(event: &ExtensionEvent) -> bool {
+    matches!(event, ExtensionEvent::PageTagAdd(..))
+}
+
+/// The name of the global function that answers the event.
+fn handler_name(event: &ExtensionEvent) -> &'static str {
+    match event {
+        ExtensionEvent::PageCreate(_) => "onPageCreate",
+        ExtensionEvent::PageTagAdd(..) => "onPageTagAdd",
+    }
+}
+
+fn call<'js>(
+    event: &ExtensionEvent,
+    ctx: &Ctx<'js>,
+    handler: &Function<'js>,
+) -> anyhow::Result<()> {
+    let page = to_js(ctx, page_of(event))?;
+    let result = match event {
+        ExtensionEvent::PageCreate(_) => handler.call::<_, ()>((page,)),
+        ExtensionEvent::PageTagAdd(_, tags) => handler.call::<_, ()>((page, to_js(ctx, tags)?)),
+    };
+    js(ctx, result)
+}
+
+/// An item of Flat Markdown, as `parseItems` gives it to the script.
+#[derive(Serialize)]
+struct ParsedItem {
+    level: i32,
+    body: String,
+    transclude: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct CreateItemArgs {
+    position: String,
+    level: i32,
+    body: String,
+    #[serde(default)]
+    transclude: Option<String>,
+}
+
+/// Runs extension scripts. Each run gets a new QuickJS runtime, so extensions share nothing.
+pub struct ExtensionRuntime {
+    splitter: Arc<FlatMarkdownSplitter>,
+    ids: Arc<IdGenerator>,
+    limits: ExtensionLimits,
+    confirmer: Option<Arc<dyn Confirmer>>,
+}
+
+impl ExtensionRuntime {
+    pub fn new(splitter: Arc<FlatMarkdownSplitter>, ids: Arc<IdGenerator>) -> ExtensionRuntime {
+        ExtensionRuntime {
+            splitter,
+            ids,
+            limits: ExtensionLimits::default(),
+            confirmer: None,
+        }
+    }
+
+    pub fn with_limits(self, limits: ExtensionLimits) -> ExtensionRuntime {
+        ExtensionRuntime { limits, ..self }
+    }
+
+    /// Lets the scripts ask the user through `confirm(message)`.
+    pub fn with_confirmer(self, confirmer: Arc<dyn Confirmer>) -> ExtensionRuntime {
+        ExtensionRuntime {
+            confirmer: Some(confirmer),
+            ..self
+        }
+    }
+
+    /// Runs the `main.js` in `dir` for `event`, and returns the items it asked for.
+    pub fn run(&self, dir: &Path, event: &ExtensionEvent) -> anyhow::Result<Vec<ItemRequest>> {
+        let source = std::fs::read_to_string(dir.join(MAIN_FILE))
+            .with_context(|| format!("cannot read {MAIN_FILE} in {}", dir.display()))?;
+        let runtime = Runtime::new()?;
+        runtime.set_memory_limit(self.limits.memory);
+        let deadline = Arc::new(Mutex::new(Instant::now() + self.limits.time));
+        let until = Arc::clone(&deadline);
+        runtime.set_interrupt_handler(Some(Box::new(move || {
+            Instant::now() > *until.lock().unwrap()
+        })));
+        let context = Context::full(&runtime)?;
+        let requests = Rc::new(RefCell::new(Vec::new()));
+        context.with(|ctx| -> anyhow::Result<()> {
+            self.install_api(&ctx, &requests, event, dir.to_path_buf(), deadline)?;
+            js(&ctx, ctx.eval::<(), _>(source))?;
+            let handler: Value = ctx.globals().get(handler_name(event))?;
+            if let Some(handler) = handler.as_function() {
+                call(event, &ctx, handler)?;
+            }
+            Ok(())
+        })?;
+        Ok(requests.take())
+    }
+
+    /// Puts the `peta` object, the only way out of the script, into its globals.
+    fn install_api<'js>(
+        &self,
+        ctx: &Ctx<'js>,
+        requests: &Rc<RefCell<Vec<ItemRequest>>>,
+        event: &ExtensionEvent,
+        dir: PathBuf,
+        deadline: Arc<Mutex<Instant>>,
+    ) -> anyhow::Result<()> {
+        let peta = Object::new(ctx.clone())?;
+        let page_id = page_of(event).id.clone();
+        peta.set("createItem", self.create_item_fn(ctx, requests, page_id)?)?;
+        peta.set("files", files_fn(ctx, dir.clone())?)?;
+        peta.set("readFile", read_file_fn(ctx, dir)?)?;
+        peta.set("parseItems", self.parse_items_fn(ctx)?)?;
+        if let Some(confirmer) = self.confirmer.as_ref().filter(|_| may_ask_user(event)) {
+            peta.set("confirm", confirm_fn(ctx, Arc::clone(confirmer), deadline)?)?;
+        }
+        ctx.globals().set("peta", peta)?;
+        Ok(())
+    }
+
+    /// `createItem({ position, level, body, transclude })`: records the item and returns its id.
+    fn create_item_fn<'js>(
+        &self,
+        ctx: &Ctx<'js>,
+        requests: &Rc<RefCell<Vec<ItemRequest>>>,
+        page_id: String,
+    ) -> rquickjs::Result<Function<'js>> {
+        let ids = Arc::clone(&self.ids);
+        let requests = Rc::clone(requests);
+        Function::new(
+            ctx.clone(),
+            move |ctx: Ctx<'js>, args: Value<'js>| -> rquickjs::Result<String> {
+                let args: CreateItemArgs = from_js(&ctx, args)?;
+                let position = ItemPosition::parse(&args.position).map_err(|e| thrown(&ctx, e))?;
+                let id = ids.generate_item_id();
+                requests.borrow_mut().push(ItemRequest {
+                    id: id.clone(),
+                    page_id: page_id.clone(),
+                    position,
+                    level: args.level,
+                    body: args.body,
+                    transclude: args.transclude,
+                });
+                Ok(id.to_string())
+            },
+        )
+    }
+
+    /// `parseItems(markdown)`: the items of Flat Markdown, as `[{ level, body, transclude }]`.
+    fn parse_items_fn<'js>(&self, ctx: &Ctx<'js>) -> rquickjs::Result<Function<'js>> {
+        let splitter = Arc::clone(&self.splitter);
+        Function::new(
+            ctx.clone(),
+            move |ctx: Ctx<'js>, markdown: String| -> rquickjs::Result<Value<'js>> {
+                let page = splitter
+                    .split(&markdown.replace("\r\n", "\n"))
+                    .map_err(|e| thrown(&ctx, e))?;
+                let items: Vec<ParsedItem> = page
+                    .items
+                    .into_iter()
+                    .map(|item| ParsedItem {
+                        level: item.level,
+                        transclude: item.properties_map().remove("transclude"),
+                        body: item.body,
+                    })
+                    .collect();
+                to_js(&ctx, &items).map_err(|e| thrown(&ctx, e))
+            },
+        )
+    }
+}
+
+/// `files()`: the names of the files in the extension's folder, sorted.
+fn files_fn<'js>(ctx: &Ctx<'js>, dir: PathBuf) -> rquickjs::Result<Function<'js>> {
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>| -> rquickjs::Result<Vec<String>> {
+            file_names(&dir).map_err(|e| thrown(&ctx, e))
+        },
+    )
+}
+
+/// `readFile(name)`: the text of a file in the extension's folder.
+fn read_file_fn<'js>(ctx: &Ctx<'js>, dir: PathBuf) -> rquickjs::Result<Function<'js>> {
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, name: String| -> rquickjs::Result<String> {
+            read_own_file(&dir, &name).map_err(|e| thrown(&ctx, e))
+        },
+    )
+}
+
+/// `confirm(message)`: asks the user, and returns true for yes. The time limit is for the
+/// script, so the wait for the user moves the `deadline` back.
+fn confirm_fn<'js>(
+    ctx: &Ctx<'js>,
+    confirmer: Arc<dyn Confirmer>,
+    deadline: Arc<Mutex<Instant>>,
+) -> rquickjs::Result<Function<'js>> {
+    Function::new(ctx.clone(), move |message: String| {
+        let asked = Instant::now();
+        let ok = confirmer.confirm(&message);
+        *deadline.lock().unwrap() += asked.elapsed();
+        ok
+    })
+}
+
+/// Throws `error` into the script as an `Error`, which the script may catch.
+fn thrown(ctx: &Ctx<'_>, error: impl std::fmt::Display) -> rquickjs::Error {
+    rquickjs::Exception::throw_message(ctx, &error.to_string())
+}
+
+/// Reads the file `name` directly in `dir`. A name with a folder in it is refused, so an
+/// extension cannot read outside its own folder.
+fn read_own_file(dir: &Path, name: &str) -> anyhow::Result<String> {
+    let mut components = Path::new(name).components();
+    let (Some(std::path::Component::Normal(file)), None) = (components.next(), components.next())
+    else {
+        return Err(anyhow!("not a file name of the extension's folder: {name}"));
+    };
+    Ok(std::fs::read_to_string(dir.join(file))?)
+}
+
+/// The names of the files directly in `dir`, sorted. Folders are left out.
+fn file_names(dir: &Path) -> std::io::Result<Vec<String>> {
+    let mut names = Vec::new();
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        if entry.file_type()?.is_file() {
+            names.push(entry.file_name().to_string_lossy().into_owned());
+        }
+    }
+    names.sort();
+    Ok(names)
+}
+
+/// Turns a JS exception into an error with its message and stack.
+fn js<T>(ctx: &Ctx<'_>, result: rquickjs::Result<T>) -> anyhow::Result<T> {
+    result.catch(ctx).map_err(|e| anyhow!("{e}"))
+}
+
+fn to_js<'js, T: Serialize>(ctx: &Ctx<'js>, value: &T) -> anyhow::Result<Value<'js>> {
+    let json = serde_json::to_string(value)?;
+    js(ctx, ctx.json_parse(json))
+}
+
+fn from_js<'js, T: for<'de> Deserialize<'de>>(
+    ctx: &Ctx<'js>,
+    value: Value<'js>,
+) -> rquickjs::Result<T> {
+    let json = ctx
+        .json_stringify(value)?
+        .map(|s| s.to_string())
+        .transpose()?
+        .unwrap_or_default();
+    serde_json::from_str(&json).map_err(|e| thrown(ctx, e))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+    use std::time::{Duration, Instant};
+
+    use super::super::{Confirmer, ExtensionEvent, ExtensionLimits, ItemRequest, PageInfo};
+    use super::ExtensionRuntime;
+    use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
+    use crate::application::markdown_parser::MarkdownParser;
+    use crate::domain::id_generator::IdGenerator;
+    use crate::domain::model::ItemPosition;
+
+    fn runtime() -> ExtensionRuntime {
+        ExtensionRuntime::new(
+            Arc::new(FlatMarkdownSplitter::new(MarkdownParser)),
+            Arc::new(IdGenerator::new()),
+        )
+    }
+
+    fn function_dir(main_js: &str) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("main.js"), main_js).unwrap();
+        dir
+    }
+
+    fn page() -> PageInfo {
+        PageInfo {
+            id: "page-1".to_string(),
+            file_name: "2026-11-08".to_string(),
+            dir_path: "journals/".to_string(),
+            page_type: "journal".to_string(),
+        }
+    }
+
+    // onPageCreateはページの情報を受け取り、createItemで頼んだ項目が操作として返る。
+    #[test]
+    fn on_page_create_gets_the_page_and_returns_the_items_it_asks_for() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = (page) => {
+                peta.createItem({ position: 'last', level: 1, body: page.fileName + ' ' + page.pageType });
+            };",
+        );
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        assert_eq!(requests.len(), 1);
+        let ItemRequest {
+            page_id,
+            position,
+            level,
+            body,
+            transclude,
+            ..
+        } = &requests[0];
+        assert_eq!(page_id, "page-1");
+        assert_eq!(*position, ItemPosition::Last);
+        assert_eq!(*level, 1);
+        assert_eq!(body, "2026-11-08 journal");
+        assert_eq!(*transclude, None);
+    }
+
+    // createItemは新しい項目のIDを返し、そのIDを次の項目の置き場所に使える。
+    #[test]
+    fn create_item_returns_an_id_that_places_the_next_item() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                const first = peta.createItem({ position: 'last', level: 1, body: 'a' });
+                peta.createItem({ position: 'after:' + first, level: 2, body: 'b' });
+            };",
+        );
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        assert_eq!(requests.len(), 2);
+        assert_eq!(
+            requests[1].position,
+            ItemPosition::After(requests[0].id.clone())
+        );
+        assert_ne!(requests[0].id, requests[1].id);
+    }
+
+    // onPageTagAddが、ページの情報と足されたタグを受け取る。
+    #[test]
+    fn on_page_tag_add_gets_the_page_and_the_added_tags() {
+        let dir = function_dir(
+            "globalThis.onPageTagAdd = (page, tags) => {
+                peta.createItem({ position: 'last', level: 1, body: page.fileName + ': ' + tags.join(',') });
+            };",
+        );
+        let event = ExtensionEvent::PageTagAdd(page(), vec!["book".into(), "idea".into()]);
+
+        let requests = runtime().run(dir.path(), &event).unwrap();
+
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].body, "2026-11-08: book,idea");
+    }
+
+    // ページ作成の拡張は、タグの追加では呼ばれない。
+    #[test]
+    fn on_page_create_is_not_called_for_a_tag_add() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                peta.createItem({ position: 'last', level: 1, body: 'a' });
+            };",
+        );
+        let event = ExtensionEvent::PageTagAdd(page(), vec!["book".into()]);
+
+        let requests = runtime().run(dir.path(), &event).unwrap();
+
+        assert!(requests.is_empty());
+    }
+
+    // 終わらない拡張は、時間の上限で失敗になる。
+    #[test]
+    fn an_extension_that_never_ends_fails_at_the_time_limit() {
+        let dir = function_dir("globalThis.onPageCreate = () => { for (;;) {} };");
+        let runtime = runtime().with_limits(ExtensionLimits {
+            time: Duration::from_millis(100),
+            ..ExtensionLimits::default()
+        });
+
+        let started = Instant::now();
+        let result = runtime.run(dir.path(), &ExtensionEvent::PageCreate(page()));
+
+        assert!(result.is_err());
+        // Well under the default of 2s, so the limit given here is the one that stopped it
+        assert!(started.elapsed() < Duration::from_secs(1));
+    }
+
+    // メモリを使いすぎる拡張は、上限で失敗になる。
+    #[test]
+    fn an_extension_that_uses_too_much_memory_fails_at_the_limit() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                const parts = [];
+                for (;;) { parts.push('x'.repeat(1024 * 1024)); }
+            };",
+        );
+        let runtime = runtime().with_limits(ExtensionLimits {
+            memory: 8 * 1024 * 1024,
+            ..ExtensionLimits::default()
+        });
+
+        let started = Instant::now();
+        let result = runtime.run(dir.path(), &ExtensionEvent::PageCreate(page()));
+
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("out of memory"), "{error}");
+        assert!(started.elapsed() < ExtensionLimits::default().time);
+    }
+
+    // files()は、自分のフォルダのファイル名を名前順に返す。
+    #[test]
+    fn files_lists_the_file_names_of_its_own_folder_in_name_order() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                peta.createItem({ position: 'last', level: 1, body: peta.files().join(',') });
+            };",
+        );
+        std::fs::write(dir.path().join("b.md"), "").unwrap();
+        std::fs::write(dir.path().join("a.md"), "").unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        assert_eq!(requests[0].body, "a.md,b.md,main.js");
+    }
+
+    // readFile(name)は、自分のフォルダのファイルを読む。
+    #[test]
+    fn read_file_reads_a_file_of_its_own_folder() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                peta.createItem({ position: 'last', level: 1, body: peta.readFile('template.md') });
+            };",
+        );
+        std::fs::write(dir.path().join("template.md"), "日記の型").unwrap();
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        assert_eq!(requests[0].body, "日記の型");
+    }
+
+    // readFile(name)は、フォルダの外のファイルを読めない。
+    #[test]
+    fn read_file_cannot_read_outside_its_own_folder() {
+        let outer = tempfile::tempdir().unwrap();
+        std::fs::write(outer.path().join("secret.txt"), "secret").unwrap();
+        let dir = outer.path().join("function");
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::write(
+            dir.join("main.js"),
+            "globalThis.onPageCreate = () => {
+                peta.createItem({ position: 'last', level: 1, body: peta.readFile('../secret.txt') });
+            };",
+        )
+        .unwrap();
+
+        let result = runtime().run(&dir, &ExtensionEvent::PageCreate(page()));
+
+        assert!(result.is_err());
+    }
+
+    // parseItems(markdown)は、Flat Markdownを項目（階層、本文、トランスクルード元）に分ける。
+    #[test]
+    fn parse_items_splits_flat_markdown_into_levels_bodies_and_transclusions() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                for (const item of peta.parseItems(peta.readFile('template.md'))) {
+                    peta.createItem({ position: 'last', level: item.level, body: item.body, transclude: item.transclude });
+                }
+            };",
+        );
+        std::fs::write(
+            dir.path().join("template.md"),
+            "予定\n\n<!-- @@ -->\n- [ ] 掃除\n\n<!-- @ transclude=\"2026-01-01-00-00-00-AAAAAAA\" -->\n引用\n",
+        )
+        .unwrap();
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        let items: Vec<_> = requests
+            .iter()
+            .map(|r| (r.level, r.body.as_str(), r.transclude.as_deref()))
+            .collect();
+        assert_eq!(
+            items,
+            vec![
+                (1, "予定", None),
+                (2, "- [ ] 掃除", None),
+                (1, "引用", Some("2026-01-01-00-00-00-AAAAAAA")),
+            ]
+        );
+    }
+
+    // createItemに不正な置き場所を渡すと、拡張が受け止められる例外になる。
+    #[test]
+    fn create_item_with_a_wrong_position_throws_an_error_the_script_can_catch() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                try {
+                    peta.createItem({ position: 'middle', level: 1, body: 'a' });
+                } catch (e) {
+                    peta.createItem({ position: 'last', level: 1, body: 'caught' });
+                }
+            };",
+        );
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        let bodies: Vec<_> = requests.iter().map(|r| r.body.as_str()).collect();
+        assert_eq!(bodies, vec!["caught"]);
+    }
+
+    // readFileで、ないファイルを読むと失敗になる。
+    #[test]
+    fn read_file_of_a_missing_file_fails() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                peta.createItem({ position: 'last', level: 1, body: peta.readFile('missing.md') });
+            };",
+        );
+
+        let result = runtime().run(dir.path(), &ExtensionEvent::PageCreate(page()));
+
+        assert!(result.is_err());
+    }
+
+    // 出来事の関数を持たない拡張は、何も頼まない。
+    #[test]
+    fn an_extension_without_the_event_function_asks_for_nothing() {
+        let dir = function_dir("const unused = 1;");
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        assert!(requests.is_empty());
+    }
+
+    // JSの例外は失敗になり、頼んだ操作は捨てられる。
+    #[test]
+    fn a_js_exception_fails_the_run_and_drops_what_it_asked_for() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                peta.createItem({ position: 'last', level: 1, body: 'a' });
+                throw new Error('broken template');
+            };",
+        );
+
+        let result = runtime().run(dir.path(), &ExtensionEvent::PageCreate(page()));
+
+        assert!(result.is_err());
+    }
+
+    /// Gives the same answer to every question, and keeps the questions.
+    struct User {
+        answer: bool,
+        asked: Mutex<Vec<String>>,
+    }
+
+    impl Confirmer for User {
+        fn confirm(&self, message: &str) -> bool {
+            self.asked.lock().unwrap().push(message.to_string());
+            self.answer
+        }
+    }
+
+    fn user(answer: bool) -> Arc<User> {
+        Arc::new(User {
+            answer,
+            asked: Mutex::new(Vec::new()),
+        })
+    }
+
+    // タグの追加では、confirm(message)が利用者に尋ね、その答えを返す。
+    #[test]
+    fn confirm_in_a_tag_add_asks_the_user_and_returns_the_answer() {
+        let dir = function_dir(
+            "globalThis.onPageTagAdd = () => {
+                const ok = peta.confirm('Insert the template?');
+                peta.createItem({ position: 'last', level: 1, body: String(ok) });
+            };",
+        );
+        let yes = user(true);
+        let no = user(false);
+        let event = ExtensionEvent::PageTagAdd(page(), vec!["book".into()]);
+
+        let after_yes = runtime()
+            .with_confirmer(yes.clone())
+            .run(dir.path(), &event);
+        let after_no = runtime().with_confirmer(no).run(dir.path(), &event);
+
+        assert_eq!(after_yes.unwrap()[0].body, "true");
+        assert_eq!(after_no.unwrap()[0].body, "false");
+        assert_eq!(*yes.asked.lock().unwrap(), vec!["Insert the template?"]);
+    }
+
+    // ページ作成はページを開く操作を止めているので、confirmは使えない。使うと失敗になる。
+    #[test]
+    fn confirm_is_not_there_in_a_page_create() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                if (peta.confirm('Insert the template?')) {
+                    peta.createItem({ position: 'last', level: 1, body: 'a' });
+                }
+            };",
+        );
+        let yes = user(true);
+
+        let result = runtime()
+            .with_confirmer(yes.clone())
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()));
+
+        assert!(result.is_err());
+        assert!(yes.asked.lock().unwrap().is_empty());
+    }
+
+    /// Takes its time before it says yes, as a person does.
+    struct SlowUser;
+
+    impl Confirmer for SlowUser {
+        fn confirm(&self, _message: &str) -> bool {
+            std::thread::sleep(Duration::from_millis(300));
+            true
+        }
+    }
+
+    // 利用者の答えを待つ時間は、時間の上限に数えない。
+    #[test]
+    fn the_wait_for_the_user_does_not_count_toward_the_time_limit() {
+        let dir = function_dir(
+            "globalThis.onPageTagAdd = () => {
+                const ok = peta.confirm('Insert the template?');
+                // Some work after the answer, where the time limit is checked
+                let sum = 0;
+                for (let i = 0; i < 100000; i++) { sum += i; }
+                if (ok) {
+                    peta.createItem({ position: 'last', level: 1, body: 'yes' });
+                }
+            };",
+        );
+        let runtime = runtime()
+            .with_limits(ExtensionLimits {
+                time: Duration::from_millis(100),
+                ..ExtensionLimits::default()
+            })
+            .with_confirmer(Arc::new(SlowUser));
+        let event = ExtensionEvent::PageTagAdd(page(), vec!["book".into()]);
+
+        let requests = runtime.run(dir.path(), &event).unwrap();
+
+        assert_eq!(requests[0].body, "yes");
+    }
+}
