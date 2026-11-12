@@ -30,7 +30,8 @@ class Downloader(
      * next run asks for the same changes again, and downloads only what is still missing.
      */
     fun run(onProgress: (done: Int, total: Int) -> Unit) {
-        val changes = cloud.changes(cursorFile.takeIf { it.exists() }?.readText())
+        // Without a record, the changes since the cursor would leave most versions unknown
+        val changes = cloud.changes(cursorFile.takeIf { it.exists() && record.isKept }?.readText())
         // By the path in lower case, as the cloud tells no case apart
         val files = LinkedHashMap<String, Change.File>()
         for (change in changes.entries) {
@@ -39,11 +40,15 @@ class Downloader(
                 is Change.Gone -> {
                     files.keys.removeAll { it == key || it.startsWith("$key/") }
                     folder.remove(change.path)
+                    record.remove(change.path)
                 }
                 is Change.File -> if (MarkdownFolder.keeps(key)) files[key] = change
             }
         }
-        if (changes.whole) folder.keepOnly(files.keys)
+        if (changes.whole) {
+            folder.keepOnly(files.keys)
+            record.keepOnly(files.keys)
+        }
         download(files.values.filter { folder.contentHash(it.path) != it.contentHash }, onProgress)
         files.values.forEach(record::put)
         record.save()

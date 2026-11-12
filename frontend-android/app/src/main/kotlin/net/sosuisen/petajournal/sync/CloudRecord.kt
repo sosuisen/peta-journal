@@ -34,6 +34,25 @@ class CloudRecord(private val file: File) {
         known[version.path.lowercase()] = version
     }
 
+    /** Forgets the file, or the folder with all that is in it: it has gone from the cloud. */
+    @Synchronized
+    fun remove(path: String) {
+        val key = path.lowercase()
+        known.keys.removeAll { it == key || it.startsWith("$key/") }
+    }
+
+    /** Forgets every file whose path is not in [paths], which are in lower case. */
+    @Synchronized
+    fun keepOnly(paths: Set<String>) {
+        known.keys.retainAll(paths)
+    }
+
+    /**
+     * False for an app that has never written a record: a version of the app before the
+     * upload downloaded its files, and nothing is known of their versions.
+     */
+    val isKept: Boolean get() = file.exists()
+
     /** Writes the record to its file. */
     @Synchronized
     fun save() {
