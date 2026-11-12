@@ -10,6 +10,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.getAlignmentLinePosition
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.hasAnyAncestor
@@ -514,9 +515,11 @@ class JournalScreenTest {
     /** How far down the screen the middle of the letters of the first line of a text is, in dp. */
     private fun middleOfLetters(text: SemanticsNodeInteraction, sizeSp: Float): Float {
         val line = text.getUnclippedBoundsInRoot().top + text.getAlignmentLinePosition(FirstBaseline)
-        // The middle of a letter is about a third of its size above the line it stands on
-        return line.value - 0.35f * sizeSp * compose.density.fontScale
+        // The middle of the height of a letter is this much of its size above the line it stands on
+        return line.value - 0.38f * sizeSp * compose.density.fontScale
     }
+
+    private fun bullet(): SemanticsNode = compose.onNodeWithTag(BULLET_TAG, useUnmergedTree = true).fetchSemanticsNode()
 
     // 見出しのバレットは、見出しの大きな文字の真ん中の高さにある。
     @Test
@@ -525,11 +528,25 @@ class JournalScreenTest {
         openNotes()
         waitFor("Big")
 
-        val bullet = middleOfLetters(compose.onNode(hasText("•"), useUnmergedTree = true), sizeSp = 16f)
+        val bullet = middle(bullet()) / compose.density.density
         // The first heading is one and a half times as large as plain text
         val heading = middleOfLetters(compose.onNode(hasText("Big"), useUnmergedTree = true), sizeSp = 24f)
 
-        assertTrue("the bullet is at ${bullet}dp, the letters at ${heading}dp", abs(bullet - heading) < 1.5f)
+        assertTrue("the bullet is at ${bullet}dp, the letters at ${heading}dp", abs(bullet - heading) < 1f)
+    }
+
+    // ふつうの項目のバレットは、文字の高さの真ん中にある。大きさは7dpである。
+    @Test
+    fun the_bullet_of_plain_text_is_at_the_middle_of_its_letters() {
+        download("notes.md", above('A') + "plain" + NL)
+        openNotes()
+        waitFor("plain")
+
+        val bullet = middle(bullet()) / compose.density.density
+        val letters = middleOfLetters(compose.onNode(hasText("plain"), useUnmergedTree = true), sizeSp = 16f)
+
+        assertTrue("the bullet is at ${bullet}dp, the letters at ${letters}dp", abs(bullet - letters) < 1f)
+        assertEquals(7f, bullet().boundsInRoot.height / compose.density.density, 0.6f)
     }
 
     /** Lets the core write the pages that changed, and says whether a file is at the path then. */
@@ -636,7 +653,7 @@ class JournalScreenTest {
         menu("Sign out")
 
         compose.onNodeWithText("Sign in to Dropbox").assertExists()
-        compose.onNode(hasContentDescription("More")).assertDoesNotExist()
+        compose.onNode(hasContentDescription("Menu")).assertDoesNotExist()
         compose.runOnIdle { assertEquals(1, signOuts) }
         type("会議")
         waitFor("trip")
@@ -644,7 +661,7 @@ class JournalScreenTest {
 
     /** Opens the menu beside the search field, and touches an entry of it. */
     private fun menu(entry: String) {
-        compose.onNode(hasContentDescription("More")).performClick()
+        compose.onNode(hasContentDescription("Menu")).performClick()
         compose.onNodeWithText(entry).performClick()
     }
 
@@ -655,25 +672,99 @@ class JournalScreenTest {
         compose.onNodeWithText("Sync").assertDoesNotExist()
         compose.onNodeWithText("Sign out").assertDoesNotExist()
 
-        compose.onNode(hasContentDescription("More")).performClick()
+        compose.onNode(hasContentDescription("Menu")).performClick()
 
         compose.onNodeWithText("Sync").assertExists()
         compose.onNodeWithText("Sign out").assertExists()
     }
 
-    // 検索の入力欄は、ページの下にある。指が届く場所である。
+    // 上端のバーに、左からメニュー、検索の入力欄、今日のボタンが並ぶ。ページは、その下にある。
     @Test
-    fun the_search_field_is_under_the_page() {
+    fun the_bar_at_the_top_holds_the_menu_the_search_field_and_today() {
+        download("notes.md", "text" + NL)
+        start(OnePage())
+        type("notes")
+        waitFor("notes")
+        compose.onAllNodes(shown("notes")).onFirst().performClick()
+        waitFor("text")
+
+        val menu = compose.onNode(hasContentDescription("Menu")).fetchSemanticsNode().boundsInRoot
+        val field = compose.onNodeWithTag(SEARCH_TAG).fetchSemanticsNode().boundsInRoot
+        val today = compose.onNode(hasContentDescription("Today")).fetchSemanticsNode().boundsInRoot
+        val page = compose.onNode(hasText("text"), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+
+        assertTrue("the menu is left of the field", menu.right <= field.left)
+        assertTrue("today is right of the field", today.left >= field.right)
+        assertTrue("the page is under the field", page.top >= field.bottom)
+    }
+
+    // 項目を編集している間も、メニューを開ける。開いても、編集は続き、キーボードは消えない。
+    @Test
+    fun the_menu_opens_while_an_item_is_edited_and_the_edit_goes_on() {
+        download("notes.md", "text" + NL)
+        start(OnePage())
+        type("notes")
+        waitFor("notes")
+        compose.onAllNodes(shown("notes")).onFirst().performClick()
+        waitFor("text")
+        compose.onNode(hasText("text"), useUnmergedTree = true).performClick()
+        compose.onNodeWithTag(EDITOR_TAG).assertIsFocused()
+
+        compose.onNode(hasContentDescription("Menu")).performClick()
+
+        compose.onNodeWithText("Sync").assertExists()
+        compose.onNodeWithTag(EDITOR_TAG).assertIsFocused()
+    }
+
+    // 今日のボタンは、今日のジャーナルを作って開く。
+    @Test
+    fun the_today_button_opens_the_journal_of_today() {
+        start()
+
+        compose.onNode(hasContentDescription("Today")).performClick()
+
+        compose.waitUntil(WAIT_MS) { shell.view.screen is ScreenView.Journal }
+        compose.runOnIdle { assertEquals(1, edits) }
+    }
+
+    /** Ends the app, and opens it again on the same folders, at the screen it had. */
+    private fun openAgain() {
+        val main = Handler(Looper.getMainLooper())
+        compose.runOnUiThread { shell.close() }
+        // The journal is let go of on another thread, and cannot be opened before that
+        compose.waitUntil(WAIT_MS) {
+            try {
+                compose.runOnUiThread {
+                    shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) })
+                }
+                true
+            } catch (stillOpen: Exception) {
+                false
+            }
+        }
+        compose.runOnUiThread { shell.restore() }
+    }
+
+    // アプリを開くと、前に見ていたページが出る。
+    @Test
+    fun the_app_opens_at_the_page_it_showed_before() {
         download("notes.md", "text" + NL)
         openNotes()
         waitFor("text")
 
-        val field = compose.onNodeWithTag(SEARCH_TAG).fetchSemanticsNode().boundsInRoot
-        val page = compose.onNode(hasText("text"), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        openAgain()
 
-        assertTrue("the field is at ${field.top}, the page at ${page.bottom}", field.top > page.bottom)
-        val screen = compose.onRoot().fetchSemanticsNode().boundsInRoot
-        assertTrue("the field ends at ${field.bottom} of ${screen.bottom}", screen.bottom - field.bottom < 80 * compose.density.density)
+        compose.waitUntil(WAIT_MS) { (shell.view.screen as? ScreenView.Page)?.value?.title == "notes" }
+    }
+
+    // 前に見ていたページがなければ、今日のジャーナルが出る。
+    @Test
+    fun the_app_opens_at_today_when_it_showed_no_page_before() {
+        start()
+
+        openAgain()
+
+        compose.waitUntil(WAIT_MS) { shell.view.screen is ScreenView.Journal }
     }
 
     // 失敗した同期は、「Try again」でやり直せる。

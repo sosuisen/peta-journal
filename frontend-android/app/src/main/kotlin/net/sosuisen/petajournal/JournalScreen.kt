@@ -13,7 +13,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.onSizeChanged
@@ -64,6 +68,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -85,6 +90,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.PopupProperties
 import net.sosuisen.petajournal.sync.SyncState
 import net.sosuisen.petajournal.types.Row
 import net.sosuisen.petajournal.types.ScreenView
@@ -99,10 +105,13 @@ const val SEARCH_TAG = "search"
 /** The field of the item that is edited. Only one item is edited at a time. */
 const val EDITOR_TAG = "editor"
 
+/** The tag of the bullet of an item, for the tests. */
+const val BULLET_TAG = "bullet"
+
 /**
- * The one screen of the app: a search field, and under it the results of the search or the
- * page that is open. Between them is where the sync with the cloud stands; [cloud] is `null`
- * in an app that syncs nothing. [syncInFront] says that the user waits for the sync.
+ * The one screen of the app: a bar with the menu, the search field and the button for today,
+ * and under it the results of the search or the page that is open. [cloud] is where the sync
+ * with the cloud stands, and `null` in an app that syncs nothing. [syncInFront] says that the user waits for the sync.
  */
 @Composable
 fun JournalScreen(
@@ -118,7 +127,19 @@ fun JournalScreen(
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.safeDrawingPadding()) {
-                // The room of the bar is always there: the app syncs while the user types, and
+                // At the top, where it stays while an item is edited and the keyboard is up
+                Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    cloud?.let { SyncMenu(it, onSignIn, onSync, onSignOut) }
+                    OutlinedTextField(
+                        value = view.search.query,
+                        onValueChange = shell::search,
+                        singleLine = true,
+                        placeholder = { Text("Search") },
+                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp).testTag(SEARCH_TAG),
+                    )
+                    TodayButton(shell::today)
+                }
+                // The room of the line is always there: the app syncs while the user types, and
                 // the page must not jump
                 Box(Modifier.fillMaxWidth().height(4.dp)) {
                     if (shell.syncing) LinearProgressIndicator(Modifier.fillMaxSize())
@@ -129,7 +150,7 @@ fun JournalScreen(
                 val waiting = if (syncInFront) progress(cloud) else null
                 waiting?.let { Waiting(it) }
                 val searching = view.search.showDropdown
-                // The rest of the height: the tools and the search field stay above the keyboard
+                // The rest of the height: the tools stay above the keyboard
                 Box(Modifier.weight(1f)) {
                     Column {
                         if (searching) {
@@ -146,22 +167,7 @@ fun JournalScreen(
                     if (waiting == null) cloud?.let { SyncCallout(it, onSync, Modifier.align(Alignment.BottomCenter)) }
                 }
                 val edited = view.outline.rows.firstOrNull { it.isEditing }?.item?.id
-                if (!searching && edited != null) {
-                    // The keyboard is up for the item: the search field would take its room
-                    Tools(edited, shell)
-                } else {
-                    // At the bottom, where a thumb reaches
-                    Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
-                            value = view.search.query,
-                            onValueChange = shell::search,
-                            singleLine = true,
-                            placeholder = { Text("Search") },
-                            modifier = Modifier.weight(1f).testTag(SEARCH_TAG),
-                        )
-                        cloud?.let { SyncMenu(it, onSignIn, onSync, onSignOut) }
-                    }
-                }
+                if (!searching && edited != null) Tools(edited, shell)
             }
         }
     }
@@ -297,7 +303,37 @@ private fun SyncCallout(state: SyncState, onSync: () -> Unit, modifier: Modifier
 }
 
 /**
- * The menu beside the search field, with what is done to the sync. There is none before the
+ * The button that opens the journal of today. Its face is the icon of the web app: a book
+ * with a ribbon.
+ */
+@Composable
+private fun TodayButton(onTouch: () -> Unit) {
+    val ink = MaterialTheme.colorScheme.onSurfaceVariant
+    Box(
+        Modifier.size(48.dp).clickable(onClick = onTouch).semantics { contentDescription = "Today" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(24.dp)) {
+            // The icon is drawn in a square of 24 units
+            val unit = size.width / 24f
+            fun at(x: Float, y: Float) = Offset(x * unit, y * unit)
+            drawRoundRect(
+                ink,
+                topLeft = at(3f, 1f),
+                size = Size(16f * unit, 20f * unit),
+                cornerRadius = CornerRadius(1.5f * unit),
+                style = Stroke(2f * unit),
+            )
+            drawLine(ink, at(3f, 13f), at(19f, 13f), strokeWidth = unit)
+            drawLine(ink, at(3f, 17f), at(19f, 17f), strokeWidth = unit)
+            drawLine(ink, at(14f, 2f), at(14f, 20f), strokeWidth = 3f * unit)
+            drawRect(ink, topLeft = at(5f, 21f), size = Size(3f * unit, 2f * unit))
+        }
+    }
+}
+
+/**
+ * The menu at the left of the bar, with what is done to the sync. There is none before the
  * sign-in: the button for the sign-in is on the screen then.
  */
 @Composable
@@ -311,10 +347,11 @@ private fun SyncMenu(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit,
         does()
     }
     Box {
-        TextButton({ open = true }, Modifier.semantics { contentDescription = "More" }) {
-            Text("⋮", style = MaterialTheme.typography.titleLarge)
+        TextButton({ open = true }, Modifier.semantics { contentDescription = "Menu" }) {
+            Text("☰", style = MaterialTheme.typography.titleLarge)
         }
-        DropdownMenu(open, { open = false }) {
+        // The menu takes no focus: an item that is edited keeps it, and the keyboard stays
+        DropdownMenu(open, { open = false }, properties = PopupProperties(focusable = false)) {
             DropdownMenuItem({ Text("Sync") }, entry(onSync), enabled = resting)
             // A credential that Dropbox no longer takes is replaced by a new sign-in
             if (state is SyncState.Failed) DropdownMenuItem({ Text("Sign in to Dropbox") }, entry(onSignIn))
@@ -398,11 +435,14 @@ private fun OutlineRow(row: Row, tagsDir: String, links: Links, image: (String) 
             val middleOfLetter = with(LocalDensity.current) {
                 (MaterialTheme.typography.bodyLarge.fontSize.toPx() * MIDDLE_OF_A_LETTER).roundToInt()
             }
-            Text(
-                if (row.showBullet) "•" else "",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = if (onLine) Modifier.width(22.dp).alignBy { it[FirstBaseline] + lift } else Modifier.width(22.dp),
-            )
+            // The bullet is drawn, not a letter: the place of a letter in its line differs
+            // from font to font
+            val beside = if (onLine) Modifier.alignBy { it.measuredHeight / 2 + middleOfLetter + lift } else Modifier.padding(top = 9.dp)
+            Box(beside.width(22.dp).height(BULLET)) {
+                if (row.showBullet) {
+                    Box(Modifier.size(BULLET).background(LocalContentColor.current, CircleShape).testTag(BULLET_TAG))
+                }
+            }
             row.task?.let { state ->
                 // The middle of the mark is at the middle of a letter of plain text
                 val middle = if (onLine) Modifier.alignBy { it.measuredHeight / 2 + middleOfLetter + lift } else Modifier
@@ -421,8 +461,14 @@ private fun OutlineRow(row: Row, tagsDir: String, links: Links, image: (String) 
     }
 }
 
-/** How much of the size of a letter the middle of a letter is above the line it stands on. */
-private const val MIDDLE_OF_A_LETTER = 0.35f
+/**
+ * How much of the size of a letter the middle of its height is above the line it stands on.
+ * A Japanese letter reaches from about 0.12 under the line to 0.88 above it.
+ */
+private const val MIDDLE_OF_A_LETTER = 0.38f
+
+/** How wide and how high the bullet of an item is. */
+private val BULLET = 7.dp
 
 /**
  * How far above the line of the first text the bullet and the mark of a task stand, in pixels,

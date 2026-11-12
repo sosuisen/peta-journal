@@ -185,10 +185,15 @@ that are not uploaded yet stay, and go up to the account of the new sign-in.
   another item transcludes. `Shell.question` holds the question, and the screen shows it in
   a dialog. A touch outside the dialog answers no. A second question answers the first
   with no.
-- `JournalScreen` is the one screen: the results or the page, and under it the search
-  field, where a thumb reaches. Beside the field is the menu with "Sync" and "Sign out".
-  While an item is edited, the row of the tools stands in the place of the search field:
-  the keyboard is up, and the page needs the room.
+- `JournalScreen` is the one screen: a bar at the top, and under it the results or the
+  page. The bar holds the menu with "Sync" and "Sign out" at the left, the search field, and
+  the button for the journal of today at the right. The bar stays while an item is edited.
+  The menu takes no focus, so the keyboard of the item stays up when it opens.
+- The app opens at the screen it showed last. `Shell` keeps the URL of that screen in the
+  file `last-screen` of the data folder. A new app, and an app whose last page has gone,
+  opens the journal of today.
+- The bullet of an item is drawn, not a letter: the place of a letter in its line differs
+  from font to font.
 - `MainActivity` and `JournalModel` open the journal in the folders of the app:
   `files/markdown` for the Markdown files and `files/data` for the database, the index and
   the settings. They also keep the credential of Dropbox, and start the sign-in and the sync.

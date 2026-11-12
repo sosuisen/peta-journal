@@ -97,6 +97,7 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
         }
         // What an earlier download left, when the app ended before it was taken in
         shell.sync()
+        shell.restore()
     }
 
     /**
