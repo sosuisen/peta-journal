@@ -346,6 +346,19 @@ class JournalScreenTest {
         waitFor("what the other page says")
     }
 
+    // .mdへの相対リンクに触れても、そのページが開く。
+    @Test
+    fun a_relative_link_to_an_md_file_opens_its_page() {
+        download("notes.md", "[the other](./other.md)" + NL)
+        download("other.md", "what the other page says" + NL)
+        openNotes()
+        waitFor("the other")
+
+        compose.onNode(hasText("the other")).performClick()
+
+        waitFor("what the other page says")
+    }
+
     // タグに触れると、そのタグのページが開く。
     @Test
     fun a_tag_opens_the_page_of_the_tag() {
