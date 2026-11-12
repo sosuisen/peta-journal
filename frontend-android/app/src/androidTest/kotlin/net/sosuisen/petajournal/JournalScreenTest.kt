@@ -222,6 +222,45 @@ class JournalScreenTest {
         compose.onNode(hasContentDescription("a bird")).assertDoesNotExist()
     }
 
+    // リストの中のコードブロックも、行が分かれたまま見える。リストの項目は、番号と一緒に残る。
+    @Test
+    fun a_code_block_inside_a_list_shows_its_lines_as_they_were_written() {
+        download(
+            "notes.md",
+            above('A') + "1. step one" + NL + NL + "   ```" + NL + "   val x = 1" + NL + "     val y = 2" + NL + "   ```" + NL +
+                "2. step two" + NL,
+        )
+
+        openNotes()
+
+        waitFor("step one")
+        compose.onNode(hasText("val x = 1\n  val y = 2")).assertExists()
+        for (text in listOf("1.", "step one", "2.", "step two")) compose.onNode(hasText(text)).assertExists()
+    }
+
+    // 引用の中の表も、セルごとに分かれて見える。
+    @Test
+    fun a_table_inside_a_quote_shows_each_cell_apart() {
+        download("notes.md", above('A') + "> said:" + NL + ">" + NL + "> | name | count |" + NL + "> |---|---|" + NL + "> | apple | 2 |" + NL)
+
+        openNotes()
+
+        waitFor("said:")
+        for (cell in listOf("name", "count", "apple", "2")) compose.onNode(hasText(cell)).assertExists()
+    }
+
+    // リストの中の画像も、絵として見える。リストの中のリストでも同じである。
+    @Test
+    fun an_image_inside_a_list_shows_as_a_picture() {
+        picture("cat.png", width = 40, height = 20)
+        download("notes.md", above('A') + "- outer" + NL + "  - look ![a cat](../assets/cat.png)" + NL + "- next" + NL)
+
+        openNotes()
+
+        waitForPicture("a cat")
+        for (text in listOf("outer", "look", "next")) compose.onNode(hasText(text)).assertExists()
+    }
+
     // ページへのリンクに触れると、そのページが開く。
     @Test
     fun a_link_to_a_page_opens_the_page() {
