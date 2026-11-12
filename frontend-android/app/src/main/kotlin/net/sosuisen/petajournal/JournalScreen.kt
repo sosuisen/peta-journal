@@ -131,6 +131,13 @@ fun JournalScreen(
     val view = shell.view
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
+            // A new app before the sign-in: the bar would make pages before the first download
+            if (shell.unopened && cloud == SyncState.SignedOut) {
+                Column(Modifier.safeDrawingPadding()) {
+                    Button(onSignIn, Modifier.padding(8.dp)) { Text("Sign in to Dropbox") }
+                }
+                return@Surface
+            }
             Column(Modifier.safeDrawingPadding()) {
                 // At the top, where it stays while an item is edited and the keyboard is up
                 Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
