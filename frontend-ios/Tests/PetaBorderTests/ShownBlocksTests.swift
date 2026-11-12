@@ -6,13 +6,13 @@ import XCTest
 /// The parts of an item as it is shown, read from the AST that the core gives.
 @MainActor
 final class ShownBlocksTests: JournalTestCase {
-    /// The parts of the first item of the page `notes` with this Markdown.
+    /// The parts of the items of the page `notes` with this Markdown, one item after the
+    /// other. An empty line ends an item, unless the line of the core stands above the item.
     private func shown(_ markdown: String, tagsDir: String = "tags") throws -> [ShownBlock] {
         try download("notes.md", markdown)
         try openNotes()
-        let item = shell.view.outline.rows[0].item
-        waitUntil("the item has its AST") { !self.shell.view.outline.rows[0].item.ast.isEmpty }
-        return shownBlocks(body: item.body, ast: shell.view.outline.rows[0].item.ast, tagsDir: tagsDir)
+        waitUntil("the items have their AST") { self.shell.view.outline.rows.allSatisfy { !$0.item.ast.isEmpty } }
+        return shell.view.outline.rows.flatMap { shownBlocks(body: $0.item.body, ast: $0.item.ast, tagsDir: tagsDir) }
     }
 
     private func html(_ block: ShownBlock?) -> String {
@@ -43,7 +43,7 @@ final class ShownBlocksTests: JournalTestCase {
     func testACodeBlockKeepsItsLinesAsTheyWereWritten() throws {
         let blocks = try shown("before\n\n```kotlin\nval x = 1\n  val y = 2\n```\n\nafter\n")
 
-        XCTAssertEqual(blocks.count, 3)
+        guard blocks.count == 3 else { return XCTFail("\(blocks)") }
         XCTAssertTrue(html(blocks[0]).contains("before"))
         XCTAssertEqual(blocks[1], .code(lines: "val x = 1\n  val y = 2"))
         XCTAssertTrue(html(blocks[2]).contains("after"))
@@ -65,7 +65,7 @@ final class ShownBlocksTests: JournalTestCase {
     func testAnImageOfTheAssetsFolderStandsBetweenTheTextAroundIt() throws {
         let blocks = try shown("before ![a cat](../assets/Cat.png) after\n")
 
-        XCTAssertEqual(blocks.count, 3)
+        guard blocks.count == 3 else { return XCTFail("\(blocks)") }
         XCTAssertTrue(html(blocks[0]).contains("before"))
         XCTAssertEqual(blocks[1], .image(ShownImage(path: "assets/Cat.png", alt: "a cat", width: nil, height: nil)))
         XCTAssertTrue(html(blocks[2]).contains("after"))
@@ -96,7 +96,7 @@ final class ShownBlocksTests: JournalTestCase {
 
     // リストの中のコードブロックも、行が分かれたまま残る。リストの項目は、番号と一緒に残る。
     func testACodeBlockInsideAListKeepsItsLinesAndTheEntriesKeepTheirNumbers() throws {
-        let blocks = try shown("1. first\n\n   ```\n   a\n     b\n   ```\n2. second\n")
+        let blocks = try shown(above("A") + "1. first\n\n   ```\n   a\n     b\n   ```\n2. second\n")
 
         guard case .entries(let entries) = blocks.first else { return XCTFail("no entries: \(blocks)") }
         XCTAssertEqual(entries.map(\.mark), ["1.", "2."])
@@ -108,7 +108,7 @@ final class ShownBlocksTests: JournalTestCase {
 
     // 引用の中の表も、セルごとに分かれて残る。
     func testATableInsideAQuoteHasEachCellApart() throws {
-        let blocks = try shown("> said:\n>\n> | name | count |\n> |---|---|\n> | apple | 2 |\n")
+        let blocks = try shown(above("A") + "> said:\n>\n> | name | count |\n> |---|---|\n> | apple | 2 |\n")
 
         guard case .quote(let inside) = blocks.first else { return XCTFail("no quote: \(blocks)") }
         XCTAssertTrue(html(inside.first).contains("said:"))
@@ -118,7 +118,7 @@ final class ShownBlocksTests: JournalTestCase {
 
     // リストの中のリストの画像も、画像の部品になる。
     func testAnImageInsideAListInsideAListIsAPicture() throws {
-        let blocks = try shown("- outer\n  - look ![a cat](../assets/cat.png)\n- next\n")
+        let blocks = try shown(above("A") + "- outer\n  - look ![a cat](../assets/cat.png)\n- next\n")
 
         guard case .entries(let outer) = blocks.first else { return XCTFail("no entries: \(blocks)") }
         XCTAssertEqual(outer.map(\.mark), ["•", "•"])
@@ -128,7 +128,7 @@ final class ShownBlocksTests: JournalTestCase {
 
     // 自分の部品を持たないリストは、分けられずに1つの文字のままである。
     func testAListThatHoldsNoPartOfItsOwnStaysOneText() throws {
-        let blocks = try shown("- one\n- two\n")
+        let blocks = try shown(above("A") + "- one\n- two\n")
 
         XCTAssertEqual(blocks.count, 1)
         XCTAssertTrue(html(blocks.first).contains("<li>"), html(blocks.first))
@@ -136,15 +136,16 @@ final class ShownBlocksTests: JournalTestCase {
 
     // リストの中のタスクの項目は、チェックボックスの印を持つ。
     func testTheEntriesOfATaskListHaveACheckbox() throws {
-        let blocks = try shown("- [ ] open\n\n  ```\n  code\n  ```\n- [x] done\n")
+        // An item that starts with the box of a task would be a task itself, and no list
+        let blocks = try shown(above("A") + "- plain\n- [ ] open\n\n  ```\n  code\n  ```\n- [x] done\n")
 
-        guard case .entries(let entries) = blocks.first else { return XCTFail("no entries: \(blocks)") }
-        XCTAssertEqual(entries.map(\.mark), ["☐", "☑"])
+        guard case .entries(let entries) = blocks.last else { return XCTFail("no entries: \(blocks)") }
+        XCTAssertEqual(entries.map(\.mark), ["•", "☐", "☑"])
     }
 
     // ページへのリンクとタグは、そのページのURLへのリンクになる。タグのページは、タグのフォルダーの下にある。
     func testALinkToAPageAndATagAreLinksToTheURLOfTheirPage() throws {
-        let text = html(try shown("[[other page]] and #topic\n", tagsDir: "tags").first)
+        let text = html(try shown("[[other page]] and #topic\n", tagsDir: "tags/").first)
 
         XCTAssertTrue(text.contains("href=\"/pages/other%20page\""), text)
         XCTAssertTrue(text.contains("href=\"/pages/tags/topic\""), text)
