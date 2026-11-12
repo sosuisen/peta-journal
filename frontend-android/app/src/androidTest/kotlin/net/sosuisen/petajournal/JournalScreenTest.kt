@@ -6,6 +6,7 @@ import android.os.Looper
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.isDialog
@@ -516,6 +517,73 @@ class JournalScreenTest {
         compose.onNodeWithText("Sync").performClick()
 
         waitFor("Sync failed: the network is gone")
+    }
+
+    /** The text of the file of the page `notes`, after the core wrote what changed in the app. */
+    private fun writtenNotes(): String {
+        compose.runOnUiThread { shell.sync() }
+        compose.waitUntil(WAIT_MS) { !shell.syncing }
+        return File(root, "markdown/docs/notes.md").readText()
+    }
+
+    /** Waits until the core has saved an edit and written it to the file of the page. */
+    private fun waitForWritten(text: String) = compose.waitUntil(WAIT_MS) { writtenNotes().contains(text) }
+
+    // 項目に触れると、その項目がMarkdownの本文の入力欄になる。
+    @Test
+    fun a_touch_turns_an_item_into_a_field_with_its_markdown() {
+        download("notes.md", "a **bold** word" + NL)
+        openNotes()
+        waitFor("a bold word")
+
+        compose.onNodeWithText("a bold word").performClick()
+
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("a **bold** word")
+    }
+
+    // 入力欄に打った文字は、文字の終わりに入り、ページのファイルに書かれる。
+    @Test
+    fun what_is_typed_goes_to_the_end_of_the_item_and_into_the_file_of_the_page() {
+        download("notes.md", "first" + NL)
+        openNotes()
+        waitFor("first")
+        compose.onNodeWithText("first").performClick()
+
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput(" and more")
+
+        waitForWritten("first and more")
+    }
+
+    // 改行のキーは、下に新しい項目を作る。続けて打った文字は、新しい項目に入る。
+    @Test
+    fun enter_makes_a_new_item_below_and_the_typing_goes_on_there() {
+        download("notes.md", "first" + NL)
+        openNotes()
+        waitFor("first")
+        compose.onNodeWithText("first").performClick()
+
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
+        compose.waitUntil(WAIT_MS) { shell.view.outline.rows.size == 2 }
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("")
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput("second")
+
+        waitForWritten("second")
+        waitFor("first")
+        assertEquals(listOf("first", "second"), shell.view.outline.rows.map { it.item.body })
+    }
+
+    // ほかの項目に触れると、編集がそこへ移る。前の項目は、飾りのついた表示に戻る。
+    @Test
+    fun a_touch_on_another_item_moves_the_edit_there() {
+        download("notes.md", above('A') + "a **bold** word" + NL + NL + above('B') + "the other" + NL)
+        openNotes()
+        waitFor("the other")
+        compose.onNodeWithText("a bold word").performClick()
+
+        compose.onNodeWithText("the other").performClick()
+
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("the other")
+        compose.onNodeWithText("a bold word").assertExists()
     }
 
     private companion object {
