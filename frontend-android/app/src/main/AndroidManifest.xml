@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- The Dropbox app, when it is there, signs in instead of the browser -->
+    <!-- The browser signs in, always. The SDK asks to see the Dropbox app, to let it sign
+         in when it is there. The Dropbox app failed after a sign-out with "could not connect
+         to Dropbox" (2026-11-13), and the browser did not. An app that cannot see the
+         Dropbox app goes to the browser -->
     <queries>
-        <package android:name="com.dropbox.android" />
+        <package android:name="com.dropbox.android" tools:node="remove" />
     </queries>
 
     <!-- The data of the app is a copy of Dropbox, so it is in no backup (ADR 030) -->
