@@ -1,0 +1,324 @@
+import UIKit
+import XCTest
+
+/// The screen of the app in the simulator, with the journal inside the app. Each test gives
+/// the app a folder of its own, so the pages of whoever runs the tests are never touched. The
+/// app syncs with nothing here: the sync has tests of its own (`swift test`).
+final class JournalScreenTests: XCTestCase {
+    private var root: URL!
+    private var app: XCUIApplication!
+
+    private static let wait: TimeInterval = 15
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        root = FileManager.default.temporaryDirectory.appendingPathComponent("peta-\(UUID().uuidString)")
+        for name in ["docs", "journals", "assets"] {
+            try FileManager.default.createDirectory(
+                at: root.appendingPathComponent("markdown/\(name)"), withIntermediateDirectories: true)
+        }
+    }
+
+    override func tearDownWithError() throws {
+        app?.terminate()
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    // MARK: - Helpers
+
+    /// Puts a page into the Markdown folder, as a download does.
+    private func download(_ name: String, _ text: String) throws {
+        try Data(text.utf8).write(to: root.appendingPathComponent("markdown/docs/\(name)"))
+    }
+
+    /// The line above an item that gives it an ID, so that the core does not write the file
+    /// again to give it one.
+    private func above(_ id: Character, _ properties: String = "") -> String {
+        "<!-- @ 2020-01-01-00-00-00-\(String(repeating: String(id), count: 7)) idx=\"a\(id)\"\(properties) -->\n"
+    }
+
+    private func start() {
+        app = XCUIApplication()
+        app.launchEnvironment["PETA_ROOT"] = root.path
+        app.launch()
+    }
+
+    private var search: XCUIElement { app.textFields["search"] }
+    private var editor: XCUIElement { app.textViews["editor"] }
+
+    /// Something on the screen that shows the text, or a part of it.
+    private func shown(_ text: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch
+    }
+
+    private func waitFor(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(element.waitForExistence(timeout: JournalScreenTests.wait), "\(element) is not shown", file: file, line: line)
+    }
+
+    private func waitUntil(_ what: String, file: StaticString = #filePath, line: UInt = #line, _ holds: () -> Bool) {
+        let end = Date().addingTimeInterval(JournalScreenTests.wait)
+        while !holds() {
+            if Date() > end { return XCTFail("Not in time: \(what)", file: file, line: line) }
+            usleep(100_000)
+        }
+    }
+
+    /// Searches for the page `notes` and opens it.
+    private func openNotes() {
+        start()
+        waitFor(search)
+        search.tap()
+        search.typeText("notes")
+        let result = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'notes'")).firstMatch
+        waitFor(result)
+        result.tap()
+        waitFor(app.staticTexts["notes"])
+    }
+
+    /// Ends the edit, so that every item shows its text.
+    private func done() {
+        tool("Done")
+        waitUntil("the edit has ended") { !editor.exists }
+    }
+
+    /// The items that show one of the texts, from top to bottom.
+    private func order(_ texts: [String]) -> [String] {
+        texts.filter { app.staticTexts[$0].exists }.sorted { app.staticTexts[$0].frame.minY < app.staticTexts[$1].frame.minY }
+    }
+
+    /// Touches the item that shows the text, so that it is edited.
+    private func edit(_ text: String) {
+        let item = app.staticTexts[text]
+        waitFor(item)
+        item.tap()
+        waitFor(editor)
+    }
+
+    private func tool(_ name: String) {
+        let tool = app.buttons[name]
+        waitFor(tool)
+        tool.tap()
+    }
+
+    // MARK: - Opening
+
+    // 取り込まれたページは、検索で見つかり、開く。
+    func testAPageThatWasTakenInIsFoundBySearchAndOpens() throws {
+        try download("notes.md", "the first item\n")
+        openNotes()
+        waitFor(app.staticTexts["the first item"])
+    }
+
+    // 新しいページの検索結果は、ページを作って開く。
+    func testTheResultForANewPageMakesThePageAndOpensIt() throws {
+        start()
+        waitFor(search)
+        search.tap()
+        search.typeText("fresh")
+        let result = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'New page: fresh'")).firstMatch
+        waitFor(result)
+        result.tap()
+        waitFor(app.staticTexts["fresh"])
+    }
+
+    // 今日のボタンは、今日のジャーナルを開く。
+    func testTheTodayButtonOpensTheJournalOfToday() throws {
+        try download("notes.md", "the first item\n")
+        openNotes()
+        app.buttons["Today"].tap()
+        waitUntil("the first item is gone") { !app.staticTexts["the first item"].exists }
+        XCTAssertFalse(app.staticTexts["notes"].exists)
+    }
+
+    // アプリは、前に表示していたページで開く。
+    func testTheAppOpensAtThePageItShowedBefore() throws {
+        try download("notes.md", "the first item\n")
+        openNotes()
+        app.terminate()
+        app.launch()
+        waitFor(app.staticTexts["the first item"])
+    }
+
+    // MARK: - What an item shows
+
+    // アイテムは装飾つきで表示され、Markdownの記号は表示されない。
+    func testAnItemShowsItsDecorationAndNotTheMarksOfMarkdown() throws {
+        try download("notes.md", "plain **bold** and `code`\n")
+        openNotes()
+        waitFor(app.staticTexts["plain bold and code"])
+    }
+
+    // コードブロックは書かれたとおりの行を表示し、表はセルごとに表示する。
+    func testACodeBlockShowsItsLinesAndATableItsCells() throws {
+        try download("notes.md", above("A") + "```\nlet x = 1\n  let y = 2\n```\n\n" + above("B") + "| left | right |\n|---|---|\n| one | two |\n")
+        openNotes()
+        waitFor(app.staticTexts["let x = 1\n  let y = 2"])
+        for cell in ["left", "right", "one", "two"] { waitFor(app.staticTexts[cell]) }
+    }
+
+    // assetsフォルダーの画像は絵として表示され、タッチで大きく開き、もう一度のタッチで閉じる。
+    func testAnImageShowsAsAPictureAndATouchOpensItLargeAndAnotherClosesIt() throws {
+        try download("notes.md", "![a picture](../assets/pic.png)\n")
+        let drawn = UIGraphicsImageRenderer(size: CGSize(width: 80, height: 40)).pngData { paper in
+            UIColor.orange.setFill()
+            paper.fill(CGRect(x: 0, y: 0, width: 80, height: 40))
+        }
+        try drawn.write(to: root.appendingPathComponent("markdown/assets/pic.png"))
+        openNotes()
+        let picture = app.images["picture"]
+        waitFor(picture)
+        XCTAssertEqual(picture.label, "a picture")
+        picture.tap()
+        let large = app.images["large picture"]
+        waitFor(large)
+        large.tap()
+        waitUntil("the large picture is closed") { !large.exists }
+    }
+
+    // ファイルがまだない画像は、代わりの文字を表示する。
+    func testAnImageWhoseFileIsNotHereShowsItsAlt() throws {
+        try download("notes.md", "![a picture](../assets/none.png)\n")
+        openNotes()
+        waitFor(app.staticTexts["a picture"])
+    }
+
+    // タスクは状態の印を表示し、印へのタッチで次の状態へ進む。
+    func testATaskShowsTheMarkOfItsStateAndATouchMovesItOn() throws {
+        try download("notes.md", "- [ ] to do\n")
+        openNotes()
+        waitFor(app.buttons["Task not started"])
+        app.buttons["Task not started"].tap()
+        waitFor(app.buttons["Task running"])
+        app.buttons["Task running"].tap()
+        waitFor(app.buttons["Task done"])
+    }
+
+    // MARK: - Links
+
+    // ページへのリンクは、そのページを開く。
+    func testALinkToAPageOpensThePage() throws {
+        try download("notes.md", "[[other]]\n")
+        try download("other.md", "the other page\n")
+        openNotes()
+        let link = app.links["other"]
+        waitFor(link)
+        link.tap()
+        waitFor(app.staticTexts["the other page"])
+    }
+
+    // まだないページへのリンクは、そう知らせるだけでページを作らず、ボタンで作る。
+    func testALinkToAPageThatIsNotThereSaysSoAndTheButtonMakesIt() throws {
+        try download("notes.md", "[[nowhere]]\n")
+        openNotes()
+        let link = app.links["nowhere"]
+        waitFor(link)
+        link.tap()
+        waitFor(app.staticTexts["No page yet: nowhere"])
+        // The page that holds the link is still open
+        XCTAssertTrue(app.staticTexts["notes"].exists)
+        app.buttons["Make it"].tap()
+        waitUntil("the new page is open") { !app.staticTexts["notes"].exists && !app.buttons["Make it"].exists }
+        waitFor(app.staticTexts["nowhere"])
+    }
+
+    // MARK: - Editing
+
+    // 新しいジャーナルの空のアイテムは、タッチして書ける。
+    func testTheEmptyItemOfANewJournalIsTouchedAndWrittenInto() throws {
+        start()
+        let empty = app.buttons["Empty item"]
+        waitFor(empty)
+        empty.tap()
+        waitFor(editor)
+        editor.typeText("first words")
+        done()
+        waitFor(app.staticTexts["first words"])
+    }
+
+    // タッチしたアイテムは、Markdownの入力欄になる。
+    func testATouchTurnsAnItemIntoAFieldWithItsMarkdown() throws {
+        try download("notes.md", "plain **bold**\n")
+        openNotes()
+        edit("plain bold")
+        XCTAssertEqual(editor.value as? String, "plain **bold**")
+    }
+
+    // 入力した文字は、アイテムの末尾に入り、編集を終えたアイテムに表示される。
+    func testWhatIsTypedGoesToTheEndOfTheItemAndShowsAfterTheEdit() throws {
+        try download("notes.md", "start\n")
+        openNotes()
+        edit("start")
+        editor.typeText(" more")
+        done()
+        waitFor(app.staticTexts["start more"])
+    }
+
+    // Enterは下に新しいアイテムを作り、入力はそこで続く。コアがアイテムを分けている間に打った文字も、新しいアイテムに入る。
+    func testEnterMakesANewItemBelowAndTheTypingGoesOnThere() throws {
+        try download("notes.md", "first\n")
+        openNotes()
+        edit("first")
+        editor.typeText("\nsecond")
+        waitFor(app.staticTexts["first"])
+        waitUntil("the new item is edited, and has \(String(describing: editor.value))") { editor.value as? String == "second" }
+        done()
+        XCTAssertEqual(order(["first", "second"]), ["first", "second"])
+    }
+
+    // 道具は、アイテムを編集している間だけ表示され、Doneで編集が終わる。
+    func testTheToolsShowOnlyWhileAnItemIsEditedAndDoneEndsTheEdit() throws {
+        try download("notes.md", "only\n")
+        openNotes()
+        waitFor(app.staticTexts["only"])
+        XCTAssertFalse(app.buttons["Indent"].exists)
+        edit("only")
+        waitFor(app.buttons["Indent"])
+        app.buttons["Done"].tap()
+        waitUntil("the edit has ended") { !editor.exists && !app.buttons["Indent"].exists }
+        waitFor(app.staticTexts["only"])
+    }
+
+    private func three() throws {
+        try download("notes.md", above("A") + "one\n\n" + above("B") + "two\n\n" + above("C") + "three\n")
+        openNotes()
+        edit("two")
+    }
+
+    // 字下げの道具は、アイテムを上のアイテムの子にし、字上げの道具は元に戻す。
+    func testTheIndentToolsMoveTheItemUnderTheOneAboveAndBack() throws {
+        try three()
+        let before = editor.frame.minX
+        tool("Indent")
+        waitUntil("the item is a child") { editor.frame.minX > before }
+        tool("Outdent")
+        waitUntil("the item is back") { editor.frame.minX == before }
+    }
+
+    // 移動の道具は、アイテムを隣のアイテムと入れ替える。
+    func testTheMoveToolsSwapTheItemWithItsNeighbour() throws {
+        try three()
+        tool("Move up")
+        waitUntil("two is first") { editor.frame.minY < app.staticTexts["one"].frame.minY }
+        tool("Move down")
+        tool("Move down")
+        waitUntil("two is last") { editor.frame.minY > app.staticTexts["three"].frame.minY }
+        done()
+        XCTAssertEqual(order(["one", "two", "three"]), ["one", "three", "two"])
+    }
+
+    // タスクの道具は、アイテムをタスクにする。
+    func testTheTaskToolMakesTheItemATask() throws {
+        try three()
+        tool("Task")
+        waitFor(app.buttons["Task not started"])
+    }
+
+    // 削除の道具は、アイテムを削除する。
+    func testTheDeleteToolDeletesTheItem() throws {
+        try three()
+        tool("Delete item")
+        waitUntil("two is gone") { !editor.exists || editor.value as? String != "two" }
+        if editor.exists { done() }
+        XCTAssertEqual(order(["one", "two", "three"]), ["one", "three"])
+    }
+}
