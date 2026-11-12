@@ -8,4 +8,8 @@ rust="$here/../frontend-rust"
 
 rm -rf "$here/generated"
 (cd "$rust" && cargo run -p peta-shell-native --features facet_typegen --bin codegen -- swift "$here/generated")
-(cd "$rust/crates/shell-android" && boltffi pack apple --release)
+# The oldest systems the app runs on, as in Package.swift. Rust builds for iOS 10 by default,
+# and the C code of SQLite and zstd then asks for what only iOS 13 and later have
+# (`___chkstk_darwin`): the library for a device does not link
+(cd "$rust/crates/shell-android" &&
+    IPHONEOS_DEPLOYMENT_TARGET=17.0 MACOSX_DEPLOYMENT_TARGET=14.0 boltffi pack apple --release)
