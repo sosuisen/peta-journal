@@ -6,10 +6,14 @@ import com.dropbox.core.v2.files.FileMetadata
 import com.dropbox.core.v2.files.ListFolderContinueErrorException
 import com.dropbox.core.v2.files.ListFolderResult
 import com.dropbox.core.v2.files.Metadata
+import com.dropbox.core.v2.files.UploadErrorException
+import com.dropbox.core.v2.files.WriteMode
+import java.io.File
 import java.io.OutputStream
+import java.util.Date
 
 /**
- * The Markdown folder in Dropbox, read with the Dropbox SDK (ADR 030).
+ * The Markdown folder in Dropbox, read and written with the Dropbox SDK (ADR 030, ADR 031).
  *
  * @param folder the path of the folder in Dropbox, such as `/PetaJournal`.
  */
@@ -45,13 +49,38 @@ class DropboxCloud(private val client: DbxClientV2, folder: String) : Cloud {
         val path = entry.pathDisplay?.drop(folder.length)?.trimStart('/')
         if (path.isNullOrEmpty()) return null
         return when (entry) {
-            is FileMetadata -> Change.File(path, entry.contentHash.orEmpty(), remote = "rev:${entry.rev}")
+            is FileMetadata -> version(path, entry)
             is DeletedMetadata -> Change.Gone(path)
             else -> null
         }
     }
 
+    private fun version(path: String, file: FileMetadata) =
+        Change.File(path, file.contentHash.orEmpty(), remote = "$REV${file.rev}")
+
     override fun download(file: Change.File, into: OutputStream) {
         client.files().download(file.remote).download(into)
+    }
+
+    override fun upload(path: String, from: File, over: String?): Change.File {
+        // Dropbox takes the content only over the version it is told, or where no file is
+        val mode = if (over == null) WriteMode.ADD else WriteMode.update(over.removePrefix(REV))
+        val upload = client.files().uploadBuilder("$folder/$path")
+            .withMode(mode)
+            .withAutorename(false)
+            // The Dropbox app of the desk gives its copy this time, as the file has it here
+            .withClientModified(Date(from.lastModified() / 1000 * 1000))
+        try {
+            return version(path, from.inputStream().use(upload::uploadAndFinish))
+        } catch (refused: UploadErrorException) {
+            val error = refused.errorValue
+            if (error.isPath && error.pathValue.reason.isConflict) throw ChangedInCloud(path)
+            throw refused
+        }
+    }
+
+    private companion object {
+        /** Before the version of a file, where Dropbox takes a version in place of a path. */
+        const val REV = "rev:"
     }
 }

@@ -8,6 +8,7 @@ import java.util.concurrent.Executors
 /**
  * Brings the Markdown folder of the app up to date with the folder in the cloud. It only
  * reads the cloud (ADR 030): what the cloud has is right, and what it lost is deleted here.
+ * It writes down the versions it saw, for the upload (ADR 031).
  *
  * @param cursorFile keeps where the last run ended, so that the next one asks only for what
  *   changed since.
@@ -18,6 +19,7 @@ class Downloader(
     private val cloud: Cloud,
     private val folder: MarkdownFolder,
     private val cursorFile: File,
+    private val record: CloudRecord,
     private val threads: Int = 8,
 ) {
     /**
@@ -43,6 +45,8 @@ class Downloader(
         }
         if (changes.whole) folder.keepOnly(files.keys)
         download(files.values.filter { folder.contentHash(it.path) != it.contentHash }, onProgress)
+        files.values.forEach(record::put)
+        record.save()
         cursorFile.writeText(changes.cursor)
     }
 

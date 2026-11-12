@@ -24,6 +24,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import net.sosuisen.petajournal.sync.Change
 import net.sosuisen.petajournal.sync.Changes
 import net.sosuisen.petajournal.sync.Cloud
+import net.sosuisen.petajournal.sync.CloudRecord
 import net.sosuisen.petajournal.sync.CloudSync
 import net.sosuisen.petajournal.sync.Downloader
 import net.sosuisen.petajournal.sync.MarkdownFolder
@@ -78,7 +79,7 @@ class JournalScreenTest {
         }
         val folder = MarkdownFolder(File(root, "markdown"), File(root, "temp"))
         sync = cloud?.let {
-            CloudSync(signedIn, { Downloader(it, folder, File(root, "cursor")) }, { main.post(it) }, shell::sync)
+            CloudSync(signedIn, { Downloader(it, folder, File(root, "cursor"), CloudRecord(File(root, "record"))) }, { main.post(it) }, shell::sync)
         }
         compose.setContent {
             JournalScreen(

@@ -21,6 +21,7 @@ import com.dropbox.core.android.Auth
 import com.dropbox.core.android.AuthActivity
 import com.dropbox.core.oauth.DbxCredential
 import com.dropbox.core.v2.DbxClientV2
+import net.sosuisen.petajournal.sync.CloudRecord
 import net.sosuisen.petajournal.sync.CloudSync
 import net.sosuisen.petajournal.sync.Downloader
 import net.sosuisen.petajournal.sync.DropboxCloud
@@ -54,6 +55,9 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
     /** Where the last download ended, for the next one to ask only for what changed since. */
     private val cursor = File(app.filesDir, "dropbox-cursor")
 
+    /** The versions of the files in Dropbox that the app has seen, for the upload. */
+    private val record = CloudRecord(File(app.filesDir, "dropbox-record"))
+
     /** `null` when the app was built without the App key of Dropbox: it then syncs nothing. */
     val cloud: CloudSync? = if (BuildConfig.DROPBOX_KEY.isEmpty()) {
         null
@@ -61,7 +65,7 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
         val folder = MarkdownFolder(markdown, File(app.cacheDir, "downloads"))
         CloudSync(
             signedIn = kept.contains(CREDENTIAL),
-            downloader = { Downloader(it, folder, cursor) },
+            downloader = { Downloader(it, folder, cursor, record) },
             onMainThread = { main.post(it) },
             onDownloaded = shell::sync,
         )

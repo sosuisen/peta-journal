@@ -21,7 +21,7 @@ class DownloaderTest {
     fun folders() {
         root = dir.newFolder("markdown")
         val folder = MarkdownFolder(root, File(dir.root, "temp"))
-        downloader = Downloader(cloud, folder, File(dir.root, "cursor"))
+        downloader = Downloader(cloud, folder, File(dir.root, "cursor"), CloudRecord(File(dir.root, "record")))
     }
 
     /** The files under the Markdown folder, by their path, with their text. */
