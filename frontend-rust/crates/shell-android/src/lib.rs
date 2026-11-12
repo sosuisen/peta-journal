@@ -192,13 +192,22 @@ impl PetaCore {
     }
 
     /// Opens what the URL names, such as `/pages/notes` or `/today`. A page that is not there
-    /// is an error, and it is not made: the app only reads (ADR 030).
+    /// is an error, and it is not made. It is for a link in a page: a touch by mistake must
+    /// not put an empty page into Dropbox (ADR 031).
     pub fn open(&self, url: String) -> Result<(), String> {
         let nothing = format!("nothing to open at {url:?}");
         match Route::parse_url(&url) {
             Some(route) if self.is_there(&route) => self.shell.open(&url).ok().ok_or(nothing),
             _ => Err(nothing),
         }
+    }
+
+    /// Opens what the URL names, and makes the page or the journal when it is not there
+    /// (ADR 031). It is for the user who asked for a new page. The error says that the URL
+    /// names nothing.
+    pub fn open_or_make(&self, url: String) -> Result<(), String> {
+        let opened = self.shell.open(&url);
+        opened.ok().ok_or(format!("nothing to open at {url:?}"))
     }
 
     /// True when the route shows without a new page. The core makes the page of a route
