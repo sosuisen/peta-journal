@@ -108,6 +108,49 @@ class JournalScreenTest {
         compose.waitUntil(WAIT_MS) { !shell.syncing }
     }
 
+    /** Opens the app on the folders with the sync at [state], as it is while a sync runs. */
+    private fun startAt(state: SyncState, syncInFront: Boolean) {
+        val main = Handler(Looper.getMainLooper())
+        compose.runOnUiThread {
+            shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) })
+            shell.sync()
+        }
+        compose.setContent { JournalScreen(shell, state, syncInFront = syncInFront) }
+        compose.waitUntil(WAIT_MS) { !shell.syncing }
+    }
+
+    // アプリが前に出たときの同期がファイルを運ぶ間は、進み具合がダイアログに出る。
+    @Test
+    fun a_sync_in_front_that_moves_files_shows_a_dialog() {
+        startAt(SyncState.Downloading(2, 5), syncInFront = true)
+
+        compose.onNode(isDialog()).assertExists()
+        compose.onNode(hasText("Downloading 2 of 5") and hasAnyAncestor(isDialog())).assertExists()
+    }
+
+    // 上げる間も、ダイアログに出る。
+    @Test
+    fun a_sync_in_front_that_uploads_shows_a_dialog() {
+        startAt(SyncState.Uploading(1, 2), syncInFront = true)
+
+        compose.onNode(hasText("Uploading 1 of 2") and hasAnyAncestor(isDialog())).assertExists()
+    }
+
+    // 運ぶファイルがまだ分からない間と、編集のあとの同期では、ダイアログは出ない。
+    @Test
+    fun a_sync_that_moves_nothing_or_is_not_in_front_shows_no_dialog() {
+        startAt(SyncState.Downloading(0, 0), syncInFront = true)
+        compose.onNode(isDialog()).assertDoesNotExist()
+    }
+
+    @Test
+    fun a_sync_after_an_edit_shows_no_dialog() {
+        startAt(SyncState.Downloading(2, 5), syncInFront = false)
+
+        compose.onNode(isDialog()).assertDoesNotExist()
+        compose.onNodeWithText("Downloading 2 of 5").assertExists()
+    }
+
     /** How often the shell told that the user changed a page. */
     private var edits = 0
     private var signIns = 0

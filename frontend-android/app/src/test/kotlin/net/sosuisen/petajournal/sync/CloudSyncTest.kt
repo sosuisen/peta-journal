@@ -1,6 +1,7 @@
 package net.sosuisen.petajournal.sync
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -62,6 +63,34 @@ class CloudSyncTest {
         settle()
 
         assertEquals(2, rounds)
+    }
+
+    // アプリが前に出たときの同期は、終わるまで「前の同期」である。画面は、その間ダイアログを出す。
+    @Test
+    fun a_sync_of_the_app_that_came_to_the_front_is_in_front_until_it_rests() {
+        sync.start(cloud, inFront = true)
+        assertTrue(working.await(2, TimeUnit.SECONDS))
+        assertTrue(sync.inFront)
+
+        held.countDown()
+        settle()
+
+        assertFalse(sync.inFront)
+    }
+
+    // 編集のあとの同期は、前の同期ではない。その途中でアプリが前に出ると、前の同期になる。
+    @Test
+    fun a_quiet_sync_comes_to_the_front_when_the_app_does() {
+        sync.start(cloud)
+        assertTrue(working.await(2, TimeUnit.SECONDS))
+        assertFalse(sync.inFront)
+
+        sync.start(cloud, inFront = true)
+
+        assertTrue(sync.inFront)
+        held.countDown()
+        settle()
+        assertFalse(sync.inFront)
     }
 
     // 途中で頼まれなければ、同期は1回で終わる。
