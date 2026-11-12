@@ -114,11 +114,11 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
         kept.edit().remove(CREDENTIAL).apply()
         // The SDK keeps the answer of the last sign-in, and the next resume would take it again
         AuthActivity.result = null
-        // The next sign-in may be to another account, where this cursor and these versions
-        // mean nothing. Without them, the next download lists everything: it takes only the
-        // files that differ, and deletes what the account does not hold
+        // The next sign-in may be to another account, where this cursor means nothing. Without
+        // it, the next download lists everything: it takes only the files that differ, and
+        // deletes the copies of what the account does not hold. The record of the versions
+        // stays: it tells a copy from what was written here and is not uploaded yet
         cursor.delete()
-        record.forget()
         sync.signOut()
         if (credential != null) revoke(credential)
     }
