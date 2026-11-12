@@ -67,7 +67,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="382" y="172" dominant-baseline="central">Rustプロセス（exe）</text>
 
 <rect class="frame" x="680" y="20" width="300" height="480" rx="14" />
-<text class="th" x="696" y="42" dominant-baseline="central">SwiftUIネイティブアプリ</text>
+<text class="th" x="696" y="42" dominant-baseline="central">macOSネイティブアプリ</text>
 <rect class="inner" x="696" y="154" width="268" height="330" rx="10" />
 <text x="712" y="172" dominant-baseline="central">Rustライブラリ</text>
 
@@ -160,7 +160,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 
 
 <rect class="frame" x="1010" y="20" width="300" height="480" rx="14" />
-<text class="th" x="1026" y="42" dominant-baseline="central">WinUIネイティブアプリ</text>
+<text class="th" x="1026" y="42" dominant-baseline="central">Windowsネイティブアプリ</text>
 <rect class="inner" x="1026" y="154" width="268" height="330" rx="10" />
 <text x="1042" y="172" dominant-baseline="central">Rustライブラリ</text>
 <g class="gray other">
@@ -202,8 +202,8 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <rect class="inner" x="1356" y="154" width="268" height="480" rx="10" />
 <text x="1372" y="172" dominant-baseline="central">Rustライブラリ</text>
 <g class="gray other">
-<rect x="1372" y="56" width="236" height="56" rx="8" />
-<text class="th" x="1490" y="73" text-anchor="middle" dominant-baseline="central">frontend-android（Kotlin）</text>
+<rect x="1360" y="56" width="260" height="56" rx="8" />
+<text class="th" x="1490" y="73" text-anchor="middle" dominant-baseline="central">frontend-android（Kotlin, Compose）</text>
 <text x="1490" y="95" text-anchor="middle" dominant-baseline="central">画面を描画・操作を送信</text>
 </g>
 <g class="green">
@@ -227,8 +227,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <line class="arr" x1="1490" y1="248" x2="1490" y2="272" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <g class="coral">
 <rect x="1372" y="566" width="236" height="56" rx="8" />
-<text class="th" x="1490" y="583" text-anchor="middle" dominant-baseline="central">journal-core（Rust）</text>
-<text x="1490" y="605" text-anchor="middle" dominant-baseline="central">ローカルサーバと同じクレート</text>
+<text class="th" x="1490" y="594" text-anchor="middle" dominant-baseline="central">journal-core</text>
 </g>
 <line class="arr" x1="1387" y1="248" x2="1387" y2="484" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <line class="arr" x1="1430" y1="332" x2="1430" y2="370" marker-end="url(#arrow)" />
@@ -312,7 +311,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text class="th" x="36" y="712" dominant-baseline="central">Webアプリ（TypeScript, React）</text>
 <g class="gray other">
 <rect x="68" y="726" width="320" height="56" rx="8" />
-<text class="th" x="228" y="743" text-anchor="middle" dominant-baseline="central">todoアプリ</text>
+<text class="th" x="228" y="743" text-anchor="middle" dominant-baseline="central">（制作例）ToDoアプリ</text>
 <text x="228" y="765" text-anchor="middle" dominant-baseline="central">タスクを一覧・状態を切り替えできるWebアプリ</text>
 </g>
 <line class="arr" x1="340" y1="638" x2="340" y2="724" marker-start="url(#arrow)" marker-end="url(#arrow)" />
@@ -322,7 +321,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text class="th" x="473" y="712" dominant-baseline="central">WebViewアプリ（C#, WinUI, WebView）</text>
 <g class="gray other">
 <rect x="485" y="726" width="360" height="56" rx="8" />
-<text class="th" x="665" y="743" text-anchor="middle" dominant-baseline="central">stickiesアプリ</text>
+<text class="th" x="665" y="743" text-anchor="middle" dominant-baseline="central">（制作例）Stickiesアプリ</text>
 <text x="665" y="765" text-anchor="middle" dominant-baseline="central">ページを付箋紙として表示できるデスクトップアプリ</text>
 </g>
 <line class="arr" x1="730" y1="638" x2="730" y2="724" marker-start="url(#arrow)" marker-end="url(#arrow)" />
@@ -340,9 +339,9 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="806" y="785" text-anchor="middle" dominant-baseline="central">ast2html</text>
 </g>
 
-<text class="note" x="20" y="818" dominant-baseline="central">今回のtodoアプリ、stickiesアプリは、Readが中心の単純なものなので、コアを使わず、サーバと直接話す。</text>
+<text class="note" x="20" y="818" dominant-baseline="central">ToDoアプリ、Stickiesアプリは、Readが中心の単純なものなので、コアを使わず、サーバと直接話す。</text>
 <text class="note" x="20" y="840" dominant-baseline="central">画像は、どのフロントエンドも、画面の側がサーバから直接取る。</text>
-<text class="note" x="20" y="862" dominant-baseline="central">項目の表示は、Leptos・SwiftUI・WinUI・Android・stickiesのどれも、ast2htmlが作るHTMLから描く。Emacsは、Markdownのまま見せる。</text>
+<text class="note" x="20" y="862" dominant-baseline="central">項目の表示は、Leptos・SwiftUI・WinUI・Android・Stickiesのどれも、ast2htmlが作るHTMLから描く。Emacsは、Markdownのまま見せる。</text>
 
 <g transform="translate(0,266)">
 <rect x="20" y="620" width="1290" height="168" fill="#F8F7F3" />
