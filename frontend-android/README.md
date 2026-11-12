@@ -107,6 +107,9 @@ file that Dropbox lost is deleted in the app, and so is its page, without a ques
   cuts the paragraph at the image, and the screen draws the image between the text before
   and after it. The image is as wide as the page asks with `#w=`, or as wide as it is in its
   file, and never wider than the screen. An image whose file is not there shows its alt.
+- A touch opens an image over the whole screen, to read what is small in it. Two fingers
+  make it larger, up to 8 times, and move it. A touch or the back key closes it. The large
+  view reads the file again, with at least twice the width of the screen in pixels.
 - An image of the web is not drawn. It is a link with its alt, so the app talks to no server
   but Dropbox.
 - A task has a checkbox that shows where it stands. A touch does not change it.
@@ -126,4 +129,3 @@ file that Dropbox lost is deleted in the app, and so is its page, without a ques
 - Links to other things than a page or a web address, such as a file.
 - An image inside a cell of a table or inside a heading.
 - The height of an image that the page asks with `#h=`. The height follows the width.
-- A larger view of an image after a touch.
