@@ -296,6 +296,8 @@ private fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
     var field by remember(id) { mutableStateOf(TextFieldValue(body, TextRange(body.length))) }
     val focus = remember { FocusRequester() }
     var focused by remember { mutableStateOf(false) }
+    // Enter in an empty child moves it out and keeps the edit there: the next Enter counts again
+    var refused by remember(id, row.item.level) { mutableStateOf<String?>(null) }
 
     // What the core holds wins, as after an undo. Not while the keyboard composes a word: the
     // core has not heard of that word yet, and the field would lose it
@@ -317,9 +319,14 @@ private fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
         onValueChange = { next ->
             val enter = enterAt(field, next)
             when {
-                // The core splits the item: the field takes no line break
-                enter != null -> shell.enter(id, characters(field.text, enter))
+                // The core splits the item: the field takes no line break. The field tells of
+                // a change that was not taken once more, and that is not a second Enter
+                enter != null -> if (next.text != refused) {
+                    refused = next.text
+                    shell.enter(id, characters(field.text, enter))
+                }
                 else -> {
+                    refused = null
                     field = next
                     if (next.composition == null && next.text != body) shell.type(id, next.text)
                 }
