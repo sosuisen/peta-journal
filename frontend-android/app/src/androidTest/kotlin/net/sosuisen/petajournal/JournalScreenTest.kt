@@ -730,11 +730,19 @@ class JournalScreenTest {
     /** Ends the app, and opens it again on the same folders, at the screen it had. */
     private fun openAgain() {
         val main = Handler(Looper.getMainLooper())
-        compose.runOnUiThread {
-            shell.close()
-            shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) })
-            shell.restore()
+        compose.runOnUiThread { shell.close() }
+        // The journal is let go of on another thread, and cannot be opened before that
+        compose.waitUntil(WAIT_MS) {
+            try {
+                compose.runOnUiThread {
+                    shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) })
+                }
+                true
+            } catch (stillOpen: Exception) {
+                false
+            }
         }
+        compose.runOnUiThread { shell.restore() }
     }
 
     // アプリを開くと、前に見ていたページが出る。
