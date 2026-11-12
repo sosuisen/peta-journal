@@ -2,8 +2,8 @@
 
 The Android shell of PetaJournal, written in Kotlin with Jetpack Compose. It downloads the
 Markdown folder from Dropbox, and a page is searched for and opened, with its items shown with
-their decoration. The screen changes nothing yet. The sync already uploads the pages that
-changed in the app, for the editing that comes next (ADR 031).
+their decoration. A touch on an item edits its Markdown, and the sync uploads the pages that
+changed in the app (ADR 031).
 
 The core is the same Crux core as in the other frontends. There is no journal server on a
 phone, so the journal core runs inside the app (ADR 029). `frontend-rust/crates/shell-android`
@@ -151,6 +151,17 @@ that are not uploaded yet stay, and go up to the account of the new sign-in.
   device has for its kind. `FileProvider` lends the file for reading. Only the `assets` folder
   is lent: the pages and the database are not. A link to a file that is not there says so.
 - A task has a checkbox that shows where it stands. A touch does not change it.
+- A touch on an item edits it: the item becomes a field with its Markdown, with the cursor
+  at its end. A touch on a link or an image still opens it. Only the rest of the row edits,
+  so an item that is one long link is edited by a touch beside it. The core has the text
+  and saves it a moment after the last key. Enter splits the item at the cursor, and the
+  edit goes on in the new item. A touch on another item moves the edit there.
+- The core counts a cursor in characters, and a field of Android counts in UTF-16 units.
+  The screen converts between the two. While the keyboard composes a word, as in Japanese,
+  the core hears nothing, and the field is not written over.
+- The core asks the shell to focus an editor and waits for the answer. `Shell` answers at
+  once: the row that is edited takes the focus when it is drawn. The questions of the core
+  (`Confirm`) have no dialog yet and are answered with no.
 - `JournalScreen` is the one screen: the search field, and under it the results or the page.
 - `MainActivity` and `JournalModel` open the journal in the folders of the app:
   `files/markdown` for the Markdown files and `files/data` for the database, the index and
