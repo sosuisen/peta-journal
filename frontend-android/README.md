@@ -123,6 +123,9 @@ the files that differ, and deletes what the account does not hold.
   view reads the file again, with at least twice the width of the screen in pixels.
 - An image of the web is not drawn. It is a link with its alt, so the app talks to no server
   but Dropbox.
+- A link to a file of the `assets` folder, such as a PDF, opens the file with the app that the
+  device has for its kind. `FileProvider` lends the file for reading. Only the `assets` folder
+  is lent: the pages and the database are not. A link to a file that is not there says so.
 - A task has a checkbox that shows where it stands. A touch does not change it.
 - `JournalScreen` is the one screen: the search field, and under it the results or the page.
 - `MainActivity` and `JournalModel` open the journal in the folders of the app:
@@ -137,5 +140,5 @@ the files that differ, and deletes what the account does not hold.
 ## Not there yet
 
 - A sync while the app is not on screen.
-- Links to other things than a page or a web address, such as a file.
+- Links to a file outside the `assets` folder, such as a file of the PC.
 - An image inside a cell of a table or inside a heading.

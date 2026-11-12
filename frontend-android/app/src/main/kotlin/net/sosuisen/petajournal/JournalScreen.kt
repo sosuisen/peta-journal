@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -89,6 +90,7 @@ fun JournalScreen(
     onSignIn: () -> Unit = {},
     onSync: () -> Unit = {},
     onSignOut: () -> Unit = {},
+    onFile: (File) -> Unit = {},
 ) {
     val view = shell.view
     MaterialTheme {
@@ -109,7 +111,9 @@ fun JournalScreen(
                     Results(found(view), shell::pick)
                 } else {
                     shell.missing?.let { Text("No page yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
-                    Outline(title(view), view.outline.rows, view.config.tagsDir, shell::follow, shell::image)
+                    shell.missingFile?.let { Text("No file yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
+                    val links = Links(shell::follow) { path -> shell.attached(path)?.let(onFile) }
+                    Outline(title(view), view.outline.rows, view.config.tagsDir, links, shell::image)
                 }
             }
         }
@@ -167,26 +171,38 @@ private fun Results(entries: List<SearchEntry>, onPick: (SearchEntry) -> Unit) {
     }
 }
 
+/**
+ * Where the links of an item lead.
+ *
+ * @param onPage gets the URL of a page, such as `/pages/notes`.
+ * @param onFile gets the path of a file of the assets folder, such as `assets/report.pdf`.
+ */
+private class Links(val onPage: (String) -> Unit, val onFile: (String) -> Unit)
+
 @Composable
-private fun Outline(title: String, rows: List<Row>, tagsDir: String, onPage: (String) -> Unit, image: (String) -> File?) {
+private fun Outline(title: String, rows: List<Row>, tagsDir: String, links: Links, image: (String) -> File?) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         item(key = "title") {
             Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(vertical = 8.dp))
         }
-        items(rows, key = { it.item.id }) { row -> OutlineRow(row, tagsDir, onPage, image) }
+        items(rows, key = { it.item.id }) { row -> OutlineRow(row, tagsDir, links, image) }
     }
 }
 
 @Composable
-private fun OutlineRow(row: Row, tagsDir: String, onPage: (String) -> Unit, image: (String) -> File?) {
+private fun OutlineRow(row: Row, tagsDir: String, links: Links, image: (String) -> File?) {
     val uriHandler = LocalUriHandler.current
+    // The blocks are kept while the item stays the same, and must not keep old links
+    val now by rememberUpdatedState(links)
     val blocks = remember(row.item.ast, row.item.body, tagsDir) {
         shownBlocks(row.item, tagsDir) { href ->
+            val file = assetPath(href)
             when {
                 isWebAddress(href) -> uriHandler.openUri(href)
                 // The core takes the URL of a page as it is written, not encoded
-                href.startsWith(Shell.PAGES) -> onPage(Uri.decode(href))
-                // Any other link, such as one to a file, opens nothing
+                href.startsWith(Shell.PAGES) -> now.onPage(Uri.decode(href))
+                file != null -> now.onFile(file)
+                // Any other link, such as one to a file of the PC, opens nothing
             }
         }
     }

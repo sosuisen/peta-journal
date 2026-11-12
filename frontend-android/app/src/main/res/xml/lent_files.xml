@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the assets folder is lent to other apps. The pages and the database are not. -->
+<paths>
+    <files-path name="assets" path="markdown/assets/" />
+</paths>

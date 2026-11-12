@@ -191,13 +191,20 @@ private fun holdsOwnPart(node: JSONObject): Boolean =
  */
 private fun assetImage(node: JSONObject): ShownBlock.Image? {
     if (node.optString("type") != IMAGE) return null
-    val path = Uri.decode(node.optString("url")).trimStart('.', '/')
-    if (!path.startsWith(MarkdownFolder.ASSETS, ignoreCase = true)) return null
+    val path = assetPath(node.optString("url")) ?: return null
     val props = node.optJSONObject("props")
     // A side that is not a number above zero is not asked for, as in the web app
     fun side(name: String): Int? = props?.optString(name)?.toIntOrNull()?.takeIf { it > 0 }
     return ShownBlock.Image(path, plainText(node), side("w"), side("h"))
 }
+
+/**
+ * The path under the Markdown folder of the file that the address names, when the file is in
+ * the assets folder: `assets/picture.png` for `../assets/picture.png`. `null` for any other
+ * address. The address may be encoded as a web address is.
+ */
+fun assetPath(address: String): String? =
+    Uri.decode(address.substringBefore('#')).trimStart('.', '/').takeIf { it.startsWith(MarkdownFolder.ASSETS, ignoreCase = true) }
 
 /** The text under the node, without its decoration. */
 private fun plainText(node: JSONObject): String =

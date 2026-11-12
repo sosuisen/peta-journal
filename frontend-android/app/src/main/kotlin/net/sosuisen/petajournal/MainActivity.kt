@@ -1,7 +1,12 @@
 package net.sosuisen.petajournal
 
 import android.app.Application
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
+import android.webkit.MimeTypeMap
+import android.widget.Toast
+import androidx.core.content.FileProvider
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -129,7 +134,23 @@ class MainActivity : ComponentActivity() {
                 onSignIn = { Auth.startOAuth2PKCE(this, BuildConfig.DROPBOX_KEY, DROPBOX, SCOPES) },
                 onSync = { model.sync() },
                 onSignOut = { model.signOut() },
+                onFile = ::openWithAnotherApp,
             )
+        }
+    }
+
+    /**
+     * Opens a file of the assets folder with the app that the device has for its kind. The
+     * other app may only read the file, and only this one.
+     */
+    private fun openWithAnotherApp(file: File) {
+        val lent = FileProvider.getUriForFile(this, "$packageName.files", file)
+        val kind = MimeTypeMap.getSingleton().getMimeTypeFromExtension(file.extension.lowercase()) ?: "*/*"
+        val view = Intent(Intent.ACTION_VIEW).setDataAndType(lent, kind).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        try {
+            startActivity(view)
+        } catch (none: ActivityNotFoundException) {
+            Toast.makeText(this, "No app opens ${file.name}", Toast.LENGTH_LONG).show()
         }
     }
 

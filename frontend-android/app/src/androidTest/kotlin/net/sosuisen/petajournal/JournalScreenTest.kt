@@ -90,6 +90,7 @@ class JournalScreenTest {
                     signOuts += 1
                     sync?.signOut()
                 },
+                onFile = { opened += it },
             )
         }
         compose.waitUntil(WAIT_MS) { !shell.syncing }
@@ -97,6 +98,7 @@ class JournalScreenTest {
 
     private var signIns = 0
     private var signOuts = 0
+    private val opened = mutableListOf<File>()
     private var sync: CloudSync? = null
 
     /** A cloud with one page, or one that cannot be reached. */
@@ -304,6 +306,33 @@ class JournalScreenTest {
         for (text in listOf("outer", "look", "next")) compose.onNode(hasText(text)).assertExists()
     }
 
+    // assetsのファイルへのリンクに触れると、そのファイルが開かれる。名前の大文字と小文字は問わない。
+    @Test
+    fun a_link_to_a_file_of_the_assets_folder_opens_the_file() {
+        File(root, "markdown/assets").mkdirs()
+        File(root, "markdown/assets/report.pdf").writeText("pdf")
+        download("notes.md", "[the report](../assets/Report.pdf)" + NL)
+        openNotes()
+        waitFor("the report")
+
+        compose.onNode(hasText("the report")).performClick()
+
+        compose.runOnIdle { assertEquals(listOf("report.pdf"), opened.map { it.name }) }
+    }
+
+    // ファイルのないリンクに触れると、ないことが見える。何も開かれない。
+    @Test
+    fun a_link_to_a_file_that_is_not_here_says_so() {
+        download("notes.md", "[the report](../assets/none.pdf)" + NL)
+        openNotes()
+        waitFor("the report")
+
+        compose.onNode(hasText("the report")).performClick()
+
+        waitFor("No file yet: assets/none.pdf")
+        assertEquals(emptyList<File>(), opened)
+    }
+
     // ページへのリンクに触れると、そのページが開く。
     @Test
     fun a_link_to_a_page_opens_the_page() {
@@ -313,6 +342,19 @@ class JournalScreenTest {
         waitFor("other page")
 
         compose.onNode(hasText("other page")).performClick()
+
+        waitFor("what the other page says")
+    }
+
+    // .mdへの相対リンクに触れても、そのページが開く。
+    @Test
+    fun a_relative_link_to_an_md_file_opens_its_page() {
+        download("notes.md", "[the other](./other.md)" + NL)
+        download("other.md", "what the other page says" + NL)
+        openNotes()
+        waitFor("the other")
+
+        compose.onNode(hasText("the other")).performClick()
 
         waitFor("what the other page says")
     }
