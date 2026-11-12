@@ -64,7 +64,13 @@ internal sealed class RowView : Grid
 
     private readonly StickyWindow window;
     private readonly StackPanel header = new();
-    private readonly StackPanel marks = new() { Orientation = Orientation.Horizontal };
+    private readonly StackPanel marks = new()
+    {
+        Orientation = Orientation.Horizontal,
+        // The marks stand beside the first line. Without this they go to the middle of an
+        // item of many lines
+        VerticalAlignment = VerticalAlignment.Top,
+    };
     private readonly Border paper = new() { Background = Clear };
     private readonly StackPanel shown = new();
     private readonly TextBox editor;
