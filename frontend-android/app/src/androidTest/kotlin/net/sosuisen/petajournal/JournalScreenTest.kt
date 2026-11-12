@@ -5,6 +5,10 @@ import android.os.Handler
 import android.os.Looper
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.getAlignmentLinePosition
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsEqualTo
@@ -38,6 +42,9 @@ import net.sosuisen.petajournal.types.SearchKind
 import net.sosuisen.petajournal.types.TaskState
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import kotlin.math.abs
+import androidx.compose.ui.semantics.SemanticsNode
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -106,6 +113,49 @@ class JournalScreenTest {
             )
         }
         compose.waitUntil(WAIT_MS) { !shell.syncing }
+    }
+
+    /** Opens the app on the folders with the sync at [state], as it is while a sync runs. */
+    private fun startAt(state: SyncState, syncInFront: Boolean) {
+        val main = Handler(Looper.getMainLooper())
+        compose.runOnUiThread {
+            shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) })
+            shell.sync()
+        }
+        compose.setContent { JournalScreen(shell, state, syncInFront = syncInFront) }
+        compose.waitUntil(WAIT_MS) { !shell.syncing }
+    }
+
+    // アプリが前に出たときの同期がファイルを運ぶ間は、進み具合がダイアログに出る。
+    @Test
+    fun a_sync_in_front_that_moves_files_shows_a_dialog() {
+        startAt(SyncState.Downloading(2, 5), syncInFront = true)
+
+        compose.onNode(isDialog()).assertExists()
+        compose.onNode(hasText("Downloading 2 of 5") and hasAnyAncestor(isDialog())).assertExists()
+    }
+
+    // 上げる間も、ダイアログに出る。
+    @Test
+    fun a_sync_in_front_that_uploads_shows_a_dialog() {
+        startAt(SyncState.Uploading(1, 2), syncInFront = true)
+
+        compose.onNode(hasText("Uploading 1 of 2") and hasAnyAncestor(isDialog())).assertExists()
+    }
+
+    // 運ぶファイルがまだ分からない間と、編集のあとの同期では、ダイアログは出ない。
+    @Test
+    fun a_sync_that_moves_nothing_or_is_not_in_front_shows_no_dialog() {
+        startAt(SyncState.Downloading(0, 0), syncInFront = true)
+        compose.onNode(isDialog()).assertDoesNotExist()
+    }
+
+    @Test
+    fun a_sync_after_an_edit_shows_no_dialog() {
+        startAt(SyncState.Downloading(2, 5), syncInFront = false)
+
+        compose.onNode(isDialog()).assertDoesNotExist()
+        compose.onNodeWithText("Downloading 2 of 5").assertExists()
     }
 
     /** How often the shell told that the user changed a page. */
@@ -441,6 +491,44 @@ class JournalScreenTest {
             listOf("Task not started", "Task running", "Task done"),
             marks.map { it.config[SemanticsProperties.ContentDescription].single() },
         )
+    }
+
+    /** How far down the screen the middle of a node is, in pixels. */
+    private fun middle(node: SemanticsNode): Float = node.boundsInRoot.center.y
+
+    // タスクの印は、項目の文字と同じ高さにある。
+    @Test
+    fun the_mark_of_a_task_is_at_the_height_of_its_text() {
+        download("notes.md", above('A') + "- [ ] buy milk" + NL)
+        openNotes()
+        waitFor("buy milk")
+
+        val mark = compose.onNode(hasContentDescription("Task not started")).fetchSemanticsNode()
+        val text = compose.onNode(hasText("buy milk"), useUnmergedTree = true).fetchSemanticsNode()
+
+        val apart = abs(middle(mark) - middle(text)) / compose.density.density
+        assertTrue("the mark is ${apart}dp from the middle of the text", apart < 3f)
+    }
+
+    /** How far down the screen the middle of the letters of the first line of a text is, in dp. */
+    private fun middleOfLetters(text: SemanticsNodeInteraction, sizeSp: Float): Float {
+        val line = text.getUnclippedBoundsInRoot().top + text.getAlignmentLinePosition(FirstBaseline)
+        // The middle of a letter is about a third of its size above the line it stands on
+        return line.value - 0.35f * sizeSp * compose.density.fontScale
+    }
+
+    // 見出しのバレットは、見出しの大きな文字の真ん中の高さにある。
+    @Test
+    fun the_bullet_of_a_heading_is_at_the_middle_of_its_large_letters() {
+        download("notes.md", above('A') + "# Big" + NL)
+        openNotes()
+        waitFor("Big")
+
+        val bullet = middleOfLetters(compose.onNode(hasText("•"), useUnmergedTree = true), sizeSp = 16f)
+        // The first heading is one and a half times as large as plain text
+        val heading = middleOfLetters(compose.onNode(hasText("Big"), useUnmergedTree = true), sizeSp = 24f)
+
+        assertTrue("the bullet is at ${bullet}dp, the letters at ${heading}dp", abs(bullet - heading) < 1.5f)
     }
 
     /** Lets the core write the pages that changed, and says whether a file is at the path then. */

@@ -15,10 +15,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
@@ -31,6 +30,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -78,7 +78,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import net.sosuisen.petajournal.sync.SyncState
 import net.sosuisen.petajournal.types.Row
 import net.sosuisen.petajournal.types.ScreenView
@@ -96,12 +100,13 @@ const val EDITOR_TAG = "editor"
 /**
  * The one screen of the app: a search field, and under it the results of the search or the
  * page that is open. Between them is where the sync with the cloud stands; [cloud] is `null`
- * in an app that syncs nothing.
+ * in an app that syncs nothing. [syncInFront] says that the user waits for the sync.
  */
 @Composable
 fun JournalScreen(
     shell: Shell,
     cloud: SyncState? = null,
+    syncInFront: Boolean = false,
     onSignIn: () -> Unit = {},
     onSync: () -> Unit = {},
     onSignOut: () -> Unit = {},
@@ -119,6 +124,7 @@ fun JournalScreen(
                     modifier = Modifier.fillMaxWidth().padding(8.dp).testTag(SEARCH_TAG),
                 )
                 cloud?.let { SyncLine(it, onSignIn, onSync, onSignOut) }
+                if (syncInFront) progress(cloud)?.let { Waiting(it) }
                 // The room of the bar is always there, for the same reason
                 Box(Modifier.fillMaxWidth().height(4.dp)) {
                     if (shell.syncing) LinearProgressIndicator(Modifier.fillMaxSize())
@@ -220,6 +226,31 @@ private fun title(view: ViewModel): String =
         else -> ""
     }
 
+/** How far a sync that moves files is, in words and as a part of the whole, or null. */
+private fun progress(state: SyncState?): Pair<String, Float>? =
+    when (state) {
+        is SyncState.Downloading -> if (state.total > 0) "Downloading ${state.done} of ${state.total}" to state.done.toFloat() / state.total else null
+        is SyncState.Uploading -> if (state.total > 0) "Uploading ${state.done} of ${state.total}" to state.done.toFloat() / state.total else null
+        else -> null
+    }
+
+/**
+ * Where the sync stands, over the page, while the user waits for it: the app came to the
+ * front, and the pages may be old until the files have moved. The dialog cannot be closed:
+ * an edit of an old page would be merged with the new one later.
+ */
+@Composable
+private fun Waiting(progress: Pair<String, Float>) {
+    Dialog({}, DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)) {
+        Surface(shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) {
+            Column(Modifier.padding(24.dp)) {
+                Text(progress.first, Modifier.padding(bottom = 16.dp))
+                LinearProgressIndicator({ progress.second }, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
 @Composable
 private fun SyncLine(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit, onSignOut: () -> Unit) {
     // One height for every state: the app syncs while the user types, and the page must not jump
@@ -307,19 +338,54 @@ private fun OutlineRow(row: Row, tagsDir: String, links: Links, image: (String) 
             Text(date, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
         }
         Row(Modifier.padding(start = row.indentPx.dp, top = 3.dp, bottom = 3.dp)) {
-            Text(if (row.showBullet) "•" else "", modifier = Modifier.width(22.dp))
-            row.task?.let { state -> TaskMark(state) { shell.cycleTask(row.item.id) } }
+            // The bullet and the mark stand on the line of the first text, and go up to the
+            // middle of its letters when they are large. An item that starts with something
+            // else, such as a table, has no such line: they stay at the top
+            val first = blocks.firstOrNull()
+            val onLine = row.isEditing || first is ShownBlock.Text || first is ShownBlock.Entries || first is ShownBlock.Quote
+            fun Modifier.onLine(): Modifier = if (onLine) alignByBaseline() else this
+            // The Markdown of an item that is edited has the size of plain text
+            val lift = if (row.isEditing) 0 else liftOfFirstLine(blocks)
+            val middleOfLetter = with(LocalDensity.current) {
+                (MaterialTheme.typography.bodyLarge.fontSize.toPx() * MIDDLE_OF_A_LETTER).roundToInt()
+            }
+            Text(
+                if (row.showBullet) "•" else "",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = if (onLine) Modifier.width(22.dp).alignBy { it[FirstBaseline] + lift } else Modifier.width(22.dp),
+            )
+            row.task?.let { state ->
+                // The middle of the mark is at the middle of a letter of plain text
+                val middle = if (onLine) Modifier.alignBy { it.measuredHeight / 2 + middleOfLetter + lift } else Modifier
+                TaskMark(state, middle) { shell.cycleTask(row.item.id) }
+            }
             if (row.isEditing) {
-                ItemEditor(row, shell, Modifier.weight(1f))
+                ItemEditor(row, shell, Modifier.weight(1f).onLine())
             } else {
                 // A touch on a link or an image opens it, and any other touch edits the item
                 val touch = remember { MutableInteractionSource() }
-                Box(Modifier.weight(1f).clickable(touch, indication = null) { shell.edit(row.item.id) }) {
+                Box(Modifier.weight(1f).onLine().clickable(touch, indication = null) { shell.edit(row.item.id) }) {
                     Blocks(blocks, image)
                 }
             }
         }
     }
+}
+
+/** How much of the size of a letter the middle of a letter is above the line it stands on. */
+private const val MIDDLE_OF_A_LETTER = 0.35f
+
+/**
+ * How far above the line of the first text the bullet and the mark of a task stand, in pixels,
+ * to be beside the middle of its letters. A heading has larger letters than plain text, so
+ * their middle is higher above the line.
+ */
+@Composable
+private fun liftOfFirstLine(blocks: List<ShownBlock>): Int {
+    val first = (blocks.firstOrNull() as? ShownBlock.Text)?.text ?: return 0
+    val larger = first.spanStyles.firstOrNull { it.start == 0 && it.item.fontSize.isEm }?.item?.fontSize?.value ?: return 0
+    val plain = with(LocalDensity.current) { MaterialTheme.typography.bodyLarge.fontSize.toPx() }
+    return (plain * (larger - 1f) * MIDDLE_OF_A_LETTER).roundToInt()
 }
 
 /**
@@ -446,17 +512,25 @@ private fun QuoteBlock(quote: ShownBlock.Quote, image: (String) -> File?) {
  * and then no task.
  */
 @Composable
-private fun TaskMark(state: TaskState, onTouch: () -> Unit) {
+private fun TaskMark(state: TaskState, modifier: Modifier, onTouch: () -> Unit) {
     val (box, name) = when (state) {
         TaskState.NOTSTARTED -> ToggleableState.Off to "Task not started"
         TaskState.RUNNING -> ToggleableState.Indeterminate to "Task running"
         TaskState.DONE -> ToggleableState.On to "Task done"
     }
-    TriStateCheckbox(
-        state = box,
-        onClick = onTouch,
-        modifier = Modifier.padding(end = 6.dp, top = 2.dp).semantics { contentDescription = name },
-    )
+    // As high as a line of the text, so the box is beside the first line. A box that takes a
+    // touch by itself is 48dp high, and would stand below the line
+    val line = with(LocalDensity.current) { MaterialTheme.typography.bodyLarge.lineHeight.toDp() }
+    Box(
+        modifier
+            .padding(end = 6.dp)
+            .size(width = 28.dp, height = line)
+            .clickable(onClick = onTouch)
+            .semantics { contentDescription = name },
+        contentAlignment = Alignment.Center,
+    ) {
+        TriStateCheckbox(state = box, onClick = null)
+    }
 }
 
 /** The lines of the code as they were written. A long line is scrolled sideways, not broken. */
