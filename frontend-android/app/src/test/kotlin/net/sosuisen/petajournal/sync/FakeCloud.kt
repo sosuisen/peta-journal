@@ -29,6 +29,13 @@ class FakeCloud : Cloud {
         return version
     }
 
+    /** Takes the file, or the folder with all that is in it, out of the cloud. */
+    fun gone(path: String): Change.Gone {
+        val key = path.lowercase()
+        newest.keys.removeAll { it == key || it.startsWith("$key/") }
+        return Change.Gone(path)
+    }
+
     /** The text of the newest version of the file, or `null` when the cloud has no such file. */
     fun text(path: String): String? = newest[path.lowercase()]?.let { String(contents.getValue(it.remote)) }
 

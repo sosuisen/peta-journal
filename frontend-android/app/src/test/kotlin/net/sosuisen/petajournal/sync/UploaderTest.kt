@@ -21,6 +21,11 @@ class UploaderTest {
     @Before
     fun folders() {
         root = dir.newFolder("markdown")
+        open()
+    }
+
+    /** Makes the parts of the sync, as the app does when it opens. */
+    private fun open() {
         val folder = MarkdownFolder(root, File(dir.root, "temp"))
         val record = CloudRecord(File(dir.root, "record"))
         downloader = Downloader(cloud, folder, File(dir.root, "cursor"), record)
@@ -30,6 +35,12 @@ class UploaderTest {
     /** Downloads the files, as the first sync of the app does. */
     private fun download(vararg files: Pair<String, String>) {
         cloud.answers[null] = Changes(files.map { (path, text) -> cloud.file(path, text) }, "c1", whole = true)
+        downloader.run { _, _ -> }
+    }
+
+    /** Downloads what changed in the cloud after the cursor [since]. */
+    private fun download(since: String, next: String, whole: Boolean = false, vararg changes: Change) {
+        cloud.answers[since] = Changes(changes.toList(), next, whole)
         downloader.run { _, _ -> }
     }
 
@@ -130,6 +141,62 @@ class UploaderTest {
         upload()
 
         assertEquals(listOf("docs/b.md"), cloud.uploaded)
+    }
+
+    // アプリを開き直しても、クラウドと同じ中身のファイルは上がらない。
+    @Test
+    fun nothing_is_uploaded_after_the_app_opens_again() {
+        download("docs/notes.md" to "- a")
+        write("docs/new.md", "- new")
+        upload()
+        cloud.uploaded.clear()
+
+        open()
+        upload()
+
+        assertEquals(emptyList<String>(), cloud.uploaded)
+    }
+
+    // クラウドで消えたファイルと同じ名前のページをアプリで作ると、新しいファイルとして上がる。
+    @Test
+    fun a_page_made_under_the_name_of_a_file_that_has_gone_is_uploaded_as_a_new_file() {
+        download("docs/notes.md" to "- a", "docs/work/plan.md" to "- b")
+        download("c1", "c2", false, cloud.gone("docs/Notes.md"), cloud.gone("docs/work"))
+        write("docs/notes.md", "- again")
+        write("docs/work/plan.md", "- again")
+
+        upload()
+
+        assertEquals(listOf("docs/notes.md", "docs/work/plan.md"), cloud.uploaded)
+    }
+
+    // クラウドが全部を答えたときも、そこにないファイルと同じ名前のページは、新しいファイルとして上がる。
+    @Test
+    fun a_page_made_under_the_name_of_a_file_that_a_whole_list_lacks_is_uploaded_as_a_new_file() {
+        download("docs/notes.md" to "- a", "docs/other.md" to "- b")
+        cloud.gone("docs/notes.md")
+        download("c1", "c2", true, cloud.file("docs/other.md", "- b"))
+        write("docs/notes.md", "- again")
+
+        upload()
+
+        assertEquals(listOf("docs/notes.md"), cloud.uploaded)
+    }
+
+    // 記録のないアプリ（アップロードを知らない版が取り込んだもの）は、カーソルがあっても、クラウドの全部を尋ねる。
+    @Test
+    fun an_app_without_a_record_asks_for_everything_though_it_has_a_cursor() {
+        download("docs/notes.md" to "- a")
+        File(dir.root, "record").delete()
+        open()
+        cloud.downloaded.clear()
+
+        downloader.run { _, _ -> }
+        upload()
+
+        assertEquals(listOf(null, null), cloud.askedWith)
+        assertEquals(emptyList<String>(), cloud.downloaded)
+        assertEquals(emptyList<String>(), cloud.uploaded)
     }
 
     // 進み具合は、最初に0個、そのあと1個上げるごとに、全体の数と一緒に伝わる。
