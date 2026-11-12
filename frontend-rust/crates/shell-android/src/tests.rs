@@ -2,6 +2,7 @@
 
 use crate::{item_html, PetaCore, PetaShell};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
+use journal_core::domain::model::ItemPosition;
 use peta_core::Event;
 use peta_shell_native::ShellEffectFfi;
 use std::path::Path;
@@ -327,6 +328,35 @@ fn the_page_of_a_folder_stays_while_a_page_under_it_is_left() {
     core.sync();
 
     assert_eq!(page_names(&core), ["work/index", "work/plan"]);
+}
+
+// Dropboxで消えたファイルのページでも、アプリで変えてまだ書いていないものは消えない。ファイルが書き直される。
+#[test]
+fn a_page_that_changed_in_the_app_stays_when_its_file_has_gone() {
+    let app = App::new();
+    app.download("notes.md", "- text\n");
+    app.download("other.md", "- text\n");
+    let core = app.open(Arc::default());
+    core.sync();
+    let notes = core.core.page_service.find_doc("notes", "").unwrap();
+    let items = &core.core.item_service;
+    items
+        .create_item(
+            &notes.unwrap().id,
+            &ItemPosition::Last,
+            1,
+            "from the phone",
+            None,
+        )
+        .unwrap();
+    app.remove("notes.md");
+    app.remove("other.md");
+
+    core.sync();
+
+    assert_eq!(page_names(&core), ["notes"]);
+    let written = std::fs::read_to_string(app.markdown().join("markdown/docs/notes.md"));
+    assert!(written.unwrap().contains("from the phone"));
 }
 
 // アプリで作ったページは、次の取り込みでMarkdownのフォルダーに書かれる。

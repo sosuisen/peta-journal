@@ -171,6 +171,9 @@ impl PetaCore {
     /// Deletes the pages whose files have gone, without asking: the data of the app is a
     /// copy of Dropbox (ADR 030).
     ///
+    /// A page that changed in the app, and whose file does not hold the change yet, stays
+    /// (ADR 031). Its file is written again, and the shell uploads it as a new file.
+    ///
     /// The page of a folder cannot go before the pages under it, so the files are gone
     /// through again while a page went. A page that cannot go stays, for the next sync.
     fn delete_pages_of_missing_files(&self) {
@@ -179,6 +182,7 @@ impl PetaCore {
             let deleted = missing
                 .unwrap_or_default()
                 .iter()
+                .filter(|file| !self.core.export.waits(&file.page_id))
                 .filter(|file| self.core.page_service.delete_page(&file.page_id).is_ok())
                 .count();
             if deleted == 0 {

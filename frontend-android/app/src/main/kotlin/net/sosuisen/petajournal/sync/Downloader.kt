@@ -10,6 +10,10 @@ import java.util.concurrent.Executors
  * reads the cloud (ADR 030): what the cloud has is right, and what it lost is deleted here.
  * It writes down the versions it saw, for the upload (ADR 031).
  *
+ * A file that the cloud lost stays here when it holds what the cloud never had: a change of
+ * the app that is not uploaded yet, or a page that was made in the app. The upload brings it
+ * to the cloud as a new file. What was written on the phone is not lost in silence.
+ *
  * @param cursorFile keeps where the last run ended, so that the next one asks only for what
  *   changed since.
  * @param threads how many files are downloaded at the same time. One after the other, a file
@@ -39,14 +43,14 @@ class Downloader(
             when (change) {
                 is Change.Gone -> {
                     files.keys.removeAll { it == key || it.startsWith("$key/") }
-                    folder.remove(change.path)
+                    folder.remove(change.path, ::isUnsent)
                     record.remove(change.path)
                 }
                 is Change.File -> if (MarkdownFolder.keeps(key)) files[key] = change
             }
         }
         if (changes.whole) {
-            folder.keepOnly(files.keys)
+            folder.keepOnly(files.keys, ::isUnsent)
             record.keepOnly(files.keys)
         }
         download(files.values.filter { folder.contentHash(it.path) != it.contentHash }, onProgress)
@@ -54,6 +58,13 @@ class Downloader(
         record.save()
         cursorFile.writeText(changes.cursor)
     }
+
+    /**
+     * True for a file here whose content the cloud never had. Without a record, every file is
+     * a copy of the cloud: a version of the app that could not write downloaded it.
+     */
+    private fun isUnsent(path: String): Boolean =
+        record.isKept && folder.contentHash(path) != record[path]?.contentHash
 
     private fun download(files: List<Change.File>, onProgress: (Int, Int) -> Unit) {
         onProgress(0, files.size)

@@ -148,6 +148,11 @@ impl MarkdownExportService {
         self.processing.store(false, Ordering::SeqCst);
     }
 
+    /// True when the page has a change that its file does not hold yet: it waits in the queue.
+    pub fn waits(&self, page_id: &Hmtid) -> bool {
+        self.export_queue.holds(page_id).unwrap_or(false)
+    }
+
     /// Writes every page that waits now, however many they are. A page that cannot be written
     /// goes back to the queue, and it stays there for the next call.
     pub fn process_whole_queue(&self) {

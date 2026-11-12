@@ -87,6 +87,10 @@ every Markdown file and every file of the `assets` folder, several at a time. Th
 `assets` are the images of the pages. A later sync asks Dropbox only for what changed. A
 file that Dropbox lost is deleted in the app, and so is its page, without a question.
 
+One kind of file stays when Dropbox lost it: a page that changed in the app, or was made
+there, and is not uploaded yet. The next upload brings it to Dropbox as a new file. What was
+written on the phone is not lost in silence.
+
 A sync has three steps, always in this order (ADR 031):
 
 1. It downloads what changed in Dropbox.
@@ -105,9 +109,9 @@ from the device only. The pages and the images that were downloaded stay, and ca
 The app syncs nothing until the next sign-in.
 
 The next sign-in may be to another account. So the sign-out also forgets where the last
-download ended, and the versions of the files. The first sync after the sign-in lists the
-whole folder. It downloads only the files that differ, and deletes what the account does not
-hold.
+download ended. The first sync after the sign-in lists the whole folder. It downloads only
+the files that differ, and deletes the copies of what the account does not hold. The pages
+that are not uploaded yet stay, and go up to the account of the new sign-in.
 
 ## The code
 

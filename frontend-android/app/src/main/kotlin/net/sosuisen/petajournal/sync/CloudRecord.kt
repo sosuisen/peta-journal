@@ -53,13 +53,6 @@ class CloudRecord(private val file: File) {
      */
     val isKept: Boolean get() = file.exists()
 
-    /** Forgets everything, as before the first download. */
-    @Synchronized
-    fun forget() {
-        known.clear()
-        file.delete()
-    }
-
     /** Writes the record to its file. */
     @Synchronized
     fun save() {
