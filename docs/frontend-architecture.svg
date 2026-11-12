@@ -62,8 +62,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text class="th" x="36" y="146" dominant-baseline="central">Webアプリ（WASM, Leptos）</text>
 
 <rect class="frame" x="350" y="0" width="300" height="500" rx="14" />
-<text class="th" x="366" y="20" dominant-baseline="central">Emacsフロントエンド</text>
-<text class="th" x="366" y="40" dominant-baseline="central">（peta-journalモード）</text>
+<text class="th" x="366" y="20" dominant-baseline="central">Emacsフロントエンド（peta-journalモード）</text>
 <rect class="inner" x="366" y="154" width="268" height="330" rx="10" style="stroke-dasharray:none" />
 <text x="382" y="172" dominant-baseline="central">Rustプロセス（exe）</text>
 
