@@ -68,7 +68,6 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 
 <rect class="frame" x="680" y="0" width="300" height="500" rx="14" />
 <text class="th" x="696" y="20" dominant-baseline="central">macOSネイティブアプリ</text>
-<text class="th" x="696" y="40" dominant-baseline="central">（Swift, SwiftUI）</text>
 <rect class="inner" x="696" y="154" width="268" height="330" rx="10" />
 <text x="712" y="172" dominant-baseline="central">Rustライブラリ</text>
 
@@ -162,7 +161,6 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 
 <rect class="frame" x="1010" y="0" width="300" height="500" rx="14" />
 <text class="th" x="1026" y="20" dominant-baseline="central">Windowsネイティブアプリ</text>
-<text class="th" x="1026" y="40" dominant-baseline="central">（C#, WinUI）</text>
 <rect class="inner" x="1026" y="154" width="268" height="330" rx="10" />
 <text x="1042" y="172" dominant-baseline="central">Rustライブラリ</text>
 <g class="gray other">
