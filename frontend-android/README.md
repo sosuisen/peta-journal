@@ -85,7 +85,9 @@ the Dropbox app, and try once more.
 The app syncs when it comes to the front, when it goes to the back, when "Sync" is touched,
 and 3 seconds after the last change of a page. The sync of an app that came to the front shows
 where it stands in a dialog while it moves files: the pages may be old until then. The
-dialog cannot be closed. The other syncs show it in the line under the search field only. A sync that is asked for while another runs
+dialog cannot be closed. The other syncs show it in a callout over the bottom of the page, which takes no
+room: the user goes on typing. A sync that failed says why in the same callout, with
+"Try again". A sync that is asked for while another runs
 starts after it, once. When Android stops the app in the back before the sync has ended, the
 rest goes up when the app opens again. The first sync downloads
 every Markdown file and every file of the `assets` folder, several at a time. The files of
@@ -181,7 +183,10 @@ that are not uploaded yet stay, and go up to the account of the new sign-in.
   another item transcludes. `Shell.question` holds the question, and the screen shows it in
   a dialog. A touch outside the dialog answers no. A second question answers the first
   with no.
-- `JournalScreen` is the one screen: the search field, and under it the results or the page.
+- `JournalScreen` is the one screen: the results or the page, and under it the search
+  field, where a thumb reaches. Beside the field is the menu with "Sync" and "Sign out".
+  While an item is edited, the row of the tools stands in the place of the search field:
+  the keyboard is up, and the page needs the room.
 - `MainActivity` and `JournalModel` open the journal in the folders of the app:
   `files/markdown` for the Markdown files and `files/data` for the database, the index and
   the settings. They also keep the credential of Dropbox, and start the sign-in and the sync.
