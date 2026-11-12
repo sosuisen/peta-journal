@@ -327,14 +327,19 @@ private fun ImageBlock(image: ShownBlock.Image, file: (String) -> File?) {
         Picture.Missing -> Text(image.alt.ifEmpty { image.path }, style = MaterialTheme.typography.bodyLarge)
         is Picture.Here -> {
             var large by remember { mutableStateOf(false) }
+            val shape = known.bitmap.width.toFloat() / known.bitmap.height
+            // The side that the page does not ask for follows the shape of the image
+            val width = image.width?.toFloat() ?: image.height?.let { it * shape } ?: known.width.toFloat()
+            val height = image.height?.toFloat() ?: (width / shape)
             Image(
                 known.bitmap,
                 contentDescription = image.alt,
-                contentScale = ContentScale.FillWidth,
+                // A page that asks for both sides may ask for another shape, as in a browser
+                contentScale = ContentScale.FillBounds,
                 modifier = Modifier
                     .padding(vertical = 4.dp)
-                    .width((image.width ?: known.width).dp)
-                    .aspectRatio(known.bitmap.width.toFloat() / known.bitmap.height)
+                    .width(width.dp)
+                    .aspectRatio(width / height)
                     .clickable { large = true },
             )
             if (large) LargeImage(image, known.bitmap, file) { large = false }
