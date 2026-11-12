@@ -126,9 +126,9 @@ fun JournalScreen(
                 // The rest of the height: the tools stay above the keyboard
                 Column(Modifier.weight(1f)) {
                     if (searching) {
-                        Results(found(view), shell::pick)
+                        Results(view.search.results, shell::pick)
                     } else {
-                        shell.missing?.let { Text("No page yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
+                        shell.missing?.let { MissingPage(it, shell::make) }
                         shell.missingFile?.let { Text("No file yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
                         val links = Links(shell::follow) { path -> shell.attached(path)?.let(onFile) }
                         Outline(title(view), view.outline.rows, view.config.tagsDir, links, shell::image, shell)
@@ -172,11 +172,24 @@ private fun Tool(sign: String, name: String, onTouch: () -> Unit) {
 }
 
 /**
- * The results that open a page. The first version changes nothing, so it leaves out the
- * entries that make a page: the journal of today, and a page with the name that was typed.
+ * A link named a page that is not there. The page is made only when the user asks for it
+ * here (ADR 031).
  */
-private fun found(view: ViewModel): List<SearchEntry> =
-    view.search.results.filter { it.kind == SearchKind.PAGE || it.kind == SearchKind.ITEM }
+@Composable
+private fun MissingPage(name: String, onMake: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("No page yet: $name", Modifier.weight(1f))
+        TextButton(onMake) { Text("Make it") }
+    }
+}
+
+/** What a search result shows as its first line. Two kinds of result make a page. */
+private fun label(entry: SearchEntry): String =
+    when (entry.kind) {
+        SearchKind.TODAY -> "Open Today"
+        SearchKind.CREATE -> "New page: ${entry.title}"
+        SearchKind.PAGE, SearchKind.ITEM -> entry.title
+    }
 
 private fun title(view: ViewModel): String =
     when (val screen = view.screen) {
@@ -215,7 +228,7 @@ private fun Results(entries: List<SearchEntry>, onPick: (SearchEntry) -> Unit) {
             Column(
                 Modifier.fillMaxWidth().clickable { onPick(entry) }.padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
-                Text(entry.title, style = MaterialTheme.typography.titleMedium)
+                Text(label(entry), style = MaterialTheme.typography.titleMedium)
                 if (entry.snippet.isNotEmpty()) {
                     Text(entry.snippet, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                 }

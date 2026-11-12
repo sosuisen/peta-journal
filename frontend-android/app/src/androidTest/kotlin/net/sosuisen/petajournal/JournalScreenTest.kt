@@ -33,6 +33,7 @@ import net.sosuisen.petajournal.sync.SyncRound
 import net.sosuisen.petajournal.sync.SyncState
 import net.sosuisen.petajournal.sync.Uploader
 import net.sosuisen.petajournal.sync.dropboxContentHash
+import net.sosuisen.petajournal.types.ScreenView
 import net.sosuisen.petajournal.types.SearchKind
 import net.sosuisen.petajournal.types.TaskState
 import org.junit.After
@@ -442,16 +443,56 @@ class JournalScreenTest {
         )
     }
 
-    // ページを作る結果（今日のジャーナル、入力した名前のページ）は、結果に出ない。最初の版は何も変えない。
+    /** Lets the core write the pages that changed, and says whether a file is at the path then. */
+    private fun isWritten(path: String): Boolean {
+        compose.runOnUiThread { shell.sync() }
+        compose.waitUntil(WAIT_MS) { !shell.syncing }
+        return File(root, "markdown/$path").isFile
+    }
+
+    // 入力した名前のページがなければ、作る結果が出る。触れると、ページができて開く。アプリに伝わり、ファイルが書かれる。
     @Test
-    fun the_results_that_make_a_page_are_left_out() {
+    fun the_result_for_a_new_page_makes_the_page_and_opens_it() {
         start()
+        type("brand-new")
+        waitFor("New page: brand-new")
 
-        type("nothing-like-this")
-        compose.waitUntil(WAIT_MS) { shell.view.search.results.any { it.kind == SearchKind.CREATE } }
+        compose.onNodeWithText("New page: brand-new").performClick()
 
-        assertEquals(0, compose.onAllNodes(shown("nothing-like-this")).fetchSemanticsNodes().size)
-        assertEquals(0, compose.onAllNodes(shown("Open Today")).fetchSemanticsNodes().size)
+        compose.waitUntil(WAIT_MS) { (shell.view.screen as? ScreenView.Page)?.value?.title == "brand-new" }
+        compose.runOnIdle { assertEquals(1, edits) }
+        compose.waitUntil(WAIT_MS) { isWritten("docs/brand-new.md") }
+    }
+
+    // 「today」と打つと、今日のジャーナルを開く結果が出る。触れると、今日のジャーナルができて開く。
+    @Test
+    fun the_result_for_today_makes_the_journal_of_today_and_opens_it() {
+        start()
+        type("today")
+        waitFor("Open Today")
+
+        compose.onNodeWithText("Open Today").performClick()
+
+        compose.waitUntil(WAIT_MS) { shell.view.screen is ScreenView.Journal }
+        compose.waitUntil(WAIT_MS) {
+            isWritten("journals") || File(root, "markdown/journals").walk().any { it.name.endsWith(".md") }
+        }
+    }
+
+    // まだないページへのリンクに触れたあとの「Make it」は、そのページを作って開く。
+    @Test
+    fun the_button_beside_a_page_that_is_not_there_makes_it() {
+        download("notes.md", "[[ghost]]" + NL)
+        openNotes()
+        waitFor("ghost")
+        compose.onNode(hasText("ghost"), useUnmergedTree = true).performClick()
+        waitFor("No page yet: ghost")
+
+        compose.onNodeWithText("Make it").performClick()
+
+        compose.waitUntil(WAIT_MS) { (shell.view.screen as? ScreenView.Page)?.value?.title == "ghost" }
+        compose.onNodeWithText("Make it").assertDoesNotExist()
+        compose.waitUntil(WAIT_MS) { isWritten("docs/ghost.md") }
     }
 
     // クラウドのページは、同期のあと、検索で見つかる。

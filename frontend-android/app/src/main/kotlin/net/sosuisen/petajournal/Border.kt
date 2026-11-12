@@ -33,8 +33,14 @@ class Border(dataDir: File, markdownDir: File, onRequests: (List<Request>) -> Un
      */
     fun sync(): Int = core.sync().toInt()
 
-    /** Opens what the URL names, such as `/pages/notes`. Throws when the URL names nothing. */
+    /**
+     * Opens what the URL names, such as `/pages/notes`. Throws when the URL names nothing, or
+     * a page that is not there.
+     */
     fun open(url: String) = core.open(url)
+
+    /** Opens what the URL names, and makes its page when it is not there. */
+    fun openOrMake(url: String) = core.openOrMake(url)
 
     /** Sends an event of the shell. */
     fun send(event: Event) = core.update(event.bincodeSerialize())

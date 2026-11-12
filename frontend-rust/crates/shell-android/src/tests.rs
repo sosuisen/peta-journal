@@ -223,6 +223,27 @@ fn a_url_of_a_page_that_is_not_there_opens_nothing_and_makes_no_page() {
     assert_eq!(core.core.pages.find_all().unwrap().len(), before);
 }
 
+// 作るつもりで開くと、まだないページが作られて開く。今日のジャーナルも同じである。
+#[test]
+fn a_page_that_is_not_there_is_made_when_it_is_opened_to_be_made() {
+    let app = App::new();
+    let core = app.open(Arc::default());
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+
+    core.open_or_make("/pages/work/plan".into()).unwrap();
+    wait_until("the page is made", || {
+        page_names(&core).contains(&"work/plan".to_string())
+    });
+    core.open_or_make("/today".into()).unwrap();
+
+    wait_until("the journal of today is made", || {
+        let journals = &core.core.pages;
+        let made = journals.find_by_type_dir_path_file_name("journal", "", &today);
+        matches!(made, Ok(Some(_)))
+    });
+    assert!(core.open_or_make(String::new()).is_err());
+}
+
 // 設定の画面のURLは、ページがなくても開く。
 #[test]
 fn the_url_of_the_settings_opens_without_a_page() {
