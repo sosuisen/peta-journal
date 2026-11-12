@@ -187,8 +187,8 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="1242" y="351" text-anchor="end" dominant-baseline="central">Effect・VM</text>
 <line class="arr" x1="1263" y1="114" x2="1263" y2="272" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1255" y="134" text-anchor="end" dominant-baseline="central">bincode（BoltFFI）</text>
-<path class="arr" d="M1057 248V502L942 538" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="1012" y="524" dominant-baseline="central">REST・SSE（ureq）</text>
+<path class="arr" d="M1057 248V522L962 558" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="1065" y="517" dominant-baseline="central">REST・SSE（ureq）</text>
 <g class="chip">
 <rect x="1234" y="459" width="36" height="18" rx="9" />
 <text x="1252" y="468" text-anchor="middle" dominant-baseline="central">ast</text>
