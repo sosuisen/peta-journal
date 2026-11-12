@@ -4,7 +4,19 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
@@ -302,14 +314,68 @@ private fun ImageBlock(image: ShownBlock.Image, file: (String) -> File?) {
     when (val known = picture) {
         Picture.Reading -> Unit
         Picture.Missing -> Text(image.alt.ifEmpty { image.path }, style = MaterialTheme.typography.bodyLarge)
-        is Picture.Here -> Image(
-            known.bitmap,
+        is Picture.Here -> {
+            var large by remember { mutableStateOf(false) }
+            Image(
+                known.bitmap,
+                contentDescription = image.alt,
+                contentScale = ContentScale.FillWidth,
+                modifier = Modifier
+                    .padding(vertical = 4.dp)
+                    .width((image.width ?: known.width).dp)
+                    .aspectRatio(known.bitmap.width.toFloat() / known.bitmap.height)
+                    .clickable { large = true },
+            )
+            if (large) LargeImage(image, known.bitmap, file) { large = false }
+        }
+    }
+}
+
+/** How many times the width of the screen an image is read for its large view, at least. */
+private const val LARGE_WIDTHS = 2
+
+/** How far two fingers make the large view larger. */
+private const val MOST_ZOOM = 8f
+
+/**
+ * An image over the whole screen, to read what is small in it. Two fingers make it larger and
+ * move it. A touch, or the back key, closes it.
+ *
+ * The image is read again with more of its pixels. Until then, [small] is shown.
+ */
+@Composable
+private fun LargeImage(image: ShownBlock.Image, small: ImageBitmap, file: (String) -> File?, onClose: () -> Unit) {
+    val roomPx = LocalWindowInfo.current.containerSize.width
+    val sharp by produceState<ImageBitmap?>(null, image.path) {
+        value = withContext(Dispatchers.IO) { file(image.path)?.let { read(it, roomPx * LARGE_WIDTHS) }?.bitmap }
+    }
+    var zoom by remember { mutableFloatStateOf(1f) }
+    var moved by remember { mutableStateOf(Offset.Zero) }
+    var room by remember { mutableStateOf(IntSize.Zero) }
+    val fingers = rememberTransformableState { zoomBy, panBy, _ ->
+        zoom = (zoom * zoomBy).coerceIn(1f, MOST_ZOOM)
+        // The image never leaves the screen: it moves only as far as it is larger
+        val farX = room.width * (zoom - 1) / 2
+        val farY = room.height * (zoom - 1) / 2
+        moved = Offset((moved.x + panBy.x).coerceIn(-farX, farX), (moved.y + panBy.y).coerceIn(-farY, farY))
+    }
+    Dialog(onClose, DialogProperties(usePlatformDefaultWidth = false)) {
+        Image(
+            sharp ?: small,
             contentDescription = image.alt,
-            contentScale = ContentScale.FillWidth,
+            contentScale = ContentScale.Fit,
             modifier = Modifier
-                .padding(vertical = 4.dp)
-                .width((image.width ?: known.width).dp)
-                .aspectRatio(known.bitmap.width.toFloat() / known.bitmap.height),
+                .fillMaxSize()
+                .background(Color.Black)
+                .onSizeChanged { room = it }
+                .clickable(interactionSource = null, indication = null, onClick = onClose)
+                .transformable(fingers)
+                .graphicsLayer {
+                    scaleX = zoom
+                    scaleY = zoom
+                    translationX = moved.x
+                    translationY = moved.y
+                },
         )
     }
 }
