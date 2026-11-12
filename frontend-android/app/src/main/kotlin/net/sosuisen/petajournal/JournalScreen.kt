@@ -31,6 +31,16 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -78,6 +88,9 @@ import net.sosuisen.petajournal.types.ViewModel
 /** The name that the tests find the search field by. */
 const val SEARCH_TAG = "search"
 
+/** The field of the item that is edited. Only one item is edited at a time. */
+const val EDITOR_TAG = "editor"
+
 /**
  * The one screen of the app: a search field, and under it the results of the search or the
  * page that is open. Between them is where the sync with the cloud stands; [cloud] is `null`
@@ -113,7 +126,7 @@ fun JournalScreen(
                     shell.missing?.let { Text("No page yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
                     shell.missingFile?.let { Text("No file yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
                     val links = Links(shell::follow) { path -> shell.attached(path)?.let(onFile) }
-                    Outline(title(view), view.outline.rows, view.config.tagsDir, links, shell::image)
+                    Outline(title(view), view.outline.rows, view.config.tagsDir, links, shell::image, shell)
                 }
             }
         }
@@ -181,17 +194,25 @@ private fun Results(entries: List<SearchEntry>, onPick: (SearchEntry) -> Unit) {
 private class Links(val onPage: (String) -> Unit, val onFile: (String) -> Unit)
 
 @Composable
-private fun Outline(title: String, rows: List<Row>, tagsDir: String, links: Links, image: (String) -> File?) {
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+private fun Outline(title: String, rows: List<Row>, tagsDir: String, links: Links, image: (String) -> File?, shell: Shell) {
+    val list = rememberLazyListState()
+    val focus = shell.view.outline.focusRequest
+    // The item that the core moved the edit to may be off the screen, as a new item at the
+    // end of a long page. The title is the first entry of the list
+    LaunchedEffect(focus?.seq) {
+        val at = rows.indexOfFirst { it.item.id == focus?.itemId }
+        if (at >= 0 && list.layoutInfo.visibleItemsInfo.none { it.index == at + 1 }) list.scrollToItem(at + 1)
+    }
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp), state = list) {
         item(key = "title") {
             Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(vertical = 8.dp))
         }
-        items(rows, key = { it.item.id }) { row -> OutlineRow(row, tagsDir, links, image) }
+        items(rows, key = { it.item.id }) { row -> OutlineRow(row, tagsDir, links, image, shell) }
     }
 }
 
 @Composable
-private fun OutlineRow(row: Row, tagsDir: String, links: Links, image: (String) -> File?) {
+private fun OutlineRow(row: Row, tagsDir: String, links: Links, image: (String) -> File?, shell: Shell) {
     val uriHandler = LocalUriHandler.current
     // The blocks are kept while the item stays the same, and must not keep old links
     val now by rememberUpdatedState(links)
@@ -214,10 +235,86 @@ private fun OutlineRow(row: Row, tagsDir: String, links: Links, image: (String) 
         Row(Modifier.padding(start = row.indentPx.dp, top = 3.dp, bottom = 3.dp)) {
             Text(if (row.showBullet) "•" else "", modifier = Modifier.width(22.dp))
             row.task?.let { TaskMark(it) }
-            Blocks(blocks, image)
+            if (row.isEditing) {
+                ItemEditor(row, shell, Modifier.weight(1f))
+            } else {
+                // A touch on a link or an image opens it, and any other touch edits the item
+                val touch = remember { MutableInteractionSource() }
+                Box(Modifier.weight(1f).clickable(touch, indication = null) { shell.edit(row.item.id) }) {
+                    Blocks(blocks, image)
+                }
+            }
         }
     }
 }
+
+/**
+ * The Markdown of the item that is edited (ADR 031). The core has the text: this field shows
+ * it, and tells the core of every change.
+ */
+@Composable
+private fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
+    val id = row.item.id
+    val body = row.item.body
+    var field by remember(id) { mutableStateOf(TextFieldValue(body, TextRange(body.length))) }
+    val focus = remember { FocusRequester() }
+    var focused by remember { mutableStateOf(false) }
+
+    // What the core holds wins, as after an undo. Not while the keyboard composes a word: the
+    // core has not heard of that word yet, and the field would lose it
+    LaunchedEffect(body) {
+        if (field.composition == null && field.text != body) {
+            field = TextFieldValue(body, TextRange(field.selection.start.coerceAtMost(body.length)))
+        }
+    }
+    val asked = shell.view.outline.focusRequest?.takeIf { it.itemId == id }
+    LaunchedEffect(asked?.seq) {
+        val cursor = asked?.cursor
+        if (asked != null && asked.seq != shell.touched && cursor != null) {
+            field = field.copy(selection = TextRange(units(field.text, cursor.toInt())))
+        }
+        focus.requestFocus()
+    }
+    BasicTextField(
+        value = field,
+        onValueChange = { next ->
+            val enter = enterAt(field, next)
+            when {
+                // The core splits the item: the field takes no line break
+                enter != null -> shell.enter(id, characters(field.text, enter))
+                else -> {
+                    field = next
+                    if (next.composition == null && next.text != body) shell.type(id, next.text)
+                }
+            }
+        },
+        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        modifier = modifier
+            .focusRequester(focus)
+            .onFocusChanged {
+                if (focused && !it.isFocused) shell.finish(id)
+                focused = it.isFocused
+            }
+            .testTag(EDITOR_TAG),
+    )
+}
+
+/**
+ * Where Enter was pressed, as the place in the text before the key, when [next] is [before]
+ * with one line break typed at the cursor. `null` for any other change.
+ */
+private fun enterAt(before: TextFieldValue, next: TextFieldValue): Int? {
+    val at = next.selection.start - 1
+    val typed = next.composition == null && next.selection.collapsed && next.text.getOrNull(at) == '\n'
+    return at.takeIf { typed && next.text.removeRange(at, at + 1) == before.text }
+}
+
+/** The core counts a cursor in characters, and a field of Android counts in UTF-16 units. */
+private fun characters(text: String, units: Int): Int = text.codePointCount(0, units)
+
+private fun units(text: String, characters: Int): Int =
+    text.offsetByCodePoints(0, characters.coerceIn(0, text.codePointCount(0, text.length)))
 
 /** The parts of an item, or of an entry of a list or a quote in it, from top to bottom. */
 @Composable

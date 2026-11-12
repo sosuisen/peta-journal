@@ -340,7 +340,7 @@ class JournalScreenTest {
         openNotes()
         waitFor("the report")
 
-        compose.onNode(hasText("the report")).performClick()
+        compose.onNode(hasText("the report"), useUnmergedTree = true).performClick()
 
         compose.runOnIdle { assertEquals(listOf("report.pdf"), opened.map { it.name }) }
     }
@@ -352,7 +352,7 @@ class JournalScreenTest {
         openNotes()
         waitFor("the report")
 
-        compose.onNode(hasText("the report")).performClick()
+        compose.onNode(hasText("the report"), useUnmergedTree = true).performClick()
 
         waitFor("No file yet: assets/none.pdf")
         assertEquals(emptyList<File>(), opened)
@@ -366,7 +366,7 @@ class JournalScreenTest {
         openNotes()
         waitFor("other page")
 
-        compose.onNode(hasText("other page")).performClick()
+        compose.onNode(hasText("other page"), useUnmergedTree = true).performClick()
 
         waitFor("what the other page says")
     }
@@ -379,7 +379,7 @@ class JournalScreenTest {
         openNotes()
         waitFor("the other")
 
-        compose.onNode(hasText("the other")).performClick()
+        compose.onNode(hasText("the other"), useUnmergedTree = true).performClick()
 
         waitFor("what the other page says")
     }
@@ -391,7 +391,7 @@ class JournalScreenTest {
         openNotes()
         waitFor("#topic")
 
-        compose.onNode(hasText("#topic")).performClick()
+        compose.onNode(hasText("#topic"), useUnmergedTree = true).performClick()
 
         compose.waitUntil(WAIT_MS) { compose.onAllNodes(hasText("topic")).fetchSemanticsNodes().isNotEmpty() }
     }
@@ -403,7 +403,7 @@ class JournalScreenTest {
         openNotes()
         waitFor("ghost")
 
-        compose.onNode(hasText("ghost")).performClick()
+        compose.onNode(hasText("ghost"), useUnmergedTree = true).performClick()
 
         waitFor("No page yet: ghost")
         compose.onNode(hasText("notes")).assertExists()
