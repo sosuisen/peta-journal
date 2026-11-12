@@ -81,12 +81,22 @@ class JournalScreenTest {
             CloudSync(signedIn, { Downloader(it, folder, File(root, "cursor")) }, { main.post(it) }, shell::sync)
         }
         compose.setContent {
-            JournalScreen(shell, sync?.state, onSignIn = { signIns += 1 }, onSync = { sync?.start(checkNotNull(cloud)) })
+            JournalScreen(
+                shell,
+                sync?.state,
+                onSignIn = { signIns += 1 },
+                onSync = { sync?.start(checkNotNull(cloud)) },
+                onSignOut = {
+                    signOuts += 1
+                    sync?.signOut()
+                },
+            )
         }
         compose.waitUntil(WAIT_MS) { !shell.syncing }
     }
 
     private var signIns = 0
+    private var signOuts = 0
     private var sync: CloudSync? = null
 
     /** A cloud with one page, or one that cannot be reached. */
@@ -383,6 +393,23 @@ class JournalScreenTest {
         compose.onNodeWithText("Sign in to Dropbox").performClick()
 
         compose.runOnIdle { assertEquals(1, signIns) }
+    }
+
+    // サインアウトすると、サインインのボタンに戻る。取り込んだページは、そのまま読める。
+    @Test
+    fun a_sign_out_brings_the_sign_in_back_and_keeps_the_pages() {
+        start(OnePage())
+        compose.onNodeWithText("Sync").performClick()
+        compose.waitUntil(WAIT_MS) { File(root, "markdown/docs/trip.md").exists() }
+        compose.waitUntil(WAIT_MS) { sync?.state == SyncState.Idle && !shell.syncing }
+
+        compose.onNodeWithText("Sign out").performClick()
+
+        compose.onNodeWithText("Sign in to Dropbox").assertExists()
+        compose.onNodeWithText("Sync").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(1, signOuts) }
+        type("会議")
+        waitFor("trip")
     }
 
     // 同期が失敗すると、その理由が見える。
