@@ -56,6 +56,12 @@ internal sealed class RowView : Grid
     private static readonly SolidColorBrush Hidden = new(Color.FromArgb(255, 0xDD, 0xDD, 0xDD));
     private static readonly FontFamily CodeFont = new("Consolas");
 
+    /// <summary>
+    /// The font of all text, the one the web frontend shows on Windows: Segoe UI, and Noto
+    /// Sans JP for the Japanese letters that Segoe UI does not have.
+    /// </summary>
+    public static readonly FontFamily TextFont = new("Segoe UI, Noto Sans JP");
+
     private readonly StickyWindow window;
     private readonly StackPanel header = new();
     private readonly StackPanel marks = new() { Orientation = Orientation.Horizontal };
@@ -96,6 +102,7 @@ internal sealed class RowView : Grid
             Padding = new Thickness(0),
             MinHeight = 0,
             MinWidth = 0,
+            FontFamily = TextFont,
             Foreground = Ink,
             IsSpellCheckEnabled = false,
             Visibility = Visibility.Collapsed,
@@ -225,6 +232,7 @@ internal sealed class RowView : Grid
             new TextBlock
             {
                 Text = date,
+                FontFamily = TextFont,
                 FontSize = FontSize * 1.3 * Zoom,
                 FontWeight = FontWeights.Bold,
                 Foreground = Ink,
@@ -272,7 +280,7 @@ internal sealed class RowView : Grid
         var bullet = new Grid { Width = side, Height = height };
         if (collapsed)
             bullet.Children.Add(Dot(side, Faint));
-        bullet.Children.Add(Dot(Math.Round(side * 0.42), Pale));
+        bullet.Children.Add(Dot(Math.Round(side * 0.31), Pale));
         return bullet;
     }
 
@@ -517,6 +525,7 @@ internal sealed class RowView : Grid
             // A click puts the cursor in the item. To select its letters is to edit it
             IsTextSelectionEnabled = false,
             TextWrapping = TextWrapping.Wrap,
+            FontFamily = TextFont,
             FontSize = size * paragraph.Scale,
             Foreground = Ink,
             Margin = new Thickness(paragraph.Indent * 16 * Zoom, 0, 0, 0),

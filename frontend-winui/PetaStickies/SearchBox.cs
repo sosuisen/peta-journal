@@ -27,6 +27,7 @@ internal sealed class SearchBox : StackPanel
     private readonly TextBlock nothing = new()
     {
         Text = "Nothing found",
+        FontFamily = RowView.TextFont,
         FontSize = 12,
         Foreground = Pale,
     };
@@ -126,6 +127,7 @@ internal sealed class SearchBox : StackPanel
             new TextBlock
             {
                 Text = entry.Kind == SearchKind.Create ? $"Create \"{entry.Title}\"" : entry.Title,
+                FontFamily = RowView.TextFont,
                 Foreground = Ink,
                 TextTrimming = TextTrimming.CharacterEllipsis,
             }
@@ -137,6 +139,7 @@ internal sealed class SearchBox : StackPanel
                 new TextBlock
                 {
                     Text = entry.Snippet,
+                    FontFamily = RowView.TextFont,
                     FontSize = 12,
                     Foreground = Pale,
                     TextTrimming = TextTrimming.CharacterEllipsis,
