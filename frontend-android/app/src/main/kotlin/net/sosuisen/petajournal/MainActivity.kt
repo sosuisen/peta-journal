@@ -10,8 +10,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.lifecycle.AndroidViewModel
+import com.dropbox.core.DbxException
 import com.dropbox.core.DbxRequestConfig
 import com.dropbox.core.android.Auth
+import com.dropbox.core.android.AuthActivity
 import com.dropbox.core.oauth.DbxCredential
 import com.dropbox.core.v2.DbxClientV2
 import net.sosuisen.petajournal.sync.CloudSync
@@ -19,6 +21,7 @@ import net.sosuisen.petajournal.sync.Downloader
 import net.sosuisen.petajournal.sync.DropboxCloud
 import net.sosuisen.petajournal.sync.MarkdownFolder
 import java.io.File
+import kotlin.concurrent.thread
 
 /** Dropbox only reads: the app changes nothing there (ADR 030). */
 private val SCOPES = listOf("files.metadata.read", "files.content.read")
@@ -43,12 +46,14 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
     /** The credential of Dropbox, in the storage of the app only. The app is in no backup. */
     private val kept = app.getSharedPreferences("dropbox", Context.MODE_PRIVATE)
 
+    /** Where the last download ended, for the next one to ask only for what changed since. */
+    private val cursor = File(app.filesDir, "dropbox-cursor")
+
     /** `null` when the app was built without the App key of Dropbox: it then syncs nothing. */
     val cloud: CloudSync? = if (BuildConfig.DROPBOX_KEY.isEmpty()) {
         null
     } else {
         val folder = MarkdownFolder(markdown, File(app.cacheDir, "downloads"))
-        val cursor = File(app.filesDir, "dropbox-cursor")
         CloudSync(
             signedIn = kept.contains(CREDENTIAL),
             downloader = { Downloader(it, folder, cursor) },
@@ -75,6 +80,39 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
         sync.start(DropboxCloud(client, BuildConfig.DROPBOX_FOLDER))
     }
 
+    /**
+     * Signs out of Dropbox. The pages and the images that were downloaded stay, and can be
+     * read. The app syncs nothing until the next sign-in.
+     */
+    fun signOut() {
+        val sync = cloud ?: return
+        val credential = kept.getString(CREDENTIAL, null)
+        kept.edit().remove(CREDENTIAL).apply()
+        // The SDK keeps the answer of the last sign-in, and the next resume would take it again
+        AuthActivity.result = null
+        // The next sign-in may be to another account, where this cursor means nothing. Without
+        // it, the next download lists everything: it takes only the files that differ, and
+        // deletes what the account does not hold
+        cursor.delete()
+        sync.signOut()
+        if (credential != null) revoke(credential)
+    }
+
+    /**
+     * Tells Dropbox that the token is no longer to be taken. Without the network, Dropbox does
+     * not hear of it: the token is then gone from the device only.
+     */
+    private fun revoke(credential: String) {
+        val client = DbxClientV2(DROPBOX, DbxCredential.Reader.readFully(credential))
+        thread(name = "dropbox-sign-out") {
+            try {
+                client.auth().tokenRevoke()
+            } catch (unheard: DbxException) {
+                // Nothing to do: the device has let go of the token
+            }
+        }
+    }
+
     override fun onCleared() = shell.close()
 }
 
@@ -90,6 +128,7 @@ class MainActivity : ComponentActivity() {
                 model.cloud?.state,
                 onSignIn = { Auth.startOAuth2PKCE(this, BuildConfig.DROPBOX_KEY, DROPBOX, SCOPES) },
                 onSync = { model.sync() },
+                onSignOut = { model.signOut() },
             )
         }
     }
