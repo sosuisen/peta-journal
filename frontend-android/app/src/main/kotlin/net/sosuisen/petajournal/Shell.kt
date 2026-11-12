@@ -11,6 +11,7 @@ import net.sosuisen.petajournal.types.SearchEntry
 import net.sosuisen.petajournal.types.ShellEffect
 import net.sosuisen.petajournal.types.ViewModel
 import java.io.File
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 
 /**
@@ -61,13 +62,17 @@ class Shell(
         private set
 
     /**
-     * Takes in the files of the Markdown folder, after a download has changed them. It runs
-     * on a thread of its own: the first sync of a large folder takes long.
+     * Takes in the files of the Markdown folder, after a download has changed them, and writes
+     * the pages that changed in the app. It runs on a thread of its own: the first sync of a
+     * large folder takes long. [then] is called on that thread when the core is done, or at
+     * once when the app has closed.
      */
-    fun sync() {
+    fun sync(then: () -> Unit = {}) {
+        if (closed) return then()
         syncing = true
         worker.execute {
             border.sync()
+            then()
             onMainThread {
                 if (!closed) {
                     syncing = false
@@ -75,6 +80,16 @@ class Shell(
                 }
             }
         }
+    }
+
+    /**
+     * Does what [sync] does, and returns when the core is done. It is for the thread of a sync
+     * with the cloud, which uploads what the core wrote. It must not be the main thread.
+     */
+    fun syncAndWait() {
+        val done = CountDownLatch(1)
+        onMainThread { sync(done::countDown) }
+        done.await()
     }
 
     /** The page that a link named and that is not there, until another page opens. */

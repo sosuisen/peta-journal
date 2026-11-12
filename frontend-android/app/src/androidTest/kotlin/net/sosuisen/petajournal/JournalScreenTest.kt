@@ -28,7 +28,10 @@ import net.sosuisen.petajournal.sync.CloudRecord
 import net.sosuisen.petajournal.sync.CloudSync
 import net.sosuisen.petajournal.sync.Downloader
 import net.sosuisen.petajournal.sync.MarkdownFolder
+import net.sosuisen.petajournal.sync.SyncRound
 import net.sosuisen.petajournal.sync.SyncState
+import net.sosuisen.petajournal.sync.Uploader
+import net.sosuisen.petajournal.sync.dropboxContentHash
 import net.sosuisen.petajournal.types.SearchKind
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -39,6 +42,7 @@ import org.junit.runner.RunWith
 import java.io.File
 import java.io.IOException
 import java.io.OutputStream
+import java.security.MessageDigest
 
 /** The screen with a real core under it, on the folders of a test. */
 @RunWith(AndroidJUnit4::class)
@@ -78,8 +82,12 @@ class JournalScreenTest {
             shell.sync()
         }
         val folder = MarkdownFolder(File(root, "markdown"), File(root, "temp"))
+        val record = CloudRecord(File(root, "record"))
         sync = cloud?.let {
-            CloudSync(signedIn, { Downloader(it, folder, File(root, "cursor"), CloudRecord(File(root, "record"))) }, { main.post(it) }, shell::sync)
+            val round = { from: Cloud ->
+                SyncRound(Downloader(from, folder, File(root, "cursor"), record), shell::syncAndWait, Uploader(from, folder, record))
+            }
+            CloudSync(signedIn, round) { main.post(it) }
         }
         compose.setContent {
             JournalScreen(
@@ -102,17 +110,32 @@ class JournalScreenTest {
     private val opened = mutableListOf<File>()
     private var sync: CloudSync? = null
 
-    /** A cloud with one page, or one that cannot be reached. */
+    /** A cloud with one page, or one that cannot be reached. It keeps what is uploaded. */
     private class OnePage(private val reachable: Boolean = true) : Cloud {
         private val text = "京都で会議がありました。\n".toByteArray()
 
+        /** The text of each uploaded file, by its path. */
+        val uploaded = mutableMapOf<String, String>()
+
         override fun changes(cursor: String?): Changes {
             if (!reachable) throw IOException("the network is gone")
-            // The hash is of no use here: nothing is in the folder to compare with
-            return Changes(listOf(Change.File("docs/trip.md", contentHash = "", remote = "")), "c1", whole = true)
+            val whole = cursor == null
+            val page = Change.File("docs/trip.md", hashOf(text), remote = "first")
+            return Changes(if (whole) listOf(page) else emptyList(), "c1", whole)
         }
 
         override fun download(file: Change.File, into: OutputStream) = into.write(text)
+
+        override fun upload(path: String, from: File, over: String?): Change.File {
+            uploaded[path] = from.readText()
+            return Change.File(path, dropboxContentHash(from), remote = "next")
+        }
+
+        /** The content hash of Dropbox of a content of one block. */
+        private fun hashOf(content: ByteArray): String {
+            val sha = { bytes: ByteArray -> MessageDigest.getInstance("SHA-256").digest(bytes) }
+            return sha(sha(content)).joinToString("") { "%02x".format(it) }
+        }
     }
 
     private fun type(query: String) = compose.onNodeWithTag(SEARCH_TAG).performTextInput(query)
@@ -438,6 +461,23 @@ class JournalScreenTest {
         compose.waitUntil(WAIT_MS) { sync?.state == SyncState.Idle && !shell.syncing }
         type("会議")
 
+        waitFor("trip")
+    }
+
+    // アプリのフォルダーで変わったページのファイルは、次の同期でクラウドへ上がる。コアが取り込んだあとに上がる。
+    @Test
+    fun a_page_file_that_changed_here_is_uploaded_by_the_next_sync() {
+        val cloud = OnePage()
+        start(cloud)
+        compose.onNodeWithText("Sync").performClick()
+        compose.waitUntil(WAIT_MS) { File(root, "markdown/docs/trip.md").exists() }
+        compose.waitUntil(WAIT_MS) { sync?.state == SyncState.Idle && !shell.syncing }
+        File(root, "markdown/docs/trip.md").writeText("大阪へ行きました。\n")
+
+        compose.onNodeWithText("Sync").performClick()
+
+        compose.waitUntil(WAIT_MS) { cloud.uploaded["docs/trip.md"].orEmpty().contains("大阪") }
+        type("大阪")
         waitFor("trip")
     }
 

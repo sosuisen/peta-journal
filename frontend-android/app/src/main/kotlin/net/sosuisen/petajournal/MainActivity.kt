@@ -26,12 +26,22 @@ import net.sosuisen.petajournal.sync.CloudSync
 import net.sosuisen.petajournal.sync.Downloader
 import net.sosuisen.petajournal.sync.DropboxCloud
 import net.sosuisen.petajournal.sync.MarkdownFolder
+import net.sosuisen.petajournal.sync.SyncRound
+import net.sosuisen.petajournal.sync.Uploader
 import java.io.File
 import kotlin.concurrent.thread
 
-/** Dropbox only reads: the app changes nothing there (ADR 030). */
-private val SCOPES = listOf("files.metadata.read", "files.content.read")
-private const val CREDENTIAL = "credential"
+/**
+ * The app reads the folder in Dropbox, and writes the pages that changed in the app. It
+ * deletes and moves nothing there (ADR 031).
+ */
+private val SCOPES = listOf("files.metadata.read", "files.content.read", "files.content.write")
+
+/** Where the credential of a sign-in that may write is kept. */
+private const val CREDENTIAL = "credential-write"
+
+/** Where a version of the app that only read kept its credential. It cannot upload. */
+private const val READ_ONLY = "credential"
 private val DROPBOX = DbxRequestConfig("peta-journal-android")
 
 /**
@@ -65,19 +75,24 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
         val folder = MarkdownFolder(markdown, File(app.cacheDir, "downloads"))
         CloudSync(
             signedIn = kept.contains(CREDENTIAL),
-            downloader = { Downloader(it, folder, cursor, record) },
+            round = { SyncRound(Downloader(it, folder, cursor, record), shell::syncAndWait, Uploader(it, folder, record)) },
             onMainThread = { main.post(it) },
-            onDownloaded = shell::sync,
         )
     }
 
     init {
+        // A sign-in of a version that only read cannot upload: the user signs in again
+        kept.getString(READ_ONLY, null)?.let { old ->
+            kept.edit().remove(READ_ONLY).apply()
+            revoke(old)
+        }
         // What an earlier download left, when the app ended before it was taken in
         shell.sync()
     }
 
     /**
-     * Downloads what changed in Dropbox. [fresh] is the credential of a sign-in that has just
+     * Syncs with Dropbox: downloads what changed there, and uploads the pages that changed
+     * in the app. [fresh] is the credential of a sign-in that has just
      * ended, if any. Nothing happens before the first sign-in.
      */
     fun sync(fresh: DbxCredential? = null) {
@@ -99,10 +114,11 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
         kept.edit().remove(CREDENTIAL).apply()
         // The SDK keeps the answer of the last sign-in, and the next resume would take it again
         AuthActivity.result = null
-        // The next sign-in may be to another account, where this cursor means nothing. Without
-        // it, the next download lists everything: it takes only the files that differ, and
-        // deletes what the account does not hold
+        // The next sign-in may be to another account, where this cursor and these versions
+        // mean nothing. Without them, the next download lists everything: it takes only the
+        // files that differ, and deletes what the account does not hold
         cursor.delete()
+        record.forget()
         sync.signOut()
         if (credential != null) revoke(credential)
     }
