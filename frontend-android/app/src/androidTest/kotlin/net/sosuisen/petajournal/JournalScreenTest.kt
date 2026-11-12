@@ -7,6 +7,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
@@ -199,6 +201,24 @@ class JournalScreenTest {
         waitForPicture("asked")
         compose.onNode(hasContentDescription("asked")).assertWidthIsEqualTo(120.dp).assertHeightIsEqualTo(60.dp)
         compose.onNode(hasContentDescription("natural")).assertWidthIsEqualTo(40.dp)
+    }
+
+    // 画像に触れると、その画像が大きく開く。開いた画像に触れると、閉じる。
+    @Test
+    fun a_touch_opens_an_image_large_and_another_touch_closes_it() {
+        picture("cat.png", width = 40, height = 20)
+        download("notes.md", "![a cat](../assets/cat.png)" + NL)
+        openNotes()
+        waitForPicture("a cat")
+        val large = hasContentDescription("a cat") and hasAnyAncestor(isDialog())
+        compose.onNode(large).assertDoesNotExist()
+
+        compose.onNode(hasContentDescription("a cat")).performClick()
+
+        compose.waitUntil(WAIT_MS) { compose.onAllNodes(large).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(large).performClick()
+        compose.waitUntil(WAIT_MS) { compose.onAllNodes(large).fetchSemanticsNodes().isEmpty() }
+        compose.onNode(hasContentDescription("a cat")).assertExists()
     }
 
     // ファイルのない画像は、代わりの文字（alt）が見える。
