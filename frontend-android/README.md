@@ -2,13 +2,14 @@
 
 The Android shell of PetaJournal, written in Kotlin with Jetpack Compose. It downloads the
 Markdown folder from Dropbox, and a page is searched for and opened, with its items shown with
-their decoration. It changes nothing, in the app or in Dropbox.
+their decoration. The screen changes nothing yet. The sync already uploads the pages that
+changed in the app, for the editing that comes next (ADR 031).
 
 The core is the same Crux core as in the other frontends. There is no journal server on a
 phone, so the journal core runs inside the app (ADR 029). `frontend-rust/crates/shell-android`
 wraps both for Kotlin. Kotlin gets the view model and the requests of the screen as bytes
 (bincode), and sends events the same way. ADR 030 says how the app syncs, where it keeps its
-data and how it draws an item.
+data and how it draws an item. ADR 031 says how it edits and uploads.
 
 ## Prerequisites
 
@@ -49,17 +50,22 @@ Rust. `generated/` is not kept in the repository:
 The tests of the screen need a running device or emulator: the core is a native library, and
 BoltFFI cannot pack it for the JVM of a Windows machine yet (ADR 030). The device must be
 unlocked. An emulator with a screen lock starts locked, and no app can start on it until
-someone types the PIN. The tests of the download (`app/src/test`) use no core and run on the
-development machine.
+someone types the PIN. The tests of the download and the upload (`app/src/test`) use no core
+and run on the development machine.
 
 ## Dropbox
 
-The app reads Dropbox with the App key of a Dropbox app, which each builder registers at
-<https://www.dropbox.com/developers/apps>:
+The app reads and writes Dropbox with the App key of a Dropbox app, which each builder
+registers at <https://www.dropbox.com/developers/apps>:
 
-- Access type: Full Dropbox, to read the folder that the PC already uses.
-- Permissions: `files.metadata.read` and `files.content.read`. The app asks for no more.
+- Access type: Full Dropbox, to use the folder that the PC already uses.
+- Permissions: `files.metadata.read`, `files.content.read` and `files.content.write`. The app
+  asks for no more. A Dropbox app that was registered for reading only needs the third one
+  turned on, on its "Permissions" tab.
 - No redirect URI is needed, and the App secret is not used: the sign-in is PKCE.
+
+A sign-in of a version of the app that only read cannot upload. The app lets go of it, and
+shows the sign-in again.
 
 The key and the path of the Markdown folder in Dropbox come from outside the repository, as
 Gradle properties:
@@ -81,14 +87,27 @@ every Markdown file and every file of the `assets` folder, several at a time. Th
 `assets` are the images of the pages. A later sync asks Dropbox only for what changed. A
 file that Dropbox lost is deleted in the app, and so is its page, without a question.
 
+A sync has three steps, always in this order (ADR 031):
+
+1. It downloads what changed in Dropbox.
+2. The core takes in the files. Then it writes the files of the pages that changed in the
+   app. A page that changed on both sides is put together item by item.
+3. It uploads the Markdown files whose content is not what Dropbox had.
+
+The app keeps the version (`rev`) and the content hash of each file, as Dropbox last told
+them. An upload names the version that it replaces. Dropbox refuses when it has another
+version, and the sync starts again with the download. After three refusals, the sync fails.
+The app deletes and moves nothing in Dropbox, and it uploads no file of `assets`.
+
 "Sign out" lets go of Dropbox. The app deletes its credential and tells Dropbox to take the
 token no longer. Without the network, Dropbox does not hear of it, and the token is gone
 from the device only. The pages and the images that were downloaded stay, and can be read.
 The app syncs nothing until the next sign-in.
 
 The next sign-in may be to another account. So the sign-out also forgets where the last
-download ended. The first sync after the sign-in lists the whole folder. It downloads only
-the files that differ, and deletes what the account does not hold.
+download ended, and the versions of the files. The first sync after the sign-in lists the
+whole folder. It downloads only the files that differ, and deletes what the account does not
+hold.
 
 ## The code
 
@@ -99,7 +118,8 @@ the files that differ, and deletes what the account does not hold.
 - `Shell` is what the app shows. It keeps the view model up to date with the core and sends
   what the user did. The core calls from its own threads; `Shell` moves each request to the
   main thread, in order. `sync()` takes in the files of the Markdown folder on a thread of
-  its own.
+  its own. `syncAndWait()` does the same for the thread of a sync with the cloud, and returns
+  when the core is done.
 - `ShownText` makes the parts of an item as it is shown. Rust makes HTML of the AST of the
   item, and `AnnotatedString.fromHtml` of Compose reads the HTML. That loses the line breaks
   of a code block and the cells of a table, so `ShownText` reads those two from the AST, and
@@ -134,8 +154,11 @@ the files that differ, and deletes what the account does not hold.
 - `sync/Downloader` brings the Markdown folder of the app up to date with the cloud. It knows
   the cloud only as `Cloud`, so its tests need no Dropbox. `MarkdownFolder` is the folder of
   the app, where a path is found without regard to case, as in Dropbox. `DropboxCloud` is
-  `Cloud` by the Dropbox SDK. `CloudSync` runs one download at a time and tells the screen
-  where it stands.
+  `Cloud` by the Dropbox SDK.
+- `sync/Uploader` uploads the Markdown files that changed in the app. `CloudRecord` keeps the
+  version and the hash of each file in the cloud, between two runs of the app. `SyncRound` is
+  one sync: download, core, upload, and again when the cloud refuses. `CloudSync` runs one
+  sync at a time and tells the screen where it stands.
 
 ## Not there yet
 
