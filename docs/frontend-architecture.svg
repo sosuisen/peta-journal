@@ -311,7 +311,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text class="th" x="36" y="712" dominant-baseline="central">Webアプリ（TypeScript, React）</text>
 <g class="gray other">
 <rect x="68" y="726" width="320" height="56" rx="8" />
-<text class="th" x="228" y="743" text-anchor="middle" dominant-baseline="central">todoアプリ</text>
+<text class="th" x="228" y="743" text-anchor="middle" dominant-baseline="central">（制作例）ToDoアプリ</text>
 <text x="228" y="765" text-anchor="middle" dominant-baseline="central">タスクを一覧・状態を切り替えできるWebアプリ</text>
 </g>
 <line class="arr" x1="340" y1="638" x2="340" y2="724" marker-start="url(#arrow)" marker-end="url(#arrow)" />
@@ -321,7 +321,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text class="th" x="473" y="712" dominant-baseline="central">WebViewアプリ（C#, WinUI, WebView）</text>
 <g class="gray other">
 <rect x="485" y="726" width="360" height="56" rx="8" />
-<text class="th" x="665" y="743" text-anchor="middle" dominant-baseline="central">stickiesアプリ</text>
+<text class="th" x="665" y="743" text-anchor="middle" dominant-baseline="central">（制作例）Stickiesアプリ</text>
 <text x="665" y="765" text-anchor="middle" dominant-baseline="central">ページを付箋紙として表示できるデスクトップアプリ</text>
 </g>
 <line class="arr" x1="730" y1="638" x2="730" y2="724" marker-start="url(#arrow)" marker-end="url(#arrow)" />
@@ -339,9 +339,9 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="806" y="785" text-anchor="middle" dominant-baseline="central">ast2html</text>
 </g>
 
-<text class="note" x="20" y="818" dominant-baseline="central">今回のtodoアプリ、stickiesアプリは、Readが中心の単純なものなので、コアを使わず、サーバと直接話す。</text>
+<text class="note" x="20" y="818" dominant-baseline="central">ToDoアプリ、Stickiesアプリは、Readが中心の単純なものなので、コアを使わず、サーバと直接話す。</text>
 <text class="note" x="20" y="840" dominant-baseline="central">画像は、どのフロントエンドも、画面の側がサーバから直接取る。</text>
-<text class="note" x="20" y="862" dominant-baseline="central">項目の表示は、Leptos・SwiftUI・WinUI・Android・stickiesのどれも、ast2htmlが作るHTMLから描く。Emacsは、Markdownのまま見せる。</text>
+<text class="note" x="20" y="862" dominant-baseline="central">項目の表示は、Leptos・SwiftUI・WinUI・Android・Stickiesのどれも、ast2htmlが作るHTMLから描く。Emacsは、Markdownのまま見せる。</text>
 
 <g transform="translate(0,266)">
 <rect x="20" y="620" width="1290" height="168" fill="#F8F7F3" />
