@@ -174,8 +174,11 @@ that are not uploaded yet stay, and go up to the account of the new sign-in.
   The screen converts between the two. While the keyboard composes a word, as in Japanese,
   the core hears nothing, and the field is not written over.
 - The core asks the shell to focus an editor and waits for the answer. `Shell` answers at
-  once: the row that is edited takes the focus when it is drawn. The questions of the core
-  (`Confirm`) have no dialog yet and are answered with no.
+  once: the row that is edited takes the focus when it is drawn.
+- The core asks before it does what is hard to undo, such as the delete of an item that
+  another item transcludes. `Shell.question` holds the question, and the screen shows it in
+  a dialog. A touch outside the dialog answers no. A second question answers the first
+  with no.
 - `JournalScreen` is the one screen: the search field, and under it the results or the page.
 - `MainActivity` and `JournalModel` open the journal in the folders of the app:
   `files/markdown` for the Markdown files and `files/data` for the database, the index and
