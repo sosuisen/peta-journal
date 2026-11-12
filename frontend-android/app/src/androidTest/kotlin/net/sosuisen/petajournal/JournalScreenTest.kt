@@ -44,6 +44,7 @@ import net.sosuisen.petajournal.types.SearchKind
 import net.sosuisen.petajournal.types.TaskState
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import kotlin.math.abs
 import androidx.compose.ui.semantics.SemanticsNode
@@ -640,6 +641,40 @@ class JournalScreenTest {
         compose.onNodeWithText("Sign in to Dropbox").performClick()
 
         compose.runOnIdle { assertEquals(1, signIns) }
+    }
+
+    /** Opens a new app that no one has signed in to, as the app does after it is installed. */
+    private fun startNew(cloud: Cloud) {
+        start(cloud, signedIn = false)
+        compose.runOnUiThread { shell.restore(make = false) }
+    }
+
+    // 入れたばかりのアプリは、サインインの前に、サインインのボタンだけを出す。今日のジャーナルを作らず、上端のバーも出さない。
+    @Test
+    fun a_new_app_shows_only_the_sign_in_before_the_sign_in() {
+        startNew(OnePage())
+
+        compose.onNodeWithText("Sign in to Dropbox").assertExists()
+        compose.onNodeWithTag(SEARCH_TAG).assertDoesNotExist()
+        compose.onNode(hasContentDescription("Today")).assertDoesNotExist()
+        compose.runOnIdle {
+            assertFalse(shell.view.screen is ScreenView.Journal)
+            assertEquals(0, edits)
+        }
+    }
+
+    // サインインのあとの最初の同期が終わると、今日のジャーナルが開き、上端のバーが出る。
+    @Test
+    fun the_first_sync_after_the_sign_in_opens_today_in_a_new_app() {
+        val cloud = OnePage()
+        startNew(cloud)
+
+        compose.runOnUiThread { sync?.start(cloud) }
+
+        compose.waitUntil(WAIT_MS) { shell.view.screen is ScreenView.Journal }
+        compose.onNodeWithTag(SEARCH_TAG).assertExists()
+        compose.onNodeWithText("Sign in to Dropbox").assertDoesNotExist()
+        compose.runOnIdle { assertTrue(File(root, "markdown/docs/trip.md").exists()) }
     }
 
     // サインアウトすると、サインインのボタンに戻る。取り込んだページは、そのまま読める。

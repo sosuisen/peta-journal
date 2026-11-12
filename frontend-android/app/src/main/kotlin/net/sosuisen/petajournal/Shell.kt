@@ -90,11 +90,15 @@ class Shell(
     /**
      * Does what [sync] does, and returns when the core is done. It is for the thread of a sync
      * with the cloud, which uploads what the core wrote. It must not be the main thread.
+     *
+     * A new app that waited for the sign-in opens its first screen after it: the download
+     * has brought the journal of today, if Dropbox holds one.
      */
     fun syncAndWait() {
         val done = CountDownLatch(1)
         onMainThread { sync(done::countDown) }
         done.await()
+        onMainThread { if (unopened && !closed) restore() }
     }
 
     /** The page that a link named and that is not there, until another page opens. */
@@ -125,6 +129,7 @@ class Shell(
             if (make) border.openOrMake(url) else border.open(url)
             // For the next time the app opens
             last.writeText(url)
+            unopened = false
             null
         } catch (nothing: FfiException) {
             url.removePrefix(PAGES).substringBefore('#')
@@ -143,13 +148,24 @@ class Shell(
 
     /**
      * Opens the screen that the app showed when it was used last. The journal of today opens
-     * when there is none, as in a new app, and when its page has gone since.
+     * when there is none, as in a new app, and when its page has gone since. Without [make],
+     * the journal of today is not made, and no screen opens then.
      */
-    fun restore() {
+    fun restore(make: Boolean = true) {
         val before = last.takeIf { it.isFile }?.readText()
         if (before != null) open(before, make = false)
-        if (before == null || missing != null) today()
+        val none = before == null || missing != null
+        if (none && make) today()
+        unopened = none && !make
     }
+
+    /**
+     * True when [restore] opened no screen and was not to make the journal of today. A new
+     * app waits for the sign-in: a journal made before the first download would be a second
+     * file for a day that Dropbox may hold already.
+     */
+    var unopened: Boolean by mutableStateOf(false)
+        private set
 
     /**
      * The focus request that a touch on an item made. The core asks for the cursor at the
