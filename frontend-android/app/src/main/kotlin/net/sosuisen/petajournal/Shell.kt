@@ -8,6 +8,7 @@ import net.sosuisen.petajournal.sync.findWithoutCase
 import net.sosuisen.petajournal.types.Event
 import net.sosuisen.petajournal.types.Request
 import net.sosuisen.petajournal.types.SearchEntry
+import net.sosuisen.petajournal.types.SearchKind
 import net.sosuisen.petajournal.types.ShellEffect
 import net.sosuisen.petajournal.types.UiOp
 import net.sosuisen.petajournal.types.UiOutput
@@ -102,14 +103,22 @@ class Shell(
 
     /**
      * The user touched a link to a page. [url] is the URL of the page, such as `/pages/notes`.
-     * A link to a page that is not there opens nothing: the first version makes no page.
+     * A link to a page that is not there opens nothing, and [missing] names the page: a touch
+     * by mistake must not put an empty page into Dropbox (ADR 031).
      */
-    fun follow(url: String) = open(url)
+    fun follow(url: String) = open(url, make = false)
 
-    private fun open(url: String) {
+    /** The user wants the page that [missing] names: it is made and opens. */
+    fun make() {
+        val page = missing ?: return
+        open(PAGES + page, make = true)
+        onEdit()
+    }
+
+    private fun open(url: String, make: Boolean) {
         missingFile = null
         missing = try {
-            border.open(url)
+            if (make) border.openOrMake(url) else border.open(url)
             null
         } catch (nothing: FfiException) {
             url.removePrefix(PAGES).substringBefore('#')
@@ -167,8 +176,14 @@ class Shell(
     /** The user typed into the search field. */
     fun search(query: String) = send(Event.SearchQueryChanged(query))
 
-    /** The user chose a search result: its page opens. */
-    fun pick(entry: SearchEntry) = send(Event.SearchResultClicked(entry.position))
+    /**
+     * The user chose a search result: its page opens. The results for the journal of today
+     * and for a new page make their page.
+     */
+    fun pick(entry: SearchEntry) {
+        send(Event.SearchResultClicked(entry.position))
+        if (entry.kind == SearchKind.TODAY || entry.kind == SearchKind.CREATE) onEdit()
+    }
 
     /** Sends an event that changes a page. */
     private fun change(event: Event) {
@@ -196,8 +211,9 @@ class Shell(
             when (val effect = request.effect) {
                 is ShellEffect.Render -> show()
                 is ShellEffect.Navigate -> {
-                    // The core names what it wants open, as after a search result was chosen
-                    open(effect.value.url)
+                    // The core names what it wants open, as after a search result was chosen.
+                    // The user asked for it, so a page that is not there is made
+                    open(effect.value.url, make = true)
                 }
                 is ShellEffect.Ui -> ask(request.id, effect.value)
             }
