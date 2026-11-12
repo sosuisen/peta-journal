@@ -726,6 +726,39 @@ class JournalScreenTest {
         waitForItems("1 first", "1 third")
     }
 
+    /** Opens a page whose third item shows the second one, and asks to delete the second. */
+    private fun deleteAnItemThatAnotherShows() {
+        val shows = " transclude=\"2020-01-01-00-00-00-AAAAAAB\""
+        download("notes.md", above('A') + "first" + NL + NL + above('B') + "second" + NL + NL + above('C', shows))
+        openNotes()
+        waitFor("first")
+        compose.onAllNodes(hasText("second")).onFirst().performClick()
+        tool("Delete item")
+        waitFor("Delete anyway?")
+    }
+
+    // ほかの項目が写している項目を消すときは、先に尋ねる。「Cancel」なら、項目は残る。
+    @Test
+    fun the_app_asks_before_it_deletes_an_item_that_another_shows() {
+        deleteAnItemThatAnotherShows()
+
+        compose.onNodeWithText("Cancel").performClick()
+
+        compose.onNodeWithText("Cancel").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(3, shell.view.outline.rows.size) }
+    }
+
+    // 尋ねられて「Delete」と答えると、項目は消える。
+    @Test
+    fun the_item_that_another_shows_is_deleted_when_the_user_says_so() {
+        deleteAnItemThatAnotherShows()
+
+        compose.onNodeWithText("Delete").performClick()
+
+        compose.waitUntil(WAIT_MS) { shell.view.outline.rows.size == 2 }
+        compose.onNodeWithText("Cancel").assertDoesNotExist()
+    }
+
     // 完了の道具は、編集を終える。項目は、飾りのついた表示に戻り、道具の列は消える。
     @Test
     fun the_done_tool_ends_the_edit() {
