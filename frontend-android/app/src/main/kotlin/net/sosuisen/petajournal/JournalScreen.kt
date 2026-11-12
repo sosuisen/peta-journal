@@ -17,8 +17,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
@@ -79,6 +77,8 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import net.sosuisen.petajournal.sync.SyncState
 import net.sosuisen.petajournal.types.Row
 import net.sosuisen.petajournal.types.ScreenView
@@ -96,12 +96,13 @@ const val EDITOR_TAG = "editor"
 /**
  * The one screen of the app: a search field, and under it the results of the search or the
  * page that is open. Between them is where the sync with the cloud stands; [cloud] is `null`
- * in an app that syncs nothing.
+ * in an app that syncs nothing. [syncInFront] says that the user waits for the sync.
  */
 @Composable
 fun JournalScreen(
     shell: Shell,
     cloud: SyncState? = null,
+    syncInFront: Boolean = false,
     onSignIn: () -> Unit = {},
     onSync: () -> Unit = {},
     onSignOut: () -> Unit = {},
@@ -119,6 +120,7 @@ fun JournalScreen(
                     modifier = Modifier.fillMaxWidth().padding(8.dp).testTag(SEARCH_TAG),
                 )
                 cloud?.let { SyncLine(it, onSignIn, onSync, onSignOut) }
+                if (syncInFront) progress(cloud)?.let { Waiting(it) }
                 // The room of the bar is always there, for the same reason
                 Box(Modifier.fillMaxWidth().height(4.dp)) {
                     if (shell.syncing) LinearProgressIndicator(Modifier.fillMaxSize())
@@ -219,6 +221,31 @@ private fun title(view: ViewModel): String =
         is ScreenView.Journal -> screen.value.displayDate
         else -> ""
     }
+
+/** How far a sync that moves files is, in words and as a part of the whole, or null. */
+private fun progress(state: SyncState?): Pair<String, Float>? =
+    when (state) {
+        is SyncState.Downloading -> if (state.total > 0) "Downloading ${state.done} of ${state.total}" to state.done.toFloat() / state.total else null
+        is SyncState.Uploading -> if (state.total > 0) "Uploading ${state.done} of ${state.total}" to state.done.toFloat() / state.total else null
+        else -> null
+    }
+
+/**
+ * Where the sync stands, over the page, while the user waits for it: the app came to the
+ * front, and the pages may be old until the files have moved. The dialog cannot be closed:
+ * an edit of an old page would be merged with the new one later.
+ */
+@Composable
+private fun Waiting(progress: Pair<String, Float>) {
+    Dialog({}, DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)) {
+        Surface(shape = MaterialTheme.shapes.large, tonalElevation = 6.dp) {
+            Column(Modifier.padding(24.dp)) {
+                Text(progress.first, Modifier.padding(bottom = 16.dp))
+                LinearProgressIndicator({ progress.second }, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
 
 @Composable
 private fun SyncLine(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit, onSignOut: () -> Unit) {

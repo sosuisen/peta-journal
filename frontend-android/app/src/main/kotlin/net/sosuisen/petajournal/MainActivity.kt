@@ -102,15 +102,16 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
     /**
      * Syncs with Dropbox: downloads what changed there, and uploads the pages that changed
      * in the app. [fresh] is the credential of a sign-in that has just
-     * ended, if any. Nothing happens before the first sign-in.
+     * ended, if any. Nothing happens before the first sign-in. [inFront] says that the user
+     * waits for this sync: the screen shows it in a dialog.
      */
-    fun sync(fresh: DbxCredential? = null) {
+    fun sync(fresh: DbxCredential? = null, inFront: Boolean = false) {
         val sync = cloud ?: return
         if (fresh != null) kept.edit().putString(CREDENTIAL, DbxCredential.Writer.writeToString(fresh)).apply()
         val credential = kept.getString(CREDENTIAL, null) ?: return
         // The client gets a new access token by itself when the old one has run out
         val client = DbxClientV2(DROPBOX, DbxCredential.Reader.readFully(credential))
-        sync.start(DropboxCloud(client, BuildConfig.DROPBOX_FOLDER))
+        sync.start(DropboxCloud(client, BuildConfig.DROPBOX_FOLDER), inFront)
     }
 
     /**
@@ -163,6 +164,7 @@ class MainActivity : ComponentActivity() {
             JournalScreen(
                 model.shell,
                 model.cloud?.state,
+                syncInFront = model.cloud?.inFront == true,
                 onSignIn = { Auth.startOAuth2PKCE(this, BuildConfig.DROPBOX_KEY, DROPBOX, SCOPES) },
                 onSync = { model.sync() },
                 onSignOut = { model.signOut() },
@@ -199,6 +201,6 @@ class MainActivity : ComponentActivity() {
     /** The app syncs whenever it comes to the front, also back from the sign-in. */
     override fun onResume() {
         super.onResume()
-        model.sync(Auth.getDbxCredential())
+        model.sync(Auth.getDbxCredential(), inFront = true)
     }
 }

@@ -51,10 +51,20 @@ class CloudSync(
     private var next: Cloud? = null
 
     /**
-     * Starts a sync with the cloud. While one runs, another starts after it, once: what was
-     * typed since the running one read the pages is not left behind.
+     * Whether the sync that runs is one the user waits for: the app came to the front, and
+     * the pages may be old until the sync rests. The screen then shows where it stands in a
+     * dialog. A sync after an edit is not in front: the user goes on typing.
      */
-    fun start(cloud: Cloud) {
+    var inFront: Boolean by mutableStateOf(false)
+        private set
+
+    /**
+     * Starts a sync with the cloud. While one runs, another starts after it, once: what was
+     * typed since the running one read the pages is not left behind. A sync that runs comes
+     * to the front when [inFront] asks for it.
+     */
+    fun start(cloud: Cloud, inFront: Boolean = false) {
+        if (inFront) this.inFront = true
         if (running) {
             next = cloud
             return
@@ -70,10 +80,15 @@ class CloudSync(
                 )
                 onMainThread {
                     state = SyncState.Idle
-                    next?.let(::start)
+                    val waits = next
+                    // The sync that waited goes on in front, when this one was
+                    if (waits == null) this.inFront = false else start(waits)
                 }
             } catch (failed: Exception) {
-                onMainThread { state = SyncState.Failed(failed.message ?: failed.javaClass.simpleName) }
+                onMainThread {
+                    this.inFront = false
+                    state = SyncState.Failed(failed.message ?: failed.javaClass.simpleName)
+                }
             }
         }
     }
