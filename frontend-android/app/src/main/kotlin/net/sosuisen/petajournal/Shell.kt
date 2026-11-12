@@ -144,6 +144,24 @@ class Shell(
 
     private fun now(): ULong = System.currentTimeMillis().toULong()
 
+    /** Makes the item a child of the item above it. */
+    fun indent(itemId: String) = send(Event.Indent(itemId))
+
+    /** Moves the item one level up, out of its parent. */
+    fun outdent(itemId: String) = send(Event.Outdent(itemId))
+
+    /** Swaps the item with the one above it on its level. */
+    fun moveUp(itemId: String) = send(Event.MoveUp(itemId))
+
+    /** Swaps the item with the one below it on its level. */
+    fun moveDown(itemId: String) = send(Event.MoveDown(itemId))
+
+    /** Moves the task on: no task, not started, running, done, and no task again. */
+    fun cycleTask(itemId: String) = send(Event.TaskCycle(itemId))
+
+    /** Deletes the item. */
+    fun delete(itemId: String) = send(Event.DeleteItem(itemId))
+
     /** The user typed into the search field. */
     fun search(query: String) = send(Event.SearchQueryChanged(query))
 
