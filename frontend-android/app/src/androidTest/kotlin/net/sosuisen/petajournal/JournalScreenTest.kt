@@ -5,6 +5,10 @@ import android.os.Handler
 import android.os.Looper
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.layout.FirstBaseline
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.getAlignmentLinePosition
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsEqualTo
@@ -506,21 +510,25 @@ class JournalScreenTest {
         assertTrue("the mark is ${apart}dp from the middle of the text", apart < 3f)
     }
 
-    // 見出しのバレットは、大きな文字の真ん中に合わせて、ふつうの項目のバレットより上にある。
+    /** How far down the screen the middle of the letters of the first line of a text is, in dp. */
+    private fun middleOfLetters(text: SemanticsNodeInteraction, sizeSp: Float): Float {
+        val line = text.getUnclippedBoundsInRoot().top + text.getAlignmentLinePosition(FirstBaseline)
+        // The middle of a letter is about a third of its size above the line it stands on
+        return line.value - 0.35f * sizeSp * compose.density.fontScale
+    }
+
+    // 見出しのバレットは、見出しの大きな文字の真ん中の高さにある。
     @Test
-    fun the_bullet_of_a_heading_is_higher_than_the_bullet_of_plain_text() {
-        download("notes.md", above('A') + "# Big" + NL + NL + above('B') + "plain" + NL)
+    fun the_bullet_of_a_heading_is_at_the_middle_of_its_large_letters() {
+        download("notes.md", above('A') + "# Big" + NL)
         openNotes()
-        waitFor("plain")
+        waitFor("Big")
 
-        val bullets = compose.onAllNodes(hasText("•"), useUnmergedTree = true).fetchSemanticsNodes()
-        val big = compose.onNode(hasText("Big"), useUnmergedTree = true).fetchSemanticsNode()
-        val plain = compose.onNode(hasText("plain"), useUnmergedTree = true).fetchSemanticsNode()
+        val bullet = middleOfLetters(compose.onNode(hasText("•"), useUnmergedTree = true), sizeSp = 16f)
+        // The first heading is one and a half times as large as plain text
+        val heading = middleOfLetters(compose.onNode(hasText("Big"), useUnmergedTree = true), sizeSp = 24f)
 
-        assertEquals(2, bullets.size)
-        val ofBig = middle(bullets[0]) - big.boundsInRoot.top
-        val ofPlain = middle(bullets[1]) - plain.boundsInRoot.top
-        assertTrue("the bullet of the heading is at $ofBig, that of plain text at $ofPlain", ofBig < ofPlain - 1f)
+        assertTrue("the bullet is at ${bullet}dp, the letters at ${heading}dp", abs(bullet - heading) < 1.5f)
     }
 
     /** Lets the core write the pages that changed, and says whether a file is at the path then. */
