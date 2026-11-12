@@ -16,6 +16,8 @@ final class FakeCloud: Cloud, @unchecked Sendable {
     var downloaded: [String] = []
     var uploaded: [String] = []
     var broken: String?
+    /// The cloud cannot be reached at all.
+    var failing = false
 
     /// Gives the file of the cloud a new version, and answers with the change that tells of it.
     @discardableResult
@@ -46,6 +48,7 @@ final class FakeCloud: Cloud, @unchecked Sendable {
     }
 
     func changes(since cursor: String?) throws -> Changes {
+        if failing { throw NetworkGone() }
         askedWith.append(cursor)
         return answers[cursor ?? ""]!
     }
