@@ -38,6 +38,9 @@ import net.sosuisen.petajournal.types.SearchKind
 import net.sosuisen.petajournal.types.TaskState
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import kotlin.math.abs
+import androidx.compose.ui.semantics.SemanticsNode
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -484,6 +487,40 @@ class JournalScreenTest {
             listOf("Task not started", "Task running", "Task done"),
             marks.map { it.config[SemanticsProperties.ContentDescription].single() },
         )
+    }
+
+    /** How far down the screen the middle of a node is, in pixels. */
+    private fun middle(node: SemanticsNode): Float = node.boundsInRoot.center.y
+
+    // タスクの印は、項目の文字と同じ高さにある。
+    @Test
+    fun the_mark_of_a_task_is_at_the_height_of_its_text() {
+        download("notes.md", above('A') + "- [ ] buy milk" + NL)
+        openNotes()
+        waitFor("buy milk")
+
+        val mark = compose.onNode(hasContentDescription("Task not started")).fetchSemanticsNode()
+        val text = compose.onNode(hasText("buy milk"), useUnmergedTree = true).fetchSemanticsNode()
+
+        val apart = abs(middle(mark) - middle(text)) / compose.density.density
+        assertTrue("the mark is ${apart}dp from the middle of the text", apart < 3f)
+    }
+
+    // 見出しのバレットは、大きな文字の真ん中に合わせて、ふつうの項目のバレットより上にある。
+    @Test
+    fun the_bullet_of_a_heading_is_higher_than_the_bullet_of_plain_text() {
+        download("notes.md", above('A') + "# Big" + NL + NL + above('B') + "plain" + NL)
+        openNotes()
+        waitFor("plain")
+
+        val bullets = compose.onAllNodes(hasText("•"), useUnmergedTree = true).fetchSemanticsNodes()
+        val big = compose.onNode(hasText("Big"), useUnmergedTree = true).fetchSemanticsNode()
+        val plain = compose.onNode(hasText("plain"), useUnmergedTree = true).fetchSemanticsNode()
+
+        assertEquals(2, bullets.size)
+        val ofBig = middle(bullets[0]) - big.boundsInRoot.top
+        val ofPlain = middle(bullets[1]) - plain.boundsInRoot.top
+        assertTrue("the bullet of the heading is at $ofBig, that of plain text at $ofPlain", ofBig < ofPlain - 1f)
     }
 
     /** Lets the core write the pages that changed, and says whether a file is at the path then. */
