@@ -117,6 +117,12 @@ token no longer. Without the network, Dropbox does not hear of it, and the token
 from the device only. The pages and the images that were downloaded stay, and can be read.
 The app syncs nothing until the next sign-in.
 
+A new app shows only "Sign in to Dropbox" before the sign-in. It makes no journal of today:
+Dropbox may hold that journal already, and the app would then have two files for one day.
+The bar with the search and the button for today is not there either, because both make
+pages. The first sync after the sign-in opens the journal of today. An app that has shown a
+page before opens that page also when it is signed out.
+
 The next sign-in may be to another account. So the sign-out also forgets where the last
 download ended. The first sync after the sign-in lists the whole folder. It downloads only
 the files that differ, and deletes the copies of what the account does not hold. The pages
