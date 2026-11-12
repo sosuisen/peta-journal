@@ -26,7 +26,7 @@ import java.util.concurrent.Executors
  * a moment after the last change (ADR 031).
  */
 class Shell(
-    dataDir: File,
+    private val dataDir: File,
     private val markdownDir: File,
     private val onMainThread: (() -> Unit) -> Unit,
     private val onEdit: () -> Unit = {},
@@ -123,11 +123,32 @@ class Shell(
         missingFile = null
         missing = try {
             if (make) border.openOrMake(url) else border.open(url)
+            // For the next time the app opens
+            last.writeText(url)
             null
         } catch (nothing: FfiException) {
             url.removePrefix(PAGES).substringBefore('#')
         }
         show()
+    }
+
+    /** The URL of the screen that was opened last, kept for the next time the app opens. */
+    private val last: File get() = File(dataDir, "last-screen")
+
+    /** The user wants the journal of today: it is made when it is not there, and opens. */
+    fun today() {
+        open(TODAY, make = true)
+        onEdit()
+    }
+
+    /**
+     * Opens the screen that the app showed when it was used last. The journal of today opens
+     * when there is none, as in a new app, and when its page has gone since.
+     */
+    fun restore() {
+        val before = last.takeIf { it.isFile }?.readText()
+        if (before != null) open(before, make = false)
+        if (before == null || missing != null) today()
     }
 
     /**
@@ -265,6 +286,9 @@ class Shell(
     companion object {
         /** What the URL of a page starts with, before the path of the page. */
         const val PAGES = "/pages/"
+
+        /** The URL of the journal of today, whatever the date is. */
+        const val TODAY = "/today"
     }
 }
 
