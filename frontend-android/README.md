@@ -81,6 +81,15 @@ every Markdown file and every file of the `assets` folder, several at a time. Th
 `assets` are the images of the pages. A later sync asks Dropbox only for what changed. A
 file that Dropbox lost is deleted in the app, and so is its page, without a question.
 
+"Sign out" lets go of Dropbox. The app deletes its credential and tells Dropbox to take the
+token no longer. Without the network, Dropbox does not hear of it, and the token is gone
+from the device only. The pages and the images that were downloaded stay, and can be read.
+The app syncs nothing until the next sign-in.
+
+The next sign-in may be to another account. So the sign-out also forgets where the last
+download ended. The first sync after the sign-in lists the whole folder. It downloads only
+the files that differ, and deletes what the account does not hold.
+
 ## The code
 
 `app/src/main/kotlin/net/sosuisen/petajournal`:
@@ -125,7 +134,7 @@ file that Dropbox lost is deleted in the app, and so is its page, without a ques
 
 ## Not there yet
 
-- A sign-out, and a sync while the app is not on screen.
+- A sync while the app is not on screen.
 - Links to other things than a page or a web address, such as a file.
 - An image inside a cell of a table or inside a heading.
 - The height of an image that the page asks with `#h=`. The height follows the width.
