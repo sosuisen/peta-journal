@@ -199,12 +199,12 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 </g>
 <rect class="frame" x="1340" y="0" width="300" height="756" rx="14" />
 <text class="th" x="1356" y="20" dominant-baseline="central">Androidネイティブアプリ</text>
-<text class="th" x="1356" y="40" dominant-baseline="central">（Kotlin, Jetpack Compose）</text>
 <rect class="inner" x="1356" y="154" width="268" height="480" rx="10" />
 <text x="1372" y="172" dominant-baseline="central">Rustライブラリ</text>
 <g class="gray other">
-<rect x="1372" y="56" width="236" height="56" rx="8" />
-<text class="th" x="1490" y="73" text-anchor="middle" dominant-baseline="central">frontend-android（Kotlin）</text>
+<rect x="1372" y="36" width="236" height="76" rx="8" />
+<text class="th" x="1490" y="52" text-anchor="middle" dominant-baseline="central">frontend-android</text>
+<text class="th" x="1490" y="72" text-anchor="middle" dominant-baseline="central">（Kotlin, Jetpack Compose）</text>
 <text x="1490" y="95" text-anchor="middle" dominant-baseline="central">画面を描画・操作を送信</text>
 </g>
 <g class="green">
