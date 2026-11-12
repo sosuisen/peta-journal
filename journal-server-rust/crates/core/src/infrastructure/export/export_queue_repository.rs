@@ -62,7 +62,7 @@ impl ExportQueueRepository {
     }
 
     /// How many pages wait.
-    pub fn len(&self) -> AppResult<usize> {
+    pub fn waiting(&self) -> AppResult<usize> {
         let conn = self.db.conn()?;
         let pages: i64 = conn
             .query_row("SELECT COUNT(*) FROM export_queue", [], |row| row.get(0))

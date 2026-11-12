@@ -151,7 +151,7 @@ impl MarkdownExportService {
     /// Writes every page that waits now, however many they are. A page that cannot be written
     /// goes back to the queue, and it stays there for the next call.
     pub fn process_whole_queue(&self) {
-        let waiting = self.export_queue.len().unwrap_or(0);
+        let waiting = self.export_queue.waiting().unwrap_or(0);
         for _ in 0..waiting.div_ceil(BATCH) {
             self.process_export_queue();
         }
