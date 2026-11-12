@@ -36,6 +36,15 @@ class CloudSync(
     var state: SyncState by mutableStateOf(if (signedIn) SyncState.Idle else SyncState.SignedOut)
         private set
 
+    /**
+     * The user has signed out of the cloud. What was downloaded stays. It is not for the time
+     * a download runs: the screen offers no sign-out then.
+     */
+    fun signOut() {
+        check(state !is SyncState.Downloading) { "a download runs" }
+        state = SyncState.SignedOut
+    }
+
     /** Starts a download from the cloud. Nothing happens while one runs. */
     fun start(cloud: Cloud) {
         if (state is SyncState.Downloading) return

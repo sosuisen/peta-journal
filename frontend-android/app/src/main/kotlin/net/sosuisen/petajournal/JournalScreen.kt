@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -82,7 +83,13 @@ const val SEARCH_TAG = "search"
  * in an app that syncs nothing.
  */
 @Composable
-fun JournalScreen(shell: Shell, cloud: SyncState? = null, onSignIn: () -> Unit = {}, onSync: () -> Unit = {}) {
+fun JournalScreen(
+    shell: Shell,
+    cloud: SyncState? = null,
+    onSignIn: () -> Unit = {},
+    onSync: () -> Unit = {},
+    onSignOut: () -> Unit = {},
+) {
     val view = shell.view
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
@@ -94,7 +101,7 @@ fun JournalScreen(shell: Shell, cloud: SyncState? = null, onSignIn: () -> Unit =
                     placeholder = { Text("Search") },
                     modifier = Modifier.fillMaxWidth().padding(8.dp).testTag(SEARCH_TAG),
                 )
-                cloud?.let { SyncLine(it, onSignIn, onSync) }
+                cloud?.let { SyncLine(it, onSignIn, onSync, onSignOut) }
                 if (shell.syncing) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())
                 }
@@ -124,11 +131,15 @@ private fun title(view: ViewModel): String =
     }
 
 @Composable
-private fun SyncLine(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit) {
+private fun SyncLine(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit, onSignOut: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         when (state) {
             SyncState.SignedOut -> Button(onSignIn) { Text("Sign in to Dropbox") }
-            SyncState.Idle -> TextButton(onSync) { Text("Sync") }
+            SyncState.Idle -> {
+                TextButton(onSync) { Text("Sync") }
+                Spacer(Modifier.weight(1f))
+                TextButton(onSignOut) { Text("Sign out") }
+            }
             is SyncState.Downloading -> Text("Downloading ${state.done} of ${state.total}", Modifier.padding(8.dp))
             is SyncState.Failed -> {
                 Text("Sync failed: ${state.reason}", Modifier.weight(1f).padding(8.dp))
