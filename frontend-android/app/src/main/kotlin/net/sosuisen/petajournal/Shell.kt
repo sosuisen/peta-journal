@@ -9,6 +9,8 @@ import net.sosuisen.petajournal.types.Event
 import net.sosuisen.petajournal.types.Request
 import net.sosuisen.petajournal.types.SearchEntry
 import net.sosuisen.petajournal.types.ShellEffect
+import net.sosuisen.petajournal.types.UiOp
+import net.sosuisen.petajournal.types.UiOutput
 import net.sosuisen.petajournal.types.ViewModel
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -113,6 +115,35 @@ class Shell(
         show()
     }
 
+    /**
+     * The focus request that a touch on an item made. The core asks for the cursor at the
+     * start of the item then. A finger shows no place in the Markdown, so the screen puts the
+     * cursor at the end instead, where the writing goes on.
+     */
+    var touched: ULong? = null
+        private set
+
+    /** The user touched an item: it is edited (ADR 031). The edit of another item ends. */
+    fun edit(itemId: String) {
+        view.outline.focusedItemId?.takeIf { it != itemId }?.let(::finish)
+        send(Event.EditRequested(itemId, 0uL))
+        touched = view.outline.focusRequest?.seq
+    }
+
+    /** The user changed the Markdown of the item. The core saves it a moment later. */
+    fun type(itemId: String, body: String) = send(Event.BodyChanged(itemId, body, now()))
+
+    /**
+     * The user pressed Enter in the item. [cursor] counts the characters before it, as the
+     * core counts them. The core splits the item there, and the edit goes on in the new one.
+     */
+    fun enter(itemId: String, cursor: Int) = send(Event.EnterPressed(itemId, cursor.toULong(), now()))
+
+    /** The user left the editor of the item: what was typed is saved. */
+    fun finish(itemId: String) = send(Event.EditFinished(itemId))
+
+    private fun now(): ULong = System.currentTimeMillis().toULong()
+
     /** The user typed into the search field. */
     fun search(query: String) = send(Event.SearchQueryChanged(query))
 
@@ -120,6 +151,8 @@ class Shell(
     fun pick(entry: SearchEntry) = send(Event.SearchResultClicked(entry.position))
 
     private fun send(event: Event) {
+        // A field that loses the focus while the screen is taken down still tells of it
+        if (closed) return
         border.send(event)
         // Not left to the render request. It comes a turn of the main thread later, and a
         // text field that reads its old text back after a key loses the key
@@ -140,10 +173,25 @@ class Shell(
                     // The core names what it wants open, as after a search result was chosen
                     open(effect.value.url)
                 }
-                // What the first screen is asked waits for no answer: the title to set, and
-                // the item to scroll to
-                is ShellEffect.Ui -> Unit
+                is ShellEffect.Ui -> ask(request.id, effect.value)
             }
+        }
+    }
+
+    /** Does what the core asks of the screen, and answers when the core waits for an answer. */
+    private fun ask(id: UInt, op: UiOp) {
+        when (op) {
+            // The row that is edited takes the focus by itself when it is drawn. The core
+            // waits for this answer before it ends a move or a split
+            is UiOp.FocusEditor -> {
+                show()
+                border.answer(id, UiOutput.Done)
+            }
+            // No dialog yet: what is hard to undo is not done
+            is UiOp.Confirm, is UiOp.ConfirmDestructive -> border.answer(id, UiOutput.Bool(false))
+            is UiOp.Prompt, is UiOp.ReadClipboardText -> border.answer(id, UiOutput.Text(null))
+            // The others wait for no answer, such as the title to set and the item to scroll to
+            else -> Unit
         }
     }
 
