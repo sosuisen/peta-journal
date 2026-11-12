@@ -77,10 +77,12 @@ Gradle properties:
 They can also stand in `~/.gradle/gradle.properties`, as `dropboxKey=...` and
 `dropboxFolder=...`. An app that is built without a key syncs nothing and shows no sign-in.
 
-The Dropbox app signs in when the device has it. The browser signs in when it does not. The
-Dropbox app must be signed in itself. When it is signed out, it only says that it could not
-connect to Dropbox and asks to check the network. The network is fine then: sign in again in
-the Dropbox app, and try once more.
+The browser signs in, also on a device that has the Dropbox app. The SDK would let the
+Dropbox app sign in when it sees it. That failed: after a sign-out, and when the Dropbox app
+was signed out itself, the Dropbox app only said that it could not connect to Dropbox and
+asked to check the network. So the manifest takes away the `queries` entry of the SDK, and
+the app does not see the Dropbox app. This holds from Android 11 on, where an app sees only
+the apps it asks for.
 
 The app syncs when it comes to the front, when it goes to the back, when "Sync" is touched,
 and 3 seconds after the last change of a page. The sync of an app that came to the front shows
