@@ -464,11 +464,11 @@ class JournalScreenTest {
         compose.waitUntil(WAIT_MS) { isWritten("docs/brand-new.md") }
     }
 
-    // 今日のジャーナルを開く結果に触れると、今日のジャーナルができて開く。
+    // 「today」と打つと、今日のジャーナルを開く結果が出る。触れると、今日のジャーナルができて開く。
     @Test
     fun the_result_for_today_makes_the_journal_of_today_and_opens_it() {
         start()
-        type("nothing-like-this")
+        type("today")
         waitFor("Open Today")
 
         compose.onNodeWithText("Open Today").performClick()
