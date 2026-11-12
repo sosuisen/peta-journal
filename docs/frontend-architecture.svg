@@ -339,7 +339,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="806" y="785" text-anchor="middle" dominant-baseline="central">ast2html</text>
 </g>
 
-<text class="note" x="20" y="818" dominant-baseline="central">ToDoアプリ、Stickiesアプリは、Readが中心の単純なものなので、コアを使わず、サーバと直接話す。</text>
+<text class="note" x="20" y="818" dominant-baseline="central">制作例のToDoアプリ、Stickiesアプリは、Readが中心の単純なものなので、peta-coreを使わず、サーバと直接話す。</text>
 <text class="note" x="20" y="840" dominant-baseline="central">画像は、どのフロントエンドも、画面の側がサーバから直接取る。</text>
 <text class="note" x="20" y="862" dominant-baseline="central">項目の表示は、Leptos・SwiftUI・WinUI・Android・Stickiesのどれも、ast2htmlが作るHTMLから描く。Emacsは、Markdownのまま見せる。</text>
 
