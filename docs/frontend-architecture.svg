@@ -309,26 +309,26 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <g transform="translate(0,76)">
 <rect class="frame" x="20" y="690" width="240" height="150" rx="14" />
 <text class="th" x="36" y="712" dominant-baseline="central">Webアプリ</text>
-<text class="th" x="36" y="732" dominant-baseline="central">（TypeScript, React）</text>
 <g class="gray other">
-<rect x="36" y="748" width="208" height="76" rx="8" />
-<text class="th" x="140" y="765" text-anchor="middle" dominant-baseline="central">（制作例）ToDoアプリ</text>
+<rect x="36" y="726" width="208" height="98" rx="8" />
+<text class="th" x="140" y="744" text-anchor="middle" dominant-baseline="central">[制作例] ToDoアプリ</text>
+<text class="th" x="140" y="764" text-anchor="middle" dominant-baseline="central">（TypeScript, React）</text>
 <text x="140" y="787" text-anchor="middle" dominant-baseline="central">タスクを一覧・状態を</text>
 <text x="140" y="807" text-anchor="middle" dominant-baseline="central">切り替えできるWebアプリ</text>
 </g>
-<line class="arr" x1="236" y1="638" x2="236" y2="746" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<line class="arr" x1="236" y1="638" x2="236" y2="724" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="244" y="664" dominant-baseline="central">REST・SSE（fetch・EventSource）</text>
 
 <rect class="frame" x="280" y="690" width="240" height="150" rx="14" />
 <text class="th" x="296" y="712" dominant-baseline="central">WebViewアプリ</text>
-<text class="th" x="296" y="732" dominant-baseline="central">（C#, WinUI, WebView）</text>
 <g class="gray other">
-<rect x="296" y="748" width="208" height="76" rx="8" />
-<text class="th" x="400" y="765" text-anchor="middle" dominant-baseline="central">（制作例）Stickiesアプリ</text>
+<rect x="296" y="726" width="208" height="98" rx="8" />
+<text class="th" x="400" y="744" text-anchor="middle" dominant-baseline="central">[制作例] Stickiesアプリ</text>
+<text class="th" x="400" y="764" text-anchor="middle" dominant-baseline="central">（C#, WinUI, WebView）</text>
 <text x="400" y="787" text-anchor="middle" dominant-baseline="central">ページを付箋紙として表示</text>
 <text x="400" y="807" text-anchor="middle" dominant-baseline="central">できるデスクトップアプリ</text>
 </g>
-<line class="arr" x1="496" y1="638" x2="496" y2="746" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<line class="arr" x1="496" y1="638" x2="496" y2="724" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="504" y="664" dominant-baseline="central">REST・SSE（HttpClient）</text>
 
 <rect class="frame" x="560" y="690" width="240" height="60" rx="14" />
