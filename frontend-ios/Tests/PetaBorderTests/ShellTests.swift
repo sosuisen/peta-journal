@@ -181,6 +181,47 @@ final class ShellTests: JournalTestCase {
         XCTAssertNil(shell.missing)
     }
 
+    // 入れたばかりのアプリは、作らないと言われたら、今日のジャーナルを作らず、何も開かない。アプリには何も伝わらない。
+    func testANewAppThatIsNotToMakeTodayOpensNoScreen() throws {
+        try start()
+
+        shell.restore(make: false)
+
+        XCTAssertTrue(shell.unopened)
+        XCTAssertFalse(isJournal())
+        XCTAssertEqual(edits, 0)
+    }
+
+    // 何も開かなかったアプリは、クラウドとの同期の取り込みのあとに、今日のジャーナルを開く。
+    func testAnAppThatOpenedNoScreenOpensTodayAfterTheTakingInOfASync() throws {
+        try start()
+        shell.restore(make: false)
+
+        let shell = shell!
+        Thread.detachNewThread { shell.syncAndWait() }
+
+        waitUntil("the journal is open") { self.isJournal() }
+        XCTAssertFalse(shell.unopened)
+    }
+
+    // 前に見ていたページがあるアプリは、作らないと言われても、そのページを開く。
+    func testAnAppThatShowedAPageOpensItAlsoWhenItIsNotToMakeToday() throws {
+        try download("notes.md", "what the notes say\n")
+        try openNotes()
+        shell.close()
+        waitUntil("the journal can be opened again") {
+            guard let next = try? Shell(dataDir: self.root.appendingPathComponent("data"), markdownDir: self.markdown)
+            else { return false }
+            self.shell = next
+            return true
+        }
+
+        shell.restore(make: false)
+
+        waitUntil("the page shows again") { self.bodies() == ["what the notes say"] }
+        XCTAssertFalse(shell.unopened)
+    }
+
     // 項目に触れると、その項目が編集に入る。カーソルの依頼は、触れたことによるものと分かる。
     func testATouchedItemIsEditedAndItsFocusRequestIsKnownAsTheTouch() throws {
         try download("notes.md", "a **bold** word\n")
