@@ -84,3 +84,22 @@ fn the_command_writes_the_files_of_a_stopped_server_and_tells_how_many_pages_it_
     // The third page is the atlas of the docs, which the server makes
     assert_eq!(told, "1 of 3 page files written");
 }
+
+// 待ち行列のページがいくつあっても、1回の呼び出しですべてのファイルが書かれる。
+#[test]
+fn every_page_that_waits_is_written_by_one_call() {
+    let notes = Notes::new();
+    let names: Vec<String> = (0..25).map(|n| format!("Page{n}")).collect();
+    for name in &names {
+        let pages = &notes.state.page_service;
+        pages.get_or_create_doc(Some(name), None).unwrap();
+    }
+
+    notes.state.export.process_whole_queue();
+
+    let missing: Vec<&String> = names
+        .iter()
+        .filter(|name| !notes.root.join(format!("docs/{name}.md")).is_file())
+        .collect();
+    assert!(missing.is_empty(), "not written: {missing:?}");
+}

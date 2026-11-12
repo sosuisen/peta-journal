@@ -15,6 +15,9 @@ pub struct ExportQueueRepository {
     db: Arc<Db>,
 }
 
+/// How many pages one `dequeue_all` takes.
+pub const BATCH: usize = 10;
+
 fn is_locked(e: &rusqlite::Error) -> bool {
     e.to_string().contains("database is locked")
 }
@@ -58,7 +61,16 @@ impl ExportQueueRepository {
         Ok(())
     }
 
-    /// Takes up to 10 queued pages, oldest first, and removes them from the queue.
+    /// How many pages wait.
+    pub fn waiting(&self) -> AppResult<usize> {
+        let conn = self.db.conn()?;
+        let pages: i64 = conn
+            .query_row("SELECT COUNT(*) FROM export_queue", [], |row| row.get(0))
+            .context("Failed to count the queued exports")?;
+        Ok(usize::try_from(pages).unwrap_or(0))
+    }
+
+    /// Takes up to `BATCH` queued pages, oldest first, and removes them from the queue.
     pub fn dequeue_all(&self) -> AppResult<Vec<Hmtid>> {
         let max_retries = 3;
         for attempt in 0..max_retries {
@@ -87,8 +99,8 @@ impl ExportQueueRepository {
         let tx = conn.immediate()?;
         let ids: Vec<String> = {
             let mut stmt =
-                tx.prepare("SELECT page_id FROM export_queue ORDER BY queued_at LIMIT 10")?;
-            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+                tx.prepare("SELECT page_id FROM export_queue ORDER BY queued_at LIMIT ?")?;
+            let rows = stmt.query_map([BATCH as i64], |r| r.get::<_, String>(0))?;
             rows.collect::<Result<_, _>>()?
         };
         if !ids.is_empty() {

@@ -18,7 +18,7 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::files::{delete_quietly, write_atomic};
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
-use super::export_queue_repository::ExportQueueRepository;
+use super::export_queue_repository::{ExportQueueRepository, BATCH};
 use super::file_sync_state::FileSyncStateRepository;
 use super::{page_link_converter, path_mapper};
 
@@ -146,6 +146,15 @@ impl MarkdownExportService {
             }
         }
         self.processing.store(false, Ordering::SeqCst);
+    }
+
+    /// Writes every page that waits now, however many they are. A page that cannot be written
+    /// goes back to the queue, and it stays there for the next call.
+    pub fn process_whole_queue(&self) {
+        let waiting = self.export_queue.waiting().unwrap_or(0);
+        for _ in 0..waiting.div_ceil(BATCH) {
+            self.process_export_queue();
+        }
     }
 
     /// Writes the markdown file of one page right now, without going through the queue.

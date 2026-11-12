@@ -329,6 +329,40 @@ fn the_page_of_a_folder_stays_while_a_page_under_it_is_left() {
     assert_eq!(page_names(&core), ["work/index", "work/plan"]);
 }
 
+// アプリで作ったページは、次の取り込みでMarkdownのフォルダーに書かれる。
+#[test]
+fn a_page_made_in_the_app_is_written_to_the_folder_by_the_next_sync() {
+    let app = App::new();
+    let core = app.open(Arc::default());
+    let journal = &core.core.journal;
+    journal.get_or_create_doc(Some("notes"), None).unwrap();
+
+    core.sync();
+
+    assert!(app.markdown().join("markdown/docs/notes.md").is_file());
+}
+
+// 書くページがいくつあっても、1回の取り込みですべて書かれる。
+#[test]
+fn every_page_that_waits_is_written_by_one_sync() {
+    let app = App::new();
+    let core = app.open(Arc::default());
+    let journal = &core.core.journal;
+    let names: Vec<String> = (0..25).map(|n| format!("page{n}")).collect();
+    for name in &names {
+        journal.get_or_create_doc(Some(name), None).unwrap();
+    }
+
+    core.sync();
+
+    let docs = app.markdown().join("markdown/docs");
+    let missing: Vec<&String> = names
+        .iter()
+        .filter(|name| !docs.join(format!("{name}.md")).is_file())
+        .collect();
+    assert!(missing.is_empty(), "not written: {missing:?}");
+}
+
 // Markdownのフォルダーの設定が変わっても、アプリは何も見張らないので、何も起きない。
 #[test]
 fn a_new_markdown_folder_starts_no_watcher() {
