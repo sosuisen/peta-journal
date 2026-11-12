@@ -37,6 +37,9 @@ import kotlin.concurrent.thread
  */
 private val SCOPES = listOf("files.metadata.read", "files.content.read", "files.content.write")
 
+/** How long the app waits after the last change of a page before it syncs. */
+private const val AFTER_EDIT_MS = 3_000L
+
 /** Where the credential of a sign-in that may write is kept. */
 private const val CREDENTIAL = "credential-write"
 
@@ -57,7 +60,13 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
         for (name in listOf("docs", "journals", "assets")) File(root, name).mkdirs()
     }
 
-    val shell = Shell(File(app.filesDir, "data"), markdown) { main.post(it) }
+    /** Syncs a moment after the last change of a page, and not once for each key. */
+    private val afterEdit = Runnable { sync() }
+
+    val shell = Shell(File(app.filesDir, "data"), markdown, { main.post(it) }) {
+        main.removeCallbacks(afterEdit)
+        main.postDelayed(afterEdit, AFTER_EDIT_MS)
+    }
 
     /** The credential of Dropbox, in the storage of the app only. The app is in no backup. */
     private val kept = app.getSharedPreferences("dropbox", Context.MODE_PRIVATE)
@@ -138,7 +147,10 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    override fun onCleared() = shell.close()
+    override fun onCleared() {
+        main.removeCallbacks(afterEdit)
+        shell.close()
+    }
 }
 
 class MainActivity : ComponentActivity() {
@@ -172,6 +184,16 @@ class MainActivity : ComponentActivity() {
         } catch (none: ActivityNotFoundException) {
             Toast.makeText(this, "No app opens ${file.name}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    /**
+     * The app syncs when it goes to the back: what was written goes up before Android may
+     * stop the app. A sync that Android stops goes on when the app opens again.
+     */
+    override fun onStop() {
+        super.onStop()
+        // Not when the screen is only made again, as when the device is turned
+        if (!isChangingConfigurations) model.sync()
     }
 
     /** The app syncs whenever it comes to the front, also back from the sign-in. */

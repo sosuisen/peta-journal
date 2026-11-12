@@ -47,9 +47,19 @@ class CloudSync(
         state = SyncState.SignedOut
     }
 
-    /** Starts a sync with the cloud. Nothing happens while one runs. */
+    /** The cloud of a sync that was asked for while another ran. */
+    private var next: Cloud? = null
+
+    /**
+     * Starts a sync with the cloud. While one runs, another starts after it, once: what was
+     * typed since the running one read the pages is not left behind.
+     */
     fun start(cloud: Cloud) {
-        if (running) return
+        if (running) {
+            next = cloud
+            return
+        }
+        next = null
         state = SyncState.Downloading(0, 0)
         thread(name = "cloud-sync") {
             try {
@@ -58,7 +68,10 @@ class CloudSync(
                     // Most syncs have nothing to upload, and say nothing of it
                     onUpload = { done, total -> if (total > 0) onMainThread { state = SyncState.Uploading(done, total) } },
                 )
-                onMainThread { state = SyncState.Idle }
+                onMainThread {
+                    state = SyncState.Idle
+                    next?.let(::start)
+                }
             } catch (failed: Exception) {
                 onMainThread { state = SyncState.Failed(failed.message ?: failed.javaClass.simpleName) }
             }

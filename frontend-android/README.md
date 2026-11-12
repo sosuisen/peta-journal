@@ -82,7 +82,10 @@ Dropbox app must be signed in itself. When it is signed out, it only says that i
 connect to Dropbox and asks to check the network. The network is fine then: sign in again in
 the Dropbox app, and try once more.
 
-The app syncs when it comes to the front and when "Sync" is touched. The first sync downloads
+The app syncs when it comes to the front, when it goes to the back, when "Sync" is touched,
+and 3 seconds after the last change of a page. A sync that is asked for while another runs
+starts after it, once. When Android stops the app in the back before the sync has ended, the
+rest goes up when the app opens again. The first sync downloads
 every Markdown file and every file of the `assets` folder, several at a time. The files of
 `assets` are the images of the pages. A later sync asks Dropbox only for what changed. A
 file that Dropbox lost is deleted in the app, and so is its page, without a question.
@@ -150,12 +153,18 @@ that are not uploaded yet stay, and go up to the account of the new sign-in.
 - A link to a file of the `assets` folder, such as a PDF, opens the file with the app that the
   device has for its kind. `FileProvider` lends the file for reading. Only the `assets` folder
   is lent: the pages and the database are not. A link to a file that is not there says so.
-- A task has a checkbox that shows where it stands. A touch does not change it.
+- A task has a checkbox that shows where it stands. A touch moves the task on: not started,
+  running, done, and then no task.
+- While an item is edited, a row of tools stands above the keyboard: move the item out of
+  its parent or under the item above, move it up or down, make it a task or move the task
+  on, and delete it. "Done" ends the edit. A touch on a tool leaves the focus in the field.
 - A touch on an item edits it: the item becomes a field with its Markdown, with the cursor
   at its end. A touch on a link or an image still opens it. Only the rest of the row edits,
   so an item that is one long link is edited by a touch beside it. The core has the text
   and saves it a moment after the last key. Enter splits the item at the cursor, and the
-  edit goes on in the new item. A touch on another item moves the edit there.
+  edit goes on in the new item. A touch on another item moves the edit there. The field
+  takes no line break. It tells of the line break it could not put in a second time, and
+  the screen does not take that for a second Enter.
 - The core counts a cursor in characters, and a field of Android counts in UTF-16 units.
   The screen converts between the two. While the keyboard composes a word, as in Japanese,
   the core hears nothing, and the field is not written over.

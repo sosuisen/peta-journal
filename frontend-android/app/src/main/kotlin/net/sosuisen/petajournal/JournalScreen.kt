@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
@@ -117,19 +118,56 @@ fun JournalScreen(
                     modifier = Modifier.fillMaxWidth().padding(8.dp).testTag(SEARCH_TAG),
                 )
                 cloud?.let { SyncLine(it, onSignIn, onSync, onSignOut) }
-                if (shell.syncing) {
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                // The room of the bar is always there, for the same reason
+                Box(Modifier.fillMaxWidth().height(4.dp)) {
+                    if (shell.syncing) LinearProgressIndicator(Modifier.fillMaxSize())
                 }
-                if (view.search.showDropdown) {
-                    Results(found(view), shell::pick)
-                } else {
-                    shell.missing?.let { Text("No page yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
-                    shell.missingFile?.let { Text("No file yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
-                    val links = Links(shell::follow) { path -> shell.attached(path)?.let(onFile) }
-                    Outline(title(view), view.outline.rows, view.config.tagsDir, links, shell::image, shell)
+                val searching = view.search.showDropdown
+                // The rest of the height: the tools stay above the keyboard
+                Column(Modifier.weight(1f)) {
+                    if (searching) {
+                        Results(found(view), shell::pick)
+                    } else {
+                        shell.missing?.let { Text("No page yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
+                        shell.missingFile?.let { Text("No file yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
+                        val links = Links(shell::follow) { path -> shell.attached(path)?.let(onFile) }
+                        Outline(title(view), view.outline.rows, view.config.tagsDir, links, shell::image, shell)
+                    }
                 }
+                val edited = view.outline.rows.firstOrNull { it.isEditing }?.item?.id
+                if (!searching && edited != null) Tools(edited, shell)
             }
         }
+    }
+}
+
+/**
+ * What changes the item that is edited, in a row above the keyboard (ADR 031). A phone has
+ * no Tab key and no key with Alt. A touch on a tool leaves the focus in the field.
+ */
+@Composable
+private fun Tools(itemId: String, shell: Shell) {
+    val focus = LocalFocusManager.current
+    Surface(tonalElevation = 3.dp) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
+            Tool("⇤", "Outdent") { shell.outdent(itemId) }
+            Tool("⇥", "Indent") { shell.indent(itemId) }
+            Tool("↑", "Move up") { shell.moveUp(itemId) }
+            Tool("↓", "Move down") { shell.moveDown(itemId) }
+            Tool("☐", "Task") { shell.cycleTask(itemId) }
+            Tool("✕", "Delete item") { shell.delete(itemId) }
+            Spacer(Modifier.weight(1f))
+            // The field loses the focus, and tells the core that the edit has ended
+            TextButton({ focus.clearFocus() }) { Text("Done") }
+        }
+    }
+}
+
+/** A tool with a sign for its face. [name] says what it does, for a screen reader. */
+@Composable
+private fun Tool(sign: String, name: String, onTouch: () -> Unit) {
+    TextButton(onTouch, Modifier.semantics { contentDescription = name }) {
+        Text(sign, style = MaterialTheme.typography.titleLarge)
     }
 }
 
@@ -149,7 +187,8 @@ private fun title(view: ViewModel): String =
 
 @Composable
 private fun SyncLine(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit, onSignOut: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    // One height for every state: the app syncs while the user types, and the page must not jump
+    Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         when (state) {
             SyncState.SignedOut -> Button(onSignIn) { Text("Sign in to Dropbox") }
             SyncState.Idle -> {
@@ -234,7 +273,7 @@ private fun OutlineRow(row: Row, tagsDir: String, links: Links, image: (String) 
         }
         Row(Modifier.padding(start = row.indentPx.dp, top = 3.dp, bottom = 3.dp)) {
             Text(if (row.showBullet) "•" else "", modifier = Modifier.width(22.dp))
-            row.task?.let { TaskMark(it) }
+            row.task?.let { state -> TaskMark(state) { shell.cycleTask(row.item.id) } }
             if (row.isEditing) {
                 ItemEditor(row, shell, Modifier.weight(1f))
             } else {
@@ -259,6 +298,8 @@ private fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
     var field by remember(id) { mutableStateOf(TextFieldValue(body, TextRange(body.length))) }
     val focus = remember { FocusRequester() }
     var focused by remember { mutableStateOf(false) }
+    // Enter in an empty child moves it out and keeps the edit there: the next Enter counts again
+    var refused by remember(id, row.item.level) { mutableStateOf<String?>(null) }
 
     // What the core holds wins, as after an undo. Not while the keyboard composes a word: the
     // core has not heard of that word yet, and the field would lose it
@@ -280,9 +321,14 @@ private fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
         onValueChange = { next ->
             val enter = enterAt(field, next)
             when {
-                // The core splits the item: the field takes no line break
-                enter != null -> shell.enter(id, characters(field.text, enter))
+                // The core splits the item: the field takes no line break. The field tells of
+                // a change that was not taken once more, and that is not a second Enter
+                enter != null -> if (next.text != refused) {
+                    refused = next.text
+                    shell.enter(id, characters(field.text, enter))
+                }
                 else -> {
+                    refused = null
                     field = next
                     if (next.composition == null && next.text != body) shell.type(id, next.text)
                 }
@@ -361,11 +407,11 @@ private fun QuoteBlock(quote: ShownBlock.Quote, image: (String) -> File?) {
 }
 
 /**
- * Where a task stands, as a checkbox. It only shows: the first version changes nothing, so a
- * touch does not move the task on.
+ * Where a task stands, as a checkbox. A touch moves the task on: not started, running, done,
+ * and then no task.
  */
 @Composable
-private fun TaskMark(state: TaskState) {
+private fun TaskMark(state: TaskState, onTouch: () -> Unit) {
     val (box, name) = when (state) {
         TaskState.NOTSTARTED -> ToggleableState.Off to "Task not started"
         TaskState.RUNNING -> ToggleableState.Indeterminate to "Task running"
@@ -373,7 +419,7 @@ private fun TaskMark(state: TaskState) {
     }
     TriStateCheckbox(
         state = box,
-        onClick = null,
+        onClick = onTouch,
         modifier = Modifier.padding(end = 6.dp, top = 2.dp).semantics { contentDescription = name },
     )
 }
