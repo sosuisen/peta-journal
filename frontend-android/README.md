@@ -95,6 +95,10 @@ file that Dropbox lost is deleted in the app, and so is its page, without a ques
   item, and `AnnotatedString.fromHtml` of Compose reads the HTML. That loses the line breaks
   of a code block and the cells of a table, so `ShownText` reads those two from the AST, and
   the screen draws them with parts of their own.
+- A list or a quote that holds a code block, a table or an image cannot be one text.
+  `ShownText` takes it apart: each entry of the list gets its mark, and the quote gets a line
+  down its left side. What is in them is read the same way, at any depth. A list or a quote
+  that holds none of these stays in the text, as before.
 - A link to a page and a tag have the URL of their page in the HTML, such as `/pages/notes`.
   A touch gives the URL to `Shell.follow`. The core opens the page only when it is there:
   the web app makes the page of a link to a new page, and this app only reads. The screen
@@ -119,10 +123,7 @@ file that Dropbox lost is deleted in the app, and so is its page, without a ques
 ## Not there yet
 
 - A sign-out, and a sync while the app is not on screen.
-- A code block or a table inside a list or a quote. Only those at the top of an item get a
-  part of their own.
 - Links to other things than a page or a web address, such as a file.
-- An image inside a list, a quote or a table. Only an image in a paragraph at the top of an
-  item is drawn.
+- An image inside a cell of a table or inside a heading.
 - The height of an image that the page asks with `#h=`. The height follows the width.
 - A larger view of an image after a touch.

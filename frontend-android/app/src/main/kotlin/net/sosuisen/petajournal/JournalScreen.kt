@@ -4,7 +4,10 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.graphics.ImageBitmap
@@ -171,17 +174,52 @@ private fun OutlineRow(row: Row, tagsDir: String, onPage: (String) -> Unit, imag
         Row(Modifier.padding(start = row.indentPx.dp, top = 3.dp, bottom = 3.dp)) {
             Text(if (row.showBullet) "•" else "", modifier = Modifier.width(22.dp))
             row.task?.let { TaskMark(it) }
-            Column {
-                for (block in blocks) {
-                    when (block) {
-                        is ShownBlock.Text -> Text(block.text, style = MaterialTheme.typography.bodyLarge)
-                        is ShownBlock.Code -> CodeBlock(block)
-                        is ShownBlock.Table -> TableBlock(block)
-                        is ShownBlock.Image -> ImageBlock(block, image)
-                    }
-                }
+            Blocks(blocks, image)
+        }
+    }
+}
+
+/** The parts of an item, or of an entry of a list or a quote in it, from top to bottom. */
+@Composable
+private fun Blocks(blocks: List<ShownBlock>, image: (String) -> File?) {
+    Column {
+        for (block in blocks) {
+            when (block) {
+                is ShownBlock.Text -> Text(block.text, style = MaterialTheme.typography.bodyLarge)
+                is ShownBlock.Code -> CodeBlock(block)
+                is ShownBlock.Table -> TableBlock(block)
+                is ShownBlock.Image -> ImageBlock(block, image)
+                is ShownBlock.Entries -> EntriesBlock(block, image)
+                is ShownBlock.Quote -> QuoteBlock(block, image)
             }
         }
+    }
+}
+
+/** The entries of a list, each after its mark. */
+@Composable
+private fun EntriesBlock(list: ShownBlock.Entries, image: (String) -> File?) {
+    Column {
+        for (entry in list.entries) {
+            Row {
+                Text(entry.mark, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(end = 8.dp))
+                Blocks(entry.blocks, image)
+            }
+        }
+    }
+}
+
+/** What is quoted, with a line down its left side. */
+@Composable
+private fun QuoteBlock(quote: ShownBlock.Quote, image: (String) -> File?) {
+    val line = MaterialTheme.colorScheme.outline
+    Box(
+        Modifier
+            .padding(vertical = 4.dp)
+            .drawBehind { drawRect(line, size = Size(3.dp.toPx(), size.height)) }
+            .padding(start = 12.dp),
+    ) {
+        Blocks(quote.blocks, image)
     }
 }
 
