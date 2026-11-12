@@ -19,10 +19,18 @@ import java.security.MessageDigest
 class MarkdownFolder(private val root: File, private val temp: File) {
     private fun find(path: String): File? = findWithoutCase(root, path)
 
-    /** Deletes the file, or the folder with all that is in it. Nothing there is fine. */
-    fun remove(path: String) {
-        find(path)?.deleteRecursively()
+    /**
+     * Deletes the file, or the folder with all that is in it, but the files that [keep] wants:
+     * it gets the path of each file as it is spelled here. Nothing there is fine.
+     */
+    fun remove(path: String, keep: (String) -> Boolean) {
+        for (found in find(path)?.walkBottomUp().orEmpty()) {
+            // A folder that still holds a kept file does not go, and that is right
+            if (found.isDirectory || !keep(spelled(found))) found.delete()
+        }
     }
+
+    private fun spelled(file: File): String = file.relativeTo(root).invariantSeparatorsPath
 
     /** The hash that Dropbox makes of the content of the file. `null` when it is not here. */
     fun contentHash(path: String): String? = find(path)?.takeIf { it.isFile }?.let(::dropboxContentHash)
@@ -30,7 +38,7 @@ class MarkdownFolder(private val root: File, private val temp: File) {
     /** The paths of the Markdown files that are here, as they are spelled here, in order. */
     fun pages(): List<String> = root.walk()
         .filter { it.isFile && it.name.lowercase().endsWith(MARKDOWN) }
-        .map { it.relativeTo(root).invariantSeparatorsPath }
+        .map(::spelled)
         .sorted()
         .toList()
 
@@ -67,12 +75,13 @@ class MarkdownFolder(private val root: File, private val temp: File) {
     /**
      * Deletes every file that the app copies and whose path is not in [paths], which are in
      * lower case. It is for a list of all that the cloud holds: what is not in it has gone.
+     * A file that [keep] wants stays: it gets the path as it is spelled here.
      */
-    fun keepOnly(paths: Set<String>) {
+    fun keepOnly(paths: Set<String>, keep: (String) -> Boolean) {
         root.walkBottomUp()
             .filter { it.isFile }
-            .map { it to it.relativeTo(root).invariantSeparatorsPath.lowercase() }
-            .filter { (_, path) -> keeps(path) && path !in paths }
+            .map { it to spelled(it) }
+            .filter { (_, path) -> keeps(path.lowercase()) && path.lowercase() !in paths && !keep(path) }
             .forEach { (file, _) -> file.delete() }
     }
 
