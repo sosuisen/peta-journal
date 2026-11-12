@@ -61,6 +61,19 @@ impl ExportQueueRepository {
         Ok(())
     }
 
+    /// True when the page waits for its file to be written.
+    pub fn holds(&self, page_id: &Hmtid) -> AppResult<bool> {
+        let conn = self.db.conn()?;
+        let pages: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM export_queue WHERE page_id = ?",
+                [page_id.as_str()],
+                |row| row.get(0),
+            )
+            .with_context(|| format!("Failed to look for the export of page: {page_id}"))?;
+        Ok(pages > 0)
+    }
+
     /// How many pages wait.
     pub fn waiting(&self) -> AppResult<usize> {
         let conn = self.db.conn()?;
