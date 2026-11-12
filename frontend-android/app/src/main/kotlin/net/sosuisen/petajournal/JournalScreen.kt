@@ -58,6 +58,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -128,6 +129,7 @@ fun JournalScreen(
                     if (searching) {
                         Results(view.search.results, shell::pick)
                     } else {
+                        shell.question?.let { Asked(it, shell::answer) }
                         shell.missing?.let { MissingPage(it, shell::make) }
                         shell.missingFile?.let { Text("No file yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
                         val links = Links(shell::follow) { path -> shell.attached(path)?.let(onFile) }
@@ -169,6 +171,26 @@ private fun Tool(sign: String, name: String, onTouch: () -> Unit) {
     TextButton(onTouch, Modifier.semantics { contentDescription = name }) {
         Text(sign, style = MaterialTheme.typography.titleLarge)
     }
+}
+
+/**
+ * A question of the core, over the page. A touch outside the dialog answers no. The button
+ * for yes names what a question about a loss does, and has the colour of an error.
+ */
+@Composable
+private fun Asked(question: Question, onAnswer: (Boolean) -> Unit) {
+    AlertDialog(
+        onDismissRequest = { onAnswer(false) },
+        text = { Text(question.text) },
+        confirmButton = {
+            if (question.destructive) {
+                TextButton({ onAnswer(true) }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+            } else {
+                TextButton({ onAnswer(true) }) { Text("OK") }
+            }
+        },
+        dismissButton = { TextButton({ onAnswer(false) }) { Text("Cancel") } },
+    )
 }
 
 /**
