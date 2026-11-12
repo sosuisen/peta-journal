@@ -46,6 +46,7 @@ internal sealed class StickyWindow : Window
     {
         VerticalAlignment = VerticalAlignment.Center,
         Margin = new Thickness(12, 0, 8, 0),
+        FontFamily = RowView.TextFont,
         FontSize = 12,
         Foreground = Ink,
         TextTrimming = TextTrimming.CharacterEllipsis,
@@ -59,6 +60,7 @@ internal sealed class StickyWindow : Window
     private readonly FontIcon pin = new() { FontSize = 14 };
     private readonly TextBlock status = new()
     {
+        FontFamily = RowView.TextFont,
         FontSize = 12,
         Foreground = Pale,
         Margin = new Thickness(12, 0, 12, 6),
@@ -67,6 +69,7 @@ internal sealed class StickyWindow : Window
     private readonly TextBlock nothing = new()
     {
         Text = "Search for a page to show here",
+        FontFamily = RowView.TextFont,
         Foreground = Pale,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
