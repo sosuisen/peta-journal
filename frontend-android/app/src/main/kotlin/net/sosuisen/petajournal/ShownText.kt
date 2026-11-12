@@ -28,8 +28,9 @@ sealed interface ShownBlock {
      * @param alt what stands for the image where it cannot be seen.
      * @param width the width that the page asks for, in pixels of a web page. `null` when it
      *   asks for none.
+     * @param height the height that the page asks for, the same way.
      */
-    data class Image(val path: String, val alt: String, val width: Int?) : ShownBlock
+    data class Image(val path: String, val alt: String, val width: Int?, val height: Int?) : ShownBlock
 
     /** A list that holds a part of its own kind, such as a code block: its entries apart. */
     data class Entries(val entries: List<Entry>) : ShownBlock
@@ -192,8 +193,10 @@ private fun assetImage(node: JSONObject): ShownBlock.Image? {
     if (node.optString("type") != IMAGE) return null
     val path = Uri.decode(node.optString("url")).trimStart('.', '/')
     if (!path.startsWith(MarkdownFolder.ASSETS, ignoreCase = true)) return null
-    val width = node.optJSONObject("props")?.optString("w")?.toIntOrNull()?.takeIf { it > 0 }
-    return ShownBlock.Image(path, plainText(node), width)
+    val props = node.optJSONObject("props")
+    // A side that is not a number above zero is not asked for, as in the web app
+    fun side(name: String): Int? = props?.optString(name)?.toIntOrNull()?.takeIf { it > 0 }
+    return ShownBlock.Image(path, plainText(node), side("w"), side("h"))
 }
 
 /** The text under the node, without its decoration. */

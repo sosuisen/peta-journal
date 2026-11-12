@@ -115,7 +115,9 @@ the files that differ, and deletes what the account does not hold.
 - An image of the `assets` folder is drawn from its file in the Markdown folder. `ShownText`
   cuts the paragraph at the image, and the screen draws the image between the text before
   and after it. The image is as wide as the page asks with `#w=`, or as wide as it is in its
-  file, and never wider than the screen. An image whose file is not there shows its alt.
+  file, and never wider than the screen. A page may also ask for a height with `#h=`. With
+  one side, the other follows the shape of the image. With both, the image takes that shape,
+  as in a browser. An image whose file is not there shows its alt.
 - A touch opens an image over the whole screen, to read what is small in it. Two fingers
   make it larger, up to 8 times, and move it. A touch or the back key closes it. The large
   view reads the file again, with at least twice the width of the screen in pixels.
@@ -137,4 +139,3 @@ the files that differ, and deletes what the account does not hold.
 - A sync while the app is not on screen.
 - Links to other things than a page or a web address, such as a file.
 - An image inside a cell of a table or inside a heading.
-- The height of an image that the page asks with `#h=`. The height follows the width.
