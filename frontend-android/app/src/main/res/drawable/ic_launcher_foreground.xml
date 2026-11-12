@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The notebook of the icon, in its colours.
+     Drawn from images/peta-journal.svg. The group puts the 1365px drawing into the middle
+     of the 108dp icon, 50dp high: all of it is inside the 66dp circle that no mask cuts -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.036621"
+        android:scaleY="0.036621"
+        android:translateX="29.647"
+        android:translateY="29">
+        <path
+            android:fillColor="#49D0EC"
+            android:pathData="M116.17,0 H1123 a93.18,93.18 0 0 1 93.18,93.18 V1270.57 a93.18,93.18 0 0 1 -93.18,93.18 H116.17 Z" />
+        <path
+            android:fillColor="#EAD048"
+            android:pathData="M114,0 H260.07 V1365.33 H114 Z" />
+        <path
+            android:fillColor="#EA48D0"
+            android:pathData="M426.45,345.18 a85.33,85.33 0 1 0 170.66,0 a85.33,85.33 0 1 0 -170.66,0 Z" />
+        <path
+            android:fillColor="#EA48D0"
+            android:pathData="M426.45,686.51 a85.33,85.33 0 1 0 170.66,0 a85.33,85.33 0 1 0 -170.66,0 Z" />
+        <path
+            android:fillColor="#EA48D0"
+            android:pathData="M426.45,1027.84 a85.33,85.33 0 1 0 170.66,0 a85.33,85.33 0 1 0 -170.66,0 Z" />
+    </group>
+</vector>
