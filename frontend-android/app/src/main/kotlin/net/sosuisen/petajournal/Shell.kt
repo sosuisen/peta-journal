@@ -21,12 +21,14 @@ import java.util.concurrent.Executors
  * what the user did. All of it runs on the main thread, but the taking in of files.
  *
  * [onMainThread] runs what it is given on the main thread, later and in order. The core calls
- * from its own threads.
+ * from its own threads. [onEdit] is called each time the user changes a page: the app syncs
+ * a moment after the last change (ADR 031).
  */
 class Shell(
     dataDir: File,
     private val markdownDir: File,
     private val onMainThread: (() -> Unit) -> Unit,
+    private val onEdit: () -> Unit = {},
 ) : AutoCloseable {
     /**
      * The file of an image of a page. [path] is its path under the Markdown folder, such as
@@ -131,13 +133,13 @@ class Shell(
     }
 
     /** The user changed the Markdown of the item. The core saves it a moment later. */
-    fun type(itemId: String, body: String) = send(Event.BodyChanged(itemId, body, now()))
+    fun type(itemId: String, body: String) = change(Event.BodyChanged(itemId, body, now()))
 
     /**
      * The user pressed Enter in the item. [cursor] counts the characters before it, as the
      * core counts them. The core splits the item there, and the edit goes on in the new one.
      */
-    fun enter(itemId: String, cursor: Int) = send(Event.EnterPressed(itemId, cursor.toULong(), now()))
+    fun enter(itemId: String, cursor: Int) = change(Event.EnterPressed(itemId, cursor.toULong(), now()))
 
     /** The user left the editor of the item: what was typed is saved. */
     fun finish(itemId: String) = send(Event.EditFinished(itemId))
@@ -145,28 +147,34 @@ class Shell(
     private fun now(): ULong = System.currentTimeMillis().toULong()
 
     /** Makes the item a child of the item above it. */
-    fun indent(itemId: String) = send(Event.Indent(itemId))
+    fun indent(itemId: String) = change(Event.Indent(itemId))
 
     /** Moves the item one level up, out of its parent. */
-    fun outdent(itemId: String) = send(Event.Outdent(itemId))
+    fun outdent(itemId: String) = change(Event.Outdent(itemId))
 
     /** Swaps the item with the one above it on its level. */
-    fun moveUp(itemId: String) = send(Event.MoveUp(itemId))
+    fun moveUp(itemId: String) = change(Event.MoveUp(itemId))
 
     /** Swaps the item with the one below it on its level. */
-    fun moveDown(itemId: String) = send(Event.MoveDown(itemId))
+    fun moveDown(itemId: String) = change(Event.MoveDown(itemId))
 
     /** Moves the task on: no task, not started, running, done, and no task again. */
-    fun cycleTask(itemId: String) = send(Event.TaskCycle(itemId))
+    fun cycleTask(itemId: String) = change(Event.TaskCycle(itemId))
 
     /** Deletes the item. */
-    fun delete(itemId: String) = send(Event.DeleteItem(itemId))
+    fun delete(itemId: String) = change(Event.DeleteItem(itemId))
 
     /** The user typed into the search field. */
     fun search(query: String) = send(Event.SearchQueryChanged(query))
 
     /** The user chose a search result: its page opens. */
     fun pick(entry: SearchEntry) = send(Event.SearchResultClicked(entry.position))
+
+    /** Sends an event that changes a page. */
+    private fun change(event: Event) {
+        send(event)
+        onEdit()
+    }
 
     private fun send(event: Event) {
         // A field that loses the focus while the screen is taken down still tells of it

@@ -118,8 +118,9 @@ fun JournalScreen(
                     modifier = Modifier.fillMaxWidth().padding(8.dp).testTag(SEARCH_TAG),
                 )
                 cloud?.let { SyncLine(it, onSignIn, onSync, onSignOut) }
-                if (shell.syncing) {
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                // The room of the bar is always there, for the same reason
+                Box(Modifier.fillMaxWidth().height(4.dp)) {
+                    if (shell.syncing) LinearProgressIndicator(Modifier.fillMaxSize())
                 }
                 val searching = view.search.showDropdown
                 // The rest of the height: the tools stay above the keyboard
@@ -186,7 +187,8 @@ private fun title(view: ViewModel): String =
 
 @Composable
 private fun SyncLine(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit, onSignOut: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    // One height for every state: the app syncs while the user types, and the page must not jump
+    Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         when (state) {
             SyncState.SignedOut -> Button(onSignIn) { Text("Sign in to Dropbox") }
             SyncState.Idle -> {
