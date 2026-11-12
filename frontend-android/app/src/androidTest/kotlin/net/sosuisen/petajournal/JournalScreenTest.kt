@@ -213,6 +213,19 @@ class JournalScreenTest {
         compose.onNode(hasContentDescription("natural")).assertWidthIsEqualTo(40.dp)
     }
 
+    // ページが高さも決めた画像は、その高さで見える。高さだけなら、幅は画像の形に従う。
+    @Test
+    fun an_image_has_the_height_that_the_page_asks_for() {
+        picture("cat.png", width = 40, height = 20)
+        download("notes.md", "![both](../assets/cat.png#w=120&h=30)" + NL + NL + "![tall](../assets/cat.png#h=60)" + NL)
+
+        openNotes()
+
+        waitForPicture("both")
+        compose.onNode(hasContentDescription("both")).assertWidthIsEqualTo(120.dp).assertHeightIsEqualTo(30.dp)
+        compose.onNode(hasContentDescription("tall")).assertWidthIsEqualTo(120.dp).assertHeightIsEqualTo(60.dp)
+    }
+
     // 画像に触れると、その画像が大きく開く。開いた画像に触れると、閉じる。
     @Test
     fun a_touch_opens_an_image_large_and_another_touch_closes_it() {
