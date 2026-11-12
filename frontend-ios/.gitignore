@@ -6,3 +6,5 @@ build/
 *.xcodeproj/
 # The App key of Dropbox of whoever builds the app
 Dropbox.xcconfig
+Info.plist
+build.log
