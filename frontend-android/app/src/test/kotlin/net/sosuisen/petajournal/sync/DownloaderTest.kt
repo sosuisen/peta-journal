@@ -8,43 +8,6 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.io.IOException
-import java.io.OutputStream
-import java.security.MessageDigest
-
-/** A cloud of a test: files by their path, and the changes it tells of at each cursor. */
-private class FakeCloud : Cloud {
-    val contents = mutableMapOf<String, ByteArray>()
-
-    /** What `changes` answers, by the cursor it is asked with. */
-    val answers = mutableMapOf<String?, Changes>()
-    val askedWith = mutableListOf<String?>()
-    val downloaded = mutableListOf<String>()
-    var broken: String? = null
-
-    /** A file of the cloud, as a change that tells of it. */
-    fun file(path: String, text: String): Change.File {
-        contents[path] = text.toByteArray()
-        return Change.File(path, hashOf(text.toByteArray()), remote = path)
-    }
-
-    override fun changes(cursor: String?): Changes {
-        askedWith += cursor
-        return answers.getValue(cursor)
-    }
-
-    override fun download(file: Change.File, into: OutputStream) {
-        if (file.path == broken) throw IOException("the network is gone")
-        synchronized(downloaded) { downloaded += file.path }
-        into.write(contents.getValue(file.remote))
-    }
-}
-
-private fun sha256(bytes: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").digest(bytes)
-
-private fun hex(bytes: ByteArray): String = bytes.joinToString("") { "%02x".format(it) }
-
-/** The content hash of Dropbox of a content of one block. */
-private fun hashOf(content: ByteArray): String = hex(sha256(sha256(content)))
 
 class DownloaderTest {
     @get:Rule
