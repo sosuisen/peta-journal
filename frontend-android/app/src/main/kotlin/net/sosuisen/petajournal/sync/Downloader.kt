@@ -38,8 +38,7 @@ class Downloader(
                     files.keys.removeAll { it == key || it.startsWith("$key/") }
                     folder.remove(change.path)
                 }
-                // The first version draws no image, so it takes the Markdown files only
-                is Change.File -> if (key.endsWith(MarkdownFolder.MARKDOWN)) files[key] = change
+                is Change.File -> if (MarkdownFolder.keeps(key)) files[key] = change
             }
         }
         if (changes.whole) folder.keepOnly(files.keys)

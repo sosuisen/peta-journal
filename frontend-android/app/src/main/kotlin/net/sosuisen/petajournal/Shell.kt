@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import net.sosuisen.petajournal.core.FfiException
+import net.sosuisen.petajournal.sync.findWithoutCase
 import net.sosuisen.petajournal.types.Event
 import net.sosuisen.petajournal.types.Request
 import net.sosuisen.petajournal.types.SearchEntry
@@ -21,9 +22,15 @@ import java.util.concurrent.Executors
  */
 class Shell(
     dataDir: File,
-    markdownDir: File,
+    private val markdownDir: File,
     private val onMainThread: (() -> Unit) -> Unit,
 ) : AutoCloseable {
+    /**
+     * The file of an image of a page. [path] is its path under the Markdown folder, such as
+     * `assets/picture.png`. `null` when no download has brought it yet.
+     */
+    fun image(path: String): File? = findWithoutCase(markdownDir, path)?.takeIf { it.isFile }
+
     // The main thread keeps the requests in order. The first ones may come before the border
     // is there, and are still handled after this constructor
     private val border = Border(dataDir, markdownDir) { requests -> onMainThread { handle(requests) } }

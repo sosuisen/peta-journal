@@ -5,7 +5,8 @@ import java.io.OutputStream
 import java.security.MessageDigest
 
 /**
- * The Markdown folder of the app: a copy of the folder in the cloud (ADR 030).
+ * The Markdown folder of the app: a copy of the pages and their images in the folder in the
+ * cloud (ADR 030).
  *
  * The cloud does not tell `Notes.md` from `notes.md`, and the file system of a phone does. So
  * a path of the cloud is looked up here without regard to case, and a file never lies here
@@ -16,12 +17,7 @@ import java.security.MessageDigest
  *   must never take in half a file.
  */
 class MarkdownFolder(private val root: File, private val temp: File) {
-    /** The file or folder at the path, however its name is spelled here. */
-    private fun find(path: String): File? =
-        path.split('/').fold<String, File?>(root) { dir, name -> dir?.let { child(it, name) } }
-
-    private fun child(dir: File, name: String): File? =
-        dir.listFiles()?.firstOrNull { it.name.equals(name, ignoreCase = true) }
+    private fun find(path: String): File? = findWithoutCase(root, path)
 
     /** Deletes the file, or the folder with all that is in it. Nothing there is fine. */
     fun remove(path: String) {
@@ -59,20 +55,40 @@ class MarkdownFolder(private val root: File, private val temp: File) {
     }
 
     /**
-     * Deletes every Markdown file whose path is not in [paths], which are in lower case. It is
-     * for a list of all that the cloud holds: what is not in it has gone.
+     * Deletes every file that the app copies and whose path is not in [paths], which are in
+     * lower case. It is for a list of all that the cloud holds: what is not in it has gone.
      */
     fun keepOnly(paths: Set<String>) {
         root.walkBottomUp()
-            .filter { it.isFile && it.name.endsWith(MARKDOWN, ignoreCase = true) }
-            .filter { it.relativeTo(root).invariantSeparatorsPath.lowercase() !in paths }
-            .forEach { it.delete() }
+            .filter { it.isFile }
+            .map { it to it.relativeTo(root).invariantSeparatorsPath.lowercase() }
+            .filter { (_, path) -> keeps(path) && path !in paths }
+            .forEach { (file, _) -> file.delete() }
     }
 
     companion object {
         const val MARKDOWN = ".md"
+
+        /** The folder of the images of the pages, with the `/` after it. */
+        const val ASSETS = "assets/"
+
+        /**
+         * True for a file that the app copies from the cloud: a page, or an image of a page.
+         * [path] is in lower case. The cloud holds more, such as the settings of other apps.
+         */
+        fun keeps(path: String): Boolean = path.endsWith(MARKDOWN) || path.startsWith(ASSETS)
     }
 }
+
+/**
+ * The file or folder at the path under [root], however its name is spelled there. The path of
+ * the cloud, and the path that a page writes for its image, may differ from it in case.
+ */
+fun findWithoutCase(root: File, path: String): File? =
+    path.split('/').fold<String, File?>(root) { dir, name -> dir?.let { child(it, name) } }
+
+private fun child(dir: File, name: String): File? =
+    dir.listFiles()?.firstOrNull { it.name.equals(name, ignoreCase = true) }
 
 private const val BLOCK = 4 * 1024 * 1024
 

@@ -77,7 +77,8 @@ connect to Dropbox and asks to check the network. The network is fine then: sign
 the Dropbox app, and try once more.
 
 The app syncs when it comes to the front and when "Sync" is touched. The first sync downloads
-every Markdown file, several at a time. A later sync asks Dropbox only for what changed. A
+every Markdown file and every file of the `assets` folder, several at a time. The files of
+`assets` are the images of the pages. A later sync asks Dropbox only for what changed. A
 file that Dropbox lost is deleted in the app, and so is its page, without a question.
 
 ## The code
@@ -98,6 +99,12 @@ file that Dropbox lost is deleted in the app, and so is its page, without a ques
   A touch gives the URL to `Shell.follow`. The core opens the page only when it is there:
   the web app makes the page of a link to a new page, and this app only reads. The screen
   then says that the page is not there yet.
+- An image of the `assets` folder is drawn from its file in the Markdown folder. `ShownText`
+  cuts the paragraph at the image, and the screen draws the image between the text before
+  and after it. The image is as wide as the page asks with `#w=`, or as wide as it is in its
+  file, and never wider than the screen. An image whose file is not there shows its alt.
+- An image of the web is not drawn. It is a link with its alt, so the app talks to no server
+  but Dropbox.
 - A task has a checkbox that shows where it stands. A touch does not change it.
 - `JournalScreen` is the one screen: the search field, and under it the results or the page.
 - `MainActivity` and `JournalModel` open the journal in the folders of the app:
@@ -115,4 +122,7 @@ file that Dropbox lost is deleted in the app, and so is its page, without a ques
 - A code block or a table inside a list or a quote. Only those at the top of an item get a
   part of their own.
 - Links to other things than a page or a web address, such as a file.
-- Images.
+- An image inside a list, a quote or a table. Only an image in a paragraph at the top of an
+  item is drawn.
+- The height of an image that the page asks with `#h=`. The height follows the width.
+- A larger view of an image after a touch.

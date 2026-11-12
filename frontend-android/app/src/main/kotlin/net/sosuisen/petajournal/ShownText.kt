@@ -1,9 +1,11 @@
 package net.sosuisen.petajournal
 
+import android.net.Uri
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.fromHtml
 import net.sosuisen.petajournal.core.itemHtml
+import net.sosuisen.petajournal.sync.MarkdownFolder
 import net.sosuisen.petajournal.types.Item
 import org.json.JSONArray
 import org.json.JSONException
@@ -18,6 +20,16 @@ sealed interface ShownBlock {
     data class Code(val lines: String) : ShownBlock
 
     data class Table(val rows: List<TableRow>) : ShownBlock
+
+    /**
+     * An image of a page.
+     *
+     * @param path where its file is under the Markdown folder, such as `assets/picture.png`.
+     * @param alt what stands for the image where it cannot be seen.
+     * @param width the width that the page asks for, in pixels of a web page. `null` when it
+     *   asks for none.
+     */
+    data class Image(val path: String, val alt: String, val width: Int?) : ShownBlock
 }
 
 /** @param header true for the row of the titles of the columns. */
@@ -31,6 +43,10 @@ data class TableRow(val header: Boolean, val cells: List<AnnotatedString>)
  * cells of a table, so those two are read from the AST here and get parts of their own (ADR
  * 030). Only the blocks at the top of the item are told apart: a code block inside a list or a
  * quote stays in the text.
+ *
+ * Compose draws no image of the HTML either. An image of the assets folder in a paragraph at
+ * the top of the item gets a part of its own, between the text before and after it. An image
+ * of the web is not drawn: it becomes a link to its address.
  *
  * [onLink] gets the `href` of a link that the user touched. A link to a page and a tag have
  * the URL of their page, such as `/pages/notes`, encoded as a web address is. The page of a
@@ -63,6 +79,7 @@ private class Reader(private val tagsDir: String, private val onLink: (String) -
                     endText()
                     blocks += ShownBlock.Table(node.children().map(::row))
                 }
+                "paragraph" -> paragraph(node)
                 else -> others.put(node)
             }
         }
@@ -70,9 +87,31 @@ private class Reader(private val tagsDir: String, private val onLink: (String) -
         return blocks
     }
 
+    /** A paragraph is cut at each image of the assets folder: the image stands on its own. */
+    private fun paragraph(node: JSONObject) {
+        var run = JSONArray()
+        fun endRun() {
+            if (run.length() > 0) others.put(JSONObject().put("type", "paragraph").put("children", run))
+            run = JSONArray()
+        }
+        for (child in node.children()) {
+            val image = assetImage(child)
+            if (image == null) {
+                run.put(child)
+            } else {
+                endRun()
+                endText()
+                blocks += image
+            }
+        }
+        endRun()
+    }
+
     private fun endText() {
         if (others.length() == 0) return
-        blocks += ShownBlock.Text(text(others))
+        val text = text(others)
+        // Between two images there may be only a space
+        if (text.isNotEmpty()) blocks += ShownBlock.Text(text)
         others = JSONArray()
     }
 
@@ -88,7 +127,7 @@ private class Reader(private val tagsDir: String, private val onLink: (String) -
 
     /** The text of the blocks, by way of their HTML. */
     private fun text(nodes: JSONArray): AnnotatedString {
-        val document = JSONObject().put("type", "document").put("children", nodes)
+        val document = webImagesAsLinks(JSONObject().put("type", "document").put("children", nodes))
         val text = AnnotatedString.fromHtml(itemHtml(document.toString(), tagsDir), linkInteractionListener = { link ->
             if (link is LinkAnnotation.Url) onLink(link.url)
         })
@@ -96,6 +135,41 @@ private class Reader(private val tagsDir: String, private val onLink: (String) -
         return text.subSequence(0, text.text.trimEnd().length)
     }
 }
+
+private const val IMAGE = "embed"
+
+/**
+ * The image that the node is, when its file is in the assets folder. A page writes the address
+ * as `../assets/picture.png`, from the URL of the page in the web app.
+ */
+private fun assetImage(node: JSONObject): ShownBlock.Image? {
+    if (node.optString("type") != IMAGE) return null
+    val path = Uri.decode(node.optString("url")).trimStart('.', '/')
+    if (!path.startsWith(MarkdownFolder.ASSETS, ignoreCase = true)) return null
+    val width = node.optJSONObject("props")?.optString("w")?.toIntOrNull()?.takeIf { it > 0 }
+    return ShownBlock.Image(path, plainText(node), width)
+}
+
+/** The text under the node, without its decoration. */
+private fun plainText(node: JSONObject): String =
+    node.optString("value") + node.children().joinToString("", transform = ::plainText)
+
+/**
+ * The same tree, with a link in the place of each image of the web. The text of the link is
+ * what stands for the image, or the address when nothing does.
+ */
+private fun webImagesAsLinks(node: JSONObject): JSONObject {
+    val url = node.optString("url")
+    if (node.optString("type") == IMAGE && isWebAddress(url)) {
+        val text = JSONObject().put("type", "text").put("value", plainText(node).ifEmpty { url })
+        return JSONObject().put("type", "link").put("url", url).put("children", JSONArray().put(text))
+    }
+    val children = node.optJSONArray("children") ?: return node
+    return JSONObject(node.toString()).put("children", JSONArray(children.objects().map(::webImagesAsLinks)))
+}
+
+/** True for an address that the browser opens. */
+fun isWebAddress(href: String): Boolean = href.startsWith("https://") || href.startsWith("http://")
 
 private fun JSONObject.children(): List<JSONObject> = (optJSONArray("children") ?: JSONArray()).objects()
 

@@ -1,9 +1,13 @@
 package net.sosuisen.petajournal
 
+import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -159,6 +163,63 @@ class JournalScreenTest {
 
         waitFor("name")
         for (cell in listOf("name", "count", "apple", "2")) compose.onNode(hasText(cell)).assertExists()
+    }
+
+    /** Puts a picture into the assets folder, as a download does. */
+    private fun picture(name: String, width: Int, height: Int) {
+        val file = File(root, "markdown/assets/$name").apply { parentFile?.mkdirs() }
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    private fun waitForPicture(alt: String) =
+        compose.waitUntil(WAIT_MS) { compose.onAllNodes(hasContentDescription(alt)).fetchSemanticsNodes().isNotEmpty() }
+
+    // assetsの画像は、前後の文字のあいだに、絵として見える。ファイルの名前の大文字と小文字は問わない。
+    @Test
+    fun an_image_of_the_assets_folder_shows_between_the_text_around_it() {
+        picture("cat.png", width = 40, height = 20)
+        download("notes.md", "before ![a cat](../assets/Cat.png) after" + NL)
+
+        openNotes()
+
+        waitForPicture("a cat")
+        compose.onNode(hasText("before")).assertExists()
+        compose.onNode(hasText("after")).assertExists()
+    }
+
+    // 画像は、ページが決めた幅で見える。幅がなければ、画像そのものの幅で見える。
+    @Test
+    fun an_image_has_the_width_that_the_page_asks_for() {
+        picture("cat.png", width = 40, height = 20)
+        download("notes.md", "![asked](../assets/cat.png#w=120)" + NL + NL + "![natural](../assets/cat.png)" + NL)
+
+        openNotes()
+
+        waitForPicture("asked")
+        compose.onNode(hasContentDescription("asked")).assertWidthIsEqualTo(120.dp).assertHeightIsEqualTo(60.dp)
+        compose.onNode(hasContentDescription("natural")).assertWidthIsEqualTo(40.dp)
+    }
+
+    // ファイルのない画像は、代わりの文字（alt）が見える。
+    @Test
+    fun an_image_whose_file_is_not_here_shows_its_alt() {
+        download("notes.md", "![a dog](../assets/dog.png)" + NL)
+
+        openNotes()
+
+        waitFor("a dog")
+    }
+
+    // Web上の画像は描かない。代わりの文字のリンクになる。
+    @Test
+    fun an_image_of_the_web_is_a_link_and_not_a_picture() {
+        download("notes.md", "see ![a bird](https://example.com/bird.png) here" + NL)
+
+        openNotes()
+
+        waitFor("see a bird here")
+        compose.onNode(hasContentDescription("a bird")).assertDoesNotExist()
     }
 
     // ページへのリンクに触れると、そのページが開く。
