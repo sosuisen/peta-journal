@@ -208,7 +208,8 @@ the journal core (`journal-server-rust/crates/core`) runs inside the app (ADR 02
 puts Markdown files into a folder of the app and calls `sync()`, which takes them in and makes
 them found by the search. `sync()` also deletes the pages of the files that have gone, without
 asking (ADR 030). Then it writes the pages that changed in the app to the folder, for the
-shell to upload (ADR 031). Nothing runs at times of its own: no watcher, no scan, no export.
+shell to upload (ADR 031). `open` shows a page that is there, and `open_or_make` also makes
+one that is not. Nothing runs at times of its own: no watcher, no scan, no export.
 
 BoltFFI packs the crate for Android, and the generator writes the Kotlin types beside it:
 

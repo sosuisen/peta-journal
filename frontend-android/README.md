@@ -136,9 +136,14 @@ that are not uploaded yet stay, and go up to the account of the new sign-in.
   down its left side. What is in them is read the same way, at any depth. A list or a quote
   that holds none of these stays in the text, as before.
 - A link to a page and a tag have the URL of their page in the HTML, such as `/pages/notes`.
-  A touch gives the URL to `Shell.follow`. The core opens the page only when it is there:
-  the web app makes the page of a link to a new page, and this app only reads. The screen
-  then says that the page is not there yet.
+  A touch gives the URL to `Shell.follow`. The core opens the page only when it is there.
+  The web app makes the page of a link to a new page. Here a touch by mistake must not put
+  an empty page into Dropbox: the screen says that the page is not there yet, and "Make it"
+  beside that makes the page.
+- The search has two results that make a page. "Open Today" is for the journal of today:
+  it shows when the word `today` is typed. "New page" has the name that was typed: it shows
+  when no page has that name. A page that is made in the app has no items from a template:
+  the app runs no extension functions.
 - An image of the `assets` folder is drawn from its file in the Markdown folder. `ShownText`
   cuts the paragraph at the image, and the screen draws the image between the text before
   and after it. The image is as wide as the page asks with `#w=`, or as wide as it is in its
