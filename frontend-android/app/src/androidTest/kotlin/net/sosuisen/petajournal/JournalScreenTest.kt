@@ -663,6 +663,20 @@ class JournalScreenTest {
         }
     }
 
+    // サインインのあとの最初の同期が終わると、今日のジャーナルが開き、上端のバーが出る。
+    @Test
+    fun the_first_sync_after_the_sign_in_opens_today_in_a_new_app() {
+        val cloud = OnePage()
+        startNew(cloud)
+
+        compose.runOnUiThread { sync?.start(cloud) }
+
+        compose.waitUntil(WAIT_MS) { shell.view.screen is ScreenView.Journal }
+        compose.onNodeWithTag(SEARCH_TAG).assertExists()
+        compose.onNodeWithText("Sign in to Dropbox").assertDoesNotExist()
+        compose.runOnIdle { assertTrue(File(root, "markdown/docs/trip.md").exists()) }
+    }
+
     // サインアウトすると、サインインのボタンに戻る。取り込んだページは、そのまま読める。
     @Test
     fun a_sign_out_brings_the_sign_in_back_and_keeps_the_pages() {
