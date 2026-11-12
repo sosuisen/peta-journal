@@ -80,7 +80,7 @@ class JournalScreenTest {
     private fun start(cloud: Cloud? = null, signedIn: Boolean = true) {
         val main = Handler(Looper.getMainLooper())
         compose.runOnUiThread {
-            shell = Shell(File(root, "data"), File(root, "markdown")) { main.post(it) }
+            shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) }) { edits += 1 }
             shell.sync()
         }
         val folder = MarkdownFolder(File(root, "markdown"), File(root, "temp"))
@@ -107,6 +107,8 @@ class JournalScreenTest {
         compose.waitUntil(WAIT_MS) { !shell.syncing }
     }
 
+    /** How often the shell told that the user changed a page. */
+    private var edits = 0
     private var signIns = 0
     private var signOuts = 0
     private val opened = mutableListOf<File>()
@@ -605,6 +607,20 @@ class JournalScreenTest {
     private fun items(): List<String> = shell.view.outline.rows.map { "${it.item.level} ${it.item.body}" }
 
     private fun waitForItems(vararg items: String) = compose.waitUntil(WAIT_MS) { items() == items.toList() }
+
+    // ページを変える操作は、そのたびにアプリに伝わる。アプリは、少しあとに同期する。開くだけでは伝わらない。
+    @Test
+    fun every_change_of_a_page_is_told_to_the_app() {
+        editSecondOfThree()
+        compose.runOnIdle { assertEquals(0, edits) }
+
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput("!")
+        compose.runOnIdle { assertEquals(1, edits) }
+        tool("Indent")
+        tool("Task")
+
+        compose.runOnIdle { assertEquals(3, edits) }
+    }
 
     // 編集していないときは、道具の列は出ない。
     @Test
