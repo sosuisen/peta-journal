@@ -27,6 +27,16 @@ class MarkdownFolder(private val root: File, private val temp: File) {
     /** The hash that Dropbox makes of the content of the file. `null` when it is not here. */
     fun contentHash(path: String): String? = find(path)?.takeIf { it.isFile }?.let(::dropboxContentHash)
 
+    /** The paths of the Markdown files that are here, as they are spelled here, in order. */
+    fun pages(): List<String> = root.walk()
+        .filter { it.isFile && it.name.lowercase().endsWith(MARKDOWN) }
+        .map { it.relativeTo(root).invariantSeparatorsPath }
+        .sorted()
+        .toList()
+
+    /** The file at a path that [pages] gave. */
+    fun file(path: String): File = File(root, path)
+
     /**
      * Puts a file at the path, with the spelling of the path. [write] gets the stream to write
      * its content into. The file appears whole or not at all.

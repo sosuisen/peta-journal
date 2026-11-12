@@ -8,6 +8,7 @@ import java.util.concurrent.Executors
 /**
  * Brings the Markdown folder of the app up to date with the folder in the cloud. It only
  * reads the cloud (ADR 030): what the cloud has is right, and what it lost is deleted here.
+ * It writes down the versions it saw, for the upload (ADR 031).
  *
  * @param cursorFile keeps where the last run ended, so that the next one asks only for what
  *   changed since.
@@ -18,6 +19,7 @@ class Downloader(
     private val cloud: Cloud,
     private val folder: MarkdownFolder,
     private val cursorFile: File,
+    private val record: CloudRecord,
     private val threads: Int = 8,
 ) {
     /**
@@ -28,7 +30,8 @@ class Downloader(
      * next run asks for the same changes again, and downloads only what is still missing.
      */
     fun run(onProgress: (done: Int, total: Int) -> Unit) {
-        val changes = cloud.changes(cursorFile.takeIf { it.exists() }?.readText())
+        // Without a record, the changes since the cursor would leave most versions unknown
+        val changes = cloud.changes(cursorFile.takeIf { it.exists() && record.isKept }?.readText())
         // By the path in lower case, as the cloud tells no case apart
         val files = LinkedHashMap<String, Change.File>()
         for (change in changes.entries) {
@@ -37,12 +40,18 @@ class Downloader(
                 is Change.Gone -> {
                     files.keys.removeAll { it == key || it.startsWith("$key/") }
                     folder.remove(change.path)
+                    record.remove(change.path)
                 }
                 is Change.File -> if (MarkdownFolder.keeps(key)) files[key] = change
             }
         }
-        if (changes.whole) folder.keepOnly(files.keys)
+        if (changes.whole) {
+            folder.keepOnly(files.keys)
+            record.keepOnly(files.keys)
+        }
         download(files.values.filter { folder.contentHash(it.path) != it.contentHash }, onProgress)
+        files.values.forEach(record::put)
+        record.save()
         cursorFile.writeText(changes.cursor)
     }
 

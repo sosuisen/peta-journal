@@ -1,9 +1,11 @@
 package net.sosuisen.petajournal.sync
 
+import java.io.File
+import java.io.IOException
 import java.io.OutputStream
 
 /**
- * What the download needs of the cloud storage: the Markdown folder there, as Dropbox tells of
+ * What the sync needs of the cloud storage: the Markdown folder there, as Dropbox tells of
  * it. A path is relative to that folder, with `/` between its parts and none at its start.
  * The cloud does not tell names apart by upper and lower case.
  */
@@ -16,7 +18,20 @@ interface Cloud {
 
     /** Writes the content of the file into [into]. */
     fun download(file: Change.File, into: OutputStream)
+
+    /**
+     * Puts the content of [from] at the path. [over] names the version that this content
+     * replaces, as [Change.File.remote] does, and it is `null` for a file that the cloud has
+     * not. Answers with the file as the cloud has it now.
+     *
+     * @throws ChangedInCloud when the cloud has another version than [over], or a file where
+     *   none was expected. Nothing is written then.
+     */
+    fun upload(path: String, from: File, over: String?): Change.File
 }
+
+/** The cloud has a version of the file that the app has not seen yet. */
+class ChangedInCloud(val path: String) : IOException("$path changed in the cloud")
 
 /**
  * @param cursor names the state after the entries, to ask for the changes after it.

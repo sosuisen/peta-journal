@@ -145,6 +145,7 @@ private fun SyncLine(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit,
                 TextButton(onSignOut) { Text("Sign out") }
             }
             is SyncState.Downloading -> Text("Downloading ${state.done} of ${state.total}", Modifier.padding(8.dp))
+            is SyncState.Uploading -> Text("Uploading ${state.done} of ${state.total}", Modifier.padding(8.dp))
             is SyncState.Failed -> {
                 Text("Sync failed: ${state.reason}", Modifier.weight(1f).padding(8.dp))
                 TextButton(onSync) { Text("Try again") }
