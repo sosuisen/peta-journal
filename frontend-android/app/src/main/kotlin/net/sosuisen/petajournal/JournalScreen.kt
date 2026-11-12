@@ -60,6 +60,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -116,34 +118,50 @@ fun JournalScreen(
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
             Column(Modifier.safeDrawingPadding()) {
-                OutlinedTextField(
-                    value = view.search.query,
-                    onValueChange = shell::search,
-                    singleLine = true,
-                    placeholder = { Text("Search") },
-                    modifier = Modifier.fillMaxWidth().padding(8.dp).testTag(SEARCH_TAG),
-                )
-                cloud?.let { SyncLine(it, onSignIn, onSync, onSignOut) }
-                if (syncInFront) progress(cloud)?.let { Waiting(it) }
-                // The room of the bar is always there, for the same reason
+                // The room of the bar is always there: the app syncs while the user types, and
+                // the page must not jump
                 Box(Modifier.fillMaxWidth().height(4.dp)) {
                     if (shell.syncing) LinearProgressIndicator(Modifier.fillMaxSize())
                 }
+                if (cloud == SyncState.SignedOut) {
+                    Button(onSignIn, Modifier.padding(horizontal = 8.dp)) { Text("Sign in to Dropbox") }
+                }
+                val waiting = if (syncInFront) progress(cloud) else null
+                waiting?.let { Waiting(it) }
                 val searching = view.search.showDropdown
-                // The rest of the height: the tools stay above the keyboard
-                Column(Modifier.weight(1f)) {
-                    if (searching) {
-                        Results(view.search.results, shell::pick)
-                    } else {
-                        shell.question?.let { Asked(it, shell::answer) }
-                        shell.missing?.let { MissingPage(it, shell::make) }
-                        shell.missingFile?.let { Text("No file yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
-                        val links = Links(shell::follow) { path -> shell.attached(path)?.let(onFile) }
-                        Outline(title(view), view.outline.rows, view.config.tagsDir, links, shell::image, shell)
+                // The rest of the height: the tools and the search field stay above the keyboard
+                Box(Modifier.weight(1f)) {
+                    Column {
+                        if (searching) {
+                            Results(view.search.results, shell::pick)
+                        } else {
+                            shell.question?.let { Asked(it, shell::answer) }
+                            shell.missing?.let { MissingPage(it, shell::make) }
+                            shell.missingFile?.let { Text("No file yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
+                            val links = Links(shell::follow) { path -> shell.attached(path)?.let(onFile) }
+                            Outline(title(view), view.outline.rows, view.config.tagsDir, links, shell::image, shell)
+                        }
                     }
+                    // Over the page, so that it takes no room. Not while the dialog says the same
+                    if (waiting == null) cloud?.let { SyncCallout(it, onSync, Modifier.align(Alignment.BottomCenter)) }
                 }
                 val edited = view.outline.rows.firstOrNull { it.isEditing }?.item?.id
-                if (!searching && edited != null) Tools(edited, shell)
+                if (!searching && edited != null) {
+                    // The keyboard is up for the item: the search field would take its room
+                    Tools(edited, shell)
+                } else {
+                    // At the bottom, where a thumb reaches
+                    Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = view.search.query,
+                            onValueChange = shell::search,
+                            singleLine = true,
+                            placeholder = { Text("Search") },
+                            modifier = Modifier.weight(1f).testTag(SEARCH_TAG),
+                        )
+                        cloud?.let { SyncMenu(it, onSignIn, onSync, onSignOut) }
+                    }
+                }
             }
         }
     }
@@ -251,25 +269,56 @@ private fun Waiting(progress: Pair<String, Float>) {
     }
 }
 
+/**
+ * Where a sync stands that the user does not wait for, such as the one after an edit, and
+ * why the last one failed. It lies over the bottom of the page, and takes no room there.
+ */
 @Composable
-private fun SyncLine(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit, onSignOut: () -> Unit) {
-    // One height for every state: the app syncs while the user types, and the page must not jump
-    Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        when (state) {
-            SyncState.SignedOut -> Button(onSignIn) { Text("Sign in to Dropbox") }
-            SyncState.Idle -> {
-                TextButton(onSync) { Text("Sync") }
-                Spacer(Modifier.weight(1f))
-                TextButton(onSignOut) { Text("Sign out") }
+private fun SyncCallout(state: SyncState, onSync: () -> Unit, modifier: Modifier) {
+    val (words, again) = when (state) {
+        is SyncState.Downloading, is SyncState.Uploading -> (progress(state)?.first ?: "Syncing…") to false
+        is SyncState.Failed -> "Sync failed: ${state.reason}" to true
+        SyncState.SignedOut, SyncState.Idle -> return
+    }
+    Surface(
+        modifier.padding(12.dp),
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.inverseSurface,
+        contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+        shadowElevation = 6.dp,
+    ) {
+        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(words, Modifier.padding(vertical = 12.dp).weight(1f, fill = false))
+            if (again) {
+                TextButton(onSync) { Text("Try again", color = MaterialTheme.colorScheme.inversePrimary) }
             }
-            is SyncState.Downloading -> Text("Downloading ${state.done} of ${state.total}", Modifier.padding(8.dp))
-            is SyncState.Uploading -> Text("Uploading ${state.done} of ${state.total}", Modifier.padding(8.dp))
-            is SyncState.Failed -> {
-                Text("Sync failed: ${state.reason}", Modifier.weight(1f).padding(8.dp))
-                TextButton(onSync) { Text("Try again") }
-                // A credential that Dropbox no longer takes is replaced by a new sign-in
-                TextButton(onSignIn) { Text("Sign in") }
-            }
+        }
+    }
+}
+
+/**
+ * The menu beside the search field, with what is done to the sync. There is none before the
+ * sign-in: the button for the sign-in is on the screen then.
+ */
+@Composable
+private fun SyncMenu(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit, onSignOut: () -> Unit) {
+    if (state == SyncState.SignedOut) return
+    var open by remember { mutableStateOf(false) }
+    // Nothing is asked of a sync that runs
+    val resting = state is SyncState.Idle || state is SyncState.Failed
+    fun entry(does: () -> Unit): () -> Unit = {
+        open = false
+        does()
+    }
+    Box {
+        TextButton({ open = true }, Modifier.semantics { contentDescription = "More" }) {
+            Text("⋮", style = MaterialTheme.typography.titleLarge)
+        }
+        DropdownMenu(open, { open = false }) {
+            DropdownMenuItem({ Text("Sync") }, entry(onSync), enabled = resting)
+            // A credential that Dropbox no longer takes is replaced by a new sign-in
+            if (state is SyncState.Failed) DropdownMenuItem({ Text("Sign in to Dropbox") }, entry(onSignIn))
+            DropdownMenuItem({ Text("Sign out") }, entry(onSignOut), enabled = resting)
         }
     }
 }

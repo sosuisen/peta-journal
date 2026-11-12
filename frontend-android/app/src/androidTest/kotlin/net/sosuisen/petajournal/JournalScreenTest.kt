@@ -22,6 +22,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -166,7 +167,7 @@ class JournalScreenTest {
     private var sync: CloudSync? = null
 
     /** A cloud with one page, or one that cannot be reached. It keeps what is uploaded. */
-    private class OnePage(private val reachable: Boolean = true) : Cloud {
+    private class OnePage(var reachable: Boolean = true) : Cloud {
         private val text = "京都で会議がありました。\n".toByteArray()
 
         /** The text of each uploaded file, by its path. */
@@ -588,7 +589,7 @@ class JournalScreenTest {
     fun a_page_of_the_cloud_is_found_by_the_search_after_a_sync() {
         start(OnePage())
 
-        compose.onNodeWithText("Sync").performClick()
+        menu("Sync")
         compose.waitUntil(WAIT_MS) { File(root, "markdown/docs/trip.md").exists() }
         // The file is there before the core has taken it in
         compose.waitUntil(WAIT_MS) { sync?.state == SyncState.Idle && !shell.syncing }
@@ -602,12 +603,12 @@ class JournalScreenTest {
     fun a_page_file_that_changed_here_is_uploaded_by_the_next_sync() {
         val cloud = OnePage()
         start(cloud)
-        compose.onNodeWithText("Sync").performClick()
+        menu("Sync")
         compose.waitUntil(WAIT_MS) { File(root, "markdown/docs/trip.md").exists() }
         compose.waitUntil(WAIT_MS) { sync?.state == SyncState.Idle && !shell.syncing }
         File(root, "markdown/docs/trip.md").writeText("大阪へ行きました。\n")
 
-        compose.onNodeWithText("Sync").performClick()
+        menu("Sync")
 
         compose.waitUntil(WAIT_MS) { cloud.uploaded["docs/trip.md"].orEmpty().contains("大阪") }
         type("大阪")
@@ -628,17 +629,65 @@ class JournalScreenTest {
     @Test
     fun a_sign_out_brings_the_sign_in_back_and_keeps_the_pages() {
         start(OnePage())
-        compose.onNodeWithText("Sync").performClick()
+        menu("Sync")
         compose.waitUntil(WAIT_MS) { File(root, "markdown/docs/trip.md").exists() }
         compose.waitUntil(WAIT_MS) { sync?.state == SyncState.Idle && !shell.syncing }
 
-        compose.onNodeWithText("Sign out").performClick()
+        menu("Sign out")
 
         compose.onNodeWithText("Sign in to Dropbox").assertExists()
-        compose.onNodeWithText("Sync").assertDoesNotExist()
+        compose.onNode(hasContentDescription("More")).assertDoesNotExist()
         compose.runOnIdle { assertEquals(1, signOuts) }
         type("会議")
         waitFor("trip")
+    }
+
+    /** Opens the menu beside the search field, and touches an entry of it. */
+    private fun menu(entry: String) {
+        compose.onNode(hasContentDescription("More")).performClick()
+        compose.onNodeWithText(entry).performClick()
+    }
+
+    // 「Sync」と「Sign out」は、メニューの中にある。メニューを開くまで、画面にはない。
+    @Test
+    fun the_sync_and_the_sign_out_are_in_the_menu() {
+        start(OnePage())
+        compose.onNodeWithText("Sync").assertDoesNotExist()
+        compose.onNodeWithText("Sign out").assertDoesNotExist()
+
+        compose.onNode(hasContentDescription("More")).performClick()
+
+        compose.onNodeWithText("Sync").assertExists()
+        compose.onNodeWithText("Sign out").assertExists()
+    }
+
+    // 検索の入力欄は、ページの下にある。指が届く場所である。
+    @Test
+    fun the_search_field_is_under_the_page() {
+        download("notes.md", "text" + NL)
+        openNotes()
+        waitFor("text")
+
+        val field = compose.onNodeWithTag(SEARCH_TAG).fetchSemanticsNode().boundsInRoot
+        val page = compose.onNode(hasText("text"), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+
+        assertTrue("the field is at ${field.top}, the page at ${page.bottom}", field.top > page.bottom)
+        val screen = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        assertTrue("the field ends at ${field.bottom} of ${screen.bottom}", screen.bottom - field.bottom < 80 * compose.density.density)
+    }
+
+    // 失敗した同期は、「Try again」でやり直せる。
+    @Test
+    fun a_sync_that_failed_is_tried_again_from_its_message() {
+        val cloud = OnePage(reachable = false)
+        start(cloud)
+        menu("Sync")
+        waitFor("Sync failed: the network is gone")
+        cloud.reachable = true
+
+        compose.onNodeWithText("Try again").performClick()
+
+        compose.waitUntil(WAIT_MS) { File(root, "markdown/docs/trip.md").exists() }
     }
 
     // 同期が失敗すると、その理由が見える。
@@ -646,7 +695,7 @@ class JournalScreenTest {
     fun a_sync_that_failed_shows_why() {
         start(OnePage(reachable = false))
 
-        compose.onNodeWithText("Sync").performClick()
+        menu("Sync")
 
         waitFor("Sync failed: the network is gone")
     }
