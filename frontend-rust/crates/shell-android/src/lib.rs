@@ -156,11 +156,14 @@ impl PetaCore {
     }
 
     /// Takes in the files of the markdown folder, and makes them found by the search. The
-    /// pages of the files that have gone are deleted. The shell calls this after a download
-    /// from Dropbox. Answers with the number of files taken in.
+    /// pages of the files that have gone are deleted. Then the pages that changed in the app
+    /// are written to the folder (ADR 031). The shell calls this after a download from
+    /// Dropbox, and it uploads after it. Answers with the number of files taken in.
     pub fn sync(&self) -> u32 {
         let summary = self.core.reconcile.scan();
         self.delete_pages_of_missing_files();
+        // After the scan: a file is written over only when its changes are taken in
+        self.core.export.process_whole_queue();
         self.core.search.flush();
         u32::try_from(summary.imported).unwrap_or(0)
     }
