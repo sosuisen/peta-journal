@@ -101,6 +101,10 @@ class Shell(
     var missing: String? by mutableStateOf(null)
         private set
 
+    /** What the core asks the user before it does what is hard to undo, or null. */
+    var question: Question? by mutableStateOf(null)
+        private set
+
     /**
      * The user touched a link to a page. [url] is the URL of the page, such as `/pages/notes`.
      * A link to a page that is not there opens nothing, and [missing] names the page: a touch
@@ -229,12 +233,26 @@ class Shell(
                 show()
                 border.answer(id, UiOutput.Done)
             }
-            // No dialog yet: what is hard to undo is not done
-            is UiOp.Confirm, is UiOp.ConfirmDestructive -> border.answer(id, UiOutput.Bool(false))
+            is UiOp.Confirm -> put(Question(op.value, destructive = false, id))
+            is UiOp.ConfirmDestructive -> put(Question(op.value, destructive = true, id))
             is UiOp.Prompt, is UiOp.ReadClipboardText -> border.answer(id, UiOutput.Text(null))
             // The others wait for no answer, such as the title to set and the item to scroll to
             else -> Unit
         }
+    }
+
+    /** Shows a question of the core. A question that still waits is answered no first. */
+    private fun put(next: Question) {
+        answer(false)
+        question = next
+    }
+
+    /** The user answered [question]: the core goes on with what it asked about, or leaves it. */
+    fun answer(yes: Boolean) {
+        val asked = question ?: return
+        question = null
+        border.answer(asked.id, UiOutput.Bool(yes))
+        show()
     }
 
     /** Lets go of the journal. A sync that runs ends first, on its own thread. */
@@ -249,3 +267,9 @@ class Shell(
         const val PAGES = "/pages/"
     }
 }
+
+/**
+ * A question of the core with the answers yes and no. [destructive] says that yes loses
+ * something, so no is the answer to choose by default.
+ */
+class Question(val text: String, val destructive: Boolean, internal val id: UInt)
