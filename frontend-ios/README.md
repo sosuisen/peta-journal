@@ -76,6 +76,11 @@ device. The Android shell always uses the browser, after the Dropbox app failed 
 033). The SDK for iOS has no such choice: it does not sign in at all in an app that may not
 ask for the Dropbox app. Whether the Dropbox app fails here in the same way is not known.
 
+A new app shows only "Sign in to Dropbox" before the sign-in. It makes no journal of today:
+Dropbox may hold that journal already, and the app would then have two files for one day.
+The first sync after the sign-in opens the journal of today. An app that has shown a page
+before opens that page also when it is signed out.
+
 The app syncs when it comes to the front, when it goes to the back, when "Sync" of the menu is
 touched, and 3 seconds after the last change of a page. What the README of the Android shell
 says of the sync holds here too: the dialog of a sync in front, the callout of the others, the
@@ -135,7 +140,8 @@ core, with its files in a temporary folder.
 
 `./run.sh --test` runs the tests of the screen (`UITests`) in the simulator. Each test gives
 the app a folder of its own, by `PETA_ROOT`. The app syncs with nothing then. They take
-several minutes.
+several minutes. `run.sh` keeps the Mac awake meanwhile (`caffeinate`): on a Mac that goes to
+sleep, the tests end with "Timed out while preparing execution worker".
 
 Not tested: `DropboxCloud` and the sign-in, which need an account of Dropbox, and what the
 screen shows of a sync (the menu, the dialog, the callout). The tests do not run in CI.

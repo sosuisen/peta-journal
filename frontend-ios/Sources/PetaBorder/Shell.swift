@@ -21,6 +21,10 @@ public final class Shell: ObservableObject {
     @Published public private(set) var missingFile: String?
     /// What the core asks the user before it does what is hard to undo, or nil.
     @Published public private(set) var question: Question?
+    /// True when `restore` opened no screen and was not to make the journal of today. A new
+    /// app waits for the sign-in: a journal made before the first download would be a second
+    /// file for a day that Dropbox may hold already.
+    @Published public private(set) var unopened = false
     /// The focus request that a touch on an item made. The core asks for the cursor at the
     /// start of the item then. A finger shows no place in the Markdown, so the screen puts the
     /// cursor at the end instead, where the writing goes on.
@@ -98,12 +102,18 @@ public final class Shell: ObservableObject {
 
     /// Does what `sync` does, and returns when the core is done. It is for the thread of a
     /// sync with the cloud, which uploads what the core wrote. It must not be the main thread.
+    ///
+    /// A new app that waited for the sign-in opens its first screen after it: the download has
+    /// brought the journal of today, if Dropbox holds one.
     public nonisolated func syncAndWait() {
         let done = DispatchSemaphore(value: 0)
         DispatchQueue.main.async {
             MainActor.assumeIsolated { self.sync { done.signal() } }
         }
         done.wait()
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated { if self.unopened, !self.closed { self.restore() } }
+        }
     }
 
     // MARK: - Opening
@@ -129,11 +139,14 @@ public final class Shell: ObservableObject {
     }
 
     /// Opens the screen that the app showed when it was used last. The journal of today opens
-    /// when there is none, as in a new app, and when its page has gone since.
-    public func restore() {
+    /// when there is none, as in a new app, and when its page has gone since. Without `make`,
+    /// the journal of today is not made, and no screen opens then.
+    public func restore(make: Bool = true) {
         let before = try? String(contentsOf: last, encoding: .utf8)
         if let before { open(before, make: false) }
-        if before == nil || missing != nil { today() }
+        let none = before == nil || missing != nil
+        if none, make { today() }
+        unopened = none && !make
     }
 
     /// The URL of the screen that was opened last, kept for the next time the app opens.
@@ -145,6 +158,7 @@ public final class Shell: ObservableObject {
             if make { try border.openOrMake(url) } else { try border.open(url) }
             // For the next time the app opens
             try? Data(url.utf8).write(to: last, options: .atomic)
+            unopened = false
             missing = nil
         } catch {
             let page = url.hasPrefix(Shell.pages) ? String(url.dropFirst(Shell.pages.count)) : url

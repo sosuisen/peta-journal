@@ -25,6 +25,18 @@ struct JournalScreen: View {
         let view = shell.view
         let searching = view.search.showDropdown
         let waiting = syncInFront ? progress(cloud) : nil
+        // A new app before the sign-in: the bar would make pages before the first download
+        if shell.unopened, cloud == .signedOut {
+            Button("Sign in to Dropbox", action: onSignIn)
+                .buttonStyle(.borderedProminent)
+                .padding(8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        } else {
+            whole(view: view, searching: searching, waiting: waiting)
+        }
+    }
+
+    private func whole(view: ViewModel, searching: Bool, waiting: (String, Double)?) -> some View {
         VStack(spacing: 0) {
             // At the top, where it stays while an item is edited and the keyboard is up
             HStack(spacing: 4) {

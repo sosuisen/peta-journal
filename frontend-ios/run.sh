@@ -42,7 +42,8 @@ fi
 [ -f Dropbox.xcconfig ] || : >Dropbox.xcconfig
 xcodegen generate --quiet
 # Only what went wrong is shown: the whole log of xcodebuild is thousands of lines
-if ! xcodebuild -project PetaJournal.xcodeproj -scheme PetaJournal \
+# A Mac that goes to sleep stops the simulator, and the tests then wait in vain
+if ! caffeinate -dimsu xcodebuild -project PetaJournal.xcodeproj -scheme PetaJournal \
     -destination "platform=iOS Simulator,name=$device" -derivedDataPath build "$action" >build.log 2>&1; then
     grep -E "error:|BUILD FAILED|TEST FAILED" build.log || tail -n 30 build.log
     echo "It failed. The whole log is in $here/build.log" >&2

@@ -64,7 +64,8 @@ final class JournalModel: ObservableObject {
         edited.model = self
         // What an earlier download left, when the app ended before it was taken in
         shell.sync()
-        shell.restore()
+        // Before the sign-in, the journal of today is not made: the first download may bring it
+        shell.restore(make: cloud == nil || DropboxAccount.client != nil)
     }
 
     /// The user changed a page.
