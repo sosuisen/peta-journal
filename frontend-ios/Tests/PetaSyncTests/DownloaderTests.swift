@@ -14,7 +14,7 @@ final class DownloaderTests: XCTestCase {
             cloud: cloud, folder: folders.folder, cursorFile: folders.cursor, record: folders.record)
     }
 
-    private func run() throws {
+    private func download() throws {
         try downloader.run { _, _ in }
     }
 
@@ -24,7 +24,7 @@ final class DownloaderTests: XCTestCase {
             entries: [cloud.file("docs/notes.md", "- a"), cloud.file("journals/2026/2026-11-12.md", "- b")],
             cursor: "c1", whole: true)
 
-        try run()
+        try download()
 
         XCTAssertEqual(folders.here(), ["docs/notes.md": "- a", "journals/2026/2026-11-12.md": "- b"])
     }
@@ -35,7 +35,7 @@ final class DownloaderTests: XCTestCase {
             entries: [cloud.file("Assets/Picture.PNG", "png"), cloud.file("docs/Notes.MD", "- a")],
             cursor: "c1", whole: true)
 
-        try run()
+        try download()
 
         XCTAssertEqual(folders.here(), ["Assets/Picture.PNG": "png", "docs/Notes.MD": "- a"])
     }
@@ -49,7 +49,7 @@ final class DownloaderTests: XCTestCase {
             ],
             cursor: "c1", whole: true)
 
-        try run()
+        try download()
 
         XCTAssertEqual(folders.here(), [:])
     }
@@ -58,11 +58,11 @@ final class DownloaderTests: XCTestCase {
     func testTheNextRunAsksForTheChangesSinceTheLastAndDownloadsOnlyThose() throws {
         cloud.answers[""] = Changes(
             entries: [cloud.file("docs/a.md", "- a"), cloud.file("docs/b.md", "- b")], cursor: "c1", whole: true)
-        try run()
+        try download()
         cloud.answers["c1"] = Changes(entries: [cloud.file("docs/b.md", "- b2")], cursor: "c2", whole: false)
         cloud.downloaded = []
 
-        try run()
+        try download()
 
         XCTAssertEqual(cloud.askedWith, [nil, "c1"])
         XCTAssertEqual(cloud.downloaded, ["docs/b.md"])
@@ -73,10 +73,10 @@ final class DownloaderTests: XCTestCase {
     func testAFileThatHasGoneFromTheCloudIsDeletedHere() throws {
         cloud.answers[""] = Changes(
             entries: [cloud.file("docs/a.md", "- a"), cloud.file("docs/b.md", "- b")], cursor: "c1", whole: true)
-        try run()
+        try download()
         cloud.answers["c1"] = Changes(entries: [.gone(path: "docs/a.md")], cursor: "c2", whole: false)
 
-        try run()
+        try download()
 
         XCTAssertEqual(folders.here(), ["docs/b.md": "- b"])
     }
@@ -84,7 +84,7 @@ final class DownloaderTests: XCTestCase {
     // クラウドで消えたフォルダーは、中のファイルごと消える。同じ回でその後に来たファイルは残る。
     func testAFolderThatHasGoneTakesItsFilesWithItButNotThoseThatCameAfter() throws {
         cloud.answers[""] = Changes(entries: [cloud.file("docs/work/old.md", "- old")], cursor: "c1", whole: true)
-        try run()
+        try download()
         cloud.answers["c1"] = Changes(
             entries: [
                 cloud.file("docs/work/lost.md", "- lost"), .gone(path: "docs/work"),
@@ -92,7 +92,7 @@ final class DownloaderTests: XCTestCase {
             ],
             cursor: "c2", whole: false)
 
-        try run()
+        try download()
 
         XCTAssertEqual(folders.here(), ["docs/work/new.md": "- new"])
     }
@@ -100,10 +100,10 @@ final class DownloaderTests: XCTestCase {
     // 名前の大文字と小文字だけが変わったファイルは、新しい名前だけで残る。
     func testAFileWhoseNameChangedOnlyInCaseStaysUnderTheNewNameOnly() throws {
         cloud.answers[""] = Changes(entries: [cloud.file("docs/notes.md", "- a")], cursor: "c1", whole: true)
-        try run()
+        try download()
         cloud.answers["c1"] = Changes(entries: [cloud.file("Docs/Notes.md", "- a2")], cursor: "c2", whole: false)
 
-        try run()
+        try download()
 
         XCTAssertEqual(folders.here(), ["docs/Notes.md": "- a2"])
     }
@@ -111,11 +111,11 @@ final class DownloaderTests: XCTestCase {
     // 大文字と小文字が違うパスで消えたと知らされても、そのファイルは消える。
     func testAFileIsDeletedByAPathInAnotherCase() throws {
         cloud.answers[""] = Changes(entries: [cloud.file("docs/Notes.md", "- a")], cursor: "c1", whole: true)
-        try run()
+        try download()
         cloud.answers["c1"] = Changes(
             entries: [.gone(path: "docs/notes.md"), .gone(path: "docs/never-here.md")], cursor: "c2", whole: false)
 
-        try run()
+        try download()
 
         XCTAssertEqual(folders.here(), [:])
     }
@@ -125,11 +125,11 @@ final class DownloaderTests: XCTestCase {
         cloud.answers[""] = Changes(
             entries: [cloud.file("docs/a.md", "- a"), cloud.file("docs/b.md", "- b")], cursor: "c1", whole: true)
         cloud.broken = "docs/b.md"
-        XCTAssertThrowsError(try run()) { XCTAssertTrue($0 is NetworkGone) }
+        XCTAssertThrowsError(try download()) { XCTAssertTrue($0 is NetworkGone) }
         cloud.broken = nil
         cloud.downloaded = []
 
-        try run()
+        try download()
 
         XCTAssertEqual(cloud.askedWith, [nil, nil])
         XCTAssertEqual(cloud.downloaded, ["docs/b.md"])
@@ -141,7 +141,7 @@ final class DownloaderTests: XCTestCase {
         cloud.answers[""] = Changes(entries: [cloud.file("docs/a.md", "- a")], cursor: "c1", whole: true)
         cloud.broken = "docs/a.md"
 
-        XCTAssertThrowsError(try run())
+        XCTAssertThrowsError(try download())
 
         XCTAssertEqual(folders.here(), [:])
     }
@@ -150,11 +150,11 @@ final class DownloaderTests: XCTestCase {
     func testAWholeListDeletesTheMarkdownFilesThatAreNotInIt() throws {
         cloud.answers[""] = Changes(
             entries: [cloud.file("docs/a.md", "- a"), cloud.file("docs/b.md", "- b")], cursor: "c1", whole: true)
-        try run()
+        try download()
         cloud.answers["c1"] = Changes(entries: [cloud.file("docs/B.md", "- b")], cursor: "c2", whole: true)
         cloud.downloaded = []
 
-        try run()
+        try download()
 
         XCTAssertEqual(folders.here(), ["docs/b.md": "- b"])
         XCTAssertEqual(cloud.downloaded, [])
@@ -164,10 +164,10 @@ final class DownloaderTests: XCTestCase {
     func testAWholeListDeletesTheAssetFilesThatAreNotInIt() throws {
         cloud.answers[""] = Changes(
             entries: [cloud.file("assets/a.png", "a"), cloud.file("assets/b.png", "b")], cursor: "c1", whole: true)
-        try run()
+        try download()
         cloud.answers["c1"] = Changes(entries: [cloud.file("assets/b.png", "b")], cursor: "c2", whole: true)
 
-        try run()
+        try download()
 
         XCTAssertEqual(folders.here(), ["assets/b.png": "b"])
     }
@@ -175,7 +175,7 @@ final class DownloaderTests: XCTestCase {
     // 進み具合は、最初に0個、そのあと1個取るごとに、全体の数と一緒に伝わる。取らないファイルは数えない。
     func testTheProgressCountsTheFilesToDownloadFromZeroToAll() throws {
         cloud.answers[""] = Changes(entries: [cloud.file("docs/a.md", "- a")], cursor: "c1", whole: true)
-        try run()
+        try download()
         cloud.answers["c1"] = Changes(
             entries: [cloud.file("docs/a.md", "- a"), cloud.file("docs/b.md", "- b"), cloud.file("docs/c.md", "- c")],
             cursor: "c2", whole: false)
