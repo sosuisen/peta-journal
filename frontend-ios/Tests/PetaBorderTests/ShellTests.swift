@@ -61,9 +61,14 @@ final class ShellTests: XCTestCase {
 
     /// Searches for the word and chooses the first result of the kind.
     private func pick(_ kind: SearchKind, searchingFor query: String) {
+        pick(searchingFor: query) { $0.kind == kind }
+    }
+
+    /// Searches for the word and chooses the first result that is wanted.
+    private func pick(searchingFor query: String, _ wanted: @escaping (SearchEntry) -> Bool) {
         shell.search(query)
-        waitUntil("the search finds a result for \(query)") { self.shell.view.search.results.contains { $0.kind == kind } }
-        shell.pick(shell.view.search.results.first { $0.kind == kind }!)
+        waitUntil("the search finds a result for \(query)") { self.shell.view.search.results.contains(where: wanted) }
+        if let found = shell.view.search.results.first(where: wanted) { shell.pick(found) }
     }
 
     /// Opens the page `notes`, which a test has put into the Markdown folder.
@@ -109,7 +114,8 @@ final class ShellTests: XCTestCase {
         try download("notes.md", "今日は東京都で会議がありました。\n")
         try start()
 
-        pick(.page, searchingFor: "会議")
+        // A word of the body finds the item, under the name of its page
+        pick(searchingFor: "会議") { $0.title == "notes" }
 
         waitUntil("the page shows its item") { self.bodies() == ["今日は東京都で会議がありました。"] }
         XCTAssertFalse(shell.view.search.showDropdown)
