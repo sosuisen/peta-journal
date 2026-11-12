@@ -50,11 +50,11 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="914" y="30" dominant-baseline="central">共通のライブラリ</text>
 <g class="gray">
 <rect x="1126" y="21" width="28" height="18" rx="4" style="fill:#D3D1C7" />
-<text x="1160" y="30" dominant-baseline="central" style="fill:#1F1E1D">Rust</text>
+<text x="1160" y="30" dominant-baseline="central" style="fill:#1F1E1D">（塗りつぶしあり）Rust</text>
 </g>
 <g class="gray other">
-<rect x="1210" y="21" width="28" height="18" rx="4" />
-<text x="1244" y="30" dominant-baseline="central" style="fill:#1F1E1D">Rust以外</text>
+<rect x="1334" y="21" width="28" height="18" rx="4" />
+<text x="1368" y="30" dominant-baseline="central" style="fill:#1F1E1D">Rust以外</text>
 </g>
 
 <g transform="translate(0,56)">
@@ -328,11 +328,11 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <line class="arr" x1="760" y1="638" x2="760" y2="724" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="768" y="664" dominant-baseline="central">REST・SSE（HttpClient）</text>
 
-<rect class="frame" x="980" y="690" width="240" height="60" rx="14" />
-<text class="th" x="1100" y="709" text-anchor="middle" dominant-baseline="central">AIエージェント（MCP）</text>
-<text x="1100" y="731" text-anchor="middle" dominant-baseline="central">ページを検索・読み書き</text>
-<line class="arr" x1="1100" y1="638" x2="1100" y2="688" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="1092" y="664" text-anchor="end" dominant-baseline="central">MCP・Streamable HTTP</text>
+<rect class="frame" x="890" y="690" width="240" height="60" rx="14" />
+<text class="th" x="1010" y="709" text-anchor="middle" dominant-baseline="central">AIエージェント（MCP）</text>
+<text x="1010" y="731" text-anchor="middle" dominant-baseline="central">ページを検索・読み書き</text>
+<line class="arr" x1="1000" y1="638" x2="1000" y2="688" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="1008" y="664" dominant-baseline="central">MCP・Streamable HTTP</text>
 <g class="chip">
 <rect x="312" y="776" width="68" height="18" rx="9" style="fill:#FFFFFF;stroke:#444441;stroke-width:1" />
 <text x="346" y="785" text-anchor="middle" dominant-baseline="central" style="fill:#444441">ast2react</text>
