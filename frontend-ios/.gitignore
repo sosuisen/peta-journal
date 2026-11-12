@@ -1,0 +1,8 @@
+# Made by generate.sh from the Rust crates
+generated/
+# Made by SwiftPM, XcodeGen and xcodebuild
+.build/
+build/
+*.xcodeproj/
+# The App key of Dropbox of whoever builds the app
+Dropbox.xcconfig
