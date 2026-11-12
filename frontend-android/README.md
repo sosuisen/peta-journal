@@ -83,7 +83,9 @@ connect to Dropbox and asks to check the network. The network is fine then: sign
 the Dropbox app, and try once more.
 
 The app syncs when it comes to the front, when it goes to the back, when "Sync" is touched,
-and 3 seconds after the last change of a page. A sync that is asked for while another runs
+and 3 seconds after the last change of a page. The sync of an app that came to the front shows
+where it stands in a dialog while it moves files: the pages may be old until then. The
+dialog cannot be closed. The other syncs show it in the line under the search field only. A sync that is asked for while another runs
 starts after it, once. When Android stops the app in the back before the sync has ended, the
 rest goes up when the app opens again. The first sync downloads
 every Markdown file and every file of the `assets` folder, several at a time. The files of
