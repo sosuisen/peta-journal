@@ -30,10 +30,19 @@ sealed interface ShownBlock {
      *   asks for none.
      */
     data class Image(val path: String, val alt: String, val width: Int?) : ShownBlock
+
+    /** A list that holds a part of its own kind, such as a code block: its entries apart. */
+    data class Entries(val entries: List<Entry>) : ShownBlock
+
+    /** A quote that holds a part of its own kind. */
+    data class Quote(val blocks: List<ShownBlock>) : ShownBlock
 }
 
 /** @param header true for the row of the titles of the columns. */
 data class TableRow(val header: Boolean, val cells: List<AnnotatedString>)
+
+/** @param mark what stands before the entry of a list: a bullet, its number or a checkbox. */
+data class Entry(val mark: String, val blocks: List<ShownBlock>)
 
 /**
  * An item as it is shown: with its decoration, not as Markdown (ADR 025).
@@ -41,12 +50,14 @@ data class TableRow(val header: Boolean, val cells: List<AnnotatedString>)
  * Rust makes HTML of the AST of the item, and Compose reads the HTML: that gives the
  * decoration of letters and the links. Compose loses the line breaks of a code block and the
  * cells of a table, so those two are read from the AST here and get parts of their own (ADR
- * 030). Only the blocks at the top of the item are told apart: a code block inside a list or a
- * quote stays in the text.
+ * 030).
  *
- * Compose draws no image of the HTML either. An image of the assets folder in a paragraph at
- * the top of the item gets a part of its own, between the text before and after it. An image
- * of the web is not drawn: it becomes a link to its address.
+ * Compose draws no image of the HTML either. An image of the assets folder gets a part of its
+ * own, between the text before and after it in its paragraph. An image of the web is not
+ * drawn: it becomes a link to its address.
+ *
+ * A list or a quote that holds one of these parts cannot be one text. It is taken apart, and
+ * what is in it is read the same way. A list or a quote that holds none stays in the text.
  *
  * [onLink] gets the `href` of a link that the user touched. A link to a page and a tag have
  * the URL of their page, such as `/pages/notes`, encoded as a web address is. The page of a
@@ -67,24 +78,53 @@ private class Reader(private val tagsDir: String, private val onLink: (String) -
     /** The nodes since the last block of its own kind, which become one text together. */
     private var others = JSONArray()
 
-    fun read(document: JSONObject): List<ShownBlock> {
-        val nodes = document.optJSONArray("children") ?: JSONArray()
-        for (node in nodes.objects()) {
-            when (node.getString("type")) {
-                "code_block" -> {
+    /** The parts of what is in the node: the document, an entry of a list, or a quote. */
+    fun read(holder: JSONObject): List<ShownBlock> {
+        for (node in holder.children()) {
+            val type = node.getString("type")
+            when {
+                type == "list" && holdsOwnPart(node) -> {
                     endText()
-                    blocks += ShownBlock.Code(node.optString("literal").trimEnd('\n'))
+                    blocks += ShownBlock.Entries(entries(node))
                 }
-                "table" -> {
+                type in QUOTES && holdsOwnPart(node) -> {
                     endText()
-                    blocks += ShownBlock.Table(node.children().map(::row))
+                    blocks += ShownBlock.Quote(within(node))
                 }
-                "paragraph" -> paragraph(node)
-                else -> others.put(node)
+                else -> part(node, type)
             }
         }
         endText()
         return blocks
+    }
+
+    private fun within(holder: JSONObject): List<ShownBlock> = Reader(tagsDir, onLink).read(holder)
+
+    private fun entries(list: JSONObject): List<Entry> {
+        val first = list.optInt("start", 1)
+        return list.children().mapIndexed { index, entry ->
+            val mark = when {
+                entry.optString("type") == "task_item" -> if (entry.isNull("symbol")) "☐" else "☑"
+                list.optString("list_type") == "ordered" -> "${first + index}."
+                else -> "•"
+            }
+            Entry(mark, within(entry))
+        }
+    }
+
+    private fun part(node: JSONObject, type: String) {
+        when (type) {
+            "code_block" -> {
+                endText()
+                blocks += ShownBlock.Code(node.optString("literal").trimEnd('\n'))
+            }
+            "table" -> {
+                endText()
+                blocks += ShownBlock.Table(node.children().map(::row))
+            }
+            "paragraph" -> paragraph(node)
+            else -> others.put(node)
+        }
     }
 
     /** A paragraph is cut at each image of the assets folder: the image stands on its own. */
@@ -137,6 +177,12 @@ private class Reader(private val tagsDir: String, private val onLink: (String) -
 }
 
 private const val IMAGE = "embed"
+
+private val QUOTES = setOf("block_quote", "multiline_block_quote")
+
+/** True when a part of its own kind is somewhere under the node. */
+private fun holdsOwnPart(node: JSONObject): Boolean =
+    node.children().any { it.optString("type") in setOf("code_block", "table") || assetImage(it) != null || holdsOwnPart(it) }
 
 /**
  * The image that the node is, when its file is in the assets folder. A page writes the address
