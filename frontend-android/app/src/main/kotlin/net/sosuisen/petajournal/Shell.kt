@@ -31,6 +31,20 @@ class Shell(
      */
     fun image(path: String): File? = findWithoutCase(markdownDir, path)?.takeIf { it.isFile }
 
+    /** The file that a link named and that is not here, until the next link is touched. */
+    var missingFile: String? by mutableStateOf(null)
+        private set
+
+    /**
+     * The user touched a link to a file of the assets folder. [path] is its path under the
+     * Markdown folder. Answers with the file to open, or `null` when it is not here.
+     */
+    fun attached(path: String): File? {
+        val file = image(path)
+        missingFile = path.takeIf { file == null }
+        return file
+    }
+
     // The main thread keeps the requests in order. The first ones may come before the border
     // is there, and are still handled after this constructor
     private val border = Border(dataDir, markdownDir) { requests -> onMainThread { handle(requests) } }
@@ -74,6 +88,7 @@ class Shell(
     fun follow(url: String) = open(url)
 
     private fun open(url: String) {
+        missingFile = null
         missing = try {
             border.open(url)
             null
