@@ -90,11 +90,15 @@ class Shell(
     /**
      * Does what [sync] does, and returns when the core is done. It is for the thread of a sync
      * with the cloud, which uploads what the core wrote. It must not be the main thread.
+     *
+     * A new app that waited for the sign-in opens its first screen after it: the download
+     * has brought the journal of today, if Dropbox holds one.
      */
     fun syncAndWait() {
         val done = CountDownLatch(1)
         onMainThread { sync(done::countDown) }
         done.await()
+        onMainThread { if (unopened && !closed) restore() }
     }
 
     /** The page that a link named and that is not there, until another page opens. */
@@ -125,6 +129,7 @@ class Shell(
             if (make) border.openOrMake(url) else border.open(url)
             // For the next time the app opens
             last.writeText(url)
+            unopened = false
             null
         } catch (nothing: FfiException) {
             url.removePrefix(PAGES).substringBefore('#')
