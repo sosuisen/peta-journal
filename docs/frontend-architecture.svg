@@ -38,7 +38,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <rect x="0" y="420" width="1660" height="112" fill="#534AB7" fill-opacity="0.14" />
 <rect x="335" y="238" width="995" height="72" fill="#3B6D11" fill-opacity="0.14" />
 <rect x="665" y="322" width="995" height="72" fill="#993556" fill-opacity="0.14" />
-<polygon class="frame" points="20,682 46,596 1114,596 1140,682 1114,768 46,768" stroke-linejoin="round" style="fill:#ECEAE4" />
+<polygon class="frame" points="20,682 46,596 934,596 960,682 934,768 46,768" stroke-linejoin="round" style="fill:#ECEAE4" />
 <rect x="555" y="614" width="1105" height="72" fill="#E8830C" fill-opacity="0.22" />
 
 <text class="th" x="20" y="30" dominant-baseline="central">PetaJournalのフロントエンド</text>
@@ -187,8 +187,8 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="1242" y="351" text-anchor="end" dominant-baseline="central">Effect・VM</text>
 <line class="arr" x1="1263" y1="114" x2="1263" y2="272" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1255" y="134" text-anchor="end" dominant-baseline="central">bincode（BoltFFI）</text>
-<line class="arr" x1="1057" y1="248" x2="1057" y2="538" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="1065" y="517" dominant-baseline="central">REST・SSE（ureq）</text>
+<path class="arr" d="M1057 248V524H890V538" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="898" y="509" dominant-baseline="central">REST・SSE（ureq）</text>
 <g class="chip">
 <rect x="1234" y="459" width="36" height="18" rx="9" />
 <text x="1252" y="468" text-anchor="middle" dominant-baseline="central">ast</text>
@@ -197,7 +197,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <rect x="1178" y="321" width="36" height="18" rx="9" />
 <text x="1196" y="330" text-anchor="middle" dominant-baseline="central">ast</text>
 </g>
-<rect class="frame" x="1340" y="20" width="300" height="772" rx="14" />
+<rect class="frame" x="1340" y="20" width="300" height="736" rx="14" />
 <text class="th" x="1356" y="42" dominant-baseline="central">Androidネイティブアプリ</text>
 <rect class="inner" x="1356" y="154" width="268" height="480" rx="10" />
 <text x="1372" y="172" dominant-baseline="central">Rustライブラリ</text>
@@ -239,18 +239,18 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="1585" y="134" text-anchor="end" dominant-baseline="central">bincode（BoltFFI）</text>
 <line class="arr" x1="1420" y1="544" x2="1420" y2="564" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <g class="gray store">
-<path class="folder" d="M1356 716H1408L1416 724H1498a4 4 0 0 1 4 4V752a4 4 0 0 1 -4 4H1356a4 4 0 0 1 -4 -4V720a4 4 0 0 1 4 -4Z" />
-<text class="th" x="1427" y="740" text-anchor="middle" dominant-baseline="central">アプリ内フォルダ（.md）</text>
-<path d="M1516 721a56 5 0 0 1 112 0V751a56 5 0 0 1 -112 0Z" />
-<path d="M1516 721a56 5 0 0 0 112 0" style="fill:none" />
-<text class="th" x="1572" y="741" text-anchor="middle" dominant-baseline="central">DB（SQLite）</text>
+<path class="folder" d="M1356 672H1408L1416 680H1498a4 4 0 0 1 4 4V708a4 4 0 0 1 -4 4H1356a4 4 0 0 1 -4 -4V676a4 4 0 0 1 4 -4Z" />
+<text class="th" x="1427" y="696" text-anchor="middle" dominant-baseline="central">アプリ内フォルダ（.md）</text>
+<path d="M1516 677a56 5 0 0 1 112 0V707a56 5 0 0 1 -112 0Z" />
+<path d="M1516 677a56 5 0 0 0 112 0" style="fill:none" />
+<text class="th" x="1572" y="697" text-anchor="middle" dominant-baseline="central">DB（SQLite）</text>
 </g>
-<line class="arr" x1="1427" y1="624" x2="1427" y2="714" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="1435" y="669" dominant-baseline="central">同期</text>
-<line class="arr" x1="1572" y1="624" x2="1572" y2="714" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="1564" y="669" text-anchor="end" dominant-baseline="central">読み書き</text>
-<line class="arr" x1="1312" y1="736" x2="1350" y2="736" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="1352" y="774" dominant-baseline="central">Dropbox SDK（Kotlin）で同期</text>
+<line class="arr" x1="1427" y1="624" x2="1427" y2="670" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="1435" y="652" dominant-baseline="central">同期</text>
+<line class="arr" x1="1572" y1="624" x2="1572" y2="670" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="1564" y="652" text-anchor="end" dominant-baseline="central">読み書き</text>
+<line class="arr" x1="1312" y1="692" x2="1350" y2="692" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="1352" y="734" dominant-baseline="central">Dropbox SDK（Kotlin）で同期</text>
 <g class="chip">
 <rect x="1564" y="459" width="36" height="18" rx="9" />
 <text x="1582" y="468" text-anchor="middle" dominant-baseline="central">ast</text>
@@ -273,20 +273,20 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <line class="arr" x1="454" y1="594" x2="568" y2="594" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="511" y="579" text-anchor="middle" dominant-baseline="central">関数呼び出し</text>
 <g class="gray store">
-<path class="folder" d="M1164 650H1216L1224 658H1306a4 4 0 0 1 4 4V686a4 4 0 0 1 -4 4H1164a4 4 0 0 1 -4 -4V654a4 4 0 0 1 4 -4Z" />
-<text class="th" x="1235" y="674" text-anchor="middle" dominant-baseline="central">ローカルフォルダ（.md）</text>
+<path class="folder" d="M988 672H1040L1048 680H1130a4 4 0 0 1 4 4V708a4 4 0 0 1 -4 4H988a4 4 0 0 1 -4 -4V676a4 4 0 0 1 4 -4Z" />
+<text class="th" x="1059" y="696" text-anchor="middle" dominant-baseline="central">ローカルフォルダ（.md）</text>
 <path d="M580 663a75 5 0 0 1 150 0V693a75 5 0 0 1 -150 0Z" />
 <path d="M580 663a75 5 0 0 0 150 0" style="fill:none" />
 <text class="th" x="655" y="682" text-anchor="middle" dominant-baseline="central">DB（SQLite）</text>
 </g>
-<path class="arr" d="M770 624V674H1158" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="960" y="659" text-anchor="middle" dominant-baseline="central">書き出し・取り込み</text>
+<path class="arr" d="M770 624V692H982" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="850" y="677" text-anchor="middle" dominant-baseline="central">書き出し・取り込み</text>
 <line class="arr" x1="655" y1="624" x2="655" y2="656" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="663" y="640" dominant-baseline="central">読み書き</text>
-<rect class="frame" x="1160" y="712" width="150" height="48" rx="12" />
-<text class="th" x="1235" y="727" text-anchor="middle" dominant-baseline="central">クラウドストレージ</text>
-<text x="1235" y="747" text-anchor="middle" dominant-baseline="central">リモートPCと同期</text>
-<line class="arr" x1="1235" y1="692" x2="1235" y2="710" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<rect class="frame" x="1160" y="668" width="150" height="48" rx="12" />
+<text class="th" x="1235" y="683" text-anchor="middle" dominant-baseline="central">クラウドストレージ</text>
+<text x="1235" y="703" text-anchor="middle" dominant-baseline="central">リモートPCと同期</text>
+<line class="arr" x1="1136" y1="692" x2="1158" y2="692" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 
 <g class="chip">
 <rect x="82" y="167" width="62" height="18" rx="9" />
@@ -325,14 +325,14 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text class="th" x="665" y="743" text-anchor="middle" dominant-baseline="central">stickiesアプリ</text>
 <text x="665" y="765" text-anchor="middle" dominant-baseline="central">ページを付箋紙として表示できるデスクトップアプリ</text>
 </g>
-<line class="arr" x1="760" y1="638" x2="760" y2="724" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="768" y="664" dominant-baseline="central">REST・SSE（HttpClient）</text>
+<line class="arr" x1="730" y1="638" x2="730" y2="724" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="738" y="664" dominant-baseline="central">REST・SSE（HttpClient）</text>
 
 <rect class="frame" x="890" y="690" width="240" height="60" rx="14" />
 <text class="th" x="1010" y="709" text-anchor="middle" dominant-baseline="central">AIエージェント（MCP）</text>
 <text x="1010" y="731" text-anchor="middle" dominant-baseline="central">ページを検索・読み書き</text>
-<line class="arr" x1="1000" y1="638" x2="1000" y2="688" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="1008" y="664" dominant-baseline="central">MCP・Streamable HTTP</text>
+<line class="arr" x1="912" y1="638" x2="912" y2="688" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="920" y="664" dominant-baseline="central">MCP・Streamable HTTP</text>
 <g class="chip">
 <rect x="312" y="776" width="68" height="18" rx="9" style="fill:#FFFFFF;stroke:#444441;stroke-width:1" />
 <text x="346" y="785" text-anchor="middle" dominant-baseline="central" style="fill:#444441">ast2react</text>
