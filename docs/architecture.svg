@@ -195,7 +195,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <g class="cyan other">
 <rect x="1042" y="124" width="180" height="44" rx="8" />
 <text class="th" x="1132" y="138" text-anchor="middle" dominant-baseline="central" style="font-size:13px">peta-shown（Swift）</text>
-<text x="1132" y="157" text-anchor="middle" dominant-baseline="central" style="font-size:12px">ASTから出すものを決める</text>
+<text x="1132" y="157" text-anchor="middle" dominant-baseline="central" style="font-size:12px">画面に表示する部品を決定</text>
 </g>
 <line class="arr" x1="1132" y1="113" x2="1132" y2="122" marker-end="url(#arrow)" />
 <g class="olive">
@@ -247,7 +247,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <g class="cyan other">
 <rect x="1372" y="124" width="180" height="44" rx="8" />
 <text class="th" x="1462" y="138" text-anchor="middle" dominant-baseline="central" style="font-size:13px">peta-shown（Swift）</text>
-<text x="1462" y="157" text-anchor="middle" dominant-baseline="central" style="font-size:12px">ASTから出すものを決める</text>
+<text x="1462" y="157" text-anchor="middle" dominant-baseline="central" style="font-size:12px">画面に表示する部品を決定</text>
 </g>
 <line class="arr" x1="1462" y1="113" x2="1462" y2="122" marker-end="url(#arrow)" />
 <g class="blue">
