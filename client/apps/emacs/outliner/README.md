@@ -20,6 +20,9 @@ cd peta-journal/client
 cargo build --release -p client-shell-emacs
 ```
 
+`release.ps1` in this folder does the same, and `release.sh` on macOS and Linux. `debug.ps1`
+and `debug.sh` build the debug build and start Emacs with today's journal, for development.
+
 Add this to your Emacs init file:
 
 ```elisp

@@ -36,6 +36,17 @@ cd peta-journal/client/apps/native-app/outliner-android
 ./gradlew :app:connectedDebugAndroidTest    # runs the tests on a device or an emulator
 ```
 
+Two scripts do the usual steps. Both run `generate` first when `generated/` is missing, and
+with `-Generate`. Everything else goes to Gradle:
+
+```
+./debug.ps1 -Pabi=arm64-v8a     # installs the debug build on the device that adb sees, and starts it
+./release.ps1                   # builds app/build/outputs/apk/release/app-release-unsigned.apk
+```
+
+`debug.sh` and `release.sh` do the same, for macOS, Linux and Git Bash. Their option is
+`--generate`. The release build is not signed, so no device takes it as it is.
+
 The package holds the core for both kinds of device, about 70MB each. `-Pabi=x86_64` packs
 only one, for an emulator with little room.
 
@@ -76,14 +87,28 @@ A sign-in of a version of the app that only read cannot upload. The app lets go 
 shows the sign-in again.
 
 The key and the path of the Markdown folder in Dropbox come from outside the repository, as
-Gradle properties:
+Gradle properties. Write them once into the `gradle.properties` of your home folder:
+`~/.gradle/gradle.properties`, which is `C:\Users\<name>\.gradle\gradle.properties` on
+Windows. Make the file when there is none:
+
+```
+dropboxKey=<App key>
+dropboxFolder=/PetaJournal
+```
+
+Every build then has them, also `debug.ps1` and `release.ps1` without arguments, and in
+every worktree. The file is outside the repository, so each machine needs its own.
+
+Do not write them into the `gradle.properties` of this folder. That file is kept in the
+repository, and the key would go into a commit.
+
+For one build, they can also be arguments. They win over the file:
 
 ```
 ./gradlew :app:assembleDebug -PdropboxKey=<App key> -PdropboxFolder=/PetaJournal
 ```
 
-They can also stand in `~/.gradle/gradle.properties`, as `dropboxKey=...` and
-`dropboxFolder=...`. An app that is built without a key syncs nothing and shows no sign-in.
+An app that is built without a key syncs nothing and shows no sign-in.
 
 The browser signs in, also on a device that has the Dropbox app. The SDK would let the
 Dropbox app sign in when it sees it. That failed: after a sign-out, and when the Dropbox app

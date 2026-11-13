@@ -11,6 +11,9 @@ cargo build --release
 cargo test
 ```
 
+`journal-server/debug.ps1` builds the debug build and starts it (`cargo run`), and
+`journal-server/release.ps1` makes the release build. Both have an `.sh` twin.
+
 | Crate | What it is |
 |---|---|
 | `hmtid` | HMTID (human-readable monotonic timestamp identifier), a port of the `hmtid` npm package |

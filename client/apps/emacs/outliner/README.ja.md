@@ -18,6 +18,8 @@ cd peta-journal/client
 cargo build --release -p client-shell-emacs
 ```
 
+このフォルダーの`release.ps1`も同じことをする。macOSとLinuxでは`release.sh`を使う。`debug.ps1`と`debug.sh`は開発用である。デバッグビルドを作り、今日のジャーナルを開いたEmacsを起動する。
+
 Emacsの初期設定ファイルに、次の内容を追加する。
 
 ```elisp

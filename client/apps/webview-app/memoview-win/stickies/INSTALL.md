@@ -65,6 +65,16 @@ msbuild Stickies.csproj -restore -p:Configuration=Debug -p:Platform=x64 -verbosi
 
 Output: `bin\x64\Debug\net10.0-windows10.0.22621.0\Stickies.exe`
 
+Two scripts in `client\apps\webview-app\memoview-win` do this build from any PowerShell. They
+find `msbuild` with `vswhere` when it is not on the path:
+
+```powershell
+.\debug.ps1      # the Debug build; ends a running Stickies and starts the new one
+.\release.ps1    # the Release build
+```
+
+`debug.sh` and `release.sh` do the same, for Git Bash.
+
 ## Run
 
 1. Start the journal server first. Stickies connects to `http://localhost:8087` (REST API and SSE). See `BUILD.md` at the root of the repository.
