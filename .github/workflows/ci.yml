@@ -42,9 +42,9 @@ jobs:
       # What only a native shell needs is behind features: the generation of its types, and the
       # entrance for another language
       - if: matrix.workspace == 'frontend-rust'
-        run: cargo clippy -p peta-shell-native --features facet_typegen,ffi --all-targets
+        run: cargo clippy -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi --all-targets
       - if: matrix.workspace == 'frontend-rust'
-        run: cargo test -p peta-shell-native --features facet_typegen,ffi --test codegen --test ffi
+        run: cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi --test codegen --test ffi
       # The shell only runs in the browser, and the native build above does not show what breaks on wasm
       - if: matrix.workspace == 'frontend-rust'
         run: cargo check --target wasm32-unknown-unknown -p peta-frontend

@@ -15,12 +15,12 @@ $env:PATH = "$linker;$env:PATH"
 
 Push-Location $rust
 try {
-    cargo run -p peta-shell-native --features facet_typegen --bin codegen -- csharp "$here/generated"
+    cargo run -p client-native-bridge --features facet_typegen --bin codegen -- csharp "$here/generated"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 finally { Pop-Location }
 
-Push-Location (Join-Path $rust 'crates/shell-native')
+Push-Location (Join-Path $rust 'crates/client-shell-http')
 try {
     boltffi pack csharp --release
     exit $LASTEXITCODE

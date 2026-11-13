@@ -161,26 +161,26 @@ cargo cov --html     # target/llvm-cov/html/index.html, line by line
 ```
 
 `cargo cov` is an alias in `.cargo/config.toml`. It measures `peta-core`, `client-page-links`,
-`client-api-http`, `client-api-embedded`, `peta-shell-emacs`, `peta-shell-native` and
+`client-api-http`, `client-api-embedded`, `peta-shell-emacs`, `client-native-bridge`, `client-shell-http` and
 `peta-shell-android`. The wasm shell `peta-frontend` (`crates/shell-leptos`) is left out: it only runs in
 the browser, so the E2E tests cover it instead.
 
 No file of `peta-shell-emacs` is left out. Its tests start the program itself, and `cargo cov`
 measures that run too.
 
-`cargo cov` turns on the feature `facet_typegen` of `peta-shell-native`, so the generation of
+`cargo cov` turns on the feature `facet_typegen` of `client-native-bridge`, so the generation of
 the types of the native shells is measured too.
 
 ### Types of the native shells
 
-`crates/shell-native` holds the core for a shell that is not written in Rust, such as the SwiftUI
+`crates/client-native-bridge` holds the core for a shell that is not written in Rust, such as the SwiftUI
 shell (ADR 024). The types that cross to such a shell are generated from the Rust types:
 
 ```
 cd peta-journal/frontend-rust
-cargo run -p peta-shell-native --features facet_typegen --bin codegen -- swift <folder>
-cargo run -p peta-shell-native --features facet_typegen --bin codegen -- csharp <folder>
-cargo run -p peta-shell-native --features facet_typegen --bin codegen -- kotlin <folder>
+cargo run -p client-native-bridge --features facet_typegen --bin codegen -- swift <folder>
+cargo run -p client-native-bridge --features facet_typegen --bin codegen -- csharp <folder>
+cargo run -p client-native-bridge --features facet_typegen --bin codegen -- kotlin <folder>
 ```
 
 The first writes the Swift package `PetaTypes` under `<folder>/swift`, the second the C#
@@ -191,10 +191,12 @@ repository.
 The C# and the Kotlin types are not written by the generator that Crux brings (facet_generate
 0.19): its C# and its Kotlin do not compile for these types. `src/codegen.rs` calls a later version of the same generator
 directly (ADR 028). The tests of the generation need the feature too:
-`cargo test -p peta-shell-native --features facet_typegen`.
+`cargo test -p client-native-bridge --features facet_typegen`.
 
-The feature `ffi` adds the entrance for a shell in another language (`src/ffi.rs`), made with
-BoltFFI. `frontend-swiftui/README.md` describes how the SwiftUI shell is built from both, and the
+This crate has no way to the journal, and no entrance for another language. A crate above it
+has both (ADR 036). `crates/client-shell-http` is the one for the shells that ask a journal
+server: the SwiftUI and the WinUI shell. Its feature `ffi` adds the entrance (`src/ffi.rs`),
+made with BoltFFI. `frontend-swiftui/README.md` describes how the SwiftUI shell is built from both, and the
 tools it needs. `frontend-winui/README.md` does so for the WinUI shell.
 
 A type that crosses has `#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]`. The
@@ -215,7 +217,7 @@ BoltFFI packs the crate for Android, and the generator writes the Kotlin types b
 
 ```
 cd peta-journal/frontend-rust
-cargo run -p peta-shell-native --features facet_typegen --bin codegen -- kotlin ../frontend-android/generated
+cargo run -p client-native-bridge --features facet_typegen --bin codegen -- kotlin ../frontend-android/generated
 cd crates/shell-android
 boltffi pack android --release
 ```

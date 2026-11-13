@@ -8,6 +8,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use client_api_embedded::{EmbeddedJournal, EventQueue};
+use client_native_bridge::{Clock, Host, NativeShell, SystemClock};
 use journal_core::assembly::{CoreHost, CoreSettings, JournalCore};
 use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
 use journal_core::journal::FolderWatch;
@@ -16,7 +17,6 @@ use peta_core::rest::ClientId;
 use peta_core::screens::page::split_doc_path;
 use peta_core::util::filename::is_journal_file_name;
 use peta_core::Route;
-use peta_shell_native::{Clock, Host, NativeShell, SystemClock};
 
 /// The app has no watcher, and it asks nothing about missing files: `PetaCore::sync` deletes
 /// their pages (ADR 030).
@@ -236,7 +236,7 @@ impl PetaCore {
 #[boltffi::export]
 pub fn item_html(ast: String, tags_dir: String) -> String {
     // The app has no address: the URLs are paths
-    peta_shell_native::copied_html(&ast, "", &tags_dir)
+    client_native_bridge::copied_html(&ast, "", &tags_dir)
 }
 
 #[cfg(test)]

@@ -10,7 +10,7 @@ if (Test-Path "$here/generated") { Remove-Item "$here/generated" -Recurse -Force
 
 Push-Location $rust
 try {
-    cargo run -p peta-shell-native --features facet_typegen --bin codegen -- kotlin "$here/generated"
+    cargo run -p client-native-bridge --features facet_typegen --bin codegen -- kotlin "$here/generated"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 finally { Pop-Location }

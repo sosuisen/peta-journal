@@ -440,14 +440,16 @@
   - `page-links`（`peta-page-links`）を、`client-page-links`にする（2026-11-13にユーザーが決めた）。フォルダーも変える。使っているのは、`shell-leptos`と`shell-native`である。目標の図には出ないが、フロントエンドの側なので、同じ決まりで変える
   - 直すところ: ワークスペースの`Cargo.toml`、`shell-native`と`shell-emacs`と`shell-android`と`shell-leptos`の依存と`use`、文書
   - Rustの中の依存だけが変わる。BoltFFIの入口と、アプリのビルドの配線は変わらない
-- [ ] 段3: `shell-native`を分け、残りを`client-native-bridge`にする
+- [x] 段3: `shell-native`を分け、残りを`client-native-bridge`にする（2026-11-13に行った）
+  - [ ] SwiftUIのビルドとテストを、Macで確かめる。`frontend-swiftui/generate.sh`は、`client-shell-http`のフォルダーで`boltffi pack apple`を呼ぶようにした。Windowsでは回せない
   - 新しい`client-shell-http`へ出すもの: `JournalServer`、`connect`、`ffi.rs`、`ffi`のfeature、`boltffi`への依存、`client-api-http`への依存
   - 残るもの: `Host`と`Clock`のtrait、`SystemClock`、`NativeShell`、HTMLの関数、境界の型。これを`client-native-bridge`に改名する。フォルダーも変える
   - 分割と改名を、同じ段で行う。分けたあとは、WinUIとSwiftUIが結びつく相手が`client-shell-http`になる。`client-native-bridge`を使うのは、Rustの中の依存だけになる
   - 直すところ: `boltffi pack`の設定、生成されるC#とSwiftの束ね、WinUIとSwiftUIのビルドの手順。結びつくライブラリの名前が変わる
   - 直すところ: `shell-android`の依存と`use`
-  - 型を生成する`codegen`のバイナリは、`client-native-bridge`に残す案である。境界の型が、ここにあるためである。Kotlinの型の生成がどこにあるかを、先に確かめる
-  - 確かめること: AndroidとiOSのビルドから、`client-api-http`と`ureq`が消えたか。`cargo tree`で見る。今の最終のバイナリに残っているかは、確かめていない
+  - 型を生成する`codegen`のバイナリは、`client-native-bridge`に残した。境界の型が、ここにあるためである。Kotlinの型も、同じバイナリが書く（`codegen kotlin`）。4つのアプリの`generate`は、`-p client-native-bridge`で呼ぶ
+  - AndroidとiOSの依存から、`client-api-http`が消えた（`cargo tree -p peta-shell-android`で見た）。`ureq`は、`lindera-dictionary`のビルドの依存としてだけ残る。辞書を取ってくるためのもので、最終のバイナリには入らない
+  - `client-native-bridge`は、どのアプリとも結びつかない。`crate-type`を、既定の`lib`だけにした
   - `PetaShell`のtraitと`item_html`などの関数は、2つの入口に同じものが残る。BoltFFIの`export`は、最終のクレートに書くためである
 - [ ] 段4: `shell-android`（`peta-shell-android`）を、`client-shell-embedded`にする。フォルダーも変える
   - AndroidとiOSの両方が使うようになったので、名前が合わなくなった（ADR 034）

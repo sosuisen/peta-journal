@@ -1,7 +1,7 @@
 //! The entrance for a shell in another language. BoltFFI makes the Swift and the C# side of it.
 
 use crate::server::connect;
-use crate::shell::NativeShell;
+use client_native_bridge::NativeShell;
 use std::sync::Arc;
 
 /// What the shell gives the core, to hear from it.
@@ -54,25 +54,25 @@ impl PetaCore {
 /// needs no core: a shell asks for the items it shows.
 #[boltffi::export]
 pub fn item_html(ast: String) -> Result<String, String> {
-    crate::item_html(&ast)
+    client_native_bridge::item_html(&ast)
 }
 
 /// The HTML of a copy, from the AST that comes with the Markdown to copy (ADR 027). The links
 /// to pages lead to `app_url`, where the web frontend is served.
 #[boltffi::export]
 pub fn copied_html(ast: String, app_url: String, tags_dir: String) -> String {
-    crate::copied_html(&ast, &app_url, &tags_dir)
+    client_native_bridge::copied_html(&ast, &app_url, &tags_dir)
 }
 
 /// The URL that opens the page of a wikilink in the web frontend, served at `app_url`. A
 /// native shell opens the links of its items there.
 #[boltffi::export]
 pub fn wikilink_url(app_url: String, page: String) -> String {
-    crate::wikilink_url(&app_url, &page)
+    client_native_bridge::wikilink_url(&app_url, &page)
 }
 
 /// The URL that opens the page of a tag in the web frontend.
 #[boltffi::export]
 pub fn hashtag_url(app_url: String, tags_dir: String, tag: String) -> String {
-    crate::hashtag_url(&app_url, &tags_dir, &tag)
+    client_native_bridge::hashtag_url(&app_url, &tags_dir, &tag)
 }

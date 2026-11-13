@@ -1,7 +1,7 @@
 //! Writes the types of the border into the folder it is given, for the language it is given:
 //! `codegen swift <folder>`, `codegen csharp <folder>` or `codegen kotlin <folder>`.
 
-use peta_shell_native::codegen::{write_csharp_types, write_kotlin_types, write_swift_types};
+use client_native_bridge::codegen::{write_csharp_types, write_kotlin_types, write_swift_types};
 use std::path::PathBuf;
 
 fn main() {

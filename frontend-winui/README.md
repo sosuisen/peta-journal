@@ -7,7 +7,7 @@ the stickies are kept between runs. The keys of the outline work as in the web f
 "Keys" below).
 
 The core is the same Crux core as in the web, the Emacs and the SwiftUI frontends.
-`frontend-rust/crates/shell-native` wraps it for a shell that is not written in Rust. Calls to
+`frontend-rust/crates/client-native-bridge` wraps it for a shell that is not written in Rust. Calls to
 the journal server, timers and the clock stay in Rust. C# gets the view model and the requests
 of the screen as bytes (bincode), and sends events and answers the same way. ADR 028 says why
 the shell is made this way.
@@ -25,7 +25,7 @@ the shell is made this way.
   ```
 
   The version has to be the same as the `boltffi` dependency in
-  `frontend-rust/crates/shell-native/Cargo.toml`.
+  `frontend-rust/crates/client-shell-http/Cargo.toml`.
 
 ## Build and test
 
@@ -45,8 +45,8 @@ kept in the repository.
   `ViewModel`, `Request`, ...), in the namespace `PetaTypes`. `facet_generate` 0.22.3 makes
   them. Crux brings an older version, whose C# does not compile (ADR 028).
 - `generated/PetaCore`: the C# class `PetaCore` that calls the core, and the core as a library
-  (`peta_shell_native.dll`). BoltFFI makes both, from
-  `frontend-rust/crates/shell-native/src/ffi.rs` and `boltffi.toml` next to it.
+  (`client_shell_http.dll`). BoltFFI makes both, from
+  `frontend-rust/crates/client-shell-http/src/ffi.rs` and `boltffi.toml` next to it.
 
 `PetaBorder` is hand-written. It has no WinUI in it, so `dotnet test` can test it:
 
@@ -264,4 +264,4 @@ a test that crosses the border finds this.
 
 These tests do not run in CI. Run them by hand after a change to a type that crosses the
 border. CI does run the Rust tests of the entrance
-(`cargo test -p peta-shell-native --features facet_typegen,ffi`).
+(`cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi`).

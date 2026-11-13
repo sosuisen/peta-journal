@@ -6,5 +6,5 @@ here=$(cd "$(dirname "$0")" && pwd)
 rust="$here/../frontend-rust"
 
 rm -rf "$here/generated"
-(cd "$rust" && cargo run -p peta-shell-native --features facet_typegen --bin codegen -- swift "$here/generated")
-(cd "$rust/crates/shell-native" && boltffi pack apple --release)
+(cd "$rust" && cargo run -p client-native-bridge --features facet_typegen --bin codegen -- swift "$here/generated")
+(cd "$rust/crates/client-shell-http" && boltffi pack apple --release)

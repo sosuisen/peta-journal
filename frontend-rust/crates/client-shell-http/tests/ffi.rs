@@ -1,14 +1,14 @@
 //! The entrance for a shell in another language, called here from Rust. It only exists with the
-//! feature `ffi`: `cargo test -p peta-shell-native --features ffi`.
+//! feature `ffi`: `cargo test -p client-shell-http --features ffi`.
 #![cfg(feature = "ffi")]
 
+use client_native_bridge::ShellEffectFfi;
+use client_shell_http::ffi::{
+    copied_html, hashtag_url, item_html, wikilink_url, PetaCore, PetaShell,
+};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
 use peta_core::effects::UiOp;
 use peta_core::Event;
-use peta_shell_native::ffi::{
-    copied_html, hashtag_url, item_html, wikilink_url, PetaCore, PetaShell,
-};
-use peta_shell_native::ShellEffectFfi;
 use std::sync::{Arc, Mutex};
 
 mod common;

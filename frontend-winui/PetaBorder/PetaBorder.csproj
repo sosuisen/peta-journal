@@ -16,8 +16,8 @@
     <!-- The core itself. The project of BoltFFI only packs it into its NuGet package, so it is
          copied from here to wherever this project is used. -->
     <Content
-      Include="..\generated\PetaCore\runtimes\win-x64\native\peta_shell_native.dll"
-      Link="peta_shell_native.dll"
+      Include="..\generated\PetaCore\runtimes\win-x64\native\client_shell_http.dll"
+      Link="client_shell_http.dll"
       CopyToOutputDirectory="PreserveNewest"
     />
     <!-- Reads the HTML of an item (ADR 028). -->
