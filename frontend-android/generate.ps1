@@ -19,7 +19,7 @@ finally { Pop-Location }
 # the app, and Gradle would compile the script as one of them
 Remove-Item "$here/generated/kotlin/build.gradle.kts"
 
-Push-Location (Join-Path $rust 'crates/shell-android')
+Push-Location (Join-Path $rust 'crates/client-shell-embedded')
 try {
     boltffi pack android --release
     exit $LASTEXITCODE

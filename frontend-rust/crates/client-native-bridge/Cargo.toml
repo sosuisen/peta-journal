@@ -6,7 +6,7 @@ license.workspace = true
 description = "PetaJournal native frontends: the Crux core behind a border of bytes, under the shells that are not written in Rust (ADR 024, ADR 036)"
 
 # No app links with this crate. The crates with an entrance for another language do:
-# `client-shell-http` and `peta-shell-android` (ADR 036)
+# `client-shell-http` and `client-shell-embedded` (ADR 036)
 
 [dependencies]
 peta-core = { path = "../core" }

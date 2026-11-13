@@ -6,7 +6,7 @@ for and opened, and its items are shown with their decoration. A touch on an ite
 Markdown, and the sync uploads the pages that changed in the app.
 
 The core is the same Crux core as in the other frontends. There is no journal server on a
-phone, so the journal core runs inside the app (ADR 029). `frontend-rust/crates/shell-android`
+phone, so the journal core runs inside the app (ADR 029). `frontend-rust/crates/client-shell-embedded`
 wraps both, and is packed here for iOS as it is for Android. Swift gets the view model and the
 requests of the screen as bytes (bincode), and sends events the same way. ADR 034 says what
 the iOS shell takes from the Android shell and where it differs. ADR 030 and ADR 031 say how
@@ -25,7 +25,7 @@ the app syncs, where it keeps its data, how it edits and how it uploads.
   ```
 
   The version has to be the same as the `boltffi` dependency in
-  `frontend-rust/crates/shell-android/Cargo.toml`.
+  `frontend-rust/crates/client-shell-embedded/Cargo.toml`.
 
 ## Build and test
 

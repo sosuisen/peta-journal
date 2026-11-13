@@ -451,7 +451,9 @@
   - AndroidとiOSの依存から、`client-api-http`が消えた（`cargo tree -p peta-shell-android`で見た）。`ureq`は、`lindera-dictionary`のビルドの依存としてだけ残る。辞書を取ってくるためのもので、最終のバイナリには入らない
   - `client-native-bridge`は、どのアプリとも結びつかない。`crate-type`を、既定の`lib`だけにした
   - `PetaShell`のtraitと`item_html`などの関数は、2つの入口に同じものが残る。BoltFFIの`export`は、最終のクレートに書くためである
-- [ ] 段4: `shell-android`（`peta-shell-android`）を、`client-shell-embedded`にする。フォルダーも変える
+- [x] 段4: `shell-android`（`peta-shell-android`）を、`client-shell-embedded`にする。フォルダーも変える（2026-11-13に行った）
+  - [ ] Androidの画面のテスト（`connectedDebugAndroidTest`）を、端末かエミュレーターで回す。アプリのビルドと、端末の要らないテストは通った。ライブラリは`libclient_shell_embedded.so`になった
+  - [ ] iOSのビルドとテストを、Macで確かめる。`frontend-ios/generate.sh`は、`client-shell-embedded`のフォルダーで`boltffi pack apple`を呼ぶようにした
   - AndroidとiOSの両方が使うようになったので、名前が合わなくなった（ADR 034）
   - 直すところ: Androidのライブラリの名前、AndroidとiOSの`generate`、`BUILD.md`、README
 - [ ] 段5: Emacsのシェルと、Webのシェルの名前を変える

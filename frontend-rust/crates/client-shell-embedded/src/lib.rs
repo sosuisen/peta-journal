@@ -1,5 +1,5 @@
-//! The core for the Android shell: the Crux core, and a journal core inside the app instead
-//! of a journal server (ADR 029). BoltFFI makes the Kotlin side of the entrance.
+//! The core for the Android and the iOS shell: the Crux core, and a journal core inside the app instead
+//! of a journal server (ADR 029, ADR 034). BoltFFI makes the Kotlin and the Swift side of the entrance.
 
 boltffi::scaffolding!();
 

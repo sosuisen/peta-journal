@@ -14,4 +14,4 @@ rm -rf "$here/generated"
 # the app, and Gradle would compile the script as one of them
 rm "$here/generated/kotlin/build.gradle.kts"
 
-(cd "$rust/crates/shell-android" && boltffi pack android --release)
+(cd "$rust/crates/client-shell-embedded" && boltffi pack android --release)

@@ -9,7 +9,7 @@ members = [
     "crates/shell-emacs",
     "crates/client-native-bridge",
     "crates/client-shell-http",
-    "crates/shell-android",
+    "crates/client-shell-embedded",
 ]
 
 [workspace.package]

@@ -1,9 +1,9 @@
 [package]
-name = "peta-shell-android"
+name = "client-shell-embedded"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "PetaJournal Android frontend: the Crux core with a journal core inside the app (ADR 029)"
+description = "PetaJournal native frontends: the Crux core with a journal core inside the app, for the Android and iOS shells (ADR 029, ADR 034)"
 
 [lib]
 crate-type = ["lib", "staticlib", "cdylib"]

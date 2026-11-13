@@ -6,7 +6,7 @@ their decoration. A touch on an item edits its Markdown, and the sync uploads th
 changed in the app (ADR 031).
 
 The core is the same Crux core as in the other frontends. There is no journal server on a
-phone, so the journal core runs inside the app (ADR 029). `frontend-rust/crates/shell-android`
+phone, so the journal core runs inside the app (ADR 029). `frontend-rust/crates/client-shell-embedded`
 wraps both for Kotlin. Kotlin gets the view model and the requests of the screen as bytes
 (bincode), and sends events the same way. ADR 030 says how the app syncs, where it keeps its
 data and how it draws an item. ADR 031 says how it edits and uploads.
@@ -24,7 +24,7 @@ data and how it draws an item. ADR 031 says how it edits and uploads.
   ```
 
   The version has to be the same as the `boltffi` dependency in
-  `frontend-rust/crates/shell-android/Cargo.toml`.
+  `frontend-rust/crates/client-shell-embedded/Cargo.toml`.
 
 ## Build and test
 

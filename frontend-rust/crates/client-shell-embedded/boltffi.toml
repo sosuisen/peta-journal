@@ -5,8 +5,8 @@
 # set ANDROID_NDK_HOME. For iOS, run `boltffi pack apple --release`.
 
 [package]
-name = "peta-shell-android"
-crate = "peta_shell_android"
+name = "client-shell-embedded"
+crate = "client_shell_embedded"
 
 # The iOS shell (ADR 034): a device, the simulator of a Mac with Apple silicon, and the Mac
 # itself. The slice for the Mac is for the tests of the shell that need no screen: `swift test`
