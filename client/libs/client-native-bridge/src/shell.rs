@@ -7,14 +7,15 @@ use client_core::effects::{
 };
 use client_core::rest::ClientId;
 use client_core::{Effect, Event, PetaApp, Route};
-use crux_core::bridge::{BincodeFfiFormat, BridgeError, EffectId};
+use crux_core::bridge::Request as BorderRequest;
+use crux_core::bridge::{BincodeFfiFormat, BridgeError, EffectId, FfiFormat};
 use crux_core::capability::Operation;
 use crux_core::effects::routes::Serialized;
 use crux_core::effects::{EffectRouter, ResolveSink, Routes};
 use crux_core::macros::effect;
 use crux_core::render::RenderOperation;
 use crux_core::{Core, Request};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread;
@@ -44,6 +45,27 @@ pub enum ShellEffect {
 
 type Router = EffectRouter<PetaApp, Lanes>;
 
+/// The way to the shell: bytes with a list of requests.
+type ToShell = Arc<dyn Fn(Vec<u8>) + Send + Sync>;
+
+/// The questions of the core to the user. The shell has one of them at a time: a dialog on
+/// the screen is in the way of everything else, and so is a second one above it.
+#[derive(Default)]
+struct Questions {
+    /// The number of the request with the question the shell has now.
+    asked: Option<u32>,
+    /// The questions behind it, oldest first.
+    later: VecDeque<Request<UiOp>>,
+}
+
+/// True for an operation that asks the user and waits for the answer.
+fn is_question(op: &UiOp) -> bool {
+    matches!(
+        op,
+        UiOp::Confirm(_) | UiOp::ConfirmDestructive(_) | UiOp::Prompt(_)
+    )
+}
+
 /// Where the effects go: over the border as bytes, or back to the core from this side.
 #[derive(Clone)]
 struct Lanes {
@@ -53,6 +75,7 @@ struct Lanes {
     timers: Arc<Mutex<HashMap<u64, Request<TimerOp>>>>,
     /// The way to the one thread that asks the server, once there is such a thread.
     to_server: Arc<Mutex<Option<Sender<Request<ApiOp>>>>>,
+    questions: Arc<Mutex<Questions>>,
 }
 
 impl Routes<PetaApp> for Lanes {
@@ -62,6 +85,7 @@ impl Routes<PetaApp> for Lanes {
             router,
             timers: Arc::default(),
             to_server: Arc::default(),
+            questions: Arc::default(),
         }
     }
 }
@@ -104,6 +128,36 @@ impl Lanes {
         let _ = queue.send(request);
     }
 
+    /// Sends a request over the border, and returns its number.
+    fn send(&self, to_shell: &ToShell, effect: ShellEffect) -> u32 {
+        let bytes = self.border.serialize(effect);
+        let bytes = bytes.expect("a request is always written");
+        let sent: Vec<BorderRequest<ShellEffectFfi>> =
+            BincodeFfiFormat::deserialize(&bytes).expect("what was written can be read");
+        to_shell(bytes);
+        sent[0].id.0
+    }
+
+    /// Gives the shell a question, or keeps it until the questions before it are answered.
+    fn ask(&self, to_shell: &ToShell, request: Request<UiOp>) {
+        let mut questions = self.questions.lock().unwrap();
+        if questions.asked.is_some() {
+            questions.later.push_back(request);
+        } else {
+            questions.asked = Some(self.send(to_shell, ShellEffect::Ui(request)));
+        }
+    }
+
+    /// The shell answered the request `id`. When that was its question, it gets the next one.
+    fn answered(&self, to_shell: &ToShell, id: u32) {
+        let mut questions = self.questions.lock().unwrap();
+        if questions.asked != Some(id) {
+            return;
+        }
+        let next = questions.later.pop_front();
+        questions.asked = next.map(|request| self.send(to_shell, ShellEffect::Ui(request)));
+    }
+
     fn time(&self, clock: &Arc<dyn Clock>, request: Request<TimerOp>) {
         match request.operation {
             TimerOp::Start { id, ms } => {
@@ -140,6 +194,7 @@ impl Lanes {
 pub struct NativeShell {
     router: Arc<Router>,
     clock: Arc<dyn Clock>,
+    to_shell: ToShell,
 }
 
 impl NativeShell {
@@ -155,12 +210,14 @@ impl NativeShell {
         let host = Arc::new(host);
         let clock: Arc<dyn Clock> = Arc::new(clock);
         let of_effects = clock.clone();
+        let to_shell: ToShell = Arc::new(to_shell);
+        let of_router = to_shell.clone();
         let router = EffectRouter::new(Core::<PetaApp>::new(), |lanes: Lanes| {
             let send = {
-                let border = lanes.border.clone();
+                let lanes = lanes.clone();
+                let to_shell = of_router.clone();
                 move |effect: ShellEffect| {
-                    let bytes = border.serialize(effect);
-                    to_shell(bytes.expect("a request is always written"));
+                    lanes.send(&to_shell, effect);
                 }
             };
             move |effect| match effect {
@@ -172,12 +229,19 @@ impl NativeShell {
                     let (local, now_ms) = of_effects.now();
                     lanes.answer(&mut request, UiOutput::Now { local, now_ms });
                 }
+                Effect::Ui(request) if is_question(&request.operation) => {
+                    lanes.ask(&of_router, request);
+                }
                 Effect::Ui(request) => send(ShellEffect::Ui(request)),
                 Effect::Navigate(request) => send(ShellEffect::Navigate(request)),
             }
         });
         router.update(Event::Start { client_id });
-        NativeShell { router, clock }
+        NativeShell {
+            router,
+            clock,
+            to_shell,
+        }
     }
 
     /// Takes an [`Event`] of the shell.
@@ -197,8 +261,15 @@ impl NativeShell {
 
     /// Takes the answer of the shell to the request `id`: the output of its operation. A request
     /// that only tells the shell something, such as a render, has no answer.
+    ///
+    /// The shell has one question of the core at a time (`UiOp::Confirm`,
+    /// `UiOp::ConfirmDestructive`, `UiOp::Prompt`). The next one comes after this answer.
     pub fn resolve(&self, id: u32, output: &[u8]) -> Result<(), BorderError> {
-        self.router.routes.border.resolve(EffectId(id), output)
+        let routes = &self.router.routes;
+        // What the core asks because of this answer goes behind the questions that wait
+        routes.border.resolve(EffectId(id), output)?;
+        routes.answered(&self.to_shell, id);
+        Ok(())
     }
 
     /// The whole [`ViewModel`](client_core::ViewModel), to draw after a render request.
