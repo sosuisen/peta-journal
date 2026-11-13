@@ -519,7 +519,7 @@
   - 上の「フロントエンドのクレートのリファクタ」は、`frontend-rust`のクレートを変える。ここは、その残りである。名前の決まりは、同じものを使う
   - ジャーナルの側のフォルダーも、接頭辞を外している（`journal-server-rust/crates/core`が`journal-core`）。パッケージの名前に合わせるかを決める
   - `hmtid`は、どちらの側でもない独立した部品である。変えるかは決めていない
-- [ ] `atlas-rust`を`atlas`に変え、アトラスを描くスクリプトを`atlas/web/`に移す（2026-11-13にユーザーが決めた）
+- [x] 2026-11-13 `atlas-rust`を`atlas`に変え、アトラスを描くスクリプトを`atlas/web/`に移す（2026-11-13にユーザーが決めた）
   - きっかけは、sosuisen.netの同期である。サイトは、`atlas.js`と`pixi.min.js`を`frontend-rust/crates/shell-leptos`からコピーしていた。クレートが`client-shell-leptos`になって、コピーが止まった。サイトがシェルのクレートの場所に頼らない形にする
   - 理由。シーンのJSONは、書く側（Rust）と描く側（`atlas.js`）の間の約束である。同じフォルダーにあれば、1つのPRで両方を変えられる。`pixi.min.js`が要るのは`atlas.js`であり、シェルではない。フォルダーを切り出すとき（ADR 003）に、描く側も履歴ごと付いていく
   - 目標の形は、次のとおりである。Rustのコードは、`atlas/src/`のままにする
@@ -540,10 +540,11 @@
     - ADR 003は、書いた時点の記録なので書き換えない。フォルダーの名前と`web/`は、新しいADRに書く
     - `journal-server-rust/crates/server/tests/it/frontend.rs`の`…/src/components/atlas.js`は、配るファイルの名前の例である。変えない
   - 2026-11-13に確かめたこと。`atlas`のテスト（28個）、`frontend-rust`のテスト（735個）、`journal-server-rust`のテスト、wasm向けの`cargo check`が通った。Web版でアトラスを開き、描画と右クリックのメニュー（`pixi-ui.js`）を見た。4つのスクリプトは、`dist`から読まれていた。Playwrightは、88個のうち87個が通った。落ちた1個は、前からWindowsで落ちているCtrl+Cのテストである。アトラスだけを確かめるE2Eのテストは、まだない
-  - [ ] sosuisen.netの側で直すところ（別のリポジトリ。PetaJournalの変更を`main`に入れたあとに行う）
+  - [x] 2026-11-13 sosuisen.netの側で直すところ（別のリポジトリ。PetaJournalの変更を`main`に入れたあとに行う）。sosuisen/sosuisen_net#17で直した。マージのあと、ユーザーが`npm run sync`を回し、通った
     - `tools/fm2html/Cargo.toml`のパス依存: `../../../../PetaJournal/peta-journal/atlas-rust`を、`…/peta-journal/atlas`にする
     - `scripts/sync-posts.mjs`の`ATLAS_SCRIPT_SOURCE_DIR`: `frontend-rust/crates/client-shell-leptos`を、`atlas/web`にする。`ATLAS_SCRIPTS`は、ファイルの名前だけ（`pixi.min.js`、`atlas.js`）にする。すぐ上のコメントも直す
     - `docs/post-file-naming.md`の、スクリプトのコピー元と`peta-atlas`の場所を書いた行
+    - `public/atlas/atlas.js`には、差分が出た。`atlas.js`の先頭のコメントの2行を直したためである。コードは同じである。`pixi.min.js`には、差分が出なかった
     - 2つの変更の間は、サイトの`npm run sync`が道具をビルドできない。サイトは、コミット済みの生成物でビルドできるので、公開には響かない
   - 確かめ方: `atlas`のテスト、`journal-server-rust`と`frontend-rust`のテスト、wasm向けの`cargo check`、`build-frontend`を回す。Web版でアトラスを開き、描画とダイアログ（`pixi-ui.js`）を見る。E2Eのアトラスのテストも回す。サイトでは、`npm run sync`を回し、`public/atlas/`の2つのファイルに差分が出ないことを見る
 
