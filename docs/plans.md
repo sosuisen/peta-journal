@@ -282,6 +282,7 @@
   - [ ] `shell-leptos`のwasmの大きさを、前後で比べる。見積もりは数KB以下である
   - スクロールやカーソルの位置を戻す、履歴を保存する、は入れない。足すときは、置き場所を決め直す（ADR 035の見直す条件）
 - [ ] ネイティブのシェルで、画像を貼り付けられるようにする。今は、`ApiOp::UploadAsset`がエラーになる。ファイルをシェルからRust側へ渡す方法を決める
+- [ ] `stickies-win`と`stickies-mac`で、画像を絵として出す（2026-11-14にユーザーが足した）。今は、代わりの文字か、ファイルの場所を、角かっこで出す（ADR 025）。iOSとAndroidは、もう絵として出す
 - [ ] ネイティブのシェルを閉じるときに、保存を待っている本文を保存する。`shell-emacs`の`shutdown`にあたるものが、まだない
 - [ ] コアの内部のイベントを、ネイティブのシェルから見えなくする（改善案、2026-11-13）
   - コアをMVVMにする案と比べたときに出た。コアはCruxのままにして、MVVMの良い点だけを取る
@@ -435,6 +436,28 @@
   - フォルダーの名前を、そのままパッケージの名前にはできない。`web-app/outliner`と`emacs/outliner`が、同じ名前になる。Cargoは、1つのワークスペースに同じ名前のパッケージを置けない。種類を付けた名前（たとえば`outliner-web`と`outliner-emacs`）が要る。名前は、まだ決めていない
   - `memoview-win`の設定は、`~/.peta-stickies`にある。固定のパスなので、中の名前を変えても読める。このフォルダーの名前を変えるかも決める
   - wasmのファイルの名前と、Emacsの実行ファイルの名前が、また変わる。使う人は、もう一度ビルドし直す
+  - 2026-11-13にユーザーが決めたこと
+    - `memoview-win`の中のフォルダー（`stickies`、`stickies-tests`）も、この改名で一緒に整理する
+    - AndroidとiOSのアプリのIDを、`net.sosuisen.petajournal`から`com.sosuisha.petajournal`にする。`net.sosuisen`は、2026-11-12にAndroidのシェルを足したときに入った。選んだ理由の記録は、ADRにもコミットにもない
+  - アプリのIDを変えるときに直すところ
+    - Android: `app/build.gradle.kts`の`namespace`と`applicationId`、Kotlinのパッケージとフォルダー（`main`の27個、`androidTest`の14個、`test`の9個のファイル）、`debug.ps1`と`debug.sh`、`README.md`
+    - iOS: `project.yml`の`bundleIdPrefix`と`PRODUCT_BUNDLE_IDENTIFIER`、`debug.sh`
+    - 生成するKotlinのパッケージ: `client-native-bridge`の`codegen.rs`（`KOTLIN_PACKAGE`）とそのテスト、`client-shell-embedded`の`boltffi.toml`、`BUILD.md`
+    - Dropboxのサインインの戻り先は、App keyで決まる（`db-<App key>`）。アプリのIDには頼らない
+    - 端末は、IDの違うアプリを別のアプリとして扱う。古いアプリは手で消す。アプリのデータはDropboxの写しなので（ADR 030）、新しいアプリでサインインし直せば戻る
+    - Cargoのパッケージの名前は、`outliner-web`（今の`client-shell-leptos`）と`outliner-emacs`（今の`client-shell-emacs`）にする
+    - `stickies-mac`の`bundleIdPrefix`（今は`petajournal`）も、`com.sosuisha`にそろえる
+    - `Peta`で始まる部品の名前（`PetaBorder`、`PetaSync`、`PetaDropbox`、`PetaScreens`、生成する`PetaCore`と`PetaTypes`）は、変えない
+    - `stickies-win`と`stickies-mac`の実行ファイルの名前（`PetaStickies`）は、変えない
+    - `memoview-win`の中は、フォルダーを`memoview`と`memoview-tests`に、プロジェクトを`MemoView.csproj`に、名前空間を`MemoView`にする。設定のファイル（`~/.peta-stickies`）は、変えない
+    - 名前の順は、見る人で決まる。開発者が見るフォルダーは、環境を前に置く。使う人が見るアプリの名前は、環境を後ろに置く
+    - PRは分ける。決定は、ADR 040に記録した。新しい名前の表と、変えない名前は、ADR 040にある
+  - 改名のPR（ADR 040）。1つのPRは、1つのビルドの単位を閉じる
+    - [ ] `outliner-web`と`outliner-emacs`。Cargoのワークスペース、`build-frontend`、Trunk、Playwrightの設定、Emacsの実行ファイルの名前を直す。`e2e`のnpmの名前も、ここで`outliner-web-e2e`にする
+    - [ ] `memoview-win`の中のフォルダー、プロジェクト、名前空間
+    - [ ] アプリのID。Android、iOS、`stickies-mac`、生成するKotlinのパッケージ。Gradleのプロジェクトの名前も、ここで`outliner-android`にする。AndroidとiOSは、実機でDropboxのサインインを確かめる
+    - [ ] `todo`のnpmの名前を、`todo`にする
+    - [ ] 改名のあとの図（`docs/frontend-architecture-renamed.svg`）を、`docs/frontend-architecture.svg`と差し替える。改名がすべて済んでから行う。それまでは、`frontend-architecture.svg`が今の状態の図である
 
 ## CI
 
