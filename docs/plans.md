@@ -280,7 +280,12 @@
 - [ ] iOSのシェルを、本物のDropboxで確かめる（ADR 034）。App keyを`frontend-ios/Dropbox.xcconfig`に置き、サインイン、最初の同期、編集のあとのアップロード、サインアウトを見る。シミュレーターでは、ブラウザーでのサインインになる
 - [ ] iOSのシェルを、実機で確かめる。日本語の入力、後ろに回ったときの同期、Dropboxのアプリでのサインイン（Androidでは失敗した。ADR 033）を見る
 - [ ] iOSのシェルの、同期の表示（メニュー、前面の同期のダイアログ、下の吹き出し、サインインのボタン）に、画面のテストを書く。今は、テストの中のアプリは同期をしない
-- [ ] `shell-android`のクレートの名前を、中身に合わせて変える（たとえば`shell-embedded`）。AndroidとiOSの両方が使うようになった（ADR 034）
+- [ ] `shell-android`のクレートの名前を、`shell-embedded`に変える（2026-11-13にユーザーが決めた）。AndroidとiOSの両方が使うようになった（ADR 034）
+  - [ ] クレートを`shell-embedded`（`peta-shell-embedded`）に変える。Androidのライブラリの名前、両方の`generate`、`BUILD.md`、READMEも合わせる。ADR 029から034は、書いた時点の記録なので書き換えない
+  - [ ] `embedded-journal`を、`journal-embedded`に変える
+  - [ ] `docs/frontend-architecture.svg`の名前を、2つとも変える
+  - [ ] 図の中の`shell-embedded`どうしと、`journal-embedded`どうしを、ほかの共通のライブラリと同じように、同じ色のリボンで結ぶ
+- [ ] Swiftのフォーマッターとlintを足す（2026-11-13にユーザーが決めた）。`frontend-ios`と`frontend-swiftui`には、まだどちらもない。道具を決め、設定をリポジトリに置く
 
 ## リポジトリの構成
 
