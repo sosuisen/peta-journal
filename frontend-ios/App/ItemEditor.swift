@@ -81,13 +81,32 @@ struct ItemEditor: UIViewRepresentable {
     /// A field that takes the keyboard as soon as it is on the screen.
     final class Field: UITextView {
         private var wanted = false
-        /// True when the field left the screen with the keyboard. The user did not end the
-        /// edit then.
-        fileprivate private(set) var left = false
+        /// The field that has the keyboard, if one has.
+        fileprivate static weak var holder: Field?
+        /// True from the moment the field lost the keyboard until the main queue comes round.
+        /// A field that the list takes off the screen loses the keyboard just before it goes
+        private var justLost = false
 
         func takeTheKeyboard() {
             wanted = true
             if window != nil { becomeFirstResponder() }
+        }
+
+        override func becomeFirstResponder() -> Bool {
+            let got = super.becomeFirstResponder()
+            if got { Field.holder = self }
+            return got
+        }
+
+        override func resignFirstResponder() -> Bool {
+            let had = isFirstResponder
+            let gone = super.resignFirstResponder()
+            if gone, Field.holder === self { Field.holder = nil }
+            if gone, had {
+                justLost = true
+                DispatchQueue.main.async { [weak self] in self?.justLost = false }
+            }
+            return gone
         }
 
         override func didMoveToWindow() {
@@ -99,11 +118,14 @@ struct ItemEditor: UIViewRepresentable {
             // The field leaves the screen with the keyboard, as after Enter: the field of the
             // new item is not there yet. Nobody would have the keyboard, and what is typed
             // meanwhile would be lost
-            if next == nil, isFirstResponder {
-                left = true
-                let typist = delegate as? Typist
-                typist?.leaves(at: selectedRange.location)
-                KeyboardKeeper.onScreen?.keep { typist?.nobodyCame() }
+            // The list also takes the field of the edited item off the screen when the
+            // keyboard comes up over the item. The system takes the keyboard from the field
+            // first, on a device. The keeper has the keyboard until the item is back in what
+            // is seen. Not when the user gave the keyboard to another field, as the search
+            let typist = delegate as? Typist
+            if next == nil, let typist, typist.edits, isFirstResponder || (justLost && UIResponder.withKeyboard == nil) {
+                typist.leaves(at: selectedRange.location)
+                KeyboardKeeper.onScreen?.keep { typist.nobodyCame() }
             }
             super.willMove(toWindow: next)
         }
@@ -124,6 +146,12 @@ struct ItemEditor: UIViewRepresentable {
         /// Where the cursor was in the field that left the screen with the keyboard, and of
         /// which item the field was.
         fileprivate static var left: (itemId: String, cursor: Int)?
+
+        /// Whether an item is edited now, or the core moves the edit to another item.
+        fileprivate var edits: Bool {
+            let outline = shell.view.outline
+            return outline.keyRelayHolding || outline.rows.contains(where: \.isEditing)
+        }
 
         fileprivate func leaves(at cursor: Int) {
             Typist.left = (itemId, cursor)
@@ -208,13 +236,15 @@ struct ItemEditor: UIViewRepresentable {
         }
 
         func textViewDidEndEditing(_ field: UITextView) {
-            // A field that left the screen did not end the edit: the keeper has the keyboard
-            // for the field that comes next
-            if (field as? Field)?.left == true { return }
             let id = itemId
-            // The field may lose the keyboard while the screen is drawn, and the shell tells
-            // the screen of every change
-            DispatchQueue.main.async { [shell] in shell.finish(id) }
+            // Not now: the field may lose the keyboard while the screen is drawn, and the
+            // shell tells the screen of every change
+            DispatchQueue.main.async { [shell] in
+                // The list took the field off the screen, and the edit goes on: the field is
+                // back with the keyboard, or the keeper has the keyboard for it
+                if Field.holder != nil || KeyboardKeeper.onScreen?.isFirstResponder == true { return }
+                shell.finish(id)
+            }
         }
     }
 }
@@ -283,5 +313,20 @@ final class KeyboardKeeper: UITextView, UITextViewDelegate {
     func textView(_ keeper: UITextView, shouldChangeTextIn range: NSRange, replacementText typed: String) -> Bool {
         ItemEditor.Typist.held += typed
         return false
+    }
+}
+
+extension UIResponder {
+    private static weak var found: UIResponder?
+
+    /// Who has the keyboard now, if anyone has.
+    static var withKeyboard: UIResponder? {
+        found = nil
+        UIApplication.shared.sendAction(#selector(tellOfTheKeyboard), to: nil, from: nil, for: nil)
+        return found
+    }
+
+    @objc private func tellOfTheKeyboard() {
+        UIResponder.found = self
     }
 }
