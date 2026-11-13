@@ -309,10 +309,9 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [ ] 同期のコールアウトを、画面の下端ではなく、上端に出す（2026-11-13にユーザーが決めた）。iOSのシェルも同じにする
   - 入力は、いちばん下の行ですることが多い。下端のコールアウトは、打っている行に重なる（2026-11-13にユーザーがiPhoneで見た）
 - [ ] Androidのシェルも、Dropboxのアプリを通してサインインする（2026-11-13にユーザーが決めた）。今は、いつもブラウザーでサインインする（ADR 033）
-  - ADR 033の失敗の原因は、おそらくDropboxのアプリの登録にあったTeam Scopeである。`team_data.member`にチェックが入っていた。iPhoneでは、これを外すと、Dropboxのアプリでのサインインが通った（2026-11-13にユーザーが実機で確かめた）。Androidでは、まだ確かめていない
-  - [ ] `AndroidManifest.xml`の、SDKの`queries`を取り除く記述を消す。実機で、サインアウトのあとのサインインと、Dropboxのアプリがサインアウトしているときのサインインを見る
-  - [ ] 通ったら、ADR 033を置き換えるADRを書く。`client/apps/native-app/outliner-android/README.md`とマニフェストのコメントも直す
-  - [ ] 通らなかったら、ブラウザーのままにし、ADR 033に分かったことを足す
+  - ADR 033の失敗の原因は、Dropboxのアプリの登録にあったTeam Scopeである（2026-11-14にユーザーが確かめたと伝えた）。`team_data.member`にチェックが入っていた。iPhoneでは、これを外すと、Dropboxのアプリでのサインインが通った（2026-11-13にユーザーが実機で確かめた）
+  - [ ] `AndroidManifest.xml`の、SDKの`queries`を取り除く記述を消す
+  - [ ] ADR 033を置き換えるADRを書く。`client/apps/native-app/outliner-android/README.md`とマニフェストのコメントも直す
 - [ ] Androidのシェルを作る。最初の版は、Dropboxからの取り込み、検索、ページの表示までである。編集とアップロードは、次の版にする
   - ファイルは、Dropbox SDKでAPIを通して取る。Dropbox SDKは、PCのDropboxアプリの役をする。アプリ内のフォルダーとDropboxの間で、ファイルを運ぶだけである
   - Android SDK、AVD、Gradleのキャッシュは、`D:\Android`にある（2026-11-11に移した）。元の場所には、ジャンクションを残してある
