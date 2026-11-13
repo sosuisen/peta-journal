@@ -427,7 +427,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text class="th" x="36" y="780" dominant-baseline="central">要求の組み立て</text>
 <text x="176" y="780" dominant-baseline="central">1つの操作を、サーバへの書き込み要求1つにします。未保存の本文も、その要求に載せます。RESTのリクエストと応答の読み方を作り、送るのはシェルに任せます。</text>
 <text class="th" x="36" y="802" dominant-baseline="central">結果の反映</text>
-<text x="176" y="802" dominant-baseline="central">サーバから返ってきた結果を画面の状態へ反映させ、カーソルの行き先を決め、Undoの記録を作ります。字下げと折りたたみは、結果を待たずに先に画面を変えます。</text>
+<text x="176" y="802" dominant-baseline="central">サーバから返ってきた結果を画面の状態へ反映させ、カーソルの行き先を決め、Undoの記録を作ります。字下げと折りたたみは操作感を高めるため、結果を待たずに先に画面を変えます。</text>
 <text class="th" x="36" y="824" dominant-baseline="central">画面の状態</text>
 <text x="176" y="824" dominant-baseline="central">アウトラインの木、選択範囲、カーソルの位置、未保存の本文、Undo・Redoの履歴を持ちます。Undoは手元で変更を戻し、サーバには1つの要求で伝えます。</text>
 <text class="th" x="36" y="846" dominant-baseline="central">保存と同期</text>
