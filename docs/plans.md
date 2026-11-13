@@ -39,7 +39,7 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [x] 段階5：journalから`ast`を外す。DBの列、`ItemPatch`、MCP。RESTは、応答を作るときに本文から作る
   - DBは版5で`items.ast`の列を消す。ハッシュタグとバックリンクは、要るときに本文を解析して取り出す
   - 書き出しの応答からも`ast`を外した。coreは、コピーのASTを自分で作る（段階4）
-- [ ] 仕上げ：flatmarkdown 0.8をcrates.ioとnpmに公開し、`Cargo.toml`を公開した版の参照に戻す。todoとmemoviewも新しい版に上げる
+- [x] 仕上げ：flatmarkdown 0.8をcrates.ioとnpmに公開し、`Cargo.toml`を公開した版の参照に戻す。todoとmemoviewも新しい版に上げる
 
 ## APIの方針：RESTとMCP
 
