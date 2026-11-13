@@ -9,7 +9,7 @@ import org.junit.runner.RunWith
 
 /** The text of an item whose AST gives nothing to show. */
 @RunWith(AndroidJUnit4::class)
-class ShownBlocksTest {
+class ShownTextTest {
     private fun item(body: String, ast: String) = Item(
         id = "i",
         pageId = "p",
