@@ -308,16 +308,14 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 表示はMarkdownを整形したもので、編集するのは元のMarkdownである。記号（`**`、リンク、タスクの印など）の分だけ、触れた位置と元の文字の位置がずれる。表示の位置から元の位置を求める方法を、先に決める
 - [ ] 同期のコールアウトを、画面の下端ではなく、上端に出す（2026-11-13にユーザーが決めた）。iOSのシェルも同じにする
   - 入力は、いちばん下の行ですることが多い。下端のコールアウトは、打っている行に重なる（2026-11-13にユーザーがiPhoneで見た）
-- [ ] Androidのシェルも、Dropboxのアプリを通してサインインする（2026-11-13にユーザーが決めた）。今は、いつもブラウザーでサインインする（ADR 033）
-  - ADR 033の失敗の原因は、おそらくDropboxのアプリの登録にあったTeam Scopeである。`team_data.member`にチェックが入っていた。iPhoneでは、これを外すと、Dropboxのアプリでのサインインが通った（2026-11-13にユーザーが実機で確かめた）。Androidでは、まだ確かめていない
-  - [ ] `AndroidManifest.xml`の、SDKの`queries`を取り除く記述を消す。実機で、サインアウトのあとのサインインと、Dropboxのアプリがサインアウトしているときのサインインを見る
-  - [ ] 通ったら、ADR 033を置き換えるADRを書く。`client/apps/native-app/outliner-android/README.md`とマニフェストのコメントも直す
-  - [ ] 通らなかったら、ブラウザーのままにし、ADR 033に分かったことを足す
-- [ ] Androidのシェルを作る。最初の版は、Dropboxからの取り込み、検索、ページの表示までである。編集とアップロードは、次の版にする
+- [ ] Androidのシェルを作る。ほとんど終わっている（2026-11-14にユーザーが言った）。Dropboxからの取り込み、検索、ページの表示、編集、Markdownのページのアップロードがある
   - ファイルは、Dropbox SDKでAPIを通して取る。Dropbox SDKは、PCのDropboxアプリの役をする。アプリ内のフォルダーとDropboxの間で、ファイルを運ぶだけである
   - Android SDK、AVD、Gradleのキャッシュは、`D:\Android`にある（2026-11-11に移した）。元の場所には、ジャンクションを残してある
-  - [ ] `client/apps/native-app/outliner-android`を作る
+  - [x] 2026-11-14 `client/apps/native-app/outliner-android`を作る
     - 本文の検索は、語の単位で合わせる。語の一部（「富士山」に対する「富士」、「登りました」に対する「登り」）では見つからない。不具合ではなく、直さないと決めた（ADR 032、2026-11-12）
+  - [ ] ファイルのアップロードの機能を足す。ないのはこれだけである（2026-11-14にユーザーが言った）。iOSのシェルも同じである
+    - Markdownのページのアップロードは、もうある（`Uploader`、ADR 031）。同期が上げるのはMarkdownのファイルだけで、`assets`のファイルは上げない（`client/apps/native-app/outliner-android/README.md`）
+    - 画像の貼り付けは、「ネイティブのシェルに共通」の項目にある（`ApiOp::UploadAsset`）
   - [ ] Androidでページを作れるようにするときに、拡張関数を入れるかを見直す（ADR 029のAlternative 7）。`rquickjs`の`bindgen`には、LLVMが要る
     - 後回しにする（2026-11-12にユーザーが決めた。ADR 031）。スマホで作るページには、テンプレートの項目が入らない
 
@@ -348,8 +346,9 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [ ] 同期のコールアウトを、画面の下端ではなく、上端に出す（2026-11-13にユーザーが決めた）。Androidのシェルも同じにする
   - 入力は、いちばん下の行ですることが多い。下端のコールアウトは、打っている行に重なる（2026-11-13にユーザーがiPhoneで見た）
 - [ ] iOSのシェルを、本物のDropboxで確かめる（ADR 034）。App keyを`client/apps/native-app/outliner-ios/Dropbox.xcconfig`に置き、サインイン、最初の同期、編集のあとのアップロード、サインアウトを見る。シミュレーターでは、ブラウザーでのサインインになる
-- [ ] iOSのシェルを、実機で確かめる。日本語の入力、後ろに回ったときの同期を見る
-  - Dropboxのアプリでのサインインは、通った（2026-11-13にユーザーがiPhoneで確かめた）。Dropboxのアプリの登録にTeam Scope（`team_data.member`）があると、「Mobile authorization does not support team authorized scopes.」で失敗する。外すと通る（`client/apps/native-app/outliner-ios/README.md`）
+- [ ] ファイルのアップロードの機能を足す（2026-11-14にユーザーが言った）。Androidのシェルも同じである
+  - Markdownのページのアップロードは、もうある（`Uploader`、ADR 031）。同期が上げるのはMarkdownのファイルだけで、`assets`のファイルは上げない（`MarkdownFolder.pages`）
+  - 画像の貼り付けは、「ネイティブのシェルに共通」の項目にある（`ApiOp::UploadAsset`）
 - [ ] iOSのシェルの、同期の表示（メニュー、前面の同期のダイアログ、下の吹き出し、サインインのボタン）に、画面のテストを書く。今は、テストの中のアプリは同期をしない
 - [ ] Swiftのフォーマッターとlintを足す（2026-11-13にユーザーが決めた）。`client/apps/native-app/outliner-ios`と`client/apps/native-app/stickies-mac`には、まだどちらもない。道具を決め、設定をリポジトリに置く
 
