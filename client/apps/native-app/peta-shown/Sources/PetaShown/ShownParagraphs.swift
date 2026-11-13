@@ -1,5 +1,4 @@
 import Foundation
-import PetaCore
 import PetaTypes
 
 /// How the letters of a piece look.
@@ -67,14 +66,14 @@ public struct ShownParagraph: Equatable {
 }
 
 /// The paragraphs of the text of these nodes of the AST: blocks, as in a document.
-public func shownParagraphs(of nodes: [Node], tagsDir: String) -> [ShownParagraph] {
-    var writer = ParagraphWriter(tagsDir: tagsDir)
+public func shownParagraphs(of nodes: [Node], links: PageLinks) -> [ShownParagraph] {
+    var writer = ParagraphWriter(links: links)
     writer.blocks(nodes)
     return writer.paragraphs
 }
 
 /// The children of a node, and none for a leaf.
-func children(of node: Node) -> [Node] {
+public func children(of node: Node) -> [Node] {
     switch node {
     case .document(let children), .paragraph(let children), .heading(_, let children),
         .blockQuote(let children), .multilineBlockQuote(let children), .list(_, _, _, _, let children),
@@ -107,7 +106,7 @@ private func footnoteLabel(_ name: String) -> String {
 }
 
 private struct ParagraphWriter {
-    let tagsDir: String
+    let links: PageLinks
     private(set) var paragraphs: [ShownParagraph] = []
 
     /// The paragraph that takes the next text, or nil between two paragraphs.
@@ -119,8 +118,8 @@ private struct ParagraphWriter {
     /// What the next paragraph starts with, such as the label of a footnote.
     private var lead: String?
 
-    init(tagsDir: String) {
-        self.tagsDir = tagsDir
+    init(links: PageLinks) {
+        self.links = links
     }
 
     mutating func blocks(_ nodes: [Node]) {
@@ -155,7 +154,7 @@ private struct ParagraphWriter {
             finish()
             depth += 1
             for (index, entry) in entries.enumerated() {
-                mark = PetaBorder.mark(of: entry, ordered: listType == .ordered, number: Int(start) + index)
+                mark = PetaShown.mark(of: entry, ordered: listType == .ordered, number: Int(start) + index)
                 block(entry)
                 // An entry without text of its own leaves its mark to no other paragraph
                 finish()
@@ -227,8 +226,8 @@ private struct ParagraphWriter {
         case .spoileredText(let children): inside(children, .hidden)
         case .code(let literal): append(literal, looks: looks.union(.code), link: link)
         case .link(let url, _, let children): inside(children, link: url)
-        case .wikilink(let url, let children): inside(children, link: pageUrl(page: url))
-        case .hashtag(let value): append("#" + value, looks: looks, link: tagUrl(tagsDir: tagsDir, tag: value))
+        case .wikilink(let url, let children): inside(children, link: links.page(url))
+        case .hashtag(let value): append("#" + value, looks: looks, link: links.tag(value))
         case .embed(let url, _, _, _):
             // An image that has no part of its own shows what stands for it. One of the web is
             // a link to its address

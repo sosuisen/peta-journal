@@ -16,7 +16,9 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "generated/PetaCore"),
-        .package(path: "generated/swift/PetaTypes"),
+        // The types of the border, from the package that both apps share
+        .package(path: "../peta-shown/generated/swift/PetaTypes"),
+        .package(path: "../peta-shown"),
         .package(url: "https://github.com/dropbox/SwiftyDropbox.git", exact: "10.2.4"),
     ],
     targets: [
@@ -34,6 +36,7 @@ let package = Package(
             name: "PetaBorder",
             dependencies: [
                 "PetaSync",
+                .product(name: "PetaShown", package: "peta-shown"),
                 .product(name: "PetaCore", package: "PetaCore"),
                 .product(name: "PetaTypes", package: "PetaTypes"),
             ]

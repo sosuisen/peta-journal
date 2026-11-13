@@ -1,6 +1,4 @@
 import Foundation
-import PetaCore
-import PetaSync
 import PetaTypes
 
 /// One part of an item as it is shown, from top to bottom.
@@ -59,15 +57,29 @@ public struct ShownEntry: Equatable {
 /// A list or a quote that holds one of these parts cannot be one text. It is taken apart, and
 /// what is in it is read the same way. A list or a quote that holds none stays in the text.
 ///
-/// A link to a page and a tag have the URL of their page as their link, such as
-/// `/pages/notes`, encoded as a web address is. The page of a tag is under `tagsDir`.
-public func shownBlocks(ast: Node, tagsDir: String) -> [ShownBlock] {
-    Reader(tagsDir: tagsDir).read(children(of: ast))
+/// A link to a page and a tag have the URL of their page in the app as their link, such as
+/// `/pages/notes`, as `links` writes it.
+public func shownBlocks(ast: Node, links: PageLinks) -> [ShownBlock] {
+    Reader(links: links).read(children(of: ast))
+}
+
+/// How the link of an item to a page and to a tag is written: as the URL of the page in the
+/// app, such as `/pages/notes`. The core writes it, and each app has a core of its own.
+public struct PageLinks {
+    /// The URL of the page of a wikilink, from the page that the link names.
+    let page: (String) -> String
+    /// The URL of the page of a hashtag, from the tag without its `#`.
+    let tag: (String) -> String
+
+    public init(page: @escaping (String) -> String, tag: @escaping (String) -> String) {
+        self.page = page
+        self.tag = tag
+    }
 }
 
 public enum ShownText {
     /// What the links of an item are relative to. A link to a page, such as `/pages/notes`,
-    /// has no address of its own: the app has no server.
+    /// has no address of its own: it opens in the app.
     public static let base = URL(string: "peta-journal://app/")!
 }
 
@@ -105,17 +117,22 @@ public enum LinkTarget: Equatable {
 public func assetPath(_ address: String) -> String? {
     let file = address.components(separatedBy: "#")[0]
     let path = String((file.removingPercentEncoding ?? file).drop { $0 == "." || $0 == "/" })
-    return path.lowercased().hasPrefix(MarkdownFolder.assets) ? path : nil
+    return path.lowercased().hasPrefix(assets) ? path : nil
 }
 
+/// The folder of the files of the pages, such as images, under the Markdown folder. The sync
+/// of the iOS app names it too (`MarkdownFolder.assets`): it knows nothing of what is shown.
+private let assets = "assets/"
+
+
 private final class Reader {
-    private let tagsDir: String
+    private let links: PageLinks
     private var blocks: [ShownBlock] = []
     /// The nodes since the last block of its own kind, which become one text together.
     private var others: [Node] = []
 
-    init(tagsDir: String) {
-        self.tagsDir = tagsDir
+    init(links: PageLinks) {
+        self.links = links
     }
 
     /// The parts of these nodes: those of the document, of an entry of a list, or of a quote.
@@ -148,7 +165,7 @@ private final class Reader {
     }
 
     private func within(_ nodes: [Node]) -> [ShownBlock] {
-        Reader(tagsDir: tagsDir).read(nodes)
+        Reader(links: links).read(nodes)
     }
 
     private func entries(_ entries: [Node], ordered: Bool, from first: Int) -> [ShownEntry] {
@@ -183,7 +200,7 @@ private final class Reader {
             if case .paragraph = $0 { return plainText($0).allSatisfy(\.isWhitespace) }
             return false
         }
-        if !blank { blocks.append(.text(shownParagraphs(of: others, tagsDir: tagsDir))) }
+        if !blank { blocks.append(.text(shownParagraphs(of: others, links: links))) }
         others = []
     }
 
@@ -193,7 +210,7 @@ private final class Reader {
         return ShownTableRow(
             header: header,
             cells: cells.map { cell in
-                shownParagraphs(of: [.paragraph(children: children(of: cell))], tagsDir: tagsDir).first
+                shownParagraphs(of: [.paragraph(children: children(of: cell))], links: links).first
                     ?? ShownParagraph()
             })
     }
