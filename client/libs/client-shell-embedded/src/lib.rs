@@ -80,6 +80,8 @@ pub struct PetaCore {
     shell: NativeShell,
     core: JournalCore,
     door: Arc<Door>,
+    /// The file with the URL of the screen opened last, for the next time the app opens.
+    last: PathBuf,
 }
 
 impl Drop for PetaCore {
@@ -136,6 +138,7 @@ impl PetaCore {
             }),
             core,
             door,
+            last: data_dir.join("last-screen"),
         })
     }
 
@@ -177,21 +180,34 @@ impl PetaCore {
 
     /// Opens what the URL names, such as `/pages/notes` or `/today`. A page that is not there
     /// is an error, and it is not made. It is for a link in a page: a touch by mistake must
-    /// not put an empty page into Dropbox (ADR 031).
+    /// not put an empty page into Dropbox (ADR 031). The error is the name of the page that
+    /// is not there, for the shell to offer to make it.
     pub fn open(&self, url: String) -> Result<(), String> {
-        let nothing = format!("nothing to open at {url:?}");
         match Route::parse_url(&url) {
-            Some(route) if self.is_there(&route) => self.shell.open(&url).ok().ok_or(nothing),
-            _ => Err(nothing),
+            Some(route) if self.is_there(&route) => self.opened(&url),
+            _ => Err(page_of(&url)),
         }
     }
 
     /// Opens what the URL names, and makes the page or the journal when it is not there
-    /// (ADR 031). It is for the user who asked for a new page. The error says that the URL
-    /// names nothing.
+    /// (ADR 031). It is for the user who asked for a new page. The error, when the URL names
+    /// nothing, is the name of the page as `open` gives it.
     pub fn open_or_make(&self, url: String) -> Result<(), String> {
-        let opened = self.shell.open(&url);
-        opened.ok().ok_or(format!("nothing to open at {url:?}"))
+        self.opened(&url)
+    }
+
+    /// The URL of the screen opened last, even before the app was closed. None when nothing
+    /// was opened yet.
+    pub fn last_screen(&self) -> Option<String> {
+        std::fs::read_to_string(&self.last).ok()
+    }
+
+    /// Opens the URL, and keeps it as the last screen when it opened.
+    fn opened(&self, url: &str) -> Result<(), String> {
+        self.shell.open(url).map_err(|_| page_of(url))?;
+        // Not an error: the app opens the journal of today next time instead
+        let _ = std::fs::write(&self.last, url);
+        Ok(())
     }
 
     /// True when the route shows without a new page. The core makes the page of a route
@@ -227,6 +243,13 @@ impl PetaCore {
     pub fn view(&self) -> Vec<u8> {
         self.shell.view()
     }
+}
+
+/// The name of the page that the URL names: its path under `/pages/`, without the fragment.
+/// Another URL, such as `/today`, is its own name.
+fn page_of(url: &str) -> String {
+    let page = url.strip_prefix("/pages/").unwrap_or(url);
+    page.split('#').next().unwrap_or(page).to_string()
 }
 
 /// The HTML of an item, from its AST as the JSON that the view model carries (ADR 025). A
