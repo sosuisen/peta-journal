@@ -184,7 +184,7 @@ mod tests {
     use super::*;
 
     /// The font PetaJournal draws the labels in
-    const FONT: &[u8] = include_bytes!("../../frontend-rust/assets/NotoSansJP-Regular.ttf");
+    const FONT: &[u8] = include_bytes!("../../client/assets/NotoSansJP-Regular.ttf");
 
     fn font() -> LabelFont<'static> {
         LabelFont::from_bytes(FONT).unwrap()

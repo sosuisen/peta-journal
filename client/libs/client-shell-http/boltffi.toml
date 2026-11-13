@@ -1,0 +1,38 @@
+# How BoltFFI packs this crate for the shells in other languages. Run `boltffi pack apple` in
+# this folder; ../../apps/native-app/stickies-mac/README.md has the whole build.
+
+[package]
+name = "client-shell-http"
+crate = "client_shell_http"
+
+# The SwiftUI shell runs on macOS only (ADR 024), so nothing is built for iOS
+[targets.apple]
+output = "../../apps/native-app/stickies-mac/generated/PetaCore"
+include_macos = true
+ios_architectures = []
+simulator_architectures = []
+macos_architectures = ["arm64"]
+# The release profile of the workspace is for the wasm of the web frontend, where size matters
+# most (`opt-level = "z"`). Here speed matters: with 3, the view model of a page of 1000 items
+# comes out in 4.9 ms instead of 6.9 ms, and the library is smaller too (2026-11-11)
+cargo_args = ["--features", "ffi", "--config", "profile.release.opt-level=3"]
+
+[targets.apple.swift]
+module_name = "PetaCore"
+
+[targets.apple.spm]
+package_name = "PetaCore"
+layout = "ffi-only"
+
+# The WinUI shell (ADR 028). Run `boltffi pack csharp --release` in this folder;
+# ../../apps/native-app/stickies-win/README.md has the whole build.
+[targets.csharp]
+enabled = true
+output = "../../apps/native-app/stickies-win/generated/PetaCore"
+package_output = "../../apps/native-app/stickies-win/generated/packages"
+namespace = "PetaCore"
+module_class = "PetaNative"
+package_id = "PetaCore"
+runtime_identifiers = ["win-x64"]
+# For speed and not for size, as for the SwiftUI shell above
+cargo_args = ["--features", "ffi", "--config", "profile.release.opt-level=3"]

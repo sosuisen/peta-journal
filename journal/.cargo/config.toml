@@ -1,0 +1,37 @@
+# `cargo cov` measures the test coverage of the core and server crates with cargo-llvm-cov. The
+# tests of the server crate run most of the core crate, so the two are measured together. It prints a
+# table per file; `cargo cov --html` writes a browsable report to target/llvm-cov/html/.
+# Setup, once: `rustup component add llvm-tools-preview` and
+# `cargo install cargo-llvm-cov --locked`.
+#
+# The numbers are not a target: the report is read for the lines no test reaches, which are
+# either removed or given a test of the behaviour that needs them.
+#
+# These files are left out of the measurement, as agreed on 2026-11-02, because no ordinary
+# test can run them: they hand over to the OS.
+# - src/main.rs: the entry point, which binds the port and waits for Ctrl-C
+# - application/folder_chooser.rs: the native folder dialog (osascript, PowerShell, zenity),
+#   and the question at startup that opens it
+# - infrastructure/launcher.rs: opens a URL or a folder with the OS
+# - infrastructure/pending_delete_prompt.rs: opens the browser through the launcher
+# All four are in the server crate. cargo-mutants skips the same files; see .cargo/mutants.toml.
+[alias]
+cov = [
+    "llvm-cov",
+    "-p", "journal-core",
+    "-p", "journal-server",
+    # `[/\\]`: the paths have backslashes on Windows
+    "--ignore-filename-regex", "src[/\\\\]main\\.rs$|application[/\\\\]folder_chooser\\.rs$|infrastructure[/\\\\]launcher\\.rs$|infrastructure[/\\\\]pending_delete_prompt\\.rs$",
+]
+
+# `cargo run` serves the web frontend from the folder `trunk build` writes (ADR 010), so no
+# flag is needed in development. The path is relative to the folder of this workspace. A
+# server started without cargo does not see this: it takes `--frontend-dir`, or the
+# `frontend/` folder beside its executable.
+[env]
+PETAJOURNAL_FRONTEND_DIR = { value = "../client/apps/web-app/outliner/dist", relative = true }
+
+# rust-lld links much faster than the MSVC link.exe, and it comes with the Rust toolchain.
+# Every test run and every mutant waits for the link of the server and its test binaries.
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"

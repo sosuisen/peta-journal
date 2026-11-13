@@ -1,14 +1,14 @@
 # features
 
-フロントエンド（`frontend-rust`）のテストを要約した機能一覧である。`storymap.md`のアクティビティとタスクに沿って階層を作り、その下にテストから取り出した機能を並べる。
+フロントエンド（`client`）のテストを要約した機能一覧である。`storymap.md`のアクティビティとタスクに沿って階層を作り、その下にテストから取り出した機能を並べる。
 
 出典は次のとおりである。括弧内は、各節の見出しに書いた略記である。
 
-- `frontend-rust/crates/client-core/src/tests/**/*.rs`（`tests/`）
-- `frontend-rust/crates/client-core/src/outline/*.rs`、`util/*.rs`、`model.rs`（`core/`）
-- `frontend-rust/crates/client-shell-leptos/src/components/item_html.rs`（`client-shell-leptos`）
-- `e2e/tests/*.spec.ts`（`e2e/`）
-- `frontend-rust/crates/client-shell-emacs/src/tests/*.rs`、`tests/*.rs`、`lisp/test/*.el`（`client-shell-emacs/`）
+- `client/libs/client-core/src/tests/**/*.rs`（`tests/`）
+- `client/libs/client-core/src/outline/*.rs`、`util/*.rs`、`model.rs`（`core/`）
+- `client/apps/web-app/outliner/src/components/item_html.rs`（`client-shell-leptos`）
+- `client/apps/web-app/outliner/e2e/tests/*.spec.ts`（`client/apps/web-app/outliner/e2e/`）
+- `client/apps/emacs/outliner/src/tests/*.rs`、`tests/*.rs`、`lisp/test/*.el`（`client-shell-emacs/`）
 
 2026-11-03時点のテストから作った。「Emacsで読み書きする」の節だけは、2026-11-06時点のテストから作った。
 
@@ -16,13 +16,13 @@
 
 ### アプリを開く
 
-出典: `e2e/journal`、`tests/home.rs`
+出典: `client/apps/web-app/outliner/e2e/journal`、`tests/home.rs`
 
 - 今日のジャーナルが開く
   - ホームリンクがなければ、ホームは今日のページを開く
   - ホームリンクがあれば、そのページを開く
   - ホームがフォルダなら、最後に見たときの表示（マップか一覧か）で開く
-- journal-serverが、Web版の画面も配信する（`journal-server-rust/crates/server/tests/it/frontend.rs`、`src/config.rs`）
+- journal-serverが、Web版の画面も配信する（`journal/journal-server/tests/it/frontend.rs`、`src/config.rs`）
   - 画面のフォルダにあるファイルは、その名前のパスで返る。`/`と、ファイルのないパス（`/pages/<name>`、`/today`など）には、`index.html`が返る
   - `/api`、`/assets`、`/mcp`のルートは、同じパスにある画面のファイルより優先される。`/api/`で始まるルートのないパスは、`index.html`ではなく404になる
   - `index.html`と、名前にハッシュのないファイルは、読み込むたびにサーバーに確かめられる。名前にハッシュの付いたファイルは、長くキャッシュされる
@@ -30,7 +30,7 @@
 
 ### 項目を書く
 
-出典: `tests/edit.rs`、`core/util/mod.rs`、`e2e/outline`
+出典: `tests/edit.rs`、`core/util/mod.rs`、`client/apps/web-app/outliner/e2e/outline`
 
 - 入力した文はすぐ表示され、最後の入力から一定時間後に一度だけ自動保存される
   - 続けて入力すると、自動保存のタイマーは置き換わる
@@ -56,7 +56,7 @@
 
 ### 項目を分ける（Enter）
 
-出典: `tests/split.rs`、`e2e/outline`、`e2e/transclusion-enter`、`journal-server-rust/crates/server/tests/it/api.rs`
+出典: `tests/split.rs`、`client/apps/web-app/outliner/e2e/outline`、`client/apps/web-app/outliner/e2e/transclusion-enter`、`journal/journal-server/tests/it/api.rs`
 
 - Enterは、本文とカーソルを1つの要求でサーバーに送る（`POST /api/items/{id}/split`、ADR 011）。答えが届いてから画面を変える
   - 途中でのEnterは、カーソルより前の文を残し、残りを下の新しい項目へ移す。編集は新しい項目へ移り、カーソルはその先頭に置かれる
@@ -114,7 +114,7 @@
 
 ### 項目をつなぐ（Backspace・Delete）
 
-出典: `tests/merge.rs`、`e2e/outline`、`e2e/transclusion-delete`
+出典: `tests/merge.rs`、`client/apps/web-app/outliner/e2e/outline`、`client/apps/web-app/outliner/e2e/transclusion-delete`
 
 - 行頭のBackspaceは、文を上の項目につなぎ、その項目を削除し、上の項目の編集を続ける
   - サーバーには結合を1回だけ送る。本文の更新と削除を別々には送らない
@@ -142,7 +142,7 @@
   - キャンセルすると何も結合されず、カーソルはキーを押した位置に戻る
   - 確認を待つ間にページが変わって、もうつなぐ相手がなければ、要求は送らない
   - 結合しない場面（先頭の項目、最後の項目、トランスクルージョン）では、サーバーに尋ねもしない
-- サーバーの結合（`POST /api/items/merge`、`journal-server-rust/crates/server/tests/it/api.rs`）
+- サーバーの結合（`POST /api/items/merge`、`journal/journal-server/tests/it/api.rs`）
   - 消える項目の本文は受け取る項目の末尾につながり、消える項目の子は受け取る項目の子になる
   - 要求が本文（`body`、`intoBody`）を持っていれば、その本文をつなぐ。持っていない側は、保存されている本文を使う
   - つないだ本文のコードフェンスが閉じていなければ、閉じる
@@ -151,7 +151,7 @@
 
 ### 構造を整える
 
-出典: `tests/level.rs`、`tests/moves.rs`、`tests/collapse.rs`、`core/outline/tree.rs`、`core/outline/state.rs`、`e2e/outline-structure`、`e2e/outline-logical-outdent`、`e2e/transclusion-move`
+出典: `tests/level.rs`、`tests/moves.rs`、`tests/collapse.rs`、`core/outline/tree.rs`、`core/outline/state.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/outline-logical-outdent`、`client/apps/web-app/outliner/e2e/transclusion-move`
 
 - インデント（Tab）
   - 項目が子ごと1段深くなり、1つの相対シフトとして保存され、Undoに記録される
@@ -185,7 +185,7 @@
     - 見せている項目に打った文も、移動の要求に入って届く。ページを読み直したあと、その項目の編集が続く
     - 読み直すのは、トランスクルージョンのあるページである。ジャーナルでは、画面のページとは限らない
   - 移動先は、同レベルの項目の部分木の後ろか、一段浅い項目の直下として求められる
-- サーバーの移動（`POST /api/items/move`、`journal-server-rust/crates/server/tests/it/api.rs`）
+- サーバーの移動（`POST /api/items/move`、`journal/journal-server/tests/it/api.rs`）
   - 部分木は、同じページの兄弟を越えて移動する。別のページへは、レベルをずらして移動する
   - 要求が本文（`body`）を持っていれば、先頭の項目はその本文で保存されて移動する。コードフェンスが閉じていなければ、閉じる
   - 階層の差（`levelDelta`）と本文を持つ移動は、本文を保存し、階層を変えて動かす。論理アウトデントが1つの要求で送るものである
@@ -202,7 +202,7 @@
 
 ### 取り消す
 
-出典: `tests/undo_replay.rs`、`core/outline/undo.rs`、`e2e/outline-structure`、`e2e/selection-delete`、`journal-server-rust/crates/server/tests/it/api.rs`
+出典: `tests/undo_replay.rs`、`core/outline/undo.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/selection-delete`、`journal/journal-server/tests/it/api.rs`
 
 - Undoは古い本文を戻し、そのエントリをRedoスタックへ移す。Redoはそれを元に戻す
   - 画面はすぐに変わる。サーバーには、1つのエントリの更新、作成、削除を、1つの要求にまとめて送る（ADR 011）
@@ -211,7 +211,7 @@
   - Redoの後に別の項目へ移動しても、Redoした本文の内容で表示される
   - 本文を変えない操作のRedoでは、サーバーの応答が項目の種類を上書きしない
   - サーバーが要求を断ると、何も書かれない。ページは、サーバーの持つ形に読み直される
-  - UndoやRedoでページの項目がなくなると、サーバーが同じ要求で作った空の項目が表示され、フォーカスの対象になる。空の項目を作る要求は送らない（`e2e/empty-page`）
+  - UndoやRedoでページの項目がなくなると、サーバーが同じ要求で作った空の項目が表示され、フォーカスの対象になる。空の項目を作る要求は送らない（`client/apps/web-app/outliner/e2e/empty-page`）
   - UndoとRedoを続けて、先の要求の応答が後から届いても、後の操作の結果が表示されたままである。応答は、項目ごとに、その項目を最後に書いた要求のものだけを受け取る
     - 別々の項目のUndoを続けたときは、先の応答も、その項目に反映される
 - タスク状態の切り替えのUndoとRedoは、元の時刻と予定日ごと、タスク状態を項目の更新と同じ操作で送る。ページを読み直しても戻らない
@@ -254,7 +254,7 @@
 
 ### タスクにする
 
-出典: `tests/task.rs`、`tests/view.rs`、`e2e/outline-structure`、`e2e/journal`、サーバーの`tests/it/api.rs`
+出典: `tests/task.rs`、`tests/view.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/journal`、サーバーの`tests/it/api.rs`
 
 - Ctrl+Enterでタスクの状態が次へ切り替わり、保存され、Undoに記録される
   - チェックボックスが本文の前に出る
@@ -267,7 +267,7 @@
 
 ### 日を移る
 
-出典: `tests/journal.rs`、`tests/journal_fragment.rs`、`core/util/date.rs`、`core/util/week.rs`、`core/util/filename.rs`、`e2e/journal`
+出典: `tests/journal.rs`、`tests/journal_fragment.rs`、`core/util/date.rs`、`core/util/week.rs`、`core/util/filename.rs`、`client/apps/web-app/outliner/e2e/journal`
 
 - `today`は今日の日付のジャーナルを開く。タイトルはTodayである
   - 日付のジャーナルは、その日の日本語表記をタイトルと見出しに持つ。週・月・年も同様である
@@ -297,7 +297,7 @@
 
 ### 項目を別の日へ送る
 
-出典: `tests/journal_moves.rs`、`e2e/journal`、`journal-server-rust/crates/server/tests/it/api.rs`
+出典: `tests/journal_moves.rs`、`client/apps/web-app/outliner/e2e/journal`、`journal/journal-server/tests/it/api.rs`
 
 - 別の日への移動は、サーバーに1回の要求（`POST /api/journals/{date}/move`）で送り、答えを待ってから表示する（ADR 011）。ジャーナルの取得や作成、空の項目の削除や作成は別には送らない
   - 入力した直後に別の日へ動かすと、打ったばかりの文は移動の要求に入って届く。保存を別には送らず、その自動保存は取り消される
@@ -320,7 +320,7 @@
 
 ### 片付ける
 
-出典: `tests/stash.rs`、`e2e/outline-structure`、`journal-server-rust/crates/server/tests/it/api.rs`
+出典: `tests/stash.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`journal/journal-server/tests/it/api.rs`
 
 - Send to Stashは、サーバーに1回の要求（`POST /api/items/{id}/stash`）で送り、答えを待ってから表示する（ADR 011）。見出しの作成や移動は別には送らない
   - ページ末尾に「# Stash」見出しが作られ、部分木がタグなしでその下へ、見出しの子の階層で移る
@@ -338,7 +338,7 @@
 
 ### 複数の項目を選ぶ
 
-出典: `tests/selection.rs`、`core/outline/selection.rs`、`core/outline/tree.rs`、`e2e/outline-structure`、`e2e/transclusion-delete`
+出典: `tests/selection.rs`、`core/outline/selection.rs`、`core/outline/tree.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/transclusion-delete`
 
 - 項目を選ぶと、その下の項目もすべて選ばれる。どの選び方でも同じである
   - 折りたたまれて見えない子も選ばれる
@@ -354,7 +354,7 @@
 
 ### 選んだ項目を動かす
 
-出典: `tests/selection.rs`、`e2e/outline-structure`、`e2e/selection-delete`、`e2e/transclusion-delete`
+出典: `tests/selection.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/selection-delete`、`client/apps/web-app/outliner/e2e/transclusion-delete`
 
 - Deleteで1つのUndoエントリとして削除する。ページが空になるなら、サーバーが作った空の項目が1つ残る
   - 選んだ項目の子孫も、折りたたまれて見えないものを含めて一緒に削除する
@@ -379,9 +379,9 @@
   - トランスクルージョンの自分の子は一緒に削除する
   - 元の項目と、その下に見えていた子孫は、選択には入るが、元のページの項目なので削除しない。トランスクルージョンが消えるので、画面からは消える
 - 他の項目からトランスクルードされている項目を含む選択の削除と切り取りは、確認ダイアログでOKのときだけ行われる。ダイアログの既定はキャンセルで、EnterやEscapeだけでは消えない
-  - 確認の前に、サーバーにどの項目がトランスクルードされているかを尋ねる（`POST /api/items/transcluded`、`journal-server-rust/crates/server/tests/it/api.rs`）。尋ねるのに失敗したら、確認なしに削除する
+  - 確認の前に、サーバーにどの項目がトランスクルードされているかを尋ねる（`POST /api/items/transcluded`、`journal/journal-server/tests/it/api.rs`）。尋ねるのに失敗したら、確認なしに削除する
   - キャンセルすると、項目も選択状態も残る
-- サーバーのグループ削除（`POST /api/items/delete`、`journal-server-rust/crates/server/tests/it/api.rs`）
+- サーバーのグループ削除（`POST /api/items/delete`、`journal/journal-server/tests/it/api.rs`）
   - 項目を子孫ごと、1回のリクエストで、1つのトランザクションで消す。すべて消えるか、何も消えないかのどちらかである
   - 消す項目の子孫がグループにそろっていなければ断り、何も消えない
   - 項目がなくなったページには、同じトランザクションで空の項目を1つ作り、答え（`created`）に入れる。項目が残るページには作らない
@@ -392,7 +392,7 @@
 
 ### 貼り付ける
 
-出典: `tests/paste.rs`、`journal-server-rust/crates/server/tests/it/api.rs`、`e2e/outline-content`
+出典: `tests/paste.rs`、`journal/journal-server/tests/it/api.rs`、`client/apps/web-app/outliner/e2e/outline-content`
 
 - 貼り付けは、項目の今の本文、カーソル、文字列を、1つの要求でサーバーに送る
   - 入力してまだ保存していない文は、貼り付けの要求に入って届く。その自動保存は取り消される
@@ -425,7 +425,7 @@
   - ない項目への貼り付けは断る
   - トランスクルージョンへの貼り付けは、元の項目への貼り付けになる。作る項目は、必ず元の項目のページに、元の項目の階層を基準に作る。写している側のページには作らない。写している側のページにも、変更を知らせる
 - 画像はアップロードされてカーソル位置にリンクされ、カーソルはリンクの直後に置かれる
-  - アップロードのあと、リンクの文字列を、そのまま1項目に入れる貼り付け（`POST /api/items/{id}/paste`）として1つの要求で送る（ADR 011、`e2e/image-paste`）。項目の保存は別には送らない
+  - アップロードのあと、リンクの文字列を、そのまま1項目に入れる貼り付け（`POST /api/items/{id}/paste`）として1つの要求で送る（ADR 011、`client/apps/web-app/outliner/e2e/image-paste`）。項目の保存は別には送らない
   - 本文は、アップロードの答えが届いたときのものを送る。待つ間に打ってまだ保存していない文は、要求に入って残る
   - テキストの貼り付けと同じく、1つのUndoエントリとして記録され、Ctrl+Zで戻る
   - アップロードに失敗すると、貼り付けは送られず、画面もUndoも変わらない。待つ間に項目が画面から消えていれば、リンクは貼り付けない
@@ -464,21 +464,21 @@
   - 空の名前と、ファイル名に使えない文字を含む名前は、理由とともに断られる
   - 名前の中の`/`はフォルダの区切りである。`b/c`と付けると、フォルダ`a/b/`の`c`になる
   - 名前もフォルダも変わらなければ、サーバーには何も送られない
-  - サーバーは、名前を変えたページを書き出すときに、古い名前のファイルを消す（`journal-server-rust/crates/server/tests/it/api.rs`）
+  - サーバーは、名前を変えたページを書き出すときに、古い名前のファイルを消す（`journal/journal-server/tests/it/api.rs`）
   - 同名のページがあれば確認する。「はい」で上書きし、「いいえ」で両方残る
   - サーバーが断ると、その理由が出る。理由がなければ既定の文が出る
 - ページの削除は確認の後に行われ、今日のジャーナルが開く。最近のページも読み直される
-  - サーバーへの要求は、削除の1つである（ADR 011、`e2e/page-delete-demote`）。画面が読み込んだページのIDで消す。ページを引く要求は送らない
+  - サーバーへの要求は、削除の1つである（ADR 011、`client/apps/web-app/outliner/e2e/page-delete-demote`）。画面が読み込んだページのIDで消す。ページを引く要求は送らない
   - ページがまだ読み込まれていなければ、確認も削除もしない
-  - サーバーは、ページのファイルも消す。名前を変えた後で書き出す前に削除しても、古い名前のファイルは残らない（`journal-server-rust/crates/server/tests/it/api.rs`）
+  - サーバーは、ページのファイルも消す。名前を変えた後で書き出す前に削除しても、古い名前のファイルは残らない（`journal/journal-server/tests/it/api.rs`）
   - 「いいえ」なら何も削除されない。`today`と設定画面では削除するページがない
   - サーバーが断ると理由か既定の文が出て、今日へは移らない
-- アトラスを持つindexページの降格では、まず確認し、承諾後に降格を1つの要求で送る（ADR 011、`e2e/page-delete-demote`）。アトラスの削除と改名は別には送らない。降格したページが開く
+- アトラスを持つindexページの降格では、まず確認し、承諾後に降格を1つの要求で送る（ADR 011、`client/apps/web-app/outliner/e2e/page-delete-demote`）。アトラスの削除と改名は別には送らない。降格したページが開く
   - 「いいえ」なら、アトラスもindexページもそのまま残る
   - アトラスのないindexページは、確認なしに降格する
   - 降格先の名前を別のページが持っていれば、上書きを確認する。「はい」で上書きの降格を送り、「いいえ」なら何も変わらない
   - サーバーが断ると、理由か既定の文が出て、ページは移らない
-- サーバーの降格（`POST /api/pages/{id}/demote`、`journal-server-rust/crates/server/tests/it/api.rs`）
+- サーバーの降格（`POST /api/pages/{id}/demote`、`journal/journal-server/tests/it/api.rs`）
   - 1つのトランザクションで、ディレクトリのアトラスページを消し、indexページ`a/b/index`を、親のディレクトリのページ`a/b`に変える。新しい名前と場所は、サーバーが決める
   - アトラス以外の子ページがあれば断り、アトラスも残る
   - indexページでないページと、ルートのindexページは断る
@@ -489,7 +489,7 @@
 
 ### ページを開く
 
-出典: `tests/page_open.rs`、`tests/sidebar_index.rs`、`tests/sidebar_sort.rs`、`tests/search.rs`、`tests/tags_button.rs`、`tests/backlinks.rs`、`e2e/outline-content`
+出典: `tests/page_open.rs`、`tests/sidebar_index.rs`、`tests/sidebar_sort.rs`、`tests/search.rs`、`tests/tags_button.rs`、`tests/backlinks.rs`、`client/apps/web-app/outliner/e2e/outline-content`
 
 - docページを開くと、ページ・項目・バックリンクがサーバーから読まれ、タイトルはフォルダ付きの名前になる
   - URLが正しいパスと違えば、そのパスに置き換えて開き直す。`Quarkus`はフォルダ`Quarkus/`のindexページである
@@ -541,7 +541,7 @@
 
 ### 項目をつなぐ
 
-出典: `tests/wiki.rs`、`tests/transclusion.rs`、`core/outline/state.rs`、`e2e/outline-content`
+出典: `tests/wiki.rs`、`tests/transclusion.rs`、`core/outline/state.rs`、`client/apps/web-app/outliner/e2e/outline-content`
 
 - `[[`の中で入力すると、一息置いた後にページ名の候補が出る。ポップアップはカーソルの少し下に置かれ、最初の候補が選ばれている
   - 続けて入力すると最後の検索語だけが検索される。検索語が空になると候補は消え、`[[`の外に出るとポップアップは閉じる
@@ -562,13 +562,13 @@
 - 元の項目が消えたトランスクルージョンは、壊れたものとして示される。読むだけで、編集はできない
   - クリックしても編集にならない
   - 矢印キーでの移動は、壊れたルートを飛ばして次の項目へ移る。その先に項目がなければ、今の項目にとどまる
-  - サーバーは、元の項目が削除されると、トランスクルージョンを解除する。本文と、そのときの子孫は、普通の項目として埋め込み側に残る（`journal-server-rust/crates/server/tests/it/api.rs`）
+  - サーバーは、元の項目が削除されると、トランスクルージョンを解除する。本文と、そのときの子孫は、普通の項目として埋め込み側に残る（`journal/journal-server/tests/it/api.rs`）
 - トランスクルードされた項目は、元の木の本文と子孫を自分のレベルに合わせて表示する
   - その子孫は、他ページの項目として更新と削除ができる
 
 ### 本文を読む
 
-出典: `tests/view.rs`、`client-shell-leptos`、`e2e/outline-content.spec.ts`
+出典: `tests/view.rs`、`client-shell-leptos`、`client/apps/web-app/outliner/e2e/outline-content.spec.ts`
 
 - ズーム
   - 倍率が表示に反映されて保存され、リセットで1.0に戻る
@@ -687,7 +687,7 @@
 
 ### 2台のPCで同じフォルダを使う
 
-出典: `journal-server-rust/crates/server/tests/it/item_merge.rs`
+出典: `journal/journal-server/tests/it/item_merge.rs`
 
 - ファイルは項目ごとに合流する。同じページの別の項目を2台で編集しても、両方の編集が残る
   - 同じ項目を2台で編集すると、後の編集が両方に残る
@@ -755,7 +755,7 @@
 
 ### サーバーで拡張関数を動かす
 
-出典: `journal-server-rust/crates/core/src/application/extension_runtime.rs`、`confirm_service.rs`、`journal-server-rust/crates/server/tests/extensions/main.rs`
+出典: `journal/journal-core/src/application/extension_runtime.rs`、`confirm_service.rs`、`journal/journal-server/tests/extensions/main.rs`
 
 - 拡張の`main.js`は、サーバーのQuickJSで動く
   - `onPageCreate(page)`はページの情報を受け取り、`peta.createItem`で頼んだ項目が返る。`createItem`が返すIDは、次の項目の置き場所に使える
@@ -779,7 +779,7 @@
 
 ### auto-template
 
-出典: `journal-server-rust/crates/server/tests/auto_template/main.rs`
+出典: `journal/journal-server/tests/auto_template/main.rs`
 
 - 名前のパターンに合うテンプレートの項目が、新しいページの最後に入る。空の1項目だけのページでは、それを上書きする
   - 曜日、`weekly`、`/正規表現/`のパターンは、名前に合うページにだけ入る
@@ -796,7 +796,7 @@
 
 ### 表示だけのアプリに項目を渡す
 
-出典: `journal-server-rust/crates/server/tests/it/api.rs`、`ext-web-app/todo/src/api.test.ts`
+出典: `journal/journal-server/tests/it/api.rs`、`client/apps/web-app/todo/src/api.test.ts`
 
 - 型での一覧（`GET /api/items`）とページの取得（`GET /api/pages/{id}`）は、`fields`で頼まれたフィールドだけを各項目に持つ。`items`や`page`の包みは変わらない
   - 表示だけのアプリは、本文のMarkdown（`body`）を受け取らずに、`ast`から描ける
@@ -807,7 +807,7 @@
 
 ### 付箋紙アプリでページを読む
 
-出典: `ext-desktop-app/stickies-tests/*.cs`
+出典: `client/apps/webview-app/memoview-win/stickies-tests/*.cs`
 
 - 項目は、ページの順に1行ずつ出る
   - 折りたたまれた項目の子孫は出ない
@@ -839,11 +839,11 @@
 
 ## iPhoneで読み書きする
 
-iOSのシェル（`frontend-ios`）の機能である。Androidのシェルと同じことをする（ADR 034）。
+iOSのシェル（`client/apps/native-app/outliner-ios`）の機能である。Androidのシェルと同じことをする（ADR 034）。
 
 ### Dropboxと同期する
 
-出典: `frontend-ios/Tests/PetaSyncTests/*.swift`
+出典: `client/apps/native-app/outliner-ios/Tests/PetaSyncTests/*.swift`
 
 - ダウンロード
   - 最初の同期は、フォルダーのMarkdownと`assets`のファイルをすべて取る。そのあとの同期は、変わった分だけを取る
@@ -863,7 +863,7 @@ iOSのシェル（`frontend-ios`）の機能である。Androidのシェルと�
 
 ### ページを開く・書く
 
-出典: `frontend-ios/Tests/PetaBorderTests/ShellTests.swift`、`frontend-ios/UITests/JournalScreenTests.swift`
+出典: `client/apps/native-app/outliner-ios/Tests/PetaBorderTests/ShellTests.swift`、`client/apps/native-app/outliner-ios/UITests/JournalScreenTests.swift`
 
 - 取り込んだページは、検索で見つかり、開く
 - 検索の結果には、ページを作るものが2つある。「Open Today」は今日のジャーナルを、「New page」は入力した名前のページを作って開く
@@ -886,7 +886,7 @@ iOSのシェル（`frontend-ios`）の機能である。Androidのシェルと�
 
 ### 項目を装飾つきで読む
 
-出典: `frontend-ios/Tests/PetaBorderTests/ShownBlocksTests.swift`、`ShownParagraphsTests.swift`、`frontend-ios/UITests/JournalScreenTests.swift`
+出典: `client/apps/native-app/outliner-ios/Tests/PetaBorderTests/ShownBlocksTests.swift`、`ShownParagraphsTests.swift`、`client/apps/native-app/outliner-ios/UITests/JournalScreenTests.swift`
 
 - 項目は装飾つきで出る。Markdownの記号は出ない
   - 太字、斜体、取り消し線、下線、ハイライト、コード、上付き、下付きが、その部分だけの見た目になる

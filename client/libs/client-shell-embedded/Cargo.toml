@@ -1,0 +1,24 @@
+[package]
+name = "client-shell-embedded"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PetaJournal native frontends: the Crux core with a journal core inside the app, for the Android and iOS shells (ADR 029, ADR 034)"
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+client-core = { path = "../client-core" }
+client-native-bridge = { path = "../client-native-bridge" }
+client-api-embedded = { path = "../client-api-embedded" }
+journal-core = { path = "../../../journal/journal-core", default-features = false }
+boltffi = "=0.32.1"
+
+[dev-dependencies]
+tempfile = "3"
+# The date of today, to name the journal a test expects
+chrono = "0.4.45"
+# Writes an event as the Kotlin shell does
+crux_core = "=0.20.0"
+serde_json = { workspace = true }

@@ -121,7 +121,7 @@
   - この分岐は、ファイルを`.conflict`に残し、DBの内容でファイルを書き直す。ファイルが動いていれば、ページも動かす
   - PR #252は、この関数の`upsert_synced`の呼び出しに引数を足した。その行も、テストが通っていない
 - [ ] 不具合：同じページを2か所で同時に編集すると、相手の変更が、ページをリロードするまで出ない。編集を終えて待っても出ない（2026-11-13にユーザーがiPhoneと`shell-leptos`で見た。ほかのシェルも、おそらく同じである）
-  - 設計では、編集中は読み直さず、編集が終わって1.5秒後に読み直す（`frontend-rust/crates/core/src/ops/file_reload.rs`）。編集を終えても出ないので、設計どおりではない
+  - 設計では、編集中は読み直さず、編集が終わって1.5秒後に読み直す（`client/libs/client-core/src/ops/file_reload.rs`）。編集を終えても出ないので、設計どおりではない
   - 原因は、まだ分かっていない。先に、テストで再現する。調べる候補は、次のとおりである
     - [ ] コア：編集中に来た知らせで「待ち」に入ったページが、編集のあとに読み直されているか。相手が変えた項目と、こちらが編集していた項目が同じときと、違うときを分けて見る
     - [ ] PC：Dropboxが書き換えたファイルに、フォルダーの監視が気づいているか。手元のMacでは、監視のテストが落ちる（下の項目）。監視が働かなければ、知らせは出ない
@@ -241,7 +241,7 @@
 
 - [ ] SwiftUIのシェル（macOS）のWalking Skeletonを作る（ADR 024）
   - 目的は、ADR 024が確かめていないことを早く確かめることである。1つのページを開き、1つの項目に入力して保存できるところまでを通す
-  - ゴール（2026-11-11にユーザーが決めた）: WinUIの付箋紙アプリ（`ext-desktop-app/stickies`）と同じユーザージャーニーを通す。違いは、付箋紙の中でページを編集できることである
+  - ゴール（2026-11-11にユーザーが決めた）: WinUIの付箋紙アプリ（`client/apps/webview-app/memoview-win`）と同じユーザージャーニーを通す。違いは、付箋紙の中でページを編集できることである
     1. 初回起動: 付箋紙が1つ開く。まだページはなく、ページを検索するように案内が出る
     2. ページ検索: 付箋紙の検索欄に入力すると、ページの候補が出る
     3. 付箋紙にページ表示: 候補を選ぶと、その付箋紙にページが出る。ページは編集できる
@@ -260,7 +260,7 @@
   - [ ] SwiftUIのシェルで、何もないところのクリックで、選択をやめる。項目の本文のクリックでは、もうやめる
   - [ ] SwiftUIのシェルで、選択が終わったあとのカーソルを決める。今は、Escapeのあとも、選んだ項目を消したあとも、どのエディタにもカーソルがない
   - [ ] SwiftUIのシェルで、エディタでの貼り付けをコアに送る（`PasteText`）。今は、テキストビューが自分で文字を入れるだけで、コピーした項目は項目として貼り付かない。コアがクリップボードを尋ねたとき（`ReadClipboardText`）に答える側は、もうある
-  - [ ] macOSのCIで、`frontend-swiftui`のテストを回す。費用が高いので、先送りにした
+  - [ ] macOSのCIで、`client/apps/native-app/stickies-mac`のテストを回す。費用が高いので、先送りにした
   - [ ] SwiftUIのシェルで、1つのキーでビューモデルを読む回数を1回に減らす。項目がさらに多いページで遅くなったら、変わった部分だけを境界に通すことを考える
 
 ## ネイティブのシェルに共通（SwiftUI、WinUI、Android、iOS）
@@ -287,7 +287,7 @@
   - `Shell.kt`は、まだ比べていない。質問の扱いはある。同じ処理がどこまであるかを、先に見る
   - 順序（2026-11-13にユーザーが決めた）
     - [ ] 先に、C#（`Shell.cs`）、Kotlin（`Shell.kt`）、Swift（2つの`Shell.swift`）のコードに共通するところを、Rustの側に寄せる
-    - [ ] そのあとに、iOS（`frontend-ios`）とSwiftUI（`frontend-swiftui`）の間で、Swiftに残った同じコードを寄せる
+    - [ ] そのあとに、iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）の間で、Swiftに残った同じコードを寄せる
   - [ ] Dropboxとの同期をRustに書き、AndroidとiOSの両方で使うかを検討する（2026-11-13にユーザーが足した。ADR 034のAlternative 2）
     - 今は、同じクラスがKotlinとSwiftに1つずつある（`Cloud`、`CloudRecord`、`MarkdownFolder`、`Downloader`、`Uploader`、`SyncRound`、`CloudSync`）。決まりを変えるときは、両方を直す
     - Rustに寄せると、同期の決まりが1か所になる。テストも1つで済む
@@ -295,13 +295,13 @@
     - ADR 034は、KotlinとSwiftの同期が食い違い始めたら見直すとしている
   - iOSとSwiftUIは、Swiftのコードを共有していない。別々のSwift Packageである。`Border`と`Shell`の骨組みが同じ形で2つある。iOSの`ShownParagraphs`（HTMLを読む）はFoundationだけで書いてあり、SwiftUIの側でも使える
 - [ ] ミューテーションテストがまだないシェルに、必要であれば入れる（2026-11-13にユーザーが足した）
-  - 今あるのは、Rustの`cargo-mutants`だけである（`journal-server-rust/.cargo/mutants.toml`）。SwiftUI、WinUI、Android、iOSのシェルには、道具がない
+  - 今あるのは、Rustの`cargo-mutants`だけである（`journal/.cargo/mutants.toml`）。SwiftUI、WinUI、Android、iOSのシェルには、道具がない
   - シェルごとに、入れるかどうかを決める。入れるのは、道具が動かせるテストに、守るべきロジックがあるシェルである
-  - [ ] Android（`frontend-android`）: 候補はPITである。JVMの単体テストだけが対象になる。`sync`と`dropbox`のパッケージである。エミュレーターで動く画面テストは、PITでは動かせない
+  - [ ] Android（`client/apps/native-app/outliner-android`）: 候補はPITである。JVMの単体テストだけが対象になる。`sync`と`dropbox`のパッケージである。エミュレーターで動く画面テストは、PITでは動かせない
     - 先に確かめること: Android用のPITのプラグインが、今のAGPとKotlinで動くか。まだ調べていない
     - 2026-11-13は、手で確かめた。本体を4か所だけ壊し、狙ったテストが落ちるのを見て、元に戻した。スクロール、画面の作り直し、編集のあとの待ち、サインアウトでのカーソルの削除である
-  - [ ] iOS（`frontend-ios`）とSwiftUI（`frontend-swiftui`）: Swiftの道具を調べる。まだ調べていない
-  - [ ] WinUI（`frontend-winui`）: C#の道具を調べる。まだ調べていない
+  - [ ] iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）: Swiftの道具を調べる。まだ調べていない
+  - [ ] WinUI（`client/apps/native-app/stickies-win`）: C#の道具を調べる。まだ調べていない
   - 入れるときは、PRの前に毎回実行する。テストを書かないと決めたコードは、対象から外す（`generic-coding-rules`の「ミューテーションテスト」）
 
 ## Androidのシェル
@@ -316,7 +316,7 @@
   - [ ] 失敗を、原因で分ける。少なくとも、通信ができない場合と、そのほかの場合を分ける。分けるのは、Dropboxを呼ぶところである（iOSは`DropboxFailure`、Androidは`SyncState.Failed`の理由）
   - [ ] 表示の文言を決める。案：通信ができないときは「Sync failed: no connection」、そのほかは「Sync failed」だけ。文言は、ユーザーが決める
   - [ ] そのほかの失敗の理由は、画面に出さず、ログに残す
-  - 表示を作るのは、`frontend-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`と、`JournalScreen.kt`の`"Sync failed: ${state.reason}"`である
+  - 表示を作るのは、`client/apps/native-app/outliner-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`と、`JournalScreen.kt`の`"Sync failed: ${state.reason}"`である
 - [ ] 道具の列から、削除のボタンを取る（2026-11-13にユーザーが決めた）。iOSのシェルも同じにする
   - 取る前に、ボタンがなくても項目を消せるかを確かめる。空の項目の行頭でBackspaceを打つと消えるか、文字のある項目はどう消すかを見る
 - [ ] 項目に触れて編集に入るとき、カーソルを触れた位置に置く（2026-11-13にユーザーが決めた）。今は、いつも行末に置く。iOSのシェルも同じにする
@@ -326,12 +326,12 @@
 - [ ] Androidのシェルも、Dropboxのアプリを通してサインインする（2026-11-13にユーザーが決めた）。今は、いつもブラウザーでサインインする（ADR 033）
   - ADR 033の失敗の原因は、おそらくDropboxのアプリの登録にあったTeam Scopeである。`team_data.member`にチェックが入っていた。iPhoneでは、これを外すと、Dropboxのアプリでのサインインが通った（2026-11-13にユーザーが実機で確かめた）。Androidでは、まだ確かめていない
   - [ ] `AndroidManifest.xml`の、SDKの`queries`を取り除く記述を消す。実機で、サインアウトのあとのサインインと、Dropboxのアプリがサインアウトしているときのサインインを見る
-  - [ ] 通ったら、ADR 033を置き換えるADRを書く。`frontend-android/README.md`とマニフェストのコメントも直す
+  - [ ] 通ったら、ADR 033を置き換えるADRを書く。`client/apps/native-app/outliner-android/README.md`とマニフェストのコメントも直す
   - [ ] 通らなかったら、ブラウザーのままにし、ADR 033に分かったことを足す
 - [ ] Androidのシェルを作る。最初の版は、Dropboxからの取り込み、検索、ページの表示までである。編集とアップロードは、次の版にする
   - ファイルは、Dropbox SDKでAPIを通して取る。Dropbox SDKは、PCのDropboxアプリの役をする。アプリ内のフォルダーとDropboxの間で、ファイルを運ぶだけである
   - Android SDK、AVD、Gradleのキャッシュは、`D:\Android`にある（2026-11-11に移した）。元の場所には、ジャンクションを残してある
-  - [ ] `frontend-android`を作る
+  - [ ] `client/apps/native-app/outliner-android`を作る
     - 本文の検索は、語の単位で合わせる。語の一部（「富士山」に対する「富士」、「登りました」に対する「登り」）では見つからない。不具合ではなく、直さないと決めた（ADR 032、2026-11-12）
   - [ ] Androidでページを作れるようにするときに、拡張関数を入れるかを見直す（ADR 029のAlternative 7）。`rquickjs`の`bindgen`には、LLVMが要る
     - 後回しにする（2026-11-12にユーザーが決めた。ADR 031）。スマホで作るページには、テンプレートの項目が入らない
@@ -353,7 +353,7 @@
   - [ ] 失敗を、原因で分ける。少なくとも、通信ができない場合と、そのほかの場合を分ける。分けるのは、Dropboxを呼ぶところである（iOSは`DropboxFailure`、Androidは`SyncState.Failed`の理由）
   - [ ] 表示の文言を決める。案：通信ができないときは「Sync failed: no connection」、そのほかは「Sync failed」だけ。文言は、ユーザーが決める
   - [ ] そのほかの失敗の理由は、画面に出さず、ログに残す
-  - 表示を作るのは、`frontend-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`と、`JournalScreen.kt`の`"Sync failed: ${state.reason}"`である
+  - 表示を作るのは、`client/apps/native-app/outliner-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`と、`JournalScreen.kt`の`"Sync failed: ${state.reason}"`である
 - [ ] 編集中の入力欄が画面から外されても編集が続くことを、実機の順序で確かめるテストを探す。実機では、システムが、入力欄を外す前にキーボードを取り上げる。シミュレーターでは順序が逆で、今のテスト（編集中に画面を横にする）は、シミュレーターの順序しか通らない
   - キーボードが出るときには、入力欄はもう外されない（PR #404）。この道を通るのは、画面を横にしたときなどである
 - [ ] 編集中の入力欄にタッチしても、カーソルが動かないことがある。直す（2026-11-13にユーザーが実機で確かめた。あとで直すと決めた）
@@ -365,22 +365,22 @@
   - 表示はMarkdownを整形したもので、編集するのは元のMarkdownである。記号（`**`、リンク、タスクの印など）の分だけ、触れた位置と元の文字の位置がずれる。表示の位置から元の位置を求める方法を、先に決める
 - [ ] 同期のコールアウトを、画面の下端ではなく、上端に出す（2026-11-13にユーザーが決めた）。Androidのシェルも同じにする
   - 入力は、いちばん下の行ですることが多い。下端のコールアウトは、打っている行に重なる（2026-11-13にユーザーがiPhoneで見た）
-- [ ] iOSのシェルを、本物のDropboxで確かめる（ADR 034）。App keyを`frontend-ios/Dropbox.xcconfig`に置き、サインイン、最初の同期、編集のあとのアップロード、サインアウトを見る。シミュレーターでは、ブラウザーでのサインインになる
+- [ ] iOSのシェルを、本物のDropboxで確かめる（ADR 034）。App keyを`client/apps/native-app/outliner-ios/Dropbox.xcconfig`に置き、サインイン、最初の同期、編集のあとのアップロード、サインアウトを見る。シミュレーターでは、ブラウザーでのサインインになる
 - [ ] iOSのシェルを、実機で確かめる。日本語の入力、後ろに回ったときの同期を見る
-  - Dropboxのアプリでのサインインは、通った（2026-11-13にユーザーがiPhoneで確かめた）。Dropboxのアプリの登録にTeam Scope（`team_data.member`）があると、「Mobile authorization does not support team authorized scopes.」で失敗する。外すと通る（`frontend-ios/README.md`）
+  - Dropboxのアプリでのサインインは、通った（2026-11-13にユーザーがiPhoneで確かめた）。Dropboxのアプリの登録にTeam Scope（`team_data.member`）があると、「Mobile authorization does not support team authorized scopes.」で失敗する。外すと通る（`client/apps/native-app/outliner-ios/README.md`）
 - [ ] iOSのシェルの、同期の表示（メニュー、前面の同期のダイアログ、下の吹き出し、サインインのボタン）に、画面のテストを書く。今は、テストの中のアプリは同期をしない
-- [ ] Swiftのフォーマッターとlintを足す（2026-11-13にユーザーが決めた）。`frontend-ios`と`frontend-swiftui`には、まだどちらもない。道具を決め、設定をリポジトリに置く
+- [ ] Swiftのフォーマッターとlintを足す（2026-11-13にユーザーが決めた）。`client/apps/native-app/outliner-ios`と`client/apps/native-app/stickies-mac`には、まだどちらもない。道具を決め、設定をリポジトリに置く
 
 ## リポジトリの構成
 
 - [x] 2026-11-13 フロントエンドの置き場を再検討する（ユーザーが足した、2026-11-11）
   - リポジトリは分けない。直下を`client/`と`journal/`に分け、アプリを`client/apps/`に、ライブラリを`client/libs/`に置く。決定は、ADR 039に書いた
   - ジャーナルの側のフォルダーも、パッケージと同じ名前にする（`journal/journal-core`、`journal/journal-server`）。`hmtid`は、`journal/hmtid`に置く。前にあった「図に出ないクレートとフォルダーの名前を整理する」の項目は、この決定に入った
-- [ ] フォルダーを並べ替える（ADR 039。2026-11-13にユーザーが決めた）
+- [x] 2026-11-13 フォルダーを並べ替える（ADR 039。2026-11-13にユーザーが決めた）
   - 目標の形は、ADR 039のDecisionの図である。1つのPRで行う。同じフォルダーを2回動かさない
   - フォルダーだけを動かす。パッケージの名前、実行ファイルの名前、アプリの中の名前は変えない
   - CIの再開（2026-11-25）は待たない。手元の確認だけが頼りである
-  - 先に片付けること: 開いているブランチとworktree。この変更と大きく衝突する。マージするか、並べ替えのあとに作り直す
+  - 先に片付けたこと: 開いていたworktreeとローカルのブランチ。どれもマージ済みか、要らないものだったので消した
   - 動かすもの
     - `frontend-rust/crates/client-shell-leptos`を、`client/apps/web-app/outliner`にする。`e2e`を、その中の`e2e`にする
     - `frontend-rust/crates/client-shell-emacs`を、`client/apps/emacs/outliner`にする
@@ -388,17 +388,19 @@
     - `frontend-winui`を`client/apps/native-app/stickies-win`に、`frontend-swiftui`を`client/apps/native-app/stickies-mac`にする
     - `frontend-android`を`client/apps/native-app/outliner-android`に、`frontend-ios`を`client/apps/native-app/outliner-ios`にする
     - `ext-web-app/todo`を、`client/apps/web-app/todo`にする
-    - `ext-desktop-app`を、フォルダーごと`client/apps/webview-app/memoview-win`にする。中の形は変えない。`stickies`（アプリ）、`stickies-tests`（44個のテスト）、`Directory.Build.props`（アナライザーの設定）、`dotnet-tools.json`（CSharpier）が、そのまま並ぶ。テストがアプリのファイルを読む相対パス（`..\stickies\…`）は変わらない。`stickies-win`（今の`frontend-winui`）と同じ形である
+    - `ext-desktop-app`を、フォルダーごと`client/apps/webview-app/memoview-win`にする。中の形は変えない。`stickies`（アプリ）、`stickies-tests`（55個のテスト）、`Directory.Build.props`（アナライザーの設定）、`dotnet-tools.json`（CSharpier）が、そのまま並ぶ。テストがアプリのファイルを読む相対パス（`..\stickies\…`）は変わらない。`stickies-win`（今の`frontend-winui`）と同じ形である
     - `journal-server-rust/crates/core`を`journal/journal-core`に、`crates/server`を`journal/journal-server`に、`crates/hmtid`を`journal/hmtid`にする。`Cargo.toml`、`Cargo.lock`、`.cargo`、`bench`、`scripts`、READMEを、`journal`にする
   - 直すところ
     - パス依存を持つ`Cargo.toml`と、2つのワークスペースの`members`
     - `journal/.cargo/config.toml`の`PETAJOURNAL_FRONTEND_DIR`と`cov`、`mutants.toml`の`exclude_globs`。`client/.cargo/config.toml`のコメント
     - Web版の`index.html`の4つの`script`（`../../../../atlas/web/`になる）、`Trunk.toml`のフックのパス
-    - `build-frontend.ps1`と`build-frontend.sh`。置き場も決める
+    - `build-frontend.ps1`と`build-frontend.sh`。置き場は、直下のままにした。使う人の手順が変わらない
     - Playwrightの設定（`shellDir`）と、サーバーのテストの`ext-functions`へのパス（`journal-server/tests/auto_template/main.rs`）
     - 4つのネイティブのアプリの`generate`と`run`、Gradle、`project.yml`、`Package.swift`、`.csproj`
     - `.github/workflows/ci.yml`、`BUILD.md`、README、`.gitignore`、`.vscode`、`.claude`
-    - ADR 038までのADRと、`docs/`の計画の文書は、書いた時点の記録なので書き換えない
+    - `atlas/src/measure.rs`のテストが読むフォント（`client/assets/NotoSansJP-Regular.ttf`）。`atlas`が`client`のファイルを読んでいる
+    - `docs/`の今の仕様の文書（`features.md`、`storymap.md`、`properties.md`、`folder-sync-future.md`、`frontend-architecture.svg`）と、この文書のまだ済んでいない項目のパス
+    - ADR 038までのADRと、`docs/`の2つの移植の計画（`rust-rewrite-plan.md`、`frontend-rust-rewrite-plan.md`）は、書いた時点の記録なので書き換えない。この節の済んだ項目も、古いパスのままにした
   - 確かめ方
     - `client`と`journal`と`atlas`のテスト、`cargo fmt`、wasm向けの`cargo check`、Emacsのテスト
     - `build-frontend`を回し、Web版を開く。アトラスも開く。Trunkが、ワークスペースの外の`atlas/web/`を新しい深さで読めるかを見る
@@ -406,7 +408,17 @@
     - `stickies-win`のビルドとテスト、`memoview-win`のビルドとテスト、`todo`の`npm test`と`npm run build`
     - `outliner-android`のビルドと、端末の要らないテスト
     - `cargo cov`と`cargo-mutants`が、新しいフォルダーの名前で動くか
-    - [ ] `stickies-mac`と`outliner-ios`のビルドとテストを、Macで確かめる。Windowsでは回せない
+    - [ ] `stickies-mac`と`outliner-ios`のビルドとテストを、Macで確かめる。Windowsでは回せない。`generate.sh`と`boltffi.toml`の出力先は、新しい場所に直してある
+  - 2026-11-13に確かめたこと。Windowsの手元で回した
+    - `client`のテスト、`cargo fmt --check`、`cargo clippy`、wasm向けの`cargo check`、featureの付いた`codegen`と`ffi`のテストが通った
+    - `journal`のテスト（`it`は340個）と`atlas`のテスト（28個）が通った
+    - Emacsのテストは、160個がすべて通った。EmacsのE2Eは、1回目に`a-property-is-set-changed-and-removed`が落ち、2回目は40個がすべて通った。時々落ちるテストである。原因は調べていない
+    - Playwrightは、88個のうち87個が通った。落ちた1個は、前からWindowsで落ちているCtrl+Cのテストである。Trunkは、`../../../../atlas/web/`の4つのスクリプトと、`client/assets`の2つのフォントを`dist-e2e`に入れた。ブラウザーでアトラスを開く確認は、していない
+    - `stickies-win`は、`generate.ps1`（BoltFFI）、テスト（115個のうち75個が通り、40個はサーバーが要るので飛ばした）、Releaseのビルドが通った
+    - `memoview-win`は、CSharpierの検査、テスト（55個）、MSBuildでのビルドが通った
+    - `todo`は、整形の検査、lint、テスト（51個）、ビルドが通った
+    - `outliner-android`は、`generate.ps1`、`assembleDebug`、`testDebugUnitTest`が通った。端末で動くテスト（`connectedDebugAndroidTest`）は、回していない
+    - `cargo cov`は、`client`と`journal`の両方で動いた。除外したファイルは、表に出ない。`cargo mutants --list`は、`journal`で4,587個を並べ、除外したファイルのミュータントは0個だった
   - マージのあとに、使う人がすること。Emacsの`load-path`を直す。`build-frontend`を回し直す。`--frontend-dir`を使っているなら直す。古い`target/`を消す
 - [ ] アプリのパッケージの名前と中の名前を、フォルダーの名前に合わせる（ADR 039。2026-11-13にユーザーが決めた）
   - 並べ替えのあとに、別のPRで行う。移動と改名を混ぜない
@@ -419,7 +431,7 @@
 
 - [ ] 2026-11-25に、止めているCIを戻す。`gh workflow enable CI`を実行する
   - 請求の問題でどのジョブも走らないので、2026-11-11から2週間ほど止める。止めるのは`gh workflow disable CI`である
-  - 止めている間は、手元の確認だけが頼りである。`atlas`、`ext-web-app/todo`、`ext-desktop-app/stickies`、wasm向けの`cargo check`、Emacsのテストも、触ったら手元で回す
+  - 止めている間は、手元の確認だけが頼りである。`atlas`、`client/apps/web-app/todo`、`client/apps/webview-app/memoview-win`、wasm向けの`cargo check`、Emacsのテストも、触ったら手元で回す
   - 戻したら、`main`で一度走らせて、止めていた間の変更を確かめる
 
 ## 道具の更新
@@ -427,7 +439,7 @@
 - [ ] Rustを1.100に上げる（2026-11-13にユーザーが足した）
   - Rust 1.100.0は、2026-11-12に出た。このPCは1.99.1である（2026-11-13に見た）
   - リポジトリは、Rustの版を固定していない。`rust-toolchain.toml`も`rust-version`もない。CIは`dtolnay/rust-toolchain@stable`なので、戻したときに1.100で走る。上げる作業は、PCごとの`rustup update stable`と、出た問題の修正である
-  - 上げる対象は、`journal-server-rust`、`frontend-rust`、`atlas`である。どれもeditionは2021である
+  - 上げる対象は、`journal`、`client`、`atlas`である。どれもeditionは2021である
   - [ ] never type（`!`）のフォールバックが変わる。2021までのeditionでは、`()`から`!`になる。今まで通っていたコードが、コンパイルできなくなることがある。editionが2021なので、3つとも当たる。先に、今の版で`dependency_on_unit_never_type_fallback`の警告が出ていないかを見る
   - [ ] Cargoが、使っていない依存を警告する。警告は、既定で出る。出た依存を`Cargo.toml`から消す。dev-dependenciesは、まだ調べられない
   - [ ] Cargoの`build-dir`の並びが変わる。上げたあとの最初のビルドは、すべてを作り直すとみているが、未確認である。`build-dir`の場所や中身を名前で見ているスクリプトがないかを確かめる（`generate.ps1`、`generate.sh`、`boltffi pack`、wasmのビルド）
@@ -437,7 +449,7 @@
   - 版を固定するかは、決めていない。固定するなら、`rust-toolchain.toml`を置く。PCの間とCIで、同じ版になる
   - 速さは目的ではない。公式の告知に、コンパイルや実行が速くなったという記述はない
 
-- [ ] `ext-web-app/todo`の道具を、上流の対応に追従して新しくする
+- [ ] `client/apps/web-app/todo`の道具を、上流の対応に追従して新しくする
   - 今できる作業は終わった。残りの2つは、上流の対応を待っている。今は進められない
   - [ ] TypeScript 7.1でAPIが戻り、typescript-eslintが対応したら、`typescript`の別名をやめて7だけにする
   - [ ] `npm audit`に残る中程度の10件は、どれもESLintとtypescript-eslintが使うminimatch 10が原因である。両方がminimatch 11に移ったら、更新して消す。`overrides`では上げない。11はAPIを削っており、ESLintが対応を確かめていないため

@@ -1,0 +1,42 @@
+# How BoltFFI packs this crate for the shells that have the journal inside the app: the Android
+# shell (ADR 030) and the iOS shell (ADR 034).
+#
+# For Android, run `boltffi pack android --release` in this folder. It needs the Android NDK:
+# set ANDROID_NDK_HOME. For iOS, run `boltffi pack apple --release`.
+
+[package]
+name = "client-shell-embedded"
+crate = "client_shell_embedded"
+
+# The iOS shell (ADR 034): a device, the simulator of a Mac with Apple silicon, and the Mac
+# itself. The slice for the Mac is for the tests of the shell that need no screen: `swift test`
+# runs them with no simulator.
+[targets.apple]
+output = "../../apps/native-app/outliner-ios/generated/PetaCore"
+include_macos = true
+ios_architectures = ["arm64"]
+simulator_architectures = ["arm64"]
+macos_architectures = ["arm64"]
+# For speed and not for size, as for the other native shells
+cargo_args = ["--config", "profile.release.opt-level=3"]
+
+[targets.apple.swift]
+module_name = "PetaCore"
+
+[targets.apple.spm]
+package_name = "PetaCore"
+layout = "ffi-only"
+
+[targets.wasm]
+enabled = false
+
+[targets.android]
+enabled = true
+output = "../../apps/native-app/outliner-android/generated"
+min_sdk = 26
+architectures = ["arm64", "x86_64"]
+# For speed and not for size, as for the other native shells
+cargo_args = ["--config", "profile.release.opt-level=3"]
+
+[targets.android.kotlin]
+package = "net.sosuisen.petajournal.core"

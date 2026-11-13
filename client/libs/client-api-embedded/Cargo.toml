@@ -1,0 +1,20 @@
+[package]
+name = "client-api-embedded"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PetaJournal: the requests of the frontend core, performed by a journal core inside the app (ADR 029)"
+
+[dependencies]
+client-core = { path = "../client-core" }
+# Without the extension functions by default: rquickjs has no ready bindings for Android
+journal-core = { path = "../../../journal/journal-core", default-features = false }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[features]
+# Runs the scripts of the extension functions, as the journal server does
+extensions = ["journal-core/extensions"]
+
+[dev-dependencies]
+tempfile = "3"

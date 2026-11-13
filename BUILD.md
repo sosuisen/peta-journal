@@ -1,11 +1,11 @@
 # PetaJournal Build Guide
 
-PetaJournal is two programs: the journal server (`journal-server-rust`) and the frontend
-(`frontend-rust`). Both are written in Rust. Node.js 20+ is needed only for the end-to-end tests.
+PetaJournal is two programs: the journal server (`journal/`) and the frontend
+(`client/`). Both are written in Rust. Node.js 20+ is needed only for the end-to-end tests.
 
-## Rust server (journal-server-rust)
+## Rust server (journal)
 
-`journal-server-rust` is the journal server (axum, rusqlite, tantivy, rmcp). It serves the
+`journal/` holds the journal server (axum, rusqlite, tantivy, rmcp). It serves the
 REST API, the SSE stream, the MCP tools and the web frontend on port 8087, and keeps
 `journal.db`, `config.json` and the markdown folder under `~/.peta-journal`. It replaced the Java (Quarkus) server; the
 port is described in `docs/rust-rewrite-plan.md`.
@@ -21,7 +21,7 @@ port is described in `docs/rust-rewrite-plan.md`.
 ### Build and run
 
 ```powershell
-cd peta-journal/journal-server-rust
+cd peta-journal/journal
 cargo build --release
 ./target/release/journal-server            # port 8087, data under ~/.peta-journal
 ```
@@ -52,7 +52,7 @@ first of these folders:
 2. the `frontend/` folder beside the server executable
 
 Under `cargo run`, `.cargo/config.toml` sets `PETAJOURNAL_FRONTEND_DIR` to
-`frontend-rust/crates/client-shell-leptos/dist`, the folder `trunk build` writes. The executable started
+`client/apps/web-app/outliner/dist`, the folder `trunk build` writes. The executable started
 by hand (`./target/release/journal-server`) does not see that setting: pass `--frontend-dir`, or
 copy `dist/` to `target/release/frontend/`. With neither folder the server serves the API only,
 and logs `Frontend: not served` at startup.
@@ -69,19 +69,19 @@ it from the database; the database itself is not changed.
 ### Tests
 
 ```powershell
-cd peta-journal/journal-server-rust
+cd peta-journal/journal
 cargo test
 ```
 
-`cargo test` runs the unit tests and two test binaries. `crates/server/tests/it/` holds the API
-tests and the other integration tests. `crates/server/tests/mcp/` holds the MCP tests. Each
+`cargo test` runs the unit tests and two test binaries. `journal-server/tests/it/` holds the API
+tests and the other integration tests. `journal-server/tests/mcp/` holds the MCP tests. Each
 binary starts the server once on a free port with everything under a temporary directory.
 
-## Rust frontend (frontend-rust)
+## Rust frontend (client)
 
-`frontend-rust` is the frontend: a [Crux](https://github.com/redbadger/crux) core
-(`crates/client-core`, the outline logic, tested without a browser) and a [Leptos](https://leptos.dev/) shell
-(`crates/client-shell-leptos`) built to WebAssembly with trunk. It replaced the Angular frontend; the
+`client/` holds the frontend: a [Crux](https://github.com/redbadger/crux) core
+(`libs/client-core`, the outline logic, tested without a browser) and a [Leptos](https://leptos.dev/) shell
+(`apps/web-app/outliner`) built to WebAssembly with trunk. It replaced the Angular frontend; the
 port is described in `docs/frontend-rust-rewrite-plan.md`.
 
 ### Prerequisites
@@ -92,7 +92,7 @@ port is described in `docs/frontend-rust-rewrite-plan.md`.
 ### Build and run
 
 ```powershell
-cd peta-journal/frontend-rust/crates/client-shell-leptos
+cd peta-journal/client/apps/web-app/outliner
 trunk build                 # debug files in dist/, for development
 trunk build --release       # small files in dist/, for daily use and distribution
 ```
@@ -114,24 +114,24 @@ version, bundle it in a scratch directory and copy the two files over:
 ```powershell
 mkdir hljs-build; cd hljs-build
 npm i highlight.js@11 esbuild
-npx esbuild node_modules/highlight.js/lib/common.js --bundle --format=iife --global-name=hljs --minify --outfile=<peta-journal>/frontend-rust/crates/client-shell-leptos/vendor/highlight.min.js
-cp node_modules/highlight.js/styles/github.css <peta-journal>/frontend-rust/crates/client-shell-leptos/vendor/highlight-github.css
+npx esbuild node_modules/highlight.js/lib/common.js --bundle --format=iife --global-name=hljs --minify --outfile=<peta-journal>/client/apps/web-app/outliner/vendor/highlight.min.js
+cp node_modules/highlight.js/styles/github.css <peta-journal>/client/apps/web-app/outliner/vendor/highlight-github.css
 ```
 
 ### Tests
 
 ```powershell
-cd peta-journal/frontend-rust
+cd peta-journal/client
 cargo test                  # core (the ported service specs) and the shells
 ```
 
-The Playwright suite in `e2e/` drives the Rust server and the Rust frontend the way they run for
+The Playwright suite in `client/apps/web-app/outliner/e2e/` drives the Rust server and the Rust frontend the way they run for
 the user: it builds the server with `cargo build --release` and the frontend with `trunk build`
 into `dist-e2e/`, then starts one journal server on port 8187 that serves those files and the
 API. Install trunk once with `cargo install trunk`:
 
 ```bash
-cd peta-journal/e2e
+cd peta-journal/client/apps/web-app/outliner/e2e
 npm install
 npx playwright install chromium   # once
 npm run e2e
@@ -155,14 +155,14 @@ cargo install cargo-llvm-cov --locked
 After a change, read the coverage for the lines no test reaches (the numbers are not a target):
 
 ```
-cd peta-journal/frontend-rust
+cd peta-journal/client
 cargo cov            # a table per file
 cargo cov --html     # target/llvm-cov/html/index.html, line by line
 ```
 
 `cargo cov` is an alias in `.cargo/config.toml`. It measures `client-core`, `client-page-links`,
 `client-api-http`, `client-api-embedded`, `client-shell-emacs`, `client-native-bridge`, `client-shell-http` and
-`client-shell-embedded`. The wasm shell `client-shell-leptos` (`crates/client-shell-leptos`) is left out: it only runs in
+`client-shell-embedded`. The wasm shell `client-shell-leptos` (`apps/web-app/outliner`) is left out: it only runs in
 the browser, so the E2E tests cover it instead.
 
 No file of `client-shell-emacs` is left out. Its tests start the program itself, and `cargo cov`
@@ -173,11 +173,11 @@ the types of the native shells is measured too.
 
 ### Types of the native shells
 
-`crates/client-native-bridge` holds the core for a shell that is not written in Rust, such as the SwiftUI
+`libs/client-native-bridge` holds the core for a shell that is not written in Rust, such as the SwiftUI
 shell (ADR 024). The types that cross to such a shell are generated from the Rust types:
 
 ```
-cd peta-journal/frontend-rust
+cd peta-journal/client
 cargo run -p client-native-bridge --features facet_typegen --bin codegen -- swift <folder>
 cargo run -p client-native-bridge --features facet_typegen --bin codegen -- csharp <folder>
 cargo run -p client-native-bridge --features facet_typegen --bin codegen -- kotlin <folder>
@@ -194,10 +194,10 @@ directly (ADR 028). The tests of the generation need the feature too:
 `cargo test -p client-native-bridge --features facet_typegen`.
 
 This crate has no way to the journal, and no entrance for another language. A crate above it
-has both (ADR 036). `crates/client-shell-http` is the one for the shells that ask a journal
+has both (ADR 036). `libs/client-shell-http` is the one for the shells that ask a journal
 server: the SwiftUI and the WinUI shell. Its feature `ffi` adds the entrance (`src/ffi.rs`),
-made with BoltFFI. `frontend-swiftui/README.md` describes how the SwiftUI shell is built from both, and the
-tools it needs. `frontend-winui/README.md` does so for the WinUI shell.
+made with BoltFFI. `client/apps/native-app/stickies-mac/README.md` describes how the SwiftUI shell is built from both, and the
+tools it needs. `client/apps/native-app/stickies-win/README.md` does so for the WinUI shell.
 
 A type that crosses has `#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]`. The
 generator reads the shape of the Rust type, not what serde writes. A type with a hand-written
@@ -205,8 +205,8 @@ generator reads the shape of the Rust type, not what serde writes. A type with a
 
 ### Core of the Android and iOS shells
 
-`crates/client-shell-embedded` holds the core for the Android and the iOS shell. It has no journal server to ask:
-the journal core (`journal-server-rust/crates/core`) runs inside the app (ADR 029). The shell
+`libs/client-shell-embedded` holds the core for the Android and the iOS shell. It has no journal server to ask:
+the journal core (`journal/journal-core`) runs inside the app (ADR 029). The shell
 puts Markdown files into a folder of the app and calls `sync()`, which takes them in and makes
 them found by the search. `sync()` also deletes the pages of the files that have gone, without
 asking (ADR 030). Then it writes the pages that changed in the app to the folder, for the
@@ -216,57 +216,57 @@ one that is not. Nothing runs at times of its own: no watcher, no scan, no expor
 BoltFFI packs the crate for Android, and the generator writes the Kotlin types beside it:
 
 ```
-cd peta-journal/frontend-rust
-cargo run -p client-native-bridge --features facet_typegen --bin codegen -- kotlin ../frontend-android/generated
-cd crates/client-shell-embedded
+cd peta-journal/client
+cargo run -p client-native-bridge --features facet_typegen --bin codegen -- kotlin apps/native-app/outliner-android/generated
+cd libs/client-shell-embedded
 boltffi pack android --release
 ```
 
 This needs the Android NDK (`ANDROID_NDK_HOME`) and the Rust targets `aarch64-linux-android` and
-`x86_64-linux-android`. The output is `frontend-android/generated`: the libraries under
+`x86_64-linux-android`. The output is `client/apps/native-app/outliner-android/generated`: the libraries under
 `jniLibs`, and the Kotlin under `kotlin`. It is not kept in the repository.
-`frontend-android/generate.ps1` runs both steps.
+`client/apps/native-app/outliner-android/generate.ps1` runs both steps.
 
 The tests of the crate run on the development machine, with `cargo test -p client-shell-embedded`.
 
-The iOS shell uses the same crate (ADR 034). On a Mac, `frontend-ios/generate.sh` writes the
+The iOS shell uses the same crate (ADR 034). On a Mac, `client/apps/native-app/outliner-ios/generate.sh` writes the
 Swift types and packs the crate with `boltffi pack apple --release`, for a device, for the
 simulator and for the Mac. This needs the Rust targets `aarch64-apple-ios` and
-`aarch64-apple-ios-sim`. The output is `frontend-ios/generated`.
+`aarch64-apple-ios-sim`. The output is `client/apps/native-app/outliner-ios/generated`.
 
 ### Emacs frontend
 
-`crates/client-shell-emacs` is a second shell around the same core. It is a native program, and an Emacs
-mode draws what it sends. `crates/client-shell-emacs/README.md` describes the setup, the keys and the tests.
+`apps/emacs/outliner` is a second shell around the same core. It is a native program, and an Emacs
+mode draws what it sends. `apps/emacs/outliner/README.md` describes the setup, the keys and the tests.
 
 ```powershell
-cd peta-journal/frontend-rust
+cd peta-journal/client
 cargo build --release -p client-shell-emacs
 ```
 
-## SwiftUI frontend (frontend-swiftui)
+## SwiftUI frontend (stickies-mac)
 
 The shell for macOS, a Walking Skeleton so far: it opens one page and saves what is typed into an
-item. `frontend-swiftui/README.md` describes the tools, the build of the app and the tests. Its
+item. `client/apps/native-app/stickies-mac/README.md` describes the tools, the build of the app and the tests. Its
 tests do not run in CI.
 
-## WinUI frontend (frontend-winui)
+## WinUI frontend (stickies-win)
 
 The shell for Windows. It is the same app as the SwiftUI shell: stickies that each show one page
-(ADR 028). `frontend-winui/README.md` describes the tools, the build of the app and the tests.
+(ADR 028). `client/apps/native-app/stickies-win/README.md` describes the tools, the build of the app and the tests.
 Its tests do not run in CI.
 
-## Android frontend (frontend-android)
+## Android frontend (outliner-android)
 
 The shell for Android, in Kotlin with Jetpack Compose. It downloads the Markdown folder from
 Dropbox, and a page is searched for and opened. Nothing is changed. The journal core runs
-inside the app (ADR 029, ADR 030). `frontend-android/README.md` describes the tools, the build of the app and the
+inside the app (ADR 029, ADR 030). `client/apps/native-app/outliner-android/README.md` describes the tools, the build of the app and the
 tests. Its tests need a device or an emulator, and do not run in CI.
 
-## iOS frontend (frontend-ios)
+## iOS frontend (outliner-ios)
 
 The shell for iOS, in Swift with SwiftUI. It does what the Android shell does, with the same
-core inside the app (ADR 034). `frontend-ios/README.md` describes the tools, the build of the
+core inside the app (ADR 034). `client/apps/native-app/outliner-ios/README.md` describes the tools, the build of the
 app and the tests. Its tests need a Mac, and those of the screen a simulator. They do not run
 in CI.
 
@@ -286,7 +286,7 @@ another program that shows an atlas, such as a static site. It reads the outline
 - no feature: reading the outline only, as the server does
 - `marks`: the SVG marks and the scene, as the frontend uses them
 - `measure`: the width of a card from its label, for a card whose label is hidden. It
-  measures in the font of the labels, `frontend-rust/assets/NotoSansJP-Regular.ttf`.
+  measures in the font of the labels, `client/assets/NotoSansJP-Regular.ttf`.
 
 ```powershell
 cd peta-journal/atlas
@@ -303,7 +303,7 @@ cargo test --all-features
   that can be edited need it.
 - `tweedle.umd.js`: tweedle.js, the global `tweedle_js`. `pixi-ui.js` needs it.
 
-The web shell loads all four from `index.html` of `frontend-rust/crates/client-shell-leptos`.
+The web shell loads all four from `index.html` of `client/apps/web-app/outliner`.
 A page that only shows an atlas, such as a static site, needs `pixi.min.js` and `atlas.js`.
 Load `pixi.min.js` first.
 
@@ -326,13 +326,13 @@ Then build the frontend, open an atlas, and check the drawing and a dialog.
 `.github/workflows/ci.yml` runs on every pull request and every push to `main`. A change to the
 documents alone does not start it. On Ubuntu, each of the three workspaces runs `cargo fmt --check`,
 `cargo clippy` and `cargo test`. The frontend also checks the shell for wasm. A fourth job checks
-`ext-web-app/todo` on Node 24: the format, lint, the tests and the build. The end-to-end tests
-in `e2e/` do not run there, so run them by hand. A warning from clippy does not fail the run.
+`client/apps/web-app/todo` on Node 24: the format, lint, the tests and the build. The end-to-end tests
+in `client/apps/web-app/outliner/e2e/` do not run there, so run them by hand. A warning from clippy does not fail the run.
 
 ## Development Workflow
 
 1. Build the frontend: `./build-frontend.ps1 -Dev` (or `./build-frontend.sh --dev`)
-2. Start the journal server: `cd journal-server-rust && cargo run`
+2. Start the journal server: `cd journal && cargo run`
 3. Open `http://localhost:8087`
 
 After a change to the frontend, run the script again and reload the browser. The journal
