@@ -92,6 +92,12 @@ internal sealed class StickyWindow : Window
     private bool rolling;
 
     /// <summary>
+    /// The place and the size of the sticky, in pixels: those of the window while it is not
+    /// as large as the screen.
+    /// </summary>
+    private RectInt32 place;
+
+    /// <summary>
     /// The orders to put the cursor somewhere that were carried out. They are kept for the
     /// whole window, not for each row: the list makes the view of a row again when the row
     /// scrolls back into the window, and that view must not take the cursor for an old order.
@@ -157,16 +163,12 @@ internal sealed class StickyWindow : Window
         Paint();
         Place(kept, before);
         if (AppWindow.Presenter is OverlappedPresenter presenter)
-        {
-            // A sticky is not made as large as the screen. A double click on its title bar
-            // rolls it up
-            presenter.IsMaximizable = false;
             presenter.IsAlwaysOnTop = Look.AlwaysOnTop;
-        }
         hears = Heard;
         Native.SetWindowSubclass(handle, hears, 1, 0);
         if (kept?.RolledUp == true)
             Roll(animated: false);
+        Measure();
 
         Shell.ViewChanged += Draw;
         Shell.TitleChanged += Name;
@@ -191,8 +193,14 @@ internal sealed class StickyWindow : Window
         };
         AppWindow.Changed += (_, change) =>
         {
-            if (change.DidPositionChange || change.DidSizeChange)
-                Keep();
+            if (!change.DidPositionChange && !change.DidSizeChange)
+                return;
+            // Windows + Up and a drag to the top of the screen make the window large without
+            // asking first. A sticky that is rolled up would become a bar as wide as the
+            // screen, so it goes back to what it was
+            if (Maximized && (RolledUp || rolling))
+                DispatcherQueue.TryEnqueue(Restore);
+            Keep();
         };
         Activated += (_, change) =>
         {
@@ -743,23 +751,45 @@ internal sealed class StickyWindow : Window
     private int BarPixels =>
         AppWindow.Size.Height - AppWindow.ClientSize.Height + (int)Math.Round(BarHeight * Scale);
 
+    /// <summary>The window is as large as the screen.</summary>
+    private bool Maximized => Native.IsZoomed(handle);
+
+    /// <summary>Makes a window that is as large as the screen as it was before.</summary>
+    private void Restore()
+    {
+        if (!closed && Maximized && AppWindow.Presenter is OverlappedPresenter presenter)
+            presenter.Restore();
+    }
+
+    /// <summary>
+    /// Takes the place and the size of the sticky from the window. Not while the window is as
+    /// large as the screen: the sticky keeps the place and the size it goes back to.
+    /// </summary>
+    private void Measure()
+    {
+        if (Maximized)
+            return;
+        var size = AppWindow.Size;
+        // What is kept is the whole sticky, also while only its title bar is shown
+        var height = RolledUp || rolling ? fullHeight : size.Height;
+        place = new RectInt32(AppWindow.Position.X, AppWindow.Position.Y, size.Width, height);
+    }
+
     /// <summary>Keeps the sticky as it is now.</summary>
     public void Keep()
     {
         if (closed)
             return;
-        var size = AppWindow.Size;
-        // What is kept is the whole sticky, also while only its title bar is shown
-        var height = RolledUp || rolling ? fullHeight : size.Height;
+        Measure();
         desk.Keep(
             new StickySettings
             {
                 Id = Id,
                 Url = Shell.Url,
-                X = AppWindow.Position.X,
-                Y = AppWindow.Position.Y,
-                Width = size.Width / Scale,
-                Height = height / Scale,
+                X = place.X,
+                Y = place.Y,
+                Width = place.Width / Scale,
+                Height = place.Height / Scale,
                 Color = Look.Color,
                 AlwaysOnTop = Look.AlwaysOnTop,
                 Zoom = Look.Zoom,
@@ -845,9 +875,23 @@ internal sealed class StickyWindow : Window
     {
         switch (message)
         {
+            // A double click on the title bar rolls the sticky up. Windows would make the
+            // window as large as the screen: that is left to the button of the title bar
             case Native.WmNcLeftButtonDoubleClick when wParam == Native.HitCaption:
-                Roll();
+                if (Maximized)
+                    Restore();
+                else
+                    Roll();
                 return IntPtr.Zero;
+            case Native.WmSysCommand
+                when (wParam.ToInt64() & 0xFFF0) == Native.SysMaximize && (RolledUp || rolling):
+                // On the way up or down the sticky has no height to come back to yet
+                if (rolling)
+                    return IntPtr.Zero;
+                // A sticky that is rolled up keeps the height of its title bar, also when it
+                // is made large. It is rolled down first
+                Roll(animated: false);
+                return Native.DefSubclassProc(window, message, wParam, lParam);
             // The button of the title bar comes with the place of the mouse. Alt+F4, the
             // taskbar and the end of the session come without one, and keep the sticky
             case Native.WmSysCommand

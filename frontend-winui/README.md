@@ -198,7 +198,12 @@ A sticky is light in every color, also when Windows is in dark mode.
 
 A double click on the title bar rolls the sticky up, so that only its title bar is left, and
 another one rolls it down again to the size it had. A sticky that is rolled up shows no tools,
-and comes back rolled up in the next run. A sticky cannot be maximized.
+and comes back rolled up in the next run.
+
+The button of the title bar maximizes the sticky. A sticky that is rolled up is rolled down
+first. A double click on the title bar of a maximized sticky makes it as it was before. The
+place and the size of a sticky are not kept while it is maximized: it comes back in the next
+run as it was before.
 
 The button with the pin keeps the sticky on top of the windows of other apps, until it is
 pressed again. The pin is filled while it does. The zoom stays between 30% and 300%. Color, pin and zoom are kept with each

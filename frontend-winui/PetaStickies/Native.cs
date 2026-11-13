@@ -12,6 +12,7 @@ internal static class Native
     public const uint WmGetMinMaxInfo = 0x0024;
     public const uint WmNcLeftButtonDoubleClick = 0x00A3;
     public const uint WmSysCommand = 0x0112;
+    public const long SysMaximize = 0xF030;
     public const long SysClose = 0xF060;
     public const int HitCaption = 2;
 
@@ -43,6 +44,10 @@ internal static class Native
 
     [DllImport("user32.dll")]
     public static extern uint GetDpiForWindow(IntPtr window);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsZoomed(IntPtr window);
 
     [DllImport("comctl32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
