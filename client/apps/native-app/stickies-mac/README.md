@@ -78,13 +78,15 @@ under `generated/`. Run it again after a change in Rust.
 
 The app needs a running journal server (see `BUILD.md` at the top of the repository).
 
-`run.sh` does all of the below: it builds the app (the Release build), ends a running app, and
-starts the new one. What follows its own options goes to the app:
+`release.sh --run` does all of the below: it builds the app (the Release build), ends a running
+app, and starts the new one. Without `--run` it only builds. `debug.sh` does the same with the
+Debug build, and always starts the app. What follows the options goes to the app:
 
 ```
 cd peta-journal/client/apps/native-app/stickies-mac
-./run.sh -url /pages/notes     # --generate first makes generated/ again, after a change in Rust
-./run.sh --help
+./release.sh --run -url /pages/notes     # --generate first makes generated/ again, after a change in Rust
+./debug.sh -url /pages/notes
+./release.sh --help
 ```
 
 By hand, the steps are:

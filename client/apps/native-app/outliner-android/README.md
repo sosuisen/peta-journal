@@ -36,6 +36,17 @@ cd peta-journal/client/apps/native-app/outliner-android
 ./gradlew :app:connectedDebugAndroidTest    # runs the tests on a device or an emulator
 ```
 
+Two scripts do the usual steps. Both run `generate` first when `generated/` is missing, and
+with `-Generate`. Everything else goes to Gradle:
+
+```
+./debug.ps1 -Pabi=arm64-v8a     # installs the debug build on the device that adb sees, and starts it
+./release.ps1                   # builds app/build/outputs/apk/release/app-release-unsigned.apk
+```
+
+`debug.sh` and `release.sh` do the same, for macOS, Linux and Git Bash. Their option is
+`--generate`. The release build is not signed, so no device takes it as it is.
+
 The package holds the core for both kinds of device, about 70MB each. `-Pabi=x86_64` packs
 only one, for an emulator with little room.
 

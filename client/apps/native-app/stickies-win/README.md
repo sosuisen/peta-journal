@@ -35,7 +35,7 @@ cd peta-journal/client/apps/native-app/stickies-win
 dotnet test PetaBorder.Tests
 ```
 
-`generate.sh` and `run.sh` do the same as the two `.ps1` scripts, for Git Bash.
+`generate.sh` does the same as `generate.ps1`, for Git Bash.
 
 `generate.ps1` builds the Rust library optimized (`boltffi pack csharp --release`). It makes
 two C# projects under `generated/`. Run it again after a change in Rust. `generated/` is not
@@ -72,13 +72,15 @@ kept in the repository.
 
 The app needs a running journal server (see `BUILD.md` at the top of the repository).
 
-`run.ps1` builds the app (the Release build), ends a running app, and starts the new one. What
-follows its own option goes to the app:
+`release.ps1 -Run` builds the app (the Release build), ends a running app, and starts the new
+one. Without `-Run` it only builds. `debug.ps1` does the same with the Debug build, and always
+starts the app. What follows the options goes to the app:
 
 ```
 cd peta-journal/client/apps/native-app/stickies-win
-./run.ps1 -url /pages/notes     # -Generate first makes generated/ again, after a change in Rust
-./run.sh -url /pages/notes      # the same in Git Bash; --generate, --debug, --help
+./release.ps1 -Run -url /pages/notes     # -Generate first makes generated/ again, after a change in Rust
+./debug.ps1 -url /pages/notes
+./release.sh -Run -url /pages/notes      # the same in Git Bash, with the same options; also debug.sh
 ```
 
 By hand, the steps are:

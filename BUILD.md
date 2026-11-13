@@ -26,6 +26,18 @@ cargo build --release
 ./target/release/journal-server            # port 8087, data under ~/.peta-journal
 ```
 
+Two scripts in `journal/journal-server` do the same from any folder. Each has an `.sh` twin for
+macOS, Linux and Git Bash:
+
+```powershell
+./journal/journal-server/debug.ps1      # cargo run: builds the debug build and starts it
+./journal/journal-server/release.ps1    # cargo build --release
+```
+
+Every app under `client/apps` has the same two scripts in its folder: `debug` builds the
+debug build and starts the app, and `release` makes the release build. An app for one
+system has only the scripts that can run there.
+
 Every setting has a flag and an environment variable (the first column is the name the Java
 server used in `application.properties`, kept for people with old notes):
 
@@ -97,11 +109,11 @@ trunk build                 # debug files in dist/, for development
 trunk build --release       # small files in dist/, for daily use and distribution
 ```
 
-A script at the top of the repository does the same from any folder:
+Two scripts in that folder do the same from any folder:
 
 ```powershell
-./build-frontend.ps1        # trunk build --release (on macOS and Linux: ./build-frontend.sh)
-./build-frontend.ps1 -Dev   # trunk build (on macOS and Linux: ./build-frontend.sh --dev)
+./client/apps/web-app/outliner/debug.ps1      # trunk build (on macOS and Linux: debug.sh)
+./client/apps/web-app/outliner/release.ps1    # trunk build --release (on macOS and Linux: release.sh)
 ```
 
 The journal server serves `dist/` at `http://localhost:8087`; see "Build and run" of the Rust
@@ -244,6 +256,9 @@ cd peta-journal/client
 cargo build --release -p client-shell-emacs
 ```
 
+`apps/emacs/outliner/release.ps1` does the same. `debug.ps1` builds the debug build and starts
+Emacs with it. Both have an `.sh` twin.
+
 ## SwiftUI frontend (stickies-mac)
 
 The shell for macOS, a Walking Skeleton so far: it opens one page and saves what is typed into an
@@ -331,8 +346,8 @@ in `client/apps/web-app/outliner/e2e/` do not run there, so run them by hand. A 
 
 ## Development Workflow
 
-1. Build the frontend: `./build-frontend.ps1 -Dev` (or `./build-frontend.sh --dev`)
-2. Start the journal server: `cd journal && cargo run`
+1. Build the frontend: `./client/apps/web-app/outliner/debug.ps1` (or `debug.sh`)
+2. Start the journal server: `./journal/journal-server/debug.ps1` (or `debug.sh`)
 3. Open `http://localhost:8087`
 
 After a change to the frontend, run the script again and reload the browser. The journal

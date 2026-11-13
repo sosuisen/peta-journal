@@ -1,10 +1,10 @@
 #!/bin/sh
-# Builds the app and starts it in the simulator of an iPhone.
+# Builds the app (the Debug build) and starts it in the simulator of an iPhone.
 #
-#   ./run.sh                   the app in the simulator "iPhone 18 Pro"
-#   ./run.sh --device <name>   another simulator, as `xcrun simctl list devices` names it
-#   ./run.sh --generate        makes generated/ again first, after a change in Rust
-#   ./run.sh --test            runs the tests of the screen in the simulator, and starts no app
+#   ./debug.sh                   the app in the simulator "iPhone 18 Pro"
+#   ./debug.sh --device <name>   another simulator, as `xcrun simctl list devices` names it
+#   ./debug.sh --generate        makes generated/ again first, after a change in Rust
+#   ./debug.sh --test            runs the tests of the screen in the simulator, and starts no app
 #
 # The App key of Dropbox and the folder in Dropbox come from Dropbox.xcconfig (see README.md).
 # Without that file, the app is built without the sync.

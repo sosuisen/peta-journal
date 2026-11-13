@@ -11,8 +11,8 @@ packages:
   PetaJournal:
     path: .
 # The App key of the Dropbox app and the Markdown folder in Dropbox, as DROPBOX_KEY and
-# DROPBOX_FOLDER. The file is not kept in the repository (ADR 034). run.sh makes an empty one:
-# without a key, the app is built without the sync
+# DROPBOX_FOLDER. The file is not kept in the repository (ADR 034). debug.sh and
+# release.sh make an empty one: without a key, the app is built without the sync
 configFiles:
   Debug: Dropbox.xcconfig
   Release: Dropbox.xcconfig

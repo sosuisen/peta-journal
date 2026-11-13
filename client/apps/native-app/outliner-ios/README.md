@@ -33,8 +33,9 @@ the app syncs, where it keeps its data, how it edits and how it uploads.
 cd peta-journal/client/apps/native-app/outliner-ios
 ./generate.sh        # makes generated/ from the Rust crates
 swift test           # runs the tests that need no simulator, on the Mac
-./run.sh --test      # runs the tests of the screen in a simulator
-./run.sh             # builds the app and starts it in a simulator
+./debug.sh --test    # runs the tests of the screen in a simulator
+./debug.sh           # builds the app (the Debug build) and starts it in a simulator
+./release.sh         # builds the app (the Release build) for a simulator
 ```
 
 `generate.sh` makes two Swift packages. Run it again after a change in Rust. `generated/` is
@@ -46,7 +47,7 @@ not kept in the repository:
   for a device, for the simulator and for the Mac (`PetaCore.xcframework`). BoltFFI makes
   both. The library for the Mac is there for `swift test`.
 
-`run.sh` makes `PetaJournal.xcodeproj` from `project.yml` with XcodeGen. The project is not
+`debug.sh` makes `PetaJournal.xcodeproj` from `project.yml` with XcodeGen. The project is not
 kept in the repository either. To run the app on a device, open the project in Xcode and
 choose a team for signing.
 
@@ -75,7 +76,7 @@ DROPBOX_KEY = <App key>
 DROPBOX_FOLDER = /PetaJournal
 ```
 
-`run.sh` makes an empty file when there is none. An app that is built without a key syncs
+`debug.sh` makes an empty file when there is none. An app that is built without a key syncs
 nothing and shows no sign-in.
 
 The SDK of Dropbox signs in (SwiftyDropbox). It lets the Dropbox app sign in when the device
@@ -151,9 +152,9 @@ copy of Dropbox.
 use a cloud that is made for the test. The tests of `Shell` and of `ShownText` run the real
 core, with its files in a temporary folder.
 
-`./run.sh --test` runs the tests of the screen (`UITests`) in the simulator. Each test gives
+`./debug.sh --test` runs the tests of the screen (`UITests`) in the simulator. Each test gives
 the app a folder of its own, by `PETA_ROOT`. The app syncs with nothing then. They take
-several minutes. `run.sh` keeps the Mac awake meanwhile (`caffeinate`): on a Mac that goes to
+several minutes. `debug.sh` keeps the Mac awake meanwhile (`caffeinate`): on a Mac that goes to
 sleep, the tests end with "Timed out while preparing execution worker".
 
 Not tested: `DropboxCloud` and the sign-in, which need an account of Dropbox, and what the
