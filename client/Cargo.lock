@@ -1404,6 +1404,8 @@ dependencies = [
 [[package]]
 name = "flatmarkdown"
 version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "00e4d9e1d45aced0949f3c6aff7ad7c59f6eb18e56446973806b8ddf82bb9fc2"
 dependencies = [
  "comrak",
  "flatmarkdown-ast",
@@ -1413,6 +1415,8 @@ dependencies = [
 [[package]]
 name = "flatmarkdown-ast"
 version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90a3ec59aaf53906e506e57b265a56eba234a4034b46a2f6aa1e14624b09024a"
 dependencies = [
  "facet",
  "serde",
@@ -1422,6 +1426,8 @@ dependencies = [
 [[package]]
 name = "flatmarkdown-ast2html"
 version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "467bcfe8d8c8bef70810e3319b62f3ba2a2623714c0d0c67b780ad1bf3b7b0c2"
 dependencies = [
  "flatmarkdown-ast",
 ]
@@ -2086,6 +2092,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "flatmarkdown",
+ "flatmarkdown-ast",
  "hex",
  "hmtid",
  "lindera",
