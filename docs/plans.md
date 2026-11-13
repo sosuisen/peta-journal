@@ -33,7 +33,9 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [x] 段階3：シェルを1つずつ、`Row.ast`から描くように切り替える。iOS、macOS、Android、Windowsの順
   - Windowsは、.NET 11に上げ、生成された`Node`を`closed record`にし、CS8509をエラーにする
   - iOSとmacOSは、Macでテストが通った。WindowsのPetaBorderとそのテストは、Macの.NET 11でビルドとテストが通った。WinUIのアプリと、Androidのビルドは、それぞれの機械で確かめる
-- [ ] 段階4：古い道を消す。HTMLから描く処理、`item_html`、ビューモデルの`ast`の文字列（AndroidとWindowsで確かめてから）
+- [x] 段階4：古い道を消す。HTMLから描く処理、`item_html`、ビューモデルの`ast`の文字列（AndroidとWindowsで確かめてから）
+  - コピーのASTも、coreがツリー形式のMarkdownから作る。サーバーの`TreeExport.ast`は読まない
+  - Webは、`Row.ast`から`ast2html`でHTMLを作る
 - [ ] 段階5：journalから`ast`を外す。DBの列、`ItemPatch`、MCP。RESTは、応答を作るときに本文から作る
 - [ ] 仕上げ：flatmarkdown 0.8をcrates.ioとnpmに公開し、`Cargo.toml`を公開した版の参照に戻す。todoとmemoviewも新しい版に上げる
 
