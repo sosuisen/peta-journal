@@ -30,10 +30,18 @@ public final class Sticky: Identifiable {
 /// answer by zooming or minimizing the window.
 private final class StickyWindow: NSWindow {
     var onTitleBarDoubleClick: (() -> Void)?
+    /// Makes the menu of the title bar, which a right click on it shows.
+    var titleBarMenu: (() -> NSMenu)?
 
     override func sendEvent(_ event: NSEvent) {
         if event.type == .leftMouseDown, event.clickCount == 2, isOnBareTitleBar(event.locationInWindow) {
             onTitleBarDoubleClick?()
+            return
+        }
+        if event.type == .rightMouseDown, isOnBareTitleBar(event.locationInWindow),
+            let menu = titleBarMenu?(), let frame = contentView?.superview
+        {
+            NSMenu.popUpContextMenu(menu, with: event, for: frame)
             return
         }
         super.sendEvent(event)
@@ -51,6 +59,27 @@ private final class StickyWindow: NSWindow {
         guard place.y > contentLayoutRect.maxY else { return false }
         let taken = windowButtons + titlebarAccessoryViewControllers.map(\.view)
         return !taken.contains { !$0.isHidden && $0.convert($0.bounds, to: nil).contains(place) }
+    }
+}
+
+/// An entry of a menu that runs a closure.
+private final class MenuEntry: NSMenuItem {
+    private let run: () -> Void
+
+    init(_ title: String, checked: Bool, run: @escaping () -> Void) {
+        self.run = run
+        super.init(title: title, action: #selector(chosen), keyEquivalent: "")
+        target = self
+        state = checked ? .on : .off
+    }
+
+    @available(*, unavailable)
+    required init(coder: NSCoder) {
+        fatalError("A menu entry is made in code")
+    }
+
+    @objc private func chosen() {
+        run()
     }
 }
 
@@ -129,6 +158,9 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         stickies.append(sticky)
         window.onTitleBarDoubleClick = { [weak self, weak sticky] in
             if let sticky { self?.roll(sticky) }
+        }
+        window.titleBarMenu = { [weak self, weak sticky] in
+            sticky.flatMap { self?.menu(of: $0) }
         }
         if kept?.rolledUp == true { roll(sticky, animated: false) }
         keep(sticky)
@@ -218,6 +250,21 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
             window.contentMaxSize = NSSize(width: anyHeight.width, height: 0)
         }
         keep(sticky)
+    }
+
+    /// The menu that a right click on the title bar of the sticky shows: the pin, and the
+    /// colors. The pin and the color of the sticky are checked.
+    public func menu(of sticky: Sticky) -> NSMenu {
+        let look = sticky.look
+        let menu = NSMenu()
+        // The entries do not ask a responder whether they can be chosen: they always can
+        menu.autoenablesItems = false
+        menu.addItem(MenuEntry("Keep on Top", checked: look.alwaysOnTop) { look.alwaysOnTop.toggle() })
+        menu.addItem(.separator())
+        for color in StickyLook.colors {
+            menu.addItem(MenuEntry(color.name, checked: look.color == color.hex) { look.color = color.hex })
+        }
+        return menu
     }
 
     /// A little down and to the right of the newest sticky, as new windows are everywhere

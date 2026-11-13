@@ -336,6 +336,45 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(sticky.window.level, .normal)
     }
 
+    // タイトルバーのメニューには、常に手前に表示する項目と、付箋紙の色が並ぶ。今の色には印が付く。
+    func testTheMenuOfTheTitleBarHasThePinAndTheColors() async throws {
+        let sticky = desk.add()
+
+        let menu = desk.menu(of: sticky)
+
+        XCTAssertEqual(
+            menu.items.map { $0.isSeparatorItem ? "-" : $0.title },
+            ["Keep on Top", "-"] + StickyLook.colors.map(\.name))
+        XCTAssertEqual(menu.items.filter { $0.state == .on }.map(\.title), ["Yellow"])
+    }
+
+    // メニューで常に手前に表示を選ぶと、ウィンドウがほかのウィンドウの上にとどまり、項目に印が付く。もう一度選ぶと、普通のウィンドウに戻る。
+    func testThePinOfTheMenuKeepsTheStickyOnTopAndAnotherChoiceEndsIt() async throws {
+        let sticky = desk.add()
+
+        desk.menu(of: sticky).performActionForItem(at: 0)
+
+        XCTAssertEqual(sticky.window.level, .floating)
+        let menu = desk.menu(of: sticky)
+        XCTAssertEqual(menu.items[0].state, .on)
+
+        menu.performActionForItem(at: 0)
+
+        XCTAssertEqual(sticky.window.level, .normal)
+    }
+
+    // メニューで色を選ぶと、付箋紙がその色になり、その色に印が付く。
+    func testAColorOfTheMenuIsTheColorOfTheSticky() async throws {
+        let sticky = desk.add()
+        let menu = desk.menu(of: sticky)
+        let blue = try XCTUnwrap(menu.items.firstIndex { $0.title == "Blue" })
+
+        menu.performActionForItem(at: blue)
+
+        XCTAssertEqual(sticky.look.color, "#D1E1FF")
+        XCTAssertEqual(desk.menu(of: sticky).items.filter { $0.state == .on }.map(\.title), ["Blue"])
+    }
+
     // ズームは、1回で1割ずつ変わる。3割より小さくも、3倍より大きくもならない。等倍に戻せる。
     func testTheZoomChangesByATenthAndStaysBetweenThreeTenthsAndThree() {
         let look = StickyLook()
