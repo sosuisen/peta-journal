@@ -283,7 +283,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <g class="blue">
 <rect x="1692" y="190" width="236" height="56" rx="8" />
 <text class="th" x="1810" y="207" text-anchor="middle" dominant-baseline="central">shell-android（Rust）</text>
-<text x="1810" y="229" text-anchor="middle" dominant-baseline="central">FFIの入口・Hostの実装</text>
+<text x="1810" y="229" text-anchor="middle" dominant-baseline="central">FFIの入口・Hostの実装を注入</text>
 </g>
 <g class="pink">
 <rect x="1722" y="274" width="206" height="56" rx="8" />
