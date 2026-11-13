@@ -110,16 +110,14 @@ For one build, they can also be arguments. They win over the file:
 
 An app that is built without a key syncs nothing and shows no sign-in.
 
-The browser signs in, also on a device that has the Dropbox app. The SDK would let the
-Dropbox app sign in when it sees it. That failed: after a sign-out, and when the Dropbox app
-was signed out itself, the Dropbox app only said that it could not connect to Dropbox and
-asked to check the network. So the manifest takes away the `queries` entry of the SDK, and
-the app does not see the Dropbox app. This holds from Android 11 on, where an app sees only
-the apps it asks for.
+The Dropbox app signs in when the device has it. The browser signs in when it has not. The
+SDK decides this: it asks to see the Dropbox app with a `queries` entry of its own manifest.
 
-The cause of that failure was probably a team scope of the Dropbox app (see the note above):
-`team_data.member` was checked then. This is not yet tried on Android. The plan is to go back
-to the sign-in through the Dropbox app (`docs/plans.md`).
+For a while the browser always signed in (ADR 033). The sign-in through the Dropbox app
+failed then: after a sign-out, and when the Dropbox app was signed out itself, the Dropbox
+app only said that it could not connect to Dropbox. The cause was a team scope of the
+Dropbox app (see the note above): `team_data.member` was checked. With no team scope, the
+sign-in through the Dropbox app worked on a device (2026-11-14).
 
 The app syncs when it comes to the front, when it goes to the back, when "Sync" is touched,
 and 3 seconds after the last change of a page. The sync of an app that came to the front shows
