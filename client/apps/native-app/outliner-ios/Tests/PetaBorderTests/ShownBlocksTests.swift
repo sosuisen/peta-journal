@@ -3,7 +3,7 @@ import PetaBorder
 import PetaTypes
 import XCTest
 
-/// The parts of an item as it is shown, read from the AST that the core gives.
+/// The parts of an item as it is shown, drawn from the AST that the core gives with the row.
 @MainActor
 final class ShownBlocksTests: JournalTestCase {
     /// The parts of the items of the page `notes` with this Markdown, one item after the
@@ -11,32 +11,28 @@ final class ShownBlocksTests: JournalTestCase {
     private func shown(_ markdown: String, tagsDir: String = "tags") throws -> [ShownBlock] {
         try download("notes.md", markdown)
         try openNotes()
-        waitUntil("the items have their AST") { self.shell.view.outline.rows.allSatisfy { !$0.item.ast.isEmpty } }
-        return shell.view.outline.rows.flatMap { shownBlocks(body: $0.item.body, ast: $0.item.ast, tagsDir: tagsDir) }
+        waitUntil("the items are shown") { !self.shell.view.outline.rows.isEmpty }
+        return shell.view.outline.rows.flatMap { shownBlocks(ast: $0.ast, tagsDir: tagsDir) }
     }
 
-    private func html(_ block: ShownBlock?) -> String {
-        if case .text(let html) = block { return html }
-        return ""
+    /// The pieces of the paragraphs of a text.
+    private func pieces(_ block: ShownBlock?) -> [ShownPiece] {
+        if case .text(let paragraphs) = block { return paragraphs.flatMap(\.pieces) }
+        return []
     }
 
-    // ASTのない項目は、本文がそのまま見える。
-    func testAnItemWithoutAnASTShowsItsBodyAsItIs() {
-        XCTAssertEqual(shownBlocks(body: "**body**", ast: "", tagsDir: ""), [.plain("**body**")])
+    /// The letters of a text, without their looks.
+    private func letters(_ block: ShownBlock?) -> String {
+        pieces(block).map(\.text).joined()
     }
 
-    // ASTがJSONとして読めない項目は、本文がそのまま見える。
-    func testAnItemWhoseASTIsNotJSONShowsItsBodyAsItIs() {
-        XCTAssertEqual(shownBlocks(body: "**body**", ast: "{", tagsDir: ""), [.plain("**body**")])
-    }
-
-    // 項目は、Markdownの記号ではなく、飾りの付いたHTMLになる。
-    func testAnItemIsHTMLWithItsDecorationAndNotTheMarksOfMarkdown() throws {
+    // 項目は、Markdownの記号ではなく、飾りの付いた文字になる。
+    func testAnItemIsTextWithItsDecorationAndNotTheMarksOfMarkdown() throws {
         let blocks = try shown("some **bold** text\n")
 
-        XCTAssertEqual(blocks.count, 1)
-        XCTAssertTrue(html(blocks.first).contains("<strong>bold</strong>"), html(blocks.first))
-        XCTAssertFalse(html(blocks.first).contains("**"))
+        XCTAssertEqual(
+            pieces(blocks.first),
+            [ShownPiece(text: "some "), ShownPiece(text: "bold", looks: .bold), ShownPiece(text: " text")])
     }
 
     // コードブロックは、行が分かれたまま、書かれたとおりの部品になる。フェンスの記号は入らない。
@@ -44,9 +40,9 @@ final class ShownBlocksTests: JournalTestCase {
         let blocks = try shown("before\n\n```kotlin\nval x = 1\n  val y = 2\n```\n\nafter\n")
 
         guard blocks.count == 3 else { return XCTFail("\(blocks)") }
-        XCTAssertTrue(html(blocks[0]).contains("before"))
+        XCTAssertEqual(letters(blocks[0]), "before")
         XCTAssertEqual(blocks[1], .code(lines: "val x = 1\n  val y = 2"))
-        XCTAssertTrue(html(blocks[2]).contains("after"))
+        XCTAssertEqual(letters(blocks[2]), "after")
     }
 
     // 表は、セルごとに分かれた部品になる。セルの中の文字の飾りも付く。
@@ -56,9 +52,9 @@ final class ShownBlocksTests: JournalTestCase {
         guard case .table(let rows) = blocks.first else { return XCTFail("no table: \(blocks)") }
         XCTAssertEqual(rows.map(\.header), [true, false])
         XCTAssertEqual(rows.map(\.cells.count), [2, 2])
-        XCTAssertTrue(rows[0].cells[0].contains("name"))
-        XCTAssertTrue(rows[1].cells[0].contains("<strong>apple</strong>"), rows[1].cells[0])
-        XCTAssertTrue(rows[1].cells[1].contains("2"))
+        XCTAssertEqual(rows[0].cells[0].pieces, [ShownPiece(text: "name")])
+        XCTAssertEqual(rows[1].cells[0].pieces, [ShownPiece(text: "apple", looks: .bold)])
+        XCTAssertEqual(rows[1].cells[1].pieces, [ShownPiece(text: "2")])
     }
 
     // assetsの画像は、前後の文字のあいだの、画像の部品になる。
@@ -66,9 +62,9 @@ final class ShownBlocksTests: JournalTestCase {
         let blocks = try shown("before ![a cat](../assets/Cat.png) after\n")
 
         guard blocks.count == 3 else { return XCTFail("\(blocks)") }
-        XCTAssertTrue(html(blocks[0]).contains("before"))
+        XCTAssertEqual(letters(blocks[0]), "before")
         XCTAssertEqual(blocks[1], .image(ShownImage(path: "assets/Cat.png", alt: "a cat", width: nil, height: nil)))
-        XCTAssertTrue(html(blocks[2]).contains("after"))
+        XCTAssertEqual(letters(blocks[2]), "after")
     }
 
     // 画像は、ページが決めた幅と高さを持つ。決めていない辺は、ない。
@@ -88,10 +84,12 @@ final class ShownBlocksTests: JournalTestCase {
         let blocks = try shown("see ![a bird](https://example.com/bird.png) here\n")
 
         XCTAssertEqual(blocks.count, 1)
-        let text = html(blocks.first)
-        XCTAssertTrue(text.contains("href=\"https://example.com/bird.png\""), text)
-        XCTAssertTrue(text.contains(">a bird</a>"), text)
-        XCTAssertFalse(text.contains("<img"))
+        XCTAssertEqual(
+            pieces(blocks.first),
+            [
+                ShownPiece(text: "see "), ShownPiece(text: "a bird", link: "https://example.com/bird.png"),
+                ShownPiece(text: " here"),
+            ])
     }
 
     // リストの中のコードブロックも、行が分かれたまま残る。リストの項目は、番号と一緒に残る。
@@ -101,9 +99,9 @@ final class ShownBlocksTests: JournalTestCase {
         guard case .entries(let entries) = blocks.first else { return XCTFail("no entries: \(blocks)") }
         XCTAssertEqual(entries.map(\.mark), ["1.", "2."])
         XCTAssertEqual(entries[0].blocks.count, 2)
-        XCTAssertTrue(html(entries[0].blocks[0]).contains("first"))
+        XCTAssertEqual(letters(entries[0].blocks[0]), "first")
         XCTAssertEqual(entries[0].blocks[1], .code(lines: "a\n  b"))
-        XCTAssertTrue(html(entries[1].blocks.first).contains("second"))
+        XCTAssertEqual(letters(entries[1].blocks.first), "second")
     }
 
     // 引用の中の表も、セルごとに分かれて残る。
@@ -111,7 +109,7 @@ final class ShownBlocksTests: JournalTestCase {
         let blocks = try shown(above("A") + "> said:\n>\n> | name | count |\n> |---|---|\n> | apple | 2 |\n")
 
         guard case .quote(let inside) = blocks.first else { return XCTFail("no quote: \(blocks)") }
-        XCTAssertTrue(html(inside.first).contains("said:"))
+        XCTAssertEqual(letters(inside.first), "said:")
         guard case .table(let rows) = inside.last else { return XCTFail("no table: \(inside)") }
         XCTAssertEqual(rows.count, 2)
     }
@@ -130,8 +128,8 @@ final class ShownBlocksTests: JournalTestCase {
     func testAListThatHoldsNoPartOfItsOwnStaysOneText() throws {
         let blocks = try shown(above("A") + "- one\n- two\n")
 
-        XCTAssertEqual(blocks.count, 1)
-        XCTAssertTrue(html(blocks.first).contains("<li>"), html(blocks.first))
+        guard blocks.count == 1, case .text(let paragraphs) = blocks.first else { return XCTFail("\(blocks)") }
+        XCTAssertEqual(paragraphs.map(\.mark), ["•", "•"])
     }
 
     // リストの中のタスクの項目は、チェックボックスの印を持つ。
@@ -145,17 +143,16 @@ final class ShownBlocksTests: JournalTestCase {
 
     // ページへのリンクとタグは、そのページのURLへのリンクになる。タグのページは、タグのフォルダーの下にある。
     func testALinkToAPageAndATagAreLinksToTheURLOfTheirPage() throws {
-        let text = html(try shown("[[other page]] and #topic\n", tagsDir: "tags/").first)
+        let links = pieces(try shown("[[other page]] and #topic\n", tagsDir: "tags/").first).compactMap(\.link)
 
-        XCTAssertTrue(text.contains("href=\"/pages/other%20page\""), text)
-        XCTAssertTrue(text.contains("href=\"/pages/tags/topic\""), text)
+        XCTAssertEqual(links, ["/pages/other%20page", "/pages/tags/topic"])
     }
 
     // .mdへの相対リンクは、そのページのURLへのリンクになる。
     func testARelativeLinkToAnMdFileIsALinkToItsPage() throws {
-        let text = html(try shown("[the other](./other.md)\n").first)
+        let links = pieces(try shown("[the other](./other.md)\n").first).compactMap(\.link)
 
-        XCTAssertTrue(text.contains("href=\"/pages/other\""), text)
+        XCTAssertEqual(links, ["/pages/other"])
     }
 
     // リンクの行き先は、Web、ページ、assetsのファイルに分かれる。ほかのリンクは、どこにも行かない。

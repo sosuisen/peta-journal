@@ -1,14 +1,12 @@
 import Foundation
 import PetaCore
 import PetaSync
+import PetaTypes
 
 /// One part of an item as it is shown, from top to bottom.
 public indirect enum ShownBlock: Equatable {
-    /// The body of an item whose AST cannot be read, as it is.
-    case plain(String)
-    /// Text with the decoration of its letters and its links, as HTML. The screen turns it
-    /// into text with attributes: only a screen can.
-    case text(html: String)
+    /// Text with the decoration of its letters and its links.
+    case text([ShownParagraph])
     /// A block of code: its lines as they were written.
     case code(lines: String)
     case table(rows: [ShownTableRow])
@@ -22,8 +20,8 @@ public indirect enum ShownBlock: Equatable {
 public struct ShownTableRow: Equatable {
     /// True for the row of the titles of the columns.
     public let header: Bool
-    /// What is in each cell, as HTML.
-    public let cells: [String]
+    /// What is in each cell: one paragraph each.
+    public let cells: [ShownParagraph]
 }
 
 /// An image of a page.
@@ -51,31 +49,24 @@ public struct ShownEntry: Equatable {
     public let blocks: [ShownBlock]
 }
 
-/// An item as it is shown: with its decoration, not as Markdown (ADR 025).
+/// An item as it is shown: with its decoration, not as Markdown. It is drawn from the AST that
+/// the core gives with the row (ADR 041).
 ///
-/// Rust makes HTML of the AST of the item: that gives the decoration of letters and the
-/// links. The text that iOS makes of HTML loses the look of a code block and of a table, so
-/// those two are read from the AST here and get parts of their own, as in the Android shell
-/// (ADR 030).
-///
-/// An image of the assets folder gets a part of its own, between the text before and after it
-/// in its paragraph. An image of the web is not drawn: it becomes a link to its address.
+/// A code block and a table get parts of their own: one text cannot show them. An image of the
+/// assets folder gets a part of its own, between the text before and after it in its
+/// paragraph. An image of the web is not drawn: it becomes a link to its address.
 ///
 /// A list or a quote that holds one of these parts cannot be one text. It is taken apart, and
 /// what is in it is read the same way. A list or a quote that holds none stays in the text.
 ///
-/// A link to a page and a tag have the URL of their page as their `href`, such as
-/// `/pages/notes`, encoded as a web address is. The page of a tag is under `tagsDir`. An item
-/// whose AST cannot be read shows its body as it is.
-public func shownBlocks(body: String, ast: String, tagsDir: String) -> [ShownBlock] {
-    guard !ast.isEmpty, let document = try? JSONSerialization.jsonObject(with: Data(ast.utf8)) as? Node else {
-        return [.plain(body)]
-    }
-    return Reader(tagsDir: tagsDir).read(document)
+/// A link to a page and a tag have the URL of their page as their link, such as
+/// `/pages/notes`, encoded as a web address is. The page of a tag is under `tagsDir`.
+public func shownBlocks(ast: Node, tagsDir: String) -> [ShownBlock] {
+    Reader(tagsDir: tagsDir).read(children(of: ast))
 }
 
 public enum ShownText {
-    /// What the links of the HTML are relative to. A link to a page, such as `/pages/notes`,
+    /// What the links of an item are relative to. A link to a page, such as `/pages/notes`,
     /// has no address of its own: the app has no server.
     public static let base = URL(string: "peta-journal://app/")!
 }
@@ -89,7 +80,7 @@ public enum LinkTarget: Equatable {
     /// The path of a file of the assets folder, such as `assets/report.pdf`.
     case file(String)
 
-    /// The target of a link of the HTML, made whole against `ShownText.base`. `nil` for any
+    /// The target of a link of an item, made whole against `ShownText.base`. `nil` for any
     /// other link, such as one to a file of the PC: it opens nothing.
     public init?(of link: URL) {
         if link.scheme == "https" || link.scheme == "http" {
@@ -117,11 +108,6 @@ public func assetPath(_ address: String) -> String? {
     return path.lowercased().hasPrefix(MarkdownFolder.assets) ? path : nil
 }
 
-private typealias Node = [String: Any]
-
-private let imageType = "embed"
-private let quotes: Set<String> = ["block_quote", "multiline_block_quote"]
-
 private final class Reader {
     private let tagsDir: String
     private var blocks: [ShownBlock] = []
@@ -132,68 +118,53 @@ private final class Reader {
         self.tagsDir = tagsDir
     }
 
-    /// The parts of what is in the node: the document, an entry of a list, or a quote.
-    func read(_ holder: Node) -> [ShownBlock] {
-        for node in children(of: holder) {
-            let type = string(node, "type")
-            if type == "list", holdsOwnPart(node) {
+    /// The parts of these nodes: those of the document, of an entry of a list, or of a quote.
+    func read(_ nodes: [Node]) -> [ShownBlock] {
+        for node in nodes {
+            switch node {
+            case .list(let listType, let start, _, _, let entries) where holdsOwnPart(node):
                 endText()
-                blocks.append(.entries(entries(of: node)))
-            } else if quotes.contains(type), holdsOwnPart(node) {
+                blocks.append(.entries(self.entries(entries, ordered: listType == .ordered, from: Int(start))))
+            case .blockQuote(let inside) where holdsOwnPart(node),
+                .multilineBlockQuote(let inside) where holdsOwnPart(node):
                 endText()
-                blocks.append(.quote(within(node)))
-            } else {
-                part(node, type)
+                blocks.append(.quote(within(inside)))
+            case .codeBlock(_, _, let literal):
+                endText()
+                var lines = Substring(literal)
+                while lines.hasSuffix("\n") { lines = lines.dropLast() }
+                blocks.append(.code(lines: String(lines)))
+            case .table(_, _, _, let rows):
+                endText()
+                blocks.append(.table(rows: rows.map(row)))
+            case .paragraph(let inline):
+                paragraph(inline)
+            default:
+                others.append(node)
             }
         }
         endText()
         return blocks
     }
 
-    private func within(_ holder: Node) -> [ShownBlock] {
-        Reader(tagsDir: tagsDir).read(holder)
+    private func within(_ nodes: [Node]) -> [ShownBlock] {
+        Reader(tagsDir: tagsDir).read(nodes)
     }
 
-    private func entries(of list: Node) -> [ShownEntry] {
-        let first = list["start"] as? Int ?? 1
-        return children(of: list).enumerated().map { index, entry in
-            let mark: String
-            if string(entry, "type") == "task_item" {
-                mark = entry["symbol"] == nil || entry["symbol"] is NSNull ? "☐" : "☑"
-            } else if string(list, "list_type") == "ordered" {
-                mark = "\(first + index)."
-            } else {
-                mark = "•"
-            }
-            return ShownEntry(mark: mark, blocks: within(entry))
-        }
-    }
-
-    private func part(_ node: Node, _ type: String) {
-        switch type {
-        case "code_block":
-            endText()
-            var lines = Substring(string(node, "literal"))
-            while lines.hasSuffix("\n") { lines = lines.dropLast() }
-            blocks.append(.code(lines: String(lines)))
-        case "table":
-            endText()
-            blocks.append(.table(rows: children(of: node).map(row)))
-        case "paragraph":
-            paragraph(node)
-        default:
-            others.append(node)
+    private func entries(_ entries: [Node], ordered: Bool, from first: Int) -> [ShownEntry] {
+        entries.enumerated().map { index, entry in
+            ShownEntry(mark: mark(of: entry, ordered: ordered, number: first + index), blocks: within(children(of: entry)))
         }
     }
 
     /// A paragraph is cut at each image of the assets folder: the image stands on its own.
-    private func paragraph(_ node: Node) {
+    private func paragraph(_ inline: [Node]) {
         var run: [Node] = []
         func endRun() {
-            if !run.isEmpty { others.append(["type": "paragraph", "children": run]) }
+            if !run.isEmpty { others.append(.paragraph(children: run)) }
             run = []
         }
-        for child in children(of: node) {
+        for child in inline {
             if let image = assetImage(child) {
                 endRun()
                 endText()
@@ -209,72 +180,50 @@ private final class Reader {
         if others.isEmpty { return }
         // Between two images there may be only a space
         let blank = others.allSatisfy {
-            string($0, "type") == "paragraph" && plainText($0).allSatisfy(\.isWhitespace)
+            if case .paragraph = $0 { return plainText($0).allSatisfy(\.isWhitespace) }
+            return false
         }
-        if !blank { blocks.append(.text(html: html(of: others))) }
+        if !blank { blocks.append(.text(shownParagraphs(of: others, tagsDir: tagsDir))) }
         others = []
     }
 
     private func row(_ row: Node) -> ShownTableRow {
-        ShownTableRow(
-            header: row["header"] as? Bool ?? false,
-            // What is in a cell is part of a line, and the HTML is made of whole blocks
-            cells: children(of: row).map { cell in
-                html(of: [["type": "paragraph", "children": cell["children"] ?? [Node]()]])
+        guard case .tableRow(let header, let cells) = row else { return ShownTableRow(header: false, cells: []) }
+        // What is in a cell is part of a line: it is one paragraph
+        return ShownTableRow(
+            header: header,
+            cells: cells.map { cell in
+                shownParagraphs(of: [.paragraph(children: children(of: cell))], tagsDir: tagsDir).first
+                    ?? ShownParagraph()
             })
     }
+}
 
-    /// The HTML of the blocks.
-    private func html(of nodes: [Node]) -> String {
-        let document = webImagesAsLinks(["type": "document", "children": nodes])
-        guard let json = try? JSONSerialization.data(withJSONObject: document) else { return "" }
-        return itemHtml(ast: String(decoding: json, as: UTF8.self), tagsDir: tagsDir)
-    }
+/// What stands before an entry of a list: a checkbox for a task, its number in a numbered
+/// list, and a bullet otherwise.
+func mark(of entry: Node, ordered: Bool, number: Int) -> String {
+    if case .taskItem(let symbol, _) = entry { return symbol == nil ? "☐" : "☑" }
+    return ordered ? "\(number)." : "•"
 }
 
 /// True when a part of its own kind is somewhere under the node.
 private func holdsOwnPart(_ node: Node) -> Bool {
-    children(of: node).contains {
-        ["code_block", "table"].contains(string($0, "type")) || assetImage($0) != nil || holdsOwnPart($0)
+    children(of: node).contains { child in
+        switch child {
+        case .codeBlock, .table: return true
+        default: return assetImage(child) != nil || holdsOwnPart(child)
+        }
     }
 }
 
 /// The image that the node is, when its file is in the assets folder. A page writes the
 /// address as `../assets/picture.png`, from the URL of the page in the web app.
 private func assetImage(_ node: Node) -> ShownImage? {
-    guard string(node, "type") == imageType, let path = assetPath(string(node, "url")) else { return nil }
-    let props = node["props"] as? Node
+    guard case .embed(let url, _, let props, _) = node, let path = assetPath(url) else { return nil }
     // A side that is not a number above zero is not asked for, as in the web app
     func side(_ name: String) -> Int? {
-        (props?[name] as? String).flatMap(Int.init).flatMap { $0 > 0 ? $0 : nil }
+        guard case .text(let value) = props[name], let number = Int(value), number > 0 else { return nil }
+        return number
     }
     return ShownImage(path: path, alt: plainText(node), width: side("w"), height: side("h"))
-}
-
-/// The text under the node, without its decoration.
-private func plainText(_ node: Node) -> String {
-    string(node, "value") + children(of: node).map(plainText).joined()
-}
-
-/// The same tree, with a link in the place of each image of the web. The text of the link is
-/// what stands for the image, or the address when nothing does.
-private func webImagesAsLinks(_ node: Node) -> Node {
-    let url = string(node, "url")
-    if string(node, "type") == imageType, url.hasPrefix("https://") || url.hasPrefix("http://") {
-        let alt = plainText(node)
-        let text: Node = ["type": "text", "value": alt.isEmpty ? url : alt]
-        return ["type": "link", "url": url, "children": [text]]
-    }
-    guard node["children"] is [Node] else { return node }
-    var same = node
-    same["children"] = children(of: node).map(webImagesAsLinks)
-    return same
-}
-
-private func children(of node: Node) -> [Node] {
-    node["children"] as? [Node] ?? []
-}
-
-private func string(_ node: Node, _ name: String) -> String {
-    node[name] as? String ?? ""
 }

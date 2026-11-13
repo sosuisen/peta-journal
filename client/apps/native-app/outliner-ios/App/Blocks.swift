@@ -11,10 +11,8 @@ struct Blocks: View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                 switch block {
-                case .plain(let body):
-                    Text(body)
-                case .text(let html):
-                    Paragraphs(html: html, links: links)
+                case .text(let paragraphs):
+                    Paragraphs(paragraphs: paragraphs, links: links)
                 case .code(let lines):
                     CodeBlock(lines: lines)
                 case .table(let rows):
@@ -57,12 +55,12 @@ private struct Quoted: ViewModifier {
 
 /// Text with the decoration of its letters and its links.
 struct Paragraphs: View {
-    let html: String
+    let paragraphs: [ShownParagraph]
     let links: Links
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(shownParagraphs(html: html).enumerated()), id: \.offset) { _, paragraph in
+            ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
                 if paragraph.rule {
                     Divider().padding(.vertical, 4)
                 } else {
@@ -99,7 +97,7 @@ struct Paragraphs: View {
             if looks.contains(.code) || looks.contains(.hidden) { part.backgroundColor = Color(.systemGray5) }
             if looks.contains(.raised) { part.baselineOffset = size * 0.35 }
             if looks.contains(.lowered) { part.baselineOffset = -size * 0.15 }
-            // A link of the HTML has no address of its own: the app has no server
+            // A link to a page has no address of its own: the app has no server
             if let link = piece.link { part.link = URL(string: link, relativeTo: ShownText.base)?.absoluteURL }
             all += part
         }
@@ -131,7 +129,7 @@ private struct TableBlock: View {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 GridRow {
                     ForEach(Array(row.cells.enumerated()), id: \.offset) { _, cell in
-                        Paragraphs(html: cell, links: links)
+                        Paragraphs(paragraphs: [cell], links: links)
                             .font(.subheadline)
                             .fontWeight(row.header ? .bold : nil)
                             .padding(6)

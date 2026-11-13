@@ -85,7 +85,7 @@ struct OutlineRow: View {
 
     var body: some View {
         let id = row.item.id
-        let blocks = row.isEditing ? [] : shownBlocks(body: row.item.body, ast: row.item.ast, tagsDir: tagsDir)
+        let blocks = row.isEditing ? [] : shownBlocks(ast: row.ast, tagsDir: tagsDir)
         // The bullet and the mark stand beside the middle of the first line. An item that
         // starts with a heading has a higher first line
         let first = Letters.line(Letters.plain * firstLarger(blocks))
@@ -133,7 +133,7 @@ struct OutlineRow: View {
 
     /// How many times larger than plain text the letters of the first line are.
     private func firstLarger(_ blocks: [ShownBlock]) -> CGFloat {
-        guard case .text(let html) = blocks.first, let paragraph = shownParagraphs(html: html).first else { return 1 }
+        guard case .text(let paragraphs) = blocks.first, let paragraph = paragraphs.first else { return 1 }
         return Letters.larger(heading: paragraph.heading)
     }
 }

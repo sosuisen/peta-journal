@@ -1,4 +1,6 @@
 import Foundation
+import PetaCore
+import PetaTypes
 
 /// How the letters of a piece look.
 public struct Looks: OptionSet, Hashable {
@@ -23,7 +25,7 @@ public struct Looks: OptionSet, Hashable {
     public static let hidden = Looks(rawValue: 1 << 8)
 }
 
-/// Letters with one look. `link` is where a touch leads, as the `href` of the HTML has it.
+/// Letters with one look. `link` is where a touch leads, such as `/pages/notes` or a web address.
 public struct ShownPiece: Equatable {
     public var text: String
     public var looks: Looks
@@ -64,240 +66,221 @@ public struct ShownParagraph: Equatable {
     }
 }
 
-/// Reads the HTML that the core makes of the text of an item (`ShownBlock.text`). iOS can
-/// make text with attributes of HTML, but only with a web view behind it, on the main thread
-/// and slowly. The core writes few tags, so they are read here.
-public func shownParagraphs(html: String) -> [ShownParagraph] {
-    var reader = HtmlReader()
-    for part in parts(of: html) { reader.take(part) }
-    reader.end()
-    return reader.paragraphs
+/// The paragraphs of the text of these nodes of the AST: blocks, as in a document.
+public func shownParagraphs(of nodes: [Node], tagsDir: String) -> [ShownParagraph] {
+    var writer = ParagraphWriter(tagsDir: tagsDir)
+    writer.blocks(nodes)
+    return writer.paragraphs
 }
 
-private enum Part {
-    case text(String)
-    /// `name` in lower case. `closes` for `</name>`.
-    case tag(name: String, closes: Bool, attributes: [String: String])
-}
-
-/// Cuts HTML into its tags and the text between them.
-private func parts(of html: String) -> [Part] {
-    var found: [Part] = []
-    var text = ""
-    var rest = Substring(html)
-    while let open = rest.firstIndex(of: "<") {
-        text += rest[..<open]
-        let after = rest[rest.index(after: open)...]
-        // A tag starts with a letter, or with the slash of a closing tag
-        if let first = after.first, first.isLetter || first == "/", let close = after.firstIndex(of: ">") {
-            if !text.isEmpty { found.append(.text(decoded(text))) }
-            text = ""
-            found.append(tag(after[..<close]))
-            rest = after[after.index(after: close)...]
-        } else {
-            text += "<"
-            rest = after
-        }
+/// The children of a node, and none for a leaf.
+func children(of node: Node) -> [Node] {
+    switch node {
+    case .document(let children), .paragraph(let children), .heading(_, let children),
+        .blockQuote(let children), .multilineBlockQuote(let children), .list(_, _, _, _, let children),
+        .item(_, _, let children), .taskItem(_, let children), .table(_, _, _, let children),
+        .tableRow(_, let children), .tableCell(let children), .footnoteDefinition(_, let children),
+        .alert(_, _, let children), .subtext(let children), .emph(let children), .strong(let children),
+        .strikethrough(let children), .underline(let children), .highlight(let children),
+        .superscript(let children), .subscriptText(let children), .spoileredText(let children),
+        .link(_, _, let children), .embed(_, _, _, let children), .wikilink(_, let children),
+        .unknown(_, let children):
+        return children
+    case .codeBlock, .thematicBreak, .htmlBlock, .text, .softbreak, .linebreak, .code, .footnoteReference,
+        .shortcode, .math, .htmlInline, .hashtag:
+        return []
     }
-    text += rest
-    if !text.isEmpty { found.append(.text(decoded(text))) }
-    return found
 }
 
-/// Reads what is between `<` and `>`.
-private func tag(_ inside: Substring) -> Part {
-    var rest = inside
-    let closes = rest.first == "/"
-    if closes { rest.removeFirst() }
-    let name = rest.prefix { $0.isLetter || $0.isNumber }.lowercased()
-    rest = rest.dropFirst(name.count)
-    var attributes: [String: String] = [:]
-    while true {
-        rest = rest.drop { $0.isWhitespace || $0 == "/" }
-        let key = rest.prefix { !$0.isWhitespace && $0 != "=" && $0 != "/" }
-        if key.isEmpty { break }
-        rest = rest.dropFirst(key.count)
-        var value = ""
-        if rest.first == "=" {
-            rest.removeFirst()
-            if rest.first == "\"" {
-                rest.removeFirst()
-                value = String(rest.prefix { $0 != "\"" })
-                rest = rest.dropFirst(value.count + 1)
-            } else {
-                value = String(rest.prefix { !$0.isWhitespace })
-                rest = rest.dropFirst(value.count)
-            }
-        }
-        attributes[key.lowercased()] = decoded(value)
+/// The text under the node, without its decoration.
+func plainText(_ node: Node) -> String {
+    switch node {
+    case .text(let value): return value
+    default: return children(of: node).map(plainText).joined()
     }
-    return .tag(name: name, closes: closes, attributes: attributes)
 }
 
-private let named: [String: String] = ["amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'", "nbsp": "\u{a0}"]
-
-/// Puts the letters back that are written as `&name;` or `&#number;`.
-private func decoded(_ text: String) -> String {
-    guard text.contains("&") else { return text }
-    var out = ""
-    var rest = Substring(text)
-    while let at = rest.firstIndex(of: "&") {
-        out += rest[..<at]
-        let after = rest[rest.index(after: at)...]
-        // The longest name is short: a `;` far away belongs to something else
-        if let end = after.prefix(10).firstIndex(of: ";"), let letter = letter(of: after[..<end]) {
-            out += letter
-            rest = after[after.index(after: end)...]
-        } else {
-            out += "&"
-            rest = after
-        }
-    }
-    return out + rest
+/// The text that a reader sees for a footnote. An inline footnote has a name that the parser
+/// made (`__inline_1`), so its number is shown instead.
+private func footnoteLabel(_ name: String) -> String {
+    name.hasPrefix("__inline_") ? String(name.dropFirst("__inline_".count)) : name
 }
 
-private func letter(of name: Substring) -> String? {
-    if let known = named[String(name)] { return known }
-    guard name.first == "#" else { return nil }
-    let digits = name.dropFirst()
-    let code = digits.first == "x" || digits.first == "X" ? UInt32(digits.dropFirst(), radix: 16) : UInt32(digits)
-    return code.flatMap(Unicode.Scalar.init).map { String(Character($0)) }
-}
-
-private struct HtmlReader {
+private struct ParagraphWriter {
+    let tagsDir: String
     private(set) var paragraphs: [ShownParagraph] = []
 
     /// The paragraph that takes the next text, or nil between two paragraphs.
     private var open: ShownParagraph?
-    /// The lists that are open, each with the number of its next entry, or nil for bullets.
-    private var lists: [Int?] = []
+    private var depth = 0
     private var quoted = 0
     /// The mark of the entry that has started and has no paragraph yet.
     private var mark: String?
-    /// How many tags of each look are open.
-    private var looks: [(String, Looks)] = []
-    private var links: [String] = []
-    /// A line break was just written: the line end that follows it in the HTML is no space.
-    private var broke = false
+    /// What the next paragraph starts with, such as the label of a footnote.
+    private var lead: String?
 
-    private static let lookOf: [String: Looks] = [
-        "strong": .bold, "b": .bold, "em": .italic, "i": .italic, "del": .struck, "s": .struck,
-        "u": .underlined, "mark": .marked, "code": .code, "sup": .raised, "sub": .lowered,
-    ]
+    init(tagsDir: String) {
+        self.tagsDir = tagsDir
+    }
 
-    mutating func take(_ part: Part) {
-        switch part {
-        case .text(let text):
-            write(text)
-        case .tag(let name, let closes, let attributes):
-            if closes { close(name) } else { start(name, attributes) }
+    mutating func blocks(_ nodes: [Node]) {
+        for node in nodes { block(node) }
+    }
+
+    private mutating func block(_ node: Node) {
+        switch node {
+        case .document(let children), .item(_, _, let children), .taskItem(_, let children),
+            .table(_, _, _, let children), .unknown(_, let children):
+            blocks(children)
+        case .paragraph(let inline), .tableRow(_, let inline), .tableCell(let inline):
+            paragraph(heading: 0, inline)
+        case .heading(let level, let inline):
+            paragraph(heading: Int(level), inline)
+        case .codeBlock(_, _, let literal):
+            begin(heading: 0)
+            var lines = Substring(literal)
+            while lines.hasSuffix("\n") { lines = lines.dropLast() }
+            append(String(lines), looks: .code, link: nil)
+            finish()
+        case .blockQuote(let children), .multilineBlockQuote(let children):
+            enterQuote()
+            blocks(children)
+            leaveQuote()
+        case .alert(let type, let title, let children):
+            enterQuote()
+            paragraph(heading: 0, [.text(value: title ?? name(of: type))])
+            blocks(children)
+            leaveQuote()
+        case .list(let listType, let start, _, _, let entries):
+            finish()
+            depth += 1
+            for (index, entry) in entries.enumerated() {
+                mark = PetaBorder.mark(of: entry, ordered: listType == .ordered, number: Int(start) + index)
+                block(entry)
+                // An entry without text of its own leaves its mark to no other paragraph
+                finish()
+                mark = nil
+            }
+            depth -= 1
+        case .thematicBreak:
+            finish()
+            paragraphs.append(ShownParagraph(depth: depth, quoted: quoted, rule: true))
+        case .htmlBlock(_, let literal):
+            paragraph(heading: 0, [.text(value: literal)])
+        case .footnoteDefinition(let name, let children):
+            finish()
+            lead = "[\(footnoteLabel(name))]: "
+            blocks(children)
+            lead = nil
+        case .subtext(let inline):
+            paragraph(heading: 0, [.subscriptText(children: inline)])
+        case .text, .softbreak, .linebreak, .emph, .strong, .strikethrough, .underline, .highlight,
+            .superscript, .subscriptText, .spoileredText, .code, .link, .embed, .footnoteReference,
+            .shortcode, .math, .htmlInline, .wikilink, .hashtag:
+            // A line outside a block, as in a list without room between its entries
+            paragraph(heading: 0, [node])
         }
     }
 
-    mutating func end() {
+    private mutating func enterQuote() {
+        finish()
+        quoted += 1
+    }
+
+    private mutating func leaveQuote() {
+        finish()
+        quoted -= 1
+    }
+
+    private func name(of type: AlertType) -> String {
+        switch type {
+        case .note: return "Note"
+        case .tip: return "Tip"
+        case .important: return "Important"
+        case .warning: return "Warning"
+        case .caution: return "Caution"
+        }
+    }
+
+    private mutating func paragraph(heading: Int, _ inline: [Node]) {
+        begin(heading: heading)
+        for node in inline { write(node, looks: [], link: nil) }
         finish()
     }
 
-    private mutating func start(_ name: String, _ attributes: [String: String]) {
-        switch name {
-        case "p":
-            begin(heading: 0)
-        case "h1", "h2", "h3", "h4", "h5", "h6":
-            begin(heading: Int(name.dropFirst()) ?? 0)
-        case "ul":
-            finish()
-            lists.append(nil)
-        case "ol":
-            finish()
-            lists.append(Int(attributes["start"] ?? "") ?? 1)
-        case "li":
-            finish()
-            if let last = lists.indices.last, let number = lists[last] {
-                mark = "\(number)."
-                lists[last] = number + 1
-            } else {
-                mark = "•"
-            }
-        case "input":
-            // The checkbox of a task stands for the bullet of its entry
-            let box = attributes["checked"] == nil ? "☐" : "☑"
-            if open == nil { mark = box } else { open?.mark = box }
-        case "blockquote":
-            finish()
-            quoted += 1
-        case "hr":
-            finish()
-            paragraphs.append(ShownParagraph(depth: lists.count, quoted: quoted, rule: true))
-        case "br":
-            append("\n")
-            broke = true
-        case "a":
-            links.append(attributes["href"] ?? "")
-        case "img":
-            // An image has a part of its own (`ShownBlock.image`). One that is left in the
-            // text shows what stands for it
-            write(attributes["alt"] ?? "")
-        case "span":
-            looks.append((name, attributes["class"] == "spoiler" ? .hidden : []))
-        default:
-            if let look = HtmlReader.lookOf[name] { looks.append((name, look)) }
+    /// The letters of an inline node, with the looks and the link of the nodes around it.
+    private mutating func write(_ node: Node, looks: Looks, link: String?) {
+        func inside(_ children: [Node], _ more: Looks = [], link: String? = link) {
+            for child in children { write(child, looks: looks.union(more), link: link) }
         }
-    }
-
-    private mutating func close(_ name: String) {
-        switch name {
-        case "p", "h1", "h2", "h3", "h4", "h5", "h6":
-            finish()
-        case "li":
-            finish()
-            // An entry without text of its own leaves its mark to no other paragraph
-            mark = nil
-        case "ul", "ol":
-            finish()
-            if !lists.isEmpty { lists.removeLast() }
-        case "blockquote":
-            finish()
-            quoted = max(0, quoted - 1)
-        case "a":
-            if !links.isEmpty { links.removeLast() }
-        default:
-            if let at = looks.lastIndex(where: { $0.0 == name }) { looks.remove(at: at) }
+        switch node {
+        case .text(let value): append(value, looks: looks, link: link)
+        case .softbreak: append(" ", looks: looks, link: link)
+        case .linebreak: append("\n", looks: looks, link: link)
+        case .emph(let children): inside(children, .italic)
+        case .strong(let children): inside(children, .bold)
+        case .strikethrough(let children): inside(children, .struck)
+        case .underline(let children): inside(children, .underlined)
+        case .highlight(let children): inside(children, .marked)
+        case .superscript(let children): inside(children, .raised)
+        case .subscriptText(let children): inside(children, .lowered)
+        case .spoileredText(let children): inside(children, .hidden)
+        case .code(let literal): append(literal, looks: looks.union(.code), link: link)
+        case .link(let url, _, let children): inside(children, link: url)
+        case .wikilink(let url, let children): inside(children, link: pageUrl(page: url))
+        case .hashtag(let value): append("#" + value, looks: looks, link: tagUrl(tagsDir: tagsDir, tag: value))
+        case .embed(let url, _, _, _):
+            // An image that has no part of its own shows what stands for it. One of the web is
+            // a link to its address
+            let alt = plainText(node)
+            if url.hasPrefix("https://") || url.hasPrefix("http://") {
+                append(alt.isEmpty ? url : alt, looks: looks, link: url)
+            } else {
+                append(alt, looks: looks, link: link)
+            }
+        case .footnoteReference(let name, _, _):
+            append("[\(footnoteLabel(name))]", looks: looks.union(.raised), link: link)
+        case .shortcode(_, let emoji): append(emoji, looks: looks, link: link)
+        case .math(let literal), .htmlInline(let literal): append(literal, looks: looks, link: link)
+        case .unknown(_, let children): inside(children)
+        case .document, .paragraph, .heading, .codeBlock, .blockQuote, .multilineBlockQuote, .list, .item,
+            .taskItem, .table, .tableRow, .tableCell, .thematicBreak, .htmlBlock, .footnoteDefinition, .alert,
+            .subtext:
+            // A block inside a line: only its letters
+            append(plainText(node), looks: looks, link: link)
         }
     }
 
     /// Starts a paragraph. The first one of an entry of a list takes the mark of the entry.
     private mutating func begin(heading: Int) {
         finish()
-        open = ShownParagraph(heading: heading, depth: lists.count, quoted: quoted, mark: mark)
+        open = ShownParagraph(heading: heading, depth: depth, quoted: quoted, mark: mark)
         mark = nil
-    }
-
-    private mutating func write(_ text: String) {
-        var words = text.replacingOccurrences(of: "\r", with: "")
-        if broke, words.hasPrefix("\n") { words.removeFirst() }
-        // Between two paragraphs the HTML has line ends that are no text
-        if open == nil, words.allSatisfy(\.isWhitespace) { return }
-        append(words.replacingOccurrences(of: "\n", with: " "))
-    }
-
-    private mutating func append(_ text: String) {
-        broke = false
-        if text.isEmpty { return }
-        // Text that is in no paragraph, as in a list without room between its entries
-        if open == nil { begin(heading: 0) }
-        let look = looks.reduce(into: Looks()) { $0.formUnion($1.1) }
-        if let last = open?.pieces.indices.last, open?.pieces[last].looks == look, open?.pieces[last].link == links.last {
-            open?.pieces[last].text += text
-        } else {
-            open?.pieces.append(ShownPiece(text: text, looks: look, link: links.last))
+        if let lead {
+            open?.pieces.append(ShownPiece(text: lead))
+            self.lead = nil
         }
     }
 
-    /// Ends the paragraph that is open. The line end before a closing tag is no text.
+    private mutating func append(_ text: String, looks: Looks, link: String?) {
+        if text.isEmpty { return }
+        if open == nil { begin(heading: 0) }
+        if let last = open?.pieces.indices.last, open?.pieces[last].looks == looks, open?.pieces[last].link == link {
+            open?.pieces[last].text += text
+        } else {
+            open?.pieces.append(ShownPiece(text: text, looks: looks, link: link))
+        }
+    }
+
+    /// Ends the paragraph that is open. Space at its start and its end is no text: the text
+    /// beside an image is cut there with the space between them.
     private mutating func finish() {
-        broke = false
         guard var done = open else { return }
         open = nil
+        if let first = done.pieces.indices.first {
+            while done.pieces[first].text.first?.isWhitespace == true { done.pieces[first].text.removeFirst() }
+            if done.pieces[first].text.isEmpty { done.pieces.removeFirst() }
+        }
         if let last = done.pieces.indices.last {
             while done.pieces[last].text.last?.isWhitespace == true { done.pieces[last].text.removeLast() }
             if done.pieces[last].text.isEmpty { done.pieces.removeLast() }
