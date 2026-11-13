@@ -465,7 +465,7 @@
       - [ ] AndroidとiOSの実機で、新しいIDのアプリのDropboxのサインインを確かめる。古いID（`net.sosuisen.petajournal`）のアプリは、手で消す
       - [ ] `stickies-mac`で、`defaults write`で古いID（`petajournal.PetaStickies`）に書いた設定があれば、新しいID（`com.sosuisha.PetaStickies`）に書き直す
     - [x] `todo`のnpmの名前を、`todo`にした（2026-11-14）
-    - [ ] 改名のあとの図（`docs/frontend-architecture-renamed.svg`）を、`docs/frontend-architecture.svg`と差し替える。改名がすべて済んでから行う。それまでは、`frontend-architecture.svg`が今の状態の図である
+    - [x] 改名のあとの図を、`docs/frontend-architecture.svg`と差し替えた（2026-11-14）。枠の見出しと注記も、新しくなった
 
 ## CI
 
