@@ -1,6 +1,7 @@
-//! Converts Flat Markdown text to AST JSON with the flatmarkdown crate.
+//! Parses Flat Markdown with the flatmarkdown crate.
 
 use flatmarkdown::BodyOptions;
+use flatmarkdown_ast::Node;
 
 #[derive(Debug, Clone, Default)]
 pub struct MarkdownParser;
@@ -13,12 +14,19 @@ fn options() -> BodyOptions {
 }
 
 impl MarkdownParser {
-    /// Parses the body of one item and returns the AST JSON. An empty body gives an empty string.
+    /// The AST of the body of one item. The journal keeps no AST: it parses a body when it
+    /// needs what is in it (ADR 041).
+    pub fn parse(&self, markdown: &str) -> Node {
+        flatmarkdown::parse_body_with(markdown, &options())
+    }
+
+    /// The AST of the body of one item as JSON, for the apps that read it from the REST API.
+    /// An empty body gives an empty string.
     pub fn parse_to_ast(&self, markdown: &str) -> String {
         if markdown.is_empty() {
             return String::new();
         }
-        flatmarkdown::parse_body_with(markdown, &options()).to_json()
+        self.parse(markdown).to_json()
     }
 
     /// Splits a whole Flat Markdown page into items; returns the flatmarkdown page JSON.

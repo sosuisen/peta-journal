@@ -22,7 +22,7 @@ pub fn parked_idx(id: &Hmtid) -> String {
 
 /// The item columns `map_item` reads, joined with the page columns an item carries.
 const SELECT_ITEMS: &str =
-    "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, \
+    "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.collapsed, b.transclude_item_id, \
      p.dir_path, p.name, p.type \
      FROM items b JOIN pages p ON b.page_id = p.id ";
 
@@ -41,7 +41,7 @@ const SELECT_ITEM_WITH_DESCENDANTS: &str = "WITH RECURSIVE descendants AS (\
        UNION ALL \
        SELECT i.* FROM items i JOIN descendants d ON i.parent_id = d.id\
      ) \
-     SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, \
+     SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.collapsed, b.transclude_item_id, \
      p.dir_path, p.name, p.type \
      FROM descendants b JOIN pages p ON b.page_id = p.id ORDER BY b.idx";
 
@@ -54,21 +54,20 @@ fn map_item(conn: &Connection, row: &Row<'_>) -> rusqlite::Result<Item> {
     let id: String = row.get(0)?;
     let page_id: String = row.get(1)?;
     let parent: Option<String> = row.get(2)?;
-    let transclude: Option<String> = row.get(10)?;
-    let collapsed: i64 = row.get(9)?;
+    let transclude: Option<String> = row.get(9)?;
+    let collapsed: i64 = row.get(8)?;
     Ok(Item {
         id: parse(&id)?,
         page_id: parse(&page_id)?,
         parent_item_id: parent.as_deref().map(parse).transpose()?,
-        dir_path: row.get(11)?,
-        name: row.get(12)?,
-        item_type: row.get(13)?,
+        dir_path: row.get(10)?,
+        name: row.get(11)?,
+        item_type: row.get(12)?,
         created_date: row.get(3)?,
         modified_date: row.get(4)?,
         idx: row.get(5)?,
         level: row.get(6)?,
         body: row.get(7)?,
-        ast: row.get(8)?,
         collapsed: collapsed != 0,
         types: load_types(conn, &id)?,
         transclude_item_id: transclude.as_deref().map(parse).transpose()?,
@@ -214,9 +213,9 @@ impl ItemRepository {
         let parent = item.parent_item_id.as_ref().map(|p| p.to_string());
         let transclude = item.transclude_item_id.as_ref().map(|p| p.to_string());
         tx.execute(
-            "INSERT INTO items (id, page_id, parent_id, created_date, modified_date, idx, level, body, ast, collapsed, transclude_item_id) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
-             ON CONFLICT(id) DO UPDATE SET page_id=?, parent_id=?, modified_date=?, idx=?, level=?, body=?, ast=?, collapsed=?, transclude_item_id=?",
+            "INSERT INTO items (id, page_id, parent_id, created_date, modified_date, idx, level, body, collapsed, transclude_item_id) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) \
+             ON CONFLICT(id) DO UPDATE SET page_id=?, parent_id=?, modified_date=?, idx=?, level=?, body=?, collapsed=?, transclude_item_id=?",
             params![
                 item.id.as_str(),
                 item.page_id.as_str(),
@@ -226,7 +225,6 @@ impl ItemRepository {
                 item.idx,
                 item.level,
                 item.body,
-                item.ast,
                 item.collapsed as i64,
                 transclude,
                 item.page_id.as_str(),
@@ -235,7 +233,6 @@ impl ItemRepository {
                 item.idx,
                 item.level,
                 item.body,
-                item.ast,
                 item.collapsed as i64,
                 transclude,
             ],
@@ -263,8 +260,8 @@ impl ItemRepository {
     /// so do its types.
     pub fn rewrite_body_in(tx: &Connection, item: &Item) -> AppResult<()> {
         tx.execute(
-            "UPDATE items SET body = ?, ast = ? WHERE id = ?",
-            params![item.body, item.ast, item.id.as_str()],
+            "UPDATE items SET body = ? WHERE id = ?",
+            params![item.body, item.id.as_str()],
         )?;
         Ok(())
     }
@@ -469,9 +466,8 @@ fn patch_columns(conn: &Connection, id: &Hmtid, patch: &ItemPatch) -> rusqlite::
     let mut sql = String::from("UPDATE items SET modified_date = ?");
     let mut values: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(patch.modified_date)];
     if patch.changes_body() {
-        sql.push_str(", body = ?, ast = ?");
+        sql.push_str(", body = ?");
         values.push(Box::new(patch.body.clone().unwrap_or_default()));
-        values.push(Box::new(patch.ast.clone().unwrap_or_default()));
     }
     if let Some(level) = patch.level {
         sql.push_str(", level = ?");

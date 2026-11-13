@@ -53,7 +53,6 @@ fn item_record_json(i: &ItemDto) -> Value {
         "idx": i.idx,
         "level": i.level,
         "body": i.body,
-        "ast": i.ast,
         "collapsed": i.collapsed,
         "types": i.types,
         "transcludeItemId": i.transclude_item_id,

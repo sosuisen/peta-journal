@@ -197,11 +197,6 @@ impl ItemMerger {
 
             if !same || old.is_some_and(|o| o.modified_date != modified_date) {
                 let body_changed = old.is_none_or(|o| o.body != fi.body);
-                let ast = if body_changed {
-                    self.parser.parse_to_ast(&fi.body)
-                } else {
-                    old.map(|o| o.ast.clone()).unwrap_or_default()
-                };
                 let item = Item {
                     id: id.clone(),
                     page_id: page_id.clone(),
@@ -214,7 +209,6 @@ impl ItemMerger {
                     idx: idx.clone(),
                     level: pi.level,
                     body: fi.body.clone(),
-                    ast: ast.clone(),
                     collapsed: pi.collapsed,
                     types,
                     transclude_item_id: fi.transclude.clone(),
@@ -225,7 +219,7 @@ impl ItemMerger {
                         &tx,
                         ITEM_TARGET,
                         id.as_str(),
-                        &hashtag::extract_hashtags(&ast),
+                        &hashtag::extract_hashtags(&self.parser.parse(&fi.body)),
                     )?;
                 }
                 if !same {

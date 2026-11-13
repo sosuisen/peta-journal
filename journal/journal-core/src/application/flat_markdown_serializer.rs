@@ -154,7 +154,6 @@ mod tests {
             idx: "z0".into(),
             level,
             body: body.into(),
-            ast: String::new(),
             collapsed: false,
             types: types.iter().map(|s| s.to_string()).collect(),
             transclude_item_id: None,

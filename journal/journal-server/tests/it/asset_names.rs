@@ -244,8 +244,6 @@ mod apply {
 
         let after = notes.item(&before.id);
         assert_eq!(after.body, format!("![pic](../assets/{NEW_NAME})"));
-        assert!(after.ast.contains(NEW_NAME));
-        assert!(!after.ast.contains("image.png"));
         assert_eq!(after.modified_date, before.modified_date);
         assert_eq!(
             notes.page_of(&after).modified_date,

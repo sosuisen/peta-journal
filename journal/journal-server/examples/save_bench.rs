@@ -56,7 +56,6 @@ fn main() {
         let t = Instant::now();
         let p = journal_core::domain::model::ItemPatch::new(
             Some(body.clone()),
-            Some(String::new()),
             Some(vec![]),
             None,
             None,

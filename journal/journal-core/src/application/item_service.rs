@@ -36,7 +36,6 @@ const PAGE_TARGET: &str = "page";
 #[derive(Debug, Clone)]
 pub struct TreeMarkdownExport {
     pub tree_markdown: String,
-    pub ast: String,
     pub flat_markdown: String,
 }
 
@@ -243,7 +242,6 @@ impl ItemService {
         };
         let now = now_millis();
         let parsed = ItemBody::parse(body);
-        let ast = self.parser.parse_to_ast(&parsed.text);
 
         let mut existing = ItemRepository::find_by_page_id_in(tx, page_id)?;
 
@@ -284,7 +282,6 @@ impl ItemService {
             idx,
             level,
             body: parsed.text.clone(),
-            ast: ast.clone(),
             types,
             ..Item::new_on(id.clone(), &page, now)
         };
@@ -298,7 +295,7 @@ impl ItemService {
         let item = ItemRepository::find_by_id_in(tx, &id)?.unwrap_or(item);
 
         effects.pages.insert(page_id.clone());
-        let hashtags = hashtag::extract_hashtags(&item.ast);
+        let hashtags = hashtag::extract_hashtags(&self.parser.parse(&item.body));
         if !hashtags.is_empty() {
             PropertyRepository::sync_tags_in(tx, ITEM_TARGET, item.id.as_str(), &hashtags)?;
             effects.tag_changes.push((Vec::new(), hashtags));
@@ -401,7 +398,6 @@ impl ItemService {
         let updated = Item {
             modified_date: now_millis(),
             body: source.body.clone(),
-            ast: self.parser.parse_to_ast(&source.body),
             transclude_item_id: Some(source_item_id.clone()),
             ..item.clone()
         };
@@ -422,7 +418,6 @@ impl ItemService {
         let item_id = &existing.id;
         let parsed = body.map(ItemBody::parse);
         let new_body = parsed.as_ref().map(|p| p.text.clone());
-        let new_ast = new_body.as_deref().map(|b| self.parser.parse_to_ast(b));
         let body_types = parsed.as_ref().map(|p| p.text_types());
         // A task stays a task when its body changes; only the prefix can add the type here
         let task = match &parsed {
@@ -431,21 +426,13 @@ impl ItemService {
         };
 
         let now = now_millis();
-        let patch = ItemPatch::new(
-            new_body.clone(),
-            new_ast.clone(),
-            body_types,
-            task,
-            level,
-            collapsed,
-            now,
-        )
-        .map_err(AppError::bad_request)?;
+        let patch = ItemPatch::new(new_body.clone(), body_types, task, level, collapsed, now)
+            .map_err(AppError::bad_request)?;
         ItemRepository::patch_in(tx, item_id, &patch)?;
 
-        if let Some(ast) = &new_ast {
+        if let Some(body) = &new_body {
             let before = PropertyRepository::find_tags_in(tx, ITEM_TARGET, item_id.as_str())?;
-            let hashtags = hashtag::extract_hashtags(ast);
+            let hashtags = hashtag::extract_hashtags(&self.parser.parse(body));
             PropertyRepository::sync_tags_in(tx, ITEM_TARGET, item_id.as_str(), &hashtags)?;
             effects.tag_changes.push((before, hashtags));
         }
@@ -807,12 +794,10 @@ impl ItemService {
         effects: &mut AfterCommit,
     ) -> AppResult<Item> {
         let parsed = ItemBody::parse(body);
-        let ast = self.parser.parse_to_ast(&parsed.text);
         let now = now_millis();
         // A task stays a task when its body changes; only the prefix can add the type here
         let patch = ItemPatch::new(
             Some(parsed.text.clone()),
-            Some(ast.clone()),
             Some(parsed.text_types()),
             parsed.task.then_some(true),
             None,
@@ -822,7 +807,7 @@ impl ItemService {
         .map_err(AppError::bad_request)?;
         ItemRepository::patch_in(tx, &item.id, &patch)?;
         let before = PropertyRepository::find_tags_in(tx, ITEM_TARGET, item.id.as_str())?;
-        let hashtags = hashtag::extract_hashtags(&ast);
+        let hashtags = hashtag::extract_hashtags(&self.parser.parse(&parsed.text));
         PropertyRepository::sync_tags_in(tx, ITEM_TARGET, item.id.as_str(), &hashtags)?;
         effects.tag_changes.push((before, hashtags));
         let updated = ItemRepository::find_by_id_in(tx, &item.id)?
@@ -875,14 +860,13 @@ impl ItemService {
                     idx,
                     level: transcluder.level + descendant.level - source.level,
                     body: descendant.body.clone(),
-                    ast: descendant.ast.clone(),
                     collapsed: descendant.collapsed,
                     types: descendant.types.clone(),
                     transclude_item_id: descendant.transclude_item_id.clone(),
                     ..Item::new_on(self.ids.generate_item_id(), &page, now_millis())
                 };
                 ItemRepository::save_in(tx, &copy)?;
-                let hashtags = hashtag::extract_hashtags(&copy.ast);
+                let hashtags = hashtag::extract_hashtags(&self.parser.parse(&copy.body));
                 if !hashtags.is_empty() {
                     PropertyRepository::sync_tags_in(tx, ITEM_TARGET, copy.id.as_str(), &hashtags)?;
                     effects.tag_changes.push((Vec::new(), hashtags));
@@ -1162,7 +1146,6 @@ impl ItemService {
         let updated = Item {
             modified_date: now,
             body: body.to_string(),
-            ast: self.parser.parse_to_ast(body),
             transclude_item_id: transclude,
             ..item.clone()
         };
@@ -1344,11 +1327,9 @@ impl ItemService {
         let scalar_props = self.properties.find_scalar_by_targets(ITEM_TARGET, &ids)?;
         let list_props = self.properties.find_list_by_targets(ITEM_TARGET, &ids)?;
         let tree_md = tree_markdown::items_to_tree_markdown(items);
-        let ast = self.parser.parse_to_ast(&tree_md);
         let flat_md = tree_markdown::items_to_flat_markdown(items, &scalar_props, &list_props);
         Ok(TreeMarkdownExport {
             tree_markdown: tree_md,
-            ast,
             flat_markdown: flat_md,
         })
     }
@@ -1550,8 +1531,8 @@ fn put_task_in(tx: &Connection, existing: &Item, state: &TaskState, now: i64) ->
 }
 
 fn patch_task_in(tx: &Connection, existing: &Item, task: bool, now: i64) -> AppResult<Item> {
-    let patch = ItemPatch::new(None, None, None, Some(task), None, None, now)
-        .map_err(AppError::internal)?;
+    let patch =
+        ItemPatch::new(None, None, Some(task), None, None, now).map_err(AppError::internal)?;
     ItemRepository::patch_in(tx, &existing.id, &patch)?;
     Ok(ItemRepository::find_by_id_in(tx, &existing.id)?.unwrap_or_else(|| existing.clone()))
 }
@@ -1649,7 +1630,6 @@ fn sync_transcluders_in(
                 &Item {
                     modified_date: now,
                     body: source.body.clone(),
-                    ast: source.ast.clone(),
                     ..transcluder.clone()
                 },
             )?;

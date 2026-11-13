@@ -9,6 +9,7 @@ use rusqlite::{Connection, Transaction};
 
 use super::atlas_service::AtlasService;
 use super::config_service::ConfigService;
+use super::markdown_parser::MarkdownParser;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::journal_name;
 use crate::domain::model::{BacklinkEntry, Item, Page, ATLAS_NAME};
@@ -920,7 +921,7 @@ impl PageService {
         let paths = link_paths_of(&target);
         for path in &paths {
             for item in self.items.find_by_body_containing_link_to(path)? {
-                let links = wikilink::extract_wikilink_paths(&item.ast);
+                let links = wikilink::extract_wikilink_paths(&MarkdownParser.parse(&item.body));
                 if links
                     .iter()
                     .any(|l| paths.iter().any(|p| l.eq_ignore_ascii_case(p)))
