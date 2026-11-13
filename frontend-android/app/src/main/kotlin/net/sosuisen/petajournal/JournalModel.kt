@@ -5,15 +5,19 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.lifecycle.ViewModelProvider
+import java.io.File
 import net.sosuisen.petajournal.dropbox.DropboxAccount
 import net.sosuisen.petajournal.shell.Shell
+import net.sosuisen.petajournal.sync.CloudAccount
 import net.sosuisen.petajournal.sync.CloudRecord
 import net.sosuisen.petajournal.sync.CloudSync
 import net.sosuisen.petajournal.sync.Downloader
 import net.sosuisen.petajournal.sync.MarkdownFolder
 import net.sosuisen.petajournal.sync.SyncRound
 import net.sosuisen.petajournal.sync.Uploader
-import java.io.File
 
 /** How long the app waits after the last change of a page before it syncs. */
 private const val AFTER_EDIT_MS = 3_000L
@@ -21,37 +25,56 @@ private const val AFTER_EDIT_MS = 3_000L
 /**
  * Keeps the shell while the screen is made again, as when the device is turned. The journal
  * can be open only once, and closes when the app is left for good.
+ *
+ * @param filesDir where the app keeps its files: the Markdown folder, the data of the core,
+ *   and what the sync knows of the cloud.
+ * @param cacheDir where a download is written before it is put in its place.
+ * @param account the account of the cloud storage.
+ * @param afterEditMs how long the app waits after the last change of a page before it syncs.
  */
-class JournalModel(app: Application) : AndroidViewModel(app) {
+class JournalModel internal constructor(
+    app: Application,
+    filesDir: File,
+    cacheDir: File,
+    private val account: CloudAccount,
+    afterEditMs: Long,
+) : AndroidViewModel(app) {
+    /** The model of the app: its own folders, and the account of Dropbox. */
+    constructor(app: Application) : this(
+        app,
+        app.filesDir,
+        app.cacheDir,
+        DropboxAccount(app, BuildConfig.DROPBOX_KEY, BuildConfig.DROPBOX_FOLDER),
+        AFTER_EDIT_MS,
+    )
+
     private val main = Handler(Looper.getMainLooper())
 
     // The folders of ADR 030. Kotlin makes the folders of the pages: the core takes in
     // nothing from a Markdown folder that has neither of them
-    private val markdown = File(app.filesDir, "markdown").also { root ->
+    private val markdown = File(filesDir, "markdown").also { root ->
         for (name in listOf("docs", "journals", "assets")) File(root, name).mkdirs()
     }
 
     /** Syncs a moment after the last change of a page, and not once for each key. */
     private val afterEdit = Runnable { sync() }
 
-    val shell = Shell(File(app.filesDir, "data"), markdown, { main.post(it) }) {
+    val shell = Shell(File(filesDir, "data"), markdown, { main.post(it) }) {
         main.removeCallbacks(afterEdit)
-        main.postDelayed(afterEdit, AFTER_EDIT_MS)
+        main.postDelayed(afterEdit, afterEditMs)
     }
 
-    private val account = DropboxAccount(app, BuildConfig.DROPBOX_KEY, BuildConfig.DROPBOX_FOLDER)
-
     /** Where the last download ended, for the next one to ask only for what changed since. */
-    private val cursor = File(app.filesDir, "dropbox-cursor")
+    private val cursor = File(filesDir, "dropbox-cursor")
 
     /** The versions of the files in Dropbox that the app has seen, for the upload. */
-    private val record = CloudRecord(File(app.filesDir, "dropbox-record"))
+    private val record = CloudRecord(File(filesDir, "dropbox-record"))
 
-    /** `null` when the app was built without the App key of Dropbox: it then syncs nothing. */
+    /** `null` when the account is not set up, as in an app that was built without the App key of Dropbox: it then syncs nothing. */
     val cloud: CloudSync? = if (!account.isSetUp) {
         null
     } else {
-        val folder = MarkdownFolder(markdown, File(app.cacheDir, "downloads"))
+        val folder = MarkdownFolder(markdown, File(cacheDir, "downloads"))
         CloudSync(
             signedIn = account.isSignedIn,
             round = { SyncRound(Downloader(it, folder, cursor, record), shell::syncAndWait, Uploader(it, folder, record)) },
@@ -101,8 +124,23 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
         sync.signOut()
     }
 
-    override fun onCleared() {
+    override fun onCleared() = close()
+
+    /** Closes the journal. The model does nothing more after it. */
+    internal fun close() {
         main.removeCallbacks(afterEdit)
         shell.close()
+    }
+
+    companion object {
+        /**
+         * Makes the model for the screen. A test of the screen puts a model on its own folders
+         * and with its own account here.
+         */
+        internal var make: (Application) -> JournalModel = ::JournalModel
+
+        internal val factory = viewModelFactory {
+            initializer { make(checkNotNull(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY])) }
+        }
     }
 }
