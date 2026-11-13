@@ -5,9 +5,7 @@
 use client_core::effects::UiOp;
 use client_core::Event;
 use client_native_bridge::ShellEffectFfi;
-use client_shell_http::ffi::{
-    copied_html, hashtag_url, item_html, wikilink_url, PetaCore, PetaShell,
-};
+use client_shell_http::ffi::{copied_html, hashtag_url, wikilink_url, PetaCore, PetaShell};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
 use std::sync::{Arc, Mutex};
 
@@ -81,14 +79,6 @@ fn a_page_is_opened_by_its_url_from_the_entrance() {
             .any(|line| line.starts_with("POST /api/pages/doc"))
     });
     assert!(core.open(String::new()).is_err());
-}
-
-// 別の言語のシェルの入口から、項目のASTのHTMLを取れる。
-#[test]
-fn a_shell_in_another_language_gets_the_html_of_an_item() {
-    let ast = r#"{"type":"document","children":[{"type":"paragraph","children":[{"type":"text","value":"text"}]}]}"#;
-
-    assert_eq!(item_html(ast.into()), Ok("<p>text</p>\n".into()));
 }
 
 // 別の言語のシェルの入口から、コピーのHTMLを作れる。ウィキリンクは、ブラウザ版のページへのリンクになる。

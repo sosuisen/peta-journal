@@ -1,6 +1,6 @@
 //! The entrance for the Android shell, called here from Rust as Kotlin calls it.
 
-use crate::{item_html, page_url, tag_url, PetaCore, PetaShell};
+use crate::{page_url, tag_url, PetaCore, PetaShell};
 use client_core::Event;
 use client_native_bridge::ShellEffectFfi;
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
@@ -461,42 +461,9 @@ fn a_new_markdown_folder_starts_no_watcher() {
     assert_eq!(core.core.config.markdown_dir(), path(&other));
 }
 
-// 項目のASTから、HTMLを取れる。
-#[test]
-fn the_html_of_an_item_comes_from_its_ast() {
-    let ast = r#"{"type":"document","children":[{"type":"paragraph","children":[{"type":"text","value":"text"}]}]}"#;
-
-    assert_eq!(item_html(ast.into(), "tags/".into()), "<p>text</p>\n");
-}
-
-// ページへのリンクとタグは、HTMLの中で、そのページのURLへのリンクになる。タグのページは、タグのフォルダーの下にある。
-#[test]
-fn a_link_to_a_page_and_a_tag_lead_to_the_urls_of_their_pages() {
-    let ast = r#"{"type":"document","children":[{"type":"paragraph","children":[
-        {"type":"wikilink","url":"work/plan","children":[{"type":"text","value":"work/plan"}]},
-        {"type":"hashtag","value":"topic"}]}]}"#;
-
-    let html = item_html(ast.into(), "tags/".into());
-
-    assert!(
-        html.contains(r#"<a href="/pages/work/plan">work/plan</a>"#),
-        "{html}"
-    );
-    assert!(
-        html.contains(r##"<a href="/pages/tags/topic">#topic</a>"##),
-        "{html}"
-    );
-}
-
 // ページへのリンクとタグのURLは、そのページのURLである。タグのページは、タグのフォルダーの下にある。
 #[test]
 fn the_url_of_a_link_to_a_page_and_of_a_tag_is_the_url_of_its_page() {
     assert_eq!(page_url("work/plan".into()), "/pages/work/plan");
     assert_eq!(tag_url("tags/".into(), "topic".into()), "/pages/tags/topic");
-}
-
-// 読めないASTからは、何も出ない。
-#[test]
-fn an_ast_that_cannot_be_read_gives_no_html() {
-    assert_eq!(item_html("{".into(), String::new()), "");
 }

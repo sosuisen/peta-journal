@@ -1,21 +1,7 @@
-//! The HTML of an item, which a native shell draws (ADR 025), and the HTML of a copy, which it
-//! puts on the clipboard (ADR 027). A shell does not read the AST itself: `ast_to_html` takes
-//! every kind of node, and the compiler sees to that.
+//! The HTML of a copy, which a native shell puts on the clipboard (ADR 027), and the URLs of
+//! the pages that links name. A shell draws an item from the AST of its row (ADR 041).
 
 use client_page_links::AppLinks;
-use flatmarkdown_ast::Node;
-use flatmarkdown_ast2html::ast_to_html;
-
-/// The HTML of an item, from its AST as the JSON that the view model carries. The error says
-/// why the JSON could not be read. An item without a body has an empty string for its AST,
-/// and nothing to show.
-pub fn item_html(ast: &str) -> Result<String, String> {
-    if ast.is_empty() {
-        return Ok(String::new());
-    }
-    let node = Node::from_json(ast).map_err(|unreadable| unreadable.to_string())?;
-    Ok(ast_to_html(&node))
-}
 
 /// The HTML of a copy, from the AST of its tree Markdown as the core hands it over. Another
 /// app reads the HTML when the copy is pasted there, so a wikilink and a hashtag become whole
