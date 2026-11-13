@@ -24,6 +24,54 @@ enum Letters {
     }
 }
 
+/// The page that is open: its title, and its items one under the other.
+struct Outline: View {
+    @ObservedObject var shell: Shell
+    /// What the keyboard and the tools cover at the bottom of the page.
+    let covered: CGFloat
+    let onFile: (URL) -> Void
+
+    var body: some View {
+        let view = shell.view
+        let focus = view.outline.focusRequest
+        ScrollViewReader { list in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    Text(title(view)).font(.title2).padding(.vertical, 8)
+                    ForEach(view.outline.rows, id: \.item.id) { row in
+                        OutlineRow(row: row, tagsDir: view.config.tagsDir, shell: shell, onFile: onFile)
+                            .id(row.item.id)
+                    }
+                }
+                .padding(.horizontal, 12)
+                // Room for the callout of the sync under the last item
+                .padding(.bottom, 60)
+            }
+            // A drag of the page puts the keyboard away, and so ends the edit
+            .scrollDismissesKeyboard(.interactively)
+            // The item that the core moved the edit to may be off the screen, as a new item
+            // at the end of a long page
+            .onChange(of: focus?.seq) {
+                if let focus { list.scrollTo(focus.itemId) }
+            }
+            // The keyboard and the tools cover the bottom of the page. The item that is
+            // edited may be under them then, and it is brought to what is seen
+            .onChange(of: covered) {
+                guard let edited = shell.view.outline.rows.first(where: \.isEditing)?.item.id else { return }
+                withAnimation { list.scrollTo(edited) }
+            }
+        }
+    }
+
+    private func title(_ view: ViewModel) -> String {
+        switch view.screen {
+        case .page(let page): return page?.title ?? ""
+        case .journal(let journal): return journal.displayDate
+        default: return ""
+        }
+    }
+}
+
 /// One item of the outline: its bullet, the mark of its task, and its text. The item that is
 /// edited shows its Markdown in a field (ADR 031).
 struct OutlineRow: View {
