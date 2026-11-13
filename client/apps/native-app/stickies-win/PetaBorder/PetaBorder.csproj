@@ -20,8 +20,6 @@
       Link="client_shell_http.dll"
       CopyToOutputDirectory="PreserveNewest"
     />
-    <!-- Reads the HTML of an item (ADR 028). -->
-    <PackageReference Include="AngleSharp" Version="1.10.1" />
   </ItemGroup>
 
   <ItemGroup>

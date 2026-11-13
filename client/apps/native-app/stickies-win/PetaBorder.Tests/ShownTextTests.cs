@@ -1,11 +1,12 @@
+using System.Collections.ObjectModel;
 using PetaTypes;
 
 namespace PetaBorder.Tests;
 
 /// <summary>
-/// The text of an item as it is shown, with its decoration (ADR 025). The AST of the first
-/// test comes from a real journal server, so that test is skipped without
-/// <c>PETA_E2E_SERVER</c>.
+/// The text of an item as it is shown, with its decoration, drawn from the AST that the core
+/// gives with the row (ADR 041). The body of the first test goes through a real journal
+/// server, so that test is skipped without <c>PETA_E2E_SERVER</c>.
 /// </summary>
 public sealed class ShownTextTests
 {
@@ -51,8 +52,8 @@ public sealed class ShownTextTests
         ("html_block", "<details>\nHTMLBLOCK\n</details>", "HTMLBLOCK"),
     ];
 
-    /// <summary>An item with this body, as the journal server gives it back: with its AST.</summary>
-    private static Item ItemWithBody(string body, JournalServer server)
+    /// <summary>The row of an item with this body, as the journal server gives it back.</summary>
+    private static Row RowWithBody(string body, JournalServer server)
     {
         var main = new MainThread();
         using var shell = new Shell(
@@ -72,7 +73,7 @@ public sealed class ShownTextTests
             "the server gave the AST",
             () => shell.View.Outline.Rows[0].Item.Ast.Length > 0
         );
-        return shell.View.Outline.Rows[0].Item;
+        return shell.View.Outline.Rows[0];
     }
 
     // ASTのどの種類の中身も、表示するテキストに入っている。
@@ -80,17 +81,14 @@ public sealed class ShownTextTests
     public void What_is_in_every_kind_of_node_is_in_the_shown_text()
     {
         using var server = new JournalServer(18112);
-        var item = ItemWithBody(
-            string.Join("\n\n", EveryKind.Select(kind => kind.Markdown)),
-            server
-        );
+        var row = RowWithBody(string.Join("\n\n", EveryKind.Select(kind => kind.Markdown)), server);
 
-        var shown = ShownText.Of(item).Text;
+        var shown = ShownText.Of(row.Ast).Text;
 
         foreach (var (kind, _, seen) in EveryKind)
         {
             Assert.True(
-                item.Ast.Contains($"\"type\":\"{kind}\""),
+                row.Item.Ast.Contains($"\"type\":\"{kind}\""),
                 $"the body has no node of the kind {kind}"
             );
             Assert.True(
@@ -101,28 +99,56 @@ public sealed class ShownTextTests
         Assert.Contains("☑ CLOSED", shown);
     }
 
-    // 本文の中のタスクリストは箱の文字で、区切り線は線で、画像は代替の文字で出る。
+    private static Node.Text Text(string value) => new(value);
+
+    private static ObservableCollection<Node> Nodes(params Node[] nodes) => new(nodes);
+
+    private static Node.Paragraph Paragraph(params Node[] inline) => new(Nodes(inline));
+
+    private static ShownText Shown(params Node[] blocks) =>
+        ShownText.Of(new Node.Document(Nodes(blocks)));
+
+    private static Node.List List(ListType type, uint start, params Node[] entries) =>
+        new(type, start, true, ListDelimiter.Period, Nodes(entries));
+
+    private static Node.Item Entry(params Node[] blocks) => new(ListType.Bullet, 1, Nodes(blocks));
+
+    // タスクリストは箱の文字で、区切り線は線で、画像は代替の文字で出る。
     [Fact]
     public void A_task_list_a_line_and_an_image_are_put_into_text()
     {
-        var html =
-            "<ul>\n<li><input type=\"checkbox\" disabled>OPEN</li>\n<li><input type=\"checkbox\" checked disabled>CLOSED</li>\n</ul>\n"
-            + "<hr />\n<p><img src=\"images/a.png\" alt=\"ALT\" title=\"T\" /><img src=\"images/b.png\" alt=\"\" /></p>\n";
+        var shown = Shown(
+            List(
+                ListType.Bullet,
+                1,
+                new Node.TaskItem(null, Nodes(Paragraph(Text("OPEN")))),
+                new Node.TaskItem("x", Nodes(Paragraph(Text("CLOSED"))))
+            ),
+            new Node.ThematicBreak(),
+            Paragraph(
+                new Node.Embed("images/a.png", "T", [], Nodes(Text("ALT"))),
+                new Node.Embed("images/b.png", "", [], Nodes())
+            )
+        );
 
-        var shown = ShownText.OfHtml(html).Text;
-
-        Assert.Equal("☐ OPEN\n☑ CLOSED\n────────\n[ALT][images/b.png]", shown);
+        Assert.Equal("☐ OPEN\n☑ CLOSED\n────────\n[ALT][images/b.png]", shown.Text);
     }
 
     // リンクは、表示するテキストに残る。ウィキリンクはページを、ハッシュタグはタグを指し、外のリンクはそのままである。
     [Fact]
     public void Links_stay_in_the_shown_text()
     {
-        var html =
-            "<p><a href=\"notes/Idea\" data-wikilink=\"true\">Idea</a> <a href=\"todo\" class=\"hashtag\">#todo</a> "
-            + "<a href=\"https://example.com/a\">out</a> <a href=\"#fn-1\">1</a></p>\n";
+        var line = Paragraph(
+            new Node.Wikilink("notes/Idea", Nodes(Text("Idea"))),
+            Text(" "),
+            new Node.Hashtag("todo"),
+            Text(" "),
+            new Node.Link("https://example.com/a", "", Nodes(Text("out"))),
+            Text(" "),
+            new Node.Link("#fn-1", "", Nodes(Text("1")))
+        );
 
-        var runs = Assert.Single(ShownText.OfHtml(html).Paragraphs).Runs;
+        var runs = Assert.Single(Shown(line).Paragraphs).Runs;
 
         var links = runs.Where(run => run.Text.Trim().Length > 0)
             .ToDictionary(run => run.Text.Trim(), run => run.Link);
@@ -137,9 +163,13 @@ public sealed class ShownTextTests
     [Fact]
     public void A_wikilink_with_a_name_that_is_not_ASCII_names_its_page()
     {
-        var html = "<p><a href=\"%E3%83%A1%E3%83%A2/%E6%A1%88\" data-wikilink=\"true\">案</a></p>";
-
-        var run = Assert.Single(Assert.Single(ShownText.OfHtml(html).Paragraphs).Runs);
+        var run = Assert.Single(
+            Assert
+                .Single(
+                    Shown(Paragraph(new Node.Wikilink("メモ/案", Nodes(Text("案"))))).Paragraphs
+                )
+                .Runs
+        );
 
         Assert.Equal(new LinkTarget.Page("メモ/案"), run.Link);
     }
@@ -148,12 +178,23 @@ public sealed class ShownTextTests
     [Fact]
     public void The_decoration_of_the_letters_is_kept()
     {
-        var html =
-            "<p>plain <strong>bold</strong> <em>italic</em> <del>struck</del> <code>code</code> "
-            + "<mark>marked</mark> <strong><em>both</em></strong></p>";
+        var line = Paragraph(
+            Text("plain "),
+            new Node.Strong(Nodes(Text("bold"))),
+            Text(" "),
+            new Node.Emph(Nodes(Text("italic"))),
+            Text(" "),
+            new Node.Strikethrough(Nodes(Text("struck"))),
+            Text(" "),
+            new Node.Code("code"),
+            Text(" "),
+            new Node.Highlight(Nodes(Text("marked"))),
+            Text(" "),
+            new Node.Strong(Nodes(new Node.Emph(Nodes(Text("both")))))
+        );
 
         var styles = Assert
-            .Single(ShownText.OfHtml(html).Paragraphs)
+            .Single(Shown(line).Paragraphs)
             .Runs.Where(run => run.Text.Trim().Length > 0)
             .ToDictionary(run => run.Text.Trim(), run => run.Style);
 
@@ -170,7 +211,11 @@ public sealed class ShownTextTests
     [Fact]
     public void A_heading_is_large_and_bold()
     {
-        var shown = ShownText.OfHtml("<h1>one</h1>\n<h3>three</h3>\n<p>text</p>\n");
+        var shown = Shown(
+            new Node.Heading(1, Nodes(Text("one"))),
+            new Node.Heading(3, Nodes(Text("three"))),
+            Paragraph(Text("text"))
+        );
 
         Assert.Equal([1.6, 1.2, 1], shown.Paragraphs.Select(paragraph => paragraph.Scale));
         Assert.Equal(RunStyle.Bold, shown.Paragraphs[0].Runs[0].Style);
@@ -181,10 +226,22 @@ public sealed class ShownTextTests
     [Fact]
     public void The_entries_of_a_list_have_marks_and_stand_to_the_right_by_their_depth()
     {
-        var html =
-            "<ul>\n<li>a\n<ol start=\"3\">\n<li>b</li>\n<li>c</li>\n</ol>\n</li>\n</ul>\n<blockquote>\n<p>q</p>\n</blockquote>\n";
-
-        var shown = ShownText.OfHtml(html);
+        var shown = Shown(
+            List(
+                ListType.Bullet,
+                1,
+                Entry(
+                    Paragraph(Text("a")),
+                    List(
+                        ListType.Ordered,
+                        3,
+                        Entry(Paragraph(Text("b"))),
+                        Entry(Paragraph(Text("c")))
+                    )
+                )
+            ),
+            new Node.BlockQuote(Nodes(Paragraph(Text("q"))))
+        );
 
         Assert.Equal("• a\n3. b\n4. c\nq", shown.Text);
         Assert.Equal([0, 1, 1, 1], shown.Paragraphs.Select(paragraph => paragraph.Indent));
@@ -194,63 +251,61 @@ public sealed class ShownTextTests
     [Fact]
     public void A_row_of_a_table_is_one_line()
     {
-        var html =
-            "<table>\n<thead>\n<tr>\n<th>H1</th>\n<th>H2</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n</tr>\n</tbody>\n</table>\n";
+        static Node.TableRow Row(bool header, params string[] cells) =>
+            new(
+                header,
+                Nodes([.. cells.Select(cell => (Node)new Node.TableCell(Nodes(Text(cell))))])
+            );
 
-        Assert.Equal("H1  │  H2\na  │  b", ShownText.OfHtml(html).Text);
+        var table = new Node.Table(
+            [Alignment.None, Alignment.None],
+            2,
+            2,
+            Nodes(Row(true, "H1", "H2"), Row(false, "a", "b"))
+        );
+
+        Assert.Equal("H1  │  H2\na  │  b", Shown(table).Text);
     }
 
     // コードブロックの空白と改行は、そのまま出る。段落の中の改行は、空白1つになる。
     [Fact]
     public void The_white_space_of_a_code_block_is_kept_and_that_of_a_paragraph_is_one_space()
     {
-        var shown = ShownText.OfHtml(
-            "<pre><code>a\n  b\n</code></pre>\n<p>soft\nbreak<br />\nhard</p>\n"
+        var shown = Shown(
+            new Node.CodeBlock(true, "", "a\n  b\n"),
+            Paragraph(
+                Text("soft"),
+                new Node.Softbreak(),
+                Text("break"),
+                new Node.Linebreak(),
+                Text("hard")
+            )
         );
 
         Assert.Equal("a\n  b\nsoft break\nhard", shown.Text);
     }
 
-    // 知らないタグは、中身がそのまま出る。スクリプトは出ない。
+    // 未知の種類は、中身がそのまま出る。
     [Fact]
-    public void A_tag_that_is_not_known_shows_what_is_in_it()
+    public void A_kind_that_is_not_known_shows_what_is_in_it()
     {
-        var shown = ShownText.OfHtml(
-            "<p><custom-tag>inside</custom-tag><script>alert(1)</script></p>"
+        Assert.Equal(
+            "inside",
+            Shown(Paragraph(new Node.Unknown("insert", Nodes(Text("inside"))))).Text
         );
-
-        Assert.Equal("inside", shown.Text);
     }
 
     // 表示するテキストの終わりに、余分な改行はない。
     [Fact]
     public void The_shown_text_does_not_end_with_a_newline()
     {
-        Assert.Equal("one\ntwo", ShownText.OfHtml("<p>one</p>\n<p>two</p>\n").Text);
+        Assert.Equal("one\ntwo", Shown(Paragraph(Text("one")), Paragraph(Text("two"))).Text);
     }
 
-    // ASTが読めない項目は、本文がそのまま出る。本文のない項目は、何も出ない。
+    // 本文のない項目は、何も出ない。
     [Fact]
-    public void An_item_whose_AST_cannot_be_read_shows_its_body()
+    public void An_empty_item_shows_nothing()
     {
-        static Item Item(string body, string ast) =>
-            new()
-            {
-                Id = "a",
-                PageId = "p",
-                DirPath = "",
-                Name = "notes",
-                ItemType = "doc",
-                Idx = "a",
-                Level = 1,
-                Body = body,
-                Ast = ast,
-                Types = [],
-                Properties = [],
-            };
-
-        Assert.Equal("**as it is** <b>", ShownText.Of(Item("**as it is** <b>", "{\"type\":")).Text);
-        Assert.Equal("**no AST yet**", ShownText.Of(Item("**no AST yet**", "")).Text);
-        Assert.Empty(ShownText.Of(Item("", "")).Paragraphs);
+        Assert.Empty(Shown().Paragraphs);
     }
 }
