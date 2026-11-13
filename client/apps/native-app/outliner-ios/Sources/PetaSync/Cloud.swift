@@ -20,6 +20,12 @@ public protocol Cloud {
     /// Throws `ChangedInCloud` when the cloud has another version than `over`, or a file
     /// where none was expected. Nothing is written then.
     func upload(path: String, from file: URL, over: String?) throws -> CloudFile
+
+    /// The hash that this cloud makes of the content of `file`, which is a file here. It is
+    /// what `CloudFile.contentHash` is for the same content, so it tells whether a file here
+    /// has the content of the file in the cloud, with no download. `nil` when the file cannot
+    /// be read.
+    func contentHash(of file: URL) -> String?
 }
 
 /// The cloud has a version of the file that the app has not seen yet.
@@ -56,7 +62,7 @@ public enum Change: Equatable {
 /// One version of a file in the cloud.
 public struct CloudFile: Equatable, Codable {
     public let path: String
-    /// The hash that Dropbox makes of the content.
+    /// The hash that the cloud makes of the content, as `Cloud.contentHash` does.
     public let contentHash: String
     /// How the cloud finds this very version of the file.
     public let remote: String

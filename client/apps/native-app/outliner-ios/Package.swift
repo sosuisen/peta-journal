@@ -28,6 +28,7 @@ let package = Package(
             name: "PetaDropbox",
             dependencies: ["PetaSync", .product(name: "SwiftyDropbox", package: "SwiftyDropbox")]
         ),
+        .testTarget(name: "PetaDropboxTests", dependencies: ["PetaDropbox"]),
         // The core behind its border, and what the app shows. No screen is in it
         .target(
             name: "PetaBorder",

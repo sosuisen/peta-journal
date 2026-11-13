@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 
 /// The Markdown folder of the app: a copy of the pages and their images in the folder in the
@@ -74,10 +73,11 @@ public final class MarkdownFolder: @unchecked Sendable {
         removeEmptyFolders(from: found)
     }
 
-    /// The hash that Dropbox makes of the content of the file. `nil` when it is not here.
-    public func contentHash(_ path: String) -> String? {
+    /// The hash of the content of the file, as `hash` makes it: each cloud has its own way.
+    /// `nil` when it is not here.
+    public func contentHash(_ path: String, by hash: (URL) -> String?) -> String? {
         guard let file = find(path), !isFolder(file) else { return nil }
-        return dropboxContentHash(of: file)
+        return hash(file)
     }
 
     /// The paths of the Markdown files that are here, as they are spelled here, in order.
@@ -148,19 +148,4 @@ public func findWithoutCase(root: URL, path: String) -> URL? {
 private func child(of dir: URL, named name: String) -> URL? {
     let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
     return names.first { $0.caseInsensitiveCompare(name) == .orderedSame }.map { dir.appendingPathComponent($0) }
-}
-
-private let block = 4 * 1024 * 1024
-
-/// The content hash of Dropbox: the SHA-256 of the SHA-256 of each block of 4MB, as hex. It
-/// tells whether a file here has the content of the file in the cloud, with no download.
-/// `nil` when the file cannot be read.
-public func dropboxContentHash(of file: URL) -> String? {
-    guard let input = try? FileHandle(forReadingFrom: file) else { return nil }
-    defer { try? input.close() }
-    var whole = SHA256()
-    while let read = try? input.read(upToCount: block), !read.isEmpty {
-        whole.update(data: Data(SHA256.hash(data: read)))
-    }
-    return whole.finalize().map { String(format: "%02x", $0) }.joined()
 }

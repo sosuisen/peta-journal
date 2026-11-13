@@ -100,6 +100,10 @@ public final class DropboxCloud: Cloud {
         }
     }
 
+    public func contentHash(of file: URL) -> String? {
+        dropboxContentHash(of: file)
+    }
+
     /// Runs a call. What the SDK throws is long and made for a log: the screen gets its words.
     private func inWords<Answer>(_ call: () throws -> Answer) throws -> Answer {
         do {
