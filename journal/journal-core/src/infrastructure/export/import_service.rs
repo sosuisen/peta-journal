@@ -9,6 +9,9 @@
 //!   file goes, or as a copy when the old file is still there after a while.
 //! - Last writer wins by `modified`, for each item; see `ItemMerger`. When a change in the file
 //!   that was not seen here loses, the file is backed up as `name.conflict-yyyyMMdd-HHmmss.md`.
+//! - The tags and the other properties of a page come from the front matter of a file newer
+//!   than the page. A device that got a page only from its file must hold them, or the file
+//!   loses them when that device writes it.
 //! - An atlas goes by its page: when the DB is newer than the file, the file is backed up and
 //!   overwritten from the DB.
 //! - A Dropbox conflicted copy is taken in as one more version of its page, and then
