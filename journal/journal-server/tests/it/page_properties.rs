@@ -2,6 +2,7 @@
 //! page only from its file holds them, so the file keeps them when that device writes it.
 
 use hmtid::Hmtid;
+use journal_core::infrastructure::export::import_service::Outcome;
 
 use super::atlas_sync::{two_devices, Device};
 
@@ -19,6 +20,20 @@ impl Device {
     fn page_property(&self, page_id: &Hmtid, key: &str) -> Option<String> {
         let (scalars, _) = self.state.page_service.page_properties(page_id).unwrap();
         scalars.get(page_id.as_str())?.get(key).cloned()
+    }
+
+    /// Adds the lines to the front matter of the file by hand, and takes the file in
+    fn add_to_front_matter(&self, lines: &str) -> Outcome {
+        let before = self.file(PAGE);
+        let edited = before.replacen("---\n\n", &format!("{lines}---\n\n"), 1);
+        assert_ne!(before, edited);
+        std::fs::write(self.root.join(PAGE), edited).unwrap();
+        self.sync(PAGE)
+    }
+
+    fn type_of(&self, key: &str) -> Option<String> {
+        let definition = self.state.properties.find_definition(key).unwrap()?;
+        Some(definition.value_type)
     }
 }
 
@@ -69,4 +84,84 @@ fn an_older_file_leaves_the_properties_of_the_page() {
 
     assert_eq!(b.page_property(&page, "slug").as_deref(), Some("from-b"));
     assert_eq!(b.page_property(&page, "author").as_deref(), Some("b"));
+}
+
+// 手でfront matterに足したプロパティは取り込まれ、ページの日付が新しくなる。
+#[test]
+fn a_property_added_by_hand_is_taken_in_and_gives_the_page_a_new_date() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let page = a.doc("a");
+    let before = a.file(PAGE);
+
+    a.add_to_front_matter("slug: by-hand\n");
+
+    assert_eq!(a.page_property(&page, "slug").as_deref(), Some("by-hand"));
+    let date = |file: &str| {
+        file.lines()
+            .find(|l| l.starts_with("modified: "))
+            .map(str::to_string)
+    };
+    assert_ne!(date(&a.file(PAGE)), date(&before));
+}
+
+// 定義のないキーは、textとして定義される。
+#[test]
+fn a_key_with_no_definition_is_defined_as_text() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.set_page_property(&page, "rating", "number", "5");
+
+    b.receive(&a, PAGE);
+
+    assert_eq!(b.type_of("rating").as_deref(), Some("text"));
+    assert_eq!(b.page_property(&page, "rating").as_deref(), Some("5"));
+}
+
+// ページに付けられないキーは取り込まれず、ほかのプロパティは取り込まれる。
+#[test]
+fn a_key_a_page_cannot_have_is_left_out_and_the_others_are_taken_in() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let page = a.doc("a");
+
+    let outcome = a.add_to_front_matter("due: 2026-01-02\nslug: by-hand\n");
+
+    assert_eq!(outcome, Outcome::Imported);
+    assert_eq!(a.page_property(&page, "due"), None);
+    assert_eq!(a.page_property(&page, "slug").as_deref(), Some("by-hand"));
+}
+
+// キーにできない名前の行は取り込まれず、ほかのプロパティは取り込まれる。
+#[test]
+fn a_line_whose_name_cannot_be_a_key_is_left_out_and_the_others_are_taken_in() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let page = a.doc("a");
+
+    let outcome = a.add_to_front_matter("my key: x\nslug: by-hand\n");
+
+    assert_eq!(outcome, Outcome::Imported);
+    assert_eq!(a.type_of("my key"), None);
+    assert_eq!(a.page_property(&page, "slug").as_deref(), Some("by-hand"));
+}
+
+// 型に合わない値は取り込まれず、ページの値が残る。ほかのプロパティは取り込まれる。
+#[test]
+fn a_value_that_does_not_fit_the_type_is_left_out_and_the_page_keeps_its_value() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.set_page_property(&page, "rating", "number", "5");
+    let file = a
+        .file(PAGE)
+        .replacen("rating: 5\n", "rating: many\nslug: by-hand\n", 1);
+    std::fs::write(a.root.join(PAGE), file).unwrap();
+
+    let outcome = a.sync(PAGE);
+
+    assert_eq!(outcome, Outcome::Imported);
+    assert_eq!(a.page_property(&page, "rating").as_deref(), Some("5"));
+    assert_eq!(a.page_property(&page, "slug").as_deref(), Some("by-hand"));
 }
