@@ -40,8 +40,9 @@ final class StickyWindow: NSWindow {
     }
 
     override func sendEvent(_ event: NSEvent) {
-        if event.type == .leftMouseDown, event.clickCount == 2, isOnBareTitleBar(event.locationInWindow) {
-            onTitleBarDoubleClick?()
+        // Clicks in a quick row count on: 3, 4, ... macOS would zoom the window at a later one
+        if event.type == .leftMouseDown, event.clickCount >= 2, isOnBareTitleBar(event.locationInWindow) {
+            if event.clickCount.isMultiple(of: 2) { onTitleBarDoubleClick?() }
             return
         }
         if asksForMenu(event), let frame = contentView?.superview {

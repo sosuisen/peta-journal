@@ -223,7 +223,8 @@ A sticky is light in every color, also when the Mac is in dark mode.
 
 A double click on the title bar rolls the sticky up, so that only its title bar is left, and
 another one rolls it down again to the size it had. A double click on the name in the title
-bar does the same: it does not zoom the window. The window moves in steps, as the Stickies of
+bar does the same: it does not zoom the window. In a quick row of clicks, every second click
+rolls the sticky: the window is never zoomed. The window moves in steps, as the Stickies of
 macOS do. A sticky that is rolled up shows no search tool, and no buttons that close, minimize or
 zoom the window. A sticky that is rolled up comes back rolled up in the next run.
 
