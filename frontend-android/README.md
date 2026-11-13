@@ -64,6 +64,14 @@ registers at <https://www.dropbox.com/developers/apps>:
   turned on, on its "Permissions" tab.
 - No redirect URI is needed, and the App secret is not used: the sign-in is PKCE.
 
+> [!IMPORTANT]
+> Check no **Team Scope** on the "Permissions" tab of the Dropbox app (App Console), and
+> press "Submit" after a change. One checked team scope stops the sign-in through the
+> Dropbox app of the phone. On an iPhone it said "Mobile authorization does not support team
+> authorized scopes." with `team_data.member` checked, and the sign-in worked after it was
+> unchecked (2026-11-13). PetaJournal needs only the three scopes above, which are
+> Individual Scopes.
+
 A sign-in of a version of the app that only read cannot upload. The app lets go of it, and
 shows the sign-in again.
 
@@ -83,6 +91,10 @@ was signed out itself, the Dropbox app only said that it could not connect to Dr
 asked to check the network. So the manifest takes away the `queries` entry of the SDK, and
 the app does not see the Dropbox app. This holds from Android 11 on, where an app sees only
 the apps it asks for.
+
+The cause of that failure was probably a team scope of the Dropbox app (see the note above):
+`team_data.member` was checked then. This is not yet tried on Android. The plan is to go back
+to the sign-in through the Dropbox app (`docs/plans.md`).
 
 The app syncs when it comes to the front, when it goes to the back, when "Sync" is touched,
 and 3 seconds after the last change of a page. The sync of an app that came to the front shows

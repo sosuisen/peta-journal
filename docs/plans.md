@@ -276,6 +276,11 @@
 
 ## Androidのシェル
 
+- [ ] Androidのシェルも、Dropboxのアプリを通してサインインする（2026-11-13にユーザーが決めた）。今は、いつもブラウザーでサインインする（ADR 033）
+  - ADR 033の失敗の原因は、おそらくDropboxのアプリの登録にあったTeam Scopeである。`team_data.member`にチェックが入っていた。iPhoneでは、これを外すと、Dropboxのアプリでのサインインが通った（2026-11-13にユーザーが実機で確かめた）。Androidでは、まだ確かめていない
+  - [ ] `AndroidManifest.xml`の、SDKの`queries`を取り除く記述を消す。実機で、サインアウトのあとのサインインと、Dropboxのアプリがサインアウトしているときのサインインを見る
+  - [ ] 通ったら、ADR 033を置き換えるADRを書く。`frontend-android/README.md`とマニフェストのコメントも直す
+  - [ ] 通らなかったら、ブラウザーのままにし、ADR 033に分かったことを足す
 - [ ] Androidのシェルを作る。最初の版は、Dropboxからの取り込み、検索、ページの表示までである。編集とアップロードは、次の版にする
   - ファイルは、Dropbox SDKでAPIを通して取る。Dropbox SDKは、PCのDropboxアプリの役をする。アプリ内のフォルダーとDropboxの間で、ファイルを運ぶだけである
   - Android SDK、AVD、Gradleのキャッシュは、`D:\Android`にある（2026-11-11に移した）。元の場所には、ジャンクションを残してある
@@ -287,7 +292,8 @@
 ## iOSのシェル
 
 - [ ] iOSのシェルを、本物のDropboxで確かめる（ADR 034）。App keyを`frontend-ios/Dropbox.xcconfig`に置き、サインイン、最初の同期、編集のあとのアップロード、サインアウトを見る。シミュレーターでは、ブラウザーでのサインインになる
-- [ ] iOSのシェルを、実機で確かめる。日本語の入力、後ろに回ったときの同期、Dropboxのアプリでのサインイン（Androidでは失敗した。ADR 033）を見る
+- [ ] iOSのシェルを、実機で確かめる。日本語の入力、後ろに回ったときの同期を見る
+  - Dropboxのアプリでのサインインは、通った（2026-11-13にユーザーがiPhoneで確かめた）。Dropboxのアプリの登録にTeam Scope（`team_data.member`）があると、「Mobile authorization does not support team authorized scopes.」で失敗する。外すと通る（`frontend-ios/README.md`）
 - [ ] iOSのシェルの、同期の表示（メニュー、前面の同期のダイアログ、下の吹き出し、サインインのボタン）に、画面のテストを書く。今は、テストの中のアプリは同期をしない
 - [ ] `shell-android`のクレートの名前を、`shell-embedded`に変える（2026-11-13にユーザーが決めた）。AndroidとiOSの両方が使うようになった（ADR 034）
   - [ ] クレートを`shell-embedded`（`peta-shell-embedded`）に変える。Androidのライブラリの名前、両方の`generate`、`BUILD.md`、READMEも合わせる。ADR 029から034は、書いた時点の記録なので書き換えない
