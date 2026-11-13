@@ -456,7 +456,9 @@
   - `client-native-bridge`は、どのアプリとも結びつかない。`crate-type`を、既定の`lib`だけにした
   - `PetaShell`のtraitと`item_html`などの関数は、2つの入口に同じものが残る。BoltFFIの`export`は、最終のクレートに書くためである
 - [x] 段4: `shell-android`（`peta-shell-android`）を、`client-shell-embedded`にする。フォルダーも変える（2026-11-13に行った）
-  - [ ] Androidの画面のテスト（`connectedDebugAndroidTest`）を、端末かエミュレーターで回す。アプリのビルドと、端末の要らないテストは通った。ライブラリは`libclient_shell_embedded.so`になった
+  - [x] 2026-11-13 Androidの画面のテスト（`connectedDebugAndroidTest`）を、端末かエミュレーターで回す。アプリのビルドと、端末の要らないテストは通った。ライブラリは`libclient_shell_embedded.so`になった
+    - エミュレーター（`Pixel_9_API_35`）で、100個がすべて通った。段6までの改名が入った`main`で回した
+    - 実機では回していない。このテストは、終わるとアプリをアンインストールするので、端末のアプリのデータが消える
   - [ ] iOSのビルドとテストを、Macで確かめる。`frontend-ios/generate.sh`は、`client-shell-embedded`のフォルダーで`boltffi pack apple`を呼ぶようにした
   - AndroidとiOSの両方が使うようになったので、名前が合わなくなった（ADR 034）
   - 直すところ: Androidのライブラリの名前、AndroidとiOSの`generate`、`BUILD.md`、README
