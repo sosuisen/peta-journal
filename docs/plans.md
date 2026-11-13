@@ -291,6 +291,11 @@
 
 ## iOSのシェル
 
+- [ ] 同期の失敗の表示を、「Sync failed」だけにする（2026-11-13にユーザーが決めた）。今は、あとに理由が続く
+  - 実機で通信を切って編集すると、「Sync failed: urlSessionError(SwiftyDropbox.ClientError.urlSessionError…」と出た。長くて、意味が分からない（2026-11-13にユーザーがiPhoneで見た）
+  - 失敗の表示、「Try again」、通信が戻ったあとのアップロードは、働いた
+  - 表示を作るのは、`frontend-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`である
+  - Androidも、同じ形で理由を出す（`JournalScreen.kt`の`"Sync failed: ${state.reason}"`）。Androidも変えるかは、まだ決めていない
 - [ ] iOSのシェルを、本物のDropboxで確かめる（ADR 034）。App keyを`frontend-ios/Dropbox.xcconfig`に置き、サインイン、最初の同期、編集のあとのアップロード、サインアウトを見る。シミュレーターでは、ブラウザーでのサインインになる
 - [ ] iOSのシェルを、実機で確かめる。日本語の入力、後ろに回ったときの同期を見る
   - Dropboxのアプリでのサインインは、通った（2026-11-13にユーザーがiPhoneで確かめた）。Dropboxのアプリの登録にTeam Scope（`team_data.member`）があると、「Mobile authorization does not support team authorized scopes.」で失敗する。外すと通る（`frontend-ios/README.md`）
