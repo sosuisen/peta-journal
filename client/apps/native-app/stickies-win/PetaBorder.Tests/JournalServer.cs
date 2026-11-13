@@ -74,10 +74,7 @@ internal sealed class JournalServer : IDisposable
         {
             if (Get("/api/config") is { } config)
             {
-                var inUse = JsonDocument
-                    .Parse(config)
-                    .RootElement.GetProperty("markdownDir")
-                    .GetString();
+                var inUse = JsonElement.Parse(config).GetProperty("markdownDir").GetString();
                 if (!SameFolder(inUse, markdown))
                 {
                     Dispose();

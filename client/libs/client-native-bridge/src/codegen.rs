@@ -42,11 +42,37 @@ pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
 /// compile for these types. This one is a later version of the same generator, called
 /// directly (ADR 028). So the types are listed here, as `ShellEffect::register_types` lists
 /// them for Crux.
+///
+/// The generator writes `Node` as an `abstract record`, which the compiler does not count as
+/// closed: a `switch` that leaves out a kind of node only gets the warning that it gets anyway.
+/// So `Node` is made a `closed record` of C# 15 here, and the project is made one of .NET 11,
+/// whose compiler knows `closed` (ADR 041).
 pub fn write_csharp_types(out: &Path) -> Result<(), TypeGenError> {
-    Installer::new(PACKAGE, out.join("csharp"))
+    let folder = out.join("csharp");
+    Installer::new(PACKAGE, &folder)
         .plugin(BincodePlugin)
         .generate(&border_types()?)
-        .map_err(failed)
+        .map_err(failed)?;
+    rewrite(
+        &folder.join(PACKAGE).join(format!("{PACKAGE}.cs")),
+        "public abstract record Node ",
+        "public closed record Node ",
+    )?;
+    rewrite(
+        &folder.join(format!("{PACKAGE}.csproj")),
+        "<TargetFramework>net10.0</TargetFramework>",
+        "<TargetFramework>net11.0</TargetFramework>",
+    )
+}
+
+/// Puts `new` in the place of `old` in the file. An `old` that is not there is an error: the
+/// generator writes something else now, and what this changes would be lost without a word.
+fn rewrite(file: &Path, old: &str, new: &str) -> Result<(), TypeGenError> {
+    let text = std::fs::read_to_string(file).map_err(failed)?;
+    if !text.contains(old) {
+        return Err(failed(format!("{} has no {old:?}", file.display())));
+    }
+    std::fs::write(file, text.replacen(old, new, 1)).map_err(failed)
 }
 
 /// Writes the same types as Kotlin under `out/kotlin`, for the Android shell. They are in the
@@ -89,4 +115,23 @@ fn add<'a, T: Facet<'a>>(builder: RegistryBuilder) -> Result<RegistryBuilder, Ty
 
 fn failed(error: impl std::fmt::Display) -> TypeGenError {
     TypeGenError::Generation(error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // C#の型では、Nodeは閉じたrecordで、プロジェクトは.NET 11である。
+    #[test]
+    fn the_node_of_csharp_is_a_closed_record_of_dotnet_11() {
+        let out = std::env::temp_dir().join(format!("peta-csharp-types-{}", std::process::id()));
+        write_csharp_types(&out).unwrap();
+
+        let types = std::fs::read_to_string(out.join("csharp/PetaTypes/PetaTypes.cs")).unwrap();
+        let project = std::fs::read_to_string(out.join("csharp/PetaTypes.csproj")).unwrap();
+        std::fs::remove_dir_all(&out).unwrap();
+        assert!(types.contains("public closed record Node : "));
+        assert!(!types.contains("abstract record Node "));
+        assert!(project.contains("<TargetFramework>net11.0</TargetFramework>"));
+    }
 }

@@ -15,7 +15,7 @@ the shell is made this way.
 ## Prerequisites
 
 - Windows 11 on x64. Only `win-x64` is built.
-- The .NET SDK 10. `dotnet build` builds the app: Visual Studio is not needed.
+- The .NET SDK 11. `dotnet build` builds the app: Visual Studio is not needed.
 - The Rust toolchain, with the target `x86_64-pc-windows-msvc`.
 - [BoltFFI](https://boltffi.dev) 0.32.1, the command line tool. It makes the Rust library and
   the C# code that calls it:
@@ -89,7 +89,7 @@ By hand, the steps are:
 cd peta-journal/client/apps/native-app/stickies-win
 ./generate.ps1
 dotnet build PetaStickies -c Release
-PetaStickies/bin/Release/net10.0-windows10.0.22621.0/win-x64/PetaStickies.exe
+PetaStickies/bin/Release/net11.0-windows10.0.22621.0/win-x64/PetaStickies.exe
 ```
 
 The app is a folder with an `.exe` in it. It has no package, and the Windows App SDK lies
