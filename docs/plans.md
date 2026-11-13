@@ -274,7 +274,7 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
       - 4つを比べた（2026-11-14）。MacとWindowsの`Shell`は、タイトル、フォーカスの番号、質問の待ち行列が同じである。iOSとAndroidの`Shell`は、ページを開く・作る、最後の画面を覚える、同期の受け持ちが同じである。4つに共通するのは、質問の扱いと、イベントを送ってビューモデルを取り直すところである
       - [x] 2026-11-14 タイトルを、コアの`ViewModel`の`title`に入れた。MacとWindowsの`Shell`から、`name()`と`Name()`を消した。`Shell.cs`は、ビルドせずに直した。Windowsで確かめる
       - [x] 2026-11-14 フォーカスの番号（`FocusOrder`）を、コアのビューモデルの`outline.focusOrder`に入れた。コアは`FocusEditor`を頼むたびに、番号を1つ増やす。MacとWindowsの`Shell`は、自分で数えるのをやめた。`Shell.cs`と`StickyWindow.cs`は、ビルドせずに直した
-      - [ ] 質問の待ち行列を、`client-native-bridge`に移す。4つのシェルとも、2つ目の質問は、1つ目のうしろに並べる（2026-11-14にユーザーが決めた）。今のiOSとAndroidは、1つ目に「いいえ」と答えて、2つ目を出す
+      - [x] 2026-11-14 質問の待ち行列を、`client-native-bridge`の`NativeShell`に移した。4つのシェルとも、2つ目の質問は、1つ目のうしろに並ぶ（ユーザーが決めた）。iOSとAndroidは、1つ目に「いいえ」と答えて2つ目を出すのをやめた。`Shell.cs`と`Shell.kt`は、ビルドせずに直した
       - [ ] iOSとAndroidの`Shell`に共通するところ（ページを開く・作る、最後の画面、同期の受け持ち）を、`client-shell-embedded`に寄せる
     - [ ] Android版でしたクラスのリファクタリングを、iOS版にも同じように反映させる（2026-11-14にユーザーが足した）。先に、Android版で何を変えたかを、履歴から拾う
     - [ ] そのあとに、iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）の間で、Swiftに残った同じコードを寄せる
