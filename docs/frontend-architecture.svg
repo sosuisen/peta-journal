@@ -243,14 +243,14 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="1585" y="134" text-anchor="end" dominant-baseline="central">bincode（BoltFFI）</text>
 <line class="arr" x1="1420" y1="544" x2="1420" y2="564" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <g class="gray store">
-<path class="folder" d="M1356 672H1408L1416 680H1498a4 4 0 0 1 4 4V708a4 4 0 0 1 -4 4H1356a4 4 0 0 1 -4 -4V676a4 4 0 0 1 4 -4Z" />
-<text class="th" x="1427" y="689" text-anchor="middle" dominant-baseline="central">アプリ内フォルダ</text>
-<text class="th" x="1427" y="704" text-anchor="middle" dominant-baseline="central" style="font-size:12px">（.md）</text>
+<path class="folder" d="M1356 664H1408L1416 672H1498a4 4 0 0 1 4 4V716a4 4 0 0 1 -4 4H1356a4 4 0 0 1 -4 -4V668a4 4 0 0 1 4 -4Z" />
+<text class="th" x="1427" y="687" text-anchor="middle" dominant-baseline="central">アプリ内フォルダ</text>
+<text class="th" x="1427" y="706" text-anchor="middle" dominant-baseline="central">（.md）</text>
 <path d="M1516 677a56 5 0 0 1 112 0V707a56 5 0 0 1 -112 0Z" />
 <path d="M1516 677a56 5 0 0 0 112 0" style="fill:none" />
 <text class="th" x="1572" y="697" text-anchor="middle" dominant-baseline="central">DB（SQLite）</text>
 </g>
-<line class="arr" x1="1427" y1="624" x2="1427" y2="670" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<line class="arr" x1="1427" y1="624" x2="1427" y2="662" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1435" y="652" dominant-baseline="central">同期</text>
 <line class="arr" x1="1572" y1="624" x2="1572" y2="670" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1564" y="652" text-anchor="end" dominant-baseline="central">読み書き</text>
@@ -307,18 +307,18 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="1905" y="134" text-anchor="end" dominant-baseline="central">bincode（BoltFFI）</text>
 <line class="arr" x1="1740" y1="544" x2="1740" y2="564" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <g class="gray store">
-<path class="folder" d="M1676 672H1728L1736 680H1818a4 4 0 0 1 4 4V708a4 4 0 0 1 -4 4H1676a4 4 0 0 1 -4 -4V676a4 4 0 0 1 4 -4Z" />
-<text class="th" x="1747" y="689" text-anchor="middle" dominant-baseline="central">アプリ内フォルダ</text>
-<text class="th" x="1747" y="704" text-anchor="middle" dominant-baseline="central" style="font-size:12px">（.md）</text>
+<path class="folder" d="M1676 664H1728L1736 672H1818a4 4 0 0 1 4 4V716a4 4 0 0 1 -4 4H1676a4 4 0 0 1 -4 -4V668a4 4 0 0 1 4 -4Z" />
+<text class="th" x="1747" y="687" text-anchor="middle" dominant-baseline="central">アプリ内フォルダ</text>
+<text class="th" x="1747" y="706" text-anchor="middle" dominant-baseline="central">（.md）</text>
 <path d="M1836 677a56 5 0 0 1 112 0V707a56 5 0 0 1 -112 0Z" />
 <path d="M1836 677a56 5 0 0 0 112 0" style="fill:none" />
 <text class="th" x="1892" y="697" text-anchor="middle" dominant-baseline="central">DB（SQLite）</text>
 </g>
-<line class="arr" x1="1747" y1="624" x2="1747" y2="670" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<line class="arr" x1="1747" y1="624" x2="1747" y2="662" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1755" y="652" dominant-baseline="central">同期</text>
 <line class="arr" x1="1892" y1="624" x2="1892" y2="670" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1884" y="652" text-anchor="end" dominant-baseline="central">読み書き</text>
-<path class="arr" d="M1235 728V776H1747V714" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<path class="arr" d="M1235 728V776H1747V722" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1757" y="734" dominant-baseline="central">Dropbox SDK（Kotlin）で同期</text>
 <g class="chip">
 <rect x="1884" y="459" width="36" height="18" rx="9" />
@@ -342,9 +342,9 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <line class="arr" x1="454" y1="594" x2="568" y2="594" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="511" y="579" text-anchor="middle" dominant-baseline="central">関数呼び出し</text>
 <g class="gray store">
-<path class="folder" d="M988 672H1040L1048 680H1130a4 4 0 0 1 4 4V708a4 4 0 0 1 -4 4H988a4 4 0 0 1 -4 -4V676a4 4 0 0 1 4 -4Z" />
-<text class="th" x="1059" y="689" text-anchor="middle" dominant-baseline="central">ローカルフォルダ</text>
-<text class="th" x="1059" y="704" text-anchor="middle" dominant-baseline="central" style="font-size:12px">（.md）</text>
+<path class="folder" d="M988 664H1040L1048 672H1130a4 4 0 0 1 4 4V716a4 4 0 0 1 -4 4H988a4 4 0 0 1 -4 -4V668a4 4 0 0 1 4 -4Z" />
+<text class="th" x="1059" y="687" text-anchor="middle" dominant-baseline="central">ローカルフォルダ</text>
+<text class="th" x="1059" y="706" text-anchor="middle" dominant-baseline="central">（.md）</text>
 <path d="M580 663a75 5 0 0 1 150 0V693a75 5 0 0 1 -150 0Z" />
 <path d="M580 663a75 5 0 0 0 150 0" style="fill:none" />
 <text class="th" x="655" y="682" text-anchor="middle" dominant-baseline="central">DB（SQLite）</text>
@@ -412,7 +412,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <rect class="frame" x="919" y="690" width="280" height="60" rx="14" />
 <text class="th" x="1059" y="709" text-anchor="middle" dominant-baseline="central">Astro</text>
 <text x="1059" y="731" text-anchor="middle" dominant-baseline="central">ローカルフォルダの.mdをインポート</text>
-<line class="arr" x1="1059" y1="638" x2="1059" y2="688" marker-end="url(#arrow)" />
+<line class="arr" x1="1059" y1="646" x2="1059" y2="688" marker-end="url(#arrow)" />
 <g class="chip">
 <rect x="168" y="815" width="68" height="18" rx="9" style="fill:#FFFFFF;stroke:#444441;stroke-width:1" />
 <text x="202" y="824" text-anchor="middle" dominant-baseline="central" style="fill:#444441">ast2react</text>
