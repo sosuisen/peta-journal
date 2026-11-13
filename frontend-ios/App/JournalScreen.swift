@@ -20,6 +20,8 @@ struct JournalScreen: View {
     @State private var file: URL?
     /// Whether the search field has the keyboard.
     @FocusState private var searches: Bool
+    /// How much of the page the keyboard covers.
+    @State private var keyboard: CGFloat = 0
 
     var body: some View {
         let view = shell.view
@@ -37,6 +39,52 @@ struct JournalScreen: View {
     }
 
     private func whole(view: ViewModel, searching: Bool, waiting: (String, Double)?) -> some View {
+        let edited = searching ? nil : view.outline.rows.first(where: \.isEditing)?.item.id
+        // What the keyboard and the tools cover of the page
+        let covered = keyboard + (edited == nil ? 0 : Tools.height)
+        return ZStack(alignment: .bottom) {
+            page(view: view, searching: searching, waiting: waiting, covered: covered)
+                // The page keeps its height when the keyboard comes up, and what the keyboard
+                // covers is told to it as room at its bottom. A page that got lower would
+                // drop the item under the keyboard from the screen, with its field, just
+                // when that field takes the keyboard
+                .ignoresSafeArea(.keyboard, edges: .bottom)
+            // Above the keyboard
+            if let edited { Tools(itemId: edited, shell: shell) }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { told in
+            guard let frame = told.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+            keyboard = covers(frame)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            keyboard = 0
+        }
+        .background { KeyboardKeeping().frame(width: 0, height: 0) }
+        .overlay { if let waiting { Waiting(words: waiting.0, part: waiting.1) } }
+        .alert(
+            shell.question?.text ?? "", isPresented: Binding(get: { shell.question != nil }, set: { _ in }),
+            presenting: shell.question
+        ) { question in
+            // The button for yes names what a question about a loss does
+            if question.destructive {
+                Button("Delete", role: .destructive) { shell.answer(yes: true) }
+            } else {
+                Button("OK") { shell.answer(yes: true) }
+            }
+            Button("Cancel", role: .cancel) { shell.answer(yes: false) }
+        }
+        .quickLookPreview($file)
+    }
+
+    /// How much of the page the keyboard covers, above the edge that the page keeps free at
+    /// the bottom of the screen by itself.
+    private func covers(_ keyboard: CGRect) -> CGFloat {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        guard let window = scenes.compactMap(\.keyWindow).first else { return 0 }
+        return max(0, window.bounds.maxY - keyboard.minY - window.safeAreaInsets.bottom)
+    }
+
+    private func page(view: ViewModel, searching: Bool, waiting: (String, Double)?, covered: CGFloat) -> some View {
         VStack(spacing: 0) {
             // At the top, where it stays while an item is edited and the keyboard is up
             HStack(spacing: 4) {
@@ -68,7 +116,7 @@ struct JournalScreen: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 4)
             }
-            // The rest of the height: the tools stay above the keyboard
+            // The rest of the height
             ZStack(alignment: .bottom) {
                 if searching {
                     Results(entries: view.search.results) { entry in
@@ -82,32 +130,16 @@ struct JournalScreen: View {
                         if let missing = shell.missingFile {
                             Text("No file yet: \(missing)").padding(.horizontal, 12).padding(.vertical, 4)
                         }
-                        Outline(shell: shell, onFile: { file = $0 })
+                        Outline(shell: shell, covered: covered, onFile: { file = $0 })
                     }
                 }
                 // Over the page, so that it takes no room. Not while the dialog says the same
                 if waiting == nil, let cloud { SyncCallout(state: cloud, onSync: onSync) }
             }
             .frame(maxHeight: .infinity)
-            if !searching, let edited = view.outline.rows.first(where: \.isEditing)?.item.id {
-                Tools(itemId: edited, shell: shell)
-            }
+            // The results, the page and the callout stay clear of the keyboard and the tools
+            .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: covered) }
         }
-        .background { KeyboardKeeping().frame(width: 0, height: 0) }
-        .overlay { if let waiting { Waiting(words: waiting.0, part: waiting.1) } }
-        .alert(
-            shell.question?.text ?? "", isPresented: Binding(get: { shell.question != nil }, set: { _ in }),
-            presenting: shell.question
-        ) { question in
-            // The button for yes names what a question about a loss does
-            if question.destructive {
-                Button("Delete", role: .destructive) { shell.answer(yes: true) }
-            } else {
-                Button("OK") { shell.answer(yes: true) }
-            }
-            Button("Cancel", role: .cancel) { shell.answer(yes: false) }
-        }
-        .quickLookPreview($file)
     }
 }
 
@@ -252,6 +284,9 @@ private struct Tools: View {
     let itemId: String
     let shell: Shell
 
+    /// How high the row of the tools is.
+    static let height: CGFloat = 44
+
     var body: some View {
         HStack(spacing: 0) {
             ScrollView(.horizontal, showsIndicators: false) {
@@ -287,6 +322,8 @@ private struct Tools: View {
 
 private struct Outline: View {
     @ObservedObject var shell: Shell
+    /// What the keyboard and the tools cover at the bottom of the page.
+    let covered: CGFloat
     let onFile: (URL) -> Void
 
     var body: some View {
@@ -312,12 +349,11 @@ private struct Outline: View {
             .onChange(of: focus?.seq) {
                 if let focus { list.scrollTo(focus.itemId) }
             }
-            // The keyboard and the tools take room from the page. The item that is edited
-            // may be under them then, and it is brought back to what is seen
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { _ in
+            // The keyboard and the tools cover the bottom of the page. The item that is
+            // edited may be under them then, and it is brought to what is seen
+            .onChange(of: covered) {
                 guard let edited = shell.view.outline.rows.first(where: \.isEditing)?.item.id else { return }
-                // Not now: the page is being laid out
-                DispatchQueue.main.async { list.scrollTo(edited) }
+                withAnimation { list.scrollTo(edited) }
             }
         }
     }
