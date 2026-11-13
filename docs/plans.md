@@ -517,6 +517,32 @@
   - 上の「フロントエンドのクレートのリファクタ」は、`frontend-rust`のクレートを変える。ここは、その残りである。名前の決まりは、同じものを使う
   - ジャーナルの側のフォルダーも、接頭辞を外している（`journal-server-rust/crates/core`が`journal-core`）。パッケージの名前に合わせるかを決める
   - `hmtid`は、どちらの側でもない独立した部品である。変えるかは決めていない
+- [ ] `atlas-rust`を`atlas`に変え、アトラスを描くスクリプトを`atlas/web/`に移す（2026-11-13にユーザーが決めた）
+  - きっかけは、sosuisen.netの同期である。サイトは、`atlas.js`と`pixi.min.js`を`frontend-rust/crates/shell-leptos`からコピーしていた。クレートが`client-shell-leptos`になって、コピーが止まった。サイトがシェルのクレートの場所に頼らない形にする
+  - 理由。シーンのJSONは、書く側（Rust）と描く側（`atlas.js`）の間の約束である。同じフォルダーにあれば、1つのPRで両方を変えられる。`pixi.min.js`が要るのは`atlas.js`であり、シェルではない。フォルダーを切り出すとき（ADR 003）に、描く側も履歴ごと付いていく
+  - 目標の形は、次のとおりである。Rustのコードは、`atlas/src/`のままにする
+    - `atlas/web/atlas.js`（今は`frontend-rust/crates/client-shell-leptos/src/components/atlas.js`）
+    - `atlas/web/pixi.min.js`、`atlas/web/pixi-ui.js`、`atlas/web/tweedle.umd.js`（今は`frontend-rust/crates/client-shell-leptos/vendor/`）
+    - `highlight.min.js`と`highlight-github.css`は、アトラスと関係がない。`vendor/`に残す
+  - `pixi-ui.js`と`tweedle.umd.js`は、編集のためのもので、サイトは使わない。それでも一緒に移す。`pixi.min.js`と版が組になっているためである
+  - フォルダーの名前だけを変える。パッケージの名前（`peta-atlas`）を変えるかは、決めていない
+  - 同じフォルダーを2回動かさない。改名と移動を、1つのPRで行う
+  - [ ] 先に確かめること: Trunkの`<script data-trunk src="…">`が、クレートの外のファイル（`../../../atlas/web/pixi.min.js`）を読めるか。フォントは、`copy-file`で`../../assets/`を読めている。`script`では確かめていない。読めなければ、形を決め直す
+  - [ ] PetaJournalの側で直すところ
+    - パス依存: `frontend-rust/crates/client-core/Cargo.toml`、`frontend-rust/crates/client-shell-leptos/Cargo.toml`、`journal-server-rust/crates/core/Cargo.toml`
+    - `frontend-rust/crates/client-shell-leptos/index.html`の4つの`script`
+    - `atlas.js`の先頭のコメント（`vendor/pixi.min.js`、`vendor/pixi-ui.js`と書いている）
+    - `.github/workflows/ci.yml`の`workspace: atlas-rust`
+    - `BUILD.md`の「Atlas crate (atlas-rust)」の節。`web/`の役割と、PixiJSを新しくする手順も書く
+    - この文書の「CI」と「道具の更新」の節にある`atlas-rust`
+    - ADR 003は、書いた時点の記録なので書き換えない。フォルダーの名前と`web/`は、新しいADRに書く
+    - `journal-server-rust/crates/server/tests/it/frontend.rs`の`…/src/components/atlas.js`は、配るファイルの名前の例である。変えない
+  - [ ] sosuisen.netの側で直すところ（別のリポジトリ。PetaJournalの変更を`main`に入れたあとに行う）
+    - `tools/fm2html/Cargo.toml`のパス依存: `../../../../PetaJournal/peta-journal/atlas-rust`を、`…/peta-journal/atlas`にする
+    - `scripts/sync-posts.mjs`の`ATLAS_SCRIPT_SOURCE_DIR`: `frontend-rust/crates/client-shell-leptos`を、`atlas/web`にする。`ATLAS_SCRIPTS`は、ファイルの名前だけ（`pixi.min.js`、`atlas.js`）にする。すぐ上のコメントも直す
+    - `docs/post-file-naming.md`の、スクリプトのコピー元と`peta-atlas`の場所を書いた行
+    - 2つの変更の間は、サイトの`npm run sync`が道具をビルドできない。サイトは、コミット済みの生成物でビルドできるので、公開には響かない
+  - 確かめ方: `atlas`のテスト、`journal-server-rust`と`frontend-rust`のテスト、wasm向けの`cargo check`、`build-frontend`を回す。Web版でアトラスを開き、描画とダイアログ（`pixi-ui.js`）を見る。E2Eのアトラスのテストも回す。サイトでは、`npm run sync`を回し、`public/atlas/`の2つのファイルに差分が出ないことを見る
 
 ## CI
 
