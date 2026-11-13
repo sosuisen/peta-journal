@@ -2,16 +2,11 @@
 //! puts on the clipboard (ADR 027).
 
 use crate::{copied_html, hashtag_url, item_html, wikilink_url};
-use flatmarkdown::{parse_body_with, BodyOptions, LinkResolution};
+use flatmarkdown::{parse_body_with, BodyOptions};
 
 /// The AST of a body, as the journal server makes it: with wikilinks and hashtags.
 fn ast_of(body: &str) -> String {
-    let as_the_server = BodyOptions {
-        link_resolution: LinkResolution::On {
-            prefixes: Vec::new(),
-        },
-    };
-    parse_body_with(body, &as_the_server).to_json()
+    parse_body_with(body, &BodyOptions::relative_page_links()).to_json()
 }
 
 // 項目のASTから、HTMLができる。Flat Markdownだけにある種類も、HTMLになる。

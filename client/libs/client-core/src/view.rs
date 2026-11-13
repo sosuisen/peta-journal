@@ -11,6 +11,7 @@ use crate::screens::atlas::{self, Bounds};
 use crate::screens::{journal, page, sidebar};
 use crate::util::date::{format_instant, format_journal_date};
 use crate::util::filename::JournalType;
+use flatmarkdown_ast::Node;
 use serde::Serialize;
 
 /// Where a task stands, by its `begin` and `end` properties.
@@ -44,6 +45,8 @@ impl TaskState {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Row {
     pub item: ItemRef,
+    /// The AST of the body, which the shell draws (ADR 041). The core makes it from the body.
+    pub ast: Node,
     pub position: usize,
     pub indent_px: i32,
     pub is_editing: bool,
@@ -443,8 +446,9 @@ fn outline(model: &Model) -> OutlineView {
 
     // Cumulative zoom: the product of the zooms of the item and its ancestors
     let mut stack: Vec<(i32, f64)> = Vec::new();
+    let asts = model.asts.of(visible.iter().map(|item| item.body.as_str()));
     let mut rows = Vec::with_capacity(visible.len());
-    for (position, item) in visible.iter().enumerate() {
+    for ((position, item), ast) in visible.iter().enumerate().zip(asts) {
         while stack
             .last()
             .map(|(level, _)| *level >= item.level)
@@ -481,6 +485,7 @@ fn outline(model: &Model) -> OutlineView {
             effective_zoom,
             date_header,
             suggestions_visible: wiki::is_shown_for(model, &item.id),
+            ast,
             item: item.clone(),
         });
     }

@@ -1,31 +1,51 @@
 import PetaBorder
+import PetaTypes
 import XCTest
 
-/// The text of an item is HTML when it leaves the core. A screen of iOS draws paragraphs of
-/// pieces with a look each, so the HTML is read into those here, where a Mac can test it.
+/// A screen of iOS draws paragraphs of pieces with a look each. They are made of the AST that
+/// the core gives (ADR 041), here, where a Mac can test it.
 final class ShownParagraphsTests: XCTestCase {
     private func piece(_ text: String, _ looks: Looks = [], link: String? = nil) -> ShownPiece {
         ShownPiece(text: text, looks: looks, link: link)
     }
 
-    private func pieces(_ html: String) -> [[ShownPiece]] {
-        shownParagraphs(html: html).map(\.pieces)
+    private func text(_ value: String) -> Node { .text(value: value) }
+
+    private func paragraph(_ inline: Node...) -> Node { .paragraph(children: inline) }
+
+    private func shown(_ blocks: Node..., tagsDir: String = "tags/") -> [ShownParagraph] {
+        shownParagraphs(of: blocks, tagsDir: tagsDir)
+    }
+
+    private func pieces(_ blocks: Node...) -> [[ShownPiece]] {
+        shownParagraphs(of: blocks, tagsDir: "tags/").map(\.pieces)
+    }
+
+    private func list(ordered: Bool = false, start: UInt32 = 1, _ entries: Node...) -> Node {
+        .list(listType: ordered ? .ordered : .bullet, start: start, tight: true, delimiter: .period, children: entries)
+    }
+
+    private func entry(_ blocks: Node...) -> Node {
+        .item(listType: .bullet, start: 1, children: blocks)
     }
 
     // 段落は、1つの段落になる。
     func testAParagraphIsOneParagraph() {
-        XCTAssertEqual(shownParagraphs(html: "<p>plain</p>\n"), [ShownParagraph(pieces: [piece("plain")])])
+        XCTAssertEqual(shown(paragraph(text("plain"))), [ShownParagraph(pieces: [piece("plain")])])
     }
 
-    // 段落が2つあれば、2つの段落になる。段落の間の改行は文字にならない。
+    // 段落が2つあれば、2つの段落になる。
     func testTwoParagraphsAreTwoParagraphs() {
-        XCTAssertEqual(pieces("<p>one</p>\n<p>two</p>\n"), [[piece("one")], [piece("two")]])
+        XCTAssertEqual(pieces(paragraph(text("one")), paragraph(text("two"))), [[piece("one")], [piece("two")]])
     }
 
     // 太字・斜体・取り消し線・下線・ハイライト・コードは、その部分だけの見た目になる。
     func testTheLooksOfLettersBelongToTheirPieceOnly() {
-        let html = "<p>a <strong>b</strong> <em>c</em> <del>d</del> <u>e</u> <mark>f</mark> <code>g</code></p>"
-        XCTAssertEqual(pieces(html), [[
+        let line = paragraph(
+            text("a "), .strong(children: [text("b")]), text(" "), .emph(children: [text("c")]), text(" "),
+            .strikethrough(children: [text("d")]), text(" "), .underline(children: [text("e")]), text(" "),
+            .highlight(children: [text("f")]), text(" "), .code(literal: "g"))
+        XCTAssertEqual(pieces(line), [[
             piece("a "), piece("b", .bold), piece(" "), piece("c", .italic), piece(" "), piece("d", .struck),
             piece(" "), piece("e", .underlined), piece(" "), piece("f", .marked), piece(" "), piece("g", .code),
         ]])
@@ -33,46 +53,46 @@ final class ShownParagraphsTests: XCTestCase {
 
     // 入れ子の装飾は、両方の見た目を持つ。
     func testLooksInsideEachOtherAddUp() {
-        XCTAssertEqual(
-            pieces("<p><strong>a <em>b</em></strong></p>"), [[piece("a ", .bold), piece("b", [.bold, .italic])]])
+        let line = paragraph(.strong(children: [text("a "), .emph(children: [text("b")])]))
+        XCTAssertEqual(pieces(line), [[piece("a ", .bold), piece("b", [.bold, .italic])]])
     }
 
     // 上付き・下付き・ネタバレも見た目になる。
     func testRaisedLoweredAndHiddenAreLooks() {
-        XCTAssertEqual(
-            pieces("<p><sup>a</sup><sub>b</sub><span class=\"spoiler\">c</span></p>"),
-            [[piece("a", .raised), piece("b", .lowered), piece("c", .hidden)]])
+        let line = paragraph(
+            .superscript(children: [text("a")]), .subscriptText(children: [text("b")]),
+            .spoileredText(children: [text("c")]))
+        XCTAssertEqual(pieces(line), [[piece("a", .raised), piece("b", .lowered), piece("c", .hidden)]])
     }
 
-    // リンクは、その部分が行き先を持つ。
+    // リンクは、その部分が行き先を持つ。ページへのリンクとタグの行き先は、そのページのURLである。
     func testALinkGivesItsPieceWhereItLeads() {
-        XCTAssertEqual(
-            pieces("<p>see <a href=\"/pages/notes\" data-wikilink=\"true\">notes</a>.</p>"),
-            [[piece("see "), piece("notes", link: "/pages/notes"), piece(".")]])
-    }
-
-    // 文字と行き先の実体参照は、元の文字に戻る。
-    func testEntitiesAreTheLettersTheyStandFor() {
-        XCTAssertEqual(
-            pieces("<p>a &lt;b&gt; &amp; &quot;c&quot; &#39;d&#x27; <a href=\"https://e.example/?a=1&amp;b=2\">e</a></p>"),
-            [[piece("a <b> & \"c\" 'd' "), piece("e", link: "https://e.example/?a=1&b=2")]])
+        let line = paragraph(
+            .link(url: "https://e.example/?a=1&b=2", title: "", children: [text("e")]), text(" "),
+            .wikilink(url: "other page", children: [text("other")]), text(" "), .hashtag(value: "topic"))
+        XCTAssertEqual(pieces(line), [[
+            piece("e", link: "https://e.example/?a=1&b=2"), piece(" "), piece("other", link: "/pages/other%20page"),
+            piece(" "), piece("#topic", link: "/pages/tags/topic"),
+        ]])
     }
 
     // 見出しは、そのレベルを持つ。
     func testAHeadingHasItsLevel() {
         XCTAssertEqual(
-            shownParagraphs(html: "<h2>Title</h2>\n"), [ShownParagraph(heading: 2, pieces: [piece("Title")])])
+            shown(.heading(level: 2, children: [text("Title")])), [ShownParagraph(heading: 2, pieces: [piece("Title")])])
     }
 
-    // 段落の中の改行は空白になり、改行タグは改行になる。
+    // 段落の中の改行は空白になり、改行の記号は改行になる。
     func testALineEndIsASpaceAndABreakIsALineBreak() {
-        XCTAssertEqual(pieces("<p>one\ntwo<br />\nthree</p>"), [[piece("one two\nthree")]])
+        XCTAssertEqual(
+            pieces(paragraph(text("one"), .softbreak, text("two"), .linebreak, text("three"))),
+            [[piece("one two\nthree")]])
     }
 
     // 箇条書きの項目は、印と深さを持つ段落になる。
     func testTheEntriesOfAListHaveAMarkAndADepth() {
         XCTAssertEqual(
-            shownParagraphs(html: "<ul>\n<li>one</li>\n<li>two\n<ul>\n<li>inner</li>\n</ul>\n</li>\n</ul>\n"),
+            shown(list(entry(paragraph(text("one"))), entry(paragraph(text("two")), list(entry(paragraph(text("inner"))))))),
             [
                 ShownParagraph(depth: 1, mark: "•", pieces: [piece("one")]),
                 ShownParagraph(depth: 1, mark: "•", pieces: [piece("two")]),
@@ -82,16 +102,18 @@ final class ShownParagraphsTests: XCTestCase {
 
     // 番号付きリストの印は、始まりの番号から数える。
     func testTheMarksOfANumberedListCountFromItsStart() {
-        XCTAssertEqual(
-            shownParagraphs(html: "<ol start=\"3\">\n<li>c</li>\n<li>d</li>\n</ol>\n<ol>\n<li>a</li>\n</ol>\n").map(\.mark),
-            ["3.", "4.", "1."])
+        let three = list(ordered: true, start: 3, entry(paragraph(text("c"))), entry(paragraph(text("d"))))
+        let one = list(ordered: true, entry(paragraph(text("a"))))
+        XCTAssertEqual(shown(three, one).map(\.mark), ["3.", "4.", "1."])
     }
 
     // タスクの項目の印は、チェックボックスである。
     func testTheMarkOfATaskEntryIsACheckbox() {
-        let html = "<ul>\n<li><input type=\"checkbox\" disabled>open</li>\n<li><input type=\"checkbox\" checked disabled>done</li>\n</ul>\n"
+        let tasks = list(
+            .taskItem(symbol: nil, children: [paragraph(text("open"))]),
+            .taskItem(symbol: "x", children: [paragraph(text("done"))]))
         XCTAssertEqual(
-            shownParagraphs(html: html),
+            shown(tasks),
             [
                 ShownParagraph(depth: 1, mark: "☐", pieces: [piece("open")]),
                 ShownParagraph(depth: 1, mark: "☑", pieces: [piece("done")]),
@@ -101,7 +123,7 @@ final class ShownParagraphsTests: XCTestCase {
     // 項目の中の2つ目の段落は、印を持たず、同じ深さにある。
     func testTheSecondParagraphOfAnEntryHasNoMark() {
         XCTAssertEqual(
-            shownParagraphs(html: "<ul>\n<li><p>one</p>\n<p>more</p>\n</li>\n</ul>\n"),
+            shown(list(entry(paragraph(text("one")), paragraph(text("more"))))),
             [
                 ShownParagraph(depth: 1, mark: "•", pieces: [piece("one")]),
                 ShownParagraph(depth: 1, pieces: [piece("more")]),
@@ -110,8 +132,9 @@ final class ShownParagraphsTests: XCTestCase {
 
     // 引用の中の段落は、引用の深さを持つ。
     func testAParagraphInAQuoteKnowsHowDeepItIsQuoted() {
+        let quote = Node.blockQuote(children: [paragraph(text("said")), .blockQuote(children: [paragraph(text("before"))])])
         XCTAssertEqual(
-            shownParagraphs(html: "<blockquote>\n<p>said</p>\n<blockquote>\n<p>before</p>\n</blockquote>\n</blockquote>\n<p>after</p>"),
+            shown(quote, paragraph(text("after"))),
             [
                 ShownParagraph(quoted: 1, pieces: [piece("said")]),
                 ShownParagraph(quoted: 2, pieces: [piece("before")]),
@@ -119,20 +142,30 @@ final class ShownParagraphsTests: XCTestCase {
             ])
     }
 
+    // アラートは、題を最初の段落に持つ引用になる。題がなければ、種類の名前が題である。
+    func testAnAlertIsAQuoteWithItsTitleFirst() {
+        let alert = Node.alert(alertType: .warning, title: nil, children: [paragraph(text("careful"))])
+        XCTAssertEqual(
+            shown(alert),
+            [ShownParagraph(quoted: 1, pieces: [piece("Warning")]), ShownParagraph(quoted: 1, pieces: [piece("careful")])])
+    }
+
     // 区切り線は、線だけの段落になる。
     func testAThematicBreakIsAParagraphThatIsARule() {
         XCTAssertEqual(
-            shownParagraphs(html: "<p>a</p>\n<hr />\n<p>b</p>\n"),
+            shown(paragraph(text("a")), .thematicBreak, paragraph(text("b"))),
             [ShownParagraph(pieces: [piece("a")]), ShownParagraph(rule: true), ShownParagraph(pieces: [piece("b")])])
     }
 
-    // 知らないタグは無視され、その中の文字は残る。
-    func testAnUnknownTagIsLeftOutAndItsTextStays() {
-        XCTAssertEqual(pieces("<div id=\"fn-1\" class=\"footnote\">\n<p>note</p>\n</div>\n"), [[piece("note")]])
+    // 脚注は、その名前を前に置いた段落になる。脚注への参照は、上付きの名前になる。
+    func testAFootnoteStartsWithItsNameAndAReferenceIsItsNameRaised() {
+        let reference = paragraph(text("see"), .footnoteReference(name: "__inline_1", refNum: 1, ix: 1))
+        let note = Node.footnoteDefinition(name: "__inline_1", children: [paragraph(text("note"))])
+        XCTAssertEqual(pieces(reference, note), [[piece("see"), piece("[1]", .raised)], [piece("[1]: note")]])
     }
 
-    // タグでない「<」は、文字のままである。
-    func testALessThanSignThatOpensNoTagIsALetter() {
-        XCTAssertEqual(pieces("<p>1 < 2</p>"), [[piece("1 < 2")]])
+    // 未知の種類は、その中の文字が残る。
+    func testTheTextInsideAnUnknownKindStays() {
+        XCTAssertEqual(pieces(paragraph(.unknown(nodeType: "insert", children: [text("kept")]))), [[piece("kept")]])
     }
 }

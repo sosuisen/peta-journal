@@ -92,7 +92,7 @@ internal sealed class RowView : Grid
     private bool composing;
 
     /// <summary>What the paper shows now, so that it is not made again for nothing.</summary>
-    private (string Ast, string Body, double Zoom)? drawn;
+    private (string Body, double Zoom)? drawn;
 
     /// <summary>The runs on the paper, each with the place of its first letter in the text.</summary>
     private readonly List<(RichTextBlock Block, Run Run, int Start)> runs = [];
@@ -524,13 +524,14 @@ internal sealed class RowView : Grid
 
     private void DrawShown(Row row)
     {
-        var item = row.Item;
         if (editor.Visibility == Visibility.Visible)
         {
             editor.Visibility = Visibility.Collapsed;
             paper.Visibility = Visibility.Visible;
         }
-        var wanted = (item.Ast, item.Body, Zoom);
+        // The core makes the AST of the body. A record of the generated types compares its
+        // children as references, so a new AST of the same body would not be equal
+        var wanted = (row.Item.Body, Zoom);
         if (drawn == wanted)
             return;
         drawn = wanted;
@@ -540,7 +541,7 @@ internal sealed class RowView : Grid
         // An item with no text is still as high as a line, and can be clicked
         paper.MinHeight = Math.Round(size * LineHeight);
         var start = 0;
-        foreach (var paragraph in ShownText.Of(item).Paragraphs)
+        foreach (var paragraph in ShownText.Of(row.Ast).Paragraphs)
         {
             shown.Children.Add(Block(paragraph, size, start));
             start += paragraph.Text.Length + 1;

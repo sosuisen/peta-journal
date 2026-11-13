@@ -4,8 +4,9 @@ import XCTest
 
 @testable import PetaBorder
 
-/// The text of an item as it is shown, with its decoration (ADR 025). The AST comes from a real
-/// journal server, so the tests that need one are skipped without `PETA_E2E_SERVER`.
+/// The text of an item as it is shown, with its decoration, drawn from the AST that the core gives
+/// with the row (ADR 041). The test of every kind takes its body through a real journal server,
+/// so it is skipped without `PETA_E2E_SERVER`.
 @MainActor
 final class ShownTextTests: XCTestCase {
     private var server: JournalServer?
@@ -25,8 +26,8 @@ final class ShownTextTests: XCTestCase {
         }
     }
 
-    /// An item with this body, as the journal server gives it back: with its AST.
-    private func item(withBody body: String) async throws -> Item {
+    /// The row of an item with this body, as the journal server gives it back: with its AST.
+    private func row(withBody body: String) async throws -> Row {
         let server = try JournalServer(port: 18099)
         self.server = server
         let shell = Shell(server: server.address, url: "/pages/shown", clipboard: { nil })
@@ -36,7 +37,7 @@ final class ShownTextTests: XCTestCase {
         shell.typed(body, into: first)
         shell.send(.editFinished(itemId: first))
         try await waitUntil("the server gave the AST") { !shell.view.outline.rows[0].item.ast.isEmpty }
-        return shell.view.outline.rows[0].item
+        return shell.view.outline.rows[0]
     }
 
     /// A body with every kind of node that the AST has, and for each kind what of it has to be
@@ -80,24 +81,36 @@ final class ShownTextTests: XCTestCase {
     // ASTのどの種類の中身も、表示するテキストに入っている。
     func testWhatIsInEveryKindOfNodeIsInTheShownText() async throws {
         let body = Self.everyKind.map(\.markdown).joined(separator: "\n\n")
-        let item = try await item(withBody: body)
+        let row = try await row(withBody: body)
 
-        let shown = ShownText.of(item).string
+        let shown = ShownText.of(row.ast).string
 
         for (kind, _, seen) in Self.everyKind {
-            XCTAssertTrue(item.ast.contains("\"type\":\"\(kind)\""), "the body has no node of the kind \(kind)")
+            XCTAssertTrue(row.item.ast.contains("\"type\":\"\(kind)\""), "the body has no node of the kind \(kind)")
             XCTAssertTrue(shown.contains(seen), "the kind \(kind) is not shown: \(seen) is missing")
         }
         XCTAssertTrue(shown.contains("☑ CLOSED"))
     }
 
-    // 本文の中のタスクリストは箱の文字で、区切り線は線で、画像は代替の文字で出る。macOSの変換は、この3つを落とす。
-    func testWhatMacOSWouldDropIsPutIntoText() {
-        let html =
-            "<ul>\n<li><input type=\"checkbox\" disabled>OPEN</li>\n<li><input type=\"checkbox\" checked disabled>CLOSED</li>\n</ul>\n"
-            + "<hr />\n<p><img src=\"images/a.png\" alt=\"ALT\" title=\"T\" /><img src=\"images/b.png\" alt=\"\" /></p>\n"
+    private func text(_ value: String) -> Node { .text(value: value) }
 
-        let shown = ShownText.text(ofHTML: html, zoom: 1).string
+    private func document(_ blocks: Node...) -> Node { .document(children: blocks) }
+
+    private func paragraph(_ inline: Node...) -> Node { .paragraph(children: inline) }
+
+    // タスクリストは箱の文字で、区切り線は線で、画像は代替の文字で出る。
+    func testTasksRulesAndImagesAreText() {
+        let tasks = Node.list(
+            listType: .bullet, start: 1, tight: true, delimiter: .period,
+            children: [
+                .taskItem(symbol: nil, children: [paragraph(text("OPEN"))]),
+                .taskItem(symbol: "x", children: [paragraph(text("CLOSED"))]),
+            ])
+        let images = paragraph(
+            .embed(url: "images/a.png", title: "T", props: [:], children: [text("ALT")]),
+            .embed(url: "images/b.png", title: "", props: [:], children: []))
+
+        let shown = ShownText.of(document(tasks, .thematicBreak, images)).string
 
         XCTAssertTrue(shown.contains("☐ OPEN"))
         XCTAssertTrue(shown.contains("☑ CLOSED"))
@@ -109,11 +122,11 @@ final class ShownTextTests: XCTestCase {
 
     // リンクは、表示するテキストに残る。ウィキリンクはページを、ハッシュタグはタグを指し、外のリンクはそのままである。
     func testLinksStayInTheShownText() {
-        let html =
-            "<p><a href=\"notes/Idea\" data-wikilink=\"true\">Idea</a> <a href=\"todo\" class=\"hashtag\">#todo</a> "
-            + "<a href=\"https://example.com/a\">out</a></p>\n"
+        let line = paragraph(
+            .wikilink(url: "notes/Idea", children: [text("Idea")]), text(" "), .hashtag(value: "todo"), text(" "),
+            .link(url: "https://example.com/a", title: "", children: [text("out")]))
 
-        let shown = ShownText.text(ofHTML: html, zoom: 1)
+        let shown = ShownText.of(document(line))
 
         var links: [String: URL] = [:]
         shown.enumerateAttribute(.link, in: NSRange(location: 0, length: shown.length)) { link, range, _ in
@@ -124,31 +137,37 @@ final class ShownTextTests: XCTestCase {
         XCTAssertEqual(links["out"].flatMap(ShownText.target), .out(URL(string: "https://example.com/a")!))
     }
 
+    // 名前に空白のあるページへのリンクも、そのページを指す。
+    func testALinkToAPageWithASpaceInItsNameLeadsToThatPage() {
+        let shown = ShownText.of(document(paragraph(.wikilink(url: "my page", children: [text("p")]))))
+        let link = shown.attribute(.link, at: 0, effectiveRange: nil) as? URL
+        XCTAssertEqual(link.flatMap(ShownText.target), .page("my page"))
+    }
+
     // 表示するテキストの終わりに、余分な改行はない。
     func testTheShownTextDoesNotEndWithANewline() {
-        XCTAssertEqual(ShownText.text(ofHTML: "<p>one</p>\n<p>two</p>\n", zoom: 1).string, "one\ntwo")
+        XCTAssertEqual(ShownText.of(document(paragraph(text("one")), paragraph(text("two")))).string, "one\ntwo")
+    }
+
+    // 見出しは、本文より大きな文字で出る。
+    func testAHeadingIsLargerThanTheText() {
+        let shown = ShownText.of(document(.heading(level: 1, children: [text("H")]), paragraph(text("p"))))
+        let size = { (at: Int) in (shown.attribute(.font, at: at, effectiveRange: nil) as? NSFont)?.pointSize ?? 0 }
+        XCTAssertGreaterThan(size(0), size(2))
     }
 
     // ズームすると、表示するテキストの文字が大きくなる。
     func testTheZoomMakesTheShownTextLarger() {
-        let usual = ShownText.text(ofHTML: "<p>text</p>\n", zoom: 1)
-        let doubled = ShownText.text(ofHTML: "<p>text</p>\n", zoom: 2)
+        let usual = ShownText.of(document(paragraph(text("text"))), zoom: 1)
+        let doubled = ShownText.of(document(paragraph(text("text"))), zoom: 2)
 
         let size = { (text: NSAttributedString) in (text.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.pointSize }
         XCTAssertEqual(size(usual), NSFont.systemFontSize)
         XCTAssertEqual(size(doubled), NSFont.systemFontSize * 2)
     }
 
-    // ASTが読めない項目は、本文がそのまま出る。本文のない項目は、何も出ない。
-    func testAnItemWhoseASTCannotBeReadShowsItsBody() {
-        func item(body: String, ast: String) -> Item {
-            Item(
-                id: "a", pageId: "p", dirPath: "", name: "notes", itemType: "doc", createdDate: 0,
-                modifiedDate: 0, idx: "a", level: 1, body: body, ast: ast, collapsed: false, types: [],
-                properties: [:], transcludeItemId: nil)
-        }
-
-        XCTAssertEqual(ShownText.of(item(body: "**as it is** <b>", ast: "{\"type\":")).string, "**as it is** <b>")
-        XCTAssertEqual(ShownText.of(item(body: "", ast: "")).string, "")
+    // 本文のない項目は、何も出ない。
+    func testAnEmptyItemShowsNothing() {
+        XCTAssertEqual(ShownText.of(document()).string, "")
     }
 }

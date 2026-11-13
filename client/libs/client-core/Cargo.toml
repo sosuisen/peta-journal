@@ -14,6 +14,8 @@ crux_core = "=0.20.0"
 serde = { workspace = true, features = ["rc"] }
 serde_json = { workspace = true }
 flatmarkdown-ast = { workspace = true }
+# The core makes the AST of each body that it shows (ADR 041)
+flatmarkdown = { workspace = true }
 hmtid = { path = "../../../journal/hmtid" }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 futures = "0.3"
@@ -27,4 +29,4 @@ uuid = { version = "1.29.2", features = ["v4", "js"] }
 facet = { version = "=0.46.5", optional = true }
 
 [features]
-facet_typegen = ["dep:facet", "peta-atlas/facet"]
+facet_typegen = ["dep:facet", "peta-atlas/facet", "flatmarkdown-ast/facet"]

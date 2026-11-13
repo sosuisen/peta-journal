@@ -8,7 +8,9 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <!-- A warning does not stop the build. The rules that must hold are errors, one by one.
          Not TreatWarningsAsErrors: it would also stop the build for rules nobody chose.
-         "nullable" is the group of the null safety warnings of the compiler (CS86xx). -->
-    <WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
+         "nullable" is the group of the null safety warnings of the compiler (CS86xx).
+         CS8509 is a switch expression that leaves out a case: with Node a closed record, a
+         kind of node that is not drawn (ADR 041). -->
+    <WarningsAsErrors>$(WarningsAsErrors);nullable;CS8509</WarningsAsErrors>
   </PropertyGroup>
 </Project>

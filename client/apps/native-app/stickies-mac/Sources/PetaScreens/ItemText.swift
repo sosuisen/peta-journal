@@ -8,9 +8,11 @@ import SwiftUI
 /// cursor, and an arrow leaves the item only from its first or last line.
 ///
 /// The item that is edited shows its Markdown. Every other item shows its text with its
-/// decoration (ADR 025), and cannot be typed into. The core says which item is edited.
+/// decoration (ADR 041), and cannot be typed into. The core says which item is edited.
 struct ItemText: NSViewRepresentable {
     let item: Item
+    /// The AST of the body of the item, that the text with its decoration is drawn from.
+    let ast: Node
     /// The core counts the item as edited: it has, or just had, the cursor.
     let isEditing: Bool
     /// The text of the item with its decoration, when it was made already. It is handed over,
@@ -87,7 +89,7 @@ struct ItemText: NSViewRepresentable {
     private func show(_ view: ItemTextView) {
         view.isEditable = false
         guard let text = shown else {
-            texts.want(item, zoom: zoom)
+            texts.want(item.id, ast: ast, zoom: zoom)
             if view.shown == nil, view.string != item.body { view.string = item.body }
             return
         }

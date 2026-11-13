@@ -1,6 +1,3 @@
-using System.Text;
-using AngleSharp.Dom;
-using AngleSharp.Html.Parser;
 using PetaTypes;
 
 namespace PetaBorder;
@@ -59,137 +56,88 @@ public abstract record LinkTarget
 }
 
 /// <summary>
-/// The text of an item as it is shown: with its decoration, not as Markdown (ADR 025).
-///
-/// The shell does not read the AST. Rust makes HTML of it, with <c>ast_to_html</c> of
-/// flatmarkdown-ast2html, which takes every kind of node. This reads the HTML (ADR 028):
-/// Windows has nothing that turns HTML into text with decoration. A tag that is not known
-/// here shows what is in it, so nothing that was written is left out.
+/// The text of an item as it is shown: with its decoration, not as Markdown. It is drawn from
+/// the AST that the core gives with the row (ADR 041). <c>Node</c> is a closed record, so a
+/// <c>switch</c> expression that leaves out a kind of node stops the build (CS8509): a kind
+/// that the AST gets later is drawn here before the shell builds again.
 /// </summary>
 public sealed record ShownText(IReadOnlyList<ShownParagraph> Paragraphs)
 {
     /// <summary>The letters of the text, with a line break between its paragraphs.</summary>
     public string Text => string.Join('\n', Paragraphs.Select(paragraph => paragraph.Text));
 
-    /// <summary>
-    /// The text of the item. An item whose AST cannot be read shows its body as it is.
-    /// </summary>
-    public static ShownText Of(Item item)
+    /// <summary>The text of the AST of an item.</summary>
+    public static ShownText Of(Node ast)
     {
-        ArgumentNullException.ThrowIfNull(item);
-        // The AST of what was just typed comes from the server a moment later
-        if (item.Ast.Length == 0)
-            return Plain(item.Body);
-        try
-        {
-            return OfHtml(PetaCore.PetaNative.ItemHtml(item.Ast));
-        }
-        catch (PetaCore.BoltException)
-        {
-            return Plain(item.Body);
-        }
+        ArgumentNullException.ThrowIfNull(ast);
+        var writer = new TextWriter();
+        writer.Blocks(Nodes.Children(ast));
+        return new ShownText(writer.Finish());
     }
-
-    internal static ShownText OfHtml(string html)
-    {
-        var document = new HtmlParser().ParseDocument($"<body>{html}</body>");
-        var reader = new HtmlReader();
-        reader.Read(document.Body!);
-        return new ShownText(reader.Finish());
-    }
-
-    private static ShownText Plain(string body) =>
-        new(
-            body.Length == 0
-                ? []
-                : [new ShownParagraph([new ShownRun(body, RunStyle.None, null)], 1, 0)]
-        );
 }
 
-/// <summary>Walks the HTML of an item and collects its paragraphs.</summary>
-internal sealed class HtmlReader
+/// <summary>What the nodes of the AST hold.</summary>
+internal static class Nodes
 {
+    /// <summary>The children of a node, and none for a leaf.</summary>
+    public static IReadOnlyList<Node> Children(Node node) =>
+        node switch
+        {
+            Node.Document n => n.Children,
+            Node.Paragraph n => n.Children,
+            Node.Heading n => n.Children,
+            Node.BlockQuote n => n.Children,
+            Node.MultilineBlockQuote n => n.Children,
+            Node.List n => n.Children,
+            Node.Item n => n.Children,
+            Node.TaskItem n => n.Children,
+            Node.Table n => n.Children,
+            Node.TableRow n => n.Children,
+            Node.TableCell n => n.Children,
+            Node.FootnoteDefinition n => n.Children,
+            Node.Alert n => n.Children,
+            Node.Subtext n => n.Children,
+            Node.Emph n => n.Children,
+            Node.Strong n => n.Children,
+            Node.Strikethrough n => n.Children,
+            Node.Underline n => n.Children,
+            Node.Highlight n => n.Children,
+            Node.Superscript n => n.Children,
+            Node.SubscriptText n => n.Children,
+            Node.SpoileredText n => n.Children,
+            Node.Link n => n.Children,
+            Node.Embed n => n.Children,
+            Node.Wikilink n => n.Children,
+            Node.Unknown n => n.Children,
+            Node.CodeBlock
+            or Node.ThematicBreak
+            or Node.HtmlBlock
+            or Node.Text
+            or Node.Softbreak
+            or Node.Linebreak
+            or Node.Code
+            or Node.FootnoteReference
+            or Node.Shortcode
+            or Node.Math
+            or Node.HtmlInline
+            or Node.Hashtag => [],
+        };
+
+    /// <summary>The text under the node, without its decoration.</summary>
+    public static string PlainText(Node node) =>
+        node is Node.Text text ? text.Value : string.Concat(Children(node).Select(PlainText));
+
     /// <summary>
-    /// The tags that start a line of their own. Every other tag stays in the line it is in.
+    /// The text that a reader sees for a footnote. An inline footnote has a name that the
+    /// parser made (<c>__inline_1</c>), so its number is shown instead.
     /// </summary>
-    private static readonly HashSet<string> Blocks =
-    [
-        "p",
-        "div",
-        "section",
-        "article",
-        "ul",
-        "ol",
-        "li",
-        "blockquote",
-        "pre",
-        "table",
-        "thead",
-        "tbody",
-        "tfoot",
-        "tr",
-        "h1",
-        "h2",
-        "h3",
-        "h4",
-        "h5",
-        "h6",
-        "details",
-        "summary",
-        "dl",
-        "dt",
-        "dd",
-        "figure",
-        "figcaption",
-        "hr",
-        "header",
-        "footer",
-        "aside",
-        "nav",
-    ];
+    public static string FootnoteLabel(string name) =>
+        name.StartsWith("__inline_", StringComparison.Ordinal) ? name["__inline_".Length..] : name;
+}
 
-    /// <summary>The tags that have no text of their own, only other tags.</summary>
-    private static readonly HashSet<string> Layout =
-    [
-        "table",
-        "thead",
-        "tbody",
-        "tfoot",
-        "tr",
-        "ul",
-        "ol",
-    ];
-
-    private static readonly Dictionary<string, RunStyle> Styles = new()
-    {
-        ["strong"] = RunStyle.Bold,
-        ["b"] = RunStyle.Bold,
-        ["th"] = RunStyle.Bold,
-        ["summary"] = RunStyle.Bold,
-        ["em"] = RunStyle.Italic,
-        ["i"] = RunStyle.Italic,
-        ["del"] = RunStyle.Strike,
-        ["s"] = RunStyle.Strike,
-        ["u"] = RunStyle.Underline,
-        ["ins"] = RunStyle.Underline,
-        ["code"] = RunStyle.Code,
-        ["pre"] = RunStyle.Code,
-        ["kbd"] = RunStyle.Code,
-        ["mark"] = RunStyle.Highlight,
-        ["blockquote"] = RunStyle.Quote,
-        ["sup"] = RunStyle.Superscript,
-        ["sub"] = RunStyle.Subscript,
-        ["small"] = RunStyle.Small,
-    };
-
-    /// <summary>The classes that <c>ast_to_html</c> gives to what HTML has no tag for.</summary>
-    private static readonly Dictionary<string, RunStyle> ClassStyles = new()
-    {
-        ["alert-title"] = RunStyle.Bold,
-        ["spoiler"] = RunStyle.Spoiler,
-        ["subtext"] = RunStyle.Small,
-    };
-
+/// <summary>Writes the blocks of an item as paragraphs, one line or more each.</summary>
+internal sealed class TextWriter
+{
     private readonly List<ShownParagraph> paragraphs = [];
     private List<ShownRun> runs = [];
     private RunStyle style;
@@ -197,12 +145,11 @@ internal sealed class HtmlReader
     private double scale = 1;
     private int indent;
 
-    /// <summary>The white space of the text counts, as in a block of code.</summary>
-    private bool keepsSpace;
-
-    /// <summary>The lists that are open, each with the number of its next entry: 0 for a list
-    /// with bullets.</summary>
-    private readonly Stack<int> lists = new();
+    /// <summary>
+    /// What the first line of the next block starts with: the mark of an entry of a list, or
+    /// the name of a footnote.
+    /// </summary>
+    private string? lead;
 
     public IReadOnlyList<ShownParagraph> Finish()
     {
@@ -210,161 +157,230 @@ internal sealed class HtmlReader
         return paragraphs;
     }
 
-    public void Read(INode node)
+    public void Blocks(IEnumerable<Node> nodes)
     {
-        foreach (var child in node.ChildNodes)
+        foreach (var node in nodes)
+            Block(node);
+    }
+
+    private void Block(Node node)
+    {
+        Action write = node switch
         {
-            if (child is IText text)
+            Node.Document or Node.Item or Node.TaskItem or Node.Unknown or Node.Table => () =>
+                Blocks(Nodes.Children(node)),
+            Node.Paragraph or Node.TableCell => () => Line(Nodes.Children(node)),
+            Node.Heading heading => () =>
+                With(
+                    () => Line(heading.Children),
+                    added: RunStyle.Bold,
+                    scaled: RowLook.HeadingScales[
+                        Math.Clamp(heading.Level - 1, 0, RowLook.HeadingScales.Count - 1)
+                    ]
+                ),
+            Node.CodeBlock code => () =>
+                With(() => Line([new Node.Text(code.Literal.TrimEnd('\n'))]), added: RunStyle.Code),
+            Node.BlockQuote or Node.MultilineBlockQuote => () =>
+                Quote(() => Blocks(Nodes.Children(node))),
+            Node.Alert alert => () =>
+                Quote(() =>
+                {
+                    With(
+                        () => Line([new Node.Text(alert.Title ?? alert.AlertType.ToString())]),
+                        added: RunStyle.Bold
+                    );
+                    Blocks(alert.Children);
+                }),
+            Node.List list => () => List(list),
+            Node.TableRow row => () => Row(row),
+            Node.ThematicBreak => () => Line([new Node.Text("────────")]),
+            Node.HtmlBlock html => () => Line([new Node.Text(html.Literal.TrimEnd('\n'))]),
+            Node.FootnoteDefinition note => () =>
             {
-                // Between the rows and the cells of a table, and between the entries of a
-                // list, white space is only how the HTML is laid out
-                if (
-                    !(
-                        Layout.Contains(node.NodeName.ToLowerInvariant())
-                        && string.IsNullOrWhiteSpace(text.Data)
-                    )
-                )
-                    Write(text.Data);
-            }
-            else if (child is IElement element)
-                Read(element);
-        }
-    }
-
-    private void Read(IElement element)
-    {
-        var tag = element.LocalName;
-        switch (tag)
-        {
-            case "script" or "style" or "head":
-                return;
-            case "br":
-                Add("\n");
-                return;
-            case "hr":
-                EndParagraph();
-                Add("────────");
-                EndParagraph();
-                return;
-            case "img":
-                // An image is shown as the words for it, and without any as its file. The
-                // image itself is not shown yet
-                var words = element.GetAttribute("alt");
-                Add($"[{(string.IsNullOrEmpty(words) ? element.GetAttribute("src") : words)}]");
-                return;
-            case "input":
-                if (element.GetAttribute("type") == "checkbox")
-                    Add(element.HasAttribute("checked") ? "☑ " : "☐ ");
-                return;
-        }
-
-        var before = (style, link, scale, indent, keepsSpace);
-        var isBlock = Blocks.Contains(tag);
-        if (isBlock)
-            EndParagraph();
-        if (Styles.TryGetValue(tag, out var added))
-            style |= added;
-        foreach (var name in element.ClassList)
-        {
-            if (ClassStyles.TryGetValue(name, out var byClass))
-                style |= byClass;
-        }
-        switch (tag)
-        {
-            case "h1" or "h2" or "h3" or "h4" or "h5" or "h6":
-                scale = RowLook.HeadingScales[
-                    Math.Min(tag[1] - '1', RowLook.HeadingScales.Count - 1)
-                ];
-                style |= RunStyle.Bold;
-                break;
-            case "a":
-                link = Target(element) ?? link;
-                break;
-            case "pre":
-                keepsSpace = true;
-                break;
-            case "blockquote":
-                indent++;
-                break;
-            case "ul" or "ol":
-                if (lists.Count > 0)
-                    indent++;
-                lists.Push(tag == "ol" ? StartOf(element) : 0);
-                break;
-            case "li":
-                StartEntry(element);
-                break;
-            case "td" or "th":
-                // The cells of a row stand in one line
-                if (element.PreviousElementSibling is not null)
-                    Add("  │  ", RunStyle.None);
-                break;
-        }
-
-        Read((INode)element);
-
-        if (tag is "ul" or "ol")
-            lists.Pop();
-        if (isBlock)
-            EndParagraph();
-        (style, link, scale, indent, keepsSpace) = before;
+                lead = $"[{Nodes.FootnoteLabel(note.Name)}]: ";
+                Blocks(note.Children);
+                lead = null;
+            },
+            Node.Subtext subtext => () => With(() => Line(subtext.Children), added: RunStyle.Small),
+            // A line outside a block, as in a list without room between its entries
+            Node.Text
+            or Node.Softbreak
+            or Node.Linebreak
+            or Node.Emph
+            or Node.Strong
+            or Node.Strikethrough
+            or Node.Underline
+            or Node.Highlight
+            or Node.Superscript
+            or Node.SubscriptText
+            or Node.SpoileredText
+            or Node.Code
+            or Node.Link
+            or Node.Embed
+            or Node.FootnoteReference
+            or Node.Shortcode
+            or Node.Math
+            or Node.HtmlInline
+            or Node.Wikilink
+            or Node.Hashtag => () => Line([node]),
+        };
+        write();
     }
 
     /// <summary>
-    /// The mark before an entry of a list: its number, or a bullet. The box of a task list
-    /// stands in the place of the bullet.
+    /// The entries of a list, each with its mark: a box for a task, its number, or a bullet. A
+    /// list inside an entry stands one step more to the right.
     /// </summary>
-    private void StartEntry(IElement entry)
+    private void List(Node.List list)
     {
-        if (lists.Count == 0)
-            return;
-        var number = lists.Pop();
-        lists.Push(number == 0 ? 0 : number + 1);
-        if (number > 0)
-            Add($"{number}. ", RunStyle.None);
-        else if (entry.QuerySelector("input[type=checkbox]") is null)
-            Add("• ", RunStyle.None);
+        var number = (int)list.Start;
+        depth++;
+        foreach (var entry in list.Children)
+        {
+            lead = entry switch
+            {
+                Node.TaskItem task => task.Symbol is null ? "☐ " : "☑ ",
+                _ when list.ListType == ListType.Ordered => $"{number}. ",
+                _ => "• ",
+            };
+            number++;
+            Block(entry);
+            lead = null;
+        }
+        depth--;
     }
 
-    private static int StartOf(IElement list) =>
-        int.TryParse(list.GetAttribute("start"), out var start) && start > 0 ? start : 1;
+    /// <summary>How many lists the block is inside.</summary>
+    private int depth;
+
+    /// <summary>The cells of a row stand in one line.</summary>
+    private void Row(Node.TableRow row)
+    {
+        var cells = new List<Node>();
+        foreach (var cell in row.Children)
+        {
+            if (cells.Count > 0)
+                cells.Add(new Node.Text(Separator));
+            cells.AddRange(Nodes.Children(cell));
+        }
+        With(() => Line(cells), added: row.Header ? RunStyle.Bold : RunStyle.None);
+    }
+
+    private const string Separator = "  │  ";
+
+    private void Quote(Action inside)
+    {
+        indent++;
+        With(inside, added: RunStyle.Quote);
+        indent--;
+    }
+
+    /// <summary>Does what is inside with more style, and the style before it afterwards.</summary>
+    private void With(Action inside, RunStyle added, double? scaled = null)
+    {
+        var before = (style, scale);
+        style |= added;
+        scale = scaled ?? scale;
+        inside();
+        (style, scale) = before;
+    }
+
+    /// <summary>One paragraph, with the lead of the block before it.</summary>
+    private void Line(IEnumerable<Node> inline)
+    {
+        EndParagraph();
+        var at = indent + Math.Max(depth - 1, 0);
+        if (lead is not null)
+        {
+            Add(lead, RunStyle.None);
+            lead = null;
+        }
+        foreach (var node in inline)
+            Write(node);
+        EndParagraph(at);
+    }
+
+    /// <summary>The letters of an inline node, with the style of the nodes around it.</summary>
+    private void Write(Node node)
+    {
+        Action write = node switch
+        {
+            Node.Text text => () => Add(text.Value),
+            Node.Softbreak => () => Add(" "),
+            Node.Linebreak => () => Add("\n"),
+            Node.Emph n => () => With(() => WriteAll(n.Children), RunStyle.Italic),
+            Node.Strong n => () => With(() => WriteAll(n.Children), RunStyle.Bold),
+            Node.Strikethrough n => () => With(() => WriteAll(n.Children), RunStyle.Strike),
+            Node.Underline n => () => With(() => WriteAll(n.Children), RunStyle.Underline),
+            Node.Highlight n => () => With(() => WriteAll(n.Children), RunStyle.Highlight),
+            Node.Superscript n => () => With(() => WriteAll(n.Children), RunStyle.Superscript),
+            Node.SubscriptText n => () => With(() => WriteAll(n.Children), RunStyle.Subscript),
+            Node.SpoileredText n => () => With(() => WriteAll(n.Children), RunStyle.Spoiler),
+            Node.Code code => () => With(() => Add(code.Literal), RunStyle.Code),
+            Node.Link n => () => Linked(Target(n.Url), n.Children),
+            Node.Wikilink n => () => Linked(new LinkTarget.Page(n.Url), n.Children),
+            Node.Hashtag tag => () =>
+                Linked(new LinkTarget.Tag(tag.Value), [new Node.Text("#" + tag.Value)]),
+            // An image is shown as the words for it, and without any as its file. The image
+            // itself is not shown yet
+            Node.Embed embed => () =>
+            {
+                var words = Nodes.PlainText(embed);
+                Add($"[{(words.Length == 0 ? embed.Url : words)}]");
+            },
+            Node.FootnoteReference reference => () =>
+                With(() => Add($"[{Nodes.FootnoteLabel(reference.Name)}]"), RunStyle.Superscript),
+            Node.Shortcode shortcode => () => Add(shortcode.Emoji),
+            Node.Math math => () => Add(math.Literal),
+            Node.HtmlInline html => () => Add(html.Value),
+            Node.Unknown n => () => WriteAll(n.Children),
+            // A block inside a line: only its letters
+            Node.Document
+            or Node.Paragraph
+            or Node.Heading
+            or Node.CodeBlock
+            or Node.BlockQuote
+            or Node.MultilineBlockQuote
+            or Node.List
+            or Node.Item
+            or Node.TaskItem
+            or Node.Table
+            or Node.TableRow
+            or Node.TableCell
+            or Node.ThematicBreak
+            or Node.HtmlBlock
+            or Node.FootnoteDefinition
+            or Node.Alert
+            or Node.Subtext => () => Add(Nodes.PlainText(node)),
+        };
+        write();
+    }
+
+    private void WriteAll(IEnumerable<Node> nodes)
+    {
+        foreach (var node in nodes)
+            Write(node);
+    }
+
+    private void Linked(LinkTarget? target, IEnumerable<Node> inside)
+    {
+        var before = link;
+        link = target ?? link;
+        WriteAll(inside);
+        link = before;
+    }
 
     /// <summary>
-    /// What the link leads to. A wikilink and a hashtag name a page or a tag, and have no
-    /// address. Nothing for a link that stays in the item, as the one of a footnote.
+    /// What a link leads to: an address outside the journal, or a page by its path. Nothing
+    /// for a link that stays in the item, as the one of a footnote.
     /// </summary>
-    private static LinkTarget? Target(IElement anchor)
+    private static LinkTarget? Target(string url)
     {
-        var href = anchor.GetAttribute("href");
-        if (string.IsNullOrEmpty(href) || href.StartsWith('#'))
+        if (url.Length == 0 || url.StartsWith('#'))
             return null;
-        if (anchor.ClassList.Contains("hashtag"))
-            return new LinkTarget.Tag(Uri.UnescapeDataString(href));
-        if (Uri.TryCreate(href, UriKind.Absolute, out var address) && !address.IsFile)
+        if (Uri.TryCreate(url, UriKind.Absolute, out var address) && !address.IsFile)
             return new LinkTarget.Out(address);
-        return new LinkTarget.Page(Uri.UnescapeDataString(href));
-    }
-
-    private void Write(string text)
-    {
-        if (keepsSpace)
-        {
-            Add(text);
-            return;
-        }
-        // HTML counts any run of white space as one space, and none at the start of a line
-        var kept = new StringBuilder(text.Length);
-        var atStart =
-            runs.Count == 0 || runs[^1].Text.EndsWith(' ') || runs[^1].Text.EndsWith('\n');
-        foreach (var letter in text)
-        {
-            if (!char.IsWhiteSpace(letter))
-                kept.Append(letter);
-            else if (!atStart)
-                kept.Append(' ');
-            atStart = char.IsWhiteSpace(letter);
-        }
-        Add(kept.ToString());
+        return new LinkTarget.Page(Uri.UnescapeDataString(url));
     }
 
     private void Add(string text) => Add(text, style);
@@ -380,7 +396,7 @@ internal sealed class HtmlReader
             runs.Add(new ShownRun(text, with, link));
     }
 
-    private void EndParagraph()
+    private void EndParagraph(int at = 0)
     {
         // The white space and the line break at the end of a block are not shown
         while (runs.Count > 0)
@@ -395,7 +411,7 @@ internal sealed class HtmlReader
         }
         if (runs.Count == 0)
             return;
-        paragraphs.Add(new ShownParagraph(runs, scale, indent));
+        paragraphs.Add(new ShownParagraph(runs, scale, at));
         runs = [];
     }
 }

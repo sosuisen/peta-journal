@@ -14,7 +14,7 @@ client-core = { path = "../../../libs/client-core" }
 client-page-links = { path = "../../../libs/client-page-links" }
 peta-atlas = { path = "../../../../atlas", features = ["marks"] }
 flatmarkdown-ast = { workspace = true }
-flatmarkdown-ast2html = "=0.7.0"
+flatmarkdown-ast2html = { workspace = true }
 crux_core = "=0.20.0"
 leptos = { version = "0.8", features = ["csr"] }
 leptos_router = { version = "0.8" }
@@ -44,4 +44,4 @@ web-sys = { version = "0.3", features = [
 # The parser is for tests only: they make an AST from markdown. The app gets every AST from
 # the server and parses no markdown (ADR 027).
 [dev-dependencies]
-flatmarkdown = "=0.7.0"
+flatmarkdown = { workspace = true }

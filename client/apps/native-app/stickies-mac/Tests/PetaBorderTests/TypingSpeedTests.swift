@@ -137,7 +137,7 @@ final class TypingSpeedTests: XCTestCase {
         return nil
     }
 
-    // 装飾のある1000項目のページで、スクロールしたときに装飾付きの表示ができるまでの時間を測る（ADR 025の見直しの条件）。
+    // 装飾のある1000項目のページで、スクロールしたときに装飾付きの表示ができるまでの時間を測る（ADR 041）。
     func testScrollingALongPageWithDecoration() async throws {
         let url = try await longPage { "Item \($0) with **bold**, `code`, [[Page \($0 % 7)]] and #tag to draw" }
         let shell = Shell(server: server.address, url: url)
@@ -147,8 +147,8 @@ final class TypingSpeedTests: XCTestCase {
         }
 
         // The making of the text alone
-        let items = shell.view.outline.rows.dropFirst().prefix(Self.keys).map(\.item)
-        report("text of one item is made", items.map { item in timed { _ = ShownText.of(item) } })
+        let asts = shell.view.outline.rows.dropFirst().prefix(Self.keys).map(\.ast)
+        report("text of one item is made", asts.map { ast in timed { _ = ShownText.of(ast) } })
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled],

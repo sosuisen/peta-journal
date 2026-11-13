@@ -964,6 +964,8 @@ pub struct Model {
     pub clock_ms: u64,
     pub next_timer_id: u64,
     pub undo_syncs: ops::undo_replay::UndoSyncs,
+    /// The ASTs of the bodies that the outline showed last (ADR 041).
+    pub asts: crate::asts::Asts,
 }
 
 impl Default for Model {
@@ -997,6 +999,7 @@ impl Default for Model {
             clock_ms: 0,
             next_timer_id: 1,
             undo_syncs: Default::default(),
+            asts: Default::default(),
         }
     }
 }

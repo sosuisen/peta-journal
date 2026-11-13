@@ -20,9 +20,11 @@ license = "MIT"
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# The same version as `flatmarkdown` of journal/journal-core and as `flatmarkdown-ast2html`:
-# a release has all three crates (ADR 020).
-flatmarkdown-ast = "=0.7.0"
+# The crates of flatmarkdown, all of one release (ADR 020). Until the typed AST of ADR 041 is
+# published, they come from the clone of flatmarkdown beside this repository.
+flatmarkdown = { path = "../../flatmarkdown/flatmarkdown" }
+flatmarkdown-ast = { path = "../../flatmarkdown/flatmarkdown-ast" }
+flatmarkdown-ast2html = { path = "../../flatmarkdown/flatmarkdown-ast2html" }
 
 [profile.release]
 opt-level = "z"

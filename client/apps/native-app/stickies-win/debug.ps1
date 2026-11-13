@@ -24,5 +24,5 @@ Get-Process PetaStickies -ErrorAction SilentlyContinue | Stop-Process -Force
 dotnet build "$here/PetaStickies" -c Debug -nologo -v q
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$app = Join-Path $here 'PetaStickies/bin/Debug/net10.0-windows10.0.22621.0/win-x64/PetaStickies.exe'
+$app = Join-Path $here 'PetaStickies/bin/Debug/net11.0-windows10.0.22621.0/win-x64/PetaStickies.exe'
 if ($ToApp) { Start-Process $app -ArgumentList $ToApp } else { Start-Process $app }

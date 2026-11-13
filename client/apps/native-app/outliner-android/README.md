@@ -185,15 +185,16 @@ What each class does:
   main thread, in order. `sync()` takes in the files of the Markdown folder on a thread of
   its own. `syncAndWait()` does the same for the thread of a sync with the cloud, and returns
   when the core is done.
-- `ShownText` makes the parts of an item as it is shown. Rust makes HTML of the AST of the
-  item, and `AnnotatedString.fromHtml` of Compose reads the HTML. That loses the line breaks
-  of a code block and the cells of a table, so `ShownText` reads those two from the AST, and
-  the screen draws them with parts of their own.
+- `ShownText` makes the parts of an item as it is shown, from the AST that the core gives
+  with each row (`Row.ast`, ADR 041). The text is an `AnnotatedString`; a code block, a
+  table and an image of the assets folder get parts of their own, which the screen draws. A
+  `when` takes every kind of node, so a kind that the AST gets later stops the build until it
+  is drawn.
 - A list or a quote that holds a code block, a table or an image cannot be one text.
   `ShownText` takes it apart: each entry of the list gets its mark, and the quote gets a line
   down its left side. What is in them is read the same way, at any depth. A list or a quote
   that holds none of these stays in the text, as before.
-- A link to a page and a tag have the URL of their page in the HTML, such as `/pages/notes`.
+- A link to a page and a tag have the URL of their page, such as `/pages/notes`.
   A touch gives the URL to `Shell.follow`. The core opens the page only when it is there.
   The web app makes the page of a link to a new page. Here a touch by mistake must not put
   an empty page into Dropbox: the screen says that the page is not there yet, and "Make it"

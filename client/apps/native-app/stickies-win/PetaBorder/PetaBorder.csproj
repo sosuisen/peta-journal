@@ -3,7 +3,7 @@
        keys, the text of an item as it is shown, and the file of the stickies. It has no WinUI
        in it, so "dotnet test" can test it. -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <RootNamespace>PetaBorder</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -20,8 +20,6 @@
       Link="client_shell_http.dll"
       CopyToOutputDirectory="PreserveNewest"
     />
-    <!-- Reads the HTML of an item (ADR 028). -->
-    <PackageReference Include="AngleSharp" Version="1.10.1" />
   </ItemGroup>
 
   <ItemGroup>

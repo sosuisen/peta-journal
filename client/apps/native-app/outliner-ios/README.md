@@ -126,10 +126,11 @@ copy of Dropbox.
   tells the screen where it stands. They are the classes of the Android shell, in Swift.
 - `PetaBorder` is the core behind its border, and what the app shows. `Border` is the core
   behind its border of bytes. `Shell` keeps the view model up to date with the core and sends
-  what the user did. `ShownText` makes the parts of an item as it is shown: the code blocks,
-  the tables and the images are read from the AST, and the text between them is the HTML that
-  Rust makes. `ShownParagraphs` reads that HTML into paragraphs of pieces with a look each.
-  iOS can make text with attributes of HTML, but only on the main thread and slowly.
+  what the user did. `ShownText` makes the parts of an item as it is shown, from the AST that
+  the core gives with each row (`Row.ast`, ADR 041): the code blocks, the tables and the
+  images are parts of their own. `ShownParagraphs` makes the text between them into
+  paragraphs of pieces with a look each. A `switch` takes every kind of node, so a kind that
+  the AST gets later stops the build until it is drawn.
 - `PetaDropbox` is `Cloud` for Dropbox, with the SDK: `DropboxCloud`. `DropboxAccount` is the
   sign-in and the sign-out, as a `CloudAccount` of `PetaSync`. Each calls the SDK through a
   protocol (`DropboxFiles`, `DropboxSdk`), which a test fills with its own Dropbox. The classes

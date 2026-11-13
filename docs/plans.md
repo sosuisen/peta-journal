@@ -23,6 +23,20 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 画像がなくても落ちるのかもしれない。まだ試していない
 - [ ] 画面を回すと、余計な同期が始まる。直す
 
+## ADR 041：型のあるASTを、すべてのシェルが描く
+
+2026-11-14にユーザーが受理した。段階3までは止めずに進め、段階4からは、AndroidとWindowsで確かめてから進める（ユーザーが決めた）。flatmarkdownは公開せず、横に置いたクローン（`../flatmarkdown`）を相対パスで参照する。公開と、`Cargo.toml`を公開した版の参照に戻すのは、最後の仕上げで行う。ASTのJSONの形は変えない。npmの`ast2react`（todo）と`ast2html`（memoview）は、公開まで今の版のまま読める。
+
+- [x] 段階0：KotlinとC#で、再帰する型をビルドして確かめる（ユーザーがWindowsで確かめた、ADR 041のContext）
+- [x] 段階1：flatmarkdown 0.8（flatmarkdownのPR #53）。種類をenumに、`props`の値を`PropValue`に、`facet`のfeature、`BodyOptions::relative_page_links()`。バイナリの形式では、serdeの素直な形を書く
+- [x] 段階2：coreが本文からASTを作り、`Row.ast`に入れる。journalとclientのテストは、flatmarkdownの名前の付いたオプションで解析する
+- [x] 段階3：シェルを1つずつ、`Row.ast`から描くように切り替える。iOS、macOS、Android、Windowsの順
+  - Windowsは、.NET 11に上げ、生成された`Node`を`closed record`にし、CS8509をエラーにする
+  - iOSとmacOSは、Macでテストが通った。WindowsのPetaBorderとそのテストは、Macの.NET 11でビルドとテストが通った。WinUIのアプリと、Androidのビルドは、それぞれの機械で確かめる
+- [ ] 段階4：古い道を消す。HTMLから描く処理、`item_html`、ビューモデルの`ast`の文字列（AndroidとWindowsで確かめてから）
+- [ ] 段階5：journalから`ast`を外す。DBの列、`ItemPatch`、MCP。RESTは、応答を作るときに本文から作る
+- [ ] 仕上げ：flatmarkdown 0.8をcrates.ioとnpmに公開し、`Cargo.toml`を公開した版の参照に戻す。todoとmemoviewも新しい版に上げる
+
 ## APIの方針：RESTとMCP
 
 2026-11-11にユーザーが決めた。ジャーナルサーバーのAPIを足す、変える、消すときは、まずここを読む。
