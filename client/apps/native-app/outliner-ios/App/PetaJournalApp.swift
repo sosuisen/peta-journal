@@ -1,4 +1,5 @@
 import PetaBorder
+import PetaDropbox
 import PetaSync
 import SwiftUI
 
@@ -38,11 +39,11 @@ private final class Opened: ObservableObject {
         let root = named ?? support.appendingPathComponent("PetaJournal")
         let info = Bundle.main.infoDictionary ?? [:]
         do {
-            model = try JournalModel(
-                root: root,
+            let account = DropboxAccount(
                 // A test of the screen syncs nothing
-                dropboxKey: named == nil ? info["DropboxKey"] as? String ?? "" : "",
-                dropboxFolder: info["DropboxFolder"] as? String ?? "")
+                key: named == nil ? info["DropboxKey"] as? String ?? "" : "",
+                folder: info["DropboxFolder"] as? String ?? "")
+            model = try JournalModel(root: root, account: account)
             failure = ""
         } catch {
             model = nil
