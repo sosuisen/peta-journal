@@ -189,7 +189,7 @@ fn a_list_property_edited_by_hand_is_taken_in_as_a_list() {
     assert_eq!(a.page_property(&page, "authors"), None);
 }
 
-// 定義のない端末を通ったリストは、定義のある端末に戻ると、リストのままである。
+// 定義のない端末を通ったリストは、定義のある端末に戻ると、リストのままである。次に書くファイルでも、リストである。
 #[test]
 fn a_list_that_went_through_a_device_without_its_definition_is_still_a_list_back_home() {
     let dir = tempfile::tempdir().unwrap();
@@ -202,6 +202,7 @@ fn a_list_that_went_through_a_device_without_its_definition_is_still_a_list_back
     a.receive(&b, PAGE);
 
     assert_eq!(a.page_list(&page, "authors").unwrap(), ["x", "y"]);
+    a.edit(&page, "edited on A");
     assert!(a.file(PAGE).contains("authors:\n  - x\n  - y\n"));
 }
 

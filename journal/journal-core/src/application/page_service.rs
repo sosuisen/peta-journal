@@ -532,7 +532,8 @@ impl PageService {
         Ok(before)
     }
 
-    /// Makes the scalar properties of a page match the front matter of an imported file.
+    /// Makes the properties of a page match the front matter of an imported file. A key with
+    /// no definition is defined as text. The tags are not among them; see `replace_page_tags`.
     /// Returns true if anything changed.
     pub fn replace_page_properties(
         &self,
@@ -541,39 +542,59 @@ impl PageService {
     ) -> AppResult<bool> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
-        let have = PropertyRepository::find_scalar_by_targets_in(
-            &tx,
-            PAGE_TARGET,
-            std::slice::from_ref(&page_id.to_string()),
-        )?
-        .remove(page_id.as_str())
-        .unwrap_or_default();
+        let id = page_id.to_string();
+        let ids = std::slice::from_ref(&id);
+        let scalars = PropertyRepository::find_scalar_by_targets_in(&tx, PAGE_TARGET, ids)?
+            .remove(&id)
+            .unwrap_or_default();
+        let mut lists = PropertyRepository::find_list_by_targets_in(&tx, PAGE_TARGET, ids)?
+            .remove(&id)
+            .unwrap_or_default();
+        lists.remove("tags");
         let definitions = PropertyRepository::find_definitions_in(&tx)?;
-        let not_for_pages =
-            |key: &String| definitions.iter().any(|def| def.key == *key && !def.page);
         let mut changed = false;
         for (key, value) in front_matter {
-            if FRONT_MATTER_KEYS.contains(&key.as_str())
-                || not_for_pages(key)
-                || have.get(key) == Some(value)
+            let definition = definitions.iter().find(|def| def.key == *key);
+            if FRONT_MATTER_KEYS.contains(&key.as_str()) || definition.is_some_and(|def| !def.page)
             {
                 continue;
             }
-            // A line written by hand may not fit; the rest of the file still comes in
-            match PropertyRepository::upsert_scalar_in(
-                &tx,
-                PAGE_TARGET,
-                page_id.as_str(),
-                key,
-                "text",
-                value,
-            ) {
-                Ok(()) => changed = true,
-                Err(e) => tracing::warn!("Skipping property {key}={value} on page {page_id}: {e}"),
+            if definition.is_some_and(|def| def.value_type == "list") {
+                let values = list_values(value);
+                if lists.get(key).is_none_or(|have| *have != values) {
+                    PropertyRepository::upsert_list_in(
+                        &tx,
+                        PAGE_TARGET,
+                        &id,
+                        key,
+                        "list",
+                        &values,
+                    )?;
+                    changed = true;
+                }
+            } else if scalars.get(key) != Some(value) {
+                // A line written by hand may not fit; the rest of the file still comes in
+                match PropertyRepository::upsert_scalar_in(
+                    &tx,
+                    PAGE_TARGET,
+                    &id,
+                    key,
+                    "text",
+                    value,
+                ) {
+                    Ok(()) => changed = true,
+                    Err(e) => {
+                        tracing::warn!("Skipping property {key}={value} on page {page_id}: {e}")
+                    }
+                }
             }
         }
-        for key in have.keys().filter(|key| !front_matter.contains_key(*key)) {
-            PropertyRepository::delete_property_in(&tx, PAGE_TARGET, page_id.as_str(), key)?;
+        let gone = scalars
+            .keys()
+            .chain(lists.keys())
+            .filter(|key| !front_matter.contains_key(*key));
+        for key in gone {
+            PropertyRepository::delete_property_in(&tx, PAGE_TARGET, &id, key)?;
             changed = true;
         }
         tx.commit()?;
