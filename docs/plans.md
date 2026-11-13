@@ -267,6 +267,11 @@
   - 順序（2026-11-13にユーザーが決めた）
     - [ ] 先に、C#（`Shell.cs`）、Kotlin（`Shell.kt`）、Swift（2つの`Shell.swift`）のコードに共通するところを、Rustの側に寄せる
     - [ ] そのあとに、iOS（`frontend-ios`）とSwiftUI（`frontend-swiftui`）の間で、Swiftに残った同じコードを寄せる
+  - [ ] Dropboxとの同期をRustに書き、AndroidとiOSの両方で使うかを検討する（2026-11-13にユーザーが足した。ADR 034のAlternative 2）
+    - 今は、同じクラスがKotlinとSwiftに1つずつある（`Cloud`、`CloudRecord`、`MarkdownFolder`、`Downloader`、`Uploader`、`SyncRound`、`CloudSync`）。決まりを変えるときは、両方を直す
+    - Rustに寄せると、同期の決まりが1か所になる。テストも1つで済む
+    - 決めること: Dropboxとのやり取りを、Rustで書き直すか、境界を越えてKotlinとSwiftのSDKを呼ぶか。サインインとトークンの保存は、SDKに任せたままにするか。進み具合を、画面へどう伝えるか
+    - ADR 034は、KotlinとSwiftの同期が食い違い始めたら見直すとしている
   - iOSとSwiftUIは、Swiftのコードを共有していない。別々のSwift Packageである。`Border`と`Shell`の骨組みが同じ形で2つある。iOSの`ShownParagraphs`（HTMLを読む）はFoundationだけで書いてあり、SwiftUIの側でも使える
 
 ## Androidのシェル
