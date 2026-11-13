@@ -187,6 +187,11 @@ Each window is a sticky with a page of its own. Its title bar shows the name of 
 the tools of the sticky at the right: search, pin, color and a new sticky. The tools are
 hidden while the window does not have the focus.
 
+The buttons that minimize, maximize and close the window stand at the right of the tools. The
+app draws them itself, as narrow as its tools: the buttons of Windows are wide, and leave
+little of the title bar of a narrow sticky. The menu of snap layouts does not come under the
+mouse on the maximize button. Windows+Z shows it.
+
 A sticky that is closed with the button of its title bar is gone. A sticky whose window is
 closed in any other way is kept and comes back in the next run: Alt+F4, the taskbar, or
 Windows that ends the session. The app ends when the last window is closed. Ctrl+Q ends the
@@ -197,11 +202,10 @@ purple, white, gray or light gray. They are the colors of the SwiftUI shell.
 A sticky is light in every color, also when Windows is in dark mode.
 
 A double click on the title bar rolls the sticky up, so that only its title bar is left, and
-another one rolls it down again to the size it had. A sticky that is rolled up shows no tools,
-and comes back rolled up in the next run.
+another one rolls it down again to the size it had. A sticky that is rolled up shows no tools
+and no buttons, and comes back rolled up in the next run.
 
-The button of the title bar maximizes the sticky. A sticky that is rolled up is rolled down
-first. A double click on the title bar of a maximized sticky makes it as it was before. The
+The button of the title bar maximizes the sticky. A double click on the title bar of a maximized sticky makes it as it was before. The
 place and the size of a sticky are not kept while it is maximized: it comes back in the next
 run as it was before.
 
