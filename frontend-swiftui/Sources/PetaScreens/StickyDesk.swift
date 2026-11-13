@@ -34,16 +34,30 @@ final class StickyWindow: NSWindow {
     /// that is not edited.
     var stickyMenu: (() -> NSMenu?)?
 
+    /// A click of the right button, or of the left one while the Control key is down.
+    private func asksForMenu(_ event: NSEvent) -> Bool {
+        event.type == .rightMouseDown || (event.type == .leftMouseDown && event.modifierFlags.contains(.control))
+    }
+
     override func sendEvent(_ event: NSEvent) {
         if event.type == .leftMouseDown, event.clickCount == 2, isOnBareTitleBar(event.locationInWindow) {
             onTitleBarDoubleClick?()
             return
         }
-        if event.type == .rightMouseDown, isOnBareTitleBar(event.locationInWindow),
-            let menu = stickyMenu?(), let frame = contentView?.superview
-        {
-            NSMenu.popUpContextMenu(menu, with: event, for: frame)
-            return
+        if asksForMenu(event), let frame = contentView?.superview {
+            if isOnBareTitleBar(event.locationInWindow), let menu = stickyMenu?() {
+                NSMenu.popUpContextMenu(menu, with: event, for: frame)
+                return
+            }
+            // Before the click reaches the item: a text view takes the cursor first, and the
+            // item would turn into Markdown and show the menu of its text
+            let place = frame.convert(event.locationInWindow, from: nil)
+            if let item = contentView?.hitTest(place) as? ItemTextView, !item.isMarkdown,
+                let menu = stickyMenu?()
+            {
+                NSMenu.popUpContextMenu(menu, with: event, for: item)
+                return
+            }
         }
         super.sendEvent(event)
     }
