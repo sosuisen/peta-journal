@@ -3,7 +3,6 @@ package com.sosuisha.petajournal.shell
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.sosuisha.petajournal.core.FfiException
 import com.sosuisha.petajournal.sync.findWithoutCase
 import com.sosuisha.petajournal.types.Event
 import com.sosuisha.petajournal.types.Request
@@ -26,7 +25,7 @@ import java.util.concurrent.Executors
  * a moment after the last change (ADR 031).
  */
 class Shell(
-    private val dataDir: File,
+    dataDir: File,
     private val markdownDir: File,
     private val onMainThread: (() -> Unit) -> Unit,
     private val onEdit: () -> Unit = {},
@@ -104,7 +103,7 @@ class Shell(
      * the journal of today is not made, and no screen opens then.
      */
     fun restore(make: Boolean = true) {
-        val before = last.takeIf { it.isFile }?.readText()
+        val before = border.lastScreen()
         if (before != null) open(before, make = false)
         val none = before == null || missing != null
         if (none && make) today()
@@ -113,20 +112,10 @@ class Shell(
 
     private fun open(url: String, make: Boolean) {
         missingFile = null
-        missing = try {
-            if (make) border.openOrMake(url) else border.open(url)
-            // For the next time the app opens
-            last.writeText(url)
-            unopened = false
-            null
-        } catch (nothing: FfiException) {
-            url.removePrefix(PAGES).substringBefore('#')
-        }
+        missing = if (make) border.openOrMake(url) else border.open(url)
+        if (missing == null) unopened = false
         show()
     }
-
-    /** The URL of the screen that was opened last, kept for the next time the app opens. */
-    private val last: File get() = File(dataDir, "last-screen")
 
     // The search
 

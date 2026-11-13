@@ -223,6 +223,39 @@ fn a_url_of_a_page_that_is_not_there_opens_nothing_and_makes_no_page() {
     assert_eq!(core.core.pages.find_all().unwrap().len(), before);
 }
 
+// 開けなかったときのエラーは、そこにないページの名前である。名前には、URLのフラグメントが付かない。
+#[test]
+fn the_error_of_a_url_that_opens_nothing_is_the_name_of_the_page() {
+    let app = App::new();
+    let core = app.open(Arc::default());
+
+    assert_eq!(core.open("/pages/ghost".into()), Err("ghost".into()));
+    assert_eq!(
+        core.open("/pages/nowhere/ghost#item".into()),
+        Err("nowhere/ghost".into())
+    );
+    assert_eq!(core.open("/today".into()), Err("/today".into()));
+}
+
+// 開いた画面のURLは、アプリを開き直したあとも、最後の画面として残る。開けなかったURLは残らない。
+#[test]
+fn the_url_last_opened_stays_when_the_app_opens_again() {
+    let app = App::new();
+    app.download("notes.md", "an apple\n");
+    let core = app.open(Arc::default());
+    assert_eq!(core.last_screen(), None);
+    core.sync();
+
+    core.open("/pages/notes".into()).unwrap();
+    assert!(core.open("/pages/ghost".into()).is_err());
+    drop(core);
+
+    let core = app.open(Arc::default());
+    assert_eq!(core.last_screen(), Some("/pages/notes".into()));
+    core.open_or_make("/pages/work/plan".into()).unwrap();
+    assert_eq!(core.last_screen(), Some("/pages/work/plan".into()));
+}
+
 // 作るつもりで開くと、まだないページが作られて開く。今日のジャーナルも同じである。
 #[test]
 fn a_page_that_is_not_there_is_made_when_it_is_opened_to_be_made() {

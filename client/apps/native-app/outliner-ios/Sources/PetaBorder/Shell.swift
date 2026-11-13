@@ -30,7 +30,6 @@ public final class Shell: ObservableObject {
     /// cursor at the end instead, where the writing goes on.
     public private(set) var touched: UInt64?
 
-    private let dataDir: URL
     private let markdownDir: URL
     private let onEdit: () -> Void
     private let border: Border
@@ -43,7 +42,6 @@ public final class Shell: ObservableObject {
     /// each time the user changes a page: the app syncs a moment after the last change (ADR
     /// 031). Throws when the journal cannot be opened.
     public init(dataDir: URL, markdownDir: URL, onEdit: @escaping () -> Void = {}) throws {
-        self.dataDir = dataDir
         self.markdownDir = markdownDir
         self.onEdit = onEdit
         let inbox = Inbox()
@@ -142,28 +140,17 @@ public final class Shell: ObservableObject {
     /// when there is none, as in a new app, and when its page has gone since. Without `make`,
     /// the journal of today is not made, and no screen opens then.
     public func restore(make: Bool = true) {
-        let before = try? String(contentsOf: last, encoding: .utf8)
+        let before = border.lastScreen()
         if let before { open(before, make: false) }
         let none = before == nil || missing != nil
         if none, make { today() }
         unopened = none && !make
     }
 
-    /// The URL of the screen that was opened last, kept for the next time the app opens.
-    private var last: URL { dataDir.appendingPathComponent("last-screen") }
-
     private func open(_ url: String, make: Bool) {
         missingFile = nil
-        do {
-            if make { try border.openOrMake(url) } else { try border.open(url) }
-            // For the next time the app opens
-            try? Data(url.utf8).write(to: last, options: .atomic)
-            unopened = false
-            missing = nil
-        } catch {
-            let page = url.hasPrefix(Shell.pages) ? String(url.dropFirst(Shell.pages.count)) : url
-            missing = page.components(separatedBy: "#")[0]
-        }
+        missing = make ? border.openOrMake(url) : border.open(url)
+        if missing == nil { unopened = false }
         show()
     }
 
