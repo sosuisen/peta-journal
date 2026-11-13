@@ -376,11 +376,11 @@
 - [x] 2026-11-13 フロントエンドの置き場を再検討する（ユーザーが足した、2026-11-11）
   - リポジトリは分けない。直下を`client/`と`journal/`に分け、アプリを`client/apps/`に、ライブラリを`client/libs/`に置く。決定は、ADR 039に書いた
   - ジャーナルの側のフォルダーも、パッケージと同じ名前にする（`journal/journal-core`、`journal/journal-server`）。`hmtid`は、`journal/hmtid`に置く。前にあった「図に出ないクレートとフォルダーの名前を整理する」の項目は、この決定に入った
-- [ ] フォルダーを並べ替える（ADR 039。2026-11-13にユーザーが決めた）
+- [x] 2026-11-13 フォルダーを並べ替える（ADR 039。2026-11-13にユーザーが決めた）
   - 目標の形は、ADR 039のDecisionの図である。1つのPRで行う。同じフォルダーを2回動かさない
   - フォルダーだけを動かす。パッケージの名前、実行ファイルの名前、アプリの中の名前は変えない
   - CIの再開（2026-11-25）は待たない。手元の確認だけが頼りである
-  - 先に片付けること: 開いているブランチとworktree。この変更と大きく衝突する。マージするか、並べ替えのあとに作り直す
+  - 先に片付けたこと: 開いていたworktreeとローカルのブランチ。どれもマージ済みか、要らないものだったので消した
   - 動かすもの
     - `frontend-rust/crates/client-shell-leptos`を、`client/apps/web-app/outliner`にする。`e2e`を、その中の`e2e`にする
     - `frontend-rust/crates/client-shell-emacs`を、`client/apps/emacs/outliner`にする
@@ -388,17 +388,19 @@
     - `frontend-winui`を`client/apps/native-app/stickies-win`に、`frontend-swiftui`を`client/apps/native-app/stickies-mac`にする
     - `frontend-android`を`client/apps/native-app/outliner-android`に、`frontend-ios`を`client/apps/native-app/outliner-ios`にする
     - `ext-web-app/todo`を、`client/apps/web-app/todo`にする
-    - `ext-desktop-app`を、フォルダーごと`client/apps/webview-app/memoview-win`にする。中の形は変えない。`stickies`（アプリ）、`stickies-tests`（44個のテスト）、`Directory.Build.props`（アナライザーの設定）、`dotnet-tools.json`（CSharpier）が、そのまま並ぶ。テストがアプリのファイルを読む相対パス（`..\stickies\…`）は変わらない。`stickies-win`（今の`frontend-winui`）と同じ形である
+    - `ext-desktop-app`を、フォルダーごと`client/apps/webview-app/memoview-win`にする。中の形は変えない。`stickies`（アプリ）、`stickies-tests`（55個のテスト）、`Directory.Build.props`（アナライザーの設定）、`dotnet-tools.json`（CSharpier）が、そのまま並ぶ。テストがアプリのファイルを読む相対パス（`..\stickies\…`）は変わらない。`stickies-win`（今の`frontend-winui`）と同じ形である
     - `journal-server-rust/crates/core`を`journal/journal-core`に、`crates/server`を`journal/journal-server`に、`crates/hmtid`を`journal/hmtid`にする。`Cargo.toml`、`Cargo.lock`、`.cargo`、`bench`、`scripts`、READMEを、`journal`にする
   - 直すところ
     - パス依存を持つ`Cargo.toml`と、2つのワークスペースの`members`
     - `journal/.cargo/config.toml`の`PETAJOURNAL_FRONTEND_DIR`と`cov`、`mutants.toml`の`exclude_globs`。`client/.cargo/config.toml`のコメント
     - Web版の`index.html`の4つの`script`（`../../../../atlas/web/`になる）、`Trunk.toml`のフックのパス
-    - `build-frontend.ps1`と`build-frontend.sh`。置き場も決める
+    - `build-frontend.ps1`と`build-frontend.sh`。置き場は、直下のままにした。使う人の手順が変わらない
     - Playwrightの設定（`shellDir`）と、サーバーのテストの`ext-functions`へのパス（`journal-server/tests/auto_template/main.rs`）
     - 4つのネイティブのアプリの`generate`と`run`、Gradle、`project.yml`、`Package.swift`、`.csproj`
     - `.github/workflows/ci.yml`、`BUILD.md`、README、`.gitignore`、`.vscode`、`.claude`
-    - ADR 038までのADRと、`docs/`の計画の文書は、書いた時点の記録なので書き換えない
+    - `atlas/src/measure.rs`のテストが読むフォント（`client/assets/NotoSansJP-Regular.ttf`）。`atlas`が`client`のファイルを読んでいる
+    - `docs/`の今の仕様の文書（`features.md`、`storymap.md`、`properties.md`、`folder-sync-future.md`、`frontend-architecture.svg`）と、この文書のまだ済んでいない項目のパス
+    - ADR 038までのADRと、`docs/`の2つの移植の計画（`rust-rewrite-plan.md`、`frontend-rust-rewrite-plan.md`）は、書いた時点の記録なので書き換えない。この節の済んだ項目も、古いパスのままにした
   - 確かめ方
     - `client`と`journal`と`atlas`のテスト、`cargo fmt`、wasm向けの`cargo check`、Emacsのテスト
     - `build-frontend`を回し、Web版を開く。アトラスも開く。Trunkが、ワークスペースの外の`atlas/web/`を新しい深さで読めるかを見る
@@ -406,7 +408,17 @@
     - `stickies-win`のビルドとテスト、`memoview-win`のビルドとテスト、`todo`の`npm test`と`npm run build`
     - `outliner-android`のビルドと、端末の要らないテスト
     - `cargo cov`と`cargo-mutants`が、新しいフォルダーの名前で動くか
-    - [ ] `stickies-mac`と`outliner-ios`のビルドとテストを、Macで確かめる。Windowsでは回せない
+    - [ ] `stickies-mac`と`outliner-ios`のビルドとテストを、Macで確かめる。Windowsでは回せない。`generate.sh`と`boltffi.toml`の出力先は、新しい場所に直してある
+  - 2026-11-13に確かめたこと。Windowsの手元で回した
+    - `client`のテスト、`cargo fmt --check`、`cargo clippy`、wasm向けの`cargo check`、featureの付いた`codegen`と`ffi`のテストが通った
+    - `journal`のテスト（`it`は340個）と`atlas`のテスト（28個）が通った
+    - Emacsのテストは、160個がすべて通った。EmacsのE2Eは、1回目に`a-property-is-set-changed-and-removed`が落ち、2回目は40個がすべて通った。時々落ちるテストである。原因は調べていない
+    - Playwrightは、88個のうち87個が通った。落ちた1個は、前からWindowsで落ちているCtrl+Cのテストである。Trunkは、`../../../../atlas/web/`の4つのスクリプトと、`client/assets`の2つのフォントを`dist-e2e`に入れた。ブラウザーでアトラスを開く確認は、していない
+    - `stickies-win`は、`generate.ps1`（BoltFFI）、テスト（115個のうち75個が通り、40個はサーバーが要るので飛ばした）、Releaseのビルドが通った
+    - `memoview-win`は、CSharpierの検査、テスト（55個）、MSBuildでのビルドが通った
+    - `todo`は、整形の検査、lint、テスト（51個）、ビルドが通った
+    - `outliner-android`は、`generate.ps1`、`assembleDebug`、`testDebugUnitTest`が通った。端末で動くテスト（`connectedDebugAndroidTest`）は、回していない
+    - `cargo cov`は、`client`と`journal`の両方で動いた。除外したファイルは、表に出ない。`cargo mutants --list`は、`journal`で4,587個を並べ、除外したファイルのミュータントは0個だった
   - マージのあとに、使う人がすること。Emacsの`load-path`を直す。`build-frontend`を回し直す。`--frontend-dir`を使っているなら直す。古い`target/`を消す
 - [ ] アプリのパッケージの名前と中の名前を、フォルダーの名前に合わせる（ADR 039。2026-11-13にユーザーが決めた）
   - 並べ替えのあとに、別のPRで行う。移動と改名を混ぜない
