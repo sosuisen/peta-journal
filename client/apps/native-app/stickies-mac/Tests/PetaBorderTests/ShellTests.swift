@@ -124,7 +124,7 @@ final class ShellTests: XCTestCase {
         try await twoItems(shell)
 
         let second = shell.view.outline.rows[1].item.id
-        try await waitUntil("the cursor is asked into the new item") { shell.focus?.itemId == second }
+        try await waitUntil("the cursor is asked into the new item") { shell.view.outline.focusOrder?.itemId == second }
     }
 
     // コアがクリップボードを求めると、その文字列で答える。項目のIDなら、トランスクルージョンになる。
@@ -182,7 +182,7 @@ final class ShellTests: XCTestCase {
 
         try await waitUntil("the item is split") { self.bodies(shell) == ["日本語", "second"] }
         let second = shell.view.outline.rows[1].item.id
-        try await waitUntil("the cursor is asked into the new item") { shell.focus?.itemId == second }
+        try await waitUntil("the cursor is asked into the new item") { shell.view.outline.focusOrder?.itemId == second }
     }
 
     // Tabは項目を字下げし、Shift+Tabは字上げする。

@@ -142,7 +142,7 @@ private struct ItemEditor: View {
             ItemText(
                 item: row.item, isEditing: row.isEditing, shown: texts.text(of: row.item, zoom: zoom),
                 texts: texts, changes: texts.changes, heading: row.editedHeading, isFirst: row.position == 0,
-                request: shell.view.outline.focusRequest, order: shell.focus, shell: shell, cursors: cursors,
+                request: shell.view.outline.focusRequest, order: shell.view.outline.focusOrder, shell: shell, cursors: cursors,
                 zoom: zoom)
         }
     }

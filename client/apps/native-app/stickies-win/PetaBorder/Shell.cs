@@ -84,8 +84,11 @@ public sealed partial class Shell : IDisposable
     /// <summary>What the core asks the user now. The core waits until it is answered.</summary>
     public Question? Question { get; private set; }
 
-    /// <summary>The last order of the core to put the cursor somewhere.</summary>
-    public FocusOrder? Focus { get; private set; }
+    /// <summary>
+    /// The last order of the core to put the cursor somewhere, as the view model gives it. The
+    /// first item is meant when it names none.
+    /// </summary>
+    public FocusOrder? Focus => View.Outline.FocusOrder;
 
     public event Action? ViewChanged;
     public event Action? TitleChanged;
@@ -218,7 +221,7 @@ public sealed partial class Shell : IDisposable
         // The window was closed while the requests waited for the main thread
         if (disposed)
             return;
-        var cursors = new List<(uint Id, string? ItemId)>();
+        var cursors = new List<uint>();
         foreach (var request in requests)
         {
             switch (request.Effect)
@@ -229,8 +232,8 @@ public sealed partial class Shell : IDisposable
                 case ShellEffect.Navigate { Value: var op }:
                     Open(op.Url);
                     break;
-                case ShellEffect.Ui { Value: UiOp.FocusEditor focus }:
-                    cursors.Add((request.Id, focus.ItemId));
+                case ShellEffect.Ui { Value: UiOp.FocusEditor }:
+                    cursors.Add(request.Id);
                     break;
                 case ShellEffect.Ui { Value: var op }:
                     Show(op, request.Id);
@@ -238,9 +241,12 @@ public sealed partial class Shell : IDisposable
             }
         }
         // After the render: the item to put the cursor in may have come with these very requests
-        foreach (var (id, itemId) in cursors)
+        // The order itself is in the view model. It is read again here: no render request has
+        // to come with the order
+        if (cursors.Count > 0)
+            Show(border.View());
+        foreach (var id in cursors)
         {
-            Focus = new FocusOrder((Focus?.Number ?? 0) + 1, itemId);
             border.Answer(id, new UiOutput.Done());
             FocusChanged?.Invoke();
         }
@@ -306,10 +312,3 @@ public enum QuestionKind
     /// <summary>A line of text.</summary>
     Prompt,
 }
-
-/// <summary>
-/// An order to put the cursor in the editor of an item, or of the first item when
-/// <paramref name="ItemId"/> is <c>null</c>. <paramref name="Number"/> tells two orders for the
-/// same item apart.
-/// </summary>
-public sealed record FocusOrder(int Number, string? ItemId);

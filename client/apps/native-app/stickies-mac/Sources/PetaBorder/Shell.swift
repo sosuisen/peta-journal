@@ -19,8 +19,6 @@ public final class Shell: ObservableObject {
     @Published public private(set) var url: String?
     /// What the core asks the user now. The core waits until it is answered.
     @Published public private(set) var question: Question?
-    /// The last order of the core to put the cursor somewhere.
-    @Published public private(set) var focus: FocusOrder?
     private let border: Border
     private let clipboard: () -> String?
     private let copy: (String, String?) -> Void
@@ -154,22 +152,24 @@ public final class Shell: ObservableObject {
     }
 
     private func handle(_ requests: [Request]) {
-        var cursors: [(UInt32, String?)] = []
+        var cursors: [UInt32] = []
         for request in requests {
             switch request.effect {
             case .render:
                 view = Shell.must { try border.view() }
             case .navigate(let op):
                 open(op.url)
-            case .ui(.focusEditor(let itemId, _)):
-                cursors.append((request.id, itemId))
+            case .ui(.focusEditor):
+                cursors.append(request.id)
             case .ui(let op):
                 show(op, asked: request.id)
             }
         }
         // After the render: the item to put the cursor in may have come with these very requests
-        for (id, itemId) in cursors {
-            focus = FocusOrder(number: (focus?.number ?? 0) + 1, itemId: itemId)
+        // The order itself is in the view model, as `outline.focusOrder`. It is read again
+        // here: no render request has to come with the order
+        if !cursors.isEmpty { view = Shell.must { try border.view() } }
+        for id in cursors {
             Shell.must { try border.answer(id, with: .done) }
         }
     }
@@ -223,13 +223,6 @@ public struct Question: Equatable, Identifiable {
         /// A line of text.
         case prompt
     }
-}
-
-/// An order to put the cursor in the editor of an item, or of the first item when `itemId` is
-/// `nil`. `number` tells two orders for the same item apart.
-public struct FocusOrder: Equatable {
-    public let number: Int
-    public let itemId: String?
 }
 
 /// Where the requests of the core find the shell, which is made after the core.
