@@ -58,5 +58,5 @@ xcrun simctl boot "$device" 2>/dev/null || true
 open -a DeviceHub
 xcrun simctl bootstatus "$device" >/dev/null
 xcrun simctl install "$device" build/Build/Products/Debug-iphonesimulator/PetaJournal.app
-xcrun simctl terminate "$device" net.sosuisen.petajournal 2>/dev/null || true
-xcrun simctl launch "$device" net.sosuisen.petajournal
+xcrun simctl terminate "$device" com.sosuisha.petajournal 2>/dev/null || true
+xcrun simctl launch "$device" com.sosuisha.petajournal

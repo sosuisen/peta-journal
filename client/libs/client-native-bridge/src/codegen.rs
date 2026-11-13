@@ -21,7 +21,7 @@ use std::path::Path;
 const PACKAGE: &str = "PetaTypes";
 
 /// The package of the types in Kotlin, where a package is named after a domain.
-const KOTLIN_PACKAGE: &str = "net.sosuisen.petajournal.types";
+const KOTLIN_PACKAGE: &str = "com.sosuisha.petajournal.types";
 
 /// Writes the Swift package `PetaTypes` under `out/swift`: the events the shell sends, the view
 /// model it draws, and the requests it gets with their answers.

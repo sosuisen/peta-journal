@@ -11,11 +11,11 @@ val dropboxKey = (findProperty("dropboxKey") as String?).orEmpty()
 val dropboxFolder = (findProperty("dropboxFolder") as String?).orEmpty()
 
 android {
-    namespace = "net.sosuisen.petajournal"
+    namespace = "com.sosuisha.petajournal"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "net.sosuisen.petajournal"
+        applicationId = "com.sosuisha.petajournal"
         minSdk = 26
         targetSdk = 37
         versionCode = 1

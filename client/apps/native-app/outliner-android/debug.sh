@@ -23,4 +23,4 @@ fi
 # Git Bash would turn a value such as /PetaJournal into a path of Windows
 export MSYS_NO_PATHCONV=1
 ./gradlew :app:installDebug "$@"
-"$ANDROID_HOME/platform-tools/adb" shell am start -n net.sosuisen.petajournal/.MainActivity
+"$ANDROID_HOME/platform-tools/adb" shell am start -n com.sosuisha.petajournal/.MainActivity

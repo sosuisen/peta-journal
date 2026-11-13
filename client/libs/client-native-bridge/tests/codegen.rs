@@ -112,7 +112,7 @@ fn csharp_reads_an_optional_plain_enum_as_a_value() {
 
 /// The Kotlin source with the types of the border.
 fn kotlin_types(out: &Path) -> String {
-    let file = out.join("kotlin/net/sosuisen/petajournal/types/Types.kt");
+    let file = out.join("kotlin/com/sosuisha/petajournal/types/Types.kt");
     std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()))
 }
 

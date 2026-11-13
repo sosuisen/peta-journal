@@ -167,7 +167,7 @@ that are not uploaded yet stay, and go up to the account of the new sign-in.
 
 ## The code
 
-`app/src/main/kotlin/net/sosuisen/petajournal` has four packages. A package uses only the
+`app/src/main/kotlin/com/sosuisha/petajournal` has four packages. A package uses only the
 ones below it in this list.
 
 - The package itself: `MainActivity` and `JournalModel`, which put the others together.

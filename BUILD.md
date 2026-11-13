@@ -195,7 +195,7 @@ cargo run -p client-native-bridge --features facet_typegen --bin codegen -- kotl
 
 The first writes the Swift package `PetaTypes` under `<folder>/swift`, the second the C#
 project `PetaTypes` under `<folder>/csharp`, and the third the Kotlin package
-`net.sosuisen.petajournal.types` under `<folder>/kotlin`. The generated code is not kept in the
+`com.sosuisha.petajournal.types` under `<folder>/kotlin`. The generated code is not kept in the
 repository.
 
 The C# and the Kotlin types are not written by the generator that Crux brings (facet_generate
