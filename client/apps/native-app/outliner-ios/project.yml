@@ -59,6 +59,18 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # The core is built for arm64 only: a phone, and the simulator of a Mac with Apple silicon
         ARCHS: arm64
+  # The tests of the parts of the app with no screen, inside the app in the simulator
+  PetaJournalTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - AppTests
+    dependencies:
+      - target: PetaJournal
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        ARCHS: arm64
   PetaJournalUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -77,4 +89,5 @@ schemes:
         PetaJournal: all
     test:
       targets:
+        - PetaJournalTests
         - PetaJournalUITests

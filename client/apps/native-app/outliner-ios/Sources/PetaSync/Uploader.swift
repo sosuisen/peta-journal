@@ -21,7 +21,7 @@ public final class Uploader {
     /// seen: the file there is not written over, and the sync is to start again with a
     /// download. What was uploaded before that, or before another failure, stays uploaded.
     public func run(onProgress: (_ done: Int, _ total: Int) -> Void) throws {
-        let changed = folder.pages().filter { folder.contentHash($0) != record[$0]?.contentHash }
+        let changed = folder.pages().filter { folder.contentHash($0, by: cloud.contentHash) != record[$0]?.contentHash }
         onProgress(0, changed.count)
         defer { try? record.save() }
         for (done, path) in changed.enumerated() {

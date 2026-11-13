@@ -143,97 +143,6 @@ struct JournalScreen: View {
     }
 }
 
-/// How far a sync that moves files is, in words and as a part of the whole, or nil.
-private func progress(_ state: SyncState?) -> (String, Double)? {
-    switch state {
-    case .downloading(let done, let total) where total > 0:
-        return ("Downloading \(done) of \(total)", Double(done) / Double(total))
-    case .uploading(let done, let total) where total > 0:
-        return ("Uploading \(done) of \(total)", Double(done) / Double(total))
-    default:
-        return nil
-    }
-}
-
-/// Where the sync stands, over the page, while the user waits for it: the app came to the
-/// front, and the pages may be old until the files have moved. The dialog cannot be closed:
-/// an edit of an old page would be merged with the new one later.
-private struct Waiting: View {
-    let words: String
-    let part: Double
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.3).ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 16) {
-                Text(words)
-                ProgressView(value: part)
-            }
-            .padding(24)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
-            .padding(40)
-        }
-        .accessibilityAddTraits(.isModal)
-    }
-}
-
-/// Where a sync stands that the user does not wait for, such as the one after an edit, and
-/// why the last one failed. It lies over the bottom of the page, and takes no room there.
-private struct SyncCallout: View {
-    let state: SyncState
-    let onSync: () -> Void
-
-    var body: some View {
-        if let words {
-            HStack {
-                Text(words).foregroundStyle(Color(.systemBackground))
-                if case .failed = state {
-                    Button("Try again", action: onSync).foregroundStyle(Color(.systemTeal))
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(Color(.label).opacity(0.9), in: RoundedRectangle(cornerRadius: 6))
-            .shadow(radius: 4)
-            .padding(12)
-        }
-    }
-
-    private var words: String? {
-        switch state {
-        case .downloading, .uploading: return progress(state)?.0 ?? "Syncing…"
-        case .failed(let reason): return "Sync failed: \(reason)"
-        case .signedOut, .idle: return nil
-        }
-    }
-}
-
-/// The menu at the left of the bar, with what is done to the sync. There is none before the
-/// sign-in: the button for the sign-in is on the screen then.
-private struct SyncMenu: View {
-    let state: SyncState
-    let onSignIn: () -> Void
-    let onSync: () -> Void
-    let onSignOut: () -> Void
-
-    var body: some View {
-        if state != .signedOut {
-            Menu {
-                // Nothing is asked of a sync that runs
-                Button("Sync", action: onSync).disabled(state.isRunning)
-                // A token that Dropbox no longer takes is replaced by a new sign-in
-                if case .failed = state { Button("Sign in to Dropbox", action: onSignIn) }
-                Button("Sign out", action: onSignOut).disabled(state.isRunning)
-            } label: {
-                Image(systemName: "line.3.horizontal").frame(width: 44, height: 44)
-            }
-            .accessibilityLabel("Menu")
-        }
-    }
-}
-
-/// A link named a page that is not there. The page is made only when the user asks for it
-/// here (ADR 031).
 /// The icon of today of the web frontend: a book with a ribbon. SF Symbols has no such book,
 /// so it is drawn here, with the lines of the Android shell (`TodayButton`).
 private struct TodayIcon: View {
@@ -259,6 +168,8 @@ private struct TodayIcon: View {
     }
 }
 
+/// A link named a page that is not there. The page is made only when the user asks for it
+/// here (ADR 031).
 private struct MissingPage: View {
     let name: String
     let onMake: () -> Void
@@ -299,95 +210,6 @@ private struct Results: View {
         case .today: return "Open Today"
         case .create: return "New page: \(entry.title)"
         case .page, .item: return entry.title
-        }
-    }
-}
-
-/// What changes the item that is edited, in a row above the keyboard (ADR 031). A phone has
-/// no Tab key and no key with Alt. A touch on a tool leaves the cursor in the field.
-private struct Tools: View {
-    let itemId: String
-    let shell: Shell
-
-    /// How high the row of the tools is.
-    static let height: CGFloat = 44
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
-                    tool("Outdent", "decrease.indent") { shell.outdent(itemId) }
-                    tool("Indent", "increase.indent") { shell.indent(itemId) }
-                    tool("Move up", "arrow.up") { shell.moveUp(itemId) }
-                    tool("Move down", "arrow.down") { shell.moveDown(itemId) }
-                    tool("Task", "checkmark.square") { shell.cycleTask(itemId) }
-                    tool("Delete item", "xmark") { shell.delete(itemId) }.foregroundStyle(.red)
-                }
-            }
-            // The field lets go of the keyboard, and tells the core that the edit has ended
-            Button("Done") {
-                // First: a field that only loses the keyboard may be one that the list took
-                // off the screen, and its edit goes on
-                shell.finish(itemId)
-                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            }
-            .padding(.horizontal, 12)
-        }
-        .background(Color(.secondarySystemBackground))
-    }
-
-    /// A tool with a drawing for its face. `name` says what it does, for a screen reader.
-    private func tool(_ name: String, _ face: String, _ does: @escaping () -> Void) -> some View {
-        Button(action: does) {
-            Image(systemName: face).font(.title3).frame(width: 48, height: 44)
-        }
-        .accessibilityLabel(name)
-    }
-}
-
-private struct Outline: View {
-    @ObservedObject var shell: Shell
-    /// What the keyboard and the tools cover at the bottom of the page.
-    let covered: CGFloat
-    let onFile: (URL) -> Void
-
-    var body: some View {
-        let view = shell.view
-        let focus = view.outline.focusRequest
-        ScrollViewReader { list in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    Text(title(view)).font(.title2).padding(.vertical, 8)
-                    ForEach(view.outline.rows, id: \.item.id) { row in
-                        OutlineRow(row: row, tagsDir: view.config.tagsDir, shell: shell, onFile: onFile)
-                            .id(row.item.id)
-                    }
-                }
-                .padding(.horizontal, 12)
-                // Room for the callout of the sync under the last item
-                .padding(.bottom, 60)
-            }
-            // A drag of the page puts the keyboard away, and so ends the edit
-            .scrollDismissesKeyboard(.interactively)
-            // The item that the core moved the edit to may be off the screen, as a new item
-            // at the end of a long page
-            .onChange(of: focus?.seq) {
-                if let focus { list.scrollTo(focus.itemId) }
-            }
-            // The keyboard and the tools cover the bottom of the page. The item that is
-            // edited may be under them then, and it is brought to what is seen
-            .onChange(of: covered) {
-                guard let edited = shell.view.outline.rows.first(where: \.isEditing)?.item.id else { return }
-                withAnimation { list.scrollTo(edited) }
-            }
-        }
-    }
-
-    private func title(_ view: ViewModel) -> String {
-        switch view.screen {
-        case .page(let page): return page?.title ?? ""
-        case .journal(let journal): return journal.displayDate
-        default: return ""
         }
     }
 }

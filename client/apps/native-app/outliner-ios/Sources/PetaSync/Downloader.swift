@@ -55,7 +55,7 @@ public final class Downloader {
             record.keepOnly(Set(order))
         }
         let all = order.compactMap { files[$0] }
-        try download(all.filter { folder.contentHash($0.path) != $0.contentHash }, onProgress)
+        try download(all.filter { hashHere($0.path) != $0.contentHash }, onProgress)
         all.forEach(record.put)
         try record.save()
         try Data(changes.cursor.utf8).write(to: cursorFile, options: .atomic)
@@ -63,7 +63,12 @@ public final class Downloader {
 
     /// True for a file here whose content the cloud never had.
     private func isUnsent(_ path: String) -> Bool {
-        folder.contentHash(path) != record[path]?.contentHash
+        hashHere(path) != record[path]?.contentHash
+    }
+
+    /// The hash of the file here, as the cloud makes it. `nil` when it is not here.
+    private func hashHere(_ path: String) -> String? {
+        folder.contentHash(path, by: cloud.contentHash)
     }
 
     private func download(_ files: [CloudFile], _ onProgress: @escaping (Int, Int) -> Void) throws {

@@ -185,16 +185,4 @@ final class DownloaderTests: XCTestCase {
 
         XCTAssertEqual(told, [[0, 2], [1, 2], [2, 2]])
     }
-
-    // 4MBを超えるファイルのハッシュは、4MBごとのハッシュをつないだもののハッシュである。
-    func testTheContentHashOfALargeFileIsMadeOfTheHashesOfItsBlocks() throws {
-        let block = 4 * 1024 * 1024
-        let content = Data((0..<(block + 3)).map { UInt8($0 % 251) })
-        let file = folders.dir.appendingPathComponent("large")
-        try content.write(to: file)
-        let first = sha256(content.prefix(block))
-        let second = sha256(content.suffix(from: block))
-
-        XCTAssertEqual(dropboxContentHash(of: file), hex(sha256(first + second)))
-    }
 }

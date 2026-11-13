@@ -1,6 +1,5 @@
 import Foundation
 import PetaBorder
-import PetaDropbox
 import PetaSync
 import UIKit
 
@@ -8,23 +7,25 @@ import UIKit
 /// Dropbox. The journal can be open only once.
 @MainActor
 final class JournalModel: ObservableObject {
-    /// How long the app waits after the last change of a page before it syncs.
-    private static let afterEdit: TimeInterval = 3
-
     let shell: Shell
-    /// `nil` when the app was built without the App key of Dropbox: it then syncs nothing.
+    /// `nil` when the account is not set up, as in an app that was built without the App key
+    /// of Dropbox: it then syncs nothing.
     let cloud: CloudSync?
 
-    /// The Markdown folder in Dropbox, such as `/PetaJournal`.
-    private let dropboxFolder: String
+    /// The account of the cloud storage.
+    private let account: CloudAccount
+    /// How long the app waits after the last change of a page before it syncs.
+    private let waitAfterEdit: TimeInterval
     /// Where the last download ended, for the next one to ask only for what changed since.
     private let cursor: URL
     /// Syncs a moment after the last change of a page, and not once for each key.
     private var afterEdit: Timer?
 
     /// `root` holds all that the app keeps. The tests of the screen name a folder of their own.
-    init(root: URL, dropboxKey: String, dropboxFolder: String) throws {
-        self.dropboxFolder = dropboxFolder
+    /// `afterEdit` is how long the app waits after the last change of a page before it syncs.
+    init(root: URL, account: CloudAccount, afterEdit: TimeInterval = 3) throws {
+        self.account = account
+        waitAfterEdit = afterEdit
         let files = FileManager.default
         // The folders of ADR 030. The app makes the folders of the pages: the core takes in
         // nothing from a Markdown folder that has neither of them
@@ -46,15 +47,14 @@ final class JournalModel: ObservableObject {
         let shell = try Shell(dataDir: data, markdownDir: markdown) { edited.tell() }
         self.shell = shell
 
-        if dropboxKey.isEmpty {
+        if !account.isSetUp {
             cloud = nil
         } else {
-            DropboxAccount.setUp(key: dropboxKey)
             // The versions of the files in Dropbox that the app has seen, for the upload
             let record = CloudRecord(file: root.appendingPathComponent("dropbox-record"))
             let downloads = files.temporaryDirectory.appendingPathComponent("downloads")
             let folder = MarkdownFolder(root: markdown, temp: downloads)
-            cloud = CloudSync(signedIn: DropboxAccount.client != nil) { cloud in
+            cloud = CloudSync(signedIn: account.isSignedIn) { cloud in
                 SyncRound(
                     downloader: Downloader(cloud: cloud, folder: folder, cursorFile: cursor, record: record),
                     takeIn: { shell.syncAndWait() },
@@ -65,13 +65,13 @@ final class JournalModel: ObservableObject {
         // What an earlier download left, when the app ended before it was taken in
         shell.sync()
         // Before the sign-in, the journal of today is not made: the first download may bring it
-        shell.restore(make: cloud == nil || DropboxAccount.client != nil)
+        shell.restore(make: cloud == nil || account.isSignedIn)
     }
 
     /// The user changed a page.
     fileprivate func edited() {
         afterEdit?.invalidate()
-        afterEdit = Timer.scheduledTimer(withTimeInterval: JournalModel.afterEdit, repeats: false) { [weak self] _ in
+        afterEdit = Timer.scheduledTimer(withTimeInterval: waitAfterEdit, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated { self?.sync() }
         }
     }
@@ -80,15 +80,15 @@ final class JournalModel: ObservableObject {
     /// the app. Nothing happens before the first sign-in. `inFront` says that the user waits
     /// for this sync: the screen shows it in a dialog.
     func sync(inFront: Bool = false) {
-        guard let cloud, let client = DropboxAccount.client else { return }
-        cloud.start(DropboxCloud(client: client, folder: dropboxFolder), inFront: inFront)
+        guard let cloud, let folder = account.cloud() else { return }
+        cloud.start(folder, inFront: inFront)
     }
 
     /// The app goes to the back: what was written goes up before iOS may stop the app. iOS
     /// gives the app a short time for it. A sync that iOS stops goes on when the app opens
     /// again.
     func syncInTheBack() {
-        guard let cloud, DropboxAccount.client != nil else { return }
+        guard let cloud, account.isSignedIn else { return }
         afterEdit?.invalidate()
         var task = UIBackgroundTaskIdentifier.invalid
         var watch: Timer?
@@ -110,13 +110,13 @@ final class JournalModel: ObservableObject {
         let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
         guard var top = scene?.keyWindow?.rootViewController else { return }
         while let over = top.presentedViewController { top = over }
-        DropboxAccount.signIn(over: top)
+        account.signIn(over: top)
     }
 
     /// Dropbox opened the app with a URL, as it does at the end of the sign-in.
     func cameBack(_ url: URL) {
         guard cloud != nil else { return }
-        DropboxAccount.cameBack(url) { [weak self] signedIn in
+        account.cameBack(url) { [weak self] signedIn in
             MainActor.assumeIsolated { if signedIn { self?.sync(inFront: true) } }
         }
     }
@@ -125,7 +125,7 @@ final class JournalModel: ObservableObject {
     /// read. The app syncs nothing until the next sign-in.
     func signOut() {
         guard let cloud else { return }
-        DropboxAccount.signOut()
+        account.signOut()
         // The next sign-in may be to another account, where this cursor means nothing. Without
         // it, the next download lists everything: it takes only the files that differ, and
         // deletes the copies of what the account does not hold. The record of the versions

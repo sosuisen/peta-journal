@@ -131,19 +131,23 @@ copy of Dropbox.
   Rust makes. `ShownParagraphs` reads that HTML into paragraphs of pieces with a look each.
   iOS can make text with attributes of HTML, but only on the main thread and slowly.
 - `PetaDropbox` is `Cloud` for Dropbox, with the SDK: `DropboxCloud`. `DropboxAccount` is the
-  sign-in and the sign-out.
+  sign-in and the sign-out, as a `CloudAccount` of `PetaSync`. Each calls the SDK through a
+  protocol (`DropboxFiles`, `DropboxSdk`), which a test fills with its own Dropbox. The classes
+  that call the SDK itself (`SdkDropboxFiles`, `RealDropboxSdk`) only pass each call on.
 
 `App` holds the app. It is built with Xcode only:
 
 - `PetaJournalApp` starts the app, and syncs when the app comes to the front or goes to the
-  back. `JournalModel` holds the shell and the sync, and the folders of the app.
+  back. `JournalModel` holds the shell and the sync, and the folders of the app. It knows the
+  cloud only as a `CloudAccount`.
 - `JournalScreen` is the one screen: the bar with the menu, the search field and the button
   for today, and under it the results of the search or the page. The button for today shows
   the icon of today of the web frontend, a book with a ribbon: `TodayIcon` draws it, with the
-  lines of the Android shell. The tools of the item that
-  is edited stand above the keyboard: outdent, indent, move up, move down, task, delete and
-  "Done".
-- `OutlineRow` draws one item, and `Blocks` its parts. `Pictures` reads an image smaller than
+  lines of the Android shell. `SyncViews` shows where the sync stands: the menu, the dialog
+  and the callout. `Tools`, the tools of the item that is edited, stand above the keyboard:
+  outdent, indent, move up, move down, task, delete and "Done".
+- `Outline` draws the page, and `OutlineRow` one item of it. `Blocks` draws the parts of an
+  item. `ImageBlock` reads an image smaller than
   it is in its file, and shows it large after a touch. A link to a file of the assets folder
   opens the file with Quick Look.
 - `ItemEditor` is the field of the item that is edited. It is a `UITextView`: it tells where
@@ -162,14 +166,17 @@ copy of Dropbox.
 
 ## Tests
 
-`swift test` runs the tests of `PetaSync` and `PetaBorder` on the Mac. The tests of the sync
-use a cloud that is made for the test. The tests of `Shell` and of `ShownText` run the real
+`swift test` runs the tests of `PetaSync`, `PetaDropbox` and `PetaBorder` on the Mac. The tests
+of the sync use a cloud that is made for the test, and those of `PetaDropbox` a Dropbox and an
+SDK of the test. The tests of `Shell` and of `ShownText` run the real
 core, with its files in a temporary folder.
 
-`./debug.sh --test` runs the tests of the screen (`UITests`) in the simulator. Each test gives
+`./debug.sh --test` runs, in the simulator, the tests of `JournalModel` (`AppTests`) inside the
+app, with an account of the test, and then the tests of the screen (`UITests`). Each test of
+the screen gives
 the app a folder of its own, by `PETA_ROOT`. The app syncs with nothing then. They take
 several minutes. `debug.sh` keeps the Mac awake meanwhile (`caffeinate`): on a Mac that goes to
 sleep, the tests end with "Timed out while preparing execution worker".
 
-Not tested: `DropboxCloud` and the sign-in, which need an account of Dropbox, and what the
-screen shows of a sync (the menu, the dialog, the callout). The tests do not run in CI.
+Not tested: `SdkDropboxFiles` and `RealDropboxSdk`, which need an account of Dropbox, and what
+the screen shows of a sync (the menu, the dialog, the callout). The tests do not run in CI.

@@ -1,63 +1,61 @@
 import Foundation
-import SwiftyDropbox
+import PetaSync
 
 #if os(iOS)
 import UIKit
 #endif
 
-/// The sign-in to Dropbox of the app. The SDK keeps the token in the keychain of the device
-/// and gets a new access token by itself when the old one has run out.
-public enum DropboxAccount {
+/// The account of Dropbox that the app is signed in to: the sign-in, the sign-out, and the
+/// Markdown folder of the account as a `Cloud`. All that the app knows of the Dropbox SDK
+/// outside this package goes through here.
+public final class DropboxAccount: CloudAccount {
     /// The app reads the folder in Dropbox, and writes the pages that changed in the app. It
     /// deletes and moves nothing there (ADR 031).
     private static let scopes = ["files.metadata.read", "files.content.read", "files.content.write"]
 
-    /// Tells the SDK the App key of the build. It is called once, before anything else here.
-    public static func setUp(key: String) {
-        #if os(iOS)
-        DropboxClientsManager.setupWithAppKey(key)
-        #else
-        DropboxClientsManager.setupWithAppKeyDesktop(key)
-        #endif
+    private let key: String
+    private let folder: String
+    private let sdk: DropboxSdk
+
+    /// The account with the Dropbox SDK. `key` is the App key of the Dropbox app, and it is
+    /// empty in an app that was built without one. `folder` is the path of the Markdown folder
+    /// in Dropbox, such as `/PetaJournal`. It is made once: the SDK takes its key only once.
+    public convenience init(key: String, folder: String) {
+        self.init(key: key, folder: folder, sdk: RealDropboxSdk())
     }
 
-    /// The client of the user who has signed in, or `nil` before the sign-in.
-    public static var client: DropboxClient? { DropboxClientsManager.authorizedClient }
+    init(key: String, folder: String, sdk: DropboxSdk) {
+        self.key = key
+        self.folder = folder
+        self.sdk = sdk
+        if !key.isEmpty { sdk.setUp(key: key) }
+    }
+
+    public var isSetUp: Bool { !key.isEmpty }
+
+    public var isSignedIn: Bool { isSetUp && sdk.isSignedIn }
 
     #if os(iOS)
-    /// Starts the sign-in, with PKCE: the app has no secret. The Dropbox app signs in when it
-    /// is on the device, and else a browser over `screen`. Dropbox comes back with a URL of
-    /// the scheme `db-<App key>`, which `cameBack` takes.
     @MainActor
-    public static func signIn(over screen: UIViewController) {
-        DropboxClientsManager.authorizeFromControllerV2(
-            UIApplication.shared,
-            controller: screen,
-            loadingStatusDelegate: nil,
-            openURL: { UIApplication.shared.open($0) },
-            scopeRequest: ScopeRequest(scopeType: .user, scopes: scopes, includeGrantedScopes: false)
-        )
+    public func signIn(over screen: UIViewController) {
+        guard isSetUp else { return }
+        sdk.startSignIn(over: screen, scopes: DropboxAccount.scopes)
     }
     #endif
 
-    /// Takes the URL that Dropbox opened the app with after the sign-in. `then` is called on
-    /// the main thread, with true when the user has signed in. False when the URL is not of
-    /// Dropbox.
     @discardableResult
-    public static func cameBack(_ url: URL, then: @escaping (Bool) -> Void) -> Bool {
-        DropboxClientsManager.handleRedirectURL(url, includeBackgroundClient: false) { result in
-            var signedIn = false
-            if case .success = result { signedIn = true }
-            DispatchQueue.main.async { then(signedIn) }
-        }
+    public func cameBack(_ url: URL, then: @escaping (Bool) -> Void) -> Bool {
+        guard isSetUp else { return false }
+        return sdk.endSignIn(url) { signedIn in DispatchQueue.main.async { then(signedIn) } }
     }
 
-    /// Signs out. Dropbox is told that the token is no longer to be taken. Without the
-    /// network, Dropbox does not hear of it: the token is then gone from the device only.
-    public static func signOut() {
-        // The client lives until Dropbox has answered
-        let leaving = client
-        leaving?.auth.tokenRevoke().response { _, _ in _ = leaving }
-        DropboxClientsManager.unlinkClients()
+    public func cloud() -> Cloud? {
+        guard isSetUp, let files = sdk.files() else { return nil }
+        return DropboxCloud(files: files, folder: folder)
+    }
+
+    public func signOut() {
+        guard isSetUp else { return }
+        sdk.signOut()
     }
 }

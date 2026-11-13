@@ -68,6 +68,10 @@ final class FakeCloud: Cloud, @unchecked Sendable {
         uploaded.append(path)
         return version(path, try Data(contentsOf: file))
     }
+
+    func contentHash(of file: URL) -> String? {
+        (try? Data(contentsOf: file)).map(hashOf)
+    }
 }
 
 struct NetworkGone: Error {}
@@ -80,9 +84,9 @@ func hex(_ bytes: Data) -> String {
     bytes.map { String(format: "%02x", $0) }.joined()
 }
 
-/// The content hash of Dropbox of a content of one block.
+/// The content hash of the cloud of a test. It is not the one of Dropbox: the sync asks the cloud.
 func hashOf(_ content: Data) -> String {
-    hex(sha256(sha256(content)))
+    hex(sha256(content))
 }
 
 /// The folders of one test, deleted after it.

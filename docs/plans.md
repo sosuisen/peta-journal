@@ -282,12 +282,17 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 順序（2026-11-13にユーザーが決めた）
     - [ ] 先に、C#（`Shell.cs`）、Kotlin（`Shell.kt`）、Swift（2つの`Shell.swift`）のコードに共通するところを、Rustの側に寄せる
       - 4つを比べた（2026-11-14）。MacとWindowsの`Shell`は、タイトル、フォーカスの番号、質問の待ち行列が同じである。iOSとAndroidの`Shell`は、ページを開く・作る、最後の画面を覚える、同期の受け持ちが同じである。4つに共通するのは、質問の扱いと、イベントを送ってビューモデルを取り直すところである
-      - [x] 2026-11-14 タイトルを、コアの`ViewModel`の`title`に入れた。MacとWindowsの`Shell`から、`name()`と`Name()`を消した。`Shell.cs`は、ビルドせずに直した。Windowsで確かめる
+      - [x] 2026-11-14 タイトルを、コアの`ViewModel`の`title`に入れた。MacとWindowsの`Shell`から、`name()`と`Name()`を消した。`Shell.cs`は、ビルドせずに直した
       - [x] 2026-11-14 フォーカスの番号（`FocusOrder`）を、コアのビューモデルの`outline.focusOrder`に入れた。コアは`FocusEditor`を頼むたびに、番号を1つ増やす。MacとWindowsの`Shell`は、自分で数えるのをやめた。`Shell.cs`と`StickyWindow.cs`は、ビルドせずに直した
       - [x] 2026-11-14 質問の待ち行列を、`client-native-bridge`の`NativeShell`に移した。4つのシェルとも、2つ目の質問は、1つ目のうしろに並ぶ（ユーザーが決めた）。iOSとAndroidは、1つ目に「いいえ」と答えて2つ目を出すのをやめた。`Shell.cs`と`Shell.kt`は、ビルドせずに直した
       - [x] 2026-11-14 iOSとAndroidの`Shell`に共通するところを、`client-shell-embedded`に寄せた。最後に開いた画面の`last-screen`は`PetaCore`が書き、`last_screen()`で読む。開けなかったときのエラーは、そこにないページの名前である。`Shell.kt`と`Border.kt`は、ビルドせずに直した
         - 同期の受け持ち（`sync`、`syncAndWait`、`close`）は、寄せなかった。iOSは`DispatchQueue`、Androidは`Executor`で、OSのスレッドを扱うためである。`restore`の判断は、数行なのでシェルに残した
-    - [ ] Android版でしたクラスのリファクタリングを、iOS版にも同じように反映させる（2026-11-14にユーザーが足した）。先に、Android版で何を変えたかを、履歴から拾う
+    - [x] 2026-11-14 Android版でしたクラスのリファクタリング（2026-11-13）を、iOS版にも同じように反映させた（ユーザーが足した）
+      - 内容のハッシュを、クラウドごとに作る（`Cloud.contentHash(of:)`）。Dropboxのハッシュは`PetaDropbox`に移した
+      - Dropboxの呼び出しを`DropboxFiles`の裏に、SDKのサインインを`DropboxSdk`の裏に置き、テストで差し替える。`DropboxAccount`は`CloudAccount`になった
+      - `JournalModel`は、`CloudAccount`だけを知る。アプリの中で動くテスト（`AppTests`）を足した
+      - 画面を、Androidと同じファイルに分けた（`SyncViews`、`Tools`、`Outline`、`ImageBlock`）。`Shell`のメンバーを、Androidと同じ順に並べた
+      - Androidの、読むだけだった版の資格情報を捨てる処理は、iOSにない。iOSの版は、はじめから書く権限でサインインしている
     - [ ] そのあとに、iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）の間で、Swiftに残った同じコードを寄せる
   - [ ] Dropboxとの同期をRustに書き、AndroidとiOSの両方で使うかを検討する（2026-11-13にユーザーが足した。ADR 034のAlternative 2）
     - 今は、同じクラスがKotlinとSwiftに1つずつある（`Cloud`、`CloudRecord`、`MarkdownFolder`、`Downloader`、`Uploader`、`SyncRound`、`CloudSync`）。決まりを変えるときは、両方を直す
