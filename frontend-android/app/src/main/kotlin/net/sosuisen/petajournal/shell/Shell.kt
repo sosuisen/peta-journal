@@ -31,26 +31,6 @@ class Shell(
     private val onMainThread: (() -> Unit) -> Unit,
     private val onEdit: () -> Unit = {},
 ) : AutoCloseable {
-    /**
-     * The file of an image of a page. [path] is its path under the Markdown folder, such as
-     * `assets/picture.png`. `null` when no download has brought it yet.
-     */
-    fun image(path: String): File? = findWithoutCase(markdownDir, path)?.takeIf { it.isFile }
-
-    /** The file that a link named and that is not here, until the next link is touched. */
-    var missingFile: String? by mutableStateOf(null)
-        private set
-
-    /**
-     * The user touched a link to a file of the assets folder. [path] is its path under the
-     * Markdown folder. Answers with the file to open, or `null` when it is not here.
-     */
-    fun attached(path: String): File? {
-        val file = image(path)
-        missingFile = path.takeIf { file == null }
-        return file
-    }
-
     // The main thread keeps the requests in order. The first ones may come before the border
     // is there, and are still handled after this constructor
     private val border = Border(dataDir, markdownDir) { requests -> onMainThread { handle(requests) } }
@@ -59,6 +39,8 @@ class Shell(
     private val worker = Executors.newSingleThreadExecutor()
     private var closed = false
 
+    // What the screen draws
+
     var view: ViewModel by mutableStateOf(border.view())
         private set
 
@@ -66,48 +48,35 @@ class Shell(
     var syncing: Boolean by mutableStateOf(false)
         private set
 
-    /**
-     * Takes in the files of the Markdown folder, after a download has changed them, and writes
-     * the pages that changed in the app. It runs on a thread of its own: the first sync of a
-     * large folder takes long. [then] is called on that thread when the core is done, or at
-     * once when the app has closed.
-     */
-    fun sync(then: () -> Unit = {}) {
-        if (closed) return then()
-        syncing = true
-        worker.execute {
-            border.sync()
-            then()
-            onMainThread {
-                if (!closed) {
-                    syncing = false
-                    show()
-                }
-            }
-        }
-    }
-
-    /**
-     * Does what [sync] does, and returns when the core is done. It is for the thread of a sync
-     * with the cloud, which uploads what the core wrote. It must not be the main thread.
-     *
-     * A new app that waited for the sign-in opens its first screen after it: the download
-     * has brought the journal of today, if Dropbox holds one.
-     */
-    fun syncAndWait() {
-        val done = CountDownLatch(1)
-        onMainThread { sync(done::countDown) }
-        done.await()
-        onMainThread { if (unopened && !closed) restore() }
-    }
-
     /** The page that a link named and that is not there, until another page opens. */
     var missing: String? by mutableStateOf(null)
+        private set
+
+    /** The file that a link named and that is not here, until the next link is touched. */
+    var missingFile: String? by mutableStateOf(null)
         private set
 
     /** What the core asks the user before it does what is hard to undo, or null. */
     var question: Question? by mutableStateOf(null)
         private set
+
+    /**
+     * True when [restore] opened no screen and was not to make the journal of today. A new
+     * app waits for the sign-in: a journal made before the first download would be a second
+     * file for a day that Dropbox may hold already.
+     */
+    var unopened: Boolean by mutableStateOf(false)
+        private set
+
+    /**
+     * The focus request that a touch on an item made. The core asks for the cursor at the
+     * start of the item then. A finger shows no place in the Markdown, so the screen puts the
+     * cursor at the end instead, where the writing goes on.
+     */
+    var touched: ULong? = null
+        private set
+
+    // The screen that is open
 
     /**
      * The user touched a link to a page. [url] is the URL of the page, such as `/pages/notes`.
@@ -122,23 +91,6 @@ class Shell(
         open(PAGES + page, make = true)
         onEdit()
     }
-
-    private fun open(url: String, make: Boolean) {
-        missingFile = null
-        missing = try {
-            if (make) border.openOrMake(url) else border.open(url)
-            // For the next time the app opens
-            last.writeText(url)
-            unopened = false
-            null
-        } catch (nothing: FfiException) {
-            url.removePrefix(PAGES).substringBefore('#')
-        }
-        show()
-    }
-
-    /** The URL of the screen that was opened last, kept for the next time the app opens. */
-    private val last: File get() = File(dataDir, "last-screen")
 
     /** The user wants the journal of today: it is made when it is not there, and opens. */
     fun today() {
@@ -159,21 +111,38 @@ class Shell(
         unopened = none && !make
     }
 
-    /**
-     * True when [restore] opened no screen and was not to make the journal of today. A new
-     * app waits for the sign-in: a journal made before the first download would be a second
-     * file for a day that Dropbox may hold already.
-     */
-    var unopened: Boolean by mutableStateOf(false)
-        private set
+    private fun open(url: String, make: Boolean) {
+        missingFile = null
+        missing = try {
+            if (make) border.openOrMake(url) else border.open(url)
+            // For the next time the app opens
+            last.writeText(url)
+            unopened = false
+            null
+        } catch (nothing: FfiException) {
+            url.removePrefix(PAGES).substringBefore('#')
+        }
+        show()
+    }
+
+    /** The URL of the screen that was opened last, kept for the next time the app opens. */
+    private val last: File get() = File(dataDir, "last-screen")
+
+    // The search
+
+    /** The user typed into the search field. */
+    fun search(query: String) = send(Event.SearchQueryChanged(query))
 
     /**
-     * The focus request that a touch on an item made. The core asks for the cursor at the
-     * start of the item then. A finger shows no place in the Markdown, so the screen puts the
-     * cursor at the end instead, where the writing goes on.
+     * The user chose a search result: its page opens. The results for the journal of today
+     * and for a new page make their page.
      */
-    var touched: ULong? = null
-        private set
+    fun pick(entry: SearchEntry) {
+        send(Event.SearchResultClicked(entry.position))
+        if (entry.kind == SearchKind.TODAY || entry.kind == SearchKind.CREATE) onEdit()
+    }
+
+    // The edit of an item
 
     /** The user touched an item: it is edited (ADR 031). The edit of another item ends. */
     fun edit(itemId: String) {
@@ -214,17 +183,85 @@ class Shell(
     /** Deletes the item. */
     fun delete(itemId: String) = change(Event.DeleteItem(itemId))
 
-    /** The user typed into the search field. */
-    fun search(query: String) = send(Event.SearchQueryChanged(query))
+    // The files of the assets folder
 
     /**
-     * The user chose a search result: its page opens. The results for the journal of today
-     * and for a new page make their page.
+     * The file of an image of a page. [path] is its path under the Markdown folder, such as
+     * `assets/picture.png`. `null` when no download has brought it yet.
      */
-    fun pick(entry: SearchEntry) {
-        send(Event.SearchResultClicked(entry.position))
-        if (entry.kind == SearchKind.TODAY || entry.kind == SearchKind.CREATE) onEdit()
+    fun image(path: String): File? = findWithoutCase(markdownDir, path)?.takeIf { it.isFile }
+
+    /**
+     * The user touched a link to a file of the assets folder. [path] is its path under the
+     * Markdown folder. Answers with the file to open, or `null` when it is not here.
+     */
+    fun attached(path: String): File? {
+        val file = image(path)
+        missingFile = path.takeIf { file == null }
+        return file
     }
+
+    // The questions of the core
+
+    /** The user answered [question]: the core goes on with what it asked about, or leaves it. */
+    fun answer(yes: Boolean) {
+        val asked = question ?: return
+        question = null
+        border.answer(asked.id, UiOutput.Bool(yes))
+        show()
+    }
+
+    /** Shows a question of the core. A question that still waits is answered no first. */
+    private fun put(next: Question) {
+        answer(false)
+        question = next
+    }
+
+    // The files of the Markdown folder
+
+    /**
+     * Takes in the files of the Markdown folder, after a download has changed them, and writes
+     * the pages that changed in the app. It runs on a thread of its own: the first sync of a
+     * large folder takes long. [then] is called on that thread when the core is done, or at
+     * once when the app has closed.
+     */
+    fun sync(then: () -> Unit = {}) {
+        if (closed) return then()
+        syncing = true
+        worker.execute {
+            border.sync()
+            then()
+            onMainThread {
+                if (!closed) {
+                    syncing = false
+                    show()
+                }
+            }
+        }
+    }
+
+    /**
+     * Does what [sync] does, and returns when the core is done. It is for the thread of a sync
+     * with the cloud, which uploads what the core wrote. It must not be the main thread.
+     *
+     * A new app that waited for the sign-in opens its first screen after it: the download
+     * has brought the journal of today, if Dropbox holds one.
+     */
+    fun syncAndWait() {
+        val done = CountDownLatch(1)
+        onMainThread { sync(done::countDown) }
+        done.await()
+        onMainThread { if (unopened && !closed) restore() }
+    }
+
+    /** Lets go of the journal. A sync that runs ends first, on its own thread. */
+    override fun close() {
+        closed = true
+        worker.execute { border.close() }
+        worker.shutdown()
+    }
+
+    // The events and the requests of the core
 
     /** Sends an event that changes a page. */
     private fun change(event: Event) {
@@ -276,27 +313,6 @@ class Shell(
             // The others wait for no answer, such as the title to set and the item to scroll to
             else -> Unit
         }
-    }
-
-    /** Shows a question of the core. A question that still waits is answered no first. */
-    private fun put(next: Question) {
-        answer(false)
-        question = next
-    }
-
-    /** The user answered [question]: the core goes on with what it asked about, or leaves it. */
-    fun answer(yes: Boolean) {
-        val asked = question ?: return
-        question = null
-        border.answer(asked.id, UiOutput.Bool(yes))
-        show()
-    }
-
-    /** Lets go of the journal. A sync that runs ends first, on its own thread. */
-    override fun close() {
-        closed = true
-        worker.execute { border.close() }
-        worker.shutdown()
     }
 
     companion object {
