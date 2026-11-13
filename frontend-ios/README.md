@@ -135,6 +135,10 @@ copy of Dropbox.
   the cursor is when Enter is pressed, and whether the keyboard still composes a word. Text
   that is still being composed is not sent to the core, and the Enter that confirms it does
   not split the item.
+- Backspace at the start of an item joins it to the item before. The edit goes on there,
+  with the cursor where the two texts meet. An empty item goes away this way. The field
+  tells of no change then, so it hears the key itself (`deleteBackward`). Nothing is joined
+  while text is chosen, or while the keyboard composes a word.
 - After Enter, the edit moves to the field of the new item. That takes a moment: the core
   splits the item, and the screen gives the keyboard to the new field. What is typed
   meanwhile is kept and typed into the new field. `KeyboardKeeper` has the keyboard while

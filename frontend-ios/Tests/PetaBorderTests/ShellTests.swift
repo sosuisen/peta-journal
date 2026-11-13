@@ -268,6 +268,17 @@ final class ShellTests: JournalTestCase {
         waitUntil("the item is split after the second character") { self.bodies() == ["😀a", "b"] }
     }
 
+    // 先頭でのBackspaceは、項目を前の項目につなぐ。編集は、つないだ項目で続く。カーソルは、つなぎ目に置かれる。
+    func testBackspaceAtTheStartJoinsTheItemToTheOneBeforeAndTheEditGoesOnWhereTheyMeet() throws {
+        try editSecondOfThree()
+
+        shell.backspaceAtStart(id(of: "second"))
+
+        waitUntil("the two items are one") { self.bodies() == ["firstsecond", "third"] }
+        waitUntil("the joined item is edited") { self.edited() == "firstsecond" }
+        XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 5)
+    }
+
     // ほかの項目に触れると、編集がそこへ移る。前の項目の編集は終わる。
     func testATouchOnAnotherItemMovesTheEditThere() throws {
         try editSecondOfThree()

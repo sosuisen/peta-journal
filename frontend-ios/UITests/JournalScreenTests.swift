@@ -328,6 +328,64 @@ final class JournalScreenTests: XCTestCase {
         XCTAssertEqual(order(["first", "second"]), ["first", "second"])
     }
 
+    private static let backspace = XCUIKeyboardKey.delete.rawValue
+
+    /// Opens a page of one item, touches it, and presses Enter at its end. The edit is then in
+    /// a new, empty item, with the cursor at its start. A test cannot put the cursor at the
+    /// start of a field with text: neither a touch nor a key moves it there every time.
+    private func editANewEmptyItem(after first: String) throws {
+        try download("notes.md", first + "\n")
+        openNotes()
+        edit(first)
+        editor.typeText("\n")
+        waitUntil("the new item is edited, and has \(String(describing: editor.value))") { editor.value as? String == "" }
+    }
+
+    // つなぎ目のカーソルは、絵文字を1文字として数えた位置に置かれる。
+    func testTheCursorAfterAJoinCountsAnEmojiBeforeItAsOneCharacter() throws {
+        try editANewEmptyItem(after: "a😀")
+
+        editor.typeText(JournalScreenTests.backspace)
+
+        waitUntil("the item before is edited, and has \(String(describing: editor.value))") {
+            editor.value as? String == "a😀"
+        }
+        editor.typeText("X")
+        waitUntil("the letter is after the emoji, and the field has \(String(describing: editor.value))") {
+            editor.value as? String == "a😀X"
+        }
+    }
+
+    // 空のアイテムの先頭でのBackspaceは、そのアイテムを消す。編集は、前のアイテムの終わりで続く。
+    func testBackspaceInAnEmptyItemTakesItAwayAndTheEditGoesOnAtTheEndOfTheOneBefore() throws {
+        try editANewEmptyItem(after: "first")
+
+        editor.typeText(JournalScreenTests.backspace)
+
+        waitUntil("the item before is edited, and has \(String(describing: editor.value))") {
+            editor.value as? String == "first"
+        }
+        editor.typeText("X")
+        done()
+        waitFor(app.staticTexts["firstX"])
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'first'")).count, 1)
+    }
+
+    // 先頭より後ろでのBackspaceは、前の1文字を消すだけである。
+    func testBackspaceAfterTheStartOnlyDeletesTheCharacterBeforeTheCursor() throws {
+        try download("notes.md", above("A") + "first\n\n" + above("B") + "second\n")
+        openNotes()
+        edit("second")
+
+        editor.typeText(JournalScreenTests.backspace)
+
+        waitUntil("the last letter is gone, and the field has \(String(describing: editor.value))") {
+            editor.value as? String == "secon"
+        }
+        done()
+        XCTAssertEqual(order(["first", "secon"]), ["first", "secon"])
+    }
+
     // 道具は、アイテムを編集している間だけ表示され、Doneで編集が終わる。
     func testTheToolsShowOnlyWhileAnItemIsEditedAndDoneEndsTheEdit() throws {
         try download("notes.md", "only\n")
