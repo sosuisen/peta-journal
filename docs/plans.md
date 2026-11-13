@@ -287,6 +287,15 @@
     - 決めること: Dropboxとのやり取りを、Rustで書き直すか、境界を越えてKotlinとSwiftのSDKを呼ぶか。サインインとトークンの保存は、SDKに任せたままにするか。進み具合を、画面へどう伝えるか
     - ADR 034は、KotlinとSwiftの同期が食い違い始めたら見直すとしている
   - iOSとSwiftUIは、Swiftのコードを共有していない。別々のSwift Packageである。`Border`と`Shell`の骨組みが同じ形で2つある。iOSの`ShownParagraphs`（HTMLを読む）はFoundationだけで書いてあり、SwiftUIの側でも使える
+- [ ] ミューテーションテストがまだないシェルに、必要であれば入れる（2026-11-13にユーザーが足した）
+  - 今あるのは、Rustの`cargo-mutants`だけである（`journal-server-rust/.cargo/mutants.toml`）。SwiftUI、WinUI、Android、iOSのシェルには、道具がない
+  - シェルごとに、入れるかどうかを決める。入れるのは、道具が動かせるテストに、守るべきロジックがあるシェルである
+  - [ ] Android（`frontend-android`）: 候補はPITである。JVMの単体テストだけが対象になる。`sync`と`dropbox`のパッケージである。エミュレーターで動く画面テストは、PITでは動かせない
+    - 先に確かめること: Android用のPITのプラグインが、今のAGPとKotlinで動くか。まだ調べていない
+    - 2026-11-13は、手で確かめた。本体を4か所だけ壊し、狙ったテストが落ちるのを見て、元に戻した。スクロール、画面の作り直し、編集のあとの待ち、サインアウトでのカーソルの削除である
+  - [ ] iOS（`frontend-ios`）とSwiftUI（`frontend-swiftui`）: Swiftの道具を調べる。まだ調べていない
+  - [ ] WinUI（`frontend-winui`）: C#の道具を調べる。まだ調べていない
+  - 入れるときは、PRの前に毎回実行する。テストを書かないと決めたコードは、対象から外す（`generic-coding-rules`の「ミューテーションテスト」）
 
 ## Androidのシェル
 

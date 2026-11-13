@@ -226,6 +226,9 @@ What each class does:
 - `MainActivity` and `JournalModel` open the journal in the folders of the app:
   `files/markdown` for the Markdown files and `files/data` for the database, the index and
   the settings. They also start the sign-in and the sync. They do not know the Dropbox SDK.
+  `JournalModel` knows the cloud storage only as `CloudAccount`, and takes its folders from
+  outside. A test opens the model, and the real `MainActivity` over it, on folders of its own
+  and with an account of its own. `viewWithAnotherApp` hands a file to another app.
 - The package `sync` does not know Dropbox. It knows the cloud only as `Cloud`, so its tests
   need no Dropbox.
   - `Downloader` brings the Markdown folder of the app up to date with the cloud.
@@ -238,10 +241,16 @@ What each class does:
     own way.
 - The package `dropbox` holds all that uses the Dropbox SDK. No other package imports
   `com.dropbox`.
-  - `DropboxAccount` keeps the credential, starts the sign-in, signs out, and gives the
-    Markdown folder of the account as a `Cloud`.
-  - `DropboxCloud` is `Cloud` by the Dropbox SDK.
+  - `DropboxAccount` is the `CloudAccount` of Dropbox. It keeps the credential, starts the
+    sign-in, signs out, and gives the Markdown folder of the account as a `Cloud`.
+  - `DropboxCloud` is `Cloud` for Dropbox: it makes changes of the lists of Dropbox, and
+    turns a refused upload into `ChangedInCloud`.
   - `dropboxContentHash` makes the content hash of Dropbox of a file.
+  - Only two classes call the Dropbox SDK. `SdkDropboxFiles` lists, downloads and uploads.
+    `RealDropboxSdk` signs in and revokes. They pass each call on and decide nothing. The
+    other classes know them as the interfaces `DropboxFiles` and `DropboxSdk`, so the tests
+    put a Dropbox of their own there. No test runs the two classes: that needs the real
+    Dropbox.
 - `Cloud` still follows what Dropbox offers: a cursor for the changes, an upload over a
   version, and names without regard to case. Another cloud may need a change there.
 
