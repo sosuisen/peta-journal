@@ -2,6 +2,8 @@ import SwiftUI
 
 /// The tools of a sticky, which stand in the title bar of its window. The pin and the colors
 /// are not here: they are in the menu of the title bar, and leave the bar to the name.
+///
+/// The search tool is for the sticky that is worked on. The plus is always there.
 struct StickyTools: View {
     @ObservedObject var look: StickyLook
     /// Opens another sticky.
@@ -16,6 +18,11 @@ struct StickyTools: View {
             }
             .keyboardShortcut("f")
             .help("Search pages")
+            // The tool keeps its place while it is not shown: the plus beside it does not move
+            .opacity(look.toolsShown ? 1 : 0)
+            .disabled(!look.toolsShown)
+            // A new sticky is one click away from every sticky: one without the focus, and
+            // one that is rolled up. So this button is always shown
             Button(action: onAdd) {
                 Image(systemName: "plus")
             }
