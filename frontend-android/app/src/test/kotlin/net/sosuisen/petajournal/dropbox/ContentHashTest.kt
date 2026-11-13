@@ -22,4 +22,18 @@ class ContentHashTest {
 
         assertEquals(hex(sha256(first + second)), dropboxContentHash(file))
     }
+
+    // 4MBまでのファイルのハッシュは、中身のハッシュの、そのまたハッシュである。
+    @Test
+    fun the_content_hash_of_a_small_file_is_the_hash_of_the_hash_of_its_content() {
+        val file = dir.newFile("small").apply { writeText("- a") }
+
+        assertEquals(hex(sha256(sha256("- a".toByteArray()))), dropboxContentHash(file))
+    }
+
+    // 空のファイルのハッシュは、空の中身のハッシュである。
+    @Test
+    fun the_content_hash_of_an_empty_file_is_the_hash_of_nothing() {
+        assertEquals(hex(sha256(ByteArray(0))), dropboxContentHash(dir.newFile("empty")))
+    }
 }

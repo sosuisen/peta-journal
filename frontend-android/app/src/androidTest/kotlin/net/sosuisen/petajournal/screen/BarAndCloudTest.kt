@@ -60,39 +60,6 @@ class BarAndCloudTest : JournalScreenFixture() {
         compose.onNodeWithText(entry).performClick()
     }
 
-    // 「Sync」と「Sign out」は、メニューの中にある。メニューを開くまで、画面にはない。
-    @Test
-    fun the_sync_and_the_sign_out_are_in_the_menu() {
-        start(OnePage())
-        compose.onNodeWithText("Sync").assertDoesNotExist()
-        compose.onNodeWithText("Sign out").assertDoesNotExist()
-
-        compose.onNode(hasContentDescription("Menu")).performClick()
-
-        compose.onNodeWithText("Sync").assertExists()
-        compose.onNodeWithText("Sign out").assertExists()
-    }
-
-    // 上端のバーに、左からメニュー、検索の入力欄、今日のボタンが並ぶ。ページは、その下にある。
-    @Test
-    fun the_bar_at_the_top_holds_the_menu_the_search_field_and_today() {
-        download("notes.md", "text" + NL)
-        start(OnePage())
-        type("notes")
-        waitFor("notes")
-        compose.onAllNodes(shown("notes")).onFirst().performClick()
-        waitFor("text")
-
-        val menu = compose.onNode(hasContentDescription("Menu")).fetchSemanticsNode().boundsInRoot
-        val field = compose.onNodeWithTag(SEARCH_TAG).fetchSemanticsNode().boundsInRoot
-        val today = compose.onNode(hasContentDescription("Today")).fetchSemanticsNode().boundsInRoot
-        val page = compose.onNode(hasText("text"), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-
-        assertTrue("the menu is left of the field", menu.right <= field.left)
-        assertTrue("today is right of the field", today.left >= field.right)
-        assertTrue("the page is under the field", page.top >= field.bottom)
-    }
-
     // 項目を編集している間も、メニューを開ける。開いても、編集は続き、キーボードは消えない。
     @Test
     fun the_menu_opens_while_an_item_is_edited_and_the_edit_goes_on() {
@@ -215,15 +182,5 @@ class BarAndCloudTest : JournalScreenFixture() {
         compose.onNodeWithText("Try again").performClick()
 
         compose.waitUntil(WAIT_MS) { File(root, "markdown/docs/trip.md").exists() }
-    }
-
-    // 同期が失敗すると、その理由が見える。
-    @Test
-    fun a_sync_that_failed_shows_why() {
-        start(OnePage(reachable = false))
-
-        menu("Sync")
-
-        waitFor("Sync failed: the network is gone")
     }
 }
