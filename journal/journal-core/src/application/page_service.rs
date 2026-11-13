@@ -563,6 +563,10 @@ impl PageService {
             )?;
             changed = true;
         }
+        for key in have.keys().filter(|key| !front_matter.contains_key(*key)) {
+            PropertyRepository::delete_property_in(&tx, PAGE_TARGET, page_id.as_str(), key)?;
+            changed = true;
+        }
         tx.commit()?;
         Ok(changed)
     }
