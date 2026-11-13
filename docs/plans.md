@@ -456,7 +456,9 @@
   - `client-native-bridge`は、どのアプリとも結びつかない。`crate-type`を、既定の`lib`だけにした
   - `PetaShell`のtraitと`item_html`などの関数は、2つの入口に同じものが残る。BoltFFIの`export`は、最終のクレートに書くためである
 - [x] 段4: `shell-android`（`peta-shell-android`）を、`client-shell-embedded`にする。フォルダーも変える（2026-11-13に行った）
-  - [ ] Androidの画面のテスト（`connectedDebugAndroidTest`）を、端末かエミュレーターで回す。アプリのビルドと、端末の要らないテストは通った。ライブラリは`libclient_shell_embedded.so`になった
+  - [x] 2026-11-13 Androidの画面のテスト（`connectedDebugAndroidTest`）を、端末かエミュレーターで回す。アプリのビルドと、端末の要らないテストは通った。ライブラリは`libclient_shell_embedded.so`になった
+    - エミュレーター（`Pixel_9_API_35`）で、100個がすべて通った。段6までの改名が入った`main`で回した
+    - 実機では回していない。このテストは、終わるとアプリをアンインストールするので、端末のアプリのデータが消える
   - [ ] iOSのビルドとテストを、Macで確かめる。`frontend-ios/generate.sh`は、`client-shell-embedded`のフォルダーで`boltffi pack apple`を呼ぶようにした
   - AndroidとiOSの両方が使うようになったので、名前が合わなくなった（ADR 034）
   - 直すところ: Androidのライブラリの名前、AndroidとiOSの`generate`、`BUILD.md`、README
@@ -465,7 +467,9 @@
   - マージのあとに、使う人がすること。Emacsの`load-path`を`crates/client-shell-emacs/lisp`に直す。`client-shell-emacs`をビルドし直す。`build-frontend`を回し直す（`dist`の場所が`crates/client-shell-leptos/dist`に変わった）
   - ジャーナルサーバーのテスト（`journal-server-rust/crates/server/tests/it/frontend.rs`）は、`peta-frontend-…`という名前のファイルを例に使っている。配るファイルの名前の形を確かめるための例なので、変えていない
   - `docs/frontend-rust-rewrite-plan.md`は、書いた時点の記録なので、書き換えていない
-  - [ ] E2Eのテスト（`e2e`のPlaywrightと、Emacsの`peta-journal-e2e.el`）を回す。パスと名前は直したが、回していない
+  - [x] 2026-11-13 E2Eのテスト（`e2e`のPlaywrightと、Emacsの`peta-journal-e2e.el`）を回す
+    - Emacsは、40個がすべて通った
+    - Playwrightは、88個のうち87個が通った。落ちた1個は、`outline-structure.spec.ts`のCtrl+Cでのコピーのテストである。1行目の行末だけが期待と違う。改名の前から手元のWindowsで落ちているもので、上の「Web版のE2E」の項目にある
   - `shell-emacs`（`peta-shell-emacs`）を、`client-shell-emacs`にする。`shell-leptos`（`peta-frontend`）を、`client-shell-leptos`にする。フォルダーも変える
   - 先に調べること: 実行ファイルの名前を使っているところ（`peta-journal.el`、テスト）。wasmの名前を使っているところ（ビルドの設定、ジャーナルサーバーが配るファイル）
 - [x] 段6: `peta-core`を、`client-core`にする。フォルダーも変える（2026-11-13に行った）
