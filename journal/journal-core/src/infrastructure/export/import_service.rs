@@ -9,6 +9,9 @@
 //!   file goes, or as a copy when the old file is still there after a while.
 //! - Last writer wins by `modified`, for each item; see `ItemMerger`. When a change in the file
 //!   that was not seen here loses, the file is backed up as `name.conflict-yyyyMMdd-HHmmss.md`.
+//! - The tags and the other properties of a page come from the front matter of a file newer
+//!   than the page. A device that got a page only from its file must hold them, or the file
+//!   loses them when that device writes it.
 //! - An atlas goes by its page: when the DB is newer than the file, the file is backed up and
 //!   overwritten from the DB.
 //! - A Dropbox conflicted copy is taken in as one more version of its page, and then
@@ -366,11 +369,14 @@ impl MarkdownImportService {
             frontmatter_tags(fm)
         };
         let page_tags_before = self.page_service.replace_page_tags(&page.id, &page_tags)?;
+        let properties_changed =
+            !file_is_older && self.page_service.replace_page_properties(&page.id, fm)?;
         if merge.file_lost {
             self.write_conflict_backup(root, rel_path, loc, &content);
         }
 
         let page_changed = renamed
+            || properties_changed
             || merge.changed
             || merge.changed_here
             || is_new

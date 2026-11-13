@@ -12,5 +12,6 @@ mod find_doc;
 mod frontend;
 mod item_merge;
 mod page_files;
+mod page_properties;
 mod property_repository;
 mod watch;
