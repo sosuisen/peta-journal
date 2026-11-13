@@ -13,12 +13,15 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "generated/PetaCore"),
-        .package(path: "generated/swift/PetaTypes"),
+        // The types of the border, from the package that both apps share
+        .package(path: "../peta-shown/generated/swift/PetaTypes"),
+        .package(path: "../peta-shown"),
     ],
     targets: [
         .target(
             name: "PetaBorder",
             dependencies: [
+                .product(name: "PetaShown", package: "peta-shown"),
                 .product(name: "PetaCore", package: "PetaCore"),
                 .product(name: "PetaTypes", package: "PetaTypes"),
             ]

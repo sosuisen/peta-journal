@@ -38,11 +38,12 @@ swift test           # runs the tests that need no simulator, on the Mac
 ./release.sh         # builds the app (the Release build) for a simulator
 ```
 
-`generate.sh` makes two Swift packages. Run it again after a change in Rust. `generated/` is
-not kept in the repository:
+`generate.sh` makes two Swift packages. Run it again after a change in Rust. Neither is kept in
+the repository:
 
-- `generated/swift/PetaTypes`: the types that cross the border (`Event`, `ViewModel`,
-  `Request`, ...), made by `facet_generate` 0.22.3.
+- `../peta-shown/generated/swift/PetaTypes`: the types that cross the border (`Event`,
+  `ViewModel`, `Request`, ...), made by `facet_generate` 0.22.3. They are in the package that
+  this app shares with the Mac app: SwiftPM takes a package of one name from one place only.
 - `generated/PetaCore`: the class `PetaCore` that calls the core, and the core as a library
   for a device, for the simulator and for the Mac (`PetaCore.xcframework`). BoltFFI makes
   both. The library for the Mac is there for `swift test`.
@@ -126,11 +127,8 @@ copy of Dropbox.
   tells the screen where it stands. They are the classes of the Android shell, in Swift.
 - `PetaBorder` is the core behind its border, and what the app shows. `Border` is the core
   behind its border of bytes. `Shell` keeps the view model up to date with the core and sends
-  what the user did. `ShownText` makes the parts of an item as it is shown, from the AST that
-  the core gives with each row (`Row.ast`, ADR 041): the code blocks, the tables and the
-  images are parts of their own. `ShownParagraphs` makes the text between them into
-  paragraphs of pieces with a look each. A `switch` takes every kind of node, so a kind that
-  the AST gets later stops the build until it is drawn.
+  what the user did. `ShownWithCore` gives the parts of an item as it is shown, with the links
+  that this core writes. The parts themselves are made in `../peta-shown`.
 - `PetaDropbox` is `Cloud` for Dropbox, with the SDK: `DropboxCloud`. `DropboxAccount` is the
   sign-in and the sign-out, as a `CloudAccount` of `PetaSync`. Each calls the SDK through a
   protocol (`DropboxFiles`, `DropboxSdk`), which a test fills with its own Dropbox. The classes

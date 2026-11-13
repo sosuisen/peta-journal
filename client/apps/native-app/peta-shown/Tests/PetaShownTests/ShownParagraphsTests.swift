@@ -1,9 +1,9 @@
-import PetaBorder
+import PetaShown
 import PetaTypes
 import XCTest
 
-/// A screen of iOS draws paragraphs of pieces with a look each. They are made of the AST that
-/// the core gives (ADR 041), here, where a Mac can test it.
+/// A screen draws paragraphs of pieces with a look each. They are made of the AST that the core
+/// gives (ADR 041).
 final class ShownParagraphsTests: XCTestCase {
     private func piece(_ text: String, _ looks: Looks = [], link: String? = nil) -> ShownPiece {
         ShownPiece(text: text, looks: looks, link: link)
@@ -13,12 +13,17 @@ final class ShownParagraphsTests: XCTestCase {
 
     private func paragraph(_ inline: Node...) -> Node { .paragraph(children: inline) }
 
-    private func shown(_ blocks: Node..., tagsDir: String = "tags/") -> [ShownParagraph] {
-        shownParagraphs(of: blocks, tagsDir: tagsDir)
+    /// The links as the core writes them, with the tags in `tags/`.
+    private let links = PageLinks(
+        page: { "/pages/" + ($0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? $0) },
+        tag: { "/pages/tags/" + $0 })
+
+    private func shown(_ blocks: Node...) -> [ShownParagraph] {
+        shownParagraphs(of: blocks, links: links)
     }
 
     private func pieces(_ blocks: Node...) -> [[ShownPiece]] {
-        shownParagraphs(of: blocks, tagsDir: "tags/").map(\.pieces)
+        shownParagraphs(of: blocks, links: links).map(\.pieces)
     }
 
     private func list(ordered: Bool = false, start: UInt32 = 1, _ entries: Node...) -> Node {

@@ -1,0 +1,4 @@
+# Made by generate.sh of either app from the Rust crates
+/generated/
+# Swift Package Manager
+/.build/

@@ -261,7 +261,7 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - [ ] `shell-leptos`のwasmの大きさを、前後で比べる。見積もりは数KB以下である
   - スクロールやカーソルの位置を戻す、履歴を保存する、は入れない。足すときは、置き場所を決め直す（ADR 035の見直す条件）
 - [ ] ネイティブのシェルで、画像を貼り付けられるようにする。今は、`ApiOp::UploadAsset`がエラーになる。ファイルをシェルからRust側へ渡す方法を決める
-- [ ] `stickies-win`と`stickies-mac`で、画像を絵として出す（2026-11-14にユーザーが足した）。今は、代わりの文字か、ファイルの場所を、角かっこで出す（ADR 025）。iOSとAndroidは、もう絵として出す
+- [ ] `stickies-win`で、画像を絵として出す（2026-11-14にユーザーが足した）。今は、代わりの文字か、ファイルの場所を、角かっこで出す（ADR 025）。iOS、Android、`stickies-mac`は、もう絵として出す
 - [ ] ネイティブのシェルを閉じるときに、保存を待っている本文を保存する。`shell-emacs`の`shutdown`にあたるものが、まだない
 - [ ] コアの内部のイベントを、ネイティブのシェルから見えなくする（改善案、2026-11-13）
   - コアをMVVMにする案と比べたときに出た。コアはCruxのままにして、MVVMの良い点だけを取る
@@ -272,12 +272,18 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [ ] ネイティブのシェルの`Shell`にある同じ処理を、Rustの側に寄せる（改善案、2026-11-13）
   - Rustの側に寄せる分は、2026-11-14に終えた（タイトル、フォーカスの番号、質問の待ち行列、iOSとAndroidの`Shell`の共通部分）
   - [ ] iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）の間で、Swiftに残った同じコードを寄せる
+    - 2026-11-14にユーザーが決めた。本文を描く処理を、半分そろえる。ASTを読んで出すものを決める処理（iOSの`ShownBlock`）を、2つのアプリの共通のパッケージに置く。画面に描く処理は、アプリごとに持つ
+    - 2026-11-14にユーザーが決めた。画像は、どちらのアプリでも絵として出す
+    - 2026-11-14にユーザーが決めた。リンクは、アプリの中でそのページへ移る。Macに限り、Shift-クリックでWebブラウザで開く
+    - [x] 共通のパッケージ`peta-shown`を作り、`PetaTypes`の生成先を1つにする。iOSの`ShownBlock`と`ShownParagraph`を移す
+    - [x] iOSのアプリが、共通のパッケージを使う
+    - [x] Macのアプリが、`ShownBlock`から`NSAttributedString`を作る。画像を、journalサーバーから読んで絵として出す
+    - [x] Macのアプリで、リンクのクリックはそのページを付箋で開き、Shift-クリックはブラウザで開く
   - [ ] Dropboxとの同期をRustに書き、AndroidとiOSの両方で使うかを検討する（2026-11-13にユーザーが足した。ADR 034のAlternative 2）
     - 今は、同じクラスがKotlinとSwiftに1つずつある（`Cloud`、`CloudRecord`、`MarkdownFolder`、`Downloader`、`Uploader`、`SyncRound`、`CloudSync`）。決まりを変えるときは、両方を直す
     - Rustに寄せると、同期の決まりが1か所になる。テストも1つで済む
     - 決めること: Dropboxとのやり取りを、Rustで書き直すか、境界を越えてKotlinとSwiftのSDKを呼ぶか。サインインとトークンの保存は、SDKに任せたままにするか。進み具合を、画面へどう伝えるか
     - ADR 034は、KotlinとSwiftの同期が食い違い始めたら見直すとしている
-  - iOSとSwiftUIは、Swiftのコードを共有していない。別々のSwift Packageである。`Border`と`Shell`の骨組みが同じ形で2つある。iOSの`ShownParagraphs`（HTMLを読む）はFoundationだけで書いてあり、SwiftUIの側でも使える
 - [ ] ミューテーションテストがまだないシェルに、必要であれば入れる（2026-11-13にユーザーが足した）
   - 今あるのは、Rustの`cargo-mutants`だけである（`journal/.cargo/mutants.toml`）。SwiftUI、WinUI、Android、iOSのシェルには、道具がない
   - シェルごとに、入れるかどうかを決める。入れるのは、道具が動かせるテストに、守るべきロジックがあるシェルである

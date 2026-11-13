@@ -7,7 +7,7 @@ public struct OutlineScreen: View {
     @ObservedObject private var shell: Shell
     @ObservedObject private var look: StickyLook
     @StateObject private var cursors = Cursors()
-    @StateObject private var texts = ShownTexts()
+    @StateObject private var texts: ShownTexts
     @StateObject private var seen = SeenRows()
     /// What is typed into the prompt on screen.
     @State private var typed = ""
@@ -16,6 +16,7 @@ public struct OutlineScreen: View {
     @MainActor
     public init(shell: Shell, look: StickyLook? = nil, searching: Bool = false) {
         self.shell = shell
+        _texts = StateObject(wrappedValue: ShownTexts(shell: shell))
         self.look = look ?? StickyLook()
         if searching { self.look.searching = true }
     }
