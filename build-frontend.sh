@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds the web frontend into frontend-rust/crates/shell-leptos/dist. It works from any folder.
+# Builds the web frontend into frontend-rust/crates/client-shell-leptos/dist. It works from any folder.
 #
 #   ./build-frontend.sh          small files, for daily use
 #   ./build-frontend.sh --dev    a faster build with larger files, for development
@@ -15,6 +15,6 @@ case "${1:-}" in
     *) echo "usage: $0 [--dev]" >&2; exit 2 ;;
 esac
 
-cd "$here/frontend-rust/crates/shell-leptos"
+cd "$here/frontend-rust/crates/client-shell-leptos"
 # No quotes: an empty mode must not reach trunk as an argument.
 exec trunk build $mode

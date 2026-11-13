@@ -1,10 +1,10 @@
-# peta-shell-emacs
+# client-shell-emacs
 
 English | [日本語](README.ja.md)
 
 The Emacs frontend of PetaJournal. It has two parts:
 
-- `peta-shell-emacs` is a Rust program. It holds the Crux core (`peta-core`) and performs its
+- `client-shell-emacs` is a Rust program. It holds the Crux core (`peta-core`) and performs its
   effects: HTTP, the event stream and timers.
 - `lisp/peta-journal.el` is an Emacs mode. It draws the rows it is sent and reports what the user
   does.
@@ -17,13 +17,13 @@ Build the program:
 
 ```powershell
 cd peta-journal/frontend-rust
-cargo build --release -p peta-shell-emacs
+cargo build --release -p client-shell-emacs
 ```
 
 Add this to your Emacs init file:
 
 ```elisp
-(add-to-list 'load-path "<peta-journal>/frontend-rust/crates/shell-emacs/lisp")
+(add-to-list 'load-path "<peta-journal>/frontend-rust/crates/client-shell-emacs/lisp")
 (autoload 'peta-journal "peta-journal" nil t)
 ```
 
@@ -266,7 +266,7 @@ items.
 
 ## Tests
 
-`cargo test -p peta-shell-emacs` runs two kinds of tests:
+`cargo test -p client-shell-emacs` runs two kinds of tests:
 
 - `src/tests/` tests the shell around the core, with a fake host.
 - `tests/process.rs` starts the program itself. The test plays Emacs on its stdin and stdout, and
@@ -279,7 +279,7 @@ but not the E2E tests.
 The tests of the buffer run without a process:
 
 ```powershell
-cd peta-journal/frontend-rust/crates/shell-emacs
+cd peta-journal/frontend-rust/crates/client-shell-emacs
 emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit
 ```
 

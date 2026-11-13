@@ -52,7 +52,7 @@ first of these folders:
 2. the `frontend/` folder beside the server executable
 
 Under `cargo run`, `.cargo/config.toml` sets `PETAJOURNAL_FRONTEND_DIR` to
-`frontend-rust/crates/shell-leptos/dist`, the folder `trunk build` writes. The executable started
+`frontend-rust/crates/client-shell-leptos/dist`, the folder `trunk build` writes. The executable started
 by hand (`./target/release/journal-server`) does not see that setting: pass `--frontend-dir`, or
 copy `dist/` to `target/release/frontend/`. With neither folder the server serves the API only,
 and logs `Frontend: not served` at startup.
@@ -81,7 +81,7 @@ binary starts the server once on a free port with everything under a temporary d
 
 `frontend-rust` is the frontend: a [Crux](https://github.com/redbadger/crux) core
 (`crates/core`, the outline logic, tested without a browser) and a [Leptos](https://leptos.dev/) shell
-(`crates/shell-leptos`) built to WebAssembly with trunk. It replaced the Angular frontend; the
+(`crates/client-shell-leptos`) built to WebAssembly with trunk. It replaced the Angular frontend; the
 port is described in `docs/frontend-rust-rewrite-plan.md`.
 
 ### Prerequisites
@@ -92,7 +92,7 @@ port is described in `docs/frontend-rust-rewrite-plan.md`.
 ### Build and run
 
 ```powershell
-cd peta-journal/frontend-rust/crates/shell-leptos
+cd peta-journal/frontend-rust/crates/client-shell-leptos
 trunk build                 # debug files in dist/, for development
 trunk build --release       # small files in dist/, for daily use and distribution
 ```
@@ -114,8 +114,8 @@ version, bundle it in a scratch directory and copy the two files over:
 ```powershell
 mkdir hljs-build; cd hljs-build
 npm i highlight.js@11 esbuild
-npx esbuild node_modules/highlight.js/lib/common.js --bundle --format=iife --global-name=hljs --minify --outfile=<peta-journal>/frontend-rust/crates/shell-leptos/vendor/highlight.min.js
-cp node_modules/highlight.js/styles/github.css <peta-journal>/frontend-rust/crates/shell-leptos/vendor/highlight-github.css
+npx esbuild node_modules/highlight.js/lib/common.js --bundle --format=iife --global-name=hljs --minify --outfile=<peta-journal>/frontend-rust/crates/client-shell-leptos/vendor/highlight.min.js
+cp node_modules/highlight.js/styles/github.css <peta-journal>/frontend-rust/crates/client-shell-leptos/vendor/highlight-github.css
 ```
 
 ### Tests
@@ -161,11 +161,11 @@ cargo cov --html     # target/llvm-cov/html/index.html, line by line
 ```
 
 `cargo cov` is an alias in `.cargo/config.toml`. It measures `peta-core`, `client-page-links`,
-`client-api-http`, `client-api-embedded`, `peta-shell-emacs`, `client-native-bridge`, `client-shell-http` and
-`client-shell-embedded`. The wasm shell `peta-frontend` (`crates/shell-leptos`) is left out: it only runs in
+`client-api-http`, `client-api-embedded`, `client-shell-emacs`, `client-native-bridge`, `client-shell-http` and
+`client-shell-embedded`. The wasm shell `client-shell-leptos` (`crates/client-shell-leptos`) is left out: it only runs in
 the browser, so the E2E tests cover it instead.
 
-No file of `peta-shell-emacs` is left out. Its tests start the program itself, and `cargo cov`
+No file of `client-shell-emacs` is left out. Its tests start the program itself, and `cargo cov`
 measures that run too.
 
 `cargo cov` turns on the feature `facet_typegen` of `client-native-bridge`, so the generation of
@@ -236,12 +236,12 @@ simulator and for the Mac. This needs the Rust targets `aarch64-apple-ios` and
 
 ### Emacs frontend
 
-`crates/shell-emacs` is a second shell around the same core. It is a native program, and an Emacs
-mode draws what it sends. `crates/shell-emacs/README.md` describes the setup, the keys and the tests.
+`crates/client-shell-emacs` is a second shell around the same core. It is a native program, and an Emacs
+mode draws what it sends. `crates/client-shell-emacs/README.md` describes the setup, the keys and the tests.
 
 ```powershell
 cd peta-journal/frontend-rust
-cargo build --release -p peta-shell-emacs
+cargo build --release -p client-shell-emacs
 ```
 
 ## SwiftUI frontend (frontend-swiftui)

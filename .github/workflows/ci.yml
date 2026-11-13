@@ -47,14 +47,14 @@ jobs:
         run: cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi --test codegen --test ffi
       # The shell only runs in the browser, and the native build above does not show what breaks on wasm
       - if: matrix.workspace == 'frontend-rust'
-        run: cargo check --target wasm32-unknown-unknown -p peta-frontend
-      # The Emacs mode of crates/shell-emacs. These tests need no process. The E2E tests are not
+        run: cargo check --target wasm32-unknown-unknown -p client-shell-leptos
+      # The Emacs mode of crates/client-shell-emacs. These tests need no process. The E2E tests are not
       # run here: they need the journal server too.
       # Why not emacs-nox: it has no images and no fringes, and some of the tests are about them
       - if: matrix.workspace == 'frontend-rust'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends emacs-gtk
       - if: matrix.workspace == 'frontend-rust'
-        working-directory: frontend-rust/crates/shell-emacs
+        working-directory: frontend-rust/crates/client-shell-emacs
         run: emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit
 
   todo:
