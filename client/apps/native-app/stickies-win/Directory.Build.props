@@ -13,4 +13,14 @@
          kind of node that is not drawn (ADR 041). -->
     <WarningsAsErrors>$(WarningsAsErrors);nullable;CS8509</WarningsAsErrors>
   </PropertyGroup>
+  <!-- The generated classes have no constructor. Deserialize fills every field, but the
+       compiler warns for each field (CS8618), and for the key type of a map (CS8714).
+       CS8618 is right about one thing: hand-written code can leave a field out, and then
+       the field is null. But the warning points at the generated code, which is made again
+       on every run of generate.ps1, so nobody can act on it here. About 120 of these hid
+       the warnings of the hand-written code. Other warnings of the generated code still
+       show. -->
+  <PropertyGroup Condition="$(MSBuildProjectDirectory.Contains('generated'))">
+    <NoWarn>$(NoWarn);CS8618;CS8714</NoWarn>
+  </PropertyGroup>
 </Project>
