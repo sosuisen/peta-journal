@@ -24,7 +24,7 @@ import com.dropbox.core.v2.DbxClientV2
 import net.sosuisen.petajournal.sync.CloudRecord
 import net.sosuisen.petajournal.sync.CloudSync
 import net.sosuisen.petajournal.sync.Downloader
-import net.sosuisen.petajournal.sync.DropboxCloud
+import net.sosuisen.petajournal.dropbox.DropboxCloud
 import net.sosuisen.petajournal.sync.MarkdownFolder
 import net.sosuisen.petajournal.sync.SyncRound
 import net.sosuisen.petajournal.sync.Uploader

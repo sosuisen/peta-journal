@@ -1,4 +1,4 @@
-package net.sosuisen.petajournal.sync
+package net.sosuisen.petajournal.dropbox
 
 import com.dropbox.core.v2.DbxClientV2
 import com.dropbox.core.v2.files.DeletedMetadata
@@ -8,6 +8,10 @@ import com.dropbox.core.v2.files.ListFolderResult
 import com.dropbox.core.v2.files.Metadata
 import com.dropbox.core.v2.files.UploadErrorException
 import com.dropbox.core.v2.files.WriteMode
+import net.sosuisen.petajournal.sync.Change
+import net.sosuisen.petajournal.sync.ChangedInCloud
+import net.sosuisen.petajournal.sync.Changes
+import net.sosuisen.petajournal.sync.Cloud
 import java.io.File
 import java.io.OutputStream
 import java.util.Date
