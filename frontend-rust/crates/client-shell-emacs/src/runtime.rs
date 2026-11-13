@@ -96,7 +96,7 @@ fn read_emacs(to_main: &Sender<Message>) {
             Ok(envelope) => {
                 let _ = to_main.send(Message::Input(Input::Emacs(envelope)));
             }
-            Err(e) => eprintln!("[shell-emacs] bad line from Emacs: {e}: {line}"),
+            Err(e) => eprintln!("[client-shell-emacs] bad line from Emacs: {e}: {line}"),
         }
     }
     let _ = to_main.send(Message::EmacsClosed);

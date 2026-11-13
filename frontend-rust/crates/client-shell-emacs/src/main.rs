@@ -7,5 +7,5 @@ fn main() {
     let server = std::env::args()
         .nth(1)
         .unwrap_or_else(|| DEFAULT_SERVER.to_string());
-    peta_shell_emacs::runtime::run(server);
+    client_shell_emacs::runtime::run(server);
 }

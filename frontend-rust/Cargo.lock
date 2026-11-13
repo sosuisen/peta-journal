@@ -551,6 +551,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "client-shell-emacs"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "client-api-http",
+ "crux_core",
+ "peta-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "client-shell-embedded"
 version = "0.1.0"
 dependencies = [
@@ -574,6 +586,32 @@ dependencies = [
  "client-native-bridge",
  "crux_core",
  "peta-core",
+]
+
+[[package]]
+name = "client-shell-leptos"
+version = "0.1.0"
+dependencies = [
+ "client-page-links",
+ "console_error_panic_hook",
+ "crux_core",
+ "flatmarkdown",
+ "flatmarkdown-ast",
+ "flatmarkdown-ast2html",
+ "gloo-events",
+ "gloo-net",
+ "gloo-timers",
+ "js-sys",
+ "leptos",
+ "leptos_router",
+ "peta-atlas",
+ "peta-core",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -2745,44 +2783,6 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid",
-]
-
-[[package]]
-name = "peta-frontend"
-version = "0.1.0"
-dependencies = [
- "client-page-links",
- "console_error_panic_hook",
- "crux_core",
- "flatmarkdown",
- "flatmarkdown-ast",
- "flatmarkdown-ast2html",
- "gloo-events",
- "gloo-net",
- "gloo-timers",
- "js-sys",
- "leptos",
- "leptos_router",
- "peta-atlas",
- "peta-core",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
-name = "peta-shell-emacs"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "client-api-http",
- "crux_core",
- "peta-core",
- "serde",
- "serde_json",
 ]
 
 [[package]]

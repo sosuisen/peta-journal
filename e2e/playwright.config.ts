@@ -14,7 +14,7 @@ export const serverPort = 8187;
 export const dataDir = mkdtempSync(join(tmpdir(), 'peta-journal-e2e-'));
 /** The markdown folder the test server exports to. Lives inside `dataDir`, never the user's. */
 export const markdownDir = join(dataDir, 'markdown');
-const shellDir = resolve(__dirname, '../frontend-rust/crates/shell-leptos');
+const shellDir = resolve(__dirname, '../frontend-rust/crates/client-shell-leptos');
 /** Not `dist`: that folder belongs to the developer's own server, which may be reading it now. */
 const frontendDir = resolve(shellDir, 'dist-e2e');
 

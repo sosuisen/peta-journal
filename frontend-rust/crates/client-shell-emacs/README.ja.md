@@ -1,10 +1,10 @@
-# peta-shell-emacs
+# client-shell-emacs
 
 [English](README.md) | 日本語
 
 PetaJournalのEmacs版フロントエンドである。次の2つからなる。
 
-- `peta-shell-emacs`はRustのプログラムである。Cruxのコア（`peta-core`）を持ち、HTTP、イベントストリーム、タイマーを実行する。
+- `client-shell-emacs`はRustのプログラムである。Cruxのコア（`peta-core`）を持ち、HTTP、イベントストリーム、タイマーを実行する。
 - `lisp/peta-journal.el`はEmacsのモードである。送られてきた行を描画し、利用者の操作を伝える。
 
 両者は、stdinとstdoutのJSON Linesでやり取りする。メッセージは`src/protocol.rs`で定義している。
@@ -15,13 +15,13 @@ PetaJournalのEmacs版フロントエンドである。次の2つからなる。
 
 ```powershell
 cd peta-journal/frontend-rust
-cargo build --release -p peta-shell-emacs
+cargo build --release -p client-shell-emacs
 ```
 
 Emacsの初期設定ファイルに、次の内容を追加する。
 
 ```elisp
-(add-to-list 'load-path "<peta-journal>/frontend-rust/crates/shell-emacs/lisp")
+(add-to-list 'load-path "<peta-journal>/frontend-rust/crates/client-shell-emacs/lisp")
 (autoload 'peta-journal "peta-journal" nil t)
 ```
 
@@ -213,7 +213,7 @@ Emacsの初期設定ファイルに、次の内容を追加する。
 
 ## テスト
 
-`cargo test -p peta-shell-emacs`は、2種類のテストを動かす。
+`cargo test -p client-shell-emacs`は、2種類のテストを動かす。
 
 - `src/tests/`は、偽のホストを使って、コアを動かすシェルをテストする。
 - `tests/process.rs`は、プログラムそのものを起動する。テストがEmacsの代わりに標準入力と標準出力でやり取りし、テストの中の小さなサーバーがHTTPの要求に答える。Emacsもjournal-serverもいらない。このうち1件は、シェルがサーバーをあきらめるまでの5秒を待つ。
@@ -223,7 +223,7 @@ Emacsの初期設定ファイルに、次の内容を追加する。
 バッファのテストは、プロセスなしで動く。
 
 ```powershell
-cd peta-journal/frontend-rust/crates/shell-emacs
+cd peta-journal/frontend-rust/crates/client-shell-emacs
 emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit
 ```
 

@@ -258,7 +258,7 @@ struct Emacs {
 
 impl Emacs {
     fn starts_the_shell(arguments: &[&str]) -> Emacs {
-        let mut program = Command::new(env!("CARGO_BIN_EXE_peta-shell-emacs"))
+        let mut program = Command::new(env!("CARGO_BIN_EXE_client-shell-emacs"))
             .args(arguments)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -427,7 +427,7 @@ fn an_image_file_goes_to_the_server_as_a_form() {
     server.has_page(&[item("a", "first")]);
     let saved = json!({ "fileName": "saved.png", "originalName": "pic.png" });
     server.answers("POST", "/api/assets/upload", 200, &saved);
-    let folder = std::env::temp_dir().join(format!("peta-shell-emacs-{}", std::process::id()));
+    let folder = std::env::temp_dir().join(format!("client-shell-emacs-{}", std::process::id()));
     std::fs::create_dir_all(&folder).unwrap();
     let file = folder.join("pic.png");
     std::fs::write(&file, b"\x89PNG bytes").unwrap();

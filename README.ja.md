@@ -12,13 +12,13 @@
 
 - 機能の説明とフォルダ同期: [README.md](README.md)
 - ビルドの詳細、サーバーの設定の一覧、テスト: [BUILD.md](BUILD.md)
-- Emacs版: [frontend-rust/crates/shell-emacs/README.ja.md](frontend-rust/crates/shell-emacs/README.ja.md)
+- Emacs版: [frontend-rust/crates/client-shell-emacs/README.ja.md](frontend-rust/crates/client-shell-emacs/README.ja.md)
 
 ## 起動手順
 
 Web版を使うときに起動するのは、journal-serverだけである。journal-serverが、APIと画面の両方を`http://localhost:8087`で配信する（[ADR 010](docs/adr/adr-010-journal-server-serves-the-web-frontend.md)）。
 
-画面は、Trunkが`frontend-rust/crates/shell-leptos/dist/`に出力したファイルである。journal-serverは、リクエストのたびにこのフォルダからファイルを読む。
+画面は、Trunkが`frontend-rust/crates/client-shell-leptos/dist/`に出力したファイルである。journal-serverは、リクエストのたびにこのフォルダからファイルを読む。
 
 ### 準備（一度だけ）
 
@@ -33,7 +33,7 @@ Windows ARM64では、[README.md](README.md)の「Build」にある準備も行�
 画面をデバッグ版でビルドし、journal-serverを`cargo run`で起動する。
 
 ```powershell
-cd peta-journal/frontend-rust/crates/shell-leptos
+cd peta-journal/frontend-rust/crates/client-shell-leptos
 trunk build
 
 cd ../../../journal-server-rust
@@ -62,12 +62,12 @@ cargo run -- --port 8088 --data-dir <作業フォルダ>/data --index-dir <作�
 画面とサーバーをリリース版でビルドし、実行ファイルを直接起動する。
 
 ```powershell
-cd peta-journal/frontend-rust/crates/shell-leptos
+cd peta-journal/frontend-rust/crates/client-shell-leptos
 trunk build --release
 
 cd ../../../journal-server-rust
 cargo build --release
-./target/release/journal-server --frontend-dir ../frontend-rust/crates/shell-leptos/dist
+./target/release/journal-server --frontend-dir ../frontend-rust/crates/client-shell-leptos/dist
 ```
 
 ブラウザで`http://localhost:8087`を開く。データは`~/.peta-journal`に置かれる。
@@ -81,7 +81,7 @@ cargo build --release
    journal-server（Windowsでは journal-server.exe）
    frontend/
      index.html
-     peta-frontend-<ハッシュ>.js
+     client-shell-leptos-<ハッシュ>.js
      ...
    ```
 

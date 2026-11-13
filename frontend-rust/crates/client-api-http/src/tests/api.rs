@@ -52,7 +52,7 @@ fn fake(status: u16) -> FakeHttp {
 /// A file with these bytes in a folder of this test. The test removes the folder.
 fn file_in_folder_of(test: &str, name: &str, bytes: &[u8]) -> (PathBuf, String) {
     let folder =
-        std::env::temp_dir().join(format!("peta-shell-emacs-{}-{test}", std::process::id()));
+        std::env::temp_dir().join(format!("client-api-http-{}-{test}", std::process::id()));
     std::fs::create_dir_all(&folder).unwrap();
     let file = folder.join(name);
     std::fs::write(&file, bytes).unwrap();
