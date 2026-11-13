@@ -5,9 +5,12 @@ import java.io.IOException
 import java.io.OutputStream
 
 /**
- * What the sync needs of the cloud storage: the Markdown folder there, as Dropbox tells of
- * it. A path is relative to that folder, with `/` between its parts and none at its start.
- * The cloud does not tell names apart by upper and lower case.
+ * What the sync needs of the cloud storage: the Markdown folder there. A path is relative to
+ * that folder, with `/` between its parts and none at its start.
+ *
+ * The interface follows what Dropbox offers. The cloud tells what changed since a cursor. It
+ * takes an upload only over the version it is told. It does not tell names apart by upper
+ * and lower case.
  */
 interface Cloud {
     /**
@@ -28,6 +31,13 @@ interface Cloud {
      *   none was expected. Nothing is written then.
      */
     fun upload(path: String, from: File, over: String?): Change.File
+
+    /**
+     * The hash that this cloud makes of the content of [file], which is a file here. It is
+     * what [Change.File.contentHash] is for the same content, so it tells whether a file here
+     * has the content of the file in the cloud, with no download.
+     */
+    fun contentHash(file: File): String
 }
 
 /** The cloud has a version of the file that the app has not seen yet. */
@@ -46,7 +56,7 @@ sealed interface Change {
     /**
      * A file that is new or has new content.
      *
-     * @param contentHash the hash that Dropbox makes of the content.
+     * @param contentHash the hash that the cloud makes of the content, as [Cloud.contentHash] does.
      * @param remote how the cloud finds this very version of the file.
      */
     data class File(override val path: String, val contentHash: String, val remote: String) : Change

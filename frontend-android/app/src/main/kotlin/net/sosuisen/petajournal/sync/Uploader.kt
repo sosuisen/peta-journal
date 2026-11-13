@@ -15,7 +15,7 @@ class Uploader(private val cloud: Cloud, private val folder: MarkdownFolder, pri
      * download. What was uploaded before that, or before another failure, stays uploaded.
      */
     fun run(onProgress: (done: Int, total: Int) -> Unit) {
-        val changed = folder.pages().filter { folder.contentHash(it) != record[it]?.contentHash }
+        val changed = folder.pages().filter { folder.contentHash(it, cloud::contentHash) != record[it]?.contentHash }
         onProgress(0, changed.size)
         try {
             changed.forEachIndexed { done, path ->

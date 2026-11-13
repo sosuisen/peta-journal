@@ -2,7 +2,6 @@ package net.sosuisen.petajournal.sync
 
 import java.io.File
 import java.io.OutputStream
-import java.security.MessageDigest
 
 /**
  * The Markdown folder of the app: a copy of the pages and their images in the folder in the
@@ -32,8 +31,11 @@ class MarkdownFolder(private val root: File, private val temp: File) {
 
     private fun spelled(file: File): String = file.relativeTo(root).invariantSeparatorsPath
 
-    /** The hash that Dropbox makes of the content of the file. `null` when it is not here. */
-    fun contentHash(path: String): String? = find(path)?.takeIf { it.isFile }?.let(::dropboxContentHash)
+    /**
+     * The hash of the content of the file, as [of] makes it: each cloud has its own way.
+     * `null` when the file is not here.
+     */
+    fun contentHash(path: String, of: (File) -> String): String? = find(path)?.takeIf { it.isFile }?.let(of)
 
     /** The paths of the Markdown files that are here, as they are spelled here, in order. */
     fun pages(): List<String> = root.walk()
@@ -108,22 +110,3 @@ fun findWithoutCase(root: File, path: String): File? =
 
 private fun child(dir: File, name: String): File? =
     dir.listFiles()?.firstOrNull { it.name.equals(name, ignoreCase = true) }
-
-private const val BLOCK = 4 * 1024 * 1024
-
-/**
- * The content hash of Dropbox: the SHA-256 of the SHA-256 of each block of 4MB, as hex. It
- * tells whether a file here has the content of the file in the cloud, with no download.
- */
-fun dropboxContentHash(file: File): String {
-    val whole = MessageDigest.getInstance("SHA-256")
-    val block = ByteArray(BLOCK)
-    file.inputStream().use { input ->
-        while (true) {
-            val read = input.readNBytes(block, 0, BLOCK)
-            if (read == 0) break
-            whole.update(MessageDigest.getInstance("SHA-256").apply { update(block, 0, read) }.digest())
-        }
-    }
-    return whole.digest().joinToString("") { "%02x".format(it) }
-}

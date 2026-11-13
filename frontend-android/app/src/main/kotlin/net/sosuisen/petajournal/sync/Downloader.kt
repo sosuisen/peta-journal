@@ -53,7 +53,7 @@ class Downloader(
             folder.keepOnly(files.keys, ::isUnsent)
             record.keepOnly(files.keys)
         }
-        download(files.values.filter { folder.contentHash(it.path) != it.contentHash }, onProgress)
+        download(files.values.filter { hashHere(it.path) != it.contentHash }, onProgress)
         files.values.forEach(record::put)
         record.save()
         cursorFile.writeText(changes.cursor)
@@ -64,7 +64,9 @@ class Downloader(
      * a copy of the cloud: a version of the app that could not write downloaded it.
      */
     private fun isUnsent(path: String): Boolean =
-        record.isKept && folder.contentHash(path) != record[path]?.contentHash
+        record.isKept && hashHere(path) != record[path]?.contentHash
+
+    private fun hashHere(path: String): String? = folder.contentHash(path, cloud::contentHash)
 
     private fun download(files: List<Change.File>, onProgress: (Int, Int) -> Unit) {
         onProgress(0, files.size)
