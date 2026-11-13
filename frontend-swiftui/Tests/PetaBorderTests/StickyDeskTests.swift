@@ -142,16 +142,37 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(nextRun().stickies.map(\.id), [first.id, second.id])
     }
 
-    // 付箋紙のツールは、タイトルバーにある。ウィンドウにフォーカスがないときは隠れ、フォーカスが戻ると出る。
-    func testTheToolsAreInTheTitleBarAndAreHiddenWithoutTheFocus() async throws {
+    /// The buttons that close, minimize and zoom the window of the sticky.
+    private func windowButtons(_ sticky: Sticky) throws -> [NSButton] {
+        try [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].map {
+            try XCTUnwrap(sticky.window.standardWindowButton($0))
+        }
+    }
+
+    // 付箋紙のツールは、タイトルバーにある。検索のツールは、ウィンドウにフォーカスがないときは隠れ、フォーカスが戻ると出る。新しい付箋紙のボタンがあるので、ツールの置き場所は隠れない。
+    func testTheToolsAreInTheTitleBarAndTheSearchToolIsHiddenWithoutTheFocus() async throws {
         let sticky = desk.add()
         let tools = try XCTUnwrap(sticky.window.titlebarAccessoryViewControllers.first)
 
         desk.windowDidBecomeKey(Notification(name: NSWindow.didBecomeKeyNotification, object: sticky.window))
+        XCTAssertTrue(sticky.look.toolsShown)
         XCTAssertFalse(tools.view.isHidden)
 
         desk.windowDidResignKey(Notification(name: NSWindow.didResignKeyNotification, object: sticky.window))
-        XCTAssertTrue(tools.view.isHidden)
+        XCTAssertFalse(sticky.look.toolsShown)
+        XCTAssertFalse(tools.view.isHidden)
+    }
+
+    // ウィンドウにフォーカスがないときは、ウィンドウを閉じる・しまう・大きくするボタンは隠れる。フォーカスが戻ると、ボタンが出る。
+    func testTheButtonsOfTheWindowAreHiddenWithoutTheFocus() async throws {
+        let sticky = desk.add()
+        let buttons = try windowButtons(sticky)
+
+        desk.windowDidBecomeKey(Notification(name: NSWindow.didBecomeKeyNotification, object: sticky.window))
+        XCTAssertEqual(buttons.map(\.isHidden), [false, false, false])
+
+        desk.windowDidResignKey(Notification(name: NSWindow.didResignKeyNotification, object: sticky.window))
+        XCTAssertEqual(buttons.map(\.isHidden), [true, true, true])
     }
 
     // タイトルバーの検索のツールを使うと、付箋紙に検索欄が出る。
@@ -236,9 +257,8 @@ final class StickyDeskTests: XCTestCase {
     // タイトルバーだけにしている間は、ウィンドウを閉じる・しまう・大きくするボタンは隠れる。元に戻すと、ボタンが出る。
     func testTheButtonsOfTheWindowAreHiddenWhileTheStickyIsRolledUp() async throws {
         let sticky = desk.add()
-        let buttons = try [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].map {
-            try XCTUnwrap(sticky.window.standardWindowButton($0))
-        }
+        let buttons = try windowButtons(sticky)
+        desk.windowDidBecomeKey(Notification(name: NSWindow.didBecomeKeyNotification, object: sticky.window))
         XCTAssertEqual(buttons.map(\.isHidden), [false, false, false])
 
         desk.roll(sticky)
@@ -248,20 +268,19 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(buttons.map(\.isHidden), [false, false, false])
     }
 
-    // タイトルバーだけにしている間は、フォーカスがあってもツールは隠れる。元に戻すと、ツールが出る。
-    func testTheToolsAreHiddenWhileTheStickyIsRolledUp() async throws {
+    // タイトルバーだけにしている間は、フォーカスがあっても検索のツールは隠れる。元に戻すと、ツールが出る。
+    func testTheSearchToolIsHiddenWhileTheStickyIsRolledUp() async throws {
         let sticky = desk.add()
-        let tools = try XCTUnwrap(sticky.window.titlebarAccessoryViewControllers.first)
         let gotFocus = Notification(name: NSWindow.didBecomeKeyNotification, object: sticky.window)
         desk.windowDidBecomeKey(gotFocus)
 
         desk.roll(sticky)
-        XCTAssertTrue(tools.view.isHidden)
+        XCTAssertFalse(sticky.look.toolsShown)
         desk.windowDidBecomeKey(gotFocus)
-        XCTAssertTrue(tools.view.isHidden)
+        XCTAssertFalse(sticky.look.toolsShown)
 
         desk.roll(sticky)
-        XCTAssertFalse(tools.view.isHidden)
+        XCTAssertTrue(sticky.look.toolsShown)
     }
 
     // 紙の上のダブルクリックでは、付箋紙の大きさは変わらない。

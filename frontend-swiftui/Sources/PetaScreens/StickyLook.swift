@@ -13,6 +13,9 @@ public final class StickyLook: ObservableObject {
     @Published public private(set) var zoom: Double
     /// The search box is on screen. This is not kept: the box is closed in the next run.
     @Published public var searching = false
+    /// The sticky is worked on: its window has the focus, and it is not rolled up. Its tools
+    /// are shown then. This is not kept.
+    @Published public var toolsShown = true
 
     /// The colors the menu of a sticky offers. They are the colors of the cards of Petasti
     /// (sosuisen/petasti, `cardColors`), without its transparent one: a sticky is a paper here.

@@ -63,6 +63,15 @@ final class StickyWindow: NSWindow {
     }
 }
 
+/// A view of SwiftUI that takes the click that gives its window the focus. Without this the
+/// first click on a window without the focus only brings the window to the front, and the
+/// button under the mouse is not pressed.
+private final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+}
+
 /// An entry of a menu that runs a closure.
 private final class MenuEntry: NSMenuItem {
     private let run: () -> Void
@@ -146,7 +155,8 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         window.contentMinSize = StickyDesk.smallest
         let tools = NSTitlebarAccessoryViewController()
         tools.layoutAttribute = .trailing
-        let buttons = NSHostingView(rootView: StickyTools(look: look, onAdd: { [weak self] in self?.add() }))
+        let buttons = FirstClickHostingView(
+            rootView: StickyTools(look: look, onAdd: { [weak self] in self?.add() }))
         buttons.frame.size = buttons.fittingSize
         tools.view = buttons
         window.addTitlebarAccessoryViewController(tools)
@@ -307,16 +317,16 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         showTools(of: sticky)
     }
 
-    /// The tools are for the sticky that is worked on. On the others they are only in the way
-    /// of the paper, and a sticky that is rolled up has no paper to work on. It has no buttons
-    /// of a window either.
+    /// The search tool and the buttons of the window are for the sticky that is worked on. On
+    /// the others they are only in the way of the name, and a sticky that is rolled up has no
+    /// paper to work on. The plus stays.
     private func showTools(of sticky: Sticky) {
         let shown = sticky.hasFocus && !sticky.rolledUp
-        // The view, not its controller: hiding the controller leaves the view on screen
-        // until the title bar is laid out again
-        sticky.window.titlebarAccessoryViewControllers.forEach { $0.view.isHidden = !shown }
-        // A sticky that is rolled up is only its name: a double click rolls it down
-        (sticky.window as? StickyWindow)?.windowButtons.forEach { $0.isHidden = sticky.rolledUp }
+        // The views of the tools hide the search tool themselves, and keep the plus: a new
+        // sticky is one click away from every sticky
+        if sticky.look.toolsShown != shown { sticky.look.toolsShown = shown }
+        // A sticky that is not worked on is only its name and the plus
+        (sticky.window as? StickyWindow)?.windowButtons.forEach { $0.isHidden = !shown }
     }
 
     /// The app is ending. The windows that macOS closes from here on were not closed by the
