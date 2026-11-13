@@ -11,35 +11,11 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [ ] **次回、最初にやる。** プロパティの定義を、Markdownフォルダーに置くファイルで端末の間に同期する
   - 2026-11-14にユーザーが決めた。定義をファイルに置く案のほかは、あり得ない
   - 理由: 定義（キー、型、ページ用かどうか）は、SQLiteの`property_definitions`にしかない。ファイルには出ない。だから、別のPCやモバイルの端末には、ユーザーが定義したプロパティとその型が届かない
-  - 下の取り込みの修正だけでは、定義のない端末で、値はすべて`text`として入る。定義のファイルが届いたら、その型に直す
+  - 取り込みの修正（2026-11-14に済んだ）だけでは、定義のない端末で、値はすべて`text`として入る。定義のファイルが届いたら、その型に直す
   - ファイルの場所、名前、形式、端末の間でぶつかったときの決まりは、ADRで決める
-- [x] Androidで保存したページから、`published`や`slug`といったページのプロパティが消える。直す
-  - 原因（2026-11-14に調べた）: 書き出しは、ページのプロパティをすべてfront matterに書く。取り込みは、`id`、`created`、`modified`、`tags`しか読まない。ファイルだけから作ったDBには、ページのプロパティが入らない。次の書き出しで、front matterから消える
-  - Androidだけの問題ではない。iOSでも、2台目のPCでも起きる
-  - 保存したページはDropboxへ上がるので、PCの側のファイルからもプロパティが消える。データを失う問題である
-  - 直し方: 取り込みで、front matterの残りのキーをページのプロパティとして読む。定義のないキーは`text`として入れる
-  - [x] 直したコアを入れたAndroidのアプリで、プロパティが残ることを実機で確かめる（2026-11-14にユーザーが確かめた）
 - [ ] 画像をいくつも持つ長いページを、速くスクロールしていると、アプリが落ちる。直す
   - 画像がなくても落ちるのかもしれない。まだ試していない
 - [ ] 画面を回すと、余計な同期が始まる。直す
-
-## ADR 041：型のあるASTを、すべてのシェルが描く
-
-2026-11-14にユーザーが受理した。段階3までは止めずに進め、段階4からは、AndroidとWindowsで確かめてから進める（ユーザーが決めた）。flatmarkdownは公開せず、横に置いたクローン（`../flatmarkdown`）を相対パスで参照する。公開と、`Cargo.toml`を公開した版の参照に戻すのは、最後の仕上げで行う。ASTのJSONの形は変えない。npmの`ast2react`（todo）と`ast2html`（memoview）は、公開まで今の版のまま読める。
-
-- [x] 段階0：KotlinとC#で、再帰する型をビルドして確かめる（ユーザーがWindowsで確かめた、ADR 041のContext）
-- [x] 段階1：flatmarkdown 0.8（flatmarkdownのPR #53）。種類をenumに、`props`の値を`PropValue`に、`facet`のfeature、`BodyOptions::relative_page_links()`。バイナリの形式では、serdeの素直な形を書く
-- [x] 段階2：coreが本文からASTを作り、`Row.ast`に入れる。journalとclientのテストは、flatmarkdownの名前の付いたオプションで解析する
-- [x] 段階3：シェルを1つずつ、`Row.ast`から描くように切り替える。iOS、macOS、Android、Windowsの順
-  - Windowsは、.NET 11に上げ、生成された`Node`を`closed record`にし、CS8509をエラーにする
-  - iOSとmacOSは、Macでテストが通った。WindowsのPetaBorderとそのテストは、Macの.NET 11でビルドとテストが通った。WinUIのアプリと、Androidのビルドは、それぞれの機械で確かめる
-- [x] 段階4：古い道を消す。HTMLから描く処理、`item_html`、ビューモデルの`ast`の文字列（AndroidとWindowsで確かめてから）
-  - コピーのASTも、coreがツリー形式のMarkdownから作る。サーバーの`TreeExport.ast`は読まない
-  - Webは、`Row.ast`から`ast2html`でHTMLを作る
-- [x] 段階5：journalから`ast`を外す。DBの列、`ItemPatch`、MCP。RESTは、応答を作るときに本文から作る
-  - DBは版5で`items.ast`の列を消す。ハッシュタグとバックリンクは、要るときに本文を解析して取り出す
-  - 書き出しの応答からも`ast`を外した。coreは、コピーのASTを自分で作る（段階4）
-- [x] 仕上げ：flatmarkdown 0.8をcrates.ioとnpmに公開し、`Cargo.toml`を公開した版の参照に戻す。todoとmemoviewも新しい版に上げる
 
 ## APIの方針：RESTとMCP
 
@@ -294,24 +270,8 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 先に確かめること: Cruxに`#[serde(skip)]`の書き方があるか。facetの型の生成が、外した変種を飛ばせるか。bincodeは変種を番号で書くので、外したあとも両側の番号が合うか
   - `shell-leptos`と`shell-emacs`は`Core`を直接呼ぶので、変わらないはずである
 - [ ] ネイティブのシェルの`Shell`にある同じ処理を、Rustの側に寄せる（改善案、2026-11-13）
-  - `Shell.swift`と`Shell.cs`は、ほぼ同じコードを持つ。質問の待ち行列（`Question`と`later`）、フォーカスの番号（`FocusOrder`）、ジャーナルのタイトルの決め方（`name()`と`Name()`）である
-  - タイトルは、コアの`ViewModel`に入れる案がある。一番上に見える日と今日から決まり、どちらもコアが知っている
-  - 質問の待ち行列とフォーカスの番号は、`shell-native`に移す案がある。境界の形が変わるので、3つのシェルを合わせて直す
-  - 順序（2026-11-13にユーザーが決めた）
-    - [ ] 先に、C#（`Shell.cs`）、Kotlin（`Shell.kt`）、Swift（2つの`Shell.swift`）のコードに共通するところを、Rustの側に寄せる
-      - 4つを比べた（2026-11-14）。MacとWindowsの`Shell`は、タイトル、フォーカスの番号、質問の待ち行列が同じである。iOSとAndroidの`Shell`は、ページを開く・作る、最後の画面を覚える、同期の受け持ちが同じである。4つに共通するのは、質問の扱いと、イベントを送ってビューモデルを取り直すところである
-      - [x] 2026-11-14 タイトルを、コアの`ViewModel`の`title`に入れた。MacとWindowsの`Shell`から、`name()`と`Name()`を消した。`Shell.cs`は、ビルドせずに直した
-      - [x] 2026-11-14 フォーカスの番号（`FocusOrder`）を、コアのビューモデルの`outline.focusOrder`に入れた。コアは`FocusEditor`を頼むたびに、番号を1つ増やす。MacとWindowsの`Shell`は、自分で数えるのをやめた。`Shell.cs`と`StickyWindow.cs`は、ビルドせずに直した
-      - [x] 2026-11-14 質問の待ち行列を、`client-native-bridge`の`NativeShell`に移した。4つのシェルとも、2つ目の質問は、1つ目のうしろに並ぶ（ユーザーが決めた）。iOSとAndroidは、1つ目に「いいえ」と答えて2つ目を出すのをやめた。`Shell.cs`と`Shell.kt`は、ビルドせずに直した
-      - [x] 2026-11-14 iOSとAndroidの`Shell`に共通するところを、`client-shell-embedded`に寄せた。最後に開いた画面の`last-screen`は`PetaCore`が書き、`last_screen()`で読む。開けなかったときのエラーは、そこにないページの名前である。`Shell.kt`と`Border.kt`は、ビルドせずに直した
-        - 同期の受け持ち（`sync`、`syncAndWait`、`close`）は、寄せなかった。iOSは`DispatchQueue`、Androidは`Executor`で、OSのスレッドを扱うためである。`restore`の判断は、数行なのでシェルに残した
-    - [x] 2026-11-14 Android版でしたクラスのリファクタリング（2026-11-13）を、iOS版にも同じように反映させた（ユーザーが足した）
-      - 内容のハッシュを、クラウドごとに作る（`Cloud.contentHash(of:)`）。Dropboxのハッシュは`PetaDropbox`に移した
-      - Dropboxの呼び出しを`DropboxFiles`の裏に、SDKのサインインを`DropboxSdk`の裏に置き、テストで差し替える。`DropboxAccount`は`CloudAccount`になった
-      - `JournalModel`は、`CloudAccount`だけを知る。アプリの中で動くテスト（`AppTests`）を足した
-      - 画面を、Androidと同じファイルに分けた（`SyncViews`、`Tools`、`Outline`、`ImageBlock`）。`Shell`のメンバーを、Androidと同じ順に並べた
-      - Androidの、読むだけだった版の資格情報を捨てる処理は、iOSにない。iOSの版は、はじめから書く権限でサインインしている
-    - [ ] そのあとに、iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）の間で、Swiftに残った同じコードを寄せる
+  - Rustの側に寄せる分は、2026-11-14に終えた（タイトル、フォーカスの番号、質問の待ち行列、iOSとAndroidの`Shell`の共通部分）
+  - [ ] iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）の間で、Swiftに残った同じコードを寄せる
   - [ ] Dropboxとの同期をRustに書き、AndroidとiOSの両方で使うかを検討する（2026-11-13にユーザーが足した。ADR 034のAlternative 2）
     - 今は、同じクラスがKotlinとSwiftに1つずつある（`Cloud`、`CloudRecord`、`MarkdownFolder`、`Downloader`、`Uploader`、`SyncRound`、`CloudSync`）。決まりを変えるときは、両方を直す
     - Rustに寄せると、同期の決まりが1か所になる。テストも1つで済む
@@ -349,8 +309,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [ ] Androidのシェルを作る。ほとんど終わっている（2026-11-14にユーザーが言った）。Dropboxからの取り込み、検索、ページの表示、編集、Markdownのページのアップロードがある
   - ファイルは、Dropbox SDKでAPIを通して取る。Dropbox SDKは、PCのDropboxアプリの役をする。アプリ内のフォルダーとDropboxの間で、ファイルを運ぶだけである
   - Android SDK、AVD、Gradleのキャッシュは、`D:\Android`にある（2026-11-11に移した）。元の場所には、ジャンクションを残してある
-  - [x] 2026-11-14 `client/apps/native-app/outliner-android`を作る
-    - 本文の検索は、語の単位で合わせる。語の一部（「富士山」に対する「富士」、「登りました」に対する「登り」）では見つからない。不具合ではなく、直さないと決めた（ADR 032、2026-11-12）
   - [ ] ファイルのアップロードの機能を足す。ないのはこれだけである（2026-11-14にユーザーが言った）。iOSのシェルも同じである
     - Markdownのページのアップロードは、もうある（`Uploader`、ADR 031）。同期が上げるのはMarkdownのファイルだけで、`assets`のファイルは上げない（`client/apps/native-app/outliner-android/README.md`）
     - 画像の貼り付けは、「ネイティブのシェルに共通」の項目にある（`ApiOp::UploadAsset`）
@@ -372,11 +330,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 表示を作るのは、`client/apps/native-app/outliner-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`と、`JournalScreen.kt`の`"Sync failed: ${state.reason}"`である
 - [ ] 編集中の入力欄が画面から外されても編集が続くことを、実機の順序で確かめるテストを探す。実機では、システムが、入力欄を外す前にキーボードを取り上げる。シミュレーターでは順序が逆で、今のテスト（編集中に画面を横にする）は、シミュレーターの順序しか通らない
   - キーボードが出るときには、入力欄はもう外されない（PR #404）。この道を通るのは、画面を横にしたときなどである
-- [x] 2026-11-14 編集中の入力欄にタッチしても、カーソルが動かないことがある（2026-11-13にユーザーが実機で確かめた）。直さない（2026-11-14にユーザーが決めた）
-  - iOSの標準の動きである。入力欄（`UITextView`）へのタップは、カーソルを近くの単語の境界に置く。単語の途中に置くには、カーソルを長押ししてドラッグするか、空白キーを長押しして指を滑らせる
-  - 実機で時間を測った（2026-11-14、項目108個のページ）。タップから入力欄がキーボードを取るまでは約0.13〜0.2秒、キーボードが出終わるまでは約0.6〜0.8秒で、遅くない
-  - シミュレーターのテストでは、編集に入って数秒の間、タッチでカーソルが動かなかった。そのあとのタッチでは動いた。この原因は調べていない
-  - 文字のある項目の先頭でのBackspaceの画面のテストは、足していない
 - [ ] 道具の列から、削除のボタンを取る（2026-11-13にユーザーが決めた）。Androidのシェルも同じにする
   - 取る前に、ボタンがなくても項目を消せるかを確かめる。空の項目の行頭でBackspaceを打つと消えるか、文字のある項目はどう消すかを見る
   - 表示はMarkdownを整形したもので、編集するのは元のMarkdownである。記号（`**`、リンク、タスクの印など）の分だけ、触れた位置と元の文字の位置がずれる。表示の位置から元の位置を求める方法を、先に決める
