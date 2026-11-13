@@ -28,10 +28,11 @@ public final class Sticky: Identifiable {
 
 /// The window of a sticky. It hears the double click on its title bar, which macOS would
 /// answer by zooming or minimizing the window.
-private final class StickyWindow: NSWindow {
+final class StickyWindow: NSWindow {
     var onTitleBarDoubleClick: (() -> Void)?
-    /// Makes the menu of the title bar, which a right click on it shows.
-    var titleBarMenu: (() -> NSMenu)?
+    /// Makes the menu of the sticky. A right click shows it, on the title bar and on an item
+    /// that is not edited.
+    var stickyMenu: (() -> NSMenu)?
 
     override func sendEvent(_ event: NSEvent) {
         if event.type == .leftMouseDown, event.clickCount == 2, isOnBareTitleBar(event.locationInWindow) {
@@ -39,7 +40,7 @@ private final class StickyWindow: NSWindow {
             return
         }
         if event.type == .rightMouseDown, isOnBareTitleBar(event.locationInWindow),
-            let menu = titleBarMenu?(), let frame = contentView?.superview
+            let menu = stickyMenu?(), let frame = contentView?.superview
         {
             NSMenu.popUpContextMenu(menu, with: event, for: frame)
             return
@@ -159,7 +160,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         window.onTitleBarDoubleClick = { [weak self, weak sticky] in
             if let sticky { self?.roll(sticky) }
         }
-        window.titleBarMenu = { [weak self, weak sticky] in
+        window.stickyMenu = { [weak self, weak sticky] in
             sticky.flatMap { self?.menu(of: $0) }
         }
         if kept?.rolledUp == true { roll(sticky, animated: false) }
@@ -252,8 +253,8 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         keep(sticky)
     }
 
-    /// The menu that a right click on the title bar of the sticky shows: the pin, and the
-    /// colors. The pin and the color of the sticky are checked.
+    /// The menu that a right click on the title bar of the sticky shows, and one on an item
+    /// that is not edited: the pin, and the colors. The pin and the color of the sticky are checked.
     public func menu(of sticky: Sticky) -> NSMenu {
         let look = sticky.look
         let menu = NSMenu()

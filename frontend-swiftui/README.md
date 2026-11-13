@@ -209,7 +209,8 @@ focus. The button with the plus, or Command+N, opens
 another sticky. The app ends when the last one is closed.
 
 A right click on the title bar shows a menu with the pin and the colors. It is there also
-while the sticky is rolled up. The pin and the color of the sticky are checked.
+while the sticky is rolled up. A right click on an item that is not edited shows the same
+menu. The item that is edited has the menu of its text: cut, copy and paste. The pin and the color of the sticky are checked.
 
 The menu gives the sticky another color: yellow, red, green, blue, orange,
 purple, white, gray or light gray. They are the colors of the cards of Petasti.
