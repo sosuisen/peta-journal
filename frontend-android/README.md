@@ -214,15 +214,25 @@ that are not uploaded yet stay, and go up to the account of the new sign-in.
   from font to font.
 - `MainActivity` and `JournalModel` open the journal in the folders of the app:
   `files/markdown` for the Markdown files and `files/data` for the database, the index and
-  the settings. They also keep the credential of Dropbox, and start the sign-in and the sync.
-- `sync/Downloader` brings the Markdown folder of the app up to date with the cloud. It knows
-  the cloud only as `Cloud`, so its tests need no Dropbox. `MarkdownFolder` is the folder of
-  the app, where a path is found without regard to case, as in Dropbox. `DropboxCloud` is
-  `Cloud` by the Dropbox SDK.
-- `sync/Uploader` uploads the Markdown files that changed in the app. `CloudRecord` keeps the
-  version and the hash of each file in the cloud, between two runs of the app. `SyncRound` is
-  one sync: download, core, upload, and again when the cloud refuses. `CloudSync` runs one
-  sync at a time and tells the screen where it stands.
+  the settings. They also start the sign-in and the sync. They do not know the Dropbox SDK.
+- The package `sync` does not know Dropbox. It knows the cloud only as `Cloud`, so its tests
+  need no Dropbox.
+  - `Downloader` brings the Markdown folder of the app up to date with the cloud.
+    `MarkdownFolder` is the folder of the app, where a path is found without regard to case.
+  - `Uploader` uploads the Markdown files that changed in the app. `CloudRecord` keeps the
+    version and the hash of each file in the cloud, between two runs of the app.
+  - `SyncRound` is one sync: download, core, upload, and again when the cloud refuses.
+    `CloudSync` runs one sync at a time and tells the screen where it stands.
+  - The hash of a file is made by the cloud, with `Cloud.contentHash`. Each cloud has its
+    own way.
+- The package `dropbox` holds all that uses the Dropbox SDK. No other package imports
+  `com.dropbox`.
+  - `DropboxAccount` keeps the credential, starts the sign-in, signs out, and gives the
+    Markdown folder of the account as a `Cloud`.
+  - `DropboxCloud` is `Cloud` by the Dropbox SDK.
+  - `dropboxContentHash` makes the content hash of Dropbox of a file.
+- `Cloud` still follows what Dropbox offers: a cursor for the changes, an upload over a
+  version, and names without regard to case. Another cloud may need a change there.
 
 ## Not there yet
 
