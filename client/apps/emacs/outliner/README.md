@@ -1,10 +1,10 @@
-# client-shell-emacs
+# outliner-emacs
 
 English | [日本語](README.ja.md)
 
 The Emacs frontend of PetaJournal. It has two parts:
 
-- `client-shell-emacs` is a Rust program. It holds the Crux core (`client-core`) and performs its
+- `outliner-emacs` is a Rust program. It holds the Crux core (`client-core`) and performs its
   effects: HTTP, the event stream and timers.
 - `lisp/peta-journal.el` is an Emacs mode. It draws the rows it is sent and reports what the user
   does.
@@ -17,7 +17,7 @@ Build the program:
 
 ```powershell
 cd peta-journal/client
-cargo build --release -p client-shell-emacs
+cargo build --release -p outliner-emacs
 ```
 
 `release.ps1` in this folder does the same, and `release.sh` on macOS and Linux. `debug.ps1`
@@ -269,7 +269,7 @@ items.
 
 ## Tests
 
-`cargo test -p client-shell-emacs` runs two kinds of tests:
+`cargo test -p outliner-emacs` runs two kinds of tests:
 
 - `src/tests/` tests the shell around the core, with a fake host.
 - `tests/process.rs` starts the program itself. The test plays Emacs on its stdin and stdout, and

@@ -453,7 +453,7 @@
     - 名前の順は、見る人で決まる。開発者が見るフォルダーは、環境を前に置く。使う人が見るアプリの名前は、環境を後ろに置く
     - PRは分ける。決定は、ADR 040に記録した。新しい名前の表と、変えない名前は、ADR 040にある
   - 改名のPR（ADR 040）。1つのPRは、1つのビルドの単位を閉じる
-    - [ ] `outliner-web`と`outliner-emacs`。Cargoのワークスペース、`build-frontend`、Trunk、Playwrightの設定、Emacsの実行ファイルの名前を直す。`e2e`のnpmの名前も、ここで`outliner-web-e2e`にする
+    - [x] `outliner-web`と`outliner-emacs`（2026-11-14）。Cargoのワークスペース、`build-frontend`、Trunk、Playwrightの設定、Emacsの実行ファイルの名前を直す。`e2e`のnpmの名前も、ここで`outliner-web-e2e`にする
     - [ ] `memoview-win`の中のフォルダー、プロジェクト、名前空間
     - [ ] アプリのID。Android、iOS、`stickies-mac`、生成するKotlinのパッケージ。Gradleのプロジェクトの名前も、ここで`outliner-android`にする。AndroidとiOSは、実機でDropboxのサインインを確かめる
     - [ ] `todo`のnpmの名前を、`todo`にする

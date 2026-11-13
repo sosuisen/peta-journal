@@ -6,9 +6,9 @@
 
 - `client/libs/client-core/src/tests/**/*.rs`（`tests/`）
 - `client/libs/client-core/src/outline/*.rs`、`util/*.rs`、`model.rs`（`core/`）
-- `client/apps/web-app/outliner/src/components/item_html.rs`（`client-shell-leptos`）
+- `client/apps/web-app/outliner/src/components/item_html.rs`（`outliner-web`）
 - `client/apps/web-app/outliner/e2e/tests/*.spec.ts`（`client/apps/web-app/outliner/e2e/`）
-- `client/apps/emacs/outliner/src/tests/*.rs`、`tests/*.rs`、`lisp/test/*.el`（`client-shell-emacs/`）
+- `client/apps/emacs/outliner/src/tests/*.rs`、`tests/*.rs`、`lisp/test/*.el`（`outliner-emacs`）
 
 2026-11-03時点のテストから作った。「Emacsで読み書きする」の節だけは、2026-11-06時点のテストから作った。
 
@@ -366,7 +366,7 @@
 - Ctrl+ZとCtrl+Yは、エディタの中と同じようにUndoとRedoをする
 - Ctrl+Cで、ツリー形式のMarkdownがクリップボードに載り、フラット形式がモデルに記憶される
   - コアは、サーバーが作ったそのMarkdownのASTも、シェルに渡す（ADR 027）
-  - client-shell-leptosは、そのASTから作ったHTMLも、クリップボードに載せる。Markdownは解析しない
+  - outliner-webは、そのASTから作ったHTMLも、クリップボードに載せる。Markdownは解析しない
     - ウィキリンクと`.md`への相対リンクは、そのページを開くふつうのリンクになる。表示する文字は変わらない
     - ハッシュタグは、タグのページを開くリンクになる。表示する文字は`#`とタグ名である
     - リンク先は、アプリのURLから始まるまるごとのURLである。貼り付けた先のアプリから開ける
@@ -568,7 +568,7 @@
 
 ### 本文を読む
 
-出典: `tests/view.rs`、`client-shell-leptos`、`client/apps/web-app/outliner/e2e/outline-content.spec.ts`
+出典: `tests/view.rs`、`outliner-web`、`client/apps/web-app/outliner/e2e/outline-content.spec.ts`
 
 - ズーム
   - 倍率が表示に反映されて保存され、リセットで1.0に戻る
@@ -577,7 +577,7 @@
 - 項目へのスクロールの求めは、なめらかなスクロールとしてシェルに渡る
 - Markdownの解析の型は、crates.ioの`flatmarkdown-ast`クレートにある（`petajournal/flatmarkdown`リポジトリ）。その機能一覧とテストは、そのリポジトリにある
   - 解析したASTは、typeタグ付きのJSONに戻せる
-- HTMLの描画（client-shell-leptos）
+- HTMLの描画（outliner-web）
   - 項目のASTは、crates.ioの`flatmarkdown-ast2html`クレートがHTMLにする（ADR 026）。HTMLの形の機能一覧とテストは、`petajournal/flatmarkdown`リポジトリにある
   - 本文が空の項目は、何も表示しない
   - 画像URLのフラグメントのwとhは、imgのwidthとheightになる。リストの中など、深いところにある画像でも同じである
@@ -901,7 +901,7 @@ iOSのシェル（`client/apps/native-app/outliner-ios`）の機能である。A
 
 ## Emacsで読み書きする
 
-出典: `client-shell-emacs/`
+出典: `client/apps/emacs/outliner/`
 
 ### キー
 

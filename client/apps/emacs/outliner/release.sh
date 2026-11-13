@@ -3,4 +3,4 @@
 # it there.
 set -eu
 cd "$(dirname "$0")"
-exec cargo build --release -p client-shell-emacs
+exec cargo build --release -p outliner-emacs

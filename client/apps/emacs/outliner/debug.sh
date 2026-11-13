@@ -11,7 +11,7 @@ set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 cd "$here"
 
-cargo build -p client-shell-emacs
+cargo build -p outliner-emacs
 
 # Emacs on Windows does not know a path of Git Bash
 if command -v cygpath >/dev/null; then here=$(cygpath -m "$here"); fi
@@ -20,6 +20,6 @@ if command -v cygpath >/dev/null; then here=$(cygpath -m "$here"); fi
 exec emacs "$@" --eval "(progn
   (add-to-list 'load-path \"$here/lisp\")
   (setq peta-journal-shell-program
-        (executable-find \"$here/../../../target/debug/client-shell-emacs\"))
+        (executable-find \"$here/../../../target/debug/outliner-emacs\"))
   (require 'peta-journal)
   (peta-journal))"

@@ -1,10 +1,10 @@
-# client-shell-emacs
+# outliner-emacs
 
 [English](README.md) | 日本語
 
 PetaJournalのEmacs版フロントエンドである。次の2つからなる。
 
-- `client-shell-emacs`はRustのプログラムである。Cruxのコア（`client-core`）を持ち、HTTP、イベントストリーム、タイマーを実行する。
+- `outliner-emacs`はRustのプログラムである。Cruxのコア（`client-core`）を持ち、HTTP、イベントストリーム、タイマーを実行する。
 - `lisp/peta-journal.el`はEmacsのモードである。送られてきた行を描画し、利用者の操作を伝える。
 
 両者は、stdinとstdoutのJSON Linesでやり取りする。メッセージは`src/protocol.rs`で定義している。
@@ -15,7 +15,7 @@ PetaJournalのEmacs版フロントエンドである。次の2つからなる。
 
 ```powershell
 cd peta-journal/client
-cargo build --release -p client-shell-emacs
+cargo build --release -p outliner-emacs
 ```
 
 このフォルダーの`release.ps1`も同じことをする。macOSとLinuxでは`release.sh`を使う。`debug.ps1`と`debug.sh`は開発用である。デバッグビルドを作り、今日のジャーナルを開いたEmacsを起動する。
@@ -215,7 +215,7 @@ Emacsの初期設定ファイルに、次の内容を追加する。
 
 ## テスト
 
-`cargo test -p client-shell-emacs`は、2種類のテストを動かす。
+`cargo test -p outliner-emacs`は、2種類のテストを動かす。
 
 - `src/tests/`は、偽のホストを使って、コアを動かすシェルをテストする。
 - `tests/process.rs`は、プログラムそのものを起動する。テストがEmacsの代わりに標準入力と標準出力でやり取りし、テストの中の小さなサーバーがHTTPの要求に答える。Emacsもjournal-serverもいらない。このうち1件は、シェルがサーバーをあきらめるまでの5秒を待つ。

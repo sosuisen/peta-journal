@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 
 Push-Location $PSScriptRoot
 try {
-    cargo build -p client-shell-emacs
+    cargo build -p outliner-emacs
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 finally {
@@ -22,7 +22,7 @@ $here = $PSScriptRoot -replace '\\', '/'
 # The program is named here: the mode alone takes the release build first, when there is one.
 # One line: a script that stands for `emacs` on Windows (.cmd) loses what follows a line break
 $lisp = "(progn (add-to-list 'load-path `"$here/lisp`")" +
-    " (setq peta-journal-shell-program (executable-find `"$here/../../../target/debug/client-shell-emacs`"))" +
+    " (setq peta-journal-shell-program (executable-find `"$here/../../../target/debug/outliner-emacs`"))" +
     " (require 'peta-journal) (peta-journal))"
 # PowerShell does not escape the quotes for a .cmd, and the string would lose them
 if ((Get-Command emacs).Source -match '\.(cmd|bat)$') { $lisp = $lisp -replace '"', '\"' }

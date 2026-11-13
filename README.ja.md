@@ -81,7 +81,7 @@ cargo build --release
    journal-server（Windowsでは journal-server.exe）
    frontend/
      index.html
-     client-shell-leptos-<ハッシュ>.js
+     outliner-web-<ハッシュ>.js
      ...
    ```
 
