@@ -548,20 +548,29 @@ impl PageService {
         )?
         .remove(page_id.as_str())
         .unwrap_or_default();
+        let definitions = PropertyRepository::find_definitions_in(&tx)?;
+        let not_for_pages =
+            |key: &String| definitions.iter().any(|def| def.key == *key && !def.page);
         let mut changed = false;
         for (key, value) in front_matter {
-            if FRONT_MATTER_KEYS.contains(&key.as_str()) || have.get(key) == Some(value) {
+            if FRONT_MATTER_KEYS.contains(&key.as_str())
+                || not_for_pages(key)
+                || have.get(key) == Some(value)
+            {
                 continue;
             }
-            PropertyRepository::upsert_scalar_in(
+            // A line written by hand may not fit; the rest of the file still comes in
+            match PropertyRepository::upsert_scalar_in(
                 &tx,
                 PAGE_TARGET,
                 page_id.as_str(),
                 key,
                 "text",
                 value,
-            )?;
-            changed = true;
+            ) {
+                Ok(()) => changed = true,
+                Err(e) => tracing::warn!("Skipping property {key}={value} on page {page_id}: {e}"),
+            }
         }
         for key in have.keys().filter(|key| !front_matter.contains_key(*key)) {
             PropertyRepository::delete_property_in(&tx, PAGE_TARGET, page_id.as_str(), key)?;
