@@ -12,7 +12,7 @@ path = "src/main.rs"
 [dependencies]
 client-core = { path = "../client-core" }
 client-page-links = { path = "../client-page-links" }
-peta-atlas = { path = "../../../atlas-rust", features = ["marks"] }
+peta-atlas = { path = "../../../atlas", features = ["marks"] }
 flatmarkdown-ast = { workspace = true }
 flatmarkdown-ast2html = "=0.7.0"
 crux_core = "=0.20.0"

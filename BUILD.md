@@ -270,9 +270,15 @@ core inside the app (ADR 034). `frontend-ios/README.md` describes the tools, the
 app and the tests. Its tests need a Mac, and those of the screen a simulator. They do not run
 in CI.
 
-## Atlas crate (atlas-rust)
+## Atlas (atlas)
 
-`atlas-rust` is the crate `peta-atlas`. The server and the frontend both use it, and so can
+`atlas` holds the two sides of an atlas: the crate `peta-atlas` in `src/`, which writes the
+scene, and the scripts in `web/`, which draw it. The scene is the JSON that the two sides
+agree on. A change to it changes both sides in one pull request (ADR 038).
+
+### The crate
+
+The server and the frontend both use the crate, and so can
 another program that shows an atlas, such as a static site. It reads the outline of an
 `index_atlas` page, draws the marks of the atlas as SVG, and writes the scene that
 `atlas.js` draws. Its features choose what is built:
@@ -283,9 +289,37 @@ another program that shows an atlas, such as a static site. It reads the outline
   measures in the font of the labels, `frontend-rust/assets/NotoSansJP-Regular.ttf`.
 
 ```powershell
-cd peta-journal/atlas-rust
+cd peta-journal/atlas
 cargo test --all-features
 ```
+
+### The scripts
+
+`web/` holds what a page needs to draw an atlas. The crate does not read these files.
+
+- `atlas.js`: draws the scene. It sets the global `AtlasCanvas`.
+- `pixi.min.js`: PixiJS, the global `PIXI`. `atlas.js` needs it.
+- `pixi-ui.js`: @pixi/ui, the global `PIXI.ui`. Only the menus and the dialogs of an atlas
+  that can be edited need it.
+- `tweedle.umd.js`: tweedle.js, the global `tweedle_js`. `pixi-ui.js` needs it.
+
+The web shell loads all four from `index.html` of `frontend-rust/crates/client-shell-leptos`.
+A page that only shows an atlas, such as a static site, needs `pixi.min.js` and `atlas.js`.
+Load `pixi.min.js` first.
+
+The three libraries are the files that their npm packages ship in `dist/`. They are a set:
+@pixi/ui 2.4.1 works with PixiJS 8 and tweedle.js 2.1.0. To move to new versions, install
+them in a scratch directory and copy the three files over:
+
+```powershell
+mkdir pixi-build; cd pixi-build
+npm i pixi.js@8 @pixi/ui@2 tweedle.js@2
+cp node_modules/pixi.js/dist/pixi.min.js <peta-journal>/atlas/web/pixi.min.js
+cp node_modules/@pixi/ui/dist/pixi-ui.js <peta-journal>/atlas/web/pixi-ui.js
+cp node_modules/tweedle.js/dist/tweedle.umd.js <peta-journal>/atlas/web/tweedle.umd.js
+```
+
+Then build the frontend, open an atlas, and check the drawing and a dialog.
 
 ## CI
 
