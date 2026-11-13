@@ -14,5 +14,5 @@ linker=$(cygpath -u "$(rustc --print sysroot)")/lib/rustlib/x86_64-pc-windows-ms
 PATH="$linker:$PATH"
 export PATH
 
-(cd "$rust" && cargo run -p peta-shell-native --features facet_typegen --bin codegen -- csharp "$here/generated")
-(cd "$rust/crates/shell-native" && boltffi pack csharp --release)
+(cd "$rust" && cargo run -p client-native-bridge --features facet_typegen --bin codegen -- csharp "$here/generated")
+(cd "$rust/crates/client-shell-http" && boltffi pack csharp --release)

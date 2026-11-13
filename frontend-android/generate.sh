@@ -8,7 +8,7 @@ rust="$here/../frontend-rust"
 
 rm -rf "$here/generated"
 
-(cd "$rust" && cargo run -p peta-shell-native --features facet_typegen --bin codegen -- kotlin "$here/generated")
+(cd "$rust" && cargo run -p client-native-bridge --features facet_typegen --bin codegen -- kotlin "$here/generated")
 
 # The generator writes a build script for a project of its own. Here the types are sources of
 # the app, and Gradle would compile the script as one of them

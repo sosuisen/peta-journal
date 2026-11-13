@@ -1,10 +1,10 @@
 //! The entrance for the Android shell, called here from Rust as Kotlin calls it.
 
 use crate::{item_html, PetaCore, PetaShell};
+use client_native_bridge::ShellEffectFfi;
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
 use journal_core::domain::model::ItemPosition;
 use peta_core::Event;
-use peta_shell_native::ShellEffectFfi;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;

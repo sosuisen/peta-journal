@@ -1,5 +1,5 @@
 //! Runs the program that writes the types of the shells. It only exists with the feature
-//! `facet_typegen`: `cargo test -p peta-shell-native --features facet_typegen`.
+//! `facet_typegen`: `cargo test -p client-native-bridge --features facet_typegen`.
 #![cfg(feature = "facet_typegen")]
 
 use std::path::{Path, PathBuf};

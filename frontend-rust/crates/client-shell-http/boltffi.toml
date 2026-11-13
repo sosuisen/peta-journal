@@ -2,8 +2,8 @@
 # this folder; ../../../frontend-swiftui/README.md has the whole build.
 
 [package]
-name = "peta-shell-native"
-crate = "peta_shell_native"
+name = "client-shell-http"
+crate = "client_shell_http"
 
 # The SwiftUI shell runs on macOS only (ADR 024), so nothing is built for iOS
 [targets.apple]

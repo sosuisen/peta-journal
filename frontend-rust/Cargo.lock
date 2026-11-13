@@ -525,6 +525,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "client-native-bridge"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "client-page-links",
+ "crux_core",
+ "facet",
+ "facet_generate 0.22.3",
+ "flatmarkdown",
+ "flatmarkdown-ast",
+ "flatmarkdown-ast2html",
+ "peta-core",
+ "serde",
+]
+
+[[package]]
 name = "client-page-links"
 version = "0.1.0"
 dependencies = [
@@ -532,6 +548,17 @@ dependencies = [
  "flatmarkdown-ast",
  "flatmarkdown-ast2html",
  "percent-encoding",
+]
+
+[[package]]
+name = "client-shell-http"
+version = "0.1.0"
+dependencies = [
+ "boltffi",
+ "client-api-http",
+ "client-native-bridge",
+ "crux_core",
+ "peta-core",
 ]
 
 [[package]]
@@ -2738,10 +2765,10 @@ dependencies = [
  "boltffi",
  "chrono",
  "client-api-embedded",
+ "client-native-bridge",
  "crux_core",
  "journal-core",
  "peta-core",
- "peta-shell-native",
  "serde_json",
  "tempfile",
 ]
@@ -2756,24 +2783,6 @@ dependencies = [
  "peta-core",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "peta-shell-native"
-version = "0.1.0"
-dependencies = [
- "boltffi",
- "chrono",
- "client-api-http",
- "client-page-links",
- "crux_core",
- "facet",
- "facet_generate 0.22.3",
- "flatmarkdown",
- "flatmarkdown-ast",
- "flatmarkdown-ast2html",
- "peta-core",
- "serde",
 ]
 
 [[package]]

@@ -1,0 +1,25 @@
+[package]
+name = "client-shell-http"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PetaJournal native frontends: the core that asks a journal server over HTTP, for the SwiftUI and WinUI shells (ADR 024, ADR 036)"
+
+# What a native shell links with: the SwiftUI shell with the static library, and the WinUI shell
+# with the dynamic one (BoltFFI packs no other for C#)
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+peta-core = { path = "../core" }
+client-native-bridge = { path = "../client-native-bridge" }
+client-api-http = { path = "../client-api-http" }
+boltffi = { version = "=0.32.1", optional = true }
+
+[dev-dependencies]
+# Reads the requests for the shell as a shell does
+crux_core = "=0.20.0"
+
+[features]
+# The entrance for a shell in another language, made with BoltFFI. `boltffi pack` turns it on
+ffi = ["dep:boltffi"]

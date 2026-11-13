@@ -33,13 +33,15 @@ cov = [
     "-p",
     "peta-shell-emacs",
     "-p",
-    "peta-shell-native",
+    "client-native-bridge",
+    "-p",
+    "client-shell-http",
     "-p",
     "peta-shell-android",
     # What only a native shell needs is measured too: the generation of its types, and the
     # entrance for another language
     "--features",
-    "peta-shell-native/facet_typegen,peta-shell-native/ffi",
+    "client-native-bridge/facet_typegen,client-shell-http/ffi",
 ]
 
 # rust-lld links much faster than the MSVC link.exe, and it comes with the Rust toolchain. Every

@@ -5,7 +5,7 @@ sticky that shows one page. It is a Walking Skeleton so far (ADR 024): a page is
 and opened in a sticky, its items are shown as an outline and can be edited, and the stickies
 are kept between runs. The keys of the outline work as in the web frontend (see "Keys" below).
 
-The core is the same Crux core as in the web and the Emacs frontends. `frontend-rust/crates/shell-native`
+The core is the same Crux core as in the web and the Emacs frontends. `frontend-rust/crates/client-native-bridge`
 wraps it for a shell that is not written in Rust. Calls to the journal server, timers and the
 clock stay in Rust. Swift gets the view model and the requests of the screen as bytes (bincode),
 and sends events and answers the same way.
@@ -25,7 +25,7 @@ and sends events and answers the same way.
   ```
 
   The version has to be the same as the `boltffi` dependency in
-  `frontend-rust/crates/shell-native/Cargo.toml`.
+  `frontend-rust/crates/client-shell-http/Cargo.toml`.
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) 2.46.0. It makes the Xcode project of the
   app from `project.yml`:
 
@@ -49,7 +49,7 @@ under `generated/`. Run it again after a change in Rust.
 - `generated/swift/PetaTypes`: the types that cross the border, generated from the Rust types
   (`Event`, `ViewModel`, `Request`, ...).
 - `generated/PetaCore`: the core as a static library (`PetaCore.xcframework`), and the Swift
-  class `PetaCore` that calls it. BoltFFI makes both, from `frontend-rust/crates/shell-native/src/ffi.rs`
+  class `PetaCore` that calls it. BoltFFI makes both, from `frontend-rust/crates/client-shell-http/src/ffi.rs`
   and `boltffi.toml` next to it.
 
 `Sources/PetaBorder` is hand-written. It has no SwiftUI in it, so `swift test` can test it:
@@ -293,4 +293,4 @@ crosses the border finds this.
 
 These tests do not run in CI. A macOS runner costs much more than a Linux one, so this is put
 off. Run them by hand after a change to a type that crosses the border. CI does run the Rust
-tests of the entrance (`cargo test -p peta-shell-native --features facet_typegen,ffi`).
+tests of the entrance (`cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi`).

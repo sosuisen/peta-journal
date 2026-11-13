@@ -7,7 +7,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 rust="$here/../frontend-rust"
 
 rm -rf "$here/generated"
-(cd "$rust" && cargo run -p peta-shell-native --features facet_typegen --bin codegen -- swift "$here/generated")
+(cd "$rust" && cargo run -p client-native-bridge --features facet_typegen --bin codegen -- swift "$here/generated")
 # The oldest systems the app runs on, as in Package.swift. Rust builds for iOS 10 by default,
 # and the C code of SQLite and zstd then asks for what only iOS 13 and later have
 # (`___chkstk_darwin`): the library for a device does not link
