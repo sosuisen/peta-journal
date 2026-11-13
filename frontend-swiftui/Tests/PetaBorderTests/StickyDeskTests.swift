@@ -197,17 +197,20 @@ final class StickyDeskTests: XCTestCase {
     }
 
     /// A double click as AppKit gives it to the window, `fromTop` points under its top edge.
-    private func doubleClick(_ sticky: Sticky, fromTop: CGFloat) throws {
+    /// `count` says which click of a quick row it is: the second makes a double click.
+    private func doubleClick(_ sticky: Sticky, fromTop: CGFloat, count: Int = 2) throws {
         try doubleClick(
-            sticky, at: NSPoint(x: sticky.window.frame.width / 2, y: sticky.window.frame.height - fromTop))
+            sticky, at: NSPoint(x: sticky.window.frame.width / 2, y: sticky.window.frame.height - fromTop),
+            count: count)
     }
 
     /// A double click as AppKit gives it to the window, at `place` in the window.
-    private func doubleClick(_ sticky: Sticky, at place: NSPoint) throws {
+    private func doubleClick(_ sticky: Sticky, at place: NSPoint, count: Int = 2) throws {
         let click = try XCTUnwrap(
             NSEvent.mouseEvent(
                 with: .leftMouseDown, location: place, modifierFlags: [], timestamp: 0,
-                windowNumber: sticky.window.windowNumber, context: nil, eventNumber: 0, clickCount: 2, pressure: 1))
+                windowNumber: sticky.window.windowNumber, context: nil, eventNumber: 0, clickCount: count,
+                pressure: 1))
         sticky.window.sendEvent(click)
     }
 
@@ -225,6 +228,24 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(sticky.window.frame.width, frame.width)
 
         try doubleClick(sticky, fromTop: 10)
+
+        XCTAssertFalse(sticky.rolledUp)
+        XCTAssertEqual(sticky.window.frame, frame)
+    }
+
+    // タイトルバーをすばやくクリックし続けると、2回目でタイトルバーだけになり、4回目で元の大きさに戻る。ウィンドウは大きくならない。
+    func testQuickClicksOnTheTitleBarRollTheStickyUpAndDownAndDoNotZoomIt() async throws {
+        let sticky = desk.add()
+        let frame = NSRect(x: 120, y: 130, width: 500, height: 400)
+        sticky.window.setFrame(frame, display: true)
+
+        try doubleClick(sticky, fromTop: 10, count: 2)
+        try doubleClick(sticky, fromTop: 10, count: 3)
+
+        XCTAssertTrue(sticky.rolledUp)
+        XCTAssertEqual(sticky.window.contentLayoutRect.height, 0)
+
+        try doubleClick(sticky, fromTop: 10, count: 4)
 
         XCTAssertFalse(sticky.rolledUp)
         XCTAssertEqual(sticky.window.frame, frame)
