@@ -9,13 +9,12 @@ import PetaCore
 @MainActor
 public final class Shell: ObservableObject {
     @Published public private(set) var view: ViewModel {
-        didSet { name() }
+        // Not set again when it is the same: everything that watches the title would run
+        didSet { if title != view.title { title = view.title } }
     }
-    /// The name of what is open. For a journal it is the date of the day at the top of the
-    /// window, with "(Today)" behind the date of today.
+    /// The name of what is open, as the core gives it in the view model. For a journal it is
+    /// the date of the day at the top of the window, with "(Today)" behind the date of today.
     @Published public private(set) var title = ""
-    /// The name that the core gave to what is open.
-    private var named = ""
     /// What is open, as the URL that opens it again. `nil` when nothing was opened yet.
     @Published public private(set) var url: String?
     /// What the core asks the user now. The core waits until it is answered.
@@ -61,6 +60,7 @@ public final class Shell: ObservableObject {
         self.server = server
         self.browse = browse
         view = Shell.must { try border.view() }
+        title = view.title
         inbox.shell = self
         if let url { open(url) }
     }
@@ -85,20 +85,6 @@ public final class Shell: ObservableObject {
 
     private func browse(_ address: String) {
         if let url = URL(string: address) { browse(url) }
-    }
-
-    /// Sets the title. The core names every journal by the day it was opened for; the day at
-    /// the top of the window is only in the view model.
-    private func name() {
-        var new = named
-        if case .journal(let journal) = view.screen, !journal.displayDate.isEmpty {
-            // The days below the one that was opened have their date above their first item
-            let top = view.outline.rows.first { $0.dateHeader == journal.displayDate }
-            let day = top?.item.name ?? journal.currentDate
-            new = day == view.today ? "\(journal.displayDate) (Today)" : journal.displayDate
-        }
-        // Not set again when it is the same: everything that watches the title would run
-        if title != new { title = new }
     }
 
     /// The window was scrolled: the row at `top` is the first that can be seen, and the rows
@@ -191,9 +177,6 @@ public final class Shell: ObservableObject {
     /// Only some requests wait for an answer. The core takes an answer to any other as an error.
     private func show(_ op: UiOp, asked id: UInt32) {
         switch op {
-        case .setTitle(let title):
-            named = title
-            name()
         case .confirm(let message):
             ask(Question(id: id, message: message, kind: .confirm))
         case .confirmDestructive(let message):

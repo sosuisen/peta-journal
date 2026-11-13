@@ -23,8 +23,6 @@ public sealed partial class Shell : IDisposable
     /// <summary>The questions that wait behind the one on screen.</summary>
     private readonly Queue<Question> later = new();
 
-    /// <summary>The name that the core gave to what is open.</summary>
-    private string named = "";
     private bool disposed;
 
     /// <summary>
@@ -73,10 +71,10 @@ public sealed partial class Shell : IDisposable
     public ViewModel View { get; private set; }
 
     /// <summary>
-    /// The name of what is open. For a journal it is the date of the day at the top of the
-    /// window, with "(Today)" behind the date of today.
+    /// The name of what is open, as the core gives it in the view model. For a journal it is
+    /// the date of the day at the top of the window, with "(Today)" behind the date of today.
     /// </summary>
-    public string Title { get; private set; } = "";
+    public string Title => View.Title;
 
     /// <summary>
     /// What is open, as the URL that opens it again. <c>null</c> when nothing was opened yet.
@@ -207,35 +205,12 @@ public sealed partial class Shell : IDisposable
 
     private void Show(ViewModel view)
     {
+        var before = Title;
         View = view;
-        Name();
+        // Not told when it is the same: everything that watches the title would run
+        if (Title != before)
+            TitleChanged?.Invoke();
         ViewChanged?.Invoke();
-    }
-
-    /// <summary>
-    /// Sets the title. The core names every journal by the day it was opened for; the day at
-    /// the top of the window is only in the view model.
-    /// </summary>
-    private void Name()
-    {
-        var title = named;
-        if (
-            View.Screen is ScreenView.Journal { Value: var journal }
-            && journal.DisplayDate.Length > 0
-        )
-        {
-            // The days below the one that was opened have their date above their first item
-            var top = View.Outline.Rows.FirstOrDefault(row =>
-                row.DateHeader == journal.DisplayDate
-            );
-            var day = top?.Item.Name ?? journal.CurrentDate;
-            title = day == View.Today ? $"{journal.DisplayDate} (Today)" : journal.DisplayDate;
-        }
-        // Not told again when it is the same: everything that watches the title would run
-        if (Title == title)
-            return;
-        Title = title;
-        TitleChanged?.Invoke();
     }
 
     private void Handle(IReadOnlyList<Request> requests)
@@ -278,10 +253,6 @@ public sealed partial class Shell : IDisposable
     {
         switch (op)
         {
-            case UiOp.SetTitle { Value: var title }:
-                named = title;
-                Name();
-                break;
             case UiOp.Confirm { Value: var message }:
                 Ask(new Question(id, message, QuestionKind.Confirm));
                 break;
