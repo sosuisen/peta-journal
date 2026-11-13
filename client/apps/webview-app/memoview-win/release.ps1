@@ -1,6 +1,6 @@
-# Builds Stickies (the Release build). stickies/INSTALL.md lists the tools.
+# Builds MemoView (the Release build). memoview/INSTALL.md lists the tools.
 #
-# A running Stickies of this build holds its files: end it first.
+# A running MemoView of this build holds its files: end it first.
 $ErrorActionPreference = 'Stop'
 
 # Why not `dotnet build`: the PRI files of WinUI need the build tools of Visual Studio
@@ -14,7 +14,7 @@ if (-not $msbuild) { throw 'Cannot find msbuild: install Visual Studio with the 
 
 $platform = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'ARM64' } else { 'x64' }
 
-& $msbuild "$PSScriptRoot/stickies/Stickies.csproj" -restore -p:Configuration=Release "-p:Platform=$platform" -verbosity:minimal -nologo
+& $msbuild "$PSScriptRoot/memoview/MemoView.csproj" -restore -p:Configuration=Release "-p:Platform=$platform" -verbosity:minimal -nologo
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Write-Host "Built $(Join-Path $PSScriptRoot "stickies/bin/$platform/Release/net10.0-windows10.0.22621.0/Stickies.exe")"
+Write-Host "Built $(Join-Path $PSScriptRoot "memoview/bin/$platform/Release/net10.0-windows10.0.22621.0/MemoView.exe")"

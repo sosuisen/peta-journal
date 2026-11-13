@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "MemoView": {
+      "commandName": "Project",
+      "nativeDebugging": false,
+      "jsWebView2Debugging": true
+    }
+  }
+}
