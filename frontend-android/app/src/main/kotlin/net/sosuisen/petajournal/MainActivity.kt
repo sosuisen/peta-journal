@@ -15,37 +15,18 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.lifecycle.AndroidViewModel
-import com.dropbox.core.DbxException
-import com.dropbox.core.DbxRequestConfig
-import com.dropbox.core.android.Auth
-import com.dropbox.core.android.AuthActivity
-import com.dropbox.core.oauth.DbxCredential
-import com.dropbox.core.v2.DbxClientV2
+import net.sosuisen.petajournal.dropbox.DropboxAccount
 import net.sosuisen.petajournal.sync.CloudRecord
 import net.sosuisen.petajournal.sync.CloudSync
 import net.sosuisen.petajournal.sync.Downloader
-import net.sosuisen.petajournal.dropbox.DropboxCloud
 import net.sosuisen.petajournal.sync.MarkdownFolder
 import net.sosuisen.petajournal.sync.SyncRound
 import net.sosuisen.petajournal.sync.Uploader
 import java.io.File
-import kotlin.concurrent.thread
-
-/**
- * The app reads the folder in Dropbox, and writes the pages that changed in the app. It
- * deletes and moves nothing there (ADR 031).
- */
-private val SCOPES = listOf("files.metadata.read", "files.content.read", "files.content.write")
 
 /** How long the app waits after the last change of a page before it syncs. */
 private const val AFTER_EDIT_MS = 3_000L
 
-/** Where the credential of a sign-in that may write is kept. */
-private const val CREDENTIAL = "credential-write"
-
-/** Where a version of the app that only read kept its credential. It cannot upload. */
-private const val READ_ONLY = "credential"
-private val DROPBOX = DbxRequestConfig("peta-journal-android")
 
 /**
  * Keeps the shell while the screen is made again, as when the device is turned. The journal
@@ -68,8 +49,7 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
         main.postDelayed(afterEdit, AFTER_EDIT_MS)
     }
 
-    /** The credential of Dropbox, in the storage of the app only. The app is in no backup. */
-    private val kept = app.getSharedPreferences("dropbox", Context.MODE_PRIVATE)
+    private val account = DropboxAccount(app, BuildConfig.DROPBOX_KEY, BuildConfig.DROPBOX_FOLDER)
 
     /** Where the last download ended, for the next one to ask only for what changed since. */
     private val cursor = File(app.filesDir, "dropbox-cursor")
@@ -78,76 +58,57 @@ class JournalModel(app: Application) : AndroidViewModel(app) {
     private val record = CloudRecord(File(app.filesDir, "dropbox-record"))
 
     /** `null` when the app was built without the App key of Dropbox: it then syncs nothing. */
-    val cloud: CloudSync? = if (BuildConfig.DROPBOX_KEY.isEmpty()) {
+    val cloud: CloudSync? = if (!account.isSetUp) {
         null
     } else {
         val folder = MarkdownFolder(markdown, File(app.cacheDir, "downloads"))
         CloudSync(
-            signedIn = kept.contains(CREDENTIAL),
+            signedIn = account.isSignedIn,
             round = { SyncRound(Downloader(it, folder, cursor, record), shell::syncAndWait, Uploader(it, folder, record)) },
             onMainThread = { main.post(it) },
         )
     }
 
     init {
-        // A sign-in of a version that only read cannot upload: the user signs in again
-        kept.getString(READ_ONLY, null)?.let { old ->
-            kept.edit().remove(READ_ONLY).apply()
-            revoke(old)
-        }
         // What an earlier download left, when the app ended before it was taken in
         shell.sync()
         // Before the sign-in, the journal of today is not made: the first download may bring it
-        shell.restore(make = cloud == null || kept.contains(CREDENTIAL))
+        shell.restore(make = cloud == null || account.isSignedIn)
     }
 
+    /** Starts the sign-in to the cloud. The app comes to the front again when it has ended. */
+    fun signIn(from: Context) = account.signIn(from)
+
     /**
-     * Syncs with Dropbox: downloads what changed there, and uploads the pages that changed
-     * in the app. [fresh] is the credential of a sign-in that has just
-     * ended, if any. Nothing happens before the first sign-in. [inFront] says that the user
+     * Syncs with the cloud: downloads what changed there, and uploads the pages that changed
+     * in the app. Nothing happens before the first sign-in. [inFront] says that the user
      * waits for this sync: the screen shows it in a dialog.
      */
-    fun sync(fresh: DbxCredential? = null, inFront: Boolean = false) {
+    fun sync(inFront: Boolean = false) {
         val sync = cloud ?: return
-        if (fresh != null) kept.edit().putString(CREDENTIAL, DbxCredential.Writer.writeToString(fresh)).apply()
-        val credential = kept.getString(CREDENTIAL, null) ?: return
-        // The client gets a new access token by itself when the old one has run out
-        val client = DbxClientV2(DROPBOX, DbxCredential.Reader.readFully(credential))
-        sync.start(DropboxCloud(client, BuildConfig.DROPBOX_FOLDER), inFront)
+        sync.start(account.cloud() ?: return, inFront)
+    }
+
+    /** The app came to the front, maybe back from the sign-in: it syncs, and the user waits. */
+    fun syncInFront() {
+        if (cloud == null) return
+        account.keepNewSignIn()
+        sync(inFront = true)
     }
 
     /**
-     * Signs out of Dropbox. The pages and the images that were downloaded stay, and can be
+     * Signs out of the cloud. The pages and the images that were downloaded stay, and can be
      * read. The app syncs nothing until the next sign-in.
      */
     fun signOut() {
         val sync = cloud ?: return
-        val credential = kept.getString(CREDENTIAL, null)
-        kept.edit().remove(CREDENTIAL).apply()
-        // The SDK keeps the answer of the last sign-in, and the next resume would take it again
-        AuthActivity.result = null
+        account.signOut()
         // The next sign-in may be to another account, where this cursor means nothing. Without
         // it, the next download lists everything: it takes only the files that differ, and
         // deletes the copies of what the account does not hold. The record of the versions
         // stays: it tells a copy from what was written here and is not uploaded yet
         cursor.delete()
         sync.signOut()
-        if (credential != null) revoke(credential)
-    }
-
-    /**
-     * Tells Dropbox that the token is no longer to be taken. Without the network, Dropbox does
-     * not hear of it: the token is then gone from the device only.
-     */
-    private fun revoke(credential: String) {
-        val client = DbxClientV2(DROPBOX, DbxCredential.Reader.readFully(credential))
-        thread(name = "dropbox-sign-out") {
-            try {
-                client.auth().tokenRevoke()
-            } catch (unheard: DbxException) {
-                // Nothing to do: the device has let go of the token
-            }
-        }
     }
 
     override fun onCleared() {
@@ -167,7 +128,7 @@ class MainActivity : ComponentActivity() {
                 model.shell,
                 model.cloud?.state,
                 syncInFront = model.cloud?.inFront == true,
-                onSignIn = { Auth.startOAuth2PKCE(this, BuildConfig.DROPBOX_KEY, DROPBOX, SCOPES) },
+                onSignIn = { model.signIn(this) },
                 onSync = { model.sync() },
                 onSignOut = { model.signOut() },
                 onFile = ::openWithAnotherApp,
@@ -203,6 +164,6 @@ class MainActivity : ComponentActivity() {
     /** The app syncs whenever it comes to the front, also back from the sign-in. */
     override fun onResume() {
         super.onResume()
-        model.sync(Auth.getDbxCredential(), inFront = true)
+        model.syncInFront()
     }
 }
