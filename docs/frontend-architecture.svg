@@ -46,7 +46,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <rect x="555" y="614" width="1425" height="72" fill="#E8830C" fill-opacity="0.22" />
 
 <text class="th" x="20" y="30" dominant-baseline="central">PetaJournalのフロントエンド</text>
-<text class="note" x="20" y="54" dominant-baseline="central">Leptos・Emacs・SwiftUI・WinUI・Android・iOSは、同じpeta-coreを呼びます。AndroidとiOSは、サーバの代わりにjournal-coreを組み込みます。Rustライブラリの中身は、AndroidとiOSで同じです。</text>
+<text class="note" x="20" y="54" dominant-baseline="central">Leptos・Emacs・WinUI・SwiftUI・iOS・Androidは、同じpeta-coreを呼びます。iOSとAndroidは、サーバの代わりにjournal-coreを組み込みます。Rustライブラリの中身は、iOSとAndroidで同じです。</text>
 <rect x="786" y="12" width="57" height="9" fill="#3B6D11" fill-opacity="0.14" />
 <rect x="786" y="24" width="57" height="9" fill="#993556" fill-opacity="0.14" />
 <rect x="786" y="36" width="57" height="9" fill="#534AB7" fill-opacity="0.14" />
@@ -73,7 +73,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="382" y="172" dominant-baseline="central">Rustプロセス（exe）</text>
 
 <rect class="frame" x="680" y="20" width="300" height="480" rx="14" />
-<text class="th" x="696" y="42" dominant-baseline="central">macOSネイティブアプリ</text>
+<text class="th" x="696" y="42" dominant-baseline="central">Windowsネイティブアプリ</text>
 <rect class="inner" x="696" y="154" width="268" height="330" rx="10" />
 <text x="712" y="172" dominant-baseline="central">Rustライブラリ</text>
 
@@ -111,7 +111,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 
 <g class="gray other">
 <rect x="712" y="56" width="236" height="56" rx="8" />
-<text class="th" x="830" y="73" text-anchor="middle" dominant-baseline="central">frontend-swiftui（SwiftUI）</text>
+<text class="th" x="830" y="73" text-anchor="middle" dominant-baseline="central">frontend-winui（C#, WinUI）</text>
 <text x="830" y="95" text-anchor="middle" dominant-baseline="central">画面を描画・操作を送信</text>
 </g>
 <g class="green">
@@ -166,12 +166,12 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 
 
 <rect class="frame" x="1010" y="20" width="300" height="480" rx="14" />
-<text class="th" x="1026" y="42" dominant-baseline="central">Windowsネイティブアプリ</text>
+<text class="th" x="1026" y="42" dominant-baseline="central">macOSネイティブアプリ</text>
 <rect class="inner" x="1026" y="154" width="268" height="330" rx="10" />
 <text x="1042" y="172" dominant-baseline="central">Rustライブラリ</text>
 <g class="gray other">
 <rect x="1042" y="56" width="236" height="56" rx="8" />
-<text class="th" x="1160" y="73" text-anchor="middle" dominant-baseline="central">frontend-winui（C#, WinUI）</text>
+<text class="th" x="1160" y="73" text-anchor="middle" dominant-baseline="central">frontend-swiftui（SwiftUI）</text>
 <text x="1160" y="95" text-anchor="middle" dominant-baseline="central">画面を描画・操作を送信</text>
 </g>
 <g class="green">
@@ -204,12 +204,12 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="1196" y="330" text-anchor="middle" dominant-baseline="central">ast</text>
 </g>
 <rect class="frame" x="1340" y="20" width="300" height="736" rx="14" />
-<text class="th" x="1356" y="42" dominant-baseline="central">Androidネイティブアプリ</text>
+<text class="th" x="1356" y="42" dominant-baseline="central">iOSネイティブアプリ</text>
 <rect class="inner" x="1356" y="154" width="268" height="480" rx="10" />
 <text x="1372" y="172" dominant-baseline="central">Rustライブラリ</text>
 <g class="gray other">
 <rect x="1360" y="56" width="260" height="56" rx="8" />
-<text class="th" x="1490" y="73" text-anchor="middle" dominant-baseline="central">frontend-android（Kotlin, Compose）</text>
+<text class="th" x="1490" y="73" text-anchor="middle" dominant-baseline="central">frontend-ios（Swift, SwiftUI）</text>
 <text x="1490" y="95" text-anchor="middle" dominant-baseline="central">画面を描画・操作を送信</text>
 </g>
 <g class="teal">
@@ -220,7 +220,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <g class="blue">
 <rect x="1372" y="190" width="236" height="56" rx="8" />
 <text class="th" x="1490" y="207" text-anchor="middle" dominant-baseline="central">shell-android（Rust）</text>
-<text x="1490" y="229" text-anchor="middle" dominant-baseline="central">FFIの入口・Hostの実装</text>
+<text x="1490" y="229" text-anchor="middle" dominant-baseline="central">Androidと同じクレート</text>
 </g>
 <g class="pink">
 <rect x="1402" y="274" width="206" height="56" rx="8" />
@@ -255,7 +255,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <line class="arr" x1="1572" y1="624" x2="1572" y2="670" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1564" y="652" text-anchor="end" dominant-baseline="central">読み書き</text>
 <line class="arr" x1="1312" y1="692" x2="1350" y2="692" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="1352" y="734" dominant-baseline="central">Dropbox SDK（Kotlin）で同期</text>
+<text x="1352" y="734" dominant-baseline="central">Dropbox SDK（Swift）で同期</text>
 <g class="chip">
 <rect x="1564" y="459" width="36" height="18" rx="9" />
 <text x="1582" y="468" text-anchor="middle" dominant-baseline="central">ast</text>
@@ -267,12 +267,12 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="1556" y="566" text-anchor="middle" dominant-baseline="central">flatmarkdown</text>
 </g>
 <rect class="frame" x="1660" y="20" width="300" height="736" rx="14" />
-<text class="th" x="1676" y="42" dominant-baseline="central">iOSネイティブアプリ</text>
+<text class="th" x="1676" y="42" dominant-baseline="central">Androidネイティブアプリ</text>
 <rect class="inner" x="1676" y="154" width="268" height="480" rx="10" />
 <text x="1692" y="172" dominant-baseline="central">Rustライブラリ</text>
 <g class="gray other">
 <rect x="1680" y="56" width="260" height="56" rx="8" />
-<text class="th" x="1810" y="73" text-anchor="middle" dominant-baseline="central">frontend-ios（Swift, SwiftUI）</text>
+<text class="th" x="1810" y="73" text-anchor="middle" dominant-baseline="central">frontend-android（Kotlin, Compose）</text>
 <text x="1810" y="95" text-anchor="middle" dominant-baseline="central">画面を描画・操作を送信</text>
 </g>
 <g class="teal">
@@ -283,7 +283,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <g class="blue">
 <rect x="1692" y="190" width="236" height="56" rx="8" />
 <text class="th" x="1810" y="207" text-anchor="middle" dominant-baseline="central">shell-android（Rust）</text>
-<text x="1810" y="229" text-anchor="middle" dominant-baseline="central">Androidと同じクレート</text>
+<text x="1810" y="229" text-anchor="middle" dominant-baseline="central">FFIの入口・Hostの実装</text>
 </g>
 <g class="pink">
 <rect x="1722" y="274" width="206" height="56" rx="8" />
@@ -318,7 +318,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <line class="arr" x1="1892" y1="624" x2="1892" y2="670" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1884" y="652" text-anchor="end" dominant-baseline="central">読み書き</text>
 <path class="arr" d="M1235 718V776H1747V714" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="1757" y="734" dominant-baseline="central">Dropbox SDK（Swift）で同期</text>
+<text x="1757" y="734" dominant-baseline="central">Dropbox SDK（Kotlin）で同期</text>
 <g class="chip">
 <rect x="1884" y="459" width="36" height="18" rx="9" />
 <text x="1902" y="468" text-anchor="middle" dominant-baseline="central">ast</text>
@@ -419,7 +419,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 
 <text class="note" x="20" y="860" dominant-baseline="central">制作例のToDoアプリ、Stickiesアプリは、Readが中心の単純なものなので、peta-coreを使わず、サーバと直接話します。</text>
 <text class="note" x="20" y="882" dominant-baseline="central">画像は、どのフロントエンドも、画面の側がサーバから直接取ります。</text>
-<text class="note" x="20" y="904" dominant-baseline="central">項目の表示は、Leptos・SwiftUI・WinUI・Android・iOS・Stickiesのどれも、ast2htmlが作るHTMLから描きます。Emacsは、Markdownのまま見せます。</text>
+<text class="note" x="20" y="904" dominant-baseline="central">項目の表示は、Leptos・WinUI・SwiftUI・iOS・Android・Stickiesのどれも、ast2htmlが作るHTMLから描きます。Emacsは、Markdownのまま見せます。</text>
 
 <g transform="translate(0,308)">
 <rect x="20" y="620" width="1290" height="290" fill="#534AB7" fill-opacity="0.14" />
