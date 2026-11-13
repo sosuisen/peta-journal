@@ -7,9 +7,8 @@
 use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 
-use flatmarkdown_ast::Node;
+use flatmarkdown_ast::{Node, PropValue};
 use flatmarkdown_ast2html::ast_to_html;
-use serde_json::Value;
 
 /// The HTML of an item, from its AST as the JSON that the view model carries. An AST that
 /// cannot be read shows nothing: an item without a body has an empty string for its AST.
@@ -40,10 +39,13 @@ pub struct ImageSize {
 }
 
 impl ImageSize {
-    /// The size in the `w` and `h` props of an image. The parser writes every prop as a
-    /// string. A side that is not a number above zero is not given.
-    fn of_props(props: &BTreeMap<String, Value>) -> Self {
-        let side = |key: &str| props.get(key).and_then(Value::as_str).and_then(pixels);
+    /// The size in the `w` and `h` props of an image. The parser writes every prop with a value
+    /// as text. A side that is not a number above zero is not given.
+    fn of_props(props: &BTreeMap<String, PropValue>) -> Self {
+        let side = |key: &str| match props.get(key) {
+            Some(PropValue::Text(text)) => pixels(text),
+            _ => None,
+        };
         Self {
             width: side("w"),
             height: side("h"),

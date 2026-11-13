@@ -12,10 +12,9 @@ description = "PetaJournal native frontends: the Crux core behind a border of by
 client-core = { path = "../client-core" }
 crux_core = "=0.20.0"
 serde = { workspace = true }
-# The HTML of an item (ADR 025). The same version as `flatmarkdown-ast`: a release has all the
-# crates of flatmarkdown (ADR 020)
+# The HTML of an item (ADR 025)
 flatmarkdown-ast = { workspace = true }
-flatmarkdown-ast2html = "=0.7.0"
+flatmarkdown-ast2html = { workspace = true }
 # The links to pages that another app opens, and the HTML of a copy (ADR 027)
 client-page-links = { path = "../client-page-links" }
 chrono = "0.4.45"
@@ -25,9 +24,8 @@ facet = { version = "=0.46.5", optional = true }
 facet_generate = { version = "=0.22.3", optional = true }
 
 [dev-dependencies]
-# The parser, to make the AST of a test from Markdown. The same version as the other two crates
-# of a release (ADR 020)
-flatmarkdown = "=0.7.0"
+# The parser, to make the AST of a test from Markdown
+flatmarkdown = { workspace = true }
 
 [features]
 # Describes the types that cross the border, to generate the types of the shells from them.
