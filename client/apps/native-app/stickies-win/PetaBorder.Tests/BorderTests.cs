@@ -119,7 +119,6 @@ public sealed class BorderTests
             Idx = "a",
             Level = 1,
             Body = "本文",
-            Ast = "",
             Types = [],
             Properties = new()
             {
@@ -150,7 +149,6 @@ public sealed class BorderTests
                 ItemType = "doc",
                 Idx = "a",
                 Body = "",
-                Ast = "",
                 Types = [],
                 Properties = [],
             },

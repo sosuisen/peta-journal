@@ -366,7 +366,7 @@
 - TabとShift+Tabで、選んだ項目がまとめて1段深く、1段浅くなる。先頭の項目は深くできない
 - Ctrl+ZとCtrl+Yは、エディタの中と同じようにUndoとRedoをする
 - Ctrl+Cで、ツリー形式のMarkdownがクリップボードに載り、フラット形式がモデルに記憶される
-  - コアは、サーバーが作ったそのMarkdownのASTも、シェルに渡す（ADR 027）
+  - コアは、そのMarkdownを自分で解析し、ASTもシェルに渡す（ADR 027、ADR 041）
   - outliner-webは、そのASTから作ったHTMLも、クリップボードに載せる。Markdownは解析しない
     - ウィキリンクと`.md`への相対リンクは、そのページを開くふつうのリンクになる。表示する文字は変わらない
     - ハッシュタグは、タグのページを開くリンクになる。表示する文字は`#`とタグ名である
@@ -852,6 +852,8 @@
 出典: `client/libs/client-core/src/tests/view.rs`、`client/libs/client-shell-embedded/src/tests.rs`、`client/libs/client-native-bridge/src/codegen.rs`、各シェルの`ShownText`のテスト（iOS、macOS、Android、Windows）
 
 - 行は、コアが本文から作ったASTを持つ。シェルは、そのASTの型から描く（ADR 041）
+  - 項目は、ASTの文字列を持たない。サーバーが返したASTは使わない
+  - Webのアウトライナーも、行のASTからHTMLを作る
   - 本文が変わると、行のASTも変わる。同じ本文の行は、同じASTを持つ
 - ページへのリンクとタグの行き先は、そのページのURLである（`/pages/<ページ名>`、`/pages/<タグ用フォルダ>/<タグ>`）
 - どのシェルでも、太字などの装飾、見出し、リスト、タスク、引用、アラート、区切り線、表、脚注が出る。知らない種類のノードは、中の文字が出る

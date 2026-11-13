@@ -15,7 +15,6 @@ pub fn plain_item(id: &str, level: i32, body: &str) -> Item {
         idx: id.to_string(),
         level,
         body: body.to_string(),
-        ast: String::new(),
         collapsed: false,
         types: Vec::new(),
         properties: Default::default(),

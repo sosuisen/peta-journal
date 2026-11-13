@@ -228,9 +228,9 @@ fn finish_edit_closes_the_wiki_popup() {
     assert_eq!(h.view().outline.wiki.item_id, None);
 }
 
-// トランスクルージョンのルートの保存で、サーバーが返した構文木と種類は、表示しているルートにも写される。
+// トランスクルージョンのルートの保存で、サーバーが返した種類は、表示しているルートにも写される。
 #[test]
-fn saving_a_transclusion_root_copies_the_parsed_result_to_the_shown_root() {
+fn saving_a_transclusion_root_copies_the_parsed_types_to_the_shown_root() {
     let mut h = Harness::with_items(vec![item_with("root", 1, |i| {
         i.transclude_item_id = Some("s".into())
     })]);
@@ -243,7 +243,6 @@ fn saving_a_transclusion_root_copies_the_parsed_result_to_the_shown_root() {
         "UpdateItem",
         Ok(crate::effects::ApiOutput::Item(item_with("s", 1, |i| {
             i.body = "# typed".into();
-            i.ast = "parsed".into();
             i.types = vec!["heading".into()];
         }))),
     );
@@ -251,6 +250,5 @@ fn saving_a_transclusion_root_copies_the_parsed_result_to_the_shown_root() {
         item_id: "root".into(),
     });
     let root = h.model.state.get_item_by_id("root").unwrap();
-    assert_eq!(root.ast, "parsed");
     assert_eq!(root.types, ["heading"]);
 }

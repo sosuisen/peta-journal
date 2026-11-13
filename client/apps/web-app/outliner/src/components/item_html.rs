@@ -10,12 +10,9 @@ use std::num::NonZeroU64;
 use flatmarkdown_ast::{Node, PropValue};
 use flatmarkdown_ast2html::ast_to_html;
 
-/// The HTML of an item, from its AST as the JSON that the view model carries. An AST that
-/// cannot be read shows nothing: an item without a body has an empty string for its AST.
-pub fn item_html(ast: &str) -> String {
-    let Ok(mut root) = Node::from_json(ast) else {
-        return String::new();
-    };
+/// The HTML of an item, from the AST that the core gives with its row (ADR 041).
+pub fn item_html(ast: &Node) -> String {
+    let mut root = ast.clone();
     keep_image_sizes(&mut root);
     ast_to_html(&root)
 }
@@ -90,8 +87,8 @@ fn pixels(text: &str) -> Option<NonZeroU64> {
 mod tests {
     use super::*;
 
-    fn ast_of(body: &str) -> String {
-        flatmarkdown::parse_body(body).to_json()
+    fn ast_of(body: &str) -> Node {
+        client_core::asts::parse(body)
     }
 
     fn size(width: u64, height: u64) -> ImageSize {
@@ -110,10 +107,10 @@ mod tests {
         );
     }
 
-    // 本文が空の項目は、ASTが空の文字列である。何も表示しない。
+    // 本文が空の項目は、何も表示しない。
     #[test]
     fn an_item_without_a_body_shows_nothing() {
-        assert_eq!(item_html(""), "");
+        assert_eq!(item_html(&ast_of("")), "");
     }
 
     // 画像の大きさは、HTMLの画像のURLから読み戻せる。
@@ -167,7 +164,7 @@ mod tests {
     // 値のない辺、数値でない辺、0の辺は、与えられていないものとする。
     #[test]
     fn a_side_that_is_not_a_number_above_zero_is_not_given() {
-        let props_of = |body: &str| match Node::from_json(&ast_of(body)).unwrap().children() {
+        let props_of = |body: &str| match ast_of(body).children() {
             [Node::Paragraph { children }] => match &children[0] {
                 Node::Embed { props, .. } => props.clone(),
                 other => panic!("not an image: {other:?}"),

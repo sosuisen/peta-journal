@@ -26,7 +26,7 @@ final class ShownTextTests: XCTestCase {
         }
     }
 
-    /// The row of an item with this body, as the journal server gives it back: with its AST.
+    /// The row of an item with this body, typed into a page of a real journal server.
     private func row(withBody body: String) async throws -> Row {
         let server = try JournalServer(port: 18099)
         self.server = server
@@ -36,7 +36,10 @@ final class ShownTextTests: XCTestCase {
         shell.startEditing(first)
         shell.typed(body, into: first)
         shell.send(.editFinished(itemId: first))
-        try await waitUntil("the server gave the AST") { !shell.view.outline.rows[0].item.ast.isEmpty }
+        try await waitUntil("the edit is over") {
+            let row = shell.view.outline.rows[0]
+            return !row.isEditing && row.item.body == body
+        }
         return shell.view.outline.rows[0]
     }
 
@@ -85,11 +88,26 @@ final class ShownTextTests: XCTestCase {
 
         let shown = ShownText.of(row.ast).string
 
+        let kinds = Self.kinds(of: row.ast)
         for (kind, _, seen) in Self.everyKind {
-            XCTAssertTrue(row.item.ast.contains("\"type\":\"\(kind)\""), "the body has no node of the kind \(kind)")
+            XCTAssertTrue(kinds.contains(Self.caseName(of: kind)), "the body has no node of the kind \(kind)")
             XCTAssertTrue(shown.contains(seen), "the kind \(kind) is not shown: \(seen) is missing")
         }
         XCTAssertTrue(shown.contains("☑ CLOSED"))
+    }
+
+    /// The names of the cases of the nodes in the tree, such as `codeBlock`.
+    private static func kinds(of node: Node) -> Set<String> {
+        // A case without values has no label of its own: it is its own name
+        let name = Mirror(reflecting: node).children.first?.label ?? String(describing: node)
+        return children(of: node).reduce([name]) { $0.union(kinds(of: $1)) }
+    }
+
+    /// The name of the case of `Node` for a kind of the AST, such as `codeBlock` for `code_block`.
+    private static func caseName(of kind: String) -> String {
+        if kind == "subscript" { return "subscriptText" }
+        let words = kind.split(separator: "_")
+        return String(words[0]) + words.dropFirst().map(\.capitalized).joined()
     }
 
     private func text(_ value: String) -> Node { .text(value: value) }
