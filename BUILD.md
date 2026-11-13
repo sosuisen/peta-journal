@@ -7,8 +7,7 @@ PetaJournal is two programs: the journal server (`journal/`) and the frontend
 
 `journal/` holds the journal server (axum, rusqlite, tantivy, rmcp). It serves the
 REST API, the SSE stream, the MCP tools and the web frontend on port 8087, and keeps
-`journal.db`, `config.json` and the markdown folder under `~/.peta-journal`. It replaced the Java (Quarkus) server; the
-port is described in `docs/rust-rewrite-plan.md`.
+`journal.db`, `config.json` and the markdown folder under `~/.peta-journal`. It replaced the Java (Quarkus) server.
 
 ### Prerequisites
 
@@ -93,8 +92,7 @@ binary starts the server once on a free port with everything under a temporary d
 
 `client/` holds the frontend: a [Crux](https://github.com/redbadger/crux) core
 (`libs/client-core`, the outline logic, tested without a browser) and a [Leptos](https://leptos.dev/) shell
-(`apps/web-app/outliner`) built to WebAssembly with trunk. It replaced the Angular frontend; the
-port is described in `docs/frontend-rust-rewrite-plan.md`.
+(`apps/web-app/outliner`) built to WebAssembly with trunk. It replaced the Angular frontend.
 
 ### Prerequisites
 

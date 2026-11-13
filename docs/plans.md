@@ -201,6 +201,15 @@
   - 結合の修正（PR #89）を外しても、3回とも同じように落ちた（2026-11-06）
 - [ ] ほかのクライアントの変更を読み直す仕組み（ADR 015）の、足りないテストを書く
   - [ ] Web版のシェルには、IDを付ける処理の単体テストがない。E2Eだけが確かめている
+- [ ] Web版のwasmを小さくする余地を調べる
+  - `client/apps/web-app/outliner`の`dist`のwasmは、約1.59MBである（2026-11-13）。`opt-level = "z"`、`lto = "fat"`、`wasm-opt`の`z`は、もう使っている
+  - Angularからの移植の計画（`docs/frontend-rust-rewrite-plan.md`。2026-11-13に消した）に残っていた項目である
+- [ ] Web版で、拡張関数とトランスクルージョンのメニューを、ブラウザで確かめる
+  - どちらも、コアのテストでは確かめたが、ブラウザでは手でもE2Eでも確かめていない
+  - 拡張関数は、移植のときは画面の中のiframeで動いた。今はサーバーで動く（ADR 009）。確かめるのは、拡張関数が作った項目が画面に出ることである
+  - トランスクルージョンは、Enter、移動、削除、貼り付けのE2Eがある。項目のメニューからの操作のE2Eは、ない
+  - 同じ計画に並んでいた、画像の貼り付けと、クリップボードへのリッチコピーには、E2Eがある（`image-paste.spec.ts`、`outline-content.spec.ts`）
+  - Angularからの移植の計画に残っていた項目である
 
 ## Emacs版
 
@@ -400,7 +409,7 @@
     - `.github/workflows/ci.yml`、`BUILD.md`、README、`.gitignore`、`.vscode`、`.claude`
     - `atlas/src/measure.rs`のテストが読むフォント（`client/assets/NotoSansJP-Regular.ttf`）。`atlas`が`client`のファイルを読んでいる
     - `docs/`の今の仕様の文書（`features.md`、`storymap.md`、`properties.md`、`folder-sync-future.md`、`frontend-architecture.svg`）と、この文書のまだ済んでいない項目のパス
-    - ADR 038までのADRと、`docs/`の2つの移植の計画（`rust-rewrite-plan.md`、`frontend-rust-rewrite-plan.md`）は、書いた時点の記録なので書き換えない。この節の済んだ項目も、古いパスのままにした
+    - ADR 038までのADRは、書いた時点の記録なので書き換えない。この節の済んだ項目も、古いパスのままにした
   - 確かめ方
     - `client`と`journal`と`atlas`のテスト、`cargo fmt`、wasm向けの`cargo check`、Emacsのテスト
     - `build-frontend`を回し、Web版を開く。アトラスも開く。Trunkが、ワークスペースの外の`atlas/web/`を新しい深さで読めるかを見る

@@ -148,5 +148,4 @@ the server run most of the core. The files no test can run (the entry
 point, the native folder dialog, the launcher) are left out of both; `.cargo/config.toml` and
 `.cargo/mutants.toml` say which and why.
 
-Settings: see the "Rust server" section of `../BUILD.md`. Design and background:
-`../docs/rust-rewrite-plan.md`.
+Settings: see the "Rust server" section of `../BUILD.md`.
