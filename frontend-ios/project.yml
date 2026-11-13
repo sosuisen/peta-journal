@@ -1,0 +1,78 @@
+# The Xcode project of the app. XcodeGen makes PetaJournal.xcodeproj from this file:
+#   xcodegen generate
+# The project itself is not kept in the repository.
+name: PetaJournal
+options:
+  bundleIdPrefix: net.sosuisen
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  # Package.swift of this folder: the sync, the border and, through it, the generated packages
+  PetaJournal:
+    path: .
+# The App key of the Dropbox app and the Markdown folder in Dropbox, as DROPBOX_KEY and
+# DROPBOX_FOLDER. The file is not kept in the repository (ADR 034). run.sh makes an empty one:
+# without a key, the app is built without the sync
+configFiles:
+  Debug: Dropbox.xcconfig
+  Release: Dropbox.xcconfig
+targets:
+  PetaJournal:
+    type: application
+    platform: iOS
+    sources:
+      - App
+    dependencies:
+      - package: PetaJournal
+        product: PetaSync
+      - package: PetaJournal
+        product: PetaBorder
+      - package: PetaJournal
+        product: PetaDropbox
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: PetaJournal
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        DropboxKey: $(DROPBOX_KEY)
+        DropboxFolder: $(DROPBOX_FOLDER)
+        # Where Dropbox comes back to after the sign-in, by the App key of the build
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - db-$(DROPBOX_KEY)
+        # The SDK of Dropbox signs in with the Dropbox app when the device has it, and does
+        # not sign in at all when the app may not ask for it
+        LSApplicationQueriesSchemes:
+          - dbapi-2
+          - dbapi-8-emm
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.sosuisen.petajournal
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        # The core is built for arm64 only: a phone, and the simulator of a Mac with Apple silicon
+        ARCHS: arm64
+  PetaJournalUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: PetaJournal
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        ARCHS: arm64
+schemes:
+  PetaJournal:
+    build:
+      targets:
+        PetaJournal: all
+    test:
+      targets:
+        - PetaJournalUITests

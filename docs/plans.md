@@ -249,7 +249,7 @@
   - [ ] macOSのCIで、`frontend-swiftui`のテストを回す。費用が高いので、先送りにした
   - [ ] SwiftUIのシェルで、1つのキーでビューモデルを読む回数を1回に減らす。項目がさらに多いページで遅くなったら、変わった部分だけを境界に通すことを考える
 
-## ネイティブのシェルに共通（SwiftUI、WinUI、Android）
+## ネイティブのシェルに共通（SwiftUI、WinUI、Android、iOS）
 
 - [ ] ネイティブのシェルで、画像を貼り付けられるようにする。今は、`ApiOp::UploadAsset`がエラーになる。ファイルをシェルからRust側へ渡す方法を決める
 - [ ] ネイティブのシェルを閉じるときに、保存を待っている本文を保存する。`shell-emacs`の`shutdown`にあたるものが、まだない
@@ -264,6 +264,15 @@
   - タイトルは、コアの`ViewModel`に入れる案がある。一番上に見える日と今日から決まり、どちらもコアが知っている
   - 質問の待ち行列とフォーカスの番号は、`shell-native`に移す案がある。境界の形が変わるので、3つのシェルを合わせて直す
   - `Shell.kt`は、まだ比べていない。質問の扱いはある。同じ処理がどこまであるかを、先に見る
+  - 順序（2026-11-13にユーザーが決めた）
+    - [ ] 先に、C#（`Shell.cs`）、Kotlin（`Shell.kt`）、Swift（2つの`Shell.swift`）のコードに共通するところを、Rustの側に寄せる
+    - [ ] そのあとに、iOS（`frontend-ios`）とSwiftUI（`frontend-swiftui`）の間で、Swiftに残った同じコードを寄せる
+  - [ ] Dropboxとの同期をRustに書き、AndroidとiOSの両方で使うかを検討する（2026-11-13にユーザーが足した。ADR 034のAlternative 2）
+    - 今は、同じクラスがKotlinとSwiftに1つずつある（`Cloud`、`CloudRecord`、`MarkdownFolder`、`Downloader`、`Uploader`、`SyncRound`、`CloudSync`）。決まりを変えるときは、両方を直す
+    - Rustに寄せると、同期の決まりが1か所になる。テストも1つで済む
+    - 決めること: Dropboxとのやり取りを、Rustで書き直すか、境界を越えてKotlinとSwiftのSDKを呼ぶか。サインインとトークンの保存は、SDKに任せたままにするか。進み具合を、画面へどう伝えるか
+    - ADR 034は、KotlinとSwiftの同期が食い違い始めたら見直すとしている
+  - iOSとSwiftUIは、Swiftのコードを共有していない。別々のSwift Packageである。`Border`と`Shell`の骨組みが同じ形で2つある。iOSの`ShownParagraphs`（HTMLを読む）はFoundationだけで書いてあり、SwiftUIの側でも使える
 
 ## Androidのシェル
 
@@ -274,6 +283,18 @@
     - 本文の検索は、語の単位で合わせる。語の一部（「富士山」に対する「富士」、「登りました」に対する「登り」）では見つからない。不具合ではなく、直さないと決めた（ADR 032、2026-11-12）
   - [ ] Androidでページを作れるようにするときに、拡張関数を入れるかを見直す（ADR 029のAlternative 7）。`rquickjs`の`bindgen`には、LLVMが要る
     - 後回しにする（2026-11-12にユーザーが決めた。ADR 031）。スマホで作るページには、テンプレートの項目が入らない
+
+## iOSのシェル
+
+- [ ] iOSのシェルを、本物のDropboxで確かめる（ADR 034）。App keyを`frontend-ios/Dropbox.xcconfig`に置き、サインイン、最初の同期、編集のあとのアップロード、サインアウトを見る。シミュレーターでは、ブラウザーでのサインインになる
+- [ ] iOSのシェルを、実機で確かめる。日本語の入力、後ろに回ったときの同期、Dropboxのアプリでのサインイン（Androidでは失敗した。ADR 033）を見る
+- [ ] iOSのシェルの、同期の表示（メニュー、前面の同期のダイアログ、下の吹き出し、サインインのボタン）に、画面のテストを書く。今は、テストの中のアプリは同期をしない
+- [ ] `shell-android`のクレートの名前を、`shell-embedded`に変える（2026-11-13にユーザーが決めた）。AndroidとiOSの両方が使うようになった（ADR 034）
+  - [ ] クレートを`shell-embedded`（`peta-shell-embedded`）に変える。Androidのライブラリの名前、両方の`generate`、`BUILD.md`、READMEも合わせる。ADR 029から034は、書いた時点の記録なので書き換えない
+  - [ ] `embedded-journal`を、`journal-embedded`に変える
+  - [ ] `docs/frontend-architecture.svg`の名前を、2つとも変える
+  - [ ] 図の中の`shell-embedded`どうしと、`journal-embedded`どうしを、ほかの共通のライブラリと同じように、同じ色のリボンで結ぶ
+- [ ] Swiftのフォーマッターとlintを足す（2026-11-13にユーザーが決めた）。`frontend-ios`と`frontend-swiftui`には、まだどちらもない。道具を決め、設定をリポジトリに置く
 
 ## リポジトリの構成
 

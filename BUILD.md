@@ -227,6 +227,11 @@ This needs the Android NDK (`ANDROID_NDK_HOME`) and the Rust targets `aarch64-li
 
 The tests of the crate run on the development machine, with `cargo test -p peta-shell-android`.
 
+The iOS shell uses the same crate (ADR 034). On a Mac, `frontend-ios/generate.sh` writes the
+Swift types and packs the crate with `boltffi pack apple --release`, for a device, for the
+simulator and for the Mac. This needs the Rust targets `aarch64-apple-ios` and
+`aarch64-apple-ios-sim`. The output is `frontend-ios/generated`.
+
 ### Emacs frontend
 
 `crates/shell-emacs` is a second shell around the same core. It is a native program, and an Emacs
@@ -255,6 +260,13 @@ The shell for Android, in Kotlin with Jetpack Compose. It downloads the Markdown
 Dropbox, and a page is searched for and opened. Nothing is changed. The journal core runs
 inside the app (ADR 029, ADR 030). `frontend-android/README.md` describes the tools, the build of the app and the
 tests. Its tests need a device or an emulator, and do not run in CI.
+
+## iOS frontend (frontend-ios)
+
+The shell for iOS, in Swift with SwiftUI. It does what the Android shell does, with the same
+core inside the app (ADR 034). `frontend-ios/README.md` describes the tools, the build of the
+app and the tests. Its tests need a Mac, and those of the screen a simulator. They do not run
+in CI.
 
 ## Atlas crate (atlas-rust)
 

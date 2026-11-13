@@ -1,0 +1,147 @@
+# iOS frontend (frontend-ios)
+
+The iOS shell of PetaJournal, written in Swift with SwiftUI. It does what the Android shell
+does (`frontend-android`): it downloads the Markdown folder from Dropbox, a page is searched
+for and opened, and its items are shown with their decoration. A touch on an item edits its
+Markdown, and the sync uploads the pages that changed in the app.
+
+The core is the same Crux core as in the other frontends. There is no journal server on a
+phone, so the journal core runs inside the app (ADR 029). `frontend-rust/crates/shell-android`
+wraps both, and is packed here for iOS as it is for Android. Swift gets the view model and the
+requests of the screen as bytes (bincode), and sends events the same way. ADR 034 says what
+the iOS shell takes from the Android shell and where it differs. ADR 030 and ADR 031 say how
+the app syncs, where it keeps its data, how it edits and how it uploads.
+
+## Prerequisites
+
+- A Mac with Apple silicon, and Xcode with the iOS platform and a simulator (Xcode 27.2 and
+  iOS 27.2 were used). The core is built for arm64 only.
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen), which makes the Xcode project.
+- The Rust toolchain, with the targets `aarch64-apple-ios` and `aarch64-apple-ios-sim`.
+- [BoltFFI](https://boltffi.dev) 0.32.1, the command line tool:
+
+  ```
+  cargo install boltffi_cli --version '=0.32.1' --locked
+  ```
+
+  The version has to be the same as the `boltffi` dependency in
+  `frontend-rust/crates/shell-android/Cargo.toml`.
+
+## Build and test
+
+```
+cd peta-journal/frontend-ios
+./generate.sh        # makes generated/ from the Rust crates
+swift test           # runs the tests that need no simulator, on the Mac
+./run.sh --test      # runs the tests of the screen in a simulator
+./run.sh             # builds the app and starts it in a simulator
+```
+
+`generate.sh` makes two Swift packages. Run it again after a change in Rust. `generated/` is
+not kept in the repository:
+
+- `generated/swift/PetaTypes`: the types that cross the border (`Event`, `ViewModel`,
+  `Request`, ...), made by `facet_generate` 0.22.3.
+- `generated/PetaCore`: the class `PetaCore` that calls the core, and the core as a library
+  for a device, for the simulator and for the Mac (`PetaCore.xcframework`). BoltFFI makes
+  both. The library for the Mac is there for `swift test`.
+
+`run.sh` makes `PetaJournal.xcodeproj` from `project.yml` with XcodeGen. The project is not
+kept in the repository either. To run the app on a device, open the project in Xcode and
+choose a team for signing.
+
+## Dropbox
+
+The app reads and writes Dropbox with the App key of a Dropbox app, which each builder
+registers at <https://www.dropbox.com/developers/apps>, as for the Android shell:
+
+- Access type: Full Dropbox, to use the folder that the PC already uses.
+- Permissions: `files.metadata.read`, `files.content.read` and `files.content.write`.
+- No redirect URI is needed, and the App secret is not used: the sign-in is PKCE.
+
+The key and the path of the Markdown folder in Dropbox come from outside the repository, in
+the file `Dropbox.xcconfig` of this folder:
+
+```
+DROPBOX_KEY = <App key>
+DROPBOX_FOLDER = /PetaJournal
+```
+
+`run.sh` makes an empty file when there is none. An app that is built without a key syncs
+nothing and shows no sign-in.
+
+The SDK of Dropbox signs in (SwiftyDropbox). It lets the Dropbox app sign in when the device
+has it, and else opens a browser inside the app. It keeps the token in the keychain of the
+device. The Android shell always uses the browser, after the Dropbox app failed there (ADR
+033). The SDK for iOS has no such choice: it does not sign in at all in an app that may not
+ask for the Dropbox app. Whether the Dropbox app fails here in the same way is not known.
+
+A new app shows only "Sign in to Dropbox" before the sign-in. It makes no journal of today:
+Dropbox may hold that journal already, and the app would then have two files for one day.
+The first sync after the sign-in opens the journal of today. An app that has shown a page
+before opens that page also when it is signed out.
+
+The app syncs when it comes to the front, when it goes to the back, when "Sync" of the menu is
+touched, and 3 seconds after the last change of a page. What the README of the Android shell
+says of the sync holds here too: the dialog of a sync in front, the callout of the others, the
+three steps of a sync, what stays when Dropbox lost a file, and what "Sign out" does. iOS
+gives an app that goes to the back about half a minute. When that is not enough, the rest goes
+up when the app opens again.
+
+The app keeps all its files in `Application Support/PetaJournal` of its container: the
+Markdown folder (`markdown`), the database and the index of the core (`data`), where the last
+download ended and the versions of the files in Dropbox. The folder is in no backup: it is a
+copy of Dropbox.
+
+## The code
+
+`Package.swift` has the parts without a screen. They are tested on the Mac:
+
+- `PetaSync` is the sync with the cloud. It knows neither the core nor Dropbox. `Cloud` is
+  what it needs of the cloud storage. `Downloader` brings the folder of the app up to date
+  with the cloud, `Uploader` brings the pages that changed in the app to the cloud, and
+  `SyncRound` is one sync: download, core, upload. `CloudSync` runs one sync at a time and
+  tells the screen where it stands. They are the classes of the Android shell, in Swift.
+- `PetaBorder` is the core behind its border, and what the app shows. `Border` is the core
+  behind its border of bytes. `Shell` keeps the view model up to date with the core and sends
+  what the user did. `ShownText` makes the parts of an item as it is shown: the code blocks,
+  the tables and the images are read from the AST, and the text between them is the HTML that
+  Rust makes. `ShownParagraphs` reads that HTML into paragraphs of pieces with a look each.
+  iOS can make text with attributes of HTML, but only on the main thread and slowly.
+- `PetaDropbox` is `Cloud` for Dropbox, with the SDK: `DropboxCloud`. `DropboxAccount` is the
+  sign-in and the sign-out.
+
+`App` holds the app. It is built with Xcode only:
+
+- `PetaJournalApp` starts the app, and syncs when the app comes to the front or goes to the
+  back. `JournalModel` holds the shell and the sync, and the folders of the app.
+- `JournalScreen` is the one screen: the bar with the menu, the search field and the button
+  for today, and under it the results of the search or the page. The tools of the item that
+  is edited stand above the keyboard: outdent, indent, move up, move down, task, delete and
+  "Done".
+- `OutlineRow` draws one item, and `Blocks` its parts. `Pictures` reads an image smaller than
+  it is in its file, and shows it large after a touch. A link to a file of the assets folder
+  opens the file with Quick Look.
+- `ItemEditor` is the field of the item that is edited. It is a `UITextView`: it tells where
+  the cursor is when Enter is pressed, and whether the keyboard still composes a word. Text
+  that is still being composed is not sent to the core, and the Enter that confirms it does
+  not split the item.
+- After Enter, the edit moves to the field of the new item. That takes a moment: the core
+  splits the item, and the screen gives the keyboard to the new field. What is typed
+  meanwhile is kept and typed into the new field. `KeyboardKeeper` has the keyboard while
+  neither field is on the screen. Without this, the first letters after Enter were lost now
+  and then.
+
+## Tests
+
+`swift test` runs the tests of `PetaSync` and `PetaBorder` on the Mac. The tests of the sync
+use a cloud that is made for the test. The tests of `Shell` and of `ShownText` run the real
+core, with its files in a temporary folder.
+
+`./run.sh --test` runs the tests of the screen (`UITests`) in the simulator. Each test gives
+the app a folder of its own, by `PETA_ROOT`. The app syncs with nothing then. They take
+several minutes. `run.sh` keeps the Mac awake meanwhile (`caffeinate`): on a Mac that goes to
+sleep, the tests end with "Timed out while preparing execution worker".
+
+Not tested: `DropboxCloud` and the sign-in, which need an account of Dropbox, and what the
+screen shows of a sync (the menu, the dialog, the callout). The tests do not run in CI.
