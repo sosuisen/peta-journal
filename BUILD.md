@@ -162,7 +162,7 @@ cargo cov --html     # target/llvm-cov/html/index.html, line by line
 
 `cargo cov` is an alias in `.cargo/config.toml`. It measures `peta-core`, `client-page-links`,
 `client-api-http`, `client-api-embedded`, `peta-shell-emacs`, `client-native-bridge`, `client-shell-http` and
-`peta-shell-android`. The wasm shell `peta-frontend` (`crates/shell-leptos`) is left out: it only runs in
+`client-shell-embedded`. The wasm shell `peta-frontend` (`crates/shell-leptos`) is left out: it only runs in
 the browser, so the E2E tests cover it instead.
 
 No file of `peta-shell-emacs` is left out. Its tests start the program itself, and `cargo cov`
@@ -203,9 +203,9 @@ A type that crosses has `#[cfg_attr(feature = "facet_typegen", derive(facet::Fac
 generator reads the shape of the Rust type, not what serde writes. A type with a hand-written
 `Serialize` has to write that same shape in bincode, as `PropertyValue` and `ItemPosition` do.
 
-### Core of the Android shell
+### Core of the Android and iOS shells
 
-`crates/shell-android` holds the core for the Android shell. It has no journal server to ask:
+`crates/client-shell-embedded` holds the core for the Android and the iOS shell. It has no journal server to ask:
 the journal core (`journal-server-rust/crates/core`) runs inside the app (ADR 029). The shell
 puts Markdown files into a folder of the app and calls `sync()`, which takes them in and makes
 them found by the search. `sync()` also deletes the pages of the files that have gone, without
@@ -218,7 +218,7 @@ BoltFFI packs the crate for Android, and the generator writes the Kotlin types b
 ```
 cd peta-journal/frontend-rust
 cargo run -p client-native-bridge --features facet_typegen --bin codegen -- kotlin ../frontend-android/generated
-cd crates/shell-android
+cd crates/client-shell-embedded
 boltffi pack android --release
 ```
 
@@ -227,7 +227,7 @@ This needs the Android NDK (`ANDROID_NDK_HOME`) and the Rust targets `aarch64-li
 `jniLibs`, and the Kotlin under `kotlin`. It is not kept in the repository.
 `frontend-android/generate.ps1` runs both steps.
 
-The tests of the crate run on the development machine, with `cargo test -p peta-shell-android`.
+The tests of the crate run on the development machine, with `cargo test -p client-shell-embedded`.
 
 The iOS shell uses the same crate (ADR 034). On a Mac, `frontend-ios/generate.sh` writes the
 Swift types and packs the crate with `boltffi pack apple --release`, for a device, for the

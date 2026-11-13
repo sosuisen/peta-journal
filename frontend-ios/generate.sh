@@ -11,5 +11,5 @@ rm -rf "$here/generated"
 # The oldest systems the app runs on, as in Package.swift. Rust builds for iOS 10 by default,
 # and the C code of SQLite and zstd then asks for what only iOS 13 and later have
 # (`___chkstk_darwin`): the library for a device does not link
-(cd "$rust/crates/shell-android" &&
+(cd "$rust/crates/client-shell-embedded" &&
     IPHONEOS_DEPLOYMENT_TARGET=17.0 MACOSX_DEPLOYMENT_TARGET=14.0 boltffi pack apple --release)

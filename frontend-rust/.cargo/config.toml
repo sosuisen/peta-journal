@@ -37,7 +37,7 @@ cov = [
     "-p",
     "client-shell-http",
     "-p",
-    "peta-shell-android",
+    "client-shell-embedded",
     # What only a native shell needs is measured too: the generation of its types, and the
     # entrance for another language
     "--features",
