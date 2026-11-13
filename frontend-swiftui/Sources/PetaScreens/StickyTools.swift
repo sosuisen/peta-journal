@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// The tools of a sticky, which stand in the title bar of its window.
+/// The tools of a sticky, which stand in the title bar of its window. The pin and the colors
+/// are not here: they are in the menu of the title bar, and leave the bar to the name.
 struct StickyTools: View {
     @ObservedObject var look: StickyLook
     /// Opens another sticky.
@@ -15,22 +16,6 @@ struct StickyTools: View {
             }
             .keyboardShortcut("f")
             .help("Search pages")
-            Button {
-                look.alwaysOnTop.toggle()
-            } label: {
-                Image(systemName: look.alwaysOnTop ? "pin.fill" : "pin")
-            }
-            .help(look.alwaysOnTop ? "Do not keep on top" : "Keep on top of other windows")
-            Menu {
-                ForEach(StickyLook.colors, id: \.hex) { color in
-                    Button(color.name) { look.color = color.hex }
-                }
-            } label: {
-                Image(systemName: "paintpalette")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("Color")
             Button(action: onAdd) {
                 Image(systemName: "plus")
             }

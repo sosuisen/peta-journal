@@ -208,7 +208,10 @@ the tools of the sticky at the right. The tools are hidden while the window does
 focus. The button with the plus, or Command+N, opens
 another sticky. The app ends when the last one is closed.
 
-The menu with the palette gives the sticky another color: yellow, red, green, blue, orange,
+A right click on the title bar shows a menu with the pin and the colors. It is there also
+while the sticky is rolled up. The pin and the color of the sticky are checked.
+
+The menu gives the sticky another color: yellow, red, green, blue, orange,
 purple, white, gray or light gray. They are the colors of the cards of Petasti.
 A sticky is light in every color, also when the Mac is in dark mode.
 
@@ -218,8 +221,8 @@ bar does the same: it does not zoom the window. The window moves in steps, as th
 macOS do. A sticky that is rolled up shows no tools, and no buttons that close, minimize or
 zoom the window. A sticky that is rolled up comes back rolled up in the next run.
 
-The button with the pin keeps the sticky on top of the windows of other apps, until it is
-pressed again.
+"Keep on Top" in the menu keeps the sticky on top of the windows of other apps, until it is
+chosen again.
 
 The zoom of the items of a sticky has keys only: Command+Plus makes them a tenth
 larger, Command+Minus a tenth smaller, and Command+0 gives the usual size. The zoom stays
