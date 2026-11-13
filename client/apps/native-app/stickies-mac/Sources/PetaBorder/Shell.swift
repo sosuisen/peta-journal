@@ -17,7 +17,8 @@ public final class Shell: ObservableObject {
     @Published public private(set) var title = ""
     /// What is open, as the URL that opens it again. `nil` when nothing was opened yet.
     @Published public private(set) var url: String?
-    /// What the core asks the user now. The core waits until it is answered.
+    /// What the core asks the user now. The core waits until it is answered, and asks the
+    /// next question only after that.
     @Published public private(set) var question: Question?
     private let border: Border
     private let clipboard: () -> String?
@@ -26,8 +27,6 @@ public final class Shell: ObservableObject {
     /// another app is to open starts with it.
     private let server: String
     private let browse: (URL) -> Void
-    /// The questions that wait behind the one on screen.
-    private var later: [Question] = []
 
     /// Starts a core for the journal server at `server` and opens what `url` names, or nothing
     /// when there is no URL: a page is then to be searched for. `clipboard`
@@ -129,17 +128,13 @@ public final class Shell: ObservableObject {
 
     private func answer(_ output: UiOutput) {
         guard let asked = question else { return }
-        question = later.isEmpty ? nil : later.removeFirst()
+        question = nil
         Shell.must { try border.answer(asked.id, with: output) }
         view = Shell.must { try border.view() }
     }
 
     private func ask(_ asked: Question) {
-        if question == nil {
-            question = asked
-        } else {
-            later.append(asked)
-        }
+        question = asked
     }
 
     /// Sends what the user did to the core.

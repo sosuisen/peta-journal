@@ -307,9 +307,8 @@ public final class Shell: ObservableObject {
         }
     }
 
-    /// Shows a question of the core. A question that still waits is answered no first.
+    /// Shows a question of the core. The core asks the next one only after this is answered.
     private func put(_ next: Question) {
-        answer(yes: false)
         question = next
     }
 

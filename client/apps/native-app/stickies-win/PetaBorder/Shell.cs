@@ -20,9 +20,6 @@ public sealed partial class Shell : IDisposable
     /// </summary>
     private readonly string server;
 
-    /// <summary>The questions that wait behind the one on screen.</summary>
-    private readonly Queue<Question> later = new();
-
     private bool disposed;
 
     /// <summary>
@@ -177,7 +174,7 @@ public sealed partial class Shell : IDisposable
     {
         if (Question is not { } asked)
             return;
-        Question = later.Count == 0 ? null : later.Dequeue();
+        Question = null;
         border.Answer(asked.Id, output);
         Show(border.View());
         QuestionChanged?.Invoke();
@@ -185,15 +182,8 @@ public sealed partial class Shell : IDisposable
 
     private void Ask(Question asked)
     {
-        if (Question is null)
-        {
-            Question = asked;
-            QuestionChanged?.Invoke();
-        }
-        else
-        {
-            later.Enqueue(asked);
-        }
+        Question = asked;
+        QuestionChanged?.Invoke();
     }
 
     /// <summary>Sends what the user did to the core.</summary>
