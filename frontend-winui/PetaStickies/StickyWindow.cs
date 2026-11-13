@@ -74,7 +74,6 @@ internal sealed class StickyWindow : Window
         VerticalAlignment = VerticalAlignment.Center,
         Margin = new Thickness(0, 0, 4, 0),
     };
-    private readonly FontIcon pin = new() { FontSize = 14 };
     private readonly FontIcon large = new() { FontSize = WindowGlyphSize };
     private readonly TextBlock status = new()
     {
@@ -277,19 +276,6 @@ internal sealed class StickyWindow : Window
         bar.Children.Add(grip);
         SetTitleBar(grip);
         tools.Children.Add(Tool("\uE721", "Search pages (Ctrl+F)", ToggleSearch));
-        var pinned = Tool("", "Keep on top of other windows", TogglePin);
-        pinned.Content = pin;
-        tools.Children.Add(pinned);
-        var colors = Tool("\uE790", "Color", () => { });
-        var menu = new MenuFlyout();
-        foreach (var (title, hex) in StickyLook.Colors)
-        {
-            var entry = new MenuFlyoutItem { Text = title };
-            entry.Click += (_, _) => Look.Color = hex;
-            menu.Items.Add(entry);
-        }
-        colors.Flyout = menu;
-        tools.Children.Add(colors);
         tools.Children.Add(Tool("\uE710", "New sticky (Ctrl+N)", () => desk.Add()));
         Grid.SetColumn(tools, 1);
         bar.Children.Add(tools);
@@ -416,7 +402,6 @@ internal sealed class StickyWindow : Window
     {
         var (red, green, blue) = StickyLook.Rgb(Look.Color);
         root.Background = new SolidColorBrush(Color.FromArgb(255, red, green, blue));
-        pin.Glyph = Look.AlwaysOnTop ? "\uE841" : "\uE718";
         var bar = AppWindow.TitleBar;
         bar.ButtonBackgroundColor = Colors.Transparent;
         bar.ButtonInactiveBackgroundColor = Colors.Transparent;
@@ -636,6 +621,38 @@ internal sealed class StickyWindow : Window
     private void ToggleSearch() => Look.Searching = !Look.Searching;
 
     private void TogglePin() => Look.AlwaysOnTop = !Look.AlwaysOnTop;
+
+    /// <summary>
+    /// Shows the menu of the title bar: the pin, and the colors. The pin and the color of the
+    /// sticky are checked. They are not tools of the bar: they would leave little of it to
+    /// the name of a narrow sticky.
+    /// </summary>
+    /// <param name="screen">Where the mouse is, in pixels of the screen.</param>
+    private void ShowMenu(Native.Point screen)
+    {
+        var menu = new MenuFlyout();
+        var pin = new ToggleMenuFlyoutItem { Text = "Keep on top", IsChecked = Look.AlwaysOnTop };
+        pin.Click += (_, _) => TogglePin();
+        menu.Items.Add(pin);
+        menu.Items.Add(new MenuFlyoutSeparator());
+        foreach (var (title, hex) in StickyLook.Colors)
+        {
+            var color = new RadioMenuFlyoutItem
+            {
+                Text = title,
+                GroupName = "color",
+                IsChecked = Look.Color == hex,
+            };
+            color.Click += (_, _) => Look.Color = hex;
+            menu.Items.Add(color);
+        }
+        Native.ScreenToClient(handle, ref screen);
+        var place = new Windows.Foundation.Point(screen.X / Scale, screen.Y / Scale);
+        menu.ShowAt(
+            root,
+            new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = place }
+        );
+    }
 
     private void Minimize()
     {
@@ -940,6 +957,20 @@ internal sealed class StickyWindow : Window
                 else
                     Roll();
                 return IntPtr.Zero;
+            // A right click on the title bar shows the menu of the sticky. Windows would show
+            // its menu of the window: Alt+Space still does
+            case Native.WmNcRightButtonUp when wParam == Native.HitCaption:
+            {
+                var place = lParam.ToInt64();
+                ShowMenu(
+                    new Native.Point
+                    {
+                        X = (short)(place & 0xFFFF),
+                        Y = (short)(place >> 16 & 0xFFFF),
+                    }
+                );
+                return IntPtr.Zero;
+            }
             case Native.WmSysCommand
                 when (wParam.ToInt64() & 0xFFF0) == Native.SysMaximize && (RolledUp || rolling):
                 // On the way up or down the sticky has no height to come back to yet
