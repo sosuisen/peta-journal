@@ -278,6 +278,15 @@ Dropbox, and a page is searched for and opened. Nothing is changed. The journal 
 inside the app (ADR 029, ADR 030). `client/apps/native-app/outliner-android/README.md` describes the tools, the build of the app and the
 tests. Its tests need a device or an emulator, and do not run in CI.
 
+The App key of Dropbox and the folder in Dropbox are not kept in the repository. Write them
+into the `gradle.properties` of your home folder (`~/.gradle/gradle.properties`), not into the
+one of the app:
+
+```
+dropboxKey=<App key>
+dropboxFolder=/PetaJournal
+```
+
 ## iOS frontend (outliner-ios)
 
 The shell for iOS, in Swift with SwiftUI. It does what the Android shell does, with the same
