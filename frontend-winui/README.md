@@ -184,8 +184,12 @@ The keys of a sticky:
 | Ctrl+Q | ends the app and keeps all stickies |
 
 Each window is a sticky with a page of its own. Its title bar shows the name of the page, and
-the tools of the sticky at the right: search and a new sticky. The tools are
-hidden while the window does not have the focus.
+the search tool at the right. The tool and the buttons of the window are hidden while the
+window does not have the focus: the bar is left to the name.
+
+The button with the plus stands at the left of the name, and opens another sticky. It is
+always there: also while the window does not have the focus, and while the sticky is rolled
+up. It answers when it is pressed.
 
 A right click on the title bar shows a menu with the pin and the colors. It is there also
 while the sticky is rolled up. A right click on an item that is not edited shows the same
