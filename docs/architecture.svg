@@ -513,16 +513,16 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <g class="chip">
 <rect x="36" y="659" width="88" height="18" rx="9" />
 <text x="80" y="668" text-anchor="middle" dominant-baseline="central">flatmarkdown</text>
-<rect x="462" y="659" width="36" height="18" rx="9" />
-<text x="480" y="668" text-anchor="middle" dominant-baseline="central">ast</text>
-<rect x="634" y="659" width="62" height="18" rx="9" />
-<text x="665" y="668" text-anchor="middle" dominant-baseline="central">ast2html</text>
+<rect x="562" y="659" width="36" height="18" rx="9" />
+<text x="580" y="668" text-anchor="middle" dominant-baseline="central">ast</text>
+<rect x="734" y="659" width="62" height="18" rx="9" />
+<text x="765" y="668" text-anchor="middle" dominant-baseline="central">ast2html</text>
 </g>
-<text x="132" y="668" dominant-baseline="central">Flat Markdown形式のMarkdownをASTへパース</text>
-<text x="506" y="668" dominant-baseline="central">ASTの型（Node）</text>
-<text class="note" x="506" y="688" dominant-baseline="central">(flatmarkdown-ast)</text>
-<text x="704" y="668" dominant-baseline="central">ASTをHTMLに変換</text>
-<text class="note" x="704" y="688" dominant-baseline="central">(flatmarkdown-ast2html)</text>
+<text x="132" y="668" dominant-baseline="central">アウトライナー向けのMarkdown（Flat Markdown形式）をASTへパース</text>
+<text x="606" y="668" dominant-baseline="central">ASTの型（Node）</text>
+<text class="note" x="606" y="688" dominant-baseline="central">(flatmarkdown-ast)</text>
+<text x="804" y="668" dominant-baseline="central">ASTをHTMLに変換</text>
+<text class="note" x="804" y="688" dominant-baseline="central">(flatmarkdown-ast2html)</text>
 <g class="chip">
 <rect x="36" y="739" width="68" height="18" rx="9" style="fill:#FFFFFF;stroke:#444441;stroke-width:1" />
 <text x="70" y="748" text-anchor="middle" dominant-baseline="central" style="fill:#444441">ast2react</text>
@@ -530,13 +530,13 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text class="th" x="36" y="722" dominant-baseline="central">flatmarkdownライブラリ（TypeScript）</text>
 <text x="112" y="748" dominant-baseline="central">ASTをReactに変換</text>
 <text class="note" x="112" y="768" dominant-baseline="central">(flatmarkdown-ast2react)</text>
-<text class="th" x="462" y="722" dominant-baseline="central">Nodeから生成した型（C#, Swift, Kotlin）</text>
+<text class="th" x="562" y="722" dominant-baseline="central">Nodeから生成した型（C#, Swift, Kotlin）</text>
 <g class="chip">
-<rect x="462" y="739" width="36" height="18" rx="9" style="fill:#FFFFFF;stroke:#444441;stroke-width:1" />
-<text x="480" y="748" text-anchor="middle" dominant-baseline="central" style="fill:#444441">ast</text>
+<rect x="562" y="739" width="36" height="18" rx="9" style="fill:#FFFFFF;stroke:#444441;stroke-width:1" />
+<text x="580" y="748" text-anchor="middle" dominant-baseline="central" style="fill:#444441">ast</text>
 </g>
-<text x="506" y="748" dominant-baseline="central">ネイティブのシェルが受け取って描く型</text>
-<text class="note" x="506" y="768" dominant-baseline="central">(flatmarkdown-astのfacetのfeatureで生成)</text>
+<text x="606" y="748" dominant-baseline="central">ネイティブのシェルが受け取って描く型</text>
+<text class="note" x="606" y="768" dominant-baseline="central">(flatmarkdown-astのfacetのfeatureで生成)</text>
 </g>
 </g>
 </g>
