@@ -338,11 +338,11 @@
 
 ## iOSのシェル
 
-- [ ] iOSのシェルの「Today」のボタンの絵を、Androidと同じに、`shell-leptos`の今日のアイコン（リボンのある本）にする（2026-11-13にユーザーが決めた）。今は、SF Symbolsの`book.closed`である
-  - Androidは、24の升目に線で描いている（`JournalScreen.kt`の`TodayButton`）。iOSも、同じ形を`Path`で描く
-- [ ] iOSのシェルのアプリのアイコンを、Androidと同じに、`images/peta-journal.svg`から作る（2026-11-13にユーザーが決めた）。今は、アイコンがない
-  - Androidは、SVGから`ic_launcher_foreground.xml`を描き起こしている。iOSは、アセットカタログの`AppIcon`に、1024pxの画像を置く
-  - [ ] SVGから画像を作る手順を、スクリプトにして残す。作った画像をリポジトリに置くか、ビルドのたびに作るかを決める
+- [x] 2026-11-13 iOSのシェルの「Today」のボタンの絵を、Androidと同じに、`shell-leptos`の今日のアイコン（リボンのある本）にする（2026-11-13にユーザーが決めた）
+  - Androidは、24の升目に線で描いている（`JournalScreen.kt`の`TodayButton`）。iOSも、同じ形を描く（`JournalScreen.swift`の`TodayIcon`）
+- [x] 2026-11-13 iOSのシェルのアプリのアイコンを、Androidと同じに、`images/peta-journal.svg`から作る（2026-11-13にユーザーが決めた）
+  - Androidは、SVGから`ic_launcher_foreground.xml`を描き起こしている。iOSは、アセットカタログの`AppIcon`に、1024pxの画像を置く。白い地の真ん中に、ノートを置く
+  - [x] SVGから画像を作る手順を、スクリプトにして残す（`client/apps/native-app/outliner-ios/icon.sh`）。作った画像は、リポジトリに置く（2026-11-13にユーザーが決めた）。ビルドに、新しい道具は要らない
 - [ ] 上端のバーに、戻るボタンと進むボタンを置く（2026-11-13にユーザーが決めた）。場所は、検索の入力欄の左である。Androidのシェルも同じにする
   - 履歴は、コア（`peta-core`）に持たせる（2026-11-13にユーザーが決めた。ADR 035）。最初の版は、ページを戻ると進むだけである。Cargoのfeatureにはしない。`shell-leptos`は使わず、ブラウザーの履歴のままにする
   - [ ] 戻る先も進む先もないときは、ボタンを押せない見た目にする

@@ -51,6 +51,18 @@ not kept in the repository:
 kept in the repository either. To run the app on a device, open the project in Xcode and
 choose a team for signing.
 
+## The icon of the app
+
+The icon is the notebook of `images/peta-journal.svg` in the middle of a white square, as in
+the Android shell. Its image is kept in the repository
+(`App/Assets.xcassets/AppIcon.appiconset/icon-1024.png`), so a build needs no tool for it.
+After a change of the SVG, make the image again:
+
+```
+brew install librsvg imagemagick     # once
+./icon.sh
+```
+
 ## Dropbox
 
 The app reads and writes Dropbox with the App key of a Dropbox app, which each builder
@@ -126,7 +138,9 @@ copy of Dropbox.
 - `PetaJournalApp` starts the app, and syncs when the app comes to the front or goes to the
   back. `JournalModel` holds the shell and the sync, and the folders of the app.
 - `JournalScreen` is the one screen: the bar with the menu, the search field and the button
-  for today, and under it the results of the search or the page. The tools of the item that
+  for today, and under it the results of the search or the page. The button for today shows
+  the icon of today of the web frontend, a book with a ribbon: `TodayIcon` draws it, with the
+  lines of the Android shell. The tools of the item that
   is edited stand above the keyboard: outdent, indent, move up, move down, task, delete and
   "Done".
 - `OutlineRow` draws one item, and `Blocks` its parts. `Pictures` reads an image smaller than
