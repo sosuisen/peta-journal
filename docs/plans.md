@@ -353,12 +353,122 @@
 - [ ] iOSのシェルを、実機で確かめる。日本語の入力、後ろに回ったときの同期を見る
   - Dropboxのアプリでのサインインは、通った（2026-11-13にユーザーがiPhoneで確かめた）。Dropboxのアプリの登録にTeam Scope（`team_data.member`）があると、「Mobile authorization does not support team authorized scopes.」で失敗する。外すと通る（`frontend-ios/README.md`）
 - [ ] iOSのシェルの、同期の表示（メニュー、前面の同期のダイアログ、下の吹き出し、サインインのボタン）に、画面のテストを書く。今は、テストの中のアプリは同期をしない
-- [ ] `shell-android`のクレートの名前を、`shell-embedded`に変える（2026-11-13にユーザーが決めた）。AndroidとiOSの両方が使うようになった（ADR 034）
-  - [ ] クレートを`shell-embedded`（`peta-shell-embedded`）に変える。Androidのライブラリの名前、両方の`generate`、`BUILD.md`、READMEも合わせる。ADR 029から034は、書いた時点の記録なので書き換えない
-  - [ ] `embedded-journal`を、`journal-embedded`に変える
-  - [ ] `docs/frontend-architecture.svg`の名前を、2つとも変える
-  - [ ] 図の中の`shell-embedded`どうしと、`journal-embedded`どうしを、ほかの共通のライブラリと同じように、同じ色のリボンで結ぶ
 - [ ] Swiftのフォーマッターとlintを足す（2026-11-13にユーザーが決めた）。`frontend-ios`と`frontend-swiftui`には、まだどちらもない。道具を決め、設定をリポジトリに置く
+
+## フロントエンドのクレートのリファクタ
+
+目標は、`docs/frontend-architecture-refactored.svg`である（2026-11-13にユーザーが決めた）。フロントエンドのクレートが、この図の形と名前になったら終わりである。今の形は、`docs/frontend-architecture.svg`にある。
+
+始める時期は、決めていない。次にやることは、上の「Androidの実機での確認」のままである。
+
+### 目標の形
+
+- ネイティブの4つのアプリ（WinUI、SwiftUI、iOS、Android）を、同じ形にする。上から、入口のシェル、`client-native-bridge`、`client-core`、APIのクレートである
+- 入口のシェルは、BoltFFIの入口を持つ。`Host`の実装を作り、`client-native-bridge`に注入する
+- `Host`の実装は、`call`と`events`を、APIのクレートに任せる。`Host`は、ジャーナルへの届け方だけを表す。時計は、`Clock`という別のtraitにする
+- 今は、形が2つある。WinUIとSwiftUIでは、`Host`の実装（`JournalServer`）と注入（`connect`）とBoltFFIの入口（`ffi.rs`）が、`shell-native`の中にある。AndroidとiOSでは、同じ3つが`shell-android`にある
+- `client-`で始まる名前は、フロントエンドの側である。`journal-`で始まる名前は、ジャーナルの側である
+
+### 名前
+
+| 今のフォルダー | 今のパッケージ | 目標の名前 | 中身 |
+|---|---|---|---|
+| `crates/core` | `peta-core` | `client-core` | 画面を持たないロジック |
+| `crates/shell-native` | `peta-shell-native` | `client-native-bridge` | `Host`と`Clock`のtrait、`NativeShell`、HTMLの関数 |
+| （新しく作る） | | `client-shell-http` | `JournalServer`、`connect`、BoltFFIの入口。WinUIとSwiftUIが使う |
+| `crates/shell-android` | `peta-shell-android` | `client-shell-embedded` | `Embedded`、BoltFFIの入口。AndroidとiOSが使う |
+| `crates/shell-emacs` | `peta-shell-emacs` | `client-shell-emacs` | Emacsのシェル |
+| `crates/shell-leptos` | `peta-frontend` | `client-shell-leptos` | Webのシェル |
+| `crates/server-client` | `peta-server-client` | `client-api-http` | `ApiOp`を、HTTPでジャーナルサーバーへ送る |
+| `crates/embedded-journal` | `peta-embedded-journal` | `client-api-embedded` | `ApiOp`を、同じプロセスの`journal-core`で実行する |
+| `crates/page-links` | `peta-page-links` | `client-page-links` | ページへのリンクの行き先と、コピーのHTML（ADR 027）。図には出ない |
+
+名前の決まり（2026-11-13にユーザーが決めた）。
+
+- 目標の名前は、パッケージの名前である。フォルダーも同じ名前にする（`crates/client-core`）。今は、フォルダーから接頭辞を外している
+- パッケージの名前に、`peta-`を付けない
+- 接頭辞のあとに、役割の言葉を置く。`core`は画面を持たないロジック、`api`はジャーナルへの届け方、`shell`は画面とEffectの実行である。`shell`と`core`は、Cruxの言葉のままにする
+- `client-shell-`で始まる名前は、1つの完成したシェルだけに付ける。`client-native-bridge`は、単体では動かない土台なので、`shell`と呼ばない。`bridge`は、Cruxの言葉である（`BridgeError`）
+- `client-shell-http`は`client-api-http`を使い、`client-shell-embedded`は`client-api-embedded`を使う。`http`と`embedded`は、ジャーナルへの届け方である。OSの名前は入れない
+- 同じクレートを、2回改名しない。途中の名前を作らず、最初から目標の名前にする
+
+選ばなかった名前。ADRに書く。
+
+- 接頭辞: `frontend-`は長い。`front-`、`ui-`、`fe-`は、短い言葉を探したときの候補だった。`peta-`のままにする案は、決まりを知らないと側が読めない。すべてを`shell-`と呼ぶ案は、`core`との区別がなくなる
+- 届け方の言葉: `com`は、WindowsのCOM（Component Object Model）と紛れる。`api`は、コードの中の言葉（`ApiOp`、`ApiResult`）と揃う
+- `client-api-http`の前の案: `peta-client-http`、`journal-http-client`、`http-client`。今の`server-client`は、「サーバーとクライアント」という対の言葉に読める
+- `client-api-embedded`の前の案: `peta-client-embedded`、`journal-embedded-client`、`journal-embedded`
+- `client-shell-embedded`の前の案: `shell-embedded`（`peta-shell-embedded`）
+- `client-native-bridge`の前の案: `client-native`、`client-bridge`、`client-shell-bridge`。`client-shell-bridge`は、3つ目の種類のシェルに見える
+
+### 実行の順序
+
+上から順に行う（2026-11-13に整理した）。1つの段を、1つのPRにする。どの段のあとも、すべてのシェルがビルドでき、テストが通るようにする。
+
+- [ ] 段0: ADRを書く。コードより先に書く
+  - 分割と時計のADR。`Host`の実装を`shell-native`から出すことと、時計を`Clock`に分けることを決める。ADR 030は、「`shell-native`には足さない」とだけ決めている
+    - 選ばなかった案: `server-client`への依存を、Cargoのfeatureの後ろに置く。クレートを増やさずに`ureq`を外せるが、2つの系統が同じ形にならない
+    - 選ばなかった案: `now`と`sleep`を、`Host`のtraitの既定の実装にする。変更は小さいが、テスト用の`Host`が上書きを忘れても、コンパイルが通る。そのテストは、本物の時計で動く
+  - 名前の決まりのADR。上の「名前」の内容を書く
+  - ADRを1つにまとめるか、2つにするかは、書くときに決める
+- [ ] 段1: 時計を`Clock`に分ける。`shell-native`の中の変更である。名前は、まだ変えない
+  - 今は、`JournalServer`（`shell-native/src/server.rs`）と`Embedded`（`shell-android/src/lib.rs`）に、同じ`now`と`sleep`が2つある。`now`は`chrono`で今の時刻を読み、`sleep`は`thread::sleep`を呼ぶ
+  - 新しいtraitの`Clock`が、`now`と`sleep`を持つ。本物の時計の実装の`SystemClock`を、`shell-native`に1つだけ置く。名前は、2026-11-13にユーザーが決めた
+  - `Host`には、`call`と`events`だけを残す
+  - `NativeShell::new`は、`Host`と時計の2つを受け取る。引数が1つ増える。`connect`と`shell-android`は、どちらも`SystemClock`を渡す
+  - `shell.rs`の中で`host.sleep`と`host.now`を呼んでいるところを、時計に変える。`Lanes::time`と、`NativeShell`の`host`のフィールドも直す
+  - テストの`FakeHost`（`shell-native/src/tests/shell.rs`）は、決まった時刻を返し、テストが進めるまで待つ。この部分を、偽の時計に分ける
+  - `shell-android`から、`chrono`への依存がなくなる
+  - BoltFFIの入口は変わらない。アプリの側のコードは直さない
+- [ ] 段2: APIの2つのクレートと、`page-links`の名前を変える
+  - `server-client`（`peta-server-client`）を、`client-api-http`にする。`embedded-journal`（`peta-embedded-journal`）を、`client-api-embedded`にする。フォルダーも変える
+  - `page-links`（`peta-page-links`）を、`client-page-links`にする（2026-11-13にユーザーが決めた）。フォルダーも変える。使っているのは、`shell-leptos`と`shell-native`である。目標の図には出ないが、フロントエンドの側なので、同じ決まりで変える
+  - 直すところ: ワークスペースの`Cargo.toml`、`shell-native`と`shell-emacs`と`shell-android`と`shell-leptos`の依存と`use`、文書
+  - Rustの中の依存だけが変わる。BoltFFIの入口と、アプリのビルドの配線は変わらない
+- [ ] 段3: `shell-native`を分け、残りを`client-native-bridge`にする
+  - 新しい`client-shell-http`へ出すもの: `JournalServer`、`connect`、`ffi.rs`、`ffi`のfeature、`boltffi`への依存、`client-api-http`への依存
+  - 残るもの: `Host`と`Clock`のtrait、`SystemClock`、`NativeShell`、HTMLの関数、境界の型。これを`client-native-bridge`に改名する。フォルダーも変える
+  - 分割と改名を、同じ段で行う。分けたあとは、WinUIとSwiftUIが結びつく相手が`client-shell-http`になる。`client-native-bridge`を使うのは、Rustの中の依存だけになる
+  - 直すところ: `boltffi pack`の設定、生成されるC#とSwiftの束ね、WinUIとSwiftUIのビルドの手順。結びつくライブラリの名前が変わる
+  - 直すところ: `shell-android`の依存と`use`
+  - 型を生成する`codegen`のバイナリは、`client-native-bridge`に残す案である。境界の型が、ここにあるためである。Kotlinの型の生成がどこにあるかを、先に確かめる
+  - 確かめること: AndroidとiOSのビルドから、`client-api-http`と`ureq`が消えたか。`cargo tree`で見る。今の最終のバイナリに残っているかは、確かめていない
+  - `PetaShell`のtraitと`item_html`などの関数は、2つの入口に同じものが残る。BoltFFIの`export`は、最終のクレートに書くためである
+- [ ] 段4: `shell-android`（`peta-shell-android`）を、`client-shell-embedded`にする。フォルダーも変える
+  - AndroidとiOSの両方が使うようになったので、名前が合わなくなった（ADR 034）
+  - 直すところ: Androidのライブラリの名前、AndroidとiOSの`generate`、`BUILD.md`、README
+- [ ] 段5: Emacsのシェルと、Webのシェルの名前を変える
+  - `shell-emacs`（`peta-shell-emacs`）を、`client-shell-emacs`にする。`shell-leptos`（`peta-frontend`）を、`client-shell-leptos`にする。フォルダーも変える
+  - 先に調べること: 実行ファイルの名前を使っているところ（`peta-journal.el`、テスト）。wasmの名前を使っているところ（ビルドの設定、ジャーナルサーバーが配るファイル）
+- [ ] 段6: `peta-core`を、`client-core`にする。フォルダーも変える
+  - すべてのクレートの依存と、`use peta_core`を直す。型を生成する道具の設定も直す
+  - 先に調べること: 生成されるSwift、C#、Kotlinの型の名前に、`peta_core`が入っているか。入っていれば、3つの言語のシェルのコードも直す
+  - いちばん広い変更なので、最後にする。ほかの段と混ぜない
+- [ ] 段7: 仕上げ
+  - `docs/frontend-architecture.svg`を、`docs/frontend-architecture-refactored.svg`の内容で置き換える。タイトルの「分割と改名のあとの予定」と、`desc`の「計画である」という文を取る。`docs/frontend-architecture-refactored.svg`は消す
+  - 古い名前が残っていないかを、リポジトリの全体で探す。README、`BUILD.md`、`AGENTS.md`、スクリプトを見る
+  - 下の「リポジトリの構成」の節は、`shell-native`を「ネイティブのシェルの入口」と書いている。その文を直す
+  - ADR 029から034は、書いた時点の記録なので書き換えない
+
+この順序にした理由。
+
+- 段1と段2は、Rustの中だけの変更である。アプリのビルドの配線に触れないので、先に済ませる。段3で動かすコードも減る
+- アプリのビルドの配線は、系統ごとに1回だけ直す。WinUIとSwiftUIは段3で、AndroidとiOSは段4で直す
+- 段6は、すべてのクレートに及ぶ。ほかの改名が終わってから行うと、差分が`peta_core`の置き換えだけになる
+- 段2から段6の間は、`peta-`と`client-`の名前が混ざる
+
+確かめ方。
+
+- CIは、2026-11-25まで止まっている（下の「CI」の節）。それまでは、手元の確認だけが頼りである
+- どの段でも、`frontend-rust`のテスト、`cargo fmt`、wasm向けの`cargo check`、Emacsのテストを回す
+- 段3は、WinUIのビルドとテストも回す。段4は、Androidのビルドとテストも回す
+- SwiftUIとiOSのビルドは、Macが要る。段3、段4、段6のあとに、Macで確かめる
+
+関係する項目。
+
+- 「ネイティブのシェルに共通」の節の「同じ処理をRustの側に寄せる」は、質問の待ち行列とフォーカスの番号を、`shell-native`に移す案を持つ。段3のあとは、置き場所が`client-native-bridge`になる。入口に関数が増える場合は、`client-shell-http`と`client-shell-embedded`の両方に書く
+- 今の図（`docs/frontend-architecture.svg`）は、Androidの箱だけに「Hostの実装を注入」と書いている（2026-11-13に直した）。WindowsとmacOSも`shell-native`の中で注入しているが、図には出ていない。段7まで、このままにする
+- ジャーナルの側のフォルダーの名前と`hmtid`は、下の「リポジトリの構成」の節にある
 
 ## リポジトリの構成
 
@@ -366,6 +476,10 @@
   - 今は、リポジトリの直下に`frontend-rust`、`frontend-swiftui`、`frontend-winui`が並んでいる。`frontend-rust`には、コア、Webのシェル、Emacsのシェル、ネイティブのシェルの入口（`shell-native`）がある
   - 候補は2つである。リポジトリの中の1つのフォルダにまとめるか、別のリポジトリに分けるかである
   - 決めたら、ADRに記録する
+- [ ] 図に出ないクレートとフォルダーの名前を整理する（2026-11-13にユーザーが決めた。だいぶ先の修正である）
+  - 上の「フロントエンドのクレートのリファクタ」は、`frontend-rust`のクレートを変える。ここは、その残りである。名前の決まりは、同じものを使う
+  - ジャーナルの側のフォルダーも、接頭辞を外している（`journal-server-rust/crates/core`が`journal-core`）。パッケージの名前に合わせるかを決める
+  - `hmtid`は、どちらの側でもない独立した部品である。変えるかは決めていない
 
 ## CI
 
