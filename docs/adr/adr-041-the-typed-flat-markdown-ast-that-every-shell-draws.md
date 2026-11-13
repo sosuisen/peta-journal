@@ -27,9 +27,26 @@ AST は、本文と決まったオプションだけから作られる。オプ�
 
 AST を型として渡せるかを確かめた（2026-11-14）。
 
-- **生成**：AST と同じ形の再帰する enum から型を生成した。Swift は `indirect enum` になり、ビルドが通った。Kotlin は `sealed interface`、C# は `sealed record` になった。この2つは、手元にコンパイラがなく、ビルドを試していない。
-- **大きさ**：このリポジトリの `docs` の 2383 項目で、AST の JSON は本文の約2.1倍だった。bincode にすると、JSON の約 0.75 倍になる。この値は、書式の規則から計算した推定である。
+- **生成**：AST と同じ形の再帰する enum から型を生成した。Swift は `indirect enum` になり、ビルドが通った。Kotlin は `sealed interface`、C# は `abstract record` とその中の `sealed record` になった。この2つは、Mac にコンパイラがなく、Windows でビルドした（下の「Windowsでの確認」）。
+- **大きさ**：このリポジトリの `docs` の 2383 項目で、AST の JSON は本文の約2.1倍だった。bincode にすると、JSON の約 0.75 倍になる。この値は、書式の規則から計算した推定である。Windowsで測ると、約0.66倍だった。
 - **時間**：同じ項目で、本文を解析して `Node` にするのに 1項目 5.2µs かかった。AST の JSON を読んで `Node` にするのには 9.8µs かかった。本文から解析する方が速い。今ある最大のページ（1063 項目、ADR 018）を解析すると、この Mac で約 5.5ms である。電話では測っていない。
+
+**Windowsでの確認**
+
+KotlinとC#の型を、Windowsで確かめた（2026-11-14）。リポジトリの外に、試すためのクレートを作った。その`Node`は、下のDecisionの形である。型は、今の境界と同じ`facet` 0.46.5と`facet_generate` 0.22.3で生成した。bincodeの設定は、Cruxの`BincodeFfiFormat`と同じにした。
+
+試した値は、2458項目、22029ノードである。38種類のすべてを含む。flatmarkdown 0.7で解析したMarkdown、手で作ったすべての種類のノード、300段の入れ子、このリポジトリの`docs`を空行で切った2443ブロックからなる。
+
+- **ビルド**：生成された型は、C#（.NET 10）でもKotlin（2.4.21、JVM）でもビルドが通った。
+- **読み書き**：どちらも、Rustが書いたバイト列を読めた。読んだ値のすべてのノードとフィールドをテキストに書くと、Rustが書いたテキストと同じになった。書き戻したバイト列は、Rustのバイト列と1バイトも違わなかった。Rustは、それを同じ値に読んだ。
+- **入れ子**：300段の入れ子は、どちらでも読めた。C#の読み手には、深さの上限が実質ない。
+- **時間**：953KBを読むのに、C#は約15ms、Kotlinは起動した直後のJVMで約73msかかった。電話では測っていない。
+- **大きさ**：`docs`の2443ブロックで、0.7のASTのJSONは1,378,064バイト、新しい型のbincodeは906,852バイトだった。約0.66倍である。上の2383項目とは、切り方が違う。
+- **Kotlinの書き落とし**：`when`から種類を1つ消すと、コンパイルが止まった（`'when' expression must be exhaustive`）。
+- **C#の書き落とし**：.NET 10では、コンパイラは気づかない。38種類をすべて書いた`switch`式にも、1つ消した`switch`式にも、同じ警告CS8509が出る。生成される`abstract record`を、コンパイラが閉じた型と見ないからである。
+- **C# 15の`closed`**：.NET 11（2026-11-10に公開、C# 15）には、`closed`の修飾子がある。.NET 11のSDKで、生成された`abstract record Node`を`closed record Node`に書き換えて試した。すべて書いた`switch`式には、警告が出なくなった。1つ消すと、CS8509がその種類の名前（`Node.Hashtag`）を告げた。`WarningsAsErrors`にCS8509を足すと、ビルドが止まった。`closed`にした型でも、読み書きは同じ結果だった。
+
+試した型には、仮に決めたところがある。`Table`の`num_columns`と`num_rows`は、`usize`ではなく`u32`にした。画像の`props`は、文字列から値への対応表にし、値は文字列、数、真偽のenumにした。0.7の`props`では、`#w=120&h=80`の値は数ではなく文字列だった。
 
 ## Decision
 
@@ -53,7 +70,11 @@ facet の derive は、`facet` の feature の中に置く。derive は、`Node`
 
 core は、本文を `flatmarkdown` で解析し、`Node` を作る。ビューモデルの項目は、AST を文字列ではなく `Node` で持つ。`Node` は、ビューモデルのほかの型と一緒に、Swift、Kotlin、C# の型として生成される。
 
-各シェルは、生成された `Node` を `switch` や `when` で受け、OS の部品で描く。AST に種類が増えれば、型を作り直したときに、シェルのコンパイルがそれを知らせる。この決定は、ADR 025 の HTML を経由する描き方を置き換える。ADR 028 の C# で HTML を読む部分と、ADR 030 の `fromHtml` と Kotlin で JSON を読む部分も置き換える。
+各シェルは、生成された `Node` を `switch` や `when` で受け、OS の部品で描く。AST に種類が増えれば、型を作り直したときに、シェルのコンパイルがそれを知らせる。
+
+C#では、そのために3つのことが要る。Windowsのシェルを.NET 11に上げる。生成された`Node`を`closed record`にする。警告CS8509をエラーにする。`facet_generate` 0.22.3は`abstract record`と書くので、`closed`は生成のあとで付けるか、生成器に足す。SwiftとKotlinには、こうした手当ては要らない。
+
+この決定は、ADR 025 の HTML を経由する描き方を置き換える。ADR 028 の C# で HTML を読む部分と、ADR 030 の `fromHtml` と Kotlin で JSON を読む部分も置き換える。
 
 コピーの `CopyMarkdown`（ADR 027）も、journal の AST を受け取らない。core が Markdown を自分で解析する。
 
@@ -93,17 +114,17 @@ ADR 025 の Alternative 1 である。シェルの言語では、種類の書き
 
 確信度は中程度から高い。
 
-AST を型として渡すことは、確かめた。再帰する enum から Swift の型が生成でき、ビルドも通った。本文を解析する時間は、AST の JSON を読む時間より短かった。AST の JSON を使う場所も、journal、REST、MCP、コピー、todo、memoview のすべてを調べた。
+AST を型として渡すことは、確かめた。再帰する enum から Swift、Kotlin、C# の型が生成でき、どれもビルドが通った。KotlinとC#は、Rustのバイト列を正しく読み書きした。本文を解析する時間は、AST の JSON を読む時間より短かった。AST の JSON を使う場所も、journal、REST、MCP、コピー、todo、memoview のすべてを調べた。
 
 確かめていないことが3つある。
 
-- Kotlin と C# の型は、生成はできたが、ビルドを試していない。今のビューモデルと同じ形（sealed の型）なので、通ると見ている。
+- Windowsのシェルを.NET 11に上げることは、試していない。今は.NET 10とWindows App SDK 2.6.5である。`closed`は、シェルの外の小さなプロジェクトで試した。
 - 電話の上での解析の時間は、測っていない。
 - facet の版は `=0.46.5` に固定している。公開クレートでこの固定を緩められるかは、試していない。
 
 次のときは、この決定を見直す。
 
-- Kotlin か C# で、再帰する `Node` の型がビルドできないか、読み書きが正しくないとき。
+- Windowsのシェルを.NET 11に上げられないとき。C#のコンパイラは種類の書き落としに気づかないままになり、別の手当てが要る。
 - 電話で、項目の多いページを開くと、解析のせいで目に見えて遅くなるとき。
 - facet の版の固定のせいで、flatmarkdown を公開しにくくなるとき。
 - シェルが描けない種類が AST に増え、各シェルで同じ手当てを繰り返すようになったとき。
@@ -115,7 +136,7 @@ AST を型として渡すことは、確かめた。再帰する enum から Swi
 - どのシェルも、同じ AST の型から描く。HTML を読む処理は、すべてなくなる。macOS の `NSAttributedString` の変換と文字列の置き換え、Windows の AngleSharp、iOS の `ShownParagraphs`、Android の `fromHtml` と JSON の読み取りである。
 - AST に種類が増えると、型を作り直したときに、どのシェルのコンパイルもそれを知らせる。ADR 025 が守ろうとした「すべての種類を表示する」保証を、シェルの側でも持てる。
 - iOS と macOS は、同じ Swift の `Node` を受け取る。AST から表示を決める部分を、2つで共有できるようになる。
-- 境界を通る量が減る。bincode の AST は、JSON の約 0.75 倍である。
+- 境界を通る量が減る。bincode の AST は、測ると JSON の約 0.66 倍だった。
 - journal の DB から `ast` の列がなくなる。MCP の応答も小さくなる。
 - 解析のオプションの正本が flatmarkdown の1か所になる。client のテストにある写しと、すでに起きているずれ（`client-native-bridge/src/tests/html.rs`）がなくなる。
 
@@ -124,6 +145,7 @@ AST を型として渡すことは、確かめた。再帰する enum から Swi
 - flatmarkdown の型を変えるので、版を 0.8 に上げる。`SPEC_AST.md`、`ast2html`、`ast2react`、npm のパッケージも直す。flatmarkdown の外の利用者には、破壊的な変更になる。
 - 描く処理を、Swift、Kotlin、C# のシェルで書き直す。今の HTML から描く処理は、捨てることになる。macOS と Windows は、とくに書き直す量が多い。
 - AST の種類が増えるたびに、すべてのシェルで描く処理を足す必要がある。今は Rust の `ast_to_html` を1か所直せば済んでいる。コンパイラが書き落としを知らせるが、手間は増える。
+- Windowsのシェルは、.NET 11に上げる必要がある。生成された型を`closed`にする手順と、CS8509をエラーにする設定も増える。
 - journal の DB から列を消すので、移行が要る。
 - client の core と journal の両方が、本文を解析する。同じ本文を2回解析するが、どちらも速い（1項目 5.2µs）。
 
