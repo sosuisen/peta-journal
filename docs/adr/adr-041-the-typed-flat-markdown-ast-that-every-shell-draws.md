@@ -4,6 +4,8 @@
 
 Accepted
 
+ネイティブのシェルが何から描くかは、ADR 042 が置き換えた。ネイティブのシェルは、`Row.ast` ではなく、core が AST から作る `RichText` を描く。core が本文から AST を作ること、Web 版が AST から描くことは、この ADR のままである。
+
 ## Context
 
 Flat Markdown の AST は、項目の本文を表示するための型のつもりだった。しかし今、AST から表示を作る方法は、シェルごとに違う。

@@ -17,6 +17,18 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 画像がなくても落ちるのかもしれない。まだ試していない
 - [ ] 画面を回すと、余計な同期が始まる。直す
 
+## ADR 042：coreが作るRichTextを、ネイティブのシェルが描く
+
+2026-11-14にユーザーが受理した。段階ごとに進め、AndroidとWindowsは、ユーザーが実機で確かめてから先へ進む。Swiftだけで共通にする案（PR #464）は、この ADR で採らなかったが、main に入った。その`peta-shown`は、段階2と3で消す。macOSで画像をjournalサーバーから読む処理と、リンクの決まり（クリックはアプリの中、Shift-クリックはブラウザ）は、そのまま使う。
+
+- [ ] 段階0：facetの型の生成が、型引数を持つビューモデル（`BodyView`）をSwift、Kotlin、C#に書き出せるかを確かめる。書き出せなければ、行の本文を`Node`と`RichText`のenumにする（ADR 042のAlternative 4）
+- [ ] 段階1：`client-core`に`RichText`の型、`BodyView`のトレイト、ASTとRichTextの2つの実装を作り、Rustでテストする。Web版はASTの実装を使い、`client-native-bridge`はRichTextの実装を使う
+- [ ] 段階2：iOSのシェルを、`RichText`から描くように切り替える。`peta-shown`を使うのをやめる
+- [ ] 段階3：macOSのシェルを切り替える。画像の読み込みとリンクの決まりは、今のものを使う。`peta-shown`を消し、`PetaTypes`の生成先を各アプリに戻す
+- [ ] 段階4：Androidのシェルを切り替える（ユーザーが実機で確かめる）
+- [ ] 段階5：Windowsのシェルを切り替える。画像を絵として出し、表を別の部品で描く（ユーザーが実機で確かめる）
+- [ ] 仕上げ：`docs/architecture.svg`を直す
+
 ## APIの方針：RESTとMCP
 
 2026-11-11にユーザーが決めた。ジャーナルサーバーのAPIを足す、変える、消すときは、まずここを読む。
@@ -272,13 +284,7 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [ ] ネイティブのシェルの`Shell`にある同じ処理を、Rustの側に寄せる（改善案、2026-11-13）
   - Rustの側に寄せる分は、2026-11-14に終えた（タイトル、フォーカスの番号、質問の待ち行列、iOSとAndroidの`Shell`の共通部分）
   - [ ] iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）の間で、Swiftに残った同じコードを寄せる
-    - 2026-11-14にユーザーが決めた。本文を描く処理を、半分そろえる。ASTを読んで出すものを決める処理（iOSの`ShownBlock`）を、2つのアプリの共通のパッケージに置く。画面に描く処理は、アプリごとに持つ
-    - 2026-11-14にユーザーが決めた。画像は、どちらのアプリでも絵として出す
-    - 2026-11-14にユーザーが決めた。リンクは、アプリの中でそのページへ移る。Macに限り、Shift-クリックでWebブラウザで開く
-    - [x] 共通のパッケージ`peta-shown`を作り、`PetaTypes`の生成先を1つにする。iOSの`ShownBlock`と`ShownParagraph`を移す
-    - [x] iOSのアプリが、共通のパッケージを使う
-    - [x] Macのアプリが、`ShownBlock`から`NSAttributedString`を作る。画像を、journalサーバーから読んで絵として出す
-    - [x] Macのアプリで、リンクのクリックはそのページを付箋で開き、Shift-クリックはブラウザで開く
+    - 本文を描くためにASTを平らにする処理は、2026-11-14に共通のパッケージ`peta-shown`に寄せた（PR #464）。ADR 042で、この処理をcoreに移し、`peta-shown`を消す（下の「ADR 042」）
   - [ ] Dropboxとの同期をRustに書き、AndroidとiOSの両方で使うかを検討する（2026-11-13にユーザーが足した。ADR 034のAlternative 2）
     - 今は、同じクラスがKotlinとSwiftに1つずつある（`Cloud`、`CloudRecord`、`MarkdownFolder`、`Downloader`、`Uploader`、`SyncRound`、`CloudSync`）。決まりを変えるときは、両方を直す
     - Rustに寄せると、同期の決まりが1か所になる。テストも1つで済む
