@@ -12,7 +12,7 @@ crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
 peta-core = { path = "../core" }
-peta-server-client = { path = "../server-client" }
+client-api-http = { path = "../client-api-http" }
 crux_core = "=0.20.0"
 serde = { workspace = true }
 # The HTML of an item (ADR 025). The same version as `flatmarkdown-ast`: a release has all the
@@ -20,7 +20,7 @@ serde = { workspace = true }
 flatmarkdown-ast = { workspace = true }
 flatmarkdown-ast2html = "=0.7.0"
 # The links to pages that another app opens, and the HTML of a copy (ADR 027)
-peta-page-links = { path = "../page-links" }
+client-page-links = { path = "../client-page-links" }
 chrono = "0.4.45"
 facet = { version = "=0.46.5", optional = true }
 # Writes the C# types. Crux 0.20.0 brings 0.19 of this generator, whose C# does not compile

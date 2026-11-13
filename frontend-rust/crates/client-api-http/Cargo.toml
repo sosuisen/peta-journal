@@ -1,5 +1,5 @@
 [package]
-name = "peta-server-client"
+name = "client-api-http"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

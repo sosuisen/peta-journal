@@ -14,5 +14,5 @@ peta-core = { path = "../core" }
 crux_core = "=0.20.0"
 serde = { workspace = true }
 serde_json = { workspace = true }
-peta-server-client = { path = "../server-client" }
+client-api-http = { path = "../client-api-http" }
 chrono = "0.4.45"

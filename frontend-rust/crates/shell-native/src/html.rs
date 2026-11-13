@@ -2,9 +2,9 @@
 //! puts on the clipboard (ADR 027). A shell does not read the AST itself: `ast_to_html` takes
 //! every kind of node, and the compiler sees to that.
 
+use client_page_links::AppLinks;
 use flatmarkdown_ast::Node;
 use flatmarkdown_ast2html::ast_to_html;
-use peta_page_links::AppLinks;
 
 /// The HTML of an item, from its AST as the JSON that the view model carries. The error says
 /// why the JSON could not be read. An item without a body has an empty string for its AST,
@@ -22,7 +22,7 @@ pub fn item_html(ast: &str) -> Result<String, String> {
 /// URLs that open the page in the browser: `app_url` is where the web frontend is served,
 /// which is the address of the journal server. An AST that cannot be read gives no HTML.
 pub fn copied_html(ast: &str, app_url: &str, tags_dir: &str) -> String {
-    peta_page_links::copied_html(ast, AppLinks { app_url, tags_dir })
+    client_page_links::copied_html(ast, AppLinks { app_url, tags_dir })
 }
 
 /// The URL that opens the page of a wikilink in the web frontend, served at `app_url`.

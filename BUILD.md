@@ -160,8 +160,8 @@ cargo cov            # a table per file
 cargo cov --html     # target/llvm-cov/html/index.html, line by line
 ```
 
-`cargo cov` is an alias in `.cargo/config.toml`. It measures `peta-core`, `peta-page-links`,
-`peta-server-client`, `peta-embedded-journal`, `peta-shell-emacs`, `peta-shell-native` and
+`cargo cov` is an alias in `.cargo/config.toml`. It measures `peta-core`, `client-page-links`,
+`client-api-http`, `client-api-embedded`, `peta-shell-emacs`, `peta-shell-native` and
 `peta-shell-android`. The wasm shell `peta-frontend` (`crates/shell-leptos`) is left out: it only runs in
 the browser, so the E2E tests cover it instead.
 

@@ -2,9 +2,9 @@
 resolver = "2"
 members = [
     "crates/core",
-    "crates/page-links",
-    "crates/server-client",
-    "crates/embedded-journal",
+    "crates/client-page-links",
+    "crates/client-api-http",
+    "crates/client-api-embedded",
     "crates/shell-leptos",
     "crates/shell-emacs",
     "crates/shell-native",
