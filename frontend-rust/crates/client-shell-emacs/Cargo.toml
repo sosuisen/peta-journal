@@ -10,7 +10,7 @@ name = "client-shell-emacs"
 path = "src/main.rs"
 
 [dependencies]
-peta-core = { path = "../core" }
+client-core = { path = "../client-core" }
 crux_core = "=0.20.0"
 serde = { workspace = true }
 serde_json = { workspace = true }

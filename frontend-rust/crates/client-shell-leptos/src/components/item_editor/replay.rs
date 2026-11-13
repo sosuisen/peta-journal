@@ -3,9 +3,9 @@
 
 use super::text::replace_range;
 use crate::core::CoreHandle;
+use client_core::model::DeferredKey;
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::model::DeferredKey;
-use peta_core::Event;
 
 /// Plays keys that were pressed before this editor was on screen. Typed characters go into
 /// the text; other keys go through the keydown handler.

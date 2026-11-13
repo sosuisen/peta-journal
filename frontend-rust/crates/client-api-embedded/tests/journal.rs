@@ -5,12 +5,12 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use client_api_embedded::{EmbeddedJournal, EventQueue};
+use client_core::effects::{ApiOp, ApiOutput, ApiResult, AtlasChange, SseEvent};
+use client_core::model::{BatchOp, Item, ItemPosition, PageWithItems, PasteMode};
+use client_core::rest::ClientId;
 use journal_core::assembly::{CoreHost, CoreSettings, JournalCore};
 use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
 use journal_core::journal::FolderWatch;
-use peta_core::effects::{ApiOp, ApiOutput, ApiResult, AtlasChange, SseEvent};
-use peta_core::model::{BatchOp, Item, ItemPosition, PageWithItems, PasteMode};
-use peta_core::rest::ClientId;
 use serde_json::{json, Value};
 
 /// An app that has no folder to watch and asks nothing about missing files.

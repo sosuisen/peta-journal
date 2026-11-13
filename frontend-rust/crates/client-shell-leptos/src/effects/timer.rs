@@ -1,9 +1,9 @@
 //! Timers for the core: a request that resolves when the delay is over, or as cancelled.
 
 use crate::core::CoreHandle;
+use client_core::effects::{TimerOp, TimerOutput};
 use crux_core::Request;
 use gloo_timers::callback::Timeout;
-use peta_core::effects::{TimerOp, TimerOutput};
 
 pub struct Running {
     request: Request<TimerOp>,

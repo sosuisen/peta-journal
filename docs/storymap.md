@@ -4,7 +4,7 @@
 
 ローカルの Markdown ファイルの上に載る、オフラインファーストのアウトライナー。毎日のジャーナルに書いたものが、ページ・リンク・タグ・地図（アトラス）へ育っていく。ジャーナルサーバーを中心に、拡張機能・外部アプリ・AI エージェント・別の PC がゆるくつながる。
 
-このストーリーマップは、2026-11-02 時点のフロントエンド（`frontend-rust`）の仕様から逆算して作った。出典は、コアのテスト（`frontend-rust/crates/core/src/tests/*.rs` の日本語の説明）、E2E テスト（`e2e/tests/*.spec.ts`）、画面のモジュールコメント、`docs/properties.md`、`docs/folder-sync-journeys.md` である。
+このストーリーマップは、2026-11-02 時点のフロントエンド（`frontend-rust`）の仕様から逆算して作った。出典は、コアのテスト（`frontend-rust/crates/client-core/src/tests/*.rs` の日本語の説明）、E2E テスト（`e2e/tests/*.spec.ts`）、画面のモジュールコメント、`docs/properties.md`、`docs/folder-sync-journeys.md` である。
 
 ## ペイン（仮）
 

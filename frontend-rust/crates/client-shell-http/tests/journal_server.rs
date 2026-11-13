@@ -1,11 +1,11 @@
 //! Runs the shell against a server over HTTP, with the clock of this machine. The server here is
 //! a small one of the test. This is the only test of `src/server.rs`.
 
+use client_core::effects::{UiOp, UiOutput};
+use client_core::Event;
 use client_native_bridge::{NativeShell, ShellEffectFfi};
 use client_shell_http::connect;
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
-use peta_core::effects::{UiOp, UiOutput};
-use peta_core::Event;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 

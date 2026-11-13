@@ -464,9 +464,11 @@
   - [ ] E2Eのテスト（`e2e`のPlaywrightと、Emacsの`peta-journal-e2e.el`）を回す。パスと名前は直したが、回していない
   - `shell-emacs`（`peta-shell-emacs`）を、`client-shell-emacs`にする。`shell-leptos`（`peta-frontend`）を、`client-shell-leptos`にする。フォルダーも変える
   - 先に調べること: 実行ファイルの名前を使っているところ（`peta-journal.el`、テスト）。wasmの名前を使っているところ（ビルドの設定、ジャーナルサーバーが配るファイル）
-- [ ] 段6: `peta-core`を、`client-core`にする。フォルダーも変える
+- [x] 段6: `peta-core`を、`client-core`にする。フォルダーも変える（2026-11-13に行った）
   - すべてのクレートの依存と、`use peta_core`を直す。型を生成する道具の設定も直す
-  - 先に調べること: 生成されるSwift、C#、Kotlinの型の名前に、`peta_core`が入っているか。入っていれば、3つの言語のシェルのコードも直す
+  - 生成されるC#とKotlinの型の名前に、`peta_core`は入っていなかった。生成の設定は、`PetaTypes`という名前を自分で決めている。シェルのコードは直していない。Swiftも同じ設定を使う
+  - 改名で`use`の並び順が変わり、`cargo fmt`が並べ直した。差分には、その並べ直しも入る
+  - [ ] SwiftUIとiOSのビルドとテストを、Macで確かめる（段3と段4の項目と一緒に行う）
   - いちばん広い変更なので、最後にする。ほかの段と混ぜない
 - [ ] 段7: 仕上げ
   - `docs/frontend-architecture.svg`を、`docs/frontend-architecture-refactored.svg`の内容で置き換える。タイトルの「分割と改名のあとの予定」と、`desc`の「計画である」という文を取る。`docs/frontend-architecture-refactored.svg`は消す

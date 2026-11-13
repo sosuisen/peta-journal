@@ -2,11 +2,11 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
+use client_core::model::WeekNumbering;
+use client_core::util::date::{days_in_month, Date};
+use client_core::util::week::{iso_week_number, us_week_number, week_page_name};
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::model::WeekNumbering;
-use peta_core::util::date::{days_in_month, Date};
-use peta_core::util::week::{iso_week_number, us_week_number, week_page_name};
-use peta_core::Event;
 
 const US_DAY_LABELS: [&str; 7] = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const ISO_DAY_LABELS: [&str; 7] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];

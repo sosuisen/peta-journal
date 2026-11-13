@@ -4,8 +4,8 @@
 
 出典は次のとおりである。括弧内は、各節の見出しに書いた略記である。
 
-- `frontend-rust/crates/core/src/tests/**/*.rs`（`tests/`）
-- `frontend-rust/crates/core/src/outline/*.rs`、`util/*.rs`、`model.rs`（`core/`）
+- `frontend-rust/crates/client-core/src/tests/**/*.rs`（`tests/`）
+- `frontend-rust/crates/client-core/src/outline/*.rs`、`util/*.rs`、`model.rs`（`core/`）
 - `frontend-rust/crates/client-shell-leptos/src/components/item_html.rs`（`client-shell-leptos`）
 - `e2e/tests/*.spec.ts`（`e2e/`）
 - `frontend-rust/crates/client-shell-emacs/src/tests/*.rs`、`tests/*.rs`、`lisp/test/*.el`（`client-shell-emacs/`）

@@ -7,9 +7,9 @@ use crate::components::item_view::ItemView;
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
+use client_core::view::Row;
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::view::Row;
-use peta_core::Event;
 use wasm_bindgen::JsCast;
 
 #[component]
@@ -181,7 +181,7 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
 }
 
 /// The label and tooltip of a task's times: `HH:MM-` while running, the duration when done.
-fn task_time_info(item: &peta_core::model::Item) -> Option<(String, String)> {
+fn task_time_info(item: &client_core::model::Item) -> Option<(String, String)> {
     if !item.is_task() {
         return None;
     }

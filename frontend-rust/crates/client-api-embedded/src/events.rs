@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Mutex;
 
+use client_core::effects::SseEvent;
 use journal_core::events::EventSink;
-use peta_core::effects::SseEvent;
 
 /// Carries the messages of the journal to the frontend core. The journal gets it
 /// as its `EventSink`, and the shell reads it with [`EventQueue::read`].

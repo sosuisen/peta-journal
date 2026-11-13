@@ -2,6 +2,9 @@
 //! come from the shape of the Rust types, so a shell stops compiling when a type changes.
 
 use crate::shell::{ShellEffect, ShellEffectFfi};
+use client_core::effects::{NavigateOp, UiOp};
+use client_core::view::PageView;
+use client_core::{Event, ViewModel};
 use crux_core::bridge::Requests;
 use crux_core::capability::Operation;
 use crux_core::render::RenderOperation;
@@ -12,9 +15,6 @@ use facet_generate::generation::csharp::Installer;
 use facet_generate::generation::kotlin;
 use facet_generate::reflection::RegistryBuilder;
 use facet_generate::Registry;
-use peta_core::effects::{NavigateOp, UiOp};
-use peta_core::view::PageView;
-use peta_core::{Event, ViewModel};
 use std::path::Path;
 
 /// The name of the package of the types, in every language.

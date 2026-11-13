@@ -1,5 +1,5 @@
 use crate::protocol::{Bullet, Envelope, Inbound, Outbound, RowView, TaskMark};
-use peta_core::view::TaskState;
+use client_core::view::TaskState;
 use serde_json::json;
 
 fn row(bullet: Bullet) -> RowView {

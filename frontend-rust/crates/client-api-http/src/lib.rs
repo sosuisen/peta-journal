@@ -1,5 +1,5 @@
 //! Talks to the journal server for a shell that runs natively: the Emacs shell and the native
-//! shells. The core knows the requests and the answers (`peta_core::rest`); this crate sends
+//! shells. The core knows the requests and the answers (`client_core::rest`); this crate sends
 //! them.
 
 mod api;

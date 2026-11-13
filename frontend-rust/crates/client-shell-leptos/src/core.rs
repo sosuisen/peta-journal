@@ -3,11 +3,11 @@
 //! writes the new view model into a signal the components read.
 
 use crate::effects;
+use client_core::effects::{Effect, TimerOp};
+use client_core::model::DeferredKey;
+use client_core::rest::ClientId;
+use client_core::{Event, PetaApp, ViewModel};
 use leptos::prelude::*;
-use peta_core::effects::{Effect, TimerOp};
-use peta_core::model::DeferredKey;
-use peta_core::rest::ClientId;
-use peta_core::{Event, PetaApp, ViewModel};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;

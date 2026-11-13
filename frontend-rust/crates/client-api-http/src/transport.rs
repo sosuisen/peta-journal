@@ -1,8 +1,8 @@
 //! The real transport: HTTP with `ureq`, and the server's event stream.
 
 use crate::api::Http;
-use peta_core::effects::SseEvent;
-use peta_core::rest::{ClientId, HttpReply, HttpRequest};
+use client_core::effects::SseEvent;
+use client_core::rest::{ClientId, HttpReply, HttpRequest};
 use std::io::BufRead;
 use ureq::Agent;
 

@@ -782,7 +782,7 @@ pub fn log_error(message: impl fmt::Display) {
         let _ = message;
     }
     #[cfg(not(target_arch = "wasm32"))]
-    eprintln!("[peta-core] {message}");
+    eprintln!("[client-core] {message}");
 }
 
 // ---- Model ----

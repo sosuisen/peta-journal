@@ -8,15 +8,15 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use client_api_embedded::{EmbeddedJournal, EventQueue};
+use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, SseEvent};
+use client_core::rest::ClientId;
+use client_core::screens::page::split_doc_path;
+use client_core::util::filename::is_journal_file_name;
+use client_core::Route;
 use client_native_bridge::{Clock, Host, NativeShell, SystemClock};
 use journal_core::assembly::{CoreHost, CoreSettings, JournalCore};
 use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
 use journal_core::journal::FolderWatch;
-use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, SseEvent};
-use peta_core::rest::ClientId;
-use peta_core::screens::page::split_doc_path;
-use peta_core::util::filename::is_journal_file_name;
-use peta_core::Route;
 
 /// The app has no watcher, and it asks nothing about missing files: `PetaCore::sync` deletes
 /// their pages (ADR 030).

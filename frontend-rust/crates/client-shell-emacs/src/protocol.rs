@@ -1,6 +1,6 @@
 //! The JSON lines this process and `peta-journal.el` send each other.
 
-use peta_core::view::{BacklinkGroup, PageProperty, Row, SearchEntry, TaskState};
+use client_core::view::{BacklinkGroup, PageProperty, Row, SearchEntry, TaskState};
 use serde::{Deserialize, Serialize};
 
 /// One line from Emacs. Emacs numbers its lines, so it can tell which of them an answer has seen.

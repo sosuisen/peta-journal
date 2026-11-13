@@ -1,7 +1,7 @@
 //! Small helpers over `web-sys`: the pieces of the Angular components that read or write
 //! the page directly.
 
-use peta_core::model::DeferredKey;
+use client_core::model::DeferredKey;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;

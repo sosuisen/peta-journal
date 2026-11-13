@@ -2,11 +2,11 @@
 //! the answers.
 
 use crate::core::CoreHandle;
+use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult};
+use client_core::model::Uploaded;
+use client_core::rest::{rest_call, ClientId, HttpReply, HttpRequest};
 use crux_core::Request;
 use gloo_net::http::Request as Http;
-use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult};
-use peta_core::model::Uploaded;
-use peta_core::rest::{rest_call, ClientId, HttpReply, HttpRequest};
 use wasm_bindgen_futures::spawn_local;
 
 /// A transport error as the core sees it.

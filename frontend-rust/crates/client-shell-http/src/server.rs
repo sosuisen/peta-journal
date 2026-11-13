@@ -1,9 +1,9 @@
 //! The real [`Host`]: the journal server over HTTP.
 
 use client_api_http::{call, read_events, UreqHttp};
+use client_core::effects::{ApiOp, ApiOutput, ApiResult, SseEvent};
+use client_core::rest::ClientId;
 use client_native_bridge::{Host, NativeShell, SystemClock};
-use peta_core::effects::{ApiOp, ApiOutput, ApiResult, SseEvent};
-use peta_core::rest::ClientId;
 
 struct JournalServer {
     http: UreqHttp,

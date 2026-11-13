@@ -6,6 +6,6 @@ license.workspace = true
 description = "PetaJournal: the requests of the frontend core, sent to the journal server over HTTP"
 
 [dependencies]
-peta-core = { path = "../core" }
+client-core = { path = "../client-core" }
 serde_json = { workspace = true }
 ureq = { version = "3.5.1", default-features = false, features = ["json"] }

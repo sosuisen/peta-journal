@@ -1,7 +1,7 @@
 //! The time this side reads and waits for (ADR 036).
 
 use chrono::{Datelike, Local, Timelike};
-use peta_core::effects::LocalDateTimeDto;
+use client_core::effects::LocalDateTimeDto;
 use std::thread;
 use std::time::Duration;
 

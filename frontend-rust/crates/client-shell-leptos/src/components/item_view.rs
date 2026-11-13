@@ -6,10 +6,10 @@ use crate::components::item_html::{item_html, ImageSize};
 use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
+use client_core::view::Row;
+use client_core::Event;
 use client_page_links::{hashtag_path, wikilink_path};
 use leptos::prelude::*;
-use peta_core::view::Row;
-use peta_core::Event;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 

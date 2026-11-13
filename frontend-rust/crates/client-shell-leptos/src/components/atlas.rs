@@ -10,13 +10,13 @@
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
-use leptos::prelude::*;
-use peta_atlas::scene::{self, GroupRef};
-use peta_core::app::Event;
-use peta_core::screens::atlas::{
+use client_core::app::Event;
+use client_core::screens::atlas::{
     parent_dir_label, Callout, GroupTitle, LinkCard, CARD_HEIGHT, CARD_WIDTH,
 };
-use peta_core::view::{AtlasCard, ScreenView};
+use client_core::view::{AtlasCard, ScreenView};
+use leptos::prelude::*;
+use peta_atlas::scene::{self, GroupRef};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
