@@ -279,9 +279,14 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - `Shell.swift`と`Shell.cs`は、ほぼ同じコードを持つ。質問の待ち行列（`Question`と`later`）、フォーカスの番号（`FocusOrder`）、ジャーナルのタイトルの決め方（`name()`と`Name()`）である
   - タイトルは、コアの`ViewModel`に入れる案がある。一番上に見える日と今日から決まり、どちらもコアが知っている
   - 質問の待ち行列とフォーカスの番号は、`shell-native`に移す案がある。境界の形が変わるので、3つのシェルを合わせて直す
-  - `Shell.kt`は、まだ比べていない。質問の扱いはある。同じ処理がどこまであるかを、先に見る
   - 順序（2026-11-13にユーザーが決めた）
     - [ ] 先に、C#（`Shell.cs`）、Kotlin（`Shell.kt`）、Swift（2つの`Shell.swift`）のコードに共通するところを、Rustの側に寄せる
+      - 4つを比べた（2026-11-14）。MacとWindowsの`Shell`は、タイトル、フォーカスの番号、質問の待ち行列が同じである。iOSとAndroidの`Shell`は、ページを開く・作る、最後の画面を覚える、同期の受け持ちが同じである。4つに共通するのは、質問の扱いと、イベントを送ってビューモデルを取り直すところである
+      - [x] 2026-11-14 タイトルを、コアの`ViewModel`の`title`に入れた。MacとWindowsの`Shell`から、`name()`と`Name()`を消した。`Shell.cs`は、ビルドせずに直した。Windowsで確かめる
+      - [x] 2026-11-14 フォーカスの番号（`FocusOrder`）を、コアのビューモデルの`outline.focusOrder`に入れた。コアは`FocusEditor`を頼むたびに、番号を1つ増やす。MacとWindowsの`Shell`は、自分で数えるのをやめた。`Shell.cs`と`StickyWindow.cs`は、ビルドせずに直した
+      - [x] 2026-11-14 質問の待ち行列を、`client-native-bridge`の`NativeShell`に移した。4つのシェルとも、2つ目の質問は、1つ目のうしろに並ぶ（ユーザーが決めた）。iOSとAndroidは、1つ目に「いいえ」と答えて2つ目を出すのをやめた。`Shell.cs`と`Shell.kt`は、ビルドせずに直した
+      - [ ] iOSとAndroidの`Shell`に共通するところ（ページを開く・作る、最後の画面、同期の受け持ち）を、`client-shell-embedded`に寄せる
+    - [ ] Android版でしたクラスのリファクタリングを、iOS版にも同じように反映させる（2026-11-14にユーザーが足した）。先に、Android版で何を変えたかを、履歴から拾う
     - [ ] そのあとに、iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）の間で、Swiftに残った同じコードを寄せる
   - [ ] Dropboxとの同期をRustに書き、AndroidとiOSの両方で使うかを検討する（2026-11-13にユーザーが足した。ADR 034のAlternative 2）
     - 今は、同じクラスがKotlinとSwiftに1つずつある（`Cloud`、`CloudRecord`、`MarkdownFolder`、`Downloader`、`Uploader`、`SyncRound`、`CloudSync`）。決まりを変えるときは、両方を直す

@@ -177,6 +177,22 @@ fn enter_on_an_empty_last_child_outdents_it_instead() {
     assert_eq!(h.focused_editor_requests(), [Some("e".to_string())]);
 }
 
+// エディタにフォーカスする指示は、番号を付けてビューモデルにも入る。番号は指示のたびに増える。カーソルの位置が変わらないアウトデントでも入る。
+#[test]
+fn every_order_to_focus_an_editor_is_numbered_in_the_view_model() {
+    let mut h = Harness::with_items(vec![item("a", 1, "hello"), item("e", 2, "")]);
+    assert_eq!(h.view().outline.focus_order, None);
+
+    enter(&mut h, "e", 0);
+    let first = h.view().outline.focus_order.unwrap();
+    assert_eq!(first.item_id.as_deref(), Some("e"));
+
+    enter(&mut h, "a", 5);
+    let second = h.view().outline.focus_order.unwrap();
+    assert_eq!(second.item_id.as_deref(), Some("new1"));
+    assert!(second.number > first.number);
+}
+
 // 押されたキーは、アウトラインが次のエディタにフォーカスするまで保留される。フォーカス要求が出た時点で保留は解かれている。
 #[test]
 fn holds_the_keys_pressed_until_the_outline_focuses_the_next_editor() {

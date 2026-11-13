@@ -20,11 +20,6 @@ public sealed partial class Shell : IDisposable
     /// </summary>
     private readonly string server;
 
-    /// <summary>The questions that wait behind the one on screen.</summary>
-    private readonly Queue<Question> later = new();
-
-    /// <summary>The name that the core gave to what is open.</summary>
-    private string named = "";
     private bool disposed;
 
     /// <summary>
@@ -73,10 +68,10 @@ public sealed partial class Shell : IDisposable
     public ViewModel View { get; private set; }
 
     /// <summary>
-    /// The name of what is open. For a journal it is the date of the day at the top of the
-    /// window, with "(Today)" behind the date of today.
+    /// The name of what is open, as the core gives it in the view model. For a journal it is
+    /// the date of the day at the top of the window, with "(Today)" behind the date of today.
     /// </summary>
-    public string Title { get; private set; } = "";
+    public string Title => View.Title;
 
     /// <summary>
     /// What is open, as the URL that opens it again. <c>null</c> when nothing was opened yet.
@@ -86,8 +81,11 @@ public sealed partial class Shell : IDisposable
     /// <summary>What the core asks the user now. The core waits until it is answered.</summary>
     public Question? Question { get; private set; }
 
-    /// <summary>The last order of the core to put the cursor somewhere.</summary>
-    public FocusOrder? Focus { get; private set; }
+    /// <summary>
+    /// The last order of the core to put the cursor somewhere, as the view model gives it. The
+    /// first item is meant when it names none.
+    /// </summary>
+    public FocusOrder? Focus => View.Outline.FocusOrder;
 
     public event Action? ViewChanged;
     public event Action? TitleChanged;
@@ -176,7 +174,7 @@ public sealed partial class Shell : IDisposable
     {
         if (Question is not { } asked)
             return;
-        Question = later.Count == 0 ? null : later.Dequeue();
+        Question = null;
         border.Answer(asked.Id, output);
         Show(border.View());
         QuestionChanged?.Invoke();
@@ -184,15 +182,8 @@ public sealed partial class Shell : IDisposable
 
     private void Ask(Question asked)
     {
-        if (Question is null)
-        {
-            Question = asked;
-            QuestionChanged?.Invoke();
-        }
-        else
-        {
-            later.Enqueue(asked);
-        }
+        Question = asked;
+        QuestionChanged?.Invoke();
     }
 
     /// <summary>Sends what the user did to the core.</summary>
@@ -207,35 +198,12 @@ public sealed partial class Shell : IDisposable
 
     private void Show(ViewModel view)
     {
+        var before = Title;
         View = view;
-        Name();
+        // Not told when it is the same: everything that watches the title would run
+        if (Title != before)
+            TitleChanged?.Invoke();
         ViewChanged?.Invoke();
-    }
-
-    /// <summary>
-    /// Sets the title. The core names every journal by the day it was opened for; the day at
-    /// the top of the window is only in the view model.
-    /// </summary>
-    private void Name()
-    {
-        var title = named;
-        if (
-            View.Screen is ScreenView.Journal { Value: var journal }
-            && journal.DisplayDate.Length > 0
-        )
-        {
-            // The days below the one that was opened have their date above their first item
-            var top = View.Outline.Rows.FirstOrDefault(row =>
-                row.DateHeader == journal.DisplayDate
-            );
-            var day = top?.Item.Name ?? journal.CurrentDate;
-            title = day == View.Today ? $"{journal.DisplayDate} (Today)" : journal.DisplayDate;
-        }
-        // Not told again when it is the same: everything that watches the title would run
-        if (Title == title)
-            return;
-        Title = title;
-        TitleChanged?.Invoke();
     }
 
     private void Handle(IReadOnlyList<Request> requests)
@@ -243,7 +211,7 @@ public sealed partial class Shell : IDisposable
         // The window was closed while the requests waited for the main thread
         if (disposed)
             return;
-        var cursors = new List<(uint Id, string? ItemId)>();
+        var cursors = new List<uint>();
         foreach (var request in requests)
         {
             switch (request.Effect)
@@ -254,8 +222,8 @@ public sealed partial class Shell : IDisposable
                 case ShellEffect.Navigate { Value: var op }:
                     Open(op.Url);
                     break;
-                case ShellEffect.Ui { Value: UiOp.FocusEditor focus }:
-                    cursors.Add((request.Id, focus.ItemId));
+                case ShellEffect.Ui { Value: UiOp.FocusEditor }:
+                    cursors.Add(request.Id);
                     break;
                 case ShellEffect.Ui { Value: var op }:
                     Show(op, request.Id);
@@ -263,9 +231,12 @@ public sealed partial class Shell : IDisposable
             }
         }
         // After the render: the item to put the cursor in may have come with these very requests
-        foreach (var (id, itemId) in cursors)
+        // The order itself is in the view model. It is read again here: no render request has
+        // to come with the order
+        if (cursors.Count > 0)
+            Show(border.View());
+        foreach (var id in cursors)
         {
-            Focus = new FocusOrder((Focus?.Number ?? 0) + 1, itemId);
             border.Answer(id, new UiOutput.Done());
             FocusChanged?.Invoke();
         }
@@ -278,10 +249,6 @@ public sealed partial class Shell : IDisposable
     {
         switch (op)
         {
-            case UiOp.SetTitle { Value: var title }:
-                named = title;
-                Name();
-                break;
             case UiOp.Confirm { Value: var message }:
                 Ask(new Question(id, message, QuestionKind.Confirm));
                 break;
@@ -335,10 +302,3 @@ public enum QuestionKind
     /// <summary>A line of text.</summary>
     Prompt,
 }
-
-/// <summary>
-/// An order to put the cursor in the editor of an item, or of the first item when
-/// <paramref name="ItemId"/> is <c>null</c>. <paramref name="Number"/> tells two orders for the
-/// same item apart.
-/// </summary>
-public sealed record FocusOrder(int Number, string? ItemId);

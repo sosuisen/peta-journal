@@ -120,7 +120,7 @@ internal sealed class StickyWindow : Window
     /// scrolls back into the window, and that view must not take the cursor for an old order.
     /// </summary>
     private ulong cursorRequest;
-    private int cursorOrder;
+    private ulong cursorOrder;
 
     /// <summary>The user put the cursor in an item: the core is being told.</summary>
     private bool takesCursor;

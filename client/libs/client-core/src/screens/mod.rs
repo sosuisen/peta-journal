@@ -40,7 +40,7 @@ pub mod route {
             Route::Settings => {
                 model.screen = Screen::Settings;
                 Command::all([
-                    navigate::set_title("Settings"),
+                    navigate::set_title(model, "Settings"),
                     settings::load_server_config(),
                 ])
             }

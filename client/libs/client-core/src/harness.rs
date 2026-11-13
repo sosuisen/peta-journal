@@ -707,7 +707,13 @@ impl Harness {
                     },
                     _ => UiOutput::Done,
                 };
-                if matches!(op, UiOp::FocusEditor { .. }) {
+                if let UiOp::FocusEditor { item_id, .. } = &op {
+                    // A shell that draws from the view model alone has to get every order
+                    assert_eq!(
+                        self.model.state.focus_order().map(|order| &order.item_id),
+                        Some(item_id),
+                        "an editor is focused without an order in the view model"
+                    );
                     if let Some(item_id) = self.blurs_when_drawn.take() {
                         let cmd = self
                             .app

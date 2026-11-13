@@ -337,6 +337,63 @@ fn the_answer_of_the_shell_reaches_the_core() {
     });
 }
 
+// コアの2つ目の質問は、1つ目が答えられるまでシェルに届かない。1つ目に答えると、2つ目が届く。
+#[test]
+fn a_second_question_reaches_the_shell_after_the_first_is_answered() {
+    let screen = Screen::new();
+    let first = UiOp::Confirm("Insert?".into());
+    let second = UiOp::Confirm("Replace?".into());
+    screen.server_says(SseEvent::Message(
+        r#"{"type":"confirm","requestId":"confirm-1","message":"Insert?"}"#.into(),
+    ));
+    screen.server_says(SseEvent::Message(
+        r#"{"type":"confirm","requestId":"confirm-2","message":"Replace?"}"#.into(),
+    ));
+    wait_until("the core has heard both questions", || {
+        screen.calls_named("AnswerConfirm") == 0 && screen.ui_ops().contains(&first)
+    });
+    // The stream is read on its own thread: give it the time to bring the second one
+    thread::sleep(Duration::from_millis(200));
+    assert_eq!(screen.ui_ops(), std::slice::from_ref(&first));
+
+    screen.answer(&first, &UiOutput::Bool(false));
+
+    wait_until("the second question reaches the shell", || {
+        screen.ui_ops().contains(&second)
+    });
+    assert_eq!(screen.ui_ops(), [first, second]);
+}
+
+// シェルの答えは、待っている質問の数にかかわらず、その質問のものとしてコアに届く。
+#[test]
+fn every_answer_reaches_the_core_for_its_own_question() {
+    let screen = Screen::new();
+    let first = UiOp::Confirm("Insert?".into());
+    let second = UiOp::Confirm("Replace?".into());
+    screen.server_says(SseEvent::Message(
+        r#"{"type":"confirm","requestId":"confirm-1","message":"Insert?"}"#.into(),
+    ));
+    screen.server_says(SseEvent::Message(
+        r#"{"type":"confirm","requestId":"confirm-2","message":"Replace?"}"#.into(),
+    ));
+
+    screen.answer(&first, &UiOutput::Bool(false));
+    screen.answer(&second, &UiOutput::Bool(true));
+
+    wait_until("both answers are sent to the server", || {
+        screen.calls_named("AnswerConfirm") == 2
+    });
+    let calls = screen.calls.lock().unwrap();
+    assert!(calls.contains(&ApiOp::AnswerConfirm {
+        request_id: "confirm-1".into(),
+        ok: false,
+    }));
+    assert!(calls.contains(&ApiOp::AnswerConfirm {
+        request_id: "confirm-2".into(),
+        ok: true,
+    }));
+}
+
 // URLを変える依頼は、バイト列でシェルに届く。
 #[test]
 fn a_navigation_reaches_the_shell_as_bytes() {

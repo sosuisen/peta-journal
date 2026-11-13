@@ -224,6 +224,7 @@ pub fn show_moved_in_transclusion(model: &mut Model, item_id: String) -> Cmd {
 /// Focuses the editor of the moved item again, with the keys that were pressed while the
 /// move was on its way.
 pub fn focus_moved(model: &mut Model, item_id: String) -> Cmd {
+    model.state.order_focus(Some(&item_id));
     let keys = model.key_relay.release();
     run(move |api| async move {
         api.focus_editor(Some(item_id), keys).await;

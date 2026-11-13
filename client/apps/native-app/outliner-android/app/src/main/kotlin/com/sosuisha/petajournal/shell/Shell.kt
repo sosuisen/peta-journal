@@ -218,9 +218,8 @@ class Shell(
         show()
     }
 
-    /** Shows a question of the core. A question that still waits is answered no first. */
+    /** Shows a question of the core. The core asks the next one only after this is answered. */
     private fun put(next: Question) {
-        answer(false)
         question = next
     }
 

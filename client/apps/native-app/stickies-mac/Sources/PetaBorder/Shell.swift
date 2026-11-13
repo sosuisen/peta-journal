@@ -9,19 +9,17 @@ import PetaCore
 @MainActor
 public final class Shell: ObservableObject {
     @Published public private(set) var view: ViewModel {
-        didSet { name() }
+        // Not set again when it is the same: everything that watches the title would run
+        didSet { if title != view.title { title = view.title } }
     }
-    /// The name of what is open. For a journal it is the date of the day at the top of the
-    /// window, with "(Today)" behind the date of today.
+    /// The name of what is open, as the core gives it in the view model. For a journal it is
+    /// the date of the day at the top of the window, with "(Today)" behind the date of today.
     @Published public private(set) var title = ""
-    /// The name that the core gave to what is open.
-    private var named = ""
     /// What is open, as the URL that opens it again. `nil` when nothing was opened yet.
     @Published public private(set) var url: String?
-    /// What the core asks the user now. The core waits until it is answered.
+    /// What the core asks the user now. The core waits until it is answered, and asks the
+    /// next question only after that.
     @Published public private(set) var question: Question?
-    /// The last order of the core to put the cursor somewhere.
-    @Published public private(set) var focus: FocusOrder?
     private let border: Border
     private let clipboard: () -> String?
     private let copy: (String, String?) -> Void
@@ -29,8 +27,6 @@ public final class Shell: ObservableObject {
     /// another app is to open starts with it.
     private let server: String
     private let browse: (URL) -> Void
-    /// The questions that wait behind the one on screen.
-    private var later: [Question] = []
 
     /// Starts a core for the journal server at `server` and opens what `url` names, or nothing
     /// when there is no URL: a page is then to be searched for. `clipboard`
@@ -61,6 +57,7 @@ public final class Shell: ObservableObject {
         self.server = server
         self.browse = browse
         view = Shell.must { try border.view() }
+        title = view.title
         inbox.shell = self
         if let url { open(url) }
     }
@@ -85,20 +82,6 @@ public final class Shell: ObservableObject {
 
     private func browse(_ address: String) {
         if let url = URL(string: address) { browse(url) }
-    }
-
-    /// Sets the title. The core names every journal by the day it was opened for; the day at
-    /// the top of the window is only in the view model.
-    private func name() {
-        var new = named
-        if case .journal(let journal) = view.screen, !journal.displayDate.isEmpty {
-            // The days below the one that was opened have their date above their first item
-            let top = view.outline.rows.first { $0.dateHeader == journal.displayDate }
-            let day = top?.item.name ?? journal.currentDate
-            new = day == view.today ? "\(journal.displayDate) (Today)" : journal.displayDate
-        }
-        // Not set again when it is the same: everything that watches the title would run
-        if title != new { title = new }
     }
 
     /// The window was scrolled: the row at `top` is the first that can be seen, and the rows
@@ -145,17 +128,13 @@ public final class Shell: ObservableObject {
 
     private func answer(_ output: UiOutput) {
         guard let asked = question else { return }
-        question = later.isEmpty ? nil : later.removeFirst()
+        question = nil
         Shell.must { try border.answer(asked.id, with: output) }
         view = Shell.must { try border.view() }
     }
 
     private func ask(_ asked: Question) {
-        if question == nil {
-            question = asked
-        } else {
-            later.append(asked)
-        }
+        question = asked
     }
 
     /// Sends what the user did to the core.
@@ -168,22 +147,24 @@ public final class Shell: ObservableObject {
     }
 
     private func handle(_ requests: [Request]) {
-        var cursors: [(UInt32, String?)] = []
+        var cursors: [UInt32] = []
         for request in requests {
             switch request.effect {
             case .render:
                 view = Shell.must { try border.view() }
             case .navigate(let op):
                 open(op.url)
-            case .ui(.focusEditor(let itemId, _)):
-                cursors.append((request.id, itemId))
+            case .ui(.focusEditor):
+                cursors.append(request.id)
             case .ui(let op):
                 show(op, asked: request.id)
             }
         }
         // After the render: the item to put the cursor in may have come with these very requests
-        for (id, itemId) in cursors {
-            focus = FocusOrder(number: (focus?.number ?? 0) + 1, itemId: itemId)
+        // The order itself is in the view model, as `outline.focusOrder`. It is read again
+        // here: no render request has to come with the order
+        if !cursors.isEmpty { view = Shell.must { try border.view() } }
+        for id in cursors {
             Shell.must { try border.answer(id, with: .done) }
         }
     }
@@ -191,9 +172,6 @@ public final class Shell: ObservableObject {
     /// Only some requests wait for an answer. The core takes an answer to any other as an error.
     private func show(_ op: UiOp, asked id: UInt32) {
         switch op {
-        case .setTitle(let title):
-            named = title
-            name()
         case .confirm(let message):
             ask(Question(id: id, message: message, kind: .confirm))
         case .confirmDestructive(let message):
@@ -240,13 +218,6 @@ public struct Question: Equatable, Identifiable {
         /// A line of text.
         case prompt
     }
-}
-
-/// An order to put the cursor in the editor of an item, or of the first item when `itemId` is
-/// `nil`. `number` tells two orders for the same item apart.
-public struct FocusOrder: Equatable {
-    public let number: Int
-    public let itemId: String?
 }
 
 /// Where the requests of the core find the shell, which is made after the core.

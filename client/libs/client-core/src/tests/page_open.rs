@@ -92,6 +92,20 @@ fn a_page_is_loaded_with_its_items_and_backlinks() {
     );
 }
 
+// ページのウィンドウのタイトルは、フォルダ付きの名前である。次のページが届かないときは、前のタイトルのままである。
+#[test]
+fn the_window_title_of_a_page_is_its_name_with_its_folder() {
+    let mut h = Harness::new();
+    assert_eq!(h.view().title, "");
+    served(&mut h, doc("notes/", "Idea"), false);
+    visit(&mut h, "notes/Idea", None);
+    assert_eq!(h.view().title, "notes/Idea");
+
+    h.api.fail_next("GetOrCreateDoc", "the server is away");
+    visit(&mut h, "notes/Other", None);
+    assert_eq!(h.view().title, "notes/Idea");
+}
+
 // URL がページの正しいパスと違うときは、そのパスに置き換えて開き直す。たとえば `Quarkus` はフォルダ `Quarkus/` の index ページである。
 #[test]
 fn a_url_that_is_not_the_canonical_path_is_replaced_by_it() {

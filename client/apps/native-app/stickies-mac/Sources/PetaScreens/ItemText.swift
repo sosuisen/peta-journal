@@ -109,7 +109,7 @@ struct ItemText: NSViewRepresentable {
 @MainActor
 final class Cursors: ObservableObject {
     var request: UInt64 = 0
-    var order = 0
+    var order: UInt64 = 0
 }
 
 /// Hears one text view and tells the shell.

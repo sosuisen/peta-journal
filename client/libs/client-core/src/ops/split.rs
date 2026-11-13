@@ -133,6 +133,7 @@ pub fn show_split(model: &mut Model, item_id: &str, cursor_before: usize, split:
     model.state.remove_editing_item(item_id);
     // The caret stays where the text was cut
     model.state.set_focused_item(&created.id, Some(0));
+    model.state.order_focus(Some(&created.id));
     run(move |api| async move { api.focus_editor(Some(created.id), keys).await })
 }
 
@@ -230,5 +231,6 @@ pub fn focus_after_split(model: &mut Model, item_id: &str, created_id: &str) -> 
         model.state.remove_editing_item(item_id);
     }
     model.state.set_focused_item(&target, Some(cursor));
+    model.state.order_focus(Some(&target));
     run(move |api| async move { api.focus_editor(Some(target), keys).await })
 }

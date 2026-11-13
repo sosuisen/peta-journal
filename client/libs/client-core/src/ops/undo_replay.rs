@@ -150,6 +150,7 @@ fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction, moves: b
         .state
         .set_focused_item(&cursor.item_id, Some(cursor.position));
     let id = cursor.item_id.clone();
+    model.state.order_focus(Some(&id));
     let keys = model.key_relay.release();
     // The editor of a row that is put in another place loses its focus
     if moves {

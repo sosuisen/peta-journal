@@ -4,7 +4,7 @@ pub mod tree;
 pub mod undo;
 
 pub use selection::Selection;
-pub use state::{FocusRequest, Heading, OutlineState};
+pub use state::{FocusOrder, FocusRequest, Heading, OutlineState};
 pub use undo::{CursorState, UndoEntry, UndoOp, UndoStacks};
 
 use crate::model::DeferredKey;

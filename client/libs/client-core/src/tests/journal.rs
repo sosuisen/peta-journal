@@ -206,6 +206,50 @@ fn scrolling_moves_the_header_date_and_loads_more_when_the_end_comes_near() {
     assert_eq!(before_calls(&h), ["2026-02-10", "2026-02-09", "2026-02-09"]);
 }
 
+// 今日のジャーナルのウィンドウのタイトルは、今日の日付に「(Today)」を付けたものである。ほかの日のジャーナルでは、その日の日付だけである。
+#[test]
+fn the_window_title_of_a_journal_is_its_date_with_today_marked() {
+    let mut h = Harness::new();
+    visit(&mut h, "today");
+    assert_eq!(h.view().title, "2026年2月10日 火曜日 (Today)");
+
+    visit(&mut h, "2026-02-09");
+    assert_eq!(h.view().title, "2026年2月9日 月曜日");
+}
+
+// ジャーナルを前の日までスクロールすると、ウィンドウのタイトルはその日の日付になり、「(Today)」は付かない。今日まで戻ると、また付く。
+#[test]
+fn the_window_title_of_a_journal_follows_the_day_at_the_top() {
+    let mut h = Harness::new();
+    h.api.answer_next(
+        "GetOrCreateJournal",
+        Ok(ApiOutput::Page(PageWithItems {
+            page: journal_page(TODAY),
+            items: vec![journal_item("item-today", TODAY)],
+            ..Default::default()
+        })),
+    );
+    h.api.answer_next(
+        "GetMostRecentJournalBefore",
+        Ok(older_journal("2026-02-09")),
+    );
+    visit(&mut h, TODAY);
+
+    let scroll_to = |h: &mut Harness, top: usize| {
+        h.send(Event::OutlineScrolled {
+            scrolled_from_top: top > 0,
+            top_visible_index: top,
+            rendered_start: 0,
+            rendered_end: 2,
+        })
+    };
+    scroll_to(&mut h, 1);
+    assert_eq!(h.view().title, "2026年2月9日 月曜日");
+
+    scroll_to(&mut h, 0);
+    assert_eq!(h.view().title, "2026年2月10日 火曜日 (Today)");
+}
+
 // doc ページや空のアウトラインでは、スクロールは何も読み込まない。
 #[test]
 fn scrolling_a_doc_page_or_an_empty_outline_loads_nothing() {
