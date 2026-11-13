@@ -327,6 +327,13 @@ final class ItemTextView: NSTextView {
         super.mouseDown(with: event)
     }
 
+    /// A right click on an item that is not edited shows the menu of the sticky. The item that
+    /// is edited has the menu of its text: cut, copy and paste.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        if !isMarkdown, let menu = (window as? StickyWindow)?.stickyMenu?() { return menu }
+        return super.menu(for: event)
+    }
+
     override func becomeFirstResponder() -> Bool {
         let became = super.becomeFirstResponder()
         if became { onCursor?() }
