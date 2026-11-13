@@ -1,6 +1,7 @@
 //! [`NativeShell`]: the core under Crux's `EffectRouter`, which sends each effect either to this
 //! side or, as bytes, to the shell.
 
+use crate::clock::Clock;
 use crux_core::bridge::{BincodeFfiFormat, BridgeError, EffectId};
 use crux_core::capability::Operation;
 use crux_core::effects::routes::Serialized;
@@ -9,8 +10,7 @@ use crux_core::macros::effect;
 use crux_core::render::RenderOperation;
 use crux_core::{Core, Request};
 use peta_core::effects::{
-    ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, NavigateOp, SseEvent, SseOp, TimerOp,
-    TimerOutput, UiOp, UiOutput,
+    ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, TimerOp, TimerOutput, UiOp, UiOutput,
 };
 use peta_core::rest::ClientId;
 use peta_core::{Effect, Event, PetaApp, Route};
@@ -26,14 +26,10 @@ pub type BorderError = BridgeError<BincodeFfiFormat>;
 #[derive(Debug, PartialEq, Eq)]
 pub struct NothingThere(pub String);
 
-/// What this side needs from the world outside the process.
+/// The way to the journal. The time is not here: see [`Clock`] (ADR 036).
 pub trait Host: Send + Sync + 'static {
     /// Performs one operation on the journal server. It may take as long as the server does.
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput>;
-    /// The local date and time, and the milliseconds since 1970.
-    fn now(&self) -> (LocalDateTimeDto, u64);
-    /// Returns after this many milliseconds.
-    fn sleep(&self, ms: u32);
     /// Reads the event stream of the server, and returns when it has ended.
     fn events(&self, send: &mut dyn FnMut(SseEvent));
 }
@@ -108,13 +104,13 @@ impl Lanes {
         let _ = queue.send(request);
     }
 
-    fn time<H: Host>(&self, host: &Arc<H>, request: Request<TimerOp>) {
+    fn time(&self, clock: &Arc<dyn Clock>, request: Request<TimerOp>) {
         match request.operation {
             TimerOp::Start { id, ms } => {
                 self.timers.lock().unwrap().insert(id, request);
-                let (lanes, host) = (self.clone(), host.clone());
+                let (lanes, clock) = (self.clone(), clock.clone());
                 thread::spawn(move || {
-                    host.sleep(ms);
+                    clock.sleep(ms);
                     lanes.end_timer(id, TimerOutput::Fired);
                 });
             }
@@ -143,7 +139,7 @@ impl Lanes {
 /// The core for one shell. The shell may call it from any thread.
 pub struct NativeShell {
     router: Arc<Router>,
-    host: Arc<dyn Host>,
+    clock: Arc<dyn Clock>,
 }
 
 impl NativeShell {
@@ -152,11 +148,13 @@ impl NativeShell {
     /// and for the first time before this returns.
     pub fn new<H: Host>(
         host: H,
+        clock: impl Clock,
         client_id: ClientId,
         to_shell: impl Fn(Vec<u8>) + Send + Sync + 'static,
     ) -> NativeShell {
         let host = Arc::new(host);
-        let clock: Arc<dyn Host> = host.clone();
+        let clock: Arc<dyn Clock> = Arc::new(clock);
+        let of_effects = clock.clone();
         let router = EffectRouter::new(Core::<PetaApp>::new(), |lanes: Lanes| {
             let send = {
                 let border = lanes.border.clone();
@@ -168,10 +166,10 @@ impl NativeShell {
             move |effect| match effect {
                 Effect::Api(request) => lanes.call(&host, request),
                 Effect::Sse(request) => lanes.listen(&host, request),
-                Effect::Timer(request) => lanes.time(&host, request),
+                Effect::Timer(request) => lanes.time(&of_effects, request),
                 Effect::Render(request) => send(ShellEffect::Render(request)),
                 Effect::Ui(mut request) if request.operation == UiOp::LocalNow => {
-                    let (local, now_ms) = host.now();
+                    let (local, now_ms) = of_effects.now();
                     lanes.answer(&mut request, UiOutput::Now { local, now_ms });
                 }
                 Effect::Ui(request) => send(ShellEffect::Ui(request)),
@@ -179,10 +177,7 @@ impl NativeShell {
             }
         });
         router.update(Event::Start { client_id });
-        NativeShell {
-            router,
-            host: clock,
-        }
+        NativeShell { router, clock }
     }
 
     /// Takes an [`Event`] of the shell.
@@ -194,7 +189,7 @@ impl NativeShell {
     /// with a navigation, and the shell with the first page.
     pub fn open(&self, url: &str) -> Result<(), NothingThere> {
         let route = Route::parse_url(url).ok_or_else(|| NothingThere(url.to_string()))?;
-        let (local, _) = self.host.now();
+        let (local, _) = self.clock.now();
         let today = format!("{:04}-{:02}-{:02}", local.year, local.month, local.day);
         self.router.update(Event::Route { route, today });
         Ok(())

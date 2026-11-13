@@ -1,4 +1,4 @@
-use crate::{Host, NativeShell, ShellEffectFfi};
+use crate::{Clock, Host, NativeShell, ShellEffectFfi};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
 use peta_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp, UiOutput,
@@ -13,9 +13,9 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-/// The time of the fake host: it only passes when the test says so.
+/// The waits of the fake clock: one only ends when the test says so.
 #[derive(Default)]
-struct Clock {
+struct Waits {
     /// How many waits have begun. A wait is known by its place in this order.
     begun: AtomicUsize,
     /// How many waits, from the first on, may end.
@@ -26,7 +26,6 @@ struct Clock {
 
 /// A journal server with one page, `notes`, and an event stream the test writes.
 struct FakeHost {
-    clock: Arc<Clock>,
     calls: Arc<Mutex<Vec<ApiOp>>>,
     /// The titles of the pages the server has answered for, in the order of the answers.
     answered: Arc<Mutex<Vec<String>>>,
@@ -62,6 +61,20 @@ impl Host for FakeHost {
         }
     }
 
+    fn events(&self, send: &mut dyn FnMut(SseEvent)) {
+        let stream = self.stream.lock().unwrap().take();
+        for event in stream.into_iter().flatten() {
+            send(event);
+        }
+    }
+}
+
+/// A clock that stands at one time, and whose waits the test ends.
+struct FakeClock {
+    waits: Arc<Waits>,
+}
+
+impl Clock for FakeClock {
     fn now(&self) -> (LocalDateTimeDto, u64) {
         let local = LocalDateTimeDto {
             year: 2026,
@@ -74,18 +87,11 @@ impl Host for FakeHost {
     }
 
     fn sleep(&self, _ms: u32) {
-        let place = self.clock.begun.fetch_add(1, Ordering::SeqCst);
-        while self.clock.ended.load(Ordering::SeqCst) <= place {
+        let place = self.waits.begun.fetch_add(1, Ordering::SeqCst);
+        while self.waits.ended.load(Ordering::SeqCst) <= place {
             thread::sleep(Duration::from_millis(1));
         }
-        self.clock.over.fetch_add(1, Ordering::SeqCst);
-    }
-
-    fn events(&self, send: &mut dyn FnMut(SseEvent)) {
-        let stream = self.stream.lock().unwrap().take();
-        for event in stream.into_iter().flatten() {
-            send(event);
-        }
+        self.waits.over.fetch_add(1, Ordering::SeqCst);
     }
 }
 
@@ -96,7 +102,7 @@ struct Screen {
     calls: Arc<Mutex<Vec<ApiOp>>>,
     answered: Arc<Mutex<Vec<String>>>,
     stream: Sender<SseEvent>,
-    clock: Arc<Clock>,
+    waits: Arc<Waits>,
 }
 
 impl Screen {
@@ -105,15 +111,17 @@ impl Screen {
         let calls: Arc<Mutex<Vec<ApiOp>>> = Arc::default();
         let answered: Arc<Mutex<Vec<String>>> = Arc::default();
         let (stream, from_test) = channel();
-        let clock: Arc<Clock> = Arc::default();
+        let waits: Arc<Waits> = Arc::default();
+        let clock = FakeClock {
+            waits: waits.clone(),
+        };
         let host = FakeHost {
-            clock: clock.clone(),
             calls: calls.clone(),
             answered: answered.clone(),
             stream: Mutex::new(Some(from_test)),
         };
         let kept = requests.clone();
-        let shell = NativeShell::new(host, ClientId::new(), move |bytes| {
+        let shell = NativeShell::new(host, clock, ClientId::new(), move |bytes| {
             let sent: Vec<Request<ShellEffectFfi>> = BincodeFfiFormat::deserialize(&bytes).unwrap();
             kept.lock().unwrap().extend(sent);
         });
@@ -123,22 +131,22 @@ impl Screen {
             calls,
             answered,
             stream,
-            clock,
+            waits,
         }
     }
 
     /// Types into the search box, and waits until the timer for it runs.
     fn search(&self, query: &str) {
-        let timers = self.clock.begun.load(Ordering::SeqCst);
+        let timers = self.waits.begun.load(Ordering::SeqCst);
         self.send(&Event::SearchQueryChanged(query.into()));
         wait_until("the timer of the search runs", || {
-            self.clock.begun.load(Ordering::SeqCst) == timers + 1
+            self.waits.begun.load(Ordering::SeqCst) == timers + 1
         });
     }
 
     /// Lets the time of the first `timers` timers pass.
     fn let_time_pass(&self, timers: usize) {
-        self.clock.ended.store(timers, Ordering::SeqCst);
+        self.waits.ended.store(timers, Ordering::SeqCst);
     }
 
     /// The queries the server was asked to search for, oldest first.
@@ -381,7 +389,7 @@ fn a_cancelled_timer_does_not_fire() {
     // The time of the cancelled timer passes first, so its search would be the first one
     screen.let_time_pass(1);
     wait_until("the time of the first timer is over", || {
-        screen.clock.over.load(Ordering::SeqCst) == 1
+        screen.waits.over.load(Ordering::SeqCst) == 1
     });
     screen.let_time_pass(2);
 

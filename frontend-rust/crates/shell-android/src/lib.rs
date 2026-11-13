@@ -5,20 +5,18 @@ boltffi::scaffolding!();
 
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use std::thread;
 use std::time::Duration;
 
-use chrono::{Datelike, Local, Timelike};
 use journal_core::assembly::{CoreHost, CoreSettings, JournalCore};
 use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
 use journal_core::journal::FolderWatch;
-use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent};
+use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, SseEvent};
 use peta_core::rest::ClientId;
 use peta_core::screens::page::split_doc_path;
 use peta_core::util::filename::is_journal_file_name;
 use peta_core::Route;
 use peta_embedded_journal::{EmbeddedJournal, EventQueue};
-use peta_shell_native::{Host, NativeShell};
+use peta_shell_native::{Clock, Host, NativeShell, SystemClock};
 
 /// The app has no watcher, and it asks nothing about missing files: `PetaCore::sync` deletes
 /// their pages (ADR 030).
@@ -61,22 +59,6 @@ struct Embedded {
 impl Host for Embedded {
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
         self.door.call(op)
-    }
-
-    fn now(&self) -> (LocalDateTimeDto, u64) {
-        let now = Local::now();
-        let local = LocalDateTimeDto {
-            year: now.year(),
-            month: now.month(),
-            day: now.day(),
-            hour: now.hour(),
-            minute: now.minute(),
-        };
-        (local, now.timestamp_millis().unsigned_abs())
-    }
-
-    fn sleep(&self, ms: u32) {
-        thread::sleep(Duration::from_millis(ms.into()));
     }
 
     fn events(&self, send: &mut dyn FnMut(SseEvent)) {
@@ -149,7 +131,9 @@ impl PetaCore {
         });
         let host = Embedded { door: door.clone() };
         Ok(PetaCore {
-            shell: NativeShell::new(host, client_id, move |bytes| shell.process_effects(bytes)),
+            shell: NativeShell::new(host, SystemClock, client_id, move |bytes| {
+                shell.process_effects(bytes)
+            }),
             core,
             door,
         })
@@ -216,7 +200,8 @@ impl PetaCore {
         let Route::Page { name, .. } = route else {
             return true;
         };
-        let today = Local::now().format("%Y-%m-%d").to_string();
+        let (local, _) = SystemClock.now();
+        let today = format!("{:04}-{:02}-{:02}", local.year, local.month, local.day);
         let name = if name == "today" { &today } else { name };
         let page = if is_journal_file_name(name) {
             let journals = &self.core.pages;

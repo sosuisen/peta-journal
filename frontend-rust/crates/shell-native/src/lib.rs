@@ -7,12 +7,14 @@ pub mod codegen;
 #[cfg(feature = "ffi")]
 boltffi::scaffolding!();
 
+mod clock;
 #[cfg(feature = "ffi")]
 pub mod ffi;
 mod html;
 mod server;
 mod shell;
 
+pub use clock::{Clock, SystemClock};
 pub use html::{copied_html, hashtag_url, item_html, wikilink_url};
 pub use server::connect;
 pub use shell::{BorderError, Host, NativeShell, NothingThere, ShellEffect, ShellEffectFfi};
