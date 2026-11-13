@@ -154,6 +154,7 @@ public sealed class BorderTests
                 Types = [],
                 Properties = [],
             },
+            Ast = new Node.Document([]),
             Task = TaskState.Running,
         };
 
