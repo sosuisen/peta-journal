@@ -39,13 +39,18 @@ private final class StickyWindow: NSWindow {
         super.sendEvent(event)
     }
 
-    /// On the title bar, and not on a button of it.
+    /// The buttons that close, minimize and zoom the window.
+    var windowButtons: [NSView] {
+        let kinds: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+        return kinds.compactMap { standardWindowButton($0) }
+    }
+
+    /// On the title bar, and not on a button or a tool of it. The name of the window is no
+    /// button: it is text, which macOS counts as a control as well.
     private func isOnBareTitleBar(_ place: NSPoint) -> Bool {
-        guard place.y > contentLayoutRect.maxY, let frame = contentView?.superview else { return false }
-        if titlebarAccessoryViewControllers.contains(where: { !$0.view.isHidden && $0.view.convert($0.view.bounds, to: nil).contains(place) }) {
-            return false
-        }
-        return !(frame.hitTest(frame.convert(place, from: nil)) is NSControl)
+        guard place.y > contentLayoutRect.maxY else { return false }
+        let taken = windowButtons + titlebarAccessoryViewControllers.map(\.view)
+        return !taken.contains { !$0.isHidden && $0.convert($0.bounds, to: nil).contains(place) }
     }
 }
 
@@ -255,12 +260,15 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     }
 
     /// The tools are for the sticky that is worked on. On the others they are only in the way
-    /// of the paper, and a sticky that is rolled up has no paper to work on.
+    /// of the paper, and a sticky that is rolled up has no paper to work on. It has no buttons
+    /// of a window either.
     private func showTools(of sticky: Sticky) {
         let shown = sticky.hasFocus && !sticky.rolledUp
         // The view, not its controller: hiding the controller leaves the view on screen
         // until the title bar is laid out again
         sticky.window.titlebarAccessoryViewControllers.forEach { $0.view.isHidden = !shown }
+        // A sticky that is rolled up is only its name: a double click rolls it down
+        (sticky.window as? StickyWindow)?.windowButtons.forEach { $0.isHidden = sticky.rolledUp }
     }
 
     /// The app is ending. The windows that macOS closes from here on were not closed by the

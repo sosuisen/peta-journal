@@ -177,7 +177,12 @@ final class StickyDeskTests: XCTestCase {
 
     /// A double click as AppKit gives it to the window, `fromTop` points under its top edge.
     private func doubleClick(_ sticky: Sticky, fromTop: CGFloat) throws {
-        let place = NSPoint(x: sticky.window.frame.width / 2, y: sticky.window.frame.height - fromTop)
+        try doubleClick(
+            sticky, at: NSPoint(x: sticky.window.frame.width / 2, y: sticky.window.frame.height - fromTop))
+    }
+
+    /// A double click as AppKit gives it to the window, at `place` in the window.
+    private func doubleClick(_ sticky: Sticky, at place: NSPoint) throws {
         let click = try XCTUnwrap(
             NSEvent.mouseEvent(
                 with: .leftMouseDown, location: place, modifierFlags: [], timestamp: 0,
@@ -202,6 +207,45 @@ final class StickyDeskTests: XCTestCase {
 
         XCTAssertFalse(sticky.rolledUp)
         XCTAssertEqual(sticky.window.frame, frame)
+    }
+
+    /// The text in the title bar that shows the name of the window.
+    private func nameInTitleBar(_ sticky: Sticky) -> NSTextField? {
+        func look(_ view: NSView) -> NSTextField? {
+            if let field = view as? NSTextField, field.stringValue == sticky.window.title { return field }
+            return view.subviews.lazy.compactMap(look).first
+        }
+        return sticky.window.contentView?.superview.flatMap(look)
+    }
+
+    // タイトルバーの名前の文字の上をダブルクリックしても、付箋紙はタイトルバーだけになる。ウィンドウは大きくならない。
+    func testADoubleClickOnTheNameInTheTitleBarLeavesOnlyTheTitleBar() async throws {
+        let sticky = desk.add()
+        let frame = NSRect(x: 120, y: 130, width: 500, height: 400)
+        sticky.window.setFrame(frame, display: true)
+        let name = try XCTUnwrap(nameInTitleBar(sticky))
+        let place = name.convert(name.bounds, to: nil)
+
+        try doubleClick(sticky, at: NSPoint(x: place.midX, y: place.midY))
+
+        XCTAssertTrue(sticky.rolledUp)
+        XCTAssertEqual(sticky.window.frame.maxY, frame.maxY)
+        XCTAssertEqual(sticky.window.frame.width, frame.width)
+    }
+
+    // タイトルバーだけにしている間は、ウィンドウを閉じる・しまう・大きくするボタンは隠れる。元に戻すと、ボタンが出る。
+    func testTheButtonsOfTheWindowAreHiddenWhileTheStickyIsRolledUp() async throws {
+        let sticky = desk.add()
+        let buttons = try [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton].map {
+            try XCTUnwrap(sticky.window.standardWindowButton($0))
+        }
+        XCTAssertEqual(buttons.map(\.isHidden), [false, false, false])
+
+        desk.roll(sticky)
+        XCTAssertEqual(buttons.map(\.isHidden), [true, true, true])
+
+        desk.roll(sticky)
+        XCTAssertEqual(buttons.map(\.isHidden), [false, false, false])
     }
 
     // タイトルバーだけにしている間は、フォーカスがあってもツールは隠れる。元に戻すと、ツールが出る。

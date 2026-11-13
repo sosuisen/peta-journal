@@ -213,8 +213,10 @@ purple, white, gray or light gray. They are the colors of the cards of Petasti.
 A sticky is light in every color, also when the Mac is in dark mode.
 
 A double click on the title bar rolls the sticky up, so that only its title bar is left, and
-another one rolls it down again to the size it had. The window moves in steps, as the Stickies of macOS do. A sticky that is rolled up shows no tools. A sticky that is rolled up comes back
-rolled up in the next run.
+another one rolls it down again to the size it had. A double click on the name in the title
+bar does the same: it does not zoom the window. The window moves in steps, as the Stickies of
+macOS do. A sticky that is rolled up shows no tools, and no buttons that close, minimize or
+zoom the window. A sticky that is rolled up comes back rolled up in the next run.
 
 The button with the pin keeps the sticky on top of the windows of other apps, until it is
 pressed again.
