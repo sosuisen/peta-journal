@@ -508,8 +508,8 @@ checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
 name = "client-api-embedded"
 version = "0.1.0"
 dependencies = [
+ "client-core",
  "journal-core",
- "peta-core",
  "serde",
  "serde_json",
  "tempfile",
@@ -519,9 +519,27 @@ dependencies = [
 name = "client-api-http"
 version = "0.1.0"
 dependencies = [
- "peta-core",
+ "client-core",
  "serde_json",
  "ureq",
+]
+
+[[package]]
+name = "client-core"
+version = "0.1.0"
+dependencies = [
+ "crux_core",
+ "facet",
+ "flatmarkdown-ast",
+ "futures",
+ "getrandom 0.3.4",
+ "getrandom 0.4.3",
+ "hmtid",
+ "percent-encoding",
+ "peta-atlas",
+ "serde",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]
@@ -529,6 +547,7 @@ name = "client-native-bridge"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "client-core",
  "client-page-links",
  "crux_core",
  "facet",
@@ -536,7 +555,6 @@ dependencies = [
  "flatmarkdown",
  "flatmarkdown-ast",
  "flatmarkdown-ast2html",
- "peta-core",
  "serde",
 ]
 
@@ -556,8 +574,8 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "client-api-http",
+ "client-core",
  "crux_core",
- "peta-core",
  "serde",
  "serde_json",
 ]
@@ -569,10 +587,10 @@ dependencies = [
  "boltffi",
  "chrono",
  "client-api-embedded",
+ "client-core",
  "client-native-bridge",
  "crux_core",
  "journal-core",
- "peta-core",
  "serde_json",
  "tempfile",
 ]
@@ -583,15 +601,16 @@ version = "0.1.0"
 dependencies = [
  "boltffi",
  "client-api-http",
+ "client-core",
  "client-native-bridge",
  "crux_core",
- "peta-core",
 ]
 
 [[package]]
 name = "client-shell-leptos"
 version = "0.1.0"
 dependencies = [
+ "client-core",
  "client-page-links",
  "console_error_panic_hook",
  "crux_core",
@@ -605,7 +624,6 @@ dependencies = [
  "leptos",
  "leptos_router",
  "peta-atlas",
- "peta-core",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2765,24 +2783,6 @@ dependencies = [
  "picturesque-marks",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "peta-core"
-version = "0.1.0"
-dependencies = [
- "crux_core",
- "facet",
- "flatmarkdown-ast",
- "futures",
- "getrandom 0.3.4",
- "getrandom 0.4.3",
- "hmtid",
- "percent-encoding",
- "peta-atlas",
- "serde",
- "serde_json",
- "uuid",
 ]
 
 [[package]]

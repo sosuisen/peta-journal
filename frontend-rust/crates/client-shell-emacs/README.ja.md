@@ -4,7 +4,7 @@
 
 PetaJournalのEmacs版フロントエンドである。次の2つからなる。
 
-- `client-shell-emacs`はRustのプログラムである。Cruxのコア（`peta-core`）を持ち、HTTP、イベントストリーム、タイマーを実行する。
+- `client-shell-emacs`はRustのプログラムである。Cruxのコア（`client-core`）を持ち、HTTP、イベントストリーム、タイマーを実行する。
 - `lisp/peta-journal.el`はEmacsのモードである。送られてきた行を描画し、利用者の操作を伝える。
 
 両者は、stdinとstdoutのJSON Linesでやり取りする。メッセージは`src/protocol.rs`で定義している。

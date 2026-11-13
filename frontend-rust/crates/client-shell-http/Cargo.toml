@@ -11,7 +11,7 @@ description = "PetaJournal native frontends: the core that asks a journal server
 crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
-peta-core = { path = "../core" }
+client-core = { path = "../client-core" }
 client-native-bridge = { path = "../client-native-bridge" }
 client-api-http = { path = "../client-api-http" }
 boltffi = { version = "=0.32.1", optional = true }

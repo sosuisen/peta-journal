@@ -4,7 +4,7 @@ English | [日本語](README.ja.md)
 
 The Emacs frontend of PetaJournal. It has two parts:
 
-- `client-shell-emacs` is a Rust program. It holds the Crux core (`peta-core`) and performs its
+- `client-shell-emacs` is a Rust program. It holds the Crux core (`client-core`) and performs its
   effects: HTTP, the event stream and timers.
 - `lisp/peta-journal.el` is an Emacs mode. It draws the rows it is sent and reports what the user
   does.

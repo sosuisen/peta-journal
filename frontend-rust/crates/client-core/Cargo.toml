@@ -1,12 +1,12 @@
 [package]
-name = "peta-core"
+name = "client-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "PetaJournal frontend core (Crux): outline state, item operations, undo, effects"
 
 [lib]
-name = "peta_core"
+name = "client_core"
 
 [dependencies]
 crux_core = "=0.20.0"

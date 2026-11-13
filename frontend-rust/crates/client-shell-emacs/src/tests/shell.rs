@@ -1,8 +1,8 @@
 use crate::protocol::{Bullet, DateUnit, Envelope, Inbound, Outbound, PropertyRow, RowView};
 use crate::shell::{Host, Input, Now, Shell};
-use peta_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
-use peta_core::model::{PropertyDefinition, Uploaded};
-use peta_core::rest::ClientId;
+use client_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
+use client_core::model::{PropertyDefinition, Uploaded};
+use client_core::rest::ClientId;
 use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
 

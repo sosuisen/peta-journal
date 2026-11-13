@@ -10,7 +10,7 @@ name = "client-shell-leptos"
 path = "src/main.rs"
 
 [dependencies]
-peta-core = { path = "../core" }
+client-core = { path = "../client-core" }
 client-page-links = { path = "../client-page-links" }
 peta-atlas = { path = "../../../atlas-rust", features = ["marks"] }
 flatmarkdown-ast = { workspace = true }

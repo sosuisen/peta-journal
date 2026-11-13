@@ -1,8 +1,8 @@
 //! The server's event stream (`/api/events`), delivered to the core as a stream request.
 
 use crate::core::CoreHandle;
+use client_core::effects::{SseEvent, SseOp};
 use crux_core::Request;
-use peta_core::effects::{SseEvent, SseOp};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 

@@ -1,12 +1,12 @@
 use crate::{Clock, Host, NativeShell, ShellEffectFfi};
-use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
-use peta_core::effects::{
+use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp, UiOutput,
 };
-use peta_core::model::{Page, PageWithItems};
-use peta_core::rest::ClientId;
-use peta_core::testing::plain_item;
-use peta_core::{Event, Route};
+use client_core::model::{Page, PageWithItems};
+use client_core::rest::ClientId;
+use client_core::testing::plain_item;
+use client_core::{Event, Route};
+use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};

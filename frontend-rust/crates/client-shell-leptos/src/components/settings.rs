@@ -1,9 +1,9 @@
 //! The settings screen, ported from `settings.ts`.
 
 use crate::core::CoreHandle;
+use client_core::model::{PropertyDefinition, WeekNumbering, USER_VALUE_TYPES};
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::model::{PropertyDefinition, WeekNumbering, USER_VALUE_TYPES};
-use peta_core::Event;
 
 #[component]
 pub fn Settings() -> impl IntoView {

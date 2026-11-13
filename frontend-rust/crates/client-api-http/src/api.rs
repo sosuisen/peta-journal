@@ -1,9 +1,9 @@
 //! Performs [`ApiOp`]s against the journal server. The core knows the requests and the answers.
 //! The transport is behind [`Http`], so this can be tested without a server.
 
-use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult};
-use peta_core::model::Uploaded;
-use peta_core::rest::{rest_call, HttpReply, HttpRequest};
+use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult};
+use client_core::model::Uploaded;
+use client_core::rest::{rest_call, HttpReply, HttpRequest};
 use std::path::Path;
 
 /// One HTTP exchange with the journal server.

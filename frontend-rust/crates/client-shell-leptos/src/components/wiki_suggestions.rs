@@ -1,8 +1,8 @@
 //! The popup with page names that match the text typed inside a `[[wiki link]]`.
 
 use crate::core::CoreHandle;
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::Event;
 
 #[component]
 pub fn WikiSuggestions() -> impl IntoView {

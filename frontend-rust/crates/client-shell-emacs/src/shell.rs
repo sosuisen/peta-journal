@@ -5,19 +5,19 @@
 //! threads only send back their results.
 
 use crate::protocol::{BacklinkEntry, DateUnit, Envelope, Inbound, Outbound, PropertyRow, RowView};
-use crux_core::capability::Operation;
-use crux_core::{Core, Request};
-use peta_core::app::{JournalNav, WikiLinkContext};
-use peta_core::effects::{
+use client_core::app::{JournalNav, WikiLinkContext};
+use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput,
     UiOp, UiOutput,
 };
-use peta_core::rest::ClientId;
-use peta_core::util::date::Date;
-use peta_core::util::week::week_page_name;
-use peta_core::util::{auto_close, link_at};
-use peta_core::view::{ScreenView, SearchView};
-use peta_core::{Event, PetaApp, ViewModel};
+use client_core::rest::ClientId;
+use client_core::util::date::Date;
+use client_core::util::week::week_page_name;
+use client_core::util::{auto_close, link_at};
+use client_core::view::{ScreenView, SearchView};
+use client_core::{Event, PetaApp, ViewModel};
+use crux_core::capability::Operation;
+use crux_core::{Core, Request};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// The time as the core wants it.
@@ -61,7 +61,7 @@ struct Sent {
     rows: Vec<RowView>,
     focus_seq: u64,
     connection: Option<String>,
-    search: Option<(Vec<peta_core::view::SearchEntry>, bool)>,
+    search: Option<(Vec<client_core::view::SearchEntry>, bool)>,
     page_path: Option<String>,
     properties: (Option<Vec<PropertyRow>>, Vec<String>, Vec<String>),
     recent: Vec<String>,
@@ -422,7 +422,7 @@ impl<H: Host> Shell<H> {
         self.open_route(route);
     }
 
-    fn open_route(&mut self, route: peta_core::Route) {
+    fn open_route(&mut self, route: client_core::Route) {
         let local = self.host.now().local;
         let today = format!("{:04}-{:02}-{:02}", local.year, local.month, local.day);
         self.send(Event::Route { route, today });
@@ -716,8 +716,8 @@ fn page_titles(result: &ApiResult<ApiOutput>) -> Vec<String> {
 
 /// The route of a URL of the core or of Emacs. Neither makes the one URL without a route, the
 /// empty one.
-fn route_of(url: &str) -> peta_core::Route {
-    peta_core::Route::parse_url(url).expect("the URL names a page")
+fn route_of(url: &str) -> client_core::Route {
+    client_core::Route::parse_url(url).expect("the URL names a page")
 }
 
 /// The keys whose value is a date and a time. Only the page's own dates cannot be removed, and

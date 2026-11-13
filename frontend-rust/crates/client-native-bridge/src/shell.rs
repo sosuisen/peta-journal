@@ -2,6 +2,11 @@
 //! side or, as bytes, to the shell.
 
 use crate::clock::Clock;
+use client_core::effects::{
+    ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, TimerOp, TimerOutput, UiOp, UiOutput,
+};
+use client_core::rest::ClientId;
+use client_core::{Effect, Event, PetaApp, Route};
 use crux_core::bridge::{BincodeFfiFormat, BridgeError, EffectId};
 use crux_core::capability::Operation;
 use crux_core::effects::routes::Serialized;
@@ -9,11 +14,6 @@ use crux_core::effects::{EffectRouter, ResolveSink, Routes};
 use crux_core::macros::effect;
 use crux_core::render::RenderOperation;
 use crux_core::{Core, Request};
-use peta_core::effects::{
-    ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, TimerOp, TimerOutput, UiOp, UiOutput,
-};
-use peta_core::rest::ClientId;
-use peta_core::{Effect, Event, PetaApp, Route};
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex, Weak};
@@ -201,7 +201,7 @@ impl NativeShell {
         self.router.routes.border.resolve(EffectId(id), output)
     }
 
-    /// The whole [`ViewModel`](peta_core::ViewModel), to draw after a render request.
+    /// The whole [`ViewModel`](client_core::ViewModel), to draw after a render request.
     pub fn view(&self) -> Vec<u8> {
         let view = self.router.routes.border.view();
         view.expect("the view model is always written")

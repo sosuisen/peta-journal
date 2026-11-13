@@ -9,11 +9,11 @@ use crate::components::page_properties::{Draft, PageProperties};
 use crate::components::settings::Settings;
 use crate::core::CoreHandle;
 use crate::dom;
+use client_core::app::JournalNav;
+use client_core::util::filename::JournalType;
+use client_core::view::{BacklinkGroup, DirSegment, PageView, ScreenView};
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::app::JournalNav;
-use peta_core::util::filename::JournalType;
-use peta_core::view::{BacklinkGroup, DirSegment, PageView, ScreenView};
-use peta_core::Event;
 use wasm_bindgen::JsCast;
 
 #[component]

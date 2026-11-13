@@ -6,7 +6,7 @@ license.workspace = true
 description = "PetaJournal: the requests of the frontend core, performed by a journal core inside the app (ADR 029)"
 
 [dependencies]
-peta-core = { path = "../core" }
+client-core = { path = "../client-core" }
 # Without the extension functions by default: rquickjs has no ready bindings for Android
 journal-core = { path = "../../../journal-server-rust/crates/core", default-features = false }
 serde = { workspace = true }

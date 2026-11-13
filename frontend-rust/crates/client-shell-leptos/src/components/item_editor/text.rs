@@ -4,7 +4,7 @@
 use super::wiki::check_wiki_link_context;
 use crate::core::CoreHandle;
 use crate::dom;
-use peta_core::Event;
+use client_core::Event;
 
 /// Adds the closing part of the `[[` or the code fence just typed, or goes over the `]` of a
 /// link, as the core says.
@@ -12,7 +12,7 @@ pub(super) fn close_typed(el: &web_sys::HtmlTextAreaElement) {
     let value = el.value();
     let start = el.selection_start().ok().flatten().unwrap_or(0);
     let cursor = dom::utf16_to_chars(&value, start);
-    if let Some((body, cursor)) = peta_core::util::auto_close(&value, cursor) {
+    if let Some((body, cursor)) = client_core::util::auto_close(&value, cursor) {
         el.set_value(&body);
         dom::set_cursor_chars(el, cursor);
     }

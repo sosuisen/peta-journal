@@ -2,8 +2,8 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
-use peta_core::app::WikiLinkContext;
-use peta_core::Event;
+use client_core::app::WikiLinkContext;
+use client_core::Event;
 
 /// Reports the `[[` the caret is inside of, with the caret's place on the screen, or closes
 /// the popup.

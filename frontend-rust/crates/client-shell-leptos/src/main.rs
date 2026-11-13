@@ -1,4 +1,4 @@
-//! PetaJournal's web frontend: a Leptos shell around the Crux core in `peta-core`.
+//! PetaJournal's web frontend: a Leptos shell around the Crux core in `client-core`.
 
 mod components;
 mod core;
@@ -8,11 +8,11 @@ mod listeners;
 
 use crate::components::layout::MainLayout;
 use crate::core::CoreHandle;
+use client_core::{Event, Route};
 use leptos::prelude::*;
 use leptos_router::components::Router;
 use leptos_router::hooks::{use_location, use_navigate};
 use leptos_router::NavigateOptions;
-use peta_core::{Event, Route};
 
 fn main() {
     console_error_panic_hook::set_once();

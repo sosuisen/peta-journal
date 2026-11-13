@@ -3,9 +3,9 @@
 use super::text::insert_at_cursor;
 use crate::core::CoreHandle;
 use crate::dom;
+use client_core::view::Row;
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::view::Row;
-use peta_core::Event;
 
 /// The keyboard shortcuts of the editor, in the order `onKeydown` checked them.
 pub(super) fn handle_keydown(

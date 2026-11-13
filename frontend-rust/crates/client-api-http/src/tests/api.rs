@@ -1,7 +1,7 @@
 use crate::{call, upload, Http};
-use peta_core::effects::{ApiError, ApiOp, ApiOutput};
-use peta_core::model::Uploaded;
-use peta_core::rest::{HttpReply, HttpRequest};
+use client_core::effects::{ApiError, ApiOp, ApiOutput};
+use client_core::model::Uploaded;
+use client_core::rest::{HttpReply, HttpRequest};
 use std::cell::RefCell;
 use std::path::PathBuf;
 

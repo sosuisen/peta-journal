@@ -3,8 +3,8 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::Event;
 
 /// The band inside each edge of the viewport where the mouse scrolls it.
 const EDGE_PX: f64 = 40.0;

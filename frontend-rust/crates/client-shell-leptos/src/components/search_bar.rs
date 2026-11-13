@@ -2,10 +2,10 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
+use client_core::app::SearchKey;
+use client_core::view::{SearchEntry, SearchKind};
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::app::SearchKey;
-use peta_core::view::{SearchEntry, SearchKind};
-use peta_core::Event;
 
 #[component]
 pub fn SearchBar() -> impl IntoView {

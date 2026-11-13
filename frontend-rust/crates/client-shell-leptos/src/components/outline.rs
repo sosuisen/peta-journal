@@ -10,10 +10,10 @@ use crate::components::wiki_suggestions::WikiSuggestions;
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
+use client_core::app::SelectionKey;
+use client_core::view::Row;
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::app::SelectionKey;
-use peta_core::view::Row;
-use peta_core::Event;
 use std::collections::{HashMap, HashSet};
 use wasm_bindgen::JsCast;
 
@@ -43,7 +43,7 @@ struct RowStore {
 }
 
 impl RowStore {
-    fn new(vm: RwSignal<peta_core::ViewModel>) -> RowStore {
+    fn new(vm: RwSignal<client_core::ViewModel>) -> RowStore {
         let store = RowStore {
             ids: RwSignal::new(Vec::new()),
             rows: StoredValue::new(HashMap::new()),

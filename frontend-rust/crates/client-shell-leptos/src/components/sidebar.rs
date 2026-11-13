@@ -6,10 +6,10 @@ use crate::components::calendar::Calendar;
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
+use client_core::model::{IndexSort, IndexSortKey, SortOrder};
+use client_core::view::SidebarPage;
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::model::{IndexSort, IndexSortKey, SortOrder};
-use peta_core::view::SidebarPage;
-use peta_core::Event;
 use std::collections::{HashMap, HashSet};
 
 const COLLAPSED_KEY: &str = "sidebar-collapsed";

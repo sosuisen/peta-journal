@@ -1,10 +1,10 @@
 //! The entrance for the Android shell, called here from Rust as Kotlin calls it.
 
 use crate::{item_html, PetaCore, PetaShell};
+use client_core::Event;
 use client_native_bridge::ShellEffectFfi;
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
 use journal_core::domain::model::ItemPosition;
-use peta_core::Event;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -158,7 +158,7 @@ fn an_operation_after_the_core_has_closed_is_an_error() {
 
     drop(core);
 
-    assert!(door.call(peta_core::effects::ApiOp::GetConfig).is_err());
+    assert!(door.call(client_core::effects::ApiOp::GetConfig).is_err());
 }
 
 // URLでページを開くと、シェルに依頼が届き、ビューモデルにそのページが入る。何も指さないURLは、エラーの文になる。

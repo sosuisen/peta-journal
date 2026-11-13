@@ -8,9 +8,9 @@ use crate::components::sidebar::Sidebar;
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
+use client_core::view::ScreenView;
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::view::ScreenView;
-use peta_core::Event;
 
 const CONFIG_KEY: &str = "peta-journal-config";
 const STANDARD_PROTOCOLS: [&str; 9] = [

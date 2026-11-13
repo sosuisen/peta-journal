@@ -9,7 +9,7 @@ description = "PetaJournal native frontends: the Crux core behind a border of by
 # `client-shell-http` and `client-shell-embedded` (ADR 036)
 
 [dependencies]
-peta-core = { path = "../core" }
+client-core = { path = "../client-core" }
 crux_core = "=0.20.0"
 serde = { workspace = true }
 # The HTML of an item (ADR 025). The same version as `flatmarkdown-ast`: a release has all the
@@ -36,7 +36,7 @@ facet_typegen = [
     "dep:facet",
     "dep:facet_generate",
     "crux_core/facet_typegen",
-    "peta-core/facet_typegen",
+    "client-core/facet_typegen",
 ]
 
 # Writes the types of the border for a shell: `cargo run -p client-native-bridge --features

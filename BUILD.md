@@ -80,7 +80,7 @@ binary starts the server once on a free port with everything under a temporary d
 ## Rust frontend (frontend-rust)
 
 `frontend-rust` is the frontend: a [Crux](https://github.com/redbadger/crux) core
-(`crates/core`, the outline logic, tested without a browser) and a [Leptos](https://leptos.dev/) shell
+(`crates/client-core`, the outline logic, tested without a browser) and a [Leptos](https://leptos.dev/) shell
 (`crates/client-shell-leptos`) built to WebAssembly with trunk. It replaced the Angular frontend; the
 port is described in `docs/frontend-rust-rewrite-plan.md`.
 
@@ -160,7 +160,7 @@ cargo cov            # a table per file
 cargo cov --html     # target/llvm-cov/html/index.html, line by line
 ```
 
-`cargo cov` is an alias in `.cargo/config.toml`. It measures `peta-core`, `client-page-links`,
+`cargo cov` is an alias in `.cargo/config.toml`. It measures `client-core`, `client-page-links`,
 `client-api-http`, `client-api-embedded`, `client-shell-emacs`, `client-native-bridge`, `client-shell-http` and
 `client-shell-embedded`. The wasm shell `client-shell-leptos` (`crates/client-shell-leptos`) is left out: it only runs in
 the browser, so the E2E tests cover it instead.

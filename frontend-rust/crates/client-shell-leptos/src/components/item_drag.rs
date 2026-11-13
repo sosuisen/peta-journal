@@ -4,8 +4,8 @@
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::Event;
 use wasm_bindgen::JsCast;
 
 /// A mouse drag that started on an item's body; leaving the body starts a selection.

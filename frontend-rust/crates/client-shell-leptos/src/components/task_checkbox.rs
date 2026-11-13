@@ -1,9 +1,9 @@
 //! The checkbox in front of a task item, shown by the item view and the editor alike.
 
 use crate::core::CoreHandle;
+use client_core::view::{Row, TaskState};
+use client_core::Event;
 use leptos::prelude::*;
-use peta_core::view::{Row, TaskState};
-use peta_core::Event;
 
 #[component]
 pub fn TaskCheckbox(row: RwSignal<Row>) -> impl IntoView {
