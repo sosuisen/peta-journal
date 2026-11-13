@@ -35,15 +35,34 @@ final class Border: @unchecked Sendable {
         Int(open.sync())
     }
 
-    /// Opens what the URL names, such as `/pages/notes`. Throws when the URL names nothing, or
-    /// a page that is not there.
-    func open(_ url: String) throws {
-        try open.open(url: url)
+    /// Opens what the URL names, such as `/pages/notes`, and keeps it as the last screen.
+    /// Answers with the name of the page when the URL names nothing, or a page that is not
+    /// there, and with `nil` when it opened.
+    func open(_ url: String) -> String? {
+        missing { try open.open(url: url) }
     }
 
-    /// Opens what the URL names, and makes its page when it is not there.
-    func openOrMake(_ url: String) throws {
-        try open.openOrMake(url: url)
+    /// Opens what the URL names, and makes its page when it is not there. Answers as `open`.
+    func openOrMake(_ url: String) -> String? {
+        missing { try open.openOrMake(url: url) }
+    }
+
+    /// The URL of the screen opened last, even before the app was closed. `nil` when nothing
+    /// was opened yet.
+    func lastScreen() -> String? {
+        open.lastScreen()
+    }
+
+    /// The page that the core could not open, as its error names it.
+    private func missing(_ opening: () throws -> Void) -> String? {
+        do {
+            try opening()
+            return nil
+        } catch let nothing as FfiError {
+            return nothing.message
+        } catch {
+            fatalError("The core cannot open with an error of its own: \(error)")
+        }
     }
 
     /// Sends an event of the shell.
