@@ -964,8 +964,6 @@ pub struct Model {
     pub clock_ms: u64,
     pub next_timer_id: u64,
     pub undo_syncs: ops::undo_replay::UndoSyncs,
-    /// The ASTs of the bodies that the outline showed last (ADR 041).
-    pub asts: crate::asts::Asts,
 }
 
 impl Default for Model {
@@ -999,7 +997,6 @@ impl Default for Model {
             clock_ms: 0,
             next_timer_id: 1,
             undo_syncs: Default::default(),
-            asts: Default::default(),
         }
     }
 }
@@ -1042,13 +1039,25 @@ impl Model {
 
 // ---- The app ----
 
-#[derive(Default)]
-pub struct PetaApp;
+/// The app, whose rows give their bodies to the shell as `B` (ADR 042): the AST for the web
+/// shell, and `RichText` for a native shell.
+pub struct PetaApp<B = flatmarkdown_ast::Node> {
+    /// What the outline showed last of each body.
+    bodies: crate::body_view::Bodies<B>,
+}
 
-impl App for PetaApp {
+impl<B> Default for PetaApp<B> {
+    fn default() -> Self {
+        PetaApp {
+            bodies: Default::default(),
+        }
+    }
+}
+
+impl<B: crate::body_view::BodyView> App for PetaApp<B> {
     type Event = Event;
     type Model = Model;
-    type ViewModel = crate::view::ViewModel;
+    type ViewModel = crate::view::ViewModel<B>;
     type Effect = Effect;
 
     fn update(&self, event: Event, model: &mut Model) -> Cmd {
@@ -1058,7 +1067,7 @@ impl App for PetaApp {
     }
 
     fn view(&self, model: &Model) -> Self::ViewModel {
-        crate::view::build(model)
+        crate::view::build(model, &self.bodies)
     }
 }
 

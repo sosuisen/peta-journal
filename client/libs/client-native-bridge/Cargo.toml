@@ -10,6 +10,8 @@ description = "PetaJournal native frontends: the Crux core behind a border of by
 
 [dependencies]
 client-core = { path = "../client-core" }
+# The AST that a row still gives beside its `RichText`, until every shell draws the latter
+flatmarkdown-ast = { workspace = true }
 crux_core = "=0.20.0"
 serde = { workspace = true }
 # The links to pages that another app opens, and the HTML of a copy (ADR 027)

@@ -98,9 +98,9 @@ public sealed class ShownTextTests
         using var server = new JournalServer(18112);
         var row = RowWithBody(string.Join("\n\n", EveryKind.Select(kind => kind.Markdown)), server);
 
-        var shown = ShownText.Of(row.Ast).Text;
+        var shown = ShownText.Of(row.Shown.Ast).Text;
 
-        var kinds = KindsOf(row.Ast);
+        var kinds = KindsOf(row.Shown.Ast);
         foreach (var (kind, _, seen) in EveryKind)
         {
             Assert.True(kinds.Contains(TypeName(kind)), $"the body has no node of the kind {kind}");

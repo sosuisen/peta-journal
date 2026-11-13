@@ -585,7 +585,7 @@ impl Default for Harness {
 impl Harness {
     pub fn new() -> Harness {
         Harness {
-            app: PetaApp,
+            app: PetaApp::default(),
             model: Model::default(),
             root: Command::done(),
             api: FakeApi::default(),

@@ -71,8 +71,8 @@ private fun OutlineRow(row: Row, tagsDir: String, links: Links, image: (String) 
     val uriHandler = LocalUriHandler.current
     // The blocks are kept while the item stays the same, and must not keep old links
     val now by rememberUpdatedState(links)
-    val blocks = remember(row.ast, tagsDir) {
-        shownBlocks(row.ast, tagsDir) { href ->
+    val blocks = remember(row.shown.ast, tagsDir) {
+        shownBlocks(row.shown.ast, tagsDir) { href ->
             val file = assetPath(href)
             when {
                 isWebAddress(href) -> uriHandler.openUri(href)

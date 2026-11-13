@@ -1,7 +1,7 @@
 # peta-shown
 
 What the two Swift apps share: an item as it is shown, read from the AST that the core gives
-with each row (`Row.ast`, ADR 041). The iOS app (`../outliner-ios`) and the Mac app
+with each row (`Row.shown.ast`, ADR 041). The iOS app (`../outliner-ios`) and the Mac app
 (`../stickies-mac`) each draw it on a screen of their own.
 
 - `ShownBlocks.swift` makes the parts of an item: text, code blocks, tables, images of the

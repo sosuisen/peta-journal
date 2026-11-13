@@ -1,6 +1,7 @@
 //! The view model: what the shell shows, computed from the model after every event.
 
 use crate::app::{ConnectionState, Model, Screen};
+use crate::body_view::{Bodies, BodyView};
 use crate::model::{
     IndexSort, Item, ItemRef, Page, PropertyDefinition, PropertyValue, SearchResult, WeekNumbering,
 };
@@ -40,13 +41,15 @@ impl TaskState {
     }
 }
 
-/// One row of the outline: the item as shown plus what the row needs to draw itself.
+/// One row of the outline: the item as shown plus what the row needs to draw itself. `B` is
+/// what the shell draws of the body (ADR 042).
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Row {
+pub struct Row<B = Node> {
     pub item: ItemRef,
-    /// The AST of the body, which the shell draws (ADR 041). The core makes it from the body.
-    pub ast: Node,
+    /// The body as the shell draws it: the AST for the web shell (ADR 041), and `RichText` for
+    /// a native shell. The core makes it from the body.
+    pub shown: B,
     pub position: usize,
     pub indent_px: i32,
     pub is_editing: bool,
@@ -83,9 +86,9 @@ pub struct WikiView {
 }
 
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
-pub struct OutlineView {
-    pub rows: Vec<Row>,
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct OutlineView<B = Node> {
+    pub rows: Vec<Row<B>>,
     pub selection_mode: bool,
     pub focus_request: Option<FocusRequest>,
     /// The last order to focus an editor. The core also asks for it with `UiOp::FocusEditor`.
@@ -327,7 +330,7 @@ pub struct ConfigView {
 
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct ViewModel {
+pub struct ViewModel<B = Node> {
     pub screen: ScreenView,
     /// The cards of the atlas page on screen; empty on any other screen.
     pub atlas_cards: Vec<AtlasCard>,
@@ -337,7 +340,7 @@ pub struct ViewModel {
     pub atlas_links: Vec<atlas::LinkCard>,
     /// The page names offered in the dialog of a link.
     pub atlas_link_suggestions: Vec<String>,
-    pub outline: OutlineView,
+    pub outline: OutlineView<B>,
     pub sidebar: SidebarView,
     pub search: SearchView,
     pub config: ConfigView,
@@ -349,7 +352,7 @@ pub struct ViewModel {
     pub title: String,
 }
 
-pub fn build(model: &Model) -> ViewModel {
+pub fn build<B: BodyView>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
     ViewModel {
         screen: screen(model),
         atlas_cards: atlas::cards(model)
@@ -374,7 +377,7 @@ pub fn build(model: &Model) -> ViewModel {
         atlas_callouts: atlas::shown_callouts(model),
         atlas_links: atlas::link_cards(model),
         atlas_link_suggestions: model.atlas_link_search.suggestions.clone(),
-        outline: outline(model),
+        outline: outline(model, bodies),
         sidebar: sidebar(model),
         search: search(model),
         config: ConfigView {
@@ -434,7 +437,7 @@ fn screen(model: &Model) -> ScreenView {
     }
 }
 
-fn outline(model: &Model) -> OutlineView {
+fn outline<B: BodyView>(model: &Model, bodies: &Bodies<B>) -> OutlineView<B> {
     let state = &model.state;
     let visible = state.visible_items();
     let own_ids = state.own_item_ids();
@@ -446,9 +449,10 @@ fn outline(model: &Model) -> OutlineView {
 
     // Cumulative zoom: the product of the zooms of the item and its ancestors
     let mut stack: Vec<(i32, f64)> = Vec::new();
-    let asts = model.asts.of(visible.iter().map(|item| item.body.as_str()));
+    let texts = visible.iter().map(|item| item.body.as_str());
+    let shown = bodies.of(texts, &model.config.tags_dir);
     let mut rows = Vec::with_capacity(visible.len());
-    for ((position, item), ast) in visible.iter().enumerate().zip(asts) {
+    for ((position, item), shown) in visible.iter().enumerate().zip(shown) {
         while stack
             .last()
             .map(|(level, _)| *level >= item.level)
@@ -485,7 +489,7 @@ fn outline(model: &Model) -> OutlineView {
             effective_zoom,
             date_header,
             suggestions_visible: wiki::is_shown_for(model, &item.id),
-            ast,
+            shown,
             item: item.clone(),
         });
     }

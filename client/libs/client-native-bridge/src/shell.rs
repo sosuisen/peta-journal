@@ -1,12 +1,13 @@
 //! [`NativeShell`]: the core under Crux's `EffectRouter`, which sends each effect either to this
 //! side or, as bytes, to the shell.
 
+use crate::body::BorderApp;
 use crate::clock::Clock;
 use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, TimerOp, TimerOutput, UiOp, UiOutput,
 };
 use client_core::rest::ClientId;
-use client_core::{Effect, Event, PetaApp, Route};
+use client_core::{Effect, Event, Route};
 use crux_core::bridge::Request as BorderRequest;
 use crux_core::bridge::{BincodeFfiFormat, BridgeError, EffectId, FfiFormat};
 use crux_core::capability::Operation;
@@ -43,7 +44,7 @@ pub enum ShellEffect {
     Navigate(NavigateOp),
 }
 
-type Router = EffectRouter<PetaApp, Lanes>;
+type Router = EffectRouter<BorderApp, Lanes>;
 
 /// The way to the shell: bytes with a list of requests.
 type ToShell = Arc<dyn Fn(Vec<u8>) + Send + Sync>;
@@ -70,7 +71,7 @@ fn is_question(op: &UiOp) -> bool {
 #[derive(Clone)]
 struct Lanes {
     router: Weak<Router>,
-    border: Arc<Serialized<PetaApp, Lanes, BincodeFfiFormat>>,
+    border: Arc<Serialized<BorderApp, Lanes, BincodeFfiFormat>>,
     /// The timers that run, by the ID the core gave them.
     timers: Arc<Mutex<HashMap<u64, Request<TimerOp>>>>,
     /// The way to the one thread that asks the server, once there is such a thread.
@@ -78,7 +79,7 @@ struct Lanes {
     questions: Arc<Mutex<Questions>>,
 }
 
-impl Routes<PetaApp> for Lanes {
+impl Routes<BorderApp> for Lanes {
     fn new(router: Weak<Router>) -> Lanes {
         Lanes {
             border: Arc::new(Serialized::new(router.clone())),
@@ -212,7 +213,7 @@ impl NativeShell {
         let of_effects = clock.clone();
         let to_shell: ToShell = Arc::new(to_shell);
         let of_router = to_shell.clone();
-        let router = EffectRouter::new(Core::<PetaApp>::new(), |lanes: Lanes| {
+        let router = EffectRouter::new(Core::<BorderApp>::new(), |lanes: Lanes| {
             let send = {
                 let lanes = lanes.clone();
                 let to_shell = of_router.clone();
