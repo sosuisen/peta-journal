@@ -31,6 +31,12 @@ impl Device {
         self.sync(PAGE)
     }
 
+    /// The list property of the page, as the database holds it
+    fn page_list(&self, page_id: &Hmtid, key: &str) -> Option<Vec<String>> {
+        let (_, lists) = self.state.page_service.page_properties(page_id).unwrap();
+        lists.get(page_id.as_str())?.get(key).cloned()
+    }
+
     fn type_of(&self, key: &str) -> Option<String> {
         let definition = self.state.properties.find_definition(key).unwrap()?;
         Some(definition.value_type)
@@ -164,4 +170,54 @@ fn a_value_that_does_not_fit_the_type_is_left_out_and_the_page_keeps_its_value()
     assert_eq!(outcome, Outcome::Imported);
     assert_eq!(a.page_property(&page, "rating").as_deref(), Some("5"));
     assert_eq!(a.page_property(&page, "slug").as_deref(), Some("by-hand"));
+}
+
+// リストのプロパティは、手で値を足しても、リストとして取り込まれる。
+#[test]
+fn a_list_property_edited_by_hand_is_taken_in_as_a_list() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.set_page_property(&page, "authors", "list", "x,y");
+    let file = a.file(PAGE).replacen("  - y\n", "  - y\n  - z\n", 1);
+    std::fs::write(a.root.join(PAGE), file).unwrap();
+
+    a.sync(PAGE);
+
+    let authors = a.page_list(&page, "authors").unwrap();
+    assert_eq!(authors, ["x", "y", "z"]);
+    assert_eq!(a.page_property(&page, "authors"), None);
+}
+
+// 定義のない端末を通ったリストは、定義のある端末に戻ると、リストのままである。
+#[test]
+fn a_list_that_went_through_a_device_without_its_definition_is_still_a_list_back_home() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.set_page_property(&page, "authors", "list", "x,y");
+    b.receive(&a, PAGE);
+    b.edit(&page, "edited on B");
+
+    a.receive(&b, PAGE);
+
+    assert_eq!(a.page_list(&page, "authors").unwrap(), ["x", "y"]);
+    assert!(a.file(PAGE).contains("authors:\n  - x\n  - y\n"));
+}
+
+// 新しいファイルにないリストのプロパティは、ページから消える。タグは別に扱う。
+#[test]
+fn a_list_property_missing_from_a_newer_file_goes_and_the_tags_stay() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.set_page_property(&page, "authors", "list", "x,y");
+    a.set_page_property(&page, "tags", "tags", "kept");
+    let file = a.file(PAGE).replacen("authors:\n  - x\n  - y\n", "", 1);
+    std::fs::write(a.root.join(PAGE), file).unwrap();
+
+    a.sync(PAGE);
+
+    assert_eq!(a.page_list(&page, "authors"), None);
+    assert_eq!(a.state.page_service.page_tags(&page).unwrap(), ["kept"]);
 }
