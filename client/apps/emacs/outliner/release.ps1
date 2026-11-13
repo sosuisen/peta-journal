@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 
 Push-Location $PSScriptRoot
 try {
-    cargo build --release -p client-shell-emacs
+    cargo build --release -p outliner-emacs
     exit $LASTEXITCODE
 }
 finally {

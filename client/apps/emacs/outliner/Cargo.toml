@@ -1,12 +1,12 @@
 [package]
-name = "client-shell-emacs"
+name = "outliner-emacs"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "PetaJournal Emacs frontend: a shell process for the Crux core, driven by peta-journal.el"
 
 [[bin]]
-name = "client-shell-emacs"
+name = "outliner-emacs"
 path = "src/main.rs"
 
 [dependencies]

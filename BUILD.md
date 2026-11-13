@@ -171,11 +171,11 @@ cargo cov --html     # target/llvm-cov/html/index.html, line by line
 ```
 
 `cargo cov` is an alias in `.cargo/config.toml`. It measures `client-core`, `client-page-links`,
-`client-api-http`, `client-api-embedded`, `client-shell-emacs`, `client-native-bridge`, `client-shell-http` and
-`client-shell-embedded`. The wasm shell `client-shell-leptos` (`apps/web-app/outliner`) is left out: it only runs in
+`client-api-http`, `client-api-embedded`, `outliner-emacs`, `client-native-bridge`, `client-shell-http` and
+`client-shell-embedded`. The wasm shell `outliner-web` (`apps/web-app/outliner`) is left out: it only runs in
 the browser, so the E2E tests cover it instead.
 
-No file of `client-shell-emacs` is left out. Its tests start the program itself, and `cargo cov`
+No file of `outliner-emacs` is left out. Its tests start the program itself, and `cargo cov`
 measures that run too.
 
 `cargo cov` turns on the feature `facet_typegen` of `client-native-bridge`, so the generation of
@@ -251,7 +251,7 @@ mode draws what it sends. `apps/emacs/outliner/README.md` describes the setup, t
 
 ```powershell
 cd peta-journal/client
-cargo build --release -p client-shell-emacs
+cargo build --release -p outliner-emacs
 ```
 
 `apps/emacs/outliner/release.ps1` does the same. `debug.ps1` builds the debug build and starts

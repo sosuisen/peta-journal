@@ -39,8 +39,8 @@
   "The shell built from this repository, or nil."
   (let ((target (expand-file-name "../../../../../target/debug/" peta-journal-e2e--here)))
     (seq-find #'file-executable-p
-              (list (expand-file-name "client-shell-emacs.exe" target)
-                    (expand-file-name "client-shell-emacs" target)))))
+              (list (expand-file-name "outliner-emacs.exe" target)
+                    (expand-file-name "outliner-emacs" target)))))
 
 (defun peta-journal-e2e--wait-for (what predicate)
   "Handle output until PREDICATE holds.  Fails with WHAT after 15 seconds."

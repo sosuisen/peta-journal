@@ -4,7 +4,7 @@
 
 ;;; Commentary:
 
-;; A thin view on the PetaJournal core.  The program `client-shell-emacs' holds the core and talks
+;; A thin view on the PetaJournal core.  The program `outliner-emacs' holds the core and talks
 ;; to the journal server.  This file draws the rows it is sent and tells it what the user does.
 ;; Saving, undo and the rules of the outline all live in the core.
 ;;
@@ -31,7 +31,7 @@
   :type 'string)
 
 (defcustom peta-journal-shell-program nil
-  "The program `client-shell-emacs'.
+  "The program `outliner-emacs'.
 When nil, it is looked for on the `exec-path' and in the build folder
 of the repository."
   :type '(choice (const nil) file))
@@ -1885,15 +1885,15 @@ A journal then loads the older days."
 (defun peta-journal--program ()
   "The program to run: the one set, or on the `exec-path', or in the build folder."
   (or peta-journal-shell-program
-      (executable-find "client-shell-emacs")
+      (executable-find "outliner-emacs")
       (let* ((here (file-name-directory (locate-library "peta-journal")))
              (target (expand-file-name "../../../../target/" here)))
         (seq-find #'file-executable-p
                   (mapcan (lambda (profile)
-                            (list (expand-file-name (concat profile "/client-shell-emacs.exe") target)
-                                  (expand-file-name (concat profile "/client-shell-emacs") target)))
+                            (list (expand-file-name (concat profile "/outliner-emacs.exe") target)
+                                  (expand-file-name (concat profile "/outliner-emacs") target)))
                           '("release" "debug"))))
-      (user-error "Cannot find client-shell-emacs: build it or set `peta-journal-shell-program'")))
+      (user-error "Cannot find outliner-emacs: build it or set `peta-journal-shell-program'")))
 
 (defun peta-journal--start-shell (url)
   "Start the shell of the current buffer, and open URL in it."
@@ -1907,7 +1907,7 @@ A journal then loads the older days."
           peta-journal--datetime-keys nil
           peta-journal--output "")
     (setq peta-journal--process
-          (make-process :name "client-shell-emacs"
+          (make-process :name "outliner-emacs"
                         :command (list (peta-journal--program) peta-journal-server)
                         :connection-type 'pipe
                         :coding 'utf-8-unix

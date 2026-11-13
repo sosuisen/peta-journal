@@ -1040,7 +1040,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   (let* ((peta-journal-shell-program nil)
          (load-file-name "c:/elsewhere/init.el")
          (here (file-name-directory (locate-library "peta-journal")))
-         (program (expand-file-name "../../../../target/debug/client-shell-emacs" here)))
+         (program (expand-file-name "../../../../target/debug/outliner-emacs" here)))
     (cl-letf (((symbol-function 'executable-find) #'ignore)
               ((symbol-function 'file-executable-p) (lambda (file) (equal file program))))
       (should (equal (peta-journal--program) program)))))

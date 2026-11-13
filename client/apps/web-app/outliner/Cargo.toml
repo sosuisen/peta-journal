@@ -1,12 +1,12 @@
 [package]
-name = "client-shell-leptos"
+name = "outliner-web"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "PetaJournal web frontend: Leptos shell for the Crux core"
 
 [[bin]]
-name = "client-shell-leptos"
+name = "outliner-web"
 path = "src/main.rs"
 
 [dependencies]

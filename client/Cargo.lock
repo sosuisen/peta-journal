@@ -569,18 +569,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "client-shell-emacs"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "client-api-http",
- "client-core",
- "crux_core",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "client-shell-embedded"
 version = "0.1.0"
 dependencies = [
@@ -604,32 +592,6 @@ dependencies = [
  "client-core",
  "client-native-bridge",
  "crux_core",
-]
-
-[[package]]
-name = "client-shell-leptos"
-version = "0.1.0"
-dependencies = [
- "client-core",
- "client-page-links",
- "console_error_panic_hook",
- "crux_core",
- "flatmarkdown",
- "flatmarkdown-ast",
- "flatmarkdown-ast2html",
- "gloo-events",
- "gloo-net",
- "gloo-timers",
- "js-sys",
- "leptos",
- "leptos_router",
- "peta-atlas",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
 ]
 
 [[package]]
@@ -2717,6 +2679,44 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f59006ce1e204c30956638535b74d317bca99477b9356dfaec54c37f6f600ab"
 dependencies = [
  "num-traits",
+]
+
+[[package]]
+name = "outliner-emacs"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "client-api-http",
+ "client-core",
+ "crux_core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "outliner-web"
+version = "0.1.0"
+dependencies = [
+ "client-core",
+ "client-page-links",
+ "console_error_panic_hook",
+ "crux_core",
+ "flatmarkdown",
+ "flatmarkdown-ast",
+ "flatmarkdown-ast2html",
+ "gloo-events",
+ "gloo-net",
+ "gloo-timers",
+ "js-sys",
+ "leptos",
+ "leptos_router",
+ "peta-atlas",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
