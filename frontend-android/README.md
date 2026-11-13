@@ -205,6 +205,10 @@ What each class does:
   edit goes on in the new item. A touch on another item moves the edit there. The field
   takes no line break. It tells of the line break it could not put in a second time, and
   the screen does not take that for a second Enter.
+- Backspace at the start of an item joins it to the item before. The edit goes on there,
+  with the cursor where the two texts meet. An empty item goes away this way. The field
+  tells of no change then, so the screen hears the key itself. Nothing is joined while text
+  is chosen, or while the keyboard composes a word.
 - The core counts a cursor in characters, and a field of Android counts in UTF-16 units.
   The screen converts between the two. While the keyboard composes a word, as in Japanese,
   the core hears nothing, and the field is not written over.

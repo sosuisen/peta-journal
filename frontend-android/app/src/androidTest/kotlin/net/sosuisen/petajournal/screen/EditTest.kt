@@ -1,6 +1,8 @@
 package net.sosuisen.petajournal.screen
 
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasContentDescription
@@ -10,9 +12,12 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.io.File
 import net.sosuisen.petajournal.types.TaskState
@@ -300,5 +305,101 @@ class EditTest : JournalScreenFixture() {
 
         compose.waitUntil(WAIT_MS) { shell.view.outline.rows.size == before + 1 }
         compose.onNodeWithTag(EDITOR_TAG).assertIsDisplayed().assertTextEquals("")
+    }
+
+    /** Opens a page of two items, and touches the second to edit it. */
+    private fun editSecondOfTwo(first: String, second: String) {
+        download("notes.md", above('A') + first + NL + NL + above('B') + second + NL)
+        openNotes()
+        waitFor(second)
+        compose.onNodeWithText(second).performClick()
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals(second)
+    }
+
+    private fun pressBackspace() = compose.onNodeWithTag(EDITOR_TAG).performKeyInput { pressKey(Key.Backspace) }
+
+    /** Where the cursor of the field is, in UTF-16 units. */
+    private fun cursor(): TextRange =
+        compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange]
+
+    // 先頭でのBackspaceは、項目を前の項目につなぐ。編集は、つないだ項目で続く。カーソルは、つなぎ目に置かれる。
+    @Test
+    fun backspace_at_the_start_joins_the_item_to_the_one_before_with_the_cursor_where_they_meet() {
+        editSecondOfTwo("first", "second")
+        cursorAt(0)
+
+        pressBackspace()
+
+        waitForItems("1 firstsecond")
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("firstsecond")
+        compose.waitUntil(WAIT_MS) { cursor() == TextRange(5) }
+        waitForWritten("firstsecond")
+    }
+
+    // つなぎ目のカーソルは、絵文字を1文字として数えた位置に置かれる。
+    @Test
+    fun the_cursor_after_a_join_counts_an_emoji_before_it_as_one_character() {
+        editSecondOfTwo("a😀", "b")
+        cursorAt(0)
+
+        pressBackspace()
+
+        waitForItems("1 a😀b")
+        compose.waitUntil(WAIT_MS) { cursor() == TextRange(3) }
+    }
+
+    // 空の項目の先頭でのBackspaceは、その項目を消す。編集は、前の項目の終わりで続く。
+    @Test
+    fun backspace_in_an_empty_item_takes_it_away_and_the_edit_goes_on_at_the_end_of_the_one_before() {
+        download("notes.md", "first" + NL)
+        openNotes()
+        waitFor("first")
+        compose.onNodeWithText("first").performClick()
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
+        waitForItems("1 first", "1 ")
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("")
+
+        pressBackspace()
+
+        waitForItems("1 first")
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("first")
+        compose.waitUntil(WAIT_MS) { cursor() == TextRange(5) }
+    }
+
+    // 先頭より後ろでのBackspaceは、前の1文字を消すだけである。
+    @Test
+    fun backspace_after_the_start_only_deletes_the_character_before_the_cursor() {
+        editSecondOfTwo("first", "second")
+        cursorAt(1)
+
+        pressBackspace()
+
+        waitForItems("1 first", "1 econd")
+    }
+
+    // 先頭から文字を選んでいるときのBackspaceは、選んだ文字を消すだけである。
+    @Test
+    fun backspace_with_text_chosen_from_the_start_only_deletes_what_is_chosen() {
+        editSecondOfTwo("first", "second")
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) { it(0, 3, true) }
+
+        pressBackspace()
+
+        waitForItems("1 first", "1 ond")
+    }
+
+    // 最初の項目の先頭でのBackspaceは、何もしない。
+    @Test
+    fun backspace_at_the_start_of_the_first_item_does_nothing() {
+        download("notes.md", above('A') + "first" + NL + NL + above('B') + "second" + NL)
+        openNotes()
+        waitFor("second")
+        compose.onNodeWithText("first").performClick()
+        cursorAt(0)
+
+        pressBackspace()
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput("x")
+
+        waitForItems("1 xfirst", "1 second")
     }
 }
