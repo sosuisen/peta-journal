@@ -13,11 +13,12 @@ peta-core = { path = "../core" }
 peta-shell-native = { path = "../shell-native" }
 peta-embedded-journal = { path = "../embedded-journal" }
 journal-core = { path = "../../../journal-server-rust/crates/core", default-features = false }
-chrono = "0.4.45"
 boltffi = "=0.32.1"
 
 [dev-dependencies]
 tempfile = "3"
+# The date of today, to name the journal a test expects
+chrono = "0.4.45"
 # Writes an event as the Kotlin shell does
 crux_core = "=0.20.0"
 serde_json = { workspace = true }

@@ -424,7 +424,7 @@
     - 選ばなかった案: `now`と`sleep`を、`Host`のtraitの既定の実装にする。変更は小さいが、テスト用の`Host`が上書きを忘れても、コンパイルが通る。そのテストは、本物の時計で動く
   - 名前の決まりのADR。上の「名前」の内容を書く
   - ADRを1つにまとめるか、2つにするかは、書くときに決める
-- [ ] 段1: 時計を`Clock`に分ける。`shell-native`の中の変更である。名前は、まだ変えない
+- [x] 段1: 時計を`Clock`に分ける。`shell-native`の中の変更である。名前は、まだ変えない（2026-11-13に行った）
   - 今は、`JournalServer`（`shell-native/src/server.rs`）と`Embedded`（`shell-android/src/lib.rs`）に、同じ`now`と`sleep`が2つある。`now`は`chrono`で今の時刻を読み、`sleep`は`thread::sleep`を呼ぶ
   - 新しいtraitの`Clock`が、`now`と`sleep`を持つ。本物の時計の実装の`SystemClock`を、`shell-native`に1つだけ置く。名前は、2026-11-13にユーザーが決めた
   - `Host`には、`call`と`events`だけを残す
@@ -432,6 +432,8 @@
   - `shell.rs`の中で`host.sleep`と`host.now`を呼んでいるところを、時計に変える。`Lanes::time`と、`NativeShell`の`host`のフィールドも直す
   - テストの`FakeHost`（`shell-native/src/tests/shell.rs`）は、決まった時刻を返し、テストが進めるまで待つ。この部分を、偽の時計に分ける
   - `shell-android`から、`chrono`への依存がなくなる
+    - テストは、今日の日付を読むために`chrono`を使う。`dev-dependencies`には残した
+    - `PetaCore::is_there`も、今日の日付を`chrono`で読んでいた。`SystemClock`で読むようにした
   - BoltFFIの入口は変わらない。アプリの側のコードは直さない
 - [ ] 段2: APIの2つのクレートと、`page-links`の名前を変える
   - `server-client`（`peta-server-client`）を、`client-api-http`にする。`embedded-journal`（`peta-embedded-journal`）を、`client-api-embedded`にする。フォルダーも変える
