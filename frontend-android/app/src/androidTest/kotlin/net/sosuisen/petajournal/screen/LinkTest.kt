@@ -110,4 +110,16 @@ class LinkTest : JournalScreenFixture() {
         compose.onNodeWithText("Make it").assertDoesNotExist()
         compose.waitUntil(WAIT_MS) { isWritten("docs/ghost.md") }
     }
+
+    // Webのアドレスへのリンクに触れると、そのアドレスがブラウザーで開かれる。
+    @Test
+    fun a_link_to_a_web_address_opens_it_in_the_browser() {
+        download("notes.md", "[the site](https://example.com/page)" + NL)
+        openNotes()
+        waitFor("the site")
+
+        compose.onNode(hasText("the site"), useUnmergedTree = true).performClick()
+
+        compose.runOnIdle { assertEquals(listOf("https://example.com/page"), browsed) }
+    }
 }

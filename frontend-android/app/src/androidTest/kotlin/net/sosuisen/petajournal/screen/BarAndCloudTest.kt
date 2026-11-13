@@ -1,6 +1,7 @@
 package net.sosuisen.petajournal.screen
 
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
@@ -9,11 +10,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.io.File
-import java.io.IOException
-import java.io.OutputStream
-import java.security.MessageDigest
-import net.sosuisen.petajournal.sync.Change
-import net.sosuisen.petajournal.sync.Changes
+import java.util.concurrent.CountDownLatch
 import net.sosuisen.petajournal.sync.Cloud
 import net.sosuisen.petajournal.sync.SyncState
 import net.sosuisen.petajournal.types.ScreenView
@@ -26,34 +23,6 @@ import org.junit.Test
 /** The bar at the top with its menu, the sync with the cloud, and the sign-in. */
 @RunWith(AndroidJUnit4::class)
 class BarAndCloudTest : JournalScreenFixture() {
-    /** A cloud with one page, or one that cannot be reached. It keeps what is uploaded. */
-    private class OnePage(var reachable: Boolean = true) : Cloud {
-        private val text = "京都で会議がありました。\n".toByteArray()
-
-        /** The text of each uploaded file, by its path. */
-        val uploaded = mutableMapOf<String, String>()
-
-        override fun changes(cursor: String?): Changes {
-            if (!reachable) throw IOException("the network is gone")
-            val whole = cursor == null
-            val page = Change.File("docs/trip.md", hashOf(text), remote = "first")
-            return Changes(if (whole) listOf(page) else emptyList(), "c1", whole)
-        }
-
-        override fun download(file: Change.File, into: OutputStream) = into.write(text)
-
-        override fun upload(path: String, from: File, over: String?): Change.File {
-            uploaded[path] = from.readText()
-            return Change.File(path, contentHash(from), remote = "next")
-        }
-
-        override fun contentHash(file: File): String = hashOf(file.readBytes())
-
-        /** The content hash of this cloud. It is not the one of Dropbox: the sync asks the cloud. */
-        private fun hashOf(content: ByteArray): String =
-            MessageDigest.getInstance("SHA-256").digest(content).joinToString("") { "%02x".format(it) }
-    }
-
     /** Opens the menu beside the search field, and touches an entry of it. */
     private fun menu(entry: String) {
         compose.onNode(hasContentDescription("Menu")).performClick()
@@ -182,5 +151,32 @@ class BarAndCloudTest : JournalScreenFixture() {
         compose.onNodeWithText("Try again").performClick()
 
         compose.waitUntil(WAIT_MS) { File(root, "markdown/docs/trip.md").exists() }
+    }
+
+    // 同期が失敗したあとは、メニューにサインインの項目が出る。Dropboxが受け付けなくなった資格情報を、新しいサインインで置き換えられる。
+    @Test
+    fun after_a_failed_sync_the_menu_offers_the_sign_in() {
+        start(OnePage(reachable = false))
+        menu("Sync")
+        waitFor("Sync failed: the network is gone")
+
+        menu("Sign in to Dropbox")
+
+        compose.runOnIdle { assertEquals(1, signIns) }
+    }
+
+    // 同期が動いている間は、メニューの「Sync」と「Sign out」は押せない。
+    @Test
+    fun the_menu_asks_nothing_of_a_sync_that_runs() {
+        val cloud = OnePage().apply { held = CountDownLatch(1) }
+        start(cloud)
+        menu("Sync")
+
+        compose.onNode(hasContentDescription("Menu")).performClick()
+
+        compose.onNodeWithText("Sync").assertIsNotEnabled()
+        compose.onNodeWithText("Sign out").assertIsNotEnabled()
+        cloud.held?.countDown()
+        compose.waitUntil(WAIT_MS) { sync?.state == SyncState.Idle }
     }
 }
