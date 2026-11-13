@@ -11,5 +11,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "peta-journal-android"
+rootProject.name = "outliner-android"
 include(":app")

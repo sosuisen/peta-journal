@@ -39,4 +39,4 @@ architectures = ["arm64", "x86_64"]
 cargo_args = ["--config", "profile.release.opt-level=3"]
 
 [targets.android.kotlin]
-package = "net.sosuisen.petajournal.core"
+package = "com.sosuisha.petajournal.core"

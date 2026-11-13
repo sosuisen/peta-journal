@@ -28,5 +28,5 @@ finally {
     Pop-Location
 }
 
-& "$env:ANDROID_HOME/platform-tools/adb" shell am start -n net.sosuisen.petajournal/.MainActivity
+& "$env:ANDROID_HOME/platform-tools/adb" shell am start -n com.sosuisha.petajournal/.MainActivity
 exit $LASTEXITCODE

@@ -1,0 +1,112 @@
+package com.sosuisha.petajournal.sync
+
+import java.io.File
+import java.io.OutputStream
+
+/**
+ * The Markdown folder of the app: a copy of the pages and their images in the folder in the
+ * cloud (ADR 030).
+ *
+ * The cloud does not tell `Notes.md` from `notes.md`, and the file system of a phone does. So
+ * a path of the cloud is looked up here without regard to case, and a file never lies here
+ * under two spellings.
+ *
+ * @param root the folder the journal core takes the files in from.
+ * @param temp where a file is written before it is whole. It is not under [root]: the core
+ *   must never take in half a file.
+ */
+class MarkdownFolder(private val root: File, private val temp: File) {
+    private fun find(path: String): File? = findWithoutCase(root, path)
+
+    /**
+     * Deletes the file, or the folder with all that is in it, but the files that [keep] wants:
+     * it gets the path of each file as it is spelled here. Nothing there is fine.
+     */
+    fun remove(path: String, keep: (String) -> Boolean) {
+        for (found in find(path)?.walkBottomUp().orEmpty()) {
+            // A folder that still holds a kept file does not go, and that is right
+            if (found.isDirectory || !keep(spelled(found))) found.delete()
+        }
+    }
+
+    private fun spelled(file: File): String = file.relativeTo(root).invariantSeparatorsPath
+
+    /**
+     * The hash of the content of the file, as [of] makes it: each cloud has its own way.
+     * `null` when the file is not here.
+     */
+    fun contentHash(path: String, of: (File) -> String): String? = find(path)?.takeIf { it.isFile }?.let(of)
+
+    /** The paths of the Markdown files that are here, as they are spelled here, in order. */
+    fun pages(): List<String> = root.walk()
+        .filter { it.isFile && it.name.lowercase().endsWith(MARKDOWN) }
+        .map(::spelled)
+        .sorted()
+        .toList()
+
+    /** The file at a path that [pages] gave. */
+    fun file(path: String): File = File(root, path)
+
+    /**
+     * Puts a file at the path, with the spelling of the path. [write] gets the stream to write
+     * its content into. The file appears whole or not at all.
+     */
+    fun put(path: String, write: (OutputStream) -> Unit) {
+        temp.mkdirs()
+        val part = File.createTempFile("download", ".part", temp)
+        try {
+            part.outputStream().use(write)
+            place(part, path)
+        } finally {
+            part.delete()
+        }
+    }
+
+    /** One file at a time: two downloads may need the same new folder. */
+    @Synchronized
+    private fun place(part: File, path: String) {
+        val names = path.split('/')
+        val dir = names.dropLast(1).fold(root) { dir, name ->
+            child(dir, name) ?: File(dir, name).apply { mkdir() }
+        }
+        // The same file under another spelling, as after it was renamed in the cloud
+        child(dir, names.last())?.delete()
+        check(part.renameTo(File(dir, names.last()))) { "cannot put $path into the Markdown folder" }
+    }
+
+    /**
+     * Deletes every file that the app copies and whose path is not in [paths], which are in
+     * lower case. It is for a list of all that the cloud holds: what is not in it has gone.
+     * A file that [keep] wants stays: it gets the path as it is spelled here.
+     */
+    fun keepOnly(paths: Set<String>, keep: (String) -> Boolean) {
+        root.walkBottomUp()
+            .filter { it.isFile }
+            .map { it to spelled(it) }
+            .filter { (_, path) -> keeps(path.lowercase()) && path.lowercase() !in paths && !keep(path) }
+            .forEach { (file, _) -> file.delete() }
+    }
+
+    companion object {
+        const val MARKDOWN = ".md"
+
+        /** The folder of the images of the pages, with the `/` after it. */
+        const val ASSETS = "assets/"
+
+        /**
+         * True for a file that the app copies from the cloud: a page, or an image of a page.
+         * [path] is in lower case. The cloud holds more, such as the settings of other apps.
+         */
+        fun keeps(path: String): Boolean = path.endsWith(MARKDOWN) || path.startsWith(ASSETS)
+    }
+}
+
+/**
+ * The file or folder at the path under [root], however its name is spelled there. The path of
+ * the cloud, and the path that a page writes for its image, may differ from it in case.
+ */
+fun findWithoutCase(root: File, path: String): File? =
+    path.split('/').fold<String, File?>(root) { dir, name -> dir?.let { child(it, name) } }
+
+private fun child(dir: File, name: String): File? =
+    dir.listFiles()?.firstOrNull { it.name.equals(name, ignoreCase = true) }

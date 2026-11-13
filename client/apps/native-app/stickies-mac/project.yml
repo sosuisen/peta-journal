@@ -3,7 +3,7 @@
 # The project itself is not kept in the repository.
 name: PetaStickies
 options:
-  bundleIdPrefix: petajournal
+  bundleIdPrefix: com.sosuisha
   deploymentTarget:
     macOS: "13.0"
 packages:

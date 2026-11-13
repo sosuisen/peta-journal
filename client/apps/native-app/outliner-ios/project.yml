@@ -3,7 +3,7 @@
 # The project itself is not kept in the repository.
 name: PetaJournal
 options:
-  bundleIdPrefix: net.sosuisen
+  bundleIdPrefix: com.sosuisha
   deploymentTarget:
     iOS: "17.0"
 packages:
@@ -51,7 +51,7 @@ targets:
           - dbapi-8-emm
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: net.sosuisen.petajournal
+        PRODUCT_BUNDLE_IDENTIFIER: com.sosuisha.petajournal
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1,2"

@@ -459,7 +459,11 @@
   - 改名のPR（ADR 040）。1つのPRは、1つのビルドの単位を閉じる
     - [x] `outliner-web`と`outliner-emacs`（2026-11-14）。Cargoのワークスペース、`build-frontend`、Trunk、Playwrightの設定、Emacsの実行ファイルの名前を直す。`e2e`のnpmの名前も、ここで`outliner-web-e2e`にする
     - [x] `memoview-win`の中のフォルダー、プロジェクト、名前空間（2026-11-14）。実行ファイルは`MemoView.exe`に、ウィンドウの見出しは`MemoView`になった
-    - [ ] アプリのID。Android、iOS、`stickies-mac`、生成するKotlinのパッケージ。Gradleのプロジェクトの名前も、ここで`outliner-android`にする。AndroidとiOSは、実機でDropboxのサインインを確かめる
+    - [x] アプリのID。Android、iOS、`stickies-mac`、生成するKotlinのパッケージ。Gradleのプロジェクトの名前も、ここで`outliner-android`にした（2026-11-14）
+      - Windowsで確かめたのは、Rustの側のテスト、Androidの生成とビルド、端末の要らないテスト、エミュレーターでの画面のテスト（100個）である
+      - [ ] iOSと`stickies-mac`を、Macでビルドして動かす。`project.yml`のIDを変えただけで、Windowsでは確かめられなかった
+      - [ ] AndroidとiOSの実機で、新しいIDのアプリのDropboxのサインインを確かめる。古いID（`net.sosuisen.petajournal`）のアプリは、手で消す
+      - [ ] `stickies-mac`で、`defaults write`で古いID（`petajournal.PetaStickies`）に書いた設定があれば、新しいID（`com.sosuisha.PetaStickies`）に書き直す
     - [ ] `todo`のnpmの名前を、`todo`にする
     - [ ] 改名のあとの図（`docs/frontend-architecture-renamed.svg`）を、`docs/frontend-architecture.svg`と差し替える。改名がすべて済んでから行う。それまでは、`frontend-architecture.svg`が今の状態の図である
 
