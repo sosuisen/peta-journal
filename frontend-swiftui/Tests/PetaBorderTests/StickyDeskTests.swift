@@ -367,6 +367,67 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(menu.items.filter { $0.state == .on }.map(\.title), ["Yellow"])
     }
 
+    /// The editors of the items of the sticky, from the top of the window down.
+    private func editors(of sticky: Sticky) -> [NSTextView] {
+        var found: [NSTextView] = []
+        func look(_ view: NSView) {
+            if let editor = view as? NSTextView { found.append(editor) }
+            view.subviews.forEach(look)
+        }
+        if let content = sticky.window.contentView { look(content) }
+        return found.sorted {
+            $0.convert($0.bounds, to: nil).maxY > $1.convert($1.bounds, to: nil).maxY
+        }
+    }
+
+    /// A right click as AppKit gives it to the window, on the first letter of the editor. The
+    /// menu that opens is closed at once, and its entries are the answer.
+    private func rightClick(on editor: NSTextView, of sticky: Sticky) throws -> [String] {
+        let layout = try XCTUnwrap(editor.layoutManager)
+        let container = try XCTUnwrap(editor.textContainer)
+        let box = layout.boundingRect(forGlyphRange: NSRange(location: 0, length: 1), in: container)
+        let origin = editor.textContainerOrigin
+        let place = editor.convert(NSPoint(x: origin.x + box.midX, y: origin.y + box.midY), to: nil)
+        var shown: [String] = []
+        // A menu holds the main thread while it is open: the test would never go on
+        let opened = NotificationCenter.default.addObserver(
+            forName: NSMenu.didBeginTrackingNotification, object: nil, queue: nil
+        ) { note in
+            guard let menu = note.object as? NSMenu else { return }
+            shown = menu.items.map(\.title)
+            // Not at once: a menu that has only begun to open does not hear it
+            RunLoop.main.perform(inModes: [.eventTracking, .default]) { menu.cancelTrackingWithoutAnimation() }
+        }
+        defer { NotificationCenter.default.removeObserver(opened) }
+        let click = try XCTUnwrap(
+            NSEvent.mouseEvent(
+                with: .rightMouseDown, location: place, modifierFlags: [], timestamp: 0,
+                windowNumber: sticky.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+        sticky.window.sendEvent(click)
+        return shown
+    }
+
+    // 編集中でない項目を右クリックすると、付箋紙のメニューが出る。項目は編集に入らず、カーソルは元の項目に残る。
+    func testARightClickOnAnItemThatIsNotEditedShowsTheMenuOfTheStickyAndDoesNotEditTheItem() async throws {
+        let sticky = desk.add()
+        sticky.shell.open("/pages/right-click")
+        try await waitUntil("the editor of the item is there") { self.editors(of: sticky).count == 1 }
+        let first = editors(of: sticky)[0]
+        sticky.window.makeFirstResponder(first)
+        first.insertText("**bold** text", replacementRange: first.selectedRange())
+        first.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        try await waitUntil("the cursor is in the new item") {
+            self.editors(of: sticky).count == 2 && sticky.window.firstResponder === self.editors(of: sticky)[1]
+        }
+        try await waitUntil("the first item is decorated") { self.editors(of: sticky)[0].string == "bold text" }
+
+        let shown = try rightClick(on: editors(of: sticky)[0], of: sticky)
+
+        XCTAssertEqual(shown.first, "Keep on Top")
+        XCTAssertEqual(editors(of: sticky)[0].string, "bold text")
+        XCTAssertTrue(sticky.window.firstResponder === editors(of: sticky)[1])
+    }
+
     // メニューで常に手前に表示を選ぶと、ウィンドウがほかのウィンドウの上にとどまり、項目に印が付く。もう一度選ぶと、普通のウィンドウに戻る。
     func testThePinOfTheMenuKeepsTheStickyOnTopAndAnotherChoiceEndsIt() async throws {
         let sticky = desk.add()
