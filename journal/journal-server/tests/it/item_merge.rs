@@ -149,6 +149,9 @@ fn an_older_file_brings_its_edit_and_leaves_the_later_edit_of_another_item() {
 
     a.write(&x, "x from A");
     a.export();
+    // An edit on B in the same millisecond as the export on A dates B's file at the last
+    // sync of A, the date of a file edited by hand on A, which A takes as a conflict
+    std::thread::sleep(std::time::Duration::from_millis(5));
     b.write(&y, "y from B");
     assert_eq!(a.receive(&b, PAGE), Outcome::Imported);
     assert_eq!(b.receive(&a, PAGE), Outcome::Imported);
