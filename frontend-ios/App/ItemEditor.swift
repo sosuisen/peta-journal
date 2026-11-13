@@ -109,6 +109,17 @@ struct ItemEditor: UIViewRepresentable {
             return gone
         }
 
+        override func deleteBackward() {
+            // Backspace at the start changes nothing in the field, so the field tells its
+            // delegate of no change: the key itself is heard. Not while text is chosen, or
+            // while the keyboard composes a word
+            if selectedRange == NSRange(location: 0, length: 0), markedTextRange == nil, let typist = delegate as? Typist {
+                typist.backspaceAtStart()
+                return
+            }
+            super.deleteBackward()
+        }
+
         override func didMoveToWindow() {
             super.didMoveToWindow()
             if window != nil, wanted, !isFirstResponder { becomeFirstResponder() }
@@ -178,6 +189,13 @@ struct ItemEditor: UIViewRepresentable {
         private var moving: Bool {
             let outline = shell.view.outline
             return outline.keyRelayHolding || outline.rows.first(where: \.isEditing)?.item.id != itemId
+        }
+
+        /// Backspace at the start of the field. The core joins the item to the one before, and
+        /// the edit goes on there. Not while the edit moves to another item: the key is not
+        /// for the item of this field then.
+        fileprivate func backspaceAtStart() {
+            if !moving { shell.backspaceAtStart(itemId) }
         }
 
         func textView(_ field: UITextView, shouldChangeTextIn range: NSRange, replacementText typed: String) -> Bool {
