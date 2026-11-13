@@ -80,6 +80,13 @@
     - 今の形で書いている道具は、`get_page_by_id`、`get_or_create_doc`、`update_page`、`get_recent_pages`、`get_backlinks`、`get_or_create_journal`、`get_most_recent_journal_before`と、項目の道具のうち4つである。その4つは、`create_item`、`update_item`、`move_items`、`get_items_by_type`である。項目の道具のほかのもの（`get_item`、`cycle_task`など）は、すでにRESTの形（`ItemDto`）で書いている
     - MCPの答えが変わるので、MCPを使う側を先に確かめる。`peta-journal`、`kcg-lecture`、`report`などのスキルと、日付を文字として読んでいるところである
     - 入口へ下ろし終えてから行う。途中でそろえると、下ろす作業と答えの変更が1つのPRに混ざる
+  - [ ] コアの振る舞いを確かめている結合テストを、`journal-core`に移す（2026-11-13にユーザーが決めた。フォルダーの並べ替えとは別の仕事である）
+    - 今は、コードの大半が`journal-core`にあるのに、テストの大半は`journal-server`にある。`journal-core`は約17,600行で、テストは139個である。すべて`src`の中の単体テストである。`journal-server`は約3,900行で、テストは388個である。うち379個が、サーバーを立ててHTTPで確かめる`tests/`の結合テストである（2026-11-13に数えた）
+    - こうなった理由。切り出しの間は、既存の結合テストが、動きが変わらないことを守った（ADR 029）。切り出しのあとも、テストは元の場所に残っている
+    - 困ること。AndroidとiOSが使う道（`default-features = false`で、HTTPを通らない）を、テストが通らない。コアの振る舞いを1つ確かめるのに、サーバーを立てる。HTTPの層の誤りと、コアの誤りが、同じテストで落ちる。ミュータントは、ワークスペースの全体のテストで確かめる必要がある（`mutants.toml`の`test_workspace = true`）
+    - 目標の形。コアの振る舞いは、`Journal`の入口を直接呼ぶテストで確かめる。サーバーには、RESTとMCPの層のテストだけを残す
+    - 先に調べること: 379個のうち、どれがコアの振る舞いで、どれがHTTPの層か
+    - 終わったら、`journal-core`を直下に出すかを決める（ADR 039のAlternative 3）
   - [ ] ミューテーションテストが、`AppResult`と`HttpResult`を返す関数の中身を置き換えられるようにする
     - `cargo-mutants`は、戻り値の型を名前で見る。`Result`は知っているが、型の別名の`AppResult`と`HttpResult`は知らない。そのため「`Ok(既定値)`を返す」ミュータントを作らず、`AppResult::new()`のような、ビルドできないものを作る
     - 項目を入口へ下ろしたPR（2026-11-11）では、467個のうち429個がこれだった。入口の操作とハンドラーには、関数の中身を丸ごと置き換える検査が効いていない。演算子のミュータント（`!`、`==`、`<`）は効いている
@@ -366,14 +373,47 @@
 
 ## リポジトリの構成
 
-- [ ] フロントエンドの置き場を再検討する（ユーザーが足した、2026-11-11）
-  - 今は、リポジトリの直下に`frontend-rust`、`frontend-swiftui`、`frontend-winui`が並んでいる。`frontend-rust`には、コア、Webのシェル、Emacsのシェル、ネイティブのシェルの土台（`client-native-bridge`）と入口（`client-shell-http`、`client-shell-embedded`）がある
-  - 候補は2つである。リポジトリの中の1つのフォルダにまとめるか、別のリポジトリに分けるかである
-  - 決めたら、ADRに記録する
-- [ ] 図に出ないクレートとフォルダーの名前を整理する（2026-11-13にユーザーが決めた。だいぶ先の修正である）
-  - 上の「フロントエンドのクレートのリファクタ」は、`frontend-rust`のクレートを変える。ここは、その残りである。名前の決まりは、同じものを使う
-  - ジャーナルの側のフォルダーも、接頭辞を外している（`journal-server-rust/crates/core`が`journal-core`）。パッケージの名前に合わせるかを決める
-  - `hmtid`は、どちらの側でもない独立した部品である。変えるかは決めていない
+- [x] 2026-11-13 フロントエンドの置き場を再検討する（ユーザーが足した、2026-11-11）
+  - リポジトリは分けない。直下を`client/`と`journal/`に分け、アプリを`client/apps/`に、ライブラリを`client/libs/`に置く。決定は、ADR 039に書いた
+  - ジャーナルの側のフォルダーも、パッケージと同じ名前にする（`journal/journal-core`、`journal/journal-server`）。`hmtid`は、`journal/hmtid`に置く。前にあった「図に出ないクレートとフォルダーの名前を整理する」の項目は、この決定に入った
+- [ ] フォルダーを並べ替える（ADR 039。2026-11-13にユーザーが決めた）
+  - 目標の形は、ADR 039のDecisionの図である。1つのPRで行う。同じフォルダーを2回動かさない
+  - フォルダーだけを動かす。パッケージの名前、実行ファイルの名前、アプリの中の名前は変えない
+  - CIの再開（2026-11-25）は待たない。手元の確認だけが頼りである
+  - 先に片付けること: 開いているブランチとworktree。この変更と大きく衝突する。マージするか、並べ替えのあとに作り直す
+  - 動かすもの
+    - `frontend-rust/crates/client-shell-leptos`を、`client/apps/web-app/outliner`にする。`e2e`を、その中の`e2e`にする
+    - `frontend-rust/crates/client-shell-emacs`を、`client/apps/emacs/outliner`にする
+    - `frontend-rust/crates`の残りの7つを、`client/libs`にする。`frontend-rust`の`Cargo.toml`、`Cargo.lock`、`.cargo`、`assets`を、`client`にする
+    - `frontend-winui`を`client/apps/native-app/stickies-win`に、`frontend-swiftui`を`client/apps/native-app/stickies-mac`にする
+    - `frontend-android`を`client/apps/native-app/outliner-android`に、`frontend-ios`を`client/apps/native-app/outliner-ios`にする
+    - `ext-web-app/todo`を、`client/apps/web-app/todo`にする
+    - `ext-desktop-app`を、フォルダーごと`client/apps/webview-app/memoview-win`にする。中の形は変えない。`stickies`（アプリ）、`stickies-tests`（44個のテスト）、`Directory.Build.props`（アナライザーの設定）、`dotnet-tools.json`（CSharpier）が、そのまま並ぶ。テストがアプリのファイルを読む相対パス（`..\stickies\…`）は変わらない。`stickies-win`（今の`frontend-winui`）と同じ形である
+    - `journal-server-rust/crates/core`を`journal/journal-core`に、`crates/server`を`journal/journal-server`に、`crates/hmtid`を`journal/hmtid`にする。`Cargo.toml`、`Cargo.lock`、`.cargo`、`bench`、`scripts`、READMEを、`journal`にする
+  - 直すところ
+    - パス依存を持つ`Cargo.toml`と、2つのワークスペースの`members`
+    - `journal/.cargo/config.toml`の`PETAJOURNAL_FRONTEND_DIR`と`cov`、`mutants.toml`の`exclude_globs`。`client/.cargo/config.toml`のコメント
+    - Web版の`index.html`の4つの`script`（`../../../../atlas/web/`になる）、`Trunk.toml`のフックのパス
+    - `build-frontend.ps1`と`build-frontend.sh`。置き場も決める
+    - Playwrightの設定（`shellDir`）と、サーバーのテストの`ext-functions`へのパス（`journal-server/tests/auto_template/main.rs`）
+    - 4つのネイティブのアプリの`generate`と`run`、Gradle、`project.yml`、`Package.swift`、`.csproj`
+    - `.github/workflows/ci.yml`、`BUILD.md`、README、`.gitignore`、`.vscode`、`.claude`
+    - ADR 038までのADRと、`docs/`の計画の文書は、書いた時点の記録なので書き換えない
+  - 確かめ方
+    - `client`と`journal`と`atlas`のテスト、`cargo fmt`、wasm向けの`cargo check`、Emacsのテスト
+    - `build-frontend`を回し、Web版を開く。アトラスも開く。Trunkが、ワークスペースの外の`atlas/web/`を新しい深さで読めるかを見る
+    - PlaywrightとEmacsのE2E
+    - `stickies-win`のビルドとテスト、`memoview-win`のビルドとテスト、`todo`の`npm test`と`npm run build`
+    - `outliner-android`のビルドと、端末の要らないテスト
+    - `cargo cov`と`cargo-mutants`が、新しいフォルダーの名前で動くか
+    - [ ] `stickies-mac`と`outliner-ios`のビルドとテストを、Macで確かめる。Windowsでは回せない
+  - マージのあとに、使う人がすること。Emacsの`load-path`を直す。`build-frontend`を回し直す。`--frontend-dir`を使っているなら直す。古い`target/`を消す
+- [ ] アプリのパッケージの名前と中の名前を、フォルダーの名前に合わせる（ADR 039。2026-11-13にユーザーが決めた）
+  - 並べ替えのあとに、別のPRで行う。移動と改名を混ぜない
+  - 対象は、`client-shell-leptos`、`client-shell-emacs`、`memoview-win`の中のフォルダー（`stickies`、`stickies-tests`）と`Stickies.csproj`と名前空間、`stickies-win`と`stickies-mac`の`PetaStickies`、`PetaBorder`などである
+  - フォルダーの名前を、そのままパッケージの名前にはできない。`web-app/outliner`と`emacs/outliner`が、同じ名前になる。Cargoは、1つのワークスペースに同じ名前のパッケージを置けない。種類を付けた名前（たとえば`outliner-web`と`outliner-emacs`）が要る。名前は、まだ決めていない
+  - `memoview-win`の設定は、`~/.peta-stickies`にある。固定のパスなので、中の名前を変えても読める。このフォルダーの名前を変えるかも決める
+  - wasmのファイルの名前と、Emacsの実行ファイルの名前が、また変わる。使う人は、もう一度ビルドし直す
 
 ## CI
 
