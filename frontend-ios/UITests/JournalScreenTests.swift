@@ -253,6 +253,69 @@ final class JournalScreenTests: XCTestCase {
         waitFor(app.staticTexts["start more"])
     }
 
+    /// Makes the page longer than the screen with Enter, and ends the edit, as the user does.
+    /// `words` is what is typed into each new item.
+    private func longPageMadeWithEnter(words: (Int) -> String) throws {
+        try download("notes.md", "first\n")
+        openNotes()
+        edit("first")
+        for number in 1...30 {
+            editor.typeText("\n" + words(number))
+            waitUntil("item \(number) is edited") { editor.value as? String == words(number) }
+        }
+        done()
+        waitUntil("the keyboard has gone") { app.keyboards.count == 0 }
+    }
+
+    /// Checks that the edit goes on after a touch: the keyboard is there, and takes letters.
+    private func checkTheEditGoesOn(of text: String) {
+        waitFor(app.keyboards.firstMatch)
+        // The edit that ends by mistake ends within a moment
+        usleep(2_000_000)
+        XCTAssertTrue(editor.exists, "the edit has ended")
+        XCTAssertTrue(app.keyboards.firstMatch.exists, "the keyboard has gone")
+        editor.typeText("more")
+        XCTAssertEqual(editor.value as? String, "\(text)more")
+        XCTAssertTrue(editor.isHittable, "the field is under the keyboard")
+    }
+
+    // Enterで長くしたページで、編集を終えてから、画面の下端にある文字のあるアイテムにタッチすると、キーボードが出て編集が続く。
+    func testATouchOnAnItemAtTheBottomOfALongPageEditsIt() throws {
+        try longPageMadeWithEnter { "line \($0)" }
+        let bottom = app.windows.firstMatch.frame.maxY
+        let seen = (1...30).map { "line \($0)" }.filter { app.staticTexts[$0].exists && app.staticTexts[$0].frame.maxY <= bottom }
+        let text = try XCTUnwrap(seen.max { app.staticTexts[$0].frame.minY < app.staticTexts[$1].frame.minY })
+        edit(text)
+        checkTheEditGoesOn(of: text)
+    }
+
+    // Enterで長くしたページで、編集を終えてから、画面の下端にある空のアイテムにタッチすると、キーボードが出て編集が続く。
+    func testATouchOnAnEmptyItemAtTheBottomOfALongPageEditsIt() throws {
+        try longPageMadeWithEnter { _ in "" }
+        let bottom = app.windows.firstMatch.frame.maxY
+        let seen = app.buttons.matching(identifier: "Empty item").allElementsBoundByIndex.filter { $0.frame.maxY <= bottom }
+        let empty = try XCTUnwrap(seen.max { $0.frame.minY < $1.frame.minY })
+        empty.tap()
+        waitFor(editor)
+        checkTheEditGoesOn(of: "")
+    }
+
+    // 画面を横にして、編集中のアイテムが見えるところから外れても、編集は続き、打った文字が入る。
+    func testTheEditGoesOnWhenTheScreenIsTurnedAndTheEditedItemLeavesWhatIsSeen() throws {
+        let lines = (1...40).map { "line \($0)" }
+        try download("notes.md", lines.joined(separator: "\n\n") + "\n")
+        openNotes()
+        waitUntil("the keyboard of the search has gone") { app.keyboards.count == 0 }
+        let bottom = app.windows.firstMatch.frame.maxY
+        let seen = lines.filter { app.staticTexts[$0].exists && app.staticTexts[$0].frame.maxY <= bottom }
+        let text = try XCTUnwrap(seen.max { app.staticTexts[$0].frame.minY < app.staticTexts[$1].frame.minY })
+        edit(text)
+        waitFor(app.keyboards.firstMatch)
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
+        checkTheEditGoesOn(of: text)
+    }
+
     // Enterは下に新しいアイテムを作り、入力はそこで続く。コアがアイテムを分けている間に打った文字も、新しいアイテムに入る。
     func testEnterMakesANewItemBelowAndTheTypingGoesOnThere() throws {
         try download("notes.md", "first\n")

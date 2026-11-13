@@ -40,7 +40,9 @@ struct ItemEditor: UIViewRepresentable {
         typist.itemId = id
         // What the core holds wins, as after an undo. Not while the keyboard composes a word:
         // the core has not heard of that word yet, and the field would lose it
-        if field.markedTextRange == nil, field.text != body {
+        // Nor while the field tells the core of its text: the screen may be drawn in the
+        // middle of that, as while the page moves, with the text that the core held before
+        if !typist.telling, field.markedTextRange == nil, field.text != body {
             let cursor = min(field.selectedRange.location, body.utf16.count)
             field.text = body
             field.selectedRange = NSRange(location: cursor, length: 0)
@@ -92,6 +94,8 @@ struct ItemEditor: UIViewRepresentable {
         var itemId = ""
         /// The focus request of the core that the field has followed.
         var answered: UInt64?
+        /// True while the field tells the core of its text.
+        fileprivate(set) var telling = false
 
         init(shell: Shell) {
             self.shell = shell
@@ -159,7 +163,10 @@ struct ItemEditor: UIViewRepresentable {
 
         func textViewDidChange(_ field: UITextView) {
             field.invalidateIntrinsicContentSize()
-            if field.markedTextRange == nil { shell.type(itemId, field.text) }
+            guard field.markedTextRange == nil else { return }
+            telling = true
+            shell.type(itemId, field.text)
+            telling = false
         }
 
         func textViewDidEndEditing(_ field: UITextView) {
