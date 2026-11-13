@@ -36,6 +36,13 @@ internal sealed class StickyWindow : Window
     private static readonly SolidColorBrush Ink = new(Color.FromArgb(255, 0x1F, 0x1F, 0x1F));
     private static readonly SolidColorBrush Pale = new(Color.FromArgb(255, 0x6E, 0x6E, 0x6E));
     private static readonly SolidColorBrush Clear = new(Colors.Transparent);
+    private static readonly SolidColorBrush White = new(Colors.White);
+
+    /// <summary>The red of the button that closes a window of Windows, under the mouse.</summary>
+    private static readonly SolidColorBrush CloseRed = new(Color.FromArgb(255, 0xC4, 0x2B, 0x1C));
+
+    /// <summary>The signs of the buttons of a window are smaller than those of the tools.</summary>
+    private const double WindowGlyphSize = 10;
 
     private readonly StickyDesk desk;
     private readonly IntPtr handle;
@@ -56,8 +63,19 @@ internal sealed class StickyWindow : Window
         Orientation = Orientation.Horizontal,
         VerticalAlignment = VerticalAlignment.Center,
     };
-    private readonly ColumnDefinition captionButtons = new() { Width = new GridLength(138) };
+
+    /// <summary>
+    /// The buttons that make the window small or large and close it. They are drawn here:
+    /// those of Windows are wide, and leave little of a narrow title bar.
+    /// </summary>
+    private readonly StackPanel windowButtons = new()
+    {
+        Orientation = Orientation.Horizontal,
+        VerticalAlignment = VerticalAlignment.Center,
+        Margin = new Thickness(0, 0, 4, 0),
+    };
     private readonly FontIcon pin = new() { FontSize = 14 };
+    private readonly FontIcon large = new() { FontSize = WindowGlyphSize };
     private readonly TextBlock status = new()
     {
         FontFamily = RowView.TextFont,
@@ -163,7 +181,11 @@ internal sealed class StickyWindow : Window
         Paint();
         Place(kept, before);
         if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            // The title bar of Windows goes, and its buttons with it: the sticky has its own
+            presenter.SetBorderAndTitleBar(true, false);
             presenter.IsAlwaysOnTop = Look.AlwaysOnTop;
+        }
         hears = Heard;
         Native.SetWindowSubclass(handle, hears, 1, 0);
         if (kept?.RolledUp == true)
@@ -200,6 +222,7 @@ internal sealed class StickyWindow : Window
             // screen, so it goes back to what it was
             if (Maximized && (RolledUp || rolling))
                 DispatcherQueue.TryEnqueue(Restore);
+            ShowTools();
             Keep();
         };
         Activated += (_, change) =>
@@ -248,7 +271,7 @@ internal sealed class StickyWindow : Window
         var bar = new Grid();
         bar.ColumnDefinitions.Add(new ColumnDefinition());
         bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        bar.ColumnDefinitions.Add(captionButtons);
+        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         // The window is moved by this part of the bar. The tools beside it take their clicks
         var grip = new Border { Background = Clear, Child = name };
         bar.Children.Add(grip);
@@ -271,6 +294,19 @@ internal sealed class StickyWindow : Window
         Grid.SetColumn(tools, 1);
         bar.Children.Add(tools);
 
+        windowButtons.Children.Add(Tool("", "Minimize", Minimize, WindowGlyphSize));
+        var enlarge = Tool("", "Maximize", ToggleMaximized);
+        enlarge.Content = large;
+        windowButtons.Children.Add(enlarge);
+        var close = Tool("", "Close", CloseByButton, WindowGlyphSize);
+        close.Resources["ButtonBackgroundPointerOver"] = CloseRed;
+        close.Resources["ButtonBackgroundPressed"] = CloseRed;
+        close.Resources["ButtonForegroundPointerOver"] = White;
+        close.Resources["ButtonForegroundPressed"] = White;
+        windowButtons.Children.Add(close);
+        Grid.SetColumn(windowButtons, 2);
+        bar.Children.Add(windowButtons);
+
         Grid.SetRow(status, 1);
         Grid.SetRow(search, 2);
         Grid.SetRow(selection, 3);
@@ -284,11 +320,11 @@ internal sealed class StickyWindow : Window
         return root;
     }
 
-    private static Button Tool(string glyph, string tip, Action clicked)
+    private static Button Tool(string glyph, string tip, Action clicked, double size = 14)
     {
         var tool = new Button
         {
-            Content = new FontIcon { Glyph = glyph, FontSize = 14 },
+            Content = new FontIcon { Glyph = glyph, FontSize = size },
             Width = 30,
             Height = 26,
             Padding = new Thickness(0),
@@ -601,6 +637,27 @@ internal sealed class StickyWindow : Window
 
     private void TogglePin() => Look.AlwaysOnTop = !Look.AlwaysOnTop;
 
+    private void Minimize()
+    {
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+            presenter.Minimize();
+    }
+
+    private void ToggleMaximized()
+    {
+        if (Maximized)
+            Restore();
+        else if (AppWindow.Presenter is OverlappedPresenter presenter)
+            presenter.Maximize();
+    }
+
+    /// <summary>The user closes the sticky with its button: it is gone then.</summary>
+    private void CloseByButton()
+    {
+        closedByButton = true;
+        Close();
+    }
+
     // ---- The day at the top of a journal ----
 
     private void SeenLater()
@@ -805,9 +862,9 @@ internal sealed class StickyWindow : Window
     private void ShowTools()
     {
         tools.Visibility = hasFocus && !RolledUp ? Visibility.Visible : Visibility.Collapsed;
-        var inset = AppWindow.TitleBar.RightInset;
-        if (inset > 0)
-            captionButtons.Width = new GridLength(inset / Scale);
+        // A sticky that is rolled up is only its name: a double click rolls it down
+        windowButtons.Visibility = RolledUp ? Visibility.Collapsed : Visibility.Visible;
+        large.Glyph = Maximized ? "" : "";
     }
 
     /// <summary>
