@@ -1,12 +1,17 @@
 package net.sosuisen.petajournal.screen
 
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.io.File
@@ -240,5 +245,60 @@ class EditTest : JournalScreenFixture() {
 
         compose.waitUntil(WAIT_MS) { shell.view.outline.rows[0].task == TaskState.RUNNING }
         compose.onNodeWithTag(EDITOR_TAG).assertDoesNotExist()
+    }
+
+    /** Puts the cursor of the field before the UTF-16 unit [at]. */
+    private fun cursorAt(at: Int) =
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) { it(at, at, true) }
+
+    // 文の途中での改行は、カーソルの位置で項目を分ける。絵文字は、1文字として数える。
+    @Test
+    fun enter_in_the_middle_splits_the_item_at_the_cursor_and_counts_an_emoji_as_one_character() {
+        download("notes.md", "😀ab" + NL)
+        openNotes()
+        waitFor("😀ab")
+        compose.onNodeWithText("😀ab").performClick()
+        cursorAt(3)
+
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
+
+        compose.waitUntil(WAIT_MS) { shell.view.outline.rows.size == 2 }
+        assertEquals(listOf("😀a", "b"), shell.view.outline.rows.map { it.item.body })
+    }
+
+    // 空の子の項目での改行は、項目を1段外へ出す。編集は続き、次の改行は、新しい項目を作る。
+    @Test
+    fun enter_in_an_empty_child_moves_it_out_and_the_next_enter_makes_a_new_item() {
+        download("notes.md", "first" + NL)
+        openNotes()
+        waitFor("first")
+        compose.onNodeWithText("first").performClick()
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
+        waitForItems("1 first", "1 ")
+        tool("Indent")
+        waitForItems("1 first", "2 ")
+
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
+        waitForItems("1 first", "1 ")
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
+
+        compose.waitUntil(WAIT_MS) { shell.view.outline.rows.size == 3 }
+    }
+
+    // 長いページの末尾で改行すると、新しい項目は画面の外にできる。画面は、その項目まで動く。
+    @Test
+    fun the_screen_moves_to_a_new_item_that_is_made_below_what_is_shown() {
+        val ids = ('0'..'9') + ('A'..'Z') + ('a'..'d')
+        download("notes.md", ids.joinToString("") { above(it) + "item $it" + NL })
+        openNotes()
+        waitFor("item 0")
+        val before = shell.view.outline.rows.size
+        compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("item d"))
+        compose.onNodeWithText("item d").performClick()
+
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
+
+        compose.waitUntil(WAIT_MS) { shell.view.outline.rows.size == before + 1 }
+        compose.onNodeWithTag(EDITOR_TAG).assertIsDisplayed().assertTextEquals("")
     }
 }

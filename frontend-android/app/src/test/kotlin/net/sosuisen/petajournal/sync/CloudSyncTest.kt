@@ -18,36 +18,51 @@ class CloudSyncTest {
 
     private val cloud = FakeCloud()
 
-    /** What waits for the main thread. The test is the main thread, and runs it in [settle]. */
+    /** What waits for the main thread. The test is the main thread, and runs it in [rest]. */
     private val posted = LinkedBlockingQueue<() -> Unit>()
+
+    /** Where the sync stood after each piece of work of the main thread. */
+    private val seen = mutableListOf<SyncState>()
 
     /** How often the core was asked to work, and what holds it back in its first work. */
     private var rounds = 0
     private val held = CountDownLatch(1)
     private val working = CountDownLatch(1)
+
+    /** What the core does with the files in a round, in place of the core. */
+    private var work: () -> Unit = {}
+    private lateinit var root: File
     private lateinit var sync: CloudSync
 
     @Before
     fun parts() {
-        val folder = MarkdownFolder(dir.newFolder("markdown"), File(dir.root, "temp"))
+        root = dir.newFolder("markdown")
+        val folder = MarkdownFolder(root, File(dir.root, "temp"))
         val record = CloudRecord(File(dir.root, "record"))
         val downloader = Downloader(cloud, folder, File(dir.root, "cursor"), record)
         val takeIn = {
             rounds++
             working.countDown()
             held.await()
+            work()
         }
         sync = CloudSync(signedIn = true, { SyncRound(downloader, takeIn, Uploader(it, folder, record)) }, posted::put)
         cloud.answers[null] = Changes(emptyList(), "c1", whole = true)
         cloud.answers["c1"] = Changes(emptyList(), "c1", whole = false)
     }
 
-    /** Does the work of the main thread until the sync rests. */
-    private fun settle() {
+    /** Does the work of the main thread until nothing more comes. */
+    private fun rest() {
         while (true) {
             val next = posted.poll(2, TimeUnit.SECONDS) ?: break
             next()
+            seen += sync.state
         }
+    }
+
+    /** Does the work of the main thread until the sync rests. */
+    private fun settle() {
+        rest()
         assertEquals(SyncState.Idle, sync.state)
     }
 
@@ -101,5 +116,76 @@ class CloudSyncTest {
         settle()
 
         assertEquals(1, rounds)
+    }
+
+    // 同期は、ダウンロードとアップロードがどこまで進んだかを、画面に伝える。
+    @Test
+    fun a_sync_tells_how_far_the_download_and_the_upload_are() {
+        cloud.answers[null] = Changes(listOf(cloud.file("docs/a.md", "- a")), "c1", whole = true)
+        work = { File(root, "docs/new.md").writeText("- new") }
+        held.countDown()
+
+        sync.start(cloud)
+        assertEquals(SyncState.Downloading(0, 0), sync.state)
+        settle()
+
+        assertEquals(
+            listOf(
+                SyncState.Downloading(0, 1),
+                SyncState.Downloading(1, 1),
+                SyncState.Uploading(0, 1),
+                SyncState.Uploading(1, 1),
+                SyncState.Idle,
+            ),
+            seen,
+        )
+    }
+
+    // 上げるファイルがない同期は、アップロードの状態にならない。
+    @Test
+    fun a_sync_with_nothing_to_upload_tells_of_no_upload() {
+        held.countDown()
+
+        sync.start(cloud)
+        settle()
+
+        assertEquals(emptyList<SyncState>(), seen.filterIsInstance<SyncState.Uploading>())
+    }
+
+    // 同期が失敗すると、その理由を持って止まる。前の同期でもなくなる。
+    @Test
+    fun a_sync_that_fails_rests_with_the_reason() {
+        cloud.answers[null] = Changes(listOf(cloud.file("docs/a.md", "- a")), "c1", whole = true)
+        cloud.broken = "docs/a.md"
+
+        sync.start(cloud, inFront = true)
+        rest()
+
+        assertEquals(SyncState.Failed("the network is gone"), sync.state)
+        assertFalse(sync.inFront)
+    }
+
+    // 失敗したあとも、同期はまた始められる。
+    @Test
+    fun a_sync_starts_again_after_one_failed() {
+        cloud.answers[null] = Changes(listOf(cloud.file("docs/a.md", "- a")), "c1", whole = true)
+        cloud.broken = "docs/a.md"
+        sync.start(cloud)
+        rest()
+        cloud.broken = null
+        held.countDown()
+
+        sync.start(cloud)
+        settle()
+
+        assertEquals("- a", File(root, "docs/a.md").readText())
+    }
+
+    // サインアウトすると、サインインしていない状態になる。
+    @Test
+    fun a_sign_out_rests_signed_out() {
+        sync.signOut()
+
+        assertEquals(SyncState.SignedOut, sync.state)
     }
 }

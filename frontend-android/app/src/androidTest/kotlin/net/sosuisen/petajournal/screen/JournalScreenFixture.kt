@@ -2,6 +2,9 @@ package net.sosuisen.petajournal.screen
 
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -74,18 +77,25 @@ abstract class JournalScreenFixture {
             }
             CloudSync(signedIn, round) { main.post(it) }
         }
+        val browser = object : UriHandler {
+            override fun openUri(uri: String) {
+                browsed += uri
+            }
+        }
         compose.setContent {
-            JournalScreen(
-                shell,
-                sync?.state,
-                onSignIn = { signIns += 1 },
-                onSync = { sync?.start(checkNotNull(cloud)) },
-                onSignOut = {
-                    signOuts += 1
-                    sync?.signOut()
-                },
-                onFile = { opened += it },
-            )
+            CompositionLocalProvider(LocalUriHandler provides browser) {
+                JournalScreen(
+                    shell,
+                    sync?.state,
+                    onSignIn = { signIns += 1 },
+                    onSync = { sync?.start(checkNotNull(cloud)) },
+                    onSignOut = {
+                        signOuts += 1
+                        sync?.signOut()
+                    },
+                    onFile = { opened += it },
+                )
+            }
         }
         compose.waitUntil(WAIT_MS) { !shell.syncing }
     }
@@ -95,6 +105,9 @@ abstract class JournalScreenFixture {
     protected var signIns = 0
     protected var signOuts = 0
     protected val opened = mutableListOf<File>()
+
+    /** The web addresses that the screen asked the browser to open. */
+    protected val browsed = mutableListOf<String>()
     protected var sync: CloudSync? = null
 
     protected fun type(query: String) = compose.onNodeWithTag(SEARCH_TAG).performTextInput(query)

@@ -44,13 +44,14 @@ class SyncDialogTest : JournalScreenFixture() {
         compose.onNode(hasText("Uploading 1 of 2") and hasAnyAncestor(isDialog())).assertExists()
     }
 
-    // 運ぶファイルがまだ分からない間と、編集のあとの同期では、ダイアログは出ない。
+    // 運ぶファイルがまだ分からない間は、ダイアログは出ない。
     @Test
-    fun a_sync_that_moves_nothing_or_is_not_in_front_shows_no_dialog() {
+    fun a_sync_in_front_that_knows_of_no_file_yet_shows_no_dialog() {
         startAt(SyncState.Downloading(0, 0), syncInFront = true)
         compose.onNode(isDialog()).assertDoesNotExist()
     }
 
+    // 編集のあとの同期では、ダイアログは出ない。進み具合は、ページの下の知らせに出る。
     @Test
     fun a_sync_after_an_edit_shows_no_dialog() {
         startAt(SyncState.Downloading(2, 5), syncInFront = false)

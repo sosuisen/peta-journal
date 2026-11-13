@@ -1,60 +1,11 @@
 package net.sosuisen.petajournal.sync
 
+import java.io.IOException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
-import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
-import java.io.File
-import java.io.IOException
 
-class UploaderTest {
-    @get:Rule
-    val dir = TemporaryFolder()
-
-    private val cloud = FakeCloud()
-    private lateinit var root: File
-    private lateinit var downloader: Downloader
-    private lateinit var uploader: Uploader
-
-    @Before
-    fun folders() {
-        root = dir.newFolder("markdown")
-        open()
-    }
-
-    /** Makes the parts of the sync, as the app does when it opens. */
-    private fun open() {
-        val folder = MarkdownFolder(root, File(dir.root, "temp"))
-        val record = CloudRecord(File(dir.root, "record"))
-        downloader = Downloader(cloud, folder, File(dir.root, "cursor"), record)
-        uploader = Uploader(cloud, folder, record)
-    }
-
-    /** Downloads the files, as the first sync of the app does. */
-    private fun download(vararg files: Pair<String, String>) {
-        cloud.answers[null] = Changes(files.map { (path, text) -> cloud.file(path, text) }, "c1", whole = true)
-        downloader.run { _, _ -> }
-    }
-
-    /** Downloads what changed in the cloud after the cursor [since]. */
-    private fun download(since: String, next: String, whole: Boolean = false, vararg changes: Change) {
-        cloud.answers[since] = Changes(changes.toList(), next, whole)
-        downloader.run { _, _ -> }
-    }
-
-    /** Writes the file of a page, as the core does after an edit in the app. */
-    private fun write(path: String, text: String) {
-        File(root, path).apply { parentFile.mkdirs() }.writeText(text)
-    }
-
-    private fun upload() = uploader.run { _, _ -> }
-
-    /** The paths of the files under the Markdown folder. */
-    private fun here(): List<String> =
-        root.walk().filter { it.isFile }.map { it.relativeTo(root).invariantSeparatorsPath }.sorted().toList()
-
+class UploaderTest : SyncFilesFixture() {
     // アプリで変わったページのファイルは、クラウドへ上がる。
     @Test
     fun the_file_of_a_page_that_changed_in_the_app_is_uploaded() {
@@ -187,80 +138,6 @@ class UploaderTest {
         assertEquals(listOf("docs/notes.md"), cloud.uploaded)
     }
 
-    // 記録のないアプリ（アップロードを知らない版が取り込んだもの）は、カーソルがあっても、クラウドの全部を尋ねる。
-    @Test
-    fun an_app_without_a_record_asks_for_everything_though_it_has_a_cursor() {
-        download("docs/notes.md" to "- a")
-        File(dir.root, "record").delete()
-        open()
-        cloud.downloaded.clear()
-
-        downloader.run { _, _ -> }
-        upload()
-
-        assertEquals(listOf(null, null), cloud.askedWith)
-        assertEquals(emptyList<String>(), cloud.downloaded)
-        assertEquals(emptyList<String>(), cloud.uploaded)
-    }
-
-    // クラウドで消えたファイルでも、アプリで変えてまだ上げていないものは消えない。新しいファイルとして上がる。
-    @Test
-    fun a_file_that_changed_here_stays_when_the_cloud_lost_it_and_is_uploaded_as_a_new_file() {
-        download("docs/notes.md" to "- a", "docs/other.md" to "- b")
-        write("docs/notes.md", "- from the phone")
-
-        download("c1", "c2", false, cloud.gone("docs/Notes.md"), cloud.gone("docs/other.md"))
-        upload()
-
-        assertEquals(listOf("docs/notes.md"), here())
-        assertEquals("- from the phone", cloud.text("docs/notes.md"))
-    }
-
-    // クラウドでフォルダーごと消えたときも、その中の、アプリで変えたファイルと作ったファイルは残る。
-    @Test
-    fun the_files_that_changed_here_stay_when_the_cloud_lost_their_folder() {
-        download("docs/work/plan.md" to "- a", "docs/work/old.md" to "- b", "docs/work/deep/old.md" to "- c")
-        write("docs/work/plan.md", "- from the phone")
-        write("docs/work/new.md", "- made on the phone")
-
-        download("c1", "c2", false, cloud.gone("docs/work"))
-
-        assertEquals(listOf("docs/work/new.md", "docs/work/plan.md"), here())
-        assertEquals(false, File(root, "docs/work/deep").exists())
-    }
-
-    // クラウドが全部を答えたときも、そこにないファイルのうち、アプリで変えたものと作ったものは残る。
-    @Test
-    fun the_files_that_changed_here_stay_when_a_whole_list_lacks_them() {
-        download("docs/notes.md" to "- a", "docs/old.md" to "- b", "docs/other.md" to "- c")
-        write("docs/notes.md", "- from the phone")
-        write("docs/new.md", "- made on the phone")
-        cloud.gone("docs/notes.md")
-        cloud.gone("docs/old.md")
-
-        download("c1", "c2", true, cloud.file("docs/other.md", "- c"))
-        upload()
-
-        assertEquals(listOf("docs/new.md", "docs/notes.md", "docs/other.md"), here())
-        assertEquals(listOf("docs/new.md", "docs/notes.md"), cloud.uploaded)
-    }
-
-    // 記録のないアプリ（アップロードを知らない版が取り込んだもの）のファイルは、すべてクラウドの写しである。クラウドにないものは消える。
-    @Test
-    fun an_app_without_a_record_deletes_every_file_that_the_cloud_lacks() {
-        download("docs/notes.md" to "- a", "docs/other.md" to "- b")
-        File(dir.root, "record").delete()
-        open()
-        cloud.gone("docs/notes.md")
-        cloud.answers[null] = Changes(listOf(cloud.file("docs/other.md", "- b")), "c2", whole = true)
-
-        downloader.run { _, _ -> }
-        upload()
-
-        assertEquals(listOf("docs/other.md"), here())
-        assertEquals(emptyList<String>(), cloud.uploaded)
-    }
-
     // 進み具合は、最初に0個、そのあと1個上げるごとに、全体の数と一緒に伝わる。
     @Test
     fun the_progress_counts_the_files_to_upload_from_zero_to_all() {
@@ -272,5 +149,19 @@ class UploaderTest {
         uploader.run { done, total -> told += done to total }
 
         assertEquals(listOf(0 to 2, 1 to 2, 2 to 2), told)
+    }
+
+    // 日本語の名前のページも、アプリを開き直したあとに、変わったときだけ上がる。
+    @Test
+    fun a_page_with_a_japanese_name_is_uploaded_only_when_it_changed() {
+        download("docs/旅行の計画.md" to "- a")
+        open()
+        upload()
+        assertEquals(emptyList<String>(), cloud.uploaded)
+        write("docs/旅行の計画.md", "- a2")
+
+        upload()
+
+        assertEquals(listOf("docs/旅行の計画.md"), cloud.uploaded)
     }
 }

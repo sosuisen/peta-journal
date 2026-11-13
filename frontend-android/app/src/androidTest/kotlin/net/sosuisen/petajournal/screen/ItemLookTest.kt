@@ -267,4 +267,15 @@ class ItemLookTest : JournalScreenFixture() {
         assertTrue("the bullet is at ${bullet}dp, the letters at ${letters}dp", abs(bullet - letters) < 1f)
         assertEquals(7f, bullet().boundsInRoot.height / compose.density.density, 0.6f)
     }
+
+    // 画像のアドレスは、Webのアドレスと同じ書き方でもよい。空白や日本語の名前のファイルが見える。
+    @Test
+    fun an_image_whose_address_is_encoded_shows_as_a_picture() {
+        picture("猫 の絵.png", width = 40, height = 20)
+        download("notes.md", "![a cat](../assets/%E7%8C%AB%20%E3%81%AE%E7%B5%B5.png)" + NL)
+
+        openNotes()
+
+        waitForPicture("a cat")
+    }
 }
