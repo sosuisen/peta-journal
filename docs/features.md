@@ -873,7 +873,7 @@ iOSのシェル（`client/apps/native-app/outliner-ios`）の機能である。A
 
 ### ページを開く・書く
 
-出典: `client/apps/native-app/outliner-ios/Tests/PetaBorderTests/ShellTests.swift`、`client/apps/native-app/outliner-ios/UITests/JournalScreenTests.swift`
+出典: `client/apps/native-app/outliner-ios/Tests/PetaBorderTests/ShellTests.swift`、`client/apps/native-app/outliner-ios/UITests/JournalScreenTests.swift`、`client/libs/client-shell-embedded/src/tests.rs`
 
 - 取り込んだページは、検索で見つかり、開く
 - 検索の結果には、ページを作るものが2つある。「Open Today」は今日のジャーナルを、「New page」は入力した名前のページを作って開く
@@ -881,6 +881,7 @@ iOSのシェル（`client/apps/native-app/outliner-ios`）の機能である。A
 - アプリは、前に表示していたページで開く。なければ、今日のジャーナルで開く
   - 入れたばかりのアプリは、サインインの前には、今日のジャーナルを作らない。Dropboxに同じ日のファイルがあるかもしれないためである。最初の同期の取り込みのあとに、今日のジャーナルを開く
 - ページへのリンクとタグは、そのページを開く。まだないページは作らず、「No page yet」と知らせる。「Make it」で作る
+  - 知らせるページの名前には、URLのフラグメントが付かない。開けなかったページは、前に表示していたページとして覚えない
 - `assets`のファイルへのリンクは、そのファイルを開く。まだないファイルは、「No file yet」と知らせる
 - 項目へのタッチで、その項目がMarkdownの入力欄になる。入力は、項目の末尾から続く。新しいジャーナルの空の項目も、タッチして書ける
 - Enterは、カーソルの位置で項目を分け、入力は新しい項目で続く
