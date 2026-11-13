@@ -1,4 +1,4 @@
-//! Performs [`ApiOp`]s with a journal core inside the app, where `peta-server-client` sends
+//! Performs [`ApiOp`]s with a journal core inside the app, where `client-api-http` sends
 //! them to the journal server (ADR 029).
 //!
 //! The journal answers in the JSON shapes of the REST API. So an answer is written as JSON

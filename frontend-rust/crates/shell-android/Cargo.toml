@@ -11,7 +11,7 @@ crate-type = ["lib", "staticlib", "cdylib"]
 [dependencies]
 peta-core = { path = "../core" }
 peta-shell-native = { path = "../shell-native" }
-peta-embedded-journal = { path = "../embedded-journal" }
+client-api-embedded = { path = "../client-api-embedded" }
 journal-core = { path = "../../../journal-server-rust/crates/core", default-features = false }
 boltffi = "=0.32.1"
 

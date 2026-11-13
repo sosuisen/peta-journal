@@ -1,5 +1,5 @@
 [package]
-name = "peta-embedded-journal"
+name = "client-api-embedded"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

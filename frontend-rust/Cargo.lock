@@ -505,6 +505,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
 
 [[package]]
+name = "client-api-embedded"
+version = "0.1.0"
+dependencies = [
+ "journal-core",
+ "peta-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "client-api-http"
+version = "0.1.0"
+dependencies = [
+ "peta-core",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
+name = "client-page-links"
+version = "0.1.0"
+dependencies = [
+ "flatmarkdown",
+ "flatmarkdown-ast",
+ "flatmarkdown-ast2html",
+ "percent-encoding",
+]
+
+[[package]]
 name = "codee"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2676,20 +2706,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "peta-embedded-journal"
-version = "0.1.0"
-dependencies = [
- "journal-core",
- "peta-core",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
 name = "peta-frontend"
 version = "0.1.0"
 dependencies = [
+ "client-page-links",
  "console_error_panic_hook",
  "crux_core",
  "flatmarkdown",
@@ -2703,7 +2723,6 @@ dependencies = [
  "leptos_router",
  "peta-atlas",
  "peta-core",
- "peta-page-links",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
@@ -2713,34 +2732,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "peta-page-links"
-version = "0.1.0"
-dependencies = [
- "flatmarkdown",
- "flatmarkdown-ast",
- "flatmarkdown-ast2html",
- "percent-encoding",
-]
-
-[[package]]
-name = "peta-server-client"
-version = "0.1.0"
-dependencies = [
- "peta-core",
- "serde_json",
- "ureq",
-]
-
-[[package]]
 name = "peta-shell-android"
 version = "0.1.0"
 dependencies = [
  "boltffi",
  "chrono",
+ "client-api-embedded",
  "crux_core",
  "journal-core",
  "peta-core",
- "peta-embedded-journal",
  "peta-shell-native",
  "serde_json",
  "tempfile",
@@ -2751,9 +2751,9 @@ name = "peta-shell-emacs"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "client-api-http",
  "crux_core",
  "peta-core",
- "peta-server-client",
  "serde",
  "serde_json",
 ]
@@ -2764,6 +2764,8 @@ version = "0.1.0"
 dependencies = [
  "boltffi",
  "chrono",
+ "client-api-http",
+ "client-page-links",
  "crux_core",
  "facet",
  "facet_generate 0.22.3",
@@ -2771,8 +2773,6 @@ dependencies = [
  "flatmarkdown-ast",
  "flatmarkdown-ast2html",
  "peta-core",
- "peta-page-links",
- "peta-server-client",
  "serde",
 ]
 

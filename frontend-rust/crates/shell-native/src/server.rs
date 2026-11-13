@@ -2,9 +2,9 @@
 
 use crate::clock::SystemClock;
 use crate::shell::{Host, NativeShell};
+use client_api_http::{call, read_events, UreqHttp};
 use peta_core::effects::{ApiOp, ApiOutput, ApiResult, SseEvent};
 use peta_core::rest::ClientId;
-use peta_server_client::{call, read_events, UreqHttp};
 
 struct JournalServer {
     http: UreqHttp,

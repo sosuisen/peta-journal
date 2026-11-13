@@ -4,11 +4,11 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
+use client_page_links::hashtag_path;
 use leptos::prelude::*;
 use peta_core::model::PropertyDefinition;
 use peta_core::view::ScreenView;
 use peta_core::Event;
-use peta_page_links::hashtag_path;
 
 /// A row added with `+` and not yet saved: it becomes a property once it has a key and a
 /// value. Kept by the page, so a re-render of the header does not lose it.

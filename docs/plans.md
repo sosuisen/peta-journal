@@ -435,7 +435,7 @@
     - テストは、今日の日付を読むために`chrono`を使う。`dev-dependencies`には残した
     - `PetaCore::is_there`も、今日の日付を`chrono`で読んでいた。`SystemClock`で読むようにした
   - BoltFFIの入口は変わらない。アプリの側のコードは直さない
-- [ ] 段2: APIの2つのクレートと、`page-links`の名前を変える
+- [x] 段2: APIの2つのクレートと、`page-links`の名前を変える（2026-11-13に行った）
   - `server-client`（`peta-server-client`）を、`client-api-http`にする。`embedded-journal`（`peta-embedded-journal`）を、`client-api-embedded`にする。フォルダーも変える
   - `page-links`（`peta-page-links`）を、`client-page-links`にする（2026-11-13にユーザーが決めた）。フォルダーも変える。使っているのは、`shell-leptos`と`shell-native`である。目標の図には出ないが、フロントエンドの側なので、同じ決まりで変える
   - 直すところ: ワークスペースの`Cargo.toml`、`shell-native`と`shell-emacs`と`shell-android`と`shell-leptos`の依存と`use`、文書

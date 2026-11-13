@@ -1,4 +1,4 @@
-//! The messages of the journal for the frontend core, where `peta-server-client` reads the
+//! The messages of the journal for the frontend core, where `client-api-http` reads the
 //! event stream of the journal server.
 
 use std::sync::atomic::{AtomicBool, Ordering};

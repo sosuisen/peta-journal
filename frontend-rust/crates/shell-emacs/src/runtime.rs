@@ -4,9 +4,9 @@
 use crate::protocol::{Envelope, Outbound};
 use crate::shell::{Host, Input, Now, Shell};
 use chrono::{Datelike, Local, Timelike};
+use client_api_http::{call, read_events, upload, UreqHttp};
 use peta_core::effects::{ApiOp, LocalDateTimeDto};
 use peta_core::rest::ClientId;
-use peta_server_client::{call, read_events, upload, UreqHttp};
 use std::io::{BufRead, Write};
 use std::sync::mpsc::{channel, Sender};
 use std::thread;
