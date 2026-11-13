@@ -110,3 +110,35 @@ fn a_scroll_request_is_passed_on_as_a_smooth_scroll() {
         |u| matches!(u, crate::effects::UiOp::ScrollToItem { item_id, smooth: true } if item_id == "a")
     ));
 }
+
+// 行は、本文からcoreが作ったASTを持つ。相対パスのリンクはwikilinkに、#tagはハッシュタグになる。
+#[test]
+fn a_row_has_the_ast_that_the_core_makes_from_the_body() {
+    use flatmarkdown_ast::Node;
+    let h = Harness::with_items(vec![item("a", 1, "**b** [p](../p.md) #t")]);
+    let ast = &rows(&h)[0].ast;
+    let Node::Document { children } = ast else {
+        panic!("not a document: {ast:?}");
+    };
+    let kinds: Vec<&str> = children[0].children().iter().map(Node::type_name).collect();
+    assert_eq!(kinds, ["strong", "text", "wikilink", "text", "hashtag"]);
+}
+
+// 本文が変わると、行のASTも新しい本文のものになる。前と同じ本文に戻せば、前と同じASTになる。
+#[test]
+fn the_ast_of_a_row_follows_its_body() {
+    let mut h = Harness::with_items(vec![item("a", 1, "one")]);
+    let first = rows(&h)[0].ast.clone();
+    crate::harness::typed(&mut h, "a", "# two");
+    assert_eq!(rows(&h)[0].ast, crate::asts::parse("# two"));
+    crate::harness::typed(&mut h, "a", "one");
+    assert_eq!(rows(&h)[0].ast, first);
+}
+
+// 同じ本文の行が2つあれば、どちらもその本文のASTを持つ。
+#[test]
+fn rows_with_the_same_body_have_the_same_ast() {
+    let h = Harness::with_items(vec![item("a", 1, "*x*"), item("b", 1, "*x*")]);
+    let asts: Vec<_> = rows(&h).into_iter().map(|row| row.ast).collect();
+    assert_eq!(asts, [crate::asts::parse("*x*"), crate::asts::parse("*x*")]);
+}
