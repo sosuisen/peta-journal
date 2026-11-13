@@ -527,16 +527,17 @@
   - `pixi-ui.js`と`tweedle.umd.js`は、編集のためのもので、サイトは使わない。それでも一緒に移す。`pixi.min.js`と版が組になっているためである
   - フォルダーの名前だけを変える。パッケージの名前（`peta-atlas`）を変えるかは、決めていない
   - 同じフォルダーを2回動かさない。改名と移動を、1つのPRで行う
-  - [ ] 先に確かめること: Trunkの`<script data-trunk src="…">`が、クレートの外のファイル（`../../../atlas/web/pixi.min.js`）を読めるか。フォントは、`copy-file`で`../../assets/`を読めている。`script`では確かめていない。読めなければ、形を決め直す
-  - [ ] PetaJournalの側で直すところ
+  - [x] 2026-11-13 先に確かめること: Trunkの`<script data-trunk src="…">`が、クレートの外のファイル（`../../../atlas/web/pixi.min.js`）を読めるか。読めた。`dist`には、今までと同じく、名前にハッシュの付いたファイルが入る
+  - [x] 2026-11-13 PetaJournalの側で直すところ。決定は、ADR 038に書いた
     - パス依存: `frontend-rust/crates/client-core/Cargo.toml`、`frontend-rust/crates/client-shell-leptos/Cargo.toml`、`journal-server-rust/crates/core/Cargo.toml`
     - `frontend-rust/crates/client-shell-leptos/index.html`の4つの`script`
     - `atlas.js`の先頭のコメント（`vendor/pixi.min.js`、`vendor/pixi-ui.js`と書いている）
     - `.github/workflows/ci.yml`の`workspace: atlas-rust`
-    - `BUILD.md`の「Atlas crate (atlas-rust)」の節。`web/`の役割と、PixiJSを新しくする手順も書く
+    - `BUILD.md`の「Atlas crate (atlas-rust)」の節。`web/`の役割と、PixiJSを新しくする手順も書く。3つのライブラリは、npmのパッケージ（`pixi.js` 8.22.0、`@pixi/ui` 2.4.1、`tweedle.js` 2.1.0）の`dist`のファイルと同じ内容である。入れて比べて確かめた
     - この文書の「CI」と「道具の更新」の節にある`atlas-rust`
     - ADR 003は、書いた時点の記録なので書き換えない。フォルダーの名前と`web/`は、新しいADRに書く
     - `journal-server-rust/crates/server/tests/it/frontend.rs`の`…/src/components/atlas.js`は、配るファイルの名前の例である。変えない
+  - 2026-11-13に確かめたこと。`atlas`のテスト（28個）、`frontend-rust`のテスト（735個）、`journal-server-rust`のテスト、wasm向けの`cargo check`が通った。Web版でアトラスを開き、描画と右クリックのメニュー（`pixi-ui.js`）を見た。4つのスクリプトは、`dist`から読まれていた。Playwrightは、88個のうち87個が通った。落ちた1個は、前からWindowsで落ちているCtrl+Cのテストである。アトラスだけを確かめるE2Eのテストは、まだない
   - [ ] sosuisen.netの側で直すところ（別のリポジトリ。PetaJournalの変更を`main`に入れたあとに行う）
     - `tools/fm2html/Cargo.toml`のパス依存: `../../../../PetaJournal/peta-journal/atlas-rust`を、`…/peta-journal/atlas`にする
     - `scripts/sync-posts.mjs`の`ATLAS_SCRIPT_SOURCE_DIR`: `frontend-rust/crates/client-shell-leptos`を、`atlas/web`にする。`ATLAS_SCRIPTS`は、ファイルの名前だけ（`pixi.min.js`、`atlas.js`）にする。すぐ上のコメントも直す
@@ -548,7 +549,7 @@
 
 - [ ] 2026-11-25に、止めているCIを戻す。`gh workflow enable CI`を実行する
   - 請求の問題でどのジョブも走らないので、2026-11-11から2週間ほど止める。止めるのは`gh workflow disable CI`である
-  - 止めている間は、手元の確認だけが頼りである。`atlas-rust`、`ext-web-app/todo`、`ext-desktop-app/stickies`、wasm向けの`cargo check`、Emacsのテストも、触ったら手元で回す
+  - 止めている間は、手元の確認だけが頼りである。`atlas`、`ext-web-app/todo`、`ext-desktop-app/stickies`、wasm向けの`cargo check`、Emacsのテストも、触ったら手元で回す
   - 戻したら、`main`で一度走らせて、止めていた間の変更を確かめる
 
 ## 道具の更新
@@ -556,7 +557,7 @@
 - [ ] Rustを1.100に上げる（2026-11-13にユーザーが足した）
   - Rust 1.100.0は、2026-11-12に出た。このPCは1.99.1である（2026-11-13に見た）
   - リポジトリは、Rustの版を固定していない。`rust-toolchain.toml`も`rust-version`もない。CIは`dtolnay/rust-toolchain@stable`なので、戻したときに1.100で走る。上げる作業は、PCごとの`rustup update stable`と、出た問題の修正である
-  - 上げる対象は、`journal-server-rust`、`frontend-rust`、`atlas-rust`である。どれもeditionは2021である
+  - 上げる対象は、`journal-server-rust`、`frontend-rust`、`atlas`である。どれもeditionは2021である
   - [ ] never type（`!`）のフォールバックが変わる。2021までのeditionでは、`()`から`!`になる。今まで通っていたコードが、コンパイルできなくなることがある。editionが2021なので、3つとも当たる。先に、今の版で`dependency_on_unit_never_type_fallback`の警告が出ていないかを見る
   - [ ] Cargoが、使っていない依存を警告する。警告は、既定で出る。出た依存を`Cargo.toml`から消す。dev-dependenciesは、まだ調べられない
   - [ ] Cargoの`build-dir`の並びが変わる。上げたあとの最初のビルドは、すべてを作り直すとみているが、未確認である。`build-dir`の場所や中身を名前で見ているスクリプトがないかを確かめる（`generate.ps1`、`generate.sh`、`boltffi pack`、wasmのビルド）

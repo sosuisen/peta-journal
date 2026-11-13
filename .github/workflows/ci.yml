@@ -22,7 +22,7 @@ jobs:
             args: --workspace
           - workspace: frontend-rust
             args: --workspace
-          - workspace: atlas-rust
+          - workspace: atlas
             args: --all-features
     defaults:
       run:

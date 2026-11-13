@@ -1,5 +1,5 @@
 // The canvas of an atlas page: the cards of the pages and folders of its directory, drawn
-// with PixiJS. PixiJS is the global `PIXI` of vendor/pixi.min.js. The origin of the card
+// with PixiJS. PixiJS is the global `PIXI` of pixi.min.js beside this file. The origin of the card
 // coordinates is the center of the canvas, marked by a gray cross. It stays in the center
 // when the host is resized, so the cards keep their places around it.
 //
@@ -12,7 +12,7 @@
 // a card for any page, which the core keeps as a wiki link in the atlas page.
 // A callout or a link card is selected, dragged and scaled as a card is, but joins no group.
 // A double click on a callout or a link card, or its menu, opens its dialog.
-// The menus and the dialog are made with @pixi/ui, the global `PIXI.ui` of vendor/pixi-ui.js.
+// The menus and the dialog are made with @pixi/ui, the global `PIXI.ui` of pixi-ui.js beside this file.
 // A canvas that is not editable only shows the atlas, as a static site does: a drag with
 // either button moves the view, the wheel scales it, and a click on a label opens its page.
 // It needs no @pixi/ui. A card whose label is hidden (`masked`) shows a softened blob only,
