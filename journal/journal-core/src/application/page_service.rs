@@ -25,6 +25,9 @@ use crate::infrastructure::persistence::property_repository::{
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 const PAGE_TARGET: &str = "page";
+/// The keys of the front matter that are not scalar properties: the page's own id and dates,
+/// and the tags with the name they had before.
+const FRONT_MATTER_KEYS: [&str; 5] = ["id", "created", "modified", "tags", "tag"];
 
 /// Result of getting or creating a document page.
 #[derive(Debug, Clone)]
@@ -527,6 +530,41 @@ impl PageService {
         }
         tx.commit()?;
         Ok(before)
+    }
+
+    /// Makes the scalar properties of a page match the front matter of an imported file.
+    /// Returns true if anything changed.
+    pub fn replace_page_properties(
+        &self,
+        page_id: &Hmtid,
+        front_matter: &BTreeMap<String, String>,
+    ) -> AppResult<bool> {
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let have = PropertyRepository::find_scalar_by_targets_in(
+            &tx,
+            PAGE_TARGET,
+            std::slice::from_ref(&page_id.to_string()),
+        )?
+        .remove(page_id.as_str())
+        .unwrap_or_default();
+        let mut changed = false;
+        for (key, value) in front_matter {
+            if FRONT_MATTER_KEYS.contains(&key.as_str()) || have.get(key) == Some(value) {
+                continue;
+            }
+            PropertyRepository::upsert_scalar_in(
+                &tx,
+                PAGE_TARGET,
+                page_id.as_str(),
+                key,
+                "text",
+                value,
+            )?;
+            changed = true;
+        }
+        tx.commit()?;
+        Ok(changed)
     }
 
     /// Keeps the tag pages in step with a change of tags on one page or item: the added

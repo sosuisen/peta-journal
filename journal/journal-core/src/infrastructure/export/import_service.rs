@@ -366,11 +366,14 @@ impl MarkdownImportService {
             frontmatter_tags(fm)
         };
         let page_tags_before = self.page_service.replace_page_tags(&page.id, &page_tags)?;
+        let properties_changed =
+            !file_is_older && self.page_service.replace_page_properties(&page.id, fm)?;
         if merge.file_lost {
             self.write_conflict_backup(root, rel_path, loc, &content);
         }
 
         let page_changed = renamed
+            || properties_changed
             || merge.changed
             || merge.changed_here
             || is_new
