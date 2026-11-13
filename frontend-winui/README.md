@@ -184,8 +184,12 @@ The keys of a sticky:
 | Ctrl+Q | ends the app and keeps all stickies |
 
 Each window is a sticky with a page of its own. Its title bar shows the name of the page, and
-the tools of the sticky at the right: search, pin, color and a new sticky. The tools are
+the tools of the sticky at the right: search and a new sticky. The tools are
 hidden while the window does not have the focus.
+
+A right click on the title bar shows a menu with the pin and the colors. It is there also
+while the sticky is rolled up. The pin and the color of the sticky are checked. The menu of
+the window, which Windows shows there, comes with Alt+Space.
 
 The buttons that minimize, maximize and close the window stand at the right of the tools. The
 app draws them itself, as narrow as its tools: the buttons of Windows are wide, and leave
@@ -197,7 +201,7 @@ closed in any other way is kept and comes back in the next run: Alt+F4, the task
 Windows that ends the session. The app ends when the last window is closed. Ctrl+Q ends the
 app with all its stickies kept, as Command+Q does on a Mac.
 
-The menu with the palette gives the sticky another color: yellow, red, green, blue, orange,
+The menu gives the sticky another color: yellow, red, green, blue, orange,
 purple, white, gray or light gray. They are the colors of the SwiftUI shell.
 A sticky is light in every color, also when Windows is in dark mode.
 
@@ -209,8 +213,8 @@ The button of the title bar maximizes the sticky. A double click on the title ba
 place and the size of a sticky are not kept while it is maximized: it comes back in the next
 run as it was before.
 
-The button with the pin keeps the sticky on top of the windows of other apps, until it is
-pressed again. The pin is filled while it does. The zoom stays between 30% and 300%. Color, pin and zoom are kept with each
+"Keep on top" in the menu keeps the sticky on top of the windows of other apps, until it is
+chosen again. The zoom stays between 30% and 300%. Color, pin and zoom are kept with each
 sticky.
 
 In the search box, what is typed is searched for a moment later. Down and Up choose an entry,
