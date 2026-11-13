@@ -62,10 +62,11 @@ kept in the repository.
   place of a cursor from the UTF-16 units of WinUI into the characters the core counts, and
   back.
 - `ShownText` makes the text of an item as it is to be shown: with its decoration, not as
-  Markdown (ADR 025). It does not read the AST. `ItemHtml` of the core library makes HTML of
-  the AST, with flatmarkdown-ast2html. Windows has nothing that turns HTML into text with
-  decoration, so `ShownText` reads the HTML with AngleSharp and gives paragraphs of pieces
-  with a style each. The screen draws them.
+  Markdown. It reads the AST that the core gives with each row (`Row.Ast`, ADR 041) and gives
+  paragraphs of pieces with a style each. The screen draws them. `Node` is a `closed record`
+  (C# 15, .NET 11), and CS8509 is an error: a `switch` expression that leaves out a kind of
+  node stops the build. The generator writes `abstract record`; `codegen csharp` makes it
+  `closed`.
 - `StickyStore` and `StickyLook` keep the stickies and how each one looks.
 
 ## Build and run the app
@@ -121,7 +122,7 @@ the outline.
 - `SearchBox` is the search box with what it found.
 
 Only the item with the cursor shows its Markdown, in a text box. Every other item shows its
-text with its decoration (ADR 025) and cannot be typed into. A click into an item makes it
+text with its decoration (ADR 041) and cannot be typed into. A click into an item makes it
 Markdown at once; when the cursor leaves it, the shell tells the core that the edit is over
 (`Shell.FinishEditing`), as the web frontend does, and the item shows its decoration again.
 Text that is still being composed by an input method is not sent to the core until it is

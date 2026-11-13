@@ -847,6 +847,16 @@
   - 消した付箋紙は、設定を読み直しても出てこない。ほかの付箋紙は残る
   - 消した付箋紙の設定を保存しても、付箋紙は戻らない
 
+### ネイティブアプリが項目をASTから描く
+
+出典: `client/libs/client-core/src/tests/view.rs`、`client/libs/client-shell-embedded/src/tests.rs`、`client/libs/client-native-bridge/src/codegen.rs`、各シェルの`ShownText`のテスト（iOS、macOS、Android、Windows）
+
+- 行は、コアが本文から作ったASTを持つ。シェルは、そのASTの型から描く（ADR 041）
+  - 本文が変わると、行のASTも変わる。同じ本文の行は、同じASTを持つ
+- ページへのリンクとタグの行き先は、そのページのURLである（`/pages/<ページ名>`、`/pages/<タグ用フォルダ>/<タグ>`）
+- どのシェルでも、太字などの装飾、見出し、リスト、タスク、引用、アラート、区切り線、表、脚注が出る。知らない種類のノードは、中の文字が出る
+- Windowsでは、`Node`は閉じた型で、描かない種類のあるswitch式はビルドを止める
+
 ## iPhoneで読み書きする
 
 iOSのシェル（`client/apps/native-app/outliner-ios`）の機能である。Androidのシェルと同じことをする（ADR 034）。

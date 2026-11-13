@@ -66,10 +66,9 @@ under `generated/`. Run it again after a change in Rust.
   thread, in order.
 
 - `ShownText` makes the text of an item as it is to be shown: with its decoration, not as
-  Markdown (ADR 025). It does not read the AST. `itemHtml` of the core library makes HTML of
-  the AST, with flatmarkdown-ast2html, and macOS turns the HTML into text with attributes.
-  `ShownText` puts text in the place of the three things macOS drops (the checkbox of a task
-  list, the line between two parts, an image).
+  Markdown. It reads the AST that the core gives with each row (`Row.ast`, ADR 041) and makes
+  text with attributes of it. A `switch` takes every kind of node, so a kind that the AST gets
+  later stops the build until it is drawn.
 - `ShownTexts` keeps the texts that were made, for one screen. macOS makes such a text on the
   main thread only, and not while SwiftUI draws: a row asks for its text, shows the body of the
   item meanwhile, and is drawn again when the text is there.
@@ -133,10 +132,10 @@ being composed by an input method is not sent to the core until it is confirmed,
 that confirms it does not split the item.
 
 Only the item with the cursor shows its Markdown. Every other item shows its text with its
-decoration (ADR 025) and cannot be typed into. A click into an item makes it Markdown at once;
+decoration (ADR 041) and cannot be typed into. A click into an item makes it Markdown at once;
 when the cursor leaves it, the shell tells the core that the edit is over (`Shell.finishEditing`),
 as the web frontend does, and the item shows its decoration again. The marks before the text
-(the bullet, the box of a task) are drawn by the screen, not taken from the HTML.
+(the bullet, the box of a task) are drawn by the screen, not taken from the AST.
 
 A click on a link of an item that shows its decoration opens it in the browser
 (`Shell.follow`). A wikilink opens its page, and a hashtag the page of the tag in the folder of
