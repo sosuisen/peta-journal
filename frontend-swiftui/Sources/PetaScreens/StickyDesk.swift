@@ -32,7 +32,7 @@ final class StickyWindow: NSWindow {
     var onTitleBarDoubleClick: (() -> Void)?
     /// Makes the menu of the sticky. A right click shows it, on the title bar and on an item
     /// that is not edited.
-    var stickyMenu: (() -> NSMenu)?
+    var stickyMenu: (() -> NSMenu?)?
 
     override func sendEvent(_ event: NSEvent) {
         if event.type == .leftMouseDown, event.clickCount == 2, isOnBareTitleBar(event.locationInWindow) {
