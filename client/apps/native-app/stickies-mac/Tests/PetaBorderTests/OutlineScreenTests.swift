@@ -89,7 +89,7 @@ final class OutlineScreenTests: XCTestCase {
     /// A click on the first letter of the word. The window of a test takes no click: the tests
     /// do not come to the front. So this does what a window does with one: it asks which view
     /// is there, gives it the cursor if the view takes it, and then hands it the click.
-    private func click(on word: String, in editor: NSTextView) throws {
+    private func click(on word: String, in editor: NSTextView, holding keys: NSEvent.ModifierFlags = []) throws {
         let letter = NSRange(location: (editor.string as NSString).range(of: word).location, length: 1)
         let layout = try XCTUnwrap(editor.layoutManager)
         let container = try XCTUnwrap(editor.textContainer)
@@ -100,7 +100,7 @@ final class OutlineScreenTests: XCTestCase {
         func mouse(_ type: NSEvent.EventType) throws -> NSEvent {
             try XCTUnwrap(
                 NSEvent.mouseEvent(
-                    with: type, location: place, modifierFlags: [], timestamp: 0,
+                    with: type, location: place, modifierFlags: keys, timestamp: 0,
                     windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
         }
         // A text view waits for the button to come up before it goes on
@@ -110,21 +110,42 @@ final class OutlineScreenTests: XCTestCase {
         hit.mouseDown(with: try mouse(.leftMouseDown))
     }
 
-    // 装飾付きの項目のウィキリンクをクリックすると、そのページがブラウザ版で開く。付箋紙のページは変わらない。
-    func testAClickOnAWikilinkOpensItsPageInTheBrowser() async throws {
+    // 装飾付きの項目のウィキリンクをクリックすると、そのページが付箋紙で開く。
+    func testAClickOnAWikilinkOpensItsPageInTheSticky() async throws {
         try await itemWithLinksAndTheCursorInTheNext()
 
         try click(on: "Idea", in: editors()[0])
+
+        XCTAssertEqual(shell.url, "/pages/Idea")
+        XCTAssertNil(browsed)
+    }
+
+    // 装飾付きの項目のウィキリンクをShift-クリックすると、そのページがブラウザ版で開く。付箋紙のページは変わらない。
+    func testAShiftClickOnAWikilinkOpensItsPageInTheBrowser() async throws {
+        try await itemWithLinksAndTheCursorInTheNext()
+
+        try click(on: "Idea", in: editors()[0], holding: .shift)
 
         XCTAssertEqual(browsed, URL(string: "\(server.address)/pages/Idea"))
         XCTAssertEqual(shell.url, "/pages/screen")
     }
 
-    // 装飾付きの項目のハッシュタグをクリックすると、タグのフォルダーにあるそのタグのページがブラウザ版で開く。付箋紙のページは変わらない。
-    func testAClickOnAHashtagOpensThePageOfTheTagInTheBrowser() async throws {
+    // 装飾付きの項目のハッシュタグをクリックすると、タグのフォルダーにあるそのタグのページが付箋紙で開く。
+    func testAClickOnAHashtagOpensThePageOfTheTagInTheSticky() async throws {
         try await itemWithLinksAndTheCursorInTheNext()
+        let tags = shell.view.config.tagsDir
 
         try click(on: "#todo", in: editors()[0])
+
+        XCTAssertEqual(shell.url, "/pages/\(tags)todo")
+        XCTAssertNil(browsed)
+    }
+
+    // 装飾付きの項目のハッシュタグをShift-クリックすると、そのタグのページがブラウザ版で開く。付箋紙のページは変わらない。
+    func testAShiftClickOnAHashtagOpensThePageOfTheTagInTheBrowser() async throws {
+        try await itemWithLinksAndTheCursorInTheNext()
+
+        try click(on: "#todo", in: editors()[0], holding: .shift)
 
         XCTAssertEqual(browsed, URL(string: "\(server.address)/pages/\(shell.view.config.tagsDir)todo"))
         XCTAssertEqual(shell.url, "/pages/screen")

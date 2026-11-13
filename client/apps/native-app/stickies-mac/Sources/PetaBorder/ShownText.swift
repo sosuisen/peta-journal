@@ -1,312 +1,207 @@
 import AppKit
-import PetaCore
+import Combine
+@_exported import PetaShown
 import PetaTypes
 
-/// The text of an item as it is shown: with its decoration, not as Markdown. It is drawn from
-/// the AST that the core gives with the row (ADR 041). A `switch` takes every kind of node, so
-/// a kind that the AST gets later stops the build until it is drawn here.
-public enum ShownText {
-    /// Wikilinks and hashtags name a page or a tag, and have no address. As links of the text
-    /// they get an address of this kind, to tell them from links that lead out of the journal:
-    /// the host says whether it is a page or a tag.
-    private static let pages = URL(string: "peta-link://page/")!
-    private static let tags = URL(string: "peta-link://tag/")!
-
-    /// The text of the AST of an item.
-    public static func of(_ ast: Node, zoom: Double = 1) -> NSAttributedString {
-        var writer = TextWriter(size: NSFont.systemFontSize * zoom)
-        writer.blocks(children(of: ast))
-        return writer.text
-    }
-
-    /// What a link of the shown text leads to. Nothing for a link that stays in the item, as
-    /// the one of a footnote.
-    public static func target(of link: URL) -> LinkTarget? {
-        guard link.scheme == pages.scheme else { return .out(link) }
-        let name = String(link.path.dropFirst())
-        if name.isEmpty { return nil }
-        return link.host == tags.host ? .tag(name) : .page(name)
-    }
-
-    /// The address of a link to the page or the tag of this name.
-    static func link(to name: String, tag: Bool) -> URL? {
-        let path = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
-        return URL(string: path, relativeTo: tag ? tags : pages)?.absoluteURL
+extension ShownText {
+    /// The text of an item as it is shown: with its decoration, not as Markdown. It is drawn
+    /// from the parts that the shared reader makes of the AST (ADR 041): the iOS app reads the
+    /// same parts. `image` gives the picture of a file of the assets folder, such as
+    /// `assets/picture.png`, when it is here. Until then the words for the image stand there.
+    public static func of(
+        _ blocks: [ShownBlock], zoom: Double = 1, image: @escaping (String) -> NSImage? = { _ in nil }
+    ) -> NSAttributedString {
+        var writer = TextWriter(size: NSFont.systemFontSize * zoom, image: image)
+        writer.blocks(blocks, depth: 0, quoted: 0)
+        return writer.finished()
     }
 }
 
-/// The children of a node, and none for a leaf.
-func children(of node: Node) -> [Node] {
-    switch node {
-    case .document(let children), .paragraph(let children), .heading(_, let children),
-        .blockQuote(let children), .multilineBlockQuote(let children), .list(_, _, _, _, let children),
-        .item(_, _, let children), .taskItem(_, let children), .table(_, _, _, let children),
-        .tableRow(_, let children), .tableCell(let children), .footnoteDefinition(_, let children),
-        .alert(_, _, let children), .subtext(let children), .emph(let children), .strong(let children),
-        .strikethrough(let children), .underline(let children), .highlight(let children),
-        .superscript(let children), .subscriptText(let children), .spoileredText(let children),
-        .link(_, _, let children), .embed(_, _, _, let children), .wikilink(_, let children),
-        .unknown(_, let children):
-        return children
-    case .codeBlock, .thematicBreak, .htmlBlock, .text, .softbreak, .linebreak, .code, .footnoteReference,
-        .shortcode, .math, .htmlInline, .hashtag:
-        return []
-    }
-}
-
-/// The text under the node, without its decoration.
-func plainText(_ node: Node) -> String {
-    switch node {
-    case .text(let value): return value
-    default: return children(of: node).map(plainText).joined()
-    }
-}
-
-/// How the letters of a piece look. This is the look of this shell: it is not kept the same as
-/// the stylesheet of the web frontend.
-private struct Looks {
-    var bold = false
-    var italic = false
-    var code = false
-    var struck = false
-    var underlined = false
-    var marked = false
-    var hidden = false
-    /// Above the line (1), below it (-1), or on it (0).
-    var shift = 0
-    var link: URL?
-}
-
-/// Writes the blocks of an item, one line or more each, into one text.
+/// Writes the parts of an item, one line or more each, into one text. This is the look of this
+/// shell: it is not kept the same as the stylesheet of the web frontend.
 private struct TextWriter {
     let size: Double
-    private(set) var text = NSMutableAttributedString()
-    /// How many lists and quotes the block is inside.
-    private var depth = 0
-    private var quoted = 0
-    /// What the first line of the next block starts with: the mark of an entry of a list, or
-    /// the name of a footnote.
+    let image: (String) -> NSImage?
+    private var text = NSMutableAttributedString()
+    /// What the first line of the next part starts with: the mark of an entry of a list.
     private var lead: String?
-    private var heading = 0
 
     private static let linkColor = NSColor(srgbRed: 0x0a / 255, green: 0x58 / 255, blue: 0xca / 255, alpha: 1)
     private static let markedColor = NSColor(srgbRed: 1, green: 0xf3 / 255, blue: 0xa3 / 255, alpha: 1)
     private static let quotedColor = NSColor(white: 0x55 / 255, alpha: 1)
     private static let hiddenColor = NSColor(white: 0xdd / 255, alpha: 1)
+    /// How wide an image is drawn at most, at the usual size, when the page asks for no width.
+    private static let imageWidth = 320.0
 
-    init(size: Double) {
+    init(size: Double, image: @escaping (String) -> NSImage?) {
         self.size = size
+        self.image = image
     }
 
-    mutating func blocks(_ nodes: [Node]) {
-        for node in nodes { block(node) }
-        // Every block ends its line, the last one too
+    /// The text, without the end of the last line: every part ends its line.
+    mutating func finished() -> NSAttributedString {
         while text.string.hasSuffix("\n") {
             text.deleteCharacters(in: NSRange(location: text.length - 1, length: 1))
         }
+        return text
     }
 
-    private mutating func block(_ node: Node) {
-        switch node {
-        case .document(let children), .item(_, _, let children), .taskItem(_, let children), .unknown(_, let children):
-            for child in children { block(child) }
-        case .paragraph(let inline):
-            line(inline)
-        case .heading(let level, let inline):
-            heading = Int(level)
-            line(inline)
-            heading = 0
-        case .codeBlock(_, _, let literal):
-            var lines = Substring(literal)
-            while lines.hasSuffix("\n") { lines = lines.dropLast() }
-            line([.code(literal: String(lines))])
-        case .blockQuote(let children), .multilineBlockQuote(let children):
-            quoted += 1
-            for child in children { block(child) }
-            quoted -= 1
-        case .alert(let type, let title, let children):
-            quoted += 1
-            line([.strong(children: [.text(value: title ?? name(of: type))])])
-            for child in children { block(child) }
-            quoted -= 1
-        case .list(let listType, let start, _, _, let entries):
-            depth += 1
-            for (index, entry) in entries.enumerated() {
-                if case .taskItem(let symbol, _) = entry {
-                    lead = symbol == nil ? "☐ " : "☑ "
-                } else {
-                    lead = listType == .ordered ? "\(Int(start) + index). " : "• "
+    /// The parts inside `depth` lists and `quoted` quotes.
+    mutating func blocks(_ blocks: [ShownBlock], depth: Int, quoted: Int) {
+        for block in blocks {
+            let line = Line(depth: depth, quoted: quoted)
+            switch block {
+            case .text(let paragraphs):
+                for paragraph in paragraphs {
+                    self.paragraph(paragraph, Line(depth: depth + paragraph.depth, quoted: quoted + paragraph.quoted))
                 }
-                block(entry)
-                lead = nil
+            case .code(let lines):
+                startLine(line)
+                append(lines, ShownPiece(text: lines, looks: .code), line)
+                endLine(line)
+            case .table(let rows):
+                table(rows, line)
+            case .image(let shown):
+                startLine(line)
+                picture(shown, line)
+                endLine(line)
+            case .entries(let entries):
+                for entry in entries {
+                    lead = entry.mark
+                    self.blocks(entry.blocks, depth: depth + 1, quoted: quoted)
+                    // An entry without anything in it still shows its mark
+                    if lead != nil {
+                        startLine(Line(depth: depth + 1, quoted: quoted))
+                        endLine(line)
+                    }
+                }
+            case .quote(let inside):
+                self.blocks(inside, depth: depth, quoted: quoted + 1)
             }
-            depth -= 1
-        case .table(_, _, _, let rows):
-            table(rows)
-        case .tableRow(_, let cells):
-            line(cells.flatMap { children(of: $0) + [.text(value: "  ")] })
-        case .tableCell(let inline):
-            line(inline)
-        case .thematicBreak:
-            line([.text(value: "────────")])
-        case .htmlBlock(_, let literal):
-            var lines = Substring(literal)
-            while lines.hasSuffix("\n") { lines = lines.dropLast() }
-            line([.text(value: String(lines))])
-        case .footnoteDefinition(let name, let children):
-            lead = "[\(footnoteLabel(name))]: "
-            for child in children { block(child) }
-            lead = nil
-        case .subtext(let inline):
-            line([.subscriptText(children: inline)])
-        case .text, .softbreak, .linebreak, .emph, .strong, .strikethrough, .underline, .highlight,
-            .superscript, .subscriptText, .spoileredText, .code, .link, .embed, .footnoteReference,
-            .shortcode, .math, .htmlInline, .wikilink, .hashtag:
-            // A line outside a block, as in a list without room between its entries
-            line([node])
         }
     }
 
-    private func name(of type: AlertType) -> String {
-        switch type {
-        case .note: return "Note"
-        case .tip: return "Tip"
-        case .important: return "Important"
-        case .warning: return "Warning"
-        case .caution: return "Caution"
-        }
+    /// Where a line stands: how far it is moved to the right, and how large its letters are.
+    private struct Line {
+        var depth: Int
+        var quoted: Int
+        var heading = 0
+        var style: NSParagraphStyle?
     }
 
-    /// One line, or more lines of one block, with the lead of the block before it.
-    private mutating func line(_ inline: [Node], style: NSParagraphStyle? = nil) {
+    private mutating func paragraph(_ paragraph: ShownParagraph, _ at: Line) {
+        var line = at
+        line.heading = paragraph.heading
+        if let mark = paragraph.mark { lead = mark }
+        startLine(line)
+        if paragraph.rule {
+            append("────────", ShownPiece(text: ""), line)
+        }
+        for piece in paragraph.pieces {
+            // A line break of the item stays inside its paragraph
+            append(piece.text.replacingOccurrences(of: "\n", with: "\u{2028}"), piece, line)
+        }
+        endLine(line)
+    }
+
+    /// Writes the mark of the entry that the line is the first of.
+    private mutating func startLine(_ line: Line) {
         if let lead {
-            append(lead, Looks())
+            append(lead + " ", ShownPiece(text: ""), line)
             self.lead = nil
         }
-        for node in inline { write(node, Looks()) }
-        append("\n", Looks(), style: style)
+    }
+
+    private mutating func endLine(_ line: Line) {
+        append("\n", ShownPiece(text: ""), line)
     }
 
     /// The rows of a table, each cell in a box, as macOS draws a table of HTML.
-    private mutating func table(_ rows: [Node]) {
-        let columns = rows.map { children(of: $0).count }.max() ?? 0
+    private mutating func table(_ rows: [ShownTableRow], _ at: Line) {
+        let columns = rows.map(\.cells.count).max() ?? 0
         guard columns > 0 else { return }
         let table = NSTextTable()
         table.numberOfColumns = columns
-        for (row, node) in rows.enumerated() {
-            guard case .tableRow(let header, let cells) = node else { continue }
-            for (column, cell) in cells.enumerated() {
+        for (row, shown) in rows.enumerated() {
+            for (column, cell) in shown.cells.enumerated() {
                 let box = NSTextTableBlock(table: table, startingRow: row, rowSpan: 1, startingColumn: column, columnSpan: 1)
                 box.setWidth(0.5, type: .absoluteValueType, for: .border)
                 box.setBorderColor(.separatorColor)
                 box.setWidth(4, type: .absoluteValueType, for: .padding)
                 let style = NSMutableParagraphStyle()
                 style.textBlocks = [box]
-                let inline = children(of: cell)
-                line(header ? [.strong(children: inline)] : inline, style: style)
+                var line = at
+                line.style = style
+                for piece in cell.pieces {
+                    var looks = piece
+                    if shown.header { looks.looks.insert(.bold) }
+                    append(piece.text, looks, line)
+                }
+                endLine(line)
             }
         }
     }
 
-    /// The letters of an inline node, with the looks of the nodes around it.
-    private mutating func write(_ node: Node, _ looks: Looks) {
-        func inside(_ children: [Node], _ change: (inout Looks) -> Void = { _ in }) {
-            var more = looks
-            change(&more)
-            for child in children { write(child, more) }
+    /// An image of the assets folder, at the size that the page asks for, or no wider than
+    /// `imageWidth`. The words for it stand there until its file is here.
+    private mutating func picture(_ shown: ShownImage, _ line: Line) {
+        guard let picture = image(shown.path), picture.size.width > 0, picture.size.height > 0 else {
+            append("[\(shown.alt.isEmpty ? shown.path : shown.alt)]", ShownPiece(text: ""), line)
+            return
         }
-        switch node {
-        case .text(let value): append(value, looks)
-        case .softbreak: append(" ", looks)
-        case .linebreak: append("\u{2028}", looks)
-        case .emph(let children): inside(children) { $0.italic = true }
-        case .strong(let children): inside(children) { $0.bold = true }
-        case .strikethrough(let children): inside(children) { $0.struck = true }
-        case .underline(let children): inside(children) { $0.underlined = true }
-        case .highlight(let children): inside(children) { $0.marked = true }
-        case .superscript(let children): inside(children) { $0.shift = 1 }
-        case .subscriptText(let children): inside(children) { $0.shift = -1 }
-        case .spoileredText(let children): inside(children) { $0.hidden = true }
-        case .code(let literal):
-            var code = looks
-            code.code = true
-            append(literal, code)
-        case .link(let url, _, let children): inside(children) { $0.link = URL(string: url) }
-        case .wikilink(let url, let children): inside(children) { $0.link = ShownText.link(to: url, tag: false) }
-        case .hashtag(let value):
-            var tag = looks
-            tag.link = ShownText.link(to: value, tag: true)
-            append("#" + value, tag)
-        case .embed(let url, _, _, _):
-            // An image is shown as the words for it, and without any as its file. The image
-            // itself is not shown yet
-            let alt = plainText(node)
-            append("[\(alt.isEmpty ? url : alt)]", looks)
-        case .footnoteReference(let name, _, _):
-            var raised = looks
-            raised.shift = 1
-            append("[\(footnoteLabel(name))]", raised)
-        case .shortcode(_, let emoji): append(emoji, looks)
-        case .math(let literal), .htmlInline(let literal): append(literal, looks)
-        case .unknown(_, let children): inside(children)
-        case .document, .paragraph, .heading, .codeBlock, .blockQuote, .multilineBlockQuote, .list, .item,
-            .taskItem, .table, .tableRow, .tableCell, .thematicBreak, .htmlBlock, .footnoteDefinition, .alert,
-            .subtext:
-            // A block inside a line: only its letters
-            append(plainText(node), looks)
-        }
+        let natural = picture.size
+        let zoom = size / NSFont.systemFontSize
+        var width = shown.width.map { Double($0) * zoom }
+        var height = shown.height.map { Double($0) * zoom }
+        if width == nil, height == nil { width = min(natural.width, Self.imageWidth * zoom) }
+        if let w = width, height == nil { height = w * natural.height / natural.width }
+        if let h = height, width == nil { width = h * natural.width / natural.height }
+        let attachment = NSTextAttachment()
+        attachment.image = picture
+        attachment.bounds = CGRect(x: 0, y: 0, width: width ?? natural.width, height: height ?? natural.height)
+        let drawn = NSMutableAttributedString(attachment: attachment)
+        drawn.addAttribute(.paragraphStyle, value: paragraphStyle(line), range: NSRange(location: 0, length: drawn.length))
+        text.append(drawn)
     }
 
-    private mutating func append(_ letters: String, _ looks: Looks, style: NSParagraphStyle? = nil) {
+    /// Letters with the looks and the link of their piece.
+    private mutating func append(_ letters: String, _ piece: ShownPiece, _ line: Line) {
         if letters.isEmpty { return }
-        let scale = heading > 0 ? Row.headingScales[min(heading, 5) - 1] : 1
-        let points = size * scale * (looks.shift == 0 ? 1 : 0.75)
+        let looks = piece.looks
+        let shifted = looks.contains(.raised) || looks.contains(.lowered)
+        let scale = line.heading > 0 ? Row.headingScales[min(line.heading, 5) - 1] : 1
+        let points = size * scale * (shifted ? 0.75 : 1)
         var font =
-            looks.code
+            looks.contains(.code)
             ? NSFont.monospacedSystemFont(ofSize: points, weight: .regular)
-            : NSFont.systemFont(ofSize: points, weight: heading > 0 || looks.bold ? .bold : .regular)
-        if looks.italic { font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) }
+            : NSFont.systemFont(ofSize: points, weight: line.heading > 0 || looks.contains(.bold) ? .bold : .regular)
+        if looks.contains(.italic) { font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) }
         var attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: quoted > 0 ? Self.quotedColor : NSColor.labelColor,
-            .paragraphStyle: style ?? paragraphStyle(),
+            .foregroundColor: line.quoted > 0 ? Self.quotedColor : NSColor.labelColor,
+            .paragraphStyle: line.style ?? paragraphStyle(line),
         ]
-        if looks.struck { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
-        if looks.underlined { attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue }
-        if looks.marked { attributes[.backgroundColor] = Self.markedColor }
-        if looks.hidden { attributes[.backgroundColor] = Self.hiddenColor }
-        if looks.shift != 0 { attributes[.baselineOffset] = looks.shift > 0 ? size * 0.35 : -size * 0.15 }
-        if let link = looks.link {
-            attributes[.link] = link
+        if looks.contains(.struck) { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
+        if looks.contains(.underlined) { attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue }
+        if looks.contains(.marked) { attributes[.backgroundColor] = Self.markedColor }
+        if looks.contains(.hidden) { attributes[.backgroundColor] = Self.hiddenColor }
+        if looks.contains(.raised) { attributes[.baselineOffset] = size * 0.35 }
+        if looks.contains(.lowered) { attributes[.baselineOffset] = -size * 0.15 }
+        if let link = piece.link, let address = URL(string: link, relativeTo: ShownText.base)?.absoluteURL {
+            attributes[.link] = address
             attributes[.foregroundColor] = Self.linkColor
         }
         text.append(NSAttributedString(string: letters, attributes: attributes))
     }
 
     /// Lists and quotes move their lines to the right.
-    private func paragraphStyle() -> NSParagraphStyle {
+    private func paragraphStyle(_ line: Line) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
-        let indent = CGFloat(depth + quoted) * size * 1.5
+        let indent = CGFloat(line.depth + line.quoted) * size * 1.5
         style.firstLineHeadIndent = indent
         style.headIndent = indent
         return style
     }
-}
-
-/// The text that a reader sees for a footnote. An inline footnote has a name that the parser
-/// made (`__inline_1`), so its number is shown instead.
-private func footnoteLabel(_ name: String) -> String {
-    name.hasPrefix("__inline_") ? String(name.dropFirst("__inline_".count)) : name
-}
-
-/// What a link of a shown text leads to.
-public enum LinkTarget: Equatable {
-    /// The page of a wikilink, by its path.
-    case page(String)
-    /// The tag of a hashtag, by its name. Its page lies in the folder of the tags.
-    case tag(String)
-    /// An address outside the journal.
-    case out(URL)
 }
 
 /// The shown texts of a screen that were made already. A text is not made while SwiftUI
@@ -319,13 +214,23 @@ public final class ShownTexts: ObservableObject {
         let text: NSAttributedString
     }
 
+    private let shell: Shell
     private var made: [String: Made] = [:]
     /// Counts up whenever the rows are to be drawn again. A row is handed this number: SwiftUI
     /// draws a row again only when what it is given changes.
     public private(set) var changes = 0
     private var wanted: [String: (ast: Node, zoom: Double)] = [:]
+    private var arrivals: AnyCancellable?
 
-    public init() {}
+    /// The texts of the items of the page that `shell` has open.
+    public init(shell: Shell) {
+        self.shell = shell
+        // An image that has come is drawn in the texts that waited for it
+        arrivals = shell.images.$arrived.dropFirst().sink { [weak self] _ in
+            self?.made = [:]
+            self?.redraw()
+        }
+    }
 
     /// The text of the item with this AST, when it was made already.
     public func text(of itemId: String, ast: Node, zoom: Double) -> NSAttributedString? {
@@ -343,7 +248,8 @@ public final class ShownTexts: ObservableObject {
             objectWillChange.send()
             changes += 1
             for (id, asked) in wanted {
-                made[id] = Made(ast: asked.ast, zoom: asked.zoom, text: ShownText.of(asked.ast, zoom: asked.zoom))
+                let text = ShownText.of(shell.shownBlocks(asked.ast), zoom: asked.zoom, image: shell.images.image)
+                made[id] = Made(ast: asked.ast, zoom: asked.zoom, text: text)
             }
             wanted = [:]
         }

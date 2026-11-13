@@ -27,6 +27,8 @@ public final class Shell: ObservableObject {
     /// another app is to open starts with it.
     private let server: String
     private let browse: (URL) -> Void
+    /// The images of the pages, from the journal server.
+    public let images: AssetImages
 
     /// Starts a core for the journal server at `server` and opens what `url` names, or nothing
     /// when there is no URL: a page is then to be searched for. `clipboard`
@@ -56,6 +58,7 @@ public final class Shell: ObservableObject {
         self.copy = copy
         self.server = server
         self.browse = browse
+        images = AssetImages(server: server)
         view = Shell.must { try border.view() }
         title = view.title
         inbox.shell = self
@@ -68,20 +71,38 @@ public final class Shell: ObservableObject {
         self.url = url
     }
 
-    /// The user clicked a link of a shown item. Every link opens in the browser: a wikilink
-    /// and a hashtag open their page in the web frontend, which the journal server serves.
-    /// The sticky keeps its page.
-    public func follow(_ link: URL) {
-        switch ShownText.target(of: link) {
-        case .page(let path): browse(wikilinkUrl(appUrl: server, page: path))
-        case .tag(let name): browse(hashtagUrl(appUrl: server, tagsDir: view.config.tagsDir, tag: name))
-        case .out(let address): browse(address)
+    /// The user clicked a link of a shown item. A link to a page, and to the page of a tag,
+    /// opens the page in this window. With Shift held it opens the page in the browser: the
+    /// journal server serves the web frontend too. A link out of the journal, and to a file of
+    /// the assets folder, opens in the browser.
+    public func follow(_ link: URL, inBrowser: Bool = false) {
+        switch LinkTarget(of: link) {
+        case .page(let url):
+            if inBrowser {
+                // The address keeps the encoding of the link
+                browse(server + link.absoluteString.dropFirst(ShownText.base.absoluteString.count - 1))
+            } else {
+                open(url)
+            }
+        case .web(let address): browse(address)
+        case .file(let path): if let address = images.address(of: path) { browse(address) }
         case nil: break
         }
     }
 
     private func browse(_ address: String) {
         if let url = URL(string: address) { browse(url) }
+    }
+
+    /// The parts of an item as it is shown, with the links to pages and tags that the core
+    /// writes.
+    public func shownBlocks(_ ast: Node) -> [ShownBlock] {
+        let tagsDir = view.config.tagsDir
+        return PetaShown.shownBlocks(
+            ast: ast,
+            links: PageLinks(
+                page: { wikilinkUrl(appUrl: "", page: $0) },
+                tag: { hashtagUrl(appUrl: "", tagsDir: tagsDir, tag: $0) }))
     }
 
     /// The window was scrolled: the row at `top` is the first that can be seen, and the rows

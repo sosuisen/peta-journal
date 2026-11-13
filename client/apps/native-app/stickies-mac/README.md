@@ -42,12 +42,12 @@ swift test
 ```
 
 `generate.sh` builds the Rust library optimized (`boltffi pack apple --release`; without the
-flag BoltFFI makes a debug build, which is about twice as slow). It makes two Swift packages
-under `generated/`. Run it again after a change in Rust.
-`generated/` is not kept in the repository.
+flag BoltFFI makes a debug build, which is about twice as slow). It makes two Swift packages.
+Run it again after a change in Rust. Neither is kept in the repository.
 
-- `generated/swift/PetaTypes`: the types that cross the border, generated from the Rust types
-  (`Event`, `ViewModel`, `Request`, ...).
+- `../peta-shown/generated/swift/PetaTypes`: the types that cross the border, generated from the
+  Rust types (`Event`, `ViewModel`, `Request`, ...). They are in the package that this app
+  shares with the iOS app: SwiftPM takes a package of one name from one place only.
 - `generated/PetaCore`: the core as a static library (`PetaCore.xcframework`), and the Swift
   class `PetaCore` that calls it. BoltFFI makes both, from `client/libs/client-shell-http/src/ffi.rs`
   and `boltffi.toml` next to it.
@@ -66,9 +66,12 @@ under `generated/`. Run it again after a change in Rust.
   thread, in order.
 
 - `ShownText` makes the text of an item as it is to be shown: with its decoration, not as
-  Markdown. It reads the AST that the core gives with each row (`Row.ast`, ADR 041) and makes
-  text with attributes of it. A `switch` takes every kind of node, so a kind that the AST gets
-  later stops the build until it is drawn.
+  Markdown. `../peta-shown` reads the AST that the core gives with each row (`Row.ast`, ADR
+  041) into parts, as for the iOS app, and this makes text with attributes of the parts: a
+  table in boxes of the text, an image of the assets folder as a picture in the text.
+- `AssetImages` reads the images of the assets folder from the journal server, which serves the
+  folder at `/assets/`. A text that is made before its image has come shows the words for the
+  image, and is made again when the image is there.
 - `ShownTexts` keeps the texts that were made, for one screen. macOS makes such a text on the
   main thread only, and not while SwiftUI draws: a row asks for its text, shows the body of the
   item meanwhile, and is drawn again when the text is there.
@@ -137,11 +140,12 @@ when the cursor leaves it, the shell tells the core that the edit is over (`Shel
 as the web frontend does, and the item shows its decoration again. The marks before the text
 (the bullet, the box of a task) are drawn by the screen, not taken from the AST.
 
-A click on a link of an item that shows its decoration opens it in the browser
-(`Shell.follow`). A wikilink opens its page, and a hashtag the page of the tag in the folder of
-the tags, in the web frontend at the address of the journal server; the sticky keeps its page.
-Any other link opens as it is. Such a click does not put the
-cursor in the item. A click beside the links does, and the item shows its Markdown.
+A click on a link of an item that shows its decoration follows it (`Shell.follow`). A wikilink
+opens its page in the sticky, and a hashtag the page of the tag in the folder of the tags. With
+Shift held, the page opens in the browser instead, in the web frontend at the address of the
+journal server, and the sticky keeps its page. A link out of the journal, and a link to a file of
+the assets folder, open in the browser. Such a click does not put the cursor in the item. A click
+beside the links does, and the item shows its Markdown.
 
 A journal (`/today`, `/journals/2026-11-11`) shows the days before below the day that was
 opened. Above the first item of each earlier day there is a line and the date of that day. The
