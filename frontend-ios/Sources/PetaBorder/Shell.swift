@@ -187,6 +187,13 @@ public final class Shell: ObservableObject {
         change(.enterPressed(itemId: itemId, cursor: UInt64(cursor), nowMs: now()))
     }
 
+    /// The user pressed Backspace at the start of the item. The core joins the item to the one
+    /// before it, and the edit goes on there, where the two texts meet. Nothing happens in the
+    /// first item of a page.
+    public func backspaceAtStart(_ itemId: String) {
+        change(.backspaceAtStart(itemId: itemId))
+    }
+
     /// The user left the editor of the item: what was typed is saved.
     public func finish(_ itemId: String) {
         send(.editFinished(itemId: itemId))
