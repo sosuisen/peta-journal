@@ -28,6 +28,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import net.sosuisen.petajournal.screen.BULLET_TAG
+import net.sosuisen.petajournal.screen.EDITOR_TAG
+import net.sosuisen.petajournal.screen.JournalScreen
+import net.sosuisen.petajournal.screen.SEARCH_TAG
+import net.sosuisen.petajournal.shell.Shell
 import net.sosuisen.petajournal.sync.Change
 import net.sosuisen.petajournal.sync.Changes
 import net.sosuisen.petajournal.sync.Cloud

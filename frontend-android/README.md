@@ -142,7 +142,18 @@ that are not uploaded yet stay, and go up to the account of the new sign-in.
 
 ## The code
 
-`app/src/main/kotlin/net/sosuisen/petajournal`:
+`app/src/main/kotlin/net/sosuisen/petajournal` has four packages. A package uses only the
+ones below it in this list.
+
+- The package itself: `MainActivity` and `JournalModel`, which put the others together.
+- `screen`: what is drawn. `JournalScreen` is the whole screen. `Outline` is a page and its
+  rows, `ItemEditor` the field of the item that is edited, and `Tools` the row above the
+  keyboard. `Blocks` and `ImageBlock` draw the parts of an item, which `ShownText` makes.
+  `SyncViews` shows where the sync stands.
+- `shell`: `Shell` and `Border`, between the screen and the core.
+- `sync` and `dropbox`: the sync with the cloud.
+
+What each class does:
 
 - `Border` is the core behind its border of bytes. The rest of the shell works with the
   generated types and never with bytes.

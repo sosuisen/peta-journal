@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import net.sosuisen.petajournal.dropbox.DropboxAccount
+import net.sosuisen.petajournal.shell.Shell
 import net.sosuisen.petajournal.sync.CloudRecord
 import net.sosuisen.petajournal.sync.CloudSync
 import net.sosuisen.petajournal.sync.Downloader

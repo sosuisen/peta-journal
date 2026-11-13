@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.core.content.FileProvider
+import net.sosuisen.petajournal.screen.JournalScreen
 import java.io.File
 
 class MainActivity : ComponentActivity() {

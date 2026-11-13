@@ -1,4 +1,4 @@
-package net.sosuisen.petajournal
+package net.sosuisen.petajournal.screen
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.ext.junit.runners.AndroidJUnit4
