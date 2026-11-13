@@ -309,6 +309,13 @@ private struct Outline: View {
             .onChange(of: focus?.seq) {
                 if let focus { list.scrollTo(focus.itemId) }
             }
+            // The keyboard and the tools take room from the page. The item that is edited
+            // may be under them then, and it is brought back to what is seen
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { _ in
+                guard let edited = shell.view.outline.rows.first(where: \.isEditing)?.item.id else { return }
+                // Not now: the page is being laid out
+                DispatchQueue.main.async { list.scrollTo(edited) }
+            }
         }
     }
 

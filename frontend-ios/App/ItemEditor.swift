@@ -30,6 +30,14 @@ struct ItemEditor: UIViewRepresentable {
         // A finger shows no place in the Markdown: the cursor is at the end, where the
         // writing goes on
         field.selectedRange = NSRange(location: field.text.utf16.count, length: 0)
+        // A field that comes back to the screen goes on where the one before it was
+        if let left = Typist.left, left.itemId == row.item.id {
+            field.selectedRange = NSRange(location: min(left.cursor, field.text.utf16.count), length: 0)
+            // It takes the keyboard without a new request of the core: the core asked for
+            // the keyboard once, for the field that left
+            context.coordinator.taken = false
+        }
+        Typist.left = nil
         return field
     }
 
@@ -48,11 +56,17 @@ struct ItemEditor: UIViewRepresentable {
             field.selectedRange = NSRange(location: cursor, length: 0)
             field.invalidateIntrinsicContentSize()
         }
-        guard let asked = shell.view.outline.focusRequest, asked.itemId == id, asked.seq != typist.answered else { return }
-        typist.answered = asked.seq
-        if asked.seq != shell.touched, let cursor = asked.cursor {
-            field.selectedRange = NSRange(location: units(field.text, characters: Int(cursor)), length: 0)
+        if let asked = shell.view.outline.focusRequest, asked.itemId == id, asked.seq != typist.answered {
+            typist.answered = asked.seq
+            typist.taken = false
+            if asked.seq != shell.touched, let cursor = asked.cursor {
+                field.selectedRange = NSRange(location: units(field.text, characters: Int(cursor)), length: 0)
+            }
         }
+        // The list drops the field of an item that leaves what is seen, as when the keyboard
+        // comes up over it, and makes a new one when the item is back
+        guard !typist.taken else { return }
+        typist.taken = true
         field.takeTheKeyboard()
         // Not now: the field tells the shell of the text, and the screen is being drawn
         DispatchQueue.main.async { typist.typeWhatWasHeld(into: field) }
@@ -67,6 +81,9 @@ struct ItemEditor: UIViewRepresentable {
     /// A field that takes the keyboard as soon as it is on the screen.
     final class Field: UITextView {
         private var wanted = false
+        /// True when the field left the screen with the keyboard. The user did not end the
+        /// edit then.
+        fileprivate private(set) var left = false
 
         func takeTheKeyboard() {
             wanted = true
@@ -82,7 +99,12 @@ struct ItemEditor: UIViewRepresentable {
             // The field leaves the screen with the keyboard, as after Enter: the field of the
             // new item is not there yet. Nobody would have the keyboard, and what is typed
             // meanwhile would be lost
-            if next == nil, isFirstResponder { KeyboardKeeper.onScreen?.keep() }
+            if next == nil, isFirstResponder {
+                left = true
+                let typist = delegate as? Typist
+                typist?.leaves(at: selectedRange.location)
+                KeyboardKeeper.onScreen?.keep { typist?.nobodyCame() }
+            }
             super.willMove(toWindow: next)
         }
     }
@@ -96,6 +118,22 @@ struct ItemEditor: UIViewRepresentable {
         var answered: UInt64?
         /// True while the field tells the core of its text.
         fileprivate(set) var telling = false
+        /// False while the field has still to take the keyboard.
+        var taken = true
+
+        /// Where the cursor was in the field that left the screen with the keyboard, and of
+        /// which item the field was.
+        fileprivate static var left: (itemId: String, cursor: Int)?
+
+        fileprivate func leaves(at cursor: Int) {
+            Typist.left = (itemId, cursor)
+        }
+
+        /// No field took the keyboard after the field of this item left the screen. The edit
+        /// of the item ends, when the core has not ended or moved it by itself.
+        fileprivate func nobodyCame() {
+            if shell.view.outline.rows.first(where: \.isEditing)?.item.id == itemId { shell.finish(itemId) }
+        }
 
         init(shell: Shell) {
             self.shell = shell
@@ -170,6 +208,9 @@ struct ItemEditor: UIViewRepresentable {
         }
 
         func textViewDidEndEditing(_ field: UITextView) {
+            // A field that left the screen did not end the edit: the keeper has the keyboard
+            // for the field that comes next
+            if (field as? Field)?.left == true { return }
             let id = itemId
             // The field may lose the keyboard while the screen is drawn, and the shell tells
             // the screen of every change
@@ -222,7 +263,11 @@ final class KeyboardKeeper: UITextView, UITextViewDelegate {
         fatalError("not made from a file")
     }
 
-    fileprivate func keep() {
+    /// What is done when no field took the keyboard in time.
+    private var nobodyCame: (() -> Void)?
+
+    fileprivate func keep(nobodyCame: @escaping () -> Void) {
+        self.nobodyCame = nobodyCame
         becomeFirstResponder()
         // No field came, as when the item that is edited was scrolled off the screen: the
         // keyboard goes, and what was typed for nobody with it
@@ -230,6 +275,8 @@ final class KeyboardKeeper: UITextView, UITextViewDelegate {
             guard let self, self.isFirstResponder else { return }
             ItemEditor.Typist.held = ""
             self.resignFirstResponder()
+            self.nobodyCame?()
+            self.nobodyCame = nil
         }
     }
 
