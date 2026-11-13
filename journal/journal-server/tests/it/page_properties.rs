@@ -36,3 +36,37 @@ fn a_page_made_from_a_file_has_the_properties_of_its_front_matter_and_writes_the
     b.edit(&page, "edited on B");
     assert!(b.file(PAGE).contains("slug: my-page\n"));
 }
+
+// 新しいファイルにないプロパティは、ページから消える。
+#[test]
+fn a_property_missing_from_a_newer_file_goes_from_the_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.set_page_property(&page, "slug", "text", "my-page");
+    b.receive(&a, PAGE);
+    a.state.page_service.delete_property(&page, "slug").unwrap();
+
+    b.receive(&a, PAGE);
+
+    assert_eq!(b.page_property(&page, "slug"), None);
+}
+
+// ページより古いファイルは、ページのプロパティを変えない。
+#[test]
+fn an_older_file_leaves_the_properties_of_the_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.set_page_property(&page, "slug", "text", "from-a");
+    b.receive(&a, PAGE);
+    a.edit(&page, "edited on A");
+    a.export();
+    b.set_page_property(&page, "slug", "text", "from-b");
+    b.set_page_property(&page, "author", "text", "b");
+
+    b.receive(&a, PAGE);
+
+    assert_eq!(b.page_property(&page, "slug").as_deref(), Some("from-b"));
+    assert_eq!(b.page_property(&page, "author").as_deref(), Some("b"));
+}
