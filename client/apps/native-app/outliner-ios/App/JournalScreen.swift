@@ -98,7 +98,7 @@ struct JournalScreen: View {
                     .textInputAutocapitalization(.never)
                     .accessibilityIdentifier("search")
                 Button(action: shell.today) {
-                    Image(systemName: "book.closed").frame(width: 44, height: 44)
+                    TodayIcon().frame(width: 24, height: 24).frame(width: 44, height: 44)
                 }
                 .accessibilityLabel("Today")
             }
@@ -234,6 +234,31 @@ private struct SyncMenu: View {
 
 /// A link named a page that is not there. The page is made only when the user asks for it
 /// here (ADR 031).
+/// The icon of today of the web frontend: a book with a ribbon. SF Symbols has no such book,
+/// so it is drawn here, with the lines of the Android shell (`TodayButton`).
+private struct TodayIcon: View {
+    var body: some View {
+        Canvas { context, size in
+            // The icon is drawn in a square of 24 units
+            let unit = size.width / 24
+            func line(_ fromX: CGFloat, _ fromY: CGFloat, _ toX: CGFloat, _ toY: CGFloat, width: CGFloat) {
+                var path = Path()
+                path.move(to: CGPoint(x: fromX * unit, y: fromY * unit))
+                path.addLine(to: CGPoint(x: toX * unit, y: toY * unit))
+                context.stroke(path, with: .foreground, lineWidth: width * unit)
+            }
+            let cover = CGRect(x: 3 * unit, y: 1 * unit, width: 16 * unit, height: 20 * unit)
+            context.stroke(
+                Path(roundedRect: cover, cornerRadius: 1.5 * unit), with: .foreground, lineWidth: 2 * unit)
+            line(3, 13, 19, 13, width: 1)
+            line(3, 17, 19, 17, width: 1)
+            line(14, 2, 14, 20, width: 3)
+            let ribbon = CGRect(x: 5 * unit, y: 21 * unit, width: 3 * unit, height: 2 * unit)
+            context.fill(Path(ribbon), with: .foreground)
+        }
+    }
+}
+
 private struct MissingPage: View {
     let name: String
     let onMake: () -> Void
