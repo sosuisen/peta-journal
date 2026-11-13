@@ -39,8 +39,16 @@ internal sealed class RowModel(Row row)
 /// </summary>
 internal sealed class RowView : Grid
 {
-    /// <summary>The size of the usual text, at a zoom of 1.</summary>
-    public const double FontSize = 14;
+    /// <summary>
+    /// The size of the usual text, at a zoom of 1. The SwiftUI frontend has the same size.
+    /// </summary>
+    public const double FontSize = 13;
+
+    /// <summary>
+    /// How much room there is between two items, at a zoom of 1. The SwiftUI frontend has
+    /// about the same: its list puts this room around each row.
+    /// </summary>
+    private const double RowGap = 8;
 
     /// <summary>How high a line is, in sizes of its font.</summary>
     private const double LineHeight = 1.34;
@@ -171,6 +179,9 @@ internal sealed class RowView : Grid
     private Shell Shell => window.Shell;
     private double Zoom => window.Look.Zoom;
 
+    /// <summary>The room above an item and below it: half of the room between two items.</summary>
+    private double HalfGap => Math.Round(RowGap / 2 * Zoom);
+
     /// <summary>The Markdown in the editor, with the line breaks of the core.</summary>
     private string Markdown => editor.Text.Replace("\r\n", "\n").Replace('\r', '\n');
 
@@ -207,6 +218,10 @@ internal sealed class RowView : Grid
             return;
         Margin = new Thickness(row.IndentPx * Zoom, 0, 0, 0);
         Background = row.IsSelected ? Chosen : null;
+        // The room is inside the paper, and not around the row: a click between two items
+        // still puts the cursor in one, and the color of chosen items has no holes
+        paper.Padding = new Thickness(0, HalfGap, 0, HalfGap);
+        editor.Margin = new Thickness(0, HalfGap, 0, HalfGap);
         DrawHeader(row);
         DrawMarks(row);
         // The editor with the cursor is Markdown at once, before the core counts its item as
@@ -273,7 +288,7 @@ internal sealed class RowView : Grid
             };
             marks.Children.Add(box);
         }
-        marks.Margin = new Thickness(0, 0, 4 * Zoom, 0);
+        marks.Margin = new Thickness(0, HalfGap, 4 * Zoom, HalfGap);
     }
 
     /// <summary>
