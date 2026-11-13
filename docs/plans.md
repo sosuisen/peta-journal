@@ -346,8 +346,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [ ] 同期のコールアウトを、画面の下端ではなく、上端に出す（2026-11-13にユーザーが決めた）。Androidのシェルも同じにする
   - 入力は、いちばん下の行ですることが多い。下端のコールアウトは、打っている行に重なる（2026-11-13にユーザーがiPhoneで見た）
 - [ ] iOSのシェルを、本物のDropboxで確かめる（ADR 034）。App keyを`client/apps/native-app/outliner-ios/Dropbox.xcconfig`に置き、サインイン、最初の同期、編集のあとのアップロード、サインアウトを見る。シミュレーターでは、ブラウザーでのサインインになる
-- [ ] iOSのシェルを、実機で確かめる。日本語の入力、後ろに回ったときの同期を見る
-  - Dropboxのアプリでのサインインは、通った（2026-11-13にユーザーがiPhoneで確かめた）。Dropboxのアプリの登録にTeam Scope（`team_data.member`）があると、「Mobile authorization does not support team authorized scopes.」で失敗する。外すと通る（`client/apps/native-app/outliner-ios/README.md`）
 - [ ] iOSのシェルの、同期の表示（メニュー、前面の同期のダイアログ、下の吹き出し、サインインのボタン）に、画面のテストを書く。今は、テストの中のアプリは同期をしない
 - [ ] Swiftのフォーマッターとlintを足す（2026-11-13にユーザーが決めた）。`client/apps/native-app/outliner-ios`と`client/apps/native-app/stickies-mac`には、まだどちらもない。道具を決め、設定をリポジトリに置く
 
