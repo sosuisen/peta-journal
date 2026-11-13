@@ -160,6 +160,13 @@ class Shell(
      */
     fun enter(itemId: String, cursor: Int) = change(Event.EnterPressed(itemId, cursor.toULong(), now()))
 
+    /**
+     * The user pressed Backspace at the start of the item. The core joins the item to the one
+     * before it, and the edit goes on there, where the two texts meet. Nothing happens in the
+     * first item of a page.
+     */
+    fun backspaceAtStart(itemId: String) = change(Event.BackspaceAtStart(itemId))
+
     /** The user left the editor of the item: what was typed is saved. */
     fun finish(itemId: String) = send(Event.EditFinished(itemId))
 

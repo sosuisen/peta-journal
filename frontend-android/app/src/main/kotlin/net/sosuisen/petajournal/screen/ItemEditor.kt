@@ -12,6 +12,11 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.TextFieldValue
@@ -69,6 +74,14 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         modifier = modifier
+            // Backspace at the start changes nothing in the field, so the field tells of no
+            // change: the key itself is heard. The core joins the item to the one before
+            .onPreviewKeyEvent { pressed ->
+                val atStart = field.selection == TextRange.Zero && field.composition == null
+                val joins = pressed.key == Key.Backspace && atStart
+                if (joins && pressed.type == KeyEventType.KeyDown) shell.backspaceAtStart(id)
+                joins
+            }
             .focusRequester(focus)
             .onFocusChanged {
                 if (focused && !it.isFocused) shell.finish(id)
