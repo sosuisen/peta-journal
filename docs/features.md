@@ -807,7 +807,7 @@
 
 ### 付箋紙アプリでページを読む
 
-出典: `client/apps/webview-app/memoview-win/stickies-tests/*.cs`
+出典: `client/apps/webview-app/memoview-win/memoview-tests/*.cs`
 
 - 項目は、ページの順に1行ずつ出る
   - 折りたたまれた項目の子孫は出ない

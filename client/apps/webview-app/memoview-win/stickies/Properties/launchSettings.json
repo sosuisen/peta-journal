@@ -1,9 +1,0 @@
-{
-  "profiles": {
-    "Stickies": {
-      "commandName": "Project",
-      "nativeDebugging": false,
-      "jsWebView2Debugging": true
-    }
-  }
-}

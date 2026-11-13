@@ -76,7 +76,7 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  stickies:
+  memoview-win:
     name: client/apps/webview-app/memoview-win
     # The app is WinUI. It builds only on Windows, with the MSBuild of Visual Studio
     runs-on: windows-latest
@@ -91,7 +91,7 @@ jobs:
       # from the current folder upward.
       # The analyzers run in both builds below. Their settings are in Directory.Build.props
       - run: dotnet test
-        working-directory: client/apps/webview-app/memoview-win/stickies-tests
+        working-directory: client/apps/webview-app/memoview-win/memoview-tests
       # The tests compile only the files without WinUI. The build shows what breaks in the rest
       - uses: microsoft/setup-msbuild@v3
-      - run: msbuild client/apps/webview-app/memoview-win/stickies/Stickies.csproj -restore -p:Platform=x64 -nologo -v:m
+      - run: msbuild client/apps/webview-app/memoview-win/memoview/MemoView.csproj -restore -p:Platform=x64 -nologo -v:m
