@@ -48,6 +48,9 @@ pub fn to_url(url: impl Into<String>, replace: bool) -> Cmd {
     .into()
 }
 
-pub fn set_title(title: impl Into<String>) -> Cmd {
-    Command::notify_shell(UiOp::SetTitle(title.into())).into()
+/// Names what is open. The shell hears of the name, and the view model keeps it for the title
+/// of a window (`ViewModel::title`).
+pub fn set_title(model: &mut Model, title: impl Into<String>) -> Cmd {
+    model.title = title.into();
+    Command::notify_shell(UiOp::SetTitle(model.title.clone())).into()
 }

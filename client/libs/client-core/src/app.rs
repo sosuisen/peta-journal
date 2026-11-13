@@ -940,6 +940,8 @@ pub struct Model {
     pub move_queue: VecDeque<(String, MoveDirection)>,
     pub screen: Screen,
     pub current_page: Option<Page>,
+    /// The name the core last gave to what is open; see `screens::navigate::set_title`.
+    pub title: String,
     pub recent_pages: Vec<Page>,
     pub sidebar: SidebarState,
     pub search: SearchState,
@@ -978,6 +980,7 @@ impl Default for Model {
             move_queue: VecDeque::new(),
             screen: Screen::None,
             current_page: None,
+            title: String::new(),
             recent_pages: Vec::new(),
             sidebar: SidebarState::default(),
             search: SearchState::default(),

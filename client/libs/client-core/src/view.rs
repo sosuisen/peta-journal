@@ -338,6 +338,10 @@ pub struct ViewModel {
     pub config: ConfigView,
     pub connection: ConnectionState,
     pub today: String,
+    /// The name of what is open, for the title of a window. For a journal it is the date of
+    /// the day at the top, with "(Today)" behind the date of today. For anything else it is
+    /// the name the core last gave with `UiOp::SetTitle`, which a browser shows on its tab.
+    pub title: String,
 }
 
 pub fn build(model: &Model) -> ViewModel {
@@ -379,6 +383,10 @@ pub fn build(model: &Model) -> ViewModel {
         },
         connection: model.connection,
         today: model.today.clone(),
+        title: match &model.screen {
+            Screen::Journal(j) => journal::window_title(j, &model.today),
+            _ => model.title.clone(),
+        },
     }
 }
 

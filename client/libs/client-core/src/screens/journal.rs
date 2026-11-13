@@ -89,7 +89,7 @@ fn show_journal(model: &mut Model, date: String, title: String, loaded: PageWith
         model.state.set_transcluded_trees(trees);
     }
     let mut cmds = vec![
-        navigate::set_title(title),
+        navigate::set_title(model, title),
         sidebar::set_current_page(model, Some(loaded.page)),
         page::scroll_to_item(model, focus_item_id),
     ];
@@ -321,10 +321,25 @@ pub fn edit_moved_item(model: &mut Model, item_id: &str) -> Cmd {
 
 /// The header text: the date of the top visible item, or the journal's own date.
 pub fn display_date(j: &JournalState) -> String {
-    let d = if j.top_visible_date.is_empty() {
+    format_journal_date(shown_date(j))
+}
+
+/// The title of a window that shows the journal: the header text, with "(Today)" behind the
+/// date of today. A window has no other place that says which day is today.
+pub fn window_title(j: &JournalState, today: &str) -> String {
+    let date = display_date(j);
+    if shown_date(j) == today {
+        format!("{date} (Today)")
+    } else {
+        date
+    }
+}
+
+/// The date of the top visible item, or the journal's own date.
+fn shown_date(j: &JournalState) -> &str {
+    if j.top_visible_date.is_empty() {
         &j.current_date
     } else {
         &j.top_visible_date
-    };
-    format_journal_date(d)
+    }
 }

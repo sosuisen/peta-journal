@@ -111,7 +111,7 @@ pub fn show_page(model: &mut Model, page: Page, created: bool) -> Cmd {
     }
     ps.page = Some(page.clone());
     let mut cmds = vec![
-        navigate::set_title(full_page_title(&page)),
+        navigate::set_title(model, full_page_title(&page)),
         sidebar::set_current_page(model, Some(page.clone())),
         load_backlinks(page.id),
     ];
@@ -374,7 +374,7 @@ pub fn show_title_saved(model: &mut Model, updated: Page) -> Cmd {
         ps.page_name = canonical.clone();
     }
     Command::all([
-        navigate::set_title(title),
+        navigate::set_title(model, title),
         sidebar::refresh_recent_pages(),
         navigate::replace_page(&canonical),
     ])
