@@ -204,12 +204,17 @@ and both stand in the middle of the first line of the text. A click on it steps 
 of the task, as the key does: open, running, done, and then no task any more.
 
 Each window is a sticky with a page of its own. Its title bar shows the name of the page, and
-the tools of the sticky at the right. The tools are hidden while the window does not have the
-focus. The button with the plus, or Command+N, opens
-another sticky. The app ends when the last one is closed.
+the tools of the sticky at the right. The search tool, and the buttons that close, minimize
+and zoom the window, are hidden while the window does not have the focus: the bar is left to
+the name.
+
+The button with the plus, or Command+N, opens another sticky. The button is always there:
+also while the window does not have the focus, and while the sticky is rolled up. One click
+is enough on a window without the focus. The app ends when the last one is closed.
 
 A right click on the title bar shows a menu with the pin and the colors. It is there also
-while the sticky is rolled up. The pin and the color of the sticky are checked.
+while the sticky is rolled up. A right click on an item that is not edited shows the same
+menu. The item that is edited has the menu of its text: cut, copy and paste. The pin and the color of the sticky are checked.
 
 The menu gives the sticky another color: yellow, red, green, blue, orange,
 purple, white, gray or light gray. They are the colors of the cards of Petasti.
@@ -218,7 +223,7 @@ A sticky is light in every color, also when the Mac is in dark mode.
 A double click on the title bar rolls the sticky up, so that only its title bar is left, and
 another one rolls it down again to the size it had. A double click on the name in the title
 bar does the same: it does not zoom the window. The window moves in steps, as the Stickies of
-macOS do. A sticky that is rolled up shows no tools, and no buttons that close, minimize or
+macOS do. A sticky that is rolled up shows no search tool, and no buttons that close, minimize or
 zoom the window. A sticky that is rolled up comes back rolled up in the next run.
 
 "Keep on Top" in the menu keeps the sticky on top of the windows of other apps, until it is

@@ -164,6 +164,14 @@ internal sealed class RowView : Grid
             Edit(int.MaxValue);
         };
 
+        // A right click on an item that is not edited shows the menu of the sticky. The item
+        // that is edited has the menu of its text box: cut, copy and paste
+        paper.RightTapped += (_, e) =>
+        {
+            e.Handled = true;
+            window.ShowMenu(e.GetPosition(null));
+        };
+
         SetColumnSpan(header, 2);
         SetRow(marks, 1);
         SetRow(paper, 1);

@@ -52,7 +52,7 @@ internal sealed class StickyWindow : Window
     private readonly TextBlock name = new()
     {
         VerticalAlignment = VerticalAlignment.Center,
-        Margin = new Thickness(12, 0, 8, 0),
+        Margin = new Thickness(4, 0, 8, 0),
         FontFamily = RowView.TextFont,
         FontSize = 12,
         Foreground = Ink,
@@ -268,29 +268,37 @@ internal sealed class StickyWindow : Window
         root.RowDefinitions.Add(new RowDefinition());
 
         var bar = new Grid();
+        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         bar.ColumnDefinitions.Add(new ColumnDefinition());
         bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        // A new sticky is one click away from every sticky: one without the focus, and one
+        // that is rolled up. So this button is not among the tools, which are hidden then.
+        // It answers when it is pressed, and does not wait for the mouse button to come up
+        var add = Tool("\uE710", "New sticky (Ctrl+N)", () => desk.Add());
+        add.ClickMode = ClickMode.Press;
+        add.Margin = new Thickness(4, 0, 0, 0);
+        bar.Children.Add(add);
         // The window is moved by this part of the bar. The tools beside it take their clicks
         var grip = new Border { Background = Clear, Child = name };
+        Grid.SetColumn(grip, 1);
         bar.Children.Add(grip);
         SetTitleBar(grip);
         tools.Children.Add(Tool("\uE721", "Search pages (Ctrl+F)", ToggleSearch));
-        tools.Children.Add(Tool("\uE710", "New sticky (Ctrl+N)", () => desk.Add()));
-        Grid.SetColumn(tools, 1);
+        Grid.SetColumn(tools, 2);
         bar.Children.Add(tools);
 
-        windowButtons.Children.Add(Tool("", "Minimize", Minimize, WindowGlyphSize));
+        windowButtons.Children.Add(Tool("\uE921", "Minimize", Minimize, WindowGlyphSize));
         var enlarge = Tool("", "Maximize", ToggleMaximized);
         enlarge.Content = large;
         windowButtons.Children.Add(enlarge);
-        var close = Tool("", "Close", CloseByButton, WindowGlyphSize);
+        var close = Tool("\uE8BB", "Close", CloseByButton, WindowGlyphSize);
         close.Resources["ButtonBackgroundPointerOver"] = CloseRed;
         close.Resources["ButtonBackgroundPressed"] = CloseRed;
         close.Resources["ButtonForegroundPointerOver"] = White;
         close.Resources["ButtonForegroundPressed"] = White;
         windowButtons.Children.Add(close);
-        Grid.SetColumn(windowButtons, 2);
+        Grid.SetColumn(windowButtons, 3);
         bar.Children.Add(windowButtons);
 
         Grid.SetRow(status, 1);
@@ -622,13 +630,21 @@ internal sealed class StickyWindow : Window
 
     private void TogglePin() => Look.AlwaysOnTop = !Look.AlwaysOnTop;
 
+    /// <summary>Shows the menu of the sticky where the mouse is on the title bar.</summary>
+    /// <param name="screen">Where the mouse is, in pixels of the screen.</param>
+    private void ShowMenu(Native.Point screen)
+    {
+        Native.ScreenToClient(handle, ref screen);
+        ShowMenu(new Windows.Foundation.Point(screen.X / Scale, screen.Y / Scale));
+    }
+
     /// <summary>
-    /// Shows the menu of the title bar: the pin, and the colors. The pin and the color of the
+    /// Shows the menu of the sticky: the pin, and the colors. The pin and the color of the
     /// sticky are checked. They are not tools of the bar: they would leave little of it to
     /// the name of a narrow sticky.
     /// </summary>
-    /// <param name="screen">Where the mouse is, in pixels of the screen.</param>
-    private void ShowMenu(Native.Point screen)
+    /// <param name="place">Where the mouse is in the window.</param>
+    public void ShowMenu(Windows.Foundation.Point place)
     {
         var menu = new MenuFlyout();
         var pin = new ToggleMenuFlyoutItem { Text = "Keep on top", IsChecked = Look.AlwaysOnTop };
@@ -646,8 +662,6 @@ internal sealed class StickyWindow : Window
             color.Click += (_, _) => Look.Color = hex;
             menu.Items.Add(color);
         }
-        Native.ScreenToClient(handle, ref screen);
-        var place = new Windows.Foundation.Point(screen.X / Scale, screen.Y / Scale);
         menu.ShowAt(
             root,
             new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = place }
@@ -873,15 +887,16 @@ internal sealed class StickyWindow : Window
     }
 
     /// <summary>
-    /// The tools are for the sticky that is worked on. On the others they are only in the way
-    /// of the paper, and a sticky that is rolled up has no paper to work on.
+    /// The tools and the buttons of the window are for the sticky that is worked on. On the
+    /// others they are only in the way of the name, and a sticky that is rolled up has no
+    /// paper to work on: a double click rolls it down. The button for a new sticky stays.
     /// </summary>
     private void ShowTools()
     {
-        tools.Visibility = hasFocus && !RolledUp ? Visibility.Visible : Visibility.Collapsed;
-        // A sticky that is rolled up is only its name: a double click rolls it down
-        windowButtons.Visibility = RolledUp ? Visibility.Collapsed : Visibility.Visible;
-        large.Glyph = Maximized ? "" : "";
+        var shown = hasFocus && !RolledUp ? Visibility.Visible : Visibility.Collapsed;
+        tools.Visibility = shown;
+        windowButtons.Visibility = shown;
+        large.Glyph = Maximized ? "\uE923" : "\uE922";
     }
 
     /// <summary>
