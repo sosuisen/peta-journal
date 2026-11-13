@@ -364,13 +364,6 @@
 - [ ] iOSのシェルの、同期の表示（メニュー、前面の同期のダイアログ、下の吹き出し、サインインのボタン）に、画面のテストを書く。今は、テストの中のアプリは同期をしない
 - [ ] Swiftのフォーマッターとlintを足す（2026-11-13にユーザーが決めた）。`frontend-ios`と`frontend-swiftui`には、まだどちらもない。道具を決め、設定をリポジトリに置く
 
-## フロントエンドのクレートのリファクタ
-
-- [ ] クレートの分割と改名（ADR 036、ADR 037）のあとの、SwiftUIとiOSのビルドとテストを、Macで確かめる
-  - 分割と改名は、2026-11-13に済んだ（PR #417から#424）。Windowsでできる確認は、すべて通った。残るのは、Macが要る確認だけである
-  - SwiftUI: `frontend-swiftui/generate.sh`は、`client-shell-http`のフォルダーで`boltffi pack apple`を呼ぶようにした
-  - iOS: `frontend-ios/generate.sh`は、`client-shell-embedded`のフォルダーで`boltffi pack apple`を呼ぶようにした
-
 ## リポジトリの構成
 
 - [ ] フロントエンドの置き場を再検討する（ユーザーが足した、2026-11-11）
