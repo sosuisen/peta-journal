@@ -1,5 +1,5 @@
 # How BoltFFI packs this crate for the shells in other languages. Run `boltffi pack apple` in
-# this folder; ../../../frontend-swiftui/README.md has the whole build.
+# this folder; ../../apps/native-app/stickies-mac/README.md has the whole build.
 
 [package]
 name = "client-shell-http"
@@ -7,7 +7,7 @@ crate = "client_shell_http"
 
 # The SwiftUI shell runs on macOS only (ADR 024), so nothing is built for iOS
 [targets.apple]
-output = "../../../frontend-swiftui/generated/PetaCore"
+output = "../../apps/native-app/stickies-mac/generated/PetaCore"
 include_macos = true
 ios_architectures = []
 simulator_architectures = []
@@ -25,11 +25,11 @@ package_name = "PetaCore"
 layout = "ffi-only"
 
 # The WinUI shell (ADR 028). Run `boltffi pack csharp --release` in this folder;
-# ../../../frontend-winui/README.md has the whole build.
+# ../../apps/native-app/stickies-win/README.md has the whole build.
 [targets.csharp]
 enabled = true
-output = "../../../frontend-winui/generated/PetaCore"
-package_output = "../../../frontend-winui/generated/packages"
+output = "../../apps/native-app/stickies-win/generated/PetaCore"
+package_output = "../../apps/native-app/stickies-win/generated/packages"
 namespace = "PetaCore"
 module_class = "PetaNative"
 package_id = "PetaCore"

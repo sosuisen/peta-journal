@@ -4,7 +4,7 @@
 $ErrorActionPreference = 'Stop'
 
 $here = $PSScriptRoot
-$rust = Join-Path $here '../frontend-rust'
+$rust = Join-Path $here '../../..'
 
 if (Test-Path "$here/generated") { Remove-Item "$here/generated" -Recurse -Force }
 
@@ -19,7 +19,7 @@ finally { Pop-Location }
 # the app, and Gradle would compile the script as one of them
 Remove-Item "$here/generated/kotlin/build.gradle.kts"
 
-Push-Location (Join-Path $rust 'crates/client-shell-embedded')
+Push-Location (Join-Path $rust 'libs/client-shell-embedded')
 try {
     boltffi pack android --release
     exit $LASTEXITCODE

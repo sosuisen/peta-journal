@@ -4,7 +4,7 @@
 $ErrorActionPreference = 'Stop'
 
 $here = $PSScriptRoot
-$rust = Join-Path $here '../frontend-rust'
+$rust = Join-Path $here '../../..'
 
 if (Test-Path "$here/generated") { Remove-Item "$here/generated" -Recurse -Force }
 
@@ -20,7 +20,7 @@ try {
 }
 finally { Pop-Location }
 
-Push-Location (Join-Path $rust 'crates/client-shell-http')
+Push-Location (Join-Path $rust 'libs/client-shell-http')
 try {
     boltffi pack csharp --release
     exit $LASTEXITCODE

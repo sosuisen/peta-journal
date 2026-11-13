@@ -5,7 +5,7 @@
 ;; Starts a real journal server in a temporary folder and drives the real shell with real keys.
 ;; It runs what the other tests cannot: runtime.rs, the JSON lines and the save to the server.
 ;;
-;; Build both programs first, then run from crates/client-shell-emacs:
+;; Build both programs first, then run from client/apps/emacs/outliner:
 ;;   emacs -Q --batch -L lisp -l lisp/test/peta-journal-e2e.el -f ert-run-tests-batch-and-exit
 ;;
 ;; PETA_E2E_SERVER is the journal-server program.  The tests are skipped when it is missing.
@@ -37,7 +37,7 @@
 
 (defun peta-journal-e2e--shell-program ()
   "The shell built from this repository, or nil."
-  (let ((target (expand-file-name "../../../../target/debug/" peta-journal-e2e--here)))
+  (let ((target (expand-file-name "../../../../../target/debug/" peta-journal-e2e--here)))
     (seq-find #'file-executable-p
               (list (expand-file-name "client-shell-emacs.exe" target)
                     (expand-file-name "client-shell-emacs" target)))))

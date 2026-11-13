@@ -8,7 +8,7 @@ description = "PetaJournal: the requests of the frontend core, performed by a jo
 [dependencies]
 client-core = { path = "../client-core" }
 # Without the extension functions by default: rquickjs has no ready bindings for Android
-journal-core = { path = "../../../journal-server-rust/crates/core", default-features = false }
+journal-core = { path = "../../../journal/journal-core", default-features = false }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

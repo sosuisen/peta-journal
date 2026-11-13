@@ -5,7 +5,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
-/// An item as the server returns it (`presentation/dto.rs` in journal-server-rust).
+/// An item as the server returns it (`presentation/dto.rs` in journal/journal-server).
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

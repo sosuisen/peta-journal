@@ -29,7 +29,7 @@ cov = [
 # server started without cargo does not see this: it takes `--frontend-dir`, or the
 # `frontend/` folder beside its executable.
 [env]
-PETAJOURNAL_FRONTEND_DIR = { value = "../frontend-rust/crates/client-shell-leptos/dist", relative = true }
+PETAJOURNAL_FRONTEND_DIR = { value = "../client/apps/web-app/outliner/dist", relative = true }
 
 # rust-lld links much faster than the MSVC link.exe, and it comes with the Rust toolchain.
 # Every test run and every mutant waits for the link of the server and its test binaries.

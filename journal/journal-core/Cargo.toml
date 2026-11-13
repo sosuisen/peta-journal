@@ -13,7 +13,7 @@ extensions = ["dep:rquickjs"]
 
 [dependencies]
 hmtid = { path = "../hmtid" }
-peta-atlas = { path = "../../../atlas" }
+peta-atlas = { path = "../../atlas" }
 flatmarkdown = "=0.7.0"
 
 # Extension functions

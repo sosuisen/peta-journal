@@ -8,7 +8,7 @@ The shards live under target/mutants-shards/ of the main checkout, also when thi
 runs from another worktree. They stay there, with a build directory each, so the next run
 builds only what changed. `cargo clean` removes them; the next run makes them again.
 
-Usage, from journal-server-rust:
+Usage, from journal:
 
     git diff --relative main...HEAD > /tmp/pr.diff
     python -I scripts/mutants-parallel.py --in-diff /tmp/pr.diff

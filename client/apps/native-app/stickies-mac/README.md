@@ -1,11 +1,11 @@
-# SwiftUI frontend (frontend-swiftui)
+# SwiftUI frontend (stickies-mac)
 
 The SwiftUI shell of PetaJournal for macOS. The app is named PetaStickies: each window is a
 sticky that shows one page. It is a Walking Skeleton so far (ADR 024): a page is searched for
 and opened in a sticky, its items are shown as an outline and can be edited, and the stickies
 are kept between runs. The keys of the outline work as in the web frontend (see "Keys" below).
 
-The core is the same Crux core as in the web and the Emacs frontends. `frontend-rust/crates/client-native-bridge`
+The core is the same Crux core as in the web and the Emacs frontends. `client/libs/client-native-bridge`
 wraps it for a shell that is not written in Rust. Calls to the journal server, timers and the
 clock stay in Rust. Swift gets the view model and the requests of the screen as bytes (bincode),
 and sends events and answers the same way.
@@ -25,7 +25,7 @@ and sends events and answers the same way.
   ```
 
   The version has to be the same as the `boltffi` dependency in
-  `frontend-rust/crates/client-shell-http/Cargo.toml`.
+  `client/libs/client-shell-http/Cargo.toml`.
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) 2.46.0. It makes the Xcode project of the
   app from `project.yml`:
 
@@ -36,7 +36,7 @@ and sends events and answers the same way.
 ## Build and test
 
 ```
-cd peta-journal/frontend-swiftui
+cd peta-journal/client/apps/native-app/stickies-mac
 ./generate.sh     # makes generated/ from the Rust crates
 swift test
 ```
@@ -49,7 +49,7 @@ under `generated/`. Run it again after a change in Rust.
 - `generated/swift/PetaTypes`: the types that cross the border, generated from the Rust types
   (`Event`, `ViewModel`, `Request`, ...).
 - `generated/PetaCore`: the core as a static library (`PetaCore.xcframework`), and the Swift
-  class `PetaCore` that calls it. BoltFFI makes both, from `frontend-rust/crates/client-shell-http/src/ffi.rs`
+  class `PetaCore` that calls it. BoltFFI makes both, from `client/libs/client-shell-http/src/ffi.rs`
   and `boltffi.toml` next to it.
 
 `Sources/PetaBorder` is hand-written. It has no SwiftUI in it, so `swift test` can test it:
@@ -82,7 +82,7 @@ The app needs a running journal server (see `BUILD.md` at the top of the reposit
 starts the new one. What follows its own options goes to the app:
 
 ```
-cd peta-journal/frontend-swiftui
+cd peta-journal/client/apps/native-app/stickies-mac
 ./run.sh -url /pages/notes     # --generate first makes generated/ again, after a change in Rust
 ./run.sh --help
 ```
@@ -90,7 +90,7 @@ cd peta-journal/frontend-swiftui
 By hand, the steps are:
 
 ```
-cd peta-journal/frontend-swiftui
+cd peta-journal/client/apps/native-app/stickies-mac
 ./generate.sh
 xcodegen generate     # makes PetaStickies.xcodeproj from project.yml
 xcodebuild -project PetaStickies.xcodeproj -scheme PetaStickies -derivedDataPath build build
@@ -250,10 +250,10 @@ model, the requests) and that Rust reads what Swift writes (events, answers).
 the server, and the questions of the core are answered. They are skipped unless `PETA_E2E_SERVER` names the server program:
 
 ```
-cd peta-journal/journal-server-rust
+cd peta-journal/journal
 cargo build --release
-cd ../frontend-swiftui
-PETA_E2E_SERVER=$PWD/../journal-server-rust/target/release/journal-server swift test
+cd ../client/apps/native-app/stickies-mac
+PETA_E2E_SERVER=$PWD/../../../../journal/target/release/journal-server swift test
 ```
 
 `OutlineScreenTests` put the screen in a window and give its editors the text and the keys as
@@ -266,7 +266,7 @@ with items that have decoration, a jump of one screen and the cursor going to an
 prints the times and fails on none of them. Run it optimized, and alone:
 
 ```
-PETA_E2E_SERVER=$PWD/../journal-server-rust/target/release/journal-server \
+PETA_E2E_SERVER=$PWD/../../../../journal/target/release/journal-server \
   swift test -c release -Xswiftc -enable-testing --filter TypingSpeed
 ```
 

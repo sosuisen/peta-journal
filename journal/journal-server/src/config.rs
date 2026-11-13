@@ -67,7 +67,7 @@ pub struct Cli {
     pub export_overwrite_wait: u64,
 
     /// Allowed CORS origins, comma separated. The web frontend needs none: the server serves
-    /// it from its own origin. The default is the dev server of ext-web-app/todo
+    /// it from its own origin. The default is the dev server of client/apps/web-app/todo
     #[arg(
         long,
         env = "PETAJOURNAL_CORS_ORIGINS",

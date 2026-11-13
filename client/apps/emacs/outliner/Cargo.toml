@@ -10,9 +10,9 @@ name = "client-shell-emacs"
 path = "src/main.rs"
 
 [dependencies]
-client-core = { path = "../client-core" }
+client-core = { path = "../../../libs/client-core" }
 crux_core = "=0.20.0"
 serde = { workspace = true }
 serde_json = { workspace = true }
-client-api-http = { path = "../client-api-http" }
+client-api-http = { path = "../../../libs/client-api-http" }
 chrono = "0.4.45"

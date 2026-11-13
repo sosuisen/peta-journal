@@ -1,5 +1,5 @@
 <Project>
-  <!-- Settings for every project under ext-desktop-app: the app and its tests. -->
+  <!-- Settings for every project under memoview-win: the app and its tests. -->
   <PropertyGroup>
     <!-- The analyzers of the .NET SDK, with the rules that Microsoft recommends. -->
     <AnalysisLevel>latest-recommended</AnalysisLevel>

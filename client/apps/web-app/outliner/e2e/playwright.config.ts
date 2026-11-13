@@ -14,7 +14,7 @@ export const serverPort = 8187;
 export const dataDir = mkdtempSync(join(tmpdir(), 'peta-journal-e2e-'));
 /** The markdown folder the test server exports to. Lives inside `dataDir`, never the user's. */
 export const markdownDir = join(dataDir, 'markdown');
-const shellDir = resolve(__dirname, '../frontend-rust/crates/client-shell-leptos');
+const shellDir = resolve(__dirname, '..');
 /** Not `dist`: that folder belongs to the developer's own server, which may be reading it now. */
 const frontendDir = resolve(shellDir, 'dist-e2e');
 
@@ -38,7 +38,7 @@ function frontendBuildCommand(): string {
   return `trunk build --dist ${JSON.stringify(frontendDir)}`;
 }
 
-const serverDir = resolve(__dirname, '../journal-server-rust');
+const serverDir = resolve(__dirname, '../../../../../journal');
 
 /**
  * Builds the server. Without this the tests ran against whatever binary was there: on

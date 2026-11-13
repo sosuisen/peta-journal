@@ -1,13 +1,13 @@
-# WinUI frontend (frontend-winui)
+# WinUI frontend (stickies-win)
 
 The WinUI shell of PetaJournal for Windows. The app is named PetaStickies: each window is a
-sticky that shows one page. It does what the SwiftUI shell does (`frontend-swiftui`): a page is
+sticky that shows one page. It does what the SwiftUI shell does (`stickies-mac`): a page is
 searched for and opened in a sticky, its items are shown as an outline and can be edited, and
 the stickies are kept between runs. The keys of the outline work as in the web frontend (see
 "Keys" below).
 
 The core is the same Crux core as in the web, the Emacs and the SwiftUI frontends.
-`frontend-rust/crates/client-native-bridge` wraps it for a shell that is not written in Rust. Calls to
+`client/libs/client-native-bridge` wraps it for a shell that is not written in Rust. Calls to
 the journal server, timers and the clock stay in Rust. C# gets the view model and the requests
 of the screen as bytes (bincode), and sends events and answers the same way. ADR 028 says why
 the shell is made this way.
@@ -25,12 +25,12 @@ the shell is made this way.
   ```
 
   The version has to be the same as the `boltffi` dependency in
-  `frontend-rust/crates/client-shell-http/Cargo.toml`.
+  `client/libs/client-shell-http/Cargo.toml`.
 
 ## Build and test
 
 ```
-cd peta-journal/frontend-winui
+cd peta-journal/client/apps/native-app/stickies-win
 ./generate.ps1     # makes generated/ from the Rust crates
 dotnet test PetaBorder.Tests
 ```
@@ -46,7 +46,7 @@ kept in the repository.
   them. Crux brings an older version, whose C# does not compile (ADR 028).
 - `generated/PetaCore`: the C# class `PetaCore` that calls the core, and the core as a library
   (`client_shell_http.dll`). BoltFFI makes both, from
-  `frontend-rust/crates/client-shell-http/src/ffi.rs` and `boltffi.toml` next to it.
+  `client/libs/client-shell-http/src/ffi.rs` and `boltffi.toml` next to it.
 
 `PetaBorder` is hand-written. It has no WinUI in it, so `dotnet test` can test it:
 
@@ -76,7 +76,7 @@ The app needs a running journal server (see `BUILD.md` at the top of the reposit
 follows its own option goes to the app:
 
 ```
-cd peta-journal/frontend-winui
+cd peta-journal/client/apps/native-app/stickies-win
 ./run.ps1 -url /pages/notes     # -Generate first makes generated/ again, after a change in Rust
 ./run.sh -url /pages/notes      # the same in Git Bash; --generate, --debug, --help
 ```
@@ -84,7 +84,7 @@ cd peta-journal/frontend-winui
 By hand, the steps are:
 
 ```
-cd peta-journal/frontend-winui
+cd peta-journal/client/apps/native-app/stickies-win
 ./generate.ps1
 dotnet build PetaStickies -c Release
 PetaStickies/bin/Release/net10.0-windows10.0.22621.0/win-x64/PetaStickies.exe
@@ -239,10 +239,10 @@ on the server, and the questions of the core are answered. They are skipped unle
 `PETA_E2E_SERVER` names the server program:
 
 ```
-cd peta-journal/journal-server-rust
+cd peta-journal/journal
 cargo build --release
-cd ../frontend-winui
-$env:PETA_E2E_SERVER = "$PWD/../journal-server-rust/target/release/journal-server.exe"
+cd ../client/apps/native-app/stickies-win
+$env:PETA_E2E_SERVER = "$PWD/../../../../journal/target/release/journal-server.exe"
 dotnet test PetaBorder.Tests
 ```
 

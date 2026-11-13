@@ -1,5 +1,5 @@
 <Project>
-  <!-- Settings for the hand-written projects under frontend-winui. The projects under
+  <!-- Settings for the hand-written projects under stickies-win. The projects under
        generated/ are made by tools, and their code is not held to these rules. -->
   <PropertyGroup Condition="!$(MSBuildProjectDirectory.Contains('generated'))">
     <!-- The analyzers of the .NET SDK, with the rules that Microsoft recommends. -->

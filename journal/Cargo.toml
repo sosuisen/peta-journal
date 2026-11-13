@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/hmtid", "crates/core", "crates/server"]
+members = ["hmtid", "journal-core", "journal-server"]
 
 [workspace.package]
 version = "1.0.0"

@@ -14,7 +14,7 @@ crux_core = "=0.20.0"
 serde = { workspace = true, features = ["rc"] }
 serde_json = { workspace = true }
 flatmarkdown-ast = { workspace = true }
-hmtid = { path = "../../../journal-server-rust/crates/hmtid" }
+hmtid = { path = "../../../journal/hmtid" }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 futures = "0.3"
 percent-encoding = "2.3.2"

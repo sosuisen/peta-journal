@@ -4,7 +4,7 @@
 # Run it again after a change in Rust. It is generate.ps1 for Git Bash.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
-rust="$here/../frontend-rust"
+rust="$here/../../.."
 
 rm -rf "$here/generated"
 
@@ -15,4 +15,4 @@ PATH="$linker:$PATH"
 export PATH
 
 (cd "$rust" && cargo run -p client-native-bridge --features facet_typegen --bin codegen -- csharp "$here/generated")
-(cd "$rust/crates/client-shell-http" && boltffi pack csharp --release)
+(cd "$rust/libs/client-shell-http" && boltffi pack csharp --release)

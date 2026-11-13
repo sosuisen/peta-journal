@@ -4,12 +4,12 @@
 # the simulator and for the Mac. Run it again after a change in Rust.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
-rust="$here/../frontend-rust"
+rust="$here/../../.."
 
 rm -rf "$here/generated"
 (cd "$rust" && cargo run -p client-native-bridge --features facet_typegen --bin codegen -- swift "$here/generated")
 # The oldest systems the app runs on, as in Package.swift. Rust builds for iOS 10 by default,
 # and the C code of SQLite and zstd then asks for what only iOS 13 and later have
 # (`___chkstk_darwin`): the library for a device does not link
-(cd "$rust/crates/client-shell-embedded" &&
+(cd "$rust/libs/client-shell-embedded" &&
     IPHONEOS_DEPLOYMENT_TARGET=17.0 MACOSX_DEPLOYMENT_TARGET=14.0 boltffi pack apple --release)

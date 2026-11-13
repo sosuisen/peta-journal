@@ -49,7 +49,7 @@ Director
 fn template_server() -> &'static TestServer {
     server_with(|config_dir| {
         let source =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../ext-functions/auto-template");
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../ext-functions/auto-template");
         let dir = config_dir.join("functions").join("auto-template");
         std::fs::create_dir_all(&dir).unwrap();
         for name in ["config.json", "main.js"] {

@@ -5,14 +5,14 @@
 # The files no test can run are skipped, as the coverage in .cargo/config.toml skips them and
 # for the same reason: they hand over to the OS.
 exclude_globs = [
-    "crates/server/src/main.rs",
-    "crates/server/src/application/folder_chooser.rs",
-    "crates/server/src/infrastructure/launcher.rs",
-    "crates/server/src/infrastructure/pending_delete_prompt.rs",
+    "journal-server/src/main.rs",
+    "journal-server/src/application/folder_chooser.rs",
+    "journal-server/src/infrastructure/launcher.rs",
+    "journal-server/src/infrastructure/pending_delete_prompt.rs",
     # The runtime of a build without the `extensions` feature (2026-11-11). The mutants run
     # with the default features, and that build does not compile this file. Its test runs
     # with `cargo test -p journal-core --no-default-features`.
-    "crates/core/src/application/extension_runtime/none.rs",
+    "journal-core/src/application/extension_runtime/none.rs",
 ]
 
 # Every mutant runs the tests of the whole workspace. By default a mutant runs the tests of

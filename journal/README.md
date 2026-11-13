@@ -1,9 +1,9 @@
-# journal-server-rust
+# journal
 
 The PetaJournal journal server in Rust: the same REST API, SSE stream and MCP tools as the
 Java server in `../journal-server`, on the same port (8087), over the same `journal.db`,
 `config.json` and markdown folder. It also serves the web frontend, the `dist/` folder of
-`../frontend-rust/crates/client-shell-leptos`, so the app opens at `http://localhost:8087`.
+`../client/apps/web-app/outliner`, so the app opens at `http://localhost:8087`.
 
 ```
 cargo build --release
@@ -13,9 +13,9 @@ cargo test
 
 | Crate | What it is |
 |---|---|
-| `crates/hmtid` | HMTID (human-readable monotonic timestamp identifier), a port of the `hmtid` npm package |
-| `crates/core` | `journal-core`, the library under the server (ADR 029): `domain/` (models, fractional index, hashtags), `application/` (page, item, journal and search use cases, extensions), `infrastructure/` (SQLite, tantivy search, markdown export/import/reconcile), `dto` (the answers as JSON). It does not depend on tokio or axum. Its `extensions` feature, on by default, runs the scripts of the extension functions with QuickJS; a build without it runs none |
-| `crates/server` | The server over `journal-core`: `presentation/` (REST, SSE, MCP, the files of the web frontend), the folder watcher, the periodic tasks, and what hands over to the OS (folder dialog, launcher) |
+| `hmtid` | HMTID (human-readable monotonic timestamp identifier), a port of the `hmtid` npm package |
+| `journal-core` | `journal-core`, the library under the server (ADR 029): `domain/` (models, fractional index, hashtags), `application/` (page, item, journal and search use cases, extensions), `infrastructure/` (SQLite, tantivy search, markdown export/import/reconcile), `dto` (the answers as JSON). It does not depend on tokio or axum. Its `extensions` feature, on by default, runs the scripts of the extension functions with QuickJS; a build without it runs none |
+| `journal-server` | The server over `journal-core`: `presentation/` (REST, SSE, MCP, the files of the web frontend), the folder watcher, the periodic tasks, and what hands over to the OS (folder dialog, launcher) |
 
 ## Client ID
 

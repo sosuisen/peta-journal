@@ -16,14 +16,14 @@ They talk in JSON lines over stdin and stdout. `src/protocol.rs` defines the mes
 Build the program:
 
 ```powershell
-cd peta-journal/frontend-rust
+cd peta-journal/client
 cargo build --release -p client-shell-emacs
 ```
 
 Add this to your Emacs init file:
 
 ```elisp
-(add-to-list 'load-path "<peta-journal>/frontend-rust/crates/client-shell-emacs/lisp")
+(add-to-list 'load-path "<peta-journal>/client/apps/emacs/outliner/lisp")
 (autoload 'peta-journal "peta-journal" nil t)
 ```
 
@@ -228,7 +228,7 @@ a buffer stops only its shell.
 
 If a buffer already shows the page, this command goes to that buffer. The other keys can still show
 one page in two buffers, and Emacs then warns you. Avoid this. Each buffer is a client of its own,
-so it shows what the other saves ([ADR 015](../../../docs/adr/adr-015-client-id-on-every-change-request.md)).
+so it shows what the other saves ([ADR 015](../../../../docs/adr/adr-015-client-id-on-every-change-request.md)).
 But a buffer waits for its own edit to end first. Edits of one item in two buffers could overwrite
 each other.
 
@@ -279,7 +279,7 @@ but not the E2E tests.
 The tests of the buffer run without a process:
 
 ```powershell
-cd peta-journal/frontend-rust/crates/client-shell-emacs
+cd peta-journal/client/apps/emacs/outliner
 emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit
 ```
 
@@ -290,7 +290,7 @@ server reports a markdown folder outside that temporary folder (see ADR-002). Th
 `PETA_E2E_SERVER` is not set.
 
 ```powershell
-$env:PETA_E2E_SERVER = "<peta-journal>\journal-server-rust\target\debug\journal-server.exe"
+$env:PETA_E2E_SERVER = "<peta-journal>\journal\target\debug\journal-server.exe"
 emacs -Q --batch -L lisp -L lisp/test -l lisp/test/peta-journal-e2e.el -f ert-run-tests-batch-and-exit
 ```
 

@@ -10,9 +10,9 @@ name = "client-shell-leptos"
 path = "src/main.rs"
 
 [dependencies]
-client-core = { path = "../client-core" }
-client-page-links = { path = "../client-page-links" }
-peta-atlas = { path = "../../../atlas", features = ["marks"] }
+client-core = { path = "../../../libs/client-core" }
+client-page-links = { path = "../../../libs/client-page-links" }
+peta-atlas = { path = "../../../../atlas", features = ["marks"] }
 flatmarkdown-ast = { workspace = true }
 flatmarkdown-ast2html = "=0.7.0"
 crux_core = "=0.20.0"

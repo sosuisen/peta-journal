@@ -1,12 +1,12 @@
-# iOS frontend (frontend-ios)
+# iOS frontend (outliner-ios)
 
 The iOS shell of PetaJournal, written in Swift with SwiftUI. It does what the Android shell
-does (`frontend-android`): it downloads the Markdown folder from Dropbox, a page is searched
+does (`outliner-android`): it downloads the Markdown folder from Dropbox, a page is searched
 for and opened, and its items are shown with their decoration. A touch on an item edits its
 Markdown, and the sync uploads the pages that changed in the app.
 
 The core is the same Crux core as in the other frontends. There is no journal server on a
-phone, so the journal core runs inside the app (ADR 029). `frontend-rust/crates/client-shell-embedded`
+phone, so the journal core runs inside the app (ADR 029). `client/libs/client-shell-embedded`
 wraps both, and is packed here for iOS as it is for Android. Swift gets the view model and the
 requests of the screen as bytes (bincode), and sends events the same way. ADR 034 says what
 the iOS shell takes from the Android shell and where it differs. ADR 030 and ADR 031 say how
@@ -25,12 +25,12 @@ the app syncs, where it keeps its data, how it edits and how it uploads.
   ```
 
   The version has to be the same as the `boltffi` dependency in
-  `frontend-rust/crates/client-shell-embedded/Cargo.toml`.
+  `client/libs/client-shell-embedded/Cargo.toml`.
 
 ## Build and test
 
 ```
-cd peta-journal/frontend-ios
+cd peta-journal/client/apps/native-app/outliner-ios
 ./generate.sh        # makes generated/ from the Rust crates
 swift test           # runs the tests that need no simulator, on the Mac
 ./run.sh --test      # runs the tests of the screen in a simulator

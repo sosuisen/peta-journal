@@ -1,4 +1,4 @@
-# Android frontend (frontend-android)
+# Android frontend (outliner-android)
 
 The Android shell of PetaJournal, written in Kotlin with Jetpack Compose. It downloads the
 Markdown folder from Dropbox, and a page is searched for and opened, with its items shown with
@@ -6,7 +6,7 @@ their decoration. A touch on an item edits its Markdown, and the sync uploads th
 changed in the app (ADR 031).
 
 The core is the same Crux core as in the other frontends. There is no journal server on a
-phone, so the journal core runs inside the app (ADR 029). `frontend-rust/crates/client-shell-embedded`
+phone, so the journal core runs inside the app (ADR 029). `client/libs/client-shell-embedded`
 wraps both for Kotlin. Kotlin gets the view model and the requests of the screen as bytes
 (bincode), and sends events the same way. ADR 030 says how the app syncs, where it keeps its
 data and how it draws an item. ADR 031 says how it edits and uploads.
@@ -24,12 +24,12 @@ data and how it draws an item. ADR 031 says how it edits and uploads.
   ```
 
   The version has to be the same as the `boltffi` dependency in
-  `frontend-rust/crates/client-shell-embedded/Cargo.toml`.
+  `client/libs/client-shell-embedded/Cargo.toml`.
 
 ## Build and test
 
 ```
-cd peta-journal/frontend-android
+cd peta-journal/client/apps/native-app/outliner-android
 ./generate.ps1                              # makes generated/ from the Rust crates
 ./gradlew :app:assembleDebug                # builds the app, without the sync
 ./gradlew :app:testDebugUnitTest            # runs the tests that need no device

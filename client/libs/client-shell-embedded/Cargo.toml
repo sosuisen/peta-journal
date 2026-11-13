@@ -12,7 +12,7 @@ crate-type = ["lib", "staticlib", "cdylib"]
 client-core = { path = "../client-core" }
 client-native-bridge = { path = "../client-native-bridge" }
 client-api-embedded = { path = "../client-api-embedded" }
-journal-core = { path = "../../../journal-server-rust/crates/core", default-features = false }
+journal-core = { path = "../../../journal/journal-core", default-features = false }
 boltffi = "=0.32.1"
 
 [dev-dependencies]

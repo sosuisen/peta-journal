@@ -11,7 +11,7 @@
 Stickies needs one JavaScript file to build and to run:
 
 ```
-ext-desktop-app\stickies\vendor\fm-ast2html-<version>.js
+client\apps\webview-app\memoview-win\stickies\vendor\fm-ast2html-<version>.js
 ```
 
 `<version>` is the value of `FmAst2HtmlVersion` in `Stickies.csproj`, for example `fm-ast2html-0.6.0.js`.
@@ -37,7 +37,7 @@ Use this way when the build machine has no internet connection.
 Replace `<version>` with the value of `FmAst2HtmlVersion` in `Stickies.csproj`.
 
 ```powershell
-cd ext-desktop-app\stickies
+cd client\apps\webview-app\memoview-win\stickies
 mkdir vendor
 curl.exe -L -o vendor\fm-ast2html-<version>.js https://unpkg.com/flatmarkdown-ast2html@<version>/dist/index.global.js
 ```
@@ -59,7 +59,7 @@ You can delete the old file in `vendor\`.
 Open **Developer PowerShell for VS 18**, then:
 
 ```powershell
-cd ext-desktop-app\stickies
+cd client\apps\webview-app\memoview-win\stickies
 msbuild Stickies.csproj -restore -p:Configuration=Debug -p:Platform=x64 -verbosity:minimal
 ```
 
@@ -72,10 +72,10 @@ Output: `bin\x64\Debug\net10.0-windows10.0.22621.0\Stickies.exe`
 
 ## Test
 
-The tests are in `ext-desktop-app\stickies-tests`. They need only the .NET 10 SDK.
+The tests are in `client\apps\webview-app\memoview-win\stickies-tests`. They need only the .NET 10 SDK.
 
 ```powershell
-cd ext-desktop-app\stickies-tests
+cd client\apps\webview-app\memoview-win\stickies-tests
 dotnet test
 ```
 
@@ -88,11 +88,11 @@ The script inside the WebView (`Web\page.js`) does not run in the tests. They on
 
 ## Format
 
-The formatter is [CSharpier](https://csharpier.com). It formats the C#, XAML and project files under `ext-desktop-app`.
-It is a local tool. Its version is in `ext-desktop-app\dotnet-tools.json`.
+The formatter is [CSharpier](https://csharpier.com). It formats the C#, XAML and project files under `client/apps/webview-app/memoview-win`.
+It is a local tool. Its version is in `client/apps/webview-app/memoview-win\dotnet-tools.json`.
 
 ```powershell
-cd ext-desktop-app
+cd client/apps/webview-app/memoview-win
 dotnet tool restore        # once, to install the tool
 dotnet csharpier format .  # format the files
 dotnet csharpier check .   # only check, as the CI does
@@ -105,13 +105,13 @@ Format after every change. The CI fails when a file is not formatted.
 The linter is the set of analyzers in the .NET SDK. There is nothing to install.
 The analyzers run in every build, of the app and of the tests. Their findings are warnings of the build.
 
-The settings are in `ext-desktop-app\Directory.Build.props`.
+The settings are in `client/apps/webview-app/memoview-win\Directory.Build.props`.
 
 - `AnalysisLevel` is `latest-recommended`: the rules that Microsoft recommends.
 - The null safety warnings of the compiler (CS86xx) are errors. They stop the build.
 - All other findings are warnings. They do not stop the build, so read the output of the build.
 
-The tests turn off one rule, CA1707, in `ext-desktop-app\stickies-tests\.editorconfig`. The file tells why.
+The tests turn off one rule, CA1707, in `client\apps\webview-app\memoview-win\stickies-tests\.editorconfig`. The file tells why.
 
 ## Settings
 

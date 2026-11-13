@@ -4,7 +4,7 @@
 # Run it again after a change in Rust. It needs ANDROID_NDK_HOME. It is generate.ps1 for Git Bash.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
-rust="$here/../frontend-rust"
+rust="$here/../../.."
 
 rm -rf "$here/generated"
 
@@ -14,4 +14,4 @@ rm -rf "$here/generated"
 # the app, and Gradle would compile the script as one of them
 rm "$here/generated/kotlin/build.gradle.kts"
 
-(cd "$rust/crates/client-shell-embedded" && boltffi pack android --release)
+(cd "$rust/libs/client-shell-embedded" && boltffi pack android --release)

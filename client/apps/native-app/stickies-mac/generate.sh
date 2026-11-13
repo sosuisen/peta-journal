@@ -3,8 +3,8 @@
 # (PetaTypes) and the core as a library (PetaCore). Run it again after a change in Rust.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
-rust="$here/../frontend-rust"
+rust="$here/../../.."
 
 rm -rf "$here/generated"
 (cd "$rust" && cargo run -p client-native-bridge --features facet_typegen --bin codegen -- swift "$here/generated")
-(cd "$rust/crates/client-shell-http" && boltffi pack apple --release)
+(cd "$rust/libs/client-shell-http" && boltffi pack apple --release)

@@ -1887,7 +1887,7 @@ A journal then loads the older days."
   (or peta-journal-shell-program
       (executable-find "client-shell-emacs")
       (let* ((here (file-name-directory (locate-library "peta-journal")))
-             (target (expand-file-name "../../../target/" here)))
+             (target (expand-file-name "../../../../target/" here)))
         (seq-find #'file-executable-p
                   (mapcan (lambda (profile)
                             (list (expand-file-name (concat profile "/client-shell-emacs.exe") target)
