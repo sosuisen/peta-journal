@@ -55,6 +55,8 @@ targets:
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1,2"
+        # The icon of the app, in App/Assets.xcassets. icon.sh makes its image
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # The core is built for arm64 only: a phone, and the simulator of a Mac with Apple silicon
         ARCHS: arm64
   PetaJournalUITests:
