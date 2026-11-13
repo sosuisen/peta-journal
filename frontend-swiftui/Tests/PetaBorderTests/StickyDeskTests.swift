@@ -381,8 +381,9 @@ final class StickyDeskTests: XCTestCase {
     }
 
     /// A right click as AppKit gives it to the window, on the first letter of the editor. The
-    /// menu that opens is closed at once, and its entries are the answer.
-    private func rightClick(on editor: NSTextView, of sticky: Sticky) throws -> [String] {
+    /// menu that opens is closed at once, and its entries are the answer. With `control` it is
+    /// a click of the left button while the Control key is down.
+    private func rightClick(on editor: NSTextView, of sticky: Sticky, control: Bool = false) throws -> [String] {
         let layout = try XCTUnwrap(editor.layoutManager)
         let container = try XCTUnwrap(editor.textContainer)
         let box = layout.boundingRect(forGlyphRange: NSRange(location: 0, length: 1), in: container)
@@ -399,16 +400,22 @@ final class StickyDeskTests: XCTestCase {
             RunLoop.main.perform(inModes: [.eventTracking, .default]) { menu.cancelTrackingWithoutAnimation() }
         }
         defer { NotificationCenter.default.removeObserver(opened) }
-        let click = try XCTUnwrap(
-            NSEvent.mouseEvent(
-                with: .rightMouseDown, location: place, modifierFlags: [], timestamp: 0,
-                windowNumber: sticky.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
-        sticky.window.sendEvent(click)
+        func mouse(_ type: NSEvent.EventType) throws -> NSEvent {
+            try XCTUnwrap(
+                NSEvent.mouseEvent(
+                    with: type, location: place, modifierFlags: control ? [.control] : [], timestamp: 0,
+                    windowNumber: sticky.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
+                    pressure: 1))
+        }
+        // A text view waits for the button to come up before it goes on
+        if control { NSApp.postEvent(try mouse(.leftMouseUp), atStart: false) }
+        sticky.window.sendEvent(try mouse(control ? .leftMouseDown : .rightMouseDown))
         return shown
     }
 
-    // 編集中でない項目を右クリックすると、付箋紙のメニューが出る。項目は編集に入らず、カーソルは元の項目に残る。
-    func testARightClickOnAnItemThatIsNotEditedShowsTheMenuOfTheStickyAndDoesNotEditTheItem() async throws {
+    /// A sticky with two items: the first is "bold text" with its decoration, and the cursor
+    /// is in the second, which is empty.
+    private func stickyWithABoldItemAndTheCursorInTheNext() async throws -> Sticky {
         let sticky = desk.add()
         sticky.shell.open("/pages/right-click")
         try await waitUntil("the editor of the item is there") { self.editors(of: sticky).count == 1 }
@@ -420,8 +427,25 @@ final class StickyDeskTests: XCTestCase {
             self.editors(of: sticky).count == 2 && sticky.window.firstResponder === self.editors(of: sticky)[1]
         }
         try await waitUntil("the first item is decorated") { self.editors(of: sticky)[0].string == "bold text" }
+        return sticky
+    }
+
+    // 編集中でない項目を右クリックすると、付箋紙のメニューが出る。項目は編集に入らず、カーソルは元の項目に残る。
+    func testARightClickOnAnItemThatIsNotEditedShowsTheMenuOfTheStickyAndDoesNotEditTheItem() async throws {
+        let sticky = try await stickyWithABoldItemAndTheCursorInTheNext()
 
         let shown = try rightClick(on: editors(of: sticky)[0], of: sticky)
+
+        XCTAssertEqual(shown.first, "Keep on Top")
+        XCTAssertEqual(editors(of: sticky)[0].string, "bold text")
+        XCTAssertTrue(sticky.window.firstResponder === editors(of: sticky)[1])
+    }
+
+    // 編集中でない項目を、Controlキーを押しながらクリックしても、付箋紙のメニューが出る。項目は編集に入らず、カーソルは元の項目に残る。
+    func testAControlClickOnAnItemThatIsNotEditedShowsTheMenuOfTheStickyAndDoesNotEditTheItem() async throws {
+        let sticky = try await stickyWithABoldItemAndTheCursorInTheNext()
+
+        let shown = try rightClick(on: editors(of: sticky)[0], of: sticky, control: true)
 
         XCTAssertEqual(shown.first, "Keep on Top")
         XCTAssertEqual(editors(of: sticky)[0].string, "bold text")

@@ -214,7 +214,8 @@ is enough on a window without the focus. The app ends when the last one is close
 
 A right click on the title bar shows a menu with the pin and the colors. It is there also
 while the sticky is rolled up. A right click on an item that is not edited shows the same
-menu. The item that is edited has the menu of its text: cut, copy and paste. The pin and the color of the sticky are checked.
+menu. The item that is edited has the menu of its text: cut, copy and paste. A click with the
+Control key down is a right click here too. The pin and the color of the sticky are checked.
 
 The menu gives the sticky another color: yellow, red, green, blue, orange,
 purple, white, gray or light gray. They are the colors of the cards of Petasti.
