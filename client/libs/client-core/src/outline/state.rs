@@ -25,6 +25,17 @@ pub struct FocusRequest {
     pub cursor: Option<usize>,
 }
 
+/// An order to put the cursor into the editor of an item, as the shell is asked to with
+/// `UiOp::FocusEditor`. A shell that draws from the view model alone finds the order here.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct FocusOrder {
+    /// Grows with every order, so the shell knows which one it already carried out.
+    pub number: u64,
+    /// The first editor on the page when None.
+    pub item_id: Option<String>,
+}
+
 #[derive(Debug, Default)]
 pub struct OutlineState {
     items: Vec<ItemRef>,
@@ -37,6 +48,7 @@ pub struct OutlineState {
     item_selection_mode: bool,
     focus_request: Option<FocusRequest>,
     focus_seq: u64,
+    focus_order: Option<FocusOrder>,
     transcluded_trees: HashMap<String, Vec<ItemRef>>,
 }
 
@@ -98,6 +110,10 @@ impl OutlineState {
 
     pub fn focus_request(&self) -> Option<&FocusRequest> {
         self.focus_request.as_ref()
+    }
+
+    pub fn focus_order(&self) -> Option<&FocusOrder> {
+        self.focus_order.as_ref()
     }
 
     pub fn is_collapsed(&self, item_id: &str) -> bool {
@@ -353,6 +369,15 @@ impl OutlineState {
             seq: self.focus_seq,
             item_id: item_id.to_string(),
             cursor,
+        });
+    }
+
+    /// Counts an order to focus the editor of an item. Goes with every `UiOp::FocusEditor`.
+    pub fn order_focus(&mut self, item_id: Option<&str>) {
+        let number = self.focus_order.as_ref().map_or(0, |order| order.number) + 1;
+        self.focus_order = Some(FocusOrder {
+            number,
+            item_id: item_id.map(str::to_string),
         });
     }
 

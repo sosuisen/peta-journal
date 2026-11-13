@@ -5,7 +5,9 @@
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{ItemPosition, PasteCursor, PasteMode, Pasted, Uploaded};
-use crate::ops::edit::{discard_pending_edit, mark_dirty, record_typing, show_parsed, typed_body};
+use crate::ops::edit::{
+    discard_pending_edit, focus_editor, mark_dirty, record_typing, show_parsed, typed_body,
+};
 use crate::ops::file_reload::replace_page;
 use crate::outline::tree::edit_context_of;
 use crate::outline::CursorState;
@@ -156,8 +158,7 @@ pub fn place_cursor(model: &mut Model, cursor: PasteCursor, fallback: PasteCurso
     model
         .state
         .set_focused_item(&cursor.item_id, Some(cursor.position));
-    let keys = model.key_relay.release();
-    run(move |api| async move { api.focus_editor(Some(cursor.item_id), keys).await })
+    focus_editor(model, Some(cursor.item_id))
 }
 
 /// Uploads a pasted image. Its link is pasted once the server has the image.

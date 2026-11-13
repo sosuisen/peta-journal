@@ -6,7 +6,7 @@ use crate::model::{
 };
 use crate::ops::wiki;
 use crate::outline::tree::starts_date_group;
-use crate::outline::{FocusRequest, Heading};
+use crate::outline::{FocusOrder, FocusRequest, Heading};
 use crate::screens::atlas::{self, Bounds};
 use crate::screens::{journal, page, sidebar};
 use crate::util::date::{format_instant, format_journal_date};
@@ -85,6 +85,8 @@ pub struct OutlineView {
     pub rows: Vec<Row>,
     pub selection_mode: bool,
     pub focus_request: Option<FocusRequest>,
+    /// The last order to focus an editor. The core also asks for it with `UiOp::FocusEditor`.
+    pub focus_order: Option<FocusOrder>,
     pub focused_item_id: Option<String>,
     pub key_relay_holding: bool,
     pub wiki: WikiView,
@@ -487,6 +489,7 @@ fn outline(model: &Model) -> OutlineView {
         rows,
         selection_mode: state.item_selection_mode(),
         focus_request: state.focus_request().cloned(),
+        focus_order: state.focus_order().cloned(),
         focused_item_id: state.focused_item_id().map(str::to_string),
         key_relay_holding: model.key_relay.is_holding(),
         wiki: WikiView {

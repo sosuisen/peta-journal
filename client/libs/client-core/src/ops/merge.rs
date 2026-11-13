@@ -179,6 +179,7 @@ pub fn show_merged(model: &mut Model, key: JoinKey, item_id: &str, merged: Item)
     model.state.add_editing_item(&merged.id);
     model.state.remove_editing_item(item_id);
     model.state.set_focused_item(&merged.id, Some(meet));
+    model.state.order_focus(Some(&merged.id));
     run(move |api| async move { api.focus_editor(Some(merged.id), keys).await })
 }
 
