@@ -57,63 +57,6 @@ public final class Shell: ObservableObject {
         inbox.shell = self
     }
 
-    // MARK: - Files
-
-    /// The file of an image of a page. `path` is its path under the Markdown folder, such as
-    /// `assets/picture.png`. `nil` when no download has brought it yet.
-    public func image(_ path: String) -> URL? {
-        guard let found = findWithoutCase(root: markdownDir, path: path) else { return nil }
-        var folder: ObjCBool = false
-        let there = FileManager.default.fileExists(atPath: found.path, isDirectory: &folder)
-        return there && !folder.boolValue ? found : nil
-    }
-
-    /// The user touched a link to a file of the assets folder. `path` is its path under the
-    /// Markdown folder. Answers with the file to open, or `nil` when it is not here.
-    public func attached(_ path: String) -> URL? {
-        let file = image(path)
-        missingFile = file == nil ? path : nil
-        return file
-    }
-
-    // MARK: - Taking in files
-
-    /// Takes in the files of the Markdown folder, after a download has changed them, and
-    /// writes the pages that changed in the app. It runs on a thread of its own: the first
-    /// sync of a large folder takes long. `then` is called on that thread when the core is
-    /// done, or at once when the app has closed.
-    public func sync(then: @escaping @Sendable () -> Void = {}) {
-        if closed { return then() }
-        syncing = true
-        worker.async { [border, weak self] in
-            border.sync()
-            then()
-            DispatchQueue.main.async {
-                MainActor.assumeIsolated {
-                    guard let self, !self.closed else { return }
-                    self.syncing = false
-                    self.show()
-                }
-            }
-        }
-    }
-
-    /// Does what `sync` does, and returns when the core is done. It is for the thread of a
-    /// sync with the cloud, which uploads what the core wrote. It must not be the main thread.
-    ///
-    /// A new app that waited for the sign-in opens its first screen after it: the download has
-    /// brought the journal of today, if Dropbox holds one.
-    public nonisolated func syncAndWait() {
-        let done = DispatchSemaphore(value: 0)
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated { self.sync { done.signal() } }
-        }
-        done.wait()
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated { if self.unopened, !self.closed { self.restore() } }
-        }
-    }
-
     // MARK: - Opening
 
     /// The user touched a link to a page. `url` is the URL of the page, such as
@@ -152,6 +95,20 @@ public final class Shell: ObservableObject {
         missing = make ? border.openOrMake(url) : border.open(url)
         if missing == nil { unopened = false }
         show()
+    }
+
+    // MARK: - Searching
+
+    /// The user typed into the search field.
+    public func search(_ query: String) {
+        send(.searchQueryChanged(query))
+    }
+
+    /// The user chose a search result: its page opens. The results for the journal of today
+    /// and for a new page make their page.
+    public func pick(_ entry: SearchEntry) {
+        send(.searchResultClicked(position: entry.position))
+        if entry.kind == .today || entry.kind == .create { onEdit() }
     }
 
     // MARK: - Editing
@@ -220,18 +177,82 @@ public final class Shell: ObservableObject {
         change(.deleteItem(itemId: itemId))
     }
 
-    // MARK: - Searching
+    // MARK: - Files
 
-    /// The user typed into the search field.
-    public func search(_ query: String) {
-        send(.searchQueryChanged(query))
+    /// The file of an image of a page. `path` is its path under the Markdown folder, such as
+    /// `assets/picture.png`. `nil` when no download has brought it yet.
+    public func image(_ path: String) -> URL? {
+        guard let found = findWithoutCase(root: markdownDir, path: path) else { return nil }
+        var folder: ObjCBool = false
+        let there = FileManager.default.fileExists(atPath: found.path, isDirectory: &folder)
+        return there && !folder.boolValue ? found : nil
     }
 
-    /// The user chose a search result: its page opens. The results for the journal of today
-    /// and for a new page make their page.
-    public func pick(_ entry: SearchEntry) {
-        send(.searchResultClicked(position: entry.position))
-        if entry.kind == .today || entry.kind == .create { onEdit() }
+    /// The user touched a link to a file of the assets folder. `path` is its path under the
+    /// Markdown folder. Answers with the file to open, or `nil` when it is not here.
+    public func attached(_ path: String) -> URL? {
+        let file = image(path)
+        missingFile = file == nil ? path : nil
+        return file
+    }
+
+    // MARK: - Questions
+
+    /// The user answered `question`: the core goes on with what it asked about, or leaves it.
+    public func answer(yes: Bool) {
+        guard let asked = question else { return }
+        question = nil
+        Shell.must { try border.answer(asked.id, with: .bool(yes)) }
+        show()
+    }
+
+    /// Shows a question of the core. The core asks the next one only after this is answered.
+    private func put(_ next: Question) {
+        question = next
+    }
+
+    // MARK: - Taking in files
+
+    /// Takes in the files of the Markdown folder, after a download has changed them, and
+    /// writes the pages that changed in the app. It runs on a thread of its own: the first
+    /// sync of a large folder takes long. `then` is called on that thread when the core is
+    /// done, or at once when the app has closed.
+    public func sync(then: @escaping @Sendable () -> Void = {}) {
+        if closed { return then() }
+        syncing = true
+        worker.async { [border, weak self] in
+            border.sync()
+            then()
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, !self.closed else { return }
+                    self.syncing = false
+                    self.show()
+                }
+            }
+        }
+    }
+
+    /// Does what `sync` does, and returns when the core is done. It is for the thread of a
+    /// sync with the cloud, which uploads what the core wrote. It must not be the main thread.
+    ///
+    /// A new app that waited for the sign-in opens its first screen after it: the download has
+    /// brought the journal of today, if Dropbox holds one.
+    public nonisolated func syncAndWait() {
+        let done = DispatchSemaphore(value: 0)
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated { self.sync { done.signal() } }
+        }
+        done.wait()
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated { if self.unopened, !self.closed { self.restore() } }
+        }
+    }
+
+    /// Lets go of the journal. A sync that runs ends first, on its own thread.
+    public func close() {
+        closed = true
+        worker.async { [border] in border.close() }
     }
 
     // MARK: - The core
@@ -292,25 +313,6 @@ public final class Shell: ObservableObject {
             // The others wait for no answer, such as the title to set and the item to scroll to
             break
         }
-    }
-
-    /// Shows a question of the core. The core asks the next one only after this is answered.
-    private func put(_ next: Question) {
-        question = next
-    }
-
-    /// The user answered `question`: the core goes on with what it asked about, or leaves it.
-    public func answer(yes: Bool) {
-        guard let asked = question else { return }
-        question = nil
-        Shell.must { try border.answer(asked.id, with: .bool(yes)) }
-        show()
-    }
-
-    /// Lets go of the journal. A sync that runs ends first, on its own thread.
-    public func close() {
-        closed = true
-        worker.async { [border] in border.close() }
     }
 
     /// Runs what crosses the border. The types on both sides are generated from one source, so
