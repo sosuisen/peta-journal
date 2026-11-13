@@ -622,13 +622,21 @@ internal sealed class StickyWindow : Window
 
     private void TogglePin() => Look.AlwaysOnTop = !Look.AlwaysOnTop;
 
+    /// <summary>Shows the menu of the sticky where the mouse is on the title bar.</summary>
+    /// <param name="screen">Where the mouse is, in pixels of the screen.</param>
+    private void ShowMenu(Native.Point screen)
+    {
+        Native.ScreenToClient(handle, ref screen);
+        ShowMenu(new Windows.Foundation.Point(screen.X / Scale, screen.Y / Scale));
+    }
+
     /// <summary>
-    /// Shows the menu of the title bar: the pin, and the colors. The pin and the color of the
+    /// Shows the menu of the sticky: the pin, and the colors. The pin and the color of the
     /// sticky are checked. They are not tools of the bar: they would leave little of it to
     /// the name of a narrow sticky.
     /// </summary>
-    /// <param name="screen">Where the mouse is, in pixels of the screen.</param>
-    private void ShowMenu(Native.Point screen)
+    /// <param name="place">Where the mouse is in the window.</param>
+    public void ShowMenu(Windows.Foundation.Point place)
     {
         var menu = new MenuFlyout();
         var pin = new ToggleMenuFlyoutItem { Text = "Keep on top", IsChecked = Look.AlwaysOnTop };
@@ -646,8 +654,6 @@ internal sealed class StickyWindow : Window
             color.Click += (_, _) => Look.Color = hex;
             menu.Items.Add(color);
         }
-        Native.ScreenToClient(handle, ref screen);
-        var place = new Windows.Foundation.Point(screen.X / Scale, screen.Y / Scale);
         menu.ShowAt(
             root,
             new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = place }
