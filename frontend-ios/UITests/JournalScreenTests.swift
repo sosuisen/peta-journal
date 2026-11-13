@@ -328,6 +328,36 @@ final class JournalScreenTests: XCTestCase {
         XCTAssertEqual(order(["first", "second"]), ["first", "second"])
     }
 
+    private static let backspace = XCUIKeyboardKey.delete.rawValue
+
+    /// Opens a page of two items, touches the second to edit it, and puts the cursor at the
+    /// start of its field.
+    private func editSecondOfTwoAtItsStart() throws {
+        try download("notes.md", above("A") + "first\n\n" + above("B") + "second\n")
+        openNotes()
+        edit("second")
+        // A touch on the left edge of the field puts the cursor before the first letter
+        editor.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5)).tap()
+    }
+
+    // 先頭でのBackspaceは、アイテムを前のアイテムにつなぐ。編集は、つないだアイテムで続く。カーソルは、つなぎ目に置かれる。
+    func testBackspaceAtTheStartJoinsTheItemToTheOneBeforeAndTheCursorIsWhereTheyMeet() throws {
+        try editSecondOfTwoAtItsStart()
+
+        editor.typeText(JournalScreenTests.backspace)
+
+        waitUntil("the joined item is edited, and has \(String(describing: editor.value))") {
+            editor.value as? String == "firstsecond"
+        }
+        editor.typeText("X")
+        waitUntil("the letter is where the items met, and has \(String(describing: editor.value))") {
+            editor.value as? String == "firstXsecond"
+        }
+        done()
+        waitFor(app.staticTexts["firstXsecond"])
+        XCTAssertFalse(app.staticTexts["second"].exists)
+    }
+
     // 道具は、アイテムを編集している間だけ表示され、Doneで編集が終わる。
     func testTheToolsShowOnlyWhileAnItemIsEditedAndDoneEndsTheEdit() throws {
         try download("notes.md", "only\n")
