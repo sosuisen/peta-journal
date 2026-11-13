@@ -1,4 +1,4 @@
-package net.sosuisen.petajournal
+package net.sosuisen.petajournal.shell
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf

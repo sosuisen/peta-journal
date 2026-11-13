@@ -1,4 +1,4 @@
-package net.sosuisen.petajournal
+package net.sosuisen.petajournal.screen
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -9,7 +9,7 @@ import org.junit.runner.RunWith
 
 /** The text of an item whose AST gives nothing to show. */
 @RunWith(AndroidJUnit4::class)
-class ShownTextTest {
+class ShownBlocksTest {
     private fun item(body: String, ast: String) = Item(
         id = "i",
         pageId = "p",

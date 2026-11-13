@@ -1,4 +1,4 @@
-package net.sosuisen.petajournal
+package net.sosuisen.petajournal.shell
 
 import net.sosuisen.petajournal.core.PetaCore
 import net.sosuisen.petajournal.core.PetaShell

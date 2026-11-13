@@ -1,4 +1,4 @@
-package net.sosuisen.petajournal
+package net.sosuisen.petajournal.screen
 
 import android.net.Uri
 import androidx.compose.ui.text.AnnotatedString
