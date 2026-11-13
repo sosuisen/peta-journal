@@ -283,6 +283,13 @@
 
 ## Androidのシェル
 
+- [ ] 同期の失敗の表示から、SDKの生のエラーの文字を取る。通信ができないための失敗は、それと見分けて、分かるように伝える（2026-11-13にユーザーが決めた）。iOSのシェルも同じにする
+  - iPhoneで通信を切って編集すると、「Sync failed: urlSessionError(SwiftyDropbox.ClientError.urlSessionError…」と出た。長くて、意味が分からない（2026-11-13にユーザーが見た）。Androidも長いが、画面が大きいので気にならなかっただけである
+  - 失敗の表示、「Try again」、通信が戻ったあとのアップロードは、働いた
+  - [ ] 失敗を、原因で分ける。少なくとも、通信ができない場合と、そのほかの場合を分ける。分けるのは、Dropboxを呼ぶところである（iOSは`DropboxFailure`、Androidは`SyncState.Failed`の理由）
+  - [ ] 表示の文言を決める。案：通信ができないときは「Sync failed: no connection」、そのほかは「Sync failed」だけ。文言は、ユーザーが決める
+  - [ ] そのほかの失敗の理由は、画面に出さず、ログに残す
+  - 表示を作るのは、`frontend-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`と、`JournalScreen.kt`の`"Sync failed: ${state.reason}"`である
 - [ ] 道具の列から、削除のボタンを取る（2026-11-13にユーザーが決めた）。iOSのシェルも同じにする
   - 取る前に、ボタンがなくても項目を消せるかを確かめる。空の項目の行頭でBackspaceを打つと消えるか、文字のある項目はどう消すかを見る
 - [ ] 項目に触れて編集に入るとき、カーソルを触れた位置に置く（2026-11-13にユーザーが決めた）。今は、いつも行末に置く。iOSのシェルも同じにする
@@ -304,6 +311,13 @@
 
 ## iOSのシェル
 
+- [ ] 同期の失敗の表示から、SDKの生のエラーの文字を取る。通信ができないための失敗は、それと見分けて、分かるように伝える（2026-11-13にユーザーが決めた）。Androidのシェルも同じにする
+  - iPhoneで通信を切って編集すると、「Sync failed: urlSessionError(SwiftyDropbox.ClientError.urlSessionError…」と出た。長くて、意味が分からない（2026-11-13にユーザーが見た）。Androidも長いが、画面が大きいので気にならなかっただけである
+  - 失敗の表示、「Try again」、通信が戻ったあとのアップロードは、働いた
+  - [ ] 失敗を、原因で分ける。少なくとも、通信ができない場合と、そのほかの場合を分ける。分けるのは、Dropboxを呼ぶところである（iOSは`DropboxFailure`、Androidは`SyncState.Failed`の理由）
+  - [ ] 表示の文言を決める。案：通信ができないときは「Sync failed: no connection」、そのほかは「Sync failed」だけ。文言は、ユーザーが決める
+  - [ ] そのほかの失敗の理由は、画面に出さず、ログに残す
+  - 表示を作るのは、`frontend-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`と、`JournalScreen.kt`の`"Sync failed: ${state.reason}"`である
 - [ ] 不具合：キーボードが出る範囲（画面の下の方）にある項目に触れると、キーボードが出ない（2026-11-13にユーザーがiPhoneで見た）。Androidで同じかは、まだ確かめていない
   - 触れると、一瞬だけ編集の状態になり、すぐに解ける（2026-11-13にユーザーが見た）。編集には入れているので、入ったあとに何かが編集を終わらせている
   - 原因は、まだ分かっていない。先に、画面のテストで再現する。項目の多いページで、キーボードを出さずに、下の方の項目に触れる
@@ -315,11 +329,6 @@
   - 表示はMarkdownを整形したもので、編集するのは元のMarkdownである。記号（`**`、リンク、タスクの印など）の分だけ、触れた位置と元の文字の位置がずれる。表示の位置から元の位置を求める方法を、先に決める
 - [ ] 同期のコールアウトを、画面の下端ではなく、上端に出す（2026-11-13にユーザーが決めた）。Androidのシェルも同じにする
   - 入力は、いちばん下の行ですることが多い。下端のコールアウトは、打っている行に重なる（2026-11-13にユーザーがiPhoneで見た）
-- [ ] 同期の失敗の表示を、「Sync failed」だけにする（2026-11-13にユーザーが決めた）。今は、あとに理由が続く
-  - 実機で通信を切って編集すると、「Sync failed: urlSessionError(SwiftyDropbox.ClientError.urlSessionError…」と出た。長くて、意味が分からない（2026-11-13にユーザーがiPhoneで見た）
-  - 失敗の表示、「Try again」、通信が戻ったあとのアップロードは、働いた
-  - 表示を作るのは、`frontend-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`である
-  - Androidも、同じ形で理由を出す（`JournalScreen.kt`の`"Sync failed: ${state.reason}"`）。Androidも変えるかは、まだ決めていない
 - [ ] iOSのシェルを、本物のDropboxで確かめる（ADR 034）。App keyを`frontend-ios/Dropbox.xcconfig`に置き、サインイン、最初の同期、編集のあとのアップロード、サインアウトを見る。シミュレーターでは、ブラウザーでのサインインになる
 - [ ] iOSのシェルを、実機で確かめる。日本語の入力、後ろに回ったときの同期を見る
   - Dropboxのアプリでのサインインは、通った（2026-11-13にユーザーがiPhoneで確かめた）。Dropboxのアプリの登録にTeam Scope（`team_data.member`）があると、「Mobile authorization does not support team authorized scopes.」で失敗する。外すと通る（`frontend-ios/README.md`）
