@@ -332,12 +332,22 @@ final class JournalScreenTests: XCTestCase {
 
     /// Opens a page of two items, touches the second to edit it, and puts the cursor at the
     /// start of its field.
-    private func editSecondOfTwoAtItsStart() throws {
-        try download("notes.md", above("A") + "first\n\n" + above("B") + "second\n")
+    private func editSecondOfTwoAtItsStart(_ first: String = "first", _ second: String = "second") throws {
+        try download("notes.md", above("A") + first + "\n\n" + above("B") + second + "\n")
         openNotes()
-        edit("second")
-        // A touch on the left edge of the field puts the cursor before the first letter
-        editor.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5)).tap()
+        edit(second)
+        cursorToTheStart()
+    }
+
+    /// Puts the cursor before the first letter of the field, with a touch on the left half of
+    /// that letter. A touch on the very edge of the field is not always inside it.
+    private func cursorToTheStart() {
+        let start = editor.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5)).withOffset(CGVector(dx: 3, dy: 0))
+        // The first touch does not always move the cursor. The second comes too late to make
+        // a double touch of the two
+        start.tap()
+        sleep(1)
+        start.tap()
     }
 
     // 先頭でのBackspaceは、アイテムを前のアイテムにつなぐ。編集は、つないだアイテムで続く。カーソルは、つなぎ目に置かれる。
@@ -356,6 +366,72 @@ final class JournalScreenTests: XCTestCase {
         done()
         waitFor(app.staticTexts["firstXsecond"])
         XCTAssertFalse(app.staticTexts["second"].exists)
+    }
+
+    // つなぎ目のカーソルは、絵文字を1文字として数えた位置に置かれる。
+    func testTheCursorAfterAJoinCountsAnEmojiBeforeItAsOneCharacter() throws {
+        try editSecondOfTwoAtItsStart("a😀", "second")
+
+        editor.typeText(JournalScreenTests.backspace)
+
+        waitUntil("the joined item is edited, and has \(String(describing: editor.value))") {
+            editor.value as? String == "a😀second"
+        }
+        editor.typeText("X")
+        waitUntil("the letter is where the items met, and has \(String(describing: editor.value))") {
+            editor.value as? String == "a😀Xsecond"
+        }
+    }
+
+    // 空のアイテムの先頭でのBackspaceは、そのアイテムを消す。編集は、前のアイテムの終わりで続く。
+    func testBackspaceInAnEmptyItemTakesItAwayAndTheEditGoesOnAtTheEndOfTheOneBefore() throws {
+        try download("notes.md", "first\n")
+        openNotes()
+        edit("first")
+        editor.typeText("\n")
+        waitUntil("the new item is edited, and has \(String(describing: editor.value))") { editor.value as? String == "" }
+
+        editor.typeText(JournalScreenTests.backspace)
+
+        waitUntil("the item before is edited, and has \(String(describing: editor.value))") {
+            editor.value as? String == "first"
+        }
+        editor.typeText("X")
+        done()
+        waitFor(app.staticTexts["firstX"])
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'first'")).count, 1)
+    }
+
+    // 先頭より後ろでのBackspaceは、前の1文字を消すだけである。
+    func testBackspaceAfterTheStartOnlyDeletesTheCharacterBeforeTheCursor() throws {
+        try download("notes.md", above("A") + "first\n\n" + above("B") + "second\n")
+        openNotes()
+        edit("second")
+
+        editor.typeText(JournalScreenTests.backspace)
+
+        waitUntil("the last letter is gone, and the field has \(String(describing: editor.value))") {
+            editor.value as? String == "secon"
+        }
+        done()
+        XCTAssertEqual(order(["first", "secon"]), ["first", "secon"])
+    }
+
+    // 最初のアイテムの先頭でのBackspaceは、何もしない。
+    func testBackspaceAtTheStartOfTheFirstItemDoesNothing() throws {
+        try download("notes.md", above("A") + "first\n\n" + above("B") + "second\n")
+        openNotes()
+        edit("first")
+        cursorToTheStart()
+
+        editor.typeText(JournalScreenTests.backspace)
+        editor.typeText("x")
+
+        waitUntil("the letter is at the start, and the field has \(String(describing: editor.value))") {
+            editor.value as? String == "xfirst"
+        }
+        done()
+        XCTAssertEqual(order(["xfirst", "second"]), ["xfirst", "second"])
     }
 
     // 道具は、アイテムを編集している間だけ表示され、Doneで編集が終わる。
