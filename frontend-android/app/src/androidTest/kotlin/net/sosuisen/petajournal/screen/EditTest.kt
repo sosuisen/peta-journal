@@ -1,6 +1,8 @@
 package net.sosuisen.petajournal.screen
 
+import android.view.inputmethod.EditorInfo
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.ViewRootForTest
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
@@ -401,5 +403,52 @@ class EditTest : JournalScreenFixture() {
         compose.onNodeWithTag(EDITOR_TAG).performTextInput("x")
 
         waitForItems("1 xfirst", "1 second")
+    }
+
+    /**
+     * Presses Backspace as the keyboard on the screen does. Gboard sends no key: it asks the
+     * field to delete the character before the cursor, also when there is none.
+     */
+    private fun pressBackspaceOnTheScreen() {
+        val root = compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().root as ViewRootForTest
+        compose.runOnUiThread {
+            val keyboard = checkNotNull(root.view.onCreateInputConnection(EditorInfo()))
+            keyboard.deleteSurroundingText(1, 0)
+        }
+    }
+
+    // 画面のキーボードのBackspaceでも、先頭では項目を前の項目につなぐ。画面のキーボードは、キーを送らない。
+    @Test
+    fun backspace_of_the_keyboard_on_the_screen_at_the_start_joins_the_item_to_the_one_before() {
+        editSecondOfTwo("first", "second")
+        cursorAt(0)
+
+        pressBackspaceOnTheScreen()
+
+        waitForItems("1 firstsecond")
+        compose.waitUntil(WAIT_MS) { cursor() == TextRange(5) }
+    }
+
+    // 画面のキーボードのBackspaceは、先頭より後ろでは、前の1文字を消すだけである。
+    @Test
+    fun backspace_of_the_keyboard_on_the_screen_after_the_start_only_deletes_a_character() {
+        editSecondOfTwo("first", "second")
+        cursorAt(1)
+
+        pressBackspaceOnTheScreen()
+
+        waitForItems("1 first", "1 econd")
+    }
+
+    // 画面のキーボードのBackspaceは、先頭から文字を選んでいるときは、項目をつながない。
+    @Test
+    fun backspace_of_the_keyboard_on_the_screen_with_text_chosen_from_the_start_joins_nothing() {
+        editSecondOfTwo("first", "second")
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) { it(0, 3, true) }
+
+        pressBackspaceOnTheScreen()
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput("x")
+
+        waitForItems("1 first", "1 xond")
     }
 }

@@ -1,5 +1,7 @@
 package net.sosuisen.petajournal.screen
 
+import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputConnectionWrapper
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -18,6 +20,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.InterceptPlatformTextInput
+import androidx.compose.ui.platform.PlatformTextInputInterceptor
+import androidx.compose.ui.platform.PlatformTextInputMethodRequest
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
@@ -53,42 +58,79 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
         }
         focus.requestFocus()
     }
-    BasicTextField(
-        value = field,
-        onValueChange = { next ->
-            val enter = enterAt(field, next)
-            when {
-                // The core splits the item: the field takes no line break. The field tells of
-                // a change that was not taken once more, and that is not a second Enter
-                enter != null -> if (next.text != refused) {
-                    refused = next.text
-                    shell.enter(id, characters(field.text, enter))
+    val joinsAtStart = { field.selection == TextRange.Zero && field.composition == null }
+    // The keyboard on the screen sends no key for Backspace. It asks the field to delete the
+    // character before the cursor. At the start there is none: the field changes nothing and
+    // tells of nothing. So the screen stands between the keyboard and the field, and hears it
+    val keyboard = remember(id) {
+        PlatformTextInputInterceptor { request, next ->
+            next.startInputMethod(
+                PlatformTextInputMethodRequest { attributes ->
+                    BackspaceAtStart(request.createInputConnection(attributes), joinsAtStart) { shell.backspaceAtStart(id) }
+                },
+            )
+        }
+    }
+    InterceptPlatformTextInput(keyboard) {
+        BasicTextField(
+            value = field,
+            onValueChange = { next ->
+                val enter = enterAt(field, next)
+                when {
+                    // The core splits the item: the field takes no line break. The field tells of
+                    // a change that was not taken once more, and that is not a second Enter
+                    enter != null -> if (next.text != refused) {
+                        refused = next.text
+                        shell.enter(id, characters(field.text, enter))
+                    }
+                    else -> {
+                        refused = null
+                        field = next
+                        if (next.composition == null && next.text != body) shell.type(id, next.text)
+                    }
                 }
-                else -> {
-                    refused = null
-                    field = next
-                    if (next.composition == null && next.text != body) shell.type(id, next.text)
+            },
+            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            modifier = modifier
+                // A keyboard with real keys sends the key. The core joins the item to the one
+                // before
+                .onPreviewKeyEvent { pressed ->
+                    val joins = pressed.key == Key.Backspace && joinsAtStart()
+                    if (joins && pressed.type == KeyEventType.KeyDown) shell.backspaceAtStart(id)
+                    joins
                 }
-            }
-        },
-        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        modifier = modifier
-            // Backspace at the start changes nothing in the field, so the field tells of no
-            // change: the key itself is heard. The core joins the item to the one before
-            .onPreviewKeyEvent { pressed ->
-                val atStart = field.selection == TextRange.Zero && field.composition == null
-                val joins = pressed.key == Key.Backspace && atStart
-                if (joins && pressed.type == KeyEventType.KeyDown) shell.backspaceAtStart(id)
-                joins
-            }
-            .focusRequester(focus)
-            .onFocusChanged {
-                if (focused && !it.isFocused) shell.finish(id)
-                focused = it.isFocused
-            }
-            .testTag(EDITOR_TAG),
-    )
+                .focusRequester(focus)
+                .onFocusChanged {
+                    if (focused && !it.isFocused) shell.finish(id)
+                    focused = it.isFocused
+                }
+                .testTag(EDITOR_TAG),
+        )
+    }
+}
+
+/**
+ * The keyboard on the screen as the field hears it, with one change: a Backspace at the
+ * start is not for the field. [atStart] says whether the cursor is at the start, with no
+ * text chosen and no word being composed. [join] is called then, and the field hears nothing.
+ */
+private class BackspaceAtStart(
+    keyboard: InputConnection,
+    private val atStart: () -> Boolean,
+    private val join: () -> Unit,
+) : InputConnectionWrapper(keyboard, false) {
+    override fun deleteSurroundingText(before: Int, after: Int): Boolean =
+        joined(before, after) || super.deleteSurroundingText(before, after)
+
+    override fun deleteSurroundingTextInCodePoints(before: Int, after: Int): Boolean =
+        joined(before, after) || super.deleteSurroundingTextInCodePoints(before, after)
+
+    private fun joined(before: Int, after: Int): Boolean {
+        val backspace = before > 0 && after == 0 && atStart()
+        if (backspace) join()
+        return backspace
+    }
 }
 
 /**
