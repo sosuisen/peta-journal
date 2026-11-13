@@ -38,10 +38,10 @@ fn undo_puts_the_old_body_back_sends_it_in_one_request_and_moves_the_entry_to_th
     assert!(h.model.undo.can_undo());
 }
 
-fn shown_ast(h: &Harness, item_id: &str) -> String {
+fn shown_ast(h: &Harness, item_id: &str) -> flatmarkdown_ast::Node {
     let rows = h.view().outline.rows;
     let row = rows.iter().find(|r| r.item.id == item_id).unwrap();
-    row.item.ast.clone()
+    row.ast.clone()
 }
 
 // 入力を redo した後に別の項目へ移動しても、redo した本文の内容で表示される。
@@ -64,7 +64,7 @@ fn the_view_shows_the_redone_text_after_moving_away() {
         cursor: 0,
     });
     assert!(!h.model.state.is_editing("a"));
-    assert_eq!(shown_ast(&h, "a"), "ast:new");
+    assert_eq!(shown_ast(&h, "a"), crate::asts::parse("new"));
 }
 
 /// An undo entry that changed the body of `a` from "old" to "new", on a page that shows "new"
@@ -78,11 +78,11 @@ fn harness_with_a_body_edit() -> Harness {
     h
 }
 
-/// What the server answers for an item whose body it wrote
+/// What the server answers for an item whose body it wrote: with the types it found in it
 fn answered(id: &str, level: i32, body: &str) -> Item {
     item_with(id, level, |i| {
         i.body = body.into();
-        i.ast = format!("ast:{body}");
+        i.types = vec![format!("found in {body}")];
     })
 }
 
@@ -102,7 +102,7 @@ fn a_late_answer_to_an_undo_does_not_show_its_parse_over_the_redone_text() {
         created: Vec::new(),
     });
 
-    assert_eq!(h.model.state.get_item_by_id("a").unwrap().ast, "ast:new");
+    assert!(h.model.state.get_item_by_id("a").unwrap().types.is_empty());
 }
 
 // 別々の項目の undo を続けたときは、先の undo の応答が後から届いても、その項目に反映される。後の undo は、その項目を書いていないためである。
@@ -121,8 +121,7 @@ fn a_late_answer_is_still_shown_for_an_item_no_later_sync_wrote() {
     h.send(Event::Undo);
 
     // The answer to the first undo, which wrote b, comes after the second undo wrote a
-    let mut late = answered("b", 1, "old b");
-    late.ast = "late parse".into();
+    let late = answered("b", 1, "old b");
     h.send(Event::UndoSynced {
         sync: 1,
         items: vec![late],
@@ -131,7 +130,10 @@ fn a_late_answer_is_still_shown_for_an_item_no_later_sync_wrote() {
         created: Vec::new(),
     });
 
-    assert_eq!(h.model.state.get_item_by_id("b").unwrap().ast, "late parse");
+    assert_eq!(
+        h.model.state.get_item_by_id("b").unwrap().types,
+        ["found in old b"]
+    );
 }
 
 // 字下げの undo と redo を続けたあとに、undo の応答が遅れて届いても、項目は redo した階層のままである。

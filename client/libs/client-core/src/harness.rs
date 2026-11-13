@@ -159,7 +159,6 @@ impl FakeApi {
             } => {
                 let mut item =
                     plain_item(item_id, level.unwrap_or(1), body.as_deref().unwrap_or(""));
-                item.ast = format!("ast:{}", item.body);
                 item.properties = tags_in(&item.body);
                 item.collapsed = collapsed.unwrap_or(false);
                 ApiOutput::Item(item)
@@ -267,8 +266,7 @@ impl FakeApi {
                         .unwrap_or_default()
                 };
                 let joined = format!("{}{}", body_of(into_id, into_body), body_of(item_id, body));
-                let mut item = plain_item(into_id, 1, &joined);
-                item.ast = format!("ast:{joined}");
+                let item = plain_item(into_id, 1, &joined);
                 ApiOutput::Item(item)
             }
             // The text goes into the item as one piece; a test that wants more items answers
@@ -281,8 +279,7 @@ impl FakeApi {
                 ..
             } => {
                 let (before, after) = crate::util::split_at_char(body, *cursor);
-                let mut item = plain_item(item_id, 1, &format!("{before}{text}{after}"));
-                item.ast = format!("ast:{}", item.body);
+                let item = plain_item(item_id, 1, &format!("{before}{text}{after}"));
                 ApiOutput::Pasted(Pasted {
                     items: vec![item],
                     cursor: PasteCursor {
@@ -309,10 +306,8 @@ impl FakeApi {
                     (before, after)
                 };
                 let mut item = plain_item(item_id, 1, kept);
-                item.ast = format!("ast:{kept}");
                 item.properties = tags_in(kept);
                 let mut created = plain_item(&format!("new{}", self.created), 1, new_body);
-                created.ast = format!("ast:{new_body}");
                 created.properties = tags_in(new_body);
                 created.idx = if above {
                     index_right_above(item_id)
@@ -334,7 +329,6 @@ impl FakeApi {
                         } => {
                             let body = body.as_deref().unwrap_or("");
                             let mut item = plain_item(id, level.unwrap_or(1), body);
-                            item.ast = format!("ast:{body}");
                             item.properties = tags_in(body);
                             item.collapsed = collapsed.unwrap_or(false);
                             if let Some(state) = task {
@@ -353,7 +347,6 @@ impl FakeApi {
                             let mut item = plain_item(id, *level, body);
                             item.page_id = page_id.clone();
                             item.idx = format!("created{}", self.created);
-                            item.ast = format!("ast:{body}");
                             item
                         }
                         BatchOp::Move { ids, .. } => {
@@ -466,7 +459,6 @@ impl FakeApi {
             ApiOp::TranscludedItems { .. } => ApiOutput::ItemIds(Vec::new()),
             ApiOp::ExportTreeMarkdown { .. } => ApiOutput::TreeExport(TreeExport {
                 tree_markdown: "- tree".into(),
-                ast: "{\"type\":\"document\"}".into(),
                 flat_markdown: "flat".into(),
             }),
             ApiOp::SetTransclusion {

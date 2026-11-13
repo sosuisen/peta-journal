@@ -144,11 +144,10 @@ pub fn auto_save_again(model: &mut Model, unsaved: Option<&str>) -> Cmd {
     }
 }
 
-/// Takes what the server parsed from a body it was sent, because the view renders that and
-/// not the body. The body stays: text typed while the answer was on its way must not go.
+/// Takes what the server found in a body it was sent: the types and the properties. The body
+/// stays: text typed while the answer was on its way must not go.
 pub fn show_parsed(model: &mut Model, answer: &Item) {
     model.state.update_item(&answer.id, |i| {
-        i.ast = answer.ast.clone();
         i.types = answer.types.clone();
         i.properties = answer.properties.clone();
     });
@@ -208,11 +207,10 @@ async fn save_shown_body(api: &Api<Event>, item: &Item, body: &str) -> ApiResult
     Ok(updated)
 }
 
-/// The server saved the source of a transclusion root: the root shows what the server
-/// parsed from it.
+/// The server saved the source of a transclusion root: the root takes the types that the
+/// server found in it.
 pub fn show_root_parsed(model: &mut Model, root_id: &str, source: Item) -> Cmd {
     model.state.update_item(root_id, |i| {
-        i.ast = source.ast;
         i.types = source.types;
     });
     done()

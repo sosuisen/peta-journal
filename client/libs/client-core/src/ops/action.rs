@@ -326,6 +326,15 @@ pub fn show_empty_item(model: &mut Model, created: Vec<Item>) -> Cmd {
     focus_editor(model, Some(id))
 }
 
+/// The AST of copied markdown, as JSON like the AST of an item: the core parses it as the
+/// journal parses a body (ADR 041). Empty for empty markdown.
+fn copied_ast(markdown: &str) -> String {
+    if markdown.is_empty() {
+        return String::new();
+    }
+    crate::asts::parse(markdown).to_json()
+}
+
 /// Copies items to the system clipboard as tree markdown (and HTML made from it), and keeps
 /// the flat markdown so that a paste back into this app keeps the structure.
 pub fn copy_items(item_ids: Vec<String>) -> Cmd {
@@ -337,7 +346,7 @@ pub fn copy_items(item_ids: Vec<String>) -> Cmd {
             Ok(result) => {
                 api.notify(UiOp::CopyMarkdown {
                     markdown: result.tree_markdown.clone(),
-                    ast: result.ast,
+                    ast: copied_ast(&result.tree_markdown),
                 });
                 api.send_event(Event::MarkdownCopied {
                     flat_markdown: result.flat_markdown,

@@ -252,16 +252,6 @@ fn page_of(url: &str) -> String {
     page.split('#').next().unwrap_or(page).to_string()
 }
 
-/// The HTML of an item, from its AST as the JSON that the view model carries (ADR 025). A
-/// link to a page and a tag are links to the URL of their page, such as `/pages/notes`, for
-/// `PetaCore::open`. A tag page is under `tags_dir`. The URL is encoded as a web address is.
-/// An AST that cannot be read gives no HTML.
-#[boltffi::export]
-pub fn item_html(ast: String, tags_dir: String) -> String {
-    // The app has no address: the URLs are paths
-    client_native_bridge::copied_html(&ast, "", &tags_dir)
-}
-
 /// The URL of the page that a link to a page names, such as `/pages/work/plan`, for
 /// `PetaCore::open`. A shell that draws the AST of a row (ADR 041) puts it on a wikilink. The
 /// URL is encoded as a web address is.

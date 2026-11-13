@@ -70,11 +70,26 @@ public sealed class ShownTextTests
         shell.Typed(body, first);
         shell.FinishEditing(first);
         main.WaitUntil(
-            "the server gave the AST",
-            () => shell.View.Outline.Rows[0].Item.Ast.Length > 0
+            "the edit is over",
+            () =>
+                !shell.View.Outline.Rows[0].IsEditing
+                && shell.View.Outline.Rows[0].Item.Body == body
         );
         return shell.View.Outline.Rows[0];
     }
+
+    /// <summary>The names of the types of the nodes in the tree, such as <c>CodeBlock</c>.</summary>
+    private static HashSet<string> KindsOf(Node node) =>
+        [node.GetType().Name, .. PetaBorder.Nodes.Children(node).SelectMany(KindsOf)];
+
+    /// <summary>The name of the type of <c>Node</c> for a kind of the AST, such as
+    /// <c>CodeBlock</c> for <c>code_block</c>.</summary>
+    private static string TypeName(string kind) =>
+        kind == "subscript"
+            ? "SubscriptText"
+            : string.Concat(
+                kind.Split('_').Select(word => char.ToUpperInvariant(word[0]) + word[1..])
+            );
 
     // ASTのどの種類の中身も、表示するテキストに入っている。
     [Fact]
@@ -85,12 +100,10 @@ public sealed class ShownTextTests
 
         var shown = ShownText.Of(row.Ast).Text;
 
+        var kinds = KindsOf(row.Ast);
         foreach (var (kind, _, seen) in EveryKind)
         {
-            Assert.True(
-                row.Item.Ast.Contains($"\"type\":\"{kind}\""),
-                $"the body has no node of the kind {kind}"
-            );
+            Assert.True(kinds.Contains(TypeName(kind)), $"the body has no node of the kind {kind}");
             Assert.True(
                 shown.Contains(seen),
                 $"the kind {kind} is not shown: {seen} is missing in\n{shown}"

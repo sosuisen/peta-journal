@@ -283,13 +283,13 @@ fn a_join_that_is_gone_when_the_user_has_answered_sends_nothing() {
 fn joined(id: &str, body: &str) -> ApiOutput {
     ApiOutput::Item(item_with(id, 1, |i| {
         i.body = body.into();
-        i.ast = format!("ast:{body}");
         i.types = vec!["heading".into()];
         i.properties = [("tags".to_string(), ["joined"].into())].into();
     }))
 }
 
-/// What the view of an item renders and styles itself from.
+/// What the view of an item renders and styles itself from: its body, which the core parses,
+/// and what the server found in it.
 fn shown_parse(
     h: &Harness,
     item_id: &str,
@@ -297,7 +297,7 @@ fn shown_parse(
     let rows = h.view().outline.rows;
     let row = rows.iter().find(|r| r.item.id == item_id).unwrap();
     (
-        row.item.ast.clone(),
+        row.item.body.clone(),
         row.item.types.clone(),
         row.item.properties.get("tags").cloned(),
     )
@@ -320,7 +320,7 @@ fn the_item_above_shows_the_joined_text_after_backspace_and_moving_away() {
     assert_eq!(
         shown_parse(&h, "a"),
         (
-            "ast:hello world".to_string(),
+            "hello world".to_string(),
             vec!["heading".to_string()],
             Some(["joined"].into())
         )
@@ -341,7 +341,7 @@ fn the_item_shows_the_joined_text_after_delete_and_moving_away() {
         cursor: 0,
     });
     assert!(!h.model.state.is_editing("a"));
-    assert_eq!(shown_parse(&h, "a").0, "ast:hello world");
+    assert_eq!(shown_parse(&h, "a").0, "hello world");
 }
 
 // 先頭の項目では行頭での Backspace が何もしない。

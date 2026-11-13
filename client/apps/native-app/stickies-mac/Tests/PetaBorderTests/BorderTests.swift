@@ -98,7 +98,7 @@ final class BorderTests: XCTestCase {
         let border = border()
         let item = Item(
             id: "a", pageId: "p", dirPath: "", name: "notes", itemType: "doc", createdDate: 0,
-            modifiedDate: 0, idx: "a", level: 1, body: "本文", ast: "", collapsed: false,
+            modifiedDate: 0, idx: "a", level: 1, body: "本文", collapsed: false,
             types: [], properties: ["tags": .list(["x"]), "title": .text("t")],
             transcludeItemId: nil)
 

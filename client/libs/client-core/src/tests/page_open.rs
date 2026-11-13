@@ -179,13 +179,10 @@ fn an_index_page_is_titled_by_its_folder() {
 // doc ページの見出しの項目は、サイドバーに段の深さとともに並ぶ。
 #[test]
 fn the_headings_of_a_doc_page_are_listed_in_the_sidebar() {
-    let heading = |id: &str, body: &str, level: u8| {
+    let heading = |id: &str, body: &str| {
         crate::testing::item_with(id, 1, |i| {
             i.body = body.into();
             i.types = vec!["heading".into()];
-            i.ast = format!(
-                r#"{{"type":"document","children":[{{"type":"heading","level":{level},"children":[]}}]}}"#
-            );
         })
     };
     let mut h = Harness::new();
@@ -193,9 +190,9 @@ fn the_headings_of_a_doc_page_are_listed_in_the_sidebar() {
         &mut h,
         doc("", "Idea"),
         vec![
-            heading("h1", "# Top", 1),
+            heading("h1", "# Top"),
             item("p", 1, "text"),
-            heading("h2", "## Next", 2),
+            heading("h2", "## Next"),
         ],
     );
     visit(&mut h, "Idea", None);

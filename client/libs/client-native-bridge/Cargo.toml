@@ -12,9 +12,6 @@ description = "PetaJournal native frontends: the Crux core behind a border of by
 client-core = { path = "../client-core" }
 crux_core = "=0.20.0"
 serde = { workspace = true }
-# The HTML of an item (ADR 025)
-flatmarkdown-ast = { workspace = true }
-flatmarkdown-ast2html = { workspace = true }
 # The links to pages that another app opens, and the HTML of a copy (ADR 027)
 client-page-links = { path = "../client-page-links" }
 chrono = "0.4.45"

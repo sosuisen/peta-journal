@@ -205,10 +205,8 @@ impl OutlineState {
             .iter()
             .filter(|item| item.has_type("heading"))
             .map(|item| {
-                let level = flatmarkdown_ast::Node::from_json(&item.ast)
-                    .ok()
-                    .and_then(|ast| flatmarkdown_ast::heading_level(&ast))
-                    .unwrap_or(1);
+                let level =
+                    flatmarkdown_ast::heading_level(&crate::asts::parse(&item.body)).unwrap_or(1);
                 let text = item.body.trim_start_matches('#').trim_start().to_string();
                 Heading {
                     id: item.id.clone(),
@@ -455,7 +453,6 @@ fn compute_visible(
                 shown.body = source_root.body.clone();
                 shown.types = source_root.types.clone();
                 shown.properties = source_root.properties.clone();
-                shown.ast = source_root.ast.clone();
                 result.push(Arc::new(shown));
             }
             None => result.push(item.clone()),

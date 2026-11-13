@@ -29,8 +29,6 @@ pub struct Item {
     #[serde(default)]
     pub body: String,
     #[serde(default)]
-    pub ast: String,
-    #[serde(default)]
     pub collapsed: bool,
     #[serde(default)]
     pub types: Vec<String>,
@@ -565,8 +563,6 @@ pub struct BacklinkEntry {
 #[serde(rename_all = "camelCase")]
 pub struct TreeExport {
     pub tree_markdown: String,
-    #[serde(default)]
-    pub ast: String,
     pub flat_markdown: String,
 }
 

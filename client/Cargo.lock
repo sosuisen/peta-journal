@@ -554,8 +554,6 @@ dependencies = [
  "facet",
  "facet_generate 0.22.3",
  "flatmarkdown",
- "flatmarkdown-ast",
- "flatmarkdown-ast2html",
  "serde",
 ]
 
@@ -2697,7 +2695,6 @@ dependencies = [
  "client-page-links",
  "console_error_panic_hook",
  "crux_core",
- "flatmarkdown",
  "flatmarkdown-ast",
  "flatmarkdown-ast2html",
  "gloo-events",

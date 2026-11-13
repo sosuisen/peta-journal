@@ -41,7 +41,3 @@ web-sys = { version = "0.3", features = [
   "HtmlSelectElement", "HtmlButtonElement", "ScrollIntoViewOptions", "CssStyleDeclaration",
 ] }
 
-# The parser is for tests only: they make an AST from markdown. The app gets every AST from
-# the server and parses no markdown (ADR 027).
-[dev-dependencies]
-flatmarkdown = { workspace = true }

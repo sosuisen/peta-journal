@@ -176,7 +176,7 @@ fn a_move_of_the_selection_the_server_refuses_changes_nothing_and_the_next_move_
     assert_eq!(h.items_ids(), ["a", "c", "b"]);
 }
 
-// 選択範囲のコピーでツリー形式の Markdown が書き出され、サーバーが作ったそのASTとともにクリップボードに渡され、フラット形式がモデルに記憶される。
+// 選択範囲のコピーでツリー形式の Markdown が書き出され、コアが作ったそのASTとともにクリップボードに渡され、フラット形式がモデルに記憶される。
 #[test]
 fn copying_the_selection_hands_over_tree_markdown_with_its_ast_and_remembers_the_flat_form() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
@@ -186,7 +186,7 @@ fn copying_the_selection_hands_over_tree_markdown_with_its_ast_and_remembers_the
     assert!(h.ui.iter().any(|u| matches!(
         u,
         UiOp::CopyMarkdown { markdown, ast }
-            if markdown == "- tree" && ast == "{\"type\":\"document\"}"
+            if markdown == "- tree" && *ast == crate::asts::parse("- tree").to_json()
     )));
     assert_eq!(h.model.clipboard, Some(("flat".into(), "- tree".into())));
 }

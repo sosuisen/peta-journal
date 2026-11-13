@@ -143,7 +143,7 @@ final class TypingSpeedTests: XCTestCase {
         let shell = Shell(server: server.address, url: url)
         try await waitUntil("the long page is shown") {
             let rows = shell.view.outline.rows
-            return rows.count >= Self.items && rows.dropFirst().allSatisfy { !$0.item.ast.isEmpty }
+            return rows.count >= Self.items && rows.dropFirst().allSatisfy { !$0.item.body.isEmpty }
         }
 
         // The making of the text alone

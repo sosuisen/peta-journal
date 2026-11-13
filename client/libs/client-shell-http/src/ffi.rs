@@ -50,13 +50,6 @@ impl PetaCore {
     }
 }
 
-/// The HTML of an item, from its AST as the JSON that the view model carries (ADR 025). It
-/// needs no core: a shell asks for the items it shows.
-#[boltffi::export]
-pub fn item_html(ast: String) -> Result<String, String> {
-    client_native_bridge::item_html(&ast)
-}
-
 /// The HTML of a copy, from the AST that comes with the Markdown to copy (ADR 027). The links
 /// to pages lead to `app_url`, where the web frontend is served.
 #[boltffi::export]

@@ -11,7 +11,7 @@ mod html;
 mod shell;
 
 pub use clock::{Clock, SystemClock};
-pub use html::{copied_html, hashtag_url, item_html, wikilink_url};
+pub use html::{copied_html, hashtag_url, wikilink_url};
 pub use shell::{BorderError, Host, NativeShell, NothingThere, ShellEffect, ShellEffectFfi};
 
 #[cfg(test)]
