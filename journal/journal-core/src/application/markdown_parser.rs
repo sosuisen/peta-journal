@@ -1,19 +1,15 @@
 //! Converts Flat Markdown text to AST JSON with the flatmarkdown crate.
 
-use flatmarkdown::{BodyOptions, LinkResolution};
+use flatmarkdown::BodyOptions;
 
 #[derive(Debug, Clone, Default)]
 pub struct MarkdownParser;
 
+/// Pages are `.md` files linked by relative paths: `#tag` text becomes a hashtag node, and a
+/// link to `./x.md` or `../x.md` a wikilink node (`[#x](../x.md)` becomes a hashtag). The
+/// clients parse bodies with the same options (ADR 041).
 fn options() -> BodyOptions {
-    // The same options as the Java wrapper (com.sosuisha:flatmarkdown): link resolution turns
-    // `#tag` text into hashtag nodes, and relative Markdown links to `./x.md` or `../x.md`
-    // into wikilink nodes (`[#x](../x.md)` becomes a hashtag).
-    BodyOptions {
-        link_resolution: LinkResolution::On {
-            prefixes: vec!["./".to_string(), "../".to_string()],
-        },
-    }
+    BodyOptions::relative_page_links()
 }
 
 impl MarkdownParser {

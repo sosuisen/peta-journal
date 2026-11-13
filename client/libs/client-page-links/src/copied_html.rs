@@ -46,7 +46,7 @@ fn link_to_the_app(node: &mut Node, links: AppLinks) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use flatmarkdown::{BodyOptions, LinkResolution};
+    use flatmarkdown::BodyOptions;
 
     const LINKS: AppLinks = AppLinks {
         app_url: "http://localhost:8080",
@@ -55,12 +55,7 @@ mod tests {
 
     /// The AST of tree markdown, as the journal server makes it: with wikilinks and hashtags.
     fn ast_of(tree_markdown: &str) -> String {
-        let as_the_server = BodyOptions {
-            link_resolution: LinkResolution::On {
-                prefixes: vec!["./".to_string(), "../".to_string()],
-            },
-        };
-        flatmarkdown::parse_body_with(tree_markdown, &as_the_server).to_json()
+        flatmarkdown::parse_body_with(tree_markdown, &BodyOptions::relative_page_links()).to_json()
     }
 
     fn copied(tree_markdown: &str) -> String {
