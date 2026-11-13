@@ -32,8 +32,11 @@ class MarkdownFolder(private val root: File, private val temp: File) {
 
     private fun spelled(file: File): String = file.relativeTo(root).invariantSeparatorsPath
 
-    /** The hash that Dropbox makes of the content of the file. `null` when it is not here. */
-    fun contentHash(path: String): String? = find(path)?.takeIf { it.isFile }?.let(::dropboxContentHash)
+    /**
+     * The hash of the content of the file, as [of] makes it: each cloud has its own way.
+     * `null` when the file is not here.
+     */
+    fun contentHash(path: String, of: (File) -> String): String? = find(path)?.takeIf { it.isFile }?.let(of)
 
     /** The paths of the Markdown files that are here, as they are spelled here, in order. */
     fun pages(): List<String> = root.walk()

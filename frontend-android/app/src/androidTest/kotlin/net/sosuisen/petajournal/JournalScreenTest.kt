@@ -38,7 +38,6 @@ import net.sosuisen.petajournal.sync.MarkdownFolder
 import net.sosuisen.petajournal.sync.SyncRound
 import net.sosuisen.petajournal.sync.SyncState
 import net.sosuisen.petajournal.sync.Uploader
-import net.sosuisen.petajournal.sync.dropboxContentHash
 import net.sosuisen.petajournal.types.ScreenView
 import net.sosuisen.petajournal.types.SearchKind
 import net.sosuisen.petajournal.types.TaskState
@@ -186,14 +185,14 @@ class JournalScreenTest {
 
         override fun upload(path: String, from: File, over: String?): Change.File {
             uploaded[path] = from.readText()
-            return Change.File(path, dropboxContentHash(from), remote = "next")
+            return Change.File(path, contentHash(from), remote = "next")
         }
 
-        /** The content hash of Dropbox of a content of one block. */
-        private fun hashOf(content: ByteArray): String {
-            val sha = { bytes: ByteArray -> MessageDigest.getInstance("SHA-256").digest(bytes) }
-            return sha(sha(content)).joinToString("") { "%02x".format(it) }
-        }
+        override fun contentHash(file: File): String = hashOf(file.readBytes())
+
+        /** The content hash of this cloud. It is not the one of Dropbox: the sync asks the cloud. */
+        private fun hashOf(content: ByteArray): String =
+            MessageDigest.getInstance("SHA-256").digest(content).joinToString("") { "%02x".format(it) }
     }
 
     private fun type(query: String) = compose.onNodeWithTag(SEARCH_TAG).performTextInput(query)

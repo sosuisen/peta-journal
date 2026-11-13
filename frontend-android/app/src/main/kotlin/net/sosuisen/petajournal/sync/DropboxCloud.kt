@@ -79,6 +79,8 @@ class DropboxCloud(private val client: DbxClientV2, folder: String) : Cloud {
         }
     }
 
+    override fun contentHash(file: File): String = dropboxContentHash(file)
+
     private companion object {
         /** Before the version of a file, where Dropbox takes a version in place of a path. */
         const val REV = "rev:"

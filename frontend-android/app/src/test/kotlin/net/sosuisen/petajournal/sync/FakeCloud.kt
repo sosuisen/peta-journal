@@ -56,11 +56,13 @@ class FakeCloud : Cloud {
         uploaded += path
         return file(path, from.readText())
     }
+
+    override fun contentHash(file: File): String = hashOf(file.readBytes())
 }
 
 fun sha256(bytes: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").digest(bytes)
 
 fun hex(bytes: ByteArray): String = bytes.joinToString("") { "%02x".format(it) }
 
-/** The content hash of Dropbox of a content of one block. */
-fun hashOf(content: ByteArray): String = hex(sha256(sha256(content)))
+/** The content hash of the cloud of a test. It is not the one of Dropbox: the sync asks the cloud. */
+fun hashOf(content: ByteArray): String = hex(sha256(content))
