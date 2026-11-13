@@ -59,6 +59,14 @@ registers at <https://www.dropbox.com/developers/apps>, as for the Android shell
 - Permissions: `files.metadata.read`, `files.content.read` and `files.content.write`.
 - No redirect URI is needed, and the App secret is not used: the sign-in is PKCE.
 
+> [!IMPORTANT]
+> Check no **Team Scope** on the "Permissions" tab of the Dropbox app (App Console), and
+> press "Submit" after a change. One checked team scope stops the sign-in through the
+> Dropbox app of the phone: after the account is chosen, it shows 「アプリの承認エラー」, or
+> "Mobile authorization does not support team authorized scopes." This happened on an iPhone
+> with `team_data.member` checked, and the sign-in worked after it was unchecked
+> (2026-11-13). PetaJournal needs only the three scopes above, which are Individual Scopes.
+
 The key and the path of the Markdown folder in Dropbox come from outside the repository, in
 the file `Dropbox.xcconfig` of this folder:
 
@@ -74,7 +82,8 @@ The SDK of Dropbox signs in (SwiftyDropbox). It lets the Dropbox app sign in whe
 has it, and else opens a browser inside the app. It keeps the token in the keychain of the
 device. The Android shell always uses the browser, after the Dropbox app failed there (ADR
 033). The SDK for iOS has no such choice: it does not sign in at all in an app that may not
-ask for the Dropbox app. Whether the Dropbox app fails here in the same way is not known.
+ask for the Dropbox app. The sign-in through the Dropbox app works on an iPhone (2026-11-13),
+when the Dropbox app has no team scope: see the note above.
 
 A new app shows only "Sign in to Dropbox" before the sign-in. It makes no journal of today:
 Dropbox may hold that journal already, and the app would then have two files for one day.
