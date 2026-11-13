@@ -370,7 +370,7 @@
 
 ## フロントエンドのクレートのリファクタ
 
-目標は、`docs/frontend-architecture-refactored.svg`である（2026-11-13にユーザーが決めた）。フロントエンドのクレートが、この図の形と名前になったら終わりである。今の形は、`docs/frontend-architecture.svg`にある。
+目標は、`docs/frontend-architecture-refactored.svg`だった（2026-11-13にユーザーが決めた）。フロントエンドのクレートは、この図の形と名前になった。図は、段7で`docs/frontend-architecture.svg`に置き換えた。残りは、下の印のない項目である。
 
 2026-11-13に、段0から始めた。決定は、ADR 036（分割と時計）とADR 037（名前）にある。
 
@@ -470,10 +470,13 @@
   - 改名で`use`の並び順が変わり、`cargo fmt`が並べ直した。差分には、その並べ直しも入る
   - [ ] SwiftUIとiOSのビルドとテストを、Macで確かめる（段3と段4の項目と一緒に行う）
   - いちばん広い変更なので、最後にする。ほかの段と混ぜない
-- [ ] 段7: 仕上げ
-  - `docs/frontend-architecture.svg`を、`docs/frontend-architecture-refactored.svg`の内容で置き換える。タイトルの「分割と改名のあとの予定」と、`desc`の「計画である」という文を取る。`docs/frontend-architecture-refactored.svg`は消す
-  - 古い名前が残っていないかを、リポジトリの全体で探す。README、`BUILD.md`、`AGENTS.md`、スクリプトを見る
-  - 下の「リポジトリの構成」の節は、`shell-native`を「ネイティブのシェルの入口」と書いている。その文を直す
+- [x] 段7: 仕上げ（2026-11-13に行った）
+  - `docs/frontend-architecture.svg`を、`docs/frontend-architecture-refactored.svg`の内容で置き換えた。タイトルの「分割と改名のあとの予定」と、`desc`の計画についての文を取った。`docs/frontend-architecture-refactored.svg`は消した
+  - 古い名前が残っていないかを、リポジトリの全体で探した。残したものは、次のとおりである
+    - ADRと`docs/frontend-rust-rewrite-plan.md`。書いた時点の記録である
+    - `journal-server-rust/crates/server/tests/it/frontend.rs`の`peta-frontend-…`。配るファイルの名前の例である
+    - `frontend-ios/Tests/PetaBorderTests/JournalTestCase.swift`の`peta-shell-…`。テストの一時フォルダーの名前である。クレートの名前ではない
+  - 下の「リポジトリの構成」の節の、`shell-native`を「ネイティブのシェルの入口」と書いていた文を直した
   - ADR 029から034は、書いた時点の記録なので書き換えない
 
 この順序にした理由。
@@ -493,13 +496,13 @@
 関係する項目。
 
 - 「ネイティブのシェルに共通」の節の「同じ処理をRustの側に寄せる」は、質問の待ち行列とフォーカスの番号を、`shell-native`に移す案を持つ。段3のあとは、置き場所が`client-native-bridge`になる。入口に関数が増える場合は、`client-shell-http`と`client-shell-embedded`の両方に書く
-- 今の図（`docs/frontend-architecture.svg`）は、Androidの箱だけに「Hostの実装を注入」と書いている（2026-11-13に直した）。WindowsとmacOSも`shell-native`の中で注入しているが、図には出ていない。段7まで、このままにする
+- 前の図は、Androidの箱だけに「Hostの実装を注入」と書いていた。段7で置き換えた図は、4つのアプリの注入を同じ形で描く
 - ジャーナルの側のフォルダーの名前と`hmtid`は、下の「リポジトリの構成」の節にある
 
 ## リポジトリの構成
 
 - [ ] フロントエンドの置き場を再検討する（ユーザーが足した、2026-11-11）
-  - 今は、リポジトリの直下に`frontend-rust`、`frontend-swiftui`、`frontend-winui`が並んでいる。`frontend-rust`には、コア、Webのシェル、Emacsのシェル、ネイティブのシェルの入口（`shell-native`）がある
+  - 今は、リポジトリの直下に`frontend-rust`、`frontend-swiftui`、`frontend-winui`が並んでいる。`frontend-rust`には、コア、Webのシェル、Emacsのシェル、ネイティブのシェルの土台（`client-native-bridge`）と入口（`client-shell-http`、`client-shell-embedded`）がある
   - 候補は2つである。リポジトリの中の1つのフォルダにまとめるか、別のリポジトリに分けるかである
   - 決めたら、ADRに記録する
 - [ ] 図に出ないクレートとフォルダーの名前を整理する（2026-11-13にユーザーが決めた。だいぶ先の修正である）
