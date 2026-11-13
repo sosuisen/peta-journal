@@ -265,8 +265,8 @@
   - 質問の待ち行列とフォーカスの番号は、`shell-native`に移す案がある。境界の形が変わるので、3つのシェルを合わせて直す
   - `Shell.kt`は、まだ比べていない。質問の扱いはある。同じ処理がどこまであるかを、先に見る
   - 順序（2026-11-13にユーザーが決めた）
-    - [ ] 先に、C#（`Shell.cs`）とKotlin（`Shell.kt`）に共通するところを、Rustの側に寄せる
-    - [ ] そのあとに、iOS（`frontend-ios`）とSwiftUI（`frontend-swiftui`）の`Shell.swift`を寄せる
+    - [ ] 先に、C#（`Shell.cs`）、Kotlin（`Shell.kt`）、Swift（2つの`Shell.swift`）のコードに共通するところを、Rustの側に寄せる
+    - [ ] そのあとに、iOS（`frontend-ios`）とSwiftUI（`frontend-swiftui`）の間で、Swiftに残った同じコードを寄せる
   - iOSとSwiftUIは、Swiftのコードを共有していない。別々のSwift Packageである。`Border`と`Shell`の骨組みが同じ形で2つある。iOSの`ShownParagraphs`（HTMLを読む）はFoundationだけで書いてあり、SwiftUIの側でも使える
 
 ## Androidのシェル
