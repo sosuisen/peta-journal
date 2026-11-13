@@ -497,6 +497,19 @@
 
 ## 道具の更新
 
+- [ ] Rustを1.100に上げる（2026-11-13にユーザーが足した）
+  - Rust 1.100.0は、2026-11-12に出た。このPCは1.99.1である（2026-11-13に見た）
+  - リポジトリは、Rustの版を固定していない。`rust-toolchain.toml`も`rust-version`もない。CIは`dtolnay/rust-toolchain@stable`なので、戻したときに1.100で走る。上げる作業は、PCごとの`rustup update stable`と、出た問題の修正である
+  - 上げる対象は、`journal-server-rust`、`frontend-rust`、`atlas-rust`である。どれもeditionは2021である
+  - [ ] never type（`!`）のフォールバックが変わる。2021までのeditionでは、`()`から`!`になる。今まで通っていたコードが、コンパイルできなくなることがある。editionが2021なので、3つとも当たる。先に、今の版で`dependency_on_unit_never_type_fallback`の警告が出ていないかを見る
+  - [ ] Cargoが、使っていない依存を警告する。警告は、既定で出る。出た依存を`Cargo.toml`から消す。dev-dependenciesは、まだ調べられない
+  - [ ] Cargoの`build-dir`の並びが変わる。上げたあとの最初のビルドは、すべてを作り直すとみているが、未確認である。`build-dir`の場所や中身を名前で見ているスクリプトがないかを確かめる（`generate.ps1`、`generate.sh`、`boltffi pack`、wasmのビルド）
+  - [ ] 新しいClippyの警告を直す。`cargo fmt`で差分が出たら、整形だけのコミットに分ける
+  - [ ] Macでも上げる。SwiftUIとiOSのビルドを確かめる
+  - 確かめ方: 3つのワークスペースのテスト、`cargo clippy`、`cargo fmt --check`、wasm向けの`cargo check`、Emacsのテスト、WinUIとAndroidのビルドを回す。CIは2026-11-25まで止まっているので、手元の確認だけが頼りである
+  - 版を固定するかは、決めていない。固定するなら、`rust-toolchain.toml`を置く。PCの間とCIで、同じ版になる
+  - 速さは目的ではない。公式の告知に、コンパイルや実行が速くなったという記述はない
+
 - [ ] `ext-web-app/todo`の道具を、上流の対応に追従して新しくする
   - 今できる作業は終わった。残りの2つは、上流の対応を待っている。今は進められない
   - [ ] TypeScript 7.1でAPIが戻り、typescript-eslintが対応したら、`typescript`の別名をやめて7だけにする
