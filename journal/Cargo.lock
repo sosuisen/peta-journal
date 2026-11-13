@@ -1539,6 +1539,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "flatmarkdown",
+ "flatmarkdown-ast",
  "hex",
  "hmtid",
  "lindera",

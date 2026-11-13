@@ -310,7 +310,8 @@ async fn items_are_exported_as_tree_markdown_and_imported_back_as_flat_markdown(
     assert_eq!(by_items["treeMarkdown"], json!("- a\n  - b"));
     assert_eq!(subtree["treeMarkdown"], by_items["treeMarkdown"]);
     assert_eq!(by_page["treeMarkdown"], by_items["treeMarkdown"]);
-    assert!(by_items["ast"].is_string());
+    // An AI reads the Markdown: the export carries no AST
+    assert!(by_items.get("ast").is_none(), "{by_items}");
     // The levels become the item markers; the items have no ids yet
     assert_eq!(imported["flatMarkdown"], json!("a\n\n<!-- @@ -->\nb"));
 }

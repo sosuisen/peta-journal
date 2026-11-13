@@ -1,48 +1,23 @@
-//! Extracts hashtag values from a parsed AST JSON string.
+//! Extracts hashtag values from a parsed AST.
 
-use serde_json::Value;
+use flatmarkdown_ast::Node;
 
-/// Parses the AST JSON and collects all hashtag values, deduplicated and in order
-/// (without the `#` prefix). Invalid JSON gives an empty list.
-pub fn extract_hashtags(ast_json: &str) -> Vec<String> {
-    if ast_json.trim().is_empty() {
-        return Vec::new();
-    }
-    let Ok(root) = serde_json::from_str::<Value>(ast_json) else {
-        return Vec::new();
-    };
+/// Collects all hashtag values under `ast`, deduplicated and in the order of the text
+/// (without the `#` prefix).
+pub fn extract_hashtags(ast: &Node) -> Vec<String> {
     let mut tags: Vec<String> = Vec::new();
-    collect(&root, &mut tags);
+    collect(ast, &mut tags);
     tags
 }
 
-fn collect(node: &Value, tags: &mut Vec<String>) {
-    match node {
-        Value::Array(items) => {
-            for item in items {
-                collect(item, tags);
-            }
+fn collect(node: &Node, tags: &mut Vec<String>) {
+    if let Node::Hashtag { value } = node {
+        if !value.is_empty() && !tags.iter().any(|t| t == value) {
+            tags.push(value.clone());
         }
-        Value::Object(map) => {
-            if map.get("type").and_then(Value::as_str) == Some("hashtag") {
-                if let Some(value) = map.get("value").and_then(Value::as_str) {
-                    if !value.is_empty() && !tags.iter().any(|t| t == value) {
-                        tags.push(value.to_string());
-                    }
-                }
-            }
-            // Children first, so tags keep their order in the text; then every other
-            // nested field in case the AST nests differently
-            if let Some(children) = map.get("children") {
-                collect(children, tags);
-            }
-            for (key, val) in map {
-                if key != "children" && (val.is_array() || val.is_object()) {
-                    collect(val, tags);
-                }
-            }
-        }
-        _ => {}
+    }
+    for child in node.children() {
+        collect(child, tags);
     }
 }
 
@@ -71,18 +46,19 @@ pub fn renamed(tag: &str, old: &str, new: &str) -> Option<String> {
 mod tests {
     use super::*;
 
-    // タグは現れた順に、重複なく集められる。
+    use crate::application::markdown_parser::MarkdownParser;
+
+    // タグは現れた順に、重複なく集められる。リストの中のタグも集められる。
     #[test]
     fn collects_in_order_without_duplicates() {
-        let ast = r#"{"type":"root","children":[{"type":"hashtag","value":"b"},{"type":"paragraph","children":[{"type":"hashtag","value":"a"},{"type":"hashtag","value":"b"}]}]}"#;
-        assert_eq!(extract_hashtags(ast), vec!["b", "a"]);
+        let ast = MarkdownParser.parse("#b and #a\n\n- #b and #c");
+        assert_eq!(extract_hashtags(&ast), vec!["b", "a", "c"]);
     }
 
-    // 空または不正なJSONからはタグが取れない。
+    // 空の本文からはタグが取れない。
     #[test]
-    fn empty_or_invalid_json_gives_no_tags() {
-        assert!(extract_hashtags("").is_empty());
-        assert!(extract_hashtags("not json").is_empty());
+    fn an_empty_body_gives_no_tags() {
+        assert!(extract_hashtags(&MarkdownParser.parse("")).is_empty());
     }
 
     // 正しいタグは、空白を含まず、両端がスラッシュでない。

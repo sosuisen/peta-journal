@@ -140,8 +140,7 @@ fn relink_items(state: &AppState, renames: &[Rename]) -> anyhow::Result<Vec<Item
     for item in state.items.find_by_body_containing_asset_path()? {
         let body = relink(&item.body, &new_names);
         if body != item.body {
-            let ast = state.parser.parse_to_ast(&body);
-            let item = Item { body, ast, ..item };
+            let item = Item { body, ..item };
             ItemRepository::rewrite_body_in(&tx, &item)?;
             relinked.push(item);
         }

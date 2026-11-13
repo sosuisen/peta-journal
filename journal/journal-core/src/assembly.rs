@@ -126,7 +126,6 @@ impl JournalCore {
             pages.clone(),
             items.clone(),
             properties.clone(),
-            parser.clone(),
             Arc::clone(&search),
             Arc::clone(&export),
             Arc::clone(&ids),

@@ -23,7 +23,6 @@ fn main() {
         idx: "z0".into(),
         level: 1,
         body: "typed text 12 with a [[link]] and #tag3 東京国際空港に行きました".into(),
-        ast: String::new(),
         collapsed: false,
         types: vec![],
         transclude_item_id: None,

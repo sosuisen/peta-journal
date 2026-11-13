@@ -73,8 +73,6 @@ pub struct Item {
     pub level: i32,
     /// Markdown source text.
     pub body: String,
-    /// Parsed AST JSON.
-    pub ast: String,
     pub collapsed: bool,
     /// Item types (e.g. "heading", "code", "task").
     pub types: Vec<String>,
@@ -99,7 +97,6 @@ impl Item {
             idx: fractional_index::initial(),
             level: 1,
             body: String::new(),
-            ast: String::new(),
             collapsed: false,
             types: Vec::new(),
             transclude_item_id: None,
@@ -128,8 +125,6 @@ impl Item {
 pub struct ItemPatch {
     /// New markdown body, or None to keep the current body.
     pub body: Option<String>,
-    /// Parsed AST of the new body; required when body is set.
-    pub ast: Option<String>,
     /// Types found in the new body (heading, code, blockquote); required when body is set.
     /// They replace every current type except `task`.
     pub body_types: Option<Vec<String>>,
@@ -146,23 +141,17 @@ pub struct ItemPatch {
 impl ItemPatch {
     pub const TASK_TYPE: &'static str = "task";
 
-    /// Builds a patch, checking that a body comes with its AST and its types.
+    /// Builds a patch, checking that a body comes with its types.
     pub fn new(
         body: Option<String>,
-        ast: Option<String>,
         body_types: Option<Vec<String>>,
         task: Option<bool>,
         level: Option<i32>,
         collapsed: Option<bool>,
         modified_date: i64,
     ) -> Result<ItemPatch, String> {
-        if body.is_some() {
-            if ast.is_none() {
-                return Err("ast must not be null when body is set".to_string());
-            }
-            if body_types.is_none() {
-                return Err("bodyTypes must not be null when body is set".to_string());
-            }
+        if body.is_some() && body_types.is_none() {
+            return Err("bodyTypes must not be null when body is set".to_string());
         }
         if let Some(l) = level {
             if l < 1 {
@@ -171,7 +160,6 @@ impl ItemPatch {
         }
         Ok(ItemPatch {
             body,
-            ast,
             body_types,
             task,
             level,

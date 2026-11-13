@@ -23,8 +23,6 @@ use crate::infrastructure::persistence::item_repository::parked_idx;
 use crate::infrastructure::persistence::property_repository::ScalarProps;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
-use super::markdown_parser::MarkdownParser;
-
 const ITEM_TARGET: &str = "item";
 
 /// The atlas keys an item can have; the server keeps them as the outline says.
@@ -49,7 +47,6 @@ pub struct AtlasService {
     pages: PageRepository,
     items: ItemRepository,
     properties: PropertyRepository,
-    parser: MarkdownParser,
     search: Arc<dyn SearchIndex>,
     export: Arc<MarkdownExportService>,
     ids: Arc<IdGenerator>,
@@ -66,12 +63,10 @@ struct Loaded {
 }
 
 impl AtlasService {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pages: PageRepository,
         items: ItemRepository,
         properties: PropertyRepository,
-        parser: MarkdownParser,
         search: Arc<dyn SearchIndex>,
         export: Arc<MarkdownExportService>,
         ids: Arc<IdGenerator>,
@@ -81,7 +76,6 @@ impl AtlasService {
             pages,
             items,
             properties,
-            parser,
             search,
             export,
             ids,
@@ -341,7 +335,6 @@ impl AtlasService {
                     let item = Item {
                         modified_date: now,
                         body: node.body.clone(),
-                        ast: self.parser.parse_to_ast(&node.body),
                         types: body.text_types(),
                         ..found
                             .map_or_else(|| self.new_item(atlas, &node.id, now), |i| (*i).clone())
@@ -429,7 +422,6 @@ impl AtlasService {
             idx: parked_idx(id),
             level: 1,
             body: String::new(),
-            ast: String::new(),
             collapsed: false,
             types: Vec::new(),
             transclude_item_id: None,

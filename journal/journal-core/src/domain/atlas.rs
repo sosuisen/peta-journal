@@ -533,7 +533,6 @@ mod tests {
             idx: format!("{n:04}"),
             level,
             body: body.to_string(),
-            ast: String::new(),
             collapsed: false,
             types: Vec::new(),
             transclude_item_id: None,

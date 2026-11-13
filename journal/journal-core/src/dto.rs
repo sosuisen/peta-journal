@@ -6,6 +6,7 @@ use hmtid::Hmtid;
 use serde::Serialize;
 use serde_json::Value;
 
+use crate::application::markdown_parser::MarkdownParser;
 use crate::domain::model::{BacklinkEntry, Item, Page, SearchResult};
 use crate::error::AppResult;
 use crate::infrastructure::persistence::{ItemRepository, PropertyRepository};
@@ -137,7 +138,8 @@ pub fn item_dto(
         idx: item.idx.clone(),
         level: item.level,
         body: item.body.clone(),
-        ast: item.ast.clone(),
+        // The journal keeps no AST. The apps that do not parse a body themselves read it here
+        ast: MarkdownParser.parse_to_ast(&item.body),
         collapsed: item.collapsed,
         types: item.types.clone(),
         properties,

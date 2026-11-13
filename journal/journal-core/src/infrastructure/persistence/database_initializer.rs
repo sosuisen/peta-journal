@@ -24,6 +24,7 @@ const MIGRATIONS: &[fn(&Connection) -> rusqlite::Result<()>] = &[
     create_deleted_items,
     put_names_in_nfc,
     add_last_synced,
+    drop_item_asts,
 ];
 
 pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
@@ -67,6 +68,12 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
 fn user_version(conn: &Connection) -> rusqlite::Result<usize> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(version as usize)
+}
+
+/// Version 5: no AST of an item. The journal parses a body when it needs what is in it, and
+/// the REST API makes the AST of an item from its body (ADR 041).
+fn drop_item_asts(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch("ALTER TABLE items DROP COLUMN ast;")
 }
 
 /// Version 4: until when each file and its page were in step. It was the mtime of the file
@@ -256,8 +263,8 @@ fn ensure_root_index(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<(
     )?;
     let item_id = ids.generate_item_id().to_string();
     conn.execute(
-        "INSERT INTO items (id, page_id, parent_id, created_date, modified_date, idx, level, body, ast, collapsed) \
-         VALUES (?, ?, NULL, ?, ?, 'a0', 1, '', '', 0)",
+        "INSERT INTO items (id, page_id, parent_id, created_date, modified_date, idx, level, body, collapsed) \
+         VALUES (?, ?, NULL, ?, ?, 'a0', 1, '', 0)",
         params![item_id, root_id, now, now],
     )?;
     tracing::info!("Root index page created: {root_id}");
@@ -371,12 +378,41 @@ mod tests {
         .unwrap();
     }
 
-    /// Puts a database of the latest version back to an older one, of 1 to 3. The column of
-    /// version 4 goes, as its migration cannot add a column that is there.
+    /// Puts a database of the latest version back to an older one, of 1 to 4. The column of
+    /// version 5 comes back, as its migration drops it. The column of version 4 goes for a
+    /// version below 4, as its migration cannot add a column that is there.
     fn set_version(conn: &Connection, version: i64) {
-        conn.execute_batch("ALTER TABLE file_sync_state DROP COLUMN last_synced")
+        conn.execute_batch("ALTER TABLE items ADD COLUMN ast TEXT NOT NULL DEFAULT ''")
             .unwrap();
+        if version < 4 {
+            conn.execute_batch("ALTER TABLE file_sync_state DROP COLUMN last_synced")
+                .unwrap();
+        }
         conn.pragma_update(None, "user_version", version).unwrap();
+    }
+
+    // 版4のデータベースを開くと、項目のASTの列がなくなり、本文はそのままである。
+    #[test]
+    fn a_database_at_version_4_loses_the_ast_of_its_items_and_keeps_their_bodies() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        set_version(&conn, 4);
+        add_page_with_file(&conn, "p1", "", "a");
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM pragma_table_info('items') WHERE name = 'ast'"
+            ),
+            0
+        );
+        assert_eq!(
+            text(&conn, "SELECT body FROM items WHERE id = ?", "item-p1"),
+            "a"
+        );
     }
 
     // 版3のデータベースを開くと、前回の同期の日時は、ファイルの更新時刻で始まる。

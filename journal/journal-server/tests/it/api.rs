@@ -3760,7 +3760,8 @@ async fn exported_items_come_back_through_import_and_parse_unchanged() {
     let tree = exported["treeMarkdown"].as_str().unwrap();
     assert!(tree.contains("- parent"), "{tree}");
     assert!(tree.contains("    - grandchild"), "{tree}");
-    assert!(exported["ast"].as_str().unwrap().contains("\"type\""));
+    // The apps parse the copy themselves: the export carries no AST
+    assert!(exported.get("ast").is_none(), "{exported}");
     assert!(
         exported["flatMarkdown"]
             .as_str()

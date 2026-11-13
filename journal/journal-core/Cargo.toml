@@ -17,6 +17,7 @@ peta-atlas = { path = "../../atlas" }
 # From the clone of flatmarkdown beside this repository, until the typed AST of ADR 041 is
 # published
 flatmarkdown = { path = "../../../flatmarkdown/flatmarkdown" }
+flatmarkdown-ast = { path = "../../../flatmarkdown/flatmarkdown-ast" }
 
 # Extension functions
 rquickjs = { version = "0.14.0", optional = true }

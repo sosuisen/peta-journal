@@ -299,7 +299,6 @@ pub struct TranscludedItemsAnswer {
 #[serde(rename_all = "camelCase")]
 pub struct TreeMarkdownAnswer {
     pub tree_markdown: String,
-    pub ast: String,
     pub flat_markdown: String,
 }
 
@@ -307,7 +306,6 @@ impl From<TreeMarkdownExport> for TreeMarkdownAnswer {
     fn from(export: TreeMarkdownExport) -> TreeMarkdownAnswer {
         TreeMarkdownAnswer {
             tree_markdown: export.tree_markdown,
-            ast: export.ast,
             flat_markdown: export.flat_markdown,
         }
     }
