@@ -59,7 +59,7 @@ impl<'t> Reader<'t> {
                 Node::CodeBlock { literal, .. } => {
                     self.end_text();
                     let lines = literal.trim_end_matches('\n').to_string();
-                    self.blocks.push(RichBlock::Code { lines });
+                    self.blocks.push(RichBlock::Code { lines, start: 0 });
                 }
                 Node::Table { children, .. } => {
                     self.end_text();

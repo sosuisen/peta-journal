@@ -1,6 +1,8 @@
 //! Where a touch on the shown text of an item puts the cursor in its Markdown. The AST does not
 //! say where in the Markdown its nodes stand, so the letters are lined up instead.
 
+use super::{RichBlock, RichParagraph};
+
 /// What leaving out a letter of the shown text costs, where a letter of the Markdown costs 1.
 /// The Markdown has many letters that are not shown, such as the address of a link; the shown
 /// text has few of its own, such as the title of an alert. A link longer than this, with only
@@ -36,4 +38,42 @@ pub fn markdown_place(markdown: &str, shown_before: &str) -> usize {
     }
     let least = row.iter().min().copied().unwrap_or(0);
     row.iter().position(|&cost| cost == least).unwrap_or(0)
+}
+
+/// Gives each paragraph and code block of `blocks` the count of the letters of the shown text
+/// before it, and writes the shown text after `letters`.
+pub(super) fn count_letters(blocks: &mut [RichBlock], letters: &mut String) {
+    for block in blocks {
+        match block {
+            RichBlock::Text { paragraphs } => paragraphs
+                .iter_mut()
+                .for_each(|paragraph| count_paragraph(paragraph, letters)),
+            RichBlock::Code { lines, start } => {
+                *start = count(letters);
+                letters.push_str(lines);
+                letters.push('\n');
+            }
+            RichBlock::Table { rows } => rows
+                .iter_mut()
+                .flat_map(|row| row.cells.iter_mut())
+                .for_each(|cell| count_paragraph(cell, letters)),
+            RichBlock::Image { .. } => {}
+            RichBlock::Entries { entries } => entries
+                .iter_mut()
+                .for_each(|entry| count_letters(&mut entry.blocks, letters)),
+            RichBlock::Quote { blocks } => count_letters(blocks, letters),
+        }
+    }
+}
+
+fn count_paragraph(paragraph: &mut RichParagraph, letters: &mut String) {
+    paragraph.start = count(letters);
+    for run in &paragraph.runs {
+        letters.push_str(&run.text);
+    }
+    letters.push('\n');
+}
+
+fn count(letters: &str) -> u32 {
+    u32::try_from(letters.chars().count()).unwrap_or(u32::MAX)
 }

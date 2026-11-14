@@ -3,8 +3,29 @@ use super::*;
 use crate::asts::parse;
 
 /// The body with this Markdown as a native shell shows it, with the tags in `tags/`.
+/// The counts of the letters before each paragraph are left out: one test is about them.
 fn shown(markdown: &str) -> Vec<RichBlock> {
-    RichText::of(parse(markdown), "tags/").blocks
+    let mut blocks = RichText::of(parse(markdown), "tags/").blocks;
+    without_starts(&mut blocks);
+    blocks
+}
+
+fn without_starts(blocks: &mut [RichBlock]) {
+    for block in blocks {
+        match block {
+            RichBlock::Text { paragraphs } => paragraphs.iter_mut().for_each(|p| p.start = 0),
+            RichBlock::Code { start, .. } => *start = 0,
+            RichBlock::Table { rows } => rows
+                .iter_mut()
+                .flat_map(|row| row.cells.iter_mut())
+                .for_each(|cell| cell.start = 0),
+            RichBlock::Image { .. } => {}
+            RichBlock::Entries { entries } => entries
+                .iter_mut()
+                .for_each(|entry| without_starts(&mut entry.blocks)),
+            RichBlock::Quote { blocks } => without_starts(blocks),
+        }
+    }
 }
 
 /// The paragraphs of the one text that the body is.
@@ -77,7 +98,7 @@ fn letters(block: &RichBlock) -> String {
     };
     match block {
         RichBlock::Text { paragraphs } => of_paragraphs(paragraphs),
-        RichBlock::Code { lines } => lines.clone(),
+        RichBlock::Code { lines, .. } => lines.clone(),
         RichBlock::Table { rows } => rows
             .iter()
             .map(|row| of_paragraphs(&row.cells))
@@ -446,7 +467,8 @@ fn a_code_block_keeps_its_lines_as_they_were_written() {
     assert_eq!(
         blocks[1],
         RichBlock::Code {
-            lines: "val x = 1\n  val y = 2".to_string()
+            lines: "val x = 1\n  val y = 2".to_string(),
+            start: 0,
         }
     );
     assert_eq!(letters(&blocks[2]), "after");
@@ -566,7 +588,8 @@ fn a_code_block_inside_a_list_keeps_its_lines_and_the_entries_keep_their_numbers
     assert_eq!(
         entries[0].blocks[1],
         RichBlock::Code {
-            lines: "a\n  b".to_string()
+            lines: "a\n  b".to_string(),
+            start: 0,
         }
     );
     assert_eq!(all_letters(&entries[1].blocks), "second");
@@ -919,9 +942,10 @@ fn starts(blocks: &[RichBlock]) -> Vec<u32> {
                 .flat_map(|row| row.cells.iter().map(|cell| cell.start))
                 .collect(),
             RichBlock::Image { .. } => vec![],
-            RichBlock::Entries { entries } => {
-                entries.iter().flat_map(|entry| starts(&entry.blocks)).collect()
-            }
+            RichBlock::Entries { entries } => entries
+                .iter()
+                .flat_map(|entry| starts(&entry.blocks))
+                .collect(),
             RichBlock::Quote { blocks } => starts(blocks),
         })
         .collect()

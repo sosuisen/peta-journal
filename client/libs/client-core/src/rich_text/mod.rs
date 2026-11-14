@@ -33,9 +33,9 @@ pub struct RichText {
 
 impl BodyModel for RichText {
     fn of(ast: Node, tags_dir: &str) -> RichText {
-        RichText {
-            blocks: blocks::blocks(&ast, tags_dir),
-        }
+        let mut blocks = blocks::blocks(&ast, tags_dir);
+        places::count_letters(&mut blocks, &mut String::new());
+        RichText { blocks }
     }
 }
 
@@ -50,6 +50,8 @@ pub enum RichBlock {
     /// A block of code: its lines as they were written.
     Code {
         lines: String,
+        /// How many letters of the shown text stand before the code, as for a paragraph.
+        start: u32,
     },
     Table {
         rows: Vec<RichTableRow>,
@@ -115,6 +117,11 @@ pub struct RichParagraph {
     /// True for a line across the page, which has no runs.
     pub rule: bool,
     pub runs: Vec<RichRun>,
+    /// How many letters of the shown text of the item stand before the paragraph. The shown
+    /// text is the letters of the runs of each paragraph and of the lines of each code block,
+    /// from top to bottom, each with a line break after it. A shell adds the letters before a
+    /// touch in the paragraph to this, and tells the core (`Event::ShownTextTouched`).
+    pub start: u32,
 }
 
 /// Letters with one look and one link.
