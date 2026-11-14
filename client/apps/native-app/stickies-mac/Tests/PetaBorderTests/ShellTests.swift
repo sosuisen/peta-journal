@@ -1,4 +1,5 @@
 import Foundation
+import PetaCore
 import PetaTypes
 import XCTest
 
@@ -63,6 +64,23 @@ final class ShellTests: XCTestCase {
             let saved = (try? server.get("/api/pages/\(pageId)")) ?? Data()
             return String(decoding: saved, as: UTF8.self).contains("typed in SwiftUI 日本語")
         }
+    }
+
+    // 表示した文字に触れると、その項目の編集に入り、カーソルは触れた文字のMarkdownでの位置に置かれる（ADR 043）。
+    func testATouchOnTheShownTextPutsTheCursorAtItsPlaceInTheMarkdown() async throws {
+        let shell = try await shellWithPage()
+        let first = shell.view.outline.rows[0].item.id
+        shell.startEditing(first)
+        shell.typed("**bold** end", into: first)
+        shell.finishEditing(first)
+        try await waitUntil("the edit is over") { !shell.view.outline.rows[0].isEditing }
+
+        // The shown text is "bold end": the touch is after "bol"
+        shell.touched(first, letter: 3)
+
+        try await waitUntil("the item is edited") { shell.view.outline.rows[0].isEditing }
+        XCTAssertEqual(shell.view.outline.focusRequest?.itemId, first)
+        XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 5)
     }
 
     /// A shell with a page of its own on screen.
@@ -252,7 +270,8 @@ final class ShellTests: XCTestCase {
             shell.view.outline.focusRequest?.itemId == first
         }
         let asked = try XCTUnwrap(shell.view.outline.focusRequest?.cursor)
-        XCTAssertEqual(asked, 5)
+        // The core asks for the end, which the editor finds in its text
+        XCTAssertEqual(utf16OfChars(text: "first", chars: asked), 5)
 
         XCTAssertTrue(shell.pressed(.right, in: first, editor("first", cursor: 5)))
         try await waitUntil("the cursor is asked to the start of the second item") {

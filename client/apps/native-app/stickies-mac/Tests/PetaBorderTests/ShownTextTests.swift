@@ -12,10 +12,10 @@ final class ShownTextTests: XCTestCase {
         RichRun(text: text, looks: .plain, link: link)
     }
 
-    private func paragraph(_ runs: RichRun..., heading: UInt8 = 0, mark: String? = nil, rule: Bool = false)
-        -> RichParagraph
-    {
-        RichParagraph(heading: heading, depth: 0, quoted: 0, mark: mark, rule: rule, runs: runs)
+    private func paragraph(
+        _ runs: RichRun..., heading: UInt8 = 0, mark: String? = nil, rule: Bool = false, start: UInt32 = 0
+    ) -> RichParagraph {
+        RichParagraph(heading: heading, depth: 0, quoted: 0, mark: mark, rule: rule, runs: runs, start: start)
     }
 
     private func text(_ paragraphs: RichParagraph...) -> RichBlock { .text(paragraphs: paragraphs) }
@@ -107,6 +107,33 @@ final class ShownTextTests: XCTestCase {
         let size = { (text: NSAttributedString) in (text.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.pointSize }
         XCTAssertEqual(size(usual), NSFont.systemFontSize)
         XCTAssertEqual(size(doubled), NSFont.systemFontSize * 2)
+    }
+
+    // 段落に触れた位置は、コアが数える表示の文字の数になる。段落の印は数えず、絵文字は1文字と数える（ADR 043）。
+    func testATouchInAParagraphCountsTheLettersAsTheCoreDoes() {
+        // The shown text is "☐ a😀bc": the mark and its space are not letters of the core
+        let shown = shown(text(paragraph(run("a😀"), run("bc"), mark: "☐", start: 5)))
+
+        XCTAssertEqual(ShownText.letter(in: shown, at: 0), 5)
+        XCTAssertEqual(ShownText.letter(in: shown, at: 2), 5)
+        XCTAssertEqual(ShownText.letter(in: shown, at: 3), 6)
+        XCTAssertEqual(ShownText.letter(in: shown, at: 5), 7)
+        XCTAssertEqual(ShownText.letter(in: shown, at: 6), 8)
+        XCTAssertEqual(ShownText.letter(in: shown, at: 7), 9)
+    }
+
+    // 行の末尾に触れた位置は、その行の最後の文字の後ろになる。コードブロックは、その先頭から数える。
+    func testATouchAtTheEndOfALineIsAfterItsLastLetterAndCodeCountsFromItsStart() {
+        // The shown text is "ab\nlet a\nlet b"
+        let shown = shown(text(paragraph(run("ab"))), .code(lines: "let a\nlet b", start: 3))
+
+        XCTAssertEqual(ShownText.letter(in: shown, at: 2), 2)
+        XCTAssertEqual(ShownText.letter(in: shown, at: 10), 10)
+    }
+
+    // 区切り線だけの項目には、コアの数える文字がない。
+    func testARuleHasNoLetterOfTheCore() {
+        XCTAssertNil(ShownText.letter(in: shown(text(paragraph(rule: true, start: 0))), at: 2))
     }
 
     // 本文のない項目は、何も出ない。
