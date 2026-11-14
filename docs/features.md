@@ -855,7 +855,7 @@
 
 ### ネイティブアプリが項目を表示する部品から描く
 
-出典: `client/libs/client-core/src/tests/view.rs`、`client/libs/client-core/src/tests/edit.rs`、`client/libs/client-core/src/rich_text/tests.rs`、`client/libs/client-native-bridge/src/codegen.rs`、iOSの`TouchesTests`、iOSの`RichTextTests`、各シェルの`ShownText`のテスト（macOS、Android、Windows）、macOSの`AssetImagesTests`と`OutlineScreenTests`
+出典: `client/libs/client-core/src/tests/view.rs`、`client/libs/client-core/src/tests/edit.rs`、Webの`click-place.spec.ts`、`client/libs/client-core/src/rich_text/tests.rs`、`client/libs/client-native-bridge/src/codegen.rs`、iOSの`TouchesTests`、iOSの`RichTextTests`、各シェルの`ShownText`のテスト（macOS、Android、Windows）、macOSの`AssetImagesTests`と`OutlineScreenTests`
 
 - 行は、コアが本文から作った描画モデルを持つ（ADR 042）。Webのアウトライナーでは本文のAST、iOS、macOS、Android、Windowsのアプリでは表示する部品（`RichText`）である。ネイティブのアプリには、ASTは渡らない
   - 項目は、ASTの文字列を持たない。サーバーが返したASTは使わない
@@ -863,6 +863,7 @@
   - 本文が変わると、行の描画モデルも変わる。同じ本文の行は、同じ描画モデルを持つ
 - 表示した文字に触れた位置は、コアがMarkdownの位置に直す。段落とコードブロックは、項目の表示の文字のうち、その前に立つ文字の数を持つ。シェルは、それに段落の中で触れた文字までの数を足して伝える
   - Markdownの記号（`**`、リンクの宛先など）は飛ばされ、カーソルは触れた文字のすぐ後ろに置かれる
+  - `RichText`を描かないWebのアウトライナーは、数の代わりに、ページの上でクリックより前にある文字の列を伝える。コアがそれをMarkdownと照らし合わせる。タグの間の改行のように、Markdownにない文字は飛ばされる。文字の脇のクリックでは、カーソルは先頭に置かれる。リンクのクリックは、編集に入らずにリンクを開く
   - アラートの題に触れると、本文が長くても、アラートの記号の名前（`[!TIP]`）に置かれる。題のあとの文字は、アラートの本文に置かれる
   - 表の2つめの升の先頭に触れると、その升の中に置かれる。ほかの行の同じ文字へは跳ばない
   - 文字は、バイトではなく文字で数える。iOSでは、行の末尾の絵文字の右に触れても、絵文字の途中には置かれない
