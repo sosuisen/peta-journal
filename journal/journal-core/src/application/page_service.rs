@@ -14,6 +14,7 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::journal_name;
 use crate::domain::model::{BacklinkEntry, Item, Page, ATLAS_NAME};
 use crate::domain::nfc::to_nfc;
+use crate::domain::property_key::PropertyKey;
 use crate::domain::search::SearchIndex;
 use crate::domain::wikilink;
 use crate::error::{AppError, AppResult};
@@ -479,11 +480,15 @@ impl PageService {
                 "Property '{key}' cannot be set on a page"
             )));
         }
-        // The type of a key is fixed when it is defined; a new key takes the type sent
-        let value_type = definition
-            .as_ref()
-            .map(|def| def.value_type.as_str())
-            .unwrap_or(value_type);
+        // The type of a key is fixed when it is defined; a new key takes the type sent,
+        // which must fit the name of the key
+        let value_type = match definition.as_ref() {
+            Some(def) => def.value_type.as_str(),
+            None => {
+                PropertyKey::parse(key)?.check_type(value_type)?;
+                value_type
+            }
+        };
         let mut effects = AfterCommit::default();
         if value_type == "tags" || value_type == "list" {
             let values = list_values(value);
