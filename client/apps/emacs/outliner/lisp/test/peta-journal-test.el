@@ -1080,12 +1080,12 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
      (vector (list :position 0 :kind "page" :title "設計メモ" :label "設計メモ"
                    :snippet "")
              (list :position 1 :kind "create" :title "設計"
-                   :label "Create new page \"設計\"" :snippet "")
+                   :label "Create page \"設計\"" :snippet "")
              (list :position 2 :kind "item" :title "Quarkus" :label "Quarkus"
                    :snippet "<b>設計</b>の方針"))
      nil)
     (should (equal (peta-journal-test--search-text)
-                   "  設計メモ\n  Create new page \"設計\"\n  Quarkus: 設計の方針\n"))))
+                   "  設計メモ\n  Create page \"設計\"\n  Quarkus: 設計の方針\n"))))
 
 ;; 先頭の結果が選ばれていて、C-n と C-p で動く。端では反対の端へ回る。
 (ert-deftest peta-journal-the-selection-moves-and-wraps ()
