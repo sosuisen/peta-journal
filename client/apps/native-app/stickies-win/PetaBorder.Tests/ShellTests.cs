@@ -320,7 +320,7 @@ public sealed class ShellTests : IDisposable
         );
         var asked = shell.View.Outline.FocusRequest?.Cursor;
         Assert.NotNull(asked);
-        Assert.Equal(5, Cursor.Utf16(asked.Value, "first"));
+        Assert.Equal(5UL, asked.Value);
 
         Assert.True(shell.Pressed(EditorKey.Right, first, Editor("first", 5)));
         main.WaitUntil(

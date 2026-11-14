@@ -394,7 +394,7 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 2026-11-14にユーザーが文言を決めた。ページを作る行は`Create new page "名前"`である（PR #481）。同じ日に、`Create page "名前"`に変えた（PR #483）
 - [x] ブラウザで開くページと画像のアドレスを、Rustで作る。今は、macOS（`Shell.swift:82,94`、`AssetImages.swift:49`）とWindows（`Shell.cs:133-154`）が別々に作り、エンコードの仕方が違う。名前に`?`や2つ目の`#`があるページで、結果が変わる。`client-page-links`の`AppLinks`を使い、`client-native-bridge`から出す
   - ページ名には`?`を使えない（`validate_file_name`）。そのため、`?`での食い違いは起きていなかった。ファイルのパスでは、`#`と`?`も符号化する
-- [ ] カーソルの位置の、UTF-16と文字の数の換算を、Rustで1回だけ行う（ADR 043）。関数は`client-core`に置き、Web版は直接、macOSとWindowsは`client-shell-http`から、iOSは`client-shell-embedded`から使う。サロゲートペアの途中は、その文字の後ろに寄せる。Androidは、標準の`codePointCount`と`offsetByCodePoints`のままでよい
+- [x] カーソルの位置の、UTF-16と文字の数の換算を、Rustで1回だけ行う（ADR 043）。関数は`client-core`に置き、Web版は直接、macOSとWindowsは`client-shell-http`から、iOSは`client-shell-embedded`から使う。サロゲートペアの途中は、その文字の後ろに寄せる。Androidは、標準の`codePointCount`と`offsetByCodePoints`のままでよい
   - 今の換算は、macOS（`Keys.swift:38-58`）、Windows（`Keys.cs:67-97`）、iOS（`App/ItemEditor.swift:270-281`、`App/Touches.swift:42`）、Web版（`dom.rs`の`utf16_to_chars`と`chars_to_utf16`）にある。サロゲートペアの途中に当たったとき、iOSだけが本文の長さを返す
   - Web版のキーの再生（`item_editor/replay.rs`）は、UTF-16の位置を1ずつ動かすので、絵文字の半分だけを消すおそれがある。この関数で動かす
 - [ ] coreが自分で決める位置を、書記素の境に寄せる（ADR 043）。`unicode-segmentation`を使う。触れた位置をMarkdownの位置に直す`rich_text/places.rs`の`touched_place`が、これに当たる。今は、直した位置が絵文字の途中に入ると、Enterで1つの絵文字が2つの項目に割れるおそれがある

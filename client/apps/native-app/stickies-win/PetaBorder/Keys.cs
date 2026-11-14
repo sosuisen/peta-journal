@@ -60,42 +60,6 @@ public sealed record EditorState(
     bool OnLastLine
 );
 
-/// <summary>
-/// The place of a cursor in a text. The core counts characters (Unicode scalars), and WinUI
-/// counts UTF-16 units: an emoji is one for the core and two for WinUI.
-/// </summary>
-public static class Cursor
-{
-    public static ulong Characters(int utf16, string text)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-        var (units, characters) = (0, 0UL);
-        foreach (var scalar in text.EnumerateRunes())
-        {
-            if (units >= utf16)
-                break;
-            units += scalar.Utf16SequenceLength;
-            characters++;
-        }
-        return characters;
-    }
-
-    /// <summary>A place past the end of the text is its end.</summary>
-    public static int Utf16(ulong characters, string text)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-        var (units, left) = (0, characters);
-        foreach (var scalar in text.EnumerateRunes())
-        {
-            if (left == 0)
-                break;
-            units += scalar.Utf16SequenceLength;
-            left--;
-        }
-        return units;
-    }
-}
-
 /// <summary>A key of the keyboard that the outline knows, whatever toolkit read it.</summary>
 public enum Key
 {
@@ -215,7 +179,8 @@ public sealed partial class Shell
 
     private static Event? EventOf(EditorKey key, string itemId, EditorState editor)
     {
-        var cursor = Cursor.Characters(editor.SelectionStart, editor.Text);
+        // The core counts in characters, and WinUI in UTF-16 units (ADR 043)
+        var cursor = PetaCore.PetaNative.CharsOfUtf16(editor.Text, (ulong)editor.SelectionStart);
         var onlyCursor = editor.SelectionLength == 0;
         var atStart = onlyCursor && editor.SelectionStart == 0;
         var atEnd = onlyCursor && editor.SelectionStart == editor.Text.Length;

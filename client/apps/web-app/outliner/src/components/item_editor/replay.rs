@@ -4,6 +4,7 @@
 use super::text::replace_range;
 use crate::core::CoreHandle;
 use client_core::model::DeferredKey;
+use client_core::util::utf16;
 use client_core::Event;
 use leptos::prelude::*;
 
@@ -57,7 +58,17 @@ fn replay_editing_key(
     }
     let start = el.selection_start().ok().flatten().unwrap_or(0);
     let end = el.selection_end().ok().flatten().unwrap_or(0);
-    let len = el.value().encode_utf16().count() as u32;
+    let value = el.value();
+    let len = value.encode_utf16().count() as u32;
+    // A key moves over a whole character: an emoji is two UTF-16 units (ADR 043)
+    let before = |at: u32| {
+        let chars = utf16::chars_of_utf16(&value, at as usize);
+        utf16::utf16_of_chars(&value, chars.saturating_sub(1)) as u32
+    };
+    let after = |at: u32| {
+        let chars = utf16::chars_of_utf16(&value, at as usize);
+        utf16::utf16_of_chars(&value, chars + 1) as u32
+    };
     let has_selection = start != end;
     match key.key.as_str() {
         "Backspace" => {
@@ -69,7 +80,7 @@ fn replay_editing_key(
                 item_id,
                 el,
                 "",
-                if has_selection { start } else { start - 1 },
+                if has_selection { start } else { before(start) },
                 end,
             );
             true
@@ -84,17 +95,17 @@ fn replay_editing_key(
                 el,
                 "",
                 start,
-                if has_selection { end } else { end + 1 },
+                if has_selection { end } else { after(end) },
             );
             true
         }
         "ArrowLeft" => {
-            let p = start.saturating_sub(1);
+            let p = before(start);
             let _ = el.set_selection_range(p, p);
             true
         }
         "ArrowRight" => {
-            let p = (end + 1).min(len);
+            let p = after(end);
             let _ = el.set_selection_range(p, p);
             true
         }

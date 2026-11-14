@@ -1,5 +1,6 @@
 import AppKit
 import PetaBorder
+import PetaCore
 import PetaTypes
 import SwiftUI
 
@@ -218,7 +219,7 @@ final class Editor: NSObject, NSTextViewDelegate {
         guard !shell.view.outline.selectionMode else { return }
         window.makeFirstResponder(view)
         if let cursor = asked?.cursor {
-            let place = Cursor.utf16(characters: cursor, in: view.string)
+            let place = Int(utf16OfChars(text: view.string, chars: cursor))
             view.setSelectedRange(NSRange(location: place, length: 0))
         }
     }

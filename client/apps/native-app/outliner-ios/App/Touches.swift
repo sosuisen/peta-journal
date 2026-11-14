@@ -1,3 +1,4 @@
+import PetaBorder
 import SwiftUI
 import UIKit
 
@@ -39,8 +40,7 @@ enum Touches {
         let units = fraction > 0.5 && index < text.length
             ? (string as NSString).rangeOfComposedCharacterSequence(at: index).upperBound
             : index
-        let end = String.Index(utf16Offset: units, in: string)
-        return string[..<end].unicodeScalars.count
+        return Cursor.characters(utf16: units, in: string)
     }
 
     /// How far a point is from a frame: 0 inside it. Up and down count more than sideways, so

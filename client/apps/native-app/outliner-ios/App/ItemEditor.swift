@@ -60,7 +60,7 @@ struct ItemEditor: UIViewRepresentable {
             typist.answered = asked.seq
             typist.taken = false
             if asked.seq != shell.touched, let cursor = asked.cursor {
-                field.selectedRange = NSRange(location: units(field.text, characters: Int(cursor)), length: 0)
+                field.selectedRange = NSRange(location: Cursor.utf16(characters: Int(cursor), in: field.text), length: 0)
             }
         }
         // The list drops the field of an item that leaves what is seen, as when the keyboard
@@ -237,7 +237,7 @@ struct ItemEditor: UIViewRepresentable {
                 shell.type(itemId, text)
             }
             // The core splits the item: the field takes no line break
-            shell.enter(itemId, cursor: characters(text, units: range.location))
+            shell.enter(itemId, cursor: Cursor.characters(utf16: range.location, in: text))
         }
 
         func textViewDidBeginEditing(_ field: UITextView) {
@@ -265,19 +265,6 @@ struct ItemEditor: UIViewRepresentable {
             }
         }
     }
-}
-
-/// The core counts a cursor in characters, and a field of UIKit counts in UTF-16 units.
-private func characters(_ text: String, units: Int) -> Int {
-    let utf16 = text.utf16
-    let end = utf16.index(utf16.startIndex, offsetBy: min(max(units, 0), utf16.count))
-    return String(utf16[..<end])?.unicodeScalars.count ?? text.unicodeScalars.count
-}
-
-private func units(_ text: String, characters: Int) -> Int {
-    let scalars = text.unicodeScalars
-    let end = scalars.index(scalars.startIndex, offsetBy: min(max(characters, 0), scalars.count))
-    return String(scalars[..<end]).utf16.count
 }
 
 /// Has the keyboard between two fields, and keeps what is typed meanwhile for the field that

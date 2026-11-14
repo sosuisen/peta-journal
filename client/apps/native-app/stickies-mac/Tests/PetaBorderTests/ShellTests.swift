@@ -252,7 +252,7 @@ final class ShellTests: XCTestCase {
             shell.view.outline.focusRequest?.itemId == first
         }
         let asked = try XCTUnwrap(shell.view.outline.focusRequest?.cursor)
-        XCTAssertEqual(Cursor.utf16(characters: asked, in: "first"), 5)
+        XCTAssertEqual(asked, 5)
 
         XCTAssertTrue(shell.pressed(.right, in: first, editor("first", cursor: 5)))
         try await waitUntil("the cursor is asked to the start of the second item") {
