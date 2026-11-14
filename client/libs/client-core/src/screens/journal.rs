@@ -243,7 +243,7 @@ fn extract_journal_name(name: &str, weekly: bool) -> Option<String> {
         let idx = name.find("-W")?;
         let start = idx.checked_sub(4)?;
         // A name with other letters there is no journal: it is not cut inside a letter
-        let candidate = name.get(start..(idx + 5).min(name.len()))?;
+        let candidate = name.get(start..idx + "-W07".len())?;
         return (classify_journal_file_name(candidate) == JournalType::Weekly)
             .then(|| candidate.to_string());
     }
