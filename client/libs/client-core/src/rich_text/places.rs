@@ -6,20 +6,18 @@ use crate::asts::parse;
 
 /// What leaving out a letter of the shown text costs, where a letter of the Markdown costs 1.
 /// The Markdown has many letters that are not shown, such as the address of a link; the shown
-/// text has few of its own, such as the line breaks between the cells of a table. A link
-/// longer than this, with only a letter or two after it, puts the cursor before its address.
+/// text has few that the Markdown lacks. A link longer than this, with only a letter or two
+/// after it, puts the cursor before its address.
 const SHOWN_LEFT_OUT: usize = 32;
 
 /// The place in `markdown`, in characters, that stands right after `shown_before`: the letters
 /// of the shown text before a touch.
 ///
-/// The shown text is the Markdown without its marks, such as `**` and the address of a link,
-/// and with a few letters of its own, such as the line breaks between the cells of a table.
+/// The shown text is the Markdown without its marks, such as `**` and the address of a link.
 /// The two are lined up so that the fewest letters are left out, and the place is the first
 /// one where that few are. A letter of the shown text is lined up whenever the Markdown has it
 /// within [`SHOWN_LEFT_OUT`] letters, and left out when it is further on: then only the shown
-/// text has it. Letters are the same whatever their case, as the title of an alert, `Tip`, is
-/// written `[!TIP]`.
+/// text has it.
 pub fn markdown_place(markdown: &str, shown_before: &str) -> usize {
     let markdown: Vec<char> = markdown.chars().collect();
     // What leaving out letters costs at least, to line up the letters so far with the first
@@ -42,6 +40,9 @@ pub fn markdown_place(markdown: &str, shown_before: &str) -> usize {
     row.iter().position(|&cost| cost == least).unwrap_or(0)
 }
 
+/// Whether a letter of the Markdown shows as `letter`. Letters are the same whatever their
+/// case, as the title of an alert, `Tip`, is written `[!TIP]`; and the line break after a cell
+/// of a table is written as the bar between the cells.
 fn same_letter(mark: char, letter: char) -> bool {
     mark == letter || mark.to_lowercase().eq(letter.to_lowercase()) || (mark, letter) == ('|', '\n')
 }
