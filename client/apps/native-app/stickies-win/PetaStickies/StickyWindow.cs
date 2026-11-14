@@ -565,7 +565,7 @@ internal sealed class StickyWindow : Window
                 list.UpdateLayout();
             }
             int? cursor = request?.Cursor is { } characters
-                ? Cursor.Utf16(characters, row.Row.Item.Body)
+                ? (int)PetaCore.PetaNative.Utf16OfChars(row.Row.Item.Body, characters)
                 : null;
             if (row.View?.TakeCursor(cursor) != true)
             {

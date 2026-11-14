@@ -1,5 +1,6 @@
 pub mod date;
 pub mod filename;
+pub mod utf16;
 pub mod week;
 
 /// True when the text has an odd number of lines that open a code fence.

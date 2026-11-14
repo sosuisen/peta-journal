@@ -2,6 +2,7 @@
 //! the page directly.
 
 use client_core::model::DeferredKey;
+use client_core::util::utf16;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
@@ -94,23 +95,14 @@ pub fn deferred_key(ev: &web_sys::KeyboardEvent) -> DeferredKey {
     }
 }
 
-/// The number of characters before a UTF-16 offset.
+/// The number of characters before a UTF-16 offset (ADR 043).
 pub fn utf16_to_chars(text: &str, utf16_offset: u32) -> usize {
-    let mut units = 0u32;
-    let mut chars = 0usize;
-    for c in text.chars() {
-        if units >= utf16_offset {
-            break;
-        }
-        units += c.len_utf16() as u32;
-        chars += 1;
-    }
-    chars
+    utf16::chars_of_utf16(text, utf16_offset as usize)
 }
 
 /// The UTF-16 offset of a character index.
 pub fn chars_to_utf16(text: &str, chars: usize) -> u32 {
-    text.chars().take(chars).map(|c| c.len_utf16() as u32).sum()
+    utf16::utf16_of_chars(text, chars) as u32
 }
 
 pub fn selection_start_chars(el: &web_sys::HtmlTextAreaElement) -> usize {

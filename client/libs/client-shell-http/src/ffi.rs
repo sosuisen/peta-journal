@@ -70,3 +70,18 @@ pub fn page_address(app_url: String, url: String) -> String {
 pub fn asset_address(app_url: String, path: String) -> String {
     client_native_bridge::asset_address(&app_url, &path)
 }
+
+/// The characters before the place `units` UTF-16 units into `text`, as the core counts a
+/// cursor (ADR 043). A place inside a surrogate pair goes after its character.
+#[boltffi::export]
+pub fn chars_of_utf16(text: String, units: u64) -> u64 {
+    client_core::util::utf16::chars_of_utf16(&text, units as usize) as u64
+}
+
+/// The UTF-16 units before the place `chars` characters into `text`, for a text field of the
+/// shell (ADR 043). A place past the end is the end.
+#[boltffi::export]
+pub fn utf16_of_chars(text: String, chars: u64) -> u64 {
+    client_core::util::utf16::utf16_of_chars(&text, usize::try_from(chars).unwrap_or(usize::MAX))
+        as u64
+}

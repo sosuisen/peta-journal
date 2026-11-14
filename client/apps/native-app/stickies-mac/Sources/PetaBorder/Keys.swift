@@ -1,4 +1,5 @@
 import Foundation
+import PetaCore
 import PetaTypes
 
 /// A key that means something to the outline, and not only to the text of an item.
@@ -33,31 +34,6 @@ public struct EditorState {
     }
 }
 
-/// The place of a cursor in a text. The core counts characters (Unicode scalars), and AppKit
-/// counts UTF-16 units: an emoji is one for the core and two for AppKit.
-public enum Cursor {
-    public static func characters(utf16 offset: Int, in text: String) -> UInt64 {
-        var (units, characters) = (0, UInt64(0))
-        for scalar in text.unicodeScalars {
-            if units >= offset { break }
-            units += scalar.utf16.count
-            characters += 1
-        }
-        return characters
-    }
-
-    /// A place past the end of the text is its end.
-    public static func utf16(characters: UInt64, in text: String) -> Int {
-        var (units, left) = (0, characters)
-        for scalar in text.unicodeScalars {
-            if left == 0 { break }
-            units += scalar.utf16.count
-            left -= 1
-        }
-        return units
-    }
-}
-
 extension Shell {
     /// The user pressed a key in the editor of an item. False when the key means nothing to the
     /// outline here, and the editor does with it what it does in any text.
@@ -84,7 +60,8 @@ extension Shell {
     }
 
     private func event(of key: EditorKey, in itemId: String, _ editor: EditorState) -> Event? {
-        let cursor = Cursor.characters(utf16: editor.selection.lowerBound, in: editor.text)
+        // The core counts in characters, and AppKit in UTF-16 units (ADR 043)
+        let cursor = charsOfUtf16(text: editor.text, units: UInt64(editor.selection.lowerBound))
         let onlyCursor = editor.selection.isEmpty
         let atStart = onlyCursor && editor.selection.lowerBound == 0
         let atEnd = onlyCursor && editor.selection.lowerBound == editor.text.utf16.count
