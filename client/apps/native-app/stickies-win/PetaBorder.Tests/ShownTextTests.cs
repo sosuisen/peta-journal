@@ -117,6 +117,65 @@ public sealed class ShownTextTests
 
     private static RichBlock.Entries Entries(params RichEntry[] entries) => new(new(entries));
 
+    // 段落に触れた位置は、コアが数える表示の文字の数になる。リストの印は数えず、絵文字は1文字と数える（ADR 043）。
+    [Fact]
+    public void A_touch_in_a_paragraph_counts_the_letters_as_the_core_does()
+    {
+        var paragraph = Paragraph(Run("a😀"), Run("bc"));
+        paragraph.Start = 5;
+
+        var shown = Assert.IsType<ShownParagraph>(
+            Assert.Single(Shown(Entries(Entry("•", Text(paragraph)))).Parts)
+        );
+
+        // The shown paragraph is "• a😀bc": the mark and its space are not letters of the core
+        Assert.Equal(5, shown.LetterAt(0));
+        Assert.Equal(5, shown.LetterAt(2));
+        Assert.Equal(6, shown.LetterAt(3));
+        Assert.Equal(7, shown.LetterAt(5));
+        Assert.Equal(8, shown.LetterAt(6));
+        Assert.Equal(9, shown.LetterAt(7));
+    }
+
+    // コードブロックと表の升に触れた位置も、コアが数える表示の文字の数になる。
+    [Fact]
+    public void A_touch_in_a_code_block_or_a_cell_counts_from_its_start()
+    {
+        var cell = Paragraph(Run("xy"));
+        cell.Start = 20;
+        var shown = Shown(
+            new RichBlock.Code("let a\nlet b", 9),
+            new RichBlock.Table(new([new RichTableRow { Cells = new([cell]) }]))
+        );
+
+        var code = Assert.IsType<ShownParagraph>(shown.Parts[0]);
+        var table = Assert.IsType<ShownTable>(shown.Parts[1]);
+        Assert.Equal(16, code.LetterAt(7));
+        Assert.Equal(21, table.Rows[0].Cells[0].LetterAt(1));
+    }
+
+    // 区切り線に触れた位置は、その段落の先頭になる。線の文字はコアの文字ではない。
+    [Fact]
+    public void A_touch_on_a_rule_is_at_the_start_of_its_paragraph()
+    {
+        var shown = Assert.IsType<ShownParagraph>(
+            Assert.Single(
+                Shown(
+                    Text(
+                        new RichParagraph
+                        {
+                            Rule = true,
+                            Runs = [],
+                            Start = 3,
+                        }
+                    )
+                ).Parts
+            )
+        );
+
+        Assert.Equal(3, shown.LetterAt(4));
+    }
+
     // 段落の印は行の頭に付き、区切り線は線の文字で出る。
     [Fact]
     public void The_mark_of_a_paragraph_leads_its_line_and_a_rule_is_a_line_of_letters()

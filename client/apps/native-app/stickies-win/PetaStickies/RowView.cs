@@ -95,7 +95,10 @@ internal sealed class RowView : Grid
     /// <summary>What the paper shows now, so that it is not made again for nothing.</summary>
     private (string Body, double Zoom)? drawn;
 
-    /// <summary>The runs on the paper, each with the place of its first letter in the text.</summary>
+    /// <summary>
+    /// The runs on the paper, each with the place of its first letter in the text of its
+    /// paragraph, in UTF-16 units.
+    /// </summary>
     private readonly List<(RichTextBlock Block, Run Run, int Start)> runs = [];
 
     /// <summary>When a link was last clicked.</summary>
@@ -514,11 +517,25 @@ internal sealed class RowView : Grid
         return true;
     }
 
-    /// <summary>The user clicked the text of the item, near the letter at this place.</summary>
+    /// <summary>The user clicked beside the text of the item: the cursor goes to its end.</summary>
     private void Edit(int place)
     {
         if (!TakeCursor(place))
             Draw();
+    }
+
+    /// <summary>
+    /// The user clicked the text of the item after <paramref name="letter"/> letters of its
+    /// shown text. The core finds the place in the Markdown, and puts the cursor there.
+    /// </summary>
+    private void Touch(int? letter)
+    {
+        if (model is not { } row)
+            return;
+        if (letter is { } touched)
+            window.Touched(row.Id, touched);
+        else
+            Edit(int.MaxValue);
     }
 
     // ---- The text of the item with its decoration ----
@@ -541,17 +558,15 @@ internal sealed class RowView : Grid
         var size = FontSize * Zoom;
         // An item with no text is still as high as a line, and can be clicked
         paper.MinHeight = Math.Round(size * LineHeight);
-        var start = 0;
         foreach (var part in ShownText.Of(row.BodyModel).Parts)
         {
             UIElement drawnPart = part switch
             {
-                ShownParagraph paragraph => Block(paragraph, size, start),
-                ShownTable table => Table(table, size, start),
+                ShownParagraph paragraph => Block(paragraph, size),
+                ShownTable table => Table(table, size),
                 ShownPicture picture => Picture(picture, size),
             };
             shown.Children.Add(drawnPart);
-            start += ShownText.TextOf(part).Length + 1;
         }
     }
 
@@ -562,13 +577,12 @@ internal sealed class RowView : Grid
     /// A table with a line around each cell, as macOS draws a table. The columns share the
     /// width of the sticky, and the text of a cell wraps in it.
     /// </summary>
-    private Grid Table(ShownTable table, double size, int start)
+    private Grid Table(ShownTable table, double size)
     {
         var grid = new Grid { Margin = Indented(table.Indent) };
         var columns = table.Rows.Max(row => row.Cells.Count);
         for (var column = 0; column < columns; column++)
             grid.ColumnDefinitions.Add(new ColumnDefinition());
-        var place = start;
         for (var at = 0; at < table.Rows.Count; at++)
         {
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -583,8 +597,7 @@ internal sealed class RowView : Grid
                 };
                 if (column < cells.Count)
                 {
-                    box.Child = Block(cells[column], size, place);
-                    place += cells[column].Text.Length + 1;
+                    box.Child = Block(cells[column], size);
                 }
                 Grid.SetRow(box, at);
                 Grid.SetColumn(box, column);
@@ -644,7 +657,7 @@ internal sealed class RowView : Grid
         return holder;
     }
 
-    private RichTextBlock Block(ShownParagraph paragraph, double size, int start)
+    private RichTextBlock Block(ShownParagraph paragraph, double size)
     {
         var block = new RichTextBlock
         {
@@ -661,7 +674,7 @@ internal sealed class RowView : Grid
         foreach (var piece in paragraph.Runs)
         {
             var run = Run(piece, size * paragraph.Scale);
-            runs.Add((block, run, start + place));
+            runs.Add((block, run, place));
             if (piece.Link is { } link)
             {
                 var anchor = new Hyperlink { IsTabStop = false };
@@ -689,13 +702,13 @@ internal sealed class RowView : Grid
         block.Tapped += (_, e) =>
         {
             e.Handled = true;
-            var at = PlaceOf(block, e.GetPosition(block));
+            var at = LetterOf(block, paragraph, e.GetPosition(block));
             // The click of a link comes on its own way, before this or after it. A click on
             // a link does not put the cursor in the item
             DispatcherQueue.TryEnqueue(() =>
             {
                 if (Environment.TickCount64 - followed > 500)
-                    Edit(at);
+                    Touch(at);
             });
         };
         return block;
@@ -737,13 +750,17 @@ internal sealed class RowView : Grid
     }
 
     /// <summary>
-    /// How far into the shown text a click was. In the Markdown that is not the same place,
-    /// but one near it.
+    /// How many letters of the shown text of the item stand before a click on the paragraph,
+    /// as the core counts them. None when the paragraph has no letters of the core.
     /// </summary>
-    private int PlaceOf(RichTextBlock block, Windows.Foundation.Point point)
+    private int? LetterOf(
+        RichTextBlock block,
+        ShownParagraph paragraph,
+        Windows.Foundation.Point point
+    )
     {
         var pointer = block.GetPositionFromPoint(point);
-        var place = int.MaxValue;
+        var place = 0;
         foreach (var (owner, run, start) in runs)
         {
             if (owner != block || run.ContentStart.Offset > pointer.Offset)
@@ -751,6 +768,6 @@ internal sealed class RowView : Grid
             place =
                 start + Math.Clamp(pointer.Offset - run.ContentStart.Offset, 0, run.Text.Length);
         }
-        return place;
+        return paragraph.LetterAt(place);
     }
 }

@@ -210,6 +210,25 @@ public sealed class ShellTests : IDisposable
         Assert.Equal(QuestionKind.ConfirmDestructive, shell.Question?.Kind);
     }
 
+    // 表示した文字に触れると、その項目の編集に入り、カーソルは触れた文字のMarkdownでの位置に置かれる（ADR 043）。
+    [Fact]
+    public void A_touch_on_the_shown_text_puts_the_cursor_at_its_place_in_the_markdown()
+    {
+        var shell = ShellWithPage();
+        var first = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(first);
+        shell.Typed("**bold** end", first);
+        shell.FinishEditing(first);
+        main.WaitUntil("the edit is over", () => !shell.View.Outline.Rows[0].IsEditing);
+
+        // The shown text is "bold end": the touch is after "bol"
+        shell.Touched(first, 3);
+
+        main.WaitUntil("the item is edited", () => shell.View.Outline.Rows[0].IsEditing);
+        Assert.Equal(first, shell.View.Outline.FocusRequest?.ItemId);
+        Assert.Equal(5ul, shell.View.Outline.FocusRequest?.Cursor);
+    }
+
     // Enterは、カーソルの位置で項目を分ける。カーソルは、新しい項目の先頭に移る。
     [Fact]
     public void Enter_splits_the_item_at_the_cursor()
