@@ -45,9 +45,8 @@ swift test
 flag BoltFFI makes a debug build, which is about twice as slow). It makes two Swift packages.
 Run it again after a change in Rust. Neither is kept in the repository.
 
-- `../peta-shown/generated/swift/PetaTypes`: the types that cross the border, generated from the
-  Rust types (`Event`, `ViewModel`, `Request`, ...). They are in the package that this app
-  shares with the iOS app: SwiftPM takes a package of one name from one place only.
+- `generated/swift/PetaTypes`: the types that cross the border, generated from the Rust types
+  (`Event`, `ViewModel`, `Request`, ...).
 - `generated/PetaCore`: the core as a static library (`PetaCore.xcframework`), and the Swift
   class `PetaCore` that calls it. BoltFFI makes both, from `client/libs/client-shell-http/src/ffi.rs`
   and `boltffi.toml` next to it.
@@ -66,9 +65,10 @@ Run it again after a change in Rust. Neither is kept in the repository.
   thread, in order.
 
 - `ShownText` makes the text of an item as it is to be shown: with its decoration, not as
-  Markdown. `../peta-shown` reads the AST that the core gives with each row (`Row.bodyModel.ast`, ADR
-  041) into parts, as for the iOS app, and this makes text with attributes of the parts: a
-  table in boxes of the text, an image of the assets folder as a picture in the text.
+  Markdown. The core gives the parts of the item with each row (`Row.bodyModel.rich`, ADR 042),
+  and this makes text with attributes of the parts: a table in boxes of the text, an image of
+  the assets folder as a picture in the text. An image whose page asks for no size is as wide
+  as the sticky, and never wider than its file. Each link holds where the core says it leads.
 - `AssetImages` reads the images of the assets folder from the journal server, which serves the
   folder at `/assets/`. A text that is made before its image has come shows the words for the
   image, and is made again when the image is there.

@@ -41,9 +41,8 @@ swift test           # runs the tests that need no simulator, on the Mac
 `generate.sh` makes two Swift packages. Run it again after a change in Rust. Neither is kept in
 the repository:
 
-- `../peta-shown/generated/swift/PetaTypes`: the types that cross the border (`Event`,
-  `ViewModel`, `Request`, ...), made by `facet_generate` 0.22.3. They are in the package that
-  this app shares with the Mac app: SwiftPM takes a package of one name from one place only.
+- `generated/swift/PetaTypes`: the types that cross the border (`Event`, `ViewModel`,
+  `Request`, ...), made by `facet_generate` 0.22.3.
 - `generated/PetaCore`: the class `PetaCore` that calls the core, and the core as a library
   for a device, for the simulator and for the Mac (`PetaCore.xcframework`). BoltFFI makes
   both. The library for the Mac is there for `swift test`.

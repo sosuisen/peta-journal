@@ -26,7 +26,7 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 行の本文の描画モデルは`Row.body_model`である。Web版では`Node`、ネイティブでは`RichText`である
   - 切り替えのあいだ、`client-native-bridge`の行は`BorderBody`（`ast`と`rich`の両方）を渡す。まだ切り替えていないシェルは`row.bodyModel.ast`から描く。段階5のあとで`ast`を消し、`RichText`だけにする
 - [x] 段階2：iOSのシェルを、`RichText`から描くように切り替える。`peta-shown`を使うのをやめる
-- [ ] 段階3：macOSのシェルを切り替える。画像の読み込みとリンクの決まりは、今のものを使う。`peta-shown`を消し、`PetaTypes`の生成先を各アプリに戻す
+- [x] 段階3：macOSのシェルを切り替える。画像の読み込みとリンクの決まりは、今のものを使う。`peta-shown`を消し、`PetaTypes`の生成先を各アプリに戻す
 - [ ] 段階4：Androidのシェルを切り替える（ユーザーが実機で確かめる）
 - [ ] 段階5：Windowsのシェルを切り替える。画像を絵として出し、表を別の部品で描く（ユーザーが実機で確かめる）
 - [ ] 仕上げ：`docs/architecture.svg`を直す。`BorderBody`の`ast`を消し、境界にASTを通さない
