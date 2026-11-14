@@ -397,9 +397,9 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [x] カーソルの位置の、UTF-16と文字の数の換算を、Rustで1回だけ行う（ADR 043）。関数は`client-core`に置き、Web版は直接、macOSとWindowsは`client-shell-http`から、iOSは`client-shell-embedded`から使う。サロゲートペアの途中は、その文字の後ろに寄せる。Androidは、標準の`codePointCount`と`offsetByCodePoints`のままでよい
   - 今の換算は、macOS（`Keys.swift:38-58`）、Windows（`Keys.cs:67-97`）、iOS（`App/ItemEditor.swift:270-281`、`App/Touches.swift:42`）、Web版（`dom.rs`の`utf16_to_chars`と`chars_to_utf16`）にある。サロゲートペアの途中に当たったとき、iOSだけが本文の長さを返す
   - Web版のキーの再生（`item_editor/replay.rs`）は、UTF-16の位置を1ずつ動かすので、絵文字の半分だけを消すおそれがある。この関数で動かす
-- [ ] coreが自分で決める位置を、書記素の境に寄せる（ADR 043）。`unicode-segmentation`を使う。触れた位置をMarkdownの位置に直す`rich_text/places.rs`の`touched_place`が、これに当たる。今は、直した位置が絵文字の途中に入ると、Enterで1つの絵文字が2つの項目に割れるおそれがある
-- [ ] 不具合：`client-core/src/screens/journal.rs`の`extract_journal_name`は、週のジャーナルの名前を、ファイル名のバイトの位置で切り出す。`-W`の前に日本語などがあると、パニックする（ADR 043）。文字の境で切るように直す
-- [ ] 保留したキーの再生で、複数のコードポイントでできた1文字（異体字セレクタやZWJ付きの絵文字）が捨てられる。`model.rs`の`DeferredKey.is_typed_character`が、1つのコードポイントのキーしか受け入れないためである（ADR 043）
+- [x] coreが自分で決める位置を、書記素の境に寄せる（ADR 043）。`unicode-segmentation`を使う。触れた位置をMarkdownの位置に直す`rich_text/places.rs`の`touched_place`が、これに当たる。今は、直した位置が絵文字の途中に入ると、Enterで1つの絵文字が2つの項目に割れるおそれがある
+- [x] 不具合：`client-core/src/screens/journal.rs`の`extract_journal_name`は、週のジャーナルの名前を、ファイル名のバイトの位置で切り出す。`-W`の前に日本語などがあると、パニックする（ADR 043）。文字の境で切るように直す
+- [x] 保留したキーの再生で、複数のコードポイントでできた1文字（異体字セレクタやZWJ付きの絵文字）が捨てられる。`model.rs`の`DeferredKey.is_typed_character`が、1つのコードポイントのキーしか受け入れないためである（ADR 043）
 - [ ] 画像の大きさの決まりを、Rustの1つの関数にする。今は、4つのシェルで違う。iOSは幅に合わせて縮め、Androidは決まった幅にし、macOSは付箋紙の幅に縮めない。画像がないときも、macOSは`[alt]`、スマホは`alt`かパス、Windowsは何も出さない
 - [ ] 描画の定数をそろえる。見出しの大きさは、Androidだけがブラウザの既定値（2.0、1.5、1.17…）で、ほかは1.6、1.4、1.2、1.1、1である。マーカーの色、1段の字下げも、シェルごとに違う。行頭の点は、iOSとAndroidが`row.showBullet`に従い、macOSとWindowsはいつも描く。coreが`RichParagraph`で大きさを渡すか、共通の表を持つ
 - [ ] イベントの時刻（`nowMs`）を、`client-native-bridge`の`Clock`で入れる。今は、4つのシェルが自分で入れている（macOS `Shell.swift:128`と`Keys.swift:93`、Windows `Shell.cs:299`、iOS `Shell.swift:154`、Android `Shell.kt:172`）
