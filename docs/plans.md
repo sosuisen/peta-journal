@@ -24,6 +24,12 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 理由: 定義（キー、型、ページ用かどうか）は、SQLiteの`property_definitions`にしかない。ファイルには出ない。だから、別のPCやモバイルの端末には、ユーザーが定義したプロパティとその型が届かない
   - 取り込みの修正（2026-11-14に済んだ）だけでは、定義のない端末で、値はすべて`text`として入る。定義のファイルが届いたら、その型に直す
   - ファイルの場所、名前、形式、端末の間でぶつかったときの決まりは、ADRで決める
+  - 2026-11-15にADR 046で決めた。`settings/properties.json`に置き、キーごとに新しい方を採る。4つのPRを積み重ねて出す
+    - [x] PR 1：プロパティの値を、`properties`の`value`の1つの列に、文字列で持つ（DBの版6）
+    - [ ] PR 2：名前が`_list`で終わるキーだけを`list`型にする。`PropertyKey`の型
+    - [ ] PR 3：`settings/properties.json`で定義を同期する。仮の定義、`deleted_property_definitions`、走査と監視
+    - [ ] PR 4：AndroidとiOSのシェルで、`settings/properties.json`も運ぶ。Androidは実機で確かめる
+  - [ ] 型に合わない値に、警告の印を付ける。シェルごとに別のタスクにする（ADR 046）
 - [x] Windowsのシェルで、上付き・下付きと`-# subtext`の文字を、ほかのシェルと同じく0.75倍の大きさで描く
   - 今は`FontVariants`でOpenTypeの`subs`と`sups`に任せている。Segoe UIとYu Gothic UIは数字しか置き換えず、Noto Sans JPはこの機能を持たない。だから、文字が小さくならない
   - ベースラインは下げない。WinUIの`Run`には、ずらす設定がないため
