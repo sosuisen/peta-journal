@@ -1313,12 +1313,11 @@ Closing the calendar stays on the page."
 
 (defun peta-journal--search-line (entry)
   "The text of the search result ENTRY."
-  (let ((title (plist-get entry :title))
+  (let ((label (plist-get entry :label))
         (snippet (peta-journal--strip-tags (plist-get entry :snippet))))
-    (pcase (plist-get entry :kind)
-      ("create" (format "[新規] %s" title))
-      ("item" (format "%s: %s" title (string-replace "\n" " " snippet)))
-      (_ title))))
+    (if (equal (plist-get entry :kind) "item")
+        (format "%s: %s" label (string-replace "\n" " " snippet))
+      label)))
 
 (defconst peta-journal--search-buffer "*PetaJournal Search*"
   "The name of the list of search results.")
@@ -1437,7 +1436,8 @@ wait, a quick RET would open a result of an older query."
   (when (string-empty-p (minibuffer-contents-no-properties))
     (with-current-buffer peta-journal--search-buffer
       (peta-journal--search-render
-       (vconcat (mapcar (lambda (path) (list :kind "recent" :title path :snippet "" :path path))
+       (vconcat (mapcar (lambda (path)
+                          (list :kind "recent" :title path :label path :snippet "" :path path))
                         peta-journal--recent))))))
 
 (defun peta-journal--search-input-changed (_beg _end _length)

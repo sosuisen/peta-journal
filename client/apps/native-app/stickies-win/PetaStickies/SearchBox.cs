@@ -126,7 +126,7 @@ internal sealed class SearchBox : StackPanel
         lines.Children.Add(
             new TextBlock
             {
-                Text = entry.Kind == SearchKind.Create ? $"Create \"{entry.Title}\"" : entry.Title,
+                Text = entry.Label,
                 FontFamily = RowView.TextFont,
                 Foreground = Ink,
                 TextTrimming = TextTrimming.CharacterEllipsis,

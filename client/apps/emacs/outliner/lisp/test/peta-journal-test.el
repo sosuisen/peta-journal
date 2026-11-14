@@ -1060,7 +1060,8 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   "Search results of the kind page, with TITLES."
   (vconcat (seq-map-indexed
             (lambda (title index)
-              (list :position index :kind "page" :title title :snippet ""))
+              (list :position index :kind "page" :title title :label title
+                    :snippet ""))
             titles)))
 
 (defun peta-journal-test--choice ()
@@ -1072,16 +1073,19 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   (with-current-buffer "*PetaJournal Search*"
     (substring-no-properties (buffer-string))))
 
-;; 結果は入力に合わせて窓に並ぶ。ページ、新規作成、項目はそれぞれの形で示される。
-(ert-deftest peta-journal-results-show-pages-creates-and-items ()
+;; 結果は入力に合わせて窓に並ぶ。各行は、コアが決めた文言である。項目には、その後に抜粋が付く。
+(ert-deftest peta-journal-results-show-the-labels-of-the-core ()
   (peta-journal-test--with-search
     (peta-journal--on-search
-     (vector (list :position 0 :kind "page" :title "設計メモ" :snippet "")
-             (list :position 1 :kind "create" :title "設計" :snippet "")
-             (list :position 2 :kind "item" :title "Quarkus" :snippet "<b>設計</b>の方針"))
+     (vector (list :position 0 :kind "page" :title "設計メモ" :label "設計メモ"
+                   :snippet "")
+             (list :position 1 :kind "create" :title "設計"
+                   :label "Create new page \"設計\"" :snippet "")
+             (list :position 2 :kind "item" :title "Quarkus" :label "Quarkus"
+                   :snippet "<b>設計</b>の方針"))
      nil)
     (should (equal (peta-journal-test--search-text)
-                   "  設計メモ\n  [新規] 設計\n  Quarkus: 設計の方針\n"))))
+                   "  設計メモ\n  Create new page \"設計\"\n  Quarkus: 設計の方針\n"))))
 
 ;; 先頭の結果が選ばれていて、C-n と C-p で動く。端では反対の端へ回る。
 (ert-deftest peta-journal-the-selection-moves-and-wraps ()
@@ -1100,7 +1104,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 (ert-deftest peta-journal-the-choice-is-the-number-from-the-core ()
   (peta-journal-test--with-search
     (peta-journal--on-search
-     (vector (list :position 7 :kind "page" :title "a" :snippet "")) nil)
+     (vector (list :position 7 :kind "page" :title "a" :label "a" :snippet "")) nil)
     (should (= (peta-journal-test--choice) 7))))
 
 ;; 同じ結果がまた届いても選択は動かない。結果が変われば先頭へ戻る。
