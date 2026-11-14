@@ -459,7 +459,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="439" y="824" text-anchor="middle" dominant-baseline="central">ast2html.wasm</text>
 </g>
 
-<text class="note" x="20" y="860" dominant-baseline="central">その他のWebアプリ群、WebViewアプリ群は手軽に増やせるタイプのクライアントです。Readが中心の単純な形で、client-coreを使わずにサーバと直接話します。</text>
+<text class="note" x="20" y="860" dominant-baseline="central">その他のWebアプリ群、WebViewアプリ群は手軽なクライアントです。データ表示が中心のため、client-coreを使わずにflatmarkdownライブラリだけで制作できます。</text>
 
 <g transform="translate(0,264)">
 <rect x="20" y="620" width="1290" height="314" fill="#534AB7" fill-opacity="0.14" />
