@@ -107,6 +107,13 @@ public final class Shell: ObservableObject {
         send(.taskCycle(itemId: itemId))
     }
 
+    /// The user clicked the shown text of the item after `letter` of its letters, as
+    /// `RichParagraph.start` counts them. The item is edited with the cursor at that place in
+    /// its Markdown (ADR 043).
+    public func touched(_ itemId: String, letter: Int) {
+        send(.shownTextTouched(itemId: itemId, letter: UInt64(letter)))
+    }
+
     /// The user put the cursor in the item.
     public func startEditing(_ itemId: String) {
         send(.editRequested(itemId: itemId, cursor: 0))

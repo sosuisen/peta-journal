@@ -66,6 +66,23 @@ final class ShellTests: XCTestCase {
         }
     }
 
+    // 表示した文字に触れると、その項目の編集に入り、カーソルは触れた文字のMarkdownでの位置に置かれる（ADR 043）。
+    func testATouchOnTheShownTextPutsTheCursorAtItsPlaceInTheMarkdown() async throws {
+        let shell = try await shellWithPage()
+        let first = shell.view.outline.rows[0].item.id
+        shell.startEditing(first)
+        shell.typed("**bold** end", into: first)
+        shell.finishEditing(first)
+        try await waitUntil("the edit is over") { !shell.view.outline.rows[0].isEditing }
+
+        // The shown text is "bold end": the touch is after "bol"
+        shell.touched(first, letter: 3)
+
+        try await waitUntil("the item is edited") { shell.view.outline.rows[0].isEditing }
+        XCTAssertEqual(shell.view.outline.focusRequest?.itemId, first)
+        XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 5)
+    }
+
     /// A shell with a page of its own on screen.
     private func shellWithPage(clipboard: @escaping () -> String? = { nil }) async throws -> Shell {
         let shell = Shell(server: server.address, url: "/pages/swift-notes", clipboard: clipboard)
