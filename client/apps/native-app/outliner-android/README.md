@@ -186,7 +186,7 @@ What each class does:
   its own. `syncAndWait()` does the same for the thread of a sync with the cloud, and returns
   when the core is done.
 - `ShownText` writes the parts of an item as it is shown, from the parts that the core gives
-  with each row (`Row.bodyModel.rich`, ADR 042). The text is an `AnnotatedString`; a code block,
+  with each row (`Row.bodyModel`, ADR 042). The text is an `AnnotatedString`; a code block,
   a table and an image of the assets folder are parts of their own, which the screen draws. A
   `when` takes every kind of part, so a kind that the core makes later stops the build until
   it is drawn. A touched link gives where the core says it leads.

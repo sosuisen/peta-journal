@@ -84,7 +84,7 @@ struct OutlineRow: View {
 
     var body: some View {
         let id = row.item.id
-        let blocks = row.isEditing ? [] : row.bodyModel.rich.blocks
+        let blocks = row.isEditing ? [] : row.bodyModel.blocks
         // The bullet and the mark stand beside the middle of the first line. An item that
         // starts with a heading has a higher first line
         let first = Letters.line(Letters.plain * firstLarger(blocks))

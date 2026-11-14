@@ -5,7 +5,7 @@
 use client_core::effects::UiOp;
 use client_core::Event;
 use client_native_bridge::ShellEffectFfi;
-use client_shell_http::ffi::{copied_html, hashtag_url, wikilink_url, PetaCore, PetaShell};
+use client_shell_http::ffi::{copied_html, PetaCore, PetaShell};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
 use std::sync::{Arc, Mutex};
 
@@ -89,20 +89,5 @@ fn a_shell_in_another_language_gets_the_html_of_a_copy() {
     assert_eq!(
         copied_html(ast.into(), "http://localhost:8087".into(), "tags/".into()),
         "<p><a href=\"http://localhost:8087/pages/Idea\">Idea</a></p>\n"
-    );
-}
-
-// 別の言語のシェルの入口から、ページをブラウザ版で開くURLを作れる。
-#[test]
-fn a_shell_in_another_language_gets_the_urls_that_open_a_page_in_the_browser() {
-    let app = "http://localhost:8087".to_string();
-
-    assert_eq!(
-        wikilink_url(app.clone(), "Other Page".into()),
-        "http://localhost:8087/pages/Other%20Page"
-    );
-    assert_eq!(
-        hashtag_url(app, "tags/".into(), "topic".into()),
-        "http://localhost:8087/pages/tags/topic"
     );
 }

@@ -554,7 +554,6 @@ dependencies = [
  "facet",
  "facet_generate 0.22.3",
  "flatmarkdown",
- "flatmarkdown-ast",
  "serde",
 ]
 

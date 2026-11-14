@@ -62,7 +62,7 @@ kept in the repository.
   place of a cursor from the UTF-16 units of WinUI into the characters the core counts, and
   back.
 - `ShownText` makes the text of an item as it is to be shown: with its decoration, not as
-  Markdown. It reads the parts that the core makes of each body (`Row.BodyModel.Rich`,
+  Markdown. It reads the parts that the core makes of each body (`Row.BodyModel`,
   ADR 042) and gives the parts that the screen draws: paragraphs of pieces with a style
   each, tables and images. `RichBlock`, `RichLink` and `ShownPart` are `closed record`s
   (C# 15, .NET 11), and CS8509 is an error: a `switch` expression that leaves out a kind of

@@ -71,8 +71,8 @@ private fun OutlineRow(row: Row, links: Links, image: (String) -> File?, shell: 
     val uriHandler = LocalUriHandler.current
     // The blocks are kept while the item stays the same, and must not keep old links
     val now by rememberUpdatedState(links)
-    val blocks = remember(row.bodyModel.rich) {
-        shownBlocks(row.bodyModel.rich) { link ->
+    val blocks = remember(row.bodyModel) {
+        shownBlocks(row.bodyModel) { link ->
             when (link) {
                 is RichLink.Web -> uriHandler.openUri(link.url)
                 is RichLink.Page -> now.onPage(link.url)

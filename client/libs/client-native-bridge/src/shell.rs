@@ -1,8 +1,8 @@
 //! [`NativeShell`]: the core under Crux's `EffectRouter`, which sends each effect either to this
 //! side or, as bytes, to the shell.
 
-use crate::body::BorderApp;
 use crate::clock::Clock;
+use crate::BorderApp;
 use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, TimerOp, TimerOutput, UiOp, UiOutput,
 };

@@ -1,6 +1,6 @@
 //! The HTML of a copy, which a native shell puts on the clipboard (ADR 027).
 
-use crate::{copied_html, hashtag_url, wikilink_url};
+use crate::copied_html;
 use flatmarkdown::{parse_body_with, BodyOptions};
 
 /// The AST of a body, as the journal server makes it: with wikilinks and hashtags.
@@ -37,30 +37,4 @@ fn a_hashtag_of_a_copy_opens_the_page_of_the_tag_in_the_browser() {
 fn a_copy_without_an_ast_that_can_be_read_has_no_html() {
     assert_eq!(copied_html("", APP, "tags/"), "");
     assert_eq!(copied_html("{\"type\":", APP, "tags/"), "");
-}
-
-// ウィキリンクのページをブラウザ版で開くURLは、アプリのURLの /pages/ の下にある。空白や日本語は符号化され、# は残る。
-#[test]
-fn the_url_of_the_page_of_a_wikilink_is_under_pages_of_the_app() {
-    assert_eq!(
-        wikilink_url(APP, "Dir/Page"),
-        "http://localhost:8087/pages/Dir/Page"
-    );
-    assert_eq!(
-        wikilink_url(APP, "メモ 帳#place"),
-        "http://localhost:8087/pages/%E3%83%A1%E3%83%A2%20%E5%B8%B3#place"
-    );
-}
-
-// タグのページをブラウザ版で開くURLは、タグ用ディレクトリの下にある。ディレクトリが空なら、/pages/ の直下にある。
-#[test]
-fn the_url_of_the_page_of_a_tag_is_under_the_tag_directory() {
-    assert_eq!(
-        hashtag_url(APP, "tags/", "topic"),
-        "http://localhost:8087/pages/tags/topic"
-    );
-    assert_eq!(
-        hashtag_url(APP, "", "topic"),
-        "http://localhost:8087/pages/topic"
-    );
 }

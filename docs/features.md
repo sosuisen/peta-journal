@@ -849,22 +849,21 @@
   - 消した付箋紙は、設定を読み直しても出てこない。ほかの付箋紙は残る
   - 消した付箋紙の設定を保存しても、付箋紙は戻らない
 
-### ネイティブアプリが項目をASTから描く
+### ネイティブアプリが項目を表示する部品から描く
 
-出典: `client/libs/client-core/src/tests/view.rs`、`client/libs/client-core/src/rich_text/tests.rs`、`client/libs/client-shell-embedded/src/tests.rs`、`client/libs/client-native-bridge/src/codegen.rs`、iOSの`RichTextTests`、各シェルの`ShownText`のテスト（macOS、Android、Windows）、macOSの`AssetImagesTests`と`OutlineScreenTests`
+出典: `client/libs/client-core/src/tests/view.rs`、`client/libs/client-core/src/rich_text/tests.rs`、`client/libs/client-native-bridge/src/codegen.rs`、iOSの`RichTextTests`、各シェルの`ShownText`のテスト（macOS、Android、Windows）、macOSの`AssetImagesTests`と`OutlineScreenTests`
 
-- 行は、コアが本文から作ったASTを持つ。シェルは、そのASTの型から描く（ADR 041）
-- iOS、macOS、Android、Windowsのアプリは、コアが本文から作った表示する部品（`RichText`）を描く（ADR 042）。リンクの行き先も、コアが決める
+- 行は、コアが本文から作った描画モデルを持つ（ADR 042）。Webのアウトライナーでは本文のAST、iOS、macOS、Android、Windowsのアプリでは表示する部品（`RichText`）である。ネイティブのアプリには、ASTは渡らない
+  - 項目は、ASTの文字列を持たない。サーバーが返したASTは使わない
+  - Webのアウトライナーは、行のASTからHTMLを作る
+  - 本文が変わると、行の描画モデルも変わる。同じ本文の行は、同じ描画モデルを持つ
+- リンクの行き先は、コアが決める。ページへのリンクとタグの行き先は、そのページのURLである（`/pages/<ページ名>`、`/pages/<タグ用フォルダ>/<タグ>`）
+- どのシェルでも、太字などの装飾、見出し、リスト、タスク、引用、アラート、区切り線、表、脚注が出る。知らない種類のノードは、中の文字が出る
 - macOSの付箋紙アプリでも、`assets`の画像は絵として出る。journalサーバーから読み、届くまでは代わりの文字を出す。ページが求める幅や高さがあれば、縦横の比を保ってその大きさになる。求めなければ、付箋紙の幅に合わせる。ただし、元の大きさより大きくはならない
+- macOSの付箋紙アプリで、ウィキリンクとハッシュタグのクリックは、そのページを付箋紙で開く。Shift-クリックは、Web版でそのページをブラウザで開き、付箋紙のページは変わらない。外へのリンクは、ブラウザで開く
 - Windowsの付箋紙アプリでも、`assets`の画像は絵として出る。journalサーバーから読み、届くまでは代わりの文字を出す。大きさの決まりは、macOSと同じである
 - Windowsの付箋紙アプリの表は、セルごとに線で囲まれる。列は、付箋紙の幅を分け合う
 - Windowsの付箋紙アプリで、リンクのクリックはブラウザで開く。ページはWeb版で、`assets`のファイルはjournalサーバーの`/assets/...`で開く。付箋紙のページは変わらない
-- macOSの付箋紙アプリで、ウィキリンクとハッシュタグのクリックは、そのページを付箋紙で開く。Shift-クリックは、Web版でそのページをブラウザで開き、付箋紙のページは変わらない。外へのリンクは、ブラウザで開く
-  - 項目は、ASTの文字列を持たない。サーバーが返したASTは使わない
-  - Webのアウトライナーも、行のASTからHTMLを作る
-  - 本文が変わると、行のASTも変わる。同じ本文の行は、同じASTを持つ
-- ページへのリンクとタグの行き先は、そのページのURLである（`/pages/<ページ名>`、`/pages/<タグ用フォルダ>/<タグ>`）
-- どのシェルでも、太字などの装飾、見出し、リスト、タスク、引用、アラート、区切り線、表、脚注が出る。知らない種類のノードは、中の文字が出る
 - Windowsでは、`RichBlock`と`RichLink`は閉じた型で、描かない種類のあるswitch式はビルドを止める
 
 ## iPhoneで読み書きする

@@ -28,8 +28,8 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [x] 段階2：iOSのシェルを、`RichText`から描くように切り替える。`peta-shown`を使うのをやめる
 - [x] 段階3：macOSのシェルを切り替える。画像の読み込みとリンクの決まりは、今のものを使う。`peta-shown`を消し、`PetaTypes`の生成先を各アプリに戻す
 - [x] 段階4：Androidのシェルを切り替える。2026-11-14にユーザーが実機で確かめた
-- [ ] 段階5：Windowsのシェルを切り替える。画像を絵として出し、表を別の部品で描く（ユーザーが実機で確かめる）。PRを出した。このMacにはdotnetがなく、ビルドとテストはユーザーのWindowsで確かめる
-- [ ] 仕上げ：`docs/architecture.svg`を直す。`BorderBody`の`ast`を消し、境界にASTを通さない
+- [x] 段階5：Windowsのシェルを切り替える。画像を絵として出し、表を別の部品で描く。2026-11-14にユーザーが直して（PR #471）、実機で確かめた
+- [x] 仕上げ：`docs/architecture.svg`を直す。`BorderBody`を消し、境界の行は`RichText`だけを渡す。C#の`Node`は生成されなくなった。使われなくなったページのURLの関数（`wikilink_url`、`hashtag_url`、`page_url`、`tag_url`）も消した
 
 ユーザーが決めた、各シェルの描き方：
 

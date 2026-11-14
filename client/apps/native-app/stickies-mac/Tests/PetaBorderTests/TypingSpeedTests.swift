@@ -147,7 +147,7 @@ final class TypingSpeedTests: XCTestCase {
         }
 
         // The making of the text alone
-        let texts = shell.view.outline.rows.dropFirst().prefix(Self.keys).map(\.bodyModel.rich)
+        let texts = shell.view.outline.rows.dropFirst().prefix(Self.keys).map(\.bodyModel)
         report("text of one item is made", texts.map { rich in timed { _ = ShownText.of(rich) } })
 
         let window = NSWindow(

@@ -12,7 +12,7 @@ final class RichTextTests: JournalTestCase {
         try download("notes.md", markdown)
         try openNotes()
         waitUntil("the items are shown") { !self.shell.view.outline.rows.isEmpty }
-        return shell.view.outline.rows.flatMap(\.bodyModel.rich.blocks)
+        return shell.view.outline.rows.flatMap(\.bodyModel.blocks)
     }
 
     // 項目は、coreが作った部品として届く。Markdownの記号ではなく、飾りの付いた文字になる。

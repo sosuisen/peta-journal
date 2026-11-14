@@ -252,20 +252,5 @@ fn page_of(url: &str) -> String {
     page.split('#').next().unwrap_or(page).to_string()
 }
 
-/// The URL of the page that a link to a page names, such as `/pages/work/plan`, for
-/// `PetaCore::open`. A shell that draws the AST of a row (ADR 041) puts it on a wikilink. The
-/// URL is encoded as a web address is.
-#[boltffi::export]
-pub fn page_url(page: String) -> String {
-    // The app has no address: the URLs are paths
-    client_native_bridge::wikilink_url("", &page)
-}
-
-/// The URL of the page of a tag, such as `/pages/tags/topic`. A tag page is under `tags_dir`.
-#[boltffi::export]
-pub fn tag_url(tags_dir: String, tag: String) -> String {
-    client_native_bridge::hashtag_url("", &tags_dir, &tag)
-}
-
 #[cfg(test)]
 mod tests;
