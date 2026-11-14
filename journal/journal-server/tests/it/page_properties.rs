@@ -206,6 +206,20 @@ fn a_list_that_went_through_a_device_without_its_definition_is_still_a_list_back
     assert!(a.file(PAGE).contains("author_list:\n  - x\n  - y\n"));
 }
 
+// 定義のない端末でも、名前が_listで終わるキーは、リストとして取り込まれる。
+#[test]
+fn a_key_that_ends_with_list_is_taken_in_as_a_list_on_a_device_without_its_definition() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.set_page_property(&page, "author_list", "list", "x,y");
+
+    b.receive(&a, PAGE);
+
+    assert_eq!(b.page_list(&page, "author_list").unwrap(), ["x", "y"]);
+    assert_eq!(b.page_property(&page, "author_list"), None);
+}
+
 // 新しいファイルにないリストのプロパティは、ページから消える。タグは別に扱う。
 #[test]
 fn a_list_property_missing_from_a_newer_file_goes_and_the_tags_stay() {
