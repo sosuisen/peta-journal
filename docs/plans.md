@@ -21,8 +21,8 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 
 2026-11-14にユーザーが受理した。段階ごとに進め、AndroidとWindowsは、ユーザーが実機で確かめてから先へ進む。Swiftだけで共通にする案（PR #464）は、この ADR で採らなかったが、main に入った。その`peta-shown`は、段階2と3で消す。macOSで画像をjournalサーバーから読む処理と、リンクの決まり（クリックはアプリの中、Shift-クリックはブラウザ）は、そのまま使う。
 
-- [x] 段階0：facetの型の生成が、型引数を持つビューモデル（`BodyView`）をSwift、Kotlin、C#に書き出せるかを確かめる。書き出せなければ、行の本文を`Node`と`RichText`のenumにする（ADR 042のAlternative 4）。結果：`ViewModel<RichText>`を登録すると、3つの言語とも`Row`の本文が`RichText`の型になった。Swiftはコンパイルできた。enumは要らない
-- [ ] 段階1：`client-core`に`RichText`の型、`BodyView`のトレイト、ASTとRichTextの2つの実装を作り、Rustでテストする。Web版はASTの実装を使い、`client-native-bridge`はRichTextの実装を使う
+- [x] 段階0：facetの型の生成が、型引数を持つビューモデル（`BodyModel`）をSwift、Kotlin、C#に書き出せるかを確かめる。書き出せなければ、行の本文を`Node`と`RichText`のenumにする（ADR 042のAlternative 4）。結果：`ViewModel<RichText>`を登録すると、3つの言語とも`Row`の本文が`RichText`の型になった。Swiftはコンパイルできた。enumは要らない
+- [ ] 段階1：`client-core`に`RichText`の型、`BodyModel`のトレイト、ASTとRichTextの2つの実装を作り、Rustでテストする。Web版はASTの実装を使い、`client-native-bridge`はRichTextの実装を使う
   - 行の本文の描画モデルは`Row.body_model`である。Web版では`Node`、ネイティブでは`RichText`である
   - 切り替えのあいだ、`client-native-bridge`の行は`BorderBody`（`ast`と`rich`の両方）を渡す。まだ切り替えていないシェルは`row.bodyModel.ast`から描く。段階5のあとで`ast`を消し、`RichText`だけにする
 - [ ] 段階2：iOSのシェルを、`RichText`から描くように切り替える。`peta-shown`を使うのをやめる
