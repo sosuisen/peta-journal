@@ -13,8 +13,8 @@ struct Blocks: View {
                 switch block {
                 case .text(let paragraphs):
                     Paragraphs(paragraphs: paragraphs, links: links)
-                case .code(let lines):
-                    CodeBlock(lines: lines)
+                case .code(let lines, let start):
+                    CodeBlock(lines: lines, start: start)
                 case .table(let rows):
                     TableBlock(rows: rows, links: links)
                 case .image(let shown):
@@ -66,7 +66,7 @@ struct Paragraphs: View {
                 } else {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         if let mark = paragraph.mark { Text(mark).frame(minWidth: 16, alignment: .leading) }
-                        Text(letters(paragraph))
+                        Text(letters(paragraph)).letters(measured(paragraph), start: paragraph.start)
                     }
                     // A paragraph of an entry that is not its first one stands under the text
                     .padding(.leading, CGFloat(max(Int(paragraph.depth) - 1, 0)) * 22 + (paragraph.depth > 0 && paragraph.mark == nil ? 22 : 0))
@@ -86,11 +86,7 @@ struct Paragraphs: View {
         for run in paragraph.runs {
             var part = AttributedString(run.text)
             let looks = run.looks
-            let small = looks.raised || looks.lowered
-            var font = Font.system(size: small ? size * 0.75 : size, design: looks.code ? .monospaced : .default)
-            if paragraph.heading > 0 || looks.bold { font = font.bold() }
-            if looks.italic { font = font.italic() }
-            part.font = font
+            part.font = Font(Self.font(run.looks, heading: Int(paragraph.heading)))
             if looks.struck { part.strikethroughStyle = .single }
             if looks.underlined { part.underlineStyle = .single }
             if looks.marked { part.backgroundColor = Color.yellow.opacity(0.45) }
@@ -102,15 +98,40 @@ struct Paragraphs: View {
         }
         return all
     }
+
+    /// The letters of the paragraph with their fonts alone: what a touch is measured on.
+    private func measured(_ paragraph: RichParagraph) -> NSAttributedString {
+        let all = NSMutableAttributedString()
+        for run in paragraph.runs {
+            all.append(NSAttributedString(string: run.text, attributes: [.font: Self.font(run.looks, heading: Int(paragraph.heading))]))
+        }
+        return all
+    }
+
+    /// The font of the letters of a run. The same font draws them and measures a touch.
+    private static func font(_ looks: Looks, heading: Int) -> UIFont {
+        let size = Letters.plain * Letters.larger(heading: heading)
+        let points = looks.raised || looks.lowered ? size * 0.75 : size
+        let weight: UIFont.Weight = heading > 0 || looks.bold ? .bold : .regular
+        let font = looks.code ? UIFont.monospacedSystemFont(ofSize: points, weight: weight) : UIFont.systemFont(ofSize: points, weight: weight)
+        guard looks.italic, let italic = font.fontDescriptor.withSymbolicTraits(font.fontDescriptor.symbolicTraits.union(.traitItalic)) else {
+            return font
+        }
+        return UIFont(descriptor: italic, size: points)
+    }
 }
 
 /// The lines of the code as they were written. A long line is scrolled sideways, not broken.
 private struct CodeBlock: View {
     let lines: String
+    let start: UInt32
 
     var body: some View {
+        let font = UIFont.monospacedSystemFont(ofSize: Letters.plain * 0.85, weight: .regular)
         ScrollView(.horizontal) {
-            Text(lines).font(.system(size: Letters.plain * 0.85, design: .monospaced)).padding(8)
+            Text(lines).font(Font(font))
+                .letters(NSAttributedString(string: lines, attributes: [.font: font]), start: start, wraps: false)
+                .padding(8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.systemGray6))

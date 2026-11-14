@@ -27,8 +27,8 @@ struct ItemEditor: UIViewRepresentable {
         field.adjustsFontForContentSizeCategory = true
         field.accessibilityIdentifier = "editor"
         field.text = row.item.body
-        // A finger shows no place in the Markdown: the cursor is at the end, where the
-        // writing goes on
+        // The cursor is at the end, where the writing goes on, until the core asks for the
+        // place that a touch on the text showed
         field.selectedRange = NSRange(location: field.text.utf16.count, length: 0)
         // A field that comes back to the screen goes on where the one before it was
         if let left = Typist.left, left.itemId == row.item.id {

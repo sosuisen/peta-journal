@@ -68,9 +68,9 @@ class Shell(
         private set
 
     /**
-     * The focus request that a touch on an item made. The core asks for the cursor at the
-     * start of the item then. A finger shows no place in the Markdown, so the screen puts the
-     * cursor at the end instead, where the writing goes on.
+     * The focus request that a touch beside the text of an item made. The core asks for the
+     * cursor at the start of the item then. Such a touch shows no place in the Markdown, so the
+     * screen puts the cursor at the end instead, where the writing goes on.
      */
     var touched: ULong? = null
         private set
@@ -133,11 +133,21 @@ class Shell(
 
     // The edit of an item
 
-    /** The user touched an item: it is edited (ADR 031). The edit of another item ends. */
-    fun edit(itemId: String) {
+    /**
+     * The user touched an item: it is edited (ADR 031). The edit of another item ends.
+     * [letter] is how many letters of the shown text of the item stand before the touch, as
+     * `RichParagraph.start` counts them: the cursor goes to that place in the Markdown. Without
+     * it the cursor is at the end, where the writing goes on.
+     */
+    fun edit(itemId: String, letter: Int? = null) {
         view.outline.focusedItemId?.takeIf { it != itemId }?.let(::finish)
-        send(Event.EditRequested(itemId, 0uL))
-        touched = view.outline.focusRequest?.seq
+        if (letter != null) {
+            send(Event.ShownTextTouched(itemId, letter.toULong()))
+            touched = null
+        } else {
+            send(Event.EditRequested(itemId, 0uL))
+            touched = view.outline.focusRequest?.seq
+        }
     }
 
     /** The user changed the Markdown of the item. The core saves it a moment later. */

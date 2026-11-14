@@ -234,6 +234,19 @@ final class ShellTests: JournalTestCase {
         XCTAssertEqual(shell.touched, shell.view.outline.focusRequest?.seq)
     }
 
+    // 表示した文字に触れると、その項目が編集に入り、カーソルは触れた文字のMarkdownでの位置に置かれる。
+    func testATouchOnTheShownTextPutsTheCursorAtItsPlaceInTheMarkdown() throws {
+        try download("notes.md", "a **bold** word\n")
+        try openNotes()
+
+        // The shown text is "a bold word": the touch is after "a bo"
+        shell.edit(id(of: "a **bold** word"), letter: 4)
+
+        XCTAssertEqual(edited(), "a **bold** word")
+        XCTAssertNil(shell.touched)
+        XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 6)
+    }
+
     // 打った文字は、ページのファイルに書かれる。
     func testWhatIsTypedGoesIntoTheFileOfThePage() throws {
         try download("notes.md", "first\n")

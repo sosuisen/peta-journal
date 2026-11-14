@@ -7,6 +7,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
@@ -18,6 +19,7 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -47,9 +49,22 @@ class EditTest : JournalScreenFixture() {
         openNotes()
         waitFor("a bold word")
 
-        compose.onNodeWithText("a bold word").performClick()
+        touchEnd("a bold word")
 
         compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("a **bold** word")
+    }
+
+    // 項目の文字に触れると、触れた文字のMarkdownでの位置から書ける。
+    @Test
+    fun a_touch_on_the_text_of_an_item_writes_at_its_place_in_the_markdown() {
+        download("notes.md", "**bold** plain" + NL)
+        openNotes()
+        waitFor("bold plain")
+
+        compose.onNodeWithText("bold plain").performTouchInput { click(centerLeft) }
+
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput("X")
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("X**bold** plain")
     }
 
     // 入力欄に打った文字は、文字の終わりに入り、ページのファイルに書かれる。
@@ -58,7 +73,7 @@ class EditTest : JournalScreenFixture() {
         download("notes.md", "first" + NL)
         openNotes()
         waitFor("first")
-        compose.onNodeWithText("first").performClick()
+        touchEnd("first")
 
         compose.onNodeWithTag(EDITOR_TAG).performTextInput(" and more")
 
@@ -71,7 +86,7 @@ class EditTest : JournalScreenFixture() {
         download("notes.md", "first" + NL)
         openNotes()
         waitFor("first")
-        compose.onNodeWithText("first").performClick()
+        touchEnd("first")
 
         compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
         compose.waitUntil(WAIT_MS) { shell.view.outline.rows.size == 2 }
@@ -89,9 +104,9 @@ class EditTest : JournalScreenFixture() {
         download("notes.md", above('A') + "a **bold** word" + NL + NL + above('B') + "the other" + NL)
         openNotes()
         waitFor("the other")
-        compose.onNodeWithText("a bold word").performClick()
+        touchEnd("a bold word")
 
-        compose.onNodeWithText("the other").performClick()
+        touchEnd("the other")
 
         compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("the other")
         compose.onNodeWithText("a bold word").assertExists()
@@ -105,11 +120,14 @@ class EditTest : JournalScreenFixture() {
         )
         openNotes()
         waitFor("third")
-        compose.onNodeWithText("second").performClick()
+        touchEnd("second")
         compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("second")
     }
 
     private fun tool(name: String) = compose.onNode(hasContentDescription(name)).performClick()
+
+    /** Touches the item that shows [text] at its end, so that the edit goes on there. */
+    private fun touchEnd(text: String) = compose.onNodeWithText(text).performTouchInput { click(centerRight) }
 
     /** The items of the page, each as its level and its body. */
     private fun items(): List<String> = shell.view.outline.rows.map { "${it.item.level} ${it.item.body}" }
@@ -138,7 +156,7 @@ class EditTest : JournalScreenFixture() {
         waitFor("first")
 
         compose.onNode(hasContentDescription("Indent")).assertDoesNotExist()
-        compose.onNodeWithText("first").performClick()
+        touchEnd("first")
 
         compose.onNode(hasContentDescription("Indent")).assertExists()
     }
@@ -199,7 +217,7 @@ class EditTest : JournalScreenFixture() {
         download("notes.md", above('A') + "first" + NL + NL + above('B') + "second" + NL + NL + above('C', shows))
         openNotes()
         waitFor("first")
-        compose.onAllNodes(hasText("second")).onFirst().performClick()
+        compose.onAllNodes(hasText("second")).onFirst().performTouchInput { click(centerRight) }
         tool("Delete item")
         waitFor("Delete anyway?")
     }
@@ -232,7 +250,7 @@ class EditTest : JournalScreenFixture() {
         download("notes.md", "a **bold** word" + NL)
         openNotes()
         waitFor("a bold word")
-        compose.onNodeWithText("a bold word").performClick()
+        touchEnd("a bold word")
 
         compose.onNodeWithText("Done").performClick()
 
@@ -264,7 +282,7 @@ class EditTest : JournalScreenFixture() {
         download("notes.md", "😀ab" + NL)
         openNotes()
         waitFor("😀ab")
-        compose.onNodeWithText("😀ab").performClick()
+        touchEnd("😀ab")
         cursorAt(3)
 
         compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
@@ -279,7 +297,7 @@ class EditTest : JournalScreenFixture() {
         download("notes.md", "first" + NL)
         openNotes()
         waitFor("first")
-        compose.onNodeWithText("first").performClick()
+        touchEnd("first")
         compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
         waitForItems("1 first", "1 ")
         tool("Indent")
@@ -301,7 +319,7 @@ class EditTest : JournalScreenFixture() {
         waitFor("item 0")
         val before = shell.view.outline.rows.size
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("item d"))
-        compose.onNodeWithText("item d").performClick()
+        touchEnd("item d")
 
         compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
 
@@ -314,7 +332,7 @@ class EditTest : JournalScreenFixture() {
         download("notes.md", above('A') + first + NL + NL + above('B') + second + NL)
         openNotes()
         waitFor(second)
-        compose.onNodeWithText(second).performClick()
+        touchEnd(second)
         compose.onNodeWithTag(EDITOR_TAG).assertTextEquals(second)
     }
 
@@ -356,7 +374,7 @@ class EditTest : JournalScreenFixture() {
         download("notes.md", "first" + NL)
         openNotes()
         waitFor("first")
-        compose.onNodeWithText("first").performClick()
+        touchEnd("first")
         compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
         waitForItems("1 first", "1 ")
         compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("")
@@ -396,7 +414,7 @@ class EditTest : JournalScreenFixture() {
         download("notes.md", above('A') + "first" + NL + NL + above('B') + "second" + NL)
         openNotes()
         waitFor("second")
-        compose.onNodeWithText("first").performClick()
+        touchEnd("first")
         cursorAt(0)
 
         pressBackspace()

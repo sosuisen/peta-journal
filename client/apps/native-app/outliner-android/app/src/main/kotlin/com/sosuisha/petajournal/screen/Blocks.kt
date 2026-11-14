@@ -29,7 +29,7 @@ internal fun Blocks(blocks: List<ShownBlock>, image: (String) -> File?) {
     Column {
         for (block in blocks) {
             when (block) {
-                is ShownBlock.Text -> Text(block.text, style = MaterialTheme.typography.bodyLarge)
+                is ShownBlock.Text -> TextBlock(block)
                 is ShownBlock.Code -> CodeBlock(block)
                 is ShownBlock.Table -> TableBlock(block)
                 is ShownBlock.Image -> ImageBlock(block, image)
@@ -38,6 +38,18 @@ internal fun Blocks(blocks: List<ShownBlock>, image: (String) -> File?) {
             }
         }
     }
+}
+
+/** Text, which a touch can fall on. */
+@Composable
+private fun TextBlock(block: ShownBlock.Text) {
+    val target = rememberTouchTarget { letterAt(block.places, it) }
+    Text(
+        block.text,
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = Modifier.touchTarget(target),
+        onTextLayout = { target?.layout = it },
+    )
 }
 
 /** The entries of a list, each after its mark. */
@@ -70,6 +82,7 @@ private fun QuoteBlock(quote: ShownBlock.Quote, image: (String) -> File?) {
 /** The lines of the code as they were written. A long line is scrolled sideways, not broken. */
 @Composable
 private fun CodeBlock(code: ShownBlock.Code) {
+    val target = rememberTouchTarget { code.start + code.lines.codePointCount(0, it.coerceIn(0, code.lines.length)) }
     Text(
         code.lines,
         style = MaterialTheme.typography.bodyMedium,
@@ -79,7 +92,9 @@ private fun CodeBlock(code: ShownBlock.Code) {
             .padding(vertical = 4.dp)
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .horizontalScroll(rememberScrollState())
-            .padding(8.dp),
+            .padding(8.dp)
+            .touchTarget(target),
+        onTextLayout = { target?.layout = it },
     )
 }
 
@@ -91,11 +106,13 @@ private fun TableBlock(table: ShownBlock.Table) {
         for (row in table.rows) {
             Row(Modifier.height(IntrinsicSize.Min)) {
                 for (cell in row.cells) {
+                    val target = rememberTouchTarget { letterAt(cell.places, it) }
                     Text(
-                        cell,
+                        cell.text,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = if (row.header) FontWeight.Bold else null,
-                        modifier = Modifier.weight(1f).fillMaxHeight().border(0.5.dp, line).padding(6.dp),
+                        modifier = Modifier.weight(1f).fillMaxHeight().border(0.5.dp, line).padding(6.dp).touchTarget(target),
+                        onTextLayout = { target?.layout = it },
                     )
                 }
             }
