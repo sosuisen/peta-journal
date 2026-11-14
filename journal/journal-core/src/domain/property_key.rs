@@ -1,5 +1,59 @@
 //! The key of a property, which tells by its name whether its values are a list (ADR 046).
 
+use crate::error::AppResult;
+use crate::infrastructure::persistence::property_repository::validate_key;
+
+/// The suffix of the name of every list key a user defines.
+pub const LIST_SUFFIX: &str = "_list";
+
+/// A key of a property, parsed from its name once at the boundary. Whether its values are a
+/// list follows from the name, so every device decides it alike, before any definition
+/// arrives (ADR 046).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PropertyKey {
+    Scalar(ScalarKey),
+    List(ListKey),
+}
+
+/// A key of one value. Its name does not end with `_list` and is not `tags`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScalarKey(String);
+
+/// A key whose values are a list.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ListKey {
+    /// The system key of the tags.
+    Tags,
+    /// A key of the user, whose name ends with `_list`.
+    User(UserListKey),
+}
+
+/// A list key of the user. Its name ends with `_list`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UserListKey(String);
+
+impl PropertyKey {
+    /// The key of the name. A name with a letter a key cannot have is refused.
+    pub fn parse(name: &str) -> AppResult<PropertyKey> {
+        validate_key(name)?;
+        Ok(if name == "tags" {
+            PropertyKey::List(ListKey::Tags)
+        } else if name.ends_with(LIST_SUFFIX) {
+            PropertyKey::List(ListKey::User(UserListKey(name.to_string())))
+        } else {
+            PropertyKey::Scalar(ScalarKey(name.to_string()))
+        })
+    }
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            PropertyKey::Scalar(ScalarKey(name)) => name,
+            PropertyKey::List(ListKey::Tags) => "tags",
+            PropertyKey::List(ListKey::User(UserListKey(name))) => name,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
