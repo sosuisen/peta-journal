@@ -273,3 +273,19 @@ fn a_touch_on_the_shown_text_edits_the_item_at_the_place_touched_in_its_markdown
     assert_eq!(request.item_id, "a");
     assert_eq!(request.cursor, Some("**bold** and [li".chars().count()));
 }
+
+// 絵文字の途中に触れても、カーソルは絵文字の途中に入らず、その後ろに置かれる。そこでEnterを押しても、
+// 絵文字は2つに割れない（ADR 043）。
+#[test]
+fn a_touch_inside_an_emoji_puts_the_cursor_after_the_whole_emoji() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a👨‍👩‍👧b")]);
+
+    // The family is five characters: three people joined by two zero width joiners
+    h.send(Event::ShownTextTouched {
+        item_id: "a".into(),
+        letter: "a👨".chars().count(),
+    });
+
+    let request = h.model.state.focus_request().expect("a focus request");
+    assert_eq!(request.cursor, Some("a👨‍👩‍👧".chars().count()));
+}
