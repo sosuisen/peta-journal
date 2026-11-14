@@ -256,7 +256,7 @@ public sealed class ShownTextTests
     {
         var shown = Shown(
             Entries(
-                Entry("1.", new RichBlock.Code("let x = 1")),
+                Entry("1.", new RichBlock.Code("let x = 1", 0)),
                 Entry("2."),
                 Entry("3.", new RichBlock.Image(new RichImage { Path = "assets/a.png", Alt = "" }))
             )
@@ -270,7 +270,7 @@ public sealed class ShownTextTests
     [Fact]
     public void A_part_in_a_quote_that_the_core_took_apart_stands_to_the_right()
     {
-        var shown = Shown(new RichBlock.Quote([new RichBlock.Code("code")]));
+        var shown = Shown(new RichBlock.Quote([new RichBlock.Code("code", 0)]));
 
         var code = Assert.IsType<ShownParagraph>(Assert.Single(shown.Parts));
         Assert.Equal(1, code.Indent);
