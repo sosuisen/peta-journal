@@ -146,7 +146,9 @@ the other shells. `-# subtext` is lowered too. Unlike the other shells, they sta
 baseline: they are only smaller, not higher or lower. A WinUI `Run` has no setting that moves
 its letters off the baseline. The OpenType variants (`Typography.Variants`) do not help
 either. Segoe UI and Yu Gothic UI change only the digits, and Noto Sans JP has no such
-variants. An `InlineUIContainer` could move the letters, but it was not chosen. Its letters
+variants. The other shells do not use them either. They make the letters smaller and move
+them themselves: `baselineOffset` on macOS and iOS, `BaselineShift` on Android, and the
+`<sub>` and `<sup>` of the browser on the web. An `InlineUIContainer` could move the letters, but it was not chosen. Its letters
 are not a `Run`, so a click on them would not find its place in the Markdown. It cannot stand
 in a `Hyperlink`, and a `TextHighlighter` does not reach it. In a subtext the whole line is
 lowered, so the baseline would not change its look anyway.
