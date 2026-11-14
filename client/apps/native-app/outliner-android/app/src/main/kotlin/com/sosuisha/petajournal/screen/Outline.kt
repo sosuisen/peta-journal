@@ -1,6 +1,5 @@
 package com.sosuisha.petajournal.screen
 
-import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -37,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import java.io.File
 import kotlin.math.roundToInt
 import com.sosuisha.petajournal.shell.Shell
+import com.sosuisha.petajournal.types.RichLink
 import com.sosuisha.petajournal.types.Row
 import com.sosuisha.petajournal.types.TaskState
 
@@ -49,7 +49,7 @@ import com.sosuisha.petajournal.types.TaskState
 internal class Links(val onPage: (String) -> Unit, val onFile: (String) -> Unit)
 
 @Composable
-internal fun Outline(title: String, rows: List<Row>, tagsDir: String, links: Links, image: (String) -> File?, shell: Shell) {
+internal fun Outline(title: String, rows: List<Row>, links: Links, image: (String) -> File?, shell: Shell) {
     val list = rememberLazyListState()
     val focus = shell.view.outline.focusRequest
     // The item that the core moved the edit to may be off the screen, as a new item at the
@@ -62,24 +62,21 @@ internal fun Outline(title: String, rows: List<Row>, tagsDir: String, links: Lin
         item(key = "title") {
             Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(vertical = 8.dp))
         }
-        items(rows, key = { it.item.id }) { row -> OutlineRow(row, tagsDir, links, image, shell) }
+        items(rows, key = { it.item.id }) { row -> OutlineRow(row, links, image, shell) }
     }
 }
 
 @Composable
-private fun OutlineRow(row: Row, tagsDir: String, links: Links, image: (String) -> File?, shell: Shell) {
+private fun OutlineRow(row: Row, links: Links, image: (String) -> File?, shell: Shell) {
     val uriHandler = LocalUriHandler.current
     // The blocks are kept while the item stays the same, and must not keep old links
     val now by rememberUpdatedState(links)
-    val blocks = remember(row.bodyModel.ast, tagsDir) {
-        shownBlocks(row.bodyModel.ast, tagsDir) { href ->
-            val file = assetPath(href)
-            when {
-                isWebAddress(href) -> uriHandler.openUri(href)
-                // The core takes the URL of a page as it is written, not encoded
-                href.startsWith(Shell.PAGES) -> now.onPage(Uri.decode(href))
-                file != null -> now.onFile(file)
-                // Any other link, such as one to a file of the PC, opens nothing
+    val blocks = remember(row.bodyModel.rich) {
+        shownBlocks(row.bodyModel.rich) { link ->
+            when (link) {
+                is RichLink.Web -> uriHandler.openUri(link.url)
+                is RichLink.Page -> now.onPage(link.url)
+                is RichLink.File -> now.onFile(link.path)
             }
         }
     }
