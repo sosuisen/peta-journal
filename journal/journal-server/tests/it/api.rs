@@ -4242,6 +4242,29 @@ async fn property_definitions_list_the_system_keys_and_accept_user_keys() {
     }
 }
 
+// リストのキーは、名前が_listで終わるときだけ定義でき、名前が_listで終わるキーはリストでしか定義できない。
+#[tokio::test]
+async fn a_list_key_is_defined_only_with_a_name_that_ends_with_list() {
+    let (status, resp) = post(
+        "/api/config/property-definitions",
+        json!({ "key": "defined_member_list", "valueType": "list" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(
+        definition(&resp, "defined_member_list").unwrap()["valueType"],
+        json!("list")
+    );
+
+    for body in [
+        json!({ "key": "defined_members", "valueType": "list" }),
+        json!({ "key": "defined_owner_list", "valueType": "text" }),
+    ] {
+        let (status, resp) = post("/api/config/property-definitions", body.clone()).await;
+        assert_eq!(status, 400, "{body} -> {resp}");
+    }
+}
+
 // 項目からプロパティを削除できる。
 #[tokio::test]
 async fn a_property_can_be_removed_from_an_item() {
