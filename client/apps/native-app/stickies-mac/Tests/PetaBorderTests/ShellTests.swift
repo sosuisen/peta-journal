@@ -1,4 +1,5 @@
 import Foundation
+import PetaCore
 import PetaTypes
 import XCTest
 
@@ -252,7 +253,8 @@ final class ShellTests: XCTestCase {
             shell.view.outline.focusRequest?.itemId == first
         }
         let asked = try XCTUnwrap(shell.view.outline.focusRequest?.cursor)
-        XCTAssertEqual(asked, 5)
+        // The core asks for the end, which the editor finds in its text
+        XCTAssertEqual(utf16OfChars(text: "first", chars: asked), 5)
 
         XCTAssertTrue(shell.pressed(.right, in: first, editor("first", cursor: 5)))
         try await waitUntil("the cursor is asked to the start of the second item") {
