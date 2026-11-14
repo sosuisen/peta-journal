@@ -14,7 +14,8 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - Enterの直後の文字は、前の項目の欄に入る（欄は"firstse"になる）。そのとき、欄の`shouldChangeTextIn`が呼ばれない。だから、`Typist.held`に取っておかれず、失われる
   - 触れた位置にカーソルを置く前（`shell.edit(id)`）でも、同じように落ちる。この変更で起きたものではない
   - なぜ`shouldChangeTextIn`を通らずに文字が入るのかは、まだ分からない
-- [ ] （ユーザーが望めば）Web版、macOS、Windowsでも、触れた位置を`Event::ShownTextTouched`で送り、コアの対応付けを使う
+- [ ] Web版、macOS、Windowsでも、触れた位置を`Event::ShownTextTouched`で送り、コアの対応付けを使う（ADR 043で決めた、2026-11-14）
+  - 今は、表示の文字の位置を、そのままMarkdownの位置として使っている。Web版は`item_view.rs`の`text_offset_at_point`、Windowsは`RowView.cs`の`Edit`、macOSは`ItemText.swift`である。リンクや強調の記号の分だけ、カーソルがずれる
 - [ ] **次回、最初にやる。** プロパティの定義を、Markdownフォルダーに置くファイルで端末の間に同期する
   - 2026-11-14にユーザーが決めた。定義をファイルに置く案のほかは、あり得ない
   - 理由: 定義（キー、型、ページ用かどうか）は、SQLiteの`property_definitions`にしかない。ファイルには出ない。だから、別のPCやモバイルの端末には、ユーザーが定義したプロパティとその型が届かない
@@ -393,7 +394,12 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 2026-11-14にユーザーが文言を決めた。ページを作る行は`Create new page "名前"`である（PR #481）。同じ日に、`Create page "名前"`に変えた（PR #483）
 - [x] ブラウザで開くページと画像のアドレスを、Rustで作る。今は、macOS（`Shell.swift:82,94`、`AssetImages.swift:49`）とWindows（`Shell.cs:133-154`）が別々に作り、エンコードの仕方が違う。名前に`?`や2つ目の`#`があるページで、結果が変わる。`client-page-links`の`AppLinks`を使い、`client-native-bridge`から出す
   - ページ名には`?`を使えない（`validate_file_name`）。そのため、`?`での食い違いは起きていなかった。ファイルのパスでは、`#`と`?`も符号化する
-- [ ] カーソルの位置の、UTF-16と文字の数の換算を、Rustで1回だけ行う。今は、4つのシェルに8か所ある。macOS（`Keys.swift:38-58`）、Windows（`Keys.cs:67-97`）、iOS（`App/ItemEditor.swift:270-281`、`App/Touches.swift:42`）、Android（`ItemEditor.kt:147`、`ShownText.kt:85`、`Blocks.kt:85`）である。サロゲートペアの途中に当たったとき、iOSだけが本文の長さを返す。ほかは次の文字に進める
+- [ ] カーソルの位置の、UTF-16と文字の数の換算を、Rustで1回だけ行う（ADR 043）。関数は`client-core`に置き、Web版は直接、macOSとWindowsは`client-shell-http`から、iOSは`client-shell-embedded`から使う。サロゲートペアの途中は、その文字の後ろに寄せる。Androidは、標準の`codePointCount`と`offsetByCodePoints`のままでよい
+  - 今の換算は、macOS（`Keys.swift:38-58`）、Windows（`Keys.cs:67-97`）、iOS（`App/ItemEditor.swift:270-281`、`App/Touches.swift:42`）、Web版（`dom.rs`の`utf16_to_chars`と`chars_to_utf16`）にある。サロゲートペアの途中に当たったとき、iOSだけが本文の長さを返す
+  - Web版のキーの再生（`item_editor/replay.rs`）は、UTF-16の位置を1ずつ動かすので、絵文字の半分だけを消すおそれがある。この関数で動かす
+- [ ] coreが自分で決める位置を、書記素の境に寄せる（ADR 043）。`unicode-segmentation`を使う。触れた位置をMarkdownの位置に直す`rich_text/places.rs`の`touched_place`が、これに当たる。今は、直した位置が絵文字の途中に入ると、Enterで1つの絵文字が2つの項目に割れるおそれがある
+- [ ] 不具合：`client-core/src/screens/journal.rs`の`extract_journal_name`は、週のジャーナルの名前を、ファイル名のバイトの位置で切り出す。`-W`の前に日本語などがあると、パニックする（ADR 043）。文字の境で切るように直す
+- [ ] 保留したキーの再生で、複数のコードポイントでできた1文字（異体字セレクタやZWJ付きの絵文字）が捨てられる。`model.rs`の`DeferredKey.is_typed_character`が、1つのコードポイントのキーしか受け入れないためである（ADR 043）
 - [ ] 画像の大きさの決まりを、Rustの1つの関数にする。今は、4つのシェルで違う。iOSは幅に合わせて縮め、Androidは決まった幅にし、macOSは付箋紙の幅に縮めない。画像がないときも、macOSは`[alt]`、スマホは`alt`かパス、Windowsは何も出さない
 - [ ] 描画の定数をそろえる。見出しの大きさは、Androidだけがブラウザの既定値（2.0、1.5、1.17…）で、ほかは1.6、1.4、1.2、1.1、1である。マーカーの色、1段の字下げも、シェルごとに違う。行頭の点は、iOSとAndroidが`row.showBullet`に従い、macOSとWindowsはいつも描く。coreが`RichParagraph`で大きさを渡すか、共通の表を持つ
 - [ ] イベントの時刻（`nowMs`）を、`client-native-bridge`の`Clock`で入れる。今は、4つのシェルが自分で入れている（macOS `Shell.swift:128`と`Keys.swift:93`、Windows `Shell.cs:299`、iOS `Shell.swift:154`、Android `Shell.kt:172`）
