@@ -303,7 +303,7 @@ fn the_item_that_was_split_shows_the_ast_of_the_text_it_keeps() {
     enter(&mut h, "a", 5);
     let rows = h.view().outline.rows;
     let row = rows.iter().find(|r| r.item.id == "a").unwrap();
-    assert_eq!(row.shown, crate::asts::parse("hello"));
+    assert_eq!(row.body_model, crate::asts::parse("hello"));
 }
 
 /// The transclusion of the tests below: an item of this page that shows the item "s"

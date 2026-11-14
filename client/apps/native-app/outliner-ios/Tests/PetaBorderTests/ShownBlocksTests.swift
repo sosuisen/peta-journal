@@ -12,7 +12,7 @@ final class ShownBlocksTests: JournalTestCase {
         try download("notes.md", markdown)
         try openNotes()
         waitUntil("the items are shown") { !self.shell.view.outline.rows.isEmpty }
-        return shell.view.outline.rows.flatMap { shownBlocks(ast: $0.shown.ast, tagsDir: tagsDir) }
+        return shell.view.outline.rows.flatMap { shownBlocks(ast: $0.bodyModel.ast, tagsDir: tagsDir) }
     }
 
     /// The pieces of the paragraphs of a text.

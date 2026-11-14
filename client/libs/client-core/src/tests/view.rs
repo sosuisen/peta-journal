@@ -116,7 +116,7 @@ fn a_scroll_request_is_passed_on_as_a_smooth_scroll() {
 fn a_row_has_the_ast_that_the_core_makes_from_the_body() {
     use flatmarkdown_ast::Node;
     let h = Harness::with_items(vec![item("a", 1, "**b** [p](../p.md) #t")]);
-    let ast = &rows(&h)[0].shown;
+    let ast = &rows(&h)[0].body_model;
     let Node::Document { children } = ast else {
         panic!("not a document: {ast:?}");
     };
@@ -128,18 +128,18 @@ fn a_row_has_the_ast_that_the_core_makes_from_the_body() {
 #[test]
 fn the_ast_of_a_row_follows_its_body() {
     let mut h = Harness::with_items(vec![item("a", 1, "one")]);
-    let first = rows(&h)[0].shown.clone();
+    let first = rows(&h)[0].body_model.clone();
     crate::harness::typed(&mut h, "a", "# two");
-    assert_eq!(rows(&h)[0].shown, crate::asts::parse("# two"));
+    assert_eq!(rows(&h)[0].body_model, crate::asts::parse("# two"));
     crate::harness::typed(&mut h, "a", "one");
-    assert_eq!(rows(&h)[0].shown, first);
+    assert_eq!(rows(&h)[0].body_model, first);
 }
 
 // 同じ本文の行が2つあれば、どちらもその本文のASTを持つ。
 #[test]
 fn rows_with_the_same_body_have_the_same_ast() {
     let h = Harness::with_items(vec![item("a", 1, "*x*"), item("b", 1, "*x*")]);
-    let asts: Vec<_> = rows(&h).into_iter().map(|row| row.shown).collect();
+    let asts: Vec<_> = rows(&h).into_iter().map(|row| row.body_model).collect();
     assert_eq!(asts, [crate::asts::parse("*x*"), crate::asts::parse("*x*")]);
 }
 
@@ -149,7 +149,11 @@ fn rich_rows(
     bodies: &crate::body_view::Bodies<crate::RichText>,
 ) -> Vec<crate::RichText> {
     let view = crate::view::build(&h.model, bodies);
-    view.outline.rows.into_iter().map(|row| row.shown).collect()
+    view.outline
+        .rows
+        .into_iter()
+        .map(|row| row.body_model)
+        .collect()
 }
 
 // ネイティブのシェルの行は、本文から作ったRichTextを持つ。

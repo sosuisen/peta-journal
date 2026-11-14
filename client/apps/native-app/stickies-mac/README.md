@@ -66,7 +66,7 @@ Run it again after a change in Rust. Neither is kept in the repository.
   thread, in order.
 
 - `ShownText` makes the text of an item as it is to be shown: with its decoration, not as
-  Markdown. `../peta-shown` reads the AST that the core gives with each row (`Row.shown.ast`, ADR
+  Markdown. `../peta-shown` reads the AST that the core gives with each row (`Row.bodyModel.ast`, ADR
   041) into parts, as for the iOS app, and this makes text with attributes of the parts: a
   table in boxes of the text, an image of the assets folder as a picture in the text.
 - `AssetImages` reads the images of the assets folder from the journal server, which serves the

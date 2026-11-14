@@ -541,7 +541,7 @@ internal sealed class RowView : Grid
         // An item with no text is still as high as a line, and can be clicked
         paper.MinHeight = Math.Round(size * LineHeight);
         var start = 0;
-        foreach (var paragraph in ShownText.Of(row.Shown.Ast).Paragraphs)
+        foreach (var paragraph in ShownText.Of(row.BodyModel.Ast).Paragraphs)
         {
             shown.Children.Add(Block(paragraph, size, start));
             start += paragraph.Text.Length + 1;

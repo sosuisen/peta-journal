@@ -42,14 +42,14 @@ impl TaskState {
 }
 
 /// One row of the outline: the item as shown plus what the row needs to draw itself. `B` is
-/// what the shell draws of the body (ADR 042).
+/// the model that the shell draws the body from (ADR 042).
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Row<B = Node> {
     pub item: ItemRef,
-    /// The body as the shell draws it: the AST for the web shell (ADR 041), and `RichText` for
-    /// a native shell. The core makes it from the body.
-    pub shown: B,
+    /// The model that the shell draws the body from: the AST for the web shell (ADR 041), and
+    /// `RichText` for a native shell. The core makes it from the body alone.
+    pub body_model: B,
     pub position: usize,
     pub indent_px: i32,
     pub is_editing: bool,
@@ -450,9 +450,9 @@ fn outline<B: BodyView>(model: &Model, bodies: &Bodies<B>) -> OutlineView<B> {
     // Cumulative zoom: the product of the zooms of the item and its ancestors
     let mut stack: Vec<(i32, f64)> = Vec::new();
     let texts = visible.iter().map(|item| item.body.as_str());
-    let shown = bodies.of(texts, &model.config.tags_dir);
+    let body_models = bodies.of(texts, &model.config.tags_dir);
     let mut rows = Vec::with_capacity(visible.len());
-    for ((position, item), shown) in visible.iter().enumerate().zip(shown) {
+    for ((position, item), body_model) in visible.iter().enumerate().zip(body_models) {
         while stack
             .last()
             .map(|(level, _)| *level >= item.level)
@@ -489,7 +489,7 @@ fn outline<B: BodyView>(model: &Model, bodies: &Bodies<B>) -> OutlineView<B> {
             effective_zoom,
             date_header,
             suggestions_visible: wiki::is_shown_for(model, &item.id),
-            shown,
+            body_model,
             item: item.clone(),
         });
     }

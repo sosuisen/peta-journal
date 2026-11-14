@@ -186,7 +186,7 @@ What each class does:
   its own. `syncAndWait()` does the same for the thread of a sync with the cloud, and returns
   when the core is done.
 - `ShownText` makes the parts of an item as it is shown, from the AST that the core gives
-  with each row (`Row.shown.ast`, ADR 041). The text is an `AnnotatedString`; a code block, a
+  with each row (`Row.bodyModel.ast`, ADR 041). The text is an `AnnotatedString`; a code block, a
   table and an image of the assets folder get parts of their own, which the screen draws. A
   `when` takes every kind of node, so a kind that the AST gets later stops the build until it
   is drawn.
