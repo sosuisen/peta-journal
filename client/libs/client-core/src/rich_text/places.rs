@@ -29,7 +29,7 @@ pub fn markdown_place(markdown: &str, shown_before: &str) -> usize {
         next.push(row[0] + SHOWN_LEFT_OUT);
         for (j, &mark) in markdown.iter().enumerate() {
             let left_out = (next[j] + 1).min(row[j + 1] + SHOWN_LEFT_OUT);
-            next.push(if mark == letter {
+            next.push(if same_letter(mark, letter) {
                 left_out.min(row[j])
             } else {
                 left_out
@@ -39,6 +39,10 @@ pub fn markdown_place(markdown: &str, shown_before: &str) -> usize {
     }
     let least = row.iter().min().copied().unwrap_or(0);
     row.iter().position(|&cost| cost == least).unwrap_or(0)
+}
+
+fn same_letter(mark: char, letter: char) -> bool {
+    mark == letter || mark.to_lowercase().eq(letter.to_lowercase())
 }
 
 /// The place in the Markdown of an item, in characters, of a touch after `letter` letters of
