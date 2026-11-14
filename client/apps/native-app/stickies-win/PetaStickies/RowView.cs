@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Shapes;
 using PetaBorder;
 using PetaTypes;
@@ -529,8 +530,8 @@ internal sealed class RowView : Grid
             editor.Visibility = Visibility.Collapsed;
             paper.Visibility = Visibility.Visible;
         }
-        // The core makes the AST of the body. A record of the generated types compares its
-        // children as references, so a new AST of the same body would not be equal
+        // The core makes the parts of the body. The generated types compare as references,
+        // so new parts of the same body would not be equal
         var wanted = (row.Item.Body, Zoom);
         if (drawn == wanted)
             return;
@@ -541,11 +542,106 @@ internal sealed class RowView : Grid
         // An item with no text is still as high as a line, and can be clicked
         paper.MinHeight = Math.Round(size * LineHeight);
         var start = 0;
-        foreach (var paragraph in ShownText.Of(row.BodyModel.Ast).Paragraphs)
+        foreach (var part in ShownText.Of(row.BodyModel.Rich).Parts)
         {
-            shown.Children.Add(Block(paragraph, size, start));
-            start += paragraph.Text.Length + 1;
+            UIElement drawnPart = part switch
+            {
+                ShownParagraph paragraph => Block(paragraph, size, start),
+                ShownTable table => Table(table, size, start),
+                ShownPicture picture => Picture(picture, size),
+            };
+            shown.Children.Add(drawnPart);
+            start += ShownText.TextOf(part).Length + 1;
         }
+    }
+
+    /// <summary>How far to the right a part stands that is <paramref name="indent"/> steps in.</summary>
+    private Thickness Indented(int indent) => new(indent * 16 * Zoom, 0, 0, 0);
+
+    /// <summary>
+    /// A table with a line around each cell, as macOS draws a table. The columns share the
+    /// width of the sticky, and the text of a cell wraps in it.
+    /// </summary>
+    private Grid Table(ShownTable table, double size, int start)
+    {
+        var grid = new Grid { Margin = Indented(table.Indent) };
+        var columns = table.Rows.Max(row => row.Cells.Count);
+        for (var column = 0; column < columns; column++)
+            grid.ColumnDefinitions.Add(new ColumnDefinition());
+        var place = start;
+        for (var at = 0; at < table.Rows.Count; at++)
+        {
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var cells = table.Rows[at].Cells;
+            for (var column = 0; column < columns; column++)
+            {
+                var box = new Border
+                {
+                    BorderBrush = Faint,
+                    BorderThickness = new Thickness(0.5),
+                    Padding = new Thickness(4 * Zoom),
+                };
+                if (column < cells.Count)
+                {
+                    box.Child = Block(cells[column], size, place);
+                    place += cells[column].Text.Length + 1;
+                }
+                Grid.SetRow(box, at);
+                Grid.SetColumn(box, column);
+                grid.Children.Add(box);
+            }
+        }
+        return grid;
+    }
+
+    /// <summary>
+    /// An image of the assets folder, which the journal server serves, at the size that the
+    /// page asks for. An image whose page asks for no size fits the width of the sticky, and
+    /// is never larger than its file. Its words stand there until its file is here, and stay
+    /// when the file cannot be had.
+    /// </summary>
+    private Grid Picture(ShownPicture picture, double size)
+    {
+        var holder = new Grid
+        {
+            Margin = Indented(picture.Indent),
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        var words = new TextBlock
+        {
+            Text = picture.Words,
+            FontFamily = TextFont,
+            FontSize = size,
+            Foreground = Ink,
+            TextWrapping = TextWrapping.Wrap,
+        };
+        holder.Children.Add(words);
+        if (Shell.AssetAddress(picture.Path) is not { } address)
+            return holder;
+        var file = new BitmapImage(address);
+        var image = new Image
+        {
+            Source = file,
+            Stretch =
+                picture.Width is not null && picture.Height is not null
+                    ? Stretch.Fill
+                    : Stretch.Uniform,
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        if (picture.Width is { } width)
+            image.Width = width * Zoom;
+        if (picture.Height is { } height)
+            image.Height = height * Zoom;
+        // The image has no size until its file is here: the words stand alone till then
+        file.ImageOpened += (_, _) =>
+        {
+            if (picture.Width is null && picture.Height is null)
+                image.MaxWidth = file.PixelWidth;
+            words.Visibility = Visibility.Collapsed;
+        };
+        file.ImageFailed += (_, _) => image.Visibility = Visibility.Collapsed;
+        holder.Children.Add(image);
+        return holder;
     }
 
     private RichTextBlock Block(ShownParagraph paragraph, double size, int start)
@@ -558,13 +654,13 @@ internal sealed class RowView : Grid
             FontFamily = TextFont,
             FontSize = size * paragraph.Scale,
             Foreground = Ink,
-            Margin = new Thickness(paragraph.Indent * 16 * Zoom, 0, 0, 0),
+            Margin = Indented(paragraph.Indent),
         };
         var letters = new Paragraph();
         var place = 0;
         foreach (var piece in paragraph.Runs)
         {
-            var run = Run(piece, size * paragraph.Scale);
+            var run = Run(piece);
             runs.Add((block, run, start + place));
             if (piece.Link is { } link)
             {
@@ -605,7 +701,7 @@ internal sealed class RowView : Grid
         return block;
     }
 
-    private static Run Run(ShownRun piece, double size)
+    private static Run Run(ShownRun piece)
     {
         var style = piece.Style;
         var run = new Run { Text = piece.Text };
@@ -624,11 +720,6 @@ internal sealed class RowView : Grid
             run.FontFamily = CodeFont;
         if (style.HasFlag(RunStyle.Quote))
             run.Foreground = Quoted;
-        if (style.HasFlag(RunStyle.Small))
-        {
-            run.FontSize = size * 0.85;
-            run.Foreground = Pale;
-        }
         if (style.HasFlag(RunStyle.Superscript))
             Typography.SetVariants(run, FontVariants.Superscript);
         if (style.HasFlag(RunStyle.Subscript))

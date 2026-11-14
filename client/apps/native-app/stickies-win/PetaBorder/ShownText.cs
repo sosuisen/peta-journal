@@ -25,393 +25,244 @@ public enum RunStyle
     Quote = 1 << 7,
     Superscript = 1 << 8,
     Subscript = 1 << 9,
-
-    /// <summary>A remark below the text: smaller and paler.</summary>
-    Small = 1 << 10,
 }
 
 /// <summary>A piece of a shown text that looks the same all over.</summary>
-/// <param name="Link">What a click on the piece opens, when it is part of a link.</param>
-public sealed record ShownRun(string Text, RunStyle Style, LinkTarget? Link);
+/// <param name="Link">Where a click on the piece leads, when it is part of a link.</param>
+public sealed record ShownRun(string Text, RunStyle Style, RichLink? Link);
+
+/// <summary>
+/// One part of an item as the screen draws it, from top to bottom. A <c>switch</c> that leaves
+/// out a kind of part stops the build (CS8509).
+/// </summary>
+public closed record ShownPart;
 
 /// <summary>A line or a block of a shown text.</summary>
 /// <param name="Scale">How much larger than the usual text it is: more than 1 for a heading.</param>
 /// <param name="Indent">How many steps to the right it stands, in a list or a quote.</param>
 public sealed record ShownParagraph(IReadOnlyList<ShownRun> Runs, double Scale, int Indent)
+    : ShownPart
 {
     public string Text => string.Concat(Runs.Select(run => run.Text));
 }
 
-/// <summary>What a link of a shown text leads to.</summary>
-public abstract record LinkTarget
+/// <summary>A table: its rows, each with a paragraph in each cell.</summary>
+public sealed record ShownTable(IReadOnlyList<ShownTableRow> Rows, int Indent) : ShownPart;
+
+/// <param name="Header">True for the row of the titles of the columns.</param>
+public sealed record ShownTableRow(bool Header, IReadOnlyList<ShownParagraph> Cells);
+
+/// <summary>An image of the assets folder.</summary>
+/// <param name="Path">Where its file is under the Markdown folder, such as <c>assets/a.png</c>.</param>
+/// <param name="Width">The width that the page asks for, at a zoom of 1. None when it asks for none.</param>
+/// <param name="Height">The height that the page asks for, the same way.</param>
+public sealed record ShownPicture(string Path, string Alt, uint? Width, uint? Height, int Indent)
+    : ShownPart
 {
-    /// <summary>The page of a wikilink, by its path.</summary>
-    public sealed record Page(string Path) : LinkTarget;
-
-    /// <summary>The tag of a hashtag, by its name. Its page lies in the folder of the tags.</summary>
-    public sealed record Tag(string Name) : LinkTarget;
-
-    /// <summary>An address outside the journal.</summary>
-    public sealed record Out(Uri Address) : LinkTarget;
+    /// <summary>What stands for the image until its file is here.</summary>
+    public string Words => $"[{(Alt.Length == 0 ? Path : Alt)}]";
 }
 
 /// <summary>
-/// The text of an item as it is shown: with its decoration, not as Markdown. It is drawn from
-/// the AST that the core gives with the row (ADR 041). <c>Node</c> is a closed record, so a
-/// <c>switch</c> expression that leaves out a kind of node stops the build (CS8509): a kind
-/// that the AST gets later is drawn here before the shell builds again.
+/// The text of an item as it is shown: with its decoration, not as Markdown. The core makes the
+/// parts of the body and gives them with the row (ADR 042); this puts them in the parts that
+/// the screen draws. A <c>RichBlock</c> is a closed record, so a kind of part that the core
+/// makes later stops the build until it is drawn here.
 /// </summary>
-public sealed record ShownText(IReadOnlyList<ShownParagraph> Paragraphs)
+public sealed record ShownText(IReadOnlyList<ShownPart> Parts)
 {
-    /// <summary>The letters of the text, with a line break between its paragraphs.</summary>
-    public string Text => string.Join('\n', Paragraphs.Select(paragraph => paragraph.Text));
+    /// <summary>
+    /// The letters of the text, with a line break between its parts. The cells of a row of a
+    /// table stand in one line, and an image is its words.
+    /// </summary>
+    public string Text => string.Join('\n', Parts.Select(TextOf));
 
-    /// <summary>The text of the AST of an item.</summary>
-    public static ShownText Of(Node ast)
+    /// <summary>The letters of a part, as <see cref="Text"/> has them.</summary>
+    public static string TextOf(ShownPart part) =>
+        part switch
+        {
+            ShownParagraph paragraph => paragraph.Text,
+            ShownTable table => string.Join(
+                '\n',
+                table.Rows.Select(row => string.Join(" ", row.Cells.Select(cell => cell.Text)))
+            ),
+            ShownPicture picture => picture.Words,
+        };
+
+    /// <summary>The text of the parts that the core made of an item.</summary>
+    public static ShownText Of(RichText rich)
     {
-        ArgumentNullException.ThrowIfNull(ast);
-        var writer = new TextWriter();
-        writer.Blocks(Nodes.Children(ast));
-        return new ShownText(writer.Finish());
+        ArgumentNullException.ThrowIfNull(rich);
+        var writer = new PartWriter();
+        writer.Blocks(rich.Blocks, depth: 0, quoted: 0);
+        return new ShownText(writer.Parts);
     }
 }
 
-/// <summary>What the nodes of the AST hold.</summary>
-internal static class Nodes
+/// <summary>
+/// Puts the parts of an item one below the other. A list and a quote that the core took apart
+/// move what is in them to the right. This is the look of this shell: it is not kept the same as
+/// the stylesheet of the web frontend.
+/// </summary>
+internal sealed class PartWriter
 {
-    /// <summary>The children of a node, and none for a leaf.</summary>
-    public static IReadOnlyList<Node> Children(Node node) =>
-        node switch
-        {
-            Node.Document n => n.Children,
-            Node.Paragraph n => n.Children,
-            Node.Heading n => n.Children,
-            Node.BlockQuote n => n.Children,
-            Node.MultilineBlockQuote n => n.Children,
-            Node.List n => n.Children,
-            Node.Item n => n.Children,
-            Node.TaskItem n => n.Children,
-            Node.Table n => n.Children,
-            Node.TableRow n => n.Children,
-            Node.TableCell n => n.Children,
-            Node.FootnoteDefinition n => n.Children,
-            Node.Alert n => n.Children,
-            Node.Subtext n => n.Children,
-            Node.Emph n => n.Children,
-            Node.Strong n => n.Children,
-            Node.Strikethrough n => n.Children,
-            Node.Underline n => n.Children,
-            Node.Highlight n => n.Children,
-            Node.Superscript n => n.Children,
-            Node.SubscriptText n => n.Children,
-            Node.SpoileredText n => n.Children,
-            Node.Link n => n.Children,
-            Node.Embed n => n.Children,
-            Node.Wikilink n => n.Children,
-            Node.Unknown n => n.Children,
-            Node.CodeBlock
-            or Node.ThematicBreak
-            or Node.HtmlBlock
-            or Node.Text
-            or Node.Softbreak
-            or Node.Linebreak
-            or Node.Code
-            or Node.FootnoteReference
-            or Node.Shortcode
-            or Node.Math
-            or Node.HtmlInline
-            or Node.Hashtag => [],
-        };
+    private const string Rule = "────────";
 
-    /// <summary>The text under the node, without its decoration.</summary>
-    public static string PlainText(Node node) =>
-        node is Node.Text text ? text.Value : string.Concat(Children(node).Select(PlainText));
+    public List<ShownPart> Parts { get; } = [];
 
-    /// <summary>
-    /// The text that a reader sees for a footnote. An inline footnote has a name that the
-    /// parser made (<c>__inline_1</c>), so its number is shown instead.
-    /// </summary>
-    public static string FootnoteLabel(string name) =>
-        name.StartsWith("__inline_", StringComparison.Ordinal) ? name["__inline_".Length..] : name;
-}
-
-/// <summary>Writes the blocks of an item as paragraphs, one line or more each.</summary>
-internal sealed class TextWriter
-{
-    private readonly List<ShownParagraph> paragraphs = [];
-    private List<ShownRun> runs = [];
-    private RunStyle style;
-    private LinkTarget? link;
-    private double scale = 1;
-    private int indent;
-
-    /// <summary>
-    /// What the first line of the next block starts with: the mark of an entry of a list, or
-    /// the name of a footnote.
-    /// </summary>
+    /// <summary>The mark of the entry of a list that the next part is the first of.</summary>
     private string? lead;
 
-    public IReadOnlyList<ShownParagraph> Finish()
+    /// <summary>The parts inside <paramref name="depth"/> lists and <paramref name="quoted"/> quotes.</summary>
+    public void Blocks(IEnumerable<RichBlock> blocks, int depth, int quoted)
     {
-        EndParagraph();
-        return paragraphs;
-    }
-
-    public void Blocks(IEnumerable<Node> nodes)
-    {
-        foreach (var node in nodes)
-            Block(node);
-    }
-
-    private void Block(Node node)
-    {
-        Action write = node switch
+        foreach (var block in blocks)
         {
-            Node.Document or Node.Item or Node.TaskItem or Node.Unknown or Node.Table => () =>
-                Blocks(Nodes.Children(node)),
-            Node.Paragraph or Node.TableCell => () => Line(Nodes.Children(node)),
-            Node.Heading heading => () =>
-                With(
-                    () => Line(heading.Children),
-                    added: RunStyle.Bold,
-                    scaled: RowLook.HeadingScales[
-                        Math.Clamp(heading.Level - 1, 0, RowLook.HeadingScales.Count - 1)
-                    ]
-                ),
-            Node.CodeBlock code => () =>
-                With(() => Line([new Node.Text(code.Literal.TrimEnd('\n'))]), added: RunStyle.Code),
-            Node.BlockQuote or Node.MultilineBlockQuote => () =>
-                Quote(() => Blocks(Nodes.Children(node))),
-            Node.Alert alert => () =>
-                Quote(() =>
-                {
-                    With(
-                        () => Line([new Node.Text(alert.Title ?? alert.AlertType.ToString())]),
-                        added: RunStyle.Bold
-                    );
-                    Blocks(alert.Children);
-                }),
-            Node.List list => () => List(list),
-            Node.TableRow row => () => Row(row),
-            Node.ThematicBreak => () => Line([new Node.Text("────────")]),
-            Node.HtmlBlock html => () => Line([new Node.Text(html.Literal.TrimEnd('\n'))]),
-            Node.FootnoteDefinition note => () =>
+            Action write = block switch
             {
-                lead = $"[{Nodes.FootnoteLabel(note.Name)}]: ";
-                Blocks(note.Children);
-                lead = null;
-            },
-            Node.Subtext subtext => () => With(() => Line(subtext.Children), added: RunStyle.Small),
-            // A line outside a block, as in a list without room between its entries
-            Node.Text
-            or Node.Softbreak
-            or Node.Linebreak
-            or Node.Emph
-            or Node.Strong
-            or Node.Strikethrough
-            or Node.Underline
-            or Node.Highlight
-            or Node.Superscript
-            or Node.SubscriptText
-            or Node.SpoileredText
-            or Node.Code
-            or Node.Link
-            or Node.Embed
-            or Node.FootnoteReference
-            or Node.Shortcode
-            or Node.Math
-            or Node.HtmlInline
-            or Node.Wikilink
-            or Node.Hashtag => () => Line([node]),
-        };
-        write();
+                RichBlock.Text text => () =>
+                {
+                    foreach (var paragraph in text.Paragraphs)
+                        Paragraph(
+                            paragraph,
+                            depth + (int)paragraph.Depth,
+                            quoted + (int)paragraph.Quoted
+                        );
+                },
+                RichBlock.Code code => () =>
+                    Line(
+                        [new ShownRun(code.Lines, Quoted(RunStyle.Code, quoted), null)],
+                        1,
+                        Indent(depth, quoted)
+                    ),
+                RichBlock.Table table => () => Table(table.Rows, depth, quoted),
+                RichBlock.Image image => () => Picture(image.Image_, depth, quoted),
+                RichBlock.Entries entries => () => Entries(entries.Entries_, depth, quoted),
+                RichBlock.Quote quote => () => Blocks(quote.Blocks, depth, quoted + 1),
+            };
+            write();
+        }
     }
 
     /// <summary>
-    /// The entries of a list, each with its mark: a box for a task, its number, or a bullet. A
-    /// list inside an entry stands one step more to the right.
+    /// The entries of a list, each with its mark. An entry without anything in it still shows
+    /// its mark.
     /// </summary>
-    private void List(Node.List list)
+    private void Entries(IEnumerable<RichEntry> entries, int depth, int quoted)
     {
-        var number = (int)list.Start;
-        depth++;
-        foreach (var entry in list.Children)
+        foreach (var entry in entries)
         {
-            lead = entry switch
-            {
-                Node.TaskItem task => task.Symbol is null ? "☐ " : "☑ ",
-                _ when list.ListType == ListType.Ordered => $"{number}. ",
-                _ => "• ",
-            };
-            number++;
-            Block(entry);
-            lead = null;
+            lead = entry.Mark;
+            Blocks(entry.Blocks, depth + 1, quoted);
+            if (lead is not null)
+                Line([], 1, Indent(depth + 1, quoted));
         }
-        depth--;
     }
 
-    /// <summary>How many lists the block is inside.</summary>
-    private int depth;
-
-    /// <summary>The cells of a row stand in one line.</summary>
-    private void Row(Node.TableRow row)
+    private void Paragraph(RichParagraph paragraph, int depth, int quoted)
     {
-        var cells = new List<Node>();
-        foreach (var cell in row.Children)
-        {
-            if (cells.Count > 0)
-                cells.Add(new Node.Text(Separator));
-            cells.AddRange(Nodes.Children(cell));
-        }
-        With(() => Line(cells), added: row.Header ? RunStyle.Bold : RunStyle.None);
+        if (paragraph.Mark is { } mark)
+            lead = mark;
+        var heading = paragraph.Heading > 0 ? RunStyle.Bold : RunStyle.None;
+        var runs = new List<ShownRun>();
+        if (paragraph.Rule)
+            runs.Add(new ShownRun(Rule, Quoted(RunStyle.None, quoted), null));
+        foreach (var run in paragraph.Runs)
+            runs.Add(
+                new ShownRun(run.Text, Quoted(heading | StyleOf(run.Looks), quoted), run.Link)
+            );
+        Line(runs, RowLook.HeadingScale(paragraph.Heading), Indent(depth, quoted));
     }
 
-    private const string Separator = "  │  ";
-
-    private void Quote(Action inside)
+    /// <summary>
+    /// A table, each cell one paragraph. Its first line stands below the mark of the entry
+    /// that it is the first of.
+    /// </summary>
+    private void Table(IEnumerable<RichTableRow> rows, int depth, int quoted)
     {
-        indent++;
-        With(inside, added: RunStyle.Quote);
-        indent--;
+        Lead(depth, quoted);
+        var shown = rows.Select(row => new ShownTableRow(
+                row.Header,
+                [
+                    .. row.Cells.Select(cell => new ShownParagraph(
+                        [
+                            .. cell.Runs.Select(run => new ShownRun(
+                                run.Text,
+                                Quoted(
+                                    (row.Header ? RunStyle.Bold : RunStyle.None)
+                                        | StyleOf(run.Looks),
+                                    quoted
+                                ),
+                                run.Link
+                            )),
+                        ],
+                        1,
+                        0
+                    )),
+                ]
+            ))
+            .ToList();
+        if (shown.Any(row => row.Cells.Count > 0))
+            Parts.Add(new ShownTable(shown, Indent(depth, quoted)));
     }
 
-    /// <summary>Does what is inside with more style, and the style before it afterwards.</summary>
-    private void With(Action inside, RunStyle added, double? scaled = null)
+    private void Picture(RichImage image, int depth, int quoted)
     {
-        var before = (style, scale);
-        style |= added;
-        scale = scaled ?? scale;
-        inside();
-        (style, scale) = before;
+        Lead(depth, quoted);
+        Parts.Add(
+            new ShownPicture(image.Path, image.Alt, image.Width, image.Height, Indent(depth, quoted))
+        );
     }
 
-    /// <summary>One paragraph, with the lead of the block before it.</summary>
-    private void Line(IEnumerable<Node> inline)
+    /// <summary>The mark of an entry, on a line of its own above a part that is not a line.</summary>
+    private void Lead(int depth, int quoted)
     {
-        EndParagraph();
-        var at = indent + Math.Max(depth - 1, 0);
+        if (lead is not null)
+            Line([], 1, Indent(depth, quoted));
+    }
+
+    /// <summary>One line, which starts with the mark of the entry that it is the first of.</summary>
+    private void Line(List<ShownRun> runs, double scale, int indent)
+    {
         if (lead is not null)
         {
-            Add(lead, RunStyle.None);
+            runs.Insert(0, new ShownRun(lead + " ", RunStyle.None, null));
             lead = null;
         }
-        foreach (var node in inline)
-            Write(node);
-        EndParagraph(at);
-    }
-
-    /// <summary>The letters of an inline node, with the style of the nodes around it.</summary>
-    private void Write(Node node)
-    {
-        Action write = node switch
-        {
-            Node.Text text => () => Add(text.Value),
-            Node.Softbreak => () => Add(" "),
-            Node.Linebreak => () => Add("\n"),
-            Node.Emph n => () => With(() => WriteAll(n.Children), RunStyle.Italic),
-            Node.Strong n => () => With(() => WriteAll(n.Children), RunStyle.Bold),
-            Node.Strikethrough n => () => With(() => WriteAll(n.Children), RunStyle.Strike),
-            Node.Underline n => () => With(() => WriteAll(n.Children), RunStyle.Underline),
-            Node.Highlight n => () => With(() => WriteAll(n.Children), RunStyle.Highlight),
-            Node.Superscript n => () => With(() => WriteAll(n.Children), RunStyle.Superscript),
-            Node.SubscriptText n => () => With(() => WriteAll(n.Children), RunStyle.Subscript),
-            Node.SpoileredText n => () => With(() => WriteAll(n.Children), RunStyle.Spoiler),
-            Node.Code code => () => With(() => Add(code.Literal), RunStyle.Code),
-            Node.Link n => () => Linked(Target(n.Url), n.Children),
-            Node.Wikilink n => () => Linked(new LinkTarget.Page(n.Url), n.Children),
-            Node.Hashtag tag => () =>
-                Linked(new LinkTarget.Tag(tag.Value), [new Node.Text("#" + tag.Value)]),
-            // An image is shown as the words for it, and without any as its file. The image
-            // itself is not shown yet
-            Node.Embed embed => () =>
-            {
-                var words = Nodes.PlainText(embed);
-                Add($"[{(words.Length == 0 ? embed.Url : words)}]");
-            },
-            Node.FootnoteReference reference => () =>
-                With(() => Add($"[{Nodes.FootnoteLabel(reference.Name)}]"), RunStyle.Superscript),
-            Node.Shortcode shortcode => () => Add(shortcode.Emoji),
-            Node.Math math => () => Add(math.Literal),
-            Node.HtmlInline html => () => Add(html.Value),
-            Node.Unknown n => () => WriteAll(n.Children),
-            // A block inside a line: only its letters
-            Node.Document
-            or Node.Paragraph
-            or Node.Heading
-            or Node.CodeBlock
-            or Node.BlockQuote
-            or Node.MultilineBlockQuote
-            or Node.List
-            or Node.Item
-            or Node.TaskItem
-            or Node.Table
-            or Node.TableRow
-            or Node.TableCell
-            or Node.ThematicBreak
-            or Node.HtmlBlock
-            or Node.FootnoteDefinition
-            or Node.Alert
-            or Node.Subtext => () => Add(Nodes.PlainText(node)),
-        };
-        write();
-    }
-
-    private void WriteAll(IEnumerable<Node> nodes)
-    {
-        foreach (var node in nodes)
-            Write(node);
-    }
-
-    private void Linked(LinkTarget? target, IEnumerable<Node> inside)
-    {
-        var before = link;
-        link = target ?? link;
-        WriteAll(inside);
-        link = before;
+        if (runs.Count > 0)
+            Parts.Add(new ShownParagraph(runs, scale, indent));
     }
 
     /// <summary>
-    /// What a link leads to: an address outside the journal, or a page by its path. Nothing
-    /// for a link that stays in the item, as the one of a footnote.
+    /// How many steps to the right a part stands. The entries of a list at the top stand at
+    /// the left edge, with their marks.
     /// </summary>
-    private static LinkTarget? Target(string url)
-    {
-        if (url.Length == 0 || url.StartsWith('#'))
-            return null;
-        if (Uri.TryCreate(url, UriKind.Absolute, out var address) && !address.IsFile)
-            return new LinkTarget.Out(address);
-        return new LinkTarget.Page(Uri.UnescapeDataString(url));
-    }
+    private static int Indent(int depth, int quoted) => quoted + Math.Max(depth - 1, 0);
 
-    private void Add(string text) => Add(text, style);
+    private static RunStyle Quoted(RunStyle style, int quoted) =>
+        quoted > 0 ? style | RunStyle.Quote : style;
 
-    private void Add(string text, RunStyle with)
+    private static RunStyle StyleOf(Looks looks)
     {
-        if (text.Length == 0)
-            return;
-        // Pieces that look the same are one piece
-        if (runs.Count > 0 && runs[^1].Style == with && runs[^1].Link == link)
-            runs[^1] = runs[^1] with { Text = runs[^1].Text + text };
-        else
-            runs.Add(new ShownRun(text, with, link));
-    }
-
-    private void EndParagraph(int at = 0)
-    {
-        // The white space and the line break at the end of a block are not shown
-        while (runs.Count > 0)
-        {
-            var trimmed = runs[^1].Text.TrimEnd(' ', '\n');
-            if (trimmed.Length > 0)
-            {
-                runs[^1] = runs[^1] with { Text = trimmed };
-                break;
-            }
-            runs.RemoveAt(runs.Count - 1);
-        }
-        if (runs.Count == 0)
-            return;
-        paragraphs.Add(new ShownParagraph(runs, scale, at));
-        runs = [];
+        var style = RunStyle.None;
+        if (looks.Bold)
+            style |= RunStyle.Bold;
+        if (looks.Italic)
+            style |= RunStyle.Italic;
+        if (looks.Struck)
+            style |= RunStyle.Strike;
+        if (looks.Underlined)
+            style |= RunStyle.Underline;
+        if (looks.Marked)
+            style |= RunStyle.Highlight;
+        if (looks.Code)
+            style |= RunStyle.Code;
+        if (looks.Raised)
+            style |= RunStyle.Superscript;
+        if (looks.Lowered)
+            style |= RunStyle.Subscript;
+        if (looks.Hidden)
+            style |= RunStyle.Spoiler;
+        return style;
     }
 }

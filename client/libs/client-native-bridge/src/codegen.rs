@@ -37,6 +37,9 @@ pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
     generator.swift(&Config::builder(PACKAGE, out.join("swift")).build())
 }
 
+/// The enums with data that a shell takes apart with a `switch`.
+const CLOSED_RECORDS: [&str; 3] = ["Node", "RichBlock", "RichLink"];
+
 /// Writes the same types as the C# project `PetaTypes` under `out/csharp`, for the WinUI shell.
 ///
 /// Not with the generator that Crux 0.20.0 brings (facet_generate 0.19): its C# does not
@@ -44,21 +47,23 @@ pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
 /// directly (ADR 028). So the types are listed here, as `ShellEffect::register_types` lists
 /// them for Crux.
 ///
-/// The generator writes `Node` as an `abstract record`, which the compiler does not count as
-/// closed: a `switch` that leaves out a kind of node only gets the warning that it gets anyway.
-/// So `Node` is made a `closed record` of C# 15 here, and the project is made one of .NET 11,
-/// whose compiler knows `closed` (ADR 041).
+/// The generator writes an enum with data, such as `Node` and `RichBlock`, as an
+/// `abstract record`, which the compiler does not count as closed: a `switch` that leaves out a
+/// kind only gets the warning that it gets anyway. So each is made a `closed record` of C# 15
+/// here, and the project is made one of .NET 11, whose compiler knows `closed` (ADR 041).
 pub fn write_csharp_types(out: &Path) -> Result<(), TypeGenError> {
     let folder = out.join("csharp");
     Installer::new(PACKAGE, &folder)
         .plugin(BincodePlugin)
         .generate(&border_types()?)
         .map_err(failed)?;
-    rewrite(
-        &folder.join(PACKAGE).join(format!("{PACKAGE}.cs")),
-        "public abstract record Node ",
-        "public closed record Node ",
-    )?;
+    for name in CLOSED_RECORDS {
+        rewrite(
+            &folder.join(PACKAGE).join(format!("{PACKAGE}.cs")),
+            &format!("public abstract record {name} "),
+            &format!("public closed record {name} "),
+        )?;
+    }
     rewrite(
         &folder.join(format!("{PACKAGE}.csproj")),
         "<TargetFramework>net10.0</TargetFramework>",
@@ -122,17 +127,19 @@ fn failed(error: impl std::fmt::Display) -> TypeGenError {
 mod tests {
     use super::*;
 
-    // C#の型では、Nodeは閉じたrecordで、プロジェクトは.NET 11である。
+    // C#の型では、NodeとRichBlockとRichLinkは閉じたrecordで、プロジェクトは.NET 11である。
     #[test]
-    fn the_node_of_csharp_is_a_closed_record_of_dotnet_11() {
+    fn the_enums_of_csharp_are_closed_records_of_dotnet_11() {
         let out = std::env::temp_dir().join(format!("peta-csharp-types-{}", std::process::id()));
         write_csharp_types(&out).unwrap();
 
         let types = std::fs::read_to_string(out.join("csharp/PetaTypes/PetaTypes.cs")).unwrap();
         let project = std::fs::read_to_string(out.join("csharp/PetaTypes.csproj")).unwrap();
         std::fs::remove_dir_all(&out).unwrap();
-        assert!(types.contains("public closed record Node : "));
-        assert!(!types.contains("abstract record Node "));
+        for name in CLOSED_RECORDS {
+            assert!(types.contains(&format!("public closed record {name} : ")));
+            assert!(!types.contains(&format!("abstract record {name} ")));
+        }
         assert!(project.contains("<TargetFramework>net11.0</TargetFramework>"));
     }
 }

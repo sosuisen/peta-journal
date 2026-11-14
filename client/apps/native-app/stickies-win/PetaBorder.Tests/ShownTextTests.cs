@@ -4,9 +4,9 @@ using PetaTypes;
 namespace PetaBorder.Tests;
 
 /// <summary>
-/// The text of an item as it is shown, with its decoration, drawn from the AST that the core
-/// gives with the row (ADR 041). The body of the first test goes through a real journal
-/// server, so that test is skipped without <c>PETA_E2E_SERVER</c>.
+/// The text of an item as it is shown, with its decoration, drawn from the parts that the core
+/// makes of the body and gives with the row (ADR 042). The body of the first test goes through a
+/// real journal server, so that test is skipped without <c>PETA_E2E_SERVER</c>.
 /// </summary>
 public sealed class ShownTextTests
 {
@@ -78,19 +78,6 @@ public sealed class ShownTextTests
         return shell.View.Outline.Rows[0];
     }
 
-    /// <summary>The names of the types of the nodes in the tree, such as <c>CodeBlock</c>.</summary>
-    private static HashSet<string> KindsOf(Node node) =>
-        [node.GetType().Name, .. PetaBorder.Nodes.Children(node).SelectMany(KindsOf)];
-
-    /// <summary>The name of the type of <c>Node</c> for a kind of the AST, such as
-    /// <c>CodeBlock</c> for <c>code_block</c>.</summary>
-    private static string TypeName(string kind) =>
-        kind == "subscript"
-            ? "SubscriptText"
-            : string.Concat(
-                kind.Split('_').Select(word => char.ToUpperInvariant(word[0]) + word[1..])
-            );
-
     // ASTのどの種類の中身も、表示するテキストに入っている。
     [Fact]
     public void What_is_in_every_kind_of_node_is_in_the_shown_text()
@@ -98,227 +85,232 @@ public sealed class ShownTextTests
         using var server = new JournalServer(18112);
         var row = RowWithBody(string.Join("\n\n", EveryKind.Select(kind => kind.Markdown)), server);
 
-        var shown = ShownText.Of(row.BodyModel.Ast).Text;
+        var shown = ShownText.Of(row.BodyModel.Rich).Text;
 
-        var kinds = KindsOf(row.BodyModel.Ast);
         foreach (var (kind, _, seen) in EveryKind)
-        {
-            Assert.True(kinds.Contains(TypeName(kind)), $"the body has no node of the kind {kind}");
             Assert.True(
-                shown.Contains(seen),
+                shown.Contains(seen, StringComparison.Ordinal),
                 $"the kind {kind} is not shown: {seen} is missing in\n{shown}"
             );
-        }
-        Assert.Contains("☑ CLOSED", shown);
+        Assert.Contains("☑ CLOSED", shown, StringComparison.Ordinal);
     }
 
-    private static Node.Text Text(string value) => new(value);
+    private static Looks Plain() => new();
 
-    private static ObservableCollection<Node> Nodes(params Node[] nodes) => new(nodes);
+    private static RichRun Run(string text, Looks? looks = null, RichLink? link = null) =>
+        new()
+        {
+            Text = text,
+            Looks = looks ?? Plain(),
+            Link = link,
+        };
 
-    private static Node.Paragraph Paragraph(params Node[] inline) => new(Nodes(inline));
+    private static RichParagraph Paragraph(params RichRun[] runs) => new() { Runs = new(runs) };
 
-    private static ShownText Shown(params Node[] blocks) =>
-        ShownText.Of(new Node.Document(Nodes(blocks)));
+    private static RichBlock.Text Text(params RichParagraph[] paragraphs) => new(new(paragraphs));
 
-    private static Node.List List(ListType type, uint start, params Node[] entries) =>
-        new(type, start, true, ListDelimiter.Period, Nodes(entries));
+    private static ShownText Shown(params RichBlock[] blocks) =>
+        ShownText.Of(new RichText { Blocks = new(blocks) });
 
-    private static Node.Item Entry(params Node[] blocks) => new(ListType.Bullet, 1, Nodes(blocks));
+    private static RichEntry Entry(string mark, params RichBlock[] blocks) =>
+        new() { Mark = mark, Blocks = new(blocks) };
 
-    // タスクリストは箱の文字で、区切り線は線で、画像は代替の文字で出る。
+    private static RichBlock.Entries Entries(params RichEntry[] entries) => new(new(entries));
+
+    // 段落の印は行の頭に付き、区切り線は線の文字で出る。
     [Fact]
-    public void A_task_list_a_line_and_an_image_are_put_into_text()
+    public void The_mark_of_a_paragraph_leads_its_line_and_a_rule_is_a_line_of_letters()
     {
-        var shown = Shown(
-            List(
-                ListType.Bullet,
-                1,
-                new Node.TaskItem(null, Nodes(Paragraph(Text("OPEN")))),
-                new Node.TaskItem("x", Nodes(Paragraph(Text("CLOSED"))))
-            ),
-            new Node.ThematicBreak(),
-            Paragraph(
-                new Node.Embed("images/a.png", "T", [], Nodes(Text("ALT"))),
-                new Node.Embed("images/b.png", "", [], Nodes())
+        var marked = Paragraph(Run("OPEN"));
+        marked.Mark = "☐";
+
+        var shown = Shown(Text(marked, new RichParagraph { Rule = true, Runs = [] }));
+
+        Assert.Equal("☐ OPEN\n────────", shown.Text);
+    }
+
+    // リンクは、コアが言う行き先のまま、表示するテキストに残る。
+    [Fact]
+    public void A_link_keeps_where_the_core_says_it_leads()
+    {
+        var page = new RichLink.Page("/pages/notes/Idea");
+        var web = new RichLink.Web("https://example.com/a");
+        var file = new RichLink.File("assets/report.pdf");
+
+        var runs = Assert.IsType<ShownParagraph>(
+            Assert.Single(
+                Shown(
+                    Text(
+                        Paragraph(
+                            Run("Idea", link: page),
+                            Run(" "),
+                            Run("out", link: web),
+                            Run("report", link: file)
+                        )
+                    )
+                ).Parts
             )
-        );
+        ).Runs;
 
-        Assert.Equal("☐ OPEN\n☑ CLOSED\n────────\n[ALT][images/b.png]", shown.Text);
+        Assert.Equal(new RichLink?[] { page, null, web, file }, runs.Select(run => run.Link));
     }
 
-    // リンクは、表示するテキストに残る。ウィキリンクはページを、ハッシュタグはタグを指し、外のリンクはそのままである。
+    // 文字の見た目は、表示するテキストの各部分の装いになる。
     [Fact]
-    public void Links_stay_in_the_shown_text()
+    public void The_looks_of_the_letters_become_their_style()
     {
-        var line = Paragraph(
-            new Node.Wikilink("notes/Idea", Nodes(Text("Idea"))),
-            Text(" "),
-            new Node.Hashtag("todo"),
-            Text(" "),
-            new Node.Link("https://example.com/a", "", Nodes(Text("out"))),
-            Text(" "),
-            new Node.Link("#fn-1", "", Nodes(Text("1")))
+        (Action<Looks> Set, RunStyle Style)[] each =
+        [
+            (looks => looks.Bold = true, RunStyle.Bold),
+            (looks => looks.Italic = true, RunStyle.Italic),
+            (looks => looks.Struck = true, RunStyle.Strike),
+            (looks => looks.Underlined = true, RunStyle.Underline),
+            (looks => looks.Marked = true, RunStyle.Highlight),
+            (looks => looks.Code = true, RunStyle.Code),
+            (looks => looks.Raised = true, RunStyle.Superscript),
+            (looks => looks.Lowered = true, RunStyle.Subscript),
+            (looks => looks.Hidden = true, RunStyle.Spoiler),
+        ];
+        var runs = each.Select(
+                (one, at) =>
+                {
+                    var looks = Plain();
+                    one.Set(looks);
+                    return Run($"{at}", looks);
+                }
+            )
+            .Append(Run("plain"))
+            .ToArray();
+
+        var shown = Assert.IsType<ShownParagraph>(
+            Assert.Single(Shown(Text(Paragraph(runs))).Parts)
         );
 
-        var runs = Assert.Single(Shown(line).Paragraphs).Runs;
-
-        var links = runs.Where(run => run.Text.Trim().Length > 0)
-            .ToDictionary(run => run.Text.Trim(), run => run.Link);
-        Assert.Equal(new LinkTarget.Page("notes/Idea"), links["Idea"]);
-        Assert.Equal(new LinkTarget.Tag("todo"), links["#todo"]);
-        Assert.Equal(new LinkTarget.Out(new Uri("https://example.com/a")), links["out"]);
-        // A link that stays in the item, as the one of a footnote, leads nowhere
-        Assert.Null(links["1"]);
-    }
-
-    // 日本語の名前のウィキリンクは、その名前のページを指す。
-    [Fact]
-    public void A_wikilink_with_a_name_that_is_not_ASCII_names_its_page()
-    {
-        var run = Assert.Single(
-            Assert
-                .Single(
-                    Shown(Paragraph(new Node.Wikilink("メモ/案", Nodes(Text("案"))))).Paragraphs
-                )
-                .Runs
+        Assert.Equal(
+            each.Select(one => one.Style).Append(RunStyle.None),
+            shown.Runs.Select(run => run.Style)
         );
-
-        Assert.Equal(new LinkTarget.Page("メモ/案"), run.Link);
-    }
-
-    // 文字の装飾は、表示するテキストの各部分に付く。
-    [Fact]
-    public void The_decoration_of_the_letters_is_kept()
-    {
-        var line = Paragraph(
-            Text("plain "),
-            new Node.Strong(Nodes(Text("bold"))),
-            Text(" "),
-            new Node.Emph(Nodes(Text("italic"))),
-            Text(" "),
-            new Node.Strikethrough(Nodes(Text("struck"))),
-            Text(" "),
-            new Node.Code("code"),
-            Text(" "),
-            new Node.Highlight(Nodes(Text("marked"))),
-            Text(" "),
-            new Node.Strong(Nodes(new Node.Emph(Nodes(Text("both")))))
-        );
-
-        var styles = Assert
-            .Single(Shown(line).Paragraphs)
-            .Runs.Where(run => run.Text.Trim().Length > 0)
-            .ToDictionary(run => run.Text.Trim(), run => run.Style);
-
-        Assert.Equal(RunStyle.None, styles["plain"]);
-        Assert.Equal(RunStyle.Bold, styles["bold"]);
-        Assert.Equal(RunStyle.Italic, styles["italic"]);
-        Assert.Equal(RunStyle.Strike, styles["struck"]);
-        Assert.Equal(RunStyle.Code, styles["code"]);
-        Assert.Equal(RunStyle.Highlight, styles["marked"]);
-        Assert.Equal(RunStyle.Bold | RunStyle.Italic, styles["both"]);
     }
 
     // 見出しは、その段の大きさで、太字で出る。大きさは、Web版と同じである。
     [Fact]
     public void A_heading_is_large_and_bold()
     {
-        var shown = Shown(
-            new Node.Heading(1, Nodes(Text("one"))),
-            new Node.Heading(3, Nodes(Text("three"))),
-            Paragraph(Text("text"))
-        );
+        var one = Paragraph(Run("one"));
+        one.Heading = 1;
+        var three = Paragraph(Run("three"));
+        three.Heading = 3;
 
-        Assert.Equal([1.6, 1.2, 1], shown.Paragraphs.Select(paragraph => paragraph.Scale));
-        Assert.Equal(RunStyle.Bold, shown.Paragraphs[0].Runs[0].Style);
-        Assert.Equal(RunStyle.None, shown.Paragraphs[2].Runs[0].Style);
+        var shown = Shown(Text(one, three, Paragraph(Run("text"))))
+            .Parts.Cast<ShownParagraph>()
+            .ToList();
+
+        Assert.Equal([1.6, 1.2, 1], shown.Select(paragraph => paragraph.Scale));
+        Assert.Equal(RunStyle.Bold, shown[0].Runs[0].Style);
+        Assert.Equal(RunStyle.None, shown[2].Runs[0].Style);
     }
 
-    // リストの項目は、印か番号が付き、入れ子の分だけ右に寄る。引用も右に寄る。
+    // リストの項目は入れ子の分だけ右に寄る。引用の中は右に寄り、薄い文字になる。
     [Fact]
-    public void The_entries_of_a_list_have_marks_and_stand_to_the_right_by_their_depth()
+    public void The_entries_of_a_list_and_a_quote_stand_to_the_right()
     {
-        var shown = Shown(
-            List(
-                ListType.Bullet,
-                1,
-                Entry(
-                    Paragraph(Text("a")),
-                    List(
-                        ListType.Ordered,
-                        3,
-                        Entry(Paragraph(Text("b"))),
-                        Entry(Paragraph(Text("c")))
-                    )
-                )
-            ),
-            new Node.BlockQuote(Nodes(Paragraph(Text("q"))))
-        );
+        var top = Paragraph(Run("a"));
+        top.Depth = 1;
+        top.Mark = "•";
+        var inner = Paragraph(Run("b"));
+        inner.Depth = 2;
+        inner.Mark = "3.";
+        var quoted = Paragraph(Run("q"));
+        quoted.Quoted = 1;
 
-        Assert.Equal("• a\n3. b\n4. c\nq", shown.Text);
-        Assert.Equal([0, 1, 1, 1], shown.Paragraphs.Select(paragraph => paragraph.Indent));
+        var shown = Shown(Text(top, inner, quoted)).Parts.Cast<ShownParagraph>().ToList();
+
+        Assert.Equal(["• a", "3. b", "q"], shown.Select(paragraph => paragraph.Text));
+        Assert.Equal([0, 1, 1], shown.Select(paragraph => paragraph.Indent));
+        Assert.Equal(RunStyle.Quote, shown[2].Runs[0].Style);
     }
 
-    // 表の行は1行になり、セルは線で区切られる。
+    // コアが分けたリストでは、項目の印が最初の部品の頭に付く。中身のない項目も印が出る。
     [Fact]
-    public void A_row_of_a_table_is_one_line()
-    {
-        static Node.TableRow Row(bool header, params string[] cells) =>
-            new(
-                header,
-                Nodes([.. cells.Select(cell => (Node)new Node.TableCell(Nodes(Text(cell))))])
-            );
-
-        var table = new Node.Table(
-            [Alignment.None, Alignment.None],
-            2,
-            2,
-            Nodes(Row(true, "H1", "H2"), Row(false, "a", "b"))
-        );
-
-        Assert.Equal("H1  │  H2\na  │  b", Shown(table).Text);
-    }
-
-    // コードブロックの空白と改行は、そのまま出る。段落の中の改行は、空白1つになる。
-    [Fact]
-    public void The_white_space_of_a_code_block_is_kept_and_that_of_a_paragraph_is_one_space()
+    public void An_entry_of_a_list_that_the_core_took_apart_shows_its_mark()
     {
         var shown = Shown(
-            new Node.CodeBlock(true, "", "a\n  b\n"),
-            Paragraph(
-                Text("soft"),
-                new Node.Softbreak(),
-                Text("break"),
-                new Node.Linebreak(),
-                Text("hard")
+            Entries(
+                Entry("1.", new RichBlock.Code("let x = 1")),
+                Entry("2."),
+                Entry("3.", new RichBlock.Image(new RichImage { Path = "assets/a.png", Alt = "" }))
             )
         );
 
-        Assert.Equal("a\n  b\nsoft break\nhard", shown.Text);
+        Assert.Equal("1. let x = 1\n2. \n3. \n[assets/a.png]", shown.Text);
+        Assert.Equal(RunStyle.Code, Assert.IsType<ShownParagraph>(shown.Parts[0]).Runs[1].Style);
     }
 
-    // 未知の種類は、中身がそのまま出る。
+    // コアが分けた引用の中の部品は、右に寄る。
     [Fact]
-    public void A_kind_that_is_not_known_shows_what_is_in_it()
+    public void A_part_in_a_quote_that_the_core_took_apart_stands_to_the_right()
     {
-        Assert.Equal(
-            "inside",
-            Shown(Paragraph(new Node.Unknown("insert", Nodes(Text("inside"))))).Text
+        var shown = Shown(new RichBlock.Quote([new RichBlock.Code("code")]));
+
+        var code = Assert.IsType<ShownParagraph>(Assert.Single(shown.Parts));
+        Assert.Equal(1, code.Indent);
+        Assert.Equal(RunStyle.Code | RunStyle.Quote, code.Runs[0].Style);
+    }
+
+    // 表は表の部品になり、見出しの行は太字になる。
+    [Fact]
+    public void A_table_is_a_part_of_its_own_with_its_header_in_bold()
+    {
+        static RichTableRow Row(bool header, params string[] cells) =>
+            new()
+            {
+                Header = header,
+                Cells = new(cells.Select(cell => Paragraph(Run(cell)))),
+            };
+
+        var table = Assert.IsType<ShownTable>(
+            Assert.Single(
+                Shown(new RichBlock.Table([Row(true, "H1", "H2"), Row(false, "a", "b")])).Parts
+            )
         );
+
+        Assert.Equal(
+            new[] { new[] { "H1", "H2" }, new[] { "a", "b" } },
+            table.Rows.Select(row => row.Cells.Select(cell => cell.Text).ToArray()).ToArray()
+        );
+        Assert.Equal(RunStyle.Bold, table.Rows[0].Cells[0].Runs[0].Style);
+        Assert.Equal(RunStyle.None, table.Rows[1].Cells[0].Runs[0].Style);
     }
 
-    // 表示するテキストの終わりに、余分な改行はない。
+    // 画像は、ページが言う大きさを持つ部品になる。ファイルが来るまでは、代替の文字が出る。
     [Fact]
-    public void The_shown_text_does_not_end_with_a_newline()
+    public void An_image_is_a_part_with_the_size_that_the_page_asks_for()
     {
-        Assert.Equal("one\ntwo", Shown(Paragraph(Text("one")), Paragraph(Text("two"))).Text);
+        var picture = Assert.IsType<ShownPicture>(
+            Assert.Single(
+                Shown(
+                    new RichBlock.Image(
+                        new RichImage
+                        {
+                            Path = "assets/a.png",
+                            Alt = "ALT",
+                            Width = 120,
+                        }
+                    )
+                ).Parts
+            )
+        );
+
+        Assert.Equal("assets/a.png", picture.Path);
+        Assert.Equal(120u, picture.Width);
+        Assert.Null(picture.Height);
+        Assert.Equal("[ALT]", picture.Words);
     }
 
     // 本文のない項目は、何も出ない。
     [Fact]
     public void An_empty_item_shows_nothing()
     {
-        Assert.Empty(Shown().Paragraphs);
+        Assert.Empty(Shown().Parts);
     }
 }
