@@ -45,6 +45,11 @@ final class TouchesTests: XCTestCase {
         XCTAssertEqual(Touches.letter(at: CGPoint(x: 250, y: 5), in: text("😀ab"), width: 300), 3)
     }
 
+    // 行の右に触れると、最後の絵文字も前にある。絵文字はUTF-16で2つに分かれるが、その間には置かれない。
+    func testATouchRightOfALineThatEndsInAnEmojiHasTheEmojiBeforeIt() {
+        XCTAssertEqual(Touches.letter(at: CGPoint(x: 250, y: 5), in: text("a😀"), width: 300), 2)
+    }
+
     // 項目の中では、触れた文字の前に、その前の文の文字の数が足される。文の脇に触れると、いちばん近い文の行になる。
     func testInAnItemTheLettersOfTheTextsBeforeAreAdded() {
         let lineHeight = font.lineHeight
