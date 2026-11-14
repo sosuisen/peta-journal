@@ -383,6 +383,66 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [ ] iOSのシェルの、同期の表示（メニュー、前面の同期のダイアログ、下の吹き出し、サインインのボタン）に、画面のテストを書く。今は、テストの中のアプリは同期をしない
 - [ ] Swiftのフォーマッターとlintを足す（2026-11-13にユーザーが決めた）。`client/apps/native-app/outliner-ios`と`client/apps/native-app/stickies-mac`には、まだどちらもない。道具を決め、設定をリポジトリに置く
 
+## リファクタ：重複したコードをまとめる
+
+2026-11-14に、モジュールの間で同じ処理を書いている所を調べた。ここにすべて積む。ユーザーが決めた順は、4つのネイティブのシェル（SwiftUI、iOS、Android、WinUI）のコードが減るものからである。行番号は、調べた日のものである。
+
+### 4つのシェルのコードが減るもの
+
+- [ ] 検索の候補の文言を、coreが決める。今は、新しいページを作る候補が、シェルごとに違う。スマホは`New page: X`、macOSとWindowsは`Create "X"`、Web版は`+ Create "X"`である。`Open Today`は、coreが決めているのに、iOS（`App/JournalScreen.swift:210`）とAndroid（`screen/JournalScreen.kt:181`）が書き直している。`SearchEntry`に文言を持たせる
+- [ ] ブラウザで開くページと画像のアドレスを、Rustで作る。今は、macOS（`Shell.swift:82,94`、`AssetImages.swift:49`）とWindows（`Shell.cs:133-154`）が別々に作り、エンコードの仕方が違う。名前に`?`や2つ目の`#`があるページで、結果が変わる。`client-page-links`の`AppLinks`を使い、`client-native-bridge`から出す
+- [ ] カーソルの位置の、UTF-16と文字の数の換算を、Rustで1回だけ行う。今は、4つのシェルに8か所ある。macOS（`Keys.swift:38-58`）、Windows（`Keys.cs:67-97`）、iOS（`App/ItemEditor.swift:270-281`、`App/Touches.swift:42`）、Android（`ItemEditor.kt:147`、`ShownText.kt:85`、`Blocks.kt:85`）である。サロゲートペアの途中に当たったとき、iOSだけが本文の長さを返す。ほかは次の文字に進める
+- [ ] 画像の大きさの決まりを、Rustの1つの関数にする。今は、4つのシェルで違う。iOSは幅に合わせて縮め、Androidは決まった幅にし、macOSは付箋紙の幅に縮めない。画像がないときも、macOSは`[alt]`、スマホは`alt`かパス、Windowsは何も出さない
+- [ ] 描画の定数をそろえる。見出しの大きさは、Androidだけがブラウザの既定値（2.0、1.5、1.17…）で、ほかは1.6、1.4、1.2、1.1、1である。マーカーの色、1段の字下げも、シェルごとに違う。行頭の点は、iOSとAndroidが`row.showBullet`に従い、macOSとWindowsはいつも描く。coreが`RichParagraph`で大きさを渡すか、共通の表を持つ
+- [ ] イベントの時刻（`nowMs`）を、`client-native-bridge`の`Clock`で入れる。今は、4つのシェルが自分で入れている（macOS `Shell.swift:128`と`Keys.swift:93`、Windows `Shell.cs:299`、iOS `Shell.swift:154`、Android `Shell.kt:172`）
+- [ ] Shiftでの範囲選択を始めるときに、coreが入力中の本文を保存する。今は、macOS（`Keys.swift:66-71`）とWindows（`Keys.cs:195-201`）が、先に`EditFinished`を送っている
+- [ ] 日付が変わったら、Rustが`/today`を開き直す。今は、どのシェルも日付の変わり目に気づかない。plansには、macOSの分だけがある。`Clock`の`now`と`sleep`で作れる
+- [ ] 触れた位置に近い文字を選ぶ決まり（縦の距離を100倍に重く見る）を、Rustに移す。iOS（`Touches.swift:48-52`）とAndroid（`Touches.kt:138-142`）に同じ式がある
+- [ ] どのイベントを編集と見なすか（`change`と`send`、TodayやCreateを選んだあとの`onEdit`）を、coreの効果（ページを書いた知らせ）にする。今は、iOSとAndroidの両方に書いてある
+- [ ] Dropboxとの同期の、同じ処理をまとめる。ADR 034のAlternative 2（同期をRustに書く）と合わせて考える
+  - `findWithoutCase`がずれている。Swiftの`split("/")`は空の区切りを捨て、Kotlinの`split('/')`は残す。先頭が`/`のパスは、iOSでしか見つからない
+  - `docs/`、`journals/`、`assets/`のフォルダーを作る処理と、編集の3秒後に同期する待ち時間が、両方の`JournalModel`にある
+- [ ] iOSとAndroidで、`Prompt`、`ReadClipboardText`、`CopyText`、`CopyMarkdown`に答える。今は、`nil`を返すか、捨てている（`Shell.swift:318`、`Shell.kt:317`）。macOSとWindowsは、4つとも扱う
+
+### 付箋紙（macOSとWindows）
+
+- [ ] 付箋紙の設定、保存、色、拡大を、1つにまとめる。`StickyStore`と`StickyLook`が、SwiftとC#に合わせて約250行ある。値もずれている。最小のウィンドウは、macOSが480×320、Windowsが280×200である。新しいウィンドウは、480×600と400×520である。拡大の四捨五入も、Swiftは0.5を0から遠い側へ、C#は偶数へ丸める。Rustの小さなクレートにするか、少なくともJSONの形と定数を1つにする
+
+### サーバーとクライアント（Rust）
+
+client-coreはwasmにもビルドするので、`journal-core`には依存できない（rusqliteとtantivyを使うため）。両方が使える小さなクレートは、今は`hmtid`、`peta-atlas`、flatmarkdownだけである。週やジャーナルの名前の置き場所には、`journal/hmtid`のような、chronoを使わない小さなクレートを新しく作る。後から変えにくいので、ADRに残すかを決める。
+
+- [ ] 不具合：週の名前が、サーバーとクライアントで違う。サーバーの`week_names_in_month`（`journal-core/src/application/journal_service.rs:289`）は、月の年をそのまま使う（`format!("{year}-W{w:02}")`）。そのため、2024-12の月のジャーナルは「2024-W53」へリンクするが、クライアント（`client-core/src/util/week.rs`）はその週を「2025-W01」と呼ぶ。2027-01の月は「2027-W53」へリンクするが、クライアントは「2026-W53」と呼ぶ。1つにまとめて直す
+- [ ] ジャーナルの名前の解析を、1つにまとめる。クライアント（`client-core/src/util/filename.rs:3-51`）は、「2026-13」「2026-02-30」「2026-W00」「2026-W99」を受け入れる。サーバー（`journal-core/src/domain/journal_name.rs`）は拒む。そのため、ジャーナルの画面が開いたあとに、サーバーが400を返す。拡張関数の`auto-template/main.js:84-92`にも、3つ目の書き方がある
+- [ ] 不具合：`client-core/src/util/mod.rs:84`の`link_at`は、ウィキリンクとハッシュタグの決まりを、flatmarkdownとは別に書いている。`[[a|label]]`を`a|label`というページと読み、違う名前のページを開く。`#rust,`は、カンマまでタグにする。flatmarkdownのパーサーで読むようにする。パーサーが元の文字の位置を返すかを、先に調べる
+- [ ] 通信の型（DTO）とSSEの形を、1つのクレートにまとめる。今は、クライアント（`client-core/src/model.rs`、`rest.rs`の`json!`、`screens/sse.rs`）とサーバー（`journal-core/src/dto.rs`、`events.rs`）が別々に持つ。ずれも出ている。クライアントの`Page.tags`は、サーバーが送らない。`score`は、サーバーがf32、クライアントがf64である。`model.rs:8`のコメントは、古い`presentation/dto.rs`を指している
+- [ ] タイトルの検査を、1つにまとめる（`client-core/src/util/filename.rs:53-82`と`journal-core/src/application/page_service.rs:69-111`）。クライアントの`is_control()`は、U+0080からU+009Fも拒む。サーバーは拒まない。`/`の扱いは、わざと違う
+- [ ] コードフェンスを閉じる処理と`split_at_char`を、1つにまとめる（`journal-core/src/application/paste.rs:75-98`と`client-core/src/util/mod.rs`）
+- [ ] アトラスの`Bounds`を、`peta-atlas`にまとめる（`journal-core/src/domain/bounds.rs`と`atlas/src/lib.rs:48-79`）。書き出しが少し違い、1e15以上の値で「…0.0」と「…0」になる。`ATLAS_NAME`も、`client-core/src/screens/page.rs:14`と`journal-core/src/domain/model.rs:50`の2か所にある
+- [ ] `/pages/`のURLを作る処理を、1か所にする。`client-core/src/rich_text/links.rs:10-21`と`client-page-links/src/links.rs:7-15`が同じである。`screens/navigate.rs:16`、`view.rs:200`、`ops/wiki.rs:23`にも、その場で作る所がある
+- [ ] 小さな重複をまとめる
+  - 今日の日付の文字列（`YYYY-MM-DD`）を、4か所で作っている（`client-native-bridge/src/shell.rs:258`、`client-shell-embedded/src/lib.rs:220`、`emacs/outliner/src/shell.rs:428`、`web-app/outliner/src/dom.rs:429`）。client-coreの`LocalDateTime`のメソッドにする
+  - 月と年のページの名前（`web-app/.../calendar.rs:140,144`と`emacs/.../shell.rs:300`）
+  - chronoで今の時刻を読む処理（`emacs/.../runtime.rs:76-88`と`client-native-bridge/src/clock.rs:21-31`）
+  - 「Untitled-」の名前（`web-app/.../item_view.rs:185-195`と`client-core/src/util/date.rs:209`）
+  - IDの作り方の設定`Generator::new('-', true)`（`client-core/src/app.rs:1003`と`journal-core/src/domain/id_generator.rs`）。`hmtid`のコンストラクタにする
+  - `ClientId`とそのヘッダーの名前（`client-core/src/rest.rs:29-33`、`journal-core/src/domain/client_id.rs`、`journal-server/src/presentation/client_id.rs:13`）
+  - 画像の`w`と`h`。Web版（`item_html.rs:41-50`）は空白を取り、core（`rich_text/blocks.rs:156`）は取らない
+  - RESTを呼んで答えを読む手順が、3か所にある（`web-app/.../effects/api.rs:72-79`、`client-api-http/src/api.rs:17-23`、`client-api-embedded/src/lib.rs:52-65`）
+
+### Web版とWebViewのアプリ
+
+- [ ] 不具合：Web版の`styles.css`に`.spoiler`のルールがない。隠し文字が、そのまま見える。Markdownを表示するCSSを、Web版（`styles.css:383-438`）とmemoview（`page.css`）で1つにする。今は、リンクの色（`#007bff`と`#2563eb`）とアラートの色分けも違う。todoには、Markdownを表示するCSSがない
+- [ ] ページへのリンクのエンコードを、`client-page-links`と同じにする。todoの`pagePath`（`tasks.ts:102-105`）はエンコードしない。名前に空白、`%`、`#`があるページで、リンクが壊れる。memoview（`Services/PageLinks.cs:14-48`）は、`#`、`?`、`&`までエンコードする
+- [ ] memoview-winのAPIクライアントとSSE（`Services/JournalApiService.cs`、229行）を、stickies-winと同じ`client-native-bridge`に替える。今は、再接続の待ち方がtodoと違い、SSEの読み取りは、複数行の`data:`の最後の行しか残さない
+- [ ] タスクの状態（`begin`と`end`）の決まりが、3か所にある（`client-core/src/view.rs:33`、`todo/src/tasks.ts:6-10`、`memoview/Models/ItemModel.cs:45-48`）。todoだけ、`end: ""`を終わったと見なさない
+- [ ] E2Eのための使い捨てのサーバーを、journal-serverの引数1つで起動できるようにする。今は、Web版（`e2e/playwright.config.ts`、`global-setup.ts`）、Emacs（`peta-journal-e2e.el`）、journal-serverのテスト、付箋紙のテスト（`JournalServer.swift`、`JournalServer.cs`）が、それぞれ`config.json`を書いて起動する。サーバーは、その一時フォルダー以外を開かないようにする（ADR 002の事故を防ぐ）
+- [ ] 小さな重複
+  - 既定のポート8087を、4か所に決め打ちしている（`todo/src/api.ts:36`、`peta-journal.el:29`、`JournalApiService.cs:31`、`emacs/outliner/src/main.rs:4`）。付箋紙の既定のサーバーも、macOSとWindowsに1つずつある
+  - 同じ画像ファイルが2つずつある（todoの`images/favicon.ico`と`public/favicon.ico`、ルートの`images/favicon.ico`とWeb版の`public/favicon.ico`、`peta-journal-gray.png`）
+
+まとめないものは、次のとおりである。Emacsの画像リンクの読み取り（「Emacs版で、本文をパースしないようにする」と合わせて考える）。client-coreの2つの`page_title`（ウィンドウとサイドバーで役目が違う）。Emacsとネイティブの効果の回し方。サーバーの見出しの決まり（`domain/item_body.rs:41`）は、重複ではなく不具合である。
+
 ## CI
 
 - [ ] 2026-11-25に、止めているCIを戻す。`gh workflow enable CI`を実行する
