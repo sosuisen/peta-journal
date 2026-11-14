@@ -57,7 +57,13 @@ pub fn touched_place(markdown: &str, tags_dir: &str, letter: usize) -> usize {
         &mut letters,
     );
     let before: String = letters.text.chars().take(letter).collect();
-    after_letter(markdown, markdown_place(markdown, &before))
+    place_after(markdown, &before)
+}
+
+/// The place in the Markdown of an item, in characters, right after the shown letters
+/// `before`, at the end of a letter as a person sees it (ADR 043).
+pub fn place_after(markdown: &str, before: &str) -> usize {
+    after_letter(markdown, markdown_place(markdown, before))
 }
 
 /// The shown text of an item as it is written out, with the count of its letters.

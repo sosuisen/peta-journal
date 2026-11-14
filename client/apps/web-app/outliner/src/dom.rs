@@ -303,28 +303,26 @@ fn mirror_offset_at_point(
     Some(utf16_to_chars(value, offset))
 }
 
-/// The offset in an element's text under a point, counted across all its text nodes.
-pub fn text_offset_at_point(container: &web_sys::Element, x: f64, y: f64) -> usize {
-    let Some((node, offset)) = caret_point_from_point(x, y) else {
-        return 0;
-    };
-    if node.node_type() != web_sys::Node::TEXT_NODE {
-        return 0;
+/// The letters of an element's text before a point, across all its text nodes. `None` when
+/// the point is on no text of the element, such as beside its letters.
+pub fn text_before_point(container: &web_sys::Element, x: f64, y: f64) -> Option<String> {
+    let (node, offset) = caret_point_from_point(x, y)?;
+    if node.node_type() != web_sys::Node::TEXT_NODE || !container.contains(Some(&node)) {
+        return None;
     }
-    let Ok(walker) =
-        document().create_tree_walker_with_what_to_show(container, 4 /* SHOW_TEXT */)
-    else {
-        return offset as usize;
-    };
-    let mut cumulative = 0usize;
+    let walker = document()
+        .create_tree_walker_with_what_to_show(container, 4 /* SHOW_TEXT */)
+        .ok()?;
+    let mut before = String::new();
     while let Ok(Some(current)) = walker.next_node() {
         let text = current.text_content().unwrap_or_default();
         if current.is_same_node(Some(&node)) {
-            return cumulative + utf16_to_chars(&text, offset);
+            before.extend(text.chars().take(utf16_to_chars(&text, offset)));
+            return Some(before);
         }
-        cumulative += text.chars().count();
+        before.push_str(&text);
     }
-    cumulative + offset as usize
+    None
 }
 
 /// A blob of `content` with the MIME type `mime`.
