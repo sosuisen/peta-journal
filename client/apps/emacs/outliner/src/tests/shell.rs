@@ -1108,17 +1108,17 @@ fn open_with_properties(properties: Value) -> Driver {
     driver
 }
 
-// 今の値がリストのプロパティは、定義がなくてもリストとして送られる。
+// 今の値がリストのプロパティは、定義がなくても、名前が_listで終わるキーのリストとして送られる。
 #[test]
 fn a_property_that_holds_a_list_is_sent_as_a_list() {
-    let mut driver = open_with_properties(json!({ "labels": ["a"] }));
+    let mut driver = open_with_properties(json!({ "label_list": ["a"] }));
     driver.send(Inbound::SetProperty {
-        key: "labels".into(),
+        key: "label_list".into(),
         value: "a, b".into(),
     });
     assert!(driver.waiting(|op| matches!(
         op,
-        ApiOp::UpsertPageProperty { key, value_type, .. } if key == "labels" && value_type == "tags"
+        ApiOp::UpsertPageProperty { key, value_type, .. } if key == "label_list" && value_type == "list"
     )));
 }
 
