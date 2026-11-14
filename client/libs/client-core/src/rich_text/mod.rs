@@ -12,11 +12,13 @@
 mod blocks;
 mod links;
 mod paragraphs;
+mod places;
 
 #[cfg(test)]
 mod tests;
 
 pub use links::asset_path;
+pub use places::markdown_place;
 
 use crate::body_model::BodyModel;
 use flatmarkdown_ast::Node;
