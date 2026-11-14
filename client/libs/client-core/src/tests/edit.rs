@@ -274,6 +274,58 @@ fn a_touch_on_the_shown_text_edits_the_item_at_the_place_touched_in_its_markdown
     assert_eq!(request.cursor, Some("**bold** and [li".chars().count()));
 }
 
+// 表示した文字のうち、触れた位置より前にある文字の列が届くと、その項目の編集に入る。カーソルは、その文字の列の
+// 後ろにあたるMarkdownの位置に置かれる。Web版は、ページの上の文字の列をそのまま送る（ADR 043）。
+#[test]
+fn the_shown_letters_before_a_touch_put_the_cursor_after_them_in_the_markdown() {
+    let mut h = Harness::with_items(vec![item(
+        "a",
+        1,
+        "**bold** and [link](https://x.example/a) end",
+    )]);
+
+    h.send(Event::ShownTextTouchedAfter {
+        item_id: "a".into(),
+        before: "bold and li".into(),
+    });
+
+    assert!(h.model.state.is_editing("a"));
+    let request = h.model.state.focus_request().expect("a focus request");
+    assert_eq!(request.cursor, Some("**bold** and [li".chars().count()));
+}
+
+// ページの上の文字の列には、タグの間の改行のように、Markdownにない文字が混ざる。それらは飛ばされる。
+#[test]
+fn letters_of_the_page_that_the_markdown_lacks_are_left_out() {
+    let mut h = Harness::with_items(vec![item(
+        "a",
+        1,
+        "- first
+- second",
+    )]);
+
+    h.send(Event::ShownTextTouchedAfter {
+        item_id: "a".into(),
+        before: "
+
+first
+
+se"
+        .into(),
+    });
+
+    let request = h.model.state.focus_request().expect("a focus request");
+    assert_eq!(
+        request.cursor,
+        Some(
+            "- first
+- se"
+                .chars()
+                .count()
+        )
+    );
+}
+
 // 絵文字の途中に触れても、カーソルは絵文字の途中に入らず、その後ろに置かれる。そこでEnterを押しても、
 // 絵文字は2つに割れない（ADR 043）。
 #[test]

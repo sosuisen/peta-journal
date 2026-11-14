@@ -135,6 +135,14 @@ pub enum Event {
         item_id: String,
         letter: usize,
     },
+    /// The user touched the shown text of an item, after the letters `before` of it, as a
+    /// shell that does not draw the `RichText` has them: the web shell sends the letters of the
+    /// page. They are lined up with the Markdown, and letters that it lacks are left out. The
+    /// item is edited, with the cursor at that place in its Markdown (ADR 043).
+    ShownTextTouchedAfter {
+        item_id: String,
+        before: String,
+    },
     BodyChanged {
         item_id: String,
         body: String,
@@ -1092,6 +1100,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         }
         ShownTextTouched { item_id, letter } => {
             ops::outline_events::shown_text_touched(model, &item_id, letter)
+        }
+        ShownTextTouchedAfter { item_id, before } => {
+            ops::outline_events::shown_text_touched_after(model, &item_id, &before)
         }
         BodyChanged {
             item_id,
