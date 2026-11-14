@@ -15,7 +15,7 @@ private enum Picture {
 /// page is one point, as in a browser. It is never wider than the room it has. An image whose
 /// file is not here, or cannot be read, shows what stands for it.
 struct ImageBlock: View {
-    let image: ShownImage
+    let image: RichImage
     let file: (String) -> URL?
 
     @State private var picture = Picture.reading
@@ -67,7 +67,7 @@ private let mostZoom: CGFloat = 8
 ///
 /// The image is read again with more of its pixels. Until then, `small` is shown.
 private struct LargeImage: View {
-    let image: ShownImage
+    let image: RichImage
     let small: UIImage
     let file: (String) -> URL?
     let onClose: () -> Void

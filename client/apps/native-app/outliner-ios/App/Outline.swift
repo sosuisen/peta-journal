@@ -39,7 +39,7 @@ struct Outline: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     Text(title(view)).font(.title2).padding(.vertical, 8)
                     ForEach(view.outline.rows, id: \.item.id) { row in
-                        OutlineRow(row: row, tagsDir: view.config.tagsDir, shell: shell, onFile: onFile)
+                        OutlineRow(row: row, shell: shell, onFile: onFile)
                             .id(row.item.id)
                     }
                 }
@@ -76,7 +76,6 @@ struct Outline: View {
 /// edited shows its Markdown in a field (ADR 031).
 struct OutlineRow: View {
     let row: Row
-    let tagsDir: String
     let shell: Shell
     let onFile: (URL) -> Void
 
@@ -85,7 +84,7 @@ struct OutlineRow: View {
 
     var body: some View {
         let id = row.item.id
-        let blocks = row.isEditing ? [] : shownBlocks(ast: row.bodyModel.ast, tagsDir: tagsDir)
+        let blocks = row.isEditing ? [] : row.bodyModel.rich.blocks
         // The bullet and the mark stand beside the middle of the first line. An item that
         // starts with a heading has a higher first line
         let first = Letters.line(Letters.plain * firstLarger(blocks))
@@ -132,9 +131,9 @@ struct OutlineRow: View {
     }
 
     /// How many times larger than plain text the letters of the first line are.
-    private func firstLarger(_ blocks: [ShownBlock]) -> CGFloat {
+    private func firstLarger(_ blocks: [RichBlock]) -> CGFloat {
         guard case .text(let paragraphs) = blocks.first, let paragraph = paragraphs.first else { return 1 }
-        return Letters.larger(heading: paragraph.heading)
+        return Letters.larger(heading: Int(paragraph.heading))
     }
 }
 
@@ -178,15 +177,13 @@ struct Links {
     let shell: Shell
     let onFile: (URL) -> Void
 
-    /// The user touched a link of the text. `address` is made whole against `ShownText.base`.
+    /// The user touched a link of the text, where the core says it leads.
     @MainActor
-    func open(_ address: URL) {
-        switch LinkTarget(of: address) {
-        case .web(let url): UIApplication.shared.open(url)
+    func open(_ link: RichLink) {
+        switch link {
+        case .web(let address): if let url = URL(string: address) { UIApplication.shared.open(url) }
         case .page(let url): shell.follow(url)
         case .file(let path): if let file = shell.attached(path) { onFile(file) }
-        // Any other link, such as one to a file of the PC, opens nothing
-        case nil: break
         }
     }
 }
