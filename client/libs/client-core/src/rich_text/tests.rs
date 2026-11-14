@@ -860,3 +860,49 @@ fn the_looks_inside_an_unknown_kind_stay() {
         [paragraph(vec![styled("kept", |l| l.bold = true)])]
     );
 }
+
+// 記号のない本文では、表示の位置がそのまま本文の位置である。
+#[test]
+fn in_a_body_without_marks_the_place_is_the_same() {
+    assert_eq!(markdown_place("plain text", "plain"), 5);
+}
+
+// 前に文字のない触れ方は、本文の先頭である。
+#[test]
+fn a_touch_with_no_letter_before_it_is_at_the_start() {
+    assert_eq!(markdown_place("**a**", ""), 0);
+}
+
+// 装飾の記号は飛ばされ、触れた文字のすぐ後ろに置かれる。
+#[test]
+fn the_marks_of_the_looks_are_skipped() {
+    assert_eq!(markdown_place("**bold** x", "bo"), 4);
+}
+
+// リンクの宛先は表示されないので、飛ばされる。
+#[test]
+fn the_address_of_a_link_is_skipped() {
+    let markdown = "[link](https://example.com/a) and more";
+
+    assert_eq!(
+        markdown_place(markdown, "link and m"),
+        markdown.find(" and m").unwrap() + " and m".len()
+    );
+}
+
+// 表示にしかない文字は、本文の遠くにある同じ文字へ跳ばない。
+#[test]
+fn a_letter_that_only_the_shown_text_has_does_not_jump_far() {
+    let markdown = "> [!TIP]\n> said here";
+
+    assert_eq!(
+        markdown_place(markdown, "Tip\nsaid"),
+        markdown.find("said").unwrap() + "said".len()
+    );
+}
+
+// 本文の位置は、バイトではなく文字で数える。
+#[test]
+fn the_place_counts_characters_and_not_bytes() {
+    assert_eq!(markdown_place("**日本**", "日"), 3);
+}
