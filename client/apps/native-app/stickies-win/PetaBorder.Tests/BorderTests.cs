@@ -152,7 +152,11 @@ public sealed class BorderTests
                 Types = [],
                 Properties = [],
             },
-            Ast = new Node.Document([]),
+            BodyModel = new BorderBody
+            {
+                Ast = new Node.Document([]),
+                Rich = new RichText { Blocks = [] },
+            },
             Task = TaskState.Running,
         };
 
