@@ -75,34 +75,26 @@ public final class Shell: ObservableObject {
     /// opens the page in this window. With Shift held it opens the page in the browser: the
     /// journal server serves the web frontend too. A link out of the journal, and to a file of
     /// the assets folder, opens in the browser.
-    public func follow(_ link: URL, inBrowser: Bool = false) {
-        switch LinkTarget(of: link) {
+    public func follow(_ link: RichLink, inBrowser: Bool = false) {
+        switch link {
         case .page(let url):
             if inBrowser {
-                // The address keeps the encoding of the link
-                browse(server + link.absoluteString.dropFirst(ShownText.base.absoluteString.count - 1))
+                browse(server + (url.addingPercentEncoding(withAllowedCharacters: Shell.inAddress) ?? url))
             } else {
                 open(url)
             }
         case .web(let address): browse(address)
         case .file(let path): if let address = images.address(of: path) { browse(address) }
-        case nil: break
         }
     }
 
+    /// What stays as it is in the address of a page: the letters that `encodeURI` of JavaScript
+    /// keeps, as the web frontend encodes its own addresses. `#` stays, so that the address
+    /// still leads to an item of the page.
+    private static let inAddress = CharacterSet.urlFragmentAllowed.union(CharacterSet(charactersIn: "#"))
+
     private func browse(_ address: String) {
         if let url = URL(string: address) { browse(url) }
-    }
-
-    /// The parts of an item as it is shown, with the links to pages and tags that the core
-    /// writes.
-    public func shownBlocks(_ ast: Node) -> [ShownBlock] {
-        let tagsDir = view.config.tagsDir
-        return PetaShown.shownBlocks(
-            ast: ast,
-            links: PageLinks(
-                page: { wikilinkUrl(appUrl: "", page: $0) },
-                tag: { hashtagUrl(appUrl: "", tagsDir: tagsDir, tag: $0) }))
     }
 
     /// The window was scrolled: the row at `top` is the first that can be seen, and the rows

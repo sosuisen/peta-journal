@@ -1,19 +1,85 @@
 import AppKit
 import Combine
-@_exported import PetaShown
 import PetaTypes
 
-extension ShownText {
-    /// The text of an item as it is shown: with its decoration, not as Markdown. It is drawn
-    /// from the parts that the shared reader makes of the AST (ADR 041): the iOS app reads the
-    /// same parts. `image` gives the picture of a file of the assets folder, such as
-    /// `assets/picture.png`, when it is here. Until then the words for the image stand there.
+/// The text of an item as it is shown: with its decoration, not as Markdown.
+public enum ShownText {
+    /// The text that is drawn from the parts that the core makes of the body (ADR 042). `image`
+    /// gives the picture of a file of the assets folder, such as `assets/picture.png`, when it
+    /// is here. Until then the words for the image stand there.
     public static func of(
-        _ blocks: [ShownBlock], zoom: Double = 1, image: @escaping (String) -> NSImage? = { _ in nil }
+        _ rich: RichText, zoom: Double = 1, image: @escaping (String) -> NSImage? = { _ in nil }
     ) -> NSAttributedString {
         var writer = TextWriter(size: NSFont.systemFontSize * zoom, image: image)
-        writer.blocks(blocks, depth: 0, quoted: 0)
+        writer.blocks(rich.blocks, depth: 0, quoted: 0)
         return writer.finished()
+    }
+
+    /// Where the link of the letters at `index` of a shown text leads. `nil` for letters
+    /// without a link.
+    public static func link(in text: NSAttributedString, at index: Int) -> RichLink? {
+        (text.attribute(.richLink, at: index, effectiveRange: nil) as? HeldLink)?.link
+    }
+}
+
+extension Looks {
+    /// Letters without any look of their own.
+    static let plain = Looks(
+        bold: false, italic: false, struck: false, underlined: false, marked: false, code: false, raised: false,
+        lowered: false, hidden: false)
+}
+
+extension NSAttributedString.Key {
+    /// Where the letters lead, as the core says (`HeldLink`).
+    static let richLink = NSAttributedString.Key("PetaRichLink")
+}
+
+/// A link that a text holds as the value of an attribute. Two that lead to the same place are
+/// equal, so that the letters of one link stay one run.
+final class HeldLink: NSObject {
+    let link: RichLink
+
+    init(_ link: RichLink) {
+        self.link = link
+    }
+
+    override func isEqual(_ object: Any?) -> Bool {
+        (object as? HeldLink)?.link == link
+    }
+
+    override var hash: Int { link.hashValue }
+}
+
+/// A picture as wide as the page asks for. A picture whose page asks for no size is as wide as
+/// the room it has in the line, and never wider than its file.
+final class FittedPicture: NSTextAttachment {
+    /// The width and the height that the page asks for, made larger by the zoom.
+    private let asked: CGSize?
+
+    init(_ picture: NSImage, asked: CGSize?) {
+        self.asked = asked
+        super.init(data: nil, ofType: nil)
+        image = picture
+        bounds = CGRect(origin: .zero, size: asked ?? picture.size)
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func attachmentBounds(
+        for textContainer: NSTextContainer?, proposedLineFragment lineFrag: CGRect, glyphPosition position: CGPoint,
+        characterIndex charIndex: Int
+    ) -> CGRect {
+        CGRect(origin: .zero, size: size(room: lineFrag.width))
+    }
+
+    /// The size in a line that is `room` wide.
+    func size(room: CGFloat) -> CGSize {
+        if let asked { return asked }
+        guard let natural = image?.size, natural.width > 0 else { return bounds.size }
+        let width = min(natural.width, max(room, 1))
+        return CGSize(width: width, height: width * natural.height / natural.width)
     }
 }
 
@@ -30,9 +96,6 @@ private struct TextWriter {
     private static let markedColor = NSColor(srgbRed: 1, green: 0xf3 / 255, blue: 0xa3 / 255, alpha: 1)
     private static let quotedColor = NSColor(white: 0x55 / 255, alpha: 1)
     private static let hiddenColor = NSColor(white: 0xdd / 255, alpha: 1)
-    /// How wide an image is drawn at most, at the usual size, when the page asks for no width.
-    private static let imageWidth = 320.0
-
     init(size: Double, image: @escaping (String) -> NSImage?) {
         self.size = size
         self.image = image
@@ -47,17 +110,18 @@ private struct TextWriter {
     }
 
     /// The parts inside `depth` lists and `quoted` quotes.
-    mutating func blocks(_ blocks: [ShownBlock], depth: Int, quoted: Int) {
+    mutating func blocks(_ blocks: [RichBlock], depth: Int, quoted: Int) {
         for block in blocks {
             let line = Line(depth: depth, quoted: quoted)
             switch block {
             case .text(let paragraphs):
                 for paragraph in paragraphs {
-                    self.paragraph(paragraph, Line(depth: depth + paragraph.depth, quoted: quoted + paragraph.quoted))
+                    let at = Line(depth: depth + Int(paragraph.depth), quoted: quoted + Int(paragraph.quoted))
+                    self.paragraph(paragraph, at)
                 }
             case .code(let lines):
                 startLine(line)
-                append(lines, ShownPiece(text: lines, looks: .code), line)
+                append(lines, Self.code, line)
                 endLine(line)
             case .table(let rows):
                 table(rows, line)
@@ -89,17 +153,17 @@ private struct TextWriter {
         var style: NSParagraphStyle?
     }
 
-    private mutating func paragraph(_ paragraph: ShownParagraph, _ at: Line) {
+    private mutating func paragraph(_ paragraph: RichParagraph, _ at: Line) {
         var line = at
-        line.heading = paragraph.heading
+        line.heading = Int(paragraph.heading)
         if let mark = paragraph.mark { lead = mark }
         startLine(line)
         if paragraph.rule {
-            append("────────", ShownPiece(text: ""), line)
+            append("────────", Self.plain, line)
         }
-        for piece in paragraph.pieces {
+        for run in paragraph.runs {
             // A line break of the item stays inside its paragraph
-            append(piece.text.replacingOccurrences(of: "\n", with: "\u{2028}"), piece, line)
+            append(run.text.replacingOccurrences(of: "\n", with: "\u{2028}"), run, line)
         }
         endLine(line)
     }
@@ -107,17 +171,17 @@ private struct TextWriter {
     /// Writes the mark of the entry that the line is the first of.
     private mutating func startLine(_ line: Line) {
         if let lead {
-            append(lead + " ", ShownPiece(text: ""), line)
+            append(lead + " ", Self.plain, line)
             self.lead = nil
         }
     }
 
     private mutating func endLine(_ line: Line) {
-        append("\n", ShownPiece(text: ""), line)
+        append("\n", Self.plain, line)
     }
 
     /// The rows of a table, each cell in a box, as macOS draws a table of HTML.
-    private mutating func table(_ rows: [ShownTableRow], _ at: Line) {
+    private mutating func table(_ rows: [RichTableRow], _ at: Line) {
         let columns = rows.map(\.cells.count).max() ?? 0
         guard columns > 0 else { return }
         let table = NSTextTable()
@@ -132,63 +196,69 @@ private struct TextWriter {
                 style.textBlocks = [box]
                 var line = at
                 line.style = style
-                for piece in cell.pieces {
-                    var looks = piece
-                    if shown.header { looks.looks.insert(.bold) }
-                    append(piece.text, looks, line)
+                for run in cell.runs {
+                    var looks = run
+                    if shown.header { looks.looks.bold = true }
+                    append(run.text, looks, line)
                 }
                 endLine(line)
             }
         }
     }
 
-    /// An image of the assets folder, at the size that the page asks for, or no wider than
-    /// `imageWidth`. The words for it stand there until its file is here.
-    private mutating func picture(_ shown: ShownImage, _ line: Line) {
+    /// An image of the assets folder, at the size that the page asks for. An image whose page
+    /// asks for no size fits the width of the sticky. The words for it stand there until its
+    /// file is here.
+    private mutating func picture(_ shown: RichImage, _ line: Line) {
         guard let picture = image(shown.path), picture.size.width > 0, picture.size.height > 0 else {
-            append("[\(shown.alt.isEmpty ? shown.path : shown.alt)]", ShownPiece(text: ""), line)
+            append("[\(shown.alt.isEmpty ? shown.path : shown.alt)]", Self.plain, line)
             return
         }
         let natural = picture.size
         let zoom = size / NSFont.systemFontSize
         var width = shown.width.map { Double($0) * zoom }
         var height = shown.height.map { Double($0) * zoom }
-        if width == nil, height == nil { width = min(natural.width, Self.imageWidth * zoom) }
         if let w = width, height == nil { height = w * natural.height / natural.width }
         if let h = height, width == nil { width = h * natural.width / natural.height }
-        let attachment = NSTextAttachment()
-        attachment.image = picture
-        attachment.bounds = CGRect(x: 0, y: 0, width: width ?? natural.width, height: height ?? natural.height)
+        let asked = width.flatMap { w in height.map { CGSize(width: w, height: $0) } }
+        let attachment = FittedPicture(picture, asked: asked)
         let drawn = NSMutableAttributedString(attachment: attachment)
         drawn.addAttribute(.paragraphStyle, value: paragraphStyle(line), range: NSRange(location: 0, length: drawn.length))
         text.append(drawn)
     }
 
-    /// Letters with the looks and the link of their piece.
-    private mutating func append(_ letters: String, _ piece: ShownPiece, _ line: Line) {
+    private static let plain = RichRun(text: "", looks: .plain, link: nil)
+    private static let code: RichRun = {
+        var looks = Looks.plain
+        looks.code = true
+        return RichRun(text: "", looks: looks, link: nil)
+    }()
+
+    /// Letters with the looks and the link of their run.
+    private mutating func append(_ letters: String, _ run: RichRun, _ line: Line) {
         if letters.isEmpty { return }
-        let looks = piece.looks
-        let shifted = looks.contains(.raised) || looks.contains(.lowered)
+        let looks = run.looks
+        let shifted = looks.raised || looks.lowered
         let scale = line.heading > 0 ? Row.headingScales[min(line.heading, 5) - 1] : 1
         let points = size * scale * (shifted ? 0.75 : 1)
         var font =
-            looks.contains(.code)
+            looks.code
             ? NSFont.monospacedSystemFont(ofSize: points, weight: .regular)
-            : NSFont.systemFont(ofSize: points, weight: line.heading > 0 || looks.contains(.bold) ? .bold : .regular)
-        if looks.contains(.italic) { font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) }
+            : NSFont.systemFont(ofSize: points, weight: line.heading > 0 || looks.bold ? .bold : .regular)
+        if looks.italic { font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) }
         var attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: line.quoted > 0 ? Self.quotedColor : NSColor.labelColor,
             .paragraphStyle: line.style ?? paragraphStyle(line),
         ]
-        if looks.contains(.struck) { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
-        if looks.contains(.underlined) { attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue }
-        if looks.contains(.marked) { attributes[.backgroundColor] = Self.markedColor }
-        if looks.contains(.hidden) { attributes[.backgroundColor] = Self.hiddenColor }
-        if looks.contains(.raised) { attributes[.baselineOffset] = size * 0.35 }
-        if looks.contains(.lowered) { attributes[.baselineOffset] = -size * 0.15 }
-        if let link = piece.link, let address = URL(string: link, relativeTo: ShownText.base)?.absoluteURL {
-            attributes[.link] = address
+        if looks.struck { attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
+        if looks.underlined { attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue }
+        if looks.marked { attributes[.backgroundColor] = Self.markedColor }
+        if looks.hidden { attributes[.backgroundColor] = Self.hiddenColor }
+        if looks.raised { attributes[.baselineOffset] = size * 0.35 }
+        if looks.lowered { attributes[.baselineOffset] = -size * 0.15 }
+        if let link = run.link {
+            attributes[.richLink] = HeldLink(link)
             attributes[.foregroundColor] = Self.linkColor
         }
         text.append(NSAttributedString(string: letters, attributes: attributes))
@@ -209,7 +279,7 @@ private struct TextWriter {
 @MainActor
 public final class ShownTexts: ObservableObject {
     private struct Made {
-        let ast: Node
+        let rich: RichText
         let zoom: Double
         let text: NSAttributedString
     }
@@ -219,7 +289,7 @@ public final class ShownTexts: ObservableObject {
     /// Counts up whenever the rows are to be drawn again. A row is handed this number: SwiftUI
     /// draws a row again only when what it is given changes.
     public private(set) var changes = 0
-    private var wanted: [String: (ast: Node, zoom: Double)] = [:]
+    private var wanted: [String: (rich: RichText, zoom: Double)] = [:]
     private var arrivals: AnyCancellable?
 
     /// The texts of the items of the page that `shell` has open.
@@ -232,24 +302,24 @@ public final class ShownTexts: ObservableObject {
         }
     }
 
-    /// The text of the item with this AST, when it was made already.
-    public func text(of itemId: String, ast: Node, zoom: Double) -> NSAttributedString? {
-        guard let made = made[itemId], made.ast == ast, made.zoom == zoom else { return nil }
+    /// The text of the item with these parts, when it was made already.
+    public func text(of itemId: String, rich: RichText, zoom: Double) -> NSAttributedString? {
+        guard let made = made[itemId], made.rich == rich, made.zoom == zoom else { return nil }
         return made.text
     }
 
     /// Makes the text of the item soon, outside the drawing, and tells that it changed.
-    public func want(_ itemId: String, ast: Node, zoom: Double) {
+    public func want(_ itemId: String, rich: RichText, zoom: Double) {
         let first = wanted.isEmpty
-        wanted[itemId] = (ast, zoom)
+        wanted[itemId] = (rich, zoom)
         guard first else { return }
         // All the rows of one drawing are made together, and told once
         DispatchQueue.main.async { [self] in
             objectWillChange.send()
             changes += 1
             for (id, asked) in wanted {
-                let text = ShownText.of(shell.shownBlocks(asked.ast), zoom: asked.zoom, image: shell.images.image)
-                made[id] = Made(ast: asked.ast, zoom: asked.zoom, text: text)
+                let text = ShownText.of(asked.rich, zoom: asked.zoom, image: shell.images.image)
+                made[id] = Made(rich: asked.rich, zoom: asked.zoom, text: text)
             }
             wanted = [:]
         }

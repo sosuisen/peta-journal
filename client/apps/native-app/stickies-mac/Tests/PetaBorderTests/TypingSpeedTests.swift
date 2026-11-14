@@ -147,8 +147,8 @@ final class TypingSpeedTests: XCTestCase {
         }
 
         // The making of the text alone
-        let asts = shell.view.outline.rows.dropFirst().prefix(Self.keys).map(\.bodyModel.ast)
-        report("text of one item is made", asts.map { ast in timed { _ = ShownText.of(shell.shownBlocks(ast)) } })
+        let texts = shell.view.outline.rows.dropFirst().prefix(Self.keys).map(\.bodyModel.rich)
+        report("text of one item is made", texts.map { rich in timed { _ = ShownText.of(rich) } })
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled],

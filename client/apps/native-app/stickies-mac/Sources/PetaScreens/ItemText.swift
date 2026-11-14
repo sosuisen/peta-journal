@@ -12,7 +12,7 @@ import SwiftUI
 struct ItemText: NSViewRepresentable {
     let item: Item
     /// The AST of the body of the item, that the text with its decoration is drawn from.
-    let ast: Node
+    let rich: RichText
     /// The core counts the item as edited: it has, or just had, the cursor.
     let isEditing: Bool
     /// The text of the item with its decoration, when it was made already. It is handed over,
@@ -89,7 +89,7 @@ struct ItemText: NSViewRepresentable {
     private func show(_ view: ItemTextView) {
         view.isEditable = false
         guard let text = shown else {
-            texts.want(item.id, ast: ast, zoom: zoom)
+            texts.want(item.id, rich: rich, zoom: zoom)
             if view.shown == nil, view.string != item.body { view.string = item.body }
             return
         }
@@ -230,10 +230,10 @@ final class ItemTextView: NSTextView {
     var onCursorLeft: (() -> Void)?
     /// A link of the shown text was clicked. The flag says that Shift was held: the page opens
     /// in the browser.
-    var onLink: ((URL, Bool) -> Void)?
+    var onLink: ((RichLink, Bool) -> Void)?
     /// The link under the mouse, when the window last asked which view is there. It asks right
     /// before it gives the cursor to the view that is clicked.
-    private var aimed: URL?
+    private var aimed: RichLink?
     /// The text with its decoration that the view shows, when it does not show Markdown.
     var shown: NSAttributedString?
     /// A key of the outline that is no command of a text view. True when it was taken.
@@ -298,7 +298,7 @@ final class ItemTextView: NSTextView {
     }
 
     /// The link of the shown text at a place of the view. Markdown has no links.
-    private func link(at place: NSPoint) -> URL? {
+    private func link(at place: NSPoint) -> RichLink? {
         guard shown != nil, let layoutManager, let textContainer, let textStorage else { return nil }
         let inText = NSPoint(x: place.x - textContainerOrigin.x, y: place.y - textContainerOrigin.y)
         let glyph = layoutManager.glyphIndex(for: inText, in: textContainer)
@@ -307,7 +307,7 @@ final class ItemTextView: NSTextView {
         guard box.contains(inText) else { return nil }
         let letter = layoutManager.characterIndexForGlyph(at: glyph)
         guard letter < textStorage.length else { return nil }
-        return textStorage.attribute(.link, at: letter, effectiveRange: nil) as? URL
+        return ShownText.link(in: textStorage, at: letter)
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
