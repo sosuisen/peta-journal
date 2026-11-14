@@ -913,9 +913,9 @@ fn the_address_of_a_link_is_skipped() {
     );
 }
 
-// 表示にしかない文字は、本文の遠くにある同じ文字へ跳ばない。
+// アラートの題のあとの文字は、アラートの本文に置かれる。
 #[test]
-fn a_letter_that_only_the_shown_text_has_does_not_jump_far() {
+fn the_letters_after_the_title_of_an_alert_are_in_its_body() {
     let markdown = "> [!TIP]\n> said here";
 
     assert_eq!(
