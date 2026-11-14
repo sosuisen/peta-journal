@@ -67,7 +67,7 @@ fn creates(h: &Harness) -> Vec<String> {
 
 fn entry(position: usize, kind: SearchKind, title: &str) -> SearchEntry {
     let label = match kind {
-        SearchKind::Create => format!("Create new page \"{title}\""),
+        SearchKind::Create => format!("Create page \"{title}\""),
         _ => title.into(),
     };
     SearchEntry {
@@ -137,7 +137,7 @@ fn the_query_today_puts_open_today_at_the_top_of_the_list_before_the_answer_arri
 }
 
 // 一覧の各行の文言は、coreが決める。どのシェルも、この文言をそのまま出す。今日のジャーナルは
-// `Open Today`、ページと項目はその名前、作る行は `Create new page "名前"` である。
+// `Open Today`、ページと項目はその名前、作る行は `Create page "名前"` である。
 #[test]
 fn the_core_words_the_label_of_every_entry_for_all_shells() {
     let mut h = Harness::new();
@@ -158,7 +158,7 @@ fn the_core_words_the_label_of_every_entry_for_all_shells() {
         [
             "Open Today",
             "Today I learned",
-            "Create new page \"today\"",
+            "Create page \"today\"",
             "Diary"
         ]
     );

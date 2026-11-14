@@ -557,7 +557,7 @@ fn sidebar(model: &Model) -> SidebarView {
 /// What the search line of this kind and title says.
 fn search_label(kind: SearchKind, title: &str) -> String {
     match kind {
-        SearchKind::Create => format!("Create new page \"{title}\""),
+        SearchKind::Create => format!("Create page \"{title}\""),
         SearchKind::Today | SearchKind::Page | SearchKind::Item => title.to_string(),
     }
 }
