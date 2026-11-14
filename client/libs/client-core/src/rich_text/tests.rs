@@ -906,3 +906,33 @@ fn a_letter_that_only_the_shown_text_has_does_not_jump_far() {
 fn the_place_counts_characters_and_not_bytes() {
     assert_eq!(markdown_place("**日本**", "日"), 3);
 }
+
+/// What each paragraph and code block says of the letters before it, from top to bottom.
+fn starts(blocks: &[RichBlock]) -> Vec<u32> {
+    blocks
+        .iter()
+        .flat_map(|block| match block {
+            RichBlock::Text { paragraphs } => paragraphs.iter().map(|p| p.start).collect(),
+            RichBlock::Code { start, .. } => vec![*start],
+            RichBlock::Table { rows } => rows
+                .iter()
+                .flat_map(|row| row.cells.iter().map(|cell| cell.start))
+                .collect(),
+            RichBlock::Image { .. } => vec![],
+            RichBlock::Entries { entries } => {
+                entries.iter().flat_map(|entry| starts(&entry.blocks)).collect()
+            }
+            RichBlock::Quote { blocks } => starts(blocks),
+        })
+        .collect()
+}
+
+// 段落とコードブロックは、項目の表示の文字のうち、その前に立つ文字の数を持つ。各段落とコードブロックのあとには、改行が1つあると数える。
+#[test]
+fn each_paragraph_and_code_block_knows_how_many_shown_letters_stand_before_it() {
+    let body = "**a** b\n\n```\nxy\n```\n\n- c\n\n  ```\n  z\n  ```\n\n| h |\n|---|\n| d |\n\n---";
+
+    let blocks = RichText::of(parse(body), "tags/").blocks;
+
+    assert_eq!(starts(&blocks), [0, 4, 7, 9, 11, 13, 15]);
+}
