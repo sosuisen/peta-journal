@@ -44,6 +44,24 @@ impl PropertyKey {
         })
     }
 
+    /// Refuses a type that does not fit the name: a list key takes `list` (`tags` for the
+    /// tags), and a scalar key takes neither.
+    pub fn check_type(&self, value_type: &str) -> AppResult<()> {
+        let fits = match self {
+            PropertyKey::Scalar(_) => value_type != "list" && value_type != "tags",
+            PropertyKey::List(ListKey::Tags) => value_type == "tags",
+            PropertyKey::List(ListKey::User(_)) => value_type == "list",
+        };
+        if fits {
+            Ok(())
+        } else {
+            Err(AppError::bad_request(format!(
+                "Property '{}' cannot be of type {value_type}: a key of a list ends with {LIST_SUFFIX}",
+                self.as_str()
+            )))
+        }
+    }
+
     pub fn as_str(&self) -> &str {
         match self {
             PropertyKey::Scalar(ScalarKey(name)) => name,
