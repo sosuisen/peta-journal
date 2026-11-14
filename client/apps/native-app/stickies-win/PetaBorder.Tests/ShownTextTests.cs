@@ -137,20 +137,22 @@ public sealed class ShownTextTests
         var web = new RichLink.Web("https://example.com/a");
         var file = new RichLink.File("assets/report.pdf");
 
-        var runs = Assert.IsType<ShownParagraph>(
-            Assert.Single(
-                Shown(
-                    Text(
-                        Paragraph(
-                            Run("Idea", link: page),
-                            Run(" "),
-                            Run("out", link: web),
-                            Run("report", link: file)
+        var runs = Assert
+            .IsType<ShownParagraph>(
+                Assert.Single(
+                    Shown(
+                        Text(
+                            Paragraph(
+                                Run("Idea", link: page),
+                                Run(" "),
+                                Run("out", link: web),
+                                Run("report", link: file)
+                            )
                         )
-                    )
-                ).Parts
+                    ).Parts
+                )
             )
-        ).Runs;
+            .Runs;
 
         Assert.Equal(new RichLink?[] { page, null, web, file }, runs.Select(run => run.Link));
     }
@@ -280,11 +282,7 @@ public sealed class ShownTextTests
     public void A_table_is_a_part_of_its_own_with_its_header_in_bold()
     {
         static RichTableRow Row(bool header, params string[] cells) =>
-            new()
-            {
-                Header = header,
-                Cells = new(cells.Select(cell => Paragraph(Run(cell)))),
-            };
+            new() { Header = header, Cells = new(cells.Select(cell => Paragraph(Run(cell)))) };
 
         var table = Assert.IsType<ShownTable>(
             Assert.Single(
