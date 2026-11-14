@@ -118,7 +118,7 @@ public sealed partial class Shell : IDisposable
         ArgumentNullException.ThrowIfNull(link);
         var address = link switch
         {
-            RichLink.Page page => Address(page.Url),
+            RichLink.Page page => PetaCore.PetaNative.PageAddress(server, page.Url),
             RichLink.Web web => web.Url,
             RichLink.File file => AssetAddress(file.Path)?.AbsoluteUri,
         };
@@ -133,24 +133,8 @@ public sealed partial class Shell : IDisposable
     public Uri? AssetAddress(string path)
     {
         ArgumentNullException.ThrowIfNull(path);
-        return Uri.TryCreate(Address("/" + path), UriKind.Absolute, out var address)
-            ? address
-            : null;
-    }
-
-    /// <summary>
-    /// The address on the journal server of a URL of the app, such as <c>/pages/notes#item</c>,
-    /// which the core gives as it is written. Each part of its path is encoded, and so is the
-    /// item after <c>#</c>.
-    /// </summary>
-    private string Address(string url)
-    {
-        var hash = url.IndexOf('#', StringComparison.Ordinal);
-        var path = hash < 0 ? url : url[..hash];
-        var encoded = string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
-        if (hash >= 0)
-            encoded += "#" + Uri.EscapeDataString(url[(hash + 1)..]);
-        return server + encoded;
+        var address = PetaCore.PetaNative.AssetAddress(server, path);
+        return Uri.TryCreate(address, UriKind.Absolute, out var uri) ? uri : null;
     }
 
     /// <summary>

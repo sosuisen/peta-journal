@@ -79,7 +79,7 @@ public final class Shell: ObservableObject {
         switch link {
         case .page(let url):
             if inBrowser {
-                browse(server + (url.addingPercentEncoding(withAllowedCharacters: Shell.inAddress) ?? url))
+                browse(pageAddress(appUrl: server, url: url))
             } else {
                 open(url)
             }
@@ -87,11 +87,6 @@ public final class Shell: ObservableObject {
         case .file(let path): if let address = images.address(of: path) { browse(address) }
         }
     }
-
-    /// What stays as it is in the address of a page: the letters that `encodeURI` of JavaScript
-    /// keeps, as the web frontend encodes its own addresses. `#` stays, so that the address
-    /// still leads to an item of the page.
-    private static let inAddress = CharacterSet.urlFragmentAllowed.union(CharacterSet(charactersIn: "#"))
 
     private func browse(_ address: String) {
         if let url = URL(string: address) { browse(url) }

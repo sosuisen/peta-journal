@@ -56,3 +56,17 @@ impl PetaCore {
 pub fn copied_html(ast: String, app_url: String, tags_dir: String) -> String {
     client_native_bridge::copied_html(&ast, &app_url, &tags_dir)
 }
+
+/// The address on the journal server at `app_url` of a URL of the app, such as
+/// `/pages/notes#item`, for the browser.
+#[boltffi::export]
+pub fn page_address(app_url: String, url: String) -> String {
+    client_native_bridge::page_address(&app_url, &url)
+}
+
+/// The address on the journal server at `app_url` of a file under the Markdown folder, such
+/// as `assets/picture.png`, for the browser and for loading an image.
+#[boltffi::export]
+pub fn asset_address(app_url: String, path: String) -> String {
+    client_native_bridge::asset_address(&app_url, &path)
+}
