@@ -935,6 +935,17 @@ fn a_touch_on_the_title_of_an_alert_is_at_its_name_however_long_the_body() {
     );
 }
 
+// 表の2つめの升の先頭に触れると、その升の中に置かれる。
+#[test]
+fn a_touch_at_the_start_of_the_second_cell_of_a_table_is_in_that_cell() {
+    let markdown = "| a | b is a cell with many words in it |\n|---|---|\n| b | c |";
+
+    assert_eq!(
+        markdown_place(markdown, "a\n"),
+        markdown.find("| b").unwrap() + "|".len()
+    );
+}
+
 // 本文の位置は、バイトではなく文字で数える。
 #[test]
 fn the_place_counts_characters_and_not_bytes() {
