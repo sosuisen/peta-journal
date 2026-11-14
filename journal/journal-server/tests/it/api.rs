@@ -4422,6 +4422,30 @@ async fn a_list_of_a_page_is_kept_under_its_own_key_apart_from_the_tags() {
     assert!(doc_page_named("list-y").await.is_none());
 }
 
+// 定義のないキーには、ページでも、名前に合う型でしか値を書けない。
+#[tokio::test]
+async fn a_key_of_a_page_with_no_definition_takes_only_the_type_its_name_fits() {
+    let page = new_doc_page("page-type-by-name").await;
+
+    for (key, body) in [
+        (
+            "undefined_page_members",
+            json!({ "valueType": "list", "value": "x" }),
+        ),
+        (
+            "undefined_page_note_list",
+            json!({ "valueType": "text", "value": "x" }),
+        ),
+    ] {
+        let (status, resp) = put(
+            &format!("/api/pages/{}/properties/{key}", page.id),
+            body.clone(),
+        )
+        .await;
+        assert_eq!(status, 400, "{key} {body} -> {resp}");
+    }
+}
+
 /// Held by a test that changes the tag directory, and by the tests of tag pages. A tag page
 /// made while the directory is changed would be looked for in the wrong folder later.
 static TAGS_DIR: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
