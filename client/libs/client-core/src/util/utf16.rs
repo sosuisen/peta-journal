@@ -1,5 +1,8 @@
-//! A place in a text, counted in UTF-16 units as the text fields of the shells count, and in
-//! characters (Unicode scalars) as the core counts (ADR 043). Every shell converts with these.
+//! Places in a text: in UTF-16 units as the text fields of the shells count, in characters
+//! (Unicode scalars) as the core counts, and at the ends of letters as a person sees them
+//! (ADR 043). Every shell converts with these.
+
+use unicode_segmentation::UnicodeSegmentation;
 
 /// The characters before the place `units` UTF-16 units into `text`. A place inside a
 /// surrogate pair goes after its character; a place past the end is the end.
@@ -18,6 +21,20 @@ pub fn chars_of_utf16(text: &str, units: usize) -> usize {
 /// the end.
 pub fn utf16_of_chars(text: &str, chars: usize) -> usize {
     text.chars().take(chars).map(char::len_utf16).sum()
+}
+
+/// The place `chars` characters into `text`, moved to the end of the letter it is inside, as a
+/// person sees letters (a grapheme cluster). An emoji of a family is five characters and one
+/// letter: a place the core finds itself never splits it (ADR 043).
+pub fn after_letter(text: &str, chars: usize) -> usize {
+    let mut counted = 0;
+    for letter in text.graphemes(true) {
+        if counted >= chars {
+            break;
+        }
+        counted += letter.chars().count();
+    }
+    counted
 }
 
 #[cfg(test)]

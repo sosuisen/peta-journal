@@ -540,6 +540,7 @@ dependencies = [
  "peta-atlas",
  "serde",
  "serde_json",
+ "unicode-segmentation",
  "uuid",
 ]
 
