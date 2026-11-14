@@ -42,7 +42,8 @@ struct ImageBlock: View {
                     .padding(.vertical, 4)
                     .accessibilityLabel(image.alt)
                     .accessibilityIdentifier("picture")
-                    .onTapGesture { large = true }
+                    // Before the touch that edits the item, which is told where it was
+                    .highPriorityGesture(TapGesture().onEnded { large = true })
                     .fullScreenCover(isPresented: $large) {
                         LargeImage(image: image, small: read, file: file) { large = false }
                     }
