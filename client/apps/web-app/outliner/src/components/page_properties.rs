@@ -4,7 +4,7 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
-use client_core::model::PropertyDefinition;
+use client_core::model::{list_type_of, PropertyDefinition};
 use client_core::view::ScreenView;
 use client_core::Event;
 use client_page_links::hashtag_path;
@@ -64,7 +64,7 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                     let key = key.clone();
                     move |_| properties.with(|ps| ps.iter().find(|q| q.key == key).map(|q| q.value.clone()).unwrap_or_default())
                 });
-                let value_type = if p.is_list { "tags".to_string() } else { type_of(&p.key) };
+                let value_type = if p.is_list { list_type_of(&p.key).to_string() } else { type_of(&p.key) };
                 let send = {
                     let key = key.clone();
                     let value_type = value_type.clone();

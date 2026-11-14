@@ -470,6 +470,16 @@ pub struct PropertyDefinition {
     pub page: bool,
 }
 
+/// The type to send a list value of the key with. Only `tags` holds the tags; every other
+/// list key ends with `_list` and holds a list of the user (ADR 046).
+pub fn list_type_of(key: &str) -> &'static str {
+    if key == "tags" {
+        "tags"
+    } else {
+        "list"
+    }
+}
+
 /// The types a user may give a new key, in the order the settings offer them.
 pub const USER_VALUE_TYPES: [&str; 6] =
     ["text", "number", "checkbox", "date", "datetime", "bounds"];
