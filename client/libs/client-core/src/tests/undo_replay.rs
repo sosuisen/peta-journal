@@ -41,7 +41,7 @@ fn undo_puts_the_old_body_back_sends_it_in_one_request_and_moves_the_entry_to_th
 fn shown_ast(h: &Harness, item_id: &str) -> flatmarkdown_ast::Node {
     let rows = h.view().outline.rows;
     let row = rows.iter().find(|r| r.item.id == item_id).unwrap();
-    row.ast.clone()
+    row.body_model.clone()
 }
 
 // 入力を redo した後に別の項目へ移動しても、redo した本文の内容で表示される。

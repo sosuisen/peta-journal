@@ -31,7 +31,7 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
     let drag: Drag = expect_context();
     let item_id = row.with_untracked(|r| r.item.id.clone());
     let content = NodeRef::<leptos::html::Div>::new();
-    let html = Memo::new(move |_| row.with(|r| item_html(&r.ast)));
+    let html = Memo::new(move |_| row.with(|r| item_html(&r.body_model)));
     // A hashtag links under the configured tag directory, so a tag page can live in its own
     // folder (e.g. `tags/topic`) and a published site can keep the same relative paths.
     let tags_dir = core.select(|v| v.config.tags_dir.clone());

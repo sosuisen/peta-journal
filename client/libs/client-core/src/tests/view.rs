@@ -116,7 +116,7 @@ fn a_scroll_request_is_passed_on_as_a_smooth_scroll() {
 fn a_row_has_the_ast_that_the_core_makes_from_the_body() {
     use flatmarkdown_ast::Node;
     let h = Harness::with_items(vec![item("a", 1, "**b** [p](../p.md) #t")]);
-    let ast = &rows(&h)[0].ast;
+    let ast = &rows(&h)[0].body_model;
     let Node::Document { children } = ast else {
         panic!("not a document: {ast:?}");
     };
@@ -128,17 +128,76 @@ fn a_row_has_the_ast_that_the_core_makes_from_the_body() {
 #[test]
 fn the_ast_of_a_row_follows_its_body() {
     let mut h = Harness::with_items(vec![item("a", 1, "one")]);
-    let first = rows(&h)[0].ast.clone();
+    let first = rows(&h)[0].body_model.clone();
     crate::harness::typed(&mut h, "a", "# two");
-    assert_eq!(rows(&h)[0].ast, crate::asts::parse("# two"));
+    assert_eq!(rows(&h)[0].body_model, crate::asts::parse("# two"));
     crate::harness::typed(&mut h, "a", "one");
-    assert_eq!(rows(&h)[0].ast, first);
+    assert_eq!(rows(&h)[0].body_model, first);
 }
 
 // 同じ本文の行が2つあれば、どちらもその本文のASTを持つ。
 #[test]
 fn rows_with_the_same_body_have_the_same_ast() {
     let h = Harness::with_items(vec![item("a", 1, "*x*"), item("b", 1, "*x*")]);
-    let asts: Vec<_> = rows(&h).into_iter().map(|row| row.ast).collect();
+    let asts: Vec<_> = rows(&h).into_iter().map(|row| row.body_model).collect();
     assert_eq!(asts, [crate::asts::parse("*x*"), crate::asts::parse("*x*")]);
+}
+
+/// What a native shell draws of the rows: the `RichText` of each body (ADR 042).
+fn rich_rows(
+    h: &Harness,
+    bodies: &crate::body_model::Bodies<crate::RichText>,
+) -> Vec<crate::RichText> {
+    let view = crate::view::build(&h.model, bodies);
+    view.outline
+        .rows
+        .into_iter()
+        .map(|row| row.body_model)
+        .collect()
+}
+
+// ネイティブのシェルの行は、本文から作ったRichTextを持つ。
+#[test]
+fn a_row_of_a_native_shell_has_the_rich_text_of_its_body() {
+    use crate::BodyModel;
+    let h = Harness::with_items(vec![item("a", 1, "**b**"), item("c", 1, "d")]);
+    let bodies = Default::default();
+    assert_eq!(
+        rich_rows(&h, &bodies),
+        [
+            crate::RichText::of(crate::asts::parse("**b**"), ""),
+            crate::RichText::of(crate::asts::parse("d"), ""),
+        ]
+    );
+}
+
+// 本文が変わると、行のRichTextも作り直される。
+#[test]
+fn the_rich_text_of_a_row_follows_its_body() {
+    use crate::BodyModel;
+    let mut h = Harness::with_items(vec![item("a", 1, "one")]);
+    let bodies = Default::default();
+    rich_rows(&h, &bodies);
+    crate::harness::typed(&mut h, "a", "# two");
+    assert_eq!(
+        rich_rows(&h, &bodies),
+        [crate::RichText::of(crate::asts::parse("# two"), "")]
+    );
+}
+
+// タグのフォルダーが変わると、タグのリンクは新しいフォルダーの下を指す。
+#[test]
+fn the_links_of_tags_follow_the_folder_of_the_tags() {
+    use crate::rich_text::{RichBlock, RichLink};
+    let mut h = Harness::with_items(vec![item("a", 1, "#topic")]);
+    let bodies = Default::default();
+    let link = |h: &Harness| match &rich_rows(h, &bodies)[0].blocks[..] {
+        [RichBlock::Text { paragraphs }] => paragraphs[0].runs[0].link.clone(),
+        blocks => panic!("not one text: {blocks:?}"),
+    };
+    h.model.config.tags_dir = "tags/".into();
+    let page = |url: &str| Some(RichLink::Page { url: url.into() });
+    assert_eq!(link(&h), page("/pages/tags/topic"));
+    h.model.config.tags_dir = "labels/".into();
+    assert_eq!(link(&h), page("/pages/labels/topic"));
 }

@@ -86,9 +86,9 @@ final class ShownTextTests: XCTestCase {
         let body = Self.everyKind.map(\.markdown).joined(separator: "\n\n")
         let row = try await row(withBody: body)
 
-        let shown = Self.shown(row.ast).string
+        let shown = Self.shown(row.bodyModel.ast).string
 
-        let kinds = Self.kinds(of: row.ast)
+        let kinds = Self.kinds(of: row.bodyModel.ast)
         for (kind, _, seen) in Self.everyKind {
             XCTAssertTrue(kinds.contains(Self.caseName(of: kind)), "the body has no node of the kind \(kind)")
             XCTAssertTrue(shown.contains(seen), "the kind \(kind) is not shown: \(seen) is missing")
