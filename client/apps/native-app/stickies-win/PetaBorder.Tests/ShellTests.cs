@@ -681,7 +681,7 @@ public sealed class ShellTests : IDisposable
         Assert.Equal("/pages/winui-notes", shell.Url);
     }
 
-    // リンクをたどると、どれもブラウザに渡る。ウィキリンクとハッシュタグは、Webのフロントエンドでそのページを開くURLになる。付箋紙のページは変わらない。
+    // リンクをたどると、どれもブラウザに渡る。ページはWebのフロントエンドで、資産のファイルはジャーナルサーバーが出すもので開く。付箋紙のページは変わらない。
     [Fact]
     public void A_link_that_is_followed_goes_to_the_browser_and_the_sticky_keeps_its_page()
     {
@@ -696,16 +696,20 @@ public sealed class ShellTests : IDisposable
         );
         shells.Add(shell);
         main.WaitUntil("the page is shown", () => shell.View.Outline.Rows.Count > 0);
-        var tags = shell.View.Config.TagsDir;
-        Assert.NotEqual("", tags);
 
-        shell.Follow(new LinkTarget.Page("linked/idea"));
-        Assert.Equal(new Uri($"{server.Address}/pages/linked/idea"), browsed);
+        shell.Follow(new RichLink.Page("/pages/linked/idea"));
+        Assert.Equal($"{server.Address}/pages/linked/idea", browsed?.AbsoluteUri);
 
-        shell.Follow(new LinkTarget.Tag("todo"));
-        Assert.Equal(new Uri($"{server.Address}/pages/{tags}todo"), browsed);
+        shell.Follow(new RichLink.Page("/pages/メモ/案 1#item"));
+        Assert.Equal(
+            $"{server.Address}/pages/%E3%83%A1%E3%83%A2/%E6%A1%88%201#item",
+            browsed?.AbsoluteUri
+        );
 
-        shell.Follow(new LinkTarget.Out(new Uri("https://example.com/a")));
+        shell.Follow(new RichLink.File("assets/report a.pdf"));
+        Assert.Equal($"{server.Address}/assets/report%20a.pdf", browsed?.AbsoluteUri);
+
+        shell.Follow(new RichLink.Web("https://example.com/a"));
         Assert.Equal(new Uri("https://example.com/a"), browsed);
         Assert.Equal("/pages/winui-notes", shell.Url);
     }

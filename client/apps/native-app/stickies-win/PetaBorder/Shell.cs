@@ -109,30 +109,48 @@ public sealed partial class Shell : IDisposable
     }
 
     /// <summary>
-    /// The user clicked a link of a shown item. Every link opens in the browser: a wikilink
-    /// and a hashtag open their page in the web frontend, which the journal server serves.
+    /// The user clicked a link of a shown item. Every link opens in the browser: a page opens
+    /// in the web frontend, and a file of the assets folder as the journal server serves it.
     /// The sticky keeps its page.
     /// </summary>
-    public void Follow(LinkTarget link)
+    public void Follow(RichLink link)
     {
-        switch (link)
+        ArgumentNullException.ThrowIfNull(link);
+        var address = link switch
         {
-            case LinkTarget.Page page:
-                Browse(PetaCore.PetaNative.WikilinkUrl(server, page.Path));
-                break;
-            case LinkTarget.Tag tag:
-                Browse(PetaCore.PetaNative.HashtagUrl(server, View.Config.TagsDir, tag.Name));
-                break;
-            case LinkTarget.Out outside:
-                browse(outside.Address);
-                break;
-        }
-    }
-
-    private void Browse(string address)
-    {
+            RichLink.Page page => Address(page.Url),
+            RichLink.Web web => web.Url,
+            RichLink.File file => AssetAddress(file.Path)?.AbsoluteUri,
+        };
         if (Uri.TryCreate(address, UriKind.Absolute, out var there))
             browse(there);
+    }
+
+    /// <summary>
+    /// The address of a file of the assets folder, such as <c>assets/picture.png</c>, on the
+    /// journal server.
+    /// </summary>
+    public Uri? AssetAddress(string path)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        return Uri.TryCreate(Address("/" + path), UriKind.Absolute, out var address)
+            ? address
+            : null;
+    }
+
+    /// <summary>
+    /// The address on the journal server of a URL of the app, such as <c>/pages/notes#item</c>,
+    /// which the core gives as it is written. Each part of its path is encoded, and so is the
+    /// item after <c>#</c>.
+    /// </summary>
+    private string Address(string url)
+    {
+        var hash = url.IndexOf('#', StringComparison.Ordinal);
+        var path = hash < 0 ? url : url[..hash];
+        var encoded = string.Join('/', path.Split('/').Select(Uri.EscapeDataString));
+        if (hash >= 0)
+            encoded += "#" + Uri.EscapeDataString(url[(hash + 1)..]);
+        return server + encoded;
     }
 
     /// <summary>

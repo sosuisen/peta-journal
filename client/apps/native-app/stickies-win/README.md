@@ -62,10 +62,11 @@ kept in the repository.
   place of a cursor from the UTF-16 units of WinUI into the characters the core counts, and
   back.
 - `ShownText` makes the text of an item as it is to be shown: with its decoration, not as
-  Markdown. It reads the AST that the core gives with each row (`Row.Ast`, ADR 041) and gives
-  paragraphs of pieces with a style each. The screen draws them. `Node` is a `closed record`
+  Markdown. It reads the parts that the core makes of each body (`Row.BodyModel.Rich`,
+  ADR 042) and gives the parts that the screen draws: paragraphs of pieces with a style
+  each, tables and images. `RichBlock`, `RichLink` and `ShownPart` are `closed record`s
   (C# 15, .NET 11), and CS8509 is an error: a `switch` expression that leaves out a kind of
-  node stops the build. The generator writes `abstract record`; `codegen csharp` makes it
+  part stops the build. The generator writes `abstract record`; `codegen csharp` makes it
   `closed`.
 - `StickyStore` and `StickyLook` keep the stickies and how each one looks.
 
@@ -129,10 +130,16 @@ Text that is still being composed by an input method is not sent to the core unt
 confirmed, and the Enter that confirms it does not split the item.
 
 A click on a link of an item that shows its decoration opens the link in the browser
-(`Shell.Follow`), as in the SwiftUI shell. A wikilink and a hashtag open their page in the
-web frontend, which the journal server serves: `WikilinkUrl` and `HashtagUrl` of the core
-library make the address. The sticky keeps its page. Of the other links, only those to the
-web and to a mail address are opened. Such a click does not put the cursor in the item.
+(`Shell.Follow`). The core says where each link leads (`RichLink`). A page, such as that of
+a wikilink or a hashtag, opens in the web frontend, which the journal server serves; a file
+of the assets folder opens as the journal server serves it (`/assets/...`). The sticky keeps
+its page. Of the other links, only those to the web are opened. Such a click does not put
+the cursor in the item.
+
+An image of the assets folder is drawn from the journal server, at the size that the page
+asks for. An image whose page asks for no size fits the width of the sticky, and is never
+larger than its file. Its words stand there until its file is here. A table has a line
+around each cell, and its columns share the width of the sticky.
 
 Items that are copied go to the clipboard as Markdown and as HTML (ADR 027). `CopiedHtml`
 of the core library makes the HTML.
