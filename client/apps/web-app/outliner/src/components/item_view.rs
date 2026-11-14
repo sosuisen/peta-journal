@@ -61,19 +61,33 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
             // The editor replaces this view and takes the focus inside this very handler; the
             // browser's own focus change on mousedown would take it away again
             ev.prevent_default();
-            let cursor = match content.get() {
-                Some(el) => {
-                    let cursor =
-                        dom::text_offset_at_point(&el, ev.client_x() as f64, ev.client_y() as f64);
-                    drag.start(core, &id, &el, Some(cursor));
-                    cursor
-                }
-                None => 0,
-            };
-            core.send(Event::EditRequested {
-                item_id: id.clone(),
-                cursor,
+            let el = content.get();
+            // The core lines up the letters of the page before the click with the Markdown,
+            // and puts the cursor there (ADR 043). Beside the letters it goes to the start
+            let before = el.as_ref().and_then(|el| {
+                dom::text_before_point(el, ev.client_x() as f64, ev.client_y() as f64)
             });
+            match before {
+                Some(before) => core.send(Event::ShownTextTouchedAfter {
+                    item_id: id.clone(),
+                    before,
+                }),
+                None => core.send(Event::EditRequested {
+                    item_id: id.clone(),
+                    cursor: 0,
+                }),
+            }
+            if let Some(el) = el {
+                // The drag selects from the place where the core put the cursor
+                let cursor = core.view().with_untracked(|v| {
+                    v.outline
+                        .focus_request
+                        .as_ref()
+                        .filter(|r| r.item_id == id)
+                        .and_then(|r| r.cursor)
+                });
+                drag.start(core, &id, &el, cursor);
+            }
         }
     };
 
