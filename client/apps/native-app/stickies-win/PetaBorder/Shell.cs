@@ -151,6 +151,14 @@ public sealed partial class Shell : IDisposable
     /// </summary>
     public void ClickedTask(string itemId) => Send(new Event.TaskCycle(itemId));
 
+    /// <summary>
+    /// The user touched the shown text of the item after <paramref name="letter"/> of its
+    /// letters, as <c>RichParagraph.Start</c> counts them. The item is edited with the cursor
+    /// at that place in its Markdown (ADR 043).
+    /// </summary>
+    public void Touched(string itemId, int letter) =>
+        Send(new Event.ShownTextTouched(itemId, (ulong)letter));
+
     /// <summary>The user put the cursor in the item.</summary>
     public void StartEditing(string itemId) => Send(new Event.EditRequested(itemId, 0));
 

@@ -126,6 +126,10 @@ Only the item with the cursor shows its Markdown, in a text box. Every other ite
 text with its decoration (ADR 041) and cannot be typed into. A click into an item makes it
 Markdown at once; when the cursor leaves it, the shell tells the core that the edit is over
 (`Shell.FinishEditing`), as the web frontend does, and the item shows its decoration again.
+The shell tells the core how many letters of the shown text stand before the click
+(`Shell.Touched`). The core finds that place in the Markdown, and the cursor goes there
+(ADR 043). The mark of an entry of a list and the line of a rule are not letters of the core.
+A click beside the letters puts the cursor at the end.
 Text that is still being composed by an input method is not sent to the core until it is
 confirmed, and the Enter that confirms it does not split the item.
 

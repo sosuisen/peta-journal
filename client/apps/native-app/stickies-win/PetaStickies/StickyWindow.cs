@@ -537,6 +537,18 @@ internal sealed class StickyWindow : Window
         }
     }
 
+    /// <summary>
+    /// The user clicked the shown text of the item after <paramref name="letter"/> of its
+    /// letters. The core answers with an order to put the cursor at that place in the Markdown.
+    /// </summary>
+    public void Touched(string itemId, int letter)
+    {
+        // A click on an item ends the selection, as the cursor in its editor would
+        if (Shell.View.Outline.SelectionMode)
+            Shell.LeaveSelection();
+        Shell.Touched(itemId, letter);
+    }
+
     /// <summary>Carries out an order of the core that is new.</summary>
     private void PutCursor(int tries = 10)
     {
