@@ -12,6 +12,7 @@ use crate::application::markdown_parser::MarkdownParser;
 use crate::domain::hashtag;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::model::{Item, Page};
+use crate::domain::property_key::{ListKey, PropertyKey};
 use crate::domain::search::SearchIndex;
 use crate::error::AppResult;
 use crate::infrastructure::persistence::property_repository::list_values;
@@ -233,7 +234,7 @@ impl ItemMerger {
                 changed = true;
             }
             let have = lists.get(id.as_str()).cloned().unwrap_or_default();
-            if self.sync_list_properties(&tx, id.as_str(), &pi.properties, &have, &defs)? {
+            if self.sync_list_properties(&tx, id.as_str(), &pi.properties, &have)? {
                 changed = true;
             }
         }
@@ -340,8 +341,7 @@ impl ItemMerger {
             if RESERVED_KEYS.contains(&k.as_str()) {
                 continue;
             }
-            let t = defs.get(k).map(String::as_str).unwrap_or("text");
-            if t == "list" || t == "tags" {
+            if matches!(PropertyKey::parse(k), Ok(PropertyKey::List(_))) {
                 continue;
             }
             if let Some(entry) = want.iter_mut().find(|(wk, _)| *wk == k.as_str()) {
@@ -377,12 +377,15 @@ impl ItemMerger {
         item_id: &str,
         file_properties: &[(String, String)],
         have: &BTreeMap<String, Vec<String>>,
-        defs: &BTreeMap<String, String>,
     ) -> AppResult<bool> {
         let mut changed = false;
         let mut want: Vec<&str> = Vec::new();
         for (k, v) in file_properties {
-            if defs.get(k).map(String::as_str) != Some("list") {
+            // The name tells a list, so a key comes in as a list even with no definition
+            if !matches!(
+                PropertyKey::parse(k),
+                Ok(PropertyKey::List(ListKey::User(_)))
+            ) {
                 continue;
             }
             want.push(k);
