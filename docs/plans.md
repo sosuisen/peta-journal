@@ -16,7 +16,7 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [x] Windowsのシェルで、上付き・下付きと`-# subtext`の文字を、ほかのシェルと同じく0.75倍の大きさで描く
   - 今は`FontVariants`でOpenTypeの`subs`と`sups`に任せている。Segoe UIとYu Gothic UIは数字しか置き換えず、Noto Sans JPはこの機能を持たない。だから、文字が小さくならない
   - ベースラインは下げない。WinUIの`Run`には、ずらす設定がないため
-- [ ] Web版の描画モデル（AST）を、outliner-webの`AstBody`に移す。coreから`impl BodyModel for Node`と、型引数の既定値（`B = Node`）を消す
+- [x] Web版の描画モデル（AST）を、outliner-webの`AstBody`に移す。coreから`impl BodyModel for Node`と、型引数の既定値（`B = Node`）を消す
   - 2026-11-14にユーザーが決めた。Web版の事情（ASTで描く）は、Web版のクレートに置く
   - 孤児ルールのため、outliner-webでは`Node`に直接`BodyModel`を実装できない。だから、`Node`を包む型を作る
   - Emacs版は、描画モデルを読まない。`()`を描画モデルにする。coreの`impl BodyModel for ()`は、描画モデルから描かないシェル用である
