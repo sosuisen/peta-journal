@@ -924,6 +924,17 @@ fn a_letter_that_only_the_shown_text_has_does_not_jump_far() {
     );
 }
 
+// アラートの題に触れると、本文が長くても、アラートの記号の名前に置かれる。
+#[test]
+fn a_touch_on_the_title_of_an_alert_is_at_its_name_however_long_the_body() {
+    let markdown = "> [!TIP]\n> a long body that ends in a cup";
+
+    assert_eq!(
+        markdown_place(markdown, "Tip"),
+        markdown.find("TIP").unwrap() + "TIP".len()
+    );
+}
+
 // 本文の位置は、バイトではなく文字で数える。
 #[test]
 fn the_place_counts_characters_and_not_bytes() {
