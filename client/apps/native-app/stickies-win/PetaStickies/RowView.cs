@@ -704,6 +704,9 @@ internal sealed class RowView : Grid
     private static Run Run(ShownRun piece, double size)
     {
         var style = piece.Style;
+        // Raised and lowered letters are only smaller, and stay on the baseline. A Run has no
+        // setting to move them, and an InlineUIContainer would break PlaceOf, links and
+        // highlights. The README says more
         var run = new Run { Text = piece.Text, FontSize = size * piece.Scale };
         if (style.HasFlag(RunStyle.Bold))
             run.FontWeight = FontWeights.Bold;

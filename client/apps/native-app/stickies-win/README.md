@@ -141,6 +141,16 @@ asks for. An image whose page asks for no size fits the width of the sticky, and
 larger than its file. Its words stand there until its file is here. A table has a line
 around each cell, and its columns share the width of the sticky.
 
+Raised and lowered letters are 0.75 times as large as the letters of their paragraph, as in
+the other shells. `-# subtext` is lowered too. Unlike the other shells, they stay on the
+baseline: they are only smaller, not higher or lower. A WinUI `Run` has no setting that moves
+its letters off the baseline. The OpenType variants (`Typography.Variants`) do not help
+either. Segoe UI and Yu Gothic UI change only the digits, and Noto Sans JP has no such
+variants. An `InlineUIContainer` could move the letters, but it was not chosen. Its letters
+are not a `Run`, so a click on them would not find its place in the Markdown. It cannot stand
+in a `Hyperlink`, and a `TextHighlighter` does not reach it. In a subtext the whole line is
+lowered, so the baseline would not change its look anyway.
+
 Items that are copied go to the clipboard as Markdown and as HTML (ADR 027). `CopiedHtml`
 of the core library makes the HTML.
 
