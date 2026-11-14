@@ -1,6 +1,6 @@
 //! The entrance for the Android shell, called here from Rust as Kotlin calls it.
 
-use crate::{page_url, tag_url, PetaCore, PetaShell};
+use crate::{PetaCore, PetaShell};
 use client_core::Event;
 use client_native_bridge::ShellEffectFfi;
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
@@ -459,11 +459,4 @@ fn a_new_markdown_folder_starts_no_watcher() {
     core.core.journal.update_config(input);
 
     assert_eq!(core.core.config.markdown_dir(), path(&other));
-}
-
-// ページへのリンクとタグのURLは、そのページのURLである。タグのページは、タグのフォルダーの下にある。
-#[test]
-fn the_url_of_a_link_to_a_page_and_of_a_tag_is_the_url_of_its_page() {
-    assert_eq!(page_url("work/plan".into()), "/pages/work/plan");
-    assert_eq!(tag_url("tags/".into(), "topic".into()), "/pages/tags/topic");
 }

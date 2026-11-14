@@ -1,11 +1,10 @@
 //! Writes the types of the border for a shell that is not written in Rust (ADR 024). The types
 //! come from the shape of the Rust types, so a shell stops compiling when a type changes.
 
-use crate::body::BorderBody;
 use crate::shell::{ShellEffect, ShellEffectFfi};
 use client_core::effects::{NavigateOp, UiOp};
 use client_core::view::PageView;
-use client_core::{Event, ViewModel};
+use client_core::{Event, RichText, ViewModel};
 use crux_core::bridge::Requests;
 use crux_core::capability::Operation;
 use crux_core::render::RenderOperation;
@@ -30,7 +29,7 @@ pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
     let mut registry = TypeRegistry::new();
     ShellEffect::register_types(&mut registry)?;
     registry.register_type::<Event>()?;
-    registry.register_type::<ViewModel<BorderBody>>()?;
+    registry.register_type::<ViewModel<RichText>>()?;
     // The generator does not look into the `Box` that keeps this one in the view model
     registry.register_type::<PageView>()?;
     let generator = registry.build()?;
@@ -38,7 +37,7 @@ pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
 }
 
 /// The enums with data that a shell takes apart with a `switch`.
-const CLOSED_RECORDS: [&str; 3] = ["Node", "RichBlock", "RichLink"];
+const CLOSED_RECORDS: [&str; 2] = ["RichBlock", "RichLink"];
 
 /// Writes the same types as the C# project `PetaTypes` under `out/csharp`, for the WinUI shell.
 ///
@@ -47,7 +46,7 @@ const CLOSED_RECORDS: [&str; 3] = ["Node", "RichBlock", "RichLink"];
 /// directly (ADR 028). So the types are listed here, as `ShellEffect::register_types` lists
 /// them for Crux.
 ///
-/// The generator writes an enum with data, such as `Node` and `RichBlock`, as an
+/// The generator writes an enum with data, such as `RichBlock`, as an
 /// `abstract record`, which the compiler does not count as closed: a `switch` that leaves out a
 /// kind only gets the warning that it gets anyway. So each is made a `closed record` of C# 15
 /// here, and the project is made one of .NET 11, whose compiler knows `closed` (ADR 041).
@@ -101,7 +100,7 @@ fn border_types() -> Result<Registry, TypeGenError> {
     let builder = operation::<NavigateOp>(builder)?;
     let builder = add::<Requests<ShellEffectFfi>>(builder)?;
     let builder = add::<Event>(builder)?;
-    let builder = add::<ViewModel<BorderBody>>(builder)?;
+    let builder = add::<ViewModel<RichText>>(builder)?;
     let builder = add::<PageView>(builder)?;
     builder.build().map_err(failed)
 }
@@ -127,7 +126,7 @@ fn failed(error: impl std::fmt::Display) -> TypeGenError {
 mod tests {
     use super::*;
 
-    // C#の型では、NodeとRichBlockとRichLinkは閉じたrecordで、プロジェクトは.NET 11である。
+    // C#の型では、RichBlockとRichLinkは閉じたrecordで、プロジェクトは.NET 11である。
     #[test]
     fn the_enums_of_csharp_are_closed_records_of_dotnet_11() {
         let out = std::env::temp_dir().join(format!("peta-csharp-types-{}", std::process::id()));

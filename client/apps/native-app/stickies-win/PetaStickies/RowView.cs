@@ -542,7 +542,7 @@ internal sealed class RowView : Grid
         // An item with no text is still as high as a line, and can be clicked
         paper.MinHeight = Math.Round(size * LineHeight);
         var start = 0;
-        foreach (var part in ShownText.Of(row.BodyModel.Rich).Parts)
+        foreach (var part in ShownText.Of(row.BodyModel).Parts)
         {
             UIElement drawnPart = part switch
             {

@@ -56,16 +56,3 @@ impl PetaCore {
 pub fn copied_html(ast: String, app_url: String, tags_dir: String) -> String {
     client_native_bridge::copied_html(&ast, &app_url, &tags_dir)
 }
-
-/// The URL that opens the page of a wikilink in the web frontend, served at `app_url`. A
-/// native shell opens the links of its items there.
-#[boltffi::export]
-pub fn wikilink_url(app_url: String, page: String) -> String {
-    client_native_bridge::wikilink_url(&app_url, &page)
-}
-
-/// The URL that opens the page of a tag in the web frontend.
-#[boltffi::export]
-pub fn hashtag_url(app_url: String, tags_dir: String, tag: String) -> String {
-    client_native_bridge::hashtag_url(&app_url, &tags_dir, &tag)
-}

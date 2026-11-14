@@ -65,7 +65,7 @@ Run it again after a change in Rust. Neither is kept in the repository.
   thread, in order.
 
 - `ShownText` makes the text of an item as it is to be shown: with its decoration, not as
-  Markdown. The core gives the parts of the item with each row (`Row.bodyModel.rich`, ADR 042),
+  Markdown. The core gives the parts of the item with each row (`Row.bodyModel`, ADR 042),
   and this makes text with attributes of the parts: a table in boxes of the text, an image of
   the assets folder as a picture in the text. An image whose page asks for no size is as wide
   as the sticky, and never wider than its file. Each link holds where the core says it leads.

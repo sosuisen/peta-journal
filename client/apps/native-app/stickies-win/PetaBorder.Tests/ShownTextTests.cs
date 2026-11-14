@@ -85,7 +85,7 @@ public sealed class ShownTextTests
         using var server = new JournalServer(18112);
         var row = RowWithBody(string.Join("\n\n", EveryKind.Select(kind => kind.Markdown)), server);
 
-        var shown = ShownText.Of(row.BodyModel.Rich).Text;
+        var shown = ShownText.Of(row.BodyModel).Text;
 
         foreach (var (kind, _, seen) in EveryKind)
             Assert.True(

@@ -127,7 +127,7 @@ copy of Dropbox.
 - `PetaBorder` is the core behind its border, and what the app shows. `Border` is the core
   behind its border of bytes. `Shell` keeps the view model up to date with the core and sends
   what the user did. The parts of an item as it is shown come from the core with each row
-  (`Row.bodyModel.rich`, ADR 042). `RichLinks` makes the link of a run a URL, which a text of
+  (`Row.bodyModel`, ADR 042). `RichLinks` makes the link of a run a URL, which a text of
   SwiftUI takes, and back again when it is touched.
 - `PetaDropbox` is `Cloud` for Dropbox, with the SDK: `DropboxCloud`. `DropboxAccount` is the
   sign-in and the sign-out, as a `CloudAccount` of `PetaSync`. Each calls the SDK through a
