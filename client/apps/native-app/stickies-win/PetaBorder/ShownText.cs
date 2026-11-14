@@ -29,7 +29,11 @@ public enum RunStyle
 
 /// <summary>A piece of a shown text that looks the same all over.</summary>
 /// <param name="Link">Where a click on the piece leads, when it is part of a link.</param>
-public sealed record ShownRun(string Text, RunStyle Style, RichLink? Link)
+/// <param name="Decoration">
+/// True for letters that this shell adds, such as the mark of an entry of a list. They are not
+/// letters of the shown text that the core counts.
+/// </param>
+public sealed record ShownRun(string Text, RunStyle Style, RichLink? Link, bool Decoration = false)
 {
     /// <summary>
     /// How large the letters are, against the letters of their paragraph. Raised and lowered
@@ -49,10 +53,44 @@ public closed record ShownPart;
 /// <summary>A line or a block of a shown text.</summary>
 /// <param name="Scale">How much larger than the usual text it is: more than 1 for a heading.</param>
 /// <param name="Indent">How many steps to the right it stands, in a list or a quote.</param>
-public sealed record ShownParagraph(IReadOnlyList<ShownRun> Runs, double Scale, int Indent)
-    : ShownPart
+/// <param name="Start">
+/// How many letters of the shown text of the item stand before it, as the core counts them
+/// (<c>RichParagraph.Start</c>). None for a line that has only the mark of an entry.
+/// </param>
+public sealed record ShownParagraph(
+    IReadOnlyList<ShownRun> Runs,
+    double Scale,
+    int Indent,
+    int? Start
+) : ShownPart
 {
     public string Text => string.Concat(Runs.Select(run => run.Text));
+
+    /// <summary>
+    /// How many letters of the shown text of the item stand before a touch
+    /// <paramref name="place"/> UTF-16 units into <see cref="Text"/>, as the core counts them
+    /// (ADR 043). A touch on a decoration is at the letter after it. None for a line that has
+    /// only the mark of an entry.
+    /// </summary>
+    public int? LetterAt(int place)
+    {
+        if (Start is not { } letters)
+            return null;
+        var at = 0;
+        foreach (var run in Runs)
+        {
+            var end = at + run.Text.Length;
+            if (!run.Decoration)
+            {
+                if (place <= end)
+                    return letters
+                        + (int)PetaCore.PetaNative.CharsOfUtf16(run.Text, (ulong)Math.Max(place - at, 0));
+                letters += (int)PetaCore.PetaNative.CharsOfUtf16(run.Text, (ulong)run.Text.Length);
+            }
+            at = end;
+        }
+        return letters;
+    }
 }
 
 /// <summary>A table: its rows, each with a paragraph in each cell.</summary>
@@ -142,7 +180,8 @@ internal sealed class PartWriter
                     Line(
                         [new ShownRun(code.Lines, Quoted(RunStyle.Code, quoted), null)],
                         1,
-                        Indent(depth, quoted)
+                        Indent(depth, quoted),
+                        (int)code.Start
                     ),
                 RichBlock.Table table => () => Table(table.Rows, depth, quoted),
                 RichBlock.Image image => () => Picture(image.Image_, depth, quoted),
@@ -164,7 +203,7 @@ internal sealed class PartWriter
             lead = entry.Mark;
             Blocks(entry.Blocks, depth + 1, quoted);
             if (lead is not null)
-                Line([], 1, Indent(depth + 1, quoted));
+                Line([], 1, Indent(depth + 1, quoted), null);
         }
     }
 
@@ -175,12 +214,17 @@ internal sealed class PartWriter
         var heading = paragraph.Heading > 0 ? RunStyle.Bold : RunStyle.None;
         var runs = new List<ShownRun>();
         if (paragraph.Rule)
-            runs.Add(new ShownRun(Rule, Quoted(RunStyle.None, quoted), null));
+            runs.Add(new ShownRun(Rule, Quoted(RunStyle.None, quoted), null, Decoration: true));
         foreach (var run in paragraph.Runs)
             runs.Add(
                 new ShownRun(run.Text, Quoted(heading | StyleOf(run.Looks), quoted), run.Link)
             );
-        Line(runs, RowLook.HeadingScale(paragraph.Heading), Indent(depth, quoted));
+        Line(
+            runs,
+            RowLook.HeadingScale(paragraph.Heading),
+            Indent(depth, quoted),
+            (int)paragraph.Start
+        );
     }
 
     /// <summary>
@@ -206,7 +250,8 @@ internal sealed class PartWriter
                             )),
                         ],
                         1,
-                        0
+                        0,
+                        (int)cell.Start
                     )),
                 ]
             ))
@@ -227,19 +272,19 @@ internal sealed class PartWriter
     private void Lead(int depth, int quoted)
     {
         if (lead is not null)
-            Line([], 1, Indent(depth, quoted));
+            Line([], 1, Indent(depth, quoted), null);
     }
 
     /// <summary>One line, which starts with the mark of the entry that it is the first of.</summary>
-    private void Line(List<ShownRun> runs, double scale, int indent)
+    private void Line(List<ShownRun> runs, double scale, int indent, int? start)
     {
         if (lead is not null)
         {
-            runs.Insert(0, new ShownRun(lead + " ", RunStyle.None, null));
+            runs.Insert(0, new ShownRun(lead + " ", RunStyle.None, null, Decoration: true));
             lead = null;
         }
         if (runs.Count > 0)
-            Parts.Add(new ShownParagraph(runs, scale, indent));
+            Parts.Add(new ShownParagraph(runs, scale, indent, start));
     }
 
     /// <summary>

@@ -79,7 +79,7 @@ public final class Shell: ObservableObject {
         switch link {
         case .page(let url):
             if inBrowser {
-                browse(server + (url.addingPercentEncoding(withAllowedCharacters: Shell.inAddress) ?? url))
+                browse(pageAddress(appUrl: server, url: url))
             } else {
                 open(url)
             }
@@ -87,11 +87,6 @@ public final class Shell: ObservableObject {
         case .file(let path): if let address = images.address(of: path) { browse(address) }
         }
     }
-
-    /// What stays as it is in the address of a page: the letters that `encodeURI` of JavaScript
-    /// keeps, as the web frontend encodes its own addresses. `#` stays, so that the address
-    /// still leads to an item of the page.
-    private static let inAddress = CharacterSet.urlFragmentAllowed.union(CharacterSet(charactersIn: "#"))
 
     private func browse(_ address: String) {
         if let url = URL(string: address) { browse(url) }
@@ -110,6 +105,13 @@ public final class Shell: ObservableObject {
     /// The user clicked the mark of a task: its state goes one step on, as with the key.
     public func clickedTask(of itemId: String) {
         send(.taskCycle(itemId: itemId))
+    }
+
+    /// The user clicked the shown text of the item after `letter` of its letters, as
+    /// `RichParagraph.start` counts them. The item is edited with the cursor at that place in
+    /// its Markdown (ADR 043).
+    public func touched(_ itemId: String, letter: Int) {
+        send(.shownTextTouched(itemId: itemId, letter: UInt64(letter)))
     }
 
     /// The user put the cursor in the item.

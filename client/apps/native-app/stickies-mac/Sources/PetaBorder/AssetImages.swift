@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import PetaCore
 
 /// The images of the assets folder, read from the journal server, which serves the folder at
 /// `/assets/`. An image is asked for when a text is made, and the text is made again when the
@@ -47,7 +48,6 @@ public final class AssetImages: ObservableObject {
 
     /// Where the journal server serves the file at `path` under the Markdown folder.
     public func address(of path: String) -> URL? {
-        let encoded = path.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? path
-        return URL(string: server + "/" + encoded)
+        URL(string: assetAddress(appUrl: server, path: path))
     }
 }

@@ -194,7 +194,7 @@ private struct Results: View {
                 onPick(entry)
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(label(entry)).font(.headline)
+                    Text(entry.label).font(.headline)
                     if !entry.snippet.isEmpty { Text(entry.snippet).font(.subheadline).lineLimit(2) }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -202,14 +202,5 @@ private struct Results: View {
             .foregroundStyle(.primary)
         }
         .listStyle(.plain)
-    }
-
-    /// What a search result shows as its first line. Two kinds of result make a page.
-    private func label(_ entry: SearchEntry) -> String {
-        switch entry.kind {
-        case .today: return "Open Today"
-        case .create: return "New page: \(entry.title)"
-        case .page, .item: return entry.title
-        }
     }
 }

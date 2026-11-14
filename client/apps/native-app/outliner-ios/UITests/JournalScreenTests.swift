@@ -117,7 +117,7 @@ final class JournalScreenTests: XCTestCase {
         waitFor(search)
         search.tap()
         search.typeText("fresh")
-        let result = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'New page: fresh'")).firstMatch
+        let result = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Create page \"fresh\"'")).firstMatch
         waitFor(result)
         result.tap()
         waitFor(app.staticTexts["fresh"])

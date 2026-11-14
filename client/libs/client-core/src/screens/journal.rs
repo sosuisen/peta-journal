@@ -242,7 +242,8 @@ fn extract_journal_name(name: &str, weekly: bool) -> Option<String> {
     if weekly {
         let idx = name.find("-W")?;
         let start = idx.checked_sub(4)?;
-        let candidate = &name[start..(idx + 5).min(name.len())];
+        // A name with other letters there is no journal: it is not cut inside a letter
+        let candidate = name.get(start..idx + "-W07".len())?;
         return (classify_journal_file_name(candidate) == JournalType::Weekly)
             .then(|| candidate.to_string());
     }
@@ -341,5 +342,26 @@ fn shown_date(j: &JournalState) -> &str {
         &j.current_date
     } else {
         &j.top_visible_date
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_journal_name;
+
+    // 週のジャーナルの名前は、ページの名前から切り出す。
+    #[test]
+    fn the_name_of_a_weekly_journal_is_cut_out_of_the_page_name() {
+        assert_eq!(
+            extract_journal_name("2026-W07", true),
+            Some("2026-W07".to_string())
+        );
+    }
+
+    // `-W`の前後に日本語のある名前は、週のジャーナルではない。文字の途中では切らない（ADR 043）。
+    #[test]
+    fn a_name_with_japanese_around_w_is_not_a_weekly_journal() {
+        assert_eq!(extract_journal_name("あい-W07", true), None);
+        assert_eq!(extract_journal_name("2026-W0日", true), None);
     }
 }

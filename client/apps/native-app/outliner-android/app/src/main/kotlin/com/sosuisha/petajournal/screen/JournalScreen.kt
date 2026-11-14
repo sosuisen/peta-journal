@@ -38,7 +38,6 @@ import com.sosuisha.petajournal.shell.Shell
 import com.sosuisha.petajournal.sync.SyncState
 import com.sosuisha.petajournal.types.ScreenView
 import com.sosuisha.petajournal.types.SearchEntry
-import com.sosuisha.petajournal.types.SearchKind
 import com.sosuisha.petajournal.types.ViewModel
 
 /** The name that the tests find the search field by. */
@@ -166,7 +165,7 @@ private fun Results(entries: List<SearchEntry>, onPick: (SearchEntry) -> Unit) {
             Column(
                 Modifier.fillMaxWidth().clickable { onPick(entry) }.padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
-                Text(label(entry), style = MaterialTheme.typography.titleMedium)
+                Text(entry.label, style = MaterialTheme.typography.titleMedium)
                 if (entry.snippet.isNotEmpty()) {
                     Text(entry.snippet, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                 }
@@ -174,14 +173,6 @@ private fun Results(entries: List<SearchEntry>, onPick: (SearchEntry) -> Unit) {
         }
     }
 }
-
-/** What a search result shows as its first line. Two kinds of result make a page. */
-private fun label(entry: SearchEntry): String =
-    when (entry.kind) {
-        SearchKind.TODAY -> "Open Today"
-        SearchKind.CREATE -> "New page: ${entry.title}"
-        SearchKind.PAGE, SearchKind.ITEM -> entry.title
-    }
 
 /**
  * A question of the core, over the page. A touch outside the dialog answers no. The button

@@ -8,10 +8,12 @@ mod clock;
 #[cfg(feature = "facet_typegen")]
 pub mod codegen;
 mod html;
+mod links;
 mod shell;
 
 pub use clock::{Clock, SystemClock};
 pub use html::copied_html;
+pub use links::{asset_address, page_address};
 pub use shell::{BorderError, Host, NativeShell, NothingThere, ShellEffect, ShellEffectFfi};
 
 /// The core under the border. A row gives a native shell the parts of its body to draw

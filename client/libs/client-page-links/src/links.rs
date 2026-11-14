@@ -32,6 +32,9 @@ const OUTSIDE_A_URL: &AsciiSet = &CONTROLS
     .add(b'|')
     .add(b'}');
 
+/// What is encoded in the path of a file: a `#` or a `?` there is a part of the name.
+const OUTSIDE_A_FILE_PATH: &AsciiSet = &OUTSIDE_A_URL.add(b'#').add(b'?');
+
 /// The links to pages as another app can open them: whole URLs of this app.
 ///
 /// Only this type knows how such a URL is made. Another form, such as a URL scheme of the
@@ -45,18 +48,28 @@ pub struct AppLinks<'a> {
 
 impl AppLinks<'_> {
     pub fn wikilink(&self, page: &str) -> String {
-        self.url_of(&wikilink_path(page))
+        self.page(&wikilink_path(page))
     }
 
     pub fn hashtag(&self, tag: &str) -> String {
-        self.url_of(&hashtag_path(self.tags_dir, tag))
+        self.page(&hashtag_path(self.tags_dir, tag))
     }
 
-    fn url_of(&self, path: &str) -> String {
+    /// The whole URL of a URL of the app as the core writes it, such as `/pages/notes#item`.
+    pub fn page(&self, url: &str) -> String {
         format!(
             "{}{}",
             self.app_url,
-            utf8_percent_encode(path, OUTSIDE_A_URL)
+            utf8_percent_encode(url, OUTSIDE_A_URL)
+        )
+    }
+
+    /// The whole URL of a file under the Markdown folder, such as `assets/picture.png`.
+    pub fn asset(&self, path: &str) -> String {
+        format!(
+            "{}/{}",
+            self.app_url,
+            utf8_percent_encode(path, OUTSIDE_A_FILE_PATH)
         )
     }
 }
@@ -115,6 +128,28 @@ mod tests {
         assert_eq!(
             LINKS.wikilink("Page#place"),
             "http://localhost:8080/pages/Page#place"
+        );
+    }
+
+    // coreが書いたままのアプリのURLも、ブラウザで開ける、まるごとのURLになる。符号化はリンクと同じで、項目を指す # は残る。
+    #[test]
+    fn a_url_of_the_app_as_the_core_writes_it_becomes_a_whole_url() {
+        assert_eq!(
+            LINKS.page("/pages/メモ/案 1#item"),
+            "http://localhost:8080/pages/%E3%83%A1%E3%83%A2/%E6%A1%88%201#item"
+        );
+    }
+
+    // assetsフォルダーのファイルは、Markdownフォルダーからのパスで、アプリのURLの下にある。ファイル名の # と ? も符号化される。
+    #[test]
+    fn a_file_of_the_assets_folder_is_under_the_url_of_the_app() {
+        assert_eq!(
+            LINKS.asset("assets/report a.pdf"),
+            "http://localhost:8080/assets/report%20a.pdf"
+        );
+        assert_eq!(
+            LINKS.asset("assets/a#b?.png"),
+            "http://localhost:8080/assets/a%23b%3F.png"
         );
     }
 }

@@ -1,5 +1,6 @@
 import AppKit
 import PetaBorder
+import PetaCore
 import PetaTypes
 import SwiftUI
 
@@ -187,6 +188,12 @@ final class Editor: NSObject, NSTextViewDelegate {
         // edited: the cursor left it for something that is no item, and came back
         let edited = shell.view.outline.rows.contains { $0.item.id == itemId && $0.isEditing }
         guard selecting || !edited || shell.view.outline.focusedItemId != itemId else { return }
+        if let letter = view.touched {
+            // The core answers with an order to put the cursor at the place in the Markdown
+            // that was clicked, which `putCursor` carries out
+            shell.touched(itemId, letter: letter)
+            return
+        }
         shell.startEditing(itemId)
         // The core answers with an order to put the cursor at the start of this item. The
         // cursor is already here, and where the user clicked
@@ -218,7 +225,7 @@ final class Editor: NSObject, NSTextViewDelegate {
         guard !shell.view.outline.selectionMode else { return }
         window.makeFirstResponder(view)
         if let cursor = asked?.cursor {
-            let place = Cursor.utf16(characters: cursor, in: view.string)
+            let place = Int(utf16OfChars(text: view.string, chars: cursor))
             view.setSelectedRange(NSRange(location: place, length: 0))
         }
     }
@@ -236,6 +243,9 @@ final class ItemTextView: NSTextView {
     private var aimed: RichLink?
     /// The text with its decoration that the view shows, when it does not show Markdown.
     var shown: NSAttributedString?
+    /// How many letters of the shown text, as the core counts them, stand before the click
+    /// that gave the view the cursor. `nil` when the cursor came another way.
+    private(set) var touched: Int?
     /// A key of the outline that is no command of a text view. True when it was taken.
     var onKey: ((EditorKey, ItemTextView) -> Bool)?
     /// The text view does not keep its text storage alive when it is built by hand.
@@ -327,10 +337,27 @@ final class ItemTextView: NSTextView {
             onLink?(link, event.modifierFlags.contains(.shift))
             return
         }
+        // The click gave the view the cursor on the shown text, and the core puts it at the
+        // place in the Markdown. AppKit would put it at the same point of the Markdown, which is
+        // another letter
+        if touched != nil {
+            touched = nil
+            return
+        }
         super.mouseDown(with: event)
     }
 
+    /// The letter of the shown text under the click that is going on. The window gives the
+    /// cursor to the view before the click arrives in `mouseDown`.
+    private func clickedLetter() -> Int? {
+        guard let shown, let event = NSApp.currentEvent, event.type == .leftMouseDown, event.window === window
+        else { return nil }
+        let index = characterIndexForInsertion(at: convert(event.locationInWindow, from: nil))
+        return ShownText.letter(in: shown, at: index)
+    }
+
     override func becomeFirstResponder() -> Bool {
+        touched = clickedLetter()
         let became = super.becomeFirstResponder()
         if became { onCursor?() }
         return became

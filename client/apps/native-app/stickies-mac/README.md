@@ -59,9 +59,10 @@ Run it again after a change in Rust. Neither is kept in the repository.
   what the user did. It also holds what the core asks and waits for: a question to the user
   (`question`, shown as a dialog), an order to put the cursor in an item (`focus`), and the text
   on the clipboard.
-- `Keys.swift` says what a key in the editor of an item means to the outline (`Shell.pressed`),
-  and `Cursor` turns the place of a cursor from the UTF-16 units of AppKit into the characters
-  the core counts, and back. The core calls from its own threads; `Shell` moves each request to the main
+- `Keys.swift` says what a key in the editor of an item means to the outline (`Shell.pressed`).
+  The place of a cursor goes from the UTF-16 units of AppKit to the characters the core counts,
+  and back, through `charsOfUtf16` and `utf16OfChars` of the Rust core (ADR 043). The core calls
+  from its own threads; `Shell` moves each request to the main
   thread, in order.
 
 - `ShownText` makes the text of an item as it is to be shown: with its decoration, not as
@@ -137,7 +138,9 @@ that confirms it does not split the item.
 Only the item with the cursor shows its Markdown. Every other item shows its text with its
 decoration (ADR 041) and cannot be typed into. A click into an item makes it Markdown at once;
 when the cursor leaves it, the shell tells the core that the edit is over (`Shell.finishEditing`),
-as the web frontend does, and the item shows its decoration again. The marks before the text
+as the web frontend does, and the item shows its decoration again. The shell tells the core how
+many letters of the shown text stand before the click (`Shell.touched`). The core finds that
+place in the Markdown, and the cursor goes there (ADR 043). The marks before the text
 (the bullet, the box of a task) are drawn by the screen, not taken from the AST.
 
 A click on a link of an item that shows its decoration follows it (`Shell.follow`). A wikilink

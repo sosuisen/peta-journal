@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import PetaCore
 import PetaTypes
 
 /// The text of an item as it is shown: with its decoration, not as Markdown.
@@ -13,6 +14,33 @@ public enum ShownText {
         var writer = TextWriter(size: NSFont.systemFontSize * zoom, image: image)
         writer.blocks(rich.blocks, depth: 0, quoted: 0)
         return writer.finished()
+    }
+
+    /// How many letters of the shown text of the item stand before a click at `index` of a
+    /// shown text, as the core counts them (`RichParagraph.start`, ADR 043). A click on a
+    /// decoration, such as the mark of an entry, is at the letter after it; one at the end of
+    /// a line is after its last letter. `nil` when no letter of the core is near.
+    public static func letter(in text: NSAttributedString, at index: Int) -> Int? {
+        func counted(at place: Int) -> (start: Int, range: NSRange)? {
+            guard place >= 0, place < text.length else { return nil }
+            var range = NSRange()
+            let start = text.attribute(.shownLetter, at: place, effectiveRange: &range) as? Int
+            return start.map { ($0, range) }
+        }
+        func letters(of range: NSRange, before place: Int) -> Int {
+            let letters = (text.string as NSString).substring(with: range)
+            return Int(charsOfUtf16(text: letters, units: UInt64(place - range.location)))
+        }
+        if let (start, range) = counted(at: index) { return start + letters(of: range, before: index) }
+        if let (start, range) = counted(at: index - 1) {
+            return start + letters(of: range, before: range.location + range.length)
+        }
+        var next = index + 1
+        while next < text.length {
+            if let (start, _) = counted(at: next) { return start }
+            next += 1
+        }
+        return nil
     }
 
     /// Where the link of the letters at `index` of a shown text leads. `nil` for letters
@@ -32,6 +60,9 @@ extension Looks {
 extension NSAttributedString.Key {
     /// Where the letters lead, as the core says (`HeldLink`).
     static let richLink = NSAttributedString.Key("PetaRichLink")
+    /// How many letters of the shown text of the item stand before the letters, as the core
+    /// counts them. Decorations that this shell adds have none.
+    static let shownLetter = NSAttributedString.Key("PetaShownLetter")
 }
 
 /// A link that a text holds as the value of an attribute. Two that lead to the same place are
@@ -119,9 +150,9 @@ private struct TextWriter {
                     let at = Line(depth: depth + Int(paragraph.depth), quoted: quoted + Int(paragraph.quoted))
                     self.paragraph(paragraph, at)
                 }
-            case .code(let lines):
+            case .code(let lines, let start):
                 startLine(line)
-                append(lines, Self.code, line)
+                append(lines, Self.code, line, letter: Int(start))
                 endLine(line)
             case .table(let rows):
                 table(rows, line)
@@ -161,9 +192,11 @@ private struct TextWriter {
         if paragraph.rule {
             append("────────", Self.plain, line)
         }
+        var letter = Int(paragraph.start)
         for run in paragraph.runs {
             // A line break of the item stays inside its paragraph
-            append(run.text.replacingOccurrences(of: "\n", with: "\u{2028}"), run, line)
+            append(run.text.replacingOccurrences(of: "\n", with: "\u{2028}"), run, line, letter: letter)
+            letter += run.text.unicodeScalars.count
         }
         endLine(line)
     }
@@ -196,10 +229,12 @@ private struct TextWriter {
                 style.textBlocks = [box]
                 var line = at
                 line.style = style
+                var letter = Int(cell.start)
                 for run in cell.runs {
                     var looks = run
                     if shown.header { looks.looks.bold = true }
-                    append(run.text, looks, line)
+                    append(run.text, looks, line, letter: letter)
+                    letter += run.text.unicodeScalars.count
                 }
                 endLine(line)
             }
@@ -234,8 +269,9 @@ private struct TextWriter {
         return RichRun(text: "", looks: looks, link: nil)
     }()
 
-    /// Letters with the looks and the link of their run.
-    private mutating func append(_ letters: String, _ run: RichRun, _ line: Line) {
+    /// Letters with the looks and the link of their run. `letter` is how many letters of the
+    /// shown text, as the core counts them, stand before them; a decoration has none.
+    private mutating func append(_ letters: String, _ run: RichRun, _ line: Line, letter: Int? = nil) {
         if letters.isEmpty { return }
         let looks = run.looks
         let shifted = looks.raised || looks.lowered
@@ -257,6 +293,7 @@ private struct TextWriter {
         if looks.hidden { attributes[.backgroundColor] = Self.hiddenColor }
         if looks.raised { attributes[.baselineOffset] = size * 0.35 }
         if looks.lowered { attributes[.baselineOffset] = -size * 0.15 }
+        if let letter { attributes[.shownLetter] = letter }
         if let link = run.link {
             attributes[.richLink] = HeldLink(link)
             attributes[.foregroundColor] = Self.linkColor

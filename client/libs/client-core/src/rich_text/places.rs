@@ -3,6 +3,7 @@
 
 use super::{blocks, RichBlock, RichParagraph};
 use crate::asts::parse;
+use crate::util::utf16::after_letter;
 
 /// What leaving out a letter of the shown text costs, where a letter of the Markdown costs 1.
 /// The Markdown has many letters that are not shown, such as the address of a link; the shown
@@ -56,7 +57,13 @@ pub fn touched_place(markdown: &str, tags_dir: &str, letter: usize) -> usize {
         &mut letters,
     );
     let before: String = letters.text.chars().take(letter).collect();
-    markdown_place(markdown, &before)
+    place_after(markdown, &before)
+}
+
+/// The place in the Markdown of an item, in characters, right after the shown letters
+/// `before`, at the end of a letter as a person sees it (ADR 043).
+pub fn place_after(markdown: &str, before: &str) -> usize {
+    after_letter(markdown, markdown_place(markdown, before))
 }
 
 /// The shown text of an item as it is written out, with the count of its letters.

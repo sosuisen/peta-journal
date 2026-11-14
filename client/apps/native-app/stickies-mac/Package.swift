@@ -28,9 +28,13 @@ let package = Package(
             name: "PetaScreens",
             dependencies: [
                 "PetaBorder",
+                .product(name: "PetaCore", package: "PetaCore"),
                 .product(name: "PetaTypes", package: "PetaTypes"),
             ]
         ),
-        .testTarget(name: "PetaBorderTests", dependencies: ["PetaBorder", "PetaScreens"]),
+        .testTarget(
+            name: "PetaBorderTests",
+            dependencies: ["PetaBorder", "PetaScreens", .product(name: "PetaCore", package: "PetaCore")]
+        ),
     ]
 )

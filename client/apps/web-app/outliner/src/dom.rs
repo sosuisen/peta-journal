@@ -2,6 +2,7 @@
 //! the page directly.
 
 use client_core::model::DeferredKey;
+use client_core::util::utf16;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
@@ -94,23 +95,14 @@ pub fn deferred_key(ev: &web_sys::KeyboardEvent) -> DeferredKey {
     }
 }
 
-/// The number of characters before a UTF-16 offset.
+/// The number of characters before a UTF-16 offset (ADR 043).
 pub fn utf16_to_chars(text: &str, utf16_offset: u32) -> usize {
-    let mut units = 0u32;
-    let mut chars = 0usize;
-    for c in text.chars() {
-        if units >= utf16_offset {
-            break;
-        }
-        units += c.len_utf16() as u32;
-        chars += 1;
-    }
-    chars
+    utf16::chars_of_utf16(text, utf16_offset as usize)
 }
 
 /// The UTF-16 offset of a character index.
 pub fn chars_to_utf16(text: &str, chars: usize) -> u32 {
-    text.chars().take(chars).map(|c| c.len_utf16() as u32).sum()
+    utf16::utf16_of_chars(text, chars) as u32
 }
 
 pub fn selection_start_chars(el: &web_sys::HtmlTextAreaElement) -> usize {
@@ -311,28 +303,26 @@ fn mirror_offset_at_point(
     Some(utf16_to_chars(value, offset))
 }
 
-/// The offset in an element's text under a point, counted across all its text nodes.
-pub fn text_offset_at_point(container: &web_sys::Element, x: f64, y: f64) -> usize {
-    let Some((node, offset)) = caret_point_from_point(x, y) else {
-        return 0;
-    };
-    if node.node_type() != web_sys::Node::TEXT_NODE {
-        return 0;
+/// The letters of an element's text before a point, across all its text nodes. `None` when
+/// the point is on no text of the element, such as beside its letters.
+pub fn text_before_point(container: &web_sys::Element, x: f64, y: f64) -> Option<String> {
+    let (node, offset) = caret_point_from_point(x, y)?;
+    if node.node_type() != web_sys::Node::TEXT_NODE || !container.contains(Some(&node)) {
+        return None;
     }
-    let Ok(walker) =
-        document().create_tree_walker_with_what_to_show(container, 4 /* SHOW_TEXT */)
-    else {
-        return offset as usize;
-    };
-    let mut cumulative = 0usize;
+    let walker = document()
+        .create_tree_walker_with_what_to_show(container, 4 /* SHOW_TEXT */)
+        .ok()?;
+    let mut before = String::new();
     while let Ok(Some(current)) = walker.next_node() {
         let text = current.text_content().unwrap_or_default();
         if current.is_same_node(Some(&node)) {
-            return cumulative + utf16_to_chars(&text, offset);
+            before.extend(text.chars().take(utf16_to_chars(&text, offset)));
+            return Some(before);
         }
-        cumulative += text.chars().count();
+        before.push_str(&text);
     }
-    cumulative + offset as usize
+    None
 }
 
 /// A blob of `content` with the MIME type `mime`.

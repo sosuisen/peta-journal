@@ -20,6 +20,17 @@ pub fn shown_text_touched(model: &mut Model, item_id: &str, letter: usize) -> Cm
     edit_requested(model, item_id, cursor)
 }
 
+/// The user touched the shown text of an item after the letters `before`, as the page of the
+/// web shell has them: the item is edited with the cursor after them in its Markdown.
+pub fn shown_text_touched_after(model: &mut Model, item_id: &str, before: &str) -> Cmd {
+    let cursor = model
+        .state
+        .get_item_by_id(item_id)
+        .map(|item| crate::rich_text::place_after(&item.body, before))
+        .unwrap_or(0);
+    edit_requested(model, item_id, cursor)
+}
+
 /// The user clicked an item to start editing it. Ignored in selection mode.
 pub fn edit_requested(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
     if model.state.item_selection_mode() || model.state.is_broken_transclusion(item_id) {

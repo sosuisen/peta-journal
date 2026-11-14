@@ -4,26 +4,6 @@ namespace PetaBorder.Tests;
 
 public sealed class KeysTests
 {
-    // コアはカーソルを文字（Unicodeスカラー）で数える。絵文字はUTF-16では2つだが、1文字である。
-    [Fact]
-    public void A_cursor_of_WinUI_is_counted_in_characters_for_the_core()
-    {
-        Assert.Equal(0UL, Cursor.Characters(0, "日本😀語"));
-        Assert.Equal(2UL, Cursor.Characters(2, "日本😀語"));
-        Assert.Equal(3UL, Cursor.Characters(4, "日本😀語"));
-        Assert.Equal(4UL, Cursor.Characters(5, "日本😀語"));
-    }
-
-    // コアのカーソルは、UTF-16の位置に戻せる。本文より先の位置は、末尾になる。
-    [Fact]
-    public void A_cursor_of_the_core_is_counted_in_UTF16_for_WinUI()
-    {
-        Assert.Equal(0, Cursor.Utf16(0, "日本😀語"));
-        Assert.Equal(4, Cursor.Utf16(3, "日本😀語"));
-        Assert.Equal(5, Cursor.Utf16(4, "日本😀語"));
-        Assert.Equal(5, Cursor.Utf16(long.MaxValue, "日本😀語"));
-    }
-
     // 編集欄のキーは、Web版と同じである。
     [Theory]
     [InlineData(Key.Enter, Held.None, EditorKey.Enter)]
