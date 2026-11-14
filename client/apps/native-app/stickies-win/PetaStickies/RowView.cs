@@ -660,7 +660,7 @@ internal sealed class RowView : Grid
         var place = 0;
         foreach (var piece in paragraph.Runs)
         {
-            var run = Run(piece);
+            var run = Run(piece, size * paragraph.Scale);
             runs.Add((block, run, start + place));
             if (piece.Link is { } link)
             {
@@ -701,10 +701,10 @@ internal sealed class RowView : Grid
         return block;
     }
 
-    private static Run Run(ShownRun piece)
+    private static Run Run(ShownRun piece, double size)
     {
         var style = piece.Style;
-        var run = new Run { Text = piece.Text };
+        var run = new Run { Text = piece.Text, FontSize = size * piece.Scale };
         if (style.HasFlag(RunStyle.Bold))
             run.FontWeight = FontWeights.Bold;
         if (style.HasFlag(RunStyle.Italic))
@@ -720,10 +720,6 @@ internal sealed class RowView : Grid
             run.FontFamily = CodeFont;
         if (style.HasFlag(RunStyle.Quote))
             run.Foreground = Quoted;
-        if (style.HasFlag(RunStyle.Superscript))
-            Typography.SetVariants(run, FontVariants.Superscript);
-        if (style.HasFlag(RunStyle.Subscript))
-            Typography.SetVariants(run, FontVariants.Subscript);
         return run;
     }
 

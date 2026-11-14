@@ -29,7 +29,16 @@ public enum RunStyle
 
 /// <summary>A piece of a shown text that looks the same all over.</summary>
 /// <param name="Link">Where a click on the piece leads, when it is part of a link.</param>
-public sealed record ShownRun(string Text, RunStyle Style, RichLink? Link);
+public sealed record ShownRun(string Text, RunStyle Style, RichLink? Link)
+{
+    /// <summary>
+    /// How large the letters are, against the letters of their paragraph. Raised and lowered
+    /// letters are smaller, as in the other shells. The OpenType variants of the fonts do not
+    /// make them so: Segoe UI and Yu Gothic UI change only the digits, and Noto Sans JP has none.
+    /// </summary>
+    public double Scale =>
+        (Style & (RunStyle.Superscript | RunStyle.Subscript)) != 0 ? 0.75 : 1;
+}
 
 /// <summary>
 /// One part of an item as the screen draws it, from top to bottom. A <c>switch</c> that leaves
