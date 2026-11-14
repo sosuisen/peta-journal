@@ -44,6 +44,11 @@ impl PropertyKey {
         })
     }
 
+    /// Whether the key is a list key of the user, whose name ends with `_list`.
+    pub fn is_user_list(&self) -> bool {
+        matches!(self, PropertyKey::List(ListKey::User(_)))
+    }
+
     /// Refuses a type that does not fit the name: a list key takes `list` (`tags` for the
     /// tags), and a scalar key takes neither.
     pub fn check_type(&self, value_type: &str) -> AppResult<()> {

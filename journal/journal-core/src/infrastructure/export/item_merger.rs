@@ -12,7 +12,7 @@ use crate::application::markdown_parser::MarkdownParser;
 use crate::domain::hashtag;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::model::{Item, Page};
-use crate::domain::property_key::{ListKey, PropertyKey};
+use crate::domain::property_key::PropertyKey;
 use crate::domain::search::SearchIndex;
 use crate::error::AppResult;
 use crate::infrastructure::persistence::property_repository::list_values;
@@ -382,10 +382,7 @@ impl ItemMerger {
         let mut want: Vec<&str> = Vec::new();
         for (k, v) in file_properties {
             // The name tells a list, so a key comes in as a list even with no definition
-            if !matches!(
-                PropertyKey::parse(k),
-                Ok(PropertyKey::List(ListKey::User(_)))
-            ) {
+            if !PropertyKey::parse(k).is_ok_and(|key| key.is_user_list()) {
                 continue;
             }
             want.push(k);
