@@ -14,7 +14,7 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::journal_name;
 use crate::domain::model::{BacklinkEntry, Item, Page, ATLAS_NAME};
 use crate::domain::nfc::to_nfc;
-use crate::domain::property_key::PropertyKey;
+use crate::domain::property_key::{ListKey, PropertyKey};
 use crate::domain::search::SearchIndex;
 use crate::domain::wikilink;
 use crate::error::{AppError, AppResult};
@@ -565,7 +565,11 @@ impl PageService {
             {
                 continue;
             }
-            if definition.is_some_and(|def| def.value_type == "list") {
+            // The name tells a list, so a key comes in as a list even with no definition
+            if matches!(
+                PropertyKey::parse(key),
+                Ok(PropertyKey::List(ListKey::User(_)))
+            ) {
                 let values = list_values(value);
                 if lists.get(key).is_none_or(|have| *have != values) {
                     PropertyRepository::upsert_list_in(
