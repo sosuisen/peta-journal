@@ -43,7 +43,7 @@ pub fn markdown_place(markdown: &str, shown_before: &str) -> usize {
 }
 
 fn same_letter(mark: char, letter: char) -> bool {
-    mark == letter || mark.to_lowercase().eq(letter.to_lowercase())
+    mark == letter || mark.to_lowercase().eq(letter.to_lowercase()) || (mark, letter) == ('|', '\n')
 }
 
 /// The place in the Markdown of an item, in characters, of a touch after `letter` letters of
