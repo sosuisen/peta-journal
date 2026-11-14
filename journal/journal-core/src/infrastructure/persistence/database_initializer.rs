@@ -14,6 +14,7 @@ use rusqlite::{params, Connection};
 
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::nfc::to_nfc;
+use crate::domain::number_text::format_number;
 
 use super::db::{now_millis, Db};
 
@@ -25,6 +26,7 @@ const MIGRATIONS: &[fn(&Connection) -> rusqlite::Result<()>] = &[
     put_names_in_nfc,
     add_last_synced,
     drop_item_asts,
+    use_one_value_column,
 ];
 
 pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
@@ -68,6 +70,32 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
 fn user_version(conn: &Connection) -> rusqlite::Result<usize> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(version as usize)
+}
+
+/// Version 6: one column for the value of a property, as the text written in the files
+/// (ADR 046). A type is how the text is read, so the value stays when the type changes. The
+/// numbers and checkboxes come in as the export writes them.
+fn use_one_value_column(conn: &Connection) -> rusqlite::Result<()> {
+    let numbers: Vec<(i64, f64)> = conn
+        .prepare("SELECT rowid, value_number FROM properties WHERE value_number IS NOT NULL")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    for (rowid, number) in numbers {
+        conn.execute(
+            "UPDATE properties SET value_text = ? WHERE rowid = ?",
+            params![format_number(number), rowid],
+        )?;
+    }
+    conn.execute_batch(
+        "UPDATE properties SET value_text = CASE WHEN value_checkbox != 0 THEN 'true' ELSE 'false' END
+             WHERE value_checkbox IS NOT NULL;
+         DROP INDEX idx_props_key_number;
+         DROP INDEX idx_props_key_text;
+         ALTER TABLE properties DROP COLUMN value_number;
+         ALTER TABLE properties DROP COLUMN value_checkbox;
+         ALTER TABLE properties RENAME COLUMN value_text TO value;
+         CREATE INDEX idx_props_key_value ON properties(key, value);",
+    )
 }
 
 /// Version 5: no AST of an item. The journal parses a body when it needs what is in it, and
