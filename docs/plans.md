@@ -14,11 +14,12 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - Enterの直後の文字は、前の項目の欄に入る（欄は"firstse"になる）。そのとき、欄の`shouldChangeTextIn`が呼ばれない。だから、`Typist.held`に取っておかれず、失われる
   - 触れた位置にカーソルを置く前（`shell.edit(id)`）でも、同じように落ちる。この変更で起きたものではない
   - なぜ`shouldChangeTextIn`を通らずに文字が入るのかは、まだ分からない
-- [ ] Web版、macOS、Windowsでも、触れた位置を`Event::ShownTextTouched`で送り、コアの対応付けを使う（ADR 043で決めた、2026-11-14）
-  - [x] Windows
-  - [ ] macOS。`ShownText.swift`の`.code(let lines)`が、#478で増えた`start`を受けておらず、ビルドできないはずである。これも直す
-  - [ ] Web版。`ast2html`は変えずに、ページに入れたHTMLのブロックの要素へ、`RichText`の段落の`start`を順に割り当てる（1b、2026-11-14に決めた）。HTMLのブロックと`RichText`の段落が1対1に並ぶかを、先に確かめる
-  - 今は、表示の文字の位置を、そのままMarkdownの位置として使っている。Web版は`item_view.rs`の`text_offset_at_point`、Windowsは`RowView.cs`の`Edit`、macOSは`ItemText.swift`である。リンクや強調の記号の分だけ、カーソルがずれる
+- [x] Web版、macOS、Windowsでも、触れた位置をコアに送り、コアの対応付けを使う（ADR 043で決めた、2026-11-14）
+  - [x] Windows（#487）
+  - [x] macOS（#488）。`ShownText.swift`が、#478で増えた`start`を受けていなかったのも直した
+  - [x] Web版（#489）。`RichText`を描かないので、数ではなく、ページの上でクリックより前にある文字の列を送る（`Event::ShownTextTouchedAfter`、ADR 044）
+  - [ ] macOSを、Macでビルドしてテストする。#488は、Swiftのないこの環境で書いたので、ビルドもテストもしていない
+  - [ ] macOSとWindowsで、太字、リンク、リスト、コードブロックの項目をクリックして、カーソルがその文字の位置に入るかを、実際のアプリで確かめる
 - [ ] **次回、最初にやる。** プロパティの定義を、Markdownフォルダーに置くファイルで端末の間に同期する
   - 2026-11-14にユーザーが決めた。定義をファイルに置く案のほかは、あり得ない
   - 理由: 定義（キー、型、ページ用かどうか）は、SQLiteの`property_definitions`にしかない。ファイルには出ない。だから、別のPCやモバイルの端末には、ユーザーが定義したプロパティとその型が届かない
