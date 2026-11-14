@@ -1060,7 +1060,7 @@ fn definitions_answer() -> ApiOutput {
     };
     ApiOutput::PropertyDefinitions(vec![
         definition("rating", "number", true),
-        definition("topics", "list", true),
+        definition("topic_list", "list", true),
         definition("plan", "date", false),
         definition("published", "datetime", true),
         definition("met", "datetime", true),
@@ -1150,17 +1150,17 @@ fn deleting_a_property_sends_its_key() {
 // 開いたページのプロパティと、まだ付けられるキーをEmacsに伝える。ページに使えない定義と、使用中のキーは除く。
 #[test]
 fn a_doc_page_tells_emacs_its_properties_and_free_keys() {
-    let driver = open_with_properties(json!({ "rating": "5", "labels": ["a", "b"] }));
+    let driver = open_with_properties(json!({ "rating": "5", "label_list": ["a", "b"] }));
     let (rows, free_keys) = driver.last_properties().unwrap();
     let rows = rows.expect("a doc page has property rows");
-    let labels = rows.iter().find(|r| r.key == "labels").unwrap();
+    let labels = rows.iter().find(|r| r.key == "label_list").unwrap();
     assert_eq!(labels.value, "a, b");
     assert!(labels.removable && labels.editable);
     let modified = rows.iter().find(|r| r.key == "modified").unwrap();
     assert!(!modified.removable && !modified.editable);
     let created = rows.iter().find(|r| r.key == "created").unwrap();
     assert!(!created.removable && created.editable);
-    assert_eq!(free_keys, ["topics", "published", "met"]);
+    assert_eq!(free_keys, ["topic_list", "published", "met"]);
 }
 
 // 日時のキーをEmacsに伝える。ページ自身の日付、日時の定義を持つ使用中のキー、まだ付けられるキーである。
