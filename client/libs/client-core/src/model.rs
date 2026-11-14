@@ -4,6 +4,7 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// An item as the server returns it (`presentation/dto.rs` in journal/journal-server).
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
@@ -579,15 +580,33 @@ pub struct DeferredKey {
 }
 
 impl DeferredKey {
-    /// True for a key that types a character; other keys are shortcuts or navigation.
+    /// True for a key that types a character; other keys are shortcuts or navigation. A typed
+    /// letter can be several characters, as an emoji with a skin tone is (ADR 043).
     pub fn is_typed_character(&self) -> bool {
-        self.key.chars().count() == 1 && !self.ctrl_key && !self.alt_key && !self.meta_key
+        self.key.graphemes(true).count() == 1 && !self.ctrl_key && !self.alt_key && !self.meta_key
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn deferred(key: &str) -> DeferredKey {
+        DeferredKey {
+            key: key.into(),
+            ..DeferredKey::default()
+        }
+    }
+
+    // 複数のコードポイントでできた1文字（肌の色付きの絵文字、異体字セレクタ付きの絵文字）も、入力した文字として再生される。
+    // 名前のあるキー（Enter）は、入力した文字ではない（ADR 043）。
+    #[test]
+    fn a_letter_of_several_characters_is_a_typed_character_but_a_named_key_is_not() {
+        assert!(deferred("a").is_typed_character());
+        assert!(deferred("👍🏽").is_typed_character());
+        assert!(deferred("❤\u{fe0f}").is_typed_character());
+        assert!(!deferred("Enter").is_typed_character());
+    }
 
     // サーバーが返す JSON を Item にデシリアライズすると、camelCase のフィールドと properties のアクセサがサーバーの形どおりに読み取られる。
     #[test]
