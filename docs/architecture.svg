@@ -526,7 +526,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text class="th" x="36" y="722" dominant-baseline="central">flatmarkdownライブラリ（npm）</text>
 <text x="112" y="748" dominant-baseline="central">ASTをReactに変換（TypeScript）</text>
 <text class="note" x="112" y="768" dominant-baseline="central">(flatmarkdown-ast2react)</text>
-<text x="668" y="748" dominant-baseline="central">ast2htmlをWASMにビルドしたもの。JavaScriptから呼べる（ADR 023）</text>
+<text x="668" y="748" dominant-baseline="central">ast2htmlをWASMにビルドしたもの</text>
 <text class="note" x="668" y="768" dominant-baseline="central">(flatmarkdown-ast2html)</text>
 </g>
 </g>
