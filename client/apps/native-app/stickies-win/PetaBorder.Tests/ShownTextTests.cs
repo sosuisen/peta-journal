@@ -192,6 +192,24 @@ public sealed class ShownTextTests
         );
     }
 
+    // 上付きと下付きの文字は、段の文字の0.75倍の大きさになる。ほかの版と同じである。
+    [Fact]
+    public void A_raised_or_a_lowered_letter_is_smaller()
+    {
+        var raised = Plain();
+        raised.Raised = true;
+        var lowered = Plain();
+        lowered.Lowered = true;
+
+        var shown = Assert.IsType<ShownParagraph>(
+            Assert.Single(
+                Shown(Text(Paragraph(Run("up", raised), Run("down", lowered), Run("plain")))).Parts
+            )
+        );
+
+        Assert.Equal([0.75, 0.75, 1], shown.Runs.Select(run => run.Scale));
+    }
+
     // 見出しは、その段の大きさで、太字で出る。大きさは、Web版と同じである。
     [Fact]
     public void A_heading_is_large_and_bold()
