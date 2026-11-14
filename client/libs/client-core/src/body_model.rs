@@ -10,13 +10,13 @@ use std::fmt::Debug;
 use std::sync::Mutex;
 
 /// The body of a row as a shell draws it, made from the AST of the body.
-pub trait BodyView: Clone + Debug + PartialEq + Serialize + Send + Sync + 'static {
+pub trait BodyModel: Clone + Debug + PartialEq + Serialize + Send + Sync + 'static {
     /// What is shown of the body whose AST is `ast`. The page of a tag lies under `tags_dir`.
     fn of(ast: Node, tags_dir: &str) -> Self;
 }
 
 /// The web shell draws the AST as it is.
-impl BodyView for Node {
+impl BodyModel for Node {
     fn of(ast: Node, _tags_dir: &str) -> Node {
         ast
     }
@@ -48,7 +48,7 @@ impl<B> Default for Bodies<B> {
     }
 }
 
-impl<B: BodyView> Bodies<B> {
+impl<B: BodyModel> Bodies<B> {
     /// What is shown of each of these bodies, in their order. What was shown of bodies that are
     /// not among them is forgotten, so that what is kept stays as large as what is shown.
     pub fn of<'a>(&self, bodies: impl IntoIterator<Item = &'a str>, tags_dir: &str) -> Vec<B> {

@@ -4,7 +4,7 @@
 
 pub mod app;
 pub mod asts;
-pub mod body_view;
+pub mod body_model;
 pub mod effects;
 pub mod model;
 pub mod ops;
@@ -22,7 +22,7 @@ pub mod harness;
 mod tests;
 
 pub use app::{Event, Model, PetaApp, Route};
-pub use body_view::BodyView;
+pub use body_model::BodyModel;
 pub use effects::Effect;
 pub use rich_text::RichText;
 pub use view::ViewModel;

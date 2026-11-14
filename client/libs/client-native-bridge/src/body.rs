@@ -1,6 +1,6 @@
 //! What a row gives a native shell to draw its body (ADR 042).
 
-use client_core::{BodyView, RichText};
+use client_core::{BodyModel, RichText};
 use flatmarkdown_ast::Node;
 use serde::Serialize;
 
@@ -17,7 +17,7 @@ pub struct BorderBody {
     pub rich: RichText,
 }
 
-impl BodyView for BorderBody {
+impl BodyModel for BorderBody {
     fn of(ast: Node, tags_dir: &str) -> BorderBody {
         let rich = RichText::of(ast.clone(), tags_dir);
         BorderBody { ast, rich }

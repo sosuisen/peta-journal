@@ -1,7 +1,7 @@
 //! The view model: what the shell shows, computed from the model after every event.
 
 use crate::app::{ConnectionState, Model, Screen};
-use crate::body_view::{Bodies, BodyView};
+use crate::body_model::{Bodies, BodyModel};
 use crate::model::{
     IndexSort, Item, ItemRef, Page, PropertyDefinition, PropertyValue, SearchResult, WeekNumbering,
 };
@@ -352,7 +352,7 @@ pub struct ViewModel<B = Node> {
     pub title: String,
 }
 
-pub fn build<B: BodyView>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
+pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
     ViewModel {
         screen: screen(model),
         atlas_cards: atlas::cards(model)
@@ -437,7 +437,7 @@ fn screen(model: &Model) -> ScreenView {
     }
 }
 
-fn outline<B: BodyView>(model: &Model, bodies: &Bodies<B>) -> OutlineView<B> {
+fn outline<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> OutlineView<B> {
     let state = &model.state;
     let visible = state.visible_items();
     let own_ids = state.own_item_ids();

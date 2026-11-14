@@ -18,7 +18,7 @@ mod tests;
 
 pub use links::asset_path;
 
-use crate::body_view::BodyView;
+use crate::body_model::BodyModel;
 use flatmarkdown_ast::Node;
 use serde::Serialize;
 
@@ -29,7 +29,7 @@ pub struct RichText {
     pub blocks: Vec<RichBlock>,
 }
 
-impl BodyView for RichText {
+impl BodyModel for RichText {
     fn of(ast: Node, tags_dir: &str) -> RichText {
         RichText {
             blocks: blocks::blocks(&ast, tags_dir),

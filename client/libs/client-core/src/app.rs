@@ -1043,7 +1043,7 @@ impl Model {
 /// shell, and `RichText` for a native shell.
 pub struct PetaApp<B = flatmarkdown_ast::Node> {
     /// What the outline showed last of each body.
-    bodies: crate::body_view::Bodies<B>,
+    bodies: crate::body_model::Bodies<B>,
 }
 
 impl<B> Default for PetaApp<B> {
@@ -1054,7 +1054,7 @@ impl<B> Default for PetaApp<B> {
     }
 }
 
-impl<B: crate::body_view::BodyView> App for PetaApp<B> {
+impl<B: crate::body_model::BodyModel> App for PetaApp<B> {
     type Event = Event;
     type Model = Model;
     type ViewModel = crate::view::ViewModel<B>;

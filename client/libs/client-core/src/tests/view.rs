@@ -146,7 +146,7 @@ fn rows_with_the_same_body_have_the_same_ast() {
 /// What a native shell draws of the rows: the `RichText` of each body (ADR 042).
 fn rich_rows(
     h: &Harness,
-    bodies: &crate::body_view::Bodies<crate::RichText>,
+    bodies: &crate::body_model::Bodies<crate::RichText>,
 ) -> Vec<crate::RichText> {
     let view = crate::view::build(&h.model, bodies);
     view.outline
@@ -159,7 +159,7 @@ fn rich_rows(
 // ネイティブのシェルの行は、本文から作ったRichTextを持つ。
 #[test]
 fn a_row_of_a_native_shell_has_the_rich_text_of_its_body() {
-    use crate::BodyView;
+    use crate::BodyModel;
     let h = Harness::with_items(vec![item("a", 1, "**b**"), item("c", 1, "d")]);
     let bodies = Default::default();
     assert_eq!(
@@ -174,7 +174,7 @@ fn a_row_of_a_native_shell_has_the_rich_text_of_its_body() {
 // 本文が変わると、行のRichTextも作り直される。
 #[test]
 fn the_rich_text_of_a_row_follows_its_body() {
-    use crate::BodyView;
+    use crate::BodyModel;
     let mut h = Harness::with_items(vec![item("a", 1, "one")]);
     let bodies = Default::default();
     rich_rows(&h, &bodies);
