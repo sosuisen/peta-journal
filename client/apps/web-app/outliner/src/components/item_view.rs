@@ -63,7 +63,7 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
             ev.prevent_default();
             let el = content.get();
             // The core lines up the letters of the page before the click with the Markdown,
-            // and puts the cursor there (ADR 043). Beside the letters it goes to the start
+            // and puts the cursor there (ADR 044). Beside the letters it goes to the start
             let before = el.as_ref().and_then(|el| {
                 dom::text_before_point(el, ev.client_x() as f64, ev.client_y() as f64)
             });
