@@ -946,6 +946,22 @@ fn a_touch_at_the_start_of_the_second_cell_of_a_table_is_in_that_cell() {
     );
 }
 
+// ショートコードの絵文字に触れると、本文のずっと先にある同じ絵文字へは跳ばない。
+#[test]
+fn a_touch_on_an_emoji_of_a_shortcode_does_not_jump_to_the_same_emoji_far_on() {
+    let markdown = "x :tada: and then a long sentence that ends in 🎉";
+
+    let place = markdown_place(markdown, "x 🎉");
+
+    assert!(place <= "x :tada:".len(), "{place}");
+}
+
+// 項目の文字の後ろに触れると、本文の末尾に置かれる。
+#[test]
+fn a_touch_after_the_text_of_an_item_is_at_the_end_of_its_markdown() {
+    assert_eq!(markdown_place("abc", "abc\n"), 3);
+}
+
 // 本文の位置は、バイトではなく文字で数える。
 #[test]
 fn the_place_counts_characters_and_not_bytes() {
