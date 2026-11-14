@@ -86,11 +86,13 @@ final class JournalScreenTests: XCTestCase {
         texts.filter { app.staticTexts[$0].exists }.sorted { app.staticTexts[$0].frame.minY < app.staticTexts[$1].frame.minY }
     }
 
-    /// Touches the item that shows the text, so that it is edited.
+    /// Touches the item that shows the text right of its end, so that it is edited with the
+    /// cursor at its end. The text is as wide as the item, and its letters are shorter: the
+    /// right end of the text is right of them, and still on the screen.
     private func edit(_ text: String) {
         let item = app.staticTexts[text]
         waitFor(item)
-        item.tap()
+        item.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -4, dy: 0)).tap()
         waitFor(editor)
     }
 
@@ -241,6 +243,18 @@ final class JournalScreenTests: XCTestCase {
         openNotes()
         edit("plain bold")
         XCTAssertEqual(editor.value as? String, "plain **bold**")
+    }
+
+    // アイテムの文字の先頭に触れると、Markdownの先頭から書ける。
+    func testATouchAtTheStartOfTheTextOfAnItemWritesAtTheStartOfItsMarkdown() throws {
+        try download("notes.md", "**bold** plain\n")
+        openNotes()
+        let item = app.staticTexts["bold plain"]
+        waitFor(item)
+        item.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5)).withOffset(CGVector(dx: 1, dy: 0)).tap()
+        waitFor(editor)
+        editor.typeText("X")
+        XCTAssertEqual(editor.value as? String, "X**bold** plain")
     }
 
     // 入力した文字は、アイテムの末尾に入り、編集を終えたアイテムに表示される。

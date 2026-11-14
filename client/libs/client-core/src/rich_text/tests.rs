@@ -3,8 +3,29 @@ use super::*;
 use crate::asts::parse;
 
 /// The body with this Markdown as a native shell shows it, with the tags in `tags/`.
+/// The counts of the letters before each paragraph are left out: one test is about them.
 fn shown(markdown: &str) -> Vec<RichBlock> {
-    RichText::of(parse(markdown), "tags/").blocks
+    let mut blocks = RichText::of(parse(markdown), "tags/").blocks;
+    without_starts(&mut blocks);
+    blocks
+}
+
+fn without_starts(blocks: &mut [RichBlock]) {
+    for block in blocks {
+        match block {
+            RichBlock::Text { paragraphs } => paragraphs.iter_mut().for_each(|p| p.start = 0),
+            RichBlock::Code { start, .. } => *start = 0,
+            RichBlock::Table { rows } => rows
+                .iter_mut()
+                .flat_map(|row| row.cells.iter_mut())
+                .for_each(|cell| cell.start = 0),
+            RichBlock::Image { .. } => {}
+            RichBlock::Entries { entries } => entries
+                .iter_mut()
+                .for_each(|entry| without_starts(&mut entry.blocks)),
+            RichBlock::Quote { blocks } => without_starts(blocks),
+        }
+    }
 }
 
 /// The paragraphs of the one text that the body is.
@@ -77,7 +98,7 @@ fn letters(block: &RichBlock) -> String {
     };
     match block {
         RichBlock::Text { paragraphs } => of_paragraphs(paragraphs),
-        RichBlock::Code { lines } => lines.clone(),
+        RichBlock::Code { lines, .. } => lines.clone(),
         RichBlock::Table { rows } => rows
             .iter()
             .map(|row| of_paragraphs(&row.cells))
@@ -446,7 +467,8 @@ fn a_code_block_keeps_its_lines_as_they_were_written() {
     assert_eq!(
         blocks[1],
         RichBlock::Code {
-            lines: "val x = 1\n  val y = 2".to_string()
+            lines: "val x = 1\n  val y = 2".to_string(),
+            start: 0,
         }
     );
     assert_eq!(letters(&blocks[2]), "after");
@@ -566,7 +588,8 @@ fn a_code_block_inside_a_list_keeps_its_lines_and_the_entries_keep_their_numbers
     assert_eq!(
         entries[0].blocks[1],
         RichBlock::Code {
-            lines: "a\n  b".to_string()
+            lines: "a\n  b".to_string(),
+            start: 0,
         }
     );
     assert_eq!(all_letters(&entries[1].blocks), "second");
@@ -859,4 +882,119 @@ fn the_looks_inside_an_unknown_kind_stay() {
         as_text(vec![unknown]),
         [paragraph(vec![styled("kept", |l| l.bold = true)])]
     );
+}
+
+// 記号のない本文では、表示の位置がそのまま本文の位置である。
+#[test]
+fn in_a_body_without_marks_the_place_is_the_same() {
+    assert_eq!(markdown_place("plain text", "plain"), 5);
+}
+
+// 前に文字のない触れ方は、本文の先頭である。
+#[test]
+fn a_touch_with_no_letter_before_it_is_at_the_start() {
+    assert_eq!(markdown_place("**a**", ""), 0);
+}
+
+// 装飾の記号は飛ばされ、触れた文字のすぐ後ろに置かれる。
+#[test]
+fn the_marks_of_the_looks_are_skipped() {
+    assert_eq!(markdown_place("**bold** x", "bo"), 4);
+}
+
+// リンクの宛先は表示されないので、飛ばされる。
+#[test]
+fn the_address_of_a_link_is_skipped() {
+    let markdown = "[link](https://example.com/a) and more";
+
+    assert_eq!(
+        markdown_place(markdown, "link and m"),
+        markdown.find(" and m").unwrap() + " and m".len()
+    );
+}
+
+// アラートの題のあとの文字は、アラートの本文に置かれる。
+#[test]
+fn the_letters_after_the_title_of_an_alert_are_in_its_body() {
+    let markdown = "> [!TIP]\n> said here";
+
+    assert_eq!(
+        markdown_place(markdown, "Tip\nsaid"),
+        markdown.find("said").unwrap() + "said".len()
+    );
+}
+
+// アラートの題に触れると、本文が長くても、アラートの記号の名前に置かれる。
+#[test]
+fn a_touch_on_the_title_of_an_alert_is_at_its_name_however_long_the_body() {
+    let markdown = "> [!TIP]\n> a long body that ends in a cup";
+
+    assert_eq!(
+        markdown_place(markdown, "Tip"),
+        markdown.find("TIP").unwrap() + "TIP".len()
+    );
+}
+
+// 表の2つめの升の先頭に触れると、その升の中に置かれる。
+#[test]
+fn a_touch_at_the_start_of_the_second_cell_of_a_table_is_in_that_cell() {
+    let markdown = "| a | b is a cell with many words in it |\n|---|---|\n| b | c |";
+
+    assert_eq!(
+        markdown_place(markdown, "a\n"),
+        markdown.find("| b").unwrap() + "|".len()
+    );
+}
+
+// ショートコードの絵文字に触れると、本文のずっと先にある同じ絵文字へは跳ばない。
+#[test]
+fn a_touch_on_an_emoji_of_a_shortcode_does_not_jump_to_the_same_emoji_far_on() {
+    let markdown = "x :tada: and then a long sentence that ends in 🎉";
+
+    let place = markdown_place(markdown, "x 🎉");
+
+    assert!(place <= "x :tada:".len(), "{place}");
+}
+
+// 項目の文字の後ろに触れると、本文の末尾に置かれる。
+#[test]
+fn a_touch_after_the_text_of_an_item_is_at_the_end_of_its_markdown() {
+    assert_eq!(markdown_place("abc", "abc\n"), 3);
+}
+
+// 本文の位置は、バイトではなく文字で数える。
+#[test]
+fn the_place_counts_characters_and_not_bytes() {
+    assert_eq!(markdown_place("**日本**", "日"), 3);
+}
+
+/// What each paragraph and code block says of the letters before it, from top to bottom.
+fn starts(blocks: &[RichBlock]) -> Vec<u32> {
+    blocks
+        .iter()
+        .flat_map(|block| match block {
+            RichBlock::Text { paragraphs } => paragraphs.iter().map(|p| p.start).collect(),
+            RichBlock::Code { start, .. } => vec![*start],
+            RichBlock::Table { rows } => rows
+                .iter()
+                .flat_map(|row| row.cells.iter().map(|cell| cell.start))
+                .collect(),
+            RichBlock::Image { .. } => vec![],
+            RichBlock::Entries { entries } => entries
+                .iter()
+                .flat_map(|entry| starts(&entry.blocks))
+                .collect(),
+            RichBlock::Quote { blocks } => starts(blocks),
+        })
+        .collect()
+}
+
+// 段落とコードブロックは、項目の表示の文字のうち、その前に立つ文字の数を持つ。各段落とコードブロックのあとには、改行が1つあると数える。
+#[test]
+fn each_paragraph_and_code_block_knows_how_many_shown_letters_stand_before_it() {
+    let body = "**a** b\n\n```\nxy\n```\n\n- c\n\n  ```\n  z\n  ```\n\n| h |\n|---|\n| d |\n\n---";
+
+    let blocks = RichText::of(parse(body), "tags/").blocks;
+
+    assert_eq!(starts(&blocks), [0, 4, 7, 9, 11, 13, 15]);
 }

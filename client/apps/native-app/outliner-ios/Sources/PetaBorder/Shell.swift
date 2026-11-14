@@ -25,9 +25,9 @@ public final class Shell: ObservableObject {
     /// app waits for the sign-in: a journal made before the first download would be a second
     /// file for a day that Dropbox may hold already.
     @Published public private(set) var unopened = false
-    /// The focus request that a touch on an item made. The core asks for the cursor at the
-    /// start of the item then. A finger shows no place in the Markdown, so the screen puts the
-    /// cursor at the end instead, where the writing goes on.
+    /// The focus request that a touch beside the text of an item made. The core asks for the
+    /// cursor at the start of the item then. Such a touch shows no place in the Markdown, so
+    /// the screen puts the cursor at the end instead, where the writing goes on.
     public private(set) var touched: UInt64?
 
     private let markdownDir: URL
@@ -114,10 +114,18 @@ public final class Shell: ObservableObject {
     // MARK: - Editing
 
     /// The user touched an item: it is edited (ADR 031). The edit of another item ends.
-    public func edit(_ itemId: String) {
+    /// `letter` is how many letters of the shown text of the item stand before the touch, as
+    /// `RichParagraph.start` counts them: the cursor goes to that place in the Markdown. Without
+    /// it the cursor is at the end, where the writing goes on.
+    public func edit(_ itemId: String, letter: Int? = nil) {
         if let other = view.outline.focusedItemId, other != itemId { finish(other) }
-        send(.editRequested(itemId: itemId, cursor: 0))
-        touched = view.outline.focusRequest?.seq
+        if let letter {
+            send(.shownTextTouched(itemId: itemId, letter: UInt64(letter)))
+            touched = nil
+        } else {
+            send(.editRequested(itemId: itemId, cursor: 0))
+            touched = view.outline.focusRequest?.seq
+        }
     }
 
     /// The user changed the Markdown of the item. The core saves it a moment later.

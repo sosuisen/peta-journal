@@ -9,6 +9,17 @@ use crate::outline::tree::{index_of, transclusion_context_of};
 use crux_core::Command;
 use std::collections::HashSet;
 
+/// The user touched the shown text of an item after `letter` of its letters: the item is
+/// edited with the cursor at the place in its Markdown that stands there.
+pub fn shown_text_touched(model: &mut Model, item_id: &str, letter: usize) -> Cmd {
+    let cursor = model
+        .state
+        .get_item_by_id(item_id)
+        .map(|item| crate::rich_text::touched_place(&item.body, &model.config.tags_dir, letter))
+        .unwrap_or(0);
+    edit_requested(model, item_id, cursor)
+}
+
 /// The user clicked an item to start editing it. Ignored in selection mode.
 pub fn edit_requested(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
     if model.state.item_selection_mode() || model.state.is_broken_transclusion(item_id) {

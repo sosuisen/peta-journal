@@ -290,6 +290,7 @@ impl<'t> Writer<'t> {
             mark: self.mark.take(),
             rule: false,
             runs,
+            start: 0,
         });
     }
 

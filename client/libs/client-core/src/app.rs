@@ -128,6 +128,13 @@ pub enum Event {
         item_id: String,
         cursor: usize,
     },
+    /// The user touched the shown text of an item, after `letter` letters of it (the count of
+    /// `RichParagraph::start` and the letters before the touch in the paragraph). The item is
+    /// edited, with the cursor at that place in its Markdown.
+    ShownTextTouched {
+        item_id: String,
+        letter: usize,
+    },
     BodyChanged {
         item_id: String,
         body: String,
@@ -1082,6 +1089,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
 
         EditRequested { item_id, cursor } => {
             ops::outline_events::edit_requested(model, &item_id, cursor)
+        }
+        ShownTextTouched { item_id, letter } => {
+            ops::outline_events::shown_text_touched(model, &item_id, letter)
         }
         BodyChanged {
             item_id,

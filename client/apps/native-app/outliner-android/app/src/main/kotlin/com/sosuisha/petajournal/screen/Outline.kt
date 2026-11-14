@@ -2,7 +2,7 @@ package com.sosuisha.petajournal.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,16 +20,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TriStateCheckbox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
@@ -112,10 +116,20 @@ private fun OutlineRow(row: Row, links: Links, image: (String) -> File?, shell: 
             if (row.isEditing) {
                 ItemEditor(row, shell, Modifier.weight(1f).onLine())
             } else {
-                // A touch on a link or an image opens it, and any other touch edits the item
-                val touch = remember { MutableInteractionSource() }
-                Box(Modifier.weight(1f).onLine().clickable(touch, indication = null) { shell.edit(row.item.id) }) {
-                    Blocks(blocks, image)
+                // A touch on a link or an image opens it, and any other touch edits the item with
+                // the cursor where it was touched
+                val touches = remember { Touches() }
+                val id = row.item.id
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .onLine()
+                        .onGloballyPositioned { touches.item = it }
+                        .pointerInput(id, shell) { detectTapGestures { shell.edit(id, touches.letter(it)) } }
+                        // TalkBack has no place in the text to touch: the edit goes on at the end
+                        .semantics { onClick { shell.edit(id); true } },
+                ) {
+                    CompositionLocalProvider(LocalTouches provides touches) { Blocks(blocks, image) }
                 }
             }
         }

@@ -23,10 +23,15 @@ import com.sosuisha.petajournal.types.RichText
 /** One part of an item as it is shown, from top to bottom. */
 sealed interface ShownBlock {
     /** Text with the decoration of its letters and its links. */
-    data class Text(val text: AnnotatedString) : ShownBlock
+    data class Text(val text: AnnotatedString, val places: List<LetterPlace>) : ShownBlock
 
-    /** A block of code: its lines as they were written. */
-    data class Code(val lines: String) : ShownBlock
+    /**
+     * A block of code: its lines as they were written.
+     *
+     * @param start how many letters of the shown text of the item stand before the code, as the
+     *   core counts them.
+     */
+    data class Code(val lines: String, val start: Int) : ShownBlock
 
     data class Table(val rows: List<TableRow>) : ShownBlock
 
@@ -49,7 +54,36 @@ sealed interface ShownBlock {
 }
 
 /** @param header true for the row of the titles of the columns. */
-data class TableRow(val header: Boolean, val cells: List<AnnotatedString>)
+data class TableRow(val header: Boolean, val cells: List<Cell>)
+
+data class Cell(val text: AnnotatedString, val places: List<LetterPlace>)
+
+/**
+ * Where the letters of a paragraph begin in a text that is drawn, and where they stand in the
+ * shown text of the item, as the core counts it (`RichParagraph.start`). A touch on the text
+ * finds its letter by this (ADR 042).
+ *
+ * @param at where the letters begin in the text, in UTF-16 units: after the mark of an entry.
+ * @param start how many letters of the shown text of the item stand before them.
+ * @param letters the letters of the paragraph.
+ */
+data class LetterPlace(val at: Int, val start: Int, val letters: String)
+
+/**
+ * How many letters of the shown text of the item stand before [offset] of a text whose
+ * paragraphs stand at [places]. The core counts letters by code point; a text counts UTF-16
+ * units. An offset in a mark counts as the start of its paragraph.
+ */
+fun letterAt(places: List<LetterPlace>, offset: Int): Int {
+    val index = places.indexOfLast { it.at <= offset }
+    if (index < 0) return places.firstOrNull()?.start ?: 0
+    val place = places[index]
+    val within = offset - place.at
+    // After the letters of a paragraph come the line break and the mark of the next one
+    val next = places.getOrNull(index + 1)
+    if (within > place.letters.length && next != null) return next.start
+    return place.start + place.letters.codePointCount(0, within.coerceAtMost(place.letters.length))
+}
 
 /** @param mark what stands before the entry of a list: a bullet, its number or a checkbox. */
 data class Entry(val mark: String, val blocks: List<ShownBlock>)
@@ -67,10 +101,14 @@ fun shownBlocks(rich: RichText, onLink: (RichLink) -> Unit): List<ShownBlock> = 
 private fun blocks(blocks: List<RichBlock>, onLink: (RichLink) -> Unit): List<ShownBlock> =
     blocks.mapNotNull { block ->
         when (block) {
-            is RichBlock.Text -> TextWriter(onLink).text(block.paragraphs).takeIf { it.isNotEmpty() }?.let(ShownBlock::Text)
-            is RichBlock.Code -> ShownBlock.Code(block.lines)
+            is RichBlock.Text -> TextWriter(onLink).let { writer ->
+                writer.text(block.paragraphs).takeIf { it.isNotEmpty() }?.let { ShownBlock.Text(it, writer.places) }
+            }
+            is RichBlock.Code -> ShownBlock.Code(block.lines, block.start.toInt())
             is RichBlock.Table -> ShownBlock.Table(
-                block.rows.map { row -> TableRow(row.header, row.cells.map { TextWriter(onLink).text(listOf(it)) }) },
+                block.rows.map { row ->
+                    TableRow(row.header, row.cells.map { cell -> TextWriter(onLink).let { Cell(it.text(listOf(cell)), it.places) } })
+                },
             )
             is RichBlock.Image -> with(block.image) { ShownBlock.Image(path, alt, width?.toInt(), height?.toInt()) }
             is RichBlock.Entries -> ShownBlock.Entries(block.entries.map { Entry(it.mark, blocks(it.blocks, onLink)) })
@@ -85,6 +123,9 @@ private fun blocks(blocks: List<RichBlock>, onLink: (RichLink) -> Unit): List<Sh
  */
 private class TextWriter(private val onLink: (RichLink) -> Unit) {
     private val out = AnnotatedString.Builder()
+
+    /** Where the letters of each paragraph begin in the text. */
+    val places = mutableListOf<LetterPlace>()
 
     fun text(paragraphs: List<RichParagraph>): AnnotatedString {
         paragraphs.forEach(::paragraph)
@@ -102,6 +143,7 @@ private class TextWriter(private val onLink: (RichLink) -> Unit) {
         if (heading > 0) out.pushStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = headingSize(heading).em))
         paragraph.mark?.let { out.append("$it ") }
         if (paragraph.rule) out.append("────────")
+        places += LetterPlace(out.length, paragraph.start.toInt(), paragraph.runs.joinToString("") { it.text })
         for (run in paragraph.runs) {
             val link = run.link
             if (link != null) {

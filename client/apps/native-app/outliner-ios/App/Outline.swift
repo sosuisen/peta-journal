@@ -78,6 +78,8 @@ struct OutlineRow: View {
     let row: Row
     let shell: Shell
     let onFile: (URL) -> Void
+    /// Where the texts of the item stand, for a touch to find its letter.
+    @State private var targets: [LetterTarget] = []
 
     /// How wide and how high the bullet of an item is.
     private static let bullet: CGFloat = 7
@@ -120,9 +122,14 @@ struct OutlineRow: View {
                 } else {
                     Blocks(blocks: blocks, links: Links(shell: shell, onFile: onFile), image: shell.image)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        // A touch on a link or an image opens it, and any other touch edits the item
+                        .coordinateSpace(name: Touches.space)
+                        .onPreferenceChange(LetterTargets.self) { targets = $0 }
+                        // A touch on a link or an image opens it, and any other touch edits the
+                        // item with the cursor where it was touched
                         .contentShape(Rectangle())
-                        .onTapGesture { shell.edit(id) }
+                        .onTapGesture(coordinateSpace: .named(Touches.space)) { point in
+                            shell.edit(id, letter: Touches.letter(at: point, in: targets))
+                        }
                 }
             }
             .padding(.leading, CGFloat(row.indentPx))

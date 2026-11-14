@@ -23,8 +23,8 @@ class ShownTextTest {
 
     private fun run(text: String, link: RichLink? = null) = RichRun(text, plain, link)
 
-    private fun paragraph(vararg runs: RichRun, mark: String? = null, depth: UInt = 0u) =
-        RichParagraph(heading = 0u, depth = depth, quoted = 0u, mark = mark, rule = false, runs = runs.toList())
+    private fun paragraph(vararg runs: RichRun, mark: String? = null, depth: UInt = 0u, start: UInt = 0u) =
+        RichParagraph(heading = 0u, depth = depth, quoted = 0u, mark = mark, rule = false, runs = runs.toList(), start = start)
 
     private fun text(vararg paragraphs: RichParagraph) = RichBlock.Text(paragraphs.toList())
 
@@ -42,7 +42,7 @@ class ShownTextTest {
     // コードブロックは、その行のままの部品になる。
     @Test
     fun a_code_block_is_a_part_with_its_lines() {
-        assertEquals(listOf(ShownBlock.Code("a\nb")), shown(RichBlock.Code("a\nb")))
+        assertEquals(listOf(ShownBlock.Code("a\nb", 4)), shown(RichBlock.Code("a\nb", 4u)))
     }
 
     // 箇条書きの項目は、印から始まる。
@@ -50,6 +50,19 @@ class ShownTextTest {
     fun an_entry_of_a_list_starts_with_its_mark() {
         val list = text(paragraph(run("c"), mark = "3.", depth = 1u), paragraph(run("d"), mark = "☑", depth = 1u))
         assertEquals(listOf("3. c\n☑ d"), shown(list).map(::letters))
+    }
+
+    // 文字の位置は、項目の表示の文字のうち、その前に立つ文字の数になる。印の上は、その段落の先頭である。
+    @Test
+    fun a_place_in_a_text_is_the_count_of_the_shown_letters_before_it() {
+        val list = text(paragraph(run("ab"), mark = "1.", depth = 1u), paragraph(run("😀c"), mark = "2.", depth = 1u, start = 3u))
+        val shown = shown(list).single() as ShownBlock.Text
+
+        // The text is "1. ab\n2. 😀c"; 😀 is two UTF-16 units and one letter of the core
+        assertEquals(0, letterAt(shown.places, 1))
+        assertEquals(1, letterAt(shown.places, 4))
+        assertEquals(3, letterAt(shown.places, 7))
+        assertEquals(5, letterAt(shown.places, 12))
     }
 
     // assetsの画像は、画像の部品になる。ページが求める大きさを持つ。
