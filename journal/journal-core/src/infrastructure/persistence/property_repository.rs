@@ -8,6 +8,7 @@ use rusqlite::{params, Connection};
 
 use crate::domain::bounds::Bounds;
 use crate::domain::number_text::format_number;
+pub use crate::domain::property_key::validate_key;
 use crate::error::{AppError, AppResult};
 
 use super::db::{placeholders, Db};
@@ -31,23 +32,6 @@ pub struct PropertyDefinition {
     pub system: bool,
     /// May be set on a page (every user key, and `tags` among the system keys).
     pub page: bool,
-}
-
-/// A key is a word of letters, digits, `_` and `-`: it is written unquoted in the metadata
-/// line of an item and as a YAML key in the front matter of a page.
-pub fn validate_key(key: &str) -> AppResult<()> {
-    if key.is_empty() {
-        return Err(AppError::bad_request("Property key is required"));
-    }
-    if !key
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-    {
-        return Err(AppError::bad_request(format!(
-            "Property key '{key}' may only contain letters, digits, '_' and '-'"
-        )));
-    }
-    Ok(())
 }
 
 #[derive(Debug, Clone)]

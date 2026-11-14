@@ -1,7 +1,6 @@
 //! The key of a property, which tells by its name whether its values are a list (ADR 046).
 
-use crate::error::AppResult;
-use crate::infrastructure::persistence::property_repository::validate_key;
+use crate::error::{AppError, AppResult};
 
 /// The suffix of the name of every list key a user defines.
 pub const LIST_SUFFIX: &str = "_list";
@@ -52,6 +51,23 @@ impl PropertyKey {
             PropertyKey::List(ListKey::User(UserListKey(name))) => name,
         }
     }
+}
+
+/// A key is a word of letters, digits, `_` and `-`: it is written unquoted in the metadata
+/// line of an item and as a YAML key in the front matter of a page.
+pub fn validate_key(key: &str) -> AppResult<()> {
+    if key.is_empty() {
+        return Err(AppError::bad_request("Property key is required"));
+    }
+    if !key
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    {
+        return Err(AppError::bad_request(format!(
+            "Property key '{key}' may only contain letters, digits, '_' and '-'"
+        )));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
