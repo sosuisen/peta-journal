@@ -87,11 +87,12 @@ final class JournalScreenTests: XCTestCase {
     }
 
     /// Touches the item that shows the text right of its end, so that it is edited with the
-    /// cursor at its end.
+    /// cursor at its end. The text is as wide as the item, and its letters are shorter: the
+    /// right end of the text is right of them, and still on the screen.
     private func edit(_ text: String) {
         let item = app.staticTexts[text]
         waitFor(item)
-        item.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: 8, dy: 0)).tap()
+        item.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -4, dy: 0)).tap()
         waitFor(editor)
     }
 
