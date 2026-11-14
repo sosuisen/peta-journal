@@ -851,12 +851,15 @@
 
 ### ネイティブアプリが項目を表示する部品から描く
 
-出典: `client/libs/client-core/src/tests/view.rs`、`client/libs/client-core/src/rich_text/tests.rs`、`client/libs/client-native-bridge/src/codegen.rs`、iOSの`RichTextTests`、各シェルの`ShownText`のテスト（macOS、Android、Windows）、macOSの`AssetImagesTests`と`OutlineScreenTests`
+出典: `client/libs/client-core/src/tests/view.rs`、`client/libs/client-core/src/tests/edit.rs`、`client/libs/client-core/src/rich_text/tests.rs`、`client/libs/client-native-bridge/src/codegen.rs`、iOSの`TouchesTests`、iOSの`RichTextTests`、各シェルの`ShownText`のテスト（macOS、Android、Windows）、macOSの`AssetImagesTests`と`OutlineScreenTests`
 
 - 行は、コアが本文から作った描画モデルを持つ（ADR 042）。Webのアウトライナーでは本文のAST、iOS、macOS、Android、Windowsのアプリでは表示する部品（`RichText`）である。ネイティブのアプリには、ASTは渡らない
   - 項目は、ASTの文字列を持たない。サーバーが返したASTは使わない
   - Webのアウトライナーは、行のASTからHTMLを作る
   - 本文が変わると、行の描画モデルも変わる。同じ本文の行は、同じ描画モデルを持つ
+- 表示した文字に触れた位置は、コアがMarkdownの位置に直す。段落とコードブロックは、項目の表示の文字のうち、その前に立つ文字の数を持つ。シェルは、それに段落の中で触れた文字までの数を足して伝える
+  - Markdownの記号（`**`、リンクの宛先など）は飛ばされ、カーソルは触れた文字のすぐ後ろに置かれる。表示にしかない文字（アラートの題など）は、本文の遠くの同じ文字へ跳ばない
+  - 文字は、バイトではなく文字で数える
 - リンクの行き先は、コアが決める。ページへのリンクとタグの行き先は、そのページのURLである（`/pages/<ページ名>`、`/pages/<タグ用フォルダ>/<タグ>`）
 - どのシェルでも、太字などの装飾、見出し、リスト、タスク、引用、アラート、区切り線、表、脚注が出る。知らない種類のノードは、中の文字が出る
 - macOSの付箋紙アプリでも、`assets`の画像は絵として出る。journalサーバーから読み、届くまでは代わりの文字を出す。ページが求める幅や高さがあれば、縦横の比を保ってその大きさになる。求めなければ、付箋紙の幅に合わせる。ただし、元の大きさより大きくはならない
@@ -902,7 +905,7 @@ iOSのシェル（`client/apps/native-app/outliner-ios`）の機能である。A
 - ページへのリンクとタグは、そのページを開く。まだないページは作らず、「No page yet」と知らせる。「Make it」で作る
   - 知らせるページの名前には、URLのフラグメントが付かない。開けなかったページは、前に表示していたページとして覚えない
 - `assets`のファイルへのリンクは、そのファイルを開く。まだないファイルは、「No file yet」と知らせる
-- 項目へのタッチで、その項目がMarkdownの入力欄になる。入力は、項目の末尾から続く。新しいジャーナルの空の項目も、タッチして書ける
+- 項目へのタッチで、その項目がMarkdownの入力欄になる。カーソルは、触れた文字のMarkdownでの位置に置かれる（Androidも同じ）。文字の脇に触れたときは、いちばん近い行の文字になる。新しいジャーナルの空の項目も、タッチして書ける
 - Enterは、カーソルの位置で項目を分け、入力は新しい項目で続く
 - 項目の先頭でのBackspaceは、項目を前の項目につなぐ。編集は、つないだ項目で続き、カーソルはつなぎ目に置かれる。空の項目は消える
   - つなぎ目のカーソルは、絵文字を1文字として数える
