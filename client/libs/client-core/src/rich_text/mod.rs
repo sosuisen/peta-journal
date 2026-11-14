@@ -34,7 +34,7 @@ pub struct RichText {
 impl BodyModel for RichText {
     fn of(ast: Node, tags_dir: &str) -> RichText {
         let mut blocks = blocks::blocks(&ast, tags_dir);
-        places::count_letters(&mut blocks, &mut String::new());
+        places::count_letters(&mut blocks, &mut places::ShownLetters::default());
         RichText { blocks }
     }
 }

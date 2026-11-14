@@ -40,19 +40,36 @@ pub fn markdown_place(markdown: &str, shown_before: &str) -> usize {
     row.iter().position(|&cost| cost == least).unwrap_or(0)
 }
 
+/// The shown text of an item as it is written out, with the count of its letters.
+#[derive(Default)]
+pub(super) struct ShownLetters {
+    pub(super) text: String,
+    count: u32,
+}
+
+impl ShownLetters {
+    /// Writes `letters` and a line break after them, and gives how many letters stood before.
+    fn write<'a>(&mut self, letters: impl IntoIterator<Item = &'a str>) -> u32 {
+        let start = self.count;
+        for part in letters {
+            self.text.push_str(part);
+            self.count = self.count.saturating_add(count(part));
+        }
+        self.text.push('\n');
+        self.count = self.count.saturating_add(1);
+        start
+    }
+}
+
 /// Gives each paragraph and code block of `blocks` the count of the letters of the shown text
-/// before it, and writes the shown text after `letters`.
-pub(super) fn count_letters(blocks: &mut [RichBlock], letters: &mut String) {
+/// before it, and writes the shown text into `letters`.
+pub(super) fn count_letters(blocks: &mut [RichBlock], letters: &mut ShownLetters) {
     for block in blocks {
         match block {
             RichBlock::Text { paragraphs } => paragraphs
                 .iter_mut()
                 .for_each(|paragraph| count_paragraph(paragraph, letters)),
-            RichBlock::Code { lines, start } => {
-                *start = count(letters);
-                letters.push_str(lines);
-                letters.push('\n');
-            }
+            RichBlock::Code { lines, start } => *start = letters.write([lines.as_str()]),
             RichBlock::Table { rows } => rows
                 .iter_mut()
                 .flat_map(|row| row.cells.iter_mut())
@@ -66,12 +83,8 @@ pub(super) fn count_letters(blocks: &mut [RichBlock], letters: &mut String) {
     }
 }
 
-fn count_paragraph(paragraph: &mut RichParagraph, letters: &mut String) {
-    paragraph.start = count(letters);
-    for run in &paragraph.runs {
-        letters.push_str(&run.text);
-    }
-    letters.push('\n');
+fn count_paragraph(paragraph: &mut RichParagraph, letters: &mut ShownLetters) {
+    paragraph.start = letters.write(paragraph.runs.iter().map(|run| run.text.as_str()));
 }
 
 fn count(letters: &str) -> u32 {
