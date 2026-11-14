@@ -854,7 +854,7 @@
 出典: `client/libs/client-core/src/tests/view.rs`、`client/libs/client-core/src/rich_text/tests.rs`、`client/libs/client-shell-embedded/src/tests.rs`、`client/libs/client-native-bridge/src/codegen.rs`、iOSの`RichTextTests`、各シェルの`ShownText`のテスト（macOS、Android、Windows）、macOSの`AssetImagesTests`と`OutlineScreenTests`
 
 - 行は、コアが本文から作ったASTを持つ。シェルは、そのASTの型から描く（ADR 041）
-- iOSとmacOSのアプリは、コアが本文から作った表示する部品（`RichText`）を描く（ADR 042）。リンクの行き先も、コアが決める。AndroidとWindowsのアプリは、まだASTから描く
+- iOS、macOS、Androidのアプリは、コアが本文から作った表示する部品（`RichText`）を描く（ADR 042）。リンクの行き先も、コアが決める。Windowsのアプリは、まだASTから描く
 - macOSの付箋紙アプリでも、`assets`の画像は絵として出る。journalサーバーから読み、届くまでは代わりの文字を出す。ページが求める幅や高さがあれば、縦横の比を保ってその大きさになる。求めなければ、付箋紙の幅に合わせる。ただし、元の大きさより大きくはならない
 - macOSの付箋紙アプリで、ウィキリンクとハッシュタグのクリックは、そのページを付箋紙で開く。Shift-クリックは、Web版でそのページをブラウザで開き、付箋紙のページは変わらない。外へのリンクは、ブラウザで開く
   - 項目は、ASTの文字列を持たない。サーバーが返したASTは使わない

@@ -109,7 +109,7 @@ fun JournalScreen(
                             shell.missing?.let { MissingPage(it, shell::make) }
                             shell.missingFile?.let { Text("No file yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
                             val links = Links(shell::follow) { path -> shell.attached(path)?.let(onFile) }
-                            Outline(title(view), view.outline.rows, view.config.tagsDir, links, shell::image, shell)
+                            Outline(title(view), view.outline.rows, links, shell::image, shell)
                         }
                     }
                     // Over the page, so that it takes no room. Not while the dialog says the same
