@@ -3,7 +3,7 @@ import { Server, editorOf, openPage, test } from './support';
 
 // A click on the shown text of an item puts the cursor at the place in its Markdown that stands
 // there. The page sends the letters before the click, and the core lines them up with the
-// Markdown (ADR 043).
+// Markdown (ADR 044).
 test.describe('a click on the shown text', () => {
   let server: Server;
 

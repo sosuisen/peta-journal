@@ -138,7 +138,7 @@ pub enum Event {
     /// The user touched the shown text of an item, after the letters `before` of it, as a
     /// shell that does not draw the `RichText` has them: the web shell sends the letters of the
     /// page. They are lined up with the Markdown, and letters that it lacks are left out. The
-    /// item is edited, with the cursor at that place in its Markdown (ADR 043).
+    /// item is edited, with the cursor at that place in its Markdown (ADR 044).
     ShownTextTouchedAfter {
         item_id: String,
         before: String,

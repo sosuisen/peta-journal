@@ -275,7 +275,7 @@ fn a_touch_on_the_shown_text_edits_the_item_at_the_place_touched_in_its_markdown
 }
 
 // 表示した文字のうち、触れた位置より前にある文字の列が届くと、その項目の編集に入る。カーソルは、その文字の列の
-// 後ろにあたるMarkdownの位置に置かれる。Web版は、ページの上の文字の列をそのまま送る（ADR 043）。
+// 後ろにあたるMarkdownの位置に置かれる。Web版は、ページの上の文字の列をそのまま送る（ADR 044）。
 #[test]
 fn the_shown_letters_before_a_touch_put_the_cursor_after_them_in_the_markdown() {
     let mut h = Harness::with_items(vec![item(
