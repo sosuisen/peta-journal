@@ -320,7 +320,8 @@ public sealed class ShellTests : IDisposable
         );
         var asked = shell.View.Outline.FocusRequest?.Cursor;
         Assert.NotNull(asked);
-        Assert.Equal(5UL, asked.Value);
+        // The core asks for the end, which the editor finds in its text
+        Assert.Equal(5UL, PetaCore.PetaNative.Utf16OfChars("first", asked.Value));
 
         Assert.True(shell.Pressed(EditorKey.Right, first, Editor("first", 5)));
         main.WaitUntil(
