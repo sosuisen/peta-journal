@@ -277,7 +277,8 @@ impl PropertyRepository {
     }
 
     /// Sets a scalar value of a defined key, as part of a larger transaction. The value is
-    /// stored as the type of the definition says. A key with no definition is refused.
+    /// checked against the type of the definition and kept as text in the form the export
+    /// writes (`1.50` becomes `1.5`). A key with no definition is refused.
     pub fn write_scalar_in(
         conn: &Connection,
         target_type: &str,
