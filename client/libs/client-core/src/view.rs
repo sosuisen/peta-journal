@@ -301,6 +301,8 @@ pub struct SearchEntry {
     pub kind: SearchKind,
     /// The path of the page, or of the page to create.
     pub title: String,
+    /// What the line says. Every shell shows it as it is, so that all say the same.
+    pub label: String,
     pub snippet: String,
 }
 
@@ -552,6 +554,14 @@ fn sidebar(model: &Model) -> SidebarView {
     }
 }
 
+/// What the search line of this kind and title says.
+fn search_label(kind: SearchKind, title: &str) -> String {
+    match kind {
+        SearchKind::Create => format!("Create new page \"{title}\""),
+        SearchKind::Today | SearchKind::Page | SearchKind::Item => title.to_string(),
+    }
+}
+
 fn search(model: &Model) -> SearchView {
     let hits = |kind, results: &[SearchResult]| {
         results
@@ -575,6 +585,7 @@ fn search(model: &Model) -> SearchView {
         .map(|(position, (kind, title, snippet))| SearchEntry {
             position,
             kind,
+            label: search_label(kind, &title),
             title,
             snippet,
         })
