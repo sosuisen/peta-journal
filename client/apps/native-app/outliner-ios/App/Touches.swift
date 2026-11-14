@@ -33,9 +33,12 @@ enum Touches {
         layout.addTextContainer(container)
         var fraction: CGFloat = 0
         let index = layout.characterIndex(for: point, in: container, fractionOfDistanceBetweenInsertionPoints: &fraction)
-        // A touch on the right half of a letter is after it
-        let units = min(index + (fraction > 0.5 ? 1 : 0), text.length)
         let string = text.string
+        // A touch on the right half of a letter is after it. A letter may be more than one
+        // unit of UTF-16, as an emoji, and the touch is never between its units
+        let units = fraction > 0.5 && index < text.length
+            ? (string as NSString).rangeOfComposedCharacterSequence(at: index).upperBound
+            : index
         let end = String.Index(utf16Offset: units, in: string)
         return string[..<end].unicodeScalars.count
     }
