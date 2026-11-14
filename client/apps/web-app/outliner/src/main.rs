@@ -1,5 +1,6 @@
 //! PetaJournal's web frontend: a Leptos shell around the Crux core in `client-core`.
 
+mod body;
 mod components;
 mod core;
 mod dom;

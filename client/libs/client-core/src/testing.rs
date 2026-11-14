@@ -31,3 +31,10 @@ pub fn item_with(id: &str, level: i32, change: impl FnOnce(&mut Item)) -> Item {
 pub fn item(id: &str, level: i32) -> ItemRef {
     Arc::new(plain_item(id, level, ""))
 }
+
+/// What a row of the test harness shows of a body: the `RichText` that a native shell draws
+/// (ADR 042), with no folder of tags.
+pub fn shown(body: &str) -> crate::RichText {
+    use crate::BodyModel;
+    crate::RichText::of(crate::asts::parse(body), "")
+}

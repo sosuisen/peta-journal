@@ -1,12 +1,12 @@
 //! The rendered item, ported from `item-view.ts`: the AST as HTML, syntax highlighting, and
 //! clicks that open links or start editing at the clicked character.
 
+use crate::body::Row;
 use crate::components::item_drag::Drag;
 use crate::components::item_html::{item_html, ImageSize};
 use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
-use client_core::view::Row;
 use client_core::Event;
 use client_page_links::{hashtag_path, wikilink_path};
 use leptos::prelude::*;
@@ -31,7 +31,7 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
     let drag: Drag = expect_context();
     let item_id = row.with_untracked(|r| r.item.id.clone());
     let content = NodeRef::<leptos::html::Div>::new();
-    let html = Memo::new(move |_| row.with(|r| item_html(&r.body_model)));
+    let html = Memo::new(move |_| row.with(|r| item_html(&r.body_model.0)));
     // A hashtag links under the configured tag directory, so a tag page can live in its own
     // folder (e.g. `tags/topic`) and a published site can keep the same relative paths.
     let tags_dir = core.select(|v| v.config.tags_dir.clone());

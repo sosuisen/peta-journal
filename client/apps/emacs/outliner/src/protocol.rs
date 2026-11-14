@@ -225,7 +225,7 @@ pub struct RowView {
 }
 
 impl RowView {
-    pub fn of(row: &Row) -> RowView {
+    pub fn of(row: &Row<()>) -> RowView {
         RowView {
             id: row.item.id.clone(),
             level: row.item.level,

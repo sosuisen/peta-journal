@@ -1,7 +1,8 @@
 //! The checkbox in front of a task item, shown by the item view and the editor alike.
 
+use crate::body::Row;
 use crate::core::CoreHandle;
-use client_core::view::{Row, TaskState};
+use client_core::view::TaskState;
 use client_core::Event;
 use leptos::prelude::*;
 

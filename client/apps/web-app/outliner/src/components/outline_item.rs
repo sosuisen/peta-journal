@@ -1,13 +1,13 @@
 //! One row of the outline, ported from `outline-item.ts`: the controls, the bullet, the
 //! editor or the rendered body, the task times and the item menu.
 
+use crate::body::Row;
 use crate::components::item_drag::Drag;
 use crate::components::item_editor::ItemEditor;
 use crate::components::item_view::ItemView;
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
-use client_core::view::Row;
 use client_core::Event;
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;

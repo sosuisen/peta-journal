@@ -3,9 +3,10 @@
 use crate::app::Event;
 use crate::effects::ApiOp;
 use crate::harness::{item, Harness};
+use crate::testing::shown;
 use crate::view::{Row, TaskState};
 
-fn rows(h: &Harness) -> Vec<Row> {
+fn rows(h: &Harness) -> Vec<Row<crate::RichText>> {
     h.view().outline.rows
 }
 
@@ -111,78 +112,43 @@ fn a_scroll_request_is_passed_on_as_a_smooth_scroll() {
     ));
 }
 
-// 行は、本文からcoreが作ったASTを持つ。相対パスのリンクはwikilinkに、#tagはハッシュタグになる。
+// coreが本文から作るASTでは、相対パスのリンクはwikilinkに、#tagはハッシュタグになる。
 #[test]
-fn a_row_has_the_ast_that_the_core_makes_from_the_body() {
+fn the_ast_that_the_core_makes_of_a_body_has_wikilinks_and_hashtags() {
     use flatmarkdown_ast::Node;
-    let h = Harness::with_items(vec![item("a", 1, "**b** [p](../p.md) #t")]);
-    let ast = &rows(&h)[0].body_model;
-    let Node::Document { children } = ast else {
+    let ast = crate::asts::parse("**b** [p](../p.md) #t");
+    let Node::Document { children } = &ast else {
         panic!("not a document: {ast:?}");
     };
     let kinds: Vec<&str> = children[0].children().iter().map(Node::type_name).collect();
     assert_eq!(kinds, ["strong", "text", "wikilink", "text", "hashtag"]);
 }
 
-// 本文が変わると、行のASTも新しい本文のものになる。前と同じ本文に戻せば、前と同じASTになる。
+// 行は、本文から作った描画モデルを持つ。
 #[test]
-fn the_ast_of_a_row_follows_its_body() {
+fn a_row_has_the_body_model_of_its_body() {
+    let h = Harness::with_items(vec![item("a", 1, "**b**"), item("c", 1, "d")]);
+    let models: Vec<_> = rows(&h).into_iter().map(|row| row.body_model).collect();
+    assert_eq!(models, [shown("**b**"), shown("d")]);
+}
+
+// 本文が変わると、行の描画モデルも新しい本文のものになる。前と同じ本文に戻せば、前と同じ描画モデルになる。
+#[test]
+fn the_body_model_of_a_row_follows_its_body() {
     let mut h = Harness::with_items(vec![item("a", 1, "one")]);
     let first = rows(&h)[0].body_model.clone();
     crate::harness::typed(&mut h, "a", "# two");
-    assert_eq!(rows(&h)[0].body_model, crate::asts::parse("# two"));
+    assert_eq!(rows(&h)[0].body_model, shown("# two"));
     crate::harness::typed(&mut h, "a", "one");
     assert_eq!(rows(&h)[0].body_model, first);
 }
 
-// 同じ本文の行が2つあれば、どちらもその本文のASTを持つ。
+// 同じ本文の行が2つあれば、どちらもその本文の描画モデルを持つ。
 #[test]
-fn rows_with_the_same_body_have_the_same_ast() {
+fn rows_with_the_same_body_have_the_same_body_model() {
     let h = Harness::with_items(vec![item("a", 1, "*x*"), item("b", 1, "*x*")]);
-    let asts: Vec<_> = rows(&h).into_iter().map(|row| row.body_model).collect();
-    assert_eq!(asts, [crate::asts::parse("*x*"), crate::asts::parse("*x*")]);
-}
-
-/// What a native shell draws of the rows: the `RichText` of each body (ADR 042).
-fn rich_rows(
-    h: &Harness,
-    bodies: &crate::body_model::Bodies<crate::RichText>,
-) -> Vec<crate::RichText> {
-    let view = crate::view::build(&h.model, bodies);
-    view.outline
-        .rows
-        .into_iter()
-        .map(|row| row.body_model)
-        .collect()
-}
-
-// ネイティブのシェルの行は、本文から作ったRichTextを持つ。
-#[test]
-fn a_row_of_a_native_shell_has_the_rich_text_of_its_body() {
-    use crate::BodyModel;
-    let h = Harness::with_items(vec![item("a", 1, "**b**"), item("c", 1, "d")]);
-    let bodies = Default::default();
-    assert_eq!(
-        rich_rows(&h, &bodies),
-        [
-            crate::RichText::of(crate::asts::parse("**b**"), ""),
-            crate::RichText::of(crate::asts::parse("d"), ""),
-        ]
-    );
-}
-
-// 本文が変わると、行のRichTextも作り直される。
-#[test]
-fn the_rich_text_of_a_row_follows_its_body() {
-    use crate::BodyModel;
-    let mut h = Harness::with_items(vec![item("a", 1, "one")]);
-    let bodies = Default::default();
-    rich_rows(&h, &bodies);
-    crate::harness::typed(&mut h, "a", "# two");
-    assert_eq!(
-        rich_rows(&h, &bodies),
-        [crate::RichText::of(crate::asts::parse("# two"), "")]
-    );
+    let models: Vec<_> = rows(&h).into_iter().map(|row| row.body_model).collect();
+    assert_eq!(models, [shown("*x*"), shown("*x*")]);
 }
 
 // タグのフォルダーが変わると、タグのリンクは新しいフォルダーの下を指す。
@@ -190,8 +156,7 @@ fn the_rich_text_of_a_row_follows_its_body() {
 fn the_links_of_tags_follow_the_folder_of_the_tags() {
     use crate::rich_text::{RichBlock, RichLink};
     let mut h = Harness::with_items(vec![item("a", 1, "#topic")]);
-    let bodies = Default::default();
-    let link = |h: &Harness| match &rich_rows(h, &bodies)[0].blocks[..] {
+    let link = |h: &Harness| match &rows(h)[0].body_model.blocks[..] {
         [RichBlock::Text { paragraphs }] => paragraphs[0].runs[0].link.clone(),
         blocks => panic!("not one text: {blocks:?}"),
     };
