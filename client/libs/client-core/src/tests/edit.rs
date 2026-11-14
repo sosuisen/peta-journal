@@ -252,3 +252,20 @@ fn saving_a_transclusion_root_copies_the_parsed_types_to_the_shown_root() {
     let root = h.model.state.get_item_by_id("root").unwrap();
     assert_eq!(root.types, ["heading"]);
 }
+
+// 表示した文字に触れると、その項目の編集に入り、カーソルは触れた文字のMarkdownでの位置に置かれる。
+#[test]
+fn a_touch_on_the_shown_text_edits_the_item_at_the_place_touched_in_its_markdown() {
+    let mut h = Harness::with_items(vec![item("a", 1, "**bold** and [link](https://x.example/a) end")]);
+
+    // The shown text is "bold and link end": the touch is after "bold and li"
+    h.send(Event::ShownTextTouched {
+        item_id: "a".into(),
+        letter: "bold and li".chars().count(),
+    });
+
+    assert!(h.model.state.is_editing("a"));
+    let request = h.model.state.focus_request().expect("a focus request");
+    assert_eq!(request.item_id, "a");
+    assert_eq!(request.cursor, Some("**bold** and [li".chars().count()));
+}
