@@ -337,6 +337,31 @@ async fn a_list_of_an_item_is_kept_under_its_own_key_apart_from_the_tags() {
     assert_eq!(after.properties["tags"], json!(["items-list-tag"]));
 }
 
+// 定義のないキーには、名前に合う型でしか値を書けない。リストの値は名前が_listで終わるキーに、スカラーの値はそれ以外のキーに書く。
+#[tokio::test]
+async fn a_key_with_no_definition_takes_only_the_type_its_name_fits() {
+    let page = new_doc_page("items-type-by-name").await;
+    let item = fill(&page.id, &["typed"]).await.remove(0);
+
+    for (key, body) in [
+        (
+            "undefined_members",
+            json!({ "valueType": "list", "value": "x" }),
+        ),
+        (
+            "undefined_note_list",
+            json!({ "valueType": "text", "value": "x" }),
+        ),
+    ] {
+        let (status, resp) = put(
+            &format!("/api/items/{}/properties/{key}", item.id),
+            body.clone(),
+        )
+        .await;
+        assert_eq!(status, 400, "{key} {body} -> {resp}");
+    }
+}
+
 // 削除した項目はページから消える。
 #[tokio::test]
 async fn a_deleted_item_is_gone_from_its_page() {
