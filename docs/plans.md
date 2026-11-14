@@ -390,7 +390,7 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 ### 4つのシェルのコードが減るもの
 
 - [x] 検索の候補の文言を、coreが決める。今は、新しいページを作る候補が、シェルごとに違う。スマホは`New page: X`、macOSとWindowsは`Create "X"`、Web版は`+ Create "X"`である。`Open Today`は、coreが決めているのに、iOS（`App/JournalScreen.swift:210`）とAndroid（`screen/JournalScreen.kt:181`）が書き直している。`SearchEntry`に文言を持たせる
-  - 2026-11-14にユーザーが文言を決めた。ページを作る行は`Create new page "名前"`である（PR #481）
+  - 2026-11-14にユーザーが文言を決めた。ページを作る行は`Create new page "名前"`である（PR #481）。同じ日に、`Create page "名前"`に変えた（PR #483）
 - [x] ブラウザで開くページと画像のアドレスを、Rustで作る。今は、macOS（`Shell.swift:82,94`、`AssetImages.swift:49`）とWindows（`Shell.cs:133-154`）が別々に作り、エンコードの仕方が違う。名前に`?`や2つ目の`#`があるページで、結果が変わる。`client-page-links`の`AppLinks`を使い、`client-native-bridge`から出す
   - ページ名には`?`を使えない（`validate_file_name`）。そのため、`?`での食い違いは起きていなかった。ファイルのパスでは、`#`と`?`も符号化する
 - [ ] カーソルの位置の、UTF-16と文字の数の換算を、Rustで1回だけ行う。今は、4つのシェルに8か所ある。macOS（`Keys.swift:38-58`）、Windows（`Keys.cs:67-97`）、iOS（`App/ItemEditor.swift:270-281`、`App/Touches.swift:42`）、Android（`ItemEditor.kt:147`、`ShownText.kt:85`、`Blocks.kt:85`）である。サロゲートペアの途中に当たったとき、iOSだけが本文の長さを返す。ほかは次の文字に進める
