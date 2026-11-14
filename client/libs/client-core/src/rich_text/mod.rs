@@ -18,7 +18,7 @@ mod places;
 mod tests;
 
 pub use links::asset_path;
-pub use places::markdown_place;
+pub use places::{markdown_place, touched_place};
 
 use crate::body_model::BodyModel;
 use flatmarkdown_ast::Node;

@@ -1,7 +1,8 @@
 //! Where a touch on the shown text of an item puts the cursor in its Markdown. The AST does not
 //! say where in the Markdown its nodes stand, so the letters are lined up instead.
 
-use super::{RichBlock, RichParagraph};
+use super::{blocks, RichBlock, RichParagraph};
+use crate::asts::parse;
 
 /// What leaving out a letter of the shown text costs, where a letter of the Markdown costs 1.
 /// The Markdown has many letters that are not shown, such as the address of a link; the shown
@@ -38,6 +39,18 @@ pub fn markdown_place(markdown: &str, shown_before: &str) -> usize {
     }
     let least = row.iter().min().copied().unwrap_or(0);
     row.iter().position(|&cost| cost == least).unwrap_or(0)
+}
+
+/// The place in the Markdown of an item, in characters, of a touch after `letter` letters of
+/// its shown text. The page of a tag lies under `tags_dir`, as for its `RichText`.
+pub fn touched_place(markdown: &str, tags_dir: &str, letter: usize) -> usize {
+    let mut letters = ShownLetters::default();
+    count_letters(
+        &mut blocks::blocks(&parse(markdown), tags_dir),
+        &mut letters,
+    );
+    let before: String = letters.text.chars().take(letter).collect();
+    markdown_place(markdown, &before)
 }
 
 /// The shown text of an item as it is written out, with the count of its letters.
