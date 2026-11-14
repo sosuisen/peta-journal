@@ -69,7 +69,8 @@ struct Sent {
 }
 
 pub struct Shell<H: Host> {
-    pub(crate) core: Core<PetaApp>,
+    /// Emacs shows the Markdown of an item as it is, so its rows carry no body model (`()`).
+    pub(crate) core: Core<PetaApp<()>>,
     pub host: H,
     client_id: ClientId,
     apis: HashMap<u64, Request<ApiOp>>,
@@ -566,7 +567,7 @@ impl<H: Host> Shell<H> {
         self.tell_backlinks(&view);
     }
 
-    fn tell_rows(&mut self, view: &ViewModel) {
+    fn tell_rows(&mut self, view: &ViewModel<()>) {
         let rows: Vec<RowView> = view.outline.rows.iter().map(RowView::of).collect();
         let page_id = view.sidebar.current_page_id.clone();
         if rows == self.sent.rows && page_id == self.sent.page_id {
@@ -581,7 +582,7 @@ impl<H: Host> Shell<H> {
         });
     }
 
-    fn tell_focus(&mut self, view: &ViewModel) {
+    fn tell_focus(&mut self, view: &ViewModel<()>) {
         let Some(request) = &view.outline.focus_request else {
             return;
         };
@@ -602,7 +603,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_page_path(&mut self, view: &ViewModel) {
+    fn tell_page_path(&mut self, view: &ViewModel<()>) {
         let path = match &view.screen {
             ScreenView::Page(Some(page)) if !page.is_index && !page.is_atlas => {
                 Some(page.page.canonical_path())
@@ -615,7 +616,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_properties(&mut self, view: &ViewModel) {
+    fn tell_properties(&mut self, view: &ViewModel<()>) {
         let rows: Option<Vec<PropertyRow>> = match &view.screen {
             ScreenView::Page(Some(page)) => {
                 Some(page.properties.iter().map(PropertyRow::from).collect())
@@ -643,7 +644,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_connection(&mut self, view: &ViewModel) {
+    fn tell_connection(&mut self, view: &ViewModel<()>) {
         let connection = view.connection.as_str().to_string();
         if self.sent.connection.as_ref() != Some(&connection) {
             self.sent.connection = Some(connection.clone());
@@ -661,7 +662,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_recent(&mut self, view: &ViewModel) {
+    fn tell_recent(&mut self, view: &ViewModel<()>) {
         let paths: Vec<String> = view
             .sidebar
             .recent_pages
@@ -674,7 +675,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_backlinks(&mut self, view: &ViewModel) {
+    fn tell_backlinks(&mut self, view: &ViewModel<()>) {
         let groups: Vec<BacklinkEntry> = match &view.screen {
             ScreenView::Page(Some(page)) => {
                 page.backlinks.iter().map(BacklinkEntry::from).collect()
@@ -723,7 +724,7 @@ fn route_of(url: &str) -> client_core::Route {
 /// The keys whose value is a date and a time. Only the page's own dates cannot be removed, and
 /// they are dates without a definition.
 fn datetime_keys<'a>(
-    view: &ViewModel,
+    view: &ViewModel<()>,
     rows: impl Iterator<Item = &'a PropertyRow>,
     free_keys: &[String],
 ) -> Vec<String> {
@@ -735,7 +736,7 @@ fn datetime_keys<'a>(
 }
 
 /// The type to send a value of the key with. A list stays a list, even when it has no definition.
-fn property_type(view: &ViewModel, key: &str) -> String {
+fn property_type(view: &ViewModel<()>, key: &str) -> String {
     let is_list = match &view.screen {
         ScreenView::Page(Some(page)) => page.properties.iter().any(|p| p.key == key && p.is_list),
         _ => false,

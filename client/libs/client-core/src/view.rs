@@ -12,7 +12,6 @@ use crate::screens::atlas::{self, Bounds};
 use crate::screens::{journal, page, sidebar};
 use crate::util::date::{format_instant, format_journal_date};
 use crate::util::filename::JournalType;
-use flatmarkdown_ast::Node;
 use serde::Serialize;
 
 /// Where a task stands, by its `begin` and `end` properties.
@@ -45,7 +44,7 @@ impl TaskState {
 /// the model that the shell draws the body from (ADR 042).
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Row<B = Node> {
+pub struct Row<B> {
     pub item: ItemRef,
     /// The model that the shell draws the body from: the AST for the web shell (ADR 041), and
     /// `RichText` for a native shell. The core makes it from the body alone.
@@ -87,7 +86,7 @@ pub struct WikiView {
 
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct OutlineView<B = Node> {
+pub struct OutlineView<B> {
     pub rows: Vec<Row<B>>,
     pub selection_mode: bool,
     pub focus_request: Option<FocusRequest>,
@@ -330,7 +329,7 @@ pub struct ConfigView {
 
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct ViewModel<B = Node> {
+pub struct ViewModel<B> {
     pub screen: ScreenView,
     /// The cards of the atlas page on screen; empty on any other screen.
     pub atlas_cards: Vec<AtlasCard>,

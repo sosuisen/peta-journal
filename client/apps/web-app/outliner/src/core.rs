@@ -2,11 +2,12 @@
 //! the effects that come back are performed by the `effects` modules, and each `Render`
 //! writes the new view model into a signal the components read.
 
+use crate::body::{PetaApp, ViewModel};
 use crate::effects;
 use client_core::effects::{Effect, TimerOp};
 use client_core::model::DeferredKey;
 use client_core::rest::ClientId;
-use client_core::{Event, PetaApp, ViewModel};
+use client_core::Event;
 use leptos::prelude::*;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;

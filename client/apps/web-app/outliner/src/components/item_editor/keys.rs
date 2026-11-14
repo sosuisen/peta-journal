@@ -1,9 +1,9 @@
 //! The keyboard shortcuts of the editor.
 
 use super::text::insert_at_cursor;
+use crate::body::Row;
 use crate::core::CoreHandle;
 use crate::dom;
-use client_core::view::Row;
 use client_core::Event;
 use leptos::prelude::*;
 

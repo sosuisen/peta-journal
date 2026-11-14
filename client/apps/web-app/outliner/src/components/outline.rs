@@ -3,6 +3,7 @@
 //! scroll reports the journal needs, scrolling to an item, and the document listeners of
 //! selection mode.
 
+use crate::body::Row;
 use crate::components::confirm_dialog;
 use crate::components::edge_scroll::EdgeScroll;
 use crate::components::outline_item::OutlineItem;
@@ -11,7 +12,6 @@ use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
 use client_core::app::SelectionKey;
-use client_core::view::Row;
 use client_core::Event;
 use leptos::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -43,7 +43,7 @@ struct RowStore {
 }
 
 impl RowStore {
-    fn new(vm: RwSignal<client_core::ViewModel>) -> RowStore {
+    fn new(vm: RwSignal<crate::body::ViewModel>) -> RowStore {
         let store = RowStore {
             ids: RwSignal::new(Vec::new()),
             rows: StoredValue::new(HashMap::new()),

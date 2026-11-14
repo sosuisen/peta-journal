@@ -296,14 +296,14 @@ fn the_answer_to_a_split_of_an_item_no_longer_shown_changes_nothing() {
     assert!(h.focused_editor_requests().is_empty());
 }
 
-// 元の項目は、残した本文のASTで表示される。分割で本文が変わるためである。
+// 元の項目は、残した本文の描画モデルで表示される。分割で本文が変わるためである。
 #[test]
-fn the_item_that_was_split_shows_the_ast_of_the_text_it_keeps() {
+fn the_item_that_was_split_shows_the_text_it_keeps() {
     let mut h = harness();
     enter(&mut h, "a", 5);
     let rows = h.view().outline.rows;
     let row = rows.iter().find(|r| r.item.id == "a").unwrap();
-    assert_eq!(row.body_model, crate::asts::parse("hello"));
+    assert_eq!(row.body_model, crate::testing::shown("hello"));
 }
 
 /// The transclusion of the tests below: an item of this page that shows the item "s"

@@ -38,7 +38,7 @@ fn undo_puts_the_old_body_back_sends_it_in_one_request_and_moves_the_entry_to_th
     assert!(h.model.undo.can_undo());
 }
 
-fn shown_ast(h: &Harness, item_id: &str) -> flatmarkdown_ast::Node {
+fn shown(h: &Harness, item_id: &str) -> crate::RichText {
     let rows = h.view().outline.rows;
     let row = rows.iter().find(|r| r.item.id == item_id).unwrap();
     row.body_model.clone()
@@ -64,7 +64,7 @@ fn the_view_shows_the_redone_text_after_moving_away() {
         cursor: 0,
     });
     assert!(!h.model.state.is_editing("a"));
-    assert_eq!(shown_ast(&h, "a"), crate::asts::parse("new"));
+    assert_eq!(shown(&h, "a"), crate::testing::shown("new"));
 }
 
 /// An undo entry that changed the body of `a` from "old" to "new", on a page that shows "new"

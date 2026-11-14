@@ -555,7 +555,7 @@ impl FakeApi {
 }
 
 pub struct Harness {
-    app: PetaApp,
+    app: PetaApp<crate::RichText>,
     pub model: Model,
     root: Command<Effect, Event>,
     pub api: FakeApi,
@@ -619,7 +619,7 @@ impl Harness {
     }
 
     /// The view model as the shell would get it now.
-    pub fn view(&self) -> crate::ViewModel {
+    pub fn view(&self) -> crate::ViewModel<crate::RichText> {
         self.app.view(&self.model)
     }
 

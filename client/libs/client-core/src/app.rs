@@ -1041,7 +1041,7 @@ impl Model {
 
 /// The app, whose rows give their bodies to the shell as `B` (ADR 042): the AST for the web
 /// shell, and `RichText` for a native shell.
-pub struct PetaApp<B = flatmarkdown_ast::Node> {
+pub struct PetaApp<B> {
     /// What the outline showed last of each body.
     bodies: crate::body_model::Bodies<B>,
 }

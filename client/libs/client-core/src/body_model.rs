@@ -1,6 +1,8 @@
 //! What a row gives the shell to draw its body (ADR 042). The web shell draws the AST itself
 //! (ADR 041); a native shell draws the `RichText` that the core makes from the AST. The core
-//! and the view model take the kind as a type parameter, and each shell picks its own.
+//! and the view model take the kind as a type parameter, and each shell picks its own. The
+//! core has no default: the web shell wraps the AST in a type of its own, as only the crate of
+//! the trait or of the type may implement the trait for the type.
 
 use crate::asts::parse;
 use flatmarkdown_ast::Node;
@@ -15,11 +17,9 @@ pub trait BodyModel: Clone + Debug + PartialEq + Serialize + Send + Sync + 'stat
     fn of(ast: Node, tags_dir: &str) -> Self;
 }
 
-/// The web shell draws the AST as it is.
-impl BodyModel for Node {
-    fn of(ast: Node, _tags_dir: &str) -> Node {
-        ast
-    }
+/// A shell that draws the Markdown itself, such as the Emacs shell, takes no body model.
+impl BodyModel for () {
+    fn of(_ast: Node, _tags_dir: &str) {}
 }
 
 /// What the last view showed of each body. The view is made after every event, and most bodies

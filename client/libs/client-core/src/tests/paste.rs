@@ -82,14 +82,14 @@ fn one_piece_goes_into_the_item_at_the_cursor() {
     assert_eq!(h.focus_cursor(), Some(4));
 }
 
-// 貼り付けた項目は、サーバーが返した新しい本文のASTで表示される。
+// 貼り付けた項目は、サーバーが返した新しい本文の描画モデルで表示される。
 #[test]
-fn the_item_shows_the_ast_of_the_new_body() {
+fn the_item_shows_the_new_body() {
     let mut h = harness();
     paste(&mut h, "a", "XY", 2);
     let rows = h.view().outline.rows;
     let row = rows.iter().find(|r| r.item.id == "a").unwrap();
-    assert_eq!(row.body_model, crate::asts::parse("abXY|cd"));
+    assert_eq!(row.body_model, crate::testing::shown("abXY|cd"));
 }
 
 // サーバーが作った項目は、貼り付けた項目の下に順に入る。カーソルは、サーバーが答えた項目と位置に置かれる。

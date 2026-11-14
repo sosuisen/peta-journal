@@ -7,12 +7,12 @@ mod replay;
 mod text;
 mod wiki;
 
+use crate::body::Row;
 use crate::components::item_drag::Drag;
 use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
 use client_core::model::DeferredKey;
-use client_core::view::Row;
 use client_core::Event;
 use keys::handle_keydown;
 use leptos::prelude::*;
