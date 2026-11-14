@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The parts of an item, or of an entry of a list or a quote in it, from top to bottom.
 struct Blocks: View {
-    let blocks: [ShownBlock]
+    let blocks: [RichBlock]
     let links: Links
     let image: (String) -> URL?
 
@@ -55,7 +55,7 @@ private struct Quoted: ViewModifier {
 
 /// Text with the decoration of its letters and its links.
 struct Paragraphs: View {
-    let paragraphs: [ShownParagraph]
+    let paragraphs: [RichParagraph]
     let links: Links
 
     var body: some View {
@@ -69,36 +69,35 @@ struct Paragraphs: View {
                         Text(letters(paragraph))
                     }
                     // A paragraph of an entry that is not its first one stands under the text
-                    .padding(.leading, CGFloat(max(paragraph.depth - 1, 0)) * 22 + (paragraph.depth > 0 && paragraph.mark == nil ? 22 : 0))
-                    .modifier(Quoted(depth: paragraph.quoted))
+                    .padding(.leading, CGFloat(max(Int(paragraph.depth) - 1, 0)) * 22 + (paragraph.depth > 0 && paragraph.mark == nil ? 22 : 0))
+                    .modifier(Quoted(depth: Int(paragraph.quoted)))
                 }
             }
         }
         .environment(\.openURL, OpenURLAction { address in
-            links.open(address)
+            if let link = RichLinks.link(of: address) { links.open(link) }
             return .handled
         })
     }
 
-    private func letters(_ paragraph: ShownParagraph) -> AttributedString {
-        let size = Letters.plain * Letters.larger(heading: paragraph.heading)
+    private func letters(_ paragraph: RichParagraph) -> AttributedString {
+        let size = Letters.plain * Letters.larger(heading: Int(paragraph.heading))
         var all = AttributedString()
-        for piece in paragraph.pieces {
-            var part = AttributedString(piece.text)
-            let looks = piece.looks
-            let small = looks.contains(.raised) || looks.contains(.lowered)
-            var font = Font.system(size: small ? size * 0.75 : size, design: looks.contains(.code) ? .monospaced : .default)
-            if paragraph.heading > 0 || looks.contains(.bold) { font = font.bold() }
-            if looks.contains(.italic) { font = font.italic() }
+        for run in paragraph.runs {
+            var part = AttributedString(run.text)
+            let looks = run.looks
+            let small = looks.raised || looks.lowered
+            var font = Font.system(size: small ? size * 0.75 : size, design: looks.code ? .monospaced : .default)
+            if paragraph.heading > 0 || looks.bold { font = font.bold() }
+            if looks.italic { font = font.italic() }
             part.font = font
-            if looks.contains(.struck) { part.strikethroughStyle = .single }
-            if looks.contains(.underlined) { part.underlineStyle = .single }
-            if looks.contains(.marked) { part.backgroundColor = Color.yellow.opacity(0.45) }
-            if looks.contains(.code) || looks.contains(.hidden) { part.backgroundColor = Color(.systemGray5) }
-            if looks.contains(.raised) { part.baselineOffset = size * 0.35 }
-            if looks.contains(.lowered) { part.baselineOffset = -size * 0.15 }
-            // A link to a page has no address of its own: the app has no server
-            if let link = piece.link { part.link = URL(string: link, relativeTo: ShownText.base)?.absoluteURL }
+            if looks.struck { part.strikethroughStyle = .single }
+            if looks.underlined { part.underlineStyle = .single }
+            if looks.marked { part.backgroundColor = Color.yellow.opacity(0.45) }
+            if looks.code || looks.hidden { part.backgroundColor = Color(.systemGray5) }
+            if looks.raised { part.baselineOffset = size * 0.35 }
+            if looks.lowered { part.baselineOffset = -size * 0.15 }
+            if let link = run.link { part.link = RichLinks.url(of: link) }
             all += part
         }
         return all
@@ -121,7 +120,7 @@ private struct CodeBlock: View {
 
 /// The cells of a table, each in a box, in columns of the same width.
 private struct TableBlock: View {
-    let rows: [ShownTableRow]
+    let rows: [RichTableRow]
     let links: Links
 
     var body: some View {

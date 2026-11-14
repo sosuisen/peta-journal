@@ -1,8 +1,9 @@
 # peta-shown
 
 What the two Swift apps share: an item as it is shown, read from the AST that the core gives
-with each row (`Row.bodyModel.ast`, ADR 041). The iOS app (`../outliner-ios`) and the Mac app
-(`../stickies-mac`) each draw it on a screen of their own.
+with each row (`Row.bodyModel.ast`, ADR 041). The Mac app (`../stickies-mac`) draws it. The
+iOS app (`../outliner-ios`) draws the parts that the core makes (ADR 042), and the Mac app will
+too: this package then goes.
 
 - `ShownBlocks.swift` makes the parts of an item: text, code blocks, tables, images of the
   assets folder, and the lists and quotes that hold one of these. `LinkTarget` says where a link
