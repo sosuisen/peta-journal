@@ -43,6 +43,29 @@ fn run(conn: &Connection, ids: &IdGenerator) -> anyhow::Result<()> {
     migrate(conn)?;
     ensure_root_index(conn, ids)?;
     seed_system_keys(conn)?;
+    type_user_keys_by_name(conn)?;
+    Ok(())
+}
+
+/// Gives each user definition the type its name gives (ADR 047). A device before ADR 047
+/// could define `rating` as a number; its values stay as they are, as text. A list and a
+/// scalar keep their types, as their values are in other tables; ADR 046 already made the
+/// names of the lists end with `_list`.
+fn type_user_keys_by_name(conn: &Connection) -> rusqlite::Result<()> {
+    let mut stmt =
+        conn.prepare("SELECT key, value_type FROM property_definitions WHERE is_system = 0")?;
+    let definitions = stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    for (key, value_type) in definitions {
+        let by_name = property_names::type_of(&key).as_str();
+        if by_name != value_type && by_name != "list" && value_type != "list" {
+            conn.execute(
+                "UPDATE property_definitions SET value_type = ? WHERE key = ?",
+                rusqlite::params![by_name, key],
+            )?;
+        }
+    }
     Ok(())
 }
 
@@ -386,6 +409,56 @@ mod tests {
             ),
             1
         );
+    }
+
+    // 起動するたびに、名前と型の合わないユーザー定義は、名前から決まる型になる。ADR 047より前の端末で定義されたキーである。
+    #[test]
+    fn a_user_definition_whose_type_does_not_fit_its_name_takes_the_type_of_its_name_on_start() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        conn.execute(
+            "INSERT INTO property_definitions (key, value_type) VALUES ('rating', 'number'), ('score_n', 'text')",
+            [],
+        )
+        .unwrap();
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        let type_of = |key: &str| -> String {
+            conn.query_row(
+                "SELECT value_type FROM property_definitions WHERE key = ?",
+                [key],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        assert_eq!(type_of("rating"), "text");
+        assert_eq!(type_of("score_n"), "number");
+    }
+
+    // 起動しても、リストとスカラーの間では型を変えない。値は別の表にあるからである。ADR 046より前の端末では、名前が_listで終わらないリストのキーがありうる。
+    #[test]
+    fn a_list_and_a_scalar_keep_their_types_on_start() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        conn.execute(
+            "INSERT INTO property_definitions (key, value_type) VALUES ('members', 'list'), ('owner_list', 'text')",
+            [],
+        )
+        .unwrap();
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        let type_of = |key: &str| -> String {
+            conn.query_row(
+                "SELECT value_type FROM property_definitions WHERE key = ?",
+                [key],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        assert_eq!(type_of("members"), "list");
+        assert_eq!(type_of("owner_list"), "text");
     }
 
     // 版1のデータベースを開くと、消した項目の表ができ、版が上がる。

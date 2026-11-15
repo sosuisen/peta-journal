@@ -17,13 +17,13 @@
 
 ユーザーが消した定義は、`deleted_property_definitions(key, deleted_date)` に、消した日時とともに残る。項目の `deleted_items` と同じ形である。同じキーをユーザーが定義し直すと、その行は消える。
 
-ユーザーがSettings画面や `POST /api/config/property-definitions` で新しいキーを定義するときに選べる型は `text` / `number` / `checkbox` / `date` / `datetime` / `bounds` / `list` の7つである。`list` 型のキーは、未定義のキーに `valueType: "list"` で値を送っても作られる。`tags` 型は `tags` キーだけが使う。
+ユーザー定義のキーの型は、キーの名前の接尾辞で決まる（ADR 047）。接尾辞は `_n`（`number`）、`_d`（`date`）、`_dt`（`datetime`）、`_cb`（`checkbox`）、`_bounds`（`bounds`）、`_list`（`list`）で、接尾辞がなければ `text` である。型は最後の接尾辞だけで決まり、大文字の接尾辞は本体の一部として扱う。判定は共有のクレート `property-names` の `type_of` が行う。Settings画面や `POST /api/config/property-definitions` は完全な名前（`rating_n`）を受け取る。`valueType` を送れば、名前から決まる型と合うかを確かめ、合わなければ400エラーになる。送らなければ、名前から決まる型になる。名前の本体が予約の接尾辞で終わるキー（`rating_n_n`）も400エラーになる。`list` 型のキーは、未定義のキーに `valueType: "list"` で値を送っても作られる。`tags` 型は `tags` キーだけが使う。
 
-値がリストかどうかは、キーの名前で決まる（ADR 046）。`list` 型のキーの名前は `_list` で終わる（`member_list` など）。`tags` だけは例外で、`_list` で終わらない名前のリストのキーである。`_list` で終わる名前のキーを `list` 以外の型で定義したり、`_list` で終わらない名前のキーを `list` 型で定義したりすると、400エラーになる。定義のないキーに値を書くときも同じである。名前で決めるのは、定義が届く前でも、どの端末も同じようにリストかどうかを決められるためである。判定は `domain::property_key::PropertyKey` が行う。
+値がリストかどうかも、キーの名前で決まる（ADR 046）。`list` 型のキーの名前は `_list` で終わる（`member_list` など）。`tags` だけは例外で、`_list` で終わらない名前のリストのキーである。`_list` で終わる名前のキーを `list` 以外の型で定義したり、`_list` で終わらない名前のキーを `list` 型で定義したりすると、400エラーになる。定義のないキーに値を書くときも同じである。名前で決めるのは、定義が届く前でも、どの端末も同じようにリストかどうかを決められるためである。判定は `domain::property_key::PropertyKey` が行う。
 
 `tags` と `list` は、どちらも値の並びで、保存のしかたも同じである。型を分けているのは、UIが値をデータ型だけで見分けて、`tags` 型の値を `#` 付きで表示できるようにするためである。`tags` 型にはキーの名前を見なくてもタグの見た目を与えられ、`list` 型はただの値の並びとして表示する。
 
-キーの型は最初に定義されたときに固定される。既存キーに別の型で値を送っても定義は変わらない。値は送った型ではなく、定義の型でチェックして保存する。例えば `number` のキーに `valueType: "text"` で数値でない値を送ると400エラーになる。
+型は名前で決まるので、変わらない。既存キーに別の型で値を送っても定義は変わらない。起動のたびに、名前と型の合わないユーザー定義（ADR 047より前の端末で定義された `rating` の `number` など）は、名前から決まる型に直す。ただし、リストとスカラーの間では変えない。値は送った型ではなく、定義の型でチェックして保存する。例えば `number` のキーに `valueType: "text"` で数値でない値を送ると400エラーになる。
 
 ### システム管理キー
 
@@ -219,7 +219,7 @@ tags:
 frontmatterの残りのキーは、ページのプロパティとして読む（`PageService::replace_page_properties`）。ファイルだけからページを作った端末も、これでプロパティを持つ。読まないと、その端末が次にファイルを書いたときに、frontmatterからプロパティが消える。
 
 - ページより新しいファイルが、ページのプロパティを決める。ファイルにないキーの値は、ページから消す。ページより古いファイルは、ページのプロパティを変えない。`tags` と同じ決まりである。
-- 定義のないキーには、仮の定義を作る（ADR 046）。名前が `_list` で終われば `list`、それ以外は `text` である。仮の定義は `settings/properties.json` に書かない。ほかの端末の定義が届けば、それに置き換わる。取り込みで、仮の定義のキーの値が端末のDBに1つもなくなれば、仮の定義を消す（`PropertyRepository::drop_unused_provisional_in`）。項目のメタデータ行も同じである。
+- 定義のないキーには、仮の定義を作る（ADR 046）。型は名前から決まる型である（ADR 047）。仮の定義は `settings/properties.json` に書かない。ほかの端末の定義が届けば、それに置き換わる。取り込みで、仮の定義のキーの値が端末のDBに1つもなくなれば、仮の定義を消す（`PropertyRepository::drop_unused_provisional_in`）。項目のメタデータ行も同じである。
 - 名前が `_list` で終わるキーは、定義があってもなくても、リストとして読む。
 - `for_page` が0のシステム管理キー（`zoom` など）、キーにできない名前の行は、読み飛ばす。ファイルのほかの部分は取り込む。`for_page` が0のユーザーのキーは取り込む。`for_page` は、ページのプロパティのUIで選べるキーを決めるためだけに使う。ほかの端末では、ページに付けられる定義かもしれないからである。
 - ユーザーのキーの値は、型に合わなくても、ファイルに書かれた文字列のまま取り込む（`PropertyRepository::take_in_scalar_in`）。システム管理キーの値は、型に合わなければ読み飛ばし、ページや項目の値が残る。アプリが型どおりに値を読むからである。今、型を確かめるのは `number`、`checkbox`、`bounds` である。
@@ -260,10 +260,12 @@ frontmatterの残りのキーは、ページのプロパティとして読む（
 
 ADR 046で、定義をMarkdownフォルダーの `settings/properties.json` に置き、端末の間で同期すると決めた。
 
+ファイルには、キーごとに `page` と `modified`、または消した日時の `deleted` を書く。型は名前から決まるので、ファイルには書かない（ADR 047）。古い版が書いた `type` は読み飛ばすが、名前から決まる型と合わない定義は読まない。
+
 - 端末は、その端末のユーザーが定義を足したときと消したときに、`settings/properties.json` を書く（`DefinitionsFileService::write_file`）。書く中身は、端末のDBの本物のユーザー定義と `deleted_property_definitions` を、ファイルにある定義とキーごとに合わせた結果である（`domain::property_definitions::merge`）。ファイルにあって、端末がまだ取り込んでいないほかの端末の定義を消さないためである。
 - 形式は、ADR 046の「ファイルの形式」のとおりである（`infrastructure::export::definitions_file`）。キーは辞書順で、日時はUTCのISO 8601である。システム管理キーは書かない。読むときは、ユーザーが作れない定義（システム管理キー、名前に合わない型、知らない型、キーにできない名前、日時のない定義）を読み飛ばす。
 - 端末は、ほかの端末が書いた `settings/properties.json` を受け取ると、その定義と端末のDBの定義をキーごとに合わせ、結果を端末のDBに入れる（`DefinitionsFileService::take_in`）。合わせた結果が受け取ったファイルと違えば、ファイルを書き直す。同じなら書き直さない。
-  - 新しい定義が届くと、端末は、DBの定義をその型と `for_page` に変え、`deleted_property_definitions` からそのキーの行を消す。仮の定義も本物の定義になる。値は変えない。
+  - 新しい定義が届くと、端末は、DBの定義の `for_page` を変え、`deleted_property_definitions` からそのキーの行を消す。仮の定義も本物の定義になる。値は変えない。
   - 消したことが届くと、端末は、消した日時を `deleted_property_definitions` に入れる。端末のDBにそのキーの値がなければ、定義の行を消す。値があれば、定義を仮の定義（`provisional` が1）にして残し、値も残す。このキーにユーザーがRESTやMCPで値を書いても、仮の定義のままで、消したことも残る（`define_in`）。値がなくて定義の行を消したキーなら、値を書くと本物の定義になり、`deleted_property_definitions` の行を消す。
   - ページのファイルは書き直さず、ページの `modified` も進めない。
 - `settings/properties.json` のconflicted copy（`settings/properties (… conflicted copy …).json`）は、もう1つの版として端末のDBに合わせ、`settings/properties.json` を書き直してから消す（`take_in_copy`）。

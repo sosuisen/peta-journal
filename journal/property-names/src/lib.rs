@@ -24,6 +24,19 @@ impl ValueType {
         ValueType::List,
     ];
 
+    /// The name of the type, as the database and the API write it.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ValueType::Text => "text",
+            ValueType::Number => "number",
+            ValueType::Date => "date",
+            ValueType::Datetime => "datetime",
+            ValueType::Checkbox => "checkbox",
+            ValueType::Bounds => "bounds",
+            ValueType::List => "list",
+        }
+    }
+
     /// The suffix of the key names of the type. Text has none.
     pub fn suffix(self) -> &'static str {
         match self {
@@ -125,6 +138,23 @@ mod tests {
         assert_eq!(body_of("rating_n"), "rating");
         assert_eq!(body_of("start_dt"), "start");
         assert_eq!(body_of("rating"), "rating");
+    }
+
+    // 型の名前は、DBとAPIで使う名前である。
+    #[test]
+    fn each_type_has_the_name_the_db_and_the_api_use() {
+        let names = [
+            (ValueType::Text, "text"),
+            (ValueType::Number, "number"),
+            (ValueType::Date, "date"),
+            (ValueType::Datetime, "datetime"),
+            (ValueType::Checkbox, "checkbox"),
+            (ValueType::Bounds, "bounds"),
+            (ValueType::List, "list"),
+        ];
+        for (value_type, name) in names {
+            assert_eq!(value_type.as_str(), name);
+        }
     }
 
     fn any_type() -> impl Strategy<Value = ValueType> {

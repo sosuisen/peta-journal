@@ -20,12 +20,6 @@ pub type ScalarProps = BTreeMap<String, BTreeMap<String, String>>;
 /// List properties per target: target id -> (key -> values).
 pub type ListProps = BTreeMap<String, BTreeMap<String, Vec<String>>>;
 
-/// The types a user may give a new key. `list` is for a key whose name ends with `_list`
-/// (ADR 046). `tags` stays internal: the server derives the tags from the body of an item.
-pub const USER_VALUE_TYPES: [&str; 7] = [
-    "text", "number", "checkbox", "date", "datetime", "bounds", "list",
-];
-
 /// A property definition: the key, its value type and who may use it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PropertyDefinition {
@@ -178,17 +172,18 @@ impl PropertyRepository {
             .find(|d| d.key == key))
     }
 
-    /// Defines a user key. A system key, an existing key and a type the user may not choose
-    /// are refused.
+    /// Defines a user key. A system key, an existing key and a type other than the one the
+    /// name gives are refused (ADR 047).
     pub fn insert_definition(&self, key: &str, value_type: &str, page: bool) -> AppResult<()> {
         validate_key(key)?;
-        if !USER_VALUE_TYPES.contains(&value_type) {
-            return Err(AppError::bad_request(format!(
-                "Value type must be one of {}",
-                USER_VALUE_TYPES.join(", ")
-            )));
-        }
         PropertyKey::parse(key)?.check_type(value_type)?;
+        // `rating_n_n` would show as `rating_n`, which looks like a number of `rating`
+        property_names::name_of(property_names::body_of(key), property_names::type_of(key))
+            .map_err(|_| {
+                AppError::bad_request(format!(
+                    "Property key '{key}' has a body that ends with a reserved suffix"
+                ))
+            })?;
         if let Some(existing) = self.find_definition(key)? {
             let what = if existing.system {
                 "a system key"
@@ -367,7 +362,8 @@ impl PropertyRepository {
     }
 
     /// Takes in a scalar value from a file, as part of a larger transaction. A key with no
-    /// definition gets a provisional one of `text`, only to read the value. A value of a user
+    /// definition gets a provisional one of the type its name gives (ADR 047), only to read
+    /// the value. A value of a user
     /// key comes in as it is written, even when it does not fit the type (ADR 046).
     pub fn take_in_scalar_in(
         conn: &Connection,
@@ -377,7 +373,7 @@ impl PropertyRepository {
         value: &str,
     ) -> AppResult<()> {
         validate_key(key)?;
-        define_provisional_in(conn, key, "text")?;
+        define_provisional_in(conn, key, property_names::type_of(key).as_str())?;
         let system = Self::find_definition_in(conn, key)?.is_some_and(|def| def.system);
         if system {
             // The app reads a system key by its type, so a value that does not fit stays out

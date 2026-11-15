@@ -18,7 +18,7 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::files::write_atomic;
 use crate::infrastructure::persistence::database_initializer::SYSTEM_KEYS;
 use crate::infrastructure::persistence::property_repository::{
-    PropertyDefinition, PropertyRepository, USER_VALUE_TYPES,
+    PropertyDefinition, PropertyRepository,
 };
 
 /// The folder of the settings in the Markdown folder.
@@ -161,7 +161,7 @@ pub fn read(text: &str) -> AppResult<Definitions> {
     Ok(file
         .definitions
         .into_iter()
-        .filter_map(|(key, entry)| Some((key, entry.definition()?)))
+        .filter_map(|(key, entry)| Some((key.clone(), entry.definition(&key)?)))
         .filter(|(key, definition)| a_user_can_make(key, definition))
         .collect())
 }
@@ -176,9 +176,7 @@ fn a_user_can_make(key: &str, definition: &Definition) -> bool {
         return false;
     };
     match definition {
-        Definition::Defined { value_type, .. } => {
-            USER_VALUE_TYPES.contains(&value_type.as_str()) && key.check_type(value_type).is_ok()
-        }
+        Definition::Defined { value_type, .. } => key.check_type(value_type).is_ok(),
         Definition::Deleted { .. } => true,
     }
 }
@@ -199,14 +197,18 @@ struct ReadEntry {
 }
 
 impl ReadEntry {
-    fn definition(self) -> Option<Definition> {
+    /// The definition of the key. A type written by an older version must be the one the
+    /// name gives, or the definition is left out (ADR 047).
+    fn definition(self, key: &str) -> Option<Definition> {
         if let Some(deleted) = self.deleted {
             return Some(Definition::Deleted {
                 deleted: parse_instant(Some(&deleted))?,
             });
         }
         Some(Definition::Defined {
-            value_type: self.value_type?,
+            value_type: self
+                .value_type
+                .unwrap_or_else(|| property_names::type_of(key).as_str().to_string()),
             page: self.page,
             modified: parse_instant(self.modified.as_deref())?,
         })
@@ -215,14 +217,12 @@ impl ReadEntry {
 
 #[derive(Serialize)]
 struct File<'a> {
-    definitions: BTreeMap<&'a str, Entry<'a>>,
+    definitions: BTreeMap<&'a str, Entry>,
 }
 
 /// One key in the file. The fields are written in this order.
 #[derive(Serialize)]
-struct Entry<'a> {
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-    value_type: Option<&'a str>,
+struct Entry {
     #[serde(skip_serializing_if = "Option::is_none")]
     page: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -231,21 +231,15 @@ struct Entry<'a> {
     deleted: Option<String>,
 }
 
-impl<'a> Entry<'a> {
-    fn of(definition: &'a Definition) -> Entry<'a> {
+impl Entry {
+    fn of(definition: &Definition) -> Entry {
         match definition {
-            Definition::Defined {
-                value_type,
-                page,
-                modified,
-            } => Entry {
-                value_type: Some(value_type),
+            Definition::Defined { page, modified, .. } => Entry {
                 page: Some(*page),
                 modified: Some(format_instant(*modified)),
                 deleted: None,
             },
             Definition::Deleted { deleted } => Entry {
-                value_type: None,
                 page: None,
                 modified: None,
                 deleted: Some(format_instant(*deleted)),
@@ -259,12 +253,12 @@ mod tests {
     use super::*;
     use crate::domain::property_definitions::Definition;
 
-    // 定義はキーの辞書順に書かれ、消した定義は消した日時だけを持つ。
+    // 定義はキーの辞書順に、型を書かずに書かれ、消した定義は消した日時だけを持つ。型は名前から決まるからである。
     #[test]
-    fn the_definitions_are_written_in_the_order_of_their_keys() {
+    fn the_definitions_are_written_in_the_order_of_their_keys_without_their_types() {
         let definitions: Definitions = [
             (
-                "score".to_string(),
+                "score_n".to_string(),
                 Definition::Defined {
                     value_type: "number".to_string(),
                     page: false,
@@ -297,12 +291,10 @@ mod tests {
       "deleted": "2025-11-14T09:00:00Z"
     },
     "owner": {
-      "type": "text",
       "page": true,
       "modified": "2025-11-15T01:00:00Z"
     },
-    "score": {
-      "type": "number",
+    "score_n": {
       "page": false,
       "modified": "2025-11-15T02:00:00Z"
     }
@@ -330,6 +322,21 @@ mod tests {
         .collect();
 
         assert_eq!(read(&write(&definitions)).unwrap(), definitions);
+    }
+
+    // 型のない定義は、名前から決まる型で読まれる。
+    #[test]
+    fn a_definition_without_a_type_reads_as_the_type_its_name_gives() {
+        let text = r#"{ "definitions": { "rating_n": { "page": true, "modified": "1970-01-01T00:00:01Z" } } }"#;
+
+        assert_eq!(
+            read(text).unwrap().remove("rating_n"),
+            Some(Definition::Defined {
+                value_type: "number".to_string(),
+                page: true,
+                modified: 1_000,
+            })
+        );
     }
 
     // ユーザーが定義できない定義は読まず、ほかの定義は読む。システム管理キー、名前に合わない型、知らない型、キーにできない名前、日時のない定義である。

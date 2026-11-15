@@ -553,7 +553,7 @@
   - ほかの端末で消した定義のキーでも同じで、消した定義ではなくなる
   - 仮の定義のキーに値を書いても、仮の定義のままである。ユーザーは型を選んでいないからである
   - 2つの版の定義は、キーごとに新しい方を採って合わせる。日時が同じなら、消した方、text以外の型、型の名前の辞書順で後の方、ページで使える方を採る。どの順に合わせても、結果は同じである（`journal-core/src/domain/property_definitions.rs`）
-  - 定義はキーの辞書順に書かれる。ユーザーが作れない定義は読み飛ばす（`journal-core/src/infrastructure/export/definitions_file.rs`）
+  - 定義はキーの辞書順に、型を書かずに書かれる。型のない定義は、名前から決まる型で読む。ユーザーが作れない定義は読み飛ばす（`journal-core/src/infrastructure/export/definitions_file.rs`、ADR 047）
 - 端末は、ほかの端末が書いた`settings/properties.json`を取り込む（`journal/journal-server/tests/it/definitions_sync.rs`、ADR 046）
   - DBにない定義は、DBに入る。新しい方の定義が残る
   - 端末のDBの定義のほうが新しければ、ファイルを書き直す。合わせた結果がファイルと同じなら、書き直さない
@@ -565,8 +565,11 @@
 - 端末は、DBの定義が変わると、開いているクライアントにSSEの`propertyDefinitionsUpdated`で知らせる（`journal/journal-server/tests/it/definitions_sync.rs`、ADR 046）
   - ほかの端末の定義が届いたとき、ページのファイルで仮の定義ができたときと消えたとき、ユーザーが定義を足したとき・消したとき・定義のないキーに値を書いたときである
   - 取り込んだファイルが定義を変えなければ、知らせない
-- サーバーは、キーの名前でリストかどうかを決める（`journal/journal-server/tests/it/api.rs`、ADR 046）
-  - list型のキーは、名前が`_list`で終わるときだけ定義できる
+- サーバーは、キーの名前の接尾辞で型を決める（`journal/journal-server/tests/it/api.rs`、ADR 046、ADR 047）
+  - 接尾辞は`_n`、`_d`、`_dt`、`_cb`、`_bounds`、`_list`で、なければtextである。最後の接尾辞だけで決まり、大文字の接尾辞は本体の一部である（`journal/property-names/src/lib.rs`）
+  - キーは、名前から決まる型でだけ定義できる。型を送らなければ、名前から決まる型になる
+  - 名前の本体が予約の接尾辞で終わるキーは、定義できない
+  - 起動のたびに、名前と型の合わないユーザー定義は、名前から決まる型になる。リストとスカラーの間では変えない（`journal-core/src/infrastructure/persistence/database_initializer.rs`）
   - 定義のないキーには、項目でもページでも、名前に合う型でしか値を書けない
 
 ### 項目をつなぐ
@@ -747,7 +750,7 @@
   - ファイルだけからできたページは、front matterのプロパティを持ち、書き直してもファイルに残す
   - 新しいファイルにないプロパティは、ページから消える。ページより古いファイルは、ページのプロパティを変えない
   - 手でfront matterに足したプロパティは取り込まれ、ページの日付が新しくなる
-  - 定義のないキーには、仮の定義ができる。名前が`_list`で終わればlist、それ以外はtextである。仮の定義は`settings/properties.json`に書かれない（出典: `journal/journal-server/tests/it/definitions_sync.rs`）
+  - 定義のないキーには、名前から決まる型の仮の定義ができる。仮の定義は`settings/properties.json`に書かれない（出典: `journal/journal-server/tests/it/definitions_sync.rs`）
   - 仮の定義のキーの値がなくなれば、仮の定義は消える。項目のキーも同じである
   - 項目だけに使うと定義したユーザーのキーも、ページに取り込まれる
   - ページに付けられないシステム管理キー、キーにできない名前の行は取り込まれず、ほかのプロパティは取り込まれる
