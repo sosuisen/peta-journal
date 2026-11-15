@@ -2307,6 +2307,20 @@ async fn a_split_inside_a_code_block_closes_and_opens_it_again() {
     assert_eq!(resp["created"]["body"], json!("```js\nde\n```"));
 }
 
+// 分割の要求の本文が閉じていないブロックで終われば、どこで分けても断られる。分けた2つは閉じていても、届いた本文が閉じていない。
+#[tokio::test]
+async fn a_split_of_a_body_with_an_unclosed_block_is_refused() {
+    let page = new_doc_page("items-split-unclosed").await;
+    let rows = fill(&page.id, &["saved"]).await;
+
+    for cursor in [0, 5] {
+        let (status, resp) = split(&rows[0].id, "```\nabc", cursor).await;
+
+        assert_eq!(status, 400, "{cursor}: {resp}");
+    }
+    assert_eq!(outline_of(&page.id).await, vs(&["1:saved"]));
+}
+
 // 分割は項目を2つ書くが、ページの変更は1回だけクライアントに知らされる。
 #[tokio::test]
 async fn the_clients_hear_of_the_page_once_for_a_split() {
