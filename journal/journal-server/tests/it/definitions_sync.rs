@@ -545,3 +545,43 @@ fn a_value_the_user_writes_to_a_key_with_no_definition_defines_it_for_every_devi
         assert!(modified >= before, "{key}: {modified} < {before}");
     }
 }
+
+// ほかの端末が消した定義が届いたあと、ユーザーがRESTやMCPでそのキーに値を書くと、端末は、消した定義の表からそのキーの行を消し、その型の本物の定義としてsettings/properties.jsonに書く。
+#[test]
+fn a_value_the_user_writes_to_a_key_deleted_on_another_device_defines_it_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "text", false);
+    b.receive(&a, DEFINITIONS_FILE);
+    b.undefine("score");
+    a.receive(&b, DEFINITIONS_FILE);
+
+    a.state
+        .journal
+        .set_page_property(
+            page.as_str(),
+            "score",
+            Some("number"),
+            Some("12"),
+            &ChangedBy::Mcp,
+        )
+        .unwrap();
+
+    let deleted: i64 = a
+        .state
+        .db
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(deleted, 0);
+    assert!(matches!(
+        a.written("score"),
+        Some(Definition::Defined { value_type, .. }) if value_type == "number"
+    ));
+}
