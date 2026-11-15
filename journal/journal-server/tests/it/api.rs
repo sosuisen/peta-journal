@@ -2766,6 +2766,22 @@ async fn an_update_to_a_body_with_an_unclosed_block_is_refused() {
     assert_eq!(outline_of(&page.id).await, vs(&["1:a"]));
 }
 
+// 閉じていないブロックを持つ本文での作成は断られ、項目はできない。
+#[tokio::test]
+async fn an_item_with_an_unclosed_block_is_not_created() {
+    let page = new_doc_page("unclosed-create").await;
+    fill(&page.id, &["a"]).await;
+
+    let (status, resp) = post(
+        "/api/items",
+        json!({ "pageId": page.id, "position": "last", "level": 1, "body": ">>>\nabc" }),
+    )
+    .await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a"]));
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
