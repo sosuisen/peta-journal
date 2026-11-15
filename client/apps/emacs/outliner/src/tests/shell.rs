@@ -1173,6 +1173,15 @@ fn a_row_tells_emacs_the_body_and_the_type_of_its_key() {
     assert_eq!(score.label, "score (number)");
 }
 
+// まだ付けられるキーも、名前の本体と型の見出しとともにEmacsに伝える。
+#[test]
+fn a_free_key_reaches_emacs_with_the_body_and_the_type_of_its_name() {
+    let driver = open_with_properties(json!({}));
+    let (_, free_keys) = driver.last_properties().unwrap();
+    let topics = free_keys.iter().find(|k| k.key == "topic_list").unwrap();
+    assert_eq!(topics.label, "topic (list)");
+}
+
 // 日時のキーをEmacsに伝える。ページ自身の日付、日時の定義を持つ使用中のキー、まだ付けられるキーである。
 #[test]
 fn the_keys_that_hold_a_date_and_a_time_reach_emacs() {
