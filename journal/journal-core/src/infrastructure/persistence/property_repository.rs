@@ -428,6 +428,20 @@ impl PropertyRepository {
                 format_number(n)
             }
             "checkbox" => (if value == "true" { "true" } else { "false" }).to_string(),
+            "date" => {
+                chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
+                    .map_err(|_| AppError::bad_request(format!("Not a date: {value}")))?;
+                value.to_string()
+            }
+            "datetime" => {
+                // Old files hold `end` without a zone (`2026-02-13T08:57:58`); they still fit
+                let fits = chrono::DateTime::parse_from_rfc3339(value).is_ok()
+                    || chrono::NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S%.f").is_ok();
+                if !fits {
+                    return Err(AppError::bad_request(format!("Not a datetime: {value}")));
+                }
+                value.to_string()
+            }
             "bounds" => value.parse::<Bounds>()?.to_string(),
             _ => value.to_string(),
         };

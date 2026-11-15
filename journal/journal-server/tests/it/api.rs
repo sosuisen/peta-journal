@@ -2490,7 +2490,7 @@ async fn a_batch_update_writes_the_task_state_with_its_times() {
 async fn a_batch_update_removes_what_the_task_state_does_not_give() {
     let page = new_doc_page("items-batch-task-unset").await;
     let item = fill(&page.id, &["buy milk"]).await.remove(0);
-    let full = json!({ "task": true, "begin": "b", "end": "e", "plan": "2026-01-02" });
+    let full = json!({ "task": true, "begin": "2026-01-02T03:04:05Z", "end": "2026-01-02T04:05:06Z", "plan": "2026-01-02" });
     let (status, resp) = batch(json!([{"op": "update", "id": item.id, "task": full}])).await;
     assert_eq!(status, 200, "{resp}");
 
