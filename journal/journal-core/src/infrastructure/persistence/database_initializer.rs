@@ -43,6 +43,29 @@ fn run(conn: &Connection, ids: &IdGenerator) -> anyhow::Result<()> {
     migrate(conn)?;
     ensure_root_index(conn, ids)?;
     seed_system_keys(conn)?;
+    type_user_keys_by_name(conn)?;
+    Ok(())
+}
+
+/// Gives each user definition the type its name gives (ADR 047). A device before ADR 047
+/// could define `rating` as a number; its values stay as they are, as text. A list and a
+/// scalar keep their types, as their values are in other tables; ADR 046 already made the
+/// names of the lists end with `_list`.
+fn type_user_keys_by_name(conn: &Connection) -> rusqlite::Result<()> {
+    let mut stmt =
+        conn.prepare("SELECT key, value_type FROM property_definitions WHERE is_system = 0")?;
+    let definitions = stmt
+        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    for (key, value_type) in definitions {
+        let by_name = property_names::type_of(&key).as_str();
+        if by_name != value_type && by_name != "list" && value_type != "list" {
+            conn.execute(
+                "UPDATE property_definitions SET value_type = ? WHERE key = ?",
+                rusqlite::params![by_name, key],
+            )?;
+        }
+    }
     Ok(())
 }
 
