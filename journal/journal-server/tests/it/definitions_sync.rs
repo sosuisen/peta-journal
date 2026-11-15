@@ -4,6 +4,8 @@
 use journal_core::domain::property_definitions::Definition;
 use journal_core::infrastructure::export::definitions_file::{self, DEFINITIONS_FILE};
 use journal_core::journal::{AddPropertyDefinitionInput, ChangedBy};
+use journal_server::config::Settings;
+use journal_server::state::{AppState, BuildOptions};
 
 use super::atlas_sync::{two_devices, Device};
 
@@ -96,4 +98,26 @@ fn a_deleted_definition_the_user_adds_again_is_no_longer_deleted() {
         a.written("score"),
         Some(Definition::Defined { value_type, page: true, .. }) if value_type == "text"
     ));
+}
+
+// Markdownフォルダーを選んでいない端末でも、ユーザーは定義を足せる。書くファイルがないだけである。
+#[test]
+fn a_device_without_a_markdown_folder_still_takes_a_definition() {
+    let dir = tempfile::tempdir().unwrap();
+    let state = AppState::build(
+        Settings::under(dir.path(), 0),
+        BuildOptions { interactive: false },
+    )
+    .unwrap();
+
+    state
+        .journal
+        .add_property_definition(AddPropertyDefinitionInput {
+            key: Some("score".to_string()),
+            value_type: Some("number".to_string()),
+            page: Some(false),
+        })
+        .unwrap();
+
+    assert!(state.properties.find_definition("score").unwrap().is_some());
 }
