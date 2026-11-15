@@ -6,6 +6,7 @@
 
 use super::state::OutlineState;
 use super::tree::{get_subtree, ids_of_range_with_subtrees, index_of, selection_start_index};
+use crate::model::ItemRef;
 use std::collections::HashSet;
 
 #[derive(Debug, Default)]
@@ -53,16 +54,19 @@ impl Selection {
         if !self.dragging {
             return;
         }
-        self.extent_item_id = Some(item_id.to_string());
         let items = state.visible_items();
-        let (Some(anchor_idx), Some(current_idx)) = (
+        let (Some(anchor_idx), Some(entered_idx)) = (
             self.anchor_item_id
                 .as_deref()
                 .and_then(|id| index_of(items, id)),
             index_of(items, item_id),
         ) else {
+            self.extent_item_id = Some(item_id.to_string());
             return;
         };
+        // A selection from a child stays under its parent (ADR 049)
+        let current_idx = entered_idx.min(last_under_parent(items, anchor_idx));
+        self.extent_item_id = Some(items[current_idx].id.clone());
         let start = selection_start_index(items, anchor_idx, current_idx);
         let end = anchor_idx.max(current_idx);
         self.select_range(state, start, end);
@@ -122,16 +126,15 @@ impl Selection {
         ) else {
             return;
         };
-        if extent_idx + 1 >= items.len() {
-            return;
-        }
         if extent_idx >= anchor_idx {
+            // A selection from a child stays under its parent (ADR 049)
+            let last = last_under_parent(items, anchor_idx);
             // When expanding downward, skip past items already in the selection
             let selected = state.selected_item_ids();
-            while extent_idx + 1 < items.len() && selected.contains(&items[extent_idx + 1].id) {
+            while extent_idx < last && selected.contains(&items[extent_idx + 1].id) {
                 extent_idx += 1;
             }
-            if extent_idx + 1 >= items.len() {
+            if extent_idx >= last {
                 return;
             }
         } else {
@@ -177,6 +180,16 @@ impl Selection {
     fn select_range(&self, state: &mut OutlineState, start: usize, end: usize) {
         let ids = ids_of_range_with_subtrees(state.visible_items(), state.items(), start, end);
         state.set_selected_item_ids(ids);
+    }
+}
+
+/// The index of the last item that a selection from `items[idx]` can reach downward: the
+/// last descendant of its parent, or the last item when it has no parent (ADR 049).
+fn last_under_parent(items: &[ItemRef], idx: usize) -> usize {
+    let level = items[idx].level;
+    match items[..idx].iter().rposition(|item| item.level < level) {
+        Some(parent) => parent + get_subtree(items, &items[parent].id).len() - 1,
+        None => items.len() - 1,
     }
 }
 
@@ -235,6 +248,55 @@ mod tests {
         sel.end_drag();
         sel.extend_drag_to(&mut state, "a");
         assert_eq!(selected(&state).len(), 5);
+    }
+
+    // 子の項目から始めた選択は、Shift+Downで親の子孫の終わりまで広がり、そこで止まる。別の木へは広がらない。
+    #[test]
+    fn shift_down_from_a_child_stops_at_the_end_of_its_parent() {
+        let mut state = state();
+        let mut sel = Selection::default();
+        sel.start_from_editor(&mut state, "b");
+        sel.extend_down(&mut state);
+        assert_eq!(selected(&state), ["b", "c"]);
+        sel.extend_down(&mut state);
+        assert_eq!(selected(&state), ["b", "c"]);
+    }
+
+    // 一番上の項目の木がページの最後まで続くとき、その項目から始めた選択は、Shift+Downでそれ以上広がらない。
+    #[test]
+    fn shift_down_does_nothing_when_the_tree_of_a_top_item_reaches_the_end() {
+        let mut state = OutlineState::default();
+        state.set_items(vec![plain_item("a", 1, ""), plain_item("b", 2, "")]);
+        let mut sel = Selection::default();
+        sel.start_from_editor(&mut state, "a");
+        sel.extend_down(&mut state);
+        assert_eq!(selected(&state), ["a", "b"]);
+    }
+
+    // 孫の項目から始めた選択は、Shift+Downで親の兄弟へ広がらない。
+    #[test]
+    fn shift_down_from_a_grandchild_stays_under_its_parent() {
+        let mut state = OutlineState::default();
+        state.set_items(vec![
+            plain_item("a", 1, ""),
+            plain_item("b", 2, ""),
+            plain_item("g", 3, ""),
+            plain_item("c", 2, ""),
+        ]);
+        let mut sel = Selection::default();
+        sel.start_from_editor(&mut state, "g");
+        sel.extend_down(&mut state);
+        assert_eq!(selected(&state), ["g"]);
+    }
+
+    // 子の項目から始めたドラッグは、マウスが親の外へ出ても、親の子孫の終わりで止まる。
+    #[test]
+    fn a_drag_from_a_child_stops_at_the_end_of_its_parent() {
+        let mut state = state();
+        let mut sel = Selection::default();
+        sel.start_drag(&mut state, "b");
+        sel.extend_drag_to(&mut state, "e");
+        assert_eq!(selected(&state), ["b", "c"]);
     }
 
     // エディタから始めた選択も、その項目の子孫をすべて含む。
