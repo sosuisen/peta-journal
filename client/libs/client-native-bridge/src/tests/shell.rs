@@ -481,6 +481,26 @@ fn the_shell_opens_a_page_by_its_url() {
     assert!(screen.view().contains("2026-11-06"));
 }
 
+// シェルがURLで開いたページは、コアの履歴に入る。戻ると、前のページがもう一度開く（ADR 035）。
+#[test]
+fn a_page_the_shell_opens_goes_into_the_history_of_the_core() {
+    let screen = Screen::new();
+    screen.shell.open("/pages/first").unwrap();
+    screen.shell.open("/pages/second").unwrap();
+
+    screen.send(&Event::Back {
+        today: "2026-11-06".into(),
+    });
+
+    wait_until("the page before is opened again", || {
+        screen.answered.lock().unwrap().len() == 3
+    });
+    assert_eq!(
+        *screen.answered.lock().unwrap(),
+        ["first", "second", "first"]
+    );
+}
+
 // サーバーへの要求は、コアが出した順に、1つずつ届く。前の要求が遅くても、後の要求が追い越さない。
 // 追い越すと、保存より先に結合が届いて、打った文字が消える。
 #[test]

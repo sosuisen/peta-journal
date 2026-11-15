@@ -279,8 +279,11 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
     - 形：シェルは、開くURLを`Event::Open { url, today }`で送る。戻ると進むは`Event::Back { today }`と`Event::Forward { today }`である。ビューモデルの`history`に、`can_go_back`と`can_go_forward`が出る。上限は100件である
     - 置き換えは、コアが覚える。正しいパスへの開き直し（`PageRedirected`）で`NavigateOp { replace: true }`を頼んだとき、そのURLを覚えておき、次にそのURLが`Open`で届いたら今のページと置き換える。そのため、シェルは`replace`を見なくてよい
     - 今のページと同じURLは積まない
-  - [ ] 履歴を使うシェルで、開く操作がコアに分かるようにする。今は、スマホの「Today」とリンクのタップが、コアを通らない
-    - 形は上で決めた。ネイティブのシェルは、どの開く操作も`client-native-bridge`の`NativeShell::open`を通るので、そこで`Event::Route`の代わりに`Event::Open`を送れば足りる見込みである
+  - [x] 履歴を使うシェルで、開く操作がコアに分かるようにする。今は、スマホの「Today」とリンクのタップが、コアを通らない（2026-11-16）
+    - ネイティブのシェルは、どの開く操作も`client-native-bridge`の`NativeShell::open`を通る。最初のページ、Today、リンク、コアが頼む移動である。そこで`Event::Route`の代わりに`Event::Open`を送るようにした。Swift、C#、Kotlinのコードは変えていない
+    - 戻ると進むのボタンは、まだどのネイティブのシェルにもない。ボタンを置くときは、`Event::Back`と`Event::Forward`を送り、`history`の値でボタンを押せるかを決める
+    - iOSとAndroidでは、戻ったり進んだりしたページを「前回の画面」（`last-screen`）として書いていない。今は`open`と`open_or_make`の中だけで書く。ボタンを置くときに、ここも決める
+    - iOSとAndroidでは、同期で消えたページに戻ると、コアがそのページを作るかもしれない。`open`はないページを開かないが、`Event::Back`はその確かめを通らない。ボタンを置くときに確かめる
   - [ ] `shell-emacs`の自前の履歴を、コアの履歴に置き換える。進むを足す
   - [ ] SwiftUIとWinUIのシェルに、戻ると進むを足すかを決める
   - [x] `shell-leptos`のwasmの大きさを、前後で比べる。見積もりは数KB以下である
