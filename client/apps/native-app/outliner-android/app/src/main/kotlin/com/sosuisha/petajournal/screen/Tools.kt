@@ -52,7 +52,6 @@ internal fun Tools(itemId: String?, shell: Shell) {
                     Tool("Move up", ink, { shell.moveUp(itemId) }) { itemMoves(it, up = true) }
                     Tool("Move down", ink, { shell.moveDown(itemId) }) { itemMoves(it, up = false) }
                     Tool("Task", ink, { shell.cycleTask(itemId) }) { checkedBox(it) }
-                    Tool("Delete item", MaterialTheme.colorScheme.error, { shell.delete(itemId) }) { cross(it) }
                     Spacer(Modifier.weight(1f))
                     // The field loses the focus, and tells the core that the edit has ended
                     TextButton({ focus.clearFocus() }) { Text("Done") }
@@ -156,8 +155,3 @@ private fun Face.checkedBox(ink: Color) {
     line(ink, 8f, 12.5f, 11f, 15.5f, 16.5f, 9f)
 }
 
-/** A cross: the item is deleted. */
-private fun Face.cross(ink: Color) {
-    line(ink, 6f, 6f, 18f, 18f)
-    line(ink, 18f, 6f, 6f, 18f)
-}

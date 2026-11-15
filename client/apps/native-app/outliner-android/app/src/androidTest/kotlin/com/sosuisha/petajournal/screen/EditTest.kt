@@ -233,28 +233,30 @@ class EditTest : JournalScreenFixture() {
         compose.waitUntil(WAIT_MS) { task() == TaskState.RUNNING }
     }
 
-    // 削除の道具は、編集中の項目を消す。
+    // 道具の列に、削除の道具はない（2026-11-13にユーザーが決めた）。項目を消すのは、空の項目の先頭でのBackspaceである。
     @Test
-    fun the_delete_tool_deletes_the_item() {
+    fun the_tools_have_no_tool_to_delete_the_item() {
         editSecondOfThree()
 
-        tool("Delete item")
-
-        waitForItems("1 first", "1 third")
+        compose.onNode(hasContentDescription("Delete item")).assertDoesNotExist()
     }
 
-    /** Opens a page whose third item shows the second one, and asks to delete the second. */
+    /**
+     * Opens a page whose third item shows the second one, and joins the second to the first
+     * with Backspace at its start. The second item goes away then.
+     */
     private fun deleteAnItemThatAnotherShows() {
         val shows = " transclude=\"2020-01-01-00-00-00-AAAAAAB\""
         download("notes.md", above('A') + "first" + NL + NL + above('B') + "second" + NL + NL + above('C', shows))
         openNotes()
         waitFor("first")
         compose.onAllNodes(hasText("second")).onFirst().performTouchInput { click(centerRight) }
-        tool("Delete item")
+        cursorAt(0)
+        pressBackspace()
         waitFor("Delete anyway?")
     }
 
-    // ほかの項目が写している項目を消すときは、先に尋ねる。「Cancel」なら、項目は残る。
+    // ほかの項目が写している項目が、つなぐことで消えるときは、先に尋ねる。「Cancel」なら、項目は残る。
     @Test
     fun the_app_asks_before_it_deletes_an_item_that_another_shows() {
         deleteAnItemThatAnotherShows()
@@ -265,7 +267,7 @@ class EditTest : JournalScreenFixture() {
         compose.runOnIdle { assertEquals(3, shell.view.outline.rows.size) }
     }
 
-    // 尋ねられて「Delete」と答えると、項目は消える。
+    // 尋ねられて「Delete」と答えると、項目はつながって消える。
     @Test
     fun the_item_that_another_shows_is_deleted_when_the_user_says_so() {
         deleteAnItemThatAnotherShows()

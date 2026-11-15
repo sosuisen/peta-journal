@@ -232,9 +232,6 @@ class Shell(
     /** Moves the task on: no task, not started, running, done, and no task again. */
     fun cycleTask(itemId: String) = change(Event.TaskCycle(itemId))
 
-    /** Deletes the item. */
-    fun delete(itemId: String) = change(Event.DeleteItem(itemId))
-
     // The files of the assets folder
 
     /**
