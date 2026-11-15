@@ -337,15 +337,23 @@ async fn a_list_of_an_item_is_kept_under_its_own_key_apart_from_the_tags() {
     assert_eq!(after.properties["tags"], json!(["items-list-tag"]));
 }
 
-// 定義のないキーには、名前に合う型でしか値を書けない。リストの値は名前が_listで終わるキーに、スカラーの値はそれ以外のキーに書く。
+// 定義のないキーには、項目の値を書けない。名前に合う型でも、合わない型でも同じである。型は定義するときだけ決まるからである（ADR 047）。
 #[tokio::test]
-async fn a_key_with_no_definition_takes_only_the_type_its_name_fits() {
+async fn a_key_with_no_definition_takes_no_value_of_an_item() {
     let page = new_doc_page("items-type-by-name").await;
     let item = fill(&page.id, &["typed"]).await.remove(0);
 
     for (key, body) in [
         (
-            "undefined_members",
+            "undefined_note",
+            json!({ "valueType": "text", "value": "x" }),
+        ),
+        (
+            "undefined_score_n",
+            json!({ "valueType": "number", "value": "1" }),
+        ),
+        (
+            "undefined_member_list",
             json!({ "valueType": "list", "value": "x" }),
         ),
         (
