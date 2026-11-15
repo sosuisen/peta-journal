@@ -631,6 +631,20 @@ final class OutlineScreenTests: XCTestCase {
         try await waitUntil("the selected items are on top") { self.bodies() == ["second", "third", "first"] }
     }
 
+    // 項目のテキストの中のドラッグは、押した位置からマウスまでの文字を選び、項目は選ばない。
+    func testADragInsideTheTextOfAnItemSelectsItsLetters() async throws {
+        try await threeItems()
+        let third = editors()[2]
+        let start = third.convert(NSPoint(x: third.bounds.minX + 1, y: third.bounds.midY), to: nil)
+
+        // From the middle of the editor, which is after the end of "third", to its start
+        try drag(from: third, through: [start])
+
+        XCTAssertEqual(third.selectedRange(), NSRange(location: 0, length: 5))
+        XCTAssertFalse(shell.view.outline.selectionMode)
+        XCTAssertTrue(focused === third)
+    }
+
     /// The search box, when it is on screen.
     private func searchField() -> NSTextField? {
         var found: NSTextField?
