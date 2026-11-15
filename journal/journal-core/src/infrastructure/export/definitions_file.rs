@@ -73,14 +73,15 @@ impl DefinitionsFileService {
             if ours.get(key) == Some(definition) {
                 continue;
             }
-            if let Definition::Defined {
-                value_type,
-                page,
-                modified,
-            } = definition
-            {
-                self.properties
-                    .put_definition(key, value_type, *page, *modified)?;
+            match definition {
+                Definition::Defined {
+                    value_type,
+                    page,
+                    modified,
+                } => self
+                    .properties
+                    .put_definition(key, value_type, *page, *modified)?,
+                Definition::Deleted { deleted } => self.properties.put_deletion(key, *deleted)?,
             }
         }
         // The other device does not have what only this one has: it gets it in the file

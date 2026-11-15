@@ -234,6 +234,24 @@ impl PropertyRepository {
         Ok(())
     }
 
+    /// Takes the deletion of a user key on another device: the date is kept, and the
+    /// definition goes.
+    pub fn put_deletion(&self, key: &str, deleted: i64) -> AppResult<()> {
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        tx.execute(
+            "INSERT INTO deleted_property_definitions (key, deleted_date) VALUES (?, ?)
+             ON CONFLICT(key) DO UPDATE SET deleted_date = MAX(deleted_date, excluded.deleted_date)",
+            params![key, deleted],
+        )?;
+        tx.execute(
+            "DELETE FROM property_definitions WHERE key = ? AND is_system = 0",
+            params![key],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
     /// The definitions this device gives the other devices: the real user definitions, and
     /// the keys deleted here (ADR 046).
     pub fn find_synced_definitions(&self) -> AppResult<Definitions> {
