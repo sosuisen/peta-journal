@@ -216,6 +216,27 @@ async fn a_new_file_in_the_folder_becomes_a_page_without_a_scan() {
     .await;
 }
 
+// ほかの端末が書いたsettings/properties.jsonは、スキャンを待たずに取り込まれる。settings/がまだない端末でも、監視を始めるときに作って見る。
+#[tokio::test]
+async fn a_file_of_definitions_from_another_device_is_taken_in_without_a_scan() {
+    let folder = Folder::watched();
+
+    folder.write(
+        "settings/properties.json",
+        r#"{ "definitions": { "score": { "type": "number", "page": false, "modified": "2025-11-15T01:00:00Z" } } }"#,
+    );
+
+    eventually("the definition is in", || {
+        folder
+            .state
+            .properties
+            .find_definition("score")
+            .unwrap()
+            .is_some()
+    })
+    .await;
+}
+
 // 外部で消したファイルは、消えたものとして記録され、ページはユーザーが決めるまで残る。
 #[tokio::test]
 async fn a_file_deleted_outside_is_held_as_missing_and_its_page_stays() {
