@@ -2,7 +2,8 @@ package com.sosuisha.petajournal.sync
 
 /**
  * Brings the pages that changed in the app to the folder in the cloud (ADR 031). It uploads
- * the Markdown files whose content is not what the cloud had when the app last heard of it.
+ * the Markdown files, and the definitions of the properties, whose content is not what the
+ * cloud had when the app last heard of it.
  * It deletes and moves nothing in the cloud.
  */
 class Uploader(private val cloud: Cloud, private val folder: MarkdownFolder, private val record: CloudRecord) {
@@ -15,7 +16,7 @@ class Uploader(private val cloud: Cloud, private val folder: MarkdownFolder, pri
      * download. What was uploaded before that, or before another failure, stays uploaded.
      */
     fun run(onProgress: (done: Int, total: Int) -> Unit) {
-        val changed = folder.pages().filter { folder.contentHash(it, cloud::contentHash) != record[it]?.contentHash }
+        val changed = folder.written().filter { folder.contentHash(it, cloud::contentHash) != record[it]?.contentHash }
         onProgress(0, changed.size)
         try {
             changed.forEachIndexed { done, path ->
