@@ -372,9 +372,16 @@ final class ItemTextView: NSTextView {
         // Where the letters that the drag selects begin. On the shown text the core puts the
         // cursor at the place that was clicked, a moment after the click
         var anchor: Int? = isMarkdown ? selectedRange().location : nil
-        while let next = window.nextEvent(
-            matching: [.leftMouseDragged, .leftMouseUp], until: .distantFuture, inMode: .eventTracking, dequeue: true)
-        {
+        while true {
+            // While the list scrolls, a frame passes without a move of the mouse
+            let wait = drag?.scrolls == true ? Date(timeIntervalSinceNow: ItemDrag.frame) : .distantFuture
+            guard
+                let next = window.nextEvent(
+                    matching: [.leftMouseDragged, .leftMouseUp], until: wait, inMode: .eventTracking, dequeue: true)
+            else {
+                drag?.scrollOneFrame()
+                continue
+            }
             let place = next.locationInWindow
             if next.type == .leftMouseUp { break }
             if let drag {
