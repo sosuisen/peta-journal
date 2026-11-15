@@ -88,3 +88,21 @@ fn opening_a_page_after_going_back_drops_the_pages_ahead() {
     back(&mut h);
     assert_eq!(shown(&h), "a");
 }
+
+// コアが置き換えで開くように頼んだページは、今のページの代わりに履歴に入る。戻ると、その前のページが開く。
+#[test]
+fn a_page_the_core_asks_to_open_in_place_takes_the_place_of_the_page_on_screen() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/a");
+    open(&mut h, "/pages/old");
+    h.send(Event::PageRedirected { path: "new".into() });
+    let asked = h.navigations.last().expect("the core asks to open the page");
+    assert!(asked.replace);
+
+    let url = asked.url.clone();
+    open(&mut h, &url);
+
+    assert_eq!(shown(&h), "new");
+    back(&mut h);
+    assert_eq!(shown(&h), "a");
+}
