@@ -6,6 +6,7 @@
 
 use super::state::OutlineState;
 use super::tree::{get_subtree, ids_of_range_with_subtrees, index_of, selection_start_index};
+use crate::model::ItemRef;
 use std::collections::HashSet;
 
 #[derive(Debug, Default)]
@@ -126,12 +127,14 @@ impl Selection {
             return;
         }
         if extent_idx >= anchor_idx {
+            // A selection from a child stays under its parent (ADR 049)
+            let last = last_under_parent(items, anchor_idx);
             // When expanding downward, skip past items already in the selection
             let selected = state.selected_item_ids();
-            while extent_idx + 1 < items.len() && selected.contains(&items[extent_idx + 1].id) {
+            while extent_idx + 1 <= last && selected.contains(&items[extent_idx + 1].id) {
                 extent_idx += 1;
             }
-            if extent_idx + 1 >= items.len() {
+            if extent_idx + 1 > last {
                 return;
             }
         } else {
@@ -177,6 +180,16 @@ impl Selection {
     fn select_range(&self, state: &mut OutlineState, start: usize, end: usize) {
         let ids = ids_of_range_with_subtrees(state.visible_items(), state.items(), start, end);
         state.set_selected_item_ids(ids);
+    }
+}
+
+/// The index of the last item that a selection from `items[idx]` can reach downward: the
+/// last descendant of its parent, or the last item when it has no parent (ADR 049).
+fn last_under_parent(items: &[ItemRef], idx: usize) -> usize {
+    let level = items[idx].level;
+    match items[..idx].iter().rposition(|item| item.level < level) {
+        Some(parent) => parent + get_subtree(items, &items[parent].id).len() - 1,
+        None => items.len() - 1,
     }
 }
 
