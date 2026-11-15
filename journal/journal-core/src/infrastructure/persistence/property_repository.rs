@@ -370,7 +370,8 @@ impl PropertyRepository {
     }
 
     /// Takes in a scalar value from a file, as part of a larger transaction. A key with no
-    /// definition gets a provisional one of `text`, only to read the value (ADR 046).
+    /// definition gets a provisional one of `text`, only to read the value. A value of a user
+    /// key comes in as it is written, even when it does not fit the type (ADR 046).
     pub fn take_in_scalar_in(
         conn: &Connection,
         target_type: &str,
@@ -380,7 +381,17 @@ impl PropertyRepository {
     ) -> AppResult<()> {
         validate_key(key)?;
         define_provisional_in(conn, key, "text")?;
-        Self::write_scalar_in(conn, target_type, target_id, key, value)
+        let system = Self::find_definition_in(conn, key)?.is_some_and(|def| def.system);
+        if system {
+            // The app reads a system key by its type, so a value that does not fit stays out
+            return Self::write_scalar_in(conn, target_type, target_id, key, value);
+        }
+        // The type of a user key is how its value is read; the value stays as the file has it
+        conn.execute(
+            "INSERT OR REPLACE INTO properties (target_type, target_id, key, value) VALUES (?, ?, ?, ?)",
+            params![target_type, target_id, key, value],
+        )?;
+        Ok(())
     }
 
     /// Takes in a list from a file, as part of a larger transaction. A key with no
