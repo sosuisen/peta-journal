@@ -541,7 +541,7 @@ Either can be nil, for a clipboard without it."
 
 ;; 別のページを開くコマンドの直後は、離れるページの項目で編集を始めない。
 (ert-deftest peta-journal-going-to-another-page-leaves-the-edit-closed ()
-  (dolist (command '(peta-journal-today peta-journal-back
+  (dolist (command '(peta-journal-today peta-journal-back peta-journal-forward
                      peta-journal-next-day peta-journal-previous-day
                      peta-journal-open-at-point peta-journal-rename-page))
     (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
@@ -1810,6 +1810,7 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                    ("C-c C-f" . peta-journal-collapse-toggle)
                    ("C-c C-s" . peta-journal-search)
                    ("C-c C-b" . peta-journal-back)
+                   ("C-c C-x f" . peta-journal-forward)
                    ("C-c C-x b" . peta-journal-backlinks)
                    ("C-c C-x r" . peta-journal-rename-page)
                    ("C-c C-x p" . peta-journal-properties)

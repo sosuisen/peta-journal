@@ -22,6 +22,8 @@ pub enum Inbound {
         url: String,
     },
     Back,
+    /// Goes forward again to the page left by going back.
+    Forward,
     GoToPage {
         path: String,
     },

@@ -96,9 +96,7 @@ pub struct Shell<H: Host> {
     /// What waits for the next render to reach Emacs first.
     after_render: Vec<Outbound>,
     /// The URLs the core asked for, opened after its effects are done.
-    navigations: VecDeque<(String, bool)>,
-    current_url: Option<String>,
-    history: Vec<String>,
+    navigations: VecDeque<String>,
 }
 
 impl<H: Host> Shell<H> {
@@ -122,8 +120,6 @@ impl<H: Host> Shell<H> {
             own_edit: None,
             after_render: Vec::new(),
             navigations: VecDeque::new(),
-            current_url: None,
-            history: Vec::new(),
         }
     }
 
@@ -212,10 +208,17 @@ impl<H: Host> Shell<H> {
                 self.send(Event::Start {
                     client_id: self.client_id.clone(),
                 });
-                self.navigate(&url, false);
+                self.open(url);
             }
-            Inbound::Go { url } => self.navigate(&url, false),
-            Inbound::Back => self.back(),
+            Inbound::Go { url } => self.open(url),
+            Inbound::Back => {
+                let today = self.today();
+                self.send(Event::Back { today });
+            }
+            Inbound::Forward => {
+                let today = self.today();
+                self.send(Event::Forward { today });
+            }
             Inbound::GoToPage { path } => self.send(Event::GoToPage {
                 path,
                 new_tab: false,
@@ -406,30 +409,16 @@ impl<H: Host> Shell<H> {
         self.resolve(&mut request, UiOutput::Bool(yes));
     }
 
-    fn navigate(&mut self, url: &str, replace: bool) {
-        let route = route_of(url);
-        if !replace {
-            if let Some(current) = self.current_url.take() {
-                self.history.push(current);
-            }
-        }
-        self.current_url = Some(url.to_string());
-        self.open_route(route);
+    /// Opens the URL, and the core keeps it in its history (ADR 035).
+    fn open(&mut self, url: String) {
+        let today = self.today();
+        self.send(Event::Open { url, today });
     }
 
-    fn back(&mut self) {
-        let Some(url) = self.history.pop() else {
-            return;
-        };
-        let route = route_of(&url);
-        self.current_url = Some(url);
-        self.open_route(route);
-    }
-
-    fn open_route(&mut self, route: client_core::Route) {
+    /// The local date, as `YYYY-MM-DD`.
+    fn today(&self) -> String {
         let local = self.host.now().local;
-        let today = format!("{:04}-{:02}-{:02}", local.year, local.month, local.day);
-        self.send(Event::Route { route, today });
+        format!("{:04}-{:02}-{:02}", local.year, local.month, local.day)
     }
 
     fn send(&mut self, event: Event) {
@@ -475,9 +464,9 @@ impl<H: Host> Shell<H> {
                     }
                 }
                 // A notification: the core does not wait for it
+                // The core keeps whether it replaces the page on screen
                 Effect::Navigate(request) => {
-                    let op = &request.operation;
-                    self.navigations.push_back((op.url.clone(), op.replace));
+                    self.navigations.push_back(request.operation.url.clone());
                 }
             }
         }
@@ -491,8 +480,8 @@ impl<H: Host> Shell<H> {
         for mut request in focused {
             self.resolve(&mut request, UiOutput::Done);
         }
-        while let Some((url, replace)) = self.navigations.pop_front() {
-            self.navigate(&url, replace);
+        while let Some(url) = self.navigations.pop_front() {
+            self.open(url);
         }
     }
 
@@ -722,12 +711,6 @@ fn page_titles(result: &ApiResult<ApiOutput>) -> Vec<String> {
         }
         _ => Vec::new(),
     }
-}
-
-/// The route of a URL of the core or of Emacs. Neither makes the one URL without a route, the
-/// empty one.
-fn route_of(url: &str) -> client_core::Route {
-    client_core::Route::parse_url(url).expect("the URL names a page")
 }
 
 /// The keys whose value is a date and a time. Only the page's own dates cannot be removed, and

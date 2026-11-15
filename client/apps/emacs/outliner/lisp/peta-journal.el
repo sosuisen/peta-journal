@@ -948,7 +948,7 @@ Not from here but from a timer: a process filter is no place for a prompt."
     (setq peta-journal--current nil)))
 
 (defconst peta-journal--commands-that-end-the-edit
-  '(peta-journal-save peta-journal-today peta-journal-back
+  '(peta-journal-save peta-journal-today peta-journal-back peta-journal-forward
     peta-journal-next-day peta-journal-previous-day peta-journal-open-at-point
     peta-journal-search peta-journal-rename-page)
   "The commands after which the point stays in an item that is not being edited.
@@ -1210,6 +1210,11 @@ put a link to it at the point."
   "Go back to the page shown before."
   (interactive)
   (peta-journal--go "back"))
+
+(defun peta-journal-forward ()
+  "Go forward again to the page left by going back."
+  (interactive)
+  (peta-journal--go "forward"))
 
 (defun peta-journal-next-day ()
   "Open the next journal."
@@ -1812,6 +1817,7 @@ This is for `completion-at-point-functions'."
   "C-c C-p" #'peta-journal-previous-day
   ;; Page-level commands, used less often while writing, go under C-c C-x as in Org.
   "C-c C-x b" #'peta-journal-backlinks
+  "C-c C-x f" #'peta-journal-forward
   "C-c C-x r" #'peta-journal-rename-page
   "C-c C-x p" #'peta-journal-properties
   "C-c C-x n" #'peta-journal-new-buffer
