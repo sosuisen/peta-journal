@@ -750,7 +750,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 
 ;; シェルを起動し直すと、前のシェルが伝えたプロパティは忘れる。
 (ert-deftest peta-journal-a-new-shell-forgets-the-properties ()
-  (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
+  (peta-journal-test--with-properties peta-journal-test--property-rows [(:key "rating" :label "rating")]
     (let ((stand-in (peta-journal-test--emacs-process #'ignore)))
       (unwind-protect
           (cl-letf (((symbol-function 'peta-journal--program) #'ignore)
@@ -800,10 +800,10 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 
 ;; 設定では、変えられるキーと、まだ付いていないキーを補完する。今の値を初期値にして、一覧も開く。
 (ert-deftest peta-journal-setting-offers-keys-and-the-current-value ()
-  (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
+  (peta-journal-test--with-properties peta-journal-test--property-rows [(:key "rating" :label "rating")]
     (peta-journal-test--answering "status" "done"
       (call-interactively #'peta-journal-set-property)
-      (should (equal offered '("created" "status" "rating")))
+      (should (equal (all-completions "" offered) '("created" "status" "rating")))
       (should (equal initial "draft")))
     (should (equal peta-journal-test--sent '(("set_property" :key "status" :value "done"))))
     (should (get-buffer-window "*PetaJournal Properties*"))))
@@ -861,9 +861,20 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
         (execute-kbd-macro (kbd "d"))))
     (should (equal peta-journal-test--sent '(("delete_property" :key "status"))))))
 
+;; 設定では、キーを見出しで補完し、選んだ見出しのキーを送る。
+(ert-deftest peta-journal-setting-offers-the-labels-and-sends-the-key ()
+  (peta-journal-test--with-properties
+      [(:key "rating_n" :label "rating (number)" :value "3" :removable t :editable t)]
+      [(:key "rating_d" :label "rating (date)")]
+    (peta-journal-test--answering "rating (date)" "2026-11-15"
+      (call-interactively #'peta-journal-set-property)
+      (should (equal (all-completions "" offered) '("rating (number)" "rating (date)"))))
+    (should (equal peta-journal-test--sent
+                   '(("set_property" :key "rating_d" :value "2026-11-15"))))))
+
 ;; まだ付いていないキーの初期値は空である。
 (ert-deftest peta-journal-a-new-key-starts-empty ()
-  (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
+  (peta-journal-test--with-properties peta-journal-test--property-rows [(:key "rating" :label "rating")]
     (peta-journal-test--answering "rating" "5"
       (call-interactively #'peta-journal-set-property)
       (should (null initial)))
@@ -885,7 +896,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
                      (:key "met" :label "met" :value "soon" :removable t :editable t)
                      (:key "status" :label "status" :value "2026-11-07T15:21:04Z"
                       :removable t :editable t)]
-              :free_keys ["published"]
+              :free_keys [(:key "published" :label "published")]
               :datetime_keys ["created" "modified" "met" "published"]))
            ,@body)
        (set-time-zone-rule zone))))
@@ -965,7 +976,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 
 ;; キーを選ばなかったときと、値が空のときは、何も送らない。値を消すのは削除の役目である。
 (ert-deftest peta-journal-setting-refuses-an-empty-key-or-value ()
-  (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
+  (peta-journal-test--with-properties peta-journal-test--property-rows [(:key "rating" :label "rating")]
     (peta-journal-test--answering "" "5"
       (should-error (call-interactively #'peta-journal-set-property) :type 'user-error))
     (peta-journal-test--answering "rating" ""
@@ -974,7 +985,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 
 ;; ジャーナルでは、キーを尋ねずに断る。
 (ert-deftest peta-journal-a-journal-refuses-a-property-before-asking ()
-  (peta-journal-test--with-properties nil ["rating"]
+  (peta-journal-test--with-properties nil [(:key "rating" :label "rating")]
     (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) (error "It must not ask"))))
       (should-error (call-interactively #'peta-journal-set-property) :type 'user-error)
       (should-error (call-interactively #'peta-journal-delete-property) :type 'user-error))))
@@ -987,7 +998,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (should (null peta-journal-test--sent))
     (peta-journal-test--answering "status" ""
       (call-interactively #'peta-journal-delete-property)
-      (should (equal offered '("status"))))
+      (should (equal (all-completions "" offered) '("status"))))
     (should (equal peta-journal-test--sent '(("delete_property" :key "status"))))
     (should (get-buffer-window "*PetaJournal Properties*"))))
 
