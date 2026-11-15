@@ -625,6 +625,19 @@ public sealed class ShellTests : IDisposable
         Assert.Equal(["first", "second"], Bodies(shell));
     }
 
+    // Markdownのリストを貼り付けると、項目として貼り付く。
+    [Fact]
+    public void A_pasted_list_becomes_items()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+
+        shell.Paste(item, Editor("", 0), "- a\n- b", "", raw: false);
+
+        main.WaitUntil("the list is two items", () => Bodies(shell) is ["a", "b"]);
+    }
+
     // 選択をやめるように言うと、選択が消える。ほかの場所をクリックしたときである。
     [Fact]
     public void Leaving_the_selection_ends_it()
