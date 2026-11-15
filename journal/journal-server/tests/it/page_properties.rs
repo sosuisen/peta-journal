@@ -125,7 +125,7 @@ fn a_key_with_no_definition_is_defined_as_text() {
     assert_eq!(b.page_property(&page, "rating").as_deref(), Some("5"));
 }
 
-// ページに付けられないキーは取り込まれず、ほかのプロパティは取り込まれる。
+// ページに付けられないシステム管理キーは取り込まれず、ほかのプロパティは取り込まれる。
 #[test]
 fn a_key_a_page_cannot_have_is_left_out_and_the_others_are_taken_in() {
     let dir = tempfile::tempdir().unwrap();
@@ -137,6 +137,23 @@ fn a_key_a_page_cannot_have_is_left_out_and_the_others_are_taken_in() {
     assert_eq!(outcome, Outcome::Imported);
     assert_eq!(a.page_property(&page, "due"), None);
     assert_eq!(a.page_property(&page, "slug").as_deref(), Some("by-hand"));
+}
+
+// 項目だけに使うと定義したユーザーのキーも、ページのファイルから取り込まれる。ほかの端末では、ページに付けられる定義かもしれないからである。
+#[test]
+fn a_user_key_defined_for_items_only_is_taken_in_on_a_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.state
+        .properties
+        .insert_definition("effort", "number", false)
+        .unwrap();
+
+    let outcome = a.add_to_front_matter("effort: 3\n");
+
+    assert_eq!(outcome, Outcome::Imported);
+    assert_eq!(a.page_property(&page, "effort").as_deref(), Some("3"));
 }
 
 // キーにできない名前の行は取り込まれず、ほかのプロパティは取り込まれる。
