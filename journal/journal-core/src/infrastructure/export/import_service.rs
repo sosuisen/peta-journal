@@ -609,3 +609,27 @@ fn read_stable(file: &Path) -> std::io::Result<String> {
     }
     std::fs::read_to_string(file)
 }
+
+/// Whether `sync_file` takes the file in: the files of the pages, their conflicted copies,
+/// and `settings/properties.json` with its conflicted copies. The folder watcher hears of
+/// every file; it passes on only these.
+pub fn takes_in(rel_path: &str) -> bool {
+    !path_mapper::is_ignored(rel_path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // 取り込むのは、ページのファイルと、settings/properties.jsonとそのconflicted copyである。ほかの設定のファイルは取り込まない。
+    #[test]
+    fn the_files_of_pages_and_of_the_definitions_are_taken_in() {
+        assert!(takes_in("docs/d/a.md"));
+        assert!(takes_in("settings/properties.json"));
+        assert!(takes_in(
+            "settings/properties (PC's conflicted copy 2026-11-15).json"
+        ));
+        assert!(!takes_in("settings/other.json"));
+        assert!(!takes_in("settings/properties (backup).json"));
+    }
+}
