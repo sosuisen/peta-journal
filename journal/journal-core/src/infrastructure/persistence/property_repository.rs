@@ -707,8 +707,6 @@ fn parse_date_to_millis(date_str: &str, to_end: bool) -> AppResult<i64> {
     Ok(dt.timestamp_millis())
 }
 
-/// The values of a list as a client sends them: comma-separated, with the spaces around
-/// each value and the empty values dropped.
 /// Defines a key with no definition as the user wrote a value to it: a real definition of
 /// now, which goes to the other devices (ADR 046). A defined key keeps its definition.
 fn define_in(conn: &Connection, key: &str, value_type: &str) -> AppResult<()> {
@@ -735,6 +733,8 @@ fn define_provisional_in(conn: &Connection, key: &str, value_type: &str) -> AppR
     Ok(())
 }
 
+/// The values of a list as a client sends them: comma-separated, with the spaces around
+/// each value and the empty values dropped.
 pub fn list_values(value: &str) -> Vec<String> {
     value
         .split(',')
