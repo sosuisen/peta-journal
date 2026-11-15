@@ -43,4 +43,13 @@ public sealed class ItemDrag(Action<Event> send)
         send(new Event.ItemMouseEnter(itemUnder));
         reached = itemUnder;
     }
+
+    /// <summary>The mouse button came up: the drag is over.</summary>
+    public void Released()
+    {
+        if (reached is not null)
+            send(new Event.SelectionMouseUp());
+        pressed = null;
+        reached = null;
+    }
 }
