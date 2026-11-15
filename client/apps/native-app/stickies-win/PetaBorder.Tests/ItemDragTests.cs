@@ -36,4 +36,18 @@ public sealed class ItemDragTests
 
         Assert.Equal([new Event.ItemMouseEnter("c")], sent);
     }
+
+    // ボタンを離すと、ドラッグが終わる。そのあとの動きでは、何も送らない。
+    [Fact]
+    public void Releasing_the_button_ends_the_drag_and_later_moves_send_nothing()
+    {
+        drag.Pressed("a", top: 100, bottom: 130);
+        drag.Moved(141, itemUnder: "b");
+        sent.Clear();
+
+        drag.Released();
+        drag.Moved(180, itemUnder: "c");
+
+        Assert.Equal([new Event.SelectionMouseUp()], sent);
+    }
 }
