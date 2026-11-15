@@ -129,6 +129,20 @@ public sealed class ShellTests : IDisposable
         Assert.Equal(">>>\n>>>", shell.View.Outline.Rows[0].Item.Body);
     }
 
+    // 消して開始記号だけが残っても、閉じる記号は補われない。閉じるのは打ったときだけである。
+    [Fact]
+    public void Deleting_back_to_an_opening_does_not_close_it()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+
+        shell.StartEditing(item);
+        shell.Typed(">>>x", item, 4);
+        shell.Typed(">>>", item, 3);
+
+        Assert.Equal(">>>", shell.View.Outline.Rows[0].Item.Body);
+    }
+
     // コアが入力を求めると、質問が出る。答えた文字列で、コアが先へ進む。
     [Fact]
     public void A_prompt_is_answered_with_text()
