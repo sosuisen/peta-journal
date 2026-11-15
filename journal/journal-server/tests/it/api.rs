@@ -5550,6 +5550,22 @@ async fn the_callouts_go_last_under_their_parent() {
     assert_eq!(rows.len(), n - 2, "{rows:?}");
 }
 
+// コールアウトの文が閉じていないブロックで終われば、コールアウトは足されない（ADR 050）。
+#[tokio::test]
+async fn a_callout_with_an_unclosed_block_is_refused() {
+    let (_, atlas_id) = atlas_dir("atlas-callout-unclosed").await;
+    let before = outline_of(&atlas_id).await;
+
+    let (status, resp) = post(
+        &format!("/api/pages/{atlas_id}/atlas/callouts"),
+        json!({ "bounds": "10,20,0,60", "side": "left", "text": "```\nabc" }),
+    )
+    .await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&atlas_id).await, before);
+}
+
 // アトラスページに書いた項目は、アトラスが書き直されると消える。
 #[tokio::test]
 async fn an_item_written_on_an_atlas_page_goes_when_the_atlas_is_written() {
