@@ -38,8 +38,7 @@ impl DefinitionsFileService {
     }
 
     /// Writes the definitions of this device put together with those in the file, so that
-    /// a definition of another device that is not taken in yet stays. A file that would not
-    /// change is left alone.
+    /// a definition of another device that is not taken in yet stays.
     pub fn write_file(&self) -> AppResult<()> {
         let Some(root) = self.export.markdown_root() else {
             return Ok(());
@@ -54,9 +53,6 @@ impl DefinitionsFileService {
             &self.properties.find_synced_definitions()?,
             &in_file,
         ));
-        if on_disk.as_deref() == Some(text.as_str()) {
-            return Ok(());
-        }
         std::fs::create_dir_all(root.join(SETTINGS_DIR))?;
         write_atomic(&path, &text)?;
         Ok(())
