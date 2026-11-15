@@ -71,6 +71,14 @@ final class ItemDragTests: XCTestCase {
         XCTAssertEqual(sent, [.itemMouseEnter(itemId: "b"), .itemMouseEnter(itemId: "c")])
     }
 
+    // マウスの下の項目は、見えているリストの中で探す。リストの上や下の外にあるマウスは、見えている範囲のいちばん近い場所にあるとみなす。マウスはウインドウの外へも出るからである。
+    func testTheItemUnderTheMouseIsLookedForAtTheNearestPlaceOfTheListThatCanBeSeen() {
+        let places: [(y: Double, inList: Double)] = [(-200, 101), (100, 101), (300, 300), (500, 499), (900, 499)]
+        for (y, inList) in places {
+            XCTAssertEqual(ItemDrag.placeInList(y: y, top: 100, bottom: 500), inList, "at \(y)")
+        }
+    }
+
     // ボタンを離すと、ドラッグが終わる。そのあとの動きでは、何も送らない。
     func testReleasingTheButtonEndsTheDragAndLaterMovesSendNothing() {
         drag.pressed("a", top: 100, bottom: 130)
