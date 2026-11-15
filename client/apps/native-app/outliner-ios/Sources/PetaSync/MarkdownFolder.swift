@@ -83,15 +83,20 @@ public final class MarkdownFolder: @unchecked Sendable {
         return hash(file)
     }
 
-    /// The paths of the Markdown files that are here, as they are spelled here, in order.
-    public func pages() -> [String] {
+    /// The paths of the files that the app writes, as they are spelled here, in order: the
+    /// Markdown files and the definitions of the properties. The images come only from the
+    /// cloud.
+    public func written() -> [String] {
         filesUnder(root)
-            .filter { $0.lastPathComponent.lowercased().hasSuffix(MarkdownFolder.markdown) }
             .map(spelled)
+            .filter {
+                let path = $0.lowercased()
+                return path.hasSuffix(MarkdownFolder.markdown) || path == MarkdownFolder.definitions
+            }
             .sorted()
     }
 
-    /// The file at a path that `pages` gave.
+    /// The file at a path that `written` gave.
     public func file(_ path: String) -> URL {
         root.appendingPathComponent(path)
     }
