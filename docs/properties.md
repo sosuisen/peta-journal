@@ -17,9 +17,9 @@
 
 ユーザーが消した定義は、`deleted_property_definitions(key, deleted_date)` に、消した日時とともに残る。項目の `deleted_items` と同じ形である。同じキーをユーザーが定義し直すと、その行は消える。
 
-ユーザー定義のキーの型は、キーの名前の接尾辞で決まる（ADR 047）。接尾辞は `_n`（`number`）、`_d`（`date`）、`_dt`（`datetime`）、`_cb`（`checkbox`）、`_bounds`（`bounds`）、`_list`（`list`）で、接尾辞がなければ `text` である。型は最後の接尾辞だけで決まり、大文字の接尾辞は本体の一部として扱う。判定は共有のクレート `property-names` の `type_of` が行う。Settings画面や `POST /api/config/property-definitions` は完全な名前（`rating_n`）を受け取る。`valueType` を送れば、名前から決まる型と合うかを確かめ、合わなければ400エラーになる。送らなければ、名前から決まる型になる。名前の本体が予約の接尾辞で終わるキー（`rating_n_n`）も400エラーになる。`list` 型のキーは、未定義のキーに `valueType: "list"` で値を送っても作られる。`tags` 型は `tags` キーだけが使う。
+ユーザー定義のキーの型は、キーの名前の接尾辞で決まる（ADR 047）。接尾辞は `_n`（`number`）、`_d`（`date`）、`_dt`（`datetime`）、`_cb`（`checkbox`）、`_bounds`（`bounds`）、`_list`（`list`）で、接尾辞がなければ `text` である。型は最後の接尾辞だけで決まり、大文字の接尾辞は本体の一部として扱う。判定は共有のクレート `property-names` の `type_of` が行う。Settings画面や `POST /api/config/property-definitions` は完全な名前（`rating_n`）を受け取る。`valueType` を送れば、名前から決まる型と合うかを確かめ、合わなければ400エラーになる。送らなければ、名前から決まる型になる。名前の本体が予約の接尾辞で終わるキー（`rating_n_n`）も400エラーになる。`tags` 型は `tags` キーだけが使う。
 
-値がリストかどうかも、キーの名前で決まる（ADR 046）。`list` 型のキーの名前は `_list` で終わる（`member_list` など）。`tags` だけは例外で、`_list` で終わらない名前のリストのキーである。`_list` で終わる名前のキーを `list` 以外の型で定義したり、`_list` で終わらない名前のキーを `list` 型で定義したりすると、400エラーになる。定義のないキーに値を書くときも同じである。名前で決めるのは、定義が届く前でも、どの端末も同じようにリストかどうかを決められるためである。判定は `domain::property_key::PropertyKey` が行う。
+値がリストかどうかも、キーの名前で決まる（ADR 046）。`list` 型のキーの名前は `_list` で終わる（`member_list` など）。`tags` だけは例外で、`_list` で終わらない名前のリストのキーである。`_list` で終わる名前のキーを `list` 以外の型で定義したり、`_list` で終わらない名前のキーを `list` 型で定義したりすると、400エラーになる。名前で決めるのは、定義が届く前でも、どの端末も同じようにリストかどうかを決められるためである。判定は `domain::property_key::PropertyKey` が行う。
 
 `tags` と `list` は、どちらも値の並びで、保存のしかたも同じである。型を分けているのは、UIが値をデータ型だけで見分けて、`tags` 型の値を `#` 付きで表示できるようにするためである。`tags` 型にはキーの名前を見なくてもタグの見た目を与えられ、`list` 型はただの値の並びとして表示する。
 
@@ -162,7 +162,7 @@ atlasのデータは、すべてディレクトリの `index_atlas.md` の本文
 
 ### アイテム
 
-- `PUT /api/items/{id}/properties/{key}`: ボディは `{ valueType, value }`。`valueType` 省略時は `text`。未定義のキーは、その型でユーザー定義キーとして作られる。定義には今の日時が入り、`settings/properties.json` に書かれる。
+- `PUT /api/items/{id}/properties/{key}`: ボディは `{ valueType, value }`。値は定義の型で確かめ、`valueType` は使わない。定義のないキーは400で断る（ADR 047）。型は定義するときだけ決まるからである。`date` は年月日（`2026-03-01`）、`datetime` はRFC 3339の日時（`2026-03-01T10:00:00Z`）で、合わなければ400である。古いファイルにある時差のない日時（`2026-02-13T08:57:58`）も受け付ける。
   - `list` 型のキーはカンマ区切りの文字列を受け取り、そのキーのリストとして保存する。`tags` は本文の `#hashtag` からサーバーが作るので、ここでは書かない。
 - `DELETE /api/items/{id}/properties/{key}`
 
@@ -175,7 +175,7 @@ atlasのデータは、すべてディレクトリの `index_atlas.md` の本文
   - `tags` はカンマ区切りの文字列を受け取り、リストとして保存する。タグページを持つのは `tags` だけである。
   - `list` 型のキーもカンマ区切りの文字列を受け取り、そのキーのリストとして保存する。`tags` には触らない。
   - `for_page` が0のキー（`zoom` など）は400。
-  - 未定義のキーは、その型でユーザー定義キーとして作られる。定義には今の日時が入り、`settings/properties.json` に書かれる。
+  - 定義のないキーは400で断る（ADR 047）。値の確かめは項目と同じである。
 - `DELETE /api/pages/{id}/properties/{key}`: `created` と `modified` は消せない（400）。
 
 どちらも更新後のページを `{ page }` で返す。`page.properties` にスカラー値とリスト値が入る。ページ一覧を返すAPIのうち backlinks では `properties` は空である。recent と children はスカラー値だけを入れて返す。左カラムのページ一覧が `published` で並び替え、`published` のあるページのアイコンを塗りつぶすためである。children はリスト値のうち `tags` も入れる。atlasのカードが、ページのタグからアイコンを作るためである。
@@ -266,7 +266,7 @@ ADR 046で、定義をMarkdownフォルダーの `settings/properties.json` に�
 - 形式は、ADR 046の「ファイルの形式」のとおりである（`infrastructure::export::definitions_file`）。キーは辞書順で、日時はUTCのISO 8601である。システム管理キーは書かない。読むときは、ユーザーが作れない定義（システム管理キー、名前に合わない型、知らない型、キーにできない名前、日時のない定義）を読み飛ばす。
 - 端末は、ほかの端末が書いた `settings/properties.json` を受け取ると、その定義と端末のDBの定義をキーごとに合わせ、結果を端末のDBに入れる（`DefinitionsFileService::take_in`）。合わせた結果が受け取ったファイルと違えば、ファイルを書き直す。同じなら書き直さない。
   - 新しい定義が届くと、端末は、DBの定義の `for_page` を変え、`deleted_property_definitions` からそのキーの行を消す。仮の定義も本物の定義になる。値は変えない。
-  - 消したことが届くと、端末は、消した日時を `deleted_property_definitions` に入れる。端末のDBにそのキーの値がなければ、定義の行を消す。値があれば、定義を仮の定義（`provisional` が1）にして残し、値も残す。このキーにユーザーがRESTやMCPで値を書いても、仮の定義のままで、消したことも残る（`define_in`）。値がなくて定義の行を消したキーなら、値を書くと本物の定義になり、`deleted_property_definitions` の行を消す。
+  - 消したことが届くと、端末は、消した日時を `deleted_property_definitions` に入れる。端末のDBにそのキーの値がなければ、定義の行を消す。値があれば、定義を仮の定義（`provisional` が1）にして残し、値も残す。このキーにユーザーがRESTやMCPで値を書いても、仮の定義のままで、消したことも残る。値がなくて定義の行を消したキーには、値を書けない。使い直すには、定義し直す（ADR 047）。
   - ページのファイルは書き直さず、ページの `modified` も進めない。
 - `settings/properties.json` のconflicted copy（`settings/properties (… conflicted copy …).json`）は、もう1つの版として端末のDBに合わせ、`settings/properties.json` を書き直してから消す（`take_in_copy`）。
 - 取り込むのは、ジャーナルサーバーの監視（`settings/` も見る。監視を始めるときに `settings/` を作る）と、coreの走査（`MarkdownReconcileService` が毎回 `settings/` を見る）である。どちらも `MarkdownImportService::sync_file` に渡す。どのファイルを渡すかは `import_service::takes_in` が決める。
