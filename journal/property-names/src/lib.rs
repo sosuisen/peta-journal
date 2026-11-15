@@ -56,4 +56,16 @@ mod tests {
             assert_eq!(type_of(name), value_type, "{name}");
         }
     }
+
+    // 大文字の接尾辞は本体の一部で、その名前はtext型である。
+    #[test]
+    fn a_suffix_in_capitals_is_a_part_of_the_body_and_the_name_is_text() {
+        assert_eq!(type_of("rating_N"), ValueType::Text);
+    }
+
+    // 型は最後の接尾辞だけで決まる。
+    #[test]
+    fn only_the_last_suffix_decides_the_type() {
+        assert_eq!(type_of("rating_n_d"), ValueType::Date);
+    }
 }
