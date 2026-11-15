@@ -561,7 +561,10 @@ impl PageService {
         let mut changed = false;
         for (key, value) in front_matter {
             let definition = definitions.iter().find(|def| def.key == *key);
-            if FRONT_MATTER_KEYS.contains(&key.as_str()) || definition.is_some_and(|def| !def.page)
+            // `for_page` only chooses the keys the UI offers on a page: another device may let
+            // a page have the key (ADR 046). The system keys are alike on every device.
+            if FRONT_MATTER_KEYS.contains(&key.as_str())
+                || definition.is_some_and(|def| def.system && !def.page)
             {
                 continue;
             }
