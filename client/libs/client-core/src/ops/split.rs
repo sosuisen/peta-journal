@@ -59,7 +59,8 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
 }
 
 /// Asks the server to split an item at the cursor. The request carries the body the editor
-/// has now, so what was typed and not saved yet is saved with it.
+/// has now, so what was typed and not saved yet is saved with it. A block still open after
+/// the cursor is closed first: the server refuses a body that is not (ADR 050).
 fn split_on_server(model: &Model, item: Item, cursor: usize, unsaved: bool) -> Cmd {
     // Of an item of another page, the server has to know which transclusion shows it here:
     // at the end of the last item it shows, the new item goes on this page
@@ -68,9 +69,10 @@ fn split_on_server(model: &Model, item: Item, cursor: usize, unsaved: bool) -> C
     } else {
         showing_transclusion(model, &item).map(|root| root.id.clone())
     };
+    let body = flatmarkdown::close_blocks(&item.body);
     run(move |api| async move {
         match api
-            .split_item(&item.id, root_id.as_deref(), &item.body, cursor)
+            .split_item(&item.id, root_id.as_deref(), &body, cursor)
             .await
         {
             Ok(split) => api.send_event(Event::SplitDone {
