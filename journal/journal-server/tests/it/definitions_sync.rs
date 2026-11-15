@@ -752,3 +752,40 @@ fn the_clients_are_told_when_the_user_changes_the_definitions() {
         .unwrap();
     assert!(told.of_definitions());
 }
+
+// ユーザーがいくつもの新しいキーに同時に値を書いても、端末は、どの書き込みも受け付け、すべての定義をsettings/properties.jsonに書く。端末は、定義のファイルを1つずつ書くからである。
+#[test]
+fn values_written_to_new_keys_at_once_all_get_their_definitions_in_the_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let page = a.doc("a");
+    let keys = |t: usize| (0..20).map(move |i| format!("key_{t}_{i}"));
+
+    let writers: Vec<_> = (0..8)
+        .map(|t| {
+            let state = a.state.clone();
+            let page = page.clone();
+            std::thread::spawn(move || {
+                for key in keys(t) {
+                    state
+                        .journal
+                        .set_page_property(
+                            page.as_str(),
+                            &key,
+                            Some("text"),
+                            Some("v"),
+                            &ChangedBy::Mcp,
+                        )
+                        .unwrap();
+                }
+            })
+        })
+        .collect();
+    for writer in writers {
+        writer.join().unwrap();
+    }
+
+    for key in (0..8).flat_map(keys) {
+        assert!(a.written(&key).is_some(), "{key}");
+    }
+}
