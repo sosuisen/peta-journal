@@ -168,6 +168,17 @@ public sealed partial class Shell
     }
 
     /// <summary>
+    /// The user pasted into the editor of an item. The core asks the server, which cuts the
+    /// text into items (ADR 011). <paramref name="html"/> is empty when the clipboard has no
+    /// HTML. A raw paste puts the text into the item as it is.
+    /// </summary>
+    public void Paste(string itemId, EditorState editor, string text, string html, bool raw)
+    {
+        ArgumentNullException.ThrowIfNull(editor);
+        Send(new Event.PasteText(itemId, text, html, (ulong)editor.SelectionStart, raw));
+    }
+
+    /// <summary>
     /// The user pressed a key while items are selected. No editor has the cursor then.
     /// </summary>
     public void Selection(SelectionKey key) => Send(new Event.SelectionKey(key));
