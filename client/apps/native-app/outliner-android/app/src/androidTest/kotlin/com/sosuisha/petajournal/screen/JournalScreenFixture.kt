@@ -75,7 +75,7 @@ abstract class JournalScreenFixture {
             val round = { from: Cloud ->
                 SyncRound(Downloader(from, folder, File(root, "cursor"), record), shell::syncAndWait, Uploader(from, folder, record))
             }
-            CloudSync(signedIn, round) { main.post(it) }
+            CloudSync(signedIn, round, onMainThread = { main.post(it) })
         }
         val browser = object : UriHandler {
             override fun openUri(uri: String) {

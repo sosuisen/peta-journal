@@ -147,7 +147,7 @@ class BarAndCloudTest : JournalScreenFixture() {
         val cloud = OnePage(reachable = false)
         start(cloud)
         menu("Sync")
-        waitFor("Sync failed: the network is gone")
+        waitFor("Sync failed: no connection")
         cloud.reachable = true
 
         compose.onNodeWithText("Try again").performClick()
@@ -155,14 +155,25 @@ class BarAndCloudTest : JournalScreenFixture() {
         compose.waitUntil(WAIT_MS) { File(root, "markdown/docs/trip.md").exists() }
     }
 
+    // 通信のほかの理由で失敗した同期は、「Sync failed」とだけ伝える。理由の長い言葉は、画面に出さない。
+    @Test
+    fun a_sync_that_failed_for_another_reason_tells_only_that_it_failed() {
+        start(OnePage(refuses = true))
+        menu("Sync")
+
+        waitFor("Sync failed")
+        compose.onNodeWithText("the cloud refused the sync", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Sync failed: no connection").assertDoesNotExist()
+    }
+
     // 同期のメッセージは、ページの上端に出る。下端に出すと、いちばん下の行で打つ文字に重なる。
     @Test
     fun the_message_of_the_sync_lies_over_the_top_of_the_page() {
         start(OnePage(reachable = false))
         menu("Sync")
-        waitFor("Sync failed: the network is gone")
+        waitFor("Sync failed: no connection")
 
-        val message = compose.onNodeWithText("Sync failed: the network is gone").getBoundsInRoot()
+        val message = compose.onNodeWithText("Sync failed: no connection").getBoundsInRoot()
         val bar = compose.onNodeWithTag(SEARCH_TAG).getBoundsInRoot()
         val screen = compose.onRoot().getBoundsInRoot()
 
@@ -175,7 +186,7 @@ class BarAndCloudTest : JournalScreenFixture() {
     fun after_a_failed_sync_the_menu_offers_the_sign_in() {
         start(OnePage(reachable = false))
         menu("Sync")
-        waitFor("Sync failed: the network is gone")
+        waitFor("Sync failed: no connection")
 
         menu("Sign in to Dropbox")
 

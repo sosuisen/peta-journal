@@ -1009,6 +1009,8 @@ Androidのシェル（`client/apps/native-app/outliner-android`）の機能で�
 出典: `client/apps/native-app/outliner-android/app/src/androidTest/kotlin/com/sosuisha/petajournal/screen/*.kt`
 
 - 同期のメッセージは、ページの上端に重ねて出る。下端に出すと、いちばん下の行で打つ文字に重なるためである
+- 失敗した同期は、通信ができなかったときは「Sync failed: no connection」、そのほかのときは「Sync failed」とだけ伝える。SDKの長い言葉は、画面に出さず、ログに残す
+  - 通信の失敗は、例外とその原因の中の`IOException`で見分ける
 - 道具の列の下に、カーソルを動かす←↑↓→のボタンがいつも出る。スマホには矢印のキーがないためである
   - ←と→は、カーソルを1文字ずつ動かす。絵文字は、1文字として数える
   - 項目の先頭の←は、前の項目の末尾へ移る。末尾の→は、次の項目の先頭へ移る

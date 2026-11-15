@@ -88,7 +88,7 @@ internal fun Waiting(progress: Pair<String, Float>) {
 internal fun SyncCallout(state: SyncState, onSync: () -> Unit, modifier: Modifier) {
     val (words, again) = when (state) {
         is SyncState.Downloading, is SyncState.Uploading -> (progress(state)?.first ?: "Syncing…") to false
-        is SyncState.Failed -> "Sync failed: ${state.reason}" to true
+        is SyncState.Failed -> (if (state.offline) "Sync failed: no connection" else "Sync failed") to true
         SyncState.SignedOut, SyncState.Idle -> return
     }
     Surface(

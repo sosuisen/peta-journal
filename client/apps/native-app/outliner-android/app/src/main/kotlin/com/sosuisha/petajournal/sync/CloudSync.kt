@@ -3,6 +3,7 @@ package com.sosuisha.petajournal.sync
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import java.io.IOException
 import kotlin.concurrent.thread
 
 /** Where the sync with the cloud stands, for the screen. */
@@ -17,8 +18,12 @@ sealed interface SyncState {
 
     data class Uploading(val done: Int, val total: Int) : SyncState
 
-    /** The last sync failed. What it had downloaded and uploaded stays. */
-    data class Failed(val reason: String) : SyncState
+    /**
+     * The last sync failed. What it had downloaded and uploaded stays. [offline] says that the
+     * cloud could not be reached. The screen tells only that: the words of the SDK are long,
+     * and mean nothing to the user. They go to the log.
+     */
+    data class Failed(val offline: Boolean) : SyncState
 }
 
 /**
@@ -27,11 +32,13 @@ sealed interface SyncState {
  *
  * @param round makes one sync with the cloud: download, work of the core, upload.
  * @param onMainThread runs what it is given on the main thread, later and in order.
+ * @param log keeps why a sync failed, for the one who looks into it.
  */
 class CloudSync(
     signedIn: Boolean,
     private val round: (Cloud) -> SyncRound,
     private val onMainThread: (() -> Unit) -> Unit,
+    private val log: (Exception) -> Unit = {},
 ) {
     var state: SyncState by mutableStateOf(if (signedIn) SyncState.Idle else SyncState.SignedOut)
         private set
@@ -85,11 +92,18 @@ class CloudSync(
                     if (waits == null) this.inFront = false else start(waits)
                 }
             } catch (failed: Exception) {
+                log(failed)
                 onMainThread {
                     this.inFront = false
-                    state = SyncState.Failed(failed.message ?: failed.javaClass.simpleName)
+                    state = SyncState.Failed(offline = cannotReach(failed))
                 }
             }
         }
     }
 }
+
+/**
+ * The failure came from the network, such as no connection or no answer. The Dropbox SDK
+ * wraps an `IOException` of the network in an exception of its own, so the causes count too.
+ */
+private fun cannotReach(failed: Throwable): Boolean = generateSequence(failed) { it.cause }.any { it is IOException }
