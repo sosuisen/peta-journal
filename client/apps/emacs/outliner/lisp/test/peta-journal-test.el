@@ -679,9 +679,9 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 ;;;; Page properties
 
 (defconst peta-journal-test--property-rows
-  [(:key "created" :value "2026-11-07" :removable nil :editable t)
-   (:key "modified" :value "2026-11-08" :removable nil :editable nil)
-   (:key "status" :value "draft" :removable t :editable t)]
+  [(:key "created" :label "created" :value "2026-11-07" :removable nil :editable t)
+   (:key "modified" :label "modified" :value "2026-11-08" :removable nil :editable nil)
+   (:key "status" :label "status" :value "draft" :removable t :editable t)]
   "The rows of a doc page, as the shell sends them.")
 
 (defmacro peta-journal-test--with-properties (rows free-keys &rest body)
@@ -733,13 +733,13 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (save-current-buffer (peta-journal-properties))
     (peta-journal--on-line
      '(:t "properties"
-       :rows [(:key "status" :value "done" :removable t :editable t)]
+       :rows [(:key "status" :label "status" :value "done" :removable t :editable t)]
        :free_keys []))
     (should (string-search "status  done" (peta-journal-test--properties-text)))
     (peta-journal-test--with-rows (list (peta-journal-test--row "b" 1 "y"))
       (peta-journal--on-line
        '(:t "properties"
-         :rows [(:key "other" :value "z" :removable t :editable t)]
+         :rows [(:key "other" :label "other" :value "z" :removable t :editable t)]
          :free_keys [])))
     (should-not (string-search "other" (peta-journal-test--properties-text)))))
 
@@ -770,8 +770,8 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 ;; 全角のキーがあっても、値の列がそろう。
 (ert-deftest peta-journal-the-list-lines-up-wide-keys ()
   (peta-journal-test--with-properties
-      [(:key "状態" :value "a" :removable t :editable t)
-       (:key "status" :value "b" :removable t :editable t)]
+      [(:key "状態" :label "状態" :value "a" :removable t :editable t)
+       (:key "status" :label "status" :value "b" :removable t :editable t)]
       []
     (peta-journal-properties)
     (should (string-search "状態    a\nstatus  b\n" (peta-journal-test--properties-text)))))
@@ -841,9 +841,9 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
           (execute-kbd-macro (kbd "s"))))
       (peta-journal--on-line
        '(:t "properties"
-         :rows [(:key "created" :value "2026-11-07" :removable nil :editable t)
-                (:key "modified" :value "2026-11-08" :removable nil :editable nil)
-                (:key "status" :value "done" :removable t :editable t)]
+         :rows [(:key "created" :label "created" :value "2026-11-07" :removable nil :editable t)
+                (:key "modified" :label "modified" :value "2026-11-08" :removable nil :editable nil)
+                (:key "status" :label "status" :value "done" :removable t :editable t)]
          :free_keys []))
       (with-selected-window (get-buffer-window "*PetaJournal Properties*")
         (should (equal (buffer-substring-no-properties (line-beginning-position)
@@ -878,12 +878,12 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
            (set-time-zone-rule "JST-9")
            (peta-journal--on-line
             '(:t "properties"
-              :rows [(:key "created" :value "2026-11-07T15:21:04.123Z"
+              :rows [(:key "created" :label "created" :value "2026-11-07T15:21:04.123Z"
                       :removable nil :editable t)
-                     (:key "modified" :value "2026-11-08T00:00:00Z"
+                     (:key "modified" :label "modified" :value "2026-11-08T00:00:00Z"
                       :removable nil :editable nil)
-                     (:key "met" :value "soon" :removable t :editable t)
-                     (:key "status" :value "2026-11-07T15:21:04Z"
+                     (:key "met" :label "met" :value "soon" :removable t :editable t)
+                     (:key "status" :label "status" :value "2026-11-07T15:21:04Z"
                       :removable t :editable t)]
               :free_keys ["published"]
               :datetime_keys ["created" "modified" "met" "published"]))
@@ -994,7 +994,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 ;; 消せるプロパティがなければ、尋ねずに断る。
 (ert-deftest peta-journal-a-page-without-removable-keys-refuses-the-delete ()
   (peta-journal-test--with-properties
-      [(:key "created" :value "2026-11-07" :removable nil :editable t)]
+      [(:key "created" :label "created" :value "2026-11-07" :removable nil :editable t)]
       []
     (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) (error "It must not ask"))))
       (should-error (call-interactively #'peta-journal-delete-property) :type 'user-error))))

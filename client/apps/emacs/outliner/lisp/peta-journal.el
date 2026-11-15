@@ -1570,16 +1570,17 @@ The point stays on its line, so that the next key works on the same property."
       (let* ((inhibit-read-only t)
              (window (get-buffer-window (current-buffer)))
              (line (line-number-at-pos (if window (window-point window) (point))))
-             (width (seq-max (cons 0 (mapcar (lambda (row) (string-width (plist-get row :key)))
+             (width (seq-max (cons 0 (mapcar (lambda (row) (string-width (plist-get row :label)))
                                              rows)))))
         (erase-buffer)
         (insert "Properties\n\n")
         (seq-doseq (row rows)
           (let* ((key (plist-get row :key))
+                 (label (plist-get row :label))
                  (value (plist-get row :value)))
             (insert (propertize (format "%s%s  %s\n"
-                                        key
-                                        (make-string (- width (string-width key)) ?\s)
+                                        label
+                                        (make-string (- width (string-width label)) ?\s)
                                         (if (member key datetime-keys)
                                             (peta-journal--local-datetime value)
                                           value))
