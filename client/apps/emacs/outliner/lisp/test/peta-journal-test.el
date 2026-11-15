@@ -759,6 +759,14 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
         (delete-process stand-in)))
     (should-error (peta-journal-properties) :type 'user-error)))
 
+;; 一覧は、キーを、名前の本体と型の見出しで見せる。
+(ert-deftest peta-journal-the-list-shows-the-label-of-each-key ()
+  (peta-journal-test--with-properties
+      [(:key "score_n" :label "score (number)" :value "5" :removable t :editable t)]
+      []
+    (peta-journal-properties)
+    (should (string-search "score (number)  5\n" (peta-journal-test--properties-text)))))
+
 ;; 全角のキーがあっても、値の列がそろう。
 (ert-deftest peta-journal-the-list-lines-up-wide-keys ()
   (peta-journal-test--with-properties
