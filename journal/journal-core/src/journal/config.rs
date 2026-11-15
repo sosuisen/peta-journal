@@ -127,6 +127,7 @@ impl Journal {
             input.value_type.as_deref().unwrap_or("text"),
             input.page.unwrap_or(true),
         )?;
+        self.services.definitions_file.write_file()?;
         self.property_definitions()
     }
 

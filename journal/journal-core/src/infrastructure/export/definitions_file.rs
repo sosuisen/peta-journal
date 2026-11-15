@@ -2,19 +2,65 @@
 //! that every device gets them (ADR 046).
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use super::export_service::format_instant;
+use super::export_service::{format_instant, MarkdownExportService};
 use super::page_matcher::parse_instant;
-use crate::domain::property_definitions::{Definition, Definitions};
+use crate::domain::property_definitions::{merge, Definition, Definitions};
 use crate::domain::property_key::PropertyKey;
 use crate::error::{AppError, AppResult};
+use crate::infrastructure::files::write_atomic;
 use crate::infrastructure::persistence::database_initializer::SYSTEM_KEYS;
-use crate::infrastructure::persistence::property_repository::USER_VALUE_TYPES;
+use crate::infrastructure::persistence::property_repository::{
+    PropertyRepository, USER_VALUE_TYPES,
+};
 
 /// Where the file is, relative to the Markdown folder.
 pub const DEFINITIONS_FILE: &str = "settings/properties.json";
+
+/// Writes `settings/properties.json` of this device.
+pub struct DefinitionsFileService {
+    properties: PropertyRepository,
+    export: Arc<MarkdownExportService>,
+}
+
+impl DefinitionsFileService {
+    pub fn new(
+        properties: PropertyRepository,
+        export: Arc<MarkdownExportService>,
+    ) -> DefinitionsFileService {
+        DefinitionsFileService { properties, export }
+    }
+
+    /// Writes the definitions of this device put together with those in the file, so that
+    /// a definition of another device that is not taken in yet stays. A file that would not
+    /// change is left alone.
+    pub fn write_file(&self) -> AppResult<()> {
+        let Some(root) = self.export.markdown_root() else {
+            return Ok(());
+        };
+        let path = root.join(DEFINITIONS_FILE);
+        let on_disk = std::fs::read_to_string(&path).ok();
+        let in_file = on_disk
+            .as_deref()
+            .and_then(|text| read(text).ok())
+            .unwrap_or_default();
+        let text = write(&merge(
+            &self.properties.find_synced_definitions()?,
+            &in_file,
+        ));
+        if on_disk.as_deref() == Some(text.as_str()) {
+            return Ok(());
+        }
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        write_atomic(&path, &text)?;
+        Ok(())
+    }
+}
 
 /// The text of the file. The keys are in dictionary order, so the same definitions give the
 /// same bytes on every device.
