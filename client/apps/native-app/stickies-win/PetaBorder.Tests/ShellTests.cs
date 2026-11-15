@@ -638,6 +638,19 @@ public sealed class ShellTests : IDisposable
         main.WaitUntil("the list is two items", () => Bodies(shell) is ["a", "b"]);
     }
 
+    // そのままの貼り付け（Ctrl+Shift+V）では、リストも1つの項目にそのまま入る。
+    [Fact]
+    public void A_raw_paste_keeps_a_list_in_one_item()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+
+        shell.Paste(item, Editor("", 0), "- a\n- b", "", raw: true);
+
+        main.WaitUntil("the list is in the item", () => Bodies(shell) is ["- a\n- b"]);
+    }
+
     // 絵文字のあとのカーソルに貼る。カーソルは、UTF-16では2つ分進んでいる。
     [Fact]
     public void A_paste_behind_an_emoji_goes_in_there()
