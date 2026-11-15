@@ -699,8 +699,9 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertFalse(shell.view.outline.rows[0].isSelected)
     }
 
-    // 付箋の下までスクロールしてから、ドラッグ選択のマウスを上端で止めると、付箋が上へスクロールし、上から出てきた項目まで選ばれる。
-    func testADragSelectionHeldAtTheTopScrollsUpAndSelectsWhatComesDown() async throws {
+    /// A long page, scrolled to its end. The scroll view of the list, how far it is scrolled,
+    /// the first row that can be seen, and the editor of the last item.
+    private func longPageAtItsEnd() async throws -> (NSScrollView, CGFloat, Int, NSTextView) {
         try await longPage()
         let (scroll, table) = try list()
         let clip = scroll.contentView
@@ -711,7 +712,13 @@ final class OutlineScreenTests: XCTestCase {
             self.editors().contains { $0.string == "item 40" && !$0.visibleRect.isEmpty }
         }
         let firstSeen = table.rows(in: table.visibleRect).lowerBound
-        let last = try XCTUnwrap(editors().first { $0.string == "item 40" })
+        return (scroll, end, firstSeen, try XCTUnwrap(editors().first { $0.string == "item 40" }))
+    }
+
+    // 付箋の下までスクロールしてから、ドラッグ選択のマウスを上端で止めると、付箋が上へスクロールし、上から出てきた項目まで選ばれる。
+    func testADragSelectionHeldAtTheTopScrollsUpAndSelectsWhatComesDown() async throws {
+        let (scroll, end, firstSeen, last) = try await longPageAtItsEnd()
+        let clip = scroll.contentView
         let (text, shown) = (last.convert(last.bounds, to: nil), scroll.convert(scroll.bounds, to: nil))
         let above = NSPoint(x: text.midX, y: text.maxY + 15)
         let top = NSPoint(x: shown.midX, y: shown.maxY - 5)
@@ -722,6 +729,19 @@ final class OutlineScreenTests: XCTestCase {
         let firstSelected = try XCTUnwrap(shell.view.outline.rows.firstIndex(where: \.isSelected))
         XCTAssertLessThan(firstSelected, firstSeen)
         XCTAssertTrue(shell.view.outline.rows[40].isSelected)
+    }
+
+    // ドラッグ選択のマウスが付箋の上の外へ出ると、見えているいちばん上の項目まで選ばれる。まだ見えていない項目は選ばれない。
+    func testADragSelectionAboveTheStickyReachesTheTopItemThatCanBeSeen() async throws {
+        let (scroll, _, firstSeen, last) = try await longPageAtItsEnd()
+        let (text, shown) = (last.convert(last.bounds, to: nil), scroll.convert(scroll.bounds, to: nil))
+        let above = NSPoint(x: text.midX, y: text.maxY + 15)
+        let beyond = NSPoint(x: shown.midX, y: shown.maxY + 200)
+
+        // The button comes up at once: no step of the scroll comes between
+        try drag(from: last, through: [above, beyond])
+
+        XCTAssertEqual(shell.view.outline.rows.firstIndex(where: \.isSelected), firstSeen)
     }
 
     /// The search box, when it is on screen.
