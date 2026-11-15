@@ -148,6 +148,23 @@ fn a_definition_from_another_device_comes_into_the_db() {
     assert_eq!(a.definition("score_n"), Some(("number".to_string(), false)));
 }
 
+// 端末のDBのキーと名前の本体が同じでも、ほかの端末の定義は、別のキーとしてDBに入る。2台が互いを知らずに定義することがあるからである（ADR 047）。
+#[test]
+fn a_definition_from_another_device_comes_in_even_when_a_key_has_its_body() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    a.define("rating_n", "number", false);
+    b.define("rating_d", "date", false);
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert_eq!(
+        a.definition("rating_n"),
+        Some(("number".to_string(), false))
+    );
+    assert_eq!(a.definition("rating_d"), Some(("date".to_string(), false)));
+}
+
 // 同じキーは、新しい方の定義になる。端末のDBの定義が古ければ、届いた定義に変わる。
 #[test]
 fn a_newer_definition_from_another_device_replaces_the_older_one() {
