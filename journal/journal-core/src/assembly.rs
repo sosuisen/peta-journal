@@ -25,6 +25,7 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::search::SearchIndex;
 use crate::dto::ItemDtoAssembler;
 use crate::events::{ClientMessages, EventSink};
+use crate::infrastructure::export::definitions_file::DefinitionsFileService;
 use crate::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::export::file_sync_state::FileSyncStateRepository;
@@ -219,6 +220,10 @@ impl JournalCore {
                 extensions: Arc::clone(&extensions),
                 config: Arc::clone(&config),
                 export: Arc::clone(&export),
+                definitions_file: Arc::new(DefinitionsFileService::new(
+                    properties.clone(),
+                    Arc::clone(&export),
+                )),
                 folder_watch: host.folder_watch,
                 pages: pages.clone(),
                 items: items.clone(),

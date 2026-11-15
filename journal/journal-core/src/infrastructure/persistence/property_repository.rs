@@ -8,11 +8,12 @@ use rusqlite::{params, Connection};
 
 use crate::domain::bounds::Bounds;
 use crate::domain::number_text::format_number;
+use crate::domain::property_definitions::{Definition, Definitions};
 pub use crate::domain::property_key::validate_key;
 use crate::domain::property_key::PropertyKey;
 use crate::error::{AppError, AppResult};
 
-use super::db::{placeholders, Db};
+use super::db::{now_millis, placeholders, Db};
 
 /// Scalar properties per target: target id -> (key -> value as text).
 pub type ScalarProps = BTreeMap<String, BTreeMap<String, String>>;
@@ -198,12 +199,53 @@ impl PropertyRepository {
                 "Property key '{key}' is {what}"
             )));
         }
-        let conn = self.db.conn()?;
-        conn.execute(
-            "INSERT INTO property_definitions (key, value_type, is_system, for_page) VALUES (?, ?, 0, ?)",
-            params![key, value_type, page as i64],
+        // The key is defined and no longer deleted at once, or neither
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        tx.execute(
+            "INSERT INTO property_definitions (key, value_type, is_system, for_page, modified) VALUES (?, ?, 0, ?, ?)",
+            params![key, value_type, page as i64, now_millis()],
         )?;
+        tx.execute(
+            "DELETE FROM deleted_property_definitions WHERE key = ?",
+            params![key],
+        )?;
+        tx.commit()?;
         Ok(())
+    }
+
+    /// The definitions this device gives the other devices: the real user definitions, and
+    /// the keys deleted here (ADR 046).
+    pub fn find_synced_definitions(&self) -> AppResult<Definitions> {
+        let conn = self.db.conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT key, value_type, for_page, modified FROM property_definitions
+             WHERE is_system = 0 AND provisional = 0",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                Definition::Defined {
+                    value_type: r.get(1)?,
+                    page: r.get::<_, i64>(2)? != 0,
+                    modified: r.get(3)?,
+                },
+            ))
+        })?;
+        let mut definitions: Definitions = rows.collect::<Result<_, _>>()?;
+        let mut stmt =
+            conn.prepare("SELECT key, deleted_date FROM deleted_property_definitions")?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                Definition::Deleted { deleted: r.get(1)? },
+            ))
+        })?;
+        for row in rows {
+            let (key, deleted) = row?;
+            definitions.entry(key).or_insert(deleted);
+        }
+        Ok(definitions)
     }
 
     /// `delete_definition` on the given connection, as part of a larger transaction.
@@ -241,6 +283,11 @@ impl PropertyRepository {
         tx.execute(
             "DELETE FROM property_definitions WHERE key = ?",
             params![key],
+        )?;
+        tx.execute(
+            "INSERT INTO deleted_property_definitions (key, deleted_date) VALUES (?, ?)
+             ON CONFLICT(key) DO UPDATE SET deleted_date = MAX(deleted_date, excluded.deleted_date)",
+            params![key, now_millis()],
         )?;
         Ok(page_ids)
     }

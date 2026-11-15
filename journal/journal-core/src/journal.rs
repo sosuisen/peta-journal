@@ -49,6 +49,7 @@ use crate::application::journal_service::JournalService;
 use crate::application::page_service::PageService;
 use crate::domain::client_id::ClientId;
 use crate::dto::ItemDtoAssembler;
+use crate::infrastructure::export::definitions_file::DefinitionsFileService;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
@@ -76,6 +77,7 @@ pub struct JournalServices {
     pub extensions: Arc<ExtensionService>,
     pub config: Arc<ConfigService>,
     pub export: Arc<MarkdownExportService>,
+    pub definitions_file: Arc<DefinitionsFileService>,
     pub folder_watch: Arc<dyn FolderWatch>,
     pub pages: PageRepository,
     pub items: ItemRepository,

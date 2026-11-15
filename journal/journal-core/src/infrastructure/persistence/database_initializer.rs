@@ -27,6 +27,7 @@ const MIGRATIONS: &[fn(&Connection) -> rusqlite::Result<()>] = &[
     add_last_synced,
     drop_item_asts,
     use_one_value_column,
+    add_definition_dates,
 ];
 
 pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
@@ -70,6 +71,22 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
 fn user_version(conn: &Connection) -> rusqlite::Result<usize> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(version as usize)
+}
+
+/// Version 7: what the sync of the definitions through `settings/properties.json` needs
+/// (ADR 046). Each definition has the date it was defined, and may be provisional: made here
+/// only to read values that came without a definition. The definitions deleted here are kept
+/// with the date, as `deleted_items` keeps the items. The user definitions there are now
+/// are real ones of date 0, so a definition made on any device later wins over them.
+fn add_definition_dates(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "ALTER TABLE property_definitions ADD COLUMN modified INTEGER NOT NULL DEFAULT 0;
+         ALTER TABLE property_definitions ADD COLUMN provisional INTEGER NOT NULL DEFAULT 0;
+         CREATE TABLE deleted_property_definitions (
+             key TEXT PRIMARY KEY,
+             deleted_date INTEGER NOT NULL
+         );",
+    )
 }
 
 /// Version 6: one column for the value of a property, as the text written in the files
@@ -411,15 +428,25 @@ mod tests {
     /// back for a version below 5, as its migration drops it. The column of version 4 goes
     /// for a version below 4, as its migration cannot add a column that is there.
     fn set_version(conn: &Connection, version: i64) {
-        conn.execute_batch(
-            "DROP INDEX idx_props_key_value;
-             ALTER TABLE properties RENAME COLUMN value TO value_text;
-             ALTER TABLE properties ADD COLUMN value_number REAL;
-             ALTER TABLE properties ADD COLUMN value_checkbox INTEGER;
-             CREATE INDEX idx_props_key_text ON properties(key, value_text);
-             CREATE INDEX idx_props_key_number ON properties(key, value_number);",
-        )
-        .unwrap();
+        if version < 7 {
+            conn.execute_batch(
+                "ALTER TABLE property_definitions DROP COLUMN modified;
+                 ALTER TABLE property_definitions DROP COLUMN provisional;
+                 DROP TABLE deleted_property_definitions;",
+            )
+            .unwrap();
+        }
+        if version < 6 {
+            conn.execute_batch(
+                "DROP INDEX idx_props_key_value;
+                 ALTER TABLE properties RENAME COLUMN value TO value_text;
+                 ALTER TABLE properties ADD COLUMN value_number REAL;
+                 ALTER TABLE properties ADD COLUMN value_checkbox INTEGER;
+                 CREATE INDEX idx_props_key_text ON properties(key, value_text);
+                 CREATE INDEX idx_props_key_number ON properties(key, value_number);",
+            )
+            .unwrap();
+        }
         if version < 5 {
             conn.execute_batch("ALTER TABLE items ADD COLUMN ast TEXT NOT NULL DEFAULT ''")
                 .unwrap();
@@ -472,6 +499,35 @@ mod tests {
         assert_eq!(value("i1"), "true");
         assert_eq!(value("i2"), "false");
         assert_eq!(value("i3"), "me");
+    }
+
+    // 版6のデータベースを開くと、定義は日時と仮の定義かどうかを持ち、消した定義の表ができる。今あるユーザー定義は、日時0の本物の定義になる。
+    #[test]
+    fn a_database_at_version_6_keeps_its_user_definitions_as_real_ones_of_date_0() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        set_version(&conn, 6);
+        conn.execute(
+            "INSERT INTO property_definitions (key, value_type) VALUES ('owner', 'text')",
+            [],
+        )
+        .unwrap();
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
+        let (modified, provisional): (i64, i64) = conn
+            .query_row(
+                "SELECT modified, provisional FROM property_definitions WHERE key = 'owner'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((modified, provisional), (0, 0));
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM deleted_property_definitions"),
+            0
+        );
     }
 
     // 版4のデータベースを開くと、項目のASTの列がなくなり、本文はそのままである。
