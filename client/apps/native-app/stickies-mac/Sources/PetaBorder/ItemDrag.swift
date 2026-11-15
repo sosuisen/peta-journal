@@ -44,6 +44,7 @@ public final class ItemDrag {
 
     /// The mouse button came up: the drag is over.
     public func released() {
+        if reached != nil { send(.selectionMouseUp) }
         pressed = nil
         reached = nil
     }
