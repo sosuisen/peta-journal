@@ -31,7 +31,7 @@ use crate::domain::model::Page;
 use crate::error::AppResult;
 use crate::infrastructure::persistence::db::now_millis;
 
-use super::definitions_file::{DefinitionsFileService, DEFINITIONS_FILE};
+use super::definitions_file::{self, DefinitionsFileService, DEFINITIONS_FILE};
 use super::export_service::{mtime_millis, MarkdownExportService};
 use super::file_sync_state::FileSyncStateRepository;
 use super::item_merger::{ItemMerger, MergeMode};
@@ -129,6 +129,15 @@ impl MarkdownImportService {
                 tracing::error!("Failed to take in {rel_path}: {e:#}");
                 Outcome::Error
             });
+        }
+        if definitions_file::is_copy_of_the_file(rel_path) {
+            return self
+                .definitions
+                .take_in_copy(root, rel_path)
+                .unwrap_or_else(|e| {
+                    tracing::error!("Failed to merge {rel_path}: {e:#}");
+                    Outcome::Error
+                });
         }
         if let Some(loc) = path_mapper::conflicted_copy_of(rel_path) {
             return self.merge_copy(root, rel_path, &loc).unwrap_or_else(|e| {

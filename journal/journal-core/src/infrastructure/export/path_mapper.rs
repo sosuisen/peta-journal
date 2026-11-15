@@ -124,7 +124,7 @@ pub fn conflicted_copy_of(rel_path: &str) -> Option<PageLocation> {
     from_rel_path(&format!("{page}{MD_EXT}"))
 }
 
-fn has_copy_marker(text: &str) -> bool {
+pub fn has_copy_marker(text: &str) -> bool {
     let text = text.to_lowercase();
     COPY_MARKERS.iter().any(|m| text.contains(m))
 }
