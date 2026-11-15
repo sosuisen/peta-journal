@@ -1357,7 +1357,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         ),
         PreviousJournalsLoaded => screens::journal::previous_journals_loaded(model),
         MovedItemShown { item_id } => screens::journal::edit_moved_item(model, &item_id),
-        PageRedirected { path } => screens::navigate::replace_page(&path),
+        PageRedirected { path } => screens::history::replace_page(model, &path),
         PageLoaded { page, created } => screens::page::show_page(model, page, created),
         CanDemoteLoaded { can_demote } => screens::page::show_can_demote(model, can_demote),
         PageItemsLoaded { page_id, loaded } => {

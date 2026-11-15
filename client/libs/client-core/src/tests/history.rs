@@ -96,7 +96,10 @@ fn a_page_the_core_asks_to_open_in_place_takes_the_place_of_the_page_on_screen()
     open(&mut h, "/pages/a");
     open(&mut h, "/pages/old");
     h.send(Event::PageRedirected { path: "new".into() });
-    let asked = h.navigations.last().expect("the core asks to open the page");
+    let asked = h
+        .navigations
+        .last()
+        .expect("the core asks to open the page");
     assert!(asked.replace);
 
     let url = asked.url.clone();

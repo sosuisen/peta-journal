@@ -2,7 +2,7 @@
 //! (ADR 035).
 
 use crate::app::{done, Cmd, Model, Route};
-use crate::screens::route;
+use crate::screens::{navigate, route};
 use crate::view::HistoryView;
 
 /// The URLs that were opened, oldest first, and the one on screen.
@@ -11,10 +11,19 @@ pub struct History {
     urls: Vec<String>,
     /// The place of the URL on screen in `urls`. Nothing is on screen while `urls` is empty.
     at: usize,
+    /// The URL that the core asked to open in place of the one on screen, until it opens.
+    in_place: Option<String>,
 }
 
 impl History {
     fn push(&mut self, url: &str) {
+        if self.in_place.as_deref() == Some(url) {
+            self.in_place = None;
+            if let Some(on_screen) = self.urls.get_mut(self.at) {
+                *on_screen = url.to_string();
+                return;
+            }
+        }
         if !self.urls.is_empty() {
             self.urls.truncate(self.at + 1);
         }
@@ -63,6 +72,13 @@ pub fn open(model: &mut Model, url: &str, today: String) -> Cmd {
         }
         None => done(),
     }
+}
+
+/// Asks the shell to open the page in place of the one on screen, so that going back skips
+/// the one on screen.
+pub fn replace_page(model: &mut Model, path: &str) -> Cmd {
+    model.history.in_place = Some(navigate::page_url(path, None));
+    navigate::replace_page(path)
 }
 
 /// Opens the URL before the one on screen.
