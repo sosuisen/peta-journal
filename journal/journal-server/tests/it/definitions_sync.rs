@@ -121,3 +121,23 @@ fn a_device_without_a_markdown_folder_still_takes_a_definition() {
 
     assert!(state.properties.find_definition("score").unwrap().is_some());
 }
+
+impl Device {
+    /// The definition of the key in the DB of this device
+    fn definition(&self, key: &str) -> Option<(String, bool)> {
+        let d = self.state.properties.find_definition(key).unwrap()?;
+        Some((d.value_type, d.page))
+    }
+}
+
+// 端末は、ほかの端末が書いたsettings/properties.jsonを受け取ると、その端末のDBにない定義を、DBに入れる。
+#[test]
+fn a_definition_from_another_device_comes_into_the_db() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    b.define("score", "number", false);
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+}
