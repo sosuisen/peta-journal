@@ -93,4 +93,14 @@ mod tests {
         assert_eq!(merge(&newer, &deleted), deleted);
         assert_eq!(merge(&deleted, &newer), deleted);
     }
+
+    // 日時が同じなら、消した方を採る。
+    #[test]
+    fn of_the_same_date_the_deleted_one_wins() {
+        let defined = version(&[("score", defined("number", true, 5))]);
+        let deleted = version(&[("score", Definition::Deleted { deleted: 5 })]);
+
+        assert_eq!(merge(&defined, &deleted), deleted);
+        assert_eq!(merge(&deleted, &defined), deleted);
+    }
 }
