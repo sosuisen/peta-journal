@@ -25,4 +25,18 @@ final class ItemDragTests: XCTestCase {
             XCTAssertFalse(drag.selects)
         }
     }
+
+    // テキストの上か下へ10より大きく出ると、編集を終えてから、押した項目の選択を始める。編集を終えるのは、打った文字を保存するためである。
+    func testLeavingTheTextByMoreThan10EndsTheEditAndSelectsThePressedItem() {
+        for y in [89.0, 141] {
+            sent = []
+            drag.pressed("a", top: 100, bottom: 130)
+
+            drag.moved(y: y, itemUnder: "a")
+
+            XCTAssertEqual(sent, [.editFinished(itemId: "a"), .dragBeyondBounds(itemId: "a")], "at \(y)")
+            XCTAssertTrue(drag.selects)
+            drag.released()
+        }
+    }
 }
