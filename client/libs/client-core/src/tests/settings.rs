@@ -47,6 +47,21 @@ fn a_refused_definition_shows_the_reason_and_an_empty_key_is_not_sent() {
     );
 }
 
+// 予約の接尾辞で終わる本体は、サーバーに送られず、その理由が示される。
+#[test]
+fn a_body_that_ends_with_a_reserved_suffix_is_not_sent() {
+    let mut h = Harness::with_items(vec![]);
+    h.send(Event::AddPropertyDefinition {
+        body: "rating_n".into(),
+        value_type: "number".into(),
+    });
+    assert!(h.api.calls_named("AddPropertyDefinition").is_empty());
+    assert_eq!(
+        h.model.config.definition_error.as_deref(),
+        Some("The name cannot end with _n, _d, _dt, _cb, _bounds or _list")
+    );
+}
+
 // プロパティ定義を削除すると、それがサーバーに送られ、サーバーの一覧が表示される。拒否された削除はその理由を示す。
 #[test]
 fn deleting_a_property_definition_sends_it_and_shows_the_server_list() {
