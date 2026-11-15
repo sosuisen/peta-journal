@@ -66,6 +66,26 @@ final class ShellTests: XCTestCase {
         }
     }
 
+    // 戻ると、前に開いたページがまた開き、付箋紙が覚えるURLもそのページになる。進むと、戻る前のページに戻る（ADR 035）。
+    func testBackAndForwardFollowThePagesOpenedAndTheUrlFollows() async throws {
+        let shell = Shell(server: server.address, url: "/pages/first")
+        try await waitUntil("the first page is shown") { self.page(shell)?.page.name == "first" }
+        XCTAssertFalse(shell.view.history.canGoBack)
+        shell.open("/pages/second")
+        try await waitUntil("the second page is shown") { self.page(shell)?.page.name == "second" }
+
+        shell.goBack()
+
+        try await waitUntil("the first page is shown again") { self.page(shell)?.page.name == "first" }
+        XCTAssertEqual(shell.url, "/pages/first")
+        XCTAssertTrue(shell.view.history.canGoForward)
+
+        shell.goForward()
+
+        try await waitUntil("the second page is shown again") { self.page(shell)?.page.name == "second" }
+        XCTAssertEqual(shell.url, "/pages/second")
+    }
+
     // 開始記号を打ち終えると、閉じる記号が補われる（ADR 050）。
     func testTypingAnOpeningClosesIt() async throws {
         let shell = Shell(server: server.address, url: "/pages/swift-notes")
