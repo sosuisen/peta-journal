@@ -115,6 +115,20 @@ public sealed class ShellTests : IDisposable
         );
     }
 
+    // 開始記号を打ち終えると、閉じる記号が補われる（ADR 050）。
+    [Fact]
+    public void Typing_an_opening_closes_it()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+
+        shell.StartEditing(item);
+        shell.Typed(">>", item, 2);
+        shell.Typed(">>>", item, 3);
+
+        Assert.Equal(">>>\n>>>", shell.View.Outline.Rows[0].Item.Body);
+    }
+
     // コアが入力を求めると、質問が出る。答えた文字列で、コアが先へ進む。
     [Fact]
     public void A_prompt_is_answered_with_text()
