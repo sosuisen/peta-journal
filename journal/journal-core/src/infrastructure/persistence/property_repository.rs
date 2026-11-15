@@ -204,6 +204,10 @@ impl PropertyRepository {
             "INSERT INTO property_definitions (key, value_type, is_system, for_page, modified) VALUES (?, ?, 0, ?, ?)",
             params![key, value_type, page as i64, now_millis()],
         )?;
+        conn.execute(
+            "DELETE FROM deleted_property_definitions WHERE key = ?",
+            params![key],
+        )?;
         Ok(())
     }
 
