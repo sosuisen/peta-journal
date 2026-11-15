@@ -73,3 +73,18 @@ fn going_forward_after_going_back_opens_the_page_left() {
     assert!(h.view().history.can_go_back);
     assert!(!h.view().history.can_go_forward);
 }
+
+// 戻ったあとに別のページを開くと、進む先はなくなる。戻ると、戻る前に開いていたページが開く。
+#[test]
+fn opening_a_page_after_going_back_drops_the_pages_ahead() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/a");
+    open(&mut h, "/pages/b");
+    back(&mut h);
+
+    open(&mut h, "/pages/c");
+
+    assert!(!h.view().history.can_go_forward);
+    back(&mut h);
+    assert_eq!(shown(&h), "a");
+}
