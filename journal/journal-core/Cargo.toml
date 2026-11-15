@@ -50,3 +50,6 @@ uuid = "1.29.2"
 
 [dev-dependencies]
 tempfile = "3"
+# Checks that two versions of the definitions put together give the same result on every
+# device, whatever comes first (ADR 046)
+proptest = "1.12.0"
