@@ -76,7 +76,8 @@ final class ListDrag {
     /// The item under the place of the window, if one is there.
     private func item(at place: NSPoint) -> String? {
         guard let table = scroll.flatMap({ Self.table(in: $0) }) else { return nil }
-        let inTable = table.convert(place, from: nil)
+        let y = ItemDrag.placeInList(y: y(of: place.y), top: 0, bottom: shown.height)
+        let inTable = table.convert(NSPoint(x: place.x, y: shown.maxY - y), from: nil)
         // Only the height counts: beside the text of an item is still its row
         let row = table.row(at: NSPoint(x: table.bounds.midX, y: inTable.y))
         let rows = shell.view.outline.rows
