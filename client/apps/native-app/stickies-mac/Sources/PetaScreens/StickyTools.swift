@@ -1,16 +1,34 @@
+import PetaBorder
 import SwiftUI
 
 /// The tools of a sticky, which stand in the title bar of its window. The pin and the colors
 /// are not here: they are in the menu of the title bar, and leave the bar to the name.
 ///
-/// The search tool is for the sticky that is worked on. The plus is always there.
+/// The search tool and the arrows of the history are for the sticky that is worked on. The
+/// plus is always there.
 struct StickyTools: View {
     @ObservedObject var look: StickyLook
+    @ObservedObject var shell: Shell
     /// Opens another sticky.
     let onAdd: () -> Void
 
     var body: some View {
         HStack(spacing: 6) {
+            // The keys of the history in the browsers and the Finder of macOS (ADR 035)
+            Button(action: shell.goBack) {
+                Image(systemName: "chevron.left")
+            }
+            .keyboardShortcut("[")
+            .help("Back")
+            .opacity(look.toolsShown ? 1 : 0)
+            .disabled(!look.toolsShown || !shell.view.history.canGoBack)
+            Button(action: shell.goForward) {
+                Image(systemName: "chevron.right")
+            }
+            .keyboardShortcut("]")
+            .help("Forward")
+            .opacity(look.toolsShown ? 1 : 0)
+            .disabled(!look.toolsShown || !shell.view.history.canGoForward)
             Button {
                 look.searching.toggle()
             } label: {

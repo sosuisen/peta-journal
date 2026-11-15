@@ -338,10 +338,13 @@ pub struct ConfigView {
 /// Where the history of the opened pages can go (ADR 035). A shell that keeps no history in
 /// the core, as the web app, which has the history of the browser, has nothing in it.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 pub struct HistoryView {
     pub can_go_back: bool,
     pub can_go_forward: bool,
+    /// The URL on screen, as it was opened. A shell keeps it to open the screen again at the
+    /// next start. None while nothing was opened through the history.
+    pub url: Option<String>,
 }
 
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]

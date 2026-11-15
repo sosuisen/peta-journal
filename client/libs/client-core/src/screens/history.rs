@@ -64,6 +64,7 @@ impl History {
         HistoryView {
             can_go_back: self.can_go_back(),
             can_go_forward: self.can_go_forward(),
+            url: self.urls.get(self.at).cloned(),
         }
     }
 }
