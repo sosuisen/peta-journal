@@ -21,12 +21,13 @@ pub fn auto_close(body: &str, cursor: usize) -> Option<(String, usize)> {
 /// block, with nothing after it. Only then is the block closed as it is typed (ADR 050): a
 /// closing added in the middle of a body could pair with the marks around it.
 fn opens_block(before: &str, after: &str) -> bool {
-    let Some((typed_at, _)) = before.char_indices().last() else {
-        return false;
-    };
+    let before_typed = before
+        .char_indices()
+        .last()
+        .map_or("", |(typed_at, _)| &before[..typed_at]);
     after.is_empty()
         && flatmarkdown::has_unclosed_block(before)
-        && !flatmarkdown::has_unclosed_block(&before[..typed_at])
+        && !flatmarkdown::has_unclosed_block(before_typed)
 }
 
 /// True when the `]` at the end of `before` was typed right in front of the rest of the `]]` that
