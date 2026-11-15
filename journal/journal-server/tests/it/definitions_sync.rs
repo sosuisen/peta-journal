@@ -45,15 +45,10 @@ fn a_definition_the_user_adds_is_written_with_its_date() {
 
     a.define("score_n", "number", false);
 
-    let Some(Definition::Defined {
-        value_type,
-        page,
-        modified,
-    }) = a.written("score_n")
-    else {
-        panic!("score is not written");
+    let Some(Definition::Defined { page, modified }) = a.written("score_n") else {
+        panic!("score_n is not written");
     };
-    assert_eq!((value_type.as_str(), page), ("number", false));
+    assert!(!page);
     assert!(modified >= before, "{modified} < {before}");
 }
 
@@ -68,7 +63,10 @@ fn a_definition_the_user_deletes_is_written_as_deleted_with_its_date() {
     a.undefine("score_n");
 
     let Some(Definition::Deleted { deleted }) = a.written("score_n") else {
-        panic!("score is not written as deleted: {:?}", a.written("score_n"));
+        panic!(
+            "score is not written as deleted: {:?}",
+            a.written("score_n")
+        );
     };
     assert!(deleted >= before, "{deleted} < {before}");
 }
@@ -97,7 +95,7 @@ fn a_deleted_definition_the_user_adds_again_is_no_longer_deleted() {
     assert_eq!(deleted, 0);
     assert!(matches!(
         a.written("score_n"),
-        Some(Definition::Defined { value_type, page: true, .. }) if value_type == "number"
+        Some(Definition::Defined { page: true, .. })
     ));
 }
 
@@ -120,7 +118,11 @@ fn a_device_without_a_markdown_folder_still_takes_a_definition() {
         })
         .unwrap();
 
-    assert!(state.properties.find_definition("score_n").unwrap().is_some());
+    assert!(state
+        .properties
+        .find_definition("score_n")
+        .unwrap()
+        .is_some());
 }
 
 impl Device {
@@ -531,17 +533,11 @@ fn a_value_the_user_writes_to_a_key_with_no_definition_defines_it_for_every_devi
         )
         .unwrap();
 
-    for (key, value_type) in [("score_n", "number"), ("member_list", "list")] {
+    for key in ["score_n", "member_list"] {
         assert!(!a.is_provisional(key), "{key}");
-        let Some(Definition::Defined {
-            value_type: written,
-            modified,
-            ..
-        }) = a.written(key)
-        else {
+        let Some(Definition::Defined { modified, .. }) = a.written(key) else {
             panic!("{key} is not written");
         };
-        assert_eq!(written, value_type);
         assert!(modified >= before, "{key}: {modified} < {before}");
     }
 }
@@ -582,7 +578,7 @@ fn a_value_the_user_writes_to_a_key_deleted_on_another_device_defines_it_again()
     assert_eq!(deleted, 0);
     assert!(matches!(
         a.written("score_n"),
-        Some(Definition::Defined { value_type, .. }) if value_type == "number"
+        Some(Definition::Defined { .. })
     ));
 }
 

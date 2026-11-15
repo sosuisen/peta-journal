@@ -211,13 +211,8 @@ impl PropertyRepository {
 
     /// Defines a user key as another device defined it, or changes its definition to that.
     /// The values stay as they are: the type is how they are read (ADR 046).
-    pub fn put_definition(
-        &self,
-        key: &str,
-        value_type: &str,
-        page: bool,
-        modified: i64,
-    ) -> AppResult<()> {
+    pub fn put_definition(&self, key: &str, page: bool, modified: i64) -> AppResult<()> {
+        let value_type = property_names::type_of(key).as_str();
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;
         tx.execute(
@@ -273,16 +268,15 @@ impl PropertyRepository {
     pub fn find_synced_definitions(&self) -> AppResult<Definitions> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
-            "SELECT key, value_type, for_page, modified FROM property_definitions
+            "SELECT key, for_page, modified FROM property_definitions
              WHERE is_system = 0 AND provisional = 0",
         )?;
         let rows = stmt.query_map([], |r| {
             Ok((
                 r.get::<_, String>(0)?,
                 Definition::Defined {
-                    value_type: r.get(1)?,
-                    page: r.get::<_, i64>(2)? != 0,
-                    modified: r.get(3)?,
+                    page: r.get::<_, i64>(1)? != 0,
+                    modified: r.get(2)?,
                 },
             ))
         })?;

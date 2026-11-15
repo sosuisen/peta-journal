@@ -6,8 +6,8 @@ use std::collections::BTreeMap;
 /// What one version says of a key: its definition, or that it was deleted.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Definition {
+    /// The type is not here: the name of the key gives it (ADR 047).
     Defined {
-        value_type: String,
         page: bool,
         /// When the key was defined, in milliseconds.
         modified: i64,
@@ -37,16 +37,11 @@ pub fn merge(a: &Definitions, b: &Definitions) -> Definitions {
 
 impl Definition {
     /// Of two versions of a key, the one of the higher rank wins: the newer one, and of the
-    /// same date, the deleted one, then a type other than `text`, then the type later in the
-    /// dictionary, then the one for pages.
-    fn rank(&self) -> (i64, bool, bool, &str, bool) {
+    /// same date, the deleted one, then the one for pages.
+    fn rank(&self) -> (i64, bool, bool) {
         match self {
-            Definition::Defined {
-                value_type,
-                page,
-                modified,
-            } => (*modified, false, value_type != "text", value_type, *page),
-            Definition::Deleted { deleted } => (*deleted, true, false, "", false),
+            Definition::Defined { page, modified } => (*modified, false, *page),
+            Definition::Deleted { deleted } => (*deleted, true, false),
         }
     }
 }
@@ -55,12 +50,8 @@ impl Definition {
 mod tests {
     use super::*;
 
-    fn defined(value_type: &str, page: bool, modified: i64) -> Definition {
-        Definition::Defined {
-            value_type: value_type.to_string(),
-            page,
-            modified,
-        }
+    fn defined(page: bool, modified: i64) -> Definition {
+        Definition::Defined { page, modified }
     }
 
     fn version(entries: &[(&str, Definition)]) -> Definitions {
@@ -73,25 +64,22 @@ mod tests {
     // 片方の版にしかないキーは、合わせた結果に残る。2台で別のキーを足せば、両方が残る。
     #[test]
     fn a_key_in_only_one_version_stays() {
-        let a = version(&[("owner", defined("text", true, 1))]);
-        let b = version(&[("score", defined("number", false, 2))]);
+        let a = version(&[("owner", defined(true, 1))]);
+        let b = version(&[("score", defined(false, 2))]);
 
         let merged = merge(&a, &b);
 
         assert_eq!(
             merged,
-            version(&[
-                ("owner", defined("text", true, 1)),
-                ("score", defined("number", false, 2)),
-            ])
+            version(&[("owner", defined(true, 1)), ("score", defined(false, 2)),])
         );
     }
 
     // 同じキーは、新しい方を採る。消した定義の日時は、消した日時である。
     #[test]
     fn the_newer_one_of_a_key_wins() {
-        let older = version(&[("score", defined("text", true, 1))]);
-        let newer = version(&[("score", defined("number", false, 2))]);
+        let older = version(&[("score", defined(true, 1))]);
+        let newer = version(&[("score", defined(false, 2))]);
         let deleted = version(&[("score", Definition::Deleted { deleted: 3 })]);
 
         assert_eq!(merge(&older, &newer), newer);
@@ -101,35 +89,17 @@ mod tests {
     // 日時が同じなら、消した方を採る。
     #[test]
     fn of_the_same_date_the_deleted_one_wins() {
-        let defined = version(&[("score", defined("number", true, 5))]);
+        let defined = version(&[("score", defined(true, 5))]);
         let deleted = version(&[("score", Definition::Deleted { deleted: 5 })]);
 
         assert_eq!(merge(&defined, &deleted), deleted);
     }
 
-    // 日時が同じなら、textよりtext以外の型を採る。textは、型の分からない値に与える型だからである。
+    // 日時が同じなら、pageが真の方を採る。偽にするほうが影響が大きいためである。
     #[test]
-    fn of_the_same_date_a_type_other_than_text_wins() {
-        let text = version(&[("score", defined("text", true, 5))]);
-        let number = version(&[("score", defined("number", true, 5))]);
-
-        assert_eq!(merge(&text, &number), number);
-    }
-
-    // 日時が同じで、どちらもtext以外なら、型の名前の辞書順で後の方を採る。
-    #[test]
-    fn of_the_same_date_the_type_later_in_the_dictionary_wins() {
-        let date = version(&[("plan", defined("date", true, 5))]);
-        let datetime = version(&[("plan", defined("datetime", true, 5))]);
-
-        assert_eq!(merge(&date, &datetime), datetime);
-    }
-
-    // 日時も型も同じなら、pageが真の方を採る。偽にするほうが影響が大きいためである。
-    #[test]
-    fn of_the_same_date_and_type_the_one_for_pages_wins() {
-        let for_items = version(&[("owner", defined("text", false, 5))]);
-        let for_pages = version(&[("owner", defined("text", true, 5))]);
+    fn of_the_same_date_the_one_for_pages_wins() {
+        let for_items = version(&[("owner", defined(false, 5))]);
+        let for_pages = version(&[("owner", defined(true, 5))]);
 
         assert_eq!(merge(&for_items, &for_pages), for_pages);
     }
@@ -139,19 +109,11 @@ mod tests {
 
         use super::super::*;
 
-        // Few keys, types and dates, so that two versions often share a key and a date
+        // Few keys and dates, so that two versions often share a key and a date
         fn definition() -> impl Strategy<Value = Definition> {
             prop_oneof![
-                (
-                    prop::sample::select(vec!["text", "number", "date", "datetime"]),
-                    any::<bool>(),
-                    0i64..3,
-                )
-                    .prop_map(|(value_type, page, modified)| Definition::Defined {
-                        value_type: value_type.to_string(),
-                        page,
-                        modified,
-                    }),
+                (any::<bool>(), 0i64..3)
+                    .prop_map(|(page, modified)| Definition::Defined { page, modified }),
                 (0i64..3).prop_map(|deleted| Definition::Deleted { deleted }),
             ]
         }
