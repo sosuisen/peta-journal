@@ -14,7 +14,16 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 2026-11-15にADR 046で決めた。`settings/properties.json`に置き、キーごとに新しい方を採る。4つのPRを積み重ねて出す
     - [x] PR 1：プロパティの値を、`properties`の`value`の1つの列に、文字列で持つ（DBの版6）
     - [x] PR 2：名前が`_list`で終わるキーだけを`list`型にする。`PropertyKey`の型
-    - [ ] PR 3：`settings/properties.json`で定義を同期する。仮の定義、`deleted_property_definitions`、走査と監視
+    - [ ] PR 3：`settings/properties.json`で定義を同期する。大きいので、3つのPRに分けて順に出す（2026-11-15）
+      - [ ] PR 3a：ユーザーが定義を足したときと消したときに、`settings/properties.json`を書く
+        - [ ] DBの版7：`property_definitions`に`modified`と`provisional`を足し、`deleted_property_definitions`の表を作る。今あるユーザー定義は、日時0の本物の定義になる
+        - [ ] 2つの版の定義を、キーごとに合わせる。新しい方を採る。日時が同じなら、消した方、`text`以外、型の名前の辞書順で後、`page`が真の順で採る
+        - [ ] 定義をJSONに書き、読む。キーは辞書順。同じ定義からは同じバイト列になる。システム管理キーは書かない
+        - [ ] ユーザーが定義を足すと、定義の日時が記録され、`settings/properties.json`に書かれる
+        - [ ] ユーザーが定義を消すと、`deleted_property_definitions`に記録され、`settings/properties.json`に消した定義として書かれる
+        - [ ] 消した定義を足し直すと、`deleted_property_definitions`の行が消える
+      - [ ] PR 3b：届いた`settings/properties.json`を取り込む。合わせた結果がファイルと違えば書き直す。消したことが届いたとき、conflicted copy、走査と監視
+      - [ ] PR 3c：仮の定義。取り込みで定義のないキーに仮の定義を作り、値がなくなったら消す。`for_page`はUIだけに使う。ユーザーのキーは、型に合わない値も取り込む
     - [ ] PR 4：AndroidとiOSのシェルで、`settings/properties.json`も運ぶ。Androidは実機で確かめる
   - [ ] 型に合わない値に、警告の印を付ける。シェルごとに別のタスクにする（ADR 046）
 - [x] Windowsのシェルで、上付き・下付きと`-# subtext`の文字を、ほかのシェルと同じく0.75倍の大きさで描く
