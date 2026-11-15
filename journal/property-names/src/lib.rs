@@ -13,22 +13,37 @@ pub enum ValueType {
     List,
 }
 
-/// The suffix of the key names of each type but text, whose names have none.
-const SUFFIXES: [(&str, ValueType); 6] = [
-    ("_n", ValueType::Number),
-    ("_d", ValueType::Date),
-    ("_dt", ValueType::Datetime),
-    ("_cb", ValueType::Checkbox),
-    ("_bounds", ValueType::Bounds),
-    ("_list", ValueType::List),
-];
+impl ValueType {
+    /// The types whose key names end with a suffix: all but text.
+    const SUFFIXED: [ValueType; 6] = [
+        ValueType::Number,
+        ValueType::Date,
+        ValueType::Datetime,
+        ValueType::Checkbox,
+        ValueType::Bounds,
+        ValueType::List,
+    ];
+
+    /// The suffix of the key names of the type. Text has none.
+    pub fn suffix(self) -> &'static str {
+        match self {
+            ValueType::Text => "",
+            ValueType::Number => "_n",
+            ValueType::Date => "_d",
+            ValueType::Datetime => "_dt",
+            ValueType::Checkbox => "_cb",
+            ValueType::Bounds => "_bounds",
+            ValueType::List => "_list",
+        }
+    }
+}
 
 /// The type of the property with this key name.
 pub fn type_of(name: &str) -> ValueType {
-    SUFFIXES
-        .iter()
-        .find(|(suffix, _)| name.ends_with(suffix))
-        .map_or(ValueType::Text, |(_, value_type)| *value_type)
+    ValueType::SUFFIXED
+        .into_iter()
+        .find(|value_type| name.ends_with(value_type.suffix()))
+        .unwrap_or(ValueType::Text)
 }
 
 /// The full key name of a property of this type, whose body the user gives.
@@ -36,11 +51,7 @@ pub fn name_of(body: &str, value_type: ValueType) -> Result<String, ReservedSuff
     if type_of(body) != ValueType::Text {
         return Err(ReservedSuffix);
     }
-    let suffix = SUFFIXES
-        .iter()
-        .find(|(_, t)| *t == value_type)
-        .map_or("", |(suffix, _)| suffix);
-    Ok(format!("{body}{suffix}"))
+    Ok(format!("{body}{}", value_type.suffix()))
 }
 
 /// A body that ends with a suffix, which would make a name such as `rating_n_n`.
@@ -88,7 +99,10 @@ mod tests {
     // 本体と型から、完全な名前ができる。
     #[test]
     fn a_body_and_a_type_make_the_full_name() {
-        assert_eq!(name_of("rating", ValueType::Number), Ok("rating_n".to_string()));
+        assert_eq!(
+            name_of("rating", ValueType::Number),
+            Ok("rating_n".to_string())
+        );
         assert_eq!(name_of("rating", ValueType::Text), Ok("rating".to_string()));
     }
 
