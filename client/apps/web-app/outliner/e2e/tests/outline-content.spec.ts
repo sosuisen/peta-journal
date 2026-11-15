@@ -175,6 +175,15 @@ test.describe('outline content', () => {
     expect(items.map(i => i.body)).toEqual(['```\none\ntwo\n```']);
   });
 
+  test('typing a block opening other than a code fence closes it too', async ({ page }) => {
+    await page.keyboard.type('>>>');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('quoted');
+
+    const items = await server.itemsSettled(pageId, i => i[0].body.includes('quoted'));
+    expect(items.map(i => i.body)).toEqual(['>>>\nquoted\n>>>']);
+  });
+
   test('Ctrl+O opens the wiki link at the caret', async ({ page, request }) => {
     const target = await new Server(request).newDocPage('CtrlO');
     await page.keyboard.type(`go to [[${target.title}`);  // the editor closes the link itself

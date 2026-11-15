@@ -987,9 +987,16 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
     (restore-buffer-modified-p nil)))
 
 (defun peta-journal--close-typed ()
-  "Let the core close the `[[' or the code fence just typed, or go over a `]'.
-Only for these characters: waiting on every key would slow typing down."
-  (when (memq (char-before) '(?\[ ?\] ?`))
+  "Let the core close the `[[' or the block opening just typed, or go over a `]'.
+Only for the characters that can end an opening: waiting on every key would
+slow typing down.  An HTML opening such as `<pre' ends in any character, so
+every key counts on a line that starts with `<'."
+  (when (or (memq (char-before) '(?\[ ?\] ?` ?~ ?>))
+            (save-excursion
+              (goto-char (max (line-beginning-position)
+                              (peta-journal--body-start (peta-journal--row-start (point)))))
+              (skip-chars-forward " ")
+              (eq (char-after) ?<)))
     (peta-journal--send-and-wait "typed"
                                  :id (peta-journal--item)
                                  :cursor (peta-journal--cursor))))
