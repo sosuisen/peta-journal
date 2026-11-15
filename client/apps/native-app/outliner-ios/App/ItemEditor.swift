@@ -237,7 +237,7 @@ struct ItemEditor: UIViewRepresentable {
             DispatchQueue.main.async { [self] in
                 untold = false
                 telling = true
-                shell.type(itemId, field.text)
+                shell.type(itemId, field.text, cursor: field.selectedRange.location)
                 telling = false
                 typeWhatWasHeld(into: field)
             }
@@ -293,7 +293,7 @@ struct ItemEditor: UIViewRepresentable {
             field.invalidateIntrinsicContentSize()
             guard field.markedTextRange == nil else { return }
             telling = true
-            shell.type(itemId, field.text)
+            shell.type(itemId, field.text, cursor: field.selectedRange.location)
             telling = false
         }
 

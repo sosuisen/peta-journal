@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import PetaCore
 import PetaSync
 import PetaTypes
 
@@ -131,6 +132,16 @@ public final class Shell: ObservableObject {
     /// The user changed the Markdown of the item. The core saves it a moment later.
     public func type(_ itemId: String, _ body: String) {
         change(.bodyChanged(itemId: itemId, body: body, nowMs: now()))
+    }
+
+    /// The user changed the Markdown of the item, and the cursor is `cursor` UTF-16 units into
+    /// `body`. An opening just typed gets its closing (ADR 050). An opening that is left after a
+    /// deletion does not, or the closing would come back at every delete.
+    public func type(_ itemId: String, _ body: String, cursor: Int) {
+        let before = view.outline.rows.first { $0.item.id == itemId }?.item.body
+        let added = body.utf16.count > (before?.utf16.count ?? 0)
+        let closed = added ? closedAsTyped(body: body, cursor: UInt64(cursor)) : nil
+        type(itemId, closed ?? body)
     }
 
     /// The user pressed Enter in the item. `cursor` counts the characters before it, as the
