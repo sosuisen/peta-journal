@@ -224,9 +224,14 @@ and both stand in the middle of the first line of the text. A click on it steps 
 of the task, as the key does: open, running, done, and then no task any more.
 
 Each window is a sticky with a page of its own. Its title bar shows the name of the page, and
-the tools of the sticky at the right. The search tool, and the buttons that close, minimize
-and zoom the window, are hidden while the window does not have the focus: the bar is left to
-the name.
+the tools of the sticky at the right. The search tool, the arrows of the history, and the buttons that
+close, minimize and zoom the window, are hidden while the window does not have the focus: the
+bar is left to the name.
+
+The arrows, or Command+[ and Command+], go back to the page opened before in the sticky and
+forward again, as in Safari and the Finder. Each sticky has a history of its own, which the
+core keeps (ADR 035). An arrow is dimmed while there is nowhere to go. The history is not
+kept between runs: the sticky comes back with the page it showed last.
 
 The button with the plus, or Command+N, opens another sticky. The button is always there:
 also while the window does not have the focus, and while the sticky is rolled up. One click
