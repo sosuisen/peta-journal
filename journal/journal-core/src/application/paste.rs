@@ -70,22 +70,6 @@ pub fn plan(
     Ok(PastePlan { pieces, cursor })
 }
 
-/// Closes the code fence a body ends in. A stored body never ends inside a code fence.
-pub(crate) fn close_code_fence(body: &mut String) {
-    if has_unclosed_code_fence(body) {
-        body.push_str("\n```");
-    }
-}
-
-/// True when the text has an odd number of lines that open or close a code fence.
-pub(crate) fn has_unclosed_code_fence(text: &str) -> bool {
-    let fences = text
-        .split('\n')
-        .filter(|line| line.trim_start().starts_with("```"))
-        .count();
-    fences % 2 != 0
-}
-
 /// Splits a text at a character index. An index past the end splits at the end.
 pub(crate) fn split_at_char(text: &str, char_index: usize) -> (&str, &str) {
     let byte_index = text
