@@ -22,6 +22,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -74,50 +76,52 @@ fun JournalScreen(
                 }
                 return@Surface
             }
-            Column(Modifier.safeDrawingPadding()) {
-                // At the top, where it stays while an item is edited and the keyboard is up
-                Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    cloud?.let { SyncMenu(it, onSignIn, onSync, onSignOut) }
-                    OutlinedTextField(
-                        value = view.search.query,
-                        onValueChange = shell::search,
-                        singleLine = true,
-                        placeholder = { Text("Search") },
-                        modifier = Modifier.weight(1f).padding(horizontal = 4.dp).testTag(SEARCH_TAG),
-                    )
-                    TodayButton(shell::today)
-                }
-                // The room of the line is always there: the app syncs while the user types, and
-                // the page must not jump
-                Box(Modifier.fillMaxWidth().height(4.dp)) {
-                    if (shell.syncing) LinearProgressIndicator(Modifier.fillMaxSize())
-                }
-                if (cloud == SyncState.SignedOut) {
-                    Button(onSignIn, Modifier.padding(horizontal = 8.dp)) { Text("Sign in to Dropbox") }
-                }
-                val waiting = if (syncInFront) progress(cloud) else null
-                waiting?.let { Waiting(it) }
-                val searching = view.search.showDropdown
-                // The rest of the height: the tools stay above the keyboard
-                Box(Modifier.weight(1f)) {
-                    Column {
-                        if (searching) {
-                            Results(view.search.results, shell::pick)
-                        } else {
-                            shell.question?.let { Asked(it, shell::answer) }
-                            shell.missing?.let { MissingPage(it, shell::make) }
-                            shell.missingFile?.let { Text("No file yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
-                            val links = Links(shell::follow) { path -> shell.attached(path)?.let(onFile) }
-                            Outline(title(view), view.outline.rows, links, shell::image, shell)
-                        }
+            CompositionLocalProvider(LocalCaret provides remember { Caret() }) {
+                Column(Modifier.safeDrawingPadding()) {
+                    // At the top, where it stays while an item is edited and the keyboard is up
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        cloud?.let { SyncMenu(it, onSignIn, onSync, onSignOut) }
+                        OutlinedTextField(
+                            value = view.search.query,
+                            onValueChange = shell::search,
+                            singleLine = true,
+                            placeholder = { Text("Search") },
+                            modifier = Modifier.weight(1f).padding(horizontal = 4.dp).testTag(SEARCH_TAG),
+                        )
+                        TodayButton(shell::today)
                     }
-                    // Over the top of the page, so that it takes no room. Not at the bottom: the
-                    // user types on the last lines most of the time, and it hid them. Not while the
-                    // dialog says the same
-                    if (waiting == null) cloud?.let { SyncCallout(it, onSync, Modifier.align(Alignment.TopCenter)) }
+                    // The room of the line is always there: the app syncs while the user types, and
+                    // the page must not jump
+                    Box(Modifier.fillMaxWidth().height(4.dp)) {
+                        if (shell.syncing) LinearProgressIndicator(Modifier.fillMaxSize())
+                    }
+                    if (cloud == SyncState.SignedOut) {
+                        Button(onSignIn, Modifier.padding(horizontal = 8.dp)) { Text("Sign in to Dropbox") }
+                    }
+                    val waiting = if (syncInFront) progress(cloud) else null
+                    waiting?.let { Waiting(it) }
+                    val searching = view.search.showDropdown
+                    // The rest of the height: the tools stay above the keyboard
+                    Box(Modifier.weight(1f)) {
+                        Column {
+                            if (searching) {
+                                Results(view.search.results, shell::pick)
+                            } else {
+                                shell.question?.let { Asked(it, shell::answer) }
+                                shell.missing?.let { MissingPage(it, shell::make) }
+                                shell.missingFile?.let { Text("No file yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
+                                val links = Links(shell::follow) { path -> shell.attached(path)?.let(onFile) }
+                                Outline(title(view), view.outline.rows, links, shell::image, shell)
+                            }
+                        }
+                        // Over the top of the page, so that it takes no room. Not at the bottom: the
+                        // user types on the last lines most of the time, and it hid them. Not while
+                        // the dialog says the same
+                        if (waiting == null) cloud?.let { SyncCallout(it, onSync, Modifier.align(Alignment.TopCenter)) }
+                    }
+                    val edited = view.outline.rows.firstOrNull { it.isEditing }?.item?.id
+                    Tools(edited.takeUnless { searching }, shell)
                 }
-                val edited = view.outline.rows.firstOrNull { it.isEditing }?.item?.id
-                if (!searching && edited != null) Tools(edited, shell)
             }
         }
     }

@@ -179,6 +179,19 @@ class Shell(
      */
     fun backspaceAtStart(itemId: String) = change(Event.BackspaceAtStart(itemId))
 
+    /**
+     * The cursor leaves the item for the one above it, at the place [cursor] in characters,
+     * as the core counts them. A place past the end of that item puts the cursor at its end.
+     * Nothing happens in the first item of a page.
+     */
+    fun navigateUp(itemId: String, cursor: Long) = send(Event.NavigateUp(itemId, cursor.toULong()))
+
+    /**
+     * The cursor leaves the item for the one below it, at the place [cursor] in characters.
+     * Nothing happens in the last item of a page.
+     */
+    fun navigateDown(itemId: String, cursor: Long) = send(Event.NavigateDown(itemId, cursor.toULong()))
+
     /** The user left the editor of the item: what was typed is saved. */
     fun finish(itemId: String) = send(Event.EditFinished(itemId))
 
