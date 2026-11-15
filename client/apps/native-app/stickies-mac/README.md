@@ -184,9 +184,11 @@ item, and then every item it goes over, until the button comes up. Held within 4
 the top or the bottom of the window, it scrolls the items, faster nearer the edge, and the
 selection takes the items that come under the mouse. The text view follows the mouse in its
 own loop in `mouseDown` (`ItemTextView.follow`): a text view of AppKit keeps the mouse until
-the button comes up and never tells that it left the text. `ItemDrag` finds the item under the
-mouse by the row of the table of the list, and scrolls the list. A double click, and a click
-with Shift or another key held, are left to AppKit.
+the button comes up and never tells that it left the text. The mouse may leave the window; the
+item nearest to it that can be seen counts. `ItemDrag` and `EdgeScroll` of `PetaBorder` decide
+this, as those of the Windows shell do, and `ListDrag` of `PetaScreens` gives them the mouse:
+it finds the item under the mouse by the row of the table of the list, and scrolls the list.
+A double click, and a click with Shift or another key held, are left to AppKit.
 
 While items are selected, no item has the cursor and the keys mean this:
 
