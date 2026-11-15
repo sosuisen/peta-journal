@@ -214,6 +214,26 @@ impl PropertyRepository {
         Ok(())
     }
 
+    /// Defines a user key as another device defined it, or changes its definition to that.
+    /// The values stay as they are: the type is how they are read (ADR 046).
+    pub fn put_definition(
+        &self,
+        key: &str,
+        value_type: &str,
+        page: bool,
+        modified: i64,
+    ) -> AppResult<()> {
+        let conn = self.db.conn()?;
+        conn.execute(
+            "INSERT INTO property_definitions (key, value_type, is_system, for_page, modified, provisional)
+             VALUES (?1, ?2, 0, ?3, ?4, 0)
+             ON CONFLICT(key) DO UPDATE SET value_type = ?2, for_page = ?3, modified = ?4, provisional = 0
+             WHERE is_system = 0",
+            params![key, value_type, page as i64, modified],
+        )?;
+        Ok(())
+    }
+
     /// The definitions this device gives the other devices: the real user definitions, and
     /// the keys deleted here (ADR 046).
     pub fn find_synced_definitions(&self) -> AppResult<Definitions> {

@@ -2,11 +2,13 @@
 //! that every device gets them (ADR 046).
 
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
 use super::export_service::{format_instant, MarkdownExportService};
+use super::import_service::Outcome;
 use super::page_matcher::parse_instant;
 use crate::domain::property_definitions::{merge, Definition, Definitions};
 use crate::domain::property_key::PropertyKey;
@@ -56,6 +58,32 @@ impl DefinitionsFileService {
         std::fs::create_dir_all(root.join(SETTINGS_DIR))?;
         write_atomic(&path, &text)?;
         Ok(())
+    }
+}
+
+impl DefinitionsFileService {
+    /// Takes in the file as another device wrote it: the definitions are put together with
+    /// those of this device, key by key, and the DB gets the result (ADR 046).
+    pub fn take_in(&self, root: &Path) -> AppResult<Outcome> {
+        let text = std::fs::read_to_string(root.join(DEFINITIONS_FILE))?;
+        let theirs = read(&text)?;
+        let ours = self.properties.find_synced_definitions()?;
+        let merged = merge(&ours, &theirs);
+        for (key, definition) in &merged {
+            if ours.get(key) == Some(definition) {
+                continue;
+            }
+            if let Definition::Defined {
+                value_type,
+                page,
+                modified,
+            } = definition
+            {
+                self.properties
+                    .put_definition(key, value_type, *page, *modified)?;
+            }
+        }
+        Ok(Outcome::Imported)
     }
 }
 
