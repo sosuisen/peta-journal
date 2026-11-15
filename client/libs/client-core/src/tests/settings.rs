@@ -3,18 +3,18 @@ use crate::effects::{ApiOp, ApiOutput, FolderChoice};
 use crate::harness::Harness;
 use crate::model::{ServerConfig, WeekNumbering};
 
-// プロパティ定義を追加すると、前後の空白を除いたキーがサーバーに送られ、サーバーの一覧が表示される。
+// 本体と型でプロパティ定義を追加すると、前後の空白を除いた本体に型の接尾辞を付けた名前がサーバーに送られ、サーバーの一覧が表示される。
 #[test]
-fn adding_a_property_definition_sends_it_and_shows_the_server_list() {
+fn adding_a_property_definition_sends_the_body_with_the_suffix_of_its_type() {
     let mut h = Harness::with_items(vec![]);
     h.send(Event::AddPropertyDefinition {
-        key: " status ".into(),
-        value_type: "text".into(),
+        body: " rating ".into(),
+        value_type: "number".into(),
     });
-    assert!(h.api.calls.iter().any(|c| matches!(c, ApiOp::AddPropertyDefinition { key, value_type } if key == "status" && value_type == "text")));
+    assert!(h.api.calls.iter().any(|c| matches!(c, ApiOp::AddPropertyDefinition { key, value_type } if key == "rating_n" && value_type == "number")));
     let defs = &h.model.config.property_definitions;
     assert_eq!(defs.len(), 1);
-    assert_eq!(defs[0].key, "status");
+    assert_eq!(defs[0].key, "rating_n");
     assert!(!defs[0].system);
     assert!(h.model.config.definition_error.is_none());
 }
