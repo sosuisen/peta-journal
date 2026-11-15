@@ -237,6 +237,19 @@ final class JournalScreenTests: XCTestCase {
         waitFor(app.staticTexts["first words"])
     }
 
+    // 開始記号を打ち終えると、入力欄に閉じる記号が補われ、カーソルは留まる（ADR 050）。
+    func testTypingAnOpeningClosesItAndTheCursorStays() throws {
+        start()
+        let empty = app.buttons["Empty item"]
+        waitFor(empty)
+        empty.tap()
+        waitFor(editor)
+        editor.typeText(">>>")
+        waitUntil("the opening is closed") { editor.value as? String == ">>>\n>>>" }
+        editor.typeText("x")
+        XCTAssertEqual(editor.value as? String, ">>>x\n>>>")
+    }
+
     // タッチしたアイテムは、Markdownの入力欄になる。
     func testATouchTurnsAnItemIntoAFieldWithItsMarkdown() throws {
         try download("notes.md", "plain **bold**\n")
