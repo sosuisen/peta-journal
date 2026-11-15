@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 use super::export_service::format_instant;
 use super::page_matcher::parse_instant;
 use crate::domain::property_definitions::{Definition, Definitions};
+use crate::domain::property_key::PropertyKey;
 use crate::error::{AppError, AppResult};
+use crate::infrastructure::persistence::database_initializer::SYSTEM_KEYS;
+use crate::infrastructure::persistence::property_repository::USER_VALUE_TYPES;
 
 /// Where the file is, relative to the Markdown folder.
 pub const DEFINITIONS_FILE: &str = "settings/properties.json";
@@ -35,7 +38,25 @@ pub fn read(text: &str) -> AppResult<Definitions> {
         .definitions
         .into_iter()
         .filter_map(|(key, entry)| Some((key, entry.definition()?)))
+        .filter(|(key, definition)| a_user_can_make(key, definition))
         .collect())
+}
+
+/// Whether a user could have made the definition here. A file written by hand, or by
+/// another version of the app, may hold others; they are left out.
+fn a_user_can_make(key: &str, definition: &Definition) -> bool {
+    if SYSTEM_KEYS.iter().any(|(system, _, _)| *system == key) {
+        return false;
+    }
+    let Ok(key) = PropertyKey::parse(key) else {
+        return false;
+    };
+    match definition {
+        Definition::Defined { value_type, .. } => {
+            USER_VALUE_TYPES.contains(&value_type.as_str()) && key.check_type(value_type).is_ok()
+        }
+        Definition::Deleted { .. } => true,
+    }
 }
 
 #[derive(Deserialize)]
