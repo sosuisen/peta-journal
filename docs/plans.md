@@ -44,6 +44,17 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - Windowsの表は、ほかの環境（macOSの`NSTextTable`、iOS、Android）に近い見た目にする
 - macOSとWindowsでは、assetsのファイルへのリンクは、journalサーバーの`/assets/...`をブラウザで開く
 
+## ADR 051：wikilinkとhashtagのhrefを、ast2htmlのテンプレートで決める
+
+2026-11-16にユーザーが受理した。flatmarkdownに`HtmlOptions`と`ast_to_html_with`を足し、0.9.0を出してから、Webのシェルを切り替える。flatmarkdown側のタスクは、flatmarkdownの`docs/plans.md`にある。
+
+- [ ] flatmarkdownの3つのクレートを0.9.0に上げる。`client/`のCargo.tomlとCargo.lockを直す
+- [ ] Webのシェルの`item_html`で`ast_to_html_with`を使う。wikilinkは`/pages/{}`、hashtagは`/pages/<タグ用ディレクトリ>{}`にする
+  - [ ] タグ用ディレクトリが変わったら、項目のHTMLを作り直す（`item_view.rs`の`Memo`が設定も読む）
+  - [ ] `point_links_at_pages`、`point_links`、`data-page`の属性を消す
+  - [ ] Ctrl+クリック、中クリック、右クリックのメニューで、正しいページが開くことを確かめる
+- [ ] 「HTMLとしてコピー」（ADR 027）とmemoviewは変えない
+
 ## APIの方針：RESTとMCP
 
 2026-11-11にユーザーが決めた。ジャーナルサーバーのAPIを足す、変える、消すときは、まずここを読む。
