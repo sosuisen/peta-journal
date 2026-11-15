@@ -39,4 +39,18 @@ final class ItemDragTests: XCTestCase {
             drag.released()
         }
     }
+
+    // 選択中に別の項目へ入ると、選択がそこまで伸びる。同じ項目へは2度送らない。
+    func testEnteringAnotherItemDuringTheSelectionExtendsItThereOnce() {
+        drag.pressed("a", top: 100, bottom: 130)
+        drag.moved(y: 141, itemUnder: "a")
+        sent = []
+
+        drag.moved(y: 150, itemUnder: "b")
+        drag.moved(y: 155, itemUnder: "b")
+        drag.moved(y: 160, itemUnder: nil)
+        drag.moved(y: 180, itemUnder: "c")
+
+        XCTAssertEqual(sent, [.itemMouseEnter(itemId: "b"), .itemMouseEnter(itemId: "c")])
+    }
 }
