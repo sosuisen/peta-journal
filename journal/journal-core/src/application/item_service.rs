@@ -416,7 +416,10 @@ impl ItemService {
         effects: &mut AfterCommit,
     ) -> AppResult<Item> {
         let item_id = &existing.id;
-        let parsed = body.map(ItemBody::parse);
+        let parsed = body
+            .map(ItemBody::accept)
+            .transpose()
+            .map_err(AppError::bad_request)?;
         let new_body = parsed.as_ref().map(|p| p.text.clone());
         let body_types = parsed.as_ref().map(|p| p.text_types());
         // A task stays a task when its body changes; only the prefix can add the type here
