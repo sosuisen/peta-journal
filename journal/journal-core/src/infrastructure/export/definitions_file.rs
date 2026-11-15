@@ -7,6 +7,7 @@ use serde::Serialize;
 
 use super::export_service::format_instant;
 use crate::domain::property_definitions::{Definition, Definitions};
+use crate::error::AppResult;
 
 /// Where the file is, relative to the Markdown folder.
 pub const DEFINITIONS_FILE: &str = "settings/properties.json";
@@ -23,6 +24,11 @@ pub fn write(definitions: &Definitions) -> String {
     let mut text = serde_json::to_string_pretty(&file).expect("definitions are plain data");
     text.push('\n');
     text
+}
+
+/// The definitions in the text of the file.
+pub fn read(_text: &str) -> AppResult<Definitions> {
+    Ok(Definitions::new())
 }
 
 #[derive(Serialize)]
@@ -122,5 +128,25 @@ mod tests {
 }
 "#
         );
+    }
+
+    // 書いたファイルを読むと、元の定義に戻る。
+    #[test]
+    fn a_written_file_reads_back_as_the_definitions() {
+        let definitions: Definitions = [
+            ("old".to_string(), Definition::Deleted { deleted: 1_500 }),
+            (
+                "owner".to_string(),
+                Definition::Defined {
+                    value_type: "text".to_string(),
+                    page: true,
+                    modified: 0,
+                },
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        assert_eq!(read(&write(&definitions)).unwrap(), definitions);
     }
 }
