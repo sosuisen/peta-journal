@@ -1,5 +1,6 @@
 //! The data the server sends and receives, in the same JSON shape as the Angular models.
 
+pub use property_names::{body_of, ValueType};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::{BTreeMap, HashMap};
@@ -481,8 +482,14 @@ pub fn list_type_of(key: &str) -> &'static str {
 }
 
 /// The types a user may give a new key, in the order the settings offer them.
-pub const USER_VALUE_TYPES: [&str; 7] = [
-    "text", "number", "checkbox", "date", "datetime", "bounds", "list",
+pub const USER_VALUE_TYPES: [ValueType; 7] = [
+    ValueType::Text,
+    ValueType::Number,
+    ValueType::Checkbox,
+    ValueType::Date,
+    ValueType::Datetime,
+    ValueType::Bounds,
+    ValueType::List,
 ];
 
 /// The server's settings (`GET /api/config`).

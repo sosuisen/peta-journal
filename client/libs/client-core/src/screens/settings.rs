@@ -2,7 +2,8 @@
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, ApiResult};
-use crate::model::{PropertyDefinition, ServerConfig, WeekNumbering};
+use crate::model::{PropertyDefinition, ServerConfig, WeekNumbering, USER_VALUE_TYPES};
+use property_names::name_of;
 
 /// Loads the server's settings and the property definitions.
 pub fn load_server_config() -> Cmd {
@@ -33,15 +34,25 @@ pub fn load_property_definitions() -> Cmd {
     })
 }
 
-/// Defines a user key. The server checks the key (not a system key, not defined yet, a
-/// valid word) and answers with the whole list, or with the reason it was refused.
-pub fn add_property_definition(model: &mut Model, key: String, value_type: String) -> Cmd {
+/// Defines a user key, named by the body the user typed with the suffix of its type (ADR
+/// 047). The server checks the key (not a system key, not defined yet, a valid word) and
+/// answers with the whole list, or with the reason it was refused.
+pub fn add_property_definition(model: &mut Model, body: String, value_type: String) -> Cmd {
     model.config.definition_error = None;
-    let key = key.trim().to_string();
-    if key.is_empty() {
+    let body = body.trim();
+    if body.is_empty() {
         model.config.definition_error = Some("Property key is required".into());
         return done();
     }
+    let Some(t) = USER_VALUE_TYPES
+        .into_iter()
+        .find(|t| t.as_str() == value_type)
+    else {
+        return done();
+    };
+    let Ok(key) = name_of(body, t) else {
+        return done();
+    };
     run(move |api| async move {
         settle_definitions(&api, api.add_property_definition(&key, &value_type).await);
     })

@@ -538,6 +538,7 @@ dependencies = [
  "hmtid",
  "percent-encoding",
  "peta-atlas",
+ "property-names",
  "serde",
  "serde_json",
  "unicode-segmentation",
@@ -2101,6 +2102,7 @@ dependencies = [
  "lindera-tantivy",
  "parking_lot",
  "peta-atlas",
+ "property-names",
  "regex",
  "rquickjs",
  "rusqlite",
@@ -2999,6 +3001,10 @@ dependencies = [
  "syn 3.0.9",
  "version_check",
 ]
+
+[[package]]
+name = "property-names"
+version = "1.0.0"
 
 [[package]]
 name = "ptr_meta"

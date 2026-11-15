@@ -28,7 +28,7 @@ fn a_refused_definition_shows_the_reason_and_an_empty_key_is_not_sent() {
         "Property key 'zoom' is a system key",
     );
     h.send(Event::AddPropertyDefinition {
-        key: "zoom".into(),
+        body: "zoom".into(),
         value_type: "number".into(),
     });
     assert_eq!(
@@ -37,7 +37,7 @@ fn a_refused_definition_shows_the_reason_and_an_empty_key_is_not_sent() {
     );
 
     h.send(Event::AddPropertyDefinition {
-        key: "  ".into(),
+        body: "  ".into(),
         value_type: "text".into(),
     });
     assert_eq!(h.api.calls_named("AddPropertyDefinition").len(), 1);
@@ -52,7 +52,7 @@ fn a_refused_definition_shows_the_reason_and_an_empty_key_is_not_sent() {
 fn deleting_a_property_definition_sends_it_and_shows_the_server_list() {
     let mut h = Harness::with_items(vec![]);
     h.send(Event::AddPropertyDefinition {
-        key: "status".into(),
+        body: "status".into(),
         value_type: "text".into(),
     });
     assert_eq!(h.model.config.property_definitions.len(), 1);
