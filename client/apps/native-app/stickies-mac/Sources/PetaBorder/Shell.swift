@@ -131,6 +131,12 @@ public final class Shell: ObservableObject {
         send(.bodyChanged(itemId: itemId, body: body, nowMs: nowMs))
     }
 
+    /// The user typed into the item, and the cursor is `cursor` UTF-16 units into `body`. An
+    /// opening just typed gets its closing (ADR 050).
+    public func typed(_ body: String, into itemId: String, cursor: Int) {
+        typed(closedAsTyped(body: body, cursor: UInt64(cursor)) ?? body, into: itemId)
+    }
+
     /// Answers the confirmation on screen.
     public func answer(yes: Bool) {
         answer(.bool(yes))
