@@ -126,9 +126,6 @@ impl Selection {
         ) else {
             return;
         };
-        if extent_idx + 1 >= items.len() {
-            return;
-        }
         if extent_idx >= anchor_idx {
             // A selection from a child stays under its parent (ADR 049)
             let last = last_under_parent(items, anchor_idx);
