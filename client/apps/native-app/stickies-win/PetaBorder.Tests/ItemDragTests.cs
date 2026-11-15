@@ -13,9 +13,7 @@ public sealed class ItemDragTests
     [Theory]
     [InlineData(89)]
     [InlineData(141)]
-    public void Leaving_the_body_by_more_than_10px_starts_a_selection_of_the_pressed_item(
-        double y
-    )
+    public void Leaving_the_body_by_more_than_10px_starts_a_selection_of_the_pressed_item(double y)
     {
         drag.Pressed("a", top: 100, bottom: 130);
 
