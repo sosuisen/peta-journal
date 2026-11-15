@@ -47,6 +47,7 @@ struct ItemText: NSViewRepresentable {
         view.onCursorLeft = { [editor = context.coordinator] in editor.lostCursor() }
         view.onLink = { [shell] link, inBrowser in shell.follow(link, inBrowser: inBrowser) }
         view.onKey = { [editor = context.coordinator] key, view in editor.pressed(key, in: view) }
+        view.onDragOut = { [editor = context.coordinator] view in editor.draggedOut(of: view) }
         return view
     }
 
@@ -169,6 +170,12 @@ final class Editor: NSObject, NSTextViewDelegate {
         return shell.pressed(key, in: itemId, state)
     }
 
+    /// A drag left the text view: the items it goes over are selected from now on.
+    func draggedOut(of view: ItemTextView) -> ItemDrag {
+        shell.draggedOut(of: itemId)
+        return ItemDrag(shell: shell, scroll: view.enclosingScrollView)
+    }
+
     /// The cursor left the text view: the edit of the item is over.
     func lostCursor() {
         shell.finishEditing(itemId)
@@ -246,6 +253,8 @@ final class ItemTextView: NSTextView {
     /// How many letters of the shown text, as the core counts them, stand before the click
     /// that gave the view the cursor. `nil` when the cursor came another way.
     private(set) var touched: Int?
+    /// A drag left the text of the view up or down. What is returned follows the rest of it.
+    var onDragOut: ((ItemTextView) -> ItemDrag)?
     /// A key of the outline that is no command of a text view. True when it was taken.
     var onKey: ((EditorKey, ItemTextView) -> Bool)?
     /// The text view does not keep its text storage alive when it is built by hand.
@@ -340,11 +349,50 @@ final class ItemTextView: NSTextView {
         // The click gave the view the cursor on the shown text, and the core puts it at the
         // place in the Markdown. AppKit would put it at the same point of the Markdown, which is
         // another letter
-        if touched != nil {
-            touched = nil
+        let onShownText = touched != nil
+        touched = nil
+        // A text view follows the mouse by itself until the button comes up, and so never
+        // tells that the mouse left it
+        if event.clickCount == 1, event.modifierFlags.intersection([.shift, .control, .option, .command]).isEmpty {
+            if !onShownText { setSelectedRange(NSRange(location: letter(at: event.locationInWindow), length: 0)) }
+            follow(from: event)
             return
         }
-        super.mouseDown(with: event)
+        if !onShownText { super.mouseDown(with: event) }
+    }
+
+    /// How far above or below the text the mouse goes before the drag selects items.
+    private static let dragOut: CGFloat = 10
+
+    /// Follows the mouse until the button comes up. Once it leaves the text up or down, the
+    /// items it goes over are selected.
+    private func follow(from down: NSEvent) {
+        guard let window else { return }
+        var drag: ItemDrag?
+        while let next = window.nextEvent(
+            matching: [.leftMouseDragged, .leftMouseUp], until: .distantFuture, inMode: .eventTracking, dequeue: true)
+        {
+            let place = next.locationInWindow
+            if next.type == .leftMouseUp { break }
+            if let drag {
+                drag.moved(to: place)
+            } else if isOut(place), let started = onDragOut?(self) {
+                drag = started
+                started.moved(to: place)
+            }
+        }
+        drag?.ended()
+    }
+
+    /// The place of the window is above or below the text by more than `dragOut`.
+    private func isOut(_ place: NSPoint) -> Bool {
+        let box = convert(bounds, to: nil)
+        return place.y > box.maxY + Self.dragOut || place.y < box.minY - Self.dragOut
+    }
+
+    /// The place in the text nearest to the place of the window.
+    private func letter(at place: NSPoint) -> Int {
+        characterIndexForInsertion(at: convert(place, from: nil))
     }
 
     /// The letter of the shown text under the click that is going on. The window gives the
