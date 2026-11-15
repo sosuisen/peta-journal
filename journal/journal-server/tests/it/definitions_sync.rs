@@ -171,3 +171,27 @@ fn an_older_definition_from_another_device_leaves_the_newer_one_and_the_file_is_
     assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
     assert_eq!(a.written("score"), a_wrote);
 }
+
+// 合わせた結果が、届いたsettings/properties.jsonと同じなら、端末はファイルを書き直さない。だから、2台がファイルを送り合い続けることはない。
+#[test]
+fn a_file_that_holds_what_the_device_has_is_not_written_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    b.define("score", "number", false);
+    a.deliver(&b, DEFINITIONS_FILE);
+    let file = a.root.join(DEFINITIONS_FILE);
+    let long_ago = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000);
+    std::fs::File::options()
+        .write(true)
+        .open(&file)
+        .unwrap()
+        .set_modified(long_ago)
+        .unwrap();
+
+    a.sync(DEFINITIONS_FILE);
+
+    assert_eq!(
+        std::fs::metadata(&file).unwrap().modified().unwrap(),
+        long_ago
+    );
+}
