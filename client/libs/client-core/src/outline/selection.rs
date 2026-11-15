@@ -237,6 +237,18 @@ mod tests {
         assert_eq!(selected(&state).len(), 5);
     }
 
+    // 子の項目から始めた選択は、Shift+Downで親の子孫の終わりまで広がり、そこで止まる。別の木へは広がらない。
+    #[test]
+    fn shift_down_from_a_child_stops_at_the_end_of_its_parent() {
+        let mut state = state();
+        let mut sel = Selection::default();
+        sel.start_from_editor(&mut state, "b");
+        sel.extend_down(&mut state);
+        assert_eq!(selected(&state), ["b", "c"]);
+        sel.extend_down(&mut state);
+        assert_eq!(selected(&state), ["b", "c"]);
+    }
+
     // エディタから始めた選択も、その項目の子孫をすべて含む。
     #[test]
     fn a_selection_from_an_editor_takes_the_children_too() {
