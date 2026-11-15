@@ -1,4 +1,4 @@
-# ADR 051: The Web Shell Stays on Leptos and the Shells Share Their Key Map and Effect Runtime
+# ADR 052: The Web Shell Stays on Leptos and the Shells Share Their Key Map and Effect Runtime
 
 ## Status
 
