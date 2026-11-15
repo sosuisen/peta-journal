@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use chrono::{Datelike, NaiveDate, TimeZone};
-use rusqlite::{params, Connection, Row};
+use rusqlite::{params, Connection};
 
 use crate::domain::bounds::Bounds;
 use crate::domain::number_text::format_number;
@@ -80,9 +80,8 @@ impl PropertyRepository {
             return Ok(result);
         }
         let sql = format!(
-            "SELECT p.target_id, p.key, p.value_text, p.value_number, p.value_checkbox, pd.value_type \
-             FROM properties p JOIN property_definitions pd ON p.key = pd.key \
-             WHERE p.target_type = ? AND p.target_id IN ({})",
+            "SELECT target_id, key, value FROM properties \
+             WHERE target_type = ? AND target_id IN ({})",
             placeholders(target_ids.len())
         );
         let mut stmt = conn.prepare(&sql)?;
@@ -94,10 +93,8 @@ impl PropertyRepository {
         while let Some(row) = rows.next()? {
             let target_id: String = row.get(0)?;
             let key: String = row.get(1)?;
-            let value_type: String = row.get(5)?;
-            if let Some(value) = extract_value(row, &value_type)? {
-                result.entry(target_id).or_default().insert(key, value);
-            }
+            let value: String = row.get(2)?;
+            result.entry(target_id).or_default().insert(key, value);
         }
         Ok(result)
     }
@@ -280,7 +277,8 @@ impl PropertyRepository {
     }
 
     /// Sets a scalar value of a defined key, as part of a larger transaction. The value is
-    /// stored as the type of the definition says. A key with no definition is refused.
+    /// checked against the type of the definition and kept as text in the form the export
+    /// writes (`1.50` becomes `1.5`). A key with no definition is refused.
     pub fn write_scalar_in(
         conn: &Connection,
         target_type: &str,
@@ -291,67 +289,22 @@ impl PropertyRepository {
         let value_type = Self::find_definition_in(conn, key)?
             .map(|def| def.value_type)
             .ok_or_else(|| AppError::bad_request(format!("Property '{key}' is not defined")))?;
-        let sql = "INSERT OR REPLACE INTO properties (target_type, target_id, key, value_text, value_number, value_checkbox) VALUES (?, ?, ?, ?, ?, ?)";
-        match value_type.as_str() {
+        let text = match value_type.as_str() {
             "number" => {
                 let n: f64 = value
                     .trim()
                     .parse()
                     .map_err(|_| AppError::bad_request(format!("Not a number: {value}")))?;
-                conn.execute(
-                    sql,
-                    params![
-                        target_type,
-                        target_id,
-                        key,
-                        Option::<String>::None,
-                        n,
-                        Option::<i64>::None
-                    ],
-                )?;
+                format_number(n)
             }
-            "checkbox" => {
-                let b: i64 = if value == "true" { 1 } else { 0 };
-                conn.execute(
-                    sql,
-                    params![
-                        target_type,
-                        target_id,
-                        key,
-                        Option::<String>::None,
-                        Option::<f64>::None,
-                        b
-                    ],
-                )?;
-            }
-            "bounds" => {
-                let bounds = value.parse::<Bounds>()?.to_string();
-                conn.execute(
-                    sql,
-                    params![
-                        target_type,
-                        target_id,
-                        key,
-                        bounds,
-                        Option::<f64>::None,
-                        Option::<i64>::None
-                    ],
-                )?;
-            }
-            _ => {
-                conn.execute(
-                    sql,
-                    params![
-                        target_type,
-                        target_id,
-                        key,
-                        value,
-                        Option::<f64>::None,
-                        Option::<i64>::None
-                    ],
-                )?;
-            }
-        }
+            "checkbox" => (if value == "true" { "true" } else { "false" }).to_string(),
+            "bounds" => value.parse::<Bounds>()?.to_string(),
+            _ => value.to_string(),
+        };
+        conn.execute(
+            "INSERT OR REPLACE INTO properties (target_type, target_id, key, value) VALUES (?, ?, ?, ?)",
+            params![target_type, target_id, key, text],
+        )?;
         Ok(())
     }
 
@@ -518,7 +471,7 @@ impl PropertyRepository {
     ) -> AppResult<Vec<String>> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
-            "SELECT target_id FROM properties WHERE target_type = 'item' AND key = ? AND value_text = ? LIMIT ?",
+            "SELECT target_id FROM properties WHERE target_type = 'item' AND key = ? AND value = ? LIMIT ?",
         )?;
         let rows = stmt.query_map(params![key, value, max_results], |r| r.get::<_, String>(0))?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -623,26 +576,6 @@ pub fn list_values(value: &str) -> Vec<String> {
         .map(|t| t.trim().to_string())
         .filter(|t| !t.is_empty())
         .collect()
-}
-
-fn extract_value(row: &Row<'_>, value_type: &str) -> rusqlite::Result<Option<String>> {
-    Ok(match value_type {
-        "number" => {
-            let num: Option<f64> = row.get(3)?;
-            num.map(format_number)
-        }
-        "checkbox" => {
-            let cb: Option<i64> = row.get(4)?;
-            cb.map(|c| {
-                if c != 0 {
-                    "true".to_string()
-                } else {
-                    "false".to_string()
-                }
-            })
-        }
-        _ => row.get::<_, Option<String>>(2)?,
-    })
 }
 
 /// Replaces a list property of a target with the given values.

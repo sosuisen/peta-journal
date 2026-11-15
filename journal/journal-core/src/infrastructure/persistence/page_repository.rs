@@ -222,7 +222,7 @@ impl PageRepository {
             "UPDATE properties SET target_id = ? WHERE target_type = 'page' AND target_id = ?",
             "UPDATE property_list_items SET target_id = ? WHERE target_type = 'page' AND target_id = ?",
             // The card of the page on the atlas of its directory names it by id
-            "UPDATE properties SET value_text = ? WHERE target_type = 'item' AND key = 'atlas_page' AND value_text = ?",
+            "UPDATE properties SET value = ? WHERE target_type = 'item' AND key = 'atlas_page' AND value = ?",
         ];
         // Rows reference each other by page id; check constraints at commit, not per statement
         tx.execute_batch("PRAGMA defer_foreign_keys = ON")?;

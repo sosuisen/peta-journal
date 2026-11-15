@@ -11,6 +11,19 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 理由: 定義（キー、型、ページ用かどうか）は、SQLiteの`property_definitions`にしかない。ファイルには出ない。だから、別のPCやモバイルの端末には、ユーザーが定義したプロパティとその型が届かない
   - 取り込みの修正（2026-11-14に済んだ）だけでは、定義のない端末で、値はすべて`text`として入る。定義のファイルが届いたら、その型に直す
   - ファイルの場所、名前、形式、端末の間でぶつかったときの決まりは、ADRで決める
+  - 2026-11-15にADR 046で決めた。`settings/properties.json`に置き、キーごとに新しい方を採る。4つのPRを積み重ねて出す
+    - [x] PR 1：プロパティの値を、`properties`の`value`の1つの列に、文字列で持つ（DBの版6）
+    - [ ] PR 2：名前が`_list`で終わるキーだけを`list`型にする。`PropertyKey`の型
+    - [ ] PR 3：`settings/properties.json`で定義を同期する。仮の定義、`deleted_property_definitions`、走査と監視
+    - [ ] PR 4：AndroidとiOSのシェルで、`settings/properties.json`も運ぶ。Androidは実機で確かめる
+  - [ ] 型に合わない値に、警告の印を付ける。シェルごとに別のタスクにする（ADR 046）
+- [x] Windowsのシェルで、上付き・下付きと`-# subtext`の文字を、ほかのシェルと同じく0.75倍の大きさで描く
+  - 今は`FontVariants`でOpenTypeの`subs`と`sups`に任せている。Segoe UIとYu Gothic UIは数字しか置き換えず、Noto Sans JPはこの機能を持たない。だから、文字が小さくならない
+  - ベースラインは下げない。WinUIの`Run`には、ずらす設定がないため
+- [x] Web版の描画モデル（AST）を、outliner-webの`AstBody`に移す。coreから`impl BodyModel for Node`と、型引数の既定値（`B = Node`）を消す
+  - 2026-11-14にユーザーが決めた。Web版の事情（ASTで描く）は、Web版のクレートに置く
+  - 孤児ルールのため、outliner-webでは`Node`に直接`BodyModel`を実装できない。だから、`Node`を包む型を作る
+  - Emacs版は、描画モデルを読まない。`()`を描画モデルにする。coreの`impl BodyModel for ()`は、描画モデルから描かないシェル用である
 - [ ] Emacs版で、本文をパースしないようにする
   - 2026-11-14にユーザーが積んだ。今は、Emacs版が使わない描画モデル（`()`）のために、coreが行ごとに本文をパースしている
   - パースを止めるには、`Bodies`の作りを変える必要がある

@@ -14,6 +14,7 @@ use rusqlite::{params, Connection};
 
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::nfc::to_nfc;
+use crate::domain::number_text::format_number;
 
 use super::db::{now_millis, Db};
 
@@ -25,6 +26,7 @@ const MIGRATIONS: &[fn(&Connection) -> rusqlite::Result<()>] = &[
     put_names_in_nfc,
     add_last_synced,
     drop_item_asts,
+    use_one_value_column,
 ];
 
 pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
@@ -68,6 +70,32 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
 fn user_version(conn: &Connection) -> rusqlite::Result<usize> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(version as usize)
+}
+
+/// Version 6: one column for the value of a property, as the text written in the files
+/// (ADR 046). A type is how the text is read, so the value stays when the type changes. The
+/// numbers and checkboxes come in as the export writes them.
+fn use_one_value_column(conn: &Connection) -> rusqlite::Result<()> {
+    let numbers: Vec<(i64, f64)> = conn
+        .prepare("SELECT rowid, value_number FROM properties WHERE value_number IS NOT NULL")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    for (rowid, number) in numbers {
+        conn.execute(
+            "UPDATE properties SET value_text = ? WHERE rowid = ?",
+            params![format_number(number), rowid],
+        )?;
+    }
+    conn.execute_batch(
+        "UPDATE properties SET value_text = CASE WHEN value_checkbox != 0 THEN 'true' ELSE 'false' END
+             WHERE value_checkbox IS NOT NULL;
+         DROP INDEX idx_props_key_number;
+         DROP INDEX idx_props_key_text;
+         ALTER TABLE properties DROP COLUMN value_number;
+         ALTER TABLE properties DROP COLUMN value_checkbox;
+         ALTER TABLE properties RENAME COLUMN value_text TO value;
+         CREATE INDEX idx_props_key_value ON properties(key, value);",
+    )
 }
 
 /// Version 5: no AST of an item. The journal parses a body when it needs what is in it, and
@@ -378,17 +406,72 @@ mod tests {
         .unwrap();
     }
 
-    /// Puts a database of the latest version back to an older one, of 1 to 4. The column of
-    /// version 5 comes back, as its migration drops it. The column of version 4 goes for a
-    /// version below 4, as its migration cannot add a column that is there.
+    /// Puts a database of the latest version back to an older one, of 1 to 5. The value
+    /// columns of the properties before version 6 come back. The column of version 5 comes
+    /// back for a version below 5, as its migration drops it. The column of version 4 goes
+    /// for a version below 4, as its migration cannot add a column that is there.
     fn set_version(conn: &Connection, version: i64) {
-        conn.execute_batch("ALTER TABLE items ADD COLUMN ast TEXT NOT NULL DEFAULT ''")
-            .unwrap();
+        conn.execute_batch(
+            "DROP INDEX idx_props_key_value;
+             ALTER TABLE properties RENAME COLUMN value TO value_text;
+             ALTER TABLE properties ADD COLUMN value_number REAL;
+             ALTER TABLE properties ADD COLUMN value_checkbox INTEGER;
+             CREATE INDEX idx_props_key_text ON properties(key, value_text);
+             CREATE INDEX idx_props_key_number ON properties(key, value_number);",
+        )
+        .unwrap();
+        if version < 5 {
+            conn.execute_batch("ALTER TABLE items ADD COLUMN ast TEXT NOT NULL DEFAULT ''")
+                .unwrap();
+        }
         if version < 4 {
             conn.execute_batch("ALTER TABLE file_sync_state DROP COLUMN last_synced")
                 .unwrap();
         }
         conn.pragma_update(None, "user_version", version).unwrap();
+    }
+
+    // 版5のデータベースを開くと、数と真偽値のプロパティの値は、書き出しと同じ形の文字列としてvalueの列に移り、値の列はvalueだけになる。
+    #[test]
+    fn a_database_at_version_5_moves_numbers_and_checkboxes_into_the_one_value_column_as_text() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        set_version(&conn, 5);
+        conn.execute_batch(
+            "INSERT INTO property_definitions (key, value_type) VALUES
+                 ('score', 'number'), ('done', 'checkbox'), ('owner', 'text');
+             INSERT INTO properties (target_type, target_id, key, value_text, value_number, value_checkbox) VALUES
+                 ('page', 'p1', 'score', NULL, 12.0, NULL),
+                 ('page', 'p2', 'score', NULL, 1.5, NULL),
+                 ('item', 'i1', 'done', NULL, NULL, 1),
+                 ('item', 'i2', 'done', NULL, NULL, 0),
+                 ('item', 'i3', 'owner', 'me', NULL, NULL);",
+        )
+        .unwrap();
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
+        let columns: Vec<String> = conn
+            .prepare("SELECT name FROM pragma_table_info('properties') ORDER BY cid")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(columns, ["target_type", "target_id", "key", "value"]);
+        let value = |id: &str| {
+            text(
+                &conn,
+                "SELECT value FROM properties WHERE target_id = ?",
+                id,
+            )
+        };
+        assert_eq!(value("p1"), "12");
+        assert_eq!(value("p2"), "1.5");
+        assert_eq!(value("i1"), "true");
+        assert_eq!(value("i2"), "false");
+        assert_eq!(value("i3"), "me");
     }
 
     // 版4のデータベースを開くと、項目のASTの列がなくなり、本文はそのままである。
