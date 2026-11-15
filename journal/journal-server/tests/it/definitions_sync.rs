@@ -425,3 +425,26 @@ fn a_key_with_no_definition_from_a_page_file_gets_a_provisional_definition() {
     assert_eq!(b.written("score"), None);
     assert_eq!(b.written("author_list"), None);
 }
+
+// ページのファイルを取り込んで、仮の定義のキーの値が端末のDBからなくなると、端末は、その仮の定義を消す。
+#[test]
+fn a_provisional_definition_goes_with_the_last_value_of_its_key() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "number", true);
+    a.state
+        .page_service
+        .set_property(&page, "score", "number", "12")
+        .unwrap();
+    b.receive(&a, "docs/d/a.md");
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    a.state
+        .page_service
+        .delete_property(&page, "score")
+        .unwrap();
+
+    b.receive(&a, "docs/d/a.md");
+
+    assert_eq!(b.definition("score"), None);
+}
