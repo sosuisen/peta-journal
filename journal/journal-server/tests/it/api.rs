@@ -2743,6 +2743,29 @@ async fn a_batch_with_a_move_that_does_not_fit_is_refused_and_writes_nothing() {
     assert_eq!(outline_of(&page.id).await, ["1:a", "2:a1", "1:b"]);
 }
 
+// ---- Items: unclosed blocks (ADR 050) ----
+
+/// What the server answers when a body ends inside a block that is not closed.
+const UNCLOSED: &str =
+    "Markdownのブロック要素は、開始記号と閉じる記号が揃わない限り、保存できません。";
+
+// 閉じていないブロックを持つ本文での更新は断られ、本文はそのまま残る。断るときの文は決まっている。
+#[tokio::test]
+async fn an_update_to_a_body_with_an_unclosed_block_is_refused() {
+    let page = new_doc_page("unclosed-update").await;
+    let rows = fill(&page.id, &["a"]).await;
+
+    let (status, resp) = put(
+        &format!("/api/items/{}", rows[0].id),
+        json!({ "body": "```\nabc" }),
+    )
+    .await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(resp["error"], json!(UNCLOSED));
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a"]));
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
