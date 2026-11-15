@@ -20,12 +20,10 @@ pub struct History {
 
 impl History {
     fn push(&mut self, url: &str) {
-        if self.in_place.as_deref() == Some(url) {
-            self.in_place = None;
-            if let Some(on_screen) = self.urls.get_mut(self.at) {
-                *on_screen = url.to_string();
-                return;
-            }
+        let asked_in_place = self.in_place.take_if(|asked| asked == url).is_some();
+        if let Some(on_screen) = self.urls.get_mut(self.at).filter(|_| asked_in_place) {
+            *on_screen = url.to_string();
+            return;
         }
         if self.urls.get(self.at).map(String::as_str) == Some(url) {
             return;
