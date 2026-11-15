@@ -62,6 +62,21 @@ fn a_body_that_ends_with_a_reserved_suffix_is_not_sent() {
     );
 }
 
+// ユーザーが選べない型の定義は、サーバーに送られず、その理由が示される。
+#[test]
+fn a_definition_of_a_type_the_user_cannot_choose_is_not_sent() {
+    let mut h = Harness::with_items(vec![]);
+    h.send(Event::AddPropertyDefinition {
+        body: "topics".into(),
+        value_type: "tags".into(),
+    });
+    assert!(h.api.calls_named("AddPropertyDefinition").is_empty());
+    assert_eq!(
+        h.model.config.definition_error.as_deref(),
+        Some("A key cannot be of type tags")
+    );
+}
+
 // プロパティ定義を削除すると、それがサーバーに送られ、サーバーの一覧が表示される。拒否された削除はその理由を示す。
 #[test]
 fn deleting_a_property_definition_sends_it_and_shows_the_server_list() {
