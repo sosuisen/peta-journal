@@ -30,9 +30,7 @@ impl History {
         if self.urls.get(self.at).map(String::as_str) == Some(url) {
             return;
         }
-        if !self.urls.is_empty() {
-            self.urls.truncate(self.at + 1);
-        }
+        self.urls.truncate(self.at + 1);
         self.urls.push(url.to_string());
         if self.urls.len() > LIMIT {
             self.urls.remove(0);
