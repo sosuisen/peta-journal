@@ -324,6 +324,21 @@ mod tests {
         assert_eq!(read(&write(&definitions)).unwrap(), definitions);
     }
 
+    // 型のない定義は、名前から決まる型で読まれる。
+    #[test]
+    fn a_definition_without_a_type_reads_as_the_type_its_name_gives() {
+        let text = r#"{ "definitions": { "rating_n": { "page": true, "modified": "1970-01-01T00:00:01Z" } } }"#;
+
+        assert_eq!(
+            read(text).unwrap().remove("rating_n"),
+            Some(Definition::Defined {
+                value_type: "number".to_string(),
+                page: true,
+                modified: 1_000,
+            })
+        );
+    }
+
     // ユーザーが定義できない定義は読まず、ほかの定義は読む。システム管理キー、名前に合わない型、知らない型、キーにできない名前、日時のない定義である。
     #[test]
     fn a_definition_a_user_cannot_make_is_left_out_and_the_rest_come_in() {
