@@ -117,12 +117,12 @@ fn a_key_with_no_definition_is_defined_as_text() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
-    a.set_page_property(&page, "rating", "number", "5");
+    a.set_page_property(&page, "rating_n", "number", "5");
 
     b.receive(&a, PAGE);
 
-    assert_eq!(b.type_of("rating").as_deref(), Some("text"));
-    assert_eq!(b.page_property(&page, "rating").as_deref(), Some("5"));
+    assert_eq!(b.type_of("rating_n").as_deref(), Some("text"));
+    assert_eq!(b.page_property(&page, "rating_n").as_deref(), Some("5"));
 }
 
 // ページに付けられないシステム管理キーは取り込まれず、ほかのプロパティは取り込まれる。
@@ -147,13 +147,13 @@ fn a_user_key_defined_for_items_only_is_taken_in_on_a_page() {
     let page = a.doc("a");
     a.state
         .properties
-        .insert_definition("effort", "number", false)
+        .insert_definition("effort_n", "number", false)
         .unwrap();
 
-    let outcome = a.add_to_front_matter("effort: 3\n");
+    let outcome = a.add_to_front_matter("effort_n: 3\n");
 
     assert_eq!(outcome, Outcome::Imported);
-    assert_eq!(a.page_property(&page, "effort").as_deref(), Some("3"));
+    assert_eq!(a.page_property(&page, "effort_n").as_deref(), Some("3"));
 }
 
 // キーにできない名前の行は取り込まれず、ほかのプロパティは取り込まれる。
@@ -176,16 +176,16 @@ fn a_value_of_a_user_key_that_does_not_fit_the_type_is_taken_in_as_written() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
     let page = a.doc("a");
-    a.set_page_property(&page, "rating", "number", "5");
+    a.set_page_property(&page, "rating_n", "number", "5");
     let file = a
         .file(PAGE)
-        .replacen("rating: 5\n", "rating: many\nslug: by-hand\n", 1);
+        .replacen("rating_n: 5\n", "rating_n: many\nslug: by-hand\n", 1);
     std::fs::write(a.root.join(PAGE), file).unwrap();
 
     let outcome = a.sync(PAGE);
 
     assert_eq!(outcome, Outcome::Imported);
-    assert_eq!(a.page_property(&page, "rating").as_deref(), Some("many"));
+    assert_eq!(a.page_property(&page, "rating_n").as_deref(), Some("many"));
     assert_eq!(a.page_property(&page, "slug").as_deref(), Some("by-hand"));
 }
 

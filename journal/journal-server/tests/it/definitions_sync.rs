@@ -43,13 +43,13 @@ fn a_definition_the_user_adds_is_written_with_its_date() {
     let (a, _b) = two_devices(dir.path());
     let before = journal_core::infrastructure::persistence::db::now_millis();
 
-    a.define("score", "number", false);
+    a.define("score_n", "number", false);
 
     let Some(Definition::Defined {
         value_type,
         page,
         modified,
-    }) = a.written("score")
+    }) = a.written("score_n")
     else {
         panic!("score is not written");
     };
@@ -62,13 +62,13 @@ fn a_definition_the_user_adds_is_written_with_its_date() {
 fn a_definition_the_user_deletes_is_written_as_deleted_with_its_date() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
-    a.define("score", "number", false);
+    a.define("score_n", "number", false);
     let before = journal_core::infrastructure::persistence::db::now_millis();
 
-    a.undefine("score");
+    a.undefine("score_n");
 
-    let Some(Definition::Deleted { deleted }) = a.written("score") else {
-        panic!("score is not written as deleted: {:?}", a.written("score"));
+    let Some(Definition::Deleted { deleted }) = a.written("score_n") else {
+        panic!("score is not written as deleted: {:?}", a.written("score_n"));
     };
     assert!(deleted >= before, "{deleted} < {before}");
 }
@@ -78,10 +78,10 @@ fn a_definition_the_user_deletes_is_written_as_deleted_with_its_date() {
 fn a_deleted_definition_the_user_adds_again_is_no_longer_deleted() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
-    a.define("score", "number", false);
-    a.undefine("score");
+    a.define("score_n", "number", false);
+    a.undefine("score_n");
 
-    a.define("score", "text", true);
+    a.define("score_n", "number", true);
 
     let deleted: i64 = a
         .state
@@ -89,15 +89,15 @@ fn a_deleted_definition_the_user_adds_again_is_no_longer_deleted() {
         .conn()
         .unwrap()
         .query_row(
-            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score'",
+            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score_n'",
             [],
             |r| r.get(0),
         )
         .unwrap();
     assert_eq!(deleted, 0);
     assert!(matches!(
-        a.written("score"),
-        Some(Definition::Defined { value_type, page: true, .. }) if value_type == "text"
+        a.written("score_n"),
+        Some(Definition::Defined { value_type, page: true, .. }) if value_type == "number"
     ));
 }
 
@@ -114,13 +114,13 @@ fn a_device_without_a_markdown_folder_still_takes_a_definition() {
     state
         .journal
         .add_property_definition(AddPropertyDefinitionInput {
-            key: Some("score".to_string()),
+            key: Some("score_n".to_string()),
             value_type: Some("number".to_string()),
             page: Some(false),
         })
         .unwrap();
 
-    assert!(state.properties.find_definition("score").unwrap().is_some());
+    assert!(state.properties.find_definition("score_n").unwrap().is_some());
 }
 
 impl Device {
@@ -150,25 +150,25 @@ impl Device {
 fn a_definition_from_another_device_comes_into_the_db() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
-    b.define("score", "number", false);
+    b.define("score_n", "number", false);
 
     a.receive(&b, DEFINITIONS_FILE);
 
-    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+    assert_eq!(a.definition("score_n"), Some(("number".to_string(), false)));
 }
 
-// 同じキーは、新しい方の定義になる。端末のDBの定義が古ければ、届いた定義に変わる。値は、新しい型で読む。
+// 同じキーは、新しい方の定義になる。端末のDBの定義が古ければ、届いた定義に変わる。
 #[test]
 fn a_newer_definition_from_another_device_replaces_the_older_one() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
-    a.define("score", "text", true);
+    a.define("score_n", "number", true);
     std::thread::sleep(std::time::Duration::from_millis(5));
-    b.define("score", "number", false);
+    b.define("score_n", "number", false);
 
     a.receive(&b, DEFINITIONS_FILE);
 
-    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+    assert_eq!(a.definition("score_n"), Some(("number".to_string(), false)));
 }
 
 // 端末のDBの定義のほうが新しければ、端末は定義を変えず、settings/properties.jsonを書き直す。ほかの端末に、新しい定義を届けるためである。
@@ -176,15 +176,15 @@ fn a_newer_definition_from_another_device_replaces_the_older_one() {
 fn an_older_definition_from_another_device_leaves_the_newer_one_and_the_file_is_written_again() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
-    b.define("score", "text", true);
+    b.define("score_n", "number", true);
     std::thread::sleep(std::time::Duration::from_millis(5));
-    a.define("score", "number", false);
-    let a_wrote = a.written("score");
+    a.define("score_n", "number", false);
+    let a_wrote = a.written("score_n");
 
     a.receive(&b, DEFINITIONS_FILE);
 
-    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
-    assert_eq!(a.written("score"), a_wrote);
+    assert_eq!(a.definition("score_n"), Some(("number".to_string(), false)));
+    assert_eq!(a.written("score_n"), a_wrote);
 }
 
 // 合わせた結果が、届いたsettings/properties.jsonと同じなら、端末はファイルを書き直さない。だから、2台がファイルを送り合い続けることはない。
@@ -192,7 +192,7 @@ fn an_older_definition_from_another_device_leaves_the_newer_one_and_the_file_is_
 fn a_file_that_holds_what_the_device_has_is_not_written_again() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
-    b.define("score", "number", false);
+    b.define("score_n", "number", false);
     a.deliver(&b, DEFINITIONS_FILE);
     let file = a.root.join(DEFINITIONS_FILE);
     let long_ago = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000);
@@ -216,15 +216,15 @@ fn a_file_that_holds_what_the_device_has_is_not_written_again() {
 fn a_definition_deleted_on_another_device_goes_when_no_value_holds_it() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
-    a.define("score", "number", false);
+    a.define("score_n", "number", false);
     b.receive(&a, DEFINITIONS_FILE);
-    b.undefine("score");
+    b.undefine("score_n");
 
     a.receive(&b, DEFINITIONS_FILE);
 
-    assert_eq!(a.definition("score"), None);
+    assert_eq!(a.definition("score_n"), None);
     assert!(matches!(
-        a.written("score"),
+        a.written("score_n"),
         Some(Definition::Deleted { .. })
     ));
 }
@@ -235,22 +235,22 @@ fn a_definition_deleted_on_another_device_stays_provisional_while_a_value_holds_
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
-    a.define("score", "number", true);
+    a.define("score_n", "number", true);
     a.state
         .page_service
-        .set_property(&page, "score", "number", "12")
+        .set_property(&page, "score_n", "number", "12")
         .unwrap();
     b.receive(&a, DEFINITIONS_FILE);
-    b.undefine("score");
+    b.undefine("score_n");
 
     assert_eq!(a.receive(&b, DEFINITIONS_FILE), Outcome::Imported);
 
-    assert_eq!(a.definition("score"), Some(("number".to_string(), true)));
-    assert!(a.is_provisional("score"));
+    assert_eq!(a.definition("score_n"), Some(("number".to_string(), true)));
+    assert!(a.is_provisional("score_n"));
     let (scalars, _) = a.state.page_service.page_properties(&page).unwrap();
-    assert_eq!(scalars[page.as_str()]["score"], "12");
+    assert_eq!(scalars[page.as_str()]["score_n"], "12");
     assert!(matches!(
-        a.written("score"),
+        a.written("score_n"),
         Some(Definition::Deleted { .. })
     ));
 }
@@ -261,28 +261,28 @@ fn a_definition_newer_than_its_deletion_makes_the_key_real_again() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
-    a.define("score", "number", true);
+    a.define("score_n", "number", true);
     a.state
         .page_service
-        .set_property(&page, "score", "number", "12")
+        .set_property(&page, "score_n", "number", "12")
         .unwrap();
     b.receive(&a, DEFINITIONS_FILE);
-    b.undefine("score");
+    b.undefine("score_n");
     a.receive(&b, DEFINITIONS_FILE);
     std::thread::sleep(std::time::Duration::from_millis(5));
-    b.define("score", "text", true);
+    b.define("score_n", "number", true);
 
     a.receive(&b, DEFINITIONS_FILE);
 
-    assert_eq!(a.definition("score"), Some(("text".to_string(), true)));
-    assert!(!a.is_provisional("score"));
+    assert_eq!(a.definition("score_n"), Some(("number".to_string(), true)));
+    assert!(!a.is_provisional("score_n"));
     let deleted: i64 = a
         .state
         .db
         .conn()
         .unwrap()
         .query_row(
-            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score'",
+            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score_n'",
             [],
             |r| r.get(0),
         )
@@ -296,14 +296,14 @@ fn a_conflicted_copy_of_the_definitions_is_merged_and_then_removed() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     a.define("owner", "text", true);
-    b.define("score", "number", false);
+    b.define("score_n", "number", false);
     let copy = "settings/properties (PC's conflicted copy 2026-11-15).json";
     std::fs::copy(b.root.join(DEFINITIONS_FILE), a.root.join(copy)).unwrap();
 
     assert_eq!(a.sync(copy), Outcome::Imported);
 
-    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
-    assert!(a.written("score").is_some());
+    assert_eq!(a.definition("score_n"), Some(("number".to_string(), false)));
+    assert!(a.written("score_n").is_some());
     assert!(a.written("owner").is_some());
     assert!(!a.root.join(copy).exists());
 }
@@ -315,7 +315,7 @@ fn a_scan_of_the_folder_takes_in_the_definitions_and_their_copies() {
     let (a, b) = two_devices(dir.path());
     a.doc("a");
     a.export();
-    b.define("score", "number", false);
+    b.define("score_n", "number", false);
     a.deliver(&b, DEFINITIONS_FILE);
     let copy = "settings/properties (PC's conflicted copy 2026-11-15).json";
     std::fs::write(
@@ -326,21 +326,21 @@ fn a_scan_of_the_folder_takes_in_the_definitions_and_their_copies() {
 
     a.state.reconcile.scan();
 
-    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+    assert_eq!(a.definition("score_n"), Some(("number".to_string(), false)));
     assert_eq!(a.definition("owner"), Some(("text".to_string(), true)));
     assert!(!a.root.join(copy).exists());
 }
 
-// 端末は、settings/properties.jsonを取り込んでも、ページのファイルを書き直さず、ページの更新日時も進めない。型が変わっても、値は元の文字列のままである。
+// 端末は、settings/properties.jsonを取り込んでも、ページのファイルを書き直さず、ページの更新日時も進めない。値も変わらない。
 #[test]
 fn taking_in_the_definitions_leaves_the_pages_and_their_files_alone() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
-    a.define("score", "text", true);
+    a.define("score_n", "number", true);
     a.state
         .page_service
-        .set_property(&page, "score", "text", "1.50")
+        .set_property(&page, "score_n", "number", "12")
         .unwrap();
     a.export();
     let file_before = a.file("docs/d/a.md");
@@ -352,12 +352,12 @@ fn taking_in_the_definitions_leaves_the_pages_and_their_files_alone() {
         .unwrap()
         .modified_date;
     std::thread::sleep(std::time::Duration::from_millis(5));
-    b.define("score", "number", true);
+    b.define("score_n", "number", false);
 
     a.receive(&b, DEFINITIONS_FILE);
     a.export();
 
-    assert_eq!(a.definition("score"), Some(("number".to_string(), true)));
+    assert_eq!(a.definition("score_n"), Some(("number".to_string(), false)));
     assert_eq!(a.file("docs/d/a.md"), file_before);
     assert_eq!(
         a.state
@@ -369,7 +369,7 @@ fn taking_in_the_definitions_leaves_the_pages_and_their_files_alone() {
         modified_before
     );
     let (scalars, _) = a.state.page_service.page_properties(&page).unwrap();
-    assert_eq!(scalars[page.as_str()]["score"], "1.50");
+    assert_eq!(scalars[page.as_str()]["score_n"], "12");
 }
 
 // 読めないsettings/properties.jsonは取り込まない。端末のDBの定義も、ファイルも変わらない。conflicted copyも同じで、読めなければ消さずに残す。
@@ -378,7 +378,7 @@ fn a_file_of_definitions_that_cannot_be_read_changes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
     a.define("owner", "text", true);
-    let broken = r#"{ "definitions": { "score": "#;
+    let broken = r#"{ "definitions": { "score_n": "#;
     let copy = "settings/properties (PC's conflicted copy 2026-11-15).json";
     std::fs::write(a.root.join(DEFINITIONS_FILE), broken).unwrap();
     std::fs::write(a.root.join(copy), broken).unwrap();
@@ -387,7 +387,7 @@ fn a_file_of_definitions_that_cannot_be_read_changes_nothing() {
     assert_eq!(a.sync(copy), Outcome::Error);
 
     assert_eq!(a.definition("owner"), Some(("text".to_string(), true)));
-    assert_eq!(a.definition("score"), None);
+    assert_eq!(a.definition("score_n"), None);
     assert_eq!(
         std::fs::read_to_string(a.root.join(DEFINITIONS_FILE)).unwrap(),
         broken
@@ -401,11 +401,11 @@ fn a_key_with_no_definition_from_a_page_file_gets_a_provisional_definition() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
-    a.define("score", "number", true);
+    a.define("score_n", "number", true);
     a.define("author_list", "list", true);
     a.state
         .page_service
-        .set_property(&page, "score", "number", "12")
+        .set_property(&page, "score_n", "number", "12")
         .unwrap();
     a.state
         .page_service
@@ -415,14 +415,14 @@ fn a_key_with_no_definition_from_a_page_file_gets_a_provisional_definition() {
     b.receive(&a, "docs/d/a.md");
     b.define("owner", "text", true);
 
-    assert_eq!(b.definition("score"), Some(("text".to_string(), true)));
+    assert_eq!(b.definition("score_n"), Some(("text".to_string(), true)));
     assert_eq!(
         b.definition("author_list"),
         Some(("list".to_string(), true))
     );
-    assert!(b.is_provisional("score"));
+    assert!(b.is_provisional("score_n"));
     assert!(b.is_provisional("author_list"));
-    assert_eq!(b.written("score"), None);
+    assert_eq!(b.written("score_n"), None);
     assert_eq!(b.written("author_list"), None);
 }
 
@@ -432,21 +432,21 @@ fn a_provisional_definition_goes_with_the_last_value_of_its_key() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
-    a.define("score", "number", true);
+    a.define("score_n", "number", true);
     a.state
         .page_service
-        .set_property(&page, "score", "number", "12")
+        .set_property(&page, "score_n", "number", "12")
         .unwrap();
     b.receive(&a, "docs/d/a.md");
     std::thread::sleep(std::time::Duration::from_millis(5));
     a.state
         .page_service
-        .delete_property(&page, "score")
+        .delete_property(&page, "score_n")
         .unwrap();
 
     b.receive(&a, "docs/d/a.md");
 
-    assert_eq!(b.definition("score"), None);
+    assert_eq!(b.definition("score_n"), None);
 }
 
 // 項目のメタデータ行で定義のないキーの値が届いても、端末は仮の定義を作る。値がなくなれば、仮の定義を消す。
@@ -467,25 +467,25 @@ fn a_key_of_an_item_with_no_definition_gets_a_provisional_definition_until_its_v
         )
         .unwrap()
         .id;
-    a.define("score", "number", false);
+    a.define("score_n", "number", false);
     a.state
         .item_service
-        .set_property(&item, "score", "number", "12")
+        .set_property(&item, "score_n", "number", "12")
         .unwrap();
 
     b.receive(&a, "docs/d/a.md");
 
-    assert_eq!(b.definition("score"), Some(("text".to_string(), true)));
-    assert!(b.is_provisional("score"));
+    assert_eq!(b.definition("score_n"), Some(("text".to_string(), true)));
+    assert!(b.is_provisional("score_n"));
 
     std::thread::sleep(std::time::Duration::from_millis(5));
     a.state
         .item_service
-        .delete_property(&item, "score")
+        .delete_property(&item, "score_n")
         .unwrap();
     b.receive(&a, "docs/d/a.md");
 
-    assert_eq!(b.definition("score"), None);
+    assert_eq!(b.definition("score_n"), None);
 }
 
 // ユーザーがRESTやMCPで定義のないキーに値を書くと、端末は、その型の本物の定義を日時とともに作り、settings/properties.jsonに書く。項目でもページでも同じである。
@@ -512,7 +512,7 @@ fn a_value_the_user_writes_to_a_key_with_no_definition_defines_it_for_every_devi
         .journal
         .set_page_property(
             page.as_str(),
-            "score",
+            "score_n",
             Some("number"),
             Some("12"),
             &ChangedBy::Mcp,
@@ -531,7 +531,7 @@ fn a_value_the_user_writes_to_a_key_with_no_definition_defines_it_for_every_devi
         )
         .unwrap();
 
-    for (key, value_type) in [("score", "number"), ("member_list", "list")] {
+    for (key, value_type) in [("score_n", "number"), ("member_list", "list")] {
         assert!(!a.is_provisional(key), "{key}");
         let Some(Definition::Defined {
             value_type: written,
@@ -552,16 +552,16 @@ fn a_value_the_user_writes_to_a_key_deleted_on_another_device_defines_it_again()
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
-    a.define("score", "text", false);
+    a.define("score_n", "number", false);
     b.receive(&a, DEFINITIONS_FILE);
-    b.undefine("score");
+    b.undefine("score_n");
     a.receive(&b, DEFINITIONS_FILE);
 
     a.state
         .journal
         .set_page_property(
             page.as_str(),
-            "score",
+            "score_n",
             Some("number"),
             Some("12"),
             &ChangedBy::Mcp,
@@ -574,14 +574,14 @@ fn a_value_the_user_writes_to_a_key_deleted_on_another_device_defines_it_again()
         .conn()
         .unwrap()
         .query_row(
-            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score'",
+            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score_n'",
             [],
             |r| r.get(0),
         )
         .unwrap();
     assert_eq!(deleted, 0);
     assert!(matches!(
-        a.written("score"),
+        a.written("score_n"),
         Some(Definition::Defined { value_type, .. }) if value_type == "number"
     ));
 }
@@ -592,29 +592,29 @@ fn a_value_the_user_writes_to_a_provisional_key_leaves_it_provisional_and_delete
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
-    a.define("score", "text", true);
+    a.define("score_n", "number", true);
     a.set_score(&page, "12");
     b.receive(&a, DEFINITIONS_FILE);
-    b.undefine("score");
+    b.undefine("score_n");
     a.receive(&b, DEFINITIONS_FILE);
 
     a.set_score(&page, "13");
 
-    assert!(a.is_provisional("score"));
+    assert!(a.is_provisional("score_n"));
     let deleted: i64 = a
         .state
         .db
         .conn()
         .unwrap()
         .query_row(
-            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score'",
+            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score_n'",
             [],
             |r| r.get(0),
         )
         .unwrap();
     assert_eq!(deleted, 1);
     assert!(matches!(
-        a.written("score"),
+        a.written("score_n"),
         Some(Definition::Deleted { .. })
     ));
 }
@@ -625,7 +625,7 @@ impl Device {
             .journal
             .set_page_property(
                 page.as_str(),
-                "score",
+                "score_n",
                 Some("text"),
                 Some(value),
                 &ChangedBy::Mcp,
@@ -659,7 +659,7 @@ impl Device {
 fn the_clients_are_told_when_a_definition_from_another_device_comes_in() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
-    b.define("score", "number", false);
+    b.define("score_n", "number", false);
     let mut told = a.listen();
 
     a.receive(&b, DEFINITIONS_FILE);
@@ -673,7 +673,7 @@ fn the_clients_are_not_told_when_a_file_leaves_the_definitions_alone() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
-    b.define("score", "number", false);
+    b.define("score_n", "number", false);
     a.receive(&b, DEFINITIONS_FILE);
     b.edit(&page, "edited on B");
     a.receive(&b, "docs/d/a.md");
@@ -693,10 +693,10 @@ fn the_clients_are_told_when_a_page_file_makes_or_drops_a_provisional_definition
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
-    a.define("score", "number", true);
+    a.define("score_n", "number", true);
     a.state
         .page_service
-        .set_property(&page, "score", "number", "12")
+        .set_property(&page, "score_n", "number", "12")
         .unwrap();
     let mut told = b.listen();
 
@@ -706,7 +706,7 @@ fn the_clients_are_told_when_a_page_file_makes_or_drops_a_provisional_definition
     std::thread::sleep(std::time::Duration::from_millis(5));
     a.state
         .page_service
-        .delete_property(&page, "score")
+        .delete_property(&page, "score_n")
         .unwrap();
     b.receive(&a, "docs/d/a.md");
     assert!(told.of_definitions());
@@ -720,15 +720,15 @@ fn the_clients_are_told_when_the_user_changes_the_definitions() {
     let page = a.doc("a");
     let mut told = a.listen();
 
-    a.define("score", "number", false);
+    a.define("score_n", "number", false);
     assert!(told.of_definitions());
-    a.undefine("score");
+    a.undefine("score_n");
     assert!(told.of_definitions());
     a.state
         .journal
         .set_page_property(
             page.as_str(),
-            "rating",
+            "rating_n",
             Some("number"),
             Some("5"),
             &ChangedBy::Mcp,

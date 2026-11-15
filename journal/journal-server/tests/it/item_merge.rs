@@ -239,7 +239,7 @@ fn a_value_of_a_system_key_that_does_not_fit_stays_out_and_one_of_a_user_key_com
     let (a, _b, _, x, _) = two_devices_with_items(dir.path());
     a.state
         .properties
-        .insert_definition("effort", "number", false)
+        .insert_definition("effort_n", "number", false)
         .unwrap();
     a.state
         .item_service
@@ -247,14 +247,14 @@ fn a_value_of_a_system_key_that_does_not_fit_stays_out_and_one_of_a_user_key_com
         .unwrap();
     a.state
         .item_service
-        .set_property(&x, "effort", "number", "3")
+        .set_property(&x, "effort_n", "number", "3")
         .unwrap();
     a.export();
     let file = a
         .file(PAGE)
         .replacen("zoom=\"1.5\"", "zoom=\"many\"", 1)
-        .replacen("effort=\"3\"", "effort=\"some\"", 1);
-    assert!(file.contains("zoom=\"many\"") && file.contains("effort=\"some\""));
+        .replacen("effort_n=\"3\"", "effort_n=\"some\"", 1);
+    assert!(file.contains("zoom=\"many\"") && file.contains("effort_n=\"some\""));
     std::fs::write(a.root.join(PAGE), dated(&file, now_millis() + 60_000)).unwrap();
 
     a.sync(PAGE);
@@ -265,7 +265,7 @@ fn a_value_of_a_system_key_that_does_not_fit_stays_out_and_one_of_a_user_key_com
         .find_scalar_by_targets("item", &[x.as_str().to_string()])
         .unwrap();
     assert_eq!(scalars[x.as_str()]["zoom"], "1.5");
-    assert_eq!(scalars[x.as_str()]["effort"], "some");
+    assert_eq!(scalars[x.as_str()]["effort_n"], "some");
 }
 
 // 新しいファイルに無くても、それより後に足した項目は残り、相手にも届く。

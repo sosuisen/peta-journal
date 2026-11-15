@@ -304,12 +304,12 @@ async fn a_checkbox_property_holds_true_or_false() {
 
     for (sent, held) in [("true", "true"), ("false", "false"), ("yes", "false")] {
         let (status, _) = put(
-            &format!("/api/items/{}/properties/done", item.id),
+            &format!("/api/items/{}/properties/done_cb", item.id),
             json!({ "valueType": "checkbox", "value": sent }),
         )
         .await;
         assert_eq!(status, 200);
-        assert_eq!(items(&page.id).await[0].properties["done"], json!(held));
+        assert_eq!(items(&page.id).await[0].properties["done_cb"], json!(held));
     }
 }
 
@@ -5006,32 +5006,32 @@ async fn deleting_a_property_definition_removes_its_values_from_pages_and_items(
     let page = new_doc_page("definition-delete").await;
     let item = fill(&page.id, &["rated"]).await.remove(0);
     let (status, resp) = put(
-        &format!("/api/items/{}/properties/rating", item.id),
+        &format!("/api/items/{}/properties/rating_n", item.id),
         json!({ "valueType": "number", "value": "5" }),
     )
     .await;
     assert_eq!(status, 200, "{resp}");
     let (status, resp) = put(
-        &format!("/api/pages/{}/properties/rating", page.id),
+        &format!("/api/pages/{}/properties/rating_n", page.id),
         json!({ "valueType": "number", "value": "3" }),
     )
     .await;
     assert_eq!(status, 200, "{resp}");
-    assert_eq!(resp["page"]["properties"]["rating"], json!("3"));
+    assert_eq!(resp["page"]["properties"]["rating_n"], json!("3"));
     let modified_before = resp["page"]["modifiedDate"].as_i64().unwrap();
 
     let (status, resp) = send(
         reqwest::Method::DELETE,
-        "/api/config/property-definitions/rating",
+        "/api/config/property-definitions/rating_n",
         None,
     )
     .await;
     assert_eq!(status, 200, "{resp}");
-    assert!(definition(&resp, "rating").is_none(), "{resp}");
+    assert!(definition(&resp, "rating_n").is_none(), "{resp}");
 
-    assert!(items(&page.id).await[0].properties.get("rating").is_none());
+    assert!(items(&page.id).await[0].properties.get("rating_n").is_none());
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
-    assert!(resp["page"]["properties"].get("rating").is_none(), "{resp}");
+    assert!(resp["page"]["properties"].get("rating_n").is_none(), "{resp}");
     assert!(resp["page"]["modifiedDate"].as_i64().unwrap() >= modified_before);
 
     // System keys and unknown keys are refused
@@ -5044,7 +5044,7 @@ async fn deleting_a_property_definition_removes_its_values_from_pages_and_items(
     assert_eq!(status, 400);
     let (status, _) = send(
         reqwest::Method::DELETE,
-        "/api/config/property-definitions/rating",
+        "/api/config/property-definitions/rating_n",
         None,
     )
     .await;
@@ -5110,23 +5110,23 @@ async fn no_other_page_can_take_the_atlas_name() {
 async fn a_bounds_property_holds_four_numbers() {
     let (status, resp) = post(
         "/api/config/property-definitions",
-        json!({ "key": "area", "valueType": "bounds" }),
+        json!({ "key": "area_bounds", "valueType": "bounds" }),
     )
     .await;
     assert_eq!(status, 200, "{resp}");
     assert_eq!(
-        definition(&resp, "area").unwrap()["valueType"],
+        definition(&resp, "area_bounds").unwrap()["valueType"],
         json!("bounds")
     );
 
     let page = new_doc_page("bounds").await;
     let (status, resp) = put(
-        &format!("/api/pages/{}/properties/area", page.id),
+        &format!("/api/pages/{}/properties/area_bounds", page.id),
         json!({ "valueType": "bounds", "value": " 10, 20.5,160 ,-56 " }),
     )
     .await;
     assert_eq!(status, 200, "{resp}");
-    assert_eq!(resp["page"]["properties"]["area"], json!("10,20.5,160,-56"));
+    assert_eq!(resp["page"]["properties"]["area_bounds"], json!("10,20.5,160,-56"));
 }
 
 async fn doc_in(dir: &str, title: &str) -> String {
