@@ -153,3 +153,29 @@ fn a_route_from_a_shell_with_its_own_history_keeps_nothing() {
 
     assert!(!h.view().history.can_go_back);
 }
+
+// 戻る先も進む先もないときに戻るや進むを押しても、今のページのままである。
+#[test]
+fn going_back_or_forward_with_nowhere_to_go_keeps_the_page_on_screen() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/a");
+
+    back(&mut h);
+    h.send(Event::Forward {
+        today: TODAY.into(),
+    });
+
+    assert_eq!(shown(&h), "a");
+}
+
+// 何も指さないURLを開いても、画面も履歴も変わらない。
+#[test]
+fn a_url_that_names_nothing_changes_neither_the_screen_nor_the_history() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/a");
+
+    open(&mut h, "/");
+
+    assert_eq!(shown(&h), "a");
+    assert!(!h.view().history.can_go_back);
+}
