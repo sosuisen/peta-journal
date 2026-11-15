@@ -83,6 +83,11 @@ impl DefinitionsFileService {
                     .put_definition(key, value_type, *page, *modified)?;
             }
         }
+        // The other device does not have what only this one has: it gets it in the file
+        let merged_text = write(&merged);
+        if merged_text != text {
+            write_atomic(&root.join(DEFINITIONS_FILE), &merged_text)?;
+        }
         Ok(Outcome::Imported)
     }
 }
