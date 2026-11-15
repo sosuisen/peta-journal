@@ -1,4 +1,6 @@
-use crate::protocol::{Bullet, DateUnit, Envelope, Inbound, Outbound, PropertyRow, RowView};
+use crate::protocol::{
+    Bullet, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView,
+};
 use crate::shell::{Host, Input, Now, Shell};
 use client_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
 use client_core::model::{PropertyDefinition, Uploaded};
@@ -220,7 +222,7 @@ impl Driver {
     }
 
     /// The rows and the free keys that Emacs was told last.
-    fn last_properties(&self) -> Option<(Option<Vec<PropertyRow>>, Vec<String>)> {
+    fn last_properties(&self) -> Option<(Option<Vec<PropertyRow>>, Vec<FreeKey>)> {
         self.sent().iter().rev().find_map(|m| match m {
             Outbound::Properties {
                 rows, free_keys, ..
@@ -1065,6 +1067,7 @@ fn definitions_answer() -> ApiOutput {
         definition("published", "datetime", true),
         definition("met", "datetime", true),
         definition("seen", "datetime", false),
+        definition("score_n", "number", false),
     ])
 }
 
@@ -1160,7 +1163,26 @@ fn a_doc_page_tells_emacs_its_properties_and_free_keys() {
     assert!(!modified.removable && !modified.editable);
     let created = rows.iter().find(|r| r.key == "created").unwrap();
     assert!(!created.removable && created.editable);
+    let free_keys: Vec<&str> = free_keys.iter().map(|k| k.key.as_str()).collect();
     assert_eq!(free_keys, ["topic_list", "published", "met"]);
+}
+
+// プロパティの行は、キーの名前の本体と型を、見出しとしてEmacsに伝える。
+#[test]
+fn a_row_tells_emacs_the_body_and_the_type_of_its_key() {
+    let driver = open_with_properties(json!({ "score_n": "5" }));
+    let rows = driver.last_properties().unwrap().0.unwrap();
+    let score = rows.iter().find(|r| r.key == "score_n").unwrap();
+    assert_eq!(score.label, "score (number)");
+}
+
+// まだ付けられるキーも、名前の本体と型の見出しとともにEmacsに伝える。
+#[test]
+fn a_free_key_reaches_emacs_with_the_body_and_the_type_of_its_name() {
+    let driver = open_with_properties(json!({}));
+    let (_, free_keys) = driver.last_properties().unwrap();
+    let topics = free_keys.iter().find(|k| k.key == "topic_list").unwrap();
+    assert_eq!(topics.label, "topic (list)");
 }
 
 // 日時のキーをEmacsに伝える。ページ自身の日付、日時の定義を持つ使用中のキー、まだ付けられるキーである。

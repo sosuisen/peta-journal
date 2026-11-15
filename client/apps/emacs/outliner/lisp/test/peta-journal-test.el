@@ -679,9 +679,9 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 ;;;; Page properties
 
 (defconst peta-journal-test--property-rows
-  [(:key "created" :value "2026-11-07" :removable nil :editable t)
-   (:key "modified" :value "2026-11-08" :removable nil :editable nil)
-   (:key "status" :value "draft" :removable t :editable t)]
+  [(:key "created" :label "created" :value "2026-11-07" :removable nil :editable t)
+   (:key "modified" :label "modified" :value "2026-11-08" :removable nil :editable nil)
+   (:key "status" :label "status" :value "draft" :removable t :editable t)]
   "The rows of a doc page, as the shell sends them.")
 
 (defmacro peta-journal-test--with-properties (rows free-keys &rest body)
@@ -733,13 +733,13 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (save-current-buffer (peta-journal-properties))
     (peta-journal--on-line
      '(:t "properties"
-       :rows [(:key "status" :value "done" :removable t :editable t)]
+       :rows [(:key "status" :label "status" :value "done" :removable t :editable t)]
        :free_keys []))
     (should (string-search "status  done" (peta-journal-test--properties-text)))
     (peta-journal-test--with-rows (list (peta-journal-test--row "b" 1 "y"))
       (peta-journal--on-line
        '(:t "properties"
-         :rows [(:key "other" :value "z" :removable t :editable t)]
+         :rows [(:key "other" :label "other" :value "z" :removable t :editable t)]
          :free_keys [])))
     (should-not (string-search "other" (peta-journal-test--properties-text)))))
 
@@ -750,7 +750,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 
 ;; シェルを起動し直すと、前のシェルが伝えたプロパティは忘れる。
 (ert-deftest peta-journal-a-new-shell-forgets-the-properties ()
-  (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
+  (peta-journal-test--with-properties peta-journal-test--property-rows [(:key "rating" :label "rating")]
     (let ((stand-in (peta-journal-test--emacs-process #'ignore)))
       (unwind-protect
           (cl-letf (((symbol-function 'peta-journal--program) #'ignore)
@@ -759,11 +759,19 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
         (delete-process stand-in)))
     (should-error (peta-journal-properties) :type 'user-error)))
 
+;; 一覧は、キーを、名前の本体と型の見出しで見せる。
+(ert-deftest peta-journal-the-list-shows-the-label-of-each-key ()
+  (peta-journal-test--with-properties
+      [(:key "score_n" :label "score (number)" :value "5" :removable t :editable t)]
+      []
+    (peta-journal-properties)
+    (should (string-search "score (number)  5\n" (peta-journal-test--properties-text)))))
+
 ;; 全角のキーがあっても、値の列がそろう。
 (ert-deftest peta-journal-the-list-lines-up-wide-keys ()
   (peta-journal-test--with-properties
-      [(:key "状態" :value "a" :removable t :editable t)
-       (:key "status" :value "b" :removable t :editable t)]
+      [(:key "状態" :label "状態" :value "a" :removable t :editable t)
+       (:key "status" :label "status" :value "b" :removable t :editable t)]
       []
     (peta-journal-properties)
     (should (string-search "状態    a\nstatus  b\n" (peta-journal-test--properties-text)))))
@@ -792,10 +800,10 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 
 ;; 設定では、変えられるキーと、まだ付いていないキーを補完する。今の値を初期値にして、一覧も開く。
 (ert-deftest peta-journal-setting-offers-keys-and-the-current-value ()
-  (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
+  (peta-journal-test--with-properties peta-journal-test--property-rows [(:key "rating" :label "rating")]
     (peta-journal-test--answering "status" "done"
       (call-interactively #'peta-journal-set-property)
-      (should (equal offered '("created" "status" "rating")))
+      (should (equal (all-completions "" offered) '("created" "status" "rating")))
       (should (equal initial "draft")))
     (should (equal peta-journal-test--sent '(("set_property" :key "status" :value "done"))))
     (should (get-buffer-window "*PetaJournal Properties*"))))
@@ -833,9 +841,9 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
           (execute-kbd-macro (kbd "s"))))
       (peta-journal--on-line
        '(:t "properties"
-         :rows [(:key "created" :value "2026-11-07" :removable nil :editable t)
-                (:key "modified" :value "2026-11-08" :removable nil :editable nil)
-                (:key "status" :value "done" :removable t :editable t)]
+         :rows [(:key "created" :label "created" :value "2026-11-07" :removable nil :editable t)
+                (:key "modified" :label "modified" :value "2026-11-08" :removable nil :editable nil)
+                (:key "status" :label "status" :value "done" :removable t :editable t)]
          :free_keys []))
       (with-selected-window (get-buffer-window "*PetaJournal Properties*")
         (should (equal (buffer-substring-no-properties (line-beginning-position)
@@ -853,9 +861,20 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
         (execute-kbd-macro (kbd "d"))))
     (should (equal peta-journal-test--sent '(("delete_property" :key "status"))))))
 
+;; 設定では、キーを見出しで補完し、選んだ見出しのキーを送る。
+(ert-deftest peta-journal-setting-offers-the-labels-and-sends-the-key ()
+  (peta-journal-test--with-properties
+      [(:key "rating_n" :label "rating (number)" :value "3" :removable t :editable t)]
+      [(:key "rating_d" :label "rating (date)")]
+    (peta-journal-test--answering "rating (date)" "2026-11-15"
+      (call-interactively #'peta-journal-set-property)
+      (should (equal (all-completions "" offered) '("rating (number)" "rating (date)"))))
+    (should (equal peta-journal-test--sent
+                   '(("set_property" :key "rating_d" :value "2026-11-15"))))))
+
 ;; まだ付いていないキーの初期値は空である。
 (ert-deftest peta-journal-a-new-key-starts-empty ()
-  (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
+  (peta-journal-test--with-properties peta-journal-test--property-rows [(:key "rating" :label "rating")]
     (peta-journal-test--answering "rating" "5"
       (call-interactively #'peta-journal-set-property)
       (should (null initial)))
@@ -870,14 +889,14 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
            (set-time-zone-rule "JST-9")
            (peta-journal--on-line
             '(:t "properties"
-              :rows [(:key "created" :value "2026-11-07T15:21:04.123Z"
+              :rows [(:key "created" :label "created" :value "2026-11-07T15:21:04.123Z"
                       :removable nil :editable t)
-                     (:key "modified" :value "2026-11-08T00:00:00Z"
+                     (:key "modified" :label "modified" :value "2026-11-08T00:00:00Z"
                       :removable nil :editable nil)
-                     (:key "met" :value "soon" :removable t :editable t)
-                     (:key "status" :value "2026-11-07T15:21:04Z"
+                     (:key "met" :label "met" :value "soon" :removable t :editable t)
+                     (:key "status" :label "status" :value "2026-11-07T15:21:04Z"
                       :removable t :editable t)]
-              :free_keys ["published"]
+              :free_keys [(:key "published" :label "published")]
               :datetime_keys ["created" "modified" "met" "published"]))
            ,@body)
        (set-time-zone-rule zone))))
@@ -957,7 +976,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 
 ;; キーを選ばなかったときと、値が空のときは、何も送らない。値を消すのは削除の役目である。
 (ert-deftest peta-journal-setting-refuses-an-empty-key-or-value ()
-  (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
+  (peta-journal-test--with-properties peta-journal-test--property-rows [(:key "rating" :label "rating")]
     (peta-journal-test--answering "" "5"
       (should-error (call-interactively #'peta-journal-set-property) :type 'user-error))
     (peta-journal-test--answering "rating" ""
@@ -966,7 +985,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 
 ;; ジャーナルでは、キーを尋ねずに断る。
 (ert-deftest peta-journal-a-journal-refuses-a-property-before-asking ()
-  (peta-journal-test--with-properties nil ["rating"]
+  (peta-journal-test--with-properties nil [(:key "rating" :label "rating")]
     (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) (error "It must not ask"))))
       (should-error (call-interactively #'peta-journal-set-property) :type 'user-error)
       (should-error (call-interactively #'peta-journal-delete-property) :type 'user-error))))
@@ -979,14 +998,14 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (should (null peta-journal-test--sent))
     (peta-journal-test--answering "status" ""
       (call-interactively #'peta-journal-delete-property)
-      (should (equal offered '("status"))))
+      (should (equal (all-completions "" offered) '("status"))))
     (should (equal peta-journal-test--sent '(("delete_property" :key "status"))))
     (should (get-buffer-window "*PetaJournal Properties*"))))
 
 ;; 消せるプロパティがなければ、尋ねずに断る。
 (ert-deftest peta-journal-a-page-without-removable-keys-refuses-the-delete ()
   (peta-journal-test--with-properties
-      [(:key "created" :value "2026-11-07" :removable nil :editable t)]
+      [(:key "created" :label "created" :value "2026-11-07" :removable nil :editable t)]
       []
     (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) (error "It must not ask"))))
       (should-error (call-interactively #'peta-journal-delete-property) :type 'user-error))))

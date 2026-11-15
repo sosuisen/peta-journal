@@ -3,7 +3,8 @@
 use crate::app::{ConnectionState, Model, Screen};
 use crate::body_model::{Bodies, BodyModel};
 use crate::model::{
-    IndexSort, Item, ItemRef, Page, PropertyDefinition, PropertyValue, SearchResult, WeekNumbering,
+    shown_name, IndexSort, Item, ItemRef, Page, PropertyDefinition, PropertyValue, SearchResult,
+    WeekNumbering,
 };
 use crate::ops::wiki;
 use crate::outline::tree::starts_date_group;
@@ -12,7 +13,6 @@ use crate::screens::atlas::{self, Bounds};
 use crate::screens::{journal, page, sidebar};
 use crate::util::date::{format_instant, format_journal_date};
 use crate::util::filename::JournalType;
-use property_names::body_of;
 use serde::Serialize;
 
 /// Where a task stands, by its `begin` and `end` properties.
@@ -113,8 +113,8 @@ pub struct JournalView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PageProperty {
     pub key: String,
-    /// The name the screen shows: the body of the key, without the suffix of its type
-    /// (ADR 047). The keys of the system a page holds have no suffix.
+    /// The name the screen shows: the body of the key, with its type when another key
+    /// shares the body (see `shown_name`).
     pub name: String,
     pub value: String,
     pub is_list: bool,
@@ -125,14 +125,14 @@ pub struct PageProperty {
 }
 
 impl PageProperty {
-    fn of(key: &str, value: &PropertyValue) -> PageProperty {
+    fn of(key: &str, value: &PropertyValue, definitions: &[PropertyDefinition]) -> PageProperty {
         let (value, is_list) = match value {
             PropertyValue::List(values) => (values.join(", "), true),
             PropertyValue::Text(text) => (text.clone(), false),
         };
         PageProperty {
             key: key.to_string(),
-            name: body_of(key).to_string(),
+            name: shown_name(key, definitions),
             value,
             is_list,
             removable: true,
@@ -431,7 +431,11 @@ fn screen(model: &Model) -> ScreenView {
                     PageProperty::date("modified", pg.modified_date),
                 ]
                 .into_iter()
-                .chain(pg.properties.iter().map(|(k, v)| PageProperty::of(k, v)))
+                .chain(
+                    pg.properties
+                        .iter()
+                        .map(|(k, v)| PageProperty::of(k, v, &model.config.property_definitions)),
+                )
                 .collect(),
                 // The dates do not count: every page has them
                 show_properties: p.properties_open || !pg.properties.is_empty(),

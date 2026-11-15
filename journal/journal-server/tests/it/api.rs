@@ -4353,6 +4353,27 @@ async fn a_key_whose_body_ends_with_a_reserved_suffix_is_not_defined() {
     }
 }
 
+// 名前の本体がほかのユーザーのキーと同じなら、別の型でも定義できない。消したキーの本体なら、別の型で定義できる。
+#[tokio::test]
+async fn a_key_whose_body_another_key_has_is_not_defined_until_that_key_is_deleted() {
+    let defs = "/api/config/property-definitions";
+    let (status, resp) = post(defs, json!({ "key": "shared_body_n" })).await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = post(defs, json!({ "key": "shared_body_d" })).await;
+    assert_eq!(status, 400, "{resp}");
+
+    let (status, resp) = send(
+        reqwest::Method::DELETE,
+        "/api/config/property-definitions/shared_body_n",
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    let (status, resp) = post(defs, json!({ "key": "shared_body_d" })).await;
+    assert_eq!(status, 200, "{resp}");
+}
+
 // 型を送らずに定義すると、キーは名前から決まる型になる。
 #[tokio::test]
 async fn a_key_defined_without_a_type_takes_the_type_its_name_gives() {

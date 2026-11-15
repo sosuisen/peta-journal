@@ -1,7 +1,7 @@
 //! The data the server sends and receives, in the same JSON shape as the Angular models.
 
-use property_names::body_of;
 pub use property_names::ValueType;
+use property_names::{body_of, type_of};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::{BTreeMap, HashMap};
@@ -472,15 +472,28 @@ pub struct PropertyDefinition {
     pub page: bool,
 }
 
-impl PropertyDefinition {
-    /// The name the screen shows: the body of a user key, without the suffix of its type
-    /// (ADR 047). A system key is shown whole: `atlas_bounds` is no `atlas` of type bounds.
-    pub fn shown_name(&self) -> &str {
-        if self.system {
-            &self.key
-        } else {
-            body_of(&self.key)
-        }
+/// The name the screen shows for the key: the body, without the suffix of its type (ADR
+/// 047). When another key of the definitions has the same body, the type is added, so that
+/// the two can be told apart: `rating (number)`. A system key is shown whole.
+pub fn shown_name(key: &str, definitions: &[PropertyDefinition]) -> String {
+    let name = bare_name(key, definitions);
+    let shared = definitions
+        .iter()
+        .any(|d| d.key != key && bare_name(&d.key, definitions) == name);
+    if shared {
+        format!("{name} ({})", type_of(key).as_str())
+    } else {
+        name.to_string()
+    }
+}
+
+/// The name of the key without the suffix of its type (ADR 047). A system key is whole:
+/// `atlas_bounds` is no `atlas` of type bounds.
+pub fn bare_name<'a>(key: &'a str, definitions: &[PropertyDefinition]) -> &'a str {
+    if definitions.iter().any(|d| d.system && d.key == key) {
+        key
+    } else {
+        body_of(key)
     }
 }
 

@@ -345,7 +345,9 @@ Completion sorts a plain list by name, which would hide the newest pages."
 (defvar-local peta-journal--page-path nil "The path of the page on screen, if it can be renamed.")
 (defvar-local peta-journal--properties nil
   "The property rows of the page on screen, or nil on a screen without properties.")
-(defvar-local peta-journal--free-keys nil "The property keys that can still be added to the page.")
+(defvar-local peta-journal--free-keys nil
+  "The property keys that can still be added to the page.
+Each is a plist of :key and :label.")
 (defvar-local peta-journal--datetime-keys nil "The property keys whose value is a date and a time.")
 (defvar-local peta-journal--connection "" "The state of the connection to the server.")
 (defvar-local peta-journal--scrolled nil "The scroll position the core knows about.")
@@ -1570,16 +1572,17 @@ The point stays on its line, so that the next key works on the same property."
       (let* ((inhibit-read-only t)
              (window (get-buffer-window (current-buffer)))
              (line (line-number-at-pos (if window (window-point window) (point))))
-             (width (seq-max (cons 0 (mapcar (lambda (row) (string-width (plist-get row :key)))
+             (width (seq-max (cons 0 (mapcar (lambda (row) (string-width (plist-get row :label)))
                                              rows)))))
         (erase-buffer)
         (insert "Properties\n\n")
         (seq-doseq (row rows)
           (let* ((key (plist-get row :key))
+                 (label (plist-get row :label))
                  (value (plist-get row :value)))
             (insert (propertize (format "%s%s  %s\n"
-                                        key
-                                        (make-string (- width (string-width key)) ?\s)
+                                        label
+                                        (make-string (- width (string-width label)) ?\s)
                                         (if (member key datetime-keys)
                                             (peta-journal--local-datetime value)
                                           value))
@@ -1625,28 +1628,37 @@ When the window is open already, close it."
       (goto-char (point-min))
       (forward-line 2))))
 
-(defun peta-journal--property-keys (page field)
-  "The keys of the properties of the buffer PAGE whose FIELD is true."
-  (mapcar (lambda (row) (plist-get row :key))
-          (seq-filter (lambda (row) (plist-get row field))
-                      (buffer-local-value 'peta-journal--properties page))))
+(defun peta-journal--choices (keys)
+  "The KEYS, plists of :key and :label, as an alist from each label to its key."
+  (mapcar (lambda (key) (cons (plist-get key :label) (plist-get key :key))) keys))
 
-(defun peta-journal--read-property-key (prompt keys)
-  "Ask with PROMPT for one of KEYS.  Signals an error when the answer is empty.
-In the list of properties, the key on the line of the point is the default."
+(defun peta-journal--property-choices (page field)
+  "The labels and keys of the properties of the buffer PAGE whose FIELD is true.
+See `peta-journal--choices'."
+  (peta-journal--choices
+   (seq-filter (lambda (row) (plist-get row field))
+               (buffer-local-value 'peta-journal--properties page))))
+
+(defun peta-journal--read-property-key (prompt choices)
+  "Ask with PROMPT for the label of one of CHOICES, and return its key.
+CHOICES is an alist from each label to its key.  The label shows the body of the
+name and the type, so two keys that share a body are told apart.  Signals an
+error when the answer is empty.  In the list of properties, the key on the line
+of the point is the default."
   (let* ((here (get-text-property (line-beginning-position) 'peta-property-key))
-         (key (completing-read prompt keys nil t nil nil (car (member here keys)))))
-    (when (string-empty-p key)
+         (label (completing-read prompt choices nil t nil nil (car (rassoc here choices)))))
+    (when (string-empty-p label)
       (user-error "No property was chosen"))
-    key))
+    (cdr (assoc label choices))))
 
 (defun peta-journal--read-property-to-set ()
   "Ask for a key and its value.  Return them as a list."
   (let* ((page (peta-journal--properties-page))
          (key (peta-journal--read-property-key
                "Set property: "
-               (append (peta-journal--property-keys page :editable)
-                       (buffer-local-value 'peta-journal--free-keys page))))
+               (append (peta-journal--property-choices page :editable)
+                       (peta-journal--choices
+                        (buffer-local-value 'peta-journal--free-keys page)))))
          (row (seq-find (lambda (row) (equal (plist-get row :key) key))
                         (buffer-local-value 'peta-journal--properties page)))
          (value (if (member key (buffer-local-value 'peta-journal--datetime-keys page))
@@ -1671,7 +1683,7 @@ In the list of properties, the key on the line of the point is the default."
 (defun peta-journal-delete-property (key)
   "Remove the property KEY from the page, and show the list of properties."
   (interactive
-   (let ((keys (peta-journal--property-keys (peta-journal--properties-page) :removable)))
+   (let ((keys (peta-journal--property-choices (peta-journal--properties-page) :removable)))
      (unless keys
        (user-error "This page has no property to remove"))
      (list (peta-journal--read-property-key "Remove property: " keys))))
