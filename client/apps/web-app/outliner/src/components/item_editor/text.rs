@@ -12,7 +12,7 @@ pub(super) fn close_typed(el: &web_sys::HtmlTextAreaElement) {
     let value = el.value();
     let start = el.selection_start().ok().flatten().unwrap_or(0);
     let cursor = dom::utf16_to_chars(&value, start);
-    if let Some((body, cursor)) = client_core::util::auto_close(&value, cursor) {
+    if let Some(body) = client_core::util::auto_close(&value, cursor) {
         el.set_value(&body);
         dom::set_cursor_chars(el, cursor);
     }

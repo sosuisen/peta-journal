@@ -4,17 +4,19 @@ pub mod utf16;
 pub mod week;
 
 /// What a `[[`, the opening of a block or a closing `]` just typed becomes: the body with its
-/// closing part added or typed over, and the cursor. `cursor` is the character index right after
-/// the typed character. None when the body stays as it is.
-pub fn auto_close(body: &str, cursor: usize) -> Option<(String, usize)> {
+/// closing part added or typed over. `cursor` is the character index right after the typed
+/// character. None when the body stays as it is.
+///
+/// The cursor stays where it is: only the text after it changes.
+pub fn auto_close(body: &str, cursor: usize) -> Option<String> {
     let (before, after) = split_at_char(body, cursor);
     if before.ends_with("[[") && !after.starts_with("]]") {
-        return Some((format!("{before}]]{after}"), cursor));
+        return Some(format!("{before}]]{after}"));
     }
     if types_over_link_closing(before, after) {
-        return Some((format!("{before}{}", &after[1..]), cursor));
+        return Some(format!("{before}{}", &after[1..]));
     }
-    opens_block(before, after).then(|| (flatmarkdown::close_blocks(before), cursor))
+    opens_block(before, after).then(|| flatmarkdown::close_blocks(before))
 }
 
 /// True when the character at the end of `before` was the last one of the opening of a new
@@ -115,10 +117,10 @@ fn link_starting(chars: &[char]) -> Option<(usize, Link)> {
 mod tests {
     use super::*;
 
-    // `[[`を打つと`]]`が補われ、カーソルはその間に留まる。すでに`]]`が続いていれば補わない。
+    // `[[`を打つと`]]`が補われる。すでに`]]`が続いていれば補わない。
     #[test]
     fn auto_close_closes_a_wiki_link_just_opened() {
-        assert_eq!(auto_close("日[[後", 3), Some(("日[[]]後".into(), 3)));
+        assert_eq!(auto_close("日[[後", 3), Some("日[[]]後".into()));
         assert_eq!(auto_close("[[]]", 2), None);
         assert_eq!(auto_close("[", 1), None);
     }
@@ -126,9 +128,9 @@ mod tests {
     // リンクの中で閉じる`]`を打つと、続く`]`の上を進み、`]`は増えない。
     #[test]
     fn auto_close_types_over_the_closing_of_a_wiki_link() {
-        assert_eq!(auto_close("日[[本]]]後", 5), Some(("日[[本]]後".into(), 5)));
-        assert_eq!(auto_close("日[[本]]]後", 6), Some(("日[[本]]後".into(), 6)));
-        assert_eq!(auto_close("[[]]]", 3), Some(("[[]]".into(), 3)));
+        assert_eq!(auto_close("日[[本]]]後", 5), Some("日[[本]]後".into()));
+        assert_eq!(auto_close("日[[本]]]後", 6), Some("日[[本]]後".into()));
+        assert_eq!(auto_close("[[]]]", 3), Some("[[]]".into()));
     }
 
     // リンクの外、閉じたリンクの後、別の行、閉じる位置でないところの`]`は、そのまま残る。
@@ -141,7 +143,7 @@ mod tests {
         assert_eq!(auto_close("[[a]]", 5), None);
     }
 
-    // 行頭で開始記号を打ち終え、後ろに本文が何もなければ、閉じる記号が補われ、カーソルは留まる。どの開始記号でも同じである（ADR 050）。
+    // 行頭で開始記号を打ち終え、後ろに本文が何もなければ、閉じる記号が補われる。どの開始記号でも同じである（ADR 050）。
     #[test]
     fn auto_close_closes_a_block_just_opened_at_the_end() {
         for (body, closed) in [
@@ -152,11 +154,7 @@ mod tests {
             ("<pre", "<pre\n</pre>"),
         ] {
             let cursor = body.chars().count();
-            assert_eq!(
-                auto_close(body, cursor),
-                Some((closed.into(), cursor)),
-                "{body:?}"
-            );
+            assert_eq!(auto_close(body, cursor), Some(closed.into()), "{body:?}");
         }
     }
 
