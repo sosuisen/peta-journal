@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import PetaCore
 import PetaSync
 import PetaTypes
 
@@ -131,6 +132,12 @@ public final class Shell: ObservableObject {
     /// The user changed the Markdown of the item. The core saves it a moment later.
     public func type(_ itemId: String, _ body: String) {
         change(.bodyChanged(itemId: itemId, body: body, nowMs: now()))
+    }
+
+    /// The user changed the Markdown of the item, and the cursor is `cursor` UTF-16 units into
+    /// `body`. An opening just typed gets its closing (ADR 050).
+    public func type(_ itemId: String, _ body: String, cursor: Int) {
+        type(itemId, closedAsTyped(body: body, cursor: UInt64(cursor)) ?? body)
     }
 
     /// The user pressed Enter in the item. `cursor` counts the characters before it, as the
