@@ -5,11 +5,30 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ValueType {
     Text,
+    Number,
+    Date,
+    Datetime,
+    Checkbox,
+    Bounds,
+    List,
 }
 
+/// The suffix of the key names of each type but text, whose names have none.
+const SUFFIXES: [(&str, ValueType); 6] = [
+    ("_n", ValueType::Number),
+    ("_d", ValueType::Date),
+    ("_dt", ValueType::Datetime),
+    ("_cb", ValueType::Checkbox),
+    ("_bounds", ValueType::Bounds),
+    ("_list", ValueType::List),
+];
+
 /// The type of the property with this key name.
-pub fn type_of(_name: &str) -> ValueType {
-    ValueType::Text
+pub fn type_of(name: &str) -> ValueType {
+    SUFFIXES
+        .iter()
+        .find(|(suffix, _)| name.ends_with(suffix))
+        .map_or(ValueType::Text, |(_, value_type)| *value_type)
 }
 
 #[cfg(test)]
