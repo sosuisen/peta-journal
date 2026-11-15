@@ -6,6 +6,8 @@ import PetaTypes
 @MainActor
 public final class ItemDrag {
     private let send: (Event) -> Void
+    /// The item the mouse went down on, with the top and the bottom of its text.
+    private var pressed: (itemId: String, top: Double, bottom: Double)?
 
     /// `send` sends an event to the core.
     public init(send: @escaping (Event) -> Void) {
@@ -16,8 +18,23 @@ public final class ItemDrag {
     public private(set) var selects = false
 
     /// The mouse went down on the text of the item, from `top` to `bottom`.
-    public func pressed(_ itemId: String, top: Double, bottom: Double) {}
+    public func pressed(_ itemId: String, top: Double, bottom: Double) {
+        pressed = (itemId, top, bottom)
+    }
 
     /// The mouse moved to `y`, over `itemUnder`, or over no item.
-    public func moved(y: Double, itemUnder: String?) {}
+    public func moved(y: Double, itemUnder: String?) {
+        guard let on = pressed, !selects else { return }
+        guard y < on.top - 10 || y > on.bottom + 10 else { return }
+        // The edit ends first, which saves what was typed, as for Shift and an arrow
+        send(.editFinished(itemId: on.itemId))
+        send(.dragBeyondBounds(itemId: on.itemId))
+        selects = true
+    }
+
+    /// The mouse button came up: the drag is over.
+    public func released() {
+        pressed = nil
+        selects = false
+    }
 }
