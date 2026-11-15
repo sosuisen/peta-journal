@@ -4500,12 +4500,20 @@ async fn a_list_of_a_page_is_kept_under_its_own_key_apart_from_the_tags() {
     assert!(doc_page_named("list-y").await.is_none());
 }
 
-// 定義のないキーには、ページでも、名前に合う型でしか値を書けない。
+// 定義のないキーには、ページの値を書けない。名前に合う型でも、合わない型でも同じである（ADR 047）。
 #[tokio::test]
-async fn a_key_of_a_page_with_no_definition_takes_only_the_type_its_name_fits() {
+async fn a_key_with_no_definition_takes_no_value_of_a_page() {
     let page = new_doc_page("page-type-by-name").await;
 
     for (key, body) in [
+        (
+            "undefined_page_note",
+            json!({ "valueType": "text", "value": "x" }),
+        ),
+        (
+            "undefined_page_score_n",
+            json!({ "valueType": "number", "value": "1" }),
+        ),
         (
             "undefined_page_members",
             json!({ "valueType": "list", "value": "x" }),
