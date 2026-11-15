@@ -448,3 +448,42 @@ fn a_provisional_definition_goes_with_the_last_value_of_its_key() {
 
     assert_eq!(b.definition("score"), None);
 }
+
+// 項目のメタデータ行で定義のないキーの値が届いても、端末は仮の定義を作る。値がなくなれば、仮の定義を消す。
+#[test]
+fn a_key_of_an_item_with_no_definition_gets_a_provisional_definition_until_its_value_goes() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    let item = a
+        .state
+        .item_service
+        .create_item(
+            &page,
+            &journal_core::domain::model::ItemPosition::Last,
+            1,
+            "x",
+            None,
+        )
+        .unwrap()
+        .id;
+    a.define("score", "number", false);
+    a.state
+        .item_service
+        .set_property(&item, "score", "number", "12")
+        .unwrap();
+
+    b.receive(&a, "docs/d/a.md");
+
+    assert_eq!(b.definition("score"), Some(("text".to_string(), true)));
+    assert!(b.is_provisional("score"));
+
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    a.state
+        .item_service
+        .delete_property(&item, "score")
+        .unwrap();
+    b.receive(&a, "docs/d/a.md");
+
+    assert_eq!(b.definition("score"), None);
+}
