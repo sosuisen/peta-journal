@@ -241,7 +241,7 @@ impl ItemService {
             None => self.ids.generate_item_id(),
         };
         let now = now_millis();
-        let parsed = ItemBody::parse(body);
+        let parsed = ItemBody::accept(body).map_err(AppError::bad_request)?;
 
         let mut existing = ItemRepository::find_by_page_id_in(tx, page_id)?;
 
