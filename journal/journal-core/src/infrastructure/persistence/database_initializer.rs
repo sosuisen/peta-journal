@@ -388,6 +388,31 @@ mod tests {
         );
     }
 
+    // 起動するたびに、名前と型の合わないユーザー定義は、名前から決まる型になる。ADR 047より前の端末で定義されたキーである。
+    #[test]
+    fn a_user_definition_whose_type_does_not_fit_its_name_takes_the_type_of_its_name_on_start() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        conn.execute(
+            "INSERT INTO property_definitions (key, value_type) VALUES ('rating', 'number'), ('score_n', 'text')",
+            [],
+        )
+        .unwrap();
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        let type_of = |key: &str| -> String {
+            conn.query_row(
+                "SELECT value_type FROM property_definitions WHERE key = ?",
+                [key],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        assert_eq!(type_of("rating"), "text");
+        assert_eq!(type_of("score_n"), "number");
+    }
+
     // 版1のデータベースを開くと、消した項目の表ができ、版が上がる。
     #[test]
     fn a_database_at_version_1_gets_the_table_of_deleted_items() {
