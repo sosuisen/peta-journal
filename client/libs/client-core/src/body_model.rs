@@ -13,13 +13,26 @@ use std::sync::Mutex;
 
 /// The body of a row as a shell draws it, made from the AST of the body.
 pub trait BodyModel: Clone + Debug + PartialEq + Serialize + Send + Sync + 'static {
+    /// False when the model is made without the AST. Then the view keeps nothing of the bodies.
+    const FROM_AST: bool = true;
+
     /// What is shown of the body whose AST is `ast`. The page of a tag lies under `tags_dir`.
     fn of(ast: Node, tags_dir: &str) -> Self;
+
+    /// What is shown of the body `markdown`.
+    fn of_markdown(markdown: &str, tags_dir: &str) -> Self {
+        Self::of(parse(markdown), tags_dir)
+    }
 }
 
-/// A shell that draws the Markdown itself, such as the Emacs shell, takes no body model.
+/// A shell that draws the Markdown itself, such as the Emacs shell, takes no body model. Its
+/// bodies are not parsed.
 impl BodyModel for () {
+    const FROM_AST: bool = false;
+
     fn of(_ast: Node, _tags_dir: &str) {}
+
+    fn of_markdown(_markdown: &str, _tags_dir: &str) {}
 }
 
 /// What the last view showed of each body. The view is made after every event, and most bodies
@@ -52,6 +65,12 @@ impl<B: BodyModel> Bodies<B> {
     /// What is shown of each of these bodies, in their order. What was shown of bodies that are
     /// not among them is forgotten, so that what is kept stays as large as what is shown.
     pub fn of<'a>(&self, bodies: impl IntoIterator<Item = &'a str>, tags_dir: &str) -> Vec<B> {
+        if !B::FROM_AST {
+            return bodies
+                .into_iter()
+                .map(|body| B::of_markdown(body, tags_dir))
+                .collect();
+        }
         // A view that panicked while it held the lock left only whole entries behind
         let mut last = self
             .last
@@ -69,12 +88,53 @@ impl<B: BodyModel> Bodies<B> {
                     .get(body)
                     .or_else(|| last.bodies.get(body))
                     .cloned()
-                    .unwrap_or_else(|| B::of(parse(body), tags_dir));
+                    .unwrap_or_else(|| B::of_markdown(body, tags_dir));
                 kept.insert(body.to_string(), shown.clone());
                 shown
             })
             .collect();
         last.bodies = kept;
         shown
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    fn kept<B>(bodies: &Bodies<B>) -> usize {
+        bodies.last.lock().unwrap().bodies.len()
+    }
+
+    /// A body model that counts how many bodies were made from their AST.
+    #[derive(Clone, Debug, PartialEq, Serialize)]
+    struct Counted;
+
+    static MADE: AtomicUsize = AtomicUsize::new(0);
+
+    impl BodyModel for Counted {
+        fn of(_ast: Node, _tags_dir: &str) -> Self {
+            MADE.fetch_add(1, Ordering::SeqCst);
+            Counted
+        }
+    }
+
+    // ASTから作る本文は、前の表示と同じ本文なら作り直さない。表示から消えた本文は忘れる。
+    #[test]
+    fn a_body_from_the_ast_is_made_again_only_when_it_is_new() {
+        let bodies = Bodies::<Counted>::default();
+        bodies.of(["a", "b"], "");
+        bodies.of(["a", "c"], "");
+        assert_eq!(MADE.load(Ordering::SeqCst), 3);
+        assert_eq!(kept(&bodies), 2);
+    }
+
+    // Markdownを自分で描くシェルの本文は、何も覚えない。
+    #[test]
+    fn the_bodies_of_a_shell_that_draws_the_markdown_are_not_kept() {
+        let bodies = Bodies::<()>::default();
+        assert_eq!(bodies.of(["# a", "b"], ""), vec![(), ()]);
+        assert_eq!(kept(&bodies), 0);
     }
 }
