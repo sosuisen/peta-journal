@@ -12,6 +12,12 @@ fn open(h: &mut Harness, url: &str) {
     });
 }
 
+fn back(h: &mut Harness) {
+    h.send(Event::Back {
+        today: TODAY.into(),
+    });
+}
+
 /// The name of the page on screen, or "settings".
 fn shown(h: &Harness) -> String {
     match &h.model.screen {
@@ -49,4 +55,21 @@ fn going_back_opens_the_page_before_and_lets_the_user_go_forward() {
     assert_eq!(shown(&h), "a");
     assert!(!h.view().history.can_go_back);
     assert!(h.view().history.can_go_forward);
+}
+
+// 戻ったあとに進むと、戻る前のページが開く。
+#[test]
+fn going_forward_after_going_back_opens_the_page_left() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/a");
+    open(&mut h, "/pages/b");
+    back(&mut h);
+
+    h.send(Event::Forward {
+        today: TODAY.into(),
+    });
+
+    assert_eq!(shown(&h), "b");
+    assert!(h.view().history.can_go_back);
+    assert!(!h.view().history.can_go_forward);
 }
