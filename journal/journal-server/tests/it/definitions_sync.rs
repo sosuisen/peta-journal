@@ -585,3 +585,51 @@ fn a_value_the_user_writes_to_a_key_deleted_on_another_device_defines_it_again()
         Some(Definition::Defined { value_type, .. }) if value_type == "number"
     ));
 }
+
+// 値があって仮の定義になったキーに、ユーザーがRESTやMCPで値を書いても、端末は、仮の定義のまま残し、消したことも残す。ユーザーは型を選んでいないからである。
+#[test]
+fn a_value_the_user_writes_to_a_provisional_key_leaves_it_provisional_and_deleted() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "text", true);
+    a.set_score(&page, "12");
+    b.receive(&a, DEFINITIONS_FILE);
+    b.undefine("score");
+    a.receive(&b, DEFINITIONS_FILE);
+
+    a.set_score(&page, "13");
+
+    assert!(a.is_provisional("score"));
+    let deleted: i64 = a
+        .state
+        .db
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(deleted, 1);
+    assert!(matches!(
+        a.written("score"),
+        Some(Definition::Deleted { .. })
+    ));
+}
+
+impl Device {
+    fn set_score(&self, page: &hmtid::Hmtid, value: &str) {
+        self.state
+            .journal
+            .set_page_property(
+                page.as_str(),
+                "score",
+                Some("text"),
+                Some(value),
+                &ChangedBy::Mcp,
+            )
+            .unwrap();
+    }
+}
