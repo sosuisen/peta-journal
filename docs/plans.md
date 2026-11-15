@@ -334,10 +334,7 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
     - 画像の貼り付けは、「ネイティブのシェルに共通」の項目にある（`ApiOp::UploadAsset`）
   - [ ] Androidでページを作れるようにするときに、拡張関数を入れるかを見直す（ADR 029のAlternative 7）。`rquickjs`の`bindgen`には、LLVMが要る
     - 後回しにする（2026-11-12にユーザーが決めた。ADR 031）。スマホで作るページには、テンプレートの項目が入らない
-- [ ] 機器のテスト`ItemLookTest`の`the_bullet_of_a_heading_is_at_the_middle_of_its_large_letters`が、ユーザーの端末（motorola edge 40 neo、Android 15）で落ちる原因を調べる
-  - 2026-11-16に見つけた。`the bullet is at 187.6dp, the letters at 190.71199dp`で落ちる。行頭の印と、見出しの文字の縦の位置が、約3dpずれている
-  - アプリのコードを`main`に戻しても、同じく落ちた。ADR 050のAndroidのPR（#527）とは関係ない
-  - 機器のテストを回すときは、先に端末のロックを解除する。ロックされていると、29件すべてが「No compose hierarchies found」で落ちる
+
 ## iOSのシェル
 
 - [ ] 上端のバーに、戻るボタンと進むボタンを置く（2026-11-13にユーザーが決めた）。場所は、検索の入力欄の左である。Androidのシェルは、もう置いている（`JournalScreen.kt`の`HistoryButton`、`HistoryTest`）

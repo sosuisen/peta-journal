@@ -248,8 +248,8 @@ class ItemLookTest : JournalScreenFixture() {
         waitFor("Big")
 
         val bullet = middle(bullet()) / compose.density.density
-        // The first heading is one and a half times as large as plain text
-        val heading = middleOfLetters(compose.onNode(hasText("Big"), useUnmergedTree = true), sizeSp = 24f)
+        // The first heading is twice as large as plain text, as a web browser draws it
+        val heading = middleOfLetters(compose.onNode(hasText("Big"), useUnmergedTree = true), sizeSp = 32f)
 
         assertTrue("the bullet is at ${bullet}dp, the letters at ${heading}dp", abs(bullet - heading) < 1f)
     }
