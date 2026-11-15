@@ -33,6 +33,9 @@ pub fn type_of(name: &str) -> ValueType {
 
 /// The full key name of a property of this type, whose body the user gives.
 pub fn name_of(body: &str, value_type: ValueType) -> Result<String, ReservedSuffix> {
+    if type_of(body) != ValueType::Text {
+        return Err(ReservedSuffix);
+    }
     let suffix = SUFFIXES
         .iter()
         .find(|(_, t)| *t == value_type)
