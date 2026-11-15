@@ -742,7 +742,7 @@ fn property_type(view: &ViewModel<()>, key: &str) -> String {
         _ => false,
     };
     if is_list {
-        return "tags".to_string();
+        return client_core::model::list_type_of(key).to_string();
     }
     view.config
         .property_definitions

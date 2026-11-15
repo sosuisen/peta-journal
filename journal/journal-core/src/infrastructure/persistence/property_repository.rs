@@ -4,23 +4,27 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use chrono::{Datelike, NaiveDate, TimeZone};
-use rusqlite::{params, Connection, Row};
+use rusqlite::{params, Connection};
 
 use crate::domain::bounds::Bounds;
 use crate::domain::number_text::format_number;
+use crate::domain::property_definitions::{Definition, Definitions};
+pub use crate::domain::property_key::validate_key;
+use crate::domain::property_key::PropertyKey;
 use crate::error::{AppError, AppResult};
 
-use super::db::{placeholders, Db};
+use super::db::{now_millis, placeholders, Db};
 
 /// Scalar properties per target: target id -> (key -> value as text).
 pub type ScalarProps = BTreeMap<String, BTreeMap<String, String>>;
 /// List properties per target: target id -> (key -> values).
 pub type ListProps = BTreeMap<String, BTreeMap<String, Vec<String>>>;
 
-/// The types a user may give a new key. `list` and `tags` stay internal: the only list
-/// property is `tags`, which the server derives from the body of an item.
-pub const USER_VALUE_TYPES: [&str; 6] =
-    ["text", "number", "checkbox", "date", "datetime", "bounds"];
+/// The types a user may give a new key. `list` is for a key whose name ends with `_list`
+/// (ADR 046). `tags` stays internal: the server derives the tags from the body of an item.
+pub const USER_VALUE_TYPES: [&str; 7] = [
+    "text", "number", "checkbox", "date", "datetime", "bounds", "list",
+];
 
 /// A property definition: the key, its value type and who may use it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,23 +35,6 @@ pub struct PropertyDefinition {
     pub system: bool,
     /// May be set on a page (every user key, and `tags` among the system keys).
     pub page: bool,
-}
-
-/// A key is a word of letters, digits, `_` and `-`: it is written unquoted in the metadata
-/// line of an item and as a YAML key in the front matter of a page.
-pub fn validate_key(key: &str) -> AppResult<()> {
-    if key.is_empty() {
-        return Err(AppError::bad_request("Property key is required"));
-    }
-    if !key
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-    {
-        return Err(AppError::bad_request(format!(
-            "Property key '{key}' may only contain letters, digits, '_' and '-'"
-        )));
-    }
-    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -80,9 +67,8 @@ impl PropertyRepository {
             return Ok(result);
         }
         let sql = format!(
-            "SELECT p.target_id, p.key, p.value_text, p.value_number, p.value_checkbox, pd.value_type \
-             FROM properties p JOIN property_definitions pd ON p.key = pd.key \
-             WHERE p.target_type = ? AND p.target_id IN ({})",
+            "SELECT target_id, key, value FROM properties \
+             WHERE target_type = ? AND target_id IN ({})",
             placeholders(target_ids.len())
         );
         let mut stmt = conn.prepare(&sql)?;
@@ -94,10 +80,8 @@ impl PropertyRepository {
         while let Some(row) = rows.next()? {
             let target_id: String = row.get(0)?;
             let key: String = row.get(1)?;
-            let value_type: String = row.get(5)?;
-            if let Some(value) = extract_value(row, &value_type)? {
-                result.entry(target_id).or_default().insert(key, value);
-            }
+            let value: String = row.get(2)?;
+            result.entry(target_id).or_default().insert(key, value);
         }
         Ok(result)
     }
@@ -204,6 +188,7 @@ impl PropertyRepository {
                 USER_VALUE_TYPES.join(", ")
             )));
         }
+        PropertyKey::parse(key)?.check_type(value_type)?;
         if let Some(existing) = self.find_definition(key)? {
             let what = if existing.system {
                 "a system key"
@@ -214,12 +199,112 @@ impl PropertyRepository {
                 "Property key '{key}' is {what}"
             )));
         }
-        let conn = self.db.conn()?;
-        conn.execute(
-            "INSERT INTO property_definitions (key, value_type, is_system, for_page) VALUES (?, ?, 0, ?)",
-            params![key, value_type, page as i64],
+        // The key is defined and no longer deleted at once, or neither
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        tx.execute(
+            "INSERT INTO property_definitions (key, value_type, is_system, for_page, modified) VALUES (?, ?, 0, ?, ?)",
+            params![key, value_type, page as i64, now_millis()],
         )?;
+        tx.execute(
+            "DELETE FROM deleted_property_definitions WHERE key = ?",
+            params![key],
+        )?;
+        tx.commit()?;
         Ok(())
+    }
+
+    /// Defines a user key as another device defined it, or changes its definition to that.
+    /// The values stay as they are: the type is how they are read (ADR 046).
+    pub fn put_definition(
+        &self,
+        key: &str,
+        value_type: &str,
+        page: bool,
+        modified: i64,
+    ) -> AppResult<()> {
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        tx.execute(
+            "INSERT INTO property_definitions (key, value_type, is_system, for_page, modified, provisional)
+             VALUES (?1, ?2, 0, ?3, ?4, 0)
+             ON CONFLICT(key) DO UPDATE SET value_type = ?2, for_page = ?3, modified = ?4, provisional = 0
+             WHERE is_system = 0",
+            params![key, value_type, page as i64, modified],
+        )?;
+        tx.execute(
+            "DELETE FROM deleted_property_definitions WHERE key = ?",
+            params![key],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Takes the deletion of a user key on another device: the date is kept, and the
+    /// definition goes. While a value of the key is still here, the definition stays as a
+    /// provisional one, to read that value; the values go when the files that dropped them
+    /// come in (ADR 046).
+    pub fn put_deletion(&self, key: &str, deleted: i64) -> AppResult<()> {
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        tx.execute(
+            "INSERT INTO deleted_property_definitions (key, deleted_date) VALUES (?, ?)
+             ON CONFLICT(key) DO UPDATE SET deleted_date = MAX(deleted_date, excluded.deleted_date)",
+            params![key, deleted],
+        )?;
+        let held: bool = tx.query_row(
+            "SELECT EXISTS (SELECT 1 FROM properties WHERE key = ?1)
+                 OR EXISTS (SELECT 1 FROM property_list_items WHERE key = ?1)",
+            params![key],
+            |r| r.get(0),
+        )?;
+        if held {
+            tx.execute(
+                "UPDATE property_definitions SET provisional = 1 WHERE key = ? AND is_system = 0",
+                params![key],
+            )?;
+        } else {
+            tx.execute(
+                "DELETE FROM property_definitions WHERE key = ? AND is_system = 0",
+                params![key],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// The definitions this device gives the other devices: the real user definitions, and
+    /// the keys deleted here (ADR 046).
+    pub fn find_synced_definitions(&self) -> AppResult<Definitions> {
+        let conn = self.db.conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT key, value_type, for_page, modified FROM property_definitions
+             WHERE is_system = 0 AND provisional = 0",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                Definition::Defined {
+                    value_type: r.get(1)?,
+                    page: r.get::<_, i64>(2)? != 0,
+                    modified: r.get(3)?,
+                },
+            ))
+        })?;
+        let mut definitions: Definitions = rows.collect::<Result<_, _>>()?;
+        let mut stmt =
+            conn.prepare("SELECT key, deleted_date FROM deleted_property_definitions")?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                Definition::Deleted { deleted: r.get(1)? },
+            ))
+        })?;
+        for row in rows {
+            let (key, deleted) = row?;
+            definitions.entry(key).or_insert(deleted);
+        }
+        Ok(definitions)
     }
 
     /// `delete_definition` on the given connection, as part of a larger transaction.
@@ -258,6 +343,11 @@ impl PropertyRepository {
             "DELETE FROM property_definitions WHERE key = ?",
             params![key],
         )?;
+        tx.execute(
+            "INSERT INTO deleted_property_definitions (key, deleted_date) VALUES (?, ?)
+             ON CONFLICT(key) DO UPDATE SET deleted_date = MAX(deleted_date, excluded.deleted_date)",
+            params![key, now_millis()],
+        )?;
         Ok(page_ids)
     }
 
@@ -280,7 +370,8 @@ impl PropertyRepository {
     }
 
     /// Sets a scalar value of a defined key, as part of a larger transaction. The value is
-    /// stored as the type of the definition says. A key with no definition is refused.
+    /// checked against the type of the definition and kept as text in the form the export
+    /// writes (`1.50` becomes `1.5`). A key with no definition is refused.
     pub fn write_scalar_in(
         conn: &Connection,
         target_type: &str,
@@ -291,67 +382,22 @@ impl PropertyRepository {
         let value_type = Self::find_definition_in(conn, key)?
             .map(|def| def.value_type)
             .ok_or_else(|| AppError::bad_request(format!("Property '{key}' is not defined")))?;
-        let sql = "INSERT OR REPLACE INTO properties (target_type, target_id, key, value_text, value_number, value_checkbox) VALUES (?, ?, ?, ?, ?, ?)";
-        match value_type.as_str() {
+        let text = match value_type.as_str() {
             "number" => {
                 let n: f64 = value
                     .trim()
                     .parse()
                     .map_err(|_| AppError::bad_request(format!("Not a number: {value}")))?;
-                conn.execute(
-                    sql,
-                    params![
-                        target_type,
-                        target_id,
-                        key,
-                        Option::<String>::None,
-                        n,
-                        Option::<i64>::None
-                    ],
-                )?;
+                format_number(n)
             }
-            "checkbox" => {
-                let b: i64 = if value == "true" { 1 } else { 0 };
-                conn.execute(
-                    sql,
-                    params![
-                        target_type,
-                        target_id,
-                        key,
-                        Option::<String>::None,
-                        Option::<f64>::None,
-                        b
-                    ],
-                )?;
-            }
-            "bounds" => {
-                let bounds = value.parse::<Bounds>()?.to_string();
-                conn.execute(
-                    sql,
-                    params![
-                        target_type,
-                        target_id,
-                        key,
-                        bounds,
-                        Option::<f64>::None,
-                        Option::<i64>::None
-                    ],
-                )?;
-            }
-            _ => {
-                conn.execute(
-                    sql,
-                    params![
-                        target_type,
-                        target_id,
-                        key,
-                        value,
-                        Option::<f64>::None,
-                        Option::<i64>::None
-                    ],
-                )?;
-            }
-        }
+            "checkbox" => (if value == "true" { "true" } else { "false" }).to_string(),
+            "bounds" => value.parse::<Bounds>()?.to_string(),
+            _ => value.to_string(),
+        };
+        conn.execute(
+            "INSERT OR REPLACE INTO properties (target_type, target_id, key, value) VALUES (?, ?, ?, ?)",
+            params![target_type, target_id, key, text],
+        )?;
         Ok(())
     }
 
@@ -518,7 +564,7 @@ impl PropertyRepository {
     ) -> AppResult<Vec<String>> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
-            "SELECT target_id FROM properties WHERE target_type = 'item' AND key = ? AND value_text = ? LIMIT ?",
+            "SELECT target_id FROM properties WHERE target_type = 'item' AND key = ? AND value = ? LIMIT ?",
         )?;
         let rows = stmt.query_map(params![key, value, max_results], |r| r.get::<_, String>(0))?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -623,26 +669,6 @@ pub fn list_values(value: &str) -> Vec<String> {
         .map(|t| t.trim().to_string())
         .filter(|t| !t.is_empty())
         .collect()
-}
-
-fn extract_value(row: &Row<'_>, value_type: &str) -> rusqlite::Result<Option<String>> {
-    Ok(match value_type {
-        "number" => {
-            let num: Option<f64> = row.get(3)?;
-            num.map(format_number)
-        }
-        "checkbox" => {
-            let cb: Option<i64> = row.get(4)?;
-            cb.map(|c| {
-                if c != 0 {
-                    "true".to_string()
-                } else {
-                    "false".to_string()
-                }
-            })
-        }
-        _ => row.get::<_, Option<String>>(2)?,
-    })
 }
 
 /// Replaces a list property of a target with the given values.

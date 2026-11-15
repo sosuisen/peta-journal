@@ -29,6 +29,23 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 理由: 定義（キー、型、ページ用かどうか）は、SQLiteの`property_definitions`にしかない。ファイルには出ない。だから、別のPCやモバイルの端末には、ユーザーが定義したプロパティとその型が届かない
   - 取り込みの修正（2026-11-14に済んだ）だけでは、定義のない端末で、値はすべて`text`として入る。定義のファイルが届いたら、その型に直す
   - ファイルの場所、名前、形式、端末の間でぶつかったときの決まりは、ADRで決める
+  - 2026-11-15にADR 046で決めた。`settings/properties.json`に置き、キーごとに新しい方を採る。4つのPRを積み重ねて出す
+    - [x] PR 1：プロパティの値を、`properties`の`value`の1つの列に、文字列で持つ（DBの版6）
+    - [x] PR 2：名前が`_list`で終わるキーだけを`list`型にする。`PropertyKey`の型
+    - [ ] PR 3：`settings/properties.json`で定義を同期する。大きいので、3つのPRに分けて順に出す（2026-11-15）
+      - [x] PR 3a：ユーザーが定義を足したときと消したときに、`settings/properties.json`を書く
+        - [x] DBの版7：`property_definitions`に`modified`と`provisional`を足し、`deleted_property_definitions`の表を作る。今あるユーザー定義は、日時0の本物の定義になる
+        - [x] 2つの版の定義を、キーごとに合わせる。新しい方を採る。日時が同じなら、消した方、`text`以外、型の名前の辞書順で後、`page`が真の順で採る
+        - [x] 定義をJSONに書き、読む。キーは辞書順。同じ定義からは同じバイト列になる。システム管理キーは書かない
+        - [x] ユーザーが定義を足すと、定義の日時が記録され、`settings/properties.json`に書かれる
+        - [x] ユーザーが定義を消すと、`deleted_property_definitions`に記録され、`settings/properties.json`に消した定義として書かれる
+        - [x] 消した定義を足し直すと、`deleted_property_definitions`の行が消える
+      - [x] PR 3b：届いた`settings/properties.json`を取り込む。合わせた結果がファイルと違えば書き直す。同じなら書き直さない（3aでは、この分岐を消した。2026-11-15にユーザーが決めた）。消したことが届いたとき、conflicted copy、走査と監視
+      - [ ] 届いた定義を、開いているクライアントに知らせる。今は、クライアントが起動したときにしか定義を読まない
+      - [ ] PR 3c：RESTやMCPで定義のないキーに値を書いて定義ができたときも、日時を記録し、`settings/properties.json`を書く。今は日時が0のままで、ファイルにも書かない
+      - [ ] PR 3c：仮の定義。取り込みで定義のないキーに仮の定義を作り、値がなくなったら消す。`for_page`はUIだけに使う。ユーザーのキーは、型に合わない値も取り込む
+    - [ ] PR 4：AndroidとiOSのシェルで、`settings/properties.json`も運ぶ。Androidは実機で確かめる
+  - [ ] 型に合わない値に、警告の印を付ける。シェルごとに別のタスクにする（ADR 046）
 - [x] Windowsのシェルで、上付き・下付きと`-# subtext`の文字を、ほかのシェルと同じく0.75倍の大きさで描く
   - 今は`FontVariants`でOpenTypeの`subs`と`sups`に任せている。Segoe UIとYu Gothic UIは数字しか置き換えず、Noto Sans JPはこの機能を持たない。だから、文字が小さくならない
   - ベースラインは下げない。WinUIの`Run`には、ずらす設定がないため
@@ -50,16 +67,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 ## ADR 042：coreが作るRichTextを、ネイティブのシェルが描く
 
 2026-11-14にユーザーが受理した。段階ごとに進め、AndroidとWindowsは、ユーザーが実機で確かめてから先へ進む。Swiftだけで共通にする案（PR #464）は、この ADR で採らなかったが、main に入った。その`peta-shown`は、段階2と3で消す。macOSで画像をjournalサーバーから読む処理と、リンクの決まり（クリックはアプリの中、Shift-クリックはブラウザ）は、そのまま使う。
-
-- [x] 段階0：facetの型の生成が、型引数を持つビューモデル（`BodyModel`）をSwift、Kotlin、C#に書き出せるかを確かめる。書き出せなければ、行の本文を`Node`と`RichText`のenumにする（ADR 042のAlternative 4）。結果：`ViewModel<RichText>`を登録すると、3つの言語とも`Row`の本文が`RichText`の型になった。Swiftはコンパイルできた。enumは要らない
-- [x] 段階1：`client-core`に`RichText`の型、`BodyModel`のトレイト、ASTとRichTextの2つの実装を作り、Rustでテストする。Web版はASTの実装を使い、`client-native-bridge`はRichTextの実装を使う
-  - 行の本文の描画モデルは`Row.body_model`である。Web版では`Node`、ネイティブでは`RichText`である
-  - 切り替えのあいだ、`client-native-bridge`の行は`BorderBody`（`ast`と`rich`の両方）を渡す。まだ切り替えていないシェルは`row.bodyModel.ast`から描く。段階5のあとで`ast`を消し、`RichText`だけにする
-- [x] 段階2：iOSのシェルを、`RichText`から描くように切り替える。`peta-shown`を使うのをやめる
-- [x] 段階3：macOSのシェルを切り替える。画像の読み込みとリンクの決まりは、今のものを使う。`peta-shown`を消し、`PetaTypes`の生成先を各アプリに戻す
-- [x] 段階4：Androidのシェルを切り替える。2026-11-14にユーザーが実機で確かめた
-- [x] 段階5：Windowsのシェルを切り替える。画像を絵として出し、表を別の部品で描く。2026-11-14にユーザーが直して（PR #471）、実機で確かめた
-- [x] 仕上げ：`docs/architecture.svg`を直す。`BorderBody`を消し、境界の行は`RichText`だけを渡す。C#の`Node`は生成されなくなった。使われなくなったページのURLの関数（`wikilink_url`、`hashtag_url`、`page_url`、`tag_url`）も消した
 
 ユーザーが決めた、各シェルの描き方：
 
@@ -380,6 +387,8 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 表示を作るのは、`client/apps/native-app/outliner-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`と、`JournalScreen.kt`の`"Sync failed: ${state.reason}"`である
 - [ ] 編集中の入力欄が画面から外されても編集が続くことを、実機の順序で確かめるテストを探す。実機では、システムが、入力欄を外す前にキーボードを取り上げる。シミュレーターでは順序が逆で、今のテスト（編集中に画面を横にする）は、シミュレーターの順序しか通らない
   - キーボードが出るときには、入力欄はもう外されない（PR #404）。この道を通るのは、画面を横にしたときなどである
+  - Enterの直後の文字が消える問題を直すとき（2026-11-14）、この道で使う受け皿（`KeyboardKeeper`）を変えた。受け皿は、文字を断らずに自分の中に入れ、`Typist.held`へ移す。待つ間は50ミリ秒ごとに見る。1秒たっても誰も来なければ、キーボードを手放す。古い待ちが次の待ちを止めないように、待ちに番号を付けた
+  - その変更のあと、すべてのテストを回すと、`testTheEditGoesOnWhenTheScreenIsTurnedAndTheEditedItemLeavesWhatIsSeen`が「Keyboard (First Match) is not shown」で1回落ちた。変更の前にも、同じ表示で時々落ちていた。変更で増えたのかは調べていない
 - [ ] 道具の列から、削除のボタンを取る（2026-11-13にユーザーが決めた）。Androidのシェルも同じにする
   - 取る前に、ボタンがなくても項目を消せるかを確かめる。空の項目の行頭でBackspaceを打つと消えるか、文字のある項目はどう消すかを見る
   - 表示はMarkdownを整形したもので、編集するのは元のMarkdownである。記号（`**`、リンク、タスクの印など）の分だけ、触れた位置と元の文字の位置がずれる。表示の位置から元の位置を求める方法を、先に決める
@@ -400,17 +409,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 
 2026-11-14に、残りの項目で減るシェルの行数を見積もった。いちばん減るのは、Dropboxとの同期をRustにまとめる項目である。iOSとAndroidに、コードが約1,900行、テストが約2,300行ある。そのうち、何を上げ下げするかの判断、フォルダーとの突き合わせ、記録（`CloudSync`、`SyncRound`、`Downloader`、`Uploader`、`MarkdownFolder`、`CloudRecord`）の約1,000行が減る。DropboxのSDKとログインは、シェルに残る。ADR 034で選ばなかった案なので、先に新しいADRが要る。次は、付箋紙の設定と保存（SwiftとC#で約400行、約250行減る）である。ほかの項目は、数行から100行ほどである。日付の切り替わりと、iOSとAndroidでの`Prompt`などへの対応は、シェルのコードが増える
 
-
-- [x] 検索の候補の文言を、coreが決める。今は、新しいページを作る候補が、シェルごとに違う。スマホは`New page: X`、macOSとWindowsは`Create "X"`、Web版は`+ Create "X"`である。`Open Today`は、coreが決めているのに、iOS（`App/JournalScreen.swift:210`）とAndroid（`screen/JournalScreen.kt:181`）が書き直している。`SearchEntry`に文言を持たせる
-  - 2026-11-14にユーザーが文言を決めた。ページを作る行は`Create new page "名前"`である（PR #481）。同じ日に、`Create page "名前"`に変えた（PR #483）
-- [x] ブラウザで開くページと画像のアドレスを、Rustで作る。今は、macOS（`Shell.swift:82,94`、`AssetImages.swift:49`）とWindows（`Shell.cs:133-154`）が別々に作り、エンコードの仕方が違う。名前に`?`や2つ目の`#`があるページで、結果が変わる。`client-page-links`の`AppLinks`を使い、`client-native-bridge`から出す
-  - ページ名には`?`を使えない（`validate_file_name`）。そのため、`?`での食い違いは起きていなかった。ファイルのパスでは、`#`と`?`も符号化する
-- [x] カーソルの位置の、UTF-16と文字の数の換算を、Rustで1回だけ行う（ADR 043）。関数は`client-core`に置き、Web版は直接、macOSとWindowsは`client-shell-http`から、iOSは`client-shell-embedded`から使う。サロゲートペアの途中は、その文字の後ろに寄せる。Androidは、標準の`codePointCount`と`offsetByCodePoints`のままでよい
-  - 今の換算は、macOS（`Keys.swift:38-58`）、Windows（`Keys.cs:67-97`）、iOS（`App/ItemEditor.swift:270-281`、`App/Touches.swift:42`）、Web版（`dom.rs`の`utf16_to_chars`と`chars_to_utf16`）にある。サロゲートペアの途中に当たったとき、iOSだけが本文の長さを返す
-  - Web版のキーの再生（`item_editor/replay.rs`）は、UTF-16の位置を1ずつ動かすので、絵文字の半分だけを消すおそれがある。この関数で動かす
-- [x] coreが自分で決める位置を、書記素の境に寄せる（ADR 043）。`unicode-segmentation`を使う。触れた位置をMarkdownの位置に直す`rich_text/places.rs`の`touched_place`が、これに当たる。今は、直した位置が絵文字の途中に入ると、Enterで1つの絵文字が2つの項目に割れるおそれがある
-- [x] 不具合：`client-core/src/screens/journal.rs`の`extract_journal_name`は、週のジャーナルの名前を、ファイル名のバイトの位置で切り出す。`-W`の前に日本語などがあると、パニックする（ADR 043）。文字の境で切るように直す
-- [x] 保留したキーの再生で、複数のコードポイントでできた1文字（異体字セレクタやZWJ付きの絵文字）が捨てられる。`model.rs`の`DeferredKey.is_typed_character`が、1つのコードポイントのキーしか受け入れないためである（ADR 043）
 - [ ] 画像の大きさの決まりを、Rustの1つの関数にする。今は、4つのシェルで違う。iOSは幅に合わせて縮め、Androidは決まった幅にし、macOSは付箋紙の幅に縮めない。画像がないときも、macOSは`[alt]`、スマホは`alt`かパス、Windowsは何も出さない
 - [ ] 描画の定数をそろえる。見出しの大きさは、Androidだけがブラウザの既定値（2.0、1.5、1.17…）で、ほかは1.6、1.4、1.2、1.1、1である。マーカーの色、1段の字下げも、シェルごとに違う。行頭の点は、iOSとAndroidが`row.showBullet`に従い、macOSとWindowsはいつも描く。coreが`RichParagraph`で大きさを渡すか、共通の表を持つ
 - [ ] イベントの時刻（`nowMs`）を、`client-native-bridge`の`Clock`で入れる。今は、4つのシェルが自分で入れている（macOS `Shell.swift:128`と`Keys.swift:93`、Windows `Shell.cs:299`、iOS `Shell.swift:154`、Android `Shell.kt:172`）

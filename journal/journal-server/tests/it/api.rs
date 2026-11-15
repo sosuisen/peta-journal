@@ -337,6 +337,31 @@ async fn a_list_of_an_item_is_kept_under_its_own_key_apart_from_the_tags() {
     assert_eq!(after.properties["tags"], json!(["items-list-tag"]));
 }
 
+// 定義のないキーには、名前に合う型でしか値を書けない。リストの値は名前が_listで終わるキーに、スカラーの値はそれ以外のキーに書く。
+#[tokio::test]
+async fn a_key_with_no_definition_takes_only_the_type_its_name_fits() {
+    let page = new_doc_page("items-type-by-name").await;
+    let item = fill(&page.id, &["typed"]).await.remove(0);
+
+    for (key, body) in [
+        (
+            "undefined_members",
+            json!({ "valueType": "list", "value": "x" }),
+        ),
+        (
+            "undefined_note_list",
+            json!({ "valueType": "text", "value": "x" }),
+        ),
+    ] {
+        let (status, resp) = put(
+            &format!("/api/items/{}/properties/{key}", item.id),
+            body.clone(),
+        )
+        .await;
+        assert_eq!(status, 400, "{key} {body} -> {resp}");
+    }
+}
+
 // 削除した項目はページから消える。
 #[tokio::test]
 async fn a_deleted_item_is_gone_from_its_page() {
@@ -4242,6 +4267,29 @@ async fn property_definitions_list_the_system_keys_and_accept_user_keys() {
     }
 }
 
+// リストのキーは、名前が_listで終わるときだけ定義でき、名前が_listで終わるキーはリストでしか定義できない。
+#[tokio::test]
+async fn a_list_key_is_defined_only_with_a_name_that_ends_with_list() {
+    let (status, resp) = post(
+        "/api/config/property-definitions",
+        json!({ "key": "defined_member_list", "valueType": "list" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(
+        definition(&resp, "defined_member_list").unwrap()["valueType"],
+        json!("list")
+    );
+
+    for body in [
+        json!({ "key": "defined_members", "valueType": "list" }),
+        json!({ "key": "defined_owner_list", "valueType": "text" }),
+    ] {
+        let (status, resp) = post("/api/config/property-definitions", body.clone()).await;
+        assert_eq!(status, 400, "{body} -> {resp}");
+    }
+}
+
 // 項目からプロパティを削除できる。
 #[tokio::test]
 async fn a_property_can_be_removed_from_an_item() {
@@ -4372,6 +4420,30 @@ async fn a_list_of_a_page_is_kept_under_its_own_key_apart_from_the_tags() {
     );
     assert_eq!(resp["page"]["properties"]["tags"], json!(["page-list-tag"]));
     assert!(doc_page_named("list-y").await.is_none());
+}
+
+// 定義のないキーには、ページでも、名前に合う型でしか値を書けない。
+#[tokio::test]
+async fn a_key_of_a_page_with_no_definition_takes_only_the_type_its_name_fits() {
+    let page = new_doc_page("page-type-by-name").await;
+
+    for (key, body) in [
+        (
+            "undefined_page_members",
+            json!({ "valueType": "list", "value": "x" }),
+        ),
+        (
+            "undefined_page_note_list",
+            json!({ "valueType": "text", "value": "x" }),
+        ),
+    ] {
+        let (status, resp) = put(
+            &format!("/api/pages/{}/properties/{key}", page.id),
+            body.clone(),
+        )
+        .await;
+        assert_eq!(status, 400, "{key} {body} -> {resp}");
+    }
 }
 
 /// Held by a test that changes the tag directory, and by the tests of tag pages. A tag page

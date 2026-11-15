@@ -12,8 +12,14 @@
 | `value_type` | 型。`text` / `number` / `checkbox` / `date` / `datetime` / `bounds` / `list` / `tags` |
 | `is_system` | システム管理キーなら1。ユーザーは定義を追加・変更・削除できない |
 | `for_page` | ページに付けられるキーなら1 |
+| `modified` | ユーザーが定義した日時（ミリ秒）。DBの版7より前からある定義は0 |
+| `provisional` | 仮の定義なら1（ADR 046）。仮の定義は `settings/properties.json` に書かない |
 
-ユーザーがSettings画面や `POST /api/config/property-definitions` で新しいキーを定義するときに選べる型は `text` / `number` / `checkbox` / `date` / `datetime` / `bounds` の6つである。`list` 型のキーは、未定義のキーに `valueType: "list"` で値を送ると作られる。`tags` 型は `tags` キーだけが使う。
+ユーザーが消した定義は、`deleted_property_definitions(key, deleted_date)` に、消した日時とともに残る。項目の `deleted_items` と同じ形である。同じキーをユーザーが定義し直すと、その行は消える。
+
+ユーザーがSettings画面や `POST /api/config/property-definitions` で新しいキーを定義するときに選べる型は `text` / `number` / `checkbox` / `date` / `datetime` / `bounds` / `list` の7つである。`list` 型のキーは、未定義のキーに `valueType: "list"` で値を送っても作られる。`tags` 型は `tags` キーだけが使う。
+
+値がリストかどうかは、キーの名前で決まる（ADR 046）。`list` 型のキーの名前は `_list` で終わる（`member_list` など）。`tags` だけは例外で、`_list` で終わらない名前のリストのキーである。`_list` で終わる名前のキーを `list` 以外の型で定義したり、`_list` で終わらない名前のキーを `list` 型で定義したりすると、400エラーになる。定義のないキーに値を書くときも同じである。名前で決めるのは、定義が届く前でも、どの端末も同じようにリストかどうかを決められるためである。判定は `domain::property_key::PropertyKey` が行う。
 
 `tags` と `list` は、どちらも値の並びで、保存のしかたも同じである。型を分けているのは、UIが値をデータ型だけで見分けて、`tags` 型の値を `#` 付きで表示できるようにするためである。`tags` 型にはキーの名前を見なくてもタグの見た目を与えられ、`list` 型はただの値の並びとして表示する。
 
@@ -124,12 +130,16 @@ atlasのデータは、すべてディレクトリの `index_atlas.md` の本文
 
 スカラー値は `properties` テーブルに入る。主キーは `(target_type, target_id, key)` で、1対象につき1キー1値である。`target_type` は `item` か `page` である。
 
-| 型 | 保存先 | 読み出したときの文字列 |
-|---|---|---|
-| `number` | `value_number` | 整数なら `"2"`、小数なら `"1.5"`。数値でない入力は400エラー |
-| `checkbox` | `value_checkbox` | `"true"` のときだけ1。読み出しは `"true"` / `"false"` |
-| `text` / `date` / `datetime` | `value_text` | そのまま。日付の形式チェックはない |
-| `bounds` | `value_text` | `x,y,width,height` の4つの数値をカンマでつなぐ。空白は除き、各数値は `number` と同じ形で書き直す。例: `" 10, 20.5,160 ,56"` は `"10,20.5,160,56"` になる。4つの有限な数値でない入力は400エラー |
+値の列は `value` の1つだけで、どの型の値も文字列で入る（ADR 046）。型は値の読み方で、型が変わっても `value` は変わらない。REST・MCPから書くときは、定義の型で値を確かめ、次の形の文字列にして入れる。
+
+| 型 | `value` に入る文字列 |
+|---|---|
+| `number` | 整数なら `"2"`、小数なら `"1.5"`。数値でない入力は400エラー |
+| `checkbox` | `"true"` のときだけ `"true"`、ほかは `"false"` |
+| `text` / `date` / `datetime` | そのまま。日付の形式チェックはない |
+| `bounds` | `x,y,width,height` の4つの数値をカンマでつなぐ。空白は除き、各数値は `number` と同じ形で書き直す。例: `" 10, 20.5,160 ,56"` は `"10,20.5,160,56"` になる。4つの有限な数値でない入力は400エラー |
+
+数は文字列で持つので、`value` のまま比べると `"10"` が `"9"` より小さくなる。数で比べる検索や並べ替えを足すときは、`value` から作る生成列を足す（ADR 046）。
 
 リスト値は `property_list_items` テーブルに1値1行で入る。`sort_order` で順序を保つ。
 
@@ -184,7 +194,7 @@ atlasのデータは、すべてディレクトリの `index_atlas.md` の本文
 <!-- @@ <id> idx="..." modified="2026-03-01T00:00:00Z" plan="2026-03-01" tags="a,b" zoom="1.5" -->
 ```
 
-ファイルの取り込みでは、メタデータ行のスカラー値と `list` 型の値を、項目のプロパティに合わせる。行にないキーの値は消す。`tags` だけは読まず、本文の `#hashtag` から作り直す。
+ファイルの取り込みでは、メタデータ行のスカラー値と、名前が `_list` で終わるキーのリストの値を、項目のプロパティに合わせる。定義のないキーも、名前でリストかどうかを決める。行にないキーの値は消す。`tags` だけは読まず、本文の `#hashtag` から作り直す。
 
 ### ページ
 
@@ -209,8 +219,8 @@ tags:
 frontmatterの残りのキーは、ページのプロパティとして読む（`PageService::replace_page_properties`）。ファイルだけからページを作った端末も、これでプロパティを持つ。読まないと、その端末が次にファイルを書いたときに、frontmatterからプロパティが消える。
 
 - ページより新しいファイルが、ページのプロパティを決める。ファイルにないキーの値は、ページから消す。ページより古いファイルは、ページのプロパティを変えない。`tags` と同じ決まりである。
-- 定義のないキーは、`text` として定義する。型は端末の間で同期していないので、別の端末で `number` や `list` として定義したキーも、定義のない端末では `text` になる。
-- `list` として定義してあるキーは、リストとして読む。定義のない端末が `key: a,b` と書いたファイルも、定義のある端末ではリストに戻る。
+- 定義のないキーは、名前が `_list` で終わればリストとして、それ以外は `text` として読む。型は端末の間でまだ同期していないので、別の端末で `number` として定義したキーも、定義のない端末では `text` になる。
+- 名前が `_list` で終わるキーは、定義があってもなくても、リストとして読む。
 - `for_page` が0のキー、キーにできない名前の行、型に合わない値は、読み飛ばす。ファイルのほかの部分は取り込む。型に合わない値のときは、ページの値が残る。
 - Dropboxのconflicted copyからは、プロパティを読まない。
 
@@ -247,6 +257,15 @@ frontmatterの残りのキーは、ページのプロパティとして読む（
 
 ### プロパティ定義の同期
 
-定義（キー、型、`for_page`）は、SQLiteの `property_definitions` にしかない。ファイルには出ないので、別のPCやモバイルの端末には届かない。定義のない端末は、取り込んだキーを `text` として定義する。
+ADR 046で、定義をMarkdownフォルダーの `settings/properties.json` に置き、端末の間で同期すると決めた。
 
-定義をMarkdownフォルダーのファイルに置いて、端末の間で同期する予定である（2026-11-14にユーザーが決めた）。ファイルの場所、名前、形式、ぶつかったときの決まりは、ADRで決める。`docs/plans.md` の「次にやること」にある。
+- 端末は、その端末のユーザーが定義を足したときと消したときに、`settings/properties.json` を書く（`DefinitionsFileService::write_file`）。書く中身は、端末のDBの本物のユーザー定義と `deleted_property_definitions` を、ファイルにある定義とキーごとに合わせた結果である（`domain::property_definitions::merge`）。ファイルにあって、端末がまだ取り込んでいないほかの端末の定義を消さないためである。
+- 形式は、ADR 046の「ファイルの形式」のとおりである（`infrastructure::export::definitions_file`）。キーは辞書順で、日時はUTCのISO 8601である。システム管理キーは書かない。読むときは、ユーザーが作れない定義（システム管理キー、名前に合わない型、知らない型、キーにできない名前、日時のない定義）を読み飛ばす。
+- 端末は、ほかの端末が書いた `settings/properties.json` を受け取ると、その定義と端末のDBの定義をキーごとに合わせ、結果を端末のDBに入れる（`DefinitionsFileService::take_in`）。合わせた結果が受け取ったファイルと違えば、ファイルを書き直す。同じなら書き直さない。
+  - 新しい定義が届くと、端末は、DBの定義をその型と `for_page` に変え、`deleted_property_definitions` からそのキーの行を消す。仮の定義も本物の定義になる。値は変えない。
+  - 消したことが届くと、端末は、消した日時を `deleted_property_definitions` に入れる。端末のDBにそのキーの値がなければ、定義の行を消す。値があれば、定義を仮の定義（`provisional` が1）にして残し、値も残す。
+  - ページのファイルは書き直さず、ページの `modified` も進めない。
+- `settings/properties.json` のconflicted copy（`settings/properties (… conflicted copy …).json`）は、もう1つの版として端末のDBに合わせ、`settings/properties.json` を書き直してから消す（`take_in_copy`）。
+- 取り込むのは、ジャーナルサーバーの監視（`settings/` も見る。監視を始めるときに `settings/` を作る）と、coreの走査（`MarkdownReconcileService` が毎回 `settings/` を見る）である。どちらも `MarkdownImportService::sync_file` に渡す。どのファイルを渡すかは `import_service::takes_in` が決める。
+- 開いているクライアントには、届いた定義をまだ知らせない。クライアントは、起動したときにだけ定義を読む（`screens::start`）。
+- 仮の定義を、取り込みで定義のないキーに作ることは、まだない。`docs/plans.md` にある。

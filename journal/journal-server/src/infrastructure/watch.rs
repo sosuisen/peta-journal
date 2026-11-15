@@ -14,9 +14,10 @@ use journal_core::domain::search::SearchIndex;
 use journal_core::infrastructure::persistence::db::now_millis;
 
 use super::pending_delete_prompt::PendingDeletePrompt;
+use journal_core::infrastructure::export::definitions_file::SETTINGS_DIR;
 use journal_core::infrastructure::export::export_service::MarkdownExportService;
 use journal_core::infrastructure::export::file_sync_state::FileSyncStateRepository;
-use journal_core::infrastructure::export::import_service::{MarkdownImportService, Outcome};
+use journal_core::infrastructure::export::import_service::{self, MarkdownImportService, Outcome};
 use journal_core::infrastructure::export::path_mapper;
 use journal_core::infrastructure::export::reconcile_service::MarkdownReconcileService;
 use journal_core::journal::FolderWatch;
@@ -167,6 +168,16 @@ impl MarkdownFolderWatcher {
                 "Cannot watch {}: no docs/ or journals/ folder",
                 new_root.display()
             );
+        } else {
+            // The definitions of another device come in settings/, which a device that has
+            // defined nothing yet does not have; it is made so that it can be watched
+            let settings = new_root.join(SETTINGS_DIR);
+            if let Err(e) = std::fs::create_dir_all(&settings)
+                .map_err(notify::Error::io)
+                .and_then(|_| watcher.watch(&settings, RecursiveMode::NonRecursive))
+            {
+                tracing::warn!("Cannot watch {}: {e}", settings.display());
+            }
         }
         {
             let mut st = self.state.lock();
@@ -203,7 +214,7 @@ impl MarkdownFolderWatcher {
                 self.reconcile.request_scan();
                 continue;
             }
-            if path_mapper::is_ignored(&rel) {
+            if !import_service::takes_in(&rel) {
                 continue;
             }
             self.pending.lock().insert(rel, now_millis());

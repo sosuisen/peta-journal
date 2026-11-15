@@ -116,7 +116,7 @@ pub fn Settings() -> impl IntoView {
                         <button type="submit" class="browse-btn">"Add"</button>
                     </form>
                     {move || definition_error.get().map(|e| view! { <p class="setting-error">{e}</p> })}
-                    <p class="setting-description">"System keys are managed by the app and cannot be defined again. A key can be used on items and, when marked, on pages. Deleting a key removes its values from every page and item."</p>
+                    <p class="setting-description">"System keys are managed by the app and cannot be defined again. A key can be used on items and, when marked, on pages. The name of a key of type list ends with _list. Deleting a key removes its values from every page and item."</p>
                 </div>
             </div>
         </app-settings>

@@ -31,6 +31,7 @@ use crate::domain::model::Page;
 use crate::error::AppResult;
 use crate::infrastructure::persistence::db::now_millis;
 
+use super::definitions_file::{self, DefinitionsFileService, DEFINITIONS_FILE};
 use super::export_service::{mtime_millis, MarkdownExportService};
 use super::file_sync_state::FileSyncStateRepository;
 use super::item_merger::{ItemMerger, MergeMode};
@@ -72,6 +73,8 @@ pub struct MarkdownImportService {
     /// Takes the tags of the front matter, and keeps the tag pages in step with them and
     /// with the hashtags of the imported bodies.
     page_service: Arc<PageService>,
+    /// Takes in `settings/properties.json`, which holds the definitions of the user keys
+    definitions: Arc<DefinitionsFileService>,
     /// How long a file waits for the file of the same page to go before it is a copy.
     copy_wait: Duration,
     /// The files that wait, by path. They are lost on a restart; the scan brings them again.
@@ -95,6 +98,7 @@ impl MarkdownImportService {
         export: Arc<MarkdownExportService>,
         events: Arc<dyn ImportEvents>,
         page_service: Arc<PageService>,
+        definitions: Arc<DefinitionsFileService>,
         copy_wait: Duration,
     ) -> MarkdownImportService {
         MarkdownImportService {
@@ -105,6 +109,7 @@ impl MarkdownImportService {
             export,
             events,
             page_service,
+            definitions,
             copy_wait,
             waiting: Mutex::new(BTreeMap::new()),
             lock: Mutex::new(()),
@@ -119,6 +124,21 @@ impl MarkdownImportService {
     }
 
     fn sync_locked(&self, root: &Path, rel_path: &str) -> Outcome {
+        if rel_path == DEFINITIONS_FILE {
+            return self.definitions.take_in(root).unwrap_or_else(|e| {
+                tracing::error!("Failed to take in {rel_path}: {e:#}");
+                Outcome::Error
+            });
+        }
+        if definitions_file::is_copy_of_the_file(rel_path) {
+            return self
+                .definitions
+                .take_in_copy(root, rel_path)
+                .unwrap_or_else(|e| {
+                    tracing::error!("Failed to merge {rel_path}: {e:#}");
+                    Outcome::Error
+                });
+        }
         if let Some(loc) = path_mapper::conflicted_copy_of(rel_path) {
             return self.merge_copy(root, rel_path, &loc).unwrap_or_else(|e| {
                 tracing::error!("Failed to merge {rel_path}: {e:#}");
@@ -588,4 +608,30 @@ fn read_stable(file: &Path) -> std::io::Result<String> {
         return Err(e);
     }
     std::fs::read_to_string(file)
+}
+
+/// Whether `sync_file` takes the file in: the files of the pages, their conflicted copies,
+/// and `settings/properties.json` with its conflicted copies. The folder watcher hears of
+/// every file; it passes on only these.
+pub fn takes_in(rel_path: &str) -> bool {
+    !path_mapper::is_ignored(rel_path)
+        || rel_path == DEFINITIONS_FILE
+        || definitions_file::is_copy_of_the_file(rel_path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // 取り込むのは、ページのファイルと、settings/properties.jsonとそのconflicted copyである。ほかの設定のファイルは取り込まない。
+    #[test]
+    fn the_files_of_pages_and_of_the_definitions_are_taken_in() {
+        assert!(takes_in("docs/d/a.md"));
+        assert!(takes_in("settings/properties.json"));
+        assert!(takes_in(
+            "settings/properties (PC's conflicted copy 2026-11-15).json"
+        ));
+        assert!(!takes_in("settings/other.json"));
+        assert!(!takes_in("settings/properties (backup).json"));
+    }
 }

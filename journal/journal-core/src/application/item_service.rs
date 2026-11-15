@@ -12,6 +12,7 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::item_body::ItemBody;
 use crate::domain::model::{Item, ItemPatch, ItemPlacement, ItemPosition, Page};
 use crate::domain::nfc::to_nfc;
+use crate::domain::property_key::PropertyKey;
 use crate::domain::search::SearchIndex;
 use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_service::MarkdownExportService;
@@ -1261,10 +1262,15 @@ impl ItemService {
         let existing = self.get_item_by_id(item_id)?;
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
-        // The type of a key is fixed when it is defined; a new key takes the type sent
-        let value_type = PropertyRepository::find_definition_in(&tx, key)?
-            .map(|def| def.value_type)
-            .unwrap_or_else(|| value_type.to_string());
+        // The type of a key is fixed when it is defined; a new key takes the type sent,
+        // which must fit the name of the key
+        let value_type = match PropertyRepository::find_definition_in(&tx, key)? {
+            Some(def) => def.value_type,
+            None => {
+                PropertyKey::parse(key)?.check_type(value_type)?;
+                value_type.to_string()
+            }
+        };
         if value_type == "tags" || value_type == "list" {
             let values = list_values(value);
             PropertyRepository::upsert_list_in(

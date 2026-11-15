@@ -25,6 +25,7 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::search::SearchIndex;
 use crate::dto::ItemDtoAssembler;
 use crate::events::{ClientMessages, EventSink};
+use crate::infrastructure::export::definitions_file::DefinitionsFileService;
 use crate::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::export::file_sync_state::FileSyncStateRepository;
@@ -179,6 +180,10 @@ impl JournalCore {
             Arc::clone(&search),
             Arc::clone(&ids),
         );
+        let definitions_file = Arc::new(DefinitionsFileService::new(
+            properties.clone(),
+            Arc::clone(&export),
+        ));
         let import = Arc::new(MarkdownImportService::new(
             OutlineMarkdownParser::new(splitter.clone()),
             page_matcher,
@@ -187,6 +192,7 @@ impl JournalCore {
             Arc::clone(&export),
             messages.clone(),
             Arc::clone(&page_service),
+            Arc::clone(&definitions_file),
             settings.import_copy_wait,
         ));
         let reconcile = Arc::new(MarkdownReconcileService::new(
@@ -219,6 +225,7 @@ impl JournalCore {
                 extensions: Arc::clone(&extensions),
                 config: Arc::clone(&config),
                 export: Arc::clone(&export),
+                definitions_file: Arc::clone(&definitions_file),
                 folder_watch: host.folder_watch,
                 pages: pages.clone(),
                 items: items.clone(),

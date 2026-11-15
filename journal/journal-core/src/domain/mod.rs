@@ -10,5 +10,7 @@ pub mod journal_name;
 pub mod model;
 pub mod nfc;
 pub mod number_text;
+pub mod property_definitions;
+pub mod property_key;
 pub mod search;
 pub mod wikilink;
