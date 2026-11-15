@@ -51,6 +51,9 @@ fn request_paste(
         Some(typed) if unsaved => typed,
         _ => item.body.clone(),
     };
+    // The closing lines go after the body, so the cursor stays where it is. The server
+    // refuses a body that is not closed (ADR 050)
+    let body = flatmarkdown::close_blocks(&body);
     let discard = discard_pending_edit(model, &item);
     let request = run(move |api| async move {
         match api.paste_text(&item.id, &body, cursor, &text, mode).await {
