@@ -615,6 +615,8 @@ fn read_stable(file: &Path) -> std::io::Result<String> {
 /// every file; it passes on only these.
 pub fn takes_in(rel_path: &str) -> bool {
     !path_mapper::is_ignored(rel_path)
+        || rel_path == DEFINITIONS_FILE
+        || definitions_file::is_copy_of_the_file(rel_path)
 }
 
 #[cfg(test)]
