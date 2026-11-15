@@ -254,3 +254,38 @@ fn a_definition_deleted_on_another_device_stays_provisional_while_a_value_holds_
         Some(Definition::Deleted { .. })
     ));
 }
+
+// 消した定義より新しい定義が届くと、端末は、その定義を本物の定義としてDBに入れ、消した定義の表からそのキーの行を消す。仮の定義も、本物の定義になる。
+#[test]
+fn a_definition_newer_than_its_deletion_makes_the_key_real_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "number", true);
+    a.state
+        .page_service
+        .set_property(&page, "score", "number", "12")
+        .unwrap();
+    b.receive(&a, DEFINITIONS_FILE);
+    b.undefine("score");
+    a.receive(&b, DEFINITIONS_FILE);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    b.define("score", "text", true);
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert_eq!(a.definition("score"), Some(("text".to_string(), true)));
+    assert!(!a.is_provisional("score"));
+    let deleted: i64 = a
+        .state
+        .db
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(deleted, 0);
+}
