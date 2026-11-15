@@ -2,11 +2,13 @@ package com.sosuisha.petajournal.screen
 
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.io.File
@@ -151,6 +153,21 @@ class BarAndCloudTest : JournalScreenFixture() {
         compose.onNodeWithText("Try again").performClick()
 
         compose.waitUntil(WAIT_MS) { File(root, "markdown/docs/trip.md").exists() }
+    }
+
+    // 同期のメッセージは、ページの上端に出る。下端に出すと、いちばん下の行で打つ文字に重なる。
+    @Test
+    fun the_message_of_the_sync_lies_over_the_top_of_the_page() {
+        start(OnePage(reachable = false))
+        menu("Sync")
+        waitFor("Sync failed: the network is gone")
+
+        val message = compose.onNodeWithText("Sync failed: the network is gone").getBoundsInRoot()
+        val bar = compose.onNodeWithTag(SEARCH_TAG).getBoundsInRoot()
+        val screen = compose.onRoot().getBoundsInRoot()
+
+        val height = screen.bottom - screen.top
+        assertTrue(message.top - bar.bottom < height / 4)
     }
 
     // 同期が失敗したあとは、メニューにサインインの項目が出る。Dropboxが受け付けなくなった資格情報を、新しいサインインで置き換えられる。

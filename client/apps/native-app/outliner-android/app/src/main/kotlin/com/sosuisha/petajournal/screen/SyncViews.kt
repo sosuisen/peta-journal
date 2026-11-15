@@ -82,7 +82,7 @@ internal fun Waiting(progress: Pair<String, Float>) {
 
 /**
  * Where a sync stands that the user does not wait for, such as the one after an edit, and
- * why the last one failed. It lies over the bottom of the page, and takes no room there.
+ * why the last one failed. It lies over the top of the page, and takes no room there.
  */
 @Composable
 internal fun SyncCallout(state: SyncState, onSync: () -> Unit, modifier: Modifier) {

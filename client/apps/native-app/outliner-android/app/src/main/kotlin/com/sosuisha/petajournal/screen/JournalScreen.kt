@@ -111,8 +111,10 @@ fun JournalScreen(
                             Outline(title(view), view.outline.rows, links, shell::image, shell)
                         }
                     }
-                    // Over the page, so that it takes no room. Not while the dialog says the same
-                    if (waiting == null) cloud?.let { SyncCallout(it, onSync, Modifier.align(Alignment.BottomCenter)) }
+                    // Over the top of the page, so that it takes no room. Not at the bottom: the
+                    // user types on the last lines most of the time, and it hid them. Not while the
+                    // dialog says the same
+                    if (waiting == null) cloud?.let { SyncCallout(it, onSync, Modifier.align(Alignment.TopCenter)) }
                 }
                 val edited = view.outline.rows.firstOrNull { it.isEditing }?.item?.id
                 if (!searching && edited != null) Tools(edited, shell)

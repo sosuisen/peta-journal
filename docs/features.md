@@ -1002,6 +1002,14 @@ iOSのシェル（`client/apps/native-app/outliner-ios`）の機能である。A
 - コードブロック、表、画像を持つリストや引用は、分けて出る。リストの項目には印が、引用には線が付く
 - タスクは、状態の印を持つ。印へのタッチで、次の状態へ進む
 
+## Androidで読み書きする
+
+Androidのシェル（`client/apps/native-app/outliner-android`）の機能である。ほとんどは、iPhoneと同じである（ADR 034）。ここには、iPhoneと違うところだけを書く。
+
+出典: `client/apps/native-app/outliner-android/app/src/androidTest/kotlin/com/sosuisha/petajournal/screen/*.kt`
+
+- 同期のメッセージは、ページの上端に重ねて出る。下端に出すと、いちばん下の行で打つ文字に重なるためである
+
 ## Emacsで読み書きする
 
 出典: `client/apps/emacs/outliner/`
