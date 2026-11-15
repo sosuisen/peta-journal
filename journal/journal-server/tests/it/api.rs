@@ -2294,17 +2294,17 @@ async fn a_split_at_the_start_saves_the_body_the_request_carries() {
     assert_eq!(outline_of(&page.id).await, ["1:", "1:saved and typed"]);
 }
 
-// 元の項目に残る本文のコードフェンスが閉じていなければ、閉じて保存される。保存された本文は、コードフェンスの途中で終わらない。
+// コードブロックの中で分けると、元の項目に残る本文は閉じ、新しい項目の本文には開始行が写される。RESTやMCPからの分割である（ADR 050）。
 #[tokio::test]
-async fn a_split_closes_an_open_code_fence_in_the_body_the_item_keeps() {
+async fn a_split_inside_a_code_block_closes_and_opens_it_again() {
     let page = new_doc_page("items-split-fence").await;
     let rows = fill(&page.id, &["saved"]).await;
 
-    let (status, resp) = split(&rows[0].id, "```js\ncode", 0).await;
+    let (status, resp) = split(&rows[0].id, "```js\ncode\n```", 8).await;
     assert_eq!(status, 200, "{resp}");
 
-    assert_eq!(resp["item"]["body"], json!("```js\ncode\n```"));
-    assert_eq!(resp["created"]["body"], json!(""));
+    assert_eq!(resp["item"]["body"], json!("```js\nco\n```"));
+    assert_eq!(resp["created"]["body"], json!("```js\nde\n```"));
 }
 
 // 分割は項目を2つ書くが、ページの変更は1回だけクライアントに知らされる。
