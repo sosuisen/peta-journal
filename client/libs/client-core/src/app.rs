@@ -122,6 +122,13 @@ pub enum Event {
         route: Route,
         today: String,
     },
+    /// The shell opens the URL, such as `/pages/notes` or `/today`, and keeps it in the history
+    /// of the core (ADR 035). It is for a shell without a history of its own: the web app
+    /// sends `Route`, and the browser keeps the history.
+    Open {
+        url: String,
+        today: String,
+    },
 
     // ---- the outline ----
     EditRequested {
@@ -1095,6 +1102,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             screens::start::start(model)
         }
         Route { route, today } => screens::route::route(model, route, today),
+        Open { url, today } => screens::history::open(model, &url, today),
 
         EditRequested { item_id, cursor } => {
             ops::outline_events::edit_requested(model, &item_id, cursor)

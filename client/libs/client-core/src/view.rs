@@ -335,6 +335,15 @@ pub struct ConfigView {
     pub definition_error: Option<String>,
 }
 
+/// Where the history of the opened pages can go (ADR 035). A shell that keeps no history in
+/// the core, as the web app, which has the history of the browser, has nothing in it.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+pub struct HistoryView {
+    pub can_go_back: bool,
+    pub can_go_forward: bool,
+}
+
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ViewModel<B> {
@@ -357,6 +366,7 @@ pub struct ViewModel<B> {
     /// the day at the top, with "(Today)" behind the date of today. For anything else it is
     /// the name the core last gave with `UiOp::SetTitle`, which a browser shows on its tab.
     pub title: String,
+    pub history: HistoryView,
 }
 
 pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
@@ -402,6 +412,7 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
             Screen::Journal(j) => journal::window_title(j, &model.today),
             _ => model.title.clone(),
         },
+        history: HistoryView::default(),
     }
 }
 
