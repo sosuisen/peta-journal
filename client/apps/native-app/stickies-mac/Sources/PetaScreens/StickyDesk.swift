@@ -171,7 +171,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         let tools = NSTitlebarAccessoryViewController()
         tools.layoutAttribute = .trailing
         let buttons = FirstClickHostingView(
-            rootView: StickyTools(look: look, onAdd: { [weak self] in self?.add() }))
+            rootView: StickyTools(look: look, shell: shell, onAdd: { [weak self] in self?.add() }))
         buttons.frame.size = buttons.fittingSize
         tools.view = buttons
         window.addTitlebarAccessoryViewController(tools)
