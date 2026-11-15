@@ -6,19 +6,6 @@
 
 Androidのシェルの実機での確認は、2026-11-14までにユーザーが終えた。確認の項目は、ここから消した。ここには、優先して進めるタスクと、その確認で見つけた問題を置く。上にあるものほど、先にやる。
 
-- [x] **優先度が高い（2026-11-14にユーザーが決めた）。** AndroidとiOSのシェルで、項目に触れて編集に入るとき、カーソルを触れた位置に置く。今は、いつも行末に置く
-  - 2026-11-13にユーザーが決めた。2つのシェルで同じ動きにする
-  - 2026-11-14にユーザーが決めた：位置はコアが対応付ける。シェルは表示の文字の何文字目かを送り（`Event::ShownTextTouched`）、コアが本文のMarkdownと文字を照らし合わせて位置に直す
-  - Androidは、このMacでビルドできない。2026-11-14にユーザーが実機で確かめた（PR #478）
-- [x] iOSの`testEnterMakesANewItemBelowAndTheTypingGoesOnThere`が、5回から12回に1回ほど落ちる。新しい項目に、Enterの直後の1、2文字が入らない（"cond"）
-  - Enterの直後の文字は、前の項目の欄に入る。そのとき、欄の`shouldChangeTextIn`が呼ばれない。なぜ通らずに入るのかは、分からないままである
-  - Enterのときに、キーボードを受け皿へ移して直した（ADR 045）。直したあと、このテストは50回とも通った
-- [x] Web版、macOS、Windowsでも、触れた位置をコアに送り、コアの対応付けを使う（ADR 043で決めた、2026-11-14）
-  - [x] Windows（#487）
-  - [x] macOS（#488）。`ShownText.swift`が、#478で増えた`start`を受けていなかったのも直した
-  - [x] Web版（#489）。`RichText`を描かないので、数ではなく、ページの上でクリックより前にある文字の列を送る（`Event::ShownTextTouchedAfter`、ADR 044）
-  - [ ] macOSを、Macでビルドしてテストする。#488は、Swiftのないこの環境で書いたので、ビルドもテストもしていない
-  - [ ] macOSとWindowsで、太字、リンク、リスト、コードブロックの項目をクリックして、カーソルがその文字の位置に入るかを、実際のアプリで確かめる
 - [ ] **次回、最初にやる。** プロパティの定義を、Markdownフォルダーに置くファイルで端末の間に同期する
   - 2026-11-14にユーザーが決めた。定義をファイルに置く案のほかは、あり得ない
   - 理由: 定義（キー、型、ページ用かどうか）は、SQLiteの`property_definitions`にしかない。ファイルには出ない。だから、別のPCやモバイルの端末には、ユーザーが定義したプロパティとその型が届かない
@@ -51,16 +38,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 ## ADR 042：coreが作るRichTextを、ネイティブのシェルが描く
 
 2026-11-14にユーザーが受理した。段階ごとに進め、AndroidとWindowsは、ユーザーが実機で確かめてから先へ進む。Swiftだけで共通にする案（PR #464）は、この ADR で採らなかったが、main に入った。その`peta-shown`は、段階2と3で消す。macOSで画像をjournalサーバーから読む処理と、リンクの決まり（クリックはアプリの中、Shift-クリックはブラウザ）は、そのまま使う。
-
-- [x] 段階0：facetの型の生成が、型引数を持つビューモデル（`BodyModel`）をSwift、Kotlin、C#に書き出せるかを確かめる。書き出せなければ、行の本文を`Node`と`RichText`のenumにする（ADR 042のAlternative 4）。結果：`ViewModel<RichText>`を登録すると、3つの言語とも`Row`の本文が`RichText`の型になった。Swiftはコンパイルできた。enumは要らない
-- [x] 段階1：`client-core`に`RichText`の型、`BodyModel`のトレイト、ASTとRichTextの2つの実装を作り、Rustでテストする。Web版はASTの実装を使い、`client-native-bridge`はRichTextの実装を使う
-  - 行の本文の描画モデルは`Row.body_model`である。Web版では`Node`、ネイティブでは`RichText`である
-  - 切り替えのあいだ、`client-native-bridge`の行は`BorderBody`（`ast`と`rich`の両方）を渡す。まだ切り替えていないシェルは`row.bodyModel.ast`から描く。段階5のあとで`ast`を消し、`RichText`だけにする
-- [x] 段階2：iOSのシェルを、`RichText`から描くように切り替える。`peta-shown`を使うのをやめる
-- [x] 段階3：macOSのシェルを切り替える。画像の読み込みとリンクの決まりは、今のものを使う。`peta-shown`を消し、`PetaTypes`の生成先を各アプリに戻す
-- [x] 段階4：Androidのシェルを切り替える。2026-11-14にユーザーが実機で確かめた
-- [x] 段階5：Windowsのシェルを切り替える。画像を絵として出し、表を別の部品で描く。2026-11-14にユーザーが直して（PR #471）、実機で確かめた
-- [x] 仕上げ：`docs/architecture.svg`を直す。`BorderBody`を消し、境界の行は`RichText`だけを渡す。C#の`Node`は生成されなくなった。使われなくなったページのURLの関数（`wikilink_url`、`hashtag_url`、`page_url`、`tag_url`）も消した
 
 ユーザーが決めた、各シェルの描き方：
 
@@ -403,17 +380,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 
 2026-11-14に、残りの項目で減るシェルの行数を見積もった。いちばん減るのは、Dropboxとの同期をRustにまとめる項目である。iOSとAndroidに、コードが約1,900行、テストが約2,300行ある。そのうち、何を上げ下げするかの判断、フォルダーとの突き合わせ、記録（`CloudSync`、`SyncRound`、`Downloader`、`Uploader`、`MarkdownFolder`、`CloudRecord`）の約1,000行が減る。DropboxのSDKとログインは、シェルに残る。ADR 034で選ばなかった案なので、先に新しいADRが要る。次は、付箋紙の設定と保存（SwiftとC#で約400行、約250行減る）である。ほかの項目は、数行から100行ほどである。日付の切り替わりと、iOSとAndroidでの`Prompt`などへの対応は、シェルのコードが増える
 
-
-- [x] 検索の候補の文言を、coreが決める。今は、新しいページを作る候補が、シェルごとに違う。スマホは`New page: X`、macOSとWindowsは`Create "X"`、Web版は`+ Create "X"`である。`Open Today`は、coreが決めているのに、iOS（`App/JournalScreen.swift:210`）とAndroid（`screen/JournalScreen.kt:181`）が書き直している。`SearchEntry`に文言を持たせる
-  - 2026-11-14にユーザーが文言を決めた。ページを作る行は`Create new page "名前"`である（PR #481）。同じ日に、`Create page "名前"`に変えた（PR #483）
-- [x] ブラウザで開くページと画像のアドレスを、Rustで作る。今は、macOS（`Shell.swift:82,94`、`AssetImages.swift:49`）とWindows（`Shell.cs:133-154`）が別々に作り、エンコードの仕方が違う。名前に`?`や2つ目の`#`があるページで、結果が変わる。`client-page-links`の`AppLinks`を使い、`client-native-bridge`から出す
-  - ページ名には`?`を使えない（`validate_file_name`）。そのため、`?`での食い違いは起きていなかった。ファイルのパスでは、`#`と`?`も符号化する
-- [x] カーソルの位置の、UTF-16と文字の数の換算を、Rustで1回だけ行う（ADR 043）。関数は`client-core`に置き、Web版は直接、macOSとWindowsは`client-shell-http`から、iOSは`client-shell-embedded`から使う。サロゲートペアの途中は、その文字の後ろに寄せる。Androidは、標準の`codePointCount`と`offsetByCodePoints`のままでよい
-  - 今の換算は、macOS（`Keys.swift:38-58`）、Windows（`Keys.cs:67-97`）、iOS（`App/ItemEditor.swift:270-281`、`App/Touches.swift:42`）、Web版（`dom.rs`の`utf16_to_chars`と`chars_to_utf16`）にある。サロゲートペアの途中に当たったとき、iOSだけが本文の長さを返す
-  - Web版のキーの再生（`item_editor/replay.rs`）は、UTF-16の位置を1ずつ動かすので、絵文字の半分だけを消すおそれがある。この関数で動かす
-- [x] coreが自分で決める位置を、書記素の境に寄せる（ADR 043）。`unicode-segmentation`を使う。触れた位置をMarkdownの位置に直す`rich_text/places.rs`の`touched_place`が、これに当たる。今は、直した位置が絵文字の途中に入ると、Enterで1つの絵文字が2つの項目に割れるおそれがある
-- [x] 不具合：`client-core/src/screens/journal.rs`の`extract_journal_name`は、週のジャーナルの名前を、ファイル名のバイトの位置で切り出す。`-W`の前に日本語などがあると、パニックする（ADR 043）。文字の境で切るように直す
-- [x] 保留したキーの再生で、複数のコードポイントでできた1文字（異体字セレクタやZWJ付きの絵文字）が捨てられる。`model.rs`の`DeferredKey.is_typed_character`が、1つのコードポイントのキーしか受け入れないためである（ADR 043）
 - [ ] 画像の大きさの決まりを、Rustの1つの関数にする。今は、4つのシェルで違う。iOSは幅に合わせて縮め、Androidは決まった幅にし、macOSは付箋紙の幅に縮めない。画像がないときも、macOSは`[alt]`、スマホは`alt`かパス、Windowsは何も出さない
 - [ ] 描画の定数をそろえる。見出しの大きさは、Androidだけがブラウザの既定値（2.0、1.5、1.17…）で、ほかは1.6、1.4、1.2、1.1、1である。マーカーの色、1段の字下げも、シェルごとに違う。行頭の点は、iOSとAndroidが`row.showBullet`に従い、macOSとWindowsはいつも描く。coreが`RichParagraph`で大きさを渡すか、共通の表を持つ
 - [ ] イベントの時刻（`nowMs`）を、`client-native-bridge`の`Clock`で入れる。今は、4つのシェルが自分で入れている（macOS `Shell.swift:128`と`Keys.swift:93`、Windows `Shell.cs:299`、iOS `Shell.swift:154`、Android `Shell.kt:172`）
