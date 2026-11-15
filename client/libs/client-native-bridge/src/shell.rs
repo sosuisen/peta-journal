@@ -250,13 +250,15 @@ impl NativeShell {
         self.router.routes.border.update(event)
     }
 
-    /// Opens what the URL names, such as `/pages/notes` or `/today`. The core asks for this
-    /// with a navigation, and the shell with the first page.
+    /// Opens what the URL names, such as `/pages/notes` or `/today`, and keeps it in the
+    /// history of the core (ADR 035). The core asks for this with a navigation, and the shell
+    /// with the first page, with today and with a link.
     pub fn open(&self, url: &str) -> Result<(), NothingThere> {
-        let route = Route::parse_url(url).ok_or_else(|| NothingThere(url.to_string()))?;
+        Route::parse_url(url).ok_or_else(|| NothingThere(url.to_string()))?;
         let (local, _) = self.clock.now();
         let today = format!("{:04}-{:02}-{:02}", local.year, local.month, local.day);
-        self.router.update(Event::Route { route, today });
+        let url = url.to_string();
+        self.router.update(Event::Open { url, today });
         Ok(())
     }
 

@@ -495,7 +495,10 @@ fn a_page_the_shell_opens_goes_into_the_history_of_the_core() {
     wait_until("the page before is opened again", || {
         screen.answered.lock().unwrap().len() == 3
     });
-    assert_eq!(*screen.answered.lock().unwrap(), ["first", "second", "first"]);
+    assert_eq!(
+        *screen.answered.lock().unwrap(),
+        ["first", "second", "first"]
+    );
 }
 
 // サーバーへの要求は、コアが出した順に、1つずつ届く。前の要求が遅くても、後の要求が追い越さない。
