@@ -179,3 +179,16 @@ fn a_url_that_names_nothing_changes_neither_the_screen_nor_the_history() {
     assert_eq!(shown(&h), "a");
     assert!(!h.view().history.can_go_back);
 }
+
+// 履歴で今開いているURLが、ビューモデルに出る。戻ると、戻った先のURLになる。シェルはこれを次の起動のために覚える。
+#[test]
+fn the_view_tells_the_url_on_screen_in_the_history() {
+    let mut h = Harness::new();
+    assert_eq!(h.view().history.url, None);
+    open(&mut h, "/pages/a");
+    open(&mut h, "/pages/b");
+
+    back(&mut h);
+
+    assert_eq!(h.view().history.url.as_deref(), Some("/pages/a"));
+}
