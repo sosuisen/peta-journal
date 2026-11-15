@@ -118,4 +118,14 @@ mod tests {
         assert_eq!(merge(&text, &number), number);
         assert_eq!(merge(&number, &text), number);
     }
+
+    // 日時が同じで、どちらもtext以外なら、型の名前の辞書順で後の方を採る。
+    #[test]
+    fn of_the_same_date_the_type_later_in_the_dictionary_wins() {
+        let date = version(&[("plan", defined("date", true, 5))]);
+        let datetime = version(&[("plan", defined("datetime", true, 5))]);
+
+        assert_eq!(merge(&date, &datetime), datetime);
+        assert_eq!(merge(&datetime, &date), datetime);
+    }
 }
