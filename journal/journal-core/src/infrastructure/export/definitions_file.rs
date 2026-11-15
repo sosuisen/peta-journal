@@ -1,15 +1,69 @@
 //! `settings/properties.json`: the definitions of the user keys in the Markdown folder, so
 //! that every device gets them (ADR 046).
 
-use crate::domain::property_definitions::Definitions;
+use std::collections::BTreeMap;
+
+use serde::Serialize;
+
+use super::export_service::format_instant;
+use crate::domain::property_definitions::{Definition, Definitions};
 
 /// Where the file is, relative to the Markdown folder.
 pub const DEFINITIONS_FILE: &str = "settings/properties.json";
 
 /// The text of the file. The keys are in dictionary order, so the same definitions give the
 /// same bytes on every device.
-pub fn write(_definitions: &Definitions) -> String {
-    String::new()
+pub fn write(definitions: &Definitions) -> String {
+    let file = File {
+        definitions: definitions
+            .iter()
+            .map(|(key, definition)| (key.as_str(), Entry::of(definition)))
+            .collect(),
+    };
+    let mut text = serde_json::to_string_pretty(&file).expect("definitions are plain data");
+    text.push('\n');
+    text
+}
+
+#[derive(Serialize)]
+struct File<'a> {
+    definitions: BTreeMap<&'a str, Entry<'a>>,
+}
+
+/// One key in the file. The fields are written in this order.
+#[derive(Serialize)]
+struct Entry<'a> {
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    value_type: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    page: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    modified: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    deleted: Option<String>,
+}
+
+impl<'a> Entry<'a> {
+    fn of(definition: &'a Definition) -> Entry<'a> {
+        match definition {
+            Definition::Defined {
+                value_type,
+                page,
+                modified,
+            } => Entry {
+                value_type: Some(value_type),
+                page: Some(*page),
+                modified: Some(format_instant(*modified)),
+                deleted: None,
+            },
+            Definition::Deleted { deleted } => Entry {
+                value_type: None,
+                page: None,
+                modified: None,
+                deleted: Some(format_instant(*deleted)),
+            },
+        }
+    }
 }
 
 #[cfg(test)]
