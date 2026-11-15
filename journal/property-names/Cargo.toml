@@ -6,3 +6,6 @@ license.workspace = true
 description = "The type of a property, taken from the suffix of its key name (ADR 047)"
 
 [dependencies]
+
+[dev-dependencies]
+proptest = "1.12.0"

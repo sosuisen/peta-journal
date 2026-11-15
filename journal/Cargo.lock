@@ -2360,6 +2360,9 @@ dependencies = [
 [[package]]
 name = "property-names"
 version = "1.0.0"
+dependencies = [
+ "proptest",
+]
 
 [[package]]
 name = "proptest"

@@ -66,6 +66,7 @@ pub struct ReservedSuffix;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     // 接尾辞のない名前はtext型である。
     #[test]
@@ -124,5 +125,33 @@ mod tests {
         assert_eq!(body_of("rating_n"), "rating");
         assert_eq!(body_of("start_dt"), "start");
         assert_eq!(body_of("rating"), "rating");
+    }
+
+    fn any_type() -> impl Strategy<Value = ValueType> {
+        prop::sample::select(vec![
+            ValueType::Text,
+            ValueType::Number,
+            ValueType::Date,
+            ValueType::Datetime,
+            ValueType::Checkbox,
+            ValueType::Bounds,
+            ValueType::List,
+        ])
+    }
+
+    fn any_body() -> impl Strategy<Value = String> {
+        "[a-zA-Z0-9_-]{1,16}".prop_filter("a body takes no reserved suffix", |body| {
+            type_of(body) == ValueType::Text
+        })
+    }
+
+    proptest! {
+        // 本体と型から作った名前は、その型と本体に戻る。
+        #[test]
+        fn a_name_made_of_a_body_and_a_type_gives_them_back(body in any_body(), value_type in any_type()) {
+            let name = name_of(&body, value_type).unwrap();
+            prop_assert_eq!(type_of(&name), value_type);
+            prop_assert_eq!(body_of(&name), body.as_str());
+        }
     }
 }
