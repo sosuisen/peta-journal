@@ -150,7 +150,7 @@ final class Editor: NSObject, NSTextViewDelegate {
 
     func textDidChange(_ notification: Notification) {
         guard let view = notification.object as? ItemTextView, !view.hasMarkedText() else { return }
-        shell.typed(view.string, into: itemId)
+        shell.typed(view.string, into: itemId, cursor: view.selectedRange().location)
     }
 
     /// AppKit asks before it carries out a key. While text is composed the keys go to the input
