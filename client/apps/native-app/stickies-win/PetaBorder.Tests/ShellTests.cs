@@ -638,6 +638,20 @@ public sealed class ShellTests : IDisposable
         main.WaitUntil("the list is two items", () => Bodies(shell) is ["a", "b"]);
     }
 
+    // 絵文字のあとのカーソルに貼る。カーソルは、UTF-16では2つ分進んでいる。
+    [Fact]
+    public void A_paste_behind_an_emoji_goes_in_there()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+        shell.Typed("a😀b", item);
+
+        shell.Paste(item, Editor("a😀b", 3), "X", "", raw: false);
+
+        main.WaitUntil("the text is behind the emoji", () => Bodies(shell) is ["a😀Xb"]);
+    }
+
     // 選択をやめるように言うと、選択が消える。ほかの場所をクリックしたときである。
     [Fact]
     public void Leaving_the_selection_ends_it()
