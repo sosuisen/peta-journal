@@ -177,6 +177,13 @@ impl PropertyRepository {
     pub fn insert_definition(&self, key: &str, value_type: &str, page: bool) -> AppResult<()> {
         validate_key(key)?;
         PropertyKey::parse(key)?.check_type(value_type)?;
+        // `rating_n_n` would show as `rating_n`, which looks like a number of `rating`
+        property_names::name_of(property_names::body_of(key), property_names::type_of(key))
+            .map_err(|_| {
+                AppError::bad_request(format!(
+                    "Property key '{key}' has a body that ends with a reserved suffix"
+                ))
+            })?;
         if let Some(existing) = self.find_definition(key)? {
             let what = if existing.system {
                 "a system key"
