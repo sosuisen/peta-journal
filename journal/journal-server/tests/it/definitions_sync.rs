@@ -415,7 +415,7 @@ fn a_key_with_no_definition_from_a_page_file_gets_a_provisional_definition() {
     b.receive(&a, "docs/d/a.md");
     b.define("owner", "text", true);
 
-    assert_eq!(b.definition("score_n"), Some(("text".to_string(), true)));
+    assert_eq!(b.definition("score_n"), Some(("number".to_string(), true)));
     assert_eq!(
         b.definition("author_list"),
         Some(("list".to_string(), true))
