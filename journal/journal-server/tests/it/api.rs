@@ -4290,6 +4290,38 @@ async fn a_list_key_is_defined_only_with_a_name_that_ends_with_list() {
     }
 }
 
+// キーは、名前の接尾辞から決まる型でだけ定義できる。
+#[tokio::test]
+async fn a_key_is_defined_only_with_the_type_its_suffix_gives() {
+    for (key, value_type) in [
+        ("defined_score_n", "number"),
+        ("defined_due_d", "date"),
+        ("defined_seen_dt", "datetime"),
+        ("defined_read_cb", "checkbox"),
+        ("defined_place_bounds", "bounds"),
+    ] {
+        let (status, resp) = post(
+            "/api/config/property-definitions",
+            json!({ "key": key, "valueType": value_type }),
+        )
+        .await;
+        assert_eq!(status, 200, "{key} -> {resp}");
+        assert_eq!(
+            definition(&resp, key).unwrap()["valueType"],
+            json!(value_type)
+        );
+    }
+
+    for body in [
+        json!({ "key": "defined_score", "valueType": "number" }),
+        json!({ "key": "defined_when_d", "valueType": "text" }),
+        json!({ "key": "defined_count_n", "valueType": "date" }),
+    ] {
+        let (status, resp) = post("/api/config/property-definitions", body.clone()).await;
+        assert_eq!(status, 400, "{body} -> {resp}");
+    }
+}
+
 // 項目からプロパティを削除できる。
 #[tokio::test]
 async fn a_property_can_be_removed_from_an_item() {
