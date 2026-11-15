@@ -79,6 +79,19 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(shell.view.outline.rows[0].item.body, ">>>\n>>>")
     }
 
+    // 消して開始記号だけが残っても、閉じる記号は補われない。閉じるのは打ったときだけである。
+    func testDeletingBackToAnOpeningDoesNotCloseIt() async throws {
+        let shell = Shell(server: server.address, url: "/pages/swift-notes")
+        try await waitUntil("the page is shown") { !shell.view.outline.rows.isEmpty }
+        let item = shell.view.outline.rows[0].item.id
+
+        shell.startEditing(item)
+        shell.typed(">>>x", into: item, cursor: 4)
+        shell.typed(">>>", into: item, cursor: 3)
+
+        XCTAssertEqual(shell.view.outline.rows[0].item.body, ">>>")
+    }
+
     // 表示した文字に触れると、その項目の編集に入り、カーソルは触れた文字のMarkdownでの位置に置かれる（ADR 043）。
     func testATouchOnTheShownTextPutsTheCursorAtItsPlaceInTheMarkdown() async throws {
         let shell = try await shellWithPage()
