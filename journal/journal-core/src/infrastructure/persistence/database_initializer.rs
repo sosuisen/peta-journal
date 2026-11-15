@@ -474,6 +474,35 @@ mod tests {
         assert_eq!(value("i3"), "me");
     }
 
+    // 版6のデータベースを開くと、定義は日時と仮の定義かどうかを持ち、消した定義の表ができる。今あるユーザー定義は、日時0の本物の定義になる。
+    #[test]
+    fn a_database_at_version_6_keeps_its_user_definitions_as_real_ones_of_date_0() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        set_version(&conn, 6);
+        conn.execute(
+            "INSERT INTO property_definitions (key, value_type) VALUES ('owner', 'text')",
+            [],
+        )
+        .unwrap();
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
+        let (modified, provisional): (i64, i64) = conn
+            .query_row(
+                "SELECT modified, provisional FROM property_definitions WHERE key = 'owner'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((modified, provisional), (0, 0));
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM deleted_property_definitions"),
+            0
+        );
+    }
+
     // 版4のデータベースを開くと、項目のASTの列がなくなり、本文はそのままである。
     #[test]
     fn a_database_at_version_4_loses_the_ast_of_its_items_and_keeps_their_bodies() {
