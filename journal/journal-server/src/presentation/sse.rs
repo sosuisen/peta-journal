@@ -29,9 +29,14 @@ impl SseBroadcaster {
         SseBroadcaster { tx }
     }
 
+    /// Every message from now on, as it is broadcast.
+    pub fn subscribe(&self) -> broadcast::Receiver<String> {
+        self.tx.subscribe()
+    }
+
     /// The event stream for one subscriber: an initial `connected` event, then every broadcast.
     pub fn event_stream(&self) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-        let rx = self.tx.subscribe();
+        let rx = self.subscribe();
         let first =
             futures::stream::once(async { Ok(Event::default().data("{\"type\":\"connected\"}")) });
         let rest = BroadcastStream::new(rx).filter_map(|msg| match msg {

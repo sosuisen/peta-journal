@@ -629,7 +629,7 @@ impl Journal {
             input.value.as_deref().unwrap_or(""),
         )?;
         if new_key {
-            self.services.definitions_file.write_file()?;
+            self.definitions_changed()?;
         }
         self.tell([&item.page_id], by);
         // The answer is built after the upsert, so it carries the new property

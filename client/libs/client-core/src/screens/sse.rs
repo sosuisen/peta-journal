@@ -1,10 +1,11 @@
 //! The server's event stream, ported from `sse.service.ts`: connection state, reconnection
-//! with exponential backoff, and what a `pagesUpdated` event triggers.
+//! with exponential backoff, and what a `pagesUpdated` or a `propertyDefinitionsUpdated`
+//! event triggers.
 
 use crate::app::{done, run, Cmd, ConnectionState, Event, Model};
 use crate::effects::{SseEvent, SseOp, TimerOutput};
 use crate::ops::file_reload;
-use crate::screens::{atlas, page, sidebar};
+use crate::screens::{atlas, page, settings, sidebar};
 use crux_core::Command;
 
 const MAX_RECONNECT_ATTEMPTS: u32 = 10;
@@ -20,7 +21,11 @@ pub fn on_event(model: &mut Model, event: SseEvent) -> Cmd {
         SseEvent::Open => {
             model.connection = ConnectionState::Connected;
             model.sse_reconnect_attempts = 0;
-            sidebar::refresh_recent_pages()
+            // What changed while the stream was down was told to no one
+            Command::all([
+                sidebar::refresh_recent_pages(),
+                settings::load_property_definitions(),
+            ])
         }
         SseEvent::Message(data) => on_message(model, &data),
         SseEvent::Error => {
@@ -37,6 +42,7 @@ fn on_message(model: &mut Model, data: &str) -> Cmd {
     match json.get("type").and_then(|t| t.as_str()) {
         Some("pagesUpdated") => on_pages_updated(model, &json),
         Some("confirm") => confirm(&json),
+        Some("propertyDefinitionsUpdated") => settings::load_property_definitions(),
         _ => done(),
     }
 }

@@ -17,7 +17,7 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::files::write_atomic;
 use crate::infrastructure::persistence::database_initializer::SYSTEM_KEYS;
 use crate::infrastructure::persistence::property_repository::{
-    PropertyRepository, USER_VALUE_TYPES,
+    PropertyDefinition, PropertyRepository, USER_VALUE_TYPES,
 };
 
 /// The folder of the settings in the Markdown folder.
@@ -63,6 +63,12 @@ impl DefinitionsFileService {
 }
 
 impl DefinitionsFileService {
+    /// All the definitions of this device, as the clients see them. `None` when the DB
+    /// cannot tell.
+    pub fn find_definitions(&self) -> Option<Vec<PropertyDefinition>> {
+        self.properties.find_definitions().ok()
+    }
+
     /// Takes in the file as another device wrote it: the definitions are put together with
     /// those of this device, key by key, and the DB gets the result (ADR 046).
     pub fn take_in(&self, root: &Path) -> AppResult<Outcome> {

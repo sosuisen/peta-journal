@@ -633,3 +633,122 @@ impl Device {
             .unwrap();
     }
 }
+
+/// What the clients of a device are told, from when it begins to listen.
+struct Told(tokio::sync::broadcast::Receiver<String>);
+
+impl Told {
+    /// Whether the clients were told, since the last look, that the definitions changed.
+    fn of_definitions(&mut self) -> bool {
+        let mut told = false;
+        while let Ok(message) = self.0.try_recv() {
+            told |= message.contains("\"propertyDefinitionsUpdated\"");
+        }
+        told
+    }
+}
+
+impl Device {
+    fn listen(&self) -> Told {
+        Told(self.state.sse.subscribe())
+    }
+}
+
+// ほかの端末の定義がsettings/properties.jsonで届き、端末のDBの定義が変わると、端末は、開いているクライアントに定義が変わったことを知らせる。
+#[test]
+fn the_clients_are_told_when_a_definition_from_another_device_comes_in() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    b.define("score", "number", false);
+    let mut told = a.listen();
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert!(told.of_definitions());
+}
+
+// 届いたファイルを取り込んでも端末のDBの定義が変わらなければ、端末はクライアントに知らせない。ページのファイルも、settings/properties.jsonも同じである。
+#[test]
+fn the_clients_are_not_told_when_a_file_leaves_the_definitions_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    b.define("score", "number", false);
+    a.receive(&b, DEFINITIONS_FILE);
+    b.edit(&page, "edited on B");
+    a.receive(&b, "docs/d/a.md");
+    let mut told = a.listen();
+
+    a.receive(&b, DEFINITIONS_FILE);
+    b.edit(&page, "edited on B again");
+    a.receive(&b, "docs/d/a.md");
+
+    assert!(!told.of_definitions());
+    assert!(a.file("docs/d/a.md").contains("edited on B again"));
+}
+
+// ページのファイルで仮の定義ができたときも、なくなったときも、端末はクライアントに知らせる。設定の画面の一覧には、仮の定義も出るからである。
+#[test]
+fn the_clients_are_told_when_a_page_file_makes_or_drops_a_provisional_definition() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "number", true);
+    a.state
+        .page_service
+        .set_property(&page, "score", "number", "12")
+        .unwrap();
+    let mut told = b.listen();
+
+    b.receive(&a, "docs/d/a.md");
+
+    assert!(told.of_definitions());
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    a.state
+        .page_service
+        .delete_property(&page, "score")
+        .unwrap();
+    b.receive(&a, "docs/d/a.md");
+    assert!(told.of_definitions());
+}
+
+// ユーザーがRESTやMCPで定義を足したとき、消したとき、ページや項目の定義のないキーに値を書いたときも、端末はクライアントに知らせる。
+#[test]
+fn the_clients_are_told_when_the_user_changes_the_definitions() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let page = a.doc("a");
+    let mut told = a.listen();
+
+    a.define("score", "number", false);
+    assert!(told.of_definitions());
+    a.undefine("score");
+    assert!(told.of_definitions());
+    a.state
+        .journal
+        .set_page_property(
+            page.as_str(),
+            "rating",
+            Some("number"),
+            Some("5"),
+            &ChangedBy::Mcp,
+        )
+        .unwrap();
+    assert!(told.of_definitions());
+    let item = a.state.page_service.get_page_items(&page).unwrap()[0]
+        .id
+        .clone();
+    a.state
+        .journal
+        .set_item_property(
+            item.as_str(),
+            "member_list",
+            journal_core::journal::PropertyInput {
+                value_type: Some("list".to_string()),
+                value: Some("p, q".to_string()),
+            },
+            &ChangedBy::Mcp,
+        )
+        .unwrap();
+    assert!(told.of_definitions());
+}

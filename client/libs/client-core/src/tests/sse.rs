@@ -123,3 +123,54 @@ fn a_confirm_from_the_server_asks_the_user_and_sends_the_answer_back() {
         );
     }
 }
+
+/// What the server answers to the next read of the definitions: one user key.
+fn next_definitions(h: &mut Harness, key: &str) {
+    h.api.answer_next(
+        "GetPropertyDefinitions",
+        Ok(crate::effects::ApiOutput::PropertyDefinitions(vec![
+            crate::model::PropertyDefinition {
+                key: key.into(),
+                value_type: "number".into(),
+                system: false,
+                page: true,
+            },
+        ])),
+    );
+}
+
+fn shown_keys(h: &Harness) -> Vec<String> {
+    h.view()
+        .config
+        .property_definitions
+        .iter()
+        .map(|d| d.key.clone())
+        .collect()
+}
+
+// サーバーが定義の変わったことを知らせると、定義を読み直し、画面の定義が新しくなる（ADR 046）。
+#[test]
+fn a_message_that_the_definitions_changed_reads_them_again() {
+    let mut h = started();
+    next_definitions(&mut h, "score");
+
+    sse(
+        &mut h,
+        SseEvent::Message(r#"{"type":"propertyDefinitionsUpdated"}"#.into()),
+    );
+
+    assert_eq!(shown_keys(&h), ["score"]);
+}
+
+// ストリームがつながるたびに、定義も読み直される。切れていた間の知らせは届かないからである。
+#[test]
+fn an_open_stream_reads_the_definitions_again() {
+    let mut h = started();
+    sse(&mut h, SseEvent::Error);
+    h.fire_timers();
+    next_definitions(&mut h, "score");
+
+    sse(&mut h, SseEvent::Open);
+
+    assert_eq!(shown_keys(&h), ["score"]);
+}
