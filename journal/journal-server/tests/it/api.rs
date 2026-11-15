@@ -1412,23 +1412,26 @@ async fn a_flat_paste_does_not_read_a_dash_as_tree_markdown() {
     assert_eq!(outline_of(&page.id).await, ["1:host- A\n- B", "2:C"]);
 }
 
-// `auto`では、閉じていないコードフェンスの中に貼った文字列は分割されない。保存される本文では、フェンスが閉じられる。
+// `auto`では、ブロックの中に貼った文字列は分割されない。コードブロックでも、複数行の引用でも同じである。
 #[tokio::test]
-async fn a_paste_in_auto_mode_inside_an_open_code_fence_is_not_split_and_the_fence_is_closed() {
+async fn a_paste_in_auto_mode_inside_a_block_is_not_split() {
     let page = new_doc_page("items-paste-fence").await;
     let rows = fill(&page.id, &["x"]).await;
 
-    let (status, resp) = paste(&rows[0].id, "```\ncode", 8, "X\n\nY", "auto").await;
-    assert_eq!(status, 200, "{resp}");
+    for (body, cursor) in [("```\ncode\n```", 8), (">>>\nquote\n>>>", 9)] {
+        let (status, resp) = paste(&rows[0].id, body, cursor, "X\n\nY", "auto").await;
+        assert_eq!(status, 200, "{resp}");
 
-    assert_eq!(
-        field_of_each(&resp, "items", "body"),
-        vec![json!("```\ncodeX\n\nY\n```")]
-    );
-    assert_eq!(
-        resp["cursor"],
-        json!({ "itemId": rows[0].id, "position": 12 })
-    );
+        let (before, after) = body.split_at(cursor);
+        assert_eq!(
+            field_of_each(&resp, "items", "body"),
+            vec![json!(format!("{before}X\n\nY{after}"))]
+        );
+        assert_eq!(
+            resp["cursor"],
+            json!({ "itemId": rows[0].id, "position": cursor + 4 })
+        );
+    }
 }
 
 // 途中の項目が作れないと、貼り付けの全体が取り消される。貼り付け先の本文も変わらない。
