@@ -82,7 +82,7 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                 };
                 view! {
                     <div class="property-row">
-                        <span class="property-key">{key.clone()}</span>
+                        <span class="property-key">{p.name.clone()}</span>
                         {shown}
                         {p.removable.then(|| view! { <button class="property-remove" title="Remove" on:click=remove>"×"</button> })}
                     </div>
