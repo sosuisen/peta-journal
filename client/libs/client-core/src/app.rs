@@ -122,6 +122,21 @@ pub enum Event {
         route: Route,
         today: String,
     },
+    /// The shell opens the URL, such as `/pages/notes` or `/today`, and keeps it in the history
+    /// of the core (ADR 035). It is for a shell without a history of its own: the web app
+    /// sends `Route`, and the browser keeps the history.
+    Open {
+        url: String,
+        today: String,
+    },
+    /// The user goes back to the page opened before, in the history of the core.
+    Back {
+        today: String,
+    },
+    /// The user goes forward again to the page left by going back.
+    Forward {
+        today: String,
+    },
 
     // ---- the outline ----
     EditRequested {
@@ -980,6 +995,7 @@ pub struct Model {
     pub clock_ms: u64,
     pub next_timer_id: u64,
     pub undo_syncs: ops::undo_replay::UndoSyncs,
+    pub history: screens::history::History,
 }
 
 impl Default for Model {
@@ -1013,6 +1029,7 @@ impl Default for Model {
             clock_ms: 0,
             next_timer_id: 1,
             undo_syncs: Default::default(),
+            history: Default::default(),
         }
     }
 }
@@ -1095,6 +1112,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             screens::start::start(model)
         }
         Route { route, today } => screens::route::route(model, route, today),
+        Open { url, today } => screens::history::open(model, &url, today),
+        Back { today } => screens::history::back(model, today),
+        Forward { today } => screens::history::forward(model, today),
 
         EditRequested { item_id, cursor } => {
             ops::outline_events::edit_requested(model, &item_id, cursor)
@@ -1337,7 +1357,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         ),
         PreviousJournalsLoaded => screens::journal::previous_journals_loaded(model),
         MovedItemShown { item_id } => screens::journal::edit_moved_item(model, &item_id),
-        PageRedirected { path } => screens::navigate::replace_page(&path),
+        PageRedirected { path } => screens::history::replace_page(model, &path),
         PageLoaded { page, created } => screens::page::show_page(model, page, created),
         CanDemoteLoaded { can_demote } => screens::page::show_can_demote(model, can_demote),
         PageItemsLoaded { page_id, loaded } => {
