@@ -362,11 +362,60 @@ impl PropertyRepository {
         value: &str,
     ) -> AppResult<()> {
         validate_key(key)?;
-        conn.execute(
-            "INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES (?, ?)",
-            params![key, value_type],
-        )?;
+        define_in(conn, key, value_type)?;
         Self::write_scalar_in(conn, target_type, target_id, key, value)
+    }
+
+    /// Takes in a scalar value from a file, as part of a larger transaction. A key with no
+    /// definition gets a provisional one of `text`, only to read the value. A value of a user
+    /// key comes in as it is written, even when it does not fit the type (ADR 046).
+    pub fn take_in_scalar_in(
+        conn: &Connection,
+        target_type: &str,
+        target_id: &str,
+        key: &str,
+        value: &str,
+    ) -> AppResult<()> {
+        validate_key(key)?;
+        define_provisional_in(conn, key, "text")?;
+        let system = Self::find_definition_in(conn, key)?.is_some_and(|def| def.system);
+        if system {
+            // The app reads a system key by its type, so a value that does not fit stays out
+            return Self::write_scalar_in(conn, target_type, target_id, key, value);
+        }
+        // The type of a user key is how its value is read; the value stays as the file has it
+        conn.execute(
+            "INSERT OR REPLACE INTO properties (target_type, target_id, key, value) VALUES (?, ?, ?, ?)",
+            params![target_type, target_id, key, value],
+        )?;
+        Ok(())
+    }
+
+    /// Takes in a list from a file, as part of a larger transaction. A key with no
+    /// definition gets a provisional one of `list` (ADR 046).
+    pub fn take_in_list_in(
+        conn: &Connection,
+        target_type: &str,
+        target_id: &str,
+        key: &str,
+        values: &[String],
+    ) -> AppResult<()> {
+        validate_key(key)?;
+        define_provisional_in(conn, key, "list")?;
+        replace_list_in(conn, target_type, target_id, key, values)
+    }
+
+    /// Removes the provisional definitions whose keys have no value left: they were only
+    /// there to read the values (ADR 046).
+    pub fn drop_unused_provisional_in(conn: &Connection) -> AppResult<()> {
+        conn.execute(
+            "DELETE FROM property_definitions
+             WHERE provisional = 1 AND is_system = 0
+               AND key NOT IN (SELECT key FROM properties)
+               AND key NOT IN (SELECT key FROM property_list_items)",
+            [],
+        )?;
+        Ok(())
     }
 
     /// Sets a scalar value of a defined key, as part of a larger transaction. The value is
@@ -411,10 +460,7 @@ impl PropertyRepository {
         values: &[String],
     ) -> AppResult<()> {
         validate_key(key)?;
-        conn.execute(
-            "INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES (?, ?)",
-            params![key, value_type],
-        )?;
+        define_in(conn, key, value_type)?;
         replace_list_in(conn, target_type, target_id, key, values)
     }
 
@@ -659,6 +705,32 @@ fn parse_date_to_millis(date_str: &str, to_end: bool) -> AppResult<i64> {
         .earliest()
         .ok_or_else(|| AppError::bad_request(format!("Invalid date: {date_str}")))?;
     Ok(dt.timestamp_millis())
+}
+
+/// Defines a key with no definition as the user wrote a value to it: a real definition of
+/// now, which goes to the other devices (ADR 046). A defined key keeps its definition.
+fn define_in(conn: &Connection, key: &str, value_type: &str) -> AppResult<()> {
+    let defined = conn.execute(
+        "INSERT OR IGNORE INTO property_definitions (key, value_type, modified) VALUES (?, ?, ?)",
+        params![key, value_type, now_millis()],
+    )?;
+    if defined > 0 {
+        conn.execute(
+            "DELETE FROM deleted_property_definitions WHERE key = ?",
+            params![key],
+        )?;
+    }
+    Ok(())
+}
+
+/// Gives a key with no definition a provisional one, which is not written to
+/// `settings/properties.json`. A defined key keeps its definition.
+fn define_provisional_in(conn: &Connection, key: &str, value_type: &str) -> AppResult<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO property_definitions (key, value_type, provisional) VALUES (?, ?, 1)",
+        params![key, value_type],
+    )?;
+    Ok(())
 }
 
 /// The values of a list as a client sends them: comma-separated, with the spaces around

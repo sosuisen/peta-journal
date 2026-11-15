@@ -561,7 +561,10 @@ impl PageService {
         let mut changed = false;
         for (key, value) in front_matter {
             let definition = definitions.iter().find(|def| def.key == *key);
-            if FRONT_MATTER_KEYS.contains(&key.as_str()) || definition.is_some_and(|def| !def.page)
+            // `for_page` only chooses the keys the UI offers on a page: another device may let
+            // a page have the key (ADR 046). The system keys are alike on every device.
+            if FRONT_MATTER_KEYS.contains(&key.as_str())
+                || definition.is_some_and(|def| def.system && !def.page)
             {
                 continue;
             }
@@ -569,26 +572,12 @@ impl PageService {
             if PropertyKey::parse(key).is_ok_and(|key| key.is_user_list()) {
                 let values = list_values(value);
                 if lists.get(key).is_none_or(|have| *have != values) {
-                    PropertyRepository::upsert_list_in(
-                        &tx,
-                        PAGE_TARGET,
-                        &id,
-                        key,
-                        "list",
-                        &values,
-                    )?;
+                    PropertyRepository::take_in_list_in(&tx, PAGE_TARGET, &id, key, &values)?;
                     changed = true;
                 }
             } else if scalars.get(key) != Some(value) {
                 // A line written by hand may not fit; the rest of the file still comes in
-                match PropertyRepository::upsert_scalar_in(
-                    &tx,
-                    PAGE_TARGET,
-                    &id,
-                    key,
-                    "text",
-                    value,
-                ) {
+                match PropertyRepository::take_in_scalar_in(&tx, PAGE_TARGET, &id, key, value) {
                     Ok(()) => changed = true,
                     Err(e) => {
                         tracing::warn!("Skipping property {key}={value} on page {page_id}: {e}")
@@ -604,6 +593,7 @@ impl PageService {
             PropertyRepository::delete_property_in(&tx, PAGE_TARGET, &id, key)?;
             changed = true;
         }
+        PropertyRepository::drop_unused_provisional_in(&tx)?;
         tx.commit()?;
         Ok(changed)
     }

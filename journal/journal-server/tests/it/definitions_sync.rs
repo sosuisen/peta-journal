@@ -394,3 +394,242 @@ fn a_file_of_definitions_that_cannot_be_read_changes_nothing() {
     );
     assert!(a.root.join(copy).exists());
 }
+
+// 定義のないキーの値がページのファイルで届くと、端末は、名前に合う型の仮の定義を作る。仮の定義は、settings/properties.jsonに書かない。
+#[test]
+fn a_key_with_no_definition_from_a_page_file_gets_a_provisional_definition() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "number", true);
+    a.define("author_list", "list", true);
+    a.state
+        .page_service
+        .set_property(&page, "score", "number", "12")
+        .unwrap();
+    a.state
+        .page_service
+        .set_property(&page, "author_list", "list", "x, y")
+        .unwrap();
+
+    b.receive(&a, "docs/d/a.md");
+    b.define("owner", "text", true);
+
+    assert_eq!(b.definition("score"), Some(("text".to_string(), true)));
+    assert_eq!(
+        b.definition("author_list"),
+        Some(("list".to_string(), true))
+    );
+    assert!(b.is_provisional("score"));
+    assert!(b.is_provisional("author_list"));
+    assert_eq!(b.written("score"), None);
+    assert_eq!(b.written("author_list"), None);
+}
+
+// ページのファイルを取り込んで、仮の定義のキーの値が端末のDBからなくなると、端末は、その仮の定義を消す。
+#[test]
+fn a_provisional_definition_goes_with_the_last_value_of_its_key() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "number", true);
+    a.state
+        .page_service
+        .set_property(&page, "score", "number", "12")
+        .unwrap();
+    b.receive(&a, "docs/d/a.md");
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    a.state
+        .page_service
+        .delete_property(&page, "score")
+        .unwrap();
+
+    b.receive(&a, "docs/d/a.md");
+
+    assert_eq!(b.definition("score"), None);
+}
+
+// 項目のメタデータ行で定義のないキーの値が届いても、端末は仮の定義を作る。値がなくなれば、仮の定義を消す。
+#[test]
+fn a_key_of_an_item_with_no_definition_gets_a_provisional_definition_until_its_value_goes() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    let item = a
+        .state
+        .item_service
+        .create_item(
+            &page,
+            &journal_core::domain::model::ItemPosition::Last,
+            1,
+            "x",
+            None,
+        )
+        .unwrap()
+        .id;
+    a.define("score", "number", false);
+    a.state
+        .item_service
+        .set_property(&item, "score", "number", "12")
+        .unwrap();
+
+    b.receive(&a, "docs/d/a.md");
+
+    assert_eq!(b.definition("score"), Some(("text".to_string(), true)));
+    assert!(b.is_provisional("score"));
+
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    a.state
+        .item_service
+        .delete_property(&item, "score")
+        .unwrap();
+    b.receive(&a, "docs/d/a.md");
+
+    assert_eq!(b.definition("score"), None);
+}
+
+// ユーザーがRESTやMCPで定義のないキーに値を書くと、端末は、その型の本物の定義を日時とともに作り、settings/properties.jsonに書く。項目でもページでも同じである。
+#[test]
+fn a_value_the_user_writes_to_a_key_with_no_definition_defines_it_for_every_device() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let page = a.doc("a");
+    let item = a
+        .state
+        .item_service
+        .create_item(
+            &page,
+            &journal_core::domain::model::ItemPosition::Last,
+            1,
+            "x",
+            None,
+        )
+        .unwrap()
+        .id;
+    let before = journal_core::infrastructure::persistence::db::now_millis();
+
+    a.state
+        .journal
+        .set_page_property(
+            page.as_str(),
+            "score",
+            Some("number"),
+            Some("12"),
+            &ChangedBy::Mcp,
+        )
+        .unwrap();
+    a.state
+        .journal
+        .set_item_property(
+            item.as_str(),
+            "member_list",
+            journal_core::journal::PropertyInput {
+                value_type: Some("list".to_string()),
+                value: Some("p, q".to_string()),
+            },
+            &ChangedBy::Mcp,
+        )
+        .unwrap();
+
+    for (key, value_type) in [("score", "number"), ("member_list", "list")] {
+        assert!(!a.is_provisional(key), "{key}");
+        let Some(Definition::Defined {
+            value_type: written,
+            modified,
+            ..
+        }) = a.written(key)
+        else {
+            panic!("{key} is not written");
+        };
+        assert_eq!(written, value_type);
+        assert!(modified >= before, "{key}: {modified} < {before}");
+    }
+}
+
+// ほかの端末が消した定義が届いたあと、ユーザーがRESTやMCPでそのキーに値を書くと、端末は、消した定義の表からそのキーの行を消し、その型の本物の定義としてsettings/properties.jsonに書く。
+#[test]
+fn a_value_the_user_writes_to_a_key_deleted_on_another_device_defines_it_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "text", false);
+    b.receive(&a, DEFINITIONS_FILE);
+    b.undefine("score");
+    a.receive(&b, DEFINITIONS_FILE);
+
+    a.state
+        .journal
+        .set_page_property(
+            page.as_str(),
+            "score",
+            Some("number"),
+            Some("12"),
+            &ChangedBy::Mcp,
+        )
+        .unwrap();
+
+    let deleted: i64 = a
+        .state
+        .db
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(deleted, 0);
+    assert!(matches!(
+        a.written("score"),
+        Some(Definition::Defined { value_type, .. }) if value_type == "number"
+    ));
+}
+
+// 値があって仮の定義になったキーに、ユーザーがRESTやMCPで値を書いても、端末は、仮の定義のまま残し、消したことも残す。ユーザーは型を選んでいないからである。
+#[test]
+fn a_value_the_user_writes_to_a_provisional_key_leaves_it_provisional_and_deleted() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "text", true);
+    a.set_score(&page, "12");
+    b.receive(&a, DEFINITIONS_FILE);
+    b.undefine("score");
+    a.receive(&b, DEFINITIONS_FILE);
+
+    a.set_score(&page, "13");
+
+    assert!(a.is_provisional("score"));
+    let deleted: i64 = a
+        .state
+        .db
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(deleted, 1);
+    assert!(matches!(
+        a.written("score"),
+        Some(Definition::Deleted { .. })
+    ));
+}
+
+impl Device {
+    fn set_score(&self, page: &hmtid::Hmtid, value: &str) {
+        self.state
+            .journal
+            .set_page_property(
+                page.as_str(),
+                "score",
+                Some("text"),
+                Some(value),
+                &ChangedBy::Mcp,
+            )
+            .unwrap();
+    }
+}

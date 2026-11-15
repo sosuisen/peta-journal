@@ -232,6 +232,42 @@ fn a_key_of_an_item_that_ends_with_list_is_taken_in_as_a_list_without_its_defini
     assert_eq!(lists[x.as_str()]["author_list"], ["p", "q"]);
 }
 
+// 項目のシステム管理キーの値は、型に合わなければ取り込まれず、項目の値が残る。アプリがその型どおりに値を読むからである。ユーザーのキーの値は、型に合わなくても、書かれた文字列のまま取り込まれる。
+#[test]
+fn a_value_of_a_system_key_that_does_not_fit_stays_out_and_one_of_a_user_key_comes_in() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, _, x, _) = two_devices_with_items(dir.path());
+    a.state
+        .properties
+        .insert_definition("effort", "number", false)
+        .unwrap();
+    a.state
+        .item_service
+        .set_property(&x, "zoom", "number", "1.5")
+        .unwrap();
+    a.state
+        .item_service
+        .set_property(&x, "effort", "number", "3")
+        .unwrap();
+    a.export();
+    let file = a
+        .file(PAGE)
+        .replacen("zoom=\"1.5\"", "zoom=\"many\"", 1)
+        .replacen("effort=\"3\"", "effort=\"some\"", 1);
+    assert!(file.contains("zoom=\"many\"") && file.contains("effort=\"some\""));
+    std::fs::write(a.root.join(PAGE), dated(&file, now_millis() + 60_000)).unwrap();
+
+    a.sync(PAGE);
+
+    let scalars = a
+        .state
+        .properties
+        .find_scalar_by_targets("item", &[x.as_str().to_string()])
+        .unwrap();
+    assert_eq!(scalars[x.as_str()]["zoom"], "1.5");
+    assert_eq!(scalars[x.as_str()]["effort"], "some");
+}
+
 // 新しいファイルに無くても、それより後に足した項目は残り、相手にも届く。
 #[test]
 fn an_item_added_after_the_file_was_written_stays_and_reaches_the_other_device() {

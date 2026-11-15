@@ -91,7 +91,6 @@ impl ItemMerger {
         let scalars =
             PropertyRepository::find_scalar_by_targets_in(&tx, ITEM_TARGET, &existing_ids)?;
         let lists = PropertyRepository::find_list_by_targets_in(&tx, ITEM_TARGET, &existing_ids)?;
-        let defs = PropertyRepository::find_all_definitions_in(&tx)?;
 
         let (file_items, any_missing_id) =
             self.read_file_items(&tx, parsed_items, &by_id, &page_rel_path)?;
@@ -230,7 +229,7 @@ impl ItemMerger {
             }
 
             let have = scalars.get(id.as_str()).cloned().unwrap_or_default();
-            if self.sync_scalar_properties(&tx, id.as_str(), &pi.properties, &have, &defs)? {
+            if self.sync_scalar_properties(&tx, id.as_str(), &pi.properties, &have)? {
                 changed = true;
             }
             let have = lists.get(id.as_str()).cloned().unwrap_or_default();
@@ -244,6 +243,7 @@ impl ItemMerger {
         }
         let staying_ids: Vec<String> = staying.iter().map(|id| id.to_string()).collect();
         let tags_after = self.tags_of(&tx, staying_ids)?;
+        PropertyRepository::drop_unused_provisional_in(&tx)?;
         tx.commit()?;
         // The search index lives outside the database, so it follows the commit
         self.search.remove_items(&removed_ids); // one index commit for all of them
@@ -334,7 +334,6 @@ impl ItemMerger {
         item_id: &str,
         file_properties: &[(String, String)],
         have: &BTreeMap<String, String>,
-        defs: &BTreeMap<String, String>,
     ) -> AppResult<bool> {
         let mut want: Vec<(&str, &str)> = Vec::new();
         for (k, v) in file_properties {
@@ -353,8 +352,7 @@ impl ItemMerger {
         let mut changed = false;
         for (k, v) in &want {
             if have.get(*k).map(String::as_str) != Some(*v) {
-                let t = defs.get(*k).map(String::as_str).unwrap_or("text");
-                match PropertyRepository::upsert_scalar_in(conn, ITEM_TARGET, item_id, k, t, v) {
+                match PropertyRepository::take_in_scalar_in(conn, ITEM_TARGET, item_id, k, v) {
                     Ok(_) => changed = true,
                     Err(e) => tracing::warn!("Skipping property {k}={v} on item {item_id}: {e}"),
                 }
@@ -388,7 +386,7 @@ impl ItemMerger {
             want.push(k);
             let values = list_values(v);
             if have.get(k) != Some(&values) {
-                PropertyRepository::upsert_list_in(conn, ITEM_TARGET, item_id, k, "list", &values)?;
+                PropertyRepository::take_in_list_in(conn, ITEM_TARGET, item_id, k, &values)?;
                 changed = true;
             }
         }

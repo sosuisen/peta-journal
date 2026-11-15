@@ -162,7 +162,7 @@ atlasのデータは、すべてディレクトリの `index_atlas.md` の本文
 
 ### アイテム
 
-- `PUT /api/items/{id}/properties/{key}`: ボディは `{ valueType, value }`。`valueType` 省略時は `text`。未定義のキーは、その型でユーザー定義キーとして作られる。
+- `PUT /api/items/{id}/properties/{key}`: ボディは `{ valueType, value }`。`valueType` 省略時は `text`。未定義のキーは、その型でユーザー定義キーとして作られる。定義には今の日時が入り、`settings/properties.json` に書かれる。
   - `list` 型のキーはカンマ区切りの文字列を受け取り、そのキーのリストとして保存する。`tags` は本文の `#hashtag` からサーバーが作るので、ここでは書かない。
 - `DELETE /api/items/{id}/properties/{key}`
 
@@ -175,7 +175,7 @@ atlasのデータは、すべてディレクトリの `index_atlas.md` の本文
   - `tags` はカンマ区切りの文字列を受け取り、リストとして保存する。タグページを持つのは `tags` だけである。
   - `list` 型のキーもカンマ区切りの文字列を受け取り、そのキーのリストとして保存する。`tags` には触らない。
   - `for_page` が0のキー（`zoom` など）は400。
-  - 未定義のキーは、その型でユーザー定義キーとして作られる。
+  - 未定義のキーは、その型でユーザー定義キーとして作られる。定義には今の日時が入り、`settings/properties.json` に書かれる。
 - `DELETE /api/pages/{id}/properties/{key}`: `created` と `modified` は消せない（400）。
 
 どちらも更新後のページを `{ page }` で返す。`page.properties` にスカラー値とリスト値が入る。ページ一覧を返すAPIのうち backlinks では `properties` は空である。recent と children はスカラー値だけを入れて返す。左カラムのページ一覧が `published` で並び替え、`published` のあるページのアイコンを塗りつぶすためである。children はリスト値のうち `tags` も入れる。atlasのカードが、ページのタグからアイコンを作るためである。
@@ -219,9 +219,10 @@ tags:
 frontmatterの残りのキーは、ページのプロパティとして読む（`PageService::replace_page_properties`）。ファイルだけからページを作った端末も、これでプロパティを持つ。読まないと、その端末が次にファイルを書いたときに、frontmatterからプロパティが消える。
 
 - ページより新しいファイルが、ページのプロパティを決める。ファイルにないキーの値は、ページから消す。ページより古いファイルは、ページのプロパティを変えない。`tags` と同じ決まりである。
-- 定義のないキーは、名前が `_list` で終わればリストとして、それ以外は `text` として読む。型は端末の間でまだ同期していないので、別の端末で `number` として定義したキーも、定義のない端末では `text` になる。
+- 定義のないキーには、仮の定義を作る（ADR 046）。名前が `_list` で終われば `list`、それ以外は `text` である。仮の定義は `settings/properties.json` に書かない。ほかの端末の定義が届けば、それに置き換わる。取り込みで、仮の定義のキーの値が端末のDBに1つもなくなれば、仮の定義を消す（`PropertyRepository::drop_unused_provisional_in`）。項目のメタデータ行も同じである。
 - 名前が `_list` で終わるキーは、定義があってもなくても、リストとして読む。
-- `for_page` が0のキー、キーにできない名前の行、型に合わない値は、読み飛ばす。ファイルのほかの部分は取り込む。型に合わない値のときは、ページの値が残る。
+- `for_page` が0のシステム管理キー（`zoom` など）、キーにできない名前の行は、読み飛ばす。ファイルのほかの部分は取り込む。`for_page` が0のユーザーのキーは取り込む。`for_page` は、ページのプロパティのUIで選べるキーを決めるためだけに使う。ほかの端末では、ページに付けられる定義かもしれないからである。
+- ユーザーのキーの値は、型に合わなくても、ファイルに書かれた文字列のまま取り込む（`PropertyRepository::take_in_scalar_in`）。システム管理キーの値は、型に合わなければ読み飛ばし、ページや項目の値が残る。アプリが型どおりに値を読むからである。今、型を確かめるのは `number`、`checkbox`、`bounds` である。
 - Dropboxのconflicted copyからは、プロパティを読まない。
 
 ### タグページ
@@ -263,9 +264,8 @@ ADR 046で、定義をMarkdownフォルダーの `settings/properties.json` に�
 - 形式は、ADR 046の「ファイルの形式」のとおりである（`infrastructure::export::definitions_file`）。キーは辞書順で、日時はUTCのISO 8601である。システム管理キーは書かない。読むときは、ユーザーが作れない定義（システム管理キー、名前に合わない型、知らない型、キーにできない名前、日時のない定義）を読み飛ばす。
 - 端末は、ほかの端末が書いた `settings/properties.json` を受け取ると、その定義と端末のDBの定義をキーごとに合わせ、結果を端末のDBに入れる（`DefinitionsFileService::take_in`）。合わせた結果が受け取ったファイルと違えば、ファイルを書き直す。同じなら書き直さない。
   - 新しい定義が届くと、端末は、DBの定義をその型と `for_page` に変え、`deleted_property_definitions` からそのキーの行を消す。仮の定義も本物の定義になる。値は変えない。
-  - 消したことが届くと、端末は、消した日時を `deleted_property_definitions` に入れる。端末のDBにそのキーの値がなければ、定義の行を消す。値があれば、定義を仮の定義（`provisional` が1）にして残し、値も残す。
+  - 消したことが届くと、端末は、消した日時を `deleted_property_definitions` に入れる。端末のDBにそのキーの値がなければ、定義の行を消す。値があれば、定義を仮の定義（`provisional` が1）にして残し、値も残す。このキーにユーザーがRESTやMCPで値を書いても、仮の定義のままで、消したことも残る（`define_in`）。値がなくて定義の行を消したキーなら、値を書くと本物の定義になり、`deleted_property_definitions` の行を消す。
   - ページのファイルは書き直さず、ページの `modified` も進めない。
 - `settings/properties.json` のconflicted copy（`settings/properties (… conflicted copy …).json`）は、もう1つの版として端末のDBに合わせ、`settings/properties.json` を書き直してから消す（`take_in_copy`）。
 - 取り込むのは、ジャーナルサーバーの監視（`settings/` も見る。監視を始めるときに `settings/` を作る）と、coreの走査（`MarkdownReconcileService` が毎回 `settings/` を見る）である。どちらも `MarkdownImportService::sync_file` に渡す。どのファイルを渡すかは `import_service::takes_in` が決める。
 - 開いているクライアントには、届いた定義をまだ知らせない。クライアントは、起動したときにだけ定義を読む（`screens::start`）。
-- 仮の定義を、取り込みで定義のないキーに作ることは、まだない。`docs/plans.md` にある。

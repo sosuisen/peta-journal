@@ -145,12 +145,16 @@ impl Journal {
     ) -> AppResult<PageAnswer> {
         let page_id = parse_id(id)?;
         let tags_before = self.services.properties.find_tags(PAGE_TARGET, id)?;
+        let new_key = self.services.properties.find_definition(key)?.is_none();
         let page = self.services.page_service.set_property(
             &page_id,
             key,
             value_type.unwrap_or("text"),
             value.unwrap_or(""),
         )?;
+        if new_key {
+            self.services.definitions_file.write_file()?;
+        }
         self.tell([&page_id], by);
         if key == "tags" {
             let tags_after = self.services.properties.find_tags(PAGE_TARGET, id)?;
