@@ -10,6 +10,8 @@ public final class MarkdownFolder: @unchecked Sendable {
     public static let markdown = ".md"
     /// The folder of the images of the pages, with the `/` after it.
     public static let assets = "assets/"
+    /// The definitions of the properties, which the core takes in (ADR 046).
+    public static let definitions = "settings/properties.json"
 
     private let root: URL
     private let temp: URL
@@ -24,10 +26,11 @@ public final class MarkdownFolder: @unchecked Sendable {
         self.temp = temp
     }
 
-    /// True for a file that the app copies from the cloud: a page, or an image of a page.
-    /// `path` is in lower case. The cloud holds more, such as the settings of other apps.
+    /// True for a file that the app copies from the cloud: a page, an image of a page, or the
+    /// definitions of the properties. `path` is in lower case. The cloud holds more, such as
+    /// the settings of other apps.
     public static func keeps(_ path: String) -> Bool {
-        path.hasSuffix(markdown) || path.hasPrefix(assets)
+        path.hasSuffix(markdown) || path.hasPrefix(assets) || path == definitions
     }
 
     private func find(_ path: String) -> URL? {
@@ -80,15 +83,20 @@ public final class MarkdownFolder: @unchecked Sendable {
         return hash(file)
     }
 
-    /// The paths of the Markdown files that are here, as they are spelled here, in order.
-    public func pages() -> [String] {
+    /// The paths of the files that the app writes, as they are spelled here, in order: the
+    /// Markdown files and the definitions of the properties. The images come only from the
+    /// cloud.
+    public func written() -> [String] {
         filesUnder(root)
-            .filter { $0.lastPathComponent.lowercased().hasSuffix(MarkdownFolder.markdown) }
             .map(spelled)
+            .filter {
+                let path = $0.lowercased()
+                return path.hasSuffix(MarkdownFolder.markdown) || path == MarkdownFolder.definitions
+            }
             .sorted()
     }
 
-    /// The file at a path that `pages` gave.
+    /// The file at a path that `written` gave.
     public func file(_ path: String) -> URL {
         root.appendingPathComponent(path)
     }

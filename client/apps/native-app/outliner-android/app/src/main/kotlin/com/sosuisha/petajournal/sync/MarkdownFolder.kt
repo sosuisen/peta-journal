@@ -37,14 +37,19 @@ class MarkdownFolder(private val root: File, private val temp: File) {
      */
     fun contentHash(path: String, of: (File) -> String): String? = find(path)?.takeIf { it.isFile }?.let(of)
 
-    /** The paths of the Markdown files that are here, as they are spelled here, in order. */
-    fun pages(): List<String> = root.walk()
-        .filter { it.isFile && it.name.lowercase().endsWith(MARKDOWN) }
+    /**
+     * The paths of the files that the app writes, as they are spelled here, in order: the
+     * Markdown files and the definitions of the properties. The images come only from the
+     * cloud.
+     */
+    fun written(): List<String> = root.walk()
+        .filter { it.isFile }
         .map(::spelled)
+        .filter { it.lowercase().let { path -> path.endsWith(MARKDOWN) || path == DEFINITIONS } }
         .sorted()
         .toList()
 
-    /** The file at a path that [pages] gave. */
+    /** The file at a path that [written] gave. */
     fun file(path: String): File = File(root, path)
 
     /**
@@ -93,11 +98,15 @@ class MarkdownFolder(private val root: File, private val temp: File) {
         /** The folder of the images of the pages, with the `/` after it. */
         const val ASSETS = "assets/"
 
+        /** The definitions of the properties, which the core takes in (ADR 046). */
+        const val DEFINITIONS = "settings/properties.json"
+
         /**
-         * True for a file that the app copies from the cloud: a page, or an image of a page.
-         * [path] is in lower case. The cloud holds more, such as the settings of other apps.
+         * True for a file that the app copies from the cloud: a page, an image of a page, or
+         * the definitions of the properties. [path] is in lower case. The cloud holds more,
+         * such as the settings of other apps.
          */
-        fun keeps(path: String): Boolean = path.endsWith(MARKDOWN) || path.startsWith(ASSETS)
+        fun keeps(path: String): Boolean = path.endsWith(MARKDOWN) || path.startsWith(ASSETS) || path == DEFINITIONS
     }
 }
 

@@ -90,6 +90,18 @@ final class UploaderTests: XCTestCase {
         XCTAssertEqual(cloud.uploaded, [])
     }
 
+    // アプリで変わったsettings/properties.jsonは、クラウドへ上がる。この端末で足したプロパティの定義を、ほかの端末に届けるためである（ADR 046）。
+    func testTheFileOfThePropertyDefinitionsThatChangedInTheAppIsUploaded() throws {
+        try download(["settings/properties.json": "{}"])
+        try folders.write("settings/properties.json", "{\"definitions\": {}}")
+        try folders.write("settings/other.json", "{}")
+
+        try upload()
+
+        XCTAssertEqual(cloud.uploaded, ["settings/properties.json"])
+        XCTAssertEqual(cloud.text("settings/properties.json"), "{\"definitions\": {}}")
+    }
+
     // クラウドのファイルが、アプリの知らない版になっていたら、上書きせずにエラーが出る。
     func testAFileThatChangedInTheCloudMeanwhileIsNotWrittenOver() throws {
         try download(["docs/notes.md": "- a"])

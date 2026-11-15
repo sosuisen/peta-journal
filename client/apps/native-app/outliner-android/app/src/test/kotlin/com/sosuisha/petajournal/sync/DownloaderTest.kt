@@ -58,6 +58,24 @@ class DownloaderTest {
         assertEquals(mapOf("Assets/Picture.PNG" to "png", "docs/Notes.MD" to "- a"), here())
     }
 
+    // settings/properties.jsonは、Markdownでなくても取る。プロパティの定義を、ほかの端末から受け取るためである（ADR 046）。settingsのほかのファイルは取らない。
+    @Test
+    fun the_file_of_the_property_definitions_is_downloaded() {
+        cloud.answers[null] = Changes(
+            listOf(
+                cloud.file("settings/properties.json", "{}"),
+                cloud.file("settings/other.json", "{}"),
+                cloud.file("settings/properties (desk's conflicted copy).json", "{}"),
+            ),
+            cursor = "c1",
+            whole = true,
+        )
+
+        run()
+
+        assertEquals(mapOf("settings/properties.json" to "{}"), here())
+    }
+
     // assetsの外にある、Markdownでないファイルは取らない。
     @Test
     fun a_file_that_is_neither_markdown_nor_an_asset_is_not_downloaded() {

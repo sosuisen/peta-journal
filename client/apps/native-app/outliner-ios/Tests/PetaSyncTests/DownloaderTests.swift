@@ -40,6 +40,20 @@ final class DownloaderTests: XCTestCase {
         XCTAssertEqual(folders.here(), ["Assets/Picture.PNG": "png", "docs/Notes.MD": "- a"])
     }
 
+    // settings/properties.jsonは、Markdownでなくても取る。プロパティの定義を、ほかの端末から受け取るためである（ADR 046）。settingsのほかのファイルは取らない。
+    func testTheFileOfThePropertyDefinitionsIsDownloaded() throws {
+        cloud.answers[""] = Changes(
+            entries: [
+                cloud.file("settings/properties.json", "{}"), cloud.file("settings/other.json", "{}"),
+                cloud.file("settings/properties (desk's conflicted copy).json", "{}"),
+            ],
+            cursor: "c1", whole: true)
+
+        try download()
+
+        XCTAssertEqual(folders.here(), ["settings/properties.json": "{}"])
+    }
+
     // assetsの外にある、Markdownでないファイルは取らない。
     func testAFileThatIsNeitherMarkdownNorAnAssetIsNotDownloaded() throws {
         cloud.answers[""] = Changes(
