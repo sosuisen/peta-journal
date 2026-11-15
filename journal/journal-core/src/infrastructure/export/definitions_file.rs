@@ -18,7 +18,7 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::files::write_atomic;
 use crate::infrastructure::persistence::database_initializer::SYSTEM_KEYS;
 use crate::infrastructure::persistence::property_repository::{
-    PropertyDefinition, PropertyRepository, USER_VALUE_TYPES,
+    PropertyDefinition, PropertyRepository,
 };
 
 /// The folder of the settings in the Markdown folder.
@@ -176,9 +176,7 @@ fn a_user_can_make(key: &str, definition: &Definition) -> bool {
         return false;
     };
     match definition {
-        Definition::Defined { value_type, .. } => {
-            USER_VALUE_TYPES.contains(&value_type.as_str()) && key.check_type(value_type).is_ok()
-        }
+        Definition::Defined { value_type, .. } => key.check_type(value_type).is_ok(),
         Definition::Deleted { .. } => true,
     }
 }

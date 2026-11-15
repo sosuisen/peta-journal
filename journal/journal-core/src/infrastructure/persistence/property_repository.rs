@@ -20,12 +20,6 @@ pub type ScalarProps = BTreeMap<String, BTreeMap<String, String>>;
 /// List properties per target: target id -> (key -> values).
 pub type ListProps = BTreeMap<String, BTreeMap<String, Vec<String>>>;
 
-/// The types a user may give a new key. `list` is for a key whose name ends with `_list`
-/// (ADR 046). `tags` stays internal: the server derives the tags from the body of an item.
-pub const USER_VALUE_TYPES: [&str; 7] = [
-    "text", "number", "checkbox", "date", "datetime", "bounds", "list",
-];
-
 /// A property definition: the key, its value type and who may use it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PropertyDefinition {
@@ -178,16 +172,10 @@ impl PropertyRepository {
             .find(|d| d.key == key))
     }
 
-    /// Defines a user key. A system key, an existing key and a type the user may not choose
-    /// are refused.
+    /// Defines a user key. A system key, an existing key and a type other than the one the
+    /// name gives are refused (ADR 047).
     pub fn insert_definition(&self, key: &str, value_type: &str, page: bool) -> AppResult<()> {
         validate_key(key)?;
-        if !USER_VALUE_TYPES.contains(&value_type) {
-            return Err(AppError::bad_request(format!(
-                "Value type must be one of {}",
-                USER_VALUE_TYPES.join(", ")
-            )));
-        }
         PropertyKey::parse(key)?.check_type(value_type)?;
         if let Some(existing) = self.find_definition(key)? {
             let what = if existing.system {
