@@ -460,3 +460,24 @@ fn a_new_markdown_folder_starts_no_watcher() {
 
     assert_eq!(core.core.config.markdown_dir(), path(&other));
 }
+
+// 同期で届いた新しいページは、開いている画面の最近のページとディレクトリー一覧に入る。コアは、取り込みの知らせで2つを取り直す。
+#[test]
+fn a_page_that_a_sync_brought_comes_into_the_lists_of_the_screen() {
+    let app = App::new();
+    app.download("notes.md", "- an apple\n");
+    let core = app.open(Arc::default());
+    core.sync();
+    core.open("/pages/notes".into()).unwrap();
+    wait_until("the page shows", || shown(&core).contains("an apple"));
+    assert!(!shown(&core).contains("fresh"));
+
+    app.download("fresh.md", "- a pear\n");
+    core.sync();
+
+    // Each list names the page 3 times: the name of the page, its label and its path. The view
+    // model cannot be read back from its bytes here, so the names are counted
+    wait_until("both lists show the new page", || {
+        shown(&core).matches("fresh").count() >= 6
+    });
+}
