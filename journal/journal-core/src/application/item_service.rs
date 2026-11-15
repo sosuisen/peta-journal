@@ -593,9 +593,7 @@ impl ItemService {
                 Some(source_id) => find_all_in(tx, std::slice::from_ref(source_id))?.remove(0),
                 None => edited,
             };
-            let mut body = body.to_string();
-            paste::close_code_fence(&mut body);
-            self.update_item_in(tx, &edited, Some(&body), None, None, effects)?;
+            self.update_item_in(tx, &edited, Some(body), None, None, effects)?;
         }
         self.move_items_in(tx, item_ids, target_page_id, position, level_delta, effects)?;
         find_all_in(tx, item_ids)
