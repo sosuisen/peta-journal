@@ -187,10 +187,16 @@ public sealed partial class Shell : IDisposable
 
     /// <summary>
     /// The user typed into the item, and the cursor is <paramref name="cursor"/> UTF-16 units into
-    /// <paramref name="body"/>. An opening just typed gets its closing (ADR 050).
+    /// <paramref name="body"/>. An opening just typed gets its closing (ADR 050). An opening
+    /// that is left after a deletion does not, or the closing would come back at every delete.
     /// </summary>
-    public void Typed(string body, string itemId, int cursor) =>
-        Typed(PetaCore.PetaNative.ClosedAsTyped(body, (ulong)cursor) ?? body, itemId);
+    public void Typed(string body, string itemId, int cursor)
+    {
+        var before = View.Outline.Rows.FirstOrDefault(row => row.Item.Id == itemId)?.Item.Body;
+        var added = body.Length > (before?.Length ?? 0);
+        var closed = added ? PetaCore.PetaNative.ClosedAsTyped(body, (ulong)cursor) : null;
+        Typed(closed ?? body, itemId);
+    }
 
     /// <summary>Answers the confirmation on screen.</summary>
     public void Answer(bool yes) => Answer(new UiOutput.Bool(yes));
