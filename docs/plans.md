@@ -33,8 +33,9 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
     - [x] PR 4：AndroidとiOSのシェルで、`settings/properties.json`も運ぶ。Androidは実機で確かめる
       - [x] Androidの単体テストと実機で確かめる。2026-11-15にユーザーが確かめた。実機では、ダウンロードと、端末のcoreが合わせたファイルのアップロードが動いた
   - [ ] 型に合わない値に、警告の印を付ける。シェルごとに別のタスクにする（ADR 046）
-- [ ] `api::a_list_of_a_page_is_kept_under_its_own_key_apart_from_the_tags`が、2026-11-15のカバレッジの実行で1回落ちた（api.rs:4413、`page_list`の値が違った）。原因を確かめる
-  - 推測：共有のテストサーバーで、ほかのテストのフォルダーの走査が古いファイルを読み、APIの書き込みを上書きする競合。取り込みのロックは、APIの書き込みを止めない。まだ確かめていない
+- [x] `api::a_list_of_a_page_is_kept_under_its_own_key_apart_from_the_tags`が、2026-11-15のカバレッジの実行で1回落ちた（api.rs:4413）。原因を確かめる
+  - 原因：落ちたのは値ではなく、PUTの答えが200でなかった。新しいキーの定義で`settings/properties.json`を書くとき、`write_atomic`の一時ファイルの名前が同じなので、同時に2つ書くと片方の名前の変更が`No such file or directory`になった。ほかのテストも共有のサーバーでキーを定義するので起きた
+  - 直し方：`DefinitionsFileService`がMutexを持ち、ファイルを読んで合わせて書く処理を1つずつ行う（2026-11-15にユーザーが決めた）
 - [x] Windowsのシェルで、上付き・下付きと`-# subtext`の文字を、ほかのシェルと同じく0.75倍の大きさで描く
   - 今は`FontVariants`でOpenTypeの`subs`と`sups`に任せている。Segoe UIとYu Gothic UIは数字しか置き換えず、Noto Sans JPはこの機能を持たない。だから、文字が小さくならない
   - ベースラインは下げない。WinUIの`Run`には、ずらす設定がないため
