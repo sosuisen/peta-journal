@@ -195,3 +195,21 @@ fn a_file_that_holds_what_the_device_has_is_not_written_again() {
         long_ago
     );
 }
+
+// ほかの端末が消した定義が届き、その端末のDBにそのキーの値がなければ、端末はDBから定義を消す。
+#[test]
+fn a_definition_deleted_on_another_device_goes_when_no_value_holds_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    a.define("score", "number", false);
+    b.receive(&a, DEFINITIONS_FILE);
+    b.undefine("score");
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert_eq!(a.definition("score"), None);
+    assert!(matches!(
+        a.written("score"),
+        Some(Definition::Deleted { .. })
+    ));
+}
