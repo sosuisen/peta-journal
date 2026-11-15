@@ -1588,6 +1588,16 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
       (should (equal (buffer-substring-no-properties (overlay-start overlay) (overlay-end overlay))
                      "![p](../assets/p.png)")))))
 
+;; 画像の種類を表示できないEmacsでは、リンクの文字のまま見え、エラーにならない。
+(ert-deftest peta-journal-an-image-of-a-type-emacs-cannot-show-stays-a-link ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+    ;; A build without PNG, such as Emacs 31.1 on a Mac in 2026-11
+    (let ((image-types (remq 'png image-types)))
+      (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png))
+    (should-not (peta-journal-test--image-of "b"))
+    (should (equal (peta-journal-test--shown) "• 上\n• ![p](../assets/p.png)\n"))))
+
 ;; カーソルのある項目では、画像ではなくリンクの文字が見える。
 (ert-deftest peta-journal-the-item-with-the-point-shows-its-link-as-text ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "![p](../assets/p.png)")

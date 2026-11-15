@@ -732,11 +732,15 @@ An image taller than the window could not be scrolled through line by line."
   (when-let* ((bytes (peta-journal--image-bytes (peta-journal--asset-url name))))
     (let ((width (peta-journal--link-side fragment "w"))
           (height (peta-journal--link-side fragment "h")))
-      ;; Without a type, this tells it from the bytes, and gives nil if it cannot show them
-      (apply #'create-image bytes nil t
-             (append (and width (list :width width))
-                     (and height (list :height height))
-                     (peta-journal--image-room id))))))
+      ;; Without a type, this tells it from the bytes, and gives nil if it cannot tell it. A
+      ;; type that this build of Emacs cannot show is an error, which would stop the process
+      ;; filter: the link stays as text then
+      (condition-case nil
+          (apply #'create-image bytes nil t
+                 (append (and width (list :width width))
+                         (and height (list :height height))
+                         (peta-journal--image-room id)))
+        (error nil)))))
 
 (defun peta-journal--in-code-p (pos)
   "Non-nil when the text at POS is code.  A link there is an example, not an image."
