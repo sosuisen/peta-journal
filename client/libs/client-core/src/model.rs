@@ -1,6 +1,7 @@
 //! The data the server sends and receives, in the same JSON shape as the Angular models.
 
-pub use property_names::{body_of, ValueType};
+use property_names::body_of;
+pub use property_names::ValueType;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::{BTreeMap, HashMap};

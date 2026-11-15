@@ -1,7 +1,7 @@
 //! The settings screen, ported from `settings.ts`.
 
 use crate::core::CoreHandle;
-use client_core::model::{body_of, PropertyDefinition, WeekNumbering, USER_VALUE_TYPES};
+use client_core::model::{PropertyDefinition, WeekNumbering, USER_VALUE_TYPES};
 use client_core::Event;
 use leptos::prelude::*;
 
@@ -18,7 +18,7 @@ pub fn Settings() -> impl IntoView {
     let submitted = RwSignal::new(Option::<String>::None);
     Effect::new(move |_| {
         let Some(body) = submitted.get() else { return };
-        if definitions.with(|d| d.iter().any(|def| body_of(&def.key) == body)) {
+        if definitions.with(|d| d.iter().any(|def| def.shown_name() == body)) {
             new_key.set(String::new());
             submitted.set(None);
         }
