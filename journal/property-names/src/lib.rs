@@ -112,4 +112,12 @@ mod tests {
         assert_eq!(name_of("rating_n", ValueType::Number), Err(ReservedSuffix));
         assert_eq!(name_of("member_list", ValueType::Text), Err(ReservedSuffix));
     }
+
+    // 完全な名前から、接尾辞を除いた本体が取り出せる。
+    #[test]
+    fn the_body_comes_out_of_the_full_name_without_the_suffix() {
+        assert_eq!(body_of("rating_n"), "rating");
+        assert_eq!(body_of("start_dt"), "start");
+        assert_eq!(body_of("rating"), "rating");
+    }
 }
