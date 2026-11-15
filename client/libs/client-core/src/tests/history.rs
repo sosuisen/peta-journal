@@ -109,3 +109,14 @@ fn a_page_the_core_asks_to_open_in_place_takes_the_place_of_the_page_on_screen()
     back(&mut h);
     assert_eq!(shown(&h), "a");
 }
+
+// 今のページをもう一度開いても、履歴には増えない。戻るで、同じページに留まることはない。
+#[test]
+fn opening_the_page_on_screen_again_adds_nothing_to_the_history() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/a");
+
+    open(&mut h, "/pages/a");
+
+    assert!(!h.view().history.can_go_back);
+}
