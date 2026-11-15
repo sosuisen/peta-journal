@@ -168,6 +168,19 @@ public sealed partial class Shell : IDisposable
     /// </summary>
     public void FinishEditing(string itemId) => Send(new Event.EditFinished(itemId));
 
+    /// <summary>
+    /// The editor of the item went away while the list changes its rows. The core is told on a
+    /// later turn of the main thread. A new view now would change the rows in the middle of
+    /// the change, and the list of WinUI breaks then.
+    /// </summary>
+    public void FinishEditingLater(string itemId) =>
+        onMainThread(() =>
+        {
+            // The window was closed while this waited for the main thread
+            if (!disposed)
+                FinishEditing(itemId);
+        });
+
     /// <summary>The user changed the text of the item. The core saves it a moment later.</summary>
     public void Typed(string body, string itemId) =>
         Send(new Event.BodyChanged(itemId, body, NowMs()));

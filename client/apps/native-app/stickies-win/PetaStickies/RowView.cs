@@ -219,7 +219,8 @@ internal sealed class RowView : Grid
         if (hasCursor)
         {
             hasCursor = false;
-            Shell.FinishEditing(left.Id);
+            // Not at once: the list takes the view in the middle of a change of its rows
+            Shell.FinishEditingLater(left.Id);
         }
         composing = false;
     }
