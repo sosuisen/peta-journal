@@ -21,4 +21,20 @@ mod tests {
     fn a_name_without_a_suffix_is_text() {
         assert_eq!(type_of("rating"), ValueType::Text);
     }
+
+    // 接尾辞のある名前は、その接尾辞の型である。
+    #[test]
+    fn a_name_with_a_suffix_is_of_the_type_of_the_suffix() {
+        let names = [
+            ("rating_n", ValueType::Number),
+            ("start_d", ValueType::Date),
+            ("start_dt", ValueType::Datetime),
+            ("read_cb", ValueType::Checkbox),
+            ("place_bounds", ValueType::Bounds),
+            ("member_list", ValueType::List),
+        ];
+        for (name, value_type) in names {
+            assert_eq!(type_of(name), value_type, "{name}");
+        }
+    }
 }
