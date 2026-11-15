@@ -690,6 +690,40 @@ fn the_clients_are_told_when_the_user_changes_the_definitions() {
     assert!(told.of_definitions());
 }
 
+// 同じキーを同時にいくつも定義しても、端末は1つだけを定義し、ほかは定義済みとして断る。サーバーの内部の誤りにはしない。
+#[test]
+fn the_same_key_defined_at_once_is_defined_once_and_the_others_are_refused_as_defined() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+
+    let answers: Vec<_> = (0..8)
+        .map(|_| {
+            let state = a.state.clone();
+            std::thread::spawn(move || {
+                state
+                    .journal
+                    .add_property_definition(AddPropertyDefinitionInput {
+                        key: Some("twice_n".to_string()),
+                        value_type: None,
+                        page: None,
+                    })
+                    .map(|_| ())
+            })
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .map(|t| t.join().unwrap())
+        .collect();
+
+    assert_eq!(answers.iter().filter(|a| a.is_ok()).count(), 1);
+    for answer in answers.into_iter().filter_map(Result::err) {
+        assert!(
+            matches!(answer, journal_core::error::AppError::BadRequest(_)),
+            "{answer:?}"
+        );
+    }
+}
+
 // ユーザーがいくつものキーを同時に定義しても、端末は、どの定義も受け付け、すべての定義をsettings/properties.jsonに書く。端末は、定義のファイルを1つずつ書くからである。
 #[test]
 fn keys_defined_at_once_all_get_their_definitions_in_the_file() {
