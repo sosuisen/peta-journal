@@ -141,3 +141,33 @@ fn a_definition_from_another_device_comes_into_the_db() {
 
     assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
 }
+
+// 同じキーは、新しい方の定義になる。端末のDBの定義が古ければ、届いた定義に変わる。値は、新しい型で読む。
+#[test]
+fn a_newer_definition_from_another_device_replaces_the_older_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    a.define("score", "text", true);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    b.define("score", "number", false);
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+}
+
+// 端末のDBの定義のほうが新しければ、端末は定義を変えず、settings/properties.jsonを書き直す。ほかの端末に、新しい定義を届けるためである。
+#[test]
+fn an_older_definition_from_another_device_leaves_the_newer_one_and_the_file_is_written_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    b.define("score", "text", true);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    a.define("score", "number", false);
+    let a_wrote = a.written("score");
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+    assert_eq!(a.written("score"), a_wrote);
+}
