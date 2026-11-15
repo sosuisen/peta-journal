@@ -184,6 +184,24 @@ fn text_typed_and_not_saved_yet_travels_in_the_paste_and_its_auto_save_is_cancel
     );
 }
 
+// 開いたブロックの中に貼るとき、要求が運ぶ本文は閉じる記号を補ったものである。貼る位置は変わらない（ADR 050）。
+#[test]
+fn a_paste_into_an_open_block_carries_the_body_closed() {
+    let mut h = harness();
+    typed(&mut h, "a", ">>>\nab");
+    paste(&mut h, "a", "X", 6);
+    assert_eq!(
+        h.api.calls,
+        [ApiOp::PasteText {
+            item_id: "a".into(),
+            body: ">>>\nab\n>>>".into(),
+            cursor: 6,
+            text: "X".into(),
+            mode: PasteMode::Auto,
+        }]
+    );
+}
+
 // 貼り付けに失敗すると、入力してまだ保存していない文は、あらためて自動保存される。
 #[test]
 fn after_a_failed_paste_the_text_typed_and_not_saved_yet_is_auto_saved_again() {
