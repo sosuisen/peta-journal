@@ -31,6 +31,19 @@ pub fn type_of(name: &str) -> ValueType {
         .map_or(ValueType::Text, |(_, value_type)| *value_type)
 }
 
+/// The full key name of a property of this type, whose body the user gives.
+pub fn name_of(body: &str, value_type: ValueType) -> Result<String, ReservedSuffix> {
+    let suffix = SUFFIXES
+        .iter()
+        .find(|(_, t)| *t == value_type)
+        .map_or("", |(suffix, _)| suffix);
+    Ok(format!("{body}{suffix}"))
+}
+
+/// A body that ends with a suffix, which would make a name such as `rating_n_n`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReservedSuffix;
+
 #[cfg(test)]
 mod tests {
     use super::*;
