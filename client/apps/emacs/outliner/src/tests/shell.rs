@@ -1065,6 +1065,7 @@ fn definitions_answer() -> ApiOutput {
         definition("published", "datetime", true),
         definition("met", "datetime", true),
         definition("seen", "datetime", false),
+        definition("score_n", "number", false),
     ])
 }
 
@@ -1161,6 +1162,15 @@ fn a_doc_page_tells_emacs_its_properties_and_free_keys() {
     let created = rows.iter().find(|r| r.key == "created").unwrap();
     assert!(!created.removable && created.editable);
     assert_eq!(free_keys, ["topic_list", "published", "met"]);
+}
+
+// プロパティの行は、キーの名前の本体と型を、見出しとしてEmacsに伝える。
+#[test]
+fn a_row_tells_emacs_the_body_and_the_type_of_its_key() {
+    let driver = open_with_properties(json!({ "score_n": "5" }));
+    let rows = driver.last_properties().unwrap().0.unwrap();
+    let score = rows.iter().find(|r| r.key == "score_n").unwrap();
+    assert_eq!(score.label, "score (number)");
 }
 
 // 日時のキーをEmacsに伝える。ページ自身の日付、日時の定義を持つ使用中のキー、まだ付けられるキーである。
