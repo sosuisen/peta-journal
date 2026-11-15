@@ -114,9 +114,9 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
         move |ev: web_sys::Event| {
             let Some(el) = textarea.get() else { return };
             if let Some(input) = ev.dyn_ref::<web_sys::InputEvent>() {
-                if input.input_type() == "insertText"
-                    && matches!(input.data().as_deref(), Some("`" | "[" | "]"))
-                {
+                // Every typed text, not a list of characters: the core decides which openings
+                // close, and the call stays in the page, so it costs no round trip.
+                if input.input_type() == "insertText" {
                     close_typed(&el);
                 }
             }
