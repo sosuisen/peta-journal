@@ -397,6 +397,19 @@ impl PropertyRepository {
         replace_list_in(conn, target_type, target_id, key, values)
     }
 
+    /// Removes the provisional definitions whose keys have no value left: they were only
+    /// there to read the values (ADR 046).
+    pub fn drop_unused_provisional_in(conn: &Connection) -> AppResult<()> {
+        conn.execute(
+            "DELETE FROM property_definitions
+             WHERE provisional = 1 AND is_system = 0
+               AND key NOT IN (SELECT key FROM properties)
+               AND key NOT IN (SELECT key FROM property_list_items)",
+            [],
+        )?;
+        Ok(())
+    }
+
     /// Sets a scalar value of a defined key, as part of a larger transaction. The value is
     /// checked against the type of the definition and kept as text in the form the export
     /// writes (`1.50` becomes `1.5`). A key with no definition is refused.

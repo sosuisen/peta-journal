@@ -590,6 +590,7 @@ impl PageService {
             PropertyRepository::delete_property_in(&tx, PAGE_TARGET, &id, key)?;
             changed = true;
         }
+        PropertyRepository::drop_unused_provisional_in(&tx)?;
         tx.commit()?;
         Ok(changed)
     }
