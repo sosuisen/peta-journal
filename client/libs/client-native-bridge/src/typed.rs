@@ -5,5 +5,5 @@
 /// cursor right after the typed character, in UTF-16 units. None when the body stays as it is.
 pub fn closed_as_typed(body: &str, units: usize) -> Option<String> {
     let cursor = client_core::util::utf16::chars_of_utf16(body, units);
-    client_core::util::auto_close(body, cursor).map(|(closed, _)| closed)
+    client_core::util::auto_close(body, cursor)
 }

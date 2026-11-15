@@ -356,7 +356,7 @@ impl<H: Host> Shell<H> {
             .iter()
             .find(|r| r.item.id == id)
             .and_then(|r| auto_close(&r.item.body, cursor));
-        let Some((body, cursor)) = closed else {
+        let Some(body) = closed else {
             return;
         };
         let now_ms = self.host.now().now_ms;
