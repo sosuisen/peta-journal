@@ -1217,7 +1217,7 @@ impl ItemService {
             clear_task_times_in(&tx, &id)?;
             // A task made on the journal of a day is planned for that day
             if let Some(day) = existing.day() {
-                PropertyRepository::upsert_scalar_in(&tx, ITEM_TARGET, &id, "plan", "date", &day)?;
+                PropertyRepository::upsert_scalar_in(&tx, ITEM_TARGET, &id, "plan", &day)?;
             }
             r
         } else if !has_begin && !has_end {
@@ -1226,19 +1226,11 @@ impl ItemService {
                 ITEM_TARGET,
                 &id,
                 "begin",
-                "datetime",
                 &now_in_seconds(),
             )?;
             touched_in(&tx, &existing, now)?
         } else if has_begin && !has_end {
-            PropertyRepository::upsert_scalar_in(
-                &tx,
-                ITEM_TARGET,
-                &id,
-                "end",
-                "datetime",
-                &now_in_seconds(),
-            )?;
+            PropertyRepository::upsert_scalar_in(&tx, ITEM_TARGET, &id, "end", &now_in_seconds())?;
             touched_in(&tx, &existing, now)?
         } else {
             let r = patch_task_in(&tx, &existing, false, now)?;
@@ -1268,23 +1260,9 @@ impl ItemService {
             .ok_or_else(|| AppError::bad_request(format!("Property '{key}' is not defined")))?;
         if value_type == "tags" || value_type == "list" {
             let values = list_values(value);
-            PropertyRepository::upsert_list_in(
-                &tx,
-                ITEM_TARGET,
-                item_id.as_str(),
-                key,
-                &value_type,
-                &values,
-            )?;
+            PropertyRepository::upsert_list_in(&tx, ITEM_TARGET, item_id.as_str(), key, &values)?;
         } else {
-            PropertyRepository::upsert_scalar_in(
-                &tx,
-                ITEM_TARGET,
-                item_id.as_str(),
-                key,
-                &value_type,
-                value,
-            )?;
+            PropertyRepository::upsert_scalar_in(&tx, ITEM_TARGET, item_id.as_str(), key, value)?;
         }
         let now = now_millis();
         ItemRepository::touch_in(&tx, item_id, now)?;
@@ -1493,13 +1471,10 @@ fn set_or_clear_in(
     tx: &Connection,
     item_id: &str,
     key: &str,
-    value_type: &str,
     value: Option<&str>,
 ) -> AppResult<()> {
     match value {
-        Some(value) => {
-            PropertyRepository::upsert_scalar_in(tx, ITEM_TARGET, item_id, key, value_type, value)?
-        }
+        Some(value) => PropertyRepository::upsert_scalar_in(tx, ITEM_TARGET, item_id, key, value)?,
         None => PropertyRepository::delete_property_in(tx, ITEM_TARGET, item_id, key)?,
     };
     Ok(())
@@ -1525,9 +1500,9 @@ fn put_task_in(tx: &Connection, existing: &Item, state: &TaskState, now: i64) ->
     }
     let id = existing.id.to_string();
     patch_task_in(tx, existing, state.task, now)?;
-    set_or_clear_in(tx, &id, "begin", "datetime", state.begin.as_deref())?;
-    set_or_clear_in(tx, &id, "end", "datetime", state.end.as_deref())?;
-    set_or_clear_in(tx, &id, "plan", "date", state.plan.as_deref())?;
+    set_or_clear_in(tx, &id, "begin", state.begin.as_deref())?;
+    set_or_clear_in(tx, &id, "end", state.end.as_deref())?;
+    set_or_clear_in(tx, &id, "plan", state.plan.as_deref())?;
     Ok(())
 }
 

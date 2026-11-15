@@ -26,6 +26,9 @@ fn a_value_of_a_key_with_no_definition_is_refused() {
     let conn = state.db.conn().unwrap();
 
     assert!(PropertyRepository::write_scalar_in(&conn, "item", "x", "undefined", "1").is_err());
-    PropertyRepository::upsert_scalar_in(&conn, "item", "x", "defined", "text", "1").unwrap();
+    state
+        .properties
+        .insert_definition("defined", "text", true)
+        .unwrap();
     assert!(PropertyRepository::write_scalar_in(&conn, "item", "x", "defined", "2").is_ok());
 }

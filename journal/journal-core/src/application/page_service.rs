@@ -497,19 +497,11 @@ impl PageService {
                     PAGE_TARGET,
                     page_id.as_str(),
                     key,
-                    value_type,
                     &values,
                 )?;
             }
         } else {
-            PropertyRepository::upsert_scalar_in(
-                &tx,
-                PAGE_TARGET,
-                page_id.as_str(),
-                key,
-                value_type,
-                value,
-            )?;
+            PropertyRepository::upsert_scalar_in(&tx, PAGE_TARGET, page_id.as_str(), key, value)?;
         }
         self.touch_and_commit(tx, &page, effects)
     }

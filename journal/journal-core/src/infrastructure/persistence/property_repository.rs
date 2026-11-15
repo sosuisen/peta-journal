@@ -340,18 +340,16 @@ impl PropertyRepository {
         Ok(page_ids)
     }
 
-    /// Sets a scalar value of a key, as part of a larger transaction. A key not defined yet
-    /// is defined with the given type; a defined key keeps its type.
+    /// Sets a scalar value of a defined key, as part of a larger transaction. A key with no
+    /// definition is refused: a type is chosen only when a key is defined (ADR 047).
     pub fn upsert_scalar_in(
         conn: &Connection,
         target_type: &str,
         target_id: &str,
         key: &str,
-        value_type: &str,
         value: &str,
     ) -> AppResult<()> {
         validate_key(key)?;
-        define_in(conn, key, value_type)?;
         Self::write_scalar_in(conn, target_type, target_id, key, value)
     }
 
@@ -440,17 +438,16 @@ impl PropertyRepository {
         Ok(())
     }
 
-    /// `upsert_list` on the given connection, as part of a larger transaction.
+    /// Sets the list of a key, as part of a larger transaction. The caller has found the key
+    /// defined as a list.
     pub fn upsert_list_in(
         conn: &Connection,
         target_type: &str,
         target_id: &str,
         key: &str,
-        value_type: &str,
         values: &[String],
     ) -> AppResult<()> {
         validate_key(key)?;
-        define_in(conn, key, value_type)?;
         replace_list_in(conn, target_type, target_id, key, values)
     }
 
@@ -695,22 +692,6 @@ fn parse_date_to_millis(date_str: &str, to_end: bool) -> AppResult<i64> {
         .earliest()
         .ok_or_else(|| AppError::bad_request(format!("Invalid date: {date_str}")))?;
     Ok(dt.timestamp_millis())
-}
-
-/// Defines a key with no definition as the user wrote a value to it: a real definition of
-/// now, which goes to the other devices (ADR 046). A defined key keeps its definition.
-fn define_in(conn: &Connection, key: &str, value_type: &str) -> AppResult<()> {
-    let defined = conn.execute(
-        "INSERT OR IGNORE INTO property_definitions (key, value_type, modified) VALUES (?, ?, ?)",
-        params![key, value_type, now_millis()],
-    )?;
-    if defined > 0 {
-        conn.execute(
-            "DELETE FROM deleted_property_definitions WHERE key = ?",
-            params![key],
-        )?;
-    }
-    Ok(())
 }
 
 /// Gives a key with no definition a provisional one, which is not written to
