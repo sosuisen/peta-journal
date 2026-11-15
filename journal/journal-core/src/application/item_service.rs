@@ -796,7 +796,7 @@ impl ItemService {
         body: &str,
         effects: &mut AfterCommit,
     ) -> AppResult<Item> {
-        let parsed = ItemBody::parse(body);
+        let parsed = ItemBody::accept(body).map_err(AppError::bad_request)?;
         let now = now_millis();
         // A task stays a task when its body changes; only the prefix can add the type here
         let patch = ItemPatch::new(
@@ -899,12 +899,11 @@ impl ItemService {
         if item.transclude_item_id.is_some() || into.transclude_item_id.is_some() {
             return Err(AppError::bad_request("A transclusion cannot be merged"));
         }
-        let mut merged = format!(
+        let merged = format!(
             "{}{}",
             into_body.unwrap_or(&into.body),
             body.unwrap_or(&item.body)
         );
-        paste::close_code_fence(&mut merged);
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
