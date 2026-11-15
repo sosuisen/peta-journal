@@ -93,11 +93,15 @@ class MarkdownFolder(private val root: File, private val temp: File) {
         /** The folder of the images of the pages, with the `/` after it. */
         const val ASSETS = "assets/"
 
+        /** The definitions of the properties, which the core takes in (ADR 046). */
+        const val DEFINITIONS = "settings/properties.json"
+
         /**
-         * True for a file that the app copies from the cloud: a page, or an image of a page.
-         * [path] is in lower case. The cloud holds more, such as the settings of other apps.
+         * True for a file that the app copies from the cloud: a page, an image of a page, or
+         * the definitions of the properties. [path] is in lower case. The cloud holds more,
+         * such as the settings of other apps.
          */
-        fun keeps(path: String): Boolean = path.endsWith(MARKDOWN) || path.startsWith(ASSETS)
+        fun keeps(path: String): Boolean = path.endsWith(MARKDOWN) || path.startsWith(ASSETS) || path == DEFINITIONS
     }
 }
 
