@@ -2782,6 +2782,22 @@ async fn an_item_with_an_unclosed_block_is_not_created() {
     assert_eq!(outline_of(&page.id).await, vs(&["1:a"]));
 }
 
+// バッチの本文の1つでも閉じていなければ、バッチ全体が断られる。閉じた本文の更新も書かれない。
+#[tokio::test]
+async fn a_batch_with_one_unclosed_body_is_refused_as_a_whole() {
+    let page = new_doc_page("unclosed-batch").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+
+    let (status, resp) = batch(json!([
+        { "op": "update", "id": rows[0].id, "body": "closed" },
+        { "op": "update", "id": rows[1].id, "body": "<!--\nabc" },
+    ]))
+    .await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "1:b"]));
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
