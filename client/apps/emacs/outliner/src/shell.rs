@@ -4,7 +4,9 @@
 //! Everything here runs on one thread: the requests the core waits on stay here, and the host's
 //! threads only send back their results.
 
-use crate::protocol::{BacklinkEntry, DateUnit, Envelope, Inbound, Outbound, PropertyRow, RowView};
+use crate::protocol::{
+    BacklinkEntry, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView,
+};
 use client_core::app::{JournalNav, WikiLinkContext};
 use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput,
@@ -64,7 +66,7 @@ struct Sent {
     connection: Option<String>,
     search: Option<(Vec<client_core::view::SearchEntry>, bool)>,
     page_path: Option<String>,
-    properties: (Option<Vec<PropertyRow>>, Vec<String>, Vec<String>),
+    properties: (Option<Vec<PropertyRow>>, Vec<FreeKey>, Vec<String>),
     recent: Vec<String>,
     backlinks: Vec<BacklinkEntry>,
 }
@@ -628,12 +630,15 @@ impl<H: Host> Shell<H> {
             _ => None,
         };
         let is_used = |key: &str| rows.iter().flatten().any(|r| r.key == key);
-        let free_keys: Vec<String> = view
+        let free_keys: Vec<FreeKey> = view
             .config
             .property_definitions
             .iter()
             .filter(|d| d.page && !is_used(&d.key))
-            .map(|d| d.key.clone())
+            .map(|d| FreeKey {
+                key: d.key.clone(),
+                label: label(view, &d.key),
+            })
             .collect();
         let datetime_keys = datetime_keys(view, rows.iter().flatten(), &free_keys);
         let now = (rows, free_keys, datetime_keys);
@@ -730,12 +735,17 @@ fn route_of(url: &str) -> client_core::Route {
 fn datetime_keys<'a>(
     view: &ViewModel<()>,
     rows: impl Iterator<Item = &'a PropertyRow>,
-    free_keys: &[String],
+    free_keys: &[FreeKey],
 ) -> Vec<String> {
     let is_datetime = |key: &str| property_type(view, key) == "datetime";
     rows.filter(|row| !row.removable || is_datetime(&row.key))
         .map(|row| row.key.clone())
-        .chain(free_keys.iter().filter(|key| is_datetime(key)).cloned())
+        .chain(
+            free_keys
+                .iter()
+                .filter(|free| is_datetime(&free.key))
+                .map(|free| free.key.clone()),
+        )
         .collect()
 }
 

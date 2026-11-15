@@ -176,7 +176,7 @@ pub enum Outbound {
     /// `datetime_keys` are the keys of both whose value is a date and a time.
     Properties {
         rows: Option<Vec<PropertyRow>>,
-        free_keys: Vec<String>,
+        free_keys: Vec<FreeKey>,
         datetime_keys: Vec<String>,
     },
     Status {
@@ -301,6 +301,14 @@ impl PropertyRow {
             editable: property.editable,
         }
     }
+}
+
+/// A key that the shown page can still take, with what Emacs shows for it (see
+/// [`PropertyRow::label`]).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FreeKey {
+    pub key: String,
+    pub label: String,
 }
 
 /// A page that links to the shown page.

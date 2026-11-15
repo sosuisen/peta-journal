@@ -1,4 +1,6 @@
-use crate::protocol::{Bullet, DateUnit, Envelope, Inbound, Outbound, PropertyRow, RowView};
+use crate::protocol::{
+    Bullet, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView,
+};
 use crate::shell::{Host, Input, Now, Shell};
 use client_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
 use client_core::model::{PropertyDefinition, Uploaded};
@@ -220,7 +222,7 @@ impl Driver {
     }
 
     /// The rows and the free keys that Emacs was told last.
-    fn last_properties(&self) -> Option<(Option<Vec<PropertyRow>>, Vec<String>)> {
+    fn last_properties(&self) -> Option<(Option<Vec<PropertyRow>>, Vec<FreeKey>)> {
         self.sent().iter().rev().find_map(|m| match m {
             Outbound::Properties {
                 rows, free_keys, ..
@@ -1161,6 +1163,7 @@ fn a_doc_page_tells_emacs_its_properties_and_free_keys() {
     assert!(!modified.removable && !modified.editable);
     let created = rows.iter().find(|r| r.key == "created").unwrap();
     assert!(!created.removable && created.editable);
+    let free_keys: Vec<&str> = free_keys.iter().map(|k| k.key.as_str()).collect();
     assert_eq!(free_keys, ["topic_list", "published", "met"]);
 }
 
