@@ -487,3 +487,61 @@ fn a_key_of_an_item_with_no_definition_gets_a_provisional_definition_until_its_v
 
     assert_eq!(b.definition("score"), None);
 }
+
+// ユーザーがRESTやMCPで定義のないキーに値を書くと、端末は、その型の本物の定義を日時とともに作り、settings/properties.jsonに書く。項目でもページでも同じである。
+#[test]
+fn a_value_the_user_writes_to_a_key_with_no_definition_defines_it_for_every_device() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let page = a.doc("a");
+    let item = a
+        .state
+        .item_service
+        .create_item(
+            &page,
+            &journal_core::domain::model::ItemPosition::Last,
+            1,
+            "x",
+            None,
+        )
+        .unwrap()
+        .id;
+    let before = journal_core::infrastructure::persistence::db::now_millis();
+
+    a.state
+        .journal
+        .set_page_property(
+            page.as_str(),
+            "score",
+            Some("number"),
+            Some("12"),
+            &ChangedBy::Mcp,
+        )
+        .unwrap();
+    a.state
+        .journal
+        .set_item_property(
+            item.as_str(),
+            "member_list",
+            journal_core::journal::PropertyInput {
+                value_type: Some("list".to_string()),
+                value: Some("p, q".to_string()),
+            },
+            &ChangedBy::Mcp,
+        )
+        .unwrap();
+
+    for (key, value_type) in [("score", "number"), ("member_list", "list")] {
+        assert!(!a.is_provisional(key), "{key}");
+        let Some(Definition::Defined {
+            value_type: written,
+            modified,
+            ..
+        }) = a.written(key)
+        else {
+            panic!("{key} is not written");
+        };
+        assert_eq!(written, value_type);
+        assert!(modified >= before, "{key}: {modified} < {before}");
+    }
+}
