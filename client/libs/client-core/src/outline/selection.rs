@@ -54,16 +54,19 @@ impl Selection {
         if !self.dragging {
             return;
         }
-        self.extent_item_id = Some(item_id.to_string());
         let items = state.visible_items();
-        let (Some(anchor_idx), Some(current_idx)) = (
+        let (Some(anchor_idx), Some(entered_idx)) = (
             self.anchor_item_id
                 .as_deref()
                 .and_then(|id| index_of(items, id)),
             index_of(items, item_id),
         ) else {
+            self.extent_item_id = Some(item_id.to_string());
             return;
         };
+        // A selection from a child stays under its parent (ADR 049)
+        let current_idx = entered_idx.min(last_under_parent(items, anchor_idx));
+        self.extent_item_id = Some(items[current_idx].id.clone());
         let start = selection_start_index(items, anchor_idx, current_idx);
         let end = anchor_idx.max(current_idx);
         self.select_range(state, start, end);
