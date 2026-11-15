@@ -25,11 +25,24 @@ pub type Definitions = BTreeMap<String, Definition>;
 pub fn merge(a: &Definitions, b: &Definitions) -> Definitions {
     let mut merged = a.clone();
     for (key, definition) in b {
-        merged
-            .entry(key.clone())
-            .or_insert_with(|| definition.clone());
+        match merged.get(key) {
+            Some(have) if have.date() >= definition.date() => {}
+            _ => {
+                merged.insert(key.clone(), definition.clone());
+            }
+        }
     }
     merged
+}
+
+impl Definition {
+    /// When the key was defined or deleted.
+    fn date(&self) -> i64 {
+        match self {
+            Definition::Defined { modified, .. } => *modified,
+            Definition::Deleted { deleted } => *deleted,
+        }
+    }
 }
 
 #[cfg(test)]
