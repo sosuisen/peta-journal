@@ -199,15 +199,18 @@ impl PropertyRepository {
                 "Property key '{key}' is {what}"
             )));
         }
-        let conn = self.db.conn()?;
-        conn.execute(
+        // The key is defined and no longer deleted at once, or neither
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        tx.execute(
             "INSERT INTO property_definitions (key, value_type, is_system, for_page, modified) VALUES (?, ?, 0, ?, ?)",
             params![key, value_type, page as i64, now_millis()],
         )?;
-        conn.execute(
+        tx.execute(
             "DELETE FROM deleted_property_definitions WHERE key = ?",
             params![key],
         )?;
+        tx.commit()?;
         Ok(())
     }
 
