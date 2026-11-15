@@ -17,6 +17,9 @@ use crate::infrastructure::persistence::property_repository::{
     PropertyRepository, USER_VALUE_TYPES,
 };
 
+/// The folder of the settings in the Markdown folder.
+const SETTINGS_DIR: &str = "settings";
+
 /// Where the file is, relative to the Markdown folder.
 pub const DEFINITIONS_FILE: &str = "settings/properties.json";
 
@@ -54,9 +57,7 @@ impl DefinitionsFileService {
         if on_disk.as_deref() == Some(text.as_str()) {
             return Ok(());
         }
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        std::fs::create_dir_all(root.join(SETTINGS_DIR))?;
         write_atomic(&path, &text)?;
         Ok(())
     }
