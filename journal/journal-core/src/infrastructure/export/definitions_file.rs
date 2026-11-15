@@ -186,4 +186,34 @@ mod tests {
 
         assert_eq!(read(&write(&definitions)).unwrap(), definitions);
     }
+
+    // ユーザーが定義できない定義は読まず、ほかの定義は読む。システム管理キー、名前に合わない型、知らない型、キーにできない名前、日時のない定義である。
+    #[test]
+    fn a_definition_a_user_cannot_make_is_left_out_and_the_rest_come_in() {
+        let text = r#"{
+  "definitions": {
+    "zoom": { "type": "number", "page": false, "modified": "2025-11-15T01:00:00Z" },
+    "members": { "type": "list", "page": true, "modified": "2025-11-15T01:00:00Z" },
+    "note_list": { "type": "text", "page": true, "modified": "2025-11-15T01:00:00Z" },
+    "colour": { "type": "colour", "page": true, "modified": "2025-11-15T01:00:00Z" },
+    "my key": { "type": "text", "page": true, "modified": "2025-11-15T01:00:00Z" },
+    "undated": { "type": "text", "page": true },
+    "owner": { "type": "text", "page": true, "modified": "1970-01-01T00:00:01Z" }
+  }
+}"#;
+
+        let definitions = read(text).unwrap();
+
+        assert_eq!(
+            definitions.into_iter().collect::<Vec<_>>(),
+            [(
+                "owner".to_string(),
+                Definition::Defined {
+                    value_type: "text".to_string(),
+                    page: true,
+                    modified: 1_000,
+                }
+            )]
+        );
+    }
 }
