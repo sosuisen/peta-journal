@@ -87,17 +87,15 @@ mod tests {
         );
     }
 
-    // 同じキーは、新しい方を採る。どちらの版が新しくても同じである。消した定義の日時は、消した日時である。
+    // 同じキーは、新しい方を採る。消した定義の日時は、消した日時である。
     #[test]
-    fn the_newer_one_of_a_key_wins_whichever_version_has_it() {
+    fn the_newer_one_of_a_key_wins() {
         let older = version(&[("score", defined("text", true, 1))]);
         let newer = version(&[("score", defined("number", false, 2))]);
         let deleted = version(&[("score", Definition::Deleted { deleted: 3 })]);
 
         assert_eq!(merge(&older, &newer), newer);
-        assert_eq!(merge(&newer, &older), newer);
         assert_eq!(merge(&newer, &deleted), deleted);
-        assert_eq!(merge(&deleted, &newer), deleted);
     }
 
     // 日時が同じなら、消した方を採る。
@@ -107,7 +105,6 @@ mod tests {
         let deleted = version(&[("score", Definition::Deleted { deleted: 5 })]);
 
         assert_eq!(merge(&defined, &deleted), deleted);
-        assert_eq!(merge(&deleted, &defined), deleted);
     }
 
     // 日時が同じなら、textよりtext以外の型を採る。textは、型の分からない値に与える型だからである。
@@ -117,7 +114,6 @@ mod tests {
         let number = version(&[("score", defined("number", true, 5))]);
 
         assert_eq!(merge(&text, &number), number);
-        assert_eq!(merge(&number, &text), number);
     }
 
     // 日時が同じで、どちらもtext以外なら、型の名前の辞書順で後の方を採る。
@@ -127,7 +123,6 @@ mod tests {
         let datetime = version(&[("plan", defined("datetime", true, 5))]);
 
         assert_eq!(merge(&date, &datetime), datetime);
-        assert_eq!(merge(&datetime, &date), datetime);
     }
 
     // 日時も型も同じなら、pageが真の方を採る。偽にするほうが影響が大きいためである。
@@ -137,6 +132,63 @@ mod tests {
         let for_pages = version(&[("owner", defined("text", true, 5))]);
 
         assert_eq!(merge(&for_items, &for_pages), for_pages);
-        assert_eq!(merge(&for_pages, &for_items), for_pages);
+    }
+
+    mod properties {
+        use proptest::prelude::*;
+
+        use super::super::*;
+
+        // Few keys, types and dates, so that two versions often share a key and a date
+        fn definition() -> impl Strategy<Value = Definition> {
+            prop_oneof![
+                (
+                    prop::sample::select(vec!["text", "number", "date", "datetime"]),
+                    any::<bool>(),
+                    0i64..3,
+                )
+                    .prop_map(|(value_type, page, modified)| Definition::Defined {
+                        value_type: value_type.to_string(),
+                        page,
+                        modified,
+                    }),
+                (0i64..3).prop_map(|deleted| Definition::Deleted { deleted }),
+            ]
+        }
+
+        fn definitions() -> impl Strategy<Value = Definitions> {
+            prop::collection::btree_map(
+                prop::sample::select(vec!["a".to_string(), "b".to_string(), "c".to_string()]),
+                definition(),
+                0..4,
+            )
+        }
+
+        proptest! {
+            // 2つの版を入れ替えて合わせても、結果は同じである。どちらの端末が合わせても、同じ定義になる。
+            #[test]
+            fn the_order_of_two_versions_does_not_matter(a in definitions(), b in definitions()) {
+                prop_assert_eq!(merge(&a, &b), merge(&b, &a));
+            }
+
+            // 3つの版は、どの順に合わせても、結果は同じである。版が届く順で、定義は変わらない。
+            #[test]
+            fn the_order_of_three_versions_does_not_matter(
+                a in definitions(),
+                b in definitions(),
+                c in definitions(),
+            ) {
+                prop_assert_eq!(merge(&merge(&a, &b), &c), merge(&a, &merge(&b, &c)));
+            }
+
+            // 合わせた結果に、どちらかの版をもう一度合わせても、結果は変わらない。だから、ファイルの書き直しは止まる。
+            #[test]
+            fn a_merged_version_stays_when_merged_again(a in definitions(), b in definitions()) {
+                let merged = merge(&a, &b);
+
+                prop_assert_eq!(&merge(&merged, &a), &merged);
+                prop_assert_eq!(&merge(&merged, &b), &merged);
+            }
+        }
     }
 }
