@@ -257,12 +257,12 @@ mod tests {
     use super::*;
     use crate::domain::property_definitions::Definition;
 
-    // 定義はキーの辞書順に書かれ、消した定義は消した日時だけを持つ。
+    // 定義はキーの辞書順に、型を書かずに書かれ、消した定義は消した日時だけを持つ。型は名前から決まるからである。
     #[test]
-    fn the_definitions_are_written_in_the_order_of_their_keys() {
+    fn the_definitions_are_written_in_the_order_of_their_keys_without_their_types() {
         let definitions: Definitions = [
             (
-                "score".to_string(),
+                "score_n".to_string(),
                 Definition::Defined {
                     value_type: "number".to_string(),
                     page: false,
@@ -295,12 +295,10 @@ mod tests {
       "deleted": "2025-11-14T09:00:00Z"
     },
     "owner": {
-      "type": "text",
       "page": true,
       "modified": "2025-11-15T01:00:00Z"
     },
-    "score": {
-      "type": "number",
+    "score_n": {
       "page": false,
       "modified": "2025-11-15T02:00:00Z"
     }
