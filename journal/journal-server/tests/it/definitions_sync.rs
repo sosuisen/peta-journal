@@ -307,3 +307,26 @@ fn a_conflicted_copy_of_the_definitions_is_merged_and_then_removed() {
     assert!(a.written("owner").is_some());
     assert!(!a.root.join(copy).exists());
 }
+
+// 端末は、Markdownフォルダーの走査でも、settings/properties.jsonとそのconflicted copyを取り込む。
+#[test]
+fn a_scan_of_the_folder_takes_in_the_definitions_and_their_copies() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    a.doc("a");
+    a.export();
+    b.define("score", "number", false);
+    a.deliver(&b, DEFINITIONS_FILE);
+    let copy = "settings/properties (PC's conflicted copy 2026-11-15).json";
+    std::fs::write(
+        a.root.join(copy),
+        r#"{ "definitions": { "owner": { "type": "text", "page": true, "modified": "2025-11-15T01:00:00Z" } } }"#,
+    )
+    .unwrap();
+
+    a.state.reconcile.scan();
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+    assert_eq!(a.definition("owner"), Some(("text".to_string(), true)));
+    assert!(!a.root.join(copy).exists());
+}
