@@ -717,6 +717,23 @@ fn navigation_opens_pages_and_back_returns_to_the_previous_one() {
     );
 }
 
+// 戻ったあとのForwardは、戻る前のページをもう一度開く（ADR 035）。
+#[test]
+fn forward_after_back_opens_the_page_left_again() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::GoToPage {
+        path: "other".into(),
+    });
+    driver.send(Inbound::Back);
+    driver.take_api(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "other"));
+
+    driver.send(Inbound::Forward);
+
+    assert!(
+        driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "other"))
+    );
+}
+
 // カーソルの下のタグは、そのページを開く。
 #[test]
 fn the_tag_at_the_cursor_opens_its_page() {

@@ -716,6 +716,21 @@ The list of properties takes the point, so the current buffer may not be the pag
         (peta-journal-e2e--wait-for "the page with the link"
                                     (lambda () (equal peta-journal--page-id journal)))))))
 
+;; リンクで開いたページから`C-c C-b`で戻り、`C-c C-x f`でまたそのページへ進める。
+(ert-deftest peta-journal-e2e-back-and-forward-follow-the-pages-opened ()
+  (peta-journal-e2e--with-app
+    (let ((journal peta-journal--page-id))
+      (peta-journal-e2e--type "[[進む先")
+      (peta-journal-e2e--keys "C-x C-s")
+      (peta-journal-e2e--wait-saved '("[[進む先]]"))
+      (peta-journal-e2e--keys "C-c C-o")
+      (peta-journal-e2e--wait-page-title "進む先")
+      (peta-journal-e2e--keys "C-c C-b")
+      (peta-journal-e2e--wait-for "the journal again"
+                                  (lambda () (equal peta-journal--page-id journal)))
+      (peta-journal-e2e--keys "C-c C-x f")
+      (peta-journal-e2e--wait-page-title "進む先"))))
+
 ;; `[[`の中で`C-M-i`を押すと、打った文字に合うページの名前が入り、保存される。
 (ert-deftest peta-journal-e2e-a-wiki-link-is-completed-with-a-page-name ()
   (peta-journal-e2e--with-app
