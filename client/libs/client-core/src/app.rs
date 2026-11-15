@@ -129,6 +129,10 @@ pub enum Event {
         url: String,
         today: String,
     },
+    /// The user goes back to the page opened before, in the history of the core.
+    Back {
+        today: String,
+    },
 
     // ---- the outline ----
     EditRequested {
@@ -987,6 +991,7 @@ pub struct Model {
     pub clock_ms: u64,
     pub next_timer_id: u64,
     pub undo_syncs: ops::undo_replay::UndoSyncs,
+    pub history: screens::history::History,
 }
 
 impl Default for Model {
@@ -1020,6 +1025,7 @@ impl Default for Model {
             clock_ms: 0,
             next_timer_id: 1,
             undo_syncs: Default::default(),
+            history: Default::default(),
         }
     }
 }
@@ -1103,6 +1109,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         }
         Route { route, today } => screens::route::route(model, route, today),
         Open { url, today } => screens::history::open(model, &url, today),
+        Back { today } => screens::history::back(model, today),
 
         EditRequested { item_id, cursor } => {
             ops::outline_events::edit_requested(model, &item_id, cursor)

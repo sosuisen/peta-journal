@@ -412,7 +412,7 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
             Screen::Journal(j) => journal::window_title(j, &model.today),
             _ => model.title.clone(),
         },
-        history: HistoryView::default(),
+        history: model.history.view(),
     }
 }
 
