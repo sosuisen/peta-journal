@@ -5496,6 +5496,37 @@ async fn a_value_is_checked_by_the_type_of_its_definition_not_the_type_sent() {
     assert_eq!(status, 400, "{resp}");
 }
 
+// dateとdatetimeの値も、型に合うかが検査される。dateは年月日、datetimeはRFC 3339の日時である。
+#[tokio::test]
+async fn a_date_and_a_datetime_are_checked_by_their_types() {
+    define_key("checked_due_d").await;
+    define_key("checked_seen_dt").await;
+    let page = new_doc_page("checked-dates").await;
+    let item = fill(&page.id, &["dated"]).await.remove(0);
+    let set = |key: &'static str, value: &'static str| {
+        let id = item.id.clone();
+        async move {
+            put(
+                &format!("/api/items/{id}/properties/{key}"),
+                json!({ "value": value }),
+            )
+            .await
+            .0
+        }
+    };
+
+    assert_eq!(set("checked_due_d", "2026-03-01").await, 200);
+    assert_eq!(set("checked_seen_dt", "2026-03-01T10:00:00Z").await, 200);
+    for (key, value) in [
+        ("checked_due_d", "soon"),
+        ("checked_due_d", "2026-13-01"),
+        ("checked_seen_dt", "2026-03-01"),
+        ("checked_seen_dt", "2026-03-01 10:00"),
+    ] {
+        assert_eq!(set(key, value).await, 400, "{key} {value}");
+    }
+}
+
 // ---- Assets ----
 
 const MB: usize = 1024 * 1024;
