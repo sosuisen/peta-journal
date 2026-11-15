@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use hmtid::Hmtid;
 use journal_core::infrastructure::export::import_service::Outcome;
+use journal_core::journal::AddPropertyDefinitionInput;
 use journal_server::config::Settings;
 use journal_server::state::{AppState, BuildOptions, SharedState};
 use serde_json::json;
@@ -76,8 +77,34 @@ impl Device {
         std::fs::read_to_string(self.root.join(rel_path)).unwrap()
     }
 
+    /// Defines a key, as the user does in Settings
+    pub(super) fn define(&self, key: &str, value_type: &str, page: bool) {
+        self.state
+            .journal
+            .add_property_definition(AddPropertyDefinitionInput {
+                key: Some(key.to_string()),
+                value_type: Some(value_type.to_string()),
+                page: Some(page),
+            })
+            .unwrap();
+    }
+
+    /// Defines a key with the type its name gives, unless it is defined already
+    pub(super) fn ensure_defined(&self, key: &str) {
+        if self
+            .state
+            .properties
+            .find_definition(key)
+            .unwrap()
+            .is_none()
+        {
+            self.define(key, property_names::type_of(key).as_str(), true);
+        }
+    }
+
     /// Gives the first item of the page a property, as an edit in the app
     pub(super) fn edit(&self, page_id: &Hmtid, value: &str) {
+        self.ensure_defined("note");
         let items = self.state.page_service.get_page_items(page_id).unwrap();
         self.state
             .item_service

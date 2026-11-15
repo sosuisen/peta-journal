@@ -216,6 +216,7 @@ fn a_later_property_is_a_change_of_the_item_and_stays_against_an_older_file() {
 fn a_key_of_an_item_that_ends_with_list_is_taken_in_as_a_list_without_its_definition() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b, _, x, _) = two_devices_with_items(dir.path());
+    a.ensure_defined("author_list");
     a.state
         .item_service
         .set_property(&x, "author_list", "list", "p,q")

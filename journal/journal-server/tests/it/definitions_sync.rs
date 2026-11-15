@@ -11,17 +11,6 @@ use journal_server::state::{AppState, BuildOptions};
 use super::atlas_sync::{two_devices, Device};
 
 impl Device {
-    fn define(&self, key: &str, value_type: &str, page: bool) {
-        self.state
-            .journal
-            .add_property_definition(AddPropertyDefinitionInput {
-                key: Some(key.to_string()),
-                value_type: Some(value_type.to_string()),
-                page: Some(page),
-            })
-            .unwrap();
-    }
-
     fn undefine(&self, key: &str) {
         self.state
             .journal
@@ -490,9 +479,9 @@ fn a_key_of_an_item_with_no_definition_gets_a_provisional_definition_until_its_v
     assert_eq!(b.definition("score_n"), None);
 }
 
-// ユーザーがRESTやMCPで定義のないキーに値を書くと、端末は、その型の本物の定義を日時とともに作り、settings/properties.jsonに書く。項目でもページでも同じである。
+// ユーザーがRESTやMCPで定義のないキーに項目の値を書いても、端末は定義を作らず、settings/properties.jsonにも書かない。型は定義するときだけ決まるからである（ADR 047）。
 #[test]
-fn a_value_the_user_writes_to_a_key_with_no_definition_defines_it_for_every_device() {
+fn a_value_the_user_writes_to_a_key_with_no_definition_makes_no_definition() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
     let page = a.doc("a");
@@ -508,38 +497,20 @@ fn a_value_the_user_writes_to_a_key_with_no_definition_defines_it_for_every_devi
         )
         .unwrap()
         .id;
-    let before = journal_core::infrastructure::persistence::db::now_millis();
 
-    a.state
-        .journal
-        .set_page_property(
-            page.as_str(),
-            "score_n",
-            Some("number"),
-            Some("12"),
-            &ChangedBy::Mcp,
-        )
-        .unwrap();
-    a.state
-        .journal
-        .set_item_property(
-            item.as_str(),
-            "member_list",
-            journal_core::journal::PropertyInput {
-                value_type: Some("list".to_string()),
-                value: Some("p, q".to_string()),
-            },
-            &ChangedBy::Mcp,
-        )
-        .unwrap();
+    let written = a.state.journal.set_item_property(
+        item.as_str(),
+        "member_list",
+        journal_core::journal::PropertyInput {
+            value_type: Some("list".to_string()),
+            value: Some("p, q".to_string()),
+        },
+        &ChangedBy::Mcp,
+    );
 
-    for key in ["score_n", "member_list"] {
-        assert!(!a.is_provisional(key), "{key}");
-        let Some(Definition::Defined { modified, .. }) = a.written(key) else {
-            panic!("{key} is not written");
-        };
-        assert!(modified >= before, "{key}: {modified} < {before}");
-    }
+    assert!(written.is_err());
+    assert_eq!(a.definition("member_list"), None);
+    assert_eq!(a.written("member_list"), None);
 }
 
 // ほかの端末が消した定義が届いたあと、ユーザーがRESTやMCPでそのキーに値を書くと、端末は、消した定義の表からそのキーの行を消し、その型の本物の定義としてsettings/properties.jsonに書く。
@@ -708,7 +679,7 @@ fn the_clients_are_told_when_a_page_file_makes_or_drops_a_provisional_definition
     assert!(told.of_definitions());
 }
 
-// ユーザーがRESTやMCPで定義を足したとき、消したとき、ページや項目の定義のないキーに値を書いたときも、端末はクライアントに知らせる。
+// ユーザーがRESTやMCPで定義を足したとき、消したとき、ページの定義のないキーに値を書いたときも、端末はクライアントに知らせる。
 #[test]
 fn the_clients_are_told_when_the_user_changes_the_definitions() {
     let dir = tempfile::tempdir().unwrap();
@@ -727,22 +698,6 @@ fn the_clients_are_told_when_the_user_changes_the_definitions() {
             "rating_n",
             Some("number"),
             Some("5"),
-            &ChangedBy::Mcp,
-        )
-        .unwrap();
-    assert!(told.of_definitions());
-    let item = a.state.page_service.get_page_items(&page).unwrap()[0]
-        .id
-        .clone();
-    a.state
-        .journal
-        .set_item_property(
-            item.as_str(),
-            "member_list",
-            journal_core::journal::PropertyInput {
-                value_type: Some("list".to_string()),
-                value: Some("p, q".to_string()),
-            },
             &ChangedBy::Mcp,
         )
         .unwrap();

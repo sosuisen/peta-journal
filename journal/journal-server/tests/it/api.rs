@@ -299,6 +299,7 @@ async fn a_property_can_be_set_on_an_item() {
 // checkbox型のプロパティは、trueとfalseだけを持つ。それ以外の値はfalseになる。
 #[tokio::test]
 async fn a_checkbox_property_holds_true_or_false() {
+    define_key("done_cb").await;
     let page = new_doc_page("items-checkbox").await;
     let item = fill(&page.id, &["checked"]).await.remove(0);
 
@@ -316,6 +317,7 @@ async fn a_checkbox_property_holds_true_or_false() {
 // 項目のユーザー定義のlist型のキーは、そのキーのリストとして保存され、タグには触らない。
 #[tokio::test]
 async fn a_list_of_an_item_is_kept_under_its_own_key_apart_from_the_tags() {
+    define_key("item_list").await;
     let page = new_doc_page("items-list").await;
     let item = fill(&page.id, &["listed #items-list-tag"]).await.remove(0);
 
@@ -852,6 +854,7 @@ async fn items_listed_by_type_can_leave_out_those_with_a_property() {
 // 除く条件のプロパティは、list型でもよい。list型の値は、別のテーブルに保存されている。
 #[tokio::test]
 async fn items_listed_by_type_can_leave_out_those_with_a_list_property() {
+    define_key("left_out_list").await;
     let page = new_doc_page("items-task-list-without-list").await;
     let rows = fill(&page.id, &["plain task", "task with a list"]).await;
     let (plain, listed) = (&rows[0], &rows[1]);
@@ -4209,6 +4212,14 @@ async fn the_home_link_is_kept_as_the_target_of_a_link() {
 
 // ---- Properties ----
 
+/// Defines a key with the type its name gives, as the user does in Settings. The tests share
+/// one server, so a key another test defined already is left as it is.
+async fn define_key(key: &str) {
+    let (status, resp) = post("/api/config/property-definitions", json!({ "key": key })).await;
+    let defined = status == 200 || resp.to_string().contains("already defined");
+    assert!(defined, "{key} -> {resp}");
+}
+
 fn definition<'a>(resp: &'a Value, key: &str) -> Option<&'a Value> {
     resp["definitions"]
         .as_array()
@@ -4837,6 +4848,7 @@ async fn the_tags_of_a_file_edited_outside_keep_their_tag_pages() {
 // ファイルで直した項目のlist型の値は、項目に取り込まれる。
 #[tokio::test]
 async fn a_list_of_an_item_edited_in_the_file_is_merged_into_the_item() {
+    define_key("item_list").await;
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("file-item-list").await;
     let item = fill(&page.id, &["listed"]).await.remove(0);
@@ -4864,6 +4876,7 @@ async fn a_list_of_an_item_edited_in_the_file_is_merged_into_the_item() {
 // ファイルから消した項目のlist型のキーは、項目からも消える。
 #[tokio::test]
 async fn a_list_of_an_item_removed_from_the_file_goes_from_the_item() {
+    define_key("item_list").await;
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("file-item-list-gone").await;
     let item = fill(&page.id, &["listed"]).await.remove(0);
@@ -5038,6 +5051,7 @@ async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
 // プロパティ定義を削除すると、ページと項目からその値が消える。
 #[tokio::test]
 async fn deleting_a_property_definition_removes_its_values_from_pages_and_items() {
+    define_key("rating_n").await;
     let page = new_doc_page("definition-delete").await;
     let item = fill(&page.id, &["rated"]).await.remove(0);
     let (status, resp) = put(
