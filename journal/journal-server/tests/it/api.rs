@@ -5056,9 +5056,15 @@ async fn deleting_a_property_definition_removes_its_values_from_pages_and_items(
     assert_eq!(status, 200, "{resp}");
     assert!(definition(&resp, "rating_n").is_none(), "{resp}");
 
-    assert!(items(&page.id).await[0].properties.get("rating_n").is_none());
+    assert!(items(&page.id).await[0]
+        .properties
+        .get("rating_n")
+        .is_none());
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
-    assert!(resp["page"]["properties"].get("rating_n").is_none(), "{resp}");
+    assert!(
+        resp["page"]["properties"].get("rating_n").is_none(),
+        "{resp}"
+    );
     assert!(resp["page"]["modifiedDate"].as_i64().unwrap() >= modified_before);
 
     // System keys and unknown keys are refused
@@ -5153,7 +5159,10 @@ async fn a_bounds_property_holds_four_numbers() {
     )
     .await;
     assert_eq!(status, 200, "{resp}");
-    assert_eq!(resp["page"]["properties"]["area_bounds"], json!("10,20.5,160,-56"));
+    assert_eq!(
+        resp["page"]["properties"]["area_bounds"],
+        json!("10,20.5,160,-56")
+    );
 }
 
 async fn doc_in(dir: &str, title: &str) -> String {
