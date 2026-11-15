@@ -369,6 +369,9 @@ final class ItemTextView: NSTextView {
     private func follow(from down: NSEvent) {
         guard let window else { return }
         var drag: ItemDrag?
+        // Where the letters that the drag selects begin. On the shown text the core puts the
+        // cursor at the place that was clicked, a moment after the click
+        var anchor: Int? = isMarkdown ? selectedRange().location : nil
         while let next = window.nextEvent(
             matching: [.leftMouseDragged, .leftMouseUp], until: .distantFuture, inMode: .eventTracking, dequeue: true)
         {
@@ -379,6 +382,11 @@ final class ItemTextView: NSTextView {
             } else if isOut(place), let started = onDragOut?(self) {
                 drag = started
                 started.moved(to: place)
+            } else if isMarkdown {
+                let from = anchor ?? selectedRange().location
+                anchor = from
+                let to = letter(at: place)
+                setSelectedRange(NSRange(location: min(from, to), length: abs(to - from)))
             }
         }
         drag?.ended()
