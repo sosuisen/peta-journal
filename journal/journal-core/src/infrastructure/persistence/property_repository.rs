@@ -369,6 +369,34 @@ impl PropertyRepository {
         Self::write_scalar_in(conn, target_type, target_id, key, value)
     }
 
+    /// Takes in a scalar value from a file, as part of a larger transaction. A key with no
+    /// definition gets a provisional one of `text`, only to read the value (ADR 046).
+    pub fn take_in_scalar_in(
+        conn: &Connection,
+        target_type: &str,
+        target_id: &str,
+        key: &str,
+        value: &str,
+    ) -> AppResult<()> {
+        validate_key(key)?;
+        define_provisional_in(conn, key, "text")?;
+        Self::write_scalar_in(conn, target_type, target_id, key, value)
+    }
+
+    /// Takes in a list from a file, as part of a larger transaction. A key with no
+    /// definition gets a provisional one of `list` (ADR 046).
+    pub fn take_in_list_in(
+        conn: &Connection,
+        target_type: &str,
+        target_id: &str,
+        key: &str,
+        values: &[String],
+    ) -> AppResult<()> {
+        validate_key(key)?;
+        define_provisional_in(conn, key, "list")?;
+        replace_list_in(conn, target_type, target_id, key, values)
+    }
+
     /// Sets a scalar value of a defined key, as part of a larger transaction. The value is
     /// checked against the type of the definition and kept as text in the form the export
     /// writes (`1.50` becomes `1.5`). A key with no definition is refused.
@@ -663,6 +691,16 @@ fn parse_date_to_millis(date_str: &str, to_end: bool) -> AppResult<i64> {
 
 /// The values of a list as a client sends them: comma-separated, with the spaces around
 /// each value and the empty values dropped.
+/// Gives a key with no definition a provisional one, which is not written to
+/// `settings/properties.json`. A defined key keeps its definition.
+fn define_provisional_in(conn: &Connection, key: &str, value_type: &str) -> AppResult<()> {
+    conn.execute(
+        "INSERT OR IGNORE INTO property_definitions (key, value_type, provisional) VALUES (?, ?, 1)",
+        params![key, value_type],
+    )?;
+    Ok(())
+}
+
 pub fn list_values(value: &str) -> Vec<String> {
     value
         .split(',')
