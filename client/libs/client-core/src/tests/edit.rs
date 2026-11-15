@@ -25,6 +25,17 @@ fn typing_shows_the_text_at_once_and_schedules_the_auto_save() {
     assert!(h.model.edits.pending_saves.is_empty());
 }
 
+// 本文が閉じていないブロックで終わる間は、自動保存は送られない。項目は保存待ちのまま残り、編集を離れるときに保存される（ADR 050）。
+#[test]
+fn the_auto_save_is_not_sent_while_a_block_is_unclosed() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.state.add_editing_item("a");
+    typed(&mut h, "a", ">>>\nabc");
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
+    assert!(h.model.edits.dirty_item_ids.contains("a"));
+}
+
 // トランスクルージョンのルート項目への入力は、元の項目に対する保存として予約される。
 #[test]
 fn a_transclusion_root_schedules_the_save_for_its_source_item() {
