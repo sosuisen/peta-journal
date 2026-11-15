@@ -106,6 +106,17 @@ mod tests {
         );
     }
 
+    // tagsのキーは、tags型だけを取る。ユーザーのリストのlist型も、スカラーの型も取らない。
+    #[test]
+    fn the_tags_key_takes_only_the_tags_type() {
+        let key = PropertyKey::parse("tags").unwrap();
+
+        assert!(key.check_type("tags").is_ok());
+        assert!(key.check_type("list").is_err());
+        assert!(key.check_type("text").is_err());
+        assert_eq!(key.as_str(), "tags");
+    }
+
     // 名前が_listで終わるキーは、ユーザー定義のリストのキーである。
     #[test]
     fn a_key_whose_name_ends_with_list_is_a_list_key_of_the_user() {
