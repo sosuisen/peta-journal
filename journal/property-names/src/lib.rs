@@ -54,6 +54,11 @@ pub fn name_of(body: &str, value_type: ValueType) -> Result<String, ReservedSuff
     Ok(format!("{body}{}", value_type.suffix()))
 }
 
+/// The body of the key name, which the user sees: the name without its suffix.
+pub fn body_of(name: &str) -> &str {
+    &name[..name.len() - type_of(name).suffix().len()]
+}
+
 /// A body that ends with a suffix, which would make a name such as `rating_n_n`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReservedSuffix;
