@@ -431,6 +431,7 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 
 2026-11-14に、残りの項目で減るシェルの行数を見積もった。いちばん減るのは、Dropboxとの同期をRustにまとめる項目である。iOSとAndroidに、コードが約1,900行、テストが約2,300行ある。そのうち、何を上げ下げするかの判断、フォルダーとの突き合わせ、記録（`CloudSync`、`SyncRound`、`Downloader`、`Uploader`、`MarkdownFolder`、`CloudRecord`）の約1,000行が減る。DropboxのSDKとログインは、シェルに残る。ADR 034で選ばなかった案なので、先に新しいADRが要る。次は、付箋紙の設定と保存（SwiftとC#で約400行、約250行減る）である。ほかの項目は、数行から100行ほどである。日付の切り替わりと、iOSとAndroidでの`Prompt`などへの対応は、シェルのコードが増える
 
+- [ ] キーから`Event`への対応を、`client-core`の1つの関数にする（ADR 051）。今は、6つのシェルが同じ表を持つ（Web `item_editor/keys.rs`、Windows `Keys.cs`、macOS `Keys.swift`、iOSとAndroidの`ItemEditor`、Emacs `shell.rs`）。キーの種類はWindowsの`EditorKey`を元にし、編集欄の状態（本文、選択、最初の行か、最後の行か）と一緒に渡す。シェルに残るのは、物理キーの読み替えと行の位置の計測だけである。下の`nowMs`とShiftでの範囲選択の項目も、この関数の中で片づく。AndroidのBackspaceの横取りのように、`EditorKey`に収まらないキーが出たら、ADRを見直す
 - [ ] 画像の大きさの決まりを、Rustの1つの関数にする。今は、4つのシェルで違う。iOSは幅に合わせて縮め、Androidは決まった幅にし、macOSは付箋紙の幅に縮めない。画像がないときも、macOSは`[alt]`、スマホは`alt`かパス、Windowsは`[alt]`かパスを角かっこで出す
 - [ ] 描画の定数をそろえる。見出しの大きさは、Androidだけがブラウザの既定値（2.0、1.5、1.17…）で、ほかは1.6、1.4、1.2、1.1、1である。マーカーの色、1段の字下げも、シェルごとに違う。行頭の点は、iOSとAndroidが`row.showBullet`に従い、macOSとWindowsはいつも描く。coreが`RichParagraph`で大きさを渡すか、共通の表を持つ
 - [ ] イベントの時刻（`nowMs`）を、`client-native-bridge`の`Clock`で入れる。今は、4つのシェルが自分で入れている（macOS `Shell.swift:128`と`Keys.swift:93`、Windows `Shell.cs:299`、iOS `Shell.swift:154`、Android `Shell.kt:172`）
@@ -451,6 +452,9 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 
 client-coreはwasmにもビルドするので、`journal-core`には依存できない（rusqliteとtantivyを使うため）。両方が使える小さなクレートは、今は`hmtid`、`peta-atlas`、flatmarkdownだけである。週やジャーナルの名前の置き場所には、`journal/hmtid`のような、chronoを使わない小さなクレートを新しく作る。後から変えにくいので、ADRに残すかを決める。
 
+- [ ] エフェクトを実行する方針を、実行の手段から切り離して共通にする（ADR 051）。方針は、APIの要求を1つずつ順に送ること、タイマーをIDで管理すること、確認のダイアログを1つずつ出すことの3つである。今は、`client-native-bridge`の`Lanes`、Emacs（`runtime.rs`、`shell.rs`）、Web（`core.rs`、`effects/`）が別々に持つ。`Lanes`は`std::thread`に依存するので、方針の部分をスレッドに依存しない形に分ける。包む層が今の3つより重くなるなら、方針の仕様とテストだけを共有する
+  - 最初に、Webの要求順序をテストで確かめる。Webの`effects/api.rs`は、要求ごとに`spawn_local`で送り、前の答えを待たない。自動保存の答えを遅らせ、その直後に2つの項目をつなぐ。ネイティブでは、つなぐ要求が保存を追い越し、文字が消えた（`shell.rs`の`Lanes::call`）。消えるなら、その時点で直す
+  - 確認のダイアログの扱いも違う。`Lanes`は後の質問を待たせ、Web（`effects/ui.rs`）は前の質問を置き換える
 - [ ] 不具合：週の名前が、サーバーとクライアントで違う。サーバーの`week_names_in_month`（`journal-core/src/application/journal_service.rs:289`）は、月の年をそのまま使う（`format!("{year}-W{w:02}")`）。そのため、2024-12の月のジャーナルは「2024-W53」へリンクするが、クライアント（`client-core/src/util/week.rs`）はその週を「2025-W01」と呼ぶ。2027-01の月は「2027-W53」へリンクするが、クライアントは「2026-W53」と呼ぶ。1つにまとめて直す
 - [ ] ジャーナルの名前の解析を、1つにまとめる。クライアント（`client-core/src/util/filename.rs:3-51`）は、「2026-13」「2026-02-30」「2026-W00」「2026-W99」を受け入れる。サーバー（`journal-core/src/domain/journal_name.rs`）は拒む。そのため、ジャーナルの画面が開いたあとに、サーバーが400を返す。拡張関数の`auto-template/main.js:84-92`にも、3つ目の書き方がある
 - [ ] 不具合：`client-core/src/util/mod.rs:84`の`link_at`は、ウィキリンクとハッシュタグの決まりを、flatmarkdownとは別に書いている。`[[a|label]]`を`a|label`というページと読み、違う名前のページを開く。`#rust,`は、カンマまでタグにする。flatmarkdownのパーサーで読むようにする。パーサーが元の文字の位置を返すかを、先に調べる
@@ -480,7 +484,7 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
   - 既定のポート8087を、4か所に決め打ちしている（`todo/src/api.ts:36`、`peta-journal.el:29`、`JournalApiService.cs:31`、`emacs/outliner/src/main.rs:4`）。付箋紙の既定のサーバーも、macOSとWindowsに1つずつある
   - 同じ画像ファイルが2つずつある（todoの`images/favicon.ico`と`public/favicon.ico`、ルートの`images/favicon.ico`とWeb版の`public/favicon.ico`、`peta-journal-gray.png`）
 
-まとめないものは、次のとおりである。Emacsの画像リンクの読み取り（「Emacs版で、本文をパースしないようにする」と合わせて考える）。client-coreの2つの`page_title`（ウィンドウとサイドバーで役目が違う）。Emacsとネイティブの効果の回し方。サーバーの見出しの決まり（`domain/item_body.rs:41`）は、重複ではなく不具合である。
+まとめないものは、次のとおりである。Emacsの画像リンクの読み取り（「Emacs版で、本文をパースしないようにする」と合わせて考える）。client-coreの2つの`page_title`（ウィンドウとサイドバーで役目が違う）。サーバーの見出しの決まり（`domain/item_body.rs:41`）は、重複ではなく不具合である。
 
 ## CI
 
