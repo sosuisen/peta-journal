@@ -223,14 +223,20 @@ impl PropertyRepository {
         page: bool,
         modified: i64,
     ) -> AppResult<()> {
-        let conn = self.db.conn()?;
-        conn.execute(
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        tx.execute(
             "INSERT INTO property_definitions (key, value_type, is_system, for_page, modified, provisional)
              VALUES (?1, ?2, 0, ?3, ?4, 0)
              ON CONFLICT(key) DO UPDATE SET value_type = ?2, for_page = ?3, modified = ?4, provisional = 0
              WHERE is_system = 0",
             params![key, value_type, page as i64, modified],
         )?;
+        tx.execute(
+            "DELETE FROM deleted_property_definitions WHERE key = ?",
+            params![key],
+        )?;
+        tx.commit()?;
         Ok(())
     }
 
