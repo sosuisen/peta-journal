@@ -31,6 +31,9 @@ class CloudSyncTest {
 
     /** What the core does with the files in a round, in place of the core. */
     private var work: () -> Unit = {}
+
+    /** The failures that the sync wrote to the log. */
+    private val logged = mutableListOf<Exception>()
     private lateinit var root: File
     private lateinit var sync: CloudSync
 
@@ -46,7 +49,7 @@ class CloudSyncTest {
             held.await()
             work()
         }
-        sync = CloudSync(signedIn = true, { SyncRound(downloader, takeIn, Uploader(it, folder, record)) }, posted::put)
+        sync = CloudSync(signedIn = true, { SyncRound(downloader, takeIn, Uploader(it, folder, record)) }, posted::put, logged::add)
         cloud.answers[null] = Changes(emptyList(), "c1", whole = true)
         cloud.answers["c1"] = Changes(emptyList(), "c1", whole = false)
     }
@@ -152,17 +155,31 @@ class CloudSyncTest {
         assertEquals(emptyList<SyncState>(), seen.filterIsInstance<SyncState.Uploading>())
     }
 
-    // 同期が失敗すると、その理由を持って止まる。前の同期でもなくなる。
+    // 通信ができずに同期が失敗すると、そのことを持って止まる。前の同期でもなくなる。
     @Test
-    fun a_sync_that_fails_rests_with_the_reason() {
+    fun a_sync_that_cannot_reach_the_cloud_rests_as_offline() {
         cloud.answers[null] = Changes(listOf(cloud.file("docs/a.md", "- a")), "c1", whole = true)
         cloud.broken = "docs/a.md"
 
         sync.start(cloud, inFront = true)
         rest()
 
-        assertEquals(SyncState.Failed("the network is gone"), sync.state)
+        assertEquals(SyncState.Failed(offline = true), sync.state)
         assertFalse(sync.inFront)
+    }
+
+    // ほかの理由で同期が失敗すると、通信の失敗とは分けて止まる。理由は、画面ではなくログに残る。
+    @Test
+    fun a_sync_that_fails_for_another_reason_rests_apart_and_logs_the_reason() {
+        val refused = IllegalStateException("the core refused the files")
+        work = { throw refused }
+        held.countDown()
+
+        sync.start(cloud)
+        rest()
+
+        assertEquals(SyncState.Failed(offline = false), sync.state)
+        assertEquals(listOf<Exception>(refused), logged)
     }
 
     // 失敗したあとも、同期はまた始められる。

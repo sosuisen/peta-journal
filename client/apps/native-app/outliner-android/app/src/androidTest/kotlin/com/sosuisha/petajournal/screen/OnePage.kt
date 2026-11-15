@@ -9,8 +9,11 @@ import com.sosuisha.petajournal.sync.Change
 import com.sosuisha.petajournal.sync.Changes
 import com.sosuisha.petajournal.sync.Cloud
 
-/** A cloud with one page, or one that cannot be reached. It keeps what is uploaded. */
-internal class OnePage(var reachable: Boolean = true) : Cloud {
+/**
+ * A cloud with one page, or one that cannot be reached, or one that [refuses] the sync for
+ * another reason. It keeps what is uploaded.
+ */
+internal class OnePage(var reachable: Boolean = true, private val refuses: Boolean = false) : Cloud {
     private val text = "京都で会議がありました。\n".toByteArray()
 
     /** The text of each uploaded file, by its path. */
@@ -22,6 +25,7 @@ internal class OnePage(var reachable: Boolean = true) : Cloud {
     override fun changes(cursor: String?): Changes {
         held?.await()
         if (!reachable) throw IOException("the network is gone")
+        check(!refuses) { "the cloud refused the sync" }
         val whole = cursor == null
         val page = Change.File("docs/trip.md", hashOf(text), remote = "first")
         return Changes(if (whole) listOf(page) else emptyList(), "c1", whole)
