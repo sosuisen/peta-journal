@@ -436,6 +436,31 @@ mod tests {
         assert_eq!(type_of("score_n"), "number");
     }
 
+    // 起動しても、リストとスカラーの間では型を変えない。値は別の表にあるからである。ADR 046より前の端末では、名前が_listで終わらないリストのキーがありうる。
+    #[test]
+    fn a_list_and_a_scalar_keep_their_types_on_start() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        conn.execute(
+            "INSERT INTO property_definitions (key, value_type) VALUES ('members', 'list'), ('owner_list', 'text')",
+            [],
+        )
+        .unwrap();
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        let type_of = |key: &str| -> String {
+            conn.query_row(
+                "SELECT value_type FROM property_definitions WHERE key = ?",
+                [key],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        assert_eq!(type_of("members"), "list");
+        assert_eq!(type_of("owner_list"), "text");
+    }
+
     // 版1のデータベースを開くと、消した項目の表ができ、版が上がる。
     #[test]
     fn a_database_at_version_1_gets_the_table_of_deleted_items() {
