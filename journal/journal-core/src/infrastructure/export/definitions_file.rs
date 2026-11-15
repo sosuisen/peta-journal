@@ -161,7 +161,7 @@ pub fn read(text: &str) -> AppResult<Definitions> {
     Ok(file
         .definitions
         .into_iter()
-        .filter_map(|(key, entry)| Some((key, entry.definition()?)))
+        .filter_map(|(key, entry)| Some((key.clone(), entry.definition(&key)?)))
         .filter(|(key, definition)| a_user_can_make(key, definition))
         .collect())
 }
@@ -197,14 +197,18 @@ struct ReadEntry {
 }
 
 impl ReadEntry {
-    fn definition(self) -> Option<Definition> {
+    /// The definition of the key. A type written by an older version must be the one the
+    /// name gives, or the definition is left out (ADR 047).
+    fn definition(self, key: &str) -> Option<Definition> {
         if let Some(deleted) = self.deleted {
             return Some(Definition::Deleted {
                 deleted: parse_instant(Some(&deleted))?,
             });
         }
         Some(Definition::Defined {
-            value_type: self.value_type?,
+            value_type: self
+                .value_type
+                .unwrap_or_else(|| property_names::type_of(key).as_str().to_string()),
             page: self.page,
             modified: parse_instant(self.modified.as_deref())?,
         })
@@ -213,14 +217,12 @@ impl ReadEntry {
 
 #[derive(Serialize)]
 struct File<'a> {
-    definitions: BTreeMap<&'a str, Entry<'a>>,
+    definitions: BTreeMap<&'a str, Entry>,
 }
 
 /// One key in the file. The fields are written in this order.
 #[derive(Serialize)]
-struct Entry<'a> {
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-    value_type: Option<&'a str>,
+struct Entry {
     #[serde(skip_serializing_if = "Option::is_none")]
     page: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -229,21 +231,15 @@ struct Entry<'a> {
     deleted: Option<String>,
 }
 
-impl<'a> Entry<'a> {
-    fn of(definition: &'a Definition) -> Entry<'a> {
+impl Entry {
+    fn of(definition: &Definition) -> Entry {
         match definition {
-            Definition::Defined {
-                value_type,
-                page,
-                modified,
-            } => Entry {
-                value_type: Some(value_type),
+            Definition::Defined { page, modified, .. } => Entry {
                 page: Some(*page),
                 modified: Some(format_instant(*modified)),
                 deleted: None,
             },
             Definition::Deleted { deleted } => Entry {
-                value_type: None,
                 page: None,
                 modified: None,
                 deleted: Some(format_instant(*deleted)),
