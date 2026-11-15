@@ -55,6 +55,20 @@ fn enter_inside_an_open_code_fence_adds_a_line_instead_of_an_item() {
     );
 }
 
+// 開いたブロックの中のEnterは、どの種類のブロックでも改行になる。数式のブロック、複数行の引用、HTMLのブロックである（ADR 050）。
+#[test]
+fn enter_inside_any_open_block_adds_a_line_instead_of_an_item() {
+    for body in ["```math\nx\n```", ">>>\nab\n>>>", "<!--\nab\n-->"] {
+        let mut h = Harness::with_items(vec![item("a", 1, body)]);
+        h.model.state.add_editing_item("a");
+        let cursor = body.find('\n').unwrap() + 2;
+        enter(&mut h, "a", cursor);
+        let (before, after) = body.split_at(cursor);
+        assert_eq!(h.bodies(), [format!("a={before}\n{after}")], "{body:?}");
+        assert!(split_calls(&h.api).is_empty(), "{body:?}");
+    }
+}
+
 // 閉じたコードフェンスの後のEnterは、ふつうに項目を分ける。
 #[test]
 fn enter_after_a_closed_code_fence_splits_the_item() {
