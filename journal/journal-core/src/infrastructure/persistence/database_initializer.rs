@@ -27,6 +27,7 @@ const MIGRATIONS: &[fn(&Connection) -> rusqlite::Result<()>] = &[
     add_last_synced,
     drop_item_asts,
     use_one_value_column,
+    add_definition_dates,
 ];
 
 pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
@@ -70,6 +71,22 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
 fn user_version(conn: &Connection) -> rusqlite::Result<usize> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(version as usize)
+}
+
+/// Version 7: what the sync of the definitions through `settings/properties.json` needs
+/// (ADR 046). Each definition has the date it was defined, and may be provisional: made here
+/// only to read values that came without a definition. The definitions deleted here are kept
+/// with the date, as `deleted_items` keeps the items. The user definitions there are now
+/// are real ones of date 0, so a definition made on any device later wins over them.
+fn add_definition_dates(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "ALTER TABLE property_definitions ADD COLUMN modified INTEGER NOT NULL DEFAULT 0;
+         ALTER TABLE property_definitions ADD COLUMN provisional INTEGER NOT NULL DEFAULT 0;
+         CREATE TABLE deleted_property_definitions (
+             key TEXT PRIMARY KEY,
+             deleted_date INTEGER NOT NULL
+         );",
+    )
 }
 
 /// Version 6: one column for the value of a property, as the text written in the files
@@ -411,15 +428,25 @@ mod tests {
     /// back for a version below 5, as its migration drops it. The column of version 4 goes
     /// for a version below 4, as its migration cannot add a column that is there.
     fn set_version(conn: &Connection, version: i64) {
-        conn.execute_batch(
-            "DROP INDEX idx_props_key_value;
-             ALTER TABLE properties RENAME COLUMN value TO value_text;
-             ALTER TABLE properties ADD COLUMN value_number REAL;
-             ALTER TABLE properties ADD COLUMN value_checkbox INTEGER;
-             CREATE INDEX idx_props_key_text ON properties(key, value_text);
-             CREATE INDEX idx_props_key_number ON properties(key, value_number);",
-        )
-        .unwrap();
+        if version < 7 {
+            conn.execute_batch(
+                "ALTER TABLE property_definitions DROP COLUMN modified;
+                 ALTER TABLE property_definitions DROP COLUMN provisional;
+                 DROP TABLE deleted_property_definitions;",
+            )
+            .unwrap();
+        }
+        if version < 6 {
+            conn.execute_batch(
+                "DROP INDEX idx_props_key_value;
+                 ALTER TABLE properties RENAME COLUMN value TO value_text;
+                 ALTER TABLE properties ADD COLUMN value_number REAL;
+                 ALTER TABLE properties ADD COLUMN value_checkbox INTEGER;
+                 CREATE INDEX idx_props_key_text ON properties(key, value_text);
+                 CREATE INDEX idx_props_key_number ON properties(key, value_number);",
+            )
+            .unwrap();
+        }
         if version < 5 {
             conn.execute_batch("ALTER TABLE items ADD COLUMN ast TEXT NOT NULL DEFAULT ''")
                 .unwrap();
