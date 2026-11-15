@@ -3,11 +3,12 @@
 
 use std::collections::BTreeMap;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::export_service::format_instant;
+use super::page_matcher::parse_instant;
 use crate::domain::property_definitions::{Definition, Definitions};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 
 /// Where the file is, relative to the Markdown folder.
 pub const DEFINITIONS_FILE: &str = "settings/properties.json";
@@ -27,8 +28,44 @@ pub fn write(definitions: &Definitions) -> String {
 }
 
 /// The definitions in the text of the file.
-pub fn read(_text: &str) -> AppResult<Definitions> {
-    Ok(Definitions::new())
+pub fn read(text: &str) -> AppResult<Definitions> {
+    let file: ReadFile = serde_json::from_str(text)
+        .map_err(|e| AppError::bad_request(format!("Not a file of definitions: {e}")))?;
+    Ok(file
+        .definitions
+        .into_iter()
+        .filter_map(|(key, entry)| Some((key, entry.definition()?)))
+        .collect())
+}
+
+#[derive(Deserialize)]
+struct ReadFile {
+    definitions: BTreeMap<String, ReadEntry>,
+}
+
+#[derive(Deserialize)]
+struct ReadEntry {
+    #[serde(rename = "type")]
+    value_type: Option<String>,
+    #[serde(default)]
+    page: bool,
+    modified: Option<String>,
+    deleted: Option<String>,
+}
+
+impl ReadEntry {
+    fn definition(self) -> Option<Definition> {
+        if let Some(deleted) = self.deleted {
+            return Some(Definition::Deleted {
+                deleted: parse_instant(Some(&deleted))?,
+            });
+        }
+        Some(Definition::Defined {
+            value_type: self.value_type?,
+            page: self.page,
+            modified: parse_instant(self.modified.as_deref())?,
+        })
+    }
 }
 
 #[derive(Serialize)]
