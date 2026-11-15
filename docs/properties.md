@@ -12,6 +12,10 @@
 | `value_type` | 型。`text` / `number` / `checkbox` / `date` / `datetime` / `bounds` / `list` / `tags` |
 | `is_system` | システム管理キーなら1。ユーザーは定義を追加・変更・削除できない |
 | `for_page` | ページに付けられるキーなら1 |
+| `modified` | ユーザーが定義した日時（ミリ秒）。DBの版7より前からある定義は0 |
+| `provisional` | 仮の定義なら1（ADR 046）。仮の定義は `settings/properties.json` に書かない |
+
+ユーザーが消した定義は、`deleted_property_definitions(key, deleted_date)` に、消した日時とともに残る。項目の `deleted_items` と同じ形である。同じキーをユーザーが定義し直すと、その行は消える。
 
 ユーザーがSettings画面や `POST /api/config/property-definitions` で新しいキーを定義するときに選べる型は `text` / `number` / `checkbox` / `date` / `datetime` / `bounds` / `list` の7つである。`list` 型のキーは、未定義のキーに `valueType: "list"` で値を送っても作られる。`tags` 型は `tags` キーだけが使う。
 
@@ -253,6 +257,8 @@ frontmatterの残りのキーは、ページのプロパティとして読む（
 
 ### プロパティ定義の同期
 
-定義（キー、型、`for_page`）は、SQLiteの `property_definitions` にしかない。ファイルには出ないので、別のPCやモバイルの端末には届かない。定義のない端末は、取り込んだキーを `text` として定義する。
+ADR 046で、定義をMarkdownフォルダーの `settings/properties.json` に置き、端末の間で同期すると決めた。今は書く側までできている。
 
-定義をMarkdownフォルダーのファイルに置いて、端末の間で同期する予定である（2026-11-14にユーザーが決めた）。ファイルの場所、名前、形式、ぶつかったときの決まりは、ADRで決める。`docs/plans.md` の「次にやること」にある。
+- 端末は、その端末のユーザーが定義を足したときと消したときに、`settings/properties.json` を書く（`DefinitionsFileService::write_file`）。書く中身は、端末のDBの本物のユーザー定義と `deleted_property_definitions` を、ファイルにある定義とキーごとに合わせた結果である（`domain::property_definitions::merge`）。ファイルにあって、端末がまだ取り込んでいないほかの端末の定義を消さないためである。中身が変わらなければ、ファイルを書かない。
+- 形式は、ADR 046の「ファイルの形式」のとおりである（`infrastructure::export::definitions_file`）。キーは辞書順で、日時はUTCのISO 8601である。システム管理キーは書かない。読むときは、ユーザーが作れない定義（システム管理キー、名前に合わない型、知らない型、キーにできない名前、日時のない定義）を読み飛ばす。
+- 届いた `settings/properties.json` を取り込むこと、仮の定義、走査と監視は、まだない。`docs/plans.md` にある。
