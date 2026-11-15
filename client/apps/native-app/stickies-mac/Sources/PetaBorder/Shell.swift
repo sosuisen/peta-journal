@@ -71,6 +71,29 @@ public final class Shell: ObservableObject {
         self.url = url
     }
 
+    /// Back to the page that was open before, as the core keeps the history (ADR 035).
+    /// Nothing happens when `view.history.canGoBack` is false.
+    public func goBack() {
+        turn(.back(today: Shell.today()))
+    }
+
+    /// Forward to the page that was open before `goBack`.
+    public func goForward() {
+        turn(.forward(today: Shell.today()))
+    }
+
+    private func turn(_ event: Event) {
+        send(event)
+        // The URL of the page that the core opened from its history
+        if let shown = view.history.url { url = shown }
+    }
+
+    /// The local date, as `YYYY-MM-DD`.
+    private static func today() -> String {
+        let day = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        return String(format: "%04d-%02d-%02d", day.year ?? 0, day.month ?? 0, day.day ?? 0)
+    }
+
     /// The user clicked a link of a shown item. A link to a page, and to the page of a tag,
     /// opens the page in this window. With Shift held it opens the page in the browser: the
     /// journal server serves the web frontend too. A link out of the journal, and to a file of
