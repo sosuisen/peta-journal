@@ -55,7 +55,8 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - [x] PR 3：REST/MCPで、定義のないキーへの書き込みを400で拒む（`define_in`を外す）。`date`と`datetime`の値も確かめる
     - 時差のない古い`end`（`2026-02-13T08:57:58`）が、このMacのDBに210個ある。`datetime`は、これも受け付ける
     - 同じキーを同時に定義すると、500になっていた。定義を探す処理を、定義する処理と同じトランザクションに入れて直した
-  - [ ] PR 4：Web版。Settingsでは本体と型から、coreが完全な名前を作る。一覧とページのプロパティでは本体だけを見せる
+  - [x] PR 4：Web版。Settingsでは本体と型から、coreが完全な名前を作る。一覧とページのプロパティでは本体だけを見せる
+    - 本体はcoreの`PropertyDefinition::shown_name`と、ページの行の`PageProperty::name`で出す。システムのキーは名前のまま（`atlas_bounds`は`atlas`ではない）
   - [ ] PR 5：Emacs版。本体だけを見せる
 - [x] `api::a_list_of_a_page_is_kept_under_its_own_key_apart_from_the_tags`が、2026-11-15のカバレッジの実行で1回落ちた（api.rs:4413）。原因を確かめる
   - 原因：落ちたのは値ではなく、PUTの答えが200でなかった。新しいキーの定義で`settings/properties.json`を書くとき、`write_atomic`の一時ファイルの名前が同じなので、同時に2つ書くと片方の名前の変更が`No such file or directory`になった。ほかのテストも共有のサーバーでキーを定義するので起きた

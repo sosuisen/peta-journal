@@ -13,21 +13,21 @@ pub fn Settings() -> impl IntoView {
     let definition_error = core.select(|v| v.config.definition_error.clone());
 
     let new_key = RwSignal::new(String::new());
-    let new_type = RwSignal::new(USER_VALUE_TYPES[0].to_string());
+    let new_type = RwSignal::new(USER_VALUE_TYPES[0].as_str().to_string());
     // The form is cleared once the list holds the key, i.e. when the server accepted it
     let submitted = RwSignal::new(Option::<String>::None);
     Effect::new(move |_| {
-        let Some(key) = submitted.get() else { return };
-        if definitions.with(|d| d.iter().any(|def| def.key == key)) {
+        let Some(body) = submitted.get() else { return };
+        if definitions.with(|d| d.iter().any(|def| def.shown_name() == body)) {
             new_key.set(String::new());
             submitted.set(None);
         }
     });
     let add = move || {
-        let key = new_key.get_untracked().trim().to_string();
-        submitted.set(Some(key.clone()));
+        let body = new_key.get_untracked().trim().to_string();
+        submitted.set(Some(body.clone()));
         core.send(Event::AddPropertyDefinition {
-            key,
+            body,
             value_type: new_type.get_untracked(),
         });
     };
@@ -111,12 +111,12 @@ pub fn Settings() -> impl IntoView {
                             prop:value=move || new_type.get()
                             on:change=move |ev| new_type.set(event_target_value(&ev))
                         >
-                            {USER_VALUE_TYPES.iter().map(|t| view! { <option value=*t>{*t}</option> }).collect_view()}
+                            {USER_VALUE_TYPES.iter().map(|t| view! { <option value=t.as_str()>{t.as_str()}</option> }).collect_view()}
                         </select>
                         <button type="submit" class="browse-btn">"Add"</button>
                     </form>
                     {move || definition_error.get().map(|e| view! { <p class="setting-error">{e}</p> })}
-                    <p class="setting-description">"System keys are managed by the app and cannot be defined again. A key can be used on items and, when marked, on pages. The name of a key of type list ends with _list. Deleting a key removes its values from every page and item."</p>
+                    <p class="setting-description">"System keys are managed by the app and cannot be defined again. A key can be used on items and, when marked, on pages. Type the name alone: the type adds a suffix to it in the Markdown files, such as _n for number, and the screen does not show it. Deleting a key removes its values from every page and item."</p>
                 </div>
             </div>
         </app-settings>
@@ -153,7 +153,7 @@ fn definition_row(d: PropertyDefinition) -> impl IntoView {
     };
     view! {
         <tr class:system-key=d.system>
-            <td>{d.key.clone()}</td>
+            <td>{d.shown_name().to_string()}</td>
             <td>{d.value_type.clone()}</td>
             <td>{if d.page { "yes" } else { "" }}</td>
             <td class="definition-note">{control}</td>

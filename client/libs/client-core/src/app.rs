@@ -722,9 +722,10 @@ pub enum Event {
     SetTagsDir(String),
     SetHomeLink(String),
     BrowseFolder,
-    /// The settings form: define a user key of the given type.
+    /// The settings form: define a user key of the given type. The body is the name the
+    /// user types; the core adds the suffix of the type (ADR 047).
     AddPropertyDefinition {
-        key: String,
+        body: String,
         value_type: String,
     },
     DeletePropertyDefinition {
@@ -1454,8 +1455,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         SetTagsDir(value) => screens::settings::set_tags_dir(model, value),
         SetHomeLink(value) => screens::settings::set_home_link(model, value),
         BrowseFolder => screens::settings::browse_folder(model),
-        AddPropertyDefinition { key, value_type } => {
-            screens::settings::add_property_definition(model, key, value_type)
+        AddPropertyDefinition { body, value_type } => {
+            screens::settings::add_property_definition(model, body, value_type)
         }
         DeletePropertyDefinition { key } => {
             screens::settings::delete_property_definition(model, key)

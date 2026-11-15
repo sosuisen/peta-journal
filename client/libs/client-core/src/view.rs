@@ -12,6 +12,7 @@ use crate::screens::atlas::{self, Bounds};
 use crate::screens::{journal, page, sidebar};
 use crate::util::date::{format_instant, format_journal_date};
 use crate::util::filename::JournalType;
+use property_names::body_of;
 use serde::Serialize;
 
 /// Where a task stands, by its `begin` and `end` properties.
@@ -112,6 +113,9 @@ pub struct JournalView {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PageProperty {
     pub key: String,
+    /// The name the screen shows: the body of the key, without the suffix of its type
+    /// (ADR 047). The keys of the system a page holds have no suffix.
+    pub name: String,
     pub value: String,
     pub is_list: bool,
     /// False for the page's own dates, which every page has.
@@ -128,6 +132,7 @@ impl PageProperty {
         };
         PageProperty {
             key: key.to_string(),
+            name: body_of(key).to_string(),
             value,
             is_list,
             removable: true,
@@ -138,6 +143,7 @@ impl PageProperty {
     fn date(key: &str, millis: i64) -> PageProperty {
         PageProperty {
             key: key.to_string(),
+            name: key.to_string(),
             value: format_instant(millis),
             is_list: false,
             removable: false,

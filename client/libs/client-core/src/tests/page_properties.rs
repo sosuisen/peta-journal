@@ -70,6 +70,22 @@ fn the_dates_of_the_page_are_rows_that_cannot_be_removed_and_do_not_open_the_row
     assert_eq!(rows(&h)[0].1, "1970-01-01T00:00:00.042Z");
 }
 
+// ページプロパティの行は、キーの名前を、型の接尾辞を外した本体で示す。
+#[test]
+fn a_row_of_a_page_property_shows_the_body_of_its_key() {
+    let mut h = Harness::with_items(vec![]);
+    h.send(Event::SetPageProperty {
+        key: "rating_n".into(),
+        value_type: "number".into(),
+        value: "3".into(),
+    });
+    let ScreenView::Page(Some(p)) = &h.view().screen else {
+        panic!("no page")
+    };
+    let row = p.properties.iter().find(|r| r.key == "rating_n").unwrap();
+    assert_eq!(row.name, "rating");
+}
+
 // ページプロパティを設定すると、それが表示され、サーバーが返したページの値が取り込まれる。
 #[test]
 fn setting_a_page_property_shows_it_and_takes_the_server_value() {

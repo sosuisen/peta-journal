@@ -82,7 +82,7 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                 };
                 view! {
                     <div class="property-row">
-                        <span class="property-key">{key.clone()}</span>
+                        <span class="property-key">{p.name.clone()}</span>
                         {shown}
                         {p.removable.then(|| view! { <button class="property-remove" title="Remove" on:click=remove>"×"</button> })}
                     </div>
@@ -113,7 +113,7 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                     <div class="property-row draft">
                         <select class="property-key-select" prop:value=move || key.get() on:change=pick>
                             <option value="">"key"</option>
-                            {move || free_keys.get().into_iter().map(|d| view! { <option value=d.key.clone()>{d.key.clone()}</option> }).collect_view()}
+                            {move || free_keys.get().into_iter().map(|d| view! { <option value=d.key.clone()>{d.shown_name().to_string()}</option> }).collect_view()}
                         </select>
                         {move || {
                             let t = value_type.get();

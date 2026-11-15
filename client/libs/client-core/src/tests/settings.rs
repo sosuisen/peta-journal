@@ -1,20 +1,20 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput, FolderChoice};
 use crate::harness::Harness;
-use crate::model::{ServerConfig, WeekNumbering};
+use crate::model::{PropertyDefinition, ServerConfig, WeekNumbering};
 
-// プロパティ定義を追加すると、前後の空白を除いたキーがサーバーに送られ、サーバーの一覧が表示される。
+// 本体と型でプロパティ定義を追加すると、前後の空白を除いた本体に型の接尾辞を付けた名前がサーバーに送られ、サーバーの一覧が表示される。
 #[test]
-fn adding_a_property_definition_sends_it_and_shows_the_server_list() {
+fn adding_a_property_definition_sends_the_body_with_the_suffix_of_its_type() {
     let mut h = Harness::with_items(vec![]);
     h.send(Event::AddPropertyDefinition {
-        key: " status ".into(),
-        value_type: "text".into(),
+        body: " rating ".into(),
+        value_type: "number".into(),
     });
-    assert!(h.api.calls.iter().any(|c| matches!(c, ApiOp::AddPropertyDefinition { key, value_type } if key == "status" && value_type == "text")));
+    assert!(h.api.calls.iter().any(|c| matches!(c, ApiOp::AddPropertyDefinition { key, value_type } if key == "rating_n" && value_type == "number")));
     let defs = &h.model.config.property_definitions;
     assert_eq!(defs.len(), 1);
-    assert_eq!(defs[0].key, "status");
+    assert_eq!(defs[0].key, "rating_n");
     assert!(!defs[0].system);
     assert!(h.model.config.definition_error.is_none());
 }
@@ -28,7 +28,7 @@ fn a_refused_definition_shows_the_reason_and_an_empty_key_is_not_sent() {
         "Property key 'zoom' is a system key",
     );
     h.send(Event::AddPropertyDefinition {
-        key: "zoom".into(),
+        body: "zoom".into(),
         value_type: "number".into(),
     });
     assert_eq!(
@@ -37,7 +37,7 @@ fn a_refused_definition_shows_the_reason_and_an_empty_key_is_not_sent() {
     );
 
     h.send(Event::AddPropertyDefinition {
-        key: "  ".into(),
+        body: "  ".into(),
         value_type: "text".into(),
     });
     assert_eq!(h.api.calls_named("AddPropertyDefinition").len(), 1);
@@ -47,12 +47,61 @@ fn a_refused_definition_shows_the_reason_and_an_empty_key_is_not_sent() {
     );
 }
 
+// 予約の接尾辞で終わる本体は、サーバーに送られず、その理由が示される。
+#[test]
+fn a_body_that_ends_with_a_reserved_suffix_is_not_sent() {
+    let mut h = Harness::with_items(vec![]);
+    h.send(Event::AddPropertyDefinition {
+        body: "rating_n".into(),
+        value_type: "number".into(),
+    });
+    assert!(h.api.calls_named("AddPropertyDefinition").is_empty());
+    assert_eq!(
+        h.model.config.definition_error.as_deref(),
+        Some("The name cannot end with _n, _d, _dt, _cb, _bounds or _list")
+    );
+}
+
+// ユーザーが選べない型の定義は、サーバーに送られず、その理由が示される。
+#[test]
+fn a_definition_of_a_type_the_user_cannot_choose_is_not_sent() {
+    let mut h = Harness::with_items(vec![]);
+    h.send(Event::AddPropertyDefinition {
+        body: "topics".into(),
+        value_type: "tags".into(),
+    });
+    assert!(h.api.calls_named("AddPropertyDefinition").is_empty());
+    assert_eq!(
+        h.model.config.definition_error.as_deref(),
+        Some("A key cannot be of type tags")
+    );
+}
+
+// 定義は、ユーザーのキーを名前の本体で示し、システムのキーを名前のまま示す。
+#[test]
+fn a_definition_shows_the_body_of_a_user_key_and_the_whole_name_of_a_system_key() {
+    let user = PropertyDefinition {
+        key: "rating_n".into(),
+        value_type: "number".into(),
+        system: false,
+        page: true,
+    };
+    let system = PropertyDefinition {
+        key: "atlas_bounds".into(),
+        value_type: "bounds".into(),
+        system: true,
+        page: false,
+    };
+    assert_eq!(user.shown_name(), "rating");
+    assert_eq!(system.shown_name(), "atlas_bounds");
+}
+
 // プロパティ定義を削除すると、それがサーバーに送られ、サーバーの一覧が表示される。拒否された削除はその理由を示す。
 #[test]
 fn deleting_a_property_definition_sends_it_and_shows_the_server_list() {
     let mut h = Harness::with_items(vec![]);
     h.send(Event::AddPropertyDefinition {
-        key: "status".into(),
+        body: "status".into(),
         value_type: "text".into(),
     });
     assert_eq!(h.model.config.property_definitions.len(), 1);
