@@ -129,4 +129,14 @@ mod tests {
         assert_eq!(merge(&date, &datetime), datetime);
         assert_eq!(merge(&datetime, &date), datetime);
     }
+
+    // 日時も型も同じなら、pageが真の方を採る。偽にするほうが影響が大きいためである。
+    #[test]
+    fn of_the_same_date_and_type_the_one_for_pages_wins() {
+        let for_items = version(&[("owner", defined("text", false, 5))]);
+        let for_pages = version(&[("owner", defined("text", true, 5))]);
+
+        assert_eq!(merge(&for_items, &for_pages), for_pages);
+        assert_eq!(merge(&for_pages, &for_items), for_pages);
+    }
 }
