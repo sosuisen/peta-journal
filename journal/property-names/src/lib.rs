@@ -68,4 +68,11 @@ mod tests {
     fn only_the_last_suffix_decides_the_type() {
         assert_eq!(type_of("rating_n_d"), ValueType::Date);
     }
+
+    // 本体と型から、完全な名前ができる。
+    #[test]
+    fn a_body_and_a_type_make_the_full_name() {
+        assert_eq!(name_of("rating", ValueType::Number), Ok("rating_n".to_string()));
+        assert_eq!(name_of("rating", ValueType::Text), Ok("rating".to_string()));
+    }
 }
