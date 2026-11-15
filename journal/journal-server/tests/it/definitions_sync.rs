@@ -289,3 +289,21 @@ fn a_definition_newer_than_its_deletion_makes_the_key_real_again() {
         .unwrap();
     assert_eq!(deleted, 0);
 }
+
+// settings/properties.jsonのconflicted copyが届くと、端末は、それをもう1つの版として合わせてから消す。どちらの版の定義も残る。
+#[test]
+fn a_conflicted_copy_of_the_definitions_is_merged_and_then_removed() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    a.define("owner", "text", true);
+    b.define("score", "number", false);
+    let copy = "settings/properties (PC's conflicted copy 2026-11-15).json";
+    std::fs::copy(b.root.join(DEFINITIONS_FILE), a.root.join(copy)).unwrap();
+
+    assert_eq!(a.sync(copy), Outcome::Imported);
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+    assert!(a.written("score").is_some());
+    assert!(a.written("owner").is_some());
+    assert!(!a.root.join(copy).exists());
+}
