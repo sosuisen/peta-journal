@@ -122,11 +122,15 @@ impl Journal {
         &self,
         input: AddPropertyDefinitionInput,
     ) -> AppResult<PropertyDefinitionsAnswer> {
-        self.services.properties.insert_definition(
-            input.key.as_deref().unwrap_or("").trim(),
-            input.value_type.as_deref().unwrap_or("text"),
-            input.page.unwrap_or(true),
-        )?;
+        let key = input.key.as_deref().unwrap_or("").trim();
+        // The name gives the type (ADR 047); a type sent with it is only checked
+        let value_type = input
+            .value_type
+            .as_deref()
+            .unwrap_or(property_names::type_of(key).as_str());
+        self.services
+            .properties
+            .insert_definition(key, value_type, input.page.unwrap_or(true))?;
         self.definitions_changed()?;
         self.property_definitions()
     }
