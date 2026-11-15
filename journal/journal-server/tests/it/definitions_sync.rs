@@ -330,3 +330,44 @@ fn a_scan_of_the_folder_takes_in_the_definitions_and_their_copies() {
     assert_eq!(a.definition("owner"), Some(("text".to_string(), true)));
     assert!(!a.root.join(copy).exists());
 }
+
+// 端末は、settings/properties.jsonを取り込んでも、ページのファイルを書き直さず、ページの更新日時も進めない。型が変わっても、値は元の文字列のままである。
+#[test]
+fn taking_in_the_definitions_leaves_the_pages_and_their_files_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "text", true);
+    a.state
+        .page_service
+        .set_property(&page, "score", "text", "1.50")
+        .unwrap();
+    a.export();
+    let file_before = a.file("docs/d/a.md");
+    let modified_before = a
+        .state
+        .pages
+        .find_by_id(&page)
+        .unwrap()
+        .unwrap()
+        .modified_date;
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    b.define("score", "number", true);
+
+    a.receive(&b, DEFINITIONS_FILE);
+    a.export();
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), true)));
+    assert_eq!(a.file("docs/d/a.md"), file_before);
+    assert_eq!(
+        a.state
+            .pages
+            .find_by_id(&page)
+            .unwrap()
+            .unwrap()
+            .modified_date,
+        modified_before
+    );
+    let (scalars, _) = a.state.page_service.page_properties(&page).unwrap();
+    assert_eq!(scalars[page.as_str()]["score"], "1.50");
+}
