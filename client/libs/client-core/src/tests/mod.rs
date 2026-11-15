@@ -50,5 +50,8 @@ mod sse;
 // 外のプログラムと組む
 mod launcher;
 
+// 開いたページをたどる
+mod history;
+
 // ネイティブのシェルとの境界
 mod native_border;
