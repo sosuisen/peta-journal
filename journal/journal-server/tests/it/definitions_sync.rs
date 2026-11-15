@@ -371,3 +371,26 @@ fn taking_in_the_definitions_leaves_the_pages_and_their_files_alone() {
     let (scalars, _) = a.state.page_service.page_properties(&page).unwrap();
     assert_eq!(scalars[page.as_str()]["score"], "1.50");
 }
+
+// 読めないsettings/properties.jsonは取り込まない。端末のDBの定義も、ファイルも変わらない。conflicted copyも同じで、読めなければ消さずに残す。
+#[test]
+fn a_file_of_definitions_that_cannot_be_read_changes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    a.define("owner", "text", true);
+    let broken = r#"{ "definitions": { "score": "#;
+    let copy = "settings/properties (PC's conflicted copy 2026-11-15).json";
+    std::fs::write(a.root.join(DEFINITIONS_FILE), broken).unwrap();
+    std::fs::write(a.root.join(copy), broken).unwrap();
+
+    assert_eq!(a.sync(DEFINITIONS_FILE), Outcome::Error);
+    assert_eq!(a.sync(copy), Outcome::Error);
+
+    assert_eq!(a.definition("owner"), Some(("text".to_string(), true)));
+    assert_eq!(a.definition("score"), None);
+    assert_eq!(
+        std::fs::read_to_string(a.root.join(DEFINITIONS_FILE)).unwrap(),
+        broken
+    );
+    assert!(a.root.join(copy).exists());
+}
