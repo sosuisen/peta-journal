@@ -92,8 +92,9 @@ fn a_definition_shows_the_body_of_a_user_key_and_the_whole_name_of_a_system_key(
         system: true,
         page: false,
     };
-    assert_eq!(user.shown_name(), "rating");
-    assert_eq!(system.shown_name(), "atlas_bounds");
+    let definitions = [user, system];
+    assert_eq!(shown_name("rating_n", &definitions), "rating");
+    assert_eq!(shown_name("atlas_bounds", &definitions), "atlas_bounds");
 }
 
 // 本体が同じユーザーのキーが2つ以上あれば、それぞれの名前に型が添えられる。本体がほかと重ならないキーは、本体だけで示される。

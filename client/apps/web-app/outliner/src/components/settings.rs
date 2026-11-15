@@ -1,7 +1,9 @@
 //! The settings screen, ported from `settings.ts`.
 
 use crate::core::CoreHandle;
-use client_core::model::{PropertyDefinition, WeekNumbering, USER_VALUE_TYPES};
+use client_core::model::{
+    bare_name, shown_name, PropertyDefinition, WeekNumbering, USER_VALUE_TYPES,
+};
 use client_core::Event;
 use leptos::prelude::*;
 
@@ -18,7 +20,7 @@ pub fn Settings() -> impl IntoView {
     let submitted = RwSignal::new(Option::<String>::None);
     Effect::new(move |_| {
         let Some(body) = submitted.get() else { return };
-        if definitions.with(|d| d.iter().any(|def| def.shown_name() == body)) {
+        if definitions.with(|d| d.iter().any(|def| bare_name(&def.key, d) == body)) {
             new_key.set(String::new());
             submitted.set(None);
         }
@@ -95,7 +97,7 @@ pub fn Settings() -> impl IntoView {
                             <tr><th>"Key"</th><th>"Type"</th><th>"Page"</th><th></th></tr>
                         </thead>
                         <tbody>
-                            <For each=move || definitions.get() key=|d| d.key.clone() children=definition_row />
+                            <For each=move || definitions.with(|ds| ds.iter().map(|d| (d.clone(), shown_name(&d.key, ds))).collect::<Vec<_>>()) key=|(d, name)| (d.key.clone(), name.clone()) children=|(d, name)| definition_row(d, name) />
                         </tbody>
                     </table>
                     <form class="property-definition-form" on:submit=move |ev| { ev.prevent_default(); add(); }>
@@ -123,9 +125,9 @@ pub fn Settings() -> impl IntoView {
     }
 }
 
-/// One definition: a system key is marked as such instead of offering any control. A user
+/// One definition, shown by its name (see `shown_name`): a system key is marked as such instead of offering any control. A user
 /// key has a Delete button that asks once more in place, since the values go with the key.
-fn definition_row(d: PropertyDefinition) -> impl IntoView {
+fn definition_row(d: PropertyDefinition, name: String) -> impl IntoView {
     let core: CoreHandle = expect_context();
     let confirming = RwSignal::new(false);
     let key = d.key.clone();
@@ -153,7 +155,7 @@ fn definition_row(d: PropertyDefinition) -> impl IntoView {
     };
     view! {
         <tr class:system-key=d.system>
-            <td>{d.shown_name().to_string()}</td>
+            <td>{name}</td>
             <td>{d.value_type.clone()}</td>
             <td>{if d.page { "yes" } else { "" }}</td>
             <td class="definition-note">{control}</td>
