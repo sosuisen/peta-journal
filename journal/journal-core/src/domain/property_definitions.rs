@@ -67,4 +67,17 @@ mod tests {
             ])
         );
     }
+
+    // 同じキーは、新しい方を採る。どちらの版が新しくても同じである。消した定義の日時は、消した日時である。
+    #[test]
+    fn the_newer_one_of_a_key_wins_whichever_version_has_it() {
+        let older = version(&[("score", defined("text", true, 1))]);
+        let newer = version(&[("score", defined("number", false, 2))]);
+        let deleted = version(&[("score", Definition::Deleted { deleted: 3 })]);
+
+        assert_eq!(merge(&older, &newer), newer);
+        assert_eq!(merge(&newer, &older), newer);
+        assert_eq!(merge(&newer, &deleted), deleted);
+        assert_eq!(merge(&deleted, &newer), deleted);
+    }
 }
