@@ -1023,6 +1023,8 @@ Androidのシェル（`client/apps/native-app/outliner-android`）の機能で�
 
 出典: `client/apps/native-app/outliner-android/app/src/androidTest/kotlin/com/sosuisha/petajournal/screen/*.kt`
 
+- 上端のバーの、検索の入力欄の左に、戻るボタンと進むボタンがある。開いたページの履歴は、コアが持つ（ADR 035）
+  - 戻る先も進む先もないときは、ボタンは出たまま押せない
 - 同期のメッセージは、ページの上端に重ねて出る。下端に出すと、いちばん下の行で打つ文字に重なるためである
 - 失敗した同期は、通信ができなかったときは「Sync failed: no connection」、そのほかのときは「Sync failed」とだけ伝える。SDKの長い言葉は、画面に出さず、ログに残す
   - 通信の失敗は、例外とその原因の中の`IOException`で見分ける
