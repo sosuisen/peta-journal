@@ -1,3 +1,4 @@
+pub mod definitions_file;
 pub mod export_queue_repository;
 pub mod export_service;
 pub mod file_sync_state;
