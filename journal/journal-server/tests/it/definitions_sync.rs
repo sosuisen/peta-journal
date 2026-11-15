@@ -3,6 +3,7 @@
 
 use journal_core::domain::property_definitions::Definition;
 use journal_core::infrastructure::export::definitions_file::{self, DEFINITIONS_FILE};
+use journal_core::infrastructure::export::import_service::Outcome;
 use journal_core::journal::{AddPropertyDefinitionInput, ChangedBy};
 use journal_server::config::Settings;
 use journal_server::state::{AppState, BuildOptions};
@@ -123,6 +124,20 @@ fn a_device_without_a_markdown_folder_still_takes_a_definition() {
 }
 
 impl Device {
+    fn is_provisional(&self, key: &str) -> bool {
+        self.state
+            .db
+            .conn()
+            .unwrap()
+            .query_row(
+                "SELECT provisional FROM property_definitions WHERE key = ?",
+                [key],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap()
+            == 1
+    }
+
     /// The definition of the key in the DB of this device
     fn definition(&self, key: &str) -> Option<(String, bool)> {
         let d = self.state.properties.find_definition(key).unwrap()?;
@@ -208,6 +223,32 @@ fn a_definition_deleted_on_another_device_goes_when_no_value_holds_it() {
     a.receive(&b, DEFINITIONS_FILE);
 
     assert_eq!(a.definition("score"), None);
+    assert!(matches!(
+        a.written("score"),
+        Some(Definition::Deleted { .. })
+    ));
+}
+
+// ほかの端末が消した定義が届いても、その端末のDBにそのキーの値があれば、端末は定義を仮の定義にして残し、値も残す。仮の定義はsettings/properties.jsonに書かない。
+#[test]
+fn a_definition_deleted_on_another_device_stays_provisional_while_a_value_holds_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "number", true);
+    a.state
+        .page_service
+        .set_property(&page, "score", "number", "12")
+        .unwrap();
+    b.receive(&a, DEFINITIONS_FILE);
+    b.undefine("score");
+
+    assert_eq!(a.receive(&b, DEFINITIONS_FILE), Outcome::Imported);
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), true)));
+    assert!(a.is_provisional("score"));
+    let (scalars, _) = a.state.page_service.page_properties(&page).unwrap();
+    assert_eq!(scalars[page.as_str()]["score"], "12");
     assert!(matches!(
         a.written("score"),
         Some(Definition::Deleted { .. })
