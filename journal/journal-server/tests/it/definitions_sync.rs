@@ -666,3 +666,48 @@ fn the_clients_are_told_when_a_definition_from_another_device_comes_in() {
 
     assert!(told.of_definitions());
 }
+
+// 届いたファイルを取り込んでも端末のDBの定義が変わらなければ、端末はクライアントに知らせない。ページのファイルも、settings/properties.jsonも同じである。
+#[test]
+fn the_clients_are_not_told_when_a_file_leaves_the_definitions_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    b.define("score", "number", false);
+    a.receive(&b, DEFINITIONS_FILE);
+    b.edit(&page, "edited on B");
+    a.receive(&b, "docs/d/a.md");
+    let mut told = a.listen();
+
+    a.receive(&b, DEFINITIONS_FILE);
+    b.edit(&page, "edited on B again");
+    a.receive(&b, "docs/d/a.md");
+
+    assert!(!told.of_definitions());
+    assert!(a.file("docs/d/a.md").contains("edited on B again"));
+}
+
+// ページのファイルで仮の定義ができたときも、なくなったときも、端末はクライアントに知らせる。設定の画面の一覧には、仮の定義も出るからである。
+#[test]
+fn the_clients_are_told_when_a_page_file_makes_or_drops_a_provisional_definition() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "number", true);
+    a.state
+        .page_service
+        .set_property(&page, "score", "number", "12")
+        .unwrap();
+    let mut told = b.listen();
+
+    b.receive(&a, "docs/d/a.md");
+
+    assert!(told.of_definitions());
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    a.state
+        .page_service
+        .delete_property(&page, "score")
+        .unwrap();
+    b.receive(&a, "docs/d/a.md");
+    assert!(told.of_definitions());
+}
