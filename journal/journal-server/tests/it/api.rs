@@ -1159,20 +1159,23 @@ async fn merging_joins_the_bodies_the_request_carries_and_the_stored_ones_for_th
     assert_eq!(outline_of(&page.id).await, ["1:typed third"]);
 }
 
-// 結合した本文のコードフェンスが閉じていなければ、閉じて保存される。保存された本文は、コードフェンスの途中で終わらない。
+// 結合した本文が閉じていないブロックで終われば、結合は断られ、2つの項目はそのまま残る。閉じる記号を足すと、後ろの本文がブロックの中身になってしまう（ADR 050）。
 #[tokio::test]
-async fn merging_closes_an_open_code_fence_in_the_joined_body() {
+async fn a_merge_that_leaves_a_block_unclosed_is_refused() {
     let page = new_doc_page("items-merge-fence").await;
-    let rows = fill(&page.id, &["first", "second"]).await;
+    let rows = fill(&page.id, &["```\ncode\n```", "after"]).await;
 
     let (status, resp) = post(
         "/api/items/merge",
-        json!({ "itemId": rows[1].id, "intoId": rows[0].id, "intoBody": "```js\n", "body": "code" }),
+        json!({ "itemId": rows[1].id, "intoId": rows[0].id }),
     )
     .await;
-    assert_eq!(status, 200, "{resp}");
 
-    assert_eq!(resp["item"]["body"], json!("```js\ncode\n```"));
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:```\ncode\n```", "1:after"])
+    );
 }
 
 // トランスクルージョンは結合できない。消える側でも受け取る側でも断られる。
