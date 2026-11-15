@@ -53,3 +53,19 @@ fn a_definition_the_user_adds_is_written_with_its_date() {
     assert_eq!((value_type.as_str(), page), ("number", false));
     assert!(modified >= before, "{modified} < {before}");
 }
+
+// ユーザーが定義を消すと、端末は、消した日時をsettings/properties.jsonに書く。
+#[test]
+fn a_definition_the_user_deletes_is_written_as_deleted_with_its_date() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    a.define("score", "number", false);
+    let before = journal_core::infrastructure::persistence::db::now_millis();
+
+    a.undefine("score");
+
+    let Some(Definition::Deleted { deleted }) = a.written("score") else {
+        panic!("score is not written as deleted: {:?}", a.written("score"));
+    };
+    assert!(deleted >= before, "{deleted} < {before}");
+}
