@@ -13,16 +13,22 @@ pub fn to_page(
     replace: bool,
     fragment: Option<&str>,
 ) -> Cmd {
-    let mut url = format!("/pages/{path}");
-    if let Some(fragment) = fragment {
-        url.push('#');
-        url.push_str(fragment);
-    }
+    let url = page_url(path, fragment);
     if new_tab || new_window {
         Command::notify_shell(UiOp::OpenWindow { url, new_window }).into()
     } else {
         to_url(url, replace)
     }
+}
+
+/// The URL of a page by its path, with the item to go to after a `#`.
+pub fn page_url(path: &str, fragment: Option<&str>) -> String {
+    let mut url = format!("/pages/{path}");
+    if let Some(fragment) = fragment {
+        url.push('#');
+        url.push_str(fragment);
+    }
+    url
 }
 
 /// Opens a page in this tab.
