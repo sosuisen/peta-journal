@@ -9,6 +9,41 @@ public sealed class ItemDragTests
 
     public ItemDragTests() => drag = new ItemDrag(sent.Add);
 
+    // 押した項目の本文の中と、その上下10pxまでで動くあいだは、何も送らない。文字を選ぶドラッグである。
+    [Theory]
+    [InlineData(90)]
+    [InlineData(115)]
+    [InlineData(140)]
+    public void Moving_within_10px_of_the_pressed_body_sends_nothing(double y)
+    {
+        drag.Pressed("a", top: 100, bottom: 130);
+
+        drag.Moved(y, itemUnder: "b");
+
+        Assert.Empty(sent);
+    }
+
+    // 押していないときの動きでは、何も送らない。
+    [Fact]
+    public void A_move_without_the_button_pressed_sends_nothing()
+    {
+        drag.Moved(300, itemUnder: "b");
+
+        Assert.Empty(sent);
+    }
+
+    // 選択が始まる前に離したときは、何も送らない。文字を選んだだけである。
+    [Fact]
+    public void Releasing_before_a_selection_starts_sends_nothing()
+    {
+        drag.Pressed("a", top: 100, bottom: 130);
+        drag.Moved(120, itemUnder: "a");
+
+        drag.Released();
+
+        Assert.Empty(sent);
+    }
+
     // 本文の上か下へ10pxより大きく出ると、押した項目から選択が始まる。
     [Theory]
     [InlineData(89)]
