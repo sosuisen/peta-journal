@@ -178,6 +178,16 @@ Windows has Control. Control in this table is the Control key.
 | Command+Z, Control+Z | undo; with Shift, redo |
 | Shift+Up on the first line, Shift+Down on the last line | selects the item with its children |
 
+A drag with the mouse selects items too. It starts in the text of an item and selects the
+letters it goes over. Once it goes more than 10 points above or below the text, it selects the
+item, and then every item it goes over, until the button comes up. Held within 40 points of
+the top or the bottom of the window, it scrolls the items, faster nearer the edge, and the
+selection takes the items that come under the mouse. The text view follows the mouse in its
+own loop in `mouseDown` (`ItemTextView.follow`): a text view of AppKit keeps the mouse until
+the button comes up and never tells that it left the text. `ItemDrag` finds the item under the
+mouse by the row of the table of the list, and scrolls the list. A double click, and a click
+with Shift or another key held, are left to AppKit.
+
 While items are selected, no item has the cursor and the keys mean this:
 
 | Key | What it does |

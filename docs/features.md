@@ -342,7 +342,7 @@
 
 ### 複数の項目を選ぶ
 
-出典: `tests/selection.rs`、`core/outline/selection.rs`、`core/outline/tree.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/transclusion-delete`
+出典: `tests/selection.rs`、`core/outline/selection.rs`、`core/outline/tree.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/transclusion-delete`、macOSの`OutlineScreenTests`
 
 - 項目を選ぶと、その下の項目もすべて選ばれる。どの選び方でも同じである
   - 折りたたまれて見えない子も選ばれる
@@ -355,6 +355,8 @@
   - マウスが入った項目まで広がり、ボタンを離した後は変わらない。ドラッグ中のクリックは選択を終えない
   - 親のある項目から始めたドラッグは、マウスが親の外へ出ても、親の子孫の終わりで止まる（ADR 049）
   - ドラッグしていないときにマウスが項目に入っても、何も選ばれない
+  - macOSの付箋紙アプリでも、項目のテキストから上下へ10pxより外へ出たドラッグで始まる。打っていた文字は保存され、選んだ項目を動かしても消えない。テキストの中のドラッグは、押した位置からマウスまでの文字を選び、項目は選ばない
+  - ドラッグ選択のマウスを付箋の上端か下端の帯で止めると、その向きへスクロールし、マウスの下に来た項目まで選択が広がる。macOSの付箋紙アプリでも同じである
 - 選択の開始位置はアンカーのレベルの先祖まで戻り、親が選択済みの項目はルート項目に含まれない
 - Escapeと選択の外のクリックで、何も変えずに選択をやめる。選択していなければ選択のキーは何もしない
 
