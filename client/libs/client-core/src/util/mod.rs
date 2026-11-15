@@ -194,6 +194,14 @@ mod tests {
         assert_eq!(auto_close("``", 2), None);
     }
 
+    // 開始記号の後ろに本文があるとき、開いたブロックの中で開始記号を打ったとき、情報文字列を打つときは、何も補わない（ADR 050）。
+    #[test]
+    fn auto_close_leaves_an_opening_with_text_after_it_or_inside_an_open_block() {
+        assert_eq!(auto_close("a\n  ```\nb", 7), None);
+        assert_eq!(auto_close("```\n>>>", 7), None);
+        assert_eq!(auto_close("```r", 4), None);
+    }
+
     // カーソルの下のウィキリンクとタグを、文字数の位置で読み取る。リンクの両端もリンクの上である。
     #[test]
     fn link_at_finds_the_wiki_link_or_the_tag_around_the_cursor() {
