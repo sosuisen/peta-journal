@@ -267,5 +267,5 @@ ADR 046で、定義をMarkdownフォルダーの `settings/properties.json` に�
   - ページのファイルは書き直さず、ページの `modified` も進めない。
 - `settings/properties.json` のconflicted copy（`settings/properties (… conflicted copy …).json`）は、もう1つの版として端末のDBに合わせ、`settings/properties.json` を書き直してから消す（`take_in_copy`）。
 - 取り込むのは、ジャーナルサーバーの監視（`settings/` も見る。監視を始めるときに `settings/` を作る）と、coreの走査（`MarkdownReconcileService` が毎回 `settings/` を見る）である。どちらも `MarkdownImportService::sync_file` に渡す。どのファイルを渡すかは `import_service::takes_in` が決める。
-- 開いているクライアントには、届いた定義をまだ知らせない。クライアントは、起動したときとSettings画面を開いたときに定義を読む。
+- 開いているクライアントには、届いた定義をまだ知らせない。クライアントは、起動したときにだけ定義を読む（`screens::start`）。
 - 仮の定義を、取り込みで定義のないキーに作ることは、まだない。`docs/plans.md` にある。

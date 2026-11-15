@@ -23,7 +23,7 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
         - [x] ユーザーが定義を消すと、`deleted_property_definitions`に記録され、`settings/properties.json`に消した定義として書かれる
         - [x] 消した定義を足し直すと、`deleted_property_definitions`の行が消える
       - [x] PR 3b：届いた`settings/properties.json`を取り込む。合わせた結果がファイルと違えば書き直す。同じなら書き直さない（3aでは、この分岐を消した。2026-11-15にユーザーが決めた）。消したことが届いたとき、conflicted copy、走査と監視
-      - [ ] 届いた定義を、開いているクライアントに知らせる。今は、クライアントが起動したときとSettings画面を開いたときにしか定義を読まない
+      - [ ] 届いた定義を、開いているクライアントに知らせる。今は、クライアントが起動したときにしか定義を読まない
       - [ ] PR 3c：RESTやMCPで定義のないキーに値を書いて定義ができたときも、日時を記録し、`settings/properties.json`を書く。今は日時が0のままで、ファイルにも書かない
       - [ ] PR 3c：仮の定義。取り込みで定義のないキーに仮の定義を作り、値がなくなったら消す。`for_page`はUIだけに使う。ユーザーのキーは、型に合わない値も取り込む
     - [ ] PR 4：AndroidとiOSのシェルで、`settings/properties.json`も運ぶ。Androidは実機で確かめる
