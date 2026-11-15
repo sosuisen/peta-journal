@@ -1,7 +1,7 @@
 //! What Enter makes of an item: which text stays in it, which text goes into the new item, and
 //! where the new item goes. Nothing here reads or writes the database.
 
-use super::paste::{close_code_fence, split_at_char};
+use super::paste::split_at_char;
 use crate::domain::model::{Item, ItemPosition};
 use hmtid::Hmtid;
 
@@ -30,7 +30,7 @@ pub struct Transclusion {
 /// Plans the split of `item` at the character `cursor` of `body`, the text an editor has now.
 /// `on_page` holds the items of its page in their order.
 pub fn plan(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPlan {
-    closed(cut(on_page, item, body, cursor))
+    cut(on_page, item, body, cursor)
 }
 
 /// Plans the split of a transclusion at the character `cursor` of `body`, the text its
@@ -44,15 +44,15 @@ pub fn plan_of_transclusion(shown: &Transclusion, body: &str, cursor: usize) -> 
     if let Some(below) = plan_below(shown, &shown.root, body, cursor) {
         return below;
     }
-    let (before, after) = split_at_char(body, cursor);
+    let (body, new_body) = flatmarkdown::split_body(body, cursor);
     let (position, level) = shown.place_of_the_rest();
-    closed(SplitPlan {
-        body: before.to_string(),
-        new_body: after.to_string(),
+    SplitPlan {
+        body,
+        new_body,
         page_id: shown.source.page_id.clone(),
         position,
         level,
-    })
+    }
 }
 
 /// Plans the empty item for a split at the end of the last item a transclusion shows,
@@ -109,11 +109,6 @@ impl Transclusion {
     }
 }
 
-fn closed(mut plan: SplitPlan) -> SplitPlan {
-    close_code_fence(&mut plan.body);
-    plan
-}
-
 /// The items below `item` on its page, in their order.
 fn descendants<'a>(on_page: &'a [Item], item: &'a Item) -> impl Iterator<Item = &'a Item> {
     on_page
@@ -153,7 +148,9 @@ fn cut(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPlan {
     if at_start(body, cursor) {
         return empty_above(on_page, item, body);
     }
-    let (before, after) = split_at_char(body, cursor);
+    // A place inside a block leaves both parts closed: the block is closed before it and
+    // opened again after it
+    let (body, new_body) = flatmarkdown::split_body(body, cursor);
     let (above, level) = match last_descendant(on_page, item) {
         // The new item is not hidden with the children: it goes after them
         Some(last) if item.collapsed => (last, item.level),
@@ -163,8 +160,8 @@ fn cut(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPlan {
         None => (item, item.level),
     };
     SplitPlan {
-        body: before.to_string(),
-        new_body: after.to_string(),
+        body,
+        new_body,
         page_id: item.page_id.clone(),
         position: ItemPosition::After(above.id.clone()),
         level,
