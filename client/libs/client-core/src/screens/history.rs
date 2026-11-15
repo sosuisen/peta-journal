@@ -30,6 +30,14 @@ impl History {
         Some(&self.urls[self.at])
     }
 
+    fn forward(&mut self) -> Option<&str> {
+        if !self.can_go_forward() {
+            return None;
+        }
+        self.at += 1;
+        Some(&self.urls[self.at])
+    }
+
     fn can_go_back(&self) -> bool {
         self.at > 0
     }
@@ -60,6 +68,12 @@ pub fn open(model: &mut Model, url: &str, today: String) -> Cmd {
 /// Opens the URL before the one on screen.
 pub fn back(model: &mut Model, today: String) -> Cmd {
     let url = model.history.back().map(str::to_string);
+    show(model, url, today)
+}
+
+/// Opens the URL that was left by going back.
+pub fn forward(model: &mut Model, today: String) -> Cmd {
+    let url = model.history.forward().map(str::to_string);
     show(model, url, today)
 }
 

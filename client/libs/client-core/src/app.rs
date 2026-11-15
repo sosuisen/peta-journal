@@ -133,6 +133,10 @@ pub enum Event {
     Back {
         today: String,
     },
+    /// The user goes forward again to the page left by going back.
+    Forward {
+        today: String,
+    },
 
     // ---- the outline ----
     EditRequested {
@@ -1110,6 +1114,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         Route { route, today } => screens::route::route(model, route, today),
         Open { url, today } => screens::history::open(model, &url, today),
         Back { today } => screens::history::back(model, today),
+        Forward { today } => screens::history::forward(model, today),
 
         EditRequested { item_id, cursor } => {
             ops::outline_events::edit_requested(model, &item_id, cursor)
