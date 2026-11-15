@@ -53,4 +53,17 @@ final class ItemDragTests: XCTestCase {
 
         XCTAssertEqual(sent, [.itemMouseEnter(itemId: "b"), .itemMouseEnter(itemId: "c")])
     }
+
+    // ボタンを離すと、ドラッグが終わる。そのあとの動きでは、何も送らない。
+    func testReleasingTheButtonEndsTheDragAndLaterMovesSendNothing() {
+        drag.pressed("a", top: 100, bottom: 130)
+        drag.moved(y: 141, itemUnder: "b")
+        sent = []
+
+        drag.released()
+        drag.moved(y: 180, itemUnder: "c")
+
+        XCTAssertEqual(sent, [.selectionMouseUp])
+        XCTAssertFalse(drag.selects)
+    }
 }
