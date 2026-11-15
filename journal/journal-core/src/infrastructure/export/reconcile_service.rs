@@ -11,6 +11,7 @@ use hmtid::Hmtid;
 use crate::domain::search::SearchIndex;
 use crate::infrastructure::persistence::PageRepository;
 
+use super::definitions_file::{self, DEFINITIONS_FILE, SETTINGS_DIR};
 use super::export_service::{mtime_millis, MarkdownExportService};
 use super::file_sync_state::{FileSyncState, FileSyncStateRepository};
 use super::import_service::{MarkdownImportService, Outcome};
@@ -186,6 +187,7 @@ impl MarkdownReconcileService {
                 }
             }
         }
+        self.take_in_definitions(&root);
         if summary.imported + summary.conflicts > 0 {
             self.search.flush();
         }
@@ -251,6 +253,20 @@ impl MarkdownReconcileService {
     }
 
     /// Whether the page of a file that is gone lives in another file now, which is there.
+    /// Takes in `settings/properties.json` and its conflicted copies. Taking in the file
+    /// as it is changes nothing, so it is read on every scan.
+    fn take_in_definitions(&self, root: &Path) {
+        let Ok(entries) = std::fs::read_dir(root.join(SETTINGS_DIR)) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let rel = path_mapper::relativize(root, &entry.path());
+            if rel == DEFINITIONS_FILE || definitions_file::is_copy_of_the_file(&rel) {
+                self.import.sync_file(root, &rel);
+            }
+        }
+    }
+
     fn moved_away(&self, root: &Path, state: &FileSyncState) -> bool {
         match self.pages.find_by_id(&state.page_id) {
             Ok(Some(page)) => {

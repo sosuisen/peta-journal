@@ -21,7 +21,7 @@ use crate::infrastructure::persistence::property_repository::{
 };
 
 /// The folder of the settings in the Markdown folder.
-const SETTINGS_DIR: &str = "settings";
+pub const SETTINGS_DIR: &str = "settings";
 
 /// Where the file is, relative to the Markdown folder.
 pub const DEFINITIONS_FILE: &str = "settings/properties.json";
