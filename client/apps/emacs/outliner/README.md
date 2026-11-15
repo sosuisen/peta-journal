@@ -103,6 +103,7 @@ The commands on the whole page are `C-c C-x` and then one letter:
 | `C-c C-x n` | Open a page by name in a new buffer |
 | `C-c C-x i` | Insert an image file at the point |
 | `C-c C-x b` | Backlinks of this page |
+| `C-c C-x f` | Forward again to the page left by going back |
 | `C-c C-x c` | Pick a date in the calendar and open it |
 
 To open a page by name, use the search box.
