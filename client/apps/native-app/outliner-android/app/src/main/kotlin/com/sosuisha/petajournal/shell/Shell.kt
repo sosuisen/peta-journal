@@ -3,6 +3,7 @@ package com.sosuisha.petajournal.shell
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.sosuisha.petajournal.core.closedAsTyped
 import com.sosuisha.petajournal.sync.findWithoutCase
 import com.sosuisha.petajournal.types.Event
 import com.sosuisha.petajournal.types.Request
@@ -152,6 +153,18 @@ class Shell(
 
     /** The user changed the Markdown of the item. The core saves it a moment later. */
     fun type(itemId: String, body: String) = change(Event.BodyChanged(itemId, body, now()))
+
+    /**
+     * The user changed the Markdown of the item, and the cursor is [cursor] UTF-16 units into
+     * [body]. An opening just typed gets its closing (ADR 050). An opening that is left after a
+     * deletion does not, or the closing would come back at every delete.
+     */
+    fun type(itemId: String, body: String, cursor: Int) {
+        val before = view.outline.rows.firstOrNull { it.item.id == itemId }?.item?.body
+        val added = body.length > (before?.length ?: 0)
+        val closed = if (added) closedAsTyped(body, cursor.toULong()) else null
+        type(itemId, closed ?: body)
+    }
 
     /**
      * The user pressed Enter in the item. [cursor] counts the characters before it, as the
