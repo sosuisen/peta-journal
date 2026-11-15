@@ -71,6 +71,14 @@ pub fn asset_address(app_url: String, path: String) -> String {
     client_native_bridge::asset_address(&app_url, &path)
 }
 
+/// The body with the closing of the `[[` or the block opening just typed (ADR 050). `cursor`
+/// is right after the typed character, in UTF-16 units. The cursor stays where it is. None when
+/// the body stays as it is.
+#[boltffi::export]
+pub fn closed_as_typed(body: String, cursor: u64) -> Option<String> {
+    client_native_bridge::closed_as_typed(&body, cursor as usize)
+}
+
 /// The characters before the place `units` UTF-16 units into `text`, as the core counts a
 /// cursor (ADR 043). A place inside a surrogate pair goes after its character.
 #[boltffi::export]

@@ -185,6 +185,13 @@ public sealed partial class Shell : IDisposable
     public void Typed(string body, string itemId) =>
         Send(new Event.BodyChanged(itemId, body, NowMs()));
 
+    /// <summary>
+    /// The user typed into the item, and the cursor is <paramref name="cursor"/> UTF-16 units into
+    /// <paramref name="body"/>. An opening just typed gets its closing (ADR 050).
+    /// </summary>
+    public void Typed(string body, string itemId, int cursor) =>
+        Typed(PetaCore.PetaNative.ClosedAsTyped(body, (ulong)cursor) ?? body, itemId);
+
     /// <summary>Answers the confirmation on screen.</summary>
     public void Answer(bool yes) => Answer(new UiOutput.Bool(yes));
 
