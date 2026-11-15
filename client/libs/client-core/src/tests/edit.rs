@@ -145,6 +145,25 @@ fn clicking_another_item_saves_the_dirty_one_and_opens_the_clicked_editor() {
     assert_eq!(h.model.edits.edit_handovers, 0);
 }
 
+// 別の項目をクリックすると、閉じていないブロックは閉じる記号を補われて保存される。編集を離れる操作だからである。
+#[test]
+fn clicking_another_item_closes_the_unclosed_block_of_the_one_left() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
+    h.send(Event::EditRequested {
+        item_id: "a".into(),
+        cursor: 0,
+    });
+    typed(&mut h, "a", "~~~\ncode");
+    h.send(Event::EditRequested {
+        item_id: "b".into(),
+        cursor: 0,
+    });
+    assert_eq!(
+        update_calls(&h.api),
+        [("a".into(), Some("~~~\ncode\n~~~".into()))]
+    );
+}
+
 // 別の項目をクリックしたときの保存が失敗しても、引き継ぎは終わる。クリックされた項目のエディタは開き、保存できなかった項目は編集中のまま残る。
 #[test]
 fn a_failed_save_on_clicking_another_item_still_ends_the_handover() {
