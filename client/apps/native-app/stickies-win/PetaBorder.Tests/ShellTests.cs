@@ -411,6 +411,24 @@ public sealed class ShellTests : IDisposable
         );
     }
 
+    // 後に回した編集の終わりは、呼んだその場では画面を変えず、メインスレッドの次の番に編集を終える。
+    // 一覧が行を並べ替えている最中に、新しい画面で割り込まないため。
+    [Fact]
+    public void An_edit_finished_later_does_not_change_the_view_during_the_call()
+    {
+        var shell = ShellWithPage();
+        var first = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(first);
+        main.WaitUntil("the item is edited", () => shell.View.Outline.Rows[0].IsEditing);
+        var changed = false;
+        shell.ViewChanged += () => changed = true;
+
+        shell.FinishEditingLater(first);
+
+        Assert.False(changed);
+        main.WaitUntil("the edit is over", () => !shell.View.Outline.Rows[0].IsEditing);
+    }
+
     // タスクの印をクリックすると、タスクの状態が進む。項目を編集していなくてもよい。
     [Fact]
     public void A_click_on_the_mark_of_a_task_steps_its_state()
