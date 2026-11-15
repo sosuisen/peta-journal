@@ -8,6 +8,7 @@ mod atlas_sync;
 mod client_id;
 #[path = "../common/mod.rs"]
 mod common;
+mod definitions_sync;
 mod find_doc;
 mod frontend;
 mod item_merge;
