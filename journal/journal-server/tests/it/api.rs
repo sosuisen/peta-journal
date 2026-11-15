@@ -4334,6 +4334,21 @@ async fn a_key_whose_body_ends_with_a_reserved_suffix_is_not_defined() {
     }
 }
 
+// 型を送らずに定義すると、キーは名前から決まる型になる。
+#[tokio::test]
+async fn a_key_defined_without_a_type_takes_the_type_its_name_gives() {
+    let (status, resp) = post(
+        "/api/config/property-definitions",
+        json!({ "key": "untyped_score_n" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(
+        definition(&resp, "untyped_score_n").unwrap()["valueType"],
+        json!("number")
+    );
+}
+
 // 項目からプロパティを削除できる。
 #[tokio::test]
 async fn a_property_can_be_removed_from_an_item() {
