@@ -1,7 +1,7 @@
 //! The data the server sends and receives, in the same JSON shape as the Angular models.
 
-use property_names::body_of;
 pub use property_names::ValueType;
+use property_names::{body_of, type_of};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::{BTreeMap, HashMap};
@@ -481,6 +481,24 @@ impl PropertyDefinition {
         } else {
             body_of(&self.key)
         }
+    }
+}
+
+/// The name the screen shows for the key: the body, without the suffix of its type (ADR
+/// 047). When another key of the definitions has the same body, the type is added, so that
+/// the two can be told apart: `rating (number)`. A system key is shown whole.
+pub fn shown_name(key: &str, definitions: &[PropertyDefinition]) -> String {
+    if definitions.iter().any(|d| d.system && d.key == key) {
+        return key.to_string();
+    }
+    let body = body_of(key);
+    let shared = definitions
+        .iter()
+        .any(|d| d.key != key && d.shown_name() == body);
+    if shared {
+        format!("{body} ({})", type_of(key).as_str())
+    } else {
+        body.to_string()
     }
 }
 
