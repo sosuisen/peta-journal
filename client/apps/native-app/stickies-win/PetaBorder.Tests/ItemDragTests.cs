@@ -21,4 +21,19 @@ public sealed class ItemDragTests
 
         Assert.Equal([new Event.DragBeyondBounds("a")], sent);
     }
+
+    // 選択中に別の項目へ入ると、選択がそこまで伸びる。同じ項目へは2度送らない。
+    [Fact]
+    public void Entering_another_item_during_the_selection_extends_it_there_once()
+    {
+        drag.Pressed("a", top: 100, bottom: 130);
+        drag.Moved(141, itemUnder: "b");
+        sent.Clear();
+
+        drag.Moved(150, itemUnder: "b");
+        drag.Moved(180, itemUnder: "c");
+        drag.Moved(185, itemUnder: "c");
+
+        Assert.Equal([new Event.ItemMouseEnter("c")], sent);
+    }
 }
