@@ -26,6 +26,23 @@ final class ItemDragTests: XCTestCase {
         }
     }
 
+    // 押していないときの動きでは、何も送らない。
+    func testAMoveWithoutTheButtonPressedSendsNothing() {
+        drag.moved(y: 300, itemUnder: "b")
+
+        XCTAssertEqual(sent, [])
+    }
+
+    // 選択が始まる前に離したときは、何も送らない。文字を選んだだけである。
+    func testReleasingBeforeASelectionStartsSendsNothing() {
+        drag.pressed("a", top: 100, bottom: 130)
+        drag.moved(y: 120, itemUnder: "a")
+
+        drag.released()
+
+        XCTAssertEqual(sent, [])
+    }
+
     // テキストの上か下へ10より大きく出ると、編集を終えてから、押した項目の選択を始める。編集を終えるのは、打った文字を保存するためである。
     func testLeavingTheTextByMoreThan10EndsTheEditAndSelectsThePressedItem() {
         for y in [89.0, 141] {
