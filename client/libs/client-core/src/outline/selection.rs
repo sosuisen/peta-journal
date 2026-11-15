@@ -262,6 +262,32 @@ mod tests {
         assert_eq!(selected(&state), ["b", "c"]);
     }
 
+    // 孫の項目から始めた選択は、Shift+Downで親の兄弟へ広がらない。
+    #[test]
+    fn shift_down_from_a_grandchild_stays_under_its_parent() {
+        let mut state = OutlineState::default();
+        state.set_items(vec![
+            plain_item("a", 1, ""),
+            plain_item("b", 2, ""),
+            plain_item("g", 3, ""),
+            plain_item("c", 2, ""),
+        ]);
+        let mut sel = Selection::default();
+        sel.start_from_editor(&mut state, "g");
+        sel.extend_down(&mut state);
+        assert_eq!(selected(&state), ["g"]);
+    }
+
+    // 子の項目から始めたドラッグは、マウスが親の外へ出ても、親の子孫の終わりで止まる。
+    #[test]
+    fn a_drag_from_a_child_stops_at_the_end_of_its_parent() {
+        let mut state = state();
+        let mut sel = Selection::default();
+        sel.start_drag(&mut state, "b");
+        sel.extend_drag_to(&mut state, "e");
+        assert_eq!(selected(&state), ["b", "c"]);
+    }
+
     // エディタから始めた選択も、その項目の子孫をすべて含む。
     #[test]
     fn a_selection_from_an_editor_takes_the_children_too() {
