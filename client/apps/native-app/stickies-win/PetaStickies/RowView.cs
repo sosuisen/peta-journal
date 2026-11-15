@@ -151,6 +151,9 @@ internal sealed class RowView : Grid
             editor.Resources[name] = Ink;
         editor.Resources["TextControlBorderThemeThicknessFocused"] = new Thickness(0);
         editor.PreviewKeyDown += Pressed;
+        // Also when the text box took it: the text box selects its text with the mouse
+        editor.AddHandler(PointerPressedEvent, new PointerEventHandler(PressedOn(editor)), true);
+        paper.AddHandler(PointerPressedEvent, new PointerEventHandler(PressedOn(paper)), true);
         editor.TextChanging += (_, _) => Typed();
         // The core pastes, and not the text box: a list that was copied becomes items
         editor.Paste += (_, e) =>
@@ -197,6 +200,15 @@ internal sealed class RowView : Grid
     }
 
     private Shell Shell => window.Shell;
+
+    /// <summary>The mouse went down on the text: a drag from it may select items.</summary>
+    private PointerEventHandler PressedOn(FrameworkElement body) =>
+        (_, e) =>
+        {
+            if (model is not null)
+                window.DragFrom(body, model.Id, e);
+        };
+
     private double Zoom => window.Look.Zoom;
 
     /// <summary>The room above an item and below it: half of the room between two items.</summary>

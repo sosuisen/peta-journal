@@ -1,7 +1,7 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput, FolderChoice};
 use crate::harness::Harness;
-use crate::model::{PropertyDefinition, ServerConfig, WeekNumbering};
+use crate::model::{shown_name, PropertyDefinition, ServerConfig, WeekNumbering};
 
 // 本体と型でプロパティ定義を追加すると、前後の空白を除いた本体に型の接尾辞を付けた名前がサーバーに送られ、サーバーの一覧が表示される。
 #[test]
@@ -92,8 +92,28 @@ fn a_definition_shows_the_body_of_a_user_key_and_the_whole_name_of_a_system_key(
         system: true,
         page: false,
     };
-    assert_eq!(user.shown_name(), "rating");
-    assert_eq!(system.shown_name(), "atlas_bounds");
+    let definitions = [user, system];
+    assert_eq!(shown_name("rating_n", &definitions), "rating");
+    assert_eq!(shown_name("atlas_bounds", &definitions), "atlas_bounds");
+}
+
+// 本体が同じユーザーのキーが2つ以上あれば、それぞれの名前に型が添えられる。本体がほかと重ならないキーは、本体だけで示される。
+#[test]
+fn keys_that_share_a_body_are_shown_with_their_types() {
+    let definition = |key: &str, value_type: &str| PropertyDefinition {
+        key: key.into(),
+        value_type: value_type.into(),
+        system: false,
+        page: true,
+    };
+    let definitions = [
+        definition("rating_n", "number"),
+        definition("rating_d", "date"),
+        definition("status", "text"),
+    ];
+    assert_eq!(shown_name("rating_n", &definitions), "rating (number)");
+    assert_eq!(shown_name("rating_d", &definitions), "rating (date)");
+    assert_eq!(shown_name("status", &definitions), "status");
 }
 
 // プロパティ定義を削除すると、それがサーバーに送られ、サーバーの一覧が表示される。拒否された削除はその理由を示す。

@@ -1,6 +1,7 @@
 use crate::app::{Event, Screen};
 use crate::effects::{ApiOp, UiOp};
 use crate::harness::Harness;
+use crate::model::PropertyDefinition;
 use crate::view::ScreenView;
 
 fn page_properties(h: &Harness) -> Vec<(String, String)> {
@@ -84,6 +85,29 @@ fn a_row_of_a_page_property_shows_the_body_of_its_key() {
     };
     let row = p.properties.iter().find(|r| r.key == "rating_n").unwrap();
     assert_eq!(row.name, "rating");
+}
+
+// ページプロパティの行は、本体がほかの定義と重なるキーの名前に、型を添えて示す。
+#[test]
+fn a_row_of_a_page_property_adds_the_type_to_a_body_another_key_shares() {
+    let mut h = Harness::with_items(vec![]);
+    h.model.config.property_definitions = ["rating_n", "rating_d"]
+        .map(|key| PropertyDefinition {
+            key: key.into(),
+            page: true,
+            ..PropertyDefinition::default()
+        })
+        .to_vec();
+    h.send(Event::SetPageProperty {
+        key: "rating_n".into(),
+        value_type: "number".into(),
+        value: "3".into(),
+    });
+    let ScreenView::Page(Some(p)) = &h.view().screen else {
+        panic!("no page")
+    };
+    let row = p.properties.iter().find(|r| r.key == "rating_n").unwrap();
+    assert_eq!(row.name, "rating (number)");
 }
 
 // ページプロパティを設定すると、それが表示され、サーバーが返したページの値が取り込まれる。

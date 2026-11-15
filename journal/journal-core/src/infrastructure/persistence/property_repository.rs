@@ -198,6 +198,17 @@ impl PropertyRepository {
                 "Property key '{key}' is {what}"
             )));
         }
+        // Two keys of one body show as one name; a key that comes in from a file or another
+        // device may still share it, and the screen then adds the type (ADR 047)
+        let body = property_names::body_of(key);
+        if let Some(other) = Self::user_keys_in(&tx)?
+            .into_iter()
+            .find(|k| property_names::body_of(k) == body)
+        {
+            return Err(AppError::bad_request(format!(
+                "Property key '{key}' has the body of '{other}'"
+            )));
+        }
         tx.execute(
             "INSERT INTO property_definitions (key, value_type, is_system, for_page, modified) VALUES (?, ?, 0, ?, ?)",
             params![key, value_type, page as i64, now_millis()],
@@ -208,6 +219,15 @@ impl PropertyRepository {
         )?;
         tx.commit()?;
         Ok(())
+    }
+
+    /// The keys of the user, provisional ones too.
+    fn user_keys_in(conn: &Connection) -> AppResult<Vec<String>> {
+        let mut stmt = conn.prepare("SELECT key FROM property_definitions WHERE is_system = 0")?;
+        let keys = stmt
+            .query_map([], |row| row.get(0))?
+            .collect::<Result<Vec<String>, _>>()?;
+        Ok(keys)
     }
 
     /// Defines a user key as another device defined it, or changes its definition to that.

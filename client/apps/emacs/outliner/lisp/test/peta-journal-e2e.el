@@ -613,7 +613,8 @@ The list of properties takes the point, so the current buffer may not be the pag
     (peta-journal-e2e--open-page "新しい日時のページ")
     (peta-journal-e2e--wait-page-title "新しい日時のページ")
     (peta-journal-e2e--wait-for
-     "the key published" (lambda () (member "published" peta-journal--free-keys)))
+     "the key published" (lambda () (seq-find (lambda (k) (equal (plist-get k :key) "published"))
+                                         peta-journal--free-keys)))
     (let ((before (format-time-string "%Y-%m-%d %H:%M")))
       (execute-kbd-macro (vconcat (kbd "C-c C-x p s") "published" (kbd "RET RET")))
       (peta-journal-e2e--wait-for
@@ -621,8 +622,8 @@ The list of properties takes the point, so the current buffer may not be the pag
        (lambda () (string-search "published" (peta-journal-e2e--properties-text))))
       (let ((after (format-time-string "%Y-%m-%d %H:%M"))
             (shown (peta-journal-e2e--properties-text)))
-        (should (or (string-search (concat "published  " before) shown)
-                    (string-search (concat "published  " after) shown)))))))
+        (should (or (string-search (concat "published (datetime)  " before) shown)
+                    (string-search (concat "published (datetime)  " after) shown)))))))
 
 ;; ジャーナルでは、プロパティの一覧を開かずに断る。
 (ert-deftest peta-journal-e2e-a-journal-refuses-a-property ()

@@ -4,7 +4,7 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
-use client_core::model::{list_type_of, PropertyDefinition};
+use client_core::model::{list_type_of, shown_name, PropertyDefinition};
 use client_core::view::ScreenView;
 use client_core::Event;
 use client_page_links::hashtag_path;
@@ -113,7 +113,7 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                     <div class="property-row draft">
                         <select class="property-key-select" prop:value=move || key.get() on:change=pick>
                             <option value="">"key"</option>
-                            {move || free_keys.get().into_iter().map(|d| view! { <option value=d.key.clone()>{d.shown_name().to_string()}</option> }).collect_view()}
+                            {move || free_keys.get().into_iter().map(|d| { let name = definitions.with(|ds| shown_name(&d.key, ds)); view! { <option value=d.key.clone()>{name}</option> } }).collect_view()}
                         </select>
                         {move || {
                             let t = value_type.get();

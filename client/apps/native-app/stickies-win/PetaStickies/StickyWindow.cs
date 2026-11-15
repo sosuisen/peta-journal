@@ -95,6 +95,21 @@ internal sealed class StickyWindow : Window
     private readonly ContentControl selection;
     private readonly ObservableCollection<RowModel> rows = [];
 
+    /// <summary>The scroller of the list, once the list is loaded.</summary>
+    private ScrollViewer? scroller;
+
+    /// <summary>A drag of the mouse that selects items once it leaves the item it started on.</summary>
+    private readonly ItemDrag drag;
+
+    /// <summary>The mouse button that went down on an item and is still held.</summary>
+    private Pointer? dragging;
+
+    /// <summary>Where the mouse of the drag is, in the coordinates of the list.</summary>
+    private Windows.Foundation.Point dragPoint;
+
+    /// <summary>Scrolls the list while a drag selection holds the mouse at an edge.</summary>
+    private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer edgeScroll;
+
     /// <summary>The window is the one that is worked in.</summary>
     private bool hasFocus;
     private bool closed;
@@ -160,6 +175,10 @@ internal sealed class StickyWindow : Window
             Copy,
             Browse
         );
+        drag = new ItemDrag(Shell.Send);
+        edgeScroll = DispatcherQueue.CreateTimer();
+        edgeScroll.Interval = TimeSpan.FromMilliseconds(16);
+        edgeScroll.Tick += (_, _) => ScrollAtEdge();
         search = new SearchBox(Shell, () => Look.Searching = false)
         {
             Margin = new Thickness(12, 6, 12, 8),
@@ -311,6 +330,9 @@ internal sealed class StickyWindow : Window
         root.Children.Add(selection);
         root.Children.Add(nothing);
         root.PreviewKeyDown += Pressed;
+        // Also when a text box took them: a drag that starts in an editor selects its text
+        root.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler(Dragged), true);
+        root.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(Dropped), true);
         return root;
     }
 
@@ -385,7 +407,8 @@ internal sealed class StickyWindow : Window
         };
         made.Loaded += (_, _) =>
         {
-            if (Scroller(made) is { } scroller)
+            scroller = Scroller(made);
+            if (scroller is not null)
                 scroller.ViewChanged += (_, _) => Seen();
         };
         return made;
@@ -547,6 +570,91 @@ internal sealed class StickyWindow : Window
         if (Shell.View.Outline.SelectionMode)
             Shell.LeaveSelection();
         Shell.Touched(itemId, letter);
+    }
+
+    // ---- The drag that selects items ----
+
+    /// <summary>
+    /// The mouse went down on <paramref name="body"/>, the text of the item. A drag that leaves
+    /// it up or down selects items, as in the web frontend.
+    /// </summary>
+    public void DragFrom(FrameworkElement body, string itemId, PointerRoutedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(list).Properties.IsLeftButtonPressed)
+            return;
+        var top = body.TransformToVisual(list).TransformPoint(default).Y;
+        drag.Pressed(itemId, top, top + body.ActualHeight);
+        dragging = e.Pointer;
+    }
+
+    private void Dragged(object sender, PointerRoutedEventArgs e)
+    {
+        if (dragging is null)
+            return;
+        var point = e.GetCurrentPoint(list);
+        // The button came up where the window did not hear it
+        if (!point.Properties.IsLeftButtonPressed)
+        {
+            EndDrag();
+            return;
+        }
+        dragPoint = point.Position;
+        drag.Moved(dragPoint.Y, ItemAt(dragPoint));
+        if (!Shell.View.Outline.SelectionMode)
+            return;
+        // The text box that took the mouse is gone, and the mouse may leave the window
+        root.CapturePointer(e.Pointer);
+        if (!edgeScroll.IsRunning && EdgeScroll.Step(dragPoint.Y, 0, list.ActualHeight) != 0)
+            edgeScroll.Start();
+    }
+
+    private void Dropped(object sender, PointerRoutedEventArgs e)
+    {
+        if (dragging is not null)
+            EndDrag();
+    }
+
+    private void EndDrag()
+    {
+        drag.Released();
+        dragging = null;
+        edgeScroll.Stop();
+        root.ReleasePointerCaptures();
+    }
+
+    /// <summary>
+    /// One step of the scroll while the mouse stays at an edge. The row that scrolls under the
+    /// mouse joins the selection: the mouse does not move, so no move tells it.
+    /// </summary>
+    private void ScrollAtEdge()
+    {
+        var step = EdgeScroll.Step(dragPoint.Y, 0, list.ActualHeight);
+        if (dragging is null || scroller is null || step == 0)
+        {
+            edgeScroll.Stop();
+            return;
+        }
+        scroller.ChangeView(null, scroller.VerticalOffset + step, null, true);
+        drag.Moved(dragPoint.Y, ItemAt(dragPoint));
+    }
+
+    /// <summary>
+    /// The item at <paramref name="place"/> of the list. A place beyond the list counts as
+    /// the nearest place in it: the mouse of a drag may leave the window.
+    /// </summary>
+    private string? ItemAt(Windows.Foundation.Point place)
+    {
+        var inside = new Windows.Foundation.Point(
+            Math.Clamp(place.X, list.Padding.Left + 1, list.ActualWidth - list.Padding.Right - 1),
+            Math.Clamp(place.Y, 1, list.ActualHeight - 1)
+        );
+        var there = list.TransformToVisual(null).TransformPoint(inside);
+        foreach (var hit in VisualTreeHelper.FindElementsInHostCoordinates(there, list))
+        {
+            if (hit is ListViewItem container && list.ItemFromContainer(container) is RowModel row)
+                return row.Id;
+        }
+        return null;
     }
 
     /// <summary>Carries out an order of the core that is new.</summary>
