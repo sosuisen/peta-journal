@@ -170,9 +170,9 @@ fn a_line_whose_name_cannot_be_a_key_is_left_out_and_the_others_are_taken_in() {
     assert_eq!(a.page_property(&page, "slug").as_deref(), Some("by-hand"));
 }
 
-// 型に合わない値は取り込まれず、ページの値が残る。ほかのプロパティは取り込まれる。
+// ユーザーのキーの値は、型に合わなくても、ファイルに書かれた文字列のまま取り込まれる。型は値の読み方なので、型が変わっても値が消えないようにするためである。
 #[test]
-fn a_value_that_does_not_fit_the_type_is_left_out_and_the_page_keeps_its_value() {
+fn a_value_of_a_user_key_that_does_not_fit_the_type_is_taken_in_as_written() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
     let page = a.doc("a");
@@ -185,7 +185,7 @@ fn a_value_that_does_not_fit_the_type_is_left_out_and_the_page_keeps_its_value()
     let outcome = a.sync(PAGE);
 
     assert_eq!(outcome, Outcome::Imported);
-    assert_eq!(a.page_property(&page, "rating").as_deref(), Some("5"));
+    assert_eq!(a.page_property(&page, "rating").as_deref(), Some("many"));
     assert_eq!(a.page_property(&page, "slug").as_deref(), Some("by-hand"));
 }
 
