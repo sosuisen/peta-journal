@@ -51,6 +51,8 @@ pub fn add_property_definition(model: &mut Model, body: String, value_type: Stri
         return done();
     };
     let Ok(key) = name_of(body, t) else {
+        model.config.definition_error =
+            Some("The name cannot end with _n, _d, _dt, _cb, _bounds or _list".into());
         return done();
     };
     run(move |api| async move {
