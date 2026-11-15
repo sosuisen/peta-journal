@@ -10,11 +10,13 @@ pub mod codegen;
 mod html;
 mod links;
 mod shell;
+mod typed;
 
 pub use clock::{Clock, SystemClock};
 pub use html::copied_html;
 pub use links::{asset_address, page_address};
 pub use shell::{BorderError, Host, NativeShell, NothingThere, ShellEffect, ShellEffectFfi};
+pub use typed::closed_as_typed;
 
 /// The core under the border. A row gives a native shell the parts of its body to draw
 /// (`RichText`, ADR 042).
