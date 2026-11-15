@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
 use super::export_service::{format_instant, MarkdownExportService};
@@ -30,6 +31,10 @@ pub const DEFINITIONS_FILE: &str = "settings/properties.json";
 pub struct DefinitionsFileService {
     properties: PropertyRepository,
     export: Arc<MarkdownExportService>,
+    /// Held while the file is read, put together and written. The requests of the clients
+    /// and the import write it from many threads: two at once wrote the same temporary
+    /// file, and each would write what it read without what the other added.
+    file: Mutex<()>,
 }
 
 impl DefinitionsFileService {
@@ -37,12 +42,21 @@ impl DefinitionsFileService {
         properties: PropertyRepository,
         export: Arc<MarkdownExportService>,
     ) -> DefinitionsFileService {
-        DefinitionsFileService { properties, export }
+        DefinitionsFileService {
+            properties,
+            export,
+            file: Mutex::new(()),
+        }
     }
 
     /// Writes the definitions of this device put together with those in the file, so that
     /// a definition of another device that is not taken in yet stays.
     pub fn write_file(&self) -> AppResult<()> {
+        let _file = self.file.lock();
+        self.write_file_locked()
+    }
+
+    fn write_file_locked(&self) -> AppResult<()> {
         let Some(root) = self.export.markdown_root() else {
             return Ok(());
         };
@@ -72,6 +86,7 @@ impl DefinitionsFileService {
     /// Takes in the file as another device wrote it: the definitions are put together with
     /// those of this device, key by key, and the DB gets the result (ADR 046).
     pub fn take_in(&self, root: &Path) -> AppResult<Outcome> {
+        let _file = self.file.lock();
         let text = std::fs::read_to_string(root.join(DEFINITIONS_FILE))?;
         let merged = self.put_together(&read(&text)?)?;
         // The other device does not have what only this one has: it gets it in the file
@@ -85,9 +100,10 @@ impl DefinitionsFileService {
     /// Takes in a conflicted copy of the file as one more version, writes the file with all
     /// of it, and deletes the copy.
     pub fn take_in_copy(&self, root: &Path, rel_path: &str) -> AppResult<Outcome> {
+        let _file = self.file.lock();
         let copy = root.join(rel_path);
         self.put_together(&read(&std::fs::read_to_string(&copy)?)?)?;
-        self.write_file()?;
+        self.write_file_locked()?;
         std::fs::remove_file(&copy)?;
         Ok(Outcome::Imported)
     }
