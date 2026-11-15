@@ -433,7 +433,7 @@ internal sealed class RowView : Grid
         var body = Markdown;
         // The core put this text here itself
         if (body != row.Row.Item.Body)
-            Shell.Typed(body, row.Id);
+            Shell.Typed(body, row.Id, editor.SelectionStart);
     }
 
     private void Pressed(object sender, KeyRoutedEventArgs e)
