@@ -132,9 +132,13 @@ public final class Shell: ObservableObject {
     }
 
     /// The user typed into the item, and the cursor is `cursor` UTF-16 units into `body`. An
-    /// opening just typed gets its closing (ADR 050).
+    /// opening just typed gets its closing (ADR 050). An opening that is left after a deletion
+    /// does not, or the closing would come back at every delete.
     public func typed(_ body: String, into itemId: String, cursor: Int) {
-        typed(closedAsTyped(body: body, cursor: UInt64(cursor)) ?? body, into: itemId)
+        let before = view.outline.rows.first { $0.item.id == itemId }?.item.body
+        let added = body.utf16.count > (before?.utf16.count ?? 0)
+        let closed = added ? closedAsTyped(body: body, cursor: UInt64(cursor)) : nil
+        typed(closed ?? body, into: itemId)
     }
 
     /// Answers the confirmation on screen.
