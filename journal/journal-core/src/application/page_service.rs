@@ -438,7 +438,7 @@ impl PageService {
         &self,
         page_id: &Hmtid,
         key: &str,
-        value_type: &str,
+        _value_type: &str,
         value: &str,
     ) -> AppResult<Page> {
         let page = self.require_page(page_id)?;
@@ -474,21 +474,16 @@ impl PageService {
         }
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
-        let definition = PropertyRepository::find_definition_in(&tx, key)?;
-        if definition.as_ref().is_some_and(|def| !def.page) {
+        // A type is chosen only when a key is defined (ADR 047), so a key with no definition
+        // takes no value
+        let definition = PropertyRepository::find_definition_in(&tx, key)?
+            .ok_or_else(|| AppError::bad_request(format!("Property '{key}' is not defined")))?;
+        if !definition.page {
             return Err(AppError::bad_request(format!(
                 "Property '{key}' cannot be set on a page"
             )));
         }
-        // The type of a key is fixed when it is defined; a new key takes the type sent,
-        // which must fit the name of the key
-        let value_type = match definition.as_ref() {
-            Some(def) => def.value_type.as_str(),
-            None => {
-                PropertyKey::parse(key)?.check_type(value_type)?;
-                value_type
-            }
-        };
+        let value_type = definition.value_type.as_str();
         let mut effects = AfterCommit::default();
         if value_type == "tags" || value_type == "list" {
             let values = list_values(value);

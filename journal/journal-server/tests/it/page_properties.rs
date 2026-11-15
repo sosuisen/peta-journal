@@ -10,6 +10,7 @@ const PAGE: &str = "docs/d/a.md";
 
 impl Device {
     fn set_page_property(&self, page_id: &Hmtid, key: &str, value_type: &str, value: &str) {
+        self.ensure_defined(key);
         self.state
             .page_service
             .set_property(page_id, key, value_type, value)

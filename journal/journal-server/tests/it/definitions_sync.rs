@@ -513,9 +513,9 @@ fn a_value_the_user_writes_to_a_key_with_no_definition_makes_no_definition() {
     assert_eq!(a.written("member_list"), None);
 }
 
-// ほかの端末が消した定義が届いたあと、ユーザーがRESTやMCPでそのキーに値を書くと、端末は、消した定義の表からそのキーの行を消し、その型の本物の定義としてsettings/properties.jsonに書く。
+// ほかの端末が消した定義が届いたあと、ユーザーがRESTやMCPでそのキーに値を書いても、端末は書き込みを断り、消したことを残す。キーを使い直すには、定義し直す（ADR 047）。
 #[test]
-fn a_value_the_user_writes_to_a_key_deleted_on_another_device_defines_it_again() {
+fn a_value_the_user_writes_to_a_key_deleted_on_another_device_is_refused_and_the_deletion_stays() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
@@ -524,17 +524,15 @@ fn a_value_the_user_writes_to_a_key_deleted_on_another_device_defines_it_again()
     b.undefine("score_n");
     a.receive(&b, DEFINITIONS_FILE);
 
-    a.state
-        .journal
-        .set_page_property(
-            page.as_str(),
-            "score_n",
-            Some("number"),
-            Some("12"),
-            &ChangedBy::Mcp,
-        )
-        .unwrap();
+    let written = a.state.journal.set_page_property(
+        page.as_str(),
+        "score_n",
+        Some("number"),
+        Some("12"),
+        &ChangedBy::Mcp,
+    );
 
+    assert!(written.is_err());
     let deleted: i64 = a
         .state
         .db
@@ -546,10 +544,10 @@ fn a_value_the_user_writes_to_a_key_deleted_on_another_device_defines_it_again()
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(deleted, 0);
+    assert_eq!(deleted, 1);
     assert!(matches!(
         a.written("score_n"),
-        Some(Definition::Defined { .. })
+        Some(Definition::Deleted { .. })
     ));
 }
 
@@ -679,54 +677,38 @@ fn the_clients_are_told_when_a_page_file_makes_or_drops_a_provisional_definition
     assert!(told.of_definitions());
 }
 
-// ユーザーがRESTやMCPで定義を足したとき、消したとき、ページの定義のないキーに値を書いたときも、端末はクライアントに知らせる。
+// ユーザーがRESTやMCPで定義を足したときと消したときも、端末はクライアントに知らせる。
 #[test]
 fn the_clients_are_told_when_the_user_changes_the_definitions() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
-    let page = a.doc("a");
     let mut told = a.listen();
 
     a.define("score_n", "number", false);
     assert!(told.of_definitions());
     a.undefine("score_n");
     assert!(told.of_definitions());
-    a.state
-        .journal
-        .set_page_property(
-            page.as_str(),
-            "rating_n",
-            Some("number"),
-            Some("5"),
-            &ChangedBy::Mcp,
-        )
-        .unwrap();
-    assert!(told.of_definitions());
 }
 
-// ユーザーがいくつもの新しいキーに同時に値を書いても、端末は、どの書き込みも受け付け、すべての定義をsettings/properties.jsonに書く。端末は、定義のファイルを1つずつ書くからである。
+// ユーザーがいくつものキーを同時に定義しても、端末は、どの定義も受け付け、すべての定義をsettings/properties.jsonに書く。端末は、定義のファイルを1つずつ書くからである。
 #[test]
-fn values_written_to_new_keys_at_once_all_get_their_definitions_in_the_file() {
+fn keys_defined_at_once_all_get_their_definitions_in_the_file() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
-    let page = a.doc("a");
     let keys = |t: usize| (0..20).map(move |i| format!("key_{t}_{i}"));
 
     let writers: Vec<_> = (0..8)
         .map(|t| {
             let state = a.state.clone();
-            let page = page.clone();
             std::thread::spawn(move || {
                 for key in keys(t) {
                     state
                         .journal
-                        .set_page_property(
-                            page.as_str(),
-                            &key,
-                            Some("text"),
-                            Some("v"),
-                            &ChangedBy::Mcp,
-                        )
+                        .add_property_definition(AddPropertyDefinitionInput {
+                            key: Some(key),
+                            value_type: None,
+                            page: None,
+                        })
                         .unwrap();
                 }
             })

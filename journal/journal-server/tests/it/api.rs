@@ -4476,6 +4476,7 @@ async fn page_properties_are_set_removed_and_written_to_the_front_matter() {
 // ページのユーザー定義のlist型のキーは、そのキーのリストとして保存され、タグには触らない。
 #[tokio::test]
 async fn a_list_of_a_page_is_kept_under_its_own_key_apart_from_the_tags() {
+    define_key("page_list").await;
     let _tags_dir = TAGS_DIR.lock().await;
     let page = new_doc_page("page-list").await;
     set_page_tags(&page.id, "page-list-tag").await;
@@ -5020,6 +5021,7 @@ async fn the_children_of_an_index_page_carry_their_scalar_properties() {
 // indexページの子ページは、タグを持って返る。他のリストのプロパティは返らない。アトラスがカードのアイコンに使うのはタグだけである。
 #[tokio::test]
 async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
+    define_key("children_list").await;
     let _tags_dir = TAGS_DIR.lock().await;
     let dir = format!("{}/", new_doc_page("children-tags").await.title);
     let (status, resp) = post(
