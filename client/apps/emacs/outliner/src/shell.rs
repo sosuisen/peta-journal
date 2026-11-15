@@ -10,6 +10,7 @@ use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput,
     UiOp, UiOutput,
 };
+use client_core::model::bare_name;
 use client_core::rest::ClientId;
 use client_core::util::date::Date;
 use client_core::util::week::week_page_name;
@@ -618,9 +619,12 @@ impl<H: Host> Shell<H> {
 
     fn tell_properties(&mut self, view: &ViewModel<()>) {
         let rows: Option<Vec<PropertyRow>> = match &view.screen {
-            ScreenView::Page(Some(page)) => {
-                Some(page.properties.iter().map(PropertyRow::from).collect())
-            }
+            ScreenView::Page(Some(page)) => Some(
+                page.properties
+                    .iter()
+                    .map(|p| PropertyRow::of(p, label(view, &p.key)))
+                    .collect(),
+            ),
             _ => None,
         };
         let is_used = |key: &str| rows.iter().flatten().any(|r| r.key == key);
@@ -733,6 +737,13 @@ fn datetime_keys<'a>(
         .map(|row| row.key.clone())
         .chain(free_keys.iter().filter(|key| is_datetime(key)).cloned())
         .collect()
+}
+
+/// What Emacs shows for the key: the body of its name and its type, so that two keys that
+/// share a body are told apart (ADR 047). A system key keeps its whole name.
+fn label(view: &ViewModel<()>, key: &str) -> String {
+    let name = bare_name(key, &view.config.property_definitions);
+    format!("{name} ({})", property_type(view, key))
 }
 
 /// The type to send a value of the key with. A list stays a list, even when it has no definition.

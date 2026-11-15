@@ -283,15 +283,19 @@ impl TaskMark {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PropertyRow {
     pub key: String,
+    /// What the list shows for the key: the body of its name and its type, as
+    /// `rating (number)` (ADR 047).
+    pub label: String,
     pub value: String,
     pub removable: bool,
     pub editable: bool,
 }
 
-impl From<&PageProperty> for PropertyRow {
-    fn from(property: &PageProperty) -> PropertyRow {
+impl PropertyRow {
+    pub fn of(property: &PageProperty, label: String) -> PropertyRow {
         PropertyRow {
             key: property.key.clone(),
+            label,
             value: property.value.clone(),
             removable: property.removable,
             editable: property.editable,
