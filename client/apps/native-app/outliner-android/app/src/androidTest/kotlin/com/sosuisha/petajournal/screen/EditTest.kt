@@ -19,6 +19,7 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.text.TextRange
@@ -78,6 +79,37 @@ class EditTest : JournalScreenFixture() {
         compose.onNodeWithTag(EDITOR_TAG).performTextInput(" and more")
 
         waitForWritten("first and more")
+    }
+
+    // 開始記号を打ち終えると、閉じる記号が補われる（ADR 050）。
+    @Test
+    fun typing_an_opening_closes_it() {
+        download("notes.md", "first" + NL)
+        openNotes()
+        waitFor("first")
+        touchEnd("first")
+
+        compose.onNodeWithTag(EDITOR_TAG).performTextReplacement(">>")
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput(">")
+
+        compose.waitUntil(WAIT_MS) { shell.view.outline.rows[0].item.body == ">>>\n>>>" }
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals(">>>\n>>>")
+    }
+
+    // 消して開始記号だけが残っても、閉じる記号は補われない。閉じるのは打ったときだけである。
+    @Test
+    fun deleting_back_to_an_opening_does_not_close_it() {
+        download("notes.md", "first" + NL)
+        openNotes()
+        waitFor("first")
+        touchEnd("first")
+        compose.onNodeWithTag(EDITOR_TAG).performTextReplacement(">>>x")
+        compose.waitUntil(WAIT_MS) { shell.view.outline.rows[0].item.body == ">>>x" }
+
+        compose.onNodeWithTag(EDITOR_TAG).performTextReplacement(">>>")
+
+        compose.waitUntil(WAIT_MS) { shell.view.outline.rows[0].item.body == ">>>" }
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals(">>>")
     }
 
     // 改行のキーは、下に新しい項目を作る。続けて打った文字は、新しい項目に入る。
