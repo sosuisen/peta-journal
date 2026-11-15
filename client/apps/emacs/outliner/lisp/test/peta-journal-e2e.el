@@ -265,6 +265,12 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--type "quoted")
     (should (equal (peta-journal--body-at (point)) ">>>\nquoted\n>>>"))))
 
+;; HTMLの開始記号は、どの文字でも終わりうる。`<!--'は`-'で終わる。
+(ert-deftest peta-journal-e2e-an-html-comment-closes-itself ()
+  (peta-journal-e2e--with-app
+    (peta-journal-e2e--type "<!--")
+    (should (equal (peta-journal--body-at (point)) "<!--\n-->"))))
+
 ;; 続けて打った文字は、Enterのあとの項目に入る。
 (ert-deftest peta-journal-e2e-keys-after-enter-go-to-the-new-item ()
   (peta-journal-e2e--with-app
