@@ -389,6 +389,15 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - キーボードが出るときには、入力欄はもう外されない（PR #404）。この道を通るのは、画面を横にしたときなどである
   - Enterの直後の文字が消える問題を直すとき（2026-11-14）、この道で使う受け皿（`KeyboardKeeper`）を変えた。受け皿は、文字を断らずに自分の中に入れ、`Typist.held`へ移す。待つ間は50ミリ秒ごとに見る。1秒たっても誰も来なければ、キーボードを手放す。古い待ちが次の待ちを止めないように、待ちに番号を付けた
   - その変更のあと、すべてのテストを回すと、`testTheEditGoesOnWhenTheScreenIsTurnedAndTheEditedItemLeavesWhatIsSeen`が「Keyboard (First Match) is not shown」で1回落ちた。変更の前にも、同じ表示で時々落ちていた。変更で増えたのかは調べていない
+- [ ] シミュレーターの画面のテストで、触れたあとに打った文字の後ろが消える原因を調べる（2026-11-16に見つけた）
+  - `main`の`8e0c5cdf`で`./debug.sh --test`を回すと、41件のうち2件が落ちた。ほかの39件と、`swift test`の35件は通った
+    - `testATouchOnAnItemAtTheBottomOfALongPageEditsIt`：長いページの下端の項目に触れて「more」と打つと、「line 30m」になった
+    - `testTheEditGoesOnWhenTheScreenIsTurnedAndTheEditedItemLeavesWhatIsSeen`：同じく「line 27mo」になった
+  - どちらも`checkTheEditGoesOn`の中で落ちる。キーボードが出てから2秒待って打った文字の、後ろの方が入らない。上の項目の、受け皿（`KeyboardKeeper`）に入った文字が`Typist.held`へ移らずに消える道に似ているが、確かめていない
+  - 2件だけを回し直そうとしたが、3回とも、テストの前にシミュレーターが「Timed out waiting for AX loaded notification」で止まった。`testmanagerd`とシミュレーターのサービスを止め直しても同じだった。Macは眠っていない。毎回落ちるのかは、まだ分からない
+  - [ ] シミュレーターを直し、2件を何度か回して、毎回落ちるかを見る
+  - [ ] 落ちるなら、大きなリファクタの前の`main`で回し、どの変更からかを見る
+  - [ ] 実機（iPhone SE）でも、長いページの下端の項目に触れて打つと、文字が消えるかを見る。2026-11-16に、この版を実機に入れた
 - [ ] 道具の列から、削除のボタンを取る（2026-11-13にユーザーが決めた）。Androidのシェルも同じにする
   - 取る前に、ボタンがなくても項目を消せるかを確かめる。空の項目の行頭でBackspaceを打つと消えるか、文字のある項目はどう消すかを見る
   - 表示はMarkdownを整形したもので、編集するのは元のMarkdownである。記号（`**`、リンク、タスクの印など）の分だけ、触れた位置と元の文字の位置がずれる。表示の位置から元の位置を求める方法を、先に決める
