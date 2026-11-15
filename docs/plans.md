@@ -30,7 +30,8 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
       - [ ] 届いた定義を、開いているクライアントに知らせる。今は、クライアントが起動したときにしか定義を読まない
       - [x] PR 3c：RESTやMCPで定義のないキーに値を書いて定義ができたときも、日時を記録し、`settings/properties.json`を書く。今は日時が0のままで、ファイルにも書かない
       - [x] PR 3c：仮の定義。取り込みで定義のないキーに仮の定義を作り、値がなくなったら消す。`for_page`はUIだけに使う。ユーザーのキーは、型に合わない値も取り込む
-    - [ ] PR 4：AndroidとiOSのシェルで、`settings/properties.json`も運ぶ。Androidは実機で確かめる
+    - [x] PR 4：AndroidとiOSのシェルで、`settings/properties.json`も運ぶ。Androidは実機で確かめる
+      - [ ] Androidの単体テストと実機で確かめる。このMacにはAndroid SDKがなく、テストを走らせていない
   - [ ] 型に合わない値に、警告の印を付ける。シェルごとに別のタスクにする（ADR 046）
 - [x] Windowsのシェルで、上付き・下付きと`-# subtext`の文字を、ほかのシェルと同じく0.75倍の大きさで描く
   - 今は`FontVariants`でOpenTypeの`subs`と`sups`に任せている。Segoe UIとYu Gothic UIは数字しか置き換えず、Noto Sans JPはこの機能を持たない。だから、文字が小さくならない
