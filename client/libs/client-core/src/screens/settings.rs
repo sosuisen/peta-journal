@@ -48,6 +48,7 @@ pub fn add_property_definition(model: &mut Model, body: String, value_type: Stri
         .into_iter()
         .find(|t| t.as_str() == value_type)
     else {
+        model.config.definition_error = Some(format!("A key cannot be of type {value_type}"));
         return done();
     };
     let Ok(key) = name_of(body, t) else {
