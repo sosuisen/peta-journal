@@ -4322,6 +4322,18 @@ async fn a_key_is_defined_only_with_the_type_its_suffix_gives() {
     }
 }
 
+// 名前の本体が予約の接尾辞で終わるキーは、定義できない。
+#[tokio::test]
+async fn a_key_whose_body_ends_with_a_reserved_suffix_is_not_defined() {
+    for body in [
+        json!({ "key": "defined_score_n_n", "valueType": "number" }),
+        json!({ "key": "defined_score_n_list", "valueType": "list" }),
+    ] {
+        let (status, resp) = post("/api/config/property-definitions", body.clone()).await;
+        assert_eq!(status, 400, "{body} -> {resp}");
+    }
+}
+
 // 項目からプロパティを削除できる。
 #[tokio::test]
 async fn a_property_can_be_removed_from_an_item() {
