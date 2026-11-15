@@ -606,12 +606,21 @@ final class OutlineScreenTests: XCTestCase {
     /// A drag that starts in the middle of the editor, goes through the places of the window
     /// and lets the button go at the last. The moves are handed over as the window does with
     /// a click: they wait in the queue of the window for the editor that tracks the mouse.
-    private func drag(from editor: NSTextView, through places: [NSPoint]) throws {
+    /// The button comes up after `holding` seconds at the last place.
+    private func drag(from editor: NSTextView, through places: [NSPoint], holding: TimeInterval = 0) throws {
         let start = middle(of: editor)
         for place in places {
             NSApp.postEvent(try mouse(.leftMouseDragged, at: place), atStart: false)
         }
-        NSApp.postEvent(try mouse(.leftMouseUp, at: places.last ?? start), atStart: false)
+        let up = try mouse(.leftMouseUp, at: places.last ?? start)
+        if holding > 0 {
+            // A timer and not the main queue: the test runs on the main queue, which waits for
+            // the editor to let the mouse go. The run loop fires timers while the editor waits
+            let timer = Timer(timeInterval: holding, repeats: false) { _ in NSApp.postEvent(up, atStart: false) }
+            RunLoop.main.add(timer, forMode: .common)
+        } else {
+            NSApp.postEvent(up, atStart: false)
+        }
         if window.firstResponder !== editor { window.makeFirstResponder(editor) }
         editor.mouseDown(with: try mouse(.leftMouseDown, at: start))
     }
@@ -643,6 +652,51 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertEqual(third.selectedRange(), NSRange(location: 0, length: 5))
         XCTAssertFalse(shell.view.outline.selectionMode)
         XCTAssertTrue(focused === third)
+    }
+
+    /// The page gets `count` items more than the window can show, "item 1" and on, and is
+    /// opened again in the window.
+    private func longPage(_ count: Int = 40) async throws {
+        guard case .page(let page?) = shell.view.screen else { throw CancellationError() }
+        for n in 1...count {
+            try await server.post("/api/items", ["pageId": page.page.id, "position": "last", "level": 1, "body": "item \(n)"])
+        }
+        shell = Shell(server: server.address, url: "/pages/screen", clipboard: { nil })
+        window.contentView = NSHostingView(rootView: OutlineScreen(shell: shell))
+        try await waitUntil("the long page is shown") {
+            self.shell.view.outline.rows.count == count + 1 && self.editors().count > 2
+        }
+    }
+
+    /// The table of the list of the items, and the scroll view that holds it.
+    private func list() throws -> (NSScrollView, NSTableView) {
+        var found: NSTableView?
+        func look(_ view: NSView) {
+            if found == nil, let table = view as? NSTableView { found = table }
+            view.subviews.forEach(look)
+        }
+        if let content = window.contentView { look(content) }
+        let table = try XCTUnwrap(found)
+        return (try XCTUnwrap(table.enclosingScrollView), table)
+    }
+
+    // ドラッグ選択のマウスを付箋の下端で止めると、付箋が下へスクロールし、下から出てきた項目まで選ばれる。
+    func testADragSelectionHeldAtTheBottomScrollsDownAndSelectsWhatComesUp() async throws {
+        try await longPage()
+        let (scroll, table) = try list()
+        let lastSeen = table.rows(in: table.visibleRect).upperBound - 1
+        let first = editors()[1]
+        // In the window, where up is up
+        let (text, shown) = (first.convert(first.bounds, to: nil), scroll.convert(scroll.bounds, to: nil))
+        let below = NSPoint(x: text.midX, y: text.minY - 15)
+        let bottom = NSPoint(x: shown.midX, y: shown.minY + 5)
+
+        try drag(from: first, through: [below, bottom], holding: 0.5)
+
+        XCTAssertGreaterThan(scroll.contentView.bounds.minY, 0)
+        let lastSelected = try XCTUnwrap(shell.view.outline.rows.lastIndex(where: \.isSelected))
+        XCTAssertGreaterThan(lastSelected, lastSeen)
+        XCTAssertFalse(shell.view.outline.rows[0].isSelected)
     }
 
     /// The search box, when it is on screen.
