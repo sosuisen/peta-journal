@@ -54,22 +54,9 @@ extension Shell {
         send(.selectionKey(key))
     }
 
-    /// A drag that began in the text of the item left it up or down: the item is selected, and
-    /// the selection follows the mouse until the button comes up.
-    public func draggedOut(of itemId: String) {
-        // The edit ends first, as for Shift and an arrow
-        send(.editFinished(itemId: itemId))
-        send(.dragBeyondBounds(itemId: itemId))
-    }
-
-    /// The mouse of a drag selection came over the item: the selection reaches it.
-    public func dragged(over itemId: String) {
-        send(.itemMouseEnter(itemId: itemId))
-    }
-
-    /// The button of a drag selection came up: the selection stays as it is.
-    public func dragEnded() {
-        send(.selectionMouseUp)
+    /// A drag of the mouse that starts on the text of an item, and may select items.
+    public func itemDrag() -> ItemDrag {
+        ItemDrag { [unowned self] in send($0) }
     }
 
     /// The user turned to something else, such as the text of an item: nothing stays selected.
