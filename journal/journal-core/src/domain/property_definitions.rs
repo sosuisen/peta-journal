@@ -38,15 +38,15 @@ pub fn merge(a: &Definitions, b: &Definitions) -> Definitions {
 impl Definition {
     /// Of two versions of a key, the one of the higher rank wins: the newer one, and of the
     /// same date, the deleted one, then a type other than `text`, then the type later in the
-    /// dictionary.
-    fn rank(&self) -> (i64, bool, bool, &str) {
+    /// dictionary, then the one for pages.
+    fn rank(&self) -> (i64, bool, bool, &str, bool) {
         match self {
             Definition::Defined {
                 value_type,
+                page,
                 modified,
-                ..
-            } => (*modified, false, value_type != "text", value_type),
-            Definition::Deleted { deleted } => (*deleted, true, false, ""),
+            } => (*modified, false, value_type != "text", value_type, *page),
+            Definition::Deleted { deleted } => (*deleted, true, false, "", false),
         }
     }
 }
