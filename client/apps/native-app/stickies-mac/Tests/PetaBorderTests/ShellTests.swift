@@ -66,6 +66,19 @@ final class ShellTests: XCTestCase {
         }
     }
 
+    // 開始記号を打ち終えると、閉じる記号が補われる（ADR 050）。
+    func testTypingAnOpeningClosesIt() async throws {
+        let shell = Shell(server: server.address, url: "/pages/swift-notes")
+        try await waitUntil("the page is shown") { !shell.view.outline.rows.isEmpty }
+        let item = shell.view.outline.rows[0].item.id
+
+        shell.startEditing(item)
+        shell.typed(">>", into: item, cursor: 2)
+        shell.typed(">>>", into: item, cursor: 3)
+
+        XCTAssertEqual(shell.view.outline.rows[0].item.body, ">>>\n>>>")
+    }
+
     // 表示した文字に触れると、その項目の編集に入り、カーソルは触れた文字のMarkdownでの位置に置かれる（ADR 043）。
     func testATouchOnTheShownTextPutsTheCursorAtItsPlaceInTheMarkdown() async throws {
         let shell = try await shellWithPage()
