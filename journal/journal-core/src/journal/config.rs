@@ -127,7 +127,7 @@ impl Journal {
             input.value_type.as_deref().unwrap_or("text"),
             input.page.unwrap_or(true),
         )?;
-        self.services.definitions_file.write_file()?;
+        self.definitions_changed()?;
         self.property_definitions()
     }
 
@@ -139,7 +139,7 @@ impl Journal {
         by: &ChangedBy,
     ) -> AppResult<PropertyDefinitionsAnswer> {
         let page_ids = self.services.page_service.delete_property_definition(key)?;
-        self.services.definitions_file.write_file()?;
+        self.definitions_changed()?;
         self.tell(&page_ids, by);
         self.property_definitions()
     }

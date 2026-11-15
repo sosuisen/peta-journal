@@ -49,6 +49,7 @@ use crate::application::journal_service::JournalService;
 use crate::application::page_service::PageService;
 use crate::domain::client_id::ClientId;
 use crate::dto::ItemDtoAssembler;
+use crate::error::AppResult;
 use crate::infrastructure::export::definitions_file::DefinitionsFileService;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
@@ -65,6 +66,8 @@ pub enum ChangedBy {
 /// Tells the clients that a page changed. A client that shows the page reads it again.
 pub trait JournalEvents: Send + Sync {
     fn page_changed(&self, page_id: &Hmtid, by: &ChangedBy);
+    /// The user changed the property definitions (ADR 046).
+    fn definitions_changed(&self);
 }
 
 /// What the operations work with.
@@ -101,5 +104,13 @@ impl Journal {
         for page_id in page_ids {
             self.events.page_changed(page_id, by);
         }
+    }
+
+    /// The user changed the definitions: the other devices get them in the file, and the
+    /// clients read them again (ADR 046).
+    fn definitions_changed(&self) -> AppResult<()> {
+        self.services.definitions_file.write_file()?;
+        self.events.definitions_changed();
+        Ok(())
     }
 }

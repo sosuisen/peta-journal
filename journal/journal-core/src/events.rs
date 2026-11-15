@@ -34,6 +34,12 @@ impl ClientMessages {
     /// `source` is `file` for changes picked up from the markdown folder, `server` for an
     /// atlas the journal wrote by itself, `extension` for items that extensions wrote, and
     /// `mcp` for changes that an MCP tool made.
+    /// The clients read the definitions again (ADR 046).
+    fn definitions_changed_message(&self) {
+        self.sink
+            .send(json!({ "type": "propertyDefinitionsUpdated" }).to_string());
+    }
+
     fn page_changed_from(&self, page_id: &Hmtid, source: &str) {
         self.sink.send(
             json!({ "type": "pagesUpdated", "pageId": page_id.as_str(), "source": source })
@@ -62,6 +68,10 @@ impl JournalEvents for ClientMessages {
             ChangedBy::Mcp => self.page_changed_from(page_id, "mcp"),
         }
     }
+
+    fn definitions_changed(&self) {
+        self.definitions_changed_message();
+    }
 }
 
 impl AtlasEvents for ClientMessages {
@@ -76,10 +86,8 @@ impl ImportEvents for ClientMessages {
         self.page_changed_from(page_id, "file");
     }
 
-    /// The clients read the definitions again (ADR 046).
     fn definitions_changed(&self) {
-        self.sink
-            .send(json!({ "type": "propertyDefinitionsUpdated" }).to_string());
+        self.definitions_changed_message();
     }
 }
 

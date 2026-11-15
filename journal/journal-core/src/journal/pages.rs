@@ -153,7 +153,7 @@ impl Journal {
             value.unwrap_or(""),
         )?;
         if new_key {
-            self.services.definitions_file.write_file()?;
+            self.definitions_changed()?;
         }
         self.tell([&page_id], by);
         if key == "tags" {
