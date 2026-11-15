@@ -543,19 +543,16 @@ async fn the_body_a_move_of_a_transclusion_carries_is_saved_to_its_source_item()
     );
 }
 
-// 移動の要求の本文のコードフェンスが閉じていなければ、閉じて保存される。保存された本文は、コードフェンスの途中で終わらない。
+// 移動の要求の本文が閉じていないブロックで終われば、移動は断られ、項目は動かない。
 #[tokio::test]
-async fn a_move_closes_an_open_code_fence_in_the_body_it_carries() {
+async fn a_move_with_a_body_that_has_an_unclosed_block_is_refused() {
     let page = new_doc_page("items-move-fence").await;
     let rows = fill(&page.id, &["a", "b"]).await;
 
     let (status, resp) = move_edited(&[&rows[1].id], &page.id, "first", "```js\ncode").await;
-    assert_eq!(status, 200, "{resp}");
 
-    assert_eq!(
-        field_of_each(&resp, "items", "body"),
-        vec![json!("```js\ncode\n```")]
-    );
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "1:b"]));
 }
 
 // 階層の差と本文を持つ移動は、本文を保存し、階層を変えて動かす。論理アウトデントが、1つの要求で送るものである。
