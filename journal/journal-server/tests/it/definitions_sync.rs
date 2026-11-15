@@ -394,3 +394,34 @@ fn a_file_of_definitions_that_cannot_be_read_changes_nothing() {
     );
     assert!(a.root.join(copy).exists());
 }
+
+// 定義のないキーの値がページのファイルで届くと、端末は、名前に合う型の仮の定義を作る。仮の定義は、settings/properties.jsonに書かない。
+#[test]
+fn a_key_with_no_definition_from_a_page_file_gets_a_provisional_definition() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "number", true);
+    a.define("author_list", "list", true);
+    a.state
+        .page_service
+        .set_property(&page, "score", "number", "12")
+        .unwrap();
+    a.state
+        .page_service
+        .set_property(&page, "author_list", "list", "x, y")
+        .unwrap();
+
+    b.receive(&a, "docs/d/a.md");
+    b.define("owner", "text", true);
+
+    assert_eq!(b.definition("score"), Some(("text".to_string(), true)));
+    assert_eq!(
+        b.definition("author_list"),
+        Some(("list".to_string(), true))
+    );
+    assert!(b.is_provisional("score"));
+    assert!(b.is_provisional("author_list"));
+    assert_eq!(b.written("score"), None);
+    assert_eq!(b.written("author_list"), None);
+}
