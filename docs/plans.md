@@ -338,11 +338,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 2026-11-16に見つけた。`the bullet is at 187.6dp, the letters at 190.71199dp`で落ちる。行頭の印と、見出しの文字の縦の位置が、約3dpずれている
   - アプリのコードを`main`に戻しても、同じく落ちた。ADR 050のAndroidのPR（#527）とは関係ない
   - 機器のテストを回すときは、先に端末のロックを解除する。ロックされていると、29件すべてが「No compose hierarchies found」で落ちる
-- [ ] 最近のページとディレクトリー一覧を出す前に、Dropboxとの同期で届いた変更のあと、コアがこの2つを取り直すかを確かめる（2026-11-16にユーザーが決めた）。iOSのシェルも同じである
-  - ディレクトリー一覧も、読み込み、並べ替え、`../`のパス、表示名、画面の状態はコアにある（`screens/sidebar.rs`の`load_index_pages`と`sorted_index_pages`、`ViewModel`の`sidebar.index_pages`）。コアが一覧を取り直すのは、ページを開いたときと、SSEの`pagesUpdated`のとき（`screens/sse.rs:88`）である。同期のあとに同じ知らせが出なければ、一覧も古いままになる
-  - 最近のページの取得、表示用の名前、画面の状態は、もうコアにある（`client-core/src/screens/sidebar.rs`の`refresh_recent_pages`、`ViewModel`の`sidebar.recent_pages`）。シェルが書くのは、一覧を描くことと、タップで`GoToPage`を送ることだけである
-  - コアが取り直すきっかけの1つは、SSEの知らせである（`screens/sse.rs`）。組み込み版のシェル（`client-shell-embedded`）が、同期で`.md`ファイルが変わったあとに、同じ知らせをコアへ出しているかは、まだ確かめていない。出していなければ、別の端末の変更が届いても、一覧が古いままになる
-
 ## iOSのシェル
 
 - [ ] 上端のバーに、戻るボタンと進むボタンを置く（2026-11-13にユーザーが決めた）。場所は、検索の入力欄の左である。Androidのシェルは、もう置いている（`JournalScreen.kt`の`HistoryButton`、`HistoryTest`）
@@ -392,7 +387,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 画像の貼り付けは、「ネイティブのシェルに共通」の項目にある（`ApiOp::UploadAsset`）
 - [ ] iOSのシェルの、同期の表示（メニュー、前面の同期のダイアログ、下の吹き出し、サインインのボタン）に、画面のテストを書く。今は、テストの中のアプリは同期をしない
 - [ ] Swiftのフォーマッターとlintを足す（2026-11-13にユーザーが決めた）。`client/apps/native-app/outliner-ios`と`client/apps/native-app/stickies-mac`には、まだどちらもない。道具を決め、設定をリポジトリに置く
-- [ ] 最近のページとディレクトリー一覧を出す前に、Dropboxとの同期で届いた変更のあと、コアがこの2つを取り直すかを確かめる（2026-11-16にユーザーが決めた）。くわしくは、Androidのシェルの同じ項目にある。コアはAndroidと同じ`client-shell-embedded`を使うが、同期はSwift（`CloudSync`）とKotlinで別々に書いてある。そのため、同期のあとにコアへ知らせるかは、iOSとAndroidで別々に確かめる
 
 ## リファクタ：重複したコードをまとめる
 
