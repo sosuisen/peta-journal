@@ -12,7 +12,6 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::item_body::ItemBody;
 use crate::domain::model::{Item, ItemPatch, ItemPlacement, ItemPosition, Page};
 use crate::domain::nfc::to_nfc;
-use crate::domain::property_key::PropertyKey;
 use crate::domain::search::SearchIndex;
 use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_service::MarkdownExportService;
@@ -1218,7 +1217,7 @@ impl ItemService {
             clear_task_times_in(&tx, &id)?;
             // A task made on the journal of a day is planned for that day
             if let Some(day) = existing.day() {
-                PropertyRepository::upsert_scalar_in(&tx, ITEM_TARGET, &id, "plan", "date", &day)?;
+                PropertyRepository::upsert_scalar_in(&tx, ITEM_TARGET, &id, "plan", &day)?;
             }
             r
         } else if !has_begin && !has_end {
@@ -1227,19 +1226,11 @@ impl ItemService {
                 ITEM_TARGET,
                 &id,
                 "begin",
-                "datetime",
                 &now_in_seconds(),
             )?;
             touched_in(&tx, &existing, now)?
         } else if has_begin && !has_end {
-            PropertyRepository::upsert_scalar_in(
-                &tx,
-                ITEM_TARGET,
-                &id,
-                "end",
-                "datetime",
-                &now_in_seconds(),
-            )?;
+            PropertyRepository::upsert_scalar_in(&tx, ITEM_TARGET, &id, "end", &now_in_seconds())?;
             touched_in(&tx, &existing, now)?
         } else {
             let r = patch_task_in(&tx, &existing, false, now)?;
@@ -1256,40 +1247,22 @@ impl ItemService {
         &self,
         item_id: &Hmtid,
         key: &str,
-        value_type: &str,
+        _value_type: &str,
         value: &str,
     ) -> AppResult<Item> {
         let existing = self.get_item_by_id(item_id)?;
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
-        // The type of a key is fixed when it is defined; a new key takes the type sent,
-        // which must fit the name of the key
-        let value_type = match PropertyRepository::find_definition_in(&tx, key)? {
-            Some(def) => def.value_type,
-            None => {
-                PropertyKey::parse(key)?.check_type(value_type)?;
-                value_type.to_string()
-            }
-        };
+        // A type is chosen only when a key is defined (ADR 047), so a key with no definition
+        // takes no value
+        let value_type = PropertyRepository::find_definition_in(&tx, key)?
+            .map(|def| def.value_type)
+            .ok_or_else(|| AppError::bad_request(format!("Property '{key}' is not defined")))?;
         if value_type == "tags" || value_type == "list" {
             let values = list_values(value);
-            PropertyRepository::upsert_list_in(
-                &tx,
-                ITEM_TARGET,
-                item_id.as_str(),
-                key,
-                &value_type,
-                &values,
-            )?;
+            PropertyRepository::upsert_list_in(&tx, ITEM_TARGET, item_id.as_str(), key, &values)?;
         } else {
-            PropertyRepository::upsert_scalar_in(
-                &tx,
-                ITEM_TARGET,
-                item_id.as_str(),
-                key,
-                &value_type,
-                value,
-            )?;
+            PropertyRepository::upsert_scalar_in(&tx, ITEM_TARGET, item_id.as_str(), key, value)?;
         }
         let now = now_millis();
         ItemRepository::touch_in(&tx, item_id, now)?;
@@ -1498,13 +1471,10 @@ fn set_or_clear_in(
     tx: &Connection,
     item_id: &str,
     key: &str,
-    value_type: &str,
     value: Option<&str>,
 ) -> AppResult<()> {
     match value {
-        Some(value) => {
-            PropertyRepository::upsert_scalar_in(tx, ITEM_TARGET, item_id, key, value_type, value)?
-        }
+        Some(value) => PropertyRepository::upsert_scalar_in(tx, ITEM_TARGET, item_id, key, value)?,
         None => PropertyRepository::delete_property_in(tx, ITEM_TARGET, item_id, key)?,
     };
     Ok(())
@@ -1530,9 +1500,9 @@ fn put_task_in(tx: &Connection, existing: &Item, state: &TaskState, now: i64) ->
     }
     let id = existing.id.to_string();
     patch_task_in(tx, existing, state.task, now)?;
-    set_or_clear_in(tx, &id, "begin", "datetime", state.begin.as_deref())?;
-    set_or_clear_in(tx, &id, "end", "datetime", state.end.as_deref())?;
-    set_or_clear_in(tx, &id, "plan", "date", state.plan.as_deref())?;
+    set_or_clear_in(tx, &id, "begin", state.begin.as_deref())?;
+    set_or_clear_in(tx, &id, "end", state.end.as_deref())?;
+    set_or_clear_in(tx, &id, "plan", state.plan.as_deref())?;
     Ok(())
 }
 

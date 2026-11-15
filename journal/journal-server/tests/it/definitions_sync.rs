@@ -11,17 +11,6 @@ use journal_server::state::{AppState, BuildOptions};
 use super::atlas_sync::{two_devices, Device};
 
 impl Device {
-    fn define(&self, key: &str, value_type: &str, page: bool) {
-        self.state
-            .journal
-            .add_property_definition(AddPropertyDefinitionInput {
-                key: Some(key.to_string()),
-                value_type: Some(value_type.to_string()),
-                page: Some(page),
-            })
-            .unwrap();
-    }
-
     fn undefine(&self, key: &str) {
         self.state
             .journal
@@ -490,9 +479,9 @@ fn a_key_of_an_item_with_no_definition_gets_a_provisional_definition_until_its_v
     assert_eq!(b.definition("score_n"), None);
 }
 
-// ユーザーがRESTやMCPで定義のないキーに値を書くと、端末は、その型の本物の定義を日時とともに作り、settings/properties.jsonに書く。項目でもページでも同じである。
+// ユーザーがRESTやMCPで定義のないキーに項目の値を書いても、端末は定義を作らず、settings/properties.jsonにも書かない。型は定義するときだけ決まるからである（ADR 047）。
 #[test]
-fn a_value_the_user_writes_to_a_key_with_no_definition_defines_it_for_every_device() {
+fn a_value_the_user_writes_to_a_key_with_no_definition_makes_no_definition() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
     let page = a.doc("a");
@@ -508,43 +497,25 @@ fn a_value_the_user_writes_to_a_key_with_no_definition_defines_it_for_every_devi
         )
         .unwrap()
         .id;
-    let before = journal_core::infrastructure::persistence::db::now_millis();
 
-    a.state
-        .journal
-        .set_page_property(
-            page.as_str(),
-            "score_n",
-            Some("number"),
-            Some("12"),
-            &ChangedBy::Mcp,
-        )
-        .unwrap();
-    a.state
-        .journal
-        .set_item_property(
-            item.as_str(),
-            "member_list",
-            journal_core::journal::PropertyInput {
-                value_type: Some("list".to_string()),
-                value: Some("p, q".to_string()),
-            },
-            &ChangedBy::Mcp,
-        )
-        .unwrap();
+    let written = a.state.journal.set_item_property(
+        item.as_str(),
+        "member_list",
+        journal_core::journal::PropertyInput {
+            value_type: Some("list".to_string()),
+            value: Some("p, q".to_string()),
+        },
+        &ChangedBy::Mcp,
+    );
 
-    for key in ["score_n", "member_list"] {
-        assert!(!a.is_provisional(key), "{key}");
-        let Some(Definition::Defined { modified, .. }) = a.written(key) else {
-            panic!("{key} is not written");
-        };
-        assert!(modified >= before, "{key}: {modified} < {before}");
-    }
+    assert!(written.is_err());
+    assert_eq!(a.definition("member_list"), None);
+    assert_eq!(a.written("member_list"), None);
 }
 
-// ほかの端末が消した定義が届いたあと、ユーザーがRESTやMCPでそのキーに値を書くと、端末は、消した定義の表からそのキーの行を消し、その型の本物の定義としてsettings/properties.jsonに書く。
+// ほかの端末が消した定義が届いたあと、ユーザーがRESTやMCPでそのキーに値を書いても、端末は書き込みを断り、消したことを残す。キーを使い直すには、定義し直す（ADR 047）。
 #[test]
-fn a_value_the_user_writes_to_a_key_deleted_on_another_device_defines_it_again() {
+fn a_value_the_user_writes_to_a_key_deleted_on_another_device_is_refused_and_the_deletion_stays() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
@@ -553,17 +524,15 @@ fn a_value_the_user_writes_to_a_key_deleted_on_another_device_defines_it_again()
     b.undefine("score_n");
     a.receive(&b, DEFINITIONS_FILE);
 
-    a.state
-        .journal
-        .set_page_property(
-            page.as_str(),
-            "score_n",
-            Some("number"),
-            Some("12"),
-            &ChangedBy::Mcp,
-        )
-        .unwrap();
+    let written = a.state.journal.set_page_property(
+        page.as_str(),
+        "score_n",
+        Some("number"),
+        Some("12"),
+        &ChangedBy::Mcp,
+    );
 
+    assert!(written.is_err());
     let deleted: i64 = a
         .state
         .db
@@ -575,10 +544,10 @@ fn a_value_the_user_writes_to_a_key_deleted_on_another_device_defines_it_again()
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(deleted, 0);
+    assert_eq!(deleted, 1);
     assert!(matches!(
         a.written("score_n"),
-        Some(Definition::Defined { .. })
+        Some(Definition::Deleted { .. })
     ));
 }
 
@@ -708,70 +677,72 @@ fn the_clients_are_told_when_a_page_file_makes_or_drops_a_provisional_definition
     assert!(told.of_definitions());
 }
 
-// ユーザーがRESTやMCPで定義を足したとき、消したとき、ページや項目の定義のないキーに値を書いたときも、端末はクライアントに知らせる。
+// ユーザーがRESTやMCPで定義を足したときと消したときも、端末はクライアントに知らせる。
 #[test]
 fn the_clients_are_told_when_the_user_changes_the_definitions() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
-    let page = a.doc("a");
     let mut told = a.listen();
 
     a.define("score_n", "number", false);
     assert!(told.of_definitions());
     a.undefine("score_n");
     assert!(told.of_definitions());
-    a.state
-        .journal
-        .set_page_property(
-            page.as_str(),
-            "rating_n",
-            Some("number"),
-            Some("5"),
-            &ChangedBy::Mcp,
-        )
-        .unwrap();
-    assert!(told.of_definitions());
-    let item = a.state.page_service.get_page_items(&page).unwrap()[0]
-        .id
-        .clone();
-    a.state
-        .journal
-        .set_item_property(
-            item.as_str(),
-            "member_list",
-            journal_core::journal::PropertyInput {
-                value_type: Some("list".to_string()),
-                value: Some("p, q".to_string()),
-            },
-            &ChangedBy::Mcp,
-        )
-        .unwrap();
-    assert!(told.of_definitions());
 }
 
-// ユーザーがいくつもの新しいキーに同時に値を書いても、端末は、どの書き込みも受け付け、すべての定義をsettings/properties.jsonに書く。端末は、定義のファイルを1つずつ書くからである。
+// 同じキーを同時にいくつも定義しても、端末は1つだけを定義し、ほかは定義済みとして断る。サーバーの内部の誤りにはしない。
 #[test]
-fn values_written_to_new_keys_at_once_all_get_their_definitions_in_the_file() {
+fn the_same_key_defined_at_once_is_defined_once_and_the_others_are_refused_as_defined() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
-    let page = a.doc("a");
+
+    let answers: Vec<_> = (0..8)
+        .map(|_| {
+            let state = a.state.clone();
+            std::thread::spawn(move || {
+                state
+                    .journal
+                    .add_property_definition(AddPropertyDefinitionInput {
+                        key: Some("twice_n".to_string()),
+                        value_type: None,
+                        page: None,
+                    })
+                    .map(|_| ())
+            })
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .map(|t| t.join().unwrap())
+        .collect();
+
+    assert_eq!(answers.iter().filter(|a| a.is_ok()).count(), 1);
+    for answer in answers.into_iter().filter_map(Result::err) {
+        assert!(
+            matches!(answer, journal_core::error::AppError::BadRequest(_)),
+            "{answer:?}"
+        );
+    }
+}
+
+// ユーザーがいくつものキーを同時に定義しても、端末は、どの定義も受け付け、すべての定義をsettings/properties.jsonに書く。端末は、定義のファイルを1つずつ書くからである。
+#[test]
+fn keys_defined_at_once_all_get_their_definitions_in_the_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
     let keys = |t: usize| (0..20).map(move |i| format!("key_{t}_{i}"));
 
     let writers: Vec<_> = (0..8)
         .map(|t| {
             let state = a.state.clone();
-            let page = page.clone();
             std::thread::spawn(move || {
                 for key in keys(t) {
                     state
                         .journal
-                        .set_page_property(
-                            page.as_str(),
-                            &key,
-                            Some("text"),
-                            Some("v"),
-                            &ChangedBy::Mcp,
-                        )
+                        .add_property_definition(AddPropertyDefinitionInput {
+                            key: Some(key),
+                            value_type: None,
+                            page: None,
+                        })
                         .unwrap();
                 }
             })

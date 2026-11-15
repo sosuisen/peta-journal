@@ -502,7 +502,7 @@ impl JournalMcp {
     }
 
     #[tool(
-        description = "Upsert a scalar property on an item (e.g. begin, end, due, plan, cancelled)."
+        description = "Upsert a scalar property on an item (e.g. begin, end, due, plan, cancelled). The key must be defined: a key with no definition is refused, as its type is chosen only when the user defines it."
     )]
     async fn upsert_property(
         &self,

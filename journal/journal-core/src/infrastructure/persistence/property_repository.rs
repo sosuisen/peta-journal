@@ -184,7 +184,11 @@ impl PropertyRepository {
                     "Property key '{key}' has a body that ends with a reserved suffix"
                 ))
             })?;
-        if let Some(existing) = self.find_definition(key)? {
+        // The key is defined and no longer deleted at once, or neither. It is looked up in the
+        // same transaction, so two requests for one key cannot both find it free
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        if let Some(existing) = Self::find_definition_in(&tx, key)? {
             let what = if existing.system {
                 "a system key"
             } else {
@@ -194,9 +198,6 @@ impl PropertyRepository {
                 "Property key '{key}' is {what}"
             )));
         }
-        // The key is defined and no longer deleted at once, or neither
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
         tx.execute(
             "INSERT INTO property_definitions (key, value_type, is_system, for_page, modified) VALUES (?, ?, 0, ?, ?)",
             params![key, value_type, page as i64, now_millis()],
@@ -340,18 +341,16 @@ impl PropertyRepository {
         Ok(page_ids)
     }
 
-    /// Sets a scalar value of a key, as part of a larger transaction. A key not defined yet
-    /// is defined with the given type; a defined key keeps its type.
+    /// Sets a scalar value of a defined key, as part of a larger transaction. A key with no
+    /// definition is refused: a type is chosen only when a key is defined (ADR 047).
     pub fn upsert_scalar_in(
         conn: &Connection,
         target_type: &str,
         target_id: &str,
         key: &str,
-        value_type: &str,
         value: &str,
     ) -> AppResult<()> {
         validate_key(key)?;
-        define_in(conn, key, value_type)?;
         Self::write_scalar_in(conn, target_type, target_id, key, value)
     }
 
@@ -430,6 +429,20 @@ impl PropertyRepository {
                 format_number(n)
             }
             "checkbox" => (if value == "true" { "true" } else { "false" }).to_string(),
+            "date" => {
+                chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
+                    .map_err(|_| AppError::bad_request(format!("Not a date: {value}")))?;
+                value.to_string()
+            }
+            "datetime" => {
+                // Old files hold `end` without a zone (`2026-02-13T08:57:58`); they still fit
+                let fits = chrono::DateTime::parse_from_rfc3339(value).is_ok()
+                    || chrono::NaiveDateTime::parse_from_str(value, "%Y-%m-%dT%H:%M:%S%.f").is_ok();
+                if !fits {
+                    return Err(AppError::bad_request(format!("Not a datetime: {value}")));
+                }
+                value.to_string()
+            }
             "bounds" => value.parse::<Bounds>()?.to_string(),
             _ => value.to_string(),
         };
@@ -440,17 +453,16 @@ impl PropertyRepository {
         Ok(())
     }
 
-    /// `upsert_list` on the given connection, as part of a larger transaction.
+    /// Sets the list of a key, as part of a larger transaction. The caller has found the key
+    /// defined as a list.
     pub fn upsert_list_in(
         conn: &Connection,
         target_type: &str,
         target_id: &str,
         key: &str,
-        value_type: &str,
         values: &[String],
     ) -> AppResult<()> {
         validate_key(key)?;
-        define_in(conn, key, value_type)?;
         replace_list_in(conn, target_type, target_id, key, values)
     }
 
@@ -695,22 +707,6 @@ fn parse_date_to_millis(date_str: &str, to_end: bool) -> AppResult<i64> {
         .earliest()
         .ok_or_else(|| AppError::bad_request(format!("Invalid date: {date_str}")))?;
     Ok(dt.timestamp_millis())
-}
-
-/// Defines a key with no definition as the user wrote a value to it: a real definition of
-/// now, which goes to the other devices (ADR 046). A defined key keeps its definition.
-fn define_in(conn: &Connection, key: &str, value_type: &str) -> AppResult<()> {
-    let defined = conn.execute(
-        "INSERT OR IGNORE INTO property_definitions (key, value_type, modified) VALUES (?, ?, ?)",
-        params![key, value_type, now_millis()],
-    )?;
-    if defined > 0 {
-        conn.execute(
-            "DELETE FROM deleted_property_definitions WHERE key = ?",
-            params![key],
-        )?;
-    }
-    Ok(())
 }
 
 /// Gives a key with no definition a provisional one, which is not written to

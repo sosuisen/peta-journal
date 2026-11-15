@@ -299,6 +299,7 @@ async fn a_property_can_be_set_on_an_item() {
 // checkbox型のプロパティは、trueとfalseだけを持つ。それ以外の値はfalseになる。
 #[tokio::test]
 async fn a_checkbox_property_holds_true_or_false() {
+    define_key("done_cb").await;
     let page = new_doc_page("items-checkbox").await;
     let item = fill(&page.id, &["checked"]).await.remove(0);
 
@@ -316,6 +317,7 @@ async fn a_checkbox_property_holds_true_or_false() {
 // 項目のユーザー定義のlist型のキーは、そのキーのリストとして保存され、タグには触らない。
 #[tokio::test]
 async fn a_list_of_an_item_is_kept_under_its_own_key_apart_from_the_tags() {
+    define_key("item_list").await;
     let page = new_doc_page("items-list").await;
     let item = fill(&page.id, &["listed #items-list-tag"]).await.remove(0);
 
@@ -337,15 +339,23 @@ async fn a_list_of_an_item_is_kept_under_its_own_key_apart_from_the_tags() {
     assert_eq!(after.properties["tags"], json!(["items-list-tag"]));
 }
 
-// 定義のないキーには、名前に合う型でしか値を書けない。リストの値は名前が_listで終わるキーに、スカラーの値はそれ以外のキーに書く。
+// 定義のないキーには、項目の値を書けない。名前に合う型でも、合わない型でも同じである。型は定義するときだけ決まるからである（ADR 047）。
 #[tokio::test]
-async fn a_key_with_no_definition_takes_only_the_type_its_name_fits() {
+async fn a_key_with_no_definition_takes_no_value_of_an_item() {
     let page = new_doc_page("items-type-by-name").await;
     let item = fill(&page.id, &["typed"]).await.remove(0);
 
     for (key, body) in [
         (
-            "undefined_members",
+            "undefined_note",
+            json!({ "valueType": "text", "value": "x" }),
+        ),
+        (
+            "undefined_score_n",
+            json!({ "valueType": "number", "value": "1" }),
+        ),
+        (
+            "undefined_member_list",
             json!({ "valueType": "list", "value": "x" }),
         ),
         (
@@ -844,6 +854,7 @@ async fn items_listed_by_type_can_leave_out_those_with_a_property() {
 // 除く条件のプロパティは、list型でもよい。list型の値は、別のテーブルに保存されている。
 #[tokio::test]
 async fn items_listed_by_type_can_leave_out_those_with_a_list_property() {
+    define_key("left_out_list").await;
     let page = new_doc_page("items-task-list-without-list").await;
     let rows = fill(&page.id, &["plain task", "task with a list"]).await;
     let (plain, listed) = (&rows[0], &rows[1]);
@@ -2479,7 +2490,7 @@ async fn a_batch_update_writes_the_task_state_with_its_times() {
 async fn a_batch_update_removes_what_the_task_state_does_not_give() {
     let page = new_doc_page("items-batch-task-unset").await;
     let item = fill(&page.id, &["buy milk"]).await.remove(0);
-    let full = json!({ "task": true, "begin": "b", "end": "e", "plan": "2026-01-02" });
+    let full = json!({ "task": true, "begin": "2026-01-02T03:04:05Z", "end": "2026-01-02T04:05:06Z", "plan": "2026-01-02" });
     let (status, resp) = batch(json!([{"op": "update", "id": item.id, "task": full}])).await;
     assert_eq!(status, 200, "{resp}");
 
@@ -4201,6 +4212,14 @@ async fn the_home_link_is_kept_as_the_target_of_a_link() {
 
 // ---- Properties ----
 
+/// Defines a key with the type its name gives, as the user does in Settings. The tests share
+/// one server, so a key another test defined already is left as it is.
+async fn define_key(key: &str) {
+    let (status, resp) = post("/api/config/property-definitions", json!({ "key": key })).await;
+    let defined = status == 200 || resp.to_string().contains("already defined");
+    assert!(defined, "{key} -> {resp}");
+}
+
 fn definition<'a>(resp: &'a Value, key: &str) -> Option<&'a Value> {
     resp["definitions"]
         .as_array()
@@ -4457,6 +4476,7 @@ async fn page_properties_are_set_removed_and_written_to_the_front_matter() {
 // ページのユーザー定義のlist型のキーは、そのキーのリストとして保存され、タグには触らない。
 #[tokio::test]
 async fn a_list_of_a_page_is_kept_under_its_own_key_apart_from_the_tags() {
+    define_key("page_list").await;
     let _tags_dir = TAGS_DIR.lock().await;
     let page = new_doc_page("page-list").await;
     set_page_tags(&page.id, "page-list-tag").await;
@@ -4481,12 +4501,20 @@ async fn a_list_of_a_page_is_kept_under_its_own_key_apart_from_the_tags() {
     assert!(doc_page_named("list-y").await.is_none());
 }
 
-// 定義のないキーには、ページでも、名前に合う型でしか値を書けない。
+// 定義のないキーには、ページの値を書けない。名前に合う型でも、合わない型でも同じである（ADR 047）。
 #[tokio::test]
-async fn a_key_of_a_page_with_no_definition_takes_only_the_type_its_name_fits() {
+async fn a_key_with_no_definition_takes_no_value_of_a_page() {
     let page = new_doc_page("page-type-by-name").await;
 
     for (key, body) in [
+        (
+            "undefined_page_note",
+            json!({ "valueType": "text", "value": "x" }),
+        ),
+        (
+            "undefined_page_score_n",
+            json!({ "valueType": "number", "value": "1" }),
+        ),
         (
             "undefined_page_members",
             json!({ "valueType": "list", "value": "x" }),
@@ -4829,6 +4857,7 @@ async fn the_tags_of_a_file_edited_outside_keep_their_tag_pages() {
 // ファイルで直した項目のlist型の値は、項目に取り込まれる。
 #[tokio::test]
 async fn a_list_of_an_item_edited_in_the_file_is_merged_into_the_item() {
+    define_key("item_list").await;
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("file-item-list").await;
     let item = fill(&page.id, &["listed"]).await.remove(0);
@@ -4856,6 +4885,7 @@ async fn a_list_of_an_item_edited_in_the_file_is_merged_into_the_item() {
 // ファイルから消した項目のlist型のキーは、項目からも消える。
 #[tokio::test]
 async fn a_list_of_an_item_removed_from_the_file_goes_from_the_item() {
+    define_key("item_list").await;
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("file-item-list-gone").await;
     let item = fill(&page.id, &["listed"]).await.remove(0);
@@ -4991,6 +5021,7 @@ async fn the_children_of_an_index_page_carry_their_scalar_properties() {
 // indexページの子ページは、タグを持って返る。他のリストのプロパティは返らない。アトラスがカードのアイコンに使うのはタグだけである。
 #[tokio::test]
 async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
+    define_key("children_list").await;
     let _tags_dir = TAGS_DIR.lock().await;
     let dir = format!("{}/", new_doc_page("children-tags").await.title);
     let (status, resp) = post(
@@ -5030,6 +5061,7 @@ async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
 // プロパティ定義を削除すると、ページと項目からその値が消える。
 #[tokio::test]
 async fn deleting_a_property_definition_removes_its_values_from_pages_and_items() {
+    define_key("rating_n").await;
     let page = new_doc_page("definition-delete").await;
     let item = fill(&page.id, &["rated"]).await.remove(0);
     let (status, resp) = put(
@@ -5462,6 +5494,37 @@ async fn a_value_is_checked_by_the_type_of_its_definition_not_the_type_sent() {
     )
     .await;
     assert_eq!(status, 400, "{resp}");
+}
+
+// dateとdatetimeの値も、型に合うかが検査される。dateは年月日、datetimeはRFC 3339の日時である。
+#[tokio::test]
+async fn a_date_and_a_datetime_are_checked_by_their_types() {
+    define_key("checked_due_d").await;
+    define_key("checked_seen_dt").await;
+    let page = new_doc_page("checked-dates").await;
+    let item = fill(&page.id, &["dated"]).await.remove(0);
+    let set = |key: &'static str, value: &'static str| {
+        let id = item.id.clone();
+        async move {
+            put(
+                &format!("/api/items/{id}/properties/{key}"),
+                json!({ "value": value }),
+            )
+            .await
+            .0
+        }
+    };
+
+    assert_eq!(set("checked_due_d", "2026-03-01").await, 200);
+    assert_eq!(set("checked_seen_dt", "2026-03-01T10:00:00Z").await, 200);
+    for (key, value) in [
+        ("checked_due_d", "soon"),
+        ("checked_due_d", "2026-13-01"),
+        ("checked_seen_dt", "2026-03-01"),
+        ("checked_seen_dt", "2026-03-01 10:00"),
+    ] {
+        assert_eq!(set(key, value).await, 400, "{key} {value}");
+    }
 }
 
 // ---- Assets ----
