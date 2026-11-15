@@ -576,6 +576,58 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertTrue(shell.view.outline.rows[1].isEditing)
     }
 
+    /// Three items, "first", "second" and "third", with the cursor at the end of the third.
+    private func threeItems() async throws {
+        try await twoItems()
+        let second = editors()[1]
+        second.setSelectedRange(NSRange(location: (second.string as NSString).length, length: 0))
+        second.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        try await waitUntil("the cursor is in the third item") {
+            self.editors().count == 3 && self.focused === self.editors()[2]
+        }
+        type("third", into: editors()[2])
+    }
+
+    /// The middle of the view, in the window.
+    private func middle(of view: NSView) -> NSPoint {
+        view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil)
+    }
+
+    private func mouse(_ type: NSEvent.EventType, at place: NSPoint) throws -> NSEvent {
+        try XCTUnwrap(
+            NSEvent.mouseEvent(
+                with: type, location: place, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+    }
+
+    /// A drag that starts in the middle of the editor, goes through the places of the window
+    /// and lets the button go at the last. The moves are handed over as the window does with
+    /// a click: they wait in the queue of the window for the editor that tracks the mouse.
+    private func drag(from editor: NSTextView, through places: [NSPoint]) throws {
+        let start = middle(of: editor)
+        for place in places {
+            NSApp.postEvent(try mouse(.leftMouseDragged, at: place), atStart: false)
+        }
+        NSApp.postEvent(try mouse(.leftMouseUp, at: places.last ?? start), atStart: false)
+        if window.firstResponder !== editor { window.makeFirstResponder(editor) }
+        editor.mouseDown(with: try mouse(.leftMouseDown, at: start))
+    }
+
+    // 項目のテキストから上へ出たドラッグは、その項目を選び、マウスの下の項目まで選択を広げる。打っていた文字は保存され、選んだ項目を動かしても消えない。
+    func testADragOutOfTheTextOfAnItemSelectsTheItemsItGoesOver() async throws {
+        try await threeItems()
+        let (second, third) = (editors()[1], editors()[2])
+
+        try drag(from: third, through: [middle(of: second)])
+
+        try await waitUntil("the second and the third item are selected") {
+            self.selected() == ["second", "third"] && self.window.firstResponder !== third
+        }
+        let keys = try XCTUnwrap(window.firstResponder)
+        press(Self.upKey, "\u{F700}", [.shift, .option], in: keys)
+        try await waitUntil("the selected items are on top") { self.bodies() == ["second", "third", "first"] }
+    }
+
     /// The search box, when it is on screen.
     private func searchField() -> NSTextField? {
         var found: NSTextField?
