@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -79,6 +80,7 @@ class JournalModel internal constructor(
             signedIn = account.isSignedIn,
             round = { SyncRound(Downloader(it, folder, cursor, record), shell::syncAndWait, Uploader(it, folder, record)) },
             onMainThread = { main.post(it) },
+            log = { Log.w("PetaSync", "The sync failed", it) },
         )
     }
 
