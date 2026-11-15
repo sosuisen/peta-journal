@@ -75,6 +75,12 @@ impl ImportEvents for ClientMessages {
     fn page_changed(&self, page_id: &Hmtid) {
         self.page_changed_from(page_id, "file");
     }
+
+    /// The clients read the definitions again (ADR 046).
+    fn definitions_changed(&self) {
+        self.sink
+            .send(json!({ "type": "propertyDefinitionsUpdated" }).to_string());
+    }
 }
 
 /// Extensions write items after the answer of a tag add, so a client that shows the page

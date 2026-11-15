@@ -55,6 +55,8 @@ pub enum Outcome {
 /// the page again.
 pub trait ImportEvents: Send + Sync {
     fn page_changed(&self, page_id: &hmtid::Hmtid);
+    /// The property definitions changed: a file brought them, or a key of a value (ADR 046).
+    fn definitions_changed(&self);
 }
 
 /// A file that waits, with the file of the same page and when it began to wait.
@@ -120,7 +122,12 @@ impl MarkdownImportService {
     /// gone, the files that wait for it come in.
     pub fn sync_file(&self, root: &Path, rel_path: &str) -> Outcome {
         let _guard = self.lock.lock();
-        self.sync_locked(root, rel_path)
+        let before = self.definitions.find_definitions();
+        let outcome = self.sync_locked(root, rel_path);
+        if self.definitions.find_definitions() != before {
+            self.events.definitions_changed();
+        }
+        outcome
     }
 
     fn sync_locked(&self, root: &Path, rel_path: &str) -> Outcome {
