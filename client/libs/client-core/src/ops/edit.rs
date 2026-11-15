@@ -9,7 +9,6 @@
 use crate::app::{done, log_error, run, Cmd, Event, Model, PendingSave};
 use crate::effects::{Api, ApiResult, TimerOp, TimerOutput};
 use crate::model::Item;
-use crate::util::{ensure_code_fence_closed, has_unclosed_code_fence};
 use crux_core::Command;
 
 /// How long typing may pause before the body is saved.
@@ -75,16 +74,19 @@ fn schedule_save(model: &mut Model, target_id: &str, body: &str) -> Cmd {
 /// The pause after typing ended: the body waiting for the item `target` is saved. Nothing
 /// is saved when a later edit took the place of the wait `timer_id`, or the body was saved
 /// another way.
+///
+/// Nor is a body saved that ends inside a block that is not closed (ADR 050). The item stays
+/// dirty, and the body is closed and saved when the edit ends.
 pub fn auto_save(model: &mut Model, target: String, timer_id: u64) -> Cmd {
     let pending = match model.edits.pending_saves.get(&target) {
         Some(p) if p.timer_id == timer_id => model.edits.pending_saves.remove(&target).unwrap(),
         _ => return done(),
     };
+    if flatmarkdown::has_unclosed_block(&pending.body) {
+        return done();
+    }
     run(move |api| async move {
-        if let Err(e) = api
-            .update_body(&target, &ensure_code_fence_closed(&pending.body))
-            .await
-        {
+        if let Err(e) = api.update_body(&target, &pending.body).await {
             log_error(format!("Auto-save failed: {e}"));
         }
     })
@@ -106,13 +108,14 @@ pub fn discard_pending_edit(model: &mut Model, item: &Item) -> Cmd {
 
 /// The text typed into an item and not saved yet, for a request that carries it to the
 /// server with what it does (ADR 011). Its auto-save is dropped, or it would overwrite what
-/// the request wrote a moment later.
+/// the request wrote a moment later. A block left open is closed: the server refuses a body
+/// that is not (ADR 050).
 pub fn take_unsaved(model: &mut Model, item: &Item) -> (Option<String>, Cmd) {
     if !model.edits.dirty_item_ids.contains(&item.id) {
         return (None, done());
     }
     (
-        typed_body(model, &item.id),
+        typed_body(model, &item.id).map(|body| flatmarkdown::close_blocks(&body)),
         discard_pending_edit(model, item),
     )
 }
@@ -153,10 +156,10 @@ pub fn show_parsed(model: &mut Model, answer: &Item) {
     });
 }
 
-/// Saves a body to the server and shows the server's rendering of it. An open code fence
-/// is closed first.
+/// Saves a body to the server and shows the server's rendering of it. A block that is not
+/// closed is closed first, as the edit of the body ends (ADR 050).
 pub async fn save_body(api: &Api<Event>, item_id: &str, body: &str) -> ApiResult<Item> {
-    let normalized = ensure_code_fence_closed(body);
+    let normalized = flatmarkdown::close_blocks(body);
     api.send_event(Event::BodyShown {
         item_id: item_id.to_string(),
         body: normalized.clone(),
@@ -248,7 +251,7 @@ impl DirtyEdit {
 }
 
 /// Ends the edit of an item when its editor loses focus: saves typed text, or a body
-/// whose code fence is still open, and switches the item to view mode. Does nothing while
+/// with a block that is still open, and switches the item to view mode. Does nothing while
 /// a handover runs or when another handler already ended the edit.
 pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
     if model.edits.edit_handovers > 0 || !model.state.is_editing(item_id) {
@@ -275,7 +278,7 @@ pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
     let unclosed = model
         .state
         .get_item_by_id(item_id)
-        .map(|c| has_unclosed_code_fence(&c.body))
+        .map(|c| flatmarkdown::has_unclosed_block(&c.body))
         .unwrap_or(false);
     if unclosed {
         let save = save_and_close(model, item);

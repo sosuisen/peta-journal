@@ -25,6 +25,17 @@ fn typing_shows_the_text_at_once_and_schedules_the_auto_save() {
     assert!(h.model.edits.pending_saves.is_empty());
 }
 
+// 本文が閉じていないブロックで終わる間は、自動保存は送られない。項目は保存待ちのまま残り、編集を離れるときに保存される（ADR 050）。
+#[test]
+fn the_auto_save_is_not_sent_while_a_block_is_unclosed() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.state.add_editing_item("a");
+    typed(&mut h, "a", ">>>\nabc");
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
+    assert!(h.model.edits.dirty_item_ids.contains("a"));
+}
+
 // トランスクルージョンのルート項目への入力は、元の項目に対する保存として予約される。
 #[test]
 fn a_transclusion_root_schedules_the_save_for_its_source_item() {
@@ -80,18 +91,25 @@ fn finish_edit_of_an_item_not_shown_drops_its_edit_mark() {
     assert!(!h.model.state.is_editing("gone"));
 }
 
-// 編集終了で開いたままのコードフェンスが閉じられて保存される。その後に何も入力されていなくても同様である。
+// 編集終了で、閉じていないブロックは閉じる記号を補われて保存される。どの種類のブロックでも、何も入力されていなくても同様である。
 #[test]
-fn finish_edit_closes_an_open_code_fence_even_when_nothing_was_typed_since() {
-    let mut h = Harness::with_items(vec![item("a", 1, "```js")]);
-    h.model.state.add_editing_item("a");
-    h.send(Event::EditFinished {
-        item_id: "a".into(),
-    });
-    assert_eq!(
-        update_calls(&h.api),
-        [("a".into(), Some("```js\n```".into()))]
-    );
+fn finish_edit_closes_an_unclosed_block_even_when_nothing_was_typed_since() {
+    for (body, closed) in [
+        ("```js", "```js\n```"),
+        (">>>\nabc", ">>>\nabc\n>>>"),
+        ("<!--\nabc", "<!--\nabc\n-->"),
+    ] {
+        let mut h = Harness::with_items(vec![item("a", 1, body)]);
+        h.model.state.add_editing_item("a");
+        h.send(Event::EditFinished {
+            item_id: "a".into(),
+        });
+        assert_eq!(
+            update_calls(&h.api),
+            [("a".into(), Some(closed.into()))],
+            "{body:?}"
+        );
+    }
 }
 
 // 引き継ぎがその項目を保存している間は、編集終了が無視される。
@@ -125,6 +143,25 @@ fn clicking_another_item_saves_the_dirty_one_and_opens_the_clicked_editor() {
     assert!(!h.model.state.is_editing("a"));
     assert!(h.model.state.is_editing("b"));
     assert_eq!(h.model.edits.edit_handovers, 0);
+}
+
+// 別の項目をクリックすると、閉じていないブロックは閉じる記号を補われて保存される。編集を離れる操作だからである。
+#[test]
+fn clicking_another_item_closes_the_unclosed_block_of_the_one_left() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
+    h.send(Event::EditRequested {
+        item_id: "a".into(),
+        cursor: 0,
+    });
+    typed(&mut h, "a", "~~~\ncode");
+    h.send(Event::EditRequested {
+        item_id: "b".into(),
+        cursor: 0,
+    });
+    assert_eq!(
+        update_calls(&h.api),
+        [("a".into(), Some("~~~\ncode\n~~~".into()))]
+    );
 }
 
 // 別の項目をクリックしたときの保存が失敗しても、引き継ぎは終わる。クリックされた項目のエディタは開き、保存できなかった項目は編集中のまま残る。

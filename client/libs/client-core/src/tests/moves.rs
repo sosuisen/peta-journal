@@ -138,6 +138,20 @@ fn text_typed_just_before_a_move_travels_in_the_move_itself() {
     assert_eq!(h.bodies()[2], "a=typed");
 }
 
+// 移動が運ぶ本文は、閉じていないブロックに閉じる記号を補ったものである。サーバーは閉じていない本文を断るからである（ADR 050）。
+#[test]
+fn a_move_carries_the_typed_text_with_its_blocks_closed() {
+    let mut h = page_harness();
+    typed(&mut h, "a", "<pre>\ntyped");
+    h.send(Event::MoveDown {
+        item_id: "a".into(),
+    });
+    assert_eq!(
+        carried_bodies(&h),
+        [Some("<pre>\ntyped\n</pre>".to_string())]
+    );
+}
+
 // 保存済みの項目を動かす要求は、本文を持たない。
 #[test]
 fn a_move_of_an_item_with_no_unsaved_text_carries_no_body() {

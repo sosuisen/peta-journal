@@ -1,5 +1,5 @@
 //! What Enter does in an editor: splits the item at the cursor, or puts an empty item before
-//! or after it. An empty last child is outdented instead. Inside an open code fence it adds a
+//! or after it. An empty last child is outdented instead. Inside an open block it adds a
 //! line to the item.
 //!
 //! The server splits an item in one request, and decides where the new item goes (ADR 011).
@@ -18,7 +18,7 @@ use crate::outline::tree::{
     get_subtree, has_sibling_below, position_before, transclusion_context_of,
 };
 use crate::outline::CursorState;
-use crate::util::{char_len, has_unclosed_code_fence, split_at_char};
+use crate::util::{char_len, split_at_char};
 use crux_core::Command;
 
 /// Handles Enter at a cursor position in an item.
@@ -31,7 +31,7 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
         item.body = typed;
     }
     let (before, after) = split_at_char(&item.body, cursor);
-    if has_unclosed_code_fence(before) {
+    if flatmarkdown::has_unclosed_block(before) {
         // Not an edit that moves to another editor, so no keys are held
         let body = format!("{before}\n{after}");
         model
@@ -59,7 +59,8 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
 }
 
 /// Asks the server to split an item at the cursor. The request carries the body the editor
-/// has now, so what was typed and not saved yet is saved with it.
+/// has now, so what was typed and not saved yet is saved with it. A block still open after
+/// the cursor is closed first: the server refuses a body that is not (ADR 050).
 fn split_on_server(model: &Model, item: Item, cursor: usize, unsaved: bool) -> Cmd {
     // Of an item of another page, the server has to know which transclusion shows it here:
     // at the end of the last item it shows, the new item goes on this page
@@ -68,9 +69,10 @@ fn split_on_server(model: &Model, item: Item, cursor: usize, unsaved: bool) -> C
     } else {
         showing_transclusion(model, &item).map(|root| root.id.clone())
     };
+    let body = flatmarkdown::close_blocks(&item.body);
     run(move |api| async move {
         match api
-            .split_item(&item.id, root_id.as_deref(), &item.body, cursor)
+            .split_item(&item.id, root_id.as_deref(), &body, cursor)
             .await
         {
             Ok(split) => api.send_event(Event::SplitDone {

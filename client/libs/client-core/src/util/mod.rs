@@ -3,25 +3,7 @@ pub mod filename;
 pub mod utf16;
 pub mod week;
 
-/// True when the text has an odd number of lines that open a code fence.
-pub fn has_unclosed_code_fence(text: &str) -> bool {
-    text.split('\n')
-        .filter(|line| line.trim_start().starts_with("```"))
-        .count()
-        % 2
-        != 0
-}
-
-/// Closes an open code fence, so the saved body never ends inside one.
-pub fn ensure_code_fence_closed(text: &str) -> String {
-    if has_unclosed_code_fence(text) {
-        format!("{text}\n```")
-    } else {
-        text.to_string()
-    }
-}
-
-/// What a `[[`, an opening code fence or a closing `]` just typed becomes: the body with its
+/// What a `[[`, the opening of a block or a closing `]` just typed becomes: the body with its
 /// closing part added or typed over, and the cursor. `cursor` is the character index right after
 /// the typed character. None when the body stays as it is.
 pub fn auto_close(body: &str, cursor: usize) -> Option<(String, usize)> {
@@ -32,9 +14,20 @@ pub fn auto_close(body: &str, cursor: usize) -> Option<(String, usize)> {
     if types_over_link_closing(before, after) {
         return Some((format!("{before}{}", &after[1..]), cursor));
     }
-    let line = last_line(before);
-    let opens_fence = before.ends_with('`') && line.trim_start().starts_with("```");
-    (opens_fence && has_unclosed_code_fence(body)).then(|| (format!("{body}\n```"), cursor))
+    opens_block(before, after).then(|| (flatmarkdown::close_blocks(before), cursor))
+}
+
+/// True when the character at the end of `before` was the last one of the opening of a new
+/// block, with nothing after it. Only then is the block closed as it is typed (ADR 050): a
+/// closing added in the middle of a body could pair with the marks around it.
+fn opens_block(before: &str, after: &str) -> bool {
+    let before_typed = before
+        .char_indices()
+        .last()
+        .map_or("", |(typed_at, _)| &before[..typed_at]);
+    after.is_empty()
+        && flatmarkdown::has_unclosed_block(before)
+        && !flatmarkdown::has_unclosed_block(before_typed)
 }
 
 /// True when the `]` at the end of `before` was typed right in front of the rest of the `]]` that
@@ -122,15 +115,6 @@ fn link_starting(chars: &[char]) -> Option<(usize, Link)> {
 mod tests {
     use super::*;
 
-    // 閉じていないコードフェンスは ``` で始まる行が奇数個あることで検出され、閉じフェンスが補われる。
-    #[test]
-    fn code_fences() {
-        assert!(has_unclosed_code_fence("```js\nlet a"));
-        assert!(!has_unclosed_code_fence("```js\nlet a\n```"));
-        assert_eq!(ensure_code_fence_closed("```"), "```\n```");
-        assert_eq!(ensure_code_fence_closed("x"), "x");
-    }
-
     // `[[`を打つと`]]`が補われ、カーソルはその間に留まる。すでに`]]`が続いていれば補わない。
     #[test]
     fn auto_close_closes_a_wiki_link_just_opened() {
@@ -157,14 +141,23 @@ mod tests {
         assert_eq!(auto_close("[[a]]", 5), None);
     }
 
-    // 行頭の```を打つと、本文の末尾に閉じるフェンスが補われ、カーソルは留まる。
+    // 行頭で開始記号を打ち終え、後ろに本文が何もなければ、閉じる記号が補われ、カーソルは留まる。どの開始記号でも同じである（ADR 050）。
     #[test]
-    fn auto_close_closes_a_code_fence_just_opened() {
-        assert_eq!(auto_close("```", 3), Some(("```\n```".into(), 3)));
-        assert_eq!(
-            auto_close("a\n  ```\nb", 7),
-            Some(("a\n  ```\nb\n```".into(), 7))
-        );
+    fn auto_close_closes_a_block_just_opened_at_the_end() {
+        for (body, closed) in [
+            ("```", "```\n```"),
+            ("a\n  ~~~", "a\n  ~~~\n~~~"),
+            (">>>", ">>>\n>>>"),
+            ("<!--", "<!--\n-->"),
+            ("<pre", "<pre\n</pre>"),
+        ] {
+            let cursor = body.chars().count();
+            assert_eq!(
+                auto_close(body, cursor),
+                Some((closed.into(), cursor)),
+                "{body:?}"
+            );
+        }
     }
 
     // 閉じるフェンスを打ったときや、行の途中のバッククォートでは、何も補わない。
@@ -173,6 +166,14 @@ mod tests {
         assert_eq!(auto_close("```\na\n```", 9), None);
         assert_eq!(auto_close("a```", 4), None);
         assert_eq!(auto_close("``", 2), None);
+    }
+
+    // 開始記号の後ろに本文があるとき、開いたブロックの中で開始記号を打ったとき、情報文字列を打つときは、何も補わない（ADR 050）。
+    #[test]
+    fn auto_close_leaves_an_opening_with_text_after_it_or_inside_an_open_block() {
+        assert_eq!(auto_close("a\n  ```\nb", 7), None);
+        assert_eq!(auto_close("```\n>>>", 7), None);
+        assert_eq!(auto_close("```r", 4), None);
     }
 
     // カーソルの下のウィキリンクとタグを、文字数の位置で読み取る。リンクの両端もリンクの上である。
