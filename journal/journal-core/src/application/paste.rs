@@ -54,8 +54,8 @@ pub fn plan(
             splitter,
             &tree_markdown::tree_markdown_to_flat_markdown(text),
         )?,
-        // Plain text pasted into code is code: its blank lines do not end an item
-        PasteMode::Auto if has_unclosed_code_fence(before) => whole(),
+        // Plain text pasted into a block is in the block: its blank lines do not end an item
+        PasteMode::Auto if flatmarkdown::has_unclosed_block(before) => whole(),
         PasteMode::Auto | PasteMode::Flat => split_into_pieces(splitter, text)?,
     };
     let last = pieces.len() - 1;
@@ -67,24 +67,7 @@ pub fn plan(
     };
     pieces[0].body.insert_str(0, before);
     pieces[last].body.push_str(after);
-    close_code_fence(&mut pieces[0].body);
     Ok(PastePlan { pieces, cursor })
-}
-
-/// Closes the code fence a body ends in. A stored body never ends inside a code fence.
-pub(crate) fn close_code_fence(body: &mut String) {
-    if has_unclosed_code_fence(body) {
-        body.push_str("\n```");
-    }
-}
-
-/// True when the text has an odd number of lines that open or close a code fence.
-pub(crate) fn has_unclosed_code_fence(text: &str) -> bool {
-    let fences = text
-        .split('\n')
-        .filter(|line| line.trim_start().starts_with("```"))
-        .count();
-    fences % 2 != 0
 }
 
 /// Splits a text at a character index. An index past the end splits at the end.

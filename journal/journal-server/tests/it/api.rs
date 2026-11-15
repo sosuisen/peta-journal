@@ -543,19 +543,16 @@ async fn the_body_a_move_of_a_transclusion_carries_is_saved_to_its_source_item()
     );
 }
 
-// 移動の要求の本文のコードフェンスが閉じていなければ、閉じて保存される。保存された本文は、コードフェンスの途中で終わらない。
+// 移動の要求の本文が閉じていないブロックで終われば、移動は断られ、項目は動かない。
 #[tokio::test]
-async fn a_move_closes_an_open_code_fence_in_the_body_it_carries() {
+async fn a_move_with_a_body_that_has_an_unclosed_block_is_refused() {
     let page = new_doc_page("items-move-fence").await;
     let rows = fill(&page.id, &["a", "b"]).await;
 
     let (status, resp) = move_edited(&[&rows[1].id], &page.id, "first", "```js\ncode").await;
-    assert_eq!(status, 200, "{resp}");
 
-    assert_eq!(
-        field_of_each(&resp, "items", "body"),
-        vec![json!("```js\ncode\n```")]
-    );
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "1:b"]));
 }
 
 // 階層の差と本文を持つ移動は、本文を保存し、階層を変えて動かす。論理アウトデントが、1つの要求で送るものである。
@@ -1159,20 +1156,23 @@ async fn merging_joins_the_bodies_the_request_carries_and_the_stored_ones_for_th
     assert_eq!(outline_of(&page.id).await, ["1:typed third"]);
 }
 
-// 結合した本文のコードフェンスが閉じていなければ、閉じて保存される。保存された本文は、コードフェンスの途中で終わらない。
+// 結合した本文が閉じていないブロックで終われば、結合は断られ、2つの項目はそのまま残る。閉じる記号を足すと、後ろの本文がブロックの中身になってしまう（ADR 050）。
 #[tokio::test]
-async fn merging_closes_an_open_code_fence_in_the_joined_body() {
+async fn a_merge_that_leaves_a_block_unclosed_is_refused() {
     let page = new_doc_page("items-merge-fence").await;
-    let rows = fill(&page.id, &["first", "second"]).await;
+    let rows = fill(&page.id, &["```\ncode\n```", "after"]).await;
 
     let (status, resp) = post(
         "/api/items/merge",
-        json!({ "itemId": rows[1].id, "intoId": rows[0].id, "intoBody": "```js\n", "body": "code" }),
+        json!({ "itemId": rows[1].id, "intoId": rows[0].id }),
     )
     .await;
-    assert_eq!(status, 200, "{resp}");
 
-    assert_eq!(resp["item"]["body"], json!("```js\ncode\n```"));
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:```\ncode\n```", "1:after"])
+    );
 }
 
 // トランスクルージョンは結合できない。消える側でも受け取る側でも断られる。
@@ -1412,23 +1412,26 @@ async fn a_flat_paste_does_not_read_a_dash_as_tree_markdown() {
     assert_eq!(outline_of(&page.id).await, ["1:host- A\n- B", "2:C"]);
 }
 
-// `auto`では、閉じていないコードフェンスの中に貼った文字列は分割されない。保存される本文では、フェンスが閉じられる。
+// `auto`では、ブロックの中に貼った文字列は分割されない。コードブロックでも、複数行の引用でも同じである。
 #[tokio::test]
-async fn a_paste_in_auto_mode_inside_an_open_code_fence_is_not_split_and_the_fence_is_closed() {
+async fn a_paste_in_auto_mode_inside_a_block_is_not_split() {
     let page = new_doc_page("items-paste-fence").await;
     let rows = fill(&page.id, &["x"]).await;
 
-    let (status, resp) = paste(&rows[0].id, "```\ncode", 8, "X\n\nY", "auto").await;
-    assert_eq!(status, 200, "{resp}");
+    for (body, cursor) in [("```\ncode\n```", 8), (">>>\nquote\n>>>", 9)] {
+        let (status, resp) = paste(&rows[0].id, body, cursor, "X\n\nY", "auto").await;
+        assert_eq!(status, 200, "{resp}");
 
-    assert_eq!(
-        field_of_each(&resp, "items", "body"),
-        vec![json!("```\ncodeX\n\nY\n```")]
-    );
-    assert_eq!(
-        resp["cursor"],
-        json!({ "itemId": rows[0].id, "position": 12 })
-    );
+        let (before, after) = body.split_at(cursor);
+        assert_eq!(
+            field_of_each(&resp, "items", "body"),
+            vec![json!(format!("{before}X\n\nY{after}"))]
+        );
+        assert_eq!(
+            resp["cursor"],
+            json!({ "itemId": rows[0].id, "position": cursor + 4 })
+        );
+    }
 }
 
 // 途中の項目が作れないと、貼り付けの全体が取り消される。貼り付け先の本文も変わらない。
@@ -2291,17 +2294,31 @@ async fn a_split_at_the_start_saves_the_body_the_request_carries() {
     assert_eq!(outline_of(&page.id).await, ["1:", "1:saved and typed"]);
 }
 
-// 元の項目に残る本文のコードフェンスが閉じていなければ、閉じて保存される。保存された本文は、コードフェンスの途中で終わらない。
+// コードブロックの中で分けると、元の項目に残る本文は閉じ、新しい項目の本文には開始行が写される。RESTやMCPからの分割である（ADR 050）。
 #[tokio::test]
-async fn a_split_closes_an_open_code_fence_in_the_body_the_item_keeps() {
+async fn a_split_inside_a_code_block_closes_and_opens_it_again() {
     let page = new_doc_page("items-split-fence").await;
     let rows = fill(&page.id, &["saved"]).await;
 
-    let (status, resp) = split(&rows[0].id, "```js\ncode", 0).await;
+    let (status, resp) = split(&rows[0].id, "```js\ncode\n```", 8).await;
     assert_eq!(status, 200, "{resp}");
 
-    assert_eq!(resp["item"]["body"], json!("```js\ncode\n```"));
-    assert_eq!(resp["created"]["body"], json!(""));
+    assert_eq!(resp["item"]["body"], json!("```js\nco\n```"));
+    assert_eq!(resp["created"]["body"], json!("```js\nde\n```"));
+}
+
+// 分割の要求の本文が閉じていないブロックで終われば、どこで分けても断られる。分けた2つは閉じていても、届いた本文が閉じていない。
+#[tokio::test]
+async fn a_split_of_a_body_with_an_unclosed_block_is_refused() {
+    let page = new_doc_page("items-split-unclosed").await;
+    let rows = fill(&page.id, &["saved"]).await;
+
+    for cursor in [0, 5] {
+        let (status, resp) = split(&rows[0].id, "```\nabc", cursor).await;
+
+        assert_eq!(status, 400, "{cursor}: {resp}");
+    }
+    assert_eq!(outline_of(&page.id).await, vs(&["1:saved"]));
 }
 
 // 分割は項目を2つ書くが、ページの変更は1回だけクライアントに知らされる。
@@ -2741,6 +2758,61 @@ async fn a_batch_with_a_move_that_does_not_fit_is_refused_and_writes_nothing() {
     assert_eq!(status, 400);
 
     assert_eq!(outline_of(&page.id).await, ["1:a", "2:a1", "1:b"]);
+}
+
+// ---- Items: unclosed blocks (ADR 050) ----
+
+/// What the server answers when a body ends inside a block that is not closed.
+const UNCLOSED: &str =
+    "Markdownのブロック要素は、開始記号と閉じる記号が揃わない限り、保存できません。";
+
+// 閉じていないブロックを持つ本文での更新は断られ、本文はそのまま残る。断るときの文は決まっている。
+#[tokio::test]
+async fn an_update_to_a_body_with_an_unclosed_block_is_refused() {
+    let page = new_doc_page("unclosed-update").await;
+    let rows = fill(&page.id, &["a"]).await;
+
+    let (status, resp) = put(
+        &format!("/api/items/{}", rows[0].id),
+        json!({ "body": "```\nabc" }),
+    )
+    .await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(resp["error"], json!(UNCLOSED));
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a"]));
+}
+
+// 閉じていないブロックを持つ本文での作成は断られ、項目はできない。
+#[tokio::test]
+async fn an_item_with_an_unclosed_block_is_not_created() {
+    let page = new_doc_page("unclosed-create").await;
+    fill(&page.id, &["a"]).await;
+
+    let (status, resp) = post(
+        "/api/items",
+        json!({ "pageId": page.id, "position": "last", "level": 1, "body": ">>>\nabc" }),
+    )
+    .await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a"]));
+}
+
+// バッチの本文の1つでも閉じていなければ、バッチ全体が断られる。閉じた本文の更新も書かれない。
+#[tokio::test]
+async fn a_batch_with_one_unclosed_body_is_refused_as_a_whole() {
+    let page = new_doc_page("unclosed-batch").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+
+    let (status, resp) = batch(json!([
+        { "op": "update", "id": rows[0].id, "body": "closed" },
+        { "op": "update", "id": rows[1].id, "body": "<!--\nabc" },
+    ]))
+    .await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "1:b"]));
 }
 
 // ---- Items: group delete ----
@@ -5490,6 +5562,22 @@ async fn the_callouts_go_last_under_their_parent() {
     )
     .await;
     assert_eq!(rows.len(), n - 2, "{rows:?}");
+}
+
+// コールアウトの文が閉じていないブロックで終われば、コールアウトは足されない（ADR 050）。
+#[tokio::test]
+async fn a_callout_with_an_unclosed_block_is_refused() {
+    let (_, atlas_id) = atlas_dir("atlas-callout-unclosed").await;
+    let before = outline_of(&atlas_id).await;
+
+    let (status, resp) = post(
+        &format!("/api/pages/{atlas_id}/atlas/callouts"),
+        json!({ "bounds": "10,20,0,60", "side": "left", "text": "```\nabc" }),
+    )
+    .await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&atlas_id).await, before);
 }
 
 // アトラスページに書いた項目は、アトラスが書き直されると消える。

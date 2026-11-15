@@ -6,6 +6,19 @@ pub const HEADING_TYPE: &str = "heading";
 pub const CODE_TYPE: &str = "code";
 pub const BLOCKQUOTE_TYPE: &str = "blockquote";
 
+/// Why a body with a block that is not closed is not stored.
+pub const UNCLOSED_BLOCK: &str =
+    "Markdownのブロック要素は、開始記号と閉じる記号が揃わない限り、保存できません。";
+
+/// Refuses a body that comes in to be stored when it ends inside a block that is not closed
+/// (ADR 050). In the file of the page, the block would take the items after it.
+pub fn check_closed(raw: &str) -> Result<(), String> {
+    if flatmarkdown::has_unclosed_block(raw) {
+        return Err(UNCLOSED_BLOCK.to_string());
+    }
+    Ok(())
+}
+
 const OPEN_TASK_PREFIX: &str = "- [ ] ";
 const DONE_TASK_PREFIX: &str = "- [x] ";
 
@@ -31,6 +44,13 @@ impl ItemBody {
             text: raw.to_string(),
             task: false,
         }
+    }
+
+    /// Splits a raw body that comes in to be stored, as `parse` does. A body that is not
+    /// closed is refused; see `check_closed`.
+    pub fn accept(raw: &str) -> Result<ItemBody, String> {
+        check_closed(raw)?;
+        Ok(ItemBody::parse(raw))
     }
 
     /// The types read from the text: `heading`, `code` and `blockquote`, in that order.

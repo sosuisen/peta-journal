@@ -13,7 +13,7 @@ use crate::domain::atlas::{self, Outline, BOUNDS_KEY, PAGE_KEY, SIDE_KEY, TYPE_K
 use crate::domain::bounds::Bounds;
 use crate::domain::fractional_index;
 use crate::domain::id_generator::IdGenerator;
-use crate::domain::item_body::ItemBody;
+use crate::domain::item_body::{self, ItemBody};
 use crate::domain::model::{Item, Page};
 use crate::domain::search::SearchIndex;
 use crate::error::{AppError, AppResult};
@@ -328,6 +328,7 @@ impl AtlasService {
                 Some(item) if item.body == node.body => (*item).clone(),
                 found => {
                     changed = true;
+                    item_body::check_closed(&node.body).map_err(AppError::bad_request)?;
                     let body = ItemBody {
                         text: node.body.clone(),
                         task: false,

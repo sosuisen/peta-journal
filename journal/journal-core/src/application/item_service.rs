@@ -9,7 +9,7 @@ use rusqlite::{Connection, Transaction};
 use crate::domain::fractional_index;
 use crate::domain::hashtag;
 use crate::domain::id_generator::IdGenerator;
-use crate::domain::item_body::ItemBody;
+use crate::domain::item_body::{self, ItemBody};
 use crate::domain::model::{Item, ItemPatch, ItemPlacement, ItemPosition, Page};
 use crate::domain::nfc::to_nfc;
 use crate::domain::search::SearchIndex;
@@ -241,7 +241,7 @@ impl ItemService {
             None => self.ids.generate_item_id(),
         };
         let now = now_millis();
-        let parsed = ItemBody::parse(body);
+        let parsed = ItemBody::accept(body).map_err(AppError::bad_request)?;
 
         let mut existing = ItemRepository::find_by_page_id_in(tx, page_id)?;
 
@@ -416,7 +416,10 @@ impl ItemService {
         effects: &mut AfterCommit,
     ) -> AppResult<Item> {
         let item_id = &existing.id;
-        let parsed = body.map(ItemBody::parse);
+        let parsed = body
+            .map(ItemBody::accept)
+            .transpose()
+            .map_err(AppError::bad_request)?;
         let new_body = parsed.as_ref().map(|p| p.text.clone());
         let body_types = parsed.as_ref().map(|p| p.text_types());
         // A task stays a task when its body changes; only the prefix can add the type here
@@ -590,9 +593,7 @@ impl ItemService {
                 Some(source_id) => find_all_in(tx, std::slice::from_ref(source_id))?.remove(0),
                 None => edited,
             };
-            let mut body = body.to_string();
-            paste::close_code_fence(&mut body);
-            self.update_item_in(tx, &edited, Some(&body), None, None, effects)?;
+            self.update_item_in(tx, &edited, Some(body), None, None, effects)?;
         }
         self.move_items_in(tx, item_ids, target_page_id, position, level_delta, effects)?;
         find_all_in(tx, item_ids)
@@ -793,7 +794,7 @@ impl ItemService {
         body: &str,
         effects: &mut AfterCommit,
     ) -> AppResult<Item> {
-        let parsed = ItemBody::parse(body);
+        let parsed = ItemBody::accept(body).map_err(AppError::bad_request)?;
         let now = now_millis();
         // A task stays a task when its body changes; only the prefix can add the type here
         let patch = ItemPatch::new(
@@ -896,12 +897,11 @@ impl ItemService {
         if item.transclude_item_id.is_some() || into.transclude_item_id.is_some() {
             return Err(AppError::bad_request("A transclusion cannot be merged"));
         }
-        let mut merged = format!(
+        let merged = format!(
             "{}{}",
             into_body.unwrap_or(&into.body),
             body.unwrap_or(&item.body)
         );
-        paste::close_code_fence(&mut merged);
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
@@ -975,6 +975,9 @@ impl ItemService {
         body: &str,
         cursor: usize,
     ) -> AppResult<Split> {
+        // The two parts are closed wherever the body is split. The body that comes in is
+        // checked too, as every body that comes in is
+        item_body::check_closed(body).map_err(AppError::bad_request)?;
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
