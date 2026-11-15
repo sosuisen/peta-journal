@@ -157,14 +157,23 @@ mod tests {
         assert_eq!(auto_close("[[a]]", 5), None);
     }
 
-    // 行頭の```を打つと、本文の末尾に閉じるフェンスが補われ、カーソルは留まる。
+    // 行頭で開始記号を打ち終え、後ろに本文が何もなければ、閉じる記号が補われ、カーソルは留まる。どの開始記号でも同じである（ADR 050）。
     #[test]
-    fn auto_close_closes_a_code_fence_just_opened() {
-        assert_eq!(auto_close("```", 3), Some(("```\n```".into(), 3)));
-        assert_eq!(
-            auto_close("a\n  ```\nb", 7),
-            Some(("a\n  ```\nb\n```".into(), 7))
-        );
+    fn auto_close_closes_a_block_just_opened_at_the_end() {
+        for (body, closed) in [
+            ("```", "```\n```"),
+            ("a\n  ~~~", "a\n  ~~~\n~~~"),
+            (">>>", ">>>\n>>>"),
+            ("<!--", "<!--\n-->"),
+            ("<pre", "<pre\n</pre>"),
+        ] {
+            let cursor = body.chars().count();
+            assert_eq!(
+                auto_close(body, cursor),
+                Some((closed.into(), cursor)),
+                "{body:?}"
+            );
+        }
     }
 
     // 閉じるフェンスを打ったときや、行の途中のバッククォートでは、何も補わない。
