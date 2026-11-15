@@ -120,3 +120,36 @@ fn opening_the_page_on_screen_again_adds_nothing_to_the_history() {
 
     assert!(!h.view().history.can_go_back);
 }
+
+// 履歴は100件までである。それを超えると、いちばん古いページから消える。
+#[test]
+fn the_history_keeps_the_last_hundred_pages() {
+    let mut h = Harness::new();
+    for number in 0..=100 {
+        open(&mut h, &format!("/pages/p{number}"));
+    }
+
+    for _ in 0..99 {
+        back(&mut h);
+    }
+
+    assert_eq!(shown(&h), "p1");
+    assert!(!h.view().history.can_go_back);
+}
+
+// URLの変わったことだけを伝えるシェル（Web版）では、履歴は空のままである。
+#[test]
+fn a_route_from_a_shell_with_its_own_history_keeps_nothing() {
+    let mut h = Harness::new();
+    for name in ["a", "b"] {
+        h.send(Event::Route {
+            route: crate::app::Route::Page {
+                name: name.into(),
+                fragment: None,
+            },
+            today: TODAY.into(),
+        });
+    }
+
+    assert!(!h.view().history.can_go_back);
+}
