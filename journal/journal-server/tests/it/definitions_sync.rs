@@ -633,3 +633,36 @@ impl Device {
             .unwrap();
     }
 }
+
+/// What the clients of a device are told, from when it begins to listen.
+struct Told(tokio::sync::broadcast::Receiver<String>);
+
+impl Told {
+    /// Whether the clients were told, since the last look, that the definitions changed.
+    fn of_definitions(&mut self) -> bool {
+        let mut told = false;
+        while let Ok(message) = self.0.try_recv() {
+            told |= message.contains("\"propertyDefinitionsUpdated\"");
+        }
+        told
+    }
+}
+
+impl Device {
+    fn listen(&self) -> Told {
+        Told(self.state.sse.subscribe())
+    }
+}
+
+// ほかの端末の定義がsettings/properties.jsonで届き、端末のDBの定義が変わると、端末は、開いているクライアントに定義が変わったことを知らせる。
+#[test]
+fn the_clients_are_told_when_a_definition_from_another_device_comes_in() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    b.define("score", "number", false);
+    let mut told = a.listen();
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert!(told.of_definitions());
+}
