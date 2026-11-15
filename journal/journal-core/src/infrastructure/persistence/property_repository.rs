@@ -235,7 +235,9 @@ impl PropertyRepository {
     }
 
     /// Takes the deletion of a user key on another device: the date is kept, and the
-    /// definition goes.
+    /// definition goes. While a value of the key is still here, the definition stays as a
+    /// provisional one, to read that value; the values go when the files that dropped them
+    /// come in (ADR 046).
     pub fn put_deletion(&self, key: &str, deleted: i64) -> AppResult<()> {
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;
@@ -244,10 +246,23 @@ impl PropertyRepository {
              ON CONFLICT(key) DO UPDATE SET deleted_date = MAX(deleted_date, excluded.deleted_date)",
             params![key, deleted],
         )?;
-        tx.execute(
-            "DELETE FROM property_definitions WHERE key = ? AND is_system = 0",
+        let held: bool = tx.query_row(
+            "SELECT EXISTS (SELECT 1 FROM properties WHERE key = ?1)
+                 OR EXISTS (SELECT 1 FROM property_list_items WHERE key = ?1)",
             params![key],
+            |r| r.get(0),
         )?;
+        if held {
+            tx.execute(
+                "UPDATE property_definitions SET provisional = 1 WHERE key = ? AND is_system = 0",
+                params![key],
+            )?;
+        } else {
+            tx.execute(
+                "DELETE FROM property_definitions WHERE key = ? AND is_system = 0",
+                params![key],
+            )?;
+        }
         tx.commit()?;
         Ok(())
     }
