@@ -42,6 +42,13 @@ public final class ItemDrag {
         reached = itemUnder
     }
 
+    /// Where to look for the item under the mouse at `y`, in a list that can be seen from `top`
+    /// to `bottom`. A place beyond it counts as the nearest place in it: the mouse of a drag may
+    /// leave the window. One inside the ends, where a row is and not the edge of one.
+    public nonisolated static func placeInList(y: Double, top: Double, bottom: Double) -> Double {
+        min(max(y, top + 1), bottom - 1)
+    }
+
     /// The mouse button came up: the drag is over.
     public func released() {
         if reached != nil { send(.selectionMouseUp) }
