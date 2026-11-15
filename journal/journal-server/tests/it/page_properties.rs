@@ -111,9 +111,9 @@ fn a_property_added_by_hand_is_taken_in_and_gives_the_page_a_new_date() {
     assert_ne!(date(&a.file(PAGE)), date(&before));
 }
 
-// 定義のないキーは、textとして定義される。
+// 定義のないキーは、名前から決まる型で定義される。
 #[test]
-fn a_key_with_no_definition_is_defined_as_text() {
+fn a_key_with_no_definition_is_defined_with_the_type_its_name_gives() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
@@ -121,7 +121,7 @@ fn a_key_with_no_definition_is_defined_as_text() {
 
     b.receive(&a, PAGE);
 
-    assert_eq!(b.type_of("rating_n").as_deref(), Some("text"));
+    assert_eq!(b.type_of("rating_n").as_deref(), Some("number"));
     assert_eq!(b.page_property(&page, "rating_n").as_deref(), Some("5"));
 }
 

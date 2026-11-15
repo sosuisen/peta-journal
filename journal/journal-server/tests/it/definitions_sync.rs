@@ -475,7 +475,7 @@ fn a_key_of_an_item_with_no_definition_gets_a_provisional_definition_until_its_v
 
     b.receive(&a, "docs/d/a.md");
 
-    assert_eq!(b.definition("score_n"), Some(("text".to_string(), true)));
+    assert_eq!(b.definition("score_n"), Some(("number".to_string(), true)));
     assert!(b.is_provisional("score_n"));
 
     std::thread::sleep(std::time::Duration::from_millis(5));
