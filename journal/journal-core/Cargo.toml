@@ -13,6 +13,7 @@ extensions = ["dep:rquickjs"]
 
 [dependencies]
 hmtid = { path = "../hmtid" }
+property-names = { path = "../property-names" }
 peta-atlas = { path = "../../atlas" }
 # The same version as the crates of flatmarkdown in client/Cargo.toml: a release has all the
 # crates of flatmarkdown (ADR 020)

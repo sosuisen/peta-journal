@@ -1,9 +1,8 @@
 //! The key of a property, which tells by its name whether its values are a list (ADR 046).
 
-use crate::error::{AppError, AppResult};
+use property_names::{type_of, ValueType};
 
-/// The suffix of the name of every list key a user defines.
-pub const LIST_SUFFIX: &str = "_list";
+use crate::error::{AppError, AppResult};
 
 /// A key of a property, parsed from its name once at the boundary. Whether its values are a
 /// list follows from the name, so every device decides it alike, before any definition
@@ -37,7 +36,7 @@ impl PropertyKey {
         validate_key(name)?;
         Ok(if name == "tags" {
             PropertyKey::List(ListKey::Tags)
-        } else if name.ends_with(LIST_SUFFIX) {
+        } else if type_of(name) == ValueType::List {
             PropertyKey::List(ListKey::User(UserListKey(name.to_string())))
         } else {
             PropertyKey::Scalar(ScalarKey(name.to_string()))
@@ -61,8 +60,9 @@ impl PropertyKey {
             Ok(())
         } else {
             Err(AppError::bad_request(format!(
-                "Property '{}' cannot be of type {value_type}: a key of a list ends with {LIST_SUFFIX}",
-                self.as_str()
+                "Property '{}' cannot be of type {value_type}: a key of a list ends with {}",
+                self.as_str(),
+                ValueType::List.suffix()
             )))
         }
     }
