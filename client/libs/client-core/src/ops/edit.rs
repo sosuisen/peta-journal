@@ -75,16 +75,19 @@ fn schedule_save(model: &mut Model, target_id: &str, body: &str) -> Cmd {
 /// The pause after typing ended: the body waiting for the item `target` is saved. Nothing
 /// is saved when a later edit took the place of the wait `timer_id`, or the body was saved
 /// another way.
+///
+/// Nor is a body saved that ends inside a block that is not closed (ADR 050). The item stays
+/// dirty, and the body is closed and saved when the edit ends.
 pub fn auto_save(model: &mut Model, target: String, timer_id: u64) -> Cmd {
     let pending = match model.edits.pending_saves.get(&target) {
         Some(p) if p.timer_id == timer_id => model.edits.pending_saves.remove(&target).unwrap(),
         _ => return done(),
     };
+    if flatmarkdown::has_unclosed_block(&pending.body) {
+        return done();
+    }
     run(move |api| async move {
-        if let Err(e) = api
-            .update_body(&target, &ensure_code_fence_closed(&pending.body))
-            .await
-        {
+        if let Err(e) = api.update_body(&target, &pending.body).await {
             log_error(format!("Auto-save failed: {e}"));
         }
     })
