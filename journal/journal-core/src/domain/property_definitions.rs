@@ -26,7 +26,7 @@ pub fn merge(a: &Definitions, b: &Definitions) -> Definitions {
     let mut merged = a.clone();
     for (key, definition) in b {
         match merged.get(key) {
-            Some(have) if have.date() >= definition.date() => {}
+            Some(have) if have.rank() >= definition.rank() => {}
             _ => {
                 merged.insert(key.clone(), definition.clone());
             }
@@ -36,11 +36,12 @@ pub fn merge(a: &Definitions, b: &Definitions) -> Definitions {
 }
 
 impl Definition {
-    /// When the key was defined or deleted.
-    fn date(&self) -> i64 {
+    /// Of two versions of a key, the one of the higher rank wins: the newer one, and of the
+    /// same date, the deleted one.
+    fn rank(&self) -> (i64, bool) {
         match self {
-            Definition::Defined { modified, .. } => *modified,
-            Definition::Deleted { deleted } => *deleted,
+            Definition::Defined { modified, .. } => (*modified, false),
+            Definition::Deleted { deleted } => (*deleted, true),
         }
     }
 }
