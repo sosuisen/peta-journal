@@ -153,7 +153,7 @@ fn definition_row(d: PropertyDefinition) -> impl IntoView {
     };
     view! {
         <tr class:system-key=d.system>
-            <td>{d.key.clone()}</td>
+            <td>{d.shown_name().to_string()}</td>
             <td>{d.value_type.clone()}</td>
             <td>{if d.page { "yes" } else { "" }}</td>
             <td class="definition-note">{control}</td>

@@ -471,6 +471,18 @@ pub struct PropertyDefinition {
     pub page: bool,
 }
 
+impl PropertyDefinition {
+    /// The name the screen shows: the body of a user key, without the suffix of its type
+    /// (ADR 047). A system key is shown whole: `atlas_bounds` is no `atlas` of type bounds.
+    pub fn shown_name(&self) -> &str {
+        if self.system {
+            &self.key
+        } else {
+            body_of(&self.key)
+        }
+    }
+}
+
 /// The type to send a list value of the key with. Only `tags` holds the tags; every other
 /// list key ends with `_list` and holds a list of the user (ADR 046).
 pub fn list_type_of(key: &str) -> &'static str {
