@@ -46,6 +46,19 @@ class UploaderTest : SyncFilesFixture() {
         assertEquals("- a3", cloud.text("docs/notes.md"))
     }
 
+    // アプリで変わったsettings/properties.jsonは、クラウドへ上がる。この端末で足したプロパティの定義を、ほかの端末に届けるためである（ADR 046）。
+    @Test
+    fun the_file_of_the_property_definitions_that_changed_in_the_app_is_uploaded() {
+        download("settings/properties.json" to "{}")
+        write("settings/properties.json", "{\"definitions\": {}}")
+        write("settings/other.json", "{}")
+
+        upload()
+
+        assertEquals(listOf("settings/properties.json"), cloud.uploaded)
+        assertEquals("{\"definitions\": {}}", cloud.text("settings/properties.json"))
+    }
+
     // Markdownでないファイルは、変わっていても上がらない。
     @Test
     fun a_file_that_is_not_markdown_is_not_uploaded() {
