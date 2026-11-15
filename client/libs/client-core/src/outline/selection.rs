@@ -265,6 +265,17 @@ mod tests {
         assert_eq!(selected(&state), ["b", "c"]);
     }
 
+    // 一番上の項目の木がページの最後まで続くとき、その項目から始めた選択は、Shift+Downでそれ以上広がらない。
+    #[test]
+    fn shift_down_does_nothing_when_the_tree_of_a_top_item_reaches_the_end() {
+        let mut state = OutlineState::default();
+        state.set_items(vec![plain_item("a", 1, ""), plain_item("b", 2, "")]);
+        let mut sel = Selection::default();
+        sel.start_from_editor(&mut state, "a");
+        sel.extend_down(&mut state);
+        assert_eq!(selected(&state), ["a", "b"]);
+    }
+
     // 孫の項目から始めた選択は、Shift+Downで親の兄弟へ広がらない。
     #[test]
     fn shift_down_from_a_grandchild_stays_under_its_parent() {
