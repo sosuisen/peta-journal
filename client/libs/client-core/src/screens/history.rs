@@ -24,6 +24,9 @@ impl History {
                 return;
             }
         }
+        if self.urls.get(self.at).map(String::as_str) == Some(url) {
+            return;
+        }
         if !self.urls.is_empty() {
             self.urls.truncate(self.at + 1);
         }
