@@ -184,6 +184,8 @@ The keys are those of the web frontend.
 | Shift+Alt+Up, Down | moves the item up or down |
 | Shift+Alt+Left, Right | outdents, indents |
 | Ctrl+Z | undo; with Shift, redo |
+| Ctrl+V | pastes; a list becomes items |
+| Ctrl+Shift+V | pastes the text into the item as it is |
 | Shift+Up on the first line, Shift+Down on the last line | selects the item with its children |
 
 While items are selected, no item has the cursor and the keys mean this:

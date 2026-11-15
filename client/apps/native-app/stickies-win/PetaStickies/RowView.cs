@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Microsoft.UI;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
@@ -9,6 +10,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Shapes;
 using PetaBorder;
 using PetaTypes;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.UI;
 using Windows.UI.Text;
 using Border = Microsoft.UI.Xaml.Controls.Border;
@@ -150,6 +152,12 @@ internal sealed class RowView : Grid
         editor.Resources["TextControlBorderThemeThicknessFocused"] = new Thickness(0);
         editor.PreviewKeyDown += Pressed;
         editor.TextChanging += (_, _) => Typed();
+        // The core pastes, and not the text box: a list that was copied becomes items
+        editor.Paste += (_, e) =>
+        {
+            e.Handled = true;
+            PasteFromClipboard(raw: false);
+        };
         editor.TextCompositionStarted += (_, _) => composing = true;
         editor.TextCompositionEnded += (_, _) =>
         {
@@ -432,6 +440,13 @@ internal sealed class RowView : Grid
             e.Handled = true;
             return;
         }
+        if (e.Key == Windows.System.VirtualKey.V && held == (Held.Control | Held.Shift))
+        {
+            // The text goes into the item as it is, as in the web frontend
+            e.Handled = true;
+            PasteFromClipboard(raw: true);
+            return;
+        }
         if (e.Key == Windows.System.VirtualKey.Y && held == Held.Control)
         {
             // The history is the one of the core: the text box must not bring back its own
@@ -440,18 +455,51 @@ internal sealed class RowView : Grid
         }
         if (Input.KeyOf(e.Key) is not { } key || Keyboard.InEditor(key, held) is not { } pressed)
             return;
+        var state = State();
+        // Fold and unfold are taken also when there is nothing to fold: the text box would
+        // put the cursor at the start or the end of a paragraph otherwise
+        e.Handled =
+            Shell.Pressed(pressed, row.Id, state) || pressed is EditorKey.Fold or EditorKey.Unfold;
+    }
+
+    /// <summary>The editor as a key or a paste finds it.</summary>
+    private EditorState State()
+    {
         var (first, last) = CursorLines();
-        var state = new EditorState(
+        return new EditorState(
             Markdown,
             editor.SelectionStart,
             editor.SelectionLength,
             first,
             last
         );
-        // Fold and unfold are taken also when there is nothing to fold: the text box would
-        // put the cursor at the start or the end of a paragraph otherwise
-        e.Handled =
-            Shell.Pressed(pressed, row.Id, state) || pressed is EditorKey.Fold or EditorKey.Unfold;
+    }
+
+    /// <summary>
+    /// Sends the text on the clipboard to the core, which pastes it at the cursor. An image is
+    /// not pasted: the native shells cannot upload it yet.
+    /// </summary>
+    private async void PasteFromClipboard(bool raw)
+    {
+        if (model is not { } row)
+            return;
+        // The cursor where the paste was asked, before the clipboard is read
+        var state = State();
+        string text;
+        try
+        {
+            var content = Clipboard.GetContent();
+            if (!content.Contains(StandardDataFormats.Text))
+                return;
+            text = await content.GetTextAsync();
+        }
+        catch (Exception e) when (e is COMException or UnauthorizedAccessException)
+        {
+            // Another app holds the clipboard: there is no text to paste
+            return;
+        }
+        // The core reads no HTML yet: it pastes the text
+        Shell.Paste(row.Id, state, text, "", raw);
     }
 
     /// <summary>Whether the cursor is on the first line, and on the last line, of the text as

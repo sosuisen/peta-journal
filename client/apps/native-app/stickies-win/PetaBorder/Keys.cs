@@ -168,6 +168,17 @@ public sealed partial class Shell
     }
 
     /// <summary>
+    /// The user pasted into the editor of an item. The core asks the server, which cuts the
+    /// text into items (ADR 011). <paramref name="html"/> is empty when the clipboard has no
+    /// HTML. A raw paste puts the text into the item as it is.
+    /// </summary>
+    public void Paste(string itemId, EditorState editor, string text, string html, bool raw)
+    {
+        ArgumentNullException.ThrowIfNull(editor);
+        Send(new Event.PasteText(itemId, text, html, CursorOf(editor), raw));
+    }
+
+    /// <summary>
     /// The user pressed a key while items are selected. No editor has the cursor then.
     /// </summary>
     public void Selection(SelectionKey key) => Send(new Event.SelectionKey(key));
@@ -177,10 +188,14 @@ public sealed partial class Shell
     /// </summary>
     public void LeaveSelection() => Send(new Event.SelectionClickOutside());
 
+    /// <summary>Where the cursor is in the editor, in the characters that the core counts.</summary>
+    private static ulong CursorOf(EditorState editor) =>
+        // WinUI counts in UTF-16 units (ADR 043)
+        PetaCore.PetaNative.CharsOfUtf16(editor.Text, (ulong)editor.SelectionStart);
+
     private static Event? EventOf(EditorKey key, string itemId, EditorState editor)
     {
-        // The core counts in characters, and WinUI in UTF-16 units (ADR 043)
-        var cursor = PetaCore.PetaNative.CharsOfUtf16(editor.Text, (ulong)editor.SelectionStart);
+        var cursor = CursorOf(editor);
         var onlyCursor = editor.SelectionLength == 0;
         var atStart = onlyCursor && editor.SelectionStart == 0;
         var atEnd = onlyCursor && editor.SelectionStart == editor.Text.Length;

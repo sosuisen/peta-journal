@@ -625,6 +625,46 @@ public sealed class ShellTests : IDisposable
         Assert.Equal(["first", "second"], Bodies(shell));
     }
 
+    // Markdownのリストを貼り付けると、項目として貼り付く。
+    [Fact]
+    public void A_pasted_list_becomes_items()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+
+        shell.Paste(item, Editor("", 0), "- a\n- b", "", raw: false);
+
+        main.WaitUntil("the list is two items", () => Bodies(shell) is ["a", "b"]);
+    }
+
+    // そのままの貼り付け（Ctrl+Shift+V）では、リストも1つの項目にそのまま入る。
+    [Fact]
+    public void A_raw_paste_keeps_a_list_in_one_item()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+
+        shell.Paste(item, Editor("", 0), "- a\n- b", "", raw: true);
+
+        main.WaitUntil("the list is in the item", () => Bodies(shell) is ["- a\n- b"]);
+    }
+
+    // 絵文字のあとのカーソルに貼る。カーソルは、UTF-16では2つ分進んでいる。
+    [Fact]
+    public void A_paste_behind_an_emoji_goes_in_there()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+        shell.Typed("a😀b", item);
+
+        shell.Paste(item, Editor("a😀b", 3), "X", "", raw: false);
+
+        main.WaitUntil("the text is behind the emoji", () => Bodies(shell) is ["a😀Xb"]);
+    }
+
     // 選択をやめるように言うと、選択が消える。ほかの場所をクリックしたときである。
     [Fact]
     public void Leaving_the_selection_ends_it()
