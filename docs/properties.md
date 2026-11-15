@@ -17,7 +17,7 @@
 
 ユーザーが消した定義は、`deleted_property_definitions(key, deleted_date)` に、消した日時とともに残る。項目の `deleted_items` と同じ形である。同じキーをユーザーが定義し直すと、その行は消える。
 
-ユーザー定義のキーの型は、キーの名前の接尾辞で決まる（ADR 047）。接尾辞は `_n`（`number`）、`_d`（`date`）、`_dt`（`datetime`）、`_cb`（`checkbox`）、`_bounds`（`bounds`）、`_list`（`list`）で、接尾辞がなければ `text` である。型は最後の接尾辞だけで決まり、大文字の接尾辞は本体の一部として扱う。判定は共有のクレート `property-names` の `type_of` が行う。Settings画面や `POST /api/config/property-definitions` は完全な名前（`rating_n`）を受け取る。`valueType` を送れば、名前から決まる型と合うかを確かめ、合わなければ400エラーになる。送らなければ、名前から決まる型になる。名前の本体が予約の接尾辞で終わるキー（`rating_n_n`）も400エラーになる。`tags` 型は `tags` キーだけが使う。
+ユーザー定義のキーの型は、キーの名前の接尾辞で決まる（ADR 047）。接尾辞は `_n`（`number`）、`_d`（`date`）、`_dt`（`datetime`）、`_cb`（`checkbox`）、`_bounds`（`bounds`）、`_list`（`list`）で、接尾辞がなければ `text` である。型は最後の接尾辞だけで決まり、大文字の接尾辞は本体の一部として扱う。判定は共有のクレート `property-names` の `type_of` が行う。Settings画面や `POST /api/config/property-definitions` は完全な名前（`rating_n`）を受け取る。`valueType` を送れば、名前から決まる型と合うかを確かめ、合わなければ400エラーになる。送らなければ、名前から決まる型になる。名前の本体が予約の接尾辞で終わるキー（`rating_n_n`）も400エラーになる。ほかのユーザーのキーと本体が同じキー（`rating_n` があるときの `rating_d`）も400エラーになる。同じ本体は、画面で同じ名前に見えるからである。ただし、ほかの端末の定義ファイルや `.md` から届いたキーは、本体が同じでも受け入れる。画面は、本体が重なるキーにだけ型を添える（`rating (number)`）。Emacs版は、いつも本体と型を並べる。`tags` 型は `tags` キーだけが使う。
 
 値がリストかどうかも、キーの名前で決まる（ADR 046）。`list` 型のキーの名前は `_list` で終わる（`member_list` など）。`tags` だけは例外で、`_list` で終わらない名前のリストのキーである。`_list` で終わる名前のキーを `list` 以外の型で定義したり、`_list` で終わらない名前のキーを `list` 型で定義したりすると、400エラーになる。名前で決めるのは、定義が届く前でも、どの端末も同じようにリストかどうかを決められるためである。判定は `domain::property_key::PropertyKey` が行う。
 

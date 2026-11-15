@@ -214,6 +214,8 @@ These keys work in the list:
 `s` and `d` offer the key on the line of the point by default. `RET` alone then takes the property
 on that line. The point stays on its line after the change.
 
+The list and the completion show each key by the body of its name and its type, as
+`rating (number)` for the key `rating_n`, so two keys that share a body are told apart.
 Keys are completed from the property definitions of the server. A new key is defined in the
 settings of the web app, not here. Separate the values of a list with commas.
 `M-x peta-journal-set-property` and `M-x peta-journal-delete-property` do the same.
