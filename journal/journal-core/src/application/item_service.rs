@@ -9,7 +9,7 @@ use rusqlite::{Connection, Transaction};
 use crate::domain::fractional_index;
 use crate::domain::hashtag;
 use crate::domain::id_generator::IdGenerator;
-use crate::domain::item_body::ItemBody;
+use crate::domain::item_body::{self, ItemBody};
 use crate::domain::model::{Item, ItemPatch, ItemPlacement, ItemPosition, Page};
 use crate::domain::nfc::to_nfc;
 use crate::domain::search::SearchIndex;
@@ -975,6 +975,9 @@ impl ItemService {
         body: &str,
         cursor: usize,
     ) -> AppResult<Split> {
+        // The two parts are closed wherever the body is split. The body that comes in is
+        // checked too, as every body that comes in is
+        item_body::check_closed(body).map_err(AppError::bad_request)?;
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
