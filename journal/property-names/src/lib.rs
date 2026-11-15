@@ -88,4 +88,11 @@ mod tests {
         assert_eq!(name_of("rating", ValueType::Number), Ok("rating_n".to_string()));
         assert_eq!(name_of("rating", ValueType::Text), Ok("rating".to_string()));
     }
+
+    // 予約の接尾辞で終わる本体は、どの型でも拒まれる。
+    #[test]
+    fn a_body_that_ends_with_a_reserved_suffix_is_refused_for_any_type() {
+        assert_eq!(name_of("rating_n", ValueType::Number), Err(ReservedSuffix));
+        assert_eq!(name_of("member_list", ValueType::Text), Err(ReservedSuffix));
+    }
 }
