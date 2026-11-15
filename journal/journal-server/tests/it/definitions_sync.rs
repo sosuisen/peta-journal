@@ -69,3 +69,31 @@ fn a_definition_the_user_deletes_is_written_as_deleted_with_its_date() {
     };
     assert!(deleted >= before, "{deleted} < {before}");
 }
+
+// 消した定義をユーザーが足し直すと、端末は、消した定義の表からそのキーの行を消し、定義としてsettings/properties.jsonに書く。
+#[test]
+fn a_deleted_definition_the_user_adds_again_is_no_longer_deleted() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    a.define("score", "number", false);
+    a.undefine("score");
+
+    a.define("score", "text", true);
+
+    let deleted: i64 = a
+        .state
+        .db
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(deleted, 0);
+    assert!(matches!(
+        a.written("score"),
+        Some(Definition::Defined { value_type, page: true, .. }) if value_type == "text"
+    ));
+}
