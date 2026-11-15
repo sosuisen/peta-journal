@@ -13,7 +13,7 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - ファイルの場所、名前、形式、端末の間でぶつかったときの決まりは、ADRで決める
   - 2026-11-15にADR 046で決めた。`settings/properties.json`に置き、キーごとに新しい方を採る。4つのPRを積み重ねて出す
     - [x] PR 1：プロパティの値を、`properties`の`value`の1つの列に、文字列で持つ（DBの版6）
-    - [ ] PR 2：名前が`_list`で終わるキーだけを`list`型にする。`PropertyKey`の型
+    - [x] PR 2：名前が`_list`で終わるキーだけを`list`型にする。`PropertyKey`の型
     - [ ] PR 3：`settings/properties.json`で定義を同期する。仮の定義、`deleted_property_definitions`、走査と監視
     - [ ] PR 4：AndroidとiOSのシェルで、`settings/properties.json`も運ぶ。Androidは実機で確かめる
   - [ ] 型に合わない値に、警告の印を付ける。シェルごとに別のタスクにする（ADR 046）

@@ -211,6 +211,27 @@ fn a_later_property_is_a_change_of_the_item_and_stays_against_an_older_file() {
     assert!(b.file(PAGE).contains("from B"));
 }
 
+// 定義のない端末でも、項目の名前が_listで終わるキーは、リストとして取り込まれる。
+#[test]
+fn a_key_of_an_item_that_ends_with_list_is_taken_in_as_a_list_without_its_definition() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, _, x, _) = two_devices_with_items(dir.path());
+    a.state
+        .item_service
+        .set_property(&x, "author_list", "list", "p,q")
+        .unwrap();
+    a.export();
+
+    b.receive(&a, PAGE);
+
+    let lists = b
+        .state
+        .properties
+        .find_list_by_targets("item", &[x.as_str().to_string()])
+        .unwrap();
+    assert_eq!(lists[x.as_str()]["author_list"], ["p", "q"]);
+}
+
 // 新しいファイルに無くても、それより後に足した項目は残り、相手にも届く。
 #[test]
 fn an_item_added_after_the_file_was_written_stays_and_reaches_the_other_device() {

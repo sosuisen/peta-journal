@@ -8,6 +8,8 @@ use rusqlite::{params, Connection};
 
 use crate::domain::bounds::Bounds;
 use crate::domain::number_text::format_number;
+pub use crate::domain::property_key::validate_key;
+use crate::domain::property_key::PropertyKey;
 use crate::error::{AppError, AppResult};
 
 use super::db::{placeholders, Db};
@@ -17,10 +19,11 @@ pub type ScalarProps = BTreeMap<String, BTreeMap<String, String>>;
 /// List properties per target: target id -> (key -> values).
 pub type ListProps = BTreeMap<String, BTreeMap<String, Vec<String>>>;
 
-/// The types a user may give a new key. `list` and `tags` stay internal: the only list
-/// property is `tags`, which the server derives from the body of an item.
-pub const USER_VALUE_TYPES: [&str; 6] =
-    ["text", "number", "checkbox", "date", "datetime", "bounds"];
+/// The types a user may give a new key. `list` is for a key whose name ends with `_list`
+/// (ADR 046). `tags` stays internal: the server derives the tags from the body of an item.
+pub const USER_VALUE_TYPES: [&str; 7] = [
+    "text", "number", "checkbox", "date", "datetime", "bounds", "list",
+];
 
 /// A property definition: the key, its value type and who may use it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,23 +34,6 @@ pub struct PropertyDefinition {
     pub system: bool,
     /// May be set on a page (every user key, and `tags` among the system keys).
     pub page: bool,
-}
-
-/// A key is a word of letters, digits, `_` and `-`: it is written unquoted in the metadata
-/// line of an item and as a YAML key in the front matter of a page.
-pub fn validate_key(key: &str) -> AppResult<()> {
-    if key.is_empty() {
-        return Err(AppError::bad_request("Property key is required"));
-    }
-    if !key
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-    {
-        return Err(AppError::bad_request(format!(
-            "Property key '{key}' may only contain letters, digits, '_' and '-'"
-        )));
-    }
-    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -201,6 +187,7 @@ impl PropertyRepository {
                 USER_VALUE_TYPES.join(", ")
             )));
         }
+        PropertyKey::parse(key)?.check_type(value_type)?;
         if let Some(existing) = self.find_definition(key)? {
             let what = if existing.system {
                 "a system key"
