@@ -258,6 +258,19 @@ final class ShellTests: JournalTestCase {
         waitUntil("the file holds what was typed") { self.written()?.contains("first and more") == true }
     }
 
+    // 開始記号を打ち終えると、閉じる記号が補われる（ADR 050）。
+    func testTypingAnOpeningClosesIt() throws {
+        try download("notes.md", "first\n")
+        try openNotes()
+        let item = id(of: "first")
+        shell.edit(item)
+
+        shell.type(item, ">>", cursor: 2)
+        shell.type(item, ">>>", cursor: 3)
+
+        XCTAssertEqual(edited(), ">>>\n>>>")
+    }
+
     // 改行は、カーソルの位置で項目を分ける。編集は、新しい項目に移る。
     func testEnterSplitsTheItemAtTheCursorAndTheEditGoesOnInTheNewItem() throws {
         try download("notes.md", "first\n")
