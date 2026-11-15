@@ -355,7 +355,7 @@ final class ItemTextView: NSTextView {
         // tells that the mouse left it
         if event.clickCount == 1, event.modifierFlags.intersection([.shift, .control, .option, .command]).isEmpty {
             if !onShownText { setSelectedRange(NSRange(location: letter(at: event.locationInWindow), length: 0)) }
-            follow(from: event)
+            follow()
             return
         }
         if !onShownText { super.mouseDown(with: event) }
@@ -366,12 +366,12 @@ final class ItemTextView: NSTextView {
 
     /// Follows the mouse until the button comes up. Once it leaves the text up or down, the
     /// items it goes over are selected.
-    private func follow(from down: NSEvent) {
+    private func follow() {
         guard let window else { return }
         var drag: ItemDrag?
-        // Where the letters that the drag selects begin. On the shown text the core puts the
-        // cursor at the place that was clicked, a moment after the click
-        var anchor: Int? = isMarkdown ? selectedRange().location : nil
+        // Where the letters that the drag selects begin: the cursor at the first move. On the
+        // shown text the core puts it at the place that was clicked, a moment after the click
+        var anchor: Int?
         while true {
             // While the list scrolls, a frame passes without a move of the mouse
             let wait = drag?.scrolls == true ? Date(timeIntervalSinceNow: ItemDrag.frame) : .distantFuture
@@ -382,8 +382,8 @@ final class ItemTextView: NSTextView {
                 drag?.scrollOneFrame()
                 continue
             }
-            let place = next.locationInWindow
             if next.type == .leftMouseUp { break }
+            let place = next.locationInWindow
             if let drag {
                 drag.moved(to: place)
             } else if isOut(place), let started = onDragOut?(self) {
