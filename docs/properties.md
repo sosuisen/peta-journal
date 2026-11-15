@@ -257,8 +257,15 @@ frontmatterの残りのキーは、ページのプロパティとして読む（
 
 ### プロパティ定義の同期
 
-ADR 046で、定義をMarkdownフォルダーの `settings/properties.json` に置き、端末の間で同期すると決めた。今は書く側までできている。
+ADR 046で、定義をMarkdownフォルダーの `settings/properties.json` に置き、端末の間で同期すると決めた。
 
-- 端末は、その端末のユーザーが定義を足したときと消したときに、`settings/properties.json` を書く（`DefinitionsFileService::write_file`）。書く中身は、端末のDBの本物のユーザー定義と `deleted_property_definitions` を、ファイルにある定義とキーごとに合わせた結果である（`domain::property_definitions::merge`）。ファイルにあって、端末がまだ取り込んでいないほかの端末の定義を消さないためである。中身が変わらなければ、ファイルを書かない。
+- 端末は、その端末のユーザーが定義を足したときと消したときに、`settings/properties.json` を書く（`DefinitionsFileService::write_file`）。書く中身は、端末のDBの本物のユーザー定義と `deleted_property_definitions` を、ファイルにある定義とキーごとに合わせた結果である（`domain::property_definitions::merge`）。ファイルにあって、端末がまだ取り込んでいないほかの端末の定義を消さないためである。
 - 形式は、ADR 046の「ファイルの形式」のとおりである（`infrastructure::export::definitions_file`）。キーは辞書順で、日時はUTCのISO 8601である。システム管理キーは書かない。読むときは、ユーザーが作れない定義（システム管理キー、名前に合わない型、知らない型、キーにできない名前、日時のない定義）を読み飛ばす。
-- 届いた `settings/properties.json` を取り込むこと、仮の定義、走査と監視は、まだない。`docs/plans.md` にある。
+- 端末は、ほかの端末が書いた `settings/properties.json` を受け取ると、その定義と端末のDBの定義をキーごとに合わせ、結果を端末のDBに入れる（`DefinitionsFileService::take_in`）。合わせた結果が受け取ったファイルと違えば、ファイルを書き直す。同じなら書き直さない。
+  - 新しい定義が届くと、端末は、DBの定義をその型と `for_page` に変え、`deleted_property_definitions` からそのキーの行を消す。仮の定義も本物の定義になる。値は変えない。
+  - 消したことが届くと、端末は、消した日時を `deleted_property_definitions` に入れる。端末のDBにそのキーの値がなければ、定義の行を消す。値があれば、定義を仮の定義（`provisional` が1）にして残し、値も残す。
+  - ページのファイルは書き直さず、ページの `modified` も進めない。
+- `settings/properties.json` のconflicted copy（`settings/properties (… conflicted copy …).json`）は、もう1つの版として端末のDBに合わせ、`settings/properties.json` を書き直してから消す（`take_in_copy`）。
+- 取り込むのは、ジャーナルサーバーの監視（`settings/` も見る。監視を始めるときに `settings/` を作る）と、coreの走査（`MarkdownReconcileService` が毎回 `settings/` を見る）である。どちらも `MarkdownImportService::sync_file` に渡す。どのファイルを渡すかは `import_service::takes_in` が決める。
+- 開いているクライアントには、届いた定義をまだ知らせない。クライアントは、起動したときとSettings画面を開いたときに定義を読む。
+- 仮の定義を、取り込みで定義のないキーに作ることは、まだない。`docs/plans.md` にある。
