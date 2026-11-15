@@ -314,13 +314,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 履歴は、コア（`peta-core`）に持たせる（2026-11-13にユーザーが決めた。ADR 035）。最初の版は、ページを戻ると進むだけである。Cargoのfeatureにはしない。`shell-leptos`は使わず、ブラウザーの履歴のままにする
   - [ ] 戻る先も進む先もないときは、ボタンを押せない見た目にする
   - [ ] Androidでは、システムの戻る操作（ジェスチャーとボタン）も、同じ履歴で戻るかを決める
-- [ ] 同期の失敗の表示から、SDKの生のエラーの文字を取る。通信ができないための失敗は、それと見分けて、分かるように伝える（2026-11-13にユーザーが決めた）。iOSのシェルも同じにする
-  - iPhoneで通信を切って編集すると、「Sync failed: urlSessionError(SwiftyDropbox.ClientError.urlSessionError…」と出た。長くて、意味が分からない（2026-11-13にユーザーが見た）。Androidも長いが、画面が大きいので気にならなかっただけである
-  - 失敗の表示、「Try again」、通信が戻ったあとのアップロードは、働いた
-  - [ ] 失敗を、原因で分ける。少なくとも、通信ができない場合と、そのほかの場合を分ける。分けるのは、Dropboxを呼ぶところである（iOSは`DropboxFailure`、Androidは`SyncState.Failed`の理由）
-  - [ ] 表示の文言を決める。案：通信ができないときは「Sync failed: no connection」、そのほかは「Sync failed」だけ。文言は、ユーザーが決める
-  - [ ] そのほかの失敗の理由は、画面に出さず、ログに残す
-  - 表示を作るのは、`client/apps/native-app/outliner-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`と、`JournalScreen.kt`の`"Sync failed: ${state.reason}"`である
 - [ ] 道具の列から、削除のボタンを取る（2026-11-13にユーザーが決めた）。iOSのシェルも同じにする
   - 取る前に、ボタンがなくても項目を消せるかを確かめる。空の項目の行頭でBackspaceを打つと消えるか、文字のある項目はどう消すかを見る
   - 表示はMarkdownを整形したもので、編集するのは元のMarkdownである。記号（`**`、リンク、タスクの印など）の分だけ、触れた位置と元の文字の位置がずれる。表示の位置から元の位置を求める方法を、先に決める
@@ -347,11 +340,12 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - 履歴は、コア（`peta-core`）に持たせる（2026-11-13にユーザーが決めた。ADR 035）。最初の版は、ページを戻ると進むだけである。Cargoのfeatureにはしない。`shell-leptos`は使わず、ブラウザーの履歴のままにする
   - [ ] 戻る先も進む先もないときは、ボタンを押せない見た目にする
   - [ ] Androidでは、システムの戻る操作（ジェスチャーとボタン）も、同じ履歴で戻るかを決める
-- [ ] 同期の失敗の表示から、SDKの生のエラーの文字を取る。通信ができないための失敗は、それと見分けて、分かるように伝える（2026-11-13にユーザーが決めた）。Androidのシェルも同じにする
+- [ ] 同期の失敗の表示から、SDKの生のエラーの文字を取る。通信ができないための失敗は、それと見分けて、分かるように伝える（2026-11-13にユーザーが決めた）。Androidのシェルは、もう分けている（`CloudSync.kt`の`SyncState.Failed`、`CloudSyncTest`）
   - iPhoneで通信を切って編集すると、「Sync failed: urlSessionError(SwiftyDropbox.ClientError.urlSessionError…」と出た。長くて、意味が分からない（2026-11-13にユーザーが見た）。Androidも長いが、画面が大きいので気にならなかっただけである
   - 失敗の表示、「Try again」、通信が戻ったあとのアップロードは、働いた
   - [ ] 失敗を、原因で分ける。少なくとも、通信ができない場合と、そのほかの場合を分ける。分けるのは、Dropboxを呼ぶところである（iOSは`DropboxFailure`、Androidは`SyncState.Failed`の理由）
-  - [ ] 表示の文言を決める。案：通信ができないときは「Sync failed: no connection」、そのほかは「Sync failed」だけ。文言は、ユーザーが決める
+  - 文言は、通信ができないときは「Sync failed: no connection」、そのほかは「Sync failed」だけにする（2026-11-16にユーザーが決めた）
+  - Androidでは、例外とその原因の中に`IOException`があれば、通信の失敗と見なす。Dropbox SDKは、通信の`IOException`を自分の例外で包むためである
   - [ ] そのほかの失敗の理由は、画面に出さず、ログに残す
   - 表示を作るのは、`client/apps/native-app/outliner-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`と、`JournalScreen.kt`の`"Sync failed: ${state.reason}"`である
 - [ ] 編集中の入力欄が画面から外されても編集が続くことを、実機の順序で確かめるテストを探す。実機では、システムが、入力欄を外す前にキーボードを取り上げる。シミュレーターでは順序が逆で、今のテスト（編集中に画面を横にする）は、シミュレーターの順序しか通らない
