@@ -1,5 +1,5 @@
 //! What Enter does in an editor: splits the item at the cursor, or puts an empty item before
-//! or after it. An empty last child is outdented instead. Inside an open code fence it adds a
+//! or after it. An empty last child is outdented instead. Inside an open block it adds a
 //! line to the item.
 //!
 //! The server splits an item in one request, and decides where the new item goes (ADR 011).
@@ -18,7 +18,7 @@ use crate::outline::tree::{
     get_subtree, has_sibling_below, position_before, transclusion_context_of,
 };
 use crate::outline::CursorState;
-use crate::util::{char_len, has_unclosed_code_fence, split_at_char};
+use crate::util::{char_len, split_at_char};
 use crux_core::Command;
 
 /// Handles Enter at a cursor position in an item.
@@ -31,7 +31,7 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
         item.body = typed;
     }
     let (before, after) = split_at_char(&item.body, cursor);
-    if has_unclosed_code_fence(before) {
+    if flatmarkdown::has_unclosed_block(before) {
         // Not an edit that moves to another editor, so no keys are held
         let body = format!("{before}\n{after}");
         model
