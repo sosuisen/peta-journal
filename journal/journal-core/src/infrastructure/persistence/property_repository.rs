@@ -362,10 +362,7 @@ impl PropertyRepository {
         value: &str,
     ) -> AppResult<()> {
         validate_key(key)?;
-        conn.execute(
-            "INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES (?, ?)",
-            params![key, value_type],
-        )?;
+        define_in(conn, key, value_type)?;
         Self::write_scalar_in(conn, target_type, target_id, key, value)
     }
 
@@ -463,10 +460,7 @@ impl PropertyRepository {
         values: &[String],
     ) -> AppResult<()> {
         validate_key(key)?;
-        conn.execute(
-            "INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES (?, ?)",
-            params![key, value_type],
-        )?;
+        define_in(conn, key, value_type)?;
         replace_list_in(conn, target_type, target_id, key, values)
     }
 
@@ -715,6 +709,22 @@ fn parse_date_to_millis(date_str: &str, to_end: bool) -> AppResult<i64> {
 
 /// The values of a list as a client sends them: comma-separated, with the spaces around
 /// each value and the empty values dropped.
+/// Defines a key with no definition as the user wrote a value to it: a real definition of
+/// now, which goes to the other devices (ADR 046). A defined key keeps its definition.
+fn define_in(conn: &Connection, key: &str, value_type: &str) -> AppResult<()> {
+    let defined = conn.execute(
+        "INSERT OR IGNORE INTO property_definitions (key, value_type, modified) VALUES (?, ?, ?)",
+        params![key, value_type, now_millis()],
+    )?;
+    if defined > 0 {
+        conn.execute(
+            "DELETE FROM deleted_property_definitions WHERE key = ?",
+            params![key],
+        )?;
+    }
+    Ok(())
+}
+
 /// Gives a key with no definition a provisional one, which is not written to
 /// `settings/properties.json`. A defined key keeps its definition.
 fn define_provisional_in(conn: &Connection, key: &str, value_type: &str) -> AppResult<()> {

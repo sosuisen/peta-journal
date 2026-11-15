@@ -621,12 +621,16 @@ impl Journal {
         by: &ChangedBy,
     ) -> AppResult<ItemAnswer> {
         let item_id = parse_id(id)?;
+        let new_key = self.services.properties.find_definition(key)?.is_none();
         let item = self.services.item_service.set_property(
             &item_id,
             key,
             input.value_type.as_deref().unwrap_or("text"),
             input.value.as_deref().unwrap_or(""),
         )?;
+        if new_key {
+            self.services.definitions_file.write_file()?;
+        }
         self.tell([&item.page_id], by);
         // The answer is built after the upsert, so it carries the new property
         self.item_answer(&item)
