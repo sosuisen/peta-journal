@@ -175,7 +175,9 @@ public sealed partial class Shell
     public void Paste(string itemId, EditorState editor, string text, string html, bool raw)
     {
         ArgumentNullException.ThrowIfNull(editor);
-        Send(new Event.PasteText(itemId, text, html, (ulong)editor.SelectionStart, raw));
+        // The core counts in characters, and WinUI in UTF-16 units (ADR 043)
+        var cursor = PetaCore.PetaNative.CharsOfUtf16(editor.Text, (ulong)editor.SelectionStart);
+        Send(new Event.PasteText(itemId, text, html, cursor, raw));
     }
 
     /// <summary>
