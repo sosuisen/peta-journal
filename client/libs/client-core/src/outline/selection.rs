@@ -134,10 +134,10 @@ impl Selection {
             let last = last_under_parent(items, anchor_idx);
             // When expanding downward, skip past items already in the selection
             let selected = state.selected_item_ids();
-            while extent_idx + 1 <= last && selected.contains(&items[extent_idx + 1].id) {
+            while extent_idx < last && selected.contains(&items[extent_idx + 1].id) {
                 extent_idx += 1;
             }
-            if extent_idx + 1 > last {
+            if extent_idx >= last {
                 return;
             }
         } else {
