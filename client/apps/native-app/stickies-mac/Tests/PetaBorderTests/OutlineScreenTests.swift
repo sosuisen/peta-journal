@@ -699,6 +699,31 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertFalse(shell.view.outline.rows[0].isSelected)
     }
 
+    // 付箋の下までスクロールしてから、ドラッグ選択のマウスを上端で止めると、付箋が上へスクロールし、上から出てきた項目まで選ばれる。
+    func testADragSelectionHeldAtTheTopScrollsUpAndSelectsWhatComesDown() async throws {
+        try await longPage()
+        let (scroll, table) = try list()
+        let clip = scroll.contentView
+        let end = (scroll.documentView?.frame.height ?? 0) - clip.bounds.height
+        clip.scroll(to: NSPoint(x: 0, y: end))
+        scroll.reflectScrolledClipView(clip)
+        try await waitUntil("the last item can be seen") {
+            self.editors().contains { $0.string == "item 40" && !$0.visibleRect.isEmpty }
+        }
+        let firstSeen = table.rows(in: table.visibleRect).lowerBound
+        let last = try XCTUnwrap(editors().first { $0.string == "item 40" })
+        let (text, shown) = (last.convert(last.bounds, to: nil), scroll.convert(scroll.bounds, to: nil))
+        let above = NSPoint(x: text.midX, y: text.maxY + 15)
+        let top = NSPoint(x: shown.midX, y: shown.maxY - 5)
+
+        try drag(from: last, through: [above, top], holding: 0.5)
+
+        XCTAssertLessThan(clip.bounds.minY, end)
+        let firstSelected = try XCTUnwrap(shell.view.outline.rows.firstIndex(where: \.isSelected))
+        XCTAssertLessThan(firstSelected, firstSeen)
+        XCTAssertTrue(shell.view.outline.rows[40].isSelected)
+    }
+
     /// The search box, when it is on screen.
     private func searchField() -> NSTextField? {
         var found: NSTextField?
