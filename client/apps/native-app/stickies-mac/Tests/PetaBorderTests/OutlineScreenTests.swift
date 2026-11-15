@@ -32,6 +32,9 @@ final class OutlineScreenTests: XCTestCase {
     }
 
     override func tearDown() async throws {
+        // A click on a link takes no events after its own: the button that comes up would end
+        // the drag of a later test
+        while NSApp.nextEvent(matching: [.leftMouseUp, .leftMouseDragged], until: .distantPast, inMode: .default, dequeue: true) != nil {}
         window?.close()
         server?.stop()
     }
@@ -574,6 +577,151 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertFalse(shell.view.outline.selectionMode)
         XCTAssertEqual(bodies(), ["first", "second!"])
         XCTAssertTrue(shell.view.outline.rows[1].isEditing)
+    }
+
+    /// Three items, "first", "second" and "third", with the cursor at the end of the third.
+    private func threeItems() async throws {
+        try await twoItems()
+        let second = editors()[1]
+        second.setSelectedRange(NSRange(location: (second.string as NSString).length, length: 0))
+        second.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        try await waitUntil("the cursor is in the third item") {
+            self.editors().count == 3 && self.focused === self.editors()[2]
+        }
+        type("third", into: editors()[2])
+    }
+
+    /// The middle of the view, in the window.
+    private func middle(of view: NSView) -> NSPoint {
+        view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil)
+    }
+
+    private func mouse(_ type: NSEvent.EventType, at place: NSPoint) throws -> NSEvent {
+        try XCTUnwrap(
+            NSEvent.mouseEvent(
+                with: type, location: place, modifierFlags: [], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+    }
+
+    /// A drag that starts in the middle of the editor, goes through the places of the window
+    /// and lets the button go at the last. The moves are handed over as the window does with
+    /// a click: they wait in the queue of the window for the editor that tracks the mouse.
+    /// The button comes up after `holding` seconds at the last place.
+    private func drag(from editor: NSTextView, through places: [NSPoint], holding: TimeInterval = 0) throws {
+        let start = middle(of: editor)
+        for place in places {
+            NSApp.postEvent(try mouse(.leftMouseDragged, at: place), atStart: false)
+        }
+        let up = try mouse(.leftMouseUp, at: places.last ?? start)
+        if holding > 0 {
+            // A timer and not the main queue: the test runs on the main queue, which waits for
+            // the editor to let the mouse go. The run loop fires timers while the editor waits
+            let timer = Timer(timeInterval: holding, repeats: false) { _ in NSApp.postEvent(up, atStart: false) }
+            RunLoop.main.add(timer, forMode: .common)
+        } else {
+            NSApp.postEvent(up, atStart: false)
+        }
+        if window.firstResponder !== editor { window.makeFirstResponder(editor) }
+        editor.mouseDown(with: try mouse(.leftMouseDown, at: start))
+    }
+
+    // 項目のテキストから上へ出たドラッグは、その項目を選び、マウスの下の項目まで選択を広げる。打っていた文字は保存され、選んだ項目を動かしても消えない。
+    func testADragOutOfTheTextOfAnItemSelectsTheItemsItGoesOver() async throws {
+        try await threeItems()
+        let (second, third) = (editors()[1], editors()[2])
+
+        try drag(from: third, through: [middle(of: second)])
+
+        try await waitUntil("the second and the third item are selected") {
+            self.selected() == ["second", "third"] && self.window.firstResponder !== third
+        }
+        let keys = try XCTUnwrap(window.firstResponder)
+        press(Self.upKey, "\u{F700}", [.shift, .option], in: keys)
+        try await waitUntil("the selected items are on top") { self.bodies() == ["second", "third", "first"] }
+    }
+
+    // 項目のテキストの中のドラッグは、押した位置からマウスまでの文字を選び、項目は選ばない。
+    func testADragInsideTheTextOfAnItemSelectsItsLetters() async throws {
+        try await threeItems()
+        let third = editors()[2]
+        let start = third.convert(NSPoint(x: third.bounds.minX + 1, y: third.bounds.midY), to: nil)
+
+        // From the middle of the editor, which is after the end of "third", to its start
+        try drag(from: third, through: [start])
+
+        XCTAssertEqual(third.selectedRange(), NSRange(location: 0, length: 5))
+        XCTAssertFalse(shell.view.outline.selectionMode)
+        XCTAssertTrue(focused === third)
+    }
+
+    /// The page gets `count` items more than the window can show, "item 1" and on, and is
+    /// opened again in the window.
+    private func longPage(_ count: Int = 40) async throws {
+        guard case .page(let page?) = shell.view.screen else { throw CancellationError() }
+        for n in 1...count {
+            try await server.post("/api/items", ["pageId": page.page.id, "position": "last", "level": 1, "body": "item \(n)"])
+        }
+        shell = Shell(server: server.address, url: "/pages/screen", clipboard: { nil })
+        window.contentView = NSHostingView(rootView: OutlineScreen(shell: shell))
+        try await waitUntil("the long page is shown") {
+            self.shell.view.outline.rows.count == count + 1 && self.editors().count > 2
+        }
+    }
+
+    /// The table of the list of the items, and the scroll view that holds it.
+    private func list() throws -> (NSScrollView, NSTableView) {
+        var found: NSTableView?
+        func look(_ view: NSView) {
+            if found == nil, let table = view as? NSTableView { found = table }
+            view.subviews.forEach(look)
+        }
+        if let content = window.contentView { look(content) }
+        let table = try XCTUnwrap(found)
+        return (try XCTUnwrap(table.enclosingScrollView), table)
+    }
+
+    // ドラッグ選択のマウスを付箋の下端で止めると、付箋が下へスクロールし、下から出てきた項目まで選ばれる。
+    func testADragSelectionHeldAtTheBottomScrollsDownAndSelectsWhatComesUp() async throws {
+        try await longPage()
+        let (scroll, table) = try list()
+        let lastSeen = table.rows(in: table.visibleRect).upperBound - 1
+        let first = editors()[1]
+        // In the window, where up is up
+        let (text, shown) = (first.convert(first.bounds, to: nil), scroll.convert(scroll.bounds, to: nil))
+        let below = NSPoint(x: text.midX, y: text.minY - 15)
+        let bottom = NSPoint(x: shown.midX, y: shown.minY + 5)
+
+        try drag(from: first, through: [below, bottom], holding: 0.5)
+
+        XCTAssertGreaterThan(scroll.contentView.bounds.minY, 0)
+        let lastSelected = try XCTUnwrap(shell.view.outline.rows.lastIndex(where: \.isSelected))
+        XCTAssertGreaterThan(lastSelected, lastSeen)
+        XCTAssertFalse(shell.view.outline.rows[0].isSelected)
+    }
+
+    // 付箋の下までスクロールしてから、ドラッグ選択のマウスを上端で止めると、付箋が上へスクロールし、上から出てきた項目まで選ばれる。
+    func testADragSelectionHeldAtTheTopScrollsUpAndSelectsWhatComesDown() async throws {
+        try await longPage()
+        let (scroll, table) = try list()
+        let clip = scroll.contentView
+        let end = (scroll.documentView?.frame.height ?? 0) - clip.bounds.height
+        clip.scroll(to: NSPoint(x: 0, y: end))
+        scroll.reflectScrolledClipView(clip)
+        try await waitUntil("the last item can be seen") {
+            self.editors().contains { $0.string == "item 40" && !$0.visibleRect.isEmpty }
+        }
+        let firstSeen = table.rows(in: table.visibleRect).lowerBound
+        let last = try XCTUnwrap(editors().first { $0.string == "item 40" })
+        let (text, shown) = (last.convert(last.bounds, to: nil), scroll.convert(scroll.bounds, to: nil))
+        let above = NSPoint(x: text.midX, y: text.maxY + 15)
+        let top = NSPoint(x: shown.midX, y: shown.maxY - 5)
+
+        try drag(from: last, through: [above, top], holding: 0.5)
+
+        XCTAssertLessThan(clip.bounds.minY, end)
+        let firstSelected = try XCTUnwrap(shell.view.outline.rows.firstIndex(where: \.isSelected))
+        XCTAssertLessThan(firstSelected, firstSeen)
+        XCTAssertTrue(shell.view.outline.rows[40].isSelected)
     }
 
     /// The search box, when it is on screen.

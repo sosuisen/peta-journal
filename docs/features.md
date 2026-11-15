@@ -342,7 +342,7 @@
 
 ### 複数の項目を選ぶ
 
-出典: `tests/selection.rs`、`core/outline/selection.rs`、`core/outline/tree.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/transclusion-delete`、Windowsの`ItemDragTests`と`EdgeScrollTests`
+出典: `tests/selection.rs`、`core/outline/selection.rs`、`core/outline/tree.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/transclusion-delete`、macOSの`OutlineScreenTests`、Windowsの`ItemDragTests`と`EdgeScrollTests`
 
 - 項目を選ぶと、その下の項目もすべて選ばれる。どの選び方でも同じである
   - 折りたたまれて見えない子も選ばれる
@@ -354,9 +354,8 @@
 - ドラッグ選択はエディタの外へ出たときに始まり、その項目と子が選ばれて編集は終わる
   - マウスが入った項目まで広がり、ボタンを離した後は変わらない。ドラッグ中のクリックは選択を終えない
   - 親のある項目から始めたドラッグは、マウスが親の外へ出ても、親の子孫の終わりで止まる（ADR 049）
-  - ドラッグしていないときにマウスが項目に入っても、何も選ばれない
-  - Windowsの付箋紙アプリでも、同じドラッグで項目を選ぶ。押した項目の本文の上下10pxまでは文字を選び、それより外へ出ると項目の選択が始まる。同じ項目へは2度送らない。選択が始まる前に離せば、何も送らない
-  - Windowsの付箋紙アプリでは、選択中に付箋紙の上端か下端から40pxの帯にマウスを置くと、深いほど速くスクロールする。端と、その外では1回に24pxである
+  - ドラッグしていないときにマウスが項目に入っても、何も選ばれない  
+  - ドラッグ選択のマウスを付箋の上端か下端の帯で止めると、その向きへスクロールし、マウスの下に来た項目まで選択が広がる。
 - 選択の開始位置はアンカーのレベルの先祖まで戻り、親が選択済みの項目はルート項目に含まれない
 - Escapeと選択の外のクリックで、何も変えずに選択をやめる。選択していなければ選択のキーは何もしない
 
