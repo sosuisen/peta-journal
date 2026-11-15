@@ -3,25 +3,7 @@ pub mod filename;
 pub mod utf16;
 pub mod week;
 
-/// True when the text has an odd number of lines that open a code fence.
-pub fn has_unclosed_code_fence(text: &str) -> bool {
-    text.split('\n')
-        .filter(|line| line.trim_start().starts_with("```"))
-        .count()
-        % 2
-        != 0
-}
-
-/// Closes an open code fence, so the saved body never ends inside one.
-pub fn ensure_code_fence_closed(text: &str) -> String {
-    if has_unclosed_code_fence(text) {
-        format!("{text}\n```")
-    } else {
-        text.to_string()
-    }
-}
-
-/// What a `[[`, an opening code fence or a closing `]` just typed becomes: the body with its
+/// What a `[[`, the opening of a block or a closing `]` just typed becomes: the body with its
 /// closing part added or typed over, and the cursor. `cursor` is the character index right after
 /// the typed character. None when the body stays as it is.
 pub fn auto_close(body: &str, cursor: usize) -> Option<(String, usize)> {
@@ -131,15 +113,6 @@ fn link_starting(chars: &[char]) -> Option<(usize, Link)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // 閉じていないコードフェンスは ``` で始まる行が奇数個あることで検出され、閉じフェンスが補われる。
-    #[test]
-    fn code_fences() {
-        assert!(has_unclosed_code_fence("```js\nlet a"));
-        assert!(!has_unclosed_code_fence("```js\nlet a\n```"));
-        assert_eq!(ensure_code_fence_closed("```"), "```\n```");
-        assert_eq!(ensure_code_fence_closed("x"), "x");
-    }
 
     // `[[`を打つと`]]`が補われ、カーソルはその間に留まる。すでに`]]`が続いていれば補わない。
     #[test]
