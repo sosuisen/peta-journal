@@ -1,7 +1,7 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput, FolderChoice};
 use crate::harness::Harness;
-use crate::model::{ServerConfig, WeekNumbering};
+use crate::model::{PropertyDefinition, ServerConfig, WeekNumbering};
 
 // 本体と型でプロパティ定義を追加すると、前後の空白を除いた本体に型の接尾辞を付けた名前がサーバーに送られ、サーバーの一覧が表示される。
 #[test]
@@ -75,6 +75,25 @@ fn a_definition_of_a_type_the_user_cannot_choose_is_not_sent() {
         h.model.config.definition_error.as_deref(),
         Some("A key cannot be of type tags")
     );
+}
+
+// 定義は、ユーザーのキーを名前の本体で示し、システムのキーを名前のまま示す。
+#[test]
+fn a_definition_shows_the_body_of_a_user_key_and_the_whole_name_of_a_system_key() {
+    let user = PropertyDefinition {
+        key: "rating_n".into(),
+        value_type: "number".into(),
+        system: false,
+        page: true,
+    };
+    let system = PropertyDefinition {
+        key: "atlas_bounds".into(),
+        value_type: "bounds".into(),
+        system: true,
+        page: false,
+    };
+    assert_eq!(user.shown_name(), "rating");
+    assert_eq!(system.shown_name(), "atlas_bounds");
 }
 
 // プロパティ定義を削除すると、それがサーバーに送られ、サーバーの一覧が表示される。拒否された削除はその理由を示す。
