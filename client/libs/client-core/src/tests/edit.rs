@@ -91,18 +91,25 @@ fn finish_edit_of_an_item_not_shown_drops_its_edit_mark() {
     assert!(!h.model.state.is_editing("gone"));
 }
 
-// 編集終了で開いたままのコードフェンスが閉じられて保存される。その後に何も入力されていなくても同様である。
+// 編集終了で、閉じていないブロックは閉じる記号を補われて保存される。どの種類のブロックでも、何も入力されていなくても同様である。
 #[test]
-fn finish_edit_closes_an_open_code_fence_even_when_nothing_was_typed_since() {
-    let mut h = Harness::with_items(vec![item("a", 1, "```js")]);
-    h.model.state.add_editing_item("a");
-    h.send(Event::EditFinished {
-        item_id: "a".into(),
-    });
-    assert_eq!(
-        update_calls(&h.api),
-        [("a".into(), Some("```js\n```".into()))]
-    );
+fn finish_edit_closes_an_unclosed_block_even_when_nothing_was_typed_since() {
+    for (body, closed) in [
+        ("```js", "```js\n```"),
+        (">>>\nabc", ">>>\nabc\n>>>"),
+        ("<!--\nabc", "<!--\nabc\n-->"),
+    ] {
+        let mut h = Harness::with_items(vec![item("a", 1, body)]);
+        h.model.state.add_editing_item("a");
+        h.send(Event::EditFinished {
+            item_id: "a".into(),
+        });
+        assert_eq!(
+            update_calls(&h.api),
+            [("a".into(), Some(closed.into()))],
+            "{body:?}"
+        );
+    }
 }
 
 // 引き継ぎがその項目を保存している間は、編集終了が無視される。
