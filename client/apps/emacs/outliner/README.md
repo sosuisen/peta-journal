@@ -189,7 +189,8 @@ sets the size. The image scale of Emacs (`image-scaling-factor`) applies to this
 The link stays as text in these cases:
 
 - Emacs cannot show images here, as in a terminal.
-- The server does not have the file, or Emacs cannot read its format.
+- The server does not have the file, or Emacs cannot read its format. Some builds of Emacs
+  cannot show PNG at all.
 - The link is in code.
 - The link does not point to the `assets` of the server, like `https://`.
 - The file name in `assets` has characters other than ASCII letters, digits, `.`, `_` and `-`.
