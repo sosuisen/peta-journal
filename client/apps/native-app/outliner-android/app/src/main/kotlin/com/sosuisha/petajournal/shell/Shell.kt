@@ -14,6 +14,7 @@ import com.sosuisha.petajournal.types.UiOp
 import com.sosuisha.petajournal.types.UiOutput
 import com.sosuisha.petajournal.types.ViewModel
 import java.io.File
+import java.time.LocalDate
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 
@@ -118,6 +119,22 @@ class Shell(
         show()
     }
 
+    /**
+     * Back to the page that was open before, as the core keeps the history (ADR 035). Nothing
+     * happens when `view.history.canGoBack` is false.
+     */
+    fun back() = turn(Event.Back(date()))
+
+    /** Forward to the page that was open before [back]. */
+    fun forward() = turn(Event.Forward(date()))
+
+    private fun turn(event: Event) {
+        // The pages of the history opened before, so what the last one told is gone
+        missing = null
+        missingFile = null
+        send(event)
+    }
+
     // The search
 
     /** The user typed into the search field. */
@@ -196,6 +213,9 @@ class Shell(
     fun finish(itemId: String) = send(Event.EditFinished(itemId))
 
     private fun now(): ULong = System.currentTimeMillis().toULong()
+
+    /** The local date, `YYYY-MM-DD`, for a journal of today that the history opens. */
+    private fun date(): String = LocalDate.now().toString()
 
     /** Makes the item a child of the item above it. */
     fun indent(itemId: String) = change(Event.Indent(itemId))

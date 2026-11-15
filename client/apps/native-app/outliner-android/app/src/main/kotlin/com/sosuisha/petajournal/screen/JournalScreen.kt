@@ -29,6 +29,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -52,8 +53,8 @@ const val EDITOR_TAG = "editor"
 const val BULLET_TAG = "bullet"
 
 /**
- * The one screen of the app: a bar with the menu, the search field and the button for today,
- * and under it the results of the search or the page that is open. [cloud] is where the sync
+ * The one screen of the app: a bar with the menu, back and forward, the search field and the
+ * button for today, and under it the results of the search or the page that is open. [cloud] is where the sync
  * with the cloud stands, and `null` in an app that syncs nothing. [syncInFront] says that the user waits for the sync.
  */
 @Composable
@@ -81,6 +82,8 @@ fun JournalScreen(
                     // At the top, where it stays while an item is edited and the keyboard is up
                     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         cloud?.let { SyncMenu(it, onSignIn, onSync, onSignOut) }
+                        HistoryButton("Back", view.history.canGoBack, shell::back, left = true)
+                        HistoryButton("Forward", view.history.canGoForward, shell::forward, left = false)
                         OutlinedTextField(
                             value = view.search.query,
                             onValueChange = shell::search,
@@ -160,6 +163,30 @@ private fun TodayButton(onTouch: () -> Unit) {
             drawLine(ink, at(3f, 17f), at(19f, 17f), strokeWidth = unit)
             drawLine(ink, at(14f, 2f), at(14f, 20f), strokeWidth = 3f * unit)
             drawRect(ink, topLeft = at(5f, 21f), size = Size(3f * unit, 2f * unit))
+        }
+    }
+}
+
+/**
+ * The button that goes back or forward in the history of the pages. It is narrower than the
+ * others, as two of them stand beside the search field. Without a page in its direction, it
+ * is there but cannot be touched, so the bar does not move.
+ */
+@Composable
+private fun HistoryButton(name: String, enabled: Boolean, onTouch: () -> Unit, left: Boolean) {
+    val ink = MaterialTheme.colorScheme.onSurfaceVariant.let { if (enabled) it else it.copy(alpha = 0.38f) }
+    Box(
+        Modifier.size(width = 36.dp, height = 48.dp)
+            .clickable(enabled = enabled, onClick = onTouch)
+            .semantics { contentDescription = name },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(24.dp)) {
+            val unit = size.width / 24f
+            fun at(x: Float, y: Float) = Offset((if (left) x else 24f - x) * unit, y * unit)
+            val width = 2.6f * unit
+            drawLine(ink, at(15f, 5f), at(8f, 12f), strokeWidth = width, cap = StrokeCap.Round)
+            drawLine(ink, at(8f, 12f), at(15f, 19f), strokeWidth = width, cap = StrokeCap.Round)
         }
     }
 }
