@@ -552,7 +552,7 @@
   - RESTやMCPで定義のないキーに値を書くと、その型の定義が日時とともに作られ、書かれる
   - ほかの端末で消した定義のキーでも同じで、消した定義ではなくなる
   - 仮の定義のキーに値を書いても、仮の定義のままである。ユーザーは型を選んでいないからである
-  - 2つの版の定義は、キーごとに新しい方を採って合わせる。日時が同じなら、消した方、text以外の型、型の名前の辞書順で後の方、ページで使える方を採る。どの順に合わせても、結果は同じである（`journal-core/src/domain/property_definitions.rs`）
+  - 2つの版の定義は、キーごとに新しい方を採って合わせる。日時が同じなら、消した方、ページで使える方を採る。型は名前から決まるので、比べない（ADR 047）。どの順に合わせても、結果は同じである（`journal-core/src/domain/property_definitions.rs`）
   - 定義はキーの辞書順に、型を書かずに書かれる。型のない定義は、名前から決まる型で読む。ユーザーが作れない定義は読み飛ばす（`journal-core/src/infrastructure/export/definitions_file.rs`、ADR 047）
 - 端末は、ほかの端末が書いた`settings/properties.json`を取り込む（`journal/journal-server/tests/it/definitions_sync.rs`、ADR 046）
   - DBにない定義は、DBに入る。新しい方の定義が残る

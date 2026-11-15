@@ -118,13 +118,9 @@ impl DefinitionsFileService {
                 continue;
             }
             match definition {
-                Definition::Defined {
-                    value_type,
-                    page,
-                    modified,
-                } => self
-                    .properties
-                    .put_definition(key, value_type, *page, *modified)?,
+                Definition::Defined { page, modified } => {
+                    self.properties.put_definition(key, *page, *modified)?
+                }
                 Definition::Deleted { deleted } => self.properties.put_deletion(key, *deleted)?,
             }
         }
@@ -162,23 +158,14 @@ pub fn read(text: &str) -> AppResult<Definitions> {
         .definitions
         .into_iter()
         .filter_map(|(key, entry)| Some((key.clone(), entry.definition(&key)?)))
-        .filter(|(key, definition)| a_user_can_make(key, definition))
+        .filter(|(key, _)| a_user_can_make(key))
         .collect())
 }
 
 /// Whether a user could have made the definition here. A file written by hand, or by
 /// another version of the app, may hold others; they are left out.
-fn a_user_can_make(key: &str, definition: &Definition) -> bool {
-    if SYSTEM_KEYS.iter().any(|(system, _, _)| *system == key) {
-        return false;
-    }
-    let Ok(key) = PropertyKey::parse(key) else {
-        return false;
-    };
-    match definition {
-        Definition::Defined { value_type, .. } => key.check_type(value_type).is_ok(),
-        Definition::Deleted { .. } => true,
-    }
+fn a_user_can_make(key: &str) -> bool {
+    !SYSTEM_KEYS.iter().any(|(system, _, _)| *system == key) && PropertyKey::parse(key).is_ok()
 }
 
 #[derive(Deserialize)]
@@ -205,10 +192,13 @@ impl ReadEntry {
                 deleted: parse_instant(Some(&deleted))?,
             });
         }
+        if self
+            .value_type
+            .is_some_and(|value_type| value_type != property_names::type_of(key).as_str())
+        {
+            return None;
+        }
         Some(Definition::Defined {
-            value_type: self
-                .value_type
-                .unwrap_or_else(|| property_names::type_of(key).as_str().to_string()),
             page: self.page,
             modified: parse_instant(self.modified.as_deref())?,
         })
@@ -234,7 +224,7 @@ struct Entry {
 impl Entry {
     fn of(definition: &Definition) -> Entry {
         match definition {
-            Definition::Defined { page, modified, .. } => Entry {
+            Definition::Defined { page, modified } => Entry {
                 page: Some(*page),
                 modified: Some(format_instant(*modified)),
                 deleted: None,
@@ -260,7 +250,6 @@ mod tests {
             (
                 "score_n".to_string(),
                 Definition::Defined {
-                    value_type: "number".to_string(),
                     page: false,
                     modified: 1_763_172_000_000,
                 },
@@ -274,7 +263,6 @@ mod tests {
             (
                 "owner".to_string(),
                 Definition::Defined {
-                    value_type: "text".to_string(),
                     page: true,
                     modified: 1_763_168_400_000,
                 },
@@ -312,7 +300,6 @@ mod tests {
             (
                 "owner".to_string(),
                 Definition::Defined {
-                    value_type: "text".to_string(),
                     page: true,
                     modified: 0,
                 },
@@ -332,7 +319,6 @@ mod tests {
         assert_eq!(
             read(text).unwrap().remove("rating_n"),
             Some(Definition::Defined {
-                value_type: "number".to_string(),
                 page: true,
                 modified: 1_000,
             })
@@ -361,7 +347,6 @@ mod tests {
             [(
                 "owner".to_string(),
                 Definition::Defined {
-                    value_type: "text".to_string(),
                     page: true,
                     modified: 1_000,
                 }
