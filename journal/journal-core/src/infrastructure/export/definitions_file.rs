@@ -2,12 +2,15 @@
 //! that every device gets them (ADR 046).
 
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
 use super::export_service::{format_instant, MarkdownExportService};
+use super::import_service::Outcome;
 use super::page_matcher::parse_instant;
+use super::path_mapper::has_copy_marker;
 use crate::domain::property_definitions::{merge, Definition, Definitions};
 use crate::domain::property_key::PropertyKey;
 use crate::error::{AppError, AppResult};
@@ -18,7 +21,7 @@ use crate::infrastructure::persistence::property_repository::{
 };
 
 /// The folder of the settings in the Markdown folder.
-const SETTINGS_DIR: &str = "settings";
+pub const SETTINGS_DIR: &str = "settings";
 
 /// Where the file is, relative to the Markdown folder.
 pub const DEFINITIONS_FILE: &str = "settings/properties.json";
@@ -57,6 +60,62 @@ impl DefinitionsFileService {
         write_atomic(&path, &text)?;
         Ok(())
     }
+}
+
+impl DefinitionsFileService {
+    /// Takes in the file as another device wrote it: the definitions are put together with
+    /// those of this device, key by key, and the DB gets the result (ADR 046).
+    pub fn take_in(&self, root: &Path) -> AppResult<Outcome> {
+        let text = std::fs::read_to_string(root.join(DEFINITIONS_FILE))?;
+        let merged = self.put_together(&read(&text)?)?;
+        // The other device does not have what only this one has: it gets it in the file
+        let merged_text = write(&merged);
+        if merged_text != text {
+            write_atomic(&root.join(DEFINITIONS_FILE), &merged_text)?;
+        }
+        Ok(Outcome::Imported)
+    }
+
+    /// Takes in a conflicted copy of the file as one more version, writes the file with all
+    /// of it, and deletes the copy.
+    pub fn take_in_copy(&self, root: &Path, rel_path: &str) -> AppResult<Outcome> {
+        let copy = root.join(rel_path);
+        self.put_together(&read(&std::fs::read_to_string(&copy)?)?)?;
+        self.write_file()?;
+        std::fs::remove_file(&copy)?;
+        Ok(Outcome::Imported)
+    }
+
+    /// Puts another version together with the definitions of this device, key by key, and
+    /// gives the DB the result.
+    fn put_together(&self, theirs: &Definitions) -> AppResult<Definitions> {
+        let ours = self.properties.find_synced_definitions()?;
+        let merged = merge(&ours, theirs);
+        for (key, definition) in &merged {
+            if ours.get(key) == Some(definition) {
+                continue;
+            }
+            match definition {
+                Definition::Defined {
+                    value_type,
+                    page,
+                    modified,
+                } => self
+                    .properties
+                    .put_definition(key, value_type, *page, *modified)?,
+                Definition::Deleted { deleted } => self.properties.put_deletion(key, *deleted)?,
+            }
+        }
+        Ok(merged)
+    }
+}
+
+/// Whether the file is a conflicted copy of `settings/properties.json`, as Dropbox names it.
+pub fn is_copy_of_the_file(rel_path: &str) -> bool {
+    rel_path
+        .strip_prefix("settings/properties (")
+        .and_then(|rest| rest.strip_suffix(").json"))
+        .is_some_and(|note| !note.contains('/') && has_copy_marker(note))
 }
 
 /// The text of the file. The keys are in dictionary order, so the same definitions give the

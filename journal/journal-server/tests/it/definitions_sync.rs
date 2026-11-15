@@ -3,6 +3,7 @@
 
 use journal_core::domain::property_definitions::Definition;
 use journal_core::infrastructure::export::definitions_file::{self, DEFINITIONS_FILE};
+use journal_core::infrastructure::export::import_service::Outcome;
 use journal_core::journal::{AddPropertyDefinitionInput, ChangedBy};
 use journal_server::config::Settings;
 use journal_server::state::{AppState, BuildOptions};
@@ -120,4 +121,276 @@ fn a_device_without_a_markdown_folder_still_takes_a_definition() {
         .unwrap();
 
     assert!(state.properties.find_definition("score").unwrap().is_some());
+}
+
+impl Device {
+    fn is_provisional(&self, key: &str) -> bool {
+        self.state
+            .db
+            .conn()
+            .unwrap()
+            .query_row(
+                "SELECT provisional FROM property_definitions WHERE key = ?",
+                [key],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap()
+            == 1
+    }
+
+    /// The definition of the key in the DB of this device
+    fn definition(&self, key: &str) -> Option<(String, bool)> {
+        let d = self.state.properties.find_definition(key).unwrap()?;
+        Some((d.value_type, d.page))
+    }
+}
+
+// 端末は、ほかの端末が書いたsettings/properties.jsonを受け取ると、その端末のDBにない定義を、DBに入れる。
+#[test]
+fn a_definition_from_another_device_comes_into_the_db() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    b.define("score", "number", false);
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+}
+
+// 同じキーは、新しい方の定義になる。端末のDBの定義が古ければ、届いた定義に変わる。値は、新しい型で読む。
+#[test]
+fn a_newer_definition_from_another_device_replaces_the_older_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    a.define("score", "text", true);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    b.define("score", "number", false);
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+}
+
+// 端末のDBの定義のほうが新しければ、端末は定義を変えず、settings/properties.jsonを書き直す。ほかの端末に、新しい定義を届けるためである。
+#[test]
+fn an_older_definition_from_another_device_leaves_the_newer_one_and_the_file_is_written_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    b.define("score", "text", true);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    a.define("score", "number", false);
+    let a_wrote = a.written("score");
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+    assert_eq!(a.written("score"), a_wrote);
+}
+
+// 合わせた結果が、届いたsettings/properties.jsonと同じなら、端末はファイルを書き直さない。だから、2台がファイルを送り合い続けることはない。
+#[test]
+fn a_file_that_holds_what_the_device_has_is_not_written_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    b.define("score", "number", false);
+    a.deliver(&b, DEFINITIONS_FILE);
+    let file = a.root.join(DEFINITIONS_FILE);
+    let long_ago = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000);
+    std::fs::File::options()
+        .write(true)
+        .open(&file)
+        .unwrap()
+        .set_modified(long_ago)
+        .unwrap();
+
+    a.sync(DEFINITIONS_FILE);
+
+    assert_eq!(
+        std::fs::metadata(&file).unwrap().modified().unwrap(),
+        long_ago
+    );
+}
+
+// ほかの端末が消した定義が届き、その端末のDBにそのキーの値がなければ、端末はDBから定義を消す。
+#[test]
+fn a_definition_deleted_on_another_device_goes_when_no_value_holds_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    a.define("score", "number", false);
+    b.receive(&a, DEFINITIONS_FILE);
+    b.undefine("score");
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert_eq!(a.definition("score"), None);
+    assert!(matches!(
+        a.written("score"),
+        Some(Definition::Deleted { .. })
+    ));
+}
+
+// ほかの端末が消した定義が届いても、その端末のDBにそのキーの値があれば、端末は定義を仮の定義にして残し、値も残す。仮の定義はsettings/properties.jsonに書かない。
+#[test]
+fn a_definition_deleted_on_another_device_stays_provisional_while_a_value_holds_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "number", true);
+    a.state
+        .page_service
+        .set_property(&page, "score", "number", "12")
+        .unwrap();
+    b.receive(&a, DEFINITIONS_FILE);
+    b.undefine("score");
+
+    assert_eq!(a.receive(&b, DEFINITIONS_FILE), Outcome::Imported);
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), true)));
+    assert!(a.is_provisional("score"));
+    let (scalars, _) = a.state.page_service.page_properties(&page).unwrap();
+    assert_eq!(scalars[page.as_str()]["score"], "12");
+    assert!(matches!(
+        a.written("score"),
+        Some(Definition::Deleted { .. })
+    ));
+}
+
+// 消した定義より新しい定義が届くと、端末は、その定義を本物の定義としてDBに入れ、消した定義の表からそのキーの行を消す。仮の定義も、本物の定義になる。
+#[test]
+fn a_definition_newer_than_its_deletion_makes_the_key_real_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "number", true);
+    a.state
+        .page_service
+        .set_property(&page, "score", "number", "12")
+        .unwrap();
+    b.receive(&a, DEFINITIONS_FILE);
+    b.undefine("score");
+    a.receive(&b, DEFINITIONS_FILE);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    b.define("score", "text", true);
+
+    a.receive(&b, DEFINITIONS_FILE);
+
+    assert_eq!(a.definition("score"), Some(("text".to_string(), true)));
+    assert!(!a.is_provisional("score"));
+    let deleted: i64 = a
+        .state
+        .db
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM deleted_property_definitions WHERE key = 'score'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(deleted, 0);
+}
+
+// settings/properties.jsonのconflicted copyが届くと、端末は、それをもう1つの版として合わせてから消す。どちらの版の定義も残る。
+#[test]
+fn a_conflicted_copy_of_the_definitions_is_merged_and_then_removed() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    a.define("owner", "text", true);
+    b.define("score", "number", false);
+    let copy = "settings/properties (PC's conflicted copy 2026-11-15).json";
+    std::fs::copy(b.root.join(DEFINITIONS_FILE), a.root.join(copy)).unwrap();
+
+    assert_eq!(a.sync(copy), Outcome::Imported);
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+    assert!(a.written("score").is_some());
+    assert!(a.written("owner").is_some());
+    assert!(!a.root.join(copy).exists());
+}
+
+// 端末は、Markdownフォルダーの走査でも、settings/properties.jsonとそのconflicted copyを取り込む。
+#[test]
+fn a_scan_of_the_folder_takes_in_the_definitions_and_their_copies() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    a.doc("a");
+    a.export();
+    b.define("score", "number", false);
+    a.deliver(&b, DEFINITIONS_FILE);
+    let copy = "settings/properties (PC's conflicted copy 2026-11-15).json";
+    std::fs::write(
+        a.root.join(copy),
+        r#"{ "definitions": { "owner": { "type": "text", "page": true, "modified": "2025-11-15T01:00:00Z" } } }"#,
+    )
+    .unwrap();
+
+    a.state.reconcile.scan();
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), false)));
+    assert_eq!(a.definition("owner"), Some(("text".to_string(), true)));
+    assert!(!a.root.join(copy).exists());
+}
+
+// 端末は、settings/properties.jsonを取り込んでも、ページのファイルを書き直さず、ページの更新日時も進めない。型が変わっても、値は元の文字列のままである。
+#[test]
+fn taking_in_the_definitions_leaves_the_pages_and_their_files_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.doc("a");
+    a.define("score", "text", true);
+    a.state
+        .page_service
+        .set_property(&page, "score", "text", "1.50")
+        .unwrap();
+    a.export();
+    let file_before = a.file("docs/d/a.md");
+    let modified_before = a
+        .state
+        .pages
+        .find_by_id(&page)
+        .unwrap()
+        .unwrap()
+        .modified_date;
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    b.define("score", "number", true);
+
+    a.receive(&b, DEFINITIONS_FILE);
+    a.export();
+
+    assert_eq!(a.definition("score"), Some(("number".to_string(), true)));
+    assert_eq!(a.file("docs/d/a.md"), file_before);
+    assert_eq!(
+        a.state
+            .pages
+            .find_by_id(&page)
+            .unwrap()
+            .unwrap()
+            .modified_date,
+        modified_before
+    );
+    let (scalars, _) = a.state.page_service.page_properties(&page).unwrap();
+    assert_eq!(scalars[page.as_str()]["score"], "1.50");
+}
+
+// 読めないsettings/properties.jsonは取り込まない。端末のDBの定義も、ファイルも変わらない。conflicted copyも同じで、読めなければ消さずに残す。
+#[test]
+fn a_file_of_definitions_that_cannot_be_read_changes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    a.define("owner", "text", true);
+    let broken = r#"{ "definitions": { "score": "#;
+    let copy = "settings/properties (PC's conflicted copy 2026-11-15).json";
+    std::fs::write(a.root.join(DEFINITIONS_FILE), broken).unwrap();
+    std::fs::write(a.root.join(copy), broken).unwrap();
+
+    assert_eq!(a.sync(DEFINITIONS_FILE), Outcome::Error);
+    assert_eq!(a.sync(copy), Outcome::Error);
+
+    assert_eq!(a.definition("owner"), Some(("text".to_string(), true)));
+    assert_eq!(a.definition("score"), None);
+    assert_eq!(
+        std::fs::read_to_string(a.root.join(DEFINITIONS_FILE)).unwrap(),
+        broken
+    );
+    assert!(a.root.join(copy).exists());
 }

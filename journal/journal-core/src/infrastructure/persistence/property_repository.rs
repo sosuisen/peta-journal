@@ -214,6 +214,65 @@ impl PropertyRepository {
         Ok(())
     }
 
+    /// Defines a user key as another device defined it, or changes its definition to that.
+    /// The values stay as they are: the type is how they are read (ADR 046).
+    pub fn put_definition(
+        &self,
+        key: &str,
+        value_type: &str,
+        page: bool,
+        modified: i64,
+    ) -> AppResult<()> {
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        tx.execute(
+            "INSERT INTO property_definitions (key, value_type, is_system, for_page, modified, provisional)
+             VALUES (?1, ?2, 0, ?3, ?4, 0)
+             ON CONFLICT(key) DO UPDATE SET value_type = ?2, for_page = ?3, modified = ?4, provisional = 0
+             WHERE is_system = 0",
+            params![key, value_type, page as i64, modified],
+        )?;
+        tx.execute(
+            "DELETE FROM deleted_property_definitions WHERE key = ?",
+            params![key],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Takes the deletion of a user key on another device: the date is kept, and the
+    /// definition goes. While a value of the key is still here, the definition stays as a
+    /// provisional one, to read that value; the values go when the files that dropped them
+    /// come in (ADR 046).
+    pub fn put_deletion(&self, key: &str, deleted: i64) -> AppResult<()> {
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        tx.execute(
+            "INSERT INTO deleted_property_definitions (key, deleted_date) VALUES (?, ?)
+             ON CONFLICT(key) DO UPDATE SET deleted_date = MAX(deleted_date, excluded.deleted_date)",
+            params![key, deleted],
+        )?;
+        let held: bool = tx.query_row(
+            "SELECT EXISTS (SELECT 1 FROM properties WHERE key = ?1)
+                 OR EXISTS (SELECT 1 FROM property_list_items WHERE key = ?1)",
+            params![key],
+            |r| r.get(0),
+        )?;
+        if held {
+            tx.execute(
+                "UPDATE property_definitions SET provisional = 1 WHERE key = ? AND is_system = 0",
+                params![key],
+            )?;
+        } else {
+            tx.execute(
+                "DELETE FROM property_definitions WHERE key = ? AND is_system = 0",
+                params![key],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
     /// The definitions this device gives the other devices: the real user definitions, and
     /// the keys deleted here (ADR 046).
     pub fn find_synced_definitions(&self) -> AppResult<Definitions> {
