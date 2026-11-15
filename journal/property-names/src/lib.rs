@@ -24,6 +24,19 @@ impl ValueType {
         ValueType::List,
     ];
 
+    /// The name of the type, as the database and the API write it.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ValueType::Text => "text",
+            ValueType::Number => "number",
+            ValueType::Date => "date",
+            ValueType::Datetime => "datetime",
+            ValueType::Checkbox => "checkbox",
+            ValueType::Bounds => "bounds",
+            ValueType::List => "list",
+        }
+    }
+
     /// The suffix of the key names of the type. Text has none.
     pub fn suffix(self) -> &'static str {
         match self {
