@@ -104,4 +104,14 @@ mod tests {
         assert_eq!(merge(&defined, &deleted), deleted);
         assert_eq!(merge(&deleted, &defined), deleted);
     }
+
+    // 日時が同じなら、textよりtext以外の型を採る。textは、型の分からない値に与える型だからである。
+    #[test]
+    fn of_the_same_date_a_type_other_than_text_wins() {
+        let text = version(&[("score", defined("text", true, 5))]);
+        let number = version(&[("score", defined("number", true, 5))]);
+
+        assert_eq!(merge(&text, &number), number);
+        assert_eq!(merge(&number, &text), number);
+    }
 }
