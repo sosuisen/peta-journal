@@ -22,8 +22,14 @@ pub enum Definition {
 pub type Definitions = BTreeMap<String, Definition>;
 
 /// Puts two versions together, key by key.
-pub fn merge(_a: &Definitions, _b: &Definitions) -> Definitions {
-    Definitions::new()
+pub fn merge(a: &Definitions, b: &Definitions) -> Definitions {
+    let mut merged = a.clone();
+    for (key, definition) in b {
+        merged
+            .entry(key.clone())
+            .or_insert_with(|| definition.clone());
+    }
+    merged
 }
 
 #[cfg(test)]
