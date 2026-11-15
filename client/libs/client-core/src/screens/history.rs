@@ -5,6 +5,9 @@ use crate::app::{done, Cmd, Model, Route};
 use crate::screens::{navigate, route};
 use crate::view::HistoryView;
 
+/// How many URLs the history keeps. The oldest goes first.
+const LIMIT: usize = 100;
+
 /// The URLs that were opened, oldest first, and the one on screen.
 #[derive(Debug, Default)]
 pub struct History {
@@ -31,6 +34,9 @@ impl History {
             self.urls.truncate(self.at + 1);
         }
         self.urls.push(url.to_string());
+        if self.urls.len() > LIMIT {
+            self.urls.remove(0);
+        }
         self.at = self.urls.len() - 1;
     }
 
