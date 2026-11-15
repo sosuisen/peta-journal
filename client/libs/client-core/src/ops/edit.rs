@@ -108,13 +108,14 @@ pub fn discard_pending_edit(model: &mut Model, item: &Item) -> Cmd {
 
 /// The text typed into an item and not saved yet, for a request that carries it to the
 /// server with what it does (ADR 011). Its auto-save is dropped, or it would overwrite what
-/// the request wrote a moment later.
+/// the request wrote a moment later. A block left open is closed: the server refuses a body
+/// that is not (ADR 050).
 pub fn take_unsaved(model: &mut Model, item: &Item) -> (Option<String>, Cmd) {
     if !model.edits.dirty_item_ids.contains(&item.id) {
         return (None, done());
     }
     (
-        typed_body(model, &item.id),
+        typed_body(model, &item.id).map(|body| flatmarkdown::close_blocks(&body)),
         discard_pending_edit(model, item),
     )
 }
