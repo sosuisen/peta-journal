@@ -161,6 +161,24 @@ async fn an_item_is_created_read_updated_and_deleted() {
     assert!(error.contains("Item not found"), "{error}");
 }
 
+// MCPでも、閉じていないブロックを持つ本文での更新は断られ、本文はそのまま残る（ADR 050）。
+#[tokio::test]
+async fn an_update_to_a_body_with_an_unclosed_block_is_refused() {
+    let mcp = connect().await;
+    let page = new_doc_page("mcp-unclosed").await;
+    let item = fill(&page.id, &["a"]).await.remove(0);
+
+    let error = call_err(
+        &mcp,
+        "update_item",
+        json!({ "itemId": item.id, "body": "```\nabc" }),
+    )
+    .await;
+
+    assert!(error.contains("開始記号と閉じる記号"), "{error}");
+    assert_eq!(outline_of(&page.id).await, vec!["1:a"]);
+}
+
 // ページの最後の項目を消すと、同じ操作で空の項目が1つ作られる。
 #[tokio::test]
 async fn deleting_the_last_item_of_a_page_leaves_one_empty_item() {
