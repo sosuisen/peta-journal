@@ -139,6 +139,7 @@ impl Journal {
         by: &ChangedBy,
     ) -> AppResult<PropertyDefinitionsAnswer> {
         let page_ids = self.services.page_service.delete_property_definition(key)?;
+        self.services.definitions_file.write_file()?;
         self.tell(&page_ids, by);
         self.property_definitions()
     }

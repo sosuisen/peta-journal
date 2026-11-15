@@ -225,7 +225,20 @@ impl PropertyRepository {
                 },
             ))
         })?;
-        Ok(rows.collect::<Result<_, _>>()?)
+        let mut definitions: Definitions = rows.collect::<Result<_, _>>()?;
+        let mut stmt =
+            conn.prepare("SELECT key, deleted_date FROM deleted_property_definitions")?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                Definition::Deleted { deleted: r.get(1)? },
+            ))
+        })?;
+        for row in rows {
+            let (key, deleted) = row?;
+            definitions.entry(key).or_insert(deleted);
+        }
+        Ok(definitions)
     }
 
     /// `delete_definition` on the given connection, as part of a larger transaction.
@@ -263,6 +276,11 @@ impl PropertyRepository {
         tx.execute(
             "DELETE FROM property_definitions WHERE key = ?",
             params![key],
+        )?;
+        tx.execute(
+            "INSERT INTO deleted_property_definitions (key, deleted_date) VALUES (?, ?)
+             ON CONFLICT(key) DO UPDATE SET deleted_date = MAX(deleted_date, excluded.deleted_date)",
+            params![key, now_millis()],
         )?;
         Ok(page_ids)
     }
