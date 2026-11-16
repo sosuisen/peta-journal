@@ -191,8 +191,10 @@ The server is a real one, with its files in a temporary folder."
   "The markdown file in FOLDER that holds TEXT, or nil."
   (seq-find (lambda (file)
               (with-temp-buffer
-                (insert-file-contents file)
-                (search-forward text nil t)))
+                ;; The server may move a file away after the list is made, as a rename does
+                (ignore-error file-missing
+                  (insert-file-contents file)
+                  (search-forward text nil t))))
             (directory-files-recursively folder "\\.md\\'")))
 
 (defun peta-journal-e2e--wait-for-file (folder text)
