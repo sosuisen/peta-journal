@@ -354,6 +354,7 @@
 
 ### 機能向上
 
+- [x] 子を隠した項目の点を、Androidと同じく、大きな薄い灰色の円の上に描く（2026-11-16に開発者がiOSにも求めた）。`Outline.swift`、`JournalScreenTests`
 - [ ] 同期の失敗の表示から、SDKの生のエラーの文字を取る。通信ができないための失敗は、それと見分けて、分かるように伝える（2026-11-13に開発者が決めた）。Androidのシェルは、もう分けている（`CloudSync.kt`の`SyncState.Failed`、`CloudSyncTest`）
   - iPhoneで通信を切って編集すると、「Sync failed: urlSessionError(SwiftyDropbox.ClientError.urlSessionError…」と出た。長くて、意味が分からない（2026-11-13に開発者が見た）。Androidも長いが、画面が大きいので気にならなかっただけである
   - 失敗の表示、「Try again」、通信が戻ったあとのアップロードは、働いた

@@ -84,6 +84,12 @@ struct OutlineRow: View {
     /// How wide and how high the bullet of an item is.
     private static let bullet: CGFloat = 7
 
+    /// How wide the disc behind the bullet of a folded item is, and how faint. The web draws a
+    /// dot of 5px on a disc of 13px, in `#888` and `#ddd`: the disc here keeps that size to the
+    /// bullet, and that faintness.
+    private static let folded: CGFloat = 18
+    private static let foldedFaintness = 0.13
+
     var body: some View {
         let id = row.item.id
         let blocks = row.isEditing ? [] : row.bodyModel.blocks
@@ -99,8 +105,20 @@ struct OutlineRow: View {
                     // The bullet is drawn, not a letter: the place of a letter in its line
                     // differs from font to font
                     if row.showBullet {
-                        Circle().frame(width: OutlineRow.bullet, height: OutlineRow.bullet)
-                            .accessibilityIdentifier("bullet")
+                        if row.isCollapsed {
+                            // A folded item has a large faint disc behind its bullet, as on the web
+                            Circle().frame(width: OutlineRow.bullet, height: OutlineRow.bullet)
+                                .background {
+                                    Circle().fill(Color.primary.opacity(OutlineRow.foldedFaintness))
+                                        .frame(width: OutlineRow.folded, height: OutlineRow.folded)
+                                }
+                                .accessibilityElement()
+                                .accessibilityLabel("Folded")
+                                .accessibilityIdentifier("folded")
+                        } else {
+                            Circle().frame(width: OutlineRow.bullet, height: OutlineRow.bullet)
+                                .accessibilityIdentifier("bullet")
+                        }
                     }
                 }
                 .frame(width: 22, height: first, alignment: .leading)
