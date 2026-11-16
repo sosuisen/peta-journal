@@ -175,8 +175,15 @@ impl PetaCloudSync {
         self.sync.start(Arc::new(cloud), in_front);
     }
 
+    /// Where the sync stands now. What `PetaSyncHost.told` tells may be old by the time the
+    /// shell reads it on its main thread: a sync may have started since.
     pub fn state(&self) -> PetaSyncState {
         state(self.sync.state())
+    }
+
+    /// Whether the user waits for the sync that runs now.
+    pub fn in_front(&self) -> bool {
+        self.sync.in_front()
     }
 
     /// The user has signed out of Dropbox. The cursor goes, and the downloaded files and the

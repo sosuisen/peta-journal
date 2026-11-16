@@ -316,6 +316,54 @@ fn a_sign_out_rests_signed_out_and_deletes_the_cursor() {
     );
 }
 
+// シェルは、同期の今の状態と、ユーザーが待っているかを、知らせを待たずに読める。休むと、待っている印は消える。
+#[test]
+fn the_shell_reads_where_the_sync_stands_now_and_whether_the_user_waits() {
+    /// A Dropbox that answers the listing only when the test lets it.
+    struct Held {
+        go: Mutex<std::sync::mpsc::Receiver<()>>,
+        inner: FakeSdk,
+    }
+    impl PetaDropboxSdk for Held {
+        fn list(&self, folder: String) -> Result<PetaListing, PetaDropboxError> {
+            self.go.lock().unwrap().recv().unwrap();
+            self.inner.list(folder)
+        }
+        fn list_after(&self, cursor: String) -> Result<PetaListing, PetaDropboxError> {
+            self.inner.list_after(cursor)
+        }
+        fn download(&self, rev: String, to: String) -> Result<(), PetaDropboxError> {
+            self.inner.download(rev, to)
+        }
+        fn upload(
+            &self,
+            path: String,
+            from: String,
+            over: Option<String>,
+            modified_ms: i64,
+        ) -> Result<PetaDropboxFile, PetaDropboxError> {
+            self.inner.upload(path, from, over, modified_ms)
+        }
+    }
+    let (app, sync) = app();
+    let (go, held) = channel();
+    let sdk = Held {
+        go: Mutex::new(held),
+        inner: FakeSdk::default(),
+    };
+    assert!(!sync.in_front());
+    sync.start(Arc::new(sdk), "/PetaJournal".into(), true);
+    assert_eq!(
+        sync.state(),
+        PetaSyncState::Downloading { done: 0, total: 0 }
+    );
+    assert!(sync.in_front());
+    go.send(()).unwrap();
+    app.until_rest();
+    assert_eq!(sync.state(), PetaSyncState::Idle);
+    assert!(!sync.in_front());
+}
+
 /// A Dropbox of the test that holds the notes, and answers `after` for the changes since.
 fn with_notes(after: Option<Result<PetaListing, PetaDropboxError>>) -> FakeSdk {
     FakeSdk {
