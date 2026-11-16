@@ -238,7 +238,6 @@ class Shell(
     /** Hides the children of the item, or shows them again. */
     fun toggleCollapsed(itemId: String) = change(Event.CollapseToggle(itemId))
 
-    /** Takes back the last change of the page. */
     /**
      * Selects the item with everything under it (ADR 031). The edit of the item has ended:
      * the keyboard is down, and the tools act on the selected items.
@@ -251,6 +250,7 @@ class Shell(
     /** Moves or indents the selected items, as the keys do on a desktop. */
     fun moveSelected(key: SelectionKey) = change(Event.SelectionKey(key))
 
+    /** Takes back the last change of the page. */
     fun undo() = change(Event.Undo)
 
     /** Does again the change that [undo] took back. */
