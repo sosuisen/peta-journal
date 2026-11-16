@@ -43,11 +43,26 @@ private final class Opened: ObservableObject {
                 // A test of the screen syncs nothing
                 key: named == nil ? info["DropboxKey"] as? String ?? "" : "",
                 folder: info["DropboxFolder"] as? String ?? "")
-            model = try JournalModel(root: root, account: account)
+            let made = try JournalModel(root: root, account: account)
+            Opened.prepareForTest(made)
+            model = made
             failure = ""
         } catch {
             model = nil
             failure = String(describing: error)
+        }
+    }
+
+    /// What a test of the screen asks of the app when it starts it. `PETA_OPEN` is the URL of a
+    /// page to open at once, as `/pages/notes`: the test does not type into the search field
+    /// for it.
+    private static func prepareForTest(_ model: JournalModel) {
+        guard let url = ProcessInfo.processInfo.environment["PETA_OPEN"] else { return }
+        // Only after the files of the test are taken in: until then, the page is not there.
+        // The take-in of the start runs first, on the same thread
+        let shell = model.shell
+        shell.sync {
+            DispatchQueue.main.async { MainActor.assumeIsolated { shell.follow(url) } }
         }
     }
 }

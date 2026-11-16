@@ -37,9 +37,12 @@ final class JournalScreenTests: XCTestCase {
         "<!-- @ 2020-01-01-00-00-00-\(String(repeating: String(id), count: 7)) idx=\"a\(id)\"\(properties) -->\n"
     }
 
-    private func start() {
+    /// Starts the app on the folder of the test. `opening` is the URL of a page that the app
+    /// opens at once.
+    private func start(opening url: String? = nil) {
         app = XCUIApplication()
         app.launchEnvironment["PETA_ROOT"] = root.path
+        if let url { app.launchEnvironment["PETA_OPEN"] = url }
         app.launch()
     }
 
@@ -63,8 +66,16 @@ final class JournalScreenTests: XCTestCase {
         }
     }
 
-    /// Searches for the page `notes` and opens it.
+    /// Starts the app on the page `notes`. A test of something else than the search does not
+    /// go through the search field: the keyboard is slow to come up in the simulator, and now
+    /// and then the field does not get it.
     private func openNotes() {
+        start(opening: "/pages/notes")
+        waitFor(app.staticTexts["notes"])
+    }
+
+    /// Searches for the page `notes` and opens it.
+    private func searchNotes() {
         start()
         waitFor(search)
         search.tap()
@@ -143,7 +154,7 @@ final class JournalScreenTests: XCTestCase {
     // 取り込まれたページは、検索で見つかり、開く。
     func testAPageThatWasTakenInIsFoundBySearchAndOpens() throws {
         try download("notes.md", "the first item\n")
-        openNotes()
+        searchNotes()
         waitFor(app.staticTexts["the first item"])
     }
 
@@ -171,7 +182,7 @@ final class JournalScreenTests: XCTestCase {
     // アプリは、前に表示していたページで開く。
     func testTheAppOpensAtThePageItShowedBefore() throws {
         try download("notes.md", "the first item\n")
-        openNotes()
+        searchNotes()
         app.terminate()
         app.launch()
         waitFor(app.staticTexts["the first item"])
