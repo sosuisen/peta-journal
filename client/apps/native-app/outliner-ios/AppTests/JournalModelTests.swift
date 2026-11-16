@@ -1,4 +1,4 @@
-import PetaSync
+import PetaBorder
 import XCTest
 
 @testable import PetaJournal

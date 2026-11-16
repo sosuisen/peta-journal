@@ -1,7 +1,6 @@
 import Combine
 import Foundation
 import PetaCore
-import PetaSync
 import PetaTypes
 
 /// What the app shows, kept up to date with the core. The screen draws `view` and tells this
@@ -422,4 +421,18 @@ public struct Question: Equatable {
 /// Where the requests of the core find the shell, which is made after the core.
 private final class Inbox: @unchecked Sendable {
     weak var shell: Shell?
+}
+
+/// The file or folder at the path under `root`, however its name is spelled there. The path
+/// that a page writes for its image may differ from it in case. Empty parts of the path are
+/// skipped, as the sync of the core does (ADR 054).
+func findWithoutCase(root: URL, path: String) -> URL? {
+    path.split(separator: "/").reduce(root as URL?) { dir, name in
+        dir.flatMap { child(of: $0, named: String(name)) }
+    }
+}
+
+private func child(of dir: URL, named name: String) -> URL? {
+    let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
+    return names.first { $0.caseInsensitiveCompare(name) == .orderedSame }.map { dir.appendingPathComponent($0) }
 }

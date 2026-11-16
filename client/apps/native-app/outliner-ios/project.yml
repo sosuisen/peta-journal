@@ -7,7 +7,7 @@ options:
   deploymentTarget:
     iOS: "17.0"
 packages:
-  # Package.swift of this folder: the sync, the border and, through it, the generated packages
+  # Package.swift of this folder: the border, Dropbox and, through them, the generated packages
   PetaJournal:
     path: .
 # The App key of the Dropbox app and the Markdown folder in Dropbox, as DROPBOX_KEY and
@@ -23,8 +23,6 @@ targets:
     sources:
       - App
     dependencies:
-      - package: PetaJournal
-        product: PetaSync
       - package: PetaJournal
         product: PetaBorder
       - package: PetaJournal

@@ -1,5 +1,4 @@
 import PetaBorder
-import PetaSync
 import PetaTypes
 import QuickLook
 import SwiftUI

@@ -1,4 +1,5 @@
 import Foundation
+import PetaBorder
 import SwiftyDropbox
 
 #if os(iOS)
@@ -24,8 +25,8 @@ protocol DropboxSdk {
     /// signed in. False when the URL is not of Dropbox.
     func endSignIn(_ url: URL, then: @escaping (Bool) -> Void) -> Bool
 
-    /// The files of the account that has signed in. `nil` before the sign-in.
-    func files() -> DropboxFiles?
+    /// The calls of the account that has signed in, for the sync. `nil` before the sign-in.
+    func calls() -> PetaDropboxSdk?
 
     /// Lets go of the token, and tells Dropbox that it is no longer to be taken. It does not
     /// wait for the answer.
@@ -69,8 +70,8 @@ struct RealDropboxSdk: DropboxSdk {
         }
     }
 
-    func files() -> DropboxFiles? {
-        DropboxClientsManager.authorizedClient.map(SdkDropboxFiles.init)
+    func calls() -> PetaDropboxSdk? {
+        DropboxClientsManager.authorizedClient.map(SdkDropbox.init)
     }
 
     /// Without the network, Dropbox does not hear of it: the token is then gone from the

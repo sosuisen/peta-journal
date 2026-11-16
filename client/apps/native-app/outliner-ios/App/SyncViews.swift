@@ -1,4 +1,4 @@
-import PetaSync
+import PetaBorder
 import SwiftUI
 
 /// How far a sync that moves files is, in words and as a part of the whole, or nil.
@@ -60,7 +60,8 @@ struct SyncCallout: View {
     private var words: String? {
         switch state {
         case .downloading, .uploading: return progress(state)?.0 ?? "Syncing…"
-        case .failed(let reason): return "Sync failed: \(reason)"
+        // The words of the SDK went to the log: they are long, and mean nothing to the user
+        case .failed(let offline): return offline ? "Sync failed: no connection" : "Sync failed"
         case .signedOut, .idle: return nil
         }
     }
