@@ -220,8 +220,16 @@ What each class does:
   running, done, and then no task.
 - While an item is edited, the tools stand above the keyboard, two rows high. From the left:
   hide or show the children of the item over making it a task, a pad that moves the item, a
-  pad that moves the cursor, redo over undo, and hiding the keyboard, which ends the edit. A
-  touch on a tool leaves the focus in the field.
+  pad that moves the cursor, redo over undo, and shrinking the tools over hiding the keyboard.
+  A touch on a tool leaves the focus in the field.
+- When the keyboard goes down, the edit ends and the item stays selected. This happens by the
+  tool or by the button of the system. The app hears of the system button only through the
+  room the keyboard takes (`KeyboardWatch` in `JournalScreen`).
+  - While items are selected, the tools stay. The pad of the cursor becomes a pad of up and
+    down, which selects the item above or below. The keyboard tool shows the keyboard again
+    and edits the item.
+  - The tools shrink to a round button at the bottom right. A touch makes them full again.
+    They stay shrunk while an edit turns into a selection and back.
 - The icons of the tools are drawn in `client/assets/icons`, the same for Android and iOS.
   `draw.py` there makes the SVG files, and `export.py` copies them into the two apps.
   - A pad takes touches on all of it, not only on its arrows. The lines from its corners cut

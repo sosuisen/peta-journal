@@ -9,6 +9,7 @@ import com.sosuisha.petajournal.types.Event
 import com.sosuisha.petajournal.types.Request
 import com.sosuisha.petajournal.types.SearchEntry
 import com.sosuisha.petajournal.types.SearchKind
+import com.sosuisha.petajournal.types.SelectionKey
 import com.sosuisha.petajournal.types.ShellEffect
 import com.sosuisha.petajournal.types.UiOp
 import com.sosuisha.petajournal.types.UiOutput
@@ -158,6 +159,8 @@ class Shell(
      * it the cursor is at the end, where the writing goes on.
      */
     fun edit(itemId: String, letter: Int? = null) {
+        // The core takes no edit while items are selected
+        if (view.outline.rows.any { it.isSelected }) unselect()
         view.outline.focusedItemId?.takeIf { it != itemId }?.let(::finish)
         if (letter != null) {
             send(Event.ShownTextTouched(itemId, letter.toULong()))
@@ -236,6 +239,18 @@ class Shell(
     fun toggleCollapsed(itemId: String) = change(Event.CollapseToggle(itemId))
 
     /** Takes back the last change of the page. */
+    /**
+     * Selects the item with everything under it (ADR 031). The edit of the item has ended:
+     * the keyboard is down, and the tools act on the selected items.
+     */
+    fun select(itemId: String) = send(Event.ShiftSelect(itemId))
+
+    /** The selection ends: no item is selected. */
+    fun unselect() = send(Event.SelectionKey(SelectionKey.ESCAPE))
+
+    /** Moves or indents the selected items, as the keys do on a desktop. */
+    fun moveSelected(key: SelectionKey) = change(Event.SelectionKey(key))
+
     fun undo() = change(Event.Undo)
 
     /** Does again the change that [undo] took back. */

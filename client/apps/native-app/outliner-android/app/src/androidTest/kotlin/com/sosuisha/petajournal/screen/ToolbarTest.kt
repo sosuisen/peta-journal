@@ -93,4 +93,64 @@ class ToolbarTest : JournalScreenFixture() {
         waitForItems("1 four", "1 one", "1 two", "1 three")
         compose.onNode(hasContentDescription("Move block")).performTouchInput { up() }
     }
+
+    /** Opens a page of three items and selects the middle one, as Hide keyboard leaves it. */
+    private fun selectTwo() {
+        download("notes.md", above('A') + "one" + NL + NL + above('B') + "two" + NL + NL + above('C') + "three" + NL)
+        openNotes()
+        waitFor("three")
+        touchEnd("two")
+        tool("Hide keyboard")
+        compose.waitUntil(WAIT_MS) { selected() == listOf("two") }
+    }
+
+    private fun selected(): List<String> = shell.view.outline.rows.filter { it.isSelected }.map { it.item.body }
+
+    // 項目を選んでいる間、2つ目のパッドは、上下で選ぶ項目を変える。
+    @Test
+    fun the_pad_of_the_selection_selects_the_item_above_or_below() {
+        selectTwo()
+
+        pad("Move selection", Arrow.Down)
+        compose.waitUntil(WAIT_MS) { selected() == listOf("three") }
+        pad("Move selection", Arrow.Up)
+        pad("Move selection", Arrow.Up)
+
+        compose.waitUntil(WAIT_MS) { selected() == listOf("one") }
+    }
+
+    // 項目を選んでいる間、項目を動かすパッドは、選んだ項目を動かす。
+    @Test
+    fun the_pad_that_moves_the_block_moves_the_selected_item() {
+        selectTwo()
+
+        pad("Move block", Arrow.Up)
+
+        waitForItems("1 two", "1 one", "1 three")
+        compose.waitUntil(WAIT_MS) { selected() == listOf("two") }
+    }
+
+    // 道具を縮めると、丸いボタンだけになる。押すと、道具が戻る。
+    @Test
+    fun the_tools_shrink_to_a_round_button_and_come_back() {
+        selectTwo()
+
+        tool("Shrink tools")
+        compose.onNode(hasContentDescription("Move block")).assertDoesNotExist()
+        tool("Expand tools")
+
+        compose.onNode(hasContentDescription("Move block")).assertExists()
+    }
+
+    // 縮めた道具は、編集と選択を行き来しても縮めたままである。
+    @Test
+    fun the_tools_stay_shrunk_while_the_selection_changes_to_an_edit() {
+        selectTwo()
+        tool("Shrink tools")
+
+        touchEnd("two")
+
+        compose.onNodeWithTag(EDITOR_TAG).assertExists()
+        compose.onNode(hasContentDescription("Expand tools")).assertExists()
+    }
 }

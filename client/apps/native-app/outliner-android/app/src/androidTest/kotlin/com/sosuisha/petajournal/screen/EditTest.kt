@@ -278,9 +278,9 @@ class EditTest : JournalScreenFixture() {
         compose.onNodeWithText("Cancel").assertDoesNotExist()
     }
 
-    // キーボードを閉じる道具は、編集を終える。項目は、飾りのついた表示に戻り、道具は消える。
+    // キーボードを閉じる道具は、編集を終える。項目は、飾りのついた表示に戻り、選ばれたまま残る。
     @Test
-    fun the_tool_that_hides_the_keyboard_ends_the_edit() {
+    fun the_tool_that_hides_the_keyboard_ends_the_edit_and_selects_the_item() {
         download("notes.md", "a **bold** word" + NL)
         openNotes()
         waitFor("a bold word")
@@ -290,7 +290,24 @@ class EditTest : JournalScreenFixture() {
 
         waitFor("a bold word")
         compose.onNodeWithTag(EDITOR_TAG).assertDoesNotExist()
-        compose.onNode(hasContentDescription("Move block")).assertDoesNotExist()
+        compose.waitUntil(WAIT_MS) { shell.view.outline.rows.single().isSelected }
+        compose.onNode(hasContentDescription("Show keyboard")).assertExists()
+    }
+
+    // キーボードを出す道具は、選んでいた項目の編集に戻る。
+    @Test
+    fun the_tool_that_shows_the_keyboard_edits_the_selected_item() {
+        download("notes.md", "a **bold** word" + NL)
+        openNotes()
+        waitFor("a bold word")
+        touchEnd("a bold word")
+        tool("Hide keyboard")
+        compose.waitUntil(WAIT_MS) { shell.view.outline.rows.single().isSelected }
+
+        tool("Show keyboard")
+
+        compose.onNodeWithTag(EDITOR_TAG).assertExists()
+        compose.waitUntil(WAIT_MS) { !shell.view.outline.rows.single().isSelected }
     }
 
     // タスクの印に触れると、状態が進む。編集には入らない。

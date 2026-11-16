@@ -137,6 +137,74 @@ def open_triangle(turn):
     return [outer, hole([point + (SHARP,) for point in inner])]
 
 
+def spun(points, degrees, cx, cy):
+    """The points turned by any angle about (cx, cy), clockwise on the screen."""
+    c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+    return [(cx + (p[0] - cx) * c - (p[1] - cy) * s, cy + (p[0] - cx) * s + (p[1] - cy) * c) + tuple(p[2:])
+            for p in points]
+
+
+def corner_triangle(cx, cy, degrees, size, open_):
+    """A triangle at (cx, cy) that points to `degrees`: 0 is right, 90 is down."""
+    tip = [(cx - size * 0.25, cy - size * 0.62), (cx + size * 0.5, cy), (cx - size * 0.25, cy + size * 0.62)]
+    outer = spun(tip, degrees, cx, cy)
+    if not open_:
+        return [outer]
+    return [outer, hole([p + (SHARP,) for p in inset(outer, LINE)])]
+
+
+def corner_chevron(cx, cy, degrees, size):
+    """A hollow corner triangle without its base: the two sides that meet at the tip, LINE wide."""
+    a, tip, b = corner_triangle(cx, cy, degrees, size, open_=False)[0]
+    middle = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+
+    def inward(p, q):
+        """The line from p to q, moved by LINE towards the middle of the base."""
+        dx, dy = q[0] - p[0], q[1] - p[1]
+        length = math.hypot(dx, dy)
+        nx, ny = -dy / length * LINE, dx / length * LINE
+        if (middle[0] - p[0]) * nx + (middle[1] - p[1]) * ny < 0:
+            nx, ny = -nx, -ny
+        return (p[0] + nx, p[1] + ny), (q[0] + nx, q[1] + ny)
+
+    def meet(one, other):
+        (x1, y1), (x2, y2) = one
+        (x3, y3), (x4, y4) = other
+        d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+        t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / d
+        return (x1 + t * (x2 - x1), y1 + t * (y2 - y1))
+
+    side_a, side_b, base = inward(a, tip), inward(b, tip), (a, b)
+    inner_tip = meet(side_a, side_b)
+    return [a, tip, b, meet(side_b, base) + (SHARP,), inner_tip + (SHARP,), meet(side_a, base) + (SHARP,)]
+
+
+# How wide the line of a hollow shape is, as in the hollow triangles of the cursor pad
+LINE = 1.3
+
+
+def inset(triangle, width):
+    """The triangle with every side moved in by `width`: the hole of a hollow triangle."""
+    (ax, ay), (bx, by), (cx, cy) = [p[:2] for p in triangle]
+    a, b, c = math.dist((bx, by), (cx, cy)), math.dist((ax, ay), (cx, cy)), math.dist((ax, ay), (bx, by))
+    ix, iy = (a * ax + b * bx + c * cx) / (a + b + c), (a * ay + b * by + c * cy) / (a + b + c)
+    r = abs(area(triangle)) / (a + b + c)
+    k = (r - width) / r
+    return [(ix + (x - ix) * k, iy + (y - iy) * k) for x, y in [(ax, ay), (bx, by), (cx, cy)]]
+
+
+def keyboard(arrow_up):
+    keys = [rect(x, y, x + 1.6, y + 1.6) for y in (5.2, 8.2) for x in (5, 8.1, 11.2, 14.3, 17.4)]
+    chevron = corner_chevron(12, 20.2, 270, 6.4) if arrow_up else corner_chevron(12, 18.6, 90, 6.4)
+    return icon(
+        rounded_rect(2, 2, 22, 15, 2),
+        hole(rounded_rect(3.3, 3.3, 20.7, 13.7, 0.9)),
+        *keys,
+        rect(7, 11, 17, 12.2),
+        chevron,
+    )
+
+
 UNDO = (
     [(4.5, 7.2), (11, 2.5, SHARP), (11, 6, SHARP)]
     + arc(12, 13, 7, -90, 90)
@@ -178,12 +246,28 @@ ICONS = {
     ),
     "undo": icon(UNDO),
     "redo": icon(mirrored(UNDO)),
-    "hide_keyboard": icon(
-        rounded_rect(2, 2, 22, 15, 2),
-        hole(rounded_rect(3.6, 3.6, 20.4, 13.4, 0.8)),
-        *[rect(x, y, x + 1.6, y + 1.6) for y in (5.2, 8.2) for x in (5, 8.1, 11.2, 14.3, 17.4)],
-        rect(7, 11, 17, 12.2),
-        stroke([(7.4, 17.6), (12, 21.4), (16.6, 17.6)], 0.9),
+    "hide_keyboard": keyboard(arrow_up=False),
+    "show_keyboard": keyboard(arrow_up=True),
+    # The pad while items are selected: up and down choose the item above or below
+    "move_selection": icon(
+        turned([(17.5, 7.5), (23, 12), (17.5, 16.5)], 90),
+        turned([(17.5, 7.5), (23, 12), (17.5, 16.5)], 270),
+        rounded_rect(6, 10.4, 18, 13.6, 1),
+        hole(rounded_rect(7.4, 11.6, 16.6, 12.4, 0.2)),
+    ),
+    # Two triangles point in at a small box: the tools become a small button
+    "shrink_tools": icon(
+        corner_chevron(6.32, 7.74, 36.87, 6.6),
+        corner_chevron(17.68, 16.26, 216.87, 6.6),
+        rounded_rect(8.8, 9.6, 15.2, 14.4, 1),
+        hole(rounded_rect(10.1, 10.9, 13.9, 13.1, 0.3)),
+    ),
+    # The face of the small button: two triangles point out, to the full tools
+    "expand_tools": icon(
+        rounded_rect(1.5, 4, 22.5, 20, 3.5),
+        hole(rounded_rect(2.8, 5.3, 21.2, 18.7, 2.2)),
+        corner_chevron(6.62, 9.12, 225, 5.8),
+        corner_chevron(17.38, 14.88, 45, 5.8),
     ),
 }
 
