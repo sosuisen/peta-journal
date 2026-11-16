@@ -64,6 +64,9 @@ const val EDITOR_TAG = "editor"
 /** The tag of the bullet of an item, for the tests. */
 const val BULLET_TAG = "bullet"
 
+/** The tag of the bullet of an item whose children are hidden, for the tests. */
+const val FOLDED_TAG = "folded"
+
 /** The tag of the line of an item that is selected, for the tests. */
 const val SELECTED_TAG = "selected"
 
