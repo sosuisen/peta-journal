@@ -143,6 +143,8 @@ public final class Shell: ObservableObject {
     /// `RichParagraph.start` counts them: the cursor goes to that place in the Markdown. Without
     /// it the cursor is at the end, where the writing goes on.
     public func edit(_ itemId: String, letter: Int? = nil) {
+        // The core takes no edit while items are selected
+        if view.outline.rows.contains(where: \.isSelected) { unselect() }
         if let other = view.outline.focusedItemId, other != itemId { finish(other) }
         if let letter {
             send(.shownTextTouched(itemId: itemId, letter: UInt64(letter)))
@@ -181,6 +183,19 @@ public final class Shell: ObservableObject {
         change(.backspaceAtStart(itemId: itemId))
     }
 
+    /// The cursor leaves the item for the one above it, at the place `cursor` in characters, as
+    /// the core counts them. A place past the end of that item puts the cursor at its end.
+    /// Nothing happens in the first item of a page.
+    public func navigateUp(_ itemId: String, cursor: Int) {
+        send(.navigateUp(itemId: itemId, cursor: UInt64(max(cursor, 0))))
+    }
+
+    /// The cursor leaves the item for the one below it, at the place `cursor` in characters.
+    /// Nothing happens in the last item of a page.
+    public func navigateDown(_ itemId: String, cursor: Int) {
+        send(.navigateDown(itemId: itemId, cursor: UInt64(max(cursor, 0))))
+    }
+
     /// The user left the editor of the item: what was typed is saved.
     public func finish(_ itemId: String) {
         send(.editFinished(itemId: itemId))
@@ -215,9 +230,35 @@ public final class Shell: ObservableObject {
         change(.taskCycle(itemId: itemId))
     }
 
-    /// Deletes the item.
-    public func delete(_ itemId: String) {
-        change(.deleteItem(itemId: itemId))
+    /// Hides the children of the item, or shows them again.
+    public func toggleCollapsed(_ itemId: String) {
+        change(.collapseToggle(itemId: itemId))
+    }
+
+    /// Selects the item with everything under it (ADR 031). The edit of the item has ended:
+    /// the keyboard is down, and the tools act on the selected items.
+    public func select(_ itemId: String) {
+        send(.shiftSelect(itemId: itemId))
+    }
+
+    /// The selection ends: no item is selected.
+    public func unselect() {
+        send(.selectionKey(.escape))
+    }
+
+    /// Moves or indents the selected items, as the keys do on a desktop.
+    public func moveSelected(_ key: SelectionKey) {
+        change(.selectionKey(key))
+    }
+
+    /// Takes back the last change of the page.
+    public func undo() {
+        change(.undo)
+    }
+
+    /// Does again the change that `undo` took back.
+    public func redo() {
+        change(.redo)
     }
 
     // MARK: - Files

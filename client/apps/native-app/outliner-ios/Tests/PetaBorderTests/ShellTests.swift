@@ -409,21 +409,104 @@ final class ShellTests: JournalTestCase {
         waitUntil("the item is no task") { task() == nil }
     }
 
-    // 削除は、項目を消す。
-    func testDeleteDeletesTheItem() throws {
+    // 折りたたみは、項目の子を隠す。もう一度で、子が戻る。
+    func testToggleCollapsedHidesTheChildrenAndShowsThemAgain() throws {
         try editSecondOfThree()
+        shell.indent(id(of: "second"))
+        waitUntil("the item is a child") { self.items() == ["1 first", "2 second", "1 third"] }
+        let first = id(of: "first")
 
-        shell.delete(id(of: "second"))
+        shell.toggleCollapsed(first)
+        waitUntil("the child is hidden") { self.items() == ["1 first", "1 third"] }
+        XCTAssertEqual(shell.view.outline.rows.first?.isCollapsed, true)
+        shell.toggleCollapsed(first)
 
-        waitUntil("the item is gone") { self.items() == ["1 first", "1 third"] }
+        waitUntil("the child is back") { self.items() == ["1 first", "2 second", "1 third"] }
     }
 
-    /// Opens a page whose third item shows the second one, and asks to delete the second.
+    private func selected() -> [String] {
+        shell.view.outline.rows.filter(\.isSelected).map(\.item.body)
+    }
+
+    /// Opens a page of three items, and selects the second, as the end of its edit leaves it.
+    private func selectSecondOfThree() throws {
+        try editSecondOfThree()
+        shell.finish(id(of: "second"))
+        shell.select(id(of: "second"))
+        XCTAssertEqual(selected(), ["second"])
+    }
+
+    // 選択を終えると、どの項目も選ばれていない。
+    func testUnselectEndsTheSelection() throws {
+        try selectSecondOfThree()
+
+        shell.unselect()
+
+        XCTAssertEqual(selected(), [])
+    }
+
+    // 選んだ項目は、上へ動かせる。選んだままである。
+    func testMoveSelectedMovesTheSelectedItem() throws {
+        try selectSecondOfThree()
+
+        shell.moveSelected(.moveUp)
+
+        waitUntil("the item is first") { self.bodies() == ["second", "first", "third"] }
+        XCTAssertEqual(selected(), ["second"])
+    }
+
+    // 選んでいる間に項目に触れると、選択は終わり、その項目の編集になる。
+    func testATouchWhileItemsAreSelectedEndsTheSelectionAndEdits() throws {
+        try selectSecondOfThree()
+
+        shell.edit(id(of: "third"))
+
+        XCTAssertEqual(selected(), [])
+        XCTAssertEqual(edited(), "third")
+    }
+
+    // 元に戻すは、最後の変更を取り消す。やり直すは、それをまた行う。
+    func testUndoTakesBackTheLastChangeAndRedoDoesItAgain() throws {
+        try editSecondOfThree()
+        shell.indent(id(of: "second"))
+        waitUntil("the item is a child") { self.items() == ["1 first", "2 second", "1 third"] }
+
+        shell.undo()
+        waitUntil("the item is back") { self.items() == ["1 first", "1 second", "1 third"] }
+        shell.redo()
+
+        waitUntil("the item is a child again") { self.items() == ["1 first", "2 second", "1 third"] }
+    }
+
+    // カーソルは、上の項目へ移れる。行の中の位置は変わらない。
+    func testNavigateUpMovesTheEditToTheItemAboveAtThePlace() throws {
+        try editSecondOfThree()
+
+        shell.navigateUp(id(of: "second"), cursor: 3)
+
+        waitUntil("the item above is edited") { self.edited() == "first" }
+        XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 3)
+    }
+
+    // カーソルは、下の項目へ移れる。
+    func testNavigateDownMovesTheEditToTheItemBelowAtThePlace() throws {
+        try editSecondOfThree()
+
+        shell.navigateDown(id(of: "second"), cursor: 0)
+
+        waitUntil("the item below is edited") { self.edited() == "third" }
+        XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 0)
+    }
+
+    /// Opens a page whose third item shows the second one, and joins the second to the first
+    /// with Backspace at its start.
     private func deleteAnItemThatAnotherShows() throws {
         let shows = " transclude=\"2020-01-01-00-00-00-AAAAAAB\""
         try download("notes.md", above("A") + "first\n\n" + above("B") + "second\n\n" + above("C", shows))
         try openNotes()
-        shell.delete(shell.view.outline.rows[1].item.id)
+        let second = shell.view.outline.rows[1].item.id
+        shell.edit(second)
+        shell.backspaceAtStart(second)
         waitUntil("the core asks") { self.shell.question != nil }
     }
 
