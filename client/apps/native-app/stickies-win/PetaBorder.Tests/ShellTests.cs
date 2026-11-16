@@ -831,16 +831,16 @@ public sealed class ShellTests : IDisposable
         shells.Add(shell);
         main.WaitUntil("the page is shown", () => shell.View.Outline.Rows.Count > 0);
 
-        shell.Follow(new RichLink.Page("/pages/linked/idea"), Held.None);
+        shell.Follow(new RichLink.Page("/pages/apple-pie"), Held.None);
 
-        main.WaitUntil("the linked page is shown", () => shell.Title == "idea");
-        Assert.Equal("/pages/linked/idea", shell.Url);
+        main.WaitUntil("the linked page is shown", () => shell.Title == "apple-pie");
+        Assert.Equal("/pages/apple-pie", shell.Url);
         Assert.Null(browsed);
     }
 
-    // リンクをたどると、どれもブラウザに渡る。ページはWebのフロントエンドで、資産のファイルはジャーナルサーバーが出すもので開く。付箋紙のページは変わらない。
+    // Shiftクリックしたページへのリンクと、資産のファイルとWebへのリンクは、ブラウザに渡る。ページはWebのフロントエンドで、資産のファイルはジャーナルサーバーが出すもので開く。付箋紙のページは変わらない。
     [Fact]
-    public void A_link_that_is_followed_goes_to_the_browser_and_the_sticky_keeps_its_page()
+    public void A_link_that_goes_to_the_browser_leaves_the_sticky_with_its_page()
     {
         Uri? browsed = null;
         var shell = new Shell(
@@ -854,19 +854,19 @@ public sealed class ShellTests : IDisposable
         shells.Add(shell);
         main.WaitUntil("the page is shown", () => shell.View.Outline.Rows.Count > 0);
 
-        shell.Follow(new RichLink.Page("/pages/linked/idea"));
+        shell.Follow(new RichLink.Page("/pages/linked/idea"), Held.Shift);
         Assert.Equal($"{server.Address}/pages/linked/idea", browsed?.AbsoluteUri);
 
-        shell.Follow(new RichLink.Page("/pages/メモ/案 1#item"));
+        shell.Follow(new RichLink.Page("/pages/メモ/案 1#item"), Held.Shift);
         Assert.Equal(
             $"{server.Address}/pages/%E3%83%A1%E3%83%A2/%E6%A1%88%201#item",
             browsed?.AbsoluteUri
         );
 
-        shell.Follow(new RichLink.File("assets/report a.pdf"));
+        shell.Follow(new RichLink.File("assets/report a.pdf"), Held.None);
         Assert.Equal($"{server.Address}/assets/report%20a.pdf", browsed?.AbsoluteUri);
 
-        shell.Follow(new RichLink.Web("https://example.com/a"));
+        shell.Follow(new RichLink.Web("https://example.com/a"), Held.None);
         Assert.Equal(new Uri("https://example.com/a"), browsed);
         Assert.Equal("/pages/winui-notes", shell.Url);
     }
