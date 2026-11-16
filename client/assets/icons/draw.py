@@ -250,8 +250,8 @@ ICONS = {
     "show_keyboard": keyboard(arrow_up=True),
     # The pad while items are selected: up and down choose the item above or below
     "move_selection": icon(
-        turned([(17.5, 7.5), (23, 12), (17.5, 16.5)], 90),
-        turned([(17.5, 7.5), (23, 12), (17.5, 16.5)], 270),
+        *open_triangle(90),
+        *open_triangle(270),
         rounded_rect(6, 10.4, 18, 13.6, 1),
         hole(rounded_rect(7.4, 11.6, 16.6, 12.4, 0.2)),
     ),
