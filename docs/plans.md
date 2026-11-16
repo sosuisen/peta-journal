@@ -425,6 +425,7 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
 - [ ] `/pages/`を始めとするPetaJournalのURLの知識を、1か所にする
   - 理由：URLの知識は、1か所にあるべきである（2026-11-16にユーザーが言った）
   - 置き場所：少なくとも`pages`の値は、journal-coreで管理する（2026-11-17にユーザーが決めた）。AndroidとiOSは、サーバーのURLにアクセスしない。それでも、コアに渡すアプリの中のURL（ページを開く、履歴、前回の画面）で`/pages/`を使うためである
+  - 形の見込み：journal-serverは、URLを作る機能の一部を、何らかの形でjournal-coreに任せる。`/pages/`や`/tags/`といった値は、そこから来る（2026-11-17にユーザーが言った）
   - 決めること
     - `client-core`は、journal-coreに依存していない。journal-coreに依存しているのは、組み込み版の`client-api-embedded`と`client-shell-embedded`だけである。`client-core`と`client-page-links`が、journal-coreの値をどう使うかを決める
     - TypeScript、C#、Emacs Lispのクライアントは、Rustのライブラリを呼べない。これらがURLの知識をどこから得るかを決める
