@@ -21,11 +21,9 @@ Androidのシェルの実機での確認は、2026-11-14までに開発者が終
 
 ## PetaJournalのURLとリンクの生成
 
-大きなトピックである。下の2つは、密接に関係している（2026-11-17に開発者が言った）。
+大きなトピックである。URLの知識を1か所にすることと、ADR 051は、密接に関係している（2026-11-17に開発者が言った）。
 
-### URLの知識を1か所にする
-
-#### 機能向上
+### 機能向上
 
 - [ ] `/pages/`を始めとするPetaJournalのURLの知識を、1か所にする
   - 理由：URLの知識は、1か所にあるべきである（2026-11-16に開発者が言った）
@@ -54,11 +52,9 @@ Androidのシェルの実機での確認は、2026-11-14までに開発者が終
     - `client-shell-embedded/src/lib.rs:274`。`Route::parse`とは別に、`/pages/`を外してページ名を取る
   - サーバー：`journal-server/src/presentation/frontend.rs:25-34`は、`/api/`以外のどのパスにも`index.html`を返す。`/pages/`という名前は、コメントにしか出てこない
 
-### ADR 051：wikilinkとhashtagのhrefを、ast2htmlのテンプレートで決める
+#### ADR 051：wikilinkとhashtagのhrefを、ast2htmlのテンプレートで決める
 
 2026-11-16に開発者が受理した。flatmarkdownに`HtmlOptions`と`ast_to_html_with`を足し、0.9.0を出してから、Webのシェルを切り替える。flatmarkdown側のタスクは、flatmarkdownの`docs/plans.md`にある。
-
-#### 機能向上
 
 - [ ] flatmarkdownの3つのクレートを0.9.0に上げる。`client/`のCargo.tomlとCargo.lockを直す
 - [ ] Webのシェルの`item_html`で`ast_to_html_with`を使う。wikilinkは`/pages/{}`、hashtagは`/pages/<タグ用ディレクトリ>{}`にする
