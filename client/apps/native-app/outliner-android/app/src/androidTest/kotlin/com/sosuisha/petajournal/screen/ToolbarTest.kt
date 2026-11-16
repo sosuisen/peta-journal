@@ -1,6 +1,9 @@
 package com.sosuisha.petajournal.screen
 
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
@@ -105,6 +108,18 @@ class ToolbarTest : JournalScreenFixture() {
     }
 
     private fun selected(): List<String> = shell.view.outline.rows.filter { it.isSelected }.map { it.item.body }
+
+    // 選んでいる項目は、色で示される。選び直すと、色も移る。
+    @Test
+    fun the_selected_item_is_coloured() {
+        selectTwo()
+        compose.onNodeWithTag(SELECTED_TAG).assert(hasAnyDescendant(hasText("two")))
+
+        pad("Move selection", Arrow.Down)
+
+        compose.waitUntil(WAIT_MS) { selected() == listOf("three") }
+        compose.onNodeWithTag(SELECTED_TAG).assert(hasAnyDescendant(hasText("three")))
+    }
 
     // 項目を選んでいる間、2つ目のパッドは、上下で選ぶ項目を変える。
     @Test

@@ -64,6 +64,9 @@ const val EDITOR_TAG = "editor"
 /** The tag of the bullet of an item, for the tests. */
 const val BULLET_TAG = "bullet"
 
+/** The tag of the line of an item that is selected, for the tests. */
+const val SELECTED_TAG = "selected"
+
 /**
  * The one screen of the app: a bar with the menu, back and forward, the search field and the
  * button for today, and under it the results of the search or the page that is open. [cloud] is where the sync
