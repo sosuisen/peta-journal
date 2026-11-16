@@ -41,6 +41,12 @@ of the repository."
 The core does not take in changes from elsewhere while an edit is open."
   :type 'number)
 
+(defcustom peta-journal-image-memory-limit (* 64 1024 1024)
+  "How many bytes of images Emacs keeps at most.
+Over it, Emacs forgets the images that no open page links to, the one used
+longest ago first.  A page that shows a forgotten image fetches it again."
+  :type 'natnum)
+
 (defcustom peta-journal-item-gap 4
   "The gap between two items, in pixels.
 It applies to the rows drawn after a change.  Only a graphical Emacs shows it."
@@ -665,11 +671,58 @@ in a URL.")
   "The URL of the file NAME in the assets of the server."
   (concat (string-trim-right peta-journal-server "/") "/assets/" name))
 
+(defvar peta-journal--image-uses (make-hash-table :test #'equal)
+  "When each image was used last, by URL, as a count that only grows.
+Not the time: two uses may come in the same instant.")
+
+(defvar peta-journal--image-use-count 0
+  "The count of the last use of an image.")
+
+(defun peta-journal--use-image (url)
+  "Note that the image at URL was used now."
+  (puthash url (setq peta-journal--image-use-count (1+ peta-journal--image-use-count))
+           peta-journal--image-uses))
+
+(defun peta-journal--linked-image-urls ()
+  "The URLs of the images that the open pages link to."
+  (let ((urls (make-hash-table :test #'equal)))
+    (dolist (page (peta-journal--pages))
+      (with-current-buffer page
+        (save-excursion
+          (goto-char (point-min))
+          (while (re-search-forward peta-journal--image-link-regexp nil t)
+            (puthash (peta-journal--asset-url (match-string-no-properties 1)) t urls)))))
+    urls))
+
+(defun peta-journal--trim-images ()
+  "Forget images until their bytes are within `peta-journal-image-memory-limit'.
+An image that an open page links to stays: a page would fetch it and draw it
+again at once, and that could go on forever."
+  (let ((linked (peta-journal--linked-image-urls))
+        (total 0)
+        (spare nil))
+    (maphash (lambda (url known)
+               (when (stringp known)
+                 (setq total (+ total (string-bytes known)))
+                 (unless (gethash url linked)
+                   (push url spare))))
+             peta-journal--images)
+    (setq spare (sort spare (lambda (a b)
+                              (< (gethash a peta-journal--image-uses 0)
+                                 (gethash b peta-journal--image-uses 0)))))
+    (while (and spare (> total peta-journal-image-memory-limit))
+      (let ((url (pop spare)))
+        (setq total (- total (string-bytes (gethash url peta-journal--images))))
+        (remhash url peta-journal--images)
+        (remhash url peta-journal--image-uses)))))
+
 (defun peta-journal--image-bytes (url)
   "The bytes of the image at URL, or nil.  The first call starts to fetch them."
   (let ((known (gethash url peta-journal--images)))
     (cond
-     ((stringp known) known)
+     ((stringp known)
+      (peta-journal--use-image url)
+      known)
      ((null known)
       (puthash url 'loading peta-journal--images)
       (peta-journal--fetch-image url)
@@ -699,6 +752,9 @@ not hold up the typing."
   "Keep the BYTES of the image at URL, and show the image in every page.
 BYTES is nil when the image could not be fetched."
   (puthash url (or bytes 'missing) peta-journal--images)
+  (when bytes
+    (peta-journal--use-image url)
+    (peta-journal--trim-images))
   (peta-journal--redraw-all-images))
 
 (defun peta-journal--redraw-all-images ()

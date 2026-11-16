@@ -1616,6 +1616,32 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
     (should-not (peta-journal-test--image-of "b"))
     (should (equal (peta-journal-test--shown) "• 上\n• ![p](../assets/p.png)\n"))))
 
+;; 画像の中身が上限を超えると、開いたページにない画像から、使ってから長いものの順に忘れる。
+(ert-deftest peta-journal-images-over-the-limit-are-forgotten-from-the-least-used ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+    (let ((peta-journal-image-memory-limit (* 2 (length peta-journal-test--png))))
+      (peta-journal--image-arrived (peta-journal-test--asset-url "old.png") peta-journal-test--png)
+      (peta-journal--image-arrived (peta-journal-test--asset-url "new.png") peta-journal-test--png)
+      (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+      (should-not (gethash (peta-journal-test--asset-url "old.png") peta-journal--images))
+      (should (gethash (peta-journal-test--asset-url "new.png") peta-journal--images))
+      (should (peta-journal-test--image-of "b")))))
+
+;; 開いたページにある画像は、上限を超えても忘れない。忘れると、取り直しと描き直しを繰り返す。
+(ert-deftest peta-journal-an-image-on-an-open-page-is-kept-over-the-limit ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)")
+                                        (peta-journal-test--row "c" 1 "![q](../assets/q.png)"))
+    (let ((peta-journal-image-memory-limit 1))
+      ;; The page asked for both as it was drawn
+      (setq peta-journal-test--fetched nil)
+      (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+      (peta-journal--image-arrived (peta-journal-test--asset-url "q.png") peta-journal-test--png)
+      (should (peta-journal-test--image-of "b"))
+      (should (peta-journal-test--image-of "c"))
+      (should-not peta-journal-test--fetched))))
+
 ;; カーソルのある項目では、画像ではなくリンクの文字が見える。
 (ert-deftest peta-journal-the-item-with-the-point-shows-its-link-as-text ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "![p](../assets/p.png)")
