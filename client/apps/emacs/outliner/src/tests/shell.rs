@@ -1056,6 +1056,17 @@ fn an_index_page_tells_emacs_its_folder_and_the_name_it_can_take() {
     );
 }
 
+// docページは、indexページではないので、フォルダのパスは届かない。
+#[test]
+fn a_doc_page_tells_emacs_no_folder() {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/pages/notes".into(),
+    });
+    driver.load_page(&[]);
+    assert!(matches!(driver.index(), None | Some((None, None))));
+}
+
 // 下にページがあるindexページは、降格できない。
 #[test]
 fn an_index_page_with_pages_under_it_cannot_be_demoted() {
