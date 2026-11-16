@@ -424,7 +424,8 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
 - [ ] アトラスの`Bounds`を、`peta-atlas`にまとめる（`journal-core/src/domain/bounds.rs`と`atlas/src/lib.rs:48-79`）。書き出しが少し違い、1e15以上の値で「…0.0」と「…0」になる。`ATLAS_NAME`も、`client-core/src/screens/page.rs:14`と`journal-core/src/domain/model.rs:50`の2か所にある
 - [ ] `/pages/`を始めとするPetaJournalのURLの知識を、1か所にする
   - 理由：URLの知識は、1か所にあるべきである。置き場所は、おそらくjournal-serverである（2026-11-16にユーザーが言った）
-  - 決めること：AndroidとiOSは、journal-serverを持たず、journal-coreを組み込む（ADR 029）。TypeScript、C#、Emacs Lispのクライアントは、Rustのライブラリを呼べない。これらがURLの知識をどこから得るかを決める
+  - 決めること：TypeScript、C#、Emacs Lispのクライアントは、Rustのライブラリを呼べない。これらがURLの知識をどこから得るかを決める
+  - AndroidとiOSは、サーバーのURLにアクセスしない。ただし、コアに渡すアプリの中のURL（ページを開く、履歴、前回の画面）として、`/pages/`を使う
   - 2026-11-16に調べた。テスト、README、使い方の例、コメントを除いて、次の場所にある
   - URLを作る側（Rust）
     - `client-page-links/src/links.rs:8, 14`の`wikilink_path`と`hashtag_path`。Webのシェル、「HTMLとしてコピー」、付箋紙の`PageAddress`が使う
@@ -433,8 +434,8 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
     - `client-core/src/view.rs:206`。ビューモデルに出すページのURLである
     - `client-core/src/ops/wiki.rs:23`。タグのページの名前を、その場で作る
   - URLを作る側（各シェルの定数と直書き）
-    - Android：`shell/Shell.kt:392`の`PAGES`
-    - iOS：`PetaBorder/Shell.swift:12`の`pages`
+    - Android：`shell/Shell.kt:392`の`PAGES`。コアに渡すアプリの中のURLである
+    - iOS：`PetaBorder/Shell.swift:12`の`pages`。コアに渡すアプリの中のURLである
     - Emacs：`lisp/peta-journal.el:2460`
     - Webのシェル：`components/item_view.rs:170`の`/pages/Untitled-…`
     - todo：`web-app/todo/src/links.ts:15`
