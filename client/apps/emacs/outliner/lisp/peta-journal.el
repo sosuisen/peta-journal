@@ -83,6 +83,15 @@ on its line.")
 (defface peta-journal-selected '((t :inherit region))
   "The rows of the selected items.")
 
+(defface peta-journal-sidebar-section '((t :inherit bold))
+  "The titles of the sections of the sidebar.")
+
+(defface peta-journal-sidebar-current '((t :inherit highlight))
+  "The page on screen, in the list of its folder in the sidebar.")
+
+(defface peta-journal-sidebar-folder '((t :inherit shadow))
+  "The folder before the name of a recent page in the sidebar.")
+
 (defface peta-journal-bullet '((t :inherit font-lock-comment-face))
   "The mark at the start of a row.")
 
@@ -351,6 +360,7 @@ Completion sorts a plain list by name, which would hide the newest pages."
 (defvar-local peta-journal--holding nil "Non-nil while the core waits for an item to focus.")
 (defvar-local peta-journal--output "" "The part of a line from the shell that is not complete yet.")
 (defvar-local peta-journal--backlinks nil "The pages that link to the shown page.")
+(defvar-local peta-journal--sidebar nil "What the sidebar lists for the shown page.")
 (defvar-local peta-journal--scroll-timer nil "The timer that reports the scroll position.")
 (defvar-local peta-journal--rows [] "The rows on screen, as the shell sent them.")
 (defvar-local peta-journal--page-id nil "The id of the page on screen.")
@@ -998,6 +1008,7 @@ M-x peta-journal in that buffer starts it and shows the saved text.  See *peta-j
                         (cons (plist-get message :query)
                               (append (plist-get message :titles) nil))))
     ("backlinks" (setq peta-journal--backlinks (plist-get message :groups)))
+    ("sidebar" (peta-journal--on-sidebar message))
     ("message" (message "%s" (plist-get message :text)))
     ("copy" (kill-new (plist-get message :text))
      (message "Copied the selected items"))
@@ -1772,6 +1783,136 @@ opens it, and C-g closes the search."
         (forward-line 2))))
   (pop-to-buffer "*PetaJournal Backlinks*"))
 
+;;;; Sidebar
+
+(defcustom peta-journal-sidebar-width 30
+  "The width of the sidebar, in columns."
+  :type 'natnum)
+
+(defconst peta-journal--sidebar-buffer "*PetaJournal Sidebar*"
+  "The name of the buffer of the sidebar.")
+
+(defvar-local peta-journal--sidebar-page nil
+  "In the sidebar: the buffer of the page whose lists it shows.")
+
+(defvar-keymap peta-journal-sidebar-mode-map
+  :parent special-mode-map
+  "RET" #'peta-journal-sidebar-open
+  "<mouse-2>" #'peta-journal-sidebar-mouse-open
+  "n" #'next-line
+  "p" #'previous-line)
+
+(define-derived-mode peta-journal-sidebar-mode special-mode "PetaJournal Sidebar"
+  "The sidebar of a page, as in the web frontend: the pages of its folder, its
+headings and the recent pages.  RET opens the line at the point."
+  (setq truncate-lines t))
+
+(defun peta-journal-sidebar ()
+  "Show the sidebar on the left of the frame, or hide it when it is shown."
+  (interactive)
+  (if-let* ((window (get-buffer-window peta-journal--sidebar-buffer)))
+      (delete-window window)
+    (let ((page (peta-journal--page)))
+      (unless page
+        (user-error "No PetaJournal page"))
+      (peta-journal--sidebar-render page)
+      (display-buffer-in-side-window
+       (get-buffer peta-journal--sidebar-buffer)
+       `((side . left) (slot . 0) (window-width . ,peta-journal-sidebar-width)
+         (preserve-size . (t . nil))
+         (window-parameters . ((no-delete-other-windows . t))))))))
+
+(defun peta-journal--on-sidebar (message)
+  "Keep the lists of MESSAGE for the sidebar of the current page.
+A shown sidebar of this page is drawn again; so is one of another page, when
+this page is in the selected window, as the sidebar follows the page worked on."
+  (setq peta-journal--sidebar message)
+  (let ((page (current-buffer))
+        (sidebar (get-buffer peta-journal--sidebar-buffer)))
+    (when (and sidebar (get-buffer-window sidebar)
+               (or (eq (buffer-local-value 'peta-journal--sidebar-page sidebar) page)
+                   (eq (window-buffer (selected-window)) page)))
+      (peta-journal--sidebar-render page))))
+
+(defun peta-journal--sidebar-render (page)
+  "Draw the sidebar with the lists of PAGE.  The point stays on its line."
+  (let ((sidebar (buffer-local-value 'peta-journal--sidebar page)))
+    (with-current-buffer (get-buffer-create peta-journal--sidebar-buffer)
+      (unless (derived-mode-p 'peta-journal-sidebar-mode)
+        (peta-journal-sidebar-mode))
+      (setq peta-journal--sidebar-page page)
+      (let ((inhibit-read-only t)
+            (shown-line (line-number-at-pos)))
+        (erase-buffer)
+        (when-let* ((index (plist-get sidebar :index)))
+          (peta-journal--sidebar-page-line page (plist-get index :header)
+                                           (plist-get index :path) 'peta-journal-sidebar-section)
+          (when-let* ((parent (plist-get index :parent)))
+            (peta-journal--sidebar-page-line page "  ../" parent))
+          (seq-doseq (line (plist-get index :pages))
+            (peta-journal--sidebar-page-line
+             page (concat "  " (plist-get line :label)) (plist-get line :path)
+             (and (plist-get line :current) 'peta-journal-sidebar-current))))
+        (let ((headings (plist-get sidebar :headings)))
+          (unless (seq-empty-p headings)
+            (insert (propertize "Contents" 'face 'peta-journal-sidebar-section) "\n")
+            (seq-doseq (heading headings)
+              (peta-journal--sidebar-heading-line page heading))))
+        (let ((recent (plist-get sidebar :recent)))
+          (unless (seq-empty-p recent)
+            (insert (propertize "Recent Pages" 'face 'peta-journal-sidebar-section) "\n")
+            (seq-doseq (line recent)
+              (peta-journal--sidebar-page-line
+               page (concat "  " (if-let* ((dir (plist-get line :dir)))
+                                     (propertize dir 'face 'peta-journal-sidebar-folder)
+                                   "")
+                            (plist-get line :label))
+               (plist-get line :path)))))
+        (goto-char (point-min))
+        (forward-line (1- shown-line))))))
+
+(defun peta-journal--sidebar-page-line (page text path &optional face)
+  "Insert the line TEXT of the sidebar, with FACE, which opens PATH in PAGE."
+  (peta-journal--sidebar-line
+   (if face (propertize text 'face face) text)
+   (lambda ()
+     (peta-journal--sidebar-to-page page)
+     (peta-journal--go "go_to_page" :path path))))
+
+(defun peta-journal--sidebar-heading-line (page heading)
+  "Insert the line of HEADING of the sidebar, which moves the point of PAGE to it."
+  (let ((id (plist-get heading :id)))
+    (peta-journal--sidebar-line
+     (concat (make-string (* 2 (plist-get heading :level)) ?\s) (plist-get heading :text))
+     (lambda ()
+       (peta-journal--sidebar-to-page page)
+       (peta-journal--goto-item id 0)))))
+
+(defun peta-journal--sidebar-line (text action)
+  "Insert TEXT as a line of the sidebar, which does ACTION when it is opened."
+  (insert (propertize text 'peta-action action 'mouse-face 'highlight 'follow-link t)
+          "\n"))
+
+(defun peta-journal--sidebar-to-page (page)
+  "Make PAGE current, in its window when it has one, for a line of the sidebar."
+  (when-let* ((window (get-buffer-window page)))
+    (select-window window))
+  (set-buffer page))
+
+(defun peta-journal-sidebar-open ()
+  "Open the line of the sidebar at the point."
+  (interactive)
+  (let ((action (get-text-property (point) 'peta-action)))
+    (unless action
+      (user-error "No entry here"))
+    (funcall action)))
+
+(defun peta-journal-sidebar-mouse-open (event)
+  "Open the line of the sidebar that EVENT clicked."
+  (interactive "e")
+  (mouse-set-point event)
+  (peta-journal-sidebar-open))
+
 ;;;; Page properties
 
 (defconst peta-journal--properties-buffer "*PetaJournal Properties*"
@@ -2075,7 +2216,8 @@ This is for `completion-at-point-functions'."
   "C-c C-x t" #'peta-journal-paste-as-transclusion
   "C-c C-x T" #'peta-journal-remove-transclusion
   "C-c C-x D" #'peta-journal-demote-index
-  "C-c C-x s" #'peta-journal-send-to-stash
+  "C-c C-x s" #'peta-journal-sidebar
+  "C-c C-x S" #'peta-journal-send-to-stash
   "C-c C-x d" #'peta-journal-delete-page
   "C-c C-x p" #'peta-journal-properties
   "C-c C-x n" #'peta-journal-new-buffer
