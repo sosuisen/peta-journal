@@ -654,11 +654,19 @@ A step back from the start of this body goes on to the row above."
 
 (defconst peta-journal--image-link-regexp
   (concat "!" peta-journal--link-text-regexp
-          "(\\.\\./assets/\\([A-Za-z0-9._-]+\\)\\(?:#\\([^)\n]*\\)\\)?)")
-  "A link to an image on the server.
-Group 1 is the name of the file, and group 2 what follows its `#'.  The server
-gives an uploaded file such a name, and a name of this form needs no escaping
-in a URL.")
+          "(\\(?:\\.\\./assets/\\([A-Za-z0-9._-]+\\)\\|\\(https?://[^ \t\n()#]+\\)\\)"
+          "\\(?:#\\([^)\n]*\\)\\)?)")
+  "A link to an image on the server, or to one outside it.
+Group 1 is the name of a file on the server.  The server gives an uploaded file
+such a name, and a name of this form needs no escaping in a URL.  Group 2 is the
+URL of an image outside the server, and group 3 what follows the `#'.")
+
+(defun peta-journal--matched-image-url ()
+  "The URL of the image that `peta-journal--image-link-regexp' matched last."
+  (let ((name (match-string-no-properties 1)))
+    (if name
+        (peta-journal--asset-url name)
+      (match-string-no-properties 2))))
 
 ;; Global: buffers of the same server show the same files
 (defvar peta-journal--images (make-hash-table :test #'equal)
@@ -691,7 +699,7 @@ Not the time: two uses may come in the same instant.")
         (save-excursion
           (goto-char (point-min))
           (while (re-search-forward peta-journal--image-link-regexp nil t)
-            (puthash (peta-journal--asset-url (match-string-no-properties 1)) t urls)))))
+            (puthash (peta-journal--matched-image-url) t urls)))))
     urls))
 
 (defun peta-journal--trim-images ()
@@ -790,9 +798,9 @@ An image taller than the window could not be scrolled through line by line."
                         (* (1+ indent) (frame-char-width)))
           :max-height (- (window-body-height window t) (frame-char-height)))))
 
-(defun peta-journal--link-image (id name fragment)
-  "The image of the item ID for a link to the file NAME with FRAGMENT, or nil."
-  (when-let* ((bytes (peta-journal--image-bytes (peta-journal--asset-url name))))
+(defun peta-journal--link-image (id url fragment)
+  "The image of the item ID for a link to the image at URL with FRAGMENT, or nil."
+  (when-let* ((bytes (peta-journal--image-bytes url)))
     (let ((width (peta-journal--link-side fragment "w"))
           (height (peta-journal--link-side fragment "h")))
       ;; Without a type, this tells it from the bytes, and gives nil if it cannot tell it. A
@@ -827,12 +835,12 @@ body stays as the shell knows it."
         (while (re-search-forward peta-journal--image-link-regexp end t)
           (let* ((link-start (match-beginning 0))
                  (link-end (match-end 0))
-                 (name (match-string-no-properties 1))
-                 (fragment (match-string-no-properties 2))
+                 (url (peta-journal--matched-image-url))
+                 (fragment (match-string-no-properties 3))
                  (id (peta-journal--id-at link-start)))
             (unless (or (equal id text-item)
                         (peta-journal--in-code-p link-start))
-              (when-let* ((image (peta-journal--link-image id name fragment)))
+              (when-let* ((image (peta-journal--link-image id url fragment)))
                 (let ((overlay (make-overlay link-start link-end)))
                   (overlay-put overlay 'peta-image t)
                   (overlay-put overlay 'display image)
