@@ -226,9 +226,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - [ ] アトラスの表示と編集（カード、リンク、グループ、吹き出し）
   - [ ] 設定（週番号、論理アウトデント、タグのフォルダ、ホーム、Markdownフォルダ、プロパティ定義の追加と削除）
   - [ ] 拡張機能（拡張からの項目作成と確認）
-- [ ] Emacs E2EをCIで回す
-  - ERTと`cargo cov`は対応済み。E2Eは、journal-serverのビルドが要るので、まだ回していない
-  - 時々落ちていたテスト（`peta-journal-e2e-renaming-moves-the-page-and-keeps-the-text`）は、2026-11-16に直した。テストがフォルダーのファイルを読む間に、サーバーが古いファイルを移していた
 
 ## SwiftUIのシェル（macOS）
 
@@ -443,6 +440,7 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
   - 請求の問題でどのジョブも走らないので、2026-11-11から2週間ほど止める。止めるのは`gh workflow disable CI`である
   - 止めている間は、手元の確認だけが頼りである。`atlas`、`client/apps/web-app/todo`、`client/apps/webview-app/memoview-win`、wasm向けの`cargo check`、Emacsのテストも、触ったら手元で回す
   - 戻したら、`main`で一度走らせて、止めていた間の変更を確かめる
+  - EmacsのE2Eのジョブ（`emacs-e2e`）は、止めている間に足したので、まだ一度も走っていない。LinuxのEmacsで43件が動くかを、ここで確かめる。WindowsのEmacs 31.1では通っている（2026-11-16）
 
 ## 道具の更新
 

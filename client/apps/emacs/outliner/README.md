@@ -280,8 +280,8 @@ items.
   a small server of the test answers its HTTP requests. Neither Emacs nor the journal server is
   needed. One of these tests waits 5 seconds for the shell to give up on a server.
 
-`cargo cov` measures both kinds (see `BUILD.md`). CI runs them and the tests of the buffer below,
-but not the E2E tests.
+`cargo cov` measures both kinds (see `BUILD.md`). CI runs them, the tests of the buffer below and
+the E2E tests. The E2E tests run in a job of their own, `emacs-e2e`, on Linux.
 
 The tests of the buffer run without a process:
 
