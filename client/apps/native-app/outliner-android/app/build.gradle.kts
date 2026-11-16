@@ -12,7 +12,10 @@ val dropboxFolder = (findProperty("dropboxFolder") as String?).orEmpty()
 
 android {
     namespace = "com.sosuisha.petajournal"
-    compileSdk = 37
+    // Compose UI 1.13 needs the APIs of 37.1
+    compileSdk {
+        version = release(37) { minorApiLevel = 1 }
+    }
 
     defaultConfig {
         applicationId = "com.sosuisha.petajournal"
@@ -40,9 +43,15 @@ android {
     }
 }
 
+val composeUi = "1.13.0-rc01"
+
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
-    implementation("androidx.compose.foundation:foundation")
+    // Compose UI 1.12 crashes while a long page is scrolled fast (Google Issue Tracker 549552303).
+    // Only 1.13 has the full fix, and it has no stable release yet. Go back to the BOM alone
+    // when a BOM brings 1.13
+    implementation("androidx.compose.ui:ui:$composeUi")
+    implementation("androidx.compose.foundation:foundation:$composeUi")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("com.dropbox.core:dropbox-core-sdk:8.0.2")
@@ -51,8 +60,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 
     androidTestImplementation(platform("androidx.compose:compose-bom:2026.09.00"))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4:$composeUi")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test:runner:1.7.0")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    debugImplementation("androidx.compose.ui:ui-test-manifest:$composeUi")
 }
