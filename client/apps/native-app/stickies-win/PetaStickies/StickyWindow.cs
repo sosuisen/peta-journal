@@ -311,6 +311,8 @@ internal sealed class StickyWindow : Window
         Grid.SetColumn(grip, 1);
         bar.Children.Add(grip);
         SetTitleBar(grip);
+        tools.Children.Add(back);
+        tools.Children.Add(forward);
         tools.Children.Add(Tool("\uE721", "Search pages (Ctrl+F)", ToggleSearch));
         Grid.SetColumn(tools, 2);
         bar.Children.Add(tools);
