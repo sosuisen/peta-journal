@@ -55,12 +55,9 @@ private final class Opened: ObservableObject {
 
     /// What a test of the screen asks of the app when it starts it. `PETA_OPEN` is the URL of a
     /// page to open at once, as `/pages/notes`: the test does not type into the search field
-    /// for it. `PETA_ANIMATIONS=off` stops the animations. The test waits for every animation
-    /// to end before each touch, and in the simulator it sometimes waits a minute in vain.
+    /// for it.
     private static func prepareForTest(_ model: JournalModel) {
-        let asked = ProcessInfo.processInfo.environment
-        if asked["PETA_ANIMATIONS"] == "off" { UIView.setAnimationsEnabled(false) }
-        guard let url = asked["PETA_OPEN"] else { return }
+        guard let url = ProcessInfo.processInfo.environment["PETA_OPEN"] else { return }
         // Only after the files of the test are taken in: until then, the page is not there.
         // The take-in of the start runs first, on the same thread
         let shell = model.shell

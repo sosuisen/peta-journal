@@ -38,12 +38,10 @@ final class JournalScreenTests: XCTestCase {
     }
 
     /// Starts the app on the folder of the test. `opening` is the URL of a page that the app
-    /// opens at once. Without animations: the test waits for each to end before a touch, and
-    /// in the simulator it sometimes waits a minute in vain.
+    /// opens at once.
     private func start(opening url: String? = nil) {
         app = XCUIApplication()
         app.launchEnvironment["PETA_ROOT"] = root.path
-        app.launchEnvironment["PETA_ANIMATIONS"] = "off"
         if let url { app.launchEnvironment["PETA_OPEN"] = url }
         app.launch()
     }
