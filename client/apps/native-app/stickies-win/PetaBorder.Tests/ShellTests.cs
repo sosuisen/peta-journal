@@ -815,6 +815,29 @@ public sealed class ShellTests : IDisposable
         Assert.Equal("/pages/winui-notes", shell.Url);
     }
 
+    // ページへのリンクをキーを押さずにクリックすると、その付箋紙でページが開く。ブラウザには渡らない。
+    [Fact]
+    public void A_link_to_a_page_clicked_without_a_key_opens_the_page_in_the_sticky()
+    {
+        Uri? browsed = null;
+        var shell = new Shell(
+            server.Address,
+            "/pages/winui-notes",
+            main.Post,
+            reply => reply(null),
+            (_, _) => { },
+            uri => browsed = uri
+        );
+        shells.Add(shell);
+        main.WaitUntil("the page is shown", () => shell.View.Outline.Rows.Count > 0);
+
+        shell.Follow(new RichLink.Page("/pages/linked/idea"), Held.None);
+
+        main.WaitUntil("the linked page is shown", () => shell.Title == "idea");
+        Assert.Equal("/pages/linked/idea", shell.Url);
+        Assert.Null(browsed);
+    }
+
     // リンクをたどると、どれもブラウザに渡る。ページはWebのフロントエンドで、資産のファイルはジャーナルサーバーが出すもので開く。付箋紙のページは変わらない。
     [Fact]
     public void A_link_that_is_followed_goes_to_the_browser_and_the_sticky_keeps_its_page()
