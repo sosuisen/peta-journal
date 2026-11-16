@@ -423,9 +423,11 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
 - [ ] コードフェンスを閉じる処理と`split_at_char`を、1つにまとめる（`journal-core/src/application/paste.rs:75-98`と`client-core/src/util/mod.rs`）
 - [ ] アトラスの`Bounds`を、`peta-atlas`にまとめる（`journal-core/src/domain/bounds.rs`と`atlas/src/lib.rs:48-79`）。書き出しが少し違い、1e15以上の値で「…0.0」と「…0」になる。`ATLAS_NAME`も、`client-core/src/screens/page.rs:14`と`journal-core/src/domain/model.rs:50`の2か所にある
 - [ ] `/pages/`を始めとするPetaJournalのURLの知識を、1か所にする
-  - 理由：URLの知識は、1か所にあるべきである。置き場所は、おそらくjournal-serverである（2026-11-16にユーザーが言った）
-  - 決めること：TypeScript、C#、Emacs Lispのクライアントは、Rustのライブラリを呼べない。これらがURLの知識をどこから得るかを決める
-  - AndroidとiOSは、サーバーのURLにアクセスしない。ただし、コアに渡すアプリの中のURL（ページを開く、履歴、前回の画面）として、`/pages/`を使う
+  - 理由：URLの知識は、1か所にあるべきである（2026-11-16にユーザーが言った）
+  - 置き場所：少なくとも`pages`の値は、journal-coreで管理する（2026-11-17にユーザーが決めた）。AndroidとiOSは、サーバーのURLにアクセスしない。それでも、コアに渡すアプリの中のURL（ページを開く、履歴、前回の画面）で`/pages/`を使うためである
+  - 決めること
+    - `client-core`は、journal-coreに依存していない。journal-coreに依存しているのは、組み込み版の`client-api-embedded`と`client-shell-embedded`だけである。`client-core`と`client-page-links`が、journal-coreの値をどう使うかを決める
+    - TypeScript、C#、Emacs Lispのクライアントは、Rustのライブラリを呼べない。これらがURLの知識をどこから得るかを決める
   - 2026-11-16に調べた。テスト、README、使い方の例、コメントを除いて、次の場所にある
   - URLを作る側（Rust）
     - `client-page-links/src/links.rs:8, 14`の`wikilink_path`と`hashtag_path`。Webのシェル、「HTMLとしてコピー」、付箋紙の`PageAddress`が使う
