@@ -72,6 +72,15 @@ struct ItemEditor: UIViewRepresentable {
         DispatchQueue.main.async { typist.typeWhatWasHeld(into: field) }
     }
 
+    /// Moves the cursor of the field that is edited, as an arrow key of a desktop does. The
+    /// pad of the tools lies outside of the field. Nothing happens while no field has the
+    /// keyboard.
+    @MainActor
+    static func move(_ arrow: Arrow) {
+        guard let field = Field.holder, let typist = field.delegate as? Typist else { return }
+        typist.move(arrow, in: field)
+    }
+
     func sizeThatFits(_ proposal: ProposedViewSize, uiView field: Field, context: Context) -> CGSize? {
         guard let width = proposal.width, width.isFinite, width > 0 else { return nil }
         let fits = field.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
@@ -305,7 +314,44 @@ struct ItemEditor: UIViewRepresentable {
                 // The list took the field off the screen, and the edit goes on: the field is
                 // back with the keyboard, or the keeper has the keyboard for it
                 if Field.holder != nil || KeyboardKeeper.onScreen?.isFirstResponder == true { return }
+                let edited = shell.view.outline.rows.contains { $0.isEditing && $0.item.id == id }
                 shell.finish(id)
+                // The keyboard went down, as by a drag of the page: the item stays selected,
+                // so that the tools still act on it. Not when another field took the
+                // keyboard, as the search field
+                if edited, UIResponder.withKeyboard == nil { shell.select(id) }
+            }
+        }
+
+        /// Moves the cursor of `field` for `arrow`. At the edge of the text the cursor leaves
+        /// the item, as the arrow keys of the web frontend do.
+        fileprivate func move(_ arrow: Arrow, in field: UITextView) {
+            if moving { return }
+            if field.markedTextRange != nil {
+                // A word that the keyboard composes ends here, and the core has not heard of it
+                field.unmarkText()
+                telling = true
+                shell.type(itemId, field.text, cursor: field.selectedRange.location)
+                telling = false
+            }
+            let chosen = field.selectedRange
+            if let place = Caret.moved(arrow, in: field, from: chosen) {
+                field.selectedRange = NSRange(location: place, length: 0)
+                return
+            }
+            let from = arrow == .left || arrow == .up ? chosen.location : NSMaxRange(chosen)
+            leave(arrow, at: Cursor.characters(utf16: from, in: field.text ?? ""))
+        }
+
+        /// The cursor leaves the item for the next one. `cursor` is where it was, in
+        /// characters. Left goes to the end of the item above, and Right to the start of the
+        /// item below. Up and Down keep the place in the line.
+        private func leave(_ arrow: Arrow, at cursor: Int) {
+            switch arrow {
+            case .left: shell.navigateUp(itemId, cursor: Caret.pastTheEnd)
+            case .up: shell.navigateUp(itemId, cursor: cursor)
+            case .right: shell.navigateDown(itemId, cursor: 0)
+            case .down: shell.navigateDown(itemId, cursor: cursor)
             }
         }
     }
@@ -422,5 +468,44 @@ extension UIResponder {
 
     @objc private func tellOfTheKeyboard() {
         UIResponder.found = self
+    }
+}
+
+/// Where the cursor of a field goes for an arrow.
+enum Caret {
+    /// A place past the end of any item: the core puts the cursor at its end.
+    static let pastTheEnd = Int(Int32.max)
+
+    /// Where the cursor goes in `field` for `arrow`, from `chosen`, in UTF-16 units. `nil`
+    /// when it leaves the item: at the start for Left, on the first line for Up, at the end
+    /// for Right, and on the last line for Down. Chosen text gives way to a cursor at its start
+    /// or its end. Left and Right step over a whole character, as an emoji.
+    @MainActor
+    static func moved(_ arrow: Arrow, in field: UITextView, from chosen: NSRange) -> Int? {
+        let text = (field.text ?? "") as NSString
+        if chosen.length > 0, arrow == .left || arrow == .right {
+            return arrow == .left ? chosen.location : NSMaxRange(chosen)
+        }
+        let at = arrow == .left || arrow == .up ? chosen.location : NSMaxRange(chosen)
+        switch arrow {
+        case .left: return at == 0 ? nil : text.rangeOfComposedCharacterSequence(at: at - 1).location
+        case .right: return at >= text.length ? nil : NSMaxRange(text.rangeOfComposedCharacterSequence(at: at))
+        case .up: return onLine(field, from: at, up: true)
+        case .down: return onLine(field, from: at, up: false)
+        }
+    }
+
+    /// The place on the line above or below the line of `at`, under the same spot of the
+    /// screen. `nil` on the first line for up, and on the last for down.
+    @MainActor
+    private static func onLine(_ field: UITextView, from at: Int, up: Bool) -> Int? {
+        let start = field.beginningOfDocument
+        guard let here = field.position(from: start, offset: at) else { return nil }
+        let caret = field.caretRect(for: here)
+        let edge = field.caretRect(for: up ? start : field.endOfDocument)
+        if abs(caret.midY - edge.midY) < caret.height / 2 { return nil }
+        let spot = CGPoint(x: caret.midX, y: caret.midY + (up ? -caret.height : caret.height))
+        guard let found = field.closestPosition(to: spot) else { return nil }
+        return field.offset(from: start, to: found)
     }
 }
