@@ -45,6 +45,20 @@ fn a_rename_carries_the_new_path() {
     assert_eq!(envelope.message, Inbound::RenamePage { path: "a/b".into() });
 }
 
+// フォルダ名の変更は、新しいフォルダのパスとして届く。降格は、中身のない行として届く。
+#[test]
+fn a_folder_rename_carries_the_path_and_a_demotion_nothing() {
+    let line = r#"{"seq":1,"type":"rename_folder","path":"a/c"}"#;
+    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    assert_eq!(
+        envelope.message,
+        Inbound::RenameFolder { path: "a/c".into() }
+    );
+    let line = r#"{"seq":2,"type":"demote_index"}"#;
+    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    assert_eq!(envelope.message, Inbound::DemoteIndex);
+}
+
 // 画像の挿入は、項目とカーソルと、Emacsが選んだファイルのパスとして届く。
 #[test]
 fn an_image_insertion_carries_the_item_the_cursor_and_the_path() {

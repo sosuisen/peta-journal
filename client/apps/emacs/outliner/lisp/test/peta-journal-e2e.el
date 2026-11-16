@@ -443,6 +443,41 @@ No key does this: the tests use it to reach a page without the search box."
     (peta-journal-e2e--wait-page-title "メモ")
     (should (equal peta-journal--page-path "メモ"))))
 
+;; indexページで`C-c C-x r`を押すと、フォルダの名前が変わり、indexページはそのフォルダへ移る。
+(ert-deftest peta-journal-e2e-renaming-an-index-page-renames-its-folder ()
+  (peta-journal-e2e--with-app
+    (peta-journal-e2e--open-page "古いフォルダ/index")
+    (peta-journal-e2e--wait-for "the index page"
+                                (lambda () (equal peta-journal--index-folder "古いフォルダ")))
+    (peta-journal-e2e--type "索引")
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("索引"))
+    (peta-journal-e2e--rename "新しいフォルダ")
+    (peta-journal-e2e--wait-for "the new folder"
+                                (lambda () (equal peta-journal--index-folder "新しいフォルダ")))
+    (let ((markdown (expand-file-name "markdown" root)))
+      (peta-journal-e2e--wait-for
+       "the file in the new folder"
+       (lambda ()
+         (let ((file (peta-journal-e2e--file-with markdown "索引")))
+           (and file (string-suffix-p "新しいフォルダ/index.md" file))))))))
+
+;; 下にページのないindexページは、`C-c C-x D`で「はい」と答えると、フォルダの名前のページになる。
+(ert-deftest peta-journal-e2e-demoting-an-index-page-makes-it-the-page-of-its-folder ()
+  (peta-journal-e2e--with-app
+    (peta-journal-e2e--open-page "上/降格/index")
+    (peta-journal-e2e--wait-for "an index page that can be demoted"
+                                (lambda () (equal peta-journal--demote-name "降格")))
+    (peta-journal-e2e--type "本文")
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("本文"))
+    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_prompt) t)))
+      (peta-journal-e2e--keys "C-c C-x D")
+      (peta-journal-e2e--wait-for "the page of the folder"
+                                  (lambda () (equal peta-journal--page-path "上/降格"))))
+    (should-not peta-journal--index-folder)
+    (peta-journal-e2e--wait-saved '("本文"))))
+
 ;; ジャーナルでは、名前を尋ねずに断る。
 (ert-deftest peta-journal-e2e-a-journal-refuses-the-rename ()
   (peta-journal-e2e--with-app
