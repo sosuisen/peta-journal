@@ -439,7 +439,7 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal--wait)
     (peta-journal-e2e--keys "C-x C-s")
     (peta-journal-e2e--wait-saved '("a" "b" "c"))
-    (peta-journal-e2e--keys "C-p C-p C-c C-x s")
+    (peta-journal-e2e--keys "C-p C-p C-c C-x S")
     (peta-journal-e2e--wait-saved '("c" "# Stash" "a" "b"))
     (should (equal (mapcar (lambda (item) (plist-get item :level))
                            (peta-journal-e2e--saved-items))
