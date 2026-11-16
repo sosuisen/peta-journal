@@ -263,6 +263,12 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
           (setq found t))))
     found))
 
+(defconst peta-journal--link-text-regexp
+  "\\[\\(?:[^][\\\n]\\|\\\\.\\|\\[[^][\\\n]*\\]\\)*\\]"
+  "The text of a Markdown link with its brackets, such as `[図\\[1\\]]'.
+A bracket in it has a `\\' before it, as the core writes the name of an image
+\(ADR 022), or pairs with another one.  Only one level of pairs counts.")
+
 (defconst peta-journal--font-lock-keywords
   `(;; Code comes first: what has a face stays as it is, so nothing is decorated inside
     (,(peta-journal--fence "\\(```+\\)[^`\n]*$") 0 'peta-journal-code)
@@ -283,8 +289,8 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
     (,(concat "\\(?:^\\|[ \t" peta-journal--bullet-gap "]\\)"
               "\\(#[[:alnum:]_-]\\(?:[[:alnum:]_/-]*[[:alnum:]_-]\\)?\\)")
      1 'peta-journal-link)
-    ("!\\[[^][\n]*\\]([^)\n]*)" 0 'peta-journal-image)
-    ("\\[[^][\n]*\\]([^)\n]*)" 0 'peta-journal-link)
+    (,(concat "!" peta-journal--link-text-regexp "([^)\n]*)") 0 'peta-journal-image)
+    (,(concat peta-journal--link-text-regexp "([^)\n]*)") 0 'peta-journal-link)
     ("\\(?:https?://\\|www\\.\\)[^ \t\n<>]+" 0 'peta-journal-link)
     ("[[:alnum:]._+-]+@[[:alnum:]-]+\\.[[:alnum:].-]+" 0 'peta-journal-link)
     ("\\[\\^[^]\n]+\\]\\|\\^\\[[^]\n]*\\]" 0 'peta-journal-footnote)
@@ -641,7 +647,8 @@ A step back from the start of this body goes on to the row above."
 ;;;; Images
 
 (defconst peta-journal--image-link-regexp
-  "!\\[[^][\n]*\\](\\.\\./assets/\\([A-Za-z0-9._-]+\\)\\(?:#\\([^)\n]*\\)\\)?)"
+  (concat "!" peta-journal--link-text-regexp
+          "(\\.\\./assets/\\([A-Za-z0-9._-]+\\)\\(?:#\\([^)\n]*\\)\\)?)")
   "A link to an image on the server.
 Group 1 is the name of the file, and group 2 what follows its `#'.  The server
 gives an uploaded file such a name, and a name of this form needs no escaping
