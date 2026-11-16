@@ -1,7 +1,10 @@
 //! The JSON lines this process and `peta-journal.el` send each other.
 
 use client_core::app::SelectionKey;
-use client_core::view::{BacklinkGroup, PageProperty, Row, SearchEntry, TaskState};
+use client_core::view::{
+    BacklinkGroup, PageProperty, Row, SearchEntry, SidebarPage, SidebarView as CoreSidebar,
+    TaskState,
+};
 use serde::{Deserialize, Serialize};
 
 /// One line from Emacs. Emacs numbers its lines, so it can tell which of them an answer has seen.
@@ -230,6 +233,8 @@ pub enum Outbound {
     Recent {
         paths: Vec<String>,
     },
+    /// What the sidebar lists, in the order of the web frontend.
+    Sidebar(SidebarView),
     Backlinks {
         groups: Vec<BacklinkEntry>,
     },
@@ -355,6 +360,94 @@ impl PropertyRow {
 pub struct FreeKey {
     pub key: String,
     pub label: String,
+}
+
+/// The sections of the sidebar. The calendar of the web frontend is left out: Emacs has its
+/// own (`peta-journal-calendar`).
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+pub struct SidebarView {
+    /// The pages of the folder of the shown page. `None` when there is nothing to list.
+    pub index: Option<SidebarIndex>,
+    pub headings: Vec<SidebarHeading>,
+    pub recent: Vec<SidebarLine>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SidebarIndex {
+    /// The folder, as `a/b/`, or `(root)/`.
+    pub header: String,
+    /// The path of the index page that the header opens.
+    pub path: String,
+    /// The path that the `../` line opens. `None` in the root.
+    pub parent: Option<String>,
+    pub pages: Vec<SidebarLine>,
+}
+
+/// A page of a list of the sidebar, which opens by its path.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SidebarLine {
+    pub label: String,
+    /// The folder shown before the label, for a recent page in a folder.
+    pub dir: Option<String>,
+    pub path: String,
+    pub folder: bool,
+    /// The page is the one on screen.
+    pub current: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SidebarHeading {
+    pub id: String,
+    pub text: String,
+    pub level: u8,
+}
+
+impl SidebarView {
+    pub fn of(sidebar: &CoreSidebar) -> SidebarView {
+        // As in the web frontend, only the index list marks the page on screen
+        let current = sidebar.current_page_id.as_deref();
+        let lines = |pages: &[SidebarPage], marked: bool| -> Vec<SidebarLine> {
+            pages
+                .iter()
+                .map(|page| SidebarLine {
+                    label: page.label.clone(),
+                    dir: page.dir_label.clone(),
+                    path: page.path.clone(),
+                    folder: page.is_dir,
+                    current: marked && current == Some(page.page.id.as_str()),
+                })
+                .collect()
+        };
+        let listed = !sidebar.index_pages.is_empty() || sidebar.index_parent_path.is_some();
+        SidebarView {
+            index: listed.then(|| SidebarIndex {
+                header: sidebar.index_header.clone(),
+                path: index_path(&sidebar.index_header),
+                parent: sidebar.index_parent_path.clone(),
+                pages: lines(&sidebar.index_pages, true),
+            }),
+            headings: sidebar
+                .headings
+                .iter()
+                .map(|heading| SidebarHeading {
+                    id: heading.id.clone(),
+                    text: heading.text.clone(),
+                    level: heading.level,
+                })
+                .collect(),
+            recent: lines(&sidebar.recent_pages, false),
+        }
+    }
+}
+
+/// The path of the index page of the folder `header`, which the web frontend opens from the
+/// header of its list too.
+fn index_path(header: &str) -> String {
+    if header == "(root)/" {
+        "index".into()
+    } else {
+        format!("{header}index")
+    }
 }
 
 /// A page that links to the shown page.

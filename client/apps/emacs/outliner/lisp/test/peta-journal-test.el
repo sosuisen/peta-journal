@@ -2061,6 +2061,97 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                     (lambda (pages) (sort pages #'string<)))))
       (funcall sort (all-completions "" offered)))))
 
+;;;; Sidebar
+
+(defconst peta-journal-test--sidebar
+  '(:t "sidebar"
+    :index (:header "notes/" :path "notes/index" :parent "index"
+            :pages [(:label "sub/" :dir nil :path "notes/sub/index" :folder t :current nil)
+                    (:label "Idea" :dir nil :path "notes/Idea" :folder nil :current t)])
+    :headings [(:id "a" :text "Top" :level 1) (:id "b" :text "Inner" :level 2)]
+    :recent [(:label "plan" :dir "work/" :path "work/plan" :folder nil :current nil)])
+  "A sidebar as the shell tells it.")
+
+(defmacro peta-journal-test--with-sidebar (&rest body)
+  "Run BODY in a page that was told `peta-journal-test--sidebar'.
+The sidebar is closed at the end."
+  (declare (indent 0))
+  `(peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "# Top")
+                                       (peta-journal-test--row "b" 1 "## Inner"))
+     (unwind-protect
+         (progn
+           (peta-journal--on-line peta-journal-test--sidebar)
+           ,@body)
+       (when-let* ((window (get-buffer-window peta-journal--sidebar-buffer)))
+         (delete-window window))
+       (when (get-buffer peta-journal--sidebar-buffer)
+         (kill-buffer peta-journal--sidebar-buffer)))))
+
+(defun peta-journal-test--sidebar-lines ()
+  "The lines of the sidebar."
+  (with-current-buffer peta-journal--sidebar-buffer
+    (split-string (buffer-substring-no-properties (point-min) (point-max)) "\n" t)))
+
+(defun peta-journal-test--sidebar-open (text)
+  "Press RET on the line of the sidebar that ends with TEXT."
+  (with-current-buffer peta-journal--sidebar-buffer
+    (goto-char (point-min))
+    (re-search-forward (concat (regexp-quote text) "$"))
+    (beginning-of-line)
+    (peta-journal-sidebar-open)))
+
+;; サイドバーは左端の窓に開き、Webと同じ順で、フォルダの一覧、見出し、最近のページを並べる。もう一度押すと閉じる。
+(ert-deftest peta-journal-the-sidebar-opens-on-the-left-and-closes-again ()
+  (peta-journal-test--with-sidebar
+    (peta-journal-sidebar)
+    (let ((window (get-buffer-window peta-journal--sidebar-buffer)))
+      (should window)
+      (should (eq (window-parameter window 'window-side) 'left)))
+    (should (equal (peta-journal-test--sidebar-lines)
+                   '("notes/" "  ../" "  sub/" "  Idea"
+                     "Contents" "  Top" "    Inner"
+                     "Recent Pages" "  work/plan")))
+    (peta-journal-sidebar)
+    (should-not (get-buffer-window peta-journal--sidebar-buffer))))
+
+;; 一覧の今のページには、印の色が付く。
+(ert-deftest peta-journal-the-page-on-screen-is-marked-in-the-sidebar ()
+  (peta-journal-test--with-sidebar
+    (peta-journal-sidebar)
+    (with-current-buffer peta-journal--sidebar-buffer
+      (goto-char (point-min))
+      (search-forward "Idea")
+      (should (memq 'peta-journal-sidebar-current
+                    (ensure-list (get-text-property (1- (point)) 'face)))))))
+
+;; ページの行でRETを押すと、そのパスのページが開く。フォルダの見出しと「../」も、そのindexページを開く。
+(ert-deftest peta-journal-a-line-of-the-sidebar-opens-its-page ()
+  (pcase-dolist (`(,line . ,path) '(("Idea" . "notes/Idea") ("work/plan" . "work/plan")
+                                   ("notes/" . "notes/index") ("../" . "index")))
+    (peta-journal-test--with-sidebar
+      (peta-journal-sidebar)
+      (setq peta-journal-test--sent nil)
+      (peta-journal-test--sidebar-open line)
+      (should (equal (list line peta-journal-test--sent)
+                     (list line `(("go_to_page" :path ,path))))))))
+
+;; 見出しの行でRETを押すと、ページのその項目へ点が移る。
+(ert-deftest peta-journal-a-heading-of-the-sidebar-moves-the-point-to-its-item ()
+  (peta-journal-test--with-sidebar
+    (let ((page (current-buffer)))
+      (peta-journal-sidebar)
+      (peta-journal-test--sidebar-open "Inner")
+      (with-current-buffer page
+        (should (equal (peta-journal--id-at (point)) "b"))))))
+
+;; 開いているサイドバーは、シェルが新しい一覧を伝えると、描き直される。
+(ert-deftest peta-journal-an-open-sidebar-follows-what-the-shell-tells ()
+  (peta-journal-test--with-sidebar
+    (peta-journal-sidebar)
+    (peta-journal--on-line '(:t "sidebar" :index nil :headings []
+                             :recent [(:label "x" :dir nil :path "x" :folder nil :current nil)]))
+    (should (equal (peta-journal-test--sidebar-lines) '("Recent Pages" "  x")))))
+
 ;; 新しいバッファに開くときの候補は、名前順に並べ替えず、最近のページの順のまま見せる。
 (ert-deftest peta-journal-the-recent-pages-are-offered-in-their-own-order ()
   (let ((peta-journal--recent '("zeta" "alpha" "notes/mid")))
@@ -2086,7 +2177,8 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                    ("C-c C-x t" . peta-journal-paste-as-transclusion)
                    ("C-c C-x T" . peta-journal-remove-transclusion)
                    ("C-c C-x D" . peta-journal-demote-index)
-                   ("C-c C-x s" . peta-journal-send-to-stash)
+                   ("C-c C-x s" . peta-journal-sidebar)
+                   ("C-c C-x S" . peta-journal-send-to-stash)
                    ("C-c C-x d" . peta-journal-delete-page)
                    ("C-c C-x p" . peta-journal-properties)
                    ("C-c C-x n" . peta-journal-new-buffer)

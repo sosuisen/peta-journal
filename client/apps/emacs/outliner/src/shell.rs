@@ -6,6 +6,7 @@
 
 use crate::protocol::{
     BacklinkEntry, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView,
+    SidebarView,
 };
 use client_core::app::{JournalNav, WikiLinkContext};
 use client_core::effects::{
@@ -69,6 +70,7 @@ struct Sent {
     index: (Option<String>, Option<String>),
     properties: (Option<Vec<PropertyRow>>, Vec<FreeKey>, Vec<String>),
     recent: Vec<String>,
+    sidebar: SidebarView,
     backlinks: Vec<BacklinkEntry>,
 }
 
@@ -589,7 +591,16 @@ impl<H: Host> Shell<H> {
         self.tell_connection(&view);
         self.tell_search(&view.search);
         self.tell_recent(&view);
+        self.tell_sidebar(&view);
         self.tell_backlinks(&view);
+    }
+
+    fn tell_sidebar(&mut self, view: &ViewModel<()>) {
+        let sidebar = SidebarView::of(&view.sidebar);
+        if sidebar != self.sent.sidebar {
+            self.sent.sidebar.clone_from(&sidebar);
+            self.host.emit(Outbound::Sidebar(sidebar));
+        }
     }
 
     fn tell_rows(&mut self, view: &ViewModel<()>) {

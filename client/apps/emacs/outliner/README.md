@@ -78,7 +78,7 @@ ends between items are read-only. The outline changes only through these keys:
 | `C-c C-x w` | Copy the reference (the id) of the item |
 | `C-c C-x t` | Make the item a transclusion of the copied reference |
 | `C-c C-x T` | Make a transclusion a plain item again |
-| `C-c C-x s` | Send the item with its children to the `# Stash` heading at the end of the page |
+| `C-c C-x S` | Send the item with its children to the `# Stash` heading at the end of the page |
 | `C-/`, `C-?` | Undo and redo, through the history of the core |
 | `C-x C-s` | Save now |
 
@@ -103,6 +103,7 @@ The commands on the whole page are `C-c C-x` and then one letter:
 
 | Key | Action |
 |---|---|
+| `C-c C-x s` | Show or hide the sidebar on the left |
 | `C-c C-x r` | Rename the page, or the folder of an index page |
 | `C-c C-x D` | Make an index page the page of the name of its folder |
 | `C-c C-x d` | Delete the page |
@@ -114,6 +115,22 @@ The commands on the whole page are `C-c C-x` and then one letter:
 | `C-c C-x c` | Pick a date in the calendar and open it |
 
 To open a page by name, use the search box.
+
+## The sidebar
+
+`C-c C-x s` or `M-x peta-journal-sidebar` opens a sidebar on the left edge of the frame. Press it
+again to close it. `peta-journal-sidebar-width` sets its width. The default is `30`.
+
+It lists what the sidebar of the web app lists, in the same order. The calendar of the web app is
+left out, as `C-c C-x c` opens the calendar of Emacs.
+
+- The pages in the folder of the page on screen. The name of the folder at the top opens its index
+  page, and `../` opens the folder above. The page on screen has a color.
+- Contents: the headings of the page, indented by their level
+- Recent Pages
+
+`RET` or a click on a line opens its page. On a heading, the point moves to that item of the page.
+The sidebar is drawn again when the page changes.
 
 ## Completing a wiki link
 
