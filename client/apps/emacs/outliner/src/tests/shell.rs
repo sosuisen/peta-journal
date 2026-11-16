@@ -629,6 +629,44 @@ fn a_failure_of_another_call_is_not_reported_as_one_of_the_image() {
     assert_eq!(driver.holding(), Some(false));
 }
 
+// 項目のidを貼り付けると、その項目がトランスクルージョンの元としてサーバーへ送られる。
+#[test]
+fn pasting_an_item_id_makes_a_transclusion_of_it() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "")]);
+    driver.send(Inbound::PasteAsTransclusion {
+        id: "b".into(),
+        text: " abcdefghij
+"
+        .into(),
+    });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::SetTransclusion { item_id, source_item_id }
+            if item_id == "b" && source_item_id == "abcdefghij"
+    )));
+}
+
+// 項目のidに見えない文字を貼り付けても、何も送らない。
+#[test]
+fn pasting_other_text_makes_no_transclusion() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::PasteAsTransclusion {
+        id: "a".into(),
+        text: "hello world".into(),
+    });
+    assert!(!driver.waiting(|op| matches!(op, ApiOp::SetTransclusion { .. })));
+}
+
+// 解除すると、その項目がサーバーへ送られ、ふつうの項目に戻る。
+#[test]
+fn removing_a_transclusion_sends_the_item() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::RemoveTransclusion { id: "a".into() });
+    assert!(
+        driver.waiting(|op| matches!(op, ApiOp::RemoveTransclusion { item_id } if item_id == "a"))
+    );
+}
+
 // 項目の削除は、参照の確認を経て、子ごとサーバーへ送られる。行は、サーバーの答えのあとで消える。
 #[test]
 fn deleting_an_item_takes_its_children_with_it() {

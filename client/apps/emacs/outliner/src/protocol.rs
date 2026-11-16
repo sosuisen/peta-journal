@@ -108,6 +108,16 @@ pub enum Inbound {
     DeleteItem {
         id: String,
     },
+    /// Makes the item a transclusion of the item whose id is `text`, which Emacs took from
+    /// its clipboard. Text that is not an item id does nothing.
+    PasteAsTransclusion {
+        id: String,
+        text: String,
+    },
+    /// Makes a transclusion a plain item again.
+    RemoveTransclusion {
+        id: String,
+    },
     Undo,
     Redo,
     Scrolled {

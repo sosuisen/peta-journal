@@ -78,6 +78,8 @@ pub struct Shell<H: Host> {
     client_id: ClientId,
     apis: HashMap<u64, Request<ApiOp>>,
     next_api: u64,
+    /// The text Emacs took from its clipboard, while the core may ask for it.
+    clipboard: Option<String>,
     /// The paths of the images Emacs chose. The core knows each by its index here.
     image_files: Vec<String>,
     /// The calls under way for an image: its upload, then the paste of its link.
@@ -108,6 +110,7 @@ impl<H: Host> Shell<H> {
             client_id,
             apis: HashMap::new(),
             next_api: 0,
+            clipboard: None,
             image_files: Vec::new(),
             image_calls: HashSet::new(),
             timers: HashMap::new(),
@@ -269,6 +272,15 @@ impl<H: Host> Shell<H> {
             }),
             Inbound::InsertImage { id, path, cursor } => self.insert_image(id, path, cursor),
             Inbound::DeleteItem { id } => self.send(Event::DeleteItem { item_id: id }),
+            Inbound::PasteAsTransclusion { id, text } => {
+                // The core asks for the clipboard text, and gets this one
+                self.clipboard = Some(text);
+                self.send(Event::PasteAsTransclusion { item_id: id });
+                self.clipboard = None;
+            }
+            Inbound::RemoveTransclusion { id } => {
+                self.send(Event::RemoveTransclusion { item_id: id })
+            }
             Inbound::Undo => self.send(Event::Undo),
             Inbound::Redo => self.send(Event::Redo),
             Inbound::Scrolled { top, bottom } => self.send(Event::OutlineScrolled {
@@ -438,6 +450,7 @@ impl<H: Host> Shell<H> {
     fn process(&mut self, effects: Vec<Effect>) {
         let mut render = false;
         let mut focused = Vec::new();
+        let mut reads = Vec::new();
         for effect in effects {
             match effect {
                 Effect::Render(_) => render = true,
@@ -457,6 +470,9 @@ impl<H: Host> Shell<H> {
                     self.next_stream += 1;
                     self.sse = Some((self.next_stream, request));
                     self.host.connect_sse(self.next_stream);
+                }
+                Effect::Ui(request) if request.operation == UiOp::ReadClipboardText => {
+                    reads.push(request);
                 }
                 Effect::Ui(request) => {
                     if let Some(request) = self.on_ui_op(request) {
@@ -479,6 +495,10 @@ impl<H: Host> Shell<H> {
         // After the render: the item to focus may have been added in this very update
         for mut request in focused {
             self.resolve(&mut request, UiOutput::Done);
+        }
+        for mut request in reads {
+            let text = self.clipboard.clone();
+            self.resolve(&mut request, UiOutput::Text(text));
         }
         while let Some(url) = self.navigations.pop_front() {
             self.open(url);
@@ -523,8 +543,8 @@ impl<H: Host> Shell<H> {
                 self.ask(message, request);
             }
             // There is nothing to do these with here: the atlas map is a part of the web shell.
-            // Copying, a new page from the header, a page in another window and pasting a
-            // transclusion start from events that Emacs does not send
+            // Copying, a new page from the header and a page in another window start from
+            // events that Emacs does not send. The clipboard is read in `process`
             UiOp::LocalNow
             | UiOp::OpenWindow { .. }
             | UiOp::SaveAtlasDirs(_)

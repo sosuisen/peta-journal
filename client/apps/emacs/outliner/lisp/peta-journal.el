@@ -1108,6 +1108,33 @@ server may still say no."
   (interactive)
   (peta-journal--send-and-wait "delete_item" :id (peta-journal--item)))
 
+(defun peta-journal-copy-reference ()
+  "Put the id of the item at the point in the kill ring.
+Paste it with \[peta-journal-paste-as-transclusion] to show the item in another place."
+  (interactive)
+  (let ((id (peta-journal--item)))
+    (kill-new id)
+    (message "Copied the reference %s" id)))
+
+(defun peta-journal-paste-as-transclusion ()
+  "Make the item at the point show the item whose id is the latest kill.
+The kill can come from \[peta-journal-copy-reference], or from \"Copy Reference\"
+of the web app through the clipboard.  Text that is not an item id does nothing."
+  (interactive)
+  (let ((text (ignore-error error (current-kill 0 t))))
+    (unless text
+      (user-error "Nothing to paste: copy the reference of an item first"))
+    (peta-journal--send-and-wait "paste_as_transclusion"
+                                 :id (peta-journal--item) :text text)))
+
+(defun peta-journal-remove-transclusion ()
+  "Make the transclusion at the point a plain item again."
+  (interactive)
+  (let ((id (peta-journal--item)))
+    (unless (member (plist-get (peta-journal--row-of id) :bullet) '("transclusion" "broken"))
+      (user-error "The item is not a transclusion"))
+    (peta-journal--send-and-wait "remove_transclusion" :id id)))
+
 (defun peta-journal--clipboard-image ()
   "The image in the clipboard of the OS as the bytes of a PNG file, or nil.
 Nil as well when the clipboard has text: then the text is what gets pasted.
@@ -1830,6 +1857,9 @@ This is for `completion-at-point-functions'."
   "C-c C-x b" #'peta-journal-backlinks
   "C-c C-x f" #'peta-journal-forward
   "C-c C-x r" #'peta-journal-rename-page
+  "C-c C-x w" #'peta-journal-copy-reference
+  "C-c C-x t" #'peta-journal-paste-as-transclusion
+  "C-c C-x T" #'peta-journal-remove-transclusion
   "C-c C-x p" #'peta-journal-properties
   "C-c C-x n" #'peta-journal-new-buffer
   "C-c C-x i" #'peta-journal-insert-image
