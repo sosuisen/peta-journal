@@ -322,6 +322,82 @@
     (peta-journal--post-command)
     (should (equal peta-journal-test--sent '(("delete_item" :id "a"))))))
 
+;;;; Selection
+
+;; 選択を始めると、今の項目の編集を終えてから、その項目の選択をcoreに頼む。
+(ert-deftest peta-journal-a-selection-ends-the-edit-and-starts-on-the-item ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "y"))
+    (peta-journal-test--goto "a" 0)
+    (setq peta-journal-test--sent nil)
+    (peta-journal-select)
+    (should (equal peta-journal-test--sent '(("edit_finished" :id "a") ("select" :id "a"))))))
+
+;; 選ばれた行が届くと、選択のモードに入り、バッファは書けなくなる。選ばれた行がなくなると、元に戻る。
+(ert-deftest peta-journal-selected-rows-turn-the-selection-mode-on-and-off ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "y"))
+    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x" :selected t)
+                                      (peta-journal-test--row "b" 1 "y"))
+                              "page" 0)
+    (should peta-journal-selection-mode)
+    (should buffer-read-only)
+    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "y"))
+                              "page" 0)
+    (should-not peta-journal-selection-mode)
+    (should-not buffer-read-only)))
+
+;; 選ばれた行には、選択の色が付く。
+(ert-deftest peta-journal-selected-rows-are-highlighted ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x" :selected t)
+                                      (peta-journal-test--row "b" 1 "y"))
+    (let ((faces (lambda (id)
+                   (mapcar (lambda (o) (overlay-get o 'face))
+                           (overlays-at (save-excursion (peta-journal--goto-item id 0)
+                                                        (point)))))))
+      (should (memq 'peta-journal-selected (funcall faces "a")))
+      (should-not (memq 'peta-journal-selected (funcall faces "b"))))))
+
+;; 選択の間、点が動いても、項目の編集は始めない。
+(ert-deftest peta-journal-moving-in-a-selection-starts-no-edit ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x" :selected t)
+                                      (peta-journal-test--row "b" 1 "y"))
+    (setq peta-journal-test--sent nil)
+    (peta-journal-test--goto "b" 0)
+    (should (null peta-journal-test--sent))))
+
+;; 選択の間のキーは、それぞれの名前でcoreへ送られる。
+(ert-deftest peta-journal-the-keys-of-a-selection ()
+  (pcase-dolist (`(,key . ,name)
+                 '(("n" . "ExtendDown") ("C-n" . "ExtendDown") ("<down>" . "ExtendDown")
+                   ("S-<down>" . "ExtendDown")
+                   ("p" . "ExtendUp") ("C-p" . "ExtendUp") ("<up>" . "ExtendUp")
+                   ("S-<up>" . "ExtendUp")
+                   ("M-S-<up>" . "MoveUp") ("M-S-<down>" . "MoveDown")
+                   ("TAB" . "Indent") ("M-S-<right>" . "Indent")
+                   ("<backtab>" . "Outdent") ("M-S-<left>" . "Outdent")
+                   ("d" . "Delete") ("DEL" . "Delete") ("C-d" . "Delete") ("<delete>" . "Delete")
+                   ("w" . "Copy") ("M-w" . "Copy") ("C-w" . "Cut")
+                   ("C-/" . "Undo") ("C-?" . "Redo")
+                   ("C-g" . "Escape") ("q" . "Escape") ("<escape>" . "Escape")))
+    (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x" :selected t))
+      (setq peta-journal-test--sent nil)
+      (call-interactively (keymap-lookup nil key))
+      (should (equal (list key peta-journal-test--sent)
+                     (list key `(("selection_key" :key ,name))))))))
+
+;; コピーされた文字は、kill ringに入る。
+(ert-deftest peta-journal-copied-text-goes-into-the-kill-ring ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (let ((kill-ring nil)
+          (interprogram-cut-function nil)
+          (interprogram-paste-function nil))
+      (peta-journal--on-line '(:t "copy" :text "- x
+"))
+      (should (equal (current-kill 0 t) "- x
+")))))
+
 ;; 参照のコピーは、項目のidをkill ringに入れるだけで、何も送らない。
 (ert-deftest peta-journal-copying-a-reference-puts-the-id-in-the-kill-ring ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
@@ -2005,6 +2081,7 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                    ("C-c C-x f" . peta-journal-forward)
                    ("C-c C-x b" . peta-journal-backlinks)
                    ("C-c C-x r" . peta-journal-rename-page)
+                   ("C-c SPC" . peta-journal-select)
                    ("C-c C-x w" . peta-journal-copy-reference)
                    ("C-c C-x t" . peta-journal-paste-as-transclusion)
                    ("C-c C-x T" . peta-journal-remove-transclusion)

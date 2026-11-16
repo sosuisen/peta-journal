@@ -1,5 +1,6 @@
 //! The JSON lines this process and `peta-journal.el` send each other.
 
+use client_core::app::SelectionKey;
 use client_core::view::{BacklinkGroup, PageProperty, Row, SearchEntry, TaskState};
 use serde::{Deserialize, Serialize};
 
@@ -116,6 +117,14 @@ pub enum Inbound {
     DeleteItem {
         id: String,
     },
+    /// Selects the item with its children. The edit ends, and the keys of the selection
+    /// come as `SelectionKey` until it ends.
+    Select {
+        id: String,
+    },
+    SelectionKey {
+        key: SelectionKey,
+    },
     /// Makes the item a transclusion of the item whose id is `text`, which Emacs took from
     /// its clipboard. Text that is not an item id does nothing.
     PasteAsTransclusion {
@@ -227,6 +236,10 @@ pub enum Outbound {
     Message {
         text: String,
     },
+    /// Text for the kill ring, such as the Markdown of the copied items.
+    Copy {
+        text: String,
+    },
     /// The pages whose names match `query`, for the completion of a wiki link. It is sent
     /// even when nothing was found, as Emacs waits for it.
     PageNames {
@@ -253,6 +266,7 @@ pub struct RowView {
     pub collapsed: bool,
     /// The date above the first item of a journal day.
     pub header: Option<String>,
+    pub selected: bool,
 }
 
 impl RowView {
@@ -265,6 +279,7 @@ impl RowView {
             task: TaskMark::of(row.task),
             collapsed: row.is_collapsed && row.has_children,
             header: row.date_header.clone(),
+            selected: row.is_selected,
         }
     }
 }

@@ -74,6 +74,7 @@ ends between items are read-only. The outline changes only through these keys:
 | `C-c C-t` | Cycle the task state |
 | `C-c C-f` | Hide or show the children |
 | `C-c C-d` | Delete the item with its children |
+| `C-c SPC` | Select the item with its children, to act on several items |
 | `C-c C-x w` | Copy the reference (the id) of the item |
 | `C-c C-x t` | Make the item a transclusion of the copied reference |
 | `C-c C-x T` | Make a transclusion a plain item again |
@@ -151,6 +152,28 @@ A calendar opened by `M-x calendar` does not have these keys.
 
 `peta-journal-item-gap` sets the gap between items, in pixels. The default is `4`, and `0` removes
 the gap. A new value applies to the rows drawn after the change. Only a graphical Emacs shows the gap.
+
+## Selecting items
+
+`C-c SPC` or `M-x peta-journal-select` selects the item at the point, with its children. The edit
+of the item ends. While items are selected, the selected rows have the color of the region. The
+buffer is in `peta-journal-selection-mode`, and its text cannot change. These keys act on all the
+selected items:
+
+| Key | What it does |
+|---|---|
+| `n`, `C-n`, `<down>`, `S-<down>` | Add the item below, or take the top one away |
+| `p`, `C-p`, `<up>`, `S-<up>` | Add the item above, or take the bottom one away |
+| `M-S-<up>`, `M-S-<down>` | Move the items up or down |
+| `TAB`, `M-S-<right>` | Indent the items |
+| `<backtab>`, `M-S-<left>` | Outdent the items |
+| `d`, `DEL`, `C-d`, `<delete>` | Delete the items with their children |
+| `w`, `M-w` | Put the Markdown of the items in the kill ring |
+| `C-w` | Put the Markdown in the kill ring, and delete the items |
+| `C-/`, `C-?` | Undo, redo |
+| `C-g`, `q`, `<escape>` | End the selection |
+
+The selection ends when the selected items are deleted too.
 
 ## Transclusion
 
@@ -299,9 +322,7 @@ letter are kept free for users.
 
 ## Not in this version
 
-The atlas, extensions,
-settings and operations on several selected
-items.
+The atlas, extensions and settings.
 
 ## Tests
 

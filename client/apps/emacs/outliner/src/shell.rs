@@ -279,6 +279,8 @@ impl<H: Host> Shell<H> {
             }),
             Inbound::InsertImage { id, path, cursor } => self.insert_image(id, path, cursor),
             Inbound::DeleteItem { id } => self.send(Event::DeleteItem { item_id: id }),
+            Inbound::Select { id } => self.send(Event::ShiftSelect { item_id: id }),
+            Inbound::SelectionKey { key } => self.send(Event::SelectionKey(key)),
             Inbound::PasteAsTransclusion { id, text } => {
                 // The core asks for the clipboard text, and gets this one
                 self.clipboard = Some(text);
@@ -547,17 +549,19 @@ impl<H: Host> Shell<H> {
             }
             UiOp::SetTitle(title) => self.host.emit(Outbound::Title { title }),
             UiOp::Alert(text) => self.after_render.push(Outbound::Message { text }),
+            UiOp::CopyText(text) | UiOp::CopyMarkdown { markdown: text, .. } => {
+                self.host.emit(Outbound::Copy { text });
+            }
             UiOp::Confirm(message) | UiOp::ConfirmDestructive(message) => {
                 self.ask(message, request);
             }
             // There is nothing to do these with here: the atlas map is a part of the web shell.
-            // Copying, a new page from the header and a page in another window start from
-            // events that Emacs does not send. The clipboard is read in `process`
+            // A new page from the header and a page in another window start from events that
+            // Emacs does not send. The clipboard is read in `process`. A failed copy leaves the
+            // kill ring as it was
             UiOp::LocalNow
             | UiOp::OpenWindow { .. }
             | UiOp::SaveAtlasDirs(_)
-            | UiOp::CopyText(_)
-            | UiOp::CopyMarkdown { .. }
             | UiOp::CopyFailed
             | UiOp::Prompt(_)
             | UiOp::ReadClipboardText => {}

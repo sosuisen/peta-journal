@@ -1,4 +1,5 @@
 use crate::protocol::{Bullet, Envelope, Inbound, Outbound, RowView, TaskMark};
+use client_core::app::SelectionKey;
 use client_core::view::TaskState;
 use serde_json::json;
 
@@ -11,6 +12,7 @@ fn row(bullet: Bullet) -> RowView {
         task: None,
         collapsed: false,
         header: None,
+        selected: false,
     }
 }
 
@@ -43,6 +45,22 @@ fn a_rename_carries_the_new_path() {
     let line = r#"{"seq":1,"type":"rename_page","path":"a/b"}"#;
     let envelope: Envelope = serde_json::from_str(line).unwrap();
     assert_eq!(envelope.message, Inbound::RenamePage { path: "a/b".into() });
+}
+
+// 選択の始まりは項目として、選択中のキーはその名前として届く。
+#[test]
+fn a_selection_starts_on_an_item_and_takes_keys_by_name() {
+    let line = r#"{"seq":1,"type":"select","id":"a"}"#;
+    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    assert_eq!(envelope.message, Inbound::Select { id: "a".into() });
+    let line = r#"{"seq":2,"type":"selection_key","key":"MoveDown"}"#;
+    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    assert_eq!(
+        envelope.message,
+        Inbound::SelectionKey {
+            key: SelectionKey::MoveDown
+        }
+    );
 }
 
 // トランスクルージョンの貼り付けは、項目と、Emacsのクリップボードの文字として届く。解除は、項目として届く。
@@ -146,7 +164,7 @@ fn rows_are_written_as_json_for_emacs() {
             "t": "rows", "ack": 4, "page_id": "p",
             "rows": [{
                 "id": "a", "level": 2, "body": "本文", "bullet": "plain",
-                "task": null, "collapsed": false, "header": null,
+                "task": null, "collapsed": false, "header": null, "selected": false,
             }],
         })
     );
