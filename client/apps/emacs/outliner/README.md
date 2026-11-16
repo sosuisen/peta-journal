@@ -74,6 +74,7 @@ ends between items are read-only. The outline changes only through these keys:
 | `C-c C-t` | Cycle the task state |
 | `C-c C-f` | Hide or show the children |
 | `C-c C-d` | Delete the item with its children |
+| `C-c C-x s` | Send the item with its children to the `# Stash` heading at the end of the page |
 | `C-/`, `C-?` | Undo and redo, through the history of the core |
 | `C-x C-s` | Save now |
 
