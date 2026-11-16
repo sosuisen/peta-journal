@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -51,6 +52,19 @@ class ToolbarTest : JournalScreenFixture() {
 
         waitForItems("1 parent", "2 child")
         compose.onNode(hasContentDescription("Collapse")).assertExists()
+    }
+
+    // 子を隠した項目の点は、大きな薄い円の上に描かれる。子を戻すと、円は消える。
+    @Test
+    fun the_bullet_of_a_folded_item_stands_on_a_disc() {
+        editAParent()
+        compose.onNodeWithTag(FOLDED_TAG, useUnmergedTree = true).assertDoesNotExist()
+
+        tool("Collapse")
+        compose.waitUntil(WAIT_MS) { compose.onAllNodesWithTag(FOLDED_TAG, useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
+        tool("Expand")
+
+        compose.waitUntil(WAIT_MS) { compose.onAllNodesWithTag(FOLDED_TAG, useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
     }
 
     // 子のない項目では、折りたたみの道具は押せない。

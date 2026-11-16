@@ -27,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -112,7 +113,14 @@ private fun OutlineRow(row: Row, links: Links, image: (String) -> File?, shell: 
             val beside = if (onLine) Modifier.alignBy { it.measuredHeight / 2 + middleOfLetter + lift } else Modifier.padding(top = 9.dp)
             Box(beside.width(22.dp).height(BULLET)) {
                 if (row.showBullet) {
-                    Box(Modifier.size(BULLET).background(LocalContentColor.current, CircleShape).testTag(BULLET_TAG))
+                    // A folded item has a large faint disc behind its bullet, as on the web
+                    val folded = if (row.isCollapsed) {
+                        val disc = LocalContentColor.current.copy(alpha = FOLDED_ALPHA)
+                        Modifier.drawBehind { drawCircle(disc, radius = FOLDED_RADIUS.toPx()) }.testTag(FOLDED_TAG)
+                    } else {
+                        Modifier.testTag(BULLET_TAG)
+                    }
+                    Box(folded.size(BULLET).background(LocalContentColor.current, CircleShape))
                 }
             }
             row.task?.let { state ->
@@ -151,6 +159,13 @@ private const val MIDDLE_OF_A_LETTER = 0.38f
 
 /** How wide and how high the bullet of an item is. */
 private val BULLET = 7.dp
+
+/**
+ * The disc behind the bullet of a folded item. The web draws a dot of 5px on a disc of 13px,
+ * in `#888` and `#ddd`: the disc here keeps that size to the bullet, and that faintness.
+ */
+private val FOLDED_RADIUS = 9.dp
+private const val FOLDED_ALPHA = 0.13f
 
 /**
  * How far above the line of the first text the bullet and the mark of a task stand, in pixels,
