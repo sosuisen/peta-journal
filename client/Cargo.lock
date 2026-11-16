@@ -586,6 +586,7 @@ dependencies = [
  "boltffi",
  "chrono",
  "client-api-embedded",
+ "client-cloud-sync",
  "client-core",
  "client-native-bridge",
  "crux_core",

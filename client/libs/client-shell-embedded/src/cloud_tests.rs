@@ -1,0 +1,361 @@
+//! The entrance of the sync, called here from Rust as Kotlin and Swift call it. Dropbox is a
+//! Dropbox of the test, in place of the SDK of the shell.
+
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use tempfile::TempDir;
+
+use super::*;
+
+/// A Dropbox of the test, as the SDK of a shell answers.
+#[derive(Default)]
+struct FakeSdk {
+    /// What `list` answers.
+    whole: Vec<PetaDropboxEntry>,
+    /// The content of each version.
+    contents: HashMap<String, String>,
+    /// What `list` and `upload` fail with, if anything.
+    failure: Option<PetaDropboxError>,
+    /// The paths that were uploaded, as Dropbox names them.
+    uploads: Mutex<Vec<String>>,
+    lists: Mutex<u32>,
+    /// What `list_after` answers, if not that nothing changed.
+    after: Option<Result<PetaListing, PetaDropboxError>>,
+}
+
+impl PetaDropbox for FakeSdk {
+    fn list(&self, folder: String) -> Result<PetaListing, PetaDropboxError> {
+        assert_eq!(folder, "/PetaJournal");
+        *self.lists.lock().unwrap() += 1;
+        if let Some(failure) = &self.failure {
+            return Err(failure.clone());
+        }
+        Ok(PetaListing {
+            entries: self.whole.clone(),
+            cursor: "c1".into(),
+            has_more: false,
+        })
+    }
+
+    fn list_after(&self, _cursor: String) -> Result<PetaListing, PetaDropboxError> {
+        self.after.clone().unwrap_or(Ok(PetaListing {
+            entries: vec![],
+            cursor: "c1".into(),
+            has_more: false,
+        }))
+    }
+
+    fn download(&self, rev: String, to: String) -> Result<(), PetaDropboxError> {
+        fs::write(to, &self.contents[&rev]).unwrap();
+        Ok(())
+    }
+
+    fn upload(
+        &self,
+        path: String,
+        _from: String,
+        _over: Option<String>,
+        _modified_ms: i64,
+    ) -> Result<PetaDropboxFile, PetaDropboxError> {
+        if let Some(failure) = &self.failure {
+            return Err(failure.clone());
+        }
+        self.uploads.lock().unwrap().push(path.clone());
+        Ok(PetaDropboxFile {
+            path: Some(path),
+            content_hash: Some("uploaded".into()),
+            rev: "r9".into(),
+        })
+    }
+}
+
+fn file(path: &str, rev: &str, content: &str) -> PetaDropboxEntry {
+    let temp = tempfile::NamedTempFile::new().unwrap();
+    fs::write(temp.path(), content).unwrap();
+    let hash = client_cloud_sync::content_hash(temp.path()).unwrap();
+    PetaDropboxEntry::File {
+        file: PetaDropboxFile {
+            path: Some(format!("/PetaJournal/{path}")),
+            content_hash: Some(hash),
+            rev: rev.into(),
+        },
+    }
+}
+
+/// The app of the test: its folders, and what the sync asked of it.
+struct App {
+    dir: TempDir,
+    told: Receiver<(PetaSyncState, bool)>,
+    logged: Arc<Mutex<Vec<String>>>,
+    taken_in: Arc<Mutex<u32>>,
+    /// What the core writes when it takes the files in, as a page that changed in the app.
+    writes: Arc<Mutex<Option<(String, String)>>>,
+}
+
+struct Host {
+    told: Sender<(PetaSyncState, bool)>,
+    logged: Arc<Mutex<Vec<String>>>,
+    taken_in: Arc<Mutex<u32>>,
+    markdown: PathBuf,
+    writes: Arc<Mutex<Option<(String, String)>>>,
+}
+
+impl PetaSyncHost for Host {
+    fn take_in(&self) {
+        *self.taken_in.lock().unwrap() += 1;
+        if let Some((path, text)) = self.writes.lock().unwrap().take() {
+            fs::write(self.markdown.join(path), text).unwrap();
+        }
+    }
+
+    fn told(&self, state: PetaSyncState, in_front: bool) {
+        let _ = self.told.send((state, in_front));
+    }
+
+    fn log(&self, failure: String) {
+        self.logged.lock().unwrap().push(failure);
+    }
+}
+
+fn app() -> (App, PetaCloudSync) {
+    let dir = TempDir::new().unwrap();
+    let markdown = dir.path().join("markdown");
+    fs::create_dir_all(markdown.join("docs")).unwrap();
+    let (told_tx, told) = channel();
+    let logged = Arc::new(Mutex::new(Vec::new()));
+    let taken_in = Arc::new(Mutex::new(0));
+    let writes = Arc::new(Mutex::new(None));
+    let host = Host {
+        told: told_tx,
+        logged: Arc::clone(&logged),
+        taken_in: Arc::clone(&taken_in),
+        markdown: markdown.clone(),
+        writes: Arc::clone(&writes),
+    };
+    let path = |name: &str| dir.path().join(name).to_string_lossy().into_owned();
+    let sync = PetaCloudSync::new(
+        path("markdown"),
+        path("downloads"),
+        path("dropbox-cursor"),
+        path("dropbox-record"),
+        true,
+        Arc::new(host),
+    );
+    (
+        App {
+            dir,
+            told,
+            logged,
+            taken_in,
+            writes,
+        },
+        sync,
+    )
+}
+
+impl App {
+    /// What the sync told until it rested.
+    fn until_rest(&self) -> Vec<(PetaSyncState, bool)> {
+        let mut seen = Vec::new();
+        loop {
+            let told = self.told.recv_timeout(Duration::from_secs(5)).unwrap();
+            seen.push(told);
+            if matches!(told.0, PetaSyncState::Idle | PetaSyncState::Failed { .. }) {
+                return seen;
+            }
+        }
+    }
+}
+
+// 同期は、シェルのSDKを通してDropboxのファイルを取り、コアに取り込ませ、アプリで変わったページを上げる。シェルには、その進み具合が伝わる。
+#[test]
+fn a_sync_downloads_through_the_sdk_of_the_shell_lets_the_core_take_in_and_uploads() {
+    let (app, sync) = app();
+    let sdk = FakeSdk {
+        whole: vec![
+            PetaDropboxEntry::Folder {
+                path: Some("/PetaJournal/docs".into()),
+            },
+            file("docs/notes.md", "r1", "- a"),
+        ],
+        contents: HashMap::from([("r1".to_string(), "- a".to_string())]),
+        ..FakeSdk::default()
+    };
+    *app.writes.lock().unwrap() = Some(("docs/new.md".into(), "- made on the phone".into()));
+    let sdk = Arc::new(sdk);
+    sync.start(sdk.clone(), "/PetaJournal/".into(), true);
+    let seen = app.until_rest();
+    assert_eq!(
+        seen,
+        vec![
+            (PetaSyncState::Downloading { done: 0, total: 0 }, true),
+            (PetaSyncState::Downloading { done: 0, total: 1 }, true),
+            (PetaSyncState::Downloading { done: 1, total: 1 }, true),
+            (PetaSyncState::Uploading { done: 0, total: 1 }, true),
+            (PetaSyncState::Uploading { done: 1, total: 1 }, true),
+            (PetaSyncState::Idle, false),
+        ]
+    );
+    assert_eq!(
+        fs::read_to_string(app.dir.path().join("markdown/docs/notes.md")).unwrap(),
+        "- a"
+    );
+    assert_eq!(*app.taken_in.lock().unwrap(), 1);
+    assert_eq!(
+        *sdk.uploads.lock().unwrap(),
+        vec!["/PetaJournal/docs/new.md".to_string()]
+    );
+    assert_eq!(sync.state(), PetaSyncState::Idle);
+}
+
+// シェルが通信の失敗を返すと、同期は通信の失敗で止まる。SDKの言葉は、画面ではなくログに渡る。
+#[test]
+fn an_offline_failure_of_the_shell_rests_the_sync_as_offline_and_goes_to_the_log() {
+    let (app, sync) = app();
+    let sdk = FakeSdk {
+        failure: Some(PetaDropboxError::Offline {
+            why: "urlSessionError".into(),
+        }),
+        ..FakeSdk::default()
+    };
+    sync.start(Arc::new(sdk), "/PetaJournal".into(), false);
+    assert_eq!(
+        app.until_rest().last(),
+        Some(&(PetaSyncState::Failed { offline: true }, false))
+    );
+    let logged = app.logged.lock().unwrap().clone();
+    assert_eq!(logged.len(), 1);
+    assert!(logged[0].contains("urlSessionError"));
+}
+
+// シェルがほかの失敗を返すと、同期は通信の失敗ではない失敗で止まる。
+#[test]
+fn another_failure_of_the_shell_rests_the_sync_apart_from_the_network() {
+    let (app, sync) = app();
+    let sdk = FakeSdk {
+        failure: Some(PetaDropboxError::Other {
+            why: "too many requests".into(),
+        }),
+        ..FakeSdk::default()
+    };
+    sync.start(Arc::new(sdk), "/PetaJournal".into(), false);
+    assert_eq!(
+        app.until_rest().last(),
+        Some(&(PetaSyncState::Failed { offline: false }, false))
+    );
+}
+
+// シェルが宣言していない例外を投げたときは、ほかの失敗になる。
+#[test]
+fn an_undeclared_error_of_the_shell_is_another_failure() {
+    assert_eq!(
+        PetaDropboxError::from(boltffi::UnexpectedFfiCallbackError("NSError".into())),
+        PetaDropboxError::Other {
+            why: "NSError".into()
+        }
+    );
+}
+
+// シェルが版の衝突を返すと、ダウンロードからやり直す。3回続けば、通信ではない失敗で止まる。
+#[test]
+fn an_upload_conflict_of_the_shell_starts_the_round_again() {
+    let (app, sync) = app();
+    *app.writes.lock().unwrap() = Some(("docs/new.md".into(), "- new".into()));
+    struct Conflicts(FakeSdk);
+    impl PetaDropbox for Conflicts {
+        fn list(&self, folder: String) -> Result<PetaListing, PetaDropboxError> {
+            self.0.list(folder)
+        }
+        fn list_after(&self, cursor: String) -> Result<PetaListing, PetaDropboxError> {
+            self.0.list_after(cursor)
+        }
+        fn download(&self, rev: String, to: String) -> Result<(), PetaDropboxError> {
+            self.0.download(rev, to)
+        }
+        fn upload(
+            &self,
+            _: String,
+            _: String,
+            _: Option<String>,
+            _: i64,
+        ) -> Result<PetaDropboxFile, PetaDropboxError> {
+            Err(PetaDropboxError::UploadConflict)
+        }
+    }
+    sync.start(
+        Arc::new(Conflicts(FakeSdk::default())),
+        "/PetaJournal".into(),
+        false,
+    );
+    assert_eq!(
+        app.until_rest().last(),
+        Some(&(PetaSyncState::Failed { offline: false }, false))
+    );
+    assert_eq!(*app.taken_in.lock().unwrap(), 3);
+}
+
+// サインアウトすると、サインインしていない状態になり、カーソルのファイルが消える。
+#[test]
+fn a_sign_out_rests_signed_out_and_deletes_the_cursor() {
+    let (app, sync) = app();
+    sync.start(Arc::new(FakeSdk::default()), "/PetaJournal".into(), false);
+    app.until_rest();
+    let cursor = app.dir.path().join("dropbox-cursor");
+    assert!(cursor.exists());
+    sync.sign_out();
+    assert_eq!(sync.state(), PetaSyncState::SignedOut);
+    assert!(!cursor.exists());
+    assert_eq!(
+        app.told.recv_timeout(Duration::from_secs(1)).unwrap(),
+        (PetaSyncState::SignedOut, false)
+    );
+}
+
+/// A Dropbox of the test that holds the notes, and answers `after` for the changes since.
+fn with_notes(after: Option<Result<PetaListing, PetaDropboxError>>) -> FakeSdk {
+    FakeSdk {
+        whole: vec![file("docs/notes.md", "r1", "- a")],
+        contents: HashMap::from([("r1".to_string(), "- a".to_string())]),
+        after,
+        ..FakeSdk::default()
+    }
+}
+
+// シェルが消えたと伝えたファイルは、アプリのフォルダーからも消える。
+#[test]
+fn a_file_that_the_shell_tells_has_gone_is_deleted_here() {
+    let (app, sync) = app();
+    sync.start(Arc::new(with_notes(None)), "/PetaJournal".into(), false);
+    app.until_rest();
+    let gone = Ok(PetaListing {
+        entries: vec![PetaDropboxEntry::Deleted {
+            path: Some("/PetaJournal/docs/notes.md".into()),
+        }],
+        cursor: "c2".into(),
+        has_more: false,
+    });
+    sync.start(
+        Arc::new(with_notes(Some(gone))),
+        "/PetaJournal".into(),
+        false,
+    );
+    app.until_rest();
+    assert!(!app.dir.path().join("markdown/docs/notes.md").exists());
+}
+
+// シェルがカーソルを忘れたと伝えると、Dropboxの全部を尋ね直す。
+#[test]
+fn a_cursor_that_the_shell_tells_was_forgotten_asks_for_everything_again() {
+    let (app, sync) = app();
+    sync.start(Arc::new(with_notes(None)), "/PetaJournal".into(), false);
+    app.until_rest();
+    let sdk = Arc::new(with_notes(Some(Err(PetaDropboxError::CursorForgotten))));
+    sync.start(sdk.clone(), "/PetaJournal".into(), false);
+    assert_eq!(app.until_rest().last(), Some(&(PetaSyncState::Idle, false)));
+    assert_eq!(*sdk.lists.lock().unwrap(), 1);
+}
