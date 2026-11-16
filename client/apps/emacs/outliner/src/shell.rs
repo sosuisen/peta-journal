@@ -233,6 +233,7 @@ impl<H: Host> Shell<H> {
                 dir_path: String::new(),
                 file_name: path,
             }),
+            Inbound::DeletePage => self.send(Event::DeleteCurrentPage),
             Inbound::SetProperty { key, value } => self.set_property(key, value),
             Inbound::DeleteProperty { key } => self.send(Event::DeletePageProperty { key }),
             Inbound::OpenLinkAt { id, cursor } => self.open_link_at(id, cursor),
@@ -281,6 +282,7 @@ impl<H: Host> Shell<H> {
             Inbound::RemoveTransclusion { id } => {
                 self.send(Event::RemoveTransclusion { item_id: id })
             }
+            Inbound::SendToStash { id } => self.send(Event::SendToStash { item_id: id }),
             Inbound::Undo => self.send(Event::Undo),
             Inbound::Redo => self.send(Event::Redo),
             Inbound::Scrolled { top, bottom } => self.send(Event::OutlineScrolled {
