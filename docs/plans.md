@@ -43,23 +43,22 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 - [ ] RESTにあってMCPにない操作を洗い出し、MCPに道具を足す。項目では、貼り付け、分割、スタッシュ、バッチ、結合、字下げ、まとめての削除、Flat Markdownの解析（`/api/items/parse`）などが、RESTにしかない。ほかの領域（ページ、検索、ジャーナル、アトラス、設定、同期）は、まだ並べていない
   - ブラウザーや画面のためだけのルート（`/api/events`、`/api/health`、フォルダーを選ぶダイアログ、OSで開く操作、ファイルのアップロード）を、MCPにも足すのかは決めていない
 - [ ] MCPにあってRESTにない操作がないかを確かめる。いまのところ、見つけていない
-- [ ] MCPの答えをRESTの形にそろえる。違いと進め方は、下の「journal-core」の「MCPのページと項目の答えを、RESTの形にそろえる」にある
+- [ ] MCPのページと項目の答えを、RESTの形にそろえる（2026-11-11にユーザーが決めた）。Androidのシェルの最初の版より後に行う
+  - 今のMCPは、ページと項目を、RESTと違う形で書く。入口の答えはRESTの形なので、MCPは、その答えから今の形へ書き直している（`mcp.rs`の`page_record_json`と`item_record_json`）。そろえると、この書き直しが要らなくなる
+  - 違いは4つある
+    - 日付（`createdDate`、`modifiedDate`）: MCPはISO 8601の文字（`2026-11-11T10:00:00Z`）、RESTはミリ秒の数
+    - プロパティ（`properties`）: MCPにはなく、RESTにはある
+    - 親のないページの`parentId`: MCPは`null`、RESTは空の文字
+    - トランスクルージョンの木（`transcludedTrees`）: MCPの`get_page_by_id`にはなく、RESTの`GET /api/pages/{id}`にはある
+  - 今の形で書いている道具は、`get_page_by_id`、`get_or_create_doc`、`update_page`、`get_recent_pages`、`get_backlinks`、`get_or_create_journal`、`get_most_recent_journal_before`と、項目の道具のうち4つである。その4つは、`create_item`、`update_item`、`move_items`、`get_items_by_type`である。項目の道具のほかのもの（`get_item`、`cycle_task`など）は、すでにRESTの形（`ItemDto`）で書いている
+  - MCPの答えが変わるので、MCPを使う側を先に確かめる。`peta-journal`、`kcg-lecture`、`report`などのスキルと、日付を文字として読んでいるところである
+  - 入口へ下ろし終えてから行う。途中でそろえると、下ろす作業と答えの変更が1つのPRに混ざる
 
 ## journal-core
 
 - [ ] ジャーナルサーバーの中身を、ライブラリ`journal-core`として切り出す（ADR 029）
   - 目的は、Androidのシェルが、PCと同じ中身をアプリに組み込んで使うことである。REST、MCP、embed版が、同じ入口（`Journal`）を通る
   - ジャーナルサーバーの動きは変えない。RESTとMCPの答えは、切り出しの前と同じである。既存の結合テストで守る
-  - [ ] MCPのページと項目の答えを、RESTの形にそろえる（2026-11-11にユーザーが決めた）。Androidのシェルの最初の版より後に行う
-    - 今のMCPは、ページと項目を、RESTと違う形で書く。入口の答えはRESTの形なので、MCPは、その答えから今の形へ書き直している（`mcp.rs`の`page_record_json`と`item_record_json`）。そろえると、この書き直しが要らなくなる
-    - 違いは4つある
-      - 日付（`createdDate`、`modifiedDate`）: MCPはISO 8601の文字（`2026-11-11T10:00:00Z`）、RESTはミリ秒の数
-      - プロパティ（`properties`）: MCPにはなく、RESTにはある
-      - 親のないページの`parentId`: MCPは`null`、RESTは空の文字
-      - トランスクルージョンの木（`transcludedTrees`）: MCPの`get_page_by_id`にはなく、RESTの`GET /api/pages/{id}`にはある
-    - 今の形で書いている道具は、`get_page_by_id`、`get_or_create_doc`、`update_page`、`get_recent_pages`、`get_backlinks`、`get_or_create_journal`、`get_most_recent_journal_before`と、項目の道具のうち4つである。その4つは、`create_item`、`update_item`、`move_items`、`get_items_by_type`である。項目の道具のほかのもの（`get_item`、`cycle_task`など）は、すでにRESTの形（`ItemDto`）で書いている
-    - MCPの答えが変わるので、MCPを使う側を先に確かめる。`peta-journal`、`kcg-lecture`、`report`などのスキルと、日付を文字として読んでいるところである
-    - 入口へ下ろし終えてから行う。途中でそろえると、下ろす作業と答えの変更が1つのPRに混ざる
   - [ ] コアの振る舞いを確かめている結合テストを、`journal-core`に移す（2026-11-13にユーザーが決めた。フォルダーの並べ替えとは別の仕事である）
     - 今は、コードの大半が`journal-core`にあるのに、テストの大半は`journal-server`にある。`journal-core`は約17,600行で、テストは139個である。すべて`src`の中の単体テストである。`journal-server`は約3,900行で、テストは388個である。うち379個が、サーバーを立ててHTTPで確かめる`tests/`の結合テストである（2026-11-13に数えた）
     - こうなった理由。切り出しの間は、既存の結合テストが、動きが変わらないことを守った（ADR 029）。切り出しのあとも、テストは元の場所に残っている
