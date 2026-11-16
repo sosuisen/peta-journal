@@ -601,6 +601,52 @@ Either can be nil, for a clipboard without it."
       (should-error (call-interactively #'peta-journal-rename-page) :type 'user-error))
     (should (null peta-journal-test--sent))))
 
+;; indexページでは、名前の変更はフォルダのパスを初期値にして尋ね、新しいフォルダを送る。
+(ert-deftest peta-journal-renaming-an-index-page-renames-its-folder ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal--on-line '(:t "page_path" :path nil))
+    (peta-journal--on-line '(:t "index" :folder "work/memo" :demote_name nil))
+    (setq peta-journal-test--sent nil)
+    (let ((asked nil))
+      (cl-letf (((symbol-function 'read-string)
+                 (lambda (prompt initial &rest _)
+                   (setq asked (list prompt initial))
+                   "work/notes")))
+        (call-interactively #'peta-journal-rename-page))
+      (should (equal asked '("Rename folder to: " "work/memo"))))
+    (should (equal peta-journal-test--sent '(("rename_folder" :path "work/notes"))))))
+
+;; 降格は、付く名前を挙げて尋ね、「はい」なら送る。
+(ert-deftest peta-journal-demoting-asks-with-the-new-name-and-sends-on-yes ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal--on-line '(:t "index" :folder "work/memo" :demote_name "memo"))
+    (setq peta-journal-test--sent nil)
+    (let ((asked nil))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (prompt) (setq asked prompt) t)))
+        (call-interactively #'peta-journal-demote-index))
+      (should (string-match-p "work/memo" asked)))
+    (should (equal peta-journal-test--sent '(("demote_index"))))))
+
+;; 「いいえ」なら、何も送らない。
+(ert-deftest peta-journal-demoting-sends-nothing-on-no ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal--on-line '(:t "index" :folder "work/memo" :demote_name "memo"))
+    (setq peta-journal-test--sent nil)
+    (cl-letf (((symbol-function 'yes-or-no-p) #'ignore))
+      (call-interactively #'peta-journal-demote-index))
+    (should (null peta-journal-test--sent))))
+
+;; 下にページのあるindexページと、indexでないページでは、尋ねる前に断る。
+(ert-deftest peta-journal-a-page-that-cannot-be-demoted-refuses-before-asking ()
+  (dolist (index '((:t "index" :folder "work/memo" :demote_name nil)
+                   (:t "index" :folder nil :demote_name nil)))
+    (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+      (peta-journal--on-line index)
+      (setq peta-journal-test--sent nil)
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) (error "It must not ask"))))
+        (should-error (call-interactively #'peta-journal-demote-index) :type 'user-error))
+      (should (null peta-journal-test--sent)))))
+
 ;; ページのバッファの外で M-x で呼んでも、そのページの名前を変える。
 (ert-deftest peta-journal-renaming-from-another-buffer-is-about-the-page ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
@@ -615,13 +661,15 @@ Either can be nil, for a clipboard without it."
 (ert-deftest peta-journal-a-new-shell-forgets-the-path ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
     (peta-journal--on-line '(:t "page_path" :path "memo"))
+    (peta-journal--on-line '(:t "index" :folder "work" :demote_name "work"))
     (let ((stand-in (peta-journal-test--emacs-process #'ignore)))
       (unwind-protect
           (cl-letf (((symbol-function 'peta-journal--program) #'ignore)
                     ((symbol-function 'make-process) (lambda (&rest _) stand-in)))
             (peta-journal--start-shell "/today"))
         (delete-process stand-in)))
-    (should (null peta-journal--page-path))))
+    (should (null peta-journal--page-path))
+    (should (null peta-journal--index-folder))))
 
 ;; 一息つくと編集を閉じる。開いたままだと、coreは他からの変更の読み直しを待ち続けるため。
 (ert-deftest peta-journal-idling-ends-the-edit ()
@@ -1901,6 +1949,7 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                    ("C-c C-x f" . peta-journal-forward)
                    ("C-c C-x b" . peta-journal-backlinks)
                    ("C-c C-x r" . peta-journal-rename-page)
+                   ("C-c C-x D" . peta-journal-demote-index)
                    ("C-c C-x s" . peta-journal-send-to-stash)
                    ("C-c C-x d" . peta-journal-delete-page)
                    ("C-c C-x p" . peta-journal-properties)
