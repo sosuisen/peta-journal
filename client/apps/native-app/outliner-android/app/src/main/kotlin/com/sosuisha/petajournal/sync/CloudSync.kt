@@ -3,8 +3,11 @@ package com.sosuisha.petajournal.sync
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import java.io.IOException
-import kotlin.concurrent.thread
+import com.sosuisha.petajournal.core.PetaCloudSync
+import com.sosuisha.petajournal.core.PetaDropboxSdk
+import com.sosuisha.petajournal.core.PetaSyncHost
+import com.sosuisha.petajournal.core.PetaSyncState
+import java.io.File
 
 /** Where the sync with the cloud stands, for the screen. */
 sealed interface SyncState {
@@ -27,35 +30,39 @@ sealed interface SyncState {
 }
 
 /**
- * Runs the syncs with the cloud, one at a time, and tells the screen where they stand. It is
- * used on the main thread; a sync runs on a thread of its own.
+ * The syncs with the cloud, for the screen. The core runs them, one at a time, on a thread of
+ * its own (ADR 054); this keeps where they stand on the main thread. It is used on the main
+ * thread.
  *
- * @param round makes one sync with the cloud: download, work of the core, upload.
+ * @param markdown the folder the core takes the files in from.
+ * @param temp where a download is written before it is whole.
+ * @param cursor keeps where the last download ended.
+ * @param record keeps the versions of the files in the cloud that the app has seen.
+ * @param takeIn lets the core take in the downloaded files, and waits for it.
  * @param onMainThread runs what it is given on the main thread, later and in order.
  * @param log keeps why a sync failed, for the one who looks into it.
  */
 class CloudSync(
+    markdown: File,
+    temp: File,
+    cursor: File,
+    record: File,
     signedIn: Boolean,
-    private val round: (Cloud) -> SyncRound,
-    private val onMainThread: (() -> Unit) -> Unit,
-    private val log: (Exception) -> Unit = {},
+    takeIn: () -> Unit,
+    onMainThread: (() -> Unit) -> Unit,
+    log: (String) -> Unit = {},
 ) {
-    var state: SyncState by mutableStateOf(if (signedIn) SyncState.Idle else SyncState.SignedOut)
+    private val sync = PetaCloudSync(
+        markdown.path,
+        temp.path,
+        cursor.path,
+        record.path,
+        signedIn,
+        Host(takeIn, { onMainThread(::read) }, log),
+    )
+
+    var state: SyncState by mutableStateOf(screenState(sync.state()))
         private set
-
-    private val running: Boolean get() = state is SyncState.Downloading || state is SyncState.Uploading
-
-    /**
-     * The user has signed out of the cloud. What was downloaded stays. It is not for the time
-     * a sync runs: the screen offers no sign-out then.
-     */
-    fun signOut() {
-        check(!running) { "a sync runs" }
-        state = SyncState.SignedOut
-    }
-
-    /** The cloud of a sync that was asked for while another ran. */
-    private var next: Cloud? = null
 
     /**
      * Whether the sync that runs is one the user waits for: the app came to the front, and
@@ -66,44 +73,54 @@ class CloudSync(
         private set
 
     /**
-     * Starts a sync with the cloud. While one runs, another starts after it, once: what was
-     * typed since the running one read the pages is not left behind. A sync that runs comes
-     * to the front when [inFront] asks for it.
+     * Starts a sync with the Markdown folder at the path [folder] of the cloud. While one runs,
+     * another starts after it, once. [inFront] says that the user waits for it.
      */
-    fun start(cloud: Cloud, inFront: Boolean = false) {
-        if (inFront) this.inFront = true
-        if (running) {
-            next = cloud
-            return
-        }
-        next = null
-        state = SyncState.Downloading(0, 0)
-        thread(name = "cloud-sync") {
-            try {
-                round(cloud).run(
-                    onDownload = { done, total -> onMainThread { state = SyncState.Downloading(done, total) } },
-                    // Most syncs have nothing to upload, and say nothing of it
-                    onUpload = { done, total -> if (total > 0) onMainThread { state = SyncState.Uploading(done, total) } },
-                )
-                onMainThread {
-                    state = SyncState.Idle
-                    val waits = next
-                    // The sync that waited goes on in front, when this one was
-                    if (waits == null) this.inFront = false else start(waits)
-                }
-            } catch (failed: Exception) {
-                log(failed)
-                onMainThread {
-                    this.inFront = false
-                    state = SyncState.Failed(offline = cannotReach(failed))
-                }
-            }
-        }
+    fun start(sdk: PetaDropboxSdk, folder: String, inFront: Boolean = false) {
+        sync.start(Failing(sdk), folder, inFront)
+        // The core tells of it a moment later, on the main thread. The screen must not offer
+        // the sign-out meanwhile: the core does not take it while a sync runs
+        read()
+    }
+
+    /**
+     * The user has signed out. What was downloaded stays. The core forgets where the last
+     * download ended: the next sign-in may be to another account. Not for the time a sync
+     * runs: the screen offers no sign-out then.
+     */
+    fun signOut() {
+        sync.signOut()
+        read()
+    }
+
+    /**
+     * Reads where the sync stands from the core. What the core told on its thread may be old
+     * by the time it reaches the main thread: a sync may have started since.
+     */
+    private fun read() {
+        state = screenState(sync.state())
+        inFront = sync.inFront()
     }
 }
 
-/**
- * The failure came from the network, such as no connection or no answer. The Dropbox SDK
- * wraps an `IOException` of the network in an exception of its own, so the causes count too.
- */
-private fun cannotReach(failed: Throwable): Boolean = generateSequence(failed) { it.cause }.any { it is IOException }
+private fun screenState(state: PetaSyncState): SyncState =
+    when (state) {
+        PetaSyncState.SignedOut -> SyncState.SignedOut
+        PetaSyncState.Idle -> SyncState.Idle
+        is PetaSyncState.Downloading -> SyncState.Downloading(state.done.toInt(), state.total.toInt())
+        is PetaSyncState.Uploading -> SyncState.Uploading(state.done.toInt(), state.total.toInt())
+        is PetaSyncState.Failed -> SyncState.Failed(state.offline)
+    }
+
+/** What the sync of the core asks of the app. It is called on the threads of the sync. */
+private class Host(
+    private val takeIn: () -> Unit,
+    private val moved: () -> Unit,
+    private val log: (String) -> Unit,
+) : PetaSyncHost {
+    override fun takeIn() = takeIn.invoke()
+
+    override fun told(state: PetaSyncState, inFront: Boolean) = moved()
+
+    override fun log(failure: String) = log.invoke(failure)
+}

@@ -4,7 +4,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.sosuisha.petajournal.sync.Change
+import com.sosuisha.petajournal.core.PetaDropboxEntry
+import com.sosuisha.petajournal.core.PetaDropboxFile
+import com.sosuisha.petajournal.core.PetaDropboxSdk
+import com.sosuisha.petajournal.core.PetaListing
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -13,9 +16,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
-import java.io.OutputStream
-import java.util.Date
 
 /**
  * The sign-in and the sign-out. The Dropbox SDK is an SDK of the test, and the credential is
@@ -35,7 +35,7 @@ class DropboxAccountTest {
         var fresh: String? = null
         val revoked = mutableListOf<String>()
 
-        /** The credentials that the files were asked for. */
+        /** The credentials that the calls were asked for. */
         val opened = mutableListOf<String>()
 
         override fun startSignIn(from: Context, key: String) {
@@ -48,7 +48,7 @@ class DropboxAccountTest {
             fresh = null
         }
 
-        override fun files(credential: String): DropboxFiles {
+        override fun calls(credential: String): PetaDropboxSdk {
             opened += credential
             return OneFile
         }
@@ -59,15 +59,15 @@ class DropboxAccountTest {
     }
 
     /** A Dropbox with one file in the folder of the app. */
-    private object OneFile : DropboxFiles {
+    private object OneFile : PetaDropboxSdk {
         override fun list(folder: String) =
-            Listing(listOf(Entry.File("$folder/docs/a.md", "hash", "r1")), "c1", hasMore = false)
+            PetaListing(listOf(PetaDropboxEntry.File(PetaDropboxFile("$folder/docs/a.md", "hash", "r1"))), "c1", false)
 
-        override fun listAfter(cursor: String) = Listing(emptyList(), cursor, hasMore = false)
+        override fun listAfter(cursor: String) = PetaListing(emptyList(), cursor, false)
 
-        override fun download(rev: String, into: OutputStream) = Unit
+        override fun download(rev: String, to: String) = Unit
 
-        override fun upload(path: String, from: File, over: String?, modified: Date) = Entry.File(path, "hash", "r2")
+        override fun upload(path: String, from: String, over: String?, modifiedMs: Long) = PetaDropboxFile(path, "hash", "r2")
     }
 
     @Before
@@ -98,15 +98,15 @@ class DropboxAccountTest {
         assertEquals(listOf(context to "app-key"), sdk.started)
     }
 
-    // サインインが終わる前は、サインインしていない。クラウドもない。
+    // サインインが終わる前は、サインインしていない。SDKの呼び出しもない。
     @Test
-    fun before_a_sign_in_has_ended_the_account_is_signed_out_and_has_no_cloud() {
+    fun before_a_sign_in_has_ended_the_account_is_signed_out_and_has_no_calls() {
         val account = account()
 
         account.keepNewSignIn()
 
         assertFalse(account.isSignedIn)
-        assertNull(account.cloud())
+        assertNull(account.calls())
     }
 
     // ブラウザーで終わったサインインの資格情報を、アプリが前に出たときに取っておく。
@@ -129,17 +129,20 @@ class DropboxAccountTest {
         assertTrue(account().isSignedIn)
     }
 
-    // サインインしたあとのクラウドは、取っておいた資格情報で、設定のフォルダーを読む。
+    // サインインしたあとは、取っておいた資格情報でSDKの呼び出しを同期に渡す。同期が読むのは、設定のフォルダーである。
     @Test
-    fun the_cloud_of_the_account_reads_its_folder_with_the_kept_credential() {
+    fun the_account_gives_the_calls_of_the_kept_credential_and_its_folder() {
         val account = account()
         sdk.fresh = "credential-1"
         account.keepNewSignIn()
 
-        val changes = checkNotNull(account.cloud()).changes(null)
+        val listing = checkNotNull(account.calls()).list(account.folder)
 
         assertEquals(listOf("credential-1"), sdk.opened)
-        assertEquals(listOf<Change>(Change.File("docs/a.md", "hash", "rev:r1")), changes.entries)
+        assertEquals(
+            listOf(PetaDropboxEntry.File(PetaDropboxFile("/PetaJournal/docs/a.md", "hash", "r1"))),
+            listing.entries,
+        )
     }
 
     // サインアウトは、資格情報を捨て、Dropboxにも無効にさせる。
@@ -152,7 +155,7 @@ class DropboxAccountTest {
         account.signOut()
 
         assertFalse(account.isSignedIn)
-        assertNull(account.cloud())
+        assertNull(account.calls())
         assertEquals(listOf("credential-1"), sdk.revoked)
     }
 

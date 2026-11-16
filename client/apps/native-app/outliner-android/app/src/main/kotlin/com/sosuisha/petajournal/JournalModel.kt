@@ -13,12 +13,7 @@ import java.io.File
 import com.sosuisha.petajournal.dropbox.DropboxAccount
 import com.sosuisha.petajournal.shell.Shell
 import com.sosuisha.petajournal.sync.CloudAccount
-import com.sosuisha.petajournal.sync.CloudRecord
 import com.sosuisha.petajournal.sync.CloudSync
-import com.sosuisha.petajournal.sync.Downloader
-import com.sosuisha.petajournal.sync.MarkdownFolder
-import com.sosuisha.petajournal.sync.SyncRound
-import com.sosuisha.petajournal.sync.Uploader
 
 /** How long the app waits after the last change of a page before it syncs. */
 private const val AFTER_EDIT_MS = 3_000L
@@ -65,22 +60,21 @@ class JournalModel internal constructor(
         main.postDelayed(afterEdit, afterEditMs)
     }
 
-    /** Where the last download ended, for the next one to ask only for what changed since. */
-    private val cursor = File(filesDir, "dropbox-cursor")
-
-    /** The versions of the files in Dropbox that the app has seen, for the upload. */
-    private val record = CloudRecord(File(filesDir, "dropbox-record"))
-
     /** `null` when the account is not set up, as in an app that was built without the App key of Dropbox: it then syncs nothing. */
     val cloud: CloudSync? = if (!account.isSetUp) {
         null
     } else {
-        val folder = MarkdownFolder(markdown, File(cacheDir, "downloads"))
         CloudSync(
+            markdown = markdown,
+            temp = File(cacheDir, "downloads"),
+            // Where the last download ended, for the next one to ask only for what changed
+            // since, and the versions of the files in Dropbox that the app has seen
+            cursor = File(filesDir, "dropbox-cursor"),
+            record = File(filesDir, "dropbox-record"),
             signedIn = account.isSignedIn,
-            round = { SyncRound(Downloader(it, folder, cursor, record), shell::syncAndWait, Uploader(it, folder, record)) },
+            takeIn = shell::syncAndWait,
             onMainThread = { main.post(it) },
-            log = { Log.w("PetaSync", "The sync failed", it) },
+            log = { Log.w("PetaSync", "The sync failed: $it") },
         )
     }
 
@@ -101,7 +95,7 @@ class JournalModel internal constructor(
      */
     fun sync(inFront: Boolean = false) {
         val sync = cloud ?: return
-        sync.start(account.cloud() ?: return, inFront)
+        sync.start(account.calls() ?: return, account.folder, inFront)
     }
 
     /** The app came to the front, maybe back from the sign-in: it syncs, and the user waits. */
@@ -118,11 +112,9 @@ class JournalModel internal constructor(
     fun signOut() {
         val sync = cloud ?: return
         account.signOut()
-        // The next sign-in may be to another account, where this cursor means nothing. Without
-        // it, the next download lists everything: it takes only the files that differ, and
-        // deletes the copies of what the account does not hold. The record of the versions
-        // stays: it tells a copy from what was written here and is not uploaded yet
-        cursor.delete()
+        // The core forgets where the last download ended: the next sign-in may be to another
+        // account. The record of the versions stays: it tells a copy from what was written
+        // here and is not uploaded yet
         sync.signOut()
     }
 

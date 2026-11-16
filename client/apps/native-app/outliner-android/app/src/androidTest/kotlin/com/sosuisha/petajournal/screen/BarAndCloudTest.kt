@@ -13,7 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.io.File
 import java.util.concurrent.CountDownLatch
-import com.sosuisha.petajournal.sync.Cloud
+import com.sosuisha.petajournal.core.PetaDropboxSdk
 import com.sosuisha.petajournal.sync.SyncState
 import com.sosuisha.petajournal.types.ScreenView
 import org.junit.Assert.assertEquals
@@ -91,7 +91,7 @@ class BarAndCloudTest : JournalScreenFixture() {
     }
 
     /** Opens a new app that no one has signed in to, as the app does after it is installed. */
-    private fun startNew(cloud: Cloud) {
+    private fun startNew(cloud: PetaDropboxSdk) {
         start(cloud, signedIn = false)
         compose.runOnUiThread { shell.restore(make = false) }
     }
@@ -116,7 +116,7 @@ class BarAndCloudTest : JournalScreenFixture() {
         val cloud = OnePage()
         startNew(cloud)
 
-        compose.runOnUiThread { sync?.start(cloud) }
+        compose.runOnUiThread { sync?.start(cloud, FOLDER) }
 
         compose.waitUntil(WAIT_MS) { shell.view.screen is ScreenView.Journal }
         compose.onNodeWithTag(SEARCH_TAG).assertExists()

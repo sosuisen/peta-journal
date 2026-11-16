@@ -106,6 +106,21 @@ class JournalModelTest {
         waitUntil { File(root, "files/markdown/docs/trip.md").exists() && model.cloud?.state == SyncState.Idle }
     }
 
+    // 始めた同期は、コアの知らせを待たずに、画面で動いていると分かる。その間、画面はサインアウトを出さない。コアは、同期の途中のサインアウトを受け付けない。
+    @Test
+    fun a_sync_that_started_runs_on_the_screen_before_the_core_tells_of_it() {
+        val model = open(FakeAccount())
+        var state: SyncState? = null
+
+        onMain {
+            model.sync()
+            state = model.cloud?.state
+        }
+
+        assertTrue(state is SyncState.Downloading)
+        waitUntil { model.cloud?.state == SyncState.Idle }
+    }
+
     // サインインの前に前に出たアプリは、何も同期しない。
     @Test
     fun the_app_that_comes_to_the_front_before_the_sign_in_syncs_nothing() {
