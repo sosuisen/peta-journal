@@ -66,6 +66,7 @@ struct Sent {
     connection: Option<String>,
     search: Option<(Vec<client_core::view::SearchEntry>, bool)>,
     page_path: Option<String>,
+    index: (Option<String>, Option<String>),
     properties: (Option<Vec<PropertyRow>>, Vec<FreeKey>, Vec<String>),
     recent: Vec<String>,
     backlinks: Vec<BacklinkEntry>,
@@ -233,6 +234,11 @@ impl<H: Host> Shell<H> {
                 dir_path: String::new(),
                 file_name: path,
             }),
+            Inbound::RenameFolder { path } => self.send(Event::PageTitleSave {
+                dir_path: path,
+                file_name: "index".into(),
+            }),
+            Inbound::DemoteIndex => self.send(Event::DemoteIndex),
             Inbound::DeletePage => self.send(Event::DeleteCurrentPage),
             Inbound::SetProperty { key, value } => self.set_property(key, value),
             Inbound::DeleteProperty { key } => self.send(Event::DeletePageProperty { key }),
@@ -574,6 +580,7 @@ impl<H: Host> Shell<H> {
         self.tell_rows(&view);
         self.tell_focus(&view);
         self.tell_page_path(&view);
+        self.tell_index(&view);
         self.tell_properties(&view);
         self.tell_connection(&view);
         self.tell_search(&view.search);
@@ -627,6 +634,25 @@ impl<H: Host> Shell<H> {
         if path != self.sent.page_path {
             self.sent.page_path.clone_from(&path);
             self.host.emit(Outbound::PagePath { path });
+        }
+    }
+
+    fn tell_index(&mut self, view: &ViewModel<()>) {
+        let index = match &view.screen {
+            ScreenView::Page(Some(page)) if page.is_index && !page.is_root_index => {
+                let folder = page.page.dir_path.trim_end_matches('/').to_string();
+                let demote_name = page.can_demote.then(|| page.demote_name.clone());
+                (Some(folder), demote_name)
+            }
+            _ => (None, None),
+        };
+        if index != self.sent.index {
+            self.sent.index.clone_from(&index);
+            let (folder, demote_name) = index;
+            self.host.emit(Outbound::Index {
+                folder,
+                demote_name,
+            });
         }
     }
 

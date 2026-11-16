@@ -65,6 +65,20 @@ fn a_transclusion_carries_the_item_and_the_pasted_text() {
     );
 }
 
+// フォルダ名の変更は、新しいフォルダのパスとして届く。降格は、中身のない行として届く。
+#[test]
+fn a_folder_rename_carries_the_path_and_a_demotion_nothing() {
+    let line = r#"{"seq":1,"type":"rename_folder","path":"a/c"}"#;
+    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    assert_eq!(
+        envelope.message,
+        Inbound::RenameFolder { path: "a/c".into() }
+    );
+    let line = r#"{"seq":2,"type":"demote_index"}"#;
+    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    assert_eq!(envelope.message, Inbound::DemoteIndex);
+}
+
 // Stashへ送る項目は、そのidとして届く。
 #[test]
 fn a_stash_carries_the_item() {
