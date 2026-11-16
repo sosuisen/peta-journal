@@ -411,6 +411,27 @@ The server is a real one, with its files in a temporary folder."
                                 (lambda () (not peta-journal-selection-mode)))
     (should-not buffer-read-only)))
 
+;; 項目の参照をコピーして別の項目に貼ると、その項目は元の項目を見せる。解除すると、ふつうの項目に戻る。
+(ert-deftest peta-journal-e2e-pasting-and-removing-a-transclusion ()
+  (peta-journal-e2e--with-app
+    (execute-kbd-macro (kbd "a RET"))
+    (peta-journal--wait)
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("a" ""))
+    ;; The OS clipboard of the machine is left alone
+    (let ((kill-ring nil)
+          (interprogram-cut-function nil)
+          (interprogram-paste-function nil))
+      (peta-journal-e2e--keys "C-p C-c C-x w C-n C-c C-x t"))
+    (peta-journal-e2e--wait-for
+     "the transclusion"
+     (lambda () (equal (plist-get (aref peta-journal--rows 1) :bullet) "transclusion")))
+    (should (equal (plist-get (aref peta-journal--rows 1) :body) "a"))
+    (peta-journal-e2e--keys "C-c C-x T")
+    (peta-journal-e2e--wait-for
+     "the plain item"
+     (lambda () (equal (plist-get (aref peta-journal--rows 1) :bullet) "plain")))))
+
 ;; 項目をStashへ送ると、ページの最後の「# Stash」の見出しの下へ、子ごと移る。
 (ert-deftest peta-journal-e2e-sending-an-item-to-the-stash ()
   (peta-journal-e2e--with-app

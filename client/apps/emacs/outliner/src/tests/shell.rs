@@ -719,6 +719,44 @@ fn copying_the_selection_gives_emacs_its_markdown() {
     }));
 }
 
+// 項目のidを貼り付けると、その項目がトランスクルージョンの元としてサーバーへ送られる。
+#[test]
+fn pasting_an_item_id_makes_a_transclusion_of_it() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "")]);
+    driver.send(Inbound::PasteAsTransclusion {
+        id: "b".into(),
+        text: " abcdefghij
+"
+        .into(),
+    });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::SetTransclusion { item_id, source_item_id }
+            if item_id == "b" && source_item_id == "abcdefghij"
+    )));
+}
+
+// 項目のidに見えない文字を貼り付けても、何も送らない。
+#[test]
+fn pasting_other_text_makes_no_transclusion() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::PasteAsTransclusion {
+        id: "a".into(),
+        text: "hello world".into(),
+    });
+    assert!(!driver.waiting(|op| matches!(op, ApiOp::SetTransclusion { .. })));
+}
+
+// 解除すると、その項目がサーバーへ送られ、ふつうの項目に戻る。
+#[test]
+fn removing_a_transclusion_sends_the_item() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::RemoveTransclusion { id: "a".into() });
+    assert!(
+        driver.waiting(|op| matches!(op, ApiOp::RemoveTransclusion { item_id } if item_id == "a"))
+    );
+}
+
 // Stashへ送ると、まだ保存していない打った文字も一緒にサーバーへ送られる。
 #[test]
 fn a_stash_carries_the_text_typed_into_the_item() {

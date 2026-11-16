@@ -398,6 +398,62 @@
       (should (equal (current-kill 0 t) "- x
 ")))))
 
+;; 参照のコピーは、項目のidをkill ringに入れるだけで、何も送らない。
+(ert-deftest peta-journal-copying-a-reference-puts-the-id-in-the-kill-ring ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "yz"))
+    (peta-journal-test--goto "b" 1)
+    (setq peta-journal-test--sent nil)
+    (let ((kill-ring nil)
+          (interprogram-cut-function nil)
+          (interprogram-paste-function nil))
+      (peta-journal-copy-reference)
+      (should (equal (current-kill 0 t) "b")))
+    (should (null peta-journal-test--sent))))
+
+;; トランスクルージョンの貼り付けは、kill ringの先頭の文字を、項目と一緒にcoreへ送る。
+(ert-deftest peta-journal-pasting-a-transclusion-sends-the-killed-text ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 ""))
+    (peta-journal-test--goto "b" 0)
+    (setq peta-journal-test--sent nil)
+    (let ((kill-ring nil)
+          (interprogram-cut-function nil)
+          (interprogram-paste-function nil))
+      (kill-new "abcdefghij")
+      (peta-journal-paste-as-transclusion))
+    (peta-journal--post-command)
+    (should (equal peta-journal-test--sent
+                   '(("paste_as_transclusion" :id "b" :text "abcdefghij"))))))
+
+;; kill ringが空なら、何も送らずに断る。
+(ert-deftest peta-journal-pasting-a-transclusion-with-nothing-killed-refuses ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal-test--goto "a" 0)
+    (setq peta-journal-test--sent nil)
+    (let ((kill-ring nil)
+          (interprogram-paste-function nil))
+      (should-error (peta-journal-paste-as-transclusion) :type 'user-error))
+    (should (null peta-journal-test--sent))))
+
+;; 解除は、トランスクルージョンの項目なら、coreに頼む。切れたトランスクルージョンも解除できる。
+(ert-deftest peta-journal-removing-a-transclusion-asks-the-core ()
+  (dolist (bullet '("transclusion" "broken"))
+    (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x" :bullet bullet))
+      (peta-journal-test--goto "a" 0)
+      (setq peta-journal-test--sent nil)
+      (peta-journal-remove-transclusion)
+      (peta-journal--post-command)
+      (should (equal peta-journal-test--sent '(("remove_transclusion" :id "a")))))))
+
+;; ふつうの項目では、何も送らずに断る。
+(ert-deftest peta-journal-a-plain-item-refuses-the-removal ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal-test--goto "a" 0)
+    (setq peta-journal-test--sent nil)
+    (should-error (peta-journal-remove-transclusion) :type 'user-error)
+    (should (null peta-journal-test--sent))))
+
 ;; Stashへ送るのも、coreに頼むだけである。行は、サーバーの答えのあとで動く。
 (ert-deftest peta-journal-sending-to-the-stash-only-asks-the-core ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
@@ -2026,6 +2082,9 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                    ("C-c C-x b" . peta-journal-backlinks)
                    ("C-c C-x r" . peta-journal-rename-page)
                    ("C-c SPC" . peta-journal-select)
+                   ("C-c C-x w" . peta-journal-copy-reference)
+                   ("C-c C-x t" . peta-journal-paste-as-transclusion)
+                   ("C-c C-x T" . peta-journal-remove-transclusion)
                    ("C-c C-x D" . peta-journal-demote-index)
                    ("C-c C-x s" . peta-journal-send-to-stash)
                    ("C-c C-x d" . peta-journal-delete-page)
