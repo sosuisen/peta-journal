@@ -20,6 +20,9 @@ public sealed class ShellTests : IDisposable
     /// <summary>The HTML that the shell put on the clipboard with the text.</summary>
     private string? copiedHtml;
 
+    /// <summary>The last address that the shell gave to the browser.</summary>
+    private Uri? browsed;
+
     public void Dispose()
     {
         shells.ForEach(shell => shell.Dispose());
@@ -34,7 +37,7 @@ public sealed class ShellTests : IDisposable
             main.Post,
             reply => reply(onClipboard),
             (text, html) => (copied, copiedHtml) = (text, html),
-            _ => { }
+            uri => browsed = uri
         );
         shells.Add(shell);
         return shell;
@@ -819,17 +822,7 @@ public sealed class ShellTests : IDisposable
     [Fact]
     public void A_link_to_a_page_clicked_without_a_key_opens_the_page_in_the_sticky()
     {
-        Uri? browsed = null;
-        var shell = new Shell(
-            server.Address,
-            "/pages/winui-notes",
-            main.Post,
-            reply => reply(null),
-            (_, _) => { },
-            uri => browsed = uri
-        );
-        shells.Add(shell);
-        main.WaitUntil("the page is shown", () => shell.View.Outline.Rows.Count > 0);
+        var shell = ShellWithPage();
 
         shell.Follow(new RichLink.Page("/pages/apple-pie"), Held.None);
 
@@ -842,17 +835,7 @@ public sealed class ShellTests : IDisposable
     [Fact]
     public void A_link_to_a_page_clicked_with_control_asks_for_a_new_sticky_with_the_page()
     {
-        Uri? browsed = null;
-        var shell = new Shell(
-            server.Address,
-            "/pages/winui-notes",
-            main.Post,
-            reply => reply(null),
-            (_, _) => { },
-            uri => browsed = uri
-        );
-        shells.Add(shell);
-        main.WaitUntil("the page is shown", () => shell.View.Outline.Rows.Count > 0);
+        var shell = ShellWithPage();
         string? asked = null;
         shell.NewStickyAsked += url => asked = url;
 
@@ -867,17 +850,7 @@ public sealed class ShellTests : IDisposable
     [Fact]
     public void A_link_that_goes_to_the_browser_leaves_the_sticky_with_its_page()
     {
-        Uri? browsed = null;
-        var shell = new Shell(
-            server.Address,
-            "/pages/winui-notes",
-            main.Post,
-            reply => reply(null),
-            (_, _) => { },
-            uri => browsed = uri
-        );
-        shells.Add(shell);
-        main.WaitUntil("the page is shown", () => shell.View.Outline.Rows.Count > 0);
+        var shell = ShellWithPage();
 
         shell.Follow(new RichLink.Page("/pages/linked/idea"), Held.Shift);
         Assert.Equal($"{server.Address}/pages/linked/idea", browsed?.AbsoluteUri);
