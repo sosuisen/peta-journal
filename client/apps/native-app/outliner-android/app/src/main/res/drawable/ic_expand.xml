@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Made by client/assets/icons/export.py from expand.svg. Change the SVG, not this file. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M4 1H20V3H4Z M4 21H20V23H4Z M11 8H13V16H11Z M12 4.5L16 8.5H8Z M8 15.5H16L12 19.5Z" />
+</vector>

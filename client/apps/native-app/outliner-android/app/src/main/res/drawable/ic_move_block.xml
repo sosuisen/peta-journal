@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Made by client/assets/icons/export.py from move_block.svg. Change the SVG, not this file. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M19 8.5L23 12L19 15.5Z M5 15.5L1 12L5 8.5Z M8.5 5L12 1L15.5 5Z M15.5 19L12 23L8.5 19Z M8 7.7H16V9.3H8Z M8 11.2H16V12.8H8Z M8 14.7H14V16.3H8Z" />
+</vector>

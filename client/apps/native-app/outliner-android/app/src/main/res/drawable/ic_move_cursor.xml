@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Made by client/assets/icons/export.py from move_cursor.svg. Change the SVG, not this file. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M17.5 7.5L23 12L17.5 16.5Z M18.8 13.76L20.95 12L18.8 10.24Z M6.5 16.5L1 12L6.5 7.5Z M5.2 10.24L3.05 12L5.2 13.76Z M7.5 6.5L12 1L16.5 6.5Z M13.76 5.2L12 3.05L10.24 5.2Z M16.5 17.5L12 23L7.5 17.5Z M10.24 18.8L12 20.95L13.76 18.8Z M11.2 8H12.8V16H11.2Z M10 7.4H14V8.8H10Z M10 15.2H14V16.6H10Z" />
+</vector>

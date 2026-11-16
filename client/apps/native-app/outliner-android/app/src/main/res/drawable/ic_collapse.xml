@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Made by client/assets/icons/export.py from collapse.svg. Change the SVG, not this file. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M4 8.5H20V10.5H4Z M4 13.5H20V15.5H4Z M11 1H13V4.5H11Z M8 4H16L12 7.5Z M11 19.5H13V23H11Z M12 16.5L16 20H8Z" />
+</vector>
