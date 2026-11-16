@@ -171,7 +171,7 @@ ones below it in this list.
 - The package itself: `MainActivity` and `JournalModel`, which put the others together.
 - `screen`: what is drawn. `JournalScreen` is the whole screen. `Outline` is a page and its
   rows, `ItemEditor` the field of the item that is edited, and `Tools` the row above the
-  keyboard. `Blocks` and `ImageBlock` draw the parts of an item, which `ShownText` makes.
+  keyboard, with `Pad` for its pads of four arrows. `Blocks` and `ImageBlock` draw the parts of an item, which `ShownText` makes.
   `SyncViews` shows where the sync stands.
 - `shell`: `Shell` and `Border`, between the screen and the core.
 - `sync` and `dropbox`: the sync with the cloud.
@@ -218,9 +218,27 @@ What each class does:
   is lent: the pages and the database are not. A link to a file that is not there says so.
 - A task has a checkbox that shows where it stands. A touch moves the task on: not started,
   running, done, and then no task.
-- While an item is edited, a row of tools stands above the keyboard: move the item out of
-  its parent or under the item above, move it up or down, make it a task or move the task
-  on, and delete it. "Done" ends the edit. A touch on a tool leaves the focus in the field.
+- While an item is edited, the tools stand above the keyboard, two rows high. From the left:
+  hide or show the children of the item over making it a task, a pad that moves the item, a
+  pad that moves the cursor, redo over undo, and shrinking the tools over hiding the keyboard.
+  A touch on a tool leaves the focus in the field.
+- When the keyboard goes down, the edit ends and the item stays selected. This happens by the
+  tool or by the button of the system. The app hears of the system button only through the
+  room the keyboard takes (`KeyboardWatch` in `JournalScreen`).
+  - While items are selected, the tools stay. The pad of the cursor becomes a pad of up and
+    down, which selects the item above or below. The keyboard tool shows the keyboard again
+    and edits the item.
+  - The tools shrink to a round button at the bottom right. A touch makes them full again.
+    They stay shrunk while an edit turns into a selection and back.
+- The icons of the tools are drawn in `client/assets/icons`, the same for Android and iOS.
+  `draw.py` there makes the SVG files, and `export.py` copies them into the two apps.
+  - A pad takes touches on all of it, not only on its arrows. The lines from its corners cut
+    it into the parts of the four arrows. The middle third does nothing. A touch that is
+    held repeats the arrow.
+  - The pad that moves the item: left moves it out of its parent, right under the item
+    above, up and down past its neighbours.
+  - The tool that hides the children shows them again when they are hidden. It cannot be
+    touched on an item without children.
 - A touch on an item edits it: the item becomes a field with its Markdown, with the cursor
   at its end. A touch on a link or an image still opens it. Only the rest of the row edits,
   so an item that is one long link is edited by a touch beside it. The core has the text

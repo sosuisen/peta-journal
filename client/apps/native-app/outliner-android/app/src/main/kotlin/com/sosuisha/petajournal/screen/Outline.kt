@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
@@ -88,7 +89,13 @@ private fun OutlineRow(row: Row, links: Links, image: (String) -> File?, shell: 
         row.dateHeader?.let { date ->
             Text(date, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
         }
-        Row(Modifier.padding(start = row.indentPx.dp, top = 3.dp, bottom = 3.dp)) {
+        // A selected item is coloured behind, so that the user sees what the tools act on
+        val selected = if (row.isSelected) {
+            Modifier.background(MaterialTheme.colorScheme.primaryContainer).testTag(SELECTED_TAG)
+        } else {
+            Modifier
+        }
+        Row(selected.fillMaxWidth().padding(start = row.indentPx.dp, top = 3.dp, bottom = 3.dp)) {
             // The bullet and the mark stand on the line of the first text, and go up to the
             // middle of its letters when they are large. An item that starts with something
             // else, such as a table, has no such line: they stay at the top

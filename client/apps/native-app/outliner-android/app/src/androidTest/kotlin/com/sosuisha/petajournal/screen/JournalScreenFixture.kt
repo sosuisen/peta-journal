@@ -5,7 +5,13 @@ import android.os.Looper
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.percentOffset
+import androidx.compose.ui.test.TouchInjectionScope
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
@@ -125,6 +131,22 @@ abstract class JournalScreenFixture {
         waitFor("notes")
         compose.onAllNodes(shown("notes")).onFirst().performClick()
     }
+
+    /**
+     * Touches the pad [name] near the edge of [arrow], as a thumb does: not on the drawn
+     * arrow, but in the part of the pad that belongs to it.
+     */
+    internal fun pad(name: String, arrow: Arrow) =
+        compose.onNode(hasContentDescription(name)).performTouchInput { click(nearEdge(arrow)) }
+
+    /** A place of a pad near the edge of [arrow], away from the drawn arrow. */
+    internal fun TouchInjectionScope.nearEdge(arrow: Arrow): Offset =
+        when (arrow) {
+            Arrow.Left -> percentOffset(0.05f, 0.2f)
+            Arrow.Right -> percentOffset(0.95f, 0.8f)
+            Arrow.Up -> percentOffset(0.8f, 0.05f)
+            Arrow.Down -> percentOffset(0.2f, 0.95f)
+        }
 
     /** The line that the core writes above an item in a file, with the properties of the item. */
     protected fun above(id: Char, properties: String = "") =

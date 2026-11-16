@@ -1,157 +1,225 @@
 package com.sosuisha.petajournal.screen
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.sosuisha.petajournal.R
 import com.sosuisha.petajournal.shell.Shell
+import com.sosuisha.petajournal.types.Row as OutlineRow
+import com.sosuisha.petajournal.types.SelectionKey
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
- * The rows at the bottom of the screen (ADR 031). Above, while an item is edited, the tools
- * that change it. Below, always, the arrows that move the cursor. A phone has no Tab key, no
- * key with Alt and no arrow keys. [itemId] is the item that is edited, and `null` when none
- * is: the arrows cannot be touched then. A touch on a tool leaves the focus in the field.
+ * The tools at the bottom of the screen, while an item is edited or selected (ADR 031). A phone
+ * has no Tab key, no key with Alt and no arrow keys. Two pads of four arrows take their place:
+ * one moves the item, the other the cursor. While items are selected, the second pad chooses
+ * the item above or below instead. The tools stand in two rows: the pads take both. [target]
+ * is the row the tools act on: the one that is edited, or the first that is selected. [rows]
+ * are all the rows of the page. A touch on a tool leaves the focus in the field.
  */
 @Composable
-internal fun Tools(itemId: String?, shell: Shell) {
+internal fun Tools(target: OutlineRow, rows: List<OutlineRow>, shell: Shell, onShrink: () -> Unit) {
     val focus = LocalFocusManager.current
     val caret = LocalCaret.current
+    val itemId = target.item.id
+    val editing = target.isEditing
+    // Never scrolled: the pads are always where the thumb looks for them
     Surface(tonalElevation = 3.dp) {
-        Column {
-            if (itemId != null) {
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-                    val ink = MaterialTheme.colorScheme.primary
-                    Tool("Outdent", ink, { shell.outdent(itemId) }) { toTheBar(it, left = true) }
-                    Tool("Indent", ink, { shell.indent(itemId) }) { toTheBar(it, left = false) }
-                    Tool("Move up", ink, { shell.moveUp(itemId) }) { itemMoves(it, up = true) }
-                    Tool("Move down", ink, { shell.moveDown(itemId) }) { itemMoves(it, up = false) }
-                    Tool("Task", ink, { shell.cycleTask(itemId) }) { checkedBox(it) }
-                    Spacer(Modifier.weight(1f))
-                    // The field loses the focus, and tells the core that the edit has ended
-                    TextButton({ focus.clearFocus() }) { Text("Done") }
+        Row(Modifier.fillMaxWidth().height(TOOLS_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                val collapsed = target.isCollapsed
+                val fold = if (collapsed) R.drawable.ic_expand else R.drawable.ic_collapse
+                Tool(if (collapsed) "Expand" else "Collapse", fold, { shell.toggleCollapsed(itemId) }, enabled = target.hasChildren)
+                Tool("Task", R.drawable.ic_task, { shell.cycleTask(itemId) })
+            }
+            Pad("Move block", R.drawable.ic_move_block, BLOCK_MOVES, Modifier.weight(1f)) { arrow ->
+                if (editing) move(shell, itemId, arrow) else moveSelected(shell, arrow)
+            }
+            if (editing) {
+                Pad("Move cursor", R.drawable.ic_move_cursor, CURSOR_MOVES, Modifier.weight(1f)) { caret.move?.invoke(it) }
+            } else {
+                Pad("Move selection", R.drawable.ic_move_selection, SELECTION_MOVES, Modifier.weight(1f)) { arrow ->
+                    neighbour(rows, arrow)?.let { shell.select(it.item.id) }
                 }
             }
-            // Never scrolled: the arrows are always where the thumb looks for them
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                val edited = itemId != null
-                val ink = if (edited) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                for ((arrow, name) in ARROWS) {
-                    Tool(name, ink, { caret.move?.invoke(arrow) }, enabled = edited) { pointing(it, arrow) }
+            Column {
+                Tool("Redo", R.drawable.ic_redo, shell::redo)
+                Tool("Undo", R.drawable.ic_undo, shell::undo)
+            }
+            Column {
+                Tool("Shrink tools", R.drawable.ic_shrink_tools, onShrink)
+                if (editing) {
+                    // The field loses the focus and ends the edit. The item stays selected
+                    Tool("Hide keyboard", R.drawable.ic_hide_keyboard, {
+                        focus.clearFocus()
+                        shell.select(itemId)
+                    })
+                } else {
+                    Tool("Show keyboard", R.drawable.ic_show_keyboard, { shell.edit(itemId) })
                 }
             }
         }
     }
 }
 
-/** The arrow buttons, in their order on the screen, with the names a screen reader says. */
-private val ARROWS = listOf(
+/**
+ * The tools made small: a round button at the bottom right, over the page. A touch makes the
+ * tools full again.
+ */
+@Composable
+internal fun ShrunkTools(onExpand: () -> Unit, modifier: Modifier = Modifier) {
+    FloatingActionButton(onExpand, modifier.padding(12.dp).semantics { contentDescription = "Expand tools" }, shape = CircleShape) {
+        Icon(painterResource(R.drawable.ic_expand_tools), contentDescription = null, Modifier.size(28.dp), tint = ink(enabled = true))
+    }
+}
+
+private fun move(shell: Shell, itemId: String, arrow: Arrow) =
+    when (arrow) {
+        Arrow.Left -> shell.outdent(itemId)
+        Arrow.Right -> shell.indent(itemId)
+        Arrow.Up -> shell.moveUp(itemId)
+        Arrow.Down -> shell.moveDown(itemId)
+    }
+
+private fun moveSelected(shell: Shell, arrow: Arrow) =
+    shell.moveSelected(
+        when (arrow) {
+            Arrow.Left -> SelectionKey.OUTDENT
+            Arrow.Right -> SelectionKey.INDENT
+            Arrow.Up -> SelectionKey.MOVEUP
+            Arrow.Down -> SelectionKey.MOVEDOWN
+        },
+    )
+
+/**
+ * The row to select for an arrow of the pad of the selection: the row above the selected ones,
+ * or the row below them. Left and right have none: the pad has no arrows there.
+ */
+internal fun neighbour(rows: List<OutlineRow>, arrow: Arrow): OutlineRow? =
+    when (arrow) {
+        Arrow.Up -> rows.getOrNull(rows.indexOfFirst { it.isSelected } - 1)
+        Arrow.Down -> rows.indexOfLast { it.isSelected }.takeIf { it >= 0 }?.let { rows.getOrNull(it + 1) }
+        Arrow.Left, Arrow.Right -> null
+    }
+
+/** How high the tools are: two rows of tools. */
+private val TOOLS_HEIGHT = 112.dp
+
+/** What each arrow of the pad that moves the item does, as a screen reader says it. */
+private val BLOCK_MOVES = mapOf(
+    Arrow.Left to "Outdent",
+    Arrow.Up to "Move up",
+    Arrow.Down to "Move down",
+    Arrow.Right to "Indent",
+)
+
+/** What the arrows of the pad that chooses the selected item do, as a screen reader says it. */
+private val SELECTION_MOVES = mapOf(
+    Arrow.Up to "Select the item above",
+    Arrow.Down to "Select the item below",
+)
+
+/** What each arrow of the pad that moves the cursor does, as a screen reader says it. */
+private val CURSOR_MOVES = mapOf(
     Arrow.Left to "Cursor left",
     Arrow.Up to "Cursor up",
     Arrow.Down to "Cursor down",
     Arrow.Right to "Cursor right",
 )
 
+/** The colour of the face of a tool, faint when it cannot be touched. */
+@Composable
+private fun ink(enabled: Boolean): Color =
+    if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+
 /**
- * A tool with a drawing for its face. [name] says what it does, for a screen reader. The
- * face is drawn with [draw] in a square of 24 units, in lines of the colour [ink].
+ * A tool with an icon for its face. [name] says what it does, for a screen reader. [icon] is
+ * one of the icons of `client/assets/icons`.
  */
 @Composable
-private fun Tool(name: String, ink: Color, onTouch: () -> Unit, enabled: Boolean = true, draw: Face.(Color) -> Unit) {
-    TextButton(onTouch, Modifier.semantics { contentDescription = name }, enabled = enabled, contentPadding = PaddingValues(10.dp)) {
-        Canvas(Modifier.size(28.dp)) { Face(this, size.width / 24f).draw(ink) }
+private fun Tool(name: String, @DrawableRes icon: Int, onTouch: () -> Unit, enabled: Boolean = true) {
+    TextButton(onTouch, Modifier.semantics { contentDescription = name }, enabled = enabled, contentPadding = PaddingValues(8.dp)) {
+        Icon(painterResource(icon), contentDescription = null, Modifier.size(28.dp), tint = ink(enabled))
     }
-}
-
-/** Where the face of a tool is drawn. A place is given in units: the face is 24 units wide. */
-private class Face(private val on: DrawScope, private val unit: Float) {
-    /** A line through the places, each as x and y, one after the other. */
-    fun line(ink: Color, vararg places: Float) {
-        val path = Path()
-        path.moveTo(places[0] * unit, places[1] * unit)
-        for (at in 2 until places.size step 2) path.lineTo(places[at] * unit, places[at + 1] * unit)
-        on.drawPath(path, ink, style = Stroke(2.6f * unit, cap = StrokeCap.Round, join = StrokeJoin.Round))
-    }
-
-    /** A square with round corners, from the left top place and with the length of a side. */
-    fun square(ink: Color, left: Float, top: Float, side: Float) {
-        on.drawRoundRect(
-            ink,
-            topLeft = Offset(left * unit, top * unit),
-            size = Size(side * unit, side * unit),
-            cornerRadius = CornerRadius(2.5f * unit),
-            style = Stroke(2.2f * unit),
-        )
-    }
-}
-
-/** An arrow to a bar at the side: the item goes in to the right, or back out to the left. */
-private fun Face.toTheBar(ink: Color, left: Boolean) {
-    // The face of the indent, and its mirror for the outdent
-    fun x(at: Float) = if (left) 24f - at else at
-    line(ink, x(3f), 12f, x(15f), 12f)
-    line(ink, x(10f), 7f, x(15f), 12f, x(10f), 17f)
-    line(ink, x(20.5f), 4.5f, x(20.5f), 19.5f)
 }
 
 /**
- * An item with an arrow over or under it: the item moves over or under its neighbour. Not a
- * bare arrow, which is the face of the cursor buttons.
+ * A pad of four arrows. The whole pad takes touches: the lines from its corners cut it into
+ * the parts of the arrows (see [aim]). A touch that is held goes on doing what the arrow does.
+ * [icon] is its face. [moves] names what each arrow does, for a screen reader.
  */
-private fun Face.itemMoves(ink: Color, up: Boolean) {
-    fun y(at: Float) = if (up) at else 24f - at
-    // The item, as a bar of text
-    line(ink, 5f, y(19f), 19f, y(19f))
-    line(ink, 12f, y(14.5f), 12f, y(3.5f))
-    line(ink, 7.5f, y(8f), 12f, y(3.5f), 16.5f, y(8f))
-}
-
-/** An arrow that points where the cursor goes. */
-private fun Face.pointing(ink: Color, arrow: Arrow) {
-    // The arrow to the right, turned for the others
-    fun place(x: Float, y: Float): Pair<Float, Float> =
-        when (arrow) {
-            Arrow.Right -> x to y
-            Arrow.Left -> 24f - x to y
-            Arrow.Down -> y to x
-            Arrow.Up -> y to 24f - x
+@Composable
+private fun Pad(
+    name: String,
+    @DrawableRes icon: Int,
+    moves: Map<Arrow, String>,
+    modifier: Modifier,
+    onArrow: (Arrow) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    // The pointer input lives on while the item that is edited changes
+    val act by rememberUpdatedState(onArrow)
+    val touches = Modifier.pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown()
+            val arrow = aim(down.position.x, down.position.y, size.width.toFloat(), size.height.toFloat())
+                ?: return@awaitEachGesture
+            down.consume()
+            val held = scope.launch {
+                act(arrow)
+                delay(HOLD_MS)
+                while (true) {
+                    act(arrow)
+                    delay(REPEAT_MS)
+                }
+            }
+            waitForUpOrCancellation()
+            held.cancel()
         }
-    fun line(vararg xy: Float) {
-        val turned = xy.toList().chunked(2).flatMap { (x, y) -> place(x, y).toList() }
-        line(ink, *turned.toFloatArray())
     }
-    line(5f, 12f, 19f, 12f)
-    line(13f, 6f, 19f, 12f, 13f, 18f)
+    val described = Modifier.semantics {
+        contentDescription = name
+        customActions = moves.map { (arrow, said) -> CustomAccessibilityAction(said) { act(arrow); true } }
+    }
+    Box(modifier.then(described).then(touches).fillMaxHeight(), contentAlignment = Alignment.Center) {
+        Icon(painterResource(icon), contentDescription = null, Modifier.size(88.dp), tint = ink(enabled = true))
+    }
 }
 
-/** A box with a check mark: the item becomes a task, and the task moves on. */
-private fun Face.checkedBox(ink: Color) {
-    square(ink, 4f, 4f, 16f)
-    line(ink, 8f, 12.5f, 11f, 15.5f, 16.5f, 9f)
-}
+/** How long a touch is held before an arrow of a pad repeats. */
+private const val HOLD_MS = 400L
 
+/** How often an arrow of a pad repeats while the touch is held. */
+private const val REPEAT_MS = 100L
