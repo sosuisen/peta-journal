@@ -13,11 +13,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
   - [ ] Macの付箋紙。今は、ふつうのクリックとShiftクリックはできている。Commandクリックで新しい付箋紙で開くことが足りない。Macでビルドして確かめる必要がある
 - [ ] ドラッグ選択の決まり（10の判定、帯の40、一歩の24、16ms、リストの外の数え方）を、coreに1つだけ置き、各シェルから呼ぶ（2026-11-15にユーザーが積んだ）。今は、Web（Rust）、Windows（C#）、Mac（Swift）の3か所に同じ決まりがあり、Macだけリストの外の数え方がずれていた
 
-- [ ] Compose UI 1.13の安定版が出たら、`app/build.gradle.kts`の`composeUi`をやめて、BOMだけに戻す
-  - Androidで長いページを速くスクロールすると、アプリが落ちていた。原因はCompose UI 1.12の不具合である（Google Issue Tracker 549552303）。`screen/Outline.kt`の`alignByBaseline()`がベースラインを読むときに、`IllegalArgumentException: LayoutNode … not found in RectList`で落ちる
-  - 完全な修正は1.13にある。2026-11-16に、Compose UIとfoundationを`1.13.0-rc01`に上げて直した。落ちることが多く、安定版を待てなかったため（ユーザーが決めた）。1.13は`compileSdk` 37.1を求めるので、`compileSdk`も37.1に上げた
-  - 上げたあと、実機で`adb`のスワイプで80回速くスクロールしても、落ちなかった。端末のテストも120件すべて通った
-  - BOMに戻したら、実機で長いページを速くスクロールし、落ちないことをもう一度確かめる
 - [ ] 画面を回すと、余計な同期が始まる。直す
 
 ## ADR 051：wikilinkとhashtagのhrefを、ast2htmlのテンプレートで決める
@@ -424,6 +419,12 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
   - EmacsのE2Eのジョブ（`emacs-e2e`）は、止めている間に足したので、まだ一度も走っていない。LinuxのEmacsで43件が動くかを、ここで確かめる。WindowsのEmacs 31.1では通っている（2026-11-16）
 
 ## 道具の更新
+
+- [ ] Compose UI 1.13の安定版が出たら、`app/build.gradle.kts`の`composeUi`をやめて、BOMだけに戻す
+  - Androidで長いページを速くスクロールすると、アプリが落ちていた。原因はCompose UI 1.12の不具合である（Google Issue Tracker 549552303）。`screen/Outline.kt`の`alignByBaseline()`がベースラインを読むときに、`IllegalArgumentException: LayoutNode … not found in RectList`で落ちる
+  - 完全な修正は1.13にある。2026-11-16に、Compose UIとfoundationを`1.13.0-rc01`に上げて直した。落ちることが多く、安定版を待てなかったため（ユーザーが決めた）。1.13は`compileSdk` 37.1を求めるので、`compileSdk`も37.1に上げた
+  - 上げたあと、実機で`adb`のスワイプで80回速くスクロールしても、落ちなかった。端末のテストも120件すべて通った
+  - BOMに戻したら、実機で長いページを速くスクロールし、落ちないことをもう一度確かめる
 
 - [ ] Rustを1.100に上げる（2026-11-13にユーザーが足した）
   - Rust 1.100.0は、2026-11-12に出た。このPCは1.99.1である（2026-11-13に見た）
