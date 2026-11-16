@@ -221,6 +221,7 @@ internal sealed class StickyWindow : Window
 
         Shell.ViewChanged += Draw;
         Shell.TitleChanged += Name;
+        Shell.NewStickyAsked += url => desk.Add(url);
         Shell.QuestionChanged += Ask;
         Shell.FocusChanged += () => PutCursor();
         Shell.UrlChanged += () =>
