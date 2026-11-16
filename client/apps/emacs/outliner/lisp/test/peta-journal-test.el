@@ -2081,7 +2081,9 @@ The sidebar is closed at the end."
      (unwind-protect
          ;; Every section open, and the init file of the machine left alone
          (let ((peta-journal-sidebar-collapsed nil)
-               (peta-journal-test--saved nil))
+               (peta-journal-test--saved nil)
+               ;; An Emacs with a place to save to; the save itself is replaced below
+               (custom-file "peta-journal-test-custom.el"))
            (cl-letf (((symbol-function 'customize-save-variable)
                       (lambda (variable value &rest _)
                         (set variable value)
