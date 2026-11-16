@@ -133,12 +133,13 @@ A click beside the letters puts the cursor at the end.
 Text that is still being composed by an input method is not sent to the core until it is
 confirmed, and the Enter that confirms it does not split the item.
 
-A click on a link of an item that shows its decoration opens the link in the browser
-(`Shell.Follow`). The core says where each link leads (`RichLink`). A page, such as that of
-a wikilink or a hashtag, opens in the web frontend, which the journal server serves; a file
-of the assets folder opens as the journal server serves it (`/assets/...`). The sticky keeps
-its page. Of the other links, only those to the web are opened. Such a click does not put
-the cursor in the item.
+A click on a link of an item that shows its decoration follows the link (`Shell.Follow`).
+The core says where each link leads (`RichLink`). A page, such as that of a wikilink or a
+hashtag, opens in the sticky. With Control held, it opens in a new sticky. With Shift held,
+it opens in the web frontend in the browser. The journal server serves that frontend. A file
+of the assets folder opens in the browser, as the journal server serves it (`/assets/...`).
+Of the other links, only those to the web are opened. Such a click does not put the cursor
+in the item.
 
 An image of the assets folder is drawn from the journal server, at the size that the page
 asks for. An image whose page asks for no size fits the width of the sticky, and is never
