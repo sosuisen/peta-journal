@@ -531,8 +531,10 @@ the extension.  That file must hold BYTES in the notes under ROOT."
             (overlays-in (point-min) (point-max))))
 
 ;; 挿入した画像は、カーソルが項目を出ると、サーバーから取得した中身のまま見える。
-;; バッチ実行では描けないので、描くはずの画像の中身までを確かめる。
+;; バッチ実行では描けないので、描くはずの画像の中身までを確かめる。PNGを表示できないEmacsでは飛ばす。
 (ert-deftest peta-journal-e2e-an-inserted-image-is-shown-after-the-point-leaves ()
+  ;; Such a build shows the link as text, which the tests of the mode check
+  (skip-unless (image-type-available-p 'png))
   (cl-letf (((symbol-function 'display-images-p) (lambda (&rest _) t)))
     (peta-journal-e2e--with-app
       ;; Bytes that break when read as text: a line end, a zero and a high byte
