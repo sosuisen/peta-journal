@@ -179,8 +179,9 @@ goes in at the point. A pasted image has no name of its own, so the link text is
 
 ## Seeing images
 
-An item without the point shows the image in place of a link like `![name](../assets/file)`. The
-item with the point shows the link as text. The image comes back when the point leaves. Only the
+An item without the point shows the image in place of a link like `![name](../assets/file)`. An
+image outside the server, like `![name](https://example.com/file.png)`, is shown too: Emacs fetches
+it from its URL, as a web browser does. The item with the point shows the link as text. The image comes back when the point leaves. Only the
 display changes: the text of the body stays as it is.
 
 An image fits the window, and fits again when the window changes size. A link with `#w=300&h=240`
@@ -192,7 +193,7 @@ The link stays as text in these cases:
 - The server does not have the file, or Emacs cannot read its format. Some builds of Emacs
   cannot show PNG at all.
 - The link is in code.
-- The link does not point to the `assets` of the server, like `https://`.
+- The link points neither to the `assets` of the server nor to an `http://` or `https://` URL.
 - The file name in `assets` has characters other than ASCII letters, digits, `.`, `_` and `-`.
 
 The images come from the server. Typing does not wait for them: an image appears when it arrives.
@@ -269,7 +270,7 @@ letter are kept free for users.
 
 ## Not in this version
 
-Showing images from outside the server, the atlas, extensions,
+The atlas, extensions,
 settings and operations on several selected
 items.
 

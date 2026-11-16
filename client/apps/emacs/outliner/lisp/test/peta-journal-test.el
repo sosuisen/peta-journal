@@ -1616,6 +1616,25 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
     (should-not (peta-journal-test--image-of "b"))
     (should (equal (peta-journal-test--shown) "• 上\n• ![p](../assets/p.png)\n"))))
 
+;; サーバーの外にある画像（`http://`と`https://`）も、そのURLから取得して見える。`#`のあとは大きさで、取得するURLには含めない。
+(ert-deftest peta-journal-an-image-outside-the-server-shows-from-its-url ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](https://example.com/a/p.png#w=20)")
+                                        (peta-journal-test--row "c" 1 "![q](http://example.com/q.png)"))
+    (should (equal peta-journal-test--fetched
+                   '("https://example.com/a/p.png" "http://example.com/q.png")))
+    (peta-journal--image-arrived "https://example.com/a/p.png" peta-journal-test--png)
+    (peta-journal--image-arrived "http://example.com/q.png" peta-journal-test--png)
+    (should (equal (image-property (peta-journal-test--image-of "b") :width) 20))
+    (should (peta-journal-test--image-of "c"))))
+
+;; `http`でも`https`でもないURLと、サーバーのassetsでない相対パスの画像は、文字のままで、取りにも行かない。
+(ert-deftest peta-journal-an-image-of-another-scheme-stays-a-link ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](file:///c:/p.png)")
+                                        (peta-journal-test--row "c" 1 "![q](q.png)"))
+    (should-not peta-journal-test--fetched)))
+
 ;; 画像の中身が上限を超えると、開いたページにない画像から、使ってから長いものの順に忘れる。
 (ert-deftest peta-journal-images-over-the-limit-are-forgotten-from-the-least-used ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
@@ -1812,13 +1831,6 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
 (ert-deftest peta-journal-a-link-in-code-stays-text ()
   (dolist (body '("`![p](../assets/p.png)`" "```\n![p](../assets/p.png)\n```"))
     (should-not (peta-journal-test--image-of-body body))))
-
-;; サーバーのassetsを指さないリンクは、文字のままで、取りにも行かない。
-(ert-deftest peta-journal-a-link-outside-the-assets-stays-text ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](https://example.com/p.png)"))
-    (should-not (peta-journal-test--image-of "b"))
-    (should-not peta-journal-test--fetched)))
 
 ;; サーバーのURLの末尾に/があっても、画像のURLは正しい形になる。
 (ert-deftest peta-journal-the-url-of-an-image-allows-a-slash-after-the-server ()
