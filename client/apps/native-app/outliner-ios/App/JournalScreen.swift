@@ -89,6 +89,10 @@ struct JournalScreen: View {
             // At the top, where it stays while an item is edited and the keyboard is up
             HStack(spacing: 4) {
                 if let cloud { SyncMenu(state: cloud, onSignIn: onSignIn, onSync: onSync, onSignOut: onSignOut) }
+                // Without a page in its direction a button stays, and cannot be touched: the
+                // bar does not move (ADR 035)
+                HistoryButton(name: "Back", symbol: "chevron.left", enabled: view.history.canGoBack, action: shell.back)
+                HistoryButton(name: "Forward", symbol: "chevron.right", enabled: view.history.canGoForward, action: shell.forward)
                 // The field also tells of a text that the core gave it, as the empty one after
                 // a result was chosen: that is no typing, and must not search again
                 TextField("Search", text: Binding(get: { shell.view.search.query }, set: { if $0 != shell.view.search.query { shell.search($0) } }))
@@ -140,6 +144,22 @@ struct JournalScreen: View {
             // The results, the page and the callout stay clear of the keyboard and the tools
             .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: covered) }
         }
+    }
+}
+
+/// A button of the bar that goes back or forward among the pages that were open.
+private struct HistoryButton: View {
+    let name: String
+    let symbol: String
+    let enabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.body.weight(.semibold)).frame(width: 32, height: 44)
+        }
+        .disabled(!enabled)
+        .accessibilityLabel(name)
     }
 }
 

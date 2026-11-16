@@ -230,6 +230,7 @@ impl<H: Host> Shell<H> {
                 dir_path: String::new(),
                 file_name: path,
             }),
+            Inbound::DeletePage => self.send(Event::DeleteCurrentPage),
             Inbound::SetProperty { key, value } => self.set_property(key, value),
             Inbound::DeleteProperty { key } => self.send(Event::DeletePageProperty { key }),
             Inbound::OpenLinkAt { id, cursor } => self.open_link_at(id, cursor),

@@ -1089,6 +1089,35 @@ fn renaming_over_another_page_asks_and_overwrites_on_yes() {
     )));
 }
 
+/// The question that the shell sent last.
+fn last_ask(driver: &Driver) -> Option<(u64, String)> {
+    driver.sent().iter().rev().find_map(|m| match m {
+        Outbound::Ask { req, message } => Some((*req, message.clone())),
+        _ => None,
+    })
+}
+
+// 今のページを消すときは、ページの名前を挙げて尋ね、「はい」ならサーバーで消す。
+#[test]
+fn deleting_the_page_asks_and_deletes_it_on_yes() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::DeletePage);
+    let (req, message) = last_ask(&driver).expect("the shell asks before it deletes");
+    assert!(message.contains("notes"), "{message}");
+    driver.send(Inbound::Answer { req, yes: true });
+    assert!(driver.waiting(|op| matches!(op, ApiOp::DeletePage { page_id } if page_id == "p")));
+}
+
+// 「いいえ」と答えると、ページは消えない。
+#[test]
+fn deleting_the_page_does_nothing_on_no() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::DeletePage);
+    let (req, _) = last_ask(&driver).expect("the shell asks before it deletes");
+    driver.send(Inbound::Answer { req, yes: false });
+    assert!(!driver.waiting(|op| matches!(op, ApiOp::DeletePage { .. })));
+}
+
 fn definitions_answer() -> ApiOutput {
     let definition = |key: &str, value_type: &str, page: bool| PropertyDefinition {
         key: key.into(),

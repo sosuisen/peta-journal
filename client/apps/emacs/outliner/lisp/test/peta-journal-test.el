@@ -553,7 +553,8 @@ Either can be nil, for a clipboard without it."
 (ert-deftest peta-journal-going-to-another-page-leaves-the-edit-closed ()
   (dolist (command '(peta-journal-today peta-journal-back peta-journal-forward
                      peta-journal-next-day peta-journal-previous-day
-                     peta-journal-open-at-point peta-journal-rename-page))
+                     peta-journal-open-at-point peta-journal-rename-page
+                     peta-journal-delete-page))
     (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
       (peta-journal-test--goto "a" 0)
       (peta-journal--go "back")
@@ -578,6 +579,17 @@ Either can be nil, for a clipboard without it."
     (should (equal peta-journal-test--sent
                    '(("edit_finished" :id "a")
                      ("rename_page" :path "work/new"))))))
+
+;; 今のページの削除は、編集を閉じてからシェルへ送る。尋ねるのはコアである。
+(ert-deftest peta-journal-deleting-the-page-ends-the-edit-and-asks-the-shell ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal-test--goto "a" 0)
+    (setq peta-journal-test--sent nil)
+    (with-temp-buffer
+      (call-interactively #'peta-journal-delete-page))
+    (should (equal peta-journal-test--sent
+                   '(("edit_finished" :id "a")
+                     ("delete_page"))))))
 
 ;; 変えられるパスがなければ、入力を求める前に断る。打った名前が無駄にならない。
 (ert-deftest peta-journal-a-page-without-a-path-refuses-before-asking ()
@@ -1626,6 +1638,51 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
     (should-not (peta-journal-test--image-of "b"))
     (should (equal (peta-journal-test--shown) "• 上\n• ![p](../assets/p.png)\n"))))
 
+;; サーバーの外にある画像（`http://`と`https://`）も、そのURLから取得して見える。`#`のあとは大きさで、取得するURLには含めない。
+(ert-deftest peta-journal-an-image-outside-the-server-shows-from-its-url ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](https://example.com/a/p.png#w=20)")
+                                        (peta-journal-test--row "c" 1 "![q](http://example.com/q.png)"))
+    (should (equal peta-journal-test--fetched
+                   '("https://example.com/a/p.png" "http://example.com/q.png")))
+    (peta-journal--image-arrived "https://example.com/a/p.png" peta-journal-test--png)
+    (peta-journal--image-arrived "http://example.com/q.png" peta-journal-test--png)
+    (should (equal (image-property (peta-journal-test--image-of "b") :width) 20))
+    (should (peta-journal-test--image-of "c"))))
+
+;; `http`でも`https`でもないURLと、サーバーのassetsでない相対パスの画像は、文字のままで、取りにも行かない。
+(ert-deftest peta-journal-an-image-of-another-scheme-stays-a-link ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](file:///c:/p.png)")
+                                        (peta-journal-test--row "c" 1 "![q](q.png)"))
+    (should-not peta-journal-test--fetched)))
+
+;; 画像の中身が上限を超えると、開いたページにない画像から、使ってから長いものの順に忘れる。
+(ert-deftest peta-journal-images-over-the-limit-are-forgotten-from-the-least-used ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+    (let ((peta-journal-image-memory-limit (* 2 (length peta-journal-test--png))))
+      (peta-journal--image-arrived (peta-journal-test--asset-url "old.png") peta-journal-test--png)
+      (peta-journal--image-arrived (peta-journal-test--asset-url "new.png") peta-journal-test--png)
+      (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+      (should-not (gethash (peta-journal-test--asset-url "old.png") peta-journal--images))
+      (should (gethash (peta-journal-test--asset-url "new.png") peta-journal--images))
+      (should (peta-journal-test--image-of "b")))))
+
+;; 開いたページにある画像は、上限を超えても忘れない。忘れると、取り直しと描き直しを繰り返す。
+(ert-deftest peta-journal-an-image-on-an-open-page-is-kept-over-the-limit ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)")
+                                        (peta-journal-test--row "c" 1 "![q](../assets/q.png)"))
+    (let ((peta-journal-image-memory-limit 1))
+      ;; The page asked for both as it was drawn
+      (setq peta-journal-test--fetched nil)
+      (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+      (peta-journal--image-arrived (peta-journal-test--asset-url "q.png") peta-journal-test--png)
+      (should (peta-journal-test--image-of "b"))
+      (should (peta-journal-test--image-of "c"))
+      (should-not peta-journal-test--fetched))))
+
 ;; カーソルのある項目では、画像ではなくリンクの文字が見える。
 (ert-deftest peta-journal-the-item-with-the-point-shows-its-link-as-text ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "![p](../assets/p.png)")
@@ -1797,13 +1854,6 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
   (dolist (body '("`![p](../assets/p.png)`" "```\n![p](../assets/p.png)\n```"))
     (should-not (peta-journal-test--image-of-body body))))
 
-;; サーバーのassetsを指さないリンクは、文字のままで、取りにも行かない。
-(ert-deftest peta-journal-a-link-outside-the-assets-stays-text ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](https://example.com/p.png)"))
-    (should-not (peta-journal-test--image-of "b"))
-    (should-not peta-journal-test--fetched)))
-
 ;; サーバーのURLの末尾に/があっても、画像のURLは正しい形になる。
 (ert-deftest peta-journal-the-url-of-an-image-allows-a-slash-after-the-server ()
   (let ((peta-journal-server "http://localhost:9000/"))
@@ -1852,6 +1902,7 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                    ("C-c C-x b" . peta-journal-backlinks)
                    ("C-c C-x r" . peta-journal-rename-page)
                    ("C-c C-x s" . peta-journal-send-to-stash)
+                   ("C-c C-x d" . peta-journal-delete-page)
                    ("C-c C-x p" . peta-journal-properties)
                    ("C-c C-x n" . peta-journal-new-buffer)
                    ("C-c C-x i" . peta-journal-insert-image)

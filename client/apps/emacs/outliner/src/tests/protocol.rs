@@ -51,6 +51,12 @@ fn a_stash_carries_the_item() {
     let line = r#"{"seq":1,"type":"send_to_stash","id":"a"}"#;
     let envelope: Envelope = serde_json::from_str(line).unwrap();
     assert_eq!(envelope.message, Inbound::SendToStash { id: "a".into() });
+// 今のページの削除は、中身のない行として届く。
+#[test]
+fn a_page_deletion_carries_nothing() {
+    let line = r#"{"seq":1,"type":"delete_page"}"#;
+    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    assert_eq!(envelope.message, Inbound::DeletePage);
 }
 
 // 画像の挿入は、項目とカーソルと、Emacsが選んだファイルのパスとして届く。

@@ -41,6 +41,12 @@ of the repository."
 The core does not take in changes from elsewhere while an edit is open."
   :type 'number)
 
+(defcustom peta-journal-image-memory-limit (* 64 1024 1024)
+  "How many bytes of images Emacs keeps at most.
+Over it, Emacs forgets the images that no open page links to, the one used
+longest ago first.  A page that shows a forgotten image fetches it again."
+  :type 'natnum)
+
 (defcustom peta-journal-item-gap 4
   "The gap between two items, in pixels.
 It applies to the rows drawn after a change.  Only a graphical Emacs shows it."
@@ -648,11 +654,19 @@ A step back from the start of this body goes on to the row above."
 
 (defconst peta-journal--image-link-regexp
   (concat "!" peta-journal--link-text-regexp
-          "(\\.\\./assets/\\([A-Za-z0-9._-]+\\)\\(?:#\\([^)\n]*\\)\\)?)")
-  "A link to an image on the server.
-Group 1 is the name of the file, and group 2 what follows its `#'.  The server
-gives an uploaded file such a name, and a name of this form needs no escaping
-in a URL.")
+          "(\\(?:\\.\\./assets/\\([A-Za-z0-9._-]+\\)\\|\\(https?://[^ \t\n()#]+\\)\\)"
+          "\\(?:#\\([^)\n]*\\)\\)?)")
+  "A link to an image on the server, or to one outside it.
+Group 1 is the name of a file on the server.  The server gives an uploaded file
+such a name, and a name of this form needs no escaping in a URL.  Group 2 is the
+URL of an image outside the server, and group 3 what follows the `#'.")
+
+(defun peta-journal--matched-image-url ()
+  "The URL of the image that `peta-journal--image-link-regexp' matched last."
+  (let ((name (match-string-no-properties 1)))
+    (if name
+        (peta-journal--asset-url name)
+      (match-string-no-properties 2))))
 
 ;; Global: buffers of the same server show the same files
 (defvar peta-journal--images (make-hash-table :test #'equal)
@@ -665,11 +679,58 @@ in a URL.")
   "The URL of the file NAME in the assets of the server."
   (concat (string-trim-right peta-journal-server "/") "/assets/" name))
 
+(defvar peta-journal--image-uses (make-hash-table :test #'equal)
+  "When each image was used last, by URL, as a count that only grows.
+Not the time: two uses may come in the same instant.")
+
+(defvar peta-journal--image-use-count 0
+  "The count of the last use of an image.")
+
+(defun peta-journal--use-image (url)
+  "Note that the image at URL was used now."
+  (puthash url (setq peta-journal--image-use-count (1+ peta-journal--image-use-count))
+           peta-journal--image-uses))
+
+(defun peta-journal--linked-image-urls ()
+  "The URLs of the images that the open pages link to."
+  (let ((urls (make-hash-table :test #'equal)))
+    (dolist (page (peta-journal--pages))
+      (with-current-buffer page
+        (save-excursion
+          (goto-char (point-min))
+          (while (re-search-forward peta-journal--image-link-regexp nil t)
+            (puthash (peta-journal--matched-image-url) t urls)))))
+    urls))
+
+(defun peta-journal--trim-images ()
+  "Forget images until their bytes are within `peta-journal-image-memory-limit'.
+An image that an open page links to stays: a page would fetch it and draw it
+again at once, and that could go on forever."
+  (let ((linked (peta-journal--linked-image-urls))
+        (total 0)
+        (spare nil))
+    (maphash (lambda (url known)
+               (when (stringp known)
+                 (setq total (+ total (string-bytes known)))
+                 (unless (gethash url linked)
+                   (push url spare))))
+             peta-journal--images)
+    (setq spare (sort spare (lambda (a b)
+                              (< (gethash a peta-journal--image-uses 0)
+                                 (gethash b peta-journal--image-uses 0)))))
+    (while (and spare (> total peta-journal-image-memory-limit))
+      (let ((url (pop spare)))
+        (setq total (- total (string-bytes (gethash url peta-journal--images))))
+        (remhash url peta-journal--images)
+        (remhash url peta-journal--image-uses)))))
+
 (defun peta-journal--image-bytes (url)
   "The bytes of the image at URL, or nil.  The first call starts to fetch them."
   (let ((known (gethash url peta-journal--images)))
     (cond
-     ((stringp known) known)
+     ((stringp known)
+      (peta-journal--use-image url)
+      known)
      ((null known)
       (puthash url 'loading peta-journal--images)
       (peta-journal--fetch-image url)
@@ -699,6 +760,9 @@ not hold up the typing."
   "Keep the BYTES of the image at URL, and show the image in every page.
 BYTES is nil when the image could not be fetched."
   (puthash url (or bytes 'missing) peta-journal--images)
+  (when bytes
+    (peta-journal--use-image url)
+    (peta-journal--trim-images))
   (peta-journal--redraw-all-images))
 
 (defun peta-journal--redraw-all-images ()
@@ -734,9 +798,9 @@ An image taller than the window could not be scrolled through line by line."
                         (* (1+ indent) (frame-char-width)))
           :max-height (- (window-body-height window t) (frame-char-height)))))
 
-(defun peta-journal--link-image (id name fragment)
-  "The image of the item ID for a link to the file NAME with FRAGMENT, or nil."
-  (when-let* ((bytes (peta-journal--image-bytes (peta-journal--asset-url name))))
+(defun peta-journal--link-image (id url fragment)
+  "The image of the item ID for a link to the image at URL with FRAGMENT, or nil."
+  (when-let* ((bytes (peta-journal--image-bytes url)))
     (let ((width (peta-journal--link-side fragment "w"))
           (height (peta-journal--link-side fragment "h")))
       ;; Without a type, this tells it from the bytes, and gives nil if it cannot tell it. A
@@ -771,12 +835,12 @@ body stays as the shell knows it."
         (while (re-search-forward peta-journal--image-link-regexp end t)
           (let* ((link-start (match-beginning 0))
                  (link-end (match-end 0))
-                 (name (match-string-no-properties 1))
-                 (fragment (match-string-no-properties 2))
+                 (url (peta-journal--matched-image-url))
+                 (fragment (match-string-no-properties 3))
                  (id (peta-journal--id-at link-start)))
             (unless (or (equal id text-item)
                         (peta-journal--in-code-p link-start))
-              (when-let* ((image (peta-journal--link-image id name fragment)))
+              (when-let* ((image (peta-journal--link-image id url fragment)))
                 (let ((overlay (make-overlay link-start link-end)))
                   (overlay-put overlay 'peta-image t)
                   (overlay-put overlay 'display image)
@@ -961,7 +1025,7 @@ Not from here but from a timer: a process filter is no place for a prompt."
 (defconst peta-journal--commands-that-end-the-edit
   '(peta-journal-save peta-journal-today peta-journal-back peta-journal-forward
     peta-journal-next-day peta-journal-previous-day peta-journal-open-at-point
-    peta-journal-search peta-journal-rename-page)
+    peta-journal-search peta-journal-rename-page peta-journal-delete-page)
   "The commands after which the point stays in an item that is not being edited.
 A saved edit must stay closed, and a page being left has nothing more to edit.")
 
@@ -1223,6 +1287,12 @@ put a link to it at the point."
        (user-error "Only a doc page can be renamed, not a journal, an index or an atlas"))
      (list (read-string "Rename page to: " current))))
   (peta-journal--go "rename_page" :path path))
+
+(defun peta-journal-delete-page ()
+  "Delete the page on screen, after a question.  Today's journal opens then.
+Today's journal itself cannot be deleted."
+  (interactive)
+  (peta-journal--go "delete_page"))
 
 (defun peta-journal-back ()
   "Go back to the page shown before."
@@ -1838,6 +1908,7 @@ This is for `completion-at-point-functions'."
   "C-c C-x f" #'peta-journal-forward
   "C-c C-x r" #'peta-journal-rename-page
   "C-c C-x s" #'peta-journal-send-to-stash
+  "C-c C-x d" #'peta-journal-delete-page
   "C-c C-x p" #'peta-journal-properties
   "C-c C-x n" #'peta-journal-new-buffer
   "C-c C-x i" #'peta-journal-insert-image
