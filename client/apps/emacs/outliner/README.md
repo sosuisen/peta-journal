@@ -99,6 +99,7 @@ The commands on the whole page are `C-c C-x` and then one letter:
 | Key | Action |
 |---|---|
 | `C-c C-x r` | Rename the page |
+| `C-c C-x d` | Delete the page |
 | `C-c C-x p` | Show or hide the list of page properties |
 | `C-c C-x n` | Open a page by name in a new buffer |
 | `C-c C-x i` | Insert an image file at the point |
@@ -154,6 +155,12 @@ another page has that name, Emacs asks whether to overwrite it.
 
 Only a doc page can be renamed. On a journal, an index page or an atlas, the command stops without
 asking.
+
+## Delete a page
+
+`C-c C-x d` or `M-x peta-journal-delete-page` deletes the page on screen, with its file. Emacs asks
+first, with the name of the page. Today's journal opens then. Today's journal itself is not deleted:
+the command does nothing there.
 
 ## Inserting an image
 
