@@ -6,6 +6,8 @@ import androidx.compose.ui.platform.ViewRootForTest
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
@@ -174,48 +176,50 @@ class EditTest : JournalScreenFixture() {
 
         compose.onNodeWithTag(EDITOR_TAG).performTextInput("!")
         compose.runOnIdle { assertEquals(1, edits) }
-        tool("Indent")
+        pad("Move block", Arrow.Right)
         tool("Task")
 
         compose.runOnIdle { assertEquals(3, edits) }
     }
 
-    // 編集していないときは、道具の列は出ない。
+    // 編集していないときも道具の列は出る。ただし、項目を変える道具は押せない。
     @Test
-    fun the_tools_show_only_while_an_item_is_edited() {
+    fun the_tools_that_change_an_item_cannot_be_touched_while_nothing_is_edited() {
         download("notes.md", "first" + NL)
         openNotes()
         waitFor("first")
 
-        compose.onNode(hasContentDescription("Indent")).assertDoesNotExist()
+        compose.onNode(hasContentDescription("Move block")).assertIsNotEnabled()
+        compose.onNode(hasContentDescription("Task")).assertIsNotEnabled()
         touchEnd("first")
 
-        compose.onNode(hasContentDescription("Indent")).assertExists()
+        compose.onNode(hasContentDescription("Move block")).assertIsEnabled()
+        compose.onNode(hasContentDescription("Task")).assertIsEnabled()
     }
 
-    // 字下げの道具は、編集中の項目を上の項目の子にする。戻す道具は、元に戻す。編集は続く。
+    // 項目を動かすパッドの左右は、字下げと字下げを戻す。編集中の項目を上の項目の子にし、元に戻す。編集は続く。
     @Test
     fun the_indent_tools_move_the_item_under_the_one_above_and_back() {
         editSecondOfThree()
 
-        tool("Indent")
+        pad("Move block", Arrow.Right)
         waitForItems("1 first", "2 second", "1 third")
         compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("second")
-        tool("Outdent")
+        pad("Move block", Arrow.Left)
 
         waitForItems("1 first", "1 second", "1 third")
     }
 
-    // 上へと下への道具は、編集中の項目を、隣の項目と入れ替える。
+    // 項目を動かすパッドの上下は、編集中の項目を、隣の項目と入れ替える。
     @Test
     fun the_move_tools_swap_the_item_with_its_neighbour() {
         editSecondOfThree()
 
-        tool("Move up")
+        pad("Move block", Arrow.Up)
         waitForItems("1 second", "1 first", "1 third")
-        tool("Move down")
+        pad("Move block", Arrow.Down)
         waitForItems("1 first", "1 second", "1 third")
-        tool("Move down")
+        pad("Move block", Arrow.Down)
 
         waitForItems("1 first", "1 third", "1 second")
     }
@@ -278,7 +282,7 @@ class EditTest : JournalScreenFixture() {
         compose.onNodeWithText("Cancel").assertDoesNotExist()
     }
 
-    // 完了の道具は、編集を終える。項目は、飾りのついた表示に戻り、道具の列は消える。
+    // 完了の道具は、編集を終える。項目は、飾りのついた表示に戻り、項目を変える道具は押せなくなる。
     @Test
     fun the_done_tool_ends_the_edit() {
         download("notes.md", "a **bold** word" + NL)
@@ -290,7 +294,7 @@ class EditTest : JournalScreenFixture() {
 
         waitFor("a bold word")
         compose.onNodeWithTag(EDITOR_TAG).assertDoesNotExist()
-        compose.onNode(hasContentDescription("Indent")).assertDoesNotExist()
+        compose.onNode(hasContentDescription("Move block")).assertIsNotEnabled()
     }
 
     // タスクの印に触れると、状態が進む。編集には入らない。
@@ -334,7 +338,7 @@ class EditTest : JournalScreenFixture() {
         touchEnd("first")
         compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)
         waitForItems("1 first", "1 ")
-        tool("Indent")
+        pad("Move block", Arrow.Right)
         waitForItems("1 first", "2 ")
 
         compose.onNodeWithTag(EDITOR_TAG).performTextInput(NL)

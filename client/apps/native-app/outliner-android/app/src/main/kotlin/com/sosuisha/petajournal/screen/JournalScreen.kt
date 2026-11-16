@@ -122,7 +122,7 @@ fun JournalScreen(
                         // the dialog says the same
                         if (waiting == null) cloud?.let { SyncCallout(it, onSync, Modifier.align(Alignment.TopCenter)) }
                     }
-                    val edited = view.outline.rows.firstOrNull { it.isEditing }?.item?.id
+                    val edited = view.outline.rows.firstOrNull { it.isEditing }
                     Tools(edited.takeUnless { searching }, shell)
                 }
             }

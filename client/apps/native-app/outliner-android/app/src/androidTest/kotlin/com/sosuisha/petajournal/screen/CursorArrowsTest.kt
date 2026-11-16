@@ -6,10 +6,10 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.center
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.text.TextRange
@@ -18,10 +18,10 @@ import org.junit.Assert.assertEquals
 import org.junit.runner.RunWith
 import org.junit.Test
 
-/** The arrow buttons under the tools, which move the cursor as the arrow keys of a desktop. */
+/** The pad that moves the cursor, as the arrow keys of a desktop do. */
 @RunWith(AndroidJUnit4::class)
 class CursorArrowsTest : JournalScreenFixture() {
-    private fun arrow(name: String) = compose.onNode(hasContentDescription(name)).performClick()
+    private fun arrow(arrow: Arrow) = pad("Move cursor", arrow)
 
     /** Touches the item that shows [text] at its end, so that the edit goes on there. */
     private fun touchEnd(text: String) = compose.onNodeWithText(text).performTouchInput { click(centerRight) }
@@ -50,18 +50,48 @@ class CursorArrowsTest : JournalScreenFixture() {
     private fun editedText(): String =
         compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().config[SemanticsProperties.EditableText].text
 
-    // 矢印のボタンは、編集していないときも出る。ただし、押せない。
+    // カーソルのパッドは、編集していないときも出る。ただし、押せない。
     @Test
-    fun the_arrows_show_while_nothing_is_edited_but_cannot_be_touched() {
+    fun the_pad_shows_while_nothing_is_edited_but_cannot_be_touched() {
         download("notes.md", "first" + NL)
         openNotes()
         waitFor("first")
 
-        compose.onNode(hasContentDescription("Cursor left")).assertIsNotEnabled()
-        compose.onNode(hasContentDescription("Cursor right")).assertIsNotEnabled()
+        compose.onNode(hasContentDescription("Move cursor")).assertIsNotEnabled()
         touchEnd("first")
 
-        compose.onNode(hasContentDescription("Cursor left")).assertIsEnabled()
+        compose.onNode(hasContentDescription("Move cursor")).assertIsEnabled()
+    }
+
+    // パッドの真ん中に触れても、カーソルは動かない。
+    @Test
+    fun a_touch_on_the_middle_of_the_pad_does_not_move_the_cursor() {
+        download("notes.md", "abc" + NL)
+        openNotes()
+        waitFor("abc")
+        touchEnd("abc")
+        cursorAt(1)
+
+        compose.onNode(hasContentDescription("Move cursor")).performTouchInput { click(center) }
+
+        compose.waitForIdle()
+        assertEquals(TextRange(1), cursor())
+    }
+
+    // パッドを押し続けると、カーソルは動き続ける。
+    @Test
+    fun holding_the_pad_keeps_moving_the_cursor() {
+        download("notes.md", "abcdefgh" + NL)
+        openNotes()
+        waitFor("abcdefgh")
+        touchEnd("abcdefgh")
+        cursorAt(8)
+
+        compose.onNode(hasContentDescription("Move cursor")).performTouchInput { down(nearEdge(Arrow.Left)) }
+        compose.waitUntil(WAIT_MS) { cursor() == TextRange(0) }
+        compose.onNode(hasContentDescription("Move cursor")).performTouchInput { up() }
+
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("abcdefgh")
     }
 
     // ←と→は、カーソルを1文字ずつ動かす。絵文字は、1文字として数える。
@@ -73,11 +103,11 @@ class CursorArrowsTest : JournalScreenFixture() {
         touchEnd("😀ab")
         cursorAt(4)
 
-        arrow("Cursor left")
-        arrow("Cursor left")
-        arrow("Cursor left")
+        arrow(Arrow.Left)
+        arrow(Arrow.Left)
+        arrow(Arrow.Left)
         assertEquals(TextRange(0), cursor())
-        arrow("Cursor right")
+        arrow(Arrow.Right)
 
         assertEquals(TextRange(2), cursor())
         compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("😀ab")
@@ -89,7 +119,7 @@ class CursorArrowsTest : JournalScreenFixture() {
         editOneOfTwo("first", "second", edited = "second")
         cursorAt(0)
 
-        arrow("Cursor left")
+        arrow(Arrow.Left)
 
         waitForEdit("first", 5)
     }
@@ -100,7 +130,7 @@ class CursorArrowsTest : JournalScreenFixture() {
         editOneOfTwo("first", "second", edited = "first")
         cursorAt(5)
 
-        arrow("Cursor right")
+        arrow(Arrow.Right)
 
         waitForEdit("second", 0)
     }
@@ -111,7 +141,7 @@ class CursorArrowsTest : JournalScreenFixture() {
         editOneOfTwo("first", "second", edited = "second")
         cursorAt(3)
 
-        arrow("Cursor up")
+        arrow(Arrow.Up)
 
         waitForEdit("first", 3)
     }
@@ -122,7 +152,7 @@ class CursorArrowsTest : JournalScreenFixture() {
         editOneOfTwo("first", "second", edited = "first")
         cursorAt(2)
 
-        arrow("Cursor down")
+        arrow(Arrow.Down)
 
         waitForEdit("second", 2)
     }
@@ -137,9 +167,9 @@ class CursorArrowsTest : JournalScreenFixture() {
         val text = editedText()
         cursorAt(text.length)
 
-        arrow("Cursor up")
+        arrow(Arrow.Up)
         assertEquals(TextRange(text.indexOf('\n')), cursor())
-        arrow("Cursor down")
+        arrow(Arrow.Down)
 
         assertEquals(TextRange(text.length), cursor())
         compose.onNodeWithTag(EDITOR_TAG).assertTextEquals(text)

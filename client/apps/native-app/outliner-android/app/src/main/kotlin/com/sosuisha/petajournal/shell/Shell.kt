@@ -232,6 +232,15 @@ class Shell(
     /** Moves the task on: no task, not started, running, done, and no task again. */
     fun cycleTask(itemId: String) = change(Event.TaskCycle(itemId))
 
+    /** Hides the children of the item, or shows them again. */
+    fun toggleCollapsed(itemId: String) = change(Event.CollapseToggle(itemId))
+
+    /** Takes back the last change of the page. */
+    fun undo() = change(Event.Undo)
+
+    /** Does again the change that [undo] took back. */
+    fun redo() = change(Event.Redo)
+
     // The files of the assets folder
 
     /**

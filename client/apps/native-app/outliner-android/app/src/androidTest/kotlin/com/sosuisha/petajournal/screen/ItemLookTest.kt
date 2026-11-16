@@ -207,7 +207,8 @@ class ItemLookTest : JournalScreenFixture() {
         waitFor("call home")
         // The mark of the file is not part of the text
         compose.onNode(hasText("buy milk")).assertExists()
-        val marks = compose.onAllNodes(hasContentDescription("Task", substring = true)).fetchSemanticsNodes()
+        // With the space: not the task tool of the row at the bottom, which is always shown
+        val marks = compose.onAllNodes(hasContentDescription("Task ", substring = true)).fetchSemanticsNodes()
         assertEquals(
             listOf("Task not started", "Task running", "Task done"),
             marks.map { it.config[SemanticsProperties.ContentDescription].single() },
