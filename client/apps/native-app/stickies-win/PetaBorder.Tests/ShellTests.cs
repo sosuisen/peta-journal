@@ -838,6 +838,31 @@ public sealed class ShellTests : IDisposable
         Assert.Null(browsed);
     }
 
+    // ページへのリンクをCtrlクリックすると、そのページを開く新しい付箋紙を頼む。この付箋紙のページは変わらず、ブラウザにも渡らない。
+    [Fact]
+    public void A_link_to_a_page_clicked_with_control_asks_for_a_new_sticky_with_the_page()
+    {
+        Uri? browsed = null;
+        var shell = new Shell(
+            server.Address,
+            "/pages/winui-notes",
+            main.Post,
+            reply => reply(null),
+            (_, _) => { },
+            uri => browsed = uri
+        );
+        shells.Add(shell);
+        main.WaitUntil("the page is shown", () => shell.View.Outline.Rows.Count > 0);
+        string? asked = null;
+        shell.NewStickyAsked += url => asked = url;
+
+        shell.Follow(new RichLink.Page("/pages/apple-pie"), Held.Control);
+
+        Assert.Equal("/pages/apple-pie", asked);
+        Assert.Equal("/pages/winui-notes", shell.Url);
+        Assert.Null(browsed);
+    }
+
     // Shiftクリックしたページへのリンクと、資産のファイルとWebへのリンクは、ブラウザに渡る。ページはWebのフロントエンドで、資産のファイルはジャーナルサーバーが出すもので開く。付箋紙のページは変わらない。
     [Fact]
     public void A_link_that_goes_to_the_browser_leaves_the_sticky_with_its_page()
