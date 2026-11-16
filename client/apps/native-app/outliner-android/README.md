@@ -13,7 +13,7 @@ data and how it draws an item. ADR 031 says how it edits and uploads.
 
 ## Prerequisites
 
-- The Android SDK, with `ANDROID_HOME` set. Gradle installs the platform it needs (API 37).
+- The Android SDK, with `ANDROID_HOME` set. Gradle installs the platform it needs (API 37.1).
 - The Android NDK, with `ANDROID_NDK_HOME` set.
 - A JDK 21, with `JAVA_HOME` set.
 - The Rust toolchain, with the targets `aarch64-linux-android` and `x86_64-linux-android`.
