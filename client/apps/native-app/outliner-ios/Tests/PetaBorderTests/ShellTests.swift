@@ -61,6 +61,25 @@ final class ShellTests: JournalTestCase {
         XCTAssertNil(shell.missing)
     }
 
+    // 戻ると前のページが開き、進むと戻る前のページが開く。開いたページの履歴は、コアが持つ（ADR 035）。
+    func testBackOpensThePageBeforeAndForwardThePageAfter() throws {
+        try download("notes.md", "[[other]]\n")
+        try download("other.md", "what the other page says\n")
+        try openNotes()
+        XCTAssertFalse(shell.view.history.canGoBack)
+        shell.follow("/pages/other")
+        waitUntil("the other page shows") { self.bodies() == ["what the other page says"] }
+
+        shell.back()
+
+        waitUntil("the notes show again") { self.bodies() == ["[[other]]"] }
+        XCTAssertTrue(shell.view.history.canGoForward)
+
+        shell.forward()
+
+        waitUntil("the other page shows again") { self.bodies() == ["what the other page says"] }
+    }
+
     // まだないページへのリンクに触れても、ページは作られない。ないことが見え、元のページが開いたままになる。
     func testALinkToAPageThatIsNotThereSaysSoAndMakesNoPage() throws {
         try download("notes.md", "[[nowhere]]\n")
