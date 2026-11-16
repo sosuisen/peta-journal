@@ -196,8 +196,10 @@ The link stays as text in these cases:
 - The file name in `assets` has characters other than ASCII letters, digits, `.`, `_` and `-`.
 
 The images come from the server. Typing does not wait for them: an image appears when it arrives.
-Emacs tries a failed image again when you open another page. The bytes of an image stay in memory
-until Emacs closes.
+Emacs tries a failed image again when you open another page. Emacs keeps the bytes of the images in
+memory, up to `peta-journal-image-memory-limit` (64MB). Over it, Emacs forgets the images that no
+open page links to, the one used longest ago first. A page that shows a forgotten image fetches it
+again.
 
 ## Page properties
 
