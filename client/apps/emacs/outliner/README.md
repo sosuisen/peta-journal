@@ -74,6 +74,7 @@ ends between items are read-only. The outline changes only through these keys:
 | `C-c C-t` | Cycle the task state |
 | `C-c C-f` | Hide or show the children |
 | `C-c C-d` | Delete the item with its children |
+| `C-c C-x s` | Send the item with its children to the `# Stash` heading at the end of the page |
 | `C-/`, `C-?` | Undo and redo, through the history of the core |
 | `C-x C-s` | Save now |
 
@@ -100,6 +101,7 @@ The commands on the whole page are `C-c C-x` and then one letter:
 |---|---|
 | `C-c C-x r` | Rename the page, or the folder of an index page |
 | `C-c C-x D` | Make an index page the page of the name of its folder |
+| `C-c C-x d` | Delete the page |
 | `C-c C-x p` | Show or hide the list of page properties |
 | `C-c C-x n` | Open a page by name in a new buffer |
 | `C-c C-x i` | Insert an image file at the point |
@@ -162,6 +164,12 @@ folder. For example, the index page of `work/memo/` becomes the page `work/memo`
 Only an index page without pages under it can become a page. On another page, the command stops
 without asking.
 
+## Delete a page
+
+`C-c C-x d` or `M-x peta-journal-delete-page` deletes the page on screen, with its file. Emacs asks
+first, with the name of the page. Today's journal opens then. Today's journal itself is not deleted:
+the command does nothing there.
+
 ## Inserting an image
 
 `C-c C-x i` or `M-x peta-journal-insert-image` asks for a file. The server keeps a copy in the `assets`
@@ -186,8 +194,9 @@ goes in at the point. A pasted image has no name of its own, so the link text is
 
 ## Seeing images
 
-An item without the point shows the image in place of a link like `![name](../assets/file)`. The
-item with the point shows the link as text. The image comes back when the point leaves. Only the
+An item without the point shows the image in place of a link like `![name](../assets/file)`. An
+image outside the server, like `![name](https://example.com/file.png)`, is shown too: Emacs fetches
+it from its URL, as a web browser does. The item with the point shows the link as text. The image comes back when the point leaves. Only the
 display changes: the text of the body stays as it is.
 
 An image fits the window, and fits again when the window changes size. A link with `#w=300&h=240`
@@ -199,12 +208,14 @@ The link stays as text in these cases:
 - The server does not have the file, or Emacs cannot read its format. Some builds of Emacs
   cannot show PNG at all.
 - The link is in code.
-- The link does not point to the `assets` of the server, like `https://`.
+- The link points neither to the `assets` of the server nor to an `http://` or `https://` URL.
 - The file name in `assets` has characters other than ASCII letters, digits, `.`, `_` and `-`.
 
 The images come from the server. Typing does not wait for them: an image appears when it arrives.
-Emacs tries a failed image again when you open another page. The bytes of an image stay in memory
-until Emacs closes.
+Emacs tries a failed image again when you open another page. Emacs keeps the bytes of the images in
+memory, up to `peta-journal-image-memory-limit` (64MB). Over it, Emacs forgets the images that no
+open page links to, the one used longest ago first. A page that shows a forgotten image fetches it
+again.
 
 ## Page properties
 
@@ -274,7 +285,7 @@ letter are kept free for users.
 
 ## Not in this version
 
-Showing images from outside the server, the atlas, extensions,
+The atlas, extensions,
 settings and operations on several selected
 items.
 
@@ -287,8 +298,8 @@ items.
   a small server of the test answers its HTTP requests. Neither Emacs nor the journal server is
   needed. One of these tests waits 5 seconds for the shell to give up on a server.
 
-`cargo cov` measures both kinds (see `BUILD.md`). CI runs them and the tests of the buffer below,
-but not the E2E tests.
+`cargo cov` measures both kinds (see `BUILD.md`). CI runs them, the tests of the buffer below and
+the E2E tests. The E2E tests run in a job of their own, `emacs-e2e`, on Linux.
 
 The tests of the buffer run without a process:
 

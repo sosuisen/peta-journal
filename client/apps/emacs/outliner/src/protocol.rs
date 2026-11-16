@@ -43,6 +43,8 @@ pub enum Inbound {
     },
     /// Makes the index page on screen the page of the name of its folder.
     DemoteIndex,
+    /// Deletes the page on screen. The core asks first.
+    DeletePage,
     SetProperty {
         key: String,
         value: String,
@@ -112,6 +114,10 @@ pub enum Inbound {
         cursor: usize,
     },
     DeleteItem {
+        id: String,
+    },
+    /// Sends the item with its children under the `# Stash` heading at the end of its page.
+    SendToStash {
         id: String,
     },
     Undo,
