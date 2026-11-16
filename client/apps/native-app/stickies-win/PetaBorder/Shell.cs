@@ -93,6 +93,9 @@ public sealed partial class Shell : IDisposable
     public event Action? QuestionChanged;
     public event Action? FocusChanged;
 
+    /// <summary>The user asked for a new sticky that opens the URL it is given.</summary>
+    public event Action<string>? NewStickyAsked;
+
     /// <summary>Opens what the URL names. A URL that names nothing changes nothing.</summary>
     public void Open(string url)
     {
@@ -132,13 +135,24 @@ public sealed partial class Shell : IDisposable
         DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>
-    /// The user clicked a link of a shown item. Every link opens in the browser: a page opens
-    /// in the web frontend, and a file of the assets folder as the journal server serves it.
-    /// The sticky keeps its page.
+    /// The user clicked a link of a shown item, with the keys in <paramref name="held"/>. A link
+    /// to a page clicked without a key opens the page in this sticky, and with Control in a new
+    /// sticky. Any other link opens in the browser: a page opens in the web frontend, and a
+    /// file of the assets folder as the journal server serves it.
     /// </summary>
-    public void Follow(RichLink link)
+    public void Follow(RichLink link, Held held)
     {
         ArgumentNullException.ThrowIfNull(link);
+        if (link is RichLink.Page here && held == Held.None)
+        {
+            Open(here.Url);
+            return;
+        }
+        if (link is RichLink.Page elsewhere && held == Held.Control)
+        {
+            NewStickyAsked?.Invoke(elsewhere.Url);
+            return;
+        }
         var address = link switch
         {
             RichLink.Page page => PetaCore.PetaNative.PageAddress(server, page.Url),

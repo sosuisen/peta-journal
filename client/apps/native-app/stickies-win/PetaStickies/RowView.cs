@@ -743,7 +743,7 @@ internal sealed class RowView : Grid
                 anchor.Click += (_, _) =>
                 {
                     followed = Environment.TickCount64;
-                    Shell.Follow(link);
+                    Shell.Follow(link, Input.Held());
                 };
                 letters.Inlines.Add(anchor);
             }
