@@ -188,9 +188,10 @@ internal sealed class StickyWindow : Window
         {
             Margin = new Thickness(12, 6, 12, 8),
         };
-        // The keys of the history in the browsers and the File Explorer of Windows
-        back = Tool("", "Back (Alt+Left)", Shell.GoBack);
-        forward = Tool("", "Forward (Alt+Right)", Shell.GoForward);
+        // The keys of the history in the browsers and the File Explorer of Windows. The
+        // chevrons are those of the Mac sticky
+        back = Tool("\uE76B", "Back (Alt+Left)", Shell.GoBack);
+        forward = Tool("\uE76C", "Forward (Alt+Right)", Shell.GoForward);
         list = Rows();
         // Takes the keys while items are selected. No editor has the cursor then
         selection = new ContentControl
