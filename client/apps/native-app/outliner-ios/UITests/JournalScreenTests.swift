@@ -208,6 +208,29 @@ final class JournalScreenTests: XCTestCase {
         waitFor(app.staticTexts["the other page"])
     }
 
+    // 上端のバーの戻るのボタンで前のページが開き、進むのボタンでそのあとのページが開く。行き先がないボタンは、出たまま押せない（ADR 035）。
+    func testBackOpensThePageBeforeAndForwardThePageAfter() throws {
+        try download("notes.md", "[[other]]\n")
+        try download("other.md", "the other page\n")
+        openNotes()
+        let back = app.buttons["Back"]
+        let forward = app.buttons["Forward"]
+        waitFor(back)
+        XCTAssertFalse(back.isEnabled)
+        XCTAssertFalse(forward.isEnabled)
+        let link = app.links["other"]
+        waitFor(link)
+        link.tap()
+        waitFor(app.staticTexts["the other page"])
+
+        back.tap()
+
+        waitFor(app.links["other"])
+        XCTAssertTrue(forward.isEnabled)
+        forward.tap()
+        waitFor(app.staticTexts["the other page"])
+    }
+
     // まだないページへのリンクは、そう知らせるだけでページを作らず、ボタンで作る。
     func testALinkToAPageThatIsNotThereSaysSoAndTheButtonMakesIt() throws {
         try download("notes.md", "[[nowhere]]\n")
