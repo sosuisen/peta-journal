@@ -22,6 +22,9 @@ struct JournalScreen: View {
     @FocusState private var searches: Bool
     /// How much of the page the keyboard covers.
     @State private var keyboard: CGFloat = 0
+    /// Whether the tools are full or shrunk to a button, whatever is edited or selected. Full
+    /// at first.
+    @State private var fullTools = true
 
     var body: some View {
         let view = shell.view
@@ -39,9 +42,11 @@ struct JournalScreen: View {
     }
 
     private func whole(view: ViewModel, searching: Bool, waiting: (String, Double)?) -> some View {
-        let edited = searching ? nil : view.outline.rows.first(where: \.isEditing)?.item.id
+        let rows = view.outline.rows
+        // The tools act on the item that is edited, or on the first that is selected
+        let target = searching ? nil : rows.first(where: \.isEditing) ?? rows.first(where: \.isSelected)
         // What the keyboard and the tools cover of the page
-        let covered = keyboard + (edited == nil ? 0 : Tools.height)
+        let covered = keyboard + (target != nil && fullTools ? Tools.height : 0)
         return ZStack(alignment: .bottom) {
             page(view: view, searching: searching, waiting: waiting, covered: covered)
                 // The page keeps its height when the keyboard comes up, and what the keyboard
@@ -50,7 +55,13 @@ struct JournalScreen: View {
                 // when that field takes the keyboard
                 .ignoresSafeArea(.keyboard, edges: .bottom)
             // Above the keyboard
-            if let edited { Tools(itemId: edited, shell: shell) }
+            if let target {
+                if fullTools {
+                    Tools(target: target, shell: shell) { fullTools = false }
+                } else {
+                    ShrunkTools { fullTools = true }.frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { told in
             guard let frame = told.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }

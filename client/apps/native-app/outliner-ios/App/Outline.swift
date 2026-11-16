@@ -152,6 +152,11 @@ struct OutlineRow: View {
             }
             .padding(.leading, CGFloat(row.indentPx))
             .padding(.vertical, 3)
+            // A selected item is coloured behind, so that the user sees what the tools act on
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(row.isSelected ? Color.accentColor.opacity(0.18) : Color.clear)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier(row.isSelected ? "selected" : "")
         }
     }
 

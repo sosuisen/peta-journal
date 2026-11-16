@@ -75,9 +75,9 @@ final class JournalScreenTests: XCTestCase {
         waitFor(app.staticTexts["notes"])
     }
 
-    /// Ends the edit, so that every item shows its text.
+    /// Ends the edit, so that every item shows its text. The item stays selected.
     private func done() {
-        tool("Done")
+        tool("Hide keyboard")
         waitUntil("the edit has ended") { !editor.exists }
     }
 
@@ -100,6 +100,42 @@ final class JournalScreenTests: XCTestCase {
         let tool = app.buttons[name]
         waitFor(tool)
         tool.tap()
+    }
+
+    /// Where on a pad its arrow lies: near the edge of its side.
+    private func near(_ arrow: String, of pad: XCUIElement) -> XCUICoordinate {
+        let offsets = [
+            "left": CGVector(dx: 0.1, dy: 0.5), "right": CGVector(dx: 0.9, dy: 0.5),
+            "up": CGVector(dx: 0.5, dy: 0.1), "down": CGVector(dx: 0.5, dy: 0.9),
+        ]
+        return pad.coordinate(withNormalizedOffset: offsets[arrow]!)
+    }
+
+    /// Touches the arrow of a pad once: `left`, `right`, `up` or `down`.
+    private func pad(_ name: String, _ arrow: String) {
+        let pad = app.buttons[name]
+        waitFor(pad)
+        near(arrow, of: pad).tap()
+    }
+
+    /// Touches the arrow of the pad that moves the cursor.
+    private func cursor(_ arrow: String, times: Int = 1) {
+        for _ in 0..<times { pad("Move cursor", arrow) }
+    }
+
+    /// The Markdown in the field of the item that is edited.
+    private var editedText: String { editor.value as? String ?? "" }
+
+    /// Types where the cursor is, and waits until the field edits `text`: so the cursor was
+    /// where `text` shows the letters.
+    private func typeAndSee(_ typed: String, _ text: String, file: StaticString = #filePath, line: UInt = #line) {
+        editor.typeText(typed)
+        waitUntil("the field edits \(text), not \(editedText)", file: file, line: line) { editedText == text }
+    }
+
+    /// The item that is selected and coloured shows the text.
+    private func selectedShows(_ text: String) -> Bool {
+        app.descendants(matching: .any).matching(identifier: "selected").staticTexts[text].exists
     }
 
     // MARK: - Opening
@@ -453,17 +489,25 @@ final class JournalScreenTests: XCTestCase {
         XCTAssertEqual(order(["first", "secon"]), ["first", "secon"])
     }
 
-    // 道具は、アイテムを編集している間だけ表示され、Doneで編集が終わる。
-    func testTheToolsShowOnlyWhileAnItemIsEditedAndDoneEndsTheEdit() throws {
+    // 道具は、編集しているときに出る。キーボードを閉じる道具は編集を終え、項目は選ばれて色が付く。キーボードを出す道具で、編集に戻る。
+    func testTheToolsShowWhileAnItemIsEditedAndHideKeyboardLeavesItSelected() throws {
         try download("notes.md", "only\n")
         openNotes()
         waitFor(app.staticTexts["only"])
-        XCTAssertFalse(app.buttons["Indent"].exists)
+        XCTAssertFalse(app.buttons["Move block"].exists)
+        XCTAssertFalse(app.buttons["Move cursor"].exists)
         edit("only")
-        waitFor(app.buttons["Indent"])
-        app.buttons["Done"].tap()
-        waitUntil("the edit has ended") { !editor.exists && !app.buttons["Indent"].exists }
-        waitFor(app.staticTexts["only"])
+        waitFor(app.buttons["Move cursor"])
+
+        tool("Hide keyboard")
+        waitUntil("the edit has ended") { !editor.exists }
+        waitUntil("the item is selected") { selectedShows("only") }
+        XCTAssertTrue(app.buttons["Move selection"].exists)
+        tool("Show keyboard")
+
+        waitFor(editor)
+        XCTAssertEqual(editedText, "only")
+        XCTAssertFalse(selectedShows("only"))
     }
 
     private func three() throws {
@@ -472,26 +516,38 @@ final class JournalScreenTests: XCTestCase {
         edit("two")
     }
 
-    // 字下げの道具は、アイテムを上のアイテムの子にし、字上げの道具は元に戻す。
-    func testTheIndentToolsMoveTheItemUnderTheOneAboveAndBack() throws {
+    // 項目を動かすパッドの右は字下げし、左は字下げを戻す。
+    func testTheRightAndLeftOfTheBlockPadIndentAndOutdentTheItem() throws {
         try three()
         let before = editor.frame.minX
-        tool("Indent")
+        pad("Move block", "right")
         waitUntil("the item is a child") { editor.frame.minX > before }
-        tool("Outdent")
+        pad("Move block", "left")
         waitUntil("the item is back") { editor.frame.minX == before }
     }
 
-    // 移動の道具は、アイテムを隣のアイテムと入れ替える。
-    func testTheMoveToolsSwapTheItemWithItsNeighbour() throws {
+    // 項目を動かすパッドの上下は、項目を隣の項目と入れ替える。
+    func testTheUpAndDownOfTheBlockPadSwapTheItemWithItsNeighbour() throws {
         try three()
-        tool("Move up")
+        pad("Move block", "up")
         waitUntil("two is first") { editor.frame.minY < app.staticTexts["one"].frame.minY }
-        tool("Move down")
-        tool("Move down")
+        pad("Move block", "down")
+        pad("Move block", "down")
         waitUntil("two is last") { editor.frame.minY > app.staticTexts["three"].frame.minY }
         done()
         XCTAssertEqual(order(["one", "two", "three"]), ["one", "three", "two"])
+    }
+
+    // 項目を動かすパッドを押し続けると、項目は動き続ける。
+    func testHoldingTheBlockPadKeepsMovingTheItem() throws {
+        try download("notes.md", above("A") + "one\n\n" + above("B") + "two\n\n" + above("C") + "three\n\n" + above("D") + "four\n")
+        openNotes()
+        edit("four")
+
+        near("up", of: app.buttons["Move block"]).press(forDuration: 1.5)
+
+        done()
+        XCTAssertEqual(order(["one", "two", "three", "four"]), ["four", "one", "two", "three"])
     }
 
     // タスクの道具は、アイテムをタスクにする。
@@ -501,12 +557,227 @@ final class JournalScreenTests: XCTestCase {
         waitFor(app.buttons["Task not started"])
     }
 
-    // 削除の道具は、アイテムを削除する。
-    func testTheDeleteToolDeletesTheItem() throws {
+    // 道具の列に、削除の道具はない。
+    func testTheToolsHaveNoDeleteTool() throws {
         try three()
-        tool("Delete item")
-        waitUntil("two is gone") { !editor.exists || editor.value as? String != "two" }
-        if editor.exists { done() }
-        XCTAssertEqual(order(["one", "two", "three"]), ["one", "three"])
+        waitFor(app.buttons["Move block"])
+        XCTAssertFalse(app.buttons["Delete item"].exists)
+    }
+
+    /// Opens a page of two items, makes the second a child of the first, and edits the first.
+    private func editAParent() throws {
+        try download("notes.md", above("A") + "parent\n\n" + above("B") + "child\n")
+        openNotes()
+        edit("child")
+        pad("Move block", "right")
+        done()
+        edit("parent")
+    }
+
+    // 折りたたみの道具は切り替える。子を隠すと「Expand」になり、もう一度押すと子が戻る。
+    func testTheCollapseToolHidesTheChildrenAndShowsThemAgain() throws {
+        try editAParent()
+
+        tool("Collapse")
+        waitUntil("the child is hidden") { !app.staticTexts["child"].exists }
+        tool("Expand")
+
+        waitFor(app.staticTexts["child"])
+        waitFor(app.buttons["Collapse"])
+    }
+
+    // 子のない項目では、折りたたみの道具は押せない。
+    func testTheCollapseToolCannotBeTouchedOnAnItemWithoutChildren() throws {
+        try editAParent()
+        XCTAssertTrue(app.buttons["Collapse"].isEnabled)
+
+        done()
+        edit("child")
+
+        waitUntil("the tool cannot be touched") { !app.buttons["Collapse"].isEnabled }
+    }
+
+    // 元に戻すと、最後の変更が取り消される。やり直すと、また変わる。
+    func testUndoTakesBackTheLastChangeAndRedoDoesItAgain() throws {
+        try three()
+        // Undo may give the edit back to the item that it moves: the item is a field then
+        func left() -> CGFloat { editor.exists ? editor.frame.minX : app.staticTexts["two"].frame.minX }
+        let before = left()
+        pad("Move block", "right")
+        waitUntil("the item is a child") { left() > before }
+
+        tool("Undo")
+        waitUntil("the item is back") { left() == before }
+        tool("Redo")
+
+        waitUntil("the item is a child again") { left() > before }
+    }
+
+    /// Opens a page of three items and selects the middle one, as Hide keyboard leaves it.
+    private func selectTwo() throws {
+        try three()
+        done()
+        waitUntil("two is selected") { selectedShows("two") }
+    }
+
+    // 項目を選んでいる間、2つ目のパッドは、上下で選ぶ項目を変える。色も移る。
+    func testThePadOfTheSelectionSelectsTheItemAboveOrBelow() throws {
+        try selectTwo()
+
+        pad("Move selection", "down")
+        waitUntil("three is selected") { selectedShows("three") && !selectedShows("two") }
+        pad("Move selection", "up")
+        pad("Move selection", "up")
+
+        waitUntil("one is selected") { selectedShows("one") && !selectedShows("three") }
+    }
+
+    // 項目を選んでいる間、項目を動かすパッドは、選んだ項目を動かす。
+    func testTheBlockPadMovesTheSelectedItem() throws {
+        try selectTwo()
+
+        pad("Move block", "up")
+
+        waitUntil("two is first") { order(["one", "two", "three"]) == ["two", "one", "three"] }
+        XCTAssertTrue(selectedShows("two"))
+    }
+
+    // 道具を縮めると、丸いボタンだけになる。押すと、道具が戻る。
+    func testTheToolsShrinkToARoundButtonAndComeBack() throws {
+        try selectTwo()
+
+        tool("Shrink tools")
+        waitUntil("the tools are shrunk") { !app.buttons["Move block"].exists }
+        tool("Expand tools")
+
+        waitFor(app.buttons["Move block"])
+    }
+
+    // 縮めた道具は、編集と選択を行き来しても縮めたままである。
+    func testTheToolsStayShrunkWhileTheSelectionChangesToAnEdit() throws {
+        try selectTwo()
+        tool("Shrink tools")
+
+        edit("two")
+
+        XCTAssertTrue(app.buttons["Expand tools"].exists)
+        XCTAssertFalse(app.buttons["Move cursor"].exists)
+    }
+
+    // 項目に触れると、選択は終わり、その項目の編集になる。
+    func testATouchOnAnItemEndsTheSelectionAndEditsIt() throws {
+        try selectTwo()
+
+        edit("three")
+
+        XCTAssertEqual(editedText, "three")
+        waitUntil("no item is selected") { !app.descendants(matching: .any)["selected"].exists }
+    }
+
+    // MARK: - The pad of the cursor
+
+    // パッドの真ん中に触れても、カーソルは動かない。
+    func testATouchOnTheMiddleOfThePadDoesNotMoveTheCursor() throws {
+        try download("notes.md", "abc\n")
+        openNotes()
+        edit("abc")
+
+        app.buttons["Move cursor"].tap()
+
+        typeAndSee("X", "abcX")
+    }
+
+    // ←と→は、カーソルを1文字ずつ動かす。絵文字は、1文字として数える。
+    func testLeftAndRightMoveTheCursorByOneCharacterAndCountAnEmojiAsOne() throws {
+        try download("notes.md", "😀ab\n")
+        openNotes()
+        edit("😀ab")
+
+        cursor("left", times: 3)
+        cursor("right")
+
+        typeAndSee("X", "😀Xab")
+    }
+
+    // パッドを押し続けると、カーソルは動き続ける。
+    func testHoldingThePadKeepsMovingTheCursor() throws {
+        try download("notes.md", "abcdefgh\n")
+        openNotes()
+        edit("abcdefgh")
+
+        // Longer than eight moves take: the cursor stays at the start of the only item after
+        near("left", of: app.buttons["Move cursor"]).press(forDuration: 3)
+
+        typeAndSee("X", "Xabcdefgh")
+    }
+
+    /// Opens a page of two items, and edits the one that shows `edited`, with the cursor at
+    /// its end.
+    private func editOneOfTwo(_ first: String, _ second: String, edited: String) throws {
+        try download("notes.md", above("A") + first + "\n\n" + above("B") + second + "\n")
+        openNotes()
+        edit(edited)
+        XCTAssertEqual(editedText, edited)
+    }
+
+    // 項目の先頭での←は、前の項目の末尾へ移る。
+    func testLeftAtTheStartMovesToTheEndOfTheItemBefore() throws {
+        try editOneOfTwo("first", "second", edited: "second")
+        cursor("left", times: 6)
+
+        cursor("left")
+
+        waitUntil("the item before is edited") { editedText == "first" }
+        typeAndSee("X", "firstX")
+    }
+
+    // 項目の末尾での→は、次の項目の先頭へ移る。
+    func testRightAtTheEndMovesToTheStartOfTheItemAfter() throws {
+        try editOneOfTwo("first", "second", edited: "first")
+
+        cursor("right")
+
+        waitUntil("the item after is edited") { editedText == "second" }
+        typeAndSee("X", "Xsecond")
+    }
+
+    // 最初の行での↑は、前の項目へ移る。行の中の位置は変わらない。
+    func testUpOnTheFirstLineMovesToTheItemBeforeAtTheSamePlace() throws {
+        try editOneOfTwo("first", "second", edited: "second")
+        cursor("left", times: 3)
+
+        cursor("up")
+
+        waitUntil("the item before is edited") { editedText == "first" }
+        typeAndSee("X", "firXst")
+    }
+
+    // 最後の行での↓は、次の項目へ移る。行の中の位置は変わらない。
+    func testDownOnTheLastLineMovesToTheItemAfterAtTheSamePlace() throws {
+        try editOneOfTwo("first", "second", edited: "first")
+        cursor("left", times: 3)
+
+        cursor("down")
+
+        waitUntil("the item after is edited") { editedText == "second" }
+        typeAndSee("X", "seXcond")
+    }
+
+    // 何行もある項目では、↑と↓は、同じ項目の上と下の行へ動かす。
+    func testUpAndDownMoveBetweenTheLinesOfAnItem() throws {
+        try download("notes.md", "one\ntwo\n")
+        openNotes()
+        let item = shown("two")
+        waitFor(item)
+        item.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.9)).withOffset(CGVector(dx: -4, dy: 0)).tap()
+        waitFor(editor)
+        let text = editedText
+        let after = text.replacingOccurrences(of: "one", with: "oneX")
+
+        cursor("up")
+        typeAndSee("X", after)
+        cursor("down")
+
+        typeAndSee("Y", after + "Y")
     }
 }
