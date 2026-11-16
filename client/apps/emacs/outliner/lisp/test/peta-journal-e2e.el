@@ -387,6 +387,21 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--wait-for "the delete" (lambda () (= (length peta-journal--rows) 1)))
     (peta-journal-e2e--wait-saved '("a"))))
 
+;; 項目をStashへ送ると、ページの最後の「# Stash」の見出しの下へ、子ごと移る。
+(ert-deftest peta-journal-e2e-sending-an-item-to-the-stash ()
+  (peta-journal-e2e--with-app
+    (execute-kbd-macro (kbd "a RET b TAB RET <backtab> c"))
+    (peta-journal--wait)
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("a" "b" "c"))
+    (peta-journal-e2e--keys "C-p C-p C-c C-x s")
+    (peta-journal-e2e--wait-saved '("c" "# Stash" "a" "b"))
+    (should (equal (mapcar (lambda (item) (plist-get item :level))
+                           (peta-journal-e2e--saved-items))
+                   '(1 1 2 3)))
+    (should (equal (mapcar (lambda (row) (plist-get row :body)) peta-journal--rows)
+                   '("c" "# Stash" "a" "b")))))
+
 (defun peta-journal-e2e--open-page (path)
   "Ask the core to open the page at PATH, which is made when it does not exist.
 No key does this: the tests use it to reach a page without the search box."
