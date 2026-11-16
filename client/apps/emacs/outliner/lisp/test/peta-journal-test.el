@@ -322,6 +322,16 @@
     (peta-journal--post-command)
     (should (equal peta-journal-test--sent '(("delete_item" :id "a"))))))
 
+;; Stashへ送るのも、coreに頼むだけである。行は、サーバーの答えのあとで動く。
+(ert-deftest peta-journal-sending-to-the-stash-only-asks-the-core ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "yz"))
+    (peta-journal-test--goto "b" 1)
+    (setq peta-journal-test--sent nil)
+    (peta-journal-send-to-stash)
+    (peta-journal--post-command)
+    (should (equal peta-journal-test--sent '(("send_to_stash" :id "b"))))))
+
 ;; 同じ項目の中を動いても、何も送らない。
 (ert-deftest peta-journal-moving-inside-an-item-sends-nothing ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xyz"))
@@ -1841,6 +1851,7 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                    ("C-c C-x f" . peta-journal-forward)
                    ("C-c C-x b" . peta-journal-backlinks)
                    ("C-c C-x r" . peta-journal-rename-page)
+                   ("C-c C-x s" . peta-journal-send-to-stash)
                    ("C-c C-x p" . peta-journal-properties)
                    ("C-c C-x n" . peta-journal-new-buffer)
                    ("C-c C-x i" . peta-journal-insert-image)

@@ -1108,6 +1108,13 @@ server may still say no."
   (interactive)
   (peta-journal--send-and-wait "delete_item" :id (peta-journal--item)))
 
+(defun peta-journal-send-to-stash ()
+  "Send the item at the point, with its children, to the stash of the page.
+The stash is the `# Stash' heading at the end of the page, which the server
+makes when there is none.  The text typed into the item goes with it."
+  (interactive)
+  (peta-journal--send-and-wait "send_to_stash" :id (peta-journal--item)))
+
 (defun peta-journal--clipboard-image ()
   "The image in the clipboard of the OS as the bytes of a PNG file, or nil.
 Nil as well when the clipboard has text: then the text is what gets pasted.
@@ -1830,6 +1837,7 @@ This is for `completion-at-point-functions'."
   "C-c C-x b" #'peta-journal-backlinks
   "C-c C-x f" #'peta-journal-forward
   "C-c C-x r" #'peta-journal-rename-page
+  "C-c C-x s" #'peta-journal-send-to-stash
   "C-c C-x p" #'peta-journal-properties
   "C-c C-x n" #'peta-journal-new-buffer
   "C-c C-x i" #'peta-journal-insert-image

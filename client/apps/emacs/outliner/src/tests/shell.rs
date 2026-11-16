@@ -629,6 +629,25 @@ fn a_failure_of_another_call_is_not_reported_as_one_of_the_image() {
     assert_eq!(driver.holding(), Some(false));
 }
 
+// Stashへ送ると、まだ保存していない打った文字も一緒にサーバーへ送られる。
+#[test]
+fn a_stash_carries_the_text_typed_into_the_item() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y")]);
+    driver.send(Inbound::EditRequested {
+        id: "b".into(),
+        cursor: 1,
+    });
+    driver.send(Inbound::BodyChanged {
+        id: "b".into(),
+        body: "yz".into(),
+    });
+    driver.send(Inbound::SendToStash { id: "b".into() });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::StashItem { item_id, body } if item_id == "b" && body.as_deref() == Some("yz")
+    )));
+}
+
 // 項目の削除は、参照の確認を経て、子ごとサーバーへ送られる。行は、サーバーの答えのあとで消える。
 #[test]
 fn deleting_an_item_takes_its_children_with_it() {
