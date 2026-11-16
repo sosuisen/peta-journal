@@ -100,7 +100,8 @@ The commands on the whole page are `C-c C-x` and then one letter:
 
 | Key | Action |
 |---|---|
-| `C-c C-x r` | Rename the page |
+| `C-c C-x r` | Rename the page, or the folder of an index page |
+| `C-c C-x D` | Make an index page the page of the name of its folder |
 | `C-c C-x d` | Delete the page |
 | `C-c C-x p` | Show or hide the list of page properties |
 | `C-c C-x n` | Open a page by name in a new buffer |
@@ -177,8 +178,14 @@ The selection ends when the selected items are deleted too.
 `/` in the name puts the page in a folder, and a name without `/` puts it outside any folder. If
 another page has that name, Emacs asks whether to overwrite it.
 
-Only a doc page can be renamed. On a journal, an index page or an atlas, the command stops without
-asking.
+On an index page, the command asks for the new path of its folder instead, and offers the path
+there is. The index page moves to the new folder. A journal, the index of the root and an atlas
+cannot be renamed: the command stops there without asking.
+
+`C-c C-x D` or `M-x peta-journal-demote-index` makes an index page the page of the name of its
+folder. For example, the index page of `work/memo/` becomes the page `work/memo`. Emacs asks first.
+Only an index page without pages under it can become a page. On another page, the command stops
+without asking.
 
 ## Delete a page
 

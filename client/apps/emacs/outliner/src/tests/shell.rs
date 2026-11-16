@@ -1119,6 +1119,101 @@ fn an_index_or_atlas_page_has_no_path_to_rename() {
     }
 }
 
+impl Driver {
+    /// Opens the index page of the folder `a/b/`, and answers whether pages are under it.
+    fn open_index(children: Vec<Value>) -> Driver {
+        let mut driver = Driver::new();
+        driver.send(Inbound::Start {
+            url: "/pages/a/b/index".into(),
+        });
+        let answer = serde_json::from_value(json!({
+            "Page": { "page": page_info("a/b/", "index"), "items": [] }
+        }))
+        .unwrap();
+        driver.answer(|op| matches!(op, ApiOp::GetOrCreateDoc { .. }), answer);
+        driver.answer_child_pages(&children);
+        driver
+    }
+
+    /// Answers every call that asks for the pages under a page.
+    fn answer_child_pages(&mut self, children: &[Value]) {
+        while self.waiting(|op| matches!(op, ApiOp::GetChildPages { .. })) {
+            let pages = serde_json::from_value(json!({ "Pages": children })).unwrap();
+            self.answer(|op| matches!(op, ApiOp::GetChildPages { .. }), pages);
+        }
+    }
+
+    /// What Emacs was told last of the index page on screen.
+    fn index(&self) -> Option<(Option<String>, Option<String>)> {
+        self.sent().iter().rev().find_map(|m| match m {
+            Outbound::Index {
+                folder,
+                demote_name,
+            } => Some((folder.clone(), demote_name.clone())),
+            _ => None,
+        })
+    }
+}
+
+// indexページを開くと、そのフォルダのパスがEmacsに届く。下にページがなければ、降格して付く名前も届く。
+#[test]
+fn an_index_page_tells_emacs_its_folder_and_the_name_it_can_take() {
+    let driver = Driver::open_index(vec![]);
+    assert_eq!(
+        driver.index(),
+        Some((Some("a/b".to_string()), Some("b".to_string())))
+    );
+}
+
+// docページは、indexページではないので、フォルダのパスは届かない。
+#[test]
+fn a_doc_page_tells_emacs_no_folder() {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/pages/notes".into(),
+    });
+    driver.load_page(&[]);
+    assert!(matches!(driver.index(), None | Some((None, None))));
+}
+
+// 下にページがあるindexページは、降格できない。
+#[test]
+fn an_index_page_with_pages_under_it_cannot_be_demoted() {
+    let driver = Driver::open_index(vec![page_info("a/b/", "memo")]);
+    assert_eq!(driver.index(), Some((Some("a/b".to_string()), None)));
+}
+
+// indexページから離れると、フォルダのパスはなくなる。
+#[test]
+fn leaving_an_index_page_takes_its_folder_away() {
+    let mut driver = Driver::open_index(vec![]);
+    driver.send(Inbound::Go {
+        url: "/today".into(),
+    });
+    assert_eq!(driver.index(), Some((None, None)));
+}
+
+// フォルダ名を変えると、新しいフォルダがサーバーへ送られる。ページの名前はindexのままである。
+#[test]
+fn renaming_the_folder_sends_the_new_folder_to_the_server() {
+    let mut driver = Driver::open_index(vec![]);
+    driver.send(Inbound::RenameFolder { path: "a/c".into() });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::UpdatePage { page_id, title: None, dir_path, .. }
+            if page_id == "p" && dir_path.as_deref() == Some("a/c/")
+    )));
+}
+
+// 降格すると、indexページはフォルダの名前のページになる。
+#[test]
+fn demoting_sends_the_page_to_the_server() {
+    let mut driver = Driver::open_index(vec![]);
+    driver.send(Inbound::DemoteIndex);
+    driver.answer_child_pages(&[]);
+    assert!(driver.waiting(|op| matches!(op, ApiOp::DemotePage { page_id, .. } if page_id == "p")));
+}
+
 // ジャーナルへ移ると、変えられるパスはなくなる。
 #[test]
 fn moving_to_a_journal_takes_the_path_away() {

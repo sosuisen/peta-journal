@@ -358,6 +358,12 @@ Completion sorts a plain list by name, which would hide the newest pages."
 (defvar-local peta-journal--last-point nil "Where the point was after the last command.")
 (defvar-local peta-journal--title "" "The title of the page on screen.")
 (defvar-local peta-journal--page-path nil "The path of the page on screen, if it can be renamed.")
+
+(defvar-local peta-journal--index-folder nil
+  "The folder of the index page on screen, as `a/b', if it can be renamed.")
+
+(defvar-local peta-journal--demote-name nil
+  "The name the index page on screen takes when it is demoted, if it can be.")
 (defvar-local peta-journal--properties nil
   "The property rows of the page on screen, or nil on a screen without properties.")
 (defvar-local peta-journal--free-keys nil
@@ -978,6 +984,8 @@ M-x peta-journal in that buffer starts it and shows the saved text.  See *peta-j
     ("title" (setq peta-journal--title (plist-get message :title))
      (force-mode-line-update))
     ("page_path" (setq peta-journal--page-path (plist-get message :path)))
+    ("index" (setq peta-journal--index-folder (plist-get message :folder)
+                   peta-journal--demote-name (plist-get message :demote_name)))
     ("properties" (peta-journal--on-properties (plist-get message :rows)
                                                (plist-get message :free_keys)
                                                (plist-get message :datetime_keys)))
@@ -1050,7 +1058,8 @@ Not from here but from a timer: a process filter is no place for a prompt."
 (defconst peta-journal--commands-that-end-the-edit
   '(peta-journal-save peta-journal-today peta-journal-back peta-journal-forward
     peta-journal-next-day peta-journal-previous-day peta-journal-open-at-point
-    peta-journal-search peta-journal-rename-page peta-journal-delete-page)
+    peta-journal-search peta-journal-rename-page peta-journal-demote-index
+    peta-journal-delete-page)
   "The commands after which the point stays in an item that is not being edited.
 A saved edit must stay closed, and a page being left has nothing more to edit.")
 
@@ -1387,15 +1396,33 @@ put a link to it at the point."
   (peta-journal--ensure-started)
   (peta-journal--go "go" :url "/today"))
 
-(defun peta-journal-rename-page (path)
-  "Give the page on screen the new PATH.  A `/' in PATH puts the page in a folder."
+(defun peta-journal-rename-page (path &optional folder)
+  "Give the page on screen the new PATH.  A `/' in PATH puts the page in a folder.
+On an index page, PATH is the new path of its folder, and FOLDER is non-nil."
   (interactive
    (let* ((page (peta-journal--page))
-          (current (and page (buffer-local-value 'peta-journal--page-path page))))
-     (unless current
-       (user-error "Only a doc page can be renamed, not a journal, an index or an atlas"))
-     (list (read-string "Rename page to: " current))))
-  (peta-journal--go "rename_page" :path path))
+          (current (and page (buffer-local-value 'peta-journal--page-path page)))
+          (index (and page (buffer-local-value 'peta-journal--index-folder page))))
+     (cond
+      (current (list (read-string "Rename page to: " current) nil))
+      (index (list (read-string "Rename folder to: " index) t))
+      (t (user-error "A journal, the root index or an atlas cannot be renamed")))))
+  (if folder
+      (peta-journal--go "rename_folder" :path path)
+    (peta-journal--go "rename_page" :path path)))
+
+(defun peta-journal-demote-index ()
+  "Make the index page on screen the page of the name of its folder.
+Only an index page without pages under it can be demoted.  Emacs asks first."
+  (interactive)
+  (let* ((page (peta-journal--page))
+         (folder (and page (buffer-local-value 'peta-journal--index-folder page)))
+         (name (and page (buffer-local-value 'peta-journal--demote-name page))))
+    (unless (and folder name)
+      (user-error "Only an index page without pages under it can become a page"))
+    (when (yes-or-no-p (format "Make the index page of %s/ the page %s? "
+                               folder (concat (file-name-directory folder) name)))
+      (peta-journal--go "demote_index"))))
 
 (defun peta-journal-delete-page ()
   "Delete the page on screen, after a question.  Today's journal opens then.
@@ -2017,6 +2044,7 @@ This is for `completion-at-point-functions'."
   "C-c C-x f" #'peta-journal-forward
   "C-c C-x r" #'peta-journal-rename-page
   "C-c SPC" #'peta-journal-select
+  "C-c C-x D" #'peta-journal-demote-index
   "C-c C-x s" #'peta-journal-send-to-stash
   "C-c C-x d" #'peta-journal-delete-page
   "C-c C-x p" #'peta-journal-properties
@@ -2127,6 +2155,8 @@ A journal then loads the older days."
           peta-journal--ack 0
           peta-journal--holding nil
           peta-journal--page-path nil
+          peta-journal--index-folder nil
+          peta-journal--demote-name nil
           peta-journal--properties nil
           peta-journal--free-keys nil
           peta-journal--datetime-keys nil

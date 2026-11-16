@@ -38,6 +38,12 @@ pub enum Inbound {
     RenamePage {
         path: String,
     },
+    /// Gives the index page on screen this folder, with the folders above it.
+    RenameFolder {
+        path: String,
+    },
+    /// Makes the index page on screen the page of the name of its folder.
+    DemoteIndex,
     /// Deletes the page on screen. The core asks first.
     DeletePage,
     SetProperty {
@@ -187,6 +193,13 @@ pub enum Outbound {
     /// The path of the page on screen, when the page can be renamed.
     PagePath {
         path: Option<String>,
+    },
+    /// The folder of the index page on screen, as `a/b`. `None` when the screen is not an index
+    /// page whose folder can change, such as the index of the root. `demote_name` is the name
+    /// the page takes when it is demoted, when no page is under it.
+    Index {
+        folder: Option<String>,
+        demote_name: Option<String>,
     },
     /// The properties of the page on screen. `rows` is `None` on a screen that cannot have
     /// properties, such as a journal. `free_keys` can be set on the page and are not on it yet.
