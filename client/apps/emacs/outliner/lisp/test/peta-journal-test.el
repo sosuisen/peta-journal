@@ -1490,6 +1490,8 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   (should (eq (peta-journal-test--face "a www.x.jp b" "www") 'peta-journal-link))
   (should (eq (peta-journal-test--face "a me@x.jp b" "me@") 'peta-journal-link))
   (should (eq (peta-journal-test--face "![写真](a_b_c.png#w=300)" "写真") 'peta-journal-image))
+  (should (eq (peta-journal-test--face "![図\\[1\\]](a.png)" "png") 'peta-journal-image))
+  (should (eq (peta-journal-test--face "[版 [2]](https://x.jp)" "x.jp") 'peta-journal-link))
   (should (eq (peta-journal-test--face "注[^1]" "[^1") 'peta-journal-footnote))
   (should (eq (peta-journal-test--face "[^1]: 注記" "[^1") 'peta-journal-footnote))
   (should (eq (peta-journal-test--face "a ^[脚注] b" "脚注") 'peta-journal-footnote))
@@ -1587,6 +1589,22 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
                               (overlays-in start (peta-journal--body-end start)))))
       (should (equal (buffer-substring-no-properties (overlay-start overlay) (overlay-end overlay))
                      "![p](../assets/p.png)")))))
+
+;; リンクの文字に、`\`を付けた`[`と`]`や、対になった`[]`があっても、画像が見える（ADR 022）。
+(ert-deftest peta-journal-an-image-shows-when-its-link-text-has-brackets ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![図\\[1\\]\\\\](../assets/p.png)")
+                                        (peta-journal-test--row "c" 1 "![図 [2] 版](../assets/p.png)"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (should (peta-journal-test--image-of "b"))
+    (should (peta-journal-test--image-of "c"))))
+
+;; `]`で終わったリンクの文字の後ろは、画像のリンクではない。
+(ert-deftest peta-journal-a-link-text-ends-at-its-unpaired-bracket ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![図]1](../assets/p.png)"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (should-not (peta-journal-test--image-of "b"))))
 
 ;; 画像の種類を表示できないEmacsでは、リンクの文字のまま見え、エラーにならない。
 (ert-deftest peta-journal-an-image-of-a-type-emacs-cannot-show-stays-a-link ()
