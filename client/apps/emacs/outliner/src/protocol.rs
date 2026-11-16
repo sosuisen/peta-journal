@@ -38,6 +38,8 @@ pub enum Inbound {
     RenamePage {
         path: String,
     },
+    /// Deletes the page on screen. The core asks first.
+    DeletePage,
     SetProperty {
         key: String,
         value: String,
@@ -116,6 +118,10 @@ pub enum Inbound {
     },
     SelectionKey {
         key: SelectionKey,
+    },
+    /// Sends the item with its children under the `# Stash` heading at the end of its page.
+    SendToStash {
+        id: String,
     },
     Undo,
     Redo,

@@ -191,8 +191,10 @@ The server is a real one, with its files in a temporary folder."
   "The markdown file in FOLDER that holds TEXT, or nil."
   (seq-find (lambda (file)
               (with-temp-buffer
-                (insert-file-contents file)
-                (search-forward text nil t)))
+                ;; The server may move a file away after the list is made, as a rename does
+                (ignore-error file-missing
+                  (insert-file-contents file)
+                  (search-forward text nil t))))
             (directory-files-recursively folder "\\.md\\'")))
 
 (defun peta-journal-e2e--wait-for-file (folder text)
@@ -409,6 +411,21 @@ The server is a real one, with its files in a temporary folder."
                                 (lambda () (not peta-journal-selection-mode)))
     (should-not buffer-read-only)))
 
+;; 項目をStashへ送ると、ページの最後の「# Stash」の見出しの下へ、子ごと移る。
+(ert-deftest peta-journal-e2e-sending-an-item-to-the-stash ()
+  (peta-journal-e2e--with-app
+    (execute-kbd-macro (kbd "a RET b TAB RET <backtab> c"))
+    (peta-journal--wait)
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("a" "b" "c"))
+    (peta-journal-e2e--keys "C-p C-p C-c C-x s")
+    (peta-journal-e2e--wait-saved '("c" "# Stash" "a" "b"))
+    (should (equal (mapcar (lambda (item) (plist-get item :level))
+                           (peta-journal-e2e--saved-items))
+                   '(1 1 2 3)))
+    (should (equal (mapcar (lambda (row) (plist-get row :body)) peta-journal--rows)
+                   '("c" "# Stash" "a" "b")))))
+
 (defun peta-journal-e2e--open-page (path)
   "Ask the core to open the page at PATH, which is made when it does not exist.
 No key does this: the tests use it to reach a page without the search box."
@@ -457,6 +474,25 @@ No key does this: the tests use it to reach a page without the search box."
       (peta-journal-e2e--type "と結び")
       (peta-journal-e2e--keys "C-x C-s")
       (peta-journal-e2e--wait-saved '("本文の続きと結び")))))
+
+;; `C-c C-x d`で尋ねられて「はい」と答えると、ページのファイルが消え、今日のジャーナルが開く。
+(ert-deftest peta-journal-e2e-deleting-the-page-removes-its-file-and-opens-today ()
+  (peta-journal-e2e--with-app
+    (let ((today peta-journal--page-id)
+          (asked nil))
+      (peta-journal-e2e--open-page "消すページ")
+      (peta-journal-e2e--wait-page-title "消すページ")
+      (peta-journal-e2e--type "消える本文")
+      (peta-journal-e2e--keys "C-x C-s")
+      (peta-journal-e2e--wait-saved '("消える本文"))
+      (let ((file (peta-journal-e2e--wait-for-file (expand-file-name "markdown" root) "消える本文")))
+        (cl-letf (((symbol-function 'yes-or-no-p)
+                   (lambda (prompt) (setq asked prompt) t)))
+          (peta-journal-e2e--keys "C-c C-x d")
+          (peta-journal-e2e--wait-for "the file to go" (lambda () (not (file-exists-p file))))
+          (peta-journal-e2e--wait-for "today's journal"
+                                      (lambda () (equal peta-journal--page-id today)))))
+      (should (string-match-p "消すページ" asked)))))
 
 ;; フォルダのないパスを付けると、ページはフォルダの外へ出る。
 (ert-deftest peta-journal-e2e-a-page-can-move-out-of-its-folder ()

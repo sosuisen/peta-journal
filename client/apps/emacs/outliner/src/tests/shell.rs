@@ -719,6 +719,25 @@ fn copying_the_selection_gives_emacs_its_markdown() {
     }));
 }
 
+// Stashへ送ると、まだ保存していない打った文字も一緒にサーバーへ送られる。
+#[test]
+fn a_stash_carries_the_text_typed_into_the_item() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y")]);
+    driver.send(Inbound::EditRequested {
+        id: "b".into(),
+        cursor: 1,
+    });
+    driver.send(Inbound::BodyChanged {
+        id: "b".into(),
+        body: "yz".into(),
+    });
+    driver.send(Inbound::SendToStash { id: "b".into() });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::StashItem { item_id, body } if item_id == "b" && body.as_deref() == Some("yz")
+    )));
+}
+
 // 項目の削除は、参照の確認を経て、子ごとサーバーへ送られる。行は、サーバーの答えのあとで消える。
 #[test]
 fn deleting_an_item_takes_its_children_with_it() {
@@ -1158,6 +1177,35 @@ fn renaming_over_another_page_asks_and_overwrites_on_yes() {
             ..
         }
     )));
+}
+
+/// The question that the shell sent last.
+fn last_ask(driver: &Driver) -> Option<(u64, String)> {
+    driver.sent().iter().rev().find_map(|m| match m {
+        Outbound::Ask { req, message } => Some((*req, message.clone())),
+        _ => None,
+    })
+}
+
+// 今のページを消すときは、ページの名前を挙げて尋ね、「はい」ならサーバーで消す。
+#[test]
+fn deleting_the_page_asks_and_deletes_it_on_yes() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::DeletePage);
+    let (req, message) = last_ask(&driver).expect("the shell asks before it deletes");
+    assert!(message.contains("notes"), "{message}");
+    driver.send(Inbound::Answer { req, yes: true });
+    assert!(driver.waiting(|op| matches!(op, ApiOp::DeletePage { page_id } if page_id == "p")));
+}
+
+// 「いいえ」と答えると、ページは消えない。
+#[test]
+fn deleting_the_page_does_nothing_on_no() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::DeletePage);
+    let (req, _) = last_ask(&driver).expect("the shell asks before it deletes");
+    driver.send(Inbound::Answer { req, yes: false });
+    assert!(!driver.waiting(|op| matches!(op, ApiOp::DeletePage { .. })));
 }
 
 fn definitions_answer() -> ApiOutput {

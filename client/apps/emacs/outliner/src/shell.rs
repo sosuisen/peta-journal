@@ -230,6 +230,7 @@ impl<H: Host> Shell<H> {
                 dir_path: String::new(),
                 file_name: path,
             }),
+            Inbound::DeletePage => self.send(Event::DeleteCurrentPage),
             Inbound::SetProperty { key, value } => self.set_property(key, value),
             Inbound::DeleteProperty { key } => self.send(Event::DeletePageProperty { key }),
             Inbound::OpenLinkAt { id, cursor } => self.open_link_at(id, cursor),
@@ -271,6 +272,7 @@ impl<H: Host> Shell<H> {
             Inbound::DeleteItem { id } => self.send(Event::DeleteItem { item_id: id }),
             Inbound::Select { id } => self.send(Event::ShiftSelect { item_id: id }),
             Inbound::SelectionKey { key } => self.send(Event::SelectionKey(key)),
+            Inbound::SendToStash { id } => self.send(Event::SendToStash { item_id: id }),
             Inbound::Undo => self.send(Event::Undo),
             Inbound::Redo => self.send(Event::Redo),
             Inbound::Scrolled { top, bottom } => self.send(Event::OutlineScrolled {
