@@ -51,7 +51,7 @@ macOS の `NSTextView` は、文字の中に表（`NSTextTable`）と画像（`N
 - 決まりを変えるたびに、4 つの言語で同じ変更が要る。
 - テストも 4 か所に要る。
 - AST の種類が増えると、4 つのシェルのビルドが止まる。
-- シェルによって、できることがずれる。画像を絵として出すのは iOS と Android だけで、macOS と Windows は代わりの文字を出す。リンクも、iOS と Android はアプリの中で開き、macOS と Windows はブラウザで開く。2026-11-14 に、ユーザーが次の 2 つを決めた。
+- シェルによって、できることがずれる。画像を絵として出すのは iOS と Android だけで、macOS と Windows は代わりの文字を出す。リンクも、iOS と Android はアプリの中で開き、macOS と Windows はブラウザで開く。2026-11-14 に、開発者が次の 2 つを決めた。
   - 画像は、どのシェルでも絵として出す。
   - リンクは、アプリの中でそのページへ移る。macOS に限り、Shift-クリックでブラウザで開く。
 
@@ -102,7 +102,7 @@ facet の型の生成が、型引数を持つビューモデルを書き出せ�
 
 1. facet の生成を確かめる。トレイトと 2 つの実装を作り、Rust でテストする。
 2. シェルを 1 つずつ切り替える。順は、iOS、macOS、Android、Windows とする。
-3. Android と Windows は、ユーザーが実機で確かめてから先へ進む。
+3. Android と Windows は、開発者が実機で確かめてから先へ進む。
 
 ## Alternatives
 
@@ -163,7 +163,7 @@ core は今のまま `Row.ast` を渡す。シェルは、描く前に、境界�
 
 - core とビューモデルが型引数を取るので、core の型が少し複雑になる。facet の生成が型引数を書き出せないときは、`Node` と `RichText` の enum になる（Alternative 4）。その場合、シェルには届かない `Node` の場合が残る。
 - `RichText` の部品の分け方は、SwiftUI と Compose に合わせて決まる。文字の中に表を描ける macOS は、その力を部品の形からは生かせない。
-- 4 つのシェルを切り替える作業が要る。Android と Windows は、ユーザーが実機で確かめる。
+- 4 つのシェルを切り替える作業が要る。Android と Windows は、開発者が実機で確かめる。
 - `RichText` は、PetaJournal の中の型である。flatmarkdown の外の利用者には、公開しない。
 
 中立的な結果:
