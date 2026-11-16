@@ -2,8 +2,9 @@ use crate::protocol::{
     Bullet, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView,
 };
 use crate::shell::{Host, Input, Now, Shell};
+use client_core::app::SelectionKey;
 use client_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
-use client_core::model::{PropertyDefinition, Uploaded};
+use client_core::model::{PropertyDefinition, TreeExport, Uploaded};
 use client_core::rest::ClientId;
 use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
@@ -627,6 +628,95 @@ fn a_failure_of_another_call_is_not_reported_as_one_of_the_image() {
         result: Box::new(Err(ApiError("Upload failed: 500".into()))),
     });
     assert_eq!(driver.holding(), Some(false));
+}
+
+impl Driver {
+    /// Which rows Emacs was told last are selected.
+    fn selected(&self) -> Vec<bool> {
+        self.last_rows()
+            .unwrap()
+            .iter()
+            .map(|row| row.selected)
+            .collect()
+    }
+
+    fn key(&mut self, key: SelectionKey) {
+        self.send(Inbound::SelectionKey { key });
+    }
+}
+
+// 選択を始めると、その項目が子ごと選ばれる。
+#[test]
+fn a_selection_starts_with_the_item_and_its_children() {
+    let mut driver = Driver::open(&[item("a", 1, "親"), item("b", 2, "子"), item("c", 1, "他")]);
+    driver.send(Inbound::Select { id: "a".into() });
+    assert_eq!(driver.selected(), [true, true, false]);
+}
+
+// 選択は、下へ伸ばせる。Escapeで、選択は終わる。
+#[test]
+fn a_selection_grows_down_and_ends_on_escape() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y"), item("c", 1, "z")]);
+    driver.send(Inbound::Select { id: "a".into() });
+    driver.key(SelectionKey::ExtendDown);
+    assert_eq!(driver.selected(), [true, true, false]);
+    driver.key(SelectionKey::Escape);
+    assert_eq!(driver.selected(), [false, false, false]);
+}
+
+// 選んだ項目は、まとめて削除される。
+#[test]
+fn the_selected_items_are_deleted_together() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y"), item("c", 1, "z")]);
+    driver.send(Inbound::Select { id: "a".into() });
+    driver.key(SelectionKey::ExtendDown);
+    driver.key(SelectionKey::Delete);
+    driver.answer(
+        |op| matches!(op, ApiOp::TranscludedItems { .. }),
+        ApiOutput::ItemIds(Vec::new()),
+    );
+    let (_, deleted) = driver
+        .take_api(|op| matches!(op, ApiOp::DeleteItems { .. }))
+        .expect("the deletion was not sent");
+    let ApiOp::DeleteItems { mut item_ids } = deleted else {
+        unreachable!();
+    };
+    item_ids.sort();
+    assert_eq!(item_ids, ["a", "b"]);
+}
+
+// 選んだ項目は、まとめて動かせる。
+#[test]
+fn the_selected_items_move_together() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y"), item("c", 1, "z")]);
+    driver.send(Inbound::Select { id: "a".into() });
+    driver.key(SelectionKey::ExtendDown);
+    driver.key(SelectionKey::MoveDown);
+    assert!(driver.waiting(|op| matches!(op, ApiOp::MoveItems { .. })));
+}
+
+// 選んだ項目をコピーすると、そのMarkdownがEmacsに届く。
+#[test]
+fn copying_the_selection_gives_emacs_its_markdown() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y")]);
+    driver.send(Inbound::Select { id: "a".into() });
+    driver.key(SelectionKey::Copy);
+    driver.answer(
+        |op| matches!(op, ApiOp::ExportTreeMarkdown { .. }),
+        ApiOutput::TreeExport(TreeExport {
+            tree_markdown: "- x
+"
+            .into(),
+            flat_markdown: "x
+"
+            .into(),
+        }),
+    );
+    assert!(driver.sent().contains(&Outbound::Copy {
+        text: "- x
+"
+        .into()
+    }));
 }
 
 // 項目の削除は、参照の確認を経て、子ごとサーバーへ送られる。行は、サーバーの答えのあとで消える。

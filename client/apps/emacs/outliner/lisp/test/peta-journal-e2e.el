@@ -385,6 +385,30 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--wait-for "the delete" (lambda () (= (length peta-journal--rows) 1)))
     (peta-journal-e2e--wait-saved '("a"))))
 
+;; 選んだ項目は、まとめて動き、コピーされ、消える。消えると、選択は終わる。
+(ert-deftest peta-journal-e2e-moving-copying-and-deleting-selected-items ()
+  (peta-journal-e2e--with-app
+    (execute-kbd-macro (kbd "a RET b RET c"))
+    (peta-journal--wait)
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("a" "b" "c"))
+    (peta-journal-e2e--keys "C-p C-p C-c SPC n")
+    (should peta-journal-selection-mode)
+    (peta-journal-e2e--keys "M-S-<down>")
+    (peta-journal-e2e--wait-saved '("c" "a" "b"))
+    ;; The OS clipboard of the machine is left alone
+    (let ((kill-ring nil)
+          (interprogram-cut-function nil)
+          (interprogram-paste-function nil))
+      (peta-journal-e2e--keys "w")
+      (peta-journal-e2e--wait-for "the copy" (lambda () kill-ring))
+      (should (equal (car kill-ring) "- a\n- b")))
+    (peta-journal-e2e--keys "d")
+    (peta-journal-e2e--wait-saved '("c"))
+    (peta-journal-e2e--wait-for "the end of the selection"
+                                (lambda () (not peta-journal-selection-mode)))
+    (should-not buffer-read-only)))
+
 (defun peta-journal-e2e--open-page (path)
   "Ask the core to open the page at PATH, which is made when it does not exist.
 No key does this: the tests use it to reach a page without the search box."

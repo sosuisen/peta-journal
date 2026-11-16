@@ -74,6 +74,9 @@ on its line.")
 (defconst peta-journal--stop-seconds 6
   "How long Emacs waits for the shell to save what was typed when it stops.")
 
+(defface peta-journal-selected '((t :inherit region))
+  "The rows of the selected items.")
+
 (defface peta-journal-bullet '((t :inherit font-lock-comment-face))
   "The mark at the start of a row.")
 
@@ -595,7 +598,27 @@ rewritten, so what does not change stays where it is."
     (setq peta-journal--last-point (point))
     ;; After the point has its place: the item it is in keeps its text
     (peta-journal--draw-images start written-end)
-    (peta-journal--update-images)))
+    (peta-journal--update-images)
+    (peta-journal--show-selection)))
+
+(defvar peta-journal-selection-mode)
+
+(defun peta-journal--show-selection ()
+  "Color the selected rows.
+The buffer is in `peta-journal-selection-mode' while there are any."
+  (remove-overlays (point-min) (point-max) 'peta-selection t)
+  (let ((pos (point-min))
+        (any nil))
+    (seq-doseq (row peta-journal--rows)
+      (let ((next (or (peta-journal--next-row pos) (point-max))))
+        (when (plist-get row :selected)
+          (setq any t)
+          (let ((overlay (make-overlay pos next)))
+            (overlay-put overlay 'peta-selection t)
+            (overlay-put overlay 'face 'peta-journal-selected)))
+        (setq pos next)))
+    (unless (eq any peta-journal-selection-mode)
+      (peta-journal-selection-mode (if any 1 -1)))))
 
 (defun peta-journal--goto-item (id cursor)
   "Put the point in the item ID at CURSOR, or at its end when CURSOR is nil."
@@ -904,6 +927,8 @@ M-x peta-journal in that buffer starts it and shows the saved text.  See *peta-j
                               (append (plist-get message :titles) nil))))
     ("backlinks" (setq peta-journal--backlinks (plist-get message :groups)))
     ("message" (message "%s" (plist-get message :text)))
+    ("copy" (kill-new (plist-get message :text))
+     (message "Copied the selected items"))
     ("ask" (peta-journal--on-ask (plist-get message :req)
                                  (plist-get message :message)))))
 
@@ -968,7 +993,9 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
 (defun peta-journal--post-command ()
   "Keep the point in a body, and the core informed of the item it is in."
   (peta-journal--keep-point-in-body)
-  (unless (memq this-command peta-journal--commands-that-end-the-edit)
+  ;; The selected items are not edited: the core ended the edit when the selection began
+  (unless (or peta-journal-selection-mode
+              (memq this-command peta-journal--commands-that-end-the-edit))
     (when-let* ((id (peta-journal--id-at (point))))
       (peta-journal--start-edit id)))
   (peta-journal--update-images)
@@ -1107,6 +1134,88 @@ The edit of the item goes on until the rows without it arrive: the user or the
 server may still say no."
   (interactive)
   (peta-journal--send-and-wait "delete_item" :id (peta-journal--item)))
+
+(defun peta-journal-select ()
+  "Select the item at the point, with its children.
+While items are selected, the keys of `peta-journal-selection-mode' act on them
+all: grow the selection, move, indent, delete or copy the items.  The text of
+the buffer cannot change then."
+  (interactive)
+  (let ((id (peta-journal--item)))
+    (peta-journal--finish-edit)
+    (peta-journal--send-and-wait "select" :id id)))
+
+(defmacro peta-journal--define-selection-key (command key doc)
+  "Define COMMAND, which sends the selection key KEY to the core.
+DOC says what it does."
+  `(defun ,command ()
+     ,doc
+     (interactive)
+     (peta-journal--send-and-wait "selection_key" :key ,key)))
+
+(peta-journal--define-selection-key peta-journal-selection-down "ExtendDown"
+  "Add the item below to the selection, or take the top one away.")
+(peta-journal--define-selection-key peta-journal-selection-up "ExtendUp"
+  "Add the item above to the selection, or take the bottom one away.")
+(peta-journal--define-selection-key peta-journal-selection-move-up "MoveUp"
+  "Move the selected items up.")
+(peta-journal--define-selection-key peta-journal-selection-move-down "MoveDown"
+  "Move the selected items down.")
+(peta-journal--define-selection-key peta-journal-selection-indent "Indent"
+  "Indent the selected items.")
+(peta-journal--define-selection-key peta-journal-selection-outdent "Outdent"
+  "Outdent the selected items.")
+(peta-journal--define-selection-key peta-journal-selection-delete "Delete"
+  "Delete the selected items, with their children.")
+(peta-journal--define-selection-key peta-journal-selection-copy "Copy"
+  "Put the Markdown of the selected items in the kill ring.")
+(peta-journal--define-selection-key peta-journal-selection-cut "Cut"
+  "Put the Markdown of the selected items in the kill ring, and delete them.")
+(peta-journal--define-selection-key peta-journal-selection-undo "Undo"
+  "Undo the change made last.")
+(peta-journal--define-selection-key peta-journal-selection-redo "Redo"
+  "Redo the change undone last.")
+(peta-journal--define-selection-key peta-journal-selection-end "Escape"
+  "End the selection.  The items stay as they are.")
+
+(defvar-keymap peta-journal-selection-mode-map
+  :doc "The keys while items are selected."
+  "n" #'peta-journal-selection-down
+  "C-n" #'peta-journal-selection-down
+  "<down>" #'peta-journal-selection-down
+  "S-<down>" #'peta-journal-selection-down
+  "p" #'peta-journal-selection-up
+  "C-p" #'peta-journal-selection-up
+  "<up>" #'peta-journal-selection-up
+  "S-<up>" #'peta-journal-selection-up
+  "M-S-<up>" #'peta-journal-selection-move-up
+  "M-S-<down>" #'peta-journal-selection-move-down
+  "TAB" #'peta-journal-selection-indent
+  "M-S-<right>" #'peta-journal-selection-indent
+  "<backtab>" #'peta-journal-selection-outdent
+  "M-S-<left>" #'peta-journal-selection-outdent
+  "d" #'peta-journal-selection-delete
+  "DEL" #'peta-journal-selection-delete
+  "C-d" #'peta-journal-selection-delete
+  "<delete>" #'peta-journal-selection-delete
+  "w" #'peta-journal-selection-copy
+  "M-w" #'peta-journal-selection-copy
+  "C-w" #'peta-journal-selection-cut
+  "C-/" #'peta-journal-selection-undo
+  "<remap> <undo>" #'peta-journal-selection-undo
+  "C-?" #'peta-journal-selection-redo
+  "<remap> <undo-redo>" #'peta-journal-selection-redo
+  "C-g" #'peta-journal-selection-end
+  "q" #'peta-journal-selection-end
+  "<escape>" #'peta-journal-selection-end)
+
+(define-minor-mode peta-journal-selection-mode
+  "The mode while items are selected, with \[peta-journal-select].
+The text of the buffer cannot change, and these keys act on the selected items:
+\{peta-journal-selection-mode-map}
+The mode follows the selection in the core: it is on while any row is selected."
+  :lighter " Selected"
+  (setq buffer-read-only peta-journal-selection-mode))
 
 (defun peta-journal--clipboard-image ()
   "The image in the clipboard of the OS as the bytes of a PNG file, or nil.
@@ -1830,6 +1939,7 @@ This is for `completion-at-point-functions'."
   "C-c C-x b" #'peta-journal-backlinks
   "C-c C-x f" #'peta-journal-forward
   "C-c C-x r" #'peta-journal-rename-page
+  "C-c SPC" #'peta-journal-select
   "C-c C-x p" #'peta-journal-properties
   "C-c C-x n" #'peta-journal-new-buffer
   "C-c C-x i" #'peta-journal-insert-image
