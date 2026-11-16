@@ -1,4 +1,4 @@
-use crate::protocol::{Bullet, Envelope, Inbound, Outbound, RowView, TaskMark};
+use crate::protocol::{Bullet, Envelope, Inbound, Outbound, RowView, SidebarView, TaskMark};
 use client_core::app::SelectionKey;
 use client_core::view::TaskState;
 use serde_json::json;
@@ -196,4 +196,84 @@ fn the_state_of_a_task_goes_beside_the_bullet() {
         serde_json::to_value(TaskMark::Running).unwrap(),
         json!("running")
     );
+}
+
+fn sidebar_page(id: &str, label: &str, path: &str, is_dir: bool) -> client_core::view::SidebarPage {
+    client_core::view::SidebarPage {
+        page: client_core::model::Page {
+            id: id.into(),
+            ..Default::default()
+        },
+        label: label.into(),
+        published: false,
+        is_dir,
+        dir_label: None,
+        path: path.into(),
+    }
+}
+
+fn core_sidebar(header: &str, parent: Option<&str>) -> client_core::view::SidebarView {
+    client_core::view::SidebarView {
+        index_header: header.into(),
+        index_parent_path: parent.map(Into::into),
+        index_pages: vec![
+            sidebar_page("s", "sub/", "notes/sub/index", true),
+            sidebar_page("i", "Idea", "notes/Idea", false),
+        ],
+        current_page_id: Some("i".into()),
+        ..Default::default()
+    }
+}
+
+// フォルダの一覧には、見出しのindexページへのパスと、親のフォルダへのパスが付く。今のページには印が付く。
+#[test]
+fn the_index_list_carries_the_paths_of_its_header_and_its_parent() {
+    let sidebar = SidebarView::of(&core_sidebar("notes/", Some("index")));
+    let index = sidebar.index.unwrap();
+    assert_eq!(index.header, "notes/");
+    assert_eq!(index.path, "notes/index");
+    assert_eq!(index.parent.as_deref(), Some("index"));
+    let lines: Vec<(&str, &str, bool, bool)> = index
+        .pages
+        .iter()
+        .map(|line| {
+            (
+                line.label.as_str(),
+                line.path.as_str(),
+                line.folder,
+                line.current,
+            )
+        })
+        .collect();
+    assert_eq!(
+        lines,
+        [
+            ("sub/", "notes/sub/index", true, false),
+            ("Idea", "notes/Idea", false, true)
+        ]
+    );
+}
+
+// ルートの一覧の見出しは、ルートのindexページを開く。
+#[test]
+fn the_header_of_the_root_opens_the_root_index() {
+    let sidebar = SidebarView::of(&core_sidebar("(root)/", None));
+    assert_eq!(sidebar.index.unwrap().path, "index");
+}
+
+// ページも親もない一覧は、出さない。
+#[test]
+fn an_empty_index_list_is_left_out() {
+    let mut core = core_sidebar("", None);
+    core.index_pages.clear();
+    assert!(SidebarView::of(&core).index.is_none());
+}
+
+// サイドバーは、種類の名前の付いた1行のJSONになる。
+#[test]
+fn the_sidebar_is_a_line_with_its_type() {
+    let message = Outbound::Sidebar(SidebarView::of(&core_sidebar("(root)/", None)));
+    let line = serde_json::to_value(&message).unwrap();
+    assert_eq!(line["t"], json!("sidebar"));
+    assert_eq!(line["index"]["path"], json!("index"));
 }

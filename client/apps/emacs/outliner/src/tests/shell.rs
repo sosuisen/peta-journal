@@ -1,5 +1,6 @@
 use crate::protocol::{
-    Bullet, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView,
+    Bullet, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView, SidebarHeading,
+    SidebarView,
 };
 use crate::shell::{Host, Input, Now, Shell};
 use client_core::app::SelectionKey;
@@ -1869,4 +1870,66 @@ fn a_failed_search_for_page_names_is_answered_with_no_names() {
         result: Box::new(Err(ApiError("refused".into()))),
     });
     assert_eq!(page_names_sent(&driver), [("no".to_string(), Vec::new())]);
+}
+
+/// The sidebar Emacs was told last.
+fn sidebar_sent(driver: &Driver) -> Option<SidebarView> {
+    driver.sent().iter().rev().find_map(|m| match m {
+        Outbound::Sidebar(sidebar) => Some(sidebar.clone()),
+        _ => None,
+    })
+}
+
+// サイドバーは、ページの見出しと最近のページを、Webと同じ並びでEmacsに伝える。
+#[test]
+fn the_sidebar_tells_emacs_the_headings_and_the_recent_pages() {
+    let mut driver = Driver::open(&[item("a", 1, "# Top"), item("b", 2, "text")]);
+    let pages = serde_json::from_value(json!({
+        "Pages": [page_info("", "notes"), page_info("work/", "plan")]
+    }));
+    driver.answer(
+        |op| matches!(op, ApiOp::GetRecentPages { .. }),
+        pages.unwrap(),
+    );
+
+    let sidebar = sidebar_sent(&driver).unwrap();
+    assert_eq!(
+        sidebar.headings,
+        [SidebarHeading {
+            id: "a".into(),
+            text: "Top".into(),
+            level: 1
+        }]
+    );
+    let recent: Vec<(Option<String>, String, String)> = sidebar
+        .recent
+        .iter()
+        .map(|line| (line.dir.clone(), line.label.clone(), line.path.clone()))
+        .collect();
+    assert_eq!(
+        recent,
+        [
+            (None, "notes".to_string(), "notes".to_string()),
+            (
+                Some("work/".to_string()),
+                "plan".to_string(),
+                "work/plan".to_string()
+            )
+        ]
+    );
+    assert!(sidebar.index.is_none());
+}
+
+// 変わらないサイドバーは、もう一度は伝えない。
+#[test]
+fn an_unchanged_sidebar_is_not_told_again() {
+    let mut driver = Driver::open(&[item("a", 1, "# Top")]);
+    driver.send(Inbound::Scrolled { top: 0, bottom: 1 });
+    driver.send(Inbound::Scrolled { top: 0, bottom: 2 });
+    let told = driver
+        .sent()
+        .iter()
+        .filter(|m| matches!(m, Outbound::Sidebar(_)))
+        .count();
+    assert_eq!(told, 0);
 }
