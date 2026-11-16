@@ -434,6 +434,25 @@ No key does this: the tests use it to reach a page without the search box."
       (peta-journal-e2e--keys "C-x C-s")
       (peta-journal-e2e--wait-saved '("本文の続きと結び")))))
 
+;; `C-c C-x d`で尋ねられて「はい」と答えると、ページのファイルが消え、今日のジャーナルが開く。
+(ert-deftest peta-journal-e2e-deleting-the-page-removes-its-file-and-opens-today ()
+  (peta-journal-e2e--with-app
+    (let ((today peta-journal--page-id)
+          (asked nil))
+      (peta-journal-e2e--open-page "消すページ")
+      (peta-journal-e2e--wait-page-title "消すページ")
+      (peta-journal-e2e--type "消える本文")
+      (peta-journal-e2e--keys "C-x C-s")
+      (peta-journal-e2e--wait-saved '("消える本文"))
+      (let ((file (peta-journal-e2e--wait-for-file (expand-file-name "markdown" root) "消える本文")))
+        (cl-letf (((symbol-function 'yes-or-no-p)
+                   (lambda (prompt) (setq asked prompt) t)))
+          (peta-journal-e2e--keys "C-c C-x d")
+          (peta-journal-e2e--wait-for "the file to go" (lambda () (not (file-exists-p file))))
+          (peta-journal-e2e--wait-for "today's journal"
+                                      (lambda () (equal peta-journal--page-id today)))))
+      (should (string-match-p "消すページ" asked)))))
+
 ;; フォルダのないパスを付けると、ページはフォルダの外へ出る。
 (ert-deftest peta-journal-e2e-a-page-can-move-out-of-its-folder ()
   (peta-journal-e2e--with-app

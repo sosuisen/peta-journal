@@ -37,6 +37,8 @@ pub enum Inbound {
     RenamePage {
         path: String,
     },
+    /// Deletes the page on screen. The core asks first.
+    DeletePage,
     SetProperty {
         key: String,
         value: String,

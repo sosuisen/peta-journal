@@ -543,7 +543,8 @@ Either can be nil, for a clipboard without it."
 (ert-deftest peta-journal-going-to-another-page-leaves-the-edit-closed ()
   (dolist (command '(peta-journal-today peta-journal-back peta-journal-forward
                      peta-journal-next-day peta-journal-previous-day
-                     peta-journal-open-at-point peta-journal-rename-page))
+                     peta-journal-open-at-point peta-journal-rename-page
+                     peta-journal-delete-page))
     (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
       (peta-journal-test--goto "a" 0)
       (peta-journal--go "back")
@@ -568,6 +569,17 @@ Either can be nil, for a clipboard without it."
     (should (equal peta-journal-test--sent
                    '(("edit_finished" :id "a")
                      ("rename_page" :path "work/new"))))))
+
+;; 今のページの削除は、編集を閉じてからシェルへ送る。尋ねるのはコアである。
+(ert-deftest peta-journal-deleting-the-page-ends-the-edit-and-asks-the-shell ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal-test--goto "a" 0)
+    (setq peta-journal-test--sent nil)
+    (with-temp-buffer
+      (call-interactively #'peta-journal-delete-page))
+    (should (equal peta-journal-test--sent
+                   '(("edit_finished" :id "a")
+                     ("delete_page"))))))
 
 ;; 変えられるパスがなければ、入力を求める前に断る。打った名前が無駄にならない。
 (ert-deftest peta-journal-a-page-without-a-path-refuses-before-asking ()
@@ -1841,6 +1853,7 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                    ("C-c C-x f" . peta-journal-forward)
                    ("C-c C-x b" . peta-journal-backlinks)
                    ("C-c C-x r" . peta-journal-rename-page)
+                   ("C-c C-x d" . peta-journal-delete-page)
                    ("C-c C-x p" . peta-journal-properties)
                    ("C-c C-x n" . peta-journal-new-buffer)
                    ("C-c C-x i" . peta-journal-insert-image)
