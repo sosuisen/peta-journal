@@ -98,6 +98,30 @@ public final class Shell: ObservableObject {
         show()
     }
 
+    /// Back to the page that was open before, as the core keeps the history (ADR 035). Nothing
+    /// happens when `view.history.canGoBack` is false.
+    public func back() {
+        turn(.back(today: Shell.date()))
+    }
+
+    /// Forward to the page that was open before `back`.
+    public func forward() {
+        turn(.forward(today: Shell.date()))
+    }
+
+    private func turn(_ event: Event) {
+        // The pages of the history opened before, so what the last one told is gone
+        missing = nil
+        missingFile = nil
+        send(event)
+    }
+
+    /// The local date, as `YYYY-MM-DD`.
+    private static func date() -> String {
+        let day = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        return String(format: "%04d-%02d-%02d", day.year ?? 0, day.month ?? 0, day.day ?? 0)
+    }
+
     // MARK: - Searching
 
     /// The user typed into the search field.
