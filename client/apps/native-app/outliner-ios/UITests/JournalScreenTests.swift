@@ -664,6 +664,16 @@ final class JournalScreenTests: XCTestCase {
         XCTAssertFalse(app.buttons["Move cursor"].exists)
     }
 
+    // 項目に触れると、選択は終わり、その項目の編集になる。
+    func testATouchOnAnItemEndsTheSelectionAndEditsIt() throws {
+        try selectTwo()
+
+        edit("three")
+
+        XCTAssertEqual(editedText, "three")
+        waitUntil("no item is selected") { !app.descendants(matching: .any)["selected"].exists }
+    }
+
     // MARK: - The pad of the cursor
 
     // パッドの真ん中に触れても、カーソルは動かない。
