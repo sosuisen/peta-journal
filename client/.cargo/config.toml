@@ -38,6 +38,8 @@ cov = [
     "client-shell-http",
     "-p",
     "client-shell-embedded",
+    "-p",
+    "client-cloud-sync",
     # What only a native shell needs is measured too: the generation of its types, and the
     # entrance for another language
     "--features",
