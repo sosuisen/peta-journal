@@ -74,6 +74,9 @@ ends between items are read-only. The outline changes only through these keys:
 | `C-c C-t` | Cycle the task state |
 | `C-c C-f` | Hide or show the children |
 | `C-c C-d` | Delete the item with its children |
+| `C-c C-x w` | Copy the reference (the id) of the item |
+| `C-c C-x t` | Make the item a transclusion of the copied reference |
+| `C-c C-x T` | Make a transclusion a plain item again |
 | `C-c C-x s` | Send the item with its children to the `# Stash` heading at the end of the page |
 | `C-/`, `C-?` | Undo and redo, through the history of the core |
 | `C-x C-s` | Save now |
@@ -148,6 +151,17 @@ A calendar opened by `M-x calendar` does not have these keys.
 
 `peta-journal-item-gap` sets the gap between items, in pixels. The default is `4`, and `0` removes
 the gap. A new value applies to the rows drawn after the change. Only a graphical Emacs shows the gap.
+
+## Transclusion
+
+A transclusion is an item that shows another item, with its children. To make one, copy the
+reference of the item to show with `C-c C-x w`. Then press `C-c C-x t` on the item that shows it.
+The reference is the id of the item, and it goes into the kill ring. The reference that "Copy
+Reference" of the web app copies works too, through the clipboard. Text that is not an id does
+nothing.
+
+`C-c C-x T` makes a transclusion a plain item again. It works on a broken transclusion too. On a
+plain item, the command stops without asking.
 
 ## Rename a page
 
