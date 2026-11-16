@@ -19,11 +19,46 @@ Androidのシェルの実機での確認は、2026-11-14までに開発者が終
 
 - [ ] 画面を回すと、余計な同期が始まる。直す
 
-## ADR 051：wikilinkとhashtagのhrefを、ast2htmlのテンプレートで決める
+## PetaJournalのURLとリンクの生成
+
+大きなトピックである。下の2つは、密接に関係している（2026-11-17に開発者が言った）。
+
+### URLの知識を1か所にする
+
+#### 機能向上
+
+- [ ] `/pages/`を始めとするPetaJournalのURLの知識を、1か所にする
+  - 理由：URLの知識は、1か所にあるべきである（2026-11-16に開発者が言った）
+  - 置き場所：少なくとも`pages`の値は、journal-coreで管理する（2026-11-17に開発者が決めた）。AndroidとiOSは、サーバーのURLにアクセスしない。それでも、コアに渡すアプリの中のURL（ページを開く、履歴、前回の画面）で`/pages/`を使うためである
+  - 形の見込み：journal-serverは、URLを作る機能の一部を、何らかの形でjournal-coreに任せる。`/pages/`や`/tags/`といった値は、そこから来る（2026-11-17に開発者が言った）
+  - 決めること
+    - `client-core`は、journal-coreに依存していない。journal-coreに依存しているのは、組み込み版の`client-api-embedded`と`client-shell-embedded`だけである。`client-core`と`client-page-links`が、journal-coreの値をどう使うかを決める
+    - TypeScript、C#、Emacs Lispのクライアントは、Rustのライブラリを呼べない。これらがURLの知識をどこから得るかを決める
+  - 2026-11-16に調べた。テスト、README、使い方の例、コメントを除いて、次の場所にある
+  - URLを作る側（Rust）
+    - `client-page-links/src/links.rs:8, 14`の`wikilink_path`と`hashtag_path`。Webのシェル、「HTMLとしてコピー」、付箋紙の`PageAddress`が使う
+    - `client-core/src/rich_text/links.rs:12, 19`。ネイティブのシェル用の`RichLink::Page`で、上と同じURLを作る
+    - `client-core/src/screens/navigate.rs:26`。ページへ移るときのURLである
+    - `client-core/src/view.rs:206`。ビューモデルに出すページのURLである
+    - `client-core/src/ops/wiki.rs:23`。タグのページの名前を、その場で作る
+  - URLを作る側（各シェルの定数と直書き）
+    - Android：`shell/Shell.kt:392`の`PAGES`。コアに渡すアプリの中のURLである
+    - iOS：`PetaBorder/Shell.swift:12`の`pages`。コアに渡すアプリの中のURLである
+    - Emacs：`lisp/peta-journal.el:2460`
+    - Webのシェル：`components/item_view.rs:170`の`/pages/Untitled-…`
+    - todo：`web-app/todo/src/links.ts:15`
+    - memoview：`Services/PageLinks.cs:17`の`PagesUrl`
+  - URLを読む側
+    - `client-core/src/app.rs:83-98`の`Route::parse`。`pages/`、`docs/`、`journals/`を外してページ名にする。どのシェルも、最後はここを通る
+    - `client-core/src/rich_text/links.rs:44`。`/pages/`で始まるリンクを、アプリの中のページと見なす
+    - `client-shell-embedded/src/lib.rs:274`。`Route::parse`とは別に、`/pages/`を外してページ名を取る
+  - サーバー：`journal-server/src/presentation/frontend.rs:25-34`は、`/api/`以外のどのパスにも`index.html`を返す。`/pages/`という名前は、コメントにしか出てこない
+
+### ADR 051：wikilinkとhashtagのhrefを、ast2htmlのテンプレートで決める
 
 2026-11-16に開発者が受理した。flatmarkdownに`HtmlOptions`と`ast_to_html_with`を足し、0.9.0を出してから、Webのシェルを切り替える。flatmarkdown側のタスクは、flatmarkdownの`docs/plans.md`にある。
 
-### 機能向上
+#### 機能向上
 
 - [ ] flatmarkdownの3つのクレートを0.9.0に上げる。`client/`のCargo.tomlとCargo.lockを直す
 - [ ] Webのシェルの`item_html`で`ast_to_html_with`を使う。wikilinkは`/pages/{}`、hashtagは`/pages/<タグ用ディレクトリ>{}`にする
@@ -422,32 +457,6 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
 - [ ] タイトルの検査を、1つにまとめる（`client-core/src/util/filename.rs:53-82`と`journal-core/src/application/page_service.rs:69-111`）。クライアントの`is_control()`は、U+0080からU+009Fも拒む。サーバーは拒まない。`/`の扱いは、わざと違う
 - [ ] コードフェンスを閉じる処理と`split_at_char`を、1つにまとめる（`journal-core/src/application/paste.rs:75-98`と`client-core/src/util/mod.rs`）
 - [ ] アトラスの`Bounds`を、`peta-atlas`にまとめる（`journal-core/src/domain/bounds.rs`と`atlas/src/lib.rs:48-79`）。書き出しが少し違い、1e15以上の値で「…0.0」と「…0」になる。`ATLAS_NAME`も、`client-core/src/screens/page.rs:14`と`journal-core/src/domain/model.rs:50`の2か所にある
-- [ ] `/pages/`を始めとするPetaJournalのURLの知識を、1か所にする
-  - 理由：URLの知識は、1か所にあるべきである（2026-11-16に開発者が言った）
-  - 置き場所：少なくとも`pages`の値は、journal-coreで管理する（2026-11-17に開発者が決めた）。AndroidとiOSは、サーバーのURLにアクセスしない。それでも、コアに渡すアプリの中のURL（ページを開く、履歴、前回の画面）で`/pages/`を使うためである
-  - 形の見込み：journal-serverは、URLを作る機能の一部を、何らかの形でjournal-coreに任せる。`/pages/`や`/tags/`といった値は、そこから来る（2026-11-17に開発者が言った）
-  - 決めること
-    - `client-core`は、journal-coreに依存していない。journal-coreに依存しているのは、組み込み版の`client-api-embedded`と`client-shell-embedded`だけである。`client-core`と`client-page-links`が、journal-coreの値をどう使うかを決める
-    - TypeScript、C#、Emacs Lispのクライアントは、Rustのライブラリを呼べない。これらがURLの知識をどこから得るかを決める
-  - 2026-11-16に調べた。テスト、README、使い方の例、コメントを除いて、次の場所にある
-  - URLを作る側（Rust）
-    - `client-page-links/src/links.rs:8, 14`の`wikilink_path`と`hashtag_path`。Webのシェル、「HTMLとしてコピー」、付箋紙の`PageAddress`が使う
-    - `client-core/src/rich_text/links.rs:12, 19`。ネイティブのシェル用の`RichLink::Page`で、上と同じURLを作る
-    - `client-core/src/screens/navigate.rs:26`。ページへ移るときのURLである
-    - `client-core/src/view.rs:206`。ビューモデルに出すページのURLである
-    - `client-core/src/ops/wiki.rs:23`。タグのページの名前を、その場で作る
-  - URLを作る側（各シェルの定数と直書き）
-    - Android：`shell/Shell.kt:392`の`PAGES`。コアに渡すアプリの中のURLである
-    - iOS：`PetaBorder/Shell.swift:12`の`pages`。コアに渡すアプリの中のURLである
-    - Emacs：`lisp/peta-journal.el:2460`
-    - Webのシェル：`components/item_view.rs:170`の`/pages/Untitled-…`
-    - todo：`web-app/todo/src/links.ts:15`
-    - memoview：`Services/PageLinks.cs:17`の`PagesUrl`
-  - URLを読む側
-    - `client-core/src/app.rs:83-98`の`Route::parse`。`pages/`、`docs/`、`journals/`を外してページ名にする。どのシェルも、最後はここを通る
-    - `client-core/src/rich_text/links.rs:44`。`/pages/`で始まるリンクを、アプリの中のページと見なす
-    - `client-shell-embedded/src/lib.rs:274`。`Route::parse`とは別に、`/pages/`を外してページ名を取る
-  - サーバー：`journal-server/src/presentation/frontend.rs:25-34`は、`/api/`以外のどのパスにも`index.html`を返す。`/pages/`という名前は、コメントにしか出てこない
 - [ ] 小さな重複をまとめる
   - 今日の日付の文字列（`YYYY-MM-DD`）を、4か所で作っている（`client-native-bridge/src/shell.rs:258`、`client-shell-embedded/src/lib.rs:220`、`emacs/outliner/src/shell.rs:428`、`web-app/outliner/src/dom.rs:429`）。client-coreの`LocalDateTime`のメソッドにする
   - 月と年のページの名前（`web-app/.../calendar.rs:140,144`と`emacs/.../shell.rs:300`）
