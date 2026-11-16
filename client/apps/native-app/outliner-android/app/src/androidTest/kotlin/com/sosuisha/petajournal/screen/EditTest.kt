@@ -6,8 +6,6 @@ import androidx.compose.ui.platform.ViewRootForTest
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
@@ -182,19 +180,17 @@ class EditTest : JournalScreenFixture() {
         compose.runOnIdle { assertEquals(3, edits) }
     }
 
-    // 編集していないときも道具の列は出る。ただし、項目を変える道具は押せない。
+    // 道具は、編集しているときだけ出る。
     @Test
-    fun the_tools_that_change_an_item_cannot_be_touched_while_nothing_is_edited() {
+    fun the_tools_show_only_while_an_item_is_edited() {
         download("notes.md", "first" + NL)
         openNotes()
         waitFor("first")
 
-        compose.onNode(hasContentDescription("Move block")).assertIsNotEnabled()
-        compose.onNode(hasContentDescription("Task")).assertIsNotEnabled()
+        compose.onNode(hasContentDescription("Move block")).assertDoesNotExist()
         touchEnd("first")
 
-        compose.onNode(hasContentDescription("Move block")).assertIsEnabled()
-        compose.onNode(hasContentDescription("Task")).assertIsEnabled()
+        compose.onNode(hasContentDescription("Move block")).assertExists()
     }
 
     // 項目を動かすパッドの左右は、字下げと字下げを戻す。編集中の項目を上の項目の子にし、元に戻す。編集は続く。
@@ -282,19 +278,19 @@ class EditTest : JournalScreenFixture() {
         compose.onNodeWithText("Cancel").assertDoesNotExist()
     }
 
-    // 完了の道具は、編集を終える。項目は、飾りのついた表示に戻り、項目を変える道具は押せなくなる。
+    // キーボードを閉じる道具は、編集を終える。項目は、飾りのついた表示に戻り、道具は消える。
     @Test
-    fun the_done_tool_ends_the_edit() {
+    fun the_tool_that_hides_the_keyboard_ends_the_edit() {
         download("notes.md", "a **bold** word" + NL)
         openNotes()
         waitFor("a bold word")
         touchEnd("a bold word")
 
-        compose.onNodeWithText("Done").performClick()
+        tool("Hide keyboard")
 
         waitFor("a bold word")
         compose.onNodeWithTag(EDITOR_TAG).assertDoesNotExist()
-        compose.onNode(hasContentDescription("Move block")).assertIsNotEnabled()
+        compose.onNode(hasContentDescription("Move block")).assertDoesNotExist()
     }
 
     // タスクの印に触れると、状態が進む。編集には入らない。

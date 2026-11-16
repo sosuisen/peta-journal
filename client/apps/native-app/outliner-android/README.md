@@ -218,10 +218,12 @@ What each class does:
   is lent: the pages and the database are not. A link to a file that is not there says so.
 - A task has a checkbox that shows where it stands. A touch moves the task on: not started,
   running, done, and then no task.
-- A row of tools stands above the keyboard. From the left: hide or show the children of the
-  item, a pad that moves the item, a pad that moves the cursor, make the item a task or move
-  the task on, undo, and redo. "Done" ends the edit. A touch on a tool leaves the focus in
-  the field. While no item is edited, only undo and redo can be touched.
+- While an item is edited, the tools stand above the keyboard, two rows high. From the left:
+  hide or show the children of the item over making it a task, a pad that moves the item, a
+  pad that moves the cursor, redo over undo, and hiding the keyboard, which ends the edit. A
+  touch on a tool leaves the focus in the field.
+- The icons of the tools are drawn in `client/assets/icons`, the same for Android and iOS.
+  `draw.py` there makes the SVG files, and `export.py` copies them into the two apps.
   - A pad takes touches on all of it, not only on its arrows. The lines from its corners cut
     it into the parts of the four arrows. The middle third does nothing. A touch that is
     held repeats the arrow.

@@ -1,8 +1,7 @@
 """Copies the icons of this folder into the apps that draw them.
 
-Each icon is drawn once, here, as an SVG of 24 by 24 units with one filled path. The path is
-the outline of the shape, not a line with a width. A line that crosses another would be drawn
-twice where they meet, and a faint icon would show that place darker.
+Each icon is drawn once, here, as an SVG of 24 by 24 units with one filled path. `draw.py`
+makes the SVG files, and says why the path is an outline.
 
 - Android: a Vector Drawable, `res/drawable/ic_<name>.xml`. Android does not read SVG.
 - iOS: an image set of the asset catalog, `<name>.imageset`, with the SVG in it. It is drawn

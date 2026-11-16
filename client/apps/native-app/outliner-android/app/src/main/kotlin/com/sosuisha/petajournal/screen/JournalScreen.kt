@@ -123,7 +123,8 @@ fun JournalScreen(
                         if (waiting == null) cloud?.let { SyncCallout(it, onSync, Modifier.align(Alignment.TopCenter)) }
                     }
                     val edited = view.outline.rows.firstOrNull { it.isEditing }
-                    Tools(edited.takeUnless { searching }, shell)
+                    // Only while an item is edited: the tools take the room of two rows
+                    edited?.takeUnless { searching }?.let { Tools(it, shell) }
                 }
             }
         }

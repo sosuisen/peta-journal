@@ -2,8 +2,6 @@ package com.sosuisha.petajournal.screen
 
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.center
@@ -50,17 +48,17 @@ class CursorArrowsTest : JournalScreenFixture() {
     private fun editedText(): String =
         compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().config[SemanticsProperties.EditableText].text
 
-    // カーソルのパッドは、編集していないときも出る。ただし、押せない。
+    // カーソルのパッドは、編集しているときだけ出る。
     @Test
-    fun the_pad_shows_while_nothing_is_edited_but_cannot_be_touched() {
+    fun the_pad_shows_only_while_an_item_is_edited() {
         download("notes.md", "first" + NL)
         openNotes()
         waitFor("first")
 
-        compose.onNode(hasContentDescription("Move cursor")).assertIsNotEnabled()
+        compose.onNode(hasContentDescription("Move cursor")).assertDoesNotExist()
         touchEnd("first")
 
-        compose.onNode(hasContentDescription("Move cursor")).assertIsEnabled()
+        compose.onNode(hasContentDescription("Move cursor")).assertExists()
     }
 
     // パッドの真ん中に触れても、カーソルは動かない。
