@@ -195,6 +195,19 @@ final class JournalScreenTests: XCTestCase {
         waitFor(app.buttons["Task done"])
     }
 
+    // 子を隠した項目の点は、大きな薄い円の上に描かれる。子のある項目でも、隠していなければ円はない。
+    func testTheBulletOfAFoldedItemStandsOnADisc() throws {
+        let child = "<!-- @@ 2020-01-01-00-00-00-CCCCCCC idx=\"aC\" -->\nchild\n"
+        try download("notes.md", above("A", " collapsed=\"true\"") + "parent\n\n" + child + "\n" + above("B") + "open\n\n" + child.replacingOccurrences(of: "C", with: "D") + "\n")
+        openNotes()
+        waitFor(app.staticTexts["open"])
+        let folded = app.descendants(matching: .any).matching(identifier: "folded")
+        XCTAssertEqual(folded.count, 1)
+        // The disc is beside the folded item, whose child is hidden
+        XCTAssertEqual(folded.firstMatch.frame.midY, app.staticTexts["parent"].frame.midY, accuracy: 12)
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == 'child'")).count, 1)
+    }
+
     // MARK: - Links
 
     // ページへのリンクは、そのページを開く。
