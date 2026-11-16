@@ -515,6 +515,32 @@ No key does this: the tests use it to reach a page without the search box."
                                       (lambda () (equal peta-journal--page-id today)))))
       (should (string-match-p "消すページ" asked)))))
 
+;; サイドバーには、今のページのフォルダのページが並び、その行でRETを押すと、そのページが開く。
+(ert-deftest peta-journal-e2e-the-sidebar-lists-the-folder-and-opens-its-pages ()
+  (peta-journal-e2e--with-app
+    (unwind-protect
+        (progn
+          (peta-journal-e2e--open-page "棚/一つ目")
+          (peta-journal-e2e--wait-page-title "棚/一つ目")
+          (peta-journal-e2e--open-page "棚/二つ目")
+          (peta-journal-e2e--wait-page-title "棚/二つ目")
+          (peta-journal-e2e--keys "C-c C-x s")
+          (peta-journal-e2e--wait-for
+           "the sidebar lists the folder"
+           (lambda ()
+             (with-current-buffer peta-journal--sidebar-buffer
+               (save-excursion
+                 (goto-char (point-min))
+                 (re-search-forward "^  一つ目$" nil t)))))
+          (with-current-buffer peta-journal--sidebar-buffer
+            (goto-char (point-min))
+            (re-search-forward "^  一つ目$")
+            (beginning-of-line)
+            (peta-journal-sidebar-open))
+          (peta-journal-e2e--wait-page-title "棚/一つ目"))
+      (when-let* ((window (get-buffer-window peta-journal--sidebar-buffer)))
+        (delete-window window)))))
+
 ;; フォルダのないパスを付けると、ページはフォルダの外へ出る。
 (ert-deftest peta-journal-e2e-a-page-can-move-out-of-its-folder ()
   (peta-journal-e2e--with-app
