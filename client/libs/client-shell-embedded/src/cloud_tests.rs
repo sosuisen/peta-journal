@@ -28,7 +28,7 @@ struct FakeSdk {
     after: Option<Result<PetaListing, PetaDropboxError>>,
 }
 
-impl PetaDropbox for FakeSdk {
+impl PetaDropboxSdk for FakeSdk {
     fn list(&self, folder: String) -> Result<PetaListing, PetaDropboxError> {
         assert_eq!(folder, "/PetaJournal");
         *self.lists.lock().unwrap() += 1;
@@ -267,7 +267,7 @@ fn an_upload_conflict_of_the_shell_starts_the_round_again() {
     let (app, sync) = app();
     *app.writes.lock().unwrap() = Some(("docs/new.md".into(), "- new".into()));
     struct Conflicts(FakeSdk);
-    impl PetaDropbox for Conflicts {
+    impl PetaDropboxSdk for Conflicts {
         fn list(&self, folder: String) -> Result<PetaListing, PetaDropboxError> {
             self.0.list(folder)
         }

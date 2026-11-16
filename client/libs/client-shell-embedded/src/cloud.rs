@@ -1,5 +1,5 @@
 //! The sync with Dropbox for the shells (ADR 054). The rules are in `client-cloud-sync`; this is
-//! their entrance. The shell gives the calls of its Dropbox SDK ([`PetaDropbox`]) and what the
+//! their entrance. The shell gives the calls of its Dropbox SDK ([`PetaDropboxSdk`]) and what the
 //! sync asks of the app ([`PetaSyncHost`]).
 
 use std::path::Path;
@@ -64,7 +64,7 @@ impl From<boltffi::UnexpectedFfiCallbackError> for PetaDropboxError {
 /// The calls of the Dropbox SDK of the shell. The sync calls them on its own threads, several
 /// at a time, and never on the main thread. Each waits for the answer of Dropbox.
 #[boltffi::export]
-pub trait PetaDropbox: Send + Sync {
+pub trait PetaDropboxSdk: Send + Sync {
     /// The first part of all that is in the folder at the path, and in the folders in it.
     fn list(&self, folder: String) -> Result<PetaListing, PetaDropboxError>;
 
@@ -170,7 +170,7 @@ impl PetaCloudSync {
     /// Starts a sync with the folder at the path `folder` in Dropbox, such as `/PetaJournal`.
     /// While one runs, another starts after it, once. `in_front` says that the user waits for
     /// it: the app came to the front.
-    pub fn start(&self, dropbox: Arc<dyn PetaDropbox>, folder: String, in_front: bool) {
+    pub fn start(&self, dropbox: Arc<dyn PetaDropboxSdk>, folder: String, in_front: bool) {
         let cloud = DropboxCloud::new(Sdk { dropbox }, &folder);
         self.sync.start(Arc::new(cloud), in_front);
     }
@@ -212,7 +212,7 @@ fn state(state: SyncState) -> PetaSyncState {
 
 /// The Dropbox SDK of the shell, as the sync calls it.
 struct Sdk {
-    dropbox: Arc<dyn PetaDropbox>,
+    dropbox: Arc<dyn PetaDropboxSdk>,
 }
 
 impl DropboxFiles for Sdk {

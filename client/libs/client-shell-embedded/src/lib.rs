@@ -6,8 +6,8 @@ boltffi::scaffolding!();
 mod cloud;
 
 pub use cloud::{
-    PetaCloudSync, PetaDropbox, PetaDropboxEntry, PetaDropboxError, PetaDropboxFile, PetaListing,
-    PetaSyncHost, PetaSyncState,
+    PetaCloudSync, PetaDropboxEntry, PetaDropboxError, PetaDropboxFile, PetaDropboxSdk,
+    PetaListing, PetaSyncHost, PetaSyncState,
 };
 
 use std::path::PathBuf;
