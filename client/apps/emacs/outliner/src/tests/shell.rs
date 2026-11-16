@@ -1883,7 +1883,10 @@ fn sidebar_sent(driver: &Driver) -> Option<SidebarView> {
 // サイドバーは、ページの見出しと最近のページを、Webと同じ並びでEmacsに伝える。
 #[test]
 fn the_sidebar_tells_emacs_the_headings_and_the_recent_pages() {
-    let mut driver = Driver::open(&[item("a", 1, "# Top"), item("b", 2, "text")]);
+    // The server marks the type of a heading
+    let mut heading = item("a", 1, "# Top");
+    heading["types"] = json!(["heading"]);
+    let mut driver = Driver::open(&[heading, item("b", 2, "text")]);
     let pages = serde_json::from_value(json!({
         "Pages": [page_info("", "notes"), page_info("work/", "plan")]
     }));
