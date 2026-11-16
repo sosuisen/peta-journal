@@ -2079,13 +2079,22 @@ The sidebar is closed at the end."
   `(peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "# Top")
                                        (peta-journal-test--row "b" 1 "## Inner"))
      (unwind-protect
-         (progn
-           (peta-journal--on-line peta-journal-test--sidebar)
-           ,@body)
+         ;; Every section open, and the init file of the machine left alone
+         (let ((peta-journal-sidebar-collapsed nil)
+               (peta-journal-test--saved nil))
+           (cl-letf (((symbol-function 'customize-save-variable)
+                      (lambda (variable value &rest _)
+                        (set variable value)
+                        (push (cons variable value) peta-journal-test--saved))))
+             (peta-journal--on-line peta-journal-test--sidebar)
+             ,@body))
        (when-let* ((window (get-buffer-window peta-journal--sidebar-buffer)))
          (delete-window window))
        (when (get-buffer peta-journal--sidebar-buffer)
          (kill-buffer peta-journal--sidebar-buffer)))))
+
+(defvar peta-journal-test--saved nil
+  "The variables saved for the next start of Emacs, the latest first.")
 
 (defun peta-journal-test--sidebar-lines ()
   "The lines of the sidebar."
@@ -2108,9 +2117,9 @@ The sidebar is closed at the end."
       (should window)
       (should (eq (window-parameter window 'window-side) 'left)))
     (should (equal (peta-journal-test--sidebar-lines)
-                   '("notes/" "  ../" "  sub/" "  Idea"
-                     "Contents" "  Top" "    Inner"
-                     "Recent Pages" "  work/plan")))
+                   '("▾ notes/" "  ../" "  sub/" "  Idea"
+                     "▾ Contents" "  Top" "    Inner"
+                     "▾ Recent Pages" "  work/plan")))
     (peta-journal-sidebar)
     (should-not (get-buffer-window peta-journal--sidebar-buffer))))
 
@@ -2150,7 +2159,54 @@ The sidebar is closed at the end."
     (peta-journal-sidebar)
     (peta-journal--on-line '(:t "sidebar" :index nil :headings []
                              :recent [(:label "x" :dir nil :path "x" :folder nil :current nil)]))
-    (should (equal (peta-journal-test--sidebar-lines) '("Recent Pages" "  x")))))
+    (should (equal (peta-journal-test--sidebar-lines) '("▾ Recent Pages" "  x")))))
+
+(defun peta-journal-test--sidebar-tab (text)
+  "Press TAB on the line of the sidebar that ends with TEXT."
+  (with-current-buffer peta-journal--sidebar-buffer
+    (goto-char (point-min))
+    (re-search-forward (concat (regexp-quote text) "$"))
+    (call-interactively (keymap-lookup peta-journal-sidebar-mode-map "TAB"))))
+
+;; 節の中のどの行でもTABを押すと、その節は見出しだけになり、もう一度押すと開く。ほかの節は変わらない。
+(ert-deftest peta-journal-tab-closes-and-opens-a-section-of-the-sidebar ()
+  (peta-journal-test--with-sidebar
+    (peta-journal-sidebar)
+    (peta-journal-test--sidebar-tab "Inner")
+    (should (equal (peta-journal-test--sidebar-lines)
+                   '("▾ notes/" "  ../" "  sub/" "  Idea"
+                     "▸ Contents"
+                     "▾ Recent Pages" "  work/plan")))
+    (peta-journal-test--sidebar-tab "Contents")
+    (should (equal (length (peta-journal-test--sidebar-lines)) 9))))
+
+;; 閉じた節は、次に起動したEmacsでも閉じているように、保存される。
+(ert-deftest peta-journal-the-closed-sections-are-saved-for-the-next-start ()
+  (peta-journal-test--with-sidebar
+    (peta-journal-sidebar)
+    (peta-journal-test--sidebar-tab "work/plan")
+    (peta-journal-test--sidebar-tab "notes/")
+    (should (equal (car peta-journal-test--saved)
+                   '(peta-journal-sidebar-collapsed . (index recent))))))
+
+;; 閉じた節は、どのページのサイドバーでも閉じている。
+(ert-deftest peta-journal-a-closed-section-stays-closed-on-every-page ()
+  (peta-journal-test--with-sidebar
+    (setq peta-journal-sidebar-collapsed '(recent))
+    (peta-journal-sidebar)
+    (should (equal (car (last (peta-journal-test--sidebar-lines))) "▸ Recent Pages"))))
+
+;; 見出しの行のRETは、今までどおり、フォルダのindexページを開く。開閉の印のクリックは、節を開閉する。
+(ert-deftest peta-journal-the-mark-of-a-section-toggles-it-on-a-click ()
+  (peta-journal-test--with-sidebar
+    (peta-journal-sidebar)
+    (with-current-buffer peta-journal--sidebar-buffer
+      (goto-char (point-min))
+      (should (eq (keymap-lookup (get-text-property (point) 'keymap) "<mouse-2>")
+                  #'peta-journal-sidebar-mouse-toggle)))
+    (setq peta-journal-test--sent nil)
+    (peta-journal-test--sidebar-open "notes/")
+    (should (equal peta-journal-test--sent '(("go_to_page" :path "notes/index"))))))
 
 ;; 新しいバッファに開くときの候補は、名前順に並べ替えず、最近のページの順のまま見せる。
 (ert-deftest peta-journal-the-recent-pages-are-offered-in-their-own-order ()
