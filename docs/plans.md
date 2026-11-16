@@ -8,9 +8,6 @@ Androidのシェルの実機での確認は、2026-11-14までにユーザーが
 
 - [ ] ドラッグ選択の決まり（10の判定、帯の40、一歩の24、16ms、リストの外の数え方）を、coreに1つだけ置き、各シェルから呼ぶ（2026-11-15にユーザーが積んだ）。今は、Web（Rust）、Windows（C#）、Mac（Swift）の3か所に同じ決まりがあり、Macだけリストの外の数え方がずれていた
 
-- [ ] Emacs版で、本文をパースしないようにする
-  - 2026-11-14にユーザーが積んだ。今は、Emacs版が使わない描画モデル（`()`）のために、coreが行ごとに本文をパースしている
-  - パースを止めるには、`Bodies`の作りを変える必要がある
 - [ ] Androidで、長いページを速くスクロールしていると、アプリが落ちる。Compose UI 1.13の安定版が出たら、上げて直す（2026-11-14にユーザーが決めた）
   - 原因はCompose UI 1.12の不具合である（Google Issue Tracker 549552303）。スクロールで行を測っている最中にベースラインを読むと、`IllegalArgumentException: LayoutNode … not found in RectList`で落ちる。端末の記録には、6回とも同じ例外が残っていた
   - このアプリでベースラインを読むのは、`screen/Outline.kt`の`alignByBaseline()`である。行頭の印を、本文の1行目に揃える。2026-11-13のコミット`02f93f0c`で入り、最初に落ちたのはその約1時間後である
@@ -448,7 +445,7 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
   - 既定のポート8087を、4か所に決め打ちしている（`todo/src/api.ts:36`、`peta-journal.el:29`、`JournalApiService.cs:31`、`emacs/outliner/src/main.rs:4`）。付箋紙の既定のサーバーも、macOSとWindowsに1つずつある
   - 同じ画像ファイルが2つずつある（todoの`images/favicon.ico`と`public/favicon.ico`、ルートの`images/favicon.ico`とWeb版の`public/favicon.ico`、`peta-journal-gray.png`）
 
-まとめないものは、次のとおりである。Emacsの画像リンクの読み取り（「Emacs版で、本文をパースしないようにする」と合わせて考える）。client-coreの2つの`page_title`（ウィンドウとサイドバーで役目が違う）。サーバーの見出しの決まり（`domain/item_body.rs:41`）は、重複ではなく不具合である。
+まとめないものは、次のとおりである。Emacsの画像リンクの読み取り（Emacsのシェルは、coreに本文をパースさせない）。client-coreの2つの`page_title`（ウィンドウとサイドバーで役目が違う）。サーバーの見出しの決まり（`domain/item_body.rs:41`）は、重複ではなく不具合である。
 
 ## CI
 
