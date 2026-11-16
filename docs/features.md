@@ -567,6 +567,7 @@
   - Emacsのシェルも、コアの履歴を使う。戻ると進むがある
   - ビューモデルの`history`には、今開いているURLも出る。シェルは、次の起動で開くために、これを覚える
   - Macの付箋紙には、タイトルバーに戻ると進むの矢印がある。キーは`Command+[`と`Command+]`である。付箋紙ごとに履歴があり、付箋紙が覚えるURLは、戻った先のページになる（`stickies-mac`の`ShellTests`）
+  - Windowsの付箋紙にも、タイトルバーに戻ると進むの矢印がある。キーは`Alt+Left`と`Alt+Right`である。付箋紙ごとに履歴があり、付箋紙が覚えるURLは、戻った先のページになる（`stickies-win`の`ShellTests`）
   - ネイティブのシェル（Mac、Windows、iOS、Android）が開くページは、すべてコアの履歴に入る。最初のページ、Today、リンク、コアが頼む移動である（`client/libs/client-native-bridge/src/tests/shell.rs`）
 
 ### プロパティを付ける
