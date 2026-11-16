@@ -83,6 +83,11 @@ internal sealed class StickyWindow : Window
         Margin = new Thickness(12, 0, 12, 6),
     };
     private readonly SearchBox search;
+
+    /// <summary>The arrows of the history of the pages opened in this sticky (ADR 035).</summary>
+    private readonly Button back;
+
+    private readonly Button forward;
     private readonly TextBlock nothing = new()
     {
         Text = "Search for a page to show here",
@@ -183,6 +188,9 @@ internal sealed class StickyWindow : Window
         {
             Margin = new Thickness(12, 6, 12, 8),
         };
+        // The keys of the history in the browsers and the File Explorer of Windows
+        back = Tool("", "Back (Alt+Left)", Shell.GoBack);
+        forward = Tool("", "Forward (Alt+Right)", Shell.GoForward);
         list = Rows();
         // Takes the keys while items are selected. No editor has the cursor then
         selection = new ContentControl
@@ -458,6 +466,8 @@ internal sealed class StickyWindow : Window
             return;
         var view = Shell.View;
         var hasPage = Shell.Url is not null;
+        back.IsEnabled = view.History.CanGoBack;
+        forward.IsEnabled = view.History.CanGoForward;
         // Items that do not come need a reason
         status.Text = !hasPage
             ? ""
@@ -730,6 +740,21 @@ internal sealed class StickyWindow : Window
             {
                 e.Handled = true;
                 does();
+                return;
+            }
+        }
+        if (held == Held.Alt)
+        {
+            Action? turns = e.Key switch
+            {
+                VirtualKey.Left => Shell.GoBack,
+                VirtualKey.Right => Shell.GoForward,
+                _ => null,
+            };
+            if (turns is not null)
+            {
+                e.Handled = true;
+                turns();
                 return;
             }
         }

@@ -215,12 +215,18 @@ The keys of a sticky:
 |---|---|
 | Ctrl+N | opens another sticky |
 | Ctrl+F | opens or closes the search box |
+| Alt+Left, Alt+Right | goes back to the page opened before, and forward again |
 | Ctrl+Plus, Ctrl+Minus, Ctrl+0 | makes the items a tenth larger, a tenth smaller, of the usual size |
 | Ctrl+Q | ends the app and keeps all stickies |
 
 Each window is a sticky with a page of its own. Its title bar shows the name of the page, and
-the search tool at the right. The tool and the buttons of the window are hidden while the
-window does not have the focus: the bar is left to the name.
+the arrows of the history and the search tool at the right. The tools and the buttons of the
+window are hidden while the window does not have the focus: the bar is left to the name.
+
+The arrows, or Alt+Left and Alt+Right, go back to the page opened before in the sticky and
+forward again, as in the browsers and the File Explorer. Each sticky has a history of its own,
+which the core keeps (ADR 035). An arrow is dimmed while there is nowhere to go. The history
+is not kept between runs: the sticky comes back with the page it showed last.
 
 The button with the plus stands at the left of the name, and opens another sticky. It is
 always there: also while the window does not have the focus, and while the sticky is rolled

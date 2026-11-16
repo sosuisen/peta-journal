@@ -109,6 +109,29 @@ public sealed partial class Shell : IDisposable
     }
 
     /// <summary>
+    /// Back to the page that was open before, as the core keeps the history (ADR 035). Nothing
+    /// happens when <c>View.History.CanGoBack</c> is false.
+    /// </summary>
+    public void GoBack() => Turn(new Event.Back(Today()));
+
+    /// <summary>Forward to the page that was open before <see cref="GoBack"/>.</summary>
+    public void GoForward() => Turn(new Event.Forward(Today()));
+
+    private void Turn(Event turned)
+    {
+        Send(turned);
+        // The URL of the page that the core opened from its history
+        if (View.History.Url is not { } shown || shown == Url)
+            return;
+        Url = shown;
+        UrlChanged?.Invoke();
+    }
+
+    /// <summary>The local date, as <c>YYYY-MM-DD</c>.</summary>
+    private static string Today() =>
+        DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
     /// The user clicked a link of a shown item. Every link opens in the browser: a page opens
     /// in the web frontend, and a file of the assets folder as the journal server serves it.
     /// The sticky keeps its page.
