@@ -1,4 +1,4 @@
-import PetaSync
+import PetaBorder
 import XCTest
 
 @testable import PetaDropbox
@@ -23,7 +23,7 @@ final class DropboxAccountTests: XCTestCase {
 
         XCTAssertFalse(account.isSetUp)
         XCTAssertFalse(account.isSignedIn)
-        XCTAssertNil(account.cloud())
+        XCTAssertNil(account.calls())
         XCTAssertFalse(account.cameBack(URL(string: "db-app-key://1/connect")!) { _ in })
         account.signOut()
         XCTAssertEqual(sdk.keys, [])
@@ -43,16 +43,17 @@ final class DropboxAccountTests: XCTestCase {
         let account = account()
 
         XCTAssertFalse(account.isSignedIn)
-        XCTAssertNil(account.cloud())
+        XCTAssertNil(account.calls())
     }
 
-    // サインインのあとのクラウドは、設定のフォルダーを読む。
-    func testTheCloudOfTheAccountReadsItsFolder() throws {
+    // サインインのあとは、SDKの呼び出しを同期に渡す。同期が読むのは、設定のフォルダーである。
+    func testAfterTheSignInTheAccountGivesTheCallsOfTheSdkAndItsFolder() throws {
         sdk.signedIn = true
+        let account = account()
 
-        let changes = try XCTUnwrap(account().cloud()).changes(since: nil)
+        let listing = try XCTUnwrap(account.calls()).list(folder: account.folder)
 
-        XCTAssertEqual(changes.entries, [.file(CloudFile(path: "docs/a.md", contentHash: "hash", remote: "rev:r1"))])
+        XCTAssertEqual(listing.entries, [.file(file: PetaDropboxFile(path: "/PetaJournal/docs/a.md", contentHash: "hash", rev: "r1"))])
     }
 
     // Dropboxから戻ったURLは、SDKが読む。サインインできたかは、メインスレッドで伝わる。
@@ -80,7 +81,7 @@ final class DropboxAccountTests: XCTestCase {
 
         XCTAssertEqual(sdk.signOuts, 1)
         XCTAssertFalse(account.isSignedIn)
-        XCTAssertNil(account.cloud())
+        XCTAssertNil(account.calls())
     }
 }
 
@@ -104,7 +105,7 @@ private final class FakeSdk: DropboxSdk {
         return true
     }
 
-    func files() -> DropboxFiles? {
+    func calls() -> PetaDropboxSdk? {
         signedIn ? OneFile() : nil
     }
 
@@ -115,20 +116,20 @@ private final class FakeSdk: DropboxSdk {
 }
 
 /// A Dropbox with one file in the folder of the app.
-private struct OneFile: DropboxFiles {
-    func list(folder: String) throws -> Listing {
-        Listing(
-            entries: [.file(DropboxFile(path: "\(folder)/docs/a.md", contentHash: "hash", rev: "r1"))],
+private final class OneFile: PetaDropboxSdk {
+    func list(folder: String) throws -> PetaListing {
+        PetaListing(
+            entries: [.file(file: PetaDropboxFile(path: "\(folder)/docs/a.md", contentHash: "hash", rev: "r1"))],
             cursor: "c1", hasMore: false)
     }
 
-    func list(after cursor: String) throws -> Listing {
-        Listing(entries: [], cursor: cursor, hasMore: false)
+    func listAfter(cursor: String) throws -> PetaListing {
+        PetaListing(entries: [], cursor: cursor, hasMore: false)
     }
 
-    func download(rev: String, to place: URL) throws {}
+    func download(rev: String, to place: String) throws {}
 
-    func upload(path: String, from file: URL, over: String?, modified: Date?) throws -> DropboxFile {
-        DropboxFile(path: path, contentHash: "hash", rev: "r2")
+    func upload(path: String, from file: String, over: String?, modifiedMs: Int64) throws -> PetaDropboxFile {
+        PetaDropboxFile(path: path, contentHash: "hash", rev: "r2")
     }
 }

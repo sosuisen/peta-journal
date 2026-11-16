@@ -960,7 +960,7 @@
 
 ## スマホとDropboxの同期の決まり（Rust）
 
-AndroidとiOSのシェルが使う同期の決まりを、Rustに1回だけ書いたものである（ADR 054）。シェルは、まだ切り替えていない。決まりは、下の「iPhoneで読み書きする」と「Androidで読み書きする」の同期と同じである。
+AndroidとiOSのシェルが使う同期の決まりを、Rustに1回だけ書いたものである（ADR 054）。iOSのシェルは、これを使う。Androidのシェルは、まだ切り替えていない。決まりは、下の「iPhoneで読み書きする」と「Androidで読み書きする」の同期と同じである。
 
 出典: `client/libs/client-cloud-sync/tests/it/*.rs`
 
@@ -1001,7 +1001,7 @@ iOSのシェル（`client/apps/native-app/outliner-ios`）の機能である。A
 
 ### Dropboxと同期する
 
-出典: `client/apps/native-app/outliner-ios/Tests/PetaSyncTests/*.swift`
+出典: `client/libs/client-cloud-sync/tests/it/*.rs`（ADR 054で、同期の決まりをRustに移した）、`client/apps/native-app/outliner-ios/Tests/PetaDropboxTests/DropboxFailuresTests.swift`
 
 - ダウンロード
   - 最初の同期は、フォルダーのMarkdownと`assets`のファイルをすべて取る。そのあとの同期は、変わった分だけを取る
@@ -1020,6 +1020,9 @@ iOSのシェル（`client/apps/native-app/outliner-ios`）の機能である。A
   - アップロードが断られたら、ダウンロードからやり直す。3回断られたら、失敗になる
   - 同期は、同時に1つだけ走る。走っている間に頼まれた同期は、そのあとに1回だけ走る
   - 画面には、サインイン前、休み、ダウンロード中、アップロード中、失敗のどれかが伝わる。上げるものがない同期は、アップロード中にならない
+- 失敗の表示
+  - 通信できずに失敗したときは「Sync failed: no connection」、ほかの失敗は「Sync failed」とだけ出す。SDKの言葉は、ログに残す
+  - SDKが通信の途中で失敗したとき（`urlSessionError`）、つなぎ直しに失敗したとき、URLの読み込みに失敗したときを、通信の失敗とみなす
 
 ### ページを開く・書く
 

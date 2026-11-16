@@ -1,6 +1,5 @@
 import PetaBorder
 import PetaDropbox
-import PetaSync
 import SwiftUI
 
 @main

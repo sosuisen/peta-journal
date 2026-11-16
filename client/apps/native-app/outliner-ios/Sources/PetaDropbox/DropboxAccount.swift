@@ -1,12 +1,12 @@
 import Foundation
-import PetaSync
+import PetaBorder
 
 #if os(iOS)
 import UIKit
 #endif
 
 /// The account of Dropbox that the app is signed in to: the sign-in, the sign-out, and the
-/// Markdown folder of the account as a `Cloud`. All that the app knows of the Dropbox SDK
+/// calls of the SDK that the sync of the core makes. All that the app knows of the Dropbox SDK
 /// outside this package goes through here.
 public final class DropboxAccount: CloudAccount {
     /// The app reads the folder in Dropbox, and writes the pages that changed in the app. It
@@ -14,7 +14,7 @@ public final class DropboxAccount: CloudAccount {
     private static let scopes = ["files.metadata.read", "files.content.read", "files.content.write"]
 
     private let key: String
-    private let folder: String
+    public let folder: String
     private let sdk: DropboxSdk
 
     /// The account with the Dropbox SDK. `key` is the App key of the Dropbox app, and it is
@@ -49,9 +49,9 @@ public final class DropboxAccount: CloudAccount {
         return sdk.endSignIn(url) { signedIn in DispatchQueue.main.async { then(signedIn) } }
     }
 
-    public func cloud() -> Cloud? {
-        guard isSetUp, let files = sdk.files() else { return nil }
-        return DropboxCloud(files: files, folder: folder)
+    public func calls() -> PetaDropboxSdk? {
+        guard isSetUp else { return nil }
+        return sdk.calls()
     }
 
     public func signOut() {
