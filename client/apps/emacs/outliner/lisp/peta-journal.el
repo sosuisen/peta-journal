@@ -1789,6 +1789,13 @@ opens it, and C-g closes the search."
   "The width of the sidebar, in columns."
   :type 'natnum)
 
+(defcustom peta-journal-sidebar-collapsed nil
+  "The sections of the sidebar that show only their title.
+TAB in the sidebar opens or closes the section at the point, and saves this."
+  :type '(set (const :tag "The pages of the folder" index)
+              (const :tag "Contents" contents)
+              (const :tag "Recent Pages" recent)))
+
 (defconst peta-journal--sidebar-buffer "*PetaJournal Sidebar*"
   "The name of the buffer of the sidebar.")
 
@@ -1798,13 +1805,15 @@ opens it, and C-g closes the search."
 (defvar-keymap peta-journal-sidebar-mode-map
   :parent special-mode-map
   "RET" #'peta-journal-sidebar-open
+  "TAB" #'peta-journal-sidebar-toggle-section
   "<mouse-2>" #'peta-journal-sidebar-mouse-open
   "n" #'next-line
   "p" #'previous-line)
 
 (define-derived-mode peta-journal-sidebar-mode special-mode "PetaJournal Sidebar"
   "The sidebar of a page, as in the web frontend: the pages of its folder, its
-headings and the recent pages.  RET opens the line at the point."
+headings and the recent pages.  RET opens the line at the point, and TAB
+opens or closes its section."
   (setq truncate-lines t))
 
 (defun peta-journal-sidebar ()
@@ -1845,39 +1854,93 @@ this page is in the selected window, as the sidebar follows the page worked on."
             (shown-line (line-number-at-pos)))
         (erase-buffer)
         (when-let* ((index (plist-get sidebar :index)))
-          (peta-journal--sidebar-page-line page (plist-get index :header)
-                                           (plist-get index :path) 'peta-journal-sidebar-section)
-          (when-let* ((parent (plist-get index :parent)))
-            (peta-journal--sidebar-page-line page "  ../" parent))
-          (seq-doseq (line (plist-get index :pages))
-            (peta-journal--sidebar-page-line
-             page (concat "  " (plist-get line :label)) (plist-get line :path)
-             (and (plist-get line :current) 'peta-journal-sidebar-current))))
+          (peta-journal--sidebar-section
+           'index (plist-get index :header) (peta-journal--sidebar-opener page (plist-get index :path))
+           (lambda ()
+             (when-let* ((parent (plist-get index :parent)))
+               (peta-journal--sidebar-page-line page "  ../" parent))
+             (seq-doseq (line (plist-get index :pages))
+               (peta-journal--sidebar-page-line
+                page (concat "  " (plist-get line :label)) (plist-get line :path)
+                (and (plist-get line :current) 'peta-journal-sidebar-current))))))
         (let ((headings (plist-get sidebar :headings)))
           (unless (seq-empty-p headings)
-            (insert (propertize "Contents" 'face 'peta-journal-sidebar-section) "\n")
-            (seq-doseq (heading headings)
-              (peta-journal--sidebar-heading-line page heading))))
+            (peta-journal--sidebar-section
+             'contents "Contents" #'peta-journal-sidebar-toggle-section
+             (lambda ()
+               (seq-doseq (heading headings)
+                 (peta-journal--sidebar-heading-line page heading))))))
         (let ((recent (plist-get sidebar :recent)))
           (unless (seq-empty-p recent)
-            (insert (propertize "Recent Pages" 'face 'peta-journal-sidebar-section) "\n")
-            (seq-doseq (line recent)
-              (peta-journal--sidebar-page-line
-               page (concat "  " (if-let* ((dir (plist-get line :dir)))
-                                     (propertize dir 'face 'peta-journal-sidebar-folder)
-                                   "")
-                            (plist-get line :label))
-               (plist-get line :path)))))
+            (peta-journal--sidebar-section
+             'recent "Recent Pages" #'peta-journal-sidebar-toggle-section
+             (lambda ()
+               (seq-doseq (line recent)
+                 (peta-journal--sidebar-page-line
+                  page (concat "  " (if-let* ((dir (plist-get line :dir)))
+                                        (propertize dir 'face 'peta-journal-sidebar-folder)
+                                      "")
+                               (plist-get line :label))
+                  (plist-get line :path)))))))
         (goto-char (point-min))
         (forward-line (1- shown-line))))))
 
+(defvar-keymap peta-journal--sidebar-mark-map
+  :doc "The keys on the mark before the title of a section of the sidebar."
+  "<mouse-2>" #'peta-journal-sidebar-mouse-toggle)
+
+(defun peta-journal--sidebar-section (section title action insert-lines)
+  "Insert the SECTION of the sidebar: the line TITLE, which does ACTION when it is
+opened, and under it what INSERT-LINES inserts, unless the section is closed.
+A click on the mark before TITLE opens or closes the section."
+  (let ((start (point))
+        (open (not (memq section peta-journal-sidebar-collapsed))))
+    (peta-journal--sidebar-line
+     (concat (propertize (if open "▾ " "▸ ") 'keymap peta-journal--sidebar-mark-map
+                         'help-echo "mouse-1: open or close the section")
+             (propertize title 'face 'peta-journal-sidebar-section))
+     action)
+    (when open
+      (funcall insert-lines))
+    (put-text-property start (point) 'peta-section section)))
+
+(defun peta-journal--sidebar-opener (page path)
+  "What opens PATH in PAGE from a line of the sidebar."
+  (lambda ()
+    (peta-journal--sidebar-to-page page)
+    (peta-journal--go "go_to_page" :path path)))
+
+(defconst peta-journal--sidebar-sections '(index contents recent)
+  "The sections of the sidebar, in their order.")
+
+(defun peta-journal-sidebar-toggle-section ()
+  "Close the section of the sidebar at the point, or open it when it is closed.
+The closed sections are saved, so that they stay closed in the next Emacs."
+  (interactive)
+  (let ((section (get-text-property (point) 'peta-section)))
+    (unless section
+      (user-error "No section here"))
+    (let* ((closed (if (memq section peta-journal-sidebar-collapsed)
+                       (remq section peta-journal-sidebar-collapsed)
+                     (cons section peta-journal-sidebar-collapsed)))
+           (sorted (seq-filter (lambda (s) (memq s closed)) peta-journal--sidebar-sections)))
+      ;; Emacs started with -q has no init file to save to, and refuses to overwrite one
+      (if (or custom-file user-init-file)
+          (customize-save-variable 'peta-journal-sidebar-collapsed sorted)
+        (customize-set-variable 'peta-journal-sidebar-collapsed sorted)))
+    (peta-journal--sidebar-render peta-journal--sidebar-page)
+    (goto-char (text-property-any (point-min) (point-max) 'peta-section section))))
+
+(defun peta-journal-sidebar-mouse-toggle (event)
+  "Open or close the section of the sidebar whose mark EVENT clicked."
+  (interactive "e")
+  (mouse-set-point event)
+  (peta-journal-sidebar-toggle-section))
+
 (defun peta-journal--sidebar-page-line (page text path &optional face)
   "Insert the line TEXT of the sidebar, with FACE, which opens PATH in PAGE."
-  (peta-journal--sidebar-line
-   (if face (propertize text 'face face) text)
-   (lambda ()
-     (peta-journal--sidebar-to-page page)
-     (peta-journal--go "go_to_page" :path path))))
+  (peta-journal--sidebar-line (if face (propertize text 'face face) text)
+                              (peta-journal--sidebar-opener page path)))
 
 (defun peta-journal--sidebar-heading-line (page heading)
   "Insert the line of HEADING of the sidebar, which moves the point of PAGE to it."
