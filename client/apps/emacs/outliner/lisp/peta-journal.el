@@ -1025,7 +1025,7 @@ Not from here but from a timer: a process filter is no place for a prompt."
 (defconst peta-journal--commands-that-end-the-edit
   '(peta-journal-save peta-journal-today peta-journal-back peta-journal-forward
     peta-journal-next-day peta-journal-previous-day peta-journal-open-at-point
-    peta-journal-search peta-journal-rename-page)
+    peta-journal-search peta-journal-rename-page peta-journal-delete-page)
   "The commands after which the point stays in an item that is not being edited.
 A saved edit must stay closed, and a page being left has nothing more to edit.")
 
@@ -1280,6 +1280,12 @@ put a link to it at the point."
        (user-error "Only a doc page can be renamed, not a journal, an index or an atlas"))
      (list (read-string "Rename page to: " current))))
   (peta-journal--go "rename_page" :path path))
+
+(defun peta-journal-delete-page ()
+  "Delete the page on screen, after a question.  Today's journal opens then.
+Today's journal itself cannot be deleted."
+  (interactive)
+  (peta-journal--go "delete_page"))
 
 (defun peta-journal-back ()
   "Go back to the page shown before."
@@ -1894,6 +1900,7 @@ This is for `completion-at-point-functions'."
   "C-c C-x b" #'peta-journal-backlinks
   "C-c C-x f" #'peta-journal-forward
   "C-c C-x r" #'peta-journal-rename-page
+  "C-c C-x d" #'peta-journal-delete-page
   "C-c C-x p" #'peta-journal-properties
   "C-c C-x n" #'peta-journal-new-buffer
   "C-c C-x i" #'peta-journal-insert-image
