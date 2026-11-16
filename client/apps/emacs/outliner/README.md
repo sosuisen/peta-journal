@@ -150,6 +150,10 @@ left out, as `C-c C-x c` opens the calendar of Emacs.
 `RET` or a click on a line opens its page. On a heading, the point moves to that item of the page.
 The sidebar is drawn again when the page changes.
 
+`TAB` on any line of a section closes it to its title, and opens it again. A click on the `▾` or
+`▸` before a title does the same. The closed sections are saved in `peta-journal-sidebar-collapsed`,
+so they stay closed in the next Emacs.
+
 ## Completing a wiki link
 
 Between `[[` and `]]`, `C-M-i` completes the name of a page. This is the standard completion of
