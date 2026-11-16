@@ -29,7 +29,21 @@ Emacsの初期設定ファイルに、次の内容を追加する。
 
 ジャーナルサーバーを起動した状態で、`M-x peta-journal`を実行する。今日のジャーナルが開く。
 
-モードは、`target/release`、`target/debug`、`exec-path`からプログラムを探す。別のプログラムを使うときは、`peta-journal-shell-program`を設定する。Emacs 29.1以降が必要である。
+モードは、`exec-path`、`target/release`、`target/debug`の順にプログラムを探す。別のプログラムを使うときは、`peta-journal-shell-program`を設定する。Emacs 29.1以降が必要である。
+
+### `target`を外付けのディスクに置いているとき
+
+`client/target`を外付けのディスクへのシンボリックリンクにしていると、ディスクを外したときに、モードはプログラムを見つけられない。そこで、プログラムのコピーを`exec-path`の上（たとえば`~/.local/bin`）に置く。
+
+モードは`exec-path`を先に探すので、ビルドしただけでは、古いコピーが動き続ける。新しい機能が出ないときは、これを疑う。ビルドのたびに、コピーを置き直す。
+
+```sh
+cd peta-journal/client
+cargo build --release -p outliner-emacs
+cp target/release/outliner-emacs ~/.local/bin/
+```
+
+そのあと、PetaJournalのバッファを`C-x k`ですべて閉じ、`M-x peta-journal`を実行し直す。動いているプログラムは、バッファを閉じるまで古いままである。
 
 ### 別のサーバーを使う
 

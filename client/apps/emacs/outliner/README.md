@@ -32,8 +32,26 @@ Add this to your Emacs init file:
 
 Then run `M-x peta-journal` while the journal server is running. It opens today's journal.
 
-The mode finds the program in `target/release` or `target/debug`, or on the `exec-path`. To use
-another one, set `peta-journal-shell-program`. Emacs 29.1 or newer is needed.
+The mode looks for the program on the `exec-path` first, then in `target/release` and
+`target/debug`. To use another one, set `peta-journal-shell-program`. Emacs 29.1 or newer is
+needed.
+
+### When `target` is on an external disk
+
+If `client/target` is a symbolic link to an external disk, the mode cannot find the program while
+the disk is out. Keep a copy of the program on the `exec-path` then, such as in `~/.local/bin`.
+
+The mode looks on the `exec-path` first, so after a build the old copy keeps running. When a new
+feature does not show, suspect this. Copy the program again after each build:
+
+```sh
+cd peta-journal/client
+cargo build --release -p outliner-emacs
+cp target/release/outliner-emacs ~/.local/bin/
+```
+
+Then close every PetaJournal buffer with `C-x k` and run `M-x peta-journal` again. A running
+program stays the old one until its buffer is closed.
 
 ### Using another server
 
