@@ -96,6 +96,34 @@ public sealed class ShellTests : IDisposable
         Assert.Equal("/pages/winui-notes", shell.Url);
     }
 
+    // 戻ると、前に開いたページがまた開き、付箋紙が覚えるURLもそのページになる。進むと、戻る前のページに戻る（ADR 035）。
+    [Fact]
+    public void Back_and_forward_follow_the_pages_opened_and_the_url_follows()
+    {
+        var shell = NewShell("/pages/winui-first");
+        main.WaitUntil("the first page is shown", () => Page(shell)?.Page.Name == "winui-first");
+        Assert.False(shell.View.History.CanGoBack);
+        shell.Open("/pages/winui-second");
+        main.WaitUntil("the second page is shown", () => Page(shell)?.Page.Name == "winui-second");
+
+        shell.GoBack();
+
+        main.WaitUntil(
+            "the first page is shown again",
+            () => Page(shell)?.Page.Name == "winui-first"
+        );
+        Assert.Equal("/pages/winui-first", shell.Url);
+        Assert.True(shell.View.History.CanGoForward);
+
+        shell.GoForward();
+
+        main.WaitUntil(
+            "the second page is shown again",
+            () => Page(shell)?.Page.Name == "winui-second"
+        );
+        Assert.Equal("/pages/winui-second", shell.Url);
+    }
+
     // 項目に入力すると、少しあとにサーバーに保存される。
     [Fact]
     public void Typing_into_an_item_is_saved_on_the_server()
