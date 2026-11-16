@@ -982,6 +982,19 @@ AndroidとiOSのシェルが使う同期の決まりを、Rustに1回だけ書�
 - Dropboxのcontent hash
   - 4MBごとのハッシュをつないだもののハッシュである。4MBちょうどのファイルは、1つのブロックだけで作る。読めないファイルには、ハッシュがない
 
+### シェルへの入口
+
+出典: `client/libs/client-shell-embedded/src/cloud_tests.rs`
+
+- 同期は、シェルのDropbox SDKの呼び出し（`PetaDropbox`）を通してファイルを取り、シェルにコアへの取り込みを頼み（`PetaSyncHost.take_in`）、アプリで変わったページを上げる。進み具合は`PetaSyncHost.told`で伝わる
+- シェルが返す失敗の種類で、同期の止まり方が決まる
+  - 通信の失敗（`Offline`）は、通信の失敗で止まる。SDKの言葉は、`PetaSyncHost.log`に渡る
+  - ほかの失敗（`Other`）と、シェルが宣言していない例外は、通信ではない失敗で止まる
+  - 版の衝突（`UploadConflict`）は、ダウンロードからやり直す。3回続けば止まる
+  - カーソルを忘れた（`CursorForgotten`）は、Dropboxの全部を尋ね直す
+- シェルが消えたと伝えたファイルは、アプリのフォルダーからも消える
+- サインアウトすると、サインインしていない状態になり、カーソルのファイルが消える
+
 ## iPhoneで読み書きする
 
 iOSのシェル（`client/apps/native-app/outliner-ios`）の機能である。Androidのシェルと同じことをする（ADR 034）。
