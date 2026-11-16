@@ -50,6 +50,9 @@ public final class CloudSync: ObservableObject {
     /// runs, another starts after it, once. `inFront` says that the user waits for it.
     public func start(_ sdk: PetaDropboxSdk, folder: String, inFront: Bool) {
         sync.start(dropbox: sdk, folder: folder, inFront: inFront)
+        // The core tells of it a moment later, on the main queue. The screen must not offer
+        // the sign-out meanwhile: the core does not take it while a sync runs
+        read()
     }
 
     /// The user has signed out. What was downloaded stays. The core forgets where the last
@@ -57,12 +60,14 @@ public final class CloudSync: ObservableObject {
     /// runs: the screen offers no sign-out then.
     public func signOut() {
         sync.signOut()
-        state = .signedOut
+        read()
     }
 
-    fileprivate func told(_ state: SyncState, inFront: Bool) {
-        self.state = state
-        self.inFront = inFront
+    /// Reads where the sync stands from the core. What the core told on its thread may be old
+    /// by the time it reaches this queue: a sync may have started since.
+    fileprivate func read() {
+        state = sync.state()
+        inFront = sync.inFront()
     }
 }
 
@@ -82,7 +87,7 @@ private final class Host: PetaSyncHost, @unchecked Sendable {
 
     func told(state: PetaSyncState, inFront: Bool) {
         DispatchQueue.main.async { [weak self] in
-            MainActor.assumeIsolated { self?.cloud?.told(state, inFront: inFront) }
+            MainActor.assumeIsolated { self?.cloud?.read() }
         }
     }
 
