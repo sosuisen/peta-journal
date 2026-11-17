@@ -54,13 +54,10 @@ final class SelectionKeysView: NSView {
 
 extension Chord {
     /// The key of an event with the keys held down with it, as the core knows it (ADR 052).
-    /// Nil for a key that the core does not know. What the chord means is decided in the core.
+    /// Nil for a key that the core does not know.
     static func of(_ event: NSEvent) -> Chord? {
-        let held = event.modifierFlags
         guard let key = Key.of(event) else { return nil }
-        return Chord(
-            key: key, shift: held.contains(.shift), ctrl: held.contains(.control),
-            alt: held.contains(.option), cmd: held.contains(.command))
+        return Keyboard.chord(key, holding: event.modifierFlags)
     }
 }
 

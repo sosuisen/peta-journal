@@ -4,12 +4,15 @@ import XCTest
 /// A journal server for a test, with its files in a folder of its own. It needs the program:
 /// the tests that use it are skipped when `PETA_E2E_SERVER` does not name it.
 final class JournalServer {
+    /// The client that `send` changes things as.
+    private static let anotherClient = UUID().uuidString.lowercased()
     let address: String
     private let process = Process()
     private let root: URL
 
-    /// Starts the server and waits until it answers.
-    init(port: Int) throws {
+    /// Starts the server and waits until it answers. `functions` are the extensions of the
+    /// server: the `main.js` of each, by its name.
+    init(port: Int, functions: [String: String] = [:]) throws {
         guard let program = ProcessInfo.processInfo.environment["PETA_E2E_SERVER"] else {
             throw XCTSkip("PETA_E2E_SERVER does not name the journal-server program")
         }
@@ -24,6 +27,13 @@ final class JournalServer {
         let settings = ["markdownDir": markdown.path, "weekNumbering": "iso"]
         try JSONSerialization.data(withJSONObject: settings)
             .write(to: config.appendingPathComponent("config.json"))
+        for (name, mainJs) in functions {
+            let folder = config.appendingPathComponent("functions").appendingPathComponent(name)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try JSONSerialization.data(withJSONObject: ["name": name])
+                .write(to: folder.appendingPathComponent("config.json"))
+            try mainJs.write(to: folder.appendingPathComponent("main.js"), atomically: true, encoding: .utf8)
+        }
 
         process.executableURL = URL(fileURLWithPath: program)
         process.arguments = [
@@ -66,11 +76,17 @@ final class JournalServer {
 
     /// Sends JSON with a POST and waits for the answer.
     func post(_ path: String, _ json: [String: Any]) async throws {
+        try await send("POST", path, json)
+    }
+
+    /// Changes something on the server as another client does: the web frontend or a tool.
+    /// Throws when the server does not take it.
+    func send(_ method: String, _ path: String, _ json: [String: Any]) async throws {
         var request = URLRequest(url: URL(string: address + path)!)
-        request.httpMethod = "POST"
+        request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // The server refuses a change that does not say which client made it
-        request.setValue(UUID().uuidString.lowercased(), forHTTPHeaderField: "X-Client-Id")
+        // A change names its client (ADR 015). This one is none of the shells of the test
+        request.setValue(Self.anotherClient, forHTTPHeaderField: "X-Client-Id")
         request.httpBody = try JSONSerialization.data(withJSONObject: json)
         let (_, answer) = try await URLSession.shared.data(for: request)
         let status = (answer as? HTTPURLResponse)?.statusCode ?? 0

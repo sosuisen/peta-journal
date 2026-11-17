@@ -284,10 +284,18 @@ the entries, then closes the box. The entry "Create" makes a page with the typed
 `swift test` runs `Tests/PetaBorderTests`.
 
 `BorderTests` need no journal server. They check that Swift reads what Rust writes (the view
-model, the requests) and that Rust reads what Swift writes (events, answers).
+model, the requests) and that Rust reads what Swift writes (events, answers). `ShownTextTests`
+and `AssetImagesTests` need none either.
 
 `ShellTests` run `Shell` against a real journal server: a page opens, what is typed is saved on
-the server, and the questions of the core are answered. They are skipped unless `PETA_E2E_SERVER` names the server program:
+the server, and the questions of the core are answered. The keys are pressed as the app
+presses them: the chord goes to the core, which decides what it means. "Undo", "Redo" and
+"Copy" are chosen as the Edit menu does. A question is asked by an extension of the server, and
+another client changes the page through the API of the server.
+
+`ShellTests`, `OutlineScreenTests`, `JournalScreenTests`, `StickyDeskTests` and
+`TypingSpeedTests` need a server. They are skipped unless `PETA_E2E_SERVER` names the server
+program:
 
 ```
 cd peta-journal/journal
@@ -322,9 +330,17 @@ texts at a time. The cursor going to another item takes 16 ms in the shell and t
 
 `JournalScreenTests` put a journal of two days in a window and scroll it.
 
-The tests start the server themselves, on ports 18094, 18095, 18097 to 18100, with all its files in a temporary folder.
-They check that the server writes its Markdown there before they use it, so the notes of whoever
-runs the tests are never touched.
+`StickyDeskTests` open the stickies in windows: adding and closing them, what comes back at the
+next start, the title bar, the colors, the menu of a sticky and the zoom.
+
+`ShownTextTests` check the text that an item shows when it is not edited: its marks, images,
+links and headings, and where a touch on it lands. `AssetImagesTests` check that the images of
+the assets are read once.
+
+The tests start the server themselves, with all its files in a temporary folder.
+`OutlineScreenTests` use port 18094, `TypingSpeedTests` 18095, `ShellTests` 18097,
+`StickyDeskTests` 18098 and `JournalScreenTests` 18100. The tests check that the server writes
+its Markdown there before they use it. The notes of whoever runs the tests are never touched.
 
 Why these tests matter: the Swift types are generated from the shape of the Rust types, not from
 what serde writes. A Rust type with a hand-written `Serialize` can write other bytes than its

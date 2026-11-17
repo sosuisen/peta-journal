@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import PetaCore
 import PetaTypes
@@ -8,10 +9,21 @@ import XCTest
 /// The shell against a real journal server. These are skipped without `PETA_E2E_SERVER`.
 @MainActor
 final class ShellTests: XCTestCase {
+    /// An extension of the server that asks the clients, as an extension of the user may. It
+    /// asks when a page gets a tag that starts with "ask", and adds an item after a yes.
+    private static let askingExtension = """
+        globalThis.onPageTagAdd = (page, tags) => {
+            if (!tags.some(tag => tag.startsWith('ask'))) return;
+            if (peta.confirm('Insert into ' + page.fileName + '?')) {
+                peta.createItem({ position: 'last', level: 1, body: 'confirmed' });
+            }
+        };
+        """
+
     private var server: JournalServer!
 
     override func setUp() async throws {
-        server = try JournalServer(port: 18097)
+        server = try JournalServer(port: 18097, functions: ["asking": Self.askingExtension])
     }
 
     override func tearDown() async throws {
@@ -128,30 +140,42 @@ final class ShellTests: XCTestCase {
         let first = shell.view.outline.rows[0].item.id
         shell.startEditing(first)
         shell.typed("first", into: first)
-        shell.send(.enterPressed(itemId: first, cursor: 5, nowMs: 0))
+        XCTAssertTrue(press(shell, .enter, in: first, editor("first", cursor: 5)))
         try await waitUntil("there are two items") { shell.view.outline.rows.count == 2 }
     }
 
-    // コアが確認を求めると、質問が出る。「いいえ」では何も起きず、「はい」でコアが先へ進む。
-    func testAConfirmationIsAnsweredWithYesOrNo() async throws {
+    /// Waits until the shell hears what the server tells its clients. A change of another
+    /// client before that would not reach it.
+    private func hearsTheServer(_ shell: Shell) async throws {
+        try await waitUntil("the shell hears the server") { shell.view.connection == .connected }
+    }
+
+    /// Gives the page the tag, as another client does.
+    private func tag(_ pageId: String, _ tag: String) async throws {
+        try await server.send("PUT", "/api/pages/\(pageId)/properties/tags", ["valueType": "tags", "value": tag])
+    }
+
+    // サーバーの拡張が確認を求めると、質問が出る。「いいえ」では何も起きず、「はい」で拡張が先へ進む。
+    func testAConfirmationOfAnExtensionIsAnsweredWithYesOrNo() async throws {
         let shell = try await shellWithPage()
         let pageId = try XCTUnwrap(page(shell)).page.id
+        try await hearsTheServer(shell)
 
-        shell.send(.deleteCurrentPage)
+        try await tag(pageId, "ask-first")
         try await waitUntil("the shell is asked to confirm") { shell.question != nil }
-        XCTAssertEqual(shell.question?.message, "Delete \"swift-notes\"?")
+        XCTAssertEqual(shell.question?.message, "Insert into swift-notes?")
         XCTAssertEqual(shell.question?.kind, .confirm)
         shell.answer(yes: false)
         XCTAssertNil(shell.question)
-        shell.send(.deleteCurrentPage)
+        try await tag(pageId, "ask-second")
         try await waitUntil("the shell is asked again") { shell.question != nil }
-        XCTAssertNoThrow(try server.get("/api/pages/\(pageId)"))
         shell.answer(yes: true)
 
-        let server = try XCTUnwrap(self.server)
-        try await waitUntil("the page is gone from the server") {
-            (try? server.get("/api/pages/\(pageId)")) == nil
-        }
+        // Only the yes added an item: the no added none before it. The item of the extension
+        // takes the place of the empty item of the new page, as the server does with an item
+        // placed last on a page whose only item is empty
+        try await waitUntil("the item of the extension is shown") { self.bodies(shell).contains("confirmed") }
+        XCTAssertEqual(bodies(shell), ["confirmed"])
     }
 
     // Enterで項目を分けると、コアが新しい項目にカーソルを置くように頼む。
@@ -179,19 +203,24 @@ final class ShellTests: XCTestCase {
         }
     }
 
-    // ほかで表示されている項目を消すときは、元に戻しにくい操作として確認を求められる。
+    // ほかで表示されている項目を選んで消すときは、元に戻しにくい操作として確認を求められる。
     func testDeletingATranscludedItemIsAskedAsHardToUndo() async throws {
-        var copied: String?
-        let shell = try await shellWithPage(clipboard: { copied })
+        let shell = try await shellWithPage()
+        try await hearsTheServer(shell)
         try await twoItems(shell)
         let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
-        copied = first
-        shell.send(.pasteAsTransclusion(itemId: second))
+        // Enter left the cursor in the second item. While any item is edited, the core does not
+        // read again a page that another client changed. It reads it once the edit ends
+        shell.finishEditing(second)
+        // Another client, such as the web frontend, shows the first item in the second
+        try await server.send("POST", "/api/items/\(second)/transclude", ["sourceItemId": first])
         try await waitUntil("the second item shows the first") {
             shell.view.outline.rows.contains { $0.item.id == second && $0.item.transcludeItemId == first }
         }
 
-        shell.send(.deleteItem(itemId: first))
+        XCTAssertTrue(press(shell, .up, in: first, editor("first", cursor: 0), holding: .shift))
+        // The key that a Mac calls delete
+        press(shell, .backspace)
 
         try await waitUntil("the shell is asked to confirm") { shell.question != nil }
         XCTAssertEqual(shell.question?.kind, .confirmDestructive)
@@ -201,6 +230,26 @@ final class ShellTests: XCTestCase {
     /// tested in the core (ADR 052).
     private func editor(_ text: String, cursor: UInt64) -> EditorState {
         EditorState(text: text, selectionStart: cursor, selectionEnd: cursor, onFirstLine: true, onLastLine: true)
+    }
+
+    /// Presses a key in the editor of the item, as the app does: the editor hands the chord to
+    /// the core, which decides what it means (ADR 052).
+    private func press(
+        _ shell: Shell, _ key: Key, in itemId: String, _ editor: EditorState,
+        holding held: NSEvent.ModifierFlags = []
+    ) -> Bool {
+        shell.pressed(.inEditor(itemId: itemId, chord: Keyboard.chord(key, holding: held), editor: editor))
+    }
+
+    /// Presses a key while items are selected, as the app does.
+    private func press(_ shell: Shell, _ key: Key, holding held: NSEvent.ModifierFlags = []) {
+        _ = shell.pressed(.inSelection(chord: Keyboard.chord(key, holding: held)))
+    }
+
+    /// Chooses "Undo" or "Redo" of the Edit menu while the item is edited. The menu takes
+    /// Command+Z before the editor, and names the key itself.
+    private func choose(_ shell: Shell, _ key: EditorKey, in itemId: String, _ editor: EditorState) -> Bool {
+        shell.pressed(.named(itemId: itemId, key: key, editor: editor))
     }
 
     private func bodies(_ shell: Shell) -> [String] {
@@ -214,7 +263,7 @@ final class ShellTests: XCTestCase {
         shell.startEditing(first)
         shell.typed("日本語second", into: first)
 
-        XCTAssertTrue(shell.pressed(.enter, in: first, editor("日本語second", cursor: 3)))
+        XCTAssertTrue(press(shell, .enter, in: first, editor("日本語second", cursor: 3)))
 
         try await waitUntil("the item is split") { self.bodies(shell) == ["日本語", "second"] }
         let second = shell.view.outline.rows[1].item.id
@@ -228,9 +277,9 @@ final class ShellTests: XCTestCase {
         let second = shell.view.outline.rows[1].item
         XCTAssertEqual(second.level, shell.view.outline.rows[0].item.level)
 
-        XCTAssertTrue(shell.pressed(.tab, in: second.id, editor("", cursor: 0)))
+        XCTAssertTrue(press(shell, .tab, in: second.id, editor("", cursor: 0)))
         XCTAssertEqual(shell.view.outline.rows[1].item.level, second.level + 1)
-        XCTAssertTrue(shell.pressed(.backTab, in: second.id, editor("", cursor: 0)))
+        XCTAssertTrue(press(shell, .tab, in: second.id, editor("", cursor: 0), holding: .shift))
         XCTAssertEqual(shell.view.outline.rows[1].item.level, second.level)
     }
 
@@ -241,7 +290,7 @@ final class ShellTests: XCTestCase {
         let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
         shell.typed("second", into: second)
 
-        XCTAssertTrue(shell.pressed(.up, in: second, editor("second", cursor: 2)))
+        XCTAssertTrue(press(shell, .up, in: second, editor("second", cursor: 2)))
 
         try await waitUntil("the cursor is asked into the first item") {
             shell.view.outline.focusRequest?.itemId == first
@@ -256,7 +305,7 @@ final class ShellTests: XCTestCase {
         let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
         shell.startEditing(first)
 
-        XCTAssertTrue(shell.pressed(.down, in: first, editor("first", cursor: 1)))
+        XCTAssertTrue(press(shell, .down, in: first, editor("first", cursor: 1)))
 
         try await waitUntil("the cursor is asked into the second item") {
             shell.view.outline.focusRequest?.itemId == second
@@ -269,7 +318,7 @@ final class ShellTests: XCTestCase {
         try await twoItems(shell)
         let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
 
-        XCTAssertTrue(shell.pressed(.left, in: second, editor("", cursor: 0)))
+        XCTAssertTrue(press(shell, .left, in: second, editor("", cursor: 0)))
         try await waitUntil("the cursor is asked to the end of the first item") {
             shell.view.outline.focusRequest?.itemId == first
         }
@@ -277,7 +326,7 @@ final class ShellTests: XCTestCase {
         // The core asks for the end, which the editor finds in its text
         XCTAssertEqual(utf16OfChars(text: "first", chars: asked), 5)
 
-        XCTAssertTrue(shell.pressed(.right, in: first, editor("first", cursor: 5)))
+        XCTAssertTrue(press(shell, .right, in: first, editor("first", cursor: 5)))
         try await waitUntil("the cursor is asked to the start of the second item") {
             shell.view.outline.focusRequest?.itemId == second
         }
@@ -291,7 +340,7 @@ final class ShellTests: XCTestCase {
         let second = shell.view.outline.rows[1].item.id
         shell.typed("second", into: second)
 
-        XCTAssertTrue(shell.pressed(.backspace, in: second, editor("second", cursor: 0)))
+        XCTAssertTrue(press(shell, .backspace, in: second, editor("second", cursor: 0)))
 
         try await waitUntil("the items are joined") { self.bodies(shell) == ["firstsecond"] }
     }
@@ -304,7 +353,7 @@ final class ShellTests: XCTestCase {
         shell.typed("second", into: second)
         shell.startEditing(first)
 
-        XCTAssertTrue(shell.pressed(.delete, in: first, editor("first", cursor: 5)))
+        XCTAssertTrue(press(shell, .delete, in: first, editor("first", cursor: 5)))
 
         try await waitUntil("the items are joined") { self.bodies(shell) == ["firstsecond"] }
     }
@@ -317,9 +366,9 @@ final class ShellTests: XCTestCase {
         shell.typed("to do", into: first)
         XCTAssertNil(shell.view.outline.rows[0].task)
 
-        XCTAssertTrue(shell.pressed(.taskCycle, in: first, editor("to do", cursor: 0)))
+        XCTAssertTrue(press(shell, .enter, in: first, editor("to do", cursor: 0), holding: .command))
         try await waitUntil("the item is a task") { shell.view.outline.rows[0].task == .notStarted }
-        XCTAssertTrue(shell.pressed(.taskCycle, in: first, editor("to do", cursor: 0)))
+        XCTAssertTrue(press(shell, .enter, in: first, editor("to do", cursor: 0), holding: .command))
         try await waitUntil("the task is running") { shell.view.outline.rows[0].task == .running }
     }
 
@@ -329,7 +378,7 @@ final class ShellTests: XCTestCase {
         let first = shell.view.outline.rows[0].item.id
         shell.startEditing(first)
         shell.typed("to do", into: first)
-        XCTAssertTrue(shell.pressed(.taskCycle, in: first, editor("to do", cursor: 0)))
+        XCTAssertTrue(press(shell, .enter, in: first, editor("to do", cursor: 0), holding: .command))
         try await waitUntil("the item is a task") { shell.view.outline.rows[0].task == .notStarted }
         shell.finishEditing(first)
 
@@ -344,14 +393,14 @@ final class ShellTests: XCTestCase {
         let shell = try await shellWithPage()
         try await twoItems(shell)
         let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
-        XCTAssertTrue(shell.pressed(.tab, in: second, editor("", cursor: 0)))
+        XCTAssertTrue(press(shell, .tab, in: second, editor("", cursor: 0)))
         XCTAssertEqual(shell.view.outline.rows[0].marks, ["•"])
 
-        XCTAssertTrue(shell.pressed(.fold, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(press(shell, .up, in: first, editor("first", cursor: 0), holding: .command))
         try await waitUntil("the child is hidden") { shell.view.outline.rows.count == 1 }
         XCTAssertEqual(shell.view.outline.rows[0].marks, ["◉"])
 
-        XCTAssertTrue(shell.pressed(.unfold, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(press(shell, .down, in: first, editor("first", cursor: 0), holding: .command))
         try await waitUntil("the child is shown") { shell.view.outline.rows.count == 2 }
         XCTAssertEqual(shell.view.outline.rows[0].marks, ["•"])
     }
@@ -361,18 +410,18 @@ final class ShellTests: XCTestCase {
         let shell = try await shellWithPage()
         try await twoItems(shell)
         let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
-        XCTAssertTrue(shell.pressed(.tab, in: second, editor("", cursor: 0)))
+        XCTAssertTrue(press(shell, .tab, in: second, editor("", cursor: 0)))
 
         // The children are shown already
-        XCTAssertTrue(shell.pressed(.unfold, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(press(shell, .down, in: first, editor("first", cursor: 0), holding: .command))
         XCTAssertFalse(shell.view.outline.rows[0].isCollapsed)
-        XCTAssertTrue(shell.pressed(.fold, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(press(shell, .up, in: first, editor("first", cursor: 0), holding: .command))
         try await waitUntil("the child is hidden") { shell.view.outline.rows.count == 1 }
         XCTAssertTrue(shell.view.outline.rows[0].isCollapsed)
         // The children are hidden already
-        XCTAssertTrue(shell.pressed(.fold, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(press(shell, .up, in: first, editor("first", cursor: 0), holding: .command))
         XCTAssertTrue(shell.view.outline.rows[0].isCollapsed)
-        XCTAssertTrue(shell.pressed(.unfold, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(press(shell, .down, in: first, editor("first", cursor: 0), holding: .command))
         try await waitUntil("the child is shown again") { shell.view.outline.rows.count == 2 }
     }
 
@@ -381,7 +430,7 @@ final class ShellTests: XCTestCase {
         let shell = try await shellWithPage()
         let first = shell.view.outline.rows[0].item.id
 
-        XCTAssertTrue(shell.pressed(.fold, in: first, editor("", cursor: 0)))
+        XCTAssertTrue(press(shell, .up, in: first, editor("", cursor: 0), holding: .command))
         XCTAssertFalse(shell.view.outline.rows[0].isCollapsed)
     }
 
@@ -393,9 +442,9 @@ final class ShellTests: XCTestCase {
         shell.typed("second", into: second)
         shell.startEditing(first)
 
-        XCTAssertTrue(shell.pressed(.moveDown, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(press(shell, .down, in: first, editor("first", cursor: 0), holding: [.shift, .option]))
         try await waitUntil("the first item is below") { self.bodies(shell) == ["second", "first"] }
-        XCTAssertTrue(shell.pressed(.moveUp, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(press(shell, .up, in: first, editor("first", cursor: 0), holding: [.shift, .option]))
         try await waitUntil("the first item is on top again") { self.bodies(shell) == ["first", "second"] }
     }
 
@@ -405,9 +454,9 @@ final class ShellTests: XCTestCase {
         try await twoItems(shell)
         let second = shell.view.outline.rows[1].item
 
-        XCTAssertTrue(shell.pressed(.moveIn, in: second.id, editor("", cursor: 0)))
+        XCTAssertTrue(press(shell, .right, in: second.id, editor("", cursor: 0), holding: [.shift, .option]))
         XCTAssertEqual(shell.view.outline.rows[1].item.level, second.level + 1)
-        XCTAssertTrue(shell.pressed(.moveOut, in: second.id, editor("", cursor: 0)))
+        XCTAssertTrue(press(shell, .left, in: second.id, editor("", cursor: 0), holding: [.shift, .option]))
         XCTAssertEqual(shell.view.outline.rows[1].item.level, second.level)
     }
 
@@ -416,14 +465,14 @@ final class ShellTests: XCTestCase {
         let shell = try await shellWithPage()
         try await twoItems(shell)
         let second = shell.view.outline.rows[1].item
-        XCTAssertTrue(shell.pressed(.tab, in: second.id, editor("", cursor: 0)))
+        XCTAssertTrue(press(shell, .tab, in: second.id, editor("", cursor: 0)))
         XCTAssertEqual(shell.view.outline.rows[1].item.level, second.level + 1)
 
-        XCTAssertTrue(shell.pressed(.undo, in: second.id, editor("", cursor: 0)))
+        XCTAssertTrue(choose(shell, .undo, in: second.id, editor("", cursor: 0)))
         try await waitUntil("the indent is taken back") {
             shell.view.outline.rows[1].item.level == second.level
         }
-        XCTAssertTrue(shell.pressed(.redo, in: second.id, editor("", cursor: 0)))
+        XCTAssertTrue(choose(shell, .redo, in: second.id, editor("", cursor: 0)))
         try await waitUntil("the indent is made again") {
             shell.view.outline.rows[1].item.level == second.level + 1
         }
@@ -434,7 +483,7 @@ final class ShellTests: XCTestCase {
         try await twoItems(shell)
         let second = shell.view.outline.rows[1].item.id
         shell.typed("second", into: second)
-        XCTAssertTrue(shell.pressed(.selectDown, in: second, editor("second", cursor: 0)))
+        XCTAssertTrue(press(shell, .down, in: second, editor("second", cursor: 0), holding: .shift))
     }
 
     private func selected(_ shell: Shell) -> [String] {
@@ -447,7 +496,7 @@ final class ShellTests: XCTestCase {
         try await twoItems(shell)
         let first = shell.view.outline.rows[0].item.id
 
-        XCTAssertTrue(shell.pressed(.selectUp, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(press(shell, .up, in: first, editor("first", cursor: 0), holding: .shift))
 
         XCTAssertTrue(shell.view.outline.selectionMode)
         XCTAssertEqual(selected(shell), ["first"])
@@ -458,9 +507,9 @@ final class ShellTests: XCTestCase {
         let shell = try await shellWithPage()
         try await secondOfTwoSelected(shell)
 
-        shell.selection(.extendUp)
+        press(shell, .up, holding: .shift)
         XCTAssertEqual(selected(shell), ["first", "second"])
-        shell.selection(.escape)
+        press(shell, .escape)
 
         XCTAssertFalse(shell.view.outline.selectionMode)
         XCTAssertEqual(selected(shell), [])
@@ -472,7 +521,7 @@ final class ShellTests: XCTestCase {
         let shell = try await shellWithPage()
         try await secondOfTwoSelected(shell)
 
-        shell.selection(.delete)
+        press(shell, .backspace)
 
         try await waitUntil("the second item is gone") { self.bodies(shell) == ["first"] }
         XCTAssertFalse(shell.view.outline.selectionMode)
@@ -483,7 +532,7 @@ final class ShellTests: XCTestCase {
         let shell = try await shellWithPage()
         try await secondOfTwoSelected(shell)
 
-        shell.selection(.moveUp)
+        press(shell, .up, holding: [.shift, .option])
 
         try await waitUntil("the second item is on top") { self.bodies(shell) == ["second", "first"] }
         XCTAssertEqual(selected(shell), ["second"])
@@ -502,7 +551,7 @@ final class ShellTests: XCTestCase {
         let item = shell.view.outline.rows[0].item.id
         shell.startEditing(item)
         shell.typed("see [[Idea]] #topic", into: item)
-        XCTAssertTrue(shell.pressed(.selectDown, in: item, editor("see [[Idea]] #topic", cursor: 0)))
+        XCTAssertTrue(press(shell, .down, in: item, editor("see [[Idea]] #topic", cursor: 0), holding: .shift))
 
         shell.selection(.copy)
 
@@ -523,7 +572,7 @@ final class ShellTests: XCTestCase {
             copy: { text, _ in copied.text = text })
         try await waitUntil("the page is shown") { !shell.view.outline.rows.isEmpty }
         try await secondOfTwoSelected(shell)
-        shell.selection(.extendUp)
+        press(shell, .up, holding: .shift)
 
         shell.selection(.copy)
 
