@@ -7,7 +7,6 @@ mod asset_names;
 mod client_id;
 #[path = "../common/mod.rs"]
 mod common;
-mod definitions_sync;
 mod devices;
 mod frontend;
 mod item_merge;
