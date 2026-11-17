@@ -255,12 +255,10 @@ ICONS = {
         rounded_rect(6, 10.4, 18, 13.6, 1),
         hole(rounded_rect(7.4, 11.6, 16.6, 12.4, 0.2)),
     ),
-    # Two triangles point in at a small box: the tools become a small button
+    # Two triangles point in: the tools become a small button
     "shrink_tools": icon(
         corner_chevron(6.32, 7.74, 36.87, 6.6),
         corner_chevron(17.68, 16.26, 216.87, 6.6),
-        rounded_rect(8.8, 9.6, 15.2, 14.4, 1),
-        hole(rounded_rect(10.1, 10.9, 13.9, 13.1, 0.3)),
     ),
     # The face of the small button: two triangles point out, to the full tools
     "expand_tools": icon(
