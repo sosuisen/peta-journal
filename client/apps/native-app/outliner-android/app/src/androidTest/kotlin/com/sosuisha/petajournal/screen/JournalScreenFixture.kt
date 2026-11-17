@@ -23,13 +23,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import com.sosuisha.petajournal.shell.Shell
-import com.sosuisha.petajournal.sync.Cloud
-import com.sosuisha.petajournal.sync.CloudRecord
+import com.sosuisha.petajournal.core.PetaDropboxSdk
 import com.sosuisha.petajournal.sync.CloudSync
-import com.sosuisha.petajournal.sync.Downloader
-import com.sosuisha.petajournal.sync.MarkdownFolder
-import com.sosuisha.petajournal.sync.SyncRound
-import com.sosuisha.petajournal.sync.Uploader
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -69,19 +64,22 @@ abstract class JournalScreenFixture {
      * Opens the app on the folders, and waits until the files are taken in. With a cloud, the
      * app syncs with it when "Sync" is touched; [signedIn] says whether the user has signed in.
      */
-    protected fun start(cloud: Cloud? = null, signedIn: Boolean = true) {
+    protected fun start(cloud: PetaDropboxSdk? = null, signedIn: Boolean = true) {
         val main = Handler(Looper.getMainLooper())
         compose.runOnUiThread {
             shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) }) { edits += 1 }
             shell.sync()
         }
-        val folder = MarkdownFolder(File(root, "markdown"), File(root, "temp"))
-        val record = CloudRecord(File(root, "record"))
         sync = cloud?.let {
-            val round = { from: Cloud ->
-                SyncRound(Downloader(from, folder, File(root, "cursor"), record), shell::syncAndWait, Uploader(from, folder, record))
-            }
-            CloudSync(signedIn, round, onMainThread = { main.post(it) })
+            CloudSync(
+                File(root, "markdown"),
+                File(root, "temp"),
+                File(root, "cursor"),
+                File(root, "record"),
+                signedIn,
+                takeIn = { shell.syncAndWait() },
+                onMainThread = { main.post(it) },
+            )
         }
         val browser = object : UriHandler {
             override fun openUri(uri: String) {
@@ -94,7 +92,7 @@ abstract class JournalScreenFixture {
                     shell,
                     sync?.state,
                     onSignIn = { signIns += 1 },
-                    onSync = { sync?.start(checkNotNull(cloud)) },
+                    onSync = { sync?.start(checkNotNull(cloud), FOLDER) },
                     onSignOut = {
                         signOuts += 1
                         sync?.signOut()

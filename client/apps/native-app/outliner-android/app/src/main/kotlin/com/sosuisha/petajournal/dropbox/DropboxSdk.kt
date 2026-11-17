@@ -7,6 +7,7 @@ import com.dropbox.core.android.Auth
 import com.dropbox.core.android.AuthActivity
 import com.dropbox.core.oauth.DbxCredential
 import com.dropbox.core.v2.DbxClientV2
+import com.sosuisha.petajournal.core.PetaDropboxSdk
 import kotlin.concurrent.thread
 
 /**
@@ -23,8 +24,8 @@ internal interface DropboxSdk {
     /** Lets go of the answer of the last sign-in, so that [newSignIn] gives it no more. */
     fun forgetSignIn()
 
-    /** The files of the account that the credential is for. */
-    fun files(credential: String): DropboxFiles
+    /** The calls of the account that the credential is for, for the sync. */
+    fun calls(credential: String): PetaDropboxSdk
 
     /** Tells Dropbox that the credential is no longer to be taken. It does not wait for the answer. */
     fun revoke(credential: String)
@@ -48,7 +49,7 @@ internal object RealDropboxSdk : DropboxSdk {
     }
 
     // The client gets a new access token by itself when the old one has run out
-    override fun files(credential: String): DropboxFiles = SdkDropboxFiles(client(credential))
+    override fun calls(credential: String): PetaDropboxSdk = SdkDropbox(client(credential))
 
     /**
      * Without the network, Dropbox does not hear of it: the token is then gone from the

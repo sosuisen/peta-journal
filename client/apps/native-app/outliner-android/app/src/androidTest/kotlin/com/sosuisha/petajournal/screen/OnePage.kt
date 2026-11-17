@@ -1,46 +1,64 @@
 package com.sosuisha.petajournal.screen
 
+import com.sosuisha.petajournal.core.PetaDropboxEntry
+import com.sosuisha.petajournal.core.PetaDropboxError
+import com.sosuisha.petajournal.core.PetaDropboxFile
+import com.sosuisha.petajournal.core.PetaDropboxSdk
+import com.sosuisha.petajournal.core.PetaListing
 import java.io.File
-import java.io.IOException
-import java.io.OutputStream
 import java.security.MessageDigest
 import java.util.concurrent.CountDownLatch
-import com.sosuisha.petajournal.sync.Change
-import com.sosuisha.petajournal.sync.Changes
-import com.sosuisha.petajournal.sync.Cloud
+
+/** The Markdown folder of the tests in their Dropbox. */
+internal const val FOLDER = "/PetaJournal"
 
 /**
- * A cloud with one page, or one that cannot be reached, or one that [refuses] the sync for
- * another reason. It keeps what is uploaded.
+ * A Dropbox with one page, or one that cannot be reached, or one that [refuses] the sync for
+ * another reason. It keeps what is uploaded. It fails as `SdkDropbox` does, with a failure
+ * that the sync knows.
  */
-internal class OnePage(var reachable: Boolean = true, private val refuses: Boolean = false) : Cloud {
+internal class OnePage(var reachable: Boolean = true, private val refuses: Boolean = false) : PetaDropboxSdk {
     private val text = "京都で会議がありました。\n".toByteArray()
 
-    /** The text of each uploaded file, by its path. */
+    /** The text of each uploaded file, by its path under the Markdown folder. */
     val uploaded = mutableMapOf<String, String>()
 
-    /** Holds the cloud back in its answer, until the test lets it go on. */
+    /** Holds Dropbox back in its answer, until the test lets it go on. */
     var held: CountDownLatch? = null
 
-    override fun changes(cursor: String?): Changes {
+    override fun list(folder: String): PetaListing {
+        answer()
+        val page = PetaDropboxFile("$folder/docs/trip.md", contentHash(text), "first")
+        return PetaListing(listOf(PetaDropboxEntry.File(page)), "c1", false)
+    }
+
+    override fun listAfter(cursor: String): PetaListing {
+        answer()
+        return PetaListing(emptyList(), "c1", false)
+    }
+
+    private fun answer() {
         held?.await()
-        if (!reachable) throw IOException("the network is gone")
-        check(!refuses) { "the cloud refused the sync" }
-        val whole = cursor == null
-        val page = Change.File("docs/trip.md", hashOf(text), remote = "first")
-        return Changes(if (whole) listOf(page) else emptyList(), "c1", whole)
+        if (!reachable) throw PetaDropboxError.Offline("the network is gone")
+        if (refuses) throw PetaDropboxError.Other("the cloud refused the sync")
     }
 
-    override fun download(file: Change.File, into: OutputStream) = into.write(text)
+    override fun download(rev: String, to: String) = File(to).writeBytes(text)
 
-    override fun upload(path: String, from: File, over: String?): Change.File {
-        uploaded[path] = from.readText()
-        return Change.File(path, contentHash(from), remote = "next")
+    override fun upload(path: String, from: String, over: String?, modifiedMs: Long): PetaDropboxFile {
+        val content = File(from).readBytes()
+        uploaded[path.removePrefix("$FOLDER/")] = String(content)
+        return PetaDropboxFile(path, contentHash(content), "next")
     }
 
-    override fun contentHash(file: File): String = hashOf(file.readBytes())
+    /**
+     * The content hash of Dropbox, for a file of less than 4 MB: the hash of the hash of its
+     * content. The sync compares it with the hash of the file in the app.
+     */
+    private fun contentHash(content: ByteArray): String {
+        val block = sha256(content)
+        return sha256(block).joinToString("") { "%02x".format(it) }
+    }
 
-    /** The content hash of this cloud. It is not the one of Dropbox: the sync asks the cloud. */
-    private fun hashOf(content: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(content).joinToString("") { "%02x".format(it) }
+    private fun sha256(content: ByteArray) = MessageDigest.getInstance("SHA-256").digest(content)
 }

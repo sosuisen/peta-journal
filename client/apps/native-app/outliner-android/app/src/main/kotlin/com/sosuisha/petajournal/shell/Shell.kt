@@ -4,7 +4,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.sosuisha.petajournal.core.closedAsTyped
-import com.sosuisha.petajournal.sync.findWithoutCase
 import com.sosuisha.petajournal.types.Event
 import com.sosuisha.petajournal.types.Request
 import com.sosuisha.petajournal.types.SearchEntry

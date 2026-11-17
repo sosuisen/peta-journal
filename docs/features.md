@@ -960,7 +960,7 @@
 
 ## スマホとDropboxの同期の決まり（Rust）
 
-AndroidとiOSのシェルが使う同期の決まりを、Rustに1回だけ書いたものである（ADR 054）。iOSのシェルは、これを使う。Androidのシェルは、まだ切り替えていない。決まりは、下の「iPhoneで読み書きする」と「Androidで読み書きする」の同期と同じである。
+AndroidとiOSのシェルが使う同期の決まりを、Rustに1回だけ書いたものである（ADR 054）。iOSとAndroidのシェルは、どちらもこれを使う。決まりは、下の「iPhoneで読み書きする」と「Androidで読み書きする」の同期と同じである。
 
 出典: `client/libs/client-cloud-sync/tests/it/*.rs`
 
@@ -1098,9 +1098,13 @@ Androidのシェル（`client/apps/native-app/outliner-android`）の機能で�
   - 戻る先も進む先もないときは、ボタンは出たまま押せない
 - 同期で届いたページは、コアの最近のページとディレクトリー一覧に、すぐ入る。取り込みの知らせで、コアが2つを取り直すためである。iPhoneも同じである。どちらのアプリも、一覧はまだ画面に出していない
   - 出典: `client/libs/client-shell-embedded/src/tests.rs`
+- 開いているページのファイルがダウンロードで変わると、取り込んだあと、画面に触れなくても新しい項目が出る。ほかの端末が項目の本文だけを書き換え、項目のIDが変わらないときも同じである。ただし、そのページの項目を編集している間は、編集が終わるまで読み直さない（`client-core`の`file_reload`）
+  - 出典: `client/apps/native-app/outliner-android/app/src/androidTest/kotlin/com/sosuisha/petajournal/screen/DownloadedPageTest.kt`
 - 同期のメッセージは、ページの上端に重ねて出る。下端に出すと、いちばん下の行で打つ文字に重なるためである
 - 失敗した同期は、通信ができなかったときは「Sync failed: no connection」、そのほかのときは「Sync failed」とだけ伝える。SDKの長い言葉は、画面に出さず、ログに残す
   - 通信の失敗は、例外とその原因の中の`IOException`で見分ける
+  - SDKを呼ぶ`SdkDropbox`は、SDKの例外を、コアの`PetaDropboxError`に読み替えて投げる。iOSと同じ形である（ADR 054）
+  - 出典: `client/apps/native-app/outliner-android/app/src/test/kotlin/com/sosuisha/petajournal/dropbox/DropboxFailuresTest.kt`
 - OSのボタンでキーボードを閉じても、キーボードを閉じる道具と同じく、編集を終えて項目を選ぶ。OSのボタンは、キーボードの範囲（`WindowInsets.isImeVisible`）の変化で知る
 - システムの戻る操作は、項目の選択を終える
 

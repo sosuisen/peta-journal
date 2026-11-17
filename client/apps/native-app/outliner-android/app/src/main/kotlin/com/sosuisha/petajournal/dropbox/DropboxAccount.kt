@@ -2,7 +2,7 @@ package com.sosuisha.petajournal.dropbox
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.sosuisha.petajournal.sync.Cloud
+import com.sosuisha.petajournal.core.PetaDropboxSdk
 import com.sosuisha.petajournal.sync.CloudAccount
 
 /** Where the credential of a sign-in that may write is kept. */
@@ -13,7 +13,7 @@ private const val READ_ONLY = "credential"
 
 /**
  * The account of Dropbox that the app is signed in to: the sign-in, the sign-out, and the
- * Markdown folder of the account as a [Cloud]. All that the app knows of the Dropbox SDK
+ * calls of the SDK that the sync of the core makes. All that the app knows of the Dropbox SDK
  * outside this package goes through here.
  *
  * @param kept where the credential of Dropbox is kept.
@@ -24,7 +24,7 @@ private const val READ_ONLY = "credential"
 class DropboxAccount internal constructor(
     private val kept: SharedPreferences,
     private val key: String,
-    private val folder: String,
+    override val folder: String,
     private val sdk: DropboxSdk,
 ) : CloudAccount {
     /** The account with the Dropbox SDK. The credential is in the storage of the app only. The app is in no backup. */
@@ -50,9 +50,9 @@ class DropboxAccount internal constructor(
         kept.edit().putString(CREDENTIAL, fresh).apply()
     }
 
-    override fun cloud(): Cloud? {
+    override fun calls(): PetaDropboxSdk? {
         val credential = kept.getString(CREDENTIAL, null) ?: return null
-        return DropboxCloud(sdk.files(credential), folder)
+        return sdk.calls(credential)
     }
 
     /** Lets go of the credential, and tells Dropbox that it is no longer to be taken. */
