@@ -165,6 +165,19 @@ public sealed class ShellTests : IDisposable
         Assert.Equal("/pages/winui-notes", shell.Url);
     }
 
+    // 編集中にウィンドウを閉じると、閉じたあとでエディタがカーソルを失う。そのときの編集の終わりは、何もしない。
+    [Fact]
+    public void The_end_of_an_edit_after_the_window_is_closed_does_nothing()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+
+        shell.Dispose();
+
+        shell.FinishEditing(item);
+    }
+
     // 戻ると、前に開いたページがまた開き、付箋紙が覚えるURLもそのページになる。進むと、戻る前のページに戻る（ADR 035）。
     [Fact]
     public void Back_and_forward_follow_the_pages_opened_and_the_url_follows()

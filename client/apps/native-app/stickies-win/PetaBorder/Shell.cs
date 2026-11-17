@@ -208,7 +208,13 @@ public sealed partial class Shell : IDisposable
     /// The cursor left the item. The core saves what was typed, and the item is shown with its
     /// decoration again.
     /// </summary>
-    public void FinishEditing(string itemId) => Send(new Event.EditFinished(itemId));
+    public void FinishEditing(string itemId)
+    {
+        // The window was closed while an item was edited. Its editor loses the cursor after
+        // the core is gone, and there is nothing to tell
+        if (!disposed)
+            Send(new Event.EditFinished(itemId));
+    }
 
     /// <summary>
     /// The editor of the item went away while the list changes its rows. The core is told on a
