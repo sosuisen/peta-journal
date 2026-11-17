@@ -12,6 +12,24 @@ public enum Held
     Alt = 4,
 }
 
+public static class Keyboard
+{
+    /// <summary>
+    /// The key with the keys held down with it, as the core knows it (ADR 052). What the chord
+    /// means is decided in the core.
+    /// </summary>
+    public static Chord Chord(Key key, Held held = Held.None) =>
+        new()
+        {
+            Key = key,
+            Shift = held.HasFlag(Held.Shift),
+            Ctrl = held.HasFlag(Held.Control),
+            Alt = held.HasFlag(Held.Alt),
+            // Windows has no Command key
+            Cmd = false,
+        };
+}
+
 public sealed partial class Shell
 {
     /// <summary>
