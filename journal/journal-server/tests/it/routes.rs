@@ -6,8 +6,8 @@
 //! the routes that open a window of the OS (`/api/config/browse-folder`,
 //! `/api/launcher/open`, `/api/pages/{id}/open-folder`), the uploads and the files of
 //! `/assets` (the `Assets` tests), the page of the pending deletions (a form of HTML, see
-//! `client_id.rs`) and `/api/confirm/{id}` (it needs a question of an extension, see the
-//! `extensions` tests).
+//! `client_id.rs`). `/api/confirm/{id}` answers a question the test asks through the state of
+//! the server, as no extension is installed here.
 
 use reqwest::Method;
 use serde_json::{json, Value};
@@ -334,4 +334,21 @@ async fn every_route_of_the_journals_the_search_the_config_and_the_sync_answers_
     .await;
 
     get_answers("/api/sync/status", &["markdownRoot"]).await;
+}
+
+// 拡張の問い合わせが待っているあいだ、`POST /api/confirm/{id}`は200で答え、問い合わせはその答えを受け取る。
+#[tokio::test]
+async fn the_confirm_route_answers_a_question_that_waits() {
+    let confirm = server().state.confirm.clone();
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+    let message = unique_name("routes-confirm");
+    let asked = message.clone();
+    let asking = std::thread::spawn(move || confirm.confirm(&asked));
+    let question = event_with(&mut events, &message).await;
+    let request_id = question["requestId"].as_str().unwrap();
+
+    let (status, _) = post(&format!("/api/confirm/{request_id}"), json!({ "ok": true })).await;
+
+    assert_eq!(status, 200);
+    assert!(asking.join().unwrap());
 }

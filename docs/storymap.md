@@ -166,7 +166,7 @@
       - ^ 両方で変えたときは新しい方が勝ち、古い方は `.conflict` ファイルとして残る
         - ^ 消えたファイルは確認ページで選んだものだけが消える
 - 外のプログラムと組む #拡張 #AI
-  - // 出典: journal/journal-server の tests/extensions と tests/auto_template, ext-functions/auto-template, tests/launcher.rs, journal/journal-server の MCP
+  - // 出典: journal/journal-core の tests/it/extensions.rs と tests/it/auto_template.rs, ext-functions/auto-template, tests/launcher.rs, journal/journal-server の MCP
   - 拡張機能から項目を作る
     - vvvv サーバーで動く拡張が、ページ作成やタグ追加を受けて項目を作る
       - ^ テンプレートの項目は、唯一の空の1行目を上書きし、他の項目をトランスクルードできる

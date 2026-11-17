@@ -6,8 +6,12 @@
 mod common;
 
 mod atlas_sync;
+#[cfg(feature = "extensions")]
+mod auto_template;
 mod definitions_sync;
 mod export_queue;
+#[cfg(feature = "extensions")]
+mod extensions;
 mod find_doc;
 mod item_merge;
 mod page_properties;
