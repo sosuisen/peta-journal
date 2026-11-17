@@ -443,9 +443,12 @@
 - [ ] Shiftでの範囲選択を始めるときに、coreが入力中の本文を保存する。今は、macOS（`Keys.swift:66-71`）とWindows（`Keys.cs:195-201`）が、先に`EditFinished`を送っている
 - [ ] 日付が変わったら、Rustが`/today`を開き直す。今は、どのシェルも日付の変わり目に気づかない。plansには、macOSの分だけがある。`Clock`の`now`と`sleep`で作れる
 - [ ] 触れた位置に近い文字を選ぶ決まり（縦の距離を100倍に重く見る）を、Rustに移す。iOS（`Touches.swift:48-52`）とAndroid（`Touches.kt:138-142`）に同じ式がある
-- [ ] どのイベントを編集と見なすか（`change`と`send`、TodayやCreateを選んだあとの`onEdit`）を、coreの効果（ページを書いた知らせ）にする。今は、iOSとAndroidの両方に書いてある
-- [ ] Dropboxとの同期のまわりで、iOSとAndroidに残った同じ処理をまとめる。同期そのものは、ADR 054でRustにまとめた
-  - `docs/`、`journals/`、`assets/`のフォルダーを作る処理と、編集の3秒後に同期する待ち時間が、両方の`JournalModel`にある
+- [ ] ページの変更をRustが知り、Rustが同期を始める（ADR 055、2026-11-17に開発者が受理した）
+  - `Door::call`のあとに書き出しの待ち行列を見て、`CloudSync::changed`に知らせる。`CloudSync`が3秒待ってから同期を始める
+  - `docs/`、`journals/`、`assets/`のフォルダーは、`PetaCore::new`が作る
+  - シェルから、`onEdit`、`change`と`send`の使い分け、`JournalModel`の3秒のタイマー、フォルダーを作る処理を消す
+  - 先に確かめること: BoltFFI 0.32.1で、`PetaCore`を`PetaCloudSync::new`の引数にできるか
+  - 直る不具合: Androidの`Shell.answer`は`onEdit`を呼ばないので、尋ねられて消した項目がすぐには上がらない（2026-11-17に見つけた）
 - [ ] iOSとAndroidで、`Prompt`、`ReadClipboardText`、`CopyText`、`CopyMarkdown`に答える。今は、`nil`を返すか、捨てている（`Shell.swift:318`、`Shell.kt:317`）。macOSとWindowsは、4つとも扱う
 
 ### ドラッグ選択の決まり
