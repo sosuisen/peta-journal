@@ -3,11 +3,11 @@ package com.sosuisha.petajournal.shell
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.sosuisha.petajournal.core.PetaCore
 import com.sosuisha.petajournal.core.closedAsTyped
 import com.sosuisha.petajournal.types.Event
 import com.sosuisha.petajournal.types.Request
 import com.sosuisha.petajournal.types.SearchEntry
-import com.sosuisha.petajournal.types.SearchKind
 import com.sosuisha.petajournal.types.SelectionKey
 import com.sosuisha.petajournal.types.ShellEffect
 import com.sosuisha.petajournal.types.UiOp
@@ -23,18 +23,19 @@ import java.util.concurrent.Executors
  * what the user did. All of it runs on the main thread, but the taking in of files.
  *
  * [onMainThread] runs what it is given on the main thread, later and in order. The core calls
- * from its own threads. [onEdit] is called each time the user changes a page: the app syncs
- * a moment after the last change (ADR 031).
+ * from its own threads. The core tells the sync when a page changed (ADR 055).
  */
 class Shell(
     dataDir: File,
     private val markdownDir: File,
     private val onMainThread: (() -> Unit) -> Unit,
-    private val onEdit: () -> Unit = {},
 ) : AutoCloseable {
     // The main thread keeps the requests in order. The first ones may come before the border
     // is there, and are still handled after this constructor
     private val border = Border(dataDir, markdownDir) { requests -> onMainThread { handle(requests) } }
+
+    /** The core, for the sync to hear from it when a page changed (ADR 055). */
+    val core: PetaCore get() = border.core
 
     /** Takes in the files, one sync after the other, and closes the core after the last. */
     private val worker = Executors.newSingleThreadExecutor()
@@ -90,13 +91,11 @@ class Shell(
     fun make() {
         val page = missing ?: return
         open(PAGES + page, make = true)
-        onEdit()
     }
 
     /** The user wants the journal of today: it is made when it is not there, and opens. */
     fun today() {
         open(TODAY, make = true)
-        onEdit()
     }
 
     /**
@@ -146,7 +145,6 @@ class Shell(
      */
     fun pick(entry: SearchEntry) {
         send(Event.SearchResultClicked(entry.position))
-        if (entry.kind == SearchKind.TODAY || entry.kind == SearchKind.CREATE) onEdit()
     }
 
     // The edit of an item
@@ -171,7 +169,7 @@ class Shell(
     }
 
     /** The user changed the Markdown of the item. The core saves it a moment later. */
-    fun type(itemId: String, body: String) = change(Event.BodyChanged(itemId, body, now()))
+    fun type(itemId: String, body: String) = send(Event.BodyChanged(itemId, body, now()))
 
     /**
      * The user changed the Markdown of the item, and the cursor is [cursor] UTF-16 units into
@@ -189,14 +187,14 @@ class Shell(
      * The user pressed Enter in the item. [cursor] counts the characters before it, as the
      * core counts them. The core splits the item there, and the edit goes on in the new one.
      */
-    fun enter(itemId: String, cursor: Int) = change(Event.EnterPressed(itemId, cursor.toULong(), now()))
+    fun enter(itemId: String, cursor: Int) = send(Event.EnterPressed(itemId, cursor.toULong(), now()))
 
     /**
      * The user pressed Backspace at the start of the item. The core joins the item to the one
      * before it, and the edit goes on there, where the two texts meet. Nothing happens in the
      * first item of a page.
      */
-    fun backspaceAtStart(itemId: String) = change(Event.BackspaceAtStart(itemId))
+    fun backspaceAtStart(itemId: String) = send(Event.BackspaceAtStart(itemId))
 
     /**
      * The cursor leaves the item for the one above it, at the place [cursor] in characters,
@@ -220,22 +218,22 @@ class Shell(
     private fun date(): String = LocalDate.now().toString()
 
     /** Makes the item a child of the item above it. */
-    fun indent(itemId: String) = change(Event.Indent(itemId))
+    fun indent(itemId: String) = send(Event.Indent(itemId))
 
     /** Moves the item one level up, out of its parent. */
-    fun outdent(itemId: String) = change(Event.Outdent(itemId))
+    fun outdent(itemId: String) = send(Event.Outdent(itemId))
 
     /** Swaps the item with the one above it on its level. */
-    fun moveUp(itemId: String) = change(Event.MoveUp(itemId))
+    fun moveUp(itemId: String) = send(Event.MoveUp(itemId))
 
     /** Swaps the item with the one below it on its level. */
-    fun moveDown(itemId: String) = change(Event.MoveDown(itemId))
+    fun moveDown(itemId: String) = send(Event.MoveDown(itemId))
 
     /** Moves the task on: no task, not started, running, done, and no task again. */
-    fun cycleTask(itemId: String) = change(Event.TaskCycle(itemId))
+    fun cycleTask(itemId: String) = send(Event.TaskCycle(itemId))
 
     /** Hides the children of the item, or shows them again. */
-    fun toggleCollapsed(itemId: String) = change(Event.CollapseToggle(itemId))
+    fun toggleCollapsed(itemId: String) = send(Event.CollapseToggle(itemId))
 
     /**
      * Selects the item with everything under it (ADR 031). The edit of the item has ended:
@@ -247,13 +245,13 @@ class Shell(
     fun unselect() = send(Event.SelectionKey(SelectionKey.ESCAPE))
 
     /** Moves or indents the selected items, as the keys do on a desktop. */
-    fun moveSelected(key: SelectionKey) = change(Event.SelectionKey(key))
+    fun moveSelected(key: SelectionKey) = send(Event.SelectionKey(key))
 
     /** Takes back the last change of the page. */
-    fun undo() = change(Event.Undo)
+    fun undo() = send(Event.Undo)
 
     /** Does again the change that [undo] took back. */
-    fun redo() = change(Event.Redo)
+    fun redo() = send(Event.Redo)
 
     // The files of the assets folder
 
@@ -333,12 +331,6 @@ class Shell(
     }
 
     // The events and the requests of the core
-
-    /** Sends an event that changes a page. */
-    private fun change(event: Event) {
-        send(event)
-        onEdit()
-    }
 
     private fun send(event: Event) {
         // A field that loses the focus while the screen is taken down still tells of it

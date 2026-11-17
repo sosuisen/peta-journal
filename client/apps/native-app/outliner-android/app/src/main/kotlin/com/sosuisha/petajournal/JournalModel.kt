@@ -15,7 +15,7 @@ import com.sosuisha.petajournal.shell.Shell
 import com.sosuisha.petajournal.sync.CloudAccount
 import com.sosuisha.petajournal.sync.CloudSync
 
-/** How long the app waits after the last change of a page before it syncs. */
+/** How long the sync waits after the last change of a page before it starts (ADR 055). */
 private const val AFTER_EDIT_MS = 3_000L
 
 /**
@@ -26,7 +26,7 @@ private const val AFTER_EDIT_MS = 3_000L
  *   and what the sync knows of the cloud.
  * @param cacheDir where a download is written before it is put in its place.
  * @param account the account of the cloud storage.
- * @param afterEditMs how long the app waits after the last change of a page before it syncs.
+ * @param afterEditMs how long the sync waits after the last change of a page before it starts.
  */
 class JournalModel internal constructor(
     app: Application,
@@ -46,33 +46,24 @@ class JournalModel internal constructor(
 
     private val main = Handler(Looper.getMainLooper())
 
-    // The folders of ADR 030. Kotlin makes the folders of the pages: the core takes in
-    // nothing from a Markdown folder that has neither of them
-    private val markdown = File(filesDir, "markdown").also { root ->
-        for (name in listOf("docs", "journals", "assets")) File(root, name).mkdirs()
-    }
+    /** The Markdown folder of ADR 030. The core makes the folders in it. */
+    private val markdown = File(filesDir, "markdown")
 
-    /** Syncs a moment after the last change of a page, and not once for each key. */
-    private val afterEdit = Runnable { sync() }
-
-    val shell = Shell(File(filesDir, "data"), markdown, { main.post(it) }) {
-        main.removeCallbacks(afterEdit)
-        main.postDelayed(afterEdit, afterEditMs)
-    }
+    val shell = Shell(File(filesDir, "data"), markdown, { main.post(it) })
 
     /** `null` when the account is not set up, as in an app that was built without the App key of Dropbox: it then syncs nothing. */
     val cloud: CloudSync? = if (!account.isSetUp) {
         null
     } else {
         CloudSync(
-            markdown = markdown,
+            shell = shell,
+            afterChangeMs = afterEditMs,
             temp = File(cacheDir, "downloads"),
             // Where the last download ended, for the next one to ask only for what changed
             // since, and the versions of the files in Dropbox that the app has seen
             cursor = File(filesDir, "dropbox-cursor"),
             record = File(filesDir, "dropbox-record"),
             signedIn = account.isSignedIn,
-            takeIn = shell::syncAndWait,
             onMainThread = { main.post(it) },
             log = { Log.w("PetaSync", "The sync failed: $it") },
         )
@@ -122,7 +113,6 @@ class JournalModel internal constructor(
 
     /** Closes the journal. The model does nothing more after it. */
     internal fun close() {
-        main.removeCallbacks(afterEdit)
         shell.close()
     }
 

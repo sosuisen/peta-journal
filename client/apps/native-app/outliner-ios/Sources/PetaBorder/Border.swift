@@ -20,6 +20,9 @@ final class Border: @unchecked Sendable {
         core = try PetaCore(dataDir: dataDir.path, markdownDir: markdownDir.path, shell: Listener(onRequests))
     }
 
+    /// The core, for the sync to hear from it when a page changed (ADR 055).
+    var petaCore: PetaCore { open }
+
     private var open: PetaCore {
         lock.withLock {
             guard let core else { preconditionFailure("the border is closed") }

@@ -117,17 +117,17 @@ final class JournalModelTests: XCTestCase {
         XCTAssertEqual(model.cloud?.inFront, false)
     }
 
-    // 続けて起きた変更は、最後の変更から少し待って、1回だけ同期する。キーを打つたびには同期しない。
-    func testChangesThatFollowEachOtherSyncOnceAMomentAfterTheLast() throws {
+    // アプリでページを作ると、少し待ってから同期し、そのページがDropboxに上がる。いつ同期するかは、コアが決める（ADR 055）。
+    func testAPageMadeInTheAppIsUploadedAMomentLater() throws {
         let account = FakeAccount()
         let model = try open(account, afterEdit: 0.3)
+        model.sync(inFront: true)
+        waitUntil("the first sync rests") { model.cloud?.state == .idle }
 
-        model.shell.today()
-        model.shell.today()
+        model.shell.follow("/pages/brand-new")
+        model.shell.make()
 
-        XCTAssertEqual(account.syncs, 0)
-        waitUntil("the app syncs") { account.syncs > 0 }
-        RunLoop.main.run(until: Date().addingTimeInterval(0.9))
+        waitUntil("the page goes up") { account.page.uploaded.contains("/PetaJournal/docs/brand-new.md") }
         XCTAssertEqual(account.syncs, 1)
     }
 

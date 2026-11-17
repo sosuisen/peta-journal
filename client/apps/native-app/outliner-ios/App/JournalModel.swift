@@ -13,23 +13,15 @@ final class JournalModel: ObservableObject {
 
     /// The account of the cloud storage.
     private let account: CloudAccount
-    /// How long the app waits after the last change of a page before it syncs.
-    private let waitAfterEdit: TimeInterval
-    /// Syncs a moment after the last change of a page, and not once for each key.
-    private var afterEdit: Timer?
 
     /// `root` holds all that the app keeps. The tests of the screen name a folder of their own.
-    /// `afterEdit` is how long the app waits after the last change of a page before it syncs.
+    /// `afterEdit` is how long the sync waits after the last change of a page before it
+    /// starts (ADR 055).
     init(root: URL, account: CloudAccount, afterEdit: TimeInterval = 3) throws {
         self.account = account
-        waitAfterEdit = afterEdit
         let files = FileManager.default
-        // The folders of ADR 030. The app makes the folders of the pages: the core takes in
-        // nothing from a Markdown folder that has neither of them
+        // The Markdown folder of ADR 030. The core makes the folders in it
         let markdown = root.appendingPathComponent("markdown")
-        for name in ["docs", "journals", "assets"] {
-            try files.createDirectory(at: markdown.appendingPathComponent(name), withIntermediateDirectories: true)
-        }
         let data = root.appendingPathComponent("data")
         try files.createDirectory(at: data, withIntermediateDirectories: true)
         // The data of the app is a copy of Dropbox, so it is in no backup (ADR 030)
@@ -38,36 +30,26 @@ final class JournalModel: ObservableObject {
         noBackup.isExcludedFromBackup = true
         try? kept.setResourceValues(noBackup)
 
-        let edited = Edited()
-        let shell = try Shell(dataDir: data, markdownDir: markdown) { edited.tell() }
+        let shell = try Shell(dataDir: data, markdownDir: markdown)
         self.shell = shell
 
         if !account.isSetUp {
             cloud = nil
         } else {
             cloud = CloudSync(
-                markdown: markdown,
                 temp: files.temporaryDirectory.appendingPathComponent("downloads"),
                 // Where the last download ended, for the next one to ask only for what changed
                 // since, and the versions of the files in Dropbox that the app has seen
                 cursor: root.appendingPathComponent("dropbox-cursor"),
                 record: root.appendingPathComponent("dropbox-record"),
                 signedIn: account.isSignedIn,
-                shell: shell)
+                shell: shell,
+                afterChange: afterEdit)
         }
-        edited.model = self
         // What an earlier download left, when the app ended before it was taken in
         shell.sync()
         // Before the sign-in, the journal of today is not made: the first download may bring it
         shell.restore(make: cloud == nil || account.isSignedIn)
-    }
-
-    /// The user changed a page.
-    fileprivate func edited() {
-        afterEdit?.invalidate()
-        afterEdit = Timer.scheduledTimer(withTimeInterval: waitAfterEdit, repeats: false) { [weak self] _ in
-            MainActor.assumeIsolated { self?.sync() }
-        }
     }
 
     /// Syncs with Dropbox: downloads what changed there, and uploads the pages that changed in
@@ -83,7 +65,6 @@ final class JournalModel: ObservableObject {
     /// again.
     func syncInTheBack() {
         guard let cloud, account.isSignedIn else { return }
-        afterEdit?.invalidate()
         var task = UIBackgroundTaskIdentifier.invalid
         var watch: Timer?
         let end = {
@@ -124,14 +105,5 @@ final class JournalModel: ObservableObject {
         // account. The record of the versions stays: it tells a copy from what was written
         // here and is not uploaded yet
         cloud.signOut()
-    }
-}
-
-/// Where the shell finds the model, which is made after the shell.
-private final class Edited {
-    weak var model: JournalModel?
-
-    func tell() {
-        MainActor.assumeIsolated { model?.edited() }
     }
 }

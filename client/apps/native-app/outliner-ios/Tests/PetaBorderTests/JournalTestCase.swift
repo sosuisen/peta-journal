@@ -8,13 +8,10 @@ import XCTest
 class JournalTestCase: XCTestCase {
     private(set) var root: URL!
     var shell: Shell!
-    /// How often the shell told that the user changed a page.
-    private(set) var edits = 0
 
     override func setUp() async throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("peta-shell-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: markdown.appendingPathComponent("docs"), withIntermediateDirectories: true)
-        edits = 0
     }
 
     override func tearDown() async throws {
@@ -38,9 +35,7 @@ class JournalTestCase: XCTestCase {
 
     /// Opens the app on the folders, and waits until the files are taken in.
     func start() throws {
-        shell = try Shell(dataDir: root.appendingPathComponent("data"), markdownDir: markdown) { [unowned self] in
-            edits += 1
-        }
+        shell = try Shell(dataDir: root.appendingPathComponent("data"), markdownDir: markdown)
         takeIn()
     }
 

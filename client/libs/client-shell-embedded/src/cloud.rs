@@ -4,6 +4,9 @@
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
+
+use crate::PetaCore;
 
 use client_cloud_sync::{
     CloudRecord, CloudSync, DropboxCloud, DropboxEntry, DropboxError, DropboxFile, DropboxFiles,
@@ -136,12 +139,16 @@ pub struct PetaCloudSync {
 
 #[boltffi::export]
 impl PetaCloudSync {
-    /// `markdown_dir` is the folder the core takes the files in from. `temp_dir` is where a
-    /// download is written before it is whole; it is not under `markdown_dir`. `cursor_file`
-    /// keeps where the last download ended, and `record_file` the versions of the files in
-    /// Dropbox that the app has seen.
+    /// The sync puts the downloads in the Markdown folder of `core`. `temp_dir` is where a
+    /// download is written before it is whole; it is not under the Markdown folder.
+    /// `cursor_file` keeps where the last download ended, and `record_file` the versions of
+    /// the files in Dropbox that the app has seen.
+    ///
+    /// `core` tells the sync when a page changed in the app: the sync starts when no page has
+    /// changed for `after_change_ms` (ADR 055).
     pub fn new(
-        markdown_dir: String,
+        core: &PetaCore,
+        after_change_ms: u64,
         temp_dir: String,
         cursor_file: String,
         record_file: String,
@@ -149,22 +156,23 @@ impl PetaCloudSync {
         host: Arc<dyn PetaSyncHost>,
     ) -> Self {
         let local = Local {
-            folder: MarkdownFolder::new(markdown_dir, temp_dir),
+            folder: MarkdownFolder::new(&core.markdown, temp_dir),
             cursor: cursor_file.into(),
             record: CloudRecord::new(record_file),
         };
         let taker = Arc::clone(&host);
-        PetaCloudSync {
-            sync: CloudSync::new(
-                local,
-                signed_in,
-                move || {
-                    taker.take_in();
-                    Ok(())
-                },
-                Listener { host },
-            ),
-        }
+        let sync = CloudSync::new(
+            local,
+            signed_in,
+            Duration::from_millis(after_change_ms),
+            move || {
+                taker.take_in();
+                Ok(())
+            },
+            Listener { host },
+        );
+        *core.door.on_change.write().unwrap() = Some(Box::new(sync.on_change()));
+        PetaCloudSync { sync }
     }
 
     /// Starts a sync with the folder at the path `folder` in Dropbox, such as `/PetaJournal`.
