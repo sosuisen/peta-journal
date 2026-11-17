@@ -1,0 +1,18 @@
+[package]
+name = "client-cloud-sync"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PetaJournal native frontends: the sync of the Markdown folder of the app with Dropbox, for the Android and the iOS shell (ADR 054)"
+
+[dependencies]
+serde = { workspace = true }
+# The record of the versions in the cloud, in the JSON that the iOS shell wrote (ADR 054)
+serde_json = { workspace = true }
+# The content hash of Dropbox
+sha2 = "0.11.1"
+# A name with its letters composed or apart is one name on the iPhone and the Mac
+unicode-normalization = "0.1.26"
+
+[dev-dependencies]
+tempfile = "3.27.0"

@@ -525,6 +525,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "client-cloud-sync"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "tempfile",
+ "unicode-normalization",
+]
+
+[[package]]
 name = "client-core"
 version = "0.1.0"
 dependencies = [
