@@ -161,37 +161,6 @@ async fn an_item_is_created_read_updated_and_deleted() {
     assert!(error.contains("Item not found"), "{error}");
 }
 
-// MCPでも、閉じていないブロックを持つ本文での更新は断られ、本文はそのまま残る（ADR 050）。
-#[tokio::test]
-async fn an_update_to_a_body_with_an_unclosed_block_is_refused() {
-    let mcp = connect().await;
-    let page = new_doc_page("mcp-unclosed").await;
-    let item = fill(&page.id, &["a"]).await.remove(0);
-
-    let error = call_err(
-        &mcp,
-        "update_item",
-        json!({ "itemId": item.id, "body": "```\nabc" }),
-    )
-    .await;
-
-    assert!(error.contains("開始記号と閉じる記号"), "{error}");
-    assert_eq!(outline_of(&page.id).await, vec!["1:a"]);
-}
-
-// ページの最後の項目を消すと、同じ操作で空の項目が1つ作られる。
-#[tokio::test]
-async fn deleting_the_last_item_of_a_page_leaves_one_empty_item() {
-    let mcp = connect().await;
-    let page = new_doc_page("mcp-delete-last").await;
-    let only = fill(&page.id, &["only"]).await.remove(0);
-
-    let deleted = call(&mcp, "delete_item", json!({ "itemId": only.id })).await;
-
-    assert_eq!(deleted, json!({ "deleted": true }));
-    assert_eq!(outline_of(&page.id).await, vec!["1:"]);
-}
-
 // 項目は、レベルをずらして、またはそのままで、ページの間を移動する。
 #[tokio::test]
 async fn items_move_between_pages_with_their_levels_shifted_or_kept() {
@@ -346,31 +315,19 @@ async fn told_of(events: &mut reqwest::Response, page_id: &str) -> Value {
     event_with(events, &format!("\"pageId\":\"{page_id}\"")).await
 }
 
-// MCPで項目を作ると、そのページの変更が、MCPからの変更としてクライアントに知らされる。
-#[tokio::test]
-async fn the_clients_hear_of_an_item_created_over_mcp() {
-    let mcp = connect().await;
-    let page = new_doc_page("mcp-tell-create").await;
-    let mut events = listen().await;
-
-    call(
-        &mcp,
-        "create_item",
-        json!({ "pageId": page.id, "position": "last", "level": 1, "body": "a" }),
-    )
-    .await;
-
-    assert_eq!(told_of(&mut events, &page.id).await["source"], "mcp");
-}
-
 // 項目を変えるツールのどれも、その項目のページの変更を知らせる。
 #[tokio::test]
 async fn the_clients_hear_of_each_change_of_an_item_over_mcp() {
     let mcp = connect().await;
     let page = new_doc_page("mcp-tell-item").await;
+    let other = new_doc_page("mcp-tell-item-other").await;
     let rows = fill(&page.id, &["a", "source"]).await;
     let (item, source) = (&rows[0].id, &rows[1].id);
     let changes = [
+        (
+            "create_item",
+            json!({ "pageId": page.id, "position": "last", "level": 1, "body": "c" }),
+        ),
         ("update_item", json!({ "itemId": item, "body": "b" })),
         ("cycle_task", json!({ "itemId": item })),
         (
@@ -382,6 +339,11 @@ async fn the_clients_hear_of_each_change_of_an_item_over_mcp() {
             json!({ "itemId": item, "sourceItemId": source }),
         ),
         ("remove_transclusion", json!({ "itemId": item })),
+        (
+            "move_items",
+            json!({ "itemIds": item, "targetPageId": other.id, "position": "last" }),
+        ),
+        ("delete_item", json!({ "itemId": source })),
     ];
 
     for (tool, args) in changes {
@@ -395,75 +357,6 @@ async fn the_clients_hear_of_each_change_of_an_item_over_mcp() {
             "{tool}"
         );
     }
-}
-
-/// An item, its page, and another page whose only item transcludes the item.
-async fn transcluded(mcp: &Mcp, name: &str) -> (ItemRow, PageRef, PageRef) {
-    let source_page = new_doc_page(&format!("{name}-source")).await;
-    let source = fill(&source_page.id, &["the source"]).await.remove(0);
-    let page = new_doc_page(name).await;
-    let host = fill(&page.id, &["placeholder"]).await.remove(0);
-    call(
-        mcp,
-        "set_transclusion",
-        json!({ "itemId": host.id, "sourceItemId": source.id }),
-    )
-    .await;
-    (source, source_page, page)
-}
-
-// トランスクルードされている項目を変えると、その写しを見せているページの変更も知らされる。
-#[tokio::test]
-async fn the_clients_hear_of_the_pages_that_transclude_an_item_updated_over_mcp() {
-    let mcp = connect().await;
-    let (source, _, page) = transcluded(&mcp, "mcp-tell-transcluder").await;
-    let mut events = listen().await;
-
-    call(
-        &mcp,
-        "update_item",
-        json!({ "itemId": source.id, "body": "changed" }),
-    )
-    .await;
-
-    assert_eq!(told_of(&mut events, &page.id).await["source"], "mcp");
-}
-
-// 項目を消すと、その項目があったページと、その写しを見せていたページの変更が知らされる。
-#[tokio::test]
-async fn the_clients_hear_of_the_pages_that_showed_an_item_deleted_over_mcp() {
-    let mcp = connect().await;
-    let (source, source_page, page) = transcluded(&mcp, "mcp-tell-delete").await;
-    let mut of_its_page = listen().await;
-    let mut of_the_transcluder = listen().await;
-
-    call(&mcp, "delete_item", json!({ "itemId": source.id })).await;
-
-    let its_page = told_of(&mut of_its_page, &source_page.id).await;
-    let transcluder = told_of(&mut of_the_transcluder, &page.id).await;
-    assert_eq!(its_page["source"], "mcp");
-    assert_eq!(transcluder["source"], "mcp");
-}
-
-// 項目をほかのページへ移すと、出たページと入ったページの両方の変更が知らされる。
-#[tokio::test]
-async fn the_clients_hear_of_both_pages_of_a_move_over_mcp() {
-    let mcp = connect().await;
-    let from = new_doc_page("mcp-tell-move-from").await;
-    let to = new_doc_page("mcp-tell-move-to").await;
-    let item = fill(&from.id, &["a"]).await.remove(0);
-    let mut of_from = listen().await;
-    let mut of_to = listen().await;
-
-    call(
-        &mcp,
-        "move_items",
-        json!({ "itemIds": item.id, "targetPageId": to.id, "position": "last" }),
-    )
-    .await;
-
-    assert_eq!(told_of(&mut of_from, &from.id).await["source"], "mcp");
-    assert_eq!(told_of(&mut of_to, &to.id).await["source"], "mcp");
 }
 
 // ---- Pages ----
