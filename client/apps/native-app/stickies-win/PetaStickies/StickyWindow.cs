@@ -165,11 +165,7 @@ internal sealed class StickyWindow : Window
     {
         this.desk = desk;
         Id = kept?.Id ?? Guid.NewGuid().ToString();
-        Look = new StickyLook(
-            kept?.Color,
-            kept?.AlwaysOnTop ?? false,
-            kept?.Zoom ?? 1
-        );
+        Look = new StickyLook(kept?.Color, kept?.AlwaysOnTop ?? false, kept?.Zoom ?? 1);
         handle = WinRT.Interop.WindowNative.GetWindowHandle(this);
         // The core calls from its own threads
         Shell = new Shell(
@@ -444,7 +440,9 @@ internal sealed class StickyWindow : Window
     private void Paint()
     {
         var paper = PetaCore.PetaNative.StickyRgb(Look.Color);
-        root.Background = new SolidColorBrush(Color.FromArgb(255, paper.Red, paper.Green, paper.Blue));
+        root.Background = new SolidColorBrush(
+            Color.FromArgb(255, paper.Red, paper.Green, paper.Blue)
+        );
         var bar = AppWindow.TitleBar;
         bar.ButtonBackgroundColor = Colors.Transparent;
         bar.ButtonInactiveBackgroundColor = Colors.Transparent;

@@ -7,7 +7,7 @@ namespace PetaBorder;
 /// window, in the pixels of the screens as Windows counts them over all screens. Its size is in
 /// pixels as they are at a scale of 100%: a sticky is as large on a screen with another scale.
 /// </summary>
-public sealed class StickyStore
+public sealed class StickyStore : IDisposable
 {
     private readonly PetaCore.PetaStickyStore file;
 
@@ -34,4 +34,9 @@ public sealed class StickyStore
     public void Put(PetaCore.PetaSticky sticky) => file.Put(sticky);
 
     public void Remove(string id) => file.Remove(id);
+
+    /// <summary>
+    /// Lets go of the store in Rust. Every change is written already: nothing is lost.
+    /// </summary>
+    public void Dispose() => file.Dispose();
 }

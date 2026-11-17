@@ -1,4 +1,3 @@
-
 namespace PetaBorder;
 
 /// <summary>How one sticky looks. The views of the sticky change it, and the desk keeps it.</summary>
@@ -13,11 +12,7 @@ public sealed class StickyLook
     public static IReadOnlyList<(string Name, string Hex)> Colors { get; } =
         PetaCore.PetaNative.StickyColors().Select(color => (color.Name, color.Hex)).ToList();
 
-    public StickyLook(
-        string? color = null,
-        bool alwaysOnTop = false,
-        double zoom = 1
-    )
+    public StickyLook(string? color = null, bool alwaysOnTop = false, double zoom = 1)
     {
         this.color = color ?? PetaCore.PetaNative.StickyYellow();
         this.alwaysOnTop = alwaysOnTop;
