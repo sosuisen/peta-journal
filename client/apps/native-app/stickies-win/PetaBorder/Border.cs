@@ -45,6 +45,16 @@ public sealed class Border : IDisposable
     }
 
     /// <summary>
+    /// Hands a change of the Markdown of an item in its text field to the core, which adds the
+    /// time.
+    /// </summary>
+    public void Typed(Typing typing)
+    {
+        ArgumentNullException.ThrowIfNull(typing);
+        core.Typed(typing.BincodeSerialize());
+    }
+
+    /// <summary>
     /// Hands a step of a drag of the mouse to the core. True when it told the core something.
     /// </summary>
     public bool Drag(DragMove step)

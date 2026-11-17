@@ -224,8 +224,7 @@ public sealed partial class Shell : IDisposable
         });
 
     /// <summary>The user changed the text of the item. The core saves it a moment later.</summary>
-    public void Typed(string body, string itemId) =>
-        Send(new Event.BodyChanged(itemId, body, NowMs()));
+    public void Typed(string body, string itemId) => Typed(new Typing.Changed(itemId, body));
 
     /// <summary>
     /// The user typed into the item, and the cursor is <paramref name="cursor"/> UTF-16 units into
@@ -233,14 +232,15 @@ public sealed partial class Shell : IDisposable
     /// body a moment later.
     /// </summary>
     public void Typed(string body, string itemId, int cursor) =>
-        Send(
-            new Event.Typed(
-                itemId,
-                body,
-                PetaCore.PetaNative.CharsOfUtf16(body, (ulong)Math.Max(cursor, 0)),
-                NowMs()
-            )
-        );
+        Typed(new Typing.Typed(itemId, body, (ulong)Math.Max(cursor, 0)));
+
+    /// <summary>The core adds the time, and counts the cursor in its own characters.</summary>
+    private void Typed(Typing typing)
+    {
+        border.Typed(typing);
+        // As after Send: an editor that reads its old text back after a key loses the key
+        Show(border.View());
+    }
 
     /// <summary>Answers the confirmation on screen.</summary>
     public void Answer(bool yes) => Answer(new UiOutput.Bool(yes));
@@ -357,8 +357,6 @@ public sealed partial class Shell : IDisposable
                 break;
         }
     }
-
-    private static ulong NowMs() => (ulong)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
     public void Dispose()
     {
