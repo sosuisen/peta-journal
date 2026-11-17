@@ -763,7 +763,7 @@ internal sealed class StickyWindow : Window
             return;
         // A key that means nothing to a selection does nothing: there is no text to type into
         e.Handled = true;
-        Shell.Pressed(new KeyPress.InSelection(chord));
+        _ = Shell.Pressed(new KeyPress.InSelection(chord));
     }
 
     private void ToggleSearch() => Look.Searching = !Look.Searching;
