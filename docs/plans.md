@@ -340,7 +340,6 @@
 - [ ] ネイティブのシェルの`Shell`にある同じ処理を、Rustの側に寄せる（改善案、2026-11-13）
   - Rustの側に寄せる分は、2026-11-14に終えた（タイトル、フォーカスの番号、質問の待ち行列、iOSとAndroidの`Shell`の共通部分）
   - [ ] iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）の間で、Swiftに残った同じコードを寄せる
-    - 本文を描くためにASTを平らにする処理は、2026-11-14に共通のパッケージ`peta-shown`に寄せた（PR #464）。ADR 042で、この処理をcoreに移し、`peta-shown`を消す（下の「ADR 042」）
 - [ ] ページの項目を編集している間も、編集中の項目のほかは、ファイルの変更を画面に出す（2026-11-17に開発者が言った。再検討の余地がある仕様）
   - 今の仕様：`client-core`の`file_reload`は、ページのどれかの項目を編集している間、そのページ全体の読み直しを待たせる（`file_reload_pending`）。読み直すのは、編集が終わってからである
   - 2026-11-17に、Androidの実機で見た。iPhoneで編集したページを、Androidで開いたままSyncした。「Downloading」のあとも、画面は変わらなかった。検索欄にフォーカスを移して編集が終わると、画面に出た
