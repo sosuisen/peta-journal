@@ -274,27 +274,6 @@ pub async fn update_item(item_id: &str, changes: Value) -> ItemRow {
     ItemRow::of(&resp["item"])
 }
 
-pub async fn move_items(
-    item_ids: &[&str],
-    target_page_id: &str,
-    position: &str,
-    level_delta: Option<i64>,
-) -> Vec<ItemRow> {
-    let mut req =
-        json!({ "itemIds": item_ids, "targetPageId": target_page_id, "position": position });
-    if let Some(d) = level_delta {
-        req["levelDelta"] = json!(d);
-    }
-    let (status, resp) = post("/api/items/move", req).await;
-    assert_eq!(status, 200, "{resp}");
-    resp["items"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(ItemRow::of)
-        .collect()
-}
-
 pub fn strings(v: &Value) -> Vec<String> {
     v.as_array()
         .map(|a| {

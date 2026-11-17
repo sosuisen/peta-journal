@@ -126,6 +126,20 @@ mod tests {
         );
     }
 
+    // 平らなMarkdownは、ブロックの境目で項目に分かれる。
+    #[test]
+    fn flat_markdown_is_split_into_items_at_block_boundaries() {
+        let page = FlatMarkdownSplitter::default()
+            .split("# Night\n\n- [ ] Hanon\n\n- [ ] Upload\n")
+            .unwrap();
+
+        // A list split by a blank line stays one item
+        let bodies: Vec<&str> = page.items.iter().map(|i| i.body.as_str()).collect();
+        assert_eq!(bodies, ["# Night", "- [ ] Hanon\n\n- [ ] Upload"]);
+        let levels: Vec<i32> = page.items.iter().map(|i| i.level).collect();
+        assert_eq!(levels, [1, 1]);
+    }
+
     // メタデータのない本文は、レベル1の項目になる。
     #[test]
     fn plain_text_is_level_one() {
