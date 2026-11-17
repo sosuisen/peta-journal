@@ -1,6 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["hmtid", "journal-core", "journal-server", "property-names"]
+members = [
+    "hmtid",
+    "journal-api-types",
+    "journal-core",
+    "journal-server",
+    "property-names",
+]
 
 [workspace.package]
 version = "1.0.0"

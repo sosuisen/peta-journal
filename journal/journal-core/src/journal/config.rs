@@ -2,11 +2,12 @@
 
 use std::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::error::AppResult;
 
 use super::{ChangedBy, Journal};
+pub use journal_api_types::{AddPropertyDefinitionInput, UpdateConfigInput};
 
 /// Watches the markdown directory for changes made outside the journal. An app with no
 /// watcher gives one that does nothing.
@@ -25,17 +26,6 @@ pub struct ConfigAnswer {
     pub home_link: String,
 }
 
-/// The settings to change. A setting not given stays as it is.
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct UpdateConfigInput {
-    pub markdown_dir: Option<String>,
-    pub week_numbering: Option<String>,
-    pub logical_outdent: Option<bool>,
-    pub tags_dir: Option<String>,
-    pub home_link: Option<String>,
-}
-
 /// `propertyDefinitions` is the key -> type map older clients read; `definitions` adds the flags.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -51,15 +41,6 @@ pub struct PropertyDefinitionDto {
     pub value_type: String,
     pub system: bool,
     pub page: bool,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct AddPropertyDefinitionInput {
-    pub key: Option<String>,
-    pub value_type: Option<String>,
-    /// Whether the key may be set on a page; true unless given.
-    pub page: Option<bool>,
 }
 
 impl Journal {

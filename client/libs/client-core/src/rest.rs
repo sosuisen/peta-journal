@@ -3,9 +3,16 @@
 
 use crate::effects::{ApiError, ApiOp, ApiOutput, ApiResult, AtlasChange};
 use crate::model::{BacklinkEntry, Item, Page, PropertyDefinition, SearchResult};
+use journal_api_types::{
+    AddPropertyDefinitionInput, AnswerConfirmInput, AtlasCalloutInput, AtlasGroupInput,
+    AtlasLinkInput, AtlasTitleInput, CreateItemInput, DemotePageInput, GetOrCreateDocInput,
+    ItemIdsInput, LaunchUrlInput, MergeItemsInput, MoveItemsInput, MoveToJournalInput, PasteInput,
+    PropertyInput, ShiftLevelsInput, SplitInput, StashInput, TransclusionInput, UpdateConfigInput,
+    UpdateItemInput, UpdatePageInput,
+};
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use serde::de::DeserializeOwned;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 /// What `encodeURIComponent` leaves as it is.
@@ -97,13 +104,10 @@ fn parsed<T: DeserializeOwned>(reply: &HttpReply) -> ApiResult<T> {
     serde_json::from_str(&reply.body).map_err(|e| ApiError(e.to_string()))
 }
 
-/// A JSON object without the fields that are not set, for an update that leaves the other
-/// fields as they are.
-fn without_nulls(mut value: Value) -> Value {
-    if let Some(fields) = value.as_object_mut() {
-        fields.retain(|_, v| !v.is_null());
-    }
-    value
+/// The body of a request, written with the type the journal reads it with
+/// (`journal-api-types`). A field that is not set is not written.
+fn body(input: impl Serialize) -> Option<Value> {
+    Some(serde_json::to_value(input).expect("a request is plain data"))
 }
 
 /// The method, the path under `/api/pages/{id}/atlas/` and the body of a change of an atlas.
@@ -112,21 +116,29 @@ fn atlas_request(change: AtlasChange) -> (&'static str, String, Option<Value>) {
         AtlasChange::AddLink { target, bounds } => (
             "POST",
             "links".into(),
-            Some(json!({ "target": target, "bounds": bounds })),
+            body(AtlasLinkInput { target, bounds }),
         ),
         AtlasChange::SetLink { item_id, target } => (
             "PUT",
             format!("links/{item_id}"),
-            Some(json!({ "target": target })),
+            body(AtlasLinkInput {
+                target,
+                ..Default::default()
+            }),
         ),
         AtlasChange::Group { cards, target } => (
             "POST",
             "group".into(),
-            Some(json!({ "cards": cards, "target": target })),
+            body(AtlasGroupInput { cards, target }),
         ),
-        AtlasChange::Ungroup { cards } => {
-            ("POST", "ungroup".into(), Some(json!({ "cards": cards })))
-        }
+        AtlasChange::Ungroup { cards } => (
+            "POST",
+            "ungroup".into(),
+            body(AtlasGroupInput {
+                cards,
+                ..Default::default()
+            }),
+        ),
         AtlasChange::SetGroupTitle {
             item_id,
             side,
@@ -134,12 +146,12 @@ fn atlas_request(change: AtlasChange) -> (&'static str, String, Option<Value>) {
         } => (
             "PUT",
             format!("groups/{item_id}"),
-            Some(json!({ "side": side, "title": title })),
+            body(AtlasTitleInput { side, title }),
         ),
         AtlasChange::AddCallout { bounds, side, text } => (
             "POST",
             "callouts".into(),
-            Some(json!({ "bounds": bounds, "side": side, "text": text })),
+            body(AtlasCalloutInput { bounds, side, text }),
         ),
         AtlasChange::SetCallout {
             item_id,
@@ -148,7 +160,11 @@ fn atlas_request(change: AtlasChange) -> (&'static str, String, Option<Value>) {
         } => (
             "PUT",
             format!("callouts/{item_id}"),
-            Some(json!({ "side": side, "text": text })),
+            body(AtlasCalloutInput {
+                side,
+                text,
+                ..Default::default()
+            }),
         ),
         AtlasChange::Remove { item_id } => ("DELETE", format!("items/{item_id}"), None),
     }
@@ -290,22 +306,23 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             item_ids,
             position,
             body,
-        } => {
-            let mut request = json!({ "itemIds": item_ids, "position": position.to_api() });
-            if let Some(body) = body {
-                request["body"] = json!(body);
-            }
-            call(
-                "POST",
-                format!("/api/journals/{}/move", enc(&file_name)),
-                Some(request),
-                page,
-            )
-        }
+        } => call(
+            "POST",
+            format!("/api/journals/{}/move", enc(&file_name)),
+            self::body(MoveToJournalInput {
+                item_ids,
+                position: position.to_api(),
+                body,
+            }),
+            page,
+        ),
         ApiOp::GetOrCreateDoc { title, dir_path } => call(
             "POST",
             "/api/pages/doc",
-            Some(json!({ "title": title, "dirPath": dir_path })),
+            body(GetOrCreateDocInput {
+                title: Some(title),
+                dir_path: Some(dir_path),
+            }),
             page,
         ),
         ApiOp::CreateItem {
@@ -317,10 +334,13 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         } => call(
             "POST",
             "/api/items",
-            Some(json!({
-                "pageId": page_id, "position": position.to_api(), "level": level, "body": body,
-                "id": id.unwrap_or_default(),
-            })),
+            self::body(CreateItemInput {
+                page_id: Some(page_id),
+                position: Some(position.to_api()),
+                level,
+                body: Some(body),
+                id,
+            }),
             item,
         ),
         ApiOp::UpdateItem {
@@ -331,15 +351,20 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         } => call(
             "PUT",
             format!("/api/items/{item_id}"),
-            Some(without_nulls(
-                json!({ "body": body, "level": level, "collapsed": collapsed }),
-            )),
+            self::body(UpdateItemInput {
+                body,
+                level,
+                collapsed,
+            }),
             item,
         ),
         ApiOp::ShiftItemLevels { item_ids, delta } => call(
             "POST",
             "/api/items/shift-level",
-            Some(json!({ "itemIds": item_ids, "delta": delta })),
+            body(ShiftLevelsInput {
+                item_ids: Some(item_ids),
+                delta,
+            }),
             items,
         ),
         ApiOp::MoveItems {
@@ -348,23 +373,27 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             position,
             level_delta,
             body,
-        } => {
-            let mut request = json!({
-                "itemIds": item_ids, "targetPageId": target_page_id,
-                "position": position.to_api(), "levelDelta": level_delta,
-            });
-            if let Some(body) = body {
-                request["body"] = json!(body);
-            }
-            call("POST", "/api/items/move", Some(request), items)
-        }
+        } => call(
+            "POST",
+            "/api/items/move",
+            self::body(MoveItemsInput {
+                item_ids: Some(item_ids),
+                target_page_id: Some(target_page_id),
+                position: Some(position.to_api()),
+                level_delta,
+                body,
+            }),
+            items,
+        ),
         ApiOp::DeletePage { page_id } => {
             call("DELETE", format!("/api/pages/{page_id}"), None, done)
         }
         ApiOp::DeleteItems { item_ids } => call(
             "POST",
             "/api/items/delete",
-            Some(json!({ "itemIds": item_ids })),
+            body(ItemIdsInput {
+                item_ids: Some(item_ids),
+            }),
             |reply| parsed::<CreatedEnvelope>(reply).map(|e| ApiOutput::Items(e.created)),
         ),
         ApiOp::MergeItems {
@@ -372,16 +401,17 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             into_id,
             body,
             into_body,
-        } => {
-            let mut request = json!({ "itemId": item_id, "intoId": into_id });
-            if let Some(body) = body {
-                request["body"] = json!(body);
-            }
-            if let Some(into_body) = into_body {
-                request["intoBody"] = json!(into_body);
-            }
-            call("POST", "/api/items/merge", Some(request), item)
-        }
+        } => call(
+            "POST",
+            "/api/items/merge",
+            self::body(MergeItemsInput {
+                item_id: Some(item_id),
+                into_id: Some(into_id),
+                body,
+                into_body,
+            }),
+            item,
+        ),
         ApiOp::PasteText {
             item_id,
             body,
@@ -391,7 +421,12 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         } => call(
             "POST",
             format!("/api/items/{item_id}/paste"),
-            Some(json!({ "body": body, "cursor": cursor, "text": text, "mode": mode })),
+            self::body(PasteInput {
+                body: Some(body),
+                cursor,
+                text: Some(text),
+                mode: Some(mode.as_api().to_string()),
+            }),
             |reply| parsed(reply).map(ApiOutput::Pasted),
         ),
         ApiOp::SplitItem {
@@ -399,30 +434,22 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             root_id,
             body,
             cursor,
-        } => {
-            let mut request = json!({ "body": body, "cursor": cursor });
-            if let Some(root_id) = root_id {
-                request["rootId"] = json!(root_id);
-            }
-            call(
-                "POST",
-                format!("/api/items/{item_id}/split"),
-                Some(request),
-                |reply| parsed(reply).map(|split| ApiOutput::Split(Box::new(split))),
-            )
-        }
-        ApiOp::StashItem { item_id, body } => {
-            let mut request = json!({});
-            if let Some(body) = body {
-                request["body"] = json!(body);
-            }
-            call(
-                "POST",
-                format!("/api/items/{item_id}/stash"),
-                Some(request),
-                |reply| parsed(reply).map(|stashed| ApiOutput::Stashed(Box::new(stashed))),
-            )
-        }
+        } => call(
+            "POST",
+            format!("/api/items/{item_id}/split"),
+            self::body(SplitInput {
+                body: Some(body),
+                cursor,
+                root_id,
+            }),
+            |reply| parsed(reply).map(|split| ApiOutput::Split(Box::new(split))),
+        ),
+        ApiOp::StashItem { item_id, body } => call(
+            "POST",
+            format!("/api/items/{item_id}/stash"),
+            self::body(StashInput { body }),
+            |reply| parsed(reply).map(|stashed| ApiOutput::Stashed(Box::new(stashed))),
+        ),
         ApiOp::ApplyBatch { ops } => call(
             "POST",
             "/api/items/batch",
@@ -443,7 +470,10 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         } => call(
             "PUT",
             format!("/api/items/{item_id}/properties/{}", enc(&key)),
-            Some(json!({ "valueType": value_type, "value": value })),
+            body(PropertyInput {
+                value_type: Some(value_type),
+                value: Some(value),
+            }),
             item,
         ),
         ApiOp::DeleteItemProperty { item_id, key } => call(
@@ -497,17 +527,17 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         } => call(
             "PUT",
             format!("/api/pages/{page_id}"),
-            Some(without_nulls(json!({
-                "title": title, "dirPath": dir_path, "overwrite": overwrite.then_some(true),
-            }))),
+            body(UpdatePageInput {
+                title,
+                dir_path,
+                overwrite,
+            }),
             page_update,
         ),
         ApiOp::DemotePage { page_id, overwrite } => call(
             "POST",
             format!("/api/pages/{page_id}/demote"),
-            Some(without_nulls(
-                json!({ "overwrite": overwrite.then_some(true) }),
-            )),
+            body(DemotePageInput { overwrite }),
             page_update,
         ),
         ApiOp::UpsertPageProperty {
@@ -518,7 +548,10 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         } => call(
             "PUT",
             format!("/api/pages/{page_id}/properties/{}", enc(&key)),
-            Some(json!({ "valueType": value_type, "value": value })),
+            body(PropertyInput {
+                value_type: Some(value_type),
+                value: Some(value),
+            }),
             page_info,
         ),
         ApiOp::DeletePageProperty { page_id, key } => call(
@@ -534,7 +567,11 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         ApiOp::AddPropertyDefinition { key, value_type } => call(
             "POST",
             "/api/config/property-definitions",
-            Some(json!({ "key": key, "valueType": value_type })),
+            body(AddPropertyDefinitionInput {
+                key: Some(key),
+                value_type: Some(value_type),
+                page: None,
+            }),
             definitions,
         ),
         ApiOp::DeletePropertyDefinition { key } => call(
@@ -552,10 +589,13 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         } => call(
             "PUT",
             "/api/config",
-            Some(without_nulls(json!({
-                "markdownDir": markdown_dir, "weekNumbering": week_numbering,
-                "logicalOutdent": logical_outdent, "tagsDir": tags_dir, "homeLink": home_link,
-            }))),
+            body(UpdateConfigInput {
+                markdown_dir,
+                week_numbering,
+                logical_outdent,
+                tags_dir,
+                home_link,
+            }),
             config,
         ),
         ApiOp::BrowseFolder => call("POST", "/api/config/browse-folder", None, |reply| {
@@ -564,13 +604,17 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         ApiOp::ExportTreeMarkdown { item_ids } => call(
             "POST",
             "/api/items/export",
-            Some(json!({ "itemIds": item_ids })),
+            body(ItemIdsInput {
+                item_ids: Some(item_ids),
+            }),
             |reply| parsed(reply).map(ApiOutput::TreeExport),
         ),
         ApiOp::TranscludedItems { item_ids } => call(
             "POST",
             "/api/items/transcluded",
-            Some(json!({ "itemIds": item_ids })),
+            body(ItemIdsInput {
+                item_ids: Some(item_ids),
+            }),
             |reply| parsed::<ItemIdsEnvelope>(reply).map(|e| ApiOutput::ItemIds(e.item_ids)),
         ),
         ApiOp::SetTransclusion {
@@ -579,13 +623,15 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         } => call(
             "POST",
             format!("/api/items/{item_id}/transclude"),
-            Some(json!({ "sourceItemId": source_item_id })),
+            body(TransclusionInput {
+                source_item_id: Some(source_item_id),
+            }),
             item,
         ),
         ApiOp::AnswerConfirm { request_id, ok } => call(
             "POST",
             format!("/api/confirm/{}", enc(&request_id)),
-            Some(json!({ "ok": ok })),
+            body(AnswerConfirmInput { ok }),
             done,
         ),
         ApiOp::RemoveTransclusion { item_id } => call(
@@ -610,7 +656,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         ApiOp::LaunchUrl { url } => call(
             "POST",
             "/api/launcher/open",
-            Some(json!({ "url": url })),
+            body(LaunchUrlInput { url: Some(url) }),
             |reply| parsed::<LaunchEnvelope>(reply).map(|e| ApiOutput::Launched(e.success)),
         ),
         ApiOp::OpenExportFolder { page_id } => call(

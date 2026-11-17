@@ -13,6 +13,8 @@ extensions = ["dep:rquickjs"]
 
 [dependencies]
 hmtid = { path = "../hmtid" }
+# The bodies of the requests, which the frontend core writes with the same types
+journal-api-types = { path = "../journal-api-types" }
 property-names = { path = "../property-names" }
 peta-atlas = { path = "../../atlas" }
 # The same version as the crates of flatmarkdown in client/Cargo.toml: a release has all the

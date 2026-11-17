@@ -4,19 +4,14 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::post;
 use axum::{Json, Router};
-use serde::{Deserialize, Serialize};
+use journal_api_types::LaunchUrlInput;
+use serde::Serialize;
 
 use crate::infrastructure::launcher;
 use crate::state::SharedState;
 
 pub fn routes() -> Router<SharedState> {
     Router::new().route("/api/launcher/open", post(launch))
-}
-
-#[derive(Deserialize, Default)]
-#[serde(default)]
-struct LaunchRequest {
-    url: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -36,7 +31,7 @@ fn reply(status: StatusCode, success: bool, message: &str) -> Response {
         .into_response()
 }
 
-async fn launch(Json(req): Json<LaunchRequest>) -> Response {
+async fn launch(Json(req): Json<LaunchUrlInput>) -> Response {
     let Some(url) = req.url.filter(|u| !u.is_empty()) else {
         return reply(StatusCode::BAD_REQUEST, false, "URL is required");
     };

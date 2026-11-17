@@ -17,6 +17,8 @@ flatmarkdown-ast = { workspace = true }
 # The core makes the AST of each body that it shows (ADR 041)
 flatmarkdown = { workspace = true }
 hmtid = { path = "../../../journal/hmtid" }
+# The bodies of the requests, in the types the journal reads them with
+journal-api-types = { path = "../../../journal/journal-api-types" }
 # Makes the name of a new key from its body and type (ADR 047)
 property-names = { path = "../../../journal/property-names" }
 getrandom = { version = "0.3", features = ["wasm_js"] }
