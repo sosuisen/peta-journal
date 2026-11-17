@@ -255,11 +255,33 @@ impl NativeShell {
     /// with the first page, with today and with a link.
     pub fn open(&self, url: &str) -> Result<(), NothingThere> {
         Route::parse_url(url).ok_or_else(|| NothingThere(url.to_string()))?;
-        let (local, _) = self.clock.now();
-        let today = format!("{:04}-{:02}-{:02}", local.year, local.month, local.day);
         let url = url.to_string();
-        self.router.update(Event::Open { url, today });
+        self.router.update(Event::Open {
+            url,
+            today: self.today(),
+        });
         Ok(())
+    }
+
+    /// Back to the screen that was open before, as the core keeps the history (ADR 035).
+    /// Nothing happens when there is none.
+    pub fn back(&self) {
+        self.router.update(Event::Back {
+            today: self.today(),
+        });
+    }
+
+    /// Forward to the screen that was open before [`NativeShell::back`].
+    pub fn forward(&self) {
+        self.router.update(Event::Forward {
+            today: self.today(),
+        });
+    }
+
+    /// The local date of the clock, `YYYY-MM-DD`, for the journal of today.
+    fn today(&self) -> String {
+        let (local, _) = self.clock.now();
+        format!("{:04}-{:02}-{:02}", local.year, local.month, local.day)
     }
 
     /// Takes the answer of the shell to the request `id`: the output of its operation. A request

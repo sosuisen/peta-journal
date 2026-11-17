@@ -4,14 +4,16 @@
 boltffi::scaffolding!();
 
 mod cloud;
+mod screen;
 
 pub use cloud::{
     PetaCloudSync, PetaDropboxEntry, PetaDropboxError, PetaDropboxFile, PetaDropboxSdk,
     PetaListing, PetaSyncHost, PetaSyncState,
 };
+pub use screen::PetaScreen;
 
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
 use client_api_embedded::{EmbeddedJournal, EventQueue};
@@ -130,6 +132,8 @@ pub struct PetaCore {
     last: PathBuf,
     /// The folder the files from Dropbox are put in.
     markdown: PathBuf,
+    /// What the screen tells besides the view model (ADR 056).
+    screen: Mutex<PetaScreen>,
 }
 
 impl Drop for PetaCore {
@@ -196,6 +200,7 @@ impl PetaCore {
             door,
             last: data_dir.join("last-screen"),
             markdown: PathBuf::from(markdown_dir),
+            screen: Mutex::default(),
         })
     }
 
@@ -235,11 +240,28 @@ impl PetaCore {
         }
     }
 
+    /// Takes an event of the shell. The error says why the bytes could not be read.
+    pub fn update(&self, event: &[u8]) -> Result<(), String> {
+        self.shell.update(event).map_err(|e| e.to_string())
+    }
+
+    /// Takes the answer of the shell to the request `id`: the output of its operation.
+    pub fn resolve(&self, id: u32, output: &[u8]) -> Result<(), String> {
+        self.shell.resolve(id, output).map_err(|e| e.to_string())
+    }
+
+    /// The whole view model, to draw after a render request.
+    pub fn view(&self) -> Vec<u8> {
+        self.shell.view()
+    }
+}
+
+impl PetaCore {
     /// Opens what the URL names, such as `/pages/notes` or `/today`. A page that is not there
     /// is an error, and it is not made. It is for a link in a page: a touch by mistake must
     /// not put an empty page into Dropbox (ADR 031). The error is the name of the page that
-    /// is not there, for the shell to offer to make it.
-    pub fn open(&self, url: String) -> Result<(), String> {
+    /// is not there, for the screen to offer to make it.
+    fn open(&self, url: String) -> Result<(), String> {
         match Route::parse_url(&url) {
             Some(route) if self.is_there(&route) => self.opened(&url),
             _ => Err(page_of(&url)),
@@ -249,13 +271,13 @@ impl PetaCore {
     /// Opens what the URL names, and makes the page or the journal when it is not there
     /// (ADR 031). It is for the user who asked for a new page. The error, when the URL names
     /// nothing, is the name of the page as `open` gives it.
-    pub fn open_or_make(&self, url: String) -> Result<(), String> {
+    fn open_or_make(&self, url: String) -> Result<(), String> {
         self.opened(&url)
     }
 
     /// The URL of the screen opened last, even before the app was closed. None when nothing
     /// was opened yet.
-    pub fn last_screen(&self) -> Option<String> {
+    fn last_screen(&self) -> Option<String> {
         std::fs::read_to_string(&self.last).ok()
     }
 
@@ -284,21 +306,6 @@ impl PetaCore {
             self.core.page_service.find_doc(&title, &dir_path)
         };
         matches!(page, Ok(Some(_)))
-    }
-
-    /// Takes an event of the shell. The error says why the bytes could not be read.
-    pub fn update(&self, event: &[u8]) -> Result<(), String> {
-        self.shell.update(event).map_err(|e| e.to_string())
-    }
-
-    /// Takes the answer of the shell to the request `id`: the output of its operation.
-    pub fn resolve(&self, id: u32, output: &[u8]) -> Result<(), String> {
-        self.shell.resolve(id, output).map_err(|e| e.to_string())
-    }
-
-    /// The whole view model, to draw after a render request.
-    pub fn view(&self) -> Vec<u8> {
-        self.shell.view()
     }
 }
 

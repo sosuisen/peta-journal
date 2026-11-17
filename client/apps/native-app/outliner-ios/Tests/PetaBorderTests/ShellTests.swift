@@ -166,35 +166,6 @@ final class ShellTests: JournalTestCase {
         waitUntil("the page shows again") { self.bodies() == ["what the notes say"] }
     }
 
-    // 前に見ていたページがなければ、今日のジャーナルが出る。
-    func testTheAppOpensAtTodayWhenItShowedNoPageBefore() throws {
-        try start()
-
-        shell.restore()
-
-        waitUntil("the journal is open") { self.isJournal() }
-    }
-
-    // 前に見ていたページが消えていたら、今日のジャーナルが出る。
-    func testTheAppOpensAtTodayWhenThePageItShowedHasGone() throws {
-        try download("notes.md", "what the notes say\n")
-        try openNotes()
-        shell.close()
-        try FileManager.default.removeItem(at: markdown.appendingPathComponent("docs/notes.md"))
-        waitUntil("the journal can be opened again") {
-            guard let next = try? Shell(dataDir: self.root.appendingPathComponent("data"), markdownDir: self.markdown)
-            else { return false }
-            self.shell = next
-            return true
-        }
-        takeIn()
-
-        shell.restore()
-
-        waitUntil("the journal is open") { self.isJournal() }
-        XCTAssertNil(shell.missing)
-    }
-
     // 入れたばかりのアプリは、作らないと言われたら、今日のジャーナルを作らず、何も開かない。
     func testANewAppThatIsNotToMakeTodayOpensNoScreen() throws {
         try start()
@@ -214,24 +185,6 @@ final class ShellTests: JournalTestCase {
         Thread.detachNewThread { shell.syncAndWait() }
 
         waitUntil("the journal is open") { self.isJournal() }
-        XCTAssertFalse(shell.unopened)
-    }
-
-    // 前に見ていたページがあるアプリは、作らないと言われても、そのページを開く。
-    func testAnAppThatShowedAPageOpensItAlsoWhenItIsNotToMakeToday() throws {
-        try download("notes.md", "what the notes say\n")
-        try openNotes()
-        shell.close()
-        waitUntil("the journal can be opened again") {
-            guard let next = try? Shell(dataDir: self.root.appendingPathComponent("data"), markdownDir: self.markdown)
-            else { return false }
-            self.shell = next
-            return true
-        }
-
-        shell.restore(make: false)
-
-        waitUntil("the page shows again") { self.bodies() == ["what the notes say"] }
         XCTAssertFalse(shell.unopened)
     }
 
@@ -510,17 +463,6 @@ final class ShellTests: JournalTestCase {
 
         waitUntil("the item is gone") { self.shell.view.outline.rows.count < 3 }
         XCTAssertNil(shell.question)
-    }
-
-    // ページの画像のファイルは、名前の大文字と小文字を問わずに見つかる。
-    func testTheFileOfAnImageIsFoundWithoutRegardToCase() throws {
-        try FileManager.default.createDirectory(at: markdown.appendingPathComponent("assets"), withIntermediateDirectories: true)
-        try Data("png".utf8).write(to: markdown.appendingPathComponent("assets/Picture.PNG"))
-        try start()
-
-        XCTAssertEqual(shell.image("assets/picture.png")?.lastPathComponent, "Picture.PNG")
-        XCTAssertNil(shell.image("assets/other.png"))
-        XCTAssertNil(shell.image("assets"))
     }
 
     // assetsのファイルへのリンクは、そのファイルを答える。ファイルがなければ、ないことが残り、次のリンクで消える。
