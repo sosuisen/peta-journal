@@ -321,6 +321,12 @@
 
 ### 機能向上
 
+- [ ] iOSとAndroidで、どの画面を開くかを`PetaCore`が決める（ADR 056、2026-11-17に開発者が決めた）
+  - `missing`、`missing_file`、`unopened`を`PetaCore`が持ち、`PetaScreen`として返す
+  - `follow`、`make`、`today`、`restore`、`open_first_screen`、`back`、`forward`、`navigated`、`image`、`attached`を`PetaCore`に足す
+  - シェルの`findWithoutCase`を消し、`client-cloud-sync`の`find_without_case`で探す。NFDのファイル名の画像も見つかる
+  - 判断のテストはRustに移し、シェルには`PetaScreen`が画面に届くことのテストを残す
+  - `back`と`forward`がRustに来るので、下の「戻った先を`last-screen`に書く」タスクの書く場所にもなる
 - [ ] 開いたページの履歴を、コア（`peta-core`）に持たせる（2026-11-13に開発者が決めた。ADR 035）
   - [ ] iOSとAndroidで、戻ったり進んだりしたページを「前回の画面」（`last-screen`）として書く。今は`open`と`open_or_make`の中だけで書くので、次の起動では、戻る前の画面が開く。シェルは戻った先のURLを知らない。コアから知る方法を決める
     - 例：Aを開き、Bを開き、戻るでAに戻ってから閉じると、次の起動ではBが開く

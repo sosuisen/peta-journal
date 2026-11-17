@@ -18,7 +18,6 @@ AndroidとiOSのアプリは、ページが変わると、少し待ってからD
   Androidは`Handler.postDelayed`で、iOSは`Timer`で待つ。
 - シェルの`JournalModel`が、Markdownフォルダーの中に`docs`、`journals`、`assets`のフォルダーを作る（ADR 030）。
   `journal-core`は、`docs`と`journals`のどちらもないフォルダーからは、何も取り込まないためである。
-saa
 この分け方には、取り違えの余地がある。
 2026-11-17に調べると、Androidの`Shell.answer`は`onEdit`を呼ばない。
 コアが「ほかの項目が写している項目を消しますか」と尋ね、ユーザーが「はい」と答えると、項目は消える。
