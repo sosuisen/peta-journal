@@ -274,6 +274,20 @@ impl OutlineState {
         false
     }
 
+    /// Sets the body of every copy of an item: the own item, and the one in a transcluded tree
+    /// when the page also shows it as a transclusion.
+    pub fn set_body(&mut self, item_id: &str, body: &str) {
+        let trees = self.transcluded_trees.values_mut().flatten();
+        for slot in self.items.iter_mut().chain(trees) {
+            if slot.id == item_id {
+                let mut item = (**slot).clone();
+                item.body = body.to_string();
+                *slot = Arc::new(item);
+            }
+        }
+        self.refresh();
+    }
+
     /// Replaces an item with the given one, keeping its place.
     pub fn replace_item(&mut self, item: &Item) -> bool {
         let new = item.clone();

@@ -587,3 +587,70 @@ fn leaving_an_item_deleted_meanwhile_drops_its_editing_mark() {
     assert!(!h.model.state.is_editing("a"));
     assert!(update_calls(&h.api).is_empty());
 }
+
+/// A page that shows the item `s` of another page as the transclusion root `root`.
+fn transclusion_of(body: &str) -> Harness {
+    let mut h = Harness::with_items(vec![item_with("root", 1, |i| {
+        i.transclude_item_id = Some("s".into())
+    })]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert("s".into(), vec![item("s", 1, body)]);
+    h.model.state.set_transcluded_trees(trees);
+    h.model.state.add_editing_item("root");
+    h
+}
+
+/// The body that the row of `item_id` shows.
+fn shown_body(h: &Harness, item_id: &str) -> String {
+    let rows = h.view().outline.rows;
+    rows.iter()
+        .find(|r| r.item.id == item_id)
+        .map(|r| r.item.body.clone())
+        .unwrap()
+}
+
+// トランスクルージョンのルート項目に打った文字は、保存を待たずに、その行に出る。打った文字は元の項目の本文に入るためである。
+#[test]
+fn text_typed_into_a_transclusion_root_shows_in_its_row_before_the_save() {
+    let mut h = transclusion_of("memo");
+    typed(&mut h, "root", "memo typed");
+    assert_eq!(shown_body(&h, "root"), "memo typed");
+}
+
+// トランスクルージョンのルート項目でも、開き括弧を打つと閉じる側が足され、行に出る（ADR 057）。
+#[test]
+fn an_opening_typed_into_a_transclusion_root_is_closed_in_its_row() {
+    let mut h = transclusion_of("memo");
+    h.send(Event::Typed {
+        item_id: "root".into(),
+        body: "memo[[".into(),
+        cursor: 6,
+        now_ms: 0,
+    });
+    assert_eq!(shown_body(&h, "root"), "memo[[]]");
+}
+
+// 元の項目が同じページにもあるとき、トランスクルージョンに打った文字は、元の項目の行にも出る。
+#[test]
+fn text_typed_into_a_transclusion_root_shows_in_the_row_of_its_source_on_the_same_page() {
+    let mut h = Harness::with_items(vec![
+        item("s", 1, "memo"),
+        item_with("root", 1, |i| i.transclude_item_id = Some("s".into())),
+    ]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert("s".into(), vec![item("s", 1, "memo")]);
+    h.model.state.set_transcluded_trees(trees);
+    h.model.state.add_editing_item("root");
+    typed(&mut h, "root", "memo typed");
+    assert_eq!(shown_body(&h, "root"), "memo typed");
+    assert_eq!(shown_body(&h, "s"), "memo typed");
+}
+
+// トランスクルージョンのルート項目に打った文字を取り消すと、行は打つ前の本文に戻る。
+#[test]
+fn undoing_text_typed_into_a_transclusion_root_shows_the_body_before_it() {
+    let mut h = transclusion_of("memo");
+    typed(&mut h, "root", "memo typed");
+    h.send(Event::Undo);
+    assert_eq!(shown_body(&h, "root"), "memo");
+}
