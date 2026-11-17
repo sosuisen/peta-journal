@@ -102,10 +102,12 @@ beside the `.exe`: nothing has to be installed to run it.
 
 The icon of the app is `PetaStickies/PetaStickies.ico`. `icon.ps1` makes it from
 `images/peta-journal.svg` at the top of the repository: the notebook in the middle of a clear
-square. It is kept in the repository, so a build does not need the tools of the script. Run
-it again after a change of the SVG. It needs resvg and ImageMagick
-(`winget install --id linebender.resvg`, `winget install --id ImageMagick.ImageMagick`).
-`icon.sh` does the same in Git Bash.
+square. The icon is kept in the repository, so a build does not run the script. Run it again
+after a change of the SVG. `icon.sh` does the same in Git Bash.
+
+The script needs nothing but Rust. It runs the crate `client/tools/app-icon`, whose README
+says how the icon is made. The `.exe` carries the icon (`ApplicationIcon`), and so does each
+window (`AppWindow.SetIcon`): Alt+Tab shows the icon of the window, not that of the `.exe`.
 
 Without arguments the app shows the stickies of the run before, with their pages, places and
 sizes, from the server at `http://localhost:8087`. A sticky that was closed does not come back.

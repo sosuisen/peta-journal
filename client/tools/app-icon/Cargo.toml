@@ -1,0 +1,12 @@
+[package]
+name = "app-icon"
+description = "Makes the icons of the apps from the SVG of the project"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+ico = "0.6.0"
+# Without the default features: the drawing has no text, and these would bring the fonts
+resvg = { version = "0.50.0", default-features = false }
