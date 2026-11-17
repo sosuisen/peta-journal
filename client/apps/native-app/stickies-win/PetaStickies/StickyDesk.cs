@@ -59,6 +59,9 @@ internal sealed class StickyDesk
         stickies.Remove(closed);
         if (byButton && !ending)
             store?.Remove(closed.Id);
+        // The app ends with its last window. Nothing is kept after it
+        if (stickies.Count == 0)
+            store?.Dispose();
     }
 
     /// <summary>
