@@ -33,6 +33,24 @@ fn a_record_that_the_ios_shell_wrote_is_read_as_it_is() {
     );
 }
 
+// 記録のパスは、文字の正規化を問わずに引ける。ADR 054より前のiOSのアプリは、分けた文字（NFD）のパスをキーにしたことがある。
+#[test]
+fn a_path_is_found_in_the_record_whatever_unicode_form_it_has() {
+    let dir = TempDir::new().unwrap();
+    let file = dir.path().join("record");
+    // "docs/ブログ.md" with the sound marks apart (NFD), as the key and the path
+    let apart = "docs/\u{30d5}\u{3099}\u{30ed}\u{30af}\u{3099}.md";
+    fs::write(
+        &file,
+        format!(r#"{{"{apart}":{{"contentHash":"abc","path":"{apart}","remote":"rev:r5"}}}}"#),
+    )
+    .unwrap();
+    let record = CloudRecord::new(&file);
+    // The same path with the sound marks in the letters (NFC)
+    let composed = record.get("docs/\u{30d6}\u{30ed}\u{30b0}.md");
+    assert_eq!(composed.map(|file| file.remote), Some("rev:r5".to_string()));
+}
+
 // 保存した記録は、iOSのアプリが書いたのと同じ形で、次に開いたときに読める。
 #[test]
 fn a_saved_record_is_read_again_in_the_form_of_the_ios_shell() {
