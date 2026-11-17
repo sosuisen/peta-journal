@@ -12,6 +12,7 @@ members = [
     "libs/client-shell-embedded",
     "libs/client-cloud-sync",
     "libs/client-stickies",
+    "tools/app-icon",
 ]
 
 [workspace.package]

@@ -15,10 +15,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Made by icon.ps1 from images/peta-journal.svg. -->
+    <ApplicationIcon>PetaStickies.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PetaBorder\PetaBorder.csproj" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
+    <!-- Beside the .exe for the windows, which take their icon from a file. -->
+    <Content Include="PetaStickies.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
