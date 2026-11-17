@@ -42,6 +42,16 @@ pub fn outline(items: &[Value]) -> Vec<String> {
         .collect()
 }
 
+/// `list[*].field` of an answer
+pub fn field_of_each(answer: &Value, list: &str, field: &str) -> Vec<Value> {
+    answer[list]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item[field].clone())
+        .collect()
+}
+
 pub fn vs(items: &[&str]) -> Vec<String> {
     items.iter().map(|s| s.to_string()).collect()
 }
@@ -110,15 +120,35 @@ impl Core {
         let source = self.fill(&source_page, source_rows);
         let page = self.new_doc_page(name);
         let own = self.fill(&page, rows);
-        self.core
+        self.transclude(&id(&own[root]), &id(&source[shown]));
+        (source_page, source, page, own)
+    }
+
+    /// Makes the item show the source item, and gives the item of the answer
+    pub fn transclude(&self, item_id: &str, source_id: &str) -> Value {
+        let set = self
+            .core
             .journal
             .set_transclusion(
-                &id(&own[root]),
-                input(json!({ "sourceItemId": id(&source[shown]) })),
+                item_id,
+                input(json!({ "sourceItemId": source_id })),
                 &by_the_client(),
             )
             .unwrap();
-        (source_page, source, page, own)
+        answer(set.item)
+    }
+
+    /// The item as the client reads it
+    pub fn item(&self, item_id: &str) -> Value {
+        answer(self.core.journal.get_item(item_id).unwrap().item)
+    }
+
+    /// Deletes the item, as the client does
+    pub fn delete_item(&self, item_id: &str) {
+        self.core
+            .journal
+            .delete_item(item_id, &by_the_client())
+            .unwrap();
     }
 
     /// Sets a property of the item as the client sends it in the JSON of the request
