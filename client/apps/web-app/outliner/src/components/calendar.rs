@@ -1,133 +1,60 @@
-//! The month calendar of the sidebar and the journal header, ported from `calendar.ts`.
+//! The month calendar of the sidebar and the journal header. The core decides what it shows
+//! (`CalendarView`, ADR 052); this only draws it and sends the clicks.
 
 use crate::core::CoreHandle;
-use crate::dom;
-use client_core::model::WeekNumbering;
-use client_core::util::date::{days_in_month, Date};
-use client_core::util::week::{iso_week_number, us_week_number, week_page_name};
+use client_core::screens::calendar::{CalendarDay, CalendarNav};
 use client_core::Event;
 use leptos::prelude::*;
 
-const US_DAY_LABELS: [&str; 7] = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-const ISO_DAY_LABELS: [&str; 7] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
-const MONTH_NAMES: [&str; 12] = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-];
-
-#[derive(Clone, PartialEq)]
-struct Day {
-    date: Date,
-    current_month: bool,
-}
-
-/// The weeks shown for a month: full weeks, with the days of the neighbouring months greyed.
-fn weeks_of(year: i32, month: u32, iso: bool) -> Vec<(u32, Vec<Day>)> {
-    let first = Date::new(year, month, 1);
-    let raw = first.weekday();
-    let first_day = if iso { (raw + 6) % 7 } else { raw } as i64;
-    let mut days: Vec<Day> = Vec::new();
-    for i in (1..=first_day).rev() {
-        days.push(Day {
-            date: first.shift(-i),
-            current_month: false,
-        });
-    }
-    for d in 1..=days_in_month(year, month) {
-        days.push(Day {
-            date: Date::new(year, month, d),
-            current_month: true,
-        });
-    }
-    let remainder = days.len() % 7;
-    if remainder > 0 {
-        let last = days.last().unwrap().date;
-        for i in 1..=(7 - remainder) as i64 {
-            days.push(Day {
-                date: last.shift(i),
-                current_month: false,
-            });
-        }
-    }
-    days.chunks(7)
-        .map(|week| {
-            let first_of_week = week[0].date;
-            let number = if iso {
-                iso_week_number(first_of_week)
-            } else {
-                us_week_number(first_of_week)
-            };
-            (number, week.to_vec())
-        })
-        .collect()
-}
-
-/// Sends the shown page a page navigation; Ctrl opens a tab, Shift a window.
-fn go(core: &CoreHandle, path: String, ev: &web_sys::MouseEvent) {
-    core.send(Event::GoToPage {
-        path,
-        new_tab: ev.ctrl_key() || ev.meta_key(),
-        new_window: ev.shift_key(),
-    });
+/// Which day is drawn as the selected one.
+#[derive(Clone, Copy, PartialEq)]
+pub enum Selects {
+    /// Today, as in the sidebar
+    Today,
+    /// The day of the journal on screen, as in the journal header
+    JournalDay,
 }
 
 #[component]
 pub fn Calendar(
-    #[prop(into)] selected_date: Signal<String>,
+    selects: Selects,
     /// Called with the modifier state after a navigation, e.g. to close a popup calendar.
     #[prop(optional)]
     on_navigate: Option<Callback<bool>>,
 ) -> impl IntoView {
     let core: CoreHandle = expect_context();
-    let numbering = core.select(|v| v.config.week_numbering);
-    let now = js_sys::Date::new_0();
-    let view_year = RwSignal::new(now.get_full_year() as i32);
-    let view_month = RwSignal::new(now.get_month() + 1);
-
-    let weeks = Memo::new(move |_| {
-        weeks_of(
-            view_year.get(),
-            view_month.get(),
-            numbering.get() == WeekNumbering::Iso,
-        )
-    });
-    let day_labels = move || {
-        if numbering.get() == WeekNumbering::Iso {
-            ISO_DAY_LABELS
-        } else {
-            US_DAY_LABELS
+    let calendar = core.select(|v| v.calendar.clone());
+    // Opens a journal by its name; Ctrl opens a tab, Shift a window.
+    let open = move |page: String| {
+        move |ev: web_sys::MouseEvent| {
+            let new_tab = ev.ctrl_key() || ev.meta_key();
+            let new_window = ev.shift_key();
+            core.send(Event::GoToPage {
+                path: page.clone(),
+                new_tab,
+                new_window,
+            });
+            if let Some(cb) = on_navigate {
+                cb.run(new_tab || new_window);
+            }
         }
     };
-    let notify = move |ev: &web_sys::MouseEvent| {
-        if let Some(cb) = on_navigate {
-            cb.run(ev.ctrl_key() || ev.meta_key() || ev.shift_key());
-        }
-    };
-
-    let prev_month = move |_| {
-        if view_month.get() == 1 {
-            view_year.update(|y| *y -= 1);
-            view_month.set(12);
-        } else {
-            view_month.update(|m| *m -= 1);
-        }
-    };
-    let next_month = move |_| {
-        if view_month.get() == 12 {
-            view_year.update(|y| *y += 1);
-            view_month.set(1);
-        } else {
-            view_month.update(|m| *m += 1);
+    let nav = move |nav: CalendarNav| move |_| core.send(Event::CalendarNav(nav));
+    let day_cell = move |day: CalendarDay| {
+        let selected = match selects {
+            Selects::Today => day.today,
+            Selects::JournalDay => day.selected,
+        };
+        view! {
+            <div
+                class="day-cell"
+                class:other-month=day.other_month
+                class:today=day.today
+                class:selected=selected
+                on:click=open(day.date)
+            >
+                {day.day}
+            </div>
         }
     };
 
@@ -135,68 +62,25 @@ pub fn Calendar(
         <app-calendar>
             <div class="calendar">
                 <div class="calendar-header">
-                    <button on:click=prev_month>"<"</button>
-                    <span>
-                        <span class="month-label" on:click=move |ev| { go(&core, format!("{}-{:02}", view_year.get(), view_month.get()), &ev); notify(&ev); }>
-                            {move || MONTH_NAMES[(view_month.get() - 1) as usize]}
+                    <button on:click=nav(CalendarNav::PrevMonth)>"<"</button>
+                    {move || calendar.with(|c| view! {
+                        <span>
+                            <span class="month-label" on:click=open(c.month_page.clone())>{c.month_name.clone()}</span>
+                            " "
+                            <span class="year-label" on:click=open(c.year_page.clone())>{c.year}</span>
                         </span>
-                        " "
-                        <span class="year-label" on:click=move |ev| { go(&core, view_year.get().to_string(), &ev); notify(&ev); }>
-                            {move || view_year.get()}
-                        </span>
-                    </span>
-                    <button on:click=next_month>">"</button>
+                    })}
+                    <button on:click=nav(CalendarNav::NextMonth)>">"</button>
                 </div>
                 <div class="calendar-grid">
                     <div class="week-label"></div>
-                    {move || day_labels().iter().map(|l| view! { <div class="day-label">{*l}</div> }).collect::<Vec<_>>()}
-                    <For
-                        each=move || weeks.get()
-                        key=|(n, days)| (*n, days[0].date)
-                        children=move |(number, days)| {
-                            let first = days[0].date;
-                            let week_click = move |ev: web_sys::MouseEvent| {
-                                go(&core, week_page_name(first, numbering.get()), &ev);
-                                notify(&ev);
-                            };
-                            view! {
-                                <div class="week-number" on:click=week_click>{format!("{number:02}")}</div>
-                                {days.into_iter().map(|day| view! { <DayCell day=day selected_date=selected_date on_navigate=on_navigate /> }).collect::<Vec<_>>()}
-                            }
-                        }
-                    />
+                    {move || calendar.with(|c| c.day_labels.iter().map(|label| view! { <div class="day-label">{label.clone()}</div> }).collect_view())}
+                    {move || calendar.get().weeks.into_iter().map(|week| view! {
+                        <div class="week-number" on:click=open(week.page)>{format!("{:02}", week.number)}</div>
+                        {week.days.into_iter().map(day_cell).collect_view()}
+                    }).collect_view()}
                 </div>
             </div>
         </app-calendar>
-    }
-}
-
-/// One day of the month grid; a click opens that day's journal.
-#[component]
-fn DayCell(
-    day: Day,
-    selected_date: Signal<String>,
-    on_navigate: Option<Callback<bool>>,
-) -> impl IntoView {
-    let core: CoreHandle = expect_context();
-    let iso = StoredValue::new(day.date.iso());
-    let is_today = iso.with_value(|iso| *iso == dom::today_iso());
-    let is_selected = move || iso.with_value(|iso| selected_date.get() == *iso);
-    let on_click = move |ev: web_sys::MouseEvent| {
-        go(&core, iso.get_value(), &ev);
-        if let Some(cb) = on_navigate {
-            cb.run(ev.ctrl_key() || ev.meta_key() || ev.shift_key());
-        }
-    };
-    view! {
-        <div
-            class="day-cell"
-            class:other-month=!day.current_month
-            class:today=is_today
-            class:selected=is_selected
-            on:click=on_click
-        >
-            {day.date.day}
-        </div>
     }
 }

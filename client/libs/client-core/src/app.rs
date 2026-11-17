@@ -727,6 +727,8 @@ pub enum Event {
         new_window: bool,
     },
     JournalNav(JournalNav),
+    /// The month calendar shows another month.
+    CalendarNav(screens::calendar::CalendarNav),
 
     // ---- search ----
     SearchQueryChanged(String),
@@ -1006,6 +1008,9 @@ pub struct Model {
     pub clipboard: Option<(String, String)>,
     /// The local date the shell last reported, `YYYY-MM-DD`.
     pub today: String,
+    /// The year and the month the calendar was moved to; None while it shows the month of
+    /// today.
+    pub calendar_month: Option<(i32, u32)>,
     pub hmtid: hmtid::Generator,
     /// The last wall-clock time the shell reported, in milliseconds.
     pub clock_ms: u64,
@@ -1041,6 +1046,7 @@ impl Default for Model {
             scrolled_from_top: false,
             clipboard: None,
             today: String::new(),
+            calendar_month: None,
             hmtid: hmtid::Generator::new('-', true),
             clock_ms: 0,
             next_timer_id: 1,
@@ -1472,6 +1478,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             None,
         ),
         JournalNav(nav) => screens::journal::nav(model, nav),
+        CalendarNav(nav) => screens::calendar::nav(model, nav),
 
         SearchQueryChanged(q) => screens::search::query_changed(model, q),
         SearchKey(key) => screens::search::key(model, key),
