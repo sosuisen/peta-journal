@@ -77,13 +77,27 @@ public sealed class ShellTests : IDisposable
     private static List<string> Selected(Shell shell) =>
         [.. shell.View.Outline.Rows.Where(row => row.IsSelected).Select(row => row.Item.Body)];
 
-    /// <summary>The editor of an item as a key finds it: its text and where the cursor is in it.</summary>
-    private static EditorState Editor(
-        string text,
-        int cursor,
-        bool firstLine = true,
-        bool lastLine = true
-    ) => new(text, cursor, 0, firstLine, lastLine);
+    /// <summary>An editor of one line with the cursor at <paramref name="cursor"/>.</summary>
+    private static EditorState Editor(string text, ulong cursor) =>
+        new()
+        {
+            Text = text,
+            SelectionStart = cursor,
+            SelectionEnd = cursor,
+            OnFirstLine = true,
+            OnLastLine = true,
+        };
+
+    /// <summary>
+    /// Presses a key in the editor of the item, as the core knows it. Which chord it is, and
+    /// when it means something, is tested in the core (ADR 052).
+    /// </summary>
+    private static bool Press(Shell shell, EditorKey key, string itemId, EditorState editor) =>
+        shell.Pressed(new KeyPress.Named(itemId, key, editor));
+
+    /// <summary>Presses a key while items are selected.</summary>
+    private static void Press(Shell shell, SelectionKey key) =>
+        shell.Send(new Event.SelectionKey(key));
 
     // ページを開くと、その行が画面に出る。新しいページには、空の項目が1つある。
     [Fact]
@@ -283,7 +297,7 @@ public sealed class ShellTests : IDisposable
         shell.StartEditing(first);
         shell.Typed("日本語second", first);
 
-        Assert.True(shell.Pressed(EditorKey.Enter, first, Editor("日本語second", 3)));
+        Assert.True(Press(shell, EditorKey.Enter, first, Editor("日本語second", 3)));
 
         main.WaitUntil("the item is split", () => Bodies(shell) is ["日本語", "second"]);
         var second = shell.View.Outline.Rows[1].Item.Id;
@@ -291,20 +305,6 @@ public sealed class ShellTests : IDisposable
             "the cursor is asked into the new item",
             () => shell.Focus?.ItemId == second
         );
-    }
-
-    // 絵文字のあとでのEnterは、絵文字を壊さずに項目を分ける。カーソルは、UTF-16では2つ分進んでいる。
-    [Fact]
-    public void Enter_behind_an_emoji_splits_the_item_there()
-    {
-        var shell = ShellWithPage();
-        var first = shell.View.Outline.Rows[0].Item.Id;
-        shell.StartEditing(first);
-        shell.Typed("a😀b", first);
-
-        Assert.True(shell.Pressed(EditorKey.Enter, first, Editor("a😀b", 3)));
-
-        main.WaitUntil("the item is split", () => Bodies(shell) is ["a😀", "b"]);
     }
 
     // Tabは項目を字下げし、Shift+Tabは字上げする。
@@ -316,9 +316,9 @@ public sealed class ShellTests : IDisposable
         var level = shell.View.Outline.Rows[1].Item.Level;
         Assert.Equal(shell.View.Outline.Rows[0].Item.Level, level);
 
-        Assert.True(shell.Pressed(EditorKey.Tab, second, Editor("", 0)));
+        Assert.True(Press(shell, EditorKey.Tab, second, Editor("", 0)));
         Assert.Equal(level + 1, shell.View.Outline.Rows[1].Item.Level);
-        Assert.True(shell.Pressed(EditorKey.BackTab, second, Editor("", 0)));
+        Assert.True(Press(shell, EditorKey.BackTab, second, Editor("", 0)));
         Assert.Equal(level, shell.View.Outline.Rows[1].Item.Level);
     }
 
@@ -330,7 +330,7 @@ public sealed class ShellTests : IDisposable
         var (first, second) = TwoItems(shell);
         shell.Typed("second", second);
 
-        Assert.True(shell.Pressed(EditorKey.Up, second, Editor("second", 2)));
+        Assert.True(Press(shell, EditorKey.Up, second, Editor("second", 2)));
 
         main.WaitUntil(
             "the cursor is asked into the first item",
@@ -347,27 +347,12 @@ public sealed class ShellTests : IDisposable
         var (first, second) = TwoItems(shell);
         shell.StartEditing(first);
 
-        Assert.True(shell.Pressed(EditorKey.Down, first, Editor("first", 1)));
+        Assert.True(Press(shell, EditorKey.Down, first, Editor("first", 1)));
 
         main.WaitUntil(
             "the cursor is asked into the second item",
             () => shell.View.Outline.FocusRequest?.ItemId == second
         );
-    }
-
-    // 項目の中で行を移る矢印は、テキストの中での移動のままである。
-    [Fact]
-    public void An_arrow_inside_the_text_is_left_to_the_editor()
-    {
-        var shell = ShellWithPage();
-        var (_, second) = TwoItems(shell);
-        var inside = Editor("two\nlines", 5, firstLine: false, lastLine: false);
-
-        Assert.False(shell.Pressed(EditorKey.Up, second, inside));
-        Assert.False(shell.Pressed(EditorKey.Down, second, inside));
-        Assert.False(shell.Pressed(EditorKey.Left, second, inside));
-        Assert.False(shell.Pressed(EditorKey.Right, second, inside));
-        Assert.False(shell.Pressed(EditorKey.Backspace, second, inside));
     }
 
     // 先頭での左矢印は、前の項目の末尾へ移る。末尾での右矢印は、次の項目の先頭へ移る。
@@ -377,7 +362,7 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         var (first, second) = TwoItems(shell);
 
-        Assert.True(shell.Pressed(EditorKey.Left, second, Editor("", 0)));
+        Assert.True(Press(shell, EditorKey.Left, second, Editor("", 0)));
         main.WaitUntil(
             "the cursor is asked to the end of the first item",
             () => shell.View.Outline.FocusRequest?.ItemId == first
@@ -387,7 +372,7 @@ public sealed class ShellTests : IDisposable
         // The core asks for the end, which the editor finds in its text
         Assert.Equal(5UL, PetaCore.PetaNative.Utf16OfChars("first", asked.Value));
 
-        Assert.True(shell.Pressed(EditorKey.Right, first, Editor("first", 5)));
+        Assert.True(Press(shell, EditorKey.Right, first, Editor("first", 5)));
         main.WaitUntil(
             "the cursor is asked to the start of the second item",
             () => shell.View.Outline.FocusRequest?.ItemId == second
@@ -403,23 +388,12 @@ public sealed class ShellTests : IDisposable
         var (_, second) = TwoItems(shell);
         shell.Typed("second", second);
 
-        Assert.True(shell.Pressed(EditorKey.Backspace, second, Editor("second", 0)));
+        Assert.True(Press(shell, EditorKey.Backspace, second, Editor("second", 0)));
 
         main.WaitUntil("the items are joined", () => Bodies(shell) is ["firstsecond"]);
     }
 
-    // 文字を選んでいるときのBackspaceは、選んだ文字を消すだけである。
-    [Fact]
-    public void Backspace_with_a_selection_is_left_to_the_editor()
-    {
-        var shell = ShellWithPage();
-        var (_, second) = TwoItems(shell);
-        var selected = new EditorState("second", 0, 3, true, true);
-
-        Assert.False(shell.Pressed(EditorKey.Backspace, second, selected));
-    }
-
-    // 末尾でのDeleteは、次の項目をつなぐ。途中でのDeleteは、文字を消すだけである。
+    // 末尾でのDeleteは、次の項目をつなぐ。
     [Fact]
     public void Delete_at_the_end_joins_the_next_item()
     {
@@ -428,8 +402,7 @@ public sealed class ShellTests : IDisposable
         shell.Typed("second", second);
         shell.StartEditing(first);
 
-        Assert.False(shell.Pressed(EditorKey.Delete, first, Editor("first", 2)));
-        Assert.True(shell.Pressed(EditorKey.Delete, first, Editor("first", 5)));
+        Assert.True(Press(shell, EditorKey.Delete, first, Editor("first", 5)));
 
         main.WaitUntil("the items are joined", () => Bodies(shell) is ["firstsecond"]);
     }
@@ -444,12 +417,12 @@ public sealed class ShellTests : IDisposable
         shell.Typed("to do", first);
         Assert.Null(shell.View.Outline.Rows[0].Task);
 
-        Assert.True(shell.Pressed(EditorKey.TaskCycle, first, Editor("to do", 0)));
+        Assert.True(Press(shell, EditorKey.TaskCycle, first, Editor("to do", 0)));
         main.WaitUntil(
             "the item is a task",
             () => shell.View.Outline.Rows[0].Task == TaskState.NotStarted
         );
-        Assert.True(shell.Pressed(EditorKey.TaskCycle, first, Editor("to do", 0)));
+        Assert.True(Press(shell, EditorKey.TaskCycle, first, Editor("to do", 0)));
         main.WaitUntil(
             "the task is running",
             () => shell.View.Outline.Rows[0].Task == TaskState.Running
@@ -482,7 +455,7 @@ public sealed class ShellTests : IDisposable
         var first = shell.View.Outline.Rows[0].Item.Id;
         shell.StartEditing(first);
         shell.Typed("to do", first);
-        Assert.True(shell.Pressed(EditorKey.TaskCycle, first, Editor("to do", 0)));
+        Assert.True(Press(shell, EditorKey.TaskCycle, first, Editor("to do", 0)));
         main.WaitUntil(
             "the item is a task",
             () => shell.View.Outline.Rows[0].Task == TaskState.NotStarted
@@ -504,18 +477,18 @@ public sealed class ShellTests : IDisposable
     {
         var shell = ShellWithPage();
         var (first, second) = TwoItems(shell);
-        Assert.True(shell.Pressed(EditorKey.Tab, second, Editor("", 0)));
+        Assert.True(Press(shell, EditorKey.Tab, second, Editor("", 0)));
 
         // The children are shown already
-        Assert.True(shell.Pressed(EditorKey.Unfold, first, Editor("first", 0)));
+        Assert.True(Press(shell, EditorKey.Unfold, first, Editor("first", 0)));
         Assert.False(shell.View.Outline.Rows[0].IsCollapsed);
-        Assert.True(shell.Pressed(EditorKey.Fold, first, Editor("first", 0)));
+        Assert.True(Press(shell, EditorKey.Fold, first, Editor("first", 0)));
         main.WaitUntil("the child is hidden", () => shell.View.Outline.Rows.Count == 1);
         Assert.True(shell.View.Outline.Rows[0].IsCollapsed);
         // The children are hidden already
-        Assert.True(shell.Pressed(EditorKey.Fold, first, Editor("first", 0)));
+        Assert.True(Press(shell, EditorKey.Fold, first, Editor("first", 0)));
         Assert.True(shell.View.Outline.Rows[0].IsCollapsed);
-        Assert.True(shell.Pressed(EditorKey.Unfold, first, Editor("first", 0)));
+        Assert.True(Press(shell, EditorKey.Unfold, first, Editor("first", 0)));
         main.WaitUntil("the child is shown again", () => shell.View.Outline.Rows.Count == 2);
         Assert.False(shell.View.Outline.Rows[0].IsCollapsed);
     }
@@ -527,7 +500,7 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         var first = shell.View.Outline.Rows[0].Item.Id;
 
-        Assert.True(shell.Pressed(EditorKey.Fold, first, Editor("", 0)));
+        Assert.True(Press(shell, EditorKey.Fold, first, Editor("", 0)));
         Assert.False(shell.View.Outline.Rows[0].IsCollapsed);
     }
 
@@ -540,9 +513,9 @@ public sealed class ShellTests : IDisposable
         shell.Typed("second", second);
         shell.StartEditing(first);
 
-        Assert.True(shell.Pressed(EditorKey.MoveDown, first, Editor("first", 0)));
+        Assert.True(Press(shell, EditorKey.MoveDown, first, Editor("first", 0)));
         main.WaitUntil("the first item is below", () => Bodies(shell) is ["second", "first"]);
-        Assert.True(shell.Pressed(EditorKey.MoveUp, first, Editor("first", 0)));
+        Assert.True(Press(shell, EditorKey.MoveUp, first, Editor("first", 0)));
         main.WaitUntil(
             "the first item is on top again",
             () => Bodies(shell) is ["first", "second"]
@@ -557,9 +530,9 @@ public sealed class ShellTests : IDisposable
         var (_, second) = TwoItems(shell);
         var level = shell.View.Outline.Rows[1].Item.Level;
 
-        Assert.True(shell.Pressed(EditorKey.MoveIn, second, Editor("", 0)));
+        Assert.True(Press(shell, EditorKey.MoveIn, second, Editor("", 0)));
         Assert.Equal(level + 1, shell.View.Outline.Rows[1].Item.Level);
-        Assert.True(shell.Pressed(EditorKey.MoveOut, second, Editor("", 0)));
+        Assert.True(Press(shell, EditorKey.MoveOut, second, Editor("", 0)));
         Assert.Equal(level, shell.View.Outline.Rows[1].Item.Level);
     }
 
@@ -570,15 +543,15 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         var (_, second) = TwoItems(shell);
         var level = shell.View.Outline.Rows[1].Item.Level;
-        Assert.True(shell.Pressed(EditorKey.Tab, second, Editor("", 0)));
+        Assert.True(Press(shell, EditorKey.Tab, second, Editor("", 0)));
         Assert.Equal(level + 1, shell.View.Outline.Rows[1].Item.Level);
 
-        Assert.True(shell.Pressed(EditorKey.Undo, second, Editor("", 0)));
+        Assert.True(Press(shell, EditorKey.Undo, second, Editor("", 0)));
         main.WaitUntil(
             "the indent is taken back",
             () => shell.View.Outline.Rows[1].Item.Level == level
         );
-        Assert.True(shell.Pressed(EditorKey.Redo, second, Editor("", 0)));
+        Assert.True(Press(shell, EditorKey.Redo, second, Editor("", 0)));
         main.WaitUntil(
             "the indent is made again",
             () => shell.View.Outline.Rows[1].Item.Level == level + 1
@@ -590,22 +563,17 @@ public sealed class ShellTests : IDisposable
     {
         var (_, second) = TwoItems(shell);
         shell.Typed("second", second);
-        Assert.True(shell.Pressed(EditorKey.SelectDown, second, Editor("second", 0)));
+        Assert.True(Press(shell, EditorKey.SelectDown, second, Editor("second", 0)));
     }
 
-    // 最後の行でのShift+下は、その項目を選ぶ。最初の行でのShift+上も同じである。ほかの行では、文字を選ぶキーのままである。
+    // 最初の行でのShift+上は、その項目を選ぶ。
     [Fact]
     public void Shift_with_an_arrow_on_the_edge_line_selects_the_item()
     {
         var shell = ShellWithPage();
         var (first, _) = TwoItems(shell);
 
-        Assert.False(
-            shell.Pressed(EditorKey.SelectDown, first, Editor("a\nb", 0, lastLine: false))
-        );
-        Assert.False(shell.Pressed(EditorKey.SelectUp, first, Editor("a\nb", 3, firstLine: false)));
-        Assert.False(shell.View.Outline.SelectionMode);
-        Assert.True(shell.Pressed(EditorKey.SelectUp, first, Editor("first", 0)));
+        Assert.True(Press(shell, EditorKey.SelectUp, first, Editor("first", 0)));
 
         Assert.True(shell.View.Outline.SelectionMode);
         Assert.Equal(["first"], Selected(shell));
@@ -618,9 +586,9 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         SecondOfTwoSelected(shell);
 
-        shell.Selection(SelectionKey.ExtendUp);
+        Press(shell, SelectionKey.ExtendUp);
         Assert.Equal(["first", "second"], Selected(shell));
-        shell.Selection(SelectionKey.Escape);
+        Press(shell, SelectionKey.Escape);
 
         Assert.False(shell.View.Outline.SelectionMode);
         Assert.Empty(Selected(shell));
@@ -634,7 +602,7 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         SecondOfTwoSelected(shell);
 
-        shell.Selection(SelectionKey.Delete);
+        Press(shell, SelectionKey.Delete);
 
         main.WaitUntil("the second item is gone", () => Bodies(shell) is ["first"]);
         Assert.False(shell.View.Outline.SelectionMode);
@@ -647,7 +615,7 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         SecondOfTwoSelected(shell);
 
-        shell.Selection(SelectionKey.MoveUp);
+        Press(shell, SelectionKey.MoveUp);
 
         main.WaitUntil("the second item is on top", () => Bodies(shell) is ["second", "first"]);
         Assert.Equal(["second"], Selected(shell));
@@ -659,9 +627,9 @@ public sealed class ShellTests : IDisposable
     {
         var shell = ShellWithPage();
         SecondOfTwoSelected(shell);
-        shell.Selection(SelectionKey.ExtendUp);
+        Press(shell, SelectionKey.ExtendUp);
 
-        shell.Selection(SelectionKey.Copy);
+        Press(shell, SelectionKey.Copy);
 
         main.WaitUntil("the clipboard has the items", () => copied is not null);
         Assert.Equal("- first\n- second", copied);

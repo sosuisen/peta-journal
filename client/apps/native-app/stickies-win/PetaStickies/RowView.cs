@@ -465,26 +465,23 @@ internal sealed class RowView : Grid
             e.Handled = true;
             return;
         }
-        if (Input.KeyOf(e.Key) is not { } key || Keyboard.InEditor(key, held) is not { } pressed)
+        if (Input.ChordOf(e.Key, held) is not { } chord)
             return;
-        var state = State();
-        // Fold and unfold are taken also when there is nothing to fold: the text box would
-        // put the cursor at the start or the end of a paragraph otherwise
-        e.Handled =
-            Shell.Pressed(pressed, row.Id, state) || pressed is EditorKey.Fold or EditorKey.Unfold;
+        e.Handled = Shell.Pressed(new KeyPress.InEditor(row.Id, chord, State()));
     }
 
     /// <summary>The editor as a key or a paste finds it.</summary>
     private EditorState State()
     {
         var (first, last) = CursorLines();
-        return new EditorState(
-            Markdown,
-            editor.SelectionStart,
-            editor.SelectionLength,
-            first,
-            last
-        );
+        return new EditorState
+        {
+            Text = Markdown,
+            SelectionStart = (ulong)editor.SelectionStart,
+            SelectionEnd = (ulong)(editor.SelectionStart + editor.SelectionLength),
+            OnFirstLine = first,
+            OnLastLine = last,
+        };
     }
 
     /// <summary>

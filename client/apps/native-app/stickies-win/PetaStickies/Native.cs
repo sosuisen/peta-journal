@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Microsoft.UI.Input;
 using PetaBorder;
+using PetaTypes;
 using Windows.System;
 using Windows.UI.Core;
 
@@ -99,22 +100,37 @@ internal static class Input
     private static bool IsDown(VirtualKey key) =>
         InputKeyboardSource.GetKeyStateForCurrentThread(key).HasFlag(CoreVirtualKeyStates.Down);
 
-    /// <summary>The key as the outline knows it, or nothing for a key it does not know.</summary>
-    public static Key? KeyOf(VirtualKey key) =>
-        key switch
+    /// <summary>
+    /// The key with the keys held down with it, as the core knows it (ADR 052), or nothing for
+    /// a key it does not know. What the chord means is decided in the core.
+    /// </summary>
+    public static Chord? ChordOf(VirtualKey key, Held held)
+    {
+        Key? known = key switch
         {
-            VirtualKey.Enter => Key.Enter,
-            VirtualKey.Tab => Key.Tab,
-            VirtualKey.Up => Key.Up,
-            VirtualKey.Down => Key.Down,
-            VirtualKey.Left => Key.Left,
-            VirtualKey.Right => Key.Right,
-            VirtualKey.Back => Key.Backspace,
-            VirtualKey.Delete => Key.Delete,
-            VirtualKey.Escape => Key.Escape,
-            VirtualKey.C => Key.C,
-            VirtualKey.X => Key.X,
-            VirtualKey.Z => Key.Z,
+            VirtualKey.Enter => new Key.Enter(),
+            VirtualKey.Tab => new Key.Tab(),
+            VirtualKey.Up => new Key.Up(),
+            VirtualKey.Down => new Key.Down(),
+            VirtualKey.Left => new Key.Left(),
+            VirtualKey.Right => new Key.Right(),
+            VirtualKey.Back => new Key.Backspace(),
+            VirtualKey.Delete => new Key.Delete(),
+            VirtualKey.Escape => new Key.Escape(),
+            >= VirtualKey.A and <= VirtualKey.Z => new Key.Letter(
+                ((char)('a' + (key - VirtualKey.A))).ToString()
+            ),
             _ => null,
         };
+        if (known is null)
+            return null;
+        return new Chord
+        {
+            Key = known,
+            Shift = held.HasFlag(PetaBorder.Held.Shift),
+            Ctrl = held.HasFlag(PetaBorder.Held.Control),
+            Alt = held.HasFlag(PetaBorder.Held.Alt),
+            Cmd = false,
+        };
+    }
 }

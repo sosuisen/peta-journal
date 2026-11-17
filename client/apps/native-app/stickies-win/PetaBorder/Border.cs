@@ -35,6 +35,16 @@ public sealed class Border : IDisposable
     }
 
     /// <summary>
+    /// Hands a key to the core, which decides what it means (ADR 052). False when it means
+    /// nothing to the outline there.
+    /// </summary>
+    public bool Press(KeyPress press)
+    {
+        ArgumentNullException.ThrowIfNull(press);
+        return core.Press(press.BincodeSerialize());
+    }
+
+    /// <summary>
     /// Answers the request with the number <paramref name="id"/>. A request that only tells the
     /// shell something, such as a render, has no answer.
     /// </summary>
