@@ -4,40 +4,11 @@
 
 ## PetaJournalのURLとリンクの生成
 
-大きなトピックである。URLの知識を1か所にすることと、ADR 051は、密接に関係している（2026-11-17に開発者が言った）。
+URLの知識を1か所にする決定は、ADR 061（`docs/adr/adr-061-page-urls-in-one-crate.md`）にある。ADR 051は、この決定と密接に関係している（2026-11-17に開発者が言った）。
 
-### 機能向上
+### ADR 051：wikilinkとhashtagのhrefを、ast2htmlのテンプレートで決める
 
-- [ ] `/pages/`を始めとするPetaJournalのURLの知識を、1か所にする
-  - 理由：URLの知識は、1か所にあるべきである（2026-11-16に開発者が言った）
-  - 置き場所：少なくとも`pages`の値は、journal-coreで管理する（2026-11-17に開発者が決めた）。AndroidとiOSは、サーバーのURLにアクセスしない。それでも、コアに渡すアプリの中のURL（ページを開く、履歴、前回の画面）で`/pages/`を使うためである
-  - 形の見込み：journal-serverは、URLを作る機能の一部を、何らかの形でjournal-coreに任せる。`/pages/`や`/tags/`といった値は、そこから来る（2026-11-17に開発者が言った）
-  - 決めること
-    - `client-core`は、journal-coreに依存していない。journal-coreに依存しているのは、組み込み版の`client-api-embedded`と`client-shell-embedded`だけである。`client-core`と`client-page-links`が、journal-coreの値をどう使うかを決める
-    - TypeScript、C#、Emacs Lispのクライアントは、Rustのライブラリを呼べない。これらがURLの知識をどこから得るかを決める
-  - 2026-11-16に調べた。テスト、README、使い方の例、コメントを除いて、次の場所にある
-  - URLを作る側（Rust）
-    - `client-page-links/src/links.rs:8, 14`の`wikilink_path`と`hashtag_path`。Webのシェル、「HTMLとしてコピー」、付箋紙の`PageAddress`が使う
-    - `client-core/src/rich_text/links.rs:12, 19`。ネイティブのシェル用の`RichLink::Page`で、上と同じURLを作る
-    - `client-core/src/screens/navigate.rs:26`。ページへ移るときのURLである
-    - `client-core/src/view.rs:206`。ビューモデルに出すページのURLである
-    - `client-core/src/ops/wiki.rs:23`。タグのページの名前を、その場で作る
-  - URLを作る側（各シェルの定数と直書き）
-    - Android：`shell/Shell.kt:392`の`PAGES`。コアに渡すアプリの中のURLである
-    - iOS：`PetaBorder/Shell.swift:12`の`pages`。コアに渡すアプリの中のURLである
-    - Emacs：`lisp/peta-journal.el:2460`
-    - Webのシェル：`components/item_view.rs:170`の`/pages/Untitled-…`
-    - todo：`web-app/todo/src/links.ts:15`
-    - memoview：`Services/PageLinks.cs:17`の`PagesUrl`
-  - URLを読む側
-    - `client-core/src/app.rs:83-98`の`Route::parse`。`pages/`、`docs/`、`journals/`を外してページ名にする。どのシェルも、最後はここを通る
-    - `client-core/src/rich_text/links.rs:44`。`/pages/`で始まるリンクを、アプリの中のページと見なす
-    - `client-shell-embedded/src/lib.rs:274`。`Route::parse`とは別に、`/pages/`を外してページ名を取る
-  - サーバー：`journal-server/src/presentation/frontend.rs:25-34`は、`/api/`以外のどのパスにも`index.html`を返す。`/pages/`という名前は、コメントにしか出てこない
-
-#### ADR 051：wikilinkとhashtagのhrefを、ast2htmlのテンプレートで決める
-
-この件も上記の機能向上と同時に考える必要がある。ADR 051は、/pages/や/tags/といった値をhrefに埋め込む機能を提供する。
+ADR 051は、`/pages/`といった値をhrefに埋め込む機能を提供する。値は、ADR 061の`page-urls`から取る。
 
 2026-11-16に開発者が受理した。flatmarkdownに`HtmlOptions`と`ast_to_html_with`を足し、0.9.0を出してから、Webのシェルを切り替える。flatmarkdown側のタスクは、flatmarkdownの`docs/plans.md`にある。
 
@@ -47,6 +18,15 @@
   - [ ] `point_links_at_pages`、`point_links`、`data-page`の属性を消す
   - [ ] Ctrl+クリック、中クリック、右クリックのメニューで、正しいページが開くことを確かめる
 - [ ] 「HTMLとしてコピー」（ADR 027）とmemoviewは変えない
+
+### リンクの符号化
+
+- [ ] ADR 051を改めて、描画のライブラリが、テンプレートに名前を入れるときにパーセント符号化するようにする（2026-11-18に開発者が決めた）
+  - 理由：`%`、`?`、`#`を含むページ名のリンクが壊れる。たとえば`[[What?]]`は`/pages/What?`になり、ブラウザーは`What`というページを開こうとする。ADR 051は符号化しないと決め、この制限を認めていた
+  - サーバーが返す`url`も、同じ関数で作る（ADR 061）。そのため、この作業が終わると、本文の中のリンクと`url`が同時に符号化される。終わるまでは、どちらも壊れる
+  - 決めること：どの文字を符号化するか。`[[Page#item]]`のように、ページの中の場所を指す`#`は残す必要がある。ADR 061の`page-urls`のURLを読む関数が、符号化したURLを元のページ名に戻せるようにする
+  - 対象は、flatmarkdownの`ast2html`（Rust版とwasm版）と`ast2react`である。flatmarkdown側の作業になる
+  - 決めること：Rust（`ast2html`）とTypeScript（`ast2react`）の符号化の規則をそろえる方法。`ast2react`はRustの関数を呼べないので、同じ規則をTypeScriptでも持つことになる。候補は、`ast2react`がwasm版の関数を呼ぶ方法と、同じ入力と出力の表を両方のテストで使う方法である
 
 ## journal-core
 
