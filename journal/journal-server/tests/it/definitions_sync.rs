@@ -8,7 +8,7 @@ use journal_core::journal::{AddPropertyDefinitionInput, ChangedBy};
 use journal_server::config::Settings;
 use journal_server::state::{AppState, BuildOptions};
 
-use super::atlas_sync::{two_devices, Device};
+use super::devices::{two_devices, Device};
 
 impl Device {
     fn undefine(&self, key: &str) {

@@ -4,7 +4,7 @@
 use hmtid::Hmtid;
 use journal_core::infrastructure::export::import_service::Outcome;
 
-use super::atlas_sync::{two_devices, Device};
+use super::devices::{two_devices, Device};
 
 const PAGE: &str = "docs/d/a.md";
 
