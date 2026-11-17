@@ -119,20 +119,23 @@ copy of Dropbox.
 
 `Package.swift` has the parts without a screen. They are tested on the Mac:
 
-- `PetaSync` is the sync with the cloud. It knows neither the core nor Dropbox. `Cloud` is
-  what it needs of the cloud storage. `Downloader` brings the folder of the app up to date
-  with the cloud, `Uploader` brings the pages that changed in the app to the cloud, and
-  `SyncRound` is one sync: download, core, upload. `CloudSync` runs one sync at a time and
-  tells the screen where it stands. They are the classes of the Android shell, in Swift.
-- `PetaBorder` is the core behind its border, and what the app shows. `Border` is the core
+- The sync with Dropbox is in Rust, in the core (`client-cloud-sync`, ADR 054): what to
+  download, what to upload, the record of the versions, and one sync at a time. The Android
+  shell runs the same code.
+- `PetaBorder` is the core behind its border, the sync, and what the app shows. `CloudSync`
+  keeps where the sync of the core stands, for the screen, and lets the core take in the
+  files through the `Shell`. `CloudAccount` is what the app needs of the account of the
+  storage. `Border` is the core
   behind its border of bytes. `Shell` keeps the view model up to date with the core and sends
   what the user did. The parts of an item as it is shown come from the core with each row
   (`Row.bodyModel`, ADR 042). `RichLinks` makes the link of a run a URL, which a text of
   SwiftUI takes, and back again when it is touched.
-- `PetaDropbox` is `Cloud` for Dropbox, with the SDK: `DropboxCloud`. `DropboxAccount` is the
-  sign-in and the sign-out, as a `CloudAccount` of `PetaSync`. Each calls the SDK through a
-  protocol (`DropboxFiles`, `DropboxSdk`), which a test fills with its own Dropbox. The classes
-  that call the SDK itself (`SdkDropboxFiles`, `RealDropboxSdk`) only pass each call on.
+- `PetaDropbox` is Dropbox, with the SDK. `DropboxAccount` is the sign-in and the sign-out, as
+  a `CloudAccount`. It calls the SDK through a protocol (`DropboxSdk`), which a test fills with
+  its own SDK. `SdkDropbox` gives the core the calls of the SDK that the sync makes (list,
+  download, upload), as the `PetaDropboxSdk` of the core. `DropboxFailures` tells a failure
+  for want of a connection from the others. The classes that call the SDK itself
+  (`SdkDropbox`, `RealDropboxSdk`) only pass each call on.
 
 `App` holds the app. It is built with Xcode only:
 
@@ -165,9 +168,9 @@ copy of Dropbox.
 
 ## Tests
 
-`swift test` runs the tests of `PetaSync`, `PetaDropbox` and `PetaBorder` on the Mac. The tests
-of the sync use a cloud that is made for the test, and those of `PetaDropbox` a Dropbox and an
-SDK of the test. The tests of `Shell` and of `ShownText` run the real
+`swift test` runs the tests of `PetaDropbox` and `PetaBorder` on the Mac. Those of
+`PetaDropbox` use a Dropbox and an SDK of the test. The rules of the sync are tested in Rust
+(`client-cloud-sync`). The tests of `Shell` and of `ShownText` run the real
 core, with its files in a temporary folder.
 
 `./debug.sh --test` runs, in the simulator, the tests of `JournalModel` (`AppTests`) inside the
@@ -177,5 +180,5 @@ the app a folder of its own, by `PETA_ROOT`. The app syncs with nothing then. Th
 several minutes. `debug.sh` keeps the Mac awake meanwhile (`caffeinate`): on a Mac that goes to
 sleep, the tests end with "Timed out while preparing execution worker".
 
-Not tested: `SdkDropboxFiles` and `RealDropboxSdk`, which need an account of Dropbox, and what
+Not tested: `SdkDropbox` and `RealDropboxSdk`, which need an account of Dropbox, and what
 the screen shows of a sync (the menu, the dialog, the callout). The tests do not run in CI.

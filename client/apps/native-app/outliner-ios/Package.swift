@@ -10,7 +10,6 @@ let package = Package(
         .macOS(.v14),
     ],
     products: [
-        .library(name: "PetaSync", targets: ["PetaSync"]),
         .library(name: "PetaBorder", targets: ["PetaBorder"]),
         .library(name: "PetaDropbox", targets: ["PetaDropbox"]),
     ],
@@ -20,20 +19,18 @@ let package = Package(
         .package(url: "https://github.com/dropbox/SwiftyDropbox.git", exact: "10.2.4"),
     ],
     targets: [
-        // The sync with the cloud. It knows neither the core nor Dropbox
-        .target(name: "PetaSync"),
-        .testTarget(name: "PetaSyncTests", dependencies: ["PetaSync"]),
-        // The Markdown folder in Dropbox, with the SDK of Dropbox (ADR 034)
+        // The account of Dropbox and the calls of its SDK that the sync of the core makes
+        // (ADR 034, ADR 054)
         .target(
             name: "PetaDropbox",
-            dependencies: ["PetaSync", .product(name: "SwiftyDropbox", package: "SwiftyDropbox")]
+            dependencies: ["PetaBorder", .product(name: "SwiftyDropbox", package: "SwiftyDropbox")]
         ),
         .testTarget(name: "PetaDropboxTests", dependencies: ["PetaDropbox"]),
-        // The core behind its border, and what the app shows. No screen is in it
+        // The core behind its border, the sync with the cloud, and what the app shows. No
+        // screen is in it
         .target(
             name: "PetaBorder",
             dependencies: [
-                "PetaSync",
                 .product(name: "PetaCore", package: "PetaCore"),
                 .product(name: "PetaTypes", package: "PetaTypes"),
             ]

@@ -1,4 +1,4 @@
-import PetaSync
+import PetaBorder
 import XCTest
 
 @testable import PetaJournal
@@ -103,6 +103,18 @@ final class JournalModelTests: XCTestCase {
 
         XCTAssertEqual(account.syncs, 0)
         XCTAssertEqual(model.cloud?.state, .signedOut)
+    }
+
+    // 始めた同期は、コアの知らせを待たずに、画面で動いていると分かる。その間、画面はサインアウトを出さない。コアは、同期の途中のサインアウトを受け付けない。
+    func testASyncThatStartedRunsOnTheScreenBeforeTheCoreTellsOfIt() throws {
+        let model = try open(FakeAccount())
+
+        model.sync(inFront: true)
+
+        XCTAssertEqual(model.cloud?.state.isRunning, true)
+        XCTAssertEqual(model.cloud?.inFront, true)
+        waitUntil("the sync rests") { model.cloud?.state == .idle }
+        XCTAssertEqual(model.cloud?.inFront, false)
     }
 
     // 続けて起きた変更は、最後の変更から少し待って、1回だけ同期する。キーを打つたびには同期しない。

@@ -1,6 +1,5 @@
 import Foundation
 import PetaBorder
-import PetaSync
 import UIKit
 
 /// What the app keeps while it runs: the shell with the journal inside, and the sync with
@@ -16,8 +15,6 @@ final class JournalModel: ObservableObject {
     private let account: CloudAccount
     /// How long the app waits after the last change of a page before it syncs.
     private let waitAfterEdit: TimeInterval
-    /// Where the last download ended, for the next one to ask only for what changed since.
-    private let cursor: URL
     /// Syncs a moment after the last change of a page, and not once for each key.
     private var afterEdit: Timer?
 
@@ -41,8 +38,6 @@ final class JournalModel: ObservableObject {
         noBackup.isExcludedFromBackup = true
         try? kept.setResourceValues(noBackup)
 
-        cursor = root.appendingPathComponent("dropbox-cursor")
-        let cursor = cursor
         let edited = Edited()
         let shell = try Shell(dataDir: data, markdownDir: markdown) { edited.tell() }
         self.shell = shell
@@ -50,16 +45,15 @@ final class JournalModel: ObservableObject {
         if !account.isSetUp {
             cloud = nil
         } else {
-            // The versions of the files in Dropbox that the app has seen, for the upload
-            let record = CloudRecord(file: root.appendingPathComponent("dropbox-record"))
-            let downloads = files.temporaryDirectory.appendingPathComponent("downloads")
-            let folder = MarkdownFolder(root: markdown, temp: downloads)
-            cloud = CloudSync(signedIn: account.isSignedIn) { cloud in
-                SyncRound(
-                    downloader: Downloader(cloud: cloud, folder: folder, cursorFile: cursor, record: record),
-                    takeIn: { shell.syncAndWait() },
-                    uploader: Uploader(cloud: cloud, folder: folder, record: record))
-            }
+            cloud = CloudSync(
+                markdown: markdown,
+                temp: files.temporaryDirectory.appendingPathComponent("downloads"),
+                // Where the last download ended, for the next one to ask only for what changed
+                // since, and the versions of the files in Dropbox that the app has seen
+                cursor: root.appendingPathComponent("dropbox-cursor"),
+                record: root.appendingPathComponent("dropbox-record"),
+                signedIn: account.isSignedIn,
+                shell: shell)
         }
         edited.model = self
         // What an earlier download left, when the app ended before it was taken in
@@ -80,8 +74,8 @@ final class JournalModel: ObservableObject {
     /// the app. Nothing happens before the first sign-in. `inFront` says that the user waits
     /// for this sync: the screen shows it in a dialog.
     func sync(inFront: Bool = false) {
-        guard let cloud, let folder = account.cloud() else { return }
-        cloud.start(folder, inFront: inFront)
+        guard let cloud, let sdk = account.calls() else { return }
+        cloud.start(sdk, folder: account.folder, inFront: inFront)
     }
 
     /// The app goes to the back: what was written goes up before iOS may stop the app. iOS
@@ -126,11 +120,9 @@ final class JournalModel: ObservableObject {
     func signOut() {
         guard let cloud else { return }
         account.signOut()
-        // The next sign-in may be to another account, where this cursor means nothing. Without
-        // it, the next download lists everything: it takes only the files that differ, and
-        // deletes the copies of what the account does not hold. The record of the versions
-        // stays: it tells a copy from what was written here and is not uploaded yet
-        try? FileManager.default.removeItem(at: cursor)
+        // The core forgets where the last download ended: the next sign-in may be to another
+        // account. The record of the versions stays: it tells a copy from what was written
+        // here and is not uploaded yet
         cloud.signOut()
     }
 }

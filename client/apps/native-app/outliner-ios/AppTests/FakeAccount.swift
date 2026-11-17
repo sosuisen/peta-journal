@@ -1,6 +1,6 @@
 import CryptoKit
 import Foundation
-import PetaSync
+import PetaBorder
 import UIKit
 
 /// An account of a cloud with one page. It keeps what the app asked of it.
@@ -12,6 +12,7 @@ final class FakeAccount: CloudAccount, @unchecked Sendable {
     /// What the URL that the storage comes back with says: that the user signed in.
     var fresh = false
     let page = OnePage()
+    let folder = "/PetaJournal"
 
     init(isSetUp: Bool = true, signedIn: Bool = true) {
         self.isSetUp = isSetUp
@@ -33,7 +34,7 @@ final class FakeAccount: CloudAccount, @unchecked Sendable {
         return true
     }
 
-    func cloud() -> Cloud? {
+    func calls() -> PetaDropboxSdk? {
         lock.withLock {
             guard signedIn else { return nil }
             asked += 1
@@ -46,30 +47,32 @@ final class FakeAccount: CloudAccount, @unchecked Sendable {
     }
 }
 
-/// A cloud with one page. It keeps what is uploaded.
-final class OnePage: Cloud, @unchecked Sendable {
+/// A Dropbox with one page. It keeps nothing of what is uploaded.
+final class OnePage: PetaDropboxSdk, @unchecked Sendable {
     private let text = Data("京都で会議がありました。\n".utf8)
 
-    func changes(since cursor: String?) throws -> Changes {
-        let whole = cursor == nil
-        let page = CloudFile(path: "docs/trip.md", contentHash: hashOf(text), remote: "first")
-        return Changes(entries: whole ? [.file(page)] : [], cursor: "c1", whole: whole)
+    func list(folder: String) throws -> PetaListing {
+        let page = PetaDropboxFile(path: "\(folder)/docs/trip.md", contentHash: contentHash(of: text), rev: "first")
+        return PetaListing(entries: [.file(file: page)], cursor: "c1", hasMore: false)
     }
 
-    func download(_ file: CloudFile, to place: URL) throws {
-        try text.write(to: place)
+    func listAfter(cursor: String) throws -> PetaListing {
+        PetaListing(entries: [], cursor: "c1", hasMore: false)
     }
 
-    func upload(path: String, from file: URL, over: String?) throws -> CloudFile {
-        CloudFile(path: path, contentHash: contentHash(of: file) ?? "", remote: "next")
+    func download(rev: String, to place: String) throws {
+        try text.write(to: URL(fileURLWithPath: place))
     }
 
-    /// The content hash of this cloud. It is not the one of Dropbox: the sync asks the cloud.
-    func contentHash(of file: URL) -> String? {
-        (try? Data(contentsOf: file)).map(hashOf)
+    func upload(path: String, from file: String, over: String?, modifiedMs: Int64) throws -> PetaDropboxFile {
+        let content = try Data(contentsOf: URL(fileURLWithPath: file))
+        return PetaDropboxFile(path: path, contentHash: contentHash(of: content), rev: "next")
     }
 
-    private func hashOf(_ content: Data) -> String {
-        SHA256.hash(data: content).map { String(format: "%02x", $0) }.joined()
+    /// The content hash of Dropbox, for a file of less than 4 MB: the hash of the hash of its
+    /// content. The sync compares it with the hash of the file in the app.
+    private func contentHash(of content: Data) -> String {
+        let block = Data(SHA256.hash(data: content))
+        return SHA256.hash(data: block).map { String(format: "%02x", $0) }.joined()
     }
 }
