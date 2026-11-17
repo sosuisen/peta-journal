@@ -45,6 +45,12 @@ impl PetaCore {
         self.shell.press(key).map_err(|e| e.to_string())
     }
 
+    /// Takes a change of the Markdown of an item in its text field: a `Typing` as bytes. The
+    /// core adds the time.
+    pub fn typed(&self, typing: &[u8]) -> Result<(), String> {
+        self.shell.typed(typing).map_err(|e| e.to_string())
+    }
+
     /// Takes a step of a drag of the mouse that started on the text of an item: a `DragMove`
     /// as bytes. True when it told the core something, and the shell draws the view again.
     pub fn drag(&self, step: &[u8]) -> Result<bool, String> {

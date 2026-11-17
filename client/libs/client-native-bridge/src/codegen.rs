@@ -5,6 +5,7 @@ use crate::shell::{ShellEffect, ShellEffectFfi};
 use client_core::drag::DragMove;
 use client_core::effects::{NavigateOp, UiOp};
 use client_core::keys::KeyPress;
+use client_core::typing::Typing;
 use client_core::view::PageView;
 use client_core::{Event, RichText, ViewModel};
 use crux_core::bridge::Requests;
@@ -26,13 +27,14 @@ const PACKAGE: &str = "PetaTypes";
 const KOTLIN_PACKAGE: &str = "com.sosuisha.petajournal.types";
 
 /// Writes the Swift package `PetaTypes` under `out/swift`: the events the shell sends, the view
-/// model it draws, the keys and the drags it hands over, and the requests it gets with their answers.
+/// model it draws, the keys, the drags and the typing it hands over, and the requests it gets with their answers.
 pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
     let mut registry = TypeRegistry::new();
     ShellEffect::register_types(&mut registry)?;
     registry.register_type::<Event>()?;
     registry.register_type::<KeyPress>()?;
     registry.register_type::<DragMove>()?;
+    registry.register_type::<Typing>()?;
     registry.register_type::<ViewModel<RichText>>()?;
     // The generator does not look into the `Box` that keeps this one in the view model
     registry.register_type::<PageView>()?;
@@ -106,6 +108,7 @@ fn border_types() -> Result<Registry, TypeGenError> {
     let builder = add::<Event>(builder)?;
     let builder = add::<KeyPress>(builder)?;
     let builder = add::<DragMove>(builder)?;
+    let builder = add::<Typing>(builder)?;
     let builder = add::<ViewModel<RichText>>(builder)?;
     let builder = add::<PageView>(builder)?;
     builder.build().map_err(failed)

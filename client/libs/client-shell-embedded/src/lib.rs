@@ -236,6 +236,12 @@ impl PetaCore {
         self.shell.update(event).map_err(|e| e.to_string())
     }
 
+    /// Takes a change of the Markdown of an item in its text field: a `Typing` as bytes. The
+    /// core adds the time.
+    pub fn typed(&self, typing: &[u8]) -> Result<(), String> {
+        self.shell.typed(typing).map_err(|e| e.to_string())
+    }
+
     /// Takes a key of the shell: a `KeyPress` as bytes (ADR 052). False when the key means
     /// nothing to the outline there, and the shell leaves it to its editor.
     pub fn press(&self, key: &[u8]) -> Result<bool, String> {
