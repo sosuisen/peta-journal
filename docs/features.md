@@ -1081,6 +1081,10 @@ AndroidとiOSのシェルが使う同期の決まりを、Rustに1回だけ書�
 
 iOSのシェル（`client/apps/native-app/outliner-ios`）の機能である。Androidのシェルと同じことをする（ADR 034）。
 
+- アプリのアイコンは、プロジェクトのSVG（`images/peta-journal.svg`）から、Rustの`app-icon`が作る（`client/tools/app-icon/src/tests.rs`）
+  - アイコンは、1024pxの正方形で、アルファチャンネルのないPNGである。iOSは、アルファチャンネルのあるアイコンを受け付けない
+  - 絵は余白を除いて640pxに収まり、白い正方形の真ん中に置かれる
+
 ### Dropboxと同期する
 
 出典: `client/libs/client-cloud-sync/tests/it/*.rs`（ADR 054で、同期の決まりをRustに移した）、`client/apps/native-app/outliner-ios/Tests/PetaDropboxTests/DropboxFailuresTests.swift`

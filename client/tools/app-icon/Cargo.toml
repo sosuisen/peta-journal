@@ -8,5 +8,6 @@ publish = false
 
 [dependencies]
 ico = "0.6.0"
+png = "0.18.1"
 # Without the default features: the drawing has no text, and these would bring the fonts
 resvg = { version = "0.50.0", default-features = false }

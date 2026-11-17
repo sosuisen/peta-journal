@@ -79,3 +79,43 @@ fn an_svg_that_draws_nothing_gives_no_icon() {
 
     assert!(matches!(made, Err(Error::Empty)));
 }
+
+/// The PNG of the icon of iOS as it was written: its header, and its pixels as RGB.
+fn ios(svg: &str) -> (png::OutputInfo, Vec<u8>) {
+    let icon = ios_icon(svg.as_bytes()).expect("the icon is made");
+    let decoder = png::Decoder::new(std::io::Cursor::new(icon));
+    let mut reader = decoder.read_info().expect("the PNG is read");
+    let mut pixels = vec![0; reader.output_buffer_size().expect("the PNG has a size")];
+    let info = reader.next_frame(&mut pixels).expect("the image is read");
+    (info, pixels)
+}
+
+// iOSのアイコンは、1024pxの正方形で、アルファチャンネルのないPNGである。iOSは、アルファチャンネルのあるアイコンを受け付けない。
+#[test]
+fn the_ios_icon_is_a_square_of_1024_without_alpha() {
+    let (info, _) = ios(TALL_BAR);
+
+    assert_eq!((info.width, info.height), (1024, 1024));
+    assert_eq!(info.color_type, png::ColorType::Rgb);
+    assert_eq!(info.bit_depth, png::BitDepth::Eight);
+}
+
+// iOSのアイコンでは、絵が余白を除いて640pxに収まり、白い正方形の真ん中に置かれる。
+#[test]
+fn the_ios_icon_has_the_drawing_in_640_in_the_middle_of_white() {
+    let (_, pixels) = ios(TALL_BAR);
+    let pixel = |x: usize, y: usize| pixels[(y * 1024 + x) * 3..(y * 1024 + x) * 3 + 3].to_vec();
+    let inked = |x: usize, y: usize| pixel(x, y) != [255, 255, 255];
+    let columns: Vec<usize> = (0..1024)
+        .filter(|&x| (0..1024).any(|y| inked(x, y)))
+        .collect();
+    let rows: Vec<usize> = (0..1024)
+        .filter(|&y| (0..1024).any(|x| inked(x, y)))
+        .collect();
+
+    // The bar is 20 by 50: in 640 pixels it is 256 wide, from 384 to 640, and from 192 to 832
+    assert_eq!((rows[0], *rows.last().unwrap()), (192, 831));
+    assert_eq!((columns[0], *columns.last().unwrap()), (384, 639));
+    assert_eq!(pixel(0, 0), [255, 255, 255]);
+    assert_eq!(pixel(512, 512), [255, 0, 0]);
+}
