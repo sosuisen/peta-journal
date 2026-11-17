@@ -63,6 +63,23 @@ impl Core {
         serde_json::to_value(found).unwrap()
     }
 
+    /// The id of a doc page by its name.
+    pub fn doc_page_named(&self, name: &str) -> Option<String> {
+        let recent = serde_json::to_value(
+            self.core
+                .journal
+                .recent_pages(Some(2000), Some("doc"))
+                .unwrap(),
+        )
+        .unwrap();
+        recent["pages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == serde_json::json!(name))
+            .map(|p| p["id"].as_str().unwrap().to_string())
+    }
+
     /// A new document page of the title; it starts with one empty item. Gives its id.
     pub fn new_doc_page(&self, title: &str) -> String {
         self.open_doc(title)["page"]["id"]

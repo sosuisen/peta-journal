@@ -77,22 +77,6 @@ impl Core {
             Err(e) => panic!("{e}"),
         }
     }
-
-    /// The id of a doc page by its name.
-    fn doc_page_named(&self, name: &str) -> Option<String> {
-        let recent = answer(
-            self.core
-                .journal
-                .recent_pages(Some(2000), Some("doc"))
-                .unwrap(),
-        );
-        recent["pages"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|p| p["name"] == json!(name))
-            .map(|p| p["id"].as_str().unwrap().to_string())
-    }
 }
 
 /// The page of an answer
