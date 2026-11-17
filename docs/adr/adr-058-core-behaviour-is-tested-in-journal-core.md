@@ -226,7 +226,7 @@ tantivyの索引を開くのが1回で済み、速い。
   移すテストは、この不揃いをそのまま`AppError`の種類で確かめる。
   そろえるかは、別に決める。
 - 呼ぶクライアントのないRESTのルート（`/api/items/parse`、`/api/items/import`、`/api/items/export-page`、`/api/items/export-subtree`、`/api/sync/status`、`/api/search/tags`、`/api/sync/scan`）は、消さない。
-  `docs/plans.md`の「APIの方針：RESTとMCP」で、RESTとMCPは同じことができると決めているためである。
+  ADR 060で、RESTとMCPは同じ操作を持つと決めているためである。
   これらのルートは、ルートの表を回すテストで確かめる。
 
 ## 付録：テストの分け方
