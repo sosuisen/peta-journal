@@ -1,158 +1,15 @@
 //! Pages and their atlas shared by two devices through their markdown folders, as a cloud
-//! folder keeps them alike. Each device has a server state and a folder of its own. A file reaches the
+//! folder keeps them alike. Each device has a core and a folder of its own. A file reaches the
 //! other device when the test copies it, so the test decides the order the files arrive in.
-
-use std::path::{Path, PathBuf};
 
 use hmtid::Hmtid;
 use journal_core::infrastructure::export::import_service::Outcome;
-use journal_core::journal::AddPropertyDefinitionInput;
-use journal_server::config::Settings;
-use journal_server::state::{AppState, BuildOptions, SharedState};
-use serde_json::json;
 
-pub(super) struct Device {
-    pub(super) state: SharedState,
-    pub(super) root: PathBuf,
-}
+use crate::common::devices::{two_devices, two_devices_with, Device, ATLAS, INDEX};
 
 impl Device {
-    fn new(dir: &Path) -> Device {
-        Device::with(dir, Settings::under(dir, 0))
-    }
-
-    /// A device that does not wait: it takes a file with the id of a page still elsewhere as
-    /// a copy at once, and writes a page over a file not taken in yet at once
-    fn not_waiting(dir: &Path) -> Device {
-        let settings = Settings {
-            import_copy_wait_secs: 0,
-            export_overwrite_wait_secs: 0,
-            ..Settings::under(dir, 0)
-        };
-        Device::with(dir, settings)
-    }
-
-    fn with(dir: &Path, settings: Settings) -> Device {
-        // A scan that finds missing files opens the browser, unless it did within the
-        // cooldown; one longer than the time since 1970 keeps it shut
-        let settings = Settings {
-            import_delete_prompt_cooldown_secs: 10_000_000_000,
-            ..settings
-        };
-        let root = dir.join("markdown");
-        let config_dir = dir.join("config");
-        std::fs::create_dir_all(&root).unwrap();
-        std::fs::create_dir_all(&config_dir).unwrap();
-        std::fs::write(
-            config_dir.join("config.json"),
-            json!({ "markdownDir": root.to_string_lossy() }).to_string(),
-        )
-        .unwrap();
-        let state = AppState::build(settings, BuildOptions { interactive: false }).unwrap();
-        Device { state, root }
-    }
-
-    pub(super) fn export(&self) {
-        self.state.export.process_export_queue();
-    }
-
-    /// Takes the file as the other device wrote it, as the cloud folder brings it.
-    pub(super) fn receive(&self, from: &Device, rel_path: &str) -> Outcome {
-        self.deliver(from, rel_path);
-        self.sync(rel_path)
-    }
-
-    /// Puts the file the other device wrote into the folder, before the server takes it in
-    pub(super) fn deliver(&self, from: &Device, rel_path: &str) {
-        from.export();
-        let content = std::fs::read(from.root.join(rel_path))
-            .unwrap_or_else(|e| panic!("{rel_path}: {e} in {:?}", walk(&from.root)));
-        let target = self.root.join(rel_path);
-        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
-        std::fs::write(&target, content).unwrap();
-    }
-
-    /// The file as it is on disk now, without writing the queued pages first
-    fn on_disk(&self, rel_path: &str) -> String {
-        std::fs::read_to_string(self.root.join(rel_path)).unwrap()
-    }
-
-    /// Defines a key, as the user does in Settings
-    pub(super) fn define(&self, key: &str, value_type: &str, page: bool) {
-        self.state
-            .journal
-            .add_property_definition(AddPropertyDefinitionInput {
-                key: Some(key.to_string()),
-                value_type: Some(value_type.to_string()),
-                page: Some(page),
-            })
-            .unwrap();
-    }
-
-    /// Defines a key with the type its name gives, unless it is defined already
-    pub(super) fn ensure_defined(&self, key: &str) {
-        if self
-            .state
-            .properties
-            .find_definition(key)
-            .unwrap()
-            .is_none()
-        {
-            self.define(key, property_names::type_of(key).as_str(), true);
-        }
-    }
-
-    /// Gives the first item of the page a property, as an edit in the app
-    pub(super) fn edit(&self, page_id: &Hmtid, value: &str) {
-        self.ensure_defined("note");
-        let items = self.state.page_service.get_page_items(page_id).unwrap();
-        self.state
-            .item_service
-            .set_property(&items[0].id, "note", "text", value)
-            .unwrap();
-    }
-
-    pub(super) fn file(&self, rel_path: &str) -> String {
-        self.export();
-        std::fs::read_to_string(self.root.join(rel_path)).unwrap()
-    }
-
-    /// The paths the scan holds as deleted files, to ask the user about
-    fn missing(&self) -> Vec<String> {
-        self.state.reconcile.scan();
-        self.state
-            .file_sync_state
-            .find_missing()
-            .unwrap()
-            .into_iter()
-            .map(|s| s.rel_path)
-            .collect()
-    }
-
-    pub(super) fn sync(&self, rel_path: &str) -> Outcome {
-        self.state.import.sync_file(&self.root, rel_path)
-    }
-
-    /// The id of the page in the directory, if there is one
-    pub(super) fn page_in(&self, dir_path: &str, name: &str) -> Option<Hmtid> {
-        self.state
-            .pages
-            .find_by_type_dir_path_file_name("doc", dir_path, name)
-            .unwrap()
-            .map(|p| p.id)
-    }
-
-    pub(super) fn doc(&self, name: &str) -> Hmtid {
-        self.state
-            .page_service
-            .get_or_create_doc(Some(name), Some("d/"))
-            .unwrap()
-            .page
-            .id
-    }
-
     fn atlas_id(&self) -> Hmtid {
-        self.state
+        self.core
             .pages
             .find_by_type_dir_path_file_name("doc", "d/", "index_atlas")
             .unwrap()
@@ -162,7 +19,7 @@ impl Device {
 
     /// The outline of the atlas, each item as `level:body`
     fn outline(&self) -> Vec<String> {
-        self.state
+        self.core
             .page_service
             .get_page_items(&self.atlas_id())
             .unwrap()
@@ -174,13 +31,13 @@ impl Device {
     /// The item of the card of a page on the atlas, and its properties
     fn card_bounds(&self, page_id: &Hmtid) -> Option<String> {
         let items = self
-            .state
+            .core
             .page_service
             .get_page_items(&self.atlas_id())
             .unwrap();
         let ids: Vec<String> = items.iter().map(|i| i.id.to_string()).collect();
         let props = self
-            .state
+            .core
             .properties
             .find_scalar_by_targets("item", &ids)
             .unwrap();
@@ -192,13 +49,13 @@ impl Device {
 
     fn card_item(&self, page_id: &Hmtid) -> Hmtid {
         let items = self
-            .state
+            .core
             .page_service
             .get_page_items(&self.atlas_id())
             .unwrap();
         let ids: Vec<String> = items.iter().map(|i| i.id.to_string()).collect();
         let props = self
-            .state
+            .core
             .properties
             .find_scalar_by_targets("item", &ids)
             .unwrap();
@@ -208,46 +65,6 @@ impl Device {
             .unwrap();
         Hmtid::parse(id).unwrap()
     }
-
-    /// The backups of files that lost to the database
-    pub(super) fn conflicts(&self) -> Vec<String> {
-        walk(&self.root)
-            .into_iter()
-            .filter(|p| p.contains("conflict"))
-            .collect()
-    }
-}
-
-fn walk(dir: &Path) -> Vec<String> {
-    let mut found = Vec::new();
-    for entry in std::fs::read_dir(dir).unwrap().flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            found.extend(walk(&path));
-        } else {
-            found.push(path.to_string_lossy().into_owned());
-        }
-    }
-    found
-}
-
-const INDEX: &str = "docs/d/index.md";
-pub(super) const ATLAS: &str = "docs/d/index_atlas.md";
-
-/// Two devices that share the directory `d/` with the page a and its atlas, made on A
-pub(super) fn two_devices(dir: &Path) -> (Device, Device) {
-    two_devices_with(dir, Device::new)
-}
-
-fn two_devices_with(dir: &Path, make_b: fn(&Path) -> Device) -> (Device, Device) {
-    let a = Device::new(&dir.join("a"));
-    let b = make_b(&dir.join("b"));
-    a.doc("a");
-    a.doc("index_atlas");
-    for rel_path in ["docs/index.md", INDEX, "docs/d/a.md", ATLAS] {
-        b.receive(&a, rel_path);
-    }
-    (a, b)
 }
 
 // カードが持つはずのないアトラスのキーは、次にアトラスを書くときに取り除かれる。
@@ -259,15 +76,15 @@ fn an_atlas_key_a_card_cannot_have_goes_when_the_atlas_is_written_again() {
     a.doc("index_atlas");
     let card = a.card_item(&page);
     // A side belongs to a group or a callout, not to a card
-    a.state
+    a.core
         .item_service
         .set_property(&card, "atlas_side", "text", "left")
         .unwrap();
 
-    a.state.atlas.sync_all().unwrap();
+    a.core.atlas.sync_all().unwrap();
 
     let props = a
-        .state
+        .core
         .properties
         .find_scalar_by_targets("item", &[card.to_string()])
         .unwrap();
@@ -298,7 +115,7 @@ fn a_card_placed_on_one_device_keeps_its_place_when_the_atlas_comes_before_the_p
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     let c = a.doc("c");
-    a.state
+    a.core
         .item_service
         .set_property(&a.card_item(&c), "atlas_bounds", "bounds", "1,2,0,40")
         .unwrap();
@@ -321,13 +138,13 @@ fn a_page_deleted_on_both_devices_leaves_both_atlases_alike() {
     b.receive(&a, "docs/d/c.md");
     b.receive(&a, ATLAS);
 
-    a.state.page_service.delete_page(&c).unwrap();
+    a.core.page_service.delete_page(&c).unwrap();
     b.receive(&a, ATLAS);
 
     // B takes the atlas as it came, while it has the page until it deletes it too, as the
     // question about the missing file asks
     assert_eq!(b.outline(), ["1:[[d/a]]"]);
-    b.state.page_service.delete_page(&c).unwrap();
+    b.core.page_service.delete_page(&c).unwrap();
     a.receive(&b, ATLAS);
 
     assert_eq!(a.outline(), ["1:[[d/a]]"]);
@@ -356,7 +173,7 @@ fn an_atlas_that_comes_before_a_rename_is_kept_as_it_came() {
     b.receive(&a, "docs/d/c.md");
     b.receive(&a, ATLAS);
 
-    a.state
+    a.core
         .page_service
         .update_page(&c, Some("c2"), None, false)
         .unwrap();
@@ -382,7 +199,7 @@ fn an_atlas_that_comes_before_a_move_is_kept_as_it_came() {
     b.receive(&a, "docs/d/c.md");
     b.receive(&a, ATLAS);
 
-    a.state
+    a.core
         .page_service
         .update_page(&c, None, Some("e/"), false)
         .unwrap();
@@ -403,7 +220,7 @@ fn an_atlas_that_comes_before_a_move_is_kept_as_it_came() {
 fn moved_on_a(a: &Device, b: &Device) -> Hmtid {
     let c = a.doc("c");
     b.receive(a, "docs/d/c.md");
-    a.state
+    a.core
         .page_service
         .update_page(&c, None, Some("e/"), false)
         .unwrap();
@@ -528,7 +345,7 @@ fn a_folder_index_made_in_the_app_gets_a_file_at_once() {
 fn a_folder_index_made_for_a_file_taken_in_waits_for_the_index_file_of_the_other_device() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
-    a.state
+    a.core
         .page_service
         .get_or_create_doc(Some("x"), Some("e/"))
         .unwrap();
@@ -559,7 +376,7 @@ fn a_page_moved_on_the_other_device_is_not_offered_for_deletion() {
     assert_eq!(b.receive(&a, "docs/e/c.md"), Outcome::Imported);
 
     // The import forgets the old path before any scan
-    let old = b.state.file_sync_state.find_by_path("docs/d/c.md").unwrap();
+    let old = b.core.file_sync_state.find_by_path("docs/d/c.md").unwrap();
     assert!(old.is_none());
     assert!(b.missing().is_empty());
 }
@@ -573,7 +390,7 @@ fn the_old_path_of_a_page_moved_before_is_no_longer_offered_for_deletion() {
     std::fs::remove_file(b.root.join("docs/d/c.md")).unwrap();
     b.receive(&a, "docs/e/c.md");
     // A move taken in by an older version left the old path as a deleted file
-    let sync_state = &b.state.file_sync_state;
+    let sync_state = &b.core.file_sync_state;
     sync_state
         .upsert_synced("docs/d/c.md", &c, "old", 1, 1, 1)
         .unwrap();

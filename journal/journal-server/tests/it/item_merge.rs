@@ -11,7 +11,7 @@ use journal_core::infrastructure::export::import_service::Outcome;
 use journal_core::infrastructure::persistence::db::now_millis;
 use regex::Regex;
 
-use super::atlas_sync::{two_devices, Device, ATLAS};
+use super::devices::{two_devices, Device, ATLAS};
 
 const PAGE: &str = "docs/d/a.md";
 
