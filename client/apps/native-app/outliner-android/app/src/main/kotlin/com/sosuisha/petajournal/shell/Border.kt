@@ -3,6 +3,7 @@ package com.sosuisha.petajournal.shell
 import com.sosuisha.petajournal.core.PetaCore
 import com.sosuisha.petajournal.core.PetaShell
 import com.sosuisha.petajournal.types.Event
+import com.sosuisha.petajournal.types.KeyPress
 import com.sosuisha.petajournal.types.Request
 import com.sosuisha.petajournal.types.Requests
 import com.sosuisha.petajournal.types.UiOutput
@@ -35,6 +36,12 @@ class Border(dataDir: File, markdownDir: File, onRequests: (List<Request>) -> Un
 
     /** Sends an event of the shell. */
     fun send(event: Event) = core.update(event.bincodeSerialize())
+
+    /**
+     * Hands a key to the core, which decides what it means (ADR 052). False when it means
+     * nothing to the outline there.
+     */
+    fun press(key: KeyPress): Boolean = core.press(key.bincodeSerialize())
 
     /** Answers the request with the number [id]. Throws when the core does not wait for it. */
     fun answer(id: UInt, output: UiOutput) = core.resolve(id, output.bincodeSerialize())
