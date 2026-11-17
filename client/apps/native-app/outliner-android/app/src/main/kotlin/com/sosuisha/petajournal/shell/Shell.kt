@@ -15,6 +15,7 @@ import com.sosuisha.petajournal.types.SearchEntry
 import com.sosuisha.petajournal.types.SelectionKey
 import com.sosuisha.petajournal.types.ShellEffect
 import com.sosuisha.petajournal.types.UiOp
+import com.sosuisha.petajournal.types.Typing
 import com.sosuisha.petajournal.types.UiOutput
 import com.sosuisha.petajournal.types.ViewModel
 import java.io.File
@@ -142,14 +143,22 @@ class Shell(
     }
 
     /** The user changed the Markdown of the item. The core saves it a moment later. */
-    fun type(itemId: String, body: String) = send(Event.BodyChanged(itemId, body, now()))
+    fun type(itemId: String, body: String) = typed(Typing.Changed(itemId, body))
 
     /**
      * The user typed into the item, and the cursor is [cursor] UTF-16 units into [body]. The
      * core closes an opening just typed (ADR 057), and saves the body a moment later.
      */
     fun type(itemId: String, body: String, cursor: Int) =
-        send(Event.Typed(itemId, body, body.codePointCount(0, cursor.coerceIn(0, body.length)).toULong(), now()))
+        typed(Typing.Typed(itemId, body, cursor.coerceAtLeast(0).toULong()))
+
+    /** The core adds the time, and counts the cursor in its own characters. */
+    private fun typed(typing: Typing) {
+        // As `send`: a field that loses the focus while the screen is taken down still tells
+        if (closed) return
+        border.typed(typing)
+        show()
+    }
 
     /**
      * The user pressed a key in the editor of the item: Enter, Backspace, or an arrow of the
@@ -166,8 +175,6 @@ class Shell(
 
     /** The user left the editor of the item: what was typed is saved. */
     fun finish(itemId: String) = send(Event.EditFinished(itemId))
-
-    private fun now(): ULong = System.currentTimeMillis().toULong()
 
     /** Makes the item a child of the item above it. */
     fun indent(itemId: String) = send(Event.Indent(itemId))
