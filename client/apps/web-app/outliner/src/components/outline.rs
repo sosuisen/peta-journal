@@ -391,7 +391,7 @@ pub fn Outline(
             if confirm_dialog::is_inside(ev) {
                 return;
             }
-            if let Some(key) = selection_key(ev) {
+            if let Some(key) = crate::keyboard::in_selection(ev) {
                 ev.prevent_default();
                 send_selection_key(core, key);
             }
@@ -489,54 +489,4 @@ fn send_selection_key(core: CoreHandle, key: SelectionKey) {
         crate::effects::ui::begin_copy(core);
     }
     core.send(Event::SelectionKey(key));
-}
-
-fn selection_key(ev: &web_sys::KeyboardEvent) -> Option<SelectionKey> {
-    let key = ev.key();
-    if key == "Escape" {
-        return Some(SelectionKey::Escape);
-    }
-    if (key == "z" || key == "Z") && ev.ctrl_key() && !ev.alt_key() {
-        return Some(if ev.shift_key() {
-            SelectionKey::Redo
-        } else {
-            SelectionKey::Undo
-        });
-    }
-    if key == "Delete" || key == "Backspace" {
-        return Some(SelectionKey::Delete);
-    }
-    if ev.shift_key() && ev.alt_key() {
-        return match key.as_str() {
-            "ArrowUp" => Some(SelectionKey::MoveUp),
-            "ArrowDown" => Some(SelectionKey::MoveDown),
-            "ArrowLeft" => Some(SelectionKey::Outdent),
-            "ArrowRight" => Some(SelectionKey::Indent),
-            _ => None,
-        };
-    }
-    if ev.shift_key() && !ev.alt_key() && !ev.ctrl_key() {
-        return match key.as_str() {
-            "ArrowUp" => Some(SelectionKey::ExtendUp),
-            "ArrowDown" => Some(SelectionKey::ExtendDown),
-            _ => None,
-        };
-    }
-    if key == "Tab" {
-        return Some(if ev.shift_key() {
-            SelectionKey::Outdent
-        } else {
-            SelectionKey::Indent
-        });
-    }
-    // Cmd+C/X on macOS: handled here and not left to the copy event, which Safari does not
-    // dispatch unless some text is selected
-    let copy_modifier = ev.ctrl_key() || ev.meta_key();
-    if copy_modifier && key == "c" {
-        return Some(SelectionKey::Copy);
-    }
-    if copy_modifier && key == "x" {
-        return Some(SelectionKey::Cut);
-    }
-    None
 }
