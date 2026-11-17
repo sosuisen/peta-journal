@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use hmtid::Hmtid;
-use serde_json::json;
+use journal_api_types::{ChangeSource, ClientMessage};
 
 use crate::application::atlas_service::AtlasEvents;
 use crate::application::confirm_service::ConfirmEvents;
@@ -31,20 +31,25 @@ impl ClientMessages {
         ClientMessages { sink }
     }
 
-    /// `source` is `file` for changes picked up from the markdown folder, `server` for an
-    /// atlas the journal wrote by itself, `extension` for items that extensions wrote, and
-    /// `mcp` for changes that an MCP tool made.
-    /// The clients read the definitions again (ADR 046).
-    fn definitions_changed_message(&self) {
+    /// Sends one message, in the JSON the clients read it with (`journal-api-types`).
+    /// False when no client listens.
+    fn tell(&self, message: ClientMessage) -> bool {
         self.sink
-            .send(json!({ "type": "propertyDefinitionsUpdated" }).to_string());
+            .send(serde_json::to_string(&message).expect("a message is plain data"))
     }
 
-    fn page_changed_from(&self, page_id: &Hmtid, source: &str) {
-        self.sink.send(
-            json!({ "type": "pagesUpdated", "pageId": page_id.as_str(), "source": source })
-                .to_string(),
-        );
+    /// The clients read the definitions again (ADR 046).
+    fn definitions_changed_message(&self) {
+        self.tell(ClientMessage::PropertyDefinitionsUpdated);
+    }
+
+    /// A change that no client made.
+    fn page_changed_from(&self, page_id: &Hmtid, source: ChangeSource) {
+        self.tell(ClientMessage::PagesUpdated {
+            page_id: page_id.as_str().to_string(),
+            source,
+            client_id: None,
+        });
     }
 }
 
@@ -55,17 +60,13 @@ impl JournalEvents for ClientMessages {
             // The other clients read the page again. The client that made the change knows
             // its own ID and does not (ADR-015)
             ChangedBy::Client(client) => {
-                self.sink.send(
-                    json!({
-                        "type": "pagesUpdated",
-                        "pageId": page_id.as_str(),
-                        "source": "app",
-                        "clientId": client.as_str(),
-                    })
-                    .to_string(),
-                );
+                self.tell(ClientMessage::PagesUpdated {
+                    page_id: page_id.as_str().to_string(),
+                    source: ChangeSource::App,
+                    client_id: Some(client.as_str().to_string()),
+                });
             }
-            ChangedBy::Mcp => self.page_changed_from(page_id, "mcp"),
+            ChangedBy::Mcp => self.page_changed_from(page_id, ChangeSource::Mcp),
         }
     }
 
@@ -76,14 +77,14 @@ impl JournalEvents for ClientMessages {
 
 impl AtlasEvents for ClientMessages {
     fn atlas_changed(&self, atlas_id: &Hmtid) {
-        self.page_changed_from(atlas_id, "server");
+        self.page_changed_from(atlas_id, ChangeSource::Server);
     }
 }
 
 /// A file of the markdown folder changed the page, so a client that shows it reads it again.
 impl ImportEvents for ClientMessages {
     fn page_changed(&self, page_id: &Hmtid) {
-        self.page_changed_from(page_id, "file");
+        self.page_changed_from(page_id, ChangeSource::File);
     }
 
     fn definitions_changed(&self) {
@@ -96,7 +97,7 @@ impl ImportEvents for ClientMessages {
 impl ExtensionEvents for ClientMessages {
     /// Its own source: the clients reload the page, as `server` would reload only an atlas.
     fn page_changed(&self, page_id: &Hmtid) {
-        self.page_changed_from(page_id, "extension");
+        self.page_changed_from(page_id, ChangeSource::Extension);
     }
 }
 
@@ -104,9 +105,10 @@ impl ConfirmEvents for ClientMessages {
     /// Every client gets the question. The first one to answer wins. With no client
     /// listening, no one can answer.
     fn ask_user(&self, request_id: &str, message: &str) -> bool {
-        self.sink.send(
-            json!({ "type": "confirm", "requestId": request_id, "message": message }).to_string(),
-        )
+        self.tell(ClientMessage::Confirm {
+            request_id: request_id.to_string(),
+            message: message.to_string(),
+        })
     }
 }
 
@@ -114,7 +116,7 @@ impl ConfirmEvents for ClientMessages {
 mod tests {
     use std::sync::Mutex;
 
-    use serde_json::Value;
+    use serde_json::{json, Value};
 
     use super::*;
 

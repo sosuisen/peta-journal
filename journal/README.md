@@ -19,7 +19,7 @@ cargo test
 | `hmtid` | HMTID (human-readable monotonic timestamp identifier), a port of the `hmtid` npm package |
 | `journal-core` | `journal-core`, the library under the server (ADR 029): `domain/` (models, fractional index, hashtags), `application/` (page, item, journal and search use cases, extensions), `infrastructure/` (SQLite, tantivy search, markdown export/import/reconcile), `dto` (the answers as JSON). It does not depend on tokio or axum. Its `extensions` feature, on by default, runs the scripts of the extension functions with QuickJS; a build without it runs none |
 | `property-names` | The type of a property, taken from the suffix of its key name (ADR 047). The server and the clients share it, so they read a key name alike |
-| `journal-api-types` | The bodies of the requests to the journal. The journal reads them with these types and the frontend core writes them with the same types, so the two cannot name a field differently. It depends on serde alone, as the frontend core is also built for wasm |
+| `journal-api-types` | The bodies of the requests to the journal and the messages of its event stream. The journal and the frontend core write and read them with the same types, so the two cannot name a field differently. It depends on serde alone, as the frontend core is also built for wasm |
 | `journal-server` | The server over `journal-core`: `presentation/` (REST, SSE, MCP, the files of the web frontend), the folder watcher, the periodic tasks, and what hands over to the OS (folder dialog, launcher) |
 
 ## Client ID
