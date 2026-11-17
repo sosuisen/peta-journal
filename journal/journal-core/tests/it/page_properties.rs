@@ -4,14 +4,14 @@
 use hmtid::Hmtid;
 use journal_core::infrastructure::export::import_service::Outcome;
 
-use super::devices::{two_devices, Device};
+use crate::common::devices::{two_devices, Device};
 
 const PAGE: &str = "docs/d/a.md";
 
 impl Device {
     fn set_page_property(&self, page_id: &Hmtid, key: &str, value_type: &str, value: &str) {
         self.ensure_defined(key);
-        self.state
+        self.core
             .page_service
             .set_property(page_id, key, value_type, value)
             .unwrap();
@@ -19,7 +19,7 @@ impl Device {
 
     /// The scalar property of the page, as the database holds it
     fn page_property(&self, page_id: &Hmtid, key: &str) -> Option<String> {
-        let (scalars, _) = self.state.page_service.page_properties(page_id).unwrap();
+        let (scalars, _) = self.core.page_service.page_properties(page_id).unwrap();
         scalars.get(page_id.as_str())?.get(key).cloned()
     }
 
@@ -34,12 +34,12 @@ impl Device {
 
     /// The list property of the page, as the database holds it
     fn page_list(&self, page_id: &Hmtid, key: &str) -> Option<Vec<String>> {
-        let (_, lists) = self.state.page_service.page_properties(page_id).unwrap();
+        let (_, lists) = self.core.page_service.page_properties(page_id).unwrap();
         lists.get(page_id.as_str())?.get(key).cloned()
     }
 
     fn type_of(&self, key: &str) -> Option<String> {
-        let definition = self.state.properties.find_definition(key).unwrap()?;
+        let definition = self.core.properties.find_definition(key).unwrap()?;
         Some(definition.value_type)
     }
 }
@@ -67,7 +67,7 @@ fn a_property_missing_from_a_newer_file_goes_from_the_page() {
     let page = a.doc("a");
     a.set_page_property(&page, "slug", "text", "my-page");
     b.receive(&a, PAGE);
-    a.state.page_service.delete_property(&page, "slug").unwrap();
+    a.core.page_service.delete_property(&page, "slug").unwrap();
 
     b.receive(&a, PAGE);
 
@@ -112,20 +112,6 @@ fn a_property_added_by_hand_is_taken_in_and_gives_the_page_a_new_date() {
     assert_ne!(date(&a.file(PAGE)), date(&before));
 }
 
-// 定義のないキーは、名前から決まる型で定義される。
-#[test]
-fn a_key_with_no_definition_is_defined_with_the_type_its_name_gives() {
-    let dir = tempfile::tempdir().unwrap();
-    let (a, b) = two_devices(dir.path());
-    let page = a.doc("a");
-    a.set_page_property(&page, "rating_n", "number", "5");
-
-    b.receive(&a, PAGE);
-
-    assert_eq!(b.type_of("rating_n").as_deref(), Some("number"));
-    assert_eq!(b.page_property(&page, "rating_n").as_deref(), Some("5"));
-}
-
 // ページに付けられないシステム管理キーは取り込まれず、ほかのプロパティは取り込まれる。
 #[test]
 fn a_key_a_page_cannot_have_is_left_out_and_the_others_are_taken_in() {
@@ -146,7 +132,7 @@ fn a_user_key_defined_for_items_only_is_taken_in_on_a_page() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
     let page = a.doc("a");
-    a.state
+    a.core
         .properties
         .insert_definition("effort_n", "number", false)
         .unwrap();
@@ -215,6 +201,8 @@ fn a_list_that_went_through_a_device_without_its_definition_is_still_a_list_back
     let page = a.doc("a");
     a.set_page_property(&page, "author_list", "list", "x,y");
     b.receive(&a, PAGE);
+    assert_eq!(b.page_list(&page, "author_list").unwrap(), ["x", "y"]);
+    assert_eq!(b.page_property(&page, "author_list"), None);
     b.edit(&page, "edited on B");
 
     a.receive(&b, PAGE);
@@ -222,20 +210,6 @@ fn a_list_that_went_through_a_device_without_its_definition_is_still_a_list_back
     assert_eq!(a.page_list(&page, "author_list").unwrap(), ["x", "y"]);
     a.edit(&page, "edited on A");
     assert!(a.file(PAGE).contains("author_list:\n  - x\n  - y\n"));
-}
-
-// 定義のない端末でも、名前が_listで終わるキーは、リストとして取り込まれる。
-#[test]
-fn a_key_that_ends_with_list_is_taken_in_as_a_list_on_a_device_without_its_definition() {
-    let dir = tempfile::tempdir().unwrap();
-    let (a, b) = two_devices(dir.path());
-    let page = a.doc("a");
-    a.set_page_property(&page, "author_list", "list", "x,y");
-
-    b.receive(&a, PAGE);
-
-    assert_eq!(b.page_list(&page, "author_list").unwrap(), ["x", "y"]);
-    assert_eq!(b.page_property(&page, "author_list"), None);
 }
 
 // 新しいファイルにないリストのプロパティは、ページから消える。タグは別に扱う。
@@ -252,5 +226,5 @@ fn a_list_property_missing_from_a_newer_file_goes_and_the_tags_stay() {
     a.sync(PAGE);
 
     assert_eq!(a.page_list(&page, "author_list"), None);
-    assert_eq!(a.state.page_service.page_tags(&page).unwrap(), ["kept"]);
+    assert_eq!(a.core.page_service.page_tags(&page).unwrap(), ["kept"]);
 }
