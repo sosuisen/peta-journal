@@ -31,19 +31,16 @@ public final class Shell: ObservableObject {
     public private(set) var touched: UInt64?
 
     private let markdownDir: URL
-    private let onEdit: () -> Void
     private let border: Border
     /// Takes in the files, one sync after the other, and closes the core after the last.
     private let worker = DispatchQueue(label: "peta-journal.take-in")
     private var closed = false
 
     /// Opens the journal of the app. `dataDir` keeps its database, its index and its settings,
-    /// and `markdownDir` is the folder the files from Dropbox are put in. `onEdit` is called
-    /// each time the user changes a page: the app syncs a moment after the last change (ADR
-    /// 031). Throws when the journal cannot be opened.
-    public init(dataDir: URL, markdownDir: URL, onEdit: @escaping () -> Void = {}) throws {
+    /// and `markdownDir` is the folder the files from Dropbox are put in. The core tells the
+    /// sync when a page changed (ADR 055). Throws when the journal cannot be opened.
+    public init(dataDir: URL, markdownDir: URL) throws {
         self.markdownDir = markdownDir
-        self.onEdit = onEdit
         let inbox = Inbox()
         // The main queue keeps the requests in order. The first ones may come before the shell
         // is there, and are still handled after this initializer
@@ -70,13 +67,11 @@ public final class Shell: ObservableObject {
     public func make() {
         guard let page = missing else { return }
         open(Shell.pages + page, make: true)
-        onEdit()
     }
 
     /// The user wants the journal of today: it is made when it is not there, and opens.
     public func today() {
         open(Shell.todayUrl, make: true)
-        onEdit()
     }
 
     /// Opens the screen that the app showed when it was used last. The journal of today opens
@@ -132,7 +127,6 @@ public final class Shell: ObservableObject {
     /// and for a new page make their page.
     public func pick(_ entry: SearchEntry) {
         send(.searchResultClicked(position: entry.position))
-        if entry.kind == .today || entry.kind == .create { onEdit() }
     }
 
     // MARK: - Editing
@@ -156,7 +150,7 @@ public final class Shell: ObservableObject {
 
     /// The user changed the Markdown of the item. The core saves it a moment later.
     public func type(_ itemId: String, _ body: String) {
-        change(.bodyChanged(itemId: itemId, body: body, nowMs: now()))
+        send(.bodyChanged(itemId: itemId, body: body, nowMs: now()))
     }
 
     /// The user changed the Markdown of the item, and the cursor is `cursor` UTF-16 units into
@@ -172,14 +166,14 @@ public final class Shell: ObservableObject {
     /// The user pressed Enter in the item. `cursor` counts the characters before it, as the
     /// core counts them. The core splits the item there, and the edit goes on in the new one.
     public func enter(_ itemId: String, cursor: Int) {
-        change(.enterPressed(itemId: itemId, cursor: UInt64(cursor), nowMs: now()))
+        send(.enterPressed(itemId: itemId, cursor: UInt64(cursor), nowMs: now()))
     }
 
     /// The user pressed Backspace at the start of the item. The core joins the item to the one
     /// before it, and the edit goes on there, where the two texts meet. Nothing happens in the
     /// first item of a page.
     public func backspaceAtStart(_ itemId: String) {
-        change(.backspaceAtStart(itemId: itemId))
+        send(.backspaceAtStart(itemId: itemId))
     }
 
     /// The cursor leaves the item for the one above it, at the place `cursor` in characters, as
@@ -206,32 +200,32 @@ public final class Shell: ObservableObject {
 
     /// Makes the item a child of the item above it.
     public func indent(_ itemId: String) {
-        change(.indent(itemId: itemId))
+        send(.indent(itemId: itemId))
     }
 
     /// Moves the item one level up, out of its parent.
     public func outdent(_ itemId: String) {
-        change(.outdent(itemId: itemId))
+        send(.outdent(itemId: itemId))
     }
 
     /// Swaps the item with the one above it on its level.
     public func moveUp(_ itemId: String) {
-        change(.moveUp(itemId: itemId))
+        send(.moveUp(itemId: itemId))
     }
 
     /// Swaps the item with the one below it on its level.
     public func moveDown(_ itemId: String) {
-        change(.moveDown(itemId: itemId))
+        send(.moveDown(itemId: itemId))
     }
 
     /// Moves the task on: no task, not started, running, done, and no task again.
     public func cycleTask(_ itemId: String) {
-        change(.taskCycle(itemId: itemId))
+        send(.taskCycle(itemId: itemId))
     }
 
     /// Hides the children of the item, or shows them again.
     public func toggleCollapsed(_ itemId: String) {
-        change(.collapseToggle(itemId: itemId))
+        send(.collapseToggle(itemId: itemId))
     }
 
     /// Selects the item with everything under it (ADR 031). The edit of the item has ended:
@@ -247,17 +241,17 @@ public final class Shell: ObservableObject {
 
     /// Moves or indents the selected items, as the keys do on a desktop.
     public func moveSelected(_ key: SelectionKey) {
-        change(.selectionKey(key))
+        send(.selectionKey(key))
     }
 
     /// Takes back the last change of the page.
     public func undo() {
-        change(.undo)
+        send(.undo)
     }
 
     /// Does again the change that `undo` took back.
     public func redo() {
-        change(.redo)
+        send(.redo)
     }
 
     // MARK: - Files
@@ -340,11 +334,8 @@ public final class Shell: ObservableObject {
 
     // MARK: - The core
 
-    /// Sends an event that changes a page.
-    private func change(_ event: Event) {
-        send(event)
-        onEdit()
-    }
+    /// The core, for the sync to hear from it when a page changed (ADR 055).
+    var core: PetaCore { border.petaCore }
 
     private func send(_ event: Event) {
         // A field that loses the focus while the screen is taken down still tells of it

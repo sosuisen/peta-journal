@@ -40,6 +40,11 @@ struct Held {
 type Work = Box<dyn Fn(&std::path::Path) -> Result<(), SyncError> + Send + Sync>;
 
 fn held(work: Work) -> Held {
+    held_waiting(work, Duration::from_secs(60))
+}
+
+/// A sync that starts `after_change` after the last change of a page.
+fn held_waiting(work: Work, after_change: Duration) -> Held {
     let fixture = Fixture::new();
     fixture.cloud.answer(None, vec![], "c1", true);
     fixture.cloud.answer(Some("c1"), vec![], "c1", false);
@@ -62,6 +67,7 @@ fn held(work: Work) -> Held {
     let sync = CloudSync::new(
         local,
         true,
+        after_change,
         move || {
             *counted.lock().unwrap() += 1;
             let _ = working_tx.send(());
@@ -290,6 +296,7 @@ fn a_sync_of_an_app_that_is_signed_out_starts_signed_out() {
     let sync = CloudSync::new(
         fixture.local,
         false,
+        Duration::from_secs(60),
         || Ok(()),
         Ear {
             told,
@@ -297,4 +304,76 @@ fn a_sync_of_an_app_that_is_signed_out_starts_signed_out() {
         },
     );
     assert_eq!(sync.state(), SyncState::SignedOut);
+}
+
+// ページが変わると、待ち時間のあとに、ユーザーが待たない同期が始まる。続けて変わったときは、最後の変更から待ち、同期は1回である。
+#[test]
+fn a_change_starts_one_quiet_sync_after_the_wait_from_the_last_change() {
+    let held = held_waiting(nothing(), Duration::from_millis(500));
+    held.let_go();
+    held.sync.start(held.cloud(), false);
+    held.until_rest();
+    held.sync.changed();
+    std::thread::sleep(Duration::from_millis(150));
+    held.sync.changed();
+    std::thread::sleep(Duration::from_millis(150));
+    assert_eq!(held.rounds(), 1);
+    assert_eq!(held.until_rest().last(), Some(&(SyncState::Idle, false)));
+    assert!(held.stays_quiet());
+    assert_eq!(held.rounds(), 2);
+}
+
+// まだ1回も同期していないアプリでは、ページが変わっても同期は始まらない。Dropboxの呼び出しを、まだ受けていないためである。
+#[test]
+fn a_change_before_the_first_sync_starts_none() {
+    let held = held_waiting(nothing(), Duration::from_millis(50));
+    held.let_go();
+    held.sync.changed();
+    assert!(held.stays_quiet());
+    assert_eq!(held.rounds(), 0);
+}
+
+// サインアウトのあとは、ページが変わっても同期は始まらない。サインアウトの前に待っていた同期も始まらない。
+#[test]
+fn a_change_after_the_sign_out_starts_no_sync() {
+    let held = held_waiting(nothing(), Duration::from_millis(100));
+    held.let_go();
+    held.sync.start(held.cloud(), false);
+    held.until_rest();
+    held.sync.changed();
+    held.sync.sign_out();
+    held.sync.changed();
+    let told_after = held.told.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert_eq!(told_after.0, SyncState::SignedOut);
+    assert!(held.stays_quiet());
+    assert_eq!(held.rounds(), 1);
+}
+
+// サインアウトの前に待っていた同期は、待ち時間のうちにまたサインインしても始まらない。
+#[test]
+fn a_change_before_the_sign_out_starts_no_sync_after_the_next_sign_in() {
+    let held = held_waiting(nothing(), Duration::from_millis(200));
+    held.let_go();
+    held.sync.start(held.cloud(), false);
+    held.until_rest();
+    held.sync.changed();
+    held.sync.sign_out();
+    held.sync.start(held.cloud(), true);
+    held.until_rest();
+    assert!(held.stays_quiet());
+    assert_eq!(held.rounds(), 2);
+}
+
+// 同期の途中でページが変わると、待ち時間のあと、今の同期が終わってからもう1回同期する。今の同期が読んだあとの変更も、上がる。
+#[test]
+fn a_change_while_a_sync_runs_brings_one_more_sync_after_it() {
+    let held = held_waiting(nothing(), Duration::from_millis(50));
+    held.sync.start(held.cloud(), false);
+    held.working();
+    held.sync.changed();
+    std::thread::sleep(Duration::from_millis(200));
+    held.let_go();
+    held.until_rest();
+    assert!(held.stays_quiet());
+    assert_eq!(held.rounds(), 2);
 }

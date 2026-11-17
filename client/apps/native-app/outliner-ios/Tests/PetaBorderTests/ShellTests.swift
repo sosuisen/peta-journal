@@ -90,10 +90,9 @@ final class ShellTests: JournalTestCase {
         XCTAssertEqual(shell.missing, "nowhere")
         XCTAssertEqual(bodies(), ["[[nowhere]]"])
         XCTAssertNil(written("docs/nowhere.md"))
-        XCTAssertEqual(edits, 0)
     }
 
-    // まだないページへのリンクに触れたあとに作ると、そのページができて開く。アプリに伝わり、ファイルが書かれる。
+    // まだないページへのリンクに触れたあとに作ると、そのページができて開き、ファイルが書かれる。
     func testThePageThatALinkNamedIsMadeWhenTheUserAsksForIt() throws {
         try download("notes.md", "[[nowhere]]\n")
         try openNotes()
@@ -103,7 +102,6 @@ final class ShellTests: JournalTestCase {
 
         waitUntil("the new page is open") { self.title() == "nowhere" }
         XCTAssertNil(shell.missing)
-        XCTAssertEqual(edits, 1)
         XCTAssertNotNil(written("docs/nowhere.md"))
     }
 
@@ -112,14 +110,13 @@ final class ShellTests: JournalTestCase {
         return nil
     }
 
-    // 入力した名前のページがなければ、作る結果が出る。選ぶと、ページができて開く。アプリに伝わり、ファイルが書かれる。
+    // 入力した名前のページがなければ、作る結果が出る。選ぶと、ページができて開き、ファイルが書かれる。
     func testTheResultForANewPageMakesThePageAndOpensIt() throws {
         try start()
 
         pick(.create, searchingFor: "fresh")
 
         waitUntil("the new page is open") { self.title() == "fresh" }
-        XCTAssertEqual(edits, 1)
         XCTAssertNotNil(written("docs/fresh.md"))
     }
 
@@ -130,7 +127,6 @@ final class ShellTests: JournalTestCase {
         pick(.today, searchingFor: "today")
 
         waitUntil("the journal is open") { self.isJournal() }
-        XCTAssertEqual(edits, 1)
     }
 
     private func isJournal() -> Bool {
@@ -138,14 +134,13 @@ final class ShellTests: JournalTestCase {
         return false
     }
 
-    // 今日のジャーナルを頼むと、今日のジャーナルができて開く。アプリに伝わる。
+    // 今日のジャーナルを頼むと、今日のジャーナルができて開く。
     func testTodayMakesTheJournalOfTodayAndOpensIt() throws {
         try start()
 
         shell.today()
 
         waitUntil("the journal is open") { self.isJournal() }
-        XCTAssertEqual(edits, 1)
     }
 
     /// Ends the app, and opens it again on the same folders, at the screen it had.
@@ -200,7 +195,7 @@ final class ShellTests: JournalTestCase {
         XCTAssertNil(shell.missing)
     }
 
-    // 入れたばかりのアプリは、作らないと言われたら、今日のジャーナルを作らず、何も開かない。アプリには何も伝わらない。
+    // 入れたばかりのアプリは、作らないと言われたら、今日のジャーナルを作らず、何も開かない。
     func testANewAppThatIsNotToMakeTodayOpensNoScreen() throws {
         try start()
 
@@ -208,7 +203,6 @@ final class ShellTests: JournalTestCase {
 
         XCTAssertTrue(shell.unopened)
         XCTAssertFalse(isJournal())
-        XCTAssertEqual(edits, 0)
     }
 
     // 何も開かなかったアプリは、クラウドとの同期の取り込みのあとに、今日のジャーナルを開く。
@@ -353,19 +347,6 @@ final class ShellTests: JournalTestCase {
         shell.finish(id(of: "second"))
 
         XCTAssertNil(edited())
-    }
-
-    // ページを変える操作は、そのたびにアプリに伝わる。開くだけ、触れるだけでは伝わらない。
-    func testEveryChangeOfAPageIsToldToTheApp() throws {
-        try editSecondOfThree()
-        XCTAssertEqual(edits, 0)
-
-        shell.type(id(of: "second"), "second!")
-        XCTAssertEqual(edits, 1)
-        shell.indent(id(of: "second!"))
-        shell.cycleTask(id(of: "second!"))
-
-        XCTAssertEqual(edits, 3)
     }
 
     // 字下げは、項目を上の項目の子にする。戻すと、元に戻る。編集は続く。

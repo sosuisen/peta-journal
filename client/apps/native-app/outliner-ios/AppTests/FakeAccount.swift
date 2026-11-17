@@ -47,9 +47,14 @@ final class FakeAccount: CloudAccount, @unchecked Sendable {
     }
 }
 
-/// A Dropbox with one page. It keeps nothing of what is uploaded.
+/// A Dropbox with one page. It keeps the paths of what is uploaded.
 final class OnePage: PetaDropboxSdk, @unchecked Sendable {
     private let text = Data("京都で会議がありました。\n".utf8)
+    private let lock = NSLock()
+    private var paths: [String] = []
+
+    /// The paths that were uploaded, as Dropbox names them.
+    var uploaded: [String] { lock.withLock { paths } }
 
     func list(folder: String) throws -> PetaListing {
         let page = PetaDropboxFile(path: "\(folder)/docs/trip.md", contentHash: contentHash(of: text), rev: "first")
@@ -66,6 +71,7 @@ final class OnePage: PetaDropboxSdk, @unchecked Sendable {
 
     func upload(path: String, from file: String, over: String?, modifiedMs: Int64) throws -> PetaDropboxFile {
         let content = try Data(contentsOf: URL(fileURLWithPath: file))
+        lock.withLock { paths.append(path) }
         return PetaDropboxFile(path: path, contentHash: contentHash(of: content), rev: "next")
     }
 

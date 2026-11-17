@@ -22,6 +22,7 @@ use client_core::util::filename::is_journal_file_name;
 use client_core::Route;
 use client_native_bridge::{Clock, Host, NativeShell, SystemClock};
 use journal_core::assembly::{CoreHost, CoreSettings, JournalCore};
+use journal_core::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
 use journal_core::journal::FolderWatch;
 
@@ -42,14 +43,29 @@ impl FolderWatch for Quiet {
 struct Door {
     journal: RwLock<Option<EmbeddedJournal>>,
     events: Arc<EventQueue>,
+    /// The pages that changed in the app and that their files do not hold yet.
+    exports: ExportQueueRepository,
+    /// Told when a page changed in the app: the sync starts a moment later (ADR 055).
+    on_change: RwLock<Option<Box<dyn Fn() + Send + Sync>>>,
 }
 
 impl Door {
+    /// Does what the frontend core asks of the journal. When the operation put a page in the
+    /// queue of the pages to write to their files, a page changed in the app, whatever the
+    /// operation was (ADR 055). A page that the take-in of the downloads left in the queue
+    /// does not count: the reads that follow the take-in put none in.
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
-        match &*self.journal.read().unwrap() {
+        let before = self.exports.last_queued_at().unwrap_or(None);
+        let done = match &*self.journal.read().unwrap() {
             Some(journal) => journal.call(op),
-            None => Err(ApiError("the journal is closed".into())),
+            None => return Err(ApiError("the journal is closed".into())),
+        };
+        if self.exports.last_queued_at().unwrap_or(None) > before {
+            if let Some(tell) = &*self.on_change.read().unwrap() {
+                tell();
+            }
         }
+        done
     }
 
     /// Lets go of the journal. It waits for an operation that runs to end.
@@ -112,6 +128,8 @@ pub struct PetaCore {
     door: Arc<Door>,
     /// The file with the URL of the screen opened last, for the next time the app opens.
     last: PathBuf,
+    /// The folder the files from Dropbox are put in.
+    markdown: PathBuf,
 }
 
 impl Drop for PetaCore {
@@ -130,6 +148,12 @@ impl PetaCore {
         shell: Arc<dyn PetaShell>,
     ) -> Result<Self, String> {
         let data_dir = PathBuf::from(data_dir);
+        // The folders of ADR 030. The core takes in nothing from a Markdown folder that has
+        // neither of the folders of the pages
+        for name in ["docs", "journals", "assets"] {
+            std::fs::create_dir_all(PathBuf::from(&markdown_dir).join(name))
+                .map_err(|e| e.to_string())?;
+        }
         let config_dir = data_dir.join("config");
         std::fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
         let events = Arc::new(EventQueue::default());
@@ -160,6 +184,8 @@ impl PetaCore {
                 &client_id,
             ))),
             events,
+            exports: ExportQueueRepository::new(Arc::clone(&core.db)),
+            on_change: RwLock::new(None),
         });
         let host = Embedded { door: door.clone() };
         Ok(PetaCore {
@@ -169,6 +195,7 @@ impl PetaCore {
             core,
             door,
             last: data_dir.join("last-screen"),
+            markdown: PathBuf::from(markdown_dir),
         })
     }
 

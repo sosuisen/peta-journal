@@ -22,7 +22,7 @@ import java.io.File
 class Border(dataDir: File, markdownDir: File, onRequests: (List<Request>) -> Unit) : AutoCloseable {
     // The types are generated from the Rust that wrote the bytes. Bytes that cannot be read
     // are a build that mixes two versions, and the exception ends the app
-    private val core = PetaCore(
+    val core = PetaCore(
         dataDir.path,
         markdownDir.path,
         PetaShell { bytes -> onRequests(Requests.bincodeDeserialize(bytes).value) },

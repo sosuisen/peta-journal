@@ -87,8 +87,16 @@ fn file(path: &str, rev: &str, content: &str) -> PetaDropboxEntry {
     }
 }
 
-/// The app of the test: its folders, and what the sync asked of it.
+/// A shell that asks nothing of what the core requests.
+struct NoScreen;
+
+impl crate::PetaShell for NoScreen {
+    fn process_effects(&self, _bytes: Vec<u8>) {}
+}
+
+/// The app of the test: its folders, its core, and what the sync asked of it.
 struct App {
+    core: PetaCore,
     dir: TempDir,
     told: Receiver<(PetaSyncState, bool)>,
     logged: Arc<Mutex<Vec<String>>>,
@@ -123,6 +131,11 @@ impl PetaSyncHost for Host {
 }
 
 fn app() -> (App, PetaCloudSync) {
+    app_waiting(60_000)
+}
+
+/// The app, with a sync that starts `after_change_ms` after the last change of a page.
+fn app_waiting(after_change_ms: u64) -> (App, PetaCloudSync) {
     let dir = TempDir::new().unwrap();
     let markdown = dir.path().join("markdown");
     fs::create_dir_all(markdown.join("docs")).unwrap();
@@ -138,8 +151,10 @@ fn app() -> (App, PetaCloudSync) {
         writes: Arc::clone(&writes),
     };
     let path = |name: &str| dir.path().join(name).to_string_lossy().into_owned();
+    let core = PetaCore::new(path("data"), path("markdown"), Arc::new(NoScreen)).unwrap();
     let sync = PetaCloudSync::new(
-        path("markdown"),
+        &core,
+        after_change_ms,
         path("downloads"),
         path("dropbox-cursor"),
         path("dropbox-record"),
@@ -148,6 +163,7 @@ fn app() -> (App, PetaCloudSync) {
     );
     (
         App {
+            core,
             dir,
             told,
             logged,
@@ -406,4 +422,69 @@ fn a_cursor_that_the_shell_tells_was_forgotten_asks_for_everything_again() {
     sync.start(sdk.clone(), "/PetaJournal".into(), false);
     assert_eq!(app.until_rest().last(), Some(&(PetaSyncState::Idle, false)));
     assert_eq!(*sdk.lists.lock().unwrap(), 1);
+}
+
+/// A Dropbox of the test that holds nothing.
+fn empty() -> Arc<FakeSdk> {
+    Arc::new(FakeSdk::default())
+}
+
+impl App {
+    /// True when the sync tells nothing more for a while.
+    fn stays_quiet(&self) -> bool {
+        self.told.recv_timeout(Duration::from_millis(500)).is_err()
+    }
+}
+
+// アプリでページが変わると、待ち時間のあとに、ユーザーが待たない同期が始まる。ページを作る操作でも同じである（ADR 055）。
+#[test]
+fn a_page_made_in_the_app_starts_a_quiet_sync_after_the_wait() {
+    let (app, sync) = app_waiting(100);
+    sync.start(empty(), "/PetaJournal".into(), true);
+    app.until_rest();
+
+    app.core.open_or_make("/pages/plan".into()).unwrap();
+
+    assert_eq!(app.until_rest().last(), Some(&(PetaSyncState::Idle, false)));
+    assert_eq!(*app.taken_in.lock().unwrap(), 2);
+}
+
+// ページを読むだけの操作では、同期は始まらない。
+#[test]
+fn opening_a_page_starts_no_sync() {
+    let (app, sync) = app_waiting(100);
+    fs::write(app.dir.path().join("markdown/docs/notes.md"), "- a\n").unwrap();
+    app.core.sync();
+    sync.start(empty(), "/PetaJournal".into(), true);
+    app.until_rest();
+
+    app.core.open("/pages/notes".into()).unwrap();
+
+    assert!(app.stays_quiet());
+    assert_eq!(*app.taken_in.lock().unwrap(), 1);
+}
+
+// ダウンロードしたファイルの取り込みでは、同期は始まらない。取り込みが書き直したページは、同じ回の同期が上げる。
+#[test]
+fn taking_in_the_downloads_starts_no_sync() {
+    let (app, sync) = app_waiting(100);
+    sync.start(empty(), "/PetaJournal".into(), true);
+    app.until_rest();
+
+    fs::write(app.dir.path().join("markdown/docs/notes.md"), "- a\n").unwrap();
+    app.core.sync();
+
+    assert!(app.stays_quiet());
+}
+
+// アプリを開くと、Markdownフォルダーに、ページの2つのフォルダーと、画像のフォルダーができる（ADR 030）。
+#[test]
+fn the_app_makes_the_folders_of_the_pages_and_the_images() {
+    let (app, _sync) = app();
+    for name in ["docs", "journals", "assets"] {
+        assert!(
+            app.dir.path().join("markdown").join(name).is_dir(),
+            "{name}"
+        );
+    }
 }

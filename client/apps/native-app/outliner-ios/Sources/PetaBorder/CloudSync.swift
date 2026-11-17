@@ -29,14 +29,19 @@ public final class CloudSync: ObservableObject {
 
     private let sync: PetaCloudSync
 
-    /// `markdown` is the folder the core takes the files in from, and `temp` where a download
-    /// is written before it is whole. `cursor` keeps where the last download ended, and
-    /// `record` the versions of the files in the cloud that the app has seen. The core takes
-    /// in the files through `shell`.
-    public init(markdown: URL, temp: URL, cursor: URL, record: URL, signedIn: Bool, shell: Shell) {
+    /// The sync puts the downloads in the Markdown folder of the core of `shell`, and `temp`
+    /// is where a download is written before it is whole. `cursor` keeps where the last
+    /// download ended, and `record` the versions of the files in the cloud that the app has
+    /// seen. The core takes in the files through `shell`, and tells the sync when a page
+    /// changed: the sync starts when no page has changed for `afterChange` seconds (ADR 055).
+    public init(
+        temp: URL, cursor: URL, record: URL, signedIn: Bool, shell: Shell,
+        afterChange: TimeInterval
+    ) {
         let host = Host(shell: shell)
         sync = PetaCloudSync(
-            markdownDir: markdown.path,
+            core: shell.core,
+            afterChangeMs: UInt64(afterChange * 1000),
             tempDir: temp.path,
             cursorFile: cursor.path,
             recordFile: record.path,

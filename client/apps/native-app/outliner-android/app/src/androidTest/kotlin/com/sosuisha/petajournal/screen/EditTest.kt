@@ -166,20 +166,6 @@ class EditTest : JournalScreenFixture() {
 
     private fun waitForItems(vararg items: String) = compose.waitUntil(WAIT_MS) { items() == items.toList() }
 
-    // ページを変える操作は、そのたびにアプリに伝わる。アプリは、少しあとに同期する。開くだけでは伝わらない。
-    @Test
-    fun every_change_of_a_page_is_told_to_the_app() {
-        editSecondOfThree()
-        compose.runOnIdle { assertEquals(0, edits) }
-
-        compose.onNodeWithTag(EDITOR_TAG).performTextInput("!")
-        compose.runOnIdle { assertEquals(1, edits) }
-        pad("Move block", Arrow.Right)
-        tool("Task")
-
-        compose.runOnIdle { assertEquals(3, edits) }
-    }
-
     // 道具は、編集しているときだけ出る。
     @Test
     fun the_tools_show_only_while_an_item_is_edited() {

@@ -1,6 +1,7 @@
 use std::fs;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
+use std::time::Duration;
 
 use crate::cloud::{Cloud, SyncError};
 use crate::round::SyncRound;
@@ -59,6 +60,8 @@ pub struct CloudSync {
 
 struct Shared {
     local: Local,
+    /// How long the sync waits after the last change of a page before it starts.
+    after_change: Duration,
     take_in: Box<dyn Fn() -> Result<(), SyncError> + Send + Sync>,
     listener: Box<dyn SyncListener>,
     status: Mutex<Status>,
@@ -69,14 +72,23 @@ struct Status {
     in_front: bool,
     /// The cloud of a sync that was asked for while another ran.
     next: Option<Arc<dyn Cloud>>,
+    /// The cloud of the last start, for the sync after a change. None before the first start
+    /// and after the sign-out.
+    last: Option<Arc<dyn Cloud>>,
+    /// Counts the changes and the sign-outs: a wait whose count has moved on since it began
+    /// starts nothing.
+    changes: u64,
 }
 
 impl CloudSync {
     /// `take_in` lets the core take in the files of the Markdown folder and write the pages
-    /// that changed in the app. It returns when the core is done.
+    /// that changed in the app. It returns when the core is done. `after_change` is how long
+    /// the sync waits after the last change of a page before it starts: see
+    /// [`CloudSync::changed`].
     pub fn new(
         local: Local,
         signed_in: bool,
+        after_change: Duration,
         take_in: impl Fn() -> Result<(), SyncError> + Send + Sync + 'static,
         listener: impl SyncListener + 'static,
     ) -> Self {
@@ -88,12 +100,15 @@ impl CloudSync {
         CloudSync {
             shared: Arc::new(Shared {
                 local,
+                after_change,
                 take_in: Box::new(take_in),
                 listener: Box::new(listener),
                 status: Mutex::new(Status {
                     state,
                     in_front: false,
                     next: None,
+                    last: None,
+                    changes: 0,
                 }),
             }),
         }
@@ -114,24 +129,20 @@ impl CloudSync {
     /// typed since the running one read the pages is not left behind. A sync that runs comes
     /// to the front when `in_front` asks for it.
     pub fn start(&self, cloud: Arc<dyn Cloud>, in_front: bool) {
-        let mut status = self.shared.lock();
-        if in_front {
-            status.in_front = true;
-        }
-        if status.state.is_running() {
-            status.next = Some(cloud);
-            self.shared.tell(&status);
-            return;
-        }
-        status.next = None;
-        status.state = SyncState::Downloading { done: 0, total: 0 };
-        self.shared.tell(&status);
-        drop(status);
+        self.shared.start(cloud, in_front);
+    }
+
+    /// A page changed in the app (ADR 055). The sync starts when no page has changed for the
+    /// wait given to [`CloudSync::new`], with the cloud of the last start, and the user does
+    /// not wait for it. Before the first start and after the sign-out, nothing starts.
+    pub fn changed(&self) {
+        Shared::changed(&self.shared);
+    }
+
+    /// Calls [`CloudSync::changed`], for the core that knows of the changes.
+    pub fn on_change(&self) -> impl Fn() + Send + Sync + 'static {
         let shared = Arc::clone(&self.shared);
-        thread::Builder::new()
-            .name("cloud-sync".into())
-            .spawn(move || shared.run(cloud))
-            .expect("a thread for the sync");
+        move || Shared::changed(&shared)
     }
 
     /// The user has signed out of the cloud. What was downloaded stays, and so does the record
@@ -146,12 +157,62 @@ impl CloudSync {
         let mut status = self.shared.lock();
         assert!(!status.state.is_running(), "a sync runs");
         let _ = fs::remove_file(&self.shared.local.cursor);
+        status.last = None;
+        status.changes += 1;
         status.state = SyncState::SignedOut;
         self.shared.tell(&status);
     }
 }
 
 impl Shared {
+    fn start(self: &Arc<Self>, cloud: Arc<dyn Cloud>, in_front: bool) {
+        let mut status = self.lock();
+        status.last = Some(Arc::clone(&cloud));
+        if in_front {
+            status.in_front = true;
+        }
+        if status.state.is_running() {
+            status.next = Some(cloud);
+            self.tell(&status);
+            return;
+        }
+        status.next = None;
+        status.state = SyncState::Downloading { done: 0, total: 0 };
+        self.tell(&status);
+        drop(status);
+        let shared = Arc::clone(self);
+        thread::Builder::new()
+            .name("cloud-sync".into())
+            .spawn(move || shared.run(cloud))
+            .expect("a thread for the sync");
+    }
+
+    fn changed(self: &Arc<Self>) {
+        let mut status = self.lock();
+        if status.last.is_none() {
+            return;
+        }
+        status.changes += 1;
+        let waits_for = status.changes;
+        drop(status);
+        let shared = Arc::clone(self);
+        thread::Builder::new()
+            .name("cloud-sync-wait".into())
+            .spawn(move || {
+                thread::sleep(shared.after_change);
+                let status = shared.lock();
+                // Another change came since, or the user signed out: the sign-out counts as
+                // a change, and it forgets the cloud
+                let cloud = match &status.last {
+                    Some(cloud) if status.changes == waits_for => Arc::clone(cloud),
+                    _ => return,
+                };
+                drop(status);
+                shared.start(cloud, false);
+            })
+            .expect("a thread for the wait");
+    }
+
     fn lock(&self) -> MutexGuard<'_, Status> {
         self.status.lock().unwrap()
     }

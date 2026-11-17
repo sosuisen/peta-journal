@@ -7,6 +7,7 @@ import com.sosuisha.petajournal.core.PetaCloudSync
 import com.sosuisha.petajournal.core.PetaDropboxSdk
 import com.sosuisha.petajournal.core.PetaSyncHost
 import com.sosuisha.petajournal.core.PetaSyncState
+import com.sosuisha.petajournal.shell.Shell
 import java.io.File
 
 /** Where the sync with the cloud stands, for the screen. */
@@ -32,33 +33,35 @@ sealed interface SyncState {
 /**
  * The syncs with the cloud, for the screen. The core runs them, one at a time, on a thread of
  * its own (ADR 054); this keeps where they stand on the main thread. It is used on the main
- * thread.
+ * thread. The downloads go to the Markdown folder of the core of [shell].
  *
- * @param markdown the folder the core takes the files in from.
  * @param temp where a download is written before it is whole.
  * @param cursor keeps where the last download ended.
  * @param record keeps the versions of the files in the cloud that the app has seen.
- * @param takeIn lets the core take in the downloaded files, and waits for it.
+ * @param shell takes in the downloaded files, and its core tells when a page changed.
+ * @param afterChangeMs how long the sync waits after the last change of a page before it
+ *   starts (ADR 055).
  * @param onMainThread runs what it is given on the main thread, later and in order.
  * @param log keeps why a sync failed, for the one who looks into it.
  */
 class CloudSync(
-    markdown: File,
+    shell: Shell,
+    afterChangeMs: Long,
     temp: File,
     cursor: File,
     record: File,
     signedIn: Boolean,
-    takeIn: () -> Unit,
     onMainThread: (() -> Unit) -> Unit,
     log: (String) -> Unit = {},
 ) {
     private val sync = PetaCloudSync(
-        markdown.path,
+        shell.core,
+        afterChangeMs.toULong(),
         temp.path,
         cursor.path,
         record.path,
         signedIn,
-        Host(takeIn, { onMainThread(::read) }, log),
+        Host(shell::syncAndWait, { onMainThread(::read) }, log),
     )
 
     var state: SyncState by mutableStateOf(screenState(sync.state()))

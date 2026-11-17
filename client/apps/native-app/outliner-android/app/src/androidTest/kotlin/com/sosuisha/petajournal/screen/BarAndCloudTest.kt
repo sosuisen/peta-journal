@@ -106,7 +106,6 @@ class BarAndCloudTest : JournalScreenFixture() {
         compose.onNode(hasContentDescription("Today")).assertDoesNotExist()
         compose.runOnIdle {
             assertFalse(shell.view.screen is ScreenView.Journal)
-            assertEquals(0, edits)
         }
     }
 

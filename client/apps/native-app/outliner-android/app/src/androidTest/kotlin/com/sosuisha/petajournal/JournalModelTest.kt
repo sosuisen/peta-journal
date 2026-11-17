@@ -133,20 +133,20 @@ class JournalModelTest {
         assertEquals(SyncState.SignedOut, model.cloud?.state)
     }
 
-    // 続けて起きた変更は、最後の変更から少し待って、1回だけ同期する。キーを打つたびには同期しない。
+    // アプリでページを作ると、少し待ってから同期し、そのページがDropboxに上がる。いつ同期するかは、コアが決める（ADR 055）。
     @Test
-    fun changes_that_follow_each_other_sync_once_a_moment_after_the_last() {
+    fun a_page_made_in_the_app_is_uploaded_a_moment_later() {
         val account = FakeAccount()
         val model = open(account, afterEditMs = 300)
+        onMain { model.syncInFront() }
+        waitUntil { model.cloud?.state == SyncState.Idle }
 
         onMain {
-            model.shell.today()
-            model.shell.today()
+            model.shell.follow("/pages/brand-new")
+            model.shell.make()
         }
 
-        assertEquals(0, account.syncs)
-        waitUntil { account.syncs > 0 }
-        Thread.sleep(900)
+        waitUntil { "docs/brand-new.md" in account.page.uploaded }
         assertEquals(1, account.syncs)
     }
 

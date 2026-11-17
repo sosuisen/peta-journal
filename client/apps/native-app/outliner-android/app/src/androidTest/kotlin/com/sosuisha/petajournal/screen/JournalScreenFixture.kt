@@ -67,17 +67,18 @@ abstract class JournalScreenFixture {
     protected fun start(cloud: PetaDropboxSdk? = null, signedIn: Boolean = true) {
         val main = Handler(Looper.getMainLooper())
         compose.runOnUiThread {
-            shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) }) { edits += 1 }
+            shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) })
             shell.sync()
         }
         sync = cloud?.let {
             CloudSync(
-                File(root, "markdown"),
+                shell,
+                // The tests of the screen sync only when "Sync" is touched
+                afterChangeMs = 600_000,
                 File(root, "temp"),
                 File(root, "cursor"),
                 File(root, "record"),
                 signedIn,
-                takeIn = { shell.syncAndWait() },
                 onMainThread = { main.post(it) },
             )
         }
@@ -104,8 +105,6 @@ abstract class JournalScreenFixture {
         compose.waitUntil(WAIT_MS) { !shell.syncing }
     }
 
-    /** How often the shell told that the user changed a page. */
-    protected var edits = 0
     protected var signIns = 0
     protected var signOuts = 0
     protected val opened = mutableListOf<File>()
