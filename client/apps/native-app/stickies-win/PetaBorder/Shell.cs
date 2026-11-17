@@ -330,9 +330,6 @@ public sealed partial class Shell : IDisposable
                 break;
             // No prompt is shown. The core asks one only for a new page without a name, and
             // this app has no way to make one: its search box makes a page with the typed name
-            case UiOp.CopyText { Value: var text }:
-                copy(text, null);
-                break;
             case UiOp.CopyMarkdown { Markdown: var markdown, Ast: var ast }:
                 // The HTML is for other apps (ADR 027). Its links to pages open the web
                 // frontend, as those of a copy made there: this app has no address that

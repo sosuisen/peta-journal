@@ -148,9 +148,6 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
         }
         UiOp::SetTitle(title) => dom::document().set_title(&title),
         UiOp::SaveAtlasDirs(dirs) => crate::components::atlas::save_atlas_dirs(&dirs),
-        UiOp::CopyText(text) => {
-            let _ = dom::window().navigator().clipboard().write_text(&text);
-        }
         UiOp::CopyMarkdown { markdown, ast } => {
             // The origin is what another app needs to open a page of this app.
             let app_url = dom::window().location().origin().unwrap_or_default();

@@ -559,7 +559,7 @@ impl<H: Host> Shell<H> {
             }
             UiOp::SetTitle(title) => self.host.emit(Outbound::Title { title }),
             UiOp::Alert(text) => self.after_render.push(Outbound::Message { text }),
-            UiOp::CopyText(text) | UiOp::CopyMarkdown { markdown: text, .. } => {
+            UiOp::CopyMarkdown { markdown: text, .. } => {
                 self.host.emit(Outbound::Copy { text });
             }
             UiOp::Confirm(message) | UiOp::ConfirmDestructive(message) => {
