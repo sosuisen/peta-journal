@@ -6,6 +6,7 @@ pub mod app;
 pub mod asts;
 pub mod body_model;
 pub mod effects;
+pub mod keys;
 pub mod model;
 pub mod ops;
 pub mod outline;

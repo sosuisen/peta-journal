@@ -67,6 +67,19 @@ fn finish_edit_saves_typed_text_once_cancelling_the_auto_save_and_closes_the_edi
     assert_eq!(update_calls(&h.api).len(), 1, "the text is not sent twice");
 }
 
+// Shift+↑↓で項目の選択を始めると、打った文字が保存される。選んだ項目を動かしても、文字は消えない（ADR 052）。
+#[test]
+fn starting_a_selection_from_an_editor_saves_the_typed_text() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.state.add_editing_item("a");
+    typed(&mut h, "a", "hello");
+    h.send(Event::ShiftSelect {
+        item_id: "a".into(),
+    });
+    assert_eq!(update_calls(&h.api), [("a".into(), Some("hello".into()))]);
+    assert!(h.model.state.item_selection_mode());
+}
+
 // 変更のない項目の編集終了では保存されずにエディタが閉じられる。
 #[test]
 fn finish_edit_closes_the_editor_of_a_clean_item_without_a_save() {
