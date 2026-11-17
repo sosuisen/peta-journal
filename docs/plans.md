@@ -343,11 +343,27 @@
   - Rustの側に寄せる分は、2026-11-14に終えた（タイトル、フォーカスの番号、質問の待ち行列、iOSとAndroidの`Shell`の共通部分）
   - [ ] iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）の間で、Swiftに残った同じコードを寄せる
     - 本文を描くためにASTを平らにする処理は、2026-11-14に共通のパッケージ`peta-shown`に寄せた（PR #464）。ADR 042で、この処理をcoreに移し、`peta-shown`を消す（下の「ADR 042」）
-  - [ ] Dropboxとの同期をRustに書き、AndroidとiOSの両方で使うかを検討する（2026-11-13に開発者が足した。ADR 034のAlternative 2）
-    - 今は、同じクラスがKotlinとSwiftに1つずつある（`Cloud`、`CloudRecord`、`MarkdownFolder`、`Downloader`、`Uploader`、`SyncRound`、`CloudSync`）。決まりを変えるときは、両方を直す
-    - Rustに寄せると、同期の決まりが1か所になる。テストも1つで済む
-    - 決めること: Dropboxとのやり取りを、Rustで書き直すか、境界を越えてKotlinとSwiftのSDKを呼ぶか。サインインとトークンの保存は、SDKに任せたままにするか。進み具合を、画面へどう伝えるか
-    - ADR 034は、KotlinとSwiftの同期が食い違い始めたら見直すとしている
+  - [ ] Dropboxとの同期をRustに1回だけ書き、AndroidとiOSの両方で使う（ADR 054、2026-11-17に開発者が受理した）
+    - 新しいクレート`client-cloud-sync`に、`CloudRecord`、`MarkdownFolder`、`Downloader`、`Uploader`、`SyncRound`、`CloudSync`、`DropboxCloud`、`ContentHash`の決まりを移す。シェルには、SDKを呼ぶ`DropboxFiles`、サインイン、画面が残る
+    - 前のPRがマージされてから、次のPRを`main`から切る（積み重ねたPRは`main`に届かないことがある）
+    - [ ] `client-cloud-sync`を作り、KotlinとSwiftの同期のテストをRustに移す。偽の`DropboxFiles`で確かめる。シェルは変えない
+      - 先に確かめること: BoltFFI 0.32.1の外のトレイトから、Rustへ`Result`のエラーを返せるか
+      - 記録（`dropbox-record`）は、iOSのJSONの形にする。読めない記録は、記録がないものとして扱う
+      - パスは、空の区切りを捨てて扱う（今のiOSの`findWithoutCase`）
+    - [ ] `client-shell-embedded`から外に出す。`DropboxFiles`のトレイト、状態のコールバック、コアへの取り込みをシェルに頼むトレイト、サインアウトの知らせ
+    - [ ] iOSのシェルを切り替え、`PetaSync`の同期のクラスとテスト、`DropboxCloud`、`ContentHash`を消す。実機で確かめる
+    - [ ] Androidのシェルを切り替え、`sync`の同期のクラスとテスト、`DropboxCloud`、`ContentHash`を消す。先に、このMacでAndroidがビルドできるかを確かめる（`adb`がPATHにない）
+      - 新しい版を入れる前に、古い版で同期を済ませる。Rustは`Properties`の形式の記録を読まないので、上げていない編集が失われる（ADR 054）
+- [ ] ページの項目を編集している間も、編集中の項目のほかは、ファイルの変更を画面に出す（2026-11-17に開発者が言った。再検討の余地がある仕様）
+  - 今の仕様：`client-core`の`file_reload`は、ページのどれかの項目を編集している間、そのページ全体の読み直しを待たせる（`file_reload_pending`）。読み直すのは、編集が終わってからである
+  - 2026-11-17に、Androidの実機で見た。iPhoneで編集したページを、Androidで開いたままSyncした。「Downloading」のあとも、画面は変わらなかった。検索欄にフォーカスを移して編集が終わると、画面に出た
+  - 案：編集中の項目だけを、手元の本文のまま残す。ほかの項目は、ファイルの版に置き換える
+  - 決めること
+    - 編集中の項目が、ほかの端末でも変わっていたとき。打ちかけの本文を残して保存で上書きするか、競合として扱うか
+    - 編集中の項目が、ほかの端末で消えたか、別の場所に動いていたとき。その項目を残すか、編集を閉じるか
+    - 編集中の項目の親や兄弟の並びが変わったとき。字下げと位置を、どちらの版に合わせるか
+  - `client-core`の決まりなので、ネイティブのシェルだけでなく、Webのアウトライナーにも効く。ADR 006（手で書き換えたファイルの取り込み）に関わり、後から変えにくいので、ADRを書いてから進める
+  - 編集していないときに、触れなくても画面に出ることは、Androidの`DownloadedPageTest`が確かめている
 - [ ] ミューテーションテストがまだないシェルに、必要であれば入れる（2026-11-13に開発者が足した）
   - 今あるのは、Rustの`cargo-mutants`だけである（`journal/.cargo/mutants.toml`）。SwiftUI、WinUI、Android、iOSのシェルには、道具がない
   - シェルごとに、入れるかどうかを決める。入れるのは、道具が動かせるテストに、守るべきロジックがあるシェルである
@@ -386,6 +402,7 @@
   - iPhoneで通信を切って編集すると、「Sync failed: urlSessionError(SwiftyDropbox.ClientError.urlSessionError…」と出た。長くて、意味が分からない（2026-11-13に開発者が見た）。Androidも長いが、画面が大きいので気にならなかっただけである
   - 失敗の表示、「Try again」、通信が戻ったあとのアップロードは、働いた
   - [ ] 失敗を、原因で分ける。少なくとも、通信ができない場合と、そのほかの場合を分ける。分けるのは、Dropboxを呼ぶところである（iOSは`DropboxFailure`、Androidは`SyncState.Failed`の理由）
+    - ADR 054で、iOSのシェルを切り替えるときに片づける。シェルの`DropboxFiles`が失敗を`Offline`と`Other`に分け、Rustが状態にする
   - 文言は、通信ができないときは「Sync failed: no connection」、そのほかは「Sync failed」だけにする（2026-11-16に開発者が決めた）
   - Androidでは、例外とその原因の中に`IOException`があれば、通信の失敗と見なす。Dropbox SDKは、通信の`IOException`を自分の例外で包むためである
   - [ ] そのほかの失敗の理由は、画面に出さず、ログに残す
@@ -437,7 +454,7 @@
 
 ### 4つのシェルのコードが減るもの
 
-2026-11-14に、残りの項目で減るシェルの行数を見積もった。いちばん減るのは、Dropboxとの同期をRustにまとめる項目である。iOSとAndroidに、コードが約1,900行、テストが約2,300行ある。そのうち、何を上げ下げするかの判断、フォルダーとの突き合わせ、記録（`CloudSync`、`SyncRound`、`Downloader`、`Uploader`、`MarkdownFolder`、`CloudRecord`）の約1,000行が減る。DropboxのSDKとログインは、シェルに残る。ADR 034で選ばなかった案なので、先に新しいADRが要る。次は、付箋紙の設定と保存（SwiftとC#で約400行、約250行減る）である。ほかの項目は、数行から100行ほどである。日付の切り替わりと、iOSとAndroidでの`Prompt`などへの対応は、シェルのコードが増える
+2026-11-14に、残りの項目で減るシェルの行数を見積もった。いちばん減るのは、Dropboxとの同期をRustにまとめる項目である。iOSとAndroidに、コードが約1,900行、テストが約2,300行ある。そのうち、何を上げ下げするかの判断、フォルダーとの突き合わせ、記録（`CloudSync`、`SyncRound`、`Downloader`、`Uploader`、`MarkdownFolder`、`CloudRecord`）の約1,000行が減る。DropboxのSDKとログインは、シェルに残る。2026-11-17にADR 054で決めた（「ネイティブのシェルに共通」の項目）。次は、付箋紙の設定と保存（SwiftとC#で約400行、約250行減る）である。ほかの項目は、数行から100行ほどである。日付の切り替わりと、iOSとAndroidでの`Prompt`などへの対応は、シェルのコードが増える
 
 - [ ] キーから`Event`への対応を、`client-core`の1つの関数にする（ADR 052）。今は、6つのシェルが同じ表を持つ（Web `item_editor/keys.rs`、Windows `Keys.cs`、macOS `Keys.swift`、iOSとAndroidの`ItemEditor`、Emacs `shell.rs`）。キーの種類はWindowsの`EditorKey`を元にし、編集欄の状態（本文、選択、最初の行か、最後の行か）と一緒に渡す。シェルに残るのは、物理キーの読み替えと行の位置の計測だけである。下の`nowMs`とShiftでの範囲選択の項目も、この関数の中で片づく。AndroidのBackspaceの横取りのように、`EditorKey`に収まらないキーが出たら、ADRを見直す
 - [ ] 画像の大きさの決まりを、Rustの1つの関数にする。今は、4つのシェルで違う。iOSは幅に合わせて縮め、Androidは決まった幅にし、macOSは付箋紙の幅に縮めない。画像がないときも、macOSは`[alt]`、スマホは`alt`かパス、Windowsは`[alt]`かパスを角かっこで出す
@@ -447,8 +464,8 @@
 - [ ] 日付が変わったら、Rustが`/today`を開き直す。今は、どのシェルも日付の変わり目に気づかない。plansには、macOSの分だけがある。`Clock`の`now`と`sleep`で作れる
 - [ ] 触れた位置に近い文字を選ぶ決まり（縦の距離を100倍に重く見る）を、Rustに移す。iOS（`Touches.swift:48-52`）とAndroid（`Touches.kt:138-142`）に同じ式がある
 - [ ] どのイベントを編集と見なすか（`change`と`send`、TodayやCreateを選んだあとの`onEdit`）を、coreの効果（ページを書いた知らせ）にする。今は、iOSとAndroidの両方に書いてある
-- [ ] Dropboxとの同期の、同じ処理をまとめる。ADR 034のAlternative 2（同期をRustに書く）と合わせて考える
-  - `findWithoutCase`がずれている。Swiftの`split("/")`は空の区切りを捨て、Kotlinの`split('/')`は残す。先頭が`/`のパスは、iOSでしか見つからない
+- [ ] Dropboxとの同期の、同じ処理をまとめる。ADR 054で行う（「ネイティブのシェルに共通」の項目）
+  - `findWithoutCase`がずれている。ADR 054で、iOSの振る舞いにそろえる。Swiftの`split("/")`は空の区切りを捨て、Kotlinの`split('/')`は残す。先頭が`/`のパスは、iOSでしか見つからない
   - `docs/`、`journals/`、`assets/`のフォルダーを作る処理と、編集の3秒後に同期する待ち時間が、両方の`JournalModel`にある
 - [ ] iOSとAndroidで、`Prompt`、`ReadClipboardText`、`CopyText`、`CopyMarkdown`に答える。今は、`nil`を返すか、捨てている（`Shell.swift:318`、`Shell.kt:317`）。macOSとWindowsは、4つとも扱う
 
