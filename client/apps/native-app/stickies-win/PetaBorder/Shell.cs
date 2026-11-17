@@ -233,7 +233,14 @@ public sealed partial class Shell : IDisposable
     /// body a moment later.
     /// </summary>
     public void Typed(string body, string itemId, int cursor) =>
-        Send(new Event.Typed(itemId, body, PetaCore.PetaNative.CharsOfUtf16(body, (ulong)Math.Max(cursor, 0)), NowMs()));
+        Send(
+            new Event.Typed(
+                itemId,
+                body,
+                PetaCore.PetaNative.CharsOfUtf16(body, (ulong)Math.Max(cursor, 0)),
+                NowMs()
+            )
+        );
 
     /// <summary>Answers the confirmation on screen.</summary>
     public void Answer(bool yes) => Answer(new UiOutput.Bool(yes));
