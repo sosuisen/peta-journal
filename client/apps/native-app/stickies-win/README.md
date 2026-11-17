@@ -100,6 +100,13 @@ PetaStickies/bin/Release/net11.0-windows10.0.22621.0/win-x64/PetaStickies.exe
 The app is a folder with an `.exe` in it. It has no package, and the Windows App SDK lies
 beside the `.exe`: nothing has to be installed to run it.
 
+The icon of the app is `PetaStickies/PetaStickies.ico`. `icon.ps1` makes it from
+`images/peta-journal.svg` at the top of the repository: the notebook in the middle of a clear
+square. It is kept in the repository, so a build does not need the tools of the script. Run
+it again after a change of the SVG. It needs resvg and ImageMagick
+(`winget install --id linebender.resvg`, `winget install --id ImageMagick.ImageMagick`).
+`icon.sh` does the same in Git Bash.
+
 Without arguments the app shows the stickies of the run before, with their pages, places and
 sizes, from the server at `http://localhost:8087`. A sticky that was closed does not come back.
 The first time there is one sticky without a page: it shows the search box, to search for a

@@ -197,6 +197,8 @@ internal sealed class StickyWindow : Window
         Content = Paper();
 
         ExtendsContentIntoTitleBar = true;
+        // Alt+Tab shows the icon of the window, not that of the .exe
+        AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "PetaStickies.ico"));
         Paint();
         Place(kept, before);
         if (AppWindow.Presenter is OverlappedPresenter presenter)
