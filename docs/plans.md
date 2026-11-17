@@ -343,17 +343,6 @@
   - Rustの側に寄せる分は、2026-11-14に終えた（タイトル、フォーカスの番号、質問の待ち行列、iOSとAndroidの`Shell`の共通部分）
   - [ ] iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）の間で、Swiftに残った同じコードを寄せる
     - 本文を描くためにASTを平らにする処理は、2026-11-14に共通のパッケージ`peta-shown`に寄せた（PR #464）。ADR 042で、この処理をcoreに移し、`peta-shown`を消す（下の「ADR 042」）
-  - [ ] Dropboxとの同期をRustに1回だけ書き、AndroidとiOSの両方で使う（ADR 054、2026-11-17に開発者が受理した）
-    - 新しいクレート`client-cloud-sync`に、`CloudRecord`、`MarkdownFolder`、`Downloader`、`Uploader`、`SyncRound`、`CloudSync`、`DropboxCloud`、`ContentHash`の決まりを移す。シェルには、SDKを呼ぶ`DropboxFiles`、サインイン、画面が残る
-    - 前のPRがマージされてから、次のPRを`main`から切る（積み重ねたPRは`main`に届かないことがある）
-    - [ ] `client-cloud-sync`を作り、KotlinとSwiftの同期のテストをRustに移す。偽の`DropboxFiles`で確かめる。シェルは変えない
-      - 先に確かめること: BoltFFI 0.32.1の外のトレイトから、Rustへ`Result`のエラーを返せるか
-      - 記録（`dropbox-record`）は、iOSのJSONの形にする。読めない記録は、記録がないものとして扱う
-      - パスは、空の区切りを捨てて扱う（今のiOSの`findWithoutCase`）
-    - [ ] `client-shell-embedded`から外に出す。`DropboxFiles`のトレイト、状態のコールバック、コアへの取り込みをシェルに頼むトレイト、サインアウトの知らせ
-    - [ ] iOSのシェルを切り替え、`PetaSync`の同期のクラスとテスト、`DropboxCloud`、`ContentHash`を消す。実機で確かめる
-    - [ ] Androidのシェルを切り替え、`sync`の同期のクラスとテスト、`DropboxCloud`、`ContentHash`を消す。先に、このMacでAndroidがビルドできるかを確かめる（`adb`がPATHにない）
-      - 新しい版を入れる前に、古い版で同期を済ませる。Rustは`Properties`の形式の記録を読まないので、上げていない編集が失われる（ADR 054）
 - [ ] ページの項目を編集している間も、編集中の項目のほかは、ファイルの変更を画面に出す（2026-11-17に開発者が言った。再検討の余地がある仕様）
   - 今の仕様：`client-core`の`file_reload`は、ページのどれかの項目を編集している間、そのページ全体の読み直しを待たせる（`file_reload_pending`）。読み直すのは、編集が終わってからである
   - 2026-11-17に、Androidの実機で見た。iPhoneで編集したページを、Androidで開いたままSyncした。「Downloading」のあとも、画面は変わらなかった。検索欄にフォーカスを移して編集が終わると、画面に出た
@@ -398,15 +387,6 @@
 ### 機能向上
 
 - [x] 子を隠した項目の点を、Androidと同じく、大きな薄い灰色の円の上に描く（2026-11-16に開発者がiOSにも求めた）。`Outline.swift`、`JournalScreenTests`
-- [ ] 同期の失敗の表示から、SDKの生のエラーの文字を取る。通信ができないための失敗は、それと見分けて、分かるように伝える（2026-11-13に開発者が決めた）。Androidのシェルは、もう分けている（`CloudSync.kt`の`SyncState.Failed`、`CloudSyncTest`）
-  - iPhoneで通信を切って編集すると、「Sync failed: urlSessionError(SwiftyDropbox.ClientError.urlSessionError…」と出た。長くて、意味が分からない（2026-11-13に開発者が見た）。Androidも長いが、画面が大きいので気にならなかっただけである
-  - 失敗の表示、「Try again」、通信が戻ったあとのアップロードは、働いた
-  - [ ] 失敗を、原因で分ける。少なくとも、通信ができない場合と、そのほかの場合を分ける。分けるのは、Dropboxを呼ぶところである（iOSは`DropboxFailure`、Androidは`SyncState.Failed`の理由）
-    - ADR 054で、iOSのシェルを切り替えるときに片づける。シェルの`DropboxFiles`が失敗を`Offline`と`Other`に分け、Rustが状態にする
-  - 文言は、通信ができないときは「Sync failed: no connection」、そのほかは「Sync failed」だけにする（2026-11-16に開発者が決めた）
-  - Androidでは、例外とその原因の中に`IOException`があれば、通信の失敗と見なす。Dropbox SDKは、通信の`IOException`を自分の例外で包むためである
-  - [ ] そのほかの失敗の理由は、画面に出さず、ログに残す
-  - 表示を作るのは、`client/apps/native-app/outliner-ios/App/JournalScreen.swift`の`"Sync failed: \(reason)"`と、`JournalScreen.kt`の`"Sync failed: ${state.reason}"`である
 - [x] 道具を、Androidと同じ2段の道具に作り直す（2026-11-16に開発者がiOSにも求めた）。項目とカーソルを動かす2つのパッド、折りたたみ、タスク、元に戻す、やり直す、縮める道具、キーボードを閉じる道具と出す道具を置く。キーボードを閉じると、編集していた項目を選び、選んだ行に色を付ける（`Tools.swift`、`Pad.swift`、`ItemEditor.swift`の`Caret`、`JournalScreenTests`、`PadTests`、`ShellTests`）
   - 削除の道具は取った（2026-11-13に開発者が決めた）。ほかの項目が写している項目は、Backspaceでつなぐときに尋ねられる。`ShellTests`の問いのテストは、Backspaceで尋ねる形に書き換えた
   - カーソルの←と→は、絵文字などの見た目の1文字（`rangeOfComposedCharacterSequence`）ずつ動く。Androidはコードポイントで数える。国旗のような、コードポイントが2つ以上の絵文字だけ違う
@@ -464,8 +444,7 @@
 - [ ] 日付が変わったら、Rustが`/today`を開き直す。今は、どのシェルも日付の変わり目に気づかない。plansには、macOSの分だけがある。`Clock`の`now`と`sleep`で作れる
 - [ ] 触れた位置に近い文字を選ぶ決まり（縦の距離を100倍に重く見る）を、Rustに移す。iOS（`Touches.swift:48-52`）とAndroid（`Touches.kt:138-142`）に同じ式がある
 - [ ] どのイベントを編集と見なすか（`change`と`send`、TodayやCreateを選んだあとの`onEdit`）を、coreの効果（ページを書いた知らせ）にする。今は、iOSとAndroidの両方に書いてある
-- [ ] Dropboxとの同期の、同じ処理をまとめる。ADR 054で行う（「ネイティブのシェルに共通」の項目）
-  - `findWithoutCase`がずれている。ADR 054で、iOSの振る舞いにそろえる。Swiftの`split("/")`は空の区切りを捨て、Kotlinの`split('/')`は残す。先頭が`/`のパスは、iOSでしか見つからない
+- [ ] Dropboxとの同期のまわりで、iOSとAndroidに残った同じ処理をまとめる。同期そのものは、ADR 054でRustにまとめた
   - `docs/`、`journals/`、`assets/`のフォルダーを作る処理と、編集の3秒後に同期する待ち時間が、両方の`JournalModel`にある
 - [ ] iOSとAndroidで、`Prompt`、`ReadClipboardText`、`CopyText`、`CopyMarkdown`に答える。今は、`nil`を返すか、捨てている（`Shell.swift:318`、`Shell.kt:317`）。macOSとWindowsは、4つとも扱う
 
