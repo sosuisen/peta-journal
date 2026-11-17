@@ -185,9 +185,10 @@ the top or the bottom of the window, it scrolls the items, faster nearer the edg
 selection takes the items that come under the mouse. The text view follows the mouse in its
 own loop in `mouseDown` (`ItemTextView.follow`): a text view of AppKit keeps the mouse until
 the button comes up and never tells that it left the text. The mouse may leave the window; the
-item nearest to it that can be seen counts. `ItemDrag` and `EdgeScroll` of `PetaBorder` decide
-this, as those of the Windows shell do, and `ListDrag` of `PetaScreens` gives them the mouse:
-it finds the item under the mouse by the row of the table of the list, and scrolls the list.
+item nearest to it that can be seen counts. The core decides this (`drag.rs` of
+`client-core`), as for the Windows shell, and `ListDrag` of `PetaScreens` gives it the mouse
+through `Shell.dragged`: it finds the item under the mouse by the row of the table of the
+list, and scrolls the list as `EdgeScroll` says.
 A double click, and a click with Shift or another key held, are left to AppKit.
 
 While items are selected, no item has the cursor and the keys mean this:

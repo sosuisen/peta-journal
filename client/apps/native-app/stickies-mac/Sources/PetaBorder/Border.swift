@@ -30,6 +30,11 @@ public final class Border {
         try core.press(key: Data(try key.bincodeSerialize()))
     }
 
+    /// Takes a step of a drag of the mouse. True when it told the core something.
+    public func drag(_ step: DragMove) throws -> Bool {
+        try core.drag(step: Data(try step.bincodeSerialize()))
+    }
+
     /// Answers the request with the number `id`. A request that only tells the shell something,
     /// such as a render, has no answer.
     public func answer(_ id: UInt32, with output: UiOutput) throws {
