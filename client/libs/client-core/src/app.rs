@@ -1249,8 +1249,10 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             cursor,
         } => ops::paste::link_image(model, &item_id, &image, cursor),
         DragBeyondBounds { item_id } => {
+            // Typed text is saved first, as for Shift with an arrow
+            let save = ops::edit::finish_edit(model, &item_id);
             model.selection.start_drag(&mut model.state, &item_id);
-            done()
+            save
         }
         ItemMouseEnter { item_id } => {
             model.selection.extend_drag_to(&mut model.state, &item_id);

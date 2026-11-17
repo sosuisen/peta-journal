@@ -1,12 +1,11 @@
 import AppKit
 import PetaBorder
 
-/// A drag that starts on the text of an item, in the list of the items. It tells `ItemDrag`
-/// where the mouse is, and scrolls the list as `EdgeScroll` says. Both count from the top of
-/// the part of the list that can be seen, down; AppKit counts in the window, up.
+/// A drag that starts on the text of an item, in the list of the items. It tells the core where
+/// the mouse is, and scrolls the list as `EdgeScroll` says. Both count from the top of the part
+/// of the list that can be seen, down; AppKit counts in the window, up.
 @MainActor
 final class ListDrag {
-    private let drag: ItemDrag
     private let shell: Shell
     /// The list of the items. The rows of its table are the rows of the outline.
     private weak var scroll: NSScrollView?
@@ -16,15 +15,14 @@ final class ListDrag {
     /// The mouse went down on `text`, the text of the item.
     init(shell: Shell, itemId: String, text: NSView) {
         self.shell = shell
-        drag = shell.itemDrag()
         scroll = text.enclosingScrollView
         let box = text.convert(text.bounds, to: nil)
-        drag.pressed(itemId, top: y(of: box.maxY), bottom: y(of: box.minY))
+        shell.dragged(.pressed(itemId: itemId, top: y(of: box.maxY), bottom: y(of: box.minY)))
     }
 
     /// Items are selected: the drag left the text.
     var selects: Bool {
-        drag.selects
+        shell.view.outline.selectionMode
     }
 
     /// The mouse is at the place of the window.
@@ -36,7 +34,7 @@ final class ListDrag {
     /// Items are selected, and the mouse is in a band at the top or the bottom of the list:
     /// steps of the scroll are to come.
     var scrolls: Bool {
-        drag.selects && step != 0
+        selects && step != 0
     }
 
     /// One step of the scroll. The item that comes under the mouse joins the selection: the
@@ -52,7 +50,7 @@ final class ListDrag {
     }
 
     func released() {
-        drag.released()
+        shell.dragged(.released)
     }
 
     private var step: CGFloat {
@@ -60,7 +58,7 @@ final class ListDrag {
     }
 
     private func tell() {
-        drag.moved(y: y(of: place.y), itemUnder: item(at: place))
+        shell.dragged(.moved(y: y(of: place.y), itemUnder: item(at: place)))
     }
 
     /// The part of the list that can be seen, in the window.
@@ -81,7 +79,7 @@ final class ListDrag {
     /// The item under the place of the window, if one is there.
     private func item(at place: NSPoint) -> String? {
         guard let table = scroll.flatMap({ Self.table(in: $0) }) else { return nil }
-        let y = ItemDrag.placeInList(y: y(of: place.y), top: 0, bottom: shown.height)
+        let y = EdgeScroll.placeInList(y: y(of: place.y), top: 0, bottom: shown.height)
         let inTable = table.convert(NSPoint(x: place.x, y: height(of: y)), from: nil)
         // Only the height counts: beside the text of an item is still its row
         let row = table.row(at: NSPoint(x: table.bounds.midX, y: inTable.y))

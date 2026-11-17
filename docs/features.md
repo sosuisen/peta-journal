@@ -382,7 +382,7 @@
 
 ### 複数の項目を選ぶ
 
-出典: `tests/selection.rs`、`core/outline/selection.rs`、`core/outline/tree.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/transclusion-delete`、macOSの`OutlineScreenTests`、`ItemDragTests`と`EdgeScrollTests`、Windowsの`ItemDragTests`と`EdgeScrollTests`
+出典: `tests/selection.rs`、`core/outline/selection.rs`、`core/outline/tree.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/transclusion-delete`、`tests/drag.rs`、macOSの`OutlineScreenTests`
 
 - 項目を選ぶと、その下の項目もすべて選ばれる。どの選び方でも同じである
   - 折りたたまれて見えない子も選ばれる
@@ -393,10 +393,12 @@
   - 親のある項目から始めた選択は、下へは親の子孫の終わりで止まる。孫から始めると、親の兄弟へも広がらない（ADR 049）
   - 子を持つ項目まで伸ばすと、その子も入る。次の一歩では、入っている子を飛ばして進む
 - ドラッグ選択はエディタの外へ出たときに始まり、その項目と子が選ばれて編集は終わる
+  - テキストの上下10までの動きは、文字を選ぶドラッグである。それより外へ出ると、項目の選択に変わる。この決まりは、マウスのあるシェル（Web、Windows、macOS）で共通であり、コアが持つ
+  - 打っていた文字は、選択を始めるときに保存される。Shift+矢印と同じである
   - マウスが入った項目まで広がり、ボタンを離した後は変わらない。ドラッグ中のクリックは選択を終えない
   - 親のある項目から始めたドラッグは、マウスが親の外へ出ても、親の子孫の終わりで止まる（ADR 049）
   - ドラッグしていないときにマウスが項目に入っても、何も選ばれない  
-  - ドラッグ選択のマウスを付箋の上端か下端の帯で止めると、その向きへスクロールし、マウスの下に来た項目まで選択が広がる。
+  - ドラッグ選択のマウスを付箋の上端か下端の帯で止めると、その向きへスクロールし、マウスの下に来た項目まで選択が広がる。帯は40で、深いほど速く、端とその外では16msごとに24進む
   - WindowsとmacOSの付箋紙アプリでは、マウスが付箋の上や下の外へ出ると、見えている範囲のいちばん近い項目まで選ばれる。まだ見えていない項目は、一度には選ばれない
 - 選択の開始位置はアンカーのレベルの先祖まで戻り、親が選択済みの項目はルート項目に含まれない
 - Escapeと選択の外のクリックで、何も変えずに選択をやめる。選択していなければ選択のキーは何もしない

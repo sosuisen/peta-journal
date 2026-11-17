@@ -27,6 +27,16 @@ public sealed partial class Shell
     }
 
     /// <summary>
+    /// A step of a drag of the mouse that started on the text of an item. The core decides when
+    /// the drag leaves the text and selects items, and which items.
+    /// </summary>
+    public void Dragged(DragMove step)
+    {
+        if (border.Drag(step))
+            Show(border.View());
+    }
+
+    /// <summary>
     /// The user pasted into the editor of an item. The core asks the server, which cuts the
     /// text into items (ADR 011). <paramref name="html"/> is empty when the clipboard has no
     /// HTML. A raw paste puts the text into the item as it is.

@@ -45,6 +45,12 @@ impl PetaCore {
         self.shell.press(key).map_err(|e| e.to_string())
     }
 
+    /// Takes a step of a drag of the mouse that started on the text of an item: a `DragMove`
+    /// as bytes. True when it told the core something, and the shell draws the view again.
+    pub fn drag(&self, step: &[u8]) -> Result<bool, String> {
+        self.shell.drag(step).map_err(|e| e.to_string())
+    }
+
     /// Takes the answer of the shell to the request `id`: the output of its operation.
     pub fn resolve(&self, id: u32, output: &[u8]) -> Result<(), String> {
         self.shell.resolve(id, output).map_err(|e| e.to_string())
@@ -90,4 +96,25 @@ pub fn chars_of_utf16(text: String, units: u64) -> u64 {
 pub fn utf16_of_chars(text: String, chars: u64) -> u64 {
     client_core::util::utf16::utf16_of_chars(&text, usize::try_from(chars).unwrap_or(usize::MAX))
         as u64
+}
+
+/// How far the list scrolls in one step of a drag selection with the mouse at `y`, for a list
+/// that can be seen from `top` to `bottom`. Below zero is up; zero when the mouse is not in the
+/// band at an edge.
+#[boltffi::export]
+pub fn edge_step(y: f64, top: f64, bottom: f64) -> f64 {
+    client_core::drag::edge_step(y, top, bottom)
+}
+
+/// How long one step of that scroll takes, in milliseconds.
+#[boltffi::export]
+pub fn edge_step_ms() -> u32 {
+    client_core::drag::EDGE_STEP_MS
+}
+
+/// Where to look for the item under the mouse at `y` in a drag, in a list that can be seen from
+/// `top` to `bottom`: a place beyond the list counts as the nearest place in it.
+#[boltffi::export]
+pub fn place_in_list(y: f64, top: f64, bottom: f64) -> f64 {
+    client_core::drag::place_in_list(y, top, bottom)
 }

@@ -3,6 +3,7 @@
 
 use crate::clock::Clock;
 use crate::BorderApp;
+use client_core::drag::{DragMove, ItemDrag};
 use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, TimerOp, TimerOutput, UiOp, UiOutput,
 };
@@ -198,6 +199,8 @@ pub struct NativeShell {
     clock: Arc<dyn Clock>,
     to_shell: ToShell,
     keys: KeyMap,
+    /// The drag of the mouse that started on the text of an item, if one is on.
+    drag: Mutex<ItemDrag>,
 }
 
 impl NativeShell {
@@ -245,6 +248,7 @@ impl NativeShell {
             clock,
             to_shell,
             keys: KeyMap::of(key_platform()),
+            drag: Mutex::new(ItemDrag::default()),
         }
     }
 
@@ -264,6 +268,20 @@ impl NativeShell {
         };
         self.router.update(event);
         Ok(true)
+    }
+
+    /// Takes a step of a drag of the mouse: a [`DragMove`] as bytes. True when it told the core
+    /// something, as that the drag left the text and selects items; the shell then draws the
+    /// view again.
+    pub fn drag(&self, step: &[u8]) -> Result<bool, BorderError> {
+        let step: DragMove =
+            BincodeFfiFormat::deserialize(step).map_err(BridgeError::DeserializeEvent)?;
+        let events = self.drag.lock().unwrap().events_of(step);
+        let told = !events.is_empty();
+        for event in events {
+            self.router.update(event);
+        }
+        Ok(told)
     }
 
     /// Opens what the URL names, such as `/pages/notes` or `/today`, and keeps it in the

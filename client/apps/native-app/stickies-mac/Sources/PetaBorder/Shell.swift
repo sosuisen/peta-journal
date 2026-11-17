@@ -202,6 +202,13 @@ public final class Shell: ObservableObject {
         return true
     }
 
+    /// A step of a drag of the mouse that started on the text of an item. The core decides when
+    /// the drag leaves the text and selects items, and which items.
+    public func dragged(_ step: DragMove) {
+        guard Shell.must({ try border.drag(step) }) else { return }
+        view = Shell.must { try border.view() }
+    }
+
     private func handle(_ requests: [Request]) {
         var cursors: [UInt32] = []
         for request in requests {

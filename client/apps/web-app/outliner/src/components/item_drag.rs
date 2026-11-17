@@ -4,6 +4,7 @@
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
+use client_core::drag::leaves_text;
 use client_core::Event;
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
@@ -28,8 +29,8 @@ impl Drag {
         }
     }
 
-    /// Starts following the mouse; leaving `body` by more than 10px up or down starts a
-    /// selection of `item_id`. Whether the editor's text is selected does not matter: a drag
+    /// Starts following the mouse; leaving `body` up or down, as the core's `leaves_text`
+    /// says, starts a selection of `item_id`. Whether the editor's text is selected does not matter: a drag
     /// from a bare caret that leaves the body is as clear a request as one from a selection.
     ///
     /// `select_from` is the character the mouse went down on when the drag starts on the
@@ -55,7 +56,7 @@ impl Drag {
                     return;
                 };
                 let y = ev.client_y() as f64;
-                if y < rect.top() - 10.0 || y > rect.bottom() + 10.0 {
+                if leaves_text(y, rect.top(), rect.bottom()) {
                     core.send(Event::DragBeyondBounds {
                         item_id: item_id.clone(),
                     });

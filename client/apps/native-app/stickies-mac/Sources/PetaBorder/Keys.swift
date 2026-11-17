@@ -14,9 +14,4 @@ extension Shell {
     public func selection(_ key: SelectionKey) {
         send(.selectionKey(key))
     }
-
-    /// A drag of the mouse that starts on the text of an item, and may select items.
-    public func itemDrag() -> ItemDrag {
-        ItemDrag { [unowned self] in send($0) }
-    }
 }

@@ -1,4 +1,5 @@
 use crate::{Clock, Host, NativeShell, ShellEffectFfi};
+use client_core::drag::DragMove;
 use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp, UiOutput,
 };
@@ -600,4 +601,42 @@ fn a_key_that_cannot_be_read_is_an_error() {
     let screen = Screen::new();
 
     assert!(screen.shell.press(&[0xff]).is_err());
+}
+
+fn drag(screen: &Screen, step: DragMove) -> bool {
+    let mut bytes = Vec::new();
+    BincodeFfiFormat::serialize(&mut bytes, &step).unwrap();
+    screen.shell.drag(&bytes).unwrap()
+}
+
+// テキストから出たドラッグはコアに伝わり、シェルは画面を描き直す。テキストの中の動きは伝わらない。
+#[test]
+fn a_drag_that_leaves_the_text_is_told_to_the_core() {
+    let screen = Screen::new();
+    screen.open_notes();
+    wait_until("the page is in the view", || {
+        screen.view().contains("the body of a")
+    });
+    let pressed = DragMove::Pressed {
+        item_id: "a".into(),
+        top: 100.0,
+        bottom: 130.0,
+    };
+    let at = |y| DragMove::Moved {
+        y,
+        item_under: Some("a".into()),
+    };
+
+    assert!(!drag(&screen, pressed));
+    assert!(!drag(&screen, at(120.0)));
+    assert!(drag(&screen, at(200.0)));
+    assert!(drag(&screen, DragMove::Released));
+}
+
+// 読めないドラッグは、誤りとしてシェルに返る。
+#[test]
+fn a_drag_that_cannot_be_read_is_an_error() {
+    let screen = Screen::new();
+
+    assert!(screen.shell.drag(&[0xff]).is_err());
 }
