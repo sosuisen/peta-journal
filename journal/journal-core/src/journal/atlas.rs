@@ -5,44 +5,12 @@
 //! The atlas service tells the clients of a change itself, so these operations take no
 //! `ChangedBy`.
 
-use serde::Deserialize;
-
 use crate::domain::bounds::Bounds;
 use crate::domain::model::Item;
 use crate::error::{parse_id, AppResult};
 
 use super::{ItemsAnswer, Journal};
-
-/// A link card: the page or the address it shows, and where it is.
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct AtlasLinkInput {
-    pub target: String,
-    pub bounds: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct AtlasGroupInput {
-    /// Each a card by its item id, or a page card by the id of its page
-    pub cards: Vec<String>,
-    pub target: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct AtlasTitleInput {
-    pub side: String,
-    pub title: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct AtlasCalloutInput {
-    pub bounds: String,
-    pub side: String,
-    pub text: String,
-}
+pub use journal_api_types::{AtlasCalloutInput, AtlasGroupInput, AtlasLinkInput, AtlasTitleInput};
 
 impl Journal {
     pub fn add_atlas_link(&self, atlas_id: &str, input: AtlasLinkInput) -> AppResult<ItemsAnswer> {

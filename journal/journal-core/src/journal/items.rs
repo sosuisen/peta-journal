@@ -7,7 +7,7 @@
 use std::collections::BTreeMap;
 
 use hmtid::Hmtid;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::application::item_service::{BatchOp, MoveRequest, TaskState, TreeMarkdownExport};
 use crate::application::paste::PasteMode;
@@ -16,207 +16,59 @@ use crate::dto::{ItemDto, ItemFields, NarrowItem};
 use crate::error::{parse_id, AppError, AppResult};
 
 use super::{ChangedBy, Journal};
+pub use journal_api_types::{
+    BatchInput, BatchOpInput, CreateItemInput, FlatMarkdownInput, ItemIdsInput, MergeItemsInput,
+    MoveItemsInput, PasteInput, PropertyInput, ShiftLevelsInput, SplitInput, StashInput,
+    TaskStateInput, TransclusionInput, TreeMarkdownInput, UpdateItemInput,
+};
 
 // ---- inputs ----
 
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct CreateItemInput {
-    pub page_id: Option<String>,
-    pub position: Option<String>,
-    pub level: i32,
-    pub body: Option<String>,
-    /// The ID the client made for the item. The journal makes one when it is empty.
-    pub id: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct UpdateItemInput {
-    pub body: Option<String>,
-    pub level: Option<i32>,
-    pub collapsed: Option<bool>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct MoveItemsInput {
-    pub item_ids: Option<Vec<String>>,
-    pub target_page_id: Option<String>,
-    pub position: Option<String>,
-    pub level_delta: Option<i32>,
-    /// The body the editor of the first item has now, when it is not saved yet
-    pub body: Option<String>,
-}
-
-/// The items an operation is about.
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct ItemIdsInput {
-    pub item_ids: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(default)]
-pub struct BatchInput {
-    pub ops: Vec<BatchOpInput>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(tag = "op", rename_all = "camelCase")]
-pub enum BatchOpInput {
-    #[serde(rename_all = "camelCase")]
-    Create {
-        id: String,
-        page_id: String,
-        position: String,
-        level: i32,
-        #[serde(default)]
-        body: String,
-    },
-    Update {
-        id: String,
-        body: Option<String>,
-        level: Option<i32>,
-        collapsed: Option<bool>,
-        task: Option<TaskStateInput>,
-    },
-    #[serde(rename_all = "camelCase")]
-    Move {
-        ids: Vec<String>,
-        page_id: String,
-        position: String,
-    },
-    Delete {
-        id: String,
-    },
-}
-
-impl BatchOpInput {
-    fn parse(self) -> AppResult<BatchOp> {
-        Ok(match self {
-            BatchOpInput::Create {
-                id,
-                page_id,
-                position,
-                level,
-                body,
-            } => BatchOp::Create {
-                id: parse_id(&id)?,
-                page_id: parse_id(&page_id)?,
-                position: parse_position(Some(&position))?,
-                level,
-                body,
-            },
-            BatchOpInput::Update {
-                id,
-                body,
-                level,
-                collapsed,
-                task,
-            } => BatchOp::Update {
-                id: parse_id(&id)?,
-                body,
-                level,
-                collapsed,
-                task: task.map(|task| TaskState {
-                    task: task.task,
-                    begin: task.begin,
-                    end: task.end,
-                    plan: task.plan,
-                }),
-            },
-            BatchOpInput::Move {
-                ids,
-                page_id,
-                position,
-            } => BatchOp::Move {
-                ids: parse_ids(Some(&ids), "ids")?,
-                page_id: parse_id(&page_id)?,
-                position: parse_position(Some(&position))?,
-            },
-            BatchOpInput::Delete { id } => BatchOp::Delete { id: parse_id(&id)? },
-        })
-    }
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct TaskStateInput {
-    pub task: bool,
-    pub begin: Option<String>,
-    pub end: Option<String>,
-    pub plan: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct MergeItemsInput {
-    pub item_id: Option<String>,
-    pub into_id: Option<String>,
-    /// The body an editor has now for the item that goes away, when it is not saved yet.
-    pub body: Option<String>,
-    /// The same for the item that takes the text.
-    pub into_body: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct PasteInput {
-    pub body: Option<String>,
-    pub cursor: usize,
-    pub text: Option<String>,
-    /// `auto`, `flat` or `raw`. No mode means `auto`.
-    pub mode: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct SplitInput {
-    pub body: Option<String>,
-    pub cursor: usize,
-    /// The transclusion that shows the item, for an item of another page shown below it.
-    pub root_id: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(default)]
-pub struct StashInput {
-    /// The text the editor of the item has now, when it is not saved yet.
-    pub body: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct ShiftLevelsInput {
-    pub item_ids: Option<Vec<String>>,
-    pub delta: i32,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct PropertyInput {
-    /// No type means `text`.
-    pub value_type: Option<String>,
-    pub value: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct TransclusionInput {
-    pub source_item_id: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct TreeMarkdownInput {
-    pub tree_markdown: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize, Default)]
-#[serde(default)]
-pub struct FlatMarkdownInput {
-    pub markdown: Option<String>,
+/// The operation of a batch, with its IDs and its position read.
+fn parse_batch_op(input: BatchOpInput) -> AppResult<BatchOp> {
+    Ok(match input {
+        BatchOpInput::Create {
+            id,
+            page_id,
+            position,
+            level,
+            body,
+        } => BatchOp::Create {
+            id: parse_id(&id)?,
+            page_id: parse_id(&page_id)?,
+            position: parse_position(Some(&position))?,
+            level,
+            body,
+        },
+        BatchOpInput::Update {
+            id,
+            body,
+            level,
+            collapsed,
+            task,
+        } => BatchOp::Update {
+            id: parse_id(&id)?,
+            body,
+            level,
+            collapsed,
+            task: task.map(|task| TaskState {
+                task: task.task,
+                begin: task.begin,
+                end: task.end,
+                plan: task.plan,
+            }),
+        },
+        BatchOpInput::Move {
+            ids,
+            page_id,
+            position,
+        } => BatchOp::Move {
+            ids: parse_ids(Some(&ids), "ids")?,
+            page_id: parse_id(&page_id)?,
+            position: parse_position(Some(&position))?,
+        },
+        BatchOpInput::Delete { id } => BatchOp::Delete { id: parse_id(&id)? },
+    })
 }
 
 // ---- answers ----
@@ -491,7 +343,7 @@ impl Journal {
         let ops = input
             .ops
             .into_iter()
-            .map(BatchOpInput::parse)
+            .map(parse_batch_op)
             .collect::<AppResult<Vec<_>>>()?;
         let applied = self.services.item_service.apply_batch(&ops)?;
         self.tell(&applied.page_ids, by);

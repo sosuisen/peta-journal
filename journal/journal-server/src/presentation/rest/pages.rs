@@ -9,6 +9,7 @@ use crate::error::{parse_id, AppError, HttpResult};
 use crate::infrastructure::launcher;
 use crate::presentation::client_id::ClientId;
 use crate::state::{blocking, SharedState};
+use journal_api_types::{DemotePageInput, GetOrCreateDocInput, PropertyInput, UpdatePageInput};
 use journal_core::dto::ItemFields;
 use journal_core::journal::{BacklinksAnswer, ChangedBy, DocAnswer, PageAnswer, PagesAnswer};
 
@@ -31,39 +32,9 @@ pub fn routes() -> Router<SharedState> {
 }
 
 #[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct UpsertPropertyRequest {
-    value_type: Option<String>,
-    value: Option<String>,
-}
-
-#[derive(Deserialize, Default)]
 #[serde(default)]
 struct FieldsQuery {
     fields: Option<String>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct GetOrCreateDocRequest {
-    title: Option<String>,
-    dir_path: Option<String>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct UpdatePageRequest {
-    title: Option<String>,
-    dir_path: Option<String>,
-    /// Deletes another page that has the new name, instead of refusing the update.
-    overwrite: bool,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct DemotePageRequest {
-    /// Deletes another page that has the new name, instead of refusing the demotion.
-    overwrite: bool,
 }
 
 #[derive(Deserialize, Default)]
@@ -91,7 +62,7 @@ async fn get_page(
 
 async fn get_or_create_doc(
     State(state): State<SharedState>,
-    Json(req): Json<GetOrCreateDocRequest>,
+    Json(req): Json<GetOrCreateDocInput>,
 ) -> HttpResult<Json<DocAnswer>> {
     blocking(move || {
         Ok(Json(state.journal.get_or_create_doc(
@@ -106,7 +77,7 @@ async fn update_page(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-    Json(req): Json<UpdatePageRequest>,
+    Json(req): Json<UpdatePageInput>,
 ) -> HttpResult<Json<PageAnswer>> {
     blocking(move || {
         Ok(Json(state.journal.update_page(
@@ -124,7 +95,7 @@ async fn demote_page(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-    Json(req): Json<DemotePageRequest>,
+    Json(req): Json<DemotePageInput>,
 ) -> HttpResult<Json<PageAnswer>> {
     blocking(move || {
         Ok(Json(state.journal.demote_page(
@@ -140,7 +111,7 @@ async fn upsert_property(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
-    Json(req): Json<UpsertPropertyRequest>,
+    Json(req): Json<PropertyInput>,
 ) -> HttpResult<Json<PageAnswer>> {
     blocking(move || {
         Ok(Json(state.journal.set_page_property(

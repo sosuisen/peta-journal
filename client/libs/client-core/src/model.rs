@@ -394,6 +394,17 @@ pub enum PasteMode {
     Raw,
 }
 
+impl PasteMode {
+    /// The name the server reads.
+    pub fn as_api(&self) -> &'static str {
+        match self {
+            PasteMode::Auto => "auto",
+            PasteMode::Flat => "flat",
+            PasteMode::Raw => "raw",
+        }
+    }
+}
+
 /// A file the server saved.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

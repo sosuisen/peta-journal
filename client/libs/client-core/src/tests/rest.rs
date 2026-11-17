@@ -409,7 +409,7 @@ fn creating_an_item_posts_its_position_and_answers_the_item() {
     );
     assert_eq!(
         rest.request.body,
-        Some(json!({ "pageId": "p", "position": "after:a", "level": 2, "body": "本文", "id": "" }))
+        Some(json!({ "pageId": "p", "position": "after:a", "level": 2, "body": "本文" }))
     );
     let output = rest
         .decode(&reply(200, json!({ "item": item_json("new", "本文") })))
@@ -505,13 +505,13 @@ fn a_move_posts_the_body_that_is_not_saved_yet() {
         moved(Some("typed")),
         Some(json!({
             "itemIds": ["a", "a1"], "targetPageId": "p", "position": "first",
-            "levelDelta": null, "body": "typed",
+            "body": "typed",
         }))
     );
     assert_eq!(
         moved(None),
         Some(json!({
-            "itemIds": ["a", "a1"], "targetPageId": "p", "position": "first", "levelDelta": null,
+            "itemIds": ["a", "a1"], "targetPageId": "p", "position": "first",
         }))
     );
 }

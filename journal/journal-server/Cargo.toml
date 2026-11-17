@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 hmtid = { path = "../hmtid" }
+journal-api-types = { path = "../journal-api-types" }
 # The pages and items, their markdown folder, and the search (ADR 029)
 journal-core = { path = "../journal-core" }
 

@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use chrono::NaiveDate;
 use hmtid::Hmtid;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::application::journal_service::MostRecentJournalResult;
 use crate::domain::journal_name::JournalName;
@@ -13,16 +13,7 @@ use crate::dto::{ItemDto, PageDto};
 use crate::error::{parse_id, AppError, AppResult};
 
 use super::{ChangedBy, Journal};
-
-/// The items that move to the journal of a day. It is the body of the REST request.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MoveToJournalInput {
-    pub item_ids: Vec<String>,
-    pub position: String,
-    /// The text the editor of the first item has now, when it is not saved yet.
-    pub body: Option<String>,
-}
+pub use journal_api_types::MoveToJournalInput;
 
 /// A journal that was found or made.
 #[derive(Debug, Clone, Serialize)]

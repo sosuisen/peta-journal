@@ -1579,6 +1579,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "journal-api-types"
+version = "1.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "journal-core"
 version = "1.0.0"
 dependencies = [
@@ -1589,6 +1597,7 @@ dependencies = [
  "flatmarkdown-ast",
  "hex",
  "hmtid",
+ "journal-api-types",
  "lindera",
  "lindera-analysis",
  "lindera-tantivy",
@@ -1622,6 +1631,7 @@ dependencies = [
  "hmtid",
  "html-escape",
  "http-body-util",
+ "journal-api-types",
  "journal-core",
  "mime_guess",
  "notify",
