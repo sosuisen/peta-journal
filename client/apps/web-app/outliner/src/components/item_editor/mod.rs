@@ -17,7 +17,7 @@ use client_core::Event;
 use keys::handle_keydown;
 use leptos::prelude::*;
 use replay::replay_keys;
-use text::close_typed;
+use text::typed;
 use wasm_bindgen::JsCast;
 use wiki::check_wiki_link_context;
 
@@ -113,19 +113,20 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
         let id = item_id.clone();
         move |ev: web_sys::Event| {
             let Some(el) = textarea.get() else { return };
-            if let Some(input) = ev.dyn_ref::<web_sys::InputEvent>() {
-                // Every typed text, not a list of characters: the core decides which openings
-                // close, and the call stays in the page, so it costs no round trip.
-                if input.input_type() == "insertText" {
-                    close_typed(&el);
-                }
+            // Every typed text, not a list of characters: the core decides which openings
+            // close, and the call stays in the page, so it costs no round trip (ADR 057)
+            let inserted = ev
+                .dyn_ref::<web_sys::InputEvent>()
+                .is_some_and(|input| input.input_type() == "insertText");
+            if inserted {
+                typed(&core, &id, &el);
+            } else {
+                core.send(Event::BodyChanged {
+                    item_id: id.clone(),
+                    body: el.value(),
+                    now_ms: core.now_ms(),
+                });
             }
-            let body = el.value();
-            core.send(Event::BodyChanged {
-                item_id: id.clone(),
-                body,
-                now_ms: core.now_ms(),
-            });
             dom::auto_resize(&el);
             check_wiki_link_context(&core, &id, &el);
         }

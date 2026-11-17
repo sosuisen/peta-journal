@@ -5,15 +5,32 @@ use super::wiki::check_wiki_link_context;
 use crate::core::CoreHandle;
 use crate::dom;
 use client_core::Event;
+use leptos::prelude::*;
 
-/// Adds the closing part of the `[[` or the code fence just typed, or goes over the `]` of a
-/// link, as the core says.
-pub(super) fn close_typed(el: &web_sys::HtmlTextAreaElement) {
-    let value = el.value();
+/// Tells the core of the text just typed. The core adds the closing part of the `[[` or the
+/// code fence just typed, or goes over the `]` of a link (ADR 057): the textarea takes the
+/// body that the row then shows, with the cursor where it was.
+pub(super) fn typed(core: &CoreHandle, item_id: &str, el: &web_sys::HtmlTextAreaElement) {
+    let body = el.value();
     let start = el.selection_start().ok().flatten().unwrap_or(0);
-    let cursor = dom::utf16_to_chars(&value, start);
-    if let Some(body) = client_core::util::auto_close(&value, cursor) {
-        el.set_value(&body);
+    let cursor = dom::utf16_to_chars(&body, start);
+    core.send(Event::Typed {
+        item_id: item_id.to_string(),
+        body: body.clone(),
+        cursor,
+        now_ms: core.now_ms(),
+    });
+    // The row of a transclusion shows the body of its source, which the typed text reaches only
+    // with the save: it would take the typed text away
+    let shown = core.view().with_untracked(|v| {
+        v.outline
+            .rows
+            .iter()
+            .find(|r| r.item.id == item_id && !r.is_transclusion)
+            .map(|r| r.item.body.clone())
+    });
+    if let Some(closed) = shown.filter(|shown| *shown != body) {
+        el.set_value(&closed);
         dom::set_cursor_chars(el, cursor);
     }
 }

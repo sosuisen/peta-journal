@@ -1,4 +1,4 @@
-use crate::app::Event;
+use crate::app::{EditPlace, Event};
 use crate::effects::ApiOutput;
 use crate::harness::{batch_calls, create_calls, delete_calls, item, update_calls, Harness};
 use crate::model::{BatchOp, Batched, Item, ItemPosition, TaskState, TranscludedTrees};
@@ -50,7 +50,7 @@ fn the_view_shows_the_redone_text_after_moving_away() {
     let mut h = Harness::with_items(vec![item("a", 1, "old"), item("b", 1, "")]);
     h.send(Event::EditRequested {
         item_id: "a".into(),
-        cursor: 3,
+        place: EditPlace::Markdown(3),
     });
     h.send(Event::BodyChanged {
         item_id: "a".into(),
@@ -303,7 +303,7 @@ fn undo_of_a_body_edit_does_not_send_the_task_state() {
     let mut h = Harness::with_items(vec![done_task("a")]);
     h.send(Event::EditRequested {
         item_id: "a".into(),
-        cursor: 1,
+        place: EditPlace::Markdown(1),
     });
     h.send(Event::BodyChanged {
         item_id: "a".into(),

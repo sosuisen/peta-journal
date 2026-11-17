@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.sosuisha.petajournal.core.PetaCore
 import com.sosuisha.petajournal.core.PetaScreen
-import com.sosuisha.petajournal.core.closedAsTyped
+import com.sosuisha.petajournal.types.EditPlace
 import com.sosuisha.petajournal.types.Event
 import com.sosuisha.petajournal.types.Request
 import com.sosuisha.petajournal.types.SearchEntry
@@ -70,14 +70,6 @@ class Shell(
     var unopened: Boolean by mutableStateOf(false)
         private set
 
-    /**
-     * The focus request that a touch beside the text of an item made. The core asks for the
-     * cursor at the start of the item then. Such a touch shows no place in the Markdown, so the
-     * screen puts the cursor at the end instead, where the writing goes on.
-     */
-    var touched: ULong? = null
-        private set
-
     // The screen that is open. The core decides what opens (ADR 056)
 
     /**
@@ -136,38 +128,25 @@ class Shell(
     // The edit of an item
 
     /**
-     * The user touched an item: it is edited (ADR 031). The edit of another item ends.
-     * [letter] is how many letters of the shown text of the item stand before the touch, as
-     * `RichParagraph.start` counts them: the cursor goes to that place in the Markdown. Without
-     * it the cursor is at the end, where the writing goes on.
+     * The user touched an item: it is edited (ADR 031). The core ends the edit of another item
+     * and a selection (ADR 057). [letter] is how many letters of the shown text of the item
+     * stand before the touch, as `RichParagraph.start` counts them: the cursor goes to that
+     * place in the Markdown. Without it the cursor is at the end, where the writing goes on.
      */
     fun edit(itemId: String, letter: Int? = null) {
-        // The core takes no edit while items are selected
-        if (view.outline.rows.any { it.isSelected }) unselect()
-        view.outline.focusedItemId?.takeIf { it != itemId }?.let(::finish)
-        if (letter != null) {
-            send(Event.ShownTextTouched(itemId, letter.toULong()))
-            touched = null
-        } else {
-            send(Event.EditRequested(itemId, 0uL))
-            touched = view.outline.focusRequest?.seq
-        }
+        val place = letter?.let { EditPlace.ShownLetter(it.toULong()) } ?: EditPlace.Unplaced
+        send(Event.EditRequested(itemId, place))
     }
 
     /** The user changed the Markdown of the item. The core saves it a moment later. */
     fun type(itemId: String, body: String) = send(Event.BodyChanged(itemId, body, now()))
 
     /**
-     * The user changed the Markdown of the item, and the cursor is [cursor] UTF-16 units into
-     * [body]. An opening just typed gets its closing (ADR 050). An opening that is left after a
-     * deletion does not, or the closing would come back at every delete.
+     * The user typed into the item, and the cursor is [cursor] UTF-16 units into [body]. The
+     * core closes an opening just typed (ADR 057), and saves the body a moment later.
      */
-    fun type(itemId: String, body: String, cursor: Int) {
-        val before = view.outline.rows.firstOrNull { it.item.id == itemId }?.item?.body
-        val added = body.length > (before?.length ?: 0)
-        val closed = if (added) closedAsTyped(body, cursor.toULong()) else null
-        type(itemId, closed ?: body)
-    }
+    fun type(itemId: String, body: String, cursor: Int) =
+        send(Event.Typed(itemId, body, body.codePointCount(0, cursor.coerceIn(0, body.length)).toULong(), now()))
 
     /**
      * The user pressed Enter in the item. [cursor] counts the characters before it, as the

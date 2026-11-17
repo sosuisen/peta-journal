@@ -183,11 +183,6 @@ public sealed partial class Shell
     /// </summary>
     public void Selection(SelectionKey key) => Send(new Event.SelectionKey(key));
 
-    /// <summary>
-    /// The user turned to something else, such as the text of an item: nothing stays selected.
-    /// </summary>
-    public void LeaveSelection() => Send(new Event.SelectionClickOutside());
-
     /// <summary>Where the cursor is in the editor, in the characters that the core counts.</summary>
     private static ulong CursorOf(EditorState editor) =>
         // WinUI counts in UTF-16 units (ADR 043)

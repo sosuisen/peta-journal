@@ -120,7 +120,7 @@ pub struct RichParagraph {
     /// How many letters of the shown text of the item stand before the paragraph. The shown
     /// text is the letters of the runs of each paragraph and of the lines of each code block,
     /// from top to bottom, each with a line break after it. A shell adds the letters before a
-    /// touch in the paragraph to this, and tells the core (`Event::ShownTextTouched`).
+    /// touch in the paragraph to this, and tells the core (`EditPlace::ShownLetter`).
     pub start: u32,
 }
 

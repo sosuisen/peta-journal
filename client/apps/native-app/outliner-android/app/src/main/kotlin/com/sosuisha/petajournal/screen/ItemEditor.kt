@@ -56,7 +56,7 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
     val asked = shell.view.outline.focusRequest?.takeIf { it.itemId == id }
     LaunchedEffect(asked?.seq) {
         val cursor = asked?.cursor
-        if (asked != null && asked.seq != shell.touched && cursor != null) {
+        if (asked != null && cursor != null) {
             // A place past the end, as after a move to the end of the item above, is the end.
             // Not `toInt()` alone: it turns a large place into a negative one, the start
             val place = cursor.coerceAtMost(Int.MAX_VALUE.toULong()).toInt()

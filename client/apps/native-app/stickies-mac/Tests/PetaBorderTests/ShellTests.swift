@@ -86,7 +86,7 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(shell.url, "/pages/second")
     }
 
-    // 開始記号を打ち終えると、閉じる記号が補われる（ADR 050）。
+    // 開始記号を打ち終えると、コアが閉じる記号を補う（ADR 050、ADR 057）。
     func testTypingAnOpeningClosesIt() async throws {
         let shell = Shell(server: server.address, url: "/pages/swift-notes")
         try await waitUntil("the page is shown") { !shell.view.outline.rows.isEmpty }
@@ -97,19 +97,6 @@ final class ShellTests: XCTestCase {
         shell.typed(">>>", into: item, cursor: 3)
 
         XCTAssertEqual(shell.view.outline.rows[0].item.body, ">>>\n>>>")
-    }
-
-    // 消して開始記号だけが残っても、閉じる記号は補われない。閉じるのは打ったときだけである。
-    func testDeletingBackToAnOpeningDoesNotCloseIt() async throws {
-        let shell = Shell(server: server.address, url: "/pages/swift-notes")
-        try await waitUntil("the page is shown") { !shell.view.outline.rows.isEmpty }
-        let item = shell.view.outline.rows[0].item.id
-
-        shell.startEditing(item)
-        shell.typed(">>>x", into: item, cursor: 4)
-        shell.typed(">>>", into: item, cursor: 3)
-
-        XCTAssertEqual(shell.view.outline.rows[0].item.body, ">>>")
     }
 
     // 表示した文字に触れると、その項目の編集に入り、カーソルは触れた文字のMarkdownでの位置に置かれる（ADR 043）。
@@ -586,16 +573,6 @@ final class ShellTests: XCTestCase {
         try await waitUntil("the clipboard has the items") { copied.text != nil }
         XCTAssertEqual(copied.text, "- first\n- second")
         XCTAssertEqual(bodies(shell), ["first", "second"])
-    }
-
-    // 選択をやめるように言うと、選択が消える。ほかの場所をクリックしたときである。
-    func testLeavingTheSelectionEndsIt() async throws {
-        let shell = try await shellWithPage()
-        try await secondOfTwoSelected(shell)
-
-        shell.leaveSelection()
-
-        XCTAssertFalse(shell.view.outline.selectionMode)
     }
 
     /// A shell on the page "swift-notes", with a second page "apple-pie" on the server.

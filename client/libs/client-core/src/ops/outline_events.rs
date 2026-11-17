@@ -1,60 +1,72 @@
 //! The handlers of the outline component, ported from `outline.ts`: starting and ending
 //! edits, moving between items, and what the keys of selection mode do.
 
-use crate::app::{done, run, Cmd, Event, Model, MoveDirection, SelectionKey};
+use crate::app::{done, run, Cmd, EditPlace, Event, Model, MoveDirection, SelectionKey};
 use crate::model::Item;
-use crate::ops::edit::{begin_handover, record_typing, save_target_id, take_dirty};
+use crate::ops::edit::{leave, record_typing, save_target_id, take_dirty};
 use crate::ops::{action, level, moves, undo_replay};
 use crate::outline::tree::{index_of, transclusion_context_of};
+use crate::util::auto_close;
 use crux_core::Command;
 use std::collections::HashSet;
 
-/// The user touched the shown text of an item after `letter` of its letters: the item is
-/// edited with the cursor at the place in its Markdown that stands there.
-pub fn shown_text_touched(model: &mut Model, item_id: &str, letter: usize) -> Cmd {
-    let cursor = model
-        .state
-        .get_item_by_id(item_id)
-        .map(|item| crate::rich_text::touched_place(&item.body, &model.config.tags_dir, letter))
-        .unwrap_or(0);
-    edit_requested(model, item_id, cursor)
-}
-
-/// The user touched the shown text of an item after the letters `before`, as the page of the
-/// web shell has them: the item is edited with the cursor after them in its Markdown.
-pub fn shown_text_touched_after(model: &mut Model, item_id: &str, before: &str) -> Cmd {
-    let cursor = model
-        .state
-        .get_item_by_id(item_id)
-        .map(|item| crate::rich_text::place_after(&item.body, before))
-        .unwrap_or(0);
-    edit_requested(model, item_id, cursor)
-}
-
-/// The user clicked an item to start editing it. Ignored in selection mode.
-pub fn edit_requested(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
-    if model.state.item_selection_mode() || model.state.is_broken_transclusion(item_id) {
+/// The user starts to edit an item, with the cursor at `place` (ADR 057). A selection ends,
+/// and so does the edit of the item edited before (`edit::leave`).
+pub fn edit_requested(model: &mut Model, item_id: &str, place: EditPlace) -> Cmd {
+    if model.state.is_broken_transclusion(item_id) {
         return done();
     }
-    let current = model
+    if model.state.item_selection_mode() {
+        model.selection.exit(&mut model.state);
+    }
+    let cursor = place_in(model, item_id, place);
+    let left = model
         .state
         .focused_item_id()
         .filter(|id| *id != item_id)
-        .and_then(|id| model.state.get_item_by_id(id))
-        .map(|i| (*i).clone());
+        .map(str::to_string);
     model.state.add_editing_item(item_id);
     model.state.set_focused_item(item_id, Some(cursor));
-    // The item left is saved when text was typed into it. The blur of its editor does not
-    // end the edit meanwhile
-    let Some((edit, discard)) = current.and_then(|current| take_dirty(model, &current)) else {
-        return done();
+    match left {
+        Some(left) => leave(model, &left),
+        None => done(),
+    }
+}
+
+/// The place in the Markdown of the item that `place` names, in characters.
+fn place_in(model: &Model, item_id: &str, place: EditPlace) -> usize {
+    let tags_dir = &model.config.tags_dir;
+    let in_body = |at: &dyn Fn(&str) -> usize| {
+        model
+            .state
+            .get_item_by_id(item_id)
+            .map_or(0, |item| at(&item.body))
     };
-    begin_handover(model);
-    let save = run(move |api| async move {
-        edit.save(&api).await;
-        api.send_event(Event::HandoverEnded);
-    });
-    Command::all([discard, save])
+    match place {
+        EditPlace::Markdown(cursor) => cursor,
+        EditPlace::ShownLetter(letter) => {
+            in_body(&|body| crate::rich_text::touched_place(body, tags_dir, letter))
+        }
+        EditPlace::AfterShownText(before) => {
+            in_body(&|body| crate::rich_text::place_after(body, &before))
+        }
+        EditPlace::Unplaced => in_body(&|body| body.chars().count()),
+    }
+}
+
+/// The user typed into the editor of an item (ADR 057). An opening just typed gets its
+/// closing. Not when the body got shorter, as by a delete back to an opening, or the closing
+/// would come back at every delete.
+pub fn typed(model: &mut Model, item_id: &str, body: String, cursor: usize) -> Cmd {
+    let shorter = model
+        .state
+        .get_item_by_id(item_id)
+        .is_some_and(|item| body.chars().count() < item.body.chars().count());
+    let body = match shorter {
+        true => body,
+        false => auto_close(&body, cursor).unwrap_or(body),
+    };
+    body_changed(model, item_id, body)
 }
 
 /// The user typed in an editor: the state shows it, the auto-save is scheduled and the

@@ -1,4 +1,4 @@
-use crate::app::Event;
+use crate::app::{EditPlace, Event};
 use crate::harness::{item, typed, update_calls, Harness};
 use crate::model::TranscludedTrees;
 use crate::testing::item_with;
@@ -132,12 +132,12 @@ fn clicking_another_item_saves_the_dirty_one_and_opens_the_clicked_editor() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
     h.send(Event::EditRequested {
         item_id: "a".into(),
-        cursor: 0,
+        place: EditPlace::Markdown(0),
     });
     typed(&mut h, "a", "typed");
     h.send(Event::EditRequested {
         item_id: "b".into(),
-        cursor: 0,
+        place: EditPlace::Markdown(0),
     });
     assert_eq!(update_calls(&h.api), [("a".into(), Some("typed".into()))]);
     assert!(!h.model.state.is_editing("a"));
@@ -151,12 +151,12 @@ fn clicking_another_item_closes_the_unclosed_block_of_the_one_left() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
     h.send(Event::EditRequested {
         item_id: "a".into(),
-        cursor: 0,
+        place: EditPlace::Markdown(0),
     });
     typed(&mut h, "a", "~~~\ncode");
     h.send(Event::EditRequested {
         item_id: "b".into(),
-        cursor: 0,
+        place: EditPlace::Markdown(0),
     });
     assert_eq!(
         update_calls(&h.api),
@@ -170,13 +170,13 @@ fn a_failed_save_on_clicking_another_item_still_ends_the_handover() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
     h.send(Event::EditRequested {
         item_id: "a".into(),
-        cursor: 0,
+        place: EditPlace::Markdown(0),
     });
     typed(&mut h, "a", "typed");
     h.api.fail_next("UpdateItem", "offline");
     h.send(Event::EditRequested {
         item_id: "b".into(),
-        cursor: 0,
+        place: EditPlace::Markdown(0),
     });
     assert_eq!(h.model.edits.edit_handovers, 0);
     assert!(h.model.state.is_editing("b"));
@@ -189,11 +189,11 @@ fn clicking_another_item_from_a_clean_one_saves_nothing_and_leaves_no_handover()
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
     h.send(Event::EditRequested {
         item_id: "a".into(),
-        cursor: 0,
+        place: EditPlace::Markdown(0),
     });
     h.send(Event::EditRequested {
         item_id: "b".into(),
-        cursor: 0,
+        place: EditPlace::Markdown(0),
     });
     assert!(update_calls(&h.api).is_empty());
     assert_eq!(h.model.edits.edit_handovers, 0);
@@ -300,9 +300,9 @@ fn a_touch_on_the_shown_text_edits_the_item_at_the_place_touched_in_its_markdown
     )]);
 
     // The shown text is "bold and link end": the touch is after "bold and li"
-    h.send(Event::ShownTextTouched {
+    h.send(Event::EditRequested {
         item_id: "a".into(),
-        letter: "bold and li".chars().count(),
+        place: EditPlace::ShownLetter("bold and li".chars().count()),
     });
 
     assert!(h.model.state.is_editing("a"));
@@ -321,9 +321,9 @@ fn the_shown_letters_before_a_touch_put_the_cursor_after_them_in_the_markdown() 
         "**bold** and [link](https://x.example/a) end",
     )]);
 
-    h.send(Event::ShownTextTouchedAfter {
+    h.send(Event::EditRequested {
         item_id: "a".into(),
-        before: "bold and li".into(),
+        place: EditPlace::AfterShownText("bold and li".into()),
     });
 
     assert!(h.model.state.is_editing("a"));
@@ -341,14 +341,16 @@ fn letters_of_the_page_that_the_markdown_lacks_are_left_out() {
 - second",
     )]);
 
-    h.send(Event::ShownTextTouchedAfter {
+    h.send(Event::EditRequested {
         item_id: "a".into(),
-        before: "
+        place: EditPlace::AfterShownText(
+            "
 
 first
 
 se"
-        .into(),
+            .into(),
+        ),
     });
 
     let request = h.model.state.focus_request().expect("a focus request");
@@ -370,11 +372,218 @@ fn a_touch_inside_an_emoji_puts_the_cursor_after_the_whole_emoji() {
     let mut h = Harness::with_items(vec![item("a", 1, "a👨‍👩‍👧b")]);
 
     // The family is five characters: three people joined by two zero width joiners
-    h.send(Event::ShownTextTouched {
+    h.send(Event::EditRequested {
         item_id: "a".into(),
-        letter: "a👨".chars().count(),
+        place: EditPlace::ShownLetter("a👨".chars().count()),
     });
 
     let request = h.model.state.focus_request().expect("a focus request");
     assert_eq!(request.cursor, Some("a👨‍👩‍👧".chars().count()));
+}
+
+// 位置のない編集の始まりでは、カーソルが本文の末尾に置かれる（ADR 057）。
+#[test]
+fn an_edit_without_a_place_puts_the_cursor_at_the_end() {
+    let mut h = Harness::with_items(vec![item("a", 1, "![a cat](assets/cat.png)")]);
+    h.send(Event::EditRequested {
+        item_id: "a".into(),
+        place: EditPlace::Unplaced,
+    });
+    let request = h.model.state.focus_request().expect("a focus request");
+    assert_eq!(
+        request.cursor,
+        Some("![a cat](assets/cat.png)".chars().count())
+    );
+}
+
+// Markdownの位置での編集の始まりでは、カーソルがその位置に置かれる。0は、本当の先頭である。
+#[test]
+fn an_edit_at_a_place_in_the_markdown_puts_the_cursor_there() {
+    let mut h = Harness::with_items(vec![item("a", 1, "text")]);
+    h.send(Event::EditRequested {
+        item_id: "a".into(),
+        place: EditPlace::Markdown(0),
+    });
+    let request = h.model.state.focus_request().expect("a focus request");
+    assert_eq!(request.cursor, Some(0));
+}
+
+// 選択中に項目の編集を始めると、選択が解けて、その項目が編集される（ADR 057）。
+#[test]
+fn an_edit_while_items_are_selected_ends_the_selection_and_edits_the_item() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
+    h.model.state.add_editing_item("a");
+    h.send(Event::ShiftSelect {
+        item_id: "a".into(),
+    });
+    assert!(h.model.state.item_selection_mode());
+    h.send(Event::EditRequested {
+        item_id: "b".into(),
+        place: EditPlace::Unplaced,
+    });
+    assert!(!h.model.state.item_selection_mode());
+    assert!(h.model.state.selected_item_ids().is_empty());
+    assert!(h.model.state.is_editing("b"));
+}
+
+// 打った文字のない項目から別の項目へ移ると、前の項目は編集中でなくなる。シェルが編集の終わりを知らせなくてもよい（ADR 057）。
+#[test]
+fn leaving_an_item_without_typed_text_ends_its_edit() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "b")]);
+    h.send(Event::EditRequested {
+        item_id: "a".into(),
+        place: EditPlace::Unplaced,
+    });
+    h.send(Event::EditRequested {
+        item_id: "b".into(),
+        place: EditPlace::Unplaced,
+    });
+    assert!(!h.model.state.is_editing("a"));
+    assert!(update_calls(&h.api).is_empty());
+}
+
+// 閉じていないブロックのある項目から、文字を打たずに別の項目へ移ると、ブロックが閉じて保存される。
+#[test]
+fn leaving_an_item_with_an_unclosed_block_saves_it_closed() {
+    let mut h = Harness::with_items(vec![item("a", 1, "~~~\ncode"), item("b", 1, "")]);
+    h.send(Event::EditRequested {
+        item_id: "a".into(),
+        place: EditPlace::Unplaced,
+    });
+    h.send(Event::EditRequested {
+        item_id: "b".into(),
+        place: EditPlace::Unplaced,
+    });
+    assert_eq!(
+        update_calls(&h.api),
+        [("a".into(), Some("~~~\ncode\n~~~".into()))]
+    );
+    assert!(!h.model.state.is_editing("a"));
+}
+
+// 別の項目へ移ると、前の項目のWikiリンクの候補が閉じる。打った文字があってもなくても同じである。
+#[test]
+fn leaving_an_item_closes_its_wiki_link_suggestions() {
+    for body in [None, Some("[[pa")] {
+        let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
+        h.send(Event::EditRequested {
+            item_id: "a".into(),
+            place: EditPlace::Unplaced,
+        });
+        if let Some(body) = body {
+            typed(&mut h, "a", body);
+        }
+        h.model.wiki.item_id = Some("a".into());
+        h.send(Event::EditRequested {
+            item_id: "b".into(),
+            place: EditPlace::Unplaced,
+        });
+        assert_eq!(h.model.wiki.item_id, None, "typed: {body:?}");
+    }
+}
+
+// 前の項目の保存中に別の項目へ移っても、打った文字のない項目の編集は終わる。
+#[test]
+fn an_item_left_during_a_handover_ends_its_edit() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "b")]);
+    h.send(Event::EditRequested {
+        item_id: "a".into(),
+        place: EditPlace::Unplaced,
+    });
+    h.model.edits.edit_handovers = 1;
+    h.send(Event::EditRequested {
+        item_id: "b".into(),
+        place: EditPlace::Unplaced,
+    });
+    assert!(!h.model.state.is_editing("a"));
+}
+
+// 編集中でない項目から移っても、何も保存されない。
+#[test]
+fn leaving_an_item_that_is_not_edited_saves_nothing() {
+    let mut h = Harness::with_items(vec![item("a", 1, "~~~\ncode"), item("b", 1, "")]);
+    h.send(Event::EditRequested {
+        item_id: "a".into(),
+        place: EditPlace::Unplaced,
+    });
+    h.model.state.remove_editing_item("a");
+    h.send(Event::EditRequested {
+        item_id: "b".into(),
+        place: EditPlace::Unplaced,
+    });
+    assert!(update_calls(&h.api).is_empty());
+}
+
+// 開き括弧を打つと、閉じる側が足される（ADR 050、ADR 057）。
+#[test]
+fn typing_an_opening_closes_it() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.state.add_editing_item("a");
+    h.send(Event::Typed {
+        item_id: "a".into(),
+        body: "[[".into(),
+        cursor: 2,
+        now_ms: 0,
+    });
+    assert_eq!(h.model.state.get_item_by_id("a").unwrap().body, "[[]]");
+}
+
+// 消して開き括弧の後ろに戻ったときは、閉じる側が足されない。消すたびに閉じる側が戻らないためである。
+#[test]
+fn deleting_back_to_an_opening_does_not_close_it() {
+    let mut h = Harness::with_items(vec![item("a", 1, "[[a")]);
+    h.model.state.add_editing_item("a");
+    h.send(Event::Typed {
+        item_id: "a".into(),
+        body: "[[".into(),
+        cursor: 2,
+        now_ms: 0,
+    });
+    assert_eq!(h.model.state.get_item_by_id("a").unwrap().body, "[[");
+}
+
+// 本文を先に知らせたシェルが、同じ本文で打ったことを知らせても、閉じる側が足される。Emacs版がそうする。
+#[test]
+fn typing_told_after_the_same_body_closes_the_opening() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    typed(&mut h, "a", "[[");
+    h.send(Event::Typed {
+        item_id: "a".into(),
+        body: "[[".into(),
+        cursor: 2,
+        now_ms: 0,
+    });
+    assert_eq!(h.model.state.get_item_by_id("a").unwrap().body, "[[]]");
+}
+
+// 打った本文は、閉じる側がなくても、本文の変更として自動保存の予定に入る。
+#[test]
+fn what_is_typed_is_saved_as_a_change_of_the_body() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.state.add_editing_item("a");
+    h.send(Event::Typed {
+        item_id: "a".into(),
+        body: "plain".into(),
+        cursor: 5,
+        now_ms: 0,
+    });
+    assert_eq!(h.model.state.get_item_by_id("a").unwrap().body, "plain");
+    assert!(h.model.edits.dirty_item_ids.contains("a"));
+}
+
+// 編集中の項目がほかの端末で消えたあとに別の項目へ移ると、消えた項目の編集の印が外れる。
+#[test]
+fn leaving_an_item_deleted_meanwhile_drops_its_editing_mark() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "b")]);
+    h.send(Event::EditRequested {
+        item_id: "a".into(),
+        place: EditPlace::Unplaced,
+    });
+    h.model.state.delete_item("a");
+    h.send(Event::EditRequested {
+        item_id: "b".into(),
+        place: EditPlace::Unplaced,
+    });
+    assert!(!h.model.state.is_editing("a"));
+    assert!(update_calls(&h.api).is_empty());
 }

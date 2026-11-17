@@ -188,16 +188,15 @@ final class ShellTests: JournalTestCase {
         XCTAssertFalse(shell.unopened)
     }
 
-    // 項目に触れると、その項目が編集に入る。カーソルの依頼は、触れたことによるものと分かる。
-    func testATouchedItemIsEditedAndItsFocusRequestIsKnownAsTheTouch() throws {
+    // 文字の位置なしで項目に触れると、その項目が編集に入り、カーソルは末尾に置かれる（ADR 057）。
+    func testATouchWithoutALetterEditsTheItemWithTheCursorAtTheEnd() throws {
         try download("notes.md", "a **bold** word\n")
         try openNotes()
 
         shell.edit(id(of: "a **bold** word"))
 
         XCTAssertEqual(edited(), "a **bold** word")
-        XCTAssertNotNil(shell.touched)
-        XCTAssertEqual(shell.touched, shell.view.outline.focusRequest?.seq)
+        XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 15)
     }
 
     // 表示した文字に触れると、その項目が編集に入り、カーソルは触れた文字のMarkdownでの位置に置かれる。
@@ -209,7 +208,6 @@ final class ShellTests: JournalTestCase {
         shell.edit(id(of: "a **bold** word"), letter: 4)
 
         XCTAssertEqual(edited(), "a **bold** word")
-        XCTAssertNil(shell.touched)
         XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 6)
     }
 
@@ -224,7 +222,7 @@ final class ShellTests: JournalTestCase {
         waitUntil("the file holds what was typed") { self.written()?.contains("first and more") == true }
     }
 
-    // 開始記号を打ち終えると、閉じる記号が補われる（ADR 050）。
+    // 開始記号を打ち終えると、コアが閉じる記号を補う（ADR 050、ADR 057）。
     func testTypingAnOpeningClosesIt() throws {
         try download("notes.md", "first\n")
         try openNotes()
@@ -235,19 +233,6 @@ final class ShellTests: JournalTestCase {
         shell.type(item, ">>>", cursor: 3)
 
         XCTAssertEqual(edited(), ">>>\n>>>")
-    }
-
-    // 消して開始記号だけが残っても、閉じる記号は補われない。閉じるのは打ったときだけである。
-    func testDeletingBackToAnOpeningDoesNotCloseIt() throws {
-        try download("notes.md", "first\n")
-        try openNotes()
-        let item = id(of: "first")
-        shell.edit(item)
-
-        shell.type(item, ">>>x", cursor: 4)
-        shell.type(item, ">>>", cursor: 3)
-
-        XCTAssertEqual(edited(), ">>>")
     }
 
     // 改行は、カーソルの位置で項目を分ける。編集は、新しい項目に移る。
@@ -282,15 +267,6 @@ final class ShellTests: JournalTestCase {
         waitUntil("the two items are one") { self.bodies() == ["firstsecond", "third"] }
         waitUntil("the joined item is edited") { self.edited() == "firstsecond" }
         XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 5)
-    }
-
-    // ほかの項目に触れると、編集がそこへ移る。前の項目の編集は終わる。
-    func testATouchOnAnotherItemMovesTheEditThere() throws {
-        try editSecondOfThree()
-
-        shell.edit(id(of: "third"))
-
-        XCTAssertEqual(shell.view.outline.rows.filter(\.isEditing).map(\.item.body), ["third"])
     }
 
     // 編集を終えると、どの項目も編集中でなくなる。
@@ -387,16 +363,6 @@ final class ShellTests: JournalTestCase {
 
         waitUntil("the item is first") { self.bodies() == ["second", "first", "third"] }
         XCTAssertEqual(selected(), ["second"])
-    }
-
-    // 選んでいる間に項目に触れると、選択は終わり、その項目の編集になる。
-    func testATouchWhileItemsAreSelectedEndsTheSelectionAndEdits() throws {
-        try selectSecondOfThree()
-
-        shell.edit(id(of: "third"))
-
-        XCTAssertEqual(selected(), [])
-        XCTAssertEqual(edited(), "third")
     }
 
     // 元に戻すは、最後の変更を取り消す。やり直すは、それをまた行う。

@@ -16,10 +16,10 @@ use client_core::effects::{
 use client_core::model::bare_name;
 use client_core::rest::ClientId;
 use client_core::util::date::Date;
+use client_core::util::link_at;
 use client_core::util::week::week_page_name;
-use client_core::util::{auto_close, link_at};
 use client_core::view::{ScreenView, SearchView};
-use client_core::{Event, PetaApp, ViewModel};
+use client_core::{EditPlace, Event, PetaApp, ViewModel};
 use crux_core::capability::Operation;
 use crux_core::{Core, Request};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -254,7 +254,7 @@ impl<H: Host> Shell<H> {
                 self.own_edit = Some((id.clone(), cursor));
                 self.send(Event::EditRequested {
                     item_id: id,
-                    cursor,
+                    place: EditPlace::Markdown(cursor),
                 });
                 self.own_edit = None;
             }
@@ -372,29 +372,37 @@ impl<H: Host> Shell<H> {
     }
 
     fn typed(&mut self, id: String, cursor: usize) {
-        let closed = self
-            .core
+        let Some(body) = self.body_of(&id) else {
+            return;
+        };
+        let now_ms = self.host.now().now_ms;
+        // The core closes the opening just typed (ADR 057). Emacs does not have the closed
+        // text yet: the render sends it
+        self.send(Event::Typed {
+            item_id: id.clone(),
+            body: body.clone(),
+            cursor,
+            now_ms,
+        });
+        // The render is done: the cursor goes back after it
+        if self.body_of(&id).is_some_and(|after| after != body) {
+            self.host.emit(Outbound::Focus {
+                ack: self.ack,
+                id,
+                cursor: Some(cursor),
+            });
+        }
+    }
+
+    /// The Markdown of the item as the core has it.
+    fn body_of(&self, id: &str) -> Option<String> {
+        self.core
             .view()
             .outline
             .rows
             .iter()
             .find(|r| r.item.id == id)
-            .and_then(|r| auto_close(&r.item.body, cursor));
-        let Some(body) = closed else {
-            return;
-        };
-        let now_ms = self.host.now().now_ms;
-        self.after_render.push(Outbound::Focus {
-            ack: self.ack,
-            id: id.clone(),
-            cursor: Some(cursor),
-        });
-        // Not through `body_changed`: Emacs does not have this text yet
-        self.send(Event::BodyChanged {
-            item_id: id,
-            body,
-            now_ms,
-        });
+            .map(|r| r.item.body.clone())
     }
 
     fn enter(&mut self, id: String, cursor: usize) {
