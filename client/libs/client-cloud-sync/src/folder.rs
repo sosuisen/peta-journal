@@ -88,7 +88,7 @@ impl MarkdownFolder {
             .filter(|place| place.is_file())
             .map(|file| self.spelled(&file))
             .filter(|path| {
-                let path = path.to_lowercase();
+                let path = crate::fold(path);
                 path.ends_with(Self::MARKDOWN) || path == Self::DEFINITIONS
             })
             .collect();
@@ -151,7 +151,7 @@ impl MarkdownFolder {
             .filter(|place| place.is_file())
         {
             let path = self.spelled(&file);
-            let lower = path.to_lowercase();
+            let lower = crate::fold(&path);
             if Self::keeps(&lower) && !paths.contains(&lower) && !keep(&path) {
                 let _ = fs::remove_file(&file);
             }
@@ -182,11 +182,11 @@ fn parts(path: &str) -> impl Iterator<Item = &str> {
 }
 
 fn child(dir: &Path, name: &str) -> Option<PathBuf> {
-    let name = name.to_lowercase();
+    let name = crate::fold(name);
     fs::read_dir(dir)
         .ok()?
         .flatten()
-        .find(|entry| entry.file_name().to_string_lossy().to_lowercase() == name)
+        .find(|entry| crate::fold(&entry.file_name().to_string_lossy()) == name)
         .map(|entry| entry.path())
 }
 

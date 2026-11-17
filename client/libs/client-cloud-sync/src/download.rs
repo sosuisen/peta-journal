@@ -50,12 +50,12 @@ impl<'a> Downloader<'a> {
         for change in changes.entries {
             match change {
                 Change::Gone(path) => {
-                    files.remove(&path.to_lowercase());
+                    files.remove(&crate::fold(&path));
                     self.local.folder.remove(&path, |here| self.is_unsent(here));
                     record.remove(&path);
                 }
                 Change::File(file) => {
-                    if MarkdownFolder::keeps(&file.path.to_lowercase()) {
+                    if MarkdownFolder::keeps(&crate::fold(&file.path)) {
                         files.put(file);
                     }
                 }
@@ -63,8 +63,7 @@ impl<'a> Downloader<'a> {
         }
         let files = files.in_order();
         if changes.whole {
-            let paths: HashSet<String> =
-                files.iter().map(|file| file.path.to_lowercase()).collect();
+            let paths: HashSet<String> = files.iter().map(|file| crate::fold(&file.path)).collect();
             self.local
                 .folder
                 .keep_only(&paths, |here| self.is_unsent(here));
@@ -153,7 +152,7 @@ struct Files {
 
 impl Files {
     fn put(&mut self, file: CloudFile) {
-        let key = file.path.to_lowercase();
+        let key = crate::fold(&file.path);
         if !self.by_path.contains_key(&key) {
             self.order.push(key.clone());
         }

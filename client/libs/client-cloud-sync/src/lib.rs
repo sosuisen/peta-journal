@@ -35,3 +35,12 @@ pub struct Local {
     pub cursor: PathBuf,
     pub record: CloudRecord,
 }
+
+/// The path as the sync compares it: in lower case, as the cloud compares paths, and with the
+/// letters composed (NFC). The file system of the iPhone and of the Mac takes a name with the
+/// sound marks apart (NFD) for the same name; an app of the Mac may have written a name so,
+/// and Dropbox may give it either way.
+pub(crate) fn fold(path: &str) -> String {
+    use unicode_normalization::UnicodeNormalization;
+    path.nfc().collect::<String>().to_lowercase()
+}
