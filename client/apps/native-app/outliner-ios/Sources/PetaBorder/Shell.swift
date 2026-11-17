@@ -119,14 +119,21 @@ public final class Shell: ObservableObject {
 
     /// The user changed the Markdown of the item. The core saves it a moment later.
     public func type(_ itemId: String, _ body: String) {
-        send(.bodyChanged(itemId: itemId, body: body, nowMs: now()))
+        typed(.changed(itemId: itemId, body: body))
     }
 
     /// The user typed into the item, and the cursor is `cursor` UTF-16 units into `body`. The
     /// core closes an opening just typed (ADR 057), and saves the body a moment later.
     public func type(_ itemId: String, _ body: String, cursor: Int) {
-        let characters = UInt64(Cursor.characters(utf16: cursor, in: body))
-        send(.typed(itemId: itemId, body: body, cursor: characters, nowMs: now()))
+        typed(.typed(itemId: itemId, body: body, cursor: UInt64(max(cursor, 0))))
+    }
+
+    /// The core adds the time, and counts the cursor in its own characters.
+    private func typed(_ typing: Typing) {
+        // As `send`: a field that loses the focus while the screen is taken down still tells
+        if closed { return }
+        Shell.must { try border.typed(typing) }
+        show()
     }
 
     /// The user pressed a key in the editor of the item: Enter, Backspace, or an arrow of the
@@ -147,10 +154,6 @@ public final class Shell: ObservableObject {
     /// The user left the editor of the item: what was typed is saved.
     public func finish(_ itemId: String) {
         send(.editFinished(itemId: itemId))
-    }
-
-    private func now() -> UInt64 {
-        UInt64(Date().timeIntervalSince1970 * 1000)
     }
 
     /// Makes the item a child of the item above it.
