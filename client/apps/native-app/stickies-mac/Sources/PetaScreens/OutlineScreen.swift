@@ -9,8 +9,6 @@ public struct OutlineScreen: View {
     @StateObject private var cursors = Cursors()
     @StateObject private var texts: ShownTexts
     @StateObject private var seen = SeenRows()
-    /// What is typed into the prompt on screen.
-    @State private var typed = ""
 
     /// `searching` opens the search box from the start.
     @MainActor
@@ -48,7 +46,6 @@ public struct OutlineScreen: View {
         .background(Color(nsColor: StickyLook.color(of: look.color)))
         // The name of the window. A window without a name is hard to find among the others
         .navigationTitle(shell.title.isEmpty ? "PetaStickies" : shell.title)
-        .onChange(of: shell.question) { _ in typed = "" }
         // The page that was searched for is here. Not by the title: that of a journal changes
         // when it is scrolled
         .onChange(of: shell.url) { _ in look.searching = false }
@@ -66,10 +63,6 @@ public struct OutlineScreen: View {
                 Button("OK", role: .destructive) { shell.answer(yes: true) }
                 Button("Cancel", role: .cancel) { shell.answer(yes: false) }
                     .keyboardShortcut(.defaultAction)
-            case .prompt:
-                TextField("", text: $typed)
-                Button("OK") { shell.answer(text: typed) }.keyboardShortcut(.defaultAction)
-                Button("Cancel", role: .cancel) { shell.answer(text: nil) }
             }
         }
     }

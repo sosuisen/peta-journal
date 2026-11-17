@@ -132,20 +132,6 @@ final class ShellTests: XCTestCase {
         try await waitUntil("there are two items") { shell.view.outline.rows.count == 2 }
     }
 
-    // コアが入力を求めると、質問が出る。答えた文字列で、コアが先へ進む。
-    func testAPromptIsAnsweredWithText() async throws {
-        let shell = try await shellWithPage()
-
-        shell.send(.createNewPage(searchQuery: ""))
-        try await waitUntil("the shell is asked for a title") { shell.question != nil }
-        XCTAssertEqual(shell.question?.message, "Page title:")
-        XCTAssertEqual(shell.question?.kind, .prompt)
-        shell.answer(text: "made-by-prompt")
-
-        XCTAssertNil(shell.question)
-        try await waitUntil("the new page is shown") { shell.title == "made-by-prompt" }
-    }
-
     // コアが確認を求めると、質問が出る。「いいえ」では何も起きず、「はい」でコアが先へ進む。
     func testAConfirmationIsAnsweredWithYesOrNo() async throws {
         let shell = try await shellWithPage()
