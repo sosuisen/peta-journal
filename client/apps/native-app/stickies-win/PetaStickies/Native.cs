@@ -102,7 +102,7 @@ internal static class Input
 
     /// <summary>
     /// The key with the keys held down with it, as the core knows it (ADR 052), or nothing for
-    /// a key it does not know. What the chord means is decided in the core.
+    /// a key it does not know.
     /// </summary>
     public static Chord? ChordOf(VirtualKey key, Held held)
     {
@@ -122,15 +122,6 @@ internal static class Input
             ),
             _ => null,
         };
-        if (known is null)
-            return null;
-        return new Chord
-        {
-            Key = known,
-            Shift = held.HasFlag(PetaBorder.Held.Shift),
-            Ctrl = held.HasFlag(PetaBorder.Held.Control),
-            Alt = held.HasFlag(PetaBorder.Held.Alt),
-            Cmd = false,
-        };
+        return known is null ? null : Keyboard.Chord(known, held);
     }
 }

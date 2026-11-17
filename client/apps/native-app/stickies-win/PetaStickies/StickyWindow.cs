@@ -879,7 +879,6 @@ internal sealed class StickyWindow : Window
             return;
         }
         asked = question;
-        var typed = new TextBox();
         var dialog = new ContentDialog
         {
             XamlRoot = root.XamlRoot,
@@ -892,16 +891,12 @@ internal sealed class StickyWindow : Window
                 question.Kind == QuestionKind.ConfirmDestructive
                     ? ContentDialogButton.Close
                     : ContentDialogButton.Primary,
-            Content = question.Kind == QuestionKind.Prompt ? typed : null,
         };
         var yes = await dialog.ShowAsync() == ContentDialogResult.Primary;
         asked = null;
         if (closed)
             return;
-        if (question.Kind == QuestionKind.Prompt)
-            Shell.Answer(yes ? typed.Text : null);
-        else
-            Shell.Answer(yes);
+        Shell.Answer(yes);
         // The next question waited behind this one
         Ask();
     }

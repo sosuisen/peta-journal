@@ -10,13 +10,19 @@ namespace PetaBorder.Tests;
 internal sealed class JournalServer : IDisposable
 {
     private static readonly HttpClient Http = new();
+
+    /// <summary>The client that <see cref="Send"/> changes things as.</summary>
+    private static readonly string AnotherClient = Guid.NewGuid().ToString();
     private readonly Process process;
     private readonly string root;
 
     public string Address { get; }
 
-    /// <summary>Starts the server and waits until it answers.</summary>
-    public JournalServer(int port)
+    /// <summary>
+    /// Starts the server and waits until it answers. <paramref name="functions"/> are the
+    /// extensions of the server: the <c>main.js</c> of each, by its name.
+    /// </summary>
+    public JournalServer(int port, IReadOnlyDictionary<string, string>? functions = null)
     {
         var program = Environment.GetEnvironmentVariable("PETA_E2E_SERVER");
         Assert.SkipWhen(
@@ -36,6 +42,17 @@ internal sealed class JournalServer : IDisposable
             ["weekNumbering"] = "iso",
         };
         File.WriteAllText(Path.Combine(config, "config.json"), JsonSerializer.Serialize(settings));
+        foreach (var (name, mainJs) in functions ?? new Dictionary<string, string>())
+        {
+            var folder = Path.Combine(config, "functions", name);
+            Directory.CreateDirectory(folder);
+            var described = new Dictionary<string, string> { ["name"] = name };
+            File.WriteAllText(
+                Path.Combine(folder, "config.json"),
+                JsonSerializer.Serialize(described)
+            );
+            File.WriteAllText(Path.Combine(folder, "main.js"), mainJs);
+        }
 
         var start = new ProcessStartInfo(program!)
         {
@@ -113,6 +130,22 @@ internal sealed class JournalServer : IDisposable
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Changes something on the server as another client does: the web frontend or a tool.
+    /// True when the server took it.
+    /// </summary>
+    public bool Send(HttpMethod method, string path, string json)
+    {
+        using var request = new HttpRequestMessage(method, Address + path)
+        {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json"),
+        };
+        // A change names its client (ADR 015). This one is none of the shells of the test
+        request.Headers.Add("X-Client-Id", AnotherClient);
+        using var answer = Http.SendAsync(request).GetAwaiter().GetResult();
+        return answer.IsSuccessStatusCode;
     }
 
     public void Dispose()

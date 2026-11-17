@@ -243,19 +243,12 @@ public sealed partial class Shell : IDisposable
     }
 
     /// <summary>Answers the confirmation on screen.</summary>
-    public void Answer(bool yes) => Answer(new UiOutput.Bool(yes));
-
-    /// <summary>
-    /// Answers the prompt on screen. <c>null</c> is the answer of a user who closed it.
-    /// </summary>
-    public void Answer(string? text) => Answer(new UiOutput.Text(text));
-
-    private void Answer(UiOutput output)
+    public void Answer(bool yes)
     {
         if (Question is not { } asked)
             return;
         Question = null;
-        border.Answer(asked.Id, output);
+        border.Answer(asked.Id, new UiOutput.Bool(yes));
         Show(border.View());
         QuestionChanged?.Invoke();
     }
@@ -335,9 +328,8 @@ public sealed partial class Shell : IDisposable
             case UiOp.ConfirmDestructive { Value: var message }:
                 Ask(new Question(id, message, QuestionKind.ConfirmDestructive));
                 break;
-            case UiOp.Prompt { Value: var message }:
-                Ask(new Question(id, message, QuestionKind.Prompt));
-                break;
+            // No prompt is shown. The core asks one only for a new page without a name, and
+            // this app has no way to make one: its search box makes a page with the typed name
             case UiOp.CopyText { Value: var text }:
                 copy(text, null);
                 break;
@@ -376,7 +368,4 @@ public enum QuestionKind
 
     /// <summary>Yes or no to something hard to undo: the dialog must answer no by default.</summary>
     ConfirmDestructive,
-
-    /// <summary>A line of text.</summary>
-    Prompt,
 }
