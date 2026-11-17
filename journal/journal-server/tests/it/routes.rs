@@ -334,6 +334,15 @@ async fn every_route_of_the_journals_the_search_the_config_and_the_sync_answers_
     .await;
 
     get_answers("/api/sync/status", &["markdownRoot"]).await;
+    answers(Method::POST, "/api/sync/scan", None, &["imported"]).await;
+}
+
+// 待っていない問い合わせへの答えは、404になる。
+#[tokio::test]
+async fn an_answer_to_a_question_that_no_one_waits_for_is_not_found() {
+    let (status, _) = post("/api/confirm/unknown", json!({ "ok": true })).await;
+
+    assert_eq!(status, 404);
 }
 
 // 拡張の問い合わせが待っているあいだ、`POST /api/confirm/{id}`は200で答え、問い合わせはその答えを受け取る。

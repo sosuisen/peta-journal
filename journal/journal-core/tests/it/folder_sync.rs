@@ -257,3 +257,16 @@ fn an_unchanged_file_is_left_alone() {
     assert_eq!(result.imported, 0);
     assert_eq!(notes.outline_of(&page), vs(&["1:stable"]));
 }
+
+// docs/もjournals/もないフォルダーは、調べない。フォルダーがつながっていないときに、ページのファイルが消えたと見ないためである。
+#[test]
+fn a_folder_with_neither_docs_nor_journals_is_not_scanned() {
+    let notes = Core::new();
+    notes.new_doc_page("sync-unmounted");
+    notes.exported("sync-unmounted");
+    for dir in ["docs", "journals"] {
+        let _ = std::fs::remove_dir_all(notes.root.join(dir));
+    }
+
+    assert_eq!(notes.scan(), ScanSummary::default());
+}
