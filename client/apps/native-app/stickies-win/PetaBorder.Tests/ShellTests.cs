@@ -241,8 +241,9 @@ public sealed class ShellTests : IDisposable
         main.WaitUntil("the shell is asked again", () => shell.Question is not null);
         shell.Answer(true);
 
-        // Only the yes added an item: the no added none before it. The empty row of the new
-        // page is not on the server, and goes when the page is read again
+        // Only the yes added an item: the no added none before it. The item of the extension
+        // takes the place of the empty item of the new page, as the server does with an item
+        // placed last on a page whose only item is empty
         main.WaitUntil("the item of the extension is shown", () =>
             Bodies(shell).Contains("confirmed")
         );
