@@ -4,7 +4,7 @@
 pub mod devices;
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use journal_core::assembly::{CoreHost, CoreSettings, JournalCore};
@@ -32,24 +32,45 @@ impl Core {
             .prefix("peta-journal-core-")
             .tempdir()
             .unwrap();
-        let (core, root) = start(dir.path(), WAIT);
+        let (core, root) = start(dir.path(), WAIT, Arc::new(Quiet));
         Core {
             core,
             root,
             _dir: dir,
         }
     }
+
+    /// A core whose user has not chosen a markdown folder yet, started up as an app starts
+    /// it, and the temporary folder that holds its data.
+    pub fn without_markdown_folder() -> (JournalCore, tempfile::TempDir) {
+        let dir = tempfile::Builder::new()
+            .prefix("peta-journal-core-")
+            .tempdir()
+            .unwrap();
+        let core = build(dir.path(), WAIT, Arc::new(Quiet));
+        core.start_up();
+        (core, dir)
+    }
 }
 
 /// A core with its data and its markdown folder under the folder, started up as an app
 /// starts it, and its markdown folder. The core waits for the time given before it takes a
-/// copied file as a page of its own and before it writes over a file not taken in yet.
-pub fn start(dir: &Path, wait: Duration) -> (JournalCore, PathBuf) {
+/// copied file as a page of its own and before it writes over a file not taken in yet. Its
+/// messages to the clients go to the sink.
+pub fn start(dir: &Path, wait: Duration, events: Arc<dyn EventSink>) -> (JournalCore, PathBuf) {
     let root = dir.join("markdown");
-    let config_dir = dir.join("config");
     std::fs::create_dir_all(&root).unwrap();
+    let core = build(dir, wait, events);
+    core.config.set_markdown_dir(&path_text(&root));
+    core.start_up();
+    (core, root)
+}
+
+/// A core with its data under the folder, without a markdown folder and not started up
+fn build(dir: &Path, wait: Duration, events: Arc<dyn EventSink>) -> JournalCore {
+    let config_dir = dir.join("config");
     std::fs::create_dir_all(&config_dir).unwrap();
-    let core = JournalCore::build(
+    JournalCore::build(
         &CoreSettings {
             db_path: dir.join("data").join("journal.db"),
             index_dir: dir.join("index"),
@@ -59,15 +80,38 @@ pub fn start(dir: &Path, wait: Duration) -> (JournalCore, PathBuf) {
             export_overwrite_wait: wait,
         },
         CoreHost {
-            events: Arc::new(Quiet),
+            events,
             missing_files: Arc::new(Quiet),
             folder_watch: Arc::new(Quiet),
         },
     )
-    .unwrap();
-    core.config.set_markdown_dir(&path_text(&root));
-    core.start_up();
-    (core, root)
+    .unwrap()
+}
+
+/// The messages a core gives its clients, kept as they were sent. No client answers a
+/// question of an extension.
+#[derive(Default)]
+pub struct Recorded {
+    messages: Mutex<Vec<String>>,
+}
+
+impl Recorded {
+    /// The messages sent so far, each read as JSON, the first first
+    pub fn messages(&self) -> Vec<serde_json::Value> {
+        self.messages
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|m| serde_json::from_str(m).unwrap())
+            .collect()
+    }
+}
+
+impl EventSink for Recorded {
+    fn send(&self, message: String) -> bool {
+        self.messages.lock().unwrap().push(message);
+        false
+    }
 }
 
 fn path_text(path: &std::path::Path) -> String {

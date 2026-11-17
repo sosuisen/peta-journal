@@ -1,18 +1,19 @@
 //! The definitions of the user keys go to the other devices in `settings/properties.json`
 //! (ADR 046).
 
+use std::sync::Arc;
+
 use journal_core::domain::property_definitions::Definition;
 use journal_core::infrastructure::export::definitions_file::{self, DEFINITIONS_FILE};
 use journal_core::infrastructure::export::import_service::Outcome;
 use journal_core::journal::{AddPropertyDefinitionInput, ChangedBy};
-use journal_server::config::Settings;
-use journal_server::state::{AppState, BuildOptions};
 
-use super::devices::{two_devices, Device};
+use crate::common::devices::{two_devices, Device};
+use crate::common::{Core, Recorded};
 
 impl Device {
     fn undefine(&self, key: &str) {
-        self.state
+        self.core
             .journal
             .delete_property_definition(key, &ChangedBy::Mcp)
             .unwrap();
@@ -71,7 +72,7 @@ fn a_deleted_definition_the_user_adds_again_is_no_longer_deleted() {
     a.define("score_n", "number", true);
 
     let deleted: i64 = a
-        .state
+        .core
         .db
         .conn()
         .unwrap()
@@ -91,15 +92,9 @@ fn a_deleted_definition_the_user_adds_again_is_no_longer_deleted() {
 // Markdownフォルダーを選んでいない端末でも、ユーザーは定義を足せる。書くファイルがないだけである。
 #[test]
 fn a_device_without_a_markdown_folder_still_takes_a_definition() {
-    let dir = tempfile::tempdir().unwrap();
-    let state = AppState::build(
-        Settings::under(dir.path(), 0),
-        BuildOptions { interactive: false },
-    )
-    .unwrap();
+    let (core, _dir) = Core::without_markdown_folder();
 
-    state
-        .journal
+    core.journal
         .add_property_definition(AddPropertyDefinitionInput {
             key: Some("score_n".to_string()),
             value_type: Some("number".to_string()),
@@ -107,7 +102,7 @@ fn a_device_without_a_markdown_folder_still_takes_a_definition() {
         })
         .unwrap();
 
-    assert!(state
+    assert!(core
         .properties
         .find_definition("score_n")
         .unwrap()
@@ -116,7 +111,7 @@ fn a_device_without_a_markdown_folder_still_takes_a_definition() {
 
 impl Device {
     fn is_provisional(&self, key: &str) -> bool {
-        self.state
+        self.core
             .db
             .conn()
             .unwrap()
@@ -131,7 +126,7 @@ impl Device {
 
     /// The definition of the key in the DB of this device
     fn definition(&self, key: &str) -> Option<(String, bool)> {
-        let d = self.state.properties.find_definition(key).unwrap()?;
+        let d = self.core.properties.find_definition(key).unwrap()?;
         Some((d.value_type, d.page))
     }
 }
@@ -244,7 +239,7 @@ fn a_definition_deleted_on_another_device_stays_provisional_while_a_value_holds_
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
     a.define("score_n", "number", true);
-    a.state
+    a.core
         .page_service
         .set_property(&page, "score_n", "number", "12")
         .unwrap();
@@ -255,7 +250,7 @@ fn a_definition_deleted_on_another_device_stays_provisional_while_a_value_holds_
 
     assert_eq!(a.definition("score_n"), Some(("number".to_string(), true)));
     assert!(a.is_provisional("score_n"));
-    let (scalars, _) = a.state.page_service.page_properties(&page).unwrap();
+    let (scalars, _) = a.core.page_service.page_properties(&page).unwrap();
     assert_eq!(scalars[page.as_str()]["score_n"], "12");
     assert!(matches!(
         a.written("score_n"),
@@ -270,7 +265,7 @@ fn a_definition_newer_than_its_deletion_makes_the_key_real_again() {
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
     a.define("score_n", "number", true);
-    a.state
+    a.core
         .page_service
         .set_property(&page, "score_n", "number", "12")
         .unwrap();
@@ -285,7 +280,7 @@ fn a_definition_newer_than_its_deletion_makes_the_key_real_again() {
     assert_eq!(a.definition("score_n"), Some(("number".to_string(), true)));
     assert!(!a.is_provisional("score_n"));
     let deleted: i64 = a
-        .state
+        .core
         .db
         .conn()
         .unwrap()
@@ -332,7 +327,7 @@ fn a_scan_of_the_folder_takes_in_the_definitions_and_their_copies() {
     )
     .unwrap();
 
-    a.state.reconcile.scan();
+    a.core.reconcile.scan();
 
     assert_eq!(a.definition("score_n"), Some(("number".to_string(), false)));
     assert_eq!(a.definition("owner"), Some(("text".to_string(), true)));
@@ -346,14 +341,14 @@ fn taking_in_the_definitions_leaves_the_pages_and_their_files_alone() {
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
     a.define("score_n", "number", true);
-    a.state
+    a.core
         .page_service
         .set_property(&page, "score_n", "number", "12")
         .unwrap();
     a.export();
     let file_before = a.file("docs/d/a.md");
     let modified_before = a
-        .state
+        .core
         .pages
         .find_by_id(&page)
         .unwrap()
@@ -368,7 +363,7 @@ fn taking_in_the_definitions_leaves_the_pages_and_their_files_alone() {
     assert_eq!(a.definition("score_n"), Some(("number".to_string(), false)));
     assert_eq!(a.file("docs/d/a.md"), file_before);
     assert_eq!(
-        a.state
+        a.core
             .pages
             .find_by_id(&page)
             .unwrap()
@@ -376,7 +371,7 @@ fn taking_in_the_definitions_leaves_the_pages_and_their_files_alone() {
             .modified_date,
         modified_before
     );
-    let (scalars, _) = a.state.page_service.page_properties(&page).unwrap();
+    let (scalars, _) = a.core.page_service.page_properties(&page).unwrap();
     assert_eq!(scalars[page.as_str()]["score_n"], "12");
 }
 
@@ -411,11 +406,11 @@ fn a_key_with_no_definition_from_a_page_file_gets_a_provisional_definition() {
     let page = a.doc("a");
     a.define("score_n", "number", true);
     a.define("author_list", "list", true);
-    a.state
+    a.core
         .page_service
         .set_property(&page, "score_n", "number", "12")
         .unwrap();
-    a.state
+    a.core
         .page_service
         .set_property(&page, "author_list", "list", "x, y")
         .unwrap();
@@ -441,13 +436,13 @@ fn a_provisional_definition_goes_with_the_last_value_of_its_key() {
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
     a.define("score_n", "number", true);
-    a.state
+    a.core
         .page_service
         .set_property(&page, "score_n", "number", "12")
         .unwrap();
     b.receive(&a, "docs/d/a.md");
     std::thread::sleep(std::time::Duration::from_millis(5));
-    a.state
+    a.core
         .page_service
         .delete_property(&page, "score_n")
         .unwrap();
@@ -464,7 +459,7 @@ fn a_key_of_an_item_with_no_definition_gets_a_provisional_definition_until_its_v
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
     let item = a
-        .state
+        .core
         .item_service
         .create_item(
             &page,
@@ -476,7 +471,7 @@ fn a_key_of_an_item_with_no_definition_gets_a_provisional_definition_until_its_v
         .unwrap()
         .id;
     a.define("score_n", "number", false);
-    a.state
+    a.core
         .item_service
         .set_property(&item, "score_n", "number", "12")
         .unwrap();
@@ -487,7 +482,7 @@ fn a_key_of_an_item_with_no_definition_gets_a_provisional_definition_until_its_v
     assert!(b.is_provisional("score_n"));
 
     std::thread::sleep(std::time::Duration::from_millis(5));
-    a.state
+    a.core
         .item_service
         .delete_property(&item, "score_n")
         .unwrap();
@@ -503,7 +498,7 @@ fn a_value_the_user_writes_to_a_key_with_no_definition_makes_no_definition() {
     let (a, _b) = two_devices(dir.path());
     let page = a.doc("a");
     let item = a
-        .state
+        .core
         .item_service
         .create_item(
             &page,
@@ -515,7 +510,7 @@ fn a_value_the_user_writes_to_a_key_with_no_definition_makes_no_definition() {
         .unwrap()
         .id;
 
-    let written = a.state.journal.set_item_property(
+    let written = a.core.journal.set_item_property(
         item.as_str(),
         "member_list",
         journal_core::journal::PropertyInput {
@@ -541,7 +536,7 @@ fn a_value_the_user_writes_to_a_key_deleted_on_another_device_is_refused_and_the
     b.undefine("score_n");
     a.receive(&b, DEFINITIONS_FILE);
 
-    let written = a.state.journal.set_page_property(
+    let written = a.core.journal.set_page_property(
         page.as_str(),
         "score_n",
         Some("number"),
@@ -551,7 +546,7 @@ fn a_value_the_user_writes_to_a_key_deleted_on_another_device_is_refused_and_the
 
     assert!(written.is_err());
     let deleted: i64 = a
-        .state
+        .core
         .db
         .conn()
         .unwrap()
@@ -584,7 +579,7 @@ fn a_value_the_user_writes_to_a_provisional_key_leaves_it_provisional_and_delete
 
     assert!(a.is_provisional("score_n"));
     let deleted: i64 = a
-        .state
+        .core
         .db
         .conn()
         .unwrap()
@@ -603,7 +598,7 @@ fn a_value_the_user_writes_to_a_provisional_key_leaves_it_provisional_and_delete
 
 impl Device {
     fn set_score(&self, page: &hmtid::Hmtid, value: &str) {
-        self.state
+        self.core
             .journal
             .set_page_property(
                 page.as_str(),
@@ -617,22 +612,30 @@ impl Device {
 }
 
 /// What the clients of a device are told, from when it begins to listen.
-struct Told(tokio::sync::broadcast::Receiver<String>);
+struct Told {
+    messages: Arc<Recorded>,
+    /// How many messages were sent before the last look
+    seen: usize,
+}
 
 impl Told {
     /// Whether the clients were told, since the last look, that the definitions changed.
     fn of_definitions(&mut self) -> bool {
-        let mut told = false;
-        while let Ok(message) = self.0.try_recv() {
-            told |= message.contains("\"propertyDefinitionsUpdated\"");
-        }
+        let messages = self.messages.messages();
+        let told = messages[self.seen..]
+            .iter()
+            .any(|message| message["type"] == "propertyDefinitionsUpdated");
+        self.seen = messages.len();
         told
     }
 }
 
 impl Device {
     fn listen(&self) -> Told {
-        Told(self.state.sse.subscribe())
+        Told {
+            messages: self.told.clone(),
+            seen: self.told.messages().len(),
+        }
     }
 }
 
@@ -676,7 +679,7 @@ fn the_clients_are_told_when_a_page_file_makes_or_drops_a_provisional_definition
     let (a, b) = two_devices(dir.path());
     let page = a.doc("a");
     a.define("score_n", "number", true);
-    a.state
+    a.core
         .page_service
         .set_property(&page, "score_n", "number", "12")
         .unwrap();
@@ -686,7 +689,7 @@ fn the_clients_are_told_when_a_page_file_makes_or_drops_a_provisional_definition
 
     assert!(told.of_definitions());
     std::thread::sleep(std::time::Duration::from_millis(5));
-    a.state
+    a.core
         .page_service
         .delete_property(&page, "score_n")
         .unwrap();
@@ -715,10 +718,9 @@ fn the_same_key_defined_at_once_is_defined_once_and_the_others_are_refused_as_de
 
     let answers: Vec<_> = (0..8)
         .map(|_| {
-            let state = a.state.clone();
+            let journal = a.core.journal.clone();
             std::thread::spawn(move || {
-                state
-                    .journal
+                journal
                     .add_property_definition(AddPropertyDefinitionInput {
                         key: Some("twice_n".to_string()),
                         value_type: None,
@@ -750,11 +752,10 @@ fn keys_defined_at_once_all_get_their_definitions_in_the_file() {
 
     let writers: Vec<_> = (0..8)
         .map(|t| {
-            let state = a.state.clone();
+            let journal = a.core.journal.clone();
             std::thread::spawn(move || {
                 for key in keys(t) {
-                    state
-                        .journal
+                    journal
                         .add_property_definition(AddPropertyDefinitionInput {
                             key: Some(key),
                             value_type: None,

@@ -4,6 +4,7 @@
 //! files arrive in.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use hmtid::Hmtid;
@@ -11,12 +12,14 @@ use journal_core::assembly::JournalCore;
 use journal_core::infrastructure::export::import_service::Outcome;
 use journal_core::journal::AddPropertyDefinitionInput;
 
-use super::{start, WAIT};
+use super::{start, Recorded, WAIT};
 
 pub struct Device {
     pub core: JournalCore,
     /// The markdown folder of the device
     pub root: PathBuf,
+    /// What the device told its clients
+    pub told: Arc<Recorded>,
 }
 
 impl Device {
@@ -31,8 +34,9 @@ impl Device {
     }
 
     fn with(dir: &Path, wait: Duration) -> Device {
-        let (core, root) = start(dir, wait);
-        Device { core, root }
+        let told = Arc::new(Recorded::default());
+        let (core, root) = start(dir, wait, told.clone());
+        Device { core, root, told }
     }
 
     pub fn export(&self) {
