@@ -39,6 +39,10 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets ${{ matrix.args }}
       - run: cargo test ${{ matrix.args }}
+      # The apps on a phone build the core without the extensions, a path the server never
+      # takes (ADR 058)
+      - if: matrix.workspace == 'journal'
+        run: cargo test -p journal-core --no-default-features
       # What only a native shell needs is behind features: the generation of its types, and the
       # entrance for another language
       - if: matrix.workspace == 'client'
