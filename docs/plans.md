@@ -178,6 +178,7 @@ ADR 051は、`/pages/`といった値をhrefに埋め込む機能を提供する
   - ネイティブのシェルでは起きて、保存していない文字が消えた（2026-11-11）。項目Bに文字を打ち、すぐ項目Aに移り、Aの末尾でDeleteを押すと、つないだあとにBの文字が消えた。サーバーが起動したてのときにだけ起きた
   - コアは「Bの保存」「結合」の順に要求を出す。保存が遅いと、結合が先にサーバーに届く。結合は、保存済みの本文（空）でつなぎ、あとから届いた保存は、もうない項目に当たる
   - ネイティブのシェルは、要求をコアが出した順に、1つのスレッドで1つずつ送ることで直した（`shell-native`の`Lanes::call`）
+  - 確かめ方：Webの`effects/api.rs`は、要求ごとに`spawn_local`で送り、前の答えを待たない。テストで自動保存の答えを遅らせ、その直後に2つの項目をつなぐ。文字が消えるなら、その時点で直す。エフェクトを実行する方針を共通にする項目（「サーバーとクライアント（Rust）」）は、この結果を待つ
 - [ ] Web版のE2E `outline-structure.spec.ts:93`（Ctrl+Cでのコピー）が手元のWindowsで落ちる原因を調べて直す
   - 1行目の行末だけが期待と違う。クリップボードの改行コード（CRLF）とみているが、未確認である
   - 結合の修正（PR #89）を外しても、3回とも同じように落ちた（2026-11-06）
@@ -227,6 +228,7 @@ ADR 051は、`/pages/`といった値をhrefに埋め込む機能を提供する
   - ゴールの1から5は、できている（2026-11-13にテストで確かめた）。ゴールに足りないのは、次の1つだけである
     - [ ] SwiftUIのシェルで、コアの知らせ（`Alert`）を出す。作れない名前のページを検索欄から作ろうとしたときの知らせが、今は出ない
   - [ ] SwiftUIのシェルで、日付が変わったことを付箋紙が自分で知る（開発者が求めた、2026-11-11）
+    - 4つのシェルに共通の直し方は、「4つのシェルのコードが減るもの」の「日付が変わったら、Rustが`/today`を開き直す」にある
     - 今は、「今日」の日付をページを開くときに1回だけコアへ渡す（`shell-native`の`Event::Route { route, today }`）。`/today`の付箋紙を開いたまま0時を過ぎると、新しい日のページが出ず、タイトルの「(Today)」も前の日に付いたままになる
     - 案: macOSが日付の変わり目に出す通知（`NSCalendarDayChanged`）を受けて、`/today`の付箋紙を開き直す。スリープから戻ったときにも届く。コアは変えない
     - [ ] 拡張関数に対応する（開発者が指摘した、2026-11-11）。日付が変わって新しい日のページができるとき、ページを作ったときの拡張関数（`auto-template`など、ADR 009）が動くことを確かめる。動かなければ、動くようにする
@@ -345,39 +347,45 @@ ADR 051は、`/pages/`といった値をhrefに埋め込む機能を提供する
 2026-11-14に、残りの項目で減るシェルの行数を見積もった。いちばん減るのは、Dropboxとの同期をRustにまとめる項目である。iOSとAndroidに、コードが約1,900行、テストが約2,300行ある。そのうち、何を上げ下げするかの判断、フォルダーとの突き合わせ、記録（`CloudSync`、`SyncRound`、`Downloader`、`Uploader`、`MarkdownFolder`、`CloudRecord`）の約1,000行が減る。DropboxのSDKとログインは、シェルに残る。2026-11-17にADR 054で決めた（「ネイティブのシェルに共通」の項目）。付箋紙の設定と保存は、2026-11-17にRustの`client-stickies`へ移した。ほかの項目は、数行から100行ほどである。日付の切り替わりと、iOSとAndroidでの`Prompt`などへの対応は、シェルのコードが増える
 
 - [ ] 画像の大きさの決まりを、Rustの1つの関数にする。今は、4つのシェルで違う。iOSは幅に合わせて縮め、Androidは決まった幅にし、macOSは付箋紙の幅に縮めない。画像がないときも、macOSは`[alt]`、スマホは`alt`かパス、Windowsは`[alt]`かパスを角かっこで出す
+  - 画像の`w`と`h`。Web版（`item_html.rs:41-50`）は空白を取り、core（`rich_text/blocks.rs:156`）は取らない
 - [ ] 描画の定数をそろえる。見出しの大きさは、Androidだけがブラウザの既定値（2.0、1.5、1.17…）で、ほかは1.6、1.4、1.2、1.1、1である。マーカーの色、1段の字下げも、シェルごとに違う。行頭の点は、iOSとAndroidが`row.showBullet`に従い、macOSとWindowsはいつも描く。coreが`RichParagraph`で大きさを渡すか、共通の表を持つ
-- [ ] 日付が変わったら、Rustが`/today`を開き直す。今は、どのシェルも日付の変わり目に気づかない。plansには、macOSの分だけがある。`Clock`の`now`と`sleep`で作れる
+- [ ] 日付が変わったら、Rustが`/today`を開き直す。今は、どのシェルも日付の変わり目に気づかない。macOSの付箋紙で求められたことは、「SwiftUIのシェル（macOS）」の「日付が変わったことを付箋紙が自分で知る」にある。`Clock`の`now`と`sleep`で作れる
+  - 今日の日付の文字列（`YYYY-MM-DD`）を、4か所で作っている（`client-native-bridge/src/shell.rs:258`、`client-shell-embedded/src/lib.rs:220`、`emacs/outliner/src/shell.rs:428`、`web-app/outliner/src/dom.rs:429`）。client-coreの`LocalDateTime`のメソッドにする
+  - chronoで今の時刻を読む処理（`emacs/.../runtime.rs:76-88`と`client-native-bridge/src/clock.rs:21-31`）
 - [ ] 触れた位置に近い文字を選ぶ決まり（縦の距離を100倍に重く見る）を、Rustに移すかを決める。iOS（`Touches.swift:48-52`）とAndroid（`Touches.kt:138-142`）に同じ式がある
   - 2026-11-17に調べた。同じなのは、各5行ほどの距離の式だけである。Rustへ移すと、触れるたびに文字の枠の一覧をFFIで渡すことになり、減る行より包む行が多い。移さないことを勧める
 - [ ] iOSとAndroidで、`Prompt`、`ReadClipboardText`、`CopyMarkdown`に答える。今は、`nil`を返すか、捨てている（`Shell.swift:318`、`Shell.kt:317`）。macOSとWindowsは、3つとも扱う
 
 ### サーバーとクライアント（Rust）
 
-client-coreはwasmにもビルドするので、`journal-core`には依存できない（rusqliteとtantivyを使うため）。両方が使える小さなクレートは、今は`hmtid`、`peta-atlas`、flatmarkdownだけである。週やジャーナルの名前の置き場所には、`journal/hmtid`のような、chronoを使わない小さなクレートを新しく作る。後から変えにくいので、ADRに残すかを決める。
+client-coreはwasmにもビルドするので、`journal-core`には依存できない（rusqliteとtantivyを使うため）。両方が使える小さなクレートは、今は`hmtid`、`peta-atlas`、flatmarkdownだけである。
+
+#### 機能向上
 
 - [ ] エフェクトを実行する方針を、実行の手段から切り離して共通にする（ADR 052）。方針は、APIの要求を1つずつ順に送ること、タイマーをIDで管理すること、確認のダイアログを1つずつ出すことの3つである。今は、`client-native-bridge`の`Lanes`、Emacs（`runtime.rs`、`shell.rs`）、Web（`core.rs`、`effects/`）が別々に持つ。`Lanes`は`std::thread`に依存するので、方針の部分をスレッドに依存しない形に分ける。包む層が今の3つより重くなるなら、方針の仕様とテストだけを共有する
-  - 最初に、Webの要求順序をテストで確かめる。Webの`effects/api.rs`は、要求ごとに`spawn_local`で送り、前の答えを待たない。自動保存の答えを遅らせ、その直後に2つの項目をつなぐ。ネイティブでは、つなぐ要求が保存を追い越し、文字が消えた（`shell.rs`の`Lanes::call`）。消えるなら、その時点で直す
+  - 最初に、Webの要求順序をテストで確かめる。調べることは、「Web版」の「調査・バグ修正」の「後の要求が前の要求を追い越さないかを調べる」にある
   - 確認のダイアログの扱いも違う。`Lanes`は後の質問を待たせ、Web（`effects/ui.rs`）は前の質問を置き換える
-- [ ] 不具合：週の名前が、サーバーとクライアントで違う。サーバーの`week_names_in_month`（`journal-core/src/application/journal_service.rs:289`）は、月の年をそのまま使う（`format!("{year}-W{w:02}")`）。そのため、2024-12の月のジャーナルは「2024-W53」へリンクするが、クライアント（`client-core/src/util/week.rs`）はその週を「2025-W01」と呼ぶ。2027-01の月は「2027-W53」へリンクするが、クライアントは「2026-W53」と呼ぶ。1つにまとめて直す
-- [ ] ジャーナルの名前の解析を、1つにまとめる。クライアント（`client-core/src/util/filename.rs:3-51`）は、「2026-13」「2026-02-30」「2026-W00」「2026-W99」を受け入れる。サーバー（`journal-core/src/domain/journal_name.rs`）は拒む。そのため、ジャーナルの画面が開いたあとに、サーバーが400を返す。拡張関数の`auto-template/main.js:84-92`にも、3つ目の書き方がある
-- [ ] 不具合：`client-core/src/util/mod.rs:84`の`link_at`は、ウィキリンクとハッシュタグの決まりを、flatmarkdownとは別に書いている。`[[a|label]]`を`a|label`というページと読み、違う名前のページを開く。`#rust,`は、カンマまでタグにする。flatmarkdownのパーサーで読むようにする。パーサーが元の文字の位置を返すかを、先に調べる
 - [ ] 通信の型（DTO）とSSEの形を、1つのクレートにまとめる。今は、クライアント（`client-core/src/model.rs`、`rest.rs`の`json!`、`screens/sse.rs`）とサーバー（`journal-core/src/dto.rs`、`events.rs`）が別々に持つ。ずれも出ている。クライアントの`Page.tags`は、サーバーが送らない。`score`は、サーバーがf32、クライアントがf64である。`model.rs:8`のコメントは、古い`presentation/dto.rs`を指している
 - [ ] タイトルの検査を、1つにまとめる（`client-core/src/util/filename.rs:53-82`と`journal-core/src/application/page_service.rs:69-111`）。クライアントの`is_control()`は、U+0080からU+009Fも拒む。サーバーは拒まない。`/`の扱いは、わざと違う
 - [ ] コードフェンスを閉じる処理と`split_at_char`を、1つにまとめる（`journal-core/src/application/paste.rs:75-98`と`client-core/src/util/mod.rs`）
 - [ ] アトラスの`Bounds`を、`peta-atlas`にまとめる（`journal-core/src/domain/bounds.rs`と`atlas/src/lib.rs:48-79`）。書き出しが少し違い、1e15以上の値で「…0.0」と「…0」になる。`ATLAS_NAME`も、`client-core/src/screens/page.rs:14`と`journal-core/src/domain/model.rs:50`の2か所にある
 - [ ] 小さな重複をまとめる
-  - 今日の日付の文字列（`YYYY-MM-DD`）を、4か所で作っている（`client-native-bridge/src/shell.rs:258`、`client-shell-embedded/src/lib.rs:220`、`emacs/outliner/src/shell.rs:428`、`web-app/outliner/src/dom.rs:429`）。client-coreの`LocalDateTime`のメソッドにする
-  - 月と年のページの名前（`web-app/.../calendar.rs:140,144`と`emacs/.../shell.rs:300`）
-  - chronoで今の時刻を読む処理（`emacs/.../runtime.rs:76-88`と`client-native-bridge/src/clock.rs:21-31`）
   - 「Untitled-」の名前（`web-app/.../item_view.rs:185-195`と`client-core/src/util/date.rs:209`）
   - IDの作り方の設定`Generator::new('-', true)`（`client-core/src/app.rs:1003`と`journal-core/src/domain/id_generator.rs`）。`hmtid`のコンストラクタにする
   - `ClientId`とそのヘッダーの名前（`client-core/src/rest.rs:29-33`、`journal-core/src/domain/client_id.rs`、`journal-server/src/presentation/client_id.rs:13`）
-  - 画像の`w`と`h`。Web版（`item_html.rs:41-50`）は空白を取り、core（`rich_text/blocks.rs:156`）は取らない
   - RESTを呼んで答えを読む手順が、3か所にある（`web-app/.../effects/api.rs:72-79`、`client-api-http/src/api.rs:17-23`、`client-api-embedded/src/lib.rs:52-65`）
+
+#### 調査・バグ修正
+
+- [ ] 週とジャーナルの名前の決まりを、サーバーとクライアントが使う1つの小さなクレートにまとめる。`journal/hmtid`のような、chronoを使わないクレートを新しく作る。ADR 061は、この決まりを`page-urls`に入れないと決め、クレートは別に決めるとした。後から変えにくいので、ADRに残すかを決める
+  - 不具合：週の名前が、サーバーとクライアントで違う。サーバーの`week_names_in_month`（`journal-core/src/application/journal_service.rs:289`）は、月の年をそのまま使う（`format!("{year}-W{w:02}")`）。そのため、2024-12の月のジャーナルは「2024-W53」へリンクするが、クライアント（`client-core/src/util/week.rs`）はその週を「2025-W01」と呼ぶ。2027-01の月は「2027-W53」へリンクするが、クライアントは「2026-W53」と呼ぶ
+  - 不具合：ジャーナルの名前の解析が違う。クライアント（`client-core/src/util/filename.rs:3-51`）は、「2026-13」「2026-02-30」「2026-W00」「2026-W99」を受け入れる。サーバー（`journal-core/src/domain/journal_name.rs`）は拒む。そのため、ジャーナルの画面が開いたあとに、サーバーが400を返す。拡張関数の`auto-template/main.js:84-92`にも、3つ目の書き方がある
+- [ ] 不具合：`client-core/src/util/mod.rs:84`の`link_at`は、ウィキリンクとハッシュタグの決まりを、flatmarkdownとは別に書いている。`[[a|label]]`を`a|label`というページと読み、違う名前のページを開く。`#rust,`は、カンマまでタグにする。flatmarkdownのパーサーで読むようにする。パーサーが元の文字の位置を返すかを、先に調べる
 
 ### Web版とWebViewのアプリ
 
 - [ ] カレンダーを、`client-core`の`CalendarView`と`Event`にする（ADR 052）。iOSとAndroidにも、週の番号付きで同じカレンダーを出すためである。コアが`ViewModel`に、表示中の年と月、曜日の名前、週の番号、各日の日付と印（今日、選択中、別の月）を載せる。前の月と次の月、日付と週と月のクリックは`Event`にする。今の`components/calendar.rs`の`weeks_of`と定数は、コアへ移してテストする。Web版には、描くことと`Event`を送ることだけを残し、「ページを開いて`on_navigate`に知らせる」4か所を1つのクロージャにまとめる。202行が100〜120行ほどになる見込みである。月と年のページの名前は、上の「小さな重複をまとめる」の項目と合わせて片づける
+  - 月と年のページの名前を作る処理が、Web版（`web-app/.../calendar.rs:140,144`）とEmacs版（`emacs/.../shell.rs:300`）にある。コアへ移すときに、1つにまとめる
 - [ ] Web版の`collect::<Vec<_>>()`（11か所）を、`collect_view()`にする（ADR 052）
 - [ ] 不具合：Web版の`styles.css`に`.spoiler`のルールがない。隠し文字が、そのまま見える。Markdownを表示するCSSを、Web版（`styles.css:383-438`）とmemoview（`page.css`）で1つにする。今は、リンクの色（`#007bff`と`#2563eb`）とアラートの色分けも違う。todoには、Markdownを表示するCSSがない
 - [ ] ページへのリンクのエンコードを、`client-page-links`と同じにする。todoの`pagePath`（`tasks.ts:102-105`）はエンコードしない。名前に空白、`%`、`#`があるページで、リンクが壊れる。memoview（`Services/PageLinks.cs:14-48`）は、`#`、`?`、`&`までエンコードする
