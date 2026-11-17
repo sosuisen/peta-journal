@@ -81,7 +81,7 @@ class EditTest : JournalScreenFixture() {
         waitForWritten("first and more")
     }
 
-    // 開始記号を打ち終えると、閉じる記号が補われる（ADR 050）。
+    // 開始記号を打ち終えると、コアが閉じる記号を補う（ADR 050、ADR 057）。
     @Test
     fun typing_an_opening_closes_it() {
         download("notes.md", "first" + NL)
@@ -94,22 +94,6 @@ class EditTest : JournalScreenFixture() {
 
         compose.waitUntil(WAIT_MS) { shell.view.outline.rows[0].item.body == ">>>\n>>>" }
         compose.onNodeWithTag(EDITOR_TAG).assertTextEquals(">>>\n>>>")
-    }
-
-    // 消して開始記号だけが残っても、閉じる記号は補われない。閉じるのは打ったときだけである。
-    @Test
-    fun deleting_back_to_an_opening_does_not_close_it() {
-        download("notes.md", "first" + NL)
-        openNotes()
-        waitFor("first")
-        touchEnd("first")
-        compose.onNodeWithTag(EDITOR_TAG).performTextReplacement(">>>x")
-        compose.waitUntil(WAIT_MS) { shell.view.outline.rows[0].item.body == ">>>x" }
-
-        compose.onNodeWithTag(EDITOR_TAG).performTextReplacement(">>>")
-
-        compose.waitUntil(WAIT_MS) { shell.view.outline.rows[0].item.body == ">>>" }
-        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals(">>>")
     }
 
     // 改行のキーは、下に新しい項目を作る。続けて打った文字は、新しい項目に入る。

@@ -31,6 +31,26 @@ pub struct WikiLinkContext {
     pub y: f64,
 }
 
+/// Where the cursor goes in an item whose edit starts (ADR 057).
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+pub enum EditPlace {
+    /// The place in the Markdown itself, in characters: a shell that shows the Markdown, as
+    /// Emacs and the editor of a sticky do.
+    Markdown(usize),
+    /// After this many letters of the shown text (the count of `RichParagraph::start` and the
+    /// letters before the touch in the paragraph), as a shell that draws the `RichText` has
+    /// them. The cursor goes to that place in the Markdown.
+    ShownLetter(usize),
+    /// After these letters of the shown text, as the web shell has them in its page. They are
+    /// lined up with the Markdown, and letters that it lacks are left out (ADR 044).
+    AfterShownText(String),
+    /// No place in the text is known, as for an empty item, an item that shows an image alone
+    /// or a tool that edits the selected item. The cursor goes to the end, where the writing
+    /// goes on.
+    Unplaced,
+}
+
 /// Keys the shell forwards while the outline is in selection mode.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -139,28 +159,24 @@ pub enum Event {
     },
 
     // ---- the outline ----
+    /// The user starts to edit an item, with the cursor at `place` (ADR 057). Another item
+    /// being edited ends its edit, and a selection ends.
     EditRequested {
         item_id: String,
-        cursor: usize,
-    },
-    /// The user touched the shown text of an item, after `letter` letters of it (the count of
-    /// `RichParagraph::start` and the letters before the touch in the paragraph). The item is
-    /// edited, with the cursor at that place in its Markdown.
-    ShownTextTouched {
-        item_id: String,
-        letter: usize,
-    },
-    /// The user touched the shown text of an item, after the letters `before` of it, as a
-    /// shell that does not draw the `RichText` has them: the web shell sends the letters of the
-    /// page. They are lined up with the Markdown, and letters that it lacks are left out. The
-    /// item is edited, with the cursor at that place in its Markdown (ADR 044).
-    ShownTextTouchedAfter {
-        item_id: String,
-        before: String,
+        place: EditPlace,
     },
     BodyChanged {
         item_id: String,
         body: String,
+        now_ms: u64,
+    },
+    /// The user typed into the editor of an item: its Markdown is `body`, with the cursor
+    /// `cursor` characters into it. An opening just typed gets its closing, unless the body
+    /// got shorter (ADR 050, ADR 057). Otherwise as `BodyChanged`.
+    Typed {
+        item_id: String,
+        body: String,
+        cursor: usize,
         now_ms: u64,
     },
     EditFinished {
@@ -1116,14 +1132,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         Back { today } => screens::history::back(model, today),
         Forward { today } => screens::history::forward(model, today),
 
-        EditRequested { item_id, cursor } => {
-            ops::outline_events::edit_requested(model, &item_id, cursor)
-        }
-        ShownTextTouched { item_id, letter } => {
-            ops::outline_events::shown_text_touched(model, &item_id, letter)
-        }
-        ShownTextTouchedAfter { item_id, before } => {
-            ops::outline_events::shown_text_touched_after(model, &item_id, &before)
+        EditRequested { item_id, place } => {
+            ops::outline_events::edit_requested(model, &item_id, place)
         }
         BodyChanged {
             item_id,
@@ -1132,6 +1142,15 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         } => {
             model.clock_ms = now_ms;
             ops::outline_events::body_changed(model, &item_id, body)
+        }
+        Typed {
+            item_id,
+            body,
+            cursor,
+            now_ms,
+        } => {
+            model.clock_ms = now_ms;
+            ops::outline_events::typed(model, &item_id, body, cursor)
         }
         EditFinished { item_id } => ops::edit::finish_edit(model, &item_id),
         EnterPressed {

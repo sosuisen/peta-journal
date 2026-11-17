@@ -548,14 +548,12 @@ internal sealed class StickyWindow : Window
     /// <summary>The editor of the item got the cursor, by a click or by an order of the core.</summary>
     public void GotCursor(string itemId)
     {
-        // Only the user puts the cursor in an editor while items are selected, and that ends
-        // the selection. The core still names this item as the one with the cursor then
+        // Only the user puts the cursor in an editor while items are selected. The core ends
+        // the selection then (ADR 057), and still names this item as the one with the cursor
         var selecting = Shell.View.Outline.SelectionMode;
         takesCursor = true;
         try
         {
-            if (selecting)
-                Shell.LeaveSelection();
             // The core may name this item as the one with the cursor and still not count it
             // as edited: the cursor left it for something that is no item, and came back
             var outline = Shell.View.Outline;
@@ -578,13 +576,7 @@ internal sealed class StickyWindow : Window
     /// The user clicked the shown text of the item after <paramref name="letter"/> of its
     /// letters. The core answers with an order to put the cursor at that place in the Markdown.
     /// </summary>
-    public void Touched(string itemId, int letter)
-    {
-        // A click on an item ends the selection, as the cursor in its editor would
-        if (Shell.View.Outline.SelectionMode)
-            Shell.LeaveSelection();
-        Shell.Touched(itemId, letter);
-    }
+    public void Touched(string itemId, int letter) => Shell.Touched(itemId, letter);
 
     // ---- The drag that selects items ----
 

@@ -263,29 +263,54 @@ pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
         model.state.remove_editing_item(item_id);
         return done();
     };
-    let close_wiki = if model.wiki.item_id.as_deref() == Some(item_id) {
-        crate::ops::wiki::close(model)
-    } else {
-        done()
-    };
-
+    let close_wiki = close_wiki_of(model, item_id);
     if model.edits.dirty_item_ids.contains(item_id) {
         let discard = discard_pending_edit(model, &item);
         let save = save_and_close(model, item);
         return Command::all([close_wiki, discard, save]);
     }
+    Command::all([close_wiki, end_clean_edit(model, item)])
+}
 
-    let unclosed = model
-        .state
-        .get_item_by_id(item_id)
-        .map(|c| flatmarkdown::has_unclosed_block(&c.body))
-        .unwrap_or(false);
-    if unclosed {
-        let save = save_and_close(model, item);
-        return Command::all([close_wiki, save]);
+/// Ends the edit of an item that the edit left for another one, as `finish_edit` does, also
+/// while a handover runs (ADR 057). Typed text is saved in a handover of its own: the blur of
+/// the editor, which a shell may send after, does not end the edit again meanwhile.
+pub fn leave(model: &mut Model, item_id: &str) -> Cmd {
+    let Some(item) = model.cloned_item(item_id) else {
+        model.state.remove_editing_item(item_id);
+        return done();
+    };
+    let close_wiki = close_wiki_of(model, item_id);
+    let Some((edit, discard)) = take_dirty(model, &item) else {
+        if !model.state.is_editing(item_id) {
+            return close_wiki;
+        }
+        return Command::all([close_wiki, end_clean_edit(model, item)]);
+    };
+    begin_handover(model);
+    let save = run(move |api| async move {
+        edit.save(&api).await;
+        api.send_event(Event::HandoverEnded);
+    });
+    Command::all([close_wiki, discard, save])
+}
+
+/// Closes the wiki link popup when it belongs to the item.
+fn close_wiki_of(model: &mut Model, item_id: &str) -> Cmd {
+    match model.wiki.item_id.as_deref() == Some(item_id) {
+        true => crate::ops::wiki::close(model),
+        false => done(),
     }
-    model.state.remove_editing_item(item_id);
-    close_wiki
+}
+
+/// Ends the edit of an item without typed text: a body with a block that is still open is
+/// saved closed, and the item is no longer marked as edited.
+fn end_clean_edit(model: &mut Model, item: Item) -> Cmd {
+    if flatmarkdown::has_unclosed_block(&item.body) {
+        return save_and_close(model, item);
+    }
+    model.state.remove_editing_item(&item.id);
+    done()
 }
 
 /// Saves the shown item and closes its editor, whether or not the save went through.

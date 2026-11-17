@@ -1,6 +1,6 @@
 //! Pasting a copied item reference as a transclusion, and taking the link away again.
 
-use crate::app::Event;
+use crate::app::{EditPlace, Event};
 use crate::harness::{item, Harness};
 use crate::testing::item_with;
 
@@ -86,7 +86,7 @@ fn a_broken_transclusion_root_does_not_open_an_editor_when_clicked() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), transclusion]);
     h.send(Event::EditRequested {
         item_id: "t".into(),
-        cursor: 0,
+        place: EditPlace::Markdown(0),
     });
     assert!(!h.model.state.is_editing("t"));
     assert_eq!(h.model.state.focused_item_id(), None);

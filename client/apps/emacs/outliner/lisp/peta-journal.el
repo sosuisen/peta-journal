@@ -1053,10 +1053,9 @@ Not from here but from a timer: a process filter is no place for a prompt."
 ;;;; Edits
 
 (defun peta-journal--start-edit (id)
-  "Tell the core that the item ID is being edited, in place of the one before."
+  "Tell the core that the item ID is being edited, in place of the one before.
+The core ends the edit of the one before (ADR 057)."
   (unless (equal id peta-journal--current)
-    (when peta-journal--current
-      (peta-journal--send "edit_finished" :id peta-journal--current))
     (setq peta-journal--current id)
     (peta-journal--send "edit_requested" :id id :cursor (peta-journal--cursor))))
 

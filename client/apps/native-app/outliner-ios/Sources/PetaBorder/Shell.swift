@@ -20,10 +20,6 @@ public final class Shell: ObservableObject {
     /// app waits for the sign-in: a journal made before the first download would be a second
     /// file for a day that Dropbox may hold already.
     @Published public private(set) var unopened = false
-    /// The focus request that a touch beside the text of an item made. The core asks for the
-    /// cursor at the start of the item then. Such a touch shows no place in the Markdown, so
-    /// the screen puts the cursor at the end instead, where the writing goes on.
-    public private(set) var touched: UInt64?
 
     private let border: Border
     /// Takes in the files, one sync after the other, and closes the core after the last.
@@ -111,21 +107,14 @@ public final class Shell: ObservableObject {
 
     // MARK: - Editing
 
-    /// The user touched an item: it is edited (ADR 031). The edit of another item ends.
-    /// `letter` is how many letters of the shown text of the item stand before the touch, as
-    /// `RichParagraph.start` counts them: the cursor goes to that place in the Markdown. Without
-    /// it the cursor is at the end, where the writing goes on.
+    /// The user touched an item: it is edited (ADR 031). The core ends the edit of another
+    /// item and a selection (ADR 057). `letter` is how many letters of the shown text of the
+    /// item stand before the touch, as `RichParagraph.start` counts them: the cursor goes to
+    /// that place in the Markdown. Without it the cursor is at the end, where the writing goes
+    /// on.
     public func edit(_ itemId: String, letter: Int? = nil) {
-        // The core takes no edit while items are selected
-        if view.outline.rows.contains(where: \.isSelected) { unselect() }
-        if let other = view.outline.focusedItemId, other != itemId { finish(other) }
-        if let letter {
-            send(.shownTextTouched(itemId: itemId, letter: UInt64(letter)))
-            touched = nil
-        } else {
-            send(.editRequested(itemId: itemId, cursor: 0))
-            touched = view.outline.focusRequest?.seq
-        }
+        let place: EditPlace = letter.map { .shownLetter(UInt64($0)) } ?? .unplaced
+        send(.editRequested(itemId: itemId, place: place))
     }
 
     /// The user changed the Markdown of the item. The core saves it a moment later.
@@ -133,14 +122,11 @@ public final class Shell: ObservableObject {
         send(.bodyChanged(itemId: itemId, body: body, nowMs: now()))
     }
 
-    /// The user changed the Markdown of the item, and the cursor is `cursor` UTF-16 units into
-    /// `body`. An opening just typed gets its closing (ADR 050). An opening that is left after a
-    /// deletion does not, or the closing would come back at every delete.
+    /// The user typed into the item, and the cursor is `cursor` UTF-16 units into `body`. The
+    /// core closes an opening just typed (ADR 057), and saves the body a moment later.
     public func type(_ itemId: String, _ body: String, cursor: Int) {
-        let before = view.outline.rows.first { $0.item.id == itemId }?.item.body
-        let added = body.utf16.count > (before?.utf16.count ?? 0)
-        let closed = added ? closedAsTyped(body: body, cursor: UInt64(cursor)) : nil
-        type(itemId, closed ?? body)
+        let characters = UInt64(Cursor.characters(utf16: cursor, in: body))
+        send(.typed(itemId: itemId, body: body, cursor: characters, nowMs: now()))
     }
 
     /// The user pressed Enter in the item. `cursor` counts the characters before it, as the

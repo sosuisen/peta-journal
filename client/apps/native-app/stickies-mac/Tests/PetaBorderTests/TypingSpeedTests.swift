@@ -77,7 +77,7 @@ final class TypingSpeedTests: XCTestCase {
             seen = try border.view()
         }
         let first = seen.outline.rows[0].item.id
-        try border.send(.editRequested(itemId: first, cursor: 0))
+        try border.send(.editRequested(itemId: first, place: .markdown(0)))
         for n in 0..<Self.keys {
             let body = String(repeating: "a", count: n + 1)
             events.append(try timed { try border.send(.bodyChanged(itemId: first, body: body, nowMs: 0)) })

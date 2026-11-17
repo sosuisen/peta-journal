@@ -191,13 +191,18 @@ public sealed partial class Shell : IDisposable
     /// <summary>
     /// The user touched the shown text of the item after <paramref name="letter"/> of its
     /// letters, as <c>RichParagraph.Start</c> counts them. The item is edited with the cursor
-    /// at that place in its Markdown (ADR 043).
+    /// at that place in its Markdown (ADR 043). The core ends the edit of another item and a
+    /// selection (ADR 057).
     /// </summary>
     public void Touched(string itemId, int letter) =>
-        Send(new Event.ShownTextTouched(itemId, (ulong)letter));
+        Send(new Event.EditRequested(itemId, new EditPlace.ShownLetter((ulong)letter)));
 
-    /// <summary>The user put the cursor in the item.</summary>
-    public void StartEditing(string itemId) => Send(new Event.EditRequested(itemId, 0));
+    /// <summary>
+    /// The user put the cursor in the item, <paramref name="cursor"/> characters into its
+    /// Markdown. The core ends the edit of another item and a selection (ADR 057).
+    /// </summary>
+    public void StartEditing(string itemId, int cursor = 0) =>
+        Send(new Event.EditRequested(itemId, new EditPlace.Markdown((ulong)cursor)));
 
     /// <summary>
     /// The cursor left the item. The core saves what was typed, and the item is shown with its
@@ -224,16 +229,11 @@ public sealed partial class Shell : IDisposable
 
     /// <summary>
     /// The user typed into the item, and the cursor is <paramref name="cursor"/> UTF-16 units into
-    /// <paramref name="body"/>. An opening just typed gets its closing (ADR 050). An opening
-    /// that is left after a deletion does not, or the closing would come back at every delete.
+    /// <paramref name="body"/>. The core closes an opening just typed (ADR 057), and saves the
+    /// body a moment later.
     /// </summary>
-    public void Typed(string body, string itemId, int cursor)
-    {
-        var before = View.Outline.Rows.FirstOrDefault(row => row.Item.Id == itemId)?.Item.Body;
-        var added = body.Length > (before?.Length ?? 0);
-        var closed = added ? PetaCore.PetaNative.ClosedAsTyped(body, (ulong)cursor) : null;
-        Typed(closed ?? body, itemId);
-    }
+    public void Typed(string body, string itemId, int cursor) =>
+        Send(new Event.Typed(itemId, body, PetaCore.PetaNative.CharsOfUtf16(body, (ulong)Math.Max(cursor, 0)), NowMs()));
 
     /// <summary>Answers the confirmation on screen.</summary>
     public void Answer(bool yes) => Answer(new UiOutput.Bool(yes));

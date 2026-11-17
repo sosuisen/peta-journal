@@ -290,7 +290,7 @@
 
 ;;;; What goes to the core
 
-;; 別の項目へ移ると、前の編集を終え、移った先の編集を始める。
+;; 別の項目へ移ると、移った先の編集を始める。前の編集は、コアが終える（ADR 057）。
 (ert-deftest peta-journal-moving-between-items-switches-the-edit ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "b" 1 "yz"))
@@ -298,8 +298,7 @@
     (setq peta-journal-test--sent nil)
     (peta-journal-test--goto "b" 1)
     (should (equal peta-journal-test--sent
-                   '(("edit_finished" :id "a")
-                     ("edit_requested" :id "b" :cursor 1))))))
+                   '(("edit_requested" :id "b" :cursor 1))))))
 
 ;; 編集中の項目が届いた行から消えると、その編集は終わっている。終わりは送らない。
 (ert-deftest peta-journal-a-row-that-is-gone-is-no-longer-edited ()

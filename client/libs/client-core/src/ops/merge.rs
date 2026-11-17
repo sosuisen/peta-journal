@@ -7,7 +7,7 @@
 //! saved yet (ADR 011). The screen changes when its answer is there.
 
 use crate::app::Event;
-use crate::app::{done, log_error, run, Cmd, Model};
+use crate::app::{done, log_error, run, Cmd, EditPlace, Model};
 use crate::model::Item;
 use crate::ops::action::confirm_deleting_transcluded;
 use crate::ops::edit::{record_typing, show_parsed, take_unsaved, typed_body};
@@ -117,7 +117,7 @@ pub fn merge_answered(model: &mut Model, key: JoinKey, item_id: &str, agreed: bo
             JoinKey::Backspace => 0,
             JoinKey::Delete => char_len(&into.body),
         };
-        return edit_requested(model, item_id, cursor);
+        return edit_requested(model, item_id, EditPlace::Markdown(cursor));
     }
     let (body, discard_goes) = take_unsaved(model, &goes);
     let (into_body, discard_into) = take_unsaved(model, &into);

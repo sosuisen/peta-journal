@@ -186,10 +186,9 @@ final class Editor: NSObject, NSTextViewDelegate {
     /// The text view got the cursor, by a click or by an order of the core.
     func gotCursor(in view: ItemTextView) {
         if !view.isMarkdown { view.showMarkdown(body, font: font) }
-        // Only the user puts the cursor here while items are selected, and that ends the
-        // selection. The core still names this item as the one with the cursor then
+        // Only the user puts the cursor here while items are selected. The core ends the
+        // selection then (ADR 057), and still names this item as the one with the cursor
         let selecting = shell.view.outline.selectionMode
-        if selecting { shell.leaveSelection() }
         // The core may name this item as the one with the cursor and still not count it as
         // edited: the cursor left it for something that is no item, and came back
         let edited = shell.view.outline.rows.contains { $0.item.id == itemId && $0.isEditing }
@@ -200,9 +199,10 @@ final class Editor: NSObject, NSTextViewDelegate {
             shell.touched(itemId, letter: letter)
             return
         }
-        shell.startEditing(itemId)
-        // The core answers with an order to put the cursor at the start of this item. The
-        // cursor is already here, and where the user clicked
+        shell.startEditing(itemId, at: Int(charsOfUtf16(text: view.string, units: UInt64(view.selectedRange().location))))
+        // The core answers with an order to put the cursor there. The window gives the view
+        // the cursor before the click arrives in `mouseDown`, which puts it where the user
+        // clicked: the order is not carried out
         if let request = shell.view.outline.focusRequest, request.itemId == itemId {
             cursors.request = request.seq
         }

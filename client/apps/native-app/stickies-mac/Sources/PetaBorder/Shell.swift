@@ -132,14 +132,15 @@ public final class Shell: ObservableObject {
 
     /// The user clicked the shown text of the item after `letter` of its letters, as
     /// `RichParagraph.start` counts them. The item is edited with the cursor at that place in
-    /// its Markdown (ADR 043).
+    /// its Markdown (ADR 043). The core ends the edit of another item and a selection (ADR 057).
     public func touched(_ itemId: String, letter: Int) {
-        send(.shownTextTouched(itemId: itemId, letter: UInt64(letter)))
+        send(.editRequested(itemId: itemId, place: .shownLetter(UInt64(letter))))
     }
 
-    /// The user put the cursor in the item.
-    public func startEditing(_ itemId: String) {
-        send(.editRequested(itemId: itemId, cursor: 0))
+    /// The user put the cursor in the item, `cursor` characters into its Markdown. The core
+    /// ends the edit of another item and a selection (ADR 057).
+    public func startEditing(_ itemId: String, at cursor: Int = 0) {
+        send(.editRequested(itemId: itemId, place: .markdown(UInt64(cursor))))
     }
 
     /// The cursor left the item. The core saves what was typed, and the item is shown with its
@@ -154,14 +155,12 @@ public final class Shell: ObservableObject {
         send(.bodyChanged(itemId: itemId, body: body, nowMs: nowMs))
     }
 
-    /// The user typed into the item, and the cursor is `cursor` UTF-16 units into `body`. An
-    /// opening just typed gets its closing (ADR 050). An opening that is left after a deletion
-    /// does not, or the closing would come back at every delete.
+    /// The user typed into the item, and the cursor is `cursor` UTF-16 units into `body`. The
+    /// core closes an opening just typed (ADR 057), and saves the body a moment later.
     public func typed(_ body: String, into itemId: String, cursor: Int) {
-        let before = view.outline.rows.first { $0.item.id == itemId }?.item.body
-        let added = body.utf16.count > (before?.utf16.count ?? 0)
-        let closed = added ? closedAsTyped(body: body, cursor: UInt64(cursor)) : nil
-        typed(closed ?? body, into: itemId)
+        let nowMs = UInt64(Date().timeIntervalSince1970 * 1000)
+        let characters = charsOfUtf16(text: body, units: UInt64(max(cursor, 0)))
+        send(.typed(itemId: itemId, body: body, cursor: characters, nowMs: nowMs))
     }
 
     /// Answers the confirmation on screen.

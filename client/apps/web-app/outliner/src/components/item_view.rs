@@ -7,7 +7,7 @@ use crate::components::item_html::{item_html, ImageSize};
 use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
-use client_core::Event;
+use client_core::{EditPlace, Event};
 use client_page_links::{hashtag_path, wikilink_path};
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
@@ -63,20 +63,18 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
             ev.prevent_default();
             let el = content.get();
             // The core lines up the letters of the page before the click with the Markdown,
-            // and puts the cursor there (ADR 044). Beside the letters it goes to the start
+            // and puts the cursor there (ADR 044). Without letters it goes to the end (ADR 057)
             let before = el.as_ref().and_then(|el| {
                 dom::text_before_point(el, ev.client_x() as f64, ev.client_y() as f64)
             });
-            match before {
-                Some(before) => core.send(Event::ShownTextTouchedAfter {
-                    item_id: id.clone(),
-                    before,
-                }),
-                None => core.send(Event::EditRequested {
-                    item_id: id.clone(),
-                    cursor: 0,
-                }),
-            }
+            let place = match before {
+                Some(before) => EditPlace::AfterShownText(before),
+                None => EditPlace::Unplaced,
+            };
+            core.send(Event::EditRequested {
+                item_id: id.clone(),
+                place,
+            });
             if let Some(el) = el {
                 // The drag selects from the place where the core put the cursor
                 let cursor = core.view().with_untracked(|v| {

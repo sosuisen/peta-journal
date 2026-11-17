@@ -21,7 +21,7 @@ pub mod harness;
 #[cfg(test)]
 mod tests;
 
-pub use app::{Event, Model, PetaApp, Route};
+pub use app::{EditPlace, Event, Model, PetaApp, Route};
 pub use body_model::BodyModel;
 pub use effects::Effect;
 pub use rich_text::RichText;

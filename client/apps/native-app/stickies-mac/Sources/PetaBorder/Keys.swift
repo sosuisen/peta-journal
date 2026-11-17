@@ -59,10 +59,6 @@ extension Shell {
         ItemDrag { [unowned self] in send($0) }
     }
 
-    /// The user turned to something else, such as the text of an item: nothing stays selected.
-    public func leaveSelection() {
-        send(.selectionClickOutside)
-    }
 
     private func event(of key: EditorKey, in itemId: String, _ editor: EditorState) -> Event? {
         // The core counts in characters, and AppKit in UTF-16 units (ADR 043)

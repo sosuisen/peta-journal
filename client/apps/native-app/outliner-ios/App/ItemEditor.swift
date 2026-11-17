@@ -59,7 +59,7 @@ struct ItemEditor: UIViewRepresentable {
         if let asked = shell.view.outline.focusRequest, asked.itemId == id, asked.seq != typist.answered {
             typist.answered = asked.seq
             typist.taken = false
-            if asked.seq != shell.touched, let cursor = asked.cursor {
+            if let cursor = asked.cursor {
                 field.selectedRange = NSRange(location: Cursor.utf16(characters: Int(cursor), in: field.text), length: 0)
             }
         }
