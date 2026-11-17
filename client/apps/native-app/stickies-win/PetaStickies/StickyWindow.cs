@@ -103,9 +103,6 @@ internal sealed class StickyWindow : Window
     /// <summary>The scroller of the list, once the list is loaded.</summary>
     private ScrollViewer? scroller;
 
-    /// <summary>A drag of the mouse that selects items once it leaves the item it started on.</summary>
-    private readonly ItemDrag drag;
-
     /// <summary>The mouse button that went down on an item and is still held.</summary>
     private Pointer? dragging;
 
@@ -180,9 +177,8 @@ internal sealed class StickyWindow : Window
             Copy,
             Browse
         );
-        drag = new ItemDrag(Shell.Send);
         edgeScroll = DispatcherQueue.CreateTimer();
-        edgeScroll.Interval = TimeSpan.FromMilliseconds(16);
+        edgeScroll.Interval = EdgeScroll.Interval;
         edgeScroll.Tick += (_, _) => ScrollAtEdge();
         search = new SearchBox(Shell, () => Look.Searching = false)
         {
@@ -589,7 +585,7 @@ internal sealed class StickyWindow : Window
         if (!e.GetCurrentPoint(list).Properties.IsLeftButtonPressed)
             return;
         var top = body.TransformToVisual(list).TransformPoint(default).Y;
-        drag.Pressed(itemId, top, top + body.ActualHeight);
+        Shell.Dragged(new DragMove.Pressed(itemId, top, top + body.ActualHeight));
         dragging = e.Pointer;
     }
 
@@ -605,7 +601,7 @@ internal sealed class StickyWindow : Window
             return;
         }
         dragPoint = point.Position;
-        drag.Moved(dragPoint.Y, ItemAt(dragPoint));
+        Shell.Dragged(new DragMove.Moved(dragPoint.Y, ItemAt(dragPoint)));
         if (!Shell.View.Outline.SelectionMode)
             return;
         // The text box that took the mouse is gone, and the mouse may leave the window
@@ -622,7 +618,7 @@ internal sealed class StickyWindow : Window
 
     private void EndDrag()
     {
-        drag.Released();
+        Shell.Dragged(new DragMove.Released());
         dragging = null;
         edgeScroll.Stop();
         root.ReleasePointerCaptures();
@@ -641,7 +637,7 @@ internal sealed class StickyWindow : Window
             return;
         }
         scroller.ChangeView(null, scroller.VerticalOffset + step, null, true);
-        drag.Moved(dragPoint.Y, ItemAt(dragPoint));
+        Shell.Dragged(new DragMove.Moved(dragPoint.Y, ItemAt(dragPoint)));
     }
 
     /// <summary>
@@ -652,7 +648,7 @@ internal sealed class StickyWindow : Window
     {
         var inside = new Windows.Foundation.Point(
             Math.Clamp(place.X, list.Padding.Left + 1, list.ActualWidth - list.Padding.Right - 1),
-            Math.Clamp(place.Y, 1, list.ActualHeight - 1)
+            EdgeScroll.PlaceInList(place.Y, 0, list.ActualHeight)
         );
         var there = list.TransformToVisual(null).TransformPoint(inside);
         foreach (var hit in VisualTreeHelper.FindElementsInHostCoordinates(there, list))

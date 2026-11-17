@@ -45,6 +45,15 @@ public sealed class Border : IDisposable
     }
 
     /// <summary>
+    /// Hands a step of a drag of the mouse to the core. True when it told the core something.
+    /// </summary>
+    public bool Drag(DragMove step)
+    {
+        ArgumentNullException.ThrowIfNull(step);
+        return core.Drag(step.BincodeSerialize());
+    }
+
+    /// <summary>
     /// Answers the request with the number <paramref name="id"/>. A request that only tells the
     /// shell something, such as a render, has no answer.
     /// </summary>

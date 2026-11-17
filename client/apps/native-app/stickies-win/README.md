@@ -210,8 +210,8 @@ The mouse selects items too, as in the web frontend. A drag that starts on the t
 selects its letters. Once the mouse leaves that text by more than 10px up or down, the drag
 selects the item instead, and every item the mouse goes over joins the selection. Near the top
 or the bottom edge of the list, the list scrolls: the nearer the edge, the faster. The mouse
-may leave the window; the item nearest to it counts. `ItemDrag` and `EdgeScroll` of
-`PetaBorder` decide this, and `StickyWindow` gives them the mouse.
+may leave the window; the item nearest to it counts. The core decides this (`drag.rs` of
+`client-core`); `StickyWindow` gives it the mouse through `Shell.Dragged`.
 
 The keys of a sticky:
 
