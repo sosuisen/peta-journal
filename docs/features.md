@@ -940,6 +940,27 @@
   - 消した付箋紙は、設定を読み直しても出てこない。ほかの付箋紙は残る
   - 消した付箋紙の設定を保存しても、付箋紙は戻らない
 
+### 付箋紙アプリ（macOSとWindows）の設定と見た目
+
+出典: `client/libs/client-stickies/src/tests.rs`、Windowsの`StickyTests`、macOSの`StickyDeskTests`
+
+決まりは、Rustの`client-stickies`に1つだけある。macOSとWindowsの付箋紙アプリは、`client-shell-http`を通してそれを呼ぶ。
+
+- 付箋紙は、`stickies.json`に保存される。変えるたびに書き直す。ファイルは、横に書いてから置き換えるので、書く途中でアプリが終わっても壊れない
+  - ファイルがまだないときは、付箋紙は1つもない
+  - 足した付箋紙は、読み直しても残る。順番も同じである
+  - 同じ付箋紙をもう一度入れると、増えずに、中身が変わる
+  - 消した付箋紙は、読み直しても出てこない。ほかの付箋紙は残る
+  - 読めないファイルは、付箋紙がないものとして扱う。次に入れた付箋紙は、保存される
+  - 色、常に手前、ズーム、巻き上げは、保存される
+  - 古いファイルの付箋紙には、あとから足した設定がない。黄色で、手前に表示せず、等倍で、巻き上げていない。Windowsの古いファイルの、整数の位置も読める
+  - 位置は、OSの数え方のまま保存する。macOSは画面の左下から、Windowsはすべての画面の左上から数える。ファイルは1台のPCの中でしか使わない
+- 新しい付箋紙は黄色である。選べる色は、Petastiの付箋紙の9色である
+- `#RRGGBB`の色が読める。読めない色は、新しい付箋紙の黄色になる
+- ズームは、1割ずつ変わる。0.1を足し続けても、端数は出ない。30%から300%の間に収まる。保存されていた値も同じである
+- 一番小さいウィンドウは280×200、新しい付箋紙のウィンドウは400×520である。macOSもWindowsも同じである（2026-11-17に開発者が決めた。それまでmacOSは480×320と480×600だった）
+- 見た目が変わると、シェルの画面に知らされる。同じ値を入れても、知らされない（Windowsの`StickyTests`）
+
 ### ネイティブアプリが項目を表示する部品から描く
 
 出典: `client/libs/client-core/src/tests/view.rs`、`client/libs/client-core/src/body_model.rs`、`client/libs/client-core/src/tests/edit.rs`、Webの`click-place.spec.ts`、`client/libs/client-core/src/rich_text/tests.rs`、`client/libs/client-native-bridge/src/codegen.rs`、iOSの`TouchesTests`、iOSの`RichTextTests`、各シェルの`ShownText`のテスト（macOS、Android、Windows）、macOSの`AssetImagesTests`と`OutlineScreenTests`
