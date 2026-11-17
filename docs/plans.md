@@ -55,7 +55,8 @@
 - [ ] ジャーナルサーバーの中身を、ライブラリ`journal-core`として切り出す（ADR 029）
   - 目的は、Androidのシェルが、PCと同じ中身をアプリに組み込んで使うことである。REST、MCP、embed版が、同じ入口（`Journal`）を通る
   - ジャーナルサーバーの動きは変えない。RESTとMCPの答えは、切り出しの前と同じである。既存の結合テストで守る
-  - [ ] コアの振る舞いを確かめている結合テストを、`journal-core`に移す。どのテストをどこへ移すかは、ADR 058（`docs/adr/adr-058-core-behaviour-is-tested-in-journal-core.md`）に書く
+  - [x] コアの振る舞いを確かめている結合テストを、`journal-core`に移す。どのテストをどこへ移すかは、ADR 058（`docs/adr/adr-058-core-behaviour-is-tested-in-journal-core.md`）に書く
+    - #619から#637で移した。サーバーには、ルートとHTTPの層を確かめるテストだけが残る（2026-11-18）
   - [ ] コアの時計を差し替えられるようにするかを決める。テストを`journal-core`に移し終えてから考える
     - 今、コアは日付をその場でシステムの時計から取る（`infrastructure/persistence/db.rs:121`の`now_millis()`。10ファイルの33か所から呼ぶ）。項目、ページ、プロパティの定義の更新日時は、すべてこの値である
     - 2台の同期は、この日付で新しい方を選ぶ。そのためテストは、2つの操作の日付がずれるように、間で5ミリ秒待つ。`journal-server`のテストに20か所（`item_merge.rs`に7、`definitions_sync.rs`に7、`api.rs`に5、`mcp/main.rs`に1）、`journal-core`の単体テストに2か所ある（2026-11-18に数えた）
