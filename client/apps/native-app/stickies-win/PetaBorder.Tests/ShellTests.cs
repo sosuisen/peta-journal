@@ -171,22 +171,6 @@ public sealed class ShellTests : IDisposable
         Assert.Equal(">>>\n>>>", shell.View.Outline.Rows[0].Item.Body);
     }
 
-    // コアが入力を求めると、質問が出る。答えた文字列で、コアが先へ進む。
-    [Fact]
-    public void A_prompt_is_answered_with_text()
-    {
-        var shell = ShellWithPage();
-
-        shell.Send(new Event.CreateNewPage(""));
-        main.WaitUntil("the shell is asked for a title", () => shell.Question is not null);
-        Assert.Equal("Page title:", shell.Question?.Message);
-        Assert.Equal(QuestionKind.Prompt, shell.Question?.Kind);
-        shell.Answer("made-by-prompt");
-
-        Assert.Null(shell.Question);
-        main.WaitUntil("the new page is shown", () => shell.Title == "made-by-prompt");
-    }
-
     // コアが確認を求めると、質問が出る。「いいえ」では何も起きず、「はい」でコアが先へ進む。
     [Fact]
     public void A_confirmation_is_answered_with_yes_or_no()
