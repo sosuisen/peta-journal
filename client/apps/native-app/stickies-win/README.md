@@ -185,6 +185,7 @@ The keys are those of the web frontend.
 | Delete at the end | joins the next item to this one |
 | Ctrl+Up | hides the children |
 | Ctrl+Down | shows the children |
+| Ctrl+O | opens the page of the wikilink or the hashtag at the cursor |
 | Shift+Alt+Up, Down | moves the item up or down |
 | Shift+Alt+Left, Right | outdents, indents |
 | Ctrl+Z | undo; with Shift, redo |
