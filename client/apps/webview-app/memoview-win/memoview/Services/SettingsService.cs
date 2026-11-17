@@ -77,8 +77,7 @@ public class SettingsService
             if (File.Exists(_path))
             {
                 var json = File.ReadAllText(_path);
-                _settings =
-                    JsonSerializer.Deserialize<MemoViewSettings>(json, JsonOptions)
+                _settings = JsonSerializer.Deserialize<MemoViewSettings>(json, JsonOptions)
                     ?? new MemoViewSettings();
             }
         }

@@ -1,11 +1,11 @@
 using System.Runtime.InteropServices;
+using MemoView.Models;
+using MemoView.Services;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using MemoView.Models;
-using MemoView.Services;
 using Windows.Graphics;
 using WinRT.Interop;
 
