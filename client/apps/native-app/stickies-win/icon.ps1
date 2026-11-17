@@ -10,7 +10,7 @@ $icon = Join-Path $here 'PetaStickies/PetaStickies.ico'
 
 Push-Location (Join-Path $here '../../..')
 try {
-    cargo run --release -q -p app-icon -- $svg $icon
+    cargo run --release -q -p app-icon -- windows $svg $icon
     exit $LASTEXITCODE
 }
 finally { Pop-Location }

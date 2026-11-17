@@ -55,13 +55,15 @@ choose a team for signing.
 
 The icon is the notebook of `images/peta-journal.svg` in the middle of a white square, as in
 the Android shell. Its image is kept in the repository
-(`App/Assets.xcassets/AppIcon.appiconset/icon-1024.png`), so a build needs no tool for it.
+(`App/Assets.xcassets/AppIcon.appiconset/icon-1024.png`), so a build does not make it.
 After a change of the SVG, make the image again:
 
 ```
-brew install librsvg imagemagick     # once
 ./icon.sh
 ```
+
+The script needs nothing but Rust. It runs the crate `client/tools/app-icon`, whose README
+says how the icon is made.
 
 ## Dropbox
 
