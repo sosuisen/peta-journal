@@ -441,12 +441,9 @@
 - [ ] 描画の定数をそろえる。見出しの大きさは、Androidだけがブラウザの既定値（2.0、1.5、1.17…）で、ほかは1.6、1.4、1.2、1.1、1である。マーカーの色、1段の字下げも、シェルごとに違う。行頭の点は、iOSとAndroidが`row.showBullet`に従い、macOSとWindowsはいつも描く。coreが`RichParagraph`で大きさを渡すか、共通の表を持つ
 - [ ] 打った文字のイベントの時刻（`nowMs`）を、`client-native-bridge`の`Clock`で入れる。Enterの時刻は、2026-11-17からコアの`KeyMap`が入れる。残りは`Typed`と`BodyChanged`で、4つのシェルが自分で入れている（macOS、Windows、iOS、Androidの`Shell`の`now`）
 - [ ] 日付が変わったら、Rustが`/today`を開き直す。今は、どのシェルも日付の変わり目に気づかない。plansには、macOSの分だけがある。`Clock`の`now`と`sleep`で作れる
-- [ ] 触れた位置に近い文字を選ぶ決まり（縦の距離を100倍に重く見る）を、Rustに移す。iOS（`Touches.swift:48-52`）とAndroid（`Touches.kt:138-142`）に同じ式がある
+- [ ] 触れた位置に近い文字を選ぶ決まり（縦の距離を100倍に重く見る）を、Rustに移すかを決める。iOS（`Touches.swift:48-52`）とAndroid（`Touches.kt:138-142`）に同じ式がある
+  - 2026-11-17に調べた。同じなのは、各5行ほどの距離の式だけである。Rustへ移すと、触れるたびに文字の枠の一覧をFFIで渡すことになり、減る行より包む行が多い。移さないことを勧める
 - [ ] iOSとAndroidで、`Prompt`、`ReadClipboardText`、`CopyText`、`CopyMarkdown`に答える。今は、`nil`を返すか、捨てている（`Shell.swift:318`、`Shell.kt:317`）。macOSとWindowsは、4つとも扱う
-
-### ドラッグ選択の決まり
-
-- [ ] ドラッグ選択の決まり（10の判定、帯の40、一歩の24、16ms、リストの外の数え方）を、coreに1つだけ置き、各シェルから呼ぶ（2026-11-15に開発者が積んだ）。今は、Web（Rust）、Windows（C#）、Mac（Swift）の3か所に同じ決まりがあり、Macだけリストの外の数え方がずれていた
 
 ### サーバーとクライアント（Rust）
 
