@@ -1,0 +1,25 @@
+<Project Sdk="MSTest.Sdk">
+  <!-- The tests of the windows (ADR 059). The project is a WinUI app without a package: MSTest
+       starts TestApp and runs the tests marked [UITestMethod] on its UI thread. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0-windows10.0.22621.0</TargetFramework>
+    <RootNamespace>PetaScreens.Tests</RootNamespace>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PetaScreens\PetaScreens.csproj" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
+    <!-- The journal server of the tests is the one of PetaBorder.Tests -->
+    <Compile Include="..\PetaBorder.Tests\JournalServer.cs" Link="JournalServer.cs" />
+  </ItemGroup>
+</Project>

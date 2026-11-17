@@ -1,12 +1,12 @@
 using PetaBorder;
 
-namespace PetaStickies;
+namespace PetaScreens;
 
 /// <summary>
 /// The stickies that are open. A sticky is added with a button of any sticky, and is gone when
 /// its window is closed. With a store, the stickies are kept for the next run of the app.
 /// </summary>
-internal sealed class StickyDesk
+public sealed class StickyDesk
 {
     private readonly List<StickyWindow> stickies = [];
     private readonly string server;
@@ -21,6 +21,9 @@ internal sealed class StickyDesk
         this.server = server;
         this.store = store;
     }
+
+    /// <summary>The stickies that are open, in the order they were opened.</summary>
+    internal IReadOnlyList<StickyWindow> Stickies => stickies;
 
     /// <summary>Opens the stickies that were kept, or a first one without a page.</summary>
     public void Open()
@@ -43,7 +46,7 @@ internal sealed class StickyDesk
         window.Activate();
     }
 
-    public void Keep(PetaCore.PetaSticky sticky)
+    internal void Keep(PetaCore.PetaSticky sticky)
     {
         if (stickies.Exists(open => open.Id == sticky.Id))
             store?.Put(sticky);
@@ -54,7 +57,7 @@ internal sealed class StickyDesk
     /// A window that was closed in any other way was not put away by the user: Alt+F4,
     /// the taskbar, or Windows that ends the session.
     /// </summary>
-    public void Closed(StickyWindow closed, bool byButton)
+    internal void Closed(StickyWindow closed, bool byButton)
     {
         stickies.Remove(closed);
         if (byButton && !ending)
@@ -68,7 +71,7 @@ internal sealed class StickyDesk
     /// Ends the app. The windows that are closed here were not closed one by one by the user,
     /// and so their stickies stay kept.
     /// </summary>
-    public void End()
+    internal void End()
     {
         ending = true;
         foreach (var sticky in stickies.ToList())

@@ -125,8 +125,11 @@ PetaStickies.exe -server http://localhost:8087 -url /pages/notes
 Start the journal server before the app: the app does not load the page again when the server
 comes up later.
 
-`PetaStickies` holds the app. The views draw the view model of `Shell` and decide nothing about
-the outline.
+`PetaStickies` holds the app: its start, its arguments, its resources and its icon. The windows
+are in `PetaScreens`, a WinUI class library, so that the tests of `PetaScreens.Tests` can open
+them (ADR 059). Only `StickyDesk` is public; the tests reach the rest through
+`InternalsVisibleTo`. The views draw the view model of `Shell` and decide nothing about the
+outline.
 
 - `StickyDesk` holds the stickies that are open.
 - `StickyWindow` is one sticky: its title bar with the tools, the search box, the list of the
@@ -283,7 +286,8 @@ page with the typed name.
 
 ## Tests
 
-`dotnet test PetaBorder.Tests` runs the tests of `PetaBorder`.
+`dotnet test PetaBorder.Tests` runs the tests of `PetaBorder`. `PetaScreens.Tests` tests the
+windows (see "Tests of the windows" below).
 
 `BorderTests` need no journal server. They check that C# reads what Rust writes (the view
 model, the requests) and that Rust reads what C# writes (events, answers). `StickyTests` need
@@ -308,12 +312,39 @@ The tests start the server themselves, with all its files in a temporary folder.
 server writes its Markdown there before they use it. The notes of whoever runs the tests are
 never touched.
 
-The windows have no tests. The SwiftUI shell puts its screen in a window in its tests; nothing
-like that is written here yet. The app was checked by hand against a throwaway server
-(2026-11-11): typing, Enter, Tab, a task, the decoration, links, selecting and deleting items,
-the search box, a second sticky, the zoom, rolling up, a journal, and stickies that come back
-in the next run. The user checked an input method for Japanese. Not checked: the dialogs of
-the core, a click on a link, and Ctrl+Q in a sticky where nothing has the focus.
+### Tests of the windows
+
+`PetaScreens.Tests` opens real stickies and works them as a user does (ADR 059). It is a WinUI
+app without a package, on MSTest: MSTest starts `TestApp` and runs each `[UITestMethod]` on its
+UI thread. The keys and the clicks go through Windows (`SendInput`), not into the controls.
+WinUI makes no key events for a test, and a key that went around Windows would miss what the
+app does with it.
+
+- `OutlineScreenTests`: a click puts the cursor in an item, and what is typed reaches the core.
+  Enter, Shift+Enter, Ctrl+Enter, Tab, the arrows, Backspace, Delete, the moves with Shift+Alt,
+  the children hidden with Ctrl+Up, Ctrl+Z, the selection with Shift+Up, and the search box.
+- `StickyDeskTests`: Ctrl+N adds a sticky, the close button puts it away, and Alt+F4 and
+  Ctrl+Q keep the stickies for the next run.
+
+They need a real journal server, as `ShellTests` do. Run the program of the tests itself:
+`dotnet test` does not show what it prints until the end, and hangs in a pipe.
+
+```
+dotnet build PetaScreens.Tests
+$env:PETA_E2E_SERVER = "$PWD/../../../../journal/target/release/journal-server.exe"
+PetaScreens.Tests/bin/Debug/net11.0-windows10.0.22621.0/win-x64/PetaScreens.Tests.exe
+```
+
+`OutlineScreenTests` use port 18113, and `StickyDeskTests` use port 18114. The stickies are kept
+in a file in a temporary folder, not in `%APPDATA%`.
+
+Do not use the keyboard or the mouse while the tests run. The keys go to the window in front,
+and a sticky that loses the front loses the keys. The tests take about a minute. A wait that
+fails tells what the test saw: the focus, the rows of the core, and where the focus went.
+
+Not tested: the dialogs of the core, a click on a link, the clipboard, the zoom, and rolling
+up. `StickyWindow` calls the real browser and the real clipboard, and a test cannot catch them.
+The user checked an input method for Japanese by hand.
 
 Why the tests of the border matter: the C# types are generated from the shape of the Rust
 types, not from what serde writes. A Rust type with a hand-written `Serialize` can write other

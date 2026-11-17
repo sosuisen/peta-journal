@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The windows of the stickies and the views in them. They are a library so that a test can
+       put them in a window (ADR 059). -->
+  <PropertyGroup>
+    <TargetFramework>net11.0-windows10.0.22621.0</TargetFramework>
+    <RootNamespace>PetaScreens</RootNamespace>
+    <!-- Only x64 is built: generate.ps1 builds the core for win-x64 only. -->
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PetaBorder\PetaBorder.csproj" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PetaScreens.Tests" />
+  </ItemGroup>
+</Project>

@@ -15,7 +15,7 @@ using Windows.UI;
 using Windows.UI.Text;
 using Border = Microsoft.UI.Xaml.Controls.Border;
 
-namespace PetaStickies;
+namespace PetaScreens;
 
 /// <summary>A row of the outline as the list keeps it: the list draws only the rows near the
 /// window.</summary>
@@ -216,6 +216,9 @@ internal sealed class RowView : Grid
 
     /// <summary>The Markdown in the editor, with the line breaks of the core.</summary>
     private string Markdown => editor.Text.Replace("\r\n", "\n").Replace('\r', '\n');
+
+    /// <summary>The item that the view shows now. The list gives a view to another row later.</summary>
+    internal string? ItemId => model?.Id;
 
     /// <summary>The list gives the view to a row.</summary>
     public void Show(RowModel row)
