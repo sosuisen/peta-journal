@@ -112,7 +112,7 @@ pub enum KeyPress {
     },
     /// A key that the shell has read itself, as from a button of its toolbar or from what the
     /// system made of a key (`moveUp:` on a Mac).
-    Editor {
+    Named {
         item_id: String,
         key: EditorKey,
         editor: EditorState,
@@ -240,7 +240,7 @@ impl KeyMap {
                 chord,
                 editor,
             } => event_of(self.in_editor(chord)?, item_id, editor, now_ms),
-            KeyPress::Editor {
+            KeyPress::Named {
                 item_id,
                 key,
                 editor,
@@ -325,10 +325,11 @@ pub fn event_of(key: EditorKey, item_id: &str, editor: &EditorState, now_ms: u64
         EditorKey::BackTab | EditorKey::MoveOut => Event::Outdent { item_id },
         EditorKey::Up if editor.on_first_line => Event::NavigateUp { item_id, cursor },
         EditorKey::Down if editor.on_last_line => Event::NavigateDown { item_id, cursor },
-        // A place past any text: the core puts the cursor at the end of the item above
+        // A place past any text: the core puts the cursor at the end of the item above. Half
+        // of the largest, so that a shell that reads it as a signed number gets it whole
         EditorKey::Left if at_start => Event::NavigateUp {
             item_id,
-            cursor: usize::MAX,
+            cursor: usize::MAX / 2,
         },
         EditorKey::Right if at_end => Event::NavigateDown { item_id, cursor: 0 },
         EditorKey::Backspace if at_start => Event::BackspaceAtStart { item_id },

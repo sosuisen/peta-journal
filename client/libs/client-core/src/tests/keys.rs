@@ -107,7 +107,7 @@ fn left_goes_to_the_end_of_the_item_above_only_from_the_start_with_nothing_selec
         on_windows(Key::Left, "", cursor_at("ab", 0)),
         format!(
             r#"Some(NavigateUp {{ item_id: "a", cursor: {} }})"#,
-            usize::MAX
+            usize::MAX / 2
         )
     );
     assert_eq!(on_windows(Key::Left, "", cursor_at("ab", 1)), "None");
@@ -267,7 +267,7 @@ fn a_chord_not_in_the_map_is_left_to_the_text() {
 // ツールバーのボタンのように、シェルが自分で読んだキーも、同じ決まりで扱われる。
 #[test]
 fn a_key_the_shell_read_itself_follows_the_same_rules() {
-    let press = |editor| KeyPress::Editor {
+    let press = |editor| KeyPress::Named {
         item_id: "a".into(),
         key: EditorKey::Up,
         editor,
