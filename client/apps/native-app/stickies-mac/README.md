@@ -156,6 +156,20 @@ title bar shows the date of the day at the top of the window, with "(Today)" beh
 today. The screen tells the core which rows are drawn (`Shell.scrolled`); the core says which day
 is at the top, and loads earlier days when the end comes near.
 
+## The icon of the app
+
+The icon is the notebook of `images/peta-journal.svg` on a white plate with rounded corners,
+as the icons of macOS have. Its images are kept in the repository
+(`App/Assets.xcassets/AppIcon.appiconset`), so a build does not make them. After a change of
+the SVG, make them again:
+
+```
+./icon.sh
+```
+
+The script needs nothing but Rust. It runs the crate `client/tools/app-icon`, whose README
+says how the icon is made.
+
 ## Keys
 
 The keys are those of the web frontend, but for folding: there the Mac has Command where

@@ -26,6 +26,8 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         MARKETING_VERSION: "0.0.0"
         CURRENT_PROJECT_VERSION: "1"
+        # The icon of the app, in App/Assets.xcassets. icon.sh makes its images
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # Signed to run on this Mac only. The static library of the core is arm64 only
         CODE_SIGN_IDENTITY: "-"
         ARCHS: arm64
