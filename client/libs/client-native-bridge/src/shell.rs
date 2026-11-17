@@ -6,6 +6,7 @@ use crate::BorderApp;
 use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, TimerOp, TimerOutput, UiOp, UiOutput,
 };
+use client_core::keys::{KeyMap, KeyPlatform, KeyPress};
 use client_core::rest::ClientId;
 use client_core::{Effect, Event, Route};
 use crux_core::bridge::Request as BorderRequest;
@@ -196,6 +197,7 @@ pub struct NativeShell {
     router: Arc<Router>,
     clock: Arc<dyn Clock>,
     to_shell: ToShell,
+    keys: KeyMap,
 }
 
 impl NativeShell {
@@ -242,12 +244,26 @@ impl NativeShell {
             router,
             clock,
             to_shell,
+            keys: KeyMap::of(key_platform()),
         }
     }
 
     /// Takes an [`Event`] of the shell.
     pub fn update(&self, event: &[u8]) -> Result<(), BorderError> {
         self.router.routes.border.update(event)
+    }
+
+    /// Takes a key of the shell: a [`KeyPress`] as bytes (ADR 052). False when the key means
+    /// nothing to the outline there, and the shell leaves it to its editor.
+    pub fn press(&self, key: &[u8]) -> Result<bool, BorderError> {
+        let press: KeyPress =
+            BincodeFfiFormat::deserialize(key).map_err(BridgeError::DeserializeEvent)?;
+        let (_, now_ms) = self.clock.now();
+        let Some(event) = self.keys.event_of(&press, now_ms) else {
+            return Ok(false);
+        };
+        self.router.update(event);
+        Ok(true)
     }
 
     /// Opens what the URL names, such as `/pages/notes` or `/today`, and keeps it in the
@@ -301,5 +317,15 @@ impl NativeShell {
     pub fn view(&self) -> Vec<u8> {
         let view = self.router.routes.border.view();
         view.expect("the view model is always written")
+    }
+}
+
+/// The keys of the platform the shell runs on. A Mac uses Command where Windows uses Control;
+/// iOS and Android read their keys themselves, so any map does for them.
+fn key_platform() -> KeyPlatform {
+    if cfg!(target_os = "macos") {
+        KeyPlatform::Mac
+    } else {
+        KeyPlatform::Windows
     }
 }

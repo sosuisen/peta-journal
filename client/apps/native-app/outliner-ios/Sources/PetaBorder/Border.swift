@@ -44,6 +44,12 @@ final class Border: @unchecked Sendable {
         try open.update(event: Data(try event.bincodeSerialize()))
     }
 
+    /// Hands a key to the core, which decides what it means (ADR 052). False when it means
+    /// nothing to the outline there.
+    func press(_ key: KeyPress) throws -> Bool {
+        try open.press(key: Data(try key.bincodeSerialize()))
+    }
+
     /// Answers the request with the number `id`. Throws when the core does not wait for it.
     func answer(_ id: UInt32, with output: UiOutput) throws {
         try open.resolve(id: id, output: Data(try output.bincodeSerialize()))

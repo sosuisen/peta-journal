@@ -758,13 +758,12 @@ internal sealed class StickyWindow : Window
             !Shell.View.Outline.SelectionMode
             || asked is not null
             || FocusManager.GetFocusedElement(root.XamlRoot) is TextBox
-            || Input.KeyOf(e.Key) is not { } key
+            || Input.ChordOf(e.Key, held) is not { } chord
         )
             return;
         // A key that means nothing to a selection does nothing: there is no text to type into
         e.Handled = true;
-        if (Keyboard.InSelection(key, held) is { } pressed)
-            Shell.Selection(pressed);
+        _ = Shell.Pressed(new KeyPress.InSelection(chord));
     }
 
     private void ToggleSearch() => Look.Searching = !Look.Searching;

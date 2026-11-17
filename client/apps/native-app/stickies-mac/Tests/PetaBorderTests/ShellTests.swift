@@ -211,11 +211,10 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(shell.question?.kind, .confirmDestructive)
     }
 
-    /// The editor of an item as a key finds it: its text and where the cursor is in it.
-    private func editor(_ text: String, cursor: Int, firstLine: Bool = true, lastLine: Bool = true)
-        -> EditorState
-    {
-        EditorState(text: text, selection: cursor..<cursor, onFirstLine: firstLine, onLastLine: lastLine)
+    /// An editor of one line with the cursor at `cursor`. Which keys mean something where is
+    /// tested in the core (ADR 052).
+    private func editor(_ text: String, cursor: UInt64) -> EditorState {
+        EditorState(text: text, selectionStart: cursor, selectionEnd: cursor, onFirstLine: true, onLastLine: true)
     }
 
     private func bodies(_ shell: Shell) -> [String] {
@@ -278,20 +277,6 @@ final class ShellTests: XCTestCase {
         }
     }
 
-    // 項目の中で行を移る矢印は、テキストの中での移動のままである。
-    func testAnArrowInsideTheTextIsLeftToTheEditor() async throws {
-        let shell = try await shellWithPage()
-        try await twoItems(shell)
-        let second = shell.view.outline.rows[1].item.id
-        let inside = editor("two\nlines", cursor: 5, firstLine: false, lastLine: false)
-
-        XCTAssertFalse(shell.pressed(.up, in: second, inside))
-        XCTAssertFalse(shell.pressed(.down, in: second, inside))
-        XCTAssertFalse(shell.pressed(.left, in: second, inside))
-        XCTAssertFalse(shell.pressed(.right, in: second, inside))
-        XCTAssertFalse(shell.pressed(.backspace, in: second, inside))
-    }
-
     // 先頭での左矢印は、前の項目の末尾へ移る。末尾での右矢印は、次の項目の先頭へ移る。
     func testLeftAtTheStartAndRightAtTheEndLeaveTheItem() async throws {
         let shell = try await shellWithPage()
@@ -325,17 +310,7 @@ final class ShellTests: XCTestCase {
         try await waitUntil("the items are joined") { self.bodies(shell) == ["firstsecond"] }
     }
 
-    // 文字を選んでいるときのBackspaceは、選んだ文字を消すだけである。
-    func testBackspaceWithASelectionIsLeftToTheEditor() async throws {
-        let shell = try await shellWithPage()
-        try await twoItems(shell)
-        let second = shell.view.outline.rows[1].item.id
-        let selected = EditorState(text: "second", selection: 0..<3, onFirstLine: true, onLastLine: true)
-
-        XCTAssertFalse(shell.pressed(.backspace, in: second, selected))
-    }
-
-    // 末尾でのDeleteは、次の項目をつなぐ。途中でのDeleteは、文字を消すだけである。
+    // 末尾でのDeleteは、次の項目をつなぐ。
     func testDeleteAtTheEndJoinsTheNextItem() async throws {
         let shell = try await shellWithPage()
         try await twoItems(shell)
@@ -343,7 +318,6 @@ final class ShellTests: XCTestCase {
         shell.typed("second", into: second)
         shell.startEditing(first)
 
-        XCTAssertFalse(shell.pressed(.delete, in: first, editor("first", cursor: 2)))
         XCTAssertTrue(shell.pressed(.delete, in: first, editor("first", cursor: 5)))
 
         try await waitUntil("the items are joined") { self.bodies(shell) == ["firstsecond"] }
@@ -481,15 +455,12 @@ final class ShellTests: XCTestCase {
         shell.view.outline.rows.filter(\.isSelected).map(\.item.body)
     }
 
-    // 最後の行でのShift+下は、その項目を選ぶ。最初の行でのShift+上も同じである。ほかの行では、文字を選ぶキーのままである。
+    // 最初の行でのShift+上は、その項目を選ぶ。
     func testShiftArrowOnTheEdgeLineSelectsTheItem() async throws {
         let shell = try await shellWithPage()
         try await twoItems(shell)
         let first = shell.view.outline.rows[0].item.id
 
-        XCTAssertFalse(shell.pressed(.selectDown, in: first, editor("a\nb", cursor: 0, lastLine: false)))
-        XCTAssertFalse(shell.pressed(.selectUp, in: first, editor("a\nb", cursor: 3, firstLine: false)))
-        XCTAssertFalse(shell.view.outline.selectionMode)
         XCTAssertTrue(shell.pressed(.selectUp, in: first, editor("first", cursor: 0)))
 
         XCTAssertTrue(shell.view.outline.selectionMode)

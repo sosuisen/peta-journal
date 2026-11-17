@@ -129,30 +129,19 @@ public final class Shell: ObservableObject {
         send(.typed(itemId: itemId, body: body, cursor: characters, nowMs: now()))
     }
 
-    /// The user pressed Enter in the item. `cursor` counts the characters before it, as the
-    /// core counts them. The core splits the item there, and the edit goes on in the new one.
-    public func enter(_ itemId: String, cursor: Int) {
-        send(.enterPressed(itemId: itemId, cursor: UInt64(cursor), nowMs: now()))
-    }
-
-    /// The user pressed Backspace at the start of the item. The core joins the item to the one
-    /// before it, and the edit goes on there, where the two texts meet. Nothing happens in the
-    /// first item of a page.
-    public func backspaceAtStart(_ itemId: String) {
-        send(.backspaceAtStart(itemId: itemId))
-    }
-
-    /// The cursor leaves the item for the one above it, at the place `cursor` in characters, as
-    /// the core counts them. A place past the end of that item puts the cursor at its end.
-    /// Nothing happens in the first item of a page.
-    public func navigateUp(_ itemId: String, cursor: Int) {
-        send(.navigateUp(itemId: itemId, cursor: UInt64(max(cursor, 0))))
-    }
-
-    /// The cursor leaves the item for the one below it, at the place `cursor` in characters.
-    /// Nothing happens in the last item of a page.
-    public func navigateDown(_ itemId: String, cursor: Int) {
-        send(.navigateDown(itemId: itemId, cursor: UInt64(max(cursor, 0))))
+    /// The user pressed a key in the editor of the item: Enter, Backspace, or an arrow of the
+    /// cursor pad. The core decides what it means (ADR 052): Enter splits the item, Backspace
+    /// at the start joins it to the item before, and an arrow at the edge of the text leaves
+    /// the item. False when the key means nothing to the outline there, and the field does
+    /// with it what it does in any text. `editor` counts in UTF-16 units, as UIKit does.
+    @discardableResult
+    public func press(_ key: EditorKey, in itemId: String, _ editor: EditorState) -> Bool {
+        if closed { return false }
+        guard Shell.must({ try border.press(.named(itemId: itemId, key: key, editor: editor)) }) else {
+            return false
+        }
+        show()
+        return true
     }
 
     /// The user left the editor of the item: what was typed is saved.

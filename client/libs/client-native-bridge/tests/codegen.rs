@@ -29,7 +29,7 @@ fn swift_types(out: &Path) -> String {
     std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()))
 }
 
-// Swiftの型が生成される。シェルが送るイベント、描くビューモデル、シェルへの依頼とその答えが入る。
+// Swiftの型が生成される。シェルが送るイベントとキー、描くビューモデル、シェルへの依頼とその答えが入る。
 #[test]
 fn the_swift_types_of_the_border_are_written() {
     let swift = swift_types(&generated("types"));
@@ -40,6 +40,7 @@ fn the_swift_types_of_the_border_are_written() {
         "enum ShellEffect",
         "struct Requests",
         "enum UiOutput",
+        "enum KeyPress",
     ] {
         assert!(swift.contains(&format!("public {declared}:")), "{declared}");
     }
@@ -72,7 +73,7 @@ fn csharp_types(out: &Path) -> String {
     std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()))
 }
 
-// C#の型が生成される。シェルが送るイベント、描くビューモデル、シェルへの依頼とその答えが入る。
+// C#の型が生成される。シェルが送るイベントとキー、描くビューモデル、シェルへの依頼とその答えが入る。
 #[test]
 fn the_csharp_types_of_the_border_are_written() {
     let csharp = csharp_types(&generated_for("csharp", "csharp-types"));
@@ -84,6 +85,7 @@ fn the_csharp_types_of_the_border_are_written() {
         "partial class Requests",
         "abstract record UiOutput",
         "partial class PageView",
+        "abstract record KeyPress",
     ] {
         assert!(
             csharp.contains(&format!("public {declared} ")),
@@ -116,7 +118,7 @@ fn kotlin_types(out: &Path) -> String {
     std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()))
 }
 
-// Kotlinの型が生成される。シェルが送るイベント、描くビューモデル、シェルへの依頼とその答えが入る。
+// Kotlinの型が生成される。シェルが送るイベントとキー、描くビューモデル、シェルへの依頼とその答えが入る。
 #[test]
 fn the_kotlin_types_of_the_border_are_written() {
     let kotlin = kotlin_types(&generated_for("kotlin", "kotlin-types"));
@@ -128,6 +130,7 @@ fn the_kotlin_types_of_the_border_are_written() {
         "data class Requests",
         "sealed interface UiOutput",
         "data class PageView",
+        "sealed interface KeyPress",
     ] {
         assert!(
             kotlin.contains(&format!(

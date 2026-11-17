@@ -30,31 +30,7 @@ final class SelectionKeysView: NSView {
     override func keyDown(with event: NSEvent) {
         guard let shell, shell.view.outline.selectionMode else { return super.keyDown(with: event) }
         // A key that means nothing to a selection does nothing: there is no text to type into
-        if let key = SelectionKeysView.key(of: event) { shell.selection(key) }
-    }
-
-    /// The keys of a selection. They are those of the web frontend, with Command for the
-    /// clipboard and for undo as everywhere on the Mac.
-    static func key(of event: NSEvent) -> SelectionKey? {
-        let held = event.modifierFlags.intersection([.shift, .control, .option, .command])
-        let (x, c, z, tab, backspace, escape, delete): (UInt16, UInt16, UInt16, UInt16, UInt16, UInt16, UInt16) =
-            (7, 8, 6, 48, 51, 53, 117)
-        let (left, right, down, up): (UInt16, UInt16, UInt16, UInt16) = (123, 124, 125, 126)
-        switch (event.keyCode, held) {
-        case (escape, []): return .escape
-        case (backspace, []), (delete, []): return .delete
-        case (up, [.shift]): return .extendUp
-        case (down, [.shift]): return .extendDown
-        case (up, [.shift, .option]): return .moveUp
-        case (down, [.shift, .option]): return .moveDown
-        case (left, [.shift, .option]), (tab, [.shift]): return .outdent
-        case (right, [.shift, .option]), (tab, []): return .indent
-        case (c, [.command]): return .copy
-        case (x, [.command]): return .cut
-        case (z, [.control]), (z, [.command]): return .undo
-        case (z, [.control, .shift]), (z, [.command, .shift]): return .redo
-        default: return nil
-        }
+        if let chord = Chord.of(event) { _ = shell.pressed(.inSelection(chord: chord)) }
     }
 
     /// "Copy", "Cut", "Undo" and "Redo" of the Edit menu. The menu takes their keys before
@@ -73,5 +49,39 @@ final class SelectionKeysView: NSView {
 
     @objc func redo(_ sender: Any?) {
         shell?.selection(.redo)
+    }
+}
+
+extension Chord {
+    /// The key of an event with the keys held down with it, as the core knows it (ADR 052).
+    /// Nil for a key that the core does not know. What the chord means is decided in the core.
+    static func of(_ event: NSEvent) -> Chord? {
+        let held = event.modifierFlags
+        guard let key = Key.of(event) else { return nil }
+        return Chord(
+            key: key, shift: held.contains(.shift), ctrl: held.contains(.control),
+            alt: held.contains(.option), cmd: held.contains(.command))
+    }
+}
+
+extension Key {
+    static func of(_ event: NSEvent) -> Key? {
+        switch event.keyCode {
+        case 36, 76: return .enter
+        case 48: return .tab
+        case 126: return .up
+        case 125: return .down
+        case 123: return .left
+        case 124: return .right
+        case 51: return .backspace
+        case 117: return .delete
+        case 53: return .escape
+        default:
+            // The letter of the layout the user types with, as Command+Z follows it
+            guard let typed = event.charactersIgnoringModifiers?.lowercased(), typed.count == 1,
+                typed.first?.isLetter == true
+            else { return nil }
+            return .letter(typed)
+        }
     }
 }

@@ -4,6 +4,8 @@ use super::text::insert_at_cursor;
 use crate::body::Row;
 use crate::core::CoreHandle;
 use crate::dom;
+use crate::keyboard;
+use client_core::keys::{event_of, EditorKey, EditorState};
 use client_core::Event;
 use leptos::prelude::*;
 
@@ -34,169 +36,51 @@ pub(super) fn handle_keydown(
         return;
     }
     let key = ev.key();
-    let value = el.value();
-    let start = el.selection_start().ok().flatten().unwrap_or(0);
-    let end = el.selection_end().ok().flatten().unwrap_or(0);
-    let len = value.encode_utf16().count() as u32;
-    let id = item_id.to_string();
-    let send = |event: Event| core.send(event);
-
     if row.with_untracked(|r| r.suggestions_visible)
         && matches!(key.as_str(), "ArrowUp" | "ArrowDown" | "Enter" | "Escape")
     {
         ev.prevent_default();
-        if key == "Escape" {
-            send(Event::WikiQuery {
-                item_id: id,
+        core.send(if key == "Escape" {
+            Event::WikiQuery {
+                item_id: item_id.to_string(),
                 context: None,
-            });
+            }
         } else {
-            send(Event::WikiKey { key });
-        }
-        return;
-    }
-
-    if (key == "z" || key == "Z") && ev.ctrl_key() && !ev.alt_key() {
-        ev.prevent_default();
-        send(if ev.shift_key() {
-            Event::Redo
-        } else {
-            Event::Undo
+            Event::WikiKey { key }
         });
         return;
     }
-
-    if key == "o" && ev.ctrl_key() {
-        ev.prevent_default();
-        send(Event::OpenLinkAt {
-            item_id: id,
-            cursor: dom::utf16_to_chars(&value, start),
-        });
-        return;
-    }
-
-    if key == "Enter" && ev.ctrl_key() {
-        ev.prevent_default();
-        send(Event::TaskCycle { item_id: id });
-        return;
-    }
-
     if key == "Enter" && ev.shift_key() && !ev.ctrl_key() {
         // Shift+Enter: a hard line break, which Flat Markdown keeps as \n
         ev.prevent_default();
         insert_at_cursor(core, item_id, el, "\n", 1);
         return;
     }
-
-    if key == "Enter" && !ev.shift_key() && !ev.ctrl_key() {
-        ev.prevent_default();
-        send(Event::EnterPressed {
-            item_id: id,
-            cursor: dom::utf16_to_chars(&value, start),
-            now_ms: core.now_ms(),
-        });
+    let Some(key) = keyboard::in_editor(ev) else {
         return;
-    }
-
-    if key == "Backspace" && start == 0 && end == 0 {
-        ev.prevent_default();
-        send(Event::BackspaceAtStart { item_id: id });
+    };
+    let Some(event) = event_of(key, item_id, &editor_state(el, key), core.now_ms()) else {
         return;
-    }
-
-    if key == "Delete" && start == len && end == len {
-        ev.prevent_default();
-        send(Event::DeleteAtEnd { item_id: id });
-        return;
-    }
-
-    // Up hides the children and Down shows them. Command is the key on the Mac, where
-    // Control with an arrow belongs to the system; Control is the key elsewhere.
-    if (ev.ctrl_key() || ev.meta_key()) && (key == "ArrowUp" || key == "ArrowDown") {
-        ev.prevent_default();
-        send(Event::SetCollapsed {
-            item_id: id,
-            collapsed: key == "ArrowUp",
-        });
-        return;
-    }
-
-    if ev.shift_key() && ev.alt_key() {
-        let event = match key.as_str() {
-            "ArrowUp" => Some(Event::MoveUp {
-                item_id: id.clone(),
-            }),
-            "ArrowDown" => Some(Event::MoveDown {
-                item_id: id.clone(),
-            }),
-            "ArrowLeft" => Some(Event::Outdent {
-                item_id: id.clone(),
-            }),
-            "ArrowRight" => Some(Event::Indent {
-                item_id: id.clone(),
-            }),
-            _ => None,
-        };
-        if let Some(event) = event {
-            ev.prevent_default();
-            send(event);
-            return;
-        }
-    }
-
-    if ev.shift_key()
-        && !ev.alt_key()
-        && !ev.ctrl_key()
-        && ((key == "ArrowUp" && dom::is_on_first_line(el))
-            || (key == "ArrowDown" && dom::is_on_last_line(el)))
-    {
-        ev.prevent_default();
+    };
+    ev.prevent_default();
+    if matches!(event, Event::ShiftSelect { .. }) {
+        // The outline would take Shift with an arrow as a key of the selection that starts
         ev.stop_propagation();
-        send(Event::ShiftSelect { item_id: id });
-        return;
     }
+    core.send(event);
+}
 
-    let cursor_chars = dom::utf16_to_chars(&value, start);
-    if key == "ArrowUp" && dom::is_on_first_line(el) {
-        ev.prevent_default();
-        send(Event::NavigateUp {
-            item_id: id,
-            cursor: cursor_chars,
-        });
-        return;
-    }
-    if key == "ArrowDown" && dom::is_on_last_line(el) {
-        ev.prevent_default();
-        send(Event::NavigateDown {
-            item_id: id,
-            cursor: cursor_chars,
-        });
-        return;
-    }
-    if key == "ArrowLeft" && start == 0 {
-        ev.prevent_default();
-        // A large number puts the cursor at the end of the previous item
-        send(Event::NavigateUp {
-            item_id: id,
-            cursor: usize::MAX / 2,
-        });
-        return;
-    }
-    if key == "ArrowRight" && start == len {
-        ev.prevent_default();
-        send(Event::NavigateDown {
-            item_id: id,
-            cursor: 0,
-        });
-        return;
-    }
-
-    if key == "Tab" {
-        ev.prevent_default();
-        send(if ev.shift_key() {
-            Event::Outdent { item_id: id }
-        } else {
-            Event::Indent { item_id: id }
-        });
+/// The editor as the core reads a key. The lines are only measured for a key that asks for
+/// them: the measure lays out a copy of the text.
+fn editor_state(el: &web_sys::HtmlTextAreaElement, key: EditorKey) -> EditorState {
+    let up = matches!(key, EditorKey::Up | EditorKey::SelectUp);
+    let down = matches!(key, EditorKey::Down | EditorKey::SelectDown);
+    let place = |at: Result<Option<u32>, _>| u64::from(at.ok().flatten().unwrap_or(0));
+    EditorState {
+        text: el.value(),
+        selection_start: place(el.selection_start()),
+        selection_end: place(el.selection_end()),
+        on_first_line: up && dom::is_on_first_line(el),
+        on_last_line: down && dom::is_on_last_line(el),
     }
 }

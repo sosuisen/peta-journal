@@ -245,6 +245,17 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertEqual(bodies(), ["to do"])
     }
 
+    // Command+Oは、カーソルのあるウィキリンクのページを、付箋紙で開く。
+    func testCommandOOpensThePageOfTheLinkAtTheCursor() async throws {
+        let editor = editors()[0]
+        type("see [[Idea]]", into: editor)
+        editor.setSelectedRange(NSRange(location: 8, length: 0))
+
+        press(Self.oKey, "o", .command, in: editor)
+
+        try await waitUntil("the page of the link is open") { self.shell.url == "/pages/Idea" }
+    }
+
     // 本文が見出しの1行である項目は、編集中も見出しの大きさの太字で出る。Markdownの記号はそのまま見える。見出しでなくなると、ふつうの文字に戻る。
     func testAnItemThatIsOneHeadingLineIsEditedAtTheSizeOfItsHeading() async throws {
         let editor = editors()[0]
@@ -330,7 +341,8 @@ final class OutlineScreenTests: XCTestCase {
         }
     }
 
-    private static let (returnKey, downKey, upKey, zKey): (UInt16, UInt16, UInt16, UInt16) = (36, 125, 126, 6)
+    private static let (returnKey, downKey, upKey, zKey, oKey): (UInt16, UInt16, UInt16, UInt16, UInt16) =
+        (36, 125, 126, 6, 31)
 
     /// Two items: the first has text in bold, and the cursor is in the second, which is empty.
     private func boldItemAndTheCursorInTheNext() async throws {

@@ -47,6 +47,7 @@ struct ItemText: NSViewRepresentable {
         view.onCursorLeft = { [editor = context.coordinator] in editor.lostCursor() }
         view.onLink = { [shell] link, inBrowser in shell.follow(link, inBrowser: inBrowser) }
         view.onKey = { [editor = context.coordinator] key, view in editor.pressed(key, in: view) }
+        view.onChord = { [editor = context.coordinator] chord, view in editor.pressed(chord, in: view) }
         view.onPress = { [editor = context.coordinator] view in editor.dragStarts(on: view) }
         return view
     }
@@ -160,14 +161,17 @@ final class Editor: NSObject, NSTextViewDelegate {
         return pressed(key, in: view)
     }
 
-    /// Tells the shell a key, with the text and the cursor as they are now.
+    /// Tells the shell a key that the text view named, with the text and the cursor as they
+    /// are now.
     func pressed(_ key: EditorKey, in view: ItemTextView) -> Bool {
-        let selected = view.selectedRange()
-        let (first, last) = view.cursorLines()
-        let state = EditorState(
-            text: view.string, selection: selected.location..<(selected.location + selected.length),
-            onFirstLine: first, onLastLine: last)
-        return shell.pressed(key, in: itemId, state)
+        let lines = [.up, .down, .selectUp, .selectDown].contains(key)
+        return shell.pressed(.named(itemId: itemId, key: key, editor: view.state(measuringLines: lines)))
+    }
+
+    /// Tells the shell a key of the keyboard, which the core finds in the keys of the Mac.
+    func pressed(_ chord: Chord, in view: ItemTextView) -> Bool {
+        let lines = chord.key == .up || chord.key == .down
+        return shell.pressed(.inEditor(itemId: itemId, chord: chord, editor: view.state(measuringLines: lines)))
     }
 
     /// The mouse went down on the text view: a drag from it may select items.
@@ -254,8 +258,11 @@ final class ItemTextView: NSTextView {
     private(set) var touched: Int?
     /// The mouse went down on the view. What is returned follows the drag.
     var onPress: ((ItemTextView) -> ListDrag)?
-    /// A key of the outline that is no command of a text view. True when it was taken.
+    /// A key of the outline that the view named itself, as Undo of the Edit menu. True when it
+    /// was taken.
     var onKey: ((EditorKey, ItemTextView) -> Bool)?
+    /// A key of the keyboard, which the core may take (ADR 052). True when it was taken.
+    var onChord: ((Chord, ItemTextView) -> Bool)?
     /// The text view does not keep its text storage alive when it is built by hand.
     private var storage: NSTextStorage?
 
@@ -417,8 +424,9 @@ final class ItemTextView: NSTextView {
         return resigned
     }
 
-    /// The keys with Control, Option or Command that mean something to the outline. AppKit has
-    /// no command for them, or one that means something else.
+    /// The keys of the keyboard go to the core first, which knows what they mean on a Mac
+    /// (ADR 052). A key that it does not take goes on to AppKit, whose commands, such as
+    /// `moveUp:` for Control+P, come back through `doCommandBy`.
     override func keyDown(with event: NSEvent) {
         // While text is composed every key belongs to the input method
         if !hasMarkedText(), take(event) { return }
@@ -427,31 +435,18 @@ final class ItemTextView: NSTextView {
 
     private func take(_ event: NSEvent) -> Bool {
         let held = event.modifierFlags.intersection([.shift, .control, .option, .command])
-        let (returnKey, left, right, down, up, z): (UInt16, UInt16, UInt16, UInt16, UInt16, UInt16) =
-            (36, 123, 124, 125, 126, 6)
-        switch (event.keyCode, held) {
-        case (returnKey, [.shift]):
+        if event.keyCode == 36, held == [.shift] {
             // A line break inside the item. Enter alone splits the item
             insertText("\n", replacementRange: selectedRange())
             return true
-        // Command as on a Mac, and Control as in the web frontend
-        case (returnKey, [.command]), (returnKey, [.control]): return onKey?(.taskCycle, self) ?? false
-        // Taken also when there is nothing to fold: otherwise AppKit would put the cursor at
-        // the start or the end of the text
-        case (up, [.command]):
-            _ = onKey?(.fold, self)
-            return true
-        case (down, [.command]):
-            _ = onKey?(.unfold, self)
-            return true
-        case (up, [.shift, .option]): return onKey?(.moveUp, self) ?? false
-        case (down, [.shift, .option]): return onKey?(.moveDown, self) ?? false
-        case (left, [.shift, .option]): return onKey?(.moveOut, self) ?? false
-        case (right, [.shift, .option]): return onKey?(.moveIn, self) ?? false
-        case (z, [.control]): return onKey?(.undo, self) ?? false
-        case (z, [.control, .shift]): return onKey?(.redo, self) ?? false
-        default: return false
         }
+        guard let chord = Chord.of(event) else { return false }
+        if case .letter = chord.key, held.isSubset(of: [.shift]) {
+            // A letter that is typed: it means nothing to the outline, and the text would
+            // cross to the core with every letter
+            return false
+        }
+        return onChord?(chord, self) ?? false
     }
 
     /// "Undo" and "Redo" of the Edit menu, with their keys Command+Z and Shift+Command+Z. The
@@ -475,6 +470,17 @@ final class ItemTextView: NSTextView {
         layout.ensureLayout(for: container)
         let line = layout.defaultLineHeight(for: font ?? .systemFont(ofSize: NSFont.systemFontSize))
         return max(layout.usedRect(for: container).height, line)
+    }
+
+    /// The editor as the core reads a key. The lines are only measured for a key that asks
+    /// for them: the measure lays out the text.
+    func state(measuringLines: Bool) -> EditorState {
+        let selected = selectedRange()
+        let (first, last) = measuringLines ? cursorLines() : (false, false)
+        return EditorState(
+            text: string, selectionStart: UInt64(selected.location),
+            selectionEnd: UInt64(selected.location + selected.length),
+            onFirstLine: first, onLastLine: last)
     }
 
     /// Whether the cursor is on the first line, and on the last line, of the text as drawn.

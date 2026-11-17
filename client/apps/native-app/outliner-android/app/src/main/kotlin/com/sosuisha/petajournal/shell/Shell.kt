@@ -6,7 +6,10 @@ import androidx.compose.runtime.setValue
 import com.sosuisha.petajournal.core.PetaCore
 import com.sosuisha.petajournal.core.PetaScreen
 import com.sosuisha.petajournal.types.EditPlace
+import com.sosuisha.petajournal.types.EditorKey
+import com.sosuisha.petajournal.types.EditorState
 import com.sosuisha.petajournal.types.Event
+import com.sosuisha.petajournal.types.KeyPress
 import com.sosuisha.petajournal.types.Request
 import com.sosuisha.petajournal.types.SearchEntry
 import com.sosuisha.petajournal.types.SelectionKey
@@ -149,30 +152,17 @@ class Shell(
         send(Event.Typed(itemId, body, body.codePointCount(0, cursor.coerceIn(0, body.length)).toULong(), now()))
 
     /**
-     * The user pressed Enter in the item. [cursor] counts the characters before it, as the
-     * core counts them. The core splits the item there, and the edit goes on in the new one.
+     * The user pressed a key in the editor of the item: Enter, Backspace, or an arrow of the
+     * cursor pad. The core decides what it means (ADR 052): Enter splits the item, Backspace
+     * at the start joins it to the item before, and an arrow at the edge of the text leaves
+     * the item. False when the key means nothing to the outline there. [editor] counts in
+     * UTF-16 units, as the fields of Android do.
      */
-    fun enter(itemId: String, cursor: Int) = send(Event.EnterPressed(itemId, cursor.toULong(), now()))
-
-    /**
-     * The user pressed Backspace at the start of the item. The core joins the item to the one
-     * before it, and the edit goes on there, where the two texts meet. Nothing happens in the
-     * first item of a page.
-     */
-    fun backspaceAtStart(itemId: String) = send(Event.BackspaceAtStart(itemId))
-
-    /**
-     * The cursor leaves the item for the one above it, at the place [cursor] in characters,
-     * as the core counts them. A place past the end of that item puts the cursor at its end.
-     * Nothing happens in the first item of a page.
-     */
-    fun navigateUp(itemId: String, cursor: Long) = send(Event.NavigateUp(itemId, cursor.toULong()))
-
-    /**
-     * The cursor leaves the item for the one below it, at the place [cursor] in characters.
-     * Nothing happens in the last item of a page.
-     */
-    fun navigateDown(itemId: String, cursor: Long) = send(Event.NavigateDown(itemId, cursor.toULong()))
+    fun press(key: EditorKey, itemId: String, editor: EditorState): Boolean {
+        if (closed || !border.press(KeyPress.Named(itemId, key, editor))) return false
+        show()
+        return true
+    }
 
     /** The user left the editor of the item: what was typed is saved. */
     fun finish(itemId: String) = send(Event.EditFinished(itemId))

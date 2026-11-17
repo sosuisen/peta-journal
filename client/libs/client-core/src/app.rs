@@ -1303,10 +1303,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         WikiPick { title } => ops::wiki::pick(model, &title),
         OpenLinkAt { item_id, cursor } => ops::wiki::open_link_at(model, &item_id, cursor),
         ShiftSelect { item_id } => {
+            // Typed text is saved first: a move of the selected item would bring back the
+            // text the server has (ADR 052)
+            let save = ops::edit::finish_edit(model, &item_id);
             model
                 .selection
                 .start_from_editor(&mut model.state, &item_id);
-            done()
+            save
         }
         DeleteItem { item_id } => ops::outline_events::delete_item(model, &item_id),
         Undo => ops::undo_replay::perform(model, ops::undo_replay::Direction::Undo),

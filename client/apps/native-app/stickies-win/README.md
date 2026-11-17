@@ -57,8 +57,9 @@ kept in the repository.
   (`Question`, shown as a dialog), an order to put the cursor in an item (`Focus`), and the
   text on the clipboard. The core calls from its own threads; `Shell` moves each request to
   the main thread, in order.
-- `Keys.cs` says what a key means: in the editor of an item (`Keyboard.InEditor`,
-  `Shell.Pressed`) and while items are selected (`Keyboard.InSelection`). `Cursor` turns the
+- `Keys.cs` hands a key to the core (`Shell.Pressed`), which decides what it means in the
+  editor of an item and while items are selected (ADR 052). The app only names the key and
+  the keys held with it (`Input.ChordOf`), and measures the lines of the editor. `Cursor` turns the
   place of a cursor from the UTF-16 units of WinUI into the characters the core counts, and
   back.
 - `ShownText` makes the text of an item as it is to be shown: with its decoration, not as

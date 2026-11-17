@@ -30,6 +30,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import com.sosuisha.petajournal.shell.Shell
+import com.sosuisha.petajournal.types.EditorKey
+import com.sosuisha.petajournal.types.EditorState
 import com.sosuisha.petajournal.types.Row
 
 /**
@@ -68,13 +70,13 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
     var lines by remember { mutableStateOf<TextLayoutResult?>(null) }
     val caret = LocalCaret.current
     DisposableEffect(caret, id) {
-        val move = { arrow: Arrow ->
+        val move: (Arrow) -> Unit = { arrow ->
             // A word that the keyboard composes ends here, and the core has not heard of it yet
             if (field.composition != null) shell.type(id, field.text)
             val text = field.text
             val from = if (arrow == Arrow.Left || arrow == Arrow.Up) field.selection.min else field.selection.max
             when (val place = moved(arrow, text, field.selection, lines)) {
-                null -> leave(shell, id, arrow, characters(text, from))
+                null -> shell.press(arrow.key, id, cursorAt(from, text))
                 else -> field = TextFieldValue(text, TextRange(place))
             }
         }
@@ -89,7 +91,7 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
         PlatformTextInputInterceptor { request, next ->
             next.startInputMethod(
                 PlatformTextInputMethodRequest { attributes ->
-                    BackspaceAtStart(request.createInputConnection(attributes), joinsAtStart) { shell.backspaceAtStart(id) }
+                    BackspaceAtStart(request.createInputConnection(attributes), joinsAtStart) { shell.press(EditorKey.BACKSPACE, id, cursorAt(0, field.text)) }
                 },
             )
         }
@@ -104,7 +106,7 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
                     // a change that was not taken once more, and that is not a second Enter
                     enter != null -> if (next.text != refused) {
                         refused = next.text
-                        shell.enter(id, characters(field.text, enter))
+                        shell.press(EditorKey.ENTER, id, cursorAt(enter, field.text))
                     }
                     else -> {
                         refused = null
@@ -121,7 +123,7 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
                 // before
                 .onPreviewKeyEvent { pressed ->
                     val joins = pressed.key == Key.Backspace && joinsAtStart()
-                    if (joins && pressed.type == KeyEventType.KeyDown) shell.backspaceAtStart(id)
+                    if (joins && pressed.type == KeyEventType.KeyDown) shell.press(EditorKey.BACKSPACE, id, cursorAt(0, field.text))
                     joins
                 }
                 .focusRequester(focus)
@@ -197,25 +199,22 @@ private fun TextLayoutResult.onLine(offset: Int, by: Int): Int? {
     return getOffsetForPosition(Offset(x, y))
 }
 
-/**
- * The cursor leaves the item for the next one, as the arrow keys of the web frontend do.
- * [cursor] is where it was, in characters. Left goes to the end of the item above, and Right
- * to the start of the item below. Up and Down keep the place in the line.
- */
-private fun leave(shell: Shell, itemId: String, arrow: Arrow, cursor: Int) {
-    when (arrow) {
-        Arrow.Left -> shell.navigateUp(itemId, PAST_THE_END)
-        Arrow.Up -> shell.navigateUp(itemId, cursor.toLong())
-        Arrow.Right -> shell.navigateDown(itemId, 0)
-        Arrow.Down -> shell.navigateDown(itemId, cursor.toLong())
+/** The key of the arrow, for the core, which moves the cursor to the next item (ADR 052). */
+private val Arrow.key: EditorKey
+    get() = when (this) {
+        Arrow.Left -> EditorKey.LEFT
+        Arrow.Up -> EditorKey.UP
+        Arrow.Right -> EditorKey.RIGHT
+        Arrow.Down -> EditorKey.DOWN
     }
-}
 
-/** A place past the end of any item: the core puts the cursor at the end. */
-private const val PAST_THE_END = Long.MAX_VALUE / 2
+/**
+ * A field with a cursor [at] UTF-16 units into [text], and nothing chosen. The cursor is on
+ * the first and the last line: the field only hands a key to the core at the edge of its text.
+ */
+private fun cursorAt(at: Int, text: String) =
+    EditorState(text, at.toULong(), at.toULong(), onFirstLine = true, onLastLine = true)
 
-/** The core counts a cursor in characters, and a field of Android counts in UTF-16 units. */
-private fun characters(text: String, units: Int): Int = text.codePointCount(0, units)
-
+/** The place in UTF-16 units, as a field of Android counts, of a place in characters. */
 private fun units(text: String, characters: Int): Int =
     text.offsetByCodePoints(0, characters.coerceIn(0, text.codePointCount(0, text.length)))

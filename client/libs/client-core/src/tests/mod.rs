@@ -4,6 +4,7 @@
 mod collapse;
 mod edit;
 mod home;
+mod keys;
 mod level;
 mod merge;
 mod moves;

@@ -5,6 +5,7 @@ mod components;
 mod core;
 mod dom;
 mod effects;
+mod keyboard;
 mod listeners;
 
 use crate::components::layout::MainLayout;
