@@ -125,18 +125,16 @@ public sealed class ShellTests : IDisposable
 
         shell.GoBack();
 
-        main.WaitUntil(
-            "the first page is shown again",
-            () => Page(shell)?.Page.Name == "winui-first"
+        main.WaitUntil("the first page is shown again", () =>
+            Page(shell)?.Page.Name == "winui-first"
         );
         Assert.Equal("/pages/winui-first", shell.Url);
         Assert.True(shell.View.History.CanGoForward);
 
         shell.GoForward();
 
-        main.WaitUntil(
-            "the second page is shown again",
-            () => Page(shell)?.Page.Name == "winui-second"
+        main.WaitUntil("the second page is shown again", () =>
+            Page(shell)?.Page.Name == "winui-second"
         );
         Assert.Equal("/pages/winui-second", shell.Url);
     }
@@ -154,9 +152,8 @@ public sealed class ShellTests : IDisposable
         shell.Typed("typed in WinUI 日本語", item);
 
         Assert.Equal("typed in WinUI 日本語", shell.View.Outline.Rows[0].Item.Body);
-        main.WaitUntil(
-            "the server has the text",
-            () => server.Get($"/api/pages/{pageId}")?.Contains("typed in WinUI 日本語") ?? false
+        main.WaitUntil("the server has the text", () =>
+            server.Get($"/api/pages/{pageId}")?.Contains("typed in WinUI 日本語") ?? false
         );
     }
 
@@ -208,9 +205,8 @@ public sealed class ShellTests : IDisposable
         Assert.NotNull(server.Get($"/api/pages/{pageId}"));
         shell.Answer(true);
 
-        main.WaitUntil(
-            "the page is gone from the server",
-            () => server.Get($"/api/pages/{pageId}") is null
+        main.WaitUntil("the page is gone from the server", () =>
+            server.Get($"/api/pages/{pageId}") is null
         );
     }
 
@@ -222,9 +218,8 @@ public sealed class ShellTests : IDisposable
 
         var (_, second) = TwoItems(shell);
 
-        main.WaitUntil(
-            "the cursor is asked into the new item",
-            () => shell.Focus?.ItemId == second
+        main.WaitUntil("the cursor is asked into the new item", () =>
+            shell.Focus?.ItemId == second
         );
     }
 
@@ -238,12 +233,10 @@ public sealed class ShellTests : IDisposable
 
         shell.Send(new Event.PasteAsTransclusion(second));
 
-        main.WaitUntil(
-            "the second item shows the first",
-            () =>
-                shell.View.Outline.Rows.Any(row =>
-                    row.Item.Id == second && row.Item.TranscludeItemId == first
-                )
+        main.WaitUntil("the second item shows the first", () =>
+            shell.View.Outline.Rows.Any(row =>
+                row.Item.Id == second && row.Item.TranscludeItemId == first
+            )
         );
     }
 
@@ -255,12 +248,10 @@ public sealed class ShellTests : IDisposable
         var (first, second) = TwoItems(shell);
         onClipboard = first;
         shell.Send(new Event.PasteAsTransclusion(second));
-        main.WaitUntil(
-            "the second item shows the first",
-            () =>
-                shell.View.Outline.Rows.Any(row =>
-                    row.Item.Id == second && row.Item.TranscludeItemId == first
-                )
+        main.WaitUntil("the second item shows the first", () =>
+            shell.View.Outline.Rows.Any(row =>
+                row.Item.Id == second && row.Item.TranscludeItemId == first
+            )
         );
 
         shell.Send(new Event.DeleteItem(first));
@@ -301,9 +292,8 @@ public sealed class ShellTests : IDisposable
 
         main.WaitUntil("the item is split", () => Bodies(shell) is ["日本語", "second"]);
         var second = shell.View.Outline.Rows[1].Item.Id;
-        main.WaitUntil(
-            "the cursor is asked into the new item",
-            () => shell.Focus?.ItemId == second
+        main.WaitUntil("the cursor is asked into the new item", () =>
+            shell.Focus?.ItemId == second
         );
     }
 
@@ -332,9 +322,8 @@ public sealed class ShellTests : IDisposable
 
         Assert.True(Press(shell, EditorKey.Up, second, Editor("second", 2)));
 
-        main.WaitUntil(
-            "the cursor is asked into the first item",
-            () => shell.View.Outline.FocusRequest?.ItemId == first
+        main.WaitUntil("the cursor is asked into the first item", () =>
+            shell.View.Outline.FocusRequest?.ItemId == first
         );
         Assert.Equal(2UL, shell.View.Outline.FocusRequest?.Cursor);
     }
@@ -349,9 +338,8 @@ public sealed class ShellTests : IDisposable
 
         Assert.True(Press(shell, EditorKey.Down, first, Editor("first", 1)));
 
-        main.WaitUntil(
-            "the cursor is asked into the second item",
-            () => shell.View.Outline.FocusRequest?.ItemId == second
+        main.WaitUntil("the cursor is asked into the second item", () =>
+            shell.View.Outline.FocusRequest?.ItemId == second
         );
     }
 
@@ -363,9 +351,8 @@ public sealed class ShellTests : IDisposable
         var (first, second) = TwoItems(shell);
 
         Assert.True(Press(shell, EditorKey.Left, second, Editor("", 0)));
-        main.WaitUntil(
-            "the cursor is asked to the end of the first item",
-            () => shell.View.Outline.FocusRequest?.ItemId == first
+        main.WaitUntil("the cursor is asked to the end of the first item", () =>
+            shell.View.Outline.FocusRequest?.ItemId == first
         );
         var asked = shell.View.Outline.FocusRequest?.Cursor;
         Assert.NotNull(asked);
@@ -373,9 +360,8 @@ public sealed class ShellTests : IDisposable
         Assert.Equal(5UL, PetaCore.PetaNative.Utf16OfChars("first", asked.Value));
 
         Assert.True(Press(shell, EditorKey.Right, first, Editor("first", 5)));
-        main.WaitUntil(
-            "the cursor is asked to the start of the second item",
-            () => shell.View.Outline.FocusRequest?.ItemId == second
+        main.WaitUntil("the cursor is asked to the start of the second item", () =>
+            shell.View.Outline.FocusRequest?.ItemId == second
         );
         Assert.Equal(0UL, shell.View.Outline.FocusRequest?.Cursor);
     }
@@ -418,14 +404,12 @@ public sealed class ShellTests : IDisposable
         Assert.Null(shell.View.Outline.Rows[0].Task);
 
         Assert.True(Press(shell, EditorKey.TaskCycle, first, Editor("to do", 0)));
-        main.WaitUntil(
-            "the item is a task",
-            () => shell.View.Outline.Rows[0].Task == TaskState.NotStarted
+        main.WaitUntil("the item is a task", () =>
+            shell.View.Outline.Rows[0].Task == TaskState.NotStarted
         );
         Assert.True(Press(shell, EditorKey.TaskCycle, first, Editor("to do", 0)));
-        main.WaitUntil(
-            "the task is running",
-            () => shell.View.Outline.Rows[0].Task == TaskState.Running
+        main.WaitUntil("the task is running", () =>
+            shell.View.Outline.Rows[0].Task == TaskState.Running
         );
     }
 
@@ -456,16 +440,14 @@ public sealed class ShellTests : IDisposable
         shell.StartEditing(first);
         shell.Typed("to do", first);
         Assert.True(Press(shell, EditorKey.TaskCycle, first, Editor("to do", 0)));
-        main.WaitUntil(
-            "the item is a task",
-            () => shell.View.Outline.Rows[0].Task == TaskState.NotStarted
+        main.WaitUntil("the item is a task", () =>
+            shell.View.Outline.Rows[0].Task == TaskState.NotStarted
         );
         shell.FinishEditing(first);
 
         shell.ClickedTask(first);
-        main.WaitUntil(
-            "the task is running",
-            () => shell.View.Outline.Rows[0].Task == TaskState.Running
+        main.WaitUntil("the task is running", () =>
+            shell.View.Outline.Rows[0].Task == TaskState.Running
         );
         shell.ClickedTask(first);
         main.WaitUntil("the task is done", () => shell.View.Outline.Rows[0].Task == TaskState.Done);
@@ -516,9 +498,8 @@ public sealed class ShellTests : IDisposable
         Assert.True(Press(shell, EditorKey.MoveDown, first, Editor("first", 0)));
         main.WaitUntil("the first item is below", () => Bodies(shell) is ["second", "first"]);
         Assert.True(Press(shell, EditorKey.MoveUp, first, Editor("first", 0)));
-        main.WaitUntil(
-            "the first item is on top again",
-            () => Bodies(shell) is ["first", "second"]
+        main.WaitUntil("the first item is on top again", () =>
+            Bodies(shell) is ["first", "second"]
         );
     }
 
@@ -547,14 +528,12 @@ public sealed class ShellTests : IDisposable
         Assert.Equal(level + 1, shell.View.Outline.Rows[1].Item.Level);
 
         Assert.True(Press(shell, EditorKey.Undo, second, Editor("", 0)));
-        main.WaitUntil(
-            "the indent is taken back",
-            () => shell.View.Outline.Rows[1].Item.Level == level
+        main.WaitUntil("the indent is taken back", () =>
+            shell.View.Outline.Rows[1].Item.Level == level
         );
         Assert.True(Press(shell, EditorKey.Redo, second, Editor("", 0)));
-        main.WaitUntil(
-            "the indent is made again",
-            () => shell.View.Outline.Rows[1].Item.Level == level + 1
+        main.WaitUntil("the indent is made again", () =>
+            shell.View.Outline.Rows[1].Item.Level == level + 1
         );
     }
 
@@ -822,9 +801,8 @@ public sealed class ShellTests : IDisposable
         var item = old.View.Outline.Rows[0].Item.Id;
         old.StartEditing(item);
         old.Typed("written long ago", item);
-        main.WaitUntil(
-            "the old journal is saved",
-            () => server.Get($"/api/pages/{pageId}")?.Contains("written long ago") ?? false
+        main.WaitUntil("the old journal is saved", () =>
+            server.Get($"/api/pages/{pageId}")?.Contains("written long ago") ?? false
         );
     }
 
@@ -856,9 +834,8 @@ public sealed class ShellTests : IDisposable
     {
         JournalOfADayLongAgo();
         var shell = NewShell("/today");
-        main.WaitUntil(
-            "the earlier day is shown under today",
-            () => shell.View.Outline.Rows.Any(row => row.DateHeader is not null)
+        main.WaitUntil("the earlier day is shown under today", () =>
+            shell.View.Outline.Rows.Any(row => row.DateHeader is not null)
         );
         var earlier = shell.View.Outline.Rows.First(row => row.DateHeader is not null);
         var today = Journal(shell)!.DisplayDate;
