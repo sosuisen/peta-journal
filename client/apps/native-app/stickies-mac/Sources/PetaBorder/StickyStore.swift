@@ -1,64 +1,19 @@
 import Foundation
+import PetaCore
 
-/// What is kept of one sticky between two runs of the app.
-public struct StickySettings: Codable, Equatable, Identifiable {
-    public var id: String
-    /// What the sticky shows, as the URL that opens it. `nil` when it shows no page.
-    public var url: String?
-    /// The frame of the window, as AppKit counts: from the bottom left of the main screen.
-    public var x: Double
-    public var y: Double
-    public var width: Double
-    public var height: Double
-    /// The color of the paper, as `#RRGGBB`.
-    public var color: String
-    /// The window stays above the windows of other apps.
-    public var alwaysOnTop: Bool
-    /// How large the page is shown: 1 is the usual size.
-    public var zoom: Double
-    /// Only the title bar of the window is shown. The frame is still that of the whole sticky.
-    public var rolledUp: Bool
+/// What is kept of one sticky between two runs of the app. The rules are in Rust, in
+/// `client-stickies`, for the stickies of macOS and Windows.
+public typealias StickySettings = PetaSticky
 
-    public static let yellow = "#FFF8D0"
-
-    public init(
-        id: String, url: String?, x: Double, y: Double, width: Double, height: Double,
-        color: String = StickySettings.yellow, alwaysOnTop: Bool = false, zoom: Double = 1,
-        rolledUp: Bool = false
-    ) {
-        self.id = id
-        self.url = url
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-        self.color = color
-        self.alwaysOnTop = alwaysOnTop
-        self.zoom = zoom
-        self.rolledUp = rolledUp
-    }
-
-    /// A file of an older version of the app lacks what was added since.
-    public init(from decoder: Decoder) throws {
-        let kept = try decoder.container(keyedBy: CodingKeys.self)
-        id = try kept.decode(String.self, forKey: .id)
-        url = try kept.decodeIfPresent(String.self, forKey: .url)
-        x = try kept.decode(Double.self, forKey: .x)
-        y = try kept.decode(Double.self, forKey: .y)
-        width = try kept.decode(Double.self, forKey: .width)
-        height = try kept.decode(Double.self, forKey: .height)
-        color = try kept.decodeIfPresent(String.self, forKey: .color) ?? StickySettings.yellow
-        alwaysOnTop = try kept.decodeIfPresent(Bool.self, forKey: .alwaysOnTop) ?? false
-        zoom = try kept.decodeIfPresent(Double.self, forKey: .zoom) ?? 1
-        rolledUp = try kept.decodeIfPresent(Bool.self, forKey: .rolledUp) ?? false
-    }
+extension PetaSticky: Identifiable {
+    /// The color of the paper of a new sticky, as `#RRGGBB`.
+    public static let yellow = stickyYellow()
 }
 
 /// The stickies as a file keeps them. Every change is written at once: the app may be ended
-/// at any time.
+/// at any time. `client-stickies` reads and writes the file.
 public final class StickyStore {
-    public private(set) var stickies: [StickySettings]
-    private let file: URL
+    private let file: PetaStickyStore
 
     /// The file of the app, in the folder of the user for the data of apps.
     public static var standardFile: URL {
@@ -68,33 +23,19 @@ public final class StickyStore {
 
     /// Reads the file. A file that is not there, or cannot be read, gives no stickies.
     public init(file: URL) {
-        self.file = file
-        let kept = try? JSONDecoder().decode([StickySettings].self, from: Data(contentsOf: file))
-        stickies = kept ?? []
+        self.file = PetaStickyStore(file: file.path)
+    }
+
+    public var stickies: [StickySettings] {
+        file.stickies()
     }
 
     /// Adds the sticky, or changes the one with its id.
     public func put(_ sticky: StickySettings) {
-        if let place = stickies.firstIndex(where: { $0.id == sticky.id }) {
-            if stickies[place] == sticky { return }
-            stickies[place] = sticky
-        } else {
-            stickies.append(sticky)
-        }
-        write()
+        file.put(sticky: sticky)
     }
 
     public func remove(_ id: String) {
-        stickies.removeAll { $0.id == id }
-        write()
-    }
-
-    /// A failure is not told: the stickies on screen go on, and the next change writes again.
-    private func write() {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try? FileManager.default.createDirectory(
-            at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? encoder.encode(stickies).write(to: file, options: .atomic)
+        file.remove(id: id)
     }
 }

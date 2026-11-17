@@ -27,11 +27,11 @@ internal sealed class StickyWindow : Window
     /// <summary>How high the title bar is.</summary>
     private const double BarHeight = 32;
 
-    /// <summary>The paper is not smaller than this.</summary>
-    private static readonly (double Width, double Height) Smallest = (280, 200);
+    /// <summary>The paper is not smaller than this, as on macOS (<c>client-stickies</c>).</summary>
+    private static readonly PetaCore.PetaSize Smallest = PetaCore.PetaNative.SmallestSticky();
 
-    /// <summary>The size of a new sticky.</summary>
-    private static readonly (double Width, double Height) Usual = (400, 520);
+    /// <summary>The size of a new sticky, as on macOS.</summary>
+    private static readonly PetaCore.PetaSize Usual = PetaCore.PetaNative.UsualSticky();
 
     private static readonly SolidColorBrush Ink = new(Color.FromArgb(255, 0x1F, 0x1F, 0x1F));
     private static readonly SolidColorBrush Pale = new(Color.FromArgb(255, 0x6E, 0x6E, 0x6E));
@@ -158,7 +158,7 @@ internal sealed class StickyWindow : Window
     public StickyWindow(
         StickyDesk desk,
         string server,
-        StickySettings? kept,
+        PetaCore.PetaSticky? kept,
         string? url,
         StickyWindow? before
     )
@@ -166,7 +166,7 @@ internal sealed class StickyWindow : Window
         this.desk = desk;
         Id = kept?.Id ?? Guid.NewGuid().ToString();
         Look = new StickyLook(
-            kept?.Color ?? StickySettings.Yellow,
+            kept?.Color,
             kept?.AlwaysOnTop ?? false,
             kept?.Zoom ?? 1
         );
@@ -443,8 +443,8 @@ internal sealed class StickyWindow : Window
     /// always dark.</summary>
     private void Paint()
     {
-        var (red, green, blue) = StickyLook.Rgb(Look.Color);
-        root.Background = new SolidColorBrush(Color.FromArgb(255, red, green, blue));
+        var paper = PetaCore.PetaNative.StickyRgb(Look.Color);
+        root.Background = new SolidColorBrush(Color.FromArgb(255, paper.Red, paper.Green, paper.Blue));
         var bar = AppWindow.TitleBar;
         bar.ButtonBackgroundColor = Colors.Transparent;
         bar.ButtonInactiveBackgroundColor = Colors.Transparent;
@@ -954,13 +954,13 @@ internal sealed class StickyWindow : Window
 
     // ---- The window ----
 
-    private void Place(StickySettings? kept, StickyWindow? before)
+    private void Place(PetaCore.PetaSticky? kept, StickyWindow? before)
     {
-        if (kept is not null)
+        if (kept is { } sticky)
         {
-            AppWindow.Move(new PointInt32(kept.X, kept.Y));
+            AppWindow.Move(new PointInt32((int)Math.Round(sticky.X), (int)Math.Round(sticky.Y)));
             // After the move: the scale is that of the screen the window is on
-            AppWindow.Resize(Pixels(kept.Width, kept.Height));
+            AppWindow.Resize(Pixels(sticky.Width, sticky.Height));
             return;
         }
         // A little down and to the right of the newest sticky
@@ -1011,19 +1011,18 @@ internal sealed class StickyWindow : Window
             return;
         Measure();
         desk.Keep(
-            new StickySettings
-            {
-                Id = Id,
-                Url = Shell.Url,
-                X = place.X,
-                Y = place.Y,
-                Width = place.Width / Scale,
-                Height = place.Height / Scale,
-                Color = Look.Color,
-                AlwaysOnTop = Look.AlwaysOnTop,
-                Zoom = Look.Zoom,
-                RolledUp = RolledUp,
-            }
+            new PetaCore.PetaSticky(
+                Id,
+                Shell.Url,
+                place.X,
+                place.Y,
+                place.Width / Scale,
+                place.Height / Scale,
+                Look.Color,
+                Look.AlwaysOnTop,
+                Look.Zoom,
+                RolledUp
+            )
         );
     }
 

@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import PetaBorder
+import PetaCore
 import SwiftUI
 
 /// One sticky: a window that shows one page, with a core of its own.
@@ -117,8 +118,8 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     private let store: StickyStore?
     /// The app is ending.
     private var ending = false
-    /// The paper is not smaller than this.
-    private static let smallest = NSSize(width: 480, height: 320)
+    /// The paper is not smaller than this, as on Windows (`client-stickies`).
+    private static let smallest = NSSize(width: smallestSticky().width, height: smallestSticky().height)
 
     /// The stickies show pages of the journal server at `server`.
     public init(server: String, store: StickyStore? = nil) {
@@ -149,7 +150,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         let look = StickyLook(color: kept?.color ?? StickySettings.yellow, alwaysOnTop: kept?.alwaysOnTop ?? false,
             zoom: kept?.zoom ?? 1)
         let window = StickyWindow(
-            contentRect: NSRect(origin: .zero, size: NSSize(width: 480, height: 600)),
+            contentRect: NSRect(origin: .zero, size: NSSize(width: usualSticky().width, height: usualSticky().height)),
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         // The desk keeps the window, and lets it go when it is closed
         window.isReleasedWhenClosed = false

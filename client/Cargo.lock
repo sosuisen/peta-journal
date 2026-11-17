@@ -604,7 +604,18 @@ dependencies = [
  "client-api-http",
  "client-core",
  "client-native-bridge",
+ "client-stickies",
  "crux_core",
+ "tempfile",
+]
+
+[[package]]
+name = "client-stickies"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

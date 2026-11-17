@@ -68,7 +68,9 @@ kept in the repository.
   (C# 15, .NET 11), and CS8509 is an error: a `switch` expression that leaves out a kind of
   part stops the build. The generator writes `abstract record`; `codegen csharp` makes it
   `closed`.
-- `StickyStore` and `StickyLook` keep the stickies and how each one looks.
+- `StickyStore` and `StickyLook` keep the stickies and how each one looks. Their rules (the
+  file, the colors, the zoom, the sizes of the window) are in the Rust crate `client-stickies`,
+  shared with the stickies of macOS; `StickyStore` and `StickyLook` call it through `PetaCore`.
 
 ## Build and run the app
 

@@ -40,6 +40,8 @@ cov = [
     "client-shell-embedded",
     "-p",
     "client-cloud-sync",
+    "-p",
+    "client-stickies",
     # What only a native shell needs is measured too: the generation of its types, and the
     # entrance for another language
     "--features",

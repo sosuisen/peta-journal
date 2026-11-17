@@ -35,7 +35,7 @@ internal sealed class StickyDesk
     /// <summary>Opens a new sticky that shows what the URL names, or no page yet.</summary>
     public void Add(string? url = null) => Show(null, url);
 
-    private void Show(StickySettings? kept, string? url)
+    private void Show(PetaCore.PetaSticky? kept, string? url)
     {
         var window = new StickyWindow(this, server, kept, url, stickies.LastOrDefault());
         stickies.Add(window);
@@ -43,7 +43,7 @@ internal sealed class StickyDesk
         window.Activate();
     }
 
-    public void Keep(StickySettings sticky)
+    public void Keep(PetaCore.PetaSticky sticky)
     {
         if (stickies.Exists(open => open.Id == sticky.Id))
             store?.Put(sticky);

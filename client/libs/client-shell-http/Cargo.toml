@@ -14,12 +14,14 @@ crate-type = ["lib", "staticlib", "cdylib"]
 client-core = { path = "../client-core" }
 client-native-bridge = { path = "../client-native-bridge" }
 client-api-http = { path = "../client-api-http" }
+client-stickies = { path = "../client-stickies", optional = true }
 boltffi = { version = "=0.32.1", optional = true }
 
 [dev-dependencies]
 # Reads the requests for the shell as a shell does
 crux_core = "=0.20.0"
+tempfile = "3"
 
 [features]
 # The entrance for a shell in another language, made with BoltFFI. `boltffi pack` turns it on
-ffi = ["dep:boltffi"]
+ffi = ["dep:boltffi", "dep:client-stickies"]
