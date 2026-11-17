@@ -69,11 +69,8 @@ public sealed class ShownTextTests
         shell.StartEditing(first);
         shell.Typed(body, first);
         shell.FinishEditing(first);
-        main.WaitUntil(
-            "the edit is over",
-            () =>
-                !shell.View.Outline.Rows[0].IsEditing
-                && shell.View.Outline.Rows[0].Item.Body == body
+        main.WaitUntil("the edit is over", () =>
+            !shell.View.Outline.Rows[0].IsEditing && shell.View.Outline.Rows[0].Item.Body == body
         );
         return shell.View.Outline.Rows[0];
     }

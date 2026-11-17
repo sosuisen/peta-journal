@@ -40,8 +40,7 @@ public sealed record ShownRun(string Text, RunStyle Style, RichLink? Link, bool 
     /// letters are smaller, as in the other shells. The OpenType variants of the fonts do not
     /// make them so: Segoe UI and Yu Gothic UI change only the digits, and Noto Sans JP has none.
     /// </summary>
-    public double Scale =>
-        (Style & (RunStyle.Superscript | RunStyle.Subscript)) != 0 ? 0.75 : 1;
+    public double Scale => (Style & (RunStyle.Superscript | RunStyle.Subscript)) != 0 ? 0.75 : 1;
 }
 
 /// <summary>
@@ -84,7 +83,11 @@ public sealed record ShownParagraph(
             {
                 if (place <= end)
                     return letters
-                        + (int)PetaCore.PetaNative.CharsOfUtf16(run.Text, (ulong)Math.Max(place - at, 0));
+                        + (int)
+                            PetaCore.PetaNative.CharsOfUtf16(
+                                run.Text,
+                                (ulong)Math.Max(place - at, 0)
+                            );
                 letters += (int)PetaCore.PetaNative.CharsOfUtf16(run.Text, (ulong)run.Text.Length);
             }
             at = end;
@@ -264,7 +267,13 @@ internal sealed class PartWriter
     {
         Lead(depth, quoted);
         Parts.Add(
-            new ShownPicture(image.Path, image.Alt, image.Width, image.Height, Indent(depth, quoted))
+            new ShownPicture(
+                image.Path,
+                image.Alt,
+                image.Width,
+                image.Height,
+                Indent(depth, quoted)
+            )
         );
     }
 
