@@ -6,6 +6,7 @@ import com.sosuisha.petajournal.types.Event
 import com.sosuisha.petajournal.types.KeyPress
 import com.sosuisha.petajournal.types.Request
 import com.sosuisha.petajournal.types.Requests
+import com.sosuisha.petajournal.types.Typing
 import com.sosuisha.petajournal.types.UiOutput
 import com.sosuisha.petajournal.types.ViewModel
 import java.io.File
@@ -41,6 +42,9 @@ class Border(dataDir: File, markdownDir: File, onRequests: (List<Request>) -> Un
      * Hands a key to the core, which decides what it means (ADR 052). False when it means
      * nothing to the outline there.
      */
+    /** Hands a change of the Markdown of an item in its text field to the core, which adds the time. */
+    fun typed(typing: Typing) = core.typed(typing.bincodeSerialize())
+
     fun press(key: KeyPress): Boolean = core.press(key.bincodeSerialize())
 
     /** Answers the request with the number [id]. Throws when the core does not wait for it. */

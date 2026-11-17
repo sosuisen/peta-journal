@@ -78,7 +78,7 @@
 
 ### キーの意味
 
-出典: `tests/keys.rs`、`client-native-bridge`の`tests/shell.rs`、`client/apps/web-app/outliner/e2e`、macOSの`OutlineScreenTests`
+出典: `tests/keys.rs`、`tests/typing.rs`、`client-native-bridge`の`tests/shell.rs`、`client/apps/web-app/outliner/e2e`、macOSの`OutlineScreenTests`
 
 - どのキーがアウトラインの何になるかは、コアの表（`KeyMap`）が決める（ADR 052）。表はデータで、Windows、Mac、Webの3つがある。シェルは、キーと修飾キーの組（`Chord`）と編集欄の状態を渡すだけである
   - Windowsの表はWebと同じである。MacはCtrlの代わりにCmd、Altの代わりにOptionを使う。Macでは、Cmd+Enterでも、Ctrl+Enterでもタスクを進め、Cmd+ZでもCtrl+Zでも取り消す。Ctrl+↑↓とCtrl+Oは、macOSに任せる
@@ -91,6 +91,7 @@
   - Backspaceは先頭で、Deleteは末尾でだけ、項目をつなぐ。文字を選んでいるときは、選んだ文字を消す
   - Shift+↑は最初の行で、Shift+↓は最後の行でだけ、項目を選ぶ。ほかの行では文字を選ぶ
   - カーソルの位置は、シェルが数えたUTF-16から、コアが文字の数に直す。Enterの時刻は、コアの時計で入る
+- 打った文字も、ネイティブのシェル（macOS、Windows、iOS、Android）は本文とUTF-16のカーソルを渡すだけである（`Typing`）。時刻はブリッジの時計で入り、カーソルはコアが文字の数に直す
 
 ### 項目を分ける（Enter）
 

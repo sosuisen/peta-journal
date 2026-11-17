@@ -15,6 +15,7 @@ pub mod rest;
 pub mod rich_text;
 pub mod screens;
 pub mod testing;
+pub mod typing;
 pub mod util;
 pub mod view;
 

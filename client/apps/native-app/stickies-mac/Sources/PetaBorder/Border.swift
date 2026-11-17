@@ -30,6 +30,11 @@ public final class Border {
         try core.press(key: Data(try key.bincodeSerialize()))
     }
 
+    /// Takes a change of the Markdown of an item in its text field. The core adds the time.
+    public func typed(_ typing: Typing) throws {
+        try core.typed(typing: Data(try typing.bincodeSerialize()))
+    }
+
     /// Takes a step of a drag of the mouse. True when it told the core something.
     public func drag(_ step: DragMove) throws -> Bool {
         try core.drag(step: Data(try step.bincodeSerialize()))

@@ -9,6 +9,7 @@ mod level;
 mod merge;
 mod moves;
 mod split;
+mod typing;
 mod undo_replay;
 
 // 日々をたどる

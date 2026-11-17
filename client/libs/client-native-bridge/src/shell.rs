@@ -9,6 +9,7 @@ use client_core::effects::{
 };
 use client_core::keys::{KeyMap, KeyPlatform, KeyPress};
 use client_core::rest::ClientId;
+use client_core::typing::{self, Typing};
 use client_core::{Effect, Event, Route};
 use crux_core::bridge::Request as BorderRequest;
 use crux_core::bridge::{BincodeFfiFormat, BridgeError, EffectId, FfiFormat};
@@ -268,6 +269,16 @@ impl NativeShell {
         };
         self.router.update(event);
         Ok(true)
+    }
+
+    /// Takes a change of the Markdown of an item in its text field: a [`Typing`] as bytes. The
+    /// time is that of the clock here, so that no shell reads its own.
+    pub fn typed(&self, typing: &[u8]) -> Result<(), BorderError> {
+        let typing: Typing =
+            BincodeFfiFormat::deserialize(typing).map_err(BridgeError::DeserializeEvent)?;
+        let (_, now_ms) = self.clock.now();
+        self.router.update(typing::event_of(typing, now_ms));
+        Ok(())
     }
 
     /// Takes a step of a drag of the mouse: a [`DragMove`] as bytes. True when it told the core

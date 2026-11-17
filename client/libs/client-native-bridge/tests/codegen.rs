@@ -42,6 +42,7 @@ fn the_swift_types_of_the_border_are_written() {
         "enum UiOutput",
         "enum KeyPress",
         "enum DragMove",
+        "enum Typing",
     ] {
         assert!(swift.contains(&format!("public {declared}:")), "{declared}");
     }
@@ -88,6 +89,7 @@ fn the_csharp_types_of_the_border_are_written() {
         "partial class PageView",
         "abstract record KeyPress",
         "abstract record DragMove",
+        "abstract record Typing",
     ] {
         assert!(
             csharp.contains(&format!("public {declared} ")),
@@ -134,6 +136,7 @@ fn the_kotlin_types_of_the_border_are_written() {
         "data class PageView",
         "sealed interface KeyPress",
         "sealed interface DragMove",
+        "sealed interface Typing",
     ] {
         assert!(
             kotlin.contains(&format!(

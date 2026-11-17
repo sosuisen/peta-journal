@@ -151,16 +151,20 @@ public final class Shell: ObservableObject {
 
     /// The user changed the text of the item. The core saves it a moment later.
     public func typed(_ body: String, into itemId: String) {
-        let nowMs = UInt64(Date().timeIntervalSince1970 * 1000)
-        send(.bodyChanged(itemId: itemId, body: body, nowMs: nowMs))
+        typed(.changed(itemId: itemId, body: body))
     }
 
     /// The user typed into the item, and the cursor is `cursor` UTF-16 units into `body`. The
     /// core closes an opening just typed (ADR 057), and saves the body a moment later.
     public func typed(_ body: String, into itemId: String, cursor: Int) {
-        let nowMs = UInt64(Date().timeIntervalSince1970 * 1000)
-        let characters = charsOfUtf16(text: body, units: UInt64(max(cursor, 0)))
-        send(.typed(itemId: itemId, body: body, cursor: characters, nowMs: nowMs))
+        typed(.typed(itemId: itemId, body: body, cursor: UInt64(max(cursor, 0))))
+    }
+
+    /// The core adds the time, and counts the cursor in its own characters.
+    private func typed(_ typing: Typing) {
+        Shell.must { try border.typed(typing) }
+        // As after `send`: a text view that reads its old text back after a key loses the key
+        view = Shell.must { try border.view() }
     }
 
     /// Answers the confirmation on screen.

@@ -44,6 +44,12 @@ final class Border: @unchecked Sendable {
         try open.update(event: Data(try event.bincodeSerialize()))
     }
 
+    /// Hands a change of the Markdown of an item in its text field to the core, which adds the
+    /// time.
+    func typed(_ typing: Typing) throws {
+        try open.typed(typing: Data(try typing.bincodeSerialize()))
+    }
+
     /// Hands a key to the core, which decides what it means (ADR 052). False when it means
     /// nothing to the outline there.
     func press(_ key: KeyPress) throws -> Bool {

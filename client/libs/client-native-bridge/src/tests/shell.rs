@@ -7,7 +7,8 @@ use client_core::keys::{Chord, EditorState, Key, KeyPress};
 use client_core::model::{Page, PageWithItems};
 use client_core::rest::ClientId;
 use client_core::testing::plain_item;
-use client_core::{Event, Route};
+use client_core::typing::Typing;
+use client_core::{EditPlace, Event, Route};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -639,4 +640,45 @@ fn a_drag_that_cannot_be_read_is_an_error() {
     let screen = Screen::new();
 
     assert!(screen.shell.drag(&[0xff]).is_err());
+}
+
+// シェルが渡した入力は、コアに届いて保存される。
+#[test]
+fn what_the_shell_hands_as_typed_is_saved_by_the_core() {
+    let screen = Screen::new();
+    screen.open_notes();
+    wait_until("the page is in the view", || {
+        screen.view().contains("the body of a")
+    });
+    screen.send(&Event::EditRequested {
+        item_id: "a".into(),
+        place: EditPlace::Unplaced,
+    });
+    let typing = Typing::Typed {
+        item_id: "a".into(),
+        body: "typed into a".into(),
+        cursor: 12,
+    };
+    let mut bytes = Vec::new();
+    BincodeFfiFormat::serialize(&mut bytes, &typing).unwrap();
+
+    screen.shell.typed(&bytes).unwrap();
+    screen.send(&Event::EditFinished {
+        item_id: "a".into(),
+    });
+
+    wait_until("the typed text is saved", || {
+        let calls = screen.calls.lock().unwrap();
+        calls
+            .iter()
+            .any(|op| format!("{op:?}").contains("typed into a"))
+    });
+}
+
+// 読めない入力は、誤りとしてシェルに返る。
+#[test]
+fn typing_that_cannot_be_read_is_an_error() {
+    let screen = Screen::new();
+
+    assert!(screen.shell.typed(&[0xff]).is_err());
 }
