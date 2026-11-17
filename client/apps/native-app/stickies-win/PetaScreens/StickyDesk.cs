@@ -22,6 +22,9 @@ public sealed class StickyDesk
         this.store = store;
     }
 
+    /// <summary>The stickies that are open, in the order they were opened.</summary>
+    internal IReadOnlyList<StickyWindow> Stickies => stickies;
+
     /// <summary>Opens the stickies that were kept, or a first one without a page.</summary>
     public void Open()
     {

@@ -25,7 +25,7 @@ internal sealed class JournalServer : IDisposable
     public JournalServer(int port, IReadOnlyDictionary<string, string>? functions = null)
     {
         var program = Environment.GetEnvironmentVariable("PETA_E2E_SERVER");
-        Assert.SkipWhen(
+        SkipTest.When(
             string.IsNullOrEmpty(program),
             "PETA_E2E_SERVER does not name the journal-server program"
         );
