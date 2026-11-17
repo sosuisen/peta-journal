@@ -119,3 +119,128 @@ fn the_ios_icon_has_the_drawing_in_640_in_the_middle_of_white() {
     assert_eq!(pixel(0, 0), [255, 255, 255]);
     assert_eq!(pixel(512, 512), [255, 0, 0]);
 }
+
+/// The images of the icon set of macOS by their file names, each with its header and its
+/// pixels as RGBA.
+fn macos(svg: &str) -> Vec<(String, png::OutputInfo, Vec<u8>)> {
+    let files = macos_icon_set(svg.as_bytes()).expect("the icon set is made");
+    files
+        .into_iter()
+        .filter(|(name, _)| name.ends_with(".png"))
+        .map(|(name, bytes)| {
+            let decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+            let mut reader = decoder.read_info().expect("the PNG is read");
+            let mut pixels = vec![0; reader.output_buffer_size().expect("the PNG has a size")];
+            let info = reader.next_frame(&mut pixels).expect("the image is read");
+            (name, info, pixels)
+        })
+        .collect()
+}
+
+// macOSのアイコンセットには、16から1024pxまでの7つの画像が、アルファチャンネルのあるPNGで入る。
+#[test]
+fn the_macos_icon_set_has_seven_sizes_with_alpha() {
+    let images = macos(TALL_BAR);
+
+    let sizes: Vec<(String, u32, u32)> = images
+        .iter()
+        .map(|(name, info, _)| (name.clone(), info.width, info.height))
+        .collect();
+    let expected: Vec<(String, u32, u32)> = [16, 32, 64, 128, 256, 512, 1024]
+        .iter()
+        .map(|&side| (format!("icon-{side}.png"), side, side))
+        .collect();
+    assert_eq!(sizes, expected);
+    assert!(images
+        .iter()
+        .all(|(_, info, _)| info.color_type == png::ColorType::Rgba));
+}
+
+// macOSのアイコンでは、角の丸い白い板が824pxで真ん中にあり、その外は透明で、絵は板の真ん中に515pxで収まる。
+#[test]
+fn the_macos_icon_has_the_drawing_on_a_white_plate_in_a_clear_square() {
+    let images = macos(TALL_BAR);
+    let (_, _, pixels) = images.last().expect("the largest image");
+    let pixel = |x: usize, y: usize| pixels[(y * 1024 + x) * 4..(y * 1024 + x) * 4 + 4].to_vec();
+    let red = |x: usize, y: usize| pixel(x, y) == [255, 0, 0, 255];
+    let columns: Vec<usize> = (0..1024)
+        .filter(|&x| (0..1024).any(|y| red(x, y)))
+        .collect();
+    let rows: Vec<usize> = (0..1024)
+        .filter(|&y| (0..1024).any(|x| red(x, y)))
+        .collect();
+
+    // Outside the plate, which is 100 in from each edge
+    assert_eq!(pixel(50, 512)[3], 0);
+    // The rounded corner of the plate leaves the corner of its square clear
+    assert_eq!(pixel(102, 102)[3], 0);
+    // On the plate, beside the drawing
+    assert_eq!(pixel(150, 512), [255, 255, 255, 255]);
+    // The bar is 20 by 50: in 515 pixels it is 206 wide, from 409 to 615, and from 254.5 to
+    // 769.5, where the half pixels at its ends are not wholly red
+    assert_eq!((rows[0], *rows.last().unwrap()), (255, 768));
+    assert_eq!((columns[0], *columns.last().unwrap()), (409, 614));
+}
+
+// 小さい画像でも、板と絵は1024pxの画像と同じ割合で描かれる。
+#[test]
+fn a_smaller_macos_image_keeps_the_proportions_of_the_largest() {
+    let images = macos(TALL_BAR);
+    let (_, _, pixels) = images
+        .iter()
+        .find(|(name, _, _)| name == "icon-512.png")
+        .expect("the image of 512");
+    let pixel = |x: usize, y: usize| pixels[(y * 512 + x) * 4..(y * 512 + x) * 4 + 4].to_vec();
+    let red = |x: usize, y: usize| pixel(x, y) == [255, 0, 0, 255];
+    let rows: Vec<usize> = (0..512).filter(|&y| (0..512).any(|x| red(x, y))).collect();
+
+    // The plate is 50 in from each edge
+    assert_eq!(pixel(25, 256)[3], 0);
+    assert_eq!(pixel(75, 256), [255, 255, 255, 255]);
+    // The bar is 257.5 tall, from 127.25 to 384.75
+    assert_eq!((rows[0], *rows.last().unwrap()), (128, 383));
+}
+
+// アイコンセットのContents.jsonは、16から512ポイントの各大きさを、1倍と2倍の画像で名指す。
+#[test]
+fn the_contents_of_the_icon_set_name_each_size_at_1x_and_2x() {
+    let files = macos_icon_set(TALL_BAR.as_bytes()).expect("the icon set is made");
+    let (_, contents) = files
+        .iter()
+        .find(|(name, _)| name == "Contents.json")
+        .expect("the set has its Contents.json");
+    let contents = String::from_utf8(contents.clone()).expect("the JSON is text");
+
+    let named: Vec<&str> = contents
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("\"filename\" : \""))
+        .map(|rest| rest.trim_end_matches("\","))
+        .collect();
+    assert_eq!(
+        named,
+        [
+            "icon-16.png",
+            "icon-32.png",
+            "icon-32.png",
+            "icon-64.png",
+            "icon-128.png",
+            "icon-256.png",
+            "icon-256.png",
+            "icon-512.png",
+            "icon-512.png",
+            "icon-1024.png"
+        ]
+    );
+    assert!(contents.contains("\"size\" : \"512x512\""));
+    assert!(contents.contains("\"scale\" : \"2x\""));
+    assert!(contents.contains("\"idiom\" : \"mac\""));
+}
+
+// 何も描かないSVGからは、macOSのアイコンセットを作らない。
+#[test]
+fn an_svg_that_draws_nothing_gives_no_macos_icon_set() {
+    let made =
+        macos_icon_set(br#"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>"#);
+
+    assert!(matches!(made, Err(Error::Empty)));
+}

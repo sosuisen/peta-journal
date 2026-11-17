@@ -1,6 +1,6 @@
-//! Makes the icons of the apps from an SVG: that of a Windows app and that of an iOS app. The
-//! drawing is put in the middle of a square, and its empty edges are left out. Only Rust is
-//! needed: the apps are built with it anyway.
+//! Makes the icons of the apps from an SVG: that of a Windows app, of an iOS app and of a macOS
+//! app. The drawing is put in the middle of a square, and its empty edges are left out. Only
+//! Rust is needed: the apps are built with it anyway.
 
 use resvg::tiny_skia::{Color, Pixmap, Transform};
 use resvg::usvg::{Options, Rect, Tree};
@@ -16,6 +16,18 @@ pub const IOS_SIDE: u32 = 1024;
 /// How large the drawing is in the icon of iOS: the white around it is the margin that the
 /// icons of iOS have.
 pub const IOS_DRAWING: u32 = 640;
+
+/// The sizes of the images of the icon of macOS, in pixels. The icon set names sizes from 16
+/// to 512 points, each at one and two pixels to the point.
+pub const MACOS_SIZES: [u32; 7] = [16, 32, 64, 128, 256, 512, 1024];
+
+/// The white plate of the icon of macOS on a side of 1024, as the template of Apple has it: a
+/// square of 824 with rounded corners, 100 in from each edge. Outside it the icon is clear.
+pub const MACOS_PLATE: u32 = 824;
+const MACOS_PLATE_RADIUS: f32 = 185.4;
+
+/// How large the drawing is on the plate of 1024: as on iOS, five eighths of the plate.
+pub const MACOS_DRAWING: u32 = 515;
 
 #[derive(Debug)]
 pub enum Error {
@@ -77,13 +89,90 @@ pub fn ios_icon(svg: &[u8]) -> Result<Vec<u8>, Error> {
         .iter()
         .flat_map(|pixel| [pixel.red(), pixel.green(), pixel.blue()])
         .collect();
+    png_of(IOS_SIDE, png::ColorType::Rgb, &rgb)
+}
+
+/// The files of the icon set of macOS (`AppIcon.appiconset`): a PNG for each of
+/// [`MACOS_SIZES`], and the `Contents.json` that names them. Each PNG has the drawing in the
+/// middle of the white plate of [`MACOS_PLATE`], clear around it.
+pub fn macos_icon_set(svg: &[u8]) -> Result<Vec<(String, Vec<u8>)>, Error> {
+    let (tree, drawn) = read(svg)?;
+    let mut files = Vec::new();
+    for size in MACOS_SIZES {
+        // Each size is drawn from the SVG itself, as for Windows: a small one made from a
+        // large image is blurred
+        let pixmap = on_plate(&tree, drawn, size);
+        files.push((macos_file(size), rgba_png(&pixmap)?));
+    }
+    files.push(("Contents.json".to_string(), macos_contents().into_bytes()));
+    Ok(files)
+}
+
+fn macos_file(pixels: u32) -> String {
+    format!("icon-{pixels}.png")
+}
+
+/// The `Contents.json` of the icon set: each size of 16 to 512 points at 1x and 2x.
+fn macos_contents() -> String {
+    let images: Vec<String> = [16, 32, 128, 256, 512]
+        .iter()
+        .flat_map(|points| {
+            [1, 2].map(|scale| {
+                format!(
+                    "    {{\n      \"filename\" : \"{}\",\n      \"idiom\" : \"mac\",\n      \"scale\" : \"{scale}x\",\n      \"size\" : \"{points}x{points}\"\n    }}",
+                    macos_file(points * scale)
+                )
+            })
+        })
+        .collect();
+    format!(
+        "{{\n  \"images\" : [\n{}\n  ],\n  \"info\" : {{\n    \"author\" : \"xcode\",\n    \"version\" : 1\n  }}\n}}\n",
+        images.join(",\n")
+    )
+}
+
+/// A clear square of `side` with the white plate of macOS, and the drawing in its middle.
+fn on_plate(tree: &Tree, drawn: Rect, side: u32) -> Pixmap {
+    let mut pixmap = Pixmap::new(side, side).expect("an icon is never empty");
+    let scale = side as f32 / 1024.0;
+    let to_side = Transform::from_scale(scale, scale);
+    resvg::render(&plate(), to_side, &mut pixmap.as_mut());
+    let fit = MACOS_DRAWING as f32 * scale;
+    resvg::render(tree, place(drawn, side as f32, fit), &mut pixmap.as_mut());
+    pixmap
+}
+
+/// The white plate on a side of 1024. resvg draws its rounded corners from the SVG.
+fn plate() -> Tree {
+    let edge = (1024 - MACOS_PLATE) / 2;
+    let svg = format!(
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><rect x="{edge}" y="{edge}" width="{MACOS_PLATE}" height="{MACOS_PLATE}" rx="{MACOS_PLATE_RADIUS}" fill="white"/></svg>"#
+    );
+    Tree::from_str(&svg, &Options::default()).expect("the plate is a valid SVG")
+}
+
+/// The pixels as a PNG with alpha. tiny-skia keeps the colors multiplied by the alpha; a PNG
+/// keeps them as they are.
+fn rgba_png(pixmap: &Pixmap) -> Result<Vec<u8>, Error> {
+    let rgba: Vec<u8> = pixmap
+        .pixels()
+        .iter()
+        .flat_map(|pixel| {
+            let color = pixel.demultiply();
+            [color.red(), color.green(), color.blue(), color.alpha()]
+        })
+        .collect();
+    png_of(pixmap.width(), png::ColorType::Rgba, &rgba)
+}
+
+fn png_of(side: u32, color: png::ColorType, data: &[u8]) -> Result<Vec<u8>, Error> {
     let mut bytes = Vec::new();
-    let mut png = png::Encoder::new(&mut bytes, IOS_SIDE, IOS_SIDE);
-    png.set_color(png::ColorType::Rgb);
+    let mut png = png::Encoder::new(&mut bytes, side, side);
+    png.set_color(color);
     png.set_depth(png::BitDepth::Eight);
     let mut writer = png.write_header().map_err(|e| Error::Icon(e.into()))?;
     writer
-        .write_image_data(&rgb)
+        .write_image_data(data)
         .map_err(|e| Error::Icon(e.into()))?;
     writer.finish().map_err(|e| Error::Icon(e.into()))?;
     Ok(bytes)
@@ -99,17 +188,24 @@ fn read(svg: &[u8]) -> Result<(Tree, Rect), Error> {
 /// A square of `side` pixels with the drawing in its middle, as large as fits into `fit`
 /// pixels. The square is clear, or of the color `ground`.
 fn square(tree: &Tree, drawn: Rect, side: u32, fit: u32, ground: Option<Color>) -> Pixmap {
-    let (side_f, fit_f) = (side as f32, fit as f32);
-    let scale = fit_f / drawn.width().max(drawn.height());
-    let left = (side_f - drawn.width() * scale) / 2.0 - drawn.x() * scale;
-    let top = (side_f - drawn.height() * scale) / 2.0 - drawn.y() * scale;
     let mut pixmap = Pixmap::new(side, side).expect("an icon is never empty");
     if let Some(color) = ground {
         pixmap.fill(color);
     }
-    let place = Transform::from_row(scale, 0.0, 0.0, scale, left, top);
-    resvg::render(tree, place, &mut pixmap.as_mut());
+    resvg::render(
+        tree,
+        place(drawn, side as f32, fit as f32),
+        &mut pixmap.as_mut(),
+    );
     pixmap
+}
+
+/// Where the drawing goes in a square of `side`: in its middle, as large as fits into `fit`.
+fn place(drawn: Rect, side: f32, fit: f32) -> Transform {
+    let scale = fit / drawn.width().max(drawn.height());
+    let left = (side - drawn.width() * scale) / 2.0 - drawn.x() * scale;
+    let top = (side - drawn.height() * scale) / 2.0 - drawn.y() * scale;
+    Transform::from_row(scale, 0.0, 0.0, scale, left, top)
 }
 
 #[cfg(test)]
