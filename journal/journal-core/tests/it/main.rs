@@ -9,4 +9,5 @@ mod atlas_sync;
 mod definitions_sync;
 mod export_queue;
 mod find_doc;
+mod item_merge;
 mod page_properties;
