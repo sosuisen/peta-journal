@@ -78,7 +78,7 @@
 
 ### キーの意味
 
-出典: `tests/keys.rs`、`tests/typing.rs`、`client-native-bridge`の`tests/shell.rs`、`client/apps/web-app/outliner/e2e`、macOSの`OutlineScreenTests`
+出典: `tests/keys.rs`、`tests/typing.rs`、`client-native-bridge`の`tests/shell.rs`、`client/apps/web-app/outliner/e2e`、macOSとWindowsの`OutlineScreenTests`
 
 - どのキーがアウトラインの何になるかは、コアの表（`KeyMap`）が決める（ADR 052）。表はデータで、Windows、Mac、Webの3つがある。シェルは、キーと修飾キーの組（`Chord`）と編集欄の状態を渡すだけである
   - Windowsの表はWebと同じである。MacはCtrlの代わりにCmd、Altの代わりにOptionを使う。Macでは、Cmd+Enterでも、Ctrl+Enterでもタスクを進め、Cmd+ZでもCtrl+Zでも取り消す。Ctrl+↑↓とCtrl+Oは、macOSに任せる
@@ -383,7 +383,7 @@
 
 ### 複数の項目を選ぶ
 
-出典: `tests/selection.rs`、`core/outline/selection.rs`、`core/outline/tree.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/transclusion-delete`、`tests/drag.rs`、macOSの`OutlineScreenTests`
+出典: `tests/selection.rs`、`core/outline/selection.rs`、`core/outline/tree.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/transclusion-delete`、`tests/drag.rs`、macOSとWindowsの`OutlineScreenTests`
 
 - 項目を選ぶと、その下の項目もすべて選ばれる。どの選び方でも同じである
   - 折りたたまれて見えない子も選ばれる
@@ -962,7 +962,7 @@
 
 ### 付箋紙アプリ（macOSとWindows）の設定と見た目
 
-出典: `client/libs/client-stickies/src/tests.rs`、Windowsの`StickyTests`、macOSの`StickyDeskTests`
+出典: `client/libs/client-stickies/src/tests.rs`、Windowsの`StickyTests`と`StickyDeskTests`、macOSの`StickyDeskTests`
 
 決まりは、Rustの`client-stickies`に1つだけある。macOSとWindowsの付箋紙アプリは、`client-shell-http`を通してそれを呼ぶ。
 
@@ -980,6 +980,14 @@
 - ズームは、1割ずつ変わる。0.1を足し続けても、端数は出ない。30%から300%の間に収まる。保存されていた値も同じである
 - 一番小さいウィンドウは280×200、新しい付箋紙のウィンドウは400×520である。macOSもWindowsも同じである（2026-11-17に開発者が決めた。それまでmacOSは480×320と480×600だった）
 - 見た目が変わると、シェルの画面に知らされる。同じ値を入れても、知らされない（Windowsの`StickyTests`）
+- Windowsの付箋紙アプリの開け閉め（Windowsの`StickyDeskTests`。キーとクリックは、Windowsを通して送る）
+  - 何も保存されていないときは、ページのない付箋紙が1つ開く
+  - Ctrl+Nは、ページのない付箋紙を足す。足した付箋紙は、前の付箋紙と同じ大きさで、ぴったりは重ならない
+  - 付箋紙は、それぞれが自分のページを持つ。1つでページを開いても、ほかの付箋紙は変わらない
+  - タイトルバーの閉じるボタンで閉じた付箋紙は、なくなり、次の起動でも戻らない。ほかの付箋紙は残る
+  - Alt+F4で閉じた付箋紙は、次の起動で戻る。ユーザーが片付けたのではないためである
+  - Ctrl+Qはアプリを終える。付箋紙は、ページと位置を持って、次の起動で戻る
+  - 項目の編集中に付箋紙を閉じても、アプリは落ちない。閉じたあとでエディタがカーソルを失っても、何もしない（`PetaBorder.Tests`の`ShellTests`）
 - Windowsの付箋紙アプリのアイコンは、プロジェクトのSVG（`images/peta-journal.svg`）から、Rustの`app-icon`が作る（`client/tools/app-icon/src/tests.rs`）
   - アイコンには、Windowsが使う256pxから16pxまでの10の大きさが、大きい順に入る
   - 絵は余白を除いて、正方形の真ん中に置かれる。縦長の絵は、上下いっぱいに描かれる
