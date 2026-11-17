@@ -39,6 +39,12 @@ impl PetaCore {
         self.shell.update(event).map_err(|e| e.to_string())
     }
 
+    /// Takes a key of the shell: a `KeyPress` as bytes (ADR 052). False when the key means
+    /// nothing to the outline there, and the shell leaves it to its editor.
+    pub fn press(&self, key: &[u8]) -> Result<bool, String> {
+        self.shell.press(key).map_err(|e| e.to_string())
+    }
+
     /// Takes the answer of the shell to the request `id`: the output of its operation.
     pub fn resolve(&self, id: u32, output: &[u8]) -> Result<(), String> {
         self.shell.resolve(id, output).map_err(|e| e.to_string())

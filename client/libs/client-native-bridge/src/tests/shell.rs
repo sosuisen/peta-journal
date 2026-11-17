@@ -2,6 +2,7 @@ use crate::{Clock, Host, NativeShell, ShellEffectFfi};
 use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp, UiOutput,
 };
+use client_core::keys::{Chord, EditorState, Key, KeyPress};
 use client_core::model::{Page, PageWithItems};
 use client_core::rest::ClientId;
 use client_core::testing::plain_item;
@@ -544,4 +545,59 @@ fn a_url_that_names_nothing_is_refused() {
     let screen = Screen::new();
 
     assert!(screen.shell.open("").is_err());
+}
+
+/// Presses a key in the editor of item `a`, whose text is `ab` with the cursor at `cursor`.
+fn press(screen: &Screen, key: Key, shift: bool, cursor: u64) -> bool {
+    let press = KeyPress::InEditor {
+        item_id: "a".into(),
+        chord: Chord {
+            key,
+            shift,
+            ctrl: false,
+            alt: false,
+            cmd: false,
+        },
+        editor: EditorState {
+            text: "ab".into(),
+            selection_start: cursor,
+            selection_end: cursor,
+            on_first_line: true,
+            on_last_line: true,
+        },
+    };
+    let mut bytes = Vec::new();
+    BincodeFfiFormat::serialize(&mut bytes, &press).unwrap();
+    screen.shell.press(&bytes).unwrap()
+}
+
+// シェルが渡したキーは、コアが意味を決めて送る。Enterは項目を分ける要求になる。
+#[test]
+fn a_key_of_the_shell_is_sent_as_the_event_the_core_decides() {
+    let screen = Screen::new();
+    screen.open_notes();
+    wait_until("the page is in the view", || {
+        screen.view().contains("the body of a")
+    });
+
+    assert!(press(&screen, Key::Enter, false, 1));
+
+    wait_until("the item is split", || screen.calls_named("SplitItem") == 1);
+}
+
+// アウトラインに意味のないキーは送られず、シェルは編集欄に任せる。Shift+Enterは項目の中で改行し、途中の←は文字の中で動く。
+#[test]
+fn a_key_that_means_nothing_to_the_outline_is_left_to_the_shell() {
+    let screen = Screen::new();
+
+    assert!(!press(&screen, Key::Enter, true, 1));
+    assert!(!press(&screen, Key::Left, false, 1));
+}
+
+// 読めないキーは、誤りとしてシェルに返る。
+#[test]
+fn a_key_that_cannot_be_read_is_an_error() {
+    let screen = Screen::new();
+
+    assert!(screen.shell.press(&[0xff]).is_err());
 }
