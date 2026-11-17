@@ -304,8 +304,9 @@ dotnet test PetaBorder.Tests
 ```
 
 The tests start the server themselves, with all its files in a temporary folder.
-`ShellTests` use port 18111, and `ShownTextTests` use port 18112. They check that the server writes its Markdown there before they use it, so
-the notes of whoever runs the tests are never touched.
+`ShellTests` use port 18111, and `ShownTextTests` use port 18112. The tests check that the
+server writes its Markdown there before they use it. The notes of whoever runs the tests are
+never touched.
 
 The windows have no tests. The SwiftUI shell puts its screen in a window in its tests; nothing
 like that is written here yet. The app was checked by hand against a throwaway server
