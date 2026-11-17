@@ -3,14 +3,9 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
+use client_core::drag::{edge_step, EDGE_STEP_MS};
 use client_core::Event;
 use leptos::prelude::*;
-
-/// The band inside each edge of the viewport where the mouse scrolls it.
-const EDGE_PX: f64 = 40.0;
-/// The scroll per frame when the mouse is at the very edge; less further inside the band.
-const MAX_STEP_PX: f64 = 24.0;
-const FRAME_MS: u32 = 16;
 
 /// Scrolls `viewport` while the mouse stays in its edge bands. `Copy`, so the listeners of
 /// the selection mode can share it.
@@ -43,20 +38,15 @@ impl EdgeScroll {
     }
 
     /// The mouse moved with the button held: picks the scroll speed from how deep in an edge
-    /// band it is and keeps the frames going while there is a speed.
+    /// band it is, as the core's `edge_step` says, and keeps the frames going while there is a
+    /// speed.
     pub fn follow(self, client_x: f64, client_y: f64) {
         let Some(vp) = self.viewport.get_untracked() else {
             return;
         };
         self.pointer.set_value((client_x, client_y));
         let rect = vp.get_bounding_client_rect();
-        let step = if client_y < rect.top() + EDGE_PX {
-            -depth(rect.top() + EDGE_PX - client_y)
-        } else if client_y > rect.bottom() - EDGE_PX {
-            depth(client_y - (rect.bottom() - EDGE_PX))
-        } else {
-            0.0
-        };
+        let step = edge_step(client_y, rect.top(), rect.bottom());
         self.step.set_value(step);
         if step != 0.0 && !self.running.get_value() {
             self.running.set_value(true);
@@ -79,7 +69,7 @@ impl EdgeScroll {
         };
         vp.set_scroll_top((vp.scroll_top() as f64 + step).max(0.0) as i32);
         self.report_row_under_mouse();
-        dom::set_timeout(FRAME_MS, move || self.frame());
+        dom::set_timeout(EDGE_STEP_MS, move || self.frame());
     }
 
     /// Extends the selection to the row now under the still mouse. The browser fires no
@@ -99,9 +89,4 @@ impl EdgeScroll {
         self.reported.set_value(Some(row_id.clone()));
         self.core.send(Event::ItemMouseEnter { item_id: row_id });
     }
-}
-
-/// The step for a mouse `inside` pixels into a band: the deeper, the faster, capped at the edge.
-fn depth(inside: f64) -> f64 {
-    (inside / EDGE_PX).min(1.0) * MAX_STEP_PX
 }
