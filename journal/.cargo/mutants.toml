@@ -16,7 +16,10 @@ exclude_globs = [
 ]
 
 # Every mutant runs the tests of the whole workspace. By default a mutant runs the tests of
-# its own crate only, and most of journal-core is tested through the server (ADR 029).
+# its own crate only. Since ADR 058 the behaviour of journal-core is tested in journal-core,
+# but on 2026-11-18 the server tests still reached 77 lines of journal-core in 16 files that
+# its own tests did not: the messages of the errors the server answers with, the client id of
+# a header, the narrowing of a list by `fields`, and the startup of the server.
 test_workspace = true
 
 # Single mutants that no test can catch, skipped by name, as agreed with the user:
