@@ -286,12 +286,14 @@ page with the typed name.
 `dotnet test PetaBorder.Tests` runs the tests of `PetaBorder`.
 
 `BorderTests` need no journal server. They check that C# reads what Rust writes (the view
-model, the requests) and that Rust reads what C# writes (events, answers). `KeysTests`,
-`ShownTextTests` and `StickyTests` need none either.
+model, the requests) and that Rust reads what C# writes (events, answers). `StickyTests` need
+none either. `ShownTextTests` need none but one: the test of every kind of node gets the AST
+from a real journal server.
 
 `ShellTests` run `Shell` against a real journal server: a page opens, what is typed is saved
-on the server, and the questions of the core are answered. They are skipped unless
-`PETA_E2E_SERVER` names the server program:
+on the server, and the questions of the core are answered. The keys are pressed as the app
+presses them: the chord goes to the core, which decides what it means. The tests that need a
+server are skipped unless `PETA_E2E_SERVER` names the server program:
 
 ```
 cd peta-journal/journal
@@ -301,8 +303,8 @@ $env:PETA_E2E_SERVER = "$PWD/../../../../journal/target/release/journal-server.e
 dotnet test PetaBorder.Tests
 ```
 
-The tests start the server themselves, on ports 18111 and 18112, with all its files in a
-temporary folder. They check that the server writes its Markdown there before they use it, so
+The tests start the server themselves, with all its files in a temporary folder.
+`ShellTests` use port 18111, and `ShownTextTests` use port 18112. They check that the server writes its Markdown there before they use it, so
 the notes of whoever runs the tests are never touched.
 
 The windows have no tests. The SwiftUI shell puts its screen in a window in its tests; nothing
