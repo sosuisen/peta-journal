@@ -182,6 +182,25 @@ fn the_macos_icon_has_the_drawing_on_a_white_plate_in_a_clear_square() {
     assert_eq!((columns[0], *columns.last().unwrap()), (409, 614));
 }
 
+// 小さい画像でも、板と絵は1024pxの画像と同じ割合で描かれる。
+#[test]
+fn a_smaller_macos_image_keeps_the_proportions_of_the_largest() {
+    let images = macos(TALL_BAR);
+    let (_, _, pixels) = images
+        .iter()
+        .find(|(name, _, _)| name == "icon-512.png")
+        .expect("the image of 512");
+    let pixel = |x: usize, y: usize| pixels[(y * 512 + x) * 4..(y * 512 + x) * 4 + 4].to_vec();
+    let red = |x: usize, y: usize| pixel(x, y) == [255, 0, 0, 255];
+    let rows: Vec<usize> = (0..512).filter(|&y| (0..512).any(|x| red(x, y))).collect();
+
+    // The plate is 50 in from each edge
+    assert_eq!(pixel(25, 256)[3], 0);
+    assert_eq!(pixel(75, 256), [255, 255, 255, 255]);
+    // The bar is 257.5 tall, from 127.25 to 384.75
+    assert_eq!((rows[0], *rows.last().unwrap()), (128, 383));
+}
+
 // アイコンセットのContents.jsonは、16から512ポイントの各大きさを、1倍と2倍の画像で名指す。
 #[test]
 fn the_contents_of_the_icon_set_name_each_size_at_1x_and_2x() {
