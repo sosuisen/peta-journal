@@ -406,7 +406,6 @@ pub enum UiOp {
     SetTitle(String),
     /// Keeps the folders last seen as their atlas, so a reload opens them the same way.
     SaveAtlasDirs(Vec<String>),
-    CopyText(String),
     /// Copies tree markdown as text and, rendered to HTML, as rich text. The shell may have
     /// begun the clipboard write on the user's key already and only fills it in here.
     ///

@@ -423,8 +423,7 @@
 - [ ] 日付が変わったら、Rustが`/today`を開き直す。今は、どのシェルも日付の変わり目に気づかない。plansには、macOSの分だけがある。`Clock`の`now`と`sleep`で作れる
 - [ ] 触れた位置に近い文字を選ぶ決まり（縦の距離を100倍に重く見る）を、Rustに移すかを決める。iOS（`Touches.swift:48-52`）とAndroid（`Touches.kt:138-142`）に同じ式がある
   - 2026-11-17に調べた。同じなのは、各5行ほどの距離の式だけである。Rustへ移すと、触れるたびに文字の枠の一覧をFFIで渡すことになり、減る行より包む行が多い。移さないことを勧める
-- [ ] iOSとAndroidで、`Prompt`、`ReadClipboardText`、`CopyText`、`CopyMarkdown`に答える。今は、`nil`を返すか、捨てている（`Shell.swift:318`、`Shell.kt:317`）。macOSとWindowsは、4つとも扱う
-- [ ] `UiOp::CopyText`を消す。coreは、これを一度も出していない。最初のコミット（`cd421551`）で定義されてから、出すコードがない。コピーは`CopyMarkdown`（`client-core/src/ops/action.rs:347`）だけで行う。2026-11-17に調べた。受ける側は、Emacs（`emacs/outliner/src/shell.rs:562`）、Web（`web-app/outliner/src/effects/ui.rs:151`）、Windows（`stickies-win/PetaBorder/Shell.cs:341`）にある。消したら、1つ上の項目から`CopyText`を外す
+- [ ] iOSとAndroidで、`Prompt`、`ReadClipboardText`、`CopyMarkdown`に答える。今は、`nil`を返すか、捨てている（`Shell.swift:318`、`Shell.kt:317`）。macOSとWindowsは、3つとも扱う
 
 ### サーバーとクライアント（Rust）
 
