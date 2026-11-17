@@ -83,6 +83,19 @@ impl ExportQueueRepository {
         Ok(usize::try_from(pages).unwrap_or(0))
     }
 
+    /// When a page was last put in the queue, in milliseconds; None when no page waits. A page
+    /// that waits and is put in again moves it on: the app knows from it that a page changed
+    /// (ADR 055).
+    pub fn last_queued_at(&self) -> AppResult<Option<i64>> {
+        let conn = self.db.conn()?;
+        let last = conn
+            .query_row("SELECT MAX(queued_at) FROM export_queue", [], |row| {
+                row.get(0)
+            })
+            .context("Failed to read when a page was last queued")?;
+        Ok(last)
+    }
+
     /// Takes up to `BATCH` queued pages, oldest first, and removes them from the queue.
     pub fn dequeue_all(&self) -> AppResult<Vec<Hmtid>> {
         let max_retries = 3;
@@ -124,5 +137,49 @@ impl ExportQueueRepository {
         }
         tx.commit()?;
         ids.iter().map(|s| parse(s)).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::id_generator::IdGenerator;
+    use crate::infrastructure::persistence::database_initializer::initialize;
+
+    /// A queue on a new database, and a page that may be put in it.
+    fn queue() -> (tempfile::TempDir, ExportQueueRepository, Hmtid) {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db = Arc::new(Db::open(&dir.path().join("journal.db")).unwrap());
+        let ids = IdGenerator::new();
+        initialize(&db, &ids).unwrap();
+        let page = ids.generate_page_id();
+        db.conn()
+            .unwrap()
+            .execute(
+                "INSERT INTO pages (id, dir_path, name, created_date, modified_date) \
+                 VALUES (?, '', 'notes', 0, 0)",
+                params![page.as_str()],
+            )
+            .unwrap();
+        (dir, ExportQueueRepository::new(db), page)
+    }
+
+    // 待っているページがなければ、最後に待ち行列に入れた時刻はない。
+    #[test]
+    fn an_empty_queue_has_no_time_of_the_last_page_put_in() {
+        let (_dir, queue, _page) = queue();
+        assert_eq!(queue.last_queued_at().unwrap(), None);
+    }
+
+    // 待っているページをもう一度入れると、最後に入れた時刻が進む。ページが変わったことを、アプリの同期が知るためである（ADR 055）。
+    #[test]
+    fn a_page_put_in_again_moves_the_time_of_the_last_page_put_in_on() {
+        let (_dir, queue, page) = queue();
+        queue.enqueue(&page).unwrap();
+        let first = queue.last_queued_at().unwrap().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        queue.enqueue(&page).unwrap();
+        assert!(queue.last_queued_at().unwrap().unwrap() > first);
+        assert_eq!(queue.waiting().unwrap(), 1);
     }
 }
