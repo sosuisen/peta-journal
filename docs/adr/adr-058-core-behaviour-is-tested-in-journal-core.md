@@ -51,10 +51,10 @@ AndroidとiOSのアプリが、PCと同じ中身を組み込んで使うため�
 
 | 区分 | 件数 |
 |---|---|
-| MOVE | 336 |
+| MOVE | 337 |
 | SPLIT | 10 |
-| KEEP-SERVER | 71 |
-| DELETE | 29 |
+| KEEP-SERVER | 74 |
+| DELETE | 25 |
 
 調べてわかった前提は、次のとおりである。
 
@@ -201,7 +201,7 @@ tantivyの索引を開くのが1回で済み、速い。
   テストごとに`JournalCore`を作るので、名前をずらす工夫とロックが要らない。
 - コアの誤りと、HTTPの層の誤りが、別のテストで落ちる。
 - `journal-core`のミュータントを、`journal-core`のテストだけで確かめられる見込みがある。
-- テストが29個減る。
+- テストが25個減る。
 
 ### 悪い結果
 
@@ -300,14 +300,14 @@ SPLIT、KEEP-SERVER、DELETEのテストは、1つずつ書く。
 |---|---|---|
 | 192 | `an_item_made_without_a_body_has_an_empty_body` | 本文を省いて作るクライアントがない。client-coreは必ず送り、MCPは空の文字を入れる |
 | 236 | `the_body_is_parsed_into_an_ast_and_types` | 207と同じ場面。207に確認を足す |
-| 256 | `one_item_is_read_with_only_the_fields_asked_for` | `GET /api/items/{id}`に`fields`を付けるクライアントがない。`with_fields`は878と3003が確かめる |
+| 256 | `one_item_is_read_with_only_the_fields_asked_for` | `GET /api/items/{id}`に`fields`を付けるクライアントがない。`with_fields`は878と3003が確かめる（2026-11-18に戻した。ADR 060により、リポジトリの中に呼ぶクライアントがないことは、消す理由にならない） |
 | 282 | `a_property_can_be_set_on_an_item` | 4466が同じ設定を準備に使う。4466に設定後の確認を足す |
 | 377 | `a_deleted_item_is_gone_from_its_page` | 道具の`fill`が、すべてのテストで同じ削除をする。2937も確かめる |
 | 782 | `tasks_can_be_listed_by_type` | 878が同じ一覧を確かめる |
-| 800 | `items_listed_without_a_type_are_none` | 型なしで呼ぶクライアントがない。全件を返さないための守りなら、残す |
+| 800 | `items_listed_without_a_type_are_none` | 型なしで呼ぶクライアントがない。全件を返さないための守りなら、残す（2026-11-18に戻した。ADR 060により、リポジトリの中に呼ぶクライアントがないことは、消す理由にならない） |
 | 812 | `an_item_without_a_page_id_is_refused` | `pageId`を省く呼び出しがない |
 | 824 | `a_deletion_without_item_ids_is_refused` | `itemIds`を省く呼び出しがない。空の配列は2849が確かめる |
-| 1469 | `a_paste_in_an_unknown_mode_is_refused` | client-coreのmodeは決まった3つで、知らないmodeを送る道がない |
+| 1469 | `a_paste_in_an_unknown_mode_is_refused` | client-coreのmodeは決まった3つで、知らないmodeを送る道がない（2026-11-18に戻した。ADR 060により、リポジトリの中に呼ぶクライアントがないことは、消す理由にならない）。コアのテストとして戻した |
 | 2401 | `a_batch_that_leaves_an_item_on_the_page_makes_no_item` | 2461のアウトラインの確認で足りる |
 | 2896 | `a_group_delete_that_leaves_an_item_on_the_page_makes_no_item` | 2822のアウトラインの確認で足りる |
 | 3618 | `a_week_54_is_created_as_the_us_numbering_reaches_it_in_a_leap_year_starting_on_saturday` | テストのサーバーは`weekNumbering: "iso"`なので、米国式の道を通らない。名前の読み取りは`journal_name`の単体テストが確かめる |
@@ -389,7 +389,7 @@ SPLIT、KEEP-SERVER、DELETEのテストは、1つずつ書く。
 |---|---|---|---|---|
 | `extensions` | 121、152、171、184、198、218、234、278、307、319、347 | （11個） | MOVE | `get_or_create_doc`、`get_or_create_journal`、`set_page_property`、`move_items_to_journal`、`functions.list_functions`。234は[ev]。278は[S] |
 | `extensions` | 247 | `a_tag_extension_asks_the_clients_and_writes_its_items_after_a_yes` | SPLIT | 質問、答え、項目の流れはコアへ（記録する`EventSink`と`ConfirmService`への答え）。`POST /api/confirm/{id}`の200をサーバーに残す |
-| `extensions` | 268 | `an_answer_to_a_question_that_no_one_waits_for_is_not_found` | DELETE | `confirm_service`の単体テストが同じ規則を確かめる |
+| `extensions` | 268 | `an_answer_to_a_question_that_no_one_waits_for_is_not_found` | DELETE | `confirm_service`の単体テストが同じ規則を確かめる（2026-11-18に戻した。HTTPの404を通るテストがなくなったためである） |
 | `auto_template` | 73、91、133、150 | （4個） | MOVE | `get_or_create_journal`、`get_or_create_doc`、`set_page_property`。本物の`main.js`を使う。133と150は質問に答えるスレッドを使う |
 
 ### `journal-server/src`の単体テスト（9個）

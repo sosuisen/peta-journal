@@ -47,6 +47,30 @@ async fn items_listed_by_type_have_only_the_fields_asked_for() {
     );
 }
 
+// 1件の取得は、fieldsで頼まれたフィールドだけを項目に持つ。itemの包みは変わらない。
+#[tokio::test]
+async fn one_item_is_read_with_only_the_fields_asked_for() {
+    let page = new_doc_page("items-get-fields").await;
+    let item = fill(&page.id, &["top", "  narrow"]).await.remove(1);
+
+    let (status, resp) = get(&format!("/api/items/{}?fields=body,level", item.id)).await;
+
+    assert_eq!(status, 200);
+    assert_eq!(resp, json!({ "item": { "body": "narrow", "level": 2 } }));
+}
+
+// 型を指定しない一覧は、空である。
+#[tokio::test]
+async fn items_listed_without_a_type_are_none() {
+    let page = new_doc_page("items-no-type-list").await;
+    fill(&page.id, &["an item"]).await;
+
+    let (status, resp) = get("/api/items").await;
+
+    assert_eq!(status, 200);
+    assert_eq!(resp["items"], json!([]));
+}
+
 // ---- Items: the clients told of a change ----
 
 const CLIENT_A: &str = "0a0a0a0a-0000-4000-8000-00000000000a";

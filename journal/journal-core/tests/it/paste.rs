@@ -290,6 +290,19 @@ fn the_clients_hear_of_the_page_of_the_transclusion_pasted_into() {
     assert_ne!(told, [0]);
 }
 
+// 知らないモードの貼り付けは断られ、何も変わらない。
+#[test]
+fn a_paste_in_an_unknown_mode_is_refused() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("items-paste-mode");
+    let rows = notes.fill(&page, &["ab"]);
+
+    let pasted = notes.paste(&id(&rows[0]), "ab", 1, "X", "plain");
+
+    assert!(matches!(pasted, Err(AppError::BadRequest(_))), "{pasted:?}");
+    assert_eq!(notes.outline_of(&page), vs(&["1:ab"]));
+}
+
 // もう無い項目への貼り付けは断られる。ほかの項目の操作と同じ答えである。
 #[test]
 fn a_paste_into_an_item_that_is_gone_is_refused() {
