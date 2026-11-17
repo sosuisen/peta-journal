@@ -1,5 +1,5 @@
-using Microsoft.UI.Xaml;
 using MemoView.Services;
+using Microsoft.UI.Xaml;
 
 namespace MemoView;
 
