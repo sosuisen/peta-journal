@@ -195,6 +195,20 @@ fn a_whole_list_deletes_the_markdown_files_that_are_not_in_it() {
     assert_eq!(sync.cloud.downloaded(), strings(&[]));
 }
 
+// 全部の答えに、文字の正規化だけが違うパスで載ったファイルは、消えず、取り直しもしない。
+#[test]
+fn a_whole_list_keeps_a_file_whose_path_differs_only_in_unicode_form() {
+    // "docs/ブログ.md" with the sound marks apart (NFD), and in the letters (NFC)
+    let apart = "docs/\u{30d5}\u{3099}\u{30ed}\u{30af}\u{3099}.md";
+    let composed = "docs/\u{30d6}\u{30ed}\u{30b0}.md";
+    let sync = Fixture::new();
+    sync.download_first(&[(apart, "- a")]);
+    sync.cloud.forget_downloads();
+    sync.download_since("c1", "c2", true, vec![sync.cloud.file(composed, "- a")]);
+    assert_eq!(sync.texts(), texts(&[(apart, "- a")]));
+    assert_eq!(sync.cloud.downloaded(), strings(&[]));
+}
+
 // クラウドが全部を答えたときは、そこにないassetsのファイルも消える。
 #[test]
 fn a_whole_list_deletes_the_asset_files_that_are_not_in_it() {

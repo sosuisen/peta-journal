@@ -34,7 +34,15 @@ impl CloudRecord {
             .ok()
             .and_then(|bytes| serde_json::from_slice::<BTreeMap<String, CloudFile>>(&bytes).ok());
         let known = match read {
-            Some(files) => Known { files, kept: true },
+            // The keys are made again: the iOS shell before ADR 054 kept them as Dropbox spelled
+            // the path, composed or not
+            Some(files) => Known {
+                files: files
+                    .into_values()
+                    .map(|file| (crate::fold(&file.path), file))
+                    .collect(),
+                kept: true,
+            },
             None => Known {
                 files: BTreeMap::new(),
                 kept: false,
@@ -48,18 +56,18 @@ impl CloudRecord {
 
     /// The file as the cloud had it when the app last heard of it. `None` for a file it has not.
     pub fn get(&self, path: &str) -> Option<CloudFile> {
-        self.lock().files.get(&path.to_lowercase()).cloned()
+        self.lock().files.get(&crate::fold(path)).cloned()
     }
 
     pub fn put(&self, version: CloudFile) {
         self.lock()
             .files
-            .insert(version.path.to_lowercase(), version);
+            .insert(crate::fold(&version.path), version);
     }
 
     /// Forgets the file, or the folder with all that is in it: it has gone from the cloud.
     pub fn remove(&self, path: &str) {
-        let key = path.to_lowercase();
+        let key = crate::fold(path);
         self.lock()
             .files
             .retain(|known, _| !is_at_or_under(known, &key));
