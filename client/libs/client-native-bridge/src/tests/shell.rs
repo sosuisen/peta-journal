@@ -501,6 +501,28 @@ fn a_page_the_shell_opens_goes_into_the_history_of_the_core() {
     );
 }
 
+// シェルは、戻ると進むを、日付を渡さずに頼める。戻ると前のページが、進むと戻る前のページが、もう一度開く。
+#[test]
+fn the_shell_goes_back_and_forward_without_a_date() {
+    let screen = Screen::new();
+    screen.shell.open("/pages/first").unwrap();
+    screen.shell.open("/pages/second").unwrap();
+
+    screen.shell.back();
+    wait_until("the page before is opened again", || {
+        screen.answered.lock().unwrap().len() == 3
+    });
+    screen.shell.forward();
+
+    wait_until("the page after is opened again", || {
+        screen.answered.lock().unwrap().len() == 4
+    });
+    assert_eq!(
+        *screen.answered.lock().unwrap(),
+        ["first", "second", "first", "second"]
+    );
+}
+
 // サーバーへの要求は、コアが出した順に、1つずつ届く。前の要求が遅くても、後の要求が追い越さない。
 // 追い越すと、保存より先に結合が届いて、打った文字が消える。
 #[test]

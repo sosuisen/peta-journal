@@ -1,6 +1,5 @@
 package com.sosuisha.petajournal.shell
 
-import com.sosuisha.petajournal.core.FfiException
 import com.sosuisha.petajournal.core.PetaCore
 import com.sosuisha.petajournal.core.PetaShell
 import com.sosuisha.petajournal.types.Event
@@ -33,28 +32,6 @@ class Border(dataDir: File, markdownDir: File, onRequests: (List<Request>) -> Un
      * gone. Answers with the number of files taken in. It can take long.
      */
     fun sync(): Int = core.sync().toInt()
-
-    /**
-     * Opens what the URL names, such as `/pages/notes`, and keeps it as the last screen.
-     * Answers with the name of the page when the URL names nothing, or a page that is not
-     * there, and with `null` when it opened.
-     */
-    fun open(url: String): String? = missing { core.open(url) }
-
-    /** Opens what the URL names, and makes its page when it is not there. Answers as [open]. */
-    fun openOrMake(url: String): String? = missing { core.openOrMake(url) }
-
-    /** The URL of the screen opened last, even before the app was closed. `null` when none. */
-    fun lastScreen(): String? = core.lastScreen()
-
-    /** The page that the core could not open, as its error names it. */
-    private inline fun missing(opening: () -> Unit): String? =
-        try {
-            opening()
-            null
-        } catch (nothing: FfiException) {
-            nothing.message
-        }
 
     /** Sends an event of the shell. */
     fun send(event: Event) = core.update(event.bincodeSerialize())

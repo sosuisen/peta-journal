@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.sosuisha.petajournal.core.PetaCore
+import com.sosuisha.petajournal.core.PetaScreen
 import com.sosuisha.petajournal.core.closedAsTyped
 import com.sosuisha.petajournal.types.Event
 import com.sosuisha.petajournal.types.Request
@@ -14,7 +15,6 @@ import com.sosuisha.petajournal.types.UiOp
 import com.sosuisha.petajournal.types.UiOutput
 import com.sosuisha.petajournal.types.ViewModel
 import java.io.File
-import java.time.LocalDate
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 
@@ -27,7 +27,7 @@ import java.util.concurrent.Executors
  */
 class Shell(
     dataDir: File,
-    private val markdownDir: File,
+    markdownDir: File,
     private val onMainThread: (() -> Unit) -> Unit,
 ) : AutoCloseable {
     // The main thread keeps the requests in order. The first ones may come before the border
@@ -78,60 +78,46 @@ class Shell(
     var touched: ULong? = null
         private set
 
-    // The screen that is open
+    // The screen that is open. The core decides what opens (ADR 056)
 
     /**
      * The user touched a link to a page. [url] is the URL of the page, such as `/pages/notes`.
      * A link to a page that is not there opens nothing, and [missing] names the page: a touch
      * by mistake must not put an empty page into Dropbox (ADR 031).
      */
-    fun follow(url: String) = open(url, make = false)
+    fun follow(url: String) = told { core.follow(url) }
 
     /** The user wants the page that [missing] names: it is made and opens. */
-    fun make() {
-        val page = missing ?: return
-        open(PAGES + page, make = true)
-    }
+    fun make() = told { core.make() }
 
     /** The user wants the journal of today: it is made when it is not there, and opens. */
-    fun today() {
-        open(TODAY, make = true)
-    }
+    fun today() = told { core.today() }
 
     /**
      * Opens the screen that the app showed when it was used last. The journal of today opens
      * when there is none, as in a new app, and when its page has gone since. Without [make],
      * the journal of today is not made, and no screen opens then.
      */
-    fun restore(make: Boolean = true) {
-        val before = border.lastScreen()
-        if (before != null) open(before, make = false)
-        val none = before == null || missing != null
-        if (none && make) today()
-        unopened = none && !make
-    }
-
-    private fun open(url: String, make: Boolean) {
-        missingFile = null
-        missing = if (make) border.openOrMake(url) else border.open(url)
-        if (missing == null) unopened = false
-        show()
-    }
+    fun restore(make: Boolean = true) = told { core.restore(make) }
 
     /**
      * Back to the page that was open before, as the core keeps the history (ADR 035). Nothing
      * happens when `view.history.canGoBack` is false.
      */
-    fun back() = turn(Event.Back(date()))
+    fun back() = told { core.back() }
 
     /** Forward to the page that was open before [back]. */
-    fun forward() = turn(Event.Forward(date()))
+    fun forward() = told { core.forward() }
 
-    private fun turn(event: Event) {
-        // The pages of the history opened before, so what the last one told is gone
-        missing = null
-        missingFile = null
-        send(event)
+    /** Shows what the core told after it was asked to open a screen. */
+    private inline fun told(asking: () -> PetaScreen) {
+        // A field that loses the focus while the screen is taken down still tells of it
+        if (closed) return
+        val screen = asking()
+        missing = screen.missing
+        missingFile = screen.missingFile
+        unopened = screen.unopened
+        show()
     }
 
     // The search
@@ -214,9 +200,6 @@ class Shell(
 
     private fun now(): ULong = System.currentTimeMillis().toULong()
 
-    /** The local date, `YYYY-MM-DD`, for a journal of today that the history opens. */
-    private fun date(): String = LocalDate.now().toString()
-
     /** Makes the item a child of the item above it. */
     fun indent(itemId: String) = send(Event.Indent(itemId))
 
@@ -259,15 +242,16 @@ class Shell(
      * The file of an image of a page. [path] is its path under the Markdown folder, such as
      * `assets/picture.png`. `null` when no download has brought it yet.
      */
-    fun image(path: String): File? = findWithoutCase(markdownDir, path)?.takeIf { it.isFile }
+    fun image(path: String): File? = core.image(path)?.let(::File)
 
     /**
      * The user touched a link to a file of the assets folder. [path] is its path under the
-     * Markdown folder. Answers with the file to open, or `null` when it is not here.
+     * Markdown folder. Answers with the file to open, or `null` when it is not here: then
+     * [missingFile] names it.
      */
     fun attached(path: String): File? {
-        val file = image(path)
-        missingFile = path.takeIf { file == null }
+        val file = core.attached(path)?.let(::File)
+        missingFile = core.screen().missingFile
         return file
     }
 
@@ -320,7 +304,7 @@ class Shell(
         val done = CountDownLatch(1)
         onMainThread { sync(done::countDown) }
         done.await()
-        onMainThread { if (unopened && !closed) restore() }
+        onMainThread { told { core.openFirstScreen() } }
     }
 
     /** Lets go of the journal. A sync that runs ends first, on its own thread. */
@@ -351,11 +335,8 @@ class Shell(
         for (request in requests) {
             when (val effect = request.effect) {
                 is ShellEffect.Render -> show()
-                is ShellEffect.Navigate -> {
-                    // The core names what it wants open, as after a search result was chosen.
-                    // The user asked for it, so a page that is not there is made
-                    open(effect.value.url, make = true)
-                }
+                // The core names what it wants open, as after a search result was chosen
+                is ShellEffect.Navigate -> told { core.navigated(effect.value.url) }
                 is ShellEffect.Ui -> ask(request.id, effect.value)
             }
         }
@@ -376,14 +357,6 @@ class Shell(
             // The others wait for no answer, such as the title to set and the item to scroll to
             else -> Unit
         }
-    }
-
-    companion object {
-        /** What the URL of a page starts with, before the path of the page. */
-        const val PAGES = "/pages/"
-
-        /** The URL of the journal of today, whatever the date is. */
-        const val TODAY = "/today"
     }
 }
 

@@ -7,11 +7,6 @@ import PetaTypes
 /// what the user did. All of it runs on the main thread, but the taking in of files.
 @MainActor
 public final class Shell: ObservableObject {
-    /// What the URL of a page starts with, before the path of the page.
-    public static let pages = "/pages/"
-    /// The URL of the journal of today, whatever the date is.
-    public static let todayUrl = "/today"
-
     @Published public private(set) var view: ViewModel
     /// True while files are taken in. The pages of an earlier sync can be read meanwhile.
     @Published public private(set) var syncing = false
@@ -30,7 +25,6 @@ public final class Shell: ObservableObject {
     /// the screen puts the cursor at the end instead, where the writing goes on.
     public private(set) var touched: UInt64?
 
-    private let markdownDir: URL
     private let border: Border
     /// Takes in the files, one sync after the other, and closes the core after the last.
     private let worker = DispatchQueue(label: "peta-journal.take-in")
@@ -40,7 +34,6 @@ public final class Shell: ObservableObject {
     /// and `markdownDir` is the folder the files from Dropbox are put in. The core tells the
     /// sync when a page changed (ADR 055). Throws when the journal cannot be opened.
     public init(dataDir: URL, markdownDir: URL) throws {
-        self.markdownDir = markdownDir
         let inbox = Inbox()
         // The main queue keeps the requests in order. The first ones may come before the shell
         // is there, and are still handled after this initializer
@@ -60,60 +53,47 @@ public final class Shell: ObservableObject {
     /// `/pages/notes`. A link to a page that is not there opens nothing, and `missing` names
     /// the page: a touch by mistake must not put an empty page into Dropbox (ADR 031).
     public func follow(_ url: String) {
-        open(url, make: false)
+        told { $0.follow(url: url) }
     }
 
     /// The user wants the page that `missing` names: it is made and opens.
     public func make() {
-        guard let page = missing else { return }
-        open(Shell.pages + page, make: true)
+        told { $0.make() }
     }
 
     /// The user wants the journal of today: it is made when it is not there, and opens.
     public func today() {
-        open(Shell.todayUrl, make: true)
+        told { $0.today() }
     }
 
     /// Opens the screen that the app showed when it was used last. The journal of today opens
     /// when there is none, as in a new app, and when its page has gone since. Without `make`,
     /// the journal of today is not made, and no screen opens then.
     public func restore(make: Bool = true) {
-        let before = border.lastScreen()
-        if let before { open(before, make: false) }
-        let none = before == nil || missing != nil
-        if none, make { today() }
-        unopened = none && !make
-    }
-
-    private func open(_ url: String, make: Bool) {
-        missingFile = nil
-        missing = make ? border.openOrMake(url) : border.open(url)
-        if missing == nil { unopened = false }
-        show()
+        told { $0.restore(make: make) }
     }
 
     /// Back to the page that was open before, as the core keeps the history (ADR 035). Nothing
     /// happens when `view.history.canGoBack` is false.
     public func back() {
-        turn(.back(today: Shell.date()))
+        told { $0.back() }
     }
 
     /// Forward to the page that was open before `back`.
     public func forward() {
-        turn(.forward(today: Shell.date()))
+        told { $0.forward() }
     }
 
-    private func turn(_ event: Event) {
-        // The pages of the history opened before, so what the last one told is gone
-        missing = nil
-        missingFile = nil
-        send(event)
-    }
-
-    /// The local date, as `YYYY-MM-DD`.
-    private static func date() -> String {
-        let day = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-        return String(format: "%04d-%02d-%02d", day.year ?? 0, day.month ?? 0, day.day ?? 0)
+    /// Shows what the core told after it was asked to open a screen. The core decides what
+    /// opens (ADR 056).
+    private func told(_ asking: (PetaCore) -> PetaScreen) {
+        // A field that loses the focus while the screen is taken down still tells of it
+        if closed { return }
+        let screen = asking(core)
+        missing = screen.missing
+        missingFile = screen.missingFile
+        unopened = screen.unopened
+        show()
     }
 
     // MARK: - Searching
@@ -259,17 +239,15 @@ public final class Shell: ObservableObject {
     /// The file of an image of a page. `path` is its path under the Markdown folder, such as
     /// `assets/picture.png`. `nil` when no download has brought it yet.
     public func image(_ path: String) -> URL? {
-        guard let found = findWithoutCase(root: markdownDir, path: path) else { return nil }
-        var folder: ObjCBool = false
-        let there = FileManager.default.fileExists(atPath: found.path, isDirectory: &folder)
-        return there && !folder.boolValue ? found : nil
+        core.image(path: path).map { URL(fileURLWithPath: $0) }
     }
 
     /// The user touched a link to a file of the assets folder. `path` is its path under the
-    /// Markdown folder. Answers with the file to open, or `nil` when it is not here.
+    /// Markdown folder. Answers with the file to open, or `nil` when it is not here: then
+    /// `missingFile` names it.
     public func attached(_ path: String) -> URL? {
-        let file = image(path)
-        missingFile = file == nil ? path : nil
+        let file = core.attached(path: path).map { URL(fileURLWithPath: $0) }
+        missingFile = core.screen().missingFile
         return file
     }
 
@@ -322,7 +300,7 @@ public final class Shell: ObservableObject {
         }
         done.wait()
         DispatchQueue.main.async {
-            MainActor.assumeIsolated { if self.unopened, !self.closed { self.restore() } }
+            MainActor.assumeIsolated { self.told { $0.openFirstScreen() } }
         }
     }
 
@@ -360,9 +338,8 @@ public final class Shell: ObservableObject {
             case .render:
                 show()
             case .navigate(let op):
-                // The core names what it wants open, as after a search result was chosen. The
-                // user asked for it, so a page that is not there is made
-                open(op.url, make: true)
+                // The core names what it wants open, as after a search result was chosen
+                told { $0.navigated(url: op.url) }
             case .ui(let op):
                 ask(request.id, op)
             }
@@ -412,18 +389,4 @@ public struct Question: Equatable {
 /// Where the requests of the core find the shell, which is made after the core.
 private final class Inbox: @unchecked Sendable {
     weak var shell: Shell?
-}
-
-/// The file or folder at the path under `root`, however its name is spelled there. The path
-/// that a page writes for its image may differ from it in case. Empty parts of the path are
-/// skipped, as the sync of the core does (ADR 054).
-func findWithoutCase(root: URL, path: String) -> URL? {
-    path.split(separator: "/").reduce(root as URL?) { dir, name in
-        dir.flatMap { child(of: $0, named: String(name)) }
-    }
-}
-
-private func child(of dir: URL, named name: String) -> URL? {
-    let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
-    return names.first { $0.caseInsensitiveCompare(name) == .orderedSame }.map { dir.appendingPathComponent($0) }
 }
