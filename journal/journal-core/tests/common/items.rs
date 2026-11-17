@@ -124,6 +124,29 @@ impl Core {
         (source_page, source, page, own)
     }
 
+    /// A source page with the given rows, and a page whose only item transcludes the first
+    /// row. Gives both pages, the rows of the source page and the transcluding item.
+    pub fn transcluded_rows(
+        &self,
+        name: &str,
+        source_rows: &[&str],
+    ) -> (String, Vec<Value>, String, String) {
+        let source_page = self.new_doc_page(&format!("{name}-source"));
+        let source = self.fill(&source_page, source_rows);
+        let page = self.new_doc_page(name);
+        let host = id(&self.fill(&page, &["placeholder"])[0]);
+        self.transclude(&host, &id(&source[0]));
+        (source_page, source, page, host)
+    }
+
+    /// The indexes of the items of a page, in order
+    pub fn idxs_of(&self, page_id: &str) -> Vec<String> {
+        self.items(page_id)
+            .iter()
+            .map(|i| i["idx"].as_str().unwrap().to_string())
+            .collect()
+    }
+
     /// Makes the item show the source item, and gives the item of the answer
     pub fn transclude(&self, item_id: &str, source_id: &str) -> Value {
         let set = self

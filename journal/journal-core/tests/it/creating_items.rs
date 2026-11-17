@@ -9,14 +9,6 @@ use crate::common::pages::by_the_client;
 use crate::common::Core;
 
 impl Core {
-    /// The indexes of the items of a page, in order
-    fn idxs_of(&self, page_id: &str) -> Vec<String> {
-        self.items(page_id)
-            .iter()
-            .map(|i| i["idx"].as_str().unwrap().to_string())
-            .collect()
-    }
-
     /// Writes the indexes straight into the database, as a database from before would have
     /// them
     fn set_indexes(&self, rows: &[Value], indexes: &[&str]) {
