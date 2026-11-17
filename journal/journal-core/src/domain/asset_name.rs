@@ -56,6 +56,27 @@ mod tests {
         )])
     }
 
+    fn id() -> Hmtid {
+        Hmtid::parse("20260203040506_ABCDEFG").unwrap()
+    }
+
+    // 送ったファイルは、HMTIDと元の拡張子でできた名前で保存される。拡張子は小文字になる。
+    #[test]
+    fn an_upload_is_saved_under_an_hmtid_with_the_extension_of_its_name() {
+        assert_eq!(
+            saved_name(&id(), "構成図 v2.PNG"),
+            "20260203040506_ABCDEFG.png"
+        );
+    }
+
+    // 拡張子のない名前と、拡張子がASCIIの英数字でない名前のファイルは、HMTIDだけの名前で保存される。
+    #[test]
+    fn an_upload_without_a_plain_extension_is_saved_under_the_hmtid_alone() {
+        for name in ["README", "memo.下書き", "notes."] {
+            assert_eq!(saved_name(&id(), name), "20260203040506_ABCDEFG", "{name}");
+        }
+    }
+
     // 画像のリンク先が、新しい名前に変わる。リンクの文字は変わらない。
     #[test]
     fn the_link_to_a_file_goes_to_its_new_name_and_keeps_its_text() {

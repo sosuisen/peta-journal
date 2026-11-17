@@ -268,12 +268,6 @@ pub async fn fill(page_id: &str, lines: &[&str]) -> Vec<ItemRow> {
     items(page_id).await
 }
 
-pub async fn update_item(item_id: &str, changes: Value) -> ItemRow {
-    let (status, resp) = put(&format!("/api/items/{item_id}"), changes).await;
-    assert_eq!(status, 200, "{resp}");
-    ItemRow::of(&resp["item"])
-}
-
 pub fn strings(v: &Value) -> Vec<String> {
     v.as_array()
         .map(|a| {

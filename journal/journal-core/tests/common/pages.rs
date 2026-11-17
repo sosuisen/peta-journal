@@ -80,6 +80,14 @@ impl Core {
             .map(|p| p["id"].as_str().unwrap().to_string())
     }
 
+    /// The atlas page of the folder, made as the app makes it. Gives its id.
+    pub fn atlas_of(&self, dir: &str) -> String {
+        self.open_doc_in("index_atlas", dir)["page"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
     /// A new document page of the title; it starts with one empty item. Gives its id.
     pub fn new_doc_page(&self, title: &str) -> String {
         self.open_doc(title)["page"]["id"]

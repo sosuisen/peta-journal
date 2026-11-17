@@ -61,14 +61,6 @@ impl Core {
             .demote_page(page_id, overwrite, &by_the_client())
     }
 
-    /// The atlas page of the folder, made as the app makes it. Gives its id.
-    fn atlas_of(&self, dir: &str) -> String {
-        self.open_doc_in("index_atlas", dir)["page"]["id"]
-            .as_str()
-            .unwrap()
-            .to_string()
-    }
-
     /// Whether the page is there
     fn is_there(&self, page_id: &str) -> bool {
         match self.core.journal.get_page(page_id) {
