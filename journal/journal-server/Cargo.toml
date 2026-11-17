@@ -49,7 +49,6 @@ regex = "1"
 parking_lot = "0.12"
 
 [dev-dependencies]
-property-names = { path = "../property-names" }
 reqwest = { version = "0.12", features = ["json", "multipart"] }
 # The MCP tests talk to the server as an MCP client does
 rmcp = { version = "0.9", features = ["client", "transport-streamable-http-client-reqwest"] }

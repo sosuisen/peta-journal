@@ -11,14 +11,14 @@ use journal_core::infrastructure::export::import_service::Outcome;
 use journal_core::infrastructure::persistence::db::now_millis;
 use regex::Regex;
 
-use super::devices::{two_devices, Device, ATLAS};
+use crate::common::devices::{two_devices, Device, ATLAS};
 
 const PAGE: &str = "docs/d/a.md";
 
 impl Device {
     /// Adds an item at the end of the page, as a new line in the app
     fn add(&self, page_id: &Hmtid, body: &str) -> Hmtid {
-        self.state
+        self.core
             .item_service
             .create_item(page_id, &ItemPosition::Last, 1, body, None)
             .unwrap()
@@ -26,14 +26,14 @@ impl Device {
     }
 
     fn write(&self, item_id: &Hmtid, body: &str) {
-        self.state
+        self.core
             .item_service
             .update_item(item_id, Some(body), None, None)
             .unwrap();
     }
 
     fn delete(&self, item_id: &Hmtid) {
-        self.state.item_service.delete_item(item_id).unwrap();
+        self.core.item_service.delete_item(item_id).unwrap();
     }
 
     /// Gives the file a modification time, as the file system does when it writes the file
@@ -46,11 +46,11 @@ impl Device {
     }
 
     fn item_idx(&self, item_id: &Hmtid) -> String {
-        self.state.item_service.get_item_by_id(item_id).unwrap().idx
+        self.core.item_service.get_item_by_id(item_id).unwrap().idx
     }
 
     fn indexes(&self, page_id: &Hmtid) -> Vec<String> {
-        self.state
+        self.core
             .page_service
             .get_page_items(page_id)
             .unwrap()
@@ -61,7 +61,7 @@ impl Device {
     }
 
     fn bodies(&self, page_id: &Hmtid) -> Vec<String> {
-        self.state
+        self.core
             .page_service
             .get_page_items(page_id)
             .unwrap()
@@ -217,7 +217,7 @@ fn a_key_of_an_item_that_ends_with_list_is_taken_in_as_a_list_without_its_defini
     let dir = tempfile::tempdir().unwrap();
     let (a, b, _, x, _) = two_devices_with_items(dir.path());
     a.ensure_defined("author_list");
-    a.state
+    a.core
         .item_service
         .set_property(&x, "author_list", "list", "p,q")
         .unwrap();
@@ -226,7 +226,7 @@ fn a_key_of_an_item_that_ends_with_list_is_taken_in_as_a_list_without_its_defini
     b.receive(&a, PAGE);
 
     let lists = b
-        .state
+        .core
         .properties
         .find_list_by_targets("item", &[x.as_str().to_string()])
         .unwrap();
@@ -238,15 +238,15 @@ fn a_key_of_an_item_that_ends_with_list_is_taken_in_as_a_list_without_its_defini
 fn a_value_of_a_system_key_that_does_not_fit_stays_out_and_one_of_a_user_key_comes_in() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b, _, x, _) = two_devices_with_items(dir.path());
-    a.state
+    a.core
         .properties
         .insert_definition("effort_n", "number", false)
         .unwrap();
-    a.state
+    a.core
         .item_service
         .set_property(&x, "zoom", "number", "1.5")
         .unwrap();
-    a.state
+    a.core
         .item_service
         .set_property(&x, "effort_n", "number", "3")
         .unwrap();
@@ -261,7 +261,7 @@ fn a_value_of_a_system_key_that_does_not_fit_stays_out_and_one_of_a_user_key_com
     a.sync(PAGE);
 
     let scalars = a
-        .state
+        .core
         .properties
         .find_scalar_by_targets("item", &[x.as_str().to_string()])
         .unwrap();
@@ -491,7 +491,7 @@ fn an_item_added_by_hand_with_an_old_date_and_its_own_id_is_taken_in() {
 fn an_item_moved_after_the_file_was_written_keeps_its_place_on_both_devices() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b, page, x, y) = two_devices_with_items(dir.path());
-    b.state
+    b.core
         .item_service
         .move_items(std::slice::from_ref(&y), &page, &ItemPosition::First, None)
         .unwrap();
@@ -528,14 +528,14 @@ fn a_kept_item_stays_in_its_place_when_the_file_takes_the_index_of_another() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b, page, x, y) = two_devices_with_items(dir.path());
     let file = a.file(PAGE);
-    let items = a.state.page_service.get_page_items(&page).unwrap();
+    let items = a.core.page_service.get_page_items(&page).unwrap();
     let idx_of = |id: &Hmtid| items.iter().find(|i| i.id == *id).unwrap().idx.clone();
     let (idx_x, idx_y) = (idx_of(&x), idx_of(&y));
     let swapped = file
         .replace(&format!("idx=\"{idx_x}\""), "idx=\"swap\"")
         .replace(&format!("idx=\"{idx_y}\""), &format!("idx=\"{idx_x}\""))
         .replace("idx=\"swap\"", &format!("idx=\"{idx_y}\""));
-    a.state
+    a.core
         .item_service
         .create_item(&page, &ItemPosition::First, 1, "z", None)
         .unwrap();
@@ -556,9 +556,9 @@ fn an_item_with_the_same_content_takes_the_later_date_of_the_file() {
 
     b.receive(&a, PAGE);
 
-    let written = b.state.export.serialize_to_outline_markdown(
-        &b.state.pages.find_by_id(&page).unwrap().unwrap(),
-        &b.state.page_service.get_page_items(&page).unwrap(),
+    let written = b.core.export.serialize_to_outline_markdown(
+        &b.core.pages.find_by_id(&page).unwrap().unwrap(),
+        &b.core.page_service.get_page_items(&page).unwrap(),
     );
     assert_eq!(modified_of(&written.unwrap(), &x), modified_of(&from_a, &x));
 }
@@ -591,7 +591,7 @@ fn an_item_moved_to_another_page_does_not_come_back_from_an_older_file() {
     let other = b.doc("other");
     a.write(&x, "x from A");
     a.export();
-    b.state
+    b.core
         .item_service
         .move_items(std::slice::from_ref(&y), &other, &ItemPosition::Last, None)
         .unwrap();
@@ -639,14 +639,14 @@ fn an_older_file_leaves_the_tags_of_the_page() {
     let (a, b, page, x, _) = two_devices_with_items(dir.path());
     a.write(&x, "x from A");
     a.export();
-    b.state
+    b.core
         .page_service
         .set_property(&page, "tags", "tags", "kept")
         .unwrap();
 
     b.receive(&a, PAGE);
 
-    assert_eq!(b.state.page_service.page_tags(&page).unwrap(), ["kept"]);
+    assert_eq!(b.core.page_service.page_tags(&page).unwrap(), ["kept"]);
 }
 
 // 手で足したページのタグは、ページの日付を変えずに書いたファイルからも取り込まれる。
@@ -661,7 +661,7 @@ fn a_tag_added_by_hand_is_taken_in_and_gives_the_page_a_new_date() {
 
     a.sync(PAGE);
 
-    assert_eq!(a.state.page_service.page_tags(&page).unwrap(), ["hand"]);
+    assert_eq!(a.core.page_service.page_tags(&page).unwrap(), ["hand"]);
     assert_ne!(page_date_of(&a.file(PAGE)), page_date_of(&before));
 }
 
@@ -701,7 +701,7 @@ fn a_line_with_the_id_of_an_item_of_another_page_leaves_that_item_alone() {
 fn a_line_without_transclude_stays_a_transclusion_while_its_body_is_the_same() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b, _page, x, y) = two_devices_with_items(dir.path());
-    a.state.item_service.set_transclusion(&x, &y).unwrap();
+    a.core.item_service.set_transclusion(&x, &y).unwrap();
     let file = a.file(PAGE);
     let attr = format!(" transclude=\"{y}\"");
     assert!(file.contains(&attr));
@@ -709,7 +709,7 @@ fn a_line_without_transclude_stays_a_transclusion_while_its_body_is_the_same() {
 
     a.sync(PAGE);
 
-    let item = a.state.item_service.get_item_by_id(&x).unwrap();
+    let item = a.core.item_service.get_item_by_id(&x).unwrap();
     assert_eq!(item.transclude_item_id, Some(y));
 }
 
@@ -718,7 +718,7 @@ fn a_line_without_transclude_stays_a_transclusion_while_its_body_is_the_same() {
 fn a_line_without_transclude_and_with_a_new_body_is_no_transclusion() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b, _page, x, y) = two_devices_with_items(dir.path());
-    a.state.item_service.set_transclusion(&x, &y).unwrap();
+    a.core.item_service.set_transclusion(&x, &y).unwrap();
     let file = a.file(PAGE);
     let attr = format!(" transclude=\"{y}\"");
     let line = file.lines().find(|l| l.contains(&attr)).unwrap();
@@ -727,7 +727,7 @@ fn a_line_without_transclude_and_with_a_new_body_is_no_transclusion() {
 
     a.sync(PAGE);
 
-    let item = a.state.item_service.get_item_by_id(&x).unwrap();
+    let item = a.core.item_service.get_item_by_id(&x).unwrap();
     assert_eq!(item.transclude_item_id, None);
     assert!(item.body.starts_with("by hand"), "{}", item.body);
 }
@@ -762,9 +762,9 @@ fn a_file_without_item_dates_counts_by_the_date_of_the_page() {
     assert_eq!(b.sync(PAGE), Outcome::Imported);
 
     assert_eq!(b.bodies(&page), ["x from A", "y"]);
-    let written = b.state.export.serialize_to_outline_markdown(
-        &b.state.pages.find_by_id(&page).unwrap().unwrap(),
-        &b.state.page_service.get_page_items(&page).unwrap(),
+    let written = b.core.export.serialize_to_outline_markdown(
+        &b.core.pages.find_by_id(&page).unwrap().unwrap(),
+        &b.core.page_service.get_page_items(&page).unwrap(),
     );
     let written = written.unwrap();
     // The changed item takes the date of the file, and the other item keeps its own
@@ -792,7 +792,7 @@ impl Device {
     }
 
     fn empty_items(&self, page_id: &Hmtid) -> usize {
-        let items = self.state.page_service.get_page_items(page_id).unwrap();
+        let items = self.core.page_service.get_page_items(page_id).unwrap();
         items.iter().filter(|i| i.body.is_empty()).count()
     }
 
@@ -946,7 +946,7 @@ fn an_edit_of_a_copy_that_loses_is_kept_as_a_conflict_backup() {
 fn the_tags_of_a_copy_are_added_to_the_tags_of_the_page() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b, page, _, _) = two_devices_with_items(dir.path());
-    a.state
+    a.core
         .page_service
         .replace_page_tags(&page, &["here".to_string()])
         .unwrap();
@@ -954,7 +954,7 @@ fn the_tags_of_a_copy_are_added_to_the_tags_of_the_page() {
 
     a.take_copy(&copy);
 
-    let mut tags = a.state.page_service.page_tags(&page).unwrap();
+    let mut tags = a.core.page_service.page_tags(&page).unwrap();
     tags.sort();
     assert_eq!(tags, ["here", "there"]);
     assert!(!a.has_copy());
@@ -971,7 +971,7 @@ fn a_version_of_the_same_page_made_on_the_other_device_adds_items_and_no_empty_l
     a.export();
     let empty_before = a.empty_items(&page);
     let made_on_b = b.doc("n");
-    b.state
+    b.core
         .item_service
         .create_item(&made_on_b, &ItemPosition::Last, 1, "", None)
         .unwrap();
@@ -1024,7 +1024,7 @@ fn the_scan_takes_in_a_copy_found_in_the_folder() {
     let copy = b.file(PAGE);
     std::fs::write(a.root.join(COPY), copy).unwrap();
 
-    a.state.reconcile.scan();
+    a.core.reconcile.scan();
 
     assert_eq!(a.bodies(&page), ["x", "y from B"]);
     assert!(a.file(PAGE).contains("y from B"));
@@ -1047,19 +1047,19 @@ fn beginning_and_ending_a_task_move_the_date_of_the_item_forward() {
     let (a, _b, _, x, _) = two_devices_with_items(dir.path());
     let date_of = |device: &Device| {
         device
-            .state
+            .core
             .item_service
             .get_item_by_id(&x)
             .unwrap()
             .modified_date
     };
-    a.state.item_service.cycle_task(&x).unwrap();
+    a.core.item_service.cycle_task(&x).unwrap();
     let as_task = date_of(&a);
 
     for _ in ["begin", "end"] {
         std::thread::sleep(std::time::Duration::from_millis(5));
         let before = date_of(&a);
-        let item = a.state.item_service.cycle_task(&x).unwrap();
+        let item = a.core.item_service.cycle_task(&x).unwrap();
         assert!(date_of(&a) > before);
         assert_eq!(item.modified_date, date_of(&a));
     }
@@ -1071,12 +1071,12 @@ fn beginning_and_ending_a_task_move_the_date_of_the_item_forward() {
 fn a_task_cycled_twice_on_the_other_device_arrives_without_a_conflict() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b, _, x, _) = two_devices_with_items(dir.path());
-    a.state.item_service.cycle_task(&x).unwrap();
+    a.core.item_service.cycle_task(&x).unwrap();
     assert_eq!(b.receive(&a, PAGE), Outcome::Imported);
 
     for _ in ["begin", "end"] {
         std::thread::sleep(std::time::Duration::from_millis(5));
-        a.state.item_service.cycle_task(&x).unwrap();
+        a.core.item_service.cycle_task(&x).unwrap();
         assert_eq!(b.receive(&a, PAGE), Outcome::Imported);
         assert_eq!(b.file(PAGE), a.file(PAGE));
     }

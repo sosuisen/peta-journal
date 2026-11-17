@@ -1627,7 +1627,6 @@ dependencies = [
  "notify",
  "open",
  "parking_lot",
- "property-names",
  "regex",
  "reqwest",
  "rmcp",

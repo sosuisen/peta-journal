@@ -7,9 +7,7 @@ mod asset_names;
 mod client_id;
 #[path = "../common/mod.rs"]
 mod common;
-mod devices;
 mod frontend;
-mod item_merge;
 mod page_files;
 mod routes;
 mod watch;
