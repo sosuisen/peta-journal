@@ -9,10 +9,16 @@ mod atlas_sync;
 #[cfg(feature = "extensions")]
 mod auto_template;
 mod changes_told;
+mod creating_items;
 mod definitions_sync;
 mod export_queue;
 #[cfg(feature = "extensions")]
 mod extensions;
 mod find_doc;
 mod item_merge;
+mod moving_items;
 mod page_properties;
+mod pages;
+mod stash;
+mod tasks;
+mod updating_items;

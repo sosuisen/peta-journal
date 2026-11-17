@@ -7,17 +7,6 @@ use super::pages::by_the_client;
 use super::Core;
 
 impl Core {
-    /// Opens the journal of the name, or makes it, and gives the answer.
-    pub fn open_journal(&self, name: &str) -> Value {
-        let answer = self.core.journal.get_or_create_journal(name).unwrap();
-        serde_json::to_value(answer).unwrap()
-    }
-
-    /// The items of the page as `level:body`.
-    pub fn outline_of(&self, page_id: &str) -> Vec<String> {
-        self.items(page_id).iter().map(outline).collect()
-    }
-
     /// Sets the tags of the page, as the client does. The extensions of a tag added run
     /// afterwards on a thread of their own.
     pub fn set_tags(&self, page_id: &str, tags: &str) {
@@ -62,9 +51,4 @@ impl Core {
             m["type"] == "pagesUpdated" && m["pageId"] == page_id && m["source"] == "extension"
         })
     }
-}
-
-/// An item as `level:body`.
-pub fn outline(item: &Value) -> String {
-    format!("{}:{}", item["level"], item["body"].as_str().unwrap())
 }
