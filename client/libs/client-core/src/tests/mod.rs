@@ -19,6 +19,7 @@ mod stash;
 mod task;
 
 // まとめて扱う
+mod drag;
 mod paste;
 mod selection;
 
