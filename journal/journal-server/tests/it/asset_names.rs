@@ -217,19 +217,6 @@ const NEW_NAME: &str = "20260203040506_ABCDEFG.png";
 mod apply {
     use super::*;
 
-    // ファイルは、中身はそのままで、新しい名前に変わる。
-    #[test]
-    fn the_file_moves_to_its_new_name_with_its_content() {
-        let notes = Notes::new();
-        notes.asset("image.png", "the picture");
-
-        notes.rename("image.png", NEW_NAME);
-
-        assert!(!notes.asset_path("image.png").exists());
-        let moved = std::fs::read_to_string(notes.asset_path(NEW_NAME)).unwrap();
-        assert_eq!(moved, "the picture");
-    }
-
     // 項目の本文のリンクは、新しい名前を指す。項目とページの更新日時は変わらない。
     #[test]
     fn the_link_in_an_item_goes_to_the_new_name_and_the_modified_dates_stay() {

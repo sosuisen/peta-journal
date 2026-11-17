@@ -53,8 +53,8 @@ AndroidとiOSのアプリが、PCと同じ中身を組み込んで使うため�
 |---|---|
 | MOVE | 336 |
 | SPLIT | 10 |
-| KEEP-SERVER | 70 |
-| DELETE | 30 |
+| KEEP-SERVER | 71 |
+| DELETE | 29 |
 
 調べてわかった前提は、次のとおりである。
 
@@ -201,7 +201,7 @@ tantivyの索引を開くのが1回で済み、速い。
   テストごとに`JournalCore`を作るので、名前をずらす工夫とロックが要らない。
 - コアの誤りと、HTTPの層の誤りが、別のテストで落ちる。
 - `journal-core`のミュータントを、`journal-core`のテストだけで確かめられる見込みがある。
-- テストが30個減る。
+- テストが29個減る。
 
 ### 悪い結果
 
@@ -342,7 +342,7 @@ SPLIT、KEEP-SERVER、DELETEのテストは、1つずつ書く。
 | `asset_names.rs` | 12 | サーバーのコマンド`asset_names`の`plan`、`apply`、`run` |
 | `frontend.rs` | 10 | 静的ファイルの配信、SPAのfallback、ルートの優先、`Cache-Control` |
 | `watch.rs` | 9 | `MarkdownFolderWatcher`のdebounce、再試行、設定の変更、`settings/`の監視 |
-| `page_files.rs` | 2 | 59と73。サーバーのコマンド`page_files` |
+| `page_files.rs` | 3 | 45、59、73。サーバーのコマンド`page_files`。45は、DELETEとして73に合わせる予定だったが、73は止めたサーバーで動き、項目が変わらないことを確かめられないので残す（2026-11-18に直した） |
 | `client_id.rs` | 5 | RESTのmiddlewareとCORS |
 
 #### DELETE
@@ -352,7 +352,6 @@ SPLIT、KEEP-SERVER、DELETEのテストは、1つずつ書く。
 | `page_properties.rs` | 117 | `a_key_with_no_definition_is_defined_with_the_type_its_name_gives` | `definitions_sync.rs`の408と、`page_properties.rs`の49が同じことを確かめる |
 | `page_properties.rs` | 229 | `a_key_that_ends_with_list_is_taken_in_as_a_list_on_a_device_without_its_definition` | 212の最初の手順と同じ。212にB側の確認を足す |
 | `asset_names.rs` | 222 | `apply::the_file_moves_to_its_new_name_with_its_content` | コマンドの361と381が、ファイルの名前が変わることを確かめる |
-| `page_files.rs` | 45 | `a_file_without_the_modified_dates_of_its_items_gets_them` | 73が同じ状況を確かめる。73に「項目は変わらない」の確認を足す |
 
 ### `tests/mcp/main.rs`（23個）
 

@@ -14,6 +14,8 @@ use journal_core::journal::FolderWatch;
 /// with it.
 pub struct Core {
     pub core: JournalCore,
+    /// The markdown folder
+    pub root: PathBuf,
     _dir: tempfile::TempDir,
 }
 
@@ -44,13 +46,17 @@ impl Core {
             },
         )
         .unwrap();
-        core.config.set_markdown_dir(&path_text(root));
+        core.config.set_markdown_dir(&path_text(&root));
         core.start_up();
-        Core { core, _dir: dir }
+        Core {
+            core,
+            root,
+            _dir: dir,
+        }
     }
 }
 
-fn path_text(path: PathBuf) -> String {
+fn path_text(path: &std::path::Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
