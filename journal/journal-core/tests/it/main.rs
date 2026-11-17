@@ -5,4 +5,5 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod export_queue;
 mod find_doc;

@@ -771,3 +771,26 @@ fn replace_list_in(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::id_generator::IdGenerator;
+    use crate::infrastructure::persistence::database_initializer::initialize;
+
+    // 定義のないキーに値を書くことは拒否される。
+    #[test]
+    fn a_value_of_a_key_with_no_definition_is_refused() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let db = Arc::new(Db::open(&dir.path().join("journal.db")).unwrap());
+        initialize(&db, &IdGenerator::new()).unwrap();
+        let properties = PropertyRepository::new(Arc::clone(&db));
+        let conn = db.conn().unwrap();
+
+        assert!(PropertyRepository::write_scalar_in(&conn, "item", "x", "undefined", "1").is_err());
+        properties
+            .insert_definition("defined", "text", true)
+            .unwrap();
+        assert!(PropertyRepository::write_scalar_in(&conn, "item", "x", "defined", "2").is_ok());
+    }
+}
