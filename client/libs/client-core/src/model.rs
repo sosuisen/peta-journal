@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// An item as the server returns it (`presentation/dto.rs` in journal/journal-server).
+/// An item as the server returns it (`ItemDto` in `journal-core/src/dto.rs`).
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -216,8 +216,6 @@ pub struct Page {
     pub created_date: i64,
     #[serde(default)]
     pub modified_date: i64,
-    #[serde(default)]
-    pub tags: Vec<String>,
     /// Property values are strings or lists of strings; empty in page lists.
     #[serde(default)]
     pub properties: BTreeMap<String, PropertyValue>,
@@ -279,7 +277,7 @@ pub struct SearchResult {
     #[serde(default)]
     pub snippet: String,
     #[serde(default)]
-    pub score: f64,
+    pub score: f32,
 }
 
 /// Where an item goes: first on the page, last, or after another item.

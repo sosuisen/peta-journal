@@ -6,11 +6,14 @@ use std::time::Duration;
 
 use client_api_embedded::{EmbeddedJournal, EventQueue};
 use client_core::effects::{ApiOp, ApiOutput, ApiResult, AtlasChange, SseEvent};
-use client_core::model::{BatchOp, Item, ItemPosition, PageWithItems, PasteMode};
+use client_core::model::{
+    BacklinkEntry, BatchOp, Batched, Item, ItemPosition, JournalBefore, Page, PageWithItems,
+    PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split, Stashed,
+};
 use client_core::rest::ClientId;
 use journal_core::assembly::{CoreHost, CoreSettings, JournalCore};
 use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
-use journal_core::journal::FolderWatch;
+use journal_core::journal::{ChangedBy, FolderWatch};
 use serde_json::{json, Value};
 
 /// An app that has no folder to watch and asks nothing about missing files.
@@ -869,4 +872,248 @@ fn what_the_server_does_with_its_machine_is_not_done_inside_the_app() {
     ] {
         assert!(f.call(op.clone()).is_err(), "{op:?}");
     }
+}
+
+// ---- the shapes of the answers ----
+//
+// The journal writes its answers with its own types and the frontend core reads them with
+// others. The core's types take a missing field as empty, so a field that one side renames
+// would go unseen. These tests read each answer into the core's type, write it back, and
+// name every field that is not the same on both sides.
+
+/// The differences between what the journal wrote and what the core holds of it, by field.
+fn differences(journal: &Value, core: &Value, path: &str, found: &mut Vec<String>) {
+    match (journal, core) {
+        (Value::Object(journal), Value::Object(core)) => {
+            for (key, value) in journal {
+                let at = format!("{path}.{key}");
+                match core.get(key) {
+                    Some(held) => differences(value, held, &at, found),
+                    None => found.push(format!("{at}: the core does not read it")),
+                }
+            }
+            // A field that may be absent: the journal leaves it out and the core has none
+            let made_up = core
+                .iter()
+                .filter(|(key, held)| !journal.contains_key(*key) && !held.is_null());
+            for (key, _) in made_up {
+                found.push(format!("{path}.{key}: the journal does not write it"));
+            }
+        }
+        (Value::Array(journal), Value::Array(core)) => {
+            if journal.len() != core.len() {
+                found.push(format!("{path}: the core holds another number of them"));
+            }
+            for (value, held) in journal.iter().zip(core) {
+                differences(value, held, &format!("{path}[]"), found);
+            }
+        }
+        _ if journal != core => found.push(format!("{path}: the core holds another value")),
+        _ => {}
+    }
+}
+
+/// What is lost or made up when the core reads this answer of the journal as a `T`.
+fn drift<T: serde::de::DeserializeOwned + serde::Serialize>(answer: &Value) -> Vec<String> {
+    let read: T = serde_json::from_value(answer.clone()).expect("the core reads the answer");
+    let mut found = Vec::new();
+    differences(answer, &serde_json::to_value(read).unwrap(), "", &mut found);
+    found.sort();
+    found.dedup();
+    found
+}
+
+/// The JSON of an answer of the journal.
+fn written(answer: impl serde::Serialize) -> Value {
+    serde_json::to_value(answer).unwrap()
+}
+
+/// The two fields of an item that the frontend core has no use for.
+fn unread_of_items(path: &str) -> Vec<String> {
+    vec![
+        format!("{path}.ast: the core does not read it"),
+        format!("{path}.parentItemId: the core does not read it"),
+    ]
+}
+
+impl Fixture {
+    /// The one who changes the journal in these tests: this frontend.
+    fn by(&self) -> ChangedBy {
+        ChangedBy::Client(self.client_id.as_str().parse().unwrap())
+    }
+
+    /// A page with a heading, a tagged task under it and a property of its own.
+    fn full_page(&self) -> (String, Vec<Item>) {
+        let page = self.doc("Shapes", "notes/").page.id;
+        let heading = self.item(&page, "# Head");
+        let task = self.item(&page, "TODO task #topic");
+        expect!(
+            self.call(ApiOp::UpsertPageProperty {
+                page_id: page.clone(),
+                key: "tags".into(),
+                value_type: "tags".into(),
+                value: "a, b".into(),
+            }),
+            PageInfo
+        );
+        (page, vec![heading, task])
+    }
+}
+
+// ページと項目は、項目の`ast`と`parentItemId`を除いて、ジャーナルが書いた欄のまま読まれる。
+#[test]
+fn a_page_and_its_items_are_read_with_every_field_but_the_ast_and_the_parent() {
+    let f = Fixture::new();
+    f.full_page();
+
+    let answer = written(
+        f.core
+            .journal
+            .get_or_create_doc(Some("Shapes"), Some("notes/"))
+            .unwrap(),
+    );
+
+    assert_eq!(drift::<PageWithItems>(&answer), unread_of_items(".items[]"));
+}
+
+// ページの一覧は、ジャーナルが書いた欄のまま読まれる。
+#[test]
+fn a_list_of_pages_is_read_with_every_field() {
+    let f = Fixture::new();
+    f.full_page();
+
+    let answer = written(f.core.journal.recent_pages(None, None).unwrap());
+
+    assert!(!answer["pages"].as_array().unwrap().is_empty());
+    assert_eq!(drift::<Vec<Page>>(&answer["pages"]), Vec::<String>::new());
+}
+
+// バックリンクは、項目の`ast`と`parentItemId`を除いて、ジャーナルが書いた欄のまま読まれる。
+#[test]
+fn backlinks_are_read_with_every_field_but_the_ast_and_the_parent() {
+    let f = Fixture::new();
+    let target = f.doc("Target", "").page.id;
+    let source = f.doc("Source", "").page.id;
+    f.item(&source, "see [[Target]]");
+
+    let answer = written(f.core.journal.backlinks(&target).unwrap());
+
+    assert_eq!(
+        drift::<Vec<BacklinkEntry>>(&answer["entries"]),
+        unread_of_items("[].sourceItem")
+    );
+}
+
+// 検索の結果は、ジャーナルが書いた欄のまま読まれる。
+#[test]
+fn search_results_are_read_with_every_field() {
+    let f = Fixture::new();
+    f.full_page();
+
+    let answer = eventually("the search to find the task", || {
+        let answer = written(f.core.journal.search_combined("task", None).unwrap());
+        (!answer["results"].as_array().unwrap().is_empty()).then_some(answer)
+    });
+
+    assert_eq!(
+        drift::<Vec<SearchResult>>(&answer["results"]),
+        Vec::<String>::new()
+    );
+}
+
+// プロパティの定義と設定は、ジャーナルが書いた欄のまま読まれる。
+#[test]
+fn the_property_definitions_and_the_config_are_read_with_every_field() {
+    let f = Fixture::new();
+
+    let definitions = written(f.core.journal.property_definitions().unwrap());
+    let config = written(f.core.journal.config());
+
+    assert!(!definitions["definitions"].as_array().unwrap().is_empty());
+    assert_eq!(
+        drift::<Vec<PropertyDefinition>>(&definitions["definitions"]),
+        Vec::<String>::new()
+    );
+    assert_eq!(drift::<ServerConfig>(&config), Vec::<String>::new());
+}
+
+// 前のジャーナルは、項目の`ast`と`parentItemId`を除いて、ジャーナルが書いた欄のまま読まれる。
+#[test]
+fn the_journal_before_a_day_is_read_with_every_field_but_the_ast_and_the_parent() {
+    let f = Fixture::new();
+    let journal = expect!(
+        f.call(ApiOp::GetOrCreateJournal {
+            file_name: "2026-01-05".into(),
+        }),
+        Page
+    );
+    f.item(&journal.page.id, "a day");
+
+    let answer = written(
+        f.core
+            .journal
+            .most_recent_journal_before("2026-01-06")
+            .unwrap(),
+    );
+
+    assert_eq!(answer["found"], json!(true));
+    assert_eq!(drift::<JournalBefore>(&answer), unread_of_items(".items[]"));
+}
+
+// 貼り付け、分割、一括、スタッシュの答えは、項目の`ast`と`parentItemId`を除いて、ジャーナルが書いた欄のまま読まれる。
+#[test]
+fn what_a_change_of_items_came_to_is_read_with_every_field_but_the_ast_and_the_parent() {
+    let f = Fixture::new();
+    let (_, items) = f.full_page();
+    let (journal, by) = (&f.core.journal, f.by());
+    let id = &items[1].id;
+
+    let pasted = written(
+        journal
+            .paste(
+                id,
+                serde_json::from_value(
+                    json!({ "body": "one", "cursor": 3, "text": "a\nb", "mode": "flat" }),
+                )
+                .unwrap(),
+                &by,
+            )
+            .unwrap(),
+    );
+    let split = written(
+        journal
+            .split(
+                id,
+                serde_json::from_value(json!({ "body": "onea", "cursor": 2 })).unwrap(),
+                &by,
+            )
+            .unwrap(),
+    );
+    let batched = written(
+        journal
+            .apply_batch(
+                serde_json::from_value(
+                    json!({ "ops": [{ "op": "update", "id": id, "body": "new" }] }),
+                )
+                .unwrap(),
+                &by,
+            )
+            .unwrap(),
+    );
+    let stashed = written(
+        journal
+            .stash(id, serde_json::from_value(json!({})).unwrap(), &by)
+            .unwrap(),
+    );
+
+    assert_eq!(drift::<Pasted>(&pasted), unread_of_items(".items[]"));
+    assert_eq!(
+        drift::<Split>(&split),
+        [unread_of_items(".created"), unread_of_items(".item")].concat()
+    );
+    assert_eq!(drift::<Batched>(&batched), unread_of_items(".items[]"));
+    assert_eq!(
+        drift::<Stashed>(&stashed),
+        [unread_of_items(".heading"), unread_of_items(".items[]")].concat()
+    );
 }
