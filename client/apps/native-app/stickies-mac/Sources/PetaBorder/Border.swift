@@ -24,6 +24,12 @@ public final class Border {
         try core.update(event: Data(try event.bincodeSerialize()))
     }
 
+    /// Hands a key to the core, which decides what it means (ADR 052). False when it means
+    /// nothing to the outline there.
+    public func press(_ key: KeyPress) throws -> Bool {
+        try core.press(key: Data(try key.bincodeSerialize()))
+    }
+
     /// Answers the request with the number `id`. A request that only tells the shell something,
     /// such as a render, has no answer.
     public func answer(_ id: UInt32, with output: UiOutput) throws {

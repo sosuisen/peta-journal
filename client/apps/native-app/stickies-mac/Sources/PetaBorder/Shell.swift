@@ -193,6 +193,15 @@ public final class Shell: ObservableObject {
         view = Shell.must { try border.view() }
     }
 
+    /// The user pressed a key. The core decides what it means (ADR 052). False when it means
+    /// nothing to the outline there, and the editor does with it what it does in any text.
+    public func pressed(_ key: KeyPress) -> Bool {
+        guard Shell.must({ try border.press(key) }) else { return false }
+        // As after `send`: a text view that reads its old text back after a key loses the key
+        view = Shell.must { try border.view() }
+        return true
+    }
+
     private func handle(_ requests: [Request]) {
         var cursors: [UInt32] = []
         for request in requests {
