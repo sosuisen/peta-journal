@@ -1,11 +1,11 @@
 package com.sosuisha.petajournal.screen
 
 import com.sosuisha.petajournal.core.PetaDropboxEntry
+import com.sosuisha.petajournal.core.PetaDropboxError
 import com.sosuisha.petajournal.core.PetaDropboxFile
 import com.sosuisha.petajournal.core.PetaDropboxSdk
 import com.sosuisha.petajournal.core.PetaListing
 import java.io.File
-import java.io.IOException
 import java.security.MessageDigest
 import java.util.concurrent.CountDownLatch
 
@@ -14,8 +14,8 @@ internal const val FOLDER = "/PetaJournal"
 
 /**
  * A Dropbox with one page, or one that cannot be reached, or one that [refuses] the sync for
- * another reason. It keeps what is uploaded. It fails as the Dropbox SDK does: the app makes
- * of the failure what the sync knows.
+ * another reason. It keeps what is uploaded. It fails as `SdkDropbox` does, with a failure
+ * that the sync knows.
  */
 internal class OnePage(var reachable: Boolean = true, private val refuses: Boolean = false) : PetaDropboxSdk {
     private val text = "京都で会議がありました。\n".toByteArray()
@@ -39,8 +39,8 @@ internal class OnePage(var reachable: Boolean = true, private val refuses: Boole
 
     private fun answer() {
         held?.await()
-        if (!reachable) throw IOException("the network is gone")
-        check(!refuses) { "the cloud refused the sync" }
+        if (!reachable) throw PetaDropboxError.Offline("the network is gone")
+        if (refuses) throw PetaDropboxError.Other("the cloud refused the sync")
     }
 
     override fun download(rev: String, to: String) = File(to).writeBytes(text)

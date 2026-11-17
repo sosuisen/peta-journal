@@ -1100,8 +1100,8 @@ Androidのシェル（`client/apps/native-app/outliner-android`）の機能で�
 - 同期のメッセージは、ページの上端に重ねて出る。下端に出すと、いちばん下の行で打つ文字に重なるためである
 - 失敗した同期は、通信ができなかったときは「Sync failed: no connection」、そのほかのときは「Sync failed」とだけ伝える。SDKの長い言葉は、画面に出さず、ログに残す
   - 通信の失敗は、例外とその原因の中の`IOException`で見分ける
-  - SDKの例外は、すべてコアの`PetaDropboxError`に読み替えてから、コアに渡す。ほかの例外はコアに届かず、アプリを止めるためである（ADR 054）
-  - 出典: `client/apps/native-app/outliner-android/app/src/test/kotlin/com/sosuisha/petajournal/sync/FailingTest.kt`
+  - SDKを呼ぶ`SdkDropbox`は、SDKの例外を、コアの`PetaDropboxError`に読み替えて投げる。iOSと同じ形である（ADR 054）
+  - 出典: `client/apps/native-app/outliner-android/app/src/test/kotlin/com/sosuisha/petajournal/dropbox/DropboxFailuresTest.kt`
 - OSのボタンでキーボードを閉じても、キーボードを閉じる道具と同じく、編集を終えて項目を選ぶ。OSのボタンは、キーボードの範囲（`WindowInsets.isImeVisible`）の変化で知る
 - システムの戻る操作は、項目の選択を終える
 

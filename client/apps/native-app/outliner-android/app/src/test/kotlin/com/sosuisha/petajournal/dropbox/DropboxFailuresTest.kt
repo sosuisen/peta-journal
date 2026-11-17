@@ -1,4 +1,4 @@
-package com.sosuisha.petajournal.sync
+package com.sosuisha.petajournal.dropbox
 
 import com.dropbox.core.NetworkIOException
 import com.sosuisha.petajournal.core.PetaDropboxError
@@ -9,10 +9,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * What the sync makes of the failures of the Dropbox SDK. The core hears only of the failures
- * it knows, and the screen tells only whether there was no connection (ADR 054).
+ * What the sync makes of the failures of the Dropbox SDK. The screen tells only whether there
+ * was no connection (ADR 054).
  */
-class FailingTest {
+class DropboxFailuresTest {
     // SDKが包んだ通信の失敗は、通信の失敗になる。通信を切ったときにSDKが投げる形である。
     @Test
     fun a_failure_of_the_network_that_the_sdk_wrapped_is_offline() {

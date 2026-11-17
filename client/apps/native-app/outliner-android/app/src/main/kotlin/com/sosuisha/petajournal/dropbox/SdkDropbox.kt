@@ -18,19 +18,22 @@ import java.util.Date
 
 /**
  * Dropbox itself, through the Dropbox SDK, for the sync of the core (ADR 054). It only passes
- * each call on, and turns the types of the SDK into the types of the core. No test runs it:
- * the rules of the sync are tested in Rust, and the reading of the failures in `Failing`.
+ * each call on, and turns the types and the failures of the SDK into those of the core: it
+ * throws only a [PetaDropboxError]. No test runs it: the rules of the sync are tested in Rust,
+ * and the reading of the failures in `DropboxFailuresTest`.
  */
 internal class SdkDropbox(private val client: DbxClientV2) : PetaDropboxSdk {
     override fun list(folder: String): PetaListing =
-        listing(client.files().listFolderBuilder(folder).withRecursive(true).start())
+        failing { listing(client.files().listFolderBuilder(folder).withRecursive(true).start()) }
 
     override fun listAfter(cursor: String): PetaListing =
-        try {
-            listing(client.files().listFolderContinue(cursor))
-        } catch (lost: ListFolderContinueErrorException) {
-            if (lost.errorValue.isReset) throw PetaDropboxError.CursorForgotten
-            throw lost
+        failing {
+            try {
+                listing(client.files().listFolderContinue(cursor))
+            } catch (lost: ListFolderContinueErrorException) {
+                if (lost.errorValue.isReset) throw PetaDropboxError.CursorForgotten
+                throw lost
+            }
         }
 
     private fun listing(result: ListFolderResult) = PetaListing(result.entries.map(::entry), result.cursor, result.hasMore)
@@ -44,10 +47,12 @@ internal class SdkDropbox(private val client: DbxClientV2) : PetaDropboxSdk {
 
     private fun file(metadata: FileMetadata) = PetaDropboxFile(metadata.pathDisplay, metadata.contentHash, metadata.rev)
 
-    override fun download(rev: String, to: String) {
-        // Dropbox takes a version in place of a path, after this word
-        File(to).outputStream().use { client.files().download("rev:$rev").download(it) }
-    }
+    override fun download(rev: String, to: String) =
+        failing {
+            // Dropbox takes a version in place of a path, after this word
+            File(to).outputStream().use { client.files().download("rev:$rev").download(it) }
+            Unit
+        }
 
     override fun upload(path: String, from: String, over: String?, modifiedMs: Long): PetaDropboxFile {
         // Dropbox takes the content only over the version it is told, or where no file is
@@ -56,12 +61,22 @@ internal class SdkDropbox(private val client: DbxClientV2) : PetaDropboxSdk {
             .withMode(mode)
             .withAutorename(false)
             .withClientModified(Date(modifiedMs))
-        try {
-            return file(File(from).inputStream().use(upload::uploadAndFinish))
-        } catch (refused: UploadErrorException) {
-            val error = refused.errorValue
-            if (error.isPath && error.pathValue.reason.isConflict) throw PetaDropboxError.UploadConflict
-            throw refused
+        return failing {
+            try {
+                file(File(from).inputStream().use(upload::uploadAndFinish))
+            } catch (refused: UploadErrorException) {
+                val error = refused.errorValue
+                if (error.isPath && error.pathValue.reason.isConflict) throw PetaDropboxError.UploadConflict
+                throw refused
+            }
         }
     }
+
+    /** Runs a call. What the SDK throws becomes a failure that the core knows. */
+    private fun <Answer> failing(call: () -> Answer): Answer =
+        try {
+            call()
+        } catch (failed: Exception) {
+            throw dropboxFailure(failed)
+        }
 }

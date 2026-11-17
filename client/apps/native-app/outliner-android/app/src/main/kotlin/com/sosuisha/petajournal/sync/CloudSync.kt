@@ -74,10 +74,12 @@ class CloudSync(
 
     /**
      * Starts a sync with the Markdown folder at the path [folder] of the cloud. While one runs,
-     * another starts after it, once. [inFront] says that the user waits for it.
+     * another starts after it, once. [inFront] says that the user waits for it. [sdk] throws
+     * only a `PetaDropboxError`: the core makes any other exception a failure that is not
+     * offline.
      */
     fun start(sdk: PetaDropboxSdk, folder: String, inFront: Boolean = false) {
-        sync.start(Failing(sdk), folder, inFront)
+        sync.start(sdk, folder, inFront)
         // The core tells of it a moment later, on the main thread. The screen must not offer
         // the sign-out meanwhile: the core does not take it while a sync runs
         read()

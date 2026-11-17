@@ -62,7 +62,7 @@ The tests of the screen need a running device or emulator: the core is a native 
 BoltFFI cannot pack it for the JVM of a Windows machine yet (ADR 030). The device must be
 unlocked. An emulator with a screen lock starts locked, and no app can start on it until
 someone types the PIN. The tests in `app/src/test` use no core and run on the development
-machine: how a failure of the SDK is read, and how the file of an image is found. The rules of
+machine: how a failure of the SDK is read (`DropboxFailuresTest`), and how the file of an image is found. The rules of
 the sync are tested in Rust (`client-cloud-sync`, ADR 054).
 
 ## Dropbox
@@ -286,16 +286,15 @@ What each class does:
   - `CloudSync` keeps where the sync of the core stands, for the screen, and lets the core
     take in the files through the `Shell`. It reads the state from the core, not from what
     the core told on its thread: that may be old by the time it reaches the main thread.
-  - `Failing` turns each exception of the SDK into a `PetaDropboxError` of the core. The core
-    hears of no other exception. A failure with an `IOException` among its causes is
-    `Offline`: the screen says that there is no connection.
   - `CloudAccount` is what the app needs of the account of the storage.
 - The package `dropbox` holds all that uses the Dropbox SDK. No other package imports
   `com.dropbox`.
   - `DropboxAccount` is the `CloudAccount` of Dropbox. It keeps the credential, starts the
     sign-in, signs out, and gives the calls of the SDK that the sync makes.
   - Only two classes call the Dropbox SDK. `SdkDropbox` lists, downloads and uploads, as the
-    `PetaDropboxSdk` of the core. `RealDropboxSdk` signs in and revokes. They pass each call
+    `PetaDropboxSdk` of the core. It throws only a `PetaDropboxError`: `dropboxFailure` makes
+    a failure with an `IOException` among its causes `Offline`, and the screen says that
+    there is no connection. `RealDropboxSdk` signs in and revokes. They pass each call
     on and decide nothing. The other classes know them as the interfaces `PetaDropboxSdk`
     and `DropboxSdk`, so the tests put a Dropbox of their own there. No test runs the two
     classes: that needs the real Dropbox.
