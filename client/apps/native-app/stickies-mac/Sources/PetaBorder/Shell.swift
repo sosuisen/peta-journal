@@ -169,18 +169,9 @@ public final class Shell: ObservableObject {
 
     /// Answers the confirmation on screen.
     public func answer(yes: Bool) {
-        answer(.bool(yes))
-    }
-
-    /// Answers the prompt on screen. `nil` is the answer of a user who closed it.
-    public func answer(text: String?) {
-        answer(.text(text))
-    }
-
-    private func answer(_ output: UiOutput) {
         guard let asked = question else { return }
         question = nil
-        Shell.must { try border.answer(asked.id, with: output) }
+        Shell.must { try border.answer(asked.id, with: .bool(yes)) }
         view = Shell.must { try border.view() }
     }
 
@@ -243,8 +234,8 @@ public final class Shell: ObservableObject {
             ask(Question(id: id, message: message, kind: .confirm))
         case .confirmDestructive(let message):
             ask(Question(id: id, message: message, kind: .confirmDestructive))
-        case .prompt(let message):
-            ask(Question(id: id, message: message, kind: .prompt))
+        // No prompt is shown. The core asks one only for a new page without a name, and this
+        // app has no way to make one: its search box makes a page with the typed name
         case .copyText(let text):
             copy(text, nil)
         case .copyMarkdown(let markdown, let ast):
@@ -282,8 +273,6 @@ public struct Question: Equatable, Identifiable {
         case confirm
         /// Yes or no to something hard to undo: the dialog must answer no by default.
         case confirmDestructive
-        /// A line of text.
-        case prompt
     }
 }
 
