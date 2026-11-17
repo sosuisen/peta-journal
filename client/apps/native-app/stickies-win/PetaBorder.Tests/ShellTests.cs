@@ -287,7 +287,8 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         HearsTheServer(shell);
         var (first, second) = TwoItems(shell);
-        // While an item is edited, the core waits to read the page again: what is typed is kept
+        // Enter left the cursor in the second item. While any item is edited, the core does not
+        // read again a page that another client changed. It reads it once the edit ends
         shell.FinishEditing(second);
         // Another client, such as the web frontend, shows the first item in the second
         Assert.True(
