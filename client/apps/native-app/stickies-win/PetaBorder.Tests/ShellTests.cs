@@ -7,7 +7,23 @@ namespace PetaBorder.Tests;
 /// </summary>
 public sealed class ShellTests : IDisposable
 {
-    private readonly JournalServer server = new(18111);
+    /// <summary>
+    /// An extension of the server that asks the clients, as an extension of the user may. It
+    /// asks when a page gets a tag that starts with "ask", and adds an item after a yes.
+    /// </summary>
+    private const string AskingExtension = """
+        globalThis.onPageTagAdd = (page, tags) => {
+            if (!tags.some(tag => tag.startsWith('ask'))) return;
+            if (peta.confirm('Insert into ' + page.fileName + '?')) {
+                peta.createItem({ position: 'last', level: 1, body: 'confirmed' });
+            }
+        };
+        """;
+
+    private readonly JournalServer server = new(
+        18111,
+        new Dictionary<string, string> { ["asking"] = AskingExtension }
+    );
     private readonly MainThread main = new();
     private readonly List<Shell> shells = [];
 
@@ -59,10 +75,29 @@ public sealed class ShellTests : IDisposable
         var first = shell.View.Outline.Rows[0].Item.Id;
         shell.StartEditing(first);
         shell.Typed("first", first);
-        shell.Send(new Event.EnterPressed(first, 5, 0));
+        Assert.True(Press(shell, Enter, first, Editor("first", 5)));
         main.WaitUntil("there are two items", () => shell.View.Outline.Rows.Count == 2);
         return (first, shell.View.Outline.Rows[1].Item.Id);
     }
+
+    /// <summary>
+    /// Waits until the shell hears what the server tells its clients. A change of another
+    /// client before that would not reach it.
+    /// </summary>
+    private void HearsTheServer(Shell shell) =>
+        main.WaitUntil("the shell hears the server", () =>
+            shell.View.Connection == ConnectionState.Connected
+        );
+
+    /// <summary>Gives the page the tag, as another client does.</summary>
+    private void Tag(string pageId, string tag) =>
+        Assert.True(
+            server.Send(
+                HttpMethod.Put,
+                $"/api/pages/{pageId}/properties/tags",
+                $$"""{"valueType":"tags","value":"{{tag}}"}"""
+            )
+        );
 
     /// <summary>The page on screen, once it is there.</summary>
     private static PageView? Page(Shell shell) => (shell.View.Screen as ScreenView.Page)?.Value;
@@ -88,16 +123,33 @@ public sealed class ShellTests : IDisposable
             OnLastLine = true,
         };
 
-    /// <summary>
-    /// Presses a key in the editor of the item, as the core knows it. Which chord it is, and
-    /// when it means something, is tested in the core (ADR 052).
-    /// </summary>
-    private static bool Press(Shell shell, EditorKey key, string itemId, EditorState editor) =>
-        shell.Pressed(new KeyPress.Named(itemId, key, editor));
+    private static readonly Key Enter = new Key.Enter();
+    private static readonly Key Tab = new Key.Tab();
+    private static readonly Key Up = new Key.Up();
+    private static readonly Key Down = new Key.Down();
+    private static readonly Key Left = new Key.Left();
+    private static readonly Key Right = new Key.Right();
+    private static readonly Key Backspace = new Key.Backspace();
+    private static readonly Key Delete = new Key.Delete();
+    private static readonly Key Escape = new Key.Escape();
 
-    /// <summary>Presses a key while items are selected.</summary>
-    private static void Press(Shell shell, SelectionKey key) =>
-        shell.Send(new Event.SelectionKey(key));
+    private static Key Letter(string letter) => new Key.Letter(letter);
+
+    /// <summary>
+    /// Presses a key in the editor of the item, as the app does: it hands the chord to the
+    /// core, which decides what it means (ADR 052).
+    /// </summary>
+    private static bool Press(
+        Shell shell,
+        Key key,
+        string itemId,
+        EditorState editor,
+        Held held = Held.None
+    ) => shell.Pressed(new KeyPress.InEditor(itemId, Keyboard.Chord(key, held), editor));
+
+    /// <summary>Presses a key while items are selected, as the app does.</summary>
+    private static void Press(Shell shell, Key key, Held held = Held.None) =>
+        _ = shell.Pressed(new KeyPress.InSelection(Keyboard.Chord(key, held)));
 
     // ページを開くと、その行が画面に出る。新しいページには、空の項目が1つある。
     [Fact]
@@ -171,27 +223,30 @@ public sealed class ShellTests : IDisposable
         Assert.Equal(">>>\n>>>", shell.View.Outline.Rows[0].Item.Body);
     }
 
-    // コアが確認を求めると、質問が出る。「いいえ」では何も起きず、「はい」でコアが先へ進む。
+    // サーバーの拡張が確認を求めると、質問が出る。「いいえ」では何も起きず、「はい」で拡張が先へ進む。
     [Fact]
-    public void A_confirmation_is_answered_with_yes_or_no()
+    public void A_confirmation_of_an_extension_is_answered_with_yes_or_no()
     {
         var shell = ShellWithPage();
         var pageId = Page(shell)!.Page.Id;
+        HearsTheServer(shell);
 
-        shell.Send(new Event.DeleteCurrentPage());
+        Tag(pageId, "ask-first");
         main.WaitUntil("the shell is asked to confirm", () => shell.Question is not null);
-        Assert.Equal("Delete \"winui-notes\"?", shell.Question?.Message);
+        Assert.Equal("Insert into winui-notes?", shell.Question?.Message);
         Assert.Equal(QuestionKind.Confirm, shell.Question?.Kind);
         shell.Answer(false);
         Assert.Null(shell.Question);
-        shell.Send(new Event.DeleteCurrentPage());
+        Tag(pageId, "ask-second");
         main.WaitUntil("the shell is asked again", () => shell.Question is not null);
-        Assert.NotNull(server.Get($"/api/pages/{pageId}"));
         shell.Answer(true);
 
-        main.WaitUntil("the page is gone from the server", () =>
-            server.Get($"/api/pages/{pageId}") is null
+        // Only the yes added an item: the no added none before it. The empty row of the new
+        // page is not on the server, and goes when the page is read again
+        main.WaitUntil("the item of the extension is shown", () =>
+            Bodies(shell).Contains("confirmed")
         );
+        Assert.Equal(["confirmed"], Bodies(shell));
     }
 
     // Enterで項目を分けると、コアが新しい項目にカーソルを置くように頼む。
@@ -224,21 +279,31 @@ public sealed class ShellTests : IDisposable
         );
     }
 
-    // ほかで表示されている項目を消すときは、元に戻しにくい操作として確認を求められる。
+    // ほかで表示されている項目を選んで消すときは、元に戻しにくい操作として確認を求められる。
     [Fact]
     public void Deleting_a_transcluded_item_is_asked_as_hard_to_undo()
     {
         var shell = ShellWithPage();
+        HearsTheServer(shell);
         var (first, second) = TwoItems(shell);
-        onClipboard = first;
-        shell.Send(new Event.PasteAsTransclusion(second));
+        // While an item is edited, the core waits to read the page again: what is typed is kept
+        shell.FinishEditing(second);
+        // Another client, such as the web frontend, shows the first item in the second
+        Assert.True(
+            server.Send(
+                HttpMethod.Post,
+                $"/api/items/{second}/transclude",
+                $$"""{"sourceItemId":"{{first}}"}"""
+            )
+        );
         main.WaitUntil("the second item shows the first", () =>
             shell.View.Outline.Rows.Any(row =>
                 row.Item.Id == second && row.Item.TranscludeItemId == first
             )
         );
 
-        shell.Send(new Event.DeleteItem(first));
+        Assert.True(Press(shell, Up, first, Editor("first", 0), Held.Shift));
+        Press(shell, Delete);
 
         main.WaitUntil("the shell is asked to confirm", () => shell.Question is not null);
         Assert.Equal(QuestionKind.ConfirmDestructive, shell.Question?.Kind);
@@ -272,7 +337,7 @@ public sealed class ShellTests : IDisposable
         shell.StartEditing(first);
         shell.Typed("日本語second", first);
 
-        Assert.True(Press(shell, EditorKey.Enter, first, Editor("日本語second", 3)));
+        Assert.True(Press(shell, Enter, first, Editor("日本語second", 3)));
 
         main.WaitUntil("the item is split", () => Bodies(shell) is ["日本語", "second"]);
         var second = shell.View.Outline.Rows[1].Item.Id;
@@ -290,9 +355,9 @@ public sealed class ShellTests : IDisposable
         var level = shell.View.Outline.Rows[1].Item.Level;
         Assert.Equal(shell.View.Outline.Rows[0].Item.Level, level);
 
-        Assert.True(Press(shell, EditorKey.Tab, second, Editor("", 0)));
+        Assert.True(Press(shell, Tab, second, Editor("", 0)));
         Assert.Equal(level + 1, shell.View.Outline.Rows[1].Item.Level);
-        Assert.True(Press(shell, EditorKey.BackTab, second, Editor("", 0)));
+        Assert.True(Press(shell, Tab, second, Editor("", 0), Held.Shift));
         Assert.Equal(level, shell.View.Outline.Rows[1].Item.Level);
     }
 
@@ -304,7 +369,7 @@ public sealed class ShellTests : IDisposable
         var (first, second) = TwoItems(shell);
         shell.Typed("second", second);
 
-        Assert.True(Press(shell, EditorKey.Up, second, Editor("second", 2)));
+        Assert.True(Press(shell, Up, second, Editor("second", 2)));
 
         main.WaitUntil("the cursor is asked into the first item", () =>
             shell.View.Outline.FocusRequest?.ItemId == first
@@ -320,7 +385,7 @@ public sealed class ShellTests : IDisposable
         var (first, second) = TwoItems(shell);
         shell.StartEditing(first);
 
-        Assert.True(Press(shell, EditorKey.Down, first, Editor("first", 1)));
+        Assert.True(Press(shell, Down, first, Editor("first", 1)));
 
         main.WaitUntil("the cursor is asked into the second item", () =>
             shell.View.Outline.FocusRequest?.ItemId == second
@@ -334,7 +399,7 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         var (first, second) = TwoItems(shell);
 
-        Assert.True(Press(shell, EditorKey.Left, second, Editor("", 0)));
+        Assert.True(Press(shell, Left, second, Editor("", 0)));
         main.WaitUntil("the cursor is asked to the end of the first item", () =>
             shell.View.Outline.FocusRequest?.ItemId == first
         );
@@ -343,7 +408,7 @@ public sealed class ShellTests : IDisposable
         // The core asks for the end, which the editor finds in its text
         Assert.Equal(5UL, PetaCore.PetaNative.Utf16OfChars("first", asked.Value));
 
-        Assert.True(Press(shell, EditorKey.Right, first, Editor("first", 5)));
+        Assert.True(Press(shell, Right, first, Editor("first", 5)));
         main.WaitUntil("the cursor is asked to the start of the second item", () =>
             shell.View.Outline.FocusRequest?.ItemId == second
         );
@@ -358,7 +423,7 @@ public sealed class ShellTests : IDisposable
         var (_, second) = TwoItems(shell);
         shell.Typed("second", second);
 
-        Assert.True(Press(shell, EditorKey.Backspace, second, Editor("second", 0)));
+        Assert.True(Press(shell, Backspace, second, Editor("second", 0)));
 
         main.WaitUntil("the items are joined", () => Bodies(shell) is ["firstsecond"]);
     }
@@ -372,7 +437,7 @@ public sealed class ShellTests : IDisposable
         shell.Typed("second", second);
         shell.StartEditing(first);
 
-        Assert.True(Press(shell, EditorKey.Delete, first, Editor("first", 5)));
+        Assert.True(Press(shell, Delete, first, Editor("first", 5)));
 
         main.WaitUntil("the items are joined", () => Bodies(shell) is ["firstsecond"]);
     }
@@ -387,11 +452,11 @@ public sealed class ShellTests : IDisposable
         shell.Typed("to do", first);
         Assert.Null(shell.View.Outline.Rows[0].Task);
 
-        Assert.True(Press(shell, EditorKey.TaskCycle, first, Editor("to do", 0)));
+        Assert.True(Press(shell, Enter, first, Editor("to do", 0), Held.Control));
         main.WaitUntil("the item is a task", () =>
             shell.View.Outline.Rows[0].Task == TaskState.NotStarted
         );
-        Assert.True(Press(shell, EditorKey.TaskCycle, first, Editor("to do", 0)));
+        Assert.True(Press(shell, Enter, first, Editor("to do", 0), Held.Control));
         main.WaitUntil("the task is running", () =>
             shell.View.Outline.Rows[0].Task == TaskState.Running
         );
@@ -423,7 +488,7 @@ public sealed class ShellTests : IDisposable
         var first = shell.View.Outline.Rows[0].Item.Id;
         shell.StartEditing(first);
         shell.Typed("to do", first);
-        Assert.True(Press(shell, EditorKey.TaskCycle, first, Editor("to do", 0)));
+        Assert.True(Press(shell, Enter, first, Editor("to do", 0), Held.Control));
         main.WaitUntil("the item is a task", () =>
             shell.View.Outline.Rows[0].Task == TaskState.NotStarted
         );
@@ -443,18 +508,18 @@ public sealed class ShellTests : IDisposable
     {
         var shell = ShellWithPage();
         var (first, second) = TwoItems(shell);
-        Assert.True(Press(shell, EditorKey.Tab, second, Editor("", 0)));
+        Assert.True(Press(shell, Tab, second, Editor("", 0)));
 
         // The children are shown already
-        Assert.True(Press(shell, EditorKey.Unfold, first, Editor("first", 0)));
+        Assert.True(Press(shell, Down, first, Editor("first", 0), Held.Control));
         Assert.False(shell.View.Outline.Rows[0].IsCollapsed);
-        Assert.True(Press(shell, EditorKey.Fold, first, Editor("first", 0)));
+        Assert.True(Press(shell, Up, first, Editor("first", 0), Held.Control));
         main.WaitUntil("the child is hidden", () => shell.View.Outline.Rows.Count == 1);
         Assert.True(shell.View.Outline.Rows[0].IsCollapsed);
         // The children are hidden already
-        Assert.True(Press(shell, EditorKey.Fold, first, Editor("first", 0)));
+        Assert.True(Press(shell, Up, first, Editor("first", 0), Held.Control));
         Assert.True(shell.View.Outline.Rows[0].IsCollapsed);
-        Assert.True(Press(shell, EditorKey.Unfold, first, Editor("first", 0)));
+        Assert.True(Press(shell, Down, first, Editor("first", 0), Held.Control));
         main.WaitUntil("the child is shown again", () => shell.View.Outline.Rows.Count == 2);
         Assert.False(shell.View.Outline.Rows[0].IsCollapsed);
     }
@@ -466,7 +531,7 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         var first = shell.View.Outline.Rows[0].Item.Id;
 
-        Assert.True(Press(shell, EditorKey.Fold, first, Editor("", 0)));
+        Assert.True(Press(shell, Up, first, Editor("", 0), Held.Control));
         Assert.False(shell.View.Outline.Rows[0].IsCollapsed);
     }
 
@@ -479,9 +544,9 @@ public sealed class ShellTests : IDisposable
         shell.Typed("second", second);
         shell.StartEditing(first);
 
-        Assert.True(Press(shell, EditorKey.MoveDown, first, Editor("first", 0)));
+        Assert.True(Press(shell, Down, first, Editor("first", 0), Held.Shift | Held.Alt));
         main.WaitUntil("the first item is below", () => Bodies(shell) is ["second", "first"]);
-        Assert.True(Press(shell, EditorKey.MoveUp, first, Editor("first", 0)));
+        Assert.True(Press(shell, Up, first, Editor("first", 0), Held.Shift | Held.Alt));
         main.WaitUntil("the first item is on top again", () =>
             Bodies(shell) is ["first", "second"]
         );
@@ -495,9 +560,9 @@ public sealed class ShellTests : IDisposable
         var (_, second) = TwoItems(shell);
         var level = shell.View.Outline.Rows[1].Item.Level;
 
-        Assert.True(Press(shell, EditorKey.MoveIn, second, Editor("", 0)));
+        Assert.True(Press(shell, Right, second, Editor("", 0), Held.Shift | Held.Alt));
         Assert.Equal(level + 1, shell.View.Outline.Rows[1].Item.Level);
-        Assert.True(Press(shell, EditorKey.MoveOut, second, Editor("", 0)));
+        Assert.True(Press(shell, Left, second, Editor("", 0), Held.Shift | Held.Alt));
         Assert.Equal(level, shell.View.Outline.Rows[1].Item.Level);
     }
 
@@ -508,14 +573,14 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         var (_, second) = TwoItems(shell);
         var level = shell.View.Outline.Rows[1].Item.Level;
-        Assert.True(Press(shell, EditorKey.Tab, second, Editor("", 0)));
+        Assert.True(Press(shell, Tab, second, Editor("", 0)));
         Assert.Equal(level + 1, shell.View.Outline.Rows[1].Item.Level);
 
-        Assert.True(Press(shell, EditorKey.Undo, second, Editor("", 0)));
+        Assert.True(Press(shell, Letter("z"), second, Editor("", 0), Held.Control));
         main.WaitUntil("the indent is taken back", () =>
             shell.View.Outline.Rows[1].Item.Level == level
         );
-        Assert.True(Press(shell, EditorKey.Redo, second, Editor("", 0)));
+        Assert.True(Press(shell, Letter("z"), second, Editor("", 0), Held.Control | Held.Shift));
         main.WaitUntil("the indent is made again", () =>
             shell.View.Outline.Rows[1].Item.Level == level + 1
         );
@@ -526,7 +591,7 @@ public sealed class ShellTests : IDisposable
     {
         var (_, second) = TwoItems(shell);
         shell.Typed("second", second);
-        Assert.True(Press(shell, EditorKey.SelectDown, second, Editor("second", 0)));
+        Assert.True(Press(shell, Down, second, Editor("second", 0), Held.Shift));
     }
 
     // 最初の行でのShift+上は、その項目を選ぶ。
@@ -536,7 +601,7 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         var (first, _) = TwoItems(shell);
 
-        Assert.True(Press(shell, EditorKey.SelectUp, first, Editor("first", 0)));
+        Assert.True(Press(shell, Up, first, Editor("first", 0), Held.Shift));
 
         Assert.True(shell.View.Outline.SelectionMode);
         Assert.Equal(["first"], Selected(shell));
@@ -549,9 +614,9 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         SecondOfTwoSelected(shell);
 
-        Press(shell, SelectionKey.ExtendUp);
+        Press(shell, Up, Held.Shift);
         Assert.Equal(["first", "second"], Selected(shell));
-        Press(shell, SelectionKey.Escape);
+        Press(shell, Escape);
 
         Assert.False(shell.View.Outline.SelectionMode);
         Assert.Empty(Selected(shell));
@@ -565,7 +630,7 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         SecondOfTwoSelected(shell);
 
-        Press(shell, SelectionKey.Delete);
+        Press(shell, Delete);
 
         main.WaitUntil("the second item is gone", () => Bodies(shell) is ["first"]);
         Assert.False(shell.View.Outline.SelectionMode);
@@ -578,7 +643,7 @@ public sealed class ShellTests : IDisposable
         var shell = ShellWithPage();
         SecondOfTwoSelected(shell);
 
-        Press(shell, SelectionKey.MoveUp);
+        Press(shell, Up, Held.Shift | Held.Alt);
 
         main.WaitUntil("the second item is on top", () => Bodies(shell) is ["second", "first"]);
         Assert.Equal(["second"], Selected(shell));
@@ -590,9 +655,9 @@ public sealed class ShellTests : IDisposable
     {
         var shell = ShellWithPage();
         SecondOfTwoSelected(shell);
-        Press(shell, SelectionKey.ExtendUp);
+        Press(shell, Up, Held.Shift);
 
-        Press(shell, SelectionKey.Copy);
+        Press(shell, Letter("c"), Held.Control);
 
         main.WaitUntil("the clipboard has the items", () => copied is not null);
         Assert.Equal("- first\n- second", copied);
