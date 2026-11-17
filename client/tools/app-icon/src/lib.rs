@@ -2,7 +2,7 @@
 //! app. The drawing is put in the middle of a square, and its empty edges are left out. Only
 //! Rust is needed: the apps are built with it anyway.
 
-use resvg::tiny_skia::{Color, FillRule, Paint, PathBuilder, Pixmap, Transform};
+use resvg::tiny_skia::{Color, Pixmap, Transform};
 use resvg::usvg::{Options, Rect, Tree};
 use std::fmt;
 
@@ -133,71 +133,22 @@ fn macos_contents() -> String {
 
 /// A clear square of `side` with the white plate of macOS, and the drawing in its middle.
 fn on_plate(tree: &Tree, drawn: Rect, side: u32) -> Pixmap {
-    let scale = side as f32 / 1024.0;
     let mut pixmap = Pixmap::new(side, side).expect("an icon is never empty");
-    let edge = (1024 - MACOS_PLATE) as f32 / 2.0 * scale;
-    let plate = rounded_square(edge, MACOS_PLATE as f32 * scale, MACOS_PLATE_RADIUS * scale);
-    let mut white = Paint::default();
-    white.set_color(Color::WHITE);
-    white.anti_alias = true;
-    pixmap.fill_path(
-        &plate,
-        &white,
-        FillRule::Winding,
-        Transform::identity(),
-        None,
-    );
+    let scale = side as f32 / 1024.0;
+    let to_side = Transform::from_scale(scale, scale);
+    resvg::render(&plate(), to_side, &mut pixmap.as_mut());
     let fit = MACOS_DRAWING as f32 * scale;
     resvg::render(tree, place(drawn, side as f32, fit), &mut pixmap.as_mut());
     pixmap
 }
 
-/// A square from `at` to `at + side` on both axes, with corners of the radius `radius`.
-fn rounded_square(at: f32, side: f32, radius: f32) -> resvg::tiny_skia::Path {
-    // How far the control points of a cubic curve stand that draws a quarter of a circle
-    let k = radius * 0.552_284_8;
-    let (near, far) = (at, at + side);
-    let mut path = PathBuilder::new();
-    path.move_to(near + radius, near);
-    path.line_to(far - radius, near);
-    path.cubic_to(
-        far - radius + k,
-        near,
-        far,
-        near + radius - k,
-        far,
-        near + radius,
+/// The white plate on a side of 1024. resvg draws its rounded corners from the SVG.
+fn plate() -> Tree {
+    let edge = (1024 - MACOS_PLATE) / 2;
+    let svg = format!(
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024"><rect x="{edge}" y="{edge}" width="{MACOS_PLATE}" height="{MACOS_PLATE}" rx="{MACOS_PLATE_RADIUS}" fill="white"/></svg>"#
     );
-    path.line_to(far, far - radius);
-    path.cubic_to(
-        far,
-        far - radius + k,
-        far - radius + k,
-        far,
-        far - radius,
-        far,
-    );
-    path.line_to(near + radius, far);
-    path.cubic_to(
-        near + radius - k,
-        far,
-        near,
-        far - radius + k,
-        near,
-        far - radius,
-    );
-    path.line_to(near, near + radius);
-    path.cubic_to(
-        near,
-        near + radius - k,
-        near + radius - k,
-        near,
-        near + radius,
-        near,
-    );
-    path.close();
-    path.finish()
-        .expect("a square with rounded corners is a path")
+    Tree::from_str(&svg, &Options::default()).expect("the plate is a valid SVG")
 }
 
 /// The pixels as a PNG with alpha. tiny-skia keeps the colors multiplied by the alpha; a PNG
