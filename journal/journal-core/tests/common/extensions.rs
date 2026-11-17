@@ -3,19 +3,9 @@
 
 use serde_json::Value;
 
-use super::pages::by_the_client;
 use super::Core;
 
 impl Core {
-    /// Sets the tags of the page, as the client does. The extensions of a tag added run
-    /// afterwards on a thread of their own.
-    pub fn set_tags(&self, page_id: &str, tags: &str) {
-        self.core
-            .journal
-            .set_page_property(page_id, "tags", Some("tags"), Some(tags), &by_the_client())
-            .unwrap();
-    }
-
     /// The bodies of the page once it has `count` items. A tag add runs its extensions after
     /// the answer, so the items come a little later.
     pub fn bodies_once(&self, page_id: &str, count: usize) -> Vec<String> {

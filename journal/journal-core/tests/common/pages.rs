@@ -32,6 +32,37 @@ impl Core {
         serde_json::to_value(answer).unwrap()
     }
 
+    /// Opens the document page of the title in the folder, or makes it, and gives the answer.
+    pub fn open_doc_in(&self, title: &str, dir_path: &str) -> Value {
+        let answer = self
+            .core
+            .journal
+            .get_or_create_doc(Some(title), Some(dir_path))
+            .unwrap();
+        serde_json::to_value(answer).unwrap()
+    }
+
+    /// Sets the tags of the page, as the client does. The extensions of a tag added run
+    /// afterwards on a thread of their own.
+    pub fn set_tags(&self, page_id: &str, tags: &str) {
+        self.core
+            .journal
+            .set_page_property(page_id, "tags", Some("tags"), Some(tags), &by_the_client())
+            .unwrap();
+    }
+
+    /// The pages whose names the query finds, at most 10, as the JSON a client gets. The
+    /// index commits first, as the app has it commit every little while.
+    pub fn search_pages(&self, query: &str) -> Value {
+        self.core.tantivy.commit_pending();
+        let found = self
+            .core
+            .journal
+            .search_page_names(query, Some(10))
+            .unwrap();
+        serde_json::to_value(found).unwrap()
+    }
+
     /// A new document page of the title; it starts with one empty item. Gives its id.
     pub fn new_doc_page(&self, title: &str) -> String {
         self.open_doc(title)["page"]["id"]
