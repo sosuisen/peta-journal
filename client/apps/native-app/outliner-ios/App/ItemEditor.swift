@@ -124,7 +124,7 @@ struct ItemEditor: UIViewRepresentable {
             // delegate of no change: the key itself is heard. Not while text is chosen, or
             // while the keyboard composes a word
             if selectedRange == NSRange(location: 0, length: 0), markedTextRange == nil, let typist = delegate as? Typist {
-                typist.backspaceAtStart()
+                typist.backspaceAtStart(of: text ?? "")
                 return
             }
             super.deleteBackward()
@@ -206,8 +206,8 @@ struct ItemEditor: UIViewRepresentable {
         /// Backspace at the start of the field. The core joins the item to the one before, and
         /// the edit goes on there. Not while the edit moves to another item: the key is not
         /// for the item of this field then.
-        fileprivate func backspaceAtStart() {
-            if !moving { shell.backspaceAtStart(itemId) }
+        fileprivate func backspaceAtStart(of text: String) {
+            if !moving { shell.press(.backspace, in: itemId, .cursor(at: 0, in: text)) }
         }
 
         func textView(_ field: UITextView, shouldChangeTextIn range: NSRange, replacementText typed: String) -> Bool {
@@ -274,7 +274,7 @@ struct ItemEditor: UIViewRepresentable {
                 shell.type(itemId, text)
             }
             // The core splits the item: the field takes no line break
-            shell.enter(itemId, cursor: Cursor.characters(utf16: range.location, in: text))
+            shell.press(.enter, in: itemId, .cursor(at: range.location, in: text))
             // The keeper has the keyboard until the field of the new item takes it. The keyboard
             // may still type into this field without asking its delegate, and the letters
             // would go into the item that is no longer edited
@@ -339,20 +339,15 @@ struct ItemEditor: UIViewRepresentable {
                 field.selectedRange = NSRange(location: place, length: 0)
                 return
             }
+            // The cursor is at the edge of the text: the core moves it to the next item
             let from = arrow == .left || arrow == .up ? chosen.location : NSMaxRange(chosen)
-            leave(arrow, at: Cursor.characters(utf16: from, in: field.text ?? ""))
-        }
-
-        /// The cursor leaves the item for the next one. `cursor` is where it was, in
-        /// characters. Left goes to the end of the item above, and Right to the start of the
-        /// item below. Up and Down keep the place in the line.
-        private func leave(_ arrow: Arrow, at cursor: Int) {
-            switch arrow {
-            case .left: shell.navigateUp(itemId, cursor: Caret.pastTheEnd)
-            case .up: shell.navigateUp(itemId, cursor: cursor)
-            case .right: shell.navigateDown(itemId, cursor: 0)
-            case .down: shell.navigateDown(itemId, cursor: cursor)
+            let key: EditorKey = switch arrow {
+            case .left: .left
+            case .up: .up
+            case .right: .right
+            case .down: .down
             }
+            shell.press(key, in: itemId, .cursor(at: from, in: field.text ?? ""))
         }
     }
 }
@@ -471,11 +466,19 @@ extension UIResponder {
     }
 }
 
+extension EditorState {
+    /// A field with a cursor `at` UTF-16 units into `text`, and nothing chosen. The cursor is
+    /// on the first and the last line: the field only hands a key to the core at the edge of
+    /// its text.
+    static func cursor(at: Int, in text: String) -> EditorState {
+        EditorState(
+            text: text, selectionStart: UInt64(at), selectionEnd: UInt64(at), onFirstLine: true,
+            onLastLine: true)
+    }
+}
+
 /// Where the cursor of a field goes for an arrow.
 enum Caret {
-    /// A place past the end of any item: the core puts the cursor at its end.
-    static let pastTheEnd = Int(Int32.max)
-
     /// Where the cursor goes in `field` for `arrow`, from `chosen`, in UTF-16 units. `nil`
     /// when it leaves the item: at the start for Left, on the first line for Up, at the end
     /// for Right, and on the last line for Down. Chosen text gives way to a cursor at its start

@@ -19,6 +19,12 @@ final class ShellTests: JournalTestCase {
         shell.view.outline.rows.first { $0.item.body == body }!.item.id
     }
 
+    /// A field with the cursor `at` UTF-16 units into `text`, at the edge of its lines. Which
+    /// keys mean something where is tested in the core (ADR 052).
+    private func cursor(_ at: UInt64, in text: String) -> EditorState {
+        EditorState(text: text, selectionStart: at, selectionEnd: at, onFirstLine: true, onLastLine: true)
+    }
+
     private func edited() -> String? {
         shell.view.outline.rows.first { $0.isEditing }?.item.body
     }
@@ -241,28 +247,17 @@ final class ShellTests: JournalTestCase {
         try openNotes()
         shell.edit(id(of: "first"))
 
-        shell.enter(id(of: "first"), cursor: 5)
+        shell.press(.enter, in: id(of: "first"), cursor(5, in: "first"))
 
         waitUntil("there are two items") { self.bodies() == ["first", ""] }
         waitUntil("the new item is edited") { self.edited() == "" }
-    }
-
-    // 絵文字のあとの改行も、文字の数で数えた位置で分ける。
-    func testEnterCountsTheCursorInCharacters() throws {
-        try download("notes.md", "😀ab\n")
-        try openNotes()
-        shell.edit(id(of: "😀ab"))
-
-        shell.enter(id(of: "😀ab"), cursor: 2)
-
-        waitUntil("the item is split after the second character") { self.bodies() == ["😀a", "b"] }
     }
 
     // 先頭でのBackspaceは、項目を前の項目につなぐ。編集は、つないだ項目で続く。カーソルは、つなぎ目に置かれる。
     func testBackspaceAtTheStartJoinsTheItemToTheOneBeforeAndTheEditGoesOnWhereTheyMeet() throws {
         try editSecondOfThree()
 
-        shell.backspaceAtStart(id(of: "second"))
+        shell.press(.backspace, in: id(of: "second"), cursor(0, in: "second"))
 
         waitUntil("the two items are one") { self.bodies() == ["firstsecond", "third"] }
         waitUntil("the joined item is edited") { self.edited() == "firstsecond" }
@@ -378,21 +373,21 @@ final class ShellTests: JournalTestCase {
         waitUntil("the item is a child again") { self.items() == ["1 first", "2 second", "1 third"] }
     }
 
-    // カーソルは、上の項目へ移れる。行の中の位置は変わらない。
+    // 最初の行での上の矢印で、カーソルは上の項目へ移る。行の中の位置は変わらない。
     func testNavigateUpMovesTheEditToTheItemAboveAtThePlace() throws {
         try editSecondOfThree()
 
-        shell.navigateUp(id(of: "second"), cursor: 3)
+        shell.press(.up, in: id(of: "second"), cursor(3, in: "second"))
 
         waitUntil("the item above is edited") { self.edited() == "first" }
         XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 3)
     }
 
-    // カーソルは、下の項目へ移れる。
+    // 最後の行での下の矢印で、カーソルは下の項目へ移る。
     func testNavigateDownMovesTheEditToTheItemBelowAtThePlace() throws {
         try editSecondOfThree()
 
-        shell.navigateDown(id(of: "second"), cursor: 0)
+        shell.press(.down, in: id(of: "second"), cursor(0, in: "second"))
 
         waitUntil("the item below is edited") { self.edited() == "third" }
         XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 0)
@@ -406,7 +401,7 @@ final class ShellTests: JournalTestCase {
         try openNotes()
         let second = shell.view.outline.rows[1].item.id
         shell.edit(second)
-        shell.backspaceAtStart(second)
+        shell.press(.backspace, in: second, cursor(0, in: "second"))
         waitUntil("the core asks") { self.shell.question != nil }
     }
 
