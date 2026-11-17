@@ -1,4 +1,3 @@
-using System.Globalization;
 
 namespace PetaBorder;
 
@@ -10,33 +9,19 @@ public sealed class StickyLook
     private double zoom;
     private bool searching;
 
-    /// <summary>
-    /// The colors the menu of a sticky offers. They are the colors of the cards of Petasti
-    /// (sosuisen/petasti, <c>cardColors</c>), without its transparent one: a sticky is a paper
-    /// here. The SwiftUI shell offers the same.
-    /// </summary>
+    /// <summary>The colors the menu of a sticky offers, as <c>client-stickies</c> has them.</summary>
     public static IReadOnlyList<(string Name, string Hex)> Colors { get; } =
-    [
-        ("Yellow", StickySettings.Yellow),
-        ("Red", "#FFCAC4"),
-        ("Green", "#EDFFC4"),
-        ("Blue", "#D1E1FF"),
-        ("Orange", "#FFDD9E"),
-        ("Purple", "#F8D0FF"),
-        ("White", "#FFFFFF"),
-        ("Gray", "#E0E0E0"),
-        ("Light Gray", "#F8F8F8"),
-    ];
+        PetaCore.PetaNative.StickyColors().Select(color => (color.Name, color.Hex)).ToList();
 
     public StickyLook(
-        string color = StickySettings.Yellow,
+        string? color = null,
         bool alwaysOnTop = false,
         double zoom = 1
     )
     {
-        this.color = color;
+        this.color = color ?? PetaCore.PetaNative.StickyYellow();
         this.alwaysOnTop = alwaysOnTop;
-        this.zoom = Tenths(zoom);
+        this.zoom = PetaCore.PetaNative.StickyZoom(zoom, 0);
     }
 
     /// <summary>Something of the look changed.</summary>
@@ -68,9 +53,9 @@ public sealed class StickyLook
         set => Set(ref searching, value);
     }
 
-    public void ZoomIn() => Set(ref zoom, Tenths(zoom + 0.1));
+    public void ZoomIn() => Set(ref zoom, PetaCore.PetaNative.StickyZoom(zoom, 1));
 
-    public void ZoomOut() => Set(ref zoom, Tenths(zoom - 0.1));
+    public void ZoomOut() => Set(ref zoom, PetaCore.PetaNative.StickyZoom(zoom, -1));
 
     public void ResetZoom() => Set(ref zoom, 1);
 
@@ -80,32 +65,5 @@ public sealed class StickyLook
             return;
         kept = value;
         Changed?.Invoke();
-    }
-
-    /// <summary>
-    /// The zoom in whole tenths, between three tenths and three, as in the stickies app for
-    /// Windows. Whole tenths, as steps of 0.1 do not add up to them.
-    /// </summary>
-    private static double Tenths(double zoom) => Math.Clamp(Math.Round(zoom * 10), 3, 30) / 10;
-
-    /// <summary>
-    /// The red, green and blue of the color that <c>#RRGGBB</c> names. Anything else is the
-    /// yellow of a new sticky.
-    /// </summary>
-    public static (byte Red, byte Green, byte Blue) Rgb(string hex)
-    {
-        ArgumentNullException.ThrowIfNull(hex);
-        if (
-            hex.Length != 7
-            || hex[0] != '#'
-            || !uint.TryParse(
-                hex.AsSpan(1),
-                NumberStyles.AllowHexSpecifier,
-                CultureInfo.InvariantCulture,
-                out var value
-            )
-        )
-            return Rgb(StickySettings.Yellow);
-        return ((byte)(value >> 16), (byte)(value >> 8), (byte)value);
     }
 }

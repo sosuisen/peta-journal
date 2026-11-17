@@ -8,5 +8,7 @@ boltffi::scaffolding!();
 #[cfg(feature = "ffi")]
 pub mod ffi;
 mod server;
+#[cfg(feature = "ffi")]
+pub mod stickies;
 
 pub use server::connect;

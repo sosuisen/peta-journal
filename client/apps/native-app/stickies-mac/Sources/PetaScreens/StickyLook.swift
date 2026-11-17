@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import PetaBorder
+import PetaCore
 
 /// How one sticky looks. The views of the sticky change it, and the desk keeps it.
 @MainActor
@@ -17,46 +18,32 @@ public final class StickyLook: ObservableObject {
     /// are shown then. This is not kept.
     @Published public var toolsShown = true
 
-    /// The colors the menu of a sticky offers. They are the colors of the cards of Petasti
-    /// (sosuisen/petasti, `cardColors`), without its transparent one: a sticky is a paper here.
-    public static let colors: [(name: String, hex: String)] = [
-        ("Yellow", StickySettings.yellow), ("Red", "#FFCAC4"), ("Green", "#EDFFC4"), ("Blue", "#D1E1FF"),
-        ("Orange", "#FFDD9E"), ("Purple", "#F8D0FF"), ("White", "#FFFFFF"), ("Gray", "#E0E0E0"),
-        ("Light Gray", "#F8F8F8"),
-    ]
+    /// The colors the menu of a sticky offers, as `client-stickies` has them.
+    public static let colors: [(name: String, hex: String)] = stickyColors().map { ($0.name, $0.hex) }
 
     public init(color: String = StickySettings.yellow, alwaysOnTop: Bool = false, zoom: Double = 1) {
         self.color = color
         self.alwaysOnTop = alwaysOnTop
-        self.zoom = StickyLook.tenths(zoom)
+        self.zoom = stickyZoom(zoom: zoom, steps: 0)
     }
 
     public func zoomIn() {
-        zoom = StickyLook.tenths(zoom + 0.1)
+        zoom = stickyZoom(zoom: zoom, steps: 1)
     }
 
     public func zoomOut() {
-        zoom = StickyLook.tenths(zoom - 0.1)
+        zoom = stickyZoom(zoom: zoom, steps: -1)
     }
 
     public func resetZoom() {
         zoom = 1
     }
 
-    /// The zoom in whole tenths, between three tenths and three, as in the stickies app for
-    /// Windows. Whole tenths, as steps of 0.1 do not add up to them.
-    private nonisolated static func tenths(_ zoom: Double) -> Double {
-        min(30, max(3, (zoom * 10).rounded())) / 10
-    }
-
     /// The color that `#RRGGBB` names. Anything else is the yellow of a new sticky.
     public nonisolated static func color(of hex: String) -> NSColor {
-        let digits = hex.dropFirst()
-        guard hex.hasPrefix("#"), digits.count == 6, let value = UInt32(digits, radix: 16) else {
-            return color(of: StickySettings.yellow)
-        }
+        let rgb = stickyRgb(hex: hex)
         return NSColor(
-            srgbRed: CGFloat((value >> 16) & 0xFF) / 255, green: CGFloat((value >> 8) & 0xFF) / 255,
-            blue: CGFloat(value & 0xFF) / 255, alpha: 1)
+            srgbRed: CGFloat(rgb.red) / 255, green: CGFloat(rgb.green) / 255, blue: CGFloat(rgb.blue) / 255,
+            alpha: 1)
     }
 }
