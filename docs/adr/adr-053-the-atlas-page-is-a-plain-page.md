@@ -105,7 +105,9 @@ Accepted
 - サーバーがアトラスを作り直す処理を消す。`sync_all`、`forget_page`、`Outline::fit`、`derived_id`、`auto_modified`である。
 - 並べ替えの規則と、カードが2枚未満のグループを解く規則を消す。
 - 項目の更新日時を書かない例外を外す。`index_atlas.md`にも、ほかのページと同じく項目ごとの日時を書く。
-- 取り込んだatlasのファイルを特別に扱う分岐を消す。
+- 取り込んだatlasのファイルを特別に扱う分岐を消す。`import_service.rs`の`backup_conflict`の分岐も含む。
+- `docs/properties.md`の「atlasページの本文」の節を、この決定に合わせて書き直す。
+- 今の`index_atlas.md`を新しい形に移す作業と、サーバーの自動生成を消す作業は、同時に出す。片方だけを出すと、今のアトラスが壊れる。
 
 ### wikilinkの追従
 
