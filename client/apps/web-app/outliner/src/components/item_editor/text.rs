@@ -20,13 +20,11 @@ pub(super) fn typed(core: &CoreHandle, item_id: &str, el: &web_sys::HtmlTextArea
         cursor,
         now_ms: core.now_ms(),
     });
-    // The row of a transclusion shows the body of its source, which the typed text reaches only
-    // with the save: it would take the typed text away
     let shown = core.view().with_untracked(|v| {
         v.outline
             .rows
             .iter()
-            .find(|r| r.item.id == item_id && !r.is_transclusion)
+            .find(|r| r.item.id == item_id)
             .map(|r| r.item.body.clone())
     });
     if let Some(closed) = shown.filter(|shown| *shown != body) {

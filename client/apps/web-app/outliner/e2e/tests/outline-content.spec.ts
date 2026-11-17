@@ -243,3 +243,31 @@ test.describe('pasting into a transclusion', () => {
     await expect(editorOf(page, b.id)).toHaveValue('source typed one');
   });
 });
+
+// Text typed into B goes into A in the core at once, so the row of B shows it before the save,
+// as the row of any other item does.
+test.describe('typing into a transclusion', () => {
+  test('an opening typed into a transclusion is closed, and the text typed into it is saved to the source', async ({ page, request }) => {
+    const server = new Server(request);
+    const source = await server.newDocPage('typing-source');
+    const [a] = await server.fill(source.id, ['memo']);
+    const host = await server.newDocPage('typing-host');
+    const [b] = await server.fill(host.id, ['placeholder']);
+    const resp = await request.post(
+      `http://localhost:${serverPort}/api/items/${b.id}/transclude`,
+      { data: { sourceItemId: a.id } },
+    );
+    expect(resp.ok()).toBe(true);
+    await openPage(page, host.title);
+    await openEditor(page, b.id);
+    await page.keyboard.press('Control+End');
+
+    await page.keyboard.type(' [[');
+    await expect(editorOf(page, b.id)).toHaveValue('memo [[]]');
+    await page.keyboard.type('Plan');
+
+    await expect(editorOf(page, b.id)).toHaveValue('memo [[Plan]]');
+    const [saved] = await server.itemsSettled(source.id, i => i[0].body === 'memo [[Plan]]');
+    expect(saved.body).toBe('memo [[Plan]]');
+  });
+});

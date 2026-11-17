@@ -21,8 +21,7 @@ pub fn save_target_id(item: &Item) -> String {
         .unwrap_or_else(|| item.id.clone())
 }
 
-/// The body of an item with what was typed into it and is not saved yet. A transclusion
-/// shows the body of its source item, and holds the typed text itself until it is saved.
+/// The body of an item with what was typed into it and is not saved yet.
 pub fn typed_body(model: &Model, item_id: &str) -> Option<String> {
     let item = model.state.get_item_by_id(item_id)?;
     Some(item.body.clone())
@@ -34,12 +33,17 @@ pub fn is_edit_in_progress(model: &Model) -> bool {
     !model.state.editing_item_ids().is_empty()
 }
 
-/// Records typed text: the state shows it at once and the auto-save sends it later.
+/// Records typed text: the state shows it at once and the auto-save sends it later. Text
+/// typed into a transclusion root goes into its source item too, as the save does: the row
+/// of the root shows the body of the source.
 pub fn record_typing(model: &mut Model, item: &Item, new_body: &str) -> Cmd {
-    let body = new_body.to_string();
-    model.state.update_item(&item.id, |i| i.body = body);
+    let target = save_target_id(item);
+    model.state.set_body(&item.id, new_body);
+    if target != item.id {
+        model.state.set_body(&target, new_body);
+    }
     model.edits.dirty_item_ids.insert(item.id.clone());
-    schedule_save(model, &save_target_id(item), new_body)
+    schedule_save(model, &target, new_body)
 }
 
 /// Marks an item as needing a save on the next edit end, e.g. after a paste changed its body.
