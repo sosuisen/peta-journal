@@ -48,39 +48,6 @@
   - [ ] Ctrl+クリック、中クリック、右クリックのメニューで、正しいページが開くことを確かめる
 - [ ] 「HTMLとしてコピー」（ADR 027）とmemoviewは変えない
 
-## APIの方針：RESTとMCP
-
-2026-11-11に開発者が決めた。ジャーナルサーバーのAPIを足す、変える、消すときは、まずここを読む。
-
-- MCPとRESTは、全く同じことができる
-- MCPは、RESTをSSOT（唯一の正）として、JSONをRESTの形にそろえる
-- いまMCPにだけあるものは、RESTになくてはならない。逆もそうである。RESTにだけあるものは、MCPになくてはならない
-
-この方針から、次のことが決まる。
-
-- 片方だけを消さない。消すなら、RESTとMCPの両方から消す。クライアントがリポジトリの中にないことは、片方だけを消す理由にならない
-- 足すときは、両方に足す
-- 答えのJSONの形を決めるのはRESTである。MCPは、同じ形で返す
-
-### 機能向上
-
-- [ ] RESTにあってMCPにない操作を洗い出し、MCPに道具を足す。項目では、貼り付け、分割、スタッシュ、バッチ、結合、字下げ、まとめての削除、Flat Markdownの解析（`/api/items/parse`）などが、RESTにしかない。ほかの領域（ページ、検索、ジャーナル、アトラス、設定、同期）は、まだ並べていない
-  - ブラウザーや画面のためだけのルート（`/api/events`、`/api/health`、フォルダーを選ぶダイアログ、OSで開く操作、ファイルのアップロード）を、MCPにも足すのかは決めていない
-- [ ] MCPのページと項目の答えを、RESTの形にそろえる（2026-11-11に開発者が決めた）
-  - 今のMCPは、ページと項目を、RESTと違う形で書く。入口の答えはRESTの形なので、MCPは、その答えから今の形へ書き直している（`mcp.rs`の`page_record_json`と`item_record_json`）。そろえると、この書き直しが要らなくなる
-  - 違いは4つある
-    - 日付（`createdDate`、`modifiedDate`）: MCPはISO 8601の文字（`2026-11-11T10:00:00Z`）、RESTはミリ秒の数
-    - プロパティ（`properties`）: MCPにはなく、RESTにはある
-    - 親のないページの`parentId`: MCPは`null`、RESTは空の文字
-    - トランスクルージョンの木（`transcludedTrees`）: MCPの`get_page_by_id`にはなく、RESTの`GET /api/pages/{id}`にはある
-  - 今の形で書いている道具は、`get_page_by_id`、`get_or_create_doc`、`update_page`、`get_recent_pages`、`get_backlinks`、`get_or_create_journal`、`get_most_recent_journal_before`と、項目の道具のうち4つである。その4つは、`create_item`、`update_item`、`move_items`、`get_items_by_type`である。項目の道具のほかのもの（`get_item`、`cycle_task`など）は、すでにRESTの形（`ItemDto`）で書いている
-  - MCPの答えが変わるので、MCPを使う側を先に確かめる。`peta-journal`、`kcg-lecture`、`report`などのスキルと、日付を文字として読んでいるところである
-  - 入口へ下ろし終えてから行う。途中でそろえると、下ろす作業と答えの変更が1つのPRに混ざる
-
-### 調査・バグ修正
-
-- [ ] MCPにあってRESTにない操作がないかを確かめる。いまのところ、見つけていない
-
 ## journal-core
 
 ### 機能向上
