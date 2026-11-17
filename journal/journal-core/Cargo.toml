@@ -13,6 +13,8 @@ extensions = ["dep:rquickjs"]
 
 [dependencies]
 hmtid = { path = "../hmtid" }
+# The names of the journals and the numbers of the weeks, which the frontend core shares
+journal-names = { path = "../journal-names" }
 # The bodies of the requests, which the frontend core writes with the same types
 journal-api-types = { path = "../journal-api-types" }
 property-names = { path = "../property-names" }

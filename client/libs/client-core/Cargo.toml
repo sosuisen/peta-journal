@@ -17,6 +17,8 @@ flatmarkdown-ast = { workspace = true }
 # The core makes the AST of each body that it shows (ADR 041)
 flatmarkdown = { workspace = true }
 hmtid = { path = "../../../journal/hmtid" }
+# The names of the journals and the numbers of the weeks, as the journal has them
+journal-names = { path = "../../../journal/journal-names" }
 # The bodies of the requests, in the types the journal reads them with
 journal-api-types = { path = "../../../journal/journal-api-types" }
 # Makes the name of a new key from its body and type (ADR 047)

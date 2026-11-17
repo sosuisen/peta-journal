@@ -1598,6 +1598,7 @@ dependencies = [
  "hex",
  "hmtid",
  "journal-api-types",
+ "journal-names",
  "lindera",
  "lindera-analysis",
  "lindera-tantivy",
@@ -1618,6 +1619,10 @@ dependencies = [
  "unicode-normalization",
  "uuid",
 ]
+
+[[package]]
+name = "journal-names"
+version = "1.0.0"
 
 [[package]]
 name = "journal-server"

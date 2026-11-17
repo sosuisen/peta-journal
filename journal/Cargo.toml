@@ -4,6 +4,7 @@ members = [
     "hmtid",
     "journal-api-types",
     "journal-core",
+    "journal-names",
     "journal-server",
     "property-names",
 ]

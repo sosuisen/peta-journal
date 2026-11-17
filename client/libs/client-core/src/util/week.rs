@@ -1,56 +1,55 @@
-//! Week numbers, ported from `core/utils/week.utils.ts`.
+//! Week numbers. The rules are in `journal-names`, which the journal numbers its weeks with
+//! too, so a week has one name on both sides.
 
 use super::date::Date;
 use crate::model::WeekNumbering;
+use journal_names::{week_of, JournalName};
 
-/// The Thursday of the ISO week the date is in; ISO weeks belong to the year of their Thursday.
-fn iso_thursday_of(date: Date) -> Date {
-    // Monday = 0 .. Sunday = 6
-    let monday_based = (date.weekday() + 6) % 7;
-    date.shift(3 - monday_based as i64)
+impl From<WeekNumbering> for journal_names::WeekNumbering {
+    fn from(numbering: WeekNumbering) -> Self {
+        match numbering {
+            WeekNumbering::Us => journal_names::WeekNumbering::Us,
+            WeekNumbering::Iso => journal_names::WeekNumbering::Iso,
+        }
+    }
 }
 
 /// ISO 8601 week number: weeks start on Monday and week 1 holds January 4th.
 pub fn iso_week_number(date: Date) -> u32 {
-    let thursday = iso_thursday_of(date);
-    let year_start = Date::new(thursday.year, 1, 4);
-    let days = thursday.to_days() - year_start.to_days();
-    let year_start_monday_based = (year_start.weekday() + 6) % 7;
-    (1 + (days - 3 + year_start_monday_based as i64) / 7) as u32
+    week_of(date, journal_names::WeekNumbering::Iso).1
 }
 
 /// The year an ISO week belongs to, which differs from the calendar year around New Year.
 pub fn iso_week_year(date: Date) -> i32 {
-    iso_thursday_of(date).year
+    week_of(date, journal_names::WeekNumbering::Iso).0
 }
 
-/// US week number: weeks start on Sunday and week 1 holds January 1st.
+/// US week number: weeks start on Sunday, and are counted from the week that holds January
+/// 1st of the year of that Sunday.
 pub fn us_week_number(date: Date) -> u32 {
-    let year_start = Date::new(date.year, 1, 1);
-    let year_start_sunday = year_start.shift(-(year_start.weekday() as i64));
-    (1 + (date.to_days() - year_start_sunday.to_days()) / 7) as u32
+    week_of(date, journal_names::WeekNumbering::Us).1
 }
 
 /// The number of weeks a year has, so that week navigation does not skip the last one.
 pub fn weeks_in_year(year: i32, numbering: WeekNumbering) -> u32 {
-    match numbering {
-        // December 28th is always in the last ISO week of its year
-        WeekNumbering::Iso => iso_week_number(Date::new(year, 12, 28)),
-        WeekNumbering::Us => us_week_number(Date::new(year, 12, 31)),
-    }
+    journal_names::weeks_in_year(year, numbering.into())
 }
 
 /// The name of the week page of the week the date is in, like `2026-W07`. The calendar opens
 /// the page by this name, so a week has one page whichever of its days is asked for.
 pub fn week_page_name(date: Date, numbering: WeekNumbering) -> String {
-    let (year, number) = match numbering {
-        WeekNumbering::Iso => (iso_week_year(date), iso_week_number(date)),
-        WeekNumbering::Us => {
-            let sunday = date.shift(-i64::from(date.weekday()));
-            (sunday.year, us_week_number(sunday))
-        }
+    let (year, week) = week_of(date, numbering.into());
+    JournalName::Weekly { year, week }.to_string()
+}
+
+/// The name of the week page a number of weeks after the week of this name; negative for
+/// earlier weeks. None when the name is not the name of a week.
+pub fn week_page_name_after(name: &str, weeks: i64, numbering: WeekNumbering) -> Option<String> {
+    let Ok(JournalName::Weekly { year, week }) = name.parse() else {
+        return None;
     };
-    format!("{year}-W{number:02}")
+    let first_day = journal_names::first_day_of_week(year, week, numbering.into());
+    Some(week_page_name(first_day.shift(7 * weeks), numbering))
 }
 
 #[cfg(test)]
@@ -73,7 +72,9 @@ mod tests {
     // US 週番号は日曜始まりで1月1日を第1週とし、土曜始まりのうるう年は54週になる。
     #[test]
     fn us_weeks() {
-        assert_eq!(us_week_number(Date::new(2026, 1, 1)), 1);
+        // The week of a New Year that is not a Sunday is the last week of the old year
+        assert_eq!(us_week_number(Date::new(2026, 1, 1)), 53);
+        assert_eq!(us_week_number(Date::new(2023, 1, 1)), 1);
         assert_eq!(us_week_number(Date::new(2026, 1, 4)), 2);
         assert_eq!(us_week_number(Date::new(2026, 2, 10)), 7);
         // 2028 is a leap year starting on a Saturday: 54 weeks
@@ -103,5 +104,38 @@ mod tests {
             week_page_name(Date::new(2024, 12, 30), WeekNumbering::Iso),
             "2025-W01"
         );
+    }
+
+    // 次の週と前の週の名前は、週の最初の日を7日動かして決まる。年の変わり目でも、同じ週が2つの名前にならない。
+    #[test]
+    fn the_week_after_and_before_a_week_is_named_once_across_new_year() {
+        let us = WeekNumbering::Us;
+        assert_eq!(
+            week_page_name_after("2026-W07", 1, us).as_deref(),
+            Some("2026-W08")
+        );
+        assert_eq!(
+            week_page_name_after("2026-W53", 1, us).as_deref(),
+            Some("2027-W02")
+        );
+        assert_eq!(
+            week_page_name_after("2027-W02", -1, us).as_deref(),
+            Some("2026-W53")
+        );
+        // `2027-W01` is another name of the week `2026-W53`, so it leads to the same weeks
+        assert_eq!(
+            week_page_name_after("2027-W01", 1, us).as_deref(),
+            Some("2027-W02")
+        );
+        let iso = WeekNumbering::Iso;
+        assert_eq!(
+            week_page_name_after("2024-W52", 1, iso).as_deref(),
+            Some("2025-W01")
+        );
+        assert_eq!(
+            week_page_name_after("2025-W01", -1, iso).as_deref(),
+            Some("2024-W52")
+        );
+        assert_eq!(week_page_name_after("2026-02-10", 1, iso), None);
     }
 }

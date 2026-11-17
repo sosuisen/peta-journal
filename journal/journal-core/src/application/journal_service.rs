@@ -3,7 +3,8 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use chrono::{Datelike, Days, NaiveDate, Weekday};
+use chrono::NaiveDate;
+use journal_names::{first_day_of_week, weeks_of_month, Date, WeekNumbering};
 use rusqlite::Connection;
 
 use crate::domain::id_generator::IdGenerator;
@@ -192,13 +193,13 @@ impl JournalService {
     /// filled with one wiki link per day, week or month it covers.
     pub fn get_or_create_journal_by_name(&self, name: JournalName) -> AppResult<JournalResult> {
         match name {
-            JournalName::Daily(date) => self.get_or_create_journal(date),
+            JournalName::Daily(date) => self.get_or_create_journal(naive_date(date)?),
             JournalName::Weekly { year, week } => {
-                self.get_or_create_link_journal(&name.to_string(), self.week_day_names(year, week)?)
+                self.get_or_create_link_journal(&name.to_string(), self.week_day_names(year, week))
             }
             JournalName::Monthly { year, month } => self.get_or_create_link_journal(
                 &name.to_string(),
-                self.week_names_in_month(year, month)?,
+                self.week_names_in_month(year, month),
             ),
             JournalName::Yearly(year) => {
                 self.get_or_create_link_journal(&name.to_string(), month_names(year))
@@ -266,45 +267,28 @@ impl JournalService {
         )
     }
 
-    fn is_iso_week_numbering(&self) -> bool {
-        self.config.week_numbering() == "iso"
+    fn week_numbering(&self) -> WeekNumbering {
+        if self.config.week_numbering() == "iso" {
+            WeekNumbering::Iso
+        } else {
+            WeekNumbering::Us
+        }
     }
 
     /// The names of the seven daily journals of a week, e.g. `2026-02-16`.
-    fn week_day_names(&self, year: i32, week: u32) -> AppResult<Vec<String>> {
-        let start = if self.is_iso_week_numbering() {
-            // ISO: weeks start Monday, Jan 4 is always in week 1
-            let jan4 = ymd(year, 1, 4)?;
-            previous_or_same(jan4, Weekday::Mon) + Days::new(7 * (week as u64).saturating_sub(1))
-        } else {
-            // US: weeks start Sunday, week 1 contains Jan 1
-            let jan1 = ymd(year, 1, 1)?;
-            previous_or_same(jan1, Weekday::Sun) + Days::new(7 * (week as u64).saturating_sub(1))
-        };
-        Ok((0..7)
-            .map(|i| (start + Days::new(i)).format("%Y-%m-%d").to_string())
-            .collect())
+    fn week_day_names(&self, year: i32, week: u32) -> Vec<String> {
+        let start = first_day_of_week(year, week, self.week_numbering());
+        (0..7).map(|days| start.shift(days).iso()).collect()
     }
 
-    /// The names of the weekly journals that overlap a month, e.g. `2026-W07`.
-    fn week_names_in_month(&self, year: i32, month: u32) -> AppResult<Vec<String>> {
-        let iso = self.is_iso_week_numbering();
-        let first = ymd(year, month, 1)?;
-        let last = last_day_of_month(year, month)?;
-        let mut weeks: Vec<u32> = Vec::new();
-        let mut date = first;
-        while date <= last {
-            let week_num = if iso {
-                iso_week_number(date)
-            } else {
-                us_week_number(date, year)
-            };
-            if weeks.last() != Some(&week_num) {
-                weeks.push(week_num);
-            }
-            date = date + Days::new(1);
-        }
-        Ok(weeks.iter().map(|w| format!("{year}-W{w:02}")).collect())
+    /// The names of the weekly journals that overlap a month, e.g. `2026-W07`. A week across
+    /// New Year has the name the clients open it by, which is not always of the year of the
+    /// month.
+    fn week_names_in_month(&self, year: i32, month: u32) -> Vec<String> {
+        weeks_of_month(year, month, self.week_numbering())
+            .iter()
+            .map(JournalName::to_string)
+            .collect()
     }
 
     pub fn get_most_recent_journal_before(
@@ -341,72 +325,13 @@ impl JournalService {
     }
 }
 
-fn ymd(year: i32, month: u32, day: u32) -> AppResult<NaiveDate> {
-    NaiveDate::from_ymd_opt(year, month, day)
-        .ok_or_else(|| AppError::bad_request(format!("Invalid date: {year}-{month}-{day}")))
-}
-
-fn last_day_of_month(year: i32, month: u32) -> AppResult<NaiveDate> {
-    let next = if month == 12 {
-        ymd(year + 1, 1, 1)?
-    } else {
-        ymd(year, month + 1, 1)?
-    };
-    Ok(next.pred_opt().unwrap_or(next))
-}
-
-fn previous_or_same(date: NaiveDate, weekday: Weekday) -> NaiveDate {
-    let diff = (date.weekday().num_days_from_monday() + 7 - weekday.num_days_from_monday()) % 7;
-    date - Days::new(diff as u64)
+/// The day as chrono has it.
+pub(crate) fn naive_date(date: Date) -> AppResult<NaiveDate> {
+    NaiveDate::from_ymd_opt(date.year, date.month, date.day)
+        .ok_or_else(|| AppError::bad_request(format!("Invalid date: {}", date.iso())))
 }
 
 /// The names of the twelve monthly journals of a year, e.g. `2026-02`.
 fn month_names(year: i32) -> Vec<String> {
     (1..=12).map(|m| format!("{year}-{m:02}")).collect()
-}
-
-fn iso_week_number(date: NaiveDate) -> u32 {
-    // ISO 8601: week starts Monday, Jan 4 is always in week 1
-    let jan4 = NaiveDate::from_ymd_opt(date.year(), 1, 4).unwrap_or(date);
-    let monday1 = previous_or_same(jan4, Weekday::Mon);
-    if date < monday1 {
-        let prev_jan4 = NaiveDate::from_ymd_opt(date.year() - 1, 1, 4).unwrap_or(date);
-        let prev_monday1 = previous_or_same(prev_jan4, Weekday::Mon);
-        return ((date - prev_monday1).num_days() / 7) as u32 + 1;
-    }
-    ((date - monday1).num_days() / 7) as u32 + 1
-}
-
-fn us_week_number(date: NaiveDate, year: i32) -> u32 {
-    // US: week 1 contains Jan 1, weeks start Sunday
-    let jan1 = NaiveDate::from_ymd_opt(year, 1, 1).unwrap_or(date);
-    let sunday1 = previous_or_same(jan1, Weekday::Sun);
-    ((date - sunday1).num_days() / 7) as u32 + 1
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // ISO週番号と米国式週番号は、年の変わり目で食い違う。
-    #[test]
-    fn iso_and_us_week_numbers_part_at_the_turn_of_the_year() {
-        let d = NaiveDate::from_ymd_opt(2026, 2, 16).unwrap();
-        assert_eq!(iso_week_number(d), 8);
-        assert_eq!(us_week_number(d, 2026), 8);
-        let jan1 = NaiveDate::from_ymd_opt(2027, 1, 1).unwrap();
-        assert_eq!(iso_week_number(jan1), 53); // belongs to 2026-W53
-        assert_eq!(us_week_number(jan1, 2027), 1);
-    }
-
-    // 指定の曜日の、同じ日か直前の日が見つかる。
-    #[test]
-    fn the_previous_or_same_weekday_is_found() {
-        let d = NaiveDate::from_ymd_opt(2026, 1, 4).unwrap(); // Sunday
-        assert_eq!(
-            previous_or_same(d, Weekday::Mon),
-            NaiveDate::from_ymd_opt(2025, 12, 29).unwrap()
-        );
-        assert_eq!(previous_or_same(d, Weekday::Sun), d);
-    }
 }

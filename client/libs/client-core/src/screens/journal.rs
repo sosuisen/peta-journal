@@ -8,7 +8,7 @@ use crate::ops::moves::CrossDayMove;
 use crate::screens::{navigate, page, sidebar};
 use crate::util::date::{format_journal_date, Date};
 use crate::util::filename::{classify_journal_file_name, JournalType};
-use crate::util::week::weeks_in_year;
+use crate::util::week::week_page_name_after;
 use crux_core::Command;
 
 /// How many items the outline keeps loaded ahead of the scroll position.
@@ -266,22 +266,12 @@ pub fn nav(model: &mut Model, nav: JournalNav) -> Cmd {
     if let Some(day) = Date::parse(&current) {
         return navigate::open_page(&day.shift(delta.into()).iso());
     }
-    let Some((y, w)) = current.split_once("-W") else {
-        return done();
-    };
-    let (Ok(mut year), Ok(week)) = (y.parse::<i32>(), w.parse::<i32>()) else {
-        return done();
-    };
-    let mut week = week + delta;
-    let numbering = model.config.week_numbering;
-    if week < 1 {
-        year -= 1;
-        week = weeks_in_year(year, numbering) as i32;
-    } else if week > weeks_in_year(year, numbering) as i32 {
-        year += 1;
-        week = 1;
+    // The first day of the week moves by seven days, so a week across New Year, which two
+    // numbers could name, is passed once
+    match week_page_name_after(&current, delta.into(), model.config.week_numbering) {
+        Some(week) => navigate::open_page(&week),
+        None => done(),
     }
-    navigate::open_page(&format!("{year}-W{week:02}"))
 }
 
 /// After an item moved to another day: navigates to that day, or reloads the journal.

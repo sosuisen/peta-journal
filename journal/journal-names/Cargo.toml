@@ -1,0 +1,8 @@
+[package]
+name = "journal-names"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The names of the journal pages: the day, the week, the month and the year they cover"
+
+[dependencies]

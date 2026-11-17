@@ -1,5 +1,7 @@
 //! Page names: journal name patterns and the characters a file name may hold.
 
+use journal_names::JournalName;
+
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum JournalType {
@@ -10,39 +12,16 @@ pub enum JournalType {
     None,
 }
 
-fn all_digits(s: &str) -> bool {
-    !s.is_empty() && s.chars().all(|c| c.is_ascii_digit())
-}
-
 /// `2026-02-10` daily, `2026-W07` weekly, `2026-02` monthly, `2026` yearly; anything else none.
+/// A name of a day, a week or a month that does not exist is none too, as the server refuses
+/// it: both read the name with `journal-names`.
 pub fn classify_journal_file_name(file_name: &str) -> JournalType {
-    let parts: Vec<&str> = file_name.split('-').collect();
-    match parts.as_slice() {
-        [y] if y.len() == 4 && all_digits(y) => JournalType::Yearly,
-        [y, m] if y.len() == 4 && all_digits(y) => {
-            if m.len() == 2 && all_digits(m) {
-                JournalType::Monthly
-            } else if let Some(w) = m.strip_prefix('W') {
-                if (1..=2).contains(&w.len()) && all_digits(w) {
-                    JournalType::Weekly
-                } else {
-                    JournalType::None
-                }
-            } else {
-                JournalType::None
-            }
-        }
-        [y, m, d]
-            if y.len() == 4
-                && m.len() == 2
-                && d.len() == 2
-                && all_digits(y)
-                && all_digits(m)
-                && all_digits(d) =>
-        {
-            JournalType::Daily
-        }
-        _ => JournalType::None,
+    match file_name.parse::<JournalName>() {
+        Ok(JournalName::Daily(_)) => JournalType::Daily,
+        Ok(JournalName::Weekly { .. }) => JournalType::Weekly,
+        Ok(JournalName::Monthly { .. }) => JournalType::Monthly,
+        Ok(JournalName::Yearly(_)) => JournalType::Yearly,
+        Err(_) => JournalType::None,
     }
 }
 
@@ -95,6 +74,20 @@ mod tests {
         assert_eq!(classify_journal_file_name("notes"), JournalType::None);
         assert_eq!(classify_journal_file_name(""), JournalType::None);
         assert_eq!(classify_journal_file_name("2026-W123"), JournalType::None);
+    }
+
+    // ない日、ない月、ない週の名前は、サーバーが断るので、ジャーナルの名前にならない。
+    #[test]
+    fn a_name_of_a_day_a_month_or_a_week_that_does_not_exist_is_no_journal() {
+        for name in ["2026-13", "2026-00", "2026-02-30", "2026-W00", "2026-W99"] {
+            assert_eq!(
+                classify_journal_file_name(name),
+                JournalType::None,
+                "{name}"
+            );
+            assert!(!is_journal_file_name(name), "{name}");
+        }
+        assert!(is_journal_file_name("2024-02-29"));
     }
 
     // 禁止文字・先頭の /・末尾のドット・Windows の予約名・制御文字を含むタイトルにはエラーメッセージが返り、有効なタイトルには None が返る。
