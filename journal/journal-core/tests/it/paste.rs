@@ -30,21 +30,6 @@ impl Core {
     fn pasted(&self, item_id: &str, body: &str, cursor: usize, text: &str, mode: &str) -> Value {
         answer(self.paste(item_id, body, cursor, text, mode).unwrap())
     }
-
-    /// A source page with the given rows, and a page whose only item transcludes the first
-    /// row
-    fn transcluded_rows(
-        &self,
-        name: &str,
-        source_rows: &[&str],
-    ) -> (String, Vec<Value>, String, String) {
-        let source_page = self.new_doc_page(&format!("{name}-source"));
-        let source = self.fill(&source_page, source_rows);
-        let page = self.new_doc_page(name);
-        let host = id(&self.fill(&page, &["placeholder"])[0]);
-        self.transclude(&host, &id(&source[0]));
-        (source_page, source, page, host)
-    }
 }
 
 // 1つの断片は、カーソルの位置で項目の本文に入り、カーソルはその直後に来る。

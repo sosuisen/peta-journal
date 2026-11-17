@@ -21,6 +21,7 @@ mod moving_items;
 mod page_properties;
 mod pages;
 mod paste;
+mod split;
 mod stash;
 mod tasks;
 mod transclusion;
