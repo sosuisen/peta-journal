@@ -61,7 +61,10 @@ impl Journal {
         let config = &self.services.config;
         if let Some(dir) = &input.markdown_dir {
             config.set_markdown_dir(dir);
-            self.services.export.export_all_if_empty(dir);
+            // Not `dir`: a throw-away journal keeps its folder when told one outside it
+            self.services
+                .export
+                .export_all_if_empty(&config.markdown_dir());
             self.services.folder_watch.restart();
         }
         if let Some(week_numbering) = &input.week_numbering {

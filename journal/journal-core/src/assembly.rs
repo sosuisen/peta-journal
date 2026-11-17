@@ -50,6 +50,9 @@ pub struct CoreSettings {
     pub db_path: PathBuf,
     pub index_dir: PathBuf,
     pub config_dir: PathBuf,
+    /// The folder a throw-away journal stays in, as that of a test: its markdown folder is
+    /// never outside it (ADR 002). None for the journal of a user.
+    pub confined_to: Option<PathBuf>,
     /// Whether files of the markdown folder are taken into the database
     pub import_enabled: bool,
     pub import_copy_wait: Duration,
@@ -110,7 +113,10 @@ impl JournalCore {
 
         let tantivy = Arc::new(TantivySearchService::open(&settings.index_dir)?);
         let search: Arc<dyn SearchIndex> = tantivy.clone();
-        let config = Arc::new(ConfigService::new(settings.config_dir.clone()));
+        let config = Arc::new(match &settings.confined_to {
+            Some(root) => ConfigService::confined(settings.config_dir.clone(), root.clone()),
+            None => ConfigService::new(settings.config_dir.clone()),
+        });
         let parser = MarkdownParser;
         let splitter = FlatMarkdownSplitter::new(parser.clone());
 

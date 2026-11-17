@@ -81,11 +81,17 @@ impl AppState {
             settings.import_delete_prompt_cooldown_secs,
         ));
         let watcher_restart = Arc::new(WatcherRestart::default());
+        if let Some(root) = &settings.throwaway_dir {
+            // A throw-away server has its markdown folder from the start, so nobody is asked
+            // for one and the tests find it there
+            std::fs::create_dir_all(root.join("markdown"))?;
+        }
         let core = JournalCore::build(
             &CoreSettings {
                 db_path: settings.db_path.clone(),
                 index_dir: settings.index_dir.clone(),
                 config_dir: settings.config_dir.clone(),
+                confined_to: settings.throwaway_dir.clone(),
                 import_enabled: settings.import_enabled,
                 import_copy_wait: Duration::from_secs(settings.import_copy_wait_secs),
                 export_overwrite_wait: Duration::from_secs(settings.export_overwrite_wait_secs),

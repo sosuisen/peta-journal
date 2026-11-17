@@ -19,18 +19,13 @@ const shellDir = resolve(__dirname, '..');
 const frontendDir = resolve(shellDir, 'dist-e2e');
 
 /**
- * Writes the test server's own config.json and returns its directory.
- *
- * Without `--config-dir` the server reads `~/.peta-journal/config.json` and exports the test
- * pages into the user's real markdown folder, which the user's own server then imports.
- * That overwrote real journal pages once (see ADR 002), so the config dir is never left to the default.
+ * Writes the test server's own config.json. It names no markdown folder: a throw-away server
+ * has `markdown/` under its folder.
  */
-function writeConfigDir(): string {
+function writeConfig(): void {
   const configDir = join(dataDir, 'config');
   mkdirSync(configDir, { recursive: true });
-  mkdirSync(markdownDir, { recursive: true });
-  writeFileSync(join(configDir, 'config.json'), JSON.stringify({ markdownDir, weekNumbering: 'iso' }));
-  return configDir;
+  writeFileSync(join(configDir, 'config.json'), JSON.stringify({ weekNumbering: 'iso' }));
 }
 
 /** Builds the Leptos frontend into `frontendDir`. Runs in `shellDir`, where Trunk.toml is. */
@@ -50,12 +45,16 @@ function serverBuildCommand(): string {
 }
 
 function serverCommand(): string {
+  writeConfig();
   const binary = join(serverDir, 'target/release/journal-server'
     + (process.platform === 'win32' ? '.exe' : ''));
   return [
     JSON.stringify(binary), '--port', String(serverPort),
-    '--data-dir', JSON.stringify(dataDir), '--index-dir', JSON.stringify(join(dataDir, 'index')),
-    '--config-dir', JSON.stringify(writeConfigDir()),
+    // Everything the server writes is under this folder. Started with `--data-dir` alone, a
+    // test server read `~/.peta-journal/config.json` and exported the test pages into the
+    // user's real markdown folder, which the user's own server then imported. That overwrote
+    // real journal pages once (see ADR 002)
+    '--throwaway-dir', JSON.stringify(dataDir),
     '--frontend-dir', JSON.stringify(frontendDir),
   ].join(' ');
 }

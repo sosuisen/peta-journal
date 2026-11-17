@@ -384,7 +384,7 @@ emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batc
 
 The E2E tests press real keys and use the real shell and a real server. They run what the other
 tests cannot: the mode, the shell and the server together. Build both programs first. Each test starts its server on
-port 18087, with its files in a temporary folder and its own `--config-dir`. The tests stop if the
+port 18087, with all its files in a temporary folder (`--throwaway-dir`). The tests stop if the
 server reports a markdown folder outside that temporary folder (see ADR-002). They are skipped when
 `PETA_E2E_SERVER` is not set.
 

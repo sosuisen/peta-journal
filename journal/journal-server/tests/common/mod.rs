@@ -49,15 +49,13 @@ pub fn start_with(
             .expect("temp dir");
         let root = dir.path().to_path_buf();
         let markdown_dir = root.join("markdown");
-        std::fs::create_dir_all(&markdown_dir).unwrap();
         let config_dir = root.join("config");
         std::fs::create_dir_all(&config_dir).unwrap();
-        // The markdown folder is written into the config file before the server starts;
-        // without it the startup would open the native folder chooser.
+        // No markdown folder is written into the config file: a throw-away server, which
+        // `Settings::under` makes, has `markdown/` under its folder, and never one outside
         std::fs::write(
             config_dir.join("config.json"),
-            json!({ "markdownDir": markdown_dir.to_string_lossy(), "weekNumbering": "iso" })
-                .to_string(),
+            json!({ "weekNumbering": "iso" }).to_string(),
         )
         .unwrap();
         prepare(&config_dir);

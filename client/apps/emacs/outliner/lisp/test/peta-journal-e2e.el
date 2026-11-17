@@ -10,8 +10,9 @@
 ;;
 ;; PETA_E2E_SERVER is the journal-server program.  The tests are skipped when it is missing.
 ;;
-;; See ADR-002: the server gets its own config folder.  Without it, it would export into the real
-;; notes of the user.  The tests also stop when the server reports another markdown folder.
+;; See ADR-002: the server is a throw-away one, with all it writes under one folder.  Otherwise it
+;; would export into the real notes of the user.  The tests also stop when the server reports a
+;; markdown folder outside that folder.
 
 ;;; Code:
 
@@ -90,31 +91,26 @@ signals here, where the caller can handle it."
                    (file-name-as-directory (file-truename path))
                    t))
 
-(defun peta-journal-e2e--write-config (root markdown)
-  "Write the config of the server in ROOT, with its notes in MARKDOWN.
-Return its folder."
+(defun peta-journal-e2e--write-config (root)
+  "Write the config of the server in ROOT.
+It names no folder of notes: a throw-away server has `markdown/' under its folder."
   (let ((config (expand-file-name "config" root)))
     (make-directory config t)
-    (make-directory markdown t)
     (with-temp-file (expand-file-name "config.json" config)
-      (insert (json-serialize (list :markdownDir markdown :weekNumbering "iso"))))
-    config))
+      (insert (json-serialize (list :weekNumbering "iso"))))))
 
 (defun peta-journal-e2e--start-server (root)
   "Start the test server with its files in ROOT, and return its process.
 Signals an error when its notes would not stay inside ROOT."
-  (let* ((markdown (expand-file-name "markdown" root))
-         (config (peta-journal-e2e--write-config root markdown))
-         (process
+  (peta-journal-e2e--write-config root)
+  (let* ((process
           (make-process
            :name "peta-e2e-server"
            :buffer (get-buffer-create " *peta-e2e-server*")
            :noquery t
            :command (list (peta-journal-e2e--server-program)
                           "--port" (number-to-string peta-journal-e2e--port)
-                          "--data-dir" (expand-file-name "data" root)
-                          "--index-dir" (expand-file-name "index" root)
-                          "--config-dir" config))))
+                          "--throwaway-dir" (expand-file-name root)))))
     (peta-journal-e2e--wait-for "the server" #'peta-journal-e2e--server-up-p)
     (let ((in-use (plist-get (peta-journal-e2e--request "GET" "/api/config") :markdownDir)))
       (unless (and in-use (peta-journal-e2e--inside-p in-use root))

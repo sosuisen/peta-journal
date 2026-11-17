@@ -22,9 +22,8 @@ final class JournalServer {
         let config = root.appendingPathComponent("config")
         let markdown = root.appendingPathComponent("markdown")
         try FileManager.default.createDirectory(at: config, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: markdown, withIntermediateDirectories: true)
-        // Without this the server would write into the notes of whoever runs the test
-        let settings = ["markdownDir": markdown.path, "weekNumbering": "iso"]
+        // No markdown folder is named: a throw-away server has `markdown/` under its folder
+        let settings = ["weekNumbering": "iso"]
         try JSONSerialization.data(withJSONObject: settings)
             .write(to: config.appendingPathComponent("config.json"))
         for (name, mainJs) in functions {
@@ -38,9 +37,9 @@ final class JournalServer {
         process.executableURL = URL(fileURLWithPath: program)
         process.arguments = [
             "--port", String(port),
-            "--data-dir", root.appendingPathComponent("data").path,
-            "--index-dir", root.appendingPathComponent("index").path,
-            "--config-dir", config.path,
+            // Everything the server writes is under this folder. Without it the server
+            // would write into the notes of whoever runs the test (ADR 002)
+            "--throwaway-dir", root.path,
         ]
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice

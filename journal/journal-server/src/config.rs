@@ -5,6 +5,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
+use journal_core::application::config_service::ConfigService;
 
 #[derive(Debug, Clone, Parser)]
 #[command(name = "journal-server", about = "PetaJournal journal server", version)]
@@ -28,6 +29,15 @@ pub struct Cli {
     /// Configuration directory (config.json, functions/). Default: ~/.peta-journal
     #[arg(long, env = "PETAJOURNAL_CONFIG_DIR")]
     pub config_dir: Option<PathBuf>,
+
+    /// Starts a throw-away server, as a test needs it: the data, the search index, the
+    /// configuration and the markdown folder are all under this directory (data/, index/,
+    /// config/, markdown/), and the markdown folder never leaves it, whatever config.json or
+    /// a client says. Not to be given together with the four directories above. It has no
+    /// environment variable: a variable left set would turn the server of a user into a
+    /// throw-away one without a word
+    #[arg(long, conflicts_with_all = ["data_dir", "db", "index_dir", "config_dir"])]
+    pub throwaway_dir: Option<PathBuf>,
 
     /// Export scheduler interval in seconds
     #[arg(long, env = "PETAJOURNAL_EXPORT_INTERVAL", default_value_t = 5)]
@@ -123,6 +133,9 @@ pub struct Settings {
     pub db_path: PathBuf,
     pub index_dir: PathBuf,
     pub config_dir: PathBuf,
+    /// The directory of a throw-away server, which holds the four above and the markdown
+    /// folder. The markdown folder never leaves it (ADR 002). None for the server of a user.
+    pub throwaway_dir: Option<PathBuf>,
     pub export_interval_secs: u64,
     pub import_enabled: bool,
     pub import_debounce_ms: u64,
@@ -154,6 +167,18 @@ fn frontend_dir(given: Option<PathBuf>, executable: std::io::Result<PathBuf>) ->
 
 impl Settings {
     pub fn from_cli(cli: Cli) -> Settings {
+        if let Some(root) = cli.throwaway_dir.clone() {
+            return Settings {
+                throwaway_dir: Some(root.clone()),
+                ..Settings::with_folders(
+                    cli,
+                    root.join("data"),
+                    None,
+                    root.join("index"),
+                    root.join("config"),
+                )
+            };
+        }
         let home = home_dir().join(".peta-journal");
         if cli.data_dir.is_some() && cli.config_dir.is_none() {
             // A throw-away data dir with the user's config.json still exports into the user's
@@ -163,14 +188,29 @@ impl Settings {
                 home.join("config.json").display()
             );
         }
-        let data_dir = cli.data_dir.unwrap_or_else(|| home.join("data"));
-        let db_path = cli.db.unwrap_or_else(|| data_dir.join("journal.db"));
+        let data_dir = cli.data_dir.clone().unwrap_or_else(|| home.join("data"));
+        let db = cli.db.clone();
+        let index_dir = cli.index_dir.clone().unwrap_or_else(|| home.join("index"));
+        let config_dir = cli.config_dir.clone().unwrap_or(home);
+        Settings::with_folders(cli, data_dir, db, index_dir, config_dir)
+    }
+
+    /// The settings of the command line, with the folders already decided.
+    fn with_folders(
+        cli: Cli,
+        data_dir: PathBuf,
+        db: Option<PathBuf>,
+        index_dir: PathBuf,
+        config_dir: PathBuf,
+    ) -> Settings {
+        let db_path = db.unwrap_or_else(|| data_dir.join("journal.db"));
         Settings {
             port: cli.port,
             data_dir,
             db_path,
-            index_dir: cli.index_dir.unwrap_or_else(|| home.join("index")),
-            config_dir: cli.config_dir.unwrap_or(home),
+            index_dir,
+            config_dir,
+            throwaway_dir: None,
             export_interval_secs: cli.export_interval.max(1),
             import_enabled: cli.import_enabled,
             import_debounce_ms: cli.import_debounce_ms,
@@ -188,7 +228,15 @@ impl Settings {
         }
     }
 
-    /// Settings for a server that keeps everything under one directory (tests).
+    /// The settings of the server as the journal reads them from `config.json`.
+    pub fn config_service(&self) -> ConfigService {
+        match &self.throwaway_dir {
+            Some(root) => ConfigService::confined(self.config_dir.clone(), root.clone()),
+            None => ConfigService::new(self.config_dir.clone()),
+        }
+    }
+
+    /// Settings for a throw-away server, which keeps everything under one directory (tests).
     pub fn under(root: &std::path::Path, port: u16) -> Settings {
         Settings {
             port,
@@ -196,6 +244,7 @@ impl Settings {
             db_path: root.join("data").join("journal.db"),
             index_dir: root.join("index"),
             config_dir: root.join("config"),
+            throwaway_dir: Some(root.to_path_buf()),
             export_interval_secs: 1,
             import_enabled: true,
             import_debounce_ms: 2000,
@@ -212,6 +261,72 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // `--throwaway-dir`だけで、データ、索引、設定のフォルダーが、そのフォルダーの下に決まる。
+    #[test]
+    fn the_throwaway_folder_alone_places_the_data_the_index_and_the_config_under_it() {
+        let cli = Cli::parse_from([
+            "journal-server",
+            "--throwaway-dir",
+            "/tmp/e2e",
+            "--port",
+            "8187",
+        ]);
+
+        let settings = Settings::from_cli(cli);
+
+        let root = PathBuf::from("/tmp/e2e");
+        assert_eq!(settings.port, 8187);
+        assert_eq!(settings.data_dir, root.join("data"));
+        assert_eq!(settings.db_path, root.join("data").join("journal.db"));
+        assert_eq!(settings.index_dir, root.join("index"));
+        assert_eq!(settings.config_dir, root.join("config"));
+        assert_eq!(settings.throwaway_dir, Some(root));
+    }
+
+    // `--throwaway-dir`は、データ、DB、索引、設定のフォルダーの指定と一緒には使えない。
+    #[test]
+    fn the_throwaway_folder_is_refused_together_with_a_folder_of_its_own_kind() {
+        for flag in ["--data-dir", "--db", "--index-dir", "--config-dir"] {
+            let parsed =
+                Cli::try_parse_from(["journal-server", "--throwaway-dir", "/tmp/e2e", flag, "/x"]);
+
+            assert!(parsed.is_err(), "{flag}");
+        }
+    }
+
+    // 使い捨てのサーバーのMarkdownフォルダーは、設定がなくても、そのフォルダーの下にある。
+    #[test]
+    fn the_markdown_folder_of_a_throw_away_server_is_under_its_folder_without_a_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_string_lossy().into_owned();
+        let cli = Cli::parse_from(["journal-server", "--throwaway-dir", &root]);
+
+        let settings = Settings::from_cli(cli);
+
+        assert_eq!(
+            PathBuf::from(settings.config_service().markdown_dir()),
+            dir.path().join("markdown")
+        );
+    }
+
+    // 引数のないサーバーは使い捨てではなく、Markdownフォルダーは設定のとおりである。
+    #[test]
+    fn a_server_without_the_throwaway_folder_reads_the_markdown_folder_as_configured() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("config.json"),
+            r#"{"markdownDir":"/notes"}"#,
+        )
+        .unwrap();
+        let config_dir = dir.path().to_string_lossy().into_owned();
+        let cli = Cli::parse_from(["journal-server", "--config-dir", &config_dir]);
+
+        let settings = Settings::from_cli(cli);
+
+        assert_eq!(settings.throwaway_dir, None);
+        assert_eq!(settings.config_service().markdown_dir(), "/notes");
+    }
 
     // `--frontend-dir`で指定したフォルダが、画面のフォルダになる。
     #[test]

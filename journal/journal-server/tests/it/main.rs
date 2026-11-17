@@ -10,4 +10,5 @@ mod common;
 mod frontend;
 mod page_files;
 mod routes;
+mod throwaway;
 mod watch;
