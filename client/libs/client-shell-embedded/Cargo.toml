@@ -12,6 +12,8 @@ crate-type = ["lib", "staticlib", "cdylib"]
 client-core = { path = "../client-core" }
 client-native-bridge = { path = "../client-native-bridge" }
 client-api-embedded = { path = "../client-api-embedded" }
+# The sync with Dropbox (ADR 054)
+client-cloud-sync = { path = "../client-cloud-sync" }
 journal-core = { path = "../../../journal/journal-core", default-features = false }
 boltffi = "=0.32.1"
 

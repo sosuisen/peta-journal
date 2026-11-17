@@ -3,6 +3,13 @@
 
 boltffi::scaffolding!();
 
+mod cloud;
+
+pub use cloud::{
+    PetaCloudSync, PetaDropboxEntry, PetaDropboxError, PetaDropboxFile, PetaDropboxSdk,
+    PetaListing, PetaSyncHost, PetaSyncState,
+};
+
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
