@@ -35,8 +35,6 @@ ADR 051は、`/pages/`といった値をhrefに埋め込む機能を提供する
 - [ ] ジャーナルサーバーの中身を、ライブラリ`journal-core`として切り出す（ADR 029）
   - 目的は、Androidのシェルが、PCと同じ中身をアプリに組み込んで使うことである。REST、MCP、embed版が、同じ入口（`Journal`）を通る
   - ジャーナルサーバーの動きは変えない。RESTとMCPの答えは、切り出しの前と同じである。既存の結合テストで守る
-  - [x] コアの振る舞いを確かめている結合テストを、`journal-core`に移す。どのテストをどこへ移すかは、ADR 058（`docs/adr/adr-058-core-behaviour-is-tested-in-journal-core.md`）に書く
-    - #619から#637で移した。サーバーには、ルートとHTTPの層を確かめるテストだけが残る（2026-11-18）
   - [ ] コアの時計を差し替えられるようにするかを決める。テストを`journal-core`に移し終えてから考える
     - 今、コアは日付をその場でシステムの時計から取る（`infrastructure/persistence/db.rs:121`の`now_millis()`。10ファイルの33か所から呼ぶ）。項目、ページ、プロパティの定義の更新日時は、すべてこの値である
     - 2台の同期は、この日付で新しい方を選ぶ。そのためテストは、2つの操作の日付がずれるように、間で5ミリ秒待つ。`journal-server`のテストに20か所（`item_merge.rs`に7、`definitions_sync.rs`に7、`api.rs`に5、`mcp/main.rs`に1）、`journal-core`の単体テストに2か所ある（2026-11-18に数えた）
@@ -365,12 +363,10 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
 - [ ] エフェクトを実行する方針を、実行の手段から切り離して共通にする（ADR 052）。方針は、APIの要求を1つずつ順に送ること、タイマーをIDで管理すること、確認のダイアログを1つずつ出すことの3つである。今は、`client-native-bridge`の`Lanes`、Emacs（`runtime.rs`、`shell.rs`）、Web（`core.rs`、`effects/`）が別々に持つ。`Lanes`は`std::thread`に依存するので、方針の部分をスレッドに依存しない形に分ける。包む層が今の3つより重くなるなら、方針の仕様とテストだけを共有する
   - 最初に、Webの要求順序をテストで確かめる。調べることは、「Web版」の「調査・バグ修正」の「後の要求が前の要求を追い越さないかを調べる」にある
   - 確認のダイアログの扱いも違う。`Lanes`は後の質問を待たせ、Web（`effects/ui.rs`）は前の質問を置き換える
-- [ ] 通信の型（DTO）とSSEの形を、1つのクレートにまとめる。クライアント（`client-core/src/model.rs`、`rest.rs`、`screens/sse.rs`）とサーバー（`journal-core/src/dto.rs`、`events.rs`）が、同じJSONを別々の型で持つ。4つの段階に分ける（2026-11-18）
-  - [ ] ずれを直す。クライアントの`Page.tags`は、サーバーが送らない。`score`は、サーバーがf32、クライアントがf64である。`model.rs`のコメントは、古い`presentation/dto.rs`を指している（#642）
-  - [ ] 答えの形のテストを足す。サーバーが書いた答えを、クライアントの型で読み、欄ごとに比べる（#642）。SSEの形は、まだ確かめていない
-  - [x] 要求の型を共有する。`journal/journal-api-types`に要求の本文の型を置き、サーバーが読み、クライアントの`rest.rs`が書く
-    - [ ] 一括（`ApplyBatch`）だけは、クライアントが自分の`BatchOp`をJSONにして送る。`BatchOp`は位置とタスクの状態を型で持ち、共有の`BatchOpInput`は文字列で持つ。変換を書くかを決める
-  - [ ] 答えの型を共有する。クライアントの`Item`と`Page`は、ネイティブのシェルとの境界も越え、画面の状態も兼ねる。設計を決めてから進める
+- [ ] 通信の型（DTO）とSSEの形を、サーバーとクライアントでそろえる。要求の本文の型は、`journal/journal-api-types`で共有している。答えは、サーバー（`journal-core/src/dto.rs`）とクライアント（`client-core/src/model.rs`）が別々の型で持ち、`client-api-embedded/tests/journal.rs`のテストが欄ごとに比べる
+  - [ ] SSEの形のテストを足す。サーバーの`events.rs`が書いた知らせを、クライアントの`screens/sse.rs`が読めることを確かめる
+  - [ ] 一括（`ApplyBatch`）の要求を、共有の型で書くかを決める。今は、クライアントが自分の`BatchOp`をJSONにして送る。`BatchOp`は位置とタスクの状態を型で持ち、共有の`BatchOpInput`は文字列で持つ
+  - [ ] 答えの型を共有するかを決める。クライアントの`Item`と`Page`は、ネイティブのシェルとの境界も越え、画面の状態も兼ねる。サーバーの`ItemDto`の`ast`を、クライアントは持たない。欄のずれはテストで見つかるので、急がない
 - [ ] タイトルの検査を、1つにまとめる（`client-core/src/util/filename.rs:53-82`と`journal-core/src/application/page_service.rs:69-111`）。クライアントの`is_control()`は、U+0080からU+009Fも拒む。サーバーは拒まない。`/`の扱いは、わざと違う
 - [ ] コードフェンスを閉じる処理と`split_at_char`を、1つにまとめる（`journal-core/src/application/paste.rs:75-98`と`client-core/src/util/mod.rs`）
 - [ ] アトラスの`Bounds`を、`peta-atlas`にまとめる（`journal-core/src/domain/bounds.rs`と`atlas/src/lib.rs:48-79`）。書き出しが少し違い、1e15以上の値で「…0.0」と「…0」になる。`ATLAS_NAME`も、`client-core/src/screens/page.rs:14`と`journal-core/src/domain/model.rs:50`の2か所にある
