@@ -2,6 +2,8 @@
 //! its own core, so no test sees the pages of another and no setting needs a lock.
 
 pub mod devices;
+#[cfg(feature = "extensions")]
+pub mod extensions;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -22,20 +24,38 @@ pub struct Core {
     pub core: JournalCore,
     /// The markdown folder
     pub root: PathBuf,
+    /// What the core told its clients. Only the tests of the extensions read it yet.
+    #[cfg_attr(not(feature = "extensions"), allow(dead_code))]
+    pub told: Arc<Recorded>,
     _dir: tempfile::TempDir,
 }
 
 impl Core {
     /// A core with a markdown folder, started up as an app starts it.
     pub fn new() -> Core {
+        Core::made(Recorded::default(), |_| {})
+    }
+
+    /// A core with a markdown folder and the extension functions that `install` puts into
+    /// its config folder, which the core reads only when it is built. A client listens: it
+    /// gets the questions of the extensions, and the test answers them.
+    #[cfg(feature = "extensions")]
+    pub fn with_extensions(install: impl FnOnce(&Path)) -> Core {
+        Core::made(Recorded::listening(), install)
+    }
+
+    fn made(told: Recorded, install: impl FnOnce(&Path)) -> Core {
         let dir = tempfile::Builder::new()
             .prefix("peta-journal-core-")
             .tempdir()
             .unwrap();
-        let (core, root) = start(dir.path(), WAIT, Arc::new(Quiet));
+        let told = Arc::new(told);
+        let core = build(dir.path(), WAIT, told.clone(), install);
+        let root = start_up_with_markdown_folder(&core, dir.path());
         Core {
             core,
             root,
+            told,
             _dir: dir,
         }
     }
@@ -47,7 +67,7 @@ impl Core {
             .prefix("peta-journal-core-")
             .tempdir()
             .unwrap();
-        let core = build(dir.path(), WAIT, Arc::new(Quiet));
+        let core = build(dir.path(), WAIT, Arc::new(Quiet), |_| {});
         core.start_up();
         (core, dir)
     }
@@ -58,18 +78,32 @@ impl Core {
 /// copied file as a page of its own and before it writes over a file not taken in yet. Its
 /// messages to the clients go to the sink.
 pub fn start(dir: &Path, wait: Duration, events: Arc<dyn EventSink>) -> (JournalCore, PathBuf) {
-    let root = dir.join("markdown");
-    std::fs::create_dir_all(&root).unwrap();
-    let core = build(dir, wait, events);
-    core.config.set_markdown_dir(&path_text(&root));
-    core.start_up();
+    let core = build(dir, wait, events, |_| {});
+    let root = start_up_with_markdown_folder(&core, dir);
     (core, root)
 }
 
-/// A core with its data under the folder, without a markdown folder and not started up
-fn build(dir: &Path, wait: Duration, events: Arc<dyn EventSink>) -> JournalCore {
+/// Gives the core the markdown folder under the folder and starts it up as an app starts
+/// it. Returns the markdown folder.
+fn start_up_with_markdown_folder(core: &JournalCore, dir: &Path) -> PathBuf {
+    let root = dir.join("markdown");
+    std::fs::create_dir_all(&root).unwrap();
+    core.config.set_markdown_dir(&path_text(&root));
+    core.start_up();
+    root
+}
+
+/// A core with its data under the folder, without a markdown folder and not started up.
+/// `install` gets the config folder before the core is built.
+fn build(
+    dir: &Path,
+    wait: Duration,
+    events: Arc<dyn EventSink>,
+    install: impl FnOnce(&Path),
+) -> JournalCore {
     let config_dir = dir.join("config");
     std::fs::create_dir_all(&config_dir).unwrap();
+    install(&config_dir);
     JournalCore::build(
         &CoreSettings {
             db_path: dir.join("data").join("journal.db"),
@@ -88,14 +122,42 @@ fn build(dir: &Path, wait: Duration, events: Arc<dyn EventSink>) -> JournalCore 
     .unwrap()
 }
 
-/// The messages a core gives its clients, kept as they were sent. No client answers a
-/// question of an extension.
+/// The messages a core gives its clients, kept as they were sent. Unless a client listens,
+/// no one is there to answer a question of an extension.
 #[derive(Default)]
 pub struct Recorded {
     messages: Mutex<Vec<String>>,
+    listening: bool,
 }
 
 impl Recorded {
+    /// The messages of a core that a client listens to, so it asks its questions
+    #[cfg(feature = "extensions")]
+    pub fn listening() -> Recorded {
+        Recorded {
+            listening: true,
+            ..Recorded::default()
+        }
+    }
+
+    /// The first message the test looks for, waiting for it up to five seconds, as a
+    /// thread of the core may send it a little later
+    #[cfg(feature = "extensions")]
+    pub fn wait_for(&self, wanted: impl Fn(&serde_json::Value) -> bool) -> serde_json::Value {
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            if let Some(found) = self.messages().into_iter().find(&wanted) {
+                return found;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "no such message in {:?}",
+                self.messages()
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
     /// The messages sent so far, each read as JSON, the first first
     pub fn messages(&self) -> Vec<serde_json::Value> {
         self.messages
@@ -110,7 +172,7 @@ impl Recorded {
 impl EventSink for Recorded {
     fn send(&self, message: String) -> bool {
         self.messages.lock().unwrap().push(message);
-        false
+        self.listening
     }
 }
 

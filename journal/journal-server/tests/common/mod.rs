@@ -31,12 +31,6 @@ pub fn server() -> &'static TestServer {
     SERVER.get_or_init(|| start(|_| {}))
 }
 
-/// The server of the binary, started with `prepare` if it is not running yet. A binary that
-/// needs its config prepared calls this before any request; the helpers then use that server.
-pub fn server_with(prepare: impl FnOnce(&std::path::Path)) -> &'static TestServer {
-    SERVER.get_or_init(|| start(prepare))
-}
-
 /// Starts a server of its own. `prepare` gets the config folder before the server starts, to
 /// put what the server reads only at startup there, such as extension functions.
 pub fn start(prepare: impl FnOnce(&std::path::Path)) -> TestServer {
@@ -323,28 +317,6 @@ pub fn field_of_each(v: &Value, list: &str, field: &str) -> Vec<Value> {
         .as_array()
         .map(|a| a.iter().map(|x| x[field].clone()).collect())
         .unwrap_or_default()
-}
-
-/// The bodies of the page once it has `count` items. A tag add runs its extensions after the
-/// answer, so the items come a little later.
-pub async fn bodies_once(page_id: &str, count: usize) -> Vec<String> {
-    for _ in 0..100 {
-        let rows = items(page_id).await;
-        if rows.len() >= count {
-            return rows.into_iter().map(|r| r.body).collect();
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    }
-    panic!("the page did not get {count} items");
-}
-
-pub async fn set_tags(page_id: &str, tags: &str) {
-    let (status, resp) = put(
-        &format!("/api/pages/{page_id}/properties/tags"),
-        json!({ "valueType": "tags", "value": tags }),
-    )
-    .await;
-    assert_eq!(status, 200, "{resp}");
 }
 
 /// Reads the event stream until an event has `needle` in it, and returns that event.

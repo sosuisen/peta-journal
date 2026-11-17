@@ -876,7 +876,7 @@
 
 ### サーバーで拡張関数を動かす
 
-出典: `journal/journal-core/src/application/extension_runtime.rs`、`confirm_service.rs`、`journal/journal-server/tests/extensions/main.rs`
+出典: `journal/journal-core/src/application/extension_runtime.rs`、`confirm_service.rs`、`journal/journal-core/tests/it/extensions.rs`
 
 - 拡張の`main.js`は、サーバーのQuickJSで動く
   - `onPageCreate(page)`はページの情報を受け取り、`peta.createItem`で頼んだ項目が返る。`createItem`が返すIDは、次の項目の置き場所に使える
@@ -900,7 +900,7 @@
 
 ### auto-template
 
-出典: `journal/journal-server/tests/auto_template/main.rs`
+出典: `journal/journal-core/tests/it/auto_template.rs`
 
 - 名前のパターンに合うテンプレートの項目が、新しいページの最後に入る。空の1項目だけのページでは、それを上書きする
   - 曜日、`weekly`、`/正規表現/`のパターンは、名前に合うページにだけ入る
