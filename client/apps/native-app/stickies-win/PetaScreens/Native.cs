@@ -5,7 +5,7 @@ using PetaTypes;
 using Windows.System;
 using Windows.UI.Core;
 
-namespace PetaStickies;
+namespace PetaScreens;
 
 /// <summary>What WinUI does not offer, asked of Windows itself.</summary>
 internal static class Native

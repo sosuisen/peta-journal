@@ -9,7 +9,7 @@ using Windows.System;
 using Windows.UI;
 using Border = Microsoft.UI.Xaml.Controls.Border;
 
-namespace PetaStickies;
+namespace PetaScreens;
 
 /// <summary>The search box with what it found under it. An entry that is chosen opens its
 /// page.</summary>

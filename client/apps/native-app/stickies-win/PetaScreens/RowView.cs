@@ -15,7 +15,7 @@ using Windows.UI;
 using Windows.UI.Text;
 using Border = Microsoft.UI.Xaml.Controls.Border;
 
-namespace PetaStickies;
+namespace PetaScreens;
 
 /// <summary>A row of the outline as the list keeps it: the list draws only the rows near the
 /// window.</summary>

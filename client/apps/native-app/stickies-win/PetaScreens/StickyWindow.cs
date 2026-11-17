@@ -16,7 +16,7 @@ using Windows.System;
 using Windows.UI;
 using Border = Microsoft.UI.Xaml.Controls.Border;
 
-namespace PetaStickies;
+namespace PetaScreens;
 
 /// <summary>
 /// One sticky: a window that shows one page, with a core of its own. Its tools stand in its

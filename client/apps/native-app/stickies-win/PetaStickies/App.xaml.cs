@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using PetaBorder;
+using PetaScreens;
 
 namespace PetaStickies;
 
