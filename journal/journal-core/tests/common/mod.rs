@@ -4,6 +4,7 @@
 pub mod devices;
 #[cfg(feature = "extensions")]
 pub mod extensions;
+pub mod pages;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -24,8 +25,7 @@ pub struct Core {
     pub core: JournalCore,
     /// The markdown folder
     pub root: PathBuf,
-    /// What the core told its clients. Only the tests of the extensions read it yet.
-    #[cfg_attr(not(feature = "extensions"), allow(dead_code))]
+    /// What the core told its clients
     pub told: Arc<Recorded>,
     _dir: tempfile::TempDir,
 }

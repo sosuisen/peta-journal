@@ -8,7 +8,7 @@ use journal_core::infrastructure::export::import_service::Outcome;
 use journal_core::journal::MoveToJournalInput;
 use serde_json::{json, Value};
 
-use crate::common::extensions::by_the_client;
+use crate::common::pages::by_the_client;
 use crate::common::Core;
 
 /// Installs an extension function: a folder with a `config.json` and a `main.js`.

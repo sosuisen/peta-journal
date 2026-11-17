@@ -8,6 +8,7 @@ mod common;
 mod atlas_sync;
 #[cfg(feature = "extensions")]
 mod auto_template;
+mod changes_told;
 mod definitions_sync;
 mod export_queue;
 #[cfg(feature = "extensions")]
