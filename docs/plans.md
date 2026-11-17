@@ -437,11 +437,9 @@
 
 2026-11-14に、残りの項目で減るシェルの行数を見積もった。いちばん減るのは、Dropboxとの同期をRustにまとめる項目である。iOSとAndroidに、コードが約1,900行、テストが約2,300行ある。そのうち、何を上げ下げするかの判断、フォルダーとの突き合わせ、記録（`CloudSync`、`SyncRound`、`Downloader`、`Uploader`、`MarkdownFolder`、`CloudRecord`）の約1,000行が減る。DropboxのSDKとログインは、シェルに残る。2026-11-17にADR 054で決めた（「ネイティブのシェルに共通」の項目）。付箋紙の設定と保存は、2026-11-17にRustの`client-stickies`へ移した。ほかの項目は、数行から100行ほどである。日付の切り替わりと、iOSとAndroidでの`Prompt`などへの対応は、シェルのコードが増える
 
-- [ ] キーから`Event`への対応を、`client-core`の1つの関数にする（ADR 052）。今は、6つのシェルが同じ表を持つ（Web `item_editor/keys.rs`、Windows `Keys.cs`、macOS `Keys.swift`、iOSとAndroidの`ItemEditor`、Emacs `shell.rs`）。キーの種類はWindowsの`EditorKey`を元にし、編集欄の状態（本文、選択、最初の行か、最後の行か）と一緒に渡す。シェルに残るのは、物理キーの読み替えと行の位置の計測だけである。下の`nowMs`とShiftでの範囲選択の項目も、この関数の中で片づく。AndroidのBackspaceの横取りのように、`EditorKey`に収まらないキーが出たら、ADRを見直す
 - [ ] 画像の大きさの決まりを、Rustの1つの関数にする。今は、4つのシェルで違う。iOSは幅に合わせて縮め、Androidは決まった幅にし、macOSは付箋紙の幅に縮めない。画像がないときも、macOSは`[alt]`、スマホは`alt`かパス、Windowsは`[alt]`かパスを角かっこで出す
 - [ ] 描画の定数をそろえる。見出しの大きさは、Androidだけがブラウザの既定値（2.0、1.5、1.17…）で、ほかは1.6、1.4、1.2、1.1、1である。マーカーの色、1段の字下げも、シェルごとに違う。行頭の点は、iOSとAndroidが`row.showBullet`に従い、macOSとWindowsはいつも描く。coreが`RichParagraph`で大きさを渡すか、共通の表を持つ
-- [ ] イベントの時刻（`nowMs`）を、`client-native-bridge`の`Clock`で入れる。今は、4つのシェルが自分で入れている（macOS `Shell.swift:128`と`Keys.swift:93`、Windows `Shell.cs:299`、iOS `Shell.swift:154`、Android `Shell.kt:172`）
-- [ ] Shiftでの範囲選択を始めるときに、coreが入力中の本文を保存する。今は、macOS（`Keys.swift:66-71`）とWindows（`Keys.cs:195-201`）が、先に`EditFinished`を送っている
+- [ ] 打った文字のイベントの時刻（`nowMs`）を、`client-native-bridge`の`Clock`で入れる。Enterの時刻は、2026-11-17からコアの`KeyMap`が入れる。残りは`Typed`と`BodyChanged`で、4つのシェルが自分で入れている（macOS、Windows、iOS、Androidの`Shell`の`now`）
 - [ ] 日付が変わったら、Rustが`/today`を開き直す。今は、どのシェルも日付の変わり目に気づかない。plansには、macOSの分だけがある。`Clock`の`now`と`sleep`で作れる
 - [ ] 触れた位置に近い文字を選ぶ決まり（縦の距離を100倍に重く見る）を、Rustに移す。iOS（`Touches.swift:48-52`）とAndroid（`Touches.kt:138-142`）に同じ式がある
 - [ ] iOSとAndroidで、`Prompt`、`ReadClipboardText`、`CopyText`、`CopyMarkdown`に答える。今は、`nil`を返すか、捨てている（`Shell.swift:318`、`Shell.kt:317`）。macOSとWindowsは、4つとも扱う
