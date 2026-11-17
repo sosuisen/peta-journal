@@ -8,6 +8,7 @@ mod common;
 mod atlas_sync;
 #[cfg(feature = "extensions")]
 mod auto_template;
+mod batch;
 mod changes_told;
 mod creating_items;
 mod definitions_sync;
@@ -15,6 +16,7 @@ mod export_queue;
 #[cfg(feature = "extensions")]
 mod extensions;
 mod find_doc;
+mod group_delete;
 mod item_merge;
 mod merging_items;
 mod moving_items;
@@ -25,4 +27,5 @@ mod split;
 mod stash;
 mod tasks;
 mod transclusion;
+mod unclosed_blocks;
 mod updating_items;
