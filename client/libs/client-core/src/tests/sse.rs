@@ -96,6 +96,23 @@ fn only_a_pages_updated_message_refreshes_the_sidebar() {
     assert!(h.api.called("GetRecentPages"));
 }
 
+// 知らない出どころの変更では、サイドバーは読み直されるが、ページは読み直されない。
+#[test]
+fn a_change_from_a_source_that_is_not_known_refreshes_the_sidebar_and_not_the_page() {
+    let mut h = Harness::with_items(vec![crate::harness::item("a", 1, "text")]);
+    let page_id = crate::harness::item("a", 1, "text").page_id;
+
+    sse(
+        &mut h,
+        SseEvent::Message(format!(
+            r#"{{"type":"pagesUpdated","pageId":"{page_id}","source":"later"}}"#
+        )),
+    );
+
+    assert!(h.api.called("GetRecentPages"));
+    assert!(!h.api.called("GetPageById"));
+}
+
 // サーバーの拡張が確認を求めると、ユーザーに尋ね、その答えを requestId 付きでサーバーに返す。
 #[test]
 fn a_confirm_from_the_server_asks_the_user_and_sends_the_answer_back() {

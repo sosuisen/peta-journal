@@ -1,5 +1,6 @@
-//! The bodies of the requests to the journal. The journal reads them with these types and the
-//! frontend core writes them with the same types, so the two cannot name a field differently.
+//! The bodies of the requests to the journal, and the messages of its event stream. The
+//! journal reads the requests with these types and the frontend core writes them with the same
+//! types. The messages go the other way. So the two cannot name a field differently.
 //!
 //! The crate has no dependency but serde: the frontend core is also built for wasm, where the
 //! journal core, with its database, cannot go.
@@ -336,10 +337,117 @@ pub struct LaunchUrlInput {
     pub url: Option<String>,
 }
 
+// ---- the event stream ----
+
+/// What the journal tells its clients on the event stream (`/api/events`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum ClientMessage {
+    /// A page changed, so a client that shows it reads it again.
+    #[serde(rename_all = "camelCase")]
+    PagesUpdated {
+        page_id: String,
+        source: ChangeSource,
+        /// The client that made the change, for a change of a client (ADR-015).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        client_id: Option<String>,
+    },
+    /// An extension asks the user. The answer goes back with the ID of the question.
+    #[serde(rename_all = "camelCase")]
+    Confirm { request_id: String, message: String },
+    /// The property definitions changed, so the clients read them again (ADR 046).
+    PropertyDefinitionsUpdated,
+}
+
+/// Where the change of a page came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ChangeSource {
+    /// A client, through the API.
+    App,
+    /// An MCP tool.
+    Mcp,
+    /// A file of the markdown folder.
+    File,
+    /// An extension, which wrote items after the answer of a tag add.
+    Extension,
+    /// The journal itself, which wrote an atlas.
+    Server,
+    /// A source that a newer journal names and this client does not know.
+    #[serde(other)]
+    Other,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    // ページの変更の知らせは、変更したクライアントがいるときだけ、そのIDを書く。
+    #[test]
+    fn a_change_of_a_page_names_its_client_only_when_there_is_one() {
+        let by_client = ClientMessage::PagesUpdated {
+            page_id: "p".into(),
+            source: ChangeSource::App,
+            client_id: Some("c".into()),
+        };
+        let by_file = ClientMessage::PagesUpdated {
+            page_id: "p".into(),
+            source: ChangeSource::File,
+            client_id: None,
+        };
+
+        assert_eq!(
+            serde_json::to_value(&by_client).unwrap(),
+            json!({ "type": "pagesUpdated", "pageId": "p", "source": "app", "clientId": "c" })
+        );
+        assert_eq!(
+            serde_json::to_value(&by_file).unwrap(),
+            json!({ "type": "pagesUpdated", "pageId": "p", "source": "file" })
+        );
+    }
+
+    // 知らない出どころの変更も、ページの変更として読まれる。
+    #[test]
+    fn a_change_from_a_source_that_is_not_known_is_still_read() {
+        let read: ClientMessage = serde_json::from_value(
+            json!({ "type": "pagesUpdated", "pageId": "p", "source": "later" }),
+        )
+        .unwrap();
+
+        assert_eq!(
+            read,
+            ClientMessage::PagesUpdated {
+                page_id: "p".into(),
+                source: ChangeSource::Other,
+                client_id: None,
+            }
+        );
+    }
+
+    // 質問と、定義の変更の知らせは、書いた形のまま読み戻される。
+    #[test]
+    fn a_question_and_a_change_of_the_definitions_are_read_back_as_written() {
+        let question = ClientMessage::Confirm {
+            request_id: "r".into(),
+            message: "Go on?".into(),
+        };
+
+        let written = serde_json::to_value(&question).unwrap();
+
+        assert_eq!(
+            written,
+            json!({ "type": "confirm", "requestId": "r", "message": "Go on?" })
+        );
+        assert_eq!(
+            serde_json::from_value::<ClientMessage>(written).unwrap(),
+            question
+        );
+        assert_eq!(
+            serde_json::to_value(ClientMessage::PropertyDefinitionsUpdated).unwrap(),
+            json!({ "type": "propertyDefinitionsUpdated" })
+        );
+    }
 
     // 設定していない欄は、要求に書かれない。
     #[test]

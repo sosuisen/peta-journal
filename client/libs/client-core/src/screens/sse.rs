@@ -7,6 +7,7 @@ use crate::effects::{SseEvent, SseOp, TimerOutput};
 use crate::ops::file_reload;
 use crate::screens::{atlas, page, settings, sidebar};
 use crux_core::Command;
+use journal_api_types::{ChangeSource, ClientMessage};
 
 const MAX_RECONNECT_ATTEMPTS: u32 = 10;
 
@@ -36,26 +37,25 @@ pub fn on_event(model: &mut Model, event: SseEvent) -> Cmd {
 }
 
 fn on_message(model: &mut Model, data: &str) -> Cmd {
-    let Ok(json) = serde_json::from_str::<serde_json::Value>(data) else {
-        return done();
-    };
-    match json.get("type").and_then(|t| t.as_str()) {
-        Some("pagesUpdated") => on_pages_updated(model, &json),
-        Some("confirm") => confirm(&json),
-        Some("propertyDefinitionsUpdated") => settings::load_property_definitions(),
-        _ => done(),
+    // The journal writes the message with the same type (`journal-api-types`). A message of
+    // a kind that a newer journal sends and this client does not know is passed over
+    match serde_json::from_str::<ClientMessage>(data) {
+        Ok(ClientMessage::PagesUpdated {
+            page_id,
+            source,
+            client_id,
+        }) => on_pages_updated(model, page_id, source, client_id),
+        Ok(ClientMessage::Confirm {
+            request_id,
+            message,
+        }) => confirm(request_id, message),
+        Ok(ClientMessage::PropertyDefinitionsUpdated) => settings::load_property_definitions(),
+        Err(_) => done(),
     }
 }
 
 /// An extension on the server asks the user. The answer goes back with the id of the question.
-fn confirm(json: &serde_json::Value) -> Cmd {
-    let field = |name: &str| {
-        json.get(name)
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string()
-    };
-    let (request_id, message) = (field("requestId"), field("message"));
+fn confirm(request_id: String, message: String) -> Cmd {
     run(move |api| async move {
         let ok = api.confirm(&message).await;
         // A late answer is refused by the server, and nothing is left to do about it
@@ -63,24 +63,23 @@ fn confirm(json: &serde_json::Value) -> Cmd {
     })
 }
 
-fn on_pages_updated(model: &mut Model, json: &serde_json::Value) -> Cmd {
-    let page_id = json
-        .get("pageId")
-        .and_then(|p| p.as_str())
-        .unwrap_or_default()
-        .to_string();
-    let by_this_client =
-        json.get("clientId").and_then(|c| c.as_str()) == Some(model.client_id.as_str());
+fn on_pages_updated(
+    model: &mut Model,
+    page_id: String,
+    source: ChangeSource,
+    client_id: Option<String>,
+) -> Cmd {
+    let by_this_client = client_id.as_deref() == Some(model.client_id.as_str());
     // A change that this client did not make is read again. Another client names itself with
     // a change through the API (ADR-015). An MCP tool is never this client. An extension writes
     // items after a tag add, and the server writes the outline of an atlas page by itself, as
     // when a page of its directory is made. Each tells so with its own source
-    let reload = match json.get("source").and_then(|s| s.as_str()) {
-        Some("app") if !by_this_client => reload_for_another_client(model, &page_id),
-        Some("mcp") => reload_for_another_client(model, &page_id),
-        Some("file" | "extension") => file_reload::reload_page(model, &page_id),
-        Some("server") => atlas::reload_atlas(model, &page_id),
-        _ => done(),
+    let reload = match source {
+        ChangeSource::App if by_this_client => done(),
+        ChangeSource::App | ChangeSource::Mcp => reload_for_another_client(model, &page_id),
+        ChangeSource::File | ChangeSource::Extension => file_reload::reload_page(model, &page_id),
+        ChangeSource::Server => atlas::reload_atlas(model, &page_id),
+        ChangeSource::Other => done(),
     };
     Command::all([
         reload,
