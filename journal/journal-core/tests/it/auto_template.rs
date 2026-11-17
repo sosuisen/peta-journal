@@ -6,7 +6,7 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use crate::common::extensions::outline;
+use crate::common::items::outline;
 use crate::common::Core;
 
 /// The templates of these tests.
@@ -60,7 +60,7 @@ fn template_core() -> Core {
 }
 
 fn outlines(items: &Value) -> Vec<String> {
-    items.as_array().unwrap().iter().map(outline).collect()
+    outline(items.as_array().unwrap())
 }
 
 // 曜日に合うテンプレートの項目が、新しいジャーナルに入る。空の1項目は残らない。

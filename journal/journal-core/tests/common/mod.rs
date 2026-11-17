@@ -4,6 +4,7 @@
 pub mod devices;
 #[cfg(feature = "extensions")]
 pub mod extensions;
+pub mod items;
 pub mod pages;
 
 use std::path::{Path, PathBuf};

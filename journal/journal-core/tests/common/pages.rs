@@ -26,6 +26,12 @@ impl Core {
         serde_json::to_value(answer).unwrap()
     }
 
+    /// Opens the journal of the name, or makes it, and gives the answer.
+    pub fn open_journal(&self, name: &str) -> Value {
+        let answer = self.core.journal.get_or_create_journal(name).unwrap();
+        serde_json::to_value(answer).unwrap()
+    }
+
     /// A new document page of the title; it starts with one empty item. Gives its id.
     pub fn new_doc_page(&self, title: &str) -> String {
         self.open_doc(title)["page"]["id"]
@@ -44,12 +50,14 @@ impl Core {
         self.page(page_id)["items"].as_array().unwrap().clone()
     }
 
-    /// Fills a page with items, one at level 1 for each line, replacing the empty item a
-    /// new page starts with, and gives the items in page order.
+    /// Fills a page with items given as "body" or "  body" (two spaces per level below 1),
+    /// replacing the empty item a new page starts with, and gives the items in page order.
     pub fn fill(&self, page_id: &str, lines: &[&str]) -> Vec<Value> {
         let first = self.items(page_id)[0]["id"].as_str().unwrap().to_string();
         let mut after = first.clone();
-        for body in lines {
+        for line in lines {
+            let body = line.trim_start();
+            let level = 1 + (line.len() - body.len()) as i32 / 2;
             let created = self
                 .core
                 .journal
@@ -57,7 +65,7 @@ impl Core {
                     CreateItemInput {
                         page_id: Some(page_id.to_string()),
                         position: Some(format!("after:{after}")),
-                        level: 1,
+                        level,
                         body: Some(body.to_string()),
                         id: None,
                     },
