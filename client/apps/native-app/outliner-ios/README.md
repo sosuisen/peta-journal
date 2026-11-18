@@ -51,6 +51,18 @@ the repository:
 kept in the repository either. To run the app on a device, open the project in Xcode and
 choose a team for signing.
 
+## Format and lint
+
+```
+cd peta-journal/client/apps/native-app
+./swift-format.sh           # formats the Swift of outliner-ios and stickies-mac, then lints it
+./swift-format.sh --check   # changes nothing, and fails when there is something to change
+```
+
+The formatter and the linter are both swift-format, which comes with Xcode. Its settings are in
+`client/apps/native-app/.swift-format`, one file for both apps: lines of 120 letters and an
+indent of 4 spaces. Run it after every change in Swift. `generated/` is not formatted.
+
 ## The icon of the app
 
 The icon is the notebook of `images/peta-journal.svg` in the middle of a white square, as in
