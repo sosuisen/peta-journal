@@ -15,7 +15,10 @@
     <Compile Include="..\memoview\Models\ItemModel.cs" Link="App\Models\ItemModel.cs" />
     <Compile Include="..\memoview\Services\OutlineHtml.cs" Link="App\Services\OutlineHtml.cs" />
     <Compile Include="..\memoview\Services\PageHtml.cs" Link="App\Services\PageHtml.cs" />
-    <Compile Include="..\memoview\Services\PageLinks.cs" Link="App\Services\PageLinks.cs" />
+    <Compile
+      Include="..\memoview\Services\LinkTemplates.cs"
+      Link="App\Services\LinkTemplates.cs"
+    />
     <Compile
       Include="..\memoview\Services\SettingsService.cs"
       Link="App\Services\SettingsService.cs"
