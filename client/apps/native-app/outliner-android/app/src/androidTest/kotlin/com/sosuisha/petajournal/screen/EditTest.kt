@@ -1,5 +1,7 @@
 package com.sosuisha.petajournal.screen
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.view.inputmethod.EditorInfo
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.ViewRootForTest
@@ -24,6 +26,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import com.sosuisha.petajournal.types.TaskState
 import org.junit.Assert.assertEquals
@@ -149,6 +152,23 @@ class EditTest : JournalScreenFixture() {
     private fun items(): List<String> = shell.view.outline.rows.map { "${it.item.level} ${it.item.body}" }
 
     private fun waitForItems(vararg items: String) = compose.waitUntil(WAIT_MS) { items() == items.toList() }
+
+    /** Puts [text] on the clipboard of the system, as another app does. */
+    private fun onTheClipboard(text: String) = compose.runOnUiThread {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("test", text))
+    }
+
+    // Markdownのリストを項目の終わりに貼り付けると、1つ目はその項目に続き、2つ目は下の新しい項目になる。
+    @Test
+    fun a_list_pasted_at_the_end_of_an_item_goes_on_in_it_and_makes_a_new_item_below() {
+        editSecondOfThree()
+        onTheClipboard("- apple" + NL + "- pear")
+
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.PasteText)
+
+        waitForItems("1 first", "1 secondapple", "1 pear", "1 third")
+    }
 
     // 道具は、編集しているときだけ出る。
     @Test
