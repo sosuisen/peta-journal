@@ -215,15 +215,31 @@ fn looks_inside_a_link_keep_its_target() {
     );
 }
 
-// ページへのリンクとタグは、アプリの中のページへのリンクになる。タグのページは、タグのフォルダーの下にある。
+// ページへのリンクとタグは、アプリの中のページの、符号化したURLへのリンクになる。タグのページは、タグのフォルダーの下にある。
 #[test]
 fn a_link_to_a_page_and_a_tag_lead_to_their_page_in_the_app() {
     assert_eq!(
         runs("[[other page]] and #topic"),
         [vec![
-            linked("other page", page("/pages/other page")),
+            linked("other page", page("/pages/other%20page")),
             run(" and "),
             linked("#topic", page("/pages/tags/topic")),
+        ]]
+    );
+}
+
+// wikilinkの名前の#はページ名の一部で、項目のidの前の#だけが、ページの中の場所を指す。
+#[test]
+fn a_hash_of_a_wikilink_is_a_part_of_the_name_unless_an_item_id_follows_it() {
+    assert_eq!(
+        runs("[[C#]] [[C##2020-01-01-00-00-00-AAAAAAA]]"),
+        [vec![
+            linked("C#", page("/pages/C%23")),
+            run(" "),
+            linked(
+                "C##2020-01-01-00-00-00-AAAAAAA",
+                page("/pages/C%23#2020-01-01-00-00-00-AAAAAAA")
+            ),
         ]]
     );
 }
@@ -258,9 +274,9 @@ fn a_link_leads_to_the_web_to_a_page_or_to_a_file_of_the_assets_folder() {
     );
     assert_eq!(
         target("/pages/other%20page"),
-        Some(page("/pages/other page"))
+        Some(page("/pages/other%20page"))
     );
-    assert_eq!(target("/pages/notes#a%20b"), Some(page("/pages/notes#a b")));
+    assert_eq!(target("/pages/other page"), Some(page("/pages/other%20page")));
     assert_eq!(
         target("../pages/./x/../notes?q=1"),
         Some(page("/pages/notes"))
