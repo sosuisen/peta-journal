@@ -24,6 +24,7 @@ cov = [
     "-p", "journal-api-types",
     "-p", "journal-names",
     "-p", "page-names",
+    "-p", "page-urls",
     # `[/\\]`: the paths have backslashes on Windows
     "--ignore-filename-regex", "src[/\\\\]main\\.rs$|application[/\\\\]folder_chooser\\.rs$|infrastructure[/\\\\]launcher\\.rs$|infrastructure[/\\\\]pending_delete_prompt\\.rs$",
 ]
