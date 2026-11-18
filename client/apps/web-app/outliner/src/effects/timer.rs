@@ -12,14 +12,14 @@ pub struct Running {
 
 pub fn start(handle: CoreHandle, id: u64, ms: u32, request: Request<TimerOp>) {
     let fire = move || {
-        let running = handle.inner().timers.borrow_mut().remove(&id);
+        let running = handle.inner().timers.borrow_mut().end(id);
         if let Some(mut running) = running {
             running.timeout.take().map(Timeout::forget);
             handle.resolve(&mut running.request, TimerOutput::Fired);
         }
     };
     let timeout = Timeout::new(ms, fire);
-    handle.inner().timers.borrow_mut().insert(
+    handle.inner().timers.borrow_mut().start(
         id,
         Running {
             request,
@@ -29,7 +29,7 @@ pub fn start(handle: CoreHandle, id: u64, ms: u32, request: Request<TimerOp>) {
 }
 
 pub fn cancel(handle: &CoreHandle, id: u64) {
-    let running = handle.inner().timers.borrow_mut().remove(&id);
+    let running = handle.inner().timers.borrow_mut().end(id);
     if let Some(mut running) = running {
         if let Some(timeout) = running.timeout.take() {
             timeout.cancel();

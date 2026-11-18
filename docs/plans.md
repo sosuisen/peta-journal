@@ -355,9 +355,6 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
 
 #### 機能向上
 
-- [ ] エフェクトを実行する方針を、実行の手段から切り離して共通にする（ADR 052）。方針は、APIの要求を1つずつ順に送ること、タイマーをIDで管理すること、確認のダイアログを1つずつ出すことの3つである。今は、`client-native-bridge`の`Lanes`、Emacs（`runtime.rs`、`shell.rs`）、Web（`core.rs`、`effects/`）が別々に持つ。`Lanes`は`std::thread`に依存するので、方針の部分をスレッドに依存しない形に分ける。包む層が今の3つより重くなるなら、方針の仕様とテストだけを共有する
-  - Webは、要求を1つずつ順に送るようになった（`effects/api.rs`の`InOrder`）。後の要求が前の要求を追い越して、打った文字が消えることを、E2Eで確かめて直した。共通にするときは、この`InOrder`と`Lanes::call`を1つにする
-  - 確認のダイアログの扱いも違う。`Lanes`は後の質問を待たせ、Web（`effects/ui.rs`）は前の質問を置き換える
 - [ ] 通信の型（DTO）とSSEの形を、サーバーとクライアントでそろえる。要求の本文の型と、SSEの知らせの型は、`journal/journal-api-types`で共有している。答えは、サーバー（`journal-core/src/dto.rs`）とクライアント（`client-core/src/model.rs`）が別々の型で持ち、`client-api-embedded/tests/journal.rs`のテストが欄ごとに比べる
   - [ ] 一括（`ApplyBatch`）の要求を、共有の型で書くかを決める。今は、クライアントが自分の`BatchOp`をJSONにして送る。`BatchOp`は位置とタスクの状態を型で持ち、共有の`BatchOpInput`は文字列で持つ
   - [ ] 答えの型を共有するかを決める。クライアントの`Item`と`Page`は、ネイティブのシェルとの境界も越え、画面の状態も兼ねる。サーバーの`ItemDto`の`ast`を、クライアントは持たない。欄のずれはテストで見つかるので、急がない

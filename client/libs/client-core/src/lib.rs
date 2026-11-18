@@ -11,6 +11,7 @@ pub mod keys;
 pub mod model;
 pub mod ops;
 pub mod outline;
+pub mod policy;
 pub mod rest;
 pub mod rich_text;
 pub mod screens;

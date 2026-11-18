@@ -1342,6 +1342,40 @@ fn deleting_the_page_does_nothing_on_no() {
     assert!(!driver.waiting(|op| matches!(op, ApiOp::DeletePage { .. })));
 }
 
+/// The numbers of the questions that the shell sent, oldest first.
+fn asks(driver: &Driver) -> Vec<u64> {
+    let ask = |m: &Outbound| match m {
+        Outbound::Ask { req, .. } => Some(*req),
+        _ => None,
+    };
+    driver.sent().iter().filter_map(ask).collect()
+}
+
+// 質問は1つずつEmacsに届く。2つ目は、1つ目に答えたあとに届く。ミニバッファの質問は、次の質問が来ると置き換わるためである。
+#[test]
+fn a_second_question_reaches_emacs_after_the_first_is_answered() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::DeletePage);
+    driver.send(Inbound::DeletePage);
+    let first = asks(&driver);
+    assert_eq!(first.len(), 1, "the second question waits");
+
+    driver.send(Inbound::Answer {
+        req: first[0],
+        yes: false,
+    });
+    let both = asks(&driver);
+    assert_eq!(both.len(), 2, "the second question follows the answer");
+    assert!(!driver.waiting(|op| matches!(op, ApiOp::DeletePage { .. })));
+
+    driver.send(Inbound::Answer {
+        req: both[1],
+        yes: true,
+    });
+    assert_eq!(asks(&driver).len(), 2);
+    assert!(driver.waiting(|op| matches!(op, ApiOp::DeletePage { page_id } if page_id == "p")));
+}
+
 fn definitions_answer() -> ApiOutput {
     let definition = |key: &str, value_type: &str, page: bool| PropertyDefinition {
         key: key.into(),

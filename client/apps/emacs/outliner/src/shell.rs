@@ -14,6 +14,7 @@ use client_core::effects::{
     UiOp, UiOutput,
 };
 use client_core::model::bare_name;
+use client_core::policy::{InOrder, Timers};
 use client_core::rest::ClientId;
 use client_core::screens::calendar::{month_page_name, year_page_name};
 use client_core::util::date::Date;
@@ -34,6 +35,8 @@ pub struct Now {
 /// What the shell cannot do by itself. The results come back as [`Input`].
 pub trait Host {
     fn emit(&mut self, message: Outbound);
+    /// Asks the server. The host sends its calls and uploads one at a time, in the order the
+    /// shell gave them (`client_core::policy`).
     fn api(&mut self, id: u64, op: ApiOp);
     /// Sends the file at `path` to the server. The result comes back like that of [`Host::api`].
     fn upload(&mut self, id: u64, path: String);
@@ -88,10 +91,15 @@ pub struct Shell<H: Host> {
     image_files: Vec<String>,
     /// The calls under way for an image: its upload, then the paste of its link.
     image_calls: HashSet<u64>,
-    timers: HashMap<u64, Request<TimerOp>>,
+    timers: Timers<Request<TimerOp>>,
     sse: Option<(u64, Request<SseOp>)>,
     next_stream: u64,
-    asks: HashMap<u64, Request<UiOp>>,
+    /// The questions to the user with their messages, each waiting for the answer to the one
+    /// before (`client_core::policy`): a second question in the minibuffer takes the place of
+    /// the first.
+    asks: InOrder<(String, Request<UiOp>)>,
+    /// The question Emacs has now, by the number it answers with.
+    asked: Option<(u64, Request<UiOp>)>,
     next_ask: u64,
     /// The line of Emacs being handled.
     ack: u64,
@@ -117,10 +125,11 @@ impl<H: Host> Shell<H> {
             clipboard: None,
             image_files: Vec::new(),
             image_calls: HashSet::new(),
-            timers: HashMap::new(),
+            timers: Timers::default(),
             sse: None,
             next_stream: 0,
-            asks: HashMap::new(),
+            asks: InOrder::new(),
+            asked: None,
             next_ask: 0,
             ack: 0,
             sent: Sent::default(),
@@ -139,7 +148,7 @@ impl<H: Host> Shell<H> {
             Input::ApiDone { id, result } => self.on_api_done(id, *result),
             Input::TimerFired { id } => {
                 // A timer cancelled in the meantime is gone from the map
-                if let Some(mut request) = self.timers.remove(&id) {
+                if let Some(mut request) = self.timers.end(id) {
                     self.resolve(&mut request, TimerOutput::Fired);
                 }
             }
@@ -437,8 +446,11 @@ impl<H: Host> Shell<H> {
     }
 
     fn answer(&mut self, req: u64, yes: bool) {
-        // Emacs answers each question once
-        let mut request = self.asks.remove(&req).expect("the question waits");
+        // Emacs has one question at a time, and answers it once
+        let (asked, mut request) = self.asked.take().expect("the question waits");
+        assert_eq!(req, asked, "Emacs answers the question it has");
+        // Before the answer: the next question reaches Emacs with what the answer changes
+        self.ask_next();
         self.resolve(&mut request, UiOutput::Bool(yes));
     }
 
@@ -528,11 +540,11 @@ impl<H: Host> Shell<H> {
     fn on_timer_op(&mut self, request: Request<TimerOp>) {
         match request.operation {
             TimerOp::Start { id, ms } => {
-                self.timers.insert(id, request);
+                self.timers.start(id, request);
                 self.host.start_timer(id, ms);
             }
             TimerOp::Cancel { id } => {
-                if let Some(mut running) = self.timers.remove(&id) {
+                if let Some(mut running) = self.timers.end(id) {
                     self.resolve(&mut running, TimerOutput::Cancelled);
                 }
             }
@@ -580,11 +592,20 @@ impl<H: Host> Shell<H> {
     }
 
     fn ask(&mut self, message: String, request: Request<UiOp>) {
-        self.next_ask += 1;
-        self.asks.insert(self.next_ask, request);
-        self.after_render.push(Outbound::Ask {
-            req: self.next_ask,
-            message,
+        if self.asks.push((message, request)) {
+            self.ask_next();
+        }
+    }
+
+    /// Gives Emacs the question whose turn it is, if one waits.
+    fn ask_next(&mut self) {
+        self.asked = self.asks.take_next().map(|(message, request)| {
+            self.next_ask += 1;
+            self.after_render.push(Outbound::Ask {
+                req: self.next_ask,
+                message,
+            });
+            (self.next_ask, request)
         });
     }
 
