@@ -38,3 +38,21 @@ fn health_is_ok_and_the_config_is_read_and_updated() {
     let definitions = answer(notes.core.journal.property_definitions().unwrap());
     assert_eq!(definitions["propertyDefinitions"]["plan"], json!("date"));
 }
+
+// 設定の答えは、本文のリンクを描くためのテンプレート、ページの基準、項目のidの形を持つ。タグのテンプレートは、タグ用ディレクトリに従う。
+#[test]
+fn the_config_has_the_values_to_render_the_links_of_a_body() {
+    let notes = Core::new();
+
+    let config = answer(notes.core.journal.config());
+    assert_eq!(config["wikilinkHref"], json!("/pages/{}"));
+    assert_eq!(config["hashtagHref"], json!("/pages/tags/{}"));
+    assert_eq!(config["pagesBase"], json!("/pages/"));
+    assert_eq!(
+        config["wikilinkFragmentPattern"],
+        json!(journal_core::page_urls::ITEM_ID_PATTERN)
+    );
+
+    let config = notes.update_config(json!({ "tagsDir": "meta/tags" }));
+    assert_eq!(config["hashtagHref"], json!("/pages/meta/tags/{}"));
+}

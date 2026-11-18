@@ -121,6 +121,22 @@ fn get_page_returns_the_page_with_its_items_in_order() {
     );
 }
 
+// ページと項目の答えは、符号化したURLを持つ。項目のURLは、ページのURLの後ろに#と項目のidを付けたものである。
+#[test]
+fn a_page_and_its_items_are_answered_with_their_encoded_urls() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("pages-url C#");
+    let rows = notes.fill(&page, &["one"]);
+
+    let got = notes.page(&page);
+
+    assert_eq!(got["page"]["url"], json!("/pages/pages-url%20C%23"));
+    assert_eq!(
+        got["items"][0]["url"],
+        json!(format!("/pages/pages-url%20C%23#{}", id(&rows[0])))
+    );
+}
+
 // ページの取得は、fieldsで頼まれたフィールドだけを各項目に持つ。トランスクルードの木の項目も同じである。ページの情報はそのまま返る。
 #[test]
 fn get_page_returns_its_items_with_only_the_fields_asked_for() {
