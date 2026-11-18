@@ -296,6 +296,7 @@
   - `main`の`8e0c5cdf`で`./debug.sh --test`を回すと、41件のうち2件が落ちた。ほかの39件と、`swift test`の35件は通った
     - `testATouchOnAnItemAtTheBottomOfALongPageEditsIt`：長いページの下端の項目に触れて「more」と打つと、「line 30m」になった
     - `testTheEditGoesOnWhenTheScreenIsTurnedAndTheEditedItemLeavesWhatIsSeen`：同じく「line 27mo」になった
+  - 2026-11-18に`feat/copy-paste-ios`で回すと、`testATouchOnAnItemAtTheBottomOfALongPageEditsIt`が「line 30m」で、`testATouchOnAnEmptyItemAtTheBottomOfALongPageEditsIt`が「m」で、`testTheEditGoesOnWhenTheScreenIsTurnedAndTheEditedItemLeavesWhatIsSeen`が「line 27m」で落ちた。ほかの47件は通った
   - どちらも`checkTheEditGoesOn`の中で落ちる。キーボードが出てから2秒待って打った文字の、後ろの方が入らない。上の項目の、受け皿（`KeyboardKeeper`）に入った文字が`Typist.held`へ移らずに消える道に似ているが、確かめていない
   - 2件だけを回し直そうとしたが、3回とも、テストの前にシミュレーターが「Timed out waiting for AX loaded notification」で止まった。`testmanagerd`とシミュレーターのサービスを止め直しても同じだった。Macは眠っていない。毎回落ちるのかは、まだ分からない
   - [ ] シミュレーターを直し、2件を何度か回して、毎回落ちるかを見る
@@ -317,7 +318,12 @@
   - chronoで今の時刻を読む処理（`emacs/.../runtime.rs`の`now`と`client-native-bridge/src/clock.rs`の`SystemClock`）は、2か所に残っている。Emacs版は`client-native-bridge`に依存しないためである。エフェクトを実行する方針を共通にするときに、1つにする
 - [ ] 触れた位置に近い文字を選ぶ決まり（縦の距離を100倍に重く見る）を、Rustに移すかを決める。iOS（`Touches.swift:48-52`）とAndroid（`Touches.kt:138-142`）に同じ式がある
   - 2026-11-17に調べた。同じなのは、各5行ほどの距離の式だけである。Rustへ移すと、触れるたびに文字の枠の一覧をFFIで渡すことになり、減る行より包む行が多い。移さないことを勧める
-- [ ] iOSとAndroidで、`Prompt`、`ReadClipboardText`、`CopyMarkdown`に答える。今は、`nil`を返すか、捨てている（`Shell.swift:318`、`Shell.kt:317`）。macOSとWindowsは、3つとも扱う
+- [ ] Androidで、項目のコピー、切り取り、貼り付けをできるようにする。iOSは2026-11-18に入れた。選択中の道具にCopyとCut（`client/assets/icons`の`copy`と`cut`）を足し、`CopyMarkdown`でクリップボードに載せる。入力欄の貼り付けは、`PasteText`でコアに送る
+  - `ReadClipboardText`と`Prompt`には、まだ答えない。`ReadClipboardText`は、項目のメニューの「Paste as Transclusion」（クリップボードの項目IDで、項目をトランスクルージョンにする）でコアが出す。スマホのアプリには、このメニューがまだない。`Prompt`は、検索欄が空のまま新しいページを作るときだけ出る
+- [ ] iOSとAndroidで、項目のメニューに「Paste as Transclusion」を足し、`ReadClipboardText`にクリップボードの文字で答える
+- [ ] iOSとAndroidで、外付けキーボードのショートカット（Tab、矢印、Ctrl+Shift+Vのそのまま貼り付けなど）をコアに送る
+- [ ] stickies-macで、項目のメニューに「Paste as Transclusion」を足す
+- [ ] stickies-winで、項目のメニューに「Paste as Transclusion」を足す
 
 ### サーバーとクライアント（Rust）
 

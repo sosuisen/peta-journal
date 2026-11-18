@@ -160,8 +160,9 @@ copy of Dropbox.
   for today, and under it the results of the search or the page. The button for today shows
   the icon of today of the web frontend, a book with a ribbon: `TodayIcon` draws it, with the
   lines of the Android shell. `SyncViews` shows where the sync stands: the menu, the dialog
-  and the callout. `Tools`, the tools of the item that is edited, stand above the keyboard:
-  outdent, indent, move up, move down, task, delete and "Done".
+  and the callout. `Tools`, the tools of the item that is edited or selected, stand above the
+  keyboard. While items are selected, Copy and Cut put them on the clipboard as a Markdown
+  list (`Shell.copySelected`, `Shell.cutSelected`).
 - `Outline` draws the page, and `OutlineRow` one item of it. `Blocks` draws the parts of an
   item. `ImageBlock` reads an image smaller than
   it is in its file, and shows it large after a touch. A link to a file of the assets folder
@@ -169,7 +170,8 @@ copy of Dropbox.
 - `ItemEditor` is the field of the item that is edited. It is a `UITextView`: it tells where
   the cursor is when Enter is pressed, and whether the keyboard still composes a word. Text
   that is still being composed is not sent to the core, and the Enter that confirms it does
-  not split the item.
+  not split the item. A paste goes to the core (`Shell.paste`), which makes items of a list;
+  while text is chosen, the field puts the pasted text in its place.
 - Backspace at the start of an item joins it to the item before. The edit goes on there,
   with the cursor where the two texts meet. An empty item goes away this way. The field
   tells of no change then, so it hears the key itself (`deleteBackward`). Nothing is joined
