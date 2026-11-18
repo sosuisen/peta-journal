@@ -403,13 +403,6 @@ impl OutlineState {
         self.refresh();
     }
 
-    pub fn toggle_collapsed(&mut self, item_id: &str) {
-        if !self.collapsed_item_ids.remove(item_id) {
-            self.collapsed_item_ids.insert(item_id.to_string());
-        }
-        self.refresh();
-    }
-
     pub fn set_selected_item_ids(&mut self, ids: HashSet<String>) {
         self.selected_item_ids = ids;
     }
@@ -537,7 +530,7 @@ mod tests {
         assert_eq!(shown, ["a", "d"]);
         assert!(state.has_children("a"));
         assert!(!state.has_children("d"));
-        state.toggle_collapsed("a");
+        state.set_collapsed("a", false);
         assert_eq!(state.visible_items().len(), 4);
     }
 

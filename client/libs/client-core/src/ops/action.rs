@@ -101,7 +101,7 @@ pub fn toggle_collapsed(model: &mut Model, item_id: &str) -> Cmd {
         return done();
     };
     let new_collapsed = !item.collapsed;
-    model.state.toggle_collapsed(&item.id);
+    model.state.set_collapsed(&item.id, new_collapsed);
     model
         .state
         .update_item(&item.id, |i| i.collapsed = new_collapsed);
