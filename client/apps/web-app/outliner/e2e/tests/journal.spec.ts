@@ -132,4 +132,32 @@ test.describe('journal', () => {
     await expect(page).toHaveURL(/\/today$/);
     await expect(page.locator('.search-input')).toHaveValue('');
   });
+
+  test('ArrowDown and Enter pressed before the answer to a new query open its first result, not one of the old query', async ({ page }) => {
+    const stamp = Date.now();
+    const older = await server.newDocPage(`older-${stamp}`);
+    const newer = await server.newDocPage(`newer-${stamp}`);
+    await page.goto('/today');
+    await page.locator('app-outline-item').first().waitFor();
+    await page.locator('.search-input').fill(older.title);
+    await expect(page.locator('.search-result').first()).toContainText(older.title);
+
+    // The answer to the new query is on its way while the keys are pressed
+    let release = () => {};
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let sawSearch = () => {};
+    const searchOnItsWay = new Promise<void>(resolve => { sawSearch = resolve; });
+    await page.route('**/api/search/combined**', async route => {
+      sawSearch();
+      await held;
+      await route.continue();
+    });
+    await page.locator('.search-input').fill(newer.title);
+    await searchOnItsWay;
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    release();
+
+    await expect(page).toHaveURL(new RegExp(`/pages/${newer.title}$`));
+  });
 });

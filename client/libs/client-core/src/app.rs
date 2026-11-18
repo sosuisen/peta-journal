@@ -927,6 +927,9 @@ pub struct SearchState {
     pub selected_index: Option<usize>,
     pub searching: bool,
     pub timer_id: u64,
+    /// The arrow keys and Enter pressed while the results still belong to an older query.
+    /// They take effect, in order, once the answer to the query arrives.
+    pub held_keys: Vec<SearchKey>,
 }
 
 /// The page names offered in the dialog of an atlas link, and the timer of the pause before
