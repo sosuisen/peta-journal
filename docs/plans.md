@@ -255,8 +255,8 @@ ADR 051は、`/pages/`といった値をhrefに埋め込む機能を提供する
   - `client-core`の決まりなので、ネイティブのシェルだけでなく、Webのアウトライナーにも効く。ADR 006（手で書き換えたファイルの取り込み）に関わり、後から変えにくいので、ADRを書いてから進める
   - 編集していないときに、触れなくても画面に出ることは、Androidの`DownloadedPageTest`が確かめている
 - [ ] `journal`のワークスペースで、新しく作れるようになったミュータントを回す（2026-11-18）
-  - `AppResult`と`HttpResult`を`Result<T, AppError>`と`Result<T, HttpError>`に書き換えたので、関数の中身を`Ok(...)`に置き換えるミュータントが859個作れるようになった。このうち758個は、まだ1度も回していない
-  - 回したのは`journal-server/src/presentation/rest/items.rs`の87個だけである。84個はビルド不能（`Json<T>`に`Default`がない）、3個は時間切れ（`get_item`、`delete_item`、`get_items_by_types`）だった。時間切れの3個は、ほかのビルドと同時に回した結果なので、単独で回し直す
+  - `AppResult`と`HttpResult`を`Result<T, AppError>`と`Result<T, HttpError>`に書き換えたので、関数の中身を`Ok(...)`に置き換えるミュータントが859個作れるようになった。このうち回したのは、次の行の87個と、時計の変更（PR #660）の差分に入った分だけである
+  - `journal-server/src/presentation/rest/items.rs`の87個は、84個がビルド不能（`Json<T>`に`Default`がない）、3個は時間切れ（`get_item`、`delete_item`、`get_items_by_types`）だった。時間切れの3個は、ほかのビルドと同時に回した結果なので、単独で回し直す
   - 全部を1度に回すと17時間以上かかる。コアの結合テスト（345件）が単独で約63秒、3つ並列だと約255秒かかるためである。ファイルごとに、並列なし（`--jobs 1`）で少しずつ回す
   - 取り逃しは、コードを消すか、テストを強くする
 - [ ] ミューテーションテストがまだないシェルに、必要であれば入れる（2026-11-13に開発者が足した）
