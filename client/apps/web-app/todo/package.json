@@ -16,7 +16,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "flatmarkdown-ast2react": "^0.4.0",
+    "flatmarkdown-ast2react": "file:F:/PetaJournal/flatmarkdown-ast2react",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
