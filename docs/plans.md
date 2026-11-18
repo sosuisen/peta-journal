@@ -4,29 +4,23 @@
 
 ## PetaJournalのURLとリンクの生成
 
-URLの知識を1か所にする決定は、ADR 061（`docs/adr/adr-061-page-urls-in-one-crate.md`）にある。ADR 051は、この決定と密接に関係している（2026-11-17に開発者が言った）。
+決定は、ADR 051（hrefのテンプレートと名前の符号化）とADR 061（`page-urls`）にある。2つは、flatmarkdownの「テンプレートに名前を入れる関数」でつながっている（2026-11-17に開発者が言った）。ここには、ADRにない順序だけを書く。
 
-### ADR 051：wikilinkとhashtagのhrefを、ast2htmlのテンプレートで決める
+3つのリポジトリにまたがる。flatmarkdownと`flatmarkdown-ast2react`の公開は、開発者が行う。peta-journalの切り替えは、公開のあとにマージする。公開の前は、ローカルのパスに差し替えて確かめる。
 
-ADR 051は、`/pages/`といった値をhrefに埋め込む機能を提供する。値は、ADR 061の`page-urls`から取る。
-
-2026-11-16に開発者が受理した。flatmarkdownに`HtmlOptions`と`ast_to_html_with`を足し、0.9.0を出してから、Webのシェルを切り替える。flatmarkdown側のタスクは、flatmarkdownの`docs/plans.md`にある。
-
-- [ ] flatmarkdownの3つのクレートを0.9.0に上げる。`client/`のCargo.tomlとCargo.lockを直す
-- [ ] Webのシェルの`item_html`で`ast_to_html_with`を使う。wikilinkは`/pages/{}`、hashtagは`/pages/<タグ用ディレクトリ>{}`にする
-  - [ ] タグ用ディレクトリが変わったら、項目のHTMLを作り直す（`item_view.rs`の`Memo`が設定も読む）
-  - [ ] `point_links_at_pages`、`point_links`、`data-page`の属性を消す
-  - [ ] Ctrl+クリック、中クリック、右クリックのメニューで、正しいページが開くことを確かめる
-- [ ] 「HTMLとしてコピー」（ADR 027）とmemoviewは変えない
-
-### リンクの符号化
-
-- [ ] ADR 051を改めて、描画のライブラリが、テンプレートに名前を入れるときにパーセント符号化するようにする（2026-11-18に開発者が決めた）
-  - 理由：`%`、`?`、`#`を含むページ名のリンクが壊れる。たとえば`[[What?]]`は`/pages/What?`になり、ブラウザーは`What`というページを開こうとする。ADR 051は符号化しないと決め、この制限を認めていた
-  - サーバーが返す`url`も、同じ関数で作る（ADR 061）。そのため、この作業が終わると、本文の中のリンクと`url`が同時に符号化される。終わるまでは、どちらも壊れる
-  - 決めること：どの文字を符号化するか。`[[Page#item]]`のように、ページの中の場所を指す`#`は残す必要がある。ADR 061の`page-urls`のURLを読む関数が、符号化したURLを元のページ名に戻せるようにする
-  - 対象は、flatmarkdownの`ast2html`（Rust版とwasm版）と`ast2react`である。flatmarkdown側の作業になる
-  - 決めること：Rust（`ast2html`）とTypeScript（`ast2react`）の符号化の規則をそろえる方法。`ast2react`はRustの関数を呼べないので、同じ規則をTypeScriptでも持つことになる。候補は、`ast2react`がwasm版の関数を呼ぶ方法と、同じ入力と出力の表を両方のテストで使う方法である
+1. flatmarkdown：`0.9.0`に、公開の関数2つ、名前の符号化、wasm版の設定、符号化の表を入れる。タスクはflatmarkdownの`docs/plans.md`にある
+   - [ ] 開発者が`0.9.0`を公開する（crates.ioとnpm）
+2. `flatmarkdown-ast2react`：`hrefPrefix`をテンプレートに替え、同じ符号化を入れる。表の写しをテストで読む
+   - [ ] 開発者が新しい版を公開する（npm）
+3. peta-journal（1の公開のあと）
+   - [ ] `page-urls`を作る。flatmarkdownを`0.9.0`に上げる。`client-core`、`client-page-links`、`client-shell-embedded`、Webのシェルを切り替える（ADR 051のWebのシェルの切り替えも、ここで行う）
+     - [ ] Ctrl+クリック、中クリック、右クリックのメニューで、正しいページが開くことを確かめる。`?`、`%`、空白、日本語を含むページ名でも確かめる
+   - [ ] サーバーの答えに`url`を、`GET /api/config`に3つの値を足す。RESTとMCPの両方である（ADR 060）
+   - [ ] AndroidとiOSのシェルから、URLの定数を消す
+   - [ ] Emacsを、サーバーの`url`に切り替える
+4. peta-journal（2の公開のあと）
+   - [ ] todoを、サーバーの`url`とテンプレートに切り替える。`pagePath`と`links.ts`の組み立てを消す
+   - [ ] memoviewを、wasm版の設定に切り替える。`PageLinks.cs`を消す（これは1の公開だけで始められる）
 
 ## ジャーナルサーバーとファイル
 

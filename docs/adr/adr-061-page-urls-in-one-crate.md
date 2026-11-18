@@ -144,19 +144,22 @@ flatmarkdownの側で、公開の関数を2つ足す。
 ここでは仮に`href_template_from_prefix`と`fill_href`と呼ぶ。名前は、flatmarkdownの側で決める。
 
 - `href_template_from_prefix`は、前置きからテンプレートを作る。`/pages/`から`/pages/{}`ができる。
-- `fill_href`は、テンプレートに名前を入れて、URLを返す。HTMLのエスケープはかけない。
+  前置きは、名前と同じ規則で符号化する。前置きには、設定で決まるタグ用ディレクトリが入るためである。
+  符号化すると、前置きの中の`{`と`}`は`%7B`と`%7D`になる。そのため、前置きの文字が、名前を入れる場所と読まれることはない。
+- `fill_href`は、テンプレートに名前を入れて、URLを返す。名前は、パーセント符号化してから入れる（ADR 051の「名前の符号化」）。HTMLのエスケープはかけない。
 
 今の内部の関数`href`は、`fill_href`の結果にHTMLのエスケープをかける形に変える。
+`encoded`は、ADR 051の規則で符号化する内部の関数である。
 
 ```rust
 /// The template of the hrefs that start with `prefix`.
 pub fn href_template_from_prefix(prefix: &str) -> String {
-    format!("{prefix}{NAME}")
+    format!("{}{NAME}", encoded(prefix))
 }
 
 /// The URL that `template` makes for `name`. It is not escaped for HTML.
 pub fn fill_href(template: &str, name: &str) -> String {
-    template.replace(NAME, name)
+    template.replace(NAME, &encoded(name))
 }
 
 fn href(template: &str, name: &str) -> String {
@@ -175,6 +178,7 @@ HTMLのエスケープを分けるのは、`page-urls`が作るのはHTMLの属�
 |---|---|
 | `/pages/` | `/pages/{}` |
 | `/pages/tags/` | `/pages/tags/{}` |
+| `/pages/タグ/` | `/pages/%E3%82%BF%E3%82%B0/{}` |
 
 `fill_href`の入力と出力は、次のとおりである。
 
@@ -184,7 +188,8 @@ HTMLのエスケープを分けるのは、`page-urls`が作るのはHTMLの属�
 | `/pages/tags/{}` | `Rust` | `/pages/tags/Rust` |
 | `/pages/{}` | `2026-11-18` | `/pages/2026-11-18` |
 | `{}`（既定） | `Other Page` | `Other Page` |
-| `/pages/{}` | `What?` | `/pages/What?`（今は符号化しない） |
+| `/pages/{}` | `What?` | `/pages/What%3F` |
+| `/pages/{}` | `Page#item` | `/pages/Page#item` |
 
 ### `page-urls`の関数
 
@@ -218,9 +223,6 @@ pub fn item_url(page_name: &str, item_id: &str) -> String {
   テンプレートは、Rustのクライアントなら`page-urls`の`wikilink_href`と`hashtag_href`から、ほかのクライアントなら`GET /api/config`から来る。
 - サーバーが返す`url`：journal-coreが、`page-urls`の`page_url`と`item_url`を呼ぶ。
 - ページへ移るときのURL、ビューモデルのURL：`client-core`が、`page-urls`の`page_url`を呼ぶ。
-
-flatmarkdownが符号化を始めるときは、`fill_href`の中で、名前を符号化してから置き換える。
-`page-urls`と`ast2html`の呼び出しは、変えなくてよい。
 
 URLの形が変わったときに直すのは、`page-urls`の中と、flatmarkdownのテンプレートを作る関数だけである。
 たとえば、後ろにも文字を置く形（`/tags/{}.html`）が要るようになったら、flatmarkdownに、その形のテンプレートを作る関数を足す。
@@ -312,6 +314,7 @@ todoの`pagePath`は消す。
   ハッシュタグの既定値も、Rustの`ast2html`にそろえる。
 - wasm版の`flatmarkdown-ast2html`に、Rust版と同じ設定を足す。
   ADR 051は、wasm版で設定が要るアプリが出たら足すと決めていた。memoviewが、そのアプリに当たる。
+  2026-11-18に、ADR 051をこのとおりに改めた。
 
 あとの2つが終わるまで、todoとmemoviewの本文の中のリンクは、今のまま残す。
 終わったら、todoの`links.ts`の組み立てと、memoviewの`PageLinks.cs`を消す。
@@ -326,20 +329,29 @@ Webのシェルの`item_view.rs`と、`client-shell-embedded`の`/pages/`を外�
 ### 符号化
 
 `page-urls`は、符号化の規則を持たない。
-符号化するかどうかは、テンプレートに名前を入れるflatmarkdownの関数が決める。
+符号化は、テンプレートに名前を入れるflatmarkdownの関数が行う。
+規則は、ADR 051の「名前の符号化」にある（2026-11-18に開発者が決めた）。
+`encodeURI`が符号化する文字と`?`を符号化し、`/`と`#`は残す。
+本文の中のリンクと、サーバーが返す`url`は、同じ関数を通るので、同じように符号化される。
 
-今のflatmarkdownは、符号化しない（ADR 051）。
-そのため、`%`、`?`、`#`を含むページ名では、本文の中のリンクも、サーバーが返す`url`も、正しいページを開かない。
-たとえば`What?`というページのURLは`/pages/What?`になり、ブラウザーは`What`というページを開こうとする。
-壊れ方は、本文の中のリンクと`url`で同じである。
+そのため、`page-urls`が作るURLは、符号化したURLである。
+たとえば`What?`というページのURLは、`/pages/What%3F`になる。
+`client-core`がページへ移るときのURLと、ビューモデルに出すURLも、符号化したURLになる。
 
-flatmarkdownの関数が符号化するようになれば、本文の中のリンクと`url`が、同時に符号化される。
-この作業は、このADRの外である。
-`docs/plans.md`に、ADR 051を改めるタスクとして積んである。
+`page-urls`のURLを読む関数は、符号化したURLを受け取り、自分で復号する。
+`#`の前のパスと、後ろの項目のidを、それぞれ1回だけ復号する。
+どの文字が符号化されていても復号するので、ブラウザーが符号化し直したURLも、同じページ名に戻る。
+シェルは、URLを復号せずに、この関数へ渡す。
+今のWebのシェルは、`decodeURIComponent`で復号してから`Route::parse`へ渡している。この復号は消す。2回復号すると、`%`を含むページ名が壊れるためである。
 
-`page-urls`のURLを読む関数は、flatmarkdownが作ったURLを、元のページ名に戻せなくてはならない。
 `page-urls`のテストで、「作ったURLを読むと、元のページ名に戻る」ことを確かめる。
-flatmarkdownが符号化を始めたときに、読む側が追いついていなければ、このテストが落ちる。
+これはプロパティテストにする。往復の性質であり、入力の範囲が広いためである。
+名前に`#`を含むページは、この性質から除く。`#`の後ろは、項目のidとして読まれる（ADR 051）。
+
+iOSとAndroidは、戻る先や前回の画面のURLを、端末に保存している。
+前の版が保存したURLは、符号化していない。
+読む関数は、符号化していないURLもそのまま読めるが、`%`の後ろに16進の2文字が続くページ名だけは、違う名前に読む。
+その場合は、保存したページが開かない。まれなので、受け入れる。
 
 「HTMLとしてコピー」（ADR 027）の符号化（`client-page-links`の`OUTSIDE_A_URL`など）は、今のまま`client-page-links`に残す。
 flatmarkdownが符号化するようになったら、置き換えるかを決める。
@@ -433,7 +445,7 @@ URLの規則を1つのクレートに置き、Rustのクライアントがそれ
 
 - `ast2react`とwasm版の`ast2html`が、同じテンプレートを受け取れるようになること。
 - memoviewが、hrefを名前ではなくURLとして開く形に切り替えられること。
-- flatmarkdownが符号化を始めたあとのURLを、どのシェルも元のページ名に読み戻せること。
+- 符号化したURLを、どのシェルも元のページ名に読み戻せること。
 
 次のことが起きたら、この決定を見直す。
 
@@ -462,9 +474,10 @@ URLの規則を1つのクレートに置き、Rustのクライアントがそれ
   終わるまで、todoとmemoviewには直書きが残る。
 - ページと項目の答えが、`url`の分だけ大きくなる。
   `url`は、ページ名と項目のidから作れる値である。
-- `%`、`?`、`#`を含むページ名のURLは、まだ壊れる。
-  本文の中のリンクも、サーバーが返す`url`も、同じように壊れる。
-  ADR 051を改めるタスクが終わるまで、この制限が残る。
+- 名前に`#`を含むページのURLは、正しいページを開かない。
+  本文の中のリンクも、サーバーが返す`url`も、同じである（ADR 051）。
+- 日本語のページ名の`url`は、`%E6%97%A5…`の形になる。
+- 前の版のiOSとAndroidが保存したURLのうち、`%`と16進の2文字を含むページ名のものは、開けなくなる。
 - クレートが1つ増える。journal-core、`client-core`、`client-page-links`の3つが、これに依存する。
 - `page-urls`が、flatmarkdownの版に縛られる。
   flatmarkdownの3つのクレートの版をそろえる決まり（ADR 020）に、`page-urls`も従う。
