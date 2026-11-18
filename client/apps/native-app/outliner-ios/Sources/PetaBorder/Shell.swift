@@ -212,6 +212,11 @@ public final class Shell: ObservableObject {
         send(.selectionKey(.copy))
     }
 
+    /// Puts the selected items on the clipboard, as `copySelected` does, and deletes them.
+    public func cutSelected() {
+        send(.selectionKey(.cut))
+    }
+
     /// Takes back the last change of the page.
     public func undo() {
         send(.undo)
