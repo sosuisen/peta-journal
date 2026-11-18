@@ -14,6 +14,8 @@ final class OutlineScreenTests: XCTestCase {
     private var window: NSWindow!
     /// What the shell put on the clipboard.
     private var copied: String?
+    /// The text on the clipboard, which a paste reads.
+    private var pasteboard: String?
     /// What the shell opened in the browser.
     private var browsed: URL?
     /// What the shell asked a new sticky for.
@@ -22,7 +24,7 @@ final class OutlineScreenTests: XCTestCase {
     override func setUp() async throws {
         server = try JournalServer(port: 18094)
         shell = Shell(
-            server: server.address, url: "/pages/screen", clipboard: { nil },
+            server: server.address, url: "/pages/screen", clipboard: { [weak self] in self?.pasteboard },
             copy: { [weak self] text, _ in self?.copied = text },
             browse: { [weak self] in self?.browsed = $0 },
             openSticky: { [weak self] in self?.askedSticky = $0 })
@@ -597,6 +599,58 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertTrue(keys.tryToPerform(Selector(("copy:")), with: nil))
 
         try await waitUntil("the clipboard has the item again") { self.copied == "- second" }
+    }
+
+    private static let vKey: UInt16 = 9
+
+    /// Two items, "first" and "second", with the cursor at the end of the second.
+    private func cursorAtTheEndOfTheSecondItem() async throws -> NSTextView {
+        try await twoItems()
+        let second = editors()[1]
+        second.setSelectedRange(NSRange(location: 6, length: 0))
+        return second
+    }
+
+    // メニューの「ペースト」は、Markdownのリストを項目に分けて、カーソルの位置に貼る。
+    func testPasteOfTheMenuCutsAMarkdownListIntoItems() async throws {
+        let second = try await cursorAtTheEndOfTheSecondItem()
+        pasteboard = "- apple\n- pear"
+
+        XCTAssertTrue(second.tryToPerform(Selector(("paste:")), with: nil))
+
+        try await waitUntil("the list is two items") { self.bodies() == ["first", "secondapple", "pear"] }
+    }
+
+    // Shift+Command+Vは、クリップボードの文字をそのまま項目に貼る。
+    func testShiftCommandVPutsTheTextIntoTheItemAsItIs() async throws {
+        let second = try await cursorAtTheEndOfTheSecondItem()
+        pasteboard = "- apple\n- pear"
+
+        press(Self.vKey, "v", [.shift, .command], in: second)
+
+        try await waitUntil("the text is in the item") { self.bodies() == ["first", "second- apple\n- pear"] }
+    }
+
+    // メニューの「ペーストしてスタイルを合わせる」も、文字をそのまま項目に貼る。
+    func testPasteAndMatchStyleOfTheMenuPutsTheTextIntoTheItemAsItIs() async throws {
+        let second = try await cursorAtTheEndOfTheSecondItem()
+        pasteboard = "- apple\n- pear"
+
+        XCTAssertTrue(second.tryToPerform(Selector(("pasteAsPlainText:")), with: nil))
+
+        try await waitUntil("the text is in the item") { self.bodies() == ["first", "second- apple\n- pear"] }
+    }
+
+    // 貼る位置は、絵文字のような2つのUTF-16単位の文字の後でも、カーソルの位置である。
+    func testAPasteAfterAnEmojiGoesToTheCursor() async throws {
+        let editor = editors()[0]
+        type("😀ab", into: editor)
+        editor.setSelectedRange(NSRange(location: 3, length: 0))
+        pasteboard = "x"
+
+        XCTAssertTrue(editor.tryToPerform(Selector(("paste:")), with: nil))
+
+        try await waitUntil("the text is after the a") { self.bodies() == ["😀axb"] }
     }
 
     // 選んでいるあいだに項目の文字をクリックすると、選択が消え、その項目に入力できる。
