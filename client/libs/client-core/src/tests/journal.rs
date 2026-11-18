@@ -188,6 +188,28 @@ fn the_answer_for_a_day_left_behind_loads_no_older_journals() {
     assert_eq!(h.items_ids(), ["item-2026-02-05"]);
 }
 
+// 前の日の下に読み込んでいた古いジャーナルの答えは、別の日へ移ったあとに届いても、今の日の下に足されない。今の日の読み込みも止めない。
+#[test]
+fn an_older_journal_loaded_for_a_day_left_behind_is_not_appended() {
+    let mut h = Harness::new();
+    visit(&mut h, "2026-02-05");
+
+    h.send(Event::OlderJournalLoaded {
+        journal: "2026-02-10".into(),
+        weekly: false,
+        target_item_count: 50,
+        name: "2026-02-08".into(),
+        items: vec![journal_item("item-2026-02-08", "2026-02-08")],
+        transcluded_trees: None,
+    });
+    h.send(Event::PreviousJournalsLoaded {
+        journal: "2026-02-10".into(),
+    });
+
+    assert_eq!(h.items_ids(), ["item-2026-02-05"]);
+    assert!(!before_calls(&h).contains(&"2026-02-08".to_string()));
+}
+
 // 同じジャーナルへの遷移では読み直さない。項目を指すフラグメント付きなら読み直す。
 #[test]
 fn the_same_journal_is_not_loaded_again_unless_an_item_is_named() {
