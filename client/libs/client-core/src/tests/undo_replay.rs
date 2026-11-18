@@ -459,6 +459,41 @@ fn undo_of_a_delete_makes_the_item_again_with_its_id_where_it_was() {
     assert_eq!(h.model.state.get_item_by_id("b").unwrap().idx, "created1");
 }
 
+// 削除の undo は、作り直した項目の折りたたみとタスクの状態を、同じ要求の更新で戻す。
+#[test]
+fn undo_of_a_delete_puts_back_the_collapsed_state_and_the_task_state_in_the_same_request() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("c", 1, "")]);
+    let gone = item_with("b", 1, |i| {
+        i.body = "gone".into();
+        i.collapsed = true;
+        i.types = vec!["task".into()];
+    });
+    h.model.undo.begin("delete-selection", None);
+    h.model.undo.push_delete(&gone);
+    h.model.undo.commit(None, 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(
+        batch_calls(&h.api),
+        [[
+            create_op("b", "a", 1, "gone"),
+            BatchOp::Update {
+                id: "b".into(),
+                body: None,
+                level: None,
+                collapsed: Some(true),
+                task: Some(TaskState {
+                    task: true,
+                    begin: None,
+                    end: None,
+                    plan: None,
+                }),
+            },
+        ]]
+    );
+}
+
 fn create_op(id: &str, after: &str, level: i32, body: &str) -> BatchOp {
     BatchOp::Create {
         id: id.into(),
