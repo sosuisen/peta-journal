@@ -16,6 +16,7 @@ Usage, from journal:
 Every other argument goes to cargo mutants. --jobs N sets the number of shards; by default
 it is one for every 8 GB of memory and at most half the cores. --tmp DIR puts the temporary
 folders of the tests in DIR. The shards test the commit at HEAD, so commit the changes first.
+The tests in the `timing` modules are skipped; see skip_timing_tests.
 
 The tests wait for the disk, not for the CPU: each makes a database and a search index in a
 temporary folder. On macOS the script therefore makes a RAM disk for these folders, and
@@ -96,6 +97,24 @@ def parse_args(argv):
     return jobs, tmp, rest
 
 
+def skip_timing_tests(args):
+    """The arguments with the tests of the `timing` modules skipped.
+
+    These tests hold code to a time limit of 100ms or check how long it ran, and fail on a
+    machine busy with the other shards (2026-11-18). cargo mutants passes the arguments after
+    its own `--` to cargo test, and cargo test passes those after a second `--` to the test
+    binaries. The skip goes in that last group. It is not in .cargo/mutants.toml: cargo mutants
+    puts those arguments after the ones given here, so a `--` in both would turn the skip into
+    a filter that runs only the timing tests.
+    """
+    if "--" not in args:
+        return [*args, "--", "--", "--skip", "timing::"]
+    test_args = args[args.index("--") + 1:]
+    if "--" in test_args:
+        return [*args, "--skip", "timing::"]
+    return [*args, "--", "--skip", "timing::"]
+
+
 def main_checkout():
     common = Path(git("rev-parse", "--path-format=absolute", "--git-common-dir"))
     return common.parent
@@ -149,6 +168,7 @@ def run_shard(crate_dir, k, jobs, args, target, log, tmp, results):
 
 def main():
     jobs, tmp, args = parse_args(sys.argv[1:])
+    args = skip_timing_tests(args)
     if tmp is None and sys.platform == "darwin":
         # A stop by SIGTERM unwinds as well, so that the RAM disk does not stay
         signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
