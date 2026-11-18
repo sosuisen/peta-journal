@@ -310,8 +310,8 @@ pub fn show_deleted(model: &mut Model, item_ids: &[String], created: Vec<Item>) 
 }
 
 /// Shows the empty item the server made on the shown page, when a write left that page
-/// without an item, and gives it the focus. The server keeps every page non-empty; the items
-/// it made on other pages are not shown here.
+/// without an item, and edits it, so that what is typed next goes into it. The server keeps
+/// every page non-empty; the items it made on other pages are not shown here.
 pub fn show_empty_item(model: &mut Model, created: Vec<Item>) -> Cmd {
     let shown_page_id = model.shown_page_id();
     let Some(empty) = created
@@ -322,6 +322,7 @@ pub fn show_empty_item(model: &mut Model, created: Vec<Item>) -> Cmd {
     };
     let id = empty.id.clone();
     model.state.add_item(empty, &ItemPosition::First);
+    model.state.add_editing_item(&id);
     model.state.set_focused_item(&id, None);
     focus_editor(model, Some(id))
 }
