@@ -595,6 +595,41 @@ final class JournalScreenTests: XCTestCase {
         XCTAssertFalse(app.buttons["Delete item"].exists)
     }
 
+    // CopyとCutの道具は、項目を選んでいるときだけ出る。編集しているときは出ない。
+    func testTheCopyAndCutToolsShowOnlyWhileAnItemIsSelected() throws {
+        try three()
+        waitFor(app.buttons["Move cursor"])
+        XCTAssertFalse(app.buttons["Copy"].exists)
+        XCTAssertFalse(app.buttons["Cut"].exists)
+
+        done()
+
+        waitFor(app.buttons["Copy"])
+        XCTAssertTrue(app.buttons["Cut"].exists)
+    }
+
+    // 選んだ項目を切り取り、別の項目の終わりに貼り付けると、その項目に続く。
+    func testAnItemThatIsCutAndPastedAtTheEndOfAnotherGoesOnInIt() throws {
+        try three()
+        done()
+
+        tool("Cut")
+        waitUntil("the item is gone") { !app.staticTexts["two"].exists }
+        edit("one")
+        pasteWhereTheCursorIs()
+
+        waitUntil("the field edits onetwo, not \(editedText)") { editedText == "onetwo" }
+    }
+
+    /// Pastes with the menu of the field, at the cursor. A touch on the cursor of the field
+    /// that has the keyboard shows the menu.
+    private func pasteWhereTheCursorIs() {
+        editor.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        let paste = app.menuItems["Paste"]
+        waitFor(paste)
+        paste.tap()
+    }
+
     /// Opens a page of two items, makes the second a child of the first, and edits the first.
     private func editAParent() throws {
         try download("notes.md", above("A") + "parent\n\n" + above("B") + "child\n")
