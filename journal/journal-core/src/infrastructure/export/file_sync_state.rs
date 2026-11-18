@@ -195,6 +195,46 @@ impl FileSyncStateRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::clock::SteppedClock;
+    use crate::domain::id_generator::IdGenerator;
+    use crate::infrastructure::persistence::database_initializer::initialize;
+
+    // なくなったファイルは、なくなったと記録される。もう一度記録しても、最初に気づいた時刻は変わらない。
+    #[test]
+    fn a_missing_file_keeps_the_time_it_was_first_found_missing() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let clock = Arc::new(SteppedClock::default());
+        let db = Arc::new(Db::open(&dir.path().join("journal.db"), clock.clone()).unwrap());
+        let ids = IdGenerator::default();
+        initialize(&db, &ids).unwrap();
+        let page = ids.generate_page_id();
+        db.conn()
+            .unwrap()
+            .execute(
+                "INSERT INTO pages (id, dir_path, name, created_date, modified_date) \
+                 VALUES (?, '', 'notes', 0, 0)",
+                params![page.as_str()],
+            )
+            .unwrap();
+        let states = FileSyncStateRepository::new(db);
+        states
+            .upsert_synced("docs/notes.md", &page, "hash", 1, 0, 0)
+            .unwrap();
+        assert!(!states
+            .find_by_path("docs/notes.md")
+            .unwrap()
+            .unwrap()
+            .is_missing());
+
+        states.mark_missing("docs/notes.md").unwrap();
+        let first = states.find_by_path("docs/notes.md").unwrap().unwrap();
+        assert!(first.is_missing());
+        clock.advance(5);
+        states.mark_missing("docs/notes.md").unwrap();
+        let second = states.find_by_path("docs/notes.md").unwrap().unwrap();
+        assert_eq!(second.missing_since, first.missing_since);
+        assert!(first.missing_since.is_some());
+    }
 
     // 中の日付がファイルの更新時刻より遅ければ、前回の同期は中の日付になる。
     #[test]
