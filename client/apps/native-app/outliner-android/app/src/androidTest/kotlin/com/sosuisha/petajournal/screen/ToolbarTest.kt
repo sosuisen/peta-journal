@@ -183,6 +183,20 @@ class ToolbarTest : JournalScreenFixture() {
         assertEquals(listOf("- two"), copied)
     }
 
+    // コピーと切り取りの道具は、項目を選んでいるときだけ出る。編集しているときは出ない。
+    @Test
+    fun the_copy_and_cut_tools_show_only_while_an_item_is_selected() {
+        selectTwo()
+        compose.onNode(hasContentDescription("Copy")).assertExists()
+        compose.onNode(hasContentDescription("Cut")).assertExists()
+
+        tool("Show keyboard")
+
+        compose.waitUntil(WAIT_MS) { compose.onAllNodesWithTag(EDITOR_TAG).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasContentDescription("Copy")).assertDoesNotExist()
+        compose.onNode(hasContentDescription("Cut")).assertDoesNotExist()
+    }
+
     // 道具を縮めると、丸いボタンだけになる。押すと、道具が戻る。
     @Test
     fun the_tools_shrink_to_a_round_button_and_come_back() {
