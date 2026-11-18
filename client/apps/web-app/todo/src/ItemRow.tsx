@@ -2,7 +2,7 @@ import { FmRoot, type ReactRenderOptions } from 'flatmarkdown-ast2react';
 import type { MouseEvent } from 'react';
 import { serverUrl, type Item } from './api';
 import { isOnLink } from './dom';
-import { getDue, getPlan, pagePath, taskLabel } from './tasks';
+import { getDue, getPlan, taskLabel } from './tasks';
 
 function ItemDates({ item }: { item: Item }) {
   const plan = getPlan(item);
@@ -32,7 +32,7 @@ export default function ItemRow({ item, linkOptions, onCycle }: ItemRowProps) {
   const openInPetaJournal = (event: MouseEvent<HTMLDivElement>) => {
     // A click on a link in the text follows that link, and does not open the page too
     if (isOnLink(event.target as Element)) return;
-    window.open(`${serverUrl}${pagePath(item)}`, 'peta-journal');
+    window.open(`${serverUrl}${item.url}`, 'peta-journal');
   };
   return (
     <div className="item-row" onClick={openInPetaJournal}>

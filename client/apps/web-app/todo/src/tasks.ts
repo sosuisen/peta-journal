@@ -97,9 +97,3 @@ export function groupByPlan(items: Item[]): DisplayEntry[] {
   }
   return entries;
 }
-
-/** The path of the PetaJournal web app that opens the page of the item at the item. */
-export function pagePath(item: Item): string {
-  const prefix = isJournal(item) ? '/journals' : '/docs';
-  return `${prefix}/${item.dirPath}${item.name}#${item.id}`;
-}

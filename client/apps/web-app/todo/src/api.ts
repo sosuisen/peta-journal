@@ -10,6 +10,8 @@ export interface Item {
   type: string;
   dirPath: string;
   name: string;
+  /** The URL of the item in the PetaJournal web app, from the root of the server */
+  url: string;
   ast: string;
   properties: Record<string, string | string[]>;
 }
@@ -20,6 +22,7 @@ const ITEM_FIELDS: readonly (keyof Item)[] = [
   'type',
   'dirPath',
   'name',
+  'url',
   'ast',
   'properties',
 ];
@@ -111,12 +114,25 @@ export async function getTasks(includeDone: boolean): Promise<Item[]> {
 }
 
 /**
- * The folder of the tag pages, from the configuration of the server. It is empty for the
- * pages root, and ends with `/` otherwise.
+ * The values with which the links in a text are made, from the configuration of the server
+ * (ADR 061). The templates have `{}` where the name goes.
  */
-export async function getTagsDir(): Promise<string> {
-  const config = await fetchJson<{ tagsDir: string }>('/api/config');
-  return config.tagsDir;
+export interface LinkConfig {
+  wikilinkHref: string;
+  hashtagHref: string;
+  pagesBase: string;
+  wikilinkFragmentPattern: string;
+}
+
+/** The values for links, from the configuration of the server. */
+export async function getLinkConfig(): Promise<LinkConfig> {
+  const config = await fetchJson<LinkConfig>('/api/config');
+  return {
+    wikilinkHref: config.wikilinkHref,
+    hashtagHref: config.hashtagHref,
+    pagesBase: config.pagesBase,
+    wikilinkFragmentPattern: config.wikilinkFragmentPattern,
+  };
 }
 
 /** Cycles a task's state via the cycle-task endpoint. */

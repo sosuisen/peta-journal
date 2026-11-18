@@ -23,7 +23,9 @@ describe('link options', () => {
   test('a hashtag leads to a page in the folder of the tag pages', () => {
     const options = linkOptions('http://journal.test:9000', config);
 
-    expect(options.hashtag?.href).toBe('http://journal.test:9000/pages/tags/{}');
+    expect(options.hashtag?.href).toBe(
+      'http://journal.test:9000/pages/tags/{}',
+    );
   });
 
   // 画像は、ページからの相対パスで書かれている。Webアプリのページのアドレスから解決する。

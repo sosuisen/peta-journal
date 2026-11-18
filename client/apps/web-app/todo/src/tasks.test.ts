@@ -17,6 +17,7 @@ function item(overrides: Partial<Item> = {}): Item {
     type: 'doc',
     dirPath: '',
     name: 'Notes',
+    url: '/pages/Notes#item-1',
     ast: '{}',
     properties: {},
     ...overrides,

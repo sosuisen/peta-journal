@@ -14,13 +14,14 @@ export default function App() {
     showJournal: true,
     showPage: false,
   }));
-  const { items, loading, error, connectionState, tagsDir, cycle } = useTasks(
+  const { items, loading, error, connectionState, links, cycle } = useTasks(
     filters.showDone,
   );
-  // FmRoot renders again when the options are a new object, so they are kept between renders
+  // FmRoot renders again when the options are a new object, so they are kept between renders.
+  // Until the server has given the templates, the links lead nowhere
   const itemLinkOptions = useMemo(
-    () => linkOptions(serverUrl, tagsDir),
-    [tagsDir],
+    () => (links ? linkOptions(serverUrl, links) : {}),
+    [links],
   );
 
   const entries = groupByPlan(items.filter(item => isShown(item, filters)));
