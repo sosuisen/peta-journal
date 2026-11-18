@@ -66,15 +66,12 @@ fn wikilinks_to_links(text: &str, source_dir: &str) -> String {
         .replace_all(text, |m: &Captures| {
             let target = m.get(1).map(|g| g.as_str()).unwrap_or("");
             let label = m.get(2).map(|g| g.as_str());
-            let (page_path, fragment) = match target.find('#') {
-                Some(pos) => (&target[..pos], &target[pos..]),
-                None => (target, ""),
+            let (page_path, item) = page_urls::split_wikilink(target);
+            let file = escaped_file(&relativize(source_dir, &page_file_of(page_path)));
+            let dest = match item {
+                Some(item) => format!("{file}#{item}"),
+                None => file,
             };
-            let dest = format!(
-                "{}{}",
-                relativize(source_dir, &page_file_of(page_path)),
-                fragment
-            );
             markdown_link(label.unwrap_or(target), &dest)
         })
         .into_owned()
@@ -99,6 +96,35 @@ fn hashtags_to_links(text: &str, source_dir: &str) -> String {
             )
         })
         .into_owned()
+}
+
+/// The path of a file as a link writes it. A `#` of a name would start the item id, and a `%`
+/// would be read back as the start of an escape, so both are escaped. Other characters stay,
+/// so that a person can read the file (ADR 061).
+fn escaped_file(path: &str) -> String {
+    path.replace('%', "%25").replace('#', "%23")
+}
+
+/// The path of a file from a link, with `%23` and `%25` undone once: `%2523` gives `%23`.
+fn unescaped_file(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    let mut rest = path;
+    while let Some(pos) = rest.find('%') {
+        out.push_str(&rest[..pos]);
+        let after = &rest[pos..];
+        if after.starts_with("%23") {
+            out.push('#');
+        } else if after.starts_with("%25") {
+            out.push('%');
+        } else {
+            out.push_str(&after[..1]);
+            rest = &after[1..];
+            continue;
+        }
+        rest = &after[3..];
+    }
+    out.push_str(rest);
+    out
 }
 
 fn markdown_link(label: &str, dest: &str) -> String {
@@ -139,7 +165,7 @@ fn links_to_wikilinks(text: &str, source_dir: &str) -> String {
                 Some(pos) => (&dest[..pos], &dest[pos..]),
                 None => (dest, ""),
             };
-            match resolve(source_dir, file).and_then(|p| page_path_of(&p)) {
+            match resolve(source_dir, &unescaped_file(file)).and_then(|p| page_path_of(&p)) {
                 None => whole.to_string(),
                 Some(page_path) => {
                     format!("{lead}{}", wikilink_or_hashtag(label, &page_path, fragment))
@@ -348,11 +374,11 @@ mod tests {
     fn a_link_to_a_page_with_a_hash_in_its_name_encodes_the_hash_and_comes_back() {
         let id = "20260426035700_QZ998PX";
         let cases = [
-            ("[[C#入門]]".to_string(), "[C#入門](C%23入門.md)".to_string()),
             (
-                format!("[[C##{id}]]"),
-                format!("[C##{id}](C%23.md#{id})"),
+                "[[C#入門]]".to_string(),
+                "[C#入門](C%23入門.md)".to_string(),
             ),
+            (format!("[[C##{id}]]"), format!("[C##{id}](C%23.md#{id})")),
             ("[[100%]]".to_string(), "[100%](100%25.md)".to_string()),
         ];
         for (wikilink, markdown) in cases {

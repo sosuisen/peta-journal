@@ -1608,6 +1608,7 @@ dependencies = [
  "lindera-analysis",
  "lindera-tantivy",
  "page-names",
+ "page-urls",
  "parking_lot",
  "peta-atlas",
  "property-names",

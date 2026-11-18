@@ -11,3 +11,6 @@ pub mod error;
 pub mod events;
 pub mod infrastructure;
 pub mod journal;
+
+/// The URLs of the pages, for the server, which depends on this crate alone (ADR 061).
+pub use page_urls;
