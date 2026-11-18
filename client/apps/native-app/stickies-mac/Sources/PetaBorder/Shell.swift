@@ -166,6 +166,18 @@ public final class Shell: ObservableObject {
         typed(.typed(itemId: itemId, body: body, cursor: UInt64(max(cursor, 0))))
     }
 
+    /// The user pasted into the item, with the cursor `cursor` UTF-16 units into `body`. The text
+    /// on the clipboard goes to the core, which asks the server to cut it into items (ADR 011).
+    /// A raw paste puts the text into the item as it is. Nothing happens when the clipboard has
+    /// no text.
+    public func paste(into itemId: String, body: String, cursor: Int, raw: Bool) {
+        guard let text = clipboard() else { return }
+        // AppKit counts in UTF-16 units, the core in characters (ADR 043)
+        let chars = charsOfUtf16(text: body, units: UInt64(max(cursor, 0)))
+        // The core reads no HTML yet: it pastes the text
+        send(.pasteText(itemId: itemId, text: text, html: "", cursor: chars, raw: raw))
+    }
+
     /// The core adds the time, and counts the cursor in its own characters.
     private func typed(_ typing: Typing) {
         Shell.must { try border.typed(typing) }

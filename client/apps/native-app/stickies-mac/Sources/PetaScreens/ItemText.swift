@@ -49,6 +49,7 @@ struct ItemText: NSViewRepresentable {
         view.onKey = { [editor = context.coordinator] key, view in editor.pressed(key, in: view) }
         view.onChord = { [editor = context.coordinator] chord, view in editor.pressed(chord, in: view) }
         view.onPress = { [editor = context.coordinator] view in editor.dragStarts(on: view) }
+        view.onPaste = { [editor = context.coordinator] raw, view in editor.paste(raw: raw, in: view) }
         return view
     }
 
@@ -174,6 +175,11 @@ final class Editor: NSObject, NSTextViewDelegate {
         return shell.pressed(.inEditor(itemId: itemId, chord: chord, editor: view.state(measuringLines: lines)))
     }
 
+    /// The user pasted: the core pastes the text of the clipboard at the cursor.
+    func paste(raw: Bool, in view: ItemTextView) {
+        shell.paste(into: itemId, body: view.string, cursor: view.selectedRange().location, raw: raw)
+    }
+
     /// The mouse went down on the text view: a drag from it may select items.
     func dragStarts(on view: ItemTextView) -> ListDrag {
         ListDrag(shell: shell, itemId: itemId, text: view)
@@ -263,6 +269,9 @@ final class ItemTextView: NSTextView {
     var onKey: ((EditorKey, ItemTextView) -> Bool)?
     /// A key of the keyboard, which the core may take (ADR 052). True when it was taken.
     var onChord: ((Chord, ItemTextView) -> Bool)?
+    /// The user pasted, as it is when the flag is true. The core pastes, and not the text
+    /// view: a Markdown list becomes items.
+    var onPaste: ((Bool, ItemTextView) -> Void)?
     /// The text view does not keep its text storage alive when it is built by hand.
     private var storage: NSTextStorage?
 
@@ -440,6 +449,11 @@ final class ItemTextView: NSTextView {
             insertText("\n", replacementRange: selectedRange())
             return true
         }
+        if event.keyCode == 9, held == [.shift, .command] {
+            // The text goes into the item as it is, as in the web frontend
+            onPaste?(true, self)
+            return true
+        }
         guard let chord = Chord.of(event) else { return false }
         if case .letter = chord.key, held.isSubset(of: [.shift]) {
             // A letter that is typed: it means nothing to the outline, and the text would
@@ -457,6 +471,16 @@ final class ItemTextView: NSTextView {
 
     @objc func redo(_ sender: Any?) {
         _ = onKey?(.redo, self)
+    }
+
+    override func paste(_ sender: Any?) {
+        onPaste?(false, self)
+    }
+
+    /// "Paste and Match Style" of the Edit menu. The item has no style to match: the text goes in
+    /// as it is.
+    override func pasteAsPlainText(_ sender: Any?) {
+        onPaste?(true, self)
     }
 
     override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
