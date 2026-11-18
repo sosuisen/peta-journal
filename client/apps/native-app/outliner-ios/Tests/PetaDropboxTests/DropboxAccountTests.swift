@@ -53,7 +53,9 @@ final class DropboxAccountTests: XCTestCase {
 
         let listing = try XCTUnwrap(account.calls()).list(folder: account.folder)
 
-        XCTAssertEqual(listing.entries, [.file(file: PetaDropboxFile(path: "/PetaJournal/docs/a.md", contentHash: "hash", rev: "r1"))])
+        XCTAssertEqual(
+            listing.entries,
+            [.file(file: PetaDropboxFile(path: "/PetaJournal/docs/a.md", contentHash: "hash", rev: "r1"))])
     }
 
     // Dropboxから戻ったURLは、SDKが読む。サインインできたかは、メインスレッドで伝わる。

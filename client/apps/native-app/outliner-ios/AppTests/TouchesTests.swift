@@ -37,7 +37,8 @@ final class TouchesTests: XCTestCase {
         let first = "aaaa "
         let letters = first + "bbbb"
         let y = font.lineHeight * 1.5
-        XCTAssertEqual(Touches.letter(at: CGPoint(x: 0, y: y), in: text(letters), width: width("aaaa b") - 1), first.count)
+        XCTAssertEqual(
+            Touches.letter(at: CGPoint(x: 0, y: y), in: text(letters), width: width("aaaa b") - 1), first.count)
     }
 
     // 文字は、コアと同じくUnicodeのスカラーで数える。
@@ -53,8 +54,11 @@ final class TouchesTests: XCTestCase {
     // 項目の中では、触れた文字の前に、その前の文の文字の数が足される。文の脇に触れると、いちばん近い文の行になる。
     func testInAnItemTheLettersOfTheTextsBeforeAreAdded() {
         let lineHeight = font.lineHeight
-        let first = LetterTarget(start: 0, frame: CGRect(x: 0, y: 0, width: 300, height: lineHeight), text: text("one"), wraps: true)
-        let second = LetterTarget(start: 4, frame: CGRect(x: 0, y: lineHeight + 4, width: 300, height: lineHeight), text: text("two"), wraps: true)
+        let first = LetterTarget(
+            start: 0, frame: CGRect(x: 0, y: 0, width: 300, height: lineHeight), text: text("one"), wraps: true)
+        let second = LetterTarget(
+            start: 4, frame: CGRect(x: 0, y: lineHeight + 4, width: 300, height: lineHeight), text: text("two"),
+            wraps: true)
 
         XCTAssertEqual(Touches.letter(at: CGPoint(x: 0, y: lineHeight + 6), in: [first, second]), 4)
         XCTAssertEqual(Touches.letter(at: CGPoint(x: 350, y: lineHeight + 6), in: [first, second]), 7)

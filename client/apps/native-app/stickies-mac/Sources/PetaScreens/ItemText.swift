@@ -203,7 +203,8 @@ final class Editor: NSObject, NSTextViewDelegate {
             shell.touched(itemId, letter: letter)
             return
         }
-        shell.startEditing(itemId, at: Int(charsOfUtf16(text: view.string, units: UInt64(view.selectedRange().location))))
+        shell.startEditing(
+            itemId, at: Int(charsOfUtf16(text: view.string, units: UInt64(view.selectedRange().location))))
         // The core answers with an order to put the cursor there. The window gives the view
         // the cursor before the click arrives in `mouseDown`, which puts it where the user
         // clicked: the order is not carried out

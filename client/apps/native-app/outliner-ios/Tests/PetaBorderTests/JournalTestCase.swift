@@ -11,7 +11,8 @@ class JournalTestCase: XCTestCase {
 
     override func setUp() async throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("peta-shell-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: markdown.appendingPathComponent("docs"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: markdown.appendingPathComponent("docs"), withIntermediateDirectories: true)
     }
 
     override func tearDown() async throws {

@@ -2,7 +2,7 @@ import Foundation
 import PetaBorder
 
 #if os(iOS)
-import UIKit
+    import UIKit
 #endif
 
 /// The account of Dropbox that the app is signed in to: the sign-in, the sign-out, and the
@@ -36,11 +36,11 @@ public final class DropboxAccount: CloudAccount {
     public var isSignedIn: Bool { isSetUp && sdk.isSignedIn }
 
     #if os(iOS)
-    @MainActor
-    public func signIn(over screen: UIViewController) {
-        guard isSetUp else { return }
-        sdk.startSignIn(over: screen, scopes: DropboxAccount.scopes)
-    }
+        @MainActor
+        public func signIn(over screen: UIViewController) {
+            guard isSetUp else { return }
+            sdk.startSignIn(over: screen, scopes: DropboxAccount.scopes)
+        }
     #endif
 
     @discardableResult

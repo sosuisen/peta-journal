@@ -147,7 +147,8 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     @discardableResult
     private func show(_ kept: StickySettings?, url: String? = nil) -> Sticky {
         let shell = Shell(server: server, url: kept?.url ?? url)
-        let look = StickyLook(color: kept?.color ?? StickySettings.yellow, alwaysOnTop: kept?.alwaysOnTop ?? false,
+        let look = StickyLook(
+            color: kept?.color ?? StickySettings.yellow, alwaysOnTop: kept?.alwaysOnTop ?? false,
             zoom: kept?.zoom ?? 1)
         let window = StickyWindow(
             contentRect: NSRect(origin: .zero, size: NSSize(width: usualSticky().width, height: usualSticky().height)),
@@ -230,7 +231,8 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     }
 
     /// Keeps the sticky as it is now. The values handed over are those that are just changing.
-    private func keep(_ sticky: Sticky, url: String?? = nil, color: String? = nil, alwaysOnTop: Bool? = nil,
+    private func keep(
+        _ sticky: Sticky, url: String?? = nil, color: String? = nil, alwaysOnTop: Bool? = nil,
         zoom: Double? = nil
     ) {
         guard stickies.contains(where: { $0 === sticky }) else { return }

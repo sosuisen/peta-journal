@@ -25,7 +25,8 @@ final class JournalModelTests: XCTestCase {
     }
 
     /// Opens the app on the folders of the test. An edit syncs after `afterEdit`.
-    private func open(_ account: FakeAccount, afterEdit: TimeInterval = JournalModelTests.never) throws -> JournalModel {
+    private func open(_ account: FakeAccount, afterEdit: TimeInterval = JournalModelTests.never) throws -> JournalModel
+    {
         let model = try JournalModel(root: root, account: account, afterEdit: afterEdit)
         opened = model
         return model
@@ -69,7 +70,8 @@ final class JournalModelTests: XCTestCase {
 
         XCTAssertTrue(model.shell.unopened)
         XCTAssertEqual(model.cloud?.state, .signedOut)
-        let journals = try FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("markdown/journals").path)
+        let journals = try FileManager.default.contentsOfDirectory(
+            atPath: root.appendingPathComponent("markdown/journals").path)
         XCTAssertEqual(journals, [])
     }
 

@@ -114,7 +114,9 @@ private struct LargeImage: View {
         .task {
             let found = file(image.path)
             let room = await UIScreen.main.nativeBounds.width * largeWidths
-            if case .here(let read, _) = await Task.detached(operation: { found.flatMap { read($0, roomPx: room) } }).value {
+            if case .here(let read, _) = await Task.detached(operation: { found.flatMap { read($0, roomPx: room) } })
+                .value
+            {
                 sharp = read
             }
         }

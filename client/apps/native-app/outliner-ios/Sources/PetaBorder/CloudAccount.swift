@@ -2,7 +2,7 @@ import Foundation
 import PetaCore
 
 #if os(iOS)
-import UIKit
+    import UIKit
 #endif
 
 /// The account of the cloud storage that the app is signed in to: the sign-in, the sign-out,
@@ -19,10 +19,10 @@ public protocol CloudAccount: AnyObject {
     var folder: String { get }
 
     #if os(iOS)
-    /// Starts the sign-in over `screen`. The storage opens the app with a URL when it has
-    /// ended, which `cameBack` takes.
-    @MainActor
-    func signIn(over screen: UIViewController)
+        /// Starts the sign-in over `screen`. The storage opens the app with a URL when it has
+        /// ended, which `cameBack` takes.
+        @MainActor
+        func signIn(over screen: UIViewController)
     #endif
 
     /// Takes the URL that the storage opened the app with after the sign-in. `then` is called

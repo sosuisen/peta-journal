@@ -221,7 +221,8 @@ private struct TextWriter {
         table.numberOfColumns = columns
         for (row, shown) in rows.enumerated() {
             for (column, cell) in shown.cells.enumerated() {
-                let box = NSTextTableBlock(table: table, startingRow: row, rowSpan: 1, startingColumn: column, columnSpan: 1)
+                let box = NSTextTableBlock(
+                    table: table, startingRow: row, rowSpan: 1, startingColumn: column, columnSpan: 1)
                 box.setWidth(0.5, type: .absoluteValueType, for: .border)
                 box.setBorderColor(.separatorColor)
                 box.setWidth(4, type: .absoluteValueType, for: .padding)
@@ -258,7 +259,8 @@ private struct TextWriter {
         let asked = width.flatMap { w in height.map { CGSize(width: w, height: $0) } }
         let attachment = FittedPicture(picture, asked: asked)
         let drawn = NSMutableAttributedString(attachment: attachment)
-        drawn.addAttribute(.paragraphStyle, value: paragraphStyle(line), range: NSRange(location: 0, length: drawn.length))
+        drawn.addAttribute(
+            .paragraphStyle, value: paragraphStyle(line), range: NSRange(location: 0, length: drawn.length))
         text.append(drawn)
     }
 

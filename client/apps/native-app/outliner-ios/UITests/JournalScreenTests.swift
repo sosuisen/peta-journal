@@ -55,7 +55,9 @@ final class JournalScreenTests: XCTestCase {
     }
 
     private func waitFor(_ element: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
-        XCTAssertTrue(element.waitForExistence(timeout: JournalScreenTests.wait), "\(element) is not shown", file: file, line: line)
+        XCTAssertTrue(
+            element.waitForExistence(timeout: JournalScreenTests.wait), "\(element) is not shown", file: file,
+            line: line)
     }
 
     private func waitUntil(_ what: String, file: StaticString = #filePath, line: UInt = #line, _ holds: () -> Bool) {
@@ -94,7 +96,9 @@ final class JournalScreenTests: XCTestCase {
 
     /// The items that show one of the texts, from top to bottom.
     private func order(_ texts: [String]) -> [String] {
-        texts.filter { app.staticTexts[$0].exists }.sorted { app.staticTexts[$0].frame.minY < app.staticTexts[$1].frame.minY }
+        texts.filter { app.staticTexts[$0].exists }.sorted {
+            app.staticTexts[$0].frame.minY < app.staticTexts[$1].frame.minY
+        }
     }
 
     /// Touches the item that shows the text right of its end, so that it is edited with the
@@ -199,7 +203,10 @@ final class JournalScreenTests: XCTestCase {
 
     // コードブロックは書かれたとおりの行を表示し、表はセルごとに表示する。
     func testACodeBlockShowsItsLinesAndATableItsCells() throws {
-        try download("notes.md", above("A") + "```\nlet x = 1\n  let y = 2\n```\n\n" + above("B") + "| left | right |\n|---|---|\n| one | two |\n")
+        try download(
+            "notes.md",
+            above("A") + "```\nlet x = 1\n  let y = 2\n```\n\n" + above("B")
+                + "| left | right |\n|---|---|\n| one | two |\n")
         openNotes()
         waitFor(app.staticTexts["let x = 1\n  let y = 2"])
         for cell in ["left", "right", "one", "two"] { waitFor(app.staticTexts[cell]) }
@@ -245,7 +252,10 @@ final class JournalScreenTests: XCTestCase {
     // 子を隠した項目の点は、大きな薄い円の上に描かれる。子のある項目でも、隠していなければ円はない。
     func testTheBulletOfAFoldedItemStandsOnADisc() throws {
         let child = "<!-- @@ 2020-01-01-00-00-00-CCCCCCC idx=\"aC\" -->\nchild\n"
-        try download("notes.md", above("A", " collapsed=\"true\"") + "parent\n\n" + child + "\n" + above("B") + "open\n\n" + child.replacingOccurrences(of: "C", with: "D") + "\n")
+        try download(
+            "notes.md",
+            above("A", " collapsed=\"true\"") + "parent\n\n" + child + "\n" + above("B") + "open\n\n"
+                + child.replacingOccurrences(of: "C", with: "D") + "\n")
         openNotes()
         waitFor(app.staticTexts["open"])
         let folded = app.descendants(matching: .any).matching(identifier: "folded")
@@ -397,7 +407,9 @@ final class JournalScreenTests: XCTestCase {
     func testATouchOnAnItemAtTheBottomOfALongPageEditsIt() throws {
         try longPageMadeWithEnter { "line \($0)" }
         let bottom = app.windows.firstMatch.frame.maxY
-        let seen = (1...30).map { "line \($0)" }.filter { app.staticTexts[$0].exists && app.staticTexts[$0].frame.maxY <= bottom }
+        let seen = (1...30).map { "line \($0)" }.filter {
+            app.staticTexts[$0].exists && app.staticTexts[$0].frame.maxY <= bottom
+        }
         let text = try XCTUnwrap(seen.max { app.staticTexts[$0].frame.minY < app.staticTexts[$1].frame.minY })
         edit(text)
         checkTheEditGoesOn(of: text)
@@ -407,7 +419,9 @@ final class JournalScreenTests: XCTestCase {
     func testATouchOnAnEmptyItemAtTheBottomOfALongPageEditsIt() throws {
         try longPageMadeWithEnter { _ in "" }
         let bottom = app.windows.firstMatch.frame.maxY
-        let seen = app.buttons.matching(identifier: "Empty item").allElementsBoundByIndex.filter { $0.frame.maxY <= bottom }
+        let seen = app.buttons.matching(identifier: "Empty item").allElementsBoundByIndex.filter {
+            $0.frame.maxY <= bottom
+        }
         let empty = try XCTUnwrap(seen.max { $0.frame.minY < $1.frame.minY })
         empty.tap()
         waitFor(editor)
@@ -437,7 +451,9 @@ final class JournalScreenTests: XCTestCase {
         edit("first")
         editor.typeText("\nsecond")
         waitFor(app.staticTexts["first"])
-        waitUntil("the new item is edited, and has \(String(describing: editor.value))") { editor.value as? String == "second" }
+        waitUntil("the new item is edited, and has \(String(describing: editor.value))") {
+            editor.value as? String == "second"
+        }
         done()
         XCTAssertEqual(order(["first", "second"]), ["first", "second"])
     }
@@ -452,7 +468,9 @@ final class JournalScreenTests: XCTestCase {
         openNotes()
         edit(first)
         editor.typeText("\n")
-        waitUntil("the new item is edited, and has \(String(describing: editor.value))") { editor.value as? String == "" }
+        waitUntil("the new item is edited, and has \(String(describing: editor.value))") {
+            editor.value as? String == ""
+        }
     }
 
     // つなぎ目のカーソルは、絵文字を1文字として数えた位置に置かれる。
@@ -551,7 +569,9 @@ final class JournalScreenTests: XCTestCase {
 
     // 項目を動かすパッドを押し続けると、項目は動き続ける。
     func testHoldingTheBlockPadKeepsMovingTheItem() throws {
-        try download("notes.md", above("A") + "one\n\n" + above("B") + "two\n\n" + above("C") + "three\n\n" + above("D") + "four\n")
+        try download(
+            "notes.md",
+            above("A") + "one\n\n" + above("B") + "two\n\n" + above("C") + "three\n\n" + above("D") + "four\n")
         openNotes()
         edit("four")
 
