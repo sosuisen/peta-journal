@@ -393,9 +393,12 @@ impl OutlineState {
         });
     }
 
-    pub fn toggle_collapsed(&mut self, item_id: &str) {
-        if !self.collapsed_item_ids.remove(item_id) {
+    /// Shows the children of an item hidden or shown.
+    pub fn set_collapsed(&mut self, item_id: &str, collapsed: bool) {
+        if collapsed {
             self.collapsed_item_ids.insert(item_id.to_string());
+        } else {
+            self.collapsed_item_ids.remove(item_id);
         }
         self.refresh();
     }
@@ -527,7 +530,7 @@ mod tests {
         assert_eq!(shown, ["a", "d"]);
         assert!(state.has_children("a"));
         assert!(!state.has_children("d"));
-        state.toggle_collapsed("a");
+        state.set_collapsed("a", false);
         assert_eq!(state.visible_items().len(), 4);
     }
 

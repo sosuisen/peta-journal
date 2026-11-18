@@ -186,7 +186,6 @@ fn a_new_item_of_the_same_level_is_shown_after_the_descendants_of_the_item() {
         item("d", 3, ""),
         item("e", 1, ""),
     ]);
-    h.model.state.toggle_collapsed("a");
     h.api
         .answer_next("SplitItem", split_answer("a", "parent", "d5", 1));
     enter(&mut h, "a", "parent".len());

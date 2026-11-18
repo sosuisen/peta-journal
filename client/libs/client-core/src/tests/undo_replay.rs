@@ -703,7 +703,7 @@ fn a_collapse_change_also_flips_the_collapsed_set() {
     h.model.undo.begin("collapse", None);
     h.model.undo.push_update(&item("a", 1, ""), &after);
     h.model.undo.commit(None, 0);
-    h.model.state.toggle_collapsed("a");
+    h.model.state.set_collapsed("a", true);
     assert_eq!(h.model.state.visible_items().len(), 1);
     h.send(Event::Undo);
     assert!(!h.model.state.is_collapsed("a"));

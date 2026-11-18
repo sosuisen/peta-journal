@@ -102,7 +102,7 @@ fn apply_to_state(model: &mut Model, op: &UndoOp, dir: Direction) {
                 model.state.add_item(target.clone(), &position);
             }
             if before.collapsed != after.collapsed {
-                model.state.toggle_collapsed(&target.id);
+                model.state.set_collapsed(&target.id, target.collapsed);
             }
             // The row of a transclusion root shows the body of its source, which the typing
             // changed too (`edit::record_typing`). The root holds a copy of that body

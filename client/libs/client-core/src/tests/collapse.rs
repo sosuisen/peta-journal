@@ -124,3 +124,25 @@ fn the_key_that_shows_the_children_never_hides_them() {
     assert!(!h.model.state.is_collapsed("a"));
     assert_eq!(h.model.state.visible_items().len(), 2);
 }
+
+// 2回続けて切り替えたあとに1回目の保存の失敗が届くと、画面は1回目の前の状態に戻され、折りたたみの表示と項目の値が一致する。
+#[test]
+fn a_late_refusal_of_the_first_of_two_toggles_shows_the_state_before_it_on_the_screen_and_in_the_item(
+) {
+    let mut h = parent_and_child();
+    let before_first = h.model.cloned_item("a").unwrap();
+    h.send(Event::CollapseToggle {
+        item_id: "a".into(),
+    });
+    h.send(Event::CollapseToggle {
+        item_id: "a".into(),
+    });
+
+    h.send(Event::CollapseRefused {
+        before: Box::new(before_first),
+    });
+
+    assert!(!h.model.state.is_collapsed("a"));
+    assert!(!h.model.cloned_item("a").unwrap().collapsed);
+    assert_eq!(visible(&h), ["a", "b"]);
+}
