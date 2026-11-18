@@ -4,7 +4,7 @@
 //! read again.
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
-use crate::model::{BatchOp, Item};
+use crate::model::{BatchOp, Item, TaskState};
 use crate::ops::action::show_empty_item;
 use crate::ops::edit::discard_pending_edit_of_focused_item;
 use crate::ops::edit::{begin_handover, save_target_id, show_parsed};
@@ -245,6 +245,18 @@ impl Batch {
             level: item.level,
             body: item.body.clone(),
         });
+        // The making writes the body and the level only
+        let task = item.task_state();
+        let has_task = task != TaskState::default();
+        if item.collapsed || has_task {
+            self.ops.push(BatchOp::Update {
+                id: item.id.clone(),
+                body: None,
+                level: None,
+                collapsed: item.collapsed.then_some(true),
+                task: has_task.then_some(task),
+            });
+        }
         self.recreated.push(item.id.clone());
     }
 
