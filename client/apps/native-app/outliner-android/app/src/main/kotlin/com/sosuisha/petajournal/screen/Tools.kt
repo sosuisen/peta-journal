@@ -77,6 +77,7 @@ internal fun Tools(target: OutlineRow, rows: List<OutlineRow>, shell: Shell, onS
             if (!editing) {
                 Column {
                     Tool("Copy", R.drawable.ic_copy, shell::copySelected)
+                    Tool("Cut", R.drawable.ic_cut, shell::cutSelected)
                 }
             }
             Column {

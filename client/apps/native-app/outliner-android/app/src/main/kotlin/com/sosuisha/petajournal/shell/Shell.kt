@@ -214,6 +214,9 @@ class Shell(
      */
     fun copySelected() = send(Event.SelectionKey(SelectionKey.COPY))
 
+    /** Puts the selected items on the clipboard, as [copySelected] does, and deletes them. */
+    fun cutSelected() = send(Event.SelectionKey(SelectionKey.CUT))
+
     /** Takes back the last change of the page. */
     fun undo() = send(Event.Undo)
 
