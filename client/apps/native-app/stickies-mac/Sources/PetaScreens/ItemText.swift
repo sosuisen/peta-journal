@@ -45,7 +45,7 @@ struct ItemText: NSViewRepresentable {
             if let view { editor.gotCursor(in: view) }
         }
         view.onCursorLeft = { [editor = context.coordinator] in editor.lostCursor() }
-        view.onLink = { [shell] link, inBrowser in shell.follow(link, inBrowser: inBrowser) }
+        view.onLink = { [shell] link, held in shell.follow(link, holding: held) }
         view.onKey = { [editor = context.coordinator] key, view in editor.pressed(key, in: view) }
         view.onChord = { [editor = context.coordinator] chord, view in editor.pressed(chord, in: view) }
         view.onPress = { [editor = context.coordinator] view in editor.dragStarts(on: view) }
@@ -246,9 +246,8 @@ final class Editor: NSObject, NSTextViewDelegate {
 final class ItemTextView: NSTextView {
     var onCursor: (() -> Void)?
     var onCursorLeft: (() -> Void)?
-    /// A link of the shown text was clicked. The flag says that Shift was held: the page opens
-    /// in the browser.
-    var onLink: ((RichLink, Bool) -> Void)?
+    /// A link of the shown text was clicked, with the keys that were held.
+    var onLink: ((RichLink, NSEvent.ModifierFlags) -> Void)?
     /// The link under the mouse, when the window last asked which view is there. It asks right
     /// before it gives the cursor to the view that is clicked.
     private var aimed: RichLink?
@@ -350,7 +349,7 @@ final class ItemTextView: NSTextView {
 
     override func mouseDown(with event: NSEvent) {
         if let link = link(at: convert(event.locationInWindow, from: nil)) {
-            onLink?(link, event.modifierFlags.contains(.shift))
+            onLink?(link, event.modifierFlags)
             return
         }
         // The click gave the view the cursor on the shown text, and the core puts it at the
