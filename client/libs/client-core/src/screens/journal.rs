@@ -70,15 +70,11 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
     })
 }
 
-/// Shows the journal of a date under the title. An answer for a date the user has moved on
-/// from is not shown.
+/// Shows the journal of a date under the title.
 fn show_journal(model: &mut Model, date: String, title: String, loaded: PageWithItems) -> Cmd {
     let Some(j) = journal_mut(model) else {
         return done();
     };
-    if j.current_date != date {
-        return done();
-    }
     j.page = Some(loaded.page.clone());
     j.top_visible_date = date.clone();
     j.loaded_dates.clear();
@@ -100,7 +96,8 @@ fn show_journal(model: &mut Model, date: String, title: String, loaded: PageWith
 }
 
 /// The server answered the journal of a date: the screen shows it, and a daily or weekly
-/// journal goes on to the older ones that fill the buffer.
+/// journal goes on to the older ones that fill the buffer. An answer for a date the user has
+/// moved on from does neither.
 pub fn journal_loaded(
     model: &mut Model,
     date: String,
