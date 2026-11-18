@@ -337,6 +337,7 @@
 - [ ] stickies-macで、項目のメニューに「Paste as Transclusion」を足す
 - [ ] stickies-winで、項目のメニューに「Paste as Transclusion」を足す
 - [ ] stickies-winに、コピーした項目が同じ項目として貼り戻るシナリオのテストを足す。親と子を選んでコピーし、別の項目の終わりに貼ると、親と子の形のまま戻ることを確かめる。Android（`EditTest`）、iOS、macには、2026-11-18に足した
+- [ ] stickies-macで、キーボードのCmd+Vがメニューを通って入力欄の貼り付けに届くことを、アプリを起動するUIテストで確かめる。`swift test`ではアプリのメニューがなく、ウィンドウもキーにならないので確かめられない（PR #678）
 
 ### サーバーとクライアント（Rust）
 
