@@ -133,6 +133,16 @@ struct ItemEditor: UIViewRepresentable {
             super.deleteBackward()
         }
 
+        /// The core pastes, so that a list becomes items and what the app copied comes back as
+        /// the same items. Not while text is chosen: the field puts the text in its place.
+        override func paste(_ sender: Any?) {
+            if selectedRange.length == 0, let text = UIPasteboard.general.string, let typist = delegate as? Typist {
+                typist.paste(text, at: selectedRange.location)
+                return
+            }
+            super.paste(sender)
+        }
+
         override func didMoveToWindow() {
             super.didMoveToWindow()
             if window != nil, wanted, !isFirstResponder { becomeFirstResponder() }
@@ -210,6 +220,10 @@ struct ItemEditor: UIViewRepresentable {
         /// Backspace at the start of the field. The core joins the item to the one before, and
         /// the edit goes on there. Not while the edit moves to another item: the key is not
         /// for the item of this field then.
+        fileprivate func paste(_ text: String, at cursor: Int) {
+            shell.paste(text, into: itemId, at: cursor)
+        }
+
         fileprivate func backspaceAtStart(of text: String) {
             if !moving { shell.press(.backspace, in: itemId, .cursor(at: 0, in: text)) }
         }

@@ -30,7 +30,8 @@ final class JournalModel: ObservableObject {
         noBackup.isExcludedFromBackup = true
         try? kept.setResourceValues(noBackup)
 
-        let shell = try Shell(dataDir: data, markdownDir: markdown)
+        let shell = try Shell(
+            dataDir: data, markdownDir: markdown, copy: { UIPasteboard.general.string = $0 })
         self.shell = shell
 
         if !account.isSetUp {
