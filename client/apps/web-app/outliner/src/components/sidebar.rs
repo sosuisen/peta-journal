@@ -2,7 +2,7 @@
 //! the recent pages and the settings button. A right click on a page opens a menu that shows
 //! the folder of its markdown file.
 
-use crate::components::calendar::Calendar;
+use crate::components::calendar::{Calendar, Selects};
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
@@ -134,7 +134,6 @@ fn SectionToggle(collapsed: Signal<bool>, on_toggle: Callback<()>) -> impl IntoV
 #[component]
 pub fn Sidebar() -> impl IntoView {
     let core: CoreHandle = expect_context();
-    let today = dom::today_iso();
     let collapsed = RwSignal::new(load_collapsed());
     let is_collapsed = move |section: &'static str| {
         Signal::derive(move || collapsed.with(|c| c.contains(section)))
@@ -228,7 +227,7 @@ pub fn Sidebar() -> impl IntoView {
             <nav class="sidebar">
                 <div class="sidebar-content">
                     <div class="sidebar-section">
-                        <Calendar selected_date=today.clone() />
+                        <Calendar selects=Selects::Today />
                     </div>
 
                     <Show when=move || !index_pages.with(|p| p.is_empty()) || index_parent_path.with(|p| p.is_some())>

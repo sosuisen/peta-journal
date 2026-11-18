@@ -13,6 +13,7 @@ mod typing;
 mod undo_replay;
 
 // 日々をたどる
+mod calendar;
 mod journal;
 mod journal_fragment;
 mod journal_moves;

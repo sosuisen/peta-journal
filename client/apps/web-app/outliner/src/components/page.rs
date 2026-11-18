@@ -3,13 +3,14 @@
 //! `page.ts`.
 
 use crate::components::atlas::Atlas;
-use crate::components::calendar::Calendar;
+use crate::components::calendar::{Calendar, Selects};
 use crate::components::outline::Outline;
 use crate::components::page_properties::{Draft, PageProperties};
 use crate::components::settings::Settings;
 use crate::core::CoreHandle;
 use crate::dom;
 use client_core::app::JournalNav;
+use client_core::screens::calendar::CalendarNav;
 use client_core::util::filename::JournalType;
 use client_core::view::{BacklinkGroup, DirSegment, PageView, ScreenView};
 use client_core::Event;
@@ -59,17 +60,16 @@ fn Journal() -> impl IntoView {
                 .unwrap_or_default()
         })
     };
-    let current_date = Signal::derive(move || {
-        journal.with(|j| {
-            j.as_ref()
-                .map(|j| j.current_date.clone())
-                .unwrap_or_default()
-        })
-    });
     let journal_type = move || journal.with(|j| j.as_ref().and_then(|j| j.journal_type));
     let has_page =
         move || journal.with(|j| j.as_ref().map(|j| j.page_id.is_some()).unwrap_or(false));
-    let toggle = move |_| show_calendar.update(|s| *s = !*s);
+    let toggle = move |_| {
+        if !show_calendar.get_untracked() {
+            // The calendar opens at the month of today, as it did while it kept its own month
+            core.send(Event::CalendarNav(CalendarNav::Today));
+        }
+        show_calendar.update(|s| *s = !*s);
+    };
     let nav = move |n: JournalNav| move |_| core.send(Event::JournalNav(n));
     let on_navigate = Callback::new(move |keep_open: bool| {
         if !keep_open {
@@ -90,7 +90,7 @@ fn Journal() -> impl IntoView {
                 </Show>
             </div>
             <Show when=move || show_calendar.get()>
-                <Calendar selected_date=current_date on_navigate=on_navigate />
+                <Calendar selects=Selects::JournalDay on_navigate=on_navigate />
             </Show>
             <Show when=has_page>
                 <Outline />

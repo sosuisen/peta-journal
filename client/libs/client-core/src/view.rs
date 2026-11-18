@@ -10,6 +10,7 @@ use crate::ops::wiki;
 use crate::outline::tree::starts_date_group;
 use crate::outline::{FocusOrder, FocusRequest, Heading};
 use crate::screens::atlas::{self, Bounds};
+use crate::screens::calendar::{self, CalendarView};
 use crate::screens::{journal, page, sidebar};
 use crate::util::date::{format_instant, format_journal_date};
 use crate::util::filename::JournalType;
@@ -365,6 +366,7 @@ pub struct ViewModel<B> {
     pub config: ConfigView,
     pub connection: ConnectionState,
     pub today: String,
+    pub calendar: CalendarView,
     /// The name of what is open, for the title of a window. For a journal it is the date of
     /// the day at the top, with "(Today)" behind the date of today. For anything else it is
     /// the name the core last gave with `UiOp::SetTitle`, which a browser shows on its tab.
@@ -411,6 +413,7 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
         },
         connection: model.connection,
         today: model.today.clone(),
+        calendar: calendar::view(model),
         title: match &model.screen {
             Screen::Journal(j) => journal::window_title(j, &model.today),
             _ => model.title.clone(),

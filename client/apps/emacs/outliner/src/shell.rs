@@ -15,6 +15,7 @@ use client_core::effects::{
 };
 use client_core::model::bare_name;
 use client_core::rest::ClientId;
+use client_core::screens::calendar::{month_page_name, year_page_name};
 use client_core::util::date::Date;
 use client_core::util::link_at;
 use client_core::util::week::week_page_name;
@@ -327,8 +328,8 @@ impl<H: Host> Shell<H> {
         let path = match unit {
             DateUnit::Day => date.iso(),
             DateUnit::Week => week_page_name(date, self.core.view().config.week_numbering),
-            DateUnit::Month => format!("{:04}-{:02}", date.year, date.month),
-            DateUnit::Year => format!("{:04}", date.year),
+            DateUnit::Month => month_page_name(date.year, date.month),
+            DateUnit::Year => year_page_name(date.year),
         };
         self.send(Event::GoToPage {
             path,

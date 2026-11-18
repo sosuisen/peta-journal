@@ -383,8 +383,6 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
 
 ### Web版とWebViewのアプリ
 
-- [ ] カレンダーを、`client-core`の`CalendarView`と`Event`にする（ADR 052）。iOSとAndroidにも、週の番号付きで同じカレンダーを出すためである。コアが`ViewModel`に、表示中の年と月、曜日の名前、週の番号、各日の日付と印（今日、選択中、別の月）を載せる。前の月と次の月、日付と週と月のクリックは`Event`にする。今の`components/calendar.rs`の`weeks_of`と定数は、コアへ移してテストする。Web版には、描くことと`Event`を送ることだけを残し、「ページを開いて`on_navigate`に知らせる」4か所を1つのクロージャにまとめる。202行が100〜120行ほどになる見込みである。月と年のページの名前は、上の「小さな重複をまとめる」の項目と合わせて片づける
-  - 月と年のページの名前を作る処理が、Web版（`web-app/.../calendar.rs:140,144`）とEmacs版（`emacs/.../shell.rs:300`）にある。コアへ移すときに、1つにまとめる
 - [ ] Web版の`collect::<Vec<_>>()`（11か所）を、`collect_view()`にする（ADR 052）
 - [ ] 不具合：Web版の`styles.css`に`.spoiler`のルールがない。隠し文字が、そのまま見える。Markdownを表示するCSSを、Web版（`styles.css:383-438`）とmemoview（`page.css`）で1つにする。今は、リンクの色（`#007bff`と`#2563eb`）とアラートの色分けも違う。todoには、Markdownを表示するCSSがない
 - [ ] ページへのリンクのエンコードを、`client-page-links`と同じにする。todoの`pagePath`（`tasks.ts:102-105`）はエンコードしない。名前に空白、`%`、`#`があるページで、リンクが壊れる。memoview（`Services/PageLinks.cs:14-48`）は、`#`、`?`、`&`までエンコードする

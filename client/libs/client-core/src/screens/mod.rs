@@ -2,6 +2,7 @@
 //! search, settings and the server connection.
 
 pub mod atlas;
+pub mod calendar;
 pub mod history;
 pub mod journal;
 pub mod layout;
