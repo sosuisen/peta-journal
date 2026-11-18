@@ -371,6 +371,16 @@ final class ShellTests: JournalTestCase {
         XCTAssertEqual(bodies(), ["first", "second", "third"])
     }
 
+    // 選んだ項目を切り取ると、その項目がMarkdownでクリップボードに載り、ページから消える。
+    func testCuttingTheSelectedItemPutsItOnTheClipboardAndTakesItOffThePage() throws {
+        try selectSecondOfThree()
+
+        shell.cutSelected()
+
+        waitUntil("the item is gone") { self.bodies() == ["first", "third"] }
+        XCTAssertEqual(copied, ["- second"])
+    }
+
     // 元に戻すは、最後の変更を取り消す。やり直すは、それをまた行う。
     func testUndoTakesBackTheLastChangeAndRedoDoesItAgain() throws {
         try editSecondOfThree()
