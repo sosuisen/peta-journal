@@ -9,7 +9,7 @@ namespace MemoView;
 /// <item><c>page.css</c> and <c>page.js</c> are the files in <c>Web/</c>.</item>
 /// <item><c>fm-ast2html.js</c> is the script of flatmarkdown-ast2html. The build downloads it
 /// from unpkg (see MemoView.csproj). It is the Rust renderer built as WebAssembly, with the
-/// wasm inside the file. It adds the global FmAst2Html.renderToHtml(ast), which throws for
+/// wasm inside the file. It adds the global FmAst2Html.renderToHtml(ast, options), which throws for
 /// input that is not an AST.</item>
 /// </list>
 /// </summary>
