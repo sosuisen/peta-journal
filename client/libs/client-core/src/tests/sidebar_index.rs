@@ -91,6 +91,34 @@ fn an_index_page_lists_the_pages_of_its_folder() {
     assert!(h.view().sidebar.index_pages[0].is_dir);
 }
 
+fn can_demote(h: &Harness) -> bool {
+    match h.view().screen {
+        crate::view::ScreenView::Page(Some(p)) => p.can_demote,
+        other => panic!("not a page: {other:?}"),
+    }
+}
+
+// 前に開いたindexページについての「降格できるか」の答えは、別のindexページへ移ったあとに届いても、今のページの降格のメニューを変えない。
+#[test]
+fn the_answer_whether_a_page_left_behind_can_be_demoted_does_not_change_the_shown_page() {
+    let mut h = Harness::new();
+    // Each index page asks for its children for the sidebar and for the demotion
+    children(&mut h, vec![]);
+    children(&mut h, vec![]);
+    open(&mut h, doc("empty/", "index"));
+    children(&mut h, vec![doc("full/", "Idea")]);
+    children(&mut h, vec![doc("full/", "Idea")]);
+    open(&mut h, doc("full/", "index"));
+    assert!(!can_demote(&h));
+
+    h.send(Event::CanDemoteLoaded {
+        page_id: "empty/index".into(),
+        can_demote: true,
+    });
+
+    assert!(!can_demote(&h));
+}
+
 // ルートの index ページでは、見出しは (root)/ で、doc ページだけが並ぶ。親フォルダはない。
 #[test]
 fn the_root_index_lists_only_the_doc_pages() {

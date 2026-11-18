@@ -554,8 +554,9 @@ pub enum Event {
         page: Page,
         created: bool,
     },
-    /// The server answered whether the shown index page has no pages under it.
+    /// The server answered whether the index page `page_id` has no pages under it.
     CanDemoteLoaded {
+        page_id: String,
         can_demote: bool,
     },
     /// The server answered the items of a doc page.
@@ -1413,7 +1414,10 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         MovedItemShown { item_id } => screens::journal::edit_moved_item(model, &item_id),
         PageRedirected { path } => screens::history::replace_page(model, &path),
         PageLoaded { page, created } => screens::page::show_page(model, page, created),
-        CanDemoteLoaded { can_demote } => screens::page::show_can_demote(model, can_demote),
+        CanDemoteLoaded {
+            page_id,
+            can_demote,
+        } => screens::page::show_can_demote(model, &page_id, can_demote),
         PageItemsLoaded { page_id, loaded } => {
             screens::page::show_page_items(model, &page_id, *loaded)
         }
