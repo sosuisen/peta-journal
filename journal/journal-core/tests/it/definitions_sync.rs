@@ -68,6 +68,8 @@ fn a_deleted_definition_the_user_adds_again_is_no_longer_deleted() {
     let (a, _b) = two_devices(dir.path());
     a.define("score_n", "number", false);
     a.undefine("score_n");
+    // Of a deletion and a definition of the same millisecond, the deletion wins
+    time_passes(&[&a]);
 
     a.define("score_n", "number", true);
 
