@@ -308,6 +308,23 @@ fn enter_right_after_changing_the_query_opens_no_result_of_the_old_query() {
     assert_eq!(h.view().search.selected_index, None);
 }
 
+// 答えが届く前の↓とEnterは、答えを待ってから効く。前の検索語の結果は開かず、新しい検索語の最初の結果が開く。
+#[test]
+fn down_and_enter_before_the_answer_wait_for_it_and_open_the_first_new_result() {
+    let mut h = Harness::new();
+    searched(&mut h, "plan", vec![page_hit("Plans")]);
+    h.api
+        .answer_next("SearchCombined", Ok(ApiOutput::SearchResults(vec![page_hit("Planets")])));
+    typed(&mut h, "plane");
+
+    key(&mut h, SearchKey::Down);
+    key(&mut h, SearchKey::Enter);
+    assert_eq!(urls(&h), Vec::<String>::new());
+
+    h.fire_timers();
+    assert_eq!(urls(&h), ["/pages/Planets"]);
+}
+
 // 検索語を受けてから答えが届くまで、検索中である。
 #[test]
 fn a_search_is_running_until_its_answer_arrives() {
