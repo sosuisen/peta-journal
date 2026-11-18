@@ -691,6 +691,28 @@ fn back_and_forward_open_the_pages_of_the_history_and_forget_what_was_missing() 
     wait_until("the other page shows", || shown(&core).contains("a pear"));
 }
 
+// 戻って開いたページは、最後の画面として残る。アプリを開き直すと、そのページが開く。
+#[test]
+fn the_page_that_back_opened_opens_when_the_app_opens_again() {
+    let app = App::new();
+    app.download("notes.md", "an apple\n");
+    app.download("other.md", "a pear\n");
+    let core = app.open(Arc::default());
+    core.sync();
+    core.follow("/pages/notes".into());
+    core.follow("/pages/other".into());
+    wait_until("the other page shows", || shown(&core).contains("a pear"));
+
+    core.back();
+    wait_until("the notes show", || shown(&core).contains("an apple"));
+    drop(core);
+
+    let core = app.open(Arc::default());
+    core.restore(true);
+    wait_until("the notes show again", || shown(&core).contains("an apple"));
+    assert!(!shown(&core).contains("a pear"));
+}
+
 // 画像のファイルは、名前の大文字と小文字や、濁点の分け方（NFD）を問わずに見つかる。フォルダーや、ないファイルは見つからない。
 #[test]
 fn the_file_of_an_image_is_found_whatever_the_case_and_the_form_of_its_name() {
