@@ -157,8 +157,9 @@ place in the Markdown, and the cursor goes there (ADR 043). The marks before the
 
 A click on a link of an item that shows its decoration follows it (`Shell.follow`). A wikilink
 opens its page in the sticky, and a hashtag the page of the tag in the folder of the tags. With
-Shift held, the page opens in the browser instead, in the web frontend at the address of the
-journal server, and the sticky keeps its page. A link out of the journal, and a link to a file of
+Command held, the page opens in a new sticky (`StickyDesk.add`). With Shift held, the page opens
+in the browser instead, in the web frontend at the address of the journal server. In both, the
+sticky keeps its page. A link out of the journal, and a link to a file of
 the assets folder, open in the browser. Such a click does not put the cursor in the item. A click
 beside the links does, and the item shows its Markdown.
 

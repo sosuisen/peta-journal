@@ -16,13 +16,16 @@ final class OutlineScreenTests: XCTestCase {
     private var copied: String?
     /// What the shell opened in the browser.
     private var browsed: URL?
+    /// What the shell asked a new sticky for.
+    private var askedSticky: String?
 
     override func setUp() async throws {
         server = try JournalServer(port: 18094)
         shell = Shell(
             server: server.address, url: "/pages/screen", clipboard: { nil },
             copy: { [weak self] text, _ in self?.copied = text },
-            browse: { [weak self] in self?.browsed = $0 })
+            browse: { [weak self] in self?.browsed = $0 },
+            openSticky: { [weak self] in self?.askedSticky = $0 })
         try await waitUntil("the page is shown") { !self.shell.view.outline.rows.isEmpty }
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 600, height: 400), styleMask: [.titled],
@@ -135,6 +138,17 @@ final class OutlineScreenTests: XCTestCase {
 
         XCTAssertEqual(browsed, URL(string: "\(server.address)/pages/Idea"))
         XCTAssertEqual(shell.url, "/pages/screen")
+    }
+
+    // 装飾付きの項目のウィキリンクをCommand-クリックすると、そのページを開く新しい付箋紙を頼む。この付箋紙のページは変わらない。
+    func testACommandClickOnAWikilinkAsksForANewStickyWithItsPage() async throws {
+        try await itemWithLinksAndTheCursorInTheNext()
+
+        try click(on: "Idea", in: editors()[0], holding: .command)
+
+        XCTAssertEqual(askedSticky, "/pages/Idea")
+        XCTAssertEqual(shell.url, "/pages/screen")
+        XCTAssertNil(browsed)
     }
 
     // 装飾付きの項目のハッシュタグをクリックすると、タグのフォルダーにあるそのタグのページが付箋紙で開く。

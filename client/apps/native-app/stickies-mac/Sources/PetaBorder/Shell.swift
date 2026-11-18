@@ -27,6 +27,7 @@ public final class Shell: ObservableObject {
     /// another app is to open starts with it.
     private let server: String
     private let browse: (URL) -> Void
+    private let openSticky: (String) -> Void
     /// The images of the pages, from the journal server.
     public let images: AssetImages
 
@@ -34,7 +35,8 @@ public final class Shell: ObservableObject {
     /// when there is no URL: a page is then to be searched for. `clipboard`
     /// gives the text on the clipboard when the core asks for it, and `copy` puts text there,
     /// with the same as HTML when there is any.
-    /// `browse` opens an address outside the journal.
+    /// `browse` opens an address outside the journal, and `openSticky` asks for a new sticky
+    /// with what a URL names.
     public init(
         server: String, url: String?,
         clipboard: @escaping () -> String? = { NSPasteboard.general.string(forType: .string) },
@@ -44,7 +46,8 @@ public final class Shell: ObservableObject {
             // An app that takes rich text reads this, and keeps lists, bold and links
             if let html { NSPasteboard.general.setString(html, forType: .html) }
         },
-        browse: @escaping (URL) -> Void = { NSWorkspace.shared.open($0) }
+        browse: @escaping (URL) -> Void = { NSWorkspace.shared.open($0) },
+        openSticky: @escaping (String) -> Void = { _ in }
     ) {
         let inbox = Inbox()
         let border = Border(server: server) { requests in
@@ -58,6 +61,7 @@ public final class Shell: ObservableObject {
         self.copy = copy
         self.server = server
         self.browse = browse
+        self.openSticky = openSticky
         images = AssetImages(server: server)
         view = Shell.must { try border.view() }
         title = view.title
@@ -94,14 +98,16 @@ public final class Shell: ObservableObject {
         return String(format: "%04d-%02d-%02d", day.year ?? 0, day.month ?? 0, day.day ?? 0)
     }
 
-    /// The user clicked a link of a shown item. A link to a page, and to the page of a tag,
-    /// opens the page in this window. With Shift held it opens the page in the browser: the
-    /// journal server serves the web frontend too. A link out of the journal, and to a file of
-    /// the assets folder, opens in the browser.
-    public func follow(_ link: RichLink, inBrowser: Bool = false) {
+    /// The user clicked a link of a shown item, with the keys `held`. A link to a page, and to
+    /// the page of a tag, opens the page in this window. With Command held it opens in a new
+    /// sticky, and with Shift in the browser: the journal server serves the web frontend too. A
+    /// link out of the journal, and to a file of the assets folder, opens in the browser.
+    public func follow(_ link: RichLink, holding held: NSEvent.ModifierFlags = []) {
         switch link {
         case .page(let url):
-            if inBrowser {
+            if held.contains(.command) {
+                openSticky(url)
+            } else if held.contains(.shift) {
                 browse(pageAddress(appUrl: server, url: url))
             } else {
                 open(url)

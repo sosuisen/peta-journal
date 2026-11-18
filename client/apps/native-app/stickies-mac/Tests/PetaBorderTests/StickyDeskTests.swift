@@ -76,6 +76,20 @@ final class StickyDeskTests: XCTestCase {
         try await waitUntil("the window has the name of the page") { second.window.title == "second-sticky" }
     }
 
+    // ページへのリンクをCommandを押してたどると、そのページを開いた付箋紙が1つ増える。たどった付箋紙のページは変わらない。
+    func testALinkFollowedWithCommandOpensItsPageInANewSticky() async throws {
+        let first = desk.add(url: "/pages/first-sticky")
+        try await waitUntil("the page is shown") { first.shell.title == "first-sticky" }
+
+        first.shell.follow(.page(url: "/pages/linked-sticky"), holding: .command)
+
+        XCTAssertEqual(desk.stickies.count, 2)
+        let opened = try XCTUnwrap(desk.stickies.last)
+        try await waitUntil("the new sticky shows the page") { opened.shell.title == "linked-sticky" }
+        XCTAssertEqual(opened.shell.url, "/pages/linked-sticky")
+        XCTAssertEqual(first.shell.url, "/pages/first-sticky")
+    }
+
     // 足した付箋紙は、前の付箋紙にぴったり重ならない。
     func testAStickyThatIsAddedDoesNotCoverTheOneBefore() async throws {
         let first = desk.add()
