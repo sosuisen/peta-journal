@@ -401,6 +401,8 @@ app-item-view a.hashtag:hover { background: #d0e3fc; color: #0056b3; }
 app-item-view .item-content a:not([data-wikilink]):not(.hashtag) { color: #007bff; cursor: pointer; text-decoration: underline; }
 app-item-view .item-content a:not([data-wikilink]):hover { color: #0056b3; }
 app-item-view input[type="checkbox"] { cursor: pointer; margin-right: 4px; }
+app-item-view .spoiler { background: #333; color: #333; border-radius: 3px; }
+app-item-view .spoiler:hover { color: #fff; }
 app-item-view .footnote { font-size: 0.9em; color: #555; }
 app-item-view .footnote p { margin: 0; }
 app-item-view .footnote-label { margin-right: 4px; }
