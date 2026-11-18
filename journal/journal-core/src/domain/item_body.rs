@@ -105,4 +105,17 @@ mod tests {
         assert_eq!(ItemBody::parse("> quote").text_types(), vec!["blockquote"]);
         assert!(ItemBody::parse("text").text_types().is_empty());
     }
+
+    // ハッシュタグで始まる本文は、見出しではない。
+    #[test]
+    fn a_body_that_starts_with_a_hashtag_is_not_a_heading() {
+        assert!(
+            ItemBody::parse("#DailyReport/summary")
+                .text_types()
+                .is_empty()
+        );
+        assert!(ItemBody::parse("####### seven").text_types().is_empty());
+        assert_eq!(ItemBody::parse("###### six").text_types(), vec!["heading"]);
+        assert_eq!(ItemBody::parse("#").text_types(), vec!["heading"]);
+    }
 }
