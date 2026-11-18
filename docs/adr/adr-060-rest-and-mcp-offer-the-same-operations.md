@@ -73,6 +73,7 @@ MCPには足さない。
 - `POST /api/launcher/open`、`POST /api/pages/{id}/open-folder`：PCのOSで、ファイルやフォルダーを開く。
 - `GET /assets/{file_name}`：アセットのファイルを、ブラウザーへそのまま返す。
 - `POST /api/confirm/{request_id}`：拡張関数がクライアントに出した質問に答える。MCPのクライアントは、この質問を受け取らない。
+- `GET /api/sync/pending-deletes`、`POST /api/sync/pending-deletes`：消えたファイルの扱いを選ぶHTMLの画面と、そのフォームの送信先である。ブラウザーのためだけにある。
 
 例外を増やすときは、このADRを改める。
 

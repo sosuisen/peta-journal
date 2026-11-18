@@ -55,6 +55,7 @@ pub struct UpdatePageInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct DemotePageInput {
     /// Deletes another page that has the new name, instead of refusing the demotion.
     #[serde(skip_serializing_if = "is_false")]
@@ -80,8 +81,11 @@ pub struct PropertyInput {
 /// The items that move to the journal of a day.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct MoveToJournalInput {
+    /// IDs of the items to move, in the order of the page
     pub item_ids: Vec<String>,
+    /// Position in the journal: 'first', 'last', or 'after:<id>'
     pub position: String,
     /// The text the editor of the first item has now, when it is not saved yet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -158,12 +162,16 @@ pub struct ItemIdsInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct BatchInput {
+    /// The operations, done in this order in one transaction
     pub ops: Vec<BatchOpInput>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+/// One operation of a batch: 'create', 'update', 'move' or 'delete', named by `op`.
 pub enum BatchOpInput {
     #[serde(rename_all = "camelCase")]
     Create {
@@ -198,21 +206,29 @@ pub enum BatchOpInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct TaskStateInput {
+    /// Whether the item is a task
     pub task: bool,
+    /// The time the task was started, as the value of the 'begin' property. Left out for none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub begin: Option<String>,
+    /// The time the task was completed, as the value of the 'end' property. Left out for none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end: Option<String>,
+    /// The day the task is planned for, as the value of the 'plan' property. Left out for none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plan: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct MergeItemsInput {
+    /// ID of the item that goes away. Its text is added to the other item.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item_id: Option<String>,
+    /// ID of the item that takes the text
     #[serde(skip_serializing_if = "Option::is_none")]
     pub into_id: Option<String>,
     /// The body an editor has now for the item that goes away, when it is not saved yet.
@@ -225,10 +241,14 @@ pub struct MergeItemsInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct PasteInput {
+    /// The body of the item as it is now
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+    /// Where the text goes in the body, counted in Unicode code points
     pub cursor: usize,
+    /// The text to paste
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     /// `auto`, `flat` or `raw`. No mode means `auto`.
@@ -238,9 +258,12 @@ pub struct PasteInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct SplitInput {
+    /// The body of the item as it is now
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+    /// Where the body is split, counted in Unicode code points
     pub cursor: usize,
     /// The transclusion that shows the item, for an item of another page shown below it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -249,6 +272,7 @@ pub struct SplitInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct StashInput {
     /// The text the editor of the item has now, when it is not saved yet.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -257,9 +281,12 @@ pub struct StashInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ShiftLevelsInput {
+    /// IDs of the items
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item_ids: Option<Vec<String>>,
+    /// Number to add to the level of each item: 1 to indent, -1 to outdent
     pub delta: i32,
 }
 
@@ -283,7 +310,9 @@ pub struct TreeMarkdownInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct FlatMarkdownInput {
+    /// Flat Markdown: items separated by '<!-- @@ -->' marker lines
     #[serde(skip_serializing_if = "Option::is_none")]
     pub markdown: Option<String>,
 }
@@ -293,38 +322,50 @@ pub struct FlatMarkdownInput {
 /// A link card: the page or the address it shows, and where it is.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct AtlasLinkInput {
+    /// What the link card shows: the name of a page, or a URL
     #[serde(skip_serializing_if = "String::is_empty")]
     pub target: String,
+    /// Where the card is, as four numbers 'x,y,width,height'
     #[serde(skip_serializing_if = "String::is_empty")]
     pub bounds: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct AtlasGroupInput {
     /// Each a card by its item id, or a page card by the id of its page
     pub cards: Vec<String>,
+    /// The card or the group the cards are put together with
     #[serde(skip_serializing_if = "String::is_empty")]
     pub target: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct AtlasTitleInput {
+    /// The side of the group its title is on: 'top', 'bottom', 'left' or 'right'
     #[serde(skip_serializing_if = "String::is_empty")]
     pub side: String,
+    /// The title of the group
     #[serde(skip_serializing_if = "String::is_empty")]
     pub title: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct AtlasCalloutInput {
+    /// Where the callout is, as four numbers 'x,y,width,height'
     #[serde(skip_serializing_if = "String::is_empty")]
     pub bounds: String,
+    /// The side of the callout its bubble is on: 'top', 'bottom', 'left' or 'right'
     #[serde(skip_serializing_if = "String::is_empty")]
     pub side: String,
+    /// The text of the callout
     #[serde(skip_serializing_if = "String::is_empty")]
     pub text: String,
 }
@@ -355,9 +396,12 @@ pub struct UpdateConfigInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct AddPropertyDefinitionInput {
+    /// The key of the property
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
+    /// Value type: 'text', 'number', 'checkbox', 'date', 'datetime', or 'bounds'. Left out, the name of the key gives it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value_type: Option<String>,
     /// Whether the key may be set on a page; true unless given.
