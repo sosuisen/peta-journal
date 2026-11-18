@@ -469,7 +469,7 @@ fn a_tag_page_lists_the_pages_and_items_that_use_its_tag() {
         &[
             &format!("a hashtag #{}", tag.to_uppercase()),
             "no link here",
-            &format!("a wikilink [[{tag_path}#x|label]]"),
+            &format!("a wikilink [[{tag_path}#20260426035700_QZ998PX|label]]"),
             &format!("a longer path [[{tag_path}/more]]"),
         ],
     );
