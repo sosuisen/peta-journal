@@ -58,7 +58,7 @@ impl ItemBody {
     pub fn text_types(&self) -> Vec<String> {
         let trimmed = self.text.trim();
         let mut types = Vec::new();
-        if trimmed.starts_with('#') {
+        if is_atx_heading(trimmed) {
             types.push(HEADING_TYPE.to_string());
         }
         if trimmed.starts_with("```") {
@@ -78,6 +78,13 @@ impl ItemBody {
         }
         types
     }
+}
+
+/// True when the text opens with one to six `#` and then a space, a tab or its end, as
+/// CommonMark reads a heading. A hashtag at the start, such as `#tag`, is no heading.
+fn is_atx_heading(text: &str) -> bool {
+    let hashes = text.bytes().take_while(|b| *b == b'#').count();
+    (1..=6).contains(&hashes) && matches!(text.as_bytes().get(hashes), None | Some(b' ' | b'\t'))
 }
 
 #[cfg(test)]
@@ -104,5 +111,16 @@ mod tests {
         assert_eq!(ItemBody::parse("```js").text_types(), vec!["code"]);
         assert_eq!(ItemBody::parse("> quote").text_types(), vec!["blockquote"]);
         assert!(ItemBody::parse("text").text_types().is_empty());
+    }
+
+    // ハッシュタグで始まる本文は、見出しではない。
+    #[test]
+    fn a_body_that_starts_with_a_hashtag_is_not_a_heading() {
+        assert!(ItemBody::parse("#DailyReport/summary")
+            .text_types()
+            .is_empty());
+        assert!(ItemBody::parse("####### seven").text_types().is_empty());
+        assert_eq!(ItemBody::parse("###### six").text_types(), vec!["heading"]);
+        assert_eq!(ItemBody::parse("#").text_types(), vec!["heading"]);
     }
 }

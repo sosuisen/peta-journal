@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { Server, openEditor, openPage, outlineOf, test } from './support';
+import { Server, editorOf, openEditor, openPage, outlineOf, test } from './support';
 
 // A selected item always comes with its descendants, so deleting it deletes them too.
 test.describe('deleting a selected parent', () => {
@@ -60,6 +60,23 @@ test.describe('deleting a selected parent', () => {
       ['POST /api/items/transcluded', { itemIds }],
       ['POST /api/items/delete', { itemIds }],
     ]);
+  });
+
+  test('text typed right after Delete of every item goes into the empty item the server made', async ({ page, request }) => {
+    const server = new Server(request);
+    const p = await server.newDocPage('type-after-delete-everything');
+    const items = await server.fill(p.id, ['a', '  a1']);
+    await openPage(page, p.title);
+    await openEditor(page, items[0].id);
+    await page.keyboard.press('Shift+ArrowDown');  // leaves the editor: a and a1 are selected
+    await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(2);
+    await page.keyboard.press('Delete');
+    const [left] = await server.itemsSettled(p.id, i => i.length === 1 && i[0].body === '');
+    await expect(editorOf(page, left.id)).toBeFocused();
+
+    await page.keyboard.type('new');
+
+    expect(outlineOf(await server.itemsSettled(p.id, i => i[0]?.body === 'new'))).toEqual(['1:new']);
   });
 
   test('Ctrl+Z right after Delete, with no editor and no selection, brings the items back, and Ctrl+Shift+Z takes them again', async ({ page, request }) => {

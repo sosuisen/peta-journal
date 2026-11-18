@@ -527,6 +527,8 @@ pub enum Event {
     /// The server answered the journal before one that is shown; the load goes on until
     /// the outline holds `target_item_count` items.
     OlderJournalLoaded {
+        /// The date of the journal shown when the load started.
+        journal: String,
         weekly: bool,
         target_item_count: usize,
         name: String,
@@ -534,7 +536,10 @@ pub enum Event {
         transcluded_trees: Option<TranscludedTrees>,
     },
     /// The load of the older journals that fill the outline ended.
-    PreviousJournalsLoaded,
+    PreviousJournalsLoaded {
+        /// The date of the journal shown when the load started.
+        journal: String,
+    },
     /// The wait for the day an item moved to ended: the item is edited there.
     MovedItemShown {
         item_id: String,
@@ -549,8 +554,9 @@ pub enum Event {
         page: Page,
         created: bool,
     },
-    /// The server answered whether the shown index page has no pages under it.
+    /// The server answered whether the index page `page_id` has no pages under it.
     CanDemoteLoaded {
+        page_id: String,
         can_demote: bool,
     },
     /// The server answered the items of a doc page.
@@ -927,6 +933,9 @@ pub struct SearchState {
     pub selected_index: Option<usize>,
     pub searching: bool,
     pub timer_id: u64,
+    /// The arrow keys and Enter pressed while the results still belong to an older query.
+    /// They take effect, in order, once the answer to the query arrives.
+    pub held_keys: Vec<SearchKey>,
 }
 
 /// The page names offered in the dialog of an atlas link, and the timer of the pause before
@@ -1382,6 +1391,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             loaded,
         } => screens::journal::journal_loaded(model, date, title, *loaded),
         OlderJournalLoaded {
+            journal,
             weekly,
             target_item_count,
             name,
@@ -1389,6 +1399,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             transcluded_trees,
         } => screens::journal::show_older_journal(
             model,
+            &journal,
             weekly,
             target_item_count,
             screens::journal::OlderJournal {
@@ -1397,11 +1408,16 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
                 transcluded_trees,
             },
         ),
-        PreviousJournalsLoaded => screens::journal::previous_journals_loaded(model),
+        PreviousJournalsLoaded { journal } => {
+            screens::journal::previous_journals_loaded(model, &journal)
+        }
         MovedItemShown { item_id } => screens::journal::edit_moved_item(model, &item_id),
         PageRedirected { path } => screens::history::replace_page(model, &path),
         PageLoaded { page, created } => screens::page::show_page(model, page, created),
-        CanDemoteLoaded { can_demote } => screens::page::show_can_demote(model, can_demote),
+        CanDemoteLoaded {
+            page_id,
+            can_demote,
+        } => screens::page::show_can_demote(model, &page_id, can_demote),
         PageItemsLoaded { page_id, loaded } => {
             screens::page::show_page_items(model, &page_id, *loaded)
         }

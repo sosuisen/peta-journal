@@ -241,7 +241,8 @@ async fn items_move_between_pages_with_their_levels_shifted_or_kept() {
         vec![json!(2), json!(3)]
     );
     assert_eq!(outline_of(&target.id).await, vec!["1:x", "2:a", "3:b"]);
-    assert!(outline_of(&source.id).await.is_empty());
+    // The page keeps one empty item (ADR 021)
+    assert_eq!(outline_of(&source.id).await, vec!["1:"]);
 
     call(
         &mcp,
@@ -249,7 +250,7 @@ async fn items_move_between_pages_with_their_levels_shifted_or_kept() {
         json!({ "itemIds": ab, "targetPageId": source.id, "position": "first", "levelDelta": -1 }),
     )
     .await;
-    assert_eq!(outline_of(&source.id).await, vec!["1:a", "2:b"]);
+    assert_eq!(outline_of(&source.id).await, vec!["1:a", "2:b", "1:"]);
 
     // No levelDelta keeps the levels
     call(
@@ -258,8 +259,11 @@ async fn items_move_between_pages_with_their_levels_shifted_or_kept() {
         json!({ "itemIds": [x.id], "targetPageId": source.id, "position": "last" }),
     )
     .await;
-    assert_eq!(outline_of(&source.id).await, vec!["1:a", "2:b", "1:x"]);
-    assert!(outline_of(&target.id).await.is_empty());
+    assert_eq!(
+        outline_of(&source.id).await,
+        vec!["1:a", "2:b", "1:", "1:x"]
+    );
+    assert_eq!(outline_of(&target.id).await, vec!["1:"]);
 }
 
 // タスクは状態を進められ、型で一覧される。

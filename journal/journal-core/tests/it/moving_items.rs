@@ -118,6 +118,24 @@ fn items_move_to_another_page_with_their_levels_shifted() {
     );
 }
 
+// 最後の項目が別のページへ移動したページは、空の項目を1つ持つ。ページは項目を1つは持つ（ADR 021）。
+#[test]
+fn the_page_the_last_items_leave_keeps_one_empty_item() {
+    let notes = Core::new();
+    let from = notes.new_doc_page("last-items-leave-from");
+    let to = notes.new_doc_page("last-items-leave-to");
+    let rows = notes.fill(&from, &["go", "  go-child"]);
+    notes.fill(&to, &["there"]);
+
+    notes.move_items(&[&id(&rows[0]), &id(&rows[1])], &to, "first", None);
+
+    assert_eq!(notes.outline_of(&from), vs(&["1:"]));
+    assert_eq!(
+        notes.outline_of(&to),
+        vs(&["1:go", "2:go-child", "1:there"])
+    );
+}
+
 // 移動の要求が本文を持っていれば、先頭の項目はその本文で保存されて移動する。エディタに打って、まだ保存していない文である。
 #[test]
 fn a_move_saves_the_body_it_carries_to_the_first_item() {

@@ -34,7 +34,8 @@ pub fn SearchBar() -> impl IntoView {
                 "ArrowDown" => SearchKey::Down,
                 "ArrowUp" => SearchKey::Up,
                 "Enter" => {
-                    if search.with(|s| s.selected_index.is_none()) {
+                    // While the answer is on its way, the core holds Enter until it arrives
+                    if search.with(|s| s.selected_index.is_none() && !s.searching) {
                         return;
                     }
                     SearchKey::Enter

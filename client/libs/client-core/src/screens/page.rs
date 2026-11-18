@@ -86,7 +86,10 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
                 .await
                 .map(|c| c.iter().all(is_atlas))
                 .unwrap_or(false);
-            api.send_event(Event::CanDemoteLoaded { can_demote });
+            api.send_event(Event::CanDemoteLoaded {
+                page_id: p.id.clone(),
+                can_demote,
+            });
         }
         // The outline loads the items of the page
         match api.get_page_by_id(&p.id).await {
@@ -121,8 +124,12 @@ pub fn show_page(model: &mut Model, page: Page, created: bool) -> Cmd {
     Command::all(cmds)
 }
 
-/// The server answered whether the shown index page can be demoted.
-pub fn show_can_demote(model: &mut Model, can_demote: bool) -> Cmd {
+/// The server answered whether an index page can be demoted. An answer about a page the
+/// screen has left is not shown.
+pub fn show_can_demote(model: &mut Model, page_id: &str, can_demote: bool) -> Cmd {
+    if shown_doc_page(model).map(|pg| pg.id.as_str()) != Some(page_id) {
+        return done();
+    }
     if let Some(ps) = page_mut(model) {
         ps.can_demote_index = can_demote;
     }

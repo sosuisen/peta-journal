@@ -17,6 +17,7 @@ pub fn query_changed(model: &mut Model, value: String) -> Cmd {
     // The number of a selected result means another result once the create entries follow the
     // new query, and the results themselves still belong to the old one
     model.search.selected_index = None;
+    model.search.held_keys.clear();
     model.search.searching = !value.trim().is_empty();
     let cancel = cancel_timer(&mut model.search.timer_id);
     if value.trim().is_empty() {
@@ -63,16 +64,23 @@ pub fn show_results(
         .any(|t| t.starts_with('#') && t.len() > 1);
     model.search.page_results = pages;
     model.search.item_results = items;
-    model.search.selected_index = None;
     model.search.searching = false;
     model.search.show_create_button = !has_tag_terms && !query.trim().is_empty();
-    done()
+    // A held key starts from the selection it was pressed on: none, or today's journal, which
+    // is the first entry of the new list too
+    let held = std::mem::take(&mut model.search.held_keys);
+    if held.is_empty() {
+        model.search.selected_index = None;
+    }
+    Command::all(held.into_iter().map(|k| key(model, k)).collect::<Vec<_>>())
 }
 
-/// Stops showing that a search is under way, unless a later query has started since.
+/// Stops showing that a search is under way, unless a later query has started since. The
+/// keys that waited for the answer are dropped.
 pub fn search_failed(model: &mut Model, timer_id: u64) -> Cmd {
     if model.search.timer_id == timer_id {
         model.search.searching = false;
+        model.search.held_keys.clear();
     }
     done()
 }
@@ -127,6 +135,12 @@ fn page_exists(model: &Model, path: &str) -> bool {
 }
 
 pub fn key(model: &mut Model, key: SearchKey) -> Cmd {
+    if key == SearchKey::Escape {
+        model.search.held_keys.clear();
+    } else if waits_for_answer(model, key) {
+        model.search.held_keys.push(key);
+        return done();
+    }
     let total = usize::from(offers_today(model))
         + model.search.page_results.len()
         + create_titles(model).len()
@@ -160,6 +174,25 @@ pub fn key(model: &mut Model, key: SearchKey) -> Cmd {
             done()
         }
     }
+}
+
+/// Whether a key has to wait for the answer to the query: the results shown still belong to
+/// an older query, and the key would select or open one of them. Today's journal is known
+/// without the answer. A key after a held one waits too, to keep the order.
+fn waits_for_answer(model: &Model, key: SearchKey) -> bool {
+    if !model.search.searching {
+        return false;
+    }
+    if !model.search.held_keys.is_empty() {
+        return true;
+    }
+    let on_today = offers_today(model)
+        && match key {
+            SearchKey::Down => model.search.selected_index.is_none(),
+            SearchKey::Enter => model.search.selected_index == Some(0),
+            _ => false,
+        };
+    !on_today
 }
 
 /// An entry of the flat list was chosen: today's journal, a page, the create entry, or an item.
@@ -206,6 +239,7 @@ pub fn clear(model: &mut Model) -> Cmd {
     model.search.show_create_button = false;
     model.search.selected_index = None;
     model.search.searching = false;
+    model.search.held_keys.clear();
     cancel_timer(&mut model.search.timer_id)
 }
 
