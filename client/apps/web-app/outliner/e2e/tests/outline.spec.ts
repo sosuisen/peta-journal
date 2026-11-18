@@ -201,7 +201,8 @@ test.describe('outline editing', () => {
 
     const items = await server.itemsSettled(pageId, items => items.length === 1 && items[0].body === 'onetwo');
     expect(items[0].body).toBe('onetwo');
-    expect(await shownBodies(page)).toEqual(['onetwo']);
+    // The screen joins the items when the answer arrives, after the server has written them
+    await expect.poll(() => shownBodies(page)).toEqual(['onetwo']);
   });
 
   test('text typed right before Delete at the end reaches the server in the joined item', async ({ page }) => {
