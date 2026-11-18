@@ -107,6 +107,10 @@ pub fn journal_loaded(
     title: String,
     loaded: PageWithItems,
 ) -> Cmd {
+    // The journals before a day the user has moved on from would go under the day shown
+    if journal(model).map(|j| j.current_date.as_str()) != Some(date.as_str()) {
+        return done();
+    }
     let older = matches!(
         classify_journal_file_name(&date),
         JournalType::Daily | JournalType::Weekly
