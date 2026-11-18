@@ -360,6 +360,17 @@ final class ShellTests: JournalTestCase {
         XCTAssertEqual(selected(), ["second"])
     }
 
+    // 選んだ項目をコピーすると、その項目がMarkdownでクリップボードに載る。項目はページに残る。
+    func testCopyingTheSelectedItemPutsItsMarkdownOnTheClipboard() throws {
+        try selectSecondOfThree()
+
+        shell.copySelected()
+
+        waitUntil("the item is on the clipboard") { !self.copied.isEmpty }
+        XCTAssertEqual(copied, ["- second"])
+        XCTAssertEqual(bodies(), ["first", "second", "third"])
+    }
+
     // 元に戻すは、最後の変更を取り消す。やり直すは、それをまた行う。
     func testUndoTakesBackTheLastChangeAndRedoDoesItAgain() throws {
         try editSecondOfThree()
