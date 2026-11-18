@@ -2215,6 +2215,7 @@ version = "1.0.0"
 dependencies = [
  "flatmarkdown-ast2html",
  "hmtid",
+ "proptest",
 ]
 
 [[package]]
