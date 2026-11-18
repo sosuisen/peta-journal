@@ -51,19 +51,6 @@ pub fn set_timeout(ms: u32, f: impl FnOnce() + 'static) {
     gloo_timers::callback::Timeout::new(ms, f).forget();
 }
 
-pub fn encode_uri(s: &str) -> String {
-    js_sys::encode_uri(s)
-        .as_string()
-        .unwrap_or_else(|| s.to_string())
-}
-
-pub fn decode_uri(s: &str) -> String {
-    js_sys::decode_uri_component(s)
-        .ok()
-        .and_then(|v| v.as_string())
-        .unwrap_or_else(|| s.to_string())
-}
-
 pub fn focus_without_scroll(el: &web_sys::HtmlElement) {
     let options = web_sys::FocusOptions::new();
     options.set_prevent_scroll(true);

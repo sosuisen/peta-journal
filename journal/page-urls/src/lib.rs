@@ -5,7 +5,7 @@
 //! and how it is encoded, is the rule of flatmarkdown, so this crate passes the templates to
 //! flatmarkdown and back without looking into them (ADR 061).
 
-use flatmarkdown_ast2html::{fill_href, href_template_from_prefix};
+use flatmarkdown_ast2html::{fill_href, href_template_from_prefix, HtmlOptions};
 
 /// The base that every page lives under. `pagesBase` of the config of the server, which is
 /// also the base that the relative paths of images are read from.
@@ -28,6 +28,16 @@ pub fn wikilink_href() -> String {
 /// lives under the folder of the tags, `tags_dir`.
 pub fn hashtag_href(tags_dir: &str) -> String {
     href_template_from_prefix(&format!("{PAGES_BASE}{tags_dir}"))
+}
+
+/// The options with which a renderer of flatmarkdown links wikilinks and hashtags to their
+/// pages, and an item id after a `#` to its item.
+pub fn html_options(tags_dir: &str) -> HtmlOptions {
+    HtmlOptions {
+        wikilink_href: wikilink_href(),
+        hashtag_href: hashtag_href(tags_dir),
+        wikilink_fragment_pattern: ITEM_ID_PATTERN.to_string(),
+    }
 }
 
 /// The name of the page of the tag `tag`, without its `#`.

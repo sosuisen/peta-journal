@@ -1,20 +1,22 @@
 //! The HTML of an item, as the web shell shows it (ADR 026).
 //!
-//! `ast_to_html` draws every kind of node, and it is not changed for this shell. It leaves out
-//! the size of an image, because each app uses it in its own way. So the size travels in the
-//! fragment of the image URL, and `item_view` reads it back from the `<img>`.
+//! `ast_to_html_with` draws every kind of node. The links of wikilinks and hashtags lead to
+//! their pages, by the options of `page-urls` (ADR 051, ADR 061). It leaves out the size of an
+//! image, because each app uses it in its own way. So the size travels in the fragment of the
+//! image URL, and `item_view` reads it back from the `<img>`.
 
 use std::collections::BTreeMap;
 use std::num::NonZeroU64;
 
 use flatmarkdown_ast::{Node, PropValue};
-use flatmarkdown_ast2html::ast_to_html;
+use flatmarkdown_ast2html::ast_to_html_with;
 
-/// The HTML of an item, from the AST that the core gives with its row (ADR 041).
-pub fn item_html(ast: &Node) -> String {
+/// The HTML of an item, from the AST that the core gives with its row (ADR 041). The pages of
+/// the tags are in `tags_dir`.
+pub fn item_html(ast: &Node, tags_dir: &str) -> String {
     let mut root = ast.clone();
     keep_image_sizes(&mut root);
-    ast_to_html(&root)
+    ast_to_html_with(&root, &page_urls::html_options(tags_dir))
 }
 
 /// Puts the size of every image under `node` into the fragment of its URL.

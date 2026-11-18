@@ -7,7 +7,6 @@ use crate::dom;
 use client_core::model::{list_type_of, shown_name, PropertyDefinition};
 use client_core::view::ScreenView;
 use client_core::Event;
-use client_page_links::hashtag_path;
 use leptos::prelude::*;
 
 /// A row added with `+` and not yet saved: it becomes a property once it has a key and a
@@ -237,7 +236,10 @@ fn TagList(
     view! {
         <div class="property-tags">
             <For each=move || tags.get() key=|t| t.clone() children=move |tag| {
-                let href = hashtag_path(&tags_dir.get_untracked(), &tag);
+                let href = page_urls::page_url(&page_urls::tag_page_name(
+                    &tags_dir.get_untracked(),
+                    &tag,
+                ));
                 let open = {
                     let href = href.clone();
                     move |ev: web_sys::MouseEvent| {

@@ -21,11 +21,10 @@ fn main() {
     mount_to_body(|| view! { <Router><App /></Router> });
 }
 
-/// The route of the location, whose parts the browser keeps encoded.
+/// The route of the location. The browser keeps it encoded, and the core reads it so: it is
+/// not decoded here, as decoding twice would break a name with a `%` (ADR 061).
 fn parse_route(pathname: &str, hash: &str) -> Option<Route> {
-    let path = dom::decode_uri(pathname);
-    let fragment = hash.strip_prefix('#').map(dom::decode_uri);
-    Route::parse(&path, fragment.as_deref())
+    Route::parse_url(&format!("{pathname}{hash}"))
 }
 
 #[component]
@@ -34,10 +33,10 @@ fn App() -> impl IntoView {
     provide_context(core);
 
     let navigate = use_navigate();
+    // The core makes its URLs encoded (ADR 061), so they go to the router as they are
     *core.inner().navigate.borrow_mut() = Some(Box::new(move |url: &str, replace: bool| {
-        let url = dom::encode_uri(url);
         navigate(
-            &url,
+            url,
             NavigateOptions {
                 replace,
                 scroll: false,

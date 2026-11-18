@@ -3,21 +3,9 @@
 
 use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
 
-/// The path of the page that a wikilink names.
-pub fn wikilink_path(page: &str) -> String {
-    format!("/pages/{page}")
-}
-
-/// The path of the page of a tag. A tag page lives under the configured tag directory, so
-/// that it can have its own folder (e.g. `tags/topic`).
-pub fn hashtag_path(tags_dir: &str, tag: &str) -> String {
-    format!("/pages/{tags_dir}{tag}")
-}
-
-/// What is encoded in a path that leaves the app: the same characters as `encodeURI` of
-/// JavaScript, with which the app encodes its own URLs. `#` stays, so a link to a place in a
-/// page still leads there.
-const OUTSIDE_A_URL: &AsciiSet = &CONTROLS
+/// What is encoded in the path of a file: the characters that `encodeURI` of JavaScript
+/// encodes, and `#` and `?`, which are a part of the name there.
+const OUTSIDE_A_FILE_PATH: &AsciiSet = &CONTROLS
     .add(b' ')
     .add(b'"')
     .add(b'%')
@@ -30,10 +18,9 @@ const OUTSIDE_A_URL: &AsciiSet = &CONTROLS
     .add(b'`')
     .add(b'{')
     .add(b'|')
-    .add(b'}');
-
-/// What is encoded in the path of a file: a `#` or a `?` there is a part of the name.
-const OUTSIDE_A_FILE_PATH: &AsciiSet = &OUTSIDE_A_URL.add(b'#').add(b'?');
+    .add(b'}')
+    .add(b'#')
+    .add(b'?');
 
 /// The links to pages as another app can open them: whole URLs of this app.
 ///
@@ -47,21 +34,29 @@ pub struct AppLinks<'a> {
 }
 
 impl AppLinks<'_> {
-    pub fn wikilink(&self, page: &str) -> String {
-        self.page(&wikilink_path(page))
+    /// The whole URL of the page that the text of a wikilink names, at its item if it names
+    /// one.
+    pub fn wikilink(&self, content: &str) -> String {
+        let url = match page_urls::split_wikilink(content) {
+            (page, Some(item)) => page_urls::item_url(page, item),
+            (page, None) => page_urls::page_url(page),
+        };
+        self.page(&url)
     }
 
+    /// The whole URL of the page of a tag. A tag page lives under the configured tag
+    /// directory, so that it can have its own folder (e.g. `tags/topic`).
     pub fn hashtag(&self, tag: &str) -> String {
-        self.page(&hashtag_path(self.tags_dir, tag))
+        self.page(&page_urls::page_url(&page_urls::tag_page_name(
+            self.tags_dir,
+            tag,
+        )))
     }
 
     /// The whole URL of a URL of the app as the core writes it, such as `/pages/notes#item`.
+    /// The core writes it encoded (ADR 061), so it is not encoded again.
     pub fn page(&self, url: &str) -> String {
-        format!(
-            "{}{}",
-            self.app_url,
-            utf8_percent_encode(url, OUTSIDE_A_URL)
-        )
+        format!("{}{url}", self.app_url)
     }
 
     /// The whole URL of a file under the Markdown folder, such as `assets/picture.png`.

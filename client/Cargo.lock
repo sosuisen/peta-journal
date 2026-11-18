@@ -608,6 +608,7 @@ dependencies = [
  "flatmarkdown",
  "flatmarkdown-ast",
  "flatmarkdown-ast2html",
+ "page-urls",
  "percent-encoding",
 ]
 
@@ -2845,6 +2846,7 @@ dependencies = [
  "js-sys",
  "leptos",
  "leptos_router",
+ "page-urls",
  "peta-atlas",
  "serde",
  "serde-wasm-bindgen",
