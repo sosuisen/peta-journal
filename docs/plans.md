@@ -348,7 +348,6 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
 
 - [ ] Web版の`collect::<Vec<_>>()`（11か所）を、`collect_view()`にする（ADR 052）
 - [ ] 不具合：Web版の`styles.css`に`.spoiler`のルールがない。隠し文字が、そのまま見える。Markdownを表示するCSSを、Web版（`styles.css:383-438`）とmemoview（`page.css`）で1つにする。今は、リンクの色（`#007bff`と`#2563eb`）とアラートの色分けも違う。todoには、Markdownを表示するCSSがない
-- [ ] ページへのリンクのエンコードを、`client-page-links`と同じにする。todoの`pagePath`（`tasks.ts:102-105`）はエンコードしない。名前に空白、`%`、`#`があるページで、リンクが壊れる。memoview（`Services/PageLinks.cs:14-48`）は、`#`、`?`、`&`までエンコードする
 - [ ] memoview-winのAPIクライアントとSSE（`Services/JournalApiService.cs`、229行）を、stickies-winと同じ`client-native-bridge`に替える。今は、再接続の待ち方がtodoと違い、SSEの読み取りは、複数行の`data:`の最後の行しか残さない
 - [ ] タスクの状態（`begin`と`end`）の決まりが、3か所にある（`client-core/src/view.rs:33`、`todo/src/tasks.ts:6-10`、`memoview/Models/ItemModel.cs:45-48`）。todoだけ、`end: ""`を終わったと見なさない
 - [ ] 小さな重複
