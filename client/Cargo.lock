@@ -575,6 +575,7 @@ dependencies = [
  "getrandom 0.4.3",
  "hmtid",
  "journal-api-types",
+ "journal-names",
  "percent-encoding",
  "peta-atlas",
  "property-names",
@@ -2202,6 +2203,7 @@ dependencies = [
  "hex",
  "hmtid",
  "journal-api-types",
+ "journal-names",
  "lindera",
  "lindera-analysis",
  "lindera-tantivy",
@@ -2220,6 +2222,10 @@ dependencies = [
  "unicode-normalization",
  "uuid",
 ]
+
+[[package]]
+name = "journal-names"
+version = "1.0.0"
 
 [[package]]
 name = "js-sys"

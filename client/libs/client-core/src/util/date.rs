@@ -1,85 +1,7 @@
 //! Calendar dates without a clock: the core never asks what time it is, the shell tells it.
 
-/// A calendar date in the proleptic Gregorian calendar.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Date {
-    pub year: i32,
-    /// 1..=12
-    pub month: u32,
-    /// 1..=31
-    pub day: u32,
-}
-
-impl Date {
-    pub fn new(year: i32, month: u32, day: u32) -> Date {
-        Date { year, month, day }
-    }
-
-    /// Parses `YYYY-MM-DD`; None for anything else.
-    pub fn parse(s: &str) -> Option<Date> {
-        let bytes = s.as_bytes();
-        if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
-            return None;
-        }
-        let year = s[0..4].parse().ok()?;
-        let month = s[5..7].parse().ok()?;
-        let day = s[8..10].parse().ok()?;
-        let date = Date { year, month, day };
-        if (1..=12).contains(&month) && day >= 1 && day <= days_in_month(year, month) {
-            Some(date)
-        } else {
-            None
-        }
-    }
-
-    /// Days since 1970-01-01 (negative before it). Howard Hinnant's days_from_civil.
-    pub fn to_days(self) -> i64 {
-        let y = if self.month <= 2 {
-            self.year - 1
-        } else {
-            self.year
-        } as i64;
-        let era = if y >= 0 { y } else { y - 399 } / 400;
-        let yoe = y - era * 400;
-        let m = self.month as i64;
-        let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + self.day as i64 - 1;
-        let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-        era * 146_097 + doe - 719_468
-    }
-
-    /// The date a number of days after 1970-01-01. Howard Hinnant's civil_from_days.
-    pub fn from_days(days: i64) -> Date {
-        let z = days + 719_468;
-        let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-        let doe = z - era * 146_097;
-        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-        let y = yoe + era * 400;
-        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-        let mp = (5 * doy + 2) / 153;
-        let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
-        let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
-        Date {
-            year: (if m <= 2 { y + 1 } else { y }) as i32,
-            month: m,
-            day: d,
-        }
-    }
-
-    /// Moves the date by a number of days; negative for earlier dates.
-    pub fn shift(self, days: i64) -> Date {
-        Date::from_days(self.to_days() + days)
-    }
-
-    /// 0 = Sunday .. 6 = Saturday, like JavaScript's `getDay`.
-    pub fn weekday(self) -> u32 {
-        ((self.to_days() + 4).rem_euclid(7)) as u32
-    }
-
-    /// The date `YYYY-MM-DD`.
-    pub fn iso(self) -> String {
-        format!("{:04}-{:02}-{:02}", self.year, self.month, self.day)
-    }
-}
+// The date itself is in `journal-names`, which the journal names its pages with too
+pub use journal_names::{days_in_month, is_leap_year, Date};
 
 /// Epoch millis as the server writes an instant: ISO 8601 UTC, with the milliseconds only
 /// when they are not zero (`2026-01-02T03:04:05Z`, `2026-01-02T03:04:05.123Z`).
@@ -139,20 +61,6 @@ pub fn parse_rfc3339_millis(s: &str) -> Option<i64> {
         digits.parse::<i64>().ok()?
     };
     Some(day_millis + ((h * 60 + m) * 60 + sec) * 1000 + millis - offset_millis)
-}
-
-pub fn is_leap_year(year: i32) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
-}
-
-pub fn days_in_month(year: i32, month: u32) -> u32 {
-    match month {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        2 if is_leap_year(year) => 29,
-        2 => 28,
-        _ => 0,
-    }
 }
 
 /// Moves an ISO date (YYYY-MM-DD) by a number of days. Other strings are returned as they are.

@@ -253,6 +253,40 @@ fn a_month_is_created_with_one_link_per_week_that_touches_it() {
     assert_eq!(bodies[4], json!("[[1999-W13]]"));
 }
 
+// 年をまたぐ週へのリンクは、12月と1月のどちらの月のジャーナルでも、その週の名前である。
+#[test]
+fn a_week_across_new_year_is_linked_by_its_own_name_from_december_and_from_january() {
+    let last_link = |month: &serde_json::Value| field_of_each(month, "items", "body").pop();
+    let first_link = |month: &serde_json::Value| field_of_each(month, "items", "body").remove(0);
+
+    // The ISO week of Monday 2024-12-30 holds Thursday 2025-01-02, so it is week 1 of 2025
+    let notes = iso_core();
+    assert_eq!(
+        last_link(&notes.open_journal("2024-12")),
+        Some(json!("[[2025-W01]]"))
+    );
+    assert_eq!(
+        first_link(&notes.open_journal("2025-01")),
+        json!("[[2025-W01]]")
+    );
+
+    // The US week of Sunday 2026-12-27 holds Friday 2027-01-01, and is week 53 of 2026
+    let notes = Core::new();
+    assert_eq!(
+        last_link(&notes.open_journal("2026-12")),
+        Some(json!("[[2026-W53]]"))
+    );
+    assert_eq!(
+        first_link(&notes.open_journal("2027-01")),
+        json!("[[2026-W53]]")
+    );
+    // The page of that week lists the seven days from that Sunday
+    let week = notes.open_journal("2026-W53");
+    let days = field_of_each(&week, "items", "body");
+    assert_eq!(days[0], json!("[[2026-12-27]]"));
+    assert_eq!(days[6], json!("[[2027-01-02]]"));
+}
+
 // 年のジャーナルは、1か月に1つのリンクを持って作られる。
 #[test]
 fn a_year_is_created_with_one_link_per_month() {

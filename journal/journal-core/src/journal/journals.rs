@@ -6,7 +6,7 @@ use chrono::NaiveDate;
 use hmtid::Hmtid;
 use serde::Serialize;
 
-use crate::application::journal_service::MostRecentJournalResult;
+use crate::application::journal_service::{naive_date, MostRecentJournalResult};
 use crate::domain::journal_name::JournalName;
 use crate::domain::model::ItemPosition;
 use crate::dto::{ItemDto, PageDto};
@@ -83,7 +83,7 @@ impl Journal {
             .collect::<AppResult<_>>()?;
         let position = ItemPosition::parse(&input.position).map_err(AppError::bad_request)?;
         let moved = self.services.journal_service.move_items_to_journal(
-            date,
+            naive_date(date)?,
             &item_ids,
             &position,
             input.body.as_deref(),
