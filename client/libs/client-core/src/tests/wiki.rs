@@ -219,6 +219,17 @@ fn the_wiki_link_at_the_cursor_opens_its_page() {
     assert_eq!(h.navigations.last().unwrap().url, "/pages/notes/Idea");
 }
 
+// カーソルの下の項目へのウィキリンクは、そのページをその項目で開く。名前の # は、URLでは符号化される。
+#[test]
+fn the_wiki_link_to_an_item_at_the_cursor_opens_its_page_at_the_item() {
+    let mut h = Harness::with_items(vec![item("a", 1, "see [[C##20260426035700_QZ998PX]]")]);
+    open_link_at(&mut h, 8);
+    assert_eq!(
+        h.navigations.last().unwrap().url,
+        "/pages/C%23#20260426035700_QZ998PX"
+    );
+}
+
 // カーソルの下のハッシュタグは、設定のタグのフォルダのページを開く。
 #[test]
 fn the_tag_at_the_cursor_opens_its_page_in_the_tags_folder() {
