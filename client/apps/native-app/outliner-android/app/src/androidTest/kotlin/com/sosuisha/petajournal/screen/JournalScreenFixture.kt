@@ -1,5 +1,7 @@
 package com.sosuisha.petajournal.screen
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.CompositionLocalProvider
@@ -42,8 +44,14 @@ abstract class JournalScreenFixture {
     protected lateinit var root: File
     protected lateinit var shell: Shell
 
-    /** What the shell put on the clipboard, the last last. */
+    /** What the shell put on the clipboard, the last last. It is on the clipboard of the system too. */
     protected val copied = mutableListOf<String>()
+
+    private fun copy(text: String) {
+        copied.add(text)
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("test", text))
+    }
 
     @Before
     fun emptyFolders() {
@@ -70,7 +78,7 @@ abstract class JournalScreenFixture {
     protected fun start(cloud: PetaDropboxSdk? = null, signedIn: Boolean = true) {
         val main = Handler(Looper.getMainLooper())
         compose.runOnUiThread {
-            shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) }, copy = { copied.add(it) })
+            shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) }, copy = ::copy)
             shell.sync()
         }
         sync = cloud?.let {

@@ -171,6 +171,28 @@ class EditTest : JournalScreenFixture() {
         waitForItems("1 first", "1 secondapple", "1 pear", "1 third")
     }
 
+    // 親と子を選んでコピーの道具でコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
+    @Test
+    fun a_parent_and_its_child_that_were_copied_are_pasted_back_as_a_parent_and_its_child() {
+        download(
+            "notes.md",
+            above('A') + "parent" + NL + NL + above('B').replace("<!-- @ ", "<!-- @@ ") + "child" + NL + NL + above('C') + "third" + NL,
+        )
+        openNotes()
+        waitForItems("1 parent", "2 child", "1 third")
+        touchEnd("parent")
+        tool("Hide keyboard")
+        compose.waitUntil(WAIT_MS) { shell.view.outline.rows.any { it.isSelected } }
+        tool("Copy")
+        compose.waitUntil(WAIT_MS) { copied.isNotEmpty() }
+        touchEnd("third")
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("third")
+
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.PasteText)
+
+        waitForItems("1 parent", "2 child", "1 thirdparent", "2 child")
+    }
+
     // 実のキーのキーボードのCtrl+Vも、コアが貼り付ける。リストは項目になる。
     @Test
     fun ctrl_v_of_a_keyboard_with_real_keys_pastes_a_list_as_items() {
