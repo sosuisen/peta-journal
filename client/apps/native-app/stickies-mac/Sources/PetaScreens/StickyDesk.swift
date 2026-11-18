@@ -133,7 +133,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         if kept.isEmpty {
             add()
         } else {
-            kept.forEach { show($0) }
+            for sticky in kept { show(sticky) }
         }
     }
 
@@ -344,7 +344,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         // sticky is one click away from every sticky
         if sticky.look.toolsShown != shown { sticky.look.toolsShown = shown }
         // A sticky that is not worked on is only its name and the plus
-        (sticky.window as? StickyWindow)?.windowButtons.forEach { $0.isHidden = !shown }
+        for button in (sticky.window as? StickyWindow)?.windowButtons ?? [] { button.isHidden = !shown }
     }
 
     /// The app is ending. The windows that macOS closes from here on were not closed by the

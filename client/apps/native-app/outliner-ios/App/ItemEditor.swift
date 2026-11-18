@@ -292,8 +292,8 @@ struct ItemEditor: UIViewRepresentable {
                         field.becomeFirstResponder()
                         self.typeWhatWasHeld(into: field)
                         return true
-                    }
-                ) { [weak self] in self?.nobodyCame() }
+                    },
+                    nobodyCame: { [weak self] in self?.nobodyCame() })
             }
         }
 

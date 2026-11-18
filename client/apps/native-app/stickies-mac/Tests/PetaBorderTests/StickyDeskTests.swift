@@ -24,7 +24,7 @@ final class StickyDeskTests: XCTestCase {
 
     override func tearDown() async throws {
         for desk in [desk].compactMap({ $0 }) + later {
-            desk.stickies.forEach { $0.window.close() }
+            for sticky in desk.stickies { sticky.window.close() }
         }
         server?.stop()
         // A test that was skipped for want of a server never got as far as naming the file
