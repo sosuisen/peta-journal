@@ -88,6 +88,9 @@ impl PetaCore {
     pub fn back(&self) -> PetaScreen {
         self.turned();
         self.shell.back();
+        if let Some(url) = self.shell.url() {
+            let _ = std::fs::write(&self.last, url);
+        }
         self.screen()
     }
 

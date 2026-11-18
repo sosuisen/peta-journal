@@ -343,6 +343,12 @@ impl NativeShell {
         Ok(())
     }
 
+    /// The URL on screen, as the history of the core has it (ADR 035). None while nothing was
+    /// opened.
+    pub fn url(&self) -> Option<String> {
+        self.router.view().history.url
+    }
+
     /// The whole [`ViewModel`](client_core::ViewModel), to draw after a render request.
     pub fn view(&self) -> Vec<u8> {
         let view = self.router.routes.border.view();
