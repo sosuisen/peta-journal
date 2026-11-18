@@ -387,6 +387,20 @@ mod tests {
         }
     }
 
+    // 末尾が/のウィキリンクは、フォルダーへのリンクになり、元に戻る。
+    #[test]
+    fn a_wikilink_to_a_folder_becomes_a_link_to_the_folder_and_back() {
+        let markdown = to_markdown_links("[[Projects/sss-music-player/]]", JOURNAL);
+        assert_eq!(
+            markdown,
+            "[Projects/sss-music-player/](../docs/Projects/sss-music-player/)"
+        );
+        assert_eq!(
+            to_wikilinks(&markdown, JOURNAL),
+            "[[Projects/sss-music-player/]]"
+        );
+    }
+
     // ファイルのパスの%25と%23は、1回だけ戻される。
     #[test]
     fn the_escapes_of_a_file_path_are_undone_once() {
