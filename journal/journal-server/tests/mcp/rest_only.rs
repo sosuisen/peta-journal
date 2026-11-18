@@ -382,3 +382,26 @@ async fn a_path_that_names_no_file_and_a_path_that_is_not_absolute_are_refused()
     assert!(a_folder.contains("No file at"), "{a_folder}");
     assert!(relative.contains("absolute"), "{relative}");
 }
+
+// 上限の50MBを超えるファイルは断られ、アセットに写されない。
+#[tokio::test]
+async fn a_file_over_the_limit_is_refused_and_not_copied() {
+    let mcp = connect().await;
+    let name = format!("{}.bin", unique_name("mcp-too-large"));
+    let file = std::env::temp_dir().join(&name);
+    let size = 50 * 1024 * 1024 + 1;
+    std::fs::write(&file, vec![0; size]).unwrap();
+
+    let refusal = call_err(&mcp, "upload_asset", json!({ "filePath": file })).await;
+
+    std::fs::remove_file(file).unwrap();
+    assert!(refusal.contains("50MB"), "{refusal}");
+    // The name of a saved file is not known beforehand, so it is looked for by its size
+    let copied = std::fs::read_dir(server().markdown_dir.join("assets"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| entry.metadata().ok())
+        .any(|saved| saved.len() == size as u64);
+    assert!(!copied);
+}
