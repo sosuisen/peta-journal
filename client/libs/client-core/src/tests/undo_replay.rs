@@ -38,6 +38,30 @@ fn undo_puts_the_old_body_back_sends_it_in_one_request_and_moves_the_entry_to_th
     assert!(h.model.undo.can_undo());
 }
 
+// 本文の保存の答えが Undo のあとに届いても、項目は Undo で戻した本文と、その型のままである。
+#[test]
+fn an_answer_to_a_body_save_that_arrives_after_the_undo_leaves_the_undone_body_and_its_types() {
+    let mut h = Harness::with_items(vec![item("a", 1, "- [ ] new")]);
+    let before = item("a", 1, "old");
+    let after = item("a", 1, "- [ ] new");
+    h.model.undo.begin("body", None);
+    h.model.undo.push_update(&before, &after);
+    h.model.undo.commit(None, 0);
+    h.send(Event::Undo);
+
+    let answer = item_with("a", 1, |i| {
+        i.body = "- [ ] new".into();
+        i.types = vec!["task".into()];
+    });
+    h.send(Event::BodySaved {
+        sent: "- [ ] new".into(),
+        item: Box::new(answer),
+    });
+
+    assert_eq!(h.bodies(), ["a=old"]);
+    assert!(h.model.cloned_item("a").unwrap().types.is_empty());
+}
+
 fn shown(h: &Harness, item_id: &str) -> crate::RichText {
     let rows = h.view().outline.rows;
     let row = rows.iter().find(|r| r.item.id == item_id).unwrap();

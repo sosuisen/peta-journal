@@ -170,6 +170,7 @@ pub async fn save_body(api: &Api<Event>, item_id: &str, body: &str) -> ApiResult
     });
     let updated = api.update_body(item_id, &normalized).await?;
     api.send_event(Event::BodySaved {
+        sent: normalized,
         item: Box::new(updated.clone()),
     });
     Ok(updated)
@@ -182,7 +183,16 @@ pub fn show_body(model: &mut Model, item_id: &str, body: String) -> Cmd {
 }
 
 /// The server saved a body: the item shows the body and what the server parsed from it.
-pub fn show_saved_body(model: &mut Model, saved: &Item) -> Cmd {
+/// An item that no longer shows the body that was sent keeps what it shows: an undo, for
+/// one, changed it while the answer was on its way, and wrote its own body after this one.
+pub fn show_saved_body(model: &mut Model, sent: &str, saved: &Item) -> Cmd {
+    if model
+        .state
+        .get_item_by_id(&saved.id)
+        .is_some_and(|held| held.body != sent)
+    {
+        return done();
+    }
     model
         .state
         .update_item(&saved.id, |i| i.body = saved.body.clone());
