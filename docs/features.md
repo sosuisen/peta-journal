@@ -937,12 +937,13 @@
 - 型での一覧（`GET /api/items`）とページの取得（`GET /api/pages/{id}`）は、`fields`で頼まれたフィールドだけを各項目に持つ。`items`や`page`の包みは変わらない
   - 表示だけのアプリは、本文のMarkdown（`body`）を受け取らずに、`ast`から描ける
   - サーバーは項目のASTを保存しない。`ast`は、応答を作るときに本文から作る（ADR 041）
-  - 書き出し（`POST /api/items/export`）は、ASTを持たない
+  - MCPの項目と、書き出し（`POST /api/items/export`）は、ASTを持たない。MCPでは、`fields`で`ast`を頼んでも返らない（ADR 041）
   - ページの取得では、トランスクルードの木の項目も同じである。ページの情報はそのまま返る
   - 1件の取得（`GET /api/items/{id}`）も、`fields`で頼まれたフィールドだけを項目に持つ。`item`の包みは変わらない
   - MCPの`get_item`も、`fields`で頼まれたフィールドだけを項目に持つ。`item`の包みは変わらない
 - todoアプリは、表示に使うフィールドだけを頼む
-- MCPのツールは、同じ操作のRESTのルートと同じJSONで答える（ADR 060）。項目はASTも持つ
+- MCPのツールは、項目のASTを除いて、同じ操作のRESTのルートと同じJSONで答える（ADR 060）
+  - 利用者のプロパティは、`ast`という名前でも消えない
 - 日付（`createdDate`、`modifiedDate`）は、既定ではミリ秒の数である。RESTのクエリ`dateFormat=iso`と、MCPの引数`dateFormat`で、UTCのISO 8601の文字列になる（ADR 060）
   - 変更のルートも同じクエリを受ける
   - 利用者のプロパティは、日付の欄と同じ名前でも書き換えられない

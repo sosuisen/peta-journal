@@ -1,7 +1,7 @@
 //! The MCP server: the tools of the journal, served over Streamable HTTP at `/mcp`.
 //!
 //! A tool takes the body of the REST route of its operation as its arguments, and answers with
-//! the JSON of that route (ADR 060). What the route takes in its path or its query is an
+//! the JSON of that route without the AST of the items (ADR 060, ADR 041). What the route takes in its path or its query is an
 //! argument beside the body.
 
 use std::sync::Arc;
@@ -31,7 +31,33 @@ fn answer_json(answer: &impl serde::Serialize) -> Value {
     serde_json::to_value(answer).expect("an answer of the journal is plain data")
 }
 
-fn ok(value: Value) -> Result<CallToolResult, McpError> {
+/// The field of an item that holds the AST of its body.
+const AST_FIELD: &str = "ast";
+
+/// The values of the properties are what the user wrote, so a key of a user with the name of
+/// the AST field stays.
+const PROPERTIES_FIELD: &str = "properties";
+
+/// Takes the AST out of every item of an answer. A tool gives no AST: an AI reads the body,
+/// and the AST would only make the answer long (ADR 041). This is the one difference from the
+/// JSON of the REST route (ADR 060).
+fn drop_asts(value: &mut Value) {
+    match value {
+        Value::Array(values) => values.iter_mut().for_each(drop_asts),
+        Value::Object(fields) => {
+            fields.remove(AST_FIELD);
+            fields
+                .iter_mut()
+                .filter(|(name, _)| *name != PROPERTIES_FIELD)
+                .for_each(|(_, field)| drop_asts(field));
+        }
+        _ => {}
+    }
+}
+
+/// The answer of a tool. Every tool answers through here.
+fn ok(mut value: Value) -> Result<CallToolResult, McpError> {
+    drop_asts(&mut value);
     Ok(CallToolResult::success(vec![Content::text(
         value.to_string(),
     )]))
@@ -80,6 +106,7 @@ pub struct GetItemArgs {
     #[serde(rename = "itemId")]
     pub item_id: String,
     /// Comma-separated field names to return (e.g. 'body,level'). Empty string for all fields.
+    /// The AST of the body ('ast') is never returned.
     #[serde(default)]
     pub fields: String,
 }
@@ -560,4 +587,28 @@ pub fn service(state: SharedState) -> StreamableHttpService<JournalMcp, LocalSes
         Arc::new(LocalSessionManager::default()),
         StreamableHttpServerConfig::default(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // 項目のASTは、答えのどの深さの項目からも外される。利用者のプロパティは、同じ名前でも残る。
+    #[test]
+    fn the_ast_is_dropped_from_every_item_and_a_property_of_that_name_stays() {
+        let mut answer = json!({
+            "item": { "body": "a", "ast": "{}", "properties": { "ast": "mine" } },
+            "transcludedTrees": { "t": [{ "body": "b", "ast": "{}" }] },
+        });
+
+        drop_asts(&mut answer);
+
+        assert_eq!(
+            answer,
+            json!({
+                "item": { "body": "a", "properties": { "ast": "mine" } },
+                "transcludedTrees": { "t": [{ "body": "b" }] },
+            })
+        );
+    }
 }
