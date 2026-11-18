@@ -238,11 +238,24 @@
     - 編集中の項目の親や兄弟の並びが変わったとき。字下げと位置を、どちらの版に合わせるか
   - `client-core`の決まりなので、ネイティブのシェルだけでなく、Webのアウトライナーにも効く。ADR 006（手で書き換えたファイルの取り込み）に関わり、後から変えにくいので、ADRを書いてから進める
   - 編集していないときに、触れなくても画面に出ることは、Androidの`DownloadedPageTest`が確かめている
-- [ ] `journal`のワークスペースで、新しく作れるようになったミュータントを回す（2026-11-18）
-  - `AppResult`と`HttpResult`を`Result<T, AppError>`と`Result<T, HttpError>`に書き換えたので、関数の中身を`Ok(...)`に置き換えるミュータントが859個作れるようになった。このうち回したのは、次の行の87個と、時計の変更（PR #660）の差分に入った分だけである
-  - `journal-server/src/presentation/rest/items.rs`の87個は、84個がビルド不能（`Json<T>`に`Default`がない）、3個は時間切れ（`get_item`、`delete_item`、`get_items_by_types`）だった。時間切れの3個は、ほかのビルドと同時に回した結果なので、単独で回し直す
-  - 全部を1度に回すと17時間以上かかる。コアの結合テスト（345件）が単独で約63秒、3つ並列だと約255秒かかるためである。ファイルごとに、並列なし（`--jobs 1`）で少しずつ回す
-  - 取り逃しは、コードを消すか、テストを強くする
+- [ ] `journal`のミュータントの取り逃し47個に対応する（2026-11-18）
+  - `main`（`093767ab`）で、`--re 'with Ok\('`に当たる941個を、WindowsのRAMディスクの上で回した。検出369、取り逃し47、時間切れ1、ビルド不能524だった
+  - 時間切れの1個は、`rest/confirm.rs`の`answer`を`Ok`にするものである。答えが届かず、確認が60秒待つので、検出と同じに扱う。Macで時間切れだった`rest/items.rs`の3個は、検出された
+  - 取り逃しごとに、コードを消すか、テストを強くするかを開発者が決める。一覧は次のとおり
+  - [ ] `property_repository.rs`の21個
+    - `find_all_definitions`（5個）は、どこからも呼ばれていない。`find_all_definitions_in`（4個）は、それからしか呼ばれていない。消す候補である
+    - `find_item_ids_by_page_prefix`、`find_item_ids_by_scalar_property`、`find_item_ids_by_date_range`（9個）は、`combined_search.rs`の絞り込みから呼ばれる。結果を確かめるテストがない
+    - `parse_date_to_millis`（3個）
+  - [ ] `page_service.rs`の6個：`ensure_all_tag_pages`と`delete_case_duplicate_tag_pages`の数（4個、`startup.rs`だけが呼ぶ）、`validate_title`、`validate_file_name`
+  - [ ] `page_repository.rs`の3個：`find_by_path_prefix`、`find_by_path_contains`、`find_index_pages_by_dir_segment`（`combined_search.rs`から呼ばれる）
+  - [ ] `item_repository.rs`の2個：`delete_by_page_id_in`、`delete_types`
+  - [ ] `export/`の7個：`export_queue_repository.rs`の`remove_in`、`export_service.rs`の`has_markdown_files`、`file_sync_state.rs`の`find_missing`と`delete_by_page_id`、`import_service.rs`の`backup_conflict`、`page_matcher.rs`の2個（`match_file`の`modified_date`、`touch`の`page_type`）
+  - [ ] `item_service.rs`の1個：`save_body_and_transclusion`の`modified_date`
+  - [ ] `journal-server`の5個：`mcp.rs`の`get_info`の`instructions`と`capabilities`、`rest/sync.rs`の`load_rows`と`pending_page`、`rest/pages.rs`の`open_export_folder`（OSでフォルダーを開く）
+  - [ ] 表示の2個：`hmtid`の`Debug`、`client_id.rs`の`NotAClientId`の`Display`。人に見せる文なので、対応しない候補である
+- [ ] journal-coreのテスト`config_service::tests::a_path_that_leaves_the_folder_with_two_dots_is_outside_also_when_nothing_exists_yet`が、手元のWindowsで落ちる原因を調べる
+  - 2026-11-18に、`main`（`093767ab`）で見つけた。`config_service.rs`の291行目、`is_inside(&root.join("notes"), root)`が`false`になる
+  - ミュータントの回では、このテストを外した
 - [ ] ミューテーションテストがまだないシェルに、必要であれば入れる（2026-11-13に開発者が足した）
   - 今あるのは、Rustの`cargo-mutants`だけである（`journal/.cargo/mutants.toml`）。SwiftUI、WinUI、Android、iOSのシェルには、道具がない
   - シェルごとに、入れるかどうかを決める。入れるのは、道具が動かせるテストに、守るべきロジックがあるシェルである
