@@ -653,6 +653,59 @@ final class OutlineScreenTests: XCTestCase {
         try await waitUntil("the text is after the a") { self.bodies() == ["😀axb"] }
     }
 
+    /// The level and the body of each item, as "level body".
+    private func levelsAndBodies() -> [String] {
+        shell.view.outline.rows.map { "\($0.item.level) \($0.item.body)" }
+    }
+
+    /// Three items: "parent", its child "child", and "third" after them, with the cursor at
+    /// the end of "third".
+    private func parentChildAndThird() async throws {
+        type("parent", into: editors()[0])
+        editors()[0].doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        try await waitUntil("the cursor is in the second item") {
+            self.editors().count == 2 && self.focused === self.editors()[1]
+        }
+        let child = editors()[1]
+        type("child", into: child)
+        child.doCommand(by: #selector(NSResponder.insertTab(_:)))
+        try await waitUntil("the second item is a child") { self.levelsAndBodies() == ["1 parent", "2 child"] }
+        child.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        try await waitUntil("the cursor is in the third item") {
+            self.editors().count == 3 && self.focused === self.editors()[2]
+        }
+        editors()[2].doCommand(by: #selector(NSResponder.insertBacktab(_:)))
+        try await waitUntil("the third item is not a child") {
+            self.levelsAndBodies() == ["1 parent", "2 child", "1 "]
+        }
+        type("third", into: editors()[2])
+    }
+
+    // 親と子を選んでコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
+    func testAParentAndItsChildCopiedAndPastedAtTheEndOfAnotherItemComeBackInTheirShape() async throws {
+        try await parentChildAndThird()
+        let parent = editors()[0]
+        window.makeFirstResponder(parent)
+        parent.setSelectedRange(NSRange(location: 0, length: 0))
+        parent.doCommand(by: #selector(NSResponder.moveUpAndModifySelection(_:)))
+        try await waitUntil("the parent and its child are selected and no editor has the cursor") {
+            self.selected() == ["parent", "child"] && self.focused == nil && self.window.firstResponder !== self.window
+        }
+        press(Self.cKey, "c", .command, in: try XCTUnwrap(window.firstResponder))
+        try await waitUntil("the clipboard has the items") { self.copied != nil }
+        // The system clipboard gives a paste what the copy put on it
+        pasteboard = copied
+        let third = editors()[2]
+        window.makeFirstResponder(third)
+        third.setSelectedRange(NSRange(location: 5, length: 0))
+
+        XCTAssertTrue(third.tryToPerform(Selector(("paste:")), with: nil))
+
+        try await waitUntil("the parent and its child are pasted") {
+            self.levelsAndBodies() == ["1 parent", "2 child", "1 thirdparent", "2 child"]
+        }
+    }
+
     // 選んでいるあいだに項目の文字をクリックすると、選択が消え、その項目に入力できる。
     func testTheCursorInAnEditorEndsTheSelection() async throws {
         _ = try await secondOfTwoSelected()
