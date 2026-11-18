@@ -1,7 +1,7 @@
 use crate::app::Event;
-use crate::effects::ApiOp;
-use crate::harness::{item, move_calls, typed, Harness};
-use crate::model::{ItemPosition, TranscludedTrees};
+use crate::effects::{ApiOp, ApiOutput};
+use crate::harness::{batch_calls, item, move_calls, typed, Harness};
+use crate::model::{BatchOp, ItemPosition, TranscludedTrees};
 use crate::testing::item_with;
 
 fn page_harness() -> Harness {
@@ -373,5 +373,37 @@ fn inside_a_transclusion_a_descendant_moves_below_its_next_sibling() {
             "page1".to_string(),
             "after:c2".to_string()
         )]
+    );
+}
+
+// トランスクルージョンの中で動かした項目は、Undoで元の兄弟の後ろへ戻る。
+#[test]
+fn undo_of_a_move_inside_a_transclusion_puts_the_item_back_after_its_old_sibling() {
+    let mut h = transclusion_harness();
+    // The server puts c2 above c1, with an index that sorts it there
+    h.api.answer_next(
+        "MoveItems",
+        Ok(ApiOutput::Items(vec![item_with("c2", 2, |i| {
+            i.idx = "c0".into()
+        })])),
+    );
+    h.send(Event::MoveUp {
+        item_id: "c2".into(),
+    });
+
+    h.send(Event::Undo);
+
+    let moves: Vec<BatchOp> = batch_calls(&h.api)
+        .into_iter()
+        .flatten()
+        .filter(|op| matches!(op, BatchOp::Move { .. }))
+        .collect();
+    assert_eq!(
+        moves,
+        [BatchOp::Move {
+            ids: vec!["c2".into()],
+            page_id: "page1".into(),
+            position: ItemPosition::after("c1"),
+        }]
     );
 }
