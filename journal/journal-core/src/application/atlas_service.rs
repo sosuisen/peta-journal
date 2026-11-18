@@ -16,7 +16,7 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::item_body::{self, ItemBody};
 use crate::domain::model::{Item, Page};
 use crate::domain::search::SearchIndex;
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::db::now_millis;
 use crate::infrastructure::persistence::item_repository::parked_idx;
@@ -87,7 +87,7 @@ impl AtlasService {
     /// Writes the outline of every atlas page again where the pages of its directory changed.
     /// There are few atlas pages, so all of them are looked at: a move of a folder changes
     /// the paths of many pages at once.
-    pub fn sync_all(&self) -> AppResult<()> {
+    pub fn sync_all(&self) -> Result<(), AppError> {
         let _guard = self.lock.lock();
         for atlas in self.pages.find_all()?.into_iter().filter(Page::is_atlas) {
             let loaded = self.load(atlas)?;
@@ -100,7 +100,7 @@ impl AtlasService {
 
     /// Takes the card of a deleted page off every atlas. A page that is only not in the
     /// directory keeps its card, as `Outline::fit` says.
-    pub fn forget_page(&self, page_id: &Hmtid) -> AppResult<()> {
+    pub fn forget_page(&self, page_id: &Hmtid) -> Result<(), AppError> {
         let _guard = self.lock.lock();
         for atlas in self.pages.find_all()?.into_iter().filter(Page::is_atlas) {
             let loaded = self.load(atlas)?;
@@ -114,7 +114,12 @@ impl AtlasService {
     }
 
     /// Adds a link card to the atlas page. Returns the items of the page.
-    pub fn add_link(&self, atlas_id: &Hmtid, target: &str, bounds: Bounds) -> AppResult<Vec<Item>> {
+    pub fn add_link(
+        &self,
+        atlas_id: &Hmtid,
+        target: &str,
+        bounds: Bounds,
+    ) -> Result<Vec<Item>, AppError> {
         let target = link_target(target)?;
         let id = self.ids.generate_item_id();
         self.edit(atlas_id, |outline| {
@@ -129,7 +134,7 @@ impl AtlasService {
         atlas_id: &Hmtid,
         item_id: &Hmtid,
         target: &str,
-    ) -> AppResult<Vec<Item>> {
+    ) -> Result<Vec<Item>, AppError> {
         let target = link_target(target)?;
         self.edit(atlas_id, |outline| {
             found(outline.set_link(item_id, &target), item_id)
@@ -138,7 +143,12 @@ impl AtlasService {
 
     /// Puts cards into the group of the target card, or into a new group with it. A card is
     /// named by its own id, or a page card by the id of its page. Returns the items of the page.
-    pub fn group(&self, atlas_id: &Hmtid, cards: &[String], target: &str) -> AppResult<Vec<Item>> {
+    pub fn group(
+        &self,
+        atlas_id: &Hmtid,
+        cards: &[String],
+        target: &str,
+    ) -> Result<Vec<Item>, AppError> {
         let new_id = self.ids.generate_item_id();
         self.edit(atlas_id, |outline| {
             let target = outline
@@ -151,7 +161,7 @@ impl AtlasService {
     }
 
     /// Takes cards out of their groups. Returns the items of the page.
-    pub fn ungroup(&self, atlas_id: &Hmtid, cards: &[String]) -> AppResult<Vec<Item>> {
+    pub fn ungroup(&self, atlas_id: &Hmtid, cards: &[String]) -> Result<Vec<Item>, AppError> {
         self.edit(atlas_id, |outline| {
             let ids: Vec<Hmtid> = cards.iter().filter_map(|c| outline.card_id(c)).collect();
             outline.ungroup(&ids);
@@ -166,7 +176,7 @@ impl AtlasService {
         group_id: &Hmtid,
         side: &str,
         title: &str,
-    ) -> AppResult<Vec<Item>> {
+    ) -> Result<Vec<Item>, AppError> {
         self.edit(atlas_id, |outline| {
             found(outline.set_group_title(group_id, side, title), group_id)
         })
@@ -179,7 +189,7 @@ impl AtlasService {
         bounds: Bounds,
         side: &str,
         text: &str,
-    ) -> AppResult<Vec<Item>> {
+    ) -> Result<Vec<Item>, AppError> {
         let id = self.ids.generate_item_id();
         self.edit(atlas_id, |outline| {
             if !text.trim().is_empty() {
@@ -197,14 +207,14 @@ impl AtlasService {
         item_id: &Hmtid,
         side: &str,
         text: &str,
-    ) -> AppResult<Vec<Item>> {
+    ) -> Result<Vec<Item>, AppError> {
         self.edit(atlas_id, |outline| {
             found(outline.set_callout(item_id, side, text), item_id)
         })
     }
 
     /// Takes a link card or a callout away. Returns the items of the page.
-    pub fn remove(&self, atlas_id: &Hmtid, item_id: &Hmtid) -> AppResult<Vec<Item>> {
+    pub fn remove(&self, atlas_id: &Hmtid, item_id: &Hmtid) -> Result<Vec<Item>, AppError> {
         self.edit(atlas_id, |outline| found(outline.remove(item_id), item_id))
     }
 
@@ -212,8 +222,8 @@ impl AtlasService {
     fn edit(
         &self,
         atlas_id: &Hmtid,
-        change: impl FnOnce(&mut Outline) -> AppResult<()>,
-    ) -> AppResult<Vec<Item>> {
+        change: impl FnOnce(&mut Outline) -> Result<(), AppError>,
+    ) -> Result<Vec<Item>, AppError> {
         let _guard = self.lock.lock();
         let atlas = self
             .pages
@@ -231,7 +241,7 @@ impl AtlasService {
 
     /// Makes the outline fit the pages of the directory of the atlas. A card whose page is
     /// in another directory goes; one whose page is not known waits for it.
-    fn fit(&self, outline: &mut Outline, atlas: &Page) -> AppResult<()> {
+    fn fit(&self, outline: &mut Outline, atlas: &Page) -> Result<(), AppError> {
         let pages = self.dir_pages(atlas)?;
         outline.fit(&atlas.id, &pages, |page_id| {
             let page = Hmtid::parse(page_id)
@@ -244,7 +254,7 @@ impl AtlasService {
 
     /// The pages the atlas shows: the pages and the folders of its directory, as the index
     /// list shows them. The root lists no journal.
-    fn dir_pages(&self, atlas: &Page) -> AppResult<Vec<Page>> {
+    fn dir_pages(&self, atlas: &Page) -> Result<Vec<Page>, AppError> {
         let Some(index) =
             self.pages
                 .find_by_type_dir_path_file_name("doc", &atlas.dir_path, "index")?
@@ -261,7 +271,7 @@ impl AtlasService {
             .collect())
     }
 
-    fn load(&self, atlas: Page) -> AppResult<Loaded> {
+    fn load(&self, atlas: Page) -> Result<Loaded, AppError> {
         let items = self.items.find_by_page_id(&atlas.id)?;
         let ids: Vec<String> = items.iter().map(|i| i.id.to_string()).collect();
         let props = self.properties.find_scalar_by_targets(ITEM_TARGET, &ids)?;
@@ -275,7 +285,7 @@ impl AtlasService {
     /// Writes the outline over the items of the atlas page. Nothing is written when they are
     /// the same already; otherwise the page takes the modified date, its file is written and
     /// the clients are told.
-    fn write(&self, loaded: &Loaded, outline: &Outline, modified: i64) -> AppResult<()> {
+    fn write(&self, loaded: &Loaded, outline: &Outline, modified: i64) -> Result<(), AppError> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
@@ -294,7 +304,7 @@ impl AtlasService {
         outline: &Outline,
         modified: i64,
         effects: &mut AfterCommit,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         let rows = outline.rows();
         let before: BTreeMap<&str, &Item> =
             loaded.items.iter().map(|i| (i.id.as_str(), i)).collect();
@@ -389,7 +399,7 @@ impl AtlasService {
         tx: &Connection,
         node: &atlas::Node,
         stored: Option<&BTreeMap<String, String>>,
-    ) -> AppResult<bool> {
+    ) -> Result<bool, AppError> {
         let wanted = node.properties();
         let id = node.id.as_str();
         let mut changed = false;
@@ -440,7 +450,7 @@ fn auto_modified(atlas: &Page) -> i64 {
 
 /// The page a link card is to link to, without the brackets of a link around it, as the
 /// card adds its own.
-fn link_target(target: &str) -> AppResult<String> {
+fn link_target(target: &str) -> Result<String, AppError> {
     let target = target.trim();
     let target = atlas::link_target(target).unwrap_or(target).trim();
     if target.is_empty() || target.contains("[[") || target.contains("]]") {
@@ -451,7 +461,7 @@ fn link_target(target: &str) -> AppResult<String> {
     Ok(target.to_string())
 }
 
-fn found(found: bool, id: &Hmtid) -> AppResult<()> {
+fn found(found: bool, id: &Hmtid) -> Result<(), AppError> {
     if found {
         Ok(())
     } else {

@@ -2,7 +2,7 @@
 //! The inputs are made from the JSON of the REST requests, and the answers are read as the
 //! JSON a client gets.
 
-use journal_core::error::AppResult;
+use journal_core::error::AppError;
 use journal_core::journal::ItemAnswer;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -180,7 +180,7 @@ impl Core {
         item_id: &str,
         key: &str,
         request: Value,
-    ) -> AppResult<ItemAnswer> {
+    ) -> Result<ItemAnswer, AppError> {
         self.core
             .journal
             .set_item_property(item_id, key, input(request), &by_the_client())

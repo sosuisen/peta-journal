@@ -3,7 +3,7 @@ use axum::routing::get;
 use axum::{Json, Router};
 use serde::Deserialize;
 
-use crate::error::HttpResult;
+use crate::error::HttpError;
 use crate::state::{blocking, SharedState};
 use journal_core::journal::SearchAnswer;
 
@@ -24,7 +24,7 @@ struct SearchQuery {
 async fn search_page_names(
     State(state): State<SharedState>,
     Query(q): Query<SearchQuery>,
-) -> HttpResult<Json<SearchAnswer>> {
+) -> Result<Json<SearchAnswer>, HttpError> {
     let query = q.q.unwrap_or_default();
     blocking(move || {
         Ok(Json(
@@ -37,7 +37,7 @@ async fn search_page_names(
 async fn search_combined(
     State(state): State<SharedState>,
     Query(q): Query<SearchQuery>,
-) -> HttpResult<Json<SearchAnswer>> {
+) -> Result<Json<SearchAnswer>, HttpError> {
     let query = q.q.unwrap_or_default();
     blocking(move || Ok(Json(state.journal.search_combined(&query, q.max_results)?))).await
 }
@@ -45,7 +45,7 @@ async fn search_combined(
 async fn search_by_tag(
     State(state): State<SharedState>,
     Query(q): Query<SearchQuery>,
-) -> HttpResult<Json<SearchAnswer>> {
+) -> Result<Json<SearchAnswer>, HttpError> {
     let tag = q.q.unwrap_or_default();
     blocking(move || Ok(Json(state.journal.search_by_tag(&tag, q.max_results)?))).await
 }

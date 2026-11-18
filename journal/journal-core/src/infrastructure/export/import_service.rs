@@ -28,7 +28,7 @@ use parking_lot::Mutex;
 
 use crate::application::page_service::PageService;
 use crate::domain::model::Page;
-use crate::error::AppResult;
+use crate::error::AppError;
 use crate::infrastructure::persistence::db::now_millis;
 
 use super::definitions_file::{self, DefinitionsFileService, DEFINITIONS_FILE};
@@ -221,7 +221,12 @@ impl MarkdownImportService {
 
     /// Takes in a conflicted copy as one more version of the page at `loc`, then deletes it.
     /// The other device needs no copy after that: the file of the page holds it all.
-    fn merge_copy(&self, root: &Path, rel_path: &str, loc: &PageLocation) -> AppResult<Outcome> {
+    fn merge_copy(
+        &self,
+        root: &Path,
+        rel_path: &str,
+        loc: &PageLocation,
+    ) -> Result<Outcome, AppError> {
         let file = root.join(rel_path);
         if !file.is_file() {
             return Ok(Outcome::Ignored);
@@ -308,7 +313,7 @@ impl MarkdownImportService {
         content: String,
         hash: &str,
         attrs: &FileAttrs,
-    ) -> AppResult<Outcome> {
+    ) -> Result<Outcome, AppError> {
         let started = std::time::Instant::now();
         if content.trim().is_empty() {
             // Sync tools and some editors create an empty file first and fill it in later.
@@ -496,7 +501,7 @@ impl MarkdownImportService {
 
     /// Drops the sync state of the files the moved page had before, when they are gone. They
     /// would count as deleted files otherwise, and the page would be offered for deletion.
-    fn forget_old_paths(&self, root: &Path, rel_path: &str, page: &Page) -> AppResult<()> {
+    fn forget_old_paths(&self, root: &Path, rel_path: &str, page: &Page) -> Result<(), AppError> {
         for old in self.file_sync_state.find_by_page_id(&page.id)? {
             if old.rel_path != rel_path && !root.join(&old.rel_path).exists() {
                 self.file_sync_state.delete_by_path(&old.rel_path)?;
@@ -538,7 +543,7 @@ impl MarkdownImportService {
         hash: &str,
         page: &Page,
         attrs: &FileAttrs,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         self.write_conflict_backup(root, rel_path, loc, content);
         // Remember this content so we don't back it up again before the export overwrites it
         // An atlas goes by the date of its page, so no date of the content is needed

@@ -4,7 +4,7 @@ use axum::extract::{Path, State};
 use axum::routing::{delete, post, put};
 use axum::{Json, Router};
 
-use crate::error::HttpResult;
+use crate::error::HttpError;
 use crate::state::{blocking, SharedState};
 use journal_core::journal::{
     AtlasCalloutInput, AtlasGroupInput, AtlasLinkInput, AtlasTitleInput, ItemsAnswer,
@@ -29,7 +29,7 @@ async fn add_link(
     State(state): State<SharedState>,
     Path(id): Path<String>,
     Json(req): Json<AtlasLinkInput>,
-) -> HttpResult<Json<ItemsAnswer>> {
+) -> Result<Json<ItemsAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.add_atlas_link(&id, req)?))).await
 }
 
@@ -37,7 +37,7 @@ async fn set_link(
     State(state): State<SharedState>,
     Path((id, item_id)): Path<(String, String)>,
     Json(req): Json<AtlasLinkInput>,
-) -> HttpResult<Json<ItemsAnswer>> {
+) -> Result<Json<ItemsAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.set_atlas_link(&id, &item_id, req)?))).await
 }
 
@@ -45,7 +45,7 @@ async fn group(
     State(state): State<SharedState>,
     Path(id): Path<String>,
     Json(req): Json<AtlasGroupInput>,
-) -> HttpResult<Json<ItemsAnswer>> {
+) -> Result<Json<ItemsAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.group_atlas_cards(&id, req)?))).await
 }
 
@@ -53,7 +53,7 @@ async fn ungroup(
     State(state): State<SharedState>,
     Path(id): Path<String>,
     Json(req): Json<AtlasGroupInput>,
-) -> HttpResult<Json<ItemsAnswer>> {
+) -> Result<Json<ItemsAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.ungroup_atlas_cards(&id, req)?))).await
 }
 
@@ -61,7 +61,7 @@ async fn set_group_title(
     State(state): State<SharedState>,
     Path((id, item_id)): Path<(String, String)>,
     Json(req): Json<AtlasTitleInput>,
-) -> HttpResult<Json<ItemsAnswer>> {
+) -> Result<Json<ItemsAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(
             state.journal.set_atlas_group_title(&id, &item_id, req)?,
@@ -74,7 +74,7 @@ async fn add_callout(
     State(state): State<SharedState>,
     Path(id): Path<String>,
     Json(req): Json<AtlasCalloutInput>,
-) -> HttpResult<Json<ItemsAnswer>> {
+) -> Result<Json<ItemsAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.add_atlas_callout(&id, req)?))).await
 }
 
@@ -82,13 +82,13 @@ async fn set_callout(
     State(state): State<SharedState>,
     Path((id, item_id)): Path<(String, String)>,
     Json(req): Json<AtlasCalloutInput>,
-) -> HttpResult<Json<ItemsAnswer>> {
+) -> Result<Json<ItemsAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.set_atlas_callout(&id, &item_id, req)?))).await
 }
 
 async fn remove(
     State(state): State<SharedState>,
     Path((id, item_id)): Path<(String, String)>,
-) -> HttpResult<Json<ItemsAnswer>> {
+) -> Result<Json<ItemsAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.remove_atlas_item(&id, &item_id)?))).await
 }

@@ -6,7 +6,7 @@ use anyhow::Context;
 use hmtid::Hmtid;
 use rusqlite::{params, Connection};
 
-use crate::error::AppResult;
+use crate::error::AppError;
 use crate::infrastructure::persistence::db::{now_millis, Db};
 use crate::infrastructure::persistence::page_repository::parse;
 
@@ -27,7 +27,7 @@ impl ExportQueueRepository {
         ExportQueueRepository { db }
     }
 
-    pub fn enqueue(&self, page_id: &Hmtid) -> AppResult<()> {
+    pub fn enqueue(&self, page_id: &Hmtid) -> Result<(), AppError> {
         let max_retries = 3;
         for attempt in 0..max_retries {
             let conn = self.db.conn()?;
@@ -52,7 +52,7 @@ impl ExportQueueRepository {
     }
 
     /// Takes a page off the queue on the given connection, as part of a larger transaction.
-    pub fn remove_in(conn: &Connection, page_id: &Hmtid) -> AppResult<()> {
+    pub fn remove_in(conn: &Connection, page_id: &Hmtid) -> Result<(), AppError> {
         conn.execute(
             "DELETE FROM export_queue WHERE page_id = ?",
             [page_id.as_str()],
@@ -62,7 +62,7 @@ impl ExportQueueRepository {
     }
 
     /// True when the page waits for its file to be written.
-    pub fn holds(&self, page_id: &Hmtid) -> AppResult<bool> {
+    pub fn holds(&self, page_id: &Hmtid) -> Result<bool, AppError> {
         let conn = self.db.conn()?;
         let pages: i64 = conn
             .query_row(
@@ -75,7 +75,7 @@ impl ExportQueueRepository {
     }
 
     /// How many pages wait.
-    pub fn waiting(&self) -> AppResult<usize> {
+    pub fn waiting(&self) -> Result<usize, AppError> {
         let conn = self.db.conn()?;
         let pages: i64 = conn
             .query_row("SELECT COUNT(*) FROM export_queue", [], |row| row.get(0))
@@ -86,7 +86,7 @@ impl ExportQueueRepository {
     /// When a page was last put in the queue, in milliseconds; None when no page waits. A page
     /// that waits and is put in again moves it on: the app knows from it that a page changed
     /// (ADR 055).
-    pub fn last_queued_at(&self) -> AppResult<Option<i64>> {
+    pub fn last_queued_at(&self) -> Result<Option<i64>, AppError> {
         let conn = self.db.conn()?;
         let last = conn
             .query_row("SELECT MAX(queued_at) FROM export_queue", [], |row| {
@@ -97,7 +97,7 @@ impl ExportQueueRepository {
     }
 
     /// Takes up to `BATCH` queued pages, oldest first, and removes them from the queue.
-    pub fn dequeue_all(&self) -> AppResult<Vec<Hmtid>> {
+    pub fn dequeue_all(&self) -> Result<Vec<Hmtid>, AppError> {
         let max_retries = 3;
         for attempt in 0..max_retries {
             match self.try_dequeue() {

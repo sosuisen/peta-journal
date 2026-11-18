@@ -6,7 +6,7 @@ use axum::routing::post;
 use axum::{Json, Router};
 use journal_api_types::AnswerConfirmInput;
 
-use crate::error::{AppError, HttpResult};
+use crate::error::{AppError, HttpError};
 use crate::state::SharedState;
 
 pub fn routes() -> Router<SharedState> {
@@ -18,7 +18,7 @@ async fn answer(
     State(state): State<SharedState>,
     Path(request_id): Path<String>,
     Json(req): Json<AnswerConfirmInput>,
-) -> HttpResult<StatusCode> {
+) -> Result<StatusCode, HttpError> {
     if state.confirm.answer(&request_id, req.ok) {
         Ok(StatusCode::OK)
     } else {

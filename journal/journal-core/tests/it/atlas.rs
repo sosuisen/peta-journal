@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::ItemsAnswer;
 use serde_json::{json, Value};
 
@@ -32,7 +32,12 @@ impl Core {
     }
 
     /// Gives the page another title or folder, as the client does
-    fn move_page(&self, page_id: &str, title: Option<&str>, dir: Option<&str>) -> AppResult<()> {
+    fn move_page(
+        &self,
+        page_id: &str,
+        title: Option<&str>,
+        dir: Option<&str>,
+    ) -> Result<(), AppError> {
         self.core
             .journal
             .update_page(page_id, title, dir, false, &by_the_client())
@@ -41,7 +46,7 @@ impl Core {
 }
 
 /// The items of an answer of the atlas
-fn rows_of(changed: AppResult<ItemsAnswer>) -> Vec<Value> {
+fn rows_of(changed: Result<ItemsAnswer, AppError>) -> Vec<Value> {
     answer(changed.unwrap())["items"]
         .as_array()
         .unwrap()
@@ -54,7 +59,7 @@ fn card_of<'a>(rows: &'a [Value], page_id: &str) -> &'a Value {
         .unwrap_or_else(|| panic!("no card of {page_id} in {rows:?}"))
 }
 
-fn is_bad_request<T: std::fmt::Debug>(result: &AppResult<T>) -> bool {
+fn is_bad_request<T: std::fmt::Debug>(result: &Result<T, AppError>) -> bool {
     matches!(result, Err(AppError::BadRequest(_)))
 }
 

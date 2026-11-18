@@ -15,7 +15,7 @@ use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, AtlasChange};
 use client_core::rest::{rest_call, ClientId, HttpReply};
 use journal_core::application::confirm_service::ConfirmService;
 use journal_core::domain::client_id::ClientId as JournalClientId;
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::{ChangedBy, Journal};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -65,7 +65,7 @@ impl EmbeddedJournal {
     }
 
     /// The answer of the journal as JSON. `body` is the body of the REST request.
-    fn answer(&self, op: ApiOp, body: Option<Value>) -> AppResult<Value> {
+    fn answer(&self, op: ApiOp, body: Option<Value>) -> Result<Value, AppError> {
         let journal = &self.journal;
         let by = &self.by;
         match op {
@@ -236,12 +236,12 @@ impl EmbeddedJournal {
     }
 }
 
-fn json_of(answer: impl Serialize) -> AppResult<Value> {
+fn json_of(answer: impl Serialize) -> Result<Value, AppError> {
     Ok(serde_json::to_value(answer)?)
 }
 
 /// The input of an operation, read from the body of the REST request.
-fn input<T: DeserializeOwned>(body: Option<Value>) -> AppResult<T> {
+fn input<T: DeserializeOwned>(body: Option<Value>) -> Result<T, AppError> {
     serde_json::from_value(body.unwrap_or(Value::Null))
         .map_err(|e| AppError::bad_request(e.to_string()))
 }

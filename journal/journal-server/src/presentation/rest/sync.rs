@@ -8,7 +8,7 @@ use axum::{Form, Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{AppError, AppResult, HttpResult};
+use crate::error::{AppError, HttpError};
 use crate::state::{blocking, SharedState};
 use journal_core::domain::model::Page;
 use journal_core::infrastructure::export::file_sync_state::FileSyncState;
@@ -42,7 +42,7 @@ struct ScanResponse {
     exported: i32,
 }
 
-async fn status(State(state): State<SharedState>) -> HttpResult<Json<StatusResponse>> {
+async fn status(State(state): State<SharedState>) -> Result<Json<StatusResponse>, HttpError> {
     blocking(move || {
         let root = state.export.markdown_root();
         Ok(Json(StatusResponse {
@@ -60,7 +60,7 @@ async fn status(State(state): State<SharedState>) -> HttpResult<Json<StatusRespo
 }
 
 /// Runs a full folder scan now and waits for it. Returns zeros if a scan is already running.
-async fn scan(State(state): State<SharedState>) -> HttpResult<Json<ScanResponse>> {
+async fn scan(State(state): State<SharedState>) -> Result<Json<ScanResponse>, HttpError> {
     blocking(move || {
         let s = state.reconcile.scan();
         Ok(Json(ScanResponse {
@@ -101,7 +101,7 @@ impl<'de> Deserialize<'de> for PendingForm {
     }
 }
 
-fn load_rows(state: &SharedState) -> AppResult<Vec<Row>> {
+fn load_rows(state: &SharedState) -> Result<Vec<Row>, AppError> {
     let mut rows = Vec::new();
     for s in state.file_sync_state.find_missing()? {
         match state.pages.find_by_id(&s.page_id)? {
@@ -121,7 +121,7 @@ fn load_rows(state: &SharedState) -> AppResult<Vec<Row>> {
     Ok(rows)
 }
 
-async fn pending_page(State(state): State<SharedState>) -> HttpResult<Html<String>> {
+async fn pending_page(State(state): State<SharedState>) -> Result<Html<String>, HttpError> {
     blocking(move || Ok(Html(render(&load_rows(&state)?, &[])))).await
 }
 
@@ -141,7 +141,7 @@ async fn pending_submit(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Form(form): Form<PendingForm>,
-) -> HttpResult<Response> {
+) -> Result<Response, HttpError> {
     // Only accept submissions from this page itself, not from other sites
     let origin = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok());
     let referer = headers.get(header::REFERER).and_then(|v| v.to_str().ok());
@@ -160,7 +160,7 @@ async fn pending_submit(
                 .as_ref()
                 .map(|p| format!("{}s/{}{}.md", p.page_type, p.dir_path, p.name))
                 .unwrap_or_else(|| id_str.clone());
-            let result: AppResult<String> = if restore {
+            let result: Result<String, AppError> = if restore {
                 // Write now, so the message below is true when the page is shown
                 state
                     .export

@@ -49,7 +49,7 @@ use crate::application::journal_service::JournalService;
 use crate::application::page_service::PageService;
 use crate::domain::client_id::ClientId;
 use crate::dto::ItemDtoAssembler;
-use crate::error::AppResult;
+use crate::error::AppError;
 use crate::infrastructure::export::definitions_file::DefinitionsFileService;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
@@ -108,7 +108,7 @@ impl Journal {
 
     /// The user changed the definitions: the other devices get them in the file, and the
     /// clients read them again (ADR 046).
-    fn definitions_changed(&self) -> AppResult<()> {
+    fn definitions_changed(&self) -> Result<(), AppError> {
         self.services.definitions_file.write_file()?;
         self.events.definitions_changed();
         Ok(())

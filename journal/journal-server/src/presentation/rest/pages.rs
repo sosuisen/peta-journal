@@ -5,7 +5,7 @@ use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use serde::Deserialize;
 
-use crate::error::{parse_id, AppError, HttpResult};
+use crate::error::{parse_id, AppError, HttpError};
 use crate::infrastructure::launcher;
 use crate::presentation::client_id::ClientId;
 use crate::state::{blocking, SharedState};
@@ -49,7 +49,7 @@ async fn get_page(
     State(state): State<SharedState>,
     Path(id): Path<String>,
     Query(q): Query<FieldsQuery>,
-) -> HttpResult<Response> {
+) -> Result<Response, HttpError> {
     blocking(move || {
         let whole = state.journal.get_page(&id)?;
         Ok(match ItemFields::parse(q.fields.as_deref()) {
@@ -63,7 +63,7 @@ async fn get_page(
 async fn get_or_create_doc(
     State(state): State<SharedState>,
     Json(req): Json<GetOrCreateDocInput>,
-) -> HttpResult<Json<DocAnswer>> {
+) -> Result<Json<DocAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.get_or_create_doc(
             req.title.as_deref(),
@@ -78,7 +78,7 @@ async fn update_page(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<UpdatePageInput>,
-) -> HttpResult<Json<PageAnswer>> {
+) -> Result<Json<PageAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.update_page(
             &id,
@@ -96,7 +96,7 @@ async fn demote_page(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<DemotePageInput>,
-) -> HttpResult<Json<PageAnswer>> {
+) -> Result<Json<PageAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.demote_page(
             &id,
@@ -112,7 +112,7 @@ async fn upsert_property(
     Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
     Json(req): Json<PropertyInput>,
-) -> HttpResult<Json<PageAnswer>> {
+) -> Result<Json<PageAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.set_page_property(
             &id,
@@ -129,7 +129,7 @@ async fn delete_property(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
-) -> HttpResult<Json<PageAnswer>> {
+) -> Result<Json<PageAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.delete_page_property(
             &id,
@@ -144,7 +144,7 @@ async fn delete_page(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-) -> HttpResult<StatusCode> {
+) -> Result<StatusCode, HttpError> {
     blocking(move || {
         state.journal.delete_page(&id, &ChangedBy::Client(client))?;
         Ok(StatusCode::NO_CONTENT)
@@ -159,7 +159,7 @@ async fn delete_page(
 async fn open_export_folder(
     State(state): State<SharedState>,
     Path(id): Path<String>,
-) -> HttpResult<StatusCode> {
+) -> Result<StatusCode, HttpError> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let page = state
@@ -182,7 +182,7 @@ async fn open_export_folder(
 async fn get_recent(
     State(state): State<SharedState>,
     Query(q): Query<RecentQuery>,
-) -> HttpResult<Json<PagesAnswer>> {
+) -> Result<Json<PagesAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(
             state
@@ -196,13 +196,13 @@ async fn get_recent(
 async fn get_backlinks(
     State(state): State<SharedState>,
     Path(id): Path<String>,
-) -> HttpResult<Json<BacklinksAnswer>> {
+) -> Result<Json<BacklinksAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.backlinks(&id)?))).await
 }
 
 async fn get_children(
     State(state): State<SharedState>,
     Path(id): Path<String>,
-) -> HttpResult<Json<PagesAnswer>> {
+) -> Result<Json<PagesAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.child_pages(&id)?))).await
 }

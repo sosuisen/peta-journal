@@ -13,7 +13,7 @@ use crate::domain::item_body::{self, ItemBody};
 use crate::domain::model::{Item, ItemPatch, ItemPlacement, ItemPosition, Page};
 use crate::domain::nfc::to_nfc;
 use crate::domain::search::SearchIndex;
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::export::page_link_converter;
 use crate::infrastructure::persistence::db::now_millis;
@@ -207,7 +207,7 @@ impl ItemService {
         level: i32,
         body: &str,
         client_id: Option<Hmtid>,
-    ) -> AppResult<Item> {
+    ) -> Result<Item, AppError> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
@@ -230,7 +230,7 @@ impl ItemService {
         body: &str,
         client_id: Option<Hmtid>,
         effects: &mut AfterCommit,
-    ) -> AppResult<Item> {
+    ) -> Result<Item, AppError> {
         let id = match client_id {
             Some(id) => {
                 // The undo of a deletion makes the item again with its id: it is not a
@@ -311,7 +311,7 @@ impl ItemService {
         body: Option<&str>,
         level: Option<i32>,
         collapsed: Option<bool>,
-    ) -> AppResult<Item> {
+    ) -> Result<Item, AppError> {
         let existing = self.get_item_by_id(item_id)?;
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
@@ -330,7 +330,7 @@ impl ItemService {
         &self,
         page_id: &Hmtid,
         requests: &[ItemRequest],
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
@@ -386,7 +386,7 @@ impl ItemService {
         tx: &Connection,
         item: &Item,
         source_item_id: &Hmtid,
-    ) -> AppResult<Item> {
+    ) -> Result<Item, AppError> {
         let source = ItemRepository::find_by_id_in(tx, source_item_id)?.ok_or_else(|| {
             AppError::bad_request(format!("Source item not found: {source_item_id}"))
         })?;
@@ -414,7 +414,7 @@ impl ItemService {
         level: Option<i32>,
         collapsed: Option<bool>,
         effects: &mut AfterCommit,
-    ) -> AppResult<Item> {
+    ) -> Result<Item, AppError> {
         let item_id = &existing.id;
         let parsed = body
             .map(ItemBody::accept)
@@ -457,7 +457,7 @@ impl ItemService {
     }
 
     /// Adds delta to the level of every given item in one step.
-    pub fn shift_levels(&self, item_ids: &[Hmtid], delta: i32) -> AppResult<Vec<Item>> {
+    pub fn shift_levels(&self, item_ids: &[Hmtid], delta: i32) -> Result<Vec<Item>, AppError> {
         if item_ids.is_empty() {
             return Err(AppError::bad_request("itemIds must not be empty"));
         }
@@ -486,7 +486,7 @@ impl ItemService {
     /// `# Stash` heading, as its children, in one transaction (ADR 011). The heading is made
     /// at the end of the page when the page has none. `body` is the text the editor of the
     /// item has now, when it is not saved yet: it is saved with the move.
-    pub fn stash(&self, item_id: &Hmtid, body: Option<&str>) -> AppResult<Stashed> {
+    pub fn stash(&self, item_id: &Hmtid, body: Option<&str>) -> Result<Stashed, AppError> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
@@ -544,7 +544,7 @@ impl ItemService {
         target_page_id: &Hmtid,
         position: &ItemPosition,
         level_delta: Option<i32>,
-    ) -> AppResult<Vec<Item>> {
+    ) -> Result<Vec<Item>, AppError> {
         let moved = self.move_edited_items(&MoveRequest {
             item_ids,
             target_page_id,
@@ -557,7 +557,7 @@ impl ItemService {
 
     /// Moves items as a key in an editor does: with the body of the request saved in the
     /// same transaction (ADR 011).
-    pub fn move_edited_items(&self, request: &MoveRequest<'_>) -> AppResult<Moved> {
+    pub fn move_edited_items(&self, request: &MoveRequest<'_>) -> Result<Moved, AppError> {
         // The write lock of the transaction keeps two moves from planning their indices from
         // the same snapshot of a page
         let mut conn = self.items.db().conn()?;
@@ -577,7 +577,7 @@ impl ItemService {
         tx: &Connection,
         request: &MoveRequest<'_>,
         effects: &mut AfterCommit,
-    ) -> AppResult<Vec<Item>> {
+    ) -> Result<Vec<Item>, AppError> {
         let MoveRequest {
             item_ids,
             target_page_id,
@@ -608,7 +608,7 @@ impl ItemService {
         position: &ItemPosition,
         delta: i32,
         effects: &mut AfterCommit,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         PageRepository::find_by_id_in(tx, target_page_id)?.ok_or_else(|| {
             AppError::bad_request(format!("Target page not found: {target_page_id}"))
         })?;
@@ -661,7 +661,7 @@ impl ItemService {
     /// Deletes an item together with its properties and removes it from the search index.
     /// Deletes one item. An item with children is refused: a deletion never leaves an item
     /// without its parent. The children go first, in one group, or they are merged away.
-    pub fn delete_item(&self, item_id: &Hmtid) -> AppResult<()> {
+    pub fn delete_item(&self, item_id: &Hmtid) -> Result<(), AppError> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
@@ -676,7 +676,7 @@ impl ItemService {
     /// of a deleted item must be in the group, so that no item is left without its parent.
     /// A page that has no item left gets an empty one in the same transaction. Returns the
     /// items made that way.
-    pub fn delete_items(&self, item_ids: &[Hmtid]) -> AppResult<Vec<Item>> {
+    pub fn delete_items(&self, item_ids: &[Hmtid]) -> Result<Vec<Item>, AppError> {
         if item_ids.is_empty() {
             return Err(AppError::bad_request("itemIds must not be empty"));
         }
@@ -695,7 +695,7 @@ impl ItemService {
         &self,
         tx: &Connection,
         effects: &mut AfterCommit,
-    ) -> AppResult<Vec<Item>> {
+    ) -> Result<Vec<Item>, AppError> {
         let mut created = Vec::new();
         for page_id in effects.pages().clone() {
             created.extend(self.keep_page_non_empty_in(tx, &page_id, effects)?);
@@ -710,7 +710,7 @@ impl ItemService {
         tx: &Connection,
         page_id: &Hmtid,
         effects: &mut AfterCommit,
-    ) -> AppResult<Option<Item>> {
+    ) -> Result<Option<Item>, AppError> {
         if !ItemRepository::find_by_page_id_in(tx, page_id)?.is_empty() {
             return Ok(None);
         }
@@ -725,7 +725,7 @@ impl ItemService {
         tx: &Connection,
         item_ids: &[Hmtid],
         effects: &mut AfterCommit,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         let mut items = Vec::new();
         for id in item_ids {
             let item = ItemRepository::find_by_id_in(tx, id)?
@@ -755,7 +755,7 @@ impl ItemService {
         tx: &Connection,
         items: &[Item],
         effects: &mut AfterCommit,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         // A transcluder keeps what it showed, so the descendants are copied while they exist
         for item in items {
             let transcluders = ItemRepository::find_transcluders_in(tx, &item.id)?;
@@ -793,7 +793,7 @@ impl ItemService {
         item: &Item,
         body: &str,
         effects: &mut AfterCommit,
-    ) -> AppResult<Item> {
+    ) -> Result<Item, AppError> {
         let parsed = ItemBody::accept(body).map_err(AppError::bad_request)?;
         let now = now_millis();
         // A task stays a task when its body changes; only the prefix can add the type here
@@ -845,7 +845,7 @@ impl ItemService {
         source: &Item,
         transcluders: &[Item],
         effects: &mut AfterCommit,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         let descendants: Vec<Item> = ItemRepository::find_item_with_descendants_in(tx, &source.id)?
             .into_iter()
             .filter(|d| d.id != source.id)
@@ -890,7 +890,7 @@ impl ItemService {
         into_id: &Hmtid,
         body: Option<&str>,
         into_body: Option<&str>,
-    ) -> AppResult<Item> {
+    ) -> Result<Item, AppError> {
         let item = self.get_item_by_id(item_id)?;
         let into = self.get_item_by_id(into_id)?;
         // A transclusion shows its source: its body is not its own to give or to take
@@ -924,7 +924,7 @@ impl ItemService {
         cursor: usize,
         text: &str,
         mode: PasteMode,
-    ) -> AppResult<Pasted> {
+    ) -> Result<Pasted, AppError> {
         let item = self.get_item_by_id(item_id)?;
         // A transclusion shows its source item. What is pasted into it goes into the source,
         // as what is typed into it does
@@ -974,7 +974,7 @@ impl ItemService {
         root_id: Option<&Hmtid>,
         body: &str,
         cursor: usize,
-    ) -> AppResult<Split> {
+    ) -> Result<Split, AppError> {
         // The two parts are closed wherever the body is split. The body that comes in is
         // checked too, as every body that comes in is
         item_body::check_closed(body).map_err(AppError::bad_request)?;
@@ -1035,7 +1035,7 @@ impl ItemService {
 
     /// Applies operations in their order, in one transaction: all of them or none. An undo
     /// or a redo sends what it replays this way (ADR 011).
-    pub fn apply_batch(&self, ops: &[BatchOp]) -> AppResult<BatchApplied> {
+    pub fn apply_batch(&self, ops: &[BatchOp]) -> Result<BatchApplied, AppError> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
@@ -1124,7 +1124,11 @@ impl ItemService {
     }
 
     /// Sets a transclusion on an item, making it mirror a source item.
-    pub fn set_transclusion(&self, item_id: &Hmtid, source_item_id: &Hmtid) -> AppResult<Item> {
+    pub fn set_transclusion(
+        &self,
+        item_id: &Hmtid,
+        source_item_id: &Hmtid,
+    ) -> Result<Item, AppError> {
         let item = self.get_item_by_id(item_id)?;
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
@@ -1134,7 +1138,7 @@ impl ItemService {
     }
 
     /// Removes a transclusion from an item, clearing its body.
-    pub fn remove_transclusion(&self, item_id: &Hmtid) -> AppResult<Item> {
+    pub fn remove_transclusion(&self, item_id: &Hmtid) -> Result<Item, AppError> {
         let item = self.get_item_by_id(item_id)?;
         self.save_body_and_transclusion(&item, "", None)
     }
@@ -1144,7 +1148,7 @@ impl ItemService {
         item: &Item,
         body: &str,
         transclude: Option<Hmtid>,
-    ) -> AppResult<Item> {
+    ) -> Result<Item, AppError> {
         let now = now_millis();
         let updated = Item {
             modified_date: now,
@@ -1159,7 +1163,7 @@ impl ItemService {
         Ok(updated)
     }
 
-    pub fn get_item_by_id(&self, item_id: &Hmtid) -> AppResult<Item> {
+    pub fn get_item_by_id(&self, item_id: &Hmtid) -> Result<Item, AppError> {
         self.items
             .find_by_id(item_id)?
             .ok_or_else(|| AppError::bad_request(format!("Item not found: {item_id}")))
@@ -1171,19 +1175,19 @@ impl ItemService {
         &self,
         types: &[String],
         without_property: Option<&str>,
-    ) -> AppResult<Vec<Item>> {
+    ) -> Result<Vec<Item>, AppError> {
         self.items.find_by_types(types, without_property)
     }
 
     /// The page ID that contains the given item, or None if the item is not found.
-    pub fn get_item_page_id(&self, item_id: &Hmtid) -> AppResult<Option<Hmtid>> {
+    pub fn get_item_page_id(&self, item_id: &Hmtid) -> Result<Option<Hmtid>, AppError> {
         Ok(self.items.find_by_id(item_id)?.map(|b| b.page_id))
     }
 
     /// The pages that show the items: the pages the items are on, and the pages with an item
     /// that transcludes one of them. A change of the items is told to these pages. Before a
     /// deletion they are found first, as the items are gone after it.
-    pub fn pages_showing(&self, item_ids: &[Hmtid]) -> AppResult<BTreeSet<Hmtid>> {
+    pub fn pages_showing(&self, item_ids: &[Hmtid]) -> Result<BTreeSet<Hmtid>, AppError> {
         let mut pages = BTreeSet::new();
         for id in item_ids {
             pages.extend(self.get_item_page_id(id)?);
@@ -1199,7 +1203,7 @@ impl ItemService {
     /// begun and ended -> back to a normal item.
     /// An item of the journal of a day that becomes a task is planned for that day, in the
     /// same transaction.
-    pub fn cycle_task(&self, item_id: &Hmtid) -> AppResult<Item> {
+    pub fn cycle_task(&self, item_id: &Hmtid) -> Result<Item, AppError> {
         let existing = self.get_item_by_id(item_id)?;
         let id = item_id.to_string();
         let mut conn = self.items.db().conn()?;
@@ -1252,7 +1256,7 @@ impl ItemService {
         key: &str,
         _value_type: &str,
         value: &str,
-    ) -> AppResult<Item> {
+    ) -> Result<Item, AppError> {
         let existing = self.get_item_by_id(item_id)?;
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
@@ -1274,7 +1278,7 @@ impl ItemService {
     }
 
     /// Removes a property of an item. The page file is rewritten.
-    pub fn delete_property(&self, item_id: &Hmtid, key: &str) -> AppResult<Item> {
+    pub fn delete_property(&self, item_id: &Hmtid, key: &str) -> Result<Item, AppError> {
         let existing = self.get_item_by_id(item_id)?;
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
@@ -1285,16 +1289,16 @@ impl ItemService {
         Ok(existing)
     }
 
-    pub fn export_page_markdown(&self, page_id: &Hmtid) -> AppResult<TreeMarkdownExport> {
+    pub fn export_page_markdown(&self, page_id: &Hmtid) -> Result<TreeMarkdownExport, AppError> {
         self.export(&self.items.find_by_page_id(page_id)?)
     }
 
-    pub fn export_subtree_markdown(&self, item_id: &Hmtid) -> AppResult<TreeMarkdownExport> {
+    pub fn export_subtree_markdown(&self, item_id: &Hmtid) -> Result<TreeMarkdownExport, AppError> {
         self.export(&self.items.find_item_with_descendants(item_id)?)
     }
 
     /// Exports items as hierarchical tree markdown, flat markdown, and AST. Unknown IDs are skipped.
-    pub fn export_tree_markdown(&self, item_ids: &[Hmtid]) -> AppResult<TreeMarkdownExport> {
+    pub fn export_tree_markdown(&self, item_ids: &[Hmtid]) -> Result<TreeMarkdownExport, AppError> {
         let mut items = Vec::new();
         for id in item_ids {
             if let Some(item) = self.items.find_by_id(id)? {
@@ -1304,7 +1308,7 @@ impl ItemService {
         self.export(&items)
     }
 
-    fn export(&self, items: &[Item]) -> AppResult<TreeMarkdownExport> {
+    fn export(&self, items: &[Item]) -> Result<TreeMarkdownExport, AppError> {
         let ids: Vec<String> = items.iter().map(|i| i.id.to_string()).collect();
         let scalar_props = self.properties.find_scalar_by_targets(ITEM_TARGET, &ids)?;
         let list_props = self.properties.find_list_by_targets(ITEM_TARGET, &ids)?;
@@ -1331,7 +1335,7 @@ impl ItemService {
         title: Option<&str>,
         dir_path: Option<&str>,
         overwrite: bool,
-    ) -> AppResult<(Page, Vec<Hmtid>)> {
+    ) -> Result<(Page, Vec<Hmtid>), AppError> {
         self.rename_page(page_id, title, dir_path, overwrite, false)
     }
 
@@ -1343,7 +1347,7 @@ impl ItemService {
         &self,
         page_id: &Hmtid,
         overwrite: bool,
-    ) -> AppResult<(Page, Vec<Hmtid>)> {
+    ) -> Result<(Page, Vec<Hmtid>), AppError> {
         let existing = self.page_service.require_page(page_id)?;
         let dir = existing.dir_path.trim_end_matches('/');
         if existing.name != "index" || dir.is_empty() {
@@ -1365,7 +1369,7 @@ impl ItemService {
         dir_path: Option<&str>,
         overwrite: bool,
         drop_atlas: bool,
-    ) -> AppResult<(Page, Vec<Hmtid>)> {
+    ) -> Result<(Page, Vec<Hmtid>), AppError> {
         let title = title.map(to_nfc);
         let title = title.as_deref();
         let dir_path = dir_path.map(to_nfc);
@@ -1403,7 +1407,7 @@ impl ItemService {
 
     /// Renames the tag `old`, and the tags under it, in the tags of the pages and in the
     /// hashtags of the bodies. Returns the pages that changed.
-    fn rename_tag(&self, old: &str, new: &str) -> AppResult<Vec<Hmtid>> {
+    fn rename_tag(&self, old: &str, new: &str) -> Result<Vec<Hmtid>, AppError> {
         let mut page_ids = BTreeSet::new();
         let mut item_ids = BTreeSet::new();
         for value in self.properties.find_all_tag_values()? {
@@ -1454,7 +1458,7 @@ impl ItemService {
 
     /// Commits a transaction that changed the items of one page, marking the page as changed
     /// inside it and queuing its file after it.
-    fn commit_page(&self, tx: Transaction<'_>, page_id: &Hmtid, now: i64) -> AppResult<()> {
+    fn commit_page(&self, tx: Transaction<'_>, page_id: &Hmtid, now: i64) -> Result<(), AppError> {
         PageRepository::touch_in(&tx, page_id, now)?;
         tx.commit()?;
         let mut effects = AfterCommit::default();
@@ -1464,7 +1468,7 @@ impl ItemService {
     }
 }
 
-fn clear_task_times_in(tx: &Connection, item_id: &str) -> AppResult<()> {
+fn clear_task_times_in(tx: &Connection, item_id: &str) -> Result<(), AppError> {
     PropertyRepository::delete_property_in(tx, ITEM_TARGET, item_id, "begin")?;
     PropertyRepository::delete_property_in(tx, ITEM_TARGET, item_id, "end")?;
     Ok(())
@@ -1475,7 +1479,7 @@ fn set_or_clear_in(
     item_id: &str,
     key: &str,
     value: Option<&str>,
-) -> AppResult<()> {
+) -> Result<(), AppError> {
     match value {
         Some(value) => PropertyRepository::upsert_scalar_in(tx, ITEM_TARGET, item_id, key, value)?,
         None => PropertyRepository::delete_property_in(tx, ITEM_TARGET, item_id, key)?,
@@ -1486,7 +1490,7 @@ fn set_or_clear_in(
 /// Adds or removes the task type without writing any other field of the item.
 /// The item with a new date, as a change of its properties is a change of the item: another
 /// device takes the later item when it syncs.
-fn touched_in(tx: &Connection, existing: &Item, now: i64) -> AppResult<Item> {
+fn touched_in(tx: &Connection, existing: &Item, now: i64) -> Result<Item, AppError> {
     ItemRepository::touch_in(tx, &existing.id, now)?;
     Ok(Item {
         modified_date: now,
@@ -1497,7 +1501,12 @@ fn touched_in(tx: &Connection, existing: &Item, now: i64) -> AppResult<Item> {
 /// Puts an item in a task state in one step, with the times and the plan that go with it. The
 /// undo of a task cycle needs this: cycling back would write new times over the ones to
 /// restore.
-fn put_task_in(tx: &Connection, existing: &Item, state: &TaskState, now: i64) -> AppResult<()> {
+fn put_task_in(
+    tx: &Connection,
+    existing: &Item,
+    state: &TaskState,
+    now: i64,
+) -> Result<(), AppError> {
     if !state.task && (state.begin.is_some() || state.end.is_some()) {
         return Err(AppError::bad_request("A normal item has no task times"));
     }
@@ -1509,7 +1518,7 @@ fn put_task_in(tx: &Connection, existing: &Item, state: &TaskState, now: i64) ->
     Ok(())
 }
 
-fn patch_task_in(tx: &Connection, existing: &Item, task: bool, now: i64) -> AppResult<Item> {
+fn patch_task_in(tx: &Connection, existing: &Item, task: bool, now: i64) -> Result<Item, AppError> {
     let patch =
         ItemPatch::new(None, None, Some(task), None, None, now).map_err(AppError::internal)?;
     ItemRepository::patch_in(tx, &existing.id, &patch)?;
@@ -1522,7 +1531,10 @@ enum PlanError {
 }
 
 /// The item the group is placed under, or None when the group goes to the top of the page.
-fn find_anchor<'a>(staying: &'a [Item], position: &ItemPosition) -> AppResult<Option<&'a Item>> {
+fn find_anchor<'a>(
+    staying: &'a [Item],
+    position: &ItemPosition,
+) -> Result<Option<&'a Item>, AppError> {
     Ok(match position {
         ItemPosition::First => None,
         ItemPosition::Last => staying.last(),
@@ -1539,7 +1551,7 @@ fn find_anchor<'a>(staying: &'a [Item], position: &ItemPosition) -> AppResult<Op
     })
 }
 
-fn validate_levels(moving: &[Item], delta: i32, anchor: Option<&Item>) -> AppResult<()> {
+fn validate_levels(moving: &[Item], delta: i32, anchor: Option<&Item>) -> Result<(), AppError> {
     let mut above_level: Option<i32> = anchor.map(|a| a.level);
     for item in moving {
         let new_level = (item.level + delta).max(1);
@@ -1601,7 +1613,7 @@ fn sync_transcluders_in(
     source: &Item,
     now: i64,
     effects: &mut AfterCommit,
-) -> AppResult<()> {
+) -> Result<(), AppError> {
     for transcluder in ItemRepository::find_transcluders_in(tx, &source.id)? {
         if transcluder.body != source.body {
             ItemRepository::save_in(
@@ -1621,7 +1633,7 @@ fn sync_transcluders_in(
 
 /// A transclusion with what a split of an item it shows is planned from, on the given
 /// connection.
-fn transclusion_in(conn: &Connection, root: Item) -> AppResult<split::Transclusion> {
+fn transclusion_in(conn: &Connection, root: Item) -> Result<split::Transclusion, AppError> {
     let source_id = root
         .transclude_item_id
         .clone()
@@ -1636,7 +1648,7 @@ fn transclusion_in(conn: &Connection, root: Item) -> AppResult<split::Transclusi
 }
 
 /// The items with the given IDs, in that order, on the given connection.
-fn find_all_in(conn: &Connection, item_ids: &[Hmtid]) -> AppResult<Vec<Item>> {
+fn find_all_in(conn: &Connection, item_ids: &[Hmtid]) -> Result<Vec<Item>, AppError> {
     item_ids
         .iter()
         .map(|id| {
@@ -1651,7 +1663,7 @@ fn items_staying_on_in(
     conn: &Connection,
     page_id: &Hmtid,
     moving_ids: &[Hmtid],
-) -> AppResult<Vec<Item>> {
+) -> Result<Vec<Item>, AppError> {
     let moving: BTreeSet<&Hmtid> = moving_ids.iter().collect();
     Ok(ItemRepository::find_by_page_id_in(conn, page_id)?
         .into_iter()
@@ -1660,7 +1672,7 @@ fn items_staying_on_in(
 }
 
 /// Re-assigns fresh fractional indices to all items on a page, on the given connection.
-fn reindex_page(conn: &Connection, page_id: &Hmtid, items: &[Item]) -> AppResult<()> {
+fn reindex_page(conn: &Connection, page_id: &Hmtid, items: &[Item]) -> Result<(), AppError> {
     tracing::info!(
         "Reindexing the {} items of page {page_id}: the index space is used up",
         items.len()
@@ -1673,7 +1685,7 @@ fn reindex_page(conn: &Connection, page_id: &Hmtid, items: &[Item]) -> AppResult
 /// Reindexes the items around the indices grown past the limit, so the page stays short.
 /// Only the indices change: the items keep their modified date, as the order is the same.
 /// Falls back to the whole page when an index of the old scheme is in the way.
-fn shorten_indices_in(conn: &Connection, page_id: &Hmtid) -> AppResult<()> {
+fn shorten_indices_in(conn: &Connection, page_id: &Hmtid) -> Result<(), AppError> {
     let items = ItemRepository::find_by_page_id_in(conn, page_id)?;
     let indices: Vec<&str> = items.iter().map(|i| i.idx.as_str()).collect();
     let Ok(changes) = fractional_index::shorten(&indices) else {
@@ -1688,7 +1700,7 @@ fn shorten_indices_in(conn: &Connection, page_id: &Hmtid) -> AppResult<()> {
 
 /// Writes new indices. The items are parked first: (page_id, idx) is unique and checked per
 /// statement, so an item cannot take an index another still holds.
-fn assign_indices_in(conn: &Connection, changes: &[(&Item, String)]) -> AppResult<()> {
+fn assign_indices_in(conn: &Connection, changes: &[(&Item, String)]) -> Result<(), AppError> {
     for (item, _) in changes {
         ItemRepository::update_index_in(conn, &item.id, &parked_idx(&item.id))?;
     }
@@ -1741,14 +1753,14 @@ fn level_that_fits_in(
     page_id: &Hmtid,
     position: &ItemPosition,
     level: i32,
-) -> AppResult<i32> {
+) -> Result<i32, AppError> {
     let existing = ItemRepository::find_by_page_id_in(tx, page_id)?;
     let deepest = find_item_above(&existing, position).map_or(1, |above| above.level + 1);
     Ok(level.min(deepest))
 }
 
 /// The only item of the page when it is empty: no text and no transclusion.
-fn lone_empty_item_in(tx: &Connection, page_id: &Hmtid) -> AppResult<Option<Item>> {
+fn lone_empty_item_in(tx: &Connection, page_id: &Hmtid) -> Result<Option<Item>, AppError> {
     let items = ItemRepository::find_by_page_id_in(tx, page_id)?;
     Ok(match items.as_slice() {
         [only] if only.body.trim().is_empty() && only.transclude_item_id.is_none() => {

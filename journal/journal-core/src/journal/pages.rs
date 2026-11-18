@@ -9,7 +9,7 @@ use crate::domain::model::Page;
 use crate::dto::{
     backlink_dto, page_dto_with, BacklinkEntryDto, ItemDto, ItemFields, NarrowItem, PageDto,
 };
-use crate::error::{parse_id, AppError, AppResult};
+use crate::error::{parse_id, AppError};
 
 use super::{ChangedBy, Journal};
 
@@ -67,7 +67,7 @@ pub struct BacklinksAnswer {
 }
 
 impl Journal {
-    pub fn get_page(&self, id: &str) -> AppResult<PageWithItems> {
+    pub fn get_page(&self, id: &str) -> Result<PageWithItems, AppError> {
         let page_id = parse_id(id)?;
         let page = self
             .services
@@ -88,7 +88,7 @@ impl Journal {
         &self,
         title: Option<&str>,
         dir_path: Option<&str>,
-    ) -> AppResult<DocAnswer> {
+    ) -> Result<DocAnswer, AppError> {
         let mut result = self
             .services
             .page_service
@@ -112,7 +112,7 @@ impl Journal {
         dir_path: Option<&str>,
         overwrite: bool,
         by: &ChangedBy,
-    ) -> AppResult<PageAnswer> {
+    ) -> Result<PageAnswer, AppError> {
         let page_id = parse_id(id)?;
         let (page, changed) = self
             .services
@@ -124,7 +124,12 @@ impl Journal {
     }
 
     /// Makes the index page of a folder a plain page of the folder above.
-    pub fn demote_page(&self, id: &str, overwrite: bool, by: &ChangedBy) -> AppResult<PageAnswer> {
+    pub fn demote_page(
+        &self,
+        id: &str,
+        overwrite: bool,
+        by: &ChangedBy,
+    ) -> Result<PageAnswer, AppError> {
         let page_id = parse_id(id)?;
         let (page, changed) = self
             .services
@@ -142,7 +147,7 @@ impl Journal {
         value_type: Option<&str>,
         value: Option<&str>,
         by: &ChangedBy,
-    ) -> AppResult<PageAnswer> {
+    ) -> Result<PageAnswer, AppError> {
         let page_id = parse_id(id)?;
         let tags_before = self.services.properties.find_tags(PAGE_TARGET, id)?;
         let new_key = self.services.properties.find_definition(key)?.is_none();
@@ -170,7 +175,7 @@ impl Journal {
         id: &str,
         key: &str,
         by: &ChangedBy,
-    ) -> AppResult<PageAnswer> {
+    ) -> Result<PageAnswer, AppError> {
         let page_id = parse_id(id)?;
         let page = self.services.page_service.delete_property(&page_id, key)?;
         self.tell([&page_id], by);
@@ -178,7 +183,7 @@ impl Journal {
     }
 
     /// Deletes the page and all its items.
-    pub fn delete_page(&self, id: &str, by: &ChangedBy) -> AppResult<()> {
+    pub fn delete_page(&self, id: &str, by: &ChangedBy) -> Result<(), AppError> {
         let page_id = parse_id(id)?;
         self.services.page_service.delete_page(&page_id)?;
         self.tell([&page_id], by);
@@ -191,7 +196,7 @@ impl Journal {
         &self,
         max_results: Option<i64>,
         page_type: Option<&str>,
-    ) -> AppResult<PagesAnswer> {
+    ) -> Result<PagesAnswer, AppError> {
         let page_type = page_type.filter(|t| !t.is_empty());
         let pages = self
             .services
@@ -201,7 +206,7 @@ impl Journal {
     }
 
     /// The pages and items that link to the page.
-    pub fn backlinks(&self, id: &str) -> AppResult<BacklinksAnswer> {
+    pub fn backlinks(&self, id: &str) -> Result<BacklinksAnswer, AppError> {
         let page_id = parse_id(id)?;
         let entries = self.services.page_service.get_backlinks(&page_id)?;
         Ok(BacklinksAnswer {
@@ -210,7 +215,7 @@ impl Journal {
     }
 
     /// The pages directly under the page.
-    pub fn child_pages(&self, id: &str) -> AppResult<PagesAnswer> {
+    pub fn child_pages(&self, id: &str) -> Result<PagesAnswer, AppError> {
         let page_id = parse_id(id)?;
         let pages = self.services.pages.find_by_parent_id(&page_id)?;
         let mut answer = self.pages_with_scalars(&pages)?;
@@ -228,7 +233,7 @@ impl Journal {
         Ok(answer)
     }
 
-    fn page_answer(&self, page: &Page) -> AppResult<PageAnswer> {
+    fn page_answer(&self, page: &Page) -> Result<PageAnswer, AppError> {
         Ok(PageAnswer {
             page: self.services.dtos.page_to_dto(page)?,
         })
@@ -236,7 +241,7 @@ impl Journal {
 
     /// The sidebar sorts pages by `published` and marks the published ones, so the page lists
     /// carry the scalar properties. The list properties stay out, but for the tags of children.
-    fn pages_with_scalars(&self, pages: &[Page]) -> AppResult<PagesAnswer> {
+    fn pages_with_scalars(&self, pages: &[Page]) -> Result<PagesAnswer, AppError> {
         let ids: Vec<String> = pages.iter().map(|p| p.id.to_string()).collect();
         let scalars = self
             .services

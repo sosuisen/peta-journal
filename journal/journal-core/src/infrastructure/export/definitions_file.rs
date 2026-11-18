@@ -14,7 +14,7 @@ use super::page_matcher::parse_instant;
 use super::path_mapper::has_copy_marker;
 use crate::domain::property_definitions::{merge, Definition, Definitions};
 use crate::domain::property_key::PropertyKey;
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 use crate::infrastructure::files::write_atomic;
 use crate::infrastructure::persistence::database_initializer::SYSTEM_KEYS;
 use crate::infrastructure::persistence::property_repository::{
@@ -51,12 +51,12 @@ impl DefinitionsFileService {
 
     /// Writes the definitions of this device put together with those in the file, so that
     /// a definition of another device that is not taken in yet stays.
-    pub fn write_file(&self) -> AppResult<()> {
+    pub fn write_file(&self) -> Result<(), AppError> {
         let _file = self.file.lock();
         self.write_file_locked()
     }
 
-    fn write_file_locked(&self) -> AppResult<()> {
+    fn write_file_locked(&self) -> Result<(), AppError> {
         let Some(root) = self.export.markdown_root() else {
             return Ok(());
         };
@@ -85,7 +85,7 @@ impl DefinitionsFileService {
 
     /// Takes in the file as another device wrote it: the definitions are put together with
     /// those of this device, key by key, and the DB gets the result (ADR 046).
-    pub fn take_in(&self, root: &Path) -> AppResult<Outcome> {
+    pub fn take_in(&self, root: &Path) -> Result<Outcome, AppError> {
         let _file = self.file.lock();
         let text = std::fs::read_to_string(root.join(DEFINITIONS_FILE))?;
         let merged = self.put_together(&read(&text)?)?;
@@ -99,7 +99,7 @@ impl DefinitionsFileService {
 
     /// Takes in a conflicted copy of the file as one more version, writes the file with all
     /// of it, and deletes the copy.
-    pub fn take_in_copy(&self, root: &Path, rel_path: &str) -> AppResult<Outcome> {
+    pub fn take_in_copy(&self, root: &Path, rel_path: &str) -> Result<Outcome, AppError> {
         let _file = self.file.lock();
         let copy = root.join(rel_path);
         self.put_together(&read(&std::fs::read_to_string(&copy)?)?)?;
@@ -110,7 +110,7 @@ impl DefinitionsFileService {
 
     /// Puts another version together with the definitions of this device, key by key, and
     /// gives the DB the result.
-    fn put_together(&self, theirs: &Definitions) -> AppResult<Definitions> {
+    fn put_together(&self, theirs: &Definitions) -> Result<Definitions, AppError> {
         let ours = self.properties.find_synced_definitions()?;
         let merged = merge(&ours, theirs);
         for (key, definition) in &merged {
@@ -151,7 +151,7 @@ pub fn write(definitions: &Definitions) -> String {
 }
 
 /// The definitions in the text of the file.
-pub fn read(text: &str) -> AppResult<Definitions> {
+pub fn read(text: &str) -> Result<Definitions, AppError> {
     let file: ReadFile = serde_json::from_str(text)
         .map_err(|e| AppError::bad_request(format!("Not a file of definitions: {e}")))?;
     Ok(file

@@ -17,7 +17,7 @@ use crate::application::page_service::PageService;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::model::Page;
 use crate::domain::search::SearchIndex;
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository};
 
 use super::path_mapper::{self, PageLocation};
@@ -81,7 +81,7 @@ impl PageMatcher {
         frontmatter: &BTreeMap<String, String>,
         file_modified: i64,
         copy_allowed: bool,
-    ) -> AppResult<Matched> {
+    ) -> Result<Matched, AppError> {
         let mut file_id = parse_id(frontmatter.get("id").map(String::as_str));
         let mut write_back = false;
 
@@ -168,7 +168,12 @@ impl PageMatcher {
 
     /// Saves a page at the location of its file, creating the index pages above it first,
     /// and reindexes its items under the new title.
-    pub fn move_page(&self, page: &Page, loc: &PageLocation, modified: i64) -> AppResult<Page> {
+    pub fn move_page(
+        &self,
+        page: &Page,
+        loc: &PageLocation,
+        modified: i64,
+    ) -> Result<Page, AppError> {
         let moved = self.save(page, loc, modified)?;
         self.search
             .index_items(&self.items.find_by_page_id(&moved.id)?, &moved.title());
@@ -176,7 +181,7 @@ impl PageMatcher {
     }
 
     /// Saves a page with a new modified date at a location whose index pages exist already.
-    pub fn touch(&self, page: &Page, loc: &PageLocation, modified: i64) -> AppResult<Page> {
+    pub fn touch(&self, page: &Page, loc: &PageLocation, modified: i64) -> Result<Page, AppError> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let saved = PageRepository::save_in(
@@ -194,7 +199,7 @@ impl PageMatcher {
         Ok(saved)
     }
 
-    fn save(&self, page: &Page, loc: &PageLocation, modified: i64) -> AppResult<Page> {
+    fn save(&self, page: &Page, loc: &PageLocation, modified: i64) -> Result<Page, AppError> {
         if loc.page_type == "doc" && !loc.dir_path.is_empty() && loc.name != "index" {
             // The index file may be on its way from the device that sent this file; the scan
             // writes one later when none comes
@@ -205,7 +210,7 @@ impl PageMatcher {
     }
 
     /// Gives a page the id another device chose for it and reindexes it under that id.
-    fn adopt_page_id(&self, page: &Page, new_id: &Hmtid, rel_path: &str) -> AppResult<Page> {
+    fn adopt_page_id(&self, page: &Page, new_id: &Hmtid, rel_path: &str) -> Result<Page, AppError> {
         tracing::info!(
             "Adopting page id {new_id} from {rel_path} (was {})",
             page.id

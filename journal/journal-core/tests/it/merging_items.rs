@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::ItemAnswer;
 use serde_json::{json, Value};
 
@@ -12,7 +12,7 @@ use crate::common::Core;
 
 impl Core {
     /// Merges items as the client asks in the JSON of the request
-    fn merge(&self, request: Value) -> AppResult<ItemAnswer> {
+    fn merge(&self, request: Value) -> Result<ItemAnswer, AppError> {
         self.core
             .journal
             .merge_items(input(request), &by_the_client())

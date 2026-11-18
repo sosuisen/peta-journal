@@ -13,7 +13,7 @@ use crate::application::item_service::{BatchOp, MoveRequest, TaskState, TreeMark
 use crate::application::paste::PasteMode;
 use crate::domain::model::{Item, ItemPosition};
 use crate::dto::{ItemDto, ItemFields, NarrowItem};
-use crate::error::{parse_id, AppError, AppResult};
+use crate::error::{parse_id, AppError};
 
 use super::{ChangedBy, Journal};
 pub use journal_api_types::{
@@ -25,7 +25,7 @@ pub use journal_api_types::{
 // ---- inputs ----
 
 /// The operation of a batch, with its IDs and its position read.
-fn parse_batch_op(input: BatchOpInput) -> AppResult<BatchOp> {
+fn parse_batch_op(input: BatchOpInput) -> Result<BatchOp, AppError> {
     Ok(match input {
         BatchOpInput::Create {
             id,
@@ -184,20 +184,20 @@ pub struct ParsedItemsAnswer {
 
 // ---- reading the values ----
 
-fn required<'a>(value: Option<&'a str>, name: &str) -> AppResult<&'a str> {
+fn required<'a>(value: Option<&'a str>, name: &str) -> Result<&'a str, AppError> {
     value.ok_or_else(|| AppError::bad_request(format!("{name} is required")))
 }
 
-fn parse_ids(ids: Option<&[String]>, name: &str) -> AppResult<Vec<Hmtid>> {
+fn parse_ids(ids: Option<&[String]>, name: &str) -> Result<Vec<Hmtid>, AppError> {
     let ids = ids.ok_or_else(|| AppError::bad_request(format!("{name} is required")))?;
     ids.iter().map(|s| parse_id(s)).collect()
 }
 
-fn parse_position(position: Option<&str>) -> AppResult<ItemPosition> {
+fn parse_position(position: Option<&str>) -> Result<ItemPosition, AppError> {
     ItemPosition::parse(position.unwrap_or("")).map_err(AppError::bad_request)
 }
 
-fn parse_paste_mode(mode: Option<&str>) -> AppResult<PasteMode> {
+fn parse_paste_mode(mode: Option<&str>) -> Result<PasteMode, AppError> {
     match mode {
         None | Some("auto") => Ok(PasteMode::Auto),
         Some("flat") => Ok(PasteMode::Flat),
@@ -211,7 +211,7 @@ fn parse_paste_mode(mode: Option<&str>) -> AppResult<PasteMode> {
 impl Journal {
     // ---- reading ----
 
-    pub fn get_item(&self, id: &str) -> AppResult<ItemAnswer> {
+    pub fn get_item(&self, id: &str) -> Result<ItemAnswer, AppError> {
         let item_id = parse_id(id)?;
         self.item_answer(&self.services.item_service.get_item_by_id(&item_id)?)
     }
@@ -222,7 +222,7 @@ impl Journal {
         &self,
         types: &[String],
         without_property: Option<&str>,
-    ) -> AppResult<ItemsAnswer> {
+    ) -> Result<ItemsAnswer, AppError> {
         let items = self
             .services
             .item_service
@@ -232,7 +232,10 @@ impl Journal {
 
     /// Which of the items are transcluded by other items, as a client asks before it deletes
     /// them.
-    pub fn transcluded_items(&self, input: ItemIdsInput) -> AppResult<TranscludedItemsAnswer> {
+    pub fn transcluded_items(
+        &self,
+        input: ItemIdsInput,
+    ) -> Result<TranscludedItemsAnswer, AppError> {
         let ids = parse_ids(input.item_ids.as_deref(), "itemIds")?;
         let mut item_ids = Vec::new();
         for id in ids {
@@ -245,7 +248,11 @@ impl Journal {
 
     // ---- changing ----
 
-    pub fn create_item(&self, input: CreateItemInput, by: &ChangedBy) -> AppResult<ItemAnswer> {
+    pub fn create_item(
+        &self,
+        input: CreateItemInput,
+        by: &ChangedBy,
+    ) -> Result<ItemAnswer, AppError> {
         let page_id = parse_id(required(input.page_id.as_deref(), "pageId")?)?;
         let id = match input.id.as_deref() {
             Some(s) if !s.is_empty() => Some(parse_id(s)?),
@@ -268,7 +275,7 @@ impl Journal {
         id: &str,
         input: UpdateItemInput,
         by: &ChangedBy,
-    ) -> AppResult<ItemAnswer> {
+    ) -> Result<ItemAnswer, AppError> {
         let item_id = parse_id(id)?;
         let item = self.services.item_service.update_item(
             &item_id,
@@ -282,7 +289,12 @@ impl Journal {
     }
 
     /// Puts a text into an item at the cursor. A text of several items makes new items.
-    pub fn paste(&self, id: &str, input: PasteInput, by: &ChangedBy) -> AppResult<PasteAnswer> {
+    pub fn paste(
+        &self,
+        id: &str,
+        input: PasteInput,
+        by: &ChangedBy,
+    ) -> Result<PasteAnswer, AppError> {
         let item_id = parse_id(id)?;
         let mode = parse_paste_mode(input.mode.as_deref())?;
         let pasted = self.services.item_service.paste(
@@ -307,7 +319,12 @@ impl Journal {
     }
 
     /// Splits an item in two at the cursor.
-    pub fn split(&self, id: &str, input: SplitInput, by: &ChangedBy) -> AppResult<SplitAnswer> {
+    pub fn split(
+        &self,
+        id: &str,
+        input: SplitInput,
+        by: &ChangedBy,
+    ) -> Result<SplitAnswer, AppError> {
         let item_id = parse_id(id)?;
         let root_id = input.root_id.as_deref().map(parse_id).transpose()?;
         let split = self.services.item_service.split(
@@ -324,7 +341,12 @@ impl Journal {
     }
 
     /// Sends an item with its descendants under the `# Stash` heading of its page (ADR 011).
-    pub fn stash(&self, id: &str, input: StashInput, by: &ChangedBy) -> AppResult<StashAnswer> {
+    pub fn stash(
+        &self,
+        id: &str,
+        input: StashInput,
+        by: &ChangedBy,
+    ) -> Result<StashAnswer, AppError> {
         let item_id = parse_id(id)?;
         let stashed = self
             .services
@@ -339,12 +361,12 @@ impl Journal {
     }
 
     /// Applies several changes of items in one transaction.
-    pub fn apply_batch(&self, input: BatchInput, by: &ChangedBy) -> AppResult<BatchAnswer> {
+    pub fn apply_batch(&self, input: BatchInput, by: &ChangedBy) -> Result<BatchAnswer, AppError> {
         let ops = input
             .ops
             .into_iter()
             .map(parse_batch_op)
-            .collect::<AppResult<Vec<_>>>()?;
+            .collect::<Result<Vec<_>, AppError>>()?;
         let applied = self.services.item_service.apply_batch(&ops)?;
         self.tell(&applied.page_ids, by);
         Ok(BatchAnswer {
@@ -357,7 +379,7 @@ impl Journal {
         &self,
         input: ItemIdsInput,
         by: &ChangedBy,
-    ) -> AppResult<DeletedItemsAnswer> {
+    ) -> Result<DeletedItemsAnswer, AppError> {
         let item_ids = parse_ids(input.item_ids.as_deref(), "itemIds")?;
         // The items are gone after the deletion: the pages that show them are found first
         let pages = self.services.item_service.pages_showing(&item_ids)?;
@@ -368,7 +390,7 @@ impl Journal {
         })
     }
 
-    pub fn delete_item(&self, id: &str, by: &ChangedBy) -> AppResult<()> {
+    pub fn delete_item(&self, id: &str, by: &ChangedBy) -> Result<(), AppError> {
         let item_id = parse_id(id)?;
         let pages = self
             .services
@@ -380,7 +402,11 @@ impl Journal {
     }
 
     /// Joins an item to the end of another. The item goes away, and the other takes its text.
-    pub fn merge_items(&self, input: MergeItemsInput, by: &ChangedBy) -> AppResult<ItemAnswer> {
+    pub fn merge_items(
+        &self,
+        input: MergeItemsInput,
+        by: &ChangedBy,
+    ) -> Result<ItemAnswer, AppError> {
         let item_id = parse_id(input.item_id.as_deref().unwrap_or(""))?;
         let into_id = parse_id(input.into_id.as_deref().unwrap_or(""))?;
         // The merged item goes away: its transcluders are found first so their pages can be told
@@ -405,7 +431,7 @@ impl Journal {
         id: &str,
         input: TransclusionInput,
         by: &ChangedBy,
-    ) -> AppResult<ItemAnswer> {
+    ) -> Result<ItemAnswer, AppError> {
         let item_id = parse_id(id)?;
         let source_id = parse_id(required(input.source_item_id.as_deref(), "sourceItemId")?)?;
         let item = self
@@ -416,7 +442,7 @@ impl Journal {
         self.item_answer(&item)
     }
 
-    pub fn remove_transclusion(&self, id: &str, by: &ChangedBy) -> AppResult<ItemAnswer> {
+    pub fn remove_transclusion(&self, id: &str, by: &ChangedBy) -> Result<ItemAnswer, AppError> {
         let item_id = parse_id(id)?;
         let item = self.services.item_service.remove_transclusion(&item_id)?;
         self.tell([&item.page_id], by);
@@ -424,14 +450,18 @@ impl Journal {
     }
 
     /// Takes the item to its next task state.
-    pub fn cycle_task(&self, id: &str, by: &ChangedBy) -> AppResult<ItemAnswer> {
+    pub fn cycle_task(&self, id: &str, by: &ChangedBy) -> Result<ItemAnswer, AppError> {
         let item_id = parse_id(id)?;
         let item = self.services.item_service.cycle_task(&item_id)?;
         self.tell([&item.page_id], by);
         self.item_answer(&item)
     }
 
-    pub fn move_items(&self, input: MoveItemsInput, by: &ChangedBy) -> AppResult<ItemsAnswer> {
+    pub fn move_items(
+        &self,
+        input: MoveItemsInput,
+        by: &ChangedBy,
+    ) -> Result<ItemsAnswer, AppError> {
         let position = parse_position(input.position.as_deref())?;
         let ids = parse_ids(input.item_ids.as_deref(), "itemIds")?;
         let target = parse_id(required(input.target_page_id.as_deref(), "targetPageId")?)?;
@@ -448,7 +478,11 @@ impl Journal {
 
     /// Indents or outdents a group of items in one request. The change is relative, so
     /// requests that arrive out of order still add up correctly.
-    pub fn shift_levels(&self, input: ShiftLevelsInput, by: &ChangedBy) -> AppResult<ItemsAnswer> {
+    pub fn shift_levels(
+        &self,
+        input: ShiftLevelsInput,
+        by: &ChangedBy,
+    ) -> Result<ItemsAnswer, AppError> {
         let ids = parse_ids(input.item_ids.as_deref(), "itemIds")?;
         let items = self.services.item_service.shift_levels(&ids, input.delta)?;
         let mut seen: Vec<&Hmtid> = Vec::new();
@@ -471,7 +505,7 @@ impl Journal {
         key: &str,
         input: PropertyInput,
         by: &ChangedBy,
-    ) -> AppResult<ItemAnswer> {
+    ) -> Result<ItemAnswer, AppError> {
         let item_id = parse_id(id)?;
         let new_key = self.services.properties.find_definition(key)?.is_none();
         let item = self.services.item_service.set_property(
@@ -493,7 +527,7 @@ impl Journal {
         id: &str,
         key: &str,
         by: &ChangedBy,
-    ) -> AppResult<ItemAnswer> {
+    ) -> Result<ItemAnswer, AppError> {
         let item_id = parse_id(id)?;
         let item = self.services.item_service.delete_property(&item_id, key)?;
         self.tell([&item.page_id], by);
@@ -503,7 +537,10 @@ impl Journal {
 
     // ---- markdown ----
 
-    pub fn export_tree_markdown(&self, input: ItemIdsInput) -> AppResult<TreeMarkdownAnswer> {
+    pub fn export_tree_markdown(
+        &self,
+        input: ItemIdsInput,
+    ) -> Result<TreeMarkdownAnswer, AppError> {
         let ids = parse_ids(input.item_ids.as_deref(), "itemIds")?;
         Ok(self
             .services
@@ -512,7 +549,10 @@ impl Journal {
             .into())
     }
 
-    pub fn export_page_markdown(&self, page_id: Option<&str>) -> AppResult<TreeMarkdownAnswer> {
+    pub fn export_page_markdown(
+        &self,
+        page_id: Option<&str>,
+    ) -> Result<TreeMarkdownAnswer, AppError> {
         let page_id = parse_id(required(page_id, "pageId")?)?;
         Ok(self
             .services
@@ -522,7 +562,10 @@ impl Journal {
     }
 
     /// The item and all its descendants.
-    pub fn export_subtree_markdown(&self, item_id: Option<&str>) -> AppResult<TreeMarkdownAnswer> {
+    pub fn export_subtree_markdown(
+        &self,
+        item_id: Option<&str>,
+    ) -> Result<TreeMarkdownAnswer, AppError> {
         let item_id = parse_id(required(item_id, "itemId")?)?;
         Ok(self
             .services
@@ -543,7 +586,10 @@ impl Journal {
 
     /// Splits Flat Markdown into items by the rules of the spec. Nothing is stored.
     /// Bodies keep their GFM task prefix, so they can be passed to `create_item` as they are.
-    pub fn parse_flat_markdown(&self, input: FlatMarkdownInput) -> AppResult<ParsedItemsAnswer> {
+    pub fn parse_flat_markdown(
+        &self,
+        input: FlatMarkdownInput,
+    ) -> Result<ParsedItemsAnswer, AppError> {
         let page = self
             .services
             .splitter
@@ -565,13 +611,13 @@ impl Journal {
     // ---- shared ----
 
     /// An item as the API answers with it, with its properties.
-    fn item_answer(&self, item: &Item) -> AppResult<ItemAnswer> {
+    fn item_answer(&self, item: &Item) -> Result<ItemAnswer, AppError> {
         Ok(ItemAnswer {
             item: self.services.dtos.to_dto(item)?,
         })
     }
 
-    fn items_answer(&self, items: &[Item]) -> AppResult<ItemsAnswer> {
+    fn items_answer(&self, items: &[Item]) -> Result<ItemsAnswer, AppError> {
         Ok(ItemsAnswer {
             items: self.services.dtos.to_dtos(items)?,
         })
@@ -584,7 +630,7 @@ impl Journal {
         source_item_id: &Hmtid,
         except_page_id: &Hmtid,
         by: &ChangedBy,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         let transcluders = self.services.items.find_transcluders(source_item_id)?;
         self.tell(
             transcluders

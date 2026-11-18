@@ -1,6 +1,6 @@
 //! Sending an item to the stash of its page (ADR 011).
 
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::StashAnswer;
 use serde_json::json;
 
@@ -11,7 +11,7 @@ use crate::common::Core;
 impl Core {
     /// Sends an item to the stash of its page, with the body its editor has now when it is
     /// not saved yet.
-    fn stash(&self, item_id: &str, body: Option<&str>) -> AppResult<StashAnswer> {
+    fn stash(&self, item_id: &str, body: Option<&str>) -> Result<StashAnswer, AppError> {
         let mut request = json!({});
         if let Some(body) = body {
             request["body"] = json!(body);

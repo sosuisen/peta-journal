@@ -7,7 +7,7 @@ use anyhow::Context;
 use hmtid::Hmtid;
 use rusqlite::{params, OptionalExtension, Row};
 
-use crate::error::AppResult;
+use crate::error::AppError;
 use crate::infrastructure::persistence::db::{now_millis, Db};
 use crate::infrastructure::persistence::page_repository::parse;
 
@@ -89,7 +89,7 @@ impl FileSyncStateRepository {
         file_size: i64,
         file_mtime: i64,
         content_date: i64,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         let now = now_millis();
         let last_synced = last_synced(file_mtime, content_date, now);
         let conn = self.db.conn()?;
@@ -120,7 +120,7 @@ impl FileSyncStateRepository {
     }
 
     /// Marks the file as missing. Keeps the original missing_since if already missing.
-    pub fn mark_missing(&self, rel_path: &str) -> AppResult<()> {
+    pub fn mark_missing(&self, rel_path: &str) -> Result<(), AppError> {
         let now = now_millis();
         let conn = self.db.conn()?;
         conn.execute(
@@ -131,7 +131,7 @@ impl FileSyncStateRepository {
         Ok(())
     }
 
-    pub fn find_by_path(&self, rel_path: &str) -> AppResult<Option<FileSyncState>> {
+    pub fn find_by_path(&self, rel_path: &str) -> Result<Option<FileSyncState>, AppError> {
         let conn = self.db.conn()?;
         Ok(conn
             .query_row(
@@ -142,38 +142,42 @@ impl FileSyncStateRepository {
             .optional()?)
     }
 
-    fn query(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> AppResult<Vec<FileSyncState>> {
+    fn query(
+        &self,
+        sql: &str,
+        params: &[&dyn rusqlite::ToSql],
+    ) -> Result<Vec<FileSyncState>, AppError> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(sql)?;
         let rows = stmt.query_map(params, map)?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
-    pub fn find_by_page_id(&self, page_id: &Hmtid) -> AppResult<Vec<FileSyncState>> {
+    pub fn find_by_page_id(&self, page_id: &Hmtid) -> Result<Vec<FileSyncState>, AppError> {
         self.query(
             &format!("SELECT {COLUMNS} FROM file_sync_state WHERE page_id = ?"),
             &[&page_id.as_str()],
         )
     }
 
-    pub fn find_all(&self) -> AppResult<Vec<FileSyncState>> {
+    pub fn find_all(&self) -> Result<Vec<FileSyncState>, AppError> {
         self.query(&format!("SELECT {COLUMNS} FROM file_sync_state"), &[])
     }
 
-    pub fn find_missing(&self) -> AppResult<Vec<FileSyncState>> {
+    pub fn find_missing(&self) -> Result<Vec<FileSyncState>, AppError> {
         self.query(
             &format!("SELECT {COLUMNS} FROM file_sync_state WHERE status = 'missing' ORDER BY missing_since"),
             &[],
         )
     }
 
-    pub fn delete_by_path(&self, rel_path: &str) -> AppResult<()> {
+    pub fn delete_by_path(&self, rel_path: &str) -> Result<(), AppError> {
         let conn = self.db.conn()?;
         conn.execute("DELETE FROM file_sync_state WHERE rel_path = ?", [rel_path])?;
         Ok(())
     }
 
-    pub fn delete_by_page_id(&self, page_id: &Hmtid) -> AppResult<()> {
+    pub fn delete_by_page_id(&self, page_id: &Hmtid) -> Result<(), AppError> {
         let conn = self.db.conn()?;
         conn.execute(
             "DELETE FROM file_sync_state WHERE page_id = ?",

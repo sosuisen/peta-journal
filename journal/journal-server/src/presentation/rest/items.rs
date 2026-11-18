@@ -5,7 +5,7 @@ use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use serde::Deserialize;
 
-use crate::error::HttpResult;
+use crate::error::HttpError;
 use crate::presentation::client_id::ClientId;
 use crate::state::{blocking, SharedState};
 use journal_core::dto::ItemFields;
@@ -79,7 +79,7 @@ async fn create_item(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<CreateItemInput>,
-) -> HttpResult<Json<ItemAnswer>> {
+) -> Result<Json<ItemAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(
             state.journal.create_item(req, &ChangedBy::Client(client))?,
@@ -92,7 +92,7 @@ async fn get_item(
     State(state): State<SharedState>,
     Path(id): Path<String>,
     Query(q): Query<FieldsQuery>,
-) -> HttpResult<Response> {
+) -> Result<Response, HttpError> {
     blocking(move || {
         let whole = state.journal.get_item(&id)?;
         Ok(match ItemFields::parse(q.fields.as_deref()) {
@@ -108,7 +108,7 @@ async fn update_item(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<UpdateItemInput>,
-) -> HttpResult<Json<ItemAnswer>> {
+) -> Result<Json<ItemAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.update_item(
             &id,
@@ -124,7 +124,7 @@ async fn paste(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<PasteInput>,
-) -> HttpResult<Json<PasteAnswer>> {
+) -> Result<Json<PasteAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.paste(
             &id,
@@ -140,7 +140,7 @@ async fn split(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<SplitInput>,
-) -> HttpResult<Json<SplitAnswer>> {
+) -> Result<Json<SplitAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.split(
             &id,
@@ -156,7 +156,7 @@ async fn stash(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<StashInput>,
-) -> HttpResult<Json<StashAnswer>> {
+) -> Result<Json<StashAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.stash(
             &id,
@@ -171,7 +171,7 @@ async fn apply_batch(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<BatchInput>,
-) -> HttpResult<Json<BatchAnswer>> {
+) -> Result<Json<BatchAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(
             state.journal.apply_batch(req, &ChangedBy::Client(client))?,
@@ -184,7 +184,7 @@ async fn delete_items(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<ItemIdsInput>,
-) -> HttpResult<Json<DeletedItemsAnswer>> {
+) -> Result<Json<DeletedItemsAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(
             state
@@ -199,7 +199,7 @@ async fn merge_items(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<MergeItemsInput>,
-) -> HttpResult<Json<ItemAnswer>> {
+) -> Result<Json<ItemAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(
             state.journal.merge_items(req, &ChangedBy::Client(client))?,
@@ -211,7 +211,7 @@ async fn merge_items(
 async fn transcluded_items(
     State(state): State<SharedState>,
     Json(req): Json<ItemIdsInput>,
-) -> HttpResult<Json<TranscludedItemsAnswer>> {
+) -> Result<Json<TranscludedItemsAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.transcluded_items(req)?))).await
 }
 
@@ -219,7 +219,7 @@ async fn delete_item(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-) -> HttpResult<StatusCode> {
+) -> Result<StatusCode, HttpError> {
     blocking(move || {
         state.journal.delete_item(&id, &ChangedBy::Client(client))?;
         Ok(StatusCode::NO_CONTENT)
@@ -232,7 +232,7 @@ async fn set_transclusion(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<TransclusionInput>,
-) -> HttpResult<Json<ItemAnswer>> {
+) -> Result<Json<ItemAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.set_transclusion(
             &id,
@@ -247,7 +247,7 @@ async fn remove_transclusion(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-) -> HttpResult<Json<ItemAnswer>> {
+) -> Result<Json<ItemAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(
             state
@@ -261,7 +261,7 @@ async fn remove_transclusion(
 async fn get_items_by_types(
     State(state): State<SharedState>,
     Query(q): Query<TypesQuery>,
-) -> HttpResult<Response> {
+) -> Result<Response, HttpError> {
     blocking(move || {
         let types: Vec<String> = match q.types.as_deref().filter(|t| !t.is_empty()) {
             Some(t) => t.split(',').map(|s| s.to_string()).collect(),
@@ -282,7 +282,7 @@ async fn cycle_task(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-) -> HttpResult<Json<ItemAnswer>> {
+) -> Result<Json<ItemAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(
             state.journal.cycle_task(&id, &ChangedBy::Client(client))?,
@@ -295,7 +295,7 @@ async fn move_items(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<MoveItemsInput>,
-) -> HttpResult<Json<ItemsAnswer>> {
+) -> Result<Json<ItemsAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(
             state.journal.move_items(req, &ChangedBy::Client(client))?,
@@ -308,7 +308,7 @@ async fn shift_levels(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<ShiftLevelsInput>,
-) -> HttpResult<Json<ItemsAnswer>> {
+) -> Result<Json<ItemsAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(
             state
@@ -324,7 +324,7 @@ async fn upsert_property(
     Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
     Json(req): Json<PropertyInput>,
-) -> HttpResult<Json<ItemAnswer>> {
+) -> Result<Json<ItemAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.set_item_property(
             &id,
@@ -340,7 +340,7 @@ async fn delete_property(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
-) -> HttpResult<Json<ItemAnswer>> {
+) -> Result<Json<ItemAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.delete_item_property(
             &id,
@@ -354,14 +354,14 @@ async fn delete_property(
 async fn export_tree_markdown(
     State(state): State<SharedState>,
     Json(req): Json<ItemIdsInput>,
-) -> HttpResult<Json<TreeMarkdownAnswer>> {
+) -> Result<Json<TreeMarkdownAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.export_tree_markdown(req)?))).await
 }
 
 async fn export_page_markdown(
     State(state): State<SharedState>,
     Query(q): Query<PageIdQuery>,
-) -> HttpResult<Json<TreeMarkdownAnswer>> {
+) -> Result<Json<TreeMarkdownAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(
             state.journal.export_page_markdown(q.page_id.as_deref())?,
@@ -373,7 +373,7 @@ async fn export_page_markdown(
 async fn export_subtree_markdown(
     State(state): State<SharedState>,
     Query(q): Query<ItemIdQuery>,
-) -> HttpResult<Json<TreeMarkdownAnswer>> {
+) -> Result<Json<TreeMarkdownAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(
             state
@@ -387,13 +387,13 @@ async fn export_subtree_markdown(
 async fn import_tree_markdown(
     State(state): State<SharedState>,
     Json(req): Json<TreeMarkdownInput>,
-) -> HttpResult<Json<FlatMarkdownAnswer>> {
+) -> Result<Json<FlatMarkdownAnswer>, HttpError> {
     Ok(Json(state.journal.import_tree_markdown(req)))
 }
 
 async fn parse_flat_markdown(
     State(state): State<SharedState>,
     Json(req): Json<FlatMarkdownInput>,
-) -> HttpResult<Json<ParsedItemsAnswer>> {
+) -> Result<Json<ParsedItemsAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.parse_flat_markdown(req)?))).await
 }

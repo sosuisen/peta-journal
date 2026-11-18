@@ -14,7 +14,7 @@ use parking_lot::Mutex;
 use crate::application::config_service::ConfigService;
 use crate::application::flat_markdown_serializer;
 use crate::domain::model::{Item, Page};
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 use crate::infrastructure::files::{delete_quietly, write_atomic};
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
@@ -164,7 +164,7 @@ impl MarkdownExportService {
 
     /// Writes the markdown file of one page right now, without going through the queue.
     /// Unchanged files are left alone. A page that no longer exists only loses its sync state.
-    pub fn export_page(&self, page_id: &Hmtid) -> AppResult<()> {
+    pub fn export_page(&self, page_id: &Hmtid) -> Result<(), AppError> {
         let root = self
             .markdown_root()
             .ok_or_else(|| AppError::internal("Markdown directory not available"))?;
@@ -246,7 +246,7 @@ impl MarkdownExportService {
         file: &Path,
         rel_path: &str,
         markdown: &str,
-    ) -> AppResult<bool> {
+    ) -> Result<bool, AppError> {
         let Ok(meta) = std::fs::metadata(file) else {
             return Ok(false);
         };
@@ -286,7 +286,11 @@ impl MarkdownExportService {
         }
     }
 
-    pub fn serialize_to_outline_markdown(&self, page: &Page, items: &[Item]) -> AppResult<String> {
+    pub fn serialize_to_outline_markdown(
+        &self,
+        page: &Page,
+        items: &[Item],
+    ) -> Result<String, AppError> {
         let mut sb = String::new();
         let page_id = page.id.to_string();
         let page_scalars = self

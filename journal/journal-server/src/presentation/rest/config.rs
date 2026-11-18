@@ -7,7 +7,7 @@ use axum::{Extension, Json, Router};
 use serde::Serialize;
 
 use crate::application::folder_chooser;
-use crate::error::HttpResult;
+use crate::error::HttpError;
 use crate::presentation::client_id::ClientId;
 use crate::state::{blocking, SharedState};
 use journal_core::journal::{
@@ -42,20 +42,20 @@ async fn get_config(State(state): State<SharedState>) -> Json<ConfigAnswer> {
 async fn update_config(
     State(state): State<SharedState>,
     Json(req): Json<UpdateConfigInput>,
-) -> HttpResult<Json<ConfigAnswer>> {
+) -> Result<Json<ConfigAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.update_config(req)))).await
 }
 
 async fn property_definitions(
     State(state): State<SharedState>,
-) -> HttpResult<Json<PropertyDefinitionsAnswer>> {
+) -> Result<Json<PropertyDefinitionsAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.property_definitions()?))).await
 }
 
 async fn add_property_definition(
     State(state): State<SharedState>,
     Json(req): Json<AddPropertyDefinitionInput>,
-) -> HttpResult<Json<PropertyDefinitionsAnswer>> {
+) -> Result<Json<PropertyDefinitionsAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.add_property_definition(req)?))).await
 }
 
@@ -63,7 +63,7 @@ async fn delete_property_definition(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(key): Path<String>,
-) -> HttpResult<Json<PropertyDefinitionsAnswer>> {
+) -> Result<Json<PropertyDefinitionsAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.delete_property_definition(
             &key,
@@ -73,7 +73,7 @@ async fn delete_property_definition(
     .await
 }
 
-async fn browse_folder() -> HttpResult<Json<BrowseFolderResponse>> {
+async fn browse_folder() -> Result<Json<BrowseFolderResponse>, HttpError> {
     blocking(move || {
         let choice = folder_chooser::choose_folder();
         Ok(Json(BrowseFolderResponse {

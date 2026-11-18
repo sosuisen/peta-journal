@@ -12,7 +12,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 use crate::state::{blocking, SharedState};
 use journal_core::dto::{BacklinkEntryDto, ItemDto, ItemFields, PageDto};
 use journal_core::infrastructure::export::export_service::format_instant;
@@ -93,7 +93,7 @@ fn mcp_error(e: AppError) -> McpError {
 async fn run<T, F>(f: F) -> Result<T, McpError>
 where
     T: Send + 'static,
-    F: FnOnce() -> AppResult<T> + Send + 'static,
+    F: FnOnce() -> Result<T, AppError> + Send + 'static,
 {
     blocking(f).await.map_err(|refusal| mcp_error(refusal.0))
 }

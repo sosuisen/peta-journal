@@ -1,6 +1,6 @@
 //! Several changes of items applied in one transaction, as an undo replays them.
 
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::BatchAnswer;
 use serde_json::{json, Value};
 
@@ -10,7 +10,7 @@ use crate::common::Core;
 
 impl Core {
     /// Applies operations as one batch, the way an undo sends what it replays
-    pub fn batch(&self, ops: Value) -> AppResult<BatchAnswer> {
+    pub fn batch(&self, ops: Value) -> Result<BatchAnswer, AppError> {
         self.core
             .journal
             .apply_batch(input(json!({ "ops": ops })), &by_the_client())
@@ -22,7 +22,7 @@ impl Core {
     }
 }
 
-fn is_bad_request(batch: &AppResult<BatchAnswer>) -> bool {
+fn is_bad_request(batch: &Result<BatchAnswer, AppError>) -> bool {
     matches!(batch, Err(AppError::BadRequest(_)))
 }
 

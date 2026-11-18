@@ -1,7 +1,7 @@
 //! Splitting an item in two at the cursor, as Enter in an editor does, also when the item is
 //! a transclusion or an item a transclusion shows.
 
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::SplitAnswer;
 use serde_json::{json, Value};
 
@@ -12,7 +12,7 @@ use crate::common::Core;
 impl Core {
     /// Splits an item the way Enter in an editor does: with the body and the cursor it has
     /// now
-    fn split(&self, item_id: &str, body: &str, cursor: usize) -> AppResult<SplitAnswer> {
+    fn split(&self, item_id: &str, body: &str, cursor: usize) -> Result<SplitAnswer, AppError> {
         self.split_with(item_id, json!({ "body": body, "cursor": cursor }))
     }
 
@@ -23,14 +23,14 @@ impl Core {
         item_id: &str,
         body: &str,
         cursor: usize,
-    ) -> AppResult<SplitAnswer> {
+    ) -> Result<SplitAnswer, AppError> {
         self.split_with(
             item_id,
             json!({ "body": body, "cursor": cursor, "rootId": root_id }),
         )
     }
 
-    fn split_with(&self, item_id: &str, request: Value) -> AppResult<SplitAnswer> {
+    fn split_with(&self, item_id: &str, request: Value) -> Result<SplitAnswer, AppError> {
         self.core
             .journal
             .split(item_id, input(request), &by_the_client())
@@ -52,7 +52,7 @@ impl Core {
     }
 }
 
-fn is_refused(split: &AppResult<SplitAnswer>) -> bool {
+fn is_refused(split: &Result<SplitAnswer, AppError>) -> bool {
     matches!(split, Err(AppError::BadRequest(_)))
 }
 
