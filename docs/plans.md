@@ -235,9 +235,6 @@
   - やり方は決めていない。変種に`#[serde(skip)]`を付ける案と、内部の変種を別のenumにまとめて1つの変種に入れる案がある
   - 先に確かめること: Cruxに`#[serde(skip)]`の書き方があるか。facetの型の生成が、外した変種を飛ばせるか。bincodeは変種を番号で書くので、外したあとも両側の番号が合うか
   - `shell-leptos`と`shell-emacs`は`Core`を直接呼ぶので、変わらないはずである
-- [ ] ネイティブのシェルの`Shell`にある同じ処理を、Rustの側に寄せる（改善案、2026-11-13）
-  - Rustの側に寄せる分は、2026-11-14に終えた（タイトル、フォーカスの番号、質問の待ち行列、iOSとAndroidの`Shell`の共通部分）
-  - [ ] iOS（`client/apps/native-app/outliner-ios`）とSwiftUI（`client/apps/native-app/stickies-mac`）の間で、Swiftに残った同じコードを寄せる
 - [ ] ページの項目を編集している間も、編集中の項目のほかは、ファイルの変更を画面に出す（2026-11-17に開発者が言った。再検討の余地がある仕様）
   - 今の仕様：`client-core`の`file_reload`は、ページのどれかの項目を編集している間、そのページ全体の読み直しを待たせる（`file_reload_pending`）。読み直すのは、編集が終わってからである
   - 2026-11-17に、Androidの実機で見た。iPhoneで編集したページを、Androidで開いたままSyncした。「Downloading」のあとも、画面は変わらなかった。検索欄にフォーカスを移して編集が終わると、画面に出た
@@ -357,7 +354,7 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
   - 既定のポート8087を、4か所に決め打ちしている（`todo/src/api.ts:36`、`peta-journal.el:29`、`JournalApiService.cs:31`、`emacs/outliner/src/main.rs:4`）。付箋紙の既定のサーバーも、macOSとWindowsに1つずつある
   - 同じ画像ファイルが2つずつある（todoの`images/favicon.ico`と`public/favicon.ico`、ルートの`images/favicon.ico`とWeb版の`public/favicon.ico`、`peta-journal-gray.png`）
 
-まとめないものは、次のとおりである。Emacsの画像リンクの読み取り（Emacsのシェルは、coreに本文をパースさせない）。client-coreの2つの`page_title`（ウィンドウとサイドバーで役目が違う）。サーバーの見出しの決まり（`domain/item_body.rs:41`）は、重複ではなく不具合である。`split_at_char`（`journal-core/src/application/paste.rs`と`client-core/src/util/mod.rs`）は5行で、置く先のクレートがない。コードフェンスを閉じる処理は、どちらもflatmarkdownの`close_blocks`を呼んでいる。RESTを呼んで答えを読む手順（`web-app/.../effects/api.rs`、`client-api-http/src/api.rs`、`client-api-embedded/src/lib.rs`）は各3行で、送り方（`fetch`、同期のHTTP、プロセスの中の呼び出し）が違う。`ClientId`の型は、クライアントがIDを作り、サーバーがIDを検査するので、役目が違う。ヘッダーの名前だけを`journal-api-types`で共有している。
+まとめないものは、次のとおりである。Emacsの画像リンクの読み取り（Emacsのシェルは、coreに本文をパースさせない）。client-coreの2つの`page_title`（ウィンドウとサイドバーで役目が違う）。サーバーの見出しの決まり（`domain/item_body.rs:41`）は、重複ではなく不具合である。`split_at_char`（`journal-core/src/application/paste.rs`と`client-core/src/util/mod.rs`）は5行で、置く先のクレートがない。コードフェンスを閉じる処理は、どちらもflatmarkdownの`close_blocks`を呼んでいる。RESTを呼んで答えを読む手順（`web-app/.../effects/api.rs`、`client-api-http/src/api.rs`、`client-api-embedded/src/lib.rs`）は各3行で、送り方（`fetch`、同期のHTTP、プロセスの中の呼び出し）が違う。`ClientId`の型は、クライアントがIDを作り、サーバーがIDを検査するので、役目が違う。ヘッダーの名前だけを`journal-api-types`で共有している。iOS（`outliner-ios`）とSwiftUI（`stickies-mac`）の間でSwiftに残った同じコードも、まとめない（2026-11-18に開発者が決めた）。まったく同じなのは`Border.swift`の`Listener`と`Shell.swift`の`must`と`Inbox`の約40行で、似ているもの（`Question`、bincodeの出し入れ、カーソルの変換）を足しても約100行である。2つのアプリは`PetaCore`（`client-shell-embedded`と`client-shell-http`）も`PetaTypes`も別々に生成するので、共通のSwiftパッケージには置けず、置くための仕組みのほうが大きくなる。見出しの倍率は、上の「描画の定数をそろえる」でRustに移る。
 
 ## CI
 
