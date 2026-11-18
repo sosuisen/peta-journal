@@ -127,9 +127,10 @@ test.describe('outline content', () => {
     await expect(page).toHaveTitle(title);
   });
 
-  // そのウィキリンクのCtrl+クリックと中ボタンのクリックは、そのページを新しいタブで開く
+  // そのウィキリンクのCtrl+クリック（MacではCmd+クリック）と中ボタンのクリックは、そのページを新しいタブで開く。
+  // MacのCtrl+クリックは右クリックである
   for (const [how, click] of [
-    ['Ctrl+click', { modifiers: ['Control'] }],
+    ['Ctrl+click (Cmd+click on a Mac)', { modifiers: ['ControlOrMeta'] }],
     ['middle click', { button: 'middle' }],
   ] as const) {
     test(`a ${how} on a wiki link to a name with odd characters opens that page in a new tab`, async ({ page, request }) => {
