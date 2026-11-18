@@ -424,8 +424,9 @@ pub enum Event {
         item_id: String,
         body: String,
     },
-    /// The server saved a body and answered with the item.
+    /// The server saved the body `sent` and answered with the item.
     BodySaved {
+        sent: String,
         item: Box<Item>,
     },
     /// The server saved the source of the transclusion root `root_id`.
@@ -1303,7 +1304,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         AutoSaveFired { target, timer_id } => ops::edit::auto_save(model, target, timer_id),
         PendingReloadsDue => ops::file_reload::flush_pending(model),
         BodyShown { item_id, body } => ops::edit::show_body(model, &item_id, body),
-        BodySaved { item } => ops::edit::show_saved_body(model, &item),
+        BodySaved { sent, item } => ops::edit::show_saved_body(model, &sent, &item),
         RootParsed { root_id, source } => ops::edit::show_root_parsed(model, &root_id, *source),
         HandoverEnded => ops::edit::end_handover(model),
         EditorSwitched {
