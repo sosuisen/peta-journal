@@ -5,7 +5,7 @@ use crate::core::CoreHandle;
 use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult};
 use client_core::model::Uploaded;
 use client_core::policy::InOrder;
-use client_core::rest::{rest_call, ClientId, HttpReply, HttpRequest};
+use client_core::rest::{rest_call, routes, ClientId, HttpReply, HttpRequest};
 use crux_core::Request;
 use gloo_net::http::Request as Http;
 use std::cell::RefCell;
@@ -49,7 +49,7 @@ async fn upload(handle: &CoreHandle, file: u64) -> ApiResult<ApiOutput> {
     let form = web_sys::FormData::new().map_err(|_| ApiError("FormData".into()))?;
     form.append_with_blob("file", &file)
         .map_err(|_| ApiError("FormData".into()))?;
-    let resp = Http::post("/api/assets/upload")
+    let resp = Http::post(routes::UPLOAD_ASSET.pattern)
         .header(ClientId::HEADER, handle.inner().client_id.as_str())
         .body(form)
         .map_err(api_err)?

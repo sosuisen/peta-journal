@@ -3,24 +3,23 @@
 use axum::extract::State;
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
-use axum::routing::{get, post};
 use axum::{Form, Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, AppResult, HttpResult};
+use crate::presentation::rest::At;
 use crate::state::{blocking, SharedState};
+use journal_api_types::routes;
 use journal_core::domain::model::Page;
 use journal_core::infrastructure::export::file_sync_state::FileSyncState;
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
-        .route("/api/sync/status", get(status))
-        .route("/api/sync/scan", post(scan))
-        .route(
-            "/api/sync/pending-deletes",
-            get(pending_page).post(pending_submit),
-        )
+        .at(routes::SYNC_STATUS, status)
+        .at(routes::SCAN_FOLDER, scan)
+        .at(routes::PENDING_DELETES, pending_page)
+        .at(routes::SUBMIT_PENDING_DELETES, pending_submit)
 }
 
 #[derive(Serialize)]

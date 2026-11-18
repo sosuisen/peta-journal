@@ -1,34 +1,32 @@
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use serde::Deserialize;
 
 use crate::error::{parse_id, AppError, HttpResult};
 use crate::infrastructure::launcher;
 use crate::presentation::client_id::ClientId;
+use crate::presentation::rest::At;
 use crate::state::{blocking, SharedState};
+use journal_api_types::routes;
 use journal_api_types::{DemotePageInput, GetOrCreateDocInput, PropertyInput, UpdatePageInput};
 use journal_core::dto::ItemFields;
 use journal_core::journal::{BacklinksAnswer, ChangedBy, DocAnswer, PageAnswer, PagesAnswer};
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
-        .route("/api/pages/doc", post(get_or_create_doc))
-        .route("/api/pages/recent", get(get_recent))
-        .route(
-            "/api/pages/{id}",
-            get(get_page).put(update_page).delete(delete_page),
-        )
-        .route("/api/pages/{id}/backlinks", get(get_backlinks))
-        .route("/api/pages/{id}/demote", post(demote_page))
-        .route("/api/pages/{id}/children", get(get_children))
-        .route("/api/pages/{id}/open-folder", post(open_export_folder))
-        .route(
-            "/api/pages/{id}/properties/{key}",
-            axum::routing::put(upsert_property).delete(delete_property),
-        )
+        .at(routes::GET_OR_CREATE_DOC, get_or_create_doc)
+        .at(routes::RECENT_PAGES, get_recent)
+        .at(routes::GET_PAGE, get_page)
+        .at(routes::UPDATE_PAGE, update_page)
+        .at(routes::DELETE_PAGE, delete_page)
+        .at(routes::BACKLINKS, get_backlinks)
+        .at(routes::DEMOTE_PAGE, demote_page)
+        .at(routes::CHILD_PAGES, get_children)
+        .at(routes::OPEN_EXPORT_FOLDER, open_export_folder)
+        .at(routes::UPSERT_PAGE_PROPERTY, upsert_property)
+        .at(routes::DELETE_PAGE_PROPERTY, delete_property)
 }
 
 #[derive(Deserialize, Default)]

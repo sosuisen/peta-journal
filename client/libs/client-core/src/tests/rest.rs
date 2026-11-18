@@ -45,115 +45,23 @@ fn atlas(change: AtlasChange) -> ApiOp {
     }
 }
 
-// 各操作は、サーバーの決まった場所へ届く。
+// 読み取りの問いは、サーバーが読む名前で、パスの後ろに付く。操作の場所そのものは、サーバーと同じ表（journal-api-typesのroutes）から取るので、ここでは確かめない。
 #[test]
-fn every_operation_goes_to_its_endpoint() {
-    let property = || (id("k"), id("text"), id("v"));
-    let (key, value_type, value) = property();
-    let cases: Vec<(ApiOp, &str, &str)> = vec![
-        (
-            ApiOp::GetPageById { page_id: id("p") },
-            "GET",
-            "/api/pages/p",
-        ),
+fn a_question_goes_after_the_path_under_the_names_the_server_reads() {
+    let cases = [
         (
             ApiOp::GetMostRecentJournalBefore { before: id("d") },
-            "GET",
             "/api/journals/before?date=d",
         ),
         (
             ApiOp::GetMostRecentWeeklyJournalBefore { before: id("w") },
-            "GET",
             "/api/journals/weekly/before?week=w",
-        ),
-        (
-            ApiOp::GetOrCreateJournal {
-                file_name: id("2026-11-06"),
-            },
-            "POST",
-            "/api/journals/2026-11-06",
-        ),
-        (
-            ApiOp::GetOrCreateDoc {
-                title: id("t"),
-                dir_path: id("d/"),
-            },
-            "POST",
-            "/api/pages/doc",
-        ),
-        (
-            ApiOp::ShiftItemLevels {
-                item_ids: vec![],
-                delta: 1,
-            },
-            "POST",
-            "/api/items/shift-level",
-        ),
-        (
-            ApiOp::MoveItems {
-                item_ids: vec![],
-                target_page_id: id("p"),
-                position: ItemPosition::Last,
-                level_delta: None,
-                body: None,
-            },
-            "POST",
-            "/api/items/move",
-        ),
-        (
-            ApiOp::DeletePage { page_id: id("p") },
-            "DELETE",
-            "/api/pages/p",
-        ),
-        (
-            ApiOp::DeleteItems { item_ids: vec![] },
-            "POST",
-            "/api/items/delete",
-        ),
-        (
-            ApiOp::MergeItems {
-                item_id: id("b"),
-                into_id: id("a"),
-                body: None,
-                into_body: None,
-            },
-            "POST",
-            "/api/items/merge",
-        ),
-        (
-            ApiOp::ApplyBatch { ops: vec![] },
-            "POST",
-            "/api/items/batch",
-        ),
-        (
-            ApiOp::CycleTask { item_id: id("a") },
-            "POST",
-            "/api/items/a/cycle-task",
-        ),
-        (
-            ApiOp::UpsertItemProperty {
-                item_id: id("a"),
-                key: key.clone(),
-                value_type: value_type.clone(),
-                value: value.clone(),
-            },
-            "PUT",
-            "/api/items/a/properties/k",
-        ),
-        (
-            ApiOp::DeleteItemProperty {
-                item_id: id("a"),
-                key: key.clone(),
-            },
-            "DELETE",
-            "/api/items/a/properties/k",
         ),
         (
             ApiOp::SearchCombined {
                 query: id("q"),
                 max_results: 5,
             },
-            "GET",
             "/api/search/combined?q=q&maxResults=5",
         ),
         (
@@ -161,7 +69,6 @@ fn every_operation_goes_to_its_endpoint() {
                 query: id("q"),
                 max_results: 5,
             },
-            "GET",
             "/api/search/pages?q=q&maxResults=5",
         ),
         (
@@ -169,7 +76,6 @@ fn every_operation_goes_to_its_endpoint() {
                 max_results: 5,
                 page_type: None,
             },
-            "GET",
             "/api/pages/recent?maxResults=5",
         ),
         (
@@ -177,133 +83,14 @@ fn every_operation_goes_to_its_endpoint() {
                 max_results: 5,
                 page_type: Some(id("doc")),
             },
-            "GET",
             "/api/pages/recent?maxResults=5&type=doc",
         ),
-        (
-            ApiOp::UpdatePage {
-                page_id: id("p"),
-                title: None,
-                dir_path: None,
-                overwrite: false,
-            },
-            "PUT",
-            "/api/pages/p",
-        ),
-        (
-            ApiOp::DemotePage {
-                page_id: id("p"),
-                overwrite: false,
-            },
-            "POST",
-            "/api/pages/p/demote",
-        ),
-        (
-            ApiOp::UpsertPageProperty {
-                page_id: id("p"),
-                key: key.clone(),
-                value_type: value_type.clone(),
-                value,
-            },
-            "PUT",
-            "/api/pages/p/properties/k",
-        ),
-        (
-            ApiOp::DeletePageProperty {
-                page_id: id("p"),
-                key: key.clone(),
-            },
-            "DELETE",
-            "/api/pages/p/properties/k",
-        ),
-        (ApiOp::GetConfig, "GET", "/api/config"),
-        (
-            ApiOp::GetPropertyDefinitions,
-            "GET",
-            "/api/config/property-definitions",
-        ),
-        (
-            ApiOp::AddPropertyDefinition {
-                key: key.clone(),
-                value_type,
-            },
-            "POST",
-            "/api/config/property-definitions",
-        ),
-        (
-            ApiOp::DeletePropertyDefinition { key },
-            "DELETE",
-            "/api/config/property-definitions/k",
-        ),
-        (
-            ApiOp::UpdateConfig {
-                markdown_dir: None,
-                week_numbering: None,
-                logical_outdent: None,
-                tags_dir: None,
-                home_link: None,
-            },
-            "PUT",
-            "/api/config",
-        ),
-        (ApiOp::BrowseFolder, "POST", "/api/config/browse-folder"),
-        (
-            ApiOp::ExportTreeMarkdown { item_ids: vec![] },
-            "POST",
-            "/api/items/export",
-        ),
-        (
-            ApiOp::TranscludedItems { item_ids: vec![] },
-            "POST",
-            "/api/items/transcluded",
-        ),
-        (
-            ApiOp::SetTransclusion {
-                item_id: id("a"),
-                source_item_id: id("b"),
-            },
-            "POST",
-            "/api/items/a/transclude",
-        ),
-        (
-            ApiOp::RemoveTransclusion { item_id: id("a") },
-            "DELETE",
-            "/api/items/a/transclude",
-        ),
-        (
-            ApiOp::AnswerConfirm {
-                request_id: id("confirm-1"),
-                ok: true,
-            },
-            "POST",
-            "/api/confirm/confirm-1",
-        ),
-        (
-            ApiOp::GetChildPages { parent_id: id("p") },
-            "GET",
-            "/api/pages/p/children",
-        ),
-        (
-            ApiOp::GetBacklinks { page_id: id("p") },
-            "GET",
-            "/api/pages/p/backlinks",
-        ),
-        (
-            ApiOp::LaunchUrl { url: id("x://y") },
-            "POST",
-            "/api/launcher/open",
-        ),
-        (
-            ApiOp::OpenExportFolder { page_id: id("p") },
-            "POST",
-            "/api/pages/p/open-folder",
-        ),
     ];
-    for (op, method, path) in cases {
+    for (op, path) in cases {
         let request = call(op.clone()).request;
         assert_eq!(
             (request.method, request.path.as_str()),
-            (method, path),
+            ("GET", path),
             "{op:?}"
         );
     }

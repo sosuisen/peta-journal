@@ -2,16 +2,17 @@
 
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::post;
 use axum::{Json, Router};
+use journal_api_types::routes;
 use journal_api_types::LaunchUrlInput;
 use serde::Serialize;
 
 use crate::infrastructure::launcher;
+use crate::presentation::rest::At;
 use crate::state::SharedState;
 
 pub fn routes() -> Router<SharedState> {
-    Router::new().route("/api/launcher/open", post(launch))
+    Router::new().at(routes::LAUNCH_URL, launch)
 }
 
 #[derive(Serialize)]
