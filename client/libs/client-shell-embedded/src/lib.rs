@@ -289,9 +289,14 @@ impl PetaCore {
     /// Opens the URL, and keeps it as the last screen when it opened.
     fn opened(&self, url: &str) -> Result<(), String> {
         self.shell.open(url).map_err(|_| page_of(url))?;
+        self.keep_last(url);
+        Ok(())
+    }
+
+    /// Keeps the URL as the screen to open at the next start.
+    fn keep_last(&self, url: &str) {
         // Not an error: the app opens the journal of today next time instead
         let _ = std::fs::write(&self.last, url);
-        Ok(())
     }
 
     /// True when the route shows without a new page. The core makes the page of a route

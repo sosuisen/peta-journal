@@ -88,6 +88,7 @@ impl PetaCore {
     pub fn back(&self) -> PetaScreen {
         self.turned();
         self.shell.back();
+        self.keep_what_is_on_screen();
         self.screen()
     }
 
@@ -95,6 +96,7 @@ impl PetaCore {
     pub fn forward(&self) -> PetaScreen {
         self.turned();
         self.shell.forward();
+        self.keep_what_is_on_screen();
         self.screen()
     }
 
@@ -136,6 +138,14 @@ impl PetaCore {
             screen.unopened = false;
         }
         screen.clone()
+    }
+
+    /// Keeps the URL on screen as the last screen, for the next start. The shell does not know
+    /// it after back and forward: the core opened it from its history.
+    fn keep_what_is_on_screen(&self) {
+        if let Some(url) = self.shell.url() {
+            self.keep_last(&url);
+        }
     }
 
     /// The pages of the history opened before, so what the last one told is gone.
