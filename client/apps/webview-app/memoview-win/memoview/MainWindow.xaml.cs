@@ -25,6 +25,7 @@ public sealed partial class MainWindow : Window
     private bool _isDeactivated;
     private bool _closedByUser;
     private List<ItemModel> _currentItems = new();
+    private LinkTemplates? _links;
     private readonly HashSet<string> _collapsedItemIds = new();
 
     public string WindowId => _windowSettings.Id;
@@ -262,6 +263,7 @@ public sealed partial class MainWindow : Window
                 return;
 
             _currentItems = response.Items.ToList();
+            _links = await _api.GetLinkTemplatesAsync();
 
             // Initialize collapsed state from server data
             _collapsedItemIds.Clear();
@@ -336,30 +338,9 @@ public sealed partial class MainWindow : Window
                     _collapsedItemIds.Add(toggled.ItemId);
                 ContentWebView.NavigateToString(BuildHtml());
                 break;
-            case WebMessage.WikilinkClicked wikilink:
-                _ = Windows.System.Launcher.LaunchUriAsync(
-                    PageLinks.ForWikilink(_api.BaseUrl, wikilink.PageName)
-                );
+            case WebMessage.PageLinkClicked link:
+                _ = Windows.System.Launcher.LaunchUriAsync(link.Url);
                 break;
-            case WebMessage.HashtagClicked hashtag:
-                _ = OpenTagPageAsync(hashtag.Tag);
-                break;
-        }
-    }
-
-    private async Task OpenTagPageAsync(string tag)
-    {
-        try
-        {
-            // The folder of the tag pages is asked each time, because the user can change it.
-            var tagsDir = await _api.GetTagsDirAsync();
-            await Windows.System.Launcher.LaunchUriAsync(
-                PageLinks.ForHashtag(_api.BaseUrl, tagsDir, tag)
-            );
-        }
-        catch
-        {
-            // The server did not answer. The note stays as it is.
         }
     }
 
@@ -373,7 +354,7 @@ public sealed partial class MainWindow : Window
         return PageHtml.ForItems(
             OutlineHtml.Build(_currentItems, _collapsedItemIds),
             look,
-            PageLinks.PagesUrl(_api.BaseUrl),
+            _links!,
             EmbeddedPageAssets.Value
         );
     }

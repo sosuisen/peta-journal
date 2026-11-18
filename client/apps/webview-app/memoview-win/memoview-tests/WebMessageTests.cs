@@ -27,10 +27,14 @@ public class WebMessageTests
     [Fact]
     public void A_click_on_a_link_to_a_page_is_a_message_with_its_url()
     {
-        var message = WebMessage.Parse("""{"openPage":"http://localhost:8087/pages/C%23#20260426035700_QZ998PX"}""");
+        var message = WebMessage.Parse(
+            """{"openPage":"http://localhost:8087/pages/C%23#20260426035700_QZ998PX"}"""
+        );
 
         Assert.Equal(
-            new WebMessage.PageLinkClicked(new Uri("http://localhost:8087/pages/C%23#20260426035700_QZ998PX")),
+            new WebMessage.PageLinkClicked(
+                new Uri("http://localhost:8087/pages/C%23#20260426035700_QZ998PX")
+            ),
             message
         );
     }

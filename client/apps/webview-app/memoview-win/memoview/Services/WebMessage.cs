@@ -16,11 +16,8 @@ internal abstract record WebMessage
     /// <summary>The user clicked the collapse arrow of an item.</summary>
     internal sealed record CollapseToggled(string ItemId) : WebMessage;
 
-    /// <summary>The user clicked a wikilink.</summary>
-    internal sealed record WikilinkClicked(string PageName) : WebMessage;
-
-    /// <summary>The user clicked a hashtag. The tag has no hash sign.</summary>
-    internal sealed record HashtagClicked(string Tag) : WebMessage;
+    /// <summary>The user clicked a wikilink or a hashtag, which leads to this page of the web app.</summary>
+    internal sealed record PageLinkClicked(Uri Url) : WebMessage;
 
     /// <summary>
     /// Reads a message of the page script.
@@ -48,16 +45,23 @@ internal abstract record WebMessage
             }
             if (Text(root, "toggleCollapse") is { } itemId)
                 return new CollapseToggled(itemId);
-            if (Text(root, "openWikilink") is { } pageName)
-                return new WikilinkClicked(pageName);
-            if (Text(root, "openHashtag") is { } tag)
-                return new HashtagClicked(tag);
+            if (Text(root, "openPage") is { } page)
+                return WebAddress(page) is { } url ? new PageLinkClicked(url) : null;
             return null;
         }
         catch (JsonException)
         {
             return null;
         }
+    }
+
+    // The address of a web page, or null for any other text. The app opens it with the OS, which
+    // would also run a program for an address of a file.
+    private static Uri? WebAddress(string text)
+    {
+        if (!Uri.TryCreate(text, UriKind.Absolute, out var url))
+            return null;
+        return url.Scheme == Uri.UriSchemeHttp || url.Scheme == Uri.UriSchemeHttps ? url : null;
     }
 
     // The text of a property, or null when the property is missing, not a text, or empty.
