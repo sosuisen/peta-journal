@@ -236,8 +236,6 @@ public final class Shell: ObservableObject {
             ask(Question(id: id, message: message, kind: .confirmDestructive))
         // No prompt is shown. The core asks one only for a new page without a name, and this
         // app has no way to make one: its search box makes a page with the typed name
-        case .copyText(let text):
-            copy(text, nil)
         case .copyMarkdown(let markdown, let ast):
             // The HTML is for other apps (ADR 027). Its links to pages open the web frontend,
             // as those of a copy made there: this app has no address that another app opens
