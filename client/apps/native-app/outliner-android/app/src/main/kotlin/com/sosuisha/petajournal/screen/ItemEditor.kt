@@ -1,8 +1,14 @@
 package com.sosuisha.petajournal.screen
 
+import android.content.ClipboardManager
+import android.content.Context
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputConnectionWrapper
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.contextmenu.builder.item
+import androidx.compose.foundation.text.contextmenu.data.TextContextMenuKeys
+import androidx.compose.foundation.text.contextmenu.modifier.appendTextContextMenuComponents
+import androidx.compose.foundation.text.contextmenu.modifier.filterTextContextMenuComponents
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -16,6 +22,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -23,9 +31,12 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.InterceptPlatformTextInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.PlatformTextInputInterceptor
 import androidx.compose.ui.platform.PlatformTextInputMethodRequest
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.pasteText
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
@@ -84,6 +95,24 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
         onDispose { if (caret.move === move) caret.move = null }
     }
     val joinsAtStart = { field.selection == TextRange.Zero && field.composition == null }
+    val clipboard = LocalContext.current.let { context ->
+        remember(context) { Clipboard(context) }
+    }
+    // The core pastes, so that a list becomes items and what the app copied comes back as the
+    // same items. Chosen text gives way to the pasted text in the field, as in any field
+    val paste = paste@{
+        val text = clipboard.text() ?: return@paste
+        val chosen = field.selection
+        if (chosen.collapsed) {
+            // A word that the keyboard composes ends here, and the core has not heard of it yet
+            if (field.composition != null) shell.type(id, field.text)
+            shell.paste(id, text, chosen.start)
+        } else {
+            val typed = field.text.replaceRange(chosen.min, chosen.max, text)
+            field = TextFieldValue(typed, TextRange(chosen.min + text.length))
+            shell.type(id, typed, chosen.min + text.length)
+        }
+    }
     // The keyboard on the screen sends no key for Backspace. It asks the field to delete the
     // character before the cursor. At the start there is none: the field changes nothing and
     // tells of nothing. So the screen stands between the keyboard and the field, and hears it
@@ -126,6 +155,28 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
                     if (joins && pressed.type == KeyEventType.KeyDown) shell.press(EditorKey.BACKSPACE, id, cursorAt(0, field.text))
                     joins
                 }
+                // Ctrl+V of a keyboard with real keys, Paste of the menu of the text, and the
+                // paste of a service of accessibility all paste through the core
+                .onPreviewKeyEvent { pressed ->
+                    val ctrlV = pressed.key == Key.V && pressed.isCtrlPressed && !pressed.isShiftPressed
+                    if (ctrlV && pressed.type == KeyEventType.KeyDown) paste()
+                    ctrlV
+                }
+                .filterTextContextMenuComponents { it.key != TextContextMenuKeys.PasteKey }
+                .appendTextContextMenuComponents {
+                    if (clipboard.hasText()) {
+                        item(TextContextMenuKeys.PasteKey, label = clipboard.pasteLabel) {
+                            paste()
+                            close()
+                        }
+                    }
+                }
+                .semantics {
+                    pasteText {
+                        paste()
+                        true
+                    }
+                }
                 .focusRequester(focus)
                 .onFocusChanged {
                     if (focused && !it.isFocused) shell.finish(id)
@@ -157,6 +208,19 @@ private class BackspaceAtStart(
         if (backspace) join()
         return backspace
     }
+}
+
+/** The clipboard of the system, as the field pastes from it. */
+private class Clipboard(private val context: Context) {
+    private val manager = context.getSystemService(ClipboardManager::class.java)
+
+    /** The word of the system for Paste, as the menu of any field shows it. */
+    val pasteLabel: String = context.getString(android.R.string.paste)
+
+    /** Whether there is something to paste. It does not read the clipboard, which the system tells the user of. */
+    fun hasText(): Boolean = manager.hasPrimaryClip()
+
+    fun text(): String? = manager.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
 }
 
 /**

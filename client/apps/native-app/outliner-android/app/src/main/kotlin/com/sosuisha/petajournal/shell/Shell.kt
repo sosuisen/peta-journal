@@ -175,6 +175,18 @@ class Shell(
         return true
     }
 
+    /**
+     * The user pasted [text] into the edited item, with the cursor [cursor] UTF-16 units into
+     * its Markdown. The core cuts the text into items (ADR 011): its first line goes on after
+     * the cursor, and each line after it is an item below. What the app copied comes back as
+     * the same items.
+     */
+    fun paste(itemId: String, text: String, cursor: Int) {
+        val body = view.outline.rows.firstOrNull { it.item.id == itemId }?.item?.body.orEmpty()
+        val place = body.codePointCount(0, cursor.coerceIn(0, body.length))
+        send(Event.PasteText(itemId, text, "", place.toULong(), false))
+    }
+
     /** The user left the editor of the item: what was typed is saved. */
     fun finish(itemId: String) = send(Event.EditFinished(itemId))
 
