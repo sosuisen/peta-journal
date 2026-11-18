@@ -226,7 +226,10 @@ impl<H: Host> Shell<H> {
                 });
                 self.open(url);
             }
-            Inbound::StartAtPage { .. } => {}
+            // The name is made a URL here, so that Emacs does not need the rule of encoding
+            Inbound::StartAtPage { path } => self.on_emacs(Inbound::Start {
+                url: page_urls::page_url(&path),
+            }),
             Inbound::Go { url } => self.open(url),
             Inbound::Back => {
                 let today = self.today();

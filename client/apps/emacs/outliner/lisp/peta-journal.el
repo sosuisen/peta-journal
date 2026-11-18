@@ -2382,8 +2382,10 @@ A journal then loads the older days."
                           '("release" "debug"))))
       (user-error "Cannot find outliner-emacs: build it or set `peta-journal-shell-program'")))
 
-(defun peta-journal--start-shell (url)
-  "Start the shell of the current buffer, and open URL in it."
+(defun peta-journal--start-shell (url &optional path)
+  "Start the shell of the current buffer, and open URL in it.
+With PATH, open the page of that name instead.  The shell makes its URL, so the
+rule of encoding a name stays in one place."
   (let ((buffer (current-buffer)))
     (setq peta-journal--seq 0
           peta-journal--ack 0
@@ -2412,7 +2414,9 @@ A journal then loads the older days."
       (setq peta-journal--idle-timer
             (run-with-idle-timer peta-journal-idle-finish-seconds t #'peta-journal--idle)))
     (add-hook 'kill-emacs-hook #'peta-journal--stop-all)
-    (peta-journal--send "start" :url url)))
+    (if path
+        (peta-journal--send "start_at_page" :path path)
+      (peta-journal--send "start" :url url))))
 
 (defun peta-journal--ensure-started ()
   "Start the shell and the buffer of the page, unless they are there.
@@ -2456,7 +2460,7 @@ to that buffer: edits of one item in two buffers could overwrite each other."
   (let ((buffer (generate-new-buffer "*PetaJournal*")))
     (with-current-buffer buffer
       (peta-journal-mode)
-      (peta-journal--start-shell (concat "/pages/" path))
+      (peta-journal--start-shell nil path)
       ;; No warning about a page shown twice: this command goes on to the other buffer
       (let ((inhibit-message t))
         (peta-journal--wait-for-page)))
