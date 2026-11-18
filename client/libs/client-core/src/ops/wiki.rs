@@ -5,7 +5,7 @@
 use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model, WikiLinkContext};
 use crate::effects::TimerOutput;
 use crate::ops::edit::record_typing;
-use crate::screens::navigate::open_page;
+use crate::screens::navigate::{open_page, to_page};
 use crate::util::{char_len, link_at, Link};
 use crux_core::Command;
 
@@ -19,8 +19,11 @@ pub fn open_link_at(model: &Model, item_id: &str, cursor: usize) -> Cmd {
         .get_item_by_id(item_id)
         .and_then(|item| link_at(&item.body, cursor));
     match link {
-        Some(Link::Wiki(name)) => open_page(&name),
-        Some(Link::Tag(tag)) => open_page(&format!("{}{tag}", model.config.tags_dir)),
+        Some(Link::Wiki(content)) => match page_urls::split_wikilink(&content) {
+            (name, None) => open_page(name),
+            (name, item) => to_page(name, false, false, false, item),
+        },
+        Some(Link::Tag(tag)) => open_page(&page_urls::tag_page_name(&model.config.tags_dir, &tag)),
         None => done(),
     }
 }

@@ -9,6 +9,8 @@ description = "PetaJournal frontends: where a link to a page of the app leads, a
 flatmarkdown-ast = { workspace = true }
 flatmarkdown-ast2html = { workspace = true }
 percent-encoding = "2.3.2"
+# The URLs of the pages, as the journal makes them (ADR 061)
+page-urls = { path = "../../../journal/page-urls" }
 
 [dev-dependencies]
 # The parser, to make the AST of a test from Markdown, as the journal server makes it

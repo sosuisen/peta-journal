@@ -891,9 +891,9 @@ dependencies = [
 
 [[package]]
 name = "flatmarkdown"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7669e0b4b43a37b536ed00fd3d6b6416f859332fbe157f963acf10ff70317cd4"
+checksum = "ae4ea8ad6e0aff5fcaebd69d045fc6313cee11f0d37ed47cbe9261bf23d76849"
 dependencies = [
  "comrak",
  "flatmarkdown-ast",
@@ -902,12 +902,22 @@ dependencies = [
 
 [[package]]
 name = "flatmarkdown-ast"
-version = "0.8.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1771154c2541ccb4a5b8b5a4fc63d6bf229bd2bacfa273584530b9f421867a83"
+checksum = "c0ec0bb8258ffc964554e5558fafb2edc862da9b7d698bd7ea48f5522ba4d013"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "flatmarkdown-ast2html"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f8faf62d80ed749e445f0b668a440117e73a3b2bd7afeb305bda497e87f5b21"
+dependencies = [
+ "flatmarkdown-ast",
+ "regex-lite",
 ]
 
 [[package]]
@@ -1604,6 +1614,7 @@ dependencies = [
  "lindera-analysis",
  "lindera-tantivy",
  "page-names",
+ "page-urls",
  "parking_lot",
  "peta-atlas",
  "property-names",
@@ -2206,6 +2217,16 @@ name = "page-names"
 version = "1.0.0"
 
 [[package]]
+name = "page-urls"
+version = "1.0.0"
+dependencies = [
+ "flatmarkdown-ast",
+ "flatmarkdown-ast2html",
+ "hmtid",
+ "proptest",
+]
+
+[[package]]
 name = "parking_lot"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2661,6 +2682,12 @@ dependencies = [
  "memchr",
  "regex-syntax",
 ]
+
+[[package]]
+name = "regex-lite"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cab834c73d247e67f4fae452806d17d3c7501756d98c8808d7c9c7aa7d18f973"
 
 [[package]]
 name = "regex-syntax"

@@ -21,14 +21,12 @@ pub fn to_page(
     }
 }
 
-/// The URL of a page by its path, with the item to go to after a `#`.
+/// The URL of a page by its path, with the item to go to after a `#`, encoded.
 pub fn page_url(path: &str, fragment: Option<&str>) -> String {
-    let mut url = format!("/pages/{path}");
-    if let Some(fragment) = fragment {
-        url.push('#');
-        url.push_str(fragment);
+    match fragment {
+        Some(item) => page_urls::item_url(path, item),
+        None => page_urls::page_url(path),
     }
-    url
 }
 
 /// Opens a page in this tab.

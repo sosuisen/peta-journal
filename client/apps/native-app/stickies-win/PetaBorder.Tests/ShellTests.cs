@@ -859,7 +859,7 @@ public sealed class ShellTests : IDisposable
     /// </summary>
     private void JournalOfADayLongAgo()
     {
-        var old = NewShell("/journals/2020-01-02");
+        var old = NewShell("/pages/2020-01-02");
         main.WaitUntil("the old journal is shown", () => old.View.Outline.Rows.Count > 0);
         var pageId = Journal(old)!.PageId;
         var item = old.View.Outline.Rows[0].Item.Id;
@@ -886,7 +886,7 @@ public sealed class ShellTests : IDisposable
     [Fact]
     public void The_title_of_the_journal_of_another_day_is_its_date_alone()
     {
-        var shell = NewShell("/journals/2020-01-02");
+        var shell = NewShell("/pages/2020-01-02");
         main.WaitUntil("the journal is shown", () => shell.View.Outline.Rows.Count > 0);
 
         Assert.Equal("2020年1月2日 木曜日", shell.Title);

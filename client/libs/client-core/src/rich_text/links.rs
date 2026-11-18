@@ -6,17 +6,19 @@ use percent_encoding::percent_decode_str;
 /// The folder of the files of the pages, such as images, under the Markdown folder.
 const ASSETS: &str = "assets/";
 
-/// The page of a wikilink, which names the page and maybe an item of it (`notes#item`).
-pub(super) fn page(page: &str) -> RichLink {
-    RichLink::Page {
-        url: format!("/pages/{page}"),
-    }
+/// The page of a wikilink, which names the page and maybe an item of it (`notes#<item id>`).
+pub(super) fn page(content: &str) -> RichLink {
+    let url = match page_urls::split_wikilink(content) {
+        (name, Some(item)) => page_urls::item_url(name, item),
+        (name, None) => page_urls::page_url(name),
+    };
+    RichLink::Page { url }
 }
 
 /// The page of a tag, without its `#`. A tag page lies under the folder of the tags.
 pub(super) fn tag(tags_dir: &str, tag: &str) -> RichLink {
     RichLink::Page {
-        url: format!("/pages/{tags_dir}{tag}"),
+        url: page_urls::page_url(&page_urls::tag_page_name(tags_dir, tag)),
     }
 }
 
@@ -39,17 +41,20 @@ pub(super) fn target(address: &str) -> Option<RichLink> {
         Some((place, fragment)) => (place, Some(fragment)),
         None => (address, None),
     };
-    let place = place.split('?').next().unwrap_or(place);
-    let path = decoded(&resolved(place));
-    if path.starts_with("/pages/") {
-        let fragment = fragment
-            .map(|f| format!("#{}", decoded(f)))
-            .unwrap_or_default();
-        return Some(RichLink::Page {
-            url: format!("{path}{fragment}"),
-        });
+    let place = resolved(place.split('?').next().unwrap_or(place));
+    let whole = match fragment {
+        Some(fragment) => format!("{place}#{fragment}"),
+        None => place.clone(),
+    };
+    // The URL is made again, so that a link written without encoding gets the same URL
+    if let Some(address) = page_urls::read_url(&whole) {
+        let url = match address.item {
+            Some(item) => page_urls::item_url(&address.name, &item),
+            None => page_urls::page_url(&address.name),
+        };
+        return Some(RichLink::Page { url });
     }
-    asset_path(&path).map(|path| RichLink::File { path })
+    asset_path(&decoded(&place)).map(|path| RichLink::File { path })
 }
 
 /// The path under the Markdown folder of the file that the address names, when the file is in

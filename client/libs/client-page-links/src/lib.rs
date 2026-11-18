@@ -8,4 +8,4 @@ mod copied_html;
 mod links;
 
 pub use copied_html::copied_html;
-pub use links::{hashtag_path, wikilink_path, AppLinks};
+pub use links::AppLinks;

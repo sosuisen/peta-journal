@@ -539,6 +539,21 @@ fn the_page_that_was_not_there_is_made_when_the_user_asks_for_it() {
     });
 }
 
+// 符号化したURLのページがなければ、画面は復号したページ名を伝え、頼むとその名前のページができる。
+#[test]
+fn a_page_of_an_encoded_url_is_named_and_made_by_its_decoded_name() {
+    let app = App::new();
+    let core = app.open(Arc::default());
+
+    let screen = core.follow("/pages/C%23%20notes#20260426035700_QZ998PX".into());
+    assert_eq!(screen.missing, Some("C# notes".into()));
+    assert_eq!(core.make(), opened());
+
+    wait_until("the page is made", || {
+        page_names(&core).contains(&"C# notes".to_string())
+    });
+}
+
 // ないと伝えたページがなければ、作るように頼んでも、何も起きない。
 #[test]
 fn nothing_is_made_when_no_page_was_missing() {

@@ -89,7 +89,7 @@ pub enum JournalNav {
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum Route {
-    /// `/pages/<name>`, `/docs/<name>`, `/journals/<name>` or `/today` (name `today`).
+    /// `/pages/<name>` or `/today` (name `today`).
     Page {
         name: String,
         fragment: Option<String>,
@@ -98,34 +98,31 @@ pub enum Route {
 }
 
 impl Route {
-    /// The route of a URL. `path` and `fragment` are already decoded, as only the shell knows how
-    /// its URLs are encoded. None when the path names nothing.
-    pub fn parse(path: &str, fragment: Option<&str>) -> Option<Route> {
-        let path = path.trim_start_matches('/');
-        if path == "settings" {
-            return Some(Route::Settings);
+    /// The route of a URL, with the item to go to after a `#`. The URL is read as `page-urls`
+    /// reads it: encoded, as the core makes it and as a browser keeps it. A shell passes it
+    /// without decoding it. None when the URL names nothing.
+    pub fn parse_url(url: &str) -> Option<Route> {
+        match url {
+            "/settings" => return Some(Route::Settings),
+            "/today" => return Some(today()),
+            _ => {}
         }
-        if path.is_empty() {
-            return None;
+        let address = page_urls::read_url(url)?;
+        if address.name.is_empty() {
+            return Some(today());
         }
-        let name = ["pages/", "docs/", "journals/"]
-            .iter()
-            .find_map(|prefix| path.strip_prefix(prefix))
-            .map_or(path, |rest| rest.trim_end_matches('/'));
         Some(Route::Page {
-            name: if name.is_empty() { "today" } else { name }.to_string(),
-            fragment: fragment.filter(|f| !f.is_empty()).map(str::to_string),
+            name: address.name,
+            fragment: address.item,
         })
     }
+}
 
-    /// The route of a URL that is not encoded, with the item to go to after a `#`. The URLs of
-    /// the core's own navigation are like this. A shell with encoded URLs decodes them itself
-    /// and calls [`Route::parse`].
-    pub fn parse_url(url: &str) -> Option<Route> {
-        match url.split_once('#') {
-            Some((path, fragment)) => Route::parse(path, Some(fragment)),
-            None => Route::parse(url, None),
-        }
+/// The page of today, which `/today` and `/pages/` open.
+fn today() -> Route {
+    Route::Page {
+        name: "today".to_string(),
+        fragment: None,
     }
 }
 

@@ -33,11 +33,11 @@ final class RichTextTests: JournalTestCase {
         XCTAssertEqual(paragraphs.flatMap(\.runs).compactMap(\.link), [.page(url: "/pages/\(tagsDir)topic")])
     }
 
-    // リンクは、URLにしてから戻しても、同じ行き先になる。ページの中の項目への印と空白も残る。
+    // リンクは、URLにしてから戻しても、同じ行き先になる。ページの中の項目への印と、符号化した文字も残る。
     func testALinkIsTheSameAfterItIsMadeAURLAndBack() {
         let links: [RichLink] = [
             .web(url: "https://example.com/a?b=c#d"),
-            .page(url: "/pages/other page#2020-01-01-00-00-00-AAAAAAA"),
+            .page(url: "/pages/other%20page#2020-01-01-00-00-00-AAAAAAA"),
             .file(path: "assets/Report 1.pdf"),
         ]
         for link in links {

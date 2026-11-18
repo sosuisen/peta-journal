@@ -199,7 +199,7 @@ fn the_entries_below_open_today_open_what_they_show_and_the_arrow_keys_pass_open
     // Open Today, Today I learned, create "today", Diary: four entries
     searched(&mut h, "today", hits());
     h.send(Event::SearchResultClicked { position: 1 });
-    assert_eq!(urls(&h), ["/pages/Today I learned"]);
+    assert_eq!(urls(&h), ["/pages/Today%20I%20learned"]);
 
     searched(&mut h, "today", hits());
     key(&mut h, SearchKey::Up);

@@ -11,7 +11,7 @@ import {
   type ConnectionState,
   clientId,
   cycleTask,
-  getTagsDir,
+  getLinkConfig,
   getTasks,
   serverUrl,
   serverUrlFrom,
@@ -224,17 +224,26 @@ describe('the requests to the journal server', () => {
 
     const url = new URL(fetchMock.mock.lastCall?.[0] as string);
     expect(url.searchParams.get('fields')).toBe(
-      'id,type,dirPath,name,ast,properties',
+      'id,type,dirPath,name,url,ast,properties',
     );
   });
 
-  // タグのページを置くフォルダは、サーバーの設定から取る。
-  test('get the folder of the tag pages from the configuration', async () => {
-    answer('{"tagsDir":"tags/","homeLink":""}');
+  // リンクの行き先の値は、サーバーの設定から取る。
+  test('get the values for links from the configuration', async () => {
+    answer(
+      '{"tagsDir":"tags/","homeLink":"","wikilinkHref":"/pages/{}",' +
+        '"hashtagHref":"/pages/tags/{}","pagesBase":"/pages/",' +
+        '"wikilinkFragmentPattern":"[0-9]+"}',
+    );
 
-    const tagsDir = await getTagsDir();
+    const links = await getLinkConfig();
 
-    expect(tagsDir).toBe('tags/');
+    expect(links).toEqual({
+      wikilinkHref: '/pages/{}',
+      hashtagHref: '/pages/tags/{}',
+      pagesBase: '/pages/',
+      wikilinkFragmentPattern: '[0-9]+',
+    });
     expect(fetchMock).toHaveBeenCalledWith(
       'http://journal.test:9000/api/config',
       undefined,

@@ -209,12 +209,20 @@ public sealed class JournalApiService : IDisposable
     }
 
     /// <summary>
-    /// The folder of the tag pages. It is empty for the pages root and ends with a slash otherwise.
+    /// How the links of a page are made, from the configuration of the server. It is asked
+    /// with each page, because the user can change the folder of the tag pages.
     /// </summary>
-    public async Task<string> GetTagsDirAsync()
+    internal async Task<LinkTemplates> GetLinkTemplatesAsync()
     {
-        var config = await _http.GetFromJsonAsync<ConfigResponse>("/api/config", JsonOptions);
-        return config?.TagsDir ?? "";
+        var config = await _http.GetFromJsonAsync<ConfigResponse>("/api/config", JsonOptions)
+            ?? new ConfigResponse();
+        return LinkTemplates.Of(
+            _baseUrl,
+            config.WikilinkHref,
+            config.HashtagHref,
+            config.PagesBase,
+            config.WikilinkFragmentPattern
+        );
     }
 
     public void Dispose()

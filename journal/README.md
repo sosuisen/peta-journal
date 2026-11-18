@@ -22,6 +22,7 @@ cargo test
 | `journal-api-types` | The bodies of the requests to the journal and the messages of its event stream. The journal and the frontend core write and read them with the same types, so the two cannot name a field differently. It depends on serde alone, as the frontend core is also built for wasm |
 | `journal-names` | The names of the journal pages (a day, a week, a month, a year) and the numbers of the weeks. The journal and the frontend core share it, so a week has one name on both sides. It has no dependency, as the frontend core is also built for wasm |
 | `page-names` | The names a page may take: a file name on Windows, macOS and Linux. The journal refuses a wrong name and the frontend core says what is wrong before it asks, both with this rule. It has no dependency |
+| `page-urls` | The URLs of the pages: `/pages/<name>` and `/pages/<name>#<item id>`, encoded, and how they are read back (ADR 061). The journal answers them, and the frontend core, the shells and the renderer options make them with it. It depends on `flatmarkdown-ast2html` alone, which holds the rule of encoding |
 | `journal-server` | The server over `journal-core`: `presentation/` (REST, SSE, MCP, the files of the web frontend), the folder watcher, the periodic tasks, and what hands over to the OS (folder dialog, launcher) |
 
 ## Client ID
@@ -183,7 +184,7 @@ folders in `DIR`, which may be a RAM disk or a fast disk.
 The script passes `--in-place` to cargo mutants. It is needed because `peta-atlas` is a path
 dependency outside this workspace, which the copy cargo-mutants normally works in cannot reach.
 For a few mutants, `cargo mutants --in-diff /tmp/pr.diff --in-place` runs them one by one in
-this tree. `cargo cov` measures `journal-core`, `journal-server`, `property-names`, `journal-api-types`, `journal-names` and `page-names` together,
+this tree. `cargo cov` measures `journal-core`, `journal-server`, `property-names`, `journal-api-types`, `journal-names`, `page-names` and `page-urls` together,
 as the tests of the server run most of the core. The mutants of `property-names` time out when
 the whole workspace is tested, as the server tests run first and take longer than the limit;
 run them with `--test-package property-names`. The files no test can run (the entry

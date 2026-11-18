@@ -4,7 +4,12 @@ namespace MemoView.Tests;
 
 public class PageHtmlTests
 {
-    private const string Pages = "http://localhost:8087/pages/";
+    private static readonly LinkTemplates Links = new(
+        WikilinkHref: "http://localhost:8087/pages/{}",
+        HashtagHref: "http://localhost:8087/pages/tags/{}",
+        PagesUrl: "http://localhost:8087/pages/",
+        WikilinkFragmentPattern: "[0-9]+"
+    );
 
     private static readonly PageAssets Assets = new(
         Css: "body { color: #333; }",
@@ -26,7 +31,7 @@ public class PageHtmlTests
     [Fact]
     public void The_document_of_a_page_holds_the_rows_the_style_sheet_and_the_two_scripts()
     {
-        var html = PageHtml.ForItems("<div>row</div>", Look, Pages, Assets);
+        var html = PageHtml.ForItems("<div>row</div>", Look, Links, Assets);
 
         Assert.Contains("<div>row</div>", html);
         Assert.Contains(Assets.Css, html);
@@ -39,7 +44,7 @@ public class PageHtmlTests
     [Fact]
     public void The_page_script_comes_after_the_rows_and_the_renderer_script()
     {
-        var html = PageHtml.ForItems("<div>row</div>", Look, Pages, Assets);
+        var html = PageHtml.ForItems("<div>row</div>", Look, Links, Assets);
 
         var rows = html.IndexOf("<div>row</div>", StringComparison.Ordinal);
         var renderer = html.IndexOf(Assets.RendererScript, StringComparison.Ordinal);
@@ -52,7 +57,7 @@ public class PageHtmlTests
     [Fact]
     public void The_background_color_is_on_the_body()
     {
-        var html = PageHtml.ForItems("", Look with { BackgroundColor = "#D0F0FF" }, Pages, Assets);
+        var html = PageHtml.ForItems("", Look with { BackgroundColor = "#D0F0FF" }, Links, Assets);
 
         Assert.Contains("background:#D0F0FF;", BodyTag(html));
     }
@@ -63,7 +68,7 @@ public class PageHtmlTests
     [InlineData(false, "overflow:hidden;")]
     public void A_sticky_that_is_not_active_shows_no_scroll_bars(bool scrolls, string expected)
     {
-        var html = PageHtml.ForItems("", Look with { Scrolls = scrolls }, Pages, Assets);
+        var html = PageHtml.ForItems("", Look with { Scrolls = scrolls }, Links, Assets);
 
         Assert.Contains(expected, BodyTag(html));
     }
@@ -76,7 +81,7 @@ public class PageHtmlTests
         Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
         try
         {
-            var html = PageHtml.ForItems("", Look with { ZoomFactor = 1.2 }, Pages, Assets);
+            var html = PageHtml.ForItems("", Look with { ZoomFactor = 1.2 }, Links, Assets);
 
             Assert.Contains("zoom:1.2;", BodyTag(html));
             Assert.Contains("data-zoom=\"1.2\"", BodyTag(html));
@@ -91,9 +96,21 @@ public class PageHtmlTests
     [Fact]
     public void The_address_of_the_pages_goes_to_the_script()
     {
-        var html = PageHtml.ForItems("", Look, Pages, Assets);
+        var html = PageHtml.ForItems("", Look, Links, Assets);
 
-        Assert.Contains($"data-pages=\"{Pages}\"", BodyTag(html));
+        Assert.Contains($"data-pages=\"{Links.PagesUrl}\"", BodyTag(html));
+    }
+
+    // リンクのテンプレートと項目のidの形は、スクリプトに渡る。
+    [Fact]
+    public void The_templates_of_the_links_reach_the_script()
+    {
+        var html = PageHtml.ForItems("", Look, Links, Assets);
+
+        var body = BodyTag(html);
+        Assert.Contains("data-wikilink-href=\"http://localhost:8087/pages/{}\"", body);
+        Assert.Contains("data-hashtag-href=\"http://localhost:8087/pages/tags/{}\"", body);
+        Assert.Contains("data-fragment-pattern=\"[0-9]+\"", body);
     }
 
     // --- The document of a message ---

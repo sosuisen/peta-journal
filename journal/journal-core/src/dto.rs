@@ -22,6 +22,8 @@ pub struct PageDto {
     pub page_type: String,
     pub created_date: i64,
     pub modified_date: i64,
+    /// The URL that opens the page in the app, encoded, without the origin (ADR 061).
+    pub url: String,
     /// Property values are strings or lists of strings; empty in page lists.
     pub properties: BTreeMap<String, Value>,
 }
@@ -46,6 +48,9 @@ pub struct ItemDto {
     pub types: Vec<String>,
     pub properties: BTreeMap<String, Value>,
     pub transclude_item_id: Option<String>,
+    /// The URL that opens the page of the item at the item, encoded, without the origin
+    /// (ADR 061).
+    pub url: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -92,6 +97,7 @@ pub fn page_dto_with(
         },
         created_date: page.created_date,
         modified_date: page.modified_date,
+        url: page_urls::page_url(&format!("{}{}", page.dir_path, page.name)),
     }
 }
 
@@ -144,6 +150,7 @@ pub fn item_dto(
         types: item.types.clone(),
         properties,
         transclude_item_id: item.transclude_item_id.as_ref().map(|p| p.to_string()),
+        url: page_urls::item_url(&format!("{}{}", item.dir_path, item.name), item.id.as_ref()),
     }
 }
 

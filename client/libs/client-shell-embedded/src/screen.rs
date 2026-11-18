@@ -7,9 +7,6 @@ use client_cloud_sync::find_without_case;
 
 use crate::PetaCore;
 
-/// What the URL of a page starts with, before the path of the page.
-const PAGES: &str = "/pages/";
-
 /// The URL of the journal of today, whatever the date is.
 const TODAY: &str = "/today";
 
@@ -47,7 +44,7 @@ impl PetaCore {
     pub fn make(&self) -> PetaScreen {
         let missing = self.screen.lock().unwrap().missing.clone();
         match missing {
-            Some(page) => self.go(&format!("{PAGES}{page}"), true),
+            Some(page) => self.go(&journal_core::page_urls::page_url(&page), true),
             None => self.screen(),
         }
     }

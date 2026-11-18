@@ -24,6 +24,15 @@ pub struct ConfigAnswer {
     pub logical_outdent: bool,
     pub tags_dir: String,
     pub home_link: String,
+    /// The template of the href of a wikilink, for the renderers of flatmarkdown (ADR 061).
+    /// It is not a setting: the clients that cannot call Rust read it here.
+    pub wikilink_href: String,
+    /// The template of the href of a hashtag, made from `tags_dir`.
+    pub hashtag_href: String,
+    /// The base that the relative paths of images are read from.
+    pub pages_base: String,
+    /// The form of an item id after the `#` of a wikilink, as a regular expression.
+    pub wikilink_fragment_pattern: String,
 }
 
 /// `propertyDefinitions` is the key -> type map older clients read; `definitions` adds the flags.
@@ -50,8 +59,12 @@ impl Journal {
             markdown_dir: config.markdown_dir(),
             week_numbering: config.week_numbering(),
             logical_outdent: config.logical_outdent(),
+            hashtag_href: page_urls::hashtag_href(&config.tags_dir()),
             tags_dir: config.tags_dir(),
             home_link: config.home_link(),
+            wikilink_href: page_urls::wikilink_href(),
+            pages_base: page_urls::PAGES_BASE.to_string(),
+            wikilink_fragment_pattern: page_urls::ITEM_ID_PATTERN.to_string(),
         }
     }
 

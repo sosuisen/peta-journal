@@ -225,7 +225,7 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
             handle.resolve(&mut request, UiOutput::Text(answer));
         }
         UiOp::OpenWindow { url, new_window } => {
-            let url = dom::encode_uri(&url);
+            // The core makes the URL encoded (ADR 061)
             let _ = if new_window {
                 dom::window().open_with_url_and_target_and_features(&url, "_blank", "noopener")
             } else {

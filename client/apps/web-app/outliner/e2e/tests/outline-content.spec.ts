@@ -95,6 +95,54 @@ test.describe('outline content', () => {
       .toHaveAttribute('href', new RegExp(`^/pages/(.*/)?${tag}$`));
   });
 
+  /**
+   * Shows a wiki link to a new page whose name has a `#`, a `%`, a space and Japanese, and
+   * returns the link with the name of the page and the URL it should lead to (ADR 061).
+   */
+  async function linkToAnOddName(page: import('@playwright/test').Page, request: import('@playwright/test').APIRequestContext) {
+    const target = await new Server(request).newDocPage('C# 100% メモ');
+    // Pasted, not typed: a typed # opens the list of tags
+    await pasteText(page, `go to [[${target.title}]]`);
+    await server.itemsSettled(pageId, i => i[0].body.endsWith(`${target.title}]]`));
+    await page.reload();
+    const url = `/pages/${encodeURI(target.title).replaceAll('#', '%23')}`;
+    const link = page.locator('app-outline-item a[data-wikilink]');
+    return { title: target.title, url, link };
+  }
+
+  // 名前に#、%、空白、日本語を含むページへのウィキリンクは、符号化したURLを指す。右クリックでコピーするリンクも、このURLである
+  test('a wiki link to a name with odd characters points at its encoded url', async ({ page, request }) => {
+    const { url, link } = await linkToAnOddName(page, request);
+
+    await expect(link).toHaveAttribute('href', url);
+  });
+
+  // そのウィキリンクをクリックすると、そのページが開く
+  test('a click on a wiki link to a name with odd characters opens that page', async ({ page, request }) => {
+    const { title, url, link } = await linkToAnOddName(page, request);
+
+    await link.click();
+
+    await expect(page).toHaveURL(url);
+    await expect(page).toHaveTitle(title);
+  });
+
+  // そのウィキリンクのCtrl+クリックと中ボタンのクリックは、そのページを新しいタブで開く
+  for (const [how, click] of [
+    ['Ctrl+click', { modifiers: ['Control'] }],
+    ['middle click', { button: 'middle' }],
+  ] as const) {
+    test(`a ${how} on a wiki link to a name with odd characters opens that page in a new tab`, async ({ page, request }) => {
+      const { title, url, link } = await linkToAnOddName(page, request);
+
+      const [tab] = await Promise.all([page.context().waitForEvent('page'), link.click(click)]);
+
+      await tab.waitForLoadState();
+      expect(new URL(tab.url()).pathname).toBe(url);
+      await expect(tab).toHaveTitle(title);
+    });
+  }
+
   // コピーしたHTMLでは、ウィキリンクとハッシュタグが、アプリのURLから始まるリンクになる。貼り付けた先から開ける
   test('the copied HTML links a wiki link and a hashtag to whole URLs of the app', async ({ page, request }) => {
     const target = await new Server(request).newDocPage('Copied');

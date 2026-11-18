@@ -75,7 +75,7 @@ class ShownTextTest {
     // リンクに触れると、coreが決めた行き先が届く。
     @Test
     fun a_touch_on_a_link_gives_where_the_core_says_it_leads() {
-        val page = RichLink.Page("/pages/other page")
+        val page = RichLink.Page("/pages/other%20page")
         val touched = mutableListOf<RichLink>()
         val shown = shown(text(paragraph(run("other", page), run(" plain")))) { touched += it }.single() as ShownBlock.Text
 

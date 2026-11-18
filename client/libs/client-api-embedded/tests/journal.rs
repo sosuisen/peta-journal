@@ -931,12 +931,20 @@ fn written(answer: impl serde::Serialize) -> Value {
     serde_json::to_value(answer).unwrap()
 }
 
-/// The two fields of an item that the frontend core has no use for.
+/// The fields of an item that the frontend core has no use for. It makes the `url` itself
+/// with `page-urls` (ADR 061).
 fn unread_of_items(path: &str) -> Vec<String> {
     vec![
         format!("{path}.ast: the core does not read it"),
         format!("{path}.parentItemId: the core does not read it"),
+        format!("{path}.url: the core does not read it"),
     ]
+}
+
+/// The field of a page that the frontend core has no use for: it makes the `url` itself with
+/// `page-urls` (ADR 061).
+fn unread_of_pages(path: &str) -> Vec<String> {
+    vec![format!("{path}.url: the core does not read it")]
 }
 
 impl Fixture {
@@ -976,7 +984,10 @@ fn a_page_and_its_items_are_read_with_every_field_but_the_ast_and_the_parent() {
             .unwrap(),
     );
 
-    assert_eq!(drift::<PageWithItems>(&answer), unread_of_items(".items[]"));
+    assert_eq!(
+        drift::<PageWithItems>(&answer),
+        [unread_of_items(".items[]"), unread_of_pages(".page")].concat()
+    );
 }
 
 // ページの一覧は、ジャーナルが書いた欄のまま読まれる。
@@ -988,7 +999,7 @@ fn a_list_of_pages_is_read_with_every_field() {
     let answer = written(f.core.journal.recent_pages(None, None).unwrap());
 
     assert!(!answer["pages"].as_array().unwrap().is_empty());
-    assert_eq!(drift::<Vec<Page>>(&answer["pages"]), Vec::<String>::new());
+    assert_eq!(drift::<Vec<Page>>(&answer["pages"]), unread_of_pages("[]"));
 }
 
 // バックリンクは、項目の`ast`と`parentItemId`を除いて、ジャーナルが書いた欄のまま読まれる。
@@ -1003,7 +1014,11 @@ fn backlinks_are_read_with_every_field_but_the_ast_and_the_parent() {
 
     assert_eq!(
         drift::<Vec<BacklinkEntry>>(&answer["entries"]),
-        unread_of_items("[].sourceItem")
+        [
+            unread_of_items("[].sourceItem"),
+            unread_of_pages("[].sourcePage")
+        ]
+        .concat()
     );
 }
 
@@ -1037,7 +1052,17 @@ fn the_property_definitions_and_the_config_are_read_with_every_field() {
         drift::<Vec<PropertyDefinition>>(&definitions["definitions"]),
         Vec::<String>::new()
     );
-    assert_eq!(drift::<ServerConfig>(&config), Vec::<String>::new());
+    // The values to render the links of a body are for the clients that cannot call Rust. The
+    // core has them from `page-urls` (ADR 061)
+    assert_eq!(
+        drift::<ServerConfig>(&config),
+        [
+            ".hashtagHref: the core does not read it",
+            ".pagesBase: the core does not read it",
+            ".wikilinkFragmentPattern: the core does not read it",
+            ".wikilinkHref: the core does not read it",
+        ]
+    );
 }
 
 // 前のジャーナルは、項目の`ast`と`parentItemId`を除いて、ジャーナルが書いた欄のまま読まれる。
@@ -1060,7 +1085,10 @@ fn the_journal_before_a_day_is_read_with_every_field_but_the_ast_and_the_parent(
     );
 
     assert_eq!(answer["found"], json!(true));
-    assert_eq!(drift::<JournalBefore>(&answer), unread_of_items(".items[]"));
+    assert_eq!(
+        drift::<JournalBefore>(&answer),
+        [unread_of_items(".items[]"), unread_of_pages(".page")].concat()
+    );
 }
 
 // 貼り付け、分割、一括、スタッシュの答えは、項目の`ast`と`parentItemId`を除いて、ジャーナルが書いた欄のまま読まれる。

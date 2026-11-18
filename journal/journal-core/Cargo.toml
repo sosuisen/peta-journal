@@ -16,14 +16,16 @@ hmtid = { path = "../hmtid" }
 # The names of the journals and the numbers of the weeks, which the frontend core shares
 journal-names = { path = "../journal-names" }
 page-names = { path = "../page-names" }
+# The URLs of the pages, which the frontend core shares; re-exported for the server (ADR 061)
+page-urls = { path = "../page-urls" }
 # The bodies of the requests, which the frontend core writes with the same types
 journal-api-types = { path = "../journal-api-types" }
 property-names = { path = "../property-names" }
 peta-atlas = { path = "../../atlas" }
 # The same version as the crates of flatmarkdown in client/Cargo.toml: a release has all the
 # crates of flatmarkdown (ADR 020)
-flatmarkdown = "=0.8.1"
-flatmarkdown-ast = "=0.8.1"
+flatmarkdown = "=0.9.0"
+flatmarkdown-ast = "=0.9.0"
 
 # Extension functions
 rquickjs = { version = "0.14.0", optional = true }

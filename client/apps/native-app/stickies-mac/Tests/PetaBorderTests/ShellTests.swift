@@ -675,7 +675,7 @@ final class ShellTests: XCTestCase {
 
     /// Makes the journal of a day long ago, with one item, and waits until the server has it.
     private func journalOfADayLongAgo() async throws {
-        let old = Shell(server: server.address, url: "/journals/2020-01-02")
+        let old = Shell(server: server.address, url: "/pages/2020-01-02")
         try await waitUntil("the old journal is shown") { !old.view.outline.rows.isEmpty }
         let pageId = try XCTUnwrap(journal(old)?.pageId)
         let item = old.view.outline.rows[0].item.id
@@ -699,7 +699,7 @@ final class ShellTests: XCTestCase {
 
     // 今日でない日のジャーナルのタイトルは、その日付だけである。
     func testTheTitleOfTheJournalOfAnotherDayIsItsDateAlone() async throws {
-        let shell = Shell(server: server.address, url: "/journals/2020-01-02")
+        let shell = Shell(server: server.address, url: "/pages/2020-01-02")
         try await waitUntil("the journal is shown") { !shell.view.outline.rows.isEmpty }
 
         XCTAssertEqual(shell.title, "2020年1月2日 木曜日")

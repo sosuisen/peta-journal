@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import {
   cycleTask,
-  getTagsDir,
+  getLinkConfig,
   getTasks,
   subscribe,
   type ConnectionState,
   type Item,
+  type LinkConfig,
 } from './api';
 
 /**
@@ -24,7 +25,7 @@ export function useTasks(includeDone: boolean) {
   const [error, setError] = useState('');
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tagsDir, setTagsDir] = useState('');
+  const [links, setLinks] = useState<LinkConfig>();
   // Counts the changes of pages on the server; a new count loads the tasks again
   const [pageChanges, setPageChanges] = useState(0);
 
@@ -66,14 +67,14 @@ export function useTasks(includeDone: boolean) {
 
   useEffect(() => {
     if (!connected) return;
-    const loadTagsDir = async () => {
+    const loadLinks = async () => {
       try {
-        setTagsDir(await getTagsDir());
+        setLinks(await getLinkConfig());
       } catch (e) {
         setError(String(e));
       }
     };
-    void loadTagsDir();
+    void loadLinks();
   }, [connected]);
 
   /** Moves the task to its next state: TODO, RUNNING, DONE and back to TODO. */
@@ -86,5 +87,5 @@ export function useTasks(includeDone: boolean) {
     }
   };
 
-  return { items, loading, error, connectionState, tagsDir, cycle };
+  return { items, loading, error, connectionState, links, cycle };
 }

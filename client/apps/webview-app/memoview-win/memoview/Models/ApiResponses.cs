@@ -6,9 +6,13 @@ public class GetPageByIdResponse
     public List<ItemModel> Items { get; set; } = [];
 }
 
+/// <summary>The values of the configuration of the server with which the links of a page are made.</summary>
 public class ConfigResponse
 {
-    public string TagsDir { get; set; } = "";
+    public string WikilinkHref { get; set; } = "";
+    public string HashtagHref { get; set; } = "";
+    public string PagesBase { get; set; } = "";
+    public string WikilinkFragmentPattern { get; set; } = "";
 }
 
 public class SearchPageNamesResponse

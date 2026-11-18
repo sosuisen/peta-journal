@@ -30,18 +30,18 @@ internal static class PageHtml
     /// </summary>
     /// <param name="itemsHtml">The rows of the items, from <see cref="OutlineHtml"/>.</param>
     /// <param name="look">The values that change at run time.</param>
-    /// <param name="pagesUrl">The address that all pages live under, from <see cref="PageLinks.PagesUrl"/>.</param>
+    /// <param name="links">How the links of the page are made.</param>
     /// <param name="assets">The style sheet and the scripts.</param>
     internal static string ForItems(
         string itemsHtml,
         PageLook look,
-        string pagesUrl,
+        LinkTemplates links,
         PageAssets assets
     )
     {
         ArgumentNullException.ThrowIfNull(itemsHtml);
         ArgumentNullException.ThrowIfNull(look);
-        ArgumentException.ThrowIfNullOrEmpty(pagesUrl);
+        ArgumentNullException.ThrowIfNull(links);
         ArgumentNullException.ThrowIfNull(assets);
 
         var zoom = look.ZoomFactor.ToString(CultureInfo.InvariantCulture);
@@ -56,7 +56,11 @@ internal static class PageHtml
             {assets.Css}
             </style>
             </head>
-            <body style="{Attr(bodyStyle)}" data-pages="{Attr(pagesUrl)}" data-zoom="{zoom}">
+            <body style="{Attr(bodyStyle)}" data-pages="{Attr(
+                links.PagesUrl
+            )}" data-wikilink-href="{Attr(links.WikilinkHref)}" data-hashtag-href="{Attr(
+                links.HashtagHref
+            )}" data-fragment-pattern="{Attr(links.WikilinkFragmentPattern)}" data-zoom="{zoom}">
             {itemsHtml}
             <script>
             {assets.RendererScript}

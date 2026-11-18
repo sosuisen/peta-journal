@@ -675,6 +675,10 @@ async fn the_config_is_read_and_updated() {
             "logicalOutdent": !logical_outdent,
             "tagsDir": "labels/",
             "homeLink": "today",
+            "wikilinkHref": "/pages/{}",
+            "hashtagHref": "/pages/labels/{}",
+            "pagesBase": "/pages/",
+            "wikilinkFragmentPattern": config["wikilinkFragmentPattern"],
         })
     );
     assert_eq!(restored, config);
