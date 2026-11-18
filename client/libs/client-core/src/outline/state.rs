@@ -393,6 +393,16 @@ impl OutlineState {
         });
     }
 
+    /// Shows the children of an item hidden or shown.
+    pub fn set_collapsed(&mut self, item_id: &str, collapsed: bool) {
+        if collapsed {
+            self.collapsed_item_ids.insert(item_id.to_string());
+        } else {
+            self.collapsed_item_ids.remove(item_id);
+        }
+        self.refresh();
+    }
+
     pub fn toggle_collapsed(&mut self, item_id: &str) {
         if !self.collapsed_item_ids.remove(item_id) {
             self.collapsed_item_ids.insert(item_id.to_string());

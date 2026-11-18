@@ -144,8 +144,8 @@ pub fn record_collapse(model: &mut Model, before: Item) -> Cmd {
 
 /// The server refused the collapsing or expanding of an item: it is shown as `before` again.
 pub fn put_collapse_back(model: &mut Model, before: Item) -> Cmd {
-    model.state.toggle_collapsed(&before.id);
     let was = before.collapsed;
+    model.state.set_collapsed(&before.id, was);
     model.state.update_item(&before.id, |i| i.collapsed = was);
     done()
 }
