@@ -36,7 +36,6 @@ test.describe('moving inside a transclusion', () => {
       itemIds: [source[2].id],
       targetPageId: sourcePage.id,
       position: `after:${source[0].id}`,
-      levelDelta: null,
       body: 'twoX',
     }]]);
     expect(outlineOf(await server.items(hostPage.id))).toEqual(['1:top']);

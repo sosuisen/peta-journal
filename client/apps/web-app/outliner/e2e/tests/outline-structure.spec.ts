@@ -103,7 +103,6 @@ test.describe('outline structure', () => {
       itemIds: [byBody('a').id, byBody('a1').id, byBody('a2').id],
       targetPageId: pageId,
       position: `after:${byBody('b1').id}`,
-      levelDelta: null,
       body: 'aX',
     }]]);
   });
