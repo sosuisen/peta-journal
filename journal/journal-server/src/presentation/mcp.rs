@@ -18,7 +18,7 @@ use serde_json::{json, Value};
 
 use crate::error::{AppError, AppResult};
 use crate::presentation::date_format::DateFormat;
-use crate::presentation::rest::sync;
+use crate::presentation::rest::{assets, sync};
 use crate::state::{blocking, SharedState};
 use journal_api_types::{
     AddPropertyDefinitionInput, AtlasCalloutInput, AtlasGroupInput, AtlasLinkInput,
@@ -306,6 +306,14 @@ pub struct TagArgs {
     /// Maximum number of results. Left out for the default.
     #[serde(rename = "maxResults", default)]
     pub max_results: Option<usize>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct FilePathArgs {
+    /// Absolute path of a file on the PC the server runs on (e.g. 'C:\Users\me\shot.png').
+    /// The server reads the file itself, so its content is not sent. At most 50MB.
+    #[serde(rename = "filePath")]
+    pub file_path: String,
 }
 
 // ---- the server ----
@@ -1054,6 +1062,20 @@ impl JournalMcp {
                 .delete_property_definition(&a.key, &ChangedBy::Mcp)
         })
         .await?;
+        ok(answer_json(&r))
+    }
+
+    // ---- assets ----
+
+    #[tool(
+        description = "Copy a file of this PC (an image, for example) into the assets folder of the journal. Returns the name it is saved under (fileName) and its original name. Link it from an item as '![](../assets/<fileName>)'."
+    )]
+    async fn upload_asset(
+        &self,
+        Parameters(a): Parameters<FilePathArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || assets::save_file_at(&state, &a.file_path)).await?;
         ok(answer_json(&r))
     }
 

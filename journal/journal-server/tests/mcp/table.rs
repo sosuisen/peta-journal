@@ -13,11 +13,9 @@ enum Mcp {
     Tool(&'static str),
     /// Nothing: the route is only for a screen or a browser. ADR 060 lists these exceptions.
     OnlyForScreens,
-    /// Nothing yet: ADR 060 decides a tool, and it is not made.
-    NotYet,
 }
 
-use Mcp::{NotYet, OnlyForScreens, Tool};
+use Mcp::{OnlyForScreens, Tool};
 
 const TABLE: &[(Route, Mcp)] = &[
     (routes::HEALTH, OnlyForScreens),
@@ -109,7 +107,7 @@ const TABLE: &[(Route, Mcp)] = &[
     (routes::PENDING_DELETES, OnlyForScreens),
     (routes::SUBMIT_PENDING_DELETES, OnlyForScreens),
     // assets and the launcher
-    (routes::UPLOAD_ASSET, NotYet),
+    (routes::UPLOAD_ASSET, Tool("upload_asset")),
     (routes::LAUNCH_URL, OnlyForScreens),
 ];
 
@@ -152,7 +150,7 @@ async fn the_tools_are_those_of_the_table_one_for_each_route() {
         .iter()
         .filter_map(|(_, mcp)| match mcp {
             Tool(name) => Some(*name),
-            OnlyForScreens | NotYet => None,
+            OnlyForScreens => None,
         })
         .collect();
 
