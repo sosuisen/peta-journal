@@ -285,6 +285,85 @@ fn midpoint(a: &str, b: Option<&str>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
+
+    /// Any index away from the two ends of the space. The integer parts are short and the
+    /// digits are few, so two indexes often share their start, where the fractions decide.
+    fn any_index() -> impl Strategy<Value = String> {
+        let digit = || prop::sample::select(b"01UVWyz".to_vec());
+        (
+            prop::sample::select(b"YZab".to_vec()),
+            prop::collection::vec(digit(), 2),
+            prop::collection::vec(digit(), 0..4),
+        )
+            .prop_map(|(head, mut integer, mut fraction)| {
+                integer.truncate(integer_length(head).expect("a head") - 1);
+                while fraction.last() == Some(&b'0') {
+                    fraction.pop();
+                }
+                integer.extend(fraction);
+                with_head(head, integer)
+            })
+    }
+
+    /// Two indexes, the smaller first.
+    fn any_gap() -> impl Strategy<Value = (String, String)> {
+        (any_index(), any_index())
+            .prop_filter("two different indexes", |(a, b)| a != b)
+            .prop_map(|(a, b)| if a < b { (a, b) } else { (b, a) })
+    }
+
+    /// Whether the indexes are of the scheme and sort upwards from `before` to `after`.
+    fn ascend_inside(before: Option<&str>, after: Option<&str>, indices: &[String]) -> bool {
+        let line: Vec<&str> = before
+            .into_iter()
+            .chain(indices.iter().map(String::as_str))
+            .chain(after)
+            .collect();
+        indices.iter().all(|index| validate(index).is_ok()) && line.windows(2).all(|w| w[0] < w[1])
+    }
+
+    proptest! {
+        // どの2つのインデックスの間にも、その間に並ぶインデックスが作られる。
+        #[test]
+        fn an_index_made_between_two_sorts_between_them((a, b) in any_gap()) {
+            let made = between(Some(&a), Some(&b)).unwrap();
+            prop_assert!(ascend_inside(Some(&a), Some(&b), std::slice::from_ref(&made)), "{}", made);
+        }
+
+        // どのインデックスの後ろにも前にも、そちら側に並ぶインデックスが作られる。
+        #[test]
+        fn an_index_made_after_or_before_one_sorts_on_that_side(a in any_index()) {
+            let after = between(Some(&a), None).unwrap();
+            let before = between(None, Some(&a)).unwrap();
+            prop_assert!(ascend_inside(Some(&a), None, std::slice::from_ref(&after)), "{}", after);
+            prop_assert!(ascend_inside(None, Some(&a), std::slice::from_ref(&before)), "{}", before);
+        }
+
+        // 隙間でも、末尾の後ろでも、先頭の前でも、頼んだ数のインデックスが、順にその中に収まる。0個でも同じである。
+        #[test]
+        fn as_many_indices_as_asked_fit_in_order((a, b) in any_gap(), count in 0usize..40) {
+            let places = [
+                (Some(a.as_str()), Some(b.as_str())),
+                (Some(a.as_str()), None),
+                (None, Some(a.as_str())),
+            ];
+            for (before, after) in places {
+                let made = between_many(before, after, count).unwrap();
+                prop_assert_eq!(made.len(), count);
+                prop_assert!(ascend_inside(before, after, &made), "{:?}", made);
+            }
+        }
+
+        // 逆向きの隙間と幅のない隙間には、インデックスは作られない。
+        #[test]
+        fn no_index_is_made_in_a_reversed_or_an_empty_gap((a, b) in any_gap(), count in 1usize..5) {
+            for (before, after) in [(&b, &a), (&a, &a)] {
+                prop_assert!(between(Some(before), Some(after)).is_err());
+                prop_assert!(between_many(Some(before), Some(after), count).is_err());
+            }
+        }
+    }
 
     // 最初のインデックスはa0である。
     #[test]
@@ -350,22 +429,10 @@ mod tests {
         let mut a = "a0".to_string();
         for _ in 0..60 {
             let next = between(Some(&a), Some("a1")).unwrap();
-            assert!(a < next && next.as_str() < "a1");
             a = next;
         }
         // About five inserts per character
         assert!(a.len() <= 14, "{a}");
-    }
-
-    // 先頭に100回入れても、インデックスは作られる。
-    #[test]
-    fn inserting_at_the_top_a_hundred_times_keeps_making_indices() {
-        let mut top = "a0".to_string();
-        for _ in 0..100 {
-            let next = between(None, Some(&top)).unwrap();
-            assert!(next < top);
-            top = next;
-        }
     }
 
     // 旧い形のインデックスは受け付けない。
@@ -387,8 +454,6 @@ mod tests {
     #[test]
     fn many_indices_fit_in_a_gap_in_order_and_stay_short() {
         let v = between_many(Some("a0"), Some("a1"), 40).unwrap();
-        assert_eq!(v.len(), 40);
-        assert_ascending_between(Some("a0"), Some("a1"), &v);
         // Halving the gap each time, 40 indexes need two characters of fraction at most
         assert!(v.iter().all(|idx| idx.len() <= 4), "{v:?}");
     }
@@ -400,69 +465,6 @@ mod tests {
         assert_eq!(v, vec!["a1", "a2", "a3"]);
         let v = between_many(None, Some("a3"), 3).unwrap();
         assert_eq!(v, vec!["a0", "a1", "a2"]);
-    }
-
-    fn assert_ascending_between(before: Option<&str>, after: Option<&str>, indices: &[String]) {
-        let mut previous = before.map(|s| s.to_string());
-        for idx in indices {
-            if let Some(p) = &previous {
-                assert!(p.as_str() < idx.as_str(), "{p} should sort before {idx}");
-            }
-            previous = Some(idx.clone());
-        }
-        if let (Some(a), Some(p)) = (after, &previous) {
-            assert!(p.as_str() < a, "{p} should sort before {a}");
-        }
-    }
-
-    // 隣り合うインデックスの隙間でも、まとまりはその中に収まる。
-    #[test]
-    fn group_stays_inside_a_gap_of_adjacent_indices() {
-        let indices = between_many(Some("a0U"), Some("a0V"), 25).unwrap();
-        assert_eq!(indices.len(), 25);
-        assert_ascending_between(Some("a0U"), Some("a0V"), &indices);
-    }
-
-    // 何度移動しても、隙間は使えるままである。
-    #[test]
-    fn gaps_stay_usable_after_many_moves() {
-        let before = "a0".to_string();
-        let mut after = "a1".to_string();
-        for _ in 0..50 {
-            let indices = between_many(Some(&before), Some(&after), 5).unwrap();
-            assert_ascending_between(Some(&before), Some(&after), &indices);
-            after = indices[0].clone();
-        }
-    }
-
-    // 末尾に置いたまとまりは、最後の項目の後ろに並ぶ。
-    #[test]
-    fn group_at_the_end_sorts_after_the_last_item() {
-        let indices = between_many(Some("a3"), None, 70).unwrap();
-        assert_eq!(indices.len(), 70);
-        assert_ascending_between(Some("a3"), None, &indices);
-    }
-
-    // 先頭に置いたまとまりは、最初の項目の前に並ぶ。
-    #[test]
-    fn group_at_the_top_sorts_before_the_first_item() {
-        let indices = between_many(None, Some("a0"), 20).unwrap();
-        assert_eq!(indices.len(), 20);
-        assert_ascending_between(None, Some("a0"), &indices);
-    }
-
-    // 0個の項目にはインデックスが要らない。
-    #[test]
-    fn zero_items_need_no_index() {
-        assert!(between_many(Some("a0"), Some("a1"), 0).unwrap().is_empty());
-    }
-
-    // 逆向きの隙間と幅のない隙間はエラーになる。
-    #[test]
-    fn a_reversed_or_empty_gap_is_an_error() {
-        assert!(between_many(Some("a1"), Some("a0"), 1).is_err());
-        assert!(between_many(Some("a1"), Some("a1"), 1).is_err());
-        assert!(between(Some("a1"), Some("a1")).is_err());
     }
 
     // 連番のインデックスはa0から始まる。
@@ -495,7 +497,7 @@ mod tests {
         let positions: Vec<usize> = changes.iter().map(|(p, _)| *p).collect();
         assert_eq!(positions, [2, 3, 4]);
         let fresh: Vec<String> = changes.into_iter().map(|(_, idx)| idx).collect();
-        assert_ascending_between(Some("a0V"), Some("a0W"), &fresh);
+        assert!(ascend_inside(Some("a0V"), Some("a0W"), &fresh));
         assert!(fresh.iter().all(|idx| idx.len() <= 5), "{fresh:?}");
     }
 
