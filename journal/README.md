@@ -152,11 +152,21 @@ git diff --relative main...HEAD > /tmp/pr.diff
 python -I scripts/mutants-parallel.py --in-diff /tmp/pr.diff
 ```
 
-The script runs cargo-mutants in 3 shards at once, each in a git worktree of its own under
+The script runs cargo-mutants in several shards at once, each in a git worktree of its own under
 `target/mutants-shards/` of the main checkout. The worktrees and their builds stay there, so
 the next run builds only what changed. Commit the changes first: the shards test the commit at
 HEAD. `--jobs N` sets the number of shards, and the other arguments go to cargo mutants. A
 shard's output is in `target/mutants-shards/shard<k>.log`.
+
+The number of shards is one for every 8 GB of memory and at most half the cores: 1 on a machine
+with 8 GB and 8 cores, 4 with 32 GB and 8 cores. `--jobs N` sets another number. With too
+little memory more shards are slower than one, as the builds wait for each other.
+
+The tests wait for the disk: each makes a database and a search index in a temporary folder.
+On macOS the script makes a RAM disk of 512 MB for these folders and removes it at the end;
+the tests of the workspace then take 14 seconds for 75. A script that was killed leaves the
+disk as `/Volumes/mutants-<pid>`; eject it by hand. On Windows and Linux, `--tmp DIR` puts the
+folders in `DIR`, which may be a RAM disk or a fast disk.
 
 The script passes `--in-place` to cargo mutants. It is needed because `peta-atlas` is a path
 dependency outside this workspace, which the copy cargo-mutants normally works in cannot reach.
