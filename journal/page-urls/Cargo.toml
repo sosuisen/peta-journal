@@ -1,0 +1,13 @@
+[package]
+name = "page-urls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The URLs of the pages of PetaJournal: how they are made and read (ADR 061)"
+
+[dependencies]
+# The same version as the crates of flatmarkdown in client/Cargo.toml and journal-core (ADR 020)
+flatmarkdown-ast2html = "=0.9.0"
+
+[dev-dependencies]
+hmtid = { path = "../hmtid" }
