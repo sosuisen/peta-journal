@@ -310,6 +310,7 @@ fn the_answer_to_a_move_inside_a_transclusion_no_longer_shown_reads_and_focuses_
     h.model.move_in_progress = true;
     h.send(Event::MovedInTransclusion {
         item_id: "c2".into(),
+        moved: vec![item("c2", 2, "")],
     });
     assert!(h.api.calls.is_empty());
     assert!(h.focused_editor_requests().is_empty());

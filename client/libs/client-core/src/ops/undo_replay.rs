@@ -4,7 +4,7 @@
 //! read again.
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
-use crate::model::{BatchOp, Item, TaskState};
+use crate::model::{BatchOp, Item, ItemPosition, TaskState};
 use crate::ops::action::show_empty_item;
 use crate::ops::edit::discard_pending_edit_of_focused_item;
 use crate::ops::edit::{begin_handover, save_target_id, show_parsed};
@@ -135,6 +135,36 @@ fn apply_to_state(model: &mut Model, op: &UndoOp, dir: Direction) {
 /// hold the order of the items of the source page.
 fn is_move(model: &Model, before: &Item, after: &Item) -> bool {
     before.idx != after.idx && model.state.is_own_item(&before.id)
+}
+
+/// True when an update moved an item that a transclusion shows. This page does not hold the
+/// order of the source page; the item goes back after the item it followed in the tree of its
+/// transclusion.
+fn is_transcluded_move(model: &Model, before: &Item, after: &Item) -> bool {
+    before.idx != after.idx && !model.state.is_own_item(&before.id)
+}
+
+/// Where an item that a transclusion shows goes, among the items of its tree: after the last
+/// one its index sorts after, or right after the source root. The items of `run` move with it,
+/// so they are not a place to go to.
+fn position_in_transcluded_tree(
+    model: &Model,
+    item: &Item,
+    run: &[String],
+) -> Option<ItemPosition> {
+    let tree = model
+        .state
+        .transcluded_trees()
+        .values()
+        .find(|tree| tree.iter().any(|i| i.id == item.id))?;
+    let (root, rest) = tree.split_first()?;
+    let above = rest
+        .iter()
+        .filter(|i| !run.contains(&i.id) && i.idx < item.idx)
+        .max_by(|a, b| a.idx.cmp(&b.idx));
+    Some(ItemPosition::after(
+        above.map_or(&root.id, |i| &i.id).clone(),
+    ))
 }
 
 fn moves_an_item(model: &Model, op: &UndoOp) -> bool {
@@ -312,6 +342,8 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
     let mut moved = HashSet::new();
     // The server deletes last, as one group: a parent deleted on its own is refused
     let mut deletes = Vec::new();
+    // The items moved inside a transclusion, with the ones that move along with them
+    let mut transcluded_runs: Vec<(&Item, Vec<String>)> = Vec::new();
     for op in ops {
         match op {
             UndoOp::Update { before, after } => {
@@ -323,6 +355,15 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
                 batch.push_update(before, after, target);
                 if is_move(model, before, after) {
                     moved.insert(target.id.as_str());
+                }
+                if is_transcluded_move(model, before, after) {
+                    // A child moved with its parent: the move of the parent takes it along
+                    match transcluded_runs.last_mut() {
+                        Some((first, ids)) if target.level > first.level => {
+                            ids.push(target.id.clone())
+                        }
+                        _ => transcluded_runs.push((target, vec![target.id.clone()])),
+                    }
                 }
             }
             UndoOp::Create { item } | UndoOp::Delete { item } => {
@@ -358,17 +399,33 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
         }
     }
     batch.push_move(model, moving.take());
+    for (first, ids) in &transcluded_runs {
+        if let Some(position) = position_in_transcluded_tree(model, first, ids) {
+            batch.ops.push(BatchOp::Move {
+                ids: ids.clone(),
+                page_id: first.page_id.clone(),
+                position,
+            });
+        }
+    }
+    // The transclusion shows the source tree as the server has it now
+    let read_again = !transcluded_runs.is_empty();
     batch.ops.extend(deletes);
     let sync = model.undo_syncs.begin(&batch.ops);
     run(move |api| async move {
         match api.apply_batch(batch.ops).await {
-            Ok(batched) => api.send_event(Event::UndoSynced {
-                sync,
-                items: batched.items,
-                reparsed: batch.reparsed,
-                recreated: batch.recreated,
-                created: batched.created,
-            }),
+            Ok(batched) => {
+                api.send_event(Event::UndoSynced {
+                    sync,
+                    items: batched.items,
+                    reparsed: batch.reparsed,
+                    recreated: batch.recreated,
+                    created: batched.created,
+                });
+                if read_again {
+                    api.send_event(Event::ReloadShownPage);
+                }
+            }
             Err(e) => {
                 log_error(format!("Failed to sync undo/redo to server: {e}"));
                 api.send_event(Event::ReloadShownPage);
