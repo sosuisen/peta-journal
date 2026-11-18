@@ -390,6 +390,25 @@ final class ShellTests: JournalTestCase {
         waitUntil("the list is items") { self.bodies() == ["first", "secondapple", "pear", "third"] }
     }
 
+    // 親と子を選んでコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
+    func testAParentAndItsChildCopiedAndPastedAtTheEndOfAnotherItemComeBackAsAParentAndItsChild() throws {
+        let child = "<!-- @@ 2020-01-01-00-00-00-AAAAAAB idx=\"aB\" -->\n"
+        try download("notes.md", above("A") + "parent\n\n" + child + "child\n\n" + above("C") + "third\n")
+        try openNotes()
+        shell.edit(id(of: "parent"))
+        shell.finish(id(of: "parent"))
+        shell.select(id(of: "parent"))
+        shell.copySelected()
+        waitUntil("the items are on the clipboard") { !self.copied.isEmpty }
+        shell.edit(id(of: "third"))
+
+        shell.paste(copied.last!, into: id(of: "third"), at: 5)
+
+        waitUntil("the copied items are back as they were") {
+            self.items() == ["1 parent", "2 child", "1 thirdparent", "2 child"]
+        }
+    }
+
     // 元に戻すは、最後の変更を取り消す。やり直すは、それをまた行う。
     func testUndoTakesBackTheLastChangeAndRedoDoesItAgain() throws {
         try editSecondOfThree()
