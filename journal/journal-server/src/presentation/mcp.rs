@@ -18,8 +18,14 @@ use serde_json::{json, Value};
 
 use crate::error::{AppError, AppResult};
 use crate::presentation::date_format::DateFormat;
+use crate::presentation::rest::sync;
 use crate::state::{blocking, SharedState};
-use journal_api_types::{GetOrCreateDocInput, UpdatePageInput};
+use journal_api_types::{
+    AddPropertyDefinitionInput, AtlasCalloutInput, AtlasGroupInput, AtlasLinkInput,
+    AtlasTitleInput, BatchInput, DemotePageInput, FlatMarkdownInput, GetOrCreateDocInput,
+    MergeItemsInput, MoveToJournalInput, PasteInput, ShiftLevelsInput, SplitInput, StashInput,
+    UpdatePageInput,
+};
 use journal_core::dto::ItemFields;
 use journal_core::journal::{
     ChangedBy, CreateItemInput, ItemIdsInput, MoveItemsInput, PropertyInput, TransclusionInput,
@@ -122,6 +128,25 @@ pub struct ItemIdArgs {
 pub struct TypesArgs {
     /// Comma-separated types to filter by (e.g. 'task')
     pub types: String,
+    /// Leaves out the items that have a value for this property key (e.g. 'end' for the
+    /// tasks that are not completed). Left out for every item.
+    #[serde(rename = "withoutProperty", default)]
+    pub without_property: Option<String>,
+    /// Comma-separated field names to return for each item (e.g. 'id,body'). Left out for
+    /// all fields.
+    #[serde(default)]
+    pub fields: Option<String>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct PageFieldsArgs {
+    /// HMTID of the page
+    #[serde(rename = "pageId")]
+    pub page_id: String,
+    /// Comma-separated field names to return for each item (e.g. 'id,level,body'). Left out
+    /// for all fields.
+    #[serde(default)]
+    pub fields: Option<String>,
 }
 
 /// The arguments of a tool that changes one item: the ID of the item, and beside it the fields
@@ -203,6 +228,84 @@ pub struct RecentPagesArgs {
     /// Filter by page type: 'journal', 'doc', or empty for all
     #[serde(rename = "type", default)]
     pub page_type: String,
+}
+
+/// The arguments of a tool that changes one item of an atlas page: the atlas, the item, and
+/// beside them the fields of the body of the REST route.
+#[derive(Deserialize, JsonSchema)]
+pub struct OfAtlasItem<T> {
+    /// HMTID of the atlas page
+    #[serde(rename = "pageId")]
+    pub page_id: String,
+    /// ID of the item of the atlas: a link card, a group or a callout
+    #[serde(rename = "itemId")]
+    pub item_id: String,
+    #[serde(flatten)]
+    pub input: T,
+}
+
+/// An item of an atlas page with nothing to say about it.
+#[derive(Deserialize, JsonSchema, Default)]
+pub struct Nothing {}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct ItemKeyArgs {
+    /// ID of the item
+    #[serde(rename = "itemId")]
+    pub item_id: String,
+    /// Property key
+    pub key: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct PagePropertyArgs {
+    /// HMTID of the page
+    #[serde(rename = "pageId")]
+    pub page_id: String,
+    /// Property key (e.g. 'tags', 'alias')
+    pub key: String,
+    #[serde(flatten)]
+    pub property: PropertyInput,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct PageKeyArgs {
+    /// HMTID of the page
+    #[serde(rename = "pageId")]
+    pub page_id: String,
+    /// Property key
+    pub key: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct KeyArgs {
+    /// Property key
+    pub key: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct BeforeWeekArgs {
+    /// Week in YYYY-Www format, e.g. '2026-W08' (exclusive upper bound)
+    #[serde(rename = "beforeWeek")]
+    pub before_week: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct ToJournalArgs {
+    /// Journal file name of a day (e.g. '2026-02-18')
+    #[serde(rename = "fileName")]
+    pub file_name: String,
+    #[serde(flatten)]
+    pub input: MoveToJournalInput,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct TagArgs {
+    /// The tag, without '#'
+    pub tag: String,
+    /// Maximum number of results. Left out for the default.
+    #[serde(rename = "maxResults", default)]
+    pub max_results: Option<usize>,
 }
 
 // ---- the server ----
@@ -297,8 +400,17 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let types: Vec<String> = a.types.split(',').map(|s| s.to_string()).collect();
-        let r = run(move || state.journal.items_by_types(&types, None)).await?;
-        dated(&r, dates)
+        let fields = a.fields.clone();
+        let r = run(move || {
+            state
+                .journal
+                .items_by_types(&types, a.without_property.as_deref())
+        })
+        .await?;
+        match ItemFields::parse(fields.as_deref()) {
+            Some(fields) => dated(&r.with_fields(&fields), dates),
+            None => dated(&r, dates),
+        }
     }
 
     #[tool(
@@ -399,11 +511,14 @@ impl JournalMcp {
     #[tool(description = "Get a page and its items by page ID")]
     async fn get_page_by_id(
         &self,
-        Parameters(Dated { args: a, dates }): Parameters<Dated<PageIdArgs>>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<PageFieldsArgs>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.get_page(&a.page_id)).await?;
-        dated(&r, dates)
+        match ItemFields::parse(a.fields.as_deref()) {
+            Some(fields) => dated(&r.with_fields(&fields), dates),
+            None => dated(&r, dates),
+        }
     }
 
     #[tool(
@@ -563,6 +678,403 @@ impl JournalMcp {
         })
         .await?;
         dated(&r, dates)
+    }
+
+    // ---- more of the items (the operations of an editor) ----
+
+    #[tool(
+        description = "Paste text into an item at a cursor. Text of several items (Flat Markdown or a Markdown list) becomes several items. Returns the items written and where the cursor is afterwards."
+    )]
+    async fn paste_text(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfItem<PasteInput>>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.paste(&a.item_id, a.input, &ChangedBy::Mcp)).await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Split an item in two at a cursor, as Enter in an editor does. The text before the cursor stays, the rest goes to a new item below."
+    )]
+    async fn split_item(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfItem<SplitInput>>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.split(&a.item_id, a.input, &ChangedBy::Mcp)).await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Merge an item into another, as Backspace at the start of an item does. The text of the item is added to the end of the other, and the item goes away."
+    )]
+    async fn merge_items(
+        &self,
+        Parameters(Dated { args: input, dates }): Parameters<Dated<MergeItemsInput>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.merge_items(input, &ChangedBy::Mcp)).await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Move an item with its children to the stash page. Returns the heading it went under and the items that moved."
+    )]
+    async fn stash_item(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfItem<StashInput>>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.stash(&a.item_id, a.input, &ChangedBy::Mcp)).await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Apply several operations on items (create, update, move, delete) in one transaction: all of them are done, or none."
+    )]
+    async fn apply_batch(
+        &self,
+        Parameters(Dated { args: input, dates }): Parameters<Dated<BatchInput>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.apply_batch(input, &ChangedBy::Mcp)).await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Delete several items at once. A page left without an item gets an empty one, which is returned."
+    )]
+    async fn delete_items(
+        &self,
+        Parameters(Dated { args: input, dates }): Parameters<Dated<ItemIdsInput>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.delete_items(input, &ChangedBy::Mcp)).await?;
+        dated(&r, dates)
+    }
+
+    #[tool(description = "Indent or outdent several items by adding a number to their levels.")]
+    async fn shift_item_levels(
+        &self,
+        Parameters(Dated { args: input, dates }): Parameters<Dated<ShiftLevelsInput>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.shift_levels(input, &ChangedBy::Mcp)).await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Of the given items, get the IDs of those that are transclusions or that a transclusion shows."
+    )]
+    async fn get_transcluded_items(
+        &self,
+        Parameters(input): Parameters<ItemIdsInput>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.transcluded_items(input)).await?;
+        ok(answer_json(&r))
+    }
+
+    #[tool(description = "Delete a property from an item.")]
+    async fn delete_property(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<ItemKeyArgs>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || {
+            state
+                .journal
+                .delete_item_property(&a.item_id, &a.key, &ChangedBy::Mcp)
+        })
+        .await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Parse Flat Markdown into its items: the level, the ID, the properties and the body of each. Nothing is saved."
+    )]
+    async fn parse_flat_markdown(
+        &self,
+        Parameters(input): Parameters<FlatMarkdownInput>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.parse_flat_markdown(input)).await?;
+        ok(answer_json(&r))
+    }
+
+    // ---- more of the pages ----
+
+    #[tool(description = "Get the pages directly under a page.")]
+    async fn get_child_pages(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<PageIdArgs>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.child_pages(&a.page_id)).await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Make the index page of a folder a plain page of the folder above, under the name of the folder."
+    )]
+    async fn demote_page(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfPage<DemotePageInput>>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || {
+            state
+                .journal
+                .demote_page(&a.page_id, a.input.overwrite, &ChangedBy::Mcp)
+        })
+        .await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Upsert a property on a page (e.g. tags). The key must be defined as a key of pages."
+    )]
+    async fn upsert_page_property(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<PagePropertyArgs>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || {
+            state.journal.set_page_property(
+                &a.page_id,
+                &a.key,
+                a.property.value_type.as_deref(),
+                a.property.value.as_deref(),
+                &ChangedBy::Mcp,
+            )
+        })
+        .await?;
+        dated(&r, dates)
+    }
+
+    #[tool(description = "Delete a property from a page.")]
+    async fn delete_page_property(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<PageKeyArgs>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || {
+            state
+                .journal
+                .delete_page_property(&a.page_id, &a.key, &ChangedBy::Mcp)
+        })
+        .await?;
+        dated(&r, dates)
+    }
+
+    // ---- atlas pages ----
+
+    #[tool(
+        description = "Add a link card to an atlas page (the index_atlas page of a folder): a card that shows a page or a URL. Returns the items of the atlas."
+    )]
+    async fn add_atlas_link(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfPage<AtlasLinkInput>>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.add_atlas_link(&a.page_id, a.input)).await?;
+        dated(&r, dates)
+    }
+
+    #[tool(description = "Change what a link card of an atlas page shows.")]
+    async fn set_atlas_link(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfAtlasItem<AtlasLinkInput>>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || {
+            state
+                .journal
+                .set_atlas_link(&a.page_id, &a.item_id, a.input)
+        })
+        .await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Put cards of an atlas page into one group, together with a target card or into a target group."
+    )]
+    async fn group_atlas_cards(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfPage<AtlasGroupInput>>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.group_atlas_cards(&a.page_id, a.input)).await?;
+        dated(&r, dates)
+    }
+
+    #[tool(description = "Take cards of an atlas page out of their groups.")]
+    async fn ungroup_atlas_cards(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfPage<AtlasGroupInput>>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.ungroup_atlas_cards(&a.page_id, a.input)).await?;
+        dated(&r, dates)
+    }
+
+    #[tool(description = "Set the title of a group of an atlas page and the side it is on.")]
+    async fn set_atlas_group_title(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfAtlasItem<AtlasTitleInput>>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || {
+            state
+                .journal
+                .set_atlas_group_title(&a.page_id, &a.item_id, a.input)
+        })
+        .await?;
+        dated(&r, dates)
+    }
+
+    #[tool(description = "Add a callout (a bubble of text) to an atlas page.")]
+    async fn add_atlas_callout(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfPage<AtlasCalloutInput>>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.add_atlas_callout(&a.page_id, a.input)).await?;
+        dated(&r, dates)
+    }
+
+    #[tool(description = "Change the text or the side of a callout of an atlas page.")]
+    async fn set_atlas_callout(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfAtlasItem<AtlasCalloutInput>>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || {
+            state
+                .journal
+                .set_atlas_callout(&a.page_id, &a.item_id, a.input)
+        })
+        .await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Remove a link card, a group or a callout from an atlas page. The card of a page cannot be removed: it goes with its page."
+    )]
+    async fn remove_atlas_item(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfAtlasItem<Nothing>>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.remove_atlas_item(&a.page_id, &a.item_id)).await?;
+        dated(&r, dates)
+    }
+
+    // ---- more of the journals and the search ----
+
+    #[tool(description = "Get the most recent weekly journal before the specified week")]
+    async fn get_most_recent_weekly_journal_before(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<BeforeWeekArgs>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || {
+            state
+                .journal
+                .most_recent_weekly_journal_before(&a.before_week)
+        })
+        .await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Move items to the journal of a day, which is made when it does not exist. Returns the journal and the items as they are now."
+    )]
+    async fn move_items_to_journal(
+        &self,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<ToJournalArgs>>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || {
+            state
+                .journal
+                .move_items_to_journal(&a.file_name, a.input, &ChangedBy::Mcp)
+        })
+        .await?;
+        dated(&r, dates)
+    }
+
+    #[tool(
+        description = "Find the items and the pages that have a tag: as a hashtag in a body, or in the tags of a page."
+    )]
+    async fn search_by_tag(
+        &self,
+        Parameters(a): Parameters<TagArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.search_by_tag(&a.tag, a.max_results)).await?;
+        ok(answer_json(&r))
+    }
+
+    // ---- property definitions ----
+
+    #[tool(
+        description = "Get the property definitions: the keys that items and pages may have, and the type of each."
+    )]
+    async fn get_property_definitions(&self) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.property_definitions()).await?;
+        ok(answer_json(&r))
+    }
+
+    #[tool(
+        description = "Define a property key. The name of the key gives its type (e.g. a name ending in '_date' is a date); a type sent with it is only checked."
+    )]
+    async fn add_property_definition(
+        &self,
+        Parameters(input): Parameters<AddPropertyDefinitionInput>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || state.journal.add_property_definition(input)).await?;
+        ok(answer_json(&r))
+    }
+
+    #[tool(
+        description = "Delete the definition of a property key, with every value of the key on items and pages."
+    )]
+    async fn delete_property_definition(
+        &self,
+        Parameters(a): Parameters<KeyArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || {
+            state
+                .journal
+                .delete_property_definition(&a.key, &ChangedBy::Mcp)
+        })
+        .await?;
+        ok(answer_json(&r))
+    }
+
+    // ---- the markdown folder ----
+
+    #[tool(
+        description = "Get the state of the sync with the markdown folder: the folder, the number of files tracked and of files that went missing."
+    )]
+    async fn get_sync_status(&self) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || sync::status_of(&state)).await?;
+        ok(answer_json(&r))
+    }
+
+    #[tool(
+        description = "Scan the markdown folder now and take in the files changed outside. Waits for the scan. Returns the numbers of files imported, in conflict, newly missing and exported; all zero when a scan is running already."
+    )]
+    async fn scan_folder(&self) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let r = run(move || Ok(sync::scan_now(&state))).await?;
+        ok(answer_json(&r))
     }
 }
 

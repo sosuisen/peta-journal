@@ -7,6 +7,8 @@
 
 #[path = "../common/mod.rs"]
 mod common;
+mod rest_only;
+mod table;
 
 use common::*;
 use rmcp::model::CallToolRequestParam;
@@ -53,48 +55,6 @@ async fn try_call(mcp: &Mcp, name: &'static str, args: Value) -> Result<Value, S
 }
 
 // ---- The server ----
-
-// ジャーナルのツールが一覧される。
-#[tokio::test]
-async fn the_tools_of_the_journal_are_listed() {
-    let mcp = connect().await;
-
-    let tools = mcp.list_all_tools().await.expect("tools");
-    let mut names: Vec<&str> = tools.iter().map(|t| t.name.as_ref()).collect();
-    names.sort_unstable();
-
-    assert_eq!(
-        names,
-        vec![
-            "create_item",
-            "cycle_task",
-            "delete_item",
-            "delete_page",
-            "export_page_markdown",
-            "export_subtree_markdown",
-            "export_tree_markdown",
-            "get_backlinks",
-            "get_config",
-            "get_item",
-            "get_items_by_type",
-            "get_most_recent_journal_before",
-            "get_or_create_doc",
-            "get_or_create_journal",
-            "get_page_by_id",
-            "get_recent_pages",
-            "import_tree_markdown",
-            "move_items",
-            "remove_transclusion",
-            "search_combined",
-            "search_page_names",
-            "set_transclusion",
-            "update_config",
-            "update_item",
-            "update_page",
-            "upsert_property",
-        ]
-    );
-}
 
 // 項目を変えるツールの引数は、項目のIDと、RESTのルートが本文で受ける欄である。
 #[tokio::test]

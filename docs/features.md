@@ -942,6 +942,12 @@
   - 1件の取得（`GET /api/items/{id}`）も、`fields`で頼まれたフィールドだけを項目に持つ。`item`の包みは変わらない
   - MCPの`get_item`も、`fields`で頼まれたフィールドだけを項目に持つ。`item`の包みは変わらない
 - todoアプリは、表示に使うフィールドだけを頼む
+- RESTのルートとMCPのツールは、同じ操作を持つ（ADR 060、`tests/mcp/table.rs`の対応表）
+  - 画面やブラウザーのためだけのルートは、ツールを持たない。SSE、ヘルス、フォルダーの選択、OSで開く操作、問い合わせへの答え、消えたファイルの画面である
+  - アセットのアップロードのツールは、まだない
+  - ルートやツールを足して対応表に書かないと、テストが落ちる
+  - エディターの操作（貼り付け、分割、結合、字下げ、バッチ、まとめての削除、スタッシュ）、アトラス、ページのプロパティ、子ページ、プロパティの定義、フォルダーの走査も、ツールでできる（`tests/mcp/rest_only.rs`）
+  - MCPの`get_page_by_id`と`get_items_by_type`も、`fields`を受ける。`get_items_by_type`は`withoutProperty`も受ける
 - MCPのツールは、項目のASTを除いて、同じ操作のRESTのルートと同じJSONで答える（ADR 060）
   - 利用者のプロパティは、`ast`という名前でも消えない
 - 日付（`createdDate`、`modifiedDate`）は、既定ではミリ秒の数である。RESTのクエリ`dateFormat=iso`と、MCPの引数`dateFormat`で、UTCのISO 8601の文字列になる（ADR 060）
