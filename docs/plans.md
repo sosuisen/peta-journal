@@ -331,12 +331,12 @@
   - chronoで今の時刻を読む処理（`emacs/.../runtime.rs`の`now`と`client-native-bridge/src/clock.rs`の`SystemClock`）は、2か所に残っている。Emacs版は`client-native-bridge`に依存しないためである。エフェクトを実行する方針を共通にするときに、1つにする
 - [ ] 触れた位置に近い文字を選ぶ決まり（縦の距離を100倍に重く見る）を、Rustに移すかを決める。iOS（`Touches.swift:48-52`）とAndroid（`Touches.kt:138-142`）に同じ式がある
   - 2026-11-17に調べた。同じなのは、各5行ほどの距離の式だけである。Rustへ移すと、触れるたびに文字の枠の一覧をFFIで渡すことになり、減る行より包む行が多い。移さないことを勧める
-- [ ] Androidで、項目のコピー、切り取り、貼り付けをできるようにする。iOSは2026-11-18に入れた。選択中の道具にCopyとCut（`client/assets/icons`の`copy`と`cut`）を足し、`CopyMarkdown`でクリップボードに載せる。入力欄の貼り付けは、`PasteText`でコアに送る
-  - `ReadClipboardText`と`Prompt`には、まだ答えない。`ReadClipboardText`は、項目のメニューの「Paste as Transclusion」（クリップボードの項目IDで、項目をトランスクルージョンにする）でコアが出す。スマホのアプリには、このメニューがまだない。`Prompt`は、検索欄が空のまま新しいページを作るときだけ出る
 - [ ] iOSとAndroidで、項目のメニューに「Paste as Transclusion」を足し、`ReadClipboardText`にクリップボードの文字で答える
+  - `ReadClipboardText`と`Prompt`には、まだ答えない。`ReadClipboardText`は、項目のメニューの「Paste as Transclusion」（クリップボードの項目IDで、項目をトランスクルージョンにする）でコアが出す。スマホのアプリには、このメニューがまだない。`Prompt`は、検索欄が空のまま新しいページを作るときだけ出る
 - [ ] iOSとAndroidで、外付けキーボードのショートカット（Tab、矢印、Ctrl+Shift+Vのそのまま貼り付けなど）をコアに送る
 - [ ] stickies-macで、項目のメニューに「Paste as Transclusion」を足す
 - [ ] stickies-winで、項目のメニューに「Paste as Transclusion」を足す
+- [ ] stickies-winに、コピーした項目が同じ項目として貼り戻るシナリオのテストを足す。親と子を選んでコピーし、別の項目の終わりに貼ると、親と子の形のまま戻ることを確かめる。Android（`EditTest`）、iOS、macには、2026-11-18に足した
 
 ### サーバーとクライアント（Rust）
 

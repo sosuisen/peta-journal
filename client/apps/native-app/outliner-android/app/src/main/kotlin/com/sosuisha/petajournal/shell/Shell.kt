@@ -27,12 +27,14 @@ import java.util.concurrent.Executors
  * what the user did. All of it runs on the main thread, but the taking in of files.
  *
  * [onMainThread] runs what it is given on the main thread, later and in order. The core calls
- * from its own threads. The core tells the sync when a page changed (ADR 055).
+ * from its own threads. The core tells the sync when a page changed (ADR 055). [copy] puts
+ * text on the clipboard of the system.
  */
 class Shell(
     dataDir: File,
     markdownDir: File,
     private val onMainThread: (() -> Unit) -> Unit,
+    private val copy: (String) -> Unit = {},
 ) : AutoCloseable {
     // The main thread keeps the requests in order. The first ones may come before the border
     // is there, and are still handled after this constructor
@@ -173,6 +175,18 @@ class Shell(
         return true
     }
 
+    /**
+     * The user pasted [text] into the edited item, with the cursor [cursor] UTF-16 units into
+     * its Markdown. The core cuts the text into items (ADR 011): its first line goes on after
+     * the cursor, and each line after it is an item below. What the app copied comes back as
+     * the same items.
+     */
+    fun paste(itemId: String, text: String, cursor: Int) {
+        val body = view.outline.rows.firstOrNull { it.item.id == itemId }?.item?.body.orEmpty()
+        val place = body.codePointCount(0, cursor.coerceIn(0, body.length))
+        send(Event.PasteText(itemId, text, "", place.toULong(), false))
+    }
+
     /** The user left the editor of the item: what was typed is saved. */
     fun finish(itemId: String) = send(Event.EditFinished(itemId))
 
@@ -205,6 +219,15 @@ class Shell(
 
     /** Moves or indents the selected items, as the keys do on a desktop. */
     fun moveSelected(key: SelectionKey) = send(Event.SelectionKey(key))
+
+    /**
+     * Puts the selected items on the clipboard, as Markdown. The core keeps how they stood, so
+     * that they are pasted back as the same items.
+     */
+    fun copySelected() = send(Event.SelectionKey(SelectionKey.COPY))
+
+    /** Puts the selected items on the clipboard, as [copySelected] does, and deletes them. */
+    fun cutSelected() = send(Event.SelectionKey(SelectionKey.CUT))
 
     /** Takes back the last change of the page. */
     fun undo() = send(Event.Undo)
@@ -329,6 +352,7 @@ class Shell(
             }
             is UiOp.Confirm -> put(Question(op.value, destructive = false, id))
             is UiOp.ConfirmDestructive -> put(Question(op.value, destructive = true, id))
+            is UiOp.CopyMarkdown -> copy(op.markdown)
             is UiOp.Prompt, is UiOp.ReadClipboardText -> border.answer(id, UiOutput.Text(null))
             // The others wait for no answer, such as the title to set and the item to scroll to
             else -> Unit

@@ -1,6 +1,8 @@
 package com.sosuisha.petajournal
 
 import android.app.Application
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -49,7 +51,9 @@ class JournalModel internal constructor(
     /** The Markdown folder of ADR 030. The core makes the folders in it. */
     private val markdown = File(filesDir, "markdown")
 
-    val shell = Shell(File(filesDir, "data"), markdown, { main.post(it) })
+    private val clipboard = app.getSystemService(ClipboardManager::class.java)
+
+    val shell = Shell(File(filesDir, "data"), markdown, { main.post(it) }, copy = { clipboard.setPrimaryClip(ClipData.newPlainText("Markdown", it)) })
 
     /** `null` when the account is not set up, as in an app that was built without the App key of Dropbox: it then syncs nothing. */
     val cloud: CloudSync? = if (!account.isSetUp) {

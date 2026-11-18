@@ -186,6 +186,12 @@ What each class does:
   main thread, in order. `sync()` takes in the files of the Markdown folder on a thread of
   its own. `syncAndWait()` does the same for the thread of a sync with the cloud, and returns
   when the core is done.
+- Copy and paste go through the core, as on the desktop. While items are selected, Copy and
+  Cut of `Tools` put them on the clipboard as a Markdown list (`Shell.copySelected`,
+  `Shell.cutSelected`, answered by `UiOp.CopyMarkdown`). In `ItemEditor`, Paste of the menu
+  of the text, Ctrl+V of a keyboard with real keys and the paste of accessibility go to
+  `Shell.paste`, and the core makes items of a list. While text is chosen, the field puts the
+  pasted text in its place.
 - `ShownText` writes the parts of an item as it is shown, from the parts that the core gives
   with each row (`Row.bodyModel`, ADR 042). The text is an `AnnotatedString`; a code block,
   a table and an image of the assets folder are parts of their own, which the screen draws. A

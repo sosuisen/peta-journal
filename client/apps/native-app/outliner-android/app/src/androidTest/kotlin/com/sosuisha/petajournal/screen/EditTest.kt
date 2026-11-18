@@ -1,5 +1,7 @@
 package com.sosuisha.petajournal.screen
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.view.inputmethod.EditorInfo
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.ViewRootForTest
@@ -22,8 +24,10 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.withKeyDown
 import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import com.sosuisha.petajournal.types.TaskState
 import org.junit.Assert.assertEquals
@@ -149,6 +153,68 @@ class EditTest : JournalScreenFixture() {
     private fun items(): List<String> = shell.view.outline.rows.map { "${it.item.level} ${it.item.body}" }
 
     private fun waitForItems(vararg items: String) = compose.waitUntil(WAIT_MS) { items() == items.toList() }
+
+    /** Puts [text] on the clipboard of the system, as another app does. */
+    private fun onTheClipboard(text: String) = compose.runOnUiThread {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("test", text))
+    }
+
+    // Markdownのリストを項目の終わりに貼り付けると、1つ目はその項目に続き、2つ目は下の新しい項目になる。
+    @Test
+    fun a_list_pasted_at_the_end_of_an_item_goes_on_in_it_and_makes_a_new_item_below() {
+        editSecondOfThree()
+        onTheClipboard("- apple" + NL + "- pear")
+
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.PasteText)
+
+        waitForItems("1 first", "1 secondapple", "1 pear", "1 third")
+    }
+
+    // 親と子を選んでコピーの道具でコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
+    @Test
+    fun a_parent_and_its_child_that_were_copied_are_pasted_back_as_a_parent_and_its_child() {
+        download(
+            "notes.md",
+            above('A') + "parent" + NL + NL + above('B').replace("<!-- @ ", "<!-- @@ ") + "child" + NL + NL + above('C') + "third" + NL,
+        )
+        openNotes()
+        waitForItems("1 parent", "2 child", "1 third")
+        touchEnd("parent")
+        tool("Hide keyboard")
+        compose.waitUntil(WAIT_MS) { shell.view.outline.rows.any { it.isSelected } }
+        tool("Copy")
+        compose.waitUntil(WAIT_MS) { copied.isNotEmpty() }
+        touchEnd("third")
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("third")
+
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.PasteText)
+
+        waitForItems("1 parent", "2 child", "1 thirdparent", "2 child")
+    }
+
+    // 実のキーのキーボードのCtrl+Vも、コアが貼り付ける。リストは項目になる。
+    @Test
+    fun ctrl_v_of_a_keyboard_with_real_keys_pastes_a_list_as_items() {
+        editSecondOfThree()
+        onTheClipboard("- apple" + NL + "- pear")
+
+        compose.onNodeWithTag(EDITOR_TAG).performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.V) } }
+
+        waitForItems("1 first", "1 secondapple", "1 pear", "1 third")
+    }
+
+    // 文字を選んで貼り付けると、選んだ文字が貼り付けた文字に置き換わる。
+    @Test
+    fun a_paste_over_chosen_text_puts_the_pasted_text_in_its_place() {
+        editSecondOfThree()
+        onTheClipboard("best")
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) { it(0, 6, false) }
+
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.PasteText)
+
+        waitForItems("1 first", "1 best", "1 third")
+    }
 
     // 道具は、編集しているときだけ出る。
     @Test

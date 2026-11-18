@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.assertEquals
 import org.junit.runner.RunWith
 import org.junit.Test
 
@@ -157,6 +158,43 @@ class ToolbarTest : JournalScreenFixture() {
 
         waitForItems("1 two", "1 one", "1 three")
         compose.waitUntil(WAIT_MS) { selected() == listOf("two") }
+    }
+
+    // 選んだ項目をコピーの道具でコピーすると、その項目がMarkdownでクリップボードに載る。項目はページに残る。
+    @Test
+    fun the_copy_tool_puts_the_selected_item_on_the_clipboard_as_markdown() {
+        selectTwo()
+
+        tool("Copy")
+
+        compose.waitUntil(WAIT_MS) { copied.isNotEmpty() }
+        assertEquals(listOf("- two"), copied)
+        assertEquals(listOf("1 one", "1 two", "1 three"), items())
+    }
+
+    // 選んだ項目を切り取りの道具で切り取ると、その項目がクリップボードに載り、ページから消える。
+    @Test
+    fun the_cut_tool_puts_the_selected_item_on_the_clipboard_and_takes_it_off_the_page() {
+        selectTwo()
+
+        tool("Cut")
+
+        waitForItems("1 one", "1 three")
+        assertEquals(listOf("- two"), copied)
+    }
+
+    // コピーと切り取りの道具は、項目を選んでいるときだけ出る。編集しているときは出ない。
+    @Test
+    fun the_copy_and_cut_tools_show_only_while_an_item_is_selected() {
+        selectTwo()
+        compose.onNode(hasContentDescription("Copy")).assertExists()
+        compose.onNode(hasContentDescription("Cut")).assertExists()
+
+        tool("Show keyboard")
+
+        compose.waitUntil(WAIT_MS) { compose.onAllNodesWithTag(EDITOR_TAG).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasContentDescription("Copy")).assertDoesNotExist()
+        compose.onNode(hasContentDescription("Cut")).assertDoesNotExist()
     }
 
     // 道具を縮めると、丸いボタンだけになる。押すと、道具が戻る。
