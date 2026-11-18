@@ -113,6 +113,14 @@ pub struct LocalDateTime {
     pub minute: u32,
 }
 
+impl LocalDateTime {
+    /// The name of the journal of this day, `YYYY-MM-DD`. Every shell tells the core the day
+    /// of today with it.
+    pub fn day_name(&self) -> String {
+        format!("{:04}-{:02}-{:02}", self.year, self.month, self.day)
+    }
+}
+
 /// `Untitled-YYYYMMDDHHMM` for a page created without a name.
 pub fn generate_untitled_title(now: LocalDateTime) -> String {
     format!(
@@ -124,6 +132,21 @@ pub fn generate_untitled_title(now: LocalDateTime) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::effects::LocalDateTimeDto;
+
+    // 日のジャーナルの名前は、年4桁、月2桁、日2桁を「-」でつないだものである。
+    #[test]
+    fn the_name_of_the_journal_of_a_day_is_its_date_with_two_digits_for_month_and_day() {
+        let day = LocalDateTime {
+            year: 2026,
+            month: 3,
+            day: 5,
+            hour: 23,
+            minute: 59,
+        };
+        assert_eq!(day.day_name(), "2026-03-05");
+        assert_eq!(LocalDateTimeDto::from(day).day_name(), "2026-03-05");
+    }
 
     // RFC 3339 の時刻文字列はサーバーの書式と同じエポックミリ秒に解析され、日付だけなら UTC の0時になり、オフセットのない時刻や日付でない文字列は None になる。
     #[test]

@@ -299,8 +299,7 @@ impl PetaCore {
         let Route::Page { name, .. } = route else {
             return true;
         };
-        let (local, _) = SystemClock.now();
-        let today = format!("{:04}-{:02}-{:02}", local.year, local.month, local.day);
+        let today = SystemClock.now().0.day_name();
         let name = if name == "today" { &today } else { name };
         let page = if is_journal_file_name(name) {
             let journals = &self.core.pages;

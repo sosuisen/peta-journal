@@ -126,7 +126,7 @@ fn save_bounds(model: &mut Model, item: &Item, bounds: Bounds) -> Cmd {
     }
     let item_id = item.id.clone();
     let before = item.properties.get(BOUNDS_KEY).cloned();
-    let value = bounds.to_value();
+    let value = bounds.to_string();
     set_property(model, &item_id, Some(PropertyValue::Text(value.clone())));
     run(move |api| async move {
         if let Err(e) = api
@@ -367,7 +367,7 @@ pub fn add_callout(model: &mut Model, x: f64, y: f64, side: String, text: String
     change(
         model,
         AtlasChange::AddCallout {
-            bounds: callout_bounds(x, y, 1.0).to_value(),
+            bounds: callout_bounds(x, y, 1.0).to_string(),
             side,
             text,
         },
@@ -498,7 +498,7 @@ pub fn add_link(model: &mut Model, x: f64, y: f64, target: String) -> Cmd {
         model,
         AtlasChange::AddLink {
             target,
-            bounds: bounds.to_value(),
+            bounds: bounds.to_string(),
         },
     )
 }

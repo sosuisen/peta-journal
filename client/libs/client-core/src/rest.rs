@@ -37,7 +37,7 @@ pub struct ClientId(String);
 
 impl ClientId {
     /// The header that carries the ID. The server refuses a change without it.
-    pub const HEADER: &str = "X-Client-Id";
+    pub const HEADER: &str = journal_api_types::CLIENT_ID_HEADER;
 
     #[allow(clippy::new_without_default)] // each call makes another ID, which a default is not
     pub fn new() -> ClientId {

@@ -1,10 +1,9 @@
 //! Page use cases.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 use hmtid::Hmtid;
-use regex::Regex;
 use rusqlite::{Connection, Transaction};
 
 use super::atlas_service::AtlasService;
@@ -67,11 +66,6 @@ pub struct PageService {
     atlas: Arc<AtlasService>,
 }
 
-static FORBIDDEN_CHARS: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"[<>:"/\\|?*\x00-\x1F\x7F]"#).unwrap());
-static RESERVED_NAMES: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$").unwrap());
-
 /// A title a page may take: not blank, not padded, and a file name on every OS.
 pub fn validate_title(title: &str) -> AppResult<()> {
     if title.trim().is_empty() {
@@ -87,29 +81,10 @@ pub fn validate_title(title: &str) -> AppResult<()> {
     validate_file_name(title)
 }
 
+/// A file name on every OS. The clients check a name with the same rule (`page-names`)
+/// before they ask.
 pub fn validate_file_name(title: &str) -> AppResult<()> {
-    if let Some(m) = FORBIDDEN_CHARS.find(title) {
-        let ch = m.as_str().chars().next().unwrap_or(' ');
-        if (ch as u32) < 0x20 || ch as u32 == 0x7F {
-            return Err(AppError::bad_request(
-                "Title contains a control character (not allowed in filenames)",
-            ));
-        }
-        return Err(AppError::bad_request(format!(
-            "Title contains '{ch}' (not allowed in filenames)"
-        )));
-    }
-    if title.ends_with('.') || title.ends_with(' ') {
-        return Err(AppError::bad_request(
-            "Title cannot end with a dot or space",
-        ));
-    }
-    if RESERVED_NAMES.is_match(title) {
-        return Err(AppError::bad_request(format!(
-            "Title '{title}' is a reserved name on Windows"
-        )));
-    }
-    Ok(())
+    page_names::check_file_name(title).map_err(|e| AppError::bad_request(e.to_string()))
 }
 
 /// The paths a wikilink may name the page by. An index page is named by its folder too, as

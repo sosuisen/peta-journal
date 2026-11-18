@@ -18,9 +18,9 @@ impl Default for IdGenerator {
 impl IdGenerator {
     pub fn new() -> IdGenerator {
         IdGenerator {
-            pages: Generator::new('-', true),
-            items: Generator::new('-', true),
-            assets: Generator::new('_', false),
+            pages: Generator::for_pages_and_items(),
+            items: Generator::for_pages_and_items(),
+            assets: Generator::for_files(),
         }
     }
 

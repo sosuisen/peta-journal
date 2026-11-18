@@ -2,7 +2,7 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
-use client_core::effects::{LocalDateTimeDto, UiOp, UiOutput};
+use client_core::effects::{UiOp, UiOutput};
 use client_page_links::{copied_html, AppLinks};
 use crux_core::Request;
 use leptos::prelude::{Set, WithUntracked};
@@ -219,18 +219,10 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
             };
         }
         UiOp::LocalNow => {
-            let d = js_sys::Date::new_0();
-            let local = LocalDateTimeDto {
-                year: d.get_full_year() as i32,
-                month: d.get_month() + 1,
-                day: d.get_date(),
-                hour: d.get_hours(),
-                minute: d.get_minutes(),
-            };
             handle.resolve(
                 &mut request,
                 UiOutput::Now {
-                    local,
+                    local: dom::local_now(),
                     now_ms: js_sys::Date::now() as u64,
                 },
             );

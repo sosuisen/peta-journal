@@ -1,6 +1,7 @@
 //! Small helpers over `web-sys`: the pieces of the Angular components that read or write
 //! the page directly.
 
+use client_core::effects::LocalDateTimeDto;
 use client_core::model::DeferredKey;
 use client_core::util::utf16;
 use wasm_bindgen::prelude::*;
@@ -415,15 +416,16 @@ pub fn local_minutes_to_utc(local: &str) -> String {
     )
 }
 
-/// Today's local date as `YYYY-MM-DD`.
-pub fn today_iso() -> String {
+/// The local date and time of the browser, as the core takes it.
+pub fn local_now() -> LocalDateTimeDto {
     let d = js_sys::Date::new_0();
-    format!(
-        "{:04}-{:02}-{:02}",
-        d.get_full_year(),
-        d.get_month() + 1,
-        d.get_date()
-    )
+    LocalDateTimeDto {
+        year: d.get_full_year() as i32,
+        month: d.get_month() + 1,
+        day: d.get_date(),
+        hour: d.get_hours(),
+        minute: d.get_minutes(),
+    }
 }
 
 pub fn local_storage_get(key: &str) -> Option<String> {

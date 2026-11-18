@@ -1,64 +1,29 @@
 //! The place of a card or a callout on an atlas: `x,y,width,height`.
+//!
+//! The type is the one of `peta-atlas`, which the clients read the value with too. The text is
+//! parsed once at the boundary, so the code inside never sees a wrong one.
 
-use std::fmt;
-use std::str::FromStr;
-
-use super::number_text::format_number;
-
-/// Four finite numbers `x,y,width,height`. The text is parsed once at the boundary, so the
-/// code inside never sees a wrong one. It is written back without spaces, each number as a
-/// number property shows it, so the front matter and the metadata line of an item hold it as
-/// one plain value.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Bounds([f64; 4]);
-
-/// The text is not four finite numbers.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NotBounds(String);
-
-impl fmt::Display for NotBounds {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Bounds must be four numbers x,y,width,height: {}",
-            self.0
-        )
-    }
-}
-
-impl std::error::Error for NotBounds {}
-
-impl FromStr for Bounds {
-    type Err = NotBounds;
-
-    fn from_str(text: &str) -> Result<Self, Self::Err> {
-        let numbers = text
-            .split(',')
-            .map(|n| n.trim().parse::<f64>().ok().filter(|n| n.is_finite()))
-            .collect::<Option<Vec<f64>>>();
-        match numbers.as_deref() {
-            Some(&[x, y, width, height]) => Ok(Bounds([x, y, width, height])),
-            _ => Err(NotBounds(text.to_string())),
-        }
-    }
-}
-
-impl fmt::Display for Bounds {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let text = self.0.map(format_number).join(",");
-        f.write_str(&text)
-    }
-}
+pub use peta_atlas::{Bounds, NotBounds};
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::number_text::format_number;
 
     // 4つの数は、空白を除き、数のプロパティと同じ書き方で書き直される。
     #[test]
     fn four_numbers_are_written_back_without_spaces_as_number_properties_are() {
         let bounds: Bounds = " 10, 20.5,160 ,-56 ".parse().unwrap();
         assert_eq!(bounds.to_string(), "10,20.5,160,-56");
+    }
+
+    // 大きな数、小さな数、負の数も、数のプロパティと同じ書き方になる。
+    #[test]
+    fn every_number_is_written_as_a_number_property_shows_it() {
+        for n in [0.0, -0.5, 3.0, 1e15, 1e15 - 1.0, -1e15, 1e21, 0.1 + 0.2] {
+            let bounds: Bounds = format!("{n},0,0,0").parse().unwrap();
+            assert_eq!(bounds.to_string(), format!("{},0,0,0", format_number(n)));
+        }
     }
 
     // 4つの有限な数でなければ、boundsにならない。

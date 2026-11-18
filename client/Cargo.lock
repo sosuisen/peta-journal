@@ -576,6 +576,7 @@ dependencies = [
  "hmtid",
  "journal-api-types",
  "journal-names",
+ "page-names",
  "percent-encoding",
  "peta-atlas",
  "property-names",
@@ -2207,6 +2208,7 @@ dependencies = [
  "lindera",
  "lindera-analysis",
  "lindera-tantivy",
+ "page-names",
  "parking_lot",
  "peta-atlas",
  "property-names",
@@ -2863,6 +2865,10 @@ checksum = "2fbd56f7631767e61784dc43f8580f403f4475bd4aaa4da003e6295e1bab4a7e"
 dependencies = [
  "stable_deref_trait",
 ]
+
+[[package]]
+name = "page-names"
+version = "1.0.0"
 
 [[package]]
 name = "parking"

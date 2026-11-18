@@ -9,6 +9,10 @@
 //! `Option` or has a default, and the journal says what is wrong with a value. A field that is
 //! not set is not written, so a request says only what its sender set.
 
+/// The header that carries the ID a client names itself with (ADR-015). The journal refuses
+/// a change without it. Lower case, as HTTP/2 and the header names of the server write it.
+pub const CLIENT_ID_HEADER: &str = "x-client-id";
+
 use serde::{Deserialize, Serialize};
 
 fn is_false(value: &bool) -> bool {

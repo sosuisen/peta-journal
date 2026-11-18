@@ -10,7 +10,7 @@ pub use journal_core::domain::client_id::ClientId;
 use crate::error::{AppError, AppResult};
 
 /// The header that carries the ID.
-pub const HEADER: &str = "x-client-id";
+pub const HEADER: &str = journal_api_types::CLIENT_ID_HEADER;
 
 /// The ID that the headers of a request name.
 pub fn of(headers: &HeaderMap) -> AppResult<ClientId> {

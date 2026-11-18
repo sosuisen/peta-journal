@@ -450,8 +450,7 @@ impl<H: Host> Shell<H> {
 
     /// The local date, as `YYYY-MM-DD`.
     fn today(&self) -> String {
-        let local = self.host.now().local;
-        format!("{:04}-{:02}-{:02}", local.year, local.month, local.day)
+        self.host.now().local.day_name()
     }
 
     fn send(&mut self, event: Event) {

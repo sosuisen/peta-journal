@@ -64,7 +64,7 @@ fn App() -> impl IntoView {
             match parse_route(&pathname, &hash) {
                 Some(route) => core.send(Event::Route {
                     route,
-                    today: dom::today_iso(),
+                    today: dom::local_now().day_name(),
                 }),
                 None => core.navigate("/today", true),
             }

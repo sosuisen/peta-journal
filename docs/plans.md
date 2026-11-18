@@ -150,6 +150,7 @@ ADR 051は、`/pages/`といった値をhrefに埋め込む機能を提供する
 
 ### 調査・バグ修正
 
+- [ ] E2Eの`calendar.spec.ts`の2つめのテストが、2026-11-18に`main`で1回だけ落ちた原因を調べる。週のページを開いた直後に`page.goto`で今日のページを開くと、`.calendar-btn`が30秒たっても出なかった。ジャーナルの画面は、サーバーの答えを待たずに出るので、アプリが動いていなかったことになる。同じテストだけを立ち上げ直したサーバーで21回、全件を1回回し直したが、再現しなかった。失敗の記録（トレース）は、回し直しで消えた。次に落ちたら、`test-results/`のトレースを先に取っておく
 - [ ] Web版の検索で、`↓`のあとすぐにEnterを押すと、答えが届く前の古い結果を開くことがある不具合を直す
   - Emacs版では対策済みで、Web版にだけ残っている
 - [ ] ほかのクライアントが消した項目が、画面に残り続ける原因を調べて直す
@@ -343,8 +344,7 @@ ADR 051は、`/pages/`といった値をhrefに埋め込む機能を提供する
   - 画像の`w`と`h`。Web版（`item_html.rs:41-50`）は空白を取り、core（`rich_text/blocks.rs:156`）は取らない
 - [ ] 描画の定数をそろえる。見出しの大きさは、Androidだけがブラウザの既定値（2.0、1.5、1.17…）で、ほかは1.6、1.4、1.2、1.1、1である。マーカーの色、1段の字下げも、シェルごとに違う。行頭の点は、iOSとAndroidが`row.showBullet`に従い、macOSとWindowsはいつも描く。coreが`RichParagraph`で大きさを渡すか、共通の表を持つ
 - [ ] 日付が変わったら、Rustが`/today`を開き直す。今は、どのシェルも日付の変わり目に気づかない。macOSの付箋紙で求められたことは、「SwiftUIのシェル（macOS）」の「日付が変わったことを付箋紙が自分で知る」にある。`Clock`の`now`と`sleep`で作れる
-  - 今日の日付の文字列（`YYYY-MM-DD`）を、4か所で作っている（`client-native-bridge/src/shell.rs:258`、`client-shell-embedded/src/lib.rs:220`、`emacs/outliner/src/shell.rs:428`、`web-app/outliner/src/dom.rs:429`）。client-coreの`LocalDateTime`のメソッドにする
-  - chronoで今の時刻を読む処理（`emacs/.../runtime.rs:76-88`と`client-native-bridge/src/clock.rs:21-31`）
+  - chronoで今の時刻を読む処理（`emacs/.../runtime.rs`の`now`と`client-native-bridge/src/clock.rs`の`SystemClock`）は、2か所に残っている。Emacs版は`client-native-bridge`に依存しないためである。エフェクトを実行する方針を共通にするときに、1つにする
 - [ ] 触れた位置に近い文字を選ぶ決まり（縦の距離を100倍に重く見る）を、Rustに移すかを決める。iOS（`Touches.swift:48-52`）とAndroid（`Touches.kt:138-142`）に同じ式がある
   - 2026-11-17に調べた。同じなのは、各5行ほどの距離の式だけである。Rustへ移すと、触れるたびに文字の枠の一覧をFFIで渡すことになり、減る行より包む行が多い。移さないことを勧める
 - [ ] iOSとAndroidで、`Prompt`、`ReadClipboardText`、`CopyMarkdown`に答える。今は、`nil`を返すか、捨てている（`Shell.swift:318`、`Shell.kt:317`）。macOSとWindowsは、3つとも扱う
@@ -361,14 +361,6 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
 - [ ] 通信の型（DTO）とSSEの形を、サーバーとクライアントでそろえる。要求の本文の型と、SSEの知らせの型は、`journal/journal-api-types`で共有している。答えは、サーバー（`journal-core/src/dto.rs`）とクライアント（`client-core/src/model.rs`）が別々の型で持ち、`client-api-embedded/tests/journal.rs`のテストが欄ごとに比べる
   - [ ] 一括（`ApplyBatch`）の要求を、共有の型で書くかを決める。今は、クライアントが自分の`BatchOp`をJSONにして送る。`BatchOp`は位置とタスクの状態を型で持ち、共有の`BatchOpInput`は文字列で持つ
   - [ ] 答えの型を共有するかを決める。クライアントの`Item`と`Page`は、ネイティブのシェルとの境界も越え、画面の状態も兼ねる。サーバーの`ItemDto`の`ast`を、クライアントは持たない。欄のずれはテストで見つかるので、急がない
-- [ ] タイトルの検査を、1つにまとめる（`client-core/src/util/filename.rs:53-82`と`journal-core/src/application/page_service.rs:69-111`）。クライアントの`is_control()`は、U+0080からU+009Fも拒む。サーバーは拒まない。`/`の扱いは、わざと違う
-- [ ] コードフェンスを閉じる処理と`split_at_char`を、1つにまとめる（`journal-core/src/application/paste.rs:75-98`と`client-core/src/util/mod.rs`）
-- [ ] アトラスの`Bounds`を、`peta-atlas`にまとめる（`journal-core/src/domain/bounds.rs`と`atlas/src/lib.rs:48-79`）。書き出しが少し違い、1e15以上の値で「…0.0」と「…0」になる。`ATLAS_NAME`も、`client-core/src/screens/page.rs:14`と`journal-core/src/domain/model.rs:50`の2か所にある
-- [ ] 小さな重複をまとめる
-  - 「Untitled-」の名前（`web-app/.../item_view.rs:185-195`と`client-core/src/util/date.rs:209`）
-  - IDの作り方の設定`Generator::new('-', true)`（`client-core/src/app.rs:1003`と`journal-core/src/domain/id_generator.rs`）。`hmtid`のコンストラクタにする
-  - `ClientId`とそのヘッダーの名前（`client-core/src/rest.rs:29-33`、`journal-core/src/domain/client_id.rs`、`journal-server/src/presentation/client_id.rs:13`）
-  - RESTを呼んで答えを読む手順が、3か所にある（`web-app/.../effects/api.rs:72-79`、`client-api-http/src/api.rs:17-23`、`client-api-embedded/src/lib.rs:52-65`）
 
 #### 調査・バグ修正
 
@@ -387,7 +379,7 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
   - 既定のポート8087を、4か所に決め打ちしている（`todo/src/api.ts:36`、`peta-journal.el:29`、`JournalApiService.cs:31`、`emacs/outliner/src/main.rs:4`）。付箋紙の既定のサーバーも、macOSとWindowsに1つずつある
   - 同じ画像ファイルが2つずつある（todoの`images/favicon.ico`と`public/favicon.ico`、ルートの`images/favicon.ico`とWeb版の`public/favicon.ico`、`peta-journal-gray.png`）
 
-まとめないものは、次のとおりである。Emacsの画像リンクの読み取り（Emacsのシェルは、coreに本文をパースさせない）。client-coreの2つの`page_title`（ウィンドウとサイドバーで役目が違う）。サーバーの見出しの決まり（`domain/item_body.rs:41`）は、重複ではなく不具合である。
+まとめないものは、次のとおりである。Emacsの画像リンクの読み取り（Emacsのシェルは、coreに本文をパースさせない）。client-coreの2つの`page_title`（ウィンドウとサイドバーで役目が違う）。サーバーの見出しの決まり（`domain/item_body.rs:41`）は、重複ではなく不具合である。`split_at_char`（`journal-core/src/application/paste.rs`と`client-core/src/util/mod.rs`）は5行で、置く先のクレートがない。コードフェンスを閉じる処理は、どちらもflatmarkdownの`close_blocks`を呼んでいる。RESTを呼んで答えを読む手順（`web-app/.../effects/api.rs`、`client-api-http/src/api.rs`、`client-api-embedded/src/lib.rs`）は各3行で、送り方（`fetch`、同期のHTTP、プロセスの中の呼び出し）が違う。`ClientId`の型は、クライアントがIDを作り、サーバーがIDを検査するので、役目が違う。ヘッダーの名前だけを`journal-api-types`で共有している。
 
 ## CI
 

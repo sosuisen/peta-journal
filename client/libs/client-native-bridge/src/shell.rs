@@ -325,8 +325,7 @@ impl NativeShell {
 
     /// The local date of the clock, `YYYY-MM-DD`, for the journal of today.
     fn today(&self) -> String {
-        let (local, _) = self.clock.now();
-        format!("{:04}-{:02}-{:02}", local.year, local.month, local.day)
+        self.clock.now().0.day_name()
     }
 
     /// Takes the answer of the shell to the request `id`: the output of its operation. A request
