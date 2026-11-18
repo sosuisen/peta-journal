@@ -323,6 +323,10 @@ flatmarkdown `0.9.0`と`flatmarkdown-ast2react` `0.5.0`は公開した。peta-jo
 - [ ] iOSとAndroidで、項目のメニューに「Paste as Transclusion」を足し、`ReadClipboardText`にクリップボードの文字で答える
   - `ReadClipboardText`と`Prompt`には、まだ答えない。`ReadClipboardText`は、項目のメニューの「Paste as Transclusion」（クリップボードの項目IDで、項目をトランスクルージョンにする）でコアが出す。スマホのアプリには、このメニューがまだない。`Prompt`は、検索欄が空のまま新しいページを作るときだけ出る
 - [ ] iOSとAndroidで、外付けキーボードのショートカット（Tab、矢印、Ctrl+Shift+Vのそのまま貼り付けなど）をコアに送る
+- [ ] Androidの実機（motorola edge 40 neo）で、コピーした項目の貼り付けがおかしい。原因がシェルだけにあるのか、コアも関わるのかを調べる（2026-11-18に開発者が見つけた）
+  - 入力欄を長押ししても、貼り付けのメニューが出ない。エミュレーターのテストでは、Compose 1.13の文字のメニューに足した「貼り付け」が出ている
+  - キーボードの上端に出るクリップボードの内容を押して貼ると、コピーの道具が載せたMarkdown（`- xxx`）が、先頭の`- `ごと文字として入る。項目として戻るなら、`- `は要らない
+  - iOSの実機（iPhone SE）では、同じ手順で問題がなかった
 - [ ] stickies-macで、項目のメニューに「Paste as Transclusion」を足す
 - [ ] stickies-winで、項目のメニューに「Paste as Transclusion」を足す
 - [ ] stickies-winに、コピーした項目が同じ項目として貼り戻るシナリオのテストを足す。親と子を選んでコピーし、別の項目の終わりに貼ると、親と子の形のまま戻ることを確かめる。Android（`EditTest`）、iOS、macには、2026-11-18に足した
