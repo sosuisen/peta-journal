@@ -110,11 +110,22 @@ async fn a_tool_that_changes_an_item_takes_its_id_and_the_fields_of_the_rest_bod
         .collect();
     arguments.sort_unstable();
 
-    assert_eq!(arguments, ["body", "collapsed", "itemId", "level"]);
+    assert_eq!(
+        arguments,
+        ["body", "collapsed", "dateFormat", "itemId", "level"]
+    );
     assert_eq!(update.input_schema["required"], json!(["itemId"]));
 }
 
-// ツールは、同じ操作のRESTのルートと同じJSONで答える。日付はミリ秒の数で、プロパティも入る。
+/// The answer of a REST route as a tool gives it: without the AST of its items.
+fn without_asts(mut answer: Value) -> Value {
+    for item in answer["items"].as_array_mut().into_iter().flatten() {
+        item.as_object_mut().unwrap().remove("ast");
+    }
+    answer
+}
+
+// ツールは、項目のASTを除いて、同じ操作のRESTのルートと同じJSONで答える。日付はミリ秒の数で、プロパティも入る。
 #[tokio::test]
 async fn a_tool_answers_with_the_json_of_its_rest_route() {
     let mcp = connect().await;
@@ -131,9 +142,53 @@ async fn a_tool_answers_with_the_json_of_its_rest_route() {
         .await
         .unwrap();
 
-    assert_eq!(by_tool, by_rest);
+    assert!(by_rest["items"][0]["ast"].is_string(), "{by_rest}");
+    assert_eq!(by_tool, without_asts(by_rest));
     assert!(by_tool["page"]["modifiedDate"].is_number(), "{by_tool}");
     assert_eq!(by_tool["items"][0]["properties"]["tags"], json!(["mcp"]));
+}
+
+// dateFormatにisoを渡すと、ツールは日付をUTCのISO 8601の文字列で答える。RESTの同じクエリと同じ答えになる。
+#[tokio::test]
+async fn a_tool_writes_its_dates_as_iso_text_when_asked_as_its_rest_route_does() {
+    let mcp = connect().await;
+    let page = new_doc_page("mcp-iso-dates").await;
+
+    let by_tool = call(
+        &mcp,
+        "get_page_by_id",
+        json!({ "pageId": page.id, "dateFormat": "iso" }),
+    )
+    .await;
+    let (_, by_rest) = get(&format!("/api/pages/{}?dateFormat=iso", page.id)).await;
+
+    let written = by_tool["page"]["modifiedDate"].as_str().unwrap_or_default();
+    assert!(
+        chrono::DateTime::parse_from_rfc3339(written).is_ok() && written.ends_with('Z'),
+        "{by_tool}"
+    );
+    assert!(by_tool["items"][0]["createdDate"].is_string(), "{by_tool}");
+    assert_eq!(by_tool, without_asts(by_rest));
+}
+
+// 知らないdateFormatは、何もせずに拒否される。
+#[tokio::test]
+async fn a_date_format_that_is_not_known_is_refused_before_anything_changes() {
+    let mcp = connect().await;
+    let page = new_doc_page("mcp-bad-date-format").await;
+
+    let error = call_err(
+        &mcp,
+        "create_item",
+        json!({ "pageId": page.id, "position": "last", "level": 1, "body": "x", "dateFormat": "rfc" }),
+    )
+    .await;
+
+    assert!(
+        error.contains("dateFormat") || error.contains("rfc"),
+        "{error}"
+    );
+    assert_eq!(outline_of(&page.id).await, vec!["1:"]);
 }
 
 // 不正なIDは、invalid paramsとして拒否される。
@@ -172,9 +227,18 @@ async fn an_item_is_created_read_updated_and_deleted() {
         json!({ "itemId": id, "fields": "body,level" }),
     )
     .await;
-    assert_eq!(fields, json!({ "body": "b #mcp", "level": 2 }));
+    assert_eq!(fields, json!({ "item": { "body": "b #mcp", "level": 2 } }));
     let whole = call(&mcp, "get_item", json!({ "itemId": id, "fields": "" })).await;
     assert_eq!(whole["item"]["properties"]["tags"], json!(["mcp"]));
+    // An AI reads the body: no tool gives the AST, also when it is asked for by name
+    assert!(whole["item"].get("ast").is_none(), "{whole}");
+    let asked = call(
+        &mcp,
+        "get_item",
+        json!({ "itemId": id, "fields": "body,ast" }),
+    )
+    .await;
+    assert_eq!(asked, json!({ "item": { "body": "b #mcp" } }));
 
     // A field that is left out stays as it is
     let updated = call(
