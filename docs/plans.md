@@ -12,15 +12,10 @@
    - [ ] 開発者が`0.9.0`を公開する（crates.ioとnpm）
 2. `flatmarkdown-ast2react`：`hrefPrefix`をテンプレートに替え、同じ符号化を入れる。表の写しをテストで読む
    - [ ] 開発者が新しい版を公開する（npm）
-3. peta-journal（1の公開のあと）
-   - [ ] `page-urls`を作る。flatmarkdownを`0.9.0`に上げる。`client-core`、`client-page-links`、`client-shell-embedded`、Webのシェルを切り替える（ADR 051のWebのシェルの切り替えも、ここで行う）
-     - [ ] Ctrl+クリック、中クリック、右クリックのメニューで、正しいページが開くことを確かめる。`?`、`%`、空白、日本語を含むページ名でも確かめる
-   - [ ] サーバーの答えに`url`を、`GET /api/config`に3つの値を足す。RESTとMCPの両方である（ADR 060）
-   - [ ] AndroidとiOSのシェルから、URLの定数を消す
-   - [ ] Emacsを、サーバーの`url`に切り替える
-4. peta-journal（2の公開のあと）
-   - [ ] todoを、サーバーの`url`とテンプレートに切り替える。`pagePath`と`links.ts`の組み立てを消す
-   - [ ] memoviewを、wasm版の設定に切り替える。`PageLinks.cs`を消す（これは1の公開だけで始められる）
+3. peta-journal：PR `feat/page-urls`で、すべて切り替えた。公開の前なので、ローカルのパスを使っている
+   - [ ] 1と2の公開のあと、ローカルのパスを公開した版に戻す。`client/Cargo.toml`と`journal/Cargo.toml`の`[patch.crates-io]`を消し、todoの`package.json`の`flatmarkdown-ast2react`を`^0.5.0`に戻す。戻したら、`cargo test`と`npm test`を回す。そのあとでマージする
+   - [ ] AndroidとiOSとMacの付箋紙のテストを、実機で回す。URLの期待値を符号化した形に直したが、Windowsでは回していない
+   - [ ] Windowsの付箋紙の画面のテスト（`PetaScreens.Tests`）を回す。キーとマウスを使うので、開発者のいるときに回す
 
 ## ジャーナルサーバーとファイル
 
