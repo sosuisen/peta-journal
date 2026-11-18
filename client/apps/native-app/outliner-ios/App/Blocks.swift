@@ -69,15 +69,21 @@ struct Paragraphs: View {
                         Text(letters(paragraph)).letters(measured(paragraph), start: paragraph.start)
                     }
                     // A paragraph of an entry that is not its first one stands under the text
-                    .padding(.leading, CGFloat(max(Int(paragraph.depth) - 1, 0)) * 22 + (paragraph.depth > 0 && paragraph.mark == nil ? 22 : 0))
+                    .padding(
+                        .leading,
+                        CGFloat(max(Int(paragraph.depth) - 1, 0)) * 22
+                            + (paragraph.depth > 0 && paragraph.mark == nil ? 22 : 0)
+                    )
                     .modifier(Quoted(depth: Int(paragraph.quoted)))
                 }
             }
         }
-        .environment(\.openURL, OpenURLAction { address in
-            if let link = RichLinks.link(of: address) { links.open(link) }
-            return .handled
-        })
+        .environment(
+            \.openURL,
+            OpenURLAction { address in
+                if let link = RichLinks.link(of: address) { links.open(link) }
+                return .handled
+            })
     }
 
     private func letters(_ paragraph: RichParagraph) -> AttributedString {
@@ -103,7 +109,9 @@ struct Paragraphs: View {
     private func measured(_ paragraph: RichParagraph) -> NSAttributedString {
         let all = NSMutableAttributedString()
         for run in paragraph.runs {
-            all.append(NSAttributedString(string: run.text, attributes: [.font: Self.font(run.looks, heading: Int(paragraph.heading))]))
+            all.append(
+                NSAttributedString(
+                    string: run.text, attributes: [.font: Self.font(run.looks, heading: Int(paragraph.heading))]))
         }
         return all
     }
@@ -113,8 +121,13 @@ struct Paragraphs: View {
         let size = Letters.plain * Letters.larger(heading: heading)
         let points = looks.raised || looks.lowered ? size * 0.75 : size
         let weight: UIFont.Weight = heading > 0 || looks.bold ? .bold : .regular
-        let font = looks.code ? UIFont.monospacedSystemFont(ofSize: points, weight: weight) : UIFont.systemFont(ofSize: points, weight: weight)
-        guard looks.italic, let italic = font.fontDescriptor.withSymbolicTraits(font.fontDescriptor.symbolicTraits.union(.traitItalic)) else {
+        let font =
+            looks.code
+            ? UIFont.monospacedSystemFont(ofSize: points, weight: weight)
+            : UIFont.systemFont(ofSize: points, weight: weight)
+        guard looks.italic,
+            let italic = font.fontDescriptor.withSymbolicTraits(font.fontDescriptor.symbolicTraits.union(.traitItalic))
+        else {
             return font
         }
         return UIFont(descriptor: italic, size: points)

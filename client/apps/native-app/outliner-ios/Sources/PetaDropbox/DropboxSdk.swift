@@ -3,7 +3,7 @@ import PetaBorder
 import SwiftyDropbox
 
 #if os(iOS)
-import UIKit
+    import UIKit
 #endif
 
 /// What `DropboxAccount` needs of the Dropbox SDK. The SDK keeps the token in the keychain of
@@ -16,9 +16,9 @@ protocol DropboxSdk {
     var isSignedIn: Bool { get }
 
     #if os(iOS)
-    /// Starts the sign-in over `screen`, for the scopes that the app asks for.
-    @MainActor
-    func startSignIn(over screen: UIViewController, scopes: [String])
+        /// Starts the sign-in over `screen`, for the scopes that the app asks for.
+        @MainActor
+        func startSignIn(over screen: UIViewController, scopes: [String])
     #endif
 
     /// Takes the URL that Dropbox opened the app with. `then` gets true when the user has
@@ -37,9 +37,9 @@ protocol DropboxSdk {
 struct RealDropboxSdk: DropboxSdk {
     func setUp(key: String) {
         #if os(iOS)
-        DropboxClientsManager.setupWithAppKey(key)
+            DropboxClientsManager.setupWithAppKey(key)
         #else
-        DropboxClientsManager.setupWithAppKeyDesktop(key)
+            DropboxClientsManager.setupWithAppKeyDesktop(key)
         #endif
     }
 
@@ -47,19 +47,19 @@ struct RealDropboxSdk: DropboxSdk {
     var isSignedIn: Bool { DropboxClientsManager.authorizedClient != nil }
 
     #if os(iOS)
-    /// With PKCE: the app has no secret. The Dropbox app signs in when it is on the device,
-    /// and else a browser over `screen`. Dropbox comes back with a URL of the scheme
-    /// `db-<App key>`.
-    @MainActor
-    func startSignIn(over screen: UIViewController, scopes: [String]) {
-        DropboxClientsManager.authorizeFromControllerV2(
-            UIApplication.shared,
-            controller: screen,
-            loadingStatusDelegate: nil,
-            openURL: { UIApplication.shared.open($0) },
-            scopeRequest: ScopeRequest(scopeType: .user, scopes: scopes, includeGrantedScopes: false)
-        )
-    }
+        /// With PKCE: the app has no secret. The Dropbox app signs in when it is on the device,
+        /// and else a browser over `screen`. Dropbox comes back with a URL of the scheme
+        /// `db-<App key>`.
+        @MainActor
+        func startSignIn(over screen: UIViewController, scopes: [String]) {
+            DropboxClientsManager.authorizeFromControllerV2(
+                UIApplication.shared,
+                controller: screen,
+                loadingStatusDelegate: nil,
+                openURL: { UIApplication.shared.open($0) },
+                scopeRequest: ScopeRequest(scopeType: .user, scopes: scopes, includeGrantedScopes: false)
+            )
+        }
     #endif
 
     func endSignIn(_ url: URL, then: @escaping (Bool) -> Void) -> Bool {

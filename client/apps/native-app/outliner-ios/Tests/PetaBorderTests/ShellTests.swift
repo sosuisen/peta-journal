@@ -428,7 +428,8 @@ final class ShellTests: JournalTestCase {
 
     // assetsのファイルへのリンクは、そのファイルを答える。ファイルがなければ、ないことが残り、次のリンクで消える。
     func testALinkToAFileOfTheAssetsFolderGivesTheFileOrSaysThatItIsNotHere() throws {
-        try FileManager.default.createDirectory(at: markdown.appendingPathComponent("assets"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: markdown.appendingPathComponent("assets"), withIntermediateDirectories: true)
         try Data("pdf".utf8).write(to: markdown.appendingPathComponent("assets/report.pdf"))
         try start()
 
@@ -451,6 +452,8 @@ final class ShellTests: JournalTestCase {
         waitUntil("the core is done") { done }
 
         shell.search("late")
-        waitUntil("the page is found") { self.shell.view.search.results.contains { $0.kind == .page && $0.title == "late" } }
+        waitUntil("the page is found") {
+            self.shell.view.search.results.contains { $0.kind == .page && $0.title == "late" }
+        }
     }
 }

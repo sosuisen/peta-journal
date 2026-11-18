@@ -38,7 +38,6 @@ final class Border: @unchecked Sendable {
         Int(open.sync())
     }
 
-
     /// Sends an event of the shell.
     func send(_ event: Event) throws {
         try open.update(event: Data(try event.bincodeSerialize()))

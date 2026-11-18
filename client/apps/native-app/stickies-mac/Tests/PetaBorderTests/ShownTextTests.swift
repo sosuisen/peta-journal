@@ -79,7 +79,8 @@ final class ShownTextTests: XCTestCase {
         let web = RichLink.web(url: "https://example.com/a")
         let file = RichLink.file(path: "assets/a.pdf")
 
-        let shown = shown(text(paragraph(run("Idea", link: page), run(" "), run("out", link: web), run(" "), run("pdf", link: file))))
+        let shown = shown(
+            text(paragraph(run("Idea", link: page), run(" "), run("out", link: web), run(" "), run("pdf", link: file))))
 
         XCTAssertEqual(target(of: "Idea", in: shown), page)
         XCTAssertEqual(target(of: "out", in: shown), web)
@@ -104,7 +105,9 @@ final class ShownTextTests: XCTestCase {
         let usual = shown(text(paragraph(run("text"))), zoom: 1)
         let doubled = shown(text(paragraph(run("text"))), zoom: 2)
 
-        let size = { (text: NSAttributedString) in (text.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.pointSize }
+        let size = { (text: NSAttributedString) in
+            (text.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.pointSize
+        }
         XCTAssertEqual(size(usual), NSFont.systemFontSize)
         XCTAssertEqual(size(doubled), NSFont.systemFontSize * 2)
     }

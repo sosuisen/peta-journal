@@ -19,8 +19,9 @@ public enum RichLinks {
     /// Where the link of this URL leads. `nil` for a URL that `url(of:)` did not make.
     public static func link(of url: URL) -> RichLink? {
         if url.scheme == "https" || url.scheme == "http" { return .web(url: url.absoluteString) }
-        guard url.scheme == scheme, let to = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-            .queryItems?.first(where: { $0.name == "to" })?.value
+        guard url.scheme == scheme,
+            let to = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name == "to" })?.value
         else { return nil }
         switch url.host {
         case "page": return .page(url: to)

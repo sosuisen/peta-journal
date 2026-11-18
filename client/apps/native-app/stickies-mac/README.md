@@ -77,6 +77,18 @@ Run it again after a change in Rust. Neither is kept in the repository.
   main thread only, and not while SwiftUI draws: a row asks for its text, shows the body of the
   item meanwhile, and is drawn again when the text is there.
 
+## Format and lint
+
+```
+cd peta-journal/client/apps/native-app
+./swift-format.sh           # formats the Swift of outliner-ios and stickies-mac, then lints it
+./swift-format.sh --check   # changes nothing, and fails when there is something to change
+```
+
+The formatter and the linter are both swift-format, which comes with Xcode. Its settings are in
+`client/apps/native-app/.swift-format`, one file for both apps: lines of 120 letters and an
+indent of 4 spaces. Run it after every change in Swift. `generated/` is not formatted.
+
 ## Build and run the app
 
 The app needs a running journal server (see `BUILD.md` at the top of the repository).

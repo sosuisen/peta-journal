@@ -19,7 +19,9 @@ final class OutlineScreenTests: XCTestCase {
 
     override func setUp() async throws {
         server = try JournalServer(port: 18094)
-        shell = Shell(server: server.address, url: "/pages/screen", clipboard: { nil }, copy: { [weak self] text, _ in self?.copied = text },
+        shell = Shell(
+            server: server.address, url: "/pages/screen", clipboard: { nil },
+            copy: { [weak self] text, _ in self?.copied = text },
             browse: { [weak self] in self?.browsed = $0 })
         try await waitUntil("the page is shown") { !self.shell.view.outline.rows.isEmpty }
         window = NSWindow(
@@ -34,7 +36,9 @@ final class OutlineScreenTests: XCTestCase {
     override func tearDown() async throws {
         // A click on a link takes no events after its own: the button that comes up would end
         // the drag of a later test
-        while NSApp.nextEvent(matching: [.leftMouseUp, .leftMouseDragged], until: .distantPast, inMode: .default, dequeue: true) != nil {}
+        while NSApp.nextEvent(
+            matching: [.leftMouseUp, .leftMouseDragged], until: .distantPast, inMode: .default, dequeue: true) != nil
+        {}
         window?.close()
         server?.stop()
     }
@@ -191,7 +195,8 @@ final class OutlineScreenTests: XCTestCase {
         let editor = editors()[0]
         window.makeFirstResponder(editor)
 
-        editor.setMarkedText("にほんご", selectedRange: NSRange(location: 4, length: 0),
+        editor.setMarkedText(
+            "にほんご", selectedRange: NSRange(location: 4, length: 0),
             replacementRange: editor.selectedRange())
         XCTAssertEqual(bodies(), [""])
         editor.insertText("日本語", replacementRange: editor.markedRange())
@@ -322,7 +327,9 @@ final class OutlineScreenTests: XCTestCase {
     }
 
     /// Presses a key of the keyboard in the editor, as AppKit hands it over.
-    private func press(_ keyCode: UInt16, _ characters: String, _ modifiers: NSEvent.ModifierFlags, in editor: NSResponder) {
+    private func press(
+        _ keyCode: UInt16, _ characters: String, _ modifiers: NSEvent.ModifierFlags, in editor: NSResponder
+    ) {
         let event = NSEvent.keyEvent(
             with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
             windowNumber: window.windowNumber, context: nil, characters: characters,
@@ -671,7 +678,8 @@ final class OutlineScreenTests: XCTestCase {
     private func longPage(_ count: Int = 40) async throws {
         guard case .page(let page?) = shell.view.screen else { throw CancellationError() }
         for n in 1...count {
-            try await server.post("/api/items", ["pageId": page.page.id, "position": "last", "level": 1, "body": "item \(n)"])
+            try await server.post(
+                "/api/items", ["pageId": page.page.id, "position": "last", "level": 1, "body": "item \(n)"])
         }
         shell = Shell(server: server.address, url: "/pages/screen", clipboard: { nil })
         window.contentView = NSHostingView(rootView: OutlineScreen(shell: shell))

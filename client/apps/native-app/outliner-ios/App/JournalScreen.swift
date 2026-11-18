@@ -102,15 +102,21 @@ struct JournalScreen: View {
                 // Without a page in its direction a button stays, and cannot be touched: the
                 // bar does not move (ADR 035)
                 HistoryButton(name: "Back", symbol: "chevron.left", enabled: view.history.canGoBack, action: shell.back)
-                HistoryButton(name: "Forward", symbol: "chevron.right", enabled: view.history.canGoForward, action: shell.forward)
+                HistoryButton(
+                    name: "Forward", symbol: "chevron.right", enabled: view.history.canGoForward, action: shell.forward)
                 // The field also tells of a text that the core gave it, as the empty one after
                 // a result was chosen: that is no typing, and must not search again
-                TextField("Search", text: Binding(get: { shell.view.search.query }, set: { if $0 != shell.view.search.query { shell.search($0) } }))
-                    .focused($searches)
-                    .textFieldStyle(.roundedBorder)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .accessibilityIdentifier("search")
+                TextField(
+                    "Search",
+                    text: Binding(
+                        get: { shell.view.search.query }, set: { if $0 != shell.view.search.query { shell.search($0) } }
+                    )
+                )
+                .focused($searches)
+                .textFieldStyle(.roundedBorder)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .accessibilityIdentifier("search")
                 Button(action: shell.today) {
                     TodayIcon().frame(width: 24, height: 24).frame(width: 44, height: 44)
                 }

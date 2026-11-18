@@ -23,7 +23,10 @@ struct Tools: View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
                 let folded = target.isCollapsed
-                Tool(name: folded ? "Expand" : "Collapse", icon: folded ? "expand" : "collapse", enabled: target.hasChildren) {
+                Tool(
+                    name: folded ? "Expand" : "Collapse", icon: folded ? "expand" : "collapse",
+                    enabled: target.hasChildren
+                ) {
                     shell.toggleCollapsed(itemId)
                 }
                 Tool(name: "Task", icon: "task") { shell.cycleTask(itemId) }
@@ -49,7 +52,8 @@ struct Tools: View {
                         // took off the screen, and its edit goes on
                         shell.finish(itemId)
                         shell.select(itemId)
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        UIApplication.shared.sendAction(
+                            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                     }
                 } else {
                     Tool(name: "Show keyboard", icon: "show_keyboard") { shell.edit(itemId) }

@@ -1,8 +1,8 @@
 import Combine
 import Foundation
-import os
 // The app and its tests name the types of the sync, which the core makes (ADR 054)
 @_exported import PetaCore
+import os
 
 /// Where the sync with the cloud stands, for the screen.
 public typealias SyncState = PetaSyncState

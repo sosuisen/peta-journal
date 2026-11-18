@@ -20,7 +20,8 @@ enum Touches {
         let nearest = targets.min { distance(point, $0.frame) < distance(point, $1.frame) }
         guard let target = nearest else { return nil }
         let inside = CGPoint(x: point.x - target.frame.minX, y: point.y - target.frame.minY)
-        return target.start + letter(at: inside, in: target.text, width: target.wraps ? target.frame.width : .greatestFiniteMagnitude)
+        return target.start
+            + letter(at: inside, in: target.text, width: target.wraps ? target.frame.width : .greatestFiniteMagnitude)
     }
 
     /// How many letters of `text`, laid out `width` wide, stand before a touch at `point`. The
@@ -33,11 +34,13 @@ enum Touches {
         container.lineFragmentPadding = 0
         layout.addTextContainer(container)
         var fraction: CGFloat = 0
-        let index = layout.characterIndex(for: point, in: container, fractionOfDistanceBetweenInsertionPoints: &fraction)
+        let index = layout.characterIndex(
+            for: point, in: container, fractionOfDistanceBetweenInsertionPoints: &fraction)
         let string = text.string
         // A touch on the right half of a letter is after it. A letter may be more than one
         // unit of UTF-16, as an emoji, and the touch is never between its units
-        let units = fraction > 0.5 && index < text.length
+        let units =
+            fraction > 0.5 && index < text.length
             ? (string as NSString).rangeOfComposedCharacterSequence(at: index).upperBound
             : index
         return Cursor.characters(utf16: units, in: string)
@@ -78,7 +81,10 @@ extension View {
             GeometryReader { place in
                 Color.clear.preference(
                     key: LetterTargets.self,
-                    value: [LetterTarget(start: Int(start), frame: place.frame(in: .named(Touches.space)), text: text, wraps: wraps)])
+                    value: [
+                        LetterTarget(
+                            start: Int(start), frame: place.frame(in: .named(Touches.space)), text: text, wraps: wraps)
+                    ])
             })
     }
 }

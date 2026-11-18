@@ -17,18 +17,20 @@ final class SdkDropbox: PetaDropboxSdk, @unchecked Sendable {
 
     func list(folder: String) throws -> PetaListing {
         try failing {
-            listing(try wait { done in
-                files.listFolder(path: folder, recursive: true).response(queue: answers, completionHandler: done)
-            })
+            listing(
+                try wait { done in
+                    files.listFolder(path: folder, recursive: true).response(queue: answers, completionHandler: done)
+                })
         }
     }
 
     func listAfter(cursor: String) throws -> PetaListing {
         try failing {
             do {
-                return listing(try wait { done in
-                    files.listFolderContinue(cursor: cursor).response(queue: answers, completionHandler: done)
-                })
+                return listing(
+                    try wait { done in
+                        files.listFolderContinue(cursor: cursor).response(queue: answers, completionHandler: done)
+                    })
             } catch CallError<Files.ListFolderContinueError>.routeError(let why, _, _, _) {
                 if case .reset = why.unboxed { throw PetaDropboxError.cursorForgotten }
                 throw PetaDropboxError.other(why: "\(why.unboxed)")
@@ -66,13 +68,14 @@ final class SdkDropbox: PetaDropboxSdk, @unchecked Sendable {
         let modified = Date(timeIntervalSince1970: Double(modifiedMs) / 1000)
         return try failing {
             do {
-                return self.file(try wait { done in
-                    files.upload(
-                        path: path, mode: mode, autorename: false, clientModified: modified,
-                        input: URL(fileURLWithPath: file)
-                    )
-                    .response(queue: answers, completionHandler: done)
-                })
+                return self.file(
+                    try wait { done in
+                        files.upload(
+                            path: path, mode: mode, autorename: false, clientModified: modified,
+                            input: URL(fileURLWithPath: file)
+                        )
+                        .response(queue: answers, completionHandler: done)
+                    })
             } catch CallError<Files.UploadError>.routeError(let why, _, _, _) {
                 if case .path(let failed) = why.unboxed, case .conflict = failed.reason {
                     throw PetaDropboxError.uploadConflict

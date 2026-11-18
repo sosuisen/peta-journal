@@ -60,7 +60,8 @@ struct ItemEditor: UIViewRepresentable {
             typist.answered = asked.seq
             typist.taken = false
             if let cursor = asked.cursor {
-                field.selectedRange = NSRange(location: Cursor.utf16(characters: Int(cursor), in: field.text), length: 0)
+                field.selectedRange = NSRange(
+                    location: Cursor.utf16(characters: Int(cursor), in: field.text), length: 0)
             }
         }
         // The list drops the field of an item that leaves what is seen, as when the keyboard
@@ -123,7 +124,9 @@ struct ItemEditor: UIViewRepresentable {
             // Backspace at the start changes nothing in the field, so the field tells its
             // delegate of no change: the key itself is heard. Not while text is chosen, or
             // while the keyboard composes a word
-            if selectedRange == NSRange(location: 0, length: 0), markedTextRange == nil, let typist = delegate as? Typist {
+            if selectedRange == NSRange(location: 0, length: 0), markedTextRange == nil,
+                let typist = delegate as? Typist
+            {
                 typist.backspaceAtStart(of: text ?? "")
                 return
             }
@@ -144,7 +147,8 @@ struct ItemEditor: UIViewRepresentable {
             // first, on a device. The keeper has the keyboard until the item is back in what
             // is seen. Not when the user gave the keyboard to another field, as the search
             let typist = delegate as? Typist
-            if next == nil, let typist, typist.edits, isFirstResponder || (justLost && UIResponder.withKeyboard == nil) {
+            if next == nil, let typist, typist.edits, isFirstResponder || (justLost && UIResponder.withKeyboard == nil)
+            {
                 typist.leaves(at: selectedRange.location)
                 KeyboardKeeper.onScreen?.keep { typist.nobodyCame() }
             }
@@ -288,8 +292,8 @@ struct ItemEditor: UIViewRepresentable {
                         field.becomeFirstResponder()
                         self.typeWhatWasHeld(into: field)
                         return true
-                    }
-                ) { [weak self] in self?.nobodyCame() }
+                    },
+                    nobodyCame: { [weak self] in self?.nobodyCame() })
             }
         }
 
@@ -341,12 +345,13 @@ struct ItemEditor: UIViewRepresentable {
             }
             // The cursor is at the edge of the text: the core moves it to the next item
             let from = arrow == .left || arrow == .up ? chosen.location : NSMaxRange(chosen)
-            let key: EditorKey = switch arrow {
-            case .left: .left
-            case .up: .up
-            case .right: .right
-            case .down: .down
-            }
+            let key: EditorKey =
+                switch arrow {
+                case .left: .left
+                case .up: .up
+                case .right: .right
+                case .down: .down
+                }
             shell.press(key, in: itemId, .cursor(at: from, in: field.text ?? ""))
         }
     }
