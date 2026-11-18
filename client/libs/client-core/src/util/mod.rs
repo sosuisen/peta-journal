@@ -3,6 +3,9 @@ pub mod filename;
 pub mod utf16;
 pub mod week;
 
+use crate::asts;
+use flatmarkdown_ast::Node;
+
 /// What a `[[`, the opening of a block or a closing `]` just typed becomes: the body with its
 /// closing part added or typed over. `cursor` is the character index right after the typed
 /// character. None when the body stays as it is.
@@ -70,47 +73,73 @@ pub fn char_len(text: &str) -> usize {
 }
 
 /// What a link in a body leads to.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Link {
     Wiki(String),
     Tag(String),
 }
 
 /// The `[[wiki link]]` or `#tag` around a character index, its two ends included.
+///
+/// The parser of the bodies says what a link is and what its name is, so a link opens the
+/// page that it shows. The parser gives no place in the text, so the place is found here: a
+/// piece of the text that may be a link is read by the parser alone, and it counts only when
+/// the whole body has the same link, which leaves out what stands in code.
 pub fn link_at(text: &str, cursor: usize) -> Option<Link> {
     let chars: Vec<char> = text.chars().collect();
     let mut start = 0;
+    let mut found = None;
     while start < chars.len() && start <= cursor {
-        match link_starting(&chars[start..]) {
-            Some((len, link)) if cursor <= start + len => return Some(link),
+        match link_starting(&chars, start) {
+            Some((len, link)) if cursor <= start + len => {
+                found = Some(link);
+                break;
+            }
             Some((len, _)) => start += len,
             None => start += 1,
         }
     }
-    None
+    found.filter(|link| links_of(&asts::parse(text)).contains(link))
 }
 
-/// The link that starts these characters, with its length.
-fn link_starting(chars: &[char]) -> Option<(usize, Link)> {
-    if chars.starts_with(&['[', '[']) {
-        let rest = &chars[2..];
-        let len = rest.iter().position(|c| matches!(c, ']' | '\n'))?;
-        if !rest[len..].starts_with(&[']', ']']) {
+/// The link that starts at `start`, with its length in characters.
+fn link_starting(chars: &[char], start: usize) -> Option<(usize, Link)> {
+    let rest = &chars[start..];
+    if rest.starts_with(&['[', '[']) {
+        let inner = rest[2..].iter().position(|c| matches!(c, ']' | '\n'))?;
+        if !rest[2 + inner..].starts_with(&[']', ']']) {
             return None;
         }
-        let name: String = rest[..len].iter().collect();
-        let name = name.trim();
-        (!name.is_empty()).then(|| (len + 4, Link::Wiki(name.to_string())))
-    } else if chars.first() == Some(&'#') {
-        let rest = &chars[1..];
-        let len = rest
+        let len = inner + 4;
+        let written: String = rest[..len].iter().collect();
+        match links_of(&asts::parse(&written)).as_slice() {
+            [link @ Link::Wiki(_)] => Some((len, link.clone())),
+            _ => None,
+        }
+    } else if rest.first() == Some(&'#') && (start == 0 || chars[start - 1] == ' ') {
+        let end = rest
             .iter()
-            .position(|c| matches!(c, ' ' | '\t' | '\n' | '#'))
+            .position(|c| c.is_whitespace())
             .unwrap_or(rest.len());
-        (len > 0).then(|| (len + 1, Link::Tag(rest[..len].iter().collect())))
+        let written: String = rest[..end].iter().collect();
+        match links_of(&asts::parse(&written)).first() {
+            Some(Link::Tag(tag)) => Some((char_len(tag) + 1, Link::Tag(tag.clone()))),
+            _ => None,
+        }
     } else {
         None
     }
+}
+
+/// The wiki links and the tags of a parsed body, in their order.
+fn links_of(ast: &Node) -> Vec<Link> {
+    let mut links = Vec::new();
+    ast.walk(&mut |node| match node {
+        Node::Wikilink { url, .. } => links.push(Link::Wiki(url.clone())),
+        Node::Hashtag { value } => links.push(Link::Tag(value.clone())),
+        _ => {}
+    });
+    links
 }
 
 #[cfg(test)]
@@ -192,6 +221,33 @@ mod tests {
     fn link_at_reads_the_whole_wiki_link_and_trims_its_name() {
         assert_eq!(link_at("[[a#b]]", 3), Some(Link::Wiki("a#b".into())));
         assert_eq!(link_at("[[ a ]]", 3), Some(Link::Wiki("a".into())));
+    }
+
+    // 表示の名前を付けたウィキリンクは、`|`の前のページを指す。
+    #[test]
+    fn link_at_reads_the_page_of_a_wiki_link_with_a_label() {
+        assert_eq!(link_at("[[a|label]]", 3), Some(Link::Wiki("a".into())));
+        assert_eq!(link_at("[[a|label]]", 11), Some(Link::Wiki("a".into())));
+    }
+
+    // タグは、タグに使えない文字の前で終わる。その文字の後ろは、タグの上ではない。
+    #[test]
+    fn link_at_ends_a_tag_before_a_character_that_a_tag_cannot_hold() {
+        assert_eq!(link_at("#rust, ok", 5), Some(Link::Tag("rust".into())));
+        assert_eq!(link_at("#rust, ok", 6), None);
+        assert_eq!(link_at("#a/b/", 4), Some(Link::Tag("a/b".into())));
+        assert_eq!(link_at("#a/b/", 5), None);
+    }
+
+    // 語の途中の`#`、エスケープした`#`、コードの中のリンクとタグは、リンクではない。
+    #[test]
+    fn link_at_ignores_what_the_parser_does_not_show_as_a_link() {
+        assert_eq!(link_at("a#b", 2), None);
+        assert_eq!(link_at("\\#rust", 3), None);
+        assert_eq!(link_at("`[[a]]`", 3), None);
+        assert_eq!(link_at("`#rust`", 3), None);
+        assert_eq!(link_at("```\n[[a]] #rust\n```", 6), None);
+        assert_eq!(link_at("`[[a]]` [[b]]", 10), Some(Link::Wiki("b".into())));
     }
 
     // 名前のないリンク、閉じていないリンク、行をまたぐリンクは、リンクではない。
