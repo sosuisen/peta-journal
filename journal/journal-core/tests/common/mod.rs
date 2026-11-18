@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use journal_core::assembly::{CoreHost, CoreSettings, JournalCore};
+use journal_core::clock::SteppedClock;
 use journal_core::events::EventSink;
 use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
 use journal_core::journal::FolderWatch;
@@ -28,6 +29,9 @@ pub struct Core {
     pub root: PathBuf,
     /// What the core told its clients
     pub told: Arc<Recorded>,
+    /// The clock of the core. A test moves it on between two changes that must not have
+    /// the same date
+    pub clock: Arc<SteppedClock>,
     _dir: tempfile::TempDir,
 }
 
@@ -51,12 +55,14 @@ impl Core {
             .tempdir()
             .unwrap();
         let told = Arc::new(told);
-        let core = build(dir.path(), WAIT, told.clone(), install);
+        let clock = Arc::new(SteppedClock::default());
+        let core = build(dir.path(), WAIT, told.clone(), clock.clone(), install);
         let root = start_up_with_markdown_folder(&core, dir.path());
         Core {
             core,
             root,
             told,
+            clock,
             _dir: dir,
         }
     }
@@ -68,7 +74,8 @@ impl Core {
             .prefix("peta-journal-core-")
             .tempdir()
             .unwrap();
-        let core = build(dir.path(), WAIT, Arc::new(Quiet), |_| {});
+        let clock = Arc::new(SteppedClock::default());
+        let core = build(dir.path(), WAIT, Arc::new(Quiet), clock, |_| {});
         core.start_up();
         (core, dir)
     }
@@ -77,9 +84,14 @@ impl Core {
 /// A core with its data and its markdown folder under the folder, started up as an app
 /// starts it, and its markdown folder. The core waits for the time given before it takes a
 /// copied file as a page of its own and before it writes over a file not taken in yet. Its
-/// messages to the clients go to the sink.
-pub fn start(dir: &Path, wait: Duration, events: Arc<dyn EventSink>) -> (JournalCore, PathBuf) {
-    let core = build(dir, wait, events, |_| {});
+/// messages to the clients go to the sink, and its dates come from the clock.
+pub fn start(
+    dir: &Path,
+    wait: Duration,
+    events: Arc<dyn EventSink>,
+    clock: Arc<SteppedClock>,
+) -> (JournalCore, PathBuf) {
+    let core = build(dir, wait, events, clock, |_| {});
     let root = start_up_with_markdown_folder(&core, dir);
     (core, root)
 }
@@ -100,6 +112,7 @@ fn build(
     dir: &Path,
     wait: Duration,
     events: Arc<dyn EventSink>,
+    clock: Arc<SteppedClock>,
     install: impl FnOnce(&Path),
 ) -> JournalCore {
     let config_dir = dir.join("config");
@@ -121,6 +134,7 @@ fn build(
             events,
             missing_files: Arc::new(Quiet),
             folder_watch: Arc::new(Quiet),
+            clock,
         },
     )
     .unwrap()

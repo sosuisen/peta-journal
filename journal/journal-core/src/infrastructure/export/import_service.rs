@@ -29,7 +29,6 @@ use parking_lot::Mutex;
 use crate::application::page_service::PageService;
 use crate::domain::model::Page;
 use crate::error::AppError;
-use crate::infrastructure::persistence::db::now_millis;
 
 use super::definitions_file::{self, DefinitionsFileService, DEFINITIONS_FILE};
 use super::export_service::{mtime_millis, MarkdownExportService};
@@ -255,7 +254,7 @@ impl MarkdownImportService {
         let mtime = mtime_millis(&std::fs::metadata(&file)?);
         let file_modified =
             parse_instant(parsed.frontmatter.get("modified").map(String::as_str)).unwrap_or(mtime);
-        let now = now_millis();
+        let now = self.file_sync_state.db().now_millis();
         let mode = MergeMode::Copy {
             last_synced: state.last_synced,
         };
@@ -329,7 +328,7 @@ impl MarkdownImportService {
 
         let file_modified =
             parse_instant(fm.get("modified").map(String::as_str)).unwrap_or(attrs.mtime);
-        let now = now_millis();
+        let now = self.file_sync_state.db().now_millis();
 
         let since = self.waiting.lock().get(rel_path).map(|w| w.since);
         let copy_allowed = since.unwrap_or_else(Instant::now).elapsed() >= self.copy_wait;

@@ -1,8 +1,6 @@
 //! Properties: the keys the user defines, the values of items and pages, the tag pages, and
 //! the values written to the markdown files and taken back from them.
 
-use std::time::Duration;
-
 use journal_core::error::AppError;
 use journal_core::journal::{PageAnswer, PropertyDefinitionsAnswer};
 use serde_json::{json, Value};
@@ -542,7 +540,7 @@ fn updating_a_tag_page_without_changing_its_tag_leaves_the_tagged_pages_alone() 
     notes.set_tags(&tagged, tag);
     let tag_page = notes.doc_page_named(tag).unwrap();
     let before = notes.page(&tagged)["page"]["modifiedDate"].clone();
-    std::thread::sleep(Duration::from_millis(5));
+    notes.clock.advance(5);
 
     notes.retitle(&tag_page, tag).unwrap();
 

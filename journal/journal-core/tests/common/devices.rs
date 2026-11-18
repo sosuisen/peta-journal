@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use hmtid::Hmtid;
 use journal_core::assembly::JournalCore;
+use journal_core::clock::SteppedClock;
 use journal_core::infrastructure::export::import_service::Outcome;
 use journal_core::journal::AddPropertyDefinitionInput;
 
@@ -20,6 +21,17 @@ pub struct Device {
     pub root: PathBuf,
     /// What the device told its clients
     pub told: Arc<Recorded>,
+    /// The clock of the device. The devices of a test each have their own
+    pub clock: Arc<SteppedClock>,
+}
+
+/// A moment passes on the devices: what they change next is dated later than what they
+/// changed before. Two devices take the newer of two dates, so a test that tells which
+/// change was the later one says so with this.
+pub fn time_passes(devices: &[&Device]) {
+    for device in devices {
+        device.clock.advance(5);
+    }
 }
 
 impl Device {
@@ -35,8 +47,14 @@ impl Device {
 
     fn with(dir: &Path, wait: Duration) -> Device {
         let told = Arc::new(Recorded::default());
-        let (core, root) = start(dir, wait, told.clone());
-        Device { core, root, told }
+        let clock = Arc::new(SteppedClock::default());
+        let (core, root) = start(dir, wait, told.clone(), clock.clone());
+        Device {
+            core,
+            root,
+            told,
+            clock,
+        }
     }
 
     pub fn export(&self) {

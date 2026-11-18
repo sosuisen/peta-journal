@@ -1,7 +1,5 @@
 //! Transclusions: an item that shows another item with its tree, and the copy it keeps.
 
-use std::time::Duration;
-
 use serde_json::json;
 
 use crate::common::items::{field_of_each, id, input, vs};
@@ -87,7 +85,7 @@ fn setting_a_transclusion_counts_as_a_change_of_the_item() {
     let page = notes.new_doc_page("items-transclusion-change");
     let host = id(&notes.fill(&page, &["placeholder"])[0]);
     let modified_before = field_of_each(&notes.page(&page), "items", "modifiedDate").remove(0);
-    std::thread::sleep(Duration::from_millis(5));
+    notes.clock.advance(5);
 
     notes.transclude(&host, &id(&source[0]));
 

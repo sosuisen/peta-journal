@@ -8,7 +8,7 @@ use hmtid::Hmtid;
 use rusqlite::{params, OptionalExtension, Row};
 
 use crate::error::AppError;
-use crate::infrastructure::persistence::db::{now_millis, Db};
+use crate::infrastructure::persistence::db::Db;
 use crate::infrastructure::persistence::page_repository::parse;
 
 pub const SYNCED: &str = "synced";
@@ -79,6 +79,11 @@ impl FileSyncStateRepository {
         FileSyncStateRepository { db }
     }
 
+    /// The database, for the clock that dates its rows.
+    pub fn db(&self) -> &Db {
+        &self.db
+    }
+
     /// Records that the file at rel_path now matches the given content (read or written by us).
     /// `content_date` is the latest date the content holds, of the page or of an item.
     pub fn upsert_synced(
@@ -90,7 +95,7 @@ impl FileSyncStateRepository {
         file_mtime: i64,
         content_date: i64,
     ) -> Result<(), AppError> {
-        let now = now_millis();
+        let now = self.db.now_millis();
         let last_synced = last_synced(file_mtime, content_date, now);
         let conn = self.db.conn()?;
         conn.execute(
@@ -121,7 +126,7 @@ impl FileSyncStateRepository {
 
     /// Marks the file as missing. Keeps the original missing_since if already missing.
     pub fn mark_missing(&self, rel_path: &str) -> Result<(), AppError> {
-        let now = now_millis();
+        let now = self.db.now_millis();
         let conn = self.db.conn()?;
         conn.execute(
             "UPDATE file_sync_state SET status='missing', synced_at=?, \

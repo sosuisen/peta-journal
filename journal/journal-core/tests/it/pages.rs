@@ -1,8 +1,6 @@
 //! Pages: making and finding them, renaming and moving them, the index pages of folders,
 //! and the pages that link to them.
 
-use std::time::Duration;
-
 use journal_core::dto::ItemFields;
 use journal_core::error::AppError;
 use journal_core::journal::PageAnswer;
@@ -382,7 +380,7 @@ fn renaming_to_the_name_of_another_page_is_refused_unless_it_is_overwritten() {
 fn the_most_recently_touched_page_comes_first_in_recent_pages() {
     let notes = Core::new();
     let older = notes.new_doc_page("pages-recent-older");
-    std::thread::sleep(Duration::from_millis(5));
+    notes.clock.advance(5);
     let newer = notes.new_doc_page("pages-recent-newer");
 
     let recent = answer(

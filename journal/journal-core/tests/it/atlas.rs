@@ -1,8 +1,6 @@
 //! The atlas page of a directory: its cards follow the pages of the directory, and the user
 //! adds link cards, groups and callouts to it.
 
-use std::time::Duration;
-
 use journal_core::error::AppError;
 use journal_core::journal::ItemsAnswer;
 use serde_json::{json, Value};
@@ -291,7 +289,7 @@ fn the_callouts_go_last_under_their_parent() {
 
     // A new text is a change of the item: it is parsed again and dated anew
     let before = notes.item(&id(&callout));
-    std::thread::sleep(Duration::from_millis(5));
+    notes.clock.advance(5);
     let rows = rows_of(journal.set_atlas_callout(
         &atlas_id,
         &id(&callout),

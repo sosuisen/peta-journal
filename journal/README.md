@@ -113,6 +113,20 @@ To keep the modified dates on that device too, run `apply` there with the same t
 the folder brings the files: stop the server and pause the sync first. Both devices then
 write the same files.
 
+## The clock
+
+`journal-core` dates the items, the pages, the property definitions and the IDs with the clock
+that the app around it gives (`CoreHost::clock`, `journal_core::clock`). Two devices that sync
+take the newer of two dates, so the dates decide what stays. The server and the embedded
+shells give `SystemClock`.
+
+The tests of `journal-core` give each core a `SteppedClock`: the clock of the system, moved
+ahead by what the test adds. Where a test tells which of two changes was the later one, it
+moves the clock on between them (`notes.clock.advance(5)`, or `time_passes(&[&a, &b])` for
+devices) and does not wait. The clock does not stand still, because the file system dates the
+files with its own clock, and a date of the journal must not be before the date of a file
+written earlier.
+
 ## Coverage and mutation testing
 
 Setup, once:
@@ -131,7 +145,7 @@ cargo cov --html     # target/llvm-cov/html/index.html, line by line
 ```
 
 Before a PR, run the mutation test on the changed code. Every mutant runs the test suite of the
-crate, and the workspace has about 3600 mutants, so a full run takes many hours:
+crate, and the workspace has about 3100 mutants, so a full run takes many hours:
 
 ```
 git diff --relative main...HEAD > /tmp/pr.diff
@@ -153,5 +167,10 @@ the whole workspace is tested, as the server tests run first and take longer tha
 run them with `--test-package property-names`. The files no test can run (the entry
 point, the native folder dialog, the launcher) are left out of both; `.cargo/config.toml` and
 `.cargo/mutants.toml` say which and why.
+
+The functions write their result types in full, `Result<T, AppError>` and
+`Result<T, HttpError>`, and not through a type alias. cargo-mutants reads the type by its name:
+for `Result` it replaces the body of a function with `Ok(...)` of a default value, and for an
+alias it only makes mutants that do not build.
 
 Settings: see the "Rust server" section of `../BUILD.md`.

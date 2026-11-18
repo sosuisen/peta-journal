@@ -13,7 +13,6 @@ use crate::domain::model::{Item, ItemPosition, Page};
 use crate::domain::search::SearchIndex;
 use crate::error::AppError;
 use crate::infrastructure::export::export_service::MarkdownExportService;
-use crate::infrastructure::persistence::db::now_millis;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository};
 use hmtid::Hmtid;
 
@@ -92,7 +91,7 @@ impl JournalService {
         if let Some(page) = Self::find_journal_in(&tx, &file_name)? {
             return self.existing_journal(page);
         }
-        let page = Self::create_journal_page_in(&tx, self.ids.generate_page_id(), &file_name)?;
+        let page = self.create_journal_page_in(&tx, self.ids.generate_page_id(), &file_name)?;
         let item = Item::new_on(self.ids.generate_item_id(), &page, page.created_date);
         ItemRepository::save_in(&tx, &item)?;
         tx.commit()?;
@@ -127,7 +126,7 @@ impl JournalService {
                 (page, false)
             }
             None => (
-                Self::create_journal_page_in(&tx, self.ids.generate_page_id(), &file_name)?,
+                self.create_journal_page_in(&tx, self.ids.generate_page_id(), &file_name)?,
                 true,
             ),
         };
@@ -220,7 +219,7 @@ impl JournalService {
         if let Some(page) = Self::find_journal_in(&tx, file_name)? {
             return self.existing_journal(page);
         }
-        let page = Self::create_journal_page_in(&tx, self.ids.generate_page_id(), file_name)?;
+        let page = self.create_journal_page_in(&tx, self.ids.generate_page_id(), file_name)?;
         let mut effects = AfterCommit::default();
         let mut items = Vec::new();
         let mut position = ItemPosition::First;
@@ -264,13 +263,20 @@ impl JournalService {
     /// Saves a new journal page without items, in the transaction. The caller indexes it
     /// once the transaction is committed.
     fn create_journal_page_in(
+        &self,
         tx: &Connection,
         id: Hmtid,
         file_name: &str,
     ) -> Result<Page, AppError> {
         PageRepository::save_in(
             tx,
-            &Page::new(id, "", file_name, JOURNAL_TYPE, now_millis()),
+            &Page::new(
+                id,
+                "",
+                file_name,
+                JOURNAL_TYPE,
+                self.items.db().now_millis(),
+            ),
         )
     }
 

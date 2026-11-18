@@ -4,6 +4,7 @@
 
 pub mod application;
 pub mod assembly;
+pub mod clock;
 pub mod domain;
 pub mod dto;
 pub mod error;

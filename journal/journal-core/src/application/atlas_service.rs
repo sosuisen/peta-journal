@@ -18,7 +18,6 @@ use crate::domain::model::{Item, Page};
 use crate::domain::search::SearchIndex;
 use crate::error::AppError;
 use crate::infrastructure::export::export_service::MarkdownExportService;
-use crate::infrastructure::persistence::db::now_millis;
 use crate::infrastructure::persistence::item_repository::parked_idx;
 use crate::infrastructure::persistence::property_repository::ScalarProps;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
@@ -235,7 +234,7 @@ impl AtlasService {
         self.fit(&mut outline, &loaded.atlas)?;
         change(&mut outline)?;
         self.fit(&mut outline, &loaded.atlas)?;
-        self.write(&loaded, &outline, now_millis())?;
+        self.write(&loaded, &outline, self.items.db().now_millis())?;
         self.items.find_by_page_id(atlas_id)
     }
 
@@ -320,7 +319,7 @@ impl AtlasService {
             .map(|r| (r.node.id.as_str(), r.level))
             .ne(loaded.items.iter().map(|i| (i.id.as_str(), i.level)));
         let mut changed = arranged || !removed.is_empty();
-        let now = now_millis();
+        let now = self.items.db().now_millis();
         let atlas = &loaded.atlas;
 
         for id in &removed {

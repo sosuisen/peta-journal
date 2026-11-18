@@ -13,7 +13,7 @@ pub use crate::domain::property_key::validate_key;
 use crate::domain::property_key::PropertyKey;
 use crate::error::AppError;
 
-use super::db::{now_millis, placeholders, Db};
+use super::db::{placeholders, Db};
 
 /// Scalar properties per target: target id -> (key -> value as text).
 pub type ScalarProps = BTreeMap<String, BTreeMap<String, String>>;
@@ -218,7 +218,7 @@ impl PropertyRepository {
         }
         tx.execute(
             "INSERT INTO property_definitions (key, value_type, is_system, for_page, modified) VALUES (?, ?, 0, ?, ?)",
-            params![key, value_type, page as i64, now_millis()],
+            params![key, value_type, page as i64, self.db.now_millis()],
         )?;
         tx.execute(
             "DELETE FROM deleted_property_definitions WHERE key = ?",
@@ -325,7 +325,11 @@ impl PropertyRepository {
     }
 
     /// `delete_definition` on the given connection, as part of a larger transaction.
-    pub fn delete_definition_in(tx: &Connection, key: &str) -> Result<Vec<String>, AppError> {
+    pub fn delete_definition_in(
+        tx: &Connection,
+        key: &str,
+        deleted_date: i64,
+    ) -> Result<Vec<String>, AppError> {
         match Self::find_definition_in(tx, key)? {
             None => {
                 return Err(AppError::bad_request(format!(
@@ -363,7 +367,7 @@ impl PropertyRepository {
         tx.execute(
             "INSERT INTO deleted_property_definitions (key, deleted_date) VALUES (?, ?)
              ON CONFLICT(key) DO UPDATE SET deleted_date = MAX(deleted_date, excluded.deleted_date)",
-            params![key, now_millis()],
+            params![key, deleted_date],
         )?;
         Ok(page_ids)
     }
@@ -782,6 +786,7 @@ fn replace_list_in(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::clock::SystemClock;
     use crate::domain::id_generator::IdGenerator;
     use crate::infrastructure::persistence::database_initializer::initialize;
 
@@ -789,8 +794,8 @@ mod tests {
     #[test]
     fn a_value_of_a_key_with_no_definition_is_refused() {
         let dir = tempfile::TempDir::new().unwrap();
-        let db = Arc::new(Db::open(&dir.path().join("journal.db")).unwrap());
-        initialize(&db, &IdGenerator::new()).unwrap();
+        let db = Arc::new(Db::open(&dir.path().join("journal.db"), Arc::new(SystemClock)).unwrap());
+        initialize(&db, &IdGenerator::default()).unwrap();
         let properties = PropertyRepository::new(Arc::clone(&db));
         let conn = db.conn().unwrap();
 

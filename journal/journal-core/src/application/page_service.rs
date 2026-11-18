@@ -19,7 +19,6 @@ use crate::domain::wikilink;
 use crate::error::AppError;
 use crate::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use crate::infrastructure::export::export_service::MarkdownExportService;
-use crate::infrastructure::persistence::db::now_millis;
 use crate::infrastructure::persistence::property_repository::{
     list_values, ListProps, ScalarProps,
 };
@@ -217,7 +216,7 @@ impl PageService {
         effects: &mut AfterCommit,
     ) -> Result<DocResult, AppError> {
         let id = self.ids.generate_page_id();
-        let now = now_millis();
+        let now = self.items.db().now_millis();
         let page = PageRepository::save_in(tx, &Page::new(id.clone(), dir, file_name, "doc", now))?;
         // The items of an atlas page are its cards, which the server writes; an empty first
         // item could take the index a card took already
@@ -370,7 +369,7 @@ impl PageService {
         let updated = Page {
             dir_path: new_dir_path.clone(),
             name: file_name,
-            modified_date: now_millis(),
+            modified_date: self.items.db().now_millis(),
             ..existing.clone()
         };
         let updated = PageRepository::save_in(&tx, &updated)?;
@@ -443,7 +442,7 @@ impl PageService {
                     modified_date: if key == "modified" {
                         millis
                     } else {
-                        now_millis()
+                        self.items.db().now_millis()
                     },
                     ..page.clone()
                 },
@@ -724,8 +723,8 @@ impl PageService {
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         let mut touched = Vec::new();
-        let now = now_millis();
-        for id in PropertyRepository::delete_definition_in(&tx, key)? {
+        let now = self.items.db().now_millis();
+        for id in PropertyRepository::delete_definition_in(&tx, key, now)? {
             let Ok(page_id) = Hmtid::parse(&id) else {
                 continue;
             };
@@ -751,7 +750,7 @@ impl PageService {
         let updated = PageRepository::save_in(
             &tx,
             &Page {
-                modified_date: now_millis(),
+                modified_date: self.items.db().now_millis(),
                 ..page.clone()
             },
         )?;
@@ -1013,7 +1012,7 @@ impl PageService {
                     &Page {
                         dir_path: index_dir.clone(),
                         name: "index".to_string(),
-                        modified_date: now_millis(),
+                        modified_date: self.items.db().now_millis(),
                         ..page
                     },
                 )?;
@@ -1022,7 +1021,7 @@ impl PageService {
                 }
                 effects.indexed.push((renamed, Vec::new()));
             } else {
-                let now = now_millis();
+                let now = self.items.db().now_millis();
                 let page = Page::new(self.ids.generate_page_id(), &index_dir, "index", "doc", now);
                 let page = PageRepository::save_in(tx, &page)?;
                 ItemRepository::save_in(

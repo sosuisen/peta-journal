@@ -16,7 +16,7 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::nfc::to_nfc;
 use crate::domain::number_text::format_number;
 
-use super::db::{now_millis, Db};
+use super::db::Db;
 
 /// The migrations, in the order they run. The version of a database is the number of them
 /// it has had.
@@ -323,7 +323,7 @@ fn ensure_root_index(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<(
     }
     tracing::info!("Creating root index page...");
     let root_id = ids.generate_page_id().to_string();
-    let now = now_millis();
+    let now = ids.now_millis();
     conn.execute(
         "INSERT INTO pages (id, parent_id, dir_path, name, type, created_date, modified_date) \
          VALUES (?, NULL, '', 'index', 'doc', ?, ?)",
@@ -369,7 +369,7 @@ mod tests {
     fn a_new_database_goes_through_every_migration_to_the_latest_version() {
         let conn = Connection::open_in_memory().unwrap();
 
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
 
         assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
         assert_eq!(
@@ -392,14 +392,14 @@ mod tests {
     #[test]
     fn a_database_at_the_latest_version_is_opened_again_without_a_migration() {
         let conn = Connection::open_in_memory().unwrap();
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
         conn.execute(
             "INSERT INTO property_definitions (key, value_type) VALUES ('owner', 'text')",
             [],
         )
         .unwrap();
 
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
 
         assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
         assert_eq!(
@@ -415,14 +415,14 @@ mod tests {
     #[test]
     fn a_user_definition_whose_type_does_not_fit_its_name_takes_the_type_of_its_name_on_start() {
         let conn = Connection::open_in_memory().unwrap();
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
         conn.execute(
             "INSERT INTO property_definitions (key, value_type) VALUES ('rating', 'number'), ('score_n', 'text')",
             [],
         )
         .unwrap();
 
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
 
         let type_of = |key: &str| -> String {
             conn.query_row(
@@ -440,14 +440,14 @@ mod tests {
     #[test]
     fn a_list_and_a_scalar_keep_their_types_on_start() {
         let conn = Connection::open_in_memory().unwrap();
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
         conn.execute(
             "INSERT INTO property_definitions (key, value_type) VALUES ('members', 'list'), ('owner_list', 'text')",
             [],
         )
         .unwrap();
 
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
 
         let type_of = |key: &str| -> String {
             conn.query_row(
@@ -465,11 +465,11 @@ mod tests {
     #[test]
     fn a_database_at_version_1_gets_the_table_of_deleted_items() {
         let conn = Connection::open_in_memory().unwrap();
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
         conn.execute_batch("DROP TABLE deleted_items").unwrap();
         set_version(&conn, 1);
 
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
 
         assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM deleted_items"), 0);
@@ -535,7 +535,7 @@ mod tests {
     #[test]
     fn a_database_at_version_5_moves_numbers_and_checkboxes_into_the_one_value_column_as_text() {
         let conn = Connection::open_in_memory().unwrap();
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
         set_version(&conn, 5);
         conn.execute_batch(
             "INSERT INTO property_definitions (key, value_type) VALUES
@@ -549,7 +549,7 @@ mod tests {
         )
         .unwrap();
 
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
 
         assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
         let columns: Vec<String> = conn
@@ -578,7 +578,7 @@ mod tests {
     #[test]
     fn a_database_at_version_6_keeps_its_user_definitions_as_real_ones_of_date_0() {
         let conn = Connection::open_in_memory().unwrap();
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
         set_version(&conn, 6);
         conn.execute(
             "INSERT INTO property_definitions (key, value_type) VALUES ('owner', 'text')",
@@ -586,7 +586,7 @@ mod tests {
         )
         .unwrap();
 
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
 
         assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
         let (modified, provisional): (i64, i64) = conn
@@ -607,11 +607,11 @@ mod tests {
     #[test]
     fn a_database_at_version_4_loses_the_ast_of_its_items_and_keeps_their_bodies() {
         let conn = Connection::open_in_memory().unwrap();
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
         set_version(&conn, 4);
         add_page_with_file(&conn, "p1", "", "a");
 
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
 
         assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
         assert_eq!(
@@ -631,13 +631,13 @@ mod tests {
     #[test]
     fn a_database_at_version_3_starts_the_last_sync_of_a_file_at_its_mtime() {
         let conn = Connection::open_in_memory().unwrap();
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
         set_version(&conn, 3);
         add_page_with_file(&conn, "p1", "", "a");
         conn.execute("UPDATE file_sync_state SET file_mtime = 7", [])
             .unwrap();
 
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
 
         assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
         assert_eq!(count(&conn, "SELECT last_synced FROM file_sync_state"), 7);
@@ -651,11 +651,11 @@ mod tests {
     #[test]
     fn a_database_at_version_2_gets_nfc_page_names_and_paths_and_keeps_the_rest() {
         let conn = Connection::open_in_memory().unwrap();
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
         add_page_with_file(&conn, "p1", "\u{30c6}\u{3099}/", "\u{30ab}\u{3099}");
         set_version(&conn, 2);
 
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
 
         assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
         let name_of = "SELECT name FROM pages WHERE id = ?";
@@ -677,12 +677,12 @@ mod tests {
     #[test]
     fn a_row_that_would_take_the_name_of_another_row_stays_as_it_is() {
         let conn = Connection::open_in_memory().unwrap();
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
         add_page_with_file(&conn, "p1", "", "\u{30ac}");
         add_page_with_file(&conn, "p2", "", "\u{30ab}\u{3099}");
         set_version(&conn, 2);
 
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
 
         assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
         let name_of = "SELECT name FROM pages WHERE id = ?";
@@ -704,11 +704,11 @@ mod tests {
     #[test]
     fn a_database_of_a_newer_server_is_refused() {
         let conn = Connection::open_in_memory().unwrap();
-        run(&conn, &IdGenerator::new()).unwrap();
+        run(&conn, &IdGenerator::default()).unwrap();
         conn.pragma_update(None, "user_version", MIGRATIONS.len() as i64 + 1)
             .unwrap();
 
-        assert!(run(&conn, &IdGenerator::new()).is_err());
+        assert!(run(&conn, &IdGenerator::default()).is_err());
     }
 
     // 途中で失敗したマイグレーションは、版を進めない。
@@ -718,7 +718,7 @@ mod tests {
         // A table in the way of the first migration
         conn.execute("CREATE TABLE pages (id TEXT)", []).unwrap();
 
-        assert!(run(&conn, &IdGenerator::new()).is_err());
+        assert!(run(&conn, &IdGenerator::default()).is_err());
 
         assert_eq!(user_version(&conn).unwrap(), 0);
     }

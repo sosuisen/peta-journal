@@ -16,7 +16,6 @@ use crate::domain::search::SearchIndex;
 use crate::error::AppError;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::export::page_link_converter;
-use crate::infrastructure::persistence::db::now_millis;
 use crate::infrastructure::persistence::item_repository::parked_idx;
 use crate::infrastructure::persistence::property_repository::list_values;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
@@ -240,7 +239,7 @@ impl ItemService {
             }
             None => self.ids.generate_item_id(),
         };
-        let now = now_millis();
+        let now = self.items.db().now_millis();
         let parsed = ItemBody::accept(body).map_err(AppError::bad_request)?;
 
         let mut existing = ItemRepository::find_by_page_id_in(tx, page_id)?;
@@ -396,7 +395,7 @@ impl ItemService {
             ));
         }
         let updated = Item {
-            modified_date: now_millis(),
+            modified_date: self.items.db().now_millis(),
             body: source.body.clone(),
             transclude_item_id: Some(source_item_id.clone()),
             ..item.clone()
@@ -428,7 +427,7 @@ impl ItemService {
             _ => None,
         };
 
-        let now = now_millis();
+        let now = self.items.db().now_millis();
         let patch = ItemPatch::new(new_body.clone(), body_types, task, level, collapsed, now)
             .map_err(AppError::bad_request)?;
         ItemRepository::patch_in(tx, item_id, &patch)?;
@@ -469,7 +468,7 @@ impl ItemService {
                 .into_iter()
                 .map(|item| item.page_id),
         );
-        let now = now_millis();
+        let now = self.items.db().now_millis();
         ItemRepository::shift_levels_in(&tx, item_ids, delta, now)?;
         // The items may have other parents now
         for page_id in &effects.pages {
@@ -642,7 +641,7 @@ impl ItemService {
                 idx,
             })
             .collect();
-        let now = now_millis();
+        let now = self.items.db().now_millis();
         ItemRepository::move_items_in(tx, target_page_id, &placements, delta, now)?;
         if placements
             .iter()
@@ -771,13 +770,13 @@ impl ItemService {
             let tags = PropertyRepository::find_tags_in(tx, ITEM_TARGET, item.id.as_str())?;
             effects.tag_changes.push((tags, Vec::new()));
             ItemRepository::delete_in(tx, &item.id)?;
-            ItemRepository::record_deleted_in(tx, &item.id, now_millis())?;
+            ItemRepository::record_deleted_in(tx, &item.id, self.items.db().now_millis())?;
             removed_ids.push(item.id.to_string());
             effects.pages.insert(item.page_id.clone());
         }
         PropertyRepository::delete_all_for_targets_in(tx, ITEM_TARGET, &removed_ids)?;
         effects.removed_ids.extend(removed_ids);
-        let now = now_millis();
+        let now = self.items.db().now_millis();
         for page_id in &effects.pages {
             ItemRepository::recalculate_parent_ids_in(tx, page_id)?;
             PageRepository::touch_in(tx, page_id, now)?;
@@ -795,7 +794,7 @@ impl ItemService {
         effects: &mut AfterCommit,
     ) -> Result<Item, AppError> {
         let parsed = ItemBody::accept(body).map_err(AppError::bad_request)?;
-        let now = now_millis();
+        let now = self.items.db().now_millis();
         // A task stays a task when its body changes; only the prefix can add the type here
         let patch = ItemPatch::new(
             Some(parsed.text.clone()),
@@ -864,7 +863,11 @@ impl ItemService {
                     collapsed: descendant.collapsed,
                     types: descendant.types.clone(),
                     transclude_item_id: descendant.transclude_item_id.clone(),
-                    ..Item::new_on(self.ids.generate_item_id(), &page, now_millis())
+                    ..Item::new_on(
+                        self.ids.generate_item_id(),
+                        &page,
+                        self.items.db().now_millis(),
+                    )
                 };
                 ItemRepository::save_in(tx, &copy)?;
                 let hashtags = hashtag::extract_hashtags(&self.parser.parse(&copy.body));
@@ -1079,7 +1082,7 @@ impl ItemService {
                         &mut effects,
                     )?;
                     if let Some(state) = task {
-                        put_task_in(&tx, &existing, state, now_millis())?;
+                        put_task_in(&tx, &existing, state, self.items.db().now_millis())?;
                     }
                     // A transcluder shows the item as it is stored, so its page changed too
                     transcluder_pages.extend(
@@ -1149,7 +1152,7 @@ impl ItemService {
         body: &str,
         transclude: Option<Hmtid>,
     ) -> Result<Item, AppError> {
-        let now = now_millis();
+        let now = self.items.db().now_millis();
         let updated = Item {
             modified_date: now,
             body: body.to_string(),
@@ -1217,7 +1220,7 @@ impl ItemService {
         let is_task = existing.is_task();
         let has_begin = scalars.contains_key("begin");
         let has_end = scalars.contains_key("end");
-        let now = now_millis();
+        let now = self.items.db().now_millis();
 
         let result = if !is_task {
             let r = patch_task_in(&tx, &existing, true, now)?;
@@ -1271,7 +1274,7 @@ impl ItemService {
         } else {
             PropertyRepository::upsert_scalar_in(&tx, ITEM_TARGET, item_id.as_str(), key, value)?;
         }
-        let now = now_millis();
+        let now = self.items.db().now_millis();
         ItemRepository::touch_in(&tx, item_id, now)?;
         self.commit_page(tx, &existing.page_id, now)?;
         Ok(existing)
@@ -1283,7 +1286,7 @@ impl ItemService {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         PropertyRepository::delete_property_in(&tx, ITEM_TARGET, item_id.as_str(), key)?;
-        let now = now_millis();
+        let now = self.items.db().now_millis();
         ItemRepository::touch_in(&tx, item_id, now)?;
         self.commit_page(tx, &existing.page_id, now)?;
         Ok(existing)

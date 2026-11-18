@@ -7,15 +7,20 @@
 
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::Context;
 use parking_lot::Mutex;
 use rusqlite::{Connection, OpenFlags, Transaction, TransactionBehavior};
 
+use crate::clock::Clock;
+
 #[derive(Debug)]
 pub struct Db {
     path: PathBuf,
     idle: Mutex<Vec<Connection>>,
+    /// The clock that dates the rows
+    clock: Arc<dyn Clock>,
 }
 
 /// A connection borrowed from the pool; goes back when dropped.
@@ -57,8 +62,9 @@ impl PooledConn<'_> {
 }
 
 impl Db {
-    /// Opens (or creates) the database file, creating its directory first.
-    pub fn open(path: &Path) -> anyhow::Result<Db> {
+    /// Opens (or creates) the database file, creating its directory first. The clock dates
+    /// what is written.
+    pub fn open(path: &Path, clock: Arc<dyn Clock>) -> anyhow::Result<Db> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).with_context(|| {
                 format!("Cannot create database directory: {}", parent.display())
@@ -72,6 +78,7 @@ impl Db {
         let db = Db {
             path: path.to_path_buf(),
             idle: Mutex::new(Vec::new()),
+            clock,
         };
         // Open once so that the file and the WAL mode exist before anything else runs
         let conn = db.connect()?;
@@ -81,6 +88,11 @@ impl Db {
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// The time now, in milliseconds since 1970 (UTC), by the clock of the journal.
+    pub fn now_millis(&self) -> i64 {
+        self.clock.now_millis()
     }
 
     fn connect(&self) -> anyhow::Result<Connection> {
@@ -115,9 +127,4 @@ impl Db {
 /// `?,?,?` for an `IN (...)` clause with `n` values.
 pub fn placeholders(n: usize) -> String {
     std::iter::repeat_n("?", n).collect::<Vec<_>>().join(",")
-}
-
-/// The current time as Unix epoch milliseconds.
-pub fn now_millis() -> i64 {
-    chrono::Utc::now().timestamp_millis()
 }

@@ -8,7 +8,7 @@ use journal_core::infrastructure::export::definitions_file::{self, DEFINITIONS_F
 use journal_core::infrastructure::export::import_service::Outcome;
 use journal_core::journal::{AddPropertyDefinitionInput, ChangedBy};
 
-use crate::common::devices::{two_devices, Device};
+use crate::common::devices::{time_passes, two_devices, Device};
 use crate::common::{Core, Recorded};
 
 impl Device {
@@ -31,7 +31,7 @@ impl Device {
 fn a_definition_the_user_adds_is_written_with_its_date() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
-    let before = journal_core::infrastructure::persistence::db::now_millis();
+    let before = a.core.db.now_millis();
 
     a.define("score_n", "number", false);
 
@@ -48,7 +48,7 @@ fn a_definition_the_user_deletes_is_written_as_deleted_with_its_date() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b) = two_devices(dir.path());
     a.define("score_n", "number", false);
-    let before = journal_core::infrastructure::persistence::db::now_millis();
+    let before = a.core.db.now_millis();
 
     a.undefine("score_n");
 
@@ -166,7 +166,7 @@ fn a_newer_definition_from_another_device_replaces_the_older_one() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     a.define("score_n", "number", true);
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    time_passes(&[&a, &b]);
     b.define("score_n", "number", false);
 
     a.receive(&b, DEFINITIONS_FILE);
@@ -180,7 +180,7 @@ fn an_older_definition_from_another_device_leaves_the_newer_one_and_the_file_is_
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = two_devices(dir.path());
     b.define("score_n", "number", true);
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    time_passes(&[&a, &b]);
     a.define("score_n", "number", false);
     let a_wrote = a.written("score_n");
 
@@ -272,7 +272,7 @@ fn a_definition_newer_than_its_deletion_makes_the_key_real_again() {
     b.receive(&a, DEFINITIONS_FILE);
     b.undefine("score_n");
     a.receive(&b, DEFINITIONS_FILE);
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    time_passes(&[&a, &b]);
     b.define("score_n", "number", true);
 
     a.receive(&b, DEFINITIONS_FILE);
@@ -354,7 +354,7 @@ fn taking_in_the_definitions_leaves_the_pages_and_their_files_alone() {
         .unwrap()
         .unwrap()
         .modified_date;
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    time_passes(&[&a, &b]);
     b.define("score_n", "number", false);
 
     a.receive(&b, DEFINITIONS_FILE);
@@ -441,7 +441,7 @@ fn a_provisional_definition_goes_with_the_last_value_of_its_key() {
         .set_property(&page, "score_n", "number", "12")
         .unwrap();
     b.receive(&a, "docs/d/a.md");
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    time_passes(&[&a, &b]);
     a.core
         .page_service
         .delete_property(&page, "score_n")
@@ -481,7 +481,7 @@ fn a_key_of_an_item_with_no_definition_gets_a_provisional_definition_until_its_v
     assert_eq!(b.definition("score_n"), Some(("number".to_string(), true)));
     assert!(b.is_provisional("score_n"));
 
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    time_passes(&[&a, &b]);
     a.core
         .item_service
         .delete_property(&item, "score_n")
@@ -688,7 +688,7 @@ fn the_clients_are_told_when_a_page_file_makes_or_drops_a_provisional_definition
     b.receive(&a, "docs/d/a.md");
 
     assert!(told.of_definitions());
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    time_passes(&[&a, &b]);
     a.core
         .page_service
         .delete_property(&page, "score_n")

@@ -53,7 +53,7 @@ mod tests {
         .unwrap();
         let runtime = ExtensionRuntime::new(
             Arc::new(FlatMarkdownSplitter::new(MarkdownParser)),
-            Arc::new(IdGenerator::new()),
+            Arc::new(IdGenerator::default()),
         );
         let page = PageInfo {
             id: "page-1".to_string(),
