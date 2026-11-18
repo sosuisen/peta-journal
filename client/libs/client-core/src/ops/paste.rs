@@ -8,7 +8,7 @@ use crate::model::{ItemPosition, PasteCursor, PasteMode, Pasted, Uploaded};
 use crate::ops::edit::{
     discard_pending_edit, focus_editor, mark_dirty, record_typing, show_parsed, typed_body,
 };
-use crate::ops::file_reload::replace_page;
+use crate::ops::file_reload::{leave_the_edit, replace_page, AskedAt};
 use crate::outline::tree::edit_context_of;
 use crate::outline::CursorState;
 use crate::util::char_len;
@@ -143,12 +143,31 @@ pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, paste
         return place_cursor(model, cursor, fallback);
     }
     let shown_page_id = model.shown_page_id();
+    let asked_at = AskedAt::now(model);
     run(move |api| async move {
         if let Some(page_id) = shown_page_id {
-            replace_page(&api, &page_id).await;
+            replace_page(&api, &page_id, asked_at).await;
         }
-        api.send_event(Event::PastedPageReloaded { cursor, fallback });
+        api.send_event(Event::PastedPageReloaded {
+            cursor,
+            fallback,
+            asked_at,
+        });
     })
+}
+
+/// [`place_cursor`] after the page was read again. When a change made here, such as an undo,
+/// overtook the reading, the cursor stays where that change left it.
+pub fn place_cursor_at(
+    model: &mut Model,
+    cursor: PasteCursor,
+    fallback: PasteCursor,
+    asked_at: AskedAt,
+) -> Cmd {
+    if asked_at.is_overtaken(model) {
+        return leave_the_edit(model);
+    }
+    place_cursor(model, cursor, fallback)
 }
 
 /// Puts the cursor right after the pasted text and focuses that editor. An item made beside

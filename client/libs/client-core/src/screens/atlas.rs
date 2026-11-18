@@ -427,8 +427,7 @@ pub fn reload_atlas(model: &Model, page_id: &str) -> Cmd {
     if shown_atlas_page(model).is_none_or(|p| p.id != page_id) {
         return done();
     }
-    let page_id = page_id.to_string();
-    run(move |api| async move { file_reload::replace_page(&api, &page_id).await })
+    file_reload::read_again(model, page_id)
 }
 
 /// A link card: an item of the atlas page whose body is a wiki link to `target`, placed by

@@ -45,6 +45,9 @@ pub struct UndoStacks {
     pending_label: String,
     pending_cursor_before: Option<CursorState>,
     pending: bool,
+    /// Counts the changes made here: every entry recorded, undone or redone. A page that
+    /// was asked for at another count is older than what the screen shows.
+    revision: u64,
 }
 
 impl UndoStacks {
@@ -125,6 +128,7 @@ impl UndoStacks {
                     self.pending_ops.clear();
                     self.pending = false;
                     self.redo_stack.clear();
+                    self.revision += 1;
                     return;
                 }
             }
@@ -140,6 +144,12 @@ impl UndoStacks {
         self.push_capped(entry, true);
         self.redo_stack.clear();
         self.pending = false;
+        self.revision += 1;
+    }
+
+    /// The count of the changes made here. See [`UndoStacks::revision`] of the field.
+    pub fn revision(&self) -> u64 {
+        self.revision
     }
 
     pub fn abort(&mut self) {
@@ -160,11 +170,15 @@ impl UndoStacks {
     }
 
     pub fn pop_undo(&mut self) -> Option<UndoEntry> {
-        self.undo_stack.pop()
+        let entry = self.undo_stack.pop();
+        self.revision += u64::from(entry.is_some());
+        entry
     }
 
     pub fn pop_redo(&mut self) -> Option<UndoEntry> {
-        self.redo_stack.pop()
+        let entry = self.redo_stack.pop();
+        self.revision += u64::from(entry.is_some());
+        entry
     }
 
     pub fn push_redo(&mut self, entry: UndoEntry) {
@@ -222,6 +236,34 @@ mod tests {
             }
             _ => panic!(),
         }
+    }
+
+    // 変更の数は、記録、取り消し、やり直しのたびに進む。まとめられた本文の編集でも進む。何も記録しない確定と、空のスタックの取り消しでは進まない。
+    #[test]
+    fn the_revision_moves_on_with_every_entry_recorded_undone_or_redone() {
+        let mut undo = UndoStacks::default();
+        let a0 = plain_item("a", 1, "");
+        let a1 = plain_item("a", 1, "h");
+        let a2 = plain_item("a", 1, "hi");
+        assert_eq!(undo.revision(), 0);
+
+        undo.begin("body", None);
+        undo.commit(None, 1000);
+        assert!(undo.pop_undo().is_none());
+        assert!(undo.pop_redo().is_none());
+        assert_eq!(undo.revision(), 0);
+
+        undo.record_update("body", &a0, &a1, 1000);
+        assert_eq!(undo.revision(), 1);
+        undo.record_update("body", &a1, &a2, 1200);
+        assert_eq!(undo.revision(), 2);
+
+        let entry = undo.pop_undo().unwrap();
+        assert_eq!(undo.revision(), 3);
+        undo.push_redo(entry);
+        assert_eq!(undo.revision(), 3);
+        undo.pop_redo().unwrap();
+        assert_eq!(undo.revision(), 4);
     }
 
     // 本文編集の間隔が結合の間隔を超えると、別々の undo エントリになる。

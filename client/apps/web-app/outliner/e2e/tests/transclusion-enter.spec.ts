@@ -137,4 +137,41 @@ test.describe('Enter inside a transclusion', () => {
       .toEqual(['1:alpha-beta', '1:next']);
     await expect.poll(() => shownBodies(page)).toEqual(['alpha-beta']);
   });
+
+  // The requests go one at a time, so the page that is read again after the split can be slow
+  // to come. On 2026-11-18 its answer, with the page as it was before the undo, put the split
+  // back on the screen while the server had it taken back.
+  test('Ctrl+Z pressed while the page is read again after the split is not undone by the answer', async ({ page, request }) => {
+    await open(page, request, ['alpha-beta', 'next'], 0, ['copy'], 0);
+    let hold = false;
+    let release = () => {};
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let sawReading = () => {};
+    const readingOnItsWay = new Promise<void>(resolve => { sawReading = resolve; });
+    await page.route(`**/api/pages/${hostId}`, async route => {
+      if (hold && route.request().method() === 'GET') {
+        hold = false;
+        sawReading();
+        await held;
+      }
+      await route.continue();
+    });
+
+    await editAt(page, host[0].id, 6);
+    hold = true;
+    await page.keyboard.press('Enter');
+    await readingOnItsWay;
+    await page.keyboard.press('Control+z');
+    await expect.poll(() => shownBodies(page)).toEqual(['alpha-beta']);
+    release();
+
+    expect(outlineOf(await server.itemsSettled(sourceId, i => i.length === 2)))
+      .toEqual(['1:alpha-beta', '1:next']);
+    // Time enough for the answer of the reading to reach the screen
+    await page.waitForTimeout(500);
+    expect(await shownBodies(page)).toEqual(['alpha-beta']);
+    await expect(editorOf(page, host[0].id)).toBeFocused();
+    await expect(editorOf(page, host[0].id)).toHaveValue('alpha-beta');
+    expect(await editorOf(page, host[0].id).evaluate((e: HTMLTextAreaElement) => e.selectionStart)).toBe(6);
+  });
 });

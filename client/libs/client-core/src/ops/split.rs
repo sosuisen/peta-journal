@@ -11,7 +11,7 @@ use crate::model::{Item, ItemPosition, ItemRef, Split};
 use crate::ops::edit::{
     discard_pending_edit, focus_editor, record_typing, show_parsed, typed_body,
 };
-use crate::ops::file_reload::replace_page;
+use crate::ops::file_reload::{leave_the_edit, replace_page, AskedAt};
 use crate::ops::level;
 use crate::ops::outline_events::body_changed;
 use crate::outline::tree::{
@@ -207,11 +207,13 @@ fn show_split_in_transclusion(
         .commit(Some(CursorState::new(&created.id, 0)), model.clock_ms);
 
     let item_id = item_id.to_string();
+    let asked_at = AskedAt::now(model);
     run(move |api| async move {
-        replace_page(&api, &host_page_id).await;
+        replace_page(&api, &host_page_id, asked_at).await;
         api.send_event(Event::SplitPageReloaded {
             item_id,
             created_id: created.id,
+            asked_at,
         });
     })
 }
@@ -219,7 +221,18 @@ fn show_split_in_transclusion(
 /// Moves the edit to the item a split inside a transclusion made, once the page is read
 /// again. An item made beside the source item of a transclusion is not on this page: the
 /// edit then stays in the item that was split, at the end of the text it keeps.
-pub fn focus_after_split(model: &mut Model, item_id: &str, created_id: &str) -> Cmd {
+///
+/// An undo may have taken the split back while the page was read. The edit then stays where
+/// the undo put it.
+pub fn focus_after_split(
+    model: &mut Model,
+    item_id: &str,
+    created_id: &str,
+    asked_at: AskedAt,
+) -> Cmd {
+    if asked_at.is_overtaken(model) {
+        return leave_the_edit(model);
+    }
     let keys = model.key_relay.release();
     let (target, cursor) = if model.state.get_visible_item(created_id).is_some() {
         (created_id.to_string(), 0)

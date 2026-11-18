@@ -2,6 +2,8 @@
 
 use crate::app::Event;
 use crate::harness::{item, Harness};
+use crate::model::PageWithItems;
+use crate::ops::file_reload::AskedAt;
 use crate::rest::ClientId;
 
 // ファイルの変更通知は編集の終了を待ち、自動保存の猶予の後にページが再読み込みされる。
@@ -99,4 +101,78 @@ fn a_change_by_this_client_does_not_reload_the_page() {
     changed_by(&mut h, &me);
 
     assert!(!h.api.called("GetPageById"));
+}
+
+/// The answer to a reading of the page that was asked for at `asked_at`: the page with "a" as
+/// the server had it then.
+fn page_as_it_was(asked_at: AskedAt) -> Event {
+    Event::PageReplaced {
+        page_id: "page1".into(),
+        loaded: Box::new(PageWithItems {
+            items: vec![item("a", 1, "as it was")],
+            ..Default::default()
+        }),
+        asked_at,
+    }
+}
+
+/// Changes the body of "a" here, as an undo or an edit does.
+fn change_here(h: &mut Harness) {
+    let before = item("a", 1, "");
+    let after = item("a", 1, "changed here");
+    h.model
+        .state
+        .update_item("a", |i| i.body = after.body.clone());
+    h.model.undo.record_update("body", &before, &after, 0);
+}
+
+// 読み直しを頼んだあとにこちらで変更がなければ、答えのページが画面に出る。
+#[test]
+fn the_page_read_again_is_shown_when_nothing_changed_here_since_it_was_asked_for() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    let asked_at = AskedAt::now(&h.model);
+
+    h.send(page_as_it_was(asked_at));
+
+    assert_eq!(h.bodies(), ["a=as it was"]);
+    assert!(!h.api.called("GetPageById"));
+}
+
+// 読み直しを頼んだあとにこちらで変更があれば、答えのページは画面に出ず、ページをもう一度読む。要求は順に送るので、答えを待つ間に取り消しができる。
+#[test]
+fn a_page_read_before_a_change_made_here_is_not_shown_and_the_page_is_read_once_more() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    let asked_at = AskedAt::now(&h.model);
+    change_here(&mut h);
+    h.api.answer_next(
+        "GetPageById",
+        Ok(crate::effects::ApiOutput::Page(PageWithItems {
+            items: vec![item("a", 1, "with the change")],
+            ..Default::default()
+        })),
+    );
+
+    h.send(page_as_it_was(asked_at));
+
+    assert_eq!(h.bodies(), ["a=with the change"]);
+    assert_eq!(h.api.calls_named("GetPageById").len(), 1);
+}
+
+// 編集中なら、追い越された読み直しのやり直しは、編集の終わりを待つ。
+#[test]
+fn the_reading_that_a_change_overtook_waits_for_the_end_of_the_edit() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.state.add_editing_item("a");
+    let asked_at = AskedAt::now(&h.model);
+    change_here(&mut h);
+
+    h.send(page_as_it_was(asked_at));
+
+    assert_eq!(h.bodies(), ["a=changed here"]);
+    assert!(!h.api.called("GetPageById"), "not while editing");
+    h.send(Event::EditFinished {
+        item_id: "a".into(),
+    });
+    h.fire_timers();
+    assert!(h.api.called("GetPageById"));
 }

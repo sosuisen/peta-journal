@@ -538,6 +538,42 @@ fn undo_of_a_split_transclusion_puts_the_body_of_the_source_back_and_removes_the
     assert_eq!(batch[1], BatchOp::Delete { id: "n".into() });
 }
 
+// 分割のあとの読み直しの答えより先に取り消すと、編集とカーソルは取り消しが置いた所に残る。読み直しのあとの編集の移動は行わない。
+#[test]
+fn an_undo_that_overtakes_the_reading_after_a_split_keeps_the_cursor_where_the_undo_put_it() {
+    // The split is answered and recorded, and the page is read again
+    let mut h = split_that_leaves_the_page();
+    enter(&mut h, "root", "sho".len());
+    let asked_after_the_split = crate::ops::file_reload::AskedAt::now(&h.model);
+    h.send(Event::Undo);
+    assert_eq!(h.model.current_item("root").unwrap().body, "shown");
+    let focused = h.focused_editor_requests().len();
+
+    // The answers of the reading that was asked for before the undo
+    h.send(Event::PageReplaced {
+        page_id: "page1".into(),
+        loaded: Box::new(PageWithItems {
+            items: vec![item("a", 1, ""), root()],
+            transcluded_trees: Some(TranscludedTrees::from([(
+                "s".to_string(),
+                vec![source("s", 1, "sho")],
+            )])),
+            ..Default::default()
+        }),
+        asked_at: asked_after_the_split,
+    });
+    h.send(Event::SplitPageReloaded {
+        item_id: "root".into(),
+        created_id: "n".into(),
+        asked_at: asked_after_the_split,
+    });
+
+    assert_eq!(h.model.current_item("root").unwrap().body, "shown");
+    assert_eq!(h.focus_cursor(), Some(3));
+    assert_eq!(h.focused_editor_requests().len(), focused);
+    assert!(!h.model.key_relay.is_holding());
+}
+
 // 答えのあと読み直すのは、トランスクルージョンのあるページである。ジャーナルは何日ものページを見せるので、画面のページとは限らない。
 #[test]
 fn the_page_read_again_is_the_page_of_the_transclusion() {
