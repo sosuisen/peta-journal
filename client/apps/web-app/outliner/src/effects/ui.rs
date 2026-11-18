@@ -71,10 +71,12 @@ impl PendingCopy {
 
 /// A `ConfirmDestructive` request waiting for the dialog's answer.
 pub struct PendingConfirm {
+    message: String,
     request: Request<UiOp>,
 }
 
-/// Answers the confirmation dialog on screen, if one is open, and closes it.
+/// Answers the confirmation dialog on screen, if one is open, and closes it. The next
+/// confirmation that waited comes on the screen.
 pub fn answer_confirm(handle: CoreHandle, ok: bool) {
     let inner = handle.inner();
     let Some(mut pending) = inner.confirm.take() else {
@@ -82,6 +84,19 @@ pub fn answer_confirm(handle: CoreHandle, ok: bool) {
     };
     inner.confirm_message.set(None);
     handle.resolve(&mut pending.request, UiOutput::Bool(ok));
+    show_next_confirm(handle);
+}
+
+/// Puts the confirmation whose turn it is on the screen, if one waits. One dialog is shown at
+/// a time, as in every shell (`client_core::policy`): a second one above it would be in the
+/// way of the first.
+fn show_next_confirm(handle: CoreHandle) {
+    let inner = handle.inner();
+    let next = inner.confirms.borrow_mut().take_next();
+    if let Some(next) = next {
+        inner.confirm_message.set(Some(next.message.clone()));
+        inner.confirm.replace(Some(next));
+    }
 }
 
 /// Begins the clipboard write of a copy or cut of the selection. Called from the handler of
@@ -200,11 +215,10 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
         UiOp::ConfirmDestructive(message) => {
             // The browser's confirm answers OK to Enter, so this one is a dialog of our own
             // whose Cancel button has the focus; see `ConfirmDialog`
-            let inner = handle.inner();
-            if let Some(mut earlier) = inner.confirm.replace(Some(PendingConfirm { request })) {
-                handle.resolve(&mut earlier.request, UiOutput::Bool(false));
+            let pending = PendingConfirm { message, request };
+            if handle.inner().confirms.borrow_mut().push(pending) {
+                show_next_confirm(handle);
             }
-            inner.confirm_message.set(Some(message));
         }
         UiOp::Prompt(message) => {
             let answer = dom::window().prompt_with_message(&message).ok().flatten();

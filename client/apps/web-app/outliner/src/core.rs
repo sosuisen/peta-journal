@@ -6,6 +6,7 @@ use crate::body::{PetaApp, ViewModel};
 use crate::effects;
 use client_core::effects::{Effect, TimerOp};
 use client_core::model::DeferredKey;
+use client_core::policy::{InOrder, Timers};
 use client_core::rest::ClientId;
 use client_core::Event;
 use leptos::prelude::*;
@@ -27,7 +28,7 @@ pub struct Inner {
     /// Files handed to the core by handle, e.g. a pasted image waiting for its upload.
     pub files: RefCell<HashMap<u64, web_sys::File>>,
     pub next_handle: Cell<u64>,
-    pub timers: RefCell<HashMap<u64, effects::timer::Running>>,
+    pub timers: RefCell<Timers<effects::timer::Running>>,
     pub sse: RefCell<Option<effects::sse::Connection>>,
     /// Editors that can replay held keys, by item id.
     pub replayers: RefCell<HashMap<String, ReplayKeys>>,
@@ -41,6 +42,8 @@ pub struct Inner {
     pub pending_copy: RefCell<Option<effects::ui::PendingCopy>>,
     /// The confirmation dialog on screen, waiting for the user's answer.
     pub confirm: RefCell<Option<effects::ui::PendingConfirm>>,
+    /// The confirmations that wait for their turn on the screen, behind that one.
+    pub confirms: RefCell<InOrder<effects::ui::PendingConfirm>>,
     /// The message of that dialog, for the view; None when no dialog is open.
     pub confirm_message: RwSignal<Option<String>>,
 }
@@ -66,13 +69,14 @@ impl CoreHandle {
             navigate: RefCell::new(None),
             files: RefCell::new(HashMap::new()),
             next_handle: Cell::new(1),
-            timers: RefCell::new(HashMap::new()),
+            timers: RefCell::default(),
             sse: RefCell::new(None),
             replayers: RefCell::new(HashMap::new()),
             late_keys: RefCell::new(None),
             scroller: RefCell::new(None),
             pending_copy: RefCell::new(None),
             confirm: RefCell::new(None),
+            confirms: RefCell::default(),
             confirm_message: RwSignal::new(None),
         });
         INNER.with(|i| *i.borrow_mut() = Some(inner));

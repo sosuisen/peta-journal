@@ -6,9 +6,11 @@ use crate::shell::{Host, Input, Now, Shell};
 use chrono::{Datelike, Local, Timelike};
 use client_api_http::{call, read_events, upload, UreqHttp};
 use client_core::effects::{ApiOp, LocalDateTimeDto};
+use client_core::policy::InOrder;
 use client_core::rest::ClientId;
 use std::io::{BufRead, Write};
 use std::sync::mpsc::{channel, Sender};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -20,10 +22,47 @@ enum Message {
     EmacsClosed,
 }
 
+/// A request to the server: a call of the API, or the upload of the file at a path.
+enum ToServer {
+    Call(ApiOp),
+    Upload(String),
+}
+
 struct ThreadHost {
     http: UreqHttp,
     to_main: Sender<Message>,
     stdout: std::io::Stdout,
+    /// The requests to the server by their IDs, each waiting for the answer to the one before.
+    to_server: Arc<Mutex<InOrder<(u64, ToServer)>>>,
+}
+
+impl ThreadHost {
+    /// Asks the server, one request at a time and in the order the shell made them
+    /// (`client_core::policy`). With a thread for each request a later one overtook a slow
+    /// one, as it did in the other shells: there a join reached the server before the save of
+    /// the text just typed.
+    fn ask_server(&mut self, id: u64, request: ToServer) {
+        if !self.to_server.lock().unwrap().push((id, request)) {
+            return;
+        }
+        // One thread asks until nothing waits. The next request that comes starts another
+        let (http, to_main) = (self.http.clone(), self.to_main.clone());
+        let to_server = self.to_server.clone();
+        thread::spawn(move || {
+            // The lock is not held while the server is asked: the shell makes requests then
+            let next = || to_server.lock().unwrap().take_next();
+            while let Some((id, request)) = next() {
+                let result = match request {
+                    ToServer::Call(op) => call(&http, op),
+                    ToServer::Upload(path) => upload(&http, &path),
+                };
+                let _ = to_main.send(Message::Input(Input::ApiDone {
+                    id,
+                    result: Box::new(result),
+                }));
+            }
+        });
+    }
 }
 
 impl Host for ThreadHost {
@@ -35,25 +74,11 @@ impl Host for ThreadHost {
     }
 
     fn api(&mut self, id: u64, op: ApiOp) {
-        let (http, to_main) = (self.http.clone(), self.to_main.clone());
-        thread::spawn(move || {
-            let result = call(&http, op);
-            let _ = to_main.send(Message::Input(Input::ApiDone {
-                id,
-                result: Box::new(result),
-            }));
-        });
+        self.ask_server(id, ToServer::Call(op));
     }
 
     fn upload(&mut self, id: u64, path: String) {
-        let (http, to_main) = (self.http.clone(), self.to_main.clone());
-        thread::spawn(move || {
-            let result = upload(&http, &path);
-            let _ = to_main.send(Message::Input(Input::ApiDone {
-                id,
-                result: Box::new(result),
-            }));
-        });
+        self.ask_server(id, ToServer::Upload(path));
     }
 
     fn start_timer(&mut self, id: u64, ms: u32) {
@@ -111,6 +136,7 @@ pub fn run(server: String) {
         http: UreqHttp::new(server, client_id.clone()),
         to_main: to_main.clone(),
         stdout: std::io::stdout(),
+        to_server: Arc::default(),
     };
     let mut shell = Shell::new(host, client_id);
     thread::spawn(move || read_emacs(&to_main));

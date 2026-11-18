@@ -8,6 +8,7 @@ use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, TimerOp, TimerOutput, UiOp, UiOutput,
 };
 use client_core::keys::{KeyMap, KeyPlatform, KeyPress};
+use client_core::policy::{InOrder, Timers};
 use client_core::rest::ClientId;
 use client_core::typing::{self, Typing};
 use client_core::{Effect, Event, Route};
@@ -19,8 +20,6 @@ use crux_core::effects::{EffectRouter, ResolveSink, Routes};
 use crux_core::macros::effect;
 use crux_core::render::RenderOperation;
 use crux_core::{Core, Request};
-use std::collections::{HashMap, VecDeque};
-use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 
@@ -52,14 +51,15 @@ type Router = EffectRouter<BorderApp, Lanes>;
 /// The way to the shell: bytes with a list of requests.
 type ToShell = Arc<dyn Fn(Vec<u8>) + Send + Sync>;
 
-/// The questions of the core to the user. The shell has one of them at a time: a dialog on
-/// the screen is in the way of everything else, and so is a second one above it.
+/// The questions of the core to the user. The shell has one of them at a time
+/// (`client_core::policy`): a dialog on the screen is in the way of everything else, and so is
+/// a second one above it.
 #[derive(Default)]
 struct Questions {
     /// The number of the request with the question the shell has now.
     asked: Option<u32>,
-    /// The questions behind it, oldest first.
-    later: VecDeque<Request<UiOp>>,
+    /// The questions, each waiting for the answer to the one before.
+    line: InOrder<Request<UiOp>>,
 }
 
 /// True for an operation that asks the user and waits for the answer.
@@ -76,9 +76,9 @@ struct Lanes {
     router: Weak<Router>,
     border: Arc<Serialized<BorderApp, Lanes, BincodeFfiFormat>>,
     /// The timers that run, by the ID the core gave them.
-    timers: Arc<Mutex<HashMap<u64, Request<TimerOp>>>>,
-    /// The way to the one thread that asks the server, once there is such a thread.
-    to_server: Arc<Mutex<Option<Sender<Request<ApiOp>>>>>,
+    timers: Arc<Mutex<Timers<Request<TimerOp>>>>,
+    /// The requests to the server, each waiting for the answer to the one before.
+    to_server: Arc<Mutex<InOrder<Request<ApiOp>>>>,
     questions: Arc<Mutex<Questions>>,
 }
 
@@ -106,30 +106,30 @@ impl Lanes {
             .expect("the core waits for the answer");
     }
 
-    /// Asks the server, one request at a time and in the order the core made them. With a
-    /// thread for each request a later one overtook a slow one: a join reached the server
-    /// before the save of the text just typed, and the text was lost.
+    /// Asks the server, one request at a time and in the order the core made them
+    /// (`client_core::policy`). With a thread for each request a later one overtook a slow
+    /// one: a join reached the server before the save of the text just typed, and the text
+    /// was lost.
     fn call<H: Host>(&self, host: &Arc<H>, request: Request<ApiOp>) {
-        let mut to_server = self.to_server.lock().unwrap();
-        let queue = to_server.get_or_insert_with(|| {
-            let (queue, requests) = channel::<Request<ApiOp>>();
-            // The thread must not keep the queue open itself: it ends when the shell is gone
-            let (router, host) = (self.router.clone(), host.clone());
-            thread::spawn(move || {
-                for mut request in requests {
-                    let result = host.call(request.operation.clone());
-                    let Some(router) = router.upgrade() else {
-                        return;
-                    };
-                    router
-                        .resolve_request(&mut request, result)
-                        .expect("the core waits for the answer");
-                }
-            });
-            queue
+        if !self.to_server.lock().unwrap().push(request) {
+            return;
+        }
+        // One thread asks until nothing waits. The next request that comes starts another
+        let (lanes, host) = (self.clone(), host.clone());
+        thread::spawn(move || {
+            // The lock is not held while the server is asked: the core makes requests then
+            let next = || lanes.to_server.lock().unwrap().take_next();
+            while let Some(mut request) = next() {
+                let result = host.call(request.operation.clone());
+                // The shell is gone, and the core with it
+                let Some(router) = lanes.router.upgrade() else {
+                    return;
+                };
+                router
+                    .resolve_request(&mut request, result)
+                    .expect("the core waits for the answer");
+            }
         });
-        // The thread only ends with the shell, and then nobody calls this
-        let _ = queue.send(request);
     }
 
     /// Sends a request over the border, and returns its number.
@@ -145,27 +145,29 @@ impl Lanes {
     /// Gives the shell a question, or keeps it until the questions before it are answered.
     fn ask(&self, to_shell: &ToShell, request: Request<UiOp>) {
         let mut questions = self.questions.lock().unwrap();
-        if questions.asked.is_some() {
-            questions.later.push_back(request);
-        } else {
-            questions.asked = Some(self.send(to_shell, ShellEffect::Ui(request)));
+        if questions.line.push(request) {
+            self.ask_next(to_shell, &mut questions);
         }
+    }
+
+    /// Gives the shell the question whose turn it is, if one waits.
+    fn ask_next(&self, to_shell: &ToShell, questions: &mut Questions) {
+        let next = questions.line.take_next();
+        questions.asked = next.map(|request| self.send(to_shell, ShellEffect::Ui(request)));
     }
 
     /// The shell answered the request `id`. When that was its question, it gets the next one.
     fn answered(&self, to_shell: &ToShell, id: u32) {
         let mut questions = self.questions.lock().unwrap();
-        if questions.asked != Some(id) {
-            return;
+        if questions.asked == Some(id) {
+            self.ask_next(to_shell, &mut questions);
         }
-        let next = questions.later.pop_front();
-        questions.asked = next.map(|request| self.send(to_shell, ShellEffect::Ui(request)));
     }
 
     fn time(&self, clock: &Arc<dyn Clock>, request: Request<TimerOp>) {
         match request.operation {
             TimerOp::Start { id, ms } => {
-                self.timers.lock().unwrap().insert(id, request);
+                self.timers.lock().unwrap().start(id, request);
                 let (lanes, clock) = (self.clone(), clock.clone());
                 thread::spawn(move || {
                     clock.sleep(ms);
@@ -179,7 +181,7 @@ impl Lanes {
 
     /// Answers the timer, unless it has ended another way already.
     fn end_timer(&self, id: u64, output: TimerOutput) {
-        let running = self.timers.lock().unwrap().remove(&id);
+        let running = self.timers.lock().unwrap().end(id);
         if let Some(mut request) = running {
             self.answer(&mut request, output);
         }
