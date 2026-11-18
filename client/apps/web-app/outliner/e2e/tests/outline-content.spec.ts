@@ -95,6 +95,22 @@ test.describe('outline content', () => {
       .toHaveAttribute('href', new RegExp(`^/pages/(.*/)?${tag}$`));
   });
 
+  // 表示中の項目の隠し文字は、文字の色が背景の色と同じで、読めない
+  test('spoilered text in a shown item has the colour of its background', async ({ page }) => {
+    await page.keyboard.type('the end: ||secret||');
+    await server.itemsSettled(pageId, i => i[0].body.endsWith('||'));
+    await page.reload();
+
+    const spoiler = page.locator('app-outline-item .spoiler');
+    await expect(spoiler).toHaveText('secret');
+    const { color, background } = await spoiler.evaluate(e => {
+      const style = getComputedStyle(e);
+      return { color: style.color, background: style.backgroundColor };
+    });
+    expect(background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(color).toBe(background);
+  });
+
   /**
    * Shows a wiki link to a new page whose name has a `#`, a `%`, a space and Japanese, and
    * returns the link with the name of the page and the URL it should lead to (ADR 061).
