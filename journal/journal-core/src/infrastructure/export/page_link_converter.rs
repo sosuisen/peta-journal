@@ -67,7 +67,7 @@ fn wikilinks_to_links(text: &str, source_dir: &str) -> String {
             let target = m.get(1).map(|g| g.as_str()).unwrap_or("");
             let label = m.get(2).map(|g| g.as_str());
             let (page_path, item) = page_urls::split_wikilink(target);
-            let file = escaped_file(&relativize(source_dir, &page_file_of(page_path)));
+            let file = escaped_file(&relative_target(source_dir, page_path));
             let dest = match item {
                 Some(item) => format!("{file}#{item}"),
                 None => file,
@@ -138,6 +138,15 @@ fn markdown_link(label: &str, dest: &str) -> String {
     }
 }
 
+/// The path of the file of a page, or of the folder that a path ending with `/` names, relative
+/// to `source_dir`. A folder keeps its `/`, so that the link reads back as a folder.
+fn relative_target(source_dir: &str, page_path: &str) -> String {
+    if page_path.ends_with('/') {
+        return format!("{}/", relativize(source_dir, &format!("docs/{page_path}")));
+    }
+    relativize(source_dir, &page_file_of(page_path))
+}
+
 /// Maps a page path (dirPath + name) to its file path under the markdown root.
 fn page_file_of(page_path: &str) -> String {
     let (dir_path, name) = match page_path.rfind('/') {
@@ -165,7 +174,7 @@ fn links_to_wikilinks(text: &str, source_dir: &str) -> String {
                 Some(pos) => (&dest[..pos], &dest[pos..]),
                 None => (dest, ""),
             };
-            match resolve(source_dir, &unescaped_file(file)).and_then(|p| page_path_of(&p)) {
+            match target_path_of(source_dir, &unescaped_file(file)) {
                 None => whole.to_string(),
                 Some(page_path) => {
                     format!("{lead}{}", wikilink_or_hashtag(label, &page_path, fragment))
@@ -184,6 +193,18 @@ fn wikilink_or_hashtag(label: &str, page_path: &str, fragment: &str) -> String {
         return format!("[[{target}]]");
     }
     format!("[[{target}|{label}]]")
+}
+
+/// The page path a link destination names: a page file, or a folder under `docs/` when the
+/// destination ends with `/`.
+fn target_path_of(source_dir: &str, file: &str) -> Option<String> {
+    let resolved = resolve(source_dir, file)?;
+    if file.ends_with('/') {
+        return resolved
+            .strip_prefix("docs/")
+            .map(|folder| format!("{folder}/"));
+    }
+    page_path_of(&resolved)
 }
 
 fn page_path_of(rel_path: &str) -> Option<String> {
