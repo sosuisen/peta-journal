@@ -1,7 +1,7 @@
 //! The tools of the operations that only REST had before ADR 060.
 
 use crate::common::*;
-use crate::{call, connect};
+use crate::{call, call_err, connect};
 use serde_json::{json, Value};
 
 fn ids(answer: &Value, list: &str) -> Vec<String> {
@@ -343,4 +343,42 @@ async fn a_page_and_a_list_by_type_give_only_the_fields_asked_for() {
     let open = open["items"].as_array().unwrap();
     assert!(open.contains(&json!({ "id": rows[0].id })), "{open:?}");
     assert!(!open.contains(&json!({ "id": rows[1].id })), "{open:?}");
+}
+
+// PCのファイルは、パスを渡すと、新しい名前でアセットに写される。答えは、RESTのアップロードと同じ形である。
+#[tokio::test]
+async fn a_file_of_the_pc_is_copied_into_the_assets_by_its_path() {
+    let mcp = connect().await;
+    let name = format!("{}.PNG", unique_name("mcp-shot"));
+    let file = std::env::temp_dir().join(&name);
+    std::fs::write(&file, b"drawing").unwrap();
+
+    let answer = call(&mcp, "upload_asset", json!({ "filePath": file })).await;
+
+    let saved = answer["fileName"].as_str().unwrap();
+    assert_eq!(answer["originalName"], json!(name));
+    assert!(
+        saved.ends_with(".png") && !saved.contains("mcp-shot"),
+        "{saved}"
+    );
+    let saved = server().markdown_dir.join("assets").join(saved);
+    assert_eq!(std::fs::read(saved).unwrap(), b"drawing");
+    assert_eq!(std::fs::read(&file).unwrap(), b"drawing");
+    std::fs::remove_file(file).unwrap();
+}
+
+// ファイルのない絶対パスと、絶対でないパスは、断られる。
+#[tokio::test]
+async fn a_path_that_names_no_file_and_a_path_that_is_not_absolute_are_refused() {
+    let mcp = connect().await;
+    let missing = std::env::temp_dir().join(unique_name("mcp-no-such-file"));
+    let folder = std::env::temp_dir();
+
+    let no_file = call_err(&mcp, "upload_asset", json!({ "filePath": missing })).await;
+    let a_folder = call_err(&mcp, "upload_asset", json!({ "filePath": folder })).await;
+    let relative = call_err(&mcp, "upload_asset", json!({ "filePath": "shot.png" })).await;
+
+    assert!(no_file.contains("No file at"), "{no_file}");
+    assert!(a_folder.contains("No file at"), "{a_folder}");
+    assert!(relative.contains("absolute"), "{relative}");
 }
