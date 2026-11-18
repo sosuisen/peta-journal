@@ -150,10 +150,7 @@ pub fn item_dto(
         types: item.types.clone(),
         properties,
         transclude_item_id: item.transclude_item_id.as_ref().map(|p| p.to_string()),
-        url: page_urls::item_url(
-            &format!("{}{}", item.dir_path, item.name),
-            &item.id.to_string(),
-        ),
+        url: page_urls::item_url(&format!("{}{}", item.dir_path, item.name), item.id.as_ref()),
     }
 }
 
