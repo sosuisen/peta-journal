@@ -172,6 +172,17 @@ class ToolbarTest : JournalScreenFixture() {
         assertEquals(listOf("1 one", "1 two", "1 three"), items())
     }
 
+    // 選んだ項目を切り取りの道具で切り取ると、その項目がクリップボードに載り、ページから消える。
+    @Test
+    fun the_cut_tool_puts_the_selected_item_on_the_clipboard_and_takes_it_off_the_page() {
+        selectTwo()
+
+        tool("Cut")
+
+        waitForItems("1 one", "1 three")
+        assertEquals(listOf("- two"), copied)
+    }
+
     // 道具を縮めると、丸いボタンだけになる。押すと、道具が戻る。
     @Test
     fun the_tools_shrink_to_a_round_button_and_come_back() {
