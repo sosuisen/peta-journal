@@ -79,4 +79,29 @@ test.describe('deleting a selected parent', () => {
 
     expect(outlineOf(await server.itemsSettled(p.id, i => i.length === 1))).toEqual(['1:b']);
   });
+
+  test('undo of the deletion of a collapsed task brings it back collapsed and a task, on the server and on the screen', async ({ page, request }) => {
+    const server = new Server(request);
+    const p = await server.newDocPage('undo-collapsed-task');
+    const items = await server.fill(p.id, ['a', '  a1', 'b']);
+    await openPage(page, p.title);
+    await openEditor(page, items[0].id);
+    await page.keyboard.press('Control+Enter');  // a becomes a task
+    await page.keyboard.press('Control+ArrowUp');
+    await server.itemsSettled(p.id, i => i[0].collapsed && i[0].types.includes('task'));
+    await expect(page.locator('app-outline-item')).toHaveCount(2);
+    await page.keyboard.press('Shift+ArrowDown');  // leaves the editor: a is selected, with its hidden child
+    await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(1);
+    await page.keyboard.press('Delete');
+    await server.itemsSettled(p.id, i => i.length === 1);
+
+    await openEditor(page, items[2].id);
+    await page.keyboard.press('Control+z');
+
+    const back = await server.itemsSettled(p.id, i => i.length === 3);
+    expect(outlineOf(back)).toEqual(['1:a', '2:a1', '1:b']);
+    expect(back[0].collapsed).toBe(true);
+    expect(back[0].types).toContain('task');
+    await expect(page.locator('app-outline-item')).toHaveCount(2);
+  });
 });
