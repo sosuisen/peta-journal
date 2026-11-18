@@ -27,7 +27,10 @@ fn the_url_of_an_item_is_the_url_of_its_page_with_the_item_id_after_a_hash() {
 fn the_link_of_a_hashtag_is_the_url_of_the_page_of_the_tag() {
     let link = flatmarkdown_ast2html::fill_href(&hashtag_href("タグ/"), "日記");
     assert_eq!(link, page_url(&tag_page_name("タグ/", "日記")));
-    assert_eq!(page_url(&tag_page_name("tags/", "Rust")), "/pages/tags/Rust");
+    assert_eq!(
+        page_url(&tag_page_name("tags/", "Rust")),
+        "/pages/tags/Rust"
+    );
 }
 
 // wikilinkの中身は、最後の#の後ろが項目のidのときだけ、ページ名と項目のidに分かれる。
