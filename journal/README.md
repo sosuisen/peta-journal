@@ -162,6 +162,18 @@ The number of shards is one for every 8 GB of memory and at most half the cores:
 with 8 GB and 8 cores, 4 with 32 GB and 8 cores. `--jobs N` sets another number. With too
 little memory more shards are slower than one, as the builds wait for each other.
 
+The script skips the tests in modules named `timing`. These tests hold code to a time limit of
+100ms or check how long it ran, and the other shards keep the machine too busy for them: they
+failed without a bug and stopped the shards. `cargo test` runs them as usual. To run only them:
+
+```
+cargo test --workspace timing::
+```
+
+A new test that depends on how fast the machine is goes into such a module. The mutants that
+only these tests catch are missed in the parallel run. Run those mutants one by one with
+`cargo mutants`, which runs every test.
+
 The tests wait for the disk: each makes a database and a search index in a temporary folder.
 On macOS the script makes a RAM disk of 512 MB for these folders and removes it at the end;
 the tests of the workspace then take 14 seconds for 75. A script that was killed leaves the

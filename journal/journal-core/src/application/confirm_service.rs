@@ -121,18 +121,6 @@ mod tests {
         assert_eq!(clients.asked.lock().unwrap()[0].1, "Insert the template?");
     }
 
-    // 答えるクライアントがいなければ、待たずに「いいえ」を返す。
-    #[test]
-    fn confirm_says_no_at_once_when_no_client_listens() {
-        let service = ConfirmService::new(clients(false), Duration::from_secs(5));
-        let started = std::time::Instant::now();
-
-        let ok = service.confirm("Insert the template?");
-
-        assert!(!ok);
-        assert!(started.elapsed() < Duration::from_secs(1));
-    }
-
     // 時間内に答えがなければ、「いいえ」を返す。
     #[test]
     fn confirm_says_no_when_no_answer_comes_in_time() {
@@ -153,5 +141,27 @@ mod tests {
 
         assert!(!service.answer(&late_id, true));
         assert!(!service.answer("unknown", true));
+    }
+
+    /// Tests that check how long a call took. On a busy machine they fail without a bug, so
+    /// the parallel mutation test skips them by this module's name. See "Coverage and mutation
+    /// testing" in the README.
+    mod timing {
+        use std::time::Duration;
+
+        use super::super::ConfirmService;
+        use super::clients;
+
+        // 答えるクライアントがいなければ、待たずに「いいえ」を返す。
+        #[test]
+        fn confirm_says_no_at_once_when_no_client_listens() {
+            let service = ConfirmService::new(clients(false), Duration::from_secs(5));
+            let started = std::time::Instant::now();
+
+            let ok = service.confirm("Insert the template?");
+
+            assert!(!ok);
+            assert!(started.elapsed() < Duration::from_secs(1));
+        }
     }
 }

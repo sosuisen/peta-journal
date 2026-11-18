@@ -288,9 +288,8 @@ fn from_js<'js, T: for<'de> Deserialize<'de>>(
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
-    use std::time::{Duration, Instant};
 
-    use super::super::{Confirmer, ExtensionEvent, ExtensionLimits, ItemRequest, PageInfo};
+    use super::super::{Confirmer, ExtensionEvent, ItemRequest, PageInfo};
     use super::ExtensionRuntime;
     use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
     use crate::application::markdown_parser::MarkdownParser;
@@ -399,45 +398,6 @@ mod tests {
         let requests = runtime().run(dir.path(), &event).unwrap();
 
         assert!(requests.is_empty());
-    }
-
-    // 終わらない拡張は、時間の上限で失敗になる。
-    #[test]
-    fn an_extension_that_never_ends_fails_at_the_time_limit() {
-        let dir = function_dir("globalThis.onPageCreate = () => { for (;;) {} };");
-        let runtime = runtime().with_limits(ExtensionLimits {
-            time: Duration::from_millis(100),
-            ..ExtensionLimits::default()
-        });
-
-        let started = Instant::now();
-        let result = runtime.run(dir.path(), &ExtensionEvent::PageCreate(page()));
-
-        assert!(result.is_err());
-        // Well under the default of 2s, so the limit given here is the one that stopped it
-        assert!(started.elapsed() < Duration::from_secs(1));
-    }
-
-    // メモリを使いすぎる拡張は、上限で失敗になる。
-    #[test]
-    fn an_extension_that_uses_too_much_memory_fails_at_the_limit() {
-        let dir = function_dir(
-            "globalThis.onPageCreate = () => {
-                const parts = [];
-                for (;;) { parts.push('x'.repeat(1024 * 1024)); }
-            };",
-        );
-        let runtime = runtime().with_limits(ExtensionLimits {
-            memory: 8 * 1024 * 1024,
-            ..ExtensionLimits::default()
-        });
-
-        let started = Instant::now();
-        let result = runtime.run(dir.path(), &ExtensionEvent::PageCreate(page()));
-
-        let error = result.unwrap_err().to_string();
-        assert!(error.contains("out of memory"), "{error}");
-        assert!(started.elapsed() < ExtensionLimits::default().time);
     }
 
     // files()は、自分のフォルダのファイル名を名前順に返す。
@@ -655,40 +615,90 @@ mod tests {
         assert!(yes.asked.lock().unwrap().is_empty());
     }
 
-    /// Takes its time before it says yes, as a person does.
-    struct SlowUser;
+    /// Tests that hold the runtime to a time limit of 100ms or check how long it ran. On a busy
+    /// machine they fail without a bug, so the parallel mutation test skips them by this
+    /// module's name. See "Coverage and mutation testing" in the README.
+    mod timing {
+        use std::sync::Arc;
+        use std::time::{Duration, Instant};
 
-    impl Confirmer for SlowUser {
-        fn confirm(&self, _message: &str) -> bool {
-            std::thread::sleep(Duration::from_millis(300));
-            true
-        }
-    }
+        use super::super::super::{Confirmer, ExtensionEvent, ExtensionLimits};
+        use super::{function_dir, page, runtime};
 
-    // 利用者の答えを待つ時間は、時間の上限に数えない。
-    #[test]
-    fn the_wait_for_the_user_does_not_count_toward_the_time_limit() {
-        let dir = function_dir(
-            "globalThis.onPageTagAdd = () => {
-                const ok = peta.confirm('Insert the template?');
-                // Some work after the answer, where the time limit is checked
-                let sum = 0;
-                for (let i = 0; i < 100000; i++) { sum += i; }
-                if (ok) {
-                    peta.createItem({ position: 'last', level: 1, body: 'yes' });
-                }
-            };",
-        );
-        let runtime = runtime()
-            .with_limits(ExtensionLimits {
+        // 終わらない拡張は、時間の上限で失敗になる。
+        #[test]
+        fn an_extension_that_never_ends_fails_at_the_time_limit() {
+            let dir = function_dir("globalThis.onPageCreate = () => { for (;;) {} };");
+            let runtime = runtime().with_limits(ExtensionLimits {
                 time: Duration::from_millis(100),
                 ..ExtensionLimits::default()
-            })
-            .with_confirmer(Arc::new(SlowUser));
-        let event = ExtensionEvent::PageTagAdd(page(), vec!["book".into()]);
+            });
 
-        let requests = runtime.run(dir.path(), &event).unwrap();
+            let started = Instant::now();
+            let result = runtime.run(dir.path(), &ExtensionEvent::PageCreate(page()));
 
-        assert_eq!(requests[0].body, "yes");
+            assert!(result.is_err());
+            // Well under the default of 2s, so the limit given here is the one that stopped it
+            assert!(started.elapsed() < Duration::from_secs(1));
+        }
+
+        // メモリを使いすぎる拡張は、上限で失敗になる。
+        #[test]
+        fn an_extension_that_uses_too_much_memory_fails_at_the_limit() {
+            let dir = function_dir(
+                "globalThis.onPageCreate = () => {
+                    const parts = [];
+                    for (;;) { parts.push('x'.repeat(1024 * 1024)); }
+                };",
+            );
+            let runtime = runtime().with_limits(ExtensionLimits {
+                memory: 8 * 1024 * 1024,
+                ..ExtensionLimits::default()
+            });
+
+            let started = Instant::now();
+            let result = runtime.run(dir.path(), &ExtensionEvent::PageCreate(page()));
+
+            let error = result.unwrap_err().to_string();
+            assert!(error.contains("out of memory"), "{error}");
+            assert!(started.elapsed() < ExtensionLimits::default().time);
+        }
+
+        /// Takes its time before it says yes, as a person does.
+        struct SlowUser;
+
+        impl Confirmer for SlowUser {
+            fn confirm(&self, _message: &str) -> bool {
+                std::thread::sleep(Duration::from_millis(300));
+                true
+            }
+        }
+
+        // 利用者の答えを待つ時間は、時間の上限に数えない。
+        #[test]
+        fn the_wait_for_the_user_does_not_count_toward_the_time_limit() {
+            let dir = function_dir(
+                "globalThis.onPageTagAdd = () => {
+                    const ok = peta.confirm('Insert the template?');
+                    // Some work after the answer, where the time limit is checked
+                    let sum = 0;
+                    for (let i = 0; i < 100000; i++) { sum += i; }
+                    if (ok) {
+                        peta.createItem({ position: 'last', level: 1, body: 'yes' });
+                    }
+                };",
+            );
+            let runtime = runtime()
+                .with_limits(ExtensionLimits {
+                    time: Duration::from_millis(100),
+                    ..ExtensionLimits::default()
+                })
+                .with_confirmer(Arc::new(SlowUser));
+            let event = ExtensionEvent::PageTagAdd(page(), vec!["book".into()]);
+
+            let requests = runtime.run(dir.path(), &event).unwrap();
+
+            assert_eq!(requests[0].body, "yes");
+        }
     }
 }
