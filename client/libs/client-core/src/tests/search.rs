@@ -313,8 +313,10 @@ fn enter_right_after_changing_the_query_opens_no_result_of_the_old_query() {
 fn down_and_enter_before_the_answer_wait_for_it_and_open_the_first_new_result() {
     let mut h = Harness::new();
     searched(&mut h, "plan", vec![page_hit("Plans")]);
-    h.api
-        .answer_next("SearchCombined", Ok(ApiOutput::SearchResults(vec![page_hit("Planets")])));
+    h.api.answer_next(
+        "SearchCombined",
+        Ok(ApiOutput::SearchResults(vec![page_hit("Planets")])),
+    );
     typed(&mut h, "plane");
 
     key(&mut h, SearchKey::Down);
@@ -323,6 +325,54 @@ fn down_and_enter_before_the_answer_wait_for_it_and_open_the_first_new_result() 
 
     h.fire_timers();
     assert_eq!(urls(&h), ["/pages/Planets"]);
+}
+
+// 答えが届く前のEscapeは、待っている↓とEnterを捨てる。答えが届いても、何も開かず、何も選ばれない。
+#[test]
+fn escape_before_the_answer_drops_the_keys_that_wait_for_it() {
+    let mut h = Harness::new();
+    h.api.answer_next(
+        "SearchCombined",
+        Ok(ApiOutput::SearchResults(vec![page_hit("Planets")])),
+    );
+    typed(&mut h, "plane");
+    key(&mut h, SearchKey::Down);
+    key(&mut h, SearchKey::Enter);
+
+    key(&mut h, SearchKey::Escape);
+    h.fire_timers();
+
+    assert_eq!(urls(&h), Vec::<String>::new());
+    assert_eq!(h.view().search.selected_index, None);
+}
+
+// 検索が失敗すると、答えを待っていた↓とEnterは捨てられる。前の結果は開かない。
+#[test]
+fn a_failed_search_drops_the_keys_that_wait_for_it() {
+    let mut h = Harness::new();
+    searched(&mut h, "plan", vec![page_hit("Plans")]);
+    h.api.fail_next("SearchCombined", "offline");
+    typed(&mut h, "plane");
+    key(&mut h, SearchKey::Down);
+    key(&mut h, SearchKey::Enter);
+
+    h.fire_timers();
+    key(&mut h, SearchKey::Enter);
+
+    assert_eq!(urls(&h), Vec::<String>::new());
+}
+
+// 答えが届く前でも、`Open Today` の上のEnterは待たずに今日のジャーナルを開く。
+#[test]
+fn enter_on_open_today_does_not_wait_for_the_answer() {
+    let mut h = Harness::new();
+    searched(&mut h, "toda", vec![page_hit("Todo")]);
+    typed(&mut h, "today");
+    key(&mut h, SearchKey::Down);
+
+    key(&mut h, SearchKey::Enter);
+
+    assert_eq!(urls(&h), ["/today"]);
 }
 
 // 検索語を受けてから答えが届くまで、検索中である。
