@@ -62,6 +62,29 @@ test.describe('deleting a selected parent', () => {
     ]);
   });
 
+  test('Ctrl+Z right after Delete, with no editor and no selection, brings the items back, and Ctrl+Shift+Z takes them again', async ({ page, request }) => {
+    const server = new Server(request);
+    const p = await server.newDocPage('undo-right-after-delete');
+    const items = await server.fill(p.id, ['a', '  a1', 'b']);
+    await openPage(page, p.title);
+    await openEditor(page, items[0].id);
+    await page.keyboard.press('Shift+ArrowDown');  // leaves the editor: a and a1 are selected
+    await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(2);
+    await page.keyboard.press('Delete');
+    await server.itemsSettled(p.id, i => i.length === 1);
+    await expect(page.locator('app-outline-item')).toHaveCount(1);
+
+    await page.keyboard.press('Control+z');
+
+    const back = await server.itemsSettled(p.id, i => i.length === 3);
+    expect(outlineOf(back)).toEqual(['1:a', '2:a1', '1:b']);
+    await expect(page.locator('app-outline-item')).toHaveCount(3);
+
+    await page.keyboard.press('Control+Shift+z');
+
+    expect(outlineOf(await server.itemsSettled(p.id, i => i.length === 1))).toEqual(['1:b']);
+  });
+
   test('Delete removes a collapsed parent with its hidden children', async ({ page, request }) => {
     const server = new Server(request);
     const p = await server.newDocPage('collapsed-parent');

@@ -367,6 +367,22 @@ pub fn Outline(
     })));
     on_cleanup(move || core.set_scroller(None));
 
+    // Undo and Redo with no editor and no selection, as right after the selection was deleted:
+    // the key reaches the document itself, and the core takes it as a key of the page
+    let page_listeners = DocumentListeners::new();
+    page_listeners.on_cancelable("keydown", move |ev: &web_sys::KeyboardEvent| {
+        let on_the_page = dom::target_element(ev).is_some_and(|t| t.tag_name() == "BODY");
+        if !on_the_page || vm.with_untracked(|v| v.outline.selection_mode) {
+            return;
+        }
+        if let Some(key @ (SelectionKey::Undo | SelectionKey::Redo)) =
+            crate::keyboard::in_selection(ev)
+        {
+            ev.prevent_default();
+            core.send(Event::SelectionKey(key));
+        }
+    });
+
     // Selection mode: the keys and clicks of the whole document act on the selection, and a
     // drag held at an edge of the viewport scrolls it
     let selection_listeners = DocumentListeners::new();
