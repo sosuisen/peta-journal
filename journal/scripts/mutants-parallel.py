@@ -13,11 +13,19 @@ Usage, from journal:
     git diff --relative main...HEAD > /tmp/pr.diff
     python -I scripts/mutants-parallel.py --in-diff /tmp/pr.diff
 
-Every argument goes to cargo mutants. --jobs N sets the number of shards (3 by default).
-The shards test the commit at HEAD, so commit the changes first.
+Every other argument goes to cargo mutants. --jobs N sets the number of shards; by default
+it is one for every 8 GB of memory and at most half the cores. --tmp DIR puts the temporary
+folders of the tests in DIR. The shards test the commit at HEAD, so commit the changes first.
+
+The tests wait for the disk, not for the CPU: each makes a database and a search index in a
+temporary folder. On macOS the script therefore makes a RAM disk for these folders, and
+removes it at the end. With it the tests of the workspace took 14 seconds for 75
+(2026-11-18). Elsewhere, --tmp may point at a RAM disk or a fast disk.
 """
 
+import ctypes
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -34,15 +42,47 @@ def git(*args, cwd=CRATE):
     ).stdout.strip()
 
 
+def memory_bytes():
+    """The memory of this machine, or None when it cannot be read."""
+    try:
+        if sys.platform == "win32":
+            kilobytes = ctypes.c_ulonglong(0)
+            ctypes.windll.kernel32.GetPhysicallyInstalledSystemMemory(ctypes.byref(kilobytes))
+            return kilobytes.value * 1024 or None
+        if sys.platform == "darwin":
+            return int(subprocess.run(["sysctl", "-n", "hw.memsize"], check=True,
+                                      capture_output=True, text=True).stdout)
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    except (OSError, ValueError, AttributeError, subprocess.CalledProcessError):
+        return None
+
+
+def default_jobs(memory, cores):
+    """One shard for every 8 GB and at most half the cores, and at least one.
+
+    Three shards on a machine with 8 GB and 8 cores were slower than one: a build took 50
+    to 150 seconds for 18, and mutants timed out (2026-11-18).
+    """
+    if memory is None:
+        return 1
+    return max(1, min(memory // (8 * 1024 ** 3), (cores or 1) // 2))
+
+
 def parse_args(argv):
-    """The number of shards, and the arguments for cargo mutants with absolute paths."""
-    jobs = 3
+    """The number of shards, the folder for temporary files or None, and the arguments for
+    cargo mutants with absolute paths."""
+    jobs = default_jobs(memory_bytes(), os.cpu_count())
+    tmp = None
     rest = []
     i = 0
     while i < len(argv):
         arg = argv[i]
         if arg == "--jobs":
             jobs = int(argv[i + 1])
+            i += 2
+            continue
+        if arg == "--tmp":
+            tmp = Path(argv[i + 1]).resolve()
             i += 2
             continue
         rest.append(arg)
@@ -53,7 +93,7 @@ def parse_args(argv):
             i += 2
             continue
         i += 1
-    return jobs, rest
+    return jobs, tmp, rest
 
 
 def main_checkout():
@@ -71,8 +111,30 @@ def prepare_shard(shards, k, sha, crate_in_repo):
     return tree / crate_in_repo
 
 
-def run_shard(crate_dir, k, jobs, args, target, log, results):
+class RamDisk:
+    """A RAM disk on macOS, which lasts as long as the `with` block."""
+
+    MEGABYTES = 512
+
+    def __enter__(self):
+        sectors = self.MEGABYTES * 1024 * 1024 // 512
+        self.device = subprocess.run(
+            ["hdiutil", "attach", "-nomount", f"ram://{sectors}"],
+            check=True, capture_output=True, text=True).stdout.strip()
+        name = f"mutants-{os.getpid()}"
+        subprocess.run(["diskutil", "erasevolume", "APFS", name, self.device],
+                       check=True, capture_output=True)
+        return Path("/Volumes") / name
+
+    def __exit__(self, *_):
+        subprocess.run(["hdiutil", "detach", "-force", self.device], capture_output=True)
+
+
+def run_shard(crate_dir, k, jobs, args, target, log, tmp, results):
     env = dict(os.environ, CARGO_TARGET_DIR=str(target))
+    if tmp is not None:
+        # TMPDIR is read on Unix, TEMP and TMP on Windows
+        env.update(TMPDIR=str(tmp), TEMP=str(tmp), TMP=str(tmp))
     cmd = ["cargo", "mutants", "--in-place", "--shard", f"{k}/{jobs}",
            "--sharding", "round-robin", *args]
     with open(log, "w", encoding="utf8") as out:
@@ -86,7 +148,16 @@ def run_shard(crate_dir, k, jobs, args, target, log, results):
 
 
 def main():
-    jobs, args = parse_args(sys.argv[1:])
+    jobs, tmp, args = parse_args(sys.argv[1:])
+    if tmp is None and sys.platform == "darwin":
+        # A stop by SIGTERM unwinds as well, so that the RAM disk does not stay
+        signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
+        with RamDisk() as disk:
+            return run(jobs, disk, args)
+    return run(jobs, tmp, args)
+
+
+def run(jobs, tmp, args):
     if git("status", "--porcelain", "--", "."):
         print("The crate has changes that are not committed. Commit them first:"
               " the shards test the commit at HEAD.", file=sys.stderr)
@@ -105,7 +176,8 @@ def main():
     for k in range(jobs):
         crate_dir = prepare_shard(shards, k, sha, crate_in_repo)
         t = threading.Thread(target=run_shard, args=(
-            crate_dir, k, jobs, args, shards / f"target{k}", shards / f"shard{k}.log", results))
+            crate_dir, k, jobs, args, shards / f"target{k}", shards / f"shard{k}.log", tmp,
+            results))
         t.start()
         threads.append(t)
     for t in threads:
