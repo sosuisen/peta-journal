@@ -555,7 +555,7 @@ impl ItemService {
     }
 
     /// Moves items as a key in an editor does: with the body of the request saved in the
-    /// same transaction (ADR 011).
+    /// same transaction (ADR 011). A page the items leave empty keeps one empty item.
     pub fn move_edited_items(&self, request: &MoveRequest<'_>) -> Result<Moved, AppError> {
         // The write lock of the transaction keeps two moves from planning their indices from
         // the same snapshot of a page
@@ -563,6 +563,7 @@ impl ItemService {
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         let items = self.move_edited_items_in(&tx, request, &mut effects)?;
+        self.keep_pages_non_empty_in(&tx, &mut effects)?;
         tx.commit()?;
         let page_ids = effects.pages.clone();
         self.finish(effects);
