@@ -3,29 +3,28 @@
 use axum::extract::State;
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
-use axum::routing::{get, post};
 use axum::{Form, Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AppError, HttpError};
+use crate::presentation::rest::At;
 use crate::state::{blocking, SharedState};
+use journal_api_types::routes;
 use journal_core::domain::model::Page;
 use journal_core::infrastructure::export::file_sync_state::FileSyncState;
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
-        .route("/api/sync/status", get(status))
-        .route("/api/sync/scan", post(scan))
-        .route(
-            "/api/sync/pending-deletes",
-            get(pending_page).post(pending_submit),
-        )
+        .at(routes::SYNC_STATUS, status)
+        .at(routes::SCAN_FOLDER, scan)
+        .at(routes::PENDING_DELETES, pending_page)
+        .at(routes::SUBMIT_PENDING_DELETES, pending_submit)
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct StatusResponse {
+pub(crate) struct StatusResponse {
     import_enabled: bool,
     markdown_root: String,
     root_available: bool,
@@ -35,7 +34,7 @@ struct StatusResponse {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ScanResponse {
+pub(crate) struct ScanResponse {
     imported: i32,
     conflicts: i32,
     new_missing: i32,
@@ -43,34 +42,38 @@ struct ScanResponse {
 }
 
 async fn status(State(state): State<SharedState>) -> Result<Json<StatusResponse>, HttpError> {
-    blocking(move || {
-        let root = state.export.markdown_root();
-        Ok(Json(StatusResponse {
-            import_enabled: state.settings.import_enabled,
-            markdown_root: root
-                .as_ref()
-                .map(|r| r.display().to_string())
-                .unwrap_or_default(),
-            root_available: root.is_some(),
-            tracked_files: state.file_sync_state.find_all()?.len(),
-            missing_files: state.file_sync_state.find_missing()?.len(),
-        }))
+    blocking(move || Ok(Json(status_of(&state)?))).await
+}
+
+/// How the folder and the database stand. The MCP tool of the same operation answers with it
+/// too (ADR 060).
+pub(crate) fn status_of(state: &SharedState) -> Result<StatusResponse, AppError> {
+    let root = state.export.markdown_root();
+    Ok(StatusResponse {
+        import_enabled: state.settings.import_enabled,
+        markdown_root: root
+            .as_ref()
+            .map(|r| r.display().to_string())
+            .unwrap_or_default(),
+        root_available: root.is_some(),
+        tracked_files: state.file_sync_state.find_all()?.len(),
+        missing_files: state.file_sync_state.find_missing()?.len(),
     })
-    .await
+}
+
+async fn scan(State(state): State<SharedState>) -> Result<Json<ScanResponse>, HttpError> {
+    blocking(move || Ok(Json(scan_now(&state)))).await
 }
 
 /// Runs a full folder scan now and waits for it. Returns zeros if a scan is already running.
-async fn scan(State(state): State<SharedState>) -> Result<Json<ScanResponse>, HttpError> {
-    blocking(move || {
-        let s = state.reconcile.scan();
-        Ok(Json(ScanResponse {
-            imported: s.imported,
-            conflicts: s.conflicts,
-            new_missing: s.new_missing,
-            exported: s.exported,
-        }))
-    })
-    .await
+pub(crate) fn scan_now(state: &SharedState) -> ScanResponse {
+    let s = state.reconcile.scan();
+    ScanResponse {
+        imported: s.imported,
+        conflicts: s.conflicts,
+        new_missing: s.new_missing,
+        exported: s.exported,
+    }
 }
 
 struct Row {

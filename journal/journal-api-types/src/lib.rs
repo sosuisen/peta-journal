@@ -5,6 +5,9 @@
 //! The crate has no dependency but serde: the frontend core is also built for wasm, where the
 //! journal core, with its database, cannot go.
 //!
+//! The doc comment of a field is also what an MCP client reads about it: the journal server
+//! takes some of these types as the arguments of its MCP tools (the `schemars` feature).
+//!
 //! The types are as loose as the journal reads them. A field the journal can do without is an
 //! `Option` or has a default, and the journal says what is wrong with a value. A field that is
 //! not set is not written, so a request says only what its sender set.
@@ -12,6 +15,8 @@
 /// The header that carries the ID a client names itself with (ADR-015). The journal refuses
 /// a change without it. Lower case, as HTTP/2 and the header names of the server write it.
 pub const CLIENT_ID_HEADER: &str = "x-client-id";
+
+pub mod routes;
 
 use serde::{Deserialize, Serialize};
 
@@ -23,18 +28,24 @@ fn is_false(value: &bool) -> bool {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct GetOrCreateDocInput {
+    /// Title of the document (used as file name)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// Directory path (e.g. 'projects/'). Empty or left out for the root.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dir_path: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct UpdatePageInput {
+    /// New title. Left out to keep the current one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// New directory path. Left out to keep the current one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dir_path: Option<String>,
     /// Deletes another page that has the new name, instead of refusing the update.
@@ -44,6 +55,7 @@ pub struct UpdatePageInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct DemotePageInput {
     /// Deletes another page that has the new name, instead of refusing the demotion.
     #[serde(skip_serializing_if = "is_false")]
@@ -53,10 +65,13 @@ pub struct DemotePageInput {
 /// The value of a property of a page or an item.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct PropertyInput {
-    /// No type means `text`.
+    /// Value type: 'text', 'number', 'checkbox', 'date', 'datetime', or 'bounds' (four numbers
+    /// 'x,y,width,height'). No type means `text`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value_type: Option<String>,
+    /// Property value as a string
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
 }
@@ -66,8 +81,11 @@ pub struct PropertyInput {
 /// The items that move to the journal of a day.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct MoveToJournalInput {
+    /// IDs of the items to move, in the order of the page
     pub item_ids: Vec<String>,
+    /// Position in the journal: 'first', 'last', or 'after:<id>'
     pub position: String,
     /// The text the editor of the first item has now, when it is not saved yet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -78,12 +96,17 @@ pub struct MoveToJournalInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct CreateItemInput {
+    /// ID of the page
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page_id: Option<String>,
+    /// Position: 'first', 'last', or 'after:<id>'
     #[serde(skip_serializing_if = "Option::is_none")]
     pub position: Option<String>,
+    /// Indentation level (1-based)
     pub level: i32,
+    /// Markdown body text
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
     /// The ID the client made for the item. The journal makes one when it is empty.
@@ -93,24 +116,33 @@ pub struct CreateItemInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct UpdateItemInput {
+    /// New markdown body. Left out to keep the current one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+    /// New indentation level (1-based). Left out to keep the current one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub level: Option<i32>,
+    /// New collapsed state. Left out to keep the current one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub collapsed: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct MoveItemsInput {
+    /// IDs of the items to move
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item_ids: Option<Vec<String>>,
+    /// ID of the target page
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_page_id: Option<String>,
+    /// Position: 'first', 'last', or 'after:<id>'
     #[serde(skip_serializing_if = "Option::is_none")]
     pub position: Option<String>,
+    /// Number to add to the level of each item. Left out or 0 for no change.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub level_delta: Option<i32>,
     /// The body the editor of the first item has now, when it is not saved yet
@@ -121,19 +153,25 @@ pub struct MoveItemsInput {
 /// The items an operation is about.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ItemIdsInput {
+    /// IDs of the items
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item_ids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct BatchInput {
+    /// The operations, done in this order in one transaction
     pub ops: Vec<BatchOpInput>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+/// One operation of a batch: 'create', 'update', 'move' or 'delete', named by `op`.
 pub enum BatchOpInput {
     #[serde(rename_all = "camelCase")]
     Create {
@@ -168,21 +206,29 @@ pub enum BatchOpInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct TaskStateInput {
+    /// Whether the item is a task
     pub task: bool,
+    /// The time the task was started, as the value of the 'begin' property. Left out for none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub begin: Option<String>,
+    /// The time the task was completed, as the value of the 'end' property. Left out for none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end: Option<String>,
+    /// The day the task is planned for, as the value of the 'plan' property. Left out for none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plan: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct MergeItemsInput {
+    /// ID of the item that goes away. Its text is added to the other item.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item_id: Option<String>,
+    /// ID of the item that takes the text
     #[serde(skip_serializing_if = "Option::is_none")]
     pub into_id: Option<String>,
     /// The body an editor has now for the item that goes away, when it is not saved yet.
@@ -195,10 +241,14 @@ pub struct MergeItemsInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct PasteInput {
+    /// The body of the item as it is now
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+    /// Where the text goes in the body, counted in Unicode code points
     pub cursor: usize,
+    /// The text to paste
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     /// `auto`, `flat` or `raw`. No mode means `auto`.
@@ -208,9 +258,12 @@ pub struct PasteInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct SplitInput {
+    /// The body of the item as it is now
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
+    /// Where the body is split, counted in Unicode code points
     pub cursor: usize,
     /// The transclusion that shows the item, for an item of another page shown below it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -219,6 +272,7 @@ pub struct SplitInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct StashInput {
     /// The text the editor of the item has now, when it is not saved yet.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -227,29 +281,38 @@ pub struct StashInput {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct ShiftLevelsInput {
+    /// IDs of the items
     #[serde(skip_serializing_if = "Option::is_none")]
     pub item_ids: Option<Vec<String>>,
+    /// Number to add to the level of each item: 1 to indent, -1 to outdent
     pub delta: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct TransclusionInput {
+    /// ID of the source item to transclude
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_item_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct TreeMarkdownInput {
+    /// Tree markdown (an indented list)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tree_markdown: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct FlatMarkdownInput {
+    /// Flat Markdown: items separated by '<!-- @@ -->' marker lines
     #[serde(skip_serializing_if = "Option::is_none")]
     pub markdown: Option<String>,
 }
@@ -259,38 +322,50 @@ pub struct FlatMarkdownInput {
 /// A link card: the page or the address it shows, and where it is.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct AtlasLinkInput {
+    /// What the link card shows: the name of a page, or a URL
     #[serde(skip_serializing_if = "String::is_empty")]
     pub target: String,
+    /// Where the card is, as four numbers 'x,y,width,height'
     #[serde(skip_serializing_if = "String::is_empty")]
     pub bounds: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct AtlasGroupInput {
     /// Each a card by its item id, or a page card by the id of its page
     pub cards: Vec<String>,
+    /// The card or the group the cards are put together with
     #[serde(skip_serializing_if = "String::is_empty")]
     pub target: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct AtlasTitleInput {
+    /// The side of the group its title is on: 'top', 'bottom', 'left' or 'right'
     #[serde(skip_serializing_if = "String::is_empty")]
     pub side: String,
+    /// The title of the group
     #[serde(skip_serializing_if = "String::is_empty")]
     pub title: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct AtlasCalloutInput {
+    /// Where the callout is, as four numbers 'x,y,width,height'
     #[serde(skip_serializing_if = "String::is_empty")]
     pub bounds: String,
+    /// The side of the callout its bubble is on: 'top', 'bottom', 'left' or 'right'
     #[serde(skip_serializing_if = "String::is_empty")]
     pub side: String,
+    /// The text of the callout
     #[serde(skip_serializing_if = "String::is_empty")]
     pub text: String,
 }
@@ -300,24 +375,33 @@ pub struct AtlasCalloutInput {
 /// The settings to change. A setting not given stays as it is.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct UpdateConfigInput {
+    /// Markdown export directory path
     #[serde(skip_serializing_if = "Option::is_none")]
     pub markdown_dir: Option<String>,
+    /// Week numbering system: 'us' or 'iso'
     #[serde(skip_serializing_if = "Option::is_none")]
     pub week_numbering: Option<String>,
+    /// Logical outdent: move children with parent
     #[serde(skip_serializing_if = "Option::is_none")]
     pub logical_outdent: Option<bool>,
+    /// Directory of the tag pages relative to the pages root, e.g. 'tags/' (empty for the root)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tags_dir: Option<String>,
+    /// The page the Home button opens, as the target of a wiki link, e.g. 'today' (empty for today's journal)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub home_link: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct AddPropertyDefinitionInput {
+    /// The key of the property
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key: Option<String>,
+    /// Value type: 'text', 'number', 'checkbox', 'date', 'datetime', or 'bounds'. Left out, the name of the key gives it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value_type: Option<String>,
     /// Whether the key may be set on a page; true unless given.

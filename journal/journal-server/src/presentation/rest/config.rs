@@ -2,14 +2,15 @@
 //! Choosing a folder stays here: it opens a dialog of the OS.
 
 use axum::extract::{Path, State};
-use axum::routing::{delete, get, post};
 use axum::{Extension, Json, Router};
 use serde::Serialize;
 
 use crate::application::folder_chooser;
 use crate::error::HttpError;
 use crate::presentation::client_id::ClientId;
+use crate::presentation::rest::At;
 use crate::state::{blocking, SharedState};
+use journal_api_types::routes;
 use journal_core::journal::{
     AddPropertyDefinitionInput, ChangedBy, ConfigAnswer, PropertyDefinitionsAnswer,
     UpdateConfigInput,
@@ -17,16 +18,15 @@ use journal_core::journal::{
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
-        .route("/api/config", get(get_config).put(update_config))
-        .route(
-            "/api/config/property-definitions",
-            get(property_definitions).post(add_property_definition),
+        .at(routes::GET_CONFIG, get_config)
+        .at(routes::UPDATE_CONFIG, update_config)
+        .at(routes::PROPERTY_DEFINITIONS, property_definitions)
+        .at(routes::ADD_PROPERTY_DEFINITION, add_property_definition)
+        .at(
+            routes::DELETE_PROPERTY_DEFINITION,
+            delete_property_definition,
         )
-        .route(
-            "/api/config/property-definitions/{key}",
-            delete(delete_property_definition),
-        )
-        .route("/api/config/browse-folder", post(browse_folder))
+        .at(routes::BROWSE_FOLDER, browse_folder)
 }
 
 #[derive(Serialize)]

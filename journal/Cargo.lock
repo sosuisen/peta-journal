@@ -1582,6 +1582,7 @@ dependencies = [
 name = "journal-api-types"
 version = "1.0.0"
 dependencies = [
+ "schemars",
  "serde",
  "serde_json",
 ]

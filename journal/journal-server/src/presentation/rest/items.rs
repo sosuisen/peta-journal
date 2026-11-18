@@ -1,13 +1,14 @@
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use serde::Deserialize;
 
 use crate::error::HttpError;
 use crate::presentation::client_id::ClientId;
+use crate::presentation::rest::At;
 use crate::state::{blocking, SharedState};
+use journal_api_types::routes;
 use journal_core::dto::ItemFields;
 use journal_core::journal::{
     BatchAnswer, BatchInput, ChangedBy, CreateItemInput, DeletedItemsAnswer, FlatMarkdownAnswer,
@@ -19,34 +20,30 @@ use journal_core::journal::{
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
-        .route("/api/items", post(create_item).get(get_items_by_types))
-        .route("/api/items/move", post(move_items))
-        .route("/api/items/merge", post(merge_items))
-        .route("/api/items/delete", post(delete_items))
-        .route("/api/items/batch", post(apply_batch))
-        .route("/api/items/transcluded", post(transcluded_items))
-        .route("/api/items/shift-level", post(shift_levels))
-        .route("/api/items/export", post(export_tree_markdown))
-        .route("/api/items/export-page", post(export_page_markdown))
-        .route("/api/items/export-subtree", post(export_subtree_markdown))
-        .route("/api/items/import", post(import_tree_markdown))
-        .route("/api/items/parse", post(parse_flat_markdown))
-        .route(
-            "/api/items/{id}",
-            get(get_item).put(update_item).delete(delete_item),
-        )
-        .route(
-            "/api/items/{id}/transclude",
-            post(set_transclusion).delete(remove_transclusion),
-        )
-        .route("/api/items/{id}/paste", post(paste))
-        .route("/api/items/{id}/split", post(split))
-        .route("/api/items/{id}/stash", post(stash))
-        .route("/api/items/{id}/cycle-task", post(cycle_task))
-        .route(
-            "/api/items/{id}/properties/{key}",
-            axum::routing::put(upsert_property).delete(delete_property),
-        )
+        .at(routes::CREATE_ITEM, create_item)
+        .at(routes::ITEMS_BY_TYPES, get_items_by_types)
+        .at(routes::MOVE_ITEMS, move_items)
+        .at(routes::MERGE_ITEMS, merge_items)
+        .at(routes::DELETE_ITEMS, delete_items)
+        .at(routes::APPLY_BATCH, apply_batch)
+        .at(routes::TRANSCLUDED_ITEMS, transcluded_items)
+        .at(routes::SHIFT_ITEM_LEVELS, shift_levels)
+        .at(routes::EXPORT_TREE_MARKDOWN, export_tree_markdown)
+        .at(routes::EXPORT_PAGE_MARKDOWN, export_page_markdown)
+        .at(routes::EXPORT_SUBTREE_MARKDOWN, export_subtree_markdown)
+        .at(routes::IMPORT_TREE_MARKDOWN, import_tree_markdown)
+        .at(routes::PARSE_FLAT_MARKDOWN, parse_flat_markdown)
+        .at(routes::GET_ITEM, get_item)
+        .at(routes::UPDATE_ITEM, update_item)
+        .at(routes::DELETE_ITEM, delete_item)
+        .at(routes::SET_TRANSCLUSION, set_transclusion)
+        .at(routes::REMOVE_TRANSCLUSION, remove_transclusion)
+        .at(routes::PASTE_TEXT, paste)
+        .at(routes::SPLIT_ITEM, split)
+        .at(routes::STASH_ITEM, stash)
+        .at(routes::CYCLE_TASK, cycle_task)
+        .at(routes::UPSERT_ITEM_PROPERTY, upsert_property)
+        .at(routes::DELETE_ITEM_PROPERTY, delete_property)
 }
 
 #[derive(Deserialize, Default)]

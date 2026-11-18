@@ -1,28 +1,26 @@
 //! The changes of an atlas page. The operations are in the journal (ADR 029).
 
 use axum::extract::{Path, State};
-use axum::routing::{delete, post, put};
 use axum::{Json, Router};
 
 use crate::error::HttpError;
+use crate::presentation::rest::At;
 use crate::state::{blocking, SharedState};
+use journal_api_types::routes;
 use journal_core::journal::{
     AtlasCalloutInput, AtlasGroupInput, AtlasLinkInput, AtlasTitleInput, ItemsAnswer,
 };
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
-        .route("/api/pages/{id}/atlas/links", post(add_link))
-        .route("/api/pages/{id}/atlas/links/{item_id}", put(set_link))
-        .route("/api/pages/{id}/atlas/group", post(group))
-        .route("/api/pages/{id}/atlas/ungroup", post(ungroup))
-        .route(
-            "/api/pages/{id}/atlas/groups/{item_id}",
-            put(set_group_title),
-        )
-        .route("/api/pages/{id}/atlas/callouts", post(add_callout))
-        .route("/api/pages/{id}/atlas/callouts/{item_id}", put(set_callout))
-        .route("/api/pages/{id}/atlas/items/{item_id}", delete(remove))
+        .at(routes::ADD_ATLAS_LINK, add_link)
+        .at(routes::SET_ATLAS_LINK, set_link)
+        .at(routes::GROUP_ATLAS_CARDS, group)
+        .at(routes::UNGROUP_ATLAS_CARDS, ungroup)
+        .at(routes::SET_ATLAS_GROUP_TITLE, set_group_title)
+        .at(routes::ADD_ATLAS_CALLOUT, add_callout)
+        .at(routes::SET_ATLAS_CALLOUT, set_callout)
+        .at(routes::REMOVE_ATLAS_ITEM, remove)
 }
 
 async fn add_link(
