@@ -20,19 +20,59 @@ pub fn reload_page(model: &mut Model, page_id: &str) -> Cmd {
         model.file_reload_pending.insert(page_id.to_string());
         return done();
     }
-    let page_id = page_id.to_string();
-    run(move |api| async move { replace_page(&api, &page_id).await })
+    read_again(model, page_id)
+}
+
+/// Reads one page again right now, whatever the user is doing.
+pub fn read_again(model: &Model, page_id: &str) -> Cmd {
+    let (page_id, asked_at) = (page_id.to_string(), AskedAt::now(model));
+    run(move |api| async move { replace_page(&api, &page_id, asked_at).await })
+}
+
+/// When a page was asked for: the count of the changes made here until then.
+///
+/// The requests go to the server one at a time, so the answer can take a while, and the
+/// user may undo in that time. The answer then holds the page as it was before the undo. On
+/// 2026-11-18 such an answer put back, on the screen, a split that Ctrl+Z had just taken back.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct AskedAt(u64);
+
+impl AskedAt {
+    /// Now: after every change made so far. Take it when the request is made, after the
+    /// change that the request follows is recorded.
+    pub fn now(model: &Model) -> AskedAt {
+        AskedAt(model.undo.revision())
+    }
+
+    /// True when a change was made here after the page was asked for.
+    pub fn is_overtaken(self, model: &Model) -> bool {
+        self != AskedAt::now(model)
+    }
+}
+
+/// What follows a page read again, when a change made here overtook the reading: the user has
+/// gone on, so the edit and the cursor stay where that change left them. The keys that waited
+/// for the next editor go to the editor that has the focus now.
+pub fn leave_the_edit(model: &mut Model) -> Cmd {
+    let keys = model.key_relay.release();
+    if keys.is_empty() {
+        return done();
+    }
+    let focused = model.state.focused_item_id().map(str::to_string);
+    run(move |api| async move { api.focus_editor(focused, keys).await })
 }
 
 /// Replaces the items of one page with the server's version right now, in place, so the
 /// other pages of a journal stay where they are. The transcluded trees are merged for the
 /// same reason.
-pub async fn replace_page(api: &Api<Event>, page_id: &str) {
+pub async fn replace_page(api: &Api<Event>, page_id: &str, asked_at: AskedAt) {
     match api.get_page_by_id(page_id).await {
         Ok(result) => {
             api.send_event(Event::PageReplaced {
                 page_id: page_id.to_string(),
                 loaded: Box::new(result),
+                asked_at,
             });
         }
         Err(e) => log_error(format!("Failed to reload page {page_id}: {e}")),
@@ -41,7 +81,24 @@ pub async fn replace_page(api: &Api<Event>, page_id: &str) {
 
 /// The server answered a page that is read again: its items take the place of the shown
 /// ones, and its transcluded trees are merged.
-pub fn show_replaced_page(model: &mut Model, page_id: &str, loaded: PageWithItems) -> Cmd {
+///
+/// An answer that a change made here has overtaken is not shown: the screen has the change
+/// and the answer does not. The page is read once more, and that request waits behind the
+/// request of the change, so its answer has the change. While the user is editing, the page
+/// waits for the end of the edit, as a page changed by another client does.
+pub fn show_replaced_page(
+    model: &mut Model,
+    page_id: &str,
+    loaded: PageWithItems,
+    asked_at: AskedAt,
+) -> Cmd {
+    if asked_at.is_overtaken(model) {
+        if is_edit_in_progress(model) {
+            model.file_reload_pending.insert(page_id.to_string());
+            return done();
+        }
+        return read_again(model, page_id);
+    }
     replace_page_items(model, page_id, loaded.items);
     if let Some(trees) = loaded.transcluded_trees {
         model.state.merge_transcluded_trees(trees);
@@ -75,7 +132,7 @@ pub fn replace_page_items(m: &mut Model, page_id: &str, page_items: Vec<Item>) {
 /// transclusion changed.
 pub fn reload_shown_page(model: &Model) -> Cmd {
     match model.shown_page_id() {
-        Some(page_id) => run(move |api| async move { replace_page(&api, &page_id).await }),
+        Some(page_id) => read_again(model, &page_id),
         None => done(),
     }
 }

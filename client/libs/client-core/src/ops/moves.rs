@@ -13,7 +13,7 @@
 use crate::app::{done, log_error, run, Cmd, Event, Model, MoveDirection};
 use crate::model::{Item, ItemPosition, ItemRef, Page};
 use crate::ops::edit::{auto_save_again, take_unsaved};
-use crate::ops::file_reload::replace_page;
+use crate::ops::file_reload::{leave_the_edit, replace_page, AskedAt};
 use crate::ops::split::host_page_of_transclusion;
 use crate::outline::tree::{
     find_cross_page_placement, find_move_down_target, find_move_up_target, get_subtree,
@@ -215,15 +215,27 @@ pub fn show_moved_in_transclusion(model: &mut Model, item_id: String) -> Cmd {
     };
     // Reading the page again blurs the editor of the item: the edit goes on in it
     model.edits.edit_handovers += 1;
+    let asked_at = AskedAt::now(model);
     run(move |api| async move {
-        replace_page(&api, &page_id).await;
-        api.send_event(Event::MovePageReloaded { item_id });
+        replace_page(&api, &page_id, asked_at).await;
+        api.send_event(Event::MovePageReloaded { item_id, asked_at });
     })
 }
 
 /// Focuses the editor of the moved item again, with the keys that were pressed while the
 /// move was on its way.
 pub fn focus_moved(model: &mut Model, item_id: String) -> Cmd {
+    focus_moved_at(model, item_id, AskedAt::now(model))
+}
+
+/// [`focus_moved`] after the page was read again. When a change made here, such as an undo,
+/// overtook the reading, the edit stays where that change left it, and the move is over.
+pub fn focus_moved_at(model: &mut Model, item_id: String, asked_at: AskedAt) -> Cmd {
+    if asked_at.is_overtaken(model) {
+        let keys = leave_the_edit(model);
+        let done = run(|api| async move { api.send_event(Event::MoveDone { handover: true }) });
+        return Command::all([keys, done]);
+    }
     model.state.order_focus(Some(&item_id));
     let keys = model.key_relay.release();
     run(move |api| async move {

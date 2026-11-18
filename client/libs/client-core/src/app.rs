@@ -253,6 +253,8 @@ pub enum Event {
     PastedPageReloaded {
         cursor: PasteCursor,
         fallback: PasteCursor,
+        /// When the page was asked for
+        asked_at: ops::file_reload::AskedAt,
     },
     /// The server wrote what an undo or a redo replayed: its answer goes on screen.
     UndoSynced {
@@ -280,6 +282,8 @@ pub enum Event {
     SplitPageReloaded {
         item_id: String,
         created_id: String,
+        /// When the page was asked for
+        asked_at: ops::file_reload::AskedAt,
     },
     /// The user said whether an item that other items transclude may be joined away, or
     /// nobody had to be asked: the join goes to the server, or the edit goes on.
@@ -333,6 +337,8 @@ pub enum Event {
     /// moved item.
     MovePageReloaded {
         item_id: String,
+        /// When the page was asked for
+        asked_at: ops::file_reload::AskedAt,
     },
     /// The server refused the move of an edited item, or could not be reached: nothing was
     /// written.
@@ -446,6 +452,8 @@ pub enum Event {
     PageReplaced {
         page_id: String,
         loaded: Box<PageWithItems>,
+        /// When the page was asked for
+        asked_at: ops::file_reload::AskedAt,
     },
     /// The shown page is to be read from the server again, e.g. after an undo did not
     /// reach the server.
@@ -1175,7 +1183,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         SplitPageReloaded {
             item_id,
             created_id,
-        } => ops::split::focus_after_split(model, &item_id, &created_id),
+            asked_at,
+        } => ops::split::focus_after_split(model, &item_id, &created_id, asked_at),
         SplitFailed { item_id, unsaved } => ops::split::split_failed(model, &item_id, unsaved),
         BackspaceAtStart { item_id } => ops::merge::merge_into_previous(model, &item_id),
         DeleteAtEnd { item_id } => ops::merge::merge_next_into(model, &item_id),
@@ -1209,7 +1218,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         }
         MovedToDay { moved } => ops::moves::show_moved_to_day(model, moved),
         MovedInTransclusion { item_id } => ops::moves::show_moved_in_transclusion(model, item_id),
-        MovePageReloaded { item_id } => ops::moves::focus_moved(model, item_id),
+        MovePageReloaded { item_id, asked_at } => {
+            ops::moves::focus_moved_at(model, item_id, asked_at)
+        }
         MoveFailed { unsaved } => ops::moves::move_failed(model, unsaved.as_deref()),
         MoveDone { handover } => ops::moves::move_done(model, handover),
         MoveUp { item_id } => ops::moves::enqueue_move(model, &item_id, MoveDirection::Up),
@@ -1233,9 +1244,11 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             cursor_before,
             pasted,
         } => ops::paste::show_pasted(model, &item_id, cursor_before, pasted),
-        PastedPageReloaded { cursor, fallback } => {
-            ops::paste::place_cursor(model, cursor, fallback)
-        }
+        PastedPageReloaded {
+            cursor,
+            fallback,
+            asked_at,
+        } => ops::paste::place_cursor_at(model, cursor, fallback, asked_at),
         PasteFailed { item_id, unsaved } => ops::paste::paste_failed(model, &item_id, unsaved),
         UndoSynced {
             sync,
@@ -1305,9 +1318,11 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             model.state.remove_editing_item(&item_id);
             done()
         }
-        PageReplaced { page_id, loaded } => {
-            ops::file_reload::show_replaced_page(model, &page_id, *loaded)
-        }
+        PageReplaced {
+            page_id,
+            loaded,
+            asked_at,
+        } => ops::file_reload::show_replaced_page(model, &page_id, *loaded, asked_at),
         WikiPick { title } => ops::wiki::pick(model, &title),
         OpenLinkAt { item_id, cursor } => ops::wiki::open_link_at(model, &item_id, cursor),
         ShiftSelect { item_id } => {
