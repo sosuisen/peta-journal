@@ -84,7 +84,7 @@ pub fn plan(assets_dir: &Path) -> std::io::Result<Vec<Rename>> {
     }
     // Oldest first, because the generator gives an older time the time of the one before
     files.sort();
-    let ids = IdGenerator::new();
+    let ids = IdGenerator::default();
     Ok(files
         .into_iter()
         .map(|(saved_ms, from)| {

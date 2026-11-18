@@ -2,7 +2,7 @@
 
 use property_names::{type_of, ValueType};
 
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 
 /// A key of a property, parsed from its name once at the boundary. Whether its values are a
 /// list follows from the name, so every device decides it alike, before any definition
@@ -32,7 +32,7 @@ pub struct UserListKey(String);
 
 impl PropertyKey {
     /// The key of the name. A name with a letter a key cannot have is refused.
-    pub fn parse(name: &str) -> AppResult<PropertyKey> {
+    pub fn parse(name: &str) -> Result<PropertyKey, AppError> {
         validate_key(name)?;
         Ok(if name == "tags" {
             PropertyKey::List(ListKey::Tags)
@@ -50,7 +50,7 @@ impl PropertyKey {
 
     /// Refuses a type that does not fit the name: a key of the user takes the type its
     /// suffix gives (ADR 047), and the tags take `tags`.
-    pub fn check_type(&self, value_type: &str) -> AppResult<()> {
+    pub fn check_type(&self, value_type: &str) -> Result<(), AppError> {
         let fits = match self {
             PropertyKey::List(ListKey::Tags) => value_type == "tags",
             _ => value_type == type_of(self.as_str()).as_str(),
@@ -77,7 +77,7 @@ impl PropertyKey {
 
 /// A key is a word of letters, digits, `_` and `-`: it is written unquoted in the metadata
 /// line of an item and as a YAML key in the front matter of a page.
-pub fn validate_key(key: &str) -> AppResult<()> {
+pub fn validate_key(key: &str) -> Result<(), AppError> {
     if key.is_empty() {
         return Err(AppError::bad_request("Property key is required"));
     }

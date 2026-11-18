@@ -10,8 +10,8 @@ use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use parking_lot::Mutex;
 
+use super::now_millis;
 use journal_core::domain::search::SearchIndex;
-use journal_core::infrastructure::persistence::db::now_millis;
 
 use super::pending_delete_prompt::PendingDeletePrompt;
 use journal_core::infrastructure::export::definitions_file::SETTINGS_DIR;

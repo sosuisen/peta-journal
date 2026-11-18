@@ -8,7 +8,7 @@ use hmtid::Hmtid;
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
 use crate::domain::model::Page;
-use crate::error::AppResult;
+use crate::error::AppError;
 
 use super::db::Db;
 
@@ -47,19 +47,27 @@ impl PageRepository {
         PageRepository { db }
     }
 
-    fn query_pages(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> AppResult<Vec<Page>> {
+    fn query_pages(
+        &self,
+        sql: &str,
+        params: &[&dyn rusqlite::ToSql],
+    ) -> Result<Vec<Page>, AppError> {
         query_pages_in(&*self.db.conn()?, sql, params)
     }
 
-    fn first_page(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> AppResult<Option<Page>> {
+    fn first_page(
+        &self,
+        sql: &str,
+        params: &[&dyn rusqlite::ToSql],
+    ) -> Result<Option<Page>, AppError> {
         Ok(self.query_pages(sql, params)?.into_iter().next())
     }
 
-    pub fn find_by_id(&self, id: &Hmtid) -> AppResult<Option<Page>> {
+    pub fn find_by_id(&self, id: &Hmtid) -> Result<Option<Page>, AppError> {
         Self::find_by_id_in(&*self.db.conn()?, id)
     }
 
-    pub fn find_by_id_in(conn: &Connection, id: &Hmtid) -> AppResult<Option<Page>> {
+    pub fn find_by_id_in(conn: &Connection, id: &Hmtid) -> Result<Option<Page>, AppError> {
         Ok(query_pages_in(
             conn,
             &format!("{SELECT_PAGES}WHERE id = ?"),
@@ -69,7 +77,10 @@ impl PageRepository {
         .next())
     }
 
-    pub fn find_most_recent_journal_before(&self, before: NaiveDate) -> AppResult<Option<Page>> {
+    pub fn find_most_recent_journal_before(
+        &self,
+        before: NaiveDate,
+    ) -> Result<Option<Page>, AppError> {
         let file_name = before.format("%Y-%m-%d").to_string();
         self.first_page(
             &format!(
@@ -83,7 +94,7 @@ impl PageRepository {
     pub fn find_most_recent_weekly_journal_before(
         &self,
         before_week: &str,
-    ) -> AppResult<Option<Page>> {
+    ) -> Result<Option<Page>, AppError> {
         self.first_page(
             &format!(
                 "{SELECT_PAGES}WHERE type = 'journal' AND dir_path = '' AND name < ? AND name GLOB '????-W??' \
@@ -98,7 +109,7 @@ impl PageRepository {
         page_type: &str,
         dir_path: &str,
         file_name: &str,
-    ) -> AppResult<Option<Page>> {
+    ) -> Result<Option<Page>, AppError> {
         Self::find_by_type_dir_path_file_name_in(&*self.db.conn()?, page_type, dir_path, file_name)
     }
 
@@ -108,7 +119,7 @@ impl PageRepository {
         page_type: &str,
         dir_path: &str,
         file_name: &str,
-    ) -> AppResult<Option<Page>> {
+    ) -> Result<Option<Page>, AppError> {
         Ok(query_pages_in(
             conn,
             &format!("{SELECT_PAGES}WHERE type = ? AND dir_path = ? AND name = ?"),
@@ -126,7 +137,7 @@ impl PageRepository {
         page_type: &str,
         dir_path: &str,
         file_name: &str,
-    ) -> AppResult<Vec<Page>> {
+    ) -> Result<Vec<Page>, AppError> {
         Self::find_by_type_dir_path_file_name_ignoring_case_in(
             &*self.db.conn()?,
             page_type,
@@ -141,7 +152,7 @@ impl PageRepository {
         page_type: &str,
         dir_path: &str,
         file_name: &str,
-    ) -> AppResult<Vec<Page>> {
+    ) -> Result<Vec<Page>, AppError> {
         query_pages_in(
             conn,
             &format!(
@@ -152,7 +163,11 @@ impl PageRepository {
     }
 
     /// Recently modified pages, newest first. `page_type` None means all types.
-    pub fn find_recent(&self, max_results: i64, page_type: Option<&str>) -> AppResult<Vec<Page>> {
+    pub fn find_recent(
+        &self,
+        max_results: i64,
+        page_type: Option<&str>,
+    ) -> Result<Vec<Page>, AppError> {
         let limit = if max_results > 0 { max_results } else { 10 };
         match page_type {
             Some(t) => self.query_pages(
@@ -166,12 +181,16 @@ impl PageRepository {
         }
     }
 
-    pub fn find_all(&self) -> AppResult<Vec<Page>> {
+    pub fn find_all(&self) -> Result<Vec<Page>, AppError> {
         self.query_pages(&format!("{SELECT_PAGES}ORDER BY modified_date DESC"), &[])
     }
 
     /// Marks a page as changed, on the given connection, as part of a larger transaction.
-    pub fn touch_in(conn: &Connection, page_id: &Hmtid, modified_date: i64) -> AppResult<()> {
+    pub fn touch_in(
+        conn: &Connection,
+        page_id: &Hmtid,
+        modified_date: i64,
+    ) -> Result<(), AppError> {
         conn.execute(
             "UPDATE pages SET modified_date = ? WHERE id = ?",
             params![modified_date, page_id.as_str()],
@@ -181,7 +200,7 @@ impl PageRepository {
 
     /// Inserts or updates a page on the given connection, as part of a larger transaction.
     /// The parent is resolved from `dir_path` and `name`.
-    pub fn save_in(tx: &Connection, page: &Page) -> AppResult<Page> {
+    pub fn save_in(tx: &Connection, page: &Page) -> Result<Page, AppError> {
         let parent_id = resolve_parent_id(tx, &page.id, &page.dir_path, &page.name)?;
         let parent_str = parent_id.as_ref().map(|p| p.to_string());
         tx.execute(
@@ -212,7 +231,7 @@ impl PageRepository {
     }
 
     /// Changes a page's id on the given connection, as part of a larger transaction.
-    pub fn rekey_in(tx: &Connection, old_id: &Hmtid, new_id: &Hmtid) -> AppResult<()> {
+    pub fn rekey_in(tx: &Connection, old_id: &Hmtid, new_id: &Hmtid) -> Result<(), AppError> {
         let updates = [
             "UPDATE pages SET id = ? WHERE id = ?",
             "UPDATE pages SET parent_id = ? WHERE parent_id = ?",
@@ -233,12 +252,16 @@ impl PageRepository {
     }
 
     /// Deletes a page on the given connection, as part of a larger transaction.
-    pub fn delete_in(conn: &Connection, id: &Hmtid) -> AppResult<()> {
+    pub fn delete_in(conn: &Connection, id: &Hmtid) -> Result<(), AppError> {
         conn.execute("DELETE FROM pages WHERE id = ?", [id.as_str()])?;
         Ok(())
     }
 
-    pub fn find_by_path_prefix(&self, query: &str, max_results: i64) -> AppResult<Vec<Page>> {
+    pub fn find_by_path_prefix(
+        &self,
+        query: &str,
+        max_results: i64,
+    ) -> Result<Vec<Page>, AppError> {
         let limit = if max_results > 0 { max_results } else { 20 };
         self.query_pages(
             &format!(
@@ -248,7 +271,11 @@ impl PageRepository {
         )
     }
 
-    pub fn find_by_path_contains(&self, query: &str, max_results: i64) -> AppResult<Vec<Page>> {
+    pub fn find_by_path_contains(
+        &self,
+        query: &str,
+        max_results: i64,
+    ) -> Result<Vec<Page>, AppError> {
         let limit = if max_results > 0 { max_results } else { 20 };
         self.query_pages(
             &format!(
@@ -263,7 +290,7 @@ impl PageRepository {
         &self,
         query: &str,
         max_results: i64,
-    ) -> AppResult<Vec<Page>> {
+    ) -> Result<Vec<Page>, AppError> {
         let limit = if max_results > 0 { max_results } else { 20 };
         self.query_pages(
             &format!(
@@ -275,12 +302,15 @@ impl PageRepository {
         )
     }
 
-    pub fn find_by_parent_id(&self, parent_id: &Hmtid) -> AppResult<Vec<Page>> {
+    pub fn find_by_parent_id(&self, parent_id: &Hmtid) -> Result<Vec<Page>, AppError> {
         Self::find_by_parent_id_in(&*self.db.conn()?, parent_id)
     }
 
     /// The child pages of a page, on the given connection.
-    pub fn find_by_parent_id_in(conn: &Connection, parent_id: &Hmtid) -> AppResult<Vec<Page>> {
+    pub fn find_by_parent_id_in(
+        conn: &Connection,
+        parent_id: &Hmtid,
+    ) -> Result<Vec<Page>, AppError> {
         query_pages_in(
             conn,
             &format!("{SELECT_PAGES}WHERE parent_id = ? ORDER BY name"),
@@ -322,7 +352,7 @@ fn query_pages_in(
     conn: &Connection,
     sql: &str,
     params: &[&dyn rusqlite::ToSql],
-) -> AppResult<Vec<Page>> {
+) -> Result<Vec<Page>, AppError> {
     let mut stmt = conn.prepare(sql)?;
     let rows = stmt.query_map(params, map_page)?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)

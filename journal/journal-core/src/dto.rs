@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use crate::application::markdown_parser::MarkdownParser;
 use crate::domain::model::{BacklinkEntry, Item, Page, SearchResult};
-use crate::error::AppResult;
+use crate::error::AppError;
 use crate::infrastructure::persistence::{ItemRepository, PropertyRepository};
 
 #[derive(Debug, Clone, Serialize)]
@@ -216,7 +216,7 @@ impl ItemDtoAssembler {
     }
 
     /// Converts one page, loading its properties.
-    pub fn page_to_dto(&self, page: &Page) -> AppResult<PageDto> {
+    pub fn page_to_dto(&self, page: &Page) -> Result<PageDto, AppError> {
         let id = page.id.to_string();
         let scalars = self
             .properties
@@ -228,7 +228,7 @@ impl ItemDtoAssembler {
     }
 
     /// Converts one item, loading its properties.
-    pub fn to_dto(&self, item: &Item) -> AppResult<ItemDto> {
+    pub fn to_dto(&self, item: &Item) -> Result<ItemDto, AppError> {
         let id = item.id.to_string();
         let scalars = self
             .properties
@@ -240,7 +240,7 @@ impl ItemDtoAssembler {
     }
 
     /// Converts items in order, loading all their properties at once.
-    pub fn to_dtos(&self, items: &[Item]) -> AppResult<Vec<ItemDto>> {
+    pub fn to_dtos(&self, items: &[Item]) -> Result<Vec<ItemDto>, AppError> {
         let ids: Vec<String> = items.iter().map(|i| i.id.to_string()).collect();
         let scalars = self.properties.find_scalar_by_targets(ITEM_TARGET, &ids)?;
         let lists = self.properties.find_list_by_targets(ITEM_TARGET, &ids)?;
@@ -256,7 +256,10 @@ impl ItemDtoAssembler {
     /// The source trees of every transclusion among the items, and of transclusions found inside
     /// those trees, up to `MAX_TRANSCLUSION_DEPTH` levels deep. A source that no longer exists maps
     /// to an empty list.
-    pub fn transcluded_trees(&self, items: &[Item]) -> AppResult<BTreeMap<String, Vec<ItemDto>>> {
+    pub fn transcluded_trees(
+        &self,
+        items: &[Item],
+    ) -> Result<BTreeMap<String, Vec<ItemDto>>, AppError> {
         let mut trees = BTreeMap::new();
         let mut visited = HashSet::new();
         self.load_trees(items, &mut trees, &mut visited, 0)?;
@@ -269,7 +272,7 @@ impl ItemDtoAssembler {
         trees: &mut BTreeMap<String, Vec<ItemDto>>,
         visited: &mut HashSet<String>,
         depth: usize,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         for item in items {
             let Some(source) = &item.transclude_item_id else {
                 continue;
@@ -288,7 +291,7 @@ impl ItemDtoAssembler {
         trees: &mut BTreeMap<String, Vec<ItemDto>>,
         visited: &mut HashSet<String>,
         depth: usize,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         let source_id = source.to_string();
         if depth >= MAX_TRANSCLUSION_DEPTH || visited.contains(&source_id) {
             return Ok(());

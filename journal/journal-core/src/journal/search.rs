@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::domain::model::SearchResult;
 use crate::dto::{search_result_dto, SearchResultDto};
-use crate::error::AppResult;
+use crate::error::AppError;
 
 use super::Journal;
 
@@ -31,7 +31,7 @@ impl Journal {
         &self,
         query: &str,
         max_results: Option<usize>,
-    ) -> AppResult<SearchAnswer> {
+    ) -> Result<SearchAnswer, AppError> {
         let max_results = max_results.unwrap_or(DEFAULT_MAX_RESULTS);
         let results = self
             .services
@@ -45,14 +45,18 @@ impl Journal {
         &self,
         query: &str,
         max_results: Option<usize>,
-    ) -> AppResult<SearchAnswer> {
+    ) -> Result<SearchAnswer, AppError> {
         let max_results = max_results.unwrap_or(DEFAULT_MAX_RESULTS);
         let results = self.services.combined_search.search(query, max_results)?;
         Ok(SearchAnswer::of(&results))
     }
 
     /// Finds the items that have the tag. The case of the letters does not count.
-    pub fn search_by_tag(&self, tag: &str, max_results: Option<usize>) -> AppResult<SearchAnswer> {
+    pub fn search_by_tag(
+        &self,
+        tag: &str,
+        max_results: Option<usize>,
+    ) -> Result<SearchAnswer, AppError> {
         let max_results = max_results.unwrap_or(DEFAULT_MAX_RESULTS);
         let ids = self
             .services

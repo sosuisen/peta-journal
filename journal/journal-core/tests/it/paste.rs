@@ -1,7 +1,7 @@
 //! Pasting a text into an item at the cursor: one piece goes into the body, several make
 //! items below it.
 
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::PasteAnswer;
 use serde_json::{json, Value};
 
@@ -18,7 +18,7 @@ impl Core {
         cursor: usize,
         text: &str,
         mode: &str,
-    ) -> AppResult<PasteAnswer> {
+    ) -> Result<PasteAnswer, AppError> {
         self.core.journal.paste(
             item_id,
             input(json!({ "body": body, "cursor": cursor, "text": text, "mode": mode })),

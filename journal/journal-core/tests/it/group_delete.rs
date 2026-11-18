@@ -1,6 +1,6 @@
 //! Deleting items: a group with its descendants in one request, or one item alone.
 
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::DeletedItemsAnswer;
 use serde_json::{json, Value};
 
@@ -10,7 +10,7 @@ use crate::common::Core;
 
 impl Core {
     /// Deletes the items as one group, as the client asks
-    fn delete_group(&self, item_ids: &[String]) -> AppResult<DeletedItemsAnswer> {
+    fn delete_group(&self, item_ids: &[String]) -> Result<DeletedItemsAnswer, AppError> {
         self.core
             .journal
             .delete_items(input(json!({ "itemIds": item_ids })), &by_the_client())

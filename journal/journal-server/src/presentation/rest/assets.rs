@@ -2,7 +2,7 @@
 
 use std::path::Path as FsPath;
 
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 use crate::presentation::rest::handling;
 use crate::state::{blocking, SharedState};
 use anyhow::Context;
@@ -72,7 +72,7 @@ pub(crate) fn save(
     state: &SharedState,
     original_name: &str,
     bytes: &[u8],
-) -> AppResult<SavedAsset> {
+) -> Result<SavedAsset, AppError> {
     let markdown_dir = state.config.markdown_dir();
     if markdown_dir.trim().is_empty() {
         return Err(AppError::internal("Markdown directory not configured"));
@@ -91,7 +91,7 @@ pub(crate) fn save(
 
 /// Saves a file of this PC among the assets, for a caller that names the file and does not
 /// send it. The path is absolute: the folder the server runs in means nothing to a caller.
-pub(crate) fn save_file_at(state: &SharedState, path: &str) -> AppResult<SavedAsset> {
+pub(crate) fn save_file_at(state: &SharedState, path: &str) -> Result<SavedAsset, AppError> {
     let path = FsPath::new(path);
     let name = path.file_name().and_then(|name| name.to_str());
     let (true, Some(original_name)) = (path.is_absolute(), name) else {

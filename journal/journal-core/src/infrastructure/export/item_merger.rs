@@ -14,7 +14,7 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::model::{Item, Page};
 use crate::domain::property_key::PropertyKey;
 use crate::domain::search::SearchIndex;
-use crate::error::AppResult;
+use crate::error::AppError;
 use crate::infrastructure::persistence::property_repository::list_values;
 use crate::infrastructure::persistence::{ItemRepository, PropertyRepository};
 
@@ -78,7 +78,7 @@ impl ItemMerger {
         file_modified: i64,
         mode: MergeMode,
         now: i64,
-    ) -> AppResult<MergeResult> {
+    ) -> Result<MergeResult, AppError> {
         let page_id = &page.id;
         let page_rel_path = path_mapper::to_rel_path_of(page);
         let title = page.title();
@@ -267,7 +267,7 @@ impl ItemMerger {
         parsed_items: &'a [ParsedItem],
         by_id: &BTreeMap<&Hmtid, &Item>,
         page_rel_path: &str,
-    ) -> AppResult<(Vec<FileItem<'a>>, bool)> {
+    ) -> Result<(Vec<FileItem<'a>>, bool), AppError> {
         let mut file_items = Vec::with_capacity(parsed_items.len());
         let mut seen: BTreeSet<Hmtid> = BTreeSet::new();
         let mut any_missing_id = false;
@@ -316,7 +316,7 @@ impl ItemMerger {
     }
 
     /// The hashtags of the given items, each once.
-    fn tags_of(&self, conn: &Connection, item_ids: Vec<String>) -> AppResult<Vec<String>> {
+    fn tags_of(&self, conn: &Connection, item_ids: Vec<String>) -> Result<Vec<String>, AppError> {
         let lists = PropertyRepository::find_list_by_targets_in(conn, ITEM_TARGET, &item_ids)?;
         let tags: BTreeSet<String> = lists
             .into_values()
@@ -334,7 +334,7 @@ impl ItemMerger {
         item_id: &str,
         file_properties: &[(String, String)],
         have: &BTreeMap<String, String>,
-    ) -> AppResult<bool> {
+    ) -> Result<bool, AppError> {
         let mut want: Vec<(&str, &str)> = Vec::new();
         for (k, v) in file_properties {
             if RESERVED_KEYS.contains(&k.as_str()) {
@@ -375,7 +375,7 @@ impl ItemMerger {
         item_id: &str,
         file_properties: &[(String, String)],
         have: &BTreeMap<String, Vec<String>>,
-    ) -> AppResult<bool> {
+    ) -> Result<bool, AppError> {
         let mut changed = false;
         let mut want: Vec<&str> = Vec::new();
         for (k, v) in file_properties {

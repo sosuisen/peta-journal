@@ -6,7 +6,7 @@ use std::sync::Arc;
 use hmtid::Hmtid;
 
 use crate::domain::model::{Item, Page};
-use crate::error::AppResult;
+use crate::error::AppError;
 
 use super::extension_functions::ExtensionFunctionService;
 use super::extension_runtime::{ExtensionEvent, ExtensionRuntime, PageInfo};
@@ -46,7 +46,7 @@ impl ExtensionService {
     /// Lets each extension answer a page made over the API, in the order of their folder
     /// names. The items of each extension are written before the next one runs. Returns the
     /// items the page has then, which the caller answers with.
-    pub fn page_created(&self, page: &Page) -> AppResult<Vec<Item>> {
+    pub fn page_created(&self, page: &Page) -> Result<Vec<Item>, AppError> {
         self.dispatch(page, &ExtensionEvent::PageCreate(page_info(page)));
         self.pages.get_page_items(&page.id)
     }

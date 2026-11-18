@@ -1,9 +1,7 @@
 //! Properties: the keys the user defines, the values of items and pages, the tag pages, and
 //! the values written to the markdown files and taken back from them.
 
-use std::time::Duration;
-
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::{PageAnswer, PropertyDefinitionsAnswer};
 use serde_json::{json, Value};
 
@@ -13,11 +11,11 @@ use crate::common::Core;
 
 impl Core {
     /// Adds a definition, as the user does in Settings
-    fn add_definition(&self, request: Value) -> AppResult<PropertyDefinitionsAnswer> {
+    fn add_definition(&self, request: Value) -> Result<PropertyDefinitionsAnswer, AppError> {
         self.core.journal.add_property_definition(input(request))
     }
 
-    fn delete_definition(&self, key: &str) -> AppResult<PropertyDefinitionsAnswer> {
+    fn delete_definition(&self, key: &str) -> Result<PropertyDefinitionsAnswer, AppError> {
         self.core
             .journal
             .delete_property_definition(key, &by_the_client())
@@ -30,7 +28,7 @@ impl Core {
         key: &str,
         value_type: &str,
         value: &str,
-    ) -> AppResult<PageAnswer> {
+    ) -> Result<PageAnswer, AppError> {
         self.core.journal.set_page_property(
             page_id,
             key,
@@ -40,7 +38,7 @@ impl Core {
         )
     }
 
-    fn remove_page_property(&self, page_id: &str, key: &str) -> AppResult<PageAnswer> {
+    fn remove_page_property(&self, page_id: &str, key: &str) -> Result<PageAnswer, AppError> {
         self.core
             .journal
             .delete_page_property(page_id, key, &by_the_client())
@@ -69,7 +67,7 @@ impl Core {
     }
 
     /// Gives the page another title, as the client does
-    fn retitle(&self, page_id: &str, title: &str) -> AppResult<PageAnswer> {
+    fn retitle(&self, page_id: &str, title: &str) -> Result<PageAnswer, AppError> {
         self.core
             .journal
             .update_page(page_id, Some(title), None, false, &by_the_client())
@@ -116,7 +114,7 @@ fn definition<'a>(resp: &'a Value, key: &str) -> Option<&'a Value> {
         .find(|d| d["key"] == key)
 }
 
-fn is_bad_request<T: std::fmt::Debug>(result: &AppResult<T>) -> bool {
+fn is_bad_request<T: std::fmt::Debug>(result: &Result<T, AppError>) -> bool {
     matches!(result, Err(AppError::BadRequest(_)))
 }
 
@@ -542,7 +540,7 @@ fn updating_a_tag_page_without_changing_its_tag_leaves_the_tagged_pages_alone() 
     notes.set_tags(&tagged, tag);
     let tag_page = notes.doc_page_named(tag).unwrap();
     let before = notes.page(&tagged)["page"]["modifiedDate"].clone();
-    std::thread::sleep(Duration::from_millis(5));
+    notes.clock.advance(5);
 
     notes.retitle(&tag_page, tag).unwrap();
 

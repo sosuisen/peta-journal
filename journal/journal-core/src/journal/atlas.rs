@@ -7,13 +7,17 @@
 
 use crate::domain::bounds::Bounds;
 use crate::domain::model::Item;
-use crate::error::{parse_id, AppResult};
+use crate::error::{parse_id, AppError};
 
 use super::{ItemsAnswer, Journal};
 pub use journal_api_types::{AtlasCalloutInput, AtlasGroupInput, AtlasLinkInput, AtlasTitleInput};
 
 impl Journal {
-    pub fn add_atlas_link(&self, atlas_id: &str, input: AtlasLinkInput) -> AppResult<ItemsAnswer> {
+    pub fn add_atlas_link(
+        &self,
+        atlas_id: &str,
+        input: AtlasLinkInput,
+    ) -> Result<ItemsAnswer, AppError> {
         let atlas_id = parse_id(atlas_id)?;
         let bounds = input.bounds.parse::<Bounds>()?;
         self.atlas_answer(
@@ -29,7 +33,7 @@ impl Journal {
         atlas_id: &str,
         item_id: &str,
         input: AtlasLinkInput,
-    ) -> AppResult<ItemsAnswer> {
+    ) -> Result<ItemsAnswer, AppError> {
         let atlas_id = parse_id(atlas_id)?;
         let item_id = parse_id(item_id)?;
         self.atlas_answer(
@@ -44,7 +48,7 @@ impl Journal {
         &self,
         atlas_id: &str,
         input: AtlasGroupInput,
-    ) -> AppResult<ItemsAnswer> {
+    ) -> Result<ItemsAnswer, AppError> {
         let atlas_id = parse_id(atlas_id)?;
         self.atlas_answer(
             self.services
@@ -57,7 +61,7 @@ impl Journal {
         &self,
         atlas_id: &str,
         input: AtlasGroupInput,
-    ) -> AppResult<ItemsAnswer> {
+    ) -> Result<ItemsAnswer, AppError> {
         let atlas_id = parse_id(atlas_id)?;
         self.atlas_answer(self.services.atlas.ungroup(&atlas_id, &input.cards))
     }
@@ -67,7 +71,7 @@ impl Journal {
         atlas_id: &str,
         group_id: &str,
         input: AtlasTitleInput,
-    ) -> AppResult<ItemsAnswer> {
+    ) -> Result<ItemsAnswer, AppError> {
         let atlas_id = parse_id(atlas_id)?;
         let group_id = parse_id(group_id)?;
         self.atlas_answer(self.services.atlas.set_group_title(
@@ -82,7 +86,7 @@ impl Journal {
         &self,
         atlas_id: &str,
         input: AtlasCalloutInput,
-    ) -> AppResult<ItemsAnswer> {
+    ) -> Result<ItemsAnswer, AppError> {
         let atlas_id = parse_id(atlas_id)?;
         let bounds = input.bounds.parse::<Bounds>()?;
         self.atlas_answer(self.services.atlas.add_callout(
@@ -99,7 +103,7 @@ impl Journal {
         atlas_id: &str,
         item_id: &str,
         input: AtlasCalloutInput,
-    ) -> AppResult<ItemsAnswer> {
+    ) -> Result<ItemsAnswer, AppError> {
         let atlas_id = parse_id(atlas_id)?;
         let item_id = parse_id(item_id)?;
         self.atlas_answer(self.services.atlas.set_callout(
@@ -111,13 +115,17 @@ impl Journal {
     }
 
     /// Removes a card, a group or a callout from the atlas page.
-    pub fn remove_atlas_item(&self, atlas_id: &str, item_id: &str) -> AppResult<ItemsAnswer> {
+    pub fn remove_atlas_item(
+        &self,
+        atlas_id: &str,
+        item_id: &str,
+    ) -> Result<ItemsAnswer, AppError> {
         let atlas_id = parse_id(atlas_id)?;
         let item_id = parse_id(item_id)?;
         self.atlas_answer(self.services.atlas.remove(&atlas_id, &item_id))
     }
 
-    fn atlas_answer(&self, items: AppResult<Vec<Item>>) -> AppResult<ItemsAnswer> {
+    fn atlas_answer(&self, items: Result<Vec<Item>, AppError>) -> Result<ItemsAnswer, AppError> {
         Ok(ItemsAnswer {
             items: self.services.dtos.to_dtos(&items?)?,
         })

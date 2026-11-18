@@ -10,7 +10,7 @@ use crate::application::journal_service::{naive_date, MostRecentJournalResult};
 use crate::domain::journal_name::JournalName;
 use crate::domain::model::ItemPosition;
 use crate::dto::{ItemDto, PageDto};
-use crate::error::{parse_id, AppError, AppResult};
+use crate::error::{parse_id, AppError};
 
 use super::{ChangedBy, Journal};
 pub use journal_api_types::MoveToJournalInput;
@@ -48,7 +48,7 @@ impl Journal {
     /// Finds the journal of the name, or makes it. The name is a day (`2026-11-11`), a week
     /// (`2026-W46`), a month (`2026-11`) or a year (`2026`). The extensions answer a journal
     /// that was made, and their items come with it.
-    pub fn get_or_create_journal(&self, name: &str) -> AppResult<JournalAnswer> {
+    pub fn get_or_create_journal(&self, name: &str) -> Result<JournalAnswer, AppError> {
         let mut result = self
             .services
             .journal_service
@@ -70,7 +70,7 @@ impl Journal {
         name: &str,
         input: MoveToJournalInput,
         by: &ChangedBy,
-    ) -> AppResult<MovedToJournalAnswer> {
+    ) -> Result<MovedToJournalAnswer, AppError> {
         let JournalName::Daily(date) = name.parse::<JournalName>()? else {
             return Err(AppError::bad_request(
                 "Items move to the journal of a day only",
@@ -80,7 +80,7 @@ impl Journal {
             .item_ids
             .iter()
             .map(|s| parse_id(s))
-            .collect::<AppResult<_>>()?;
+            .collect::<Result<_, AppError>>()?;
         let position = ItemPosition::parse(&input.position).map_err(AppError::bad_request)?;
         let moved = self.services.journal_service.move_items_to_journal(
             naive_date(date)?,
@@ -101,7 +101,10 @@ impl Journal {
     }
 
     /// The newest journal of a day before the date (`2026-11-11`).
-    pub fn most_recent_journal_before(&self, date: &str) -> AppResult<MostRecentJournalAnswer> {
+    pub fn most_recent_journal_before(
+        &self,
+        date: &str,
+    ) -> Result<MostRecentJournalAnswer, AppError> {
         let before = NaiveDate::parse_from_str(date, "%Y-%m-%d")
             .map_err(|e| AppError::bad_request(format!("Invalid date '{date}': {e}")))?;
         self.most_recent_answer(
@@ -115,7 +118,7 @@ impl Journal {
     pub fn most_recent_weekly_journal_before(
         &self,
         week: &str,
-    ) -> AppResult<MostRecentJournalAnswer> {
+    ) -> Result<MostRecentJournalAnswer, AppError> {
         self.most_recent_answer(
             self.services
                 .journal_service
@@ -126,7 +129,7 @@ impl Journal {
     fn most_recent_answer(
         &self,
         result: MostRecentJournalResult,
-    ) -> AppResult<MostRecentJournalAnswer> {
+    ) -> Result<MostRecentJournalAnswer, AppError> {
         match result.page {
             None => Ok(MostRecentJournalAnswer {
                 found: false,

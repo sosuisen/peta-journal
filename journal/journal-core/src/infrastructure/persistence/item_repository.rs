@@ -7,7 +7,7 @@ use hmtid::Hmtid;
 use rusqlite::{params, Connection, OptionalExtension, Row};
 
 use crate::domain::model::{Item, ItemPatch, ItemPlacement};
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 
 use super::db::{placeholders, Db};
 use super::page_repository::parse;
@@ -104,15 +104,19 @@ impl ItemRepository {
     }
 
     /// Runs a query whose result rows are items in the shape of `SELECT_ITEMS`.
-    fn query_items(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> AppResult<Vec<Item>> {
+    fn query_items(
+        &self,
+        sql: &str,
+        params: &[&dyn rusqlite::ToSql],
+    ) -> Result<Vec<Item>, AppError> {
         query_items_in(&*self.db.conn()?, sql, params)
     }
 
-    pub fn find_by_id(&self, id: &Hmtid) -> AppResult<Option<Item>> {
+    pub fn find_by_id(&self, id: &Hmtid) -> Result<Option<Item>, AppError> {
         Self::find_by_id_in(&*self.db.conn()?, id)
     }
 
-    pub fn find_by_id_in(conn: &Connection, id: &Hmtid) -> AppResult<Option<Item>> {
+    pub fn find_by_id_in(conn: &Connection, id: &Hmtid) -> Result<Option<Item>, AppError> {
         Ok(query_items_in(
             conn,
             &format!("{SELECT_ITEMS}WHERE b.id = ?"),
@@ -122,11 +126,11 @@ impl ItemRepository {
         .next())
     }
 
-    pub fn find_by_page_id(&self, page_id: &Hmtid) -> AppResult<Vec<Item>> {
+    pub fn find_by_page_id(&self, page_id: &Hmtid) -> Result<Vec<Item>, AppError> {
         Self::find_by_page_id_in(&*self.db.conn()?, page_id)
     }
 
-    pub fn find_by_page_id_in(conn: &Connection, page_id: &Hmtid) -> AppResult<Vec<Item>> {
+    pub fn find_by_page_id_in(conn: &Connection, page_id: &Hmtid) -> Result<Vec<Item>, AppError> {
         query_items_in(
             conn,
             &format!("{SELECT_ITEMS}WHERE b.page_id = ? ORDER BY b.idx"),
@@ -137,7 +141,7 @@ impl ItemRepository {
     /// The items whose body may hold a wikilink to the path: `[[path]]`, `[[path#id]]` or
     /// `[[path|label]]`. LIKE ignores the case of ASCII letters, as page paths are matched.
     /// The caller checks the parsed links, since `[[path/more]]` matches too.
-    pub fn find_by_body_containing_link_to(&self, path: &str) -> AppResult<Vec<Item>> {
+    pub fn find_by_body_containing_link_to(&self, path: &str) -> Result<Vec<Item>, AppError> {
         let escaped = path
             .replace('\\', "\\\\")
             .replace('%', "\\%")
@@ -150,7 +154,7 @@ impl ItemRepository {
     }
 
     /// The items whose body has the path of a file in `assets/`. The caller checks the links.
-    pub fn find_by_body_containing_asset_path(&self) -> AppResult<Vec<Item>> {
+    pub fn find_by_body_containing_asset_path(&self) -> Result<Vec<Item>, AppError> {
         self.query_items(
             &format!("{SELECT_ITEMS}WHERE b.body LIKE '%../assets/%'"),
             &[],
@@ -164,7 +168,7 @@ impl ItemRepository {
         &self,
         types: &[String],
         without_property: Option<&str>,
-    ) -> AppResult<Vec<Item>> {
+    ) -> Result<Vec<Item>, AppError> {
         if types.is_empty() {
             return Ok(Vec::new());
         }
@@ -184,11 +188,14 @@ impl ItemRepository {
     }
 
     /// All items that transclude the given source item.
-    pub fn find_transcluders(&self, source_item_id: &Hmtid) -> AppResult<Vec<Item>> {
+    pub fn find_transcluders(&self, source_item_id: &Hmtid) -> Result<Vec<Item>, AppError> {
         Self::find_transcluders_in(&*self.db.conn()?, source_item_id)
     }
 
-    pub fn find_transcluders_in(conn: &Connection, source_item_id: &Hmtid) -> AppResult<Vec<Item>> {
+    pub fn find_transcluders_in(
+        conn: &Connection,
+        source_item_id: &Hmtid,
+    ) -> Result<Vec<Item>, AppError> {
         query_items_in(
             conn,
             &format!("{SELECT_ITEMS}WHERE b.transclude_item_id = ?"),
@@ -197,19 +204,19 @@ impl ItemRepository {
     }
 
     /// An item and all its descendants, using a recursive query on parent_id.
-    pub fn find_item_with_descendants(&self, item_id: &Hmtid) -> AppResult<Vec<Item>> {
+    pub fn find_item_with_descendants(&self, item_id: &Hmtid) -> Result<Vec<Item>, AppError> {
         Self::find_item_with_descendants_in(&*self.db.conn()?, item_id)
     }
 
     pub fn find_item_with_descendants_in(
         conn: &Connection,
         item_id: &Hmtid,
-    ) -> AppResult<Vec<Item>> {
+    ) -> Result<Vec<Item>, AppError> {
         query_items_in(conn, SELECT_ITEM_WITH_DESCENDANTS, &[&item_id.as_str()])
     }
 
     /// Inserts or updates an item on the given connection, as part of a larger transaction.
-    pub fn save_in(tx: &Connection, item: &Item) -> AppResult<()> {
+    pub fn save_in(tx: &Connection, item: &Item) -> Result<(), AppError> {
         let parent = item.parent_item_id.as_ref().map(|p| p.to_string());
         let transclude = item.transclude_item_id.as_ref().map(|p| p.to_string());
         tx.execute(
@@ -247,7 +254,7 @@ impl ItemRepository {
 
     /// Writes only the fields set in the patch, on the given connection, as part of a larger
     /// transaction. Returns whether the item exists.
-    pub fn patch_in(tx: &Connection, id: &Hmtid, patch: &ItemPatch) -> AppResult<bool> {
+    pub fn patch_in(tx: &Connection, id: &Hmtid, patch: &ItemPatch) -> Result<bool, AppError> {
         let found = patch_columns(tx, id, patch)?;
         if found {
             patch_types(tx, id, patch)?;
@@ -258,7 +265,7 @@ impl ItemRepository {
     /// Writes the body of the item, when it says the same as the one before, as when a file
     /// it links to got a new name. Why not `patch_in`: the item was not edited, so its modified date stays, and
     /// so do its types.
-    pub fn rewrite_body_in(tx: &Connection, item: &Item) -> AppResult<()> {
+    pub fn rewrite_body_in(tx: &Connection, item: &Item) -> Result<(), AppError> {
         tx.execute(
             "UPDATE items SET body = ? WHERE id = ?",
             params![item.body, item.id.as_str()],
@@ -273,7 +280,7 @@ impl ItemRepository {
         ids: &[Hmtid],
         delta: i32,
         modified_date: i64,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         let mut stmt = tx.prepare(
             "UPDATE items SET level = MAX(1, level + ?), modified_date = ? WHERE id = ?",
         )?;
@@ -291,7 +298,7 @@ impl ItemRepository {
         placements: &[ItemPlacement],
         level_delta: i32,
         modified_date: i64,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         // (page_id, idx) is unique and checked per statement. A moving item may take the index
         // that another moving item still holds, so all of them leave their index first.
         {
@@ -335,7 +342,7 @@ impl ItemRepository {
         tx: &Connection,
         page_id: &Hmtid,
         rows: &[(Hmtid, String, i32)],
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         // (page_id, idx) is unique and checked per statement, as in `move_items`
         {
             let mut stmt = tx.prepare("UPDATE items SET idx = ? WHERE id = ?")?;
@@ -355,7 +362,7 @@ impl ItemRepository {
     }
 
     /// Deletes an item on the given connection, as part of a larger transaction.
-    pub fn delete_in(tx: &Connection, id: &Hmtid) -> AppResult<()> {
+    pub fn delete_in(tx: &Connection, id: &Hmtid) -> Result<(), AppError> {
         // Foreign keys are not enforced on these connections, so the types are removed by hand
         delete_types(tx, id.as_str())?;
         tx.execute("DELETE FROM items WHERE id = ?", [id.as_str()])?;
@@ -363,7 +370,7 @@ impl ItemRepository {
     }
 
     /// Deletes every item of a page on the given connection, as part of a larger transaction.
-    pub fn delete_by_page_id_in(tx: &Connection, page_id: &Hmtid) -> AppResult<()> {
+    pub fn delete_by_page_id_in(tx: &Connection, page_id: &Hmtid) -> Result<(), AppError> {
         tx.execute(
             "DELETE FROM item_types WHERE item_id IN (SELECT id FROM items WHERE page_id = ?)",
             [page_id.as_str()],
@@ -374,7 +381,7 @@ impl ItemRepository {
 
     /// Gives an item a new index on the given connection, as part of a larger transaction.
     /// Remembers that the user deleted the item here, for the files that still hold it.
-    pub fn record_deleted_in(conn: &Connection, id: &Hmtid, date: i64) -> AppResult<()> {
+    pub fn record_deleted_in(conn: &Connection, id: &Hmtid, date: i64) -> Result<(), AppError> {
         conn.execute(
             "INSERT OR REPLACE INTO deleted_items (id, deleted_date) VALUES (?, ?)",
             params![id.as_str(), date],
@@ -383,13 +390,13 @@ impl ItemRepository {
     }
 
     /// Forgets that the user deleted the item here, as the item is made again.
-    pub fn forget_deleted_in(conn: &Connection, id: &Hmtid) -> AppResult<()> {
+    pub fn forget_deleted_in(conn: &Connection, id: &Hmtid) -> Result<(), AppError> {
         conn.execute("DELETE FROM deleted_items WHERE id = ?", [id.as_str()])?;
         Ok(())
     }
 
     /// When the user deleted the item here, if so.
-    pub fn deleted_date_in(conn: &Connection, id: &Hmtid) -> AppResult<Option<i64>> {
+    pub fn deleted_date_in(conn: &Connection, id: &Hmtid) -> Result<Option<i64>, AppError> {
         let date = conn
             .query_row(
                 "SELECT deleted_date FROM deleted_items WHERE id = ?",
@@ -401,7 +408,11 @@ impl ItemRepository {
     }
 
     /// Gives an item a new modified date, for a change kept outside the item row.
-    pub fn touch_in(conn: &Connection, item_id: &Hmtid, modified_date: i64) -> AppResult<()> {
+    pub fn touch_in(
+        conn: &Connection,
+        item_id: &Hmtid,
+        modified_date: i64,
+    ) -> Result<(), AppError> {
         conn.execute(
             "UPDATE items SET modified_date = ? WHERE id = ?",
             params![modified_date, item_id.as_str()],
@@ -409,7 +420,11 @@ impl ItemRepository {
         Ok(())
     }
 
-    pub fn update_index_in(conn: &Connection, item_id: &Hmtid, new_idx: &str) -> AppResult<()> {
+    pub fn update_index_in(
+        conn: &Connection,
+        item_id: &Hmtid,
+        new_idx: &str,
+    ) -> Result<(), AppError> {
         conn.execute(
             "UPDATE items SET idx = ? WHERE id = ?",
             params![new_idx, item_id.as_str()],
@@ -419,7 +434,7 @@ impl ItemRepository {
 
     /// Recalculates the parents of a page's items on the given connection, as part of a
     /// larger transaction.
-    pub fn recalculate_parent_ids_in(tx: &Connection, page_id: &Hmtid) -> AppResult<()> {
+    pub fn recalculate_parent_ids_in(tx: &Connection, page_id: &Hmtid) -> Result<(), AppError> {
         let items: Vec<(String, i32)> = {
             let mut stmt =
                 tx.prepare("SELECT id, level FROM items WHERE page_id = ? ORDER BY idx")?;
@@ -452,7 +467,7 @@ fn query_items_in(
     conn: &Connection,
     sql: &str,
     params: &[&dyn rusqlite::ToSql],
-) -> AppResult<Vec<Item>> {
+) -> Result<Vec<Item>, AppError> {
     let mut stmt = conn.prepare(sql)?;
     let mut rows = stmt.query(params)?;
     let mut items = Vec::new();

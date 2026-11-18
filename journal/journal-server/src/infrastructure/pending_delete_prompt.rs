@@ -3,8 +3,8 @@
 
 use std::sync::atomic::{AtomicI64, Ordering};
 
+use super::now_millis;
 use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
-use journal_core::infrastructure::persistence::db::now_millis;
 
 use crate::infrastructure::launcher;
 

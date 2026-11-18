@@ -19,6 +19,7 @@ use journal_core::application::journal_service::JournalService;
 use journal_core::application::markdown_parser::MarkdownParser;
 use journal_core::application::page_service::PageService;
 use journal_core::assembly::{CoreHost, CoreSettings, JournalCore};
+use journal_core::clock::SystemClock;
 use journal_core::domain::id_generator::IdGenerator;
 use journal_core::domain::search::SearchIndex;
 use journal_core::dto::ItemDtoAssembler;
@@ -100,6 +101,7 @@ impl AppState {
                 events: Arc::new(sse.clone()),
                 missing_files: prompt.clone(),
                 folder_watch: watcher_restart.clone(),
+                clock: Arc::new(SystemClock),
             },
         )?;
         let watcher = Arc::new(MarkdownFolderWatcher::new(
@@ -242,10 +244,10 @@ impl AppState {
 
 /// Runs blocking work (SQLite, the search index, the file system) off the async runtime. The
 /// error of the work comes out as a handler answers with it.
-pub async fn blocking<T, F>(f: F) -> crate::error::HttpResult<T>
+pub async fn blocking<T, F>(f: F) -> Result<T, crate::error::HttpError>
 where
     T: Send + 'static,
-    F: FnOnce() -> crate::error::AppResult<T> + Send + 'static,
+    F: FnOnce() -> Result<T, crate::error::AppError> + Send + 'static,
 {
     match tokio::task::spawn_blocking(f).await {
         Ok(r) => Ok(r?),

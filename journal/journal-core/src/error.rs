@@ -16,8 +16,6 @@ pub enum AppError {
     Internal(#[from] anyhow::Error),
 }
 
-pub type AppResult<T> = Result<T, AppError>;
-
 impl AppError {
     /// The HTTP status of the error. An app that embeds the core has no HTTP, and still
     /// answers its frontend with this number: the frontend reads the answers of the REST API.
@@ -90,6 +88,6 @@ impl From<crate::domain::journal_name::NotAJournalName> for AppError {
 }
 
 /// Parses an HMTID from request input; a bad ID is a 400.
-pub fn parse_id(s: &str) -> AppResult<hmtid::Hmtid> {
+pub fn parse_id(s: &str) -> Result<hmtid::Hmtid, AppError> {
     hmtid::Hmtid::parse(s).map_err(|e| AppError::BadRequest(format!("Invalid HMTID '{s}': {e}")))
 }

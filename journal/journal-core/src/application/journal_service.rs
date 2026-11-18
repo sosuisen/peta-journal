@@ -11,9 +11,8 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::journal_name::JournalName;
 use crate::domain::model::{Item, ItemPosition, Page};
 use crate::domain::search::SearchIndex;
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 use crate::infrastructure::export::export_service::MarkdownExportService;
-use crate::infrastructure::persistence::db::now_millis;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository};
 use hmtid::Hmtid;
 
@@ -85,14 +84,14 @@ impl JournalService {
     }
 
     /// Gets an existing daily journal page for the given date, or creates one with a single empty item.
-    pub fn get_or_create_journal(&self, date: NaiveDate) -> AppResult<JournalResult> {
+    pub fn get_or_create_journal(&self, date: NaiveDate) -> Result<JournalResult, AppError> {
         let file_name = date.format("%Y-%m-%d").to_string();
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         if let Some(page) = Self::find_journal_in(&tx, &file_name)? {
             return self.existing_journal(page);
         }
-        let page = Self::create_journal_page_in(&tx, self.ids.generate_page_id(), &file_name)?;
+        let page = self.create_journal_page_in(&tx, self.ids.generate_page_id(), &file_name)?;
         let item = Item::new_on(self.ids.generate_item_id(), &page, page.created_date);
         ItemRepository::save_in(&tx, &item)?;
         tx.commit()?;
@@ -116,7 +115,7 @@ impl JournalService {
         item_ids: &[Hmtid],
         position: &ItemPosition,
         body: Option<&str>,
-    ) -> AppResult<MovedToJournal> {
+    ) -> Result<MovedToJournal, AppError> {
         let file_name = date.format("%Y-%m-%d").to_string();
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
@@ -127,7 +126,7 @@ impl JournalService {
                 (page, false)
             }
             None => (
-                Self::create_journal_page_in(&tx, self.ids.generate_page_id(), &file_name)?,
+                self.create_journal_page_in(&tx, self.ids.generate_page_id(), &file_name)?,
                 true,
             ),
         };
@@ -167,7 +166,7 @@ impl JournalService {
         tx: &Connection,
         page_id: &Hmtid,
         effects: &mut AfterCommit,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         let items = ItemRepository::find_by_page_id_in(tx, page_id)?;
         if let [only] = items.as_slice() {
             if only.body.is_empty() {
@@ -179,7 +178,7 @@ impl JournalService {
     }
 
     /// The pages the items are on.
-    fn pages_of_in(tx: &Connection, item_ids: &[Hmtid]) -> AppResult<BTreeSet<Hmtid>> {
+    fn pages_of_in(tx: &Connection, item_ids: &[Hmtid]) -> Result<BTreeSet<Hmtid>, AppError> {
         let mut pages = BTreeSet::new();
         for id in item_ids {
             let item = ItemRepository::find_by_id_in(tx, id)?
@@ -191,7 +190,10 @@ impl JournalService {
 
     /// Gets or creates a journal page by name. A new weekly, monthly or yearly journal is
     /// filled with one wiki link per day, week or month it covers.
-    pub fn get_or_create_journal_by_name(&self, name: JournalName) -> AppResult<JournalResult> {
+    pub fn get_or_create_journal_by_name(
+        &self,
+        name: JournalName,
+    ) -> Result<JournalResult, AppError> {
         match name {
             JournalName::Daily(date) => self.get_or_create_journal(naive_date(date)?),
             JournalName::Weekly { year, week } => {
@@ -211,13 +213,13 @@ impl JournalService {
         &self,
         file_name: &str,
         link_targets: Vec<String>,
-    ) -> AppResult<JournalResult> {
+    ) -> Result<JournalResult, AppError> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         if let Some(page) = Self::find_journal_in(&tx, file_name)? {
             return self.existing_journal(page);
         }
-        let page = Self::create_journal_page_in(&tx, self.ids.generate_page_id(), file_name)?;
+        let page = self.create_journal_page_in(&tx, self.ids.generate_page_id(), file_name)?;
         let mut effects = AfterCommit::default();
         let mut items = Vec::new();
         let mut position = ItemPosition::First;
@@ -245,7 +247,7 @@ impl JournalService {
         })
     }
 
-    fn existing_journal(&self, page: Page) -> AppResult<JournalResult> {
+    fn existing_journal(&self, page: Page) -> Result<JournalResult, AppError> {
         let items = self.items.find_by_page_id(&page.id)?;
         Ok(JournalResult {
             page,
@@ -254,16 +256,27 @@ impl JournalService {
         })
     }
 
-    fn find_journal_in(tx: &Connection, file_name: &str) -> AppResult<Option<Page>> {
+    fn find_journal_in(tx: &Connection, file_name: &str) -> Result<Option<Page>, AppError> {
         PageRepository::find_by_type_dir_path_file_name_in(tx, JOURNAL_TYPE, "", file_name)
     }
 
     /// Saves a new journal page without items, in the transaction. The caller indexes it
     /// once the transaction is committed.
-    fn create_journal_page_in(tx: &Connection, id: Hmtid, file_name: &str) -> AppResult<Page> {
+    fn create_journal_page_in(
+        &self,
+        tx: &Connection,
+        id: Hmtid,
+        file_name: &str,
+    ) -> Result<Page, AppError> {
         PageRepository::save_in(
             tx,
-            &Page::new(id, "", file_name, JOURNAL_TYPE, now_millis()),
+            &Page::new(
+                id,
+                "",
+                file_name,
+                JOURNAL_TYPE,
+                self.items.db().now_millis(),
+            ),
         )
     }
 
@@ -294,21 +307,21 @@ impl JournalService {
     pub fn get_most_recent_journal_before(
         &self,
         before: NaiveDate,
-    ) -> AppResult<MostRecentJournalResult> {
+    ) -> Result<MostRecentJournalResult, AppError> {
         self.to_most_recent(self.pages.find_most_recent_journal_before(before)?)
     }
 
     pub fn get_most_recent_weekly_journal_before(
         &self,
         before_week: &str,
-    ) -> AppResult<MostRecentJournalResult> {
+    ) -> Result<MostRecentJournalResult, AppError> {
         self.to_most_recent(
             self.pages
                 .find_most_recent_weekly_journal_before(before_week)?,
         )
     }
 
-    fn to_most_recent(&self, page: Option<Page>) -> AppResult<MostRecentJournalResult> {
+    fn to_most_recent(&self, page: Option<Page>) -> Result<MostRecentJournalResult, AppError> {
         match page {
             Some(p) => {
                 let items = self.items.find_by_page_id(&p.id)?;
@@ -326,7 +339,7 @@ impl JournalService {
 }
 
 /// The day as chrono has it.
-pub(crate) fn naive_date(date: Date) -> AppResult<NaiveDate> {
+pub(crate) fn naive_date(date: Date) -> Result<NaiveDate, AppError> {
     NaiveDate::from_ymd_opt(date.year, date.month, date.day)
         .ok_or_else(|| AppError::bad_request(format!("Invalid date: {}", date.iso())))
 }

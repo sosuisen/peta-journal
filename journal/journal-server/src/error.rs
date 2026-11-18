@@ -5,15 +5,12 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde_json::json;
 
-pub use journal_core::error::{parse_id, AppError, AppResult};
+pub use journal_core::error::{parse_id, AppError};
 
 /// An error of the journal core, as a handler answers with it. The core knows no HTTP, so the
 /// mapping to a status lives here.
 #[derive(Debug)]
 pub struct HttpError(pub AppError);
-
-/// What a handler returns.
-pub type HttpResult<T> = Result<T, HttpError>;
 
 impl From<AppError> for HttpError {
     fn from(error: AppError) -> Self {

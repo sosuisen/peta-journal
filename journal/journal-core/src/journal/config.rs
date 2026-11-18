@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use serde::Serialize;
 
-use crate::error::AppResult;
+use crate::error::AppError;
 
 use super::{ChangedBy, Journal};
 pub use journal_api_types::{AddPropertyDefinitionInput, UpdateConfigInput};
@@ -82,7 +82,7 @@ impl Journal {
         self.config()
     }
 
-    pub fn property_definitions(&self) -> AppResult<PropertyDefinitionsAnswer> {
+    pub fn property_definitions(&self) -> Result<PropertyDefinitionsAnswer, AppError> {
         let definitions = self.services.properties.find_definitions()?;
         Ok(PropertyDefinitionsAnswer {
             property_definitions: definitions
@@ -105,7 +105,7 @@ impl Journal {
     pub fn add_property_definition(
         &self,
         input: AddPropertyDefinitionInput,
-    ) -> AppResult<PropertyDefinitionsAnswer> {
+    ) -> Result<PropertyDefinitionsAnswer, AppError> {
         let key = input.key.as_deref().unwrap_or("").trim();
         // The name gives the type (ADR 047); a type sent with it is only checked
         let value_type = input
@@ -125,7 +125,7 @@ impl Journal {
         &self,
         key: &str,
         by: &ChangedBy,
-    ) -> AppResult<PropertyDefinitionsAnswer> {
+    ) -> Result<PropertyDefinitionsAnswer, AppError> {
         let page_ids = self.services.page_service.delete_property_definition(key)?;
         self.definitions_changed()?;
         self.tell(&page_ids, by);

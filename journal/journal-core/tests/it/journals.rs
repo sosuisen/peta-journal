@@ -1,6 +1,6 @@
 //! Journals: the pages of days, weeks, months and years, and the items moved to a day.
 
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::MovedToJournalAnswer;
 use serde_json::{json, Value};
 
@@ -29,7 +29,7 @@ impl Core {
         item_ids: &[&str],
         position: &str,
         body: Option<&str>,
-    ) -> AppResult<MovedToJournalAnswer> {
+    ) -> Result<MovedToJournalAnswer, AppError> {
         let mut request = json!({ "itemIds": item_ids, "position": position });
         if let Some(body) = body {
             request["body"] = json!(body);

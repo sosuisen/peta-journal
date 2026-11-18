@@ -7,13 +7,13 @@ use axum::http::HeaderMap;
 
 pub use journal_core::domain::client_id::ClientId;
 
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 
 /// The header that carries the ID.
 pub const HEADER: &str = journal_api_types::CLIENT_ID_HEADER;
 
 /// The ID that the headers of a request name.
-pub fn of(headers: &HeaderMap) -> AppResult<ClientId> {
+pub fn of(headers: &HeaderMap) -> Result<ClientId, AppError> {
     let value = headers.get(HEADER).ok_or_else(|| {
         AppError::bad_request(
             "The X-Client-Id header is required. \

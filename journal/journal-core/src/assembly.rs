@@ -21,6 +21,7 @@ use crate::application::journal_service::JournalService;
 use crate::application::markdown_parser::MarkdownParser;
 use crate::application::page_service::PageService;
 use crate::application::startup;
+use crate::clock::Clock;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::search::SearchIndex;
 use crate::dto::ItemDtoAssembler;
@@ -66,6 +67,8 @@ pub struct CoreHost {
     pub events: Arc<dyn EventSink>,
     pub missing_files: Arc<dyn MissingFilesPrompt>,
     pub folder_watch: Arc<dyn FolderWatch>,
+    /// Dates what the journal writes. An app gives the clock of the system
+    pub clock: Arc<dyn Clock>,
 }
 
 /// The services of the core, wired together.
@@ -101,8 +104,8 @@ impl JournalCore {
     /// and writes no file: `start_up` does that.
     pub fn build(settings: &CoreSettings, host: CoreHost) -> anyhow::Result<JournalCore> {
         let messages = Arc::new(ClientMessages::new(host.events));
-        let ids = Arc::new(IdGenerator::new());
-        let db = Arc::new(Db::open(&settings.db_path)?);
+        let ids = Arc::new(IdGenerator::new(Arc::clone(&host.clock)));
+        let db = Arc::new(Db::open(&settings.db_path, host.clock)?);
         database_initializer::initialize(&db, &ids)?;
 
         let pages = PageRepository::new(Arc::clone(&db));

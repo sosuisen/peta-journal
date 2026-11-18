@@ -1,9 +1,7 @@
 //! The atlas page of a directory: its cards follow the pages of the directory, and the user
 //! adds link cards, groups and callouts to it.
 
-use std::time::Duration;
-
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::ItemsAnswer;
 use serde_json::{json, Value};
 
@@ -32,7 +30,12 @@ impl Core {
     }
 
     /// Gives the page another title or folder, as the client does
-    fn move_page(&self, page_id: &str, title: Option<&str>, dir: Option<&str>) -> AppResult<()> {
+    fn move_page(
+        &self,
+        page_id: &str,
+        title: Option<&str>,
+        dir: Option<&str>,
+    ) -> Result<(), AppError> {
         self.core
             .journal
             .update_page(page_id, title, dir, false, &by_the_client())
@@ -41,7 +44,7 @@ impl Core {
 }
 
 /// The items of an answer of the atlas
-fn rows_of(changed: AppResult<ItemsAnswer>) -> Vec<Value> {
+fn rows_of(changed: Result<ItemsAnswer, AppError>) -> Vec<Value> {
     answer(changed.unwrap())["items"]
         .as_array()
         .unwrap()
@@ -54,7 +57,7 @@ fn card_of<'a>(rows: &'a [Value], page_id: &str) -> &'a Value {
         .unwrap_or_else(|| panic!("no card of {page_id} in {rows:?}"))
 }
 
-fn is_bad_request<T: std::fmt::Debug>(result: &AppResult<T>) -> bool {
+fn is_bad_request<T: std::fmt::Debug>(result: &Result<T, AppError>) -> bool {
     matches!(result, Err(AppError::BadRequest(_)))
 }
 
@@ -286,7 +289,7 @@ fn the_callouts_go_last_under_their_parent() {
 
     // A new text is a change of the item: it is parsed again and dated anew
     let before = notes.item(&id(&callout));
-    std::thread::sleep(Duration::from_millis(5));
+    notes.clock.advance(5);
     let rows = rows_of(journal.set_atlas_callout(
         &atlas_id,
         &id(&callout),

@@ -1,7 +1,7 @@
 //! Moving items: their levels shifted in place, and the items moved on their page or to
 //! another, with the body their editor has now.
 
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::ItemsAnswer;
 use serde_json::{json, Value};
 
@@ -18,11 +18,11 @@ impl Core {
         page_id: &str,
         position: &str,
         body: &str,
-    ) -> AppResult<ItemsAnswer> {
+    ) -> Result<ItemsAnswer, AppError> {
         self.move_with(json!({ "itemIds": item_ids, "targetPageId": page_id, "position": position, "body": body }))
     }
 
-    fn move_with(&self, request: Value) -> AppResult<ItemsAnswer> {
+    fn move_with(&self, request: Value) -> Result<ItemsAnswer, AppError> {
         self.core
             .journal
             .move_items(input(request), &by_the_client())

@@ -166,6 +166,7 @@ impl PetaCore {
                 events: events.clone(),
                 missing_files: Arc::new(Quiet),
                 folder_watch: Arc::new(Quiet),
+                clock: Arc::new(journal_core::clock::SystemClock),
             },
         )
         .map_err(|e| e.to_string())?;

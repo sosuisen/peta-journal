@@ -300,7 +300,7 @@ mod tests {
     fn runtime() -> ExtensionRuntime {
         ExtensionRuntime::new(
             Arc::new(FlatMarkdownSplitter::new(MarkdownParser)),
-            Arc::new(IdGenerator::new()),
+            Arc::new(IdGenerator::default()),
         )
     }
 

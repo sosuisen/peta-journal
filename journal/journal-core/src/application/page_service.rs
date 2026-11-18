@@ -16,10 +16,9 @@ use crate::domain::nfc::to_nfc;
 use crate::domain::property_key::PropertyKey;
 use crate::domain::search::SearchIndex;
 use crate::domain::wikilink;
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 use crate::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use crate::infrastructure::export::export_service::MarkdownExportService;
-use crate::infrastructure::persistence::db::now_millis;
 use crate::infrastructure::persistence::property_repository::{
     list_values, ListProps, ScalarProps,
 };
@@ -67,7 +66,7 @@ pub struct PageService {
 }
 
 /// A title a page may take: not blank, not padded, and a file name on every OS.
-pub fn validate_title(title: &str) -> AppResult<()> {
+pub fn validate_title(title: &str) -> Result<(), AppError> {
     if title.trim().is_empty() {
         return Err(AppError::bad_request(
             "Page title cannot be empty or whitespace-only",
@@ -83,7 +82,7 @@ pub fn validate_title(title: &str) -> AppResult<()> {
 
 /// A file name on every OS. The clients check a name with the same rule (`page-names`)
 /// before they ask.
-pub fn validate_file_name(title: &str) -> AppResult<()> {
+pub fn validate_file_name(title: &str) -> Result<(), AppError> {
     page_names::check_file_name(title).map_err(|e| AppError::bad_request(e.to_string()))
 }
 
@@ -145,24 +144,24 @@ impl PageService {
         }
     }
 
-    pub fn get_page(&self, page_id: &Hmtid) -> AppResult<Option<Page>> {
+    pub fn get_page(&self, page_id: &Hmtid) -> Result<Option<Page>, AppError> {
         self.pages.find_by_id(page_id)
     }
 
     /// The page a change is made to; a missing one is bad input, as the id came from the caller.
-    pub fn require_page(&self, page_id: &Hmtid) -> AppResult<Page> {
+    pub fn require_page(&self, page_id: &Hmtid) -> Result<Page, AppError> {
         self.pages
             .find_by_id(page_id)?
             .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))
     }
 
-    pub fn get_page_items(&self, page_id: &Hmtid) -> AppResult<Vec<Item>> {
+    pub fn get_page_items(&self, page_id: &Hmtid) -> Result<Vec<Item>, AppError> {
         self.items.find_by_page_id(page_id)
     }
 
     /// The document a title names in a folder, when there is one. Nothing is made: an app
     /// that only reads asks this before it opens a page (ADR 030).
-    pub fn find_doc(&self, title: &str, dir_path: &str) -> AppResult<Option<Page>> {
+    pub fn find_doc(&self, title: &str, dir_path: &str) -> Result<Option<Page>, AppError> {
         let conn = self.items.db().conn()?;
         self.find_doc_in(&conn, &to_nfc(dir_path), &to_nfc(title))
     }
@@ -172,7 +171,7 @@ impl PageService {
         &self,
         title: Option<&str>,
         dir_path: Option<&str>,
-    ) -> AppResult<DocResult> {
+    ) -> Result<DocResult, AppError> {
         let title = to_nfc(title.unwrap_or(""));
         let title = title.as_str();
         validate_title(title)?;
@@ -215,9 +214,9 @@ impl PageService {
         dir: &str,
         file_name: &str,
         effects: &mut AfterCommit,
-    ) -> AppResult<DocResult> {
+    ) -> Result<DocResult, AppError> {
         let id = self.ids.generate_page_id();
-        let now = now_millis();
+        let now = self.items.db().now_millis();
         let page = PageRepository::save_in(tx, &Page::new(id.clone(), dir, file_name, "doc", now))?;
         // The items of an atlas page are its cards, which the server writes; an empty first
         // item could take the index a card took already
@@ -238,7 +237,12 @@ impl PageService {
     /// the folder of that name (opening `[[a]]` shows `a/index`), else a page whose path
     /// differs only in case. Such a page has the same file on Windows and macOS: a second
     /// page there would overwrite its file again and again.
-    fn find_doc_in(&self, tx: &Connection, dir: &str, file_name: &str) -> AppResult<Option<Page>> {
+    fn find_doc_in(
+        &self,
+        tx: &Connection,
+        dir: &str,
+        file_name: &str,
+    ) -> Result<Option<Page>, AppError> {
         if let Some(page) =
             PageRepository::find_by_type_dir_path_file_name_in(tx, "doc", dir, file_name)?
         {
@@ -273,7 +277,7 @@ impl PageService {
         title: Option<&str>,
         dir_path: Option<&str>,
         overwrite: bool,
-    ) -> AppResult<Page> {
+    ) -> Result<Page, AppError> {
         self.rename_page(page_id, title, dir_path, overwrite, false)
     }
 
@@ -287,7 +291,7 @@ impl PageService {
         dir_path: Option<&str>,
         overwrite: bool,
         drop_atlas: bool,
-    ) -> AppResult<Page> {
+    ) -> Result<Page, AppError> {
         let existing = self.require_page(page_id)?;
 
         let mut file_name = existing.name.clone();
@@ -365,7 +369,7 @@ impl PageService {
         let updated = Page {
             dir_path: new_dir_path.clone(),
             name: file_name,
-            modified_date: now_millis(),
+            modified_date: self.items.db().now_millis(),
             ..existing.clone()
         };
         let updated = PageRepository::save_in(&tx, &updated)?;
@@ -393,7 +397,7 @@ impl PageService {
     }
 
     /// The scalar and list properties of one page.
-    pub fn page_properties(&self, page_id: &Hmtid) -> AppResult<(ScalarProps, ListProps)> {
+    pub fn page_properties(&self, page_id: &Hmtid) -> Result<(ScalarProps, ListProps), AppError> {
         let id = page_id.to_string();
         let scalars = self
             .properties
@@ -415,7 +419,7 @@ impl PageService {
         key: &str,
         _value_type: &str,
         value: &str,
-    ) -> AppResult<Page> {
+    ) -> Result<Page, AppError> {
         let page = self.require_page(page_id)?;
         if key == "created" || key == "modified" {
             let millis = chrono::DateTime::parse_from_rfc3339(value.trim())
@@ -438,7 +442,7 @@ impl PageService {
                     modified_date: if key == "modified" {
                         millis
                     } else {
-                        now_millis()
+                        self.items.db().now_millis()
                     },
                     ..page.clone()
                 },
@@ -484,12 +488,16 @@ impl PageService {
     /// Sets the tags of a page as an imported file has them, and returns the tags it had.
     /// The tag pages are left to the caller, which knows when the import is complete.
     /// The tags of the page.
-    pub fn page_tags(&self, page_id: &Hmtid) -> AppResult<Vec<String>> {
+    pub fn page_tags(&self, page_id: &Hmtid) -> Result<Vec<String>, AppError> {
         let conn = self.items.db().conn()?;
         PropertyRepository::find_tags_in(&conn, PAGE_TARGET, page_id.as_str())
     }
 
-    pub fn replace_page_tags(&self, page_id: &Hmtid, tags: &[String]) -> AppResult<Vec<String>> {
+    pub fn replace_page_tags(
+        &self,
+        page_id: &Hmtid,
+        tags: &[String],
+    ) -> Result<Vec<String>, AppError> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let before = PropertyRepository::find_tags_in(&tx, PAGE_TARGET, page_id.as_str())?;
@@ -507,7 +515,7 @@ impl PageService {
         &self,
         page_id: &Hmtid,
         front_matter: &BTreeMap<String, String>,
-    ) -> AppResult<bool> {
+    ) -> Result<bool, AppError> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let id = page_id.to_string();
@@ -597,7 +605,7 @@ impl PageService {
 
     /// Creates the missing tag pages of every tag in use, for tags that were added before
     /// tag pages were made. Returns how many pages were created.
-    pub fn ensure_all_tag_pages(&self) -> AppResult<usize> {
+    pub fn ensure_all_tag_pages(&self) -> Result<usize, AppError> {
         Ok(self.ensure_tag_pages(&self.properties.find_all_tag_values()?))
     }
 
@@ -615,7 +623,7 @@ impl PageService {
     }
 
     /// Tags that differ only in case share their tag page, as they share its file.
-    fn delete_tag_page_if_unused(&self, tag: &str, dir: &str, name: &str) -> AppResult<()> {
+    fn delete_tag_page_if_unused(&self, tag: &str, dir: &str, name: &str) -> Result<(), AppError> {
         if self.properties.count_tag_uses_ignoring_case(tag)? > 0 {
             return Ok(());
         }
@@ -631,7 +639,7 @@ impl PageService {
     }
 
     /// A page with one empty item, as a new page has.
-    fn is_empty_page(&self, page: &Page) -> AppResult<bool> {
+    fn is_empty_page(&self, page: &Page) -> Result<bool, AppError> {
         let items = self.items.find_by_page_id(&page.id)?;
         Ok(
             matches!(items.as_slice(), [only] if only.body.trim().is_empty() && only.transclude_item_id.is_none()),
@@ -642,7 +650,7 @@ impl PageService {
     /// `NextJS` beside `Nextjs`. Such pages were made before tag pages were matched ignoring
     /// case, and they overwrite the file of the older page. Only empty ones go; the older page
     /// is written again at once, since its file was the one deleted. Returns how many went.
-    pub fn delete_case_duplicate_tag_pages(&self) -> AppResult<usize> {
+    pub fn delete_case_duplicate_tag_pages(&self) -> Result<usize, AppError> {
         let tags_dir = self.config.tags_dir();
         let mut deleted = 0;
         let mut done: Vec<String> = Vec::new();
@@ -687,7 +695,7 @@ impl PageService {
 
     /// Removes a property of a page. The page file is rewritten. The page's own dates stay.
     /// Removing the tags deletes the tag pages that became unused, as `set_property` does.
-    pub fn delete_property(&self, page_id: &Hmtid, key: &str) -> AppResult<Page> {
+    pub fn delete_property(&self, page_id: &Hmtid, key: &str) -> Result<Page, AppError> {
         if key == "created" || key == "modified" {
             return Err(AppError::bad_request(format!(
                 "Property '{key}' cannot be removed from a page"
@@ -710,13 +718,13 @@ impl PageService {
     /// Removes a user property key everywhere. Every page that lost a value, on itself or
     /// on one of its items, gets a new modified date and its file rewritten; their ids come
     /// back so the caller can tell the clients.
-    pub fn delete_property_definition(&self, key: &str) -> AppResult<Vec<Hmtid>> {
+    pub fn delete_property_definition(&self, key: &str) -> Result<Vec<Hmtid>, AppError> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         let mut touched = Vec::new();
-        let now = now_millis();
-        for id in PropertyRepository::delete_definition_in(&tx, key)? {
+        let now = self.items.db().now_millis();
+        for id in PropertyRepository::delete_definition_in(&tx, key, now)? {
             let Ok(page_id) = Hmtid::parse(&id) else {
                 continue;
             };
@@ -738,11 +746,11 @@ impl PageService {
         tx: Transaction<'_>,
         page: &Page,
         mut effects: AfterCommit,
-    ) -> AppResult<Page> {
+    ) -> Result<Page, AppError> {
         let updated = PageRepository::save_in(
             &tx,
             &Page {
-                modified_date: now_millis(),
+                modified_date: self.items.db().now_millis(),
                 ..page.clone()
             },
         )?;
@@ -788,7 +796,7 @@ impl PageService {
 
     /// Deletes a page with all its items and their properties. The tags of the page and of
     /// its items go with them, so their tag pages are deleted when nothing else uses them.
-    pub fn delete_page(&self, page_id: &Hmtid) -> AppResult<()> {
+    pub fn delete_page(&self, page_id: &Hmtid) -> Result<(), AppError> {
         let page = self.require_page(page_id)?;
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
@@ -806,7 +814,7 @@ impl PageService {
         tx: &Connection,
         page: &Page,
         effects: &mut AfterCommit,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         let page_id = &page.id;
         if page.name == "index" && page.dir_path.is_empty() {
             return Err(AppError::bad_request("Cannot delete the root index page."));
@@ -851,7 +859,7 @@ impl PageService {
         &self,
         max_results: i64,
         page_type: Option<&str>,
-    ) -> AppResult<Vec<Page>> {
+    ) -> Result<Vec<Page>, AppError> {
         self.pages.find_recent(max_results, page_type)
     }
 
@@ -860,7 +868,7 @@ impl PageService {
     /// hashtag of that tag or by a wikilink to the page. Paths and tags are matched ignoring
     /// case, as pages are found. The page's own items are left out. Pages come newest first,
     /// each with its tag entry before its items, and the items in page order.
-    pub fn get_backlinks(&self, page_id: &Hmtid) -> AppResult<Vec<BacklinkEntry>> {
+    pub fn get_backlinks(&self, page_id: &Hmtid) -> Result<Vec<BacklinkEntry>, AppError> {
         let Some(target) = self.pages.find_by_id(page_id)? else {
             return Ok(Vec::new());
         };
@@ -957,7 +965,7 @@ impl PageService {
 
     /// Ensures the ancestor directory pages of a file being taken in. Their files are not
     /// written: the device that sent the file may send its index files too.
-    pub fn ensure_ancestor_pages_from_file(&self, dir_path: &str) -> AppResult<()> {
+    pub fn ensure_ancestor_pages_from_file(&self, dir_path: &str) -> Result<(), AppError> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
@@ -976,7 +984,7 @@ impl PageService {
         dir_path: &str,
         export: bool,
         effects: &mut AfterCommit,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         if dir_path.is_empty() {
             return Ok(());
         }
@@ -1004,7 +1012,7 @@ impl PageService {
                     &Page {
                         dir_path: index_dir.clone(),
                         name: "index".to_string(),
-                        modified_date: now_millis(),
+                        modified_date: self.items.db().now_millis(),
                         ..page
                     },
                 )?;
@@ -1013,7 +1021,7 @@ impl PageService {
                 }
                 effects.indexed.push((renamed, Vec::new()));
             } else {
-                let now = now_millis();
+                let now = self.items.db().now_millis();
                 let page = Page::new(self.ids.generate_page_id(), &index_dir, "index", "doc", now);
                 let page = PageRepository::save_in(tx, &page)?;
                 ItemRepository::save_in(
@@ -1039,7 +1047,7 @@ impl PageService {
         old_prefix: &str,
         new_prefix: &str,
         effects: &mut AfterCommit,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         for child in PageRepository::find_by_parent_id_in(tx, parent_page_id)? {
             let suffix = child.dir_path.get(old_prefix.len()..).unwrap_or("");
             let child_new_dir = format!("{new_prefix}{suffix}");

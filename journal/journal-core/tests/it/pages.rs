@@ -1,10 +1,8 @@
 //! Pages: making and finding them, renaming and moving them, the index pages of folders,
 //! and the pages that link to them.
 
-use std::time::Duration;
-
 use journal_core::dto::ItemFields;
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::PageAnswer;
 use serde_json::{json, Value};
 
@@ -48,14 +46,14 @@ impl Core {
         title: Option<&str>,
         dir_path: Option<&str>,
         overwrite: bool,
-    ) -> AppResult<PageAnswer> {
+    ) -> Result<PageAnswer, AppError> {
         self.core
             .journal
             .update_page(page_id, title, dir_path, overwrite, &by_the_client())
     }
 
     /// Demotes an index page the way the app does
-    fn demote(&self, page_id: &str, overwrite: bool) -> AppResult<PageAnswer> {
+    fn demote(&self, page_id: &str, overwrite: bool) -> Result<PageAnswer, AppError> {
         self.core
             .journal
             .demote_page(page_id, overwrite, &by_the_client())
@@ -72,7 +70,7 @@ impl Core {
 }
 
 /// The page of an answer
-fn page_of(changed: AppResult<PageAnswer>) -> Value {
+fn page_of(changed: Result<PageAnswer, AppError>) -> Value {
     answer(changed.unwrap())["page"].clone()
 }
 
@@ -382,7 +380,7 @@ fn renaming_to_the_name_of_another_page_is_refused_unless_it_is_overwritten() {
 fn the_most_recently_touched_page_comes_first_in_recent_pages() {
     let notes = Core::new();
     let older = notes.new_doc_page("pages-recent-older");
-    std::thread::sleep(Duration::from_millis(5));
+    notes.clock.advance(5);
     let newer = notes.new_doc_page("pages-recent-newer");
 
     let recent = answer(

@@ -11,9 +11,9 @@ use crate::domain::number_text::format_number;
 use crate::domain::property_definitions::{Definition, Definitions};
 pub use crate::domain::property_key::validate_key;
 use crate::domain::property_key::PropertyKey;
-use crate::error::{AppError, AppResult};
+use crate::error::AppError;
 
-use super::db::{now_millis, placeholders, Db};
+use super::db::{placeholders, Db};
 
 /// Scalar properties per target: target id -> (key -> value as text).
 pub type ScalarProps = BTreeMap<String, BTreeMap<String, String>>;
@@ -46,7 +46,7 @@ impl PropertyRepository {
         &self,
         target_type: &str,
         target_ids: &[String],
-    ) -> AppResult<ScalarProps> {
+    ) -> Result<ScalarProps, AppError> {
         Self::find_scalar_by_targets_in(&*self.db.conn()?, target_type, target_ids)
     }
 
@@ -55,7 +55,7 @@ impl PropertyRepository {
         conn: &Connection,
         target_type: &str,
         target_ids: &[String],
-    ) -> AppResult<ScalarProps> {
+    ) -> Result<ScalarProps, AppError> {
         let mut result = ScalarProps::new();
         if target_ids.is_empty() {
             return Ok(result);
@@ -85,7 +85,7 @@ impl PropertyRepository {
         &self,
         target_type: &str,
         target_ids: &[String],
-    ) -> AppResult<ListProps> {
+    ) -> Result<ListProps, AppError> {
         Self::find_list_by_targets_in(&*self.db.conn()?, target_type, target_ids)
     }
 
@@ -94,7 +94,7 @@ impl PropertyRepository {
         conn: &Connection,
         target_type: &str,
         target_ids: &[String],
-    ) -> AppResult<ListProps> {
+    ) -> Result<ListProps, AppError> {
         let mut result = ListProps::new();
         if target_ids.is_empty() {
             return Ok(result);
@@ -125,12 +125,14 @@ impl PropertyRepository {
     }
 
     /// All property definitions, ordered by key: key -> value type.
-    pub fn find_all_definitions(&self) -> AppResult<BTreeMap<String, String>> {
+    pub fn find_all_definitions(&self) -> Result<BTreeMap<String, String>, AppError> {
         Self::find_all_definitions_in(&*self.db.conn()?)
     }
 
     /// All property definitions, on the given connection: key -> value type.
-    pub fn find_all_definitions_in(conn: &Connection) -> AppResult<BTreeMap<String, String>> {
+    pub fn find_all_definitions_in(
+        conn: &Connection,
+    ) -> Result<BTreeMap<String, String>, AppError> {
         Ok(Self::find_definitions_in(conn)?
             .into_iter()
             .map(|d| (d.key, d.value_type))
@@ -138,12 +140,12 @@ impl PropertyRepository {
     }
 
     /// All property definitions with their flags, ordered by key.
-    pub fn find_definitions(&self) -> AppResult<Vec<PropertyDefinition>> {
+    pub fn find_definitions(&self) -> Result<Vec<PropertyDefinition>, AppError> {
         Self::find_definitions_in(&*self.db.conn()?)
     }
 
     /// All property definitions with their flags, on the given connection.
-    pub fn find_definitions_in(conn: &Connection) -> AppResult<Vec<PropertyDefinition>> {
+    pub fn find_definitions_in(conn: &Connection) -> Result<Vec<PropertyDefinition>, AppError> {
         let mut stmt = conn.prepare(
             "SELECT key, value_type, is_system, for_page FROM property_definitions ORDER BY key",
         )?;
@@ -158,7 +160,7 @@ impl PropertyRepository {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
-    pub fn find_definition(&self, key: &str) -> AppResult<Option<PropertyDefinition>> {
+    pub fn find_definition(&self, key: &str) -> Result<Option<PropertyDefinition>, AppError> {
         Self::find_definition_in(&*self.db.conn()?, key)
     }
 
@@ -166,7 +168,7 @@ impl PropertyRepository {
     pub fn find_definition_in(
         conn: &Connection,
         key: &str,
-    ) -> AppResult<Option<PropertyDefinition>> {
+    ) -> Result<Option<PropertyDefinition>, AppError> {
         Ok(Self::find_definitions_in(conn)?
             .into_iter()
             .find(|d| d.key == key))
@@ -174,7 +176,12 @@ impl PropertyRepository {
 
     /// Defines a user key. A system key, an existing key and a type other than the one the
     /// name gives are refused (ADR 047).
-    pub fn insert_definition(&self, key: &str, value_type: &str, page: bool) -> AppResult<()> {
+    pub fn insert_definition(
+        &self,
+        key: &str,
+        value_type: &str,
+        page: bool,
+    ) -> Result<(), AppError> {
         validate_key(key)?;
         PropertyKey::parse(key)?.check_type(value_type)?;
         // `rating_n_n` would show as `rating_n`, which looks like a number of `rating`
@@ -211,7 +218,7 @@ impl PropertyRepository {
         }
         tx.execute(
             "INSERT INTO property_definitions (key, value_type, is_system, for_page, modified) VALUES (?, ?, 0, ?, ?)",
-            params![key, value_type, page as i64, now_millis()],
+            params![key, value_type, page as i64, self.db.now_millis()],
         )?;
         tx.execute(
             "DELETE FROM deleted_property_definitions WHERE key = ?",
@@ -222,7 +229,7 @@ impl PropertyRepository {
     }
 
     /// The keys of the user, provisional ones too.
-    fn user_keys_in(conn: &Connection) -> AppResult<Vec<String>> {
+    fn user_keys_in(conn: &Connection) -> Result<Vec<String>, AppError> {
         let mut stmt = conn.prepare("SELECT key FROM property_definitions WHERE is_system = 0")?;
         let keys = stmt
             .query_map([], |row| row.get(0))?
@@ -232,7 +239,7 @@ impl PropertyRepository {
 
     /// Defines a user key as another device defined it, or changes its definition to that.
     /// The values stay as they are: the type is how they are read (ADR 046).
-    pub fn put_definition(&self, key: &str, page: bool, modified: i64) -> AppResult<()> {
+    pub fn put_definition(&self, key: &str, page: bool, modified: i64) -> Result<(), AppError> {
         let value_type = property_names::type_of(key).as_str();
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;
@@ -255,7 +262,7 @@ impl PropertyRepository {
     /// definition goes. While a value of the key is still here, the definition stays as a
     /// provisional one, to read that value; the values go when the files that dropped them
     /// come in (ADR 046).
-    pub fn put_deletion(&self, key: &str, deleted: i64) -> AppResult<()> {
+    pub fn put_deletion(&self, key: &str, deleted: i64) -> Result<(), AppError> {
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;
         tx.execute(
@@ -286,7 +293,7 @@ impl PropertyRepository {
 
     /// The definitions this device gives the other devices: the real user definitions, and
     /// the keys deleted here (ADR 046).
-    pub fn find_synced_definitions(&self) -> AppResult<Definitions> {
+    pub fn find_synced_definitions(&self) -> Result<Definitions, AppError> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
             "SELECT key, for_page, modified FROM property_definitions
@@ -318,7 +325,11 @@ impl PropertyRepository {
     }
 
     /// `delete_definition` on the given connection, as part of a larger transaction.
-    pub fn delete_definition_in(tx: &Connection, key: &str) -> AppResult<Vec<String>> {
+    pub fn delete_definition_in(
+        tx: &Connection,
+        key: &str,
+        deleted_date: i64,
+    ) -> Result<Vec<String>, AppError> {
         match Self::find_definition_in(tx, key)? {
             None => {
                 return Err(AppError::bad_request(format!(
@@ -356,7 +367,7 @@ impl PropertyRepository {
         tx.execute(
             "INSERT INTO deleted_property_definitions (key, deleted_date) VALUES (?, ?)
              ON CONFLICT(key) DO UPDATE SET deleted_date = MAX(deleted_date, excluded.deleted_date)",
-            params![key, now_millis()],
+            params![key, deleted_date],
         )?;
         Ok(page_ids)
     }
@@ -369,7 +380,7 @@ impl PropertyRepository {
         target_id: &str,
         key: &str,
         value: &str,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         validate_key(key)?;
         Self::write_scalar_in(conn, target_type, target_id, key, value)
     }
@@ -384,7 +395,7 @@ impl PropertyRepository {
         target_id: &str,
         key: &str,
         value: &str,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         validate_key(key)?;
         define_provisional_in(conn, key, property_names::type_of(key).as_str())?;
         let system = Self::find_definition_in(conn, key)?.is_some_and(|def| def.system);
@@ -408,7 +419,7 @@ impl PropertyRepository {
         target_id: &str,
         key: &str,
         values: &[String],
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         validate_key(key)?;
         define_provisional_in(conn, key, "list")?;
         replace_list_in(conn, target_type, target_id, key, values)
@@ -416,7 +427,7 @@ impl PropertyRepository {
 
     /// Removes the provisional definitions whose keys have no value left: they were only
     /// there to read the values (ADR 046).
-    pub fn drop_unused_provisional_in(conn: &Connection) -> AppResult<()> {
+    pub fn drop_unused_provisional_in(conn: &Connection) -> Result<(), AppError> {
         conn.execute(
             "DELETE FROM property_definitions
              WHERE provisional = 1 AND is_system = 0
@@ -436,7 +447,7 @@ impl PropertyRepository {
         target_id: &str,
         key: &str,
         value: &str,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         let value_type = Self::find_definition_in(conn, key)?
             .map(|def| def.value_type)
             .ok_or_else(|| AppError::bad_request(format!("Property '{key}' is not defined")))?;
@@ -481,7 +492,7 @@ impl PropertyRepository {
         target_id: &str,
         key: &str,
         values: &[String],
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         validate_key(key)?;
         replace_list_in(conn, target_type, target_id, key, values)
     }
@@ -493,7 +504,7 @@ impl PropertyRepository {
         target_type: &str,
         target_id: &str,
         key: &str,
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         conn.execute(
             "DELETE FROM properties WHERE target_type = ? AND target_id = ? AND key = ?",
             params![target_type, target_id, key],
@@ -511,7 +522,7 @@ impl PropertyRepository {
         conn: &Connection,
         target_type: &str,
         target_ids: &[String],
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         if target_ids.is_empty() {
             return Ok(());
         }
@@ -537,12 +548,12 @@ impl PropertyRepository {
         target_type: &str,
         target_id: &str,
         new_tags: &[String],
-    ) -> AppResult<()> {
+    ) -> Result<(), AppError> {
         replace_list_in(conn, target_type, target_id, "tags", new_tags)
     }
 
     /// The tags of one target, in sort order.
-    pub fn find_tags(&self, target_type: &str, target_id: &str) -> AppResult<Vec<String>> {
+    pub fn find_tags(&self, target_type: &str, target_id: &str) -> Result<Vec<String>, AppError> {
         Self::find_tags_in(&*self.db.conn()?, target_type, target_id)
     }
 
@@ -550,7 +561,7 @@ impl PropertyRepository {
         conn: &Connection,
         target_type: &str,
         target_id: &str,
-    ) -> AppResult<Vec<String>> {
+    ) -> Result<Vec<String>, AppError> {
         let mut stmt = conn.prepare(
             "SELECT value FROM property_list_items \
              WHERE target_type = ? AND target_id = ? AND key = 'tags' ORDER BY sort_order",
@@ -560,7 +571,7 @@ impl PropertyRepository {
     }
 
     /// Every tag that a page or an item carries, each once.
-    pub fn find_all_tag_values(&self) -> AppResult<Vec<String>> {
+    pub fn find_all_tag_values(&self) -> Result<Vec<String>, AppError> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
             "SELECT DISTINCT value FROM property_list_items WHERE key = 'tags' ORDER BY value",
@@ -570,7 +581,7 @@ impl PropertyRepository {
     }
 
     /// How many pages and items carry the tag in any case of its letters.
-    pub fn count_tag_uses_ignoring_case(&self, tag_value: &str) -> AppResult<i64> {
+    pub fn count_tag_uses_ignoring_case(&self, tag_value: &str) -> Result<i64, AppError> {
         let conn = self.db.conn()?;
         Ok(conn.query_row(
             "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags' AND value = ? COLLATE NOCASE",
@@ -583,7 +594,7 @@ impl PropertyRepository {
     pub fn find_page_ids_by_tag_value_ignoring_case(
         &self,
         tag_value: &str,
-    ) -> AppResult<Vec<String>> {
+    ) -> Result<Vec<String>, AppError> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
             "SELECT DISTINCT target_id FROM property_list_items \
@@ -599,7 +610,7 @@ impl PropertyRepository {
         &self,
         tag_value: &str,
         max_results: i64,
-    ) -> AppResult<Vec<String>> {
+    ) -> Result<Vec<String>, AppError> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
             "SELECT target_id FROM property_list_items              WHERE key = 'tags' AND value = ? COLLATE NOCASE AND target_type = 'item' LIMIT ?",
@@ -613,7 +624,7 @@ impl PropertyRepository {
         &self,
         path_prefix: &str,
         max_results: i64,
-    ) -> AppResult<Vec<String>> {
+    ) -> Result<Vec<String>, AppError> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
             "SELECT i.id AS item_id FROM items i JOIN pages p ON i.page_id = p.id \
@@ -629,7 +640,7 @@ impl PropertyRepository {
         key: &str,
         value: &str,
         max_results: i64,
-    ) -> AppResult<Vec<String>> {
+    ) -> Result<Vec<String>, AppError> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
             "SELECT target_id FROM properties WHERE target_type = 'item' AND key = ? AND value = ? LIMIT ?",
@@ -645,7 +656,7 @@ impl PropertyRepository {
         column: &str,
         expr: &str,
         max_results: i64,
-    ) -> AppResult<Vec<String>> {
+    ) -> Result<Vec<String>, AppError> {
         if column != "created_date" && column != "modified_date" {
             return Err(AppError::bad_request(format!("Invalid column: {column}")));
         }
@@ -688,7 +699,7 @@ impl PropertyRepository {
 
 /// Parses a date string to epoch millis in Asia/Tokyo. With `to_end`, returns the exclusive
 /// upper bound (next day or next month start).
-fn parse_date_to_millis(date_str: &str, to_end: bool) -> AppResult<i64> {
+fn parse_date_to_millis(date_str: &str, to_end: bool) -> Result<i64, AppError> {
     let zone = chrono_tz::Asia::Tokyo;
     let date = if date_str.len() == 7 {
         let (y, m) = date_str
@@ -731,7 +742,7 @@ fn parse_date_to_millis(date_str: &str, to_end: bool) -> AppResult<i64> {
 
 /// Gives a key with no definition a provisional one, which is not written to
 /// `settings/properties.json`. A defined key keeps its definition.
-fn define_provisional_in(conn: &Connection, key: &str, value_type: &str) -> AppResult<()> {
+fn define_provisional_in(conn: &Connection, key: &str, value_type: &str) -> Result<(), AppError> {
     conn.execute(
         "INSERT OR IGNORE INTO property_definitions (key, value_type, provisional) VALUES (?, ?, 1)",
         params![key, value_type],
@@ -756,7 +767,7 @@ fn replace_list_in(
     target_id: &str,
     key: &str,
     values: &[String],
-) -> AppResult<()> {
+) -> Result<(), AppError> {
     conn.execute(
         "DELETE FROM property_list_items WHERE target_type = ? AND target_id = ? AND key = ?",
         params![target_type, target_id, key],
@@ -775,6 +786,7 @@ fn replace_list_in(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::clock::SystemClock;
     use crate::domain::id_generator::IdGenerator;
     use crate::infrastructure::persistence::database_initializer::initialize;
 
@@ -782,8 +794,8 @@ mod tests {
     #[test]
     fn a_value_of_a_key_with_no_definition_is_refused() {
         let dir = tempfile::TempDir::new().unwrap();
-        let db = Arc::new(Db::open(&dir.path().join("journal.db")).unwrap());
-        initialize(&db, &IdGenerator::new()).unwrap();
+        let db = Arc::new(Db::open(&dir.path().join("journal.db"), Arc::new(SystemClock)).unwrap());
+        initialize(&db, &IdGenerator::default()).unwrap();
         let properties = PropertyRepository::new(Arc::clone(&db));
         let conn = db.conn().unwrap();
 

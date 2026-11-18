@@ -1,8 +1,6 @@
 //! Merging an item into the one above it, as Backspace at the start of an item does.
 
-use std::time::Duration;
-
-use journal_core::error::{AppError, AppResult};
+use journal_core::error::AppError;
 use journal_core::journal::ItemAnswer;
 use serde_json::{json, Value};
 
@@ -12,7 +10,7 @@ use crate::common::Core;
 
 impl Core {
     /// Merges items as the client asks in the JSON of the request
-    fn merge(&self, request: Value) -> AppResult<ItemAnswer> {
+    fn merge(&self, request: Value) -> Result<ItemAnswer, AppError> {
         self.core
             .journal
             .merge_items(input(request), &by_the_client())
@@ -133,7 +131,7 @@ fn merging_into_a_transcluded_item_updates_the_stored_copy_in_its_transcluders()
     let host = id(&notes.fill(&host_page, &["placeholder"])[0]);
     notes.transclude(&host, &id(&rows[0]));
     let modified_before = field_of_each(&notes.page(&host_page), "items", "modifiedDate").remove(0);
-    std::thread::sleep(Duration::from_millis(5));
+    notes.clock.advance(5);
 
     notes
         .merge(json!({ "itemId": id(&rows[1]), "intoId": id(&rows[0]) }))

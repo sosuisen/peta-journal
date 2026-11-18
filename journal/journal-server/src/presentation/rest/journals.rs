@@ -2,7 +2,7 @@ use axum::extract::{Path, Query, State};
 use axum::{Extension, Json, Router};
 use serde::Deserialize;
 
-use crate::error::HttpResult;
+use crate::error::HttpError;
 use crate::presentation::client_id::ClientId;
 use crate::presentation::rest::At;
 use crate::state::{blocking, SharedState};
@@ -34,7 +34,7 @@ struct WeekQuery {
 async fn get_or_create(
     State(state): State<SharedState>,
     Path(name): Path<String>,
-) -> HttpResult<Json<JournalAnswer>> {
+) -> Result<Json<JournalAnswer>, HttpError> {
     blocking(move || Ok(Json(state.journal.get_or_create_journal(&name)?))).await
 }
 
@@ -43,7 +43,7 @@ async fn move_items(
     Extension(client): Extension<ClientId>,
     Path(name): Path<String>,
     Json(req): Json<MoveToJournalInput>,
-) -> HttpResult<Json<MovedToJournalAnswer>> {
+) -> Result<Json<MovedToJournalAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.move_items_to_journal(
             &name,
@@ -57,7 +57,7 @@ async fn move_items(
 async fn most_recent_before(
     State(state): State<SharedState>,
     Query(q): Query<DateQuery>,
-) -> HttpResult<Json<MostRecentJournalAnswer>> {
+) -> Result<Json<MostRecentJournalAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.most_recent_journal_before(
             q.date.as_deref().unwrap_or_default(),
@@ -69,7 +69,7 @@ async fn most_recent_before(
 async fn most_recent_weekly_before(
     State(state): State<SharedState>,
     Query(q): Query<WeekQuery>,
-) -> HttpResult<Json<MostRecentJournalAnswer>> {
+) -> Result<Json<MostRecentJournalAnswer>, HttpError> {
     blocking(move || {
         Ok(Json(state.journal.most_recent_weekly_journal_before(
             q.week.as_deref().unwrap_or_default(),

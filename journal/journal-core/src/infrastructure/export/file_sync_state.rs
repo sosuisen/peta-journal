@@ -7,8 +7,8 @@ use anyhow::Context;
 use hmtid::Hmtid;
 use rusqlite::{params, OptionalExtension, Row};
 
-use crate::error::AppResult;
-use crate::infrastructure::persistence::db::{now_millis, Db};
+use crate::error::AppError;
+use crate::infrastructure::persistence::db::Db;
 use crate::infrastructure::persistence::page_repository::parse;
 
 pub const SYNCED: &str = "synced";
@@ -79,6 +79,11 @@ impl FileSyncStateRepository {
         FileSyncStateRepository { db }
     }
 
+    /// The database, for the clock that dates its rows.
+    pub fn db(&self) -> &Db {
+        &self.db
+    }
+
     /// Records that the file at rel_path now matches the given content (read or written by us).
     /// `content_date` is the latest date the content holds, of the page or of an item.
     pub fn upsert_synced(
@@ -89,8 +94,8 @@ impl FileSyncStateRepository {
         file_size: i64,
         file_mtime: i64,
         content_date: i64,
-    ) -> AppResult<()> {
-        let now = now_millis();
+    ) -> Result<(), AppError> {
+        let now = self.db.now_millis();
         let last_synced = last_synced(file_mtime, content_date, now);
         let conn = self.db.conn()?;
         conn.execute(
@@ -120,8 +125,8 @@ impl FileSyncStateRepository {
     }
 
     /// Marks the file as missing. Keeps the original missing_since if already missing.
-    pub fn mark_missing(&self, rel_path: &str) -> AppResult<()> {
-        let now = now_millis();
+    pub fn mark_missing(&self, rel_path: &str) -> Result<(), AppError> {
+        let now = self.db.now_millis();
         let conn = self.db.conn()?;
         conn.execute(
             "UPDATE file_sync_state SET status='missing', synced_at=?, \
@@ -131,7 +136,7 @@ impl FileSyncStateRepository {
         Ok(())
     }
 
-    pub fn find_by_path(&self, rel_path: &str) -> AppResult<Option<FileSyncState>> {
+    pub fn find_by_path(&self, rel_path: &str) -> Result<Option<FileSyncState>, AppError> {
         let conn = self.db.conn()?;
         Ok(conn
             .query_row(
@@ -142,38 +147,42 @@ impl FileSyncStateRepository {
             .optional()?)
     }
 
-    fn query(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> AppResult<Vec<FileSyncState>> {
+    fn query(
+        &self,
+        sql: &str,
+        params: &[&dyn rusqlite::ToSql],
+    ) -> Result<Vec<FileSyncState>, AppError> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(sql)?;
         let rows = stmt.query_map(params, map)?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
-    pub fn find_by_page_id(&self, page_id: &Hmtid) -> AppResult<Vec<FileSyncState>> {
+    pub fn find_by_page_id(&self, page_id: &Hmtid) -> Result<Vec<FileSyncState>, AppError> {
         self.query(
             &format!("SELECT {COLUMNS} FROM file_sync_state WHERE page_id = ?"),
             &[&page_id.as_str()],
         )
     }
 
-    pub fn find_all(&self) -> AppResult<Vec<FileSyncState>> {
+    pub fn find_all(&self) -> Result<Vec<FileSyncState>, AppError> {
         self.query(&format!("SELECT {COLUMNS} FROM file_sync_state"), &[])
     }
 
-    pub fn find_missing(&self) -> AppResult<Vec<FileSyncState>> {
+    pub fn find_missing(&self) -> Result<Vec<FileSyncState>, AppError> {
         self.query(
             &format!("SELECT {COLUMNS} FROM file_sync_state WHERE status = 'missing' ORDER BY missing_since"),
             &[],
         )
     }
 
-    pub fn delete_by_path(&self, rel_path: &str) -> AppResult<()> {
+    pub fn delete_by_path(&self, rel_path: &str) -> Result<(), AppError> {
         let conn = self.db.conn()?;
         conn.execute("DELETE FROM file_sync_state WHERE rel_path = ?", [rel_path])?;
         Ok(())
     }
 
-    pub fn delete_by_page_id(&self, page_id: &Hmtid) -> AppResult<()> {
+    pub fn delete_by_page_id(&self, page_id: &Hmtid) -> Result<(), AppError> {
         let conn = self.db.conn()?;
         conn.execute(
             "DELETE FROM file_sync_state WHERE page_id = ?",
@@ -186,6 +195,46 @@ impl FileSyncStateRepository {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::clock::SteppedClock;
+    use crate::domain::id_generator::IdGenerator;
+    use crate::infrastructure::persistence::database_initializer::initialize;
+
+    // なくなったファイルは、なくなったと記録される。もう一度記録しても、最初に気づいた時刻は変わらない。
+    #[test]
+    fn a_missing_file_keeps_the_time_it_was_first_found_missing() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let clock = Arc::new(SteppedClock::default());
+        let db = Arc::new(Db::open(&dir.path().join("journal.db"), clock.clone()).unwrap());
+        let ids = IdGenerator::default();
+        initialize(&db, &ids).unwrap();
+        let page = ids.generate_page_id();
+        db.conn()
+            .unwrap()
+            .execute(
+                "INSERT INTO pages (id, dir_path, name, created_date, modified_date) \
+                 VALUES (?, '', 'notes', 0, 0)",
+                params![page.as_str()],
+            )
+            .unwrap();
+        let states = FileSyncStateRepository::new(db);
+        states
+            .upsert_synced("docs/notes.md", &page, "hash", 1, 0, 0)
+            .unwrap();
+        assert!(!states
+            .find_by_path("docs/notes.md")
+            .unwrap()
+            .unwrap()
+            .is_missing());
+
+        states.mark_missing("docs/notes.md").unwrap();
+        let first = states.find_by_path("docs/notes.md").unwrap().unwrap();
+        assert!(first.is_missing());
+        clock.advance(5);
+        states.mark_missing("docs/notes.md").unwrap();
+        let second = states.find_by_path("docs/notes.md").unwrap().unwrap();
+        assert_eq!(second.missing_since, first.missing_since);
+        assert!(first.missing_since.is_some());
+    }
 
     // 中の日付がファイルの更新時刻より遅ければ、前回の同期は中の日付になる。
     #[test]

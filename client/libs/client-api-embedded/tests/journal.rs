@@ -12,6 +12,7 @@ use client_core::model::{
 };
 use client_core::rest::ClientId;
 use journal_core::assembly::{CoreHost, CoreSettings, JournalCore};
+use journal_core::clock::SystemClock;
 use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
 use journal_core::journal::{ChangedBy, FolderWatch};
 use serde_json::{json, Value};
@@ -95,6 +96,7 @@ impl Fixture {
                 events: events.clone(),
                 missing_files: Arc::new(App),
                 folder_watch: Arc::new(App),
+                clock: Arc::new(SystemClock),
             },
         )
         .unwrap();

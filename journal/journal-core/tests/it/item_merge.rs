@@ -8,10 +8,9 @@ use hmtid::Hmtid;
 use journal_core::domain::model::ItemPosition;
 use journal_core::infrastructure::export::export_service::format_instant;
 use journal_core::infrastructure::export::import_service::Outcome;
-use journal_core::infrastructure::persistence::db::now_millis;
 use regex::Regex;
 
-use crate::common::devices::{two_devices, Device, ATLAS};
+use crate::common::devices::{time_passes, two_devices, Device, ATLAS};
 
 const PAGE: &str = "docs/d/a.md";
 
@@ -151,7 +150,7 @@ fn an_older_file_brings_its_edit_and_leaves_the_later_edit_of_another_item() {
     a.export();
     // An edit on B in the same millisecond as the export on A dates B's file at the last
     // sync of A, the date of a file edited by hand on A, which A takes as a conflict
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    time_passes(&[&a, &b]);
     b.write(&y, "y from B");
     assert_eq!(a.receive(&b, PAGE), Outcome::Imported);
     assert_eq!(b.receive(&a, PAGE), Outcome::Imported);
@@ -256,7 +255,11 @@ fn a_value_of_a_system_key_that_does_not_fit_stays_out_and_one_of_a_user_key_com
         .replacen("zoom=\"1.5\"", "zoom=\"many\"", 1)
         .replacen("effort_n=\"3\"", "effort_n=\"some\"", 1);
     assert!(file.contains("zoom=\"many\"") && file.contains("effort_n=\"some\""));
-    std::fs::write(a.root.join(PAGE), dated(&file, now_millis() + 60_000)).unwrap();
+    std::fs::write(
+        a.root.join(PAGE),
+        dated(&file, a.core.db.now_millis() + 60_000),
+    )
+    .unwrap();
 
     a.sync(PAGE);
 
@@ -402,13 +405,13 @@ fn an_item_added_here_stays_after_a_file_of_a_device_whose_clock_is_ahead() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b, page, _, _) = two_devices_with_items(dir.path());
     let written = a.file(PAGE);
-    let ahead = now_millis() + 3_600_000;
+    let ahead = b.core.db.now_millis() + 3_600_000;
     let first = dated(&written.replace("\nx\n", "\nx ahead\n"), ahead);
     let second = dated(&first.replace("\ny\n", "\ny ahead\n"), ahead + 1000);
     // The cloud folder gives the file the time of this device, not of the device ahead
     std::fs::write(b.root.join(PAGE), first).unwrap();
     assert_eq!(b.sync(PAGE), Outcome::Imported);
-    std::thread::sleep(Duration::from_millis(5));
+    time_passes(&[&a, &b]);
 
     b.add(&page, "z from B");
     std::fs::write(b.root.join(PAGE), second).unwrap();
@@ -870,7 +873,7 @@ fn an_item_not_in_the_copy_stays_even_when_it_was_written_to_a_file() {
     let copy = b.file(PAGE);
     a.add(&page, "here");
     a.export();
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    time_passes(&[&a, &b]);
 
     a.take_copy(&copy);
 
@@ -897,7 +900,7 @@ fn an_item_deleted_here_does_not_come_back_from_a_copy() {
     let (a, b, page, x, y) = two_devices_with_items(dir.path());
     b.write(&x, "x from B");
     let copy = b.file(PAGE);
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    time_passes(&[&a, &b]);
     a.delete(&y);
 
     a.take_copy(&copy);
@@ -911,7 +914,7 @@ fn an_item_edited_after_it_was_deleted_here_comes_back_from_a_copy() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b, page, _, y) = two_devices_with_items(dir.path());
     a.delete(&y);
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    time_passes(&[&a, &b]);
     b.write(&y, "y from B");
     let copy = b.file(PAGE);
 
@@ -927,7 +930,7 @@ fn an_edit_of_a_copy_that_loses_is_kept_as_a_conflict_backup() {
     let (a, b, page, x, _) = two_devices_with_items(dir.path());
     b.write(&x, "x from B");
     let copy = b.file(PAGE);
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    time_passes(&[&a, &b]);
     a.write(&x, "x from A");
     a.export();
 
@@ -1057,7 +1060,7 @@ fn beginning_and_ending_a_task_move_the_date_of_the_item_forward() {
     let as_task = date_of(&a);
 
     for _ in ["begin", "end"] {
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        time_passes(&[&a]);
         let before = date_of(&a);
         let item = a.core.item_service.cycle_task(&x).unwrap();
         assert!(date_of(&a) > before);
@@ -1075,7 +1078,7 @@ fn a_task_cycled_twice_on_the_other_device_arrives_without_a_conflict() {
     assert_eq!(b.receive(&a, PAGE), Outcome::Imported);
 
     for _ in ["begin", "end"] {
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        time_passes(&[&a, &b]);
         a.core.item_service.cycle_task(&x).unwrap();
         assert_eq!(b.receive(&a, PAGE), Outcome::Imported);
         assert_eq!(b.file(PAGE), a.file(PAGE));

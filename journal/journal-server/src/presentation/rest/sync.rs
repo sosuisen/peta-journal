@@ -7,7 +7,7 @@ use axum::{Form, Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
-use crate::error::{AppError, AppResult, HttpResult};
+use crate::error::{AppError, HttpError};
 use crate::presentation::rest::At;
 use crate::state::{blocking, SharedState};
 use journal_api_types::routes;
@@ -41,13 +41,13 @@ pub(crate) struct ScanResponse {
     exported: i32,
 }
 
-async fn status(State(state): State<SharedState>) -> HttpResult<Json<StatusResponse>> {
+async fn status(State(state): State<SharedState>) -> Result<Json<StatusResponse>, HttpError> {
     blocking(move || Ok(Json(status_of(&state)?))).await
 }
 
 /// How the folder and the database stand. The MCP tool of the same operation answers with it
 /// too (ADR 060).
-pub(crate) fn status_of(state: &SharedState) -> AppResult<StatusResponse> {
+pub(crate) fn status_of(state: &SharedState) -> Result<StatusResponse, AppError> {
     let root = state.export.markdown_root();
     Ok(StatusResponse {
         import_enabled: state.settings.import_enabled,
@@ -61,7 +61,7 @@ pub(crate) fn status_of(state: &SharedState) -> AppResult<StatusResponse> {
     })
 }
 
-async fn scan(State(state): State<SharedState>) -> HttpResult<Json<ScanResponse>> {
+async fn scan(State(state): State<SharedState>) -> Result<Json<ScanResponse>, HttpError> {
     blocking(move || Ok(Json(scan_now(&state)))).await
 }
 
@@ -104,7 +104,7 @@ impl<'de> Deserialize<'de> for PendingForm {
     }
 }
 
-fn load_rows(state: &SharedState) -> AppResult<Vec<Row>> {
+fn load_rows(state: &SharedState) -> Result<Vec<Row>, AppError> {
     let mut rows = Vec::new();
     for s in state.file_sync_state.find_missing()? {
         match state.pages.find_by_id(&s.page_id)? {
@@ -124,7 +124,7 @@ fn load_rows(state: &SharedState) -> AppResult<Vec<Row>> {
     Ok(rows)
 }
 
-async fn pending_page(State(state): State<SharedState>) -> HttpResult<Html<String>> {
+async fn pending_page(State(state): State<SharedState>) -> Result<Html<String>, HttpError> {
     blocking(move || Ok(Html(render(&load_rows(&state)?, &[])))).await
 }
 
@@ -144,7 +144,7 @@ async fn pending_submit(
     State(state): State<SharedState>,
     headers: HeaderMap,
     Form(form): Form<PendingForm>,
-) -> HttpResult<Response> {
+) -> Result<Response, HttpError> {
     // Only accept submissions from this page itself, not from other sites
     let origin = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok());
     let referer = headers.get(header::REFERER).and_then(|v| v.to_str().ok());
@@ -163,7 +163,7 @@ async fn pending_submit(
                 .as_ref()
                 .map(|p| format!("{}s/{}{}.md", p.page_type, p.dir_path, p.name))
                 .unwrap_or_else(|| id_str.clone());
-            let result: AppResult<String> = if restore {
+            let result: Result<String, AppError> = if restore {
                 // Write now, so the message below is true when the page is shown
                 state
                     .export

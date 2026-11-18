@@ -8,7 +8,7 @@ use hmtid::Hmtid;
 
 use crate::domain::model::{is_atlas_title, Page, SearchResult};
 use crate::domain::search::SearchIndex;
-use crate::error::AppResult;
+use crate::error::AppError;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 /// Filter conditions are read in full, then intersected; this caps each of them.
@@ -99,7 +99,7 @@ impl CombinedSearchService {
         }
     }
 
-    pub fn search(&self, query: &str, max_results: usize) -> AppResult<Vec<SearchResult>> {
+    pub fn search(&self, query: &str, max_results: usize) -> Result<Vec<SearchResult>, AppError> {
         if query.trim().is_empty() {
             return Ok(Vec::new());
         }
@@ -123,7 +123,11 @@ impl CombinedSearchService {
             .collect())
     }
 
-    fn execute_and_group(&self, group: &str, max_results: usize) -> AppResult<Vec<SearchResult>> {
+    fn execute_and_group(
+        &self,
+        group: &str,
+        max_results: usize,
+    ) -> Result<Vec<SearchResult>, AppError> {
         if group.trim().is_empty() {
             return Ok(Vec::new());
         }
@@ -250,7 +254,7 @@ impl CombinedSearchService {
     }
 
     /// Search results for the given items, with the start of the body as snippet.
-    pub fn results_for_items(&self, item_ids: &[String]) -> AppResult<Vec<SearchResult>> {
+    pub fn results_for_items(&self, item_ids: &[String]) -> Result<Vec<SearchResult>, AppError> {
         let mut results = Vec::new();
         for id in item_ids {
             if let Some(r) = self.result_for_item(id)? {
@@ -260,7 +264,7 @@ impl CombinedSearchService {
         Ok(results)
     }
 
-    fn result_for_item(&self, item_id: &str) -> AppResult<Option<SearchResult>> {
+    fn result_for_item(&self, item_id: &str) -> Result<Option<SearchResult>, AppError> {
         let Ok(id) = Hmtid::parse(item_id) else {
             return Ok(None);
         };
@@ -286,7 +290,7 @@ impl CombinedSearchService {
         &self,
         query: &str,
         max_results: usize,
-    ) -> AppResult<Vec<SearchResult>> {
+    ) -> Result<Vec<SearchResult>, AppError> {
         let max = max_results as i64;
         let mut seen: BTreeSet<String> = BTreeSet::new();
         let mut all: Vec<SearchResult> = Vec::new();
