@@ -213,6 +213,11 @@ UNDO = (
     + [(11, 8.4, SHARP), (11, 11.9, SHARP)]
 )
 
+def ring(cx, cy, outer, inner):
+    """A ring: a circle with a round hole in it."""
+    return [arc(cx, cy, outer, 0, 360, 32)[:-1], hole(arc(cx, cy, inner, 0, 360, 32)[:-1])]
+
+
 ICONS = {
     "collapse": icon(
         rect(4, 8.5, 20, 10.5),
@@ -254,6 +259,19 @@ ICONS = {
         *open_triangle(270),
         rounded_rect(6, 10.4, 18, 13.6, 1),
         hole(rounded_rect(7.4, 11.6, 16.6, 12.4, 0.2)),
+    ),
+    # The selected items go onto the clipboard: a sheet before another
+    "copy": icon(
+        rounded_rect(9, 7, 20, 21, 2),
+        hole(rounded_rect(10.3, 8.3, 18.7, 19.7, 0.9)),
+        stroke([(4.65, 17), (4.65, 3.65), (15, 3.65)], 0.65),
+    ),
+    # The selected items go onto the clipboard and off the page: scissors
+    "cut": icon(
+        *ring(7, 18, 3.2, 1.9),
+        *ring(17, 18, 3.2, 1.9),
+        stroke([(8.6, 15.4), (16.5, 2.5)], 0.75),
+        stroke([(15.4, 15.4), (7.5, 2.5)], 0.75),
     ),
     # Two triangles point in: the tools become a small button
     "shrink_tools": icon(
