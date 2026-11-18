@@ -527,6 +527,8 @@ pub enum Event {
     /// The server answered the journal before one that is shown; the load goes on until
     /// the outline holds `target_item_count` items.
     OlderJournalLoaded {
+        /// The date of the journal shown when the load started.
+        journal: String,
         weekly: bool,
         target_item_count: usize,
         name: String,
@@ -534,7 +536,10 @@ pub enum Event {
         transcluded_trees: Option<TranscludedTrees>,
     },
     /// The load of the older journals that fill the outline ended.
-    PreviousJournalsLoaded,
+    PreviousJournalsLoaded {
+        /// The date of the journal shown when the load started.
+        journal: String,
+    },
     /// The wait for the day an item moved to ended: the item is edited there.
     MovedItemShown {
         item_id: String,
@@ -1382,6 +1387,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             loaded,
         } => screens::journal::journal_loaded(model, date, title, *loaded),
         OlderJournalLoaded {
+            journal,
             weekly,
             target_item_count,
             name,
@@ -1389,6 +1395,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             transcluded_trees,
         } => screens::journal::show_older_journal(
             model,
+            &journal,
             weekly,
             target_item_count,
             screens::journal::OlderJournal {
@@ -1397,7 +1404,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
                 transcluded_trees,
             },
         ),
-        PreviousJournalsLoaded => screens::journal::previous_journals_loaded(model),
+        PreviousJournalsLoaded { journal } => {
+            screens::journal::previous_journals_loaded(model, &journal)
+        }
         MovedItemShown { item_id } => screens::journal::edit_moved_item(model, &item_id),
         PageRedirected { path } => screens::history::replace_page(model, &path),
         PageLoaded { page, created } => screens::page::show_page(model, page, created),

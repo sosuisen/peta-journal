@@ -140,37 +140,46 @@ fn load_journal_before(
     weekly: bool,
     target_item_count: usize,
 ) -> Cmd {
+    let Some(journal) = journal_of_screen(model) else {
+        return done();
+    };
     if model.state.items().len() >= target_item_count {
-        return previous_journals_loaded(model);
+        return previous_journals_loaded(model, &journal);
     }
     run(move |api| async move {
         match api.journal_before(&name, weekly).await {
             Ok(older) => match older.page.filter(|_| older.found) {
                 Some(page) => api.send_event(Event::OlderJournalLoaded {
+                    journal,
                     weekly,
                     target_item_count,
                     name: page.name,
                     items: older.items,
                     transcluded_trees: older.transcluded_trees,
                 }),
-                None => api.send_event(Event::PreviousJournalsLoaded),
+                None => api.send_event(Event::PreviousJournalsLoaded { journal }),
             },
             Err(e) => {
                 log_error(format!("Failed to load previous journals: {e}"));
-                api.send_event(Event::PreviousJournalsLoaded);
+                api.send_event(Event::PreviousJournalsLoaded { journal });
             }
         }
     })
 }
 
 /// The server answered an older journal: its items go to the end of the outline, unless
-/// the journal is there already. Then the one before it is asked for.
+/// the journal is there already. Then the one before it is asked for. An answer loaded under
+/// a journal the user has moved on from is dropped.
 pub fn show_older_journal(
     model: &mut Model,
+    journal: &str,
     weekly: bool,
     target_item_count: usize,
     older: OlderJournal,
 ) -> Cmd {
+    if journal_of_screen(model).as_deref() != Some(journal) {
+        return done();
+    }
     let is_new = journal_mut(model).is_some_and(|j| j.loaded_dates.insert(older.name.clone()));
     if is_new {
         let mut all: Vec<_> = model.state.items().to_vec();
@@ -190,12 +199,18 @@ pub struct OlderJournal {
     pub transcluded_trees: Option<TranscludedTrees>,
 }
 
-/// The load of the older journals ended: the next one may start.
-pub fn previous_journals_loaded(model: &mut Model) -> Cmd {
-    if let Some(j) = journal_mut(model) {
+/// The load of the older journals under `journal` ended: the next one may start. The end of
+/// a load under a journal the user has moved on from leaves the load of the shown one going.
+pub fn previous_journals_loaded(model: &mut Model, journal: &str) -> Cmd {
+    if let Some(j) = journal_mut(model).filter(|j| j.current_date == journal) {
         j.loading = false;
     }
     done()
+}
+
+/// The date of the journal the screen shows, which the older journals are loaded under.
+fn journal_of_screen(model: &Model) -> Option<String> {
+    journal(model).map(|j| j.current_date.clone())
 }
 
 /// The outline reports its scroll position: the header shows the date of the top item, and
