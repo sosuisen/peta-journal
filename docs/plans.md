@@ -6,16 +6,10 @@
 
 決定は、ADR 051（hrefのテンプレートと名前の符号化）とADR 061（`page-urls`）にある。2つは、flatmarkdownの「テンプレートに名前を入れる関数」でつながっている（2026-11-17に開発者が言った）。ここには、ADRにない順序だけを書く。
 
-3つのリポジトリにまたがる。flatmarkdownと`flatmarkdown-ast2react`の公開は、開発者が行う。peta-journalの切り替えは、公開のあとにマージする。公開の前は、ローカルのパスに差し替えて確かめる。
+flatmarkdown `0.9.0`と`flatmarkdown-ast2react` `0.5.0`は公開した。peta-journalは、PR `feat/page-urls`で、公開した版にすべて切り替えた。残りは、このPCで回せないテストである。
 
-1. flatmarkdown：`0.9.0`に、公開の関数2つ、名前の符号化、wasm版の設定、符号化の表を入れる。タスクはflatmarkdownの`docs/plans.md`にある
-   - [ ] 開発者が`0.9.0`を公開する（crates.ioとnpm）
-2. `flatmarkdown-ast2react`：`hrefPrefix`をテンプレートに替え、同じ符号化を入れる。表の写しをテストで読む
-   - [ ] 開発者が新しい版を公開する（npm）
-3. peta-journal：PR `feat/page-urls`で、すべて切り替えた。公開の前なので、ローカルのパスを使っている
-   - [ ] 1と2の公開のあと、ローカルのパスを公開した版に戻す。`client/Cargo.toml`と`journal/Cargo.toml`の`[patch.crates-io]`を消し、todoの`package.json`の`flatmarkdown-ast2react`を`^0.5.0`に戻す。戻したら、`cargo test`と`npm test`を回す。そのあとでマージする
-   - [ ] AndroidとiOSとMacの付箋紙のテストを、実機で回す。URLの期待値を符号化した形に直したが、Windowsでは回していない
-   - [ ] Windowsの付箋紙の画面のテスト（`PetaScreens.Tests`）を回す。キーとマウスを使うので、開発者のいるときに回す
+- [ ] AndroidとiOSとMacの付箋紙のテストを、実機で回す。URLの期待値を符号化した形に直したが、Windowsでは回していない
+- [ ] Windowsの付箋紙の画面のテスト（`PetaScreens.Tests`）を回す。キーとマウスを使うので、開発者のいるときに回す
 
 ## ジャーナルサーバーとファイル
 
