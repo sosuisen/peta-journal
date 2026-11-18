@@ -381,13 +381,13 @@ final class ShellTests: JournalTestCase {
         XCTAssertEqual(copied, ["- second"])
     }
 
-    // 2行の文字を項目の終わりに貼り付けると、1行目はその項目に続き、2行目は下の新しい項目になる。
-    func testTwoLinesPastedAtTheEndOfAnItemGoOnInItAndMakeANewItemBelow() throws {
+    // 2つの項目のリストを項目の終わりに貼り付けると、1つ目はその項目に続き、2つ目は下の新しい項目になる。
+    func testAListOfTwoItemsPastedAtTheEndOfAnItemGoesOnInItAndMakesANewItemBelow() throws {
         try editSecondOfThree()
 
-        shell.paste("apple\npear", into: id(of: "second"), at: 6)
+        shell.paste("- apple\n- pear", into: id(of: "second"), at: 6)
 
-        waitUntil("the lines are items") { self.bodies() == ["first", "secondapple", "pear", "third"] }
+        waitUntil("the list is items") { self.bodies() == ["first", "secondapple", "pear", "third"] }
     }
 
     // 元に戻すは、最後の変更を取り消す。やり直すは、それをまた行う。

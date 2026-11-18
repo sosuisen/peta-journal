@@ -155,6 +155,16 @@ public final class Shell: ObservableObject {
         return true
     }
 
+    /// The user pasted `text` into the edited item, with the cursor `cursor` UTF-16 units into
+    /// its Markdown. The core cuts the text into items (ADR 011): its first line goes on after
+    /// the cursor, and each line after it is an item below. What the app copied comes back as
+    /// the same items.
+    public func paste(_ text: String, into itemId: String, at cursor: Int) {
+        let body = view.outline.rows.first { $0.item.id == itemId }?.item.body ?? ""
+        let place = UInt64(Cursor.characters(utf16: cursor, in: body))
+        send(.pasteText(itemId: itemId, text: text, html: "", cursor: place, raw: false))
+    }
+
     /// The user left the editor of the item: what was typed is saved.
     public func finish(_ itemId: String) {
         send(.editFinished(itemId: itemId))
