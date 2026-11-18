@@ -135,6 +135,22 @@ final class ShellTests: XCTestCase {
         return shell
     }
 
+    // ページへのリンクをCommandを押してたどると、そのページを開く新しい付箋紙を頼む。この付箋紙のページは変わらず、ブラウザにも渡らない。
+    func testALinkToAPageFollowedWithCommandAsksForANewStickyWithThePage() async throws {
+        var asked: String?
+        var browsed: URL?
+        let shell = Shell(
+            server: server.address, url: "/pages/swift-notes", clipboard: { nil },
+            browse: { browsed = $0 }, openSticky: { asked = $0 })
+        try await waitUntil("the page is shown") { !shell.view.outline.rows.isEmpty }
+
+        shell.follow(.page(url: "/pages/apple-pie"), holding: .command)
+
+        XCTAssertEqual(asked, "/pages/apple-pie")
+        XCTAssertEqual(shell.url, "/pages/swift-notes")
+        XCTAssertNil(browsed)
+    }
+
     /// Types into the first item and presses Enter at the end of it, which makes a second item.
     private func twoItems(_ shell: Shell) async throws {
         let first = shell.view.outline.rows[0].item.id
