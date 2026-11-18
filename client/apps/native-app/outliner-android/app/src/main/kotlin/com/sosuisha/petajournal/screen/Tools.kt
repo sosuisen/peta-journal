@@ -74,6 +74,11 @@ internal fun Tools(target: OutlineRow, rows: List<OutlineRow>, shell: Shell, onS
                     neighbour(rows, arrow)?.let { shell.select(it.item.id) }
                 }
             }
+            if (!editing) {
+                Column {
+                    Tool("Copy", R.drawable.ic_copy, shell::copySelected)
+                }
+            }
             Column {
                 Tool("Redo", R.drawable.ic_redo, shell::redo)
                 Tool("Undo", R.drawable.ic_undo, shell::undo)

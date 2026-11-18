@@ -27,12 +27,14 @@ import java.util.concurrent.Executors
  * what the user did. All of it runs on the main thread, but the taking in of files.
  *
  * [onMainThread] runs what it is given on the main thread, later and in order. The core calls
- * from its own threads. The core tells the sync when a page changed (ADR 055).
+ * from its own threads. The core tells the sync when a page changed (ADR 055). [copy] puts
+ * text on the clipboard of the system.
  */
 class Shell(
     dataDir: File,
     markdownDir: File,
     private val onMainThread: (() -> Unit) -> Unit,
+    private val copy: (String) -> Unit = {},
 ) : AutoCloseable {
     // The main thread keeps the requests in order. The first ones may come before the border
     // is there, and are still handled after this constructor
@@ -206,6 +208,12 @@ class Shell(
     /** Moves or indents the selected items, as the keys do on a desktop. */
     fun moveSelected(key: SelectionKey) = send(Event.SelectionKey(key))
 
+    /**
+     * Puts the selected items on the clipboard, as Markdown. The core keeps how they stood, so
+     * that they are pasted back as the same items.
+     */
+    fun copySelected() = send(Event.SelectionKey(SelectionKey.COPY))
+
     /** Takes back the last change of the page. */
     fun undo() = send(Event.Undo)
 
@@ -329,6 +337,7 @@ class Shell(
             }
             is UiOp.Confirm -> put(Question(op.value, destructive = false, id))
             is UiOp.ConfirmDestructive -> put(Question(op.value, destructive = true, id))
+            is UiOp.CopyMarkdown -> copy(op.markdown)
             is UiOp.Prompt, is UiOp.ReadClipboardText -> border.answer(id, UiOutput.Text(null))
             // The others wait for no answer, such as the title to set and the item to scroll to
             else -> Unit
