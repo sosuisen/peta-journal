@@ -329,6 +329,7 @@ pub enum Event {
     /// The server moved an item that a transclusion shows: the page is read again.
     MovedInTransclusion {
         item_id: String,
+        moved: Vec<Item>,
     },
     /// The page was read again after a move inside a transclusion: the edit goes on in the
     /// moved item.
@@ -1224,7 +1225,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             ops::action::show_deleted(model, &item_ids, created)
         }
         MovedToDay { moved } => ops::moves::show_moved_to_day(model, moved),
-        MovedInTransclusion { item_id } => ops::moves::show_moved_in_transclusion(model, item_id),
+        MovedInTransclusion { item_id, moved } => {
+            ops::moves::show_moved_in_transclusion(model, item_id, moved)
+        }
         MovePageReloaded { item_id, asked_at } => {
             ops::moves::focus_moved_at(model, item_id, asked_at)
         }

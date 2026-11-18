@@ -41,3 +41,26 @@ test.describe('moving inside a transclusion', () => {
     expect(outlineOf(await server.items(hostPage.id))).toEqual(['1:top']);
   });
 });
+
+test.describe('undoing a move inside a transclusion', () => {
+  test('Ctrl+Z puts the moved child back on the source page, and the transclusion shows it there', async ({ page, request }) => {
+    const server = new Server(request);
+    const sourcePage = await server.newDocPage('undo-move-source');
+    const source = await server.fill(sourcePage.id, ['top', '  one', '  two']);
+    const hostPage = await server.newDocPage('undo-move-host');
+    const host = await server.fill(hostPage.id, ['copy']);
+    const transclude = `http://localhost:${serverPort}/api/items/${host[0].id}/transclude`;
+    expect((await request.post(transclude, { data: { sourceItemId: source[0].id } })).ok()).toBe(true);
+    await openPage(page, hostPage.title);
+    await openEditor(page, source[2].id);
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+    await server.itemsSettled(sourcePage.id, i => i[1].body === 'two');
+    await expect.poll(() => shownBodies(page)).toEqual(['top', 'two', 'one']);
+
+    await page.keyboard.press('Control+z');
+
+    expect(outlineOf(await server.itemsSettled(sourcePage.id, i => i[1].body === 'one')))
+      .toEqual(['1:top', '2:one', '2:two']);
+    await expect.poll(() => shownBodies(page)).toEqual(['top', 'one', 'two']);
+  });
+});
