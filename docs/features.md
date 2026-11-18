@@ -430,6 +430,7 @@
   - サーバーが断ると、画面は変わらない。そのあとの移動は、いつもどおり始まる
 - TabとShift+Tabで、選んだ項目がまとめて1段深く、1段浅くなる。先頭の項目は深くできない
 - Ctrl+ZとCtrl+Yは、エディタの中と同じようにUndoとRedoをする
+  - 選択範囲を削除した直後のように、選択もエディタもないときも、Ctrl+ZとCtrl+Shift+ZはページのUndoとRedoをする（`client/apps/web-app/outliner/e2e/tests/selection-delete.spec.ts`）
 - Ctrl+Cで、ツリー形式のMarkdownがクリップボードに載り、フラット形式がモデルに記憶される
   - コアは、そのMarkdownを自分で解析し、ASTもシェルに渡す（ADR 027、ADR 041）
   - outliner-webは、そのASTから作ったHTMLも、クリップボードに載せる。Markdownは解析しない

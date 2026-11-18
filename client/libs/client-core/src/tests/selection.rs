@@ -463,6 +463,34 @@ fn undo_and_redo_work_while_items_are_selected() {
     assert_eq!(levels(&h), [1, 2, 2]);
 }
 
+// 選択範囲を削除した直後は、選択もエディタもないが、Ctrl+Zで削除が元に戻り、Ctrl+Yでまた消える。
+#[test]
+fn undo_and_redo_right_after_deleting_the_selection_bring_it_back_and_take_it_again() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
+    select(&mut h, &["a"]);
+    key(&mut h, SelectionKey::Delete);
+    assert_eq!(h.items_ids(), ["b"]);
+    assert!(!h.model.state.item_selection_mode());
+
+    key(&mut h, SelectionKey::Undo);
+    assert_eq!(h.items_ids(), ["a", "b"]);
+    key(&mut h, SelectionKey::Redo);
+    assert_eq!(h.items_ids(), ["b"]);
+}
+
+// 選択もなく、項目を編集しているときは、選択のキーのCtrl+Zは何もしない。エディタが自分でUndoを送る。
+#[test]
+fn a_selection_undo_while_an_item_is_edited_does_nothing() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
+    select(&mut h, &["a"]);
+    key(&mut h, SelectionKey::Delete);
+    h.model.state.add_editing_item("b");
+
+    key(&mut h, SelectionKey::Undo);
+
+    assert_eq!(h.items_ids(), ["b"]);
+}
+
 // 選択範囲の切り取りは、コピーした後に削除する。
 #[test]
 fn cutting_the_selection_copies_it_and_then_deletes_it() {
