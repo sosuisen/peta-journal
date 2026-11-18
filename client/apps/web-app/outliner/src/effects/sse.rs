@@ -2,6 +2,7 @@
 
 use crate::core::CoreHandle;
 use client_core::effects::{SseEvent, SseOp};
+use client_core::rest::routes;
 use crux_core::Request;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -22,7 +23,7 @@ impl Drop for Connection {
 pub fn connect(handle: CoreHandle, request: Request<SseOp>) {
     // One connection at a time; a new request replaces the old stream
     handle.inner().sse.borrow_mut().take();
-    let Ok(source) = web_sys::EventSource::new("/api/events") else {
+    let Ok(source) = web_sys::EventSource::new(routes::EVENTS.pattern) else {
         let mut request = request;
         handle.resolve(&mut request, SseEvent::Error);
         return;

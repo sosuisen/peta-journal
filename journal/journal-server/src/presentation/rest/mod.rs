@@ -12,11 +12,13 @@ pub mod search;
 pub mod sync;
 
 use axum::extract::Request;
+use axum::handler::Handler;
 use axum::http::Method;
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{on, MethodFilter, MethodRouter};
 use axum::Router;
+use journal_api_types::routes::{self, Route};
 
 use crate::error::HttpError;
 use crate::presentation::client_id;
@@ -24,12 +26,46 @@ use crate::state::SharedState;
 
 /// The form of the page about missing files posts here. A form of a browser cannot add a
 /// header, so this one path needs no client ID.
-const FORM_PATH: &str = "/api/sync/pending-deletes";
+const FORM_PATH: &str = routes::SUBMIT_PENDING_DELETES.pattern;
+
+/// The handler of a route of the API, under the method of the route. The routes are the ones
+/// of `journal_api_types::routes`, which the frontend core makes its requests from.
+pub(crate) fn handling<H, T>(route: Route, handler: H) -> MethodRouter<SharedState>
+where
+    H: Handler<T, SharedState>,
+    T: 'static,
+{
+    let method = match route.method {
+        routes::Method::Get => MethodFilter::GET,
+        routes::Method::Post => MethodFilter::POST,
+        routes::Method::Put => MethodFilter::PUT,
+        routes::Method::Delete => MethodFilter::DELETE,
+    };
+    on(method, handler)
+}
+
+/// Puts a handler at a route of the API.
+pub(crate) trait At {
+    fn at<H, T>(self, route: Route, handler: H) -> Self
+    where
+        H: Handler<T, SharedState>,
+        T: 'static;
+}
+
+impl At for Router<SharedState> {
+    fn at<H, T>(self, route: Route, handler: H) -> Self
+    where
+        H: Handler<T, SharedState>,
+        T: 'static,
+    {
+        self.route(route.pattern, handling(route, handler))
+    }
+}
 
 pub fn router() -> Router<SharedState> {
     Router::new()
-        .route("/api/health", get(health))
-        .route("/api/events", get(events))
+        .at(routes::HEALTH, health)
+        .at(routes::EVENTS, events)
         .merge(pages::routes())
         .merge(atlas::routes())
         .merge(items::routes())

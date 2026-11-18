@@ -13,6 +13,8 @@
 /// a change without it. Lower case, as HTTP/2 and the header names of the server write it.
 pub const CLIENT_ID_HEADER: &str = "x-client-id";
 
+pub mod routes;
+
 use serde::{Deserialize, Serialize};
 
 fn is_false(value: &bool) -> bool {

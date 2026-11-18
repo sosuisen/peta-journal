@@ -2,7 +2,7 @@
 
 use crate::api::Http;
 use client_core::effects::SseEvent;
-use client_core::rest::{ClientId, HttpReply, HttpRequest};
+use client_core::rest::{routes, ClientId, HttpReply, HttpRequest};
 use std::io::BufRead;
 use ureq::Agent;
 
@@ -54,7 +54,7 @@ impl Http for UreqHttp {
     }
 
     fn upload(&self, file_name: &str, bytes: &[u8]) -> Result<HttpReply, String> {
-        let url = format!("{}/api/assets/upload", self.server);
+        let url = format!("{}{}", self.server, routes::UPLOAD_ASSET.pattern);
         let body = multipart_body(file_name, bytes);
         let result = self
             .agent
@@ -100,7 +100,7 @@ pub fn multipart_body(file_name: &str, bytes: &[u8]) -> Vec<u8> {
 
 /// Reads the server's event stream until it ends. The core decides when to connect again.
 pub fn read_events(http: &UreqHttp, mut send: impl FnMut(SseEvent)) {
-    let url = format!("{}/api/events", http.server);
+    let url = format!("{}{}", http.server, routes::EVENTS.pattern);
     let mut response = match http.agent.get(&url).call() {
         Ok(response) if response.status().is_success() => response,
         // No server there, or a server without an event stream

@@ -3,6 +3,8 @@
 
 use crate::effects::{ApiError, ApiOp, ApiOutput, ApiResult, AtlasChange};
 use crate::model::{BacklinkEntry, Item, Page, PropertyDefinition, SearchResult};
+pub use journal_api_types::routes;
+use journal_api_types::routes::Route;
 use journal_api_types::{
     AddPropertyDefinitionInput, AnswerConfirmInput, AtlasCalloutInput, AtlasGroupInput,
     AtlasLinkInput, AtlasTitleInput, CreateItemInput, DemotePageInput, GetOrCreateDocInput,
@@ -110,30 +112,30 @@ fn body(input: impl Serialize) -> Option<Value> {
     Some(serde_json::to_value(input).expect("a request is plain data"))
 }
 
-/// The method, the path under `/api/pages/{id}/atlas/` and the body of a change of an atlas.
-fn atlas_request(change: AtlasChange) -> (&'static str, String, Option<Value>) {
+/// The route of a change of an atlas, the item it names in its path and its body.
+fn atlas_request(change: AtlasChange) -> (Route, Option<String>, Option<Value>) {
     match change {
         AtlasChange::AddLink { target, bounds } => (
-            "POST",
-            "links".into(),
+            routes::ADD_ATLAS_LINK,
+            None,
             body(AtlasLinkInput { target, bounds }),
         ),
         AtlasChange::SetLink { item_id, target } => (
-            "PUT",
-            format!("links/{item_id}"),
+            routes::SET_ATLAS_LINK,
+            Some(item_id),
             body(AtlasLinkInput {
                 target,
                 ..Default::default()
             }),
         ),
         AtlasChange::Group { cards, target } => (
-            "POST",
-            "group".into(),
+            routes::GROUP_ATLAS_CARDS,
+            None,
             body(AtlasGroupInput { cards, target }),
         ),
         AtlasChange::Ungroup { cards } => (
-            "POST",
-            "ungroup".into(),
+            routes::UNGROUP_ATLAS_CARDS,
+            None,
             body(AtlasGroupInput {
                 cards,
                 ..Default::default()
@@ -144,13 +146,13 @@ fn atlas_request(change: AtlasChange) -> (&'static str, String, Option<Value>) {
             side,
             title,
         } => (
-            "PUT",
-            format!("groups/{item_id}"),
+            routes::SET_ATLAS_GROUP_TITLE,
+            Some(item_id),
             body(AtlasTitleInput { side, title }),
         ),
         AtlasChange::AddCallout { bounds, side, text } => (
-            "POST",
-            "callouts".into(),
+            routes::ADD_ATLAS_CALLOUT,
+            None,
             body(AtlasCalloutInput { bounds, side, text }),
         ),
         AtlasChange::SetCallout {
@@ -158,15 +160,15 @@ fn atlas_request(change: AtlasChange) -> (&'static str, String, Option<Value>) {
             side,
             text,
         } => (
-            "PUT",
-            format!("callouts/{item_id}"),
+            routes::SET_ATLAS_CALLOUT,
+            Some(item_id),
             body(AtlasCalloutInput {
                 side,
                 text,
                 ..Default::default()
             }),
         ),
-        AtlasChange::Remove { item_id } => ("DELETE", format!("items/{item_id}"), None),
+        AtlasChange::Remove { item_id } => (routes::REMOVE_ATLAS_ITEM, Some(item_id), None),
     }
 }
 
@@ -262,19 +264,30 @@ fn page_update(reply: &HttpReply) -> ApiResult<ApiOutput> {
     page_info(reply)
 }
 
-fn call(
-    method: &'static str,
-    path: impl Into<String>,
-    body: Option<Value>,
-    read: Reader,
-) -> RestCall {
+/// A call of a route of the server (`journal_api_types::routes`). `args` are the changing
+/// parts of its path, in the order the pattern names them. They are encoded here.
+fn call(route: Route, args: &[&str], body: Option<Value>, read: Reader) -> RestCall {
+    let args: Vec<String> = args.iter().map(|arg| enc(arg)).collect();
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
     RestCall {
         request: HttpRequest {
-            method,
-            path: path.into(),
+            method: route.method.as_str(),
+            path: route.path(&args),
             body,
         },
         read,
+    }
+}
+
+impl RestCall {
+    /// The same call with a query after its path. The values are encoded here.
+    fn asking(mut self, query: &[(&str, &str)]) -> RestCall {
+        let pairs: Vec<String> = query
+            .iter()
+            .map(|(name, value)| format!("{name}={}", enc(value)))
+            .collect();
+        self.request.path = format!("{}?{}", self.request.path, pairs.join("&"));
+        self
     }
 }
 
@@ -282,33 +295,25 @@ fn call(
 /// the shell holds.
 pub fn rest_call(op: ApiOp) -> Option<RestCall> {
     Some(match op {
-        ApiOp::GetPageById { page_id } => call("GET", format!("/api/pages/{page_id}"), None, page),
-        ApiOp::GetMostRecentJournalBefore { before } => call(
-            "GET",
-            format!("/api/journals/before?date={}", enc(&before)),
-            None,
-            journal_before,
-        ),
-        ApiOp::GetMostRecentWeeklyJournalBefore { before } => call(
-            "GET",
-            format!("/api/journals/weekly/before?week={}", enc(&before)),
-            None,
-            journal_before,
-        ),
-        ApiOp::GetOrCreateJournal { file_name } => call(
-            "POST",
-            format!("/api/journals/{}", enc(&file_name)),
-            None,
-            page,
-        ),
+        ApiOp::GetPageById { page_id } => call(routes::GET_PAGE, &[&page_id], None, page),
+        ApiOp::GetMostRecentJournalBefore { before } => {
+            call(routes::JOURNAL_BEFORE, &[], None, journal_before).asking(&[("date", &before)])
+        }
+        ApiOp::GetMostRecentWeeklyJournalBefore { before } => {
+            call(routes::WEEKLY_JOURNAL_BEFORE, &[], None, journal_before)
+                .asking(&[("week", &before)])
+        }
+        ApiOp::GetOrCreateJournal { file_name } => {
+            call(routes::GET_OR_CREATE_JOURNAL, &[&file_name], None, page)
+        }
         ApiOp::MoveItemsToJournal {
             file_name,
             item_ids,
             position,
             body,
         } => call(
-            "POST",
-            format!("/api/journals/{}/move", enc(&file_name)),
+            routes::MOVE_ITEMS_TO_JOURNAL,
+            &[&file_name],
             self::body(MoveToJournalInput {
                 item_ids,
                 position: position.to_api(),
@@ -317,8 +322,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             page,
         ),
         ApiOp::GetOrCreateDoc { title, dir_path } => call(
-            "POST",
-            "/api/pages/doc",
+            routes::GET_OR_CREATE_DOC,
+            &[],
             body(GetOrCreateDocInput {
                 title: Some(title),
                 dir_path: Some(dir_path),
@@ -332,8 +337,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             body,
             id,
         } => call(
-            "POST",
-            "/api/items",
+            routes::CREATE_ITEM,
+            &[],
             self::body(CreateItemInput {
                 page_id: Some(page_id),
                 position: Some(position.to_api()),
@@ -349,8 +354,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             level,
             collapsed,
         } => call(
-            "PUT",
-            format!("/api/items/{item_id}"),
+            routes::UPDATE_ITEM,
+            &[&item_id],
             self::body(UpdateItemInput {
                 body,
                 level,
@@ -359,8 +364,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             item,
         ),
         ApiOp::ShiftItemLevels { item_ids, delta } => call(
-            "POST",
-            "/api/items/shift-level",
+            routes::SHIFT_ITEM_LEVELS,
+            &[],
             body(ShiftLevelsInput {
                 item_ids: Some(item_ids),
                 delta,
@@ -374,8 +379,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             level_delta,
             body,
         } => call(
-            "POST",
-            "/api/items/move",
+            routes::MOVE_ITEMS,
+            &[],
             self::body(MoveItemsInput {
                 item_ids: Some(item_ids),
                 target_page_id: Some(target_page_id),
@@ -385,12 +390,10 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             }),
             items,
         ),
-        ApiOp::DeletePage { page_id } => {
-            call("DELETE", format!("/api/pages/{page_id}"), None, done)
-        }
+        ApiOp::DeletePage { page_id } => call(routes::DELETE_PAGE, &[&page_id], None, done),
         ApiOp::DeleteItems { item_ids } => call(
-            "POST",
-            "/api/items/delete",
+            routes::DELETE_ITEMS,
+            &[],
             body(ItemIdsInput {
                 item_ids: Some(item_ids),
             }),
@@ -402,8 +405,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             body,
             into_body,
         } => call(
-            "POST",
-            "/api/items/merge",
+            routes::MERGE_ITEMS,
+            &[],
             self::body(MergeItemsInput {
                 item_id: Some(item_id),
                 into_id: Some(into_id),
@@ -419,8 +422,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             text,
             mode,
         } => call(
-            "POST",
-            format!("/api/items/{item_id}/paste"),
+            routes::PASTE_TEXT,
+            &[&item_id],
             self::body(PasteInput {
                 body: Some(body),
                 cursor,
@@ -435,8 +438,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             body,
             cursor,
         } => call(
-            "POST",
-            format!("/api/items/{item_id}/split"),
+            routes::SPLIT_ITEM,
+            &[&item_id],
             self::body(SplitInput {
                 body: Some(body),
                 cursor,
@@ -445,79 +448,62 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             |reply| parsed(reply).map(|split| ApiOutput::Split(Box::new(split))),
         ),
         ApiOp::StashItem { item_id, body } => call(
-            "POST",
-            format!("/api/items/{item_id}/stash"),
+            routes::STASH_ITEM,
+            &[&item_id],
             self::body(StashInput { body }),
             |reply| parsed(reply).map(|stashed| ApiOutput::Stashed(Box::new(stashed))),
         ),
         ApiOp::ApplyBatch { ops } => call(
-            "POST",
-            "/api/items/batch",
+            routes::APPLY_BATCH,
+            &[],
             Some(json!({ "ops": ops })),
             |reply| parsed(reply).map(|batched| ApiOutput::Batched(Box::new(batched))),
         ),
-        ApiOp::CycleTask { item_id } => call(
-            "POST",
-            format!("/api/items/{item_id}/cycle-task"),
-            None,
-            item,
-        ),
+        ApiOp::CycleTask { item_id } => call(routes::CYCLE_TASK, &[&item_id], None, item),
         ApiOp::UpsertItemProperty {
             item_id,
             key,
             value_type,
             value,
         } => call(
-            "PUT",
-            format!("/api/items/{item_id}/properties/{}", enc(&key)),
+            routes::UPSERT_ITEM_PROPERTY,
+            &[&item_id, &key],
             body(PropertyInput {
                 value_type: Some(value_type),
                 value: Some(value),
             }),
             item,
         ),
-        ApiOp::DeleteItemProperty { item_id, key } => call(
-            "DELETE",
-            format!("/api/items/{item_id}/properties/{}", enc(&key)),
-            None,
-            item,
-        ),
-        ApiOp::ChangeAtlas { atlas_id, change } => {
-            let (method, path, body) = atlas_request(change);
-            call(
-                method,
-                format!("/api/pages/{atlas_id}/atlas/{path}"),
-                body,
-                items,
-            )
+        ApiOp::DeleteItemProperty { item_id, key } => {
+            call(routes::DELETE_ITEM_PROPERTY, &[&item_id, &key], None, item)
         }
-        ApiOp::SearchCombined { query, max_results } => call(
-            "GET",
-            format!(
-                "/api/search/combined?q={}&maxResults={max_results}",
-                enc(&query)
-            ),
-            None,
-            search_results,
-        ),
-        ApiOp::SearchPageNames { query, max_results } => call(
-            "GET",
-            format!(
-                "/api/search/pages?q={}&maxResults={max_results}",
-                enc(&query)
-            ),
-            None,
-            search_results,
-        ),
+        ApiOp::ChangeAtlas { atlas_id, change } => {
+            let (route, item_id, body) = atlas_request(change);
+            let args: Vec<&str> = [Some(&atlas_id), item_id.as_ref()]
+                .into_iter()
+                .flatten()
+                .map(String::as_str)
+                .collect();
+            call(route, &args, body, items)
+        }
+        ApiOp::SearchCombined { query, max_results } => {
+            call(routes::SEARCH_COMBINED, &[], None, search_results)
+                .asking(&[("q", &query), ("maxResults", &max_results.to_string())])
+        }
+        ApiOp::SearchPageNames { query, max_results } => {
+            call(routes::SEARCH_PAGE_NAMES, &[], None, search_results)
+                .asking(&[("q", &query), ("maxResults", &max_results.to_string())])
+        }
         ApiOp::GetRecentPages {
             max_results,
             page_type,
         } => {
-            let mut path = format!("/api/pages/recent?maxResults={max_results}");
-            if let Some(t) = page_type {
-                path.push_str(&format!("&type={}", enc(&t)));
+            let max_results = max_results.to_string();
+            let mut query = vec![("maxResults", max_results.as_str())];
+            if let Some(page_type) = &page_type {
+                query.push(("type", page_type));
             }
-            call("GET", path, None, pages)
+            call(routes::RECENT_PAGES, &[], None, pages).asking(&query)
         }
         ApiOp::UpdatePage {
             page_id,
@@ -525,8 +511,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             dir_path,
             overwrite,
         } => call(
-            "PUT",
-            format!("/api/pages/{page_id}"),
+            routes::UPDATE_PAGE,
+            &[&page_id],
             body(UpdatePageInput {
                 title,
                 dir_path,
@@ -535,8 +521,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             page_update,
         ),
         ApiOp::DemotePage { page_id, overwrite } => call(
-            "POST",
-            format!("/api/pages/{page_id}/demote"),
+            routes::DEMOTE_PAGE,
+            &[&page_id],
             body(DemotePageInput { overwrite }),
             page_update,
         ),
@@ -546,8 +532,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             value_type,
             value,
         } => call(
-            "PUT",
-            format!("/api/pages/{page_id}/properties/{}", enc(&key)),
+            routes::UPSERT_PAGE_PROPERTY,
+            &[&page_id, &key],
             body(PropertyInput {
                 value_type: Some(value_type),
                 value: Some(value),
@@ -555,18 +541,16 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             page_info,
         ),
         ApiOp::DeletePageProperty { page_id, key } => call(
-            "DELETE",
-            format!("/api/pages/{page_id}/properties/{}", enc(&key)),
+            routes::DELETE_PAGE_PROPERTY,
+            &[&page_id, &key],
             None,
             page_info,
         ),
-        ApiOp::GetConfig => call("GET", "/api/config", None, config),
-        ApiOp::GetPropertyDefinitions => {
-            call("GET", "/api/config/property-definitions", None, definitions)
-        }
+        ApiOp::GetConfig => call(routes::GET_CONFIG, &[], None, config),
+        ApiOp::GetPropertyDefinitions => call(routes::PROPERTY_DEFINITIONS, &[], None, definitions),
         ApiOp::AddPropertyDefinition { key, value_type } => call(
-            "POST",
-            "/api/config/property-definitions",
+            routes::ADD_PROPERTY_DEFINITION,
+            &[],
             body(AddPropertyDefinitionInput {
                 key: Some(key),
                 value_type: Some(value_type),
@@ -575,8 +559,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             definitions,
         ),
         ApiOp::DeletePropertyDefinition { key } => call(
-            "DELETE",
-            format!("/api/config/property-definitions/{}", enc(&key)),
+            routes::DELETE_PROPERTY_DEFINITION,
+            &[&key],
             None,
             definitions,
         ),
@@ -587,8 +571,8 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             tags_dir,
             home_link,
         } => call(
-            "PUT",
-            "/api/config",
+            routes::UPDATE_CONFIG,
+            &[],
             body(UpdateConfigInput {
                 markdown_dir,
                 week_numbering,
@@ -598,20 +582,20 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             }),
             config,
         ),
-        ApiOp::BrowseFolder => call("POST", "/api/config/browse-folder", None, |reply| {
+        ApiOp::BrowseFolder => call(routes::BROWSE_FOLDER, &[], None, |reply| {
             parsed(reply).map(ApiOutput::Folder)
         }),
         ApiOp::ExportTreeMarkdown { item_ids } => call(
-            "POST",
-            "/api/items/export",
+            routes::EXPORT_TREE_MARKDOWN,
+            &[],
             body(ItemIdsInput {
                 item_ids: Some(item_ids),
             }),
             |reply| parsed(reply).map(ApiOutput::TreeExport),
         ),
         ApiOp::TranscludedItems { item_ids } => call(
-            "POST",
-            "/api/items/transcluded",
+            routes::TRANSCLUDED_ITEMS,
+            &[],
             body(ItemIdsInput {
                 item_ids: Some(item_ids),
             }),
@@ -621,49 +605,35 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             item_id,
             source_item_id,
         } => call(
-            "POST",
-            format!("/api/items/{item_id}/transclude"),
+            routes::SET_TRANSCLUSION,
+            &[&item_id],
             body(TransclusionInput {
                 source_item_id: Some(source_item_id),
             }),
             item,
         ),
         ApiOp::AnswerConfirm { request_id, ok } => call(
-            "POST",
-            format!("/api/confirm/{}", enc(&request_id)),
+            routes::ANSWER_CONFIRM,
+            &[&request_id],
             body(AnswerConfirmInput { ok }),
             done,
         ),
-        ApiOp::RemoveTransclusion { item_id } => call(
-            "DELETE",
-            format!("/api/items/{item_id}/transclude"),
-            None,
-            item,
-        ),
-        ApiOp::GetChildPages { parent_id } => call(
-            "GET",
-            format!("/api/pages/{parent_id}/children"),
-            None,
-            pages,
-        ),
-        ApiOp::GetBacklinks { page_id } => call(
-            "GET",
-            format!("/api/pages/{page_id}/backlinks"),
-            None,
-            |reply| parsed::<BacklinksEnvelope>(reply).map(|e| ApiOutput::Backlinks(e.entries)),
-        ),
+        ApiOp::RemoveTransclusion { item_id } => {
+            call(routes::REMOVE_TRANSCLUSION, &[&item_id], None, item)
+        }
+        ApiOp::GetChildPages { parent_id } => call(routes::CHILD_PAGES, &[&parent_id], None, pages),
+        ApiOp::GetBacklinks { page_id } => call(routes::BACKLINKS, &[&page_id], None, |reply| {
+            parsed::<BacklinksEnvelope>(reply).map(|e| ApiOutput::Backlinks(e.entries))
+        }),
         ApiOp::UploadAsset { .. } => return None,
         ApiOp::LaunchUrl { url } => call(
-            "POST",
-            "/api/launcher/open",
+            routes::LAUNCH_URL,
+            &[],
             body(LaunchUrlInput { url: Some(url) }),
             |reply| parsed::<LaunchEnvelope>(reply).map(|e| ApiOutput::Launched(e.success)),
         ),
-        ApiOp::OpenExportFolder { page_id } => call(
-            "POST",
-            format!("/api/pages/{page_id}/open-folder"),
-            None,
-            done,
-        ),
+        ApiOp::OpenExportFolder { page_id } => {
+            call(routes::OPEN_EXPORT_FOLDER, &[&page_id], None, done)
+        }
     })
 }

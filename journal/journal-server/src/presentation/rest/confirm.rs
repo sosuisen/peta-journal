@@ -2,15 +2,16 @@
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::routing::post;
 use axum::{Json, Router};
+use journal_api_types::routes;
 use journal_api_types::AnswerConfirmInput;
 
 use crate::error::{AppError, HttpResult};
+use crate::presentation::rest::At;
 use crate::state::SharedState;
 
 pub fn routes() -> Router<SharedState> {
-    Router::new().route("/api/confirm/{request_id}", post(answer))
+    Router::new().at(routes::ANSWER_CONFIRM, answer)
 }
 
 /// The first answer wins. A question that was answered already or timed out is not found.

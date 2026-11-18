@@ -1,24 +1,22 @@
 use axum::extract::{Path, Query, State};
-use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use serde::Deserialize;
 
 use crate::error::HttpResult;
 use crate::presentation::client_id::ClientId;
+use crate::presentation::rest::At;
 use crate::state::{blocking, SharedState};
+use journal_api_types::routes;
 use journal_core::journal::{
     ChangedBy, JournalAnswer, MostRecentJournalAnswer, MoveToJournalInput, MovedToJournalAnswer,
 };
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
-        .route("/api/journals/before", get(most_recent_before))
-        .route(
-            "/api/journals/weekly/before",
-            get(most_recent_weekly_before),
-        )
-        .route("/api/journals/{name}", post(get_or_create))
-        .route("/api/journals/{name}/move", post(move_items))
+        .at(routes::JOURNAL_BEFORE, most_recent_before)
+        .at(routes::WEEKLY_JOURNAL_BEFORE, most_recent_weekly_before)
+        .at(routes::GET_OR_CREATE_JOURNAL, get_or_create)
+        .at(routes::MOVE_ITEMS_TO_JOURNAL, move_items)
 }
 
 #[derive(Deserialize, Default)]

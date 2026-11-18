@@ -2,12 +2,14 @@
 
 use std::path::Path as FsPath;
 
+use crate::presentation::rest::handling;
 use crate::state::{blocking, SharedState};
 use axum::extract::{DefaultBodyLimit, Multipart, Path, State};
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::get;
 use axum::Router;
+use journal_api_types::routes;
 use journal_core::domain::asset_name::saved_name;
 
 /// The largest upload. The default of 2MB refused large screenshots. A file is held in memory
@@ -17,8 +19,8 @@ const UPLOAD_LIMIT_BYTES: usize = 50 * 1024 * 1024;
 pub fn routes() -> Router<SharedState> {
     Router::new()
         .route(
-            "/api/assets/upload",
-            post(upload).layer(DefaultBodyLimit::max(UPLOAD_LIMIT_BYTES)),
+            routes::UPLOAD_ASSET.pattern,
+            handling(routes::UPLOAD_ASSET, upload).layer(DefaultBodyLimit::max(UPLOAD_LIMIT_BYTES)),
         )
         .route("/assets/{file_name}", get(get_asset))
 }
