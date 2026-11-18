@@ -167,6 +167,27 @@ fn a_failed_load_leaves_the_journal_empty() {
     assert_eq!(h.items_ids(), ["item-2026-02-10"]);
 }
 
+// 別の日へ移ったあとに届いた前の日の答えは、表示されず、前の日より古いジャーナルの読み込みも始めない。
+#[test]
+fn the_answer_for_a_day_left_behind_loads_no_older_journals() {
+    let mut h = Harness::new();
+    visit(&mut h, "2026-02-05");
+    let calls = before_calls(&h).len();
+
+    h.send(Event::JournalLoaded {
+        date: "2026-02-09".into(),
+        title: "2026年2月9日 月曜日".into(),
+        loaded: Box::new(PageWithItems {
+            page: journal_page("2026-02-09"),
+            items: vec![journal_item("item-2026-02-09", "2026-02-09")],
+            ..Default::default()
+        }),
+    });
+
+    assert_eq!(before_calls(&h).len(), calls);
+    assert_eq!(h.items_ids(), ["item-2026-02-05"]);
+}
+
 // 同じジャーナルへの遷移では読み直さない。項目を指すフラグメント付きなら読み直す。
 #[test]
 fn the_same_journal_is_not_loaded_again_unless_an_item_is_named() {
