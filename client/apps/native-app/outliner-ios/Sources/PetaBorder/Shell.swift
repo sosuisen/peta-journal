@@ -22,14 +22,17 @@ public final class Shell: ObservableObject {
     @Published public private(set) var unopened = false
 
     private let border: Border
+    /// Puts text on the clipboard of the system.
+    private let copy: (String) -> Void
     /// Takes in the files, one sync after the other, and closes the core after the last.
     private let worker = DispatchQueue(label: "peta-journal.take-in")
     private var closed = false
 
     /// Opens the journal of the app. `dataDir` keeps its database, its index and its settings,
     /// and `markdownDir` is the folder the files from Dropbox are put in. The core tells the
-    /// sync when a page changed (ADR 055). Throws when the journal cannot be opened.
-    public init(dataDir: URL, markdownDir: URL) throws {
+    /// sync when a page changed (ADR 055). `copy` puts text on the clipboard of the system.
+    /// Throws when the journal cannot be opened.
+    public init(dataDir: URL, markdownDir: URL, copy: @escaping (String) -> Void = { _ in }) throws {
         let inbox = Inbox()
         // The main queue keeps the requests in order. The first ones may come before the shell
         // is there, and are still handled after this initializer
@@ -39,6 +42,7 @@ public final class Shell: ObservableObject {
             }
         }
         self.border = border
+        self.copy = copy
         view = Shell.must { try border.view() }
         inbox.shell = self
     }
@@ -151,6 +155,16 @@ public final class Shell: ObservableObject {
         return true
     }
 
+    /// The user pasted `text` into the edited item, with the cursor `cursor` UTF-16 units into
+    /// its Markdown. The core cuts the text into items (ADR 011): its first line goes on after
+    /// the cursor, and each line after it is an item below. What the app copied comes back as
+    /// the same items.
+    public func paste(_ text: String, into itemId: String, at cursor: Int) {
+        let body = view.outline.rows.first { $0.item.id == itemId }?.item.body ?? ""
+        let place = UInt64(Cursor.characters(utf16: cursor, in: body))
+        send(.pasteText(itemId: itemId, text: text, html: "", cursor: place, raw: false))
+    }
+
     /// The user left the editor of the item: what was typed is saved.
     public func finish(_ itemId: String) {
         send(.editFinished(itemId: itemId))
@@ -200,6 +214,17 @@ public final class Shell: ObservableObject {
     /// Moves or indents the selected items, as the keys do on a desktop.
     public func moveSelected(_ key: SelectionKey) {
         send(.selectionKey(key))
+    }
+
+    /// Puts the selected items on the clipboard, as Markdown. The core keeps how they stood, so
+    /// that they are pasted back as the same items.
+    public func copySelected() {
+        send(.selectionKey(.copy))
+    }
+
+    /// Puts the selected items on the clipboard, as `copySelected` does, and deletes them.
+    public func cutSelected() {
+        send(.selectionKey(.cut))
     }
 
     /// Takes back the last change of the page.
@@ -336,6 +361,8 @@ public final class Shell: ObservableObject {
             put(Question(text: text, destructive: false, id: id))
         case .confirmDestructive(let text):
             put(Question(text: text, destructive: true, id: id))
+        case .copyMarkdown(let markdown, _):
+            copy(markdown)
         case .prompt, .readClipboardText:
             Shell.must { try border.answer(id, with: .text(nil)) }
         default:

@@ -39,6 +39,12 @@ struct Tools: View {
                     if let next = Tools.neighbour(of: shell.view.outline.rows, arrow) { shell.select(next.item.id) }
                 }
             }
+            if !editing {
+                VStack(spacing: 0) {
+                    Tool(name: "Copy", icon: "copy", does: shell.copySelected)
+                    Tool(name: "Cut", icon: "cut", does: shell.cutSelected)
+                }
+            }
             VStack(spacing: 0) {
                 Tool(name: "Redo", icon: "redo", does: shell.redo)
                 Tool(name: "Undo", icon: "undo", does: shell.undo)

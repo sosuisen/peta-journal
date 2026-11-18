@@ -360,6 +360,36 @@ final class ShellTests: JournalTestCase {
         XCTAssertEqual(selected(), ["second"])
     }
 
+    // 選んだ項目をコピーすると、その項目がMarkdownでクリップボードに載る。項目はページに残る。
+    func testCopyingTheSelectedItemPutsItsMarkdownOnTheClipboard() throws {
+        try selectSecondOfThree()
+
+        shell.copySelected()
+
+        waitUntil("the item is on the clipboard") { !self.copied.isEmpty }
+        XCTAssertEqual(copied, ["- second"])
+        XCTAssertEqual(bodies(), ["first", "second", "third"])
+    }
+
+    // 選んだ項目を切り取ると、その項目がMarkdownでクリップボードに載り、ページから消える。
+    func testCuttingTheSelectedItemPutsItOnTheClipboardAndTakesItOffThePage() throws {
+        try selectSecondOfThree()
+
+        shell.cutSelected()
+
+        waitUntil("the item is gone") { self.bodies() == ["first", "third"] }
+        XCTAssertEqual(copied, ["- second"])
+    }
+
+    // 2つの項目のリストを項目の終わりに貼り付けると、1つ目はその項目に続き、2つ目は下の新しい項目になる。
+    func testAListOfTwoItemsPastedAtTheEndOfAnItemGoesOnInItAndMakesANewItemBelow() throws {
+        try editSecondOfThree()
+
+        shell.paste("- apple\n- pear", into: id(of: "second"), at: 6)
+
+        waitUntil("the list is items") { self.bodies() == ["first", "secondapple", "pear", "third"] }
+    }
+
     // 元に戻すは、最後の変更を取り消す。やり直すは、それをまた行う。
     func testUndoTakesBackTheLastChangeAndRedoDoesItAgain() throws {
         try editSecondOfThree()

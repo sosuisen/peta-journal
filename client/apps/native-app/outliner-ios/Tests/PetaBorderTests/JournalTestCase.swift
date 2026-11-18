@@ -8,6 +8,8 @@ import XCTest
 class JournalTestCase: XCTestCase {
     private(set) var root: URL!
     var shell: Shell!
+    /// What the shell put on the clipboard, the last last.
+    var copied: [String] = []
 
     override func setUp() async throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("peta-shell-\(UUID().uuidString)")
@@ -36,7 +38,9 @@ class JournalTestCase: XCTestCase {
 
     /// Opens the app on the folders, and waits until the files are taken in.
     func start() throws {
-        shell = try Shell(dataDir: root.appendingPathComponent("data"), markdownDir: markdown)
+        shell = try Shell(
+            dataDir: root.appendingPathComponent("data"), markdownDir: markdown,
+            copy: { [weak self] in self?.copied.append($0) })
         takeIn()
     }
 
