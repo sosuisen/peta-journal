@@ -47,6 +47,76 @@ fn id_of(v: &Value) -> String {
     v["id"].as_str().unwrap().to_string()
 }
 
+// クエリのdateFormat=isoを受けたルートは、日付をUTCのISO 8601の文字列で返す。クエリがなければ、ミリ秒の数で返す。
+#[tokio::test]
+async fn a_route_writes_its_dates_as_iso_text_only_when_the_query_asks() {
+    let page = new_doc_page("routes-iso-dates").await;
+    let path = format!("/api/pages/{}", page.id);
+
+    let (_, by_default) = get(&path).await;
+    let (_, in_iso) = get(&format!("{path}?dateFormat=iso")).await;
+    let (_, in_millis) = get(&format!("{path}?dateFormat=millis")).await;
+
+    let millis = by_default["page"]["modifiedDate"].as_i64().unwrap();
+    let written = in_iso["page"]["modifiedDate"].as_str().unwrap();
+    assert_eq!(
+        chrono::DateTime::parse_from_rfc3339(written)
+            .unwrap()
+            .timestamp_millis(),
+        millis
+    );
+    assert!(in_iso["items"][0]["createdDate"].is_string(), "{in_iso}");
+    assert_eq!(in_iso["items"][0]["level"], by_default["items"][0]["level"]);
+    assert_eq!(in_millis, by_default);
+}
+
+// 変更のルートも、同じクエリで日付の形式を受ける。
+#[tokio::test]
+async fn a_route_that_changes_something_takes_the_date_format_too() {
+    let page = new_doc_page("routes-iso-dates-change").await;
+
+    let (status, created) = post(
+        "/api/items?dateFormat=iso",
+        json!({ "pageId": page.id, "position": "last", "level": 1, "body": "x" }),
+    )
+    .await;
+
+    assert_eq!(status, 200, "{created}");
+    assert!(created["item"]["createdDate"].is_string(), "{created}");
+}
+
+// 知らないdateFormatは、何もせずに400で拒否される。
+#[tokio::test]
+async fn a_date_format_that_is_not_known_is_refused_before_anything_changes() {
+    let page = new_doc_page("routes-bad-date-format").await;
+
+    let (status, refusal) = post(
+        "/api/items?dateFormat=rfc",
+        json!({ "pageId": page.id, "position": "last", "level": 1, "body": "x" }),
+    )
+    .await;
+
+    assert_eq!(status, 400, "{refusal}");
+    assert!(refusal["error"].is_string(), "{refusal}");
+    assert_eq!(outline_of(&page.id).await, vec!["1:"]);
+}
+
+// JSONでない答え（イベントの流れ）は、dateFormatがあっても、そのまま流れる。
+#[tokio::test]
+async fn an_answer_that_is_not_json_passes_as_it_is_with_a_date_format() {
+    let events = client()
+        .get(url("/api/events?dateFormat=iso"))
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(events.status(), 200);
+    assert!(events.headers()["content-type"]
+        .to_str()
+        .unwrap()
+        .starts_with("text/event-stream"));
+}
+
 // 項目のルートは、正しい要求に200で答え、クライアントが読む形の答えを返す。
 #[tokio::test]
 async fn every_route_of_the_items_answers_a_request_in_order() {

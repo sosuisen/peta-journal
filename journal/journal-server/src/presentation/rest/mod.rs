@@ -11,17 +11,19 @@ pub mod pages;
 pub mod search;
 pub mod sync;
 
-use axum::extract::Request;
+use axum::body::to_bytes;
+use axum::extract::{Query, Request};
 use axum::handler::Handler;
-use axum::http::Method;
+use axum::http::{header, Method};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{on, MethodFilter, MethodRouter};
-use axum::Router;
+use axum::{Json, Router};
 use journal_api_types::routes::{self, Route};
 
-use crate::error::HttpError;
+use crate::error::{AppError, HttpError};
 use crate::presentation::client_id;
+use crate::presentation::date_format::DateFormat;
 use crate::state::SharedState;
 
 /// The form of the page about missing files posts here. A form of a browser cannot add a
@@ -76,7 +78,46 @@ pub fn router() -> Router<SharedState> {
         .merge(sync::routes())
         .merge(assets::routes())
         .merge(launcher::routes())
+        .layer(axum::middleware::from_fn(write_dates))
         .layer(axum::middleware::from_fn(require_client_id))
+}
+
+#[derive(serde::Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct DateFormatQuery {
+    date_format: DateFormat,
+}
+
+/// Writes the dates of a JSON answer in the format the query `dateFormat` names (ADR 060).
+/// Every route takes the query here, so no handler reads it.
+async fn write_dates(request: Request, next: Next) -> Response {
+    let format = match Query::<DateFormatQuery>::try_from_uri(request.uri()) {
+        Ok(Query(query)) => query.date_format,
+        Err(refusal) => {
+            return HttpError(AppError::bad_request(refusal.body_text())).into_response()
+        }
+    };
+    let response = next.run(request).await;
+    let is_json = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .is_some_and(|kind| kind.as_bytes().starts_with(b"application/json"));
+    // The event stream never ends, so only an answer that is to be rewritten is read whole
+    if format == DateFormat::Millis || !is_json {
+        return response;
+    }
+    let (mut parts, body) = response.into_parts();
+    let answer = to_bytes(body, usize::MAX)
+        .await
+        .ok()
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok());
+    let Some(answer) = answer else {
+        let unread = anyhow::anyhow!("an answer said to be JSON could not be read as JSON");
+        return HttpError(AppError::Internal(unread)).into_response();
+    };
+    // The rewritten body has another length
+    parts.headers.remove(header::CONTENT_LENGTH);
+    (parts, Json(format.write(answer))).into_response()
 }
 
 /// Refuses a request that may change something when its client does not name itself

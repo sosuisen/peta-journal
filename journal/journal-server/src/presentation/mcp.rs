@@ -17,6 +17,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::error::{AppError, AppResult};
+use crate::presentation::date_format::DateFormat;
 use crate::state::{blocking, SharedState};
 use journal_api_types::{GetOrCreateDocInput, UpdatePageInput};
 use journal_core::dto::ItemFields;
@@ -54,6 +55,24 @@ where
 }
 
 // ---- tool arguments ----
+
+/// The arguments of a tool whose answer has pages or items, and with them the format of the
+/// dates of the answer. The REST route takes the format as the query `dateFormat`.
+#[derive(Deserialize, JsonSchema)]
+pub struct Dated<T> {
+    #[serde(flatten)]
+    pub args: T,
+    /// How the answer writes its dates (createdDate, modifiedDate): 'iso' for UTC ISO 8601
+    /// text such as '2026-11-11T10:00:00Z'. Left out, or 'millis', for milliseconds since
+    /// 1970-01-01 UTC as a number.
+    #[serde(rename = "dateFormat", default)]
+    pub dates: DateFormat,
+}
+
+/// The answer of an operation with its dates in the format the caller asked for.
+fn dated(answer: &impl serde::Serialize, dates: DateFormat) -> Result<CallToolResult, McpError> {
+    ok(dates.write(answer_json(answer)))
+}
 
 #[derive(Deserialize, JsonSchema)]
 pub struct GetItemArgs {
@@ -183,14 +202,14 @@ impl JournalMcp {
     )]
     async fn get_item(
         &self,
-        Parameters(a): Parameters<GetItemArgs>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<GetItemArgs>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.get_item(&a.item_id)).await?;
-        if let Some(fields) = ItemFields::parse(Some(&a.fields)) {
-            return ok(Value::Object(fields.of(&r.item)));
+        match ItemFields::parse(Some(&a.fields)) {
+            Some(fields) => dated(&r.with_fields(&fields), dates),
+            None => dated(&r, dates),
         }
-        ok(answer_json(&r))
     }
 
     #[tool(
@@ -198,11 +217,11 @@ impl JournalMcp {
     )]
     async fn create_item(
         &self,
-        Parameters(input): Parameters<CreateItemInput>,
+        Parameters(Dated { args: input, dates }): Parameters<Dated<CreateItemInput>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.create_item(input, &ChangedBy::Mcp)).await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(
@@ -210,7 +229,7 @@ impl JournalMcp {
     )]
     async fn update_item(
         &self,
-        Parameters(a): Parameters<OfItem<UpdateItemInput>>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfItem<UpdateItemInput>>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || {
@@ -219,7 +238,7 @@ impl JournalMcp {
                 .update_item(&a.item_id, a.input, &ChangedBy::Mcp)
         })
         .await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(description = "Delete an item by its ID")]
@@ -237,22 +256,22 @@ impl JournalMcp {
     )]
     async fn move_items(
         &self,
-        Parameters(input): Parameters<MoveItemsInput>,
+        Parameters(Dated { args: input, dates }): Parameters<Dated<MoveItemsInput>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.move_items(input, &ChangedBy::Mcp)).await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(description = "Get all items with the specified types (e.g. all 'task' items)")]
     async fn get_items_by_type(
         &self,
-        Parameters(a): Parameters<TypesArgs>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<TypesArgs>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let types: Vec<String> = a.types.split(',').map(|s| s.to_string()).collect();
         let r = run(move || state.journal.items_by_types(&types, None)).await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(
@@ -284,11 +303,11 @@ impl JournalMcp {
     )]
     async fn cycle_task(
         &self,
-        Parameters(a): Parameters<ItemIdArgs>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<ItemIdArgs>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.cycle_task(&a.item_id, &ChangedBy::Mcp)).await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(
@@ -296,7 +315,7 @@ impl JournalMcp {
     )]
     async fn set_transclusion(
         &self,
-        Parameters(a): Parameters<OfItem<TransclusionInput>>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfItem<TransclusionInput>>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || {
@@ -305,13 +324,13 @@ impl JournalMcp {
                 .set_transclusion(&a.item_id, a.input, &ChangedBy::Mcp)
         })
         .await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(description = "Remove a transclusion from an item, clearing its body.")]
     async fn remove_transclusion(
         &self,
-        Parameters(a): Parameters<ItemIdArgs>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<ItemIdArgs>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || {
@@ -320,7 +339,7 @@ impl JournalMcp {
                 .remove_transclusion(&a.item_id, &ChangedBy::Mcp)
         })
         .await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(
@@ -328,7 +347,7 @@ impl JournalMcp {
     )]
     async fn upsert_property(
         &self,
-        Parameters(a): Parameters<ItemPropertyArgs>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<ItemPropertyArgs>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || {
@@ -337,7 +356,7 @@ impl JournalMcp {
                 .set_item_property(&a.item_id, &a.key, a.property, &ChangedBy::Mcp)
         })
         .await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(description = "Convert tree markdown (indented list format) to flat markdown.")]
@@ -353,11 +372,11 @@ impl JournalMcp {
     #[tool(description = "Get a page and its items by page ID")]
     async fn get_page_by_id(
         &self,
-        Parameters(a): Parameters<PageIdArgs>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<PageIdArgs>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.get_page(&a.page_id)).await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(
@@ -365,7 +384,7 @@ impl JournalMcp {
     )]
     async fn get_or_create_doc(
         &self,
-        Parameters(a): Parameters<GetOrCreateDocInput>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<GetOrCreateDocInput>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || {
@@ -374,7 +393,7 @@ impl JournalMcp {
                 .get_or_create_doc(a.title.as_deref(), a.dir_path.as_deref())
         })
         .await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(
@@ -392,7 +411,7 @@ impl JournalMcp {
     #[tool(description = "Update a page's title or directory path")]
     async fn update_page(
         &self,
-        Parameters(a): Parameters<OfPage<UpdatePageInput>>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<OfPage<UpdatePageInput>>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || {
@@ -405,7 +424,7 @@ impl JournalMcp {
             )
         })
         .await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(description = "Delete a page and all its items")]
@@ -471,11 +490,11 @@ impl JournalMcp {
     )]
     async fn get_backlinks(
         &self,
-        Parameters(a): Parameters<PageIdArgs>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<PageIdArgs>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.backlinks(&a.page_id)).await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     // ---- journals ----
@@ -485,21 +504,21 @@ impl JournalMcp {
     )]
     async fn get_or_create_journal(
         &self,
-        Parameters(a): Parameters<JournalNameArgs>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<JournalNameArgs>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.get_or_create_journal(&a.file_name)).await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(description = "Get the most recent daily journal before the specified date")]
     async fn get_most_recent_journal_before(
         &self,
-        Parameters(a): Parameters<BeforeDateArgs>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<BeforeDateArgs>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.most_recent_journal_before(&a.before_date)).await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 
     #[tool(
@@ -507,7 +526,7 @@ impl JournalMcp {
     )]
     async fn get_recent_pages(
         &self,
-        Parameters(a): Parameters<RecentPagesArgs>,
+        Parameters(Dated { args: a, dates }): Parameters<Dated<RecentPagesArgs>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || {
@@ -516,7 +535,7 @@ impl JournalMcp {
                 .recent_pages(Some(a.max_results), Some(&a.page_type))
         })
         .await?;
-        ok(answer_json(&r))
+        dated(&r, dates)
     }
 }
 
