@@ -146,7 +146,8 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     /// `kept` is a sticky of the run before, which comes back as it was.
     @discardableResult
     private func show(_ kept: StickySettings?, url: String? = nil) -> Sticky {
-        let shell = Shell(server: server, url: kept?.url ?? url)
+        let shell = Shell(
+            server: server, url: kept?.url ?? url, openSticky: { [weak self] in self?.add(url: $0) })
         let look = StickyLook(
             color: kept?.color ?? StickySettings.yellow, alwaysOnTop: kept?.alwaysOnTop ?? false,
             zoom: kept?.zoom ?? 1)
