@@ -343,6 +343,33 @@ mod tests {
         assert_eq!(to_wikilinks("[#test](../docs/test.md)", JOURNAL), "#test");
     }
 
+    // 名前に#を含むページへのリンクは、ファイルのパスの#と%を符号化して書かれ、元に戻る。
+    #[test]
+    fn a_link_to_a_page_with_a_hash_in_its_name_encodes_the_hash_and_comes_back() {
+        let id = "20260426035700_QZ998PX";
+        let cases = [
+            ("[[C#入門]]".to_string(), "[C#入門](C%23入門.md)".to_string()),
+            (
+                format!("[[C##{id}]]"),
+                format!("[C##{id}](C%23.md#{id})"),
+            ),
+            ("[[100%]]".to_string(), "[100%](100%25.md)".to_string()),
+        ];
+        for (wikilink, markdown) in cases {
+            assert_eq!(to_markdown_links(&wikilink, "docs/x.md"), markdown);
+            assert_eq!(to_wikilinks(&markdown, "docs/x.md"), wikilink);
+        }
+    }
+
+    // ファイルのパスの%25と%23は、1回だけ戻される。
+    #[test]
+    fn the_escapes_of_a_file_path_are_undone_once() {
+        assert_eq!(
+            to_wikilinks("[a%23b](a%2523b.md)", "docs/x.md"),
+            "[[a%23b]]"
+        );
+    }
+
     // ハッシュタグが改名される。
     #[test]
     fn renames_hashtags() {

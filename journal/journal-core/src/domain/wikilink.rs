@@ -35,6 +35,13 @@ mod tests {
         assert_eq!(extract_wikilink_paths(&ast), vec!["Wiki", "a/b"]);
     }
 
+    // 名前の#はページ名の一部で、項目のidの前の#だけが区切りである。
+    #[test]
+    fn a_hash_is_a_part_of_the_name_unless_an_item_id_follows_it() {
+        let ast = MarkdownParser.parse("[[C#]] [[C##20260426035700_QZ998PX]] [[F#入門]]");
+        assert_eq!(extract_wikilink_paths(&ast), vec!["C#", "F#入門"]);
+    }
+
     // 空の本文からはパスが取れない。
     #[test]
     fn an_empty_body_gives_no_paths() {
