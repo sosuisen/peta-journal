@@ -141,8 +141,13 @@ fn ordered_selected_ids(model: &Model) -> Vec<String> {
         .collect()
 }
 
+/// A key of the whole page while items are selected. Undo and Redo also act when nothing is
+/// selected or edited, as right after the selection was deleted: no editor is there to take
+/// them then.
 pub fn selection_key(model: &mut Model, key: SelectionKey) -> Cmd {
-    if !model.state.item_selection_mode() {
+    let page_undo = matches!(key, SelectionKey::Undo | SelectionKey::Redo)
+        && model.state.editing_item_ids().is_empty();
+    if !model.state.item_selection_mode() && !page_undo {
         return done();
     }
     match key {
