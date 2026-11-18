@@ -383,25 +383,24 @@ async fn a_path_that_names_no_file_and_a_path_that_is_not_absolute_are_refused()
     assert!(relative.contains("absolute"), "{relative}");
 }
 
-// 上限の50MBを超えるファイルは断られ、アセットに写されない。
+// ちょうど上限の50MBのファイルは写され、1バイトでも超えるファイルは断られる。
 #[tokio::test]
-async fn a_file_over_the_limit_is_refused_and_not_copied() {
+async fn a_file_of_the_limit_is_copied_and_a_file_over_it_is_refused() {
     let mcp = connect().await;
-    let name = format!("{}.bin", unique_name("mcp-too-large"));
-    let file = std::env::temp_dir().join(&name);
-    let size = 50 * 1024 * 1024 + 1;
-    std::fs::write(&file, vec![0; size]).unwrap();
+    let limit = 50 * 1024 * 1024;
+    let file = std::env::temp_dir().join(format!("{}.bin", unique_name("mcp-large")));
 
+    std::fs::write(&file, vec![1; limit]).unwrap();
+    let copied = call(&mcp, "upload_asset", json!({ "filePath": file })).await;
+    std::fs::write(&file, vec![1; limit + 1]).unwrap();
     let refusal = call_err(&mcp, "upload_asset", json!({ "filePath": file })).await;
-
     std::fs::remove_file(file).unwrap();
+
+    let saved = server()
+        .markdown_dir
+        .join("assets")
+        .join(copied["fileName"].as_str().unwrap());
+    assert_eq!(std::fs::metadata(&saved).unwrap().len(), limit as u64);
+    std::fs::remove_file(saved).unwrap();
     assert!(refusal.contains("50MB"), "{refusal}");
-    // The name of a saved file is not known beforehand, so it is looked for by its size
-    let copied = std::fs::read_dir(server().markdown_dir.join("assets"))
-        .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|entry| entry.metadata().ok())
-        .any(|saved| saved.len() == size as u64);
-    assert!(!copied);
 }
