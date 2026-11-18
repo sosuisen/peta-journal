@@ -147,6 +147,12 @@ of the outline need the place of the cursor, which SwiftUI does not tell. Text t
 being composed by an input method is not sent to the core until it is confirmed, and the Enter
 that confirms it does not split the item.
 
+A paste goes to the core, not into the text view (`Shell.paste`), as in the web frontend and
+the Windows app. Command+V and "Paste" of the Edit menu send the text on the clipboard with the
+cursor, and the server cuts a Markdown list into items. Shift+Command+V and "Paste and Match
+Style" put the text into the item as it is. The cursor goes to the core in its characters, not
+in UTF-16 units.
+
 Only the item with the cursor shows its Markdown. Every other item shows its text with its
 decoration (ADR 041) and cannot be typed into. A click into an item makes it Markdown at once;
 when the cursor leaves it, the shell tells the core that the edit is over (`Shell.finishEditing`),
@@ -204,6 +210,8 @@ Windows has Control. Control in this table is the Control key.
 | Shift+Option+Left, Right | outdents, indents |
 | Command+Z, Control+Z | undo; with Shift, redo |
 | Shift+Up on the first line, Shift+Down on the last line | selects the item with its children |
+| Command+V | pastes; a Markdown list becomes items |
+| Shift+Command+V | pastes the text into the item as it is |
 
 A drag with the mouse selects items too. It starts in the text of an item and selects the
 letters it goes over. Once it goes more than 10 points above or below the text, it selects the
@@ -318,7 +326,8 @@ PETA_E2E_SERVER=$PWD/../../../../journal/target/release/journal-server swift tes
 ```
 
 `OutlineScreenTests` put the screen in a window and give its editors the text and the keys as
-AppKit does: typing, composing, Enter, the arrows, Tab and Backspace. No key of a real keyboard
+AppKit does: typing, composing, Enter, the arrows, Tab and Backspace. "Paste" is chosen as the
+Edit menu does, with the text that the test puts on its own clipboard. No key of a real keyboard
 is pressed, so they do not show that an input method works with the editors. A click on a link
 is handed to the text view the way a window hands it over; the window of a test takes no click.
 
