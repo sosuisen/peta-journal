@@ -204,7 +204,8 @@ pub struct BacklinkItem {
 
 impl BacklinkGroup {
     fn of(page: &Page, items: &[Item]) -> BacklinkGroup {
-        let url = format!("/pages/{}", page.canonical_path());
+        let path = page.canonical_path();
+        let url = page_urls::page_url(&path);
         BacklinkGroup {
             title: sidebar::page_title(page),
             items: items
@@ -218,7 +219,7 @@ impl BacklinkGroup {
                         .unwrap_or("")
                         .trim()
                         .to_string(),
-                    url: format!("{url}#{}", i.id),
+                    url: page_urls::item_url(&path, &i.id),
                 })
                 .collect(),
             url,

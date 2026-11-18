@@ -276,7 +276,10 @@ fn a_link_leads_to_the_web_to_a_page_or_to_a_file_of_the_assets_folder() {
         target("/pages/other%20page"),
         Some(page("/pages/other%20page"))
     );
-    assert_eq!(target("/pages/other page"), Some(page("/pages/other%20page")));
+    assert_eq!(
+        target("/pages/other page"),
+        Some(page("/pages/other%20page"))
+    );
     assert_eq!(
         target("../pages/./x/../notes?q=1"),
         Some(page("/pages/notes"))

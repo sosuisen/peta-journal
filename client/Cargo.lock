@@ -577,6 +577,7 @@ dependencies = [
  "journal-api-types",
  "journal-names",
  "page-names",
+ "page-urls",
  "percent-encoding",
  "peta-atlas",
  "property-names",
