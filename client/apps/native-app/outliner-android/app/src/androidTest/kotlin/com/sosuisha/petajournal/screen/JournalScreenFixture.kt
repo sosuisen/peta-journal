@@ -42,6 +42,9 @@ abstract class JournalScreenFixture {
     protected lateinit var root: File
     protected lateinit var shell: Shell
 
+    /** What the shell put on the clipboard, the last last. */
+    protected val copied = mutableListOf<String>()
+
     @Before
     fun emptyFolders() {
         val cache = InstrumentationRegistry.getInstrumentation().targetContext.cacheDir
@@ -67,7 +70,7 @@ abstract class JournalScreenFixture {
     protected fun start(cloud: PetaDropboxSdk? = null, signedIn: Boolean = true) {
         val main = Handler(Looper.getMainLooper())
         compose.runOnUiThread {
-            shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) })
+            shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) }, copy = { copied.add(it) })
             shell.sync()
         }
         sync = cloud?.let {
