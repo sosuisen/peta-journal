@@ -52,15 +52,11 @@ async fn try_call(mcp: &Mcp, name: &'static str, args: Value) -> Result<Value, S
     Ok(serde_json::from_str(&text).unwrap_or(Value::String(text)))
 }
 
-fn csv(ids: &[&str]) -> String {
-    ids.join(",")
-}
-
 // ---- The server ----
 
-// Javaサーバーと同じツールが一覧される。
+// ジャーナルのツールが一覧される。
 #[tokio::test]
-async fn the_tools_of_the_java_server_are_listed() {
+async fn the_tools_of_the_journal_are_listed() {
     let mcp = connect().await;
 
     let tools = mcp.list_all_tools().await.expect("tools");
@@ -98,6 +94,46 @@ async fn the_tools_of_the_java_server_are_listed() {
             "upsert_property",
         ]
     );
+}
+
+// 項目を変えるツールの引数は、項目のIDと、RESTのルートが本文で受ける欄である。
+#[tokio::test]
+async fn a_tool_that_changes_an_item_takes_its_id_and_the_fields_of_the_rest_body() {
+    let mcp = connect().await;
+
+    let tools = mcp.list_all_tools().await.expect("tools");
+    let update = tools.iter().find(|t| t.name == "update_item").unwrap();
+    let mut arguments: Vec<&String> = update.input_schema["properties"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .collect();
+    arguments.sort_unstable();
+
+    assert_eq!(arguments, ["body", "collapsed", "itemId", "level"]);
+    assert_eq!(update.input_schema["required"], json!(["itemId"]));
+}
+
+// ツールは、同じ操作のRESTのルートと同じJSONで答える。日付はミリ秒の数で、プロパティも入る。
+#[tokio::test]
+async fn a_tool_answers_with_the_json_of_its_rest_route() {
+    let mcp = connect().await;
+    let page = new_doc_page("mcp-same-json").await;
+    fill(&page.id, &["a #mcp"]).await;
+
+    let by_tool = call(&mcp, "get_page_by_id", json!({ "pageId": page.id })).await;
+    let by_rest: Value = client()
+        .get(url(&format!("/api/pages/{}", page.id)))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+
+    assert_eq!(by_tool, by_rest);
+    assert!(by_tool["page"]["modifiedDate"].is_number(), "{by_tool}");
+    assert_eq!(by_tool["items"][0]["properties"]["tags"], json!(["mcp"]));
 }
 
 // 不正なIDは、invalid paramsとして拒否される。
@@ -140,18 +176,17 @@ async fn an_item_is_created_read_updated_and_deleted() {
     let whole = call(&mcp, "get_item", json!({ "itemId": id, "fields": "" })).await;
     assert_eq!(whole["item"]["properties"]["tags"], json!(["mcp"]));
 
-    // A level of -1 keeps the level; collapsed comes as a word
+    // A field that is left out stays as it is
     let updated = call(
         &mcp,
         "update_item",
-        json!({ "itemId": id, "body": "c", "collapsed": "true" }),
+        json!({ "itemId": id, "body": "c", "collapsed": true }),
     )
     .await;
     assert_eq!(updated["item"]["body"], json!("c"));
     assert_eq!(updated["item"]["level"], json!(2));
     assert_eq!(updated["item"]["collapsed"], json!(true));
 
-    // A level of 1 is a level to set
     let outdented = call(&mcp, "update_item", json!({ "itemId": id, "level": 1 })).await;
     assert_eq!(outdented["item"]["level"], json!(1));
 
@@ -169,7 +204,7 @@ async fn items_move_between_pages_with_their_levels_shifted_or_kept() {
     let target = new_doc_page("mcp-move-to").await;
     let rows = fill(&source.id, &["a", "  b"]).await;
     let x = fill(&target.id, &["x"]).await.remove(0);
-    let ab = csv(&[&rows[0].id, &rows[1].id]);
+    let ab = json!([rows[0].id, rows[1].id]);
 
     let moved = call(
         &mcp,
@@ -192,11 +227,11 @@ async fn items_move_between_pages_with_their_levels_shifted_or_kept() {
     .await;
     assert_eq!(outline_of(&source.id).await, vec!["1:a", "2:b"]);
 
-    // A levelDelta of 0 keeps the levels
+    // No levelDelta keeps the levels
     call(
         &mcp,
         "move_items",
-        json!({ "itemIds": x.id, "targetPageId": source.id, "position": "last", "levelDelta": 0 }),
+        json!({ "itemIds": [x.id], "targetPageId": source.id, "position": "last" }),
     )
     .await;
     assert_eq!(outline_of(&source.id).await, vec!["1:a", "2:b", "1:x"]);
@@ -277,7 +312,7 @@ async fn items_are_exported_as_tree_markdown_and_imported_back_as_flat_markdown(
     let by_items = call(
         &mcp,
         "export_tree_markdown",
-        json!({ "itemIds": csv(&[&rows[0].id, &rows[1].id]) }),
+        json!({ "itemIds": [rows[0].id, rows[1].id] }),
     )
     .await;
     let subtree = call(
@@ -341,7 +376,7 @@ async fn the_clients_hear_of_each_change_of_an_item_over_mcp() {
         ("remove_transclusion", json!({ "itemId": item })),
         (
             "move_items",
-            json!({ "itemIds": item, "targetPageId": other.id, "position": "last" }),
+            json!({ "itemIds": [item], "targetPageId": other.id, "position": "last" }),
         ),
         ("delete_item", json!({ "itemId": source })),
     ];
@@ -678,7 +713,8 @@ async fn a_journal_is_created_by_name_and_the_most_recent_day_before_a_date_is_f
     assert_eq!(again["page"]["id"], first["page"]["id"]);
     assert_eq!(before["found"], json!(true));
     assert_eq!(before["page"]["name"], json!("1998-06-15"));
-    assert_eq!(nothing, json!({ "found": false }));
+    assert_eq!(nothing["found"], json!(false));
+    assert!(nothing["page"].is_null(), "{nothing}");
     assert!(
         not_a_journal.contains("Not a journal filename"),
         "{not_a_journal}"

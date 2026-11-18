@@ -1,4 +1,8 @@
-//! The MCP server: the same 26 tools as the Java server, served over Streamable HTTP at `/mcp`.
+//! The MCP server: the tools of the journal, served over Streamable HTTP at `/mcp`.
+//!
+//! A tool takes the body of the REST route of its operation as its arguments, and answers with
+//! the JSON of that route (ADR 060). What the route takes in its path or its query is an
+//! argument beside the body.
 
 use std::sync::Arc;
 
@@ -14,65 +18,16 @@ use serde_json::{json, Value};
 
 use crate::error::{AppError, AppResult};
 use crate::state::{blocking, SharedState};
-use journal_core::dto::{BacklinkEntryDto, ItemDto, ItemFields, PageDto};
-use journal_core::infrastructure::export::export_service::format_instant;
+use journal_api_types::{GetOrCreateDocInput, UpdatePageInput};
+use journal_core::dto::ItemFields;
 use journal_core::journal::{
     ChangedBy, CreateItemInput, ItemIdsInput, MoveItemsInput, PropertyInput, TransclusionInput,
     TreeMarkdownInput, UpdateConfigInput, UpdateItemInput,
 };
 
-// ---- JSON of the domain records, the way the Java server's Jackson wrote them ----
-
-// These tools have always written a page and an item as such a record: the dates as text, no
-// properties. The answers of the journal (ADR 029) carry the same values in the shape of the
-// REST API, so a record is written from that shape.
-
-fn page_record_json(p: &PageDto) -> Value {
-    json!({
-        "id": p.id,
-        // The REST shape has an empty text for no parent
-        "parentId": Some(&p.parent_id).filter(|id| !id.is_empty()),
-        "dirPath": p.dir_path,
-        "name": p.name,
-        "type": p.page_type,
-        "createdDate": format_instant(p.created_date),
-        "modifiedDate": format_instant(p.modified_date),
-    })
-}
-
-fn item_record_json(i: &ItemDto) -> Value {
-    json!({
-        "id": i.id,
-        "pageId": i.page_id,
-        "parentItemId": i.parent_item_id,
-        "dirPath": i.dir_path,
-        "name": i.name,
-        "type": i.item_type,
-        "createdDate": format_instant(i.created_date),
-        "modifiedDate": format_instant(i.modified_date),
-        "idx": i.idx,
-        "level": i.level,
-        "body": i.body,
-        "collapsed": i.collapsed,
-        "types": i.types,
-        "transcludeItemId": i.transclude_item_id,
-    })
-}
-
-fn item_records_json(items: &[ItemDto]) -> Value {
-    Value::Array(items.iter().map(item_record_json).collect())
-}
-
 /// The answer of an operation of the journal (ADR 029), as the JSON a tool gives back.
 fn answer_json(answer: &impl serde::Serialize) -> Value {
     serde_json::to_value(answer).expect("an answer of the journal is plain data")
-}
-
-fn backlink_json(e: &BacklinkEntryDto) -> Value {
-    json!({
-        "sourcePage": page_record_json(&e.source_page),
-        "sourceItem": e.source_item.as_ref().map(item_record_json),
-    })
 }
 
 fn ok(value: Value) -> Result<CallToolResult, McpError> {
@@ -98,11 +53,6 @@ where
     blocking(f).await.map_err(|refusal| mcp_error(refusal.0))
 }
 
-/// The IDs of a comma-separated list, as the journal takes them.
-fn id_texts(csv: &str) -> Vec<String> {
-    csv.split(',').map(|s| s.trim().to_string()).collect()
-}
-
 // ---- tool arguments ----
 
 #[derive(Deserialize, JsonSchema)]
@@ -116,59 +66,10 @@ pub struct GetItemArgs {
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct CreateItemArgs {
-    /// ID of the page
-    #[serde(rename = "pageId")]
-    pub page_id: String,
-    /// Position: 'first', 'last', or 'after:<id>'
-    pub position: String,
-    /// Indentation level (1-based)
-    pub level: i32,
-    /// Markdown body text
-    #[serde(default)]
-    pub body: String,
-}
-
-#[derive(Deserialize, JsonSchema)]
-pub struct UpdateItemArgs {
-    /// ID of the item
-    #[serde(rename = "itemId")]
-    pub item_id: String,
-    /// New markdown body (null to keep current)
-    #[serde(default)]
-    pub body: Option<String>,
-    /// New indentation level, or -1 to keep current
-    #[serde(default = "minus_one")]
-    pub level: i32,
-    /// New collapsed state: 'true', 'false', or 'null' to keep current
-    #[serde(default)]
-    pub collapsed: Option<String>,
-}
-
-fn minus_one() -> i32 {
-    -1
-}
-
-#[derive(Deserialize, JsonSchema)]
 pub struct ItemIdArgs {
     /// ID of the item
     #[serde(rename = "itemId")]
     pub item_id: String,
-}
-
-#[derive(Deserialize, JsonSchema)]
-pub struct MoveItemsArgs {
-    /// Comma-separated item IDs to move
-    #[serde(rename = "itemIds")]
-    pub item_ids: String,
-    /// ID of the target page
-    #[serde(rename = "targetPageId")]
-    pub target_page_id: String,
-    /// Position: 'first', 'last', or 'after:<id>'
-    pub position: String,
-    /// Level delta adjustment, or 0 for no change
-    #[serde(rename = "levelDelta", default)]
-    pub level_delta: i32,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -177,42 +78,36 @@ pub struct TypesArgs {
     pub types: String,
 }
 
+/// The arguments of a tool that changes one item: the ID of the item, and beside it the fields
+/// of the body of the REST route.
 #[derive(Deserialize, JsonSchema)]
-pub struct ItemIdsArgs {
-    /// Comma-separated item IDs to export
-    #[serde(rename = "itemIds")]
-    pub item_ids: String,
-}
-
-#[derive(Deserialize, JsonSchema)]
-pub struct SetTransclusionArgs {
-    /// ID of the item to set as a transclusion
+pub struct OfItem<T> {
+    /// ID of the item
     #[serde(rename = "itemId")]
     pub item_id: String,
-    /// ID of the source item to transclude
-    #[serde(rename = "sourceItemId")]
-    pub source_item_id: String,
+    #[serde(flatten)]
+    pub input: T,
+}
+
+/// The same for a tool that changes one page.
+#[derive(Deserialize, JsonSchema)]
+pub struct OfPage<T> {
+    /// HMTID of the page
+    #[serde(rename = "pageId")]
+    pub page_id: String,
+    #[serde(flatten)]
+    pub input: T,
 }
 
 #[derive(Deserialize, JsonSchema)]
-pub struct UpsertPropertyArgs {
+pub struct ItemPropertyArgs {
     /// ID of the item
     #[serde(rename = "itemId")]
     pub item_id: String,
     /// Property key (e.g. 'begin', 'end', 'due', 'plan')
     pub key: String,
-    /// Value type: 'text', 'number', 'checkbox', 'date', 'datetime', or 'bounds' (four numbers 'x,y,width,height')
-    #[serde(rename = "valueType")]
-    pub value_type: String,
-    /// Property value as string
-    pub value: String,
-}
-
-#[derive(Deserialize, JsonSchema)]
-pub struct TreeMarkdownArgs {
-    /// Tree markdown string to convert
-    #[serde(rename = "treeMarkdown")]
-    pub tree_markdown: String,
+    #[serde(flatten)]
+    pub property: PropertyInput,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -220,32 +115,6 @@ pub struct PageIdArgs {
     /// HMTID of the page
     #[serde(rename = "pageId")]
     pub page_id: String,
-}
-
-#[derive(Deserialize, JsonSchema)]
-pub struct GetOrCreateDocArgs {
-    /// Title of the document (used as file name)
-    pub title: String,
-    /// Directory path (e.g. 'projects/'). Empty string for root.
-    #[serde(rename = "dirPath", default)]
-    pub dir_path: String,
-}
-
-#[derive(Deserialize, JsonSchema)]
-pub struct UpdatePageArgs {
-    /// HMTID of the page
-    #[serde(rename = "pageId")]
-    pub page_id: String,
-    /// New title (null to keep current)
-    #[serde(default)]
-    pub title: Option<String>,
-    /// New directory path (null to keep current)
-    #[serde(rename = "dirPath", default)]
-    pub dir_path: Option<String>,
-    /// Delete another page that already has the new name and take its place (default false:
-    /// the update fails instead)
-    #[serde(default)]
-    pub overwrite: bool,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -264,25 +133,6 @@ impl SearchArgs {
             .ok()
             .filter(|max| *max > 0)
     }
-}
-
-#[derive(Deserialize, JsonSchema)]
-pub struct UpdateConfigArgs {
-    /// Week numbering system: 'us' or 'iso'
-    #[serde(rename = "weekNumbering", default)]
-    pub week_numbering: Option<String>,
-    /// Markdown export directory path
-    #[serde(rename = "markdownDir", default)]
-    pub markdown_dir: Option<String>,
-    /// Logical outdent: move children with parent
-    #[serde(rename = "logicalOutdent", default)]
-    pub logical_outdent: Option<bool>,
-    /// Directory of the tag pages relative to the pages root, e.g. 'tags/' (empty for the root)
-    #[serde(rename = "tagsDir", default)]
-    pub tags_dir: Option<String>,
-    /// The page the Home button opens, as the target of a wiki link, e.g. 'today' (empty for today's journal)
-    #[serde(rename = "homeLink", default)]
-    pub home_link: Option<String>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -348,43 +198,28 @@ impl JournalMcp {
     )]
     async fn create_item(
         &self,
-        Parameters(a): Parameters<CreateItemArgs>,
+        Parameters(input): Parameters<CreateItemInput>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let input = CreateItemInput {
-            page_id: Some(a.page_id),
-            position: Some(a.position),
-            level: a.level,
-            body: Some(a.body),
-            id: None,
-        };
         let r = run(move || state.journal.create_item(input, &ChangedBy::Mcp)).await?;
-        ok(json!({ "item": item_record_json(&r.item) }))
+        ok(answer_json(&r))
     }
 
     #[tool(
-        description = "Update an existing item's body, level, or collapsed state. Only non-null fields are updated."
+        description = "Update an existing item's body, level, or collapsed state. A field that is left out stays as it is."
     )]
     async fn update_item(
         &self,
-        Parameters(a): Parameters<UpdateItemArgs>,
+        Parameters(a): Parameters<OfItem<UpdateItemInput>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let input = UpdateItemInput {
-            body: a.body,
-            level: if a.level < 1 { None } else { Some(a.level) },
-            collapsed: match a.collapsed.as_deref() {
-                None | Some("null") => None,
-                Some(s) => Some(s == "true"),
-            },
-        };
         let r = run(move || {
             state
                 .journal
-                .update_item(&a.item_id, input, &ChangedBy::Mcp)
+                .update_item(&a.item_id, a.input, &ChangedBy::Mcp)
         })
         .await?;
-        ok(json!({ "item": item_record_json(&r.item) }))
+        ok(answer_json(&r))
     }
 
     #[tool(description = "Delete an item by its ID")]
@@ -402,18 +237,11 @@ impl JournalMcp {
     )]
     async fn move_items(
         &self,
-        Parameters(a): Parameters<MoveItemsArgs>,
+        Parameters(input): Parameters<MoveItemsInput>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let input = MoveItemsInput {
-            item_ids: Some(id_texts(&a.item_ids)),
-            target_page_id: Some(a.target_page_id),
-            position: Some(a.position),
-            level_delta: Some(a.level_delta),
-            body: None,
-        };
         let r = run(move || state.journal.move_items(input, &ChangedBy::Mcp)).await?;
-        ok(json!({ "items": item_records_json(&r.items) }))
+        ok(answer_json(&r))
     }
 
     #[tool(description = "Get all items with the specified types (e.g. all 'task' items)")]
@@ -424,7 +252,7 @@ impl JournalMcp {
         let state = Arc::clone(&self.state);
         let types: Vec<String> = a.types.split(',').map(|s| s.to_string()).collect();
         let r = run(move || state.journal.items_by_types(&types, None)).await?;
-        ok(json!({ "items": item_records_json(&r.items) }))
+        ok(answer_json(&r))
     }
 
     #[tool(
@@ -432,12 +260,9 @@ impl JournalMcp {
     )]
     async fn export_tree_markdown(
         &self,
-        Parameters(a): Parameters<ItemIdsArgs>,
+        Parameters(input): Parameters<ItemIdsInput>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let input = ItemIdsInput {
-            item_ids: Some(id_texts(&a.item_ids)),
-        };
         let r = run(move || state.journal.export_tree_markdown(input)).await?;
         ok(answer_json(&r))
     }
@@ -471,16 +296,13 @@ impl JournalMcp {
     )]
     async fn set_transclusion(
         &self,
-        Parameters(a): Parameters<SetTransclusionArgs>,
+        Parameters(a): Parameters<OfItem<TransclusionInput>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let input = TransclusionInput {
-            source_item_id: Some(a.source_item_id),
-        };
         let r = run(move || {
             state
                 .journal
-                .set_transclusion(&a.item_id, input, &ChangedBy::Mcp)
+                .set_transclusion(&a.item_id, a.input, &ChangedBy::Mcp)
         })
         .await?;
         ok(answer_json(&r))
@@ -506,17 +328,13 @@ impl JournalMcp {
     )]
     async fn upsert_property(
         &self,
-        Parameters(a): Parameters<UpsertPropertyArgs>,
+        Parameters(a): Parameters<ItemPropertyArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let input = PropertyInput {
-            value_type: Some(a.value_type),
-            value: Some(a.value),
-        };
         let r = run(move || {
             state
                 .journal
-                .set_item_property(&a.item_id, &a.key, input, &ChangedBy::Mcp)
+                .set_item_property(&a.item_id, &a.key, a.property, &ChangedBy::Mcp)
         })
         .await?;
         ok(answer_json(&r))
@@ -525,13 +343,9 @@ impl JournalMcp {
     #[tool(description = "Convert tree markdown (indented list format) to flat markdown.")]
     async fn import_tree_markdown(
         &self,
-        Parameters(a): Parameters<TreeMarkdownArgs>,
+        Parameters(input): Parameters<TreeMarkdownInput>,
     ) -> Result<CallToolResult, McpError> {
-        ok(answer_json(&self.state.journal.import_tree_markdown(
-            TreeMarkdownInput {
-                tree_markdown: Some(a.tree_markdown),
-            },
-        )))
+        ok(answer_json(&self.state.journal.import_tree_markdown(input)))
     }
 
     // ---- pages ----
@@ -543,7 +357,7 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.get_page(&a.page_id)).await?;
-        ok(json!({ "page": page_record_json(&r.page), "items": item_records_json(&r.items) }))
+        ok(answer_json(&r))
     }
 
     #[tool(
@@ -551,20 +365,16 @@ impl JournalMcp {
     )]
     async fn get_or_create_doc(
         &self,
-        Parameters(a): Parameters<GetOrCreateDocArgs>,
+        Parameters(a): Parameters<GetOrCreateDocInput>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || {
             state
                 .journal
-                .get_or_create_doc(Some(&a.title), Some(&a.dir_path))
+                .get_or_create_doc(a.title.as_deref(), a.dir_path.as_deref())
         })
         .await?;
-        ok(json!({
-            "page": page_record_json(&r.page),
-            "items": item_records_json(&r.items),
-            "created": r.created,
-        }))
+        ok(answer_json(&r))
     }
 
     #[tool(
@@ -582,22 +392,20 @@ impl JournalMcp {
     #[tool(description = "Update a page's title or directory path")]
     async fn update_page(
         &self,
-        Parameters(a): Parameters<UpdatePageArgs>,
+        Parameters(a): Parameters<OfPage<UpdatePageInput>>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        // An empty title keeps the current one, as no title does
-        let title = a.title.filter(|t| !t.is_empty());
         let r = run(move || {
             state.journal.update_page(
                 &a.page_id,
-                title.as_deref(),
-                a.dir_path.as_deref(),
-                a.overwrite,
+                a.input.title.as_deref(),
+                a.input.dir_path.as_deref(),
+                a.input.overwrite,
                 &ChangedBy::Mcp,
             )
         })
         .await?;
-        ok(json!({ "page": page_record_json(&r.page) }))
+        ok(answer_json(&r))
     }
 
     #[tool(description = "Delete a page and all its items")]
@@ -649,16 +457,9 @@ impl JournalMcp {
     #[tool(description = "Update server configuration")]
     async fn update_config(
         &self,
-        Parameters(a): Parameters<UpdateConfigArgs>,
+        Parameters(input): Parameters<UpdateConfigInput>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let input = UpdateConfigInput {
-            markdown_dir: a.markdown_dir,
-            week_numbering: a.week_numbering,
-            logical_outdent: a.logical_outdent,
-            tags_dir: a.tags_dir,
-            home_link: a.home_link,
-        };
         let r = run(move || Ok(state.journal.update_config(input))).await?;
         ok(answer_json(&r))
     }
@@ -674,7 +475,7 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.backlinks(&a.page_id)).await?;
-        ok(json!({ "entries": r.entries.iter().map(backlink_json).collect::<Vec<_>>() }))
+        ok(answer_json(&r))
     }
 
     // ---- journals ----
@@ -688,11 +489,7 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.get_or_create_journal(&a.file_name)).await?;
-        ok(json!({
-            "page": page_record_json(&r.page),
-            "items": item_records_json(&r.items),
-            "created": r.created,
-        }))
+        ok(answer_json(&r))
     }
 
     #[tool(description = "Get the most recent daily journal before the specified date")]
@@ -702,14 +499,7 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || state.journal.most_recent_journal_before(&a.before_date)).await?;
-        match &r.page {
-            Some(page) => ok(json!({
-                "found": true,
-                "page": page_record_json(page),
-                "items": item_records_json(&r.items),
-            })),
-            None => ok(json!({ "found": false })),
-        }
+        ok(answer_json(&r))
     }
 
     #[tool(
@@ -726,7 +516,7 @@ impl JournalMcp {
                 .recent_pages(Some(a.max_results), Some(&a.page_type))
         })
         .await?;
-        ok(json!({ "pages": r.pages.iter().map(page_record_json).collect::<Vec<_>>() }))
+        ok(answer_json(&r))
     }
 }
 
