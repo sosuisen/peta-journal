@@ -318,11 +318,13 @@ impl PetaCore {
     }
 }
 
-/// The name of the page that the URL names: its path under `/pages/`, without the fragment.
-/// Another URL, such as `/today`, is its own name.
+/// The name of the page that the URL names, decoded, without the item id. Another URL, such
+/// as `/today`, is its own name.
 fn page_of(url: &str) -> String {
-    let page = url.strip_prefix("/pages/").unwrap_or(url);
-    page.split('#').next().unwrap_or(page).to_string()
+    match journal_core::page_urls::read_url(url) {
+        Some(address) => address.name,
+        None => url.split('#').next().unwrap_or(url).to_string(),
+    }
 }
 
 #[cfg(test)]
