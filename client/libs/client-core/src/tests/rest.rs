@@ -96,6 +96,91 @@ fn a_question_goes_after_the_path_under_the_names_the_server_reads() {
     }
 }
 
+// 操作は、自分の値をパスと本文に入れて送る。パスには、どのページや項目かと、プロパティの名前が、この順で入る。
+#[test]
+fn an_operation_puts_its_values_into_the_path_and_the_body() {
+    let property = json!({ "valueType": "text", "value": "v" });
+    let cases = [
+        (
+            ApiOp::GetOrCreateDoc {
+                title: id("t"),
+                dir_path: id("d/"),
+            },
+            ("POST", "/api/pages/doc"),
+            Some(json!({ "title": "t", "dirPath": "d/" })),
+        ),
+        (
+            ApiOp::CycleTask { item_id: id("a") },
+            ("POST", "/api/items/a/cycle-task"),
+            None,
+        ),
+        (
+            ApiOp::UpsertItemProperty {
+                item_id: id("a"),
+                key: id("k"),
+                value_type: id("text"),
+                value: id("v"),
+            },
+            ("PUT", "/api/items/a/properties/k"),
+            Some(property.clone()),
+        ),
+        (
+            ApiOp::UpsertPageProperty {
+                page_id: id("p"),
+                key: id("k"),
+                value_type: id("text"),
+                value: id("v"),
+            },
+            ("PUT", "/api/pages/p/properties/k"),
+            Some(property),
+        ),
+        (
+            ApiOp::AddPropertyDefinition {
+                key: id("k"),
+                value_type: id("text"),
+            },
+            ("POST", "/api/config/property-definitions"),
+            Some(json!({ "key": "k", "valueType": "text" })),
+        ),
+        (
+            ApiOp::DeletePropertyDefinition { key: id("k") },
+            ("DELETE", "/api/config/property-definitions/k"),
+            None,
+        ),
+        (
+            ApiOp::SetTransclusion {
+                item_id: id("a"),
+                source_item_id: id("s"),
+            },
+            ("POST", "/api/items/a/transclude"),
+            Some(json!({ "sourceItemId": "s" })),
+        ),
+        (
+            ApiOp::RemoveTransclusion { item_id: id("a") },
+            ("DELETE", "/api/items/a/transclude"),
+            None,
+        ),
+        (
+            ApiOp::AnswerConfirm {
+                request_id: id("r"),
+                ok: true,
+            },
+            ("POST", "/api/confirm/r"),
+            Some(json!({ "ok": true })),
+        ),
+        (
+            ApiOp::OpenExportFolder { page_id: id("p") },
+            ("POST", "/api/pages/p/open-folder"),
+            None,
+        ),
+    ];
+    for (op, place, body) in cases {
+        let request = call(op.clone()).request;
+        assert_eq!((request.method, request.path.as_str()), place, "{op:?}");
+        assert_eq!(request.body, body, "{op:?}");
+    }
+}
+
 // 地図の変更は、変更の種類ごとの場所へ、その内容を送る。
 #[test]
 fn a_change_of_an_atlas_goes_to_its_own_endpoint_with_its_fields() {
