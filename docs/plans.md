@@ -341,6 +341,9 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
 - [ ] 通信の型（DTO）とSSEの形を、サーバーとクライアントでそろえる。要求の本文の型と、SSEの知らせの型は、`journal/journal-api-types`で共有している。答えは、サーバー（`journal-core/src/dto.rs`）とクライアント（`client-core/src/model.rs`）が別々の型で持ち、`client-api-embedded/tests/journal.rs`のテストが欄ごとに比べる
   - [ ] 一括（`ApplyBatch`）の要求を、共有の型で書くかを決める。今は、クライアントが自分の`BatchOp`をJSONにして送る。`BatchOp`は位置とタスクの状態を型で持ち、共有の`BatchOpInput`は文字列で持つ
   - [ ] 答えの型を共有するかを決める。クライアントの`Item`と`Page`は、ネイティブのシェルとの境界も越え、画面の状態も兼ねる。サーバーの`ItemDto`の`ast`を、クライアントは持たない。欄のずれはテストで見つかるので、急がない
+- [ ] コピーのHTMLを、コアが作る形（`UiOp::CopyMarkdown`にHTMLを入れる）に移すかを再検討する（2026-11-19に開発者が決めた。ADR 065のConfidence Level）
+  - ADR 065のあとは、`copied_html`がコアの中にある。Emacsも、Markdownで表示しながらコピーのHTMLを書く余地がある
+  - 残る課題は、コアにアプリのURLを渡す仕組みである
 
 #### 調査・バグ修正
 
