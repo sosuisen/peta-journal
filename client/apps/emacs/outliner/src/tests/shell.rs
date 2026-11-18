@@ -265,6 +265,17 @@ fn starting_connects_the_events_and_opens_the_url() {
     );
 }
 
+// ページ名で始めると、名前のとおりのページが開く。名前の # や空白は、URLの区切りにならない。
+#[test]
+fn starting_at_a_page_opens_the_page_of_that_name() {
+    let mut driver = Driver::new();
+    driver.send(Inbound::StartAtPage {
+        path: "C# notes".into(),
+    });
+    assert!(driver
+        .waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "C# notes")));
+}
+
 // /todayは、ホストの時計の今日のジャーナルを開く。
 #[test]
 fn today_opens_the_journal_of_the_hosts_date() {
@@ -1715,7 +1726,7 @@ fn the_item_after_the_hash_of_a_url_is_scrolled_to() {
 fn the_previous_journal_is_asked_for_by_its_date() {
     let mut driver = Driver::new();
     driver.send(Inbound::Start {
-        url: "/journals/2026-11-05".into(),
+        url: "/pages/2026-11-05".into(),
     });
     driver.send(Inbound::JournalNav { forward: false });
     assert!(driver.waiting(
@@ -1728,7 +1739,7 @@ fn the_previous_journal_is_asked_for_by_its_date() {
 fn the_next_journal_is_asked_for_by_its_date() {
     let mut driver = Driver::new();
     driver.send(Inbound::Start {
-        url: "/journals/2026-11-05".into(),
+        url: "/pages/2026-11-05".into(),
     });
     driver.send(Inbound::JournalNav { forward: true });
     assert!(driver.waiting(

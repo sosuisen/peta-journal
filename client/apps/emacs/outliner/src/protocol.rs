@@ -22,6 +22,10 @@ pub enum Inbound {
     Start {
         url: String,
     },
+    /// Starts at the page `path`, a name as the user typed it. Empty for the journal of today.
+    StartAtPage {
+        path: String,
+    },
     Go {
         url: String,
     },

@@ -226,6 +226,7 @@ impl<H: Host> Shell<H> {
                 });
                 self.open(url);
             }
+            Inbound::StartAtPage { .. } => {}
             Inbound::Go { url } => self.open(url),
             Inbound::Back => {
                 let today = self.today();
