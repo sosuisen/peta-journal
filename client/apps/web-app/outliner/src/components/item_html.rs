@@ -87,6 +87,11 @@ fn pixels(text: &str) -> Option<NonZeroU64> {
 mod tests {
     use super::*;
 
+    /// The HTML of an item whose tags are in `tags/`.
+    fn item_html_of(ast: &Node) -> String {
+        item_html(ast, "tags/")
+    }
+
     fn ast_of(body: &str) -> Node {
         client_core::asts::parse(body)
     }
@@ -102,21 +107,32 @@ mod tests {
     #[test]
     fn the_ast_of_an_item_becomes_html() {
         assert_eq!(
-            item_html(&ast_of("Some **bold**")),
+            item_html_of(&ast_of("Some **bold**")),
             "<p>Some <strong>bold</strong></p>\n"
+        );
+    }
+
+    // wikilinkとハッシュタグは、描いた時点で、そのページのURLを指す。タグのページはタグ用ディレクトリの下にある。
+    #[test]
+    fn wikilinks_and_hashtags_point_at_their_pages_when_drawn() {
+        let html = item_html(&ast_of("[[C#]] #日記"), "tags/");
+        assert!(html.contains("href=\"/pages/C%23\""), "{html}");
+        assert!(
+            html.contains("href=\"/pages/tags/%E6%97%A5%E8%A8%98\""),
+            "{html}"
         );
     }
 
     // 本文が空の項目は、何も表示しない。
     #[test]
     fn an_item_without_a_body_shows_nothing() {
-        assert_eq!(item_html(&ast_of("")), "");
+        assert_eq!(item_html_of(&ast_of("")), "");
     }
 
     // 画像の大きさは、HTMLの画像のURLから読み戻せる。
     #[test]
     fn the_size_of_an_image_is_read_back_from_its_url_in_the_html() {
-        let html = item_html(&ast_of("![alt](img.png#w=300&h=240)"));
+        let html = item_html_of(&ast_of("![alt](img.png#w=300&h=240)"));
 
         let src = html.split('"').nth(1).unwrap().replace("&amp;", "&");
         assert!(src.starts_with("img.png"), "{src}");
@@ -126,7 +142,7 @@ mod tests {
     // リストの中など、深いところにある画像も、大きさを保つ。
     #[test]
     fn an_image_deep_in_the_item_keeps_its_size() {
-        let html = item_html(&ast_of("- ![alt](img.png#w=300)"));
+        let html = item_html_of(&ast_of("- ![alt](img.png#w=300)"));
 
         assert!(
             html.contains(&format!("src=\"img.png{}\"", size(300, 0).fragment())),
@@ -138,7 +154,7 @@ mod tests {
     #[test]
     fn the_url_of_an_image_without_a_size_stays_as_it_is() {
         assert_eq!(
-            item_html(&ast_of("![alt](img.png)")),
+            item_html_of(&ast_of("![alt](img.png)")),
             "<p><img src=\"img.png\" alt=\"alt\" /></p>\n"
         );
     }

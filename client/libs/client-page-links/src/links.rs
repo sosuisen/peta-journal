@@ -83,17 +83,14 @@ mod tests {
         tags_dir: "tags/",
     };
 
-    // ウィキリンクのページは、/pages/ の下にある。
-    #[test]
-    fn the_page_of_a_wikilink_is_under_pages() {
-        assert_eq!(wikilink_path("Dir/Page"), "/pages/Dir/Page");
-    }
-
     // タグのページは、タグ用ディレクトリの下にある。ディレクトリが空なら、/pages/ の直下にある。
     #[test]
     fn the_page_of_a_tag_is_under_the_tag_directory() {
-        assert_eq!(hashtag_path("tags/", "topic"), "/pages/tags/topic");
-        assert_eq!(hashtag_path("", "topic"), "/pages/topic");
+        let links = AppLinks {
+            app_url: "",
+            tags_dir: "",
+        };
+        assert_eq!(links.hashtag("topic"), "/pages/topic");
     }
 
     // ほかのアプリから開けるリンクは、アプリのURLから始まる、まるごとのURLである。
@@ -122,21 +119,29 @@ mod tests {
         );
     }
 
-    // ページの中の場所を指す # は、符号化されずに残る。
+    // 項目のidの前の # は、符号化されずに残る。ほかの # は、ページ名の一部として符号化される。
     #[test]
-    fn the_hash_of_a_place_in_a_page_stays() {
+    fn only_the_hash_before_an_item_id_stays() {
+        assert_eq!(
+            LINKS.wikilink("C##20260426035700_QZ998PX"),
+            "http://localhost:8080/pages/C%23#20260426035700_QZ998PX"
+        );
         assert_eq!(
             LINKS.wikilink("Page#place"),
-            "http://localhost:8080/pages/Page#place"
+            "http://localhost:8080/pages/Page%23place"
+        );
+        assert_eq!(
+            LINKS.wikilink("What?"),
+            "http://localhost:8080/pages/What%3F"
         );
     }
 
-    // coreが書いたままのアプリのURLも、ブラウザで開ける、まるごとのURLになる。符号化はリンクと同じで、項目を指す # は残る。
+    // coreが書いたアプリのURLは、すでに符号化してあるので、前にアプリのURLを付けるだけで、まるごとのURLになる。
     #[test]
     fn a_url_of_the_app_as_the_core_writes_it_becomes_a_whole_url() {
         assert_eq!(
-            LINKS.page("/pages/メモ/案 1#item"),
-            "http://localhost:8080/pages/%E3%83%A1%E3%83%A2/%E6%A1%88%201#item"
+            LINKS.page("/pages/100%25#item"),
+            "http://localhost:8080/pages/100%25#item"
         );
     }
 

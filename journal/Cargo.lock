@@ -2214,6 +2214,7 @@ version = "1.0.0"
 name = "page-urls"
 version = "1.0.0"
 dependencies = [
+ "flatmarkdown-ast",
  "flatmarkdown-ast2html",
  "hmtid",
  "proptest",

@@ -10,5 +10,6 @@ description = "The URLs of the pages of PetaJournal: how they are made and read 
 flatmarkdown-ast2html = "=0.9.0"
 
 [dev-dependencies]
+flatmarkdown-ast = "=0.9.0"
 hmtid = { path = "../hmtid" }
 proptest = "1.12.0"

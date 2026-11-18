@@ -16,6 +16,29 @@ fn the_url_of_a_page_is_its_encoded_name_under_pages() {
     assert_eq!(page_url("What?"), "/pages/What%3F");
 }
 
+// 描画の設定で描いたwikilinkとハッシュタグのhrefは、ページのURLと項目のURLと同じである。
+#[test]
+fn the_links_rendered_with_the_options_are_the_urls_of_the_pages() {
+    use flatmarkdown_ast2html::ast_to_html_with;
+    let options = html_options("tags/");
+    let wikilink = flatmarkdown_ast::Node::Wikilink {
+        url: format!("C##{ITEM}"),
+        children: vec![],
+    };
+    let hashtag = flatmarkdown_ast::Node::Hashtag {
+        value: "日記".to_string(),
+    };
+    let href = |html: String| html.split('"').nth(1).unwrap().to_string();
+    assert_eq!(
+        href(ast_to_html_with(&wikilink, &options)),
+        item_url("C#", ITEM)
+    );
+    assert_eq!(
+        href(ast_to_html_with(&hashtag, &options)),
+        page_url(&tag_page_name("tags/", "日記"))
+    );
+}
+
 // 項目のURLは、ページのURLの後ろに#と項目のidを付けたものである。
 #[test]
 fn the_url_of_an_item_is_the_url_of_its_page_with_the_item_id_after_a_hash() {
