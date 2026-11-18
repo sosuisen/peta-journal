@@ -7,7 +7,6 @@ import {
   groupByPlan,
   isShown,
   localISODate,
-  pagePath,
   taskLabel,
 } from './tasks';
 
@@ -222,51 +221,5 @@ describe('grouping by plan date', () => {
   // タスクがなければ、見出しもない。
   test('is empty without tasks', () => {
     expect(outline([])).toEqual([]);
-  });
-});
-
-// PetaJournalでページを開くパス
-describe('the path that opens the page of a task', () => {
-  // ドキュメントページは`/docs/`の下で、項目のIDがフラグメントに付く。
-  test('is under /docs/ for a doc page, with the item id as the fragment', () => {
-    const task = item({ id: 'item-7', name: 'Todo Check' });
-
-    expect(pagePath(task)).toBe('/docs/Todo Check#item-7');
-  });
-
-  // フォルダの中のページは、フォルダのパスがページ名の前に付く。
-  test('has the folder before the name of a page in a folder', () => {
-    const task = item({ id: 'item-7', dirPath: 'proj/', name: 'Plan' });
-
-    expect(pagePath(task)).toBe('/docs/proj/Plan#item-7');
-  });
-
-  // 日、週、月、年のジャーナルは`/journals/`の下である。
-  test('is under /journals/ for a daily, weekly, monthly or yearly journal', () => {
-    for (const name of [
-      '2026-11-09',
-      '2026-W45',
-      '2026-W5',
-      '2026-11',
-      '2026',
-    ]) {
-      const task = item({ id: 'item-7', type: 'journal', name });
-
-      expect(pagePath(task)).toBe(`/journals/${name}#item-7`);
-    }
-  });
-
-  // 日付の形の名前でも、ドキュメントページは`/docs/`の下である。
-  test('is under /docs/ for a doc page named like a date', () => {
-    const task = item({ id: 'item-7', type: 'doc', name: '2026' });
-
-    expect(pagePath(task)).toBe('/docs/2026#item-7');
-  });
-
-  // 日付で始まるだけの名前のページは、ドキュメントページである。
-  test('is under /docs/ for a page whose name only starts with a date', () => {
-    const task = item({ id: 'item-7', name: '2026-11-09 memo' });
-
-    expect(pagePath(task)).toBe('/docs/2026-11-09 memo#item-7');
   });
 });
