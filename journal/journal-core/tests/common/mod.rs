@@ -110,6 +110,9 @@ fn build(
             db_path: dir.join("data").join("journal.db"),
             index_dir: dir.join("index"),
             config_dir,
+            // Some tests need a journal whose user has chosen no markdown folder yet, which
+            // a throw-away journal never is. The config folder is under `dir` in any case
+            confined_to: None,
             import_enabled: true,
             import_copy_wait: wait,
             export_overwrite_wait: wait,

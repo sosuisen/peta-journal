@@ -1,6 +1,6 @@
 //! `config.json` in the configuration directory.
 
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use parking_lot::Mutex;
 use serde_json::{Map, Value};
@@ -10,6 +10,9 @@ use crate::infrastructure::files::write_atomic;
 #[derive(Debug)]
 pub struct ConfigService {
     config_dir: PathBuf,
+    /// The folder a throw-away journal stays in: its markdown folder is never outside it,
+    /// whatever the config file or a client says (ADR 002). None for the journal of a user.
+    confined_to: Option<PathBuf>,
     /// Held over each read and each change of the file. Even with the atomic save, Windows
     /// shows no file for a moment while the rename replaces it. A read in that moment would
     /// find no settings at all.
@@ -23,6 +26,18 @@ impl ConfigService {
     pub fn new(config_dir: PathBuf) -> ConfigService {
         ConfigService {
             config_dir,
+            confined_to: None,
+            file: Mutex::new(()),
+        }
+    }
+
+    /// The settings of a throw-away journal, which keeps its markdown folder inside `root`.
+    /// Tests start their journal so: a test journal that read a markdown folder from a
+    /// config file once wrote its pages over real ones (ADR 002).
+    pub fn confined(config_dir: PathBuf, root: PathBuf) -> ConfigService {
+        ConfigService {
+            config_dir,
+            confined_to: Some(root),
             file: Mutex::new(()),
         }
     }
@@ -36,15 +51,35 @@ impl ConfigService {
     }
 
     /// The configured markdown export directory, or an empty string if not configured.
+    ///
+    /// A throw-away journal always has one: the configured directory when it is inside the
+    /// folder of the journal, and else `markdown` in that folder.
     pub fn markdown_dir(&self) -> String {
-        self.read()
+        let configured = self
+            .read()
             .get("markdownDir")
             .and_then(|v| v.as_str())
             .unwrap_or("")
-            .to_string()
+            .to_string();
+        match &self.confined_to {
+            Some(root) if !is_inside(Path::new(&configured), root) => {
+                root.join("markdown").to_string_lossy().into_owned()
+            }
+            _ => configured,
+        }
     }
 
+    /// A throw-away journal does not take a directory outside its folder.
     pub fn set_markdown_dir(&self, markdown_dir: &str) {
+        if let Some(root) = &self.confined_to {
+            if !is_inside(Path::new(markdown_dir), root) {
+                tracing::warn!(
+                    "The markdown directory stays as it is: {markdown_dir} is outside {}, the folder of this throw-away journal",
+                    root.display()
+                );
+                return;
+            }
+        }
         self.set("markdownDir", Value::String(markdown_dir.to_string()));
     }
 
@@ -145,6 +180,35 @@ impl ConfigService {
     }
 }
 
+/// Whether a path is inside a folder, or is the folder. A relative path and a path with
+/// `..` are not, as where they lead is not to be read from them.
+fn is_inside(path: &Path, root: &Path) -> bool {
+    let plain = path.is_absolute() && !path.components().any(|c| c == Component::ParentDir);
+    plain && resolved(path).starts_with(resolved(root))
+}
+
+/// The path with the links in it followed, as far as it exists. The temporary folder of
+/// macOS is behind a link, so the same folder is written in two ways.
+fn resolved(path: &Path) -> PathBuf {
+    let mut missing = Vec::new();
+    let mut existing = path;
+    loop {
+        if let Ok(real) = existing.canonicalize() {
+            return missing
+                .iter()
+                .rev()
+                .fold(real, |path, name| path.join(name));
+        }
+        match (existing.parent(), existing.file_name()) {
+            (Some(parent), Some(name)) => {
+                missing.push(name);
+                existing = parent;
+            }
+            _ => return path.to_path_buf(),
+        }
+    }
+}
+
 /// A directory path in the `dirPath` form: no leading `/`, a trailing `/` unless empty.
 /// Spaces and slashes around the value are user noise, not part of a directory name.
 fn normalize_tags_dir(value: &str) -> String {
@@ -172,7 +236,121 @@ fn normalize_home_link(value: &str) -> String {
 mod tests {
     use std::sync::{Arc, Barrier};
 
-    use super::{normalize_home_link, normalize_tags_dir, ConfigService};
+    use std::path::{Path, PathBuf};
+
+    use super::{is_inside, normalize_home_link, normalize_tags_dir, ConfigService};
+
+    // 使い捨てのジャーナルは、設定がなくても、自分のフォルダーの中のMarkdownフォルダーを持つ。
+    #[test]
+    fn a_throw_away_journal_has_a_markdown_folder_in_its_own_folder_without_a_setting() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        let config = ConfigService::confined(root.join("config"), root.clone());
+
+        assert_eq!(Path::new(&config.markdown_dir()), root.join("markdown"));
+    }
+
+    // 使い捨てのジャーナルは、設定ファイルが外のフォルダーを指していても、そこを使わない。
+    #[test]
+    fn a_throw_away_journal_does_not_use_a_markdown_folder_of_the_config_file_outside_its_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let root = dir.path().join("journal");
+        let config_dir = root.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        for outside in [
+            outside.path().to_path_buf(),
+            // Beside the folder, with a name that starts as the folder does
+            dir.path().join("journal-notes"),
+            root.join("..").join("notes"),
+            PathBuf::from("notes"),
+        ] {
+            std::fs::write(
+                config_dir.join("config.json"),
+                serde_json::json!({ "markdownDir": outside }).to_string(),
+            )
+            .unwrap();
+            let config = ConfigService::confined(config_dir.clone(), root.clone());
+
+            assert_eq!(
+                Path::new(&config.markdown_dir()),
+                root.join("markdown"),
+                "{}",
+                outside.display()
+            );
+        }
+    }
+
+    // フォルダーがまだないときも、`..`で外へ出る道は、外と見る。
+    #[test]
+    fn a_path_that_leaves_the_folder_with_two_dots_is_outside_also_when_nothing_exists_yet() {
+        let root = Path::new("/no-such-folder-of-peta-journal/journal");
+
+        assert!(!is_inside(&root.join("../notes"), root));
+        assert!(!is_inside(&root.join("notes/../../notes"), root));
+        assert!(is_inside(&root.join("notes"), root));
+        assert!(is_inside(root, root));
+    }
+
+    // 使い捨てのジャーナルは、自分のフォルダーの中のMarkdownフォルダーなら、設定のとおりに使う。
+    #[test]
+    fn a_throw_away_journal_uses_a_configured_markdown_folder_inside_its_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        let config = ConfigService::confined(root.join("config"), root.clone());
+        // Not made yet: the journal makes the folder when it writes the first page
+        let notes = root.join("notes").join("mine");
+
+        config.set_markdown_dir(&notes.to_string_lossy());
+
+        assert_eq!(Path::new(&config.markdown_dir()), notes);
+    }
+
+    // 使い捨てのジャーナルは、外のフォルダーへの変更を受け付けず、前のフォルダーのままである。
+    #[test]
+    fn a_throw_away_journal_keeps_its_markdown_folder_when_told_one_outside() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        let config = ConfigService::confined(root.join("config"), root.clone());
+        let notes = root.join("notes");
+        config.set_markdown_dir(&notes.to_string_lossy());
+
+        config.set_markdown_dir(&outside.path().to_string_lossy());
+
+        assert_eq!(Path::new(&config.markdown_dir()), notes);
+        // Nor is it in the file, where a journal started the usual way would read it
+        let usual = ConfigService::new(root.join("config"));
+        assert_eq!(Path::new(&usual.markdown_dir()), notes);
+    }
+
+    // 使い捨てのジャーナルは、中から外へ出るリンクをたどった先も、外と見る。
+    #[cfg(unix)]
+    #[test]
+    fn a_throw_away_journal_takes_a_link_that_leads_out_of_its_folder_as_outside() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let root = dir.path().to_path_buf();
+        let link = root.join("link");
+        std::os::unix::fs::symlink(outside.path(), &link).unwrap();
+        let config = ConfigService::confined(root.join("config"), root.clone());
+
+        config.set_markdown_dir(&link.join("notes").to_string_lossy());
+
+        assert_eq!(Path::new(&config.markdown_dir()), root.join("markdown"));
+    }
+
+    // ふつうのジャーナルは、設定のMarkdownフォルダーを、どこであってもそのまま使う。設定がなければ空である。
+    #[test]
+    fn a_usual_journal_uses_the_configured_markdown_folder_wherever_it_is() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = ConfigService::new(dir.path().to_path_buf());
+        assert_eq!(config.markdown_dir(), "");
+
+        config.set_markdown_dir("/somewhere/else");
+
+        assert_eq!(config.markdown_dir(), "/somewhere/else");
+    }
 
     // 設定を書いている途中に読んでも、ほかの設定は消えない。
     #[test]

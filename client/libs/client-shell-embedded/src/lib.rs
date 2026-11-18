@@ -157,6 +157,7 @@ impl PetaCore {
                 db_path: data_dir.join("journal.db"),
                 index_dir: data_dir.join("index"),
                 config_dir,
+                confined_to: None,
                 import_enabled: true,
                 import_copy_wait: Duration::from_secs(60),
                 export_overwrite_wait: Duration::from_secs(60),

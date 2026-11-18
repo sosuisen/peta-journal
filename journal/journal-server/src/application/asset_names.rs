@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::{AssetNamesStep, Settings};
 use crate::state::{AppState, BuildOptions};
-use journal_core::application::config_service::ConfigService;
 use journal_core::domain::asset_name::{is_saved_name, relink, saved_name};
 use journal_core::domain::id_generator::IdGenerator;
 use journal_core::domain::model::Item;
@@ -28,7 +27,7 @@ pub struct Rename {
 pub fn run(settings: Settings, step: AssetNamesStep, table: &Path) -> anyhow::Result<String> {
     match step {
         AssetNamesStep::Plan => {
-            let markdown_dir = ConfigService::new(settings.config_dir).markdown_dir();
+            let markdown_dir = settings.config_service().markdown_dir();
             let renames = plan(&Path::new(&markdown_dir).join("assets"))?;
             std::fs::write(table, serde_json::to_string_pretty(&renames)?)?;
             Ok(format!(

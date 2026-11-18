@@ -297,7 +297,7 @@ cd peta-journal/client/apps/emacs/outliner
 emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit
 ```
 
-E2Eテストは、実際のキー入力、本物のシェル、本物のサーバーを使う。モード、シェル、サーバーをつないだ全体という、他のテストでは動かせない部分を動かす。先に両方のプログラムをビルドする。各テストは、ポート18087でサーバーを起動する。サーバーのファイルは一時フォルダに置き、専用の`--config-dir`を渡す。サーバーの報告するMarkdownフォルダが一時フォルダの外なら、テストは止まる（ADR-002を参照）。`PETA_E2E_SERVER`が設定されていなければ、テストはスキップされる。
+E2Eテストは、実際のキー入力、本物のシェル、本物のサーバーを使う。モード、シェル、サーバーをつないだ全体という、他のテストでは動かせない部分を動かす。先に両方のプログラムをビルドする。各テストは、ポート18087でサーバーを起動する。サーバーのファイルは、すべて一時フォルダに置く（`--throwaway-dir`）。サーバーの報告するMarkdownフォルダが一時フォルダの外なら、テストは止まる（ADR-002を参照）。`PETA_E2E_SERVER`が設定されていなければ、テストはスキップされる。
 
 ```powershell
 $env:PETA_E2E_SERVER = "<peta-journal>\journal\target\debug\journal-server.exe"

@@ -86,6 +86,7 @@ impl Fixture {
                 db_path: dir.path().join("journal.db"),
                 index_dir: dir.path().join("index"),
                 config_dir,
+                confined_to: None,
                 import_enabled: false,
                 import_copy_wait: Duration::from_secs(60),
                 export_overwrite_wait: Duration::from_secs(60),

@@ -388,7 +388,6 @@ client-coreはwasmにもビルドするので、`journal-core`には依存でき
 - [ ] ページへのリンクのエンコードを、`client-page-links`と同じにする。todoの`pagePath`（`tasks.ts:102-105`）はエンコードしない。名前に空白、`%`、`#`があるページで、リンクが壊れる。memoview（`Services/PageLinks.cs:14-48`）は、`#`、`?`、`&`までエンコードする
 - [ ] memoview-winのAPIクライアントとSSE（`Services/JournalApiService.cs`、229行）を、stickies-winと同じ`client-native-bridge`に替える。今は、再接続の待ち方がtodoと違い、SSEの読み取りは、複数行の`data:`の最後の行しか残さない
 - [ ] タスクの状態（`begin`と`end`）の決まりが、3か所にある（`client-core/src/view.rs:33`、`todo/src/tasks.ts:6-10`、`memoview/Models/ItemModel.cs:45-48`）。todoだけ、`end: ""`を終わったと見なさない
-- [ ] E2Eのための使い捨てのサーバーを、journal-serverの引数1つで起動できるようにする。今は、Web版（`e2e/playwright.config.ts`、`global-setup.ts`）、Emacs（`peta-journal-e2e.el`）、journal-serverのテスト、付箋紙のテスト（`JournalServer.swift`、`JournalServer.cs`）が、それぞれ`config.json`を書いて起動する。サーバーは、その一時フォルダー以外を開かないようにする（ADR 002の事故を防ぐ）
 - [ ] 小さな重複
   - 既定のポート8087を、4か所に決め打ちしている（`todo/src/api.ts:36`、`peta-journal.el:29`、`JournalApiService.cs:31`、`emacs/outliner/src/main.rs:4`）。付箋紙の既定のサーバーも、macOSとWindowsに1つずつある
   - 同じ画像ファイルが2つずつある（todoの`images/favicon.ico`と`public/favicon.ico`、ルートの`images/favicon.ico`とWeb版の`public/favicon.ico`、`peta-journal-gray.png`）

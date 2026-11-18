@@ -47,14 +47,15 @@ cargo run
 - サーバーのコードを変えたら、Ctrl+Cで止めて、`cargo run`をやり直す。
 - 起動時のログに`Frontend: <フォルダ>`と出れば、画面が配信されている。`Frontend: not served`と出たら、配信されていない。
 
-`cargo run`は、普段使いと同じデータ（`~/.peta-journal`）を読み書きする。普段のデータに触れずに試すときは、ポートと3つのフォルダをすべて指定する。
+`cargo run`は、普段使いと同じデータ（`~/.peta-journal`）を読み書きする。普段のデータに触れずに試すときは、ポートと`--throwaway-dir`を指定する。
 
 ```powershell
-cargo run -- --port 8088 --data-dir <作業フォルダ>/data --index-dir <作業フォルダ>/index --config-dir <作業フォルダ>/config
+cargo run -- --port 8088 --throwaway-dir <作業フォルダ>
 ```
 
-- `--config-dir`は必ず付ける。付けないと、`~/.peta-journal/config.json`にある普段のMarkdownフォルダへ、試したページが書き出される。
-- 初めて起動すると、Markdownフォルダを選ぶダイアログが開く。普段とは別のフォルダを選ぶ。
+- データ、検索の索引、設定、Markdownフォルダは、すべて`<作業フォルダ>`の下（`data/`、`index/`、`config/`、`markdown/`）に置かれる。
+- Markdownフォルダは、`<作業フォルダ>`の外には出ない。設定の画面で外のフォルダを指定しても、サーバーは受け付けない。
+- `--data-dir`だけを付けて起動してはならない。`~/.peta-journal/config.json`にある普段のMarkdownフォルダへ、試したページが書き出される（ADR 002）。
 - 開くURLは、指定したポート（上の例では`http://localhost:8088`）になる。
 
 ### 本番（普段使い）

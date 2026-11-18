@@ -34,13 +34,8 @@ internal sealed class JournalServer : IDisposable
         var config = Path.Combine(root, "config");
         var markdown = Path.Combine(root, "markdown");
         Directory.CreateDirectory(config);
-        Directory.CreateDirectory(markdown);
-        // Without this the server would write into the notes of whoever runs the test
-        var settings = new Dictionary<string, string>
-        {
-            ["markdownDir"] = markdown,
-            ["weekNumbering"] = "iso",
-        };
+        // No markdown folder is named: a throw-away server has `markdown/` under its folder
+        var settings = new Dictionary<string, string> { ["weekNumbering"] = "iso" };
         File.WriteAllText(Path.Combine(config, "config.json"), JsonSerializer.Serialize(settings));
         foreach (var (name, mainJs) in functions ?? new Dictionary<string, string>())
         {
@@ -66,12 +61,10 @@ internal sealed class JournalServer : IDisposable
                 [
                     "--port",
                     $"{port}",
-                    "--data-dir",
-                    Path.Combine(root, "data"),
-                    "--index-dir",
-                    Path.Combine(root, "index"),
-                    "--config-dir",
-                    config,
+                    // Everything the server writes is under this folder. Without it the
+                    // server would write into the notes of whoever runs the test (ADR 002)
+                    "--throwaway-dir",
+                    root,
                 ]
         )
             start.ArgumentList.Add(argument);

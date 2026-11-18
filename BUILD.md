@@ -47,6 +47,7 @@ server used in `application.properties`, kept for people with old notes):
 | `petajournal.data.db` | `--db` | `PETAJOURNAL_DATA_DB` |
 | `petajournal.index.dir` | `--index-dir` | `PETAJOURNAL_INDEX_DIR` |
 | `petajournal.config.dir` | `--config-dir` | `PETAJOURNAL_CONFIG_DIR` |
+| (none) | `--throwaway-dir` | (none) |
 | `petajournal.export.interval` | `--export-interval` | `PETAJOURNAL_EXPORT_INTERVAL` |
 | `petajournal.import.enabled` | `--import-enabled` | `PETAJOURNAL_IMPORT_ENABLED` |
 | `petajournal.import.debounce-ms` | `--import-debounce-ms` | `PETAJOURNAL_IMPORT_DEBOUNCE_MS` |
@@ -147,11 +148,13 @@ npx playwright install chromium   # once
 npm run e2e
 ```
 
-The test server runs with its own `--data-dir`, `--index-dir` and `--config-dir` under a temporary
-directory, so its markdown export lands there and never in the markdown folder of
-`~/.peta-journal/config.json`. A global setup checks this before the first test and refuses to
-run otherwise. When starting a second server by hand for an experiment, always pass
-`--config-dir` as well, or it will export into your real markdown folder.
+The test server runs with `--throwaway-dir <a temporary directory>`. Its data, its search index,
+its configuration and its markdown folder are all under that directory, and the server keeps the
+markdown folder there whatever `config.json` or a client says, so its export never lands in the
+markdown folder of `~/.peta-journal/config.json`. A global setup checks this before the first
+test and refuses to run otherwise. When starting a second server by hand for an experiment, start
+it with `--throwaway-dir` too. With `--data-dir` alone it will export into your real markdown
+folder.
 
 ### Coverage
 
