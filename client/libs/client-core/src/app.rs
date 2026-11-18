@@ -1047,7 +1047,7 @@ impl Default for Model {
             clipboard: None,
             today: String::new(),
             calendar_month: None,
-            hmtid: hmtid::Generator::new('-', true),
+            hmtid: hmtid::Generator::for_pages_and_items(),
             clock_ms: 0,
             next_timer_id: 1,
             undo_syncs: Default::default(),

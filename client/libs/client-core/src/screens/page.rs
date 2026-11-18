@@ -11,7 +11,7 @@ use crux_core::Command;
 use std::collections::BTreeMap;
 
 /// The reserved file name of the atlas page of a directory.
-pub const ATLAS_NAME: &str = "index_atlas";
+pub use peta_atlas::ATLAS_NAME;
 
 /// Splits a path like `cat/01.md` into `("cat/", "01")`, as `ApiService.getOrCreateDoc` did.
 pub fn split_doc_path(title: &str) -> (String, String) {

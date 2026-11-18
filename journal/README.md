@@ -21,6 +21,7 @@ cargo test
 | `property-names` | The type of a property, taken from the suffix of its key name (ADR 047). The server and the clients share it, so they read a key name alike |
 | `journal-api-types` | The bodies of the requests to the journal and the messages of its event stream. The journal and the frontend core write and read them with the same types, so the two cannot name a field differently. It depends on serde alone, as the frontend core is also built for wasm |
 | `journal-names` | The names of the journal pages (a day, a week, a month, a year) and the numbers of the weeks. The journal and the frontend core share it, so a week has one name on both sides. It has no dependency, as the frontend core is also built for wasm |
+| `page-names` | The names a page may take: a file name on Windows, macOS and Linux. The journal refuses a wrong name and the frontend core says what is wrong before it asks, both with this rule. It has no dependency |
 | `journal-server` | The server over `journal-core`: `presentation/` (REST, SSE, MCP, the files of the web frontend), the folder watcher, the periodic tasks, and what hands over to the OS (folder dialog, launcher) |
 
 ## Client ID
@@ -146,7 +147,7 @@ shard's output is in `target/mutants-shards/shard<k>.log`.
 The script passes `--in-place` to cargo mutants. It is needed because `peta-atlas` is a path
 dependency outside this workspace, which the copy cargo-mutants normally works in cannot reach.
 For a few mutants, `cargo mutants --in-diff /tmp/pr.diff --in-place` runs them one by one in
-this tree. `cargo cov` measures `journal-core`, `journal-server`, `property-names`, `journal-api-types` and `journal-names` together,
+this tree. `cargo cov` measures `journal-core`, `journal-server`, `property-names`, `journal-api-types`, `journal-names` and `page-names` together,
 as the tests of the server run most of the core. The mutants of `property-names` time out when
 the whole workspace is tested, as the server tests run first and take longer than the limit;
 run them with `--test-package property-names`. The files no test can run (the entry

@@ -307,6 +307,18 @@ impl Generator {
         }
     }
 
+    /// The generator of the IDs of pages and items: `-` between all parts. The journal and
+    /// its clients both make such IDs, so the form is written here once.
+    pub fn for_pages_and_items() -> Generator {
+        Generator::new('-', true)
+    }
+
+    /// The generator of the IDs of uploaded files: `_` before the random part and nothing
+    /// between the parts of the time, which keeps the file name short.
+    pub fn for_files() -> Generator {
+        Generator::new('_', false)
+    }
+
     /// Generates the next ID for the current time.
     pub fn generate(&self) -> Hmtid {
         let now = SystemTime::now()

@@ -37,6 +37,10 @@ pub const CARD_HEIGHT: f64 = 40.0;
 /// The stored width that lets the label set the width of a card. Any other width is the
 /// width of the card. A card first placed takes this one.
 pub const AUTO_WIDTH: f64 = 0.0;
+/// The name of the page that holds the atlas of its directory. The journal keeps the name
+/// for the atlas, and the clients show the page of that name as an atlas.
+pub const ATLAS_NAME: &str = "index_atlas";
+
 /// The smallest a card can be scaled to. A larger card has no limit.
 pub const MIN_CARD_SCALE: f64 = 0.5;
 
@@ -52,28 +56,73 @@ pub struct Bounds {
     pub height: f64,
 }
 
-impl Bounds {
-    /// Reads a bounds value as the server writes it. A value that is not four numbers counts
-    /// as no value, so the card can be placed again.
-    pub fn parse(value: &str) -> Option<Bounds> {
-        let numbers = value
+/// The text is not four finite numbers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NotBounds(String);
+
+impl std::fmt::Display for NotBounds {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Bounds must be four numbers x,y,width,height: {}",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for NotBounds {}
+
+/// Reads `x,y,width,height`, with or without spaces around the numbers. The journal and its
+/// clients both read the value of the `bounds` property here.
+impl std::str::FromStr for Bounds {
+    type Err = NotBounds;
+
+    fn from_str(text: &str) -> Result<Bounds, NotBounds> {
+        let numbers = text
             .split(',')
             .map(|n| n.trim().parse::<f64>().ok().filter(|n| n.is_finite()))
-            .collect::<Option<Vec<f64>>>()?;
-        match numbers[..] {
-            [x, y, width, height] => Some(Bounds {
+            .collect::<Option<Vec<f64>>>();
+        match numbers.as_deref() {
+            Some(&[x, y, width, height]) => Ok(Bounds {
                 x,
                 y,
                 width,
                 height,
             }),
-            _ => None,
+            _ => Err(NotBounds(text.to_string())),
         }
     }
+}
 
-    /// The value as the server writes it.
-    pub fn to_value(self) -> String {
-        format!("{},{},{},{}", self.x, self.y, self.width, self.height)
+/// Writes the value without spaces, each number as a number property of the journal shows
+/// it, so the front matter and the metadata line of an item hold it as one plain value.
+impl std::fmt::Display for Bounds {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let [x, y, width, height] = [self.x, self.y, self.width, self.height].map(number);
+        write!(f, "{x},{y},{width},{height}")
+    }
+}
+
+/// A number as a number property of the journal shows it (`format_number` of `journal-core`,
+/// which this crate cannot use): an integer without a fraction, and a number too large to be
+/// written so with `.0` behind it.
+fn number(n: f64) -> String {
+    if n == n.floor() && n.abs() < 1e15 {
+        return format!("{}", n as i64);
+    }
+    let text = format!("{n}");
+    if text.contains('.') {
+        text
+    } else {
+        format!("{text}.0")
+    }
+}
+
+impl Bounds {
+    /// Reads a bounds value. A value that is not four numbers counts as no value, so the card
+    /// can be placed again.
+    pub fn parse(value: &str) -> Option<Bounds> {
+        value.parse().ok()
     }
 
     /// How much the card is scaled, read from the height: the width may be left to the label.
@@ -257,6 +306,27 @@ mod tests {
         assert_eq!(Bounds::parse("1,2,3"), None);
         assert_eq!(Bounds::parse("1,2,x,4"), None);
         assert_eq!(Bounds::parse("1,2,inf,4"), None);
+    }
+
+    // 値は、空白なしで、数のプロパティと同じ書き方で書かれる。大きすぎる整数には「.0」が付く
+    #[test]
+    fn bounds_are_written_without_spaces_as_number_properties_are() {
+        let written = |text: &str| text.parse::<Bounds>().unwrap().to_string();
+        assert_eq!(written(" 10, 20.5,160 ,-56 "), "10,20.5,160,-56");
+        assert_eq!(written("999999999999999,0,0,0"), "999999999999999,0,0,0");
+        assert_eq!(
+            written("1e15,-1e15,0,0"),
+            "1000000000000000.0,-1000000000000000.0,0,0"
+        );
+    }
+
+    // boundsでない値は、その値を添えた理由で断られる
+    #[test]
+    fn a_value_that_is_not_bounds_is_refused_with_the_value() {
+        assert_eq!(
+            "1,2,3".parse::<Bounds>().unwrap_err().to_string(),
+            "Bounds must be four numbers x,y,width,height: 1,2,3"
+        );
     }
 
     // 倍率は高さから読む

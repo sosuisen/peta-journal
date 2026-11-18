@@ -6,6 +6,7 @@ members = [
     "journal-core",
     "journal-names",
     "journal-server",
+    "page-names",
     "property-names",
 ]
 

@@ -459,6 +459,25 @@ pub struct LocalDateTimeDto {
     pub minute: u32,
 }
 
+impl From<LocalDateTime> for LocalDateTimeDto {
+    fn from(d: LocalDateTime) -> Self {
+        LocalDateTimeDto {
+            year: d.year,
+            month: d.month,
+            day: d.day,
+            hour: d.hour,
+            minute: d.minute,
+        }
+    }
+}
+
+impl LocalDateTimeDto {
+    /// The name of the journal of this day, `YYYY-MM-DD`.
+    pub fn day_name(self) -> String {
+        LocalDateTime::from(self).day_name()
+    }
+}
+
 impl From<LocalDateTimeDto> for LocalDateTime {
     fn from(d: LocalDateTimeDto) -> Self {
         LocalDateTime {

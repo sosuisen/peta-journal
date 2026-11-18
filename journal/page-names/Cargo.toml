@@ -1,0 +1,8 @@
+[package]
+name = "page-names"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The names a page may take: a file name on Windows, macOS and Linux"
+
+[dependencies]

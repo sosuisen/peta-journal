@@ -29,34 +29,12 @@ pub fn is_journal_file_name(file_name: &str) -> bool {
     classify_journal_file_name(file_name) != JournalType::None
 }
 
-const RESERVED_NAMES: [&str; 22] = [
-    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
-    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
-];
-
-/// Validates a page title for use as a file name on Windows, macOS and Linux.
-/// Returns an error message when invalid.
+/// Validates a page title typed with its folders, like `notes/idea`, for use as a file name
+/// on Windows, macOS and Linux. Returns an error message when invalid. The rule is the one of
+/// the journal (`page-names`), so the journal refuses no title that passes here for its
+/// characters.
 pub fn validate_file_name(title: &str) -> Option<String> {
-    for ch in title.chars() {
-        if ch.is_control() {
-            return Some(
-                "Title contains a control character (not allowed in filenames)".to_string(),
-            );
-        }
-        if matches!(ch, '<' | '>' | ':' | '"' | '\\' | '|' | '?' | '*') {
-            return Some(format!("Title contains '{ch}' (not allowed in filenames)"));
-        }
-    }
-    if title.starts_with('/') || title.ends_with('/') {
-        return Some("Title cannot start or end with '/'".to_string());
-    }
-    if title.ends_with('.') || title.ends_with(' ') {
-        return Some("Title cannot end with a dot or space".to_string());
-    }
-    if RESERVED_NAMES.iter().any(|r| r.eq_ignore_ascii_case(title)) {
-        return Some(format!("Title '{title}' is a reserved name on Windows"));
-    }
-    None
+    page_names::check_path(title).err().map(|e| e.to_string())
 }
 
 #[cfg(test)]

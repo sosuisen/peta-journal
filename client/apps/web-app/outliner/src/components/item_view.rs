@@ -7,6 +7,7 @@ use crate::components::item_html::{item_html, ImageSize};
 use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
+use client_core::util::date::generate_untitled_title;
 use client_core::{EditPlace, Event};
 use client_page_links::{hashtag_path, wikilink_path};
 use leptos::prelude::*;
@@ -165,7 +166,12 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
                 }
                 ev.prevent_default();
                 ev.stop_propagation();
-                let url = href.unwrap_or_else(|| format!("/pages/Untitled-{}", untitled_suffix()));
+                let url = href.unwrap_or_else(|| {
+                    format!(
+                        "/pages/{}",
+                        generate_untitled_title(dom::local_now().into())
+                    )
+                });
                 if new_window || new_tab {
                     let _ = dom::window().open_with_url_and_target_and_features(
                         &url,
@@ -192,18 +198,6 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
             ></div>
         </app-item-view>
     }
-}
-
-fn untitled_suffix() -> String {
-    let d = js_sys::Date::new_0();
-    format!(
-        "{:04}{:02}{:02}{:02}{:02}",
-        d.get_full_year(),
-        d.get_month() + 1,
-        d.get_date(),
-        d.get_hours(),
-        d.get_minutes()
-    )
 }
 
 /// The elements under `content` that `selector` finds.

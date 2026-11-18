@@ -47,7 +47,7 @@ impl Page {
 
 /// The reserved file name of the atlas page of a directory. The atlas page is opened from
 /// its index page, so it is left out of the page-name search.
-pub const ATLAS_NAME: &str = "index_atlas";
+pub use peta_atlas::ATLAS_NAME;
 
 /// True when a page title, `dir_path + name`, is the title of an atlas page.
 pub fn is_atlas_title(title: &str) -> bool {
