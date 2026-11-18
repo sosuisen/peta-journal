@@ -35,6 +35,19 @@ fn deleting_the_selection_removes_the_items_as_one_undo_entry_and_keeps_one_item
     assert_eq!(h.model.undo.pop_undo().unwrap().label, "delete-selection");
 }
 
+// ページの項目をすべて削除した直後は、サーバーが作った空の項目が編集中になる。そのまま打てる。
+#[test]
+fn the_empty_item_left_after_deleting_every_item_is_edited() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
+    select(&mut h, &["a", "b"]);
+
+    h.send(Event::SelectionKey(SelectionKey::Delete));
+
+    let rows = h.view().outline.rows;
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].is_editing);
+}
+
 /// "a" and "b" selected, with "a" transcluded by an item on another page
 fn select_with_a_transcluded_item(confirm: bool) -> Harness {
     let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);

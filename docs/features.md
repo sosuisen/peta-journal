@@ -422,6 +422,7 @@
 出典: `tests/selection.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/selection-delete`、`client/apps/web-app/outliner/e2e/transclusion-delete`
 
 - Deleteで1つのUndoエントリとして削除する。ページが空になるなら、サーバーが作った空の項目が1つ残る
+  - 残った空の項目は編集中になり、そのまま打った文字が入る
   - 選んだ項目の子孫も、折りたたまれて見えないものを含めて一緒に削除する
   - サーバーには、選んだ項目を1つのグループとして1回で送る。書き込みの要求は、この1つである。空の項目を作る要求は送らない
   - 画面は、サーバーの答えのあとで変わる。サーバーが断ると、項目も選択もUndoも変わらず、ページは読み直さない
