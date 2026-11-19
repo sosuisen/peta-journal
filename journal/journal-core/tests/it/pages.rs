@@ -101,6 +101,39 @@ fn a_new_doc_page_starts_with_one_empty_item_and_is_found_again_by_its_title() {
     assert_eq!(first["page"]["id"], again["page"]["id"]);
 }
 
+/// Titles no page may take: blank, padded with spaces, and not a file name on every OS.
+const BAD_TITLES: [&str; 5] = ["", "  ", " padded", "padded ", "a:b"];
+
+// 空、空白だけ、前後に空白がある、どのOSでもファイル名になるとは限らないタイトルでは、ページを作れない。
+#[test]
+fn a_page_is_not_made_with_a_title_no_page_may_take() {
+    let notes = Core::new();
+
+    for title in BAD_TITLES {
+        let made = notes.core.journal.get_or_create_doc(Some(title), Some(""));
+        assert!(
+            matches!(made, Err(AppError::BadRequest(_))),
+            "{title:?}: {made:?}"
+        );
+    }
+}
+
+// ページを作れないタイトルには、改名もできない。
+#[test]
+fn a_page_is_not_renamed_to_a_title_no_page_may_take() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("pages-bad-rename");
+
+    for title in BAD_TITLES {
+        let renamed = notes.rename(&page, Some(title), None, false);
+        assert!(
+            matches!(renamed, Err(AppError::BadRequest(_))),
+            "{title:?}: {renamed:?}"
+        );
+    }
+    assert_eq!(notes.page(&page)["page"]["name"], json!("pages-bad-rename"));
+}
+
 // ページの取得は、ページとその項目を順番どおりに返す。
 #[test]
 fn get_page_returns_the_page_with_its_items_in_order() {
