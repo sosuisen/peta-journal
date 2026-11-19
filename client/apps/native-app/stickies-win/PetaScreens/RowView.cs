@@ -497,19 +497,8 @@ internal sealed class RowView : Grid
             return;
         // The cursor where the paste was asked, before the clipboard is read
         var state = State();
-        string text;
-        try
-        {
-            var content = Clipboard.GetContent();
-            if (!content.Contains(StandardDataFormats.Text))
-                return;
-            text = await content.GetTextAsync();
-        }
-        catch (Exception e) when (e is COMException or UnauthorizedAccessException)
-        {
-            // Another app holds the clipboard: there is no text to paste
+        if (await WindowsClipboard.Text() is not { } text)
             return;
-        }
         // The core reads no HTML yet: it pastes the text
         Shell.Paste(row.Id, state, text, "", raw);
     }

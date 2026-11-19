@@ -1,3 +1,4 @@
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Markup;
@@ -5,9 +6,60 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.XamlTypeInfo;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 
-[assembly: WinUITestTarget(typeof(PetaScreens.Tests.TestApp))]
-
 namespace PetaScreens.Tests;
+
+/// <summary>
+/// Starts TestApp before the tests, and gives its UI thread to [UITestMethod] (ADR 059).
+/// </summary>
+[TestClass]
+public static class TestAppStart
+{
+    [AssemblyInitialize]
+    public static void Start(TestContext context)
+    {
+        var started = new TaskCompletionSource<DispatcherQueue>();
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                Application.Start(initialized =>
+                {
+                    try
+                    {
+                        var queue = DispatcherQueue.GetForCurrentThread();
+                        SynchronizationContext.SetSynchronizationContext(
+                            new DispatcherQueueSynchronizationContext(queue)
+                        );
+                        _ = new TestApp();
+                        started.TrySetResult(queue);
+                    }
+                    catch (Exception e)
+                    {
+                        started.TrySetException(e);
+                    }
+                });
+            }
+            catch (Exception e)
+            {
+                started.TrySetException(e);
+            }
+        })
+        {
+            Name = "UI thread of the tests",
+            // Application.Start does not return while the tests run. The process must end
+            // when they are over
+            IsBackground = true,
+        };
+        // Not [WinUITestTarget]: MSTest starts the app on a thread of the MTA then, as the
+        // thread of an app is not. The clipboard of Windows fails on such a thread
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        UITestMethodAttribute.DispatcherQueue = started
+            .Task.WaitAsync(TimeSpan.FromSeconds(30), context.CancellationToken)
+            .GetAwaiter()
+            .GetResult();
+    }
+}
 
 /// <summary>
 /// The app that the tests run in. MSTest starts it, and runs the tests marked

@@ -544,6 +544,10 @@ internal sealed class StickyWindow : Window
     /// <summary>The editor of the item got the cursor, by a click or by an order of the core.</summary>
     public void GotCursor(string itemId)
     {
+        // The core is gone. WinUI still moves the cursor to an editor while it takes the
+        // window down
+        if (closed)
+            return;
         // Only the user puts the cursor in an editor while items are selected. The core ends
         // the selection then (ADR 057), and still names this item as the one with the cursor
         var selecting = Shell.View.Outline.SelectionMode;
@@ -909,21 +913,7 @@ internal sealed class StickyWindow : Window
         Ask();
     }
 
-    private async void ReadClipboard(Action<string?> hand)
-    {
-        string? text = null;
-        try
-        {
-            var content = Clipboard.GetContent();
-            if (content.Contains(StandardDataFormats.Text))
-                text = (await content.GetTextAsync()).Replace("\r\n", "\n");
-        }
-        catch (Exception e) when (e is COMException or UnauthorizedAccessException)
-        {
-            // Another app holds the clipboard: there is no text to read
-        }
-        hand(text);
-    }
+    private async void ReadClipboard(Action<string?> hand) => hand(await WindowsClipboard.Text());
 
     private static void Copy(string text, string? html)
     {
