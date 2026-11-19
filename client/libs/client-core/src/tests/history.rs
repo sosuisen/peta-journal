@@ -1,6 +1,7 @@
 //! The history of the pages that were opened (ADR 035).
 
 use crate::app::{Event, Screen};
+use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::Harness;
 
 const TODAY: &str = "2026-02-10";
@@ -191,4 +192,30 @@ fn the_view_tells_the_url_on_screen_in_the_history() {
     back(&mut h);
 
     assert_eq!(h.view().history.url.as_deref(), Some("/pages/a"));
+}
+
+/// The calls that made or opened the doc page of the title.
+fn made(h: &Harness, title: &str) -> usize {
+    h.api
+        .calls_named("GetOrCreateDoc")
+        .into_iter()
+        .filter(|op| matches!(op, ApiOp::GetOrCreateDoc { title: t, .. } if t == title))
+        .count()
+}
+
+// 戻る先のページが同期で消えていれば、そのページを作らずに、さらに前のページを開く（#763）。
+#[test]
+fn going_back_skips_a_page_that_is_gone_and_makes_none() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/a");
+    open(&mut h, "/pages/gone");
+    open(&mut h, "/pages/c");
+    let made_before = made(&h, "gone");
+    h.api.answer_next("FindPage", Ok(ApiOutput::FoundPage(None)));
+
+    back(&mut h);
+
+    assert_eq!(shown(&h), "a");
+    assert_eq!(made(&h, "gone"), made_before, "the gone page is not made again");
+    assert!(!h.view().history.can_go_back);
 }
