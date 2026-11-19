@@ -105,6 +105,27 @@ fn a_batch_create_makes_a_transclusion_again_with_the_source_it_names() {
     assert_eq!(back["body"], json!("source"));
 }
 
+// 作成の操作は、プロパティを渡すと、その値も書く。1つの値のキーには文字列、リストのキーには文字列の並びを書く。削除のUndoが、プロパティを戻すためである。
+#[test]
+fn a_batch_create_writes_the_properties_it_is_given() {
+    let notes = Core::new();
+    notes.define_key("status");
+    notes.define_key("owners_list");
+    let page = notes.new_doc_page("items-batch-properties");
+    let rows = notes.fill(&page, &["a", "gone"]);
+    notes.delete_item(&id(&rows[1]));
+
+    notes.batched(json!([{
+        "op": "create", "id": id(&rows[1]), "pageId": page,
+        "position": format!("after:{}", id(&rows[0])), "level": 1, "body": "back",
+        "properties": { "status": "done", "owners_list": ["ann", "bob"] },
+    }]));
+
+    let back = notes.item(&id(&rows[1]));
+    assert_eq!(back["properties"]["status"], json!("done"));
+    assert_eq!(back["properties"]["owners_list"], json!(["ann", "bob"]));
+}
+
 // 作り直した項目は、もう「ここで消した項目」としては覚えられていない。Markdownの取り込みが、その項目を消されたものとして扱わないためである。
 #[test]
 fn an_item_made_again_is_no_longer_remembered_as_deleted() {
