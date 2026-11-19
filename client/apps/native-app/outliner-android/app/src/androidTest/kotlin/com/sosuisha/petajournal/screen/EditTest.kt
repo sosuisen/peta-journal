@@ -13,7 +13,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -191,9 +191,8 @@ class EditTest : JournalScreenFixture() {
         tool("Copy")
         compose.waitUntil(WAIT_MS) { copied.isNotEmpty() }
         touchEnd("third")
-        // The touch ends the selection: the field comes when the core has answered
-        compose.waitUntil(WAIT_MS) { compose.onAllNodesWithTag(EDITOR_TAG).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("third")
+        // The touch ends the selection: the field of the item comes when the core has answered
+        compose.waitUntil(WAIT_MS) { compose.onAllNodes(hasTestTag(EDITOR_TAG) and hasText("third")).fetchSemanticsNodes().isNotEmpty() }
     }
 
     // 親と子を選んでコピーの道具でコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
