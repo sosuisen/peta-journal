@@ -244,6 +244,19 @@ public sealed class OutlineScreenTests
         await Screen.Until("the text reaches the core", () => screen.BodiesAre("first!", "second"));
     }
 
+    // 編集していない項目を右クリックすると、メニューに「Paste as Transclusion」がある。
+    [UITestMethod]
+    public async Task The_menu_of_an_item_that_is_not_edited_has_paste_as_transclusion()
+    {
+        await using var screen = await Screen.Open(Port);
+        await screen.TwoItems();
+
+        await screen.Click(screen.Items()[0], right: true);
+
+        await screen.MenuEntry("Paste as Transclusion");
+        Screen.Press(VirtualKey.Escape);
+    }
+
     // Ctrl+Fで検索欄が開く。入力するとページが見つかり、Enterでそのページが開く。
     [UITestMethod]
     public async Task Typing_in_the_search_box_finds_a_page_and_Enter_opens_it()

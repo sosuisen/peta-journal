@@ -72,9 +72,10 @@ internal static class UserInput
     /// <summary>
     /// Clicks the left button at the place on the screen, in pixels, with the keys held down.
     /// The window sees each step before the next: the mouse comes, the button goes down, and
-    /// it comes up. A click without these pauses is not seen as a tap.
+    /// it comes up. A click without these pauses is not seen as a tap. A right click shows a
+    /// menu.
     /// </summary>
-    public static async Task Click(int x, int y, Held held = Held.None)
+    public static async Task Click(int x, int y, Held held = Held.None, bool right = false)
     {
         if (!SetCursorPos(x, y))
             throw new InvalidOperationException("Windows did not move the mouse");
@@ -86,7 +87,7 @@ internal static class UserInput
             new Input
             {
                 Type = 0,
-                Mouse = new MouseInput { Flags = LeftDown },
+                Mouse = new MouseInput { Flags = right ? RightDown : LeftDown },
             }
         );
         await Task.Delay(Pause);
@@ -94,7 +95,7 @@ internal static class UserInput
             new Input
             {
                 Type = 0,
-                Mouse = new MouseInput { Flags = LeftUp },
+                Mouse = new MouseInput { Flags = right ? RightUp : LeftUp },
             }
         );
         foreach (var modifier in modifiers.Reverse())
@@ -106,6 +107,8 @@ internal static class UserInput
 
     private const uint LeftDown = 0x0002;
     private const uint LeftUp = 0x0004;
+    private const uint RightDown = 0x0008;
+    private const uint RightUp = 0x0010;
 
     private static void Send(ushort key, char letter, uint flags) =>
         Send(
