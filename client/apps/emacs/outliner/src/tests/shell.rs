@@ -138,6 +138,12 @@ impl Driver {
         Some(apis.remove(index))
     }
 
+    /// Answers that the page going back or forward looks for is there.
+    fn find_page(&mut self) {
+        let found = serde_json::from_value(json!({ "FoundPage": page_info("", "notes") }));
+        self.answer(|op| matches!(op, ApiOp::FindPage { .. }), found.unwrap());
+    }
+
     fn waiting(&self, pick: impl Fn(&ApiOp) -> bool) -> bool {
         self.shell.host.apis.iter().any(|(_, op)| pick(op))
     }
@@ -871,6 +877,7 @@ fn navigation_opens_pages_and_back_returns_to_the_previous_one() {
     );
 
     driver.send(Inbound::Back);
+    driver.find_page();
     assert!(
         driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "notes"))
     );
@@ -884,9 +891,11 @@ fn forward_after_back_opens_the_page_left_again() {
         path: "other".into(),
     });
     driver.send(Inbound::Back);
+    driver.find_page();
     driver.take_api(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "other"));
 
     driver.send(Inbound::Forward);
+    driver.find_page();
 
     assert!(
         driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "other"))
