@@ -699,6 +699,39 @@ fn a_line_with_the_id_of_an_item_of_another_page_leaves_that_item_alone() {
     assert_eq!(a.bodies(&other), ["foreign"]);
 }
 
+// 元の項目を待つページのファイルは、待つ間も、トランスクルージョンになった後も、トランスクルージョンを書いたままである。待つ間に書き出すと、ファイルからつながりが消えるためである。
+#[test]
+fn the_file_of_a_page_that_waits_for_a_transclusion_source_keeps_the_transclusion() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let showing = a.doc("b-showing");
+    let source_page = a.doc("z-source");
+    let source = a.add(&source_page, "source text");
+    let shown = a.add(&showing, "");
+    a.core
+        .item_service
+        .set_transclusion(&shown, &source)
+        .unwrap();
+    let attr = format!(" transclude=\"{source}\"");
+
+    // A file without its idx comments is written back, which would drop the transclusion
+    b.deliver(&a, "docs/d/b-showing.md");
+    let without_idx = Regex::new(r#" idx="[^"]*""#)
+        .unwrap()
+        .replace_all(&b.file("docs/d/b-showing.md"), "")
+        .into_owned();
+    std::fs::write(b.root.join("docs/d/b-showing.md"), without_idx).unwrap();
+    b.sync("docs/d/b-showing.md");
+    b.export();
+    let while_waiting = b.file("docs/d/b-showing.md");
+    b.receive(&a, "docs/d/z-source.md");
+    b.export();
+
+    assert!(while_waiting.contains(&attr), "{while_waiting}");
+    let after = b.file("docs/d/b-showing.md");
+    assert!(after.contains(&attr), "{after}");
+}
+
 // トランスクルージョンの元の項目より先にファイルが届いたページも取り込まれ、元の項目が入ったときにトランスクルージョンになる。空のDBに、フォルダを取り込むときの順である。
 #[test]
 fn a_page_whose_transclusion_source_comes_later_is_taken_in_and_transcludes_it_then() {
