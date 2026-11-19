@@ -913,21 +913,7 @@ internal sealed class StickyWindow : Window
         Ask();
     }
 
-    private async void ReadClipboard(Action<string?> hand)
-    {
-        string? text = null;
-        try
-        {
-            var content = Clipboard.GetContent();
-            if (content.Contains(StandardDataFormats.Text))
-                text = (await content.GetTextAsync()).Replace("\r\n", "\n");
-        }
-        catch (Exception e) when (e is COMException or UnauthorizedAccessException)
-        {
-            // Another app holds the clipboard: there is no text to read
-        }
-        hand(text);
-    }
+    private async void ReadClipboard(Action<string?> hand) => hand(await WindowsClipboard.Text());
 
     private static void Copy(string text, string? html)
     {
