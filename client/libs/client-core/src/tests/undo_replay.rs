@@ -1,7 +1,11 @@
 use crate::app::{EditPlace, Event};
 use crate::effects::ApiOutput;
 use crate::harness::{batch_calls, create_calls, delete_calls, item, update_calls, Harness};
-use crate::model::{BatchOp, Batched, Item, ItemPosition, TaskState, TranscludedTrees};
+use std::collections::BTreeMap;
+
+use crate::model::{
+    BatchOp, Batched, Item, ItemPosition, PropertyValue, TaskState, TranscludedTrees,
+};
 use crate::outline::CursorState;
 use crate::testing::item_with;
 
@@ -516,6 +520,39 @@ fn undo_of_a_delete_puts_back_the_collapsed_state_and_the_task_state_in_the_same
             },
         ]]
     );
+}
+
+// 削除の undo は、作り直す項目のトランスクルージョンとプロパティも、作成の操作で送る。
+#[test]
+fn undo_of_a_delete_sends_the_transclusion_and_the_properties_with_the_create() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("c", 1, "")]);
+    let gone = item_with("b", 1, |i| {
+        i.body = "source text".into();
+        i.transclude_item_id = Some("s".into());
+        i.properties = BTreeMap::from([
+            ("status".into(), PropertyValue::Text("done".into())),
+            (
+                "owners_list".into(),
+                PropertyValue::List(vec!["ann".into(), "bob".into()]),
+            ),
+        ]);
+    });
+    h.model.undo.begin("delete-selection", None);
+    h.model.undo.push_delete(&gone);
+    h.model.undo.commit(None, 0);
+
+    h.send(Event::Undo);
+
+    let BatchOp::Create {
+        transclude_item_id,
+        properties,
+        ..
+    } = &batch_calls(&h.api)[0][0]
+    else {
+        panic!("not a create: {:?}", batch_calls(&h.api));
+    };
+    assert_eq!(transclude_item_id.as_deref(), Some("s"));
+    assert_eq!(properties, &gone.properties);
 }
 
 fn create_op(id: &str, after: &str, level: i32, body: &str) -> BatchOp {
