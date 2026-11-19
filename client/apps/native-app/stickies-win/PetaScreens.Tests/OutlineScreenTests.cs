@@ -282,14 +282,13 @@ public sealed class OutlineScreenTests
         Screen.Press(VirtualKey.V, Held.Control);
 
         await Screen.Until("the parent and its child are pasted", () =>
-            LevelsAndBodies(screen)
-                .SequenceEqual(["1 parent", "2 child", "1 thirdparent", "2 child"])
+            LevelsAndBodiesAre(screen, "1 parent", "2 child", "1 thirdparent", "2 child")
         );
     }
 
-    /// <summary>The level and the body of each item, as "level body".</summary>
-    private static List<string> LevelsAndBodies(Screen screen) =>
-        [.. screen.Rows.Select(row => $"{row.Item.Level} {row.Item.Body}")];
+    /// <summary>Whether the level and the body of each item are these, as "level body".</summary>
+    private static bool LevelsAndBodiesAre(Screen screen, params string[] items) =>
+        screen.Rows.Select(row => $"{row.Item.Level} {row.Item.Body}").SequenceEqual(items);
 
     /// <summary>
     /// Three items: "parent", its child "child", and "third" after them, with the cursor at
@@ -304,13 +303,13 @@ public sealed class OutlineScreenTests
         await screen.Type("child");
         Screen.Press(VirtualKey.Tab);
         await Screen.Until("the second item is a child", () =>
-            LevelsAndBodies(screen).SequenceEqual(["1 parent", "2 child"])
+            LevelsAndBodiesAre(screen, "1 parent", "2 child")
         );
         Screen.Press(VirtualKey.Enter);
         await Screen.Until("the cursor is in the third item", () => screen.Focused == 2);
         Screen.Press(VirtualKey.Tab, Held.Shift);
         await Screen.Until("the third item is not a child", () =>
-            LevelsAndBodies(screen).SequenceEqual(["1 parent", "2 child", "1 "])
+            LevelsAndBodiesAre(screen, "1 parent", "2 child", "1 ")
         );
         await screen.Type("third");
     }
