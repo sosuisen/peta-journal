@@ -3,7 +3,8 @@
 #![cfg(feature = "ffi")]
 
 use client_core::effects::UiOp;
-use client_core::Event;
+use client_core::typing::Typing;
+use client_core::{EditPlace, Event};
 use client_native_bridge::ShellEffectFfi;
 use client_shell_http::ffi::{copied_html, PetaCore, PetaShell};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
@@ -53,6 +54,39 @@ fn an_event_from_the_entrance_shows_in_the_view_model() {
 
     let view = core.view();
     assert!(String::from_utf8_lossy(&view).contains("apple"));
+}
+
+// 入口からコアを閉じると、保存を待っていた本文が、閉じる前にサーバーに保存される（#766）。
+#[test]
+fn closing_from_the_entrance_saves_the_body_waiting_to_be_saved() {
+    let (address, seen) = start_server();
+    let core = PetaCore::new(address, Arc::new(Kept::default()));
+    core.open("/pages/notes".into()).unwrap();
+    wait_until("the page shows", || {
+        String::from_utf8_lossy(&core.view()).contains("the body of a")
+    });
+    let mut edit = Vec::new();
+    let editing = Event::EditRequested {
+        item_id: "a".into(),
+        place: EditPlace::Unplaced,
+    };
+    BincodeFfiFormat::serialize(&mut edit, &editing).unwrap();
+    core.update(&edit).unwrap();
+    let typing = Typing::Typed {
+        item_id: "a".into(),
+        body: "typed into a".into(),
+        cursor: 12,
+    };
+    let mut typed = Vec::new();
+    BincodeFfiFormat::serialize(&mut typed, &typing).unwrap();
+    core.typed(&typed).unwrap();
+
+    core.close();
+
+    let seen = seen.lock().unwrap();
+    assert!(seen
+        .iter()
+        .any(|line| line.starts_with("PUT /api/items/a ")));
 }
 
 // 読めないバイト列は、イベントとしても答えとしても、エラーの文として返る。
