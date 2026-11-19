@@ -88,6 +88,20 @@ class EditTest : JournalScreenFixture() {
         waitForWritten("first and more")
     }
 
+    // アプリが裏に回ると、保存を待っていた本文が、待たずに保存され、ページのファイルに書かれる（#766）。
+    @Test
+    fun what_waits_to_be_saved_is_saved_when_the_app_goes_to_the_back() {
+        download("notes.md", "first" + NL)
+        openNotes()
+        waitFor("first")
+        touchEnd("first")
+        compose.onNodeWithTag(EDITOR_TAG).performTextInput(" before the back")
+
+        compose.runOnUiThread { shell.wentToTheBack() }
+
+        assertEquals(true, writtenNotes().contains("first before the back"))
+    }
+
     // 開始記号を打ち終えると、コアが閉じる記号を補う（ADR 050、ADR 057）。
     @Test
     fun typing_an_opening_closes_it() {
