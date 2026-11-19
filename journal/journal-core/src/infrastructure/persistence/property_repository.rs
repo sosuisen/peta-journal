@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use chrono::{Datelike, Local, NaiveDate, TimeZone};
+use chrono::{Local, NaiveDate, TimeZone};
 use rusqlite::{params, Connection};
 
 use crate::domain::bounds::Bounds;
@@ -720,7 +720,6 @@ fn parse_date_to_millis<Tz: TimeZone>(
             d
         }
     };
-    let _ = date.year();
     let dt = zone
         .from_local_datetime(&date.and_hms_opt(0, 0, 0).unwrap())
         .earliest()

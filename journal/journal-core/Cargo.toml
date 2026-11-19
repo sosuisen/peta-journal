@@ -41,7 +41,6 @@ lindera-analysis = "5"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }
-chrono-tz = "0.10"
 
 # Files
 sha2 = "0.10"
