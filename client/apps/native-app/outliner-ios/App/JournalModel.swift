@@ -64,7 +64,10 @@ final class JournalModel: ObservableObject {
     /// The app goes to the back: what was written goes up before iOS may stop the app. iOS
     /// gives the app a short time for it. A sync that iOS stops goes on when the app opens
     /// again.
+    ///
+    /// What was typed and still waits for its save is saved first, also without a sync (#766).
     func syncInTheBack() {
+        shell.wentToTheBack()
         guard let cloud, account.isSignedIn else { return }
         var task = UIBackgroundTaskIdentifier.invalid
         var watch: Timer?
