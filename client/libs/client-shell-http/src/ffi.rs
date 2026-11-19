@@ -62,6 +62,12 @@ impl PetaCore {
         self.shell.resolve(id, output).map_err(|e| e.to_string())
     }
 
+    /// The shell closes, as a sticky that is closed or an app that ends: the edit ends, and
+    /// the text typed and still waiting for its save is saved before this returns (#766).
+    pub fn close(&self) {
+        self.shell.close();
+    }
+
     /// The whole view model, to draw after a render request.
     pub fn view(&self) -> Vec<u8> {
         self.shell.view()
