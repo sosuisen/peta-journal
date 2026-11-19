@@ -181,6 +181,10 @@ pub enum BatchOpInput {
         level: i32,
         #[serde(default)]
         body: String,
+        /// ID of the source item the item shows, as the undo of a deletion makes a
+        /// transclusion again
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        transclude_item_id: Option<String>,
     },
     Update {
         id: String,
@@ -583,6 +587,7 @@ mod tests {
                     position: "last".into(),
                     level: 1,
                     body: "text".into(),
+                    transclude_item_id: None,
                 },
                 BatchOpInput::Update {
                     id: "i".into(),

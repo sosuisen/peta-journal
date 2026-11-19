@@ -111,6 +111,8 @@ pub enum BatchOp {
         position: ItemPosition,
         level: i32,
         body: String,
+        /// The source item the item shows, for a transclusion made again.
+        transclude: Option<Hmtid>,
     },
     /// Writes the given fields of an item. A task state is written whole, with its times.
     Update {
@@ -1054,8 +1056,9 @@ impl ItemService {
                     position,
                     level,
                     body,
+                    transclude,
                 } => {
-                    self.create_item_in(
+                    let created = self.create_item_in(
                         &tx,
                         page_id,
                         position,
@@ -1064,6 +1067,9 @@ impl ItemService {
                         Some(id.clone()),
                         &mut effects,
                     )?;
+                    if let Some(source) = transclude {
+                        self.set_transclusion_in(&tx, &created, source)?;
+                    }
                     written.push(id.clone());
                 }
                 BatchOp::Update {

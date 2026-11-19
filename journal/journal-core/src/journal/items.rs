@@ -33,12 +33,14 @@ fn parse_batch_op(input: BatchOpInput) -> Result<BatchOp, AppError> {
             position,
             level,
             body,
+            transclude_item_id,
         } => BatchOp::Create {
             id: parse_id(&id)?,
             page_id: parse_id(&page_id)?,
             position: parse_position(Some(&position))?,
             level,
             body,
+            transclude: transclude_item_id.as_deref().map(parse_id).transpose()?,
         },
         BatchOpInput::Update {
             id,
