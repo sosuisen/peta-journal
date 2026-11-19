@@ -224,3 +224,125 @@ fn going_back_skips_a_page_that_is_gone_and_makes_none() {
     );
     assert!(!h.view().history.can_go_back);
 }
+
+fn forward(h: &mut Harness) {
+    h.send(Event::Forward {
+        today: TODAY.into(),
+    });
+}
+
+fn gone_next(h: &mut Harness) {
+    h.api
+        .answer_next("FindPage", Ok(ApiOutput::FoundPage(None)));
+}
+
+// 進む先のページが同期で消えていれば、そのページを作らずに、さらに先のページを開く。
+#[test]
+fn going_forward_skips_a_page_that_is_gone_and_makes_none() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/a");
+    open(&mut h, "/pages/gone");
+    open(&mut h, "/pages/c");
+    back(&mut h);
+    back(&mut h);
+    let made_before = made(&h, "gone");
+    gone_next(&mut h);
+
+    forward(&mut h);
+
+    assert_eq!(shown(&h), "c");
+    assert_eq!(made(&h, "gone"), made_before);
+    assert!(!h.view().history.can_go_forward);
+    assert!(h.view().history.can_go_back);
+}
+
+// 前のページがすべて消えていれば、画面は今のページのままで、もう戻れない。
+#[test]
+fn going_back_stays_when_every_page_before_is_gone() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/gone-1");
+    open(&mut h, "/pages/gone-2");
+    open(&mut h, "/pages/c");
+    gone_next(&mut h);
+    gone_next(&mut h);
+
+    back(&mut h);
+
+    assert_eq!(shown(&h), "c");
+    assert_eq!(h.view().history.url.as_deref(), Some("/pages/c"));
+    assert!(!h.view().history.can_go_back);
+}
+
+// 先のページがすべて消えていれば、画面は今のページのままで、もう進めない。
+#[test]
+fn going_forward_stays_when_every_page_ahead_is_gone() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/a");
+    open(&mut h, "/pages/gone");
+    back(&mut h);
+    gone_next(&mut h);
+
+    forward(&mut h);
+
+    assert_eq!(shown(&h), "a");
+    assert_eq!(h.view().history.url.as_deref(), Some("/pages/a"));
+    assert!(!h.view().history.can_go_forward);
+}
+
+// ページを探している間に別のページを開けば、探した答えは画面を変えない。
+#[test]
+fn an_answer_for_a_page_the_history_has_left_is_not_shown() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/a");
+    open(&mut h, "/pages/b");
+    h.hold("FindPage");
+    back(&mut h);
+
+    open(&mut h, "/pages/c");
+    h.release_held();
+
+    assert_eq!(shown(&h), "c");
+}
+
+// サーバーがページの有無を答えられなければ、戻る先のページを今までどおり開く。
+#[test]
+fn going_back_opens_the_page_when_the_server_cannot_tell() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/a");
+    open(&mut h, "/pages/b");
+    h.api.fail_next("FindPage", "offline");
+
+    back(&mut h);
+
+    assert_eq!(shown(&h), "a");
+}
+
+// ジャーナルはジャーナルの名前で、docページはフォルダとタイトルで探す。
+#[test]
+fn a_journal_is_looked_up_by_its_name_and_a_doc_page_by_its_folder_and_title() {
+    let mut h = Harness::new();
+    open(&mut h, "/pages/2026-02-01");
+    open(&mut h, "/pages/d/a");
+    open(&mut h, "/pages/c");
+
+    back(&mut h);
+    back(&mut h);
+
+    let asked: Vec<_> = h.api.calls_named("FindPage").into_iter().cloned().collect();
+    assert_eq!(
+        asked,
+        vec![
+            ApiOp::FindPage {
+                journal: None,
+                title: "a".into(),
+                dir_path: "d/".into(),
+            },
+            ApiOp::FindPage {
+                journal: Some("2026-02-01".into()),
+                title: String::new(),
+                dir_path: String::new(),
+            },
+        ]
+    );
+    assert_eq!(shown(&h), "2026-02-01");
+}
