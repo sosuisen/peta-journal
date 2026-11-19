@@ -503,7 +503,8 @@ internal sealed class RowView : Grid
             var content = Clipboard.GetContent();
             if (!content.Contains(StandardDataFormats.Text))
                 return;
-            text = await content.GetTextAsync();
+            // The other apps of Windows put its line breaks on the clipboard
+            text = (await content.GetTextAsync()).Replace("\r\n", "\n");
         }
         catch (Exception e) when (e is COMException or UnauthorizedAccessException)
         {
