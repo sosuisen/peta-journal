@@ -200,19 +200,19 @@ pub fn show_saved_body(model: &mut Model, sent: &str, saved: &Item) -> Cmd {
     done()
 }
 
-/// The body the state holds for the shown item. This is what was typed into it. The copy
-/// of `item` may be the visible one, and a transclusion root shows the body of its source
-/// there.
-fn typed_text(model: &Model, item: &Item) -> String {
+/// What was typed into the shown item, as the edit leaves it. The state holds the typed body:
+/// the copy of `item` may be the visible one, and a transclusion root shows the body of its
+/// source there.
+fn left_text(model: &Model, item: &Item) -> String {
     match model.state.get_item_by_id(&item.id) {
-        Some(held) => held.body.clone(),
-        None => item.body.clone(),
+        Some(held) => without_blank_edges(&held.body),
+        None => without_blank_edges(&item.body),
     }
 }
 
-/// The body as an edit leaves it: the lines of only blanks before and after it go. Markdown
-/// gives them no meaning, and a file read back has none (ADR 050 closes blocks at the same
-/// time). Not while typing: a line just begun at the end would go.
+/// The body without the lines of only blanks before and after it. Markdown gives them no
+/// meaning, and a file read back has none. Only when the edit ends: while typing, a line just
+/// begun at the end would go.
 fn without_blank_edges(body: &str) -> String {
     let lines: Vec<&str> = body.lines().collect();
     let blank = |line: &&str| line.trim().is_empty();
@@ -263,7 +263,7 @@ pub fn take_dirty(model: &mut Model, item: &Item) -> Option<(DirtyEdit, Cmd)> {
     let discard = discard_pending_edit(model, item);
     let edit = DirtyEdit {
         item: item.clone(),
-        body: without_blank_edges(&typed_text(model, item)),
+        body: left_text(model, item),
     };
     Some((edit, discard))
 }
@@ -343,7 +343,7 @@ fn end_clean_edit(model: &mut Model, item: Item) -> Cmd {
 
 /// Saves the shown item and closes its editor, whether or not the save went through.
 fn save_and_close(model: &Model, item: Item) -> Cmd {
-    let body = without_blank_edges(&typed_text(model, &item));
+    let body = left_text(model, &item);
     run(move |api| async move {
         if let Err(e) = save_shown_body(&api, &item, &body).await {
             log_error(format!("Failed to save item: {e}"));
