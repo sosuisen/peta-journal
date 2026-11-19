@@ -81,6 +81,33 @@ fn a_change_made_to_the_file_is_merged_into_the_page() {
     );
 }
 
+// ファイルで見出しを普通の文に変えると、取り込んだ項目は見出しの種類を失う。
+#[test]
+fn a_heading_made_plain_in_the_file_loses_its_heading_type() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("sync-types");
+    let item = crate::common::items::id(&notes.fill(&page, &["# a heading"])[0]);
+    assert!(crate::common::items::has_type(
+        &notes.item(&item),
+        "heading"
+    ));
+    let file = notes.exported("sync-types");
+
+    std::fs::write(
+        notes.file_named("sync-types"),
+        file.replace("# a heading", "now a plain line"),
+    )
+    .unwrap();
+    notes.scan();
+
+    let taken = notes.item(&item);
+    assert_eq!(taken["body"], json!("now a plain line"));
+    assert!(
+        !crate::common::items::has_type(&taken, "heading"),
+        "{taken}"
+    );
+}
+
 // ファイルから取り込んだ変更は、ファイルからの変更としてクライアントに知らされる。
 #[test]
 fn the_clients_hear_of_a_change_taken_in_from_the_file() {

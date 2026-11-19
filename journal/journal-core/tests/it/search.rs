@@ -75,13 +75,22 @@ fn the_start_of_a_path_with_its_folder_finds_the_page() {
     assert!(page_ids(&notes.search_pages("notes/ide")).contains(&page));
 }
 
-// 名前の途中の文字でも、前方一致で見つからなければ、そのページが見つかる。
+// 名前の途中の文字でも、そのページが見つかる。
 #[test]
 fn a_part_in_the_middle_of_a_name_finds_the_page() {
     let notes = Core::new();
     let page = notes.new_doc_page("weekly-review");
 
     assert_eq!(page_ids(&notes.search_pages("kly-rev")), vec![json!(page)]);
+}
+
+// 日本語の名前の途中の文字でも、そのページが見つかる。検索の索引は日本語の語を切り出さないので、ページのパスの部分一致で探す。
+#[test]
+fn a_part_of_a_japanese_name_finds_the_page() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("旅の日記帳");
+
+    assert_eq!(page_ids(&notes.search_pages("日記")), vec![json!(page)]);
 }
 
 // 項目の本文は、抜粋付きで見つかる。
