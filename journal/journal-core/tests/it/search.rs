@@ -48,6 +48,42 @@ fn page_names_are_found_by_prefix() {
     );
 }
 
+/// The ids of the pages the page name search finds, in its order.
+fn page_ids(found: &Value) -> Vec<Value> {
+    field_of_each(found, "results", "pageId")
+}
+
+// フォルダー名で検索すると、そのフォルダーのindexページが、名前がその語で始まるページより先に出る。
+#[test]
+fn a_folder_name_finds_the_index_page_of_the_folder_first() {
+    let notes = Core::new();
+    let index = notes.open_doc_in("index", "deep/garden/")["page"]["id"].clone();
+    // Changed last, so it would come first by its date
+    let other = notes.new_doc_page("garden-tools");
+
+    let found = page_ids(&notes.search_pages("garden"));
+
+    assert_eq!(found, vec![index, json!(other)]);
+}
+
+// フォルダーを含めたパスの前半で検索すると、そのページが見つかる。
+#[test]
+fn the_start_of_a_path_with_its_folder_finds_the_page() {
+    let notes = Core::new();
+    let page = notes.open_doc_in("idea", "notes/")["page"]["id"].clone();
+
+    assert!(page_ids(&notes.search_pages("notes/ide")).contains(&page));
+}
+
+// 名前の途中の文字でも、前方一致で見つからなければ、そのページが見つかる。
+#[test]
+fn a_part_in_the_middle_of_a_name_finds_the_page() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("weekly-review");
+
+    assert_eq!(page_ids(&notes.search_pages("kly-rev")), vec![json!(page)]);
+}
+
 // 項目の本文は、抜粋付きで見つかる。
 #[test]
 fn item_text_is_found_with_a_snippet() {
