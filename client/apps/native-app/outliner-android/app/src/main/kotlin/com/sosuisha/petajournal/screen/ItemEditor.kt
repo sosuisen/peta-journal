@@ -162,10 +162,11 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
                     if (ctrlV && pressed.type == KeyEventType.KeyDown) paste()
                     ctrlV
                 }
+                // The filter also runs on the items that the app adds: its own Paste has a key of its own
                 .filterTextContextMenuComponents { it.key != TextContextMenuKeys.PasteKey }
                 .appendTextContextMenuComponents {
                     if (clipboard.hasText()) {
-                        item(TextContextMenuKeys.PasteKey, label = clipboard.pasteLabel) {
+                        item(CorePasteKey, label = clipboard.pasteLabel) {
                             paste()
                             close()
                         }
@@ -209,6 +210,9 @@ private class BackspaceAtStart(
         return backspace
     }
 }
+
+/** The key of the Paste of the menu of the text that pastes through the core. */
+private object CorePasteKey
 
 /** The clipboard of the system, as the field pastes from it. */
 private class Clipboard(private val context: Context) {
