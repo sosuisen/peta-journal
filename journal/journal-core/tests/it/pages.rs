@@ -6,7 +6,7 @@ use journal_core::error::AppError;
 use journal_core::journal::PageAnswer;
 use serde_json::{json, Value};
 
-use crate::common::items::{answer, field_of_each, id};
+use crate::common::items::{answer, field_of_each, id, input};
 use crate::common::pages::by_the_client;
 use crate::common::Core;
 
@@ -99,6 +99,27 @@ fn a_new_doc_page_starts_with_one_empty_item_and_is_found_again_by_its_title() {
     assert_eq!(first["page"]["type"], json!("doc"));
     assert_eq!(again["created"], json!(false));
     assert_eq!(first["page"]["id"], again["page"]["id"]);
+}
+
+// ページを探すだけの要求は、あるdocページとジャーナルを答え、ないページは作らずに、ないと答える。戻る・進むが、同期で消えたページを作らないためである。
+#[test]
+fn finding_a_page_answers_the_page_that_is_there_and_makes_none() {
+    let notes = Core::new();
+    let doc = notes.open_doc_in("pages-find", "d/");
+    let day = notes.open_journal("2026-11-02");
+    let find = |query: Value| answer(notes.core.journal.find_page(input(query)).unwrap());
+
+    let found_doc = find(json!({ "title": "pages-find", "dirPath": "d/" }));
+    let found_day = find(json!({ "journal": "2026-11-02" }));
+    let no_doc = find(json!({ "title": "pages-gone", "dirPath": "d/" }));
+    let no_day = find(json!({ "journal": "2026-11-03" }));
+
+    assert_eq!(found_doc["page"]["id"], doc["page"]["id"]);
+    assert_eq!(found_day["page"]["id"], day["page"]["id"]);
+    assert_eq!(no_doc["page"], Value::Null);
+    assert_eq!(no_day["page"], Value::Null);
+    let again = notes.open_doc_in("pages-gone", "d/");
+    assert_eq!(again["created"], json!(true), "finding made no page");
 }
 
 /// Titles no page may take: blank, padded with spaces, and not a file name on every OS.
