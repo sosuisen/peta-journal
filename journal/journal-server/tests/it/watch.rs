@@ -263,14 +263,14 @@ async fn a_file_of_definitions_from_another_device_is_taken_in_without_a_scan() 
 
     folder.write(
         "settings/properties.json",
-        r#"{ "definitions": { "score": { "type": "number", "page": false, "modified": "2025-11-15T01:00:00Z" } } }"#,
+        r#"{ "definitions": { "score_n": { "page": false, "modified": "2025-11-15T01:00:00Z" } } }"#,
     );
 
     eventually("the definition is in", || {
         folder
             .state
             .properties
-            .find_definition("score")
+            .find_definition("score_n")
             .unwrap()
             .is_some()
     })
