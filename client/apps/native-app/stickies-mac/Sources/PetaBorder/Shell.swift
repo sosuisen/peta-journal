@@ -155,6 +155,12 @@ public final class Shell: ObservableObject {
         send(.editFinished(itemId: itemId))
     }
 
+    /// The window closes, or the app ends. The text typed and still waiting for its save is
+    /// saved before this returns: the moment later would never come (#766).
+    public func close() {
+        border.close()
+    }
+
     /// The user changed the text of the item. The core saves it a moment later.
     public func typed(_ body: String, into itemId: String) {
         typed(.changed(itemId: itemId, body: body))
