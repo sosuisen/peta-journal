@@ -230,6 +230,22 @@ public sealed class OutlineScreenTests
         await Screen.UntilClipboardHas("- second");
     }
 
+    // Ctrl+Vは、Markdownのリストを項目に分けて、カーソルの位置に貼る。
+    [UITestMethod]
+    public async Task Control_V_cuts_a_markdown_list_into_items()
+    {
+        await using var screen = await Screen.Open(Port);
+        await screen.TwoItems();
+        // Other apps of Windows put line breaks of two letters on the clipboard
+        Screen.PutOnClipboard("- apple\r\n- pear");
+
+        Screen.Press(VirtualKey.V, Held.Control);
+
+        await Screen.Until("the list is two items", () =>
+            screen.BodiesAre("first", "secondapple", "pear")
+        );
+    }
+
     // 選んでいるあいだのShift+Alt+上矢印は、選んだ項目を上へ動かす。
     [UITestMethod]
     public async Task Shift_Alt_Up_moves_the_selected_items()
