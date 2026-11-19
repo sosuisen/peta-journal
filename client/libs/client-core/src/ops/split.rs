@@ -11,7 +11,7 @@ use crate::model::{Item, ItemPosition, ItemRef, Split};
 use crate::ops::edit::{
     discard_pending_edit, focus_editor, record_typing, show_parsed, typed_body,
 };
-use crate::ops::file_reload::{leave_the_edit, replace_page, AskedAt};
+use crate::ops::file_reload::{leave_the_edit, read_again_if_out_of_place, replace_page, AskedAt};
 use crate::ops::level;
 use crate::ops::outline_events::body_changed;
 use crate::outline::tree::{
@@ -136,7 +136,9 @@ pub fn show_split(model: &mut Model, item_id: &str, cursor_before: usize, split:
     // The caret stays where the text was cut
     model.state.set_focused_item(&created.id, Some(0));
     model.state.order_focus(Some(&created.id));
-    run(move |api| async move { api.focus_editor(Some(created.id), keys).await })
+    let reread = read_again_if_out_of_place(model, &created.id);
+    let focus = run(move |api| async move { api.focus_editor(Some(created.id), keys).await });
+    Command::all([focus, reread])
 }
 
 /// Ends the wait for the next editor after a split that did not reach the server, and

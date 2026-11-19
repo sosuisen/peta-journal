@@ -6,6 +6,7 @@ use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, TimerOutput};
 use crate::model::{Item, PageWithItems};
 use crate::ops::edit::is_edit_in_progress;
+use crate::outline::tree::is_out_of_place;
 
 /// How long the auto-save gets to flush before pending pages are replaced.
 const FLUSH_DELAY_MS: u32 = 1500;
@@ -27,6 +28,18 @@ pub fn reload_page(model: &mut Model, page_id: &str) -> Cmd {
 pub fn read_again(model: &Model, page_id: &str) -> Cmd {
     let (page_id, asked_at) = (page_id.to_string(), AskedAt::now(model));
     run(move |api| async move { replace_page(&api, &page_id, asked_at).await })
+}
+
+/// Reads the page of an item again when the item does not sort between its neighbours: the
+/// server gave them new indices that this side does not have, and an undo places items by
+/// their indices.
+pub fn read_again_if_out_of_place(model: &Model, item_id: &str) -> Cmd {
+    match model.state.get_item_by_id(item_id) {
+        Some(item) if is_out_of_place(model.state.items(), item_id) => {
+            read_again(model, &item.page_id)
+        }
+        _ => done(),
+    }
 }
 
 /// When a page was asked for: the count of the changes made here until then.
