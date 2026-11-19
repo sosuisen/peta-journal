@@ -1,11 +1,25 @@
-//! Search: page names, the text of items, and tags.
+//! Search: page names, the text of items, tags, and the filters of the combined search.
 
+use journal_core::clock::Clock;
 use serde_json::{json, Value};
 
 use crate::common::items::{answer, field_of_each, id};
 use crate::common::Core;
 
 impl Core {
+    /// Sets the clock of the core to the time given, such as `2026-03-12T10:00:00+09:00`.
+    fn set_time(&self, rfc3339: &str) {
+        let at = chrono::DateTime::parse_from_rfc3339(rfc3339)
+            .unwrap()
+            .timestamp_millis();
+        self.clock.advance(at - self.clock.now_millis());
+    }
+
+    /// The ids of the items the combined search finds, in the order it gives them.
+    fn found_items(&self, query: &str) -> Vec<Value> {
+        field_of_each(&self.search_combined(query), "results", "itemId")
+    }
+
     /// The pages and items the combined search finds, at most 10. The index commits first,
     /// as the app has it commit every little while.
     fn search_combined(&self, query: &str) -> Value {
@@ -119,6 +133,174 @@ fn a_deleted_item_is_no_longer_found() {
     let found = notes.search_combined("ghost");
     assert_eq!(
         field_of_each(&found, "results", "itemId"),
+        Vec::<Value>::new()
+    );
+}
+
+// `in:`の絞り込みでは、フォルダーと名前をつないだパスがその文字で始まるページの項目だけが見つかる。
+#[test]
+fn in_finds_only_the_items_of_the_pages_whose_folder_and_name_start_with_it() {
+    let notes = Core::new();
+    let inside = notes.open_doc_in("plan", "project/")["page"]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let outside = notes.open_doc_in("plan", "other/")["page"]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let wanted = id(&notes.fill(&inside, &["inside"])[0]);
+    notes.fill(&outside, &["outside"]);
+
+    assert_eq!(notes.found_items("in:project/pl"), vec![json!(wanted)]);
+}
+
+// `key=value`の絞り込みでは、そのプロパティにその値を持つ項目だけが見つかる。
+#[test]
+fn a_key_and_value_find_only_the_items_with_that_value() {
+    let notes = Core::new();
+    notes.define_key("status");
+    let page = notes.new_doc_page("search-property");
+    let items = notes.fill(&page, &["done one", "open one", "no status"]);
+    for (item, status) in [(&items[0], "done"), (&items[1], "open")] {
+        notes
+            .set_item_property(
+                &id(item),
+                "status",
+                json!({ "valueType": "text", "value": status }),
+            )
+            .unwrap();
+    }
+
+    assert_eq!(notes.found_items("status=done"), vec![json!(id(&items[0]))]);
+}
+
+/// A page whose items were made at the times given, one item for each, in that order. The
+/// date filters read a date in Asia/Tokyo for now (#854), so the times are given there.
+fn items_made_at(notes: &Core, times: &[&str]) -> Vec<Value> {
+    notes.set_time(times[0]);
+    let page = notes.new_doc_page("search-dates");
+    let mut items = notes.fill(&page, &[times[0]]);
+    for time in &times[1..] {
+        notes.set_time(time);
+        let after = format!("after:{}", id(items.last().unwrap()));
+        items.push(notes.create_item(&page, &after, 1, time));
+    }
+    items.iter().map(|i| json!(id(i))).collect()
+}
+
+impl Core {
+    /// The items of the page of `items_made_at` that the date filter finds. The core makes
+    /// items of its own at the real time, which a filter such as `>2026-04-03` finds too.
+    fn found_on_date_page(&self, filter: &str) -> Vec<Value> {
+        self.found_items(&format!("{filter} in:search-dates"))
+    }
+}
+
+// `created:`に日を書くと、その日に作った項目だけが見つかる。
+#[test]
+fn created_with_a_day_finds_the_items_made_that_day() {
+    let notes = Core::new();
+    let items = items_made_at(
+        &notes,
+        &[
+            "2026-04-04T23:59:00+09:00",
+            "2026-04-05T00:00:00+09:00",
+            "2026-04-05T23:59:00+09:00",
+            "2026-04-06T00:00:00+09:00",
+        ],
+    );
+
+    assert_eq!(
+        notes.found_on_date_page("created:2026-04-05"),
+        vec![items[1].clone(), items[2].clone()]
+    );
+}
+
+// `created:`に月を書くと、その月に作った項目だけが見つかる。
+#[test]
+fn created_with_a_month_finds_the_items_made_that_month() {
+    let notes = Core::new();
+    let items = items_made_at(
+        &notes,
+        &[
+            "2026-03-31T23:59:00+09:00",
+            "2026-04-01T00:00:00+09:00",
+            "2026-04-30T23:59:00+09:00",
+            "2026-05-01T00:00:00+09:00",
+        ],
+    );
+
+    assert_eq!(
+        notes.found_on_date_page("created:2026-04"),
+        vec![items[1].clone(), items[2].clone()]
+    );
+}
+
+// 12月を書くと、その年の12月の項目だけが見つかり、翌年の1月の項目は見つからない。
+#[test]
+fn created_with_december_ends_at_the_new_year() {
+    let notes = Core::new();
+    let items = items_made_at(
+        &notes,
+        &[
+            "2026-11-30T23:59:00+09:00",
+            "2026-12-31T23:59:00+09:00",
+            "2027-01-01T00:00:00+09:00",
+        ],
+    );
+
+    assert_eq!(
+        notes.found_on_date_page("created:2026-12"),
+        vec![items[1].clone()]
+    );
+}
+
+// `..`は始めの日から終わりの日まで、`>`はその日のあと、`<`はその日の前に作った項目を見つける。
+#[test]
+fn a_range_after_and_before_find_the_items_made_in_them() {
+    let notes = Core::new();
+    let items = items_made_at(
+        &notes,
+        &[
+            "2026-04-01T12:00:00+09:00",
+            "2026-04-02T12:00:00+09:00",
+            "2026-04-03T12:00:00+09:00",
+            "2026-04-04T12:00:00+09:00",
+        ],
+    );
+
+    assert_eq!(
+        notes.found_on_date_page("created:2026-04-02..2026-04-03"),
+        vec![items[1].clone(), items[2].clone()]
+    );
+    assert_eq!(
+        notes.found_on_date_page("created:>2026-04-03"),
+        vec![items[3].clone()]
+    );
+    assert_eq!(
+        notes.found_on_date_page("created:<2026-04-02"),
+        vec![items[0].clone()]
+    );
+}
+
+// `modified:`は、作った日ではなく、最後に変えた日で項目を見つける。
+#[test]
+fn modified_finds_the_items_by_the_day_they_were_last_changed() {
+    let notes = Core::new();
+    let items = items_made_at(
+        &notes,
+        &["2026-04-01T12:00:00+09:00", "2026-04-01T12:01:00+09:00"],
+    );
+    notes.set_time("2026-04-09T12:00:00+09:00");
+    notes.update_item(items[0].as_str().unwrap(), json!({ "body": "changed" }));
+
+    assert_eq!(
+        notes.found_on_date_page("modified:2026-04-09"),
+        vec![items[0].clone()]
+    );
+    assert_eq!(
+        notes.found_on_date_page("created:2026-04-09"),
         Vec::<Value>::new()
     );
 }
