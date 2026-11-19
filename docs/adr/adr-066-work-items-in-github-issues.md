@@ -83,23 +83,9 @@ issueの本文には、ADRへのリンクを書く。
 
 ### ラベル
 
-ラベルは、次の3つの軸で付ける。
-
-- 種類：`bug`、`enhancement`、`investigation`、`refactor`、`ci`、`chore`
-- 場所：`docs/conventional-commit.md`のスコープと同じ
-- 条件：`needs-device`、`needs-developer`、`env:macos`、`env:windows`
-
-場所のラベルは、作業がまたがるスコープのすべてに付ける。
-スコープが4つ以上になっても、省略しない。
-コミットのスコープを省略する規則は、ラベルには当てはめない。
-ラベルは、場所ごとにissueを探すために使うためである。
-
-`enhancement`を選ぶ場合は、`docs/storymap.md`への追加が検討されるべきである。
-追加された場合、追加済みの`docs/storymap.md`へのリンクを書き、追加されなかった場合は、storymap未追加と書く必要がある。
-`needs-device`は、実機が要る作業に付ける。
-`needs-developer`は、開発者がいるときに行う作業に付ける。
-たとえば、キーとマウスを使う画面のテストや、開発者が先に手で後片付けをする作業である。
-`env:macos`と`env:windows`は、OS共通コードであるにも関わらずそのOSでだけ起きる問題に付ける。
+ラベルは、`docs/issue-labels.md`に従う。
+ラベルの一覧は変わっていくため、ADRではなくdocsに置く。
+ADRは探すのに手間がかかるためでもある。
 
 ### 流れ
 
