@@ -708,7 +708,10 @@ fn a_page_whose_transclusion_source_comes_later_is_taken_in_and_transcludes_it_t
     let source_page = a.doc("z-source");
     let source = a.add(&source_page, "source text");
     let shown = a.add(&showing, "");
-    a.core.item_service.set_transclusion(&shown, &source).unwrap();
+    a.core
+        .item_service
+        .set_transclusion(&shown, &source)
+        .unwrap();
 
     let first = b.receive(&a, "docs/d/b-showing.md");
     b.receive(&a, "docs/d/z-source.md");
