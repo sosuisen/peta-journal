@@ -685,7 +685,7 @@
 
 ### 項目をつなぐ
 
-出典: `tests/wiki.rs`、`tests/transclusion.rs`、`core/outline/state.rs`、`client/apps/web-app/outliner/e2e/outline-content`
+出典: `tests/wiki.rs`、`tests/transclusion.rs`、`core/outline/state.rs`、`client/apps/web-app/outliner/e2e/outline-content`、`client/apps/web-app/outliner/e2e/transclusion-menu`
 
 - `[[`の中で入力すると、一息置いた後にページ名の候補が出る。ポップアップはカーソルの少し下に置かれ、最初の候補が選ばれている
   - 続けて入力すると最後の検索語だけが検索される。検索語が空になると候補は消え、`[[`の外に出るとポップアップは閉じる
@@ -703,8 +703,11 @@
   - 判定はコアが行う
 - Paste as Transclusionで、項目が貼り付けられたidに結び付けられ、ページが再読み込みされる
   - 項目idでない文は無視される
+  - Web版では、項目のメニューのCopy Referenceが項目idをクリップボードに書く。別の項目のメニューでPaste as Transclusionを選ぶと、その項目が元の項目と子を表示する。サーバーは元の本文を項目に写す。元のページは変わらない
   - Windowsの付箋紙アプリでは、編集していない項目を右クリックしたメニューにある。付箋紙のメニューの上に出る（`stickies-win`の`ShellTests`と`OutlineScreenTests`）
 - トランスクルージョンの解除で、項目は普通の項目に戻り、ページが読み直される。サーバーが断ると項目はそのままである
+  - Web版では、項目のメニューのRemove Transclusionで解除する。項目は空になり、元の項目と子を表示しなくなる。元のページは変わらない
+  - Remove Transclusionは、トランスクルージョンの項目のメニューにだけある
 - 元の項目が消えたトランスクルージョンは、壊れたものとして示される。読むだけで、編集はできない
   - クリックしても編集にならない
   - 矢印キーでの移動は、壊れたルートを飛ばして次の項目へ移る。その先に項目がなければ、今の項目にとどまる
@@ -932,7 +935,7 @@
 
 ### サーバーで拡張関数を動かす
 
-出典: `journal/journal-core/src/application/extension_runtime.rs`、`confirm_service.rs`、`journal/journal-core/tests/it/extensions.rs`
+出典: `journal/journal-core/src/application/extension_runtime.rs`、`confirm_service.rs`、`journal/journal-core/tests/it/extensions.rs`、`client/apps/web-app/outliner/e2e/extension-template`
 
 - 拡張の`main.js`は、サーバーのQuickJSで動く
   - `onPageCreate(page)`はページの情報を受け取り、`peta.createItem`で頼んだ項目が返る。`createItem`が返すIDは、次の項目の置き場所に使える
@@ -948,6 +951,7 @@
   - 最後に置く項目は、中身が空の1項目だけのページならその項目を上書きし、中身のある項目のあるページでは足す
   - 置けない階層は、置ける深さまで下げる。トランスクルード元を指定した項目は、その項目を写す
   - 既にあるページを開いても、フォルダ同期で取り込んだページでも、拡張は呼ばれない
+  - Web版で新しいページを開くと、拡張の項目が最初から表示され、空の項目は残らない
 - `main.js`のない古い形の拡張（フロントエンドのiframeで動いていたもの）は、拡張の一覧に入らない
 - タグを足すと、拡張の項目がページの最後に入り、そのページの変更がSSEで知らされる
 - タグの拡張は`peta.confirm(message)`で利用者に尋ねられる
@@ -955,6 +959,7 @@
   - 開いているクライアントがなければすぐに、時間内に答えがなければ時間切れで「いいえ」になる
   - 待っていない問い合わせへの答えは404になる
   - ページ作成の拡張では`confirm`は使えない。答えを待つ時間は、時間の上限に数えない
+  - Web版では、問い合わせはブラウザの`confirm`で出る。OKと答えると、拡張の項目が空の項目の代わりに表示される
 
 ### auto-template
 
