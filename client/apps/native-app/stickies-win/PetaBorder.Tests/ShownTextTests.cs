@@ -322,6 +322,24 @@ public sealed class ShownTextTests
         Assert.Equal(RunStyle.Code, Assert.IsType<ShownParagraph>(shown.Parts[0]).Runs[1].Style);
     }
 
+    // コアが分けた入れ子のリストでは、内側の項目が右に寄る。中身のない項目の印も同じである。
+    [Fact]
+    public void The_entries_of_a_list_inside_a_list_that_the_core_took_apart_stand_to_the_right()
+    {
+        var shown = Shown(
+            Entries(
+                Entry(
+                    "1.",
+                    new RichBlock.Code("x", 0),
+                    Entries(Entry("a.", new RichBlock.Code("let x = 1", 0)), Entry("b."))
+                )
+            )
+        );
+
+        Assert.Equal("1. x\na. let x = 1\nb. ", shown.Text);
+        Assert.Equal([0, 1, 1], shown.Parts.Cast<ShownParagraph>().Select(part => part.Indent));
+    }
+
     // コアが分けた引用の中の部品は、右に寄る。
     [Fact]
     public void A_part_in_a_quote_that_the_core_took_apart_stands_to_the_right()
