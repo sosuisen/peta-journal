@@ -93,8 +93,20 @@ class JournalModel internal constructor(
         sync.start(account.calls() ?: return, account.folder, inFront)
     }
 
+    /** True from the time the screen is made again, as when the device is turned, until the new screen is in front. */
+    private var madeAgain = false
+
+    /** The screen is made again, as when the device is turned: the app stays in front, and the next [syncInFront] syncs nothing. */
+    fun screenIsMadeAgain() {
+        madeAgain = true
+    }
+
     /** The app came to the front, maybe back from the sign-in: it syncs, and the user waits. */
     fun syncInFront() {
+        if (madeAgain) {
+            madeAgain = false
+            return
+        }
         if (cloud == null) return
         account.keepNewSignIn()
         sync(inFront = true)

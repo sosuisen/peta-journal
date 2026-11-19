@@ -83,6 +83,20 @@ class MainActivityTest {
         assertEquals(1, account.syncs)
     }
 
+    // 画面を作り直したあとも、後ろへ回って前に戻れば、同期する。
+    @Test
+    fun the_app_syncs_when_it_comes_to_the_front_after_the_screen_was_made_again() {
+        val account = FakeAccount()
+        val app = launch(account)
+        app.recreate()
+
+        app.moveToState(Lifecycle.State.CREATED)
+        app.moveToState(Lifecycle.State.RESUMED)
+
+        assertEquals(2, account.looks)
+        assertEquals(3, account.syncs)
+    }
+
     // サインインのボタンは、このアクティビティからサインインを始める。
     @Test
     fun the_sign_in_button_starts_the_sign_in_from_the_activity() {
