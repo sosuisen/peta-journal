@@ -18,6 +18,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
@@ -152,6 +154,9 @@ class EditTest : JournalScreenFixture() {
     /** The items of the page, each as its level and its body. */
     private fun items(): List<String> = shell.view.outline.rows.map { "${it.item.level} ${it.item.body}" }
 
+    /** The word of the system for Paste, as the menu of the text shows it. */
+    private val PASTE = InstrumentationRegistry.getInstrumentation().targetContext.getString(android.R.string.paste)
+
     private fun waitForItems(vararg items: String) = compose.waitUntil(WAIT_MS) { items() == items.toList() }
 
     /** Puts [text] on the clipboard of the system, as another app does. */
@@ -200,6 +205,18 @@ class EditTest : JournalScreenFixture() {
         onTheClipboard("- apple" + NL + "- pear")
 
         compose.onNodeWithTag(EDITOR_TAG).performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.V) } }
+
+        waitForItems("1 first", "1 secondapple", "1 pear", "1 third")
+    }
+
+    // 文字のメニューの貼り付けも、コアが貼り付ける。リストは項目になる。
+    @Test
+    fun paste_of_the_menu_of_the_text_pastes_a_list_as_items() {
+        editSecondOfThree()
+        onTheClipboard("- apple" + NL + "- pear")
+
+        compose.onNodeWithTag(EDITOR_TAG).performMouseInput { rightClick(centerRight) }
+        compose.onNodeWithText(PASTE).performClick()
 
         waitForItems("1 first", "1 secondapple", "1 pear", "1 third")
     }
