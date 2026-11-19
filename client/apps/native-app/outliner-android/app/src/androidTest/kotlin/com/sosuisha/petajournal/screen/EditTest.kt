@@ -206,6 +206,16 @@ class EditTest : JournalScreenFixture() {
         waitForItems("1 parent", "2 child", "1 thirdparent", "2 child")
     }
 
+    // コピーの道具でコピーした項目を、画面のキーボードのクリップボードの候補から入れても、項目の形のまま戻る。
+    @Test
+    fun items_copied_and_put_in_from_the_clipboard_of_the_keyboard_on_the_screen_come_back_as_items() {
+        copyParentAndChildThenEditThird()
+
+        commitOnTheScreen(copied.last())
+
+        waitForItems("1 parent", "2 child", "1 thirdparent", "2 child")
+    }
+
     // 実のキーのキーボードのCtrl+Vも、コアが貼り付ける。リストは項目になる。
     @Test
     fun ctrl_v_of_a_keyboard_with_real_keys_pastes_a_list_as_items() {
@@ -539,6 +549,15 @@ class EditTest : JournalScreenFixture() {
      * Presses Backspace as the keyboard on the screen does. Gboard sends no key: it asks the
      * field to delete the character before the cursor, also when there is none.
      */
+    /** Puts [text] in at the cursor as the keyboard on the screen does, as with what it shows of the clipboard. */
+    private fun commitOnTheScreen(text: String) {
+        val root = compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().root as ViewRootForTest
+        compose.runOnUiThread {
+            val keyboard = checkNotNull(root.view.onCreateInputConnection(EditorInfo()))
+            keyboard.commitText(text, 1)
+        }
+    }
+
     private fun pressBackspaceOnTheScreen() {
         val root = compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().root as ViewRootForTest
         compose.runOnUiThread {
