@@ -93,6 +93,15 @@ class JournalModel internal constructor(
         sync.start(account.calls() ?: return, account.folder, inFront)
     }
 
+    /**
+     * The app went to the back: what was typed and still waits for its save is saved, also
+     * without a sync, and then it syncs (#766).
+     */
+    fun wentToTheBack() {
+        shell.wentToTheBack()
+        sync()
+    }
+
     /** True from the time the screen is made again, as when the device is turned, until the new screen is in front. */
     private var madeAgain = false
 
