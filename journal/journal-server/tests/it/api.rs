@@ -174,6 +174,30 @@ async fn the_status_names_the_folder_and_says_it_is_there() {
     assert_eq!(resp["rootAvailable"], json!(true));
 }
 
+// フォルダから消えたファイルは、削除を確かめるページに、そのページのidとともに並ぶ。
+#[tokio::test]
+async fn a_file_gone_from_the_folder_is_listed_on_the_page_that_asks_about_it() {
+    let page = new_doc_page("sync-pending").await;
+    let state = &server().state;
+    state.export.process_whole_queue();
+    let file = server()
+        .markdown_dir
+        .join(format!("docs/{}.md", page.title));
+    std::fs::remove_file(&file).unwrap();
+    post_empty("/api/sync/scan").await;
+
+    let html = client()
+        .get(url("/api/sync/pending-deletes"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+
+    assert!(html.contains(&page.id), "{html}");
+}
+
 // ---- Health and config ----
 
 // ヘルスチェックはokを返す。設定の読み書きはjournal-coreのテストが確かめる。

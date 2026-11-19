@@ -17,7 +17,6 @@ use crate::domain::property_key::PropertyKey;
 use crate::domain::search::SearchIndex;
 use crate::domain::wikilink;
 use crate::error::AppError;
-use crate::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::property_repository::{
     list_values, ListProps, ScalarProps,
@@ -845,9 +844,9 @@ impl PageService {
             PAGE_TARGET,
             std::slice::from_ref(&page_id.to_string()),
         )?;
-        // The items and their types go with the page, by ON DELETE CASCADE
+        // The items, their types and the page's place in the export queue go with the page,
+        // by ON DELETE CASCADE
         PageRepository::delete_in(tx, page_id)?;
-        ExportQueueRepository::remove_in(tx, page_id)?;
         effects.removed_page_ids.push(page_id.to_string());
         effects.deleted.push(page.clone());
         effects.tag_changes.push((tags, Vec::new()));
