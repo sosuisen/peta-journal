@@ -346,3 +346,17 @@ fn a_journal_is_looked_up_by_its_name_and_a_doc_page_by_its_folder_and_title() {
     );
     assert_eq!(shown(&h), "2026-02-01");
 }
+
+// 今日のジャーナルには、探さずに戻る。今日のジャーナルは、開くときに作るページだからである。
+#[test]
+fn going_back_to_today_opens_it_without_looking_it_up() {
+    let mut h = Harness::new();
+    open(&mut h, "/today");
+    open(&mut h, "/pages/b");
+
+    back(&mut h);
+
+    assert!(!h.api.called("FindPage"));
+    assert_eq!(h.view().history.url.as_deref(), Some("/today"));
+    assert!(matches!(h.model.screen, Screen::Journal(_)));
+}

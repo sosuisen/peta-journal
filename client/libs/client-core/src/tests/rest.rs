@@ -85,6 +85,22 @@ fn a_question_goes_after_the_path_under_the_names_the_server_reads() {
             },
             "/api/pages/recent?maxResults=5&type=doc",
         ),
+        (
+            ApiOp::FindPage {
+                journal: Some(id("j")),
+                title: String::new(),
+                dir_path: String::new(),
+            },
+            "/api/pages/find?journal=j",
+        ),
+        (
+            ApiOp::FindPage {
+                journal: None,
+                title: id("t"),
+                dir_path: id("d/"),
+            },
+            "/api/pages/find?title=t&dirPath=d%2F",
+        ),
     ];
     for (op, path) in cases {
         let request = call(op.clone()).request;
@@ -94,6 +110,23 @@ fn a_question_goes_after_the_path_under_the_names_the_server_reads() {
             "{op:?}"
         );
     }
+}
+
+// ページを探した答えは、見つかったページか、ないことである。
+#[test]
+fn finding_a_page_answers_the_page_or_none() {
+    let find = || ApiOp::FindPage {
+        journal: None,
+        title: "t".into(),
+        dir_path: String::new(),
+    };
+    let page = json!({ "id": "p", "name": "t", "dirPath": "", "type": "doc" });
+
+    let found = answer(find(), json!({ "page": page }));
+    let none = answer(find(), json!({ "page": null }));
+
+    assert!(matches!(found, ApiOutput::FoundPage(Some(p)) if p.id == "p"));
+    assert_eq!(none, ApiOutput::FoundPage(None));
 }
 
 // 操作は、自分の値をパスと本文に入れて送る。パスには、どのページや項目かと、プロパティの名前が、この順で入る。
