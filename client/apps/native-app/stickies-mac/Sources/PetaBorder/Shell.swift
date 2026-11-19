@@ -166,6 +166,26 @@ public final class Shell: ObservableObject {
         typed(.typed(itemId: itemId, body: body, cursor: UInt64(max(cursor, 0))))
     }
 
+    /// True while the core moves the edit to another item, as after Enter until the item is
+    /// split. What is typed then is for the item the edit moves to, not for the editor that
+    /// still has the cursor.
+    public var holdsKeys: Bool { view.outline.keyRelayHolding }
+
+    /// The user pressed a key while the core moves the edit. The core holds it, and gives it
+    /// back with the order to put the cursor in the next item (`takeKeysToReplay`).
+    public func hold(_ key: DeferredKey) {
+        send(.keyHeld(key))
+    }
+
+    /// The keys the core held, to be played into the editor that takes the cursor now. They
+    /// are given out once.
+    public func takeKeysToReplay() -> [DeferredKey] {
+        defer { keysToReplay = [] }
+        return keysToReplay
+    }
+
+    private var keysToReplay: [DeferredKey] = []
+
     /// The user pasted into the item, with the cursor `cursor` UTF-16 units into `body`. The text
     /// on the clipboard goes to the core, which asks the server to cut it into items (ADR 011).
     /// A raw paste puts the text into the item as it is. Nothing happens when the clipboard has
@@ -224,14 +244,16 @@ public final class Shell: ObservableObject {
 
     private func handle(_ requests: [Request]) {
         var cursors: [UInt32] = []
+        var replay: [DeferredKey] = []
         for request in requests {
             switch request.effect {
             case .render:
                 view = Shell.must { try border.view() }
             case .navigate(let op):
                 open(op.url)
-            case .ui(.focusEditor):
+            case .ui(.focusEditor(_, let keys)):
                 cursors.append(request.id)
+                replay += keys
             case .ui(let op):
                 show(op, asked: request.id)
             }
@@ -239,7 +261,12 @@ public final class Shell: ObservableObject {
         // After the render: the item to put the cursor in may have come with these very requests
         // The order itself is in the view model, as `outline.focusOrder`. It is read again
         // here: no render request has to come with the order
-        if !cursors.isEmpty { view = Shell.must { try border.view() } }
+        if !cursors.isEmpty {
+            // Not added to the keys of an order before: the editor of that order took them, or
+            // no editor took the cursor and they are for no item now
+            keysToReplay = replay
+            view = Shell.must { try border.view() }
+        }
         for id in cursors {
             Shell.must { try border.answer(id, with: .done) }
         }
