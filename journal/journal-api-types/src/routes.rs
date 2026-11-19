@@ -96,6 +96,7 @@ pub const EVENTS: Route = Route::get("/api/events");
 // ---- pages ----
 
 pub const GET_OR_CREATE_DOC: Route = Route::post("/api/pages/doc");
+pub const FIND_PAGE: Route = Route::get("/api/pages/find");
 pub const RECENT_PAGES: Route = Route::get("/api/pages/recent");
 pub const GET_PAGE: Route = Route::get("/api/pages/{id}");
 pub const UPDATE_PAGE: Route = Route::put("/api/pages/{id}");

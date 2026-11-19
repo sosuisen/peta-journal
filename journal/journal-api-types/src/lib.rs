@@ -26,6 +26,23 @@ fn is_false(value: &bool) -> bool {
 
 // ---- pages ----
 
+/// The page to look for, without making it: a journal by its name, or else a document page
+/// by its title and folder. Going back to a page that sync deleted looks for it this way.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct FindPageQuery {
+    /// Name of a journal (e.g. '2026-11-20' or '2026-W47')
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub journal: Option<String>,
+    /// Title of a document page
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// Directory path of a document page (e.g. 'projects/'). Empty or left out for the root.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dir_path: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]

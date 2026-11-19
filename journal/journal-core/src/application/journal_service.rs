@@ -256,6 +256,12 @@ impl JournalService {
         })
     }
 
+    /// The journal of the name, without making it.
+    pub fn find_journal(&self, name: &JournalName) -> Result<Option<Page>, AppError> {
+        let conn = self.items.db().conn()?;
+        Self::find_journal_in(&conn, &name.to_string())
+    }
+
     fn find_journal_in(tx: &Connection, file_name: &str) -> Result<Option<Page>, AppError> {
         PageRepository::find_by_type_dir_path_file_name_in(tx, JOURNAL_TYPE, "", file_name)
     }
