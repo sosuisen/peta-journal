@@ -333,6 +333,35 @@ fn the_page_of_a_file_that_has_gone_is_deleted_by_the_next_sync() {
     assert_eq!(page_names(&core), ["other"]);
 }
 
+// 同期で消えたページには戻らず、そのページもファイルも作り直さない。その前のページが開く（#763）。
+#[test]
+fn going_back_does_not_make_again_a_page_that_sync_deleted() {
+    let app = App::new();
+    app.download("first.md", "- first text\n");
+    app.download("gone.md", "- gone text\n");
+    app.download("last.md", "- last text\n");
+    let core = app.open(Arc::default());
+    core.sync();
+    for url in ["/pages/first", "/pages/gone", "/pages/last"] {
+        core.open(url.into()).unwrap();
+    }
+    wait_until("the last page shows", || shown(&core).contains("last text"));
+    app.remove("gone.md");
+    core.sync();
+
+    core.update(&event(&Event::Back {
+        today: "2026-11-20".into(),
+    }))
+    .unwrap();
+
+    wait_until("the first page shows", || {
+        shown(&core).contains("first text")
+    });
+    core.sync();
+    assert_eq!(page_names(&core), ["first", "last"]);
+    assert!(!app.markdown().join("markdown/docs/gone.md").exists());
+}
+
 // フォルダーごと消えたときは、子のページもフォルダーのページも、1回の取り込みで消える。
 #[test]
 fn the_pages_of_a_folder_that_has_gone_are_deleted_by_one_sync() {
