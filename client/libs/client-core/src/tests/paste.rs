@@ -616,6 +616,97 @@ fn text_typed_while_the_image_uploads_travels_in_the_paste() {
     );
 }
 
+// アップロードを待つ間に同じ項目に打つと、リンクは、打ち終えたときのカーソルの位置に入る。打った文字の途中には入らない。
+#[test]
+fn the_link_goes_where_the_cursor_is_after_typing_while_the_image_uploads() {
+    let mut h = harness();
+    h.hold("UploadAsset");
+    paste_image(&mut h, "a", 2);
+    h.model.state.add_editing_item("a");
+    let now = h.now_ms;
+    h.send(Event::Typed {
+        item_id: "a".into(),
+        body: "abXY|cd".into(),
+        cursor: 4,
+        now_ms: now,
+    });
+
+    h.release_held();
+
+    assert_eq!(
+        h.model.state.get_item_by_id("a").unwrap().body,
+        format!("abXY{LINK}|cd")
+    );
+}
+
+// アップロードを待つ間に別の項目に打っても、リンクは貼り付けたときの位置に入る。
+#[test]
+fn typing_in_another_item_while_the_image_uploads_leaves_the_place_of_the_link() {
+    let mut h = harness();
+    h.hold("UploadAsset");
+    paste_image(&mut h, "a", 2);
+    h.model.state.add_editing_item("z");
+    let now = h.now_ms;
+    h.send(Event::Typed {
+        item_id: "z".into(),
+        body: "zz".into(),
+        cursor: 1,
+        now_ms: now,
+    });
+
+    h.release_held();
+
+    assert_eq!(
+        h.model.state.get_item_by_id("a").unwrap().body,
+        format!("ab{LINK}|cd")
+    );
+}
+
+// 1つの項目に2つの画像を貼り付けて、後の画像が先に届いても、そのリンクは自分を貼り付けた位置に入る。
+#[test]
+fn of_two_images_pasted_into_one_item_the_later_one_arriving_first_goes_to_its_own_place() {
+    let mut h = harness();
+    h.hold("UploadAsset");
+    paste_image(&mut h, "a", 2);
+    paste_image(&mut h, "a", 5);
+
+    h.send(Event::ImageUploaded {
+        item_id: "a".into(),
+        image: uploaded("pic.png"),
+        cursor: 5,
+    });
+
+    assert_eq!(
+        h.model.state.get_item_by_id("a").unwrap().body,
+        format!("ab|cd{LINK}")
+    );
+}
+
+// アップロードに失敗した画像は忘れられ、後で同じ位置に貼り付けた画像のリンクの位置を変えない。
+#[test]
+fn a_failed_upload_does_not_move_the_link_of_a_later_one() {
+    let mut h = harness();
+    h.api.fail_next("UploadAsset", "too large");
+    paste_image(&mut h, "a", 2);
+    h.model.state.add_editing_item("a");
+    let now = h.now_ms;
+    h.send(Event::Typed {
+        item_id: "a".into(),
+        body: "abXY|cd".into(),
+        cursor: 4,
+        now_ms: now,
+    });
+    h.hold("UploadAsset");
+    paste_image(&mut h, "a", 2);
+
+    h.release_held();
+
+    assert_eq!(
+        h.model.state.get_item_by_id("a").unwrap().body,
+        format!("ab{LINK}XY|cd")
+    );
+}
+
 // アップロードに失敗すると、貼り付けは送られず、画面もUndoも変わらない。
 #[test]
 fn a_failed_upload_pastes_nothing() {

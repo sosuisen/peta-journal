@@ -574,6 +574,10 @@ pub struct Harness {
     /// What `Prompt` answers.
     pub prompt: Option<String>,
     pub now_ms: u64,
+    /// The operation whose requests wait for `release_held` instead of an answer at once,
+    /// as a slow request does.
+    holding: Option<&'static str>,
+    held: Vec<Request<ApiOp>>,
 }
 
 impl Default for Harness {
@@ -598,7 +602,23 @@ impl Harness {
             confirm: true,
             prompt: None,
             now_ms: 1_000_000,
+            holding: None,
+            held: Vec::new(),
         }
+    }
+
+    /// Holds the requests of an operation until `release_held`, as a slow server does.
+    pub fn hold(&mut self, name: &'static str) {
+        self.holding = Some(name);
+    }
+
+    /// Answers the held requests, oldest first, and runs what follows.
+    pub fn release_held(&mut self) {
+        self.holding = None;
+        for request in std::mem::take(&mut self.held) {
+            self.handle(Effect::Api(request));
+        }
+        self.pump();
     }
 
     /// A harness with items on a doc page, like most Angular specs start.
@@ -657,6 +677,9 @@ impl Harness {
     fn handle(&mut self, effect: Effect) {
         match effect {
             Effect::Render(_) => {}
+            Effect::Api(request) if self.holding == Some(op_name(&request.operation)) => {
+                self.held.push(request);
+            }
             Effect::Api(mut request) => {
                 let op = request.operation.clone();
                 let state = &self.model.state;
