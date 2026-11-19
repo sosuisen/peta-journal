@@ -319,7 +319,7 @@ never touched.
 app without a package, on MSTest. `TestAppStart` starts `TestApp` on a thread of its own before
 the tests, and MSTest runs each `[UITestMethod]` on that thread. The thread is STA, as the
 thread of the app is. The clipboard of Windows fails on an MTA thread, and MSTest makes one
-when it starts the app itself (`[WinUITestTarget]`). The keys and the clicks go through Windows (`SendInput`), not into the controls.
+when it starts the app itself (`[WinUITestTarget]`, ADR 067). The keys and the clicks go through Windows (`SendInput`), not into the controls.
 WinUI makes no key events for a test, and a key that went around Windows would miss what the
 app does with it.
 
