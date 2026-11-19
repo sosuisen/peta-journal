@@ -145,7 +145,11 @@ struct ItemEditor: UIViewRepresentable {
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
-            if window != nil, wanted, !isFirstResponder { becomeFirstResponder() }
+            guard window != nil, wanted, !isFirstResponder else { return }
+            // Not from another field, as the search: the user gave the keyboard to it. The
+            // keeper only holds the keyboard for this field
+            let holder = UIResponder.withKeyboard
+            if holder == nil || holder is KeyboardKeeper { becomeFirstResponder() }
         }
 
         override func willMove(toWindow next: UIWindow?) {
