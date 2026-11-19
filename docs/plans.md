@@ -2,12 +2,6 @@
 
 # plans
 
-## stickies-winの項目のメニュー（#802）と貼り戻しのテスト（#803）
-
-- [ ] 「Paste as Transclusion」で、クリップボードのIDの項目がトランスクルージョンになる（`Shell.PasteAsTransclusion`）
-- [ ] 編集していない項目の右クリックのメニューに「Paste as Transclusion」がある
-- [ ] 親と子を選んでコピーし、別の項目の終わりに貼ると、親と子の形のまま戻る（画面のテスト）
-
 ## PetaJournalのURLとリンクの生成
 
 決定は、ADR 051（hrefのテンプレートと名前の符号化）とADR 061（`page-urls`）にある。2つは、flatmarkdownの「テンプレートに名前を入れる関数」でつながっている（2026-11-17に開発者が言った）。ここには、ADRにない順序だけを書く。
@@ -334,8 +328,6 @@ flatmarkdown `0.9.0`と`flatmarkdown-ast2react` `0.5.0`は公開した。peta-jo
   - キーボードの上端に出るクリップボードの内容を押して貼ると、コピーの道具が載せたMarkdown（`- xxx`）が、先頭の`- `ごと文字として入る。項目として戻るなら、`- `は要らない
   - iOSの実機（iPhone SE）では、同じ手順で問題がなかった
 - [ ] stickies-macで、項目のメニューに「Paste as Transclusion」を足す
-- [ ] stickies-winで、項目のメニューに「Paste as Transclusion」を足す
-- [ ] stickies-winに、コピーした項目が同じ項目として貼り戻るシナリオのテストを足す。親と子を選んでコピーし、別の項目の終わりに貼ると、親と子の形のまま戻ることを確かめる。Android（`EditTest`）、iOS、macには、2026-11-18に足した
 - [ ] stickies-macで、キーボードのCmd+Vがメニューを通って入力欄の貼り付けに届くことを、アプリを起動するUIテストで確かめる。`swift test`ではアプリのメニューがなく、ウィンドウもキーにならないので確かめられない（PR #678）
 
 ### サーバーとクライアント（Rust）
