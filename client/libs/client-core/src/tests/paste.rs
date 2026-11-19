@@ -662,6 +662,26 @@ fn typing_in_another_item_while_the_image_uploads_leaves_the_place_of_the_link()
     );
 }
 
+// 1つの項目に2つの画像を貼り付けて、後の画像が先に届いても、そのリンクは自分を貼り付けた位置に入る。
+#[test]
+fn of_two_images_pasted_into_one_item_the_later_one_arriving_first_goes_to_its_own_place() {
+    let mut h = harness();
+    h.hold("UploadAsset");
+    paste_image(&mut h, "a", 2);
+    paste_image(&mut h, "a", 5);
+
+    h.send(Event::ImageUploaded {
+        item_id: "a".into(),
+        image: uploaded("pic.png"),
+        cursor: 5,
+    });
+
+    assert_eq!(
+        h.model.state.get_item_by_id("a").unwrap().body,
+        format!("ab|cd{LINK}")
+    );
+}
+
 // アップロードに失敗した画像は忘れられ、後で同じ位置に貼り付けた画像のリンクの位置を変えない。
 #[test]
 fn a_failed_upload_does_not_move_the_link_of_a_later_one() {
