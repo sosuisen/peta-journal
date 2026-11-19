@@ -68,7 +68,7 @@ final class Border: @unchecked Sendable {
     /// The app goes to the back: the edit ends, and the text typed and still waiting for its
     /// save is saved before this returns (#766).
     func leave() {
-        open.close()
+        open.leave()
     }
 
     /// Lets go of the journal: its database and its index close.

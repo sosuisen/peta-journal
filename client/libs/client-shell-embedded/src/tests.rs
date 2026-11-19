@@ -210,7 +210,7 @@ fn closing_saves_the_body_still_waiting_to_be_saved() {
     BincodeFfiFormat::serialize(&mut bytes, &typing).unwrap();
     core.typed(&bytes).unwrap();
 
-    core.close();
+    core.leave();
 
     let items = core.core.items.find_by_page_id(&page.id).unwrap();
     assert_eq!(items[0].body, "a pear");
