@@ -1052,6 +1052,7 @@ impl ItemService {
         let mut written = Vec::new();
         let mut deleted = Vec::new();
         let mut transcluder_pages = BTreeSet::new();
+        let mut transclusions = Vec::new();
         for op in ops {
             match op {
                 BatchOp::Create {
@@ -1073,7 +1074,7 @@ impl ItemService {
                         &mut effects,
                     )?;
                     if let Some(source) = transclude {
-                        self.set_transclusion_in(&tx, &created, source)?;
+                        transclusions.push((created.id.clone(), source.clone()));
                     }
                     put_properties_in(&tx, id, properties)?;
                     written.push(id.clone());
@@ -1116,6 +1117,7 @@ impl ItemService {
                 BatchOp::Delete { id } => deleted.push(id.clone()),
             }
         }
+        self.transclude_made_again_in(&tx, &transclusions)?;
         // A parent deleted on its own is refused, so the deletes go together
         if !deleted.is_empty() {
             self.remove_group_in(&tx, &deleted, &mut effects)?;
@@ -1137,6 +1139,24 @@ impl ItemService {
             created,
             page_ids,
         })
+    }
+
+    /// Makes the items of a batch show their sources again, once every item of the batch is
+    /// made: an undo makes a source and the items that show it together, in any order. An
+    /// item whose source is gone keeps the text it had, so that the undo is not refused.
+    fn transclude_made_again_in(
+        &self,
+        tx: &Connection,
+        transclusions: &[(Hmtid, Hmtid)],
+    ) -> Result<(), AppError> {
+        for (id, source) in transclusions {
+            if ItemRepository::find_by_id_in(tx, source)?.is_none() {
+                continue;
+            }
+            let item = find_all_in(tx, std::slice::from_ref(id))?.remove(0);
+            self.set_transclusion_in(tx, &item, source)?;
+        }
+        Ok(())
     }
 
     /// Sets a transclusion on an item, making it mirror a source item.
