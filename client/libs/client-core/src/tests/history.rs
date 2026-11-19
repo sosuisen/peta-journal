@@ -211,11 +211,16 @@ fn going_back_skips_a_page_that_is_gone_and_makes_none() {
     open(&mut h, "/pages/gone");
     open(&mut h, "/pages/c");
     let made_before = made(&h, "gone");
-    h.api.answer_next("FindPage", Ok(ApiOutput::FoundPage(None)));
+    h.api
+        .answer_next("FindPage", Ok(ApiOutput::FoundPage(None)));
 
     back(&mut h);
 
     assert_eq!(shown(&h), "a");
-    assert_eq!(made(&h, "gone"), made_before, "the gone page is not made again");
+    assert_eq!(
+        made(&h, "gone"),
+        made_before,
+        "the gone page is not made again"
+    );
     assert!(!h.view().history.can_go_back);
 }

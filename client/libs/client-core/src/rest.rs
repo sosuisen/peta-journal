@@ -185,6 +185,10 @@ struct CreatedEnvelope {
     created: Vec<Item>,
 }
 #[derive(Deserialize)]
+struct FoundPageEnvelope {
+    page: Option<Page>,
+}
+#[derive(Deserialize)]
 struct PageEnvelope {
     page: Page,
 }
@@ -229,6 +233,10 @@ fn items(reply: &HttpReply) -> ApiResult<ApiOutput> {
 
 fn page(reply: &HttpReply) -> ApiResult<ApiOutput> {
     parsed(reply).map(ApiOutput::Page)
+}
+
+fn found_page(reply: &HttpReply) -> ApiResult<ApiOutput> {
+    parsed::<FoundPageEnvelope>(reply).map(|e| ApiOutput::FoundPage(e.page))
 }
 
 fn page_info(reply: &HttpReply) -> ApiResult<ApiOutput> {
@@ -321,6 +329,17 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             }),
             page,
         ),
+        ApiOp::FindPage {
+            journal,
+            title,
+            dir_path,
+        } => {
+            let query = match &journal {
+                Some(journal) => vec![("journal", journal.as_str())],
+                None => vec![("title", title.as_str()), ("dirPath", dir_path.as_str())],
+            };
+            call(routes::FIND_PAGE, &[], None, found_page).asking(&query)
+        }
         ApiOp::GetOrCreateDoc { title, dir_path } => call(
             routes::GET_OR_CREATE_DOC,
             &[],

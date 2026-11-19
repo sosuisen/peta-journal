@@ -563,6 +563,15 @@ pub enum Event {
     PageRedirected {
         path: String,
     },
+    /// The server answered whether the page of a URL in the history is there, when going
+    /// back or forward to it.
+    HistoryPageFound {
+        url: String,
+        found: bool,
+        /// True when going forward, false when going back
+        forward: bool,
+        today: String,
+    },
     /// The server answered the doc page of the path the screen opened; `created` when it
     /// made the page.
     PageLoaded {
@@ -1169,6 +1178,12 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         Open { url, today } => screens::history::open(model, &url, today),
         Back { today } => screens::history::back(model, today),
         Forward { today } => screens::history::forward(model, today),
+        HistoryPageFound {
+            url,
+            found,
+            forward,
+            today,
+        } => screens::history::found(model, &url, found, forward, today),
 
         EditRequested { item_id, place } => {
             ops::outline_events::edit_requested(model, &item_id, place)

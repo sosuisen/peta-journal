@@ -1,7 +1,7 @@
 //! The history of the pages that were opened, for a shell without a history of its own
 //! (ADR 035).
 
-use crate::app::{done, Cmd, Model, Route};
+use crate::app::{done, log_error, run, Cmd, Event, Model, Route};
 use crate::screens::{navigate, route};
 use crate::view::HistoryView;
 
@@ -52,6 +52,15 @@ impl History {
         Some(&self.urls[self.at])
     }
 
+    /// Drops the URL on screen in the history, whose page is gone. The URL left on screen is
+    /// the one it was reached from, so that going on in the same way skips the URL dropped.
+    fn drop_gone(&mut self, forward: bool) {
+        self.urls.remove(self.at);
+        if forward {
+            self.at -= 1;
+        }
+    }
+
     fn can_go_back(&self) -> bool {
         self.at > 0
     }
@@ -90,18 +99,62 @@ pub fn replace_page(model: &mut Model, path: &str) -> Cmd {
 /// Opens the URL before the one on screen.
 pub fn back(model: &mut Model, today: String) -> Cmd {
     let url = model.history.back().map(str::to_string);
-    show(model, url, today)
+    look(model, url, false, today)
 }
 
 /// Opens the URL that was left by going back.
 pub fn forward(model: &mut Model, today: String) -> Cmd {
     let url = model.history.forward().map(str::to_string);
-    show(model, url, today)
+    look(model, url, true, today)
 }
 
-fn show(model: &mut Model, url: Option<String>, today: String) -> Cmd {
-    match url.as_deref().and_then(Route::parse_url) {
+/// Looks the page of the URL up before it opens, as opening it makes a page that is not
+/// there: a page that sync deleted is not made again by going back to it (#763).
+fn look(model: &mut Model, url: Option<String>, forward: bool, today: String) -> Cmd {
+    let Some(url) = url else {
+        return done();
+    };
+    match Route::parse_url(&url) {
+        Some(Route::Page { name, .. }) if name != "today" => run(move |api| async move {
+            let found = match api.find_page(&name).await {
+                Ok(page) => page.is_some(),
+                // The page opens as it did before, when the server cannot tell
+                Err(e) => {
+                    log_error(format!("Failed to find page {name}: {e}"));
+                    true
+                }
+            };
+            api.send_event(Event::HistoryPageFound {
+                url,
+                found,
+                forward,
+                today,
+            });
+        }),
         Some(to) => route::route(model, to, today),
         None => done(),
     }
+}
+
+/// The server told whether the page of the URL is there. A page that is there opens; a page
+/// that is gone leaves the history, and the URL beyond it is looked up. An answer for a URL
+/// the history has left is not shown.
+pub fn found(model: &mut Model, url: &str, found: bool, forward: bool, today: String) -> Cmd {
+    if model.history.view().url.as_deref() != Some(url) {
+        return done();
+    }
+    if found {
+        return match Route::parse_url(url) {
+            Some(to) => route::route(model, to, today),
+            None => done(),
+        };
+    }
+    model.history.drop_gone(forward);
+    let next = if forward {
+        model.history.forward()
+    } else {
+        model.history.back()
+    };
+    let next = next.map(str::to_string);
+    look(model, next, forward, today)
 }

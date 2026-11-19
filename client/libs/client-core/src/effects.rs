@@ -6,7 +6,9 @@ use crate::model::{
     PageWithItems, PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split,
     Stashed, TreeExport, Uploaded,
 };
+use crate::screens::page::split_doc_path;
 use crate::util::date::LocalDateTime;
+use crate::util::filename::is_journal_file_name;
 use crux_core::capability::Operation;
 use crux_core::command::CommandContext;
 use crux_core::render::RenderOperation;
@@ -38,6 +40,13 @@ pub enum ApiOp {
         body: Option<String>,
     },
     GetOrCreateDoc {
+        title: String,
+        dir_path: String,
+    },
+    /// Looks for a journal by its name, or else a doc page by its title and folder, and
+    /// makes none
+    FindPage {
+        journal: Option<String>,
         title: String,
         dir_path: String,
     },
@@ -279,6 +288,8 @@ pub enum AtlasChange {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ApiOutput {
     Page(PageWithItems),
+    /// The page looked for, or none when it is not there
+    FoundPage(Option<Page>),
     JournalBefore(JournalBefore),
     Item(Item),
     Items(Vec<Item>),
@@ -585,6 +596,25 @@ impl<Event: Send + 'static> Api<Event> {
             .await,
             Page
         )
+    }
+
+    /// The page of the name, a journal or a doc page, without making it.
+    pub async fn find_page(&self, name: &str) -> ApiResult<Option<Page>> {
+        let op = if is_journal_file_name(name) {
+            ApiOp::FindPage {
+                journal: Some(name.into()),
+                title: String::new(),
+                dir_path: String::new(),
+            }
+        } else {
+            let (dir_path, title) = split_doc_path(name);
+            ApiOp::FindPage {
+                journal: None,
+                title,
+                dir_path,
+            }
+        };
+        expect_output!(self.call(op).await, FoundPage)
     }
 
     pub async fn get_or_create_doc(&self, title: &str, dir_path: &str) -> ApiResult<PageWithItems> {
