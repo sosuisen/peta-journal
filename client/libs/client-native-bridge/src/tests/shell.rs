@@ -38,6 +38,10 @@ struct FakeHost {
 
 impl Host for FakeHost {
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
+        // Text the server is slow to save: it is in the calls only once it has been saved
+        if format!("{op:?}").contains("slowly") {
+            thread::sleep(Duration::from_millis(100));
+        }
         self.calls.lock().unwrap().push(op.clone());
         if let ApiOp::GetOrCreateDoc { title, .. } = &op {
             // A page the server is slow with: a request made after it could overtake it
@@ -689,8 +693,8 @@ fn closing_the_shell_saves_the_body_waiting_to_be_saved() {
     });
     let typing = Typing::Typed {
         item_id: "a".into(),
-        body: "typed into a".into(),
-        cursor: 12,
+        body: "typed slowly into a".into(),
+        cursor: 19,
     };
     let mut bytes = Vec::new();
     BincodeFfiFormat::serialize(&mut bytes, &typing).unwrap();
@@ -701,7 +705,7 @@ fn closing_the_shell_saves_the_body_waiting_to_be_saved() {
     let calls = screen.calls.lock().unwrap();
     assert!(calls
         .iter()
-        .any(|op| format!("{op:?}").contains("typed into a")));
+        .any(|op| format!("{op:?}").contains("typed slowly into a")));
 }
 
 // 読めない入力は、誤りとしてシェルに返る。

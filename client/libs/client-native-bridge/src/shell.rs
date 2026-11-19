@@ -22,6 +22,7 @@ use crux_core::render::RenderOperation;
 use crux_core::{Core, Request};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread;
+use std::time::{Duration, Instant};
 
 /// Why bytes could not cross the border.
 pub type BorderError = BridgeError<BincodeFfiFormat>;
@@ -47,6 +48,9 @@ pub enum ShellEffect {
 }
 
 type Router = EffectRouter<BorderApp, Lanes>;
+
+/// How long closing waits for the server to save what the shell typed, as Emacs does.
+pub const CLOSE_LIMIT: Duration = Duration::from_secs(5);
 
 /// The way to the shell: bytes with a list of requests.
 type ToShell = Arc<dyn Fn(Vec<u8>) + Send + Sync>;
@@ -341,6 +345,19 @@ impl NativeShell {
         routes.border.resolve(EffectId(id), output)?;
         routes.answered(&self.to_shell, id);
         Ok(())
+    }
+
+    /// The shell closes: the edit ends, so that the text typed and still waiting for its save
+    /// is saved now (#766). Returns once the server has answered every request, or after
+    /// [`CLOSE_LIMIT`]. A timer would never fire after the shell is gone.
+    pub fn close(&self) {
+        if let Some(item_id) = self.router.view().outline.focused_item_id {
+            self.router.update(Event::EditFinished { item_id });
+        }
+        let deadline = Instant::now() + CLOSE_LIMIT;
+        while !self.router.routes.to_server.lock().unwrap().is_idle() && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(5));
+        }
     }
 
     /// The URL on screen, as the history of the core has it (ADR 035). None while nothing was
