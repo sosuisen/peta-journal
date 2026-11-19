@@ -50,6 +50,8 @@ struct ItemText: NSViewRepresentable {
         view.onChord = { [editor = context.coordinator] chord, view in editor.pressed(chord, in: view) }
         view.onPress = { [editor = context.coordinator] view in editor.dragStarts(on: view) }
         view.onPaste = { [editor = context.coordinator] raw, view in editor.paste(raw: raw, in: view) }
+        view.onTypedElsewhere = { [editor = context.coordinator] text in editor.typedElsewhere(text) }
+        view.onKeyElsewhere = { [editor = context.coordinator] key in editor.pressedElsewhere(key) }
         return view
     }
 
@@ -180,6 +182,34 @@ final class Editor: NSObject, NSTextViewDelegate {
         shell.paste(into: itemId, body: view.string, cursor: view.selectedRange().location, raw: raw)
     }
 
+    /// Text typed while the core moves the edit to another item. The core holds each letter,
+    /// and gives them to the editor that takes the cursor next.
+    func typedElsewhere(_ text: String) -> Bool {
+        guard shell.holdsKeys else { return false }
+        for letter in text { shell.hold(HeldKeys.letter(letter)) }
+        return true
+    }
+
+    /// A key that is not a letter, pressed while the core moves the edit to another item. The
+    /// core holds it with the letters, in the order they were pressed.
+    func pressedElsewhere(_ key: DeferredKey) -> Bool {
+        guard shell.holdsKeys else { return false }
+        shell.hold(key)
+        return true
+    }
+
+    /// Types the keys that the core held into the view, which took the cursor. Not while the
+    /// screen is drawn: a letter changes what the screen draws.
+    private func replayHeldKeys(into view: ItemTextView) {
+        let keys = shell.takeKeysToReplay()
+        guard !keys.isEmpty else { return }
+        // A played Enter splits the item again: the keys after it are held again, and come to
+        // the editor of the item after it
+        DispatchQueue.main.async {
+            for key in keys { HeldKeys.play(key, into: view) }
+        }
+    }
+
     /// The mouse went down on the text view: a drag from it may select items.
     func dragStarts(on view: ItemTextView) -> ListDrag {
         ListDrag(shell: shell, itemId: itemId, text: view)
@@ -245,6 +275,7 @@ final class Editor: NSObject, NSTextViewDelegate {
             let place = Int(utf16OfChars(text: view.string, chars: cursor))
             view.setSelectedRange(NSRange(location: place, length: 0))
         }
+        replayHeldKeys(into: view)
     }
 }
 
@@ -433,12 +464,29 @@ final class ItemTextView: NSTextView {
         return resigned
     }
 
+    /// Text that is typed, and is not for this item: the core is moving the edit to another
+    /// item, as after Enter. True when it was taken. Text still being composed is not asked
+    /// about: it belongs to the input method until it is done.
+    var onTypedElsewhere: ((String) -> Bool)?
+    /// A key that is not a letter, pressed while the core moves the edit to another item. True
+    /// when it was taken.
+    var onKeyElsewhere: ((DeferredKey) -> Bool)?
+
+    override func insertText(_ string: Any, replacementRange: NSRange) {
+        let text = (string as? NSAttributedString)?.string ?? (string as? String) ?? ""
+        if !hasMarkedText(), onTypedElsewhere?(text) == true { return }
+        super.insertText(string, replacementRange: replacementRange)
+    }
+
     /// The keys of the keyboard go to the core first, which knows what they mean on a Mac
     /// (ADR 052). A key that it does not take goes on to AppKit, whose commands, such as
     /// `moveUp:` for Control+P, come back through `doCommandBy`.
     override func keyDown(with event: NSEvent) {
         // While text is composed every key belongs to the input method
-        if !hasMarkedText(), take(event) { return }
+        if !hasMarkedText() {
+            if let key = HeldKeys.of(event), onKeyElsewhere?(key) == true { return }
+            if take(event) { return }
+        }
         super.keyDown(with: event)
     }
 

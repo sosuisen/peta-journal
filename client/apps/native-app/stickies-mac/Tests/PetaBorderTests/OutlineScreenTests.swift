@@ -234,6 +234,36 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertEqual(bodies(), ["first", "second"])
     }
 
+    // Enterのすぐあと、項目が分かれる前に打った文字は、新しい項目に入る。
+    func testWhatIsTypedRightAfterEnterGoesIntoTheNewItem() async throws {
+        let editor = editors()[0]
+        type("first", into: editor)
+
+        editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        // The split has not been answered yet: the old editor still has the cursor
+        XCTAssertTrue(focused === editor)
+        editor.insertText("x", replacementRange: editor.selectedRange())
+
+        try await waitUntil("the letter is in the new item") { self.bodies() == ["first", "x"] }
+        try await waitUntil("the cursor is in the new item") { self.focused === self.editors()[1] }
+        XCTAssertEqual(editors().map(\.string), ["first", "x"])
+        XCTAssertEqual(focused?.selectedRange(), NSRange(location: 1, length: 0))
+    }
+
+    // 項目が分かれる前に打ったEnterも、新しい項目で押したことになる。その後の文字は、さらに次の項目に入る。
+    func testAnEnterTypedBeforeTheSplitSplitsTheNewItem() async throws {
+        let editor = editors()[0]
+        type("first", into: editor)
+
+        editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        editor.insertText("x", replacementRange: editor.selectedRange())
+        press(36, "\r", [], in: editor)
+        editor.insertText("y", replacementRange: editor.selectedRange())
+
+        try await waitUntil("the letters are in two new items") { self.bodies() == ["first", "x", "y"] }
+        try await waitUntil("the cursor is in the last item") { self.focused === self.editors().last }
+    }
+
     // 上矢印は、前の項目へ、同じ位置のまま移る。
     func testUpGoesToTheItemBeforeAtTheSamePlace() async throws {
         let editor = editors()[0]
