@@ -25,6 +25,16 @@ fn typing_shows_the_text_at_once_and_schedules_the_auto_save() {
     assert!(h.model.edits.pending_saves.is_empty());
 }
 
+// 自動保存は、本文の前後の空行を削らない。打ちかけの行が、打っている間に消えないためである。
+#[test]
+fn the_auto_save_keeps_the_blank_lines_around_the_body() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.state.add_editing_item("a");
+    typed(&mut h, "a", "text\n");
+    h.fire_timers();
+    assert_eq!(update_calls(&h.api), [("a".into(), Some("text\n".into()))]);
+}
+
 // 本文が閉じていないブロックで終わる間は、自動保存は送られない。項目は保存待ちのまま残り、編集を離れるときに保存される（ADR 050）。
 #[test]
 fn the_auto_save_is_not_sent_while_a_block_is_unclosed() {
@@ -65,6 +75,21 @@ fn finish_edit_saves_typed_text_once_cancelling_the_auto_save_and_closes_the_edi
     assert!(!h.model.state.is_editing("a"));
     h.fire_timers();
     assert_eq!(update_calls(&h.api).len(), 1, "the text is not sent twice");
+}
+
+// 編集を終えると、本文の前後の空白だけの行は削られて保存される。Markdownでは、ブロックの前後の空行に意味がなく、ファイルから読み戻すと消えるためである。
+#[test]
+fn finish_edit_saves_the_body_without_its_blank_lines_before_and_after() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.state.add_editing_item("a");
+    typed(&mut h, "a", " \n\n  text\nmore  \n\t\n");
+    h.send(Event::EditFinished {
+        item_id: "a".into(),
+    });
+    assert_eq!(
+        update_calls(&h.api),
+        [("a".into(), Some("  text\nmore  ".into()))]
+    );
 }
 
 // Shift+↑↓で項目の選択を始めると、打った文字が保存される。選んだ項目を動かしても、文字は消えない（ADR 052）。
@@ -453,6 +478,22 @@ fn leaving_an_item_without_typed_text_ends_its_edit() {
     });
     assert!(!h.model.state.is_editing("a"));
     assert!(update_calls(&h.api).is_empty());
+}
+
+// 打った文字のある項目から別の項目へ移ると、本文の前後の空白だけの行は削られて保存される。空白だけの本文は空になる。
+#[test]
+fn leaving_an_item_saves_its_body_without_the_blank_lines_before_and_after() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "b")]);
+    h.send(Event::EditRequested {
+        item_id: "a".into(),
+        place: EditPlace::Unplaced,
+    });
+    typed(&mut h, "a", "  \n ");
+    h.send(Event::EditRequested {
+        item_id: "b".into(),
+        place: EditPlace::Unplaced,
+    });
+    assert_eq!(update_calls(&h.api), [("a".into(), Some(String::new()))]);
 }
 
 // 閉じていないブロックのある項目から、文字を打たずに別の項目へ移ると、ブロックが閉じて保存される。

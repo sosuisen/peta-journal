@@ -178,6 +178,24 @@ mod tests {
         );
     }
 
+    // ファイルの項目の本文は、前後の空白だけの行を持たない。空白だけの本文は空になる。Markdownでは、ブロックの前後の空行に意味がないためである。1行目の行頭と最後の行の行末の空白は残る。行頭の4つの空白はコードブロックを表す。
+    #[test]
+    fn a_body_read_from_a_file_has_no_blank_lines_before_and_after() {
+        for (written, read) in [
+            (" ", ""),
+            ("\t", ""),
+            ("\n\ntext\n\n", "text"),
+            (" \n  text\nmore  \n ", "  text\nmore  "),
+            ("    code", "    code"),
+        ] {
+            let md = format!(
+                "<!-- @ 2026-09-29-00-00-01-AAAAAAA -->\n{written}\n\n<!-- @ 2026-09-29-00-00-02-AAAAAAA -->\nnext\n"
+            );
+            let r = OutlineMarkdownParser::default().parse(&md).unwrap();
+            assert_eq!(r.items[0].body, read, "{written:?}");
+        }
+    }
+
     // フロントマターと項目が解析される。
     #[test]
     fn parses_frontmatter_and_items() {

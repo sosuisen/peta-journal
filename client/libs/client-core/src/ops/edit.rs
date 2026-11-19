@@ -200,14 +200,28 @@ pub fn show_saved_body(model: &mut Model, sent: &str, saved: &Item) -> Cmd {
     done()
 }
 
-/// The body the state holds for the shown item. This is what was typed into it. The copy
-/// of `item` may be the visible one, and a transclusion root shows the body of its source
-/// there.
-fn typed_text(model: &Model, item: &Item) -> String {
+/// What was typed into the shown item, as the edit leaves it. The state holds the typed body:
+/// the copy of `item` may be the visible one, and a transclusion root shows the body of its
+/// source there.
+fn left_text(model: &Model, item: &Item) -> String {
     match model.state.get_item_by_id(&item.id) {
-        Some(held) => held.body.clone(),
-        None => item.body.clone(),
+        Some(held) => without_blank_edges(&held.body),
+        None => without_blank_edges(&item.body),
     }
+}
+
+/// The body without the lines of only blanks before and after it. Markdown gives them no
+/// meaning, and a file read back has none. Only when the edit ends: while typing, a line just
+/// begun at the end would go.
+fn without_blank_edges(body: &str) -> String {
+    let lines: Vec<&str> = body.lines().collect();
+    let blank = |line: &&str| line.trim().is_empty();
+    let start = lines.iter().position(|l| !blank(l)).unwrap_or(lines.len());
+    let end = lines
+        .iter()
+        .rposition(|l| !blank(l))
+        .map_or(start, |i| i + 1);
+    lines[start..end].join("\n")
 }
 
 /// Saves a body of the shown item. When the item is a transclusion root, the AST and types
@@ -249,7 +263,7 @@ pub fn take_dirty(model: &mut Model, item: &Item) -> Option<(DirtyEdit, Cmd)> {
     let discard = discard_pending_edit(model, item);
     let edit = DirtyEdit {
         item: item.clone(),
-        body: typed_text(model, item),
+        body: left_text(model, item),
     };
     Some((edit, discard))
 }
@@ -329,7 +343,7 @@ fn end_clean_edit(model: &mut Model, item: Item) -> Cmd {
 
 /// Saves the shown item and closes its editor, whether or not the save went through.
 fn save_and_close(model: &Model, item: Item) -> Cmd {
-    let body = typed_text(model, &item);
+    let body = left_text(model, &item);
     run(move |api| async move {
         if let Err(e) = save_shown_body(&api, &item, &body).await {
             log_error(format!("Failed to save item: {e}"));
