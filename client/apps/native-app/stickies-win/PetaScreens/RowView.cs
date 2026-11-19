@@ -179,12 +179,12 @@ internal sealed class RowView : Grid
             Edit(int.MaxValue);
         };
 
-        // A right click on an item that is not edited shows the menu of the sticky. The item
-        // that is edited has the menu of its text box: cut, copy and paste
+        // A right click on an item that is not edited shows the menu of the item and the
+        // sticky. The item that is edited has the menu of its text box: cut, copy and paste
         paper.RightTapped += (_, e) =>
         {
             e.Handled = true;
-            window.ShowMenu(e.GetPosition(null));
+            window.ShowMenu(e.GetPosition(null), model?.Id);
         };
 
         SetColumnSpan(header, 2);
