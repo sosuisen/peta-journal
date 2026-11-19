@@ -815,4 +815,19 @@ mod tests {
             millis("2026-03-13T00:00:00-05:00")
         );
     }
+
+    // 月は、与えたタイムゾーンのその月の1日の0時から、翌月の1日の0時の手前までを指す。
+    #[test]
+    fn a_month_spans_its_days_in_the_time_zone_given() {
+        let new_york = chrono::FixedOffset::west_opt(5 * 3600).unwrap();
+
+        assert_eq!(
+            parse_date_to_millis("2026-03", false, &new_york).unwrap(),
+            millis("2026-03-01T00:00:00-05:00")
+        );
+        assert_eq!(
+            parse_date_to_millis("2026-03", true, &new_york).unwrap(),
+            millis("2026-04-01T00:00:00-05:00")
+        );
+    }
 }
