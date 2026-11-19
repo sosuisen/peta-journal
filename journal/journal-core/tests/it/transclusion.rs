@@ -96,6 +96,31 @@ fn setting_a_transclusion_counts_as_a_change_of_the_item() {
     );
 }
 
+// トランスクルージョンを外すことも項目の変更として数えられ、日付での同期がそれを拾う。
+#[test]
+fn removing_a_transclusion_counts_as_a_change_of_the_item() {
+    let notes = Core::new();
+    let source_page = notes.new_doc_page("items-transclusion-unset-source");
+    let source = notes.fill(&source_page, &["root"]);
+    let page = notes.new_doc_page("items-transclusion-unset");
+    let host = id(&notes.fill(&page, &["placeholder"])[0]);
+    notes.transclude(&host, &id(&source[0]));
+    let modified_before = field_of_each(&notes.page(&page), "items", "modifiedDate").remove(0);
+    notes.clock.advance(5);
+
+    notes
+        .core
+        .journal
+        .remove_transclusion(&host, &by_the_client())
+        .unwrap();
+
+    let modified_after = field_of_each(&notes.page(&page), "items", "modifiedDate").remove(0);
+    assert!(
+        modified_after.as_i64() > modified_before.as_i64(),
+        "{modified_before} -> {modified_after}"
+    );
+}
+
 // 参照元の項目を編集すると、トランスクルードしている側の保存済みの写しも更新される。
 #[test]
 fn editing_a_source_item_updates_the_stored_copy_in_its_transcluders() {

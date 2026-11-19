@@ -369,16 +369,6 @@ impl ItemRepository {
         Ok(())
     }
 
-    /// Deletes every item of a page on the given connection, as part of a larger transaction.
-    pub fn delete_by_page_id_in(tx: &Connection, page_id: &Hmtid) -> Result<(), AppError> {
-        tx.execute(
-            "DELETE FROM item_types WHERE item_id IN (SELECT id FROM items WHERE page_id = ?)",
-            [page_id.as_str()],
-        )?;
-        tx.execute("DELETE FROM items WHERE page_id = ?", [page_id.as_str()])?;
-        Ok(())
-    }
-
     /// Gives an item a new index on the given connection, as part of a larger transaction.
     /// Remembers that the user deleted the item here, for the files that still hold it.
     pub fn record_deleted_in(conn: &Connection, id: &Hmtid, date: i64) -> Result<(), AppError> {

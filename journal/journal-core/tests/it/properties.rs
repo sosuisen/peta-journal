@@ -50,6 +50,25 @@ impl Core {
     }
 
     /// The ids of the doc pages with this name in any case of its letters.
+    /// Makes an empty doc page of the name in the folder, beside a page whose name differs
+    /// only in case. The core finds a page ignoring case now, so the page is made under
+    /// another name and renamed in the database, as such pages were made before.
+    fn page_made_before_case_was_ignored(&self, dir_path: &str, name: &str) {
+        let made = self.open_doc_in(&format!("{name}-made"), dir_path)["page"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        self.core
+            .db
+            .conn()
+            .unwrap()
+            .execute(
+                "UPDATE pages SET name = ? WHERE id = ?",
+                rusqlite::params![name, made],
+            )
+            .unwrap();
+    }
+
     fn doc_pages_named_ignoring_case(&self, name: &str) -> Vec<String> {
         let recent = answer(
             self.core
@@ -417,6 +436,57 @@ fn tags_that_differ_only_in_case_share_one_tag_page() {
     assert!(notes
         .doc_pages_named_ignoring_case("case-tag-pages")
         .is_empty());
+}
+
+// 起動のたびに、タグページのないタグにタグページが作られ、作った数が返る。タグページができる前に付けたタグのためである。
+#[test]
+fn the_start_up_makes_the_missing_tag_pages_and_counts_them() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("missing-tag-pages");
+    notes.set_tags(&page, "missing-tag-a, missing-tag-b");
+    for tag in ["missing-tag-a", "missing-tag-b"] {
+        let tag_page = notes.doc_page_named(tag).unwrap();
+        notes
+            .core
+            .page_service
+            .delete_page(&tag_page.parse().unwrap())
+            .unwrap();
+    }
+
+    assert_eq!(notes.core.page_service.ensure_all_tag_pages().unwrap(), 2);
+    assert!(notes.doc_page_named("missing-tag-a").is_some());
+    assert!(notes.doc_page_named("missing-tag-b").is_some());
+    assert_eq!(notes.core.page_service.ensure_all_tag_pages().unwrap(), 0);
+}
+
+// 起動のたびに、ほかのタグページと大文字と小文字だけが違う空のタグページが消され、消した数が返る。
+#[test]
+fn the_start_up_deletes_the_empty_tag_pages_that_repeat_another_in_case_and_counts_them() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("repeated-tag-pages");
+    notes.set_tags(&page, "Repeated-Tag");
+    for name in ["REPEATED-TAG", "repeated-tag"] {
+        notes.page_made_before_case_was_ignored("tags/", name);
+    }
+    assert_eq!(notes.doc_pages_named_ignoring_case("repeated-tag").len(), 3);
+
+    assert_eq!(
+        notes
+            .core
+            .page_service
+            .delete_case_duplicate_tag_pages()
+            .unwrap(),
+        2
+    );
+    assert_eq!(notes.doc_pages_named_ignoring_case("repeated-tag").len(), 1);
+    assert_eq!(
+        notes
+            .core
+            .page_service
+            .delete_case_duplicate_tag_pages()
+            .unwrap(),
+        0
+    );
 }
 
 // 使われなくなっても、内容のあるタグページは残る。

@@ -124,21 +124,6 @@ impl PropertyRepository {
         Ok(result)
     }
 
-    /// All property definitions, ordered by key: key -> value type.
-    pub fn find_all_definitions(&self) -> Result<BTreeMap<String, String>, AppError> {
-        Self::find_all_definitions_in(&*self.db.conn()?)
-    }
-
-    /// All property definitions, on the given connection: key -> value type.
-    pub fn find_all_definitions_in(
-        conn: &Connection,
-    ) -> Result<BTreeMap<String, String>, AppError> {
-        Ok(Self::find_definitions_in(conn)?
-            .into_iter()
-            .map(|d| (d.key, d.value_type))
-            .collect())
-    }
-
     /// All property definitions with their flags, ordered by key.
     pub fn find_definitions(&self) -> Result<Vec<PropertyDefinition>, AppError> {
         Self::find_definitions_in(&*self.db.conn()?)

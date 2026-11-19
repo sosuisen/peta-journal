@@ -845,7 +845,7 @@ impl PageService {
             PAGE_TARGET,
             std::slice::from_ref(&page_id.to_string()),
         )?;
-        ItemRepository::delete_by_page_id_in(tx, page_id)?;
+        // The items and their types go with the page, by ON DELETE CASCADE
         PageRepository::delete_in(tx, page_id)?;
         ExportQueueRepository::remove_in(tx, page_id)?;
         effects.removed_page_ids.push(page_id.to_string());

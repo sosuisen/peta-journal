@@ -83,6 +83,24 @@ fn a_batch_create_makes_the_item_again_with_the_id_it_names() {
     assert_eq!(id(&stored[1]), id(&rows[1]));
 }
 
+// 削除したタスクを、タスクでない項目として同じIDで作り直すと、タスクの種類は残らない。削除のUndoが、消す前の種類だけを戻すためである。
+#[test]
+fn an_item_made_again_with_its_id_does_not_keep_the_types_it_had_before() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("items-batch-types");
+    let rows = notes.fill(&page, &["a", "task"]);
+    notes.batched(json!([{"op": "update", "id": id(&rows[1]), "task": {"task": true}}]));
+    assert!(has_type(&notes.item(&id(&rows[1])), "task"));
+    notes.delete_item(&id(&rows[1]));
+
+    notes.batched(json!([{
+        "op": "create", "id": id(&rows[1]), "pageId": page,
+        "position": format!("after:{}", id(&rows[0])), "level": 1, "body": "plain",
+    }]));
+
+    assert!(!has_type(&notes.item(&id(&rows[1])), "task"));
+}
+
 // 作成の操作は、写す元の項目を名指しすると、トランスクルージョンとして作り直す。削除のUndoが、トランスクルージョンを戻すためである。
 #[test]
 fn a_batch_create_makes_a_transclusion_again_with_the_source_it_names() {

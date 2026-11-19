@@ -262,12 +262,11 @@ impl PageRepository {
         query: &str,
         max_results: i64,
     ) -> Result<Vec<Page>, AppError> {
-        let limit = if max_results > 0 { max_results } else { 20 };
         self.query_pages(
             &format!(
                 "{SELECT_PAGES}WHERE (dir_path || name) LIKE ? || '%' ORDER BY modified_date DESC LIMIT ?"
             ),
-            &[&query, &limit],
+            &[&query, &max_results],
         )
     }
 
@@ -276,12 +275,11 @@ impl PageRepository {
         query: &str,
         max_results: i64,
     ) -> Result<Vec<Page>, AppError> {
-        let limit = if max_results > 0 { max_results } else { 20 };
         self.query_pages(
             &format!(
                 "{SELECT_PAGES}WHERE (dir_path || name) LIKE '%' || ? || '%' ORDER BY modified_date DESC LIMIT ?"
             ),
-            &[&query, &limit],
+            &[&query, &max_results],
         )
     }
 
@@ -291,14 +289,13 @@ impl PageRepository {
         query: &str,
         max_results: i64,
     ) -> Result<Vec<Page>, AppError> {
-        let limit = if max_results > 0 { max_results } else { 20 };
         self.query_pages(
             &format!(
                 "{SELECT_PAGES}WHERE name = 'index' AND \
                  (dir_path = ? || '/' OR dir_path LIKE '%/' || ? || '/') \
                  ORDER BY length(dir_path) ASC LIMIT ?"
             ),
-            &[&query, &query, &limit],
+            &[&query, &query, &max_results],
         )
     }
 
