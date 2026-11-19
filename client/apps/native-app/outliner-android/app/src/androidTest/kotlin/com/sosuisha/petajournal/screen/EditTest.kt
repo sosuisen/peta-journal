@@ -13,11 +13,14 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
@@ -152,6 +155,9 @@ class EditTest : JournalScreenFixture() {
     /** The items of the page, each as its level and its body. */
     private fun items(): List<String> = shell.view.outline.rows.map { "${it.item.level} ${it.item.body}" }
 
+    /** The word of the system for Paste, as the menu of the text shows it. */
+    private val PASTE = InstrumentationRegistry.getInstrumentation().targetContext.getString(android.R.string.paste)
+
     private fun waitForItems(vararg items: String) = compose.waitUntil(WAIT_MS) { items() == items.toList() }
 
     /** Puts [text] on the clipboard of the system, as another app does. */
@@ -171,9 +177,8 @@ class EditTest : JournalScreenFixture() {
         waitForItems("1 first", "1 secondapple", "1 pear", "1 third")
     }
 
-    // 親と子を選んでコピーの道具でコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
-    @Test
-    fun a_parent_and_its_child_that_were_copied_are_pasted_back_as_a_parent_and_its_child() {
+    /** Opens a page of a parent with a child and a third item, copies the parent and its child with the tool, and edits the third at its end. */
+    private fun copyParentAndChildThenEditThird() {
         download(
             "notes.md",
             above('A') + "parent" + NL + NL + above('B').replace("<!-- @ ", "<!-- @@ ") + "child" + NL + NL + above('C') + "third" + NL,
@@ -186,9 +191,26 @@ class EditTest : JournalScreenFixture() {
         tool("Copy")
         compose.waitUntil(WAIT_MS) { copied.isNotEmpty() }
         touchEnd("third")
-        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("third")
+        // The touch ends the selection: the field of the item comes when the core has answered
+        compose.waitUntil(WAIT_MS) { compose.onAllNodes(hasTestTag(EDITOR_TAG) and hasText("third")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    // 親と子を選んでコピーの道具でコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
+    @Test
+    fun a_parent_and_its_child_that_were_copied_are_pasted_back_as_a_parent_and_its_child() {
+        copyParentAndChildThenEditThird()
 
         compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.PasteText)
+
+        waitForItems("1 parent", "2 child", "1 thirdparent", "2 child")
+    }
+
+    // コピーの道具でコピーした項目を、画面のキーボードのクリップボードの候補から入れても、項目の形のまま戻る。
+    @Test
+    fun items_copied_and_put_in_from_the_clipboard_of_the_keyboard_on_the_screen_come_back_as_items() {
+        copyParentAndChildThenEditThird()
+
+        commitOnTheScreen(copied.last())
 
         waitForItems("1 parent", "2 child", "1 thirdparent", "2 child")
     }
@@ -200,6 +222,18 @@ class EditTest : JournalScreenFixture() {
         onTheClipboard("- apple" + NL + "- pear")
 
         compose.onNodeWithTag(EDITOR_TAG).performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.V) } }
+
+        waitForItems("1 first", "1 secondapple", "1 pear", "1 third")
+    }
+
+    // 文字のメニューの貼り付けも、コアが貼り付ける。リストは項目になる。
+    @Test
+    fun paste_of_the_menu_of_the_text_pastes_a_list_as_items() {
+        editSecondOfThree()
+        onTheClipboard("- apple" + NL + "- pear")
+
+        compose.onNodeWithTag(EDITOR_TAG).performMouseInput { rightClick(centerRight) }
+        compose.onNodeWithText(PASTE).performClick()
 
         waitForItems("1 first", "1 secondapple", "1 pear", "1 third")
     }
@@ -514,6 +548,15 @@ class EditTest : JournalScreenFixture() {
      * Presses Backspace as the keyboard on the screen does. Gboard sends no key: it asks the
      * field to delete the character before the cursor, also when there is none.
      */
+    /** Puts [text] in at the cursor as the keyboard on the screen does, as with what it shows of the clipboard. */
+    private fun commitOnTheScreen(text: String) {
+        val root = compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().root as ViewRootForTest
+        compose.runOnUiThread {
+            val keyboard = checkNotNull(root.view.onCreateInputConnection(EditorInfo()))
+            keyboard.commitText(text, 1)
+        }
+    }
+
     private fun pressBackspaceOnTheScreen() {
         val root = compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().root as ViewRootForTest
         compose.runOnUiThread {
