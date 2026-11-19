@@ -675,6 +675,35 @@ fn what_the_shell_hands_as_typed_is_saved_by_the_core() {
     });
 }
 
+// シェルを閉じると、保存を待っていた本文が、閉じる前に保存される（#766）。
+#[test]
+fn closing_the_shell_saves_the_body_waiting_to_be_saved() {
+    let screen = Screen::new();
+    screen.open_notes();
+    wait_until("the page is in the view", || {
+        screen.view().contains("the body of a")
+    });
+    screen.send(&Event::EditRequested {
+        item_id: "a".into(),
+        place: EditPlace::Unplaced,
+    });
+    let typing = Typing::Typed {
+        item_id: "a".into(),
+        body: "typed into a".into(),
+        cursor: 12,
+    };
+    let mut bytes = Vec::new();
+    BincodeFfiFormat::serialize(&mut bytes, &typing).unwrap();
+    screen.shell.typed(&bytes).unwrap();
+
+    screen.shell.close();
+
+    let calls = screen.calls.lock().unwrap();
+    assert!(calls
+        .iter()
+        .any(|op| format!("{op:?}").contains("typed into a")));
+}
+
 // 読めない入力は、誤りとしてシェルに返る。
 #[test]
 fn typing_that_cannot_be_read_is_an_error() {
