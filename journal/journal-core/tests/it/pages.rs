@@ -462,7 +462,7 @@ fn a_deleted_page_is_gone() {
     assert!(!notes.is_there(&page));
 }
 
-// ページを削除すると、その項目もIDで取れなくなる。
+// ページを削除すると、その項目もIDで取れなくなり、データベースにも残らない。
 #[test]
 fn the_items_of_a_deleted_page_are_gone_too() {
     let notes = Core::new();
@@ -476,6 +476,20 @@ fn the_items_of_a_deleted_page_are_gone_too() {
         .unwrap();
 
     assert!(notes.core.journal.get_item(&item).is_err());
+    // No client can see rows left behind, as every read joins the page, but they would fill
+    // the database
+    let left: i64 = notes
+        .core
+        .db
+        .conn()
+        .unwrap()
+        .query_row(
+            "SELECT COUNT(*) FROM items WHERE page_id = ?",
+            [&page],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(left, 0);
 }
 
 // ページへのウィキリンクは、そのページのバックリンクに現れる。
