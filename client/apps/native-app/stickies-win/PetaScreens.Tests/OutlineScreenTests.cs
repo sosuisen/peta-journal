@@ -261,6 +261,60 @@ public sealed class OutlineScreenTests
         );
     }
 
+    // 親と子を選んでコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
+    [UITestMethod]
+    public async Task A_parent_and_its_child_copied_and_pasted_at_the_end_of_another_item_come_back_in_their_shape()
+    {
+        await using var screen = await Screen.Open(Port);
+        await ParentChildAndThird(screen);
+        await screen.Edit(0);
+        await screen.MoveCursor(0);
+        Screen.Press(VirtualKey.Up, Held.Shift);
+        await Screen.Until("the parent and its child are selected", () =>
+            screen.SelectedAre("parent", "child") && screen.Focused is null
+        );
+        Screen.PutOnClipboard("before");
+        Screen.Press(VirtualKey.C, Held.Control);
+        await Screen.UntilClipboardHas("- parent\n  - child");
+        await screen.Edit(2);
+        Screen.Press(VirtualKey.End);
+
+        Screen.Press(VirtualKey.V, Held.Control);
+
+        await Screen.Until("the parent and its child are pasted", () =>
+            LevelsAndBodies(screen)
+                .SequenceEqual(["1 parent", "2 child", "1 thirdparent", "2 child"])
+        );
+    }
+
+    /// <summary>The level and the body of each item, as "level body".</summary>
+    private static List<string> LevelsAndBodies(Screen screen) =>
+        [.. screen.Rows.Select(row => $"{row.Item.Level} {row.Item.Body}")];
+
+    /// <summary>
+    /// Three items: "parent", its child "child", and "third" after them, with the cursor at
+    /// the end of "third".
+    /// </summary>
+    private static async Task ParentChildAndThird(Screen screen)
+    {
+        await screen.Edit(0);
+        await screen.Type("parent");
+        Screen.Press(VirtualKey.Enter);
+        await Screen.Until("the cursor is in the second item", () => screen.Focused == 1);
+        await screen.Type("child");
+        Screen.Press(VirtualKey.Tab);
+        await Screen.Until("the second item is a child", () =>
+            LevelsAndBodies(screen).SequenceEqual(["1 parent", "2 child"])
+        );
+        Screen.Press(VirtualKey.Enter);
+        await Screen.Until("the cursor is in the third item", () => screen.Focused == 2);
+        Screen.Press(VirtualKey.Tab, Held.Shift);
+        await Screen.Until("the third item is not a child", () =>
+            LevelsAndBodies(screen).SequenceEqual(["1 parent", "2 child", "1 "])
+        );
+        await screen.Type("third");
+    }
+
     // 選んでいるあいだのShift+Alt+上矢印は、選んだ項目を上へ動かす。
     [UITestMethod]
     public async Task Shift_Alt_Up_moves_the_selected_items()
