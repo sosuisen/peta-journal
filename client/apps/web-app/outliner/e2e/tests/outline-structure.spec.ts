@@ -183,8 +183,10 @@ test.describe('outline structure', () => {
 
       await page.keyboard.press('Control+c');
 
-      // The write finishes only once the server has made the tree markdown
-      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('- a1\n- a2');
+      // The write finishes only once the server has made the tree markdown. Windows hands the
+      // text back with \r\n, though the app writes \n
+      await expect.poll(() => page.evaluate(async () => (await navigator.clipboard.readText()).replace(/\r\n/g, '\n')))
+        .toBe('- a1\n- a2');
 
       await page.keyboard.press('Escape');
       await openEditor(page, byBody('b1').id);
