@@ -80,6 +80,10 @@ pub struct MarkdownImportService {
     copy_wait: Duration,
     /// The files that wait, by path. They are lost on a restart; the scan brings them again.
     waiting: Mutex<BTreeMap<String, Wait>>,
+    /// The items that show a source item not taken in yet, with that source. They are lost on
+    /// a restart; the scan brings their files again only when they change, so the item keeps
+    /// the body it had and shows no source.
+    waiting_transclusions: Mutex<Vec<(hmtid::Hmtid, hmtid::Hmtid)>>,
     /// One file at a time, like the Java `synchronized` method.
     lock: Mutex<()>,
 }
@@ -113,6 +117,7 @@ impl MarkdownImportService {
             definitions,
             copy_wait,
             waiting: Mutex::new(BTreeMap::new()),
+            waiting_transclusions: Mutex::new(Vec::new()),
             lock: Mutex::new(()),
         }
     }
@@ -123,10 +128,26 @@ impl MarkdownImportService {
         let _guard = self.lock.lock();
         let before = self.definitions.find_definitions();
         let outcome = self.sync_locked(root, rel_path);
+        self.transclude_waiting();
         if self.definitions.find_definitions() != before {
             self.events.definitions_changed();
         }
         outcome
+    }
+
+    /// Sets the transclusions whose source has come in. Their pages are written again, so
+    /// that the files keep the transclusions.
+    fn transclude_waiting(&self) {
+        let mut waiting = self.waiting_transclusions.lock();
+        match self.item_merger.transclude_waiting(&mut waiting) {
+            Ok(pages) => {
+                for page_id in pages {
+                    self.export.queue_export(&page_id);
+                    self.events.page_changed(&page_id);
+                }
+            }
+            Err(e) => tracing::error!("Failed to set the waiting transclusions: {e}"),
+        }
     }
 
     fn sync_locked(&self, root: &Path, rel_path: &str) -> Outcome {
@@ -261,6 +282,10 @@ impl MarkdownImportService {
         let merge = self
             .item_merger
             .merge(&page, &parsed.items, file_modified, mode, now)?;
+        let waits = !merge.waiting_transclusions.is_empty();
+        self.waiting_transclusions
+            .lock()
+            .extend(merge.waiting_transclusions.iter().cloned());
         let page_tags = union(
             &self.page_service.page_tags(&page.id)?,
             &frontmatter_tags(&parsed.frontmatter),
@@ -271,7 +296,9 @@ impl MarkdownImportService {
         }
         if merge.changed || page_tags_before != page_tags {
             let page = self.page_matcher.touch(&page, loc, now)?;
-            self.export.queue_export(&page.id);
+            if !waits {
+                self.export.queue_export(&page.id);
+            }
             self.page_service.update_tag_pages(
                 &union(&merge.tags_before, &page_tags_before),
                 &union(&merge.tags_after, &page_tags),
@@ -392,6 +419,10 @@ impl MarkdownImportService {
         let merge = self
             .item_merger
             .merge(&page, items, file_modified, mode, now)?;
+        let waits = !merge.waiting_transclusions.is_empty();
+        self.waiting_transclusions
+            .lock()
+            .extend(merge.waiting_transclusions.iter().cloned());
         let file_is_older = had_file && file_modified < page.modified_date;
         // A file newer than the page says which tags it has, so a file without tags has none
         let page_tags = if file_is_older {
@@ -455,12 +486,14 @@ impl MarkdownImportService {
             // At once: the next edit by hand starts from this file, and with the old date of
             // the item in it, the edit would count as older than the item
             self.export.export_page(&page.id)?;
-        } else if write_back
-            || merge.needs_write_back
-            || page.modified_date > file_modified
-            || !tags_written_as_exported(fm, &page_tags)
+        } else if !waits
+            && (write_back
+                || merge.needs_write_back
+                || page.modified_date > file_modified
+                || !tags_written_as_exported(fm, &page_tags))
         {
-            // Give the file its ids / frontmatter. The export records the new hash, so it won't echo back.
+            // Give the file its ids / frontmatter. A page that waits for the source of a
+            // transclusion is written once the transclusion is set, or its file would lose it. The export records the new hash, so it won't echo back.
             self.export.queue_export(&page.id);
         }
         // Last, when the page and its file are recorded: a tag page deleted here may be

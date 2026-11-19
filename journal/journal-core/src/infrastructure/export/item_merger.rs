@@ -45,6 +45,10 @@ pub struct MergeResult {
     /// the tag pages in step once the file is fully imported.
     pub tags_before: Vec<String>,
     pub tags_after: Vec<String>,
+    /// The items that show a source item not here yet, with that source. They are written
+    /// without the transclusion, which [`ItemMerger::transclude_waiting`] sets once the
+    /// source comes in: a folder taken in for the first time brings the pages in any order.
+    pub waiting_transclusions: Vec<(Hmtid, Hmtid)>,
 }
 
 pub struct ItemMerger {
@@ -164,6 +168,7 @@ impl ItemMerger {
         }
 
         let mut to_index: Vec<Item> = Vec::new(); // indexed in one commit at the end
+        let mut waiting_transclusions = Vec::new();
         let mut restamped = false;
 
         for (entry, idx) in entries.iter().zip(&idxs) {
@@ -197,6 +202,13 @@ impl ItemMerger {
 
             if !same || old.is_some_and(|o| o.modified_date != modified_date) {
                 let body_changed = old.is_none_or(|o| o.body != fi.body);
+                let transclude = match &fi.transclude {
+                    Some(source) if ItemRepository::find_by_id_in(&tx, source)?.is_none() => {
+                        waiting_transclusions.push((id.clone(), source.clone()));
+                        None
+                    }
+                    other => other.clone(),
+                };
                 let item = Item {
                     id: id.clone(),
                     page_id: page_id.clone(),
@@ -211,7 +223,7 @@ impl ItemMerger {
                     body: fi.body.clone(),
                     collapsed: pi.collapsed,
                     types,
-                    transclude_item_id: fi.transclude.clone(),
+                    transclude_item_id: transclude,
                 };
                 ItemRepository::save_in(&tx, &item)?;
                 if body_changed {
@@ -256,7 +268,46 @@ impl ItemMerger {
             restamped,
             tags_before,
             tags_after,
+            waiting_transclusions,
         })
+    }
+
+    /// Sets the transclusions that wait for their source, where the source has come in. Each
+    /// item takes the body of its source, as a transclusion set in the app does. The ones
+    /// whose item is gone are dropped; the others go on waiting. Returns the pages of the
+    /// items set.
+    pub fn transclude_waiting(
+        &self,
+        waiting: &mut Vec<(Hmtid, Hmtid)>,
+    ) -> Result<BTreeSet<Hmtid>, AppError> {
+        let mut pages = BTreeSet::new();
+        if waiting.is_empty() {
+            return Ok(pages);
+        }
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut still = Vec::new();
+        for (item_id, source_id) in waiting.drain(..) {
+            let Some(item) = ItemRepository::find_by_id_in(&tx, &item_id)? else {
+                continue;
+            };
+            let Some(source) = ItemRepository::find_by_id_in(&tx, &source_id)? else {
+                still.push((item_id, source_id));
+                continue;
+            };
+            ItemRepository::save_in(
+                &tx,
+                &Item {
+                    body: source.body.clone(),
+                    transclude_item_id: Some(source_id),
+                    ..item.clone()
+                },
+            )?;
+            pages.insert(item.page_id);
+        }
+        tx.commit()?;
+        *waiting = still;
+        Ok(pages)
     }
 
     /// The items of the file with an id each and their body as the app stores it, and whether
