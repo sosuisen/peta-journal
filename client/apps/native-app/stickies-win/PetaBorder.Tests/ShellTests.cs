@@ -178,6 +178,21 @@ public sealed class ShellTests : IDisposable
         shell.FinishEditing(item);
     }
 
+    // ウィンドウを閉じると、保存を待っていた本文が、閉じる前にサーバーに保存される（#766）。
+    [Fact]
+    public void Closing_the_window_saves_the_text_still_waiting_to_be_saved()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        var pageId = Page(shell)!.Page.Id;
+        shell.StartEditing(item);
+        shell.Typed("typed before closing", item);
+
+        shell.Dispose();
+
+        Assert.Contains("typed before closing", server.Get($"/api/pages/{pageId}") ?? "");
+    }
+
     // 閉じたウィンドウに、待っていたコアの要求が届いても、何もしない。
     [Fact]
     public void The_requests_that_reach_a_closed_window_do_nothing()
