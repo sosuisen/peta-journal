@@ -8,7 +8,7 @@ use crate::model::{ItemPosition, PasteCursor, PasteMode, Pasted, Uploaded};
 use crate::ops::edit::{
     discard_pending_edit, focus_editor, mark_dirty, record_typing, show_parsed, typed_body,
 };
-use crate::ops::file_reload::{leave_the_edit, replace_page, AskedAt};
+use crate::ops::file_reload::{leave_the_edit, read_again_if_out_of_place, replace_page, AskedAt};
 use crate::outline::tree::edit_context_of;
 use crate::outline::CursorState;
 use crate::util::char_len;
@@ -140,7 +140,9 @@ pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, paste
         position: char_len(&first.body),
     };
     if !in_transclusion {
-        return place_cursor(model, cursor, fallback);
+        let ids: Vec<String> = created.iter().map(|item| item.id.clone()).collect();
+        let reread = read_again_if_out_of_place(model, &ids);
+        return Command::all([place_cursor(model, cursor, fallback), reread]);
     }
     let shown_page_id = model.shown_page_id();
     let asked_at = AskedAt::now(model);

@@ -651,7 +651,12 @@ fn a_paste_whose_new_item_is_out_of_place_reads_the_indices_again() {
             i.idx = idx.into();
         })
     };
-    answer_paste(&mut h, vec![at("a", "abx", "a"), at("p1", "y", "zz")], "p1", 1);
+    answer_paste(
+        &mut h,
+        vec![at("a", "abx", "a"), at("p1", "y", "zz")],
+        "p1",
+        1,
+    );
 
     paste(&mut h, "a", "x\ny", 2);
 
@@ -668,7 +673,12 @@ fn a_paste_whose_new_item_is_in_place_does_not_read_again() {
             i.idx = idx.into();
         })
     };
-    answer_paste(&mut h, vec![at("a", "abx", "a"), at("p1", "y", "m")], "p1", 1);
+    answer_paste(
+        &mut h,
+        vec![at("a", "abx", "a"), at("p1", "y", "m")],
+        "p1",
+        1,
+    );
 
     paste(&mut h, "a", "x\ny", 2);
 
