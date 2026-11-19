@@ -217,7 +217,8 @@ class ToolbarTest : JournalScreenFixture() {
 
         touchEnd("two")
 
-        compose.onNodeWithTag(EDITOR_TAG).assertExists()
+        // The touch ends the selection: the tools of the edit come when the core has answered
+        compose.waitUntil(WAIT_MS) { selected().isEmpty() && compose.onAllNodesWithTag(EDITOR_TAG).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasContentDescription("Expand tools")).assertExists()
     }
 }
