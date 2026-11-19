@@ -246,6 +246,21 @@ public sealed class OutlineScreenTests
         );
     }
 
+    // Ctrl+Shift+Vは、クリップボードの文字をそのまま項目に貼る。
+    [UITestMethod]
+    public async Task Control_Shift_V_puts_the_text_into_the_item_as_it_is()
+    {
+        await using var screen = await Screen.Open(Port);
+        await screen.TwoItems();
+        Screen.PutOnClipboard("- apple\r\n- pear");
+
+        Screen.Press(VirtualKey.V, Held.Control | Held.Shift);
+
+        await Screen.Until("the text is in the item", () =>
+            screen.BodiesAre("first", "second- apple\n- pear")
+        );
+    }
+
     // 選んでいるあいだのShift+Alt+上矢印は、選んだ項目を上へ動かす。
     [UITestMethod]
     public async Task Shift_Alt_Up_moves_the_selected_items()
