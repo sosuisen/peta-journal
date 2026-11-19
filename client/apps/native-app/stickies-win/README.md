@@ -251,7 +251,8 @@ up. It answers when it is pressed.
 
 A right click on the title bar shows a menu with the pin and the colors. It is there also
 while the sticky is rolled up. A right click on an item that is not edited shows the same
-menu. The item that is edited has the menu of its text: cut, copy and paste. The pin and the color of the sticky are checked. The menu of
+menu, with "Paste as Transclusion" on top. It makes the item show the item whose id is on the
+clipboard. The item that is edited has the menu of its text: cut, copy and paste. The pin and the color of the sticky are checked. The menu of
 the window, which Windows shows there, comes with Alt+Space.
 
 The buttons that minimize, maximize and close the window stand at the right of the tools. The

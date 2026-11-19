@@ -173,7 +173,8 @@ internal sealed class Screen : IAsyncDisposable
         FrameworkElement element,
         StickyWindow? sticky = null,
         double across = 0.5,
-        Held held = Held.None
+        Held held = Held.None,
+        bool right = false
     )
     {
         sticky ??= Window;
@@ -192,8 +193,25 @@ internal sealed class Screen : IAsyncDisposable
         await UserInput.Click(
             corner.X + (int)Math.Round(place.X * scale),
             corner.Y + (int)Math.Round(place.Y * scale),
-            held
+            held,
+            right
         );
+    }
+
+    /// <summary>The entry with the text in the menu that the first sticky shows now.</summary>
+    public async Task<MenuFlyoutItem> MenuEntry(string text)
+    {
+        MenuFlyoutItem? found = null;
+        await Until($"the menu has {text}", () =>
+        {
+            found = VisualTreeHelper
+                .GetOpenPopupsForXamlRoot(Window.Content.XamlRoot)
+                .Where(popup => popup.Child is not null)
+                .SelectMany(popup => Under<MenuFlyoutItem>(popup.Child))
+                .FirstOrDefault(entry => entry.Text == text && entry.ActualWidth > 0);
+            return found is not null;
+        });
+        return found!;
     }
 
     /// <summary>The button of the title bar of the sticky that has the tip.</summary>

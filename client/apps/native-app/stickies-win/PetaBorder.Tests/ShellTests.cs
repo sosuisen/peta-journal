@@ -276,15 +276,15 @@ public sealed class ShellTests : IDisposable
         );
     }
 
-    // コアがクリップボードを求めると、その文字列で答える。項目のIDなら、トランスクルージョンになる。
+    // 項目のメニューの「Paste as Transclusion」では、コアがクリップボードを求め、シェルがその文字列で答える。項目のIDなら、その項目はトランスクルージョンになる。
     [Fact]
-    public void The_clipboard_is_read_when_the_core_asks()
+    public void Paste_as_transclusion_makes_the_item_show_the_item_whose_id_is_on_the_clipboard()
     {
         var shell = ShellWithPage();
         var (first, second) = TwoItems(shell);
         onClipboard = first;
 
-        shell.Send(new Event.PasteAsTransclusion(second));
+        shell.PasteAsTransclusion(second);
 
         main.WaitUntil("the second item shows the first", () =>
             shell.View.Outline.Rows.Any(row =>
@@ -705,6 +705,54 @@ public sealed class ShellTests : IDisposable
         shell.Paste(item, Editor("", 0), "- a\n- b", "", raw: true);
 
         main.WaitUntil("the list is in the item", () => Bodies(shell) is ["- a\n- b"]);
+    }
+
+    /// <summary>The level and the body of each item, as "level body".</summary>
+    private static List<string> LevelsAndBodies(Shell shell) =>
+        [.. shell.View.Outline.Rows.Select(row => $"{row.Item.Level} {row.Item.Body}")];
+
+    /// <summary>
+    /// Three items: "parent", its child "child", and "third" after them, with the cursor in
+    /// "third". Returns the id of "third".
+    /// </summary>
+    private string ParentChildAndThird(Shell shell)
+    {
+        var parent = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(parent);
+        shell.Typed("parent", parent);
+        Assert.True(Press(shell, Enter, parent, Editor("parent", 6)));
+        main.WaitUntil("there are two items", () => shell.View.Outline.Rows.Count == 2);
+        var child = shell.View.Outline.Rows[1].Item.Id;
+        shell.Typed("child", child);
+        Assert.True(Press(shell, Tab, child, Editor("child", 5)));
+        Assert.True(Press(shell, Enter, child, Editor("child", 5)));
+        main.WaitUntil("there are three items", () => shell.View.Outline.Rows.Count == 3);
+        var third = shell.View.Outline.Rows[2].Item.Id;
+        Assert.True(Press(shell, Tab, third, Editor("", 0), Held.Shift));
+        shell.Typed("third", third);
+        Assert.Equal(["1 parent", "2 child", "1 third"], LevelsAndBodies(shell));
+        return third;
+    }
+
+    // 親と子を選んでコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
+    [Fact]
+    public void A_parent_and_its_child_copied_and_pasted_at_the_end_of_another_item_come_back_in_their_shape()
+    {
+        var shell = ShellWithPage();
+        var third = ParentChildAndThird(shell);
+        var parent = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(parent);
+        Assert.True(Press(shell, Up, parent, Editor("parent", 0), Held.Shift));
+        Assert.Equal(["parent", "child"], Selected(shell));
+        Press(shell, Letter("c"), Held.Control);
+        main.WaitUntil("the clipboard has the items", () => copied is not null);
+        shell.StartEditing(third, "third".Length);
+
+        shell.Paste(third, Editor("third", 5), copied!, "", raw: false);
+
+        main.WaitUntil("the parent and its child are pasted", () =>
+            LevelsAndBodies(shell) is ["1 parent", "2 child", "1 thirdparent", "2 child"]
+        );
     }
 
     // 絵文字のあとのカーソルに貼る。カーソルは、UTF-16では2つ分進んでいる。

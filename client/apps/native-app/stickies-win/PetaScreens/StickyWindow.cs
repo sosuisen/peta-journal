@@ -777,12 +777,20 @@ internal sealed class StickyWindow : Window
     /// <summary>
     /// Shows the menu of the sticky: the pin, and the colors. The pin and the color of the
     /// sticky are checked. They are not tools of the bar: they would leave little of it to
-    /// the name of a narrow sticky.
+    /// the name of a narrow sticky. On an item, what can be done to the item comes first.
     /// </summary>
     /// <param name="place">Where the mouse is in the window.</param>
-    public void ShowMenu(Windows.Foundation.Point place)
+    /// <param name="itemId">The item that was clicked, or null on the title bar.</param>
+    public void ShowMenu(Windows.Foundation.Point place, string? itemId = null)
     {
         var menu = new MenuFlyout();
+        if (itemId is not null)
+        {
+            var transclude = new MenuFlyoutItem { Text = "Paste as Transclusion" };
+            transclude.Click += (_, _) => Shell.PasteAsTransclusion(itemId);
+            menu.Items.Add(transclude);
+            menu.Items.Add(new MenuFlyoutSeparator());
+        }
         var pin = new ToggleMenuFlyoutItem { Text = "Keep on top", IsChecked = Look.AlwaysOnTop };
         pin.Click += (_, _) => TogglePin();
         menu.Items.Add(pin);
