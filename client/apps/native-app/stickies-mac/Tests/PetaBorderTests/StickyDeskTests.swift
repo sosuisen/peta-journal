@@ -1,6 +1,7 @@
 import AppKit
 import PetaBorder
 import PetaScreens
+import PetaTypes
 import XCTest
 
 /// The stickies of the app: each is a window with a page of its own. These need a real journal
@@ -154,6 +155,45 @@ final class StickyDeskTests: XCTestCase {
         second.window.close()
 
         XCTAssertEqual(nextRun().stickies.map(\.id), [first.id, second.id])
+    }
+
+    /// A sticky with a page, whose first item has `text` typed into it and still waiting for its
+    /// save. Gives the sticky and the id of its page.
+    private func stickyWithTyped(_ text: String, on name: String) async throws -> (Sticky, String) {
+        let sticky = desk.add()
+        sticky.shell.open("/pages/\(name)")
+        try await waitUntil("the page is shown") { !sticky.shell.view.outline.rows.isEmpty }
+        guard case .page(let page?) = sticky.shell.view.screen else {
+            XCTFail("no page on screen")
+            throw CancellationError()
+        }
+        let item = sticky.shell.view.outline.rows[0].item
+        sticky.shell.startEditing(item.id)
+        sticky.shell.typed(text, into: item.id)
+        return (sticky, page.page.id)
+    }
+
+    /// True when the server has the text on the page.
+    private func saved(_ text: String, on pageId: String) throws -> Bool {
+        String(decoding: try server.get("/api/pages/\(pageId)"), as: UTF8.self).contains(text)
+    }
+
+    // 付箋紙を閉じると、保存を待っていた本文が保存される（#766）。
+    func testClosingAStickySavesTheTextStillWaitingToBeSaved() async throws {
+        let (sticky, pageId) = try await stickyWithTyped("typed in a closed sticky", on: "desk-closed")
+
+        sticky.window.close()
+
+        XCTAssertTrue(try saved("typed in a closed sticky", on: pageId))
+    }
+
+    // アプリを終えると、どの付箋紙でも、保存を待っていた本文が保存される（#766）。
+    func testEndingTheAppSavesTheTextStillWaitingToBeSaved() async throws {
+        let (_, pageId) = try await stickyWithTyped("typed before the end", on: "desk-ending")
+
+        desk.end()
+
+        XCTAssertTrue(try saved("typed before the end", on: pageId))
     }
 
     /// The buttons that close, minimize and zoom the window of the sticky.
