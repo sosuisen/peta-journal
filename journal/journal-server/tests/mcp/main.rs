@@ -56,6 +56,18 @@ async fn try_call(mcp: &Mcp, name: &'static str, args: Value) -> Result<Value, S
 
 // ---- The server ----
 
+// サーバーは、接続したクライアントに、ツールを持つことと、何のサーバーかの説明を伝える。
+#[tokio::test]
+async fn the_server_tells_a_client_it_has_tools_and_what_it_is_for() {
+    let mcp = connect().await;
+
+    let info = mcp.peer_info().expect("server info");
+
+    assert!(info.capabilities.tools.is_some(), "{info:?}");
+    let instructions = info.instructions.as_deref().unwrap_or_default();
+    assert!(instructions.starts_with("PetaJournal"), "{instructions}");
+}
+
 // 項目を変えるツールの引数は、項目のIDと、RESTのルートが本文で受ける欄である。
 #[tokio::test]
 async fn a_tool_that_changes_an_item_takes_its_id_and_the_fields_of_the_rest_body() {
