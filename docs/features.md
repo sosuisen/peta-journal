@@ -471,7 +471,8 @@
   - このアプリからコピーした文は、保存しておいたFlat Markdownとして貼り付けられる
   - raw貼り付け（Shift）では、このアプリからコピーした文も、そのままの文として貼り付けられる
   - macOSの付箋紙アプリでは、Cmd+Vとメニューの「ペースト」が、クリップボードの文字をコアに送る。AppKitは自分では貼らない。Shift+Cmd+Vとメニューの「ペーストしてスタイルを合わせる」は、raw貼り付けである。カーソルは、UTF-16の数からコアの文字の数に直して送る（macOSの`OutlineScreenTests`）
-  - 親と子を選んでコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る（Windowsの付箋紙の`ShellTests`、macOSの`OutlineScreenTests`）
+  - Windowsの付箋紙アプリでは、Ctrl+Vが、クリップボードの文字をコアに送る。Ctrl+Shift+Vは、raw貼り付けである。Windowsの改行（`\r\n`）は、`\n`に直して送る（Windowsの`OutlineScreenTests`）
+  - 親と子を選んでコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る（Windowsの付箋紙の`ShellTests`と`OutlineScreenTests`、macOSの`OutlineScreenTests`）
 - サーバーが書いた結果が、画面に入る
   - 1つの断片はカーソル位置の項目に入り、カーソルは貼り付けた文の直後に置かれる。項目には、サーバーが新しい本文を解析した結果が表示される
   - サーバーが作った項目は、貼り付けた項目の下に順に入る。カーソルは、サーバーが答えた項目と位置に置かれる

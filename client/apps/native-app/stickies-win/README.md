@@ -316,14 +316,18 @@ never touched.
 ### Tests of the windows
 
 `PetaScreens.Tests` opens real stickies and works them as a user does (ADR 059). It is a WinUI
-app without a package, on MSTest: MSTest starts `TestApp` and runs each `[UITestMethod]` on its
-UI thread. The keys and the clicks go through Windows (`SendInput`), not into the controls.
+app without a package, on MSTest. `TestAppStart` starts `TestApp` on a thread of its own before
+the tests, and MSTest runs each `[UITestMethod]` on that thread. The thread is STA, as the
+thread of the app is. The clipboard of Windows fails on an MTA thread, and MSTest makes one
+when it starts the app itself (`[WinUITestTarget]`). The keys and the clicks go through Windows (`SendInput`), not into the controls.
 WinUI makes no key events for a test, and a key that went around Windows would miss what the
 app does with it.
 
 - `OutlineScreenTests`: a click puts the cursor in an item, and what is typed reaches the core.
   Enter, Shift+Enter, Ctrl+Enter, Tab, the arrows, Backspace, Delete, the moves with Shift+Alt,
-  the children hidden with Ctrl+Up, Ctrl+Z, the selection with Shift+Up, and the search box.
+  the children hidden with Ctrl+Up, Ctrl+Z, the selection with Shift+Up, Ctrl+C, Ctrl+V,
+  Ctrl+Shift+V, and the search box. The tests of the clipboard use the real clipboard of
+  Windows: what was on it before is lost.
 - `StickyDeskTests`: Ctrl+N adds a sticky, the close button puts it away, and Alt+F4 and
   Ctrl+Q keep the stickies for the next run.
 
@@ -343,8 +347,8 @@ Do not use the keyboard or the mouse while the tests run. The keys go to the win
 and a sticky that loses the front loses the keys. The tests take about a minute. A wait that
 fails tells what the test saw: the focus, the rows of the core, and where the focus went.
 
-Not tested: the dialogs of the core, a click on a link, the clipboard, the zoom, and rolling
-up. `StickyWindow` calls the real browser and the real clipboard, and a test cannot catch them.
+Not tested: the dialogs of the core, a click on a link, the zoom, and rolling up.
+`StickyWindow` calls the real browser, and a test cannot catch it.
 The user checked an input method for Japanese by hand.
 
 Why the tests of the border matter: the C# types are generated from the shape of the Rust
