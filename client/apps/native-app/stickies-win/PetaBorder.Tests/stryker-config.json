@@ -1,0 +1,7 @@
+{
+  "stryker-config": {
+    "project": "PetaBorder.csproj",
+    "test-runner": "mtp",
+    "reporters": ["html", "json", "progress"]
+  }
+}
