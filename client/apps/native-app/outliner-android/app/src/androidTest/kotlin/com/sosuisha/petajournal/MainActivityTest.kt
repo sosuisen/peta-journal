@@ -71,17 +71,30 @@ class MainActivityTest {
         assertEquals(1, account.looks)
     }
 
-    // 端末を回したときなど、画面を作り直すだけのときは、後ろへ回るときの同期をしない。
+    // 端末を回したときなど、画面を作り直すだけのときは、同期しない。アプリは前にいたままである。
     @Test
-    fun the_app_does_not_sync_as_for_the_back_when_the_screen_is_only_made_again() {
+    fun the_app_does_not_sync_when_the_screen_is_only_made_again() {
         val account = FakeAccount()
         val app = launch(account)
 
         app.recreate()
 
-        // Once for each time it came to the front, and no more
+        assertEquals(1, account.looks)
+        assertEquals(1, account.syncs)
+    }
+
+    // 画面を作り直したあとも、後ろへ回って前に戻れば、同期する。
+    @Test
+    fun the_app_syncs_when_it_comes_to_the_front_after_the_screen_was_made_again() {
+        val account = FakeAccount()
+        val app = launch(account)
+        app.recreate()
+
+        app.moveToState(Lifecycle.State.CREATED)
+        app.moveToState(Lifecycle.State.RESUMED)
+
         assertEquals(2, account.looks)
-        assertEquals(2, account.syncs)
+        assertEquals(3, account.syncs)
     }
 
     // サインインのボタンは、このアクティビティからサインインを始める。

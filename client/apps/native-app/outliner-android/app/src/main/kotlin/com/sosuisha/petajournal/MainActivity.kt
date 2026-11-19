@@ -39,11 +39,12 @@ class MainActivity : ComponentActivity() {
      */
     override fun onStop() {
         super.onStop()
-        // Not when the screen is only made again, as when the device is turned
-        if (!isChangingConfigurations) model.sync()
+        // Not when the screen is only made again, as when the device is turned: the app stays
+        // in front
+        if (isChangingConfigurations) model.screenIsMadeAgain() else model.sync()
     }
 
-    /** The app syncs whenever it comes to the front, also back from the sign-in. */
+    /** The app syncs whenever it comes to the front, also back from the sign-in. Not when only the screen was made again. */
     override fun onResume() {
         super.onResume()
         model.syncInFront()
