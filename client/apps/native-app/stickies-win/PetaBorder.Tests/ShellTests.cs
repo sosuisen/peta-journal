@@ -735,6 +735,9 @@ public sealed class ShellTests : IDisposable
     }
 
     // 親と子を選んでコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
+    // OutlineScreenTests checks the same with the real keys and the real clipboard. This one
+    // stays: the screen tests send real input, so they run only when the developer is at the
+    // PC. This one runs with "dotnet test" at any time.
     [Fact]
     public void A_parent_and_its_child_copied_and_pasted_at_the_end_of_another_item_come_back_in_their_shape()
     {
