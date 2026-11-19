@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use chrono::{Datelike, NaiveDate, TimeZone};
+use chrono::{Local, NaiveDate, TimeZone};
 use rusqlite::{params, Connection};
 
 use crate::domain::bounds::Bounds;
@@ -649,26 +649,26 @@ impl PropertyRepository {
             (
                 format!("SELECT id FROM items WHERE {column} >= ? AND {column} < ? LIMIT ?"),
                 vec![
-                    parse_date_to_millis(a, false)?,
-                    parse_date_to_millis(b, true)?,
+                    parse_date_to_millis(a, false, &Local)?,
+                    parse_date_to_millis(b, true, &Local)?,
                 ],
             )
         } else if let Some(rest) = expr.strip_prefix('>') {
             (
                 format!("SELECT id FROM items WHERE {column} >= ? LIMIT ?"),
-                vec![parse_date_to_millis(rest, true)?],
+                vec![parse_date_to_millis(rest, true, &Local)?],
             )
         } else if let Some(rest) = expr.strip_prefix('<') {
             (
                 format!("SELECT id FROM items WHERE {column} < ? LIMIT ?"),
-                vec![parse_date_to_millis(rest, false)?],
+                vec![parse_date_to_millis(rest, false, &Local)?],
             )
         } else {
             (
                 format!("SELECT id FROM items WHERE {column} >= ? AND {column} < ? LIMIT ?"),
                 vec![
-                    parse_date_to_millis(expr, false)?,
-                    parse_date_to_millis(expr, true)?,
+                    parse_date_to_millis(expr, false, &Local)?,
+                    parse_date_to_millis(expr, true, &Local)?,
                 ],
             )
         };
@@ -682,10 +682,13 @@ impl PropertyRepository {
     }
 }
 
-/// Parses a date string to epoch millis in Asia/Tokyo. With `to_end`, returns the exclusive
-/// upper bound (next day or next month start).
-fn parse_date_to_millis(date_str: &str, to_end: bool) -> Result<i64, AppError> {
-    let zone = chrono_tz::Asia::Tokyo;
+/// Parses a date string to epoch millis at the start of that day in `zone`. With `to_end`,
+/// returns the exclusive upper bound (next day or next month start).
+fn parse_date_to_millis<Tz: TimeZone>(
+    date_str: &str,
+    to_end: bool,
+    zone: &Tz,
+) -> Result<i64, AppError> {
     let date = if date_str.len() == 7 {
         let (y, m) = date_str
             .split_once('-')
@@ -717,7 +720,6 @@ fn parse_date_to_millis(date_str: &str, to_end: bool) -> Result<i64, AppError> {
             d
         }
     };
-    let _ = date.year();
     let dt = zone
         .from_local_datetime(&date.and_hms_opt(0, 0, 0).unwrap())
         .earliest()
@@ -789,5 +791,42 @@ mod tests {
             .insert_definition("defined", "text", true)
             .unwrap();
         assert!(PropertyRepository::write_scalar_in(&conn, "item", "x", "defined", "2").is_ok());
+    }
+
+    /// The epoch millis of a moment written in RFC 3339
+    fn millis(rfc3339: &str) -> i64 {
+        chrono::DateTime::parse_from_rfc3339(rfc3339)
+            .unwrap()
+            .timestamp_millis()
+    }
+
+    // 日付は、与えたタイムゾーンのその日の0時から、翌日の0時の手前までを指す。
+    #[test]
+    fn a_date_spans_its_day_in_the_time_zone_given() {
+        let new_york = chrono::FixedOffset::west_opt(5 * 3600).unwrap();
+
+        assert_eq!(
+            parse_date_to_millis("2026-03-12", false, &new_york).unwrap(),
+            millis("2026-03-12T00:00:00-05:00")
+        );
+        assert_eq!(
+            parse_date_to_millis("2026-03-12", true, &new_york).unwrap(),
+            millis("2026-03-13T00:00:00-05:00")
+        );
+    }
+
+    // 月は、与えたタイムゾーンのその月の1日の0時から、翌月の1日の0時の手前までを指す。
+    #[test]
+    fn a_month_spans_its_days_in_the_time_zone_given() {
+        let new_york = chrono::FixedOffset::west_opt(5 * 3600).unwrap();
+
+        assert_eq!(
+            parse_date_to_millis("2026-03", false, &new_york).unwrap(),
+            millis("2026-03-01T00:00:00-05:00")
+        );
+        assert_eq!(
+            parse_date_to_millis("2026-03", true, &new_york).unwrap(),
+            millis("2026-04-01T00:00:00-05:00")
+        );
     }
 }

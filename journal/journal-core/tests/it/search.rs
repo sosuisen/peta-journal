@@ -1,5 +1,6 @@
 //! Search: page names, the text of items, tags, and the filters of the combined search.
 
+use chrono::TimeZone;
 use journal_core::clock::Clock;
 use serde_json::{json, Value};
 
@@ -7,9 +8,13 @@ use crate::common::items::{answer, field_of_each, id};
 use crate::common::Core;
 
 impl Core {
-    /// Sets the clock of the core to the time given, such as `2026-03-12T10:00:00+09:00`.
-    fn set_time(&self, rfc3339: &str) {
-        let at = chrono::DateTime::parse_from_rfc3339(rfc3339)
+    /// Sets the clock of the core to the local time given, such as `2026-03-12T10:00:00`. The
+    /// date filters read a day in the time zone of the OS, so the tests pass in any zone.
+    fn set_time(&self, local: &str) {
+        let naive = chrono::NaiveDateTime::parse_from_str(local, "%Y-%m-%dT%H:%M:%S").unwrap();
+        let at = chrono::Local
+            .from_local_datetime(&naive)
+            .earliest()
             .unwrap()
             .timestamp_millis();
         self.clock.advance(at - self.clock.now_millis());
@@ -249,10 +254,10 @@ fn created_with_a_day_finds_the_items_made_that_day() {
     let items = items_made_at(
         &notes,
         &[
-            "2026-04-04T23:59:00+09:00",
-            "2026-04-05T00:00:00+09:00",
-            "2026-04-05T23:59:00+09:00",
-            "2026-04-06T00:00:00+09:00",
+            "2026-04-04T23:59:00",
+            "2026-04-05T00:00:00",
+            "2026-04-05T23:59:00",
+            "2026-04-06T00:00:00",
         ],
     );
 
@@ -269,10 +274,10 @@ fn created_with_a_month_finds_the_items_made_that_month() {
     let items = items_made_at(
         &notes,
         &[
-            "2026-03-31T23:59:00+09:00",
-            "2026-04-01T00:00:00+09:00",
-            "2026-04-30T23:59:00+09:00",
-            "2026-05-01T00:00:00+09:00",
+            "2026-03-31T23:59:00",
+            "2026-04-01T00:00:00",
+            "2026-04-30T23:59:00",
+            "2026-05-01T00:00:00",
         ],
     );
 
@@ -289,9 +294,9 @@ fn created_with_december_ends_at_the_new_year() {
     let items = items_made_at(
         &notes,
         &[
-            "2026-11-30T23:59:00+09:00",
-            "2026-12-31T23:59:00+09:00",
-            "2027-01-01T00:00:00+09:00",
+            "2026-11-30T23:59:00",
+            "2026-12-31T23:59:00",
+            "2027-01-01T00:00:00",
         ],
     );
 
@@ -308,10 +313,10 @@ fn a_range_after_and_before_find_the_items_made_in_them() {
     let items = items_made_at(
         &notes,
         &[
-            "2026-04-01T12:00:00+09:00",
-            "2026-04-02T12:00:00+09:00",
-            "2026-04-03T12:00:00+09:00",
-            "2026-04-04T12:00:00+09:00",
+            "2026-04-01T12:00:00",
+            "2026-04-02T12:00:00",
+            "2026-04-03T12:00:00",
+            "2026-04-04T12:00:00",
         ],
     );
 
@@ -333,11 +338,8 @@ fn a_range_after_and_before_find_the_items_made_in_them() {
 #[test]
 fn modified_finds_the_items_by_the_day_they_were_last_changed() {
     let notes = Core::new();
-    let items = items_made_at(
-        &notes,
-        &["2026-04-01T12:00:00+09:00", "2026-04-01T12:01:00+09:00"],
-    );
-    notes.set_time("2026-04-09T12:00:00+09:00");
+    let items = items_made_at(&notes, &["2026-04-01T12:00:00", "2026-04-01T12:01:00"]);
+    notes.set_time("2026-04-09T12:00:00");
     notes.update_item(items[0].as_str().unwrap(), json!({ "body": "changed" }));
 
     assert_eq!(
