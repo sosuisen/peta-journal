@@ -429,6 +429,22 @@ fn a_deleted_page_is_gone() {
     assert!(!notes.is_there(&page));
 }
 
+// ページを削除すると、その項目もIDで取れなくなる。
+#[test]
+fn the_items_of_a_deleted_page_are_gone_too() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("pages-delete-items");
+    let item = id(&notes.fill(&page, &["on the page"])[0]);
+
+    notes
+        .core
+        .journal
+        .delete_page(&page, &by_the_client())
+        .unwrap();
+
+    assert!(notes.core.journal.get_item(&item).is_err());
+}
+
 // ページへのウィキリンクは、そのページのバックリンクに現れる。
 #[test]
 fn a_wiki_link_to_a_page_shows_up_in_its_backlinks() {
