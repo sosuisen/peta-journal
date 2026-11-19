@@ -136,7 +136,7 @@ pub fn show_split(model: &mut Model, item_id: &str, cursor_before: usize, split:
     // The caret stays where the text was cut
     model.state.set_focused_item(&created.id, Some(0));
     model.state.order_focus(Some(&created.id));
-    let reread = read_again_if_out_of_place(model, &created.id);
+    let reread = read_again_if_out_of_place(model, std::slice::from_ref(&created.id));
     let focus = run(move |api| async move { api.focus_editor(Some(created.id), keys).await });
     Command::all([focus, reread])
 }

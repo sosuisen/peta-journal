@@ -30,15 +30,18 @@ pub fn read_again(model: &Model, page_id: &str) -> Cmd {
     run(move |api| async move { replace_page(&api, &page_id, asked_at).await })
 }
 
-/// Reads the page of an item again when the item does not sort between its neighbours: the
+/// Reads the indices of a page again when one of the items does not sort between its
+/// neighbours: the
 /// server gave them new indices that this side does not have, and an undo places items by
 /// their indices.
-pub fn read_again_if_out_of_place(model: &Model, item_id: &str) -> Cmd {
-    match model.state.get_item_by_id(item_id) {
-        Some(item) if is_out_of_place(model.state.items(), item_id) => {
-            read_indices_again(model, &item.page_id)
-        }
-        _ => done(),
+pub fn read_again_if_out_of_place(model: &Model, item_ids: &[String]) -> Cmd {
+    let out_of_place = item_ids
+        .iter()
+        .filter(|id| is_out_of_place(model.state.items(), id))
+        .find_map(|id| model.state.get_item_by_id(id));
+    match out_of_place {
+        Some(item) => read_indices_again(model, &item.page_id),
+        None => done(),
     }
 }
 
