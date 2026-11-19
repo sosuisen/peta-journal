@@ -371,8 +371,19 @@ $env:PETA_E2E_SERVER = "$PWD/../../../../journal/target/release/journal-server.e
 
 The script runs Stryker.NET (the tool `dotnet-stryker` in `dotnet-tools.json`) on
 `PetaBorder`, with the tests of `PetaBorder.Tests`. The report is in
-`PetaBorder.Tests/StrykerOutput/<time>/reports/mutation-report.html`. A run takes about a
-minute. The arguments of the script go to Stryker.NET.
+`PetaBorder.Tests/StrykerOutput/<time>/reports/mutation-report.html`. A run takes about three
+minutes. The arguments of the script go to Stryker.NET.
+
+`stryker-config.json` sets two things:
+
+- `"coverage-analysis": "all"`: every test runs against every mutant that some test reaches.
+  The default (`perTest`) runs only the tests that reached the mutant. But it sees only what
+  runs on the thread of a test. The requests of the core come on its own threads, and wait
+  for the main thread. With `perTest`, about 40 mutants there were taken as not tested,
+  though tests reach them.
+- `"ignore-methods"`: the mutants that remove `ArgumentNullException.ThrowIfNull` are not
+  made. Only a test that passes null finds them. Such a test is written only where null can
+  really come in.
 
 The tests of the windows (`PetaScreens.Tests`) are not used: they send real input, and Stryker
 would run them for each mutant. So the mutants of `PetaScreens` are not tested.
