@@ -32,7 +32,14 @@ test_workspace = true
 # - The two functions that start the periodic tasks (2026-11-11). Only main.rs, which is
 #   skipped, calls `start_background_tasks`. The tests call `start_index_commits`, but without
 #   its commits a search still finds what was written, so its work does not show.
+# - The route that opens the export folder (2026-11-20). It hands the folder over to the OS
+#   file manager, which a test cannot see.
+# - The text of a Hmtid for Debug and of a refused client id for Display (2026-11-20). They
+#   are written for people reading logs and messages, and no behaviour depends on them.
 exclude_re = [
+    "open_export_folder",
+    "<impl fmt::Debug for Hmtid>::fmt",
+    "<impl fmt::Display for NotAClientId>::fmt",
     "replace AppState::start_index_commits with \\(\\)",
     "replace AppState::start_background_tasks with \\(\\)",
     "replace - with \\+ in MarkdownFolderWatcher::flush_pending",
