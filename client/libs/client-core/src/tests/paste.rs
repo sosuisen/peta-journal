@@ -616,6 +616,52 @@ fn text_typed_while_the_image_uploads_travels_in_the_paste() {
     );
 }
 
+// アップロードを待つ間に同じ項目に打つと、リンクは、打ち終えたときのカーソルの位置に入る。打った文字の途中には入らない。
+#[test]
+fn the_link_goes_where_the_cursor_is_after_typing_while_the_image_uploads() {
+    let mut h = harness();
+    h.hold("UploadAsset");
+    paste_image(&mut h, "a", 2);
+    h.model.state.add_editing_item("a");
+    let now = h.now_ms;
+    h.send(Event::Typed {
+        item_id: "a".into(),
+        body: "abXY|cd".into(),
+        cursor: 4,
+        now_ms: now,
+    });
+
+    h.release_held();
+
+    assert_eq!(
+        h.model.state.get_item_by_id("a").unwrap().body,
+        format!("abXY{LINK}|cd")
+    );
+}
+
+// アップロードを待つ間に別の項目に打っても、リンクは貼り付けたときの位置に入る。
+#[test]
+fn typing_in_another_item_while_the_image_uploads_leaves_the_place_of_the_link() {
+    let mut h = harness();
+    h.hold("UploadAsset");
+    paste_image(&mut h, "a", 2);
+    h.model.state.add_editing_item("z");
+    let now = h.now_ms;
+    h.send(Event::Typed {
+        item_id: "z".into(),
+        body: "zz".into(),
+        cursor: 1,
+        now_ms: now,
+    });
+
+    h.release_held();
+
+    assert_eq!(
+        h.model.state.get_item_by_id("a").unwrap().body,
+        format!("ab{LINK}|cd")
+    );
+}
+
 // アップロードに失敗すると、貼り付けは送られず、画面もUndoも変わらない。
 #[test]
 fn a_failed_upload_pastes_nothing() {
