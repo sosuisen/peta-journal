@@ -263,7 +263,7 @@ pub fn take_dirty(model: &mut Model, item: &Item) -> Option<(DirtyEdit, Cmd)> {
     let discard = discard_pending_edit(model, item);
     let edit = DirtyEdit {
         item: item.clone(),
-        body: typed_text(model, item),
+        body: without_blank_edges(&typed_text(model, item)),
     };
     Some((edit, discard))
 }
