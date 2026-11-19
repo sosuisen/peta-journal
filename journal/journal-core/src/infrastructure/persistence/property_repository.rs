@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use chrono::{Datelike, NaiveDate, TimeZone};
+use chrono::{Datelike, Local, NaiveDate, TimeZone};
 use rusqlite::{params, Connection};
 
 use crate::domain::bounds::Bounds;
@@ -649,26 +649,26 @@ impl PropertyRepository {
             (
                 format!("SELECT id FROM items WHERE {column} >= ? AND {column} < ? LIMIT ?"),
                 vec![
-                    parse_date_to_millis(a, false)?,
-                    parse_date_to_millis(b, true)?,
+                    parse_date_to_millis(a, false, &Local)?,
+                    parse_date_to_millis(b, true, &Local)?,
                 ],
             )
         } else if let Some(rest) = expr.strip_prefix('>') {
             (
                 format!("SELECT id FROM items WHERE {column} >= ? LIMIT ?"),
-                vec![parse_date_to_millis(rest, true)?],
+                vec![parse_date_to_millis(rest, true, &Local)?],
             )
         } else if let Some(rest) = expr.strip_prefix('<') {
             (
                 format!("SELECT id FROM items WHERE {column} < ? LIMIT ?"),
-                vec![parse_date_to_millis(rest, false)?],
+                vec![parse_date_to_millis(rest, false, &Local)?],
             )
         } else {
             (
                 format!("SELECT id FROM items WHERE {column} >= ? AND {column} < ? LIMIT ?"),
                 vec![
-                    parse_date_to_millis(expr, false)?,
-                    parse_date_to_millis(expr, true)?,
+                    parse_date_to_millis(expr, false, &Local)?,
+                    parse_date_to_millis(expr, true, &Local)?,
                 ],
             )
         };
@@ -682,10 +682,13 @@ impl PropertyRepository {
     }
 }
 
-/// Parses a date string to epoch millis in Asia/Tokyo. With `to_end`, returns the exclusive
-/// upper bound (next day or next month start).
-fn parse_date_to_millis(date_str: &str, to_end: bool) -> Result<i64, AppError> {
-    let zone = chrono_tz::Asia::Tokyo;
+/// Parses a date string to epoch millis at the start of that day in `zone`. With `to_end`,
+/// returns the exclusive upper bound (next day or next month start).
+fn parse_date_to_millis<Tz: TimeZone>(
+    date_str: &str,
+    to_end: bool,
+    zone: &Tz,
+) -> Result<i64, AppError> {
     let date = if date_str.len() == 7 {
         let (y, m) = date_str
             .split_once('-')
