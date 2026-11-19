@@ -40,6 +40,13 @@ class Shell(
     // is there, and are still handled after this constructor
     private val border = Border(dataDir, markdownDir) { requests -> onMainThread { handle(requests) } }
 
+    /**
+     * The Markdown that the app put on the clipboard last, `null` before the first copy. The
+     * keyboard on the screen may put it in again from what it shows of the clipboard.
+     */
+    var copied: String? = null
+        private set
+
     /** The core, for the sync to hear from it when a page changed (ADR 055). */
     val core: PetaCore get() = border.core
 
@@ -352,7 +359,10 @@ class Shell(
             }
             is UiOp.Confirm -> put(Question(op.value, destructive = false, id))
             is UiOp.ConfirmDestructive -> put(Question(op.value, destructive = true, id))
-            is UiOp.CopyMarkdown -> copy(op.markdown)
+            is UiOp.CopyMarkdown -> {
+                copied = op.markdown
+                copy(op.markdown)
+            }
             is UiOp.Prompt, is UiOp.ReadClipboardText -> border.answer(id, UiOutput.Text(null))
             // The others wait for no answer, such as the title to set and the item to scroll to
             else -> Unit

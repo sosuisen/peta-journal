@@ -100,8 +100,7 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
     }
     // The core pastes, so that a list becomes items and what the app copied comes back as the
     // same items. Chosen text gives way to the pasted text in the field, as in any field
-    val paste = paste@{
-        val text = clipboard.text() ?: return@paste
+    val pasteText = { text: String ->
         val chosen = field.selection
         if (chosen.collapsed) {
             // A word that the keyboard composes ends here, and the core has not heard of it yet
@@ -113,6 +112,10 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
             shell.type(id, typed, chosen.min + text.length)
         }
     }
+    val paste = { clipboard.text()?.let(pasteText) }
+    // The keyboard puts in what it shows of the clipboard as typed text. What the app copied
+    // goes through the core, so that it comes back as the same items
+    val pastes = { text: CharSequence -> (text.toString() == shell.copied).also { if (it) pasteText(text.toString()) } }
     // The keyboard on the screen sends no key for Backspace. It asks the field to delete the
     // character before the cursor. At the start there is none: the field changes nothing and
     // tells of nothing. So the screen stands between the keyboard and the field, and hears it
@@ -120,7 +123,7 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
         PlatformTextInputInterceptor { request, next ->
             next.startInputMethod(
                 PlatformTextInputMethodRequest { attributes ->
-                    BackspaceAtStart(request.createInputConnection(attributes), joinsAtStart) { shell.press(EditorKey.BACKSPACE, id, cursorAt(0, field.text)) }
+                    KeyboardOnTheScreen(request.createInputConnection(attributes), joinsAtStart, pastes) { shell.press(EditorKey.BACKSPACE, id, cursorAt(0, field.text)) }
                 },
             )
         }
@@ -189,13 +192,16 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
 }
 
 /**
- * The keyboard on the screen as the field hears it, with one change: a Backspace at the
- * start is not for the field. [atStart] says whether the cursor is at the start, with no
- * text chosen and no word being composed. [join] is called then, and the field hears nothing.
+ * The keyboard on the screen as the field hears it, with two changes. A Backspace at the
+ * start is not for the field: [atStart] says whether the cursor is at the start, with no text
+ * chosen and no word being composed, and [join] is called then. Text that the keyboard puts in
+ * goes to [pastes] first, which tells whether it pasted the text. The field hears nothing of
+ * what was taken.
  */
-private class BackspaceAtStart(
+private class KeyboardOnTheScreen(
     keyboard: InputConnection,
     private val atStart: () -> Boolean,
+    private val pastes: (CharSequence) -> Boolean,
     private val join: () -> Unit,
 ) : InputConnectionWrapper(keyboard, false) {
     override fun deleteSurroundingText(before: Int, after: Int): Boolean =
@@ -203,6 +209,9 @@ private class BackspaceAtStart(
 
     override fun deleteSurroundingTextInCodePoints(before: Int, after: Int): Boolean =
         joined(before, after) || super.deleteSurroundingTextInCodePoints(before, after)
+
+    override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean =
+        (text != null && pastes(text)) || super.commitText(text, newCursorPosition)
 
     private fun joined(before: Int, after: Int): Boolean {
         val backspace = before > 0 && after == 0 && atStart()
