@@ -122,13 +122,19 @@ test.describe('outline structure', () => {
 
   test('two moves pressed without a pause both happen, in their order', async ({ page }) => {
     await openEditor(page, byBody('a2').id);
+    let moved = 0;
+    page.on('response', r => {
+      if (r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/items/move') moved++;
+    });
 
     await page.keyboard.press('Alt+Shift+ArrowUp');
     await page.keyboard.press('Alt+Shift+ArrowDown');
     await page.keyboard.press('Alt+Shift+ArrowUp');
 
-    expect(outlineOf(await server.itemsSettled(pageId, i => i[1].body === 'a2')))
-      .toEqual(['1:a', '2:a2', '2:a1', '1:b', '2:b1']);
+    // The outline after the first move is the same as after the third: waiting for that
+    // outline alone compared the outline while the second move was being written
+    await expect.poll(() => moved).toBe(3);
+    expect(outlineOf(await server.items(pageId))).toEqual(['1:a', '2:a2', '2:a1', '1:b', '2:b1']);
     await expect.poll(() => shownBodies(page)).toEqual(['a', 'a2', 'a1', 'b', 'b1']);
     await expect(editorOf(page, byBody('a2').id)).toBeFocused();
     // Nothing more is on its way
