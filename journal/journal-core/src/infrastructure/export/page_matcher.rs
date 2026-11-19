@@ -152,10 +152,8 @@ impl PageMatcher {
         };
         let created =
             parse_instant(frontmatter.get("created").map(String::as_str)).unwrap_or(file_modified);
-        let page = Page {
-            modified_date: file_modified,
-            ..Page::new(id, &loc.dir_path, &loc.name, &loc.page_type, created)
-        };
+        // Saved with the date of the file as its modified date
+        let page = Page::new(id, &loc.dir_path, &loc.name, &loc.page_type, created);
         let page = self.save(&page, loc, file_modified)?;
         tracing::info!("Created page {} from {rel_path}", page.id);
         Ok(Matched::Page(PageMatch {
