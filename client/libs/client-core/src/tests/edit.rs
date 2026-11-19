@@ -67,6 +67,21 @@ fn finish_edit_saves_typed_text_once_cancelling_the_auto_save_and_closes_the_edi
     assert_eq!(update_calls(&h.api).len(), 1, "the text is not sent twice");
 }
 
+// 編集を終えると、本文の前後の空白だけの行は削られて保存される。Markdownでは、ブロックの前後の空行に意味がなく、ファイルから読み戻すと消えるためである。
+#[test]
+fn finish_edit_saves_the_body_without_its_blank_lines_before_and_after() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.state.add_editing_item("a");
+    typed(&mut h, "a", " \n\n  text\nmore  \n\t\n");
+    h.send(Event::EditFinished {
+        item_id: "a".into(),
+    });
+    assert_eq!(
+        update_calls(&h.api),
+        [("a".into(), Some("  text\nmore  ".into()))]
+    );
+}
+
 // Shift+↑↓で項目の選択を始めると、打った文字が保存される。選んだ項目を動かしても、文字は消えない（ADR 052）。
 #[test]
 fn starting_a_selection_from_an_editor_saves_the_typed_text() {
