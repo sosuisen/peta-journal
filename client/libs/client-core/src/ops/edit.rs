@@ -210,6 +210,20 @@ fn typed_text(model: &Model, item: &Item) -> String {
     }
 }
 
+/// The body as an edit leaves it: the lines of only blanks before and after it go. Markdown
+/// gives them no meaning, and a file read back has none (ADR 050 closes blocks at the same
+/// time). Not while typing: a line just begun at the end would go.
+fn without_blank_edges(body: &str) -> String {
+    let lines: Vec<&str> = body.lines().collect();
+    let blank = |line: &&str| line.trim().is_empty();
+    let start = lines.iter().position(|l| !blank(l)).unwrap_or(lines.len());
+    let end = lines
+        .iter()
+        .rposition(|l| !blank(l))
+        .map_or(start, |i| i + 1);
+    lines[start..end].join("\n")
+}
+
 /// Saves a body of the shown item. When the item is a transclusion root, the AST and types
 /// returned for the source are copied back to the shown item.
 async fn save_shown_body(api: &Api<Event>, item: &Item, body: &str) -> ApiResult<Item> {
@@ -329,7 +343,7 @@ fn end_clean_edit(model: &mut Model, item: Item) -> Cmd {
 
 /// Saves the shown item and closes its editor, whether or not the save went through.
 fn save_and_close(model: &Model, item: Item) -> Cmd {
-    let body = typed_text(model, &item);
+    let body = without_blank_edges(&typed_text(model, &item));
     run(move |api| async move {
         if let Err(e) = save_shown_body(&api, &item, &body).await {
             log_error(format!("Failed to save item: {e}"));
