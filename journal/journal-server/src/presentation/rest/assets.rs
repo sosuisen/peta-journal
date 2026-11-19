@@ -16,7 +16,7 @@ use journal_core::domain::asset_name::saved_name;
 use serde::Serialize;
 
 /// The largest upload. The default of 2MB refused large screenshots. A file is held in memory
-/// while it is saved, so the limit stays. See docs/plans.md for what is still open about it.
+/// while it is saved, so the limit stays.
 const UPLOAD_LIMIT_BYTES: usize = 50 * 1024 * 1024;
 
 pub fn routes() -> Router<SharedState> {

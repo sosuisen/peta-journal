@@ -147,6 +147,14 @@ of the outline need the place of the cursor, which SwiftUI does not tell. Text t
 being composed by an input method is not sent to the core until it is confirmed, and the Enter
 that confirms it does not split the item.
 
+After Enter, the old text view keeps the cursor until the server has split the item. The core
+says so (`keyRelayHolding`). What is typed then goes to the core (`Event.keyHeld`) and not into
+the old item: the letters, and Enter, Tab, Backspace, Delete and the arrows (`HeldKeys`). The core
+gives them back with its order to put the cursor in the new item (`replayKeys` of
+`UiOp.focusEditor`), and that text view plays them: a letter as text, another key as if it was
+pressed there. An Enter among them splits the new item, and the keys after it are held again.
+Text still being composed belongs to the input method, and is not held.
+
 A paste goes to the core, not into the text view (`Shell.paste`), as in the web frontend and
 the Windows app. Command+V and "Paste" of the Edit menu send the text on the clipboard with the
 cursor, and the server cuts a Markdown list into items. Shift+Command+V and "Paste and Match

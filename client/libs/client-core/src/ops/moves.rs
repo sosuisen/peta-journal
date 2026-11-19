@@ -121,8 +121,8 @@ fn move_in_transclusion(
     group_ids: Vec<String>,
     position: ItemPosition,
 ) -> Cmd {
-    request_move(model, item, group_ids, position, 0, |_, item_id| {
-        Event::MovedInTransclusion { item_id }
+    request_move(model, item, group_ids, position, 0, |moved, item_id| {
+        Event::MovedInTransclusion { item_id, moved }
     })
 }
 
@@ -204,15 +204,27 @@ pub fn show_moved_to_day(model: &mut Model, moved: CrossDayMove) -> Cmd {
     Command::all([shown, move_done(model, false)])
 }
 
-/// Reads the page again after a move inside a transclusion: the server's version of the
-/// page says how the transclusion shows its items now.
-pub fn show_moved_in_transclusion(model: &mut Model, item_id: String) -> Cmd {
+/// Records the move inside a transclusion for undo, and reads the page again: the server's
+/// version of the page says how the transclusion shows its items now.
+pub fn show_moved_in_transclusion(model: &mut Model, item_id: String, moved: Vec<Item>) -> Cmd {
     // A journal shows the pages of many days: the page to read is the one of the transclusion
     let Some(page_id) = host_page_of_transclusion(model, &item_id) else {
         // The screen went on to another page while the server was asked
         model.key_relay.release();
         return move_done(model, false);
     };
+    let before: Vec<Item> = moved
+        .iter()
+        .filter_map(|item| model.state.get_item_by_id(&item.id))
+        .map(|item| (*item).clone())
+        .collect();
+    if before.len() == moved.len() {
+        model.undo.record_updates(
+            MoveLabel::Move.as_str(),
+            before.iter().zip(&moved),
+            model.clock_ms,
+        );
+    }
     // Reading the page again blurs the editor of the item: the edit goes on in it
     model.edits.edit_handovers += 1;
     let asked_at = AskedAt::now(model);

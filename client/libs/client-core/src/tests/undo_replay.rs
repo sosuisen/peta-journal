@@ -649,9 +649,9 @@ fn undo_of_a_move_of_a_parent_sends_the_group_as_one_move() {
     assert_eq!(sent.len(), 3, "two updates and one move: {sent:?}");
 }
 
-// トランスクルージョンの中での移動の undo は、項目を並べ直さず、移動も送らない。元のページの項目の並びを、このページは持っていないためである。
+// トランスクルージョンの中での移動の undo は、項目を参照元ツリーの中で前にあった項目の後ろへ戻す移動を送り、ページを読み直す。このページは元のページの項目の並びを持たないので、並びはサーバーから読む。
 #[test]
-fn undo_of_a_move_inside_a_transclusion_leaves_the_item_where_it_is() {
+fn undo_of_a_move_inside_a_transclusion_moves_the_item_back_and_reads_the_page_again() {
     let root = item_with("root", 1, |i| i.transclude_item_id = Some("s".into()));
     let mut h = Harness::with_items(vec![root]);
     let mut trees = TranscludedTrees::new();
@@ -665,16 +665,14 @@ fn undo_of_a_move_inside_a_transclusion_leaves_the_item_where_it_is() {
 
     h.send(Event::Undo);
 
-    assert_eq!(h.items_ids(), ["root"]);
-    let shown: Vec<String> = h
-        .view()
-        .outline
-        .rows
-        .iter()
-        .map(|r| r.item.id.clone())
-        .collect();
-    assert_eq!(shown, ["root", "c2", "c1"]);
-    assert_eq!(batch_calls(&h.api), [[update_op("c2", 2, "")]]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[
+            update_op("c2", 2, ""),
+            move_op(&["c2"], ItemPosition::after("c1"))
+        ]]
+    );
+    assert!(h.api.called("GetPageById"));
 }
 
 // 論理アウトデントの undo は、階層と位置の両方を戻す。階層の更新を先に、移動を後に送る。
