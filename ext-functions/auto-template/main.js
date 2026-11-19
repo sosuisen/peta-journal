@@ -80,16 +80,13 @@ function splitList(text) {
 }
 
 function matchesPattern(pattern, page) {
-  const { fileName, pageType } = page;
-  const isDate = /^\d{4}-\d{2}-\d{2}$/.test(fileName);
-  if (pattern === 'daily') return isDate;
-  if (DAYS.includes(pattern)) {
-    // UTC, so the day does not depend on the time zone of the server
-    return isDate && DAYS[new Date(fileName + 'T00:00:00Z').getUTCDay()] === pattern;
+  // The server reads the name of a journal, so a name that only looks like a date, such as
+  // 2026-W60, is not taken for one here
+  const { fileName, pageType, journal } = page;
+  if (DAYS.includes(pattern)) return journal?.weekday === pattern;
+  if (['daily', 'weekly', 'monthly', 'yearly'].includes(pattern)) {
+    return journal?.period === pattern;
   }
-  if (pattern === 'weekly') return /^\d{4}-W\d{2}$/.test(fileName);
-  if (pattern === 'monthly') return /^\d{4}-\d{2}$/.test(fileName);
-  if (pattern === 'yearly') return /^\d{4}$/.test(fileName);
   if (pattern === 'page' || pattern === 'doc') return pageType === 'doc';
   if (pattern === 'journal') return pageType === 'journal';
   // A regular expression: /pattern/
