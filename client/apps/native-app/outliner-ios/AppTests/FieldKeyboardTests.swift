@@ -37,4 +37,17 @@ final class FieldKeyboardTests: XCTestCase {
         XCTAssertTrue(search.isFirstResponder)
         XCTAssertFalse(field.isFirstResponder)
     }
+
+    // 編集が別の項目へ移るときは、新しい項目の欄が、前の項目の欄からキーボードを取る。
+    func testTheFieldOfTheNextEditedItemTakesTheKeyboardFromTheFieldBefore() {
+        let before = ItemEditor.Field()
+        let next = ItemEditor.Field()
+        window.addSubview(before)
+        before.takeTheKeyboard()
+
+        next.takeTheKeyboard()
+        window.addSubview(next)
+
+        XCTAssertTrue(next.isFirstResponder)
+    }
 }
