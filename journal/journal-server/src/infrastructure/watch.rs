@@ -136,8 +136,14 @@ impl MarkdownFolderWatcher {
         }
         self.stop_watching();
 
+        // The folder is watched at its real path, with the links on the way followed. FSEvents
+        // of macOS names the files of its events so, and the settings may name the folder
+        // through a link, as `~/Dropbox` links to `~/Library/CloudStorage/Dropbox`. The path
+        // of an event would not be under the folder as the settings name it, and the change
+        // would be dropped as a file outside the folder
+        let watched = new_root.canonicalize().unwrap_or_else(|_| new_root.clone());
         let me = Arc::clone(self);
-        let root_for_events = new_root.clone();
+        let root_for_events = watched.clone();
         let watcher =
             notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
                 Ok(event) => me.handle(&root_for_events, event),
@@ -155,7 +161,7 @@ impl MarkdownFolderWatcher {
         };
         let mut any = false;
         for top in ["docs", "journals"] {
-            let dir = new_root.join(top);
+            let dir = watched.join(top);
             if dir.is_dir() {
                 match watcher.watch(&dir, RecursiveMode::Recursive) {
                     Ok(_) => any = true,
@@ -171,7 +177,7 @@ impl MarkdownFolderWatcher {
         } else {
             // The definitions of another device come in settings/, which a device that has
             // defined nothing yet does not have; it is made so that it can be watched
-            let settings = new_root.join(SETTINGS_DIR);
+            let settings = watched.join(SETTINGS_DIR);
             if let Err(e) = std::fs::create_dir_all(&settings)
                 .map_err(notify::Error::io)
                 .and_then(|_| watcher.watch(&settings, RecursiveMode::NonRecursive))
