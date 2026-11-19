@@ -838,7 +838,10 @@
 
 ### 2台のPCで同じフォルダを使う
 
-出典: `journal/journal-server/tests/it/item_merge.rs`
+出典: `journal/journal-server/tests/it/item_merge.rs`、`journal/journal-server/tests/it/watch.rs`
+
+- サーバーはフォルダを監視し、外で書き換えたファイルを、走査を待たずに取り込む
+  - シンボリックリンクを通して設定したフォルダも、リンクの先の実際の場所で監視する。MacのDropbox（`~/Dropbox`）はこの形で、macOSは変更をリンクの先のパスで知らせる
 
 - ファイルは項目ごとに合流する。同じページの別の項目を2台で編集しても、両方の編集が残る
   - 同じ項目を2台で編集すると、後の編集が両方に残る

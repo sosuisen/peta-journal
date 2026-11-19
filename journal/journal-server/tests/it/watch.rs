@@ -95,6 +95,32 @@ impl Folder {
             .prefix("peta-journal-watch-")
             .tempdir()
             .unwrap();
+        let root = dir.path().join("markdown");
+        Folder::configured(dir, root.clone(), root)
+    }
+
+    /// A markdown folder that the settings name through a symbolic link, as `~/Dropbox` on
+    /// a Mac links to `~/Library/CloudStorage/Dropbox`. The files are written where the link
+    /// leads, as the cloud folder writes them. Watched from now on.
+    #[cfg(unix)]
+    fn watched_through_a_link() -> Folder {
+        let dir = tempfile::Builder::new()
+            .prefix("peta-journal-watch-")
+            .tempdir()
+            .unwrap();
+        // The real place, without a link on the way: a temporary folder of macOS is a link too
+        let real = dir.path().canonicalize().unwrap().join("cloud");
+        std::fs::create_dir_all(real.join("markdown")).unwrap();
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let folder = Folder::configured(dir, link.join("markdown"), real.join("markdown"));
+        folder.state.watcher.start();
+        folder.state.watcher.restart();
+        folder
+    }
+
+    /// A markdown folder that the settings name `configured`, and whose files are at `root`
+    fn configured(dir: tempfile::TempDir, configured: PathBuf, root: PathBuf) -> Folder {
         let settings = Settings {
             // A short quiet time keeps the tests short
             import_debounce_ms: 100,
@@ -103,13 +129,12 @@ impl Folder {
             import_delete_prompt_cooldown_secs: 10_000_000_000,
             ..Settings::under(dir.path(), 0)
         };
-        let root = dir.path().join("markdown");
         let config_dir = dir.path().join("config");
         std::fs::create_dir_all(root.join("docs")).unwrap();
         std::fs::create_dir_all(&config_dir).unwrap();
         std::fs::write(
             config_dir.join("config.json"),
-            json!({ "markdownDir": root.to_string_lossy() }).to_string(),
+            json!({ "markdownDir": configured.to_string_lossy() }).to_string(),
         )
         .unwrap();
         let state = AppState::build(settings, BuildOptions { interactive: false }).unwrap();
@@ -201,6 +226,21 @@ async fn a_file_edited_outside_is_taken_into_its_page_and_found_without_a_scan()
     eventually("the edit is found", || folder.finds(&page, "rhubarb")).await;
 }
 
+// シンボリックリンクを通して設定したフォルダでも、リンクの先で編集したファイルは、スキャンを待たずにページに取り込まれる。MacのDropboxのフォルダは、この形である。
+#[cfg(unix)]
+#[tokio::test]
+async fn a_file_edited_in_a_folder_set_through_a_link_is_taken_into_its_page() {
+    let folder = Folder::watched_through_a_link();
+    let page = folder.page_with_file("edited", "before the edit\n");
+
+    folder.write("docs/edited.md", "edited in the cloud folder\n");
+
+    eventually("the edit is in the page", || {
+        folder.outline(&page) == ["1:edited in the cloud folder"]
+    })
+    .await;
+}
+
 // フォルダに置いた新しいファイルは、スキャンを待たずにページになる。
 #[tokio::test]
 async fn a_new_file_in_the_folder_becomes_a_page_without_a_scan() {
@@ -223,14 +263,14 @@ async fn a_file_of_definitions_from_another_device_is_taken_in_without_a_scan() 
 
     folder.write(
         "settings/properties.json",
-        r#"{ "definitions": { "score": { "type": "number", "page": false, "modified": "2025-11-15T01:00:00Z" } } }"#,
+        r#"{ "definitions": { "score_n": { "page": false, "modified": "2025-11-15T01:00:00Z" } } }"#,
     );
 
     eventually("the definition is in", || {
         folder
             .state
             .properties
-            .find_definition("score")
+            .find_definition("score_n")
             .unwrap()
             .is_some()
     })
