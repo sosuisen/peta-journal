@@ -373,6 +373,12 @@ pub enum Event {
         /// Where the cursor was when the image was pasted.
         cursor: usize,
     },
+    /// The pasted image did not reach the server: no link is pasted.
+    ImageUploadFailed {
+        item_id: String,
+        /// Where the cursor was when the image was pasted.
+        cursor: usize,
+    },
     DragBeyondBounds {
         item_id: String,
     },
@@ -1003,6 +1009,8 @@ pub struct Model {
     pub selection: Selection,
     pub key_relay: KeyRelay,
     pub edits: EditState,
+    /// The images on their way to the server, whose links are pasted when they are there.
+    pub image_uploads: Vec<ops::paste::ImageUpload>,
     /// Pages changed on disk while the user was editing.
     pub file_reload_pending: HashSet<String>,
     /// True while a reload of the pending pages waits for the auto-save to flush.
@@ -1046,6 +1054,7 @@ impl Default for Model {
     fn default() -> Self {
         Model {
             state: OutlineState::default(),
+            image_uploads: Vec::new(),
             undo: UndoStacks::default(),
             selection: Selection::default(),
             key_relay: KeyRelay::default(),
@@ -1179,6 +1188,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             now_ms,
         } => {
             model.clock_ms = now_ms;
+            ops::paste::follow_the_cursor(model, &item_id, cursor);
             ops::outline_events::typed(model, &item_id, body, cursor)
         }
         EditFinished { item_id } => ops::edit::finish_edit(model, &item_id),
@@ -1278,12 +1288,16 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             item_id,
             file,
             cursor,
-        } => ops::paste::paste_image(&item_id, file, cursor),
+        } => ops::paste::paste_image(model, &item_id, file, cursor),
         ImageUploaded {
             item_id,
             image,
             cursor,
         } => ops::paste::link_image(model, &item_id, &image, cursor),
+        ImageUploadFailed { item_id, cursor } => {
+            ops::paste::take_upload_cursor(model, &item_id, cursor);
+            done()
+        }
         DragBeyondBounds { item_id } => {
             // Typed text is saved first, as for Shift with an arrow
             let save = ops::edit::finish_edit(model, &item_id);

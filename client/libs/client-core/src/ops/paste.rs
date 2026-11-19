@@ -185,8 +185,23 @@ pub fn place_cursor(model: &mut Model, cursor: PasteCursor, fallback: PasteCurso
     focus_editor(model, Some(cursor.item_id))
 }
 
+/// An image on its way to the server, and where its link goes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImageUpload {
+    item_id: String,
+    /// Where the cursor was when the image was pasted: the upload is known by it
+    pasted_at: usize,
+    /// Where the link goes: where the cursor is after what was typed since
+    cursor: usize,
+}
+
 /// Uploads a pasted image. Its link is pasted once the server has the image.
-pub fn paste_image(item_id: &str, file: u64, cursor: usize) -> Cmd {
+pub fn paste_image(model: &mut Model, item_id: &str, file: u64, cursor: usize) -> Cmd {
+    model.image_uploads.push(ImageUpload {
+        item_id: item_id.to_string(),
+        pasted_at: cursor,
+        cursor,
+    });
     let item_id = item_id.to_string();
     run(move |api| async move {
         match api.upload_asset(file).await {
@@ -195,9 +210,34 @@ pub fn paste_image(item_id: &str, file: u64, cursor: usize) -> Cmd {
                 image,
                 cursor,
             }),
-            Err(e) => log_error(format!("Failed to paste image: {e}")),
+            Err(e) => {
+                log_error(format!("Failed to paste image: {e}"));
+                api.send_event(Event::ImageUploadFailed { item_id, cursor });
+            }
         }
     })
+}
+
+/// Text typed into an item whose image is on its way moves the place of its link to the
+/// cursor: the link goes where the user is, not into the middle of what they typed.
+pub fn follow_the_cursor(model: &mut Model, item_id: &str, cursor: usize) {
+    for upload in model.image_uploads.iter_mut() {
+        if upload.item_id == item_id {
+            upload.cursor = cursor;
+        }
+    }
+}
+
+/// Where the link of the image pasted at `pasted_at` goes, and forgets the upload.
+pub fn take_upload_cursor(model: &mut Model, item_id: &str, pasted_at: usize) -> usize {
+    let found = model
+        .image_uploads
+        .iter()
+        .position(|u| u.item_id == item_id && u.pasted_at == pasted_at);
+    match found {
+        Some(at) => model.image_uploads.remove(at).cursor,
+        None => pasted_at,
+    }
 }
 
 /// Puts a link to an uploaded image at the cursor, as a paste of text that stays in one
@@ -207,6 +247,7 @@ pub fn paste_image(item_id: &str, file: u64, cursor: usize) -> Cmd {
 /// The link shows the name the file came with, and points to the name the server saved it
 /// under. See ADR-022.
 pub fn link_image(model: &mut Model, item_id: &str, image: &Uploaded, cursor: usize) -> Cmd {
+    let cursor = take_upload_cursor(model, item_id, cursor);
     let markdown = format!(
         "![{}](../assets/{})",
         escape_link_text(&image.original_name),
