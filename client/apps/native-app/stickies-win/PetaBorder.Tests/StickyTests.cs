@@ -24,4 +24,73 @@ public sealed class StickyLookTests
 
         Assert.Equal(5, told);
     }
+
+    // 残しておいた色で開いた付箋紙は、その色になる。色がなければ、黄色になる。
+    [Fact]
+    public void A_sticky_opens_in_the_color_that_was_kept_or_in_yellow()
+    {
+        Assert.Equal("#ABCDEF", new StickyLook("#ABCDEF").Color);
+        Assert.Equal(PetaCore.PetaNative.StickyYellow(), new StickyLook().Color);
+    }
+
+    // 縮小は、拡大と逆の向きに大きさを変える。
+    [Fact]
+    public void Zooming_out_makes_the_page_smaller()
+    {
+        var look = new StickyLook();
+
+        look.ZoomOut();
+
+        Assert.True(look.Zoom < 1);
+    }
+}
+
+/// <summary>The file that keeps the stickies for the next run of the app.</summary>
+public sealed class StickyStoreTests
+{
+    // アプリは、付箋紙を、アプリのデータのフォルダのPetaStickies\stickies.jsonに残す。場所が変わると、残した付箋紙が開かない。
+    [Fact]
+    public void The_stickies_are_kept_in_the_folder_of_the_data_of_apps()
+    {
+        Assert.Equal(
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "PetaStickies",
+                "stickies.json"
+            ),
+            StickyStore.StandardFile
+        );
+    }
+
+    // ファイルに残した付箋紙は、次にアプリを起動したときに、そのまま戻る。
+    [Fact]
+    public void A_kept_sticky_comes_back_in_the_next_run()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"peta-sticky-store-test-{Guid.NewGuid()}");
+        var file = Path.Combine(folder, "stickies.json");
+        var sticky = new PetaCore.PetaSticky(
+            "sticky-1",
+            "/pages/sample",
+            10,
+            20,
+            300,
+            400,
+            "#ABCDEF",
+            true,
+            1.2,
+            false
+        );
+        try
+        {
+            using (var store = new StickyStore(file))
+                store.Put(sticky);
+
+            using var next = new StickyStore(file);
+            Assert.Equal([sticky], next.Stickies);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
 }

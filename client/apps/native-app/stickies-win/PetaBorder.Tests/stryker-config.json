@@ -2,6 +2,8 @@
   "stryker-config": {
     "project": "PetaBorder.csproj",
     "test-runner": "mtp",
+    "coverage-analysis": "all",
+    "ignore-methods": ["ArgumentNullException.ThrowIfNull"],
     "reporters": ["html", "json", "progress"]
   }
 }

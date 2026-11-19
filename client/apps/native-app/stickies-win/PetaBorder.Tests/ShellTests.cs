@@ -178,6 +178,33 @@ public sealed class ShellTests : IDisposable
         shell.FinishEditing(item);
     }
 
+    // 閉じたウィンドウに、待っていたコアの要求が届いても、何もしない。
+    [Fact]
+    public void The_requests_that_reach_a_closed_window_do_nothing()
+    {
+        var shell = ShellWithPage();
+        shell.Open("/pages/winui-other");
+        main.WaitForWork();
+
+        shell.Dispose();
+
+        main.Turn();
+    }
+
+    // 何も指さないURLを開いても、何も変わらない。
+    [Fact]
+    public void A_url_that_names_nothing_changes_nothing()
+    {
+        var shell = ShellWithPage();
+        var told = 0;
+        shell.UrlChanged += () => told++;
+
+        shell.Open("nothing");
+
+        Assert.Equal("/pages/winui-notes", shell.Url);
+        Assert.Equal(0, told);
+    }
+
     // 戻ると、前に開いたページがまた開き、付箋紙が覚えるURLもそのページになる。進むと、戻る前のページに戻る（ADR 035）。
     [Fact]
     public void Back_and_forward_follow_the_pages_opened_and_the_url_follows()
@@ -341,6 +368,17 @@ public sealed class ShellTests : IDisposable
         main.WaitUntil("the item is edited", () => shell.View.Outline.Rows[0].IsEditing);
         Assert.Equal(first, shell.View.Outline.FocusRequest?.ItemId);
         Assert.Equal(5ul, shell.View.Outline.FocusRequest?.Cursor);
+    }
+
+    // アウトラインにとって意味のないキーは、エディタに任される。
+    [Fact]
+    public void A_key_that_means_nothing_to_the_outline_is_left_to_the_editor()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+
+        Assert.False(Press(shell, Letter("a"), item, Editor("", 0)));
     }
 
     // Enterは、カーソルの位置で項目を分ける。カーソルは、新しい項目の先頭に移る。
@@ -607,6 +645,21 @@ public sealed class ShellTests : IDisposable
         var (_, second) = TwoItems(shell);
         shell.Typed("second", second);
         Assert.True(Press(shell, Down, second, Editor("second", 0), Held.Shift));
+    }
+
+    // 項目の文字から次の項目までマウスでドラッグすると、2つの項目が選ばれる。
+    [Fact]
+    public void A_drag_from_an_item_to_the_next_selects_both()
+    {
+        var shell = ShellWithPage();
+        var (first, second) = TwoItems(shell);
+
+        shell.StartEditing(first);
+        shell.Dragged(new DragMove.Pressed(first, 0, 20));
+        shell.Dragged(new DragMove.Moved(200, second));
+
+        main.WaitUntil("both items are selected", () => Selected(shell).Count == 2);
+        Assert.True(shell.View.Outline.SelectionMode);
     }
 
     // 最初の行でのShift+上は、その項目を選ぶ。
