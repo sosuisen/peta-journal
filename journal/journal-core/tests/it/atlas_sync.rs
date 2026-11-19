@@ -5,7 +5,7 @@
 use hmtid::Hmtid;
 use journal_core::infrastructure::export::import_service::Outcome;
 
-use crate::common::devices::{two_devices, two_devices_with, Device, ATLAS, INDEX};
+use crate::common::devices::{time_passes, two_devices, two_devices_with, Device, ATLAS, INDEX};
 
 impl Device {
     fn atlas_id(&self) -> Hmtid {
@@ -153,6 +153,34 @@ fn a_page_deleted_on_both_devices_leaves_both_atlases_alike() {
     a.doc("e");
     assert_eq!(b.receive(&a, ATLAS), Outcome::Imported);
     assert!(a.conflicts().is_empty() && b.conflicts().is_empty());
+}
+
+// 届いたアトラスが、こちらで後から変えたアトラスより古ければ、届いた内容はバックアップに残り、ページはこちらのまま保たれる。
+#[test]
+fn an_atlas_older_than_the_change_here_is_kept_as_a_backup() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.page_in("d/", "a").unwrap();
+    a.core
+        .item_service
+        .set_property(&a.card_item(&page), "atlas_bounds", "bounds", "1,2,0,40")
+        .unwrap();
+    a.export();
+    time_passes(&[&a, &b]);
+    b.core
+        .item_service
+        .set_property(&b.card_item(&page), "atlas_bounds", "bounds", "5,6,0,40")
+        .unwrap();
+
+    assert_eq!(b.receive(&a, ATLAS), Outcome::Conflict);
+
+    assert_eq!(b.card_bounds(&page).as_deref(), Some("5,6,0,40"));
+    let backups = b.conflicts();
+    assert_eq!(backups.len(), 1, "{backups:?}");
+    assert_eq!(
+        std::fs::read_to_string(&backups[0]).unwrap(),
+        a.on_disk(ATLAS)
+    );
 }
 
 /// Delivers the atlas back and forth a few times; each device writes what it takes in, as

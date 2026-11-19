@@ -164,6 +164,34 @@ fn deleting_a_page_removes_its_file() {
         .unwrap();
 
     assert!(!file.exists());
+    // Left behind, it would hold the path as a file of a page that is gone
+    let states = notes
+        .core
+        .file_sync_state
+        .find_by_page_id(&page.parse().unwrap())
+        .unwrap();
+    assert!(states.is_empty(), "{} left", states.len());
+}
+
+// ページのファイルを消すと、走査はそのファイルを、利用者に尋ねる消えたファイルとして持つ。
+#[test]
+fn a_file_deleted_from_the_folder_waits_as_a_missing_file() {
+    let notes = Core::new();
+    notes.new_doc_page("sync-missing");
+    notes.exported("sync-missing");
+
+    std::fs::remove_file(notes.file_named("sync-missing")).unwrap();
+    notes.scan();
+
+    let missing: Vec<String> = notes
+        .core
+        .file_sync_state
+        .find_missing()
+        .unwrap()
+        .into_iter()
+        .map(|s| s.rel_path)
+        .collect();
+    assert_eq!(missing, ["docs/sync-missing.md"]);
 }
 
 // 名前を変えたページを書き出す前に削除しても、古い名前のファイルは消える。
@@ -211,6 +239,45 @@ fn a_new_file_in_the_folder_becomes_a_page() {
         notes.outline_of(ids[0].as_str().unwrap()),
         vs(&["1:hello from disk", "1:second block"])
     );
+}
+
+// 新しいファイルから作ったページは、フロントマターの作成日時と更新日時を持つ。
+#[test]
+fn a_page_made_from_a_new_file_takes_the_dates_of_its_front_matter() {
+    let notes = Core::new();
+    let docs = notes.root.join("docs");
+    std::fs::create_dir_all(&docs).unwrap();
+    std::fs::write(
+        docs.join("sync-new-dates.md"),
+        "---\ncreated: 2020-01-01T00:00:00Z\nmodified: 2021-06-01T00:00:00Z\n---\nfrom disk\n",
+    )
+    .unwrap();
+
+    notes.scan();
+
+    let found = notes.search_pages("sync-new-dates");
+    let page_id = field_of_each(&found, "results", "pageId").remove(0);
+    let page = &notes.page(page_id.as_str().unwrap())["page"];
+    assert_eq!(page["createdDate"], json!(1_577_836_800_000_i64));
+    assert_eq!(page["modifiedDate"], json!(1_622_505_600_000_i64));
+}
+
+// docsのファイルをjournalsへ移すと、ページはジャーナルになる。
+#[test]
+fn a_file_moved_from_docs_to_journals_makes_its_page_a_journal() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("sync-to-journal");
+    let file = notes.exported("sync-to-journal");
+    let journals = notes.root.join("journals");
+    std::fs::create_dir_all(&journals).unwrap();
+    std::fs::write(journals.join("2020-01-05.md"), file).unwrap();
+    std::fs::remove_file(notes.file_named("sync-to-journal")).unwrap();
+
+    notes.scan();
+
+    let moved = &notes.page(&page)["page"];
+    assert_eq!(moved["type"], json!("journal"), "{moved}");
+    assert_eq!(moved["name"], json!("2020-01-05"));
 }
 
 // 旧い形のインデックスのファイルは、付け直して書き戻される。
