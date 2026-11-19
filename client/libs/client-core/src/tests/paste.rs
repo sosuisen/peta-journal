@@ -640,3 +640,37 @@ fn the_link_of_an_image_is_not_pasted_into_an_item_that_is_gone() {
 
     assert!(h.api.calls.is_empty());
 }
+
+// 貼り付けで作られた項目の並び順の値が、上と下の項目の値の間にないときは、ページの並び順の値を読み直す。サーバーが周りの項目の値を振り直したためである。
+#[test]
+fn a_paste_whose_new_item_is_out_of_place_reads_the_indices_again() {
+    let mut h = harness();
+    let at = |id: &str, body: &str, idx: &str| {
+        item_with(id, 1, |i| {
+            i.body = body.into();
+            i.idx = idx.into();
+        })
+    };
+    answer_paste(&mut h, vec![at("a", "abx", "a"), at("p1", "y", "zz")], "p1", 1);
+
+    paste(&mut h, "a", "x\ny", 2);
+
+    assert!(h.api.called("GetPageById"));
+}
+
+// 貼り付けで作られた項目の並び順の値が、上と下の項目の値の間にあるときは、読み直さない。
+#[test]
+fn a_paste_whose_new_item_is_in_place_does_not_read_again() {
+    let mut h = harness();
+    let at = |id: &str, body: &str, idx: &str| {
+        item_with(id, 1, |i| {
+            i.body = body.into();
+            i.idx = idx.into();
+        })
+    };
+    answer_paste(&mut h, vec![at("a", "abx", "a"), at("p1", "y", "m")], "p1", 1);
+
+    paste(&mut h, "a", "x\ny", 2);
+
+    assert!(!h.api.called("GetPageById"));
+}
