@@ -187,7 +187,12 @@ fn closing_saves_the_body_still_waiting_to_be_saved() {
     core.sync();
     core.open("/pages/notes".into()).unwrap();
     wait_until("the page shows", || shown(&core).contains("an apple"));
-    let page = core.core.page_service.find_doc("notes", "").unwrap().unwrap();
+    let page = core
+        .core
+        .page_service
+        .find_doc("notes", "")
+        .unwrap()
+        .unwrap();
     let item_id = core.core.items.find_by_page_id(&page.id).unwrap()[0]
         .id
         .to_string();
