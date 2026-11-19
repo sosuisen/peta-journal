@@ -359,3 +359,25 @@ a test that crosses the border finds this.
 These tests do not run in CI. Run them by hand after a change to a type that crosses the
 border. CI does run the Rust tests of the entrance
 (`cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi`).
+
+### Mutation testing
+
+Run the mutation test of `PetaBorder` before each PR that changes it (#782):
+
+```
+$env:PETA_E2E_SERVER = "$PWD/../../../../journal/target/release/journal-server.exe"
+./mutation.ps1
+```
+
+The script runs Stryker.NET (the tool `dotnet-stryker` in `dotnet-tools.json`) on
+`PetaBorder`, with the tests of `PetaBorder.Tests`. The report is in
+`PetaBorder.Tests/StrykerOutput/<time>/reports/mutation-report.html`. A run takes about a
+minute. The arguments of the script go to Stryker.NET.
+
+The tests of the windows (`PetaScreens.Tests`) are not used: they send real input, and Stryker
+would run them for each mutant. So the mutants of `PetaScreens` are not tested.
+
+The script sets `PetaMutation`, and `Directory.Build.props` then allows the preview features
+of C# and makes CS8509 a warning. Stryker.NET builds the mutants with a Roslyn of its own,
+older than the one of the .NET SDK. In that Roslyn, the closed records of C# 15 are a preview
+feature. When Stryker.NET has a Roslyn that knows them, the preview is not needed any more.

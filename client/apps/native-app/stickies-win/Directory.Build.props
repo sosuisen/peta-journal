@@ -13,6 +13,15 @@
          closed records, a kind of part that is not drawn (ADR 042). -->
     <WarningsAsErrors>$(WarningsAsErrors);nullable;CS8509</WarningsAsErrors>
   </PropertyGroup>
+  <!-- Only while mutation.ps1 runs Stryker.NET. Stryker builds the mutants with a Roslyn of its
+       own, older than the one of the .NET SDK. In that Roslyn, closed records are a preview
+       feature of C#. And Stryker puts its mutants into a switch expression in a way that the
+       compiler cannot prove to leave out no case (CS8509). Not in the normal build: there, no
+       preview feature may slip in, and CS8509 stays an error. -->
+  <PropertyGroup Condition="'$(PetaMutation)' == 'true'">
+    <LangVersion>preview</LangVersion>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);CS8509</WarningsNotAsErrors>
+  </PropertyGroup>
   <!-- The generated classes have no constructor. Deserialize fills every field, but the
        compiler warns for each field (CS8618), and for the key type of a map (CS8714).
        CS8618 is right about one thing: hand-written code can leave a field out, and then
