@@ -20,11 +20,14 @@ const frontendDir = resolve(shellDir, 'dist-e2e');
 
 /**
  * Writes the test server's own config.json. It names no markdown folder: a throw-away server
- * has `markdown/` under its folder.
+ * has `markdown/` under its folder. Its `docs/` is there from the start, as in a folder in use:
+ * the server watches the folder from its start then, and a file a test writes is taken in at
+ * once, not after the next look for the folders.
  */
 function writeConfig(): void {
   const configDir = join(dataDir, 'config');
   mkdirSync(configDir, { recursive: true });
+  mkdirSync(join(markdownDir, 'docs'), { recursive: true });
   writeFileSync(join(configDir, 'config.json'), JSON.stringify({ weekNumbering: 'iso' }));
 }
 
