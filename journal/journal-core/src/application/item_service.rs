@@ -12,6 +12,7 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::item_body::{self, ItemBody};
 use crate::domain::model::{Item, ItemPatch, ItemPlacement, ItemPosition, Page};
 use crate::domain::nfc::to_nfc;
+use crate::domain::property_key::{ListKey, PropertyKey};
 use crate::domain::search::SearchIndex;
 use crate::error::AppError;
 use crate::infrastructure::export::export_service::MarkdownExportService;
@@ -111,6 +112,11 @@ pub enum BatchOp {
         position: ItemPosition,
         level: i32,
         body: String,
+        /// The source item the item shows, for a transclusion made again.
+        transclude: Option<Hmtid>,
+        /// The properties of the item made again: one value for a scalar key, the values of
+        /// a list key.
+        properties: Vec<(PropertyKey, Vec<String>)>,
     },
     /// Writes the given fields of an item. A task state is written whole, with its times.
     Update {
@@ -1046,6 +1052,7 @@ impl ItemService {
         let mut written = Vec::new();
         let mut deleted = Vec::new();
         let mut transcluder_pages = BTreeSet::new();
+        let mut transclusions = Vec::new();
         for op in ops {
             match op {
                 BatchOp::Create {
@@ -1054,8 +1061,10 @@ impl ItemService {
                     position,
                     level,
                     body,
+                    transclude,
+                    properties,
                 } => {
-                    self.create_item_in(
+                    let created = self.create_item_in(
                         &tx,
                         page_id,
                         position,
@@ -1064,6 +1073,10 @@ impl ItemService {
                         Some(id.clone()),
                         &mut effects,
                     )?;
+                    if let Some(source) = transclude {
+                        transclusions.push((created.id.clone(), source.clone()));
+                    }
+                    put_properties_in(&tx, id, properties)?;
                     written.push(id.clone());
                 }
                 BatchOp::Update {
@@ -1104,6 +1117,7 @@ impl ItemService {
                 BatchOp::Delete { id } => deleted.push(id.clone()),
             }
         }
+        self.transclude_made_again_in(&tx, &transclusions)?;
         // A parent deleted on its own is refused, so the deletes go together
         if !deleted.is_empty() {
             self.remove_group_in(&tx, &deleted, &mut effects)?;
@@ -1125,6 +1139,24 @@ impl ItemService {
             created,
             page_ids,
         })
+    }
+
+    /// Makes the items of a batch show their sources again, once every item of the batch is
+    /// made: an undo makes a source and the items that show it together, in any order. An
+    /// item whose source is gone keeps the text it had, so that the undo is not refused.
+    fn transclude_made_again_in(
+        &self,
+        tx: &Connection,
+        transclusions: &[(Hmtid, Hmtid)],
+    ) -> Result<(), AppError> {
+        for (id, source) in transclusions {
+            if ItemRepository::find_by_id_in(tx, source)?.is_none() {
+                continue;
+            }
+            let item = find_all_in(tx, std::slice::from_ref(id))?.remove(0);
+            self.set_transclusion_in(tx, &item, source)?;
+        }
+        Ok(())
     }
 
     /// Sets a transclusion on an item, making it mirror a source item.
@@ -1500,6 +1532,36 @@ fn touched_in(tx: &Connection, existing: &Item, now: i64) -> Result<Item, AppErr
         modified_date: now,
         ..existing.clone()
     })
+}
+
+/// Writes the properties of an item made again, as the file of its page would bring them
+/// in: a key that is no longer defined gets a provisional definition, so that the undo of a
+/// deletion is not refused (ADR 046). The tags come from the hashtags of the body.
+fn put_properties_in(
+    tx: &Connection,
+    item_id: &Hmtid,
+    properties: &[(PropertyKey, Vec<String>)],
+) -> Result<(), AppError> {
+    for (key, values) in properties {
+        match key {
+            PropertyKey::List(ListKey::Tags) => {}
+            PropertyKey::List(ListKey::User(_)) => PropertyRepository::take_in_list_in(
+                tx,
+                ITEM_TARGET,
+                item_id.as_str(),
+                key.as_str(),
+                values,
+            )?,
+            PropertyKey::Scalar(_) => PropertyRepository::take_in_scalar_in(
+                tx,
+                ITEM_TARGET,
+                item_id.as_str(),
+                key.as_str(),
+                &values.join(","),
+            )?,
+        }
+    }
+    Ok(())
 }
 
 /// Puts an item in a task state in one step, with the times and the plan that go with it. The

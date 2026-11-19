@@ -358,6 +358,13 @@ pub enum BatchOp {
         position: ItemPosition,
         level: i32,
         body: String,
+        /// The source item the item shows, for a transclusion made again.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        transclude_item_id: Option<String>,
+        /// The properties of the item made again. The server leaves the tags to the hashtags
+        /// of the body.
+        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+        properties: BTreeMap<String, PropertyValue>,
     },
     /// Writes the fields given. A task state is written whole, with its times.
     Update {

@@ -1,7 +1,7 @@
 use crate::effects::{ApiError, ApiOp, ApiOutput, AtlasChange, FolderChoice};
 use crate::model::{
     BatchOp, ItemPosition, JournalBefore, Page, PageWithItems, PasteCursor, PasteMode,
-    ServerConfig, TaskState, TreeExport,
+    PropertyValue, ServerConfig, TaskState, TreeExport,
 };
 use crate::rest::{rest_call, HttpReply, RestCall};
 use serde::Serialize;
@@ -492,6 +492,37 @@ fn a_split_posts_the_body_and_the_cursor_and_answers_the_item_and_the_item_made(
     );
 }
 
+// バッチの作成は、トランスクルージョンの元とプロパティを、サーバーが読む名前と形で送る。プロパティの値は、文字列か文字列の並びである。
+#[test]
+fn a_batch_create_posts_its_transclusion_and_properties_as_the_server_reads_them() {
+    let rest = call(ApiOp::ApplyBatch {
+        ops: vec![BatchOp::Create {
+            id: id("n"),
+            page_id: id("p"),
+            position: ItemPosition::First,
+            level: 1,
+            body: id("text"),
+            transclude_item_id: Some(id("s")),
+            properties: [
+                ("status".to_string(), PropertyValue::Text(id("done"))),
+                (
+                    "owners_list".to_string(),
+                    PropertyValue::List(vec![id("ann")]),
+                ),
+            ]
+            .into(),
+        }],
+    });
+    assert_eq!(
+        rest.request.body,
+        Some(json!({ "ops": [
+            { "op": "create", "id": "n", "pageId": "p", "position": "first", "level": 1,
+              "body": "text", "transcludeItemId": "s",
+              "properties": { "owners_list": ["ann"], "status": "done" } },
+        ]}))
+    );
+}
+
 // バッチは、操作をサーバーが読む形の JSON で順に送り、書かれた項目を答える。変えないフィールドは送らない。
 #[test]
 fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_items_written() {
@@ -522,6 +553,8 @@ fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_ite
                 position: ItemPosition::after("a"),
                 level: 2,
                 body: id("new"),
+                transclude_item_id: None,
+                properties: Default::default(),
             },
             BatchOp::Move {
                 ids: vec![id("m"), id("m1")],
