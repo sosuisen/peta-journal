@@ -662,6 +662,31 @@ fn typing_in_another_item_while_the_image_uploads_leaves_the_place_of_the_link()
     );
 }
 
+// アップロードに失敗した画像は忘れられ、後で同じ位置に貼り付けた画像のリンクの位置を変えない。
+#[test]
+fn a_failed_upload_does_not_move_the_link_of_a_later_one() {
+    let mut h = harness();
+    h.api.fail_next("UploadAsset", "too large");
+    paste_image(&mut h, "a", 2);
+    h.model.state.add_editing_item("a");
+    let now = h.now_ms;
+    h.send(Event::Typed {
+        item_id: "a".into(),
+        body: "abXY|cd".into(),
+        cursor: 4,
+        now_ms: now,
+    });
+    h.hold("UploadAsset");
+    paste_image(&mut h, "a", 2);
+
+    h.release_held();
+
+    assert_eq!(
+        h.model.state.get_item_by_id("a").unwrap().body,
+        format!("ab{LINK}XY|cd")
+    );
+}
+
 // アップロードに失敗すると、貼り付けは送られず、画面もUndoも変わらない。
 #[test]
 fn a_failed_upload_pastes_nothing() {
