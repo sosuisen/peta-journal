@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Media;
 using PetaBorder;
 using PetaBorder.Tests;
 using PetaTypes;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.System;
 
 namespace PetaScreens.Tests;
@@ -300,6 +301,33 @@ internal sealed class Screen : IAsyncDisposable
         await Until("the second item is selected and no editor has the cursor", () =>
             SelectedAre("second") && Focused is null
         );
+    }
+
+    /// <summary>Puts the text on the clipboard of Windows, as another app does.</summary>
+    public static void PutOnClipboard(string text)
+    {
+        var content = new DataPackage();
+        content.SetText(text);
+        Clipboard.SetContent(content);
+    }
+
+    /// <summary>Waits until the clipboard of Windows has the text.</summary>
+    public static async Task UntilClipboardHas(string text)
+    {
+        var deadline = DateTime.Now.AddSeconds(10);
+        string? found = null;
+        while (found != text)
+        {
+            if (DateTime.Now > deadline)
+                Assert.Fail(
+                    $"the clipboard never had {text}: it has {found}\n{current?.Describe()}"
+                );
+            await Task.Delay(10);
+            var content = Clipboard.GetContent();
+            found = content.Contains(StandardDataFormats.Text)
+                ? (await content.GetTextAsync()).Replace("\r\n", "\n")
+                : null;
+        }
     }
 
     /// <summary>Presses the key in the window in front.</summary>

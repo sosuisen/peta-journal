@@ -217,6 +217,19 @@ public sealed class OutlineScreenTests
         await Screen.Until("the second item is gone", () => screen.BodiesAre("first"));
     }
 
+    // 選んでいるあいだのCtrl+Cは、選んだ項目をクリップボードに載せる。
+    [UITestMethod]
+    public async Task Control_C_puts_the_selected_items_on_the_clipboard()
+    {
+        await using var screen = await Screen.Open(Port);
+        await screen.SecondOfTwoSelected();
+        Screen.PutOnClipboard("before");
+
+        Screen.Press(VirtualKey.C, Held.Control);
+
+        await Screen.UntilClipboardHas("- second");
+    }
+
     // 選んでいるあいだのShift+Alt+上矢印は、選んだ項目を上へ動かす。
     [UITestMethod]
     public async Task Shift_Alt_Up_moves_the_selected_items()
