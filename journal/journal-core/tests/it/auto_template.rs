@@ -98,6 +98,16 @@ fn templates_go_only_into_pages_whose_names_match_their_patterns() {
     );
 }
 
+// ない週の名前（W60）のページは、ジャーナルではないので、週のテンプレートが入らない。名前は、サーバーと同じ決まりで読まれる。
+#[test]
+fn a_page_named_after_a_week_that_does_not_exist_gets_no_weekly_template() {
+    let notes = template_core();
+
+    let no_week = notes.open_doc("2031-W60");
+
+    assert_eq!(outlines(&no_week["items"]), vec!["1:".to_string()]);
+}
+
 /// Adds `tag` to a page that has an item, and answers the question of auto-template with `ok`.
 /// Returns the page and the question.
 fn add_tag_and_answer(notes: &Core, tag: &str, ok: bool) -> (String, Value) {
