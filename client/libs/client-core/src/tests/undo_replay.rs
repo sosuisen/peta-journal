@@ -456,6 +456,8 @@ fn redo_of_a_create_makes_the_item_again_with_its_id_where_its_index_puts_it() {
             position: ItemPosition::after("a"),
             level: 1,
             body: "created".into(),
+            transclude_item_id: None,
+            properties: BTreeMap::new(),
         }]
     );
     assert_eq!(h.items_ids(), ["a", "n"]);
@@ -480,6 +482,8 @@ fn undo_of_a_delete_makes_the_item_again_with_its_id_where_it_was() {
             position: ItemPosition::after("a"),
             level: 1,
             body: "gone".into(),
+            transclude_item_id: None,
+            properties: BTreeMap::new(),
         }]]
     );
     assert!(create_calls(&h.api).is_empty());
@@ -562,6 +566,8 @@ fn create_op(id: &str, after: &str, level: i32, body: &str) -> BatchOp {
         position: ItemPosition::after(after),
         level,
         body: body.into(),
+        transclude_item_id: None,
+        properties: BTreeMap::new(),
     }
 }
 

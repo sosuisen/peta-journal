@@ -1,7 +1,7 @@
 use crate::effects::{ApiError, ApiOp, ApiOutput, AtlasChange, FolderChoice};
 use crate::model::{
     BatchOp, ItemPosition, JournalBefore, Page, PageWithItems, PasteCursor, PasteMode,
-    ServerConfig, TaskState, TreeExport,
+    PropertyValue, ServerConfig, TaskState, TreeExport,
 };
 use crate::rest::{rest_call, HttpReply, RestCall};
 use serde::Serialize;
@@ -522,6 +522,8 @@ fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_ite
                 position: ItemPosition::after("a"),
                 level: 2,
                 body: id("new"),
+                transclude_item_id: None,
+                properties: Default::default(),
             },
             BatchOp::Move {
                 ids: vec![id("m"), id("m1")],

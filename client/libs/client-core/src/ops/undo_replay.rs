@@ -274,8 +274,10 @@ impl Batch {
             position: position_by_index(model.state.items(), item),
             level: item.level,
             body: item.body.clone(),
+            transclude_item_id: item.transclude_item_id.clone(),
+            properties: item.properties.clone(),
         });
-        // The making writes the body and the level only
+        // The making writes the body, the level, the transclusion and the properties
         let task = item.task_state();
         let has_task = task != TaskState::default();
         if item.collapsed || has_task {
