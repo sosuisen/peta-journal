@@ -13,6 +13,17 @@ internal sealed class MainThread
 
     public void Post(Action work) => waiting.Enqueue(work);
 
+    /// <summary>Waits until the core hands something over, and does not run it.</summary>
+    public void WaitForWork()
+    {
+        var waited = Stopwatch.StartNew();
+        while (waiting.IsEmpty)
+        {
+            Assert.True(waited.Elapsed < TimeSpan.FromSeconds(10), "the core handed nothing over");
+            Thread.Sleep(10);
+        }
+    }
+
     /// <summary>Runs what waits.</summary>
     public void Turn()
     {
