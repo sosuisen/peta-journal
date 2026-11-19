@@ -189,6 +189,12 @@ public sealed partial class Shell : IDisposable
     public void ClickedTask(string itemId) => Send(new Event.TaskCycle(itemId));
 
     /// <summary>
+    /// The user chose "Paste as Transclusion" in the menu of the item. The core asks for the
+    /// text on the clipboard. When it is the id of an item, the item shows that item.
+    /// </summary>
+    public void PasteAsTransclusion(string itemId) => Send(new Event.PasteAsTransclusion(itemId));
+
+    /// <summary>
     /// The user touched the shown text of the item after <paramref name="letter"/> of its
     /// letters, as <c>RichParagraph.Start</c> counts them. The item is edited with the cursor
     /// at that place in its Markdown (ADR 043). The core ends the edit of another item and a
