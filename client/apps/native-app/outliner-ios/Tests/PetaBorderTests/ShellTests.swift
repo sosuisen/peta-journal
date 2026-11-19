@@ -228,6 +228,18 @@ final class ShellTests: JournalTestCase {
         waitUntil("the file holds what was typed") { self.written()?.contains("first and more") == true }
     }
 
+    // アプリが裏に回ると、保存を待っていた本文が、待たずに保存され、ページのファイルに書かれる（#766）。
+    func testWhatWaitsToBeSavedIsSavedWhenTheAppGoesToTheBack() throws {
+        try download("notes.md", "first\n")
+        try openNotes()
+        shell.edit(id(of: "first"))
+        shell.type(id(of: "first"), "first before the back")
+
+        shell.wentToTheBack()
+
+        XCTAssertEqual(written()?.contains("first before the back"), true)
+    }
+
     // 開始記号を打ち終えると、コアが閉じる記号を補う（ADR 050、ADR 057）。
     func testTypingAnOpeningClosesIt() throws {
         try download("notes.md", "first\n")
