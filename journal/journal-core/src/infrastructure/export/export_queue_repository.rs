@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use hmtid::Hmtid;
-use rusqlite::{params, Connection};
+use rusqlite::params;
 
 use crate::error::AppError;
 use crate::infrastructure::persistence::db::Db;
@@ -48,16 +48,6 @@ impl ExportQueueRepository {
                 }
             }
         }
-        Ok(())
-    }
-
-    /// Takes a page off the queue on the given connection, as part of a larger transaction.
-    pub fn remove_in(conn: &Connection, page_id: &Hmtid) -> Result<(), AppError> {
-        conn.execute(
-            "DELETE FROM export_queue WHERE page_id = ?",
-            [page_id.as_str()],
-        )
-        .with_context(|| format!("Failed to remove export for page: {page_id}"))?;
         Ok(())
     }
 

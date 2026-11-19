@@ -7,6 +7,7 @@
 //!    created the same page independently; the older id wins on every device.
 //! 3. Otherwise a new page is created, keeping the file's id when it has one.
 
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -123,16 +124,15 @@ impl PageMatcher {
         {
             match &file_id {
                 None => write_back = true, // hand-made file: give it our id
-                Some(fid) if *fid != page.id => {
-                    // Two devices created the same page independently (typical for today's journal).
-                    // Both must end up with one id, so the older id wins on every device.
-                    if fid < &page.id {
-                        page = self.adopt_page_id(&page, fid, rel_path)?;
-                    } else {
-                        write_back = true; // our id is older: rewrite the file with it
-                    }
-                }
-                Some(_) => {}
+                // Two devices created the same page independently (typical for today's journal).
+                // Both must end up with one id, so the older id wins on every device.
+                Some(fid) => match fid.cmp(&page.id) {
+                    Ordering::Less => page = self.adopt_page_id(&page, fid, rel_path)?,
+                    // Our id is older: rewrite the file with it
+                    Ordering::Greater => write_back = true,
+                    // Not reached: a page with the file's id was matched by id above
+                    Ordering::Equal => {}
+                },
             }
             return Ok(Matched::Page(PageMatch {
                 page,
