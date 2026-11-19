@@ -170,20 +170,22 @@ impl MarkdownFolderWatcher {
             }
         }
         if !any {
-            tracing::warn!(
-                "Cannot watch {}: no docs/ or journals/ folder",
+            // Not kept as watching, so that the next try watches the folders once they come:
+            // a new folder has neither until its first page is written out
+            tracing::debug!(
+                "Cannot watch {} yet: no docs/ or journals/ folder",
                 new_root.display()
             );
-        } else {
-            // The definitions of another device come in settings/, which a device that has
-            // defined nothing yet does not have; it is made so that it can be watched
-            let settings = watched.join(SETTINGS_DIR);
-            if let Err(e) = std::fs::create_dir_all(&settings)
-                .map_err(notify::Error::io)
-                .and_then(|_| watcher.watch(&settings, RecursiveMode::NonRecursive))
-            {
-                tracing::warn!("Cannot watch {}: {e}", settings.display());
-            }
+            return;
+        }
+        // The definitions of another device come in settings/, which a device that has
+        // defined nothing yet does not have; it is made so that it can be watched
+        let settings = watched.join(SETTINGS_DIR);
+        if let Err(e) = std::fs::create_dir_all(&settings)
+            .map_err(notify::Error::io)
+            .and_then(|_| watcher.watch(&settings, RecursiveMode::NonRecursive))
+        {
+            tracing::warn!("Cannot watch {}: {e}", settings.display());
         }
         {
             let mut st = self.state.lock();

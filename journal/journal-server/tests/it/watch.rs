@@ -99,6 +99,16 @@ impl Folder {
         Folder::configured(dir, root.clone(), root)
     }
 
+    /// A markdown folder with neither docs/ nor journals/ yet, as a new folder is before the
+    /// first page is written out. Watched from now on.
+    fn watched_without_docs() -> Folder {
+        let folder = Folder::new();
+        std::fs::remove_dir(folder.root.join("docs")).unwrap();
+        folder.state.watcher.start();
+        folder.state.watcher.restart();
+        folder
+    }
+
     /// A markdown folder that the settings name through a symbolic link, as `~/Dropbox` on
     /// a Mac links to `~/Library/CloudStorage/Dropbox`. The files are written where the link
     /// leads, as the cloud folder writes them. Watched from now on.
@@ -237,6 +247,23 @@ async fn a_file_edited_in_a_folder_set_through_a_link_is_taken_into_its_page() {
 
     eventually("the edit is in the page", || {
         folder.outline(&page) == ["1:edited in the cloud folder"]
+    })
+    .await;
+}
+
+// 監視を始めたときにdocs/もjournals/もなかったフォルダでも、あとでできたdocs/で編集したファイルは、スキャンを待たずにページに取り込まれる。最初のページを書き出す前の新しいフォルダは、この形である。
+#[tokio::test]
+async fn a_file_edited_in_a_docs_folder_made_after_the_start_is_taken_into_its_page() {
+    let folder = Folder::watched_without_docs();
+    std::fs::create_dir(folder.root.join("docs")).unwrap();
+    let page = folder.page_with_file("edited", "before the edit\n");
+    // The watcher looks for the folders again three seconds after its start
+    tokio::time::sleep(Duration::from_secs(4)).await;
+
+    folder.write("docs/edited.md", "edited outside\n");
+
+    eventually("the edit is in the page", || {
+        folder.outline(&page) == ["1:edited outside"]
     })
     .await;
 }

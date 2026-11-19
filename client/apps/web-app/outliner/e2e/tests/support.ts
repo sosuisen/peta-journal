@@ -84,6 +84,22 @@ export class Server {
     expect(resp.ok()).toBe(true);
   }
 
+  /**
+   * The markdown folder of the test server. Not `markdownDir` of the config: each process of
+   * the tests reads the config again, and makes a folder of its own.
+   */
+  async markdownDir(): Promise<string> {
+    const resp = await this.request.get(`${this.base}/api/config`);
+    expect(resp.ok()).toBe(true);
+    return ((await resp.json()) as { markdownDir: string }).markdownDir;
+  }
+
+  /** Changes the body of an item the way another client does. */
+  async updateBody(itemId: string, body: string): Promise<void> {
+    const resp = await this.request.put(`${this.base}/api/items/${itemId}`, { data: { body } });
+    expect(resp.ok()).toBe(true);
+  }
+
   /** Waits until the stored items of the page satisfy the check; the auto-save needs a moment. */
   async itemsSettled(pageId: string, check: (items: StoredItem[]) => boolean): Promise<StoredItem[]> {
     await expect.poll(async () => check(await this.items(pageId)), { timeout: 5_000 }).toBe(true);
