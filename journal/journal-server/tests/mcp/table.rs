@@ -22,6 +22,7 @@ const TABLE: &[(Route, Mcp)] = &[
     (routes::EVENTS, OnlyForScreens),
     // pages
     (routes::GET_OR_CREATE_DOC, Tool("get_or_create_doc")),
+    (routes::FIND_PAGE, OnlyForScreens),
     (routes::RECENT_PAGES, Tool("get_recent_pages")),
     (routes::GET_PAGE, Tool("get_page_by_id")),
     (routes::UPDATE_PAGE, Tool("update_page")),
