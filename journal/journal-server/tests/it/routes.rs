@@ -273,6 +273,11 @@ async fn every_route_of_the_pages_answers_a_request_in_order() {
     let child = id_of(&child["page"]);
 
     get_answers("/api/pages/recent?maxResults=5&type=doc", &["pages"]).await;
+    get_answers(
+        &format!("/api/pages/find?title={title}&dirPath="),
+        &["page"],
+    )
+    .await;
     get_answers(&format!("/api/pages/{page}"), &["page", "items"]).await;
     get_answers(&format!("/api/pages/{page}/backlinks"), &["entries"]).await;
     let index = get_answers(&format!("/api/pages/{child}"), &["page"]).await;

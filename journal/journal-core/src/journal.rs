@@ -32,7 +32,10 @@ pub use items::{
 pub use journals::{
     JournalAnswer, MostRecentJournalAnswer, MoveToJournalInput, MovedToJournalAnswer,
 };
-pub use pages::{BacklinksAnswer, DocAnswer, PageAnswer, PageWithItems, PagesAnswer};
+pub use pages::{
+    BacklinksAnswer, DocAnswer, FindPageQuery, FoundPageAnswer, PageAnswer, PageWithItems,
+    PagesAnswer,
+};
 pub use search::SearchAnswer;
 
 use std::sync::Arc;

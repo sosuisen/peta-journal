@@ -16,7 +16,7 @@ use client_core::rest::{rest_call, ClientId, HttpReply};
 use journal_core::application::confirm_service::ConfirmService;
 use journal_core::domain::client_id::ClientId as JournalClientId;
 use journal_core::error::AppError;
-use journal_core::journal::{ChangedBy, Journal};
+use journal_core::journal::{ChangedBy, FindPageQuery, Journal};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -71,6 +71,15 @@ impl EmbeddedJournal {
         match op {
             // ---- pages ----
             ApiOp::GetPageById { page_id } => json_of(journal.get_page(&page_id)?),
+            ApiOp::FindPage {
+                journal: name,
+                title,
+                dir_path,
+            } => json_of(journal.find_page(FindPageQuery {
+                journal: name,
+                title: Some(title),
+                dir_path: Some(dir_path),
+            })?),
             ApiOp::GetOrCreateDoc { title, dir_path } => {
                 json_of(journal.get_or_create_doc(Some(&title), Some(&dir_path))?)
             }

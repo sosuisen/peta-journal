@@ -76,6 +76,7 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::GetOrCreateJournal { .. } => "GetOrCreateJournal",
         ApiOp::MoveItemsToJournal { .. } => "MoveItemsToJournal",
         ApiOp::GetOrCreateDoc { .. } => "GetOrCreateDoc",
+        ApiOp::FindPage { .. } => "FindPage",
         ApiOp::CreateItem { .. } => "CreateItem",
         ApiOp::UpdateItem { .. } => "UpdateItem",
         ApiOp::ShiftItemLevels { .. } => "ShiftItemLevels",
@@ -452,6 +453,17 @@ impl FakeApi {
                 },
                 ..Default::default()
             }),
+            // Every page is there, unless a test says it is gone
+            ApiOp::FindPage {
+                journal,
+                title,
+                dir_path,
+            } => ApiOutput::FoundPage(Some(Page {
+                id: format!("page-{}", journal.as_ref().unwrap_or(title)),
+                name: journal.clone().unwrap_or_else(|| title.clone()),
+                dir_path: dir_path.clone(),
+                ..Default::default()
+            })),
             ApiOp::UploadAsset { .. } => ApiOutput::Uploaded(Uploaded {
                 file_name: "pic.png".into(),
                 original_name: "pic.png".into(),

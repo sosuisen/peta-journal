@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 use serde_json::json;
 
+use crate::domain::journal_name::JournalName;
 use crate::domain::model::Page;
 use crate::dto::{
     backlink_dto, page_dto_with, BacklinkEntryDto, ItemDto, ItemFields, NarrowItem, PageDto,
@@ -12,6 +13,7 @@ use crate::dto::{
 use crate::error::{parse_id, AppError};
 
 use super::{ChangedBy, Journal};
+pub use journal_api_types::FindPageQuery;
 
 /// How many recent pages are listed when the caller names no number.
 const DEFAULT_RECENT_PAGES: i64 = 10;
@@ -48,6 +50,12 @@ pub struct DocAnswer {
     pub page: PageDto,
     pub items: Vec<ItemDto>,
     pub created: bool,
+}
+
+/// A page looked for without making it, or none when it is not there.
+#[derive(Debug, Clone, Serialize)]
+pub struct FoundPageAnswer {
+    pub page: Option<PageDto>,
 }
 
 /// A page after a change.
@@ -100,6 +108,26 @@ impl Journal {
             page: self.services.dtos.page_to_dto(&result.page)?,
             items: self.services.dtos.to_dtos(&result.items)?,
             created: result.created,
+        })
+    }
+
+    /// Looks for a journal or a document page, and makes none: going back to a page that
+    /// sync deleted does not bring it back.
+    pub fn find_page(&self, query: FindPageQuery) -> Result<FoundPageAnswer, AppError> {
+        let page = match &query.journal {
+            Some(name) => self
+                .services
+                .journal_service
+                .find_journal(&name.parse::<JournalName>()?)?,
+            None => self.services.page_service.find_doc(
+                query.title.as_deref().unwrap_or_default(),
+                query.dir_path.as_deref().unwrap_or_default(),
+            )?,
+        };
+        Ok(FoundPageAnswer {
+            page: page
+                .map(|page| self.services.dtos.page_to_dto(&page))
+                .transpose()?,
         })
     }
 
