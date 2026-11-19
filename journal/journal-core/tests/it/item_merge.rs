@@ -699,6 +699,56 @@ fn a_line_with_the_id_of_an_item_of_another_page_leaves_that_item_alone() {
     assert_eq!(a.bodies(&other), ["foreign"]);
 }
 
+// トランスクルージョンの元の項目がもうあるページは、待たずに取り込まれ、クライアントにはページの変更が1回だけ知らされる。
+#[test]
+fn a_page_whose_transclusion_source_is_here_is_taken_in_without_waiting() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let showing = a.doc("b-showing");
+    let source_page = a.doc("z-source");
+    let source = a.add(&source_page, "source text");
+    let shown = a.add(&showing, "");
+    a.core
+        .item_service
+        .set_transclusion(&shown, &source)
+        .unwrap();
+    b.receive(&a, "docs/d/z-source.md");
+    let since = b.told.messages().len();
+
+    b.receive(&a, "docs/d/b-showing.md");
+
+    let told = b.told.messages()[since..]
+        .iter()
+        .filter(|m| m["type"] == "pagesUpdated" && m["pageId"] == showing.to_string())
+        .count();
+    assert_eq!(told, 1);
+    let item = b.core.item_service.get_item_by_id(&shown).unwrap();
+    assert_eq!(item.transclude_item_id, Some(source));
+}
+
+// 元の項目を待っていた項目は、トランスクルージョンになるとき、元の項目の本文を受け取る。ファイルの写しが、元の項目の後の編集より古いことがあるためである。
+#[test]
+fn an_item_that_waited_for_its_source_takes_the_body_of_the_source() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let showing = a.doc("b-showing");
+    let source_page = a.doc("z-source");
+    let source = a.add(&source_page, "old text");
+    let shown = a.add(&showing, "");
+    a.core
+        .item_service
+        .set_transclusion(&shown, &source)
+        .unwrap();
+    b.deliver(&a, "docs/d/b-showing.md");
+    a.write(&source, "new text");
+
+    b.sync("docs/d/b-showing.md");
+    b.receive(&a, "docs/d/z-source.md");
+
+    let item = b.core.item_service.get_item_by_id(&shown).unwrap();
+    assert_eq!(item.body, "new text");
+}
+
 // 元の項目を待つページのファイルは、待つ間も、トランスクルージョンになった後も、トランスクルージョンを書いたままである。待つ間に書き出すと、ファイルからつながりが消えるためである。
 #[test]
 fn the_file_of_a_page_that_waits_for_a_transclusion_source_keeps_the_transclusion() {
