@@ -284,12 +284,14 @@ mod tests {
     // フォルダーがまだないときも、`..`で外へ出る道は、外と見る。
     #[test]
     fn a_path_that_leaves_the_folder_with_two_dots_is_outside_also_when_nothing_exists_yet() {
-        let root = Path::new("/no-such-folder-of-peta-journal/journal");
+        // Not "/no-such-folder": a path without a drive is not absolute on Windows
+        let root = std::env::temp_dir().join("no-such-folder-of-peta-journal/journal");
+        assert!(!root.exists());
 
-        assert!(!is_inside(&root.join("../notes"), root));
-        assert!(!is_inside(&root.join("notes/../../notes"), root));
-        assert!(is_inside(&root.join("notes"), root));
-        assert!(is_inside(root, root));
+        assert!(!is_inside(&root.join("../notes"), &root));
+        assert!(!is_inside(&root.join("notes/../../notes"), &root));
+        assert!(is_inside(&root.join("notes"), &root));
+        assert!(is_inside(&root, &root));
     }
 
     // 使い捨てのジャーナルは、自分のフォルダーの中のMarkdownフォルダーなら、設定のとおりに使う。
