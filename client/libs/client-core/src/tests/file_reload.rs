@@ -116,6 +116,43 @@ fn page_as_it_was(asked_at: AskedAt) -> Event {
     }
 }
 
+/// The answer to a page read for its indices, which gives "a" the index "a9"
+fn indices_as_they_were(asked_at: AskedAt) -> Event {
+    let mut a = item("a", 1, "");
+    a.idx = "a9".into();
+    Event::IndicesRead {
+        page_id: "page1".into(),
+        loaded: Box::new(PageWithItems {
+            items: vec![a],
+            ..Default::default()
+        }),
+        asked_at,
+    }
+}
+
+// 並び順の値のための読み直しの答えは、頼んだあとにこちらで変更がなければ、項目の値になる。
+#[test]
+fn the_indices_read_again_are_taken_when_nothing_changed_here() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    let asked_at = AskedAt::now(&h.model);
+
+    h.send(indices_as_they_were(asked_at));
+
+    assert_eq!(h.model.state.get_item_by_id("a").unwrap().idx, "a9");
+}
+
+// 並び順の値のための読み直しの答えは、頼んだあとにこちらで変更があれば捨てる。その変更の答えが、改めて確かめられる。
+#[test]
+fn the_indices_read_again_are_dropped_when_a_change_here_overtook_them() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    let asked_at = AskedAt::now(&h.model);
+    change_here(&mut h);
+
+    h.send(indices_as_they_were(asked_at));
+
+    assert_eq!(h.model.state.get_item_by_id("a").unwrap().idx, "a");
+}
+
 /// Changes the body of "a" here, as an undo or an edit does.
 fn change_here(h: &mut Harness) {
     let before = item("a", 1, "");

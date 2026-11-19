@@ -6,6 +6,7 @@ use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, TimerOutput};
 use crate::model::{Item, PageWithItems};
 use crate::ops::edit::is_edit_in_progress;
+use crate::outline::tree::is_out_of_place;
 
 /// How long the auto-save gets to flush before pending pages are replaced.
 const FLUSH_DELAY_MS: u32 = 1500;
@@ -27,6 +28,59 @@ pub fn reload_page(model: &mut Model, page_id: &str) -> Cmd {
 pub fn read_again(model: &Model, page_id: &str) -> Cmd {
     let (page_id, asked_at) = (page_id.to_string(), AskedAt::now(model));
     run(move |api| async move { replace_page(&api, &page_id, asked_at).await })
+}
+
+/// Reads the indices of a page again when one of the items does not sort between its
+/// neighbours: the
+/// server gave them new indices that this side does not have, and an undo places items by
+/// their indices.
+pub fn read_again_if_out_of_place(model: &Model, item_ids: &[String]) -> Cmd {
+    let out_of_place = item_ids
+        .iter()
+        .filter(|id| is_out_of_place(model.state.items(), id))
+        .find_map(|id| model.state.get_item_by_id(id));
+    match out_of_place {
+        Some(item) => read_indices_again(model, &item.page_id),
+        None => done(),
+    }
+}
+
+/// Reads the indices of the items of a page again. Only the indices are taken from the
+/// answer: the item that was just made or moved is often being edited, and its typing is not
+/// saved yet.
+fn read_indices_again(model: &Model, page_id: &str) -> Cmd {
+    let (page_id, asked_at) = (page_id.to_string(), AskedAt::now(model));
+    run(move |api| async move {
+        match api.get_page_by_id(&page_id).await {
+            Ok(loaded) => api.send_event(Event::IndicesRead {
+                page_id,
+                loaded: Box::new(loaded),
+                asked_at,
+            }),
+            Err(e) => log_error(format!("Failed to read the indices of {page_id}: {e}")),
+        }
+    })
+}
+
+/// The server answered a page read for its indices: each item shown takes its index from the
+/// answer, and keeps its body and its place. An answer that a change made here has overtaken
+/// is dropped: that change got its own answer, which is checked in its turn.
+pub fn take_indices(
+    model: &mut Model,
+    page_id: &str,
+    loaded: PageWithItems,
+    asked_at: AskedAt,
+) -> Cmd {
+    if asked_at.is_overtaken(model) {
+        return done();
+    }
+    for item in loaded.items.iter().filter(|i| i.page_id == page_id) {
+        let idx = item.idx.clone();
+        model
+            .state
+            .update_item(&item.id, move |held| held.idx = idx);
+    }
+    done()
 }
 
 /// When a page was asked for: the count of the changes made here until then.

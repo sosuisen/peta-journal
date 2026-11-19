@@ -13,7 +13,7 @@
 use crate::app::{done, log_error, run, Cmd, Event, Model, MoveDirection};
 use crate::model::{Item, ItemPosition, ItemRef, Page};
 use crate::ops::edit::{auto_save_again, take_unsaved};
-use crate::ops::file_reload::{leave_the_edit, replace_page, AskedAt};
+use crate::ops::file_reload::{leave_the_edit, read_again_if_out_of_place, replace_page, AskedAt};
 use crate::ops::split::host_page_of_transclusion;
 use crate::outline::tree::{
     find_cross_page_placement, find_move_down_target, find_move_up_target, get_subtree,
@@ -299,14 +299,14 @@ pub fn show_moved(
     model
         .undo
         .record_updates(label.as_str(), before.iter().zip(&moved), model.clock_ms);
+    model.state.replace_items(&ids, moved, position);
+    let reread = read_again_if_out_of_place(model, &ids);
     let Some(item_id) = edited else {
-        model.state.replace_items(&ids, moved, position);
-        return move_done(model, false);
+        return Command::all([move_done(model, false), reread]);
     };
     // Putting the item at its new place blurs its editor: the edit goes on in it
     model.edits.edit_handovers += 1;
-    model.state.replace_items(&ids, moved, position);
-    focus_moved(model, item_id)
+    Command::all([focus_moved(model, item_id), reread])
 }
 
 /// Ends the wait for the editor after a move that did not reach the server, and schedules

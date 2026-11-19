@@ -92,6 +92,20 @@ pub fn position_by_index(items: &[ItemRef], item: &Item) -> ItemPosition {
     }
 }
 
+/// True when the index of an item does not sort between the items of its page above and
+/// below it. The server gives the items around a new or moved item new indices when an index
+/// grows too long, and answers only the item it wrote, so the indices held here are old.
+pub fn is_out_of_place(items: &[ItemRef], item_id: &str) -> bool {
+    let Some(at) = index_of(items, item_id) else {
+        return false;
+    };
+    let item = &items[at];
+    let same_page = |other: &&ItemRef| other.page_id == item.page_id;
+    let above = items[..at].iter().rev().find(same_page);
+    let below = items[at + 1..].iter().find(same_page);
+    above.is_some_and(|a| a.idx >= item.idx) || below.is_some_and(|b| b.idx <= item.idx)
+}
+
 // ---- Indent and outdent ----
 
 /// Whether an item at the given level can follow `prev_item`.

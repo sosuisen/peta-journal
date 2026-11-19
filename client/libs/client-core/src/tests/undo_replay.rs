@@ -571,6 +571,33 @@ fn create_op(id: &str, after: &str, level: i32, body: &str) -> BatchOp {
     }
 }
 
+// Undoで作り直した項目の答えの並び順の値が、上と下の項目の値の間にないときは、ページの並び順の値を読み直す。サーバーが周りの項目の値を振り直したためである。
+#[test]
+fn an_item_made_again_out_of_place_reads_the_indices_again() {
+    // The fake gives the item made again the index "created1", which sorts after "c"
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("c", 1, "")]);
+    h.model.undo.begin("delete-selection", None);
+    h.model.undo.push_delete(&item("b", 1, "gone"));
+    h.model.undo.commit(None, 0);
+
+    h.send(Event::Undo);
+
+    assert!(h.api.called("GetPageById"));
+}
+
+// Undoで作り直した項目の答えの並び順の値が、上と下の項目の値の間にあるときは、読み直さない。
+#[test]
+fn an_item_made_again_in_place_does_not_read_again() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("z", 1, "")]);
+    h.model.undo.begin("delete-selection", None);
+    h.model.undo.push_delete(&item("b", 1, "gone"));
+    h.model.undo.commit(None, 0);
+
+    h.send(Event::Undo);
+
+    assert!(!h.api.called("GetPageById"));
+}
+
 // 削除の redo は、項目をここでもう一度消し、削除をサーバーに送る。
 #[test]
 fn redo_of_a_delete_removes_the_item_again_here_and_on_the_server() {

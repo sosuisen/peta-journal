@@ -679,3 +679,109 @@ fn keys_pressed_while_waiting_for_the_next_editor_are_played_into_it() {
             .collect();
     assert_eq!(replayed, [vec!["x".to_string()]]);
 }
+
+// 分割の答えの新しい項目の並び順の値が、上と下の項目の値の間にないときは、ページを読み直す。サーバーが周りの項目の値を振り直したためで、コアの持つ値が古い。
+#[test]
+fn a_split_whose_new_index_is_not_between_its_neighbours_reads_the_page_again() {
+    let mut h = harness();
+    // The server gave the item below a new index, and the new item one past the old "b"
+    h.api.answer_next(
+        "SplitItem",
+        Ok(ApiOutput::Split(Box::new(Split {
+            item: item("a", 1, "hello world"),
+            created: item_with("new1", 1, |i| i.idx = "c".into()),
+        }))),
+    );
+
+    enter(&mut h, "a", 11);
+
+    assert!(h.api.called("GetPageById"));
+}
+
+// 並び順の値のための読み直しは、項目の並び順の値だけを受け取り、本文は変えない。分割の直後は新しい項目を編集中で、保存前の入力を上書きしないためである。
+#[test]
+fn a_page_read_again_for_its_indices_takes_only_the_indices() {
+    let mut h = harness();
+    h.api.answer_next(
+        "SplitItem",
+        Ok(ApiOutput::Split(Box::new(Split {
+            item: item("a", 1, "hello world"),
+            created: item_with("new1", 1, |i| i.idx = "c".into()),
+        }))),
+    );
+    let server_has = |id: &str, idx: &str| item_with(id, 1, |i| i.idx = idx.into());
+    h.api.answer_next(
+        "GetPageById",
+        Ok(ApiOutput::Page(PageWithItems {
+            page: Page {
+                id: "page1".into(),
+                ..Default::default()
+            },
+            items: vec![
+                server_has("a", "a"),
+                server_has("new1", "c"),
+                server_has("b", "d"),
+            ],
+            ..Default::default()
+        })),
+    );
+
+    enter(&mut h, "a", 11);
+
+    assert_eq!(h.bodies(), ["a=hello world", "new1=", "b=body of b"]);
+    let idx = |id: &str| h.model.state.get_item_by_id(id).unwrap().idx.clone();
+    assert_eq!([idx("a"), idx("new1"), idx("b")], ["a", "c", "d"]);
+}
+
+// サーバーが分割で周りの項目の並び順の値を振り直しても、そのEnterのUndoとRedoは、新しい項目を元の位置に作り直す。
+#[test]
+fn undo_and_redo_of_an_enter_make_the_item_again_where_it_was_after_the_server_reindexed() {
+    // b holds an index that sorts before the one the server gives the new item
+    let mut h = Harness::with_items(vec![
+        item("a", 1, "hello world"),
+        item_with("b", 1, |i| {
+            i.body = "body of b".into();
+            i.idx = "a5".into();
+        }),
+    ]);
+    h.model.state.add_editing_item("a");
+    let at = |id: &str, idx: &str| item_with(id, 1, |i| i.idx = idx.into());
+    h.api.answer_next(
+        "SplitItem",
+        Ok(ApiOutput::Split(Box::new(Split {
+            item: item("a", 1, "hello world"),
+            created: at("new1", "b"),
+        }))),
+    );
+    h.api.answer_next(
+        "GetPageById",
+        Ok(ApiOutput::Page(PageWithItems {
+            page: Page {
+                id: "page1".into(),
+                ..Default::default()
+            },
+            items: vec![at("a", "a"), at("new1", "b"), at("b", "c")],
+            ..Default::default()
+        })),
+    );
+    enter(&mut h, "a", 11);
+
+    h.send(Event::Undo);
+    h.send(Event::Redo);
+
+    let BatchOp::Create { position, .. } = &batch_calls(&h.api)[1][0] else {
+        panic!("not a create: {:?}", batch_calls(&h.api));
+    };
+    assert_eq!(position, &crate::model::ItemPosition::after("a"));
+    assert_eq!(h.items_ids(), ["a", "new1", "b"]);
+}
+
+// 分割の答えの新しい項目の並び順の値が、上と下の項目の値の間にあるときは、ページを読み直さない。
+#[test]
+fn a_split_whose_new_index_is_between_its_neighbours_does_not_read_the_page_again() {
+    let mut h = harness();
+
+    enter(&mut h, "a", 11);
+
+    assert!(!h.api.called("GetPageById"));
+}

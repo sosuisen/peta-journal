@@ -8,6 +8,7 @@ use crate::model::{BatchOp, Item, ItemPosition, TaskState};
 use crate::ops::action::show_empty_item;
 use crate::ops::edit::discard_pending_edit_of_focused_item;
 use crate::ops::edit::{begin_handover, save_target_id, show_parsed};
+use crate::ops::file_reload::read_again_if_out_of_place;
 use crate::outline::tree::position_by_index;
 use crate::outline::{CursorState, UndoEntry, UndoOp};
 use crux_core::Command;
@@ -333,7 +334,9 @@ pub fn show_synced(
             i.level = item.level;
         });
     }
-    show_empty_item(model, created)
+    let ids: Vec<String> = items.into_iter().map(|item| item.id).collect();
+    let reread = read_again_if_out_of_place(model, &ids);
+    Command::all([show_empty_item(model, created), reread])
 }
 
 /// Sends what was replayed to the server as one request: it writes all of it or none. When

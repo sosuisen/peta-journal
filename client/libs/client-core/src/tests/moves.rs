@@ -408,3 +408,47 @@ fn undo_of_a_move_inside_a_transclusion_puts_the_item_back_after_its_old_sibling
         }]
     );
 }
+
+// 移動の答えの項目の並び順の値が、上と下の項目の値の間にないときは、ページの並び順の値を読み直す。サーバーが周りの項目の値を振り直したためである。
+#[test]
+fn a_move_whose_answer_is_not_between_its_neighbours_reads_the_indices_again() {
+    let mut h = page_harness();
+    h.api.answer_next(
+        "MoveItems",
+        Ok(ApiOutput::Items(vec![
+            moved_to("b", 1, "d"),
+            moved_to("b1", 2, "e"),
+        ])),
+    );
+
+    h.send(Event::MoveUp {
+        item_id: "b".into(),
+    });
+
+    assert_eq!(h.items_ids(), ["b", "b1", "a", "c"]);
+    assert!(h.api.called("GetPageById"));
+}
+
+// 移動の答えの項目の並び順の値が、上と下の項目の値の間にあるときは、読み直さない。
+#[test]
+fn a_move_whose_answer_is_between_its_neighbours_does_not_read_again() {
+    let mut h = page_harness();
+    h.api.answer_next(
+        "MoveItems",
+        Ok(ApiOutput::Items(vec![
+            moved_to("b", 1, "0"),
+            moved_to("b1", 2, "1"),
+        ])),
+    );
+
+    h.send(Event::MoveUp {
+        item_id: "b".into(),
+    });
+
+    assert!(!h.api.called("GetPageById"));
+}
+
+/// An item as the server answers a move: at the index it gave it
+fn moved_to(id: &str, level: i32, idx: &str) -> crate::model::Item {
+    item_with(id, level, |i| i.idx = idx.into())
+}
