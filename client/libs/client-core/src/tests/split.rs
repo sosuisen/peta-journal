@@ -679,3 +679,31 @@ fn keys_pressed_while_waiting_for_the_next_editor_are_played_into_it() {
             .collect();
     assert_eq!(replayed, [vec!["x".to_string()]]);
 }
+
+// 分割の答えの新しい項目の並び順の値が、上と下の項目の値の間にないときは、ページを読み直す。サーバーが周りの項目の値を振り直したためで、コアの持つ値が古い。
+#[test]
+fn a_split_whose_new_index_is_not_between_its_neighbours_reads_the_page_again() {
+    let mut h = harness();
+    // The server gave the item below a new index, and the new item one past the old "b"
+    h.api.answer_next(
+        "SplitItem",
+        Ok(ApiOutput::Split(Box::new(Split {
+            item: item("a", 1, "hello world"),
+            created: item_with("new1", 1, |i| i.idx = "c".into()),
+        }))),
+    );
+
+    enter(&mut h, "a", 11);
+
+    assert!(h.api.called("GetPageById"));
+}
+
+// 分割の答えの新しい項目の並び順の値が、上と下の項目の値の間にあるときは、ページを読み直さない。
+#[test]
+fn a_split_whose_new_index_is_between_its_neighbours_does_not_read_the_page_again() {
+    let mut h = harness();
+
+    enter(&mut h, "a", 11);
+
+    assert!(!h.api.called("GetPageById"));
+}
