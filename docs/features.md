@@ -928,6 +928,8 @@
 
 - 拡張の`main.js`は、サーバーのQuickJSで動く
   - `onPageCreate(page)`はページの情報を受け取り、`peta.createItem`で頼んだ項目が返る。`createItem`が返すIDは、次の項目の置き場所に使える
+  - ページの情報の`journal`は、サーバーが`journal-names`で読んだジャーナルの期間（`period`）と、日のジャーナルの曜日（`weekday`）である。ジャーナルでないページでは`null`になる
+    - auto-templateは、この値で曜日や週のテンプレートを選ぶ。ない週の名前（`2031-W60`）のページには入らない（`tests/it/auto_template.rs`）
   - `onPageTagAdd(page, tags)`は、足されたタグだけを受け取る。ページ作成の拡張は、タグの追加では呼ばれない
   - `peta.files()`は自分のフォルダのファイル名を名前順に返し、`peta.readFile(name)`は自分のフォルダのファイルだけを読む
   - `peta.parseItems(markdown)`は、Flat Markdownを項目（階層、本文、トランスクルード元）に分ける

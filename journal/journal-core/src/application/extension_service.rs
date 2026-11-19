@@ -4,12 +4,13 @@
 use std::sync::Arc;
 
 use hmtid::Hmtid;
+use journal_names::JournalName;
 
 use crate::domain::model::{Item, Page};
 use crate::error::AppError;
 
 use super::extension_functions::ExtensionFunctionService;
-use super::extension_runtime::{ExtensionEvent, ExtensionRuntime, PageInfo};
+use super::extension_runtime::{ExtensionEvent, ExtensionRuntime, JournalPeriod, PageInfo};
 use super::item_service::ItemService;
 use super::page_service::PageService;
 
@@ -97,5 +98,13 @@ fn page_info(page: &Page) -> PageInfo {
         file_name: page.name.clone(),
         dir_path: page.dir_path.clone(),
         page_type: page.page_type.clone(),
+        journal: if page.page_type == "journal" {
+            page.name
+                .parse::<JournalName>()
+                .ok()
+                .map(JournalPeriod::from)
+        } else {
+            None
+        },
     }
 }

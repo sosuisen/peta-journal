@@ -315,6 +315,7 @@ mod tests {
             file_name: "2026-11-08".to_string(),
             dir_path: "journals/".to_string(),
             page_type: "journal".to_string(),
+            journal: None,
         }
     }
 

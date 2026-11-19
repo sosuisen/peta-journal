@@ -8,6 +8,7 @@
 use std::time::Duration;
 
 use hmtid::Hmtid;
+use journal_names::JournalName;
 use serde::Serialize;
 
 use crate::domain::model::ItemPosition;
@@ -30,6 +31,41 @@ pub struct PageInfo {
     pub file_name: String,
     pub dir_path: String,
     pub page_type: String,
+    /// The period of a journal, read from its name by `journal-names` as the server reads it,
+    /// so a script does not read the name its own way. `null` for a page that is not a journal.
+    pub journal: Option<JournalPeriod>,
+}
+
+/// The period a journal page covers, as the script sees it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JournalPeriod {
+    /// `daily`, `weekly`, `monthly` or `yearly`.
+    pub period: &'static str,
+    /// The English name of the day of a daily journal, such as `Monday`.
+    pub weekday: Option<&'static str>,
+}
+
+const WEEKDAYS: [&str; 7] = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+];
+
+impl From<JournalName> for JournalPeriod {
+    fn from(name: JournalName) -> Self {
+        let (period, weekday) = match name {
+            JournalName::Daily(date) => ("daily", Some(WEEKDAYS[date.weekday() as usize])),
+            JournalName::Weekly { .. } => ("weekly", None),
+            JournalName::Monthly { .. } => ("monthly", None),
+            JournalName::Yearly(_) => ("yearly", None),
+        };
+        JournalPeriod { period, weekday }
+    }
 }
 
 /// What happened, which the script may answer.
