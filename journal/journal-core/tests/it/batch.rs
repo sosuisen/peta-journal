@@ -83,6 +83,28 @@ fn a_batch_create_makes_the_item_again_with_the_id_it_names() {
     assert_eq!(id(&stored[1]), id(&rows[1]));
 }
 
+// 作成の操作は、写す元の項目を名指しすると、トランスクルージョンとして作り直す。削除のUndoが、トランスクルージョンを戻すためである。
+#[test]
+fn a_batch_create_makes_a_transclusion_again_with_the_source_it_names() {
+    let notes = Core::new();
+    let source_page = notes.new_doc_page("items-batch-source");
+    let source = notes.fill(&source_page, &["source"]);
+    let page = notes.new_doc_page("items-batch-transcluder");
+    let rows = notes.fill(&page, &["a", "shown"]);
+    notes.transclude(&id(&rows[1]), &id(&source[0]));
+    notes.delete_item(&id(&rows[1]));
+
+    notes.batched(json!([{
+        "op": "create", "id": id(&rows[1]), "pageId": page,
+        "position": format!("after:{}", id(&rows[0])), "level": 1, "body": "source",
+        "transcludeItemId": id(&source[0]),
+    }]));
+
+    let back = notes.item(&id(&rows[1]));
+    assert_eq!(back["transcludeItemId"], json!(id(&source[0])));
+    assert_eq!(back["body"], json!("source"));
+}
+
 // 作り直した項目は、もう「ここで消した項目」としては覚えられていない。Markdownの取り込みが、その項目を消されたものとして扱わないためである。
 #[test]
 fn an_item_made_again_is_no_longer_remembered_as_deleted() {
