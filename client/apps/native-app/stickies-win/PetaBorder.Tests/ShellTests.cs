@@ -276,15 +276,15 @@ public sealed class ShellTests : IDisposable
         );
     }
 
-    // コアがクリップボードを求めると、その文字列で答える。項目のIDなら、トランスクルージョンになる。
+    // 項目のメニューの「Paste as Transclusion」では、コアがクリップボードを求め、シェルがその文字列で答える。項目のIDなら、その項目はトランスクルージョンになる。
     [Fact]
-    public void The_clipboard_is_read_when_the_core_asks()
+    public void Paste_as_transclusion_makes_the_item_show_the_item_whose_id_is_on_the_clipboard()
     {
         var shell = ShellWithPage();
         var (first, second) = TwoItems(shell);
         onClipboard = first;
 
-        shell.Send(new Event.PasteAsTransclusion(second));
+        shell.PasteAsTransclusion(second);
 
         main.WaitUntil("the second item shows the first", () =>
             shell.View.Outline.Rows.Any(row =>

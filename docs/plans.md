@@ -2,6 +2,12 @@
 
 # plans
 
+## stickies-winの項目のメニュー（#802）と貼り戻しのテスト（#803）
+
+- [ ] 「Paste as Transclusion」で、クリップボードのIDの項目がトランスクルージョンになる（`Shell.PasteAsTransclusion`）
+- [ ] 編集していない項目の右クリックのメニューに「Paste as Transclusion」がある
+- [ ] 親と子を選んでコピーし、別の項目の終わりに貼ると、親と子の形のまま戻る（画面のテスト）
+
 ## PetaJournalのURLとリンクの生成
 
 決定は、ADR 051（hrefのテンプレートと名前の符号化）とADR 061（`page-urls`）にある。2つは、flatmarkdownの「テンプレートに名前を入れる関数」でつながっている（2026-11-17に開発者が言った）。ここには、ADRにない順序だけを書く。
