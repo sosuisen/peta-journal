@@ -13,6 +13,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -176,9 +177,8 @@ class EditTest : JournalScreenFixture() {
         waitForItems("1 first", "1 secondapple", "1 pear", "1 third")
     }
 
-    // 親と子を選んでコピーの道具でコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
-    @Test
-    fun a_parent_and_its_child_that_were_copied_are_pasted_back_as_a_parent_and_its_child() {
+    /** Opens a page of a parent with a child and a third item, copies the parent and its child with the tool, and edits the third at its end. */
+    private fun copyParentAndChildThenEditThird() {
         download(
             "notes.md",
             above('A') + "parent" + NL + NL + above('B').replace("<!-- @ ", "<!-- @@ ") + "child" + NL + NL + above('C') + "third" + NL,
@@ -191,7 +191,15 @@ class EditTest : JournalScreenFixture() {
         tool("Copy")
         compose.waitUntil(WAIT_MS) { copied.isNotEmpty() }
         touchEnd("third")
+        // The touch ends the selection: the field comes when the core has answered
+        compose.waitUntil(WAIT_MS) { compose.onAllNodesWithTag(EDITOR_TAG).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("third")
+    }
+
+    // 親と子を選んでコピーの道具でコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
+    @Test
+    fun a_parent_and_its_child_that_were_copied_are_pasted_back_as_a_parent_and_its_child() {
+        copyParentAndChildThenEditThird()
 
         compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.PasteText)
 
