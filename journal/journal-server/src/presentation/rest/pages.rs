@@ -10,13 +10,18 @@ use crate::presentation::client_id::ClientId;
 use crate::presentation::rest::At;
 use crate::state::{blocking, SharedState};
 use journal_api_types::routes;
-use journal_api_types::{DemotePageInput, GetOrCreateDocInput, PropertyInput, UpdatePageInput};
+use journal_api_types::{
+    DemotePageInput, FindPageQuery, GetOrCreateDocInput, PropertyInput, UpdatePageInput,
+};
 use journal_core::dto::ItemFields;
-use journal_core::journal::{BacklinksAnswer, ChangedBy, DocAnswer, PageAnswer, PagesAnswer};
+use journal_core::journal::{
+    BacklinksAnswer, ChangedBy, DocAnswer, FoundPageAnswer, PageAnswer, PagesAnswer,
+};
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
         .at(routes::GET_OR_CREATE_DOC, get_or_create_doc)
+        .at(routes::FIND_PAGE, find_page)
         .at(routes::RECENT_PAGES, get_recent)
         .at(routes::GET_PAGE, get_page)
         .at(routes::UPDATE_PAGE, update_page)
@@ -69,6 +74,13 @@ async fn get_or_create_doc(
         )?))
     })
     .await
+}
+
+async fn find_page(
+    State(state): State<SharedState>,
+    Query(q): Query<FindPageQuery>,
+) -> Result<Json<FoundPageAnswer>, HttpError> {
+    blocking(move || Ok(Json(state.journal.find_page(q)?))).await
 }
 
 async fn update_page(
