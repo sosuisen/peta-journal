@@ -1,5 +1,5 @@
 import { defineConfig } from '@playwright/test';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -29,6 +29,25 @@ function writeConfig(): void {
   mkdirSync(configDir, { recursive: true });
   mkdirSync(join(markdownDir, 'docs'), { recursive: true });
   writeFileSync(join(configDir, 'config.json'), JSON.stringify({ weekNumbering: 'iso' }));
+  writeAutoTemplate(join(configDir, 'functions', 'auto-template'));
+}
+
+/** The pages and the tag the templates of the test server answer. */
+export const templatePagePrefix = 'template-new-';
+export const templateTag = 'template-tag';
+
+/**
+ * Puts the real auto-template extension into the test server, with templates of its own.
+ * Not the sample template.md: its weekday templates would fill the journal pages of other tests.
+ */
+function writeAutoTemplate(dir: string): void {
+  const source = resolve(__dirname, '../../../../../ext-functions/auto-template');
+  mkdirSync(dir, { recursive: true });
+  for (const file of ['config.json', 'main.js']) copyFileSync(join(source, file), join(dir, file));
+  writeFileSync(join(dir, 'e2e.md'), [
+    '---', `pattern: /^${templatePagePrefix}/`, '---', 'from page template', '',
+    '---', `tag: ${templateTag}`, '---', 'from tag template', '',
+  ].join('\n'));
 }
 
 /** Builds the Leptos frontend into `frontendDir`. Runs in `shellDir`, where Trunk.toml is. */
