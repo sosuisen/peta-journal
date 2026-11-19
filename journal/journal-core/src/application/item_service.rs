@@ -12,6 +12,7 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::item_body::{self, ItemBody};
 use crate::domain::model::{Item, ItemPatch, ItemPlacement, ItemPosition, Page};
 use crate::domain::nfc::to_nfc;
+use crate::domain::property_key::{ListKey, PropertyKey};
 use crate::domain::search::SearchIndex;
 use crate::error::AppError;
 use crate::infrastructure::export::export_service::MarkdownExportService;
@@ -113,6 +114,9 @@ pub enum BatchOp {
         body: String,
         /// The source item the item shows, for a transclusion made again.
         transclude: Option<Hmtid>,
+        /// The properties of the item made again: one value for a scalar key, the values of
+        /// a list key.
+        properties: Vec<(PropertyKey, Vec<String>)>,
     },
     /// Writes the given fields of an item. A task state is written whole, with its times.
     Update {
@@ -1057,6 +1061,7 @@ impl ItemService {
                     level,
                     body,
                     transclude,
+                    properties,
                 } => {
                     let created = self.create_item_in(
                         &tx,
@@ -1070,6 +1075,7 @@ impl ItemService {
                     if let Some(source) = transclude {
                         self.set_transclusion_in(&tx, &created, source)?;
                     }
+                    put_properties_in(&tx, id, properties)?;
                     written.push(id.clone());
                 }
                 BatchOp::Update {
@@ -1506,6 +1512,36 @@ fn touched_in(tx: &Connection, existing: &Item, now: i64) -> Result<Item, AppErr
         modified_date: now,
         ..existing.clone()
     })
+}
+
+/// Writes the properties of an item made again, as the file of its page would bring them
+/// in: a key that is no longer defined gets a provisional definition, so that the undo of a
+/// deletion is not refused (ADR 046). The tags come from the hashtags of the body.
+fn put_properties_in(
+    tx: &Connection,
+    item_id: &Hmtid,
+    properties: &[(PropertyKey, Vec<String>)],
+) -> Result<(), AppError> {
+    for (key, values) in properties {
+        match key {
+            PropertyKey::List(ListKey::Tags) => {}
+            PropertyKey::List(ListKey::User(_)) => PropertyRepository::take_in_list_in(
+                tx,
+                ITEM_TARGET,
+                item_id.as_str(),
+                key.as_str(),
+                values,
+            )?,
+            PropertyKey::Scalar(_) => PropertyRepository::take_in_scalar_in(
+                tx,
+                ITEM_TARGET,
+                item_id.as_str(),
+                key.as_str(),
+                &values.join(","),
+            )?,
+        }
+    }
+    Ok(())
 }
 
 /// Puts an item in a task state in one step, with the times and the plan that go with it. The

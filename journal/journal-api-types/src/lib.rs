@@ -169,6 +169,15 @@ pub struct BatchInput {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+/// The value of a property: a text, or a list of texts.
+pub enum PropertyValueInput {
+    Text(String),
+    List(Vec<String>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase")]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 /// One operation of a batch: 'create', 'update', 'move' or 'delete', named by `op`.
@@ -185,6 +194,10 @@ pub enum BatchOpInput {
         /// transclusion again
         #[serde(default, skip_serializing_if = "Option::is_none")]
         transclude_item_id: Option<String>,
+        /// The properties of the item, as the undo of a deletion makes them again. The tags
+        /// are left out: they come from the hashtags of the body
+        #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+        properties: std::collections::BTreeMap<String, PropertyValueInput>,
     },
     Update {
         id: String,
@@ -588,6 +601,7 @@ mod tests {
                     level: 1,
                     body: "text".into(),
                     transclude_item_id: None,
+                    properties: Default::default(),
                 },
                 BatchOpInput::Update {
                     id: "i".into(),

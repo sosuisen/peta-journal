@@ -12,14 +12,15 @@ use serde::Serialize;
 use crate::application::item_service::{BatchOp, MoveRequest, TaskState, TreeMarkdownExport};
 use crate::application::paste::PasteMode;
 use crate::domain::model::{Item, ItemPosition};
+use crate::domain::property_key::PropertyKey;
 use crate::dto::{ItemDto, ItemFields, NarrowItem};
 use crate::error::{parse_id, AppError};
 
 use super::{ChangedBy, Journal};
 pub use journal_api_types::{
     BatchInput, BatchOpInput, CreateItemInput, FlatMarkdownInput, ItemIdsInput, MergeItemsInput,
-    MoveItemsInput, PasteInput, PropertyInput, ShiftLevelsInput, SplitInput, StashInput,
-    TaskStateInput, TransclusionInput, TreeMarkdownInput, UpdateItemInput,
+    MoveItemsInput, PasteInput, PropertyInput, PropertyValueInput, ShiftLevelsInput, SplitInput,
+    StashInput, TaskStateInput, TransclusionInput, TreeMarkdownInput, UpdateItemInput,
 };
 
 // ---- inputs ----
@@ -34,6 +35,7 @@ fn parse_batch_op(input: BatchOpInput) -> Result<BatchOp, AppError> {
             level,
             body,
             transclude_item_id,
+            properties,
         } => BatchOp::Create {
             id: parse_id(&id)?,
             page_id: parse_id(&page_id)?,
@@ -41,6 +43,16 @@ fn parse_batch_op(input: BatchOpInput) -> Result<BatchOp, AppError> {
             level,
             body,
             transclude: transclude_item_id.as_deref().map(parse_id).transpose()?,
+            properties: properties
+                .into_iter()
+                .map(|(key, value)| {
+                    let values = match value {
+                        PropertyValueInput::Text(text) => vec![text],
+                        PropertyValueInput::List(values) => values,
+                    };
+                    Ok((PropertyKey::parse(&key)?, values))
+                })
+                .collect::<Result<_, AppError>>()?,
         },
         BatchOpInput::Update {
             id,
