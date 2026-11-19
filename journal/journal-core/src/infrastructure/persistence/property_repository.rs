@@ -790,4 +790,26 @@ mod tests {
             .unwrap();
         assert!(PropertyRepository::write_scalar_in(&conn, "item", "x", "defined", "2").is_ok());
     }
+
+    /// The epoch millis of a moment written in RFC 3339
+    fn millis(rfc3339: &str) -> i64 {
+        chrono::DateTime::parse_from_rfc3339(rfc3339)
+            .unwrap()
+            .timestamp_millis()
+    }
+
+    // 日付は、与えたタイムゾーンのその日の0時から、翌日の0時の手前までを指す。
+    #[test]
+    fn a_date_spans_its_day_in_the_time_zone_given() {
+        let new_york = chrono::FixedOffset::west_opt(5 * 3600).unwrap();
+
+        assert_eq!(
+            parse_date_to_millis("2026-03-12", false, &new_york).unwrap(),
+            millis("2026-03-12T00:00:00-05:00")
+        );
+        assert_eq!(
+            parse_date_to_millis("2026-03-12", true, &new_york).unwrap(),
+            millis("2026-03-13T00:00:00-05:00")
+        );
+    }
 }
