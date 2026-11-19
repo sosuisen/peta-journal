@@ -717,7 +717,11 @@ fn a_page_read_again_for_its_indices_takes_only_the_indices() {
                 id: "page1".into(),
                 ..Default::default()
             },
-            items: vec![server_has("a", "a"), server_has("new1", "c"), server_has("b", "d")],
+            items: vec![
+                server_has("a", "a"),
+                server_has("new1", "c"),
+                server_has("b", "d"),
+            ],
             ..Default::default()
         })),
     );

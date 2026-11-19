@@ -454,6 +454,13 @@ pub enum Event {
         /// When the page was asked for
         asked_at: ops::file_reload::AskedAt,
     },
+    /// The server answered a page that is read again for the indices of its items.
+    IndicesRead {
+        page_id: String,
+        loaded: Box<PageWithItems>,
+        /// When the page was asked for
+        asked_at: ops::file_reload::AskedAt,
+    },
     /// The shown page is to be read from the server again, e.g. after an undo did not
     /// reach the server.
     ReloadShownPage,
@@ -1333,6 +1340,11 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             loaded,
             asked_at,
         } => ops::file_reload::show_replaced_page(model, &page_id, *loaded, asked_at),
+        IndicesRead {
+            page_id,
+            loaded,
+            asked_at,
+        } => ops::file_reload::take_indices(model, &page_id, *loaded, asked_at),
         WikiPick { title } => ops::wiki::pick(model, &title),
         OpenLinkAt { item_id, cursor } => ops::wiki::open_link_at(model, &item_id, cursor),
         ShiftSelect { item_id } => {

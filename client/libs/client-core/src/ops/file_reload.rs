@@ -36,10 +36,48 @@ pub fn read_again(model: &Model, page_id: &str) -> Cmd {
 pub fn read_again_if_out_of_place(model: &Model, item_id: &str) -> Cmd {
     match model.state.get_item_by_id(item_id) {
         Some(item) if is_out_of_place(model.state.items(), item_id) => {
-            read_again(model, &item.page_id)
+            read_indices_again(model, &item.page_id)
         }
         _ => done(),
     }
+}
+
+/// Reads the indices of the items of a page again. Only the indices are taken from the
+/// answer: the item that was just made or moved is often being edited, and its typing is not
+/// saved yet.
+fn read_indices_again(model: &Model, page_id: &str) -> Cmd {
+    let (page_id, asked_at) = (page_id.to_string(), AskedAt::now(model));
+    run(move |api| async move {
+        match api.get_page_by_id(&page_id).await {
+            Ok(loaded) => api.send_event(Event::IndicesRead {
+                page_id,
+                loaded: Box::new(loaded),
+                asked_at,
+            }),
+            Err(e) => log_error(format!("Failed to read the indices of {page_id}: {e}")),
+        }
+    })
+}
+
+/// The server answered a page read for its indices: each item shown takes its index from the
+/// answer, and keeps its body and its place. An answer that a change made here has overtaken
+/// is dropped: that change got its own answer, which is checked in its turn.
+pub fn take_indices(
+    model: &mut Model,
+    page_id: &str,
+    loaded: PageWithItems,
+    asked_at: AskedAt,
+) -> Cmd {
+    if asked_at.is_overtaken(model) {
+        return done();
+    }
+    for item in loaded.items.iter().filter(|i| i.page_id == page_id) {
+        let idx = item.idx.clone();
+        model
+            .state
+            .update_item(&item.id, move |held| held.idx = idx);
+    }
+    done()
 }
 
 /// When a page was asked for: the count of the changes made here until then.
