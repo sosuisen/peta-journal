@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use axum::body::Body;
 use axum::extract::{Path, Request};
 use axum::http::Uri;
-use axum::response::Response;
+use axum::response::{Redirect, Response};
 use axum::routing::get;
 use axum::Router;
 use tower::ServiceExt;
@@ -22,8 +22,19 @@ pub fn serve(router: Router, config_dir: PathBuf) -> Router {
         },
     );
     router
+        .route("/apps/{app}", get(to_the_folder))
         .route("/apps/{app}/", file.clone())
         .route("/apps/{app}/{*path}", file)
+}
+
+/// Sends `/apps/{app}` on to `/apps/{app}/`, so that the relative URLs of the app point into
+/// its folder.
+async fn to_the_folder(uri: Uri) -> Redirect {
+    let with_slash = match uri.query() {
+        Some(query) => format!("{}/?{query}", uri.path()),
+        None => format!("{}/", uri.path()),
+    };
+    Redirect::temporary(&with_slash)
 }
 
 /// Serves the file that `request` asks for from the folder of its app.

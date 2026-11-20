@@ -77,7 +77,11 @@ async fn a_path_with_an_extension_and_no_file_is_not_found() {
 // アプリのフォルダがないときは、どのパスにも404が返る。
 #[tokio::test]
 async fn a_path_of_an_app_without_a_folder_is_not_found() {
-    for path in ["/apps/no-such-app/", "/apps/no-such-app/tasks", "/apps/no-such-app/app.js"] {
+    for path in [
+        "/apps/no-such-app/",
+        "/apps/no-such-app/tasks",
+        "/apps/no-such-app/app.js",
+    ] {
         let response = fetch(path).await;
 
         assert_eq!(response.status(), 404, "{path}");
