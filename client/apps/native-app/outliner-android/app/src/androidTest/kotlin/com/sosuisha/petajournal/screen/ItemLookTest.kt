@@ -18,6 +18,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.sosuisha.petajournal.types.ScreenView
 import java.io.File
 import kotlin.math.abs
 import org.junit.Assert.assertEquals
@@ -28,6 +29,22 @@ import org.junit.Test
 /** How an item looks: its decoration, its code, tables and images, and where its bullet and its mark stand. */
 @RunWith(AndroidJUnit4::class)
 class ItemLookTest : JournalScreenFixture() {
+    // 今日のページで下に続く過去の日付は、今日の日付と同じ大きさで見える（#885）。
+    @Test
+    fun a_past_date_on_the_page_of_today_is_as_large_as_the_date_of_today() {
+        File(root, "markdown/journals").mkdirs()
+        File(root, "markdown/journals/2020-01-01.md").writeText("an old note" + NL)
+        start()
+        compose.onNode(hasContentDescription("Today")).performClick()
+        waitFor("2020年1月1日")
+        val today = (shell.view.screen as ScreenView.Journal).value.displayDate
+
+        val past = compose.onNode(hasText("2020年1月1日", substring = true)).getUnclippedBoundsInRoot()
+        val now = compose.onNode(hasText(today)).getUnclippedBoundsInRoot()
+
+        assertEquals(now.bottom - now.top, past.bottom - past.top)
+    }
+
     // 項目は、Markdownの記号ではなく、飾りの付いた文字で見える。
     @Test
     fun an_item_shows_its_decoration_and_not_the_marks_of_markdown() {
