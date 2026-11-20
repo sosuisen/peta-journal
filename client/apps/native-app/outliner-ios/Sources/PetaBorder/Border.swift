@@ -49,6 +49,12 @@ final class Border: @unchecked Sendable {
         try open.typed(typing: Data(try typing.bincodeSerialize()))
     }
 
+    /// Hands an image to the core by the path of its file, pasted into the item at `cursor` in
+    /// the characters of the core. The core deletes the file once it is saved (ADR 071).
+    func pasteImage(_ file: URL, into itemId: String, cursor: UInt64) {
+        open.pasteImage(itemId: itemId, path: file.path, cursor: cursor)
+    }
+
     /// Hands a key to the core, which decides what it means (ADR 052). False when it means
     /// nothing to the outline there.
     func press(_ key: KeyPress) throws -> Bool {

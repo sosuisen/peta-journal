@@ -174,6 +174,14 @@ public final class Shell: ObservableObject {
         send(.pasteText(itemId: itemId, text: text, html: "", cursor: place, raw: false))
     }
 
+    /// The user pasted the image in `file` into the edited item, with the cursor `cursor` UTF-16
+    /// units into its Markdown. The core saves the image among the assets, puts a link to it at
+    /// the cursor, and deletes `file` (ADR 071).
+    public func pasteImage(_ file: URL, into itemId: String, at cursor: Int) {
+        let body = view.outline.rows.first { $0.item.id == itemId }?.item.body ?? ""
+        border.pasteImage(file, into: itemId, cursor: UInt64(Cursor.characters(utf16: cursor, in: body)))
+    }
+
     /// The user left the editor of the item: what was typed is saved.
     public func finish(_ itemId: String) {
         send(.editFinished(itemId: itemId))
