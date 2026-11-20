@@ -29,6 +29,8 @@ The config folder is `~/.peta-journal` unless `--config-dir` names another one.
 
 3. Open `http://localhost:8087/apps/todo/`.
 
+`release-all.ps1` (or `release-all.sh`) at the root of the repository does these steps too.
+
 The journal server needs no restart. It reads the files on each request. After a change to
 the app, build it and copy the files again.
 
