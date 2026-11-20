@@ -36,6 +36,12 @@ final class PastedImageTests: XCTestCase {
         XCTAssertEqual(try write(named: nil, type: nil).lastPathComponent, "image")
     }
 
+    // 拡張子のない名前には、種類の拡張子が付く。写真の名前（IMG_0001など）には拡張子がなく、コアは保存するファイルの拡張子を名前から取るためである。
+    func testANameWithoutAnExtensionGetsThatOfTheType() throws {
+        XCTAssertEqual(try write(named: "sample", type: "public.jpeg").lastPathComponent, "sample.jpeg")
+        XCTAssertEqual(try write(named: "sample", type: nil).lastPathComponent, "sample")
+    }
+
     // 同じ名前の画像を2回貼っても、別々のファイルに書かれる。前の画像がまだ保存されていなくても、上書きしない。
     func testTwoImagesOfTheSameNameAreWrittenToTwoFiles() throws {
         let first = try write(named: "image.png", type: "public.png")
