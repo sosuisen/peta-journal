@@ -311,6 +311,34 @@ internal sealed class Screen : IAsyncDisposable
         Clipboard.SetContent(content);
     }
 
+    /// <summary>
+    /// Puts a picture of one pixel on the clipboard of Windows as a bitmap, as a screenshot
+    /// tool does.
+    /// </summary>
+    public static async Task PutImageOnClipboard()
+    {
+        var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+        var encoder = await Windows.Graphics.Imaging.BitmapEncoder.CreateAsync(
+            Windows.Graphics.Imaging.BitmapEncoder.PngEncoderId,
+            stream
+        );
+        encoder.SetPixelData(
+            Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8,
+            Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied,
+            1,
+            1,
+            96,
+            96,
+            [0, 0, 255, 255]
+        );
+        await encoder.FlushAsync();
+        var content = new DataPackage();
+        content.SetBitmap(
+            Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream)
+        );
+        Clipboard.SetContent(content);
+    }
+
     /// <summary>Waits until the clipboard of Windows has the text.</summary>
     public static async Task UntilClipboardHas(string text)
     {

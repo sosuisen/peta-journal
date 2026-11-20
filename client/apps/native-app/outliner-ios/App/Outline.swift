@@ -96,7 +96,8 @@ struct OutlineRow: View {
         let first = Letters.line(Letters.plain * firstLarger(blocks))
         VStack(alignment: .leading, spacing: 0) {
             if let date = row.dateHeader {
-                Text(date).font(.headline).padding(.top, 12)
+                // As large as the date of today at the top: each is the title of a day
+                Text(date).font(.title2).padding(.top, 12)
             }
             HStack(alignment: .top, spacing: 0) {
                 ZStack {

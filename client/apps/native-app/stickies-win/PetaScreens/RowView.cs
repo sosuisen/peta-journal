@@ -488,8 +488,8 @@ internal sealed class RowView : Grid
     }
 
     /// <summary>
-    /// Sends the text on the clipboard to the core, which pastes it at the cursor. An image is
-    /// not pasted: the native shells cannot upload it yet.
+    /// Sends the image or the text on the clipboard to the core, which pastes it at the
+    /// cursor.
     /// </summary>
     private async void PasteFromClipboard(bool raw)
     {
@@ -497,6 +497,11 @@ internal sealed class RowView : Grid
             return;
         // The cursor where the paste was asked, before the clipboard is read
         var state = State();
+        if (await WindowsClipboard.Image() is { } image)
+        {
+            Shell.PasteImage(row.Id, state, image);
+            return;
+        }
         if (await WindowsClipboard.Text() is not { } text)
             return;
         // The core reads no HTML yet: it pastes the text

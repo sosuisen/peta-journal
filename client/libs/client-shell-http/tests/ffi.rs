@@ -115,6 +115,24 @@ fn a_page_is_opened_by_its_url_from_the_entrance() {
     assert!(core.open(String::new()).is_err());
 }
 
+// 入口から、画像をファイルのパスで貼れる。ファイルは、サーバーのアップロードに届く。
+#[test]
+fn an_image_is_pasted_by_its_path_from_the_entrance() {
+    let (address, seen) = start_server();
+    let core = PetaCore::new(address, Arc::new(Kept::default()));
+    let folder = tempfile::tempdir().unwrap();
+    let image = folder.path().join("sample.png");
+    std::fs::write(&image, b"drawing").unwrap();
+
+    core.paste_image("a".into(), image.to_string_lossy().into_owned(), 0);
+
+    wait_until("the server is sent the image", || {
+        let seen = seen.lock().unwrap();
+        seen.iter()
+            .any(|line| line.starts_with("POST /api/assets/upload "))
+    });
+}
+
 // 別の言語のシェルの入口から、コピーのHTMLを作れる。ウィキリンクは、ブラウザ版のページへのリンクになる。
 #[test]
 fn a_shell_in_another_language_gets_the_html_of_a_copy() {
