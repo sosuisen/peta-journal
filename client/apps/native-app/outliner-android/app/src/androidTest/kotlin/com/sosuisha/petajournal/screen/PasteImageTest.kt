@@ -46,15 +46,15 @@ class PasteImageTest : JournalScreenFixture() {
     @Test
     fun an_image_of_the_clipboard_goes_into_the_assets_and_its_link_into_the_item() {
         editNotes()
-        val image = TestImages.lend("pasted.png", DRAWING)
+        val image = TestImages.address("pasted.png")
         compose.runOnUiThread {
             context.getSystemService(ClipboardManager::class.java)
-                .setPrimaryClip(ClipData.newUri(context.contentResolver, "image", image))
+                .setPrimaryClip(ClipData(ClipDescription("image", arrayOf("image/png")), ClipData.Item(image)))
         }
 
         compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.PasteText)
 
-        assertArrayEquals(DRAWING, linkedAsset().readBytes())
+        assertArrayEquals(TestImages.DRAWING, linkedAsset().readBytes())
         assertTrue(body(), body().startsWith("first![pasted.png]("))
     }
 
@@ -62,11 +62,11 @@ class PasteImageTest : JournalScreenFixture() {
     @Test
     fun an_image_that_the_keyboard_on_the_screen_puts_in_goes_into_the_assets_and_its_link_into_the_item() {
         editNotes()
-        val image = TestImages.lend("keyboard.png", DRAWING)
+        val image = TestImages.address("keyboard.png")
 
         commitOnTheScreen(image)
 
-        assertArrayEquals(DRAWING, linkedAsset().readBytes())
+        assertArrayEquals(TestImages.DRAWING, linkedAsset().readBytes())
         assertTrue(body(), body().startsWith("first![keyboard.png]("))
     }
 
@@ -79,9 +79,5 @@ class PasteImageTest : JournalScreenFixture() {
             val content = InputContentInfo(image, ClipDescription("image", arrayOf("image/png")))
             keyboard.commitContent(content, 0, null)
         }
-    }
-
-    private companion object {
-        val DRAWING = byteArrayOf(0x89.toByte(), 'P'.code.toByte(), 'N'.code.toByte(), 'G'.code.toByte())
     }
 }
