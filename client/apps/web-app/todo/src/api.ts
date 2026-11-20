@@ -28,19 +28,26 @@ const ITEM_FIELDS: readonly (keyof Item)[] = [
 ];
 
 /**
- * The address of the journal server, from `?host=` and `?port=` of the page URL.
+ * The address of the journal server: the origin of the page, or another server named with
+ * `?host=` and `?port=` of the page URL.
  *
- * The journal server serves the API and the PetaJournal web app at the same address
- * (ADR 010), so a link to a page starts with this address too.
+ * The journal server serves this app at `/apps/todo/` (ADR 073), so by default the API is at
+ * the origin of the page. It serves the PetaJournal web app at the same address (ADR 010),
+ * so a link to a page starts with this address too.
  */
-export function serverUrlFrom(search: string): string {
-  const params = new URLSearchParams(search);
-  const host = params.get('host') || 'localhost';
-  const port = params.get('port') || '8087';
-  return `http://${host}:${port}`;
+export function serverUrlFrom(
+  page: Pick<Location, 'search' | 'origin'>,
+): string {
+  const params = new URLSearchParams(page.search);
+  const host = params.get('host');
+  const port = params.get('port');
+  if (host === null && port === null) {
+    return page.origin;
+  }
+  return `http://${host || 'localhost'}:${port || '8087'}`;
 }
 
-export const serverUrl = serverUrlFrom(window.location.search);
+export const serverUrl = serverUrlFrom(window.location);
 
 const RETRY_MS = 3000;
 

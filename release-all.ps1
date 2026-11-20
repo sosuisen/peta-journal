@@ -6,16 +6,18 @@
 #
 # The order:
 #   1. git pull --ff-only
-#   2. PetaStickies and MemoView end. Then the journal server and the server of todo end.
+#   2. PetaStickies and MemoView end. Then the journal server ends.
 #   3. The release builds: the web frontend, the journal server, the Emacs shell, todo,
 #      PetaStickies and MemoView.
-#   4. The journal server starts in its own window, with the web frontend beside it.
-#   5. When the server answers on port 8087, the browser and PetaStickies start.
-#   6. The server of todo (vite preview of dist/) starts in its own window on port 5180, and
-#      todo opens in the browser.
+#   4. todo is copied to apps/todo/ of the config folder, where the journal server serves it
+#      at /apps/todo/ (ADR 073).
+#   5. The journal server starts in its own window, with the web frontend beside it.
+#   6. When the server answers on port 8087, the browser opens the web frontend and todo, and
+#      PetaStickies starts.
 #
-# Why port 5180: the journal server lets only http://localhost:5180 call it from another page
-# (--cors-origins). It is the port of the dev server of todo too, so that one ends in step 2.
+# The config folder is ~/.peta-journal, or PETAJOURNAL_CONFIG_DIR when it is set, as for the
+# journal server. The home is HOME, or USERPROFILE without it, as the server takes it too:
+# Git Bash sets HOME, and release-all.sh runs this script from there.
 #
 # The apps end before the server: they save what is typed to the server when they close.
 # The Emacs shell is not ended: Emacs would lose its buffers. When it runs, its build is left
@@ -25,9 +27,13 @@ $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
 $port = 8087
-$todoPort = 5180
 $apps = "$root/client/apps"
 $release = "$root/journal/target/release"
+$configDir = $env:PETAJOURNAL_CONFIG_DIR
+if (-not $configDir) {
+    $userHome = $env:HOME ? $env:HOME : $env:USERPROFILE
+    $configDir = Join-Path $userHome '.peta-journal'
+}
 
 function Invoke-Step([string]$name, [scriptblock]$step) {
     Write-Host "==> $name" -ForegroundColor Cyan
@@ -120,20 +126,6 @@ function Wait-Port([int]$number, [System.Diagnostics.Process]$server, [string]$n
     }
 }
 
-# Vite of todo, the dev server or a preview. It keeps nothing, so it ends by force.
-function Stop-TodoServer {
-    foreach ($listener in @(Get-NetTCPConnection -LocalPort $todoPort -State Listen -ErrorAction SilentlyContinue)) {
-        $owner = Get-CimInstance Win32_Process -Filter "ProcessId = $($listener.OwningProcess)"
-        if (-not $owner) { continue }
-        if ($owner.CommandLine -notmatch 'todo[\\/]node_modules[\\/].*vite\.js') {
-            throw "Another program uses port $todoPort. End it first."
-        }
-        Write-Host 'Ending the server of todo'
-        Stop-Process -Id $owner.ProcessId -Force
-        Wait-Process -Id $owner.ProcessId -ErrorAction SilentlyContinue
-    }
-}
-
 if (-not $NoPull) {
     $before = (Get-FileHash $PSCommandPath).Hash
     Invoke-Step 'Pull' { git -C $root pull --ff-only }
@@ -154,7 +146,6 @@ foreach ($server in @(Get-Process journal-server -ErrorAction SilentlyContinue))
     Stop-Server $server
 }
 if (Test-Port $port) { throw "Another program uses port $port. End it first." }
-Stop-TodoServer
 
 Invoke-Step 'Web frontend' { & "$apps/web-app/outliner/release.ps1" }
 Invoke-Step 'Journal server' { & "$root/journal/journal-server/release.ps1" }
@@ -172,6 +163,13 @@ else {
     Invoke-Step 'Emacs shell' { & "$apps/emacs/outliner/release.ps1" }
 }
 Invoke-Step 'todo' { & "$apps/web-app/todo/release.ps1" }
+# The files of an older build go first: their hashed names would stay beside the new ones
+Invoke-Step 'Copy todo' {
+    $todo = Join-Path $configDir 'apps/todo'
+    if (Test-Path $todo) { Remove-Item -Recurse -Force $todo }
+    New-Item -ItemType Directory -Force (Split-Path $todo) | Out-Null
+    Copy-Item -Recurse "$apps/web-app/todo/dist" $todo
+}
 # -Generate: the pull may have changed the Rust core under the types of C#
 Invoke-Step 'PetaStickies' { & "$apps/native-app/stickies-win/release.ps1" -Generate }
 Invoke-Step 'MemoView' { & "$apps/webview-app/memoview-win/release.ps1" }
@@ -182,14 +180,7 @@ Wait-Port $port $server 'journal server'
 
 Write-Host '==> Starting the apps' -ForegroundColor Cyan
 Start-Process "http://localhost:$port"
+Start-Process "http://localhost:$port/apps/todo/"
 Start-Process "$apps/native-app/stickies-win/PetaStickies/bin/Release/net11.0-windows10.0.22621.0/win-x64/PetaStickies.exe"
 
-Write-Host '==> Starting the server of todo' -ForegroundColor Cyan
-# Why 127.0.0.1: Vite takes ::1 alone for localhost on some systems, and Test-Port asks IPv4.
-# The browser still opens localhost, the origin that the journal server lets in.
-$todo = Start-Process npm -ArgumentList 'run', 'preview', '--', '--host', '127.0.0.1', '--port', $todoPort, '--strictPort' `
-    -WorkingDirectory "$apps/web-app/todo" -PassThru
-Wait-Port $todoPort $todo 'server of todo'
-Start-Process "http://localhost:$todoPort"
-
-Write-Host "Done. The journal server runs at http://localhost:$port, todo at http://localhost:$todoPort"
+Write-Host "Done. The journal server runs at http://localhost:$port, todo at http://localhost:$port/apps/todo/"

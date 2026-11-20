@@ -102,6 +102,23 @@ async fn an_unknown_api_path_is_not_found_instead_of_index_html() {
     assert_eq!(response.status(), 404);
 }
 
+// 画面を配信していても、`/apps/`のパスは拡張Webアプリとして扱われ、画面の`index.html`は返らない。
+#[tokio::test]
+async fn the_paths_of_the_extension_apps_come_before_the_files_of_the_frontend() {
+    let app = web().root.join("config/apps/sample");
+    std::fs::create_dir_all(&app).unwrap();
+    std::fs::write(app.join("index.html"), "the app").unwrap();
+
+    let found = fetch("/apps/sample/tasks").await;
+    assert_eq!(found.text().await.unwrap(), "the app");
+
+    for path in ["/apps/sample/missing.js", "/apps/no-such-app/"] {
+        let response = fetch(path).await;
+
+        assert_eq!(response.status(), 404, "{path}");
+    }
+}
+
 // 画面のフォルダが設定されていなければ、画面は配信されない。
 #[tokio::test]
 async fn no_frontend_is_served_without_a_frontend_folder() {

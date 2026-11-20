@@ -367,10 +367,11 @@ server keeps running.
 
 `./release-all.ps1` (or `release-all.sh`) at the root of the repository brings everything up to
 date for daily use. It pulls, closes the apps, and stops the journal server with Ctrl+C. Then it
-makes the release builds of every app for this system. It copies `dist/` to
-`journal/target/release/frontend/` and starts the server. When port 8087 answers, it opens the
-browser and starts PetaStickies. Last, it serves `dist/` of todo with `vite preview` on port
-5180 and opens it. The journal server lets only `http://localhost:5180` call it by default
-(`--cors-origins`), so the dev server of todo ends first. Pass `-NoPull` (or `--no-pull`) to build what is checked out.
+makes the release builds of every app for this system. It copies `dist/` of the web frontend to
+`journal/target/release/frontend/`. It copies `dist/` of todo to `apps/todo/` of the config
+folder (ADR 073). The config folder is `~/.peta-journal`, or `PETAJOURNAL_CONFIG_DIR` when it is
+set. Then it starts the server. When port 8087 answers, it opens `http://localhost:8087` and
+`http://localhost:8087/apps/todo/` in the browser, and starts PetaStickies. Pass `-NoPull` (or
+`--no-pull`) to build what is checked out.
 The steps by hand are in [README.ja.md](README.ja.md).
 

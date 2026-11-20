@@ -7,16 +7,17 @@
 #
 # The order:
 #   1. git pull --ff-only
-#   2. PetaStickies ends on a Mac. Then the journal server and the server of todo end.
+#   2. PetaStickies ends on a Mac. Then the journal server ends.
 #   3. The release builds: the web frontend, the journal server, the Emacs shell, todo and,
 #      on a Mac, PetaStickies.
-#   4. The journal server starts in the background. Its log is journal/target/release/journal-server.log.
-#   5. When the server answers on port 8087, the browser and PetaStickies start.
-#   6. The server of todo (vite preview of dist/) starts in the background on port 5180, and
-#      todo opens in the browser. Its log is journal/target/release/todo.log.
+#   4. todo is copied to apps/todo/ of the config folder, where the journal server serves it
+#      at /apps/todo/ (ADR 073).
+#   5. The journal server starts in the background. Its log is journal/target/release/journal-server.log.
+#   6. When the server answers on port 8087, the browser opens the web frontend and todo, and
+#      PetaStickies starts on a Mac.
 #
-# Why port 5180: the journal server lets only http://localhost:5180 call it from another page
-# (--cors-origins). It is the port of the dev server of todo too, so that one ends in step 2.
+# The config folder is ~/.peta-journal, or PETAJOURNAL_CONFIG_DIR when it is set, as for the
+# journal server.
 #
 # On Windows (Git Bash) it runs release-all.ps1, which builds the WinUI apps too.
 set -eu
@@ -36,14 +37,14 @@ pull=yes
 case "${1:-}" in
     --no-pull) pull=no ;;
     -h | --help)
-        sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
         exit 0
         ;;
 esac
 
 port=8087
-todo_port=5180
 apps=$root/client/apps
+config_dir=${PETAJOURNAL_CONFIG_DIR:-$HOME/.peta-journal}
 release=$root/journal/target/release
 mac=no
 [ "$(uname -s)" = Darwin ] && mac=yes
@@ -101,16 +102,6 @@ if answers "$port"; then
     echo "Another program uses port $port. End it first." >&2
     exit 1
 fi
-# Vite of todo, the dev server or a preview. It keeps nothing, so it ends by force.
-for pid in $(lsof -ti "tcp:$todo_port" -sTCP:LISTEN 2>/dev/null || true); do
-    if ! ps -o command= -p "$pid" | grep -Eq 'todo/node_modules/.*vite'; then
-        echo "Another program uses port $todo_port. End it first." >&2
-        exit 1
-    fi
-    echo 'Ending the server of todo'
-    kill "$pid"
-    while kill -0 "$pid" 2>/dev/null; do sleep 0.2; done
-done
 
 step 'Web frontend'
 "$apps/web-app/outliner/release.sh"
@@ -130,6 +121,11 @@ else
 fi
 step todo
 "$apps/web-app/todo/release.sh"
+# The files of an older build go first: their hashed names would stay beside the new ones
+step 'Copy todo'
+rm -rf "$config_dir/apps/todo"
+mkdir -p "$config_dir/apps"
+cp -R "$apps/web-app/todo/dist" "$config_dir/apps/todo"
 if [ "$mac" = yes ]; then
     # --generate: the pull may have changed the Rust core under the types of Swift
     step PetaStickies
@@ -142,22 +138,14 @@ nohup ./journal-server >journal-server.log 2>&1 &
 wait_for $! "$port" 'journal server' "$release/journal-server.log"
 
 step 'Starting the apps'
+for url in "http://localhost:$port" "http://localhost:$port/apps/todo/"; do
+    if [ "$mac" = yes ]; then
+        open "$url"
+    elif command -v xdg-open >/dev/null; then
+        xdg-open "$url" >/dev/null 2>&1 || true
+    fi
+done
 if [ "$mac" = yes ]; then
-    open "http://localhost:$port"
     open "$apps/native-app/stickies-mac/build/Build/Products/Release/PetaStickies.app"
-elif command -v xdg-open >/dev/null; then
-    xdg-open "http://localhost:$port" >/dev/null 2>&1 || true
 fi
-
-step 'Starting the server of todo'
-# Why 127.0.0.1: Vite takes ::1 alone for localhost on some systems, and answers asks IPv4.
-# The browser still opens localhost, the origin that the journal server lets in.
-cd "$apps/web-app/todo"
-nohup npm run preview -- --host 127.0.0.1 --port "$todo_port" --strictPort >"$release/todo.log" 2>&1 &
-wait_for $! "$todo_port" 'server of todo' "$release/todo.log"
-if [ "$mac" = yes ]; then
-    open "http://localhost:$todo_port"
-elif command -v xdg-open >/dev/null; then
-    xdg-open "http://localhost:$todo_port" >/dev/null 2>&1 || true
-fi
-echo "Done. The journal server runs at http://localhost:$port, todo at http://localhost:$todo_port"
+echo "Done. The journal server runs at http://localhost:$port, todo at http://localhost:$port/apps/todo/"

@@ -41,9 +41,11 @@ pub fn build_router(state: SharedState) -> Router {
 
     let mcp = presentation::mcp::service(state.clone());
     let frontend_dir = state.settings.frontend_dir.clone();
+    let config_dir = state.settings.config_dir.clone();
     let router = presentation::rest::router()
         .nest_service("/mcp", mcp)
         .with_state(state);
+    let router = presentation::apps::serve(router, config_dir);
     let router = match frontend_dir {
         Some(dir) => presentation::frontend::serve(router, &dir),
         None => router,
