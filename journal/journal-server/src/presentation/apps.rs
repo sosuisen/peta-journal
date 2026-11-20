@@ -11,7 +11,7 @@ use axum::response::Response;
 use axum::routing::get;
 use axum::Router;
 use tower::ServiceExt;
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 
 /// Adds the routes of the apps in `apps/` of `config_dir` to `router`.
 pub fn serve(router: Router, config_dir: PathBuf) -> Router {
@@ -29,8 +29,22 @@ pub fn serve(router: Router, config_dir: PathBuf) -> Router {
 /// Serves the file that `request` asks for from the folder of its app.
 async fn file(folder: PathBuf, mut request: Request) -> Response {
     *request.uri_mut() = within_the_app(request.uri());
-    let Ok(response) = ServeDir::new(folder).oneshot(request).await;
+    let files = ServeDir::new(&folder);
+    let Ok(response) = if has_an_extension(request.uri().path()) {
+        files.oneshot(request).await
+    } else {
+        let index = ServeFile::new(folder.join("index.html"));
+        files.fallback(index).oneshot(request).await
+    };
     response.map(Body::new)
+}
+
+/// Whether the last segment of `path` has an extension, as `app.js` does. The app shows a
+/// screen at a path without one, such as `/tasks/1`.
+fn has_an_extension(path: &str) -> bool {
+    path.rsplit('/')
+        .next()
+        .is_some_and(|name| name.contains('.'))
 }
 
 /// The URI of a request to `/apps/{app}/...` as the folder of the app sees it: `/...`.
