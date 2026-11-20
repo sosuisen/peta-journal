@@ -2,9 +2,9 @@
 //!
 //! A week has one name, whichever of its days is asked for. In the ISO numbering, a week
 //! starts on Monday and belongs to the year of its Thursday, so week 1 holds January 4th. In
-//! the US numbering, a week starts on Sunday, belongs to the year of that Sunday, and is
-//! counted from the week that holds January 1st of that year. So the week of a New Year that
-//! is not a Sunday is the last week of the old year, and the new year starts at week 2.
+//! the US numbering, a week starts on Sunday and belongs to the year of its Saturday, so week
+//! 1 holds January 1st. The days of December in that week belong to the new year. Excel splits
+//! that week in two and keeps those days in the old year (ADR 072).
 
 use crate::date::{days_in_month, Date};
 use crate::name::JournalName;
@@ -102,9 +102,9 @@ mod tests {
         assert_eq!(week_of(Date::new(2026, 2, 9), Iso), (2026, 7));
     }
 
-    // USの週は日曜に始まり、その日曜の年に入る。1月1日のある週が第1週である。
+    // USの週は日曜に始まる。1月1日のある週が第1週である。
     #[test]
-    fn a_us_week_starts_on_sunday_and_belongs_to_the_year_of_that_sunday() {
+    fn a_us_week_starts_on_sunday_and_week_1_holds_january_1st() {
         // 2023 starts on a Sunday
         assert_eq!(week_of(Date::new(2023, 1, 1), Us), (2023, 1));
         assert_eq!(week_of(Date::new(2023, 1, 8), Us), (2023, 2));
@@ -132,8 +132,7 @@ mod tests {
         assert_eq!(first_day_of_week(2026, 53, Us), Date::new(2026, 12, 27));
         assert_eq!(first_day_of_week(2026, 53, Iso), Date::new(2026, 12, 28));
         assert_eq!(first_day_of_week(2025, 1, Iso), Date::new(2024, 12, 30));
-        // Week 1 of a US year that does not start on a Sunday is the last week of the year
-        // before it
+        // Week 1 of a US year that does not start on a Sunday starts in December
         assert_eq!(first_day_of_week(2027, 1, Us), Date::new(2026, 12, 27));
     }
 
