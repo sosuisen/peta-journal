@@ -775,6 +775,24 @@ public sealed class ShellTests : IDisposable
         main.WaitUntil("the list is in the item", () => Bodies(shell) is ["- a\n- b"]);
     }
 
+    // 画像のファイルを貼ると、サーバーのassetsに保存され、項目にそのリンクが入る。ファイルは保存のあとに消える（ADR 071）。
+    [Fact]
+    public void A_pasted_image_file_is_saved_in_the_assets_and_linked_in_the_item()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+        var image = Path.Combine(Directory.CreateTempSubdirectory().FullName, "sample.png");
+        File.WriteAllBytes(image, [1, 2, 3]);
+
+        shell.PasteImage(item, Editor("", 0), image);
+
+        main.WaitUntil("the item links the image", () =>
+            Bodies(shell) is [var body] && body.StartsWith("![sample.png](../assets/", StringComparison.Ordinal)
+        );
+        main.WaitUntil("the file is deleted", () => !File.Exists(image));
+    }
+
     /// <summary>The level and the body of each item, as "level body".</summary>
     private static List<string> LevelsAndBodies(Shell shell) =>
         [.. shell.View.Outline.Rows.Select(row => $"{row.Item.Level} {row.Item.Body}")];
