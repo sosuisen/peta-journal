@@ -135,7 +135,15 @@ function Stop-TodoServer {
 }
 
 if (-not $NoPull) {
+    $before = (Get-FileHash $PSCommandPath).Hash
     Invoke-Step 'Pull' { git -C $root pull --ff-only }
+    # PowerShell read this script when it started: what the pull changed in it would not run.
+    # Why another process: the types of Add-Type of this version could differ from the new one
+    if ((Get-FileHash $PSCommandPath).Hash -ne $before) {
+        Write-Host 'The pull changed this script: starting the new version'
+        pwsh -NoProfile -File $PSCommandPath -NoPull
+        exit $LASTEXITCODE
+    }
 }
 
 Close-App PetaStickies
