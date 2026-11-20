@@ -74,10 +74,12 @@ final class PastedImageTests: XCTestCase {
             CGContext(
                 data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
                 space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: alpha == 255 ? CGImageAlphaInfo.noneSkipLast.rawValue : CGImageAlphaInfo.premultipliedLast.rawValue))
+                bitmapInfo: alpha == 255
+                    ? CGImageAlphaInfo.noneSkipLast.rawValue : CGImageAlphaInfo.premultipliedLast.rawValue))
         let image = try XCTUnwrap(context.makeImage())
         let data = NSMutableData()
-        let destination = try XCTUnwrap(CGImageDestinationCreateWithData(data, UTType.heic.identifier as CFString, 1, nil))
+        let destination = try XCTUnwrap(
+            CGImageDestinationCreateWithData(data, UTType.heic.identifier as CFString, 1, nil))
         CGImageDestinationAddImage(destination, image, nil)
         XCTAssertTrue(CGImageDestinationFinalize(destination))
         return data as Data

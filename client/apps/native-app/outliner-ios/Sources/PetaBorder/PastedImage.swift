@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import UniformTypeIdentifiers
 
 /// The file that a pasted image is written to. The core saves it among the assets and then
@@ -7,8 +8,10 @@ public enum PastedImage {
     /// Writes `content` into a folder of its own in the temporary folder, and gives the file.
     /// `name` is the name the image came with, and `type` its type, such as `public.png`. The
     /// core takes the name for the text of the link, and the end of the name for that of the
-    /// saved file. Throws when the file cannot be written.
+    /// saved file. A HEIC image is written as a PNG: a browser may not show HEIC. Throws when
+    /// the file cannot be written.
     public static func write(_ content: Data, named name: String?, type: String?) throws -> URL {
+        let (content, name, type) = shownInBrowsers(content, named: name, type: type)
         // A folder of its own: an image of the same name may be pasted before the first is saved
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("pasted", isDirectory: true)
@@ -17,6 +20,25 @@ public enum PastedImage {
         let file = folder.appendingPathComponent(fileName(name, type))
         try content.write(to: file)
         return file
+    }
+
+    /// The image as a browser shows it: a HEIC, as a sticker of the keyboard and Photos give,
+    /// becomes a PNG under the name without its extension. Any other image stays as it came,
+    /// and so does a HEIC that cannot be read.
+    private static func shownInBrowsers(_ content: Data, named name: String?, type: String?) -> (
+        Data, String?, String?
+    ) {
+        // HEIC is not a kind of HEIF to the system: both are asked for
+        guard let type, let kind = UTType(type), kind.conforms(to: .heic) || kind.conforms(to: .heif),
+            let source = CGImageSourceCreateWithData(content as CFData, nil),
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else { return (content, name, type) }
+        let converted = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(converted, UTType.png.identifier as CFString, 1, nil)
+        else { return (content, name, type) }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else { return (content, name, type) }
+        return (converted as Data, name.map { ($0 as NSString).deletingPathExtension }, UTType.png.identifier)
     }
 
     /// The name of the file: the name the image came with, or "image", and the extension of its
