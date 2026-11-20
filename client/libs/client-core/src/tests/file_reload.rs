@@ -117,6 +117,33 @@ fn an_edited_item_typed_into_that_the_server_lost_is_made_again_after_the_item_b
     assert!(h.model.state.is_editing("b"));
 }
 
+// 手元の並びで前にあった項目もサーバーの版になければ、打っている項目はページの最初に作り直される。
+#[test]
+fn a_lost_typed_item_whose_item_before_went_too_is_made_again_first() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "")]);
+    typed(&mut h, "b", "typed here");
+    server_has(&mut h, vec![item("c", 1, "c")]);
+
+    file_changed(&mut h);
+
+    let positions: Vec<String> = create_calls(&h.api).into_iter().map(|c| c.1).collect();
+    assert_eq!(positions, ["first"]);
+    assert_eq!(h.bodies(), ["b=typed here", "c=c"]);
+}
+
+// 打っている項目も、字下げと並びはサーバーの版になる。残すのは本文だけである。
+#[test]
+fn a_typed_item_takes_its_level_and_place_from_the_server() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "b")]);
+    typed(&mut h, "a", "typed here");
+    server_has(&mut h, vec![item("b", 1, "b"), item("a", 2, "from the file")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.outline(), ["b:1=b", "a:2=typed here"]);
+    assert!(create_calls(&h.api).is_empty());
+}
+
 // サーバーの拡張が項目を書いたと知らされると、ファイルの変更と同じように、表示中のページが読み直される。
 #[test]
 fn items_written_by_an_extension_reload_the_page() {
