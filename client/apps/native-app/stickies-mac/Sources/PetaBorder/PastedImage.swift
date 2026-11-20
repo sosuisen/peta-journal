@@ -7,15 +7,34 @@ public enum PastedImage {
     /// Writes the image on `pasteboard` to a file in a folder of its own, and gives the file.
     /// `nil` when the pasteboard holds no image.
     public static func write(from pasteboard: NSPasteboard) -> URL? {
+        if let image = imageFile(pasteboard) {
+            // A copy: the core deletes the file it was given, and the original is the user's
+            return inFolderOfItsOwn(named: image.lastPathComponent) {
+                try FileManager.default.copyItem(at: image, to: $0)
+            }
+        }
         guard let png = pasteboard.data(forType: .png) ?? tiffAsPng(pasteboard) else { return nil }
+        return inFolderOfItsOwn(named: "image.png") { try png.write(to: $0) }
+    }
+
+    /// The image file that the Finder copied, if any.
+    private static func imageFile(_ pasteboard: NSPasteboard) -> URL? {
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [
+            .urlReadingFileURLsOnly: true, .urlReadingContentsConformToTypes: ["public.image"],
+        ]
+        return (pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL])?.first
+    }
+
+    /// Makes the file `name` in a folder of its own, and gives it. `nil` when it cannot be made.
+    private static func inFolderOfItsOwn(named name: String, _ make: (URL) throws -> Void) -> URL? {
         // A folder of its own: an image of the same name may be pasted before the first is saved
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("peta-pasted", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        let file = folder.appendingPathComponent("image.png")
+        let file = folder.appendingPathComponent(name)
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            try png.write(to: file)
+            try make(file)
         } catch {
             return nil
         }
