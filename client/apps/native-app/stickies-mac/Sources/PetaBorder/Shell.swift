@@ -22,6 +22,7 @@ public final class Shell: ObservableObject {
     @Published public private(set) var question: Question?
     private let border: Border
     private let clipboard: () -> String?
+    private let image: () -> URL?
     private let copy: (String, String?) -> Void
     /// The address of the journal server. It serves the web frontend too, so a link that
     /// another app is to open starts with it.
@@ -34,12 +35,14 @@ public final class Shell: ObservableObject {
     /// Starts a core for the journal server at `server` and opens what `url` names, or nothing
     /// when there is no URL: a page is then to be searched for. `clipboard`
     /// gives the text on the clipboard when the core asks for it, and `copy` puts text there,
-    /// with the same as HTML when there is any.
+    /// with the same as HTML when there is any. `image` writes the image on the clipboard to a
+    /// file of its own and gives the file, or `nil` when there is no image.
     /// `browse` opens an address outside the journal, and `openSticky` asks for a new sticky
     /// with what a URL names.
     public init(
         server: String, url: String?,
         clipboard: @escaping () -> String? = { NSPasteboard.general.string(forType: .string) },
+        image: @escaping () -> URL? = { PastedImage.write(from: .general) },
         copy: @escaping (String, String?) -> Void = { text, html in
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
@@ -58,6 +61,7 @@ public final class Shell: ObservableObject {
         }
         self.border = border
         self.clipboard = clipboard
+        self.image = image
         self.copy = copy
         self.server = server
         self.browse = browse
@@ -192,16 +196,29 @@ public final class Shell: ObservableObject {
 
     private var keysToReplay: [DeferredKey] = []
 
-    /// The user pasted into the item, with the cursor `cursor` UTF-16 units into `body`. The text
-    /// on the clipboard goes to the core, which asks the server to cut it into items (ADR 011).
-    /// A raw paste puts the text into the item as it is. Nothing happens when the clipboard has
-    /// no text.
+    /// The user pasted into the item, with the cursor `cursor` UTF-16 units into `body`. An
+    /// image on the clipboard goes to the core as a file, which links it at the cursor. Else the
+    /// text on the clipboard goes to the core, which asks the server to cut it into items (ADR
+    /// 011). A raw paste puts the text into the item as it is. Nothing happens when the
+    /// clipboard has neither.
     public func paste(into itemId: String, body: String, cursor: Int, raw: Bool) {
+        if let file = image() {
+            pasteImage(file, into: itemId, body: body, cursor: cursor)
+            return
+        }
         guard let text = clipboard() else { return }
         // AppKit counts in UTF-16 units, the core in characters (ADR 043)
         let chars = charsOfUtf16(text: body, units: UInt64(max(cursor, 0)))
         // The core reads no HTML yet: it pastes the text
         send(.pasteText(itemId: itemId, text: text, html: "", cursor: chars, raw: raw))
+    }
+
+    /// The user pasted the image in `file` into the item, with the cursor `cursor` UTF-16 units
+    /// into `body`. The core uploads the image to the server, puts a link to it at the cursor,
+    /// and deletes the file (ADR 071).
+    public func pasteImage(_ file: URL, into itemId: String, body: String, cursor: Int) {
+        let chars = charsOfUtf16(text: body, units: UInt64(max(cursor, 0)))
+        border.pasteImage(file, into: itemId, cursor: chars)
     }
 
     /// The core adds the time, and counts the cursor in its own characters.

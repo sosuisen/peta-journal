@@ -24,6 +24,12 @@ public final class Border {
         try core.update(event: Data(try event.bincodeSerialize()))
     }
 
+    /// Hands an image to the core by the path of its file, pasted into the item at `cursor` in
+    /// the characters of the core. The core deletes the file once the server has answered.
+    public func pasteImage(_ file: URL, into itemId: String, cursor: UInt64) {
+        core.pasteImage(itemId: itemId, path: file.path, cursor: cursor)
+    }
+
     /// Hands a key to the core, which decides what it means (ADR 052). False when it means
     /// nothing to the outline there.
     public func press(_ key: KeyPress) throws -> Bool {

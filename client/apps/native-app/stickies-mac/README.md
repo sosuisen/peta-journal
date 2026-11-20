@@ -59,6 +59,8 @@ Run it again after a change in Rust. Neither is kept in the repository.
   what the user did. It also holds what the core asks and waits for: a question to the user
   (`question`, shown as a dialog), an order to put the cursor in an item (`focus`), and the text
   on the clipboard.
+- `PastedImage` writes the image on the clipboard to a file of its own, for the core to upload
+  (ADR 071).
 - `Keys.swift` says what a key in the editor of an item means to the outline (`Shell.pressed`).
   The place of a cursor goes from the UTF-16 units of AppKit to the characters the core counts,
   and back, through `charsOfUtf16` and `utf16OfChars` of the Rust core (ADR 043). The core calls
@@ -161,6 +163,14 @@ cursor, and the server cuts a Markdown list into items. Shift+Command+V and "Pas
 Style" put the text into the item as it is. The cursor goes to the core in its characters, not
 in UTF-16 units.
 
+An image on the clipboard is pasted as an image (ADR 071). `PastedImage` writes it to a folder of
+its own in the temporary folder: a PNG as it is, a TIFF (as a screenshot gives) as a PNG, and an
+image file copied in the Finder as a copy with its name. The shell hands the path to the core
+(`Shell.pasteImage`), which uploads the file to the journal server (`POST /api/assets/upload`),
+puts a link to it at the cursor, and deletes the file. When the clipboard has text too, the text
+is pasted: an app such as Word adds a picture of the text it copied. The icon that the Finder
+adds to another file is not pasted either.
+
 Only the item with the cursor shows its Markdown. Every other item shows its text with its
 decoration (ADR 041) and cannot be typed into. A click into an item makes it Markdown at once;
 when the cursor leaves it, the shell tells the core that the edit is over (`Shell.finishEditing`),
@@ -218,7 +228,7 @@ Windows has Control. Control in this table is the Control key.
 | Shift+Option+Left, Right | outdents, indents |
 | Command+Z, Control+Z | undo; with Shift, redo |
 | Shift+Up on the first line, Shift+Down on the last line | selects the item with its children |
-| Command+V | pastes; a Markdown list becomes items |
+| Command+V | pastes; a Markdown list becomes items, an image becomes a link to it |
 | Shift+Command+V | pastes the text into the item as it is |
 
 A drag with the mouse selects items too. It starts in the text of an item and selects the
@@ -313,8 +323,9 @@ the entries, then closes the box. The entry "Create" makes a page with the typed
 `swift test` runs `Tests/PetaBorderTests`.
 
 `BorderTests` need no journal server. They check that Swift reads what Rust writes (the view
-model, the requests) and that Rust reads what Swift writes (events, answers). `ShownTextTests`
-and `AssetImagesTests` need none either.
+model, the requests) and that Rust reads what Swift writes (events, answers). `ShownTextTests`,
+`AssetImagesTests` and `PastedImageTests` need none either. `PastedImageTests` put images on a
+clipboard of their own, not on that of the user.
 
 `ShellTests` run `Shell` against a real journal server: a page opens, what is typed is saved on
 the server, and the questions of the core are answered. The keys are pressed as the app
@@ -335,9 +346,10 @@ PETA_E2E_SERVER=$PWD/../../../../journal/target/release/journal-server swift tes
 
 `OutlineScreenTests` put the screen in a window and give its editors the text and the keys as
 AppKit does: typing, composing, Enter, the arrows, Tab and Backspace. "Paste" is chosen as the
-Edit menu does, with the text that the test puts on its own clipboard. No key of a real keyboard
-is pressed, so they do not show that an input method works with the editors. A click on a link
-is handed to the text view the way a window hands it over; the window of a test takes no click.
+Edit menu does, with the text or the image file that the test gives the shell as its clipboard.
+No key of a real keyboard is pressed, so they do not show that an input method works with the
+editors. A click on a link is handed to the text view the way a window hands it over; the
+window of a test takes no click.
 
 `TypingSpeedTests` measures a page of 1000 items, with the views in a real window: one key, and
 with items that have decoration, a jump of one screen and the cursor going to another item. It

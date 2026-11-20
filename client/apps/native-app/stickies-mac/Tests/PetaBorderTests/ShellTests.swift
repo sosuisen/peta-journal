@@ -234,6 +234,27 @@ final class ShellTests: XCTestCase {
         }
     }
 
+    // 画像のファイルを貼ると、サーバーのassetsに保存され、カーソルの位置にそのリンクが入る。ファイルは保存のあとに消える（ADR 071）。
+    func testAPastedImageFileIsSavedInTheAssetsAndLinkedAtTheCursor() async throws {
+        let shell = try await shellWithPage()
+        let item = shell.view.outline.rows[0].item.id
+        shell.startEditing(item)
+        shell.typed("ab", into: item, cursor: 1)
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("peta-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let image = folder.appendingPathComponent("sample.png")
+        try Data([1, 2, 3]).write(to: image)
+
+        shell.pasteImage(image, into: item, body: "ab", cursor: 1)
+
+        try await waitUntil("the item links the image after the a") {
+            let body = shell.view.outline.rows[0].item.body
+            return body.hasPrefix("a![sample.png](../assets/") && body.hasSuffix(")b")
+        }
+        try await waitUntil("the file is deleted") { !FileManager.default.fileExists(atPath: image.path) }
+    }
+
     // ほかで表示されている項目を選んで消すときは、元に戻しにくい操作として確認を求められる。
     func testDeletingATranscludedItemIsAskedAsHardToUndo() async throws {
         let shell = try await shellWithPage()
