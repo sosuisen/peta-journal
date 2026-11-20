@@ -15,14 +15,22 @@ use tower_http::services::ServeDir;
 /// Adds the routes of the apps in `apps/` of `config_dir` to `router`.
 pub fn serve(router: Router, config_dir: PathBuf) -> Router {
     let apps = config_dir.join("apps");
-    router.route(
-        "/apps/{app}/{*path}",
-        get(
-            move |Path((app, path)): Path<(String, String)>, request: Request| {
-                file(apps.join(app), path, request)
-            },
-        ),
-    )
+    let root = apps.clone();
+    router
+        .route(
+            "/apps/{app}/",
+            get(move |Path(app): Path<String>, request: Request| {
+                file(root.join(app), String::new(), request)
+            }),
+        )
+        .route(
+            "/apps/{app}/{*path}",
+            get(
+                move |Path((app, path)): Path<(String, String)>, request: Request| {
+                    file(apps.join(app), path, request)
+                },
+            ),
+        )
 }
 
 async fn file(folder: PathBuf, path: String, mut request: Request) -> Response {
