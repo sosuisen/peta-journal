@@ -2,13 +2,13 @@
 //! `/apps/{url_fragment}/` (ADR 073).
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Component, PathBuf};
 
 use axum::body::Body;
 use axum::extract::{Path, Request};
 use axum::http::header::CACHE_CONTROL;
-use axum::http::{HeaderValue, Uri};
-use axum::response::{Redirect, Response};
+use axum::http::{HeaderValue, StatusCode, Uri};
+use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
 use axum::Router;
 use tower::ServiceExt;
@@ -19,13 +19,29 @@ pub fn serve(router: Router, config_dir: PathBuf) -> Router {
     let apps = config_dir.join("apps");
     let file = get(
         move |Path(params): Path<HashMap<String, String>>, request: Request| {
-            file(apps.join(&params["app"]), request)
+            let folder = folder_name(&params["app"]).map(|name| apps.join(name));
+            async move {
+                match folder {
+                    Some(folder) => file(folder, request).await,
+                    None => StatusCode::NOT_FOUND.into_response(),
+                }
+            }
         },
     );
     router
         .route("/apps/{app}", get(to_the_folder))
         .route("/apps/{app}/", file.clone())
         .route("/apps/{app}/{*path}", file)
+}
+
+/// `app` as the name of a folder in `apps/`, or None when it is not one name: `..`, `.` or a
+/// name with a separator, decoded from `%2e%2e` or `%2f`, would lead out of the folder.
+fn folder_name(app: &str) -> Option<&str> {
+    let mut parts = std::path::Path::new(app).components();
+    match (parts.next(), parts.next()) {
+        (Some(Component::Normal(_)), None) => Some(app),
+        _ => None,
+    }
 }
 
 /// Sends `/apps/{app}` on to `/apps/{app}/`, so that the relative URLs of the app point into
