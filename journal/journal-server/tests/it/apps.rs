@@ -47,3 +47,17 @@ async fn the_root_of_an_app_gets_its_index_html() {
     assert_eq!(response.status(), 200);
     assert_eq!(response.text().await.unwrap(), INDEX);
 }
+
+// 拡張子のないパスでファイルがないときは、そのアプリの`index.html`が返る。アプリが画面をパスで表すためである。
+#[tokio::test]
+async fn a_path_without_an_extension_and_a_file_gets_the_index_html_of_the_app() {
+    let (app, _) = put_app();
+
+    for path in ["tasks", "tasks/1"] {
+        let response = fetch(&format!("/apps/{app}/{path}")).await;
+
+        assert_eq!(response.status(), 200, "{path}");
+        assert_eq!(response.headers()["content-type"], "text/html", "{path}");
+        assert_eq!(response.text().await.unwrap(), INDEX, "{path}");
+    }
+}
