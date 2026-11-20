@@ -65,10 +65,11 @@ cargo run -- --port 8088 --throwaway-dir <作業フォルダ>
 リポジトリのルートの`release-all.ps1`（macOS、Linux、Git Bashでは`release-all.sh`）が、次の手順をまとめて行う。
 
 1. `git pull --ff-only`で最新にする。`-NoPull`（shでは`--no-pull`）を付けると、pullしない。
-2. PetaStickiesとMemoViewを閉じ、journal-serverを`Ctrl+C`で止める。
+2. PetaStickiesとMemoViewを閉じ、journal-serverを`Ctrl+C`で止める。todoのViteのサーバーも止める。
 3. 画面、journal-server、Emacs版、todo、PetaStickies、MemoViewを、リリース版でビルドする。画面は、実行ファイルの隣の`frontend/`にコピーする。
 4. journal-serverを起動し、ポート8087が応答するのを待つ。
 5. ブラウザで`http://localhost:8087`を開き、PetaStickiesを起動する。
+6. todoのリリース版（`dist/`）を`vite preview`でポート5180に配信し、ブラウザで`http://localhost:5180`を開く。journal-serverが他のページからの呼び出しを受け付けるのは、既定では`http://localhost:5180`だけである（`--cors-origins`）。そのため、todoの開発用サーバーと同じポートを使う。
 
 Emacs版のプログラムが動いているときは、そのビルドを飛ばす。EmacsでPetaJournalのバッファを閉じてから、もう一度実行する。
 
