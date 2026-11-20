@@ -88,6 +88,7 @@ pub fn weeks_of_month(year: i32, month: u32, numbering: WeekNumbering) -> Vec<Jo
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
     use WeekNumbering::{Iso, Us};
 
     fn names(weeks: Vec<JournalName>) -> Vec<String> {
@@ -202,5 +203,37 @@ mod tests {
             names(weeks_of_month(2027, 1, Us))[..2],
             ["2027-W01", "2027-W02"]
         );
+    }
+
+    fn any_numbering() -> impl Strategy<Value = WeekNumbering> {
+        prop_oneof![Just(Us), Just(Iso)]
+    }
+
+    proptest! {
+        // 年にある週の最初の日は、その週の年と番号に戻る。年にない週には最初の日がない。
+        #[test]
+        fn the_first_day_of_a_week_gives_back_its_year_and_number(
+            year in 1900..=2200i32,
+            week in 0..=54u32,
+            numbering in any_numbering(),
+        ) {
+            match first_day_of_week(year, week, numbering) {
+                Some(first_day) => prop_assert_eq!(week_of(first_day, numbering), (year, week)),
+                None => prop_assert!(week == 0 || week > weeks_in_year(year, numbering)),
+            }
+        }
+
+        // どの日も、その日の週の、最初の日から7日の間にある。
+        #[test]
+        fn every_day_is_in_the_seven_days_from_the_first_day_of_its_week(
+            year in 1900..=2200i32,
+            day_of_year in 0..366i64,
+            numbering in any_numbering(),
+        ) {
+            let date = Date::new(year, 1, 1).shift(day_of_year);
+            let (week_year, week) = week_of(date, numbering);
+            let first_day = first_day_of_week(week_year, week, numbering).unwrap();
+            prop_assert!((0..7).contains(&(date.to_days() - first_day.to_days())));
+        }
     }
 }

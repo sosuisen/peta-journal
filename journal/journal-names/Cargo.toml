@@ -6,3 +6,6 @@ license.workspace = true
 description = "The names of the journal pages: the day, the week, the month and the year they cover"
 
 [dependencies]
+
+[dev-dependencies]
+proptest = "1.12.0"
