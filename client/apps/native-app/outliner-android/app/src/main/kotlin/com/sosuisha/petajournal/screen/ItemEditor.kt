@@ -143,10 +143,10 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
                     else -> {
                         refused = null
                         field = next
-                        if (next.composition != null) {
-                            shell.composing()
-                        } else if (next.text != body) {
-                            shell.type(id, next.text, next.selection.start)
+                        when (telling(next, body)) {
+                            Telling.Composing -> shell.composing()
+                            Telling.Typed -> shell.type(id, next.text, next.selection.start)
+                            null -> {}
                         }
                     }
                 }
@@ -239,6 +239,23 @@ private class Clipboard(private val context: Context) {
 
     fun text(): String? = manager.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
 }
+
+/** What the editor tells the shell of a change of its field. */
+internal enum class Telling {
+    /** The keyboard composes a word. The core hears of it once it is committed. */
+    Composing,
+
+    /** The text changed, and the core saves it. */
+    Typed,
+}
+
+/** What to tell the shell of [next], when the core holds [body]. `null` when the text stays. */
+internal fun telling(next: TextFieldValue, body: String): Telling? =
+    when {
+        next.composition != null -> Telling.Composing
+        next.text != body -> Telling.Typed
+        else -> null
+    }
 
 /**
  * Where Enter was pressed, as the place in the text before the key, when [next] is [before]
