@@ -62,15 +62,15 @@ fn the_file_of_the_property_definitions_that_changed_in_the_app_is_uploaded() {
     );
 }
 
-// Markdownでないファイルは、変わっていても上がらない。
+// アプリで貼った`assets/`の画像は、クラウドへ上がる。ほかの端末でリンク切れにしないためである（ADR 071）。アプリが写さないファイルは、上がらない。
 #[test]
-fn a_file_that_is_not_markdown_is_not_uploaded() {
+fn an_image_pasted_in_the_app_is_uploaded_and_a_file_the_app_does_not_copy_is_not() {
     let sync = Fixture::new();
     sync.download_first(&[("assets/picture.png", "png")]);
-    sync.write("assets/picture.png", "other");
     sync.write("assets/new.png", "new");
+    sync.write("other/notes.txt", "text");
     sync.upload().unwrap();
-    assert_eq!(sync.cloud.uploaded(), strings(&[]));
+    assert_eq!(sync.cloud.uploaded(), strings(&["assets/new.png"]));
 }
 
 // クラウドのファイルが、アプリの知らない版になっていたら、上書きせずにエラーが出る。
