@@ -9,6 +9,7 @@ namespace PetaBorder;
 public sealed class Border : IDisposable
 {
     private readonly PetaCore.PetaCore core;
+    private bool disposed;
 
     /// <summary>
     /// Starts the core for the journal server at <paramref name="server"/>, such as
@@ -83,6 +84,10 @@ public sealed class Border : IDisposable
     /// </summary>
     public void Dispose()
     {
+        // A second call would close a core that is gone, and Close throws for that
+        if (disposed)
+            return;
+        disposed = true;
         core.Close();
         core.Dispose();
     }

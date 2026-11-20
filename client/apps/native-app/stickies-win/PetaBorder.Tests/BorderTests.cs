@@ -12,7 +12,10 @@ namespace PetaBorder.Tests;
 /// </summary>
 public sealed class BorderTests
 {
-    private const string Nowhere = "http://127.0.0.1:9";
+    // Why port 0: Windows takes about 2s to refuse a closed port such as 9. The core asks the
+    // server a few times in a row, and closing the border waits for all of it, up to 5s. A
+    // connection to port 0 fails at once
+    private const string Nowhere = "http://127.0.0.1:0";
 
     /// <summary>What the core asked of the shell. The core may ask from any thread.</summary>
     private sealed class Asked

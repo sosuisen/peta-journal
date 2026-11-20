@@ -1,12 +1,12 @@
 import { expect } from '@playwright/test';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Server, openEditor, openPage, shownBodies, test } from './support';
+import { Server, editorOf, openEditor, openPage, shownBodies, test } from './support';
 
 // A change by another client reaches the page through the server's events (ADR 015).
 test.describe('a change by another client', () => {
-  // ほかのクライアントが消した項目は、編集中は画面に残り、編集を終えると消える
-  test('an item another client deletes while this page is edited goes away when the edit ends', async ({ page, request }) => {
+  // ほかのクライアントが消した項目は、編集中でも、編集を終えずに画面から消える（ADR 069）
+  test('an item another client deletes goes away while this page is edited', async ({ page, request }) => {
     const server = new Server(request);
     const p = await server.newDocPage('other-client-delete');
     const [a, b] = await server.fill(p.id, ['a', 'b']);
@@ -14,18 +14,13 @@ test.describe('a change by another client', () => {
     await openEditor(page, a.id);
 
     await server.deleteItem(b.id);
-    await server.itemsSettled(p.id, i => i.length === 1);
-    // The page waits for the end of the edit: typing must not be overwritten
-    await page.waitForTimeout(500);
-    expect(await shownBodies(page)).toEqual(['a', 'b']);
-
-    await page.evaluate(() => (document.activeElement as HTMLElement).blur());
 
     await expect.poll(() => shownBodies(page)).toEqual(['a']);
+    await expect(editorOf(page, a.id)).toBeFocused();
   });
 
-  // ほかのクライアントが別の項目の文を変えると、編集を終えたあとに、その文が画面に出る
-  test('a text another client changes in another item shows when the edit ends', async ({ page, request }) => {
+  // ほかのクライアントが別の項目の文を変えると、編集中でも、その文が画面に出る
+  test('a text another client changes in another item shows while editing', async ({ page, request }) => {
     const server = new Server(request);
     const p = await server.newDocPage('other-client-change');
     const [a, b] = await server.fill(p.id, ['a', 'b']);
@@ -33,14 +28,13 @@ test.describe('a change by another client', () => {
     await openEditor(page, a.id);
 
     await server.updateBody(b.id, 'b changed');
-    await page.waitForTimeout(500);
-    await page.evaluate(() => (document.activeElement as HTMLElement).blur());
 
     await expect.poll(() => shownBodies(page)).toEqual(['a', 'b changed']);
+    await expect(editorOf(page, a.id)).toBeFocused();
   });
 
-  // ほかの端末がファイルの別の項目の文を変えると、編集を終えたあとに、その文が画面に出る。Dropboxが書き換えたファイルは、この形で届く
-  test('a text another device changes in the file shows when the edit ends', async ({ page, request }) => {
+  // ほかの端末がファイルの別の項目の文を変えると、編集中でも、その文が画面に出る。Dropboxが書き換えたファイルは、この形で届く
+  test('a text another device changes in the file shows while editing', async ({ page, request }) => {
     const server = new Server(request);
     const p = await server.newDocPage('other-device-change');
     const [a] = await server.fill(p.id, ['a', 'b']);
@@ -55,14 +49,13 @@ test.describe('a change by another client', () => {
       /modified="[^"]*" -->\nb\n/,
       `modified="${new Date().toISOString()}" -->\nb from the other device\n`,
     ));
-    await server.itemsSettled(p.id, i => i[1]?.body === 'b from the other device');
-    await page.evaluate(() => (document.activeElement as HTMLElement).blur());
 
     await expect.poll(() => shownBodies(page)).toEqual(['a', 'b from the other device']);
+    await expect(editorOf(page, a.id)).toBeFocused();
   });
 
-  // ほかのクライアントが、編集中の項目の文を変えると、こちらで打っていなければ、編集を終えたあとに、その文が画面に出る
-  test('a text another client changes in the edited item shows when the edit ends without typing', async ({ page, request }) => {
+  // ほかのクライアントが、編集中の項目の文を変えると、こちらで打っていなければ、エディタにその文が出て、続けて打てる
+  test('a text another client changes in the edited item shows in its editor when nothing was typed', async ({ page, request }) => {
     const server = new Server(request);
     const p = await server.newDocPage('other-client-same');
     const [a] = await server.fill(p.id, ['a', 'b']);
@@ -70,12 +63,30 @@ test.describe('a change by another client', () => {
     await openEditor(page, a.id);
 
     await server.updateBody(a.id, 'a changed');
-    await page.waitForTimeout(500);
-    await page.evaluate(() => (document.activeElement as HTMLElement).blur());
 
-    await expect.poll(() => shownBodies(page)).toEqual(['a changed', 'b']);
-    // The edit that ended saves nothing over the change
-    await page.waitForTimeout(1_000);
-    expect((await server.items(p.id)).map(i => i.body)).toEqual(['a changed', 'b']);
+    await expect(editorOf(page, a.id)).toHaveValue('a changed');
+    await expect(editorOf(page, a.id)).toBeFocused();
+    await page.keyboard.press('End');
+    await page.keyboard.type('!');
+    await server.itemsSettled(p.id, i => i[0]?.body === 'a changed!');
+  });
+
+  // ほかのクライアントが、編集中の項目の文を変えても、こちらで打っていれば、打った文が残り、保存で上書きする
+  test('text typed into the edited item stays when another client changes the item', async ({ page, request }) => {
+    const server = new Server(request);
+    const p = await server.newDocPage('other-client-typed');
+    const [a, b] = await server.fill(p.id, ['a', 'b']);
+    await openPage(page, p.title);
+    await openEditor(page, a.id);
+    await page.keyboard.press('End');
+    await page.keyboard.type(' typed');
+    await server.itemsSettled(p.id, i => i[0]?.body === 'a typed');
+
+    await server.updateBody(a.id, 'a changed');
+    await server.updateBody(b.id, 'b changed');
+
+    await expect.poll(() => shownBodies(page)).toEqual(['a typed', 'b changed']);
+    await page.keyboard.type('!');
+    await server.itemsSettled(p.id, i => i[0]?.body === 'a typed!');
   });
 });

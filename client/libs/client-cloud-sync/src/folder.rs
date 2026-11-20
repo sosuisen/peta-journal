@@ -80,17 +80,14 @@ impl MarkdownFolder {
     }
 
     /// The paths of the files that the app writes, as they are spelled here, in order: the
-    /// Markdown files and the definitions of the properties. The images come only from the
-    /// cloud.
+    /// files it copies from the cloud. The images are among them: the user pastes them in
+    /// the app (ADR 071).
     pub fn written(&self) -> Vec<String> {
         let mut written: Vec<String> = bottom_up(&self.root)
             .into_iter()
             .filter(|place| place.is_file())
             .map(|file| self.spelled(&file))
-            .filter(|path| {
-                let path = crate::fold(path);
-                path.ends_with(Self::MARKDOWN) || path == Self::DEFINITIONS
-            })
+            .filter(|path| Self::keeps(&crate::fold(path)))
             .collect();
         written.sort();
         written

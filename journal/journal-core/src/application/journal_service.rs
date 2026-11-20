@@ -197,7 +197,7 @@ impl JournalService {
         match name {
             JournalName::Daily(date) => self.get_or_create_journal(naive_date(date)?),
             JournalName::Weekly { year, week } => {
-                self.get_or_create_link_journal(&name.to_string(), self.week_day_names(year, week))
+                self.get_or_create_link_journal(&name.to_string(), self.week_day_names(year, week)?)
             }
             JournalName::Monthly { year, month } => self.get_or_create_link_journal(
                 &name.to_string(),
@@ -294,10 +294,12 @@ impl JournalService {
         }
     }
 
-    /// The names of the seven daily journals of a week, e.g. `2026-02-16`.
-    fn week_day_names(&self, year: i32, week: u32) -> Vec<String> {
-        let start = first_day_of_week(year, week, self.week_numbering());
-        (0..7).map(|days| start.shift(days).iso()).collect()
+    /// The names of the seven daily journals of a week, e.g. `2026-02-16`. A week the year
+    /// does not have is not a journal (ADR 072).
+    fn week_day_names(&self, year: i32, week: u32) -> Result<Vec<String>, AppError> {
+        let start = first_day_of_week(year, week, self.week_numbering())
+            .ok_or_else(|| AppError::BadRequest(format!("{year} does not have week {week}")))?;
+        Ok((0..7).map(|days| start.shift(days).iso()).collect())
     }
 
     /// The names of the weekly journals that overlap a month, e.g. `2026-W07`. A week across

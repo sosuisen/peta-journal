@@ -399,7 +399,9 @@ final class JournalScreenTests: XCTestCase {
         XCTAssertTrue(editor.exists, "the edit has ended")
         XCTAssertTrue(app.keyboards.firstMatch.exists, "the keyboard has gone")
         editor.typeText("more")
-        XCTAssertEqual(editor.value as? String, "\(text)more")
+        // The field shows the letters a moment after they are typed: on a busy Mac, it held
+        // only "m" when it was read at once
+        waitUntil("the field has the letters") { editor.value as? String == "\(text)more" }
         XCTAssertTrue(editor.isHittable, "the field is under the keyboard")
     }
 

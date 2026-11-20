@@ -2,9 +2,9 @@
 //!
 //! A week has one name, whichever of its days is asked for. In the ISO numbering, a week
 //! starts on Monday and belongs to the year of its Thursday, so week 1 holds January 4th. In
-//! the US numbering, a week starts on Sunday, belongs to the year of that Sunday, and is
-//! counted from the week that holds January 1st of that year. So the week of a New Year that
-//! is not a Sunday is the last week of the old year, and the new year starts at week 2.
+//! the US numbering, a week starts on Sunday and belongs to the year of its Saturday, so week
+//! 1 holds January 1st. The days of December in that week belong to the new year. Excel splits
+//! that week in two and keeps those days in the old year (ADR 072).
 
 use crate::date::{days_in_month, Date};
 use crate::name::JournalName;
@@ -41,7 +41,8 @@ fn start_of_week_1(year: i32, numbering: WeekNumbering) -> Date {
 pub fn week_of(date: Date, numbering: WeekNumbering) -> (i32, u32) {
     let start = start_of_week(date, numbering);
     let year = match numbering {
-        WeekNumbering::Us => start.year,
+        // The Saturday of the week
+        WeekNumbering::Us => start.shift(6).year,
         // The Thursday of the week
         WeekNumbering::Iso => start.shift(3).year,
     };
@@ -49,10 +50,14 @@ pub fn week_of(date: Date, numbering: WeekNumbering) -> (i32, u32) {
     (year, weeks as u32 + 1)
 }
 
-/// The first day of a week of a year. A number past the last week of the year counts on
-/// into the next year.
-pub fn first_day_of_week(year: i32, week: u32, numbering: WeekNumbering) -> Date {
-    start_of_week_1(year, numbering).shift(7 * (i64::from(week) - 1))
+/// The first day of a week of a year. None when the year does not have that week: a number
+/// past the last week does not count on into the next year, which would give a week a
+/// second name (ADR 072).
+pub fn first_day_of_week(year: i32, week: u32, numbering: WeekNumbering) -> Option<Date> {
+    if !(1..=weeks_in_year(year, numbering)).contains(&week) {
+        return None;
+    }
+    Some(start_of_week_1(year, numbering).shift(7 * (i64::from(week) - 1)))
 }
 
 /// The number of weeks a year has, so that nothing skips the last one.
@@ -60,7 +65,9 @@ pub fn weeks_in_year(year: i32, numbering: WeekNumbering) -> u32 {
     let in_the_last_week = match numbering {
         // December 28th is always in the last ISO week of its year
         WeekNumbering::Iso => Date::new(year, 12, 28),
-        WeekNumbering::Us => Date::new(year, 12, 31),
+        // December 25th is always in the last US week of its year: the Saturday of its week
+        // is December 25th to 31st
+        WeekNumbering::Us => Date::new(year, 12, 25),
     };
     week_of(in_the_last_week, numbering).1
 }
@@ -81,6 +88,7 @@ pub fn weeks_of_month(year: i32, month: u32, numbering: WeekNumbering) -> Vec<Jo
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
     use WeekNumbering::{Iso, Us};
 
     fn names(weeks: Vec<JournalName>) -> Vec<String> {
@@ -99,9 +107,9 @@ mod tests {
         assert_eq!(week_of(Date::new(2026, 2, 9), Iso), (2026, 7));
     }
 
-    // USの週は日曜に始まり、その日曜の年に入る。1月1日のある週が第1週である。
+    // USの週は日曜に始まる。1月1日のある週が第1週である。
     #[test]
-    fn a_us_week_starts_on_sunday_and_belongs_to_the_year_of_that_sunday() {
+    fn a_us_week_starts_on_sunday_and_week_1_holds_january_1st() {
         // 2023 starts on a Sunday
         assert_eq!(week_of(Date::new(2023, 1, 1), Us), (2023, 1));
         assert_eq!(week_of(Date::new(2023, 1, 8), Us), (2023, 2));
@@ -110,38 +118,54 @@ mod tests {
         assert_eq!(week_of(Date::new(2026, 2, 7), Us), (2026, 6));
     }
 
-    // 年をまたぐUSの週は、前の年の最後の週である。新しい年は、第2週から始まる。
+    // 年をまたぐUSの週は、その週の土曜の年に入る。1月1日を含む週が、新しい年の第1週である。
     #[test]
-    fn a_us_week_across_new_year_is_the_last_week_of_the_old_year() {
+    fn a_us_week_across_new_year_belongs_to_the_year_of_its_saturday() {
         // 2027 starts on a Friday
-        assert_eq!(week_of(Date::new(2026, 12, 27), Us), (2026, 53));
-        assert_eq!(week_of(Date::new(2027, 1, 1), Us), (2026, 53));
-        assert_eq!(week_of(Date::new(2027, 1, 2), Us), (2026, 53));
+        assert_eq!(week_of(Date::new(2026, 12, 26), Us), (2026, 52));
+        assert_eq!(week_of(Date::new(2026, 12, 27), Us), (2027, 1));
+        assert_eq!(week_of(Date::new(2027, 1, 1), Us), (2027, 1));
+        assert_eq!(week_of(Date::new(2027, 1, 2), Us), (2027, 1));
         assert_eq!(week_of(Date::new(2027, 1, 3), Us), (2027, 2));
     }
 
     // 週の最初の日は、その週の年と番号から求められる。
     #[test]
     fn the_first_day_of_a_week_is_found_from_its_year_and_number() {
-        assert_eq!(first_day_of_week(2026, 8, Us), Date::new(2026, 2, 15));
-        assert_eq!(first_day_of_week(2026, 8, Iso), Date::new(2026, 2, 16));
-        assert_eq!(first_day_of_week(2026, 53, Us), Date::new(2026, 12, 27));
-        assert_eq!(first_day_of_week(2026, 53, Iso), Date::new(2026, 12, 28));
-        assert_eq!(first_day_of_week(2025, 1, Iso), Date::new(2024, 12, 30));
-        // Week 1 of a US year that does not start on a Sunday is the last week of the year
-        // before it
-        assert_eq!(first_day_of_week(2027, 1, Us), Date::new(2026, 12, 27));
+        let first_day = |year, week, numbering| first_day_of_week(year, week, numbering).unwrap();
+        assert_eq!(first_day(2026, 8, Us), Date::new(2026, 2, 15));
+        assert_eq!(first_day(2026, 8, Iso), Date::new(2026, 2, 16));
+        assert_eq!(first_day(2026, 52, Us), Date::new(2026, 12, 20));
+        assert_eq!(first_day(2026, 53, Iso), Date::new(2026, 12, 28));
+        assert_eq!(first_day(2025, 1, Iso), Date::new(2024, 12, 30));
+        // Week 1 of a US year that does not start on a Sunday starts in December
+        assert_eq!(first_day(2027, 1, Us), Date::new(2026, 12, 27));
     }
 
-    // 年の週の数は、ISOでは52か53、USでは53か54である。
+    // 年にない週の最初の日は求められない。週の番号は、次の年へ数え進まない。
     #[test]
-    fn a_year_has_52_or_53_iso_weeks_and_53_or_54_us_weeks() {
+    fn a_week_the_year_does_not_have_has_no_first_day() {
+        // 2026 has 52 US weeks, and 2025 has 52 ISO weeks
+        assert_eq!(first_day_of_week(2026, 53, Us), None);
+        assert_eq!(first_day_of_week(2025, 53, Iso), None);
+        assert_eq!(first_day_of_week(2026, 0, Us), None);
+    }
+
+    // 年の週の数は、ISOでもUSでも52か53である。
+    #[test]
+    fn a_year_has_52_or_53_weeks() {
         assert_eq!(weeks_in_year(2020, Iso), 53);
         assert_eq!(weeks_in_year(2026, Iso), 53);
         assert_eq!(weeks_in_year(2025, Iso), 52);
-        assert_eq!(weeks_in_year(2026, Us), 53);
+        // A US year has 53 weeks when it has 53 Saturdays
+        assert_eq!(weeks_in_year(2026, Us), 52);
+        assert_eq!(weeks_in_year(2023, Us), 52);
+        // 2022 starts on a Saturday
+        assert_eq!(weeks_in_year(2022, Us), 53);
+        // 2016 is a leap year that starts on a Friday
+        assert_eq!(weeks_in_year(2016, Us), 53);
         // 2028 is a leap year that starts on a Saturday
-        assert_eq!(weeks_in_year(2028, Us), 54);
+        assert_eq!(weeks_in_year(2028, Us), 53);
     }
 
     // 月の週は、その月の日を含む週を、順に並べたものである。
@@ -172,12 +196,44 @@ mod tests {
         );
         assert_eq!(names(weeks_of_month(2027, 1, Iso))[0], "2026-W53");
         assert_eq!(
-            names(weeks_of_month(2026, 12, Us)).last().unwrap(),
-            "2026-W53"
+            names(weeks_of_month(2026, 12, Us))[3..],
+            ["2026-W52", "2027-W01"]
         );
         assert_eq!(
             names(weeks_of_month(2027, 1, Us))[..2],
-            ["2026-W53", "2027-W02"]
+            ["2027-W01", "2027-W02"]
         );
+    }
+
+    fn any_numbering() -> impl Strategy<Value = WeekNumbering> {
+        prop_oneof![Just(Us), Just(Iso)]
+    }
+
+    proptest! {
+        // 年にある週の最初の日は、その週の年と番号に戻る。年にない週には最初の日がない。
+        #[test]
+        fn the_first_day_of_a_week_gives_back_its_year_and_number(
+            year in 1900..=2200i32,
+            week in 0..=54u32,
+            numbering in any_numbering(),
+        ) {
+            match first_day_of_week(year, week, numbering) {
+                Some(first_day) => prop_assert_eq!(week_of(first_day, numbering), (year, week)),
+                None => prop_assert!(week == 0 || week > weeks_in_year(year, numbering)),
+            }
+        }
+
+        // どの日も、その日の週の、最初の日から7日の間にある。
+        #[test]
+        fn every_day_is_in_the_seven_days_from_the_first_day_of_its_week(
+            year in 1900..=2200i32,
+            day_of_year in 0..366i64,
+            numbering in any_numbering(),
+        ) {
+            let date = Date::new(year, 1, 1).shift(day_of_year);
+            let (week_year, week) = week_of(date, numbering);
+            let first_day = first_day_of_week(week_year, week, numbering).unwrap();
+            prop_assert!((0..7).contains(&(date.to_days() - first_day.to_days())));
+        }
     }
 }

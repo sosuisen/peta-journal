@@ -9,6 +9,7 @@ mod events;
 
 pub use events::EventQueue;
 
+use std::path::Path;
 use std::sync::Arc;
 
 use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, AtlasChange};
@@ -62,6 +63,19 @@ impl EmbeddedJournal {
             },
         };
         rest.decode(&reply)
+    }
+
+    /// Copies the file at `path` into the assets, for an image the shell pasted (ADR 071).
+    /// The core asks with a number that only the shell knows, so the shell gives the path.
+    pub fn upload(&self, path: &Path) -> ApiResult<ApiOutput> {
+        let saved = self
+            .journal
+            .save_asset_file(&path.to_string_lossy())
+            .map_err(|e| ApiError(e.to_string()))?;
+        let uploaded = serde_json::to_value(saved)
+            .and_then(serde_json::from_value)
+            .map_err(|e| ApiError(e.to_string()))?;
+        Ok(ApiOutput::Uploaded(uploaded))
     }
 
     /// The answer of the journal as JSON. `body` is the body of the REST request.

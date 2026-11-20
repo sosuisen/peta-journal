@@ -270,21 +270,33 @@ fn a_week_across_new_year_is_linked_by_its_own_name_from_december_and_from_janua
         json!("[[2025-W01]]")
     );
 
-    // The US week of Sunday 2026-12-27 holds Friday 2027-01-01, and is week 53 of 2026
+    // The US week of Sunday 2026-12-27 holds Saturday 2027-01-02, so it is week 1 of 2027
     let notes = Core::new();
     assert_eq!(
         last_link(&notes.open_journal("2026-12")),
-        Some(json!("[[2026-W53]]"))
+        Some(json!("[[2027-W01]]"))
     );
     assert_eq!(
         first_link(&notes.open_journal("2027-01")),
-        json!("[[2026-W53]]")
+        json!("[[2027-W01]]")
     );
     // The page of that week lists the seven days from that Sunday
-    let week = notes.open_journal("2026-W53");
+    let week = notes.open_journal("2027-W01");
     let days = field_of_each(&week, "items", "body");
     assert_eq!(days[0], json!("[[2026-12-27]]"));
     assert_eq!(days[6], json!("[[2027-01-02]]"));
+}
+
+// その年にない週のジャーナルは開けない。次の年の週の、2つ目の名前にならない。
+#[test]
+fn the_journal_of_a_week_the_year_does_not_have_is_refused() {
+    // 2026 has 52 US weeks
+    let opened = Core::new().core.journal.get_or_create_journal("2026-W53");
+    assert!(matches!(opened, Err(AppError::BadRequest(_))), "{opened:?}");
+
+    // 2025 has 52 ISO weeks
+    let opened = iso_core().core.journal.get_or_create_journal("2025-W53");
+    assert!(matches!(opened, Err(AppError::BadRequest(_))), "{opened:?}");
 }
 
 // 年のジャーナルは、1か月に1つのリンクを持って作られる。

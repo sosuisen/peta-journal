@@ -4,12 +4,13 @@ use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp, UiOutput,
 };
 use client_core::keys::{Chord, EditorState, Key, KeyPress};
-use client_core::model::{Page, PageWithItems};
+use client_core::model::{Page, PageWithItems, Uploaded};
 use client_core::rest::ClientId;
 use client_core::testing::plain_item;
 use client_core::typing::Typing;
 use client_core::{EditPlace, Event, Route};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
+use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -34,6 +35,8 @@ struct FakeHost {
     answered: Arc<Mutex<Vec<String>>>,
     /// Taken by the first connection. A later one finds no stream and waits for ever.
     stream: Mutex<Option<Receiver<SseEvent>>>,
+    /// What each file the server took held when it took it.
+    uploads: Arc<Mutex<Vec<Vec<u8>>>>,
 }
 
 impl Host for FakeHost {
@@ -66,6 +69,22 @@ impl Host for FakeHost {
             }
             _ => Err(ApiError("the fake server does not know this".into())),
         }
+    }
+
+    fn upload(&self, path: &Path) -> ApiResult<ApiOutput> {
+        self.uploads
+            .lock()
+            .unwrap()
+            .push(std::fs::read(path).unwrap_or_default());
+        let original_name = path.file_name().unwrap().to_string_lossy().into_owned();
+        // A file the server cannot save, as when the disk is full
+        if original_name.contains("broken") {
+            return Err(ApiError("the fake server cannot save this".into()));
+        }
+        Ok(ApiOutput::Uploaded(Uploaded {
+            file_name: "saved.png".into(),
+            original_name,
+        }))
     }
 
     fn events(&self, send: &mut dyn FnMut(SseEvent)) {
@@ -108,6 +127,7 @@ struct Screen {
     requests: Arc<Mutex<Vec<Request<ShellEffectFfi>>>>,
     calls: Arc<Mutex<Vec<ApiOp>>>,
     answered: Arc<Mutex<Vec<String>>>,
+    uploads: Arc<Mutex<Vec<Vec<u8>>>>,
     stream: Sender<SseEvent>,
     waits: Arc<Waits>,
 }
@@ -117,6 +137,7 @@ impl Screen {
         let requests: Arc<Mutex<Vec<Request<ShellEffectFfi>>>> = Arc::default();
         let calls: Arc<Mutex<Vec<ApiOp>>> = Arc::default();
         let answered: Arc<Mutex<Vec<String>>> = Arc::default();
+        let uploads: Arc<Mutex<Vec<Vec<u8>>>> = Arc::default();
         let (stream, from_test) = channel();
         let waits: Arc<Waits> = Arc::default();
         let clock = FakeClock {
@@ -126,6 +147,7 @@ impl Screen {
             calls: calls.clone(),
             answered: answered.clone(),
             stream: Mutex::new(Some(from_test)),
+            uploads: uploads.clone(),
         };
         let kept = requests.clone();
         let shell = NativeShell::new(host, clock, ClientId::new(), move |bytes| {
@@ -137,6 +159,7 @@ impl Screen {
             requests,
             calls,
             answered,
+            uploads,
             stream,
             waits,
         }
@@ -729,4 +752,69 @@ fn typing_that_cannot_be_read_is_an_error() {
     let screen = Screen::new();
 
     assert!(screen.shell.typed(&[0xff]).is_err());
+}
+
+// ---- images ----
+
+/// A file with the content of an image, in a temporary folder of the test.
+fn image_file(dir: &tempfile::TempDir, name: &str) -> std::path::PathBuf {
+    let path = dir.path().join(name);
+    std::fs::write(&path, b"drawing").unwrap();
+    path
+}
+
+impl Screen {
+    /// The texts the server was asked to paste, oldest first.
+    fn pastes(&self) -> Vec<String> {
+        let calls = self.calls.lock().unwrap();
+        calls
+            .iter()
+            .filter_map(|op| match op {
+                ApiOp::PasteText { text, .. } => Some(text.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+// シェルがパスで渡した画像は、サーバーに保存され、そのリンクが項目に貼られる（ADR 071）。
+#[test]
+fn an_image_the_shell_pastes_by_its_path_is_saved_and_linked_in_the_item() {
+    let screen = Screen::new();
+    let dir = tempfile::tempdir().unwrap();
+    screen.open_notes();
+    wait_until("the page is in the view", || {
+        screen.view().contains("the body of a")
+    });
+
+    screen
+        .shell
+        .paste_image("a", &image_file(&dir, "pasted.png"), 0);
+
+    wait_until("the link is pasted", || !screen.pastes().is_empty());
+    assert_eq!(*screen.uploads.lock().unwrap(), [b"drawing".to_vec()]);
+    assert_eq!(screen.pastes(), ["![pasted.png](../assets/saved.png)"]);
+}
+
+// 貼った画像の一時ファイルは、保存が終わると消える。保存に失敗しても消える（ADR 071）。
+#[test]
+fn the_file_of_a_pasted_image_is_deleted_once_the_server_has_answered() {
+    let screen = Screen::new();
+    let dir = tempfile::tempdir().unwrap();
+    screen.open_notes();
+    wait_until("the page is in the view", || {
+        screen.view().contains("the body of a")
+    });
+    let saved = image_file(&dir, "pasted.png");
+    let refused = image_file(&dir, "broken.png");
+
+    screen.shell.paste_image("a", &saved, 0);
+    screen.shell.paste_image("a", &refused, 0);
+
+    wait_until("the server has taken both files", || {
+        screen.uploads.lock().unwrap().len() == 2
+    });
+    wait_until("both files are deleted", || {
+        !saved.exists() && !refused.exists()
+    });
 }

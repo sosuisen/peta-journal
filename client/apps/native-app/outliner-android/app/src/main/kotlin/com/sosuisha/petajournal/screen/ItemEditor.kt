@@ -1,7 +1,14 @@
 package com.sosuisha.petajournal.screen
 
 import android.content.ClipboardManager
+import android.content.ContentResolver
 import android.content.Context
+import android.net.Uri
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.OpenableColumns
+import android.view.inputmethod.InputContentInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputConnectionWrapper
 import androidx.compose.foundation.text.BasicTextField
@@ -40,6 +47,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
+import kotlin.concurrent.thread
+import com.sosuisha.petajournal.shell.PastedImage
 import com.sosuisha.petajournal.shell.Shell
 import com.sosuisha.petajournal.types.EditorKey
 import com.sosuisha.petajournal.types.EditorState
@@ -112,7 +121,21 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
             shell.type(id, typed, chosen.min + text.length)
         }
     }
-    val paste = { clipboard.text()?.let(pasteText) }
+    // An image goes to the core as a file, which it saves among the assets (ADR 071). Its
+    // content may come from another app, so it is read away from the main thread
+    val context = LocalContext.current
+    val pasteImage = { image: Uri, type: String? ->
+        // A word that the keyboard composes ends here, and the core has not heard of it yet
+        if (field.composition != null) shell.type(id, field.text)
+        val cursor = field.selection.min
+        val (resolver, cache) = context.contentResolver to context.cacheDir
+        thread {
+            val file = resolver.openInputStream(image)?.let { PastedImage.write(it, cache, resolver.nameOf(image), type) }
+            if (file != null) Handler(Looper.getMainLooper()).post { shell.pasteImage(id, file, cursor) }
+        }
+        Unit
+    }
+    val paste = { clipboard.image()?.let { (image, type) -> pasteImage(image, type) } ?: clipboard.text()?.let(pasteText) }
     // The keyboard puts in what it shows of the clipboard as typed text. What the app copied
     // goes through the core, so that it comes back as the same items
     val pastes = { text: CharSequence -> (text.toString() == shell.copied).also { if (it) pasteText(text.toString()) } }
@@ -123,7 +146,10 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
         PlatformTextInputInterceptor { request, next ->
             next.startInputMethod(
                 PlatformTextInputMethodRequest { attributes ->
-                    KeyboardOnTheScreen(request.createInputConnection(attributes), joinsAtStart, pastes) { shell.press(EditorKey.BACKSPACE, id, cursorAt(0, field.text)) }
+                    val connection = request.createInputConnection(attributes)
+                    // The keyboard offers the images it has, such as those of its clipboard
+                    attributes.contentMimeTypes = arrayOf("image/*")
+                    KeyboardOnTheScreen(connection, joinsAtStart, pastes, pasteImage) { shell.press(EditorKey.BACKSPACE, id, cursorAt(0, field.text)) }
                 },
             )
         }
@@ -199,15 +225,25 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
  * The keyboard on the screen as the field hears it, with two changes. A Backspace at the
  * start is not for the field: [atStart] says whether the cursor is at the start, with no text
  * chosen and no word being composed, and [join] is called then. Text that the keyboard puts in
- * goes to [pastes] first, which tells whether it pasted the text. The field hears nothing of
- * what was taken.
+ * goes to [pastes] first, which tells whether it pasted the text. An image that the keyboard
+ * puts in goes to [pastesImage]. The field hears nothing of what was taken.
  */
 private class KeyboardOnTheScreen(
     keyboard: InputConnection,
     private val atStart: () -> Boolean,
     private val pastes: (CharSequence) -> Boolean,
+    private val pastesImage: (Uri, String?) -> Unit,
     private val join: () -> Unit,
 ) : InputConnectionWrapper(keyboard, false) {
+    override fun commitContent(content: InputContentInfo, flags: Int, opts: Bundle?): Boolean {
+        val description = content.description
+        if (!description.hasMimeType("image/*")) return super.commitContent(content, flags, opts)
+        // The keyboard lends the image only for as long as it is asked to
+        if (flags and INPUT_CONTENT_GRANT_READ_URI_PERMISSION != 0) content.requestPermission()
+        pastesImage(content.contentUri, description.getMimeType(0))
+        return true
+    }
+
     override fun deleteSurroundingText(before: Int, after: Int): Boolean =
         joined(before, after) || super.deleteSurroundingText(before, after)
 
@@ -238,6 +274,18 @@ private class Clipboard(private val context: Context) {
     fun hasText(): Boolean = manager.hasPrimaryClip()
 
     fun text(): String? = manager.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
+
+    /**
+     * The image on the clipboard and its media type, such as `image/png`, or `null` when it holds
+     * none. The type is that of the clip: the app that lent the image may tell this app nothing.
+     */
+    fun image(): Pair<Uri, String>? {
+        val clip = manager.primaryClip?.takeIf { it.itemCount > 0 } ?: return null
+        val description = clip.description
+        val type = (0 until description.mimeTypeCount).map(description::getMimeType).firstOrNull { it.startsWith("image/") }
+        val uri = clip.getItemAt(0).uri
+        return if (type != null && uri != null) uri to type else null
+    }
 }
 
 /** What the editor tells the shell of a change of its field. */
@@ -256,6 +304,14 @@ internal fun telling(next: TextFieldValue, body: String): Telling? =
         next.text != body -> Telling.Typed
         else -> null
     }
+
+/** The name that the content at [uri] came with, or `null` when its app tells none. */
+private fun ContentResolver.nameOf(uri: Uri): String? =
+    runCatching {
+        query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { row ->
+            if (row.moveToFirst()) row.getString(0) else null
+        }
+    }.getOrNull()
 
 /**
  * Where Enter was pressed, as the place in the text before the key, when [next] is [before]

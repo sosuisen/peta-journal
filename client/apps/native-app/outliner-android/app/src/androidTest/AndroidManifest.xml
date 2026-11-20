@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The images of the tests, lent as another app lends an image it put on the clipboard. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <provider
+            android:name="com.sosuisha.petajournal.screen.TestImages"
+            android:authorities="com.sosuisha.petajournal.test.images"
+            android:exported="true" />
+    </application>
+</manifest>

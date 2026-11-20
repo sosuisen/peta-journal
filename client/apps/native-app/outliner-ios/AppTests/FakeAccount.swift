@@ -47,26 +47,47 @@ final class FakeAccount: CloudAccount, @unchecked Sendable {
     }
 }
 
-/// A Dropbox with one page. It keeps the paths of what is uploaded.
+/// A Dropbox with one page. It keeps the paths of what is uploaded. A test can change the
+/// page, as another device does: the next sync downloads it.
 final class OnePage: PetaDropboxSdk, @unchecked Sendable {
-    private let text = Data("京都で会議がありました。\n".utf8)
     private let lock = NSLock()
+    private var text = Data("京都で会議がありました。\n".utf8)
+    private var rev = "first"
+    private var changed = false
     private var paths: [String] = []
 
     /// The paths that were uploaded, as Dropbox names them.
     var uploaded: [String] { lock.withLock { paths } }
 
+    /// Another device uploads the page with this text.
+    func change(to text: String) {
+        lock.withLock {
+            self.text = Data(text.utf8)
+            rev = "changed-\(UUID().uuidString)"
+            changed = true
+        }
+    }
+
+    private func entry(in folder: String) -> PetaDropboxEntry {
+        lock.withLock {
+            .file(file: PetaDropboxFile(path: "\(folder)/docs/trip.md", contentHash: contentHash(of: text), rev: rev))
+        }
+    }
+
     func list(folder: String) throws -> PetaListing {
-        let page = PetaDropboxFile(path: "\(folder)/docs/trip.md", contentHash: contentHash(of: text), rev: "first")
-        return PetaListing(entries: [.file(file: page)], cursor: "c1", hasMore: false)
+        PetaListing(entries: [entry(in: folder)], cursor: "c1", hasMore: false)
     }
 
     func listAfter(cursor: String) throws -> PetaListing {
-        PetaListing(entries: [], cursor: "c1", hasMore: false)
+        let news = lock.withLock { () -> Bool in
+            defer { changed = false }
+            return changed
+        }
+        return PetaListing(entries: news ? [entry(in: "/PetaJournal")] : [], cursor: "c1", hasMore: false)
     }
 
     func download(rev: String, to place: String) throws {
-        try text.write(to: URL(fileURLWithPath: place))
+        try lock.withLock { text }.write(to: URL(fileURLWithPath: place))
     }
 
     func upload(path: String, from file: String, over: String?, modifiedMs: Int64) throws -> PetaDropboxFile {

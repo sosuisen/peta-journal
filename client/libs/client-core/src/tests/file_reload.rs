@@ -1,29 +1,194 @@
 //! Reloading the shown page when its Markdown file changes on disk.
 
 use crate::app::Event;
-use crate::harness::{item, Harness};
+use crate::harness::{create_calls, item, typed, Harness};
 use crate::model::PageWithItems;
 use crate::ops::file_reload::AskedAt;
 use crate::rest::ClientId;
 
-// ファイルの変更通知は編集の終了を待ち、自動保存の猶予の後にページが再読み込みされる。
-#[test]
-fn a_file_change_waits_for_the_edit_to_end_and_then_reloads_the_page() {
-    let mut h = Harness::with_items(vec![item("a", 1, "")]);
-    h.model.state.add_editing_item("a");
+/// The server tells that the Markdown file of the shown page changed on disk.
+fn file_changed(h: &mut Harness) {
     h.send(Event::Sse(crate::effects::SseEvent::Message(
         r#"{"type":"pagesUpdated","pageId":"page1","source":"file"}"#.into(),
     )));
-    assert!(!h.api.called("GetPageById"), "not while editing");
-    h.send(Event::EditFinished {
-        item_id: "a".into(),
-    });
-    assert!(
-        !h.api.called("GetPageById"),
-        "the auto-save gets a moment first"
+}
+
+/// The next reading of the page answers with these items, as the server has them now.
+fn server_has(h: &mut Harness, items: Vec<crate::model::Item>) {
+    h.api.answer_next(
+        "GetPageById",
+        Ok(crate::effects::ApiOutput::Page(PageWithItems {
+            items,
+            ..Default::default()
+        })),
     );
-    h.fire_timers();
-    assert!(h.api.called("GetPageById"));
+}
+
+// 編集中でも、ファイルの変更の知らせでページはすぐに読み直され、ほかの項目はサーバーの版になる。カーソルはほぼいつもどこかの項目にあるので、編集の終わりを待つと変更が出ない（#731）。
+#[test]
+fn a_file_change_while_editing_shows_the_other_items_as_the_server_has_them() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "old")]);
+    h.model.state.add_editing_item("a");
+    server_has(
+        &mut h,
+        vec![item("a", 1, ""), item("b", 1, "from the file")],
+    );
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["a=", "b=from the file"]);
+}
+
+// 打っていない編集中の項目は、サーバーの版の本文になり、カーソルは本文の長さに収まる。
+#[test]
+fn an_edited_item_not_typed_into_takes_the_server_body_and_the_cursor_stays_inside_it() {
+    let mut h = Harness::with_items(vec![item("a", 1, "0123456789")]);
+    h.model.state.add_editing_item("a");
+    h.model.state.set_focused_item("a", Some(10));
+    server_has(&mut h, vec![item("a", 1, "abc")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["a=abc"]);
+    assert_eq!(h.focus_cursor(), Some(3));
+    assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
+}
+
+// 打っていない編集中の項目の本文が変わっても、カーソルが新しい本文の中にあれば、同じ位置に残る。
+#[test]
+fn the_cursor_inside_the_new_body_stays_where_it_was() {
+    let mut h = Harness::with_items(vec![item("a", 1, "0123456789")]);
+    h.model.state.add_editing_item("a");
+    h.model.state.set_focused_item("a", Some(1));
+    server_has(&mut h, vec![item("a", 1, "abc")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.focus_cursor(), Some(1));
+}
+
+// 打っている編集中の項目は、読み直しでも手元の本文を残す。
+#[test]
+fn an_edited_item_typed_into_keeps_its_typed_body() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "old")]);
+    typed(&mut h, "a", "typed here");
+    server_has(
+        &mut h,
+        vec![item("a", 1, "from the file"), item("b", 1, "from the file")],
+    );
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["a=typed here", "b=from the file"]);
+}
+
+// 編集を閉じたが保存していない打ちかけの項目も、読み直しで手元の本文を残す。
+#[test]
+fn an_item_left_with_unsaved_typing_keeps_its_typed_body() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    typed(&mut h, "a", "typed here");
+    h.model.state.remove_editing_item("a");
+    server_has(&mut h, vec![item("a", 1, "from the file")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["a=typed here"]);
+}
+
+// 打っていない編集中の項目がサーバーの版で消えていたら、画面から消え、編集の印が外れ、前の項目にフォーカスが移る。
+#[test]
+fn an_edited_item_not_typed_into_that_the_server_lost_goes_and_the_focus_moves_up() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "b")]);
+    h.model.state.add_editing_item("b");
+    h.model.state.set_focused_item("b", Some(1));
+    server_has(&mut h, vec![item("a", 1, "a")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["a=a"]);
+    assert!(!h.model.state.is_editing("b"));
+    assert_eq!(h.model.state.focused_item_id(), Some("a"));
+}
+
+// 打っている編集中の項目がサーバーの版で消えていたら、同じidで、手元の並びの前の項目の後に作り直され、編集が続く。
+#[test]
+fn an_edited_item_typed_into_that_the_server_lost_is_made_again_after_the_item_before_it() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 2, "")]);
+    typed(&mut h, "b", "typed here");
+    server_has(&mut h, vec![item("a", 1, "a")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(
+        create_calls(&h.api),
+        [(
+            "page1".to_string(),
+            "after:a".to_string(),
+            2,
+            "typed here".to_string(),
+            Some("b".to_string())
+        )]
+    );
+    assert_eq!(h.outline(), ["a:1=a", "b:2=typed here"]);
+    assert!(h.model.state.is_editing("b"));
+}
+
+// 手元の並びで前にあった項目もサーバーの版になければ、打っている項目はページの最初に作り直される。
+#[test]
+fn a_lost_typed_item_whose_item_before_went_too_is_made_again_first() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "")]);
+    typed(&mut h, "b", "typed here");
+    server_has(&mut h, vec![item("c", 1, "c")]);
+
+    file_changed(&mut h);
+
+    let positions: Vec<String> = create_calls(&h.api).into_iter().map(|c| c.1).collect();
+    assert_eq!(positions, ["first"]);
+    assert_eq!(h.bodies(), ["b=typed here", "c=c"]);
+}
+
+// 打っている項目も、字下げと並びはサーバーの版になる。残すのは本文だけである。
+#[test]
+fn a_typed_item_takes_its_level_and_place_from_the_server() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "b")]);
+    typed(&mut h, "a", "typed here");
+    server_has(
+        &mut h,
+        vec![item("b", 1, "b"), item("a", 2, "from the file")],
+    );
+
+    file_changed(&mut h);
+
+    assert_eq!(h.outline(), ["b:1=b", "a:2=typed here"]);
+    assert!(create_calls(&h.api).is_empty());
+}
+
+// 編集していない項目の本文が読み直しで変わっても、エディタは開かない。フォーカスの印が残っていても、カーソルを奪わない。
+#[test]
+fn a_changed_body_of_an_item_not_edited_opens_no_editor() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a")]);
+    h.model.state.set_focused_item("a", Some(1));
+    server_has(&mut h, vec![item("a", 1, "from the file")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["a=from the file"]);
+    assert!(h.focused_editor_requests().is_empty());
+}
+
+// 打っていない編集中の項目が最初の項目で、サーバーの版で消えていたら、編集は終わり、どのエディタも開かない。
+#[test]
+fn a_lost_first_item_not_typed_into_ends_the_edit_and_opens_no_editor() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "b")]);
+    h.model.state.add_editing_item("a");
+    h.model.state.set_focused_item("a", Some(1));
+    server_has(&mut h, vec![item("b", 1, "b")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["b=b"]);
+    assert!(h.model.state.editing_item_ids().is_empty());
+    assert!(h.focused_editor_requests().is_empty());
 }
 
 // サーバーの拡張が項目を書いたと知らされると、ファイルの変更と同じように、表示中のページが読み直される。
@@ -195,9 +360,9 @@ fn a_page_read_before_a_change_made_here_is_not_shown_and_the_page_is_read_once_
     assert_eq!(h.api.calls_named("GetPageById").len(), 1);
 }
 
-// 編集中なら、追い越された読み直しのやり直しは、編集の終わりを待つ。
+// 編集中でも、追い越された読み直しは、編集の終わりを待たずにもう一度読む。
 #[test]
-fn the_reading_that_a_change_overtook_waits_for_the_end_of_the_edit() {
+fn the_reading_that_a_change_overtook_is_done_again_at_once_while_editing() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
     h.model.state.add_editing_item("a");
     let asked_at = AskedAt::now(&h.model);
@@ -205,11 +370,5 @@ fn the_reading_that_a_change_overtook_waits_for_the_end_of_the_edit() {
 
     h.send(page_as_it_was(asked_at));
 
-    assert_eq!(h.bodies(), ["a=changed here"]);
-    assert!(!h.api.called("GetPageById"), "not while editing");
-    h.send(Event::EditFinished {
-        item_id: "a".into(),
-    });
-    h.fire_timers();
-    assert!(h.api.called("GetPageById"));
+    assert_eq!(h.api.calls_named("GetPageById").len(), 1);
 }
