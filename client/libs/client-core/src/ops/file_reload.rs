@@ -5,7 +5,7 @@
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, TimerOutput};
 use crate::model::{Item, PageWithItems};
-use crate::ops::edit::is_edit_in_progress;
+use crate::ops::edit::{is_edit_in_progress, typed_body};
 use crate::outline::tree::is_out_of_place;
 
 /// How long the auto-save gets to flush before pending pages are replaced.
@@ -150,11 +150,25 @@ pub fn show_replaced_page(
         return read_again(model, page_id);
     }
     let edited_before = edited_body(model);
-    replace_page_items(model, page_id, loaded.items);
+    let mut items = loaded.items;
+    keep_typed_bodies(model, &mut items);
+    replace_page_items(model, page_id, items);
     if let Some(trees) = loaded.transcluded_trees {
         model.state.merge_transcluded_trees(trees);
     }
     reopen_changed_edit(model, edited_before)
+}
+
+/// Gives the items read again the bodies typed here and not saved yet: the save that follows
+/// writes them over the server's version (ADR 069).
+fn keep_typed_bodies(model: &Model, items: &mut [Item]) {
+    for item in items.iter_mut() {
+        if model.edits.dirty_item_ids.contains(&item.id) {
+            if let Some(typed) = typed_body(model, &item.id) {
+                item.body = typed;
+            }
+        }
+    }
 }
 
 /// The focused item that is being edited, and its body.
