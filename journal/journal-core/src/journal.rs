@@ -9,6 +9,7 @@
 //! journals, the atlas pages and the settings are here. The other areas are still in the
 //! handlers of the journal server.
 
+mod assets;
 mod atlas;
 mod config;
 mod items;
@@ -16,6 +17,7 @@ mod journals;
 mod pages;
 mod search;
 
+pub use assets::{SavedAsset, ASSET_LIMIT_BYTES};
 pub use atlas::{AtlasCalloutInput, AtlasGroupInput, AtlasLinkInput, AtlasTitleInput};
 pub use config::{
     AddPropertyDefinitionInput, ConfigAnswer, FolderWatch, PropertyDefinitionDto,
@@ -51,6 +53,7 @@ use crate::application::item_service::ItemService;
 use crate::application::journal_service::JournalService;
 use crate::application::page_service::PageService;
 use crate::domain::client_id::ClientId;
+use crate::domain::id_generator::IdGenerator;
 use crate::dto::ItemDtoAssembler;
 use crate::error::AppError;
 use crate::infrastructure::export::definitions_file::DefinitionsFileService;
@@ -90,6 +93,7 @@ pub struct JournalServices {
     pub properties: PropertyRepository,
     pub splitter: FlatMarkdownSplitter,
     pub dtos: ItemDtoAssembler,
+    pub ids: Arc<IdGenerator>,
 }
 
 pub struct Journal {
