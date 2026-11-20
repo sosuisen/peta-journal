@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -163,6 +164,19 @@ class BarAndCloudTest : JournalScreenFixture() {
         waitFor("Sync failed")
         compose.onNodeWithText("the cloud refused the sync", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Sync failed: no connection").assertDoesNotExist()
+    }
+
+    // 同期のメッセージは、ページの右に寄せて出る。中央に出すと、編集している行の上に重なりやすい（#884）。
+    @Test
+    fun the_message_of_the_sync_lies_at_the_right_of_the_page() {
+        start(OnePage(reachable = false))
+        menu("Sync")
+        waitFor("Sync failed: no connection")
+
+        val message = compose.onNodeWithText("Sync failed: no connection").getBoundsInRoot()
+        val screen = compose.onRoot().getBoundsInRoot()
+
+        assertTrue(message.left + message.right > screen.left + screen.right + 16.dp)
     }
 
     // 同期のメッセージは、ページの上端に出る。下端に出すと、いちばん下の行で打つ文字に重なる。
