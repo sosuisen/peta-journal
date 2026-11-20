@@ -38,6 +38,18 @@ final class PastedImageTests: XCTestCase {
             try FileManager.default.contentsOfDirectory(atPath: file.deletingLastPathComponent().path), ["image.png"])
     }
 
+    // 同じ画像を2回貼っても、別々のファイルに書かれる。前の画像がまだ保存されていなくても、上書きしない。
+    func testTheSameImagePastedTwiceIsWrittenToTwoFiles() throws {
+        pasteboard.setData(Self.png(), forType: .png)
+
+        let first = try XCTUnwrap(write())
+        let second = try XCTUnwrap(write())
+
+        XCTAssertNotEqual(first, second)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: first.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: second.path))
+    }
+
     // TIFFだけの画像は、PNGに直して書かれる。サーバーの画像として、ブラウザでも見られるためである。
     func testAnImageOnlyInTiffIsWrittenAsPng() throws {
         pasteboard.setData(Self.bitmap().tiffRepresentation, forType: .tiff)
