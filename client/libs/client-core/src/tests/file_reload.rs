@@ -313,9 +313,9 @@ fn a_page_read_before_a_change_made_here_is_not_shown_and_the_page_is_read_once_
     assert_eq!(h.api.calls_named("GetPageById").len(), 1);
 }
 
-// 編集中なら、追い越された読み直しのやり直しは、編集の終わりを待つ。
+// 編集中でも、追い越された読み直しは、編集の終わりを待たずにもう一度読む。
 #[test]
-fn the_reading_that_a_change_overtook_waits_for_the_end_of_the_edit() {
+fn the_reading_that_a_change_overtook_is_done_again_at_once_while_editing() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
     h.model.state.add_editing_item("a");
     let asked_at = AskedAt::now(&h.model);
@@ -323,11 +323,5 @@ fn the_reading_that_a_change_overtook_waits_for_the_end_of_the_edit() {
 
     h.send(page_as_it_was(asked_at));
 
-    assert_eq!(h.bodies(), ["a=changed here"]);
-    assert!(!h.api.called("GetPageById"), "not while editing");
-    h.send(Event::EditFinished {
-        item_id: "a".into(),
-    });
-    h.fire_timers();
-    assert!(h.api.called("GetPageById"));
+    assert_eq!(h.api.calls_named("GetPageById").len(), 1);
 }
