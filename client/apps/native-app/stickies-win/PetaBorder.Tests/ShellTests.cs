@@ -788,7 +788,8 @@ public sealed class ShellTests : IDisposable
         shell.PasteImage(item, Editor("", 0), image);
 
         main.WaitUntil("the item links the image", () =>
-            Bodies(shell) is [var body] && body.StartsWith("![sample.png](../assets/", StringComparison.Ordinal)
+            Bodies(shell) is [var body]
+            && body.StartsWith("![sample.png](../assets/", StringComparison.Ordinal)
         );
         main.WaitUntil("the file is deleted", () => !File.Exists(image));
     }

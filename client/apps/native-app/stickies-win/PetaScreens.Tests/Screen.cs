@@ -333,7 +333,9 @@ internal sealed class Screen : IAsyncDisposable
         );
         await encoder.FlushAsync();
         var content = new DataPackage();
-        content.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream));
+        content.SetBitmap(
+            Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream)
+        );
         Clipboard.SetContent(content);
     }
 
