@@ -3,6 +3,7 @@
 //! binary is linked once.
 
 mod api;
+mod apps;
 mod asset_names;
 mod client_id;
 #[path = "../common/mod.rs"]
