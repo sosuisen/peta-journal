@@ -190,6 +190,7 @@ Write-Host '==> Starting the server of todo' -ForegroundColor Cyan
 $todo = Start-Process npm -ArgumentList 'run', 'preview', '--', '--host', '127.0.0.1', '--port', $todoPort, '--strictPort' `
     -WorkingDirectory "$apps/web-app/todo" -PassThru
 Wait-Port $todoPort $todo 'server of todo'
-Start-Process "http://localhost:$todoPort"
+# ?port= sends todo to the journal server. Without it, todo calls the API at its own origin.
+Start-Process "http://localhost:$todoPort/?port=$port"
 
 Write-Host "Done. The journal server runs at http://localhost:$port, todo at http://localhost:$todoPort"

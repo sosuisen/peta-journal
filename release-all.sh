@@ -155,9 +155,11 @@ step 'Starting the server of todo'
 cd "$apps/web-app/todo"
 nohup npm run preview -- --host 127.0.0.1 --port "$todo_port" --strictPort >"$release/todo.log" 2>&1 &
 wait_for $! "$todo_port" 'server of todo' "$release/todo.log"
+# ?port= sends todo to the journal server. Without it, todo calls the API at its own origin.
+todo_url="http://localhost:$todo_port/?port=$port"
 if [ "$mac" = yes ]; then
-    open "http://localhost:$todo_port"
+    open "$todo_url"
 elif command -v xdg-open >/dev/null; then
-    xdg-open "http://localhost:$todo_port" >/dev/null 2>&1 || true
+    xdg-open "$todo_url" >/dev/null 2>&1 || true
 fi
 echo "Done. The journal server runs at http://localhost:$port, todo at http://localhost:$todo_port"
