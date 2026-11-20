@@ -144,10 +144,6 @@ pub fn show_replaced_page(
     asked_at: AskedAt,
 ) -> Cmd {
     if asked_at.is_overtaken(model) {
-        if is_edit_in_progress(model) {
-            model.file_reload_pending.insert(page_id.to_string());
-            return done();
-        }
         return read_again(model, page_id);
     }
     let edited_before = edited_body(model);
