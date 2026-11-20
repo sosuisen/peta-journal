@@ -53,6 +53,10 @@ internal static class Native
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsIconic(IntPtr window);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool ScreenToClient(IntPtr window, ref Point point);
 
     [DllImport("comctl32.dll")]

@@ -980,11 +980,12 @@ internal sealed class StickyWindow : Window
 
     /// <summary>
     /// Takes the place and the size of the sticky from the window. Not while the window is as
-    /// large as the screen: the sticky keeps the place and the size it goes back to.
+    /// large as the screen or minimized: the sticky keeps the place and the size it goes back
+    /// to. Windows puts a minimized window off the screen, as high as its title bar.
     /// </summary>
     private void Measure()
     {
-        if (Maximized)
+        if (Maximized || Native.IsIconic(handle))
             return;
         var size = AppWindow.Size;
         // What is kept is the whole sticky, also while only its title bar is shown
