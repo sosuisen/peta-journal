@@ -5,3 +5,5 @@ bin/
 obj/
 # What mutation.ps1 reports
 StrykerOutput/
+# What the test runs report
+TestResults/
