@@ -153,8 +153,13 @@ struct JournalScreen: View {
                         Outline(shell: shell, covered: covered, onFile: { file = $0 })
                     }
                 }
-                // Over the page, so that it takes no room. Not while the dialog says the same
-                if waiting == nil, let cloud { SyncCallout(state: cloud, onSync: onSync) }
+                // Over the top of the page, so that it takes no room. Not at the bottom: the user
+                // types on the last lines most of the time, and it hid them. Not in the middle:
+                // it hid the line that is edited (#884). Not while the dialog says the same
+                if waiting == nil, let cloud {
+                    SyncCallout(state: cloud, onSync: onSync)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                }
             }
             .frame(maxHeight: .infinity)
             // The results, the page and the callout stay clear of the keyboard and the tools
