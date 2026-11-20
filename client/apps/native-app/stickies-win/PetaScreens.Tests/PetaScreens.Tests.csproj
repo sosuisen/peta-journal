@@ -18,7 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PetaScreens\PetaScreens.csproj" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.7.0" />
     <!-- The journal server of the tests is the one of PetaBorder.Tests -->
     <Compile Include="..\PetaBorder.Tests\JournalServer.cs" Link="JournalServer.cs" />
   </ItemGroup>
