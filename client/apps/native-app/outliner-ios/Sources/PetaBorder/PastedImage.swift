@@ -14,14 +14,17 @@ public enum PastedImage {
             .appendingPathComponent("pasted", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let file = folder.appendingPathComponent(name.flatMap { $0.isEmpty ? nil : $0 } ?? nameOf(type))
+        let file = folder.appendingPathComponent(fileName(name, type))
         try content.write(to: file)
         return file
     }
 
-    /// A name for an image that came without one, with the extension of its type.
-    private static func nameOf(_ type: String?) -> String {
-        guard let type, let ext = UTType(type)?.preferredFilenameExtension else { return "image" }
-        return "image.\(ext)"
+    /// The name of the file: the name the image came with, or "image", and the extension of its
+    /// type when the name has none.
+    private static func fileName(_ name: String?, _ type: String?) -> String {
+        let named = name.flatMap { $0.isEmpty ? nil : $0 } ?? "image"
+        guard (named as NSString).pathExtension.isEmpty, let type, let ext = UTType(type)?.preferredFilenameExtension
+        else { return named }
+        return "\(named).\(ext)"
     }
 }
