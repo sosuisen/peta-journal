@@ -377,3 +377,32 @@ fn a_change_while_a_sync_runs_brings_one_more_sync_after_it() {
     assert!(held.stays_quiet());
     assert_eq!(held.rounds(), 2);
 }
+
+// 変更のあとの同期を待つ間に、まだ保存していない入力が続くと、同期はその入力から待ち直す。IMEの変換中の文字は、確定するまで保存されないためである。
+#[test]
+fn typing_while_a_sync_waits_moves_the_sync_later() {
+    let held = held_waiting(nothing(), Duration::from_millis(500));
+    held.let_go();
+    held.sync.start(held.cloud(), false);
+    held.until_rest();
+    held.sync.changed();
+    std::thread::sleep(Duration::from_millis(300));
+    held.sync.typing();
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(held.rounds(), 1);
+    assert_eq!(held.until_rest().last(), Some(&(SyncState::Idle, false)));
+    assert!(held.stays_quiet());
+    assert_eq!(held.rounds(), 2);
+}
+
+// 待っている同期がなければ、入力が続いても同期は始まらない。入力はまだ保存されておらず、上げるものがないためである。
+#[test]
+fn typing_with_no_sync_waiting_starts_none() {
+    let held = held_waiting(nothing(), Duration::from_millis(50));
+    held.let_go();
+    held.sync.start(held.cloud(), false);
+    held.until_rest();
+    held.sync.typing();
+    assert!(held.stays_quiet());
+    assert_eq!(held.rounds(), 1);
+}
