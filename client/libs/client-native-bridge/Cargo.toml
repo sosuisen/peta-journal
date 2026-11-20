@@ -23,6 +23,8 @@ facet_generate = { version = "=0.22.3", optional = true }
 [dev-dependencies]
 # The parser, to make the AST of a test from Markdown
 flatmarkdown = { workspace = true }
+# The files of the images a test pastes
+tempfile = "3"
 
 [features]
 # Describes the types that cross the border, to generate the types of the shells from them.
