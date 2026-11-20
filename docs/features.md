@@ -27,6 +27,16 @@
   - `/api`、`/assets`、`/mcp`のルートは、同じパスにある画面のファイルより優先される。`/api/`で始まるルートのないパスは、`index.html`ではなく404になる
   - `index.html`と、名前にハッシュのないファイルは、読み込むたびにサーバーに確かめられる。名前にハッシュの付いたファイルは、長くキャッシュされる
   - 画面のフォルダは、`--frontend-dir`（`PETAJOURNAL_FRONTEND_DIR`）で指定する。指定がなければ、実行ファイルの隣の`frontend/`を使う。どちらもなければ、画面は配信されない
+- journal-serverが、拡張Webアプリも配信する（ADR 073、`journal/journal-server/tests/it/apps.rs`、`client/apps/web-app/todo/src/api.test.ts`）
+  - 設定フォルダの`apps/{url_fragment}/`にあるファイルは、`/apps/{url_fragment}/`の下のパスで返る。Web版の画面を配信していなくても返る
+  - `/apps/{url_fragment}/`と、拡張子のないパスでファイルがないとき（`/apps/todo/tasks/1`など）は、そのアプリの`index.html`が返る
+  - 拡張子のあるパスでファイルがないときと、アプリのフォルダがないときは、404が返る
+  - `/apps/{url_fragment}`は、`/apps/{url_fragment}/`へリダイレクトされる。クエリは残る
+  - すべてのファイルが、読み込むたびにサーバーに確かめられる。名前にハッシュがあっても同じである
+  - フォルダを置いたり消したりしても、再起動は要らない
+  - `..`のような名前で、`apps/`の外のファイルは返らない
+  - Web版の画面を配信していても、`/apps/`のパスは画面の`index.html`より先に扱われる（`tests/it/frontend.rs`）
+  - todoアプリは、既定では画面と同じオリジンのAPIを呼ぶ。`?host=`と`?port=`を付ければ、そのサーバーを呼ぶ
 
 ### 項目を書く
 
