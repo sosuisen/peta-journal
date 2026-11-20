@@ -73,6 +73,17 @@ final class PastedImageTests: XCTestCase {
         XCTAssertNil(write())
     }
 
+    // 画像でないファイルのコピーでは、画像を書かない。Finderはファイルのアイコンを画像として添えるが、それは貼りたいものではない。
+    func testNoImageIsWrittenForACopiedFileThatIsNotAnImage() throws {
+        let text = try file(named: "sample.txt", content: Data("sample".utf8))
+        pasteboard.clearContents()
+        pasteboard.setString(text.absoluteString, forType: .fileURL)
+        pasteboard.addTypes([.tiff], owner: nil)
+        pasteboard.setData(Self.bitmap().tiffRepresentation, forType: .tiff)
+
+        XCTAssertNil(write())
+    }
+
     /// A file of the test, in a folder that the test deletes at its end.
     private func file(named name: String, content: Data) throws -> URL {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("peta-test-\(UUID().uuidString)")
