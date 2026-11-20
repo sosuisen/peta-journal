@@ -49,6 +49,10 @@ public final class CloudSync: ObservableObject {
             host: host)
         state = sync.state()
         host.cloud = self
+        // A word that the keyboard composes is not saved yet, and the sync waits for it
+        // Not the sync itself: it holds the shell through its host, and the two would keep
+        // each other
+        shell.onComposing = { [weak self] in self?.sync.typing() }
     }
 
     /// Starts a sync with the Markdown folder at the path `folder` of the cloud. While one

@@ -142,7 +142,12 @@ public final class Shell: ObservableObject {
 
     /// The keyboard composes a word in an item: the user has not ended the input. The core does
     /// not hear of the word until it is committed, and the sync with the cloud waits (#884).
-    public func composing() {}
+    public func composing() {
+        onComposing()
+    }
+
+    /// Told when the keyboard composes a word in an item, as `composing` says.
+    public var onComposing: () -> Void = {}
 
     /// The user pressed a key in the editor of the item: Enter, Backspace, or an arrow of the
     /// cursor pad. The core decides what it means (ADR 052): Enter splits the item, Backspace
