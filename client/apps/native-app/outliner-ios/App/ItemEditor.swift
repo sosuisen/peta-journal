@@ -100,9 +100,9 @@ struct ItemEditor: UIViewRepresentable {
 
         override init(frame: CGRect, textContainer: NSTextContainer?) {
             super.init(frame: frame, textContainer: textContainer)
-            // A sticker of the keyboard comes as an image to paste, to a field that takes one
-            let taken = pasteConfiguration?.acceptableTypeIdentifiers ?? []
-            pasteConfiguration = UIPasteConfiguration(acceptableTypeIdentifiers: taken + [UTType.image.identifier])
+            // No sticker of the keyboard: the field would show it in the text, and the Markdown
+            // would keep only the character in its place (U+FFFC). The keyboard then offers none
+            if #available(iOS 18.0, *) { supportsAdaptiveImageGlyph = false }
         }
 
         @available(*, unavailable)
@@ -172,8 +172,8 @@ struct ItemEditor: UIViewRepresentable {
             return super.canPerformAction(action, withSender: sender)
         }
 
-        /// An image goes to the core, which saves it among the assets and links it at the
-        /// cursor (ADR 071).
+        /// An image of the clipboard goes to the core, which saves it among the assets and links
+        /// it at the cursor (ADR 071).
         override func paste(itemProviders: [NSItemProvider]) {
             guard let typist = delegate as? Typist,
                 let image = itemProviders.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }
