@@ -150,13 +150,51 @@ pub fn show_replaced_page(
         return read_again(model, page_id);
     }
     let edited_before = edited_body(model);
+    let ids_before: Vec<String> = model.state.items().iter().map(|i| i.id.clone()).collect();
     let mut items = loaded.items;
     keep_typed_bodies(model, &mut items);
     replace_page_items(model, page_id, items);
     if let Some(trees) = loaded.transcluded_trees {
         model.state.merge_transcluded_trees(trees);
     }
+    if let Some(focus) = end_lost_edits(model, &ids_before) {
+        return focus;
+    }
     reopen_changed_edit(model, edited_before)
+}
+
+/// Ends the edits of the items that the page read again does not have any more. When the
+/// focused item went, the item before it takes the focus.
+fn end_lost_edits(model: &mut Model, ids_before: &[String]) -> Option<Cmd> {
+    let lost: Vec<String> = model
+        .state
+        .editing_item_ids()
+        .iter()
+        .filter(|id| model.state.get_item_by_id(id).is_none())
+        .cloned()
+        .collect();
+    for id in &lost {
+        model.state.remove_editing_item(id);
+    }
+    let focused = model.state.focused_item_id()?.to_string();
+    if !lost.contains(&focused) {
+        return None;
+    }
+    let at = ids_before.iter().position(|id| *id == focused)?;
+    let before = ids_before[..at]
+        .iter()
+        .rev()
+        .find_map(|id| model.state.get_item_by_id(id))?;
+    Some(open_editor_at(model, &before.id, before.body.chars().count()))
+}
+
+/// Puts the cursor into the editor of an item, `cursor` characters into its body.
+fn open_editor_at(model: &mut Model, id: &str, cursor: usize) -> Cmd {
+    model.state.add_editing_item(id);
+    model.state.set_focused_item(id, Some(cursor));
+    model.state.order_focus(Some(id));
+    let (id, keys) = (id.to_string(), model.key_relay.release());
+    run(move |api| async move { api.focus_editor(Some(id), keys).await })
 }
 
 /// Gives the items read again the bodies typed here and not saved yet: the save that follows

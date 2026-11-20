@@ -90,7 +90,7 @@ fn an_edited_item_not_typed_into_that_the_server_lost_goes_and_the_focus_moves_u
     file_changed(&mut h);
 
     assert_eq!(h.bodies(), ["a=a"]);
-    assert!(h.model.state.editing_item_ids().is_empty());
+    assert!(!h.model.state.is_editing("b"));
     assert_eq!(h.model.state.focused_item_id(), Some("a"));
 }
 
