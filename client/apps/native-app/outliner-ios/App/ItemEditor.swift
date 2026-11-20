@@ -2,6 +2,7 @@ import PetaBorder
 import PetaTypes
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 /// The Markdown of the item that is edited (ADR 031). The core has the text: this field shows
 /// it, and tells the core of every change.
@@ -134,13 +135,39 @@ struct ItemEditor: UIViewRepresentable {
         }
 
         /// The core pastes, so that a list becomes items and what the app copied comes back as
-        /// the same items. Not while text is chosen: the field puts the text in its place.
+        /// the same items. An image goes to the core when there is no text. Not while text is
+        /// chosen: the field puts the text in its place.
         override func paste(_ sender: Any?) {
-            if selectedRange.length == 0, let text = UIPasteboard.general.string, let typist = delegate as? Typist {
-                typist.paste(text, at: selectedRange.location)
-                return
+            let pasteboard = UIPasteboard.general
+            if selectedRange.length == 0, let typist = delegate as? Typist {
+                if let text = pasteboard.string {
+                    typist.paste(text, at: selectedRange.location)
+                    return
+                }
+                if pasteboard.hasImages {
+                    paste(itemProviders: pasteboard.itemProviders)
+                    return
+                }
             }
             super.paste(sender)
+        }
+
+        /// The menu offers "Paste" for an image too. The field alone offers it only for text.
+        override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+            if action == #selector(paste(_:)), selectedRange.length == 0, UIPasteboard.general.hasImages {
+                return true
+            }
+            return super.canPerformAction(action, withSender: sender)
+        }
+
+        /// An image goes to the core, which saves it among the assets and links it at the
+        /// cursor (ADR 071).
+        override func paste(itemProviders: [NSItemProvider]) {
+            guard let typist = delegate as? Typist,
+                let image = itemProviders.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }
+                )
+            else { return super.paste(itemProviders: itemProviders) }
+            typist.pasteImage(image, at: selectedRange.location)
         }
 
         override func didMoveToWindow() {
@@ -226,6 +253,19 @@ struct ItemEditor: UIViewRepresentable {
         /// for the item of this field then.
         fileprivate func paste(_ text: String, at cursor: Int) {
             shell.paste(text, into: itemId, at: cursor)
+        }
+
+        /// Writes the image to a file for the core, away from the main thread: it may be large
+        /// and come from another app.
+        fileprivate func pasteImage(_ image: NSItemProvider, at cursor: Int) {
+            guard
+                let type = image.registeredTypeIdentifiers.first(where: { UTType($0)?.conforms(to: .image) == true })
+            else { return }
+            let (shell, itemId, name) = (shell, itemId, image.suggestedName)
+            _ = image.loadDataRepresentation(forTypeIdentifier: type) { data, _ in
+                guard let data, let file = try? PastedImage.write(data, named: name, type: type) else { return }
+                Task { @MainActor in shell.pasteImage(file, into: itemId, at: cursor) }
+            }
         }
 
         fileprivate func backspaceAtStart(of text: String) {
