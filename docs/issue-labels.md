@@ -16,7 +16,8 @@ issueで作業を管理すること自体は、ADR 066で決めた。
 | ラベル | 付けるissue |
 |-------|------------|
 | `bug` | 誤った振る舞いを直す |
-| `enhancement` | 新しい機能を足す、機能を良くする |
+| `feature` | 新しくできることが増える |
+| `usability` | 同じことがより楽になる |
 | `investigation` | 調べて、結果をまとめる |
 | `verification` | 検証の仕組みを入れる。lintなどの静的解析、自動テストなどの動的解析、ランタイム検証、形式検証、その他の検証の仕組みである |
 | `refactor` | 振る舞いを変えずにコードを直す |
@@ -24,8 +25,12 @@ issueで作業を管理すること自体は、ADR 066で決めた。
 | `ci` | CIの設定やスクリプトを直す |
 | `chore` | 上記に当てはまらない雑務 |
 
-`enhancement`を選ぶ場合は、`docs/storymap.md`への追加が検討されるべきである。
+`feature`を選ぶ場合は、`docs/storymap.md`への追加が検討されるべきである。
 追加された場合、追加済みの`docs/storymap.md`へのリンクを書き、追加されなかった場合は、storymap未追加と書く必要がある。
+
+`feature`と`usability`は、できることが増えるかどうかで分ける。
+できることが同じまま、操作や見え方が楽になるだけなら、`usability`を付ける。
+`usability`のissueは、`docs/storymap.md`への追加を検討しなくてよい。
 
 `dedup`を付けたissueには、`refactor`を付けない。
 `dedup`は`refactor`の一部だが、別のラベルにして探しやすくしている。
