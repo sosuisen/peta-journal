@@ -424,8 +424,6 @@ pub enum Event {
         target: String,
         timer_id: u64,
     },
-    /// The moment given to the auto-save before pages are read again ended.
-    PendingReloadsDue,
     /// A body is on its way to the server, with an open code fence closed.
     BodyShown {
         item_id: String,
@@ -1020,10 +1018,6 @@ pub struct Model {
     pub edits: EditState,
     /// The images on their way to the server, whose links are pasted when they are there.
     pub image_uploads: Vec<ops::paste::ImageUpload>,
-    /// Pages changed on disk while the user was editing.
-    pub file_reload_pending: HashSet<String>,
-    /// True while a reload of the pending pages waits for the auto-save to flush.
-    pub file_reload_scheduled: bool,
     /// Moves run one after another; see `ops::moves`.
     pub move_in_progress: bool,
     pub move_queue: VecDeque<(String, MoveDirection)>,
@@ -1068,8 +1062,6 @@ impl Default for Model {
             selection: Selection::default(),
             key_relay: KeyRelay::default(),
             edits: EditState::default(),
-            file_reload_pending: HashSet::new(),
-            file_reload_scheduled: false,
             move_in_progress: false,
             move_queue: VecDeque::new(),
             screen: Screen::None,
@@ -1158,8 +1150,7 @@ impl<B: crate::body_model::BodyModel> App for PetaApp<B> {
 
     fn update(&self, event: Event, model: &mut Model) -> Cmd {
         let cmd = dispatch(event, model);
-        let flush = ops::file_reload::schedule_pending_flush(model);
-        Command::all([cmd, flush, render::render()])
+        Command::all([cmd, render::render()])
     }
 
     fn view(&self, model: &Model) -> Self::ViewModel {
@@ -1350,7 +1341,6 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         }
         LevelShiftRefused { page_ids } => ops::level::reload_after_refused_shift(model, page_ids),
         AutoSaveFired { target, timer_id } => ops::edit::auto_save(model, target, timer_id),
-        PendingReloadsDue => ops::file_reload::flush_pending(model),
         BodyShown { item_id, body } => ops::edit::show_body(model, &item_id, body),
         BodySaved { sent, item } => ops::edit::show_saved_body(model, &sent, &item),
         RootParsed { root_id, source } => ops::edit::show_root_parsed(model, &root_id, *source),
