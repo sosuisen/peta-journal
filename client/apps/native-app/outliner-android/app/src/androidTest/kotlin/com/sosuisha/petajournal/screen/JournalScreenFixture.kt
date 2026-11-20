@@ -74,8 +74,9 @@ abstract class JournalScreenFixture {
     /**
      * Opens the app on the folders, and waits until the files are taken in. With a cloud, the
      * app syncs with it when "Sync" is touched; [signedIn] says whether the user has signed in.
+     * It syncs after an edit only once no page has changed for [afterChangeMs].
      */
-    protected fun start(cloud: PetaDropboxSdk? = null, signedIn: Boolean = true) {
+    protected fun start(cloud: PetaDropboxSdk? = null, signedIn: Boolean = true, afterChangeMs: Long = 600_000) {
         val main = Handler(Looper.getMainLooper())
         compose.runOnUiThread {
             shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) }, copy = ::copy)
@@ -84,8 +85,8 @@ abstract class JournalScreenFixture {
         sync = cloud?.let {
             CloudSync(
                 shell,
-                // The tests of the screen sync only when "Sync" is touched
-                afterChangeMs = 600_000,
+                // Most tests of the screen sync only when "Sync" is touched
+                afterChangeMs,
                 File(root, "temp"),
                 File(root, "cursor"),
                 File(root, "record"),
