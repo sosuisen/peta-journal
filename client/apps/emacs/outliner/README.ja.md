@@ -31,19 +31,21 @@ Emacsの初期設定ファイルに、次の内容を追加する。
 
 モードは、`exec-path`、`target/release`、`target/debug`の順にプログラムを探す。別のプログラムを使うときは、`peta-journal-shell-program`を設定する。Emacs 29.1以降が必要である。
 
-### `target`を外付けのディスクに置いているとき
+### ビルドし直したとき
 
-`client/target`を外付けのディスクへのシンボリックリンクにしていると、ディスクを外したときに、モードはプログラムを見つけられない。そこで、プログラムのコピーを`exec-path`の上（たとえば`~/.local/bin`）に置く。
+PetaJournalのバッファを`C-x k`ですべて閉じ、`M-x peta-journal`を実行し直す。動いているプログラムは、バッファを閉じるまで古いままである。
 
-モードは`exec-path`を先に探すので、ビルドしただけでは、古いコピーが動き続ける。新しい機能が出ないときは、これを疑う。ビルドのたびに、コピーを置き直す。
+`exec-path`の上（たとえば`~/.local/bin`）にプログラムのコピーがあると、モードはそちらを先に使う。ビルドしても古いコピーが動き続けるので、新しい機能が出ないときは、これを疑う。
+
+### ビルドを外付けのディスクに置くとき
+
+`client/target`を外付けのディスクへのシンボリックリンクにすると、ディスクを外したときに、モードはプログラムを見つけられない。外付けのディスクには、ビルドの中間生成物だけを置く。Cargo 1.91からの`build.build-dir`を、環境変数か`~/.cargo/config.toml`で指定する。
 
 ```sh
-cd peta-journal/client
-cargo build --release -p outliner-emacs
-cp target/release/outliner-emacs ~/.local/bin/
+export CARGO_BUILD_BUILD_DIR='/Volumes/<ディスク>/rust-target/build/{workspace-path-hash}'
 ```
 
-そのあと、PetaJournalのバッファを`C-x k`ですべて閉じ、`M-x peta-journal`を実行し直す。動いているプログラムは、バッファを閉じるまで古いままである。
+プログラムは`target/release`に残るので、ディスクを外しても、モードはプログラムを見つけられる。
 
 ### 別のサーバーを使う
 
