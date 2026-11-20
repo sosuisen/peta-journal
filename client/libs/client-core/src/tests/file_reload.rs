@@ -1,7 +1,7 @@
 //! Reloading the shown page when its Markdown file changes on disk.
 
 use crate::app::Event;
-use crate::harness::{item, Harness};
+use crate::harness::{item, typed, Harness};
 use crate::model::PageWithItems;
 use crate::ops::file_reload::AskedAt;
 use crate::rest::ClientId;
@@ -49,6 +49,21 @@ fn an_edited_item_not_typed_into_takes_the_server_body_and_the_cursor_stays_insi
     assert_eq!(h.bodies(), ["a=abc"]);
     assert_eq!(h.focus_cursor(), Some(3));
     assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
+}
+
+// 打っている編集中の項目は、読み直しでも手元の本文を残す。
+#[test]
+fn an_edited_item_typed_into_keeps_its_typed_body() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "old")]);
+    typed(&mut h, "a", "typed here");
+    server_has(
+        &mut h,
+        vec![item("a", 1, "from the file"), item("b", 1, "from the file")],
+    );
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["a=typed here", "b=from the file"]);
 }
 
 // サーバーの拡張が項目を書いたと知らされると、ファイルの変更と同じように、表示中のページが読み直される。
