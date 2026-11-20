@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 
 /// The file that a pasted image is written to. The core saves it among the assets and then
 /// deletes it (ADR 071): the image of the clipboard is only data, which Rust does not read.
@@ -13,8 +14,14 @@ public enum PastedImage {
             .appendingPathComponent("pasted", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let file = folder.appendingPathComponent(name ?? "image")
+        let file = folder.appendingPathComponent(name.flatMap { $0.isEmpty ? nil : $0 } ?? nameOf(type))
         try content.write(to: file)
         return file
+    }
+
+    /// A name for an image that came without one, with the extension of its type.
+    private static func nameOf(_ type: String?) -> String {
+        guard let type, let ext = UTType(type)?.preferredFilenameExtension else { return "image" }
+        return "image.\(ext)"
     }
 }
