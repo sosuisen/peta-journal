@@ -5,7 +5,8 @@ use crate::clock::Clock;
 use crate::BorderApp;
 use client_core::drag::{DragMove, ItemDrag};
 use client_core::effects::{
-    ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, TimerOp, TimerOutput, UiOp, UiOutput,
+    ApiError, ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, TimerOp, TimerOutput, UiOp,
+    UiOutput,
 };
 use client_core::keys::{KeyMap, KeyPlatform, KeyPress};
 use client_core::policy::{InOrder, Timers};
@@ -20,6 +21,8 @@ use crux_core::effects::{EffectRouter, ResolveSink, Routes};
 use crux_core::macros::effect;
 use crux_core::render::RenderOperation;
 use crux_core::{Core, Request};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -37,6 +40,28 @@ pub trait Host: Send + Sync + 'static {
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput>;
     /// Reads the event stream of the server, and returns when it has ended.
     fn events(&self, send: &mut dyn FnMut(SseEvent));
+    /// Saves the file at `path` among the assets of the journal, for an image the shell
+    /// pasted (ADR 071). A journal that takes no files refuses.
+    fn upload(&self, _path: &Path) -> ApiResult<ApiOutput> {
+        Err(ApiError("this journal takes no files".into()))
+    }
+}
+
+/// The files of the images the shell pasted, by the number the core knows each by: a file
+/// does not cross into the core (ADR 071).
+#[derive(Default)]
+struct PastedFiles {
+    last: u64,
+    paths: HashMap<u64, PathBuf>,
+}
+
+impl PastedFiles {
+    /// Keeps the path, and gives the number of its file.
+    fn add(&mut self, path: &Path) -> u64 {
+        self.last += 1;
+        self.paths.insert(self.last, path.to_path_buf());
+        self.last
+    }
 }
 
 /// The effects the shell performs. They cross as bytes.
@@ -84,6 +109,7 @@ struct Lanes {
     /// The requests to the server, each waiting for the answer to the one before.
     to_server: Arc<Mutex<InOrder<Request<ApiOp>>>>,
     questions: Arc<Mutex<Questions>>,
+    pasted: Arc<Mutex<PastedFiles>>,
 }
 
 impl Routes<BorderApp> for Lanes {
@@ -94,6 +120,7 @@ impl Routes<BorderApp> for Lanes {
             timers: Arc::default(),
             to_server: Arc::default(),
             questions: Arc::default(),
+            pasted: Arc::default(),
         }
     }
 }
@@ -124,7 +151,7 @@ impl Lanes {
             // The lock is not held while the server is asked: the core makes requests then
             let next = || lanes.to_server.lock().unwrap().take_next();
             while let Some(mut request) = next() {
-                let result = host.call(request.operation.clone());
+                let result = lanes.perform(&*host, request.operation.clone());
                 // The shell is gone, and the core with it
                 let Some(router) = lanes.router.upgrade() else {
                     return;
@@ -134,6 +161,19 @@ impl Lanes {
                     .expect("the core waits for the answer");
             }
         });
+    }
+
+    /// Does one operation on the server. An upload names a file by the number the core knows
+    /// it by, and the server gets its path.
+    fn perform<H: Host>(&self, host: &H, op: ApiOp) -> ApiResult<ApiOutput> {
+        let ApiOp::UploadAsset { file } = op else {
+            return host.call(op);
+        };
+        let path = self.pasted.lock().unwrap().paths.remove(&file);
+        match path {
+            Some(path) => host.upload(&path),
+            None => Err(ApiError(format!("No pasted file {file}"))),
+        }
     }
 
     /// Sends a request over the border, and returns its number.
@@ -262,6 +302,17 @@ impl NativeShell {
     /// Takes an [`Event`] of the shell.
     pub fn update(&self, event: &[u8]) -> Result<(), BorderError> {
         self.router.routes.border.update(event)
+    }
+
+    /// Pastes the image in the file at `path` into the item, at `cursor` in characters. The
+    /// file is saved among the assets, and its link is pasted once it is there (ADR 071).
+    pub fn paste_image(&self, item_id: &str, path: &Path, cursor: usize) {
+        let file = self.router.routes.pasted.lock().unwrap().add(path);
+        self.router.update(Event::PasteImage {
+            item_id: item_id.to_string(),
+            file,
+            cursor,
+        });
     }
 
     /// Takes a key of the shell: a [`KeyPress`] as bytes (ADR 052). False when the key means
