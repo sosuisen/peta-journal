@@ -39,6 +39,15 @@ impl PetaCore {
         self.shell.update(event).map_err(|e| e.to_string())
     }
 
+    /// Takes an image pasted into the item `item_id` at `cursor`, in the characters of the
+    /// core. The shell wrote it to the file at `path`, which the core deletes once the server
+    /// has answered (ADR 071).
+    pub fn paste_image(&self, item_id: String, path: String, cursor: u64) {
+        let cursor = usize::try_from(cursor).unwrap_or(usize::MAX);
+        self.shell
+            .paste_image(&item_id, std::path::Path::new(&path), cursor);
+    }
+
     /// Takes a key of the shell: a `KeyPress` as bytes (ADR 052). False when the key means
     /// nothing to the outline there, and the shell leaves it to its editor.
     pub fn press(&self, key: &[u8]) -> Result<bool, String> {

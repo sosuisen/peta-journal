@@ -1,9 +1,10 @@
 //! The real [`Host`]: the journal server over HTTP.
 
-use client_api_http::{call, read_events, UreqHttp};
+use client_api_http::{call, read_events, upload, UreqHttp};
 use client_core::effects::{ApiOp, ApiOutput, ApiResult, SseEvent};
 use client_core::rest::ClientId;
 use client_native_bridge::{Host, NativeShell, SystemClock};
+use std::path::Path;
 
 struct JournalServer {
     http: UreqHttp,
@@ -12,6 +13,10 @@ struct JournalServer {
 impl Host for JournalServer {
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
         call(&self.http, op)
+    }
+
+    fn upload(&self, path: &Path) -> ApiResult<ApiOutput> {
+        upload(&self.http, &path.to_string_lossy())
     }
 
     fn events(&self, send: &mut dyn FnMut(SseEvent)) {

@@ -2,7 +2,7 @@
 // Each test program uses its own part of this
 #![allow(dead_code)]
 
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -35,11 +35,19 @@ fn serve(connection: TcpStream, seen: &Mutex<Vec<String>>) {
     let mut reader = BufReader::new(connection);
     let mut first = String::new();
     reader.read_line(&mut first).unwrap();
-    // The body of a request, if it has one, is left unread: no test looks at it
+    let mut length = 0;
     let mut line = String::new();
     while reader.read_line(&mut line).unwrap() > 2 {
+        if let Some((name, value)) = line.split_once(':') {
+            if name.eq_ignore_ascii_case("content-length") {
+                length = value.trim().parse().unwrap_or(0);
+            }
+        }
         line.clear();
     }
+    // No test looks at the body, but it is read all the same: Windows resets a connection
+    // closed with bytes left unread, and the client then loses the answer (#906)
+    std::io::copy(&mut (&mut reader).take(length), &mut std::io::sink()).unwrap();
     // A save is slow, and is seen only once it is done
     if first.starts_with("PUT /api/items/") {
         thread::sleep(Duration::from_millis(100));
