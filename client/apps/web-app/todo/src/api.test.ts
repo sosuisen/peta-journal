@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 // The module reads the address of the server from the page URL when it is loaded
 vi.hoisted(() => {
   vi.stubGlobal('window', {
-    location: { search: '?host=journal.test&port=9000' },
+    location: {
+      search: '?host=journal.test&port=9000',
+      origin: 'http://localhost:8087',
+    },
   });
 });
 
@@ -47,18 +50,23 @@ class FakeEventSource {
 describe('the address of the journal server', () => {
   // 指定がなければ、画面と同じオリジンである。journal-serverが、アプリを`/apps/`で配信するためである。
   test('is the origin of the page by default', () => {
-    expect(
-      serverUrlFrom({ search: '', origin: 'http://127.0.0.1:8090' }),
-    ).toBe('http://127.0.0.1:8090');
+    expect(serverUrlFrom({ search: '', origin: 'http://127.0.0.1:8090' })).toBe(
+      'http://127.0.0.1:8090',
+    );
   });
 
   // ページのURLの`host`と`port`で変えられる。片方だけでもよい。
   test('takes the host and the port of the page URL, or one of them', () => {
-    expect(serverUrlFrom('?host=example.com&port=9000')).toBe(
-      'http://example.com:9000',
+    const origin = 'http://127.0.0.1:8090';
+    expect(
+      serverUrlFrom({ search: '?host=example.com&port=9000', origin }),
+    ).toBe('http://example.com:9000');
+    expect(serverUrlFrom({ search: '?port=9000', origin })).toBe(
+      'http://localhost:9000',
     );
-    expect(serverUrlFrom('?port=9000')).toBe('http://localhost:9000');
-    expect(serverUrlFrom('?host=example.com')).toBe('http://example.com:8087');
+    expect(serverUrlFrom({ search: '?host=example.com', origin })).toBe(
+      'http://example.com:8087',
+    );
   });
 
   // アプリは、開いたページのURLからアドレスを決める。
