@@ -28,6 +28,14 @@ final class PastedImageTests: XCTestCase {
             ["サンプル 1.png"])
     }
 
+    // 名前のない画像は、種類から拡張子を付けたimage.<拡張子>として書かれる。種類も分からなければ、imageである。
+    func testAnImageWithoutANameIsWrittenAsImageWithTheExtensionOfItsType() throws {
+        XCTAssertEqual(try write(named: nil, type: "public.png").lastPathComponent, "image.png")
+        XCTAssertEqual(try write(named: nil, type: "public.jpeg").lastPathComponent, "image.jpeg")
+        XCTAssertEqual(try write(named: "", type: "public.heic").lastPathComponent, "image.heic")
+        XCTAssertEqual(try write(named: nil, type: nil).lastPathComponent, "image")
+    }
+
     /// The start of a PNG: the content is not read, only copied.
     private static let drawing = Data([0x89, 0x50, 0x4E, 0x47])
 }
