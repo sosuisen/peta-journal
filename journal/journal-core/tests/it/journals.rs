@@ -287,6 +287,18 @@ fn a_week_across_new_year_is_linked_by_its_own_name_from_december_and_from_janua
     assert_eq!(days[6], json!("[[2027-01-02]]"));
 }
 
+// その年にない週のジャーナルは開けない。次の年の週の、2つ目の名前にならない。
+#[test]
+fn the_journal_of_a_week_the_year_does_not_have_is_refused() {
+    // 2026 has 52 US weeks
+    let opened = Core::new().core.journal.get_or_create_journal("2026-W53");
+    assert!(matches!(opened, Err(AppError::BadRequest(_))), "{opened:?}");
+
+    // 2025 has 52 ISO weeks
+    let opened = iso_core().core.journal.get_or_create_journal("2025-W53");
+    assert!(matches!(opened, Err(AppError::BadRequest(_))), "{opened:?}");
+}
+
 // 年のジャーナルは、1か月に1つのリンクを持って作られる。
 #[test]
 fn a_year_is_created_with_one_link_per_month() {
