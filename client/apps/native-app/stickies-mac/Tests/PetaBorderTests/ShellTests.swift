@@ -78,6 +78,21 @@ final class ShellTests: XCTestCase {
         }
     }
 
+    // シェルを閉じると、保存を待っていた本文が、閉じる前にサーバーに保存される（#766）。
+    func testClosingSavesTheTextStillWaitingToBeSaved() async throws {
+        let shell = Shell(server: server.address, url: "/pages/swift-closing")
+        try await waitUntil("the page is shown") { !shell.view.outline.rows.isEmpty }
+        let item = shell.view.outline.rows[0].item
+        let pageId = try XCTUnwrap(page(shell)).page.id
+        shell.startEditing(item.id)
+        shell.typed("typed before closing", into: item.id)
+
+        shell.close()
+
+        let saved = try server.get("/api/pages/\(pageId)")
+        XCTAssertTrue(String(decoding: saved, as: UTF8.self).contains("typed before closing"))
+    }
+
     // 戻ると、前に開いたページがまた開き、付箋紙が覚えるURLもそのページになる。進むと、戻る前のページに戻る（ADR 035）。
     func testBackAndForwardFollowThePagesOpenedAndTheUrlFollows() async throws {
         let shell = Shell(server: server.address, url: "/pages/first")

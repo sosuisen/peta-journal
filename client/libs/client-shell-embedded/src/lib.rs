@@ -233,6 +233,14 @@ impl PetaCore {
         }
     }
 
+    /// The app goes to the back, where Android or iOS may stop it: the edit ends, and the
+    /// text typed and still waiting for its save is saved now (#766). The shell calls this
+    /// before the sync, so that the sync writes the text to its file. It is not `close`, which
+    /// the Kotlin side of a core has already, to let go of it.
+    pub fn leave(&self) {
+        self.shell.close();
+    }
+
     /// Takes an event of the shell. The error says why the bytes could not be read.
     pub fn update(&self, event: &[u8]) -> Result<(), String> {
         self.shell.update(event).map_err(|e| e.to_string())

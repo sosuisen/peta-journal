@@ -1,7 +1,8 @@
 //! The entrance for the Android shell, called here from Rust as Kotlin calls it.
 
 use crate::{PetaCore, PetaScreen, PetaShell};
-use client_core::Event;
+use client_core::typing::Typing;
+use client_core::{EditPlace, Event};
 use client_native_bridge::ShellEffectFfi;
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
 use journal_core::domain::model::ItemPosition;
@@ -175,6 +176,44 @@ fn a_page_is_opened_by_its_url() {
     wait_until("the page shows", || shown(&core).contains("an apple"));
     assert!(!shell.requests.lock().unwrap().is_empty());
     assert!(core.open(String::new()).is_err());
+}
+
+// アプリが裏に回るときにコアを閉じると、保存を待っていた本文が、閉じる前にジャーナルに保存される（#766）。
+#[test]
+fn closing_saves_the_body_still_waiting_to_be_saved() {
+    let app = App::new();
+    app.download("notes.md", "- an apple\n");
+    let core = app.open(Arc::default());
+    core.sync();
+    core.open("/pages/notes".into()).unwrap();
+    wait_until("the page shows", || shown(&core).contains("an apple"));
+    let page = core
+        .core
+        .page_service
+        .find_doc("notes", "")
+        .unwrap()
+        .unwrap();
+    let item_id = core.core.items.find_by_page_id(&page.id).unwrap()[0]
+        .id
+        .to_string();
+    core.update(&event(&Event::EditRequested {
+        item_id: item_id.clone(),
+        place: EditPlace::Unplaced,
+    }))
+    .unwrap();
+    let typing = Typing::Typed {
+        item_id,
+        body: "a pear".into(),
+        cursor: 6,
+    };
+    let mut bytes = Vec::new();
+    BincodeFfiFormat::serialize(&mut bytes, &typing).unwrap();
+    core.typed(&bytes).unwrap();
+
+    core.leave();
+
+    let items = core.core.items.find_by_page_id(&page.id).unwrap();
+    assert_eq!(items[0].body, "a pear");
 }
 
 // 今日のジャーナルを開くと、アプリの時計の日付のページが入る。

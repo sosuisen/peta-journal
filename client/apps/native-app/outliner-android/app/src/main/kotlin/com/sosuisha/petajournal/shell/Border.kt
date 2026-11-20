@@ -35,6 +35,12 @@ class Border(dataDir: File, markdownDir: File, onRequests: (List<Request>) -> Un
      */
     fun sync(): Int = core.sync().toInt()
 
+    /**
+     * The app goes to the back: the edit ends, and the text typed and still waiting for its
+     * save is saved before this returns (#766).
+     */
+    fun leave() = core.leave()
+
     /** Sends an event of the shell. */
     fun send(event: Event) = core.update(event.bincodeSerialize())
 

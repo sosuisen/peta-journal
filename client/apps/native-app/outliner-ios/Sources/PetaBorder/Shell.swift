@@ -307,6 +307,14 @@ public final class Shell: ObservableObject {
         }
     }
 
+    /// The app goes to the back, where iOS may stop it. The edit ends, and the text typed and
+    /// still waiting for its save is saved before this returns: the moment later, when it
+    /// would be saved, may never come (#766). The sync after this writes it to its file.
+    public func wentToTheBack() {
+        if closed { return }
+        border.leave()
+    }
+
     /// Lets go of the journal. A sync that runs ends first, on its own thread.
     public func close() {
         closed = true

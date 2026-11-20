@@ -77,7 +77,15 @@ public sealed class Border : IDisposable
     /// <summary>The whole view model, to draw after a render request.</summary>
     public ViewModel View() => ViewModel.BincodeDeserialize(core.View());
 
-    public void Dispose() => core.Dispose();
+    /// <summary>
+    /// The window closes, in whatever way, or the app ends. The text typed and still waiting
+    /// for its save is saved before the core goes (#766).
+    /// </summary>
+    public void Dispose()
+    {
+        core.Close();
+        core.Dispose();
+    }
 
     /// <summary>Hears the core and reads its bytes.</summary>
     private sealed class Listener(Action<IReadOnlyList<Request>> onRequests) : PetaCore.PetaShell

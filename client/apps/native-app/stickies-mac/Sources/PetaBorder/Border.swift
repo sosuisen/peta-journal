@@ -46,6 +46,12 @@ public final class Border {
         try core.resolve(id: id, output: Data(try output.bincodeSerialize()))
     }
 
+    /// The shell closes: the edit ends, and the text typed and still waiting for its save is
+    /// saved before this returns (#766).
+    public func close() {
+        core.close()
+    }
+
     /// The whole view model, to draw after a render request.
     public func view() throws -> ViewModel {
         try ViewModel.bincodeDeserialize(input: [UInt8](core.view()))

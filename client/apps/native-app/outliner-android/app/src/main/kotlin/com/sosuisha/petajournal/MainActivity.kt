@@ -34,14 +34,15 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * The app syncs when it goes to the back: what was written goes up before Android may
-     * stop the app. A sync that Android stops goes on when the app opens again.
+     * The app saves what waits to be saved, and syncs, when it goes to the back: what was
+     * written goes up before Android may stop the app. A sync that Android stops goes on when
+     * the app opens again.
      */
     override fun onStop() {
         super.onStop()
         // Not when the screen is only made again, as when the device is turned: the app stays
         // in front
-        if (isChangingConfigurations) model.screenIsMadeAgain() else model.sync()
+        if (isChangingConfigurations) model.screenIsMadeAgain() else model.wentToTheBack()
     }
 
     /** The app syncs whenever it comes to the front, also back from the sign-in. Not when only the screen was made again. */

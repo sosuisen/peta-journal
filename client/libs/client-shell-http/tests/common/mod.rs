@@ -11,8 +11,11 @@ use std::time::{Duration, Instant};
 /// The message the server sends on its event stream.
 pub const CONFIRM: &str = r#"{"type":"confirm","requestId":"confirm-7","message":"Insert?"}"#;
 
-/// A journal server that knows nothing: it answers 404, and sends one message on its event
-/// stream. It keeps the first line of each request, such as `GET /api/config HTTP/1.1`.
+/// The one page the server knows, `notes` with the id `p`, and its one item `a`.
+pub const PAGE: &str = r#"{"page":{"id":"p","name":"notes","dirPath":"","type":"doc"},"items":[{"id":"a","pageId":"p","parentItemId":null,"dirPath":"","name":"notes","type":"doc","createdDate":0,"modifiedDate":0,"idx":"a","level":1,"body":"the body of a","ast":"","collapsed":false,"types":[],"properties":{},"transcludeItemId":null}],"created":false}"#;
+
+/// A journal server that knows one page, `notes` (`PAGE`), and nothing else: it answers 404
+/// to the rest, and sends one message on its event stream. It keeps the first line of each request, such as `GET /api/config HTTP/1.1`.
 pub fn start_server() -> (String, Arc<Mutex<Vec<String>>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = format!("http://{}", listener.local_addr().unwrap());
@@ -37,9 +40,21 @@ fn serve(connection: TcpStream, seen: &Mutex<Vec<String>>) {
     while reader.read_line(&mut line).unwrap() > 2 {
         line.clear();
     }
+    // A save is slow, and is seen only once it is done
+    if first.starts_with("PUT /api/items/") {
+        thread::sleep(Duration::from_millis(100));
+    }
     seen.lock().unwrap().push(first.trim().to_string());
     let mut connection = reader.into_inner();
-    if first.starts_with("GET /api/events ") {
+    let is_page =
+        first.starts_with("POST /api/pages/doc ") || first.starts_with("GET /api/pages/p ");
+    if is_page {
+        let _ = write!(
+            connection,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{PAGE}",
+            PAGE.len()
+        );
+    } else if first.starts_with("GET /api/events ") {
         let head = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n\r\n";
         let _ = write!(connection, "{head}data: {CONFIRM}\n\n");
         let _ = connection.flush();

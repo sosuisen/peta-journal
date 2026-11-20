@@ -313,6 +313,16 @@ class Shell(
         onMainThread { told { core.openFirstScreen() } }
     }
 
+    /**
+     * The app goes to the back, where Android may stop it. The edit ends, and the text typed
+     * and still waiting for its save is saved before this returns: the moment later, when it
+     * would be saved, may never come (#766). The sync after this writes it to its file.
+     */
+    fun wentToTheBack() {
+        if (closed) return
+        border.leave()
+    }
+
     /** Lets go of the journal. A sync that runs ends first, on its own thread. */
     override fun close() {
         closed = true

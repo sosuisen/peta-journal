@@ -350,13 +350,18 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
 
     /// The app is ending. The windows that macOS closes from here on were not closed by the
     /// user, and so their stickies stay kept.
+    /// What was typed in every sticky and still waits for its save is saved now (#766).
     public func end() {
         ending = true
+        for sticky in stickies { sticky.shell.close() }
     }
 
-    /// A sticky that the user closed does not come back.
+    /// What was typed in the sticky and still waits for its save is saved. A sticky that the
+    /// user closed does not come back.
     public func windowWillClose(_ notification: Notification) {
-        guard !ending, let closed = sticky(of: notification) else { return }
+        guard let closed = sticky(of: notification) else { return }
+        closed.shell.close()
+        guard !ending else { return }
         stickies.removeAll { $0 === closed }
         store?.remove(closed.id)
     }

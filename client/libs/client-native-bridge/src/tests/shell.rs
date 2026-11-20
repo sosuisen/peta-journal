@@ -38,6 +38,10 @@ struct FakeHost {
 
 impl Host for FakeHost {
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
+        // Text the server is slow to save: it is in the calls only once it has been saved
+        if format!("{op:?}").contains("slowly") {
+            thread::sleep(Duration::from_millis(100));
+        }
         self.calls.lock().unwrap().push(op.clone());
         if let ApiOp::GetOrCreateDoc { title, .. } = &op {
             // A page the server is slow with: a request made after it could overtake it
@@ -673,6 +677,50 @@ fn what_the_shell_hands_as_typed_is_saved_by_the_core() {
             .iter()
             .any(|op| format!("{op:?}").contains("typed into a"))
     });
+}
+
+// シェルを閉じると、保存を待っていた本文が、閉じる前に保存される（#766）。
+#[test]
+fn closing_the_shell_saves_the_body_waiting_to_be_saved() {
+    let screen = Screen::new();
+    screen.open_notes();
+    wait_until("the page is in the view", || {
+        screen.view().contains("the body of a")
+    });
+    screen.send(&Event::EditRequested {
+        item_id: "a".into(),
+        place: EditPlace::Unplaced,
+    });
+    let typing = Typing::Typed {
+        item_id: "a".into(),
+        body: "typed slowly into a".into(),
+        cursor: 19,
+    };
+    let mut bytes = Vec::new();
+    BincodeFfiFormat::serialize(&mut bytes, &typing).unwrap();
+    screen.shell.typed(&bytes).unwrap();
+
+    screen.shell.close();
+
+    let calls = screen.calls.lock().unwrap();
+    assert!(calls
+        .iter()
+        .any(|op| format!("{op:?}").contains("typed slowly into a")));
+}
+
+// 保存を待つものがなければ、シェルはすぐに閉じる。待つ上限まで止まらない。
+#[test]
+fn closing_with_nothing_to_save_returns_at_once() {
+    let screen = Screen::new();
+    screen.open_notes();
+    wait_until("the page is in the view", || {
+        screen.view().contains("the body of a")
+    });
+    let started = Instant::now();
+
+    screen.shell.close();
+
+    assert!(started.elapsed() < Duration::from_secs(1));
 }
 
 // 読めない入力は、誤りとしてシェルに返る。
