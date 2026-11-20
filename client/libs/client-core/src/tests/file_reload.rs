@@ -1,7 +1,7 @@
 //! Reloading the shown page when its Markdown file changes on disk.
 
 use crate::app::Event;
-use crate::harness::{item, typed, Harness};
+use crate::harness::{create_calls, item, typed, Harness};
 use crate::model::PageWithItems;
 use crate::ops::file_reload::AskedAt;
 use crate::rest::ClientId;
@@ -92,6 +92,29 @@ fn an_edited_item_not_typed_into_that_the_server_lost_goes_and_the_focus_moves_u
     assert_eq!(h.bodies(), ["a=a"]);
     assert!(!h.model.state.is_editing("b"));
     assert_eq!(h.model.state.focused_item_id(), Some("a"));
+}
+
+// 打っている編集中の項目がサーバーの版で消えていたら、同じidで、手元の並びの前の項目の後に作り直され、編集が続く。
+#[test]
+fn an_edited_item_typed_into_that_the_server_lost_is_made_again_after_the_item_before_it() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 2, "")]);
+    typed(&mut h, "b", "typed here");
+    server_has(&mut h, vec![item("a", 1, "a")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(
+        create_calls(&h.api),
+        [(
+            "page1".to_string(),
+            "after:a".to_string(),
+            2,
+            "typed here".to_string(),
+            Some("b".to_string())
+        )]
+    );
+    assert_eq!(h.outline(), ["a:1=a", "b:2=typed here"]);
+    assert!(h.model.state.is_editing("b"));
 }
 
 // サーバーの拡張が項目を書いたと知らされると、ファイルの変更と同じように、表示中のページが読み直される。
