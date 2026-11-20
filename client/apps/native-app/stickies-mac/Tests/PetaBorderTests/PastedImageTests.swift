@@ -50,6 +50,29 @@ final class PastedImageTests: XCTestCase {
         XCTAssertEqual(try Self.pixel(of: written), [255, 0, 0, 255])
     }
 
+    // Finderでコピーした画像のファイルは、同じ名前と中身で一時ファイルに写される。元のファイルは残る。コアが保存のあとに消すのは、写したほうである。
+    func testAnImageFileCopiedInTheFinderIsCopiedWithItsNameAndTheOriginalStays() throws {
+        let original = try file(named: "サンプル 1.png", content: Self.png())
+        pasteboard.writeObjects([original as NSURL])
+
+        let file = try XCTUnwrap(write())
+
+        XCTAssertEqual(file.lastPathComponent, "サンプル 1.png")
+        XCTAssertNotEqual(file, original)
+        XCTAssertEqual(try Data(contentsOf: file), Self.png())
+        XCTAssertTrue(FileManager.default.fileExists(atPath: original.path))
+    }
+
+    /// A file of the test, in a folder that the test deletes at its end.
+    private func file(named name: String, content: Data) throws -> URL {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("peta-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let file = folder.appendingPathComponent(name)
+        try content.write(to: file)
+        written.append(file)
+        return file
+    }
+
     /// A picture of one red pixel, drawn by the test.
     static func png() -> Data {
         bitmap().representation(using: .png, properties: [:])!
