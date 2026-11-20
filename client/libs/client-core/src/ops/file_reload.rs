@@ -1,19 +1,16 @@
 //! Replaces the items of a page with the server's version after its markdown file changed
-//! on disk, ported from `file-reload.service.ts`. A page is not replaced while the user is
-//! editing, so their typing is not overwritten; it is reloaded once editing stops.
+//! on disk, ported from `file-reload.service.ts`. A page is read again at once, also while
+//! the user is editing: only the bodies typed and not saved yet stay as they are here
+//! (ADR 069).
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
-use crate::effects::{Api, TimerOutput};
+use crate::effects::Api;
 use crate::model::{Item, ItemPosition, PageWithItems};
-use crux_core::Command;
-use crate::ops::edit::{is_edit_in_progress, typed_body};
+use crate::ops::edit::typed_body;
 use crate::outline::tree::is_out_of_place;
+use crux_core::Command;
 
-/// How long the auto-save gets to flush before pending pages are replaced.
-const FLUSH_DELAY_MS: u32 = 1500;
-
-/// Reloads one page of the outline, or remembers it when the user is editing.
-/// Pages that the outline does not show are ignored.
+/// Reloads one page of the outline. Pages that the outline does not show are ignored.
 pub fn reload_page(model: &mut Model, page_id: &str) -> Cmd {
     if !model.state.items().iter().any(|i| i.page_id == page_id) {
         return done();
@@ -135,8 +132,7 @@ pub async fn replace_page(api: &Api<Event>, page_id: &str, asked_at: AskedAt) {
 ///
 /// An answer that a change made here has overtaken is not shown: the screen has the change
 /// and the answer does not. The page is read once more, and that request waits behind the
-/// request of the change, so its answer has the change. While the user is editing, the page
-/// waits for the end of the edit, as a page changed by another client does.
+/// request of the change, so its answer has the change.
 pub fn show_replaced_page(
     model: &mut Model,
     page_id: &str,
@@ -175,8 +171,7 @@ fn make_lost_typing_again(model: &Model, page_id: &str, items: &mut Vec<Item>) -
         .collect();
     let mut cmds = Vec::new();
     for (at, lost) in shown.iter().enumerate() {
-        if !model.edits.dirty_item_ids.contains(&lost.id) || items.iter().any(|i| i.id == lost.id)
-        {
+        if !model.edits.dirty_item_ids.contains(&lost.id) || items.iter().any(|i| i.id == lost.id) {
             continue;
         }
         let before = shown[..at]
@@ -191,7 +186,13 @@ fn make_lost_typing_again(model: &Model, page_id: &str, items: &mut Vec<Item>) -
         let (page, item) = (page_id.to_string(), lost.clone());
         cmds.push(run(move |api| async move {
             let made = api
-                .create_item(&page, position, item.level, &item.body, Some(item.id.clone()))
+                .create_item(
+                    &page,
+                    position,
+                    item.level,
+                    &item.body,
+                    Some(item.id.clone()),
+                )
                 .await;
             if let Err(e) = made {
                 log_error(format!("Failed to make {} again: {e}", item.id));
@@ -223,7 +224,11 @@ fn end_lost_edits(model: &mut Model, ids_before: &[String]) -> Option<Cmd> {
         .iter()
         .rev()
         .find_map(|id| model.state.get_item_by_id(id))?;
-    Some(open_editor_at(model, &before.id, before.body.chars().count()))
+    Some(open_editor_at(
+        model,
+        &before.id,
+        before.body.chars().count(),
+    ))
 }
 
 /// Puts the cursor into the editor of an item, `cursor` characters into its body.
@@ -308,35 +313,4 @@ pub fn reload_shown_page(model: &Model) -> Cmd {
         Some(page_id) => read_again(model, &page_id),
         None => done(),
     }
-}
-
-/// Once editing stops with pages waiting, gives the auto-save a moment and then reloads them.
-/// Called after every event.
-pub fn schedule_pending_flush(model: &mut Model) -> Cmd {
-    if model.file_reload_pending.is_empty()
-        || model.file_reload_scheduled
-        || is_edit_in_progress(model)
-    {
-        return done();
-    }
-    model.file_reload_scheduled = true;
-    let timer_id = model.next_timer_id();
-    run(move |api| async move {
-        if api.sleep(timer_id, FLUSH_DELAY_MS).await != TimerOutput::Fired {
-            return;
-        }
-        api.send_event(Event::PendingReloadsDue);
-    })
-}
-
-/// The moment given to the auto-save ended: the pages that waited are read again, unless
-/// the user is editing again.
-pub fn flush_pending(model: &mut Model) -> Cmd {
-    model.file_reload_scheduled = false;
-    if is_edit_in_progress(model) {
-        return done();
-    }
-    let ids: Vec<String> = model.file_reload_pending.drain().collect();
-    let cmds: Vec<Cmd> = ids.iter().map(|id| reload_page(model, id)).collect();
-    crux_core::Command::all(cmds)
 }
