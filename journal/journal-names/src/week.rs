@@ -50,10 +50,14 @@ pub fn week_of(date: Date, numbering: WeekNumbering) -> (i32, u32) {
     (year, weeks as u32 + 1)
 }
 
-/// The first day of a week of a year. A number past the last week of the year counts on
-/// into the next year.
-pub fn first_day_of_week(year: i32, week: u32, numbering: WeekNumbering) -> Date {
-    start_of_week_1(year, numbering).shift(7 * (i64::from(week) - 1))
+/// The first day of a week of a year. None when the year does not have that week: a number
+/// past the last week does not count on into the next year, which would give a week a
+/// second name (ADR 072).
+pub fn first_day_of_week(year: i32, week: u32, numbering: WeekNumbering) -> Option<Date> {
+    if !(1..=weeks_in_year(year, numbering)).contains(&week) {
+        return None;
+    }
+    Some(start_of_week_1(year, numbering).shift(7 * (i64::from(week) - 1)))
 }
 
 /// The number of weeks a year has, so that nothing skips the last one.
@@ -127,13 +131,14 @@ mod tests {
     // 週の最初の日は、その週の年と番号から求められる。
     #[test]
     fn the_first_day_of_a_week_is_found_from_its_year_and_number() {
-        assert_eq!(first_day_of_week(2026, 8, Us), Date::new(2026, 2, 15));
-        assert_eq!(first_day_of_week(2026, 8, Iso), Date::new(2026, 2, 16));
-        assert_eq!(first_day_of_week(2026, 53, Us), Date::new(2026, 12, 27));
-        assert_eq!(first_day_of_week(2026, 53, Iso), Date::new(2026, 12, 28));
-        assert_eq!(first_day_of_week(2025, 1, Iso), Date::new(2024, 12, 30));
+        let first_day = |year, week, numbering| first_day_of_week(year, week, numbering).unwrap();
+        assert_eq!(first_day(2026, 8, Us), Date::new(2026, 2, 15));
+        assert_eq!(first_day(2026, 8, Iso), Date::new(2026, 2, 16));
+        assert_eq!(first_day(2026, 52, Us), Date::new(2026, 12, 20));
+        assert_eq!(first_day(2026, 53, Iso), Date::new(2026, 12, 28));
+        assert_eq!(first_day(2025, 1, Iso), Date::new(2024, 12, 30));
         // Week 1 of a US year that does not start on a Sunday starts in December
-        assert_eq!(first_day_of_week(2027, 1, Us), Date::new(2026, 12, 27));
+        assert_eq!(first_day(2027, 1, Us), Date::new(2026, 12, 27));
     }
 
     // 年にない週の最初の日は求められない。週の番号は、次の年へ数え進まない。
