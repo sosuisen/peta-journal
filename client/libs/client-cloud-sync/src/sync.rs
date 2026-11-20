@@ -78,6 +78,9 @@ struct Status {
     /// Counts the changes and the sign-outs: a wait whose count has moved on since it began
     /// starts nothing.
     changes: u64,
+    /// True while a sync waits for the end of the changes, until it starts or the user signs
+    /// out.
+    waiting: bool,
 }
 
 impl CloudSync {
@@ -109,6 +112,7 @@ impl CloudSync {
                     next: None,
                     last: None,
                     changes: 0,
+                    waiting: false,
                 }),
             }),
         }
@@ -139,6 +143,17 @@ impl CloudSync {
         Shared::changed(&self.shared);
     }
 
+    /// The user types, and what was typed is not saved yet, as the text of an input method
+    /// before it is committed. A sync that waits after a change waits again from now: the
+    /// user has not ended the input. When no sync waits, nothing starts: nothing new is
+    /// saved to upload.
+    pub fn typing(&self) {
+        let status = self.shared.lock();
+        if status.waiting {
+            Shared::wait(&self.shared, status);
+        }
+    }
+
     /// Calls [`CloudSync::changed`], for the core that knows of the changes.
     pub fn on_change(&self) -> impl Fn() + Send + Sync + 'static {
         let shared = Arc::clone(&self.shared);
@@ -159,6 +174,7 @@ impl CloudSync {
         let _ = fs::remove_file(&self.shared.local.cursor);
         status.last = None;
         status.changes += 1;
+        status.waiting = false;
         status.state = SyncState::SignedOut;
         self.shared.tell(&status);
     }
@@ -188,11 +204,17 @@ impl Shared {
     }
 
     fn changed(self: &Arc<Self>) {
-        let mut status = self.lock();
+        let status = self.lock();
         if status.last.is_none() {
             return;
         }
+        Shared::wait(self, status);
+    }
+
+    /// Waits `after_change` from now, and then starts a sync, if no change came meanwhile.
+    fn wait(self: &Arc<Self>, mut status: MutexGuard<'_, Status>) {
         status.changes += 1;
+        status.waiting = true;
         let waits_for = status.changes;
         drop(status);
         let shared = Arc::clone(self);
@@ -200,13 +222,14 @@ impl Shared {
             .name("cloud-sync-wait".into())
             .spawn(move || {
                 thread::sleep(shared.after_change);
-                let status = shared.lock();
+                let mut status = shared.lock();
                 // Another change came since, or the user signed out: the sign-out counts as
                 // a change, and it forgets the cloud
                 let cloud = match &status.last {
                     Some(cloud) if status.changes == waits_for => Arc::clone(cloud),
                     _ => return,
                 };
+                status.waiting = false;
                 drop(status);
                 shared.start(cloud, false);
             })

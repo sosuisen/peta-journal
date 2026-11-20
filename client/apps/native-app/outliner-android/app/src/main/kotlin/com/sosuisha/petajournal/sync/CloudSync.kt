@@ -64,6 +64,11 @@ class CloudSync(
         Host(shell::syncAndWait, { onMainThread(::read) }, log),
     )
 
+    init {
+        // A word that the keyboard composes is not saved yet, and the sync waits for it
+        shell.onComposing = sync::typing
+    }
+
     var state: SyncState by mutableStateOf(screenState(sync.state()))
         private set
 

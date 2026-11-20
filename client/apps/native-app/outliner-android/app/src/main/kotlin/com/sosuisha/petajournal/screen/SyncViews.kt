@@ -19,8 +19,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -93,16 +101,37 @@ internal fun SyncCallout(state: SyncState, onSync: () -> Unit, modifier: Modifie
     }
     Surface(
         modifier.padding(12.dp),
-        shape = MaterialTheme.shapes.small,
+        shape = Callout,
         color = MaterialTheme.colorScheme.inverseSurface,
         contentColor = MaterialTheme.colorScheme.inverseOnSurface,
         shadowElevation = 6.dp,
     ) {
-        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(start = 16.dp, end = 16.dp + TAIL), verticalAlignment = Alignment.CenterVertically) {
             Text(words, Modifier.padding(vertical = 12.dp).weight(1f, fill = false))
             if (again) {
                 TextButton(onSync) { Text("Try again", color = MaterialTheme.colorScheme.inversePrimary) }
             }
         }
+    }
+}
+
+/** How far the tail of the callout of the sync reaches out of its right side. */
+private val TAIL = 8.dp
+
+/** A speech balloon with its tail on the right side, as the callout of the sync. */
+private object Callout : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val tail = with(density) { TAIL.toPx() }
+        val corner = with(density) { 4.dp.toPx() }
+        val side = size.width - tail
+        val middle = size.height / 2
+        val balloon = Path().apply {
+            addRoundRect(RoundRect(0f, 0f, side, size.height, CornerRadius(corner)))
+            moveTo(side, middle - tail)
+            lineTo(size.width, middle)
+            lineTo(side, middle + tail)
+            close()
+        }
+        return Outline.Generic(balloon)
     }
 }

@@ -169,7 +169,11 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
                     else -> {
                         refused = null
                         field = next
-                        if (next.composition == null && next.text != body) shell.type(id, next.text, next.selection.start)
+                        when (telling(next, body)) {
+                            Telling.Composing -> shell.composing()
+                            Telling.Typed -> shell.type(id, next.text, next.selection.start)
+                            null -> {}
+                        }
                     }
                 }
             },
@@ -283,6 +287,23 @@ private class Clipboard(private val context: Context) {
         return if (type != null && uri != null) uri to type else null
     }
 }
+
+/** What the editor tells the shell of a change of its field. */
+internal enum class Telling {
+    /** The keyboard composes a word. The core hears of it once it is committed. */
+    Composing,
+
+    /** The text changed, and the core saves it. */
+    Typed,
+}
+
+/** What to tell the shell of [next], when the core holds [body]. `null` when the text stays. */
+internal fun telling(next: TextFieldValue, body: String): Telling? =
+    when {
+        next.composition != null -> Telling.Composing
+        next.text != body -> Telling.Typed
+        else -> null
+    }
 
 /** The name that the content at [uri] came with, or `null` when its app tells none. */
 private fun ContentResolver.nameOf(uri: Uri): String? =

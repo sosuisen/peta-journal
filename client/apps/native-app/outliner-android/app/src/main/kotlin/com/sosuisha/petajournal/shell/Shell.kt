@@ -161,6 +161,15 @@ class Shell(
     fun type(itemId: String, body: String, cursor: Int) =
         typed(Typing.Typed(itemId, body, cursor.coerceAtLeast(0).toULong()))
 
+    /**
+     * Told when the keyboard composes a word in an item. The core does not hear of the word
+     * until it is committed. The sync with the cloud waits for the end of the input (#884).
+     */
+    var onComposing: () -> Unit = {}
+
+    /** The keyboard composes a word in an item: the user has not ended the input. */
+    fun composing() = onComposing()
+
     /** The core adds the time, and counts the cursor in its own characters. */
     private fun typed(typing: Typing) {
         // As `send`: a field that loses the focus while the screen is taken down still tells

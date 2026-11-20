@@ -449,6 +449,23 @@ fn a_page_made_in_the_app_starts_a_quiet_sync_after_the_wait() {
     assert_eq!(*app.taken_in.lock().unwrap(), 2);
 }
 
+// 同期がページの変更のあとで待つ間に、シェルがまだ保存していない入力を伝えると、同期はその入力から待ち直す。
+#[test]
+fn typing_told_by_the_shell_moves_the_waiting_sync_later() {
+    let (app, sync) = app_waiting(500);
+    sync.start(empty(), "/PetaJournal".into(), true);
+    app.until_rest();
+    app.core.open_or_make("/pages/plan".into()).unwrap();
+    std::thread::sleep(Duration::from_millis(300));
+
+    sync.typing();
+    std::thread::sleep(Duration::from_millis(300));
+
+    assert_eq!(*app.taken_in.lock().unwrap(), 1);
+    assert_eq!(app.until_rest().last(), Some(&(PetaSyncState::Idle, false)));
+    assert_eq!(*app.taken_in.lock().unwrap(), 2);
+}
+
 // ページを読むだけの操作では、同期は始まらない。
 #[test]
 fn opening_a_page_starts_no_sync() {

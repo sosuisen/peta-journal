@@ -183,6 +183,12 @@ impl PetaCloudSync {
         self.sync.start(Arc::new(cloud), in_front);
     }
 
+    /// The user types, and the core does not have it yet, as the text of an input method
+    /// before it is committed. A sync that waits after a change waits again from now.
+    pub fn typing(&self) {
+        self.sync.typing();
+    }
+
     /// Where the sync stands now. What `PetaSyncHost.told` tells may be old by the time the
     /// shell reads it on its main thread: a sync may have started since.
     pub fn state(&self) -> PetaSyncState {
