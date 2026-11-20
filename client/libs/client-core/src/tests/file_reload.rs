@@ -54,6 +54,19 @@ fn an_edited_item_not_typed_into_takes_the_server_body_and_the_cursor_stays_insi
     assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
 }
 
+// 打っていない編集中の項目の本文が変わっても、カーソルが新しい本文の中にあれば、同じ位置に残る。
+#[test]
+fn the_cursor_inside_the_new_body_stays_where_it_was() {
+    let mut h = Harness::with_items(vec![item("a", 1, "0123456789")]);
+    h.model.state.add_editing_item("a");
+    h.model.state.set_focused_item("a", Some(1));
+    server_has(&mut h, vec![item("a", 1, "abc")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.focus_cursor(), Some(1));
+}
+
 // 打っている編集中の項目は、読み直しでも手元の本文を残す。
 #[test]
 fn an_edited_item_typed_into_keeps_its_typed_body() {
