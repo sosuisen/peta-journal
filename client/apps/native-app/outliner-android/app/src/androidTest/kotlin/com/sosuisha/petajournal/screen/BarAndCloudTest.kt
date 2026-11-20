@@ -169,12 +169,14 @@ class BarAndCloudTest : JournalScreenFixture() {
     // 同期のメッセージは、ページの右に寄せて出る。中央に出すと、編集している行の上に重なりやすい（#884）。
     @Test
     fun the_message_of_the_sync_lies_at_the_right_of_the_page() {
-        start(OnePage(reachable = false))
+        val held = CountDownLatch(1)
+        start(OnePage().apply { this.held = held })
         menu("Sync")
-        waitFor("Sync failed: no connection")
+        waitFor("Syncing…")
 
-        val message = compose.onNodeWithText("Sync failed: no connection").getBoundsInRoot()
+        val message = compose.onNodeWithText("Syncing…").getBoundsInRoot()
         val screen = compose.onRoot().getBoundsInRoot()
+        held.countDown()
 
         assertTrue(message.left + message.right > screen.left + screen.right + 16.dp)
     }
