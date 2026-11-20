@@ -63,6 +63,16 @@ final class PastedImageTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: original.path))
     }
 
+    // 文字もあるペーストボードでは、画像を書かない。Officeのように、文字に画像も添えるアプリがあり、貼りたいのは文字のほうである。
+    func testNoImageIsWrittenWhenThePasteboardHasTextToo() {
+        pasteboard.declareTypes([.string, .png, .tiff], owner: nil)
+        pasteboard.setString("sample", forType: .string)
+        pasteboard.setData(Self.png(), forType: .png)
+        pasteboard.setData(Self.bitmap().tiffRepresentation, forType: .tiff)
+
+        XCTAssertNil(write())
+    }
+
     /// A file of the test, in a folder that the test deletes at its end.
     private func file(named name: String, content: Data) throws -> URL {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("peta-test-\(UUID().uuidString)")
