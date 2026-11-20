@@ -45,9 +45,11 @@ class FakeEventSource {
 
 // サーバーのアドレス
 describe('the address of the journal server', () => {
-  // 指定がなければ、`http://localhost:8087`である。
-  test('is http://localhost:8087 by default', () => {
-    expect(serverUrlFrom('')).toBe('http://localhost:8087');
+  // 指定がなければ、画面と同じオリジンである。journal-serverが、アプリを`/apps/`で配信するためである。
+  test('is the origin of the page by default', () => {
+    expect(
+      serverUrlFrom({ search: '', origin: 'http://127.0.0.1:8090' }),
+    ).toBe('http://127.0.0.1:8090');
   });
 
   // ページのURLの`host`と`port`で変えられる。片方だけでもよい。
