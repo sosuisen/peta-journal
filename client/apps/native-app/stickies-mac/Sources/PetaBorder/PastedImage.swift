@@ -5,7 +5,7 @@ import Foundation
 /// server and then deletes it (ADR 071).
 public enum PastedImage {
     /// Writes the image on `pasteboard` to a file in a folder of its own, and gives the file.
-    /// `nil` when the pasteboard holds no image, or text with its image.
+    /// `nil` when the pasteboard holds no image, or text or another file with its image.
     public static func write(from pasteboard: NSPasteboard) -> URL? {
         if let image = imageFile(pasteboard) {
             // A copy: the core deletes the file it was given, and the original is the user's
@@ -13,8 +13,9 @@ public enum PastedImage {
                 try FileManager.default.copyItem(at: image, to: $0)
             }
         }
-        // An app such as Word adds a picture of the text it copied: the text is what is meant
-        guard pasteboard.string(forType: .string) == nil,
+        // An app such as Word adds a picture of the text it copied: the text is what is meant.
+        // The Finder adds the icon of a file that is not an image, which is not meant either
+        guard pasteboard.string(forType: .string) == nil, pasteboard.availableType(from: [.fileURL]) == nil,
             let png = pasteboard.data(forType: .png) ?? tiffAsPng(pasteboard)
         else { return nil }
         return inFolderOfItsOwn(named: "image.png") { try png.write(to: $0) }
