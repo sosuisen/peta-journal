@@ -6,11 +6,16 @@
 #
 # The order:
 #   1. git pull --ff-only
-#   2. PetaStickies and MemoView end. Then the journal server ends.
+#   2. PetaStickies and MemoView end. Then the journal server and the server of todo end.
 #   3. The release builds: the web frontend, the journal server, the Emacs shell, todo,
 #      PetaStickies and MemoView.
 #   4. The journal server starts in its own window, with the web frontend beside it.
 #   5. When the server answers on port 8087, the browser and PetaStickies start.
+#   6. The server of todo (vite preview of dist/) starts in its own window on port 5180, and
+#      todo opens in the browser.
+#
+# Why port 5180: the journal server lets only http://localhost:5180 call it from another page
+# (--cors-origins). It is the port of the dev server of todo too, so that one ends in step 2.
 #
 # The apps end before the server: they save what is typed to the server when they close.
 # The Emacs shell is not ended: Emacs would lose its buffers. When it runs, its build is left
@@ -20,6 +25,7 @@ $ErrorActionPreference = 'Stop'
 
 $root = $PSScriptRoot
 $port = 8087
+$todoPort = 5180
 $apps = "$root/client/apps"
 $release = "$root/journal/target/release"
 
@@ -105,6 +111,29 @@ function Test-Port([int]$number) {
     }
 }
 
+function Wait-Port([int]$number, [System.Diagnostics.Process]$server, [string]$name) {
+    $deadline = (Get-Date).AddSeconds(60)
+    while (-not (Test-Port $number)) {
+        if ($server.HasExited) { throw "The $name ended with exit code $($server.ExitCode)" }
+        if ((Get-Date) -gt $deadline) { throw "The $name does not answer on port $number" }
+        Start-Sleep -Milliseconds 300
+    }
+}
+
+# Vite of todo, the dev server or a preview. It keeps nothing, so it ends by force.
+function Stop-TodoServer {
+    foreach ($listener in @(Get-NetTCPConnection -LocalPort $todoPort -State Listen -ErrorAction SilentlyContinue)) {
+        $owner = Get-CimInstance Win32_Process -Filter "ProcessId = $($listener.OwningProcess)"
+        if (-not $owner) { continue }
+        if ($owner.CommandLine -notmatch 'todo[\\/]node_modules[\\/].*vite\.js') {
+            throw "Another program uses port $todoPort. End it first."
+        }
+        Write-Host 'Ending the server of todo'
+        Stop-Process -Id $owner.ProcessId -Force
+        Wait-Process -Id $owner.ProcessId -ErrorAction SilentlyContinue
+    }
+}
+
 if (-not $NoPull) {
     Invoke-Step 'Pull' { git -C $root pull --ff-only }
 }
@@ -117,6 +146,7 @@ foreach ($server in @(Get-Process journal-server -ErrorAction SilentlyContinue))
     Stop-Server $server
 }
 if (Test-Port $port) { throw "Another program uses port $port. End it first." }
+Stop-TodoServer
 
 Invoke-Step 'Web frontend' { & "$apps/web-app/outliner/release.ps1" }
 Invoke-Step 'Journal server' { & "$root/journal/journal-server/release.ps1" }
@@ -140,14 +170,18 @@ Invoke-Step 'MemoView' { & "$apps/webview-app/memoview-win/release.ps1" }
 
 Write-Host '==> Starting the journal server' -ForegroundColor Cyan
 $server = Start-Process "$release/journal-server.exe" -WorkingDirectory $release -PassThru
-$deadline = (Get-Date).AddSeconds(60)
-while (-not (Test-Port $port)) {
-    if ($server.HasExited) { throw "The journal server ended with exit code $($server.ExitCode)" }
-    if ((Get-Date) -gt $deadline) { throw "The journal server does not answer on port $port" }
-    Start-Sleep -Milliseconds 300
-}
+Wait-Port $port $server 'journal server'
 
 Write-Host '==> Starting the apps' -ForegroundColor Cyan
 Start-Process "http://localhost:$port"
 Start-Process "$apps/native-app/stickies-win/PetaStickies/bin/Release/net11.0-windows10.0.22621.0/win-x64/PetaStickies.exe"
-Write-Host "Done. The journal server runs at http://localhost:$port"
+
+Write-Host '==> Starting the server of todo' -ForegroundColor Cyan
+# Why 127.0.0.1: Vite takes ::1 alone for localhost on some systems, and Test-Port asks IPv4.
+# The browser still opens localhost, the origin that the journal server lets in.
+$todo = Start-Process npm -ArgumentList 'run', 'preview', '--', '--host', '127.0.0.1', '--port', $todoPort, '--strictPort' `
+    -WorkingDirectory "$apps/web-app/todo" -PassThru
+Wait-Port $todoPort $todo 'server of todo'
+Start-Process "http://localhost:$todoPort"
+
+Write-Host "Done. The journal server runs at http://localhost:$port, todo at http://localhost:$todoPort"

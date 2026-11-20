@@ -7,11 +7,16 @@
 #
 # The order:
 #   1. git pull --ff-only
-#   2. PetaStickies ends on a Mac. Then the journal server ends.
+#   2. PetaStickies ends on a Mac. Then the journal server and the server of todo end.
 #   3. The release builds: the web frontend, the journal server, the Emacs shell, todo and,
 #      on a Mac, PetaStickies.
 #   4. The journal server starts in the background. Its log is journal/target/release/journal-server.log.
 #   5. When the server answers on port 8087, the browser and PetaStickies start.
+#   6. The server of todo (vite preview of dist/) starts in the background on port 5180, and
+#      todo opens in the browser. Its log is journal/target/release/todo.log.
+#
+# Why port 5180: the journal server lets only http://localhost:5180 call it from another page
+# (--cors-origins). It is the port of the dev server of todo too, so that one ends in step 2.
 #
 # On Windows (Git Bash) it runs release-all.ps1, which builds the WinUI apps too.
 set -eu
@@ -31,12 +36,13 @@ pull=yes
 case "${1:-}" in
     --no-pull) pull=no ;;
     -h | --help)
-        sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
         exit 0
         ;;
 esac
 
 port=8087
+todo_port=5180
 apps=$root/client/apps
 release=$root/journal/target/release
 mac=no
@@ -47,7 +53,24 @@ step() {
 }
 
 answers() {
-    curl -s -o /dev/null "http://localhost:$port/"
+    curl -s -o /dev/null "http://127.0.0.1:$1/"
+}
+
+# Waits until the server of process $1 answers on port $2. $3 names it, $4 is its log.
+wait_for() {
+    tries=0
+    until answers "$2"; do
+        if ! kill -0 "$1" 2>/dev/null; then
+            echo "The $3 ended. See $4" >&2
+            exit 1
+        fi
+        tries=$((tries + 1))
+        if [ "$tries" -gt 200 ]; then
+            echo "The $3 does not answer on port $2" >&2
+            exit 1
+        fi
+        sleep 0.3
+    done
 }
 
 if [ "$pull" = yes ]; then
@@ -68,10 +91,20 @@ if pgrep -x journal-server >/dev/null; then
     pkill -INT -x journal-server
     while pgrep -x journal-server >/dev/null; do sleep 0.2; done
 fi
-if answers; then
+if answers "$port"; then
     echo "Another program uses port $port. End it first." >&2
     exit 1
 fi
+# Vite of todo, the dev server or a preview. It keeps nothing, so it ends by force.
+for pid in $(lsof -ti "tcp:$todo_port" -sTCP:LISTEN 2>/dev/null || true); do
+    if ! ps -o command= -p "$pid" | grep -Eq 'todo/node_modules/.*vite'; then
+        echo "Another program uses port $todo_port. End it first." >&2
+        exit 1
+    fi
+    echo 'Ending the server of todo'
+    kill "$pid"
+    while kill -0 "$pid" 2>/dev/null; do sleep 0.2; done
+done
 
 step 'Web frontend'
 "$apps/web-app/outliner/release.sh"
@@ -100,20 +133,7 @@ fi
 step 'Starting the journal server'
 cd "$release"
 nohup ./journal-server >journal-server.log 2>&1 &
-server=$!
-tries=0
-until answers; do
-    if ! kill -0 "$server" 2>/dev/null; then
-        echo "The journal server ended. See $release/journal-server.log" >&2
-        exit 1
-    fi
-    tries=$((tries + 1))
-    if [ "$tries" -gt 200 ]; then
-        echo "The journal server does not answer on port $port" >&2
-        exit 1
-    fi
-    sleep 0.3
-done
+wait_for $! "$port" 'journal server' "$release/journal-server.log"
 
 step 'Starting the apps'
 if [ "$mac" = yes ]; then
@@ -122,4 +142,16 @@ if [ "$mac" = yes ]; then
 elif command -v xdg-open >/dev/null; then
     xdg-open "http://localhost:$port" >/dev/null 2>&1 || true
 fi
-echo "Done. The journal server runs at http://localhost:$port"
+
+step 'Starting the server of todo'
+# Why 127.0.0.1: Vite takes ::1 alone for localhost on some systems, and answers asks IPv4.
+# The browser still opens localhost, the origin that the journal server lets in.
+cd "$apps/web-app/todo"
+nohup npm run preview -- --host 127.0.0.1 --port "$todo_port" --strictPort >"$release/todo.log" 2>&1 &
+wait_for $! "$todo_port" 'server of todo' "$release/todo.log"
+if [ "$mac" = yes ]; then
+    open "http://localhost:$todo_port"
+elif command -v xdg-open >/dev/null; then
+    xdg-open "http://localhost:$todo_port" >/dev/null 2>&1 || true
+fi
+echo "Done. The journal server runs at http://localhost:$port, todo at http://localhost:$todo_port"
