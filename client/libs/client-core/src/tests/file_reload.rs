@@ -6,24 +6,34 @@ use crate::model::PageWithItems;
 use crate::ops::file_reload::AskedAt;
 use crate::rest::ClientId;
 
-// ファイルの変更通知は編集の終了を待ち、自動保存の猶予の後にページが再読み込みされる。
-#[test]
-fn a_file_change_waits_for_the_edit_to_end_and_then_reloads_the_page() {
-    let mut h = Harness::with_items(vec![item("a", 1, "")]);
-    h.model.state.add_editing_item("a");
+/// The server tells that the Markdown file of the shown page changed on disk.
+fn file_changed(h: &mut Harness) {
     h.send(Event::Sse(crate::effects::SseEvent::Message(
         r#"{"type":"pagesUpdated","pageId":"page1","source":"file"}"#.into(),
     )));
-    assert!(!h.api.called("GetPageById"), "not while editing");
-    h.send(Event::EditFinished {
-        item_id: "a".into(),
-    });
-    assert!(
-        !h.api.called("GetPageById"),
-        "the auto-save gets a moment first"
+}
+
+/// The next reading of the page answers with these items, as the server has them now.
+fn server_has(h: &mut Harness, items: Vec<crate::model::Item>) {
+    h.api.answer_next(
+        "GetPageById",
+        Ok(crate::effects::ApiOutput::Page(PageWithItems {
+            items,
+            ..Default::default()
+        })),
     );
-    h.fire_timers();
-    assert!(h.api.called("GetPageById"));
+}
+
+// 編集中でも、ファイルの変更の知らせでページはすぐに読み直され、ほかの項目はサーバーの版になる。カーソルはほぼいつもどこかの項目にあるので、編集の終わりを待つと変更が出ない（#731）。
+#[test]
+fn a_file_change_while_editing_shows_the_other_items_as_the_server_has_them() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "old")]);
+    h.model.state.add_editing_item("a");
+    server_has(&mut h, vec![item("a", 1, ""), item("b", 1, "from the file")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["a=", "b=from the file"]);
 }
 
 // サーバーの拡張が項目を書いたと知らされると、ファイルの変更と同じように、表示中のページが読み直される。
