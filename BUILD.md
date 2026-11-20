@@ -363,3 +363,12 @@ in `client/apps/web-app/outliner/e2e/` do not run there, so run them by hand. A 
 After a change to the frontend, run the script again and reload the browser. The journal
 server keeps running.
 
+## Daily use
+
+`./release-all.ps1` (or `release-all.sh`) at the root of the repository brings everything up to
+date for daily use. It pulls, closes the apps, and stops the journal server with Ctrl+C. Then it
+makes the release builds of every app for this system. It copies `dist/` to
+`journal/target/release/frontend/` and starts the server. When port 8087 answers, it opens the
+browser and starts PetaStickies. Pass `-NoPull` (or `--no-pull`) to build what is checked out.
+The steps by hand are in [README.ja.md](README.ja.md).
+

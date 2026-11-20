@@ -62,6 +62,18 @@ cargo run -- --port 8088 --throwaway-dir <作業フォルダ>
 
 画面とサーバーをリリース版でビルドし、実行ファイルを直接起動する。
 
+リポジトリのルートの`release-all.ps1`（macOS、Linux、Git Bashでは`release-all.sh`）が、次の手順をまとめて行う。
+
+1. `git pull --ff-only`で最新にする。`-NoPull`（shでは`--no-pull`）を付けると、pullしない。
+2. PetaStickiesとMemoViewを閉じ、journal-serverを`Ctrl+C`で止める。
+3. 画面、journal-server、Emacs版、todo、PetaStickies、MemoViewを、リリース版でビルドする。画面は、実行ファイルの隣の`frontend/`にコピーする。
+4. journal-serverを起動し、ポート8087が応答するのを待つ。
+5. ブラウザで`http://localhost:8087`を開き、PetaStickiesを起動する。
+
+Emacs版のプログラムが動いているときは、そのビルドを飛ばす。EmacsでPetaJournalのバッファを閉じてから、もう一度実行する。
+
+手で行うときは、次のようにする。
+
 ```powershell
 cd peta-journal/client/apps/web-app/outliner
 trunk build --release
