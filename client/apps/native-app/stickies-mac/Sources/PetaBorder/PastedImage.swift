@@ -7,7 +7,7 @@ public enum PastedImage {
     /// Writes the image on `pasteboard` to a file in a folder of its own, and gives the file.
     /// `nil` when the pasteboard holds no image.
     public static func write(from pasteboard: NSPasteboard) -> URL? {
-        guard let png = pasteboard.data(forType: .png) else { return nil }
+        guard let png = pasteboard.data(forType: .png) ?? tiffAsPng(pasteboard) else { return nil }
         // A folder of its own: an image of the same name may be pasted before the first is saved
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("peta-pasted", isDirectory: true)
@@ -20,5 +20,12 @@ public enum PastedImage {
             return nil
         }
         return file
+    }
+
+    /// The image of a TIFF as a PNG. A screenshot and many apps give only a TIFF, which a
+    /// browser does not show.
+    private static func tiffAsPng(_ pasteboard: NSPasteboard) -> Data? {
+        guard let tiff = pasteboard.data(forType: .tiff) else { return nil }
+        return NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
     }
 }

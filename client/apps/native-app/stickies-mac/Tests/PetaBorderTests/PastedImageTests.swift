@@ -47,9 +47,7 @@ final class PastedImageTests: XCTestCase {
         XCTAssertEqual(file.lastPathComponent, "image.png")
         let written = try Data(contentsOf: file)
         XCTAssertEqual([UInt8](written.prefix(4)), [0x89, 0x50, 0x4E, 0x47])
-        let pixel = try XCTUnwrap(NSBitmapImageRep(data: written)?.colorAt(x: 0, y: 0)?.usingColorSpace(.deviceRGB))
-        XCTAssertEqual(pixel.redComponent, 1, accuracy: 0.01)
-        XCTAssertEqual(pixel.greenComponent, 0, accuracy: 0.01)
+        XCTAssertEqual(try Self.pixel(of: written), [255, 0, 0, 255])
     }
 
     /// A picture of one red pixel, drawn by the test.
@@ -57,11 +55,19 @@ final class PastedImageTests: XCTestCase {
         bitmap().representation(using: .png, properties: [:])!
     }
 
+    /// The red, green, blue and alpha of the one pixel of an image, as they are stored.
+    private static func pixel(of image: Data) throws -> [Int] {
+        let bitmap = try XCTUnwrap(NSBitmapImageRep(data: image))
+        var pixel = [Int](repeating: 0, count: bitmap.samplesPerPixel)
+        bitmap.getPixel(&pixel, atX: 0, y: 0)
+        return pixel
+    }
+
     private static func bitmap() -> NSBitmapImageRep {
         let bitmap = NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: 1, pixelsHigh: 1, bitsPerSample: 8, samplesPerPixel: 4,
             hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 4, bitsPerPixel: 32)!
-        bitmap.setColor(.red, atX: 0, y: 0)
+        bitmap.setColor(NSColor(deviceRed: 1, green: 0, blue: 0, alpha: 1), atX: 0, y: 0)
         return bitmap
     }
 }
