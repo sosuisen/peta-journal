@@ -16,6 +16,8 @@ final class OutlineScreenTests: XCTestCase {
     private var copied: String?
     /// The text on the clipboard, which a paste reads.
     private var pasteboard: String?
+    /// The file that the image on the clipboard was written to, which a paste reads first.
+    private var pastedImage: URL?
     /// What the shell opened in the browser.
     private var browsed: URL?
     /// What the shell asked a new sticky for.
@@ -25,6 +27,7 @@ final class OutlineScreenTests: XCTestCase {
         server = try JournalServer(port: 18094)
         shell = Shell(
             server: server.address, url: "/pages/screen", clipboard: { [weak self] in self?.pasteboard },
+            image: { [weak self] in self?.pastedImage },
             copy: { [weak self] text, _ in self?.copied = text },
             browse: { [weak self] in self?.browsed = $0 },
             openSticky: { [weak self] in self?.askedSticky = $0 })
@@ -649,6 +652,24 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertTrue(second.tryToPerform(Selector(("paste:")), with: nil))
 
         try await waitUntil("the list is two items") { self.bodies() == ["first", "secondapple", "pear"] }
+    }
+
+    // メニューの「ペースト」（Command+V）は、クリップボードの画像をサーバーのassetsに保存し、カーソルの位置にそのリンクを入れる。
+    func testPasteOfTheMenuPutsALinkToTheImageOnTheClipboardAtTheCursor() async throws {
+        let second = try await cursorAtTheEndOfTheSecondItem()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("peta-test-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        pastedImage = folder.appendingPathComponent("sample.png")
+        try Data([1, 2, 3]).write(to: try XCTUnwrap(pastedImage))
+        pasteboard = "not this"
+
+        XCTAssertTrue(second.tryToPerform(Selector(("paste:")), with: nil))
+
+        try await waitUntil("the second item links the image") {
+            let bodies = self.bodies()
+            return bodies.count == 2 && bodies[1].hasPrefix("second![sample.png](../assets/")
+        }
     }
 
     // Shift+Command+Vは、クリップボードの文字をそのまま項目に貼る。
