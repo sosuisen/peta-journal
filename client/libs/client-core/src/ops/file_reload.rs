@@ -17,10 +17,6 @@ pub fn reload_page(model: &mut Model, page_id: &str) -> Cmd {
     if !model.state.items().iter().any(|i| i.page_id == page_id) {
         return done();
     }
-    if is_edit_in_progress(model) {
-        model.file_reload_pending.insert(page_id.to_string());
-        return done();
-    }
     read_again(model, page_id)
 }
 
