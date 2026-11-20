@@ -144,9 +144,10 @@ fun JournalScreen(
                             }
                         }
                         // Over the top of the page, so that it takes no room. Not at the bottom: the
-                        // user types on the last lines most of the time, and it hid them. Not while
-                        // the dialog says the same
-                        if (waiting == null) cloud?.let { SyncCallout(it, onSync, Modifier.align(Alignment.TopCenter)) }
+                        // user types on the last lines most of the time, and it hid them. Not in the
+                        // middle: it hid the line that is edited (#884). Not while the dialog says
+                        // the same
+                        if (waiting == null) cloud?.let { SyncCallout(it, onSync, Modifier.align(Alignment.TopEnd)) }
                         if (target != null && !full) ShrunkTools({ full = true }, Modifier.align(Alignment.BottomEnd))
                     }
                     if (target != null && full) Tools(target, rows, shell) { full = false }
