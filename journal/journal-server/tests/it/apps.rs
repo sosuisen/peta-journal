@@ -36,3 +36,14 @@ async fn a_file_of_an_app_folder_is_served_under_apps() {
     assert_eq!(response.headers()["content-type"], "text/javascript");
     assert_eq!(response.text().await.unwrap(), SCRIPT);
 }
+
+// `/apps/{url_fragment}/`には、そのアプリの`index.html`が返る。
+#[tokio::test]
+async fn the_root_of_an_app_gets_its_index_html() {
+    let (app, _) = put_app();
+
+    let response = fetch(&format!("/apps/{app}/")).await;
+
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.text().await.unwrap(), INDEX);
+}
