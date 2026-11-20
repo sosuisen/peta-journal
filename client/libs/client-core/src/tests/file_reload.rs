@@ -150,6 +150,34 @@ fn a_typed_item_takes_its_level_and_place_from_the_server() {
     assert!(create_calls(&h.api).is_empty());
 }
 
+// 編集していない項目の本文が読み直しで変わっても、エディタは開かない。フォーカスの印が残っていても、カーソルを奪わない。
+#[test]
+fn a_changed_body_of_an_item_not_edited_opens_no_editor() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a")]);
+    h.model.state.set_focused_item("a", Some(1));
+    server_has(&mut h, vec![item("a", 1, "from the file")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["a=from the file"]);
+    assert!(h.focused_editor_requests().is_empty());
+}
+
+// 打っていない編集中の項目が最初の項目で、サーバーの版で消えていたら、編集は終わり、どのエディタも開かない。
+#[test]
+fn a_lost_first_item_not_typed_into_ends_the_edit_and_opens_no_editor() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "b")]);
+    h.model.state.add_editing_item("a");
+    h.model.state.set_focused_item("a", Some(1));
+    server_has(&mut h, vec![item("b", 1, "b")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["b=b"]);
+    assert!(h.model.state.editing_item_ids().is_empty());
+    assert!(h.focused_editor_requests().is_empty());
+}
+
 // サーバーの拡張が項目を書いたと知らされると、ファイルの変更と同じように、表示中のページが読み直される。
 #[test]
 fn items_written_by_an_extension_reload_the_page() {
