@@ -183,6 +183,23 @@ final class JournalScreenTests: XCTestCase {
         XCTAssertFalse(app.staticTexts["notes"].exists)
     }
 
+    // 今日のページで下に続く過去の日付は、今日の日付と同じ大きさで見える（#885）。
+    func testAPastDateOnThePageOfTodayIsAsLargeAsTheDateOfToday() throws {
+        try Data("an old note\n".utf8).write(to: root.appendingPathComponent("markdown/journals/2020-01-01.md"))
+        try download("notes.md", "the first item\n")
+        openNotes()
+        app.buttons["Today"].tap()
+        let past = shown("2020年1月1日")
+        waitFor(past)
+        let day = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        let today = app.staticTexts.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "\(day.year!)年\(day.month!)月\(day.day!)日")
+        ).firstMatch
+        waitFor(today)
+
+        XCTAssertEqual(past.frame.height, today.frame.height)
+    }
+
     // アプリは、前に表示していたページで開く。
     func testTheAppOpensAtThePageItShowedBefore() throws {
         try download("notes.md", "the first item\n")
