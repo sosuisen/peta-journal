@@ -128,3 +128,18 @@ fn a_search_reaches_the_server_after_its_delay() {
     });
     assert!(typed.elapsed() >= Duration::from_millis(200));
 }
+
+// 貼った画像のファイルは、HTTPでサーバーのアップロードに届く。
+#[test]
+fn a_pasted_image_reaches_the_upload_of_the_server() {
+    let screen = Screen::new();
+    let folder = tempfile::tempdir().unwrap();
+    let image = folder.path().join("sample.png");
+    std::fs::write(&image, b"drawing").unwrap();
+
+    screen.shell.paste_image("a", &image, 0);
+
+    wait_until("the server is sent the image", || {
+        screen.saw("POST /api/assets/upload ")
+    });
+}
