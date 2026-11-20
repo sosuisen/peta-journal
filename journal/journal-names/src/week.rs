@@ -41,7 +41,8 @@ fn start_of_week_1(year: i32, numbering: WeekNumbering) -> Date {
 pub fn week_of(date: Date, numbering: WeekNumbering) -> (i32, u32) {
     let start = start_of_week(date, numbering);
     let year = match numbering {
-        WeekNumbering::Us => start.year,
+        // The Saturday of the week
+        WeekNumbering::Us => start.shift(6).year,
         // The Thursday of the week
         WeekNumbering::Iso => start.shift(3).year,
     };
@@ -60,7 +61,9 @@ pub fn weeks_in_year(year: i32, numbering: WeekNumbering) -> u32 {
     let in_the_last_week = match numbering {
         // December 28th is always in the last ISO week of its year
         WeekNumbering::Iso => Date::new(year, 12, 28),
-        WeekNumbering::Us => Date::new(year, 12, 31),
+        // December 25th is always in the last US week of its year: the Saturday of its week
+        // is December 25th to 31st
+        WeekNumbering::Us => Date::new(year, 12, 25),
     };
     week_of(in_the_last_week, numbering).1
 }
@@ -134,15 +137,21 @@ mod tests {
         assert_eq!(first_day_of_week(2027, 1, Us), Date::new(2026, 12, 27));
     }
 
-    // 年の週の数は、ISOでは52か53、USでは53か54である。
+    // 年の週の数は、ISOでもUSでも52か53である。
     #[test]
-    fn a_year_has_52_or_53_iso_weeks_and_53_or_54_us_weeks() {
+    fn a_year_has_52_or_53_weeks() {
         assert_eq!(weeks_in_year(2020, Iso), 53);
         assert_eq!(weeks_in_year(2026, Iso), 53);
         assert_eq!(weeks_in_year(2025, Iso), 52);
-        assert_eq!(weeks_in_year(2026, Us), 53);
+        // A US year has 53 weeks when it has 53 Saturdays
+        assert_eq!(weeks_in_year(2026, Us), 52);
+        assert_eq!(weeks_in_year(2023, Us), 52);
+        // 2022 starts on a Saturday
+        assert_eq!(weeks_in_year(2022, Us), 53);
+        // 2016 is a leap year that starts on a Friday
+        assert_eq!(weeks_in_year(2016, Us), 53);
         // 2028 is a leap year that starts on a Saturday
-        assert_eq!(weeks_in_year(2028, Us), 54);
+        assert_eq!(weeks_in_year(2028, Us), 53);
     }
 
     // 月の週は、その月の日を含む週を、順に並べたものである。
@@ -173,12 +182,12 @@ mod tests {
         );
         assert_eq!(names(weeks_of_month(2027, 1, Iso))[0], "2026-W53");
         assert_eq!(
-            names(weeks_of_month(2026, 12, Us)).last().unwrap(),
-            "2026-W53"
+            names(weeks_of_month(2026, 12, Us))[3..],
+            ["2026-W52", "2027-W01"]
         );
         assert_eq!(
             names(weeks_of_month(2027, 1, Us))[..2],
-            ["2026-W53", "2027-W02"]
+            ["2027-W01", "2027-W02"]
         );
     }
 }
