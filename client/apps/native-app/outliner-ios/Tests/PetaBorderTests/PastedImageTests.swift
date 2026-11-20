@@ -1,0 +1,33 @@
+import Foundation
+import XCTest
+
+@testable import PetaBorder
+
+/// The file that a pasted image is written to, for the core to save it (ADR 071).
+final class PastedImageTests: XCTestCase {
+    private var written: [URL] = []
+
+    override func tearDown() {
+        for file in written { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
+    }
+
+    private func write(named name: String?, type: String?) throws -> URL {
+        let file = try PastedImage.write(Self.drawing, named: name, type: type)
+        written.append(file)
+        return file
+    }
+
+    // 貼り付けた画像は、一時フォルダーの自分だけのフォルダーに、来たときの名前で書かれる。
+    func testAnImageIsWrittenUnderItsNameInAFolderOfItsOwn() throws {
+        let file = try write(named: "サンプル 1.png", type: "public.png")
+
+        XCTAssertEqual(file.lastPathComponent, "サンプル 1.png")
+        XCTAssertEqual(try Data(contentsOf: file), Self.drawing)
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: file.deletingLastPathComponent().path),
+            ["サンプル 1.png"])
+    }
+
+    /// The start of a PNG: the content is not read, only copied.
+    private static let drawing = Data([0x89, 0x50, 0x4E, 0x47])
+}
