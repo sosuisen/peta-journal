@@ -550,7 +550,10 @@ fn an_undo_that_overtakes_the_reading_after_a_split_keeps_the_cursor_where_the_u
     // The page is read once more at once, and the server has the undo by then
     h.api.answer_next(
         "GetPageById",
-        reloaded(vec![item("a", 1, ""), root()], vec![source("s", 1, "shown")]),
+        reloaded(
+            vec![item("a", 1, ""), root()],
+            vec![source("s", 1, "shown")],
+        ),
     );
 
     // The answers of the reading that was asked for before the undo

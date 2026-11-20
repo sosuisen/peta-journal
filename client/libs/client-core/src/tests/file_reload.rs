@@ -29,7 +29,10 @@ fn server_has(h: &mut Harness, items: Vec<crate::model::Item>) {
 fn a_file_change_while_editing_shows_the_other_items_as_the_server_has_them() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "old")]);
     h.model.state.add_editing_item("a");
-    server_has(&mut h, vec![item("a", 1, ""), item("b", 1, "from the file")]);
+    server_has(
+        &mut h,
+        vec![item("a", 1, ""), item("b", 1, "from the file")],
+    );
 
     file_changed(&mut h);
 
@@ -136,7 +139,10 @@ fn a_lost_typed_item_whose_item_before_went_too_is_made_again_first() {
 fn a_typed_item_takes_its_level_and_place_from_the_server() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "b")]);
     typed(&mut h, "a", "typed here");
-    server_has(&mut h, vec![item("b", 1, "b"), item("a", 2, "from the file")]);
+    server_has(
+        &mut h,
+        vec![item("b", 1, "b"), item("a", 2, "from the file")],
+    );
 
     file_changed(&mut h);
 
