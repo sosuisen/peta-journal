@@ -6,7 +6,8 @@ use std::path::PathBuf;
 
 use axum::body::Body;
 use axum::extract::{Path, Request};
-use axum::http::Uri;
+use axum::http::header::CACHE_CONTROL;
+use axum::http::{HeaderValue, Uri};
 use axum::response::{Redirect, Response};
 use axum::routing::get;
 use axum::Router;
@@ -38,15 +39,21 @@ async fn to_the_folder(uri: Uri) -> Redirect {
 }
 
 /// Serves the file that `request` asks for from the folder of its app.
+///
+/// The browser asks on every load whether the file changed. Each build tool puts a hash into
+/// the names of its own way, and the server does not want to know them all to cache for long.
 async fn file(folder: PathBuf, mut request: Request) -> Response {
     *request.uri_mut() = within_the_app(request.uri());
     let files = ServeDir::new(&folder);
-    let Ok(response) = if has_an_extension(request.uri().path()) {
+    let Ok(mut response) = if has_an_extension(request.uri().path()) {
         files.oneshot(request).await
     } else {
         let index = ServeFile::new(folder.join("index.html"));
         files.fallback(index).oneshot(request).await
     };
+    response
+        .headers_mut()
+        .insert(CACHE_CONTROL, HeaderValue::from_static("no-cache"));
     response.map(Body::new)
 }
 
