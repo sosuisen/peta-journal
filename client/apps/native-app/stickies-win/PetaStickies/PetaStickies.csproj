@@ -22,7 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PetaBorder\PetaBorder.csproj" />
     <ProjectReference Include="..\PetaScreens\PetaScreens.csproj" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.7.0" />
     <!-- Beside the .exe for the windows, which take their icon from a file. -->
     <Content Include="PetaStickies.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
