@@ -795,3 +795,26 @@ fn an_image_the_shell_pastes_by_its_path_is_saved_and_linked_in_the_item() {
     assert_eq!(*screen.uploads.lock().unwrap(), [b"drawing".to_vec()]);
     assert_eq!(screen.pastes(), ["![pasted.png](../assets/saved.png)"]);
 }
+
+// 貼った画像の一時ファイルは、保存が終わると消える。保存に失敗しても消える（ADR 071）。
+#[test]
+fn the_file_of_a_pasted_image_is_deleted_once_the_server_has_answered() {
+    let screen = Screen::new();
+    let dir = tempfile::tempdir().unwrap();
+    screen.open_notes();
+    wait_until("the page is in the view", || {
+        screen.view().contains("the body of a")
+    });
+    let saved = image_file(&dir, "pasted.png");
+    let refused = image_file(&dir, "broken.png");
+
+    screen.shell.paste_image("a", &saved, 0);
+    screen.shell.paste_image("a", &refused, 0);
+
+    wait_until("the server has taken both files", || {
+        screen.uploads.lock().unwrap().len() == 2
+    });
+    wait_until("both files are deleted", || {
+        !saved.exists() && !refused.exists()
+    });
+}
