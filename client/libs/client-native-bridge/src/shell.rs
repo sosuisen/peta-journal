@@ -170,10 +170,13 @@ impl Lanes {
             return host.call(op);
         };
         let path = self.pasted.lock().unwrap().paths.remove(&file);
-        match path {
-            Some(path) => host.upload(&path),
-            None => Err(ApiError(format!("No pasted file {file}"))),
-        }
+        let Some(path) = path else {
+            return Err(ApiError(format!("No pasted file {file}")));
+        };
+        let uploaded = host.upload(&path);
+        // The file was only a way across: kept after a failure, it would never be deleted
+        let _ = std::fs::remove_file(&path);
+        uploaded
     }
 
     /// Sends a request over the border, and returns its number.
