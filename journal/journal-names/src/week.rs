@@ -136,6 +136,15 @@ mod tests {
         assert_eq!(first_day_of_week(2027, 1, Us), Date::new(2026, 12, 27));
     }
 
+    // 年にない週の最初の日は求められない。週の番号は、次の年へ数え進まない。
+    #[test]
+    fn a_week_the_year_does_not_have_has_no_first_day() {
+        // 2026 has 52 US weeks, and 2025 has 52 ISO weeks
+        assert_eq!(first_day_of_week(2026, 53, Us), None);
+        assert_eq!(first_day_of_week(2025, 53, Iso), None);
+        assert_eq!(first_day_of_week(2026, 0, Us), None);
+    }
+
     // 年の週の数は、ISOでもUSでも52か53である。
     #[test]
     fn a_year_has_52_or_53_weeks() {
