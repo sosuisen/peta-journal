@@ -1,4 +1,7 @@
+import CoreGraphics
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 import XCTest
 
 @testable import PetaBorder
@@ -50,6 +53,47 @@ final class PastedImageTests: XCTestCase {
         XCTAssertNotEqual(first, second)
         XCTAssertTrue(FileManager.default.fileExists(atPath: first.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: second.path))
+    }
+
+    // 透明部分のあるHEICの画像（キーボードのステッカー）は、PNGに直して書かれる。HEICを表示できないブラウザがあるためである。透明部分は残る。
+    func testAHeicImageWithTransparencyIsWrittenAsPng() throws {
+        let file = try PastedImage.write(Self.heic(alpha: 0), named: "sticker.heic", type: "public.heic")
+        written.append(file)
+
+        XCTAssertEqual(file.lastPathComponent, "sticker.png")
+        let image = try XCTUnwrap(CGImageSourceCreateWithURL(file as CFURL, nil))
+        XCTAssertEqual(CGImageSourceGetType(image) as String?, UTType.png.identifier)
+        XCTAssertEqual(try Self.alpha(of: file), 0)
+    }
+
+    /// A picture of one pixel drawn by the test, written as HEIC as the keyboard and Photos give it.
+    private static func heic(alpha: UInt8) throws -> Data {
+        // Red, as much as the alpha lets: the colors are multiplied by the alpha
+        var pixel = [alpha, 0, 0, alpha]
+        let context = try XCTUnwrap(
+            CGContext(
+                data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: alpha == 255 ? CGImageAlphaInfo.noneSkipLast.rawValue : CGImageAlphaInfo.premultipliedLast.rawValue))
+        let image = try XCTUnwrap(context.makeImage())
+        let data = NSMutableData()
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithData(data, UTType.heic.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, image, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        return data as Data
+    }
+
+    /// The alpha of the one pixel of the image in the file, drawn over nothing.
+    private static func alpha(of file: URL) throws -> UInt8 {
+        let source = try XCTUnwrap(CGImageSourceCreateWithURL(file as CFURL, nil))
+        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        var pixel = [UInt8](repeating: 0, count: 4)
+        let context = try XCTUnwrap(
+            CGContext(
+                data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.draw(image, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        return pixel[3]
     }
 
     /// The start of a PNG: the content is not read, only copied.
