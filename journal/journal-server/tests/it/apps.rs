@@ -61,3 +61,15 @@ async fn a_path_without_an_extension_and_a_file_gets_the_index_html_of_the_app()
         assert_eq!(response.text().await.unwrap(), INDEX, "{path}");
     }
 }
+
+// 拡張子のあるパスでファイルがないときは、`index.html`ではなく404が返る。置き忘れたファイルの代わりに、HTMLが読まれないためである。
+#[tokio::test]
+async fn a_path_with_an_extension_and_no_file_is_not_found() {
+    let (app, _) = put_app();
+
+    for path in ["missing.js", "assets/missing.css"] {
+        let response = fetch(&format!("/apps/{app}/{path}")).await;
+
+        assert_eq!(response.status(), 404, "{path}");
+    }
+}
