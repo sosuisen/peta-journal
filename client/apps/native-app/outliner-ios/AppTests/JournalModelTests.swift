@@ -133,6 +133,26 @@ final class JournalModelTests: XCTestCase {
         XCTAssertEqual(account.syncs, 1)
     }
 
+    // キーボードが語を変換している間は、編集のあとの同期は始まらない。変換が終わってから待ち、同期する（#884）。
+    func testNoSyncStartsWhileTheKeyboardComposesAWord() throws {
+        let account = FakeAccount()
+        let wait: TimeInterval = 0.6
+        let model = try open(account, afterEdit: wait)
+        model.sync(inFront: true)
+        waitUntil("the first sync rests") { model.cloud?.state == .idle }
+        model.shell.follow("/pages/brand-new")
+        model.shell.make()
+
+        // Twice the wait, with a word composed all the time
+        for _ in 0..<6 {
+            model.shell.composing()
+            RunLoop.main.run(until: Date().addingTimeInterval(wait / 3))
+        }
+
+        XCTAssertFalse(account.page.uploaded.contains("/PetaJournal/docs/brand-new.md"))
+        waitUntil("the page goes up") { account.page.uploaded.contains("/PetaJournal/docs/brand-new.md") }
+    }
+
     // サインアウトは、ダウンロードがどこまで進んだかを忘れる。次のサインインは、別のアカウントかもしれない。そのあとは同期しない。
     func testTheSignOutForgetsWhereTheDownloadEndedAndTheAppSyncsNoMore() throws {
         let account = FakeAccount()

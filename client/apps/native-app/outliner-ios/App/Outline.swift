@@ -44,8 +44,6 @@ struct Outline: View {
                     }
                 }
                 .padding(.horizontal, 12)
-                // Room for the callout of the sync under the last item
-                .padding(.bottom, 60)
             }
             // A drag of the page puts the keyboard away, and so ends the edit
             .scrollDismissesKeyboard(.interactively)

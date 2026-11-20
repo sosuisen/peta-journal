@@ -322,7 +322,8 @@ struct ItemEditor: UIViewRepresentable {
 
         func textViewDidChange(_ field: UITextView) {
             field.invalidateIntrinsicContentSize()
-            guard field.markedTextRange == nil else { return }
+            // The core hears of a word that the keyboard composes once it is committed
+            guard field.markedTextRange == nil else { return shell.composing() }
             telling = true
             shell.type(itemId, field.text, cursor: field.selectedRange.location)
             telling = false

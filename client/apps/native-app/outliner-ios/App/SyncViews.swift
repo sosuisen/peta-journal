@@ -36,7 +36,7 @@ struct Waiting: View {
 }
 
 /// Where a sync stands that the user does not wait for, such as the one after an edit, and
-/// why the last one failed. It lies over the bottom of the page, and takes no room there.
+/// why the last one failed. It lies over the top right of the page, and takes no room there.
 struct SyncCallout: View {
     let state: SyncState
     let onSync: () -> Void
@@ -49,9 +49,10 @@ struct SyncCallout: View {
                     Button("Try again", action: onSync).foregroundStyle(Color(.systemTeal))
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.leading, 16)
+            .padding(.trailing, 16 + Callout.tail)
             .padding(.vertical, 12)
-            .background(Color(.label).opacity(0.9), in: RoundedRectangle(cornerRadius: 6))
+            .background(Color(.label).opacity(0.9), in: Callout())
             .shadow(radius: 4)
             .padding(12)
         }
@@ -64,6 +65,24 @@ struct SyncCallout: View {
         case .failed(let offline): return offline ? "Sync failed: no connection" : "Sync failed"
         case .signedOut, .idle: return nil
         }
+    }
+}
+
+/// A speech balloon with its tail on the right side, as the callout of the sync.
+private struct Callout: Shape {
+    /// How far the tail reaches out of the right side.
+    static let tail: CGFloat = 8
+
+    func path(in rect: CGRect) -> Path {
+        let side = rect.maxX - Callout.tail
+        var path = Path(
+            roundedRect: CGRect(x: rect.minX, y: rect.minY, width: side - rect.minX, height: rect.height),
+            cornerRadius: 6)
+        path.move(to: CGPoint(x: side, y: rect.midY - Callout.tail))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        path.addLine(to: CGPoint(x: side, y: rect.midY + Callout.tail))
+        path.closeSubpath()
+        return path
     }
 }
 
