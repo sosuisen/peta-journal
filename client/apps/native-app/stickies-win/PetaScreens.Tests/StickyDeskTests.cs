@@ -1,3 +1,4 @@
+using Microsoft.UI.Windowing;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 using PetaBorder;
 using Windows.System;
@@ -114,5 +115,28 @@ public sealed class StickyDeskTests
         Assert.AreEqual(new Windows.Graphics.PointInt32(120, 130), next[0].AppWindow.Position);
         Assert.IsNull(next[1].Shell.Url);
         await Screen.Until("the page is shown again", () => next[0].Shell.Title == "screen");
+    }
+
+    // 最小化した付箋紙は、次の起動で、最小化する前の位置と大きさで戻る。
+    // 最小化した窓を、Windowsは画面の外に置き、タイトルバーだけの大きさにするためである。
+    [UITestMethod]
+    public async Task A_minimized_sticky_comes_back_at_the_place_and_size_before_it_was_minimized()
+    {
+        await using var screen = await Screen.Open(Port);
+        screen.Window.AppWindow.Move(new(120, 130));
+        await Task.Delay(100);
+        var size = screen.Window.AppWindow.Size;
+        var presenter = (OverlappedPresenter)screen.Window.AppWindow.Presenter;
+
+        presenter.Minimize();
+
+        await Screen.Until("the sticky is minimized", () =>
+            presenter.State == OverlappedPresenterState.Minimized
+        );
+        await Task.Delay(100);
+        screen.RunAgain();
+        var next = screen.Desk.Stickies[0];
+        Assert.AreEqual(new Windows.Graphics.PointInt32(120, 130), next.AppWindow.Position);
+        Assert.AreEqual(size, next.AppWindow.Size);
     }
 }
