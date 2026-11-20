@@ -238,10 +238,7 @@ fn reopen_changed_edit(model: &mut Model, before: Option<(String, String)>) -> C
         .filter(|r| r.item_id == id)
         .and_then(|r| r.cursor)
         .map_or(length, |c| c.min(length));
-    model.state.set_focused_item(&id, Some(cursor));
-    model.state.order_focus(Some(&id));
-    let keys = model.key_relay.release();
-    run(move |api| async move { api.focus_editor(Some(id), keys).await })
+    open_editor_at(model, &id, cursor)
 }
 
 /// Puts the given items in place of the items of one page. The items of the other pages keep
