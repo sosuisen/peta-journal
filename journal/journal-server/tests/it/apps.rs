@@ -120,3 +120,28 @@ async fn an_app_folder_taken_away_is_no_longer_served_without_a_restart() {
 
     assert_eq!(fetch(&format!("/apps/{app}/")).await.status(), 404);
 }
+
+// ---- Caching ----
+
+// アプリのファイルは、名前にハッシュがあってもなくても、キャッシュされずに毎回確かめられる。サーバーは、ビルドツールごとのハッシュの形を知らないためである。
+#[tokio::test]
+async fn every_file_of_an_app_is_checked_again_on_every_load() {
+    let (app, folder) = put_app();
+    std::fs::create_dir_all(folder.join("assets")).unwrap();
+    std::fs::write(folder.join("assets/index-9508fe9c.js"), SCRIPT).unwrap();
+    std::fs::write(folder.join("styles-9508fe9cb1262d3b.css"), "").unwrap();
+
+    for path in [
+        "",
+        "index.html",
+        "tasks/1",
+        "app.js",
+        "assets/index-9508fe9c.js",
+        "styles-9508fe9cb1262d3b.css",
+    ] {
+        let response = fetch(&format!("/apps/{app}/{path}")).await;
+
+        assert_eq!(response.status(), 200, "{path}");
+        assert_eq!(response.headers()["cache-control"], "no-cache", "{path}");
+    }
+}
