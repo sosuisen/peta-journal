@@ -75,7 +75,13 @@ wait_for() {
 
 if [ "$pull" = yes ]; then
     step Pull
+    before=$(cksum <"$0")
     git -C "$root" pull --ff-only
+    # The pull puts a new file in place of this one, and sh still reads the old one
+    if [ "$(cksum <"$0")" != "$before" ]; then
+        echo 'The pull changed this script: starting the new version'
+        exec "$0" --no-pull
+    fi
 fi
 
 # The apps end before the server: they save what is typed to the server when they close.
