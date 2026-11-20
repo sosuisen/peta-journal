@@ -36,6 +36,21 @@ fn a_file_change_while_editing_shows_the_other_items_as_the_server_has_them() {
     assert_eq!(h.bodies(), ["a=", "b=from the file"]);
 }
 
+// 打っていない編集中の項目は、サーバーの版の本文になり、カーソルは本文の長さに収まる。
+#[test]
+fn an_edited_item_not_typed_into_takes_the_server_body_and_the_cursor_stays_inside_it() {
+    let mut h = Harness::with_items(vec![item("a", 1, "0123456789")]);
+    h.model.state.add_editing_item("a");
+    h.model.state.set_focused_item("a", Some(10));
+    server_has(&mut h, vec![item("a", 1, "abc")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["a=abc"]);
+    assert_eq!(h.focus_cursor(), Some(3));
+    assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
+}
+
 // サーバーの拡張が項目を書いたと知らされると、ファイルの変更と同じように、表示中のページが読み直される。
 #[test]
 fn items_written_by_an_extension_reload_the_page() {
