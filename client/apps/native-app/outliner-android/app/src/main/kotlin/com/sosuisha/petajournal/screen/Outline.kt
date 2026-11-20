@@ -88,7 +88,8 @@ private fun OutlineRow(row: Row, links: Links, image: (String) -> File?, shell: 
     }
     Column {
         row.dateHeader?.let { date ->
-            Text(date, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
+            // As large as the date of today at the top: each is the title of a day
+            Text(date, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
         }
         // A selected item is coloured behind, so that the user sees what the tools act on
         val selected = if (row.isSelected) {
