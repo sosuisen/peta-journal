@@ -100,8 +100,9 @@ struct ItemEditor: UIViewRepresentable {
 
         override init(frame: CGRect, textContainer: NSTextContainer?) {
             super.init(frame: frame, textContainer: textContainer)
-            // No sticker of the keyboard: the field would show it in the text, and the Markdown
-            // would keep only the character in its place (U+FFFC). The keyboard then offers none
+            // No sticker of the keyboard in the text: the field would show it, and the Markdown
+            // would keep only the character in its place (U+FFFC). The keyboard then pastes it
+            // as an image
             if #available(iOS 18.0, *) { supportsAdaptiveImageGlyph = false }
         }
 

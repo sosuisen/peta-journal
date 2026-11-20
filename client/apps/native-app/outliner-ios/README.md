@@ -173,10 +173,12 @@ copy of Dropbox.
   not split the item. A paste goes to the core (`Shell.paste`), which makes items of a list;
   while text is chosen, the field puts the pasted text in its place.
 - An image is pasted when the clipboard has no text: by "Paste" of the menu of the field, and by
-  Command+V of a hardware keyboard. The field takes no sticker of the keyboard: the Markdown
-  cannot hold a picture in the text, and would keep only the character in its place (U+FFFC).
-  The field writes the image to a folder of its own in the temporary folder
-  (`PastedImage`), with the name it came with, or `image` and the extension of its type. The
+  Command+V of a hardware keyboard. A sticker of the keyboard is pasted as an image too: the
+  field takes no picture into its text, as the Markdown would keep only the character in its
+  place (U+FFFC), and the keyboard then pastes the sticker. The field writes the image to a
+  folder of its own in the temporary folder (`PastedImage`), with the name it came with, or
+  `image` and the extension of its type. A HEIC, as a sticker or a photo comes, becomes a PNG
+  when it has transparency and a JPEG when not: a browser may not show HEIC. The
   shell hands the path to the core (`Shell.pasteImage`), which saves the image in the assets
   folder of the Markdown, puts a link to it at the cursor, and deletes the file (ADR 071).
 - Backspace at the start of an item joins it to the item before. The edit goes on there,
