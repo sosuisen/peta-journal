@@ -204,6 +204,14 @@ public final class Shell: ObservableObject {
         send(.pasteText(itemId: itemId, text: text, html: "", cursor: chars, raw: raw))
     }
 
+    /// The user pasted the image in `file` into the item, with the cursor `cursor` UTF-16 units
+    /// into `body`. The core uploads the image to the server, puts a link to it at the cursor,
+    /// and deletes the file (ADR 071).
+    public func pasteImage(_ file: URL, into itemId: String, body: String, cursor: Int) {
+        let chars = charsOfUtf16(text: body, units: UInt64(max(cursor, 0)))
+        border.pasteImage(file, into: itemId, cursor: chars)
+    }
+
     /// The core adds the time, and counts the cursor in its own characters.
     private func typed(_ typing: Typing) {
         Shell.must { try border.typed(typing) }
