@@ -143,7 +143,11 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
                     else -> {
                         refused = null
                         field = next
-                        if (next.composition == null && next.text != body) shell.type(id, next.text, next.selection.start)
+                        if (next.composition != null) {
+                            shell.composing()
+                        } else if (next.text != body) {
+                            shell.type(id, next.text, next.selection.start)
+                        }
                     }
                 }
             },
