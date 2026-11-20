@@ -149,11 +149,47 @@ pub fn show_replaced_page(
         }
         return read_again(model, page_id);
     }
+    let edited_before = edited_body(model);
     replace_page_items(model, page_id, loaded.items);
     if let Some(trees) = loaded.transcluded_trees {
         model.state.merge_transcluded_trees(trees);
     }
-    done()
+    reopen_changed_edit(model, edited_before)
+}
+
+/// The focused item that is being edited, and its body.
+fn edited_body(model: &Model) -> Option<(String, String)> {
+    let id = model.state.focused_item_id()?;
+    if !model.state.is_editing(id) {
+        return None;
+    }
+    let item = model.state.get_item_by_id(id)?;
+    Some((id.to_string(), item.body.clone()))
+}
+
+/// Opens the editor of the edited item again when the page read again changed its body, so
+/// the editor shows the new body. The cursor stays inside it.
+fn reopen_changed_edit(model: &mut Model, before: Option<(String, String)>) -> Cmd {
+    let Some((id, body)) = before else {
+        return done();
+    };
+    let Some(now) = model.state.get_item_by_id(&id).map(|i| i.body.clone()) else {
+        return done();
+    };
+    if now == body {
+        return done();
+    }
+    let length = now.chars().count();
+    let cursor = model
+        .state
+        .focus_request()
+        .filter(|r| r.item_id == id)
+        .and_then(|r| r.cursor)
+        .map_or(length, |c| c.min(length));
+    model.state.set_focused_item(&id, Some(cursor));
+    model.state.order_focus(Some(&id));
+    let keys = model.key_relay.release();
+    run(move |api| async move { api.focus_editor(Some(id), keys).await })
 }
 
 /// Puts the given items in place of the items of one page. The items of the other pages keep
