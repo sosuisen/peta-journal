@@ -4,7 +4,8 @@
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, TimerOutput};
-use crate::model::{Item, PageWithItems};
+use crate::model::{Item, ItemPosition, PageWithItems};
+use crux_core::Command;
 use crate::ops::edit::{is_edit_in_progress, typed_body};
 use crate::outline::tree::is_out_of_place;
 
@@ -153,14 +154,55 @@ pub fn show_replaced_page(
     let ids_before: Vec<String> = model.state.items().iter().map(|i| i.id.clone()).collect();
     let mut items = loaded.items;
     keep_typed_bodies(model, &mut items);
+    let made_again = make_lost_typing_again(model, page_id, &mut items);
     replace_page_items(model, page_id, items);
     if let Some(trees) = loaded.transcluded_trees {
         model.state.merge_transcluded_trees(trees);
     }
     if let Some(focus) = end_lost_edits(model, &ids_before) {
-        return focus;
+        return Command::all([made_again, focus]);
     }
-    reopen_changed_edit(model, edited_before)
+    Command::all([made_again, reopen_changed_edit(model, edited_before)])
+}
+
+/// Puts back, among the items read again, the items of the page that have unsaved typing
+/// and that the server does not have any more, and asks the server to make them again with
+/// the same ids. Each goes after the item before it here, or first when that one went too.
+/// The server does not take a save of an item it does not have (ADR 069).
+fn make_lost_typing_again(model: &Model, page_id: &str, items: &mut Vec<Item>) -> Cmd {
+    let shown: Vec<Item> = model
+        .state
+        .items()
+        .iter()
+        .filter(|i| i.page_id == page_id)
+        .map(|i| (**i).clone())
+        .collect();
+    let mut cmds = Vec::new();
+    for (at, lost) in shown.iter().enumerate() {
+        if !model.edits.dirty_item_ids.contains(&lost.id) || items.iter().any(|i| i.id == lost.id)
+        {
+            continue;
+        }
+        let before = shown[..at]
+            .iter()
+            .rev()
+            .find_map(|b| items.iter().position(|i| i.id == b.id));
+        let (index, position) = match before {
+            Some(b) => (b + 1, ItemPosition::after(items[b].id.clone())),
+            None => (0, ItemPosition::First),
+        };
+        items.insert(index, lost.clone());
+        let (page, item) = (page_id.to_string(), lost.clone());
+        cmds.push(run(move |api| async move {
+            let made = api
+                .create_item(&page, position, item.level, &item.body, Some(item.id.clone()))
+                .await;
+            if let Err(e) = made {
+                log_error(format!("Failed to make {} again: {e}", item.id));
+            }
+        }));
+    }
+    Command::all(cmds)
 }
 
 /// Ends the edits of the items that the page read again does not have any more. When the
