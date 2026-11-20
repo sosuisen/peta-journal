@@ -241,6 +241,7 @@ impl JournalCore {
                 properties: properties.clone(),
                 splitter: splitter.clone(),
                 dtos: dtos.clone(),
+                ids: Arc::clone(&ids),
             },
             messages,
         ));

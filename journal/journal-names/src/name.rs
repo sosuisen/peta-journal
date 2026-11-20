@@ -46,7 +46,7 @@ fn parse(text: &str) -> Option<JournalName> {
     match parts.as_slice() {
         [_, _, _] => Date::parse(text).map(JournalName::Daily),
         [y, w] if (2..=3).contains(&w.len()) && w.starts_with('W') => {
-            let week = number(&w[1..]).filter(|w| (1..=54).contains(w))?;
+            let week = number(&w[1..]).filter(|w| (1..=53).contains(w))?;
             Some(JournalName::Weekly {
                 year: year(y)?,
                 week,
@@ -134,12 +134,12 @@ mod tests {
             ),
             ("2026", JournalName::Yearly(2026), "2026"),
             (
-                "2028-W54",
+                "2026-W53",
                 JournalName::Weekly {
-                    year: 2028,
-                    week: 54,
+                    year: 2026,
+                    week: 53,
                 },
-                "2028-W54",
+                "2026-W53",
             ),
         ];
         for (text, name, written) in cases {
@@ -157,6 +157,8 @@ mod tests {
             "2026-W123",
             "2026-W0",
             "2026-W00",
+            // No year has 54 weeks (ADR 072)
+            "2026-W54",
             "2026-W55",
             "2026-W99",
             "2026-13",

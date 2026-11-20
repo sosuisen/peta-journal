@@ -216,6 +216,48 @@ fn closing_saves_the_body_still_waiting_to_be_saved() {
     assert_eq!(items[0].body, "a pear");
 }
 
+// シェルがパスで貼った画像は、本文フォルダの`assets/`に写され、項目にそのリンクが入る。一時ファイルは消える（ADR 071）。
+#[test]
+fn an_image_pasted_by_its_path_goes_into_the_assets_and_its_link_into_the_item() {
+    let app = App::new();
+    app.download("notes.md", "- an apple\n");
+    let core = app.open(Arc::default());
+    core.sync();
+    core.open("/pages/notes".into()).unwrap();
+    wait_until("the page shows", || shown(&core).contains("an apple"));
+    let page = core
+        .core
+        .page_service
+        .find_doc("notes", "")
+        .unwrap()
+        .unwrap();
+    let item_id = core.core.items.find_by_page_id(&page.id).unwrap()[0]
+        .id
+        .to_string();
+    let pasted = app.dir.path().join("pasted.png");
+    std::fs::write(&pasted, b"drawing").unwrap();
+
+    core.paste_image(item_id, path(&pasted), 0);
+
+    let body = || {
+        core.core.items.find_by_page_id(&page.id).unwrap()[0]
+            .body
+            .clone()
+    };
+    wait_until("the link is in the item", || body().contains("../assets/"));
+    let saved = body()
+        .split("../assets/")
+        .nth(1)
+        .unwrap()
+        .split(')')
+        .next()
+        .unwrap()
+        .to_string();
+    let copy = app.markdown().join("markdown/assets").join(saved);
+    assert_eq!(std::fs::read(copy).unwrap(), b"drawing");
+    assert!(!pasted.exists());
+}
+
 // 今日のジャーナルを開くと、アプリの時計の日付のページが入る。
 #[test]
 fn the_journal_of_today_opens_with_the_date_of_the_clock() {

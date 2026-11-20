@@ -877,6 +877,28 @@ fn what_the_server_does_with_its_machine_is_not_done_inside_the_app() {
     }
 }
 
+// ---- assets ----
+
+// シェルが渡したパスのファイルは、新しい名前で本文フォルダの`assets/`に写される。答えには、保存した名前と元の名前が入る（ADR 071）。
+#[test]
+fn a_file_the_shell_names_by_its_path_is_copied_into_the_assets() {
+    let f = Fixture::new();
+    let markdown = f._dir.path().join("markdown");
+    f.core.config.set_markdown_dir(&markdown.to_string_lossy());
+    let pasted = f._dir.path().join("pasted.png");
+    std::fs::write(&pasted, b"drawing").unwrap();
+
+    let saved = expect!(f.journal.upload(&pasted), Uploaded);
+
+    assert_eq!(saved.original_name, "pasted.png");
+    assert!(
+        saved.file_name.ends_with(".png") && saved.file_name != "pasted.png",
+        "{saved:?}"
+    );
+    let copy = markdown.join("assets").join(&saved.file_name);
+    assert_eq!(std::fs::read(copy).unwrap(), b"drawing");
+}
+
 // ---- the shapes of the answers ----
 //
 // The journal writes its answers with its own types and the frontend core reads them with
