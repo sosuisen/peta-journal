@@ -19,13 +19,7 @@ pub fn serve(router: Router, config_dir: PathBuf) -> Router {
     let apps = config_dir.join("apps");
     let file = get(
         move |Path(params): Path<HashMap<String, String>>, request: Request| {
-            let folder = folder_name(&params["app"]).map(|name| apps.join(name));
-            async move {
-                match folder {
-                    Some(folder) => file(folder, request).await,
-                    None => StatusCode::NOT_FOUND.into_response(),
-                }
-            }
+            app_file(apps.clone(), params["app"].clone(), request)
         },
     );
     router
@@ -34,14 +28,23 @@ pub fn serve(router: Router, config_dir: PathBuf) -> Router {
         .route("/apps/{app}/{*path}", file)
 }
 
-/// `app` as the name of a folder in `apps/`, or None when it is not one name: `..`, `.` or a
-/// name with a separator, decoded from `%2e%2e` or `%2f`, would lead out of the folder.
-fn folder_name(app: &str) -> Option<&str> {
-    let mut parts = std::path::Path::new(app).components();
-    match (parts.next(), parts.next()) {
-        (Some(Component::Normal(_)), None) => Some(app),
-        _ => None,
+/// Serves the file of the app named `app` in `apps`, or 404 when `app` would lead out of it.
+async fn app_file(apps: PathBuf, app: String, request: Request) -> Response {
+    if is_one_name(&app) {
+        file(apps.join(app), request).await
+    } else {
+        StatusCode::NOT_FOUND.into_response()
     }
+}
+
+/// Whether `app` is the name of one folder. `..`, `.` and a name with a separator, decoded
+/// from `%2e%2e` or `%2f`, would lead out of `apps/`.
+fn is_one_name(app: &str) -> bool {
+    let mut parts = std::path::Path::new(app).components();
+    matches!(
+        (parts.next(), parts.next()),
+        (Some(Component::Normal(_)), None)
+    )
 }
 
 /// Sends `/apps/{app}` on to `/apps/{app}/`, so that the relative URLs of the app point into
@@ -88,6 +91,8 @@ fn has_an_extension(path: &str) -> bool {
 fn within_the_app(uri: &Uri) -> Uri {
     let path_and_query = uri.path_and_query().map_or("/", |p| p.as_str());
     let after_apps = &path_and_query["/apps/".len()..];
-    let within = &after_apps[after_apps.find('/').unwrap_or(after_apps.len())..];
-    Uri::try_from(within).unwrap()
+    let slash = after_apps
+        .find('/')
+        .expect("the routes end the name of the app with a slash");
+    Uri::try_from(&after_apps[slash..]).expect("a part of a URI is a URI")
 }
