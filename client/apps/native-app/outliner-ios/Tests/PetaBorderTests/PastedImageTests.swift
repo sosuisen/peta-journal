@@ -66,6 +66,16 @@ final class PastedImageTests: XCTestCase {
         XCTAssertEqual(try Self.alpha(of: file), 0)
     }
 
+    // 透明部分のないHEICの画像（写真）は、JPEGに直して書かれる。PNGにすると、写真のファイルは大きくなりすぎるためである。
+    func testAHeicImageWithoutTransparencyIsWrittenAsJpeg() throws {
+        let file = try PastedImage.write(Self.heic(alpha: 255), named: "photo", type: "public.heic")
+        written.append(file)
+
+        XCTAssertEqual(file.lastPathComponent, "photo.jpeg")
+        let image = try XCTUnwrap(CGImageSourceCreateWithURL(file as CFURL, nil))
+        XCTAssertEqual(CGImageSourceGetType(image) as String?, UTType.jpeg.identifier)
+    }
+
     /// A picture of one pixel drawn by the test, written as HEIC as the keyboard and Photos give it.
     private static func heic(alpha: UInt8) throws -> Data {
         // Red, as much as the alpha lets: the colors are multiplied by the alpha
