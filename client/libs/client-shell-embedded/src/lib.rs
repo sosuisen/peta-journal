@@ -89,6 +89,13 @@ impl Host for Embedded {
     fn events(&self, send: &mut dyn FnMut(SseEvent)) {
         self.door.events.read(send);
     }
+
+    fn upload(&self, path: &std::path::Path) -> ApiResult<ApiOutput> {
+        match &*self.door.journal.read().unwrap() {
+            Some(journal) => journal.upload(path),
+            None => Err(ApiError("the journal is closed".into())),
+        }
+    }
 }
 
 /// The characters before the place `units` UTF-16 units into `text`, as the core counts a
@@ -250,6 +257,14 @@ impl PetaCore {
     /// core adds the time.
     pub fn typed(&self, typing: &[u8]) -> Result<(), String> {
         self.shell.typed(typing).map_err(|e| e.to_string())
+    }
+
+    /// Pastes the image in the file at `path` into the item, at `cursor` in characters. The
+    /// shell wrote the file for this paste: it is deleted once the image is saved (ADR 071).
+    pub fn paste_image(&self, item_id: String, path: String, cursor: u64) {
+        let cursor = usize::try_from(cursor).unwrap_or(usize::MAX);
+        self.shell
+            .paste_image(&item_id, std::path::Path::new(&path), cursor);
     }
 
     /// Takes a key of the shell: a `KeyPress` as bytes (ADR 052). False when the key means

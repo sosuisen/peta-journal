@@ -239,7 +239,11 @@ fn an_image_pasted_by_its_path_goes_into_the_assets_and_its_link_into_the_item()
 
     core.paste_image(item_id, path(&pasted), 0);
 
-    let body = || core.core.items.find_by_page_id(&page.id).unwrap()[0].body.clone();
+    let body = || {
+        core.core.items.find_by_page_id(&page.id).unwrap()[0]
+            .body
+            .clone()
+    };
     wait_until("the link is in the item", || body().contains("../assets/"));
     let saved = body()
         .split("../assets/")
