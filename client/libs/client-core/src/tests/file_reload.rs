@@ -66,6 +66,34 @@ fn an_edited_item_typed_into_keeps_its_typed_body() {
     assert_eq!(h.bodies(), ["a=typed here", "b=from the file"]);
 }
 
+// 編集を閉じたが保存していない打ちかけの項目も、読み直しで手元の本文を残す。
+#[test]
+fn an_item_left_with_unsaved_typing_keeps_its_typed_body() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    typed(&mut h, "a", "typed here");
+    h.model.state.remove_editing_item("a");
+    server_has(&mut h, vec![item("a", 1, "from the file")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["a=typed here"]);
+}
+
+// 打っていない編集中の項目がサーバーの版で消えていたら、画面から消え、編集の印が外れ、前の項目にフォーカスが移る。
+#[test]
+fn an_edited_item_not_typed_into_that_the_server_lost_goes_and_the_focus_moves_up() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "b")]);
+    h.model.state.add_editing_item("b");
+    h.model.state.set_focused_item("b", Some(1));
+    server_has(&mut h, vec![item("a", 1, "a")]);
+
+    file_changed(&mut h);
+
+    assert_eq!(h.bodies(), ["a=a"]);
+    assert!(h.model.state.editing_item_ids().is_empty());
+    assert_eq!(h.model.state.focused_item_id(), Some("a"));
+}
+
 // サーバーの拡張が項目を書いたと知らされると、ファイルの変更と同じように、表示中のページが読み直される。
 #[test]
 fn items_written_by_an_extension_reload_the_page() {
