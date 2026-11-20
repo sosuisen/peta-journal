@@ -342,18 +342,18 @@ fn moving_in_a_weekly_journal_opens_the_week_before_and_after_across_the_year() 
     assert_eq!(urls, ["/pages/2025-W52", "/pages/2027-W01"]);
 }
 
-// USの週番号では、年をまたぐ週は前の年の最後の週である。前後へ移っても、同じ週が2つの名前で開かない。
+// USの週番号では、年をまたぐ週は新しい年の第1週である。前後へ移ると、その週を通る。
 #[test]
-fn moving_across_new_year_in_us_weeks_does_not_open_one_week_under_two_names() {
+fn moving_across_new_year_in_us_weeks_passes_week_1_of_the_new_year() {
     let mut h = Harness::new();
     h.model.config.week_numbering = WeekNumbering::Us;
-    // 2026-W53 runs from Sunday 2026-12-27 to Saturday 2027-01-02
-    visit(&mut h, "2026-W53");
+    // 2027-W01 runs from Sunday 2026-12-27 to Saturday 2027-01-02
+    visit(&mut h, "2026-W52");
     h.send(Event::JournalNav(JournalNav::Next));
     visit(&mut h, "2027-W02");
     h.send(Event::JournalNav(JournalNav::Prev));
     let urls: Vec<_> = h.navigations.iter().map(|n| n.url.as_str()).collect();
-    assert_eq!(urls, ["/pages/2027-W02", "/pages/2026-W53"]);
+    assert_eq!(urls, ["/pages/2027-W01", "/pages/2027-W01"]);
 }
 
 // 設定の URL では設定画面になり、サーバーの設定が読み直される。

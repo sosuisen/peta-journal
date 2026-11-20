@@ -1625,6 +1625,9 @@ dependencies = [
 [[package]]
 name = "journal-names"
 version = "1.0.0"
+dependencies = [
+ "proptest",
+]
 
 [[package]]
 name = "journal-server"

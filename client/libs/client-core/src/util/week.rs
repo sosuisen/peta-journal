@@ -24,8 +24,8 @@ pub fn iso_week_year(date: Date) -> i32 {
     week_of(date, journal_names::WeekNumbering::Iso).0
 }
 
-/// US week number: weeks start on Sunday, and are counted from the week that holds January
-/// 1st of the year of that Sunday.
+/// US week number: weeks start on Sunday, and week 1 holds January 1st. A week belongs to
+/// the year of its Saturday (ADR 072).
 pub fn us_week_number(date: Date) -> u32 {
     week_of(date, journal_names::WeekNumbering::Us).1
 }
@@ -43,12 +43,12 @@ pub fn week_page_name(date: Date, numbering: WeekNumbering) -> String {
 }
 
 /// The name of the week page a number of weeks after the week of this name; negative for
-/// earlier weeks. None when the name is not the name of a week.
+/// earlier weeks. None when the name is not the name of a week of its year.
 pub fn week_page_name_after(name: &str, weeks: i64, numbering: WeekNumbering) -> Option<String> {
     let Ok(JournalName::Weekly { year, week }) = name.parse() else {
         return None;
     };
-    let first_day = journal_names::first_day_of_week(year, week, numbering.into());
+    let first_day = journal_names::first_day_of_week(year, week, numbering.into())?;
     Some(week_page_name(first_day.shift(7 * weeks), numbering))
 }
 
@@ -69,17 +69,17 @@ mod tests {
         assert_eq!(weeks_in_year(2025, WeekNumbering::Iso), 52);
     }
 
-    // US 週番号は日曜始まりで1月1日を第1週とし、土曜始まりのうるう年は54週になる。
+    // US 週番号は日曜始まりで1月1日を第1週とし、年の週数は52か53である。
     #[test]
     fn us_weeks() {
-        // The week of a New Year that is not a Sunday is the last week of the old year
-        assert_eq!(us_week_number(Date::new(2026, 1, 1)), 53);
+        // 2026 starts on a Thursday
+        assert_eq!(us_week_number(Date::new(2026, 1, 1)), 1);
         assert_eq!(us_week_number(Date::new(2023, 1, 1)), 1);
         assert_eq!(us_week_number(Date::new(2026, 1, 4)), 2);
         assert_eq!(us_week_number(Date::new(2026, 2, 10)), 7);
-        // 2028 is a leap year starting on a Saturday: 54 weeks
-        assert_eq!(weeks_in_year(2028, WeekNumbering::Us), 54);
-        assert_eq!(weeks_in_year(2026, WeekNumbering::Us), 53);
+        // 2028 is a leap year starting on a Saturday: 53 Saturdays
+        assert_eq!(weeks_in_year(2028, WeekNumbering::Us), 53);
+        assert_eq!(weeks_in_year(2026, WeekNumbering::Us), 52);
     }
 
     // 週のページの名前は、その日を含む週の、年と週番号である。週はUSでは日曜、ISOでは月曜に始まる。
@@ -94,11 +94,11 @@ mod tests {
         assert_eq!(week_page_name(sunday, WeekNumbering::Iso), "2026-W06");
     }
 
-    // 年をまたぐ週は、週の最初の日の年に入る。ISOでは、木曜のある年に入る。
+    // 年をまたぐ週は、1つの年に入る。USでは土曜の、ISOでは木曜のある年に入る。
     #[test]
     fn a_week_across_new_year_belongs_to_one_year() {
         let new_year = Date::new(2027, 1, 1);
-        assert_eq!(week_page_name(new_year, WeekNumbering::Us), "2026-W53");
+        assert_eq!(week_page_name(new_year, WeekNumbering::Us), "2027-W01");
         assert_eq!(week_page_name(new_year, WeekNumbering::Iso), "2026-W53");
         assert_eq!(
             week_page_name(Date::new(2024, 12, 30), WeekNumbering::Iso),
@@ -115,18 +115,15 @@ mod tests {
             Some("2026-W08")
         );
         assert_eq!(
-            week_page_name_after("2026-W53", 1, us).as_deref(),
-            Some("2027-W02")
+            week_page_name_after("2026-W52", 1, us).as_deref(),
+            Some("2027-W01")
         );
         assert_eq!(
-            week_page_name_after("2027-W02", -1, us).as_deref(),
-            Some("2026-W53")
+            week_page_name_after("2027-W01", -1, us).as_deref(),
+            Some("2026-W52")
         );
-        // `2027-W01` is another name of the week `2026-W53`, so it leads to the same weeks
-        assert_eq!(
-            week_page_name_after("2027-W01", 1, us).as_deref(),
-            Some("2027-W02")
-        );
+        // 2026 has 52 US weeks, so `2026-W53` is not the name of a week
+        assert_eq!(week_page_name_after("2026-W53", 1, us), None);
         let iso = WeekNumbering::Iso;
         assert_eq!(
             week_page_name_after("2024-W52", 1, iso).as_deref(),
