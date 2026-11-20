@@ -84,6 +84,28 @@ async fn a_path_of_an_app_without_a_folder_is_not_found() {
     }
 }
 
+// 末尾の`/`がない`/apps/{url_fragment}`は、`/apps/{url_fragment}/`へリダイレクトされる。アプリの相対URLが、アプリのフォルダを指すためである。
+#[tokio::test]
+async fn the_path_of_an_app_without_the_last_slash_is_redirected_to_the_one_with_it() {
+    let (app, _) = put_app();
+    let no_redirects = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let response = no_redirects
+        .get(url(&format!("/apps/{app}?port=9000")))
+        .send()
+        .await
+        .expect("GET");
+
+    assert!(response.status().is_redirection(), "{}", response.status());
+    assert_eq!(
+        response.headers()["location"],
+        format!("/apps/{app}/?port=9000").as_str()
+    );
+}
+
 // 消したアプリのフォルダは、サーバーを起動し直さなくても配信されなくなる。
 #[tokio::test]
 async fn an_app_folder_taken_away_is_no_longer_served_without_a_restart() {
