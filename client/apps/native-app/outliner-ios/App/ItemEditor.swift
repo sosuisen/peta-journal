@@ -98,6 +98,18 @@ struct ItemEditor: UIViewRepresentable {
         /// A field that the list takes off the screen loses the keyboard just before it goes
         private var justLost = false
 
+        override init(frame: CGRect, textContainer: NSTextContainer?) {
+            super.init(frame: frame, textContainer: textContainer)
+            // A sticker of the keyboard comes as an image to paste, to a field that takes one
+            let taken = pasteConfiguration?.acceptableTypeIdentifiers ?? []
+            pasteConfiguration = UIPasteConfiguration(acceptableTypeIdentifiers: taken + [UTType.image.identifier])
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("The field is made in code")
+        }
+
         func takeTheKeyboard() {
             wanted = true
             if window != nil { becomeFirstResponder() }
