@@ -110,13 +110,14 @@ mod tests {
         assert_eq!(week_of(Date::new(2026, 2, 7), Us), (2026, 6));
     }
 
-    // 年をまたぐUSの週は、前の年の最後の週である。新しい年は、第2週から始まる。
+    // 年をまたぐUSの週は、その週の土曜の年に入る。1月1日を含む週が、新しい年の第1週である。
     #[test]
-    fn a_us_week_across_new_year_is_the_last_week_of_the_old_year() {
+    fn a_us_week_across_new_year_belongs_to_the_year_of_its_saturday() {
         // 2027 starts on a Friday
-        assert_eq!(week_of(Date::new(2026, 12, 27), Us), (2026, 53));
-        assert_eq!(week_of(Date::new(2027, 1, 1), Us), (2026, 53));
-        assert_eq!(week_of(Date::new(2027, 1, 2), Us), (2026, 53));
+        assert_eq!(week_of(Date::new(2026, 12, 26), Us), (2026, 52));
+        assert_eq!(week_of(Date::new(2026, 12, 27), Us), (2027, 1));
+        assert_eq!(week_of(Date::new(2027, 1, 1), Us), (2027, 1));
+        assert_eq!(week_of(Date::new(2027, 1, 2), Us), (2027, 1));
         assert_eq!(week_of(Date::new(2027, 1, 3), Us), (2027, 2));
     }
 
