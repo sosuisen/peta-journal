@@ -1,3 +1,4 @@
+pub mod apps;
 pub mod client_id;
 pub mod date_format;
 pub mod frontend;
