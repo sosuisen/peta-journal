@@ -640,6 +640,29 @@ final class JournalScreenTests: XCTestCase {
         waitUntil("the field edits onetwo, not \(editedText)") { editedText == "onetwo" }
     }
 
+    // メニューの「Paste」は、クリップボードの画像を本文フォルダのassetsに保存し、カーソルの位置にそのリンクを入れる（ADR 071）。
+    func testPasteOfTheMenuPutsALinkToTheImageOnTheClipboardAtTheCursor() throws {
+        try three()
+        UIPasteboard.general.image = Self.drawing()
+
+        pasteWhereTheCursorIs()
+
+        waitUntil("the field edits a link to the image, not \(editedText)") {
+            editedText.hasPrefix("two![") && editedText.contains("](../assets/")
+        }
+        let assets = try FileManager.default.contentsOfDirectory(
+            atPath: root.appendingPathComponent("markdown/assets").path)
+        XCTAssertEqual(assets.count, 1)
+    }
+
+    /// A picture of one red pixel, drawn by the test.
+    private static func drawing() -> UIImage {
+        UIGraphicsImageRenderer(size: CGSize(width: 1, height: 1)).image { context in
+            UIColor.red.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 1, height: 1))
+        }
+    }
+
     /// Pastes with the menu of the field, at the cursor. A touch on the cursor of the field
     /// that has the keyboard shows the menu.
     private func pasteWhereTheCursorIs() {

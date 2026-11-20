@@ -402,6 +402,21 @@ final class ShellTests: JournalTestCase {
         waitUntil("the list is items") { self.bodies() == ["first", "secondapple", "pear", "third"] }
     }
 
+    // 画像のファイルを貼ると、本文フォルダのassetsに保存され、カーソルの位置にそのリンクが入る。ファイルは保存のあとに消える（ADR 071）。
+    func testAPastedImageFileIsSavedInTheAssetsAndLinkedAtTheCursor() throws {
+        try editSecondOfThree()
+        let image = try PastedImage.write(Data([1, 2, 3]), named: "sample.png", type: "public.png")
+
+        shell.pasteImage(image, into: id(of: "second"), at: 3)
+
+        waitUntil("the item links the image after sec") {
+            self.bodies()[1].hasPrefix("sec![sample.png](../assets/") && self.bodies()[1].hasSuffix(")ond")
+        }
+        let name = bodies()[1].components(separatedBy: "../assets/")[1].components(separatedBy: ")")[0]
+        XCTAssertEqual(try Data(contentsOf: markdown.appendingPathComponent("assets/\(name)")), Data([1, 2, 3]))
+        waitUntil("the file is deleted") { !FileManager.default.fileExists(atPath: image.path) }
+    }
+
     // 親と子を選んでコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
     func testAParentAndItsChildCopiedAndPastedAtTheEndOfAnotherItemComeBackAsAParentAndItsChild() throws {
         let child = "<!-- @@ 2020-01-01-00-00-00-AAAAAAB idx=\"aB\" -->\n"

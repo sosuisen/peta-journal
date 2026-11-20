@@ -548,6 +548,10 @@
   - Windowsの付箋紙アプリでは、Ctrl+Vとメニューの貼り付けが、クリップボードの画像を貼り付ける。画像があれば、文字より先に画像を貼る（Windowsの`OutlineScreenTests`）
     - シェルは、画像をPNGとして一時フォルダーの自分だけのフォルダーに書き、そのパスをRust側に渡す（ADR 071、`ShellTests`）
     - Rust側（`client-shell-http`）は、ファイルをjournalサーバーのアップロード（`POST /api/assets/upload`）に送る。送り終えると、一時ファイルを消す
+  - iOSでは、メニューの「Paste」と、ハードウェアキーボードのCmd+Vが、クリップボードの画像を貼り付ける。文字があれば、文字を貼る（`JournalScreenTests`）
+    - キーボードのステッカーも、画像として貼り付けられる。欄はステッカーを文字の中の絵としては受けないので、キーボードは画像の貼り付けとして送ってくる。文字の中の絵として受けると、本文はプレーンテキストのMarkdownなので、代わりの文字（U+FFFC）だけが残る（`FieldPasteTests`）
+    - HEICの画像は、透明部分があればPNGに、なければJPEGに直して書く。HEICを表示できないブラウザがあるためである。写真をPNGにすると、大きくなりすぎる（`PastedImageTests`）
+    - シェルは、画像を一時フォルダーの自分だけのフォルダーに、来たときの名前で書き、そのパスをRust側（`client-shell-embedded`）に渡す（ADR 071、`ShellTests`）。名前がなければ`image`、拡張子がなければ種類の拡張子を付ける。同じ名前の画像も、別々のファイルに書く（`PastedImageTests`）
   - macOSの付箋紙アプリでは、Cmd+Vとメニューの「ペースト」が、クリップボードの画像を貼り付ける（macOSの`OutlineScreenTests`）
     - シェルは、画像を一時フォルダーの自分だけのフォルダーに書き、そのパスをRust側（`client-shell-http`）に渡す（ADR 071、`ShellTests`）。同じ画像を2回貼っても、別々のファイルに書く（`PastedImageTests`）
     - PNGはそのまま書く。TIFFだけの画像（スクリーンショットなど）は、PNGに直して書く
