@@ -46,6 +46,13 @@ public sealed class Border : IDisposable
     }
 
     /// <summary>
+    /// Hands an image to the core by the path of its file, pasted into the item at the cursor
+    /// in the characters of the core. The core deletes the file once the server has answered.
+    /// </summary>
+    public void PasteImage(string itemId, string path, ulong cursor) =>
+        core.PasteImage(itemId, path, cursor);
+
+    /// <summary>
     /// Hands a change of the Markdown of an item in its text field to the core, which adds the
     /// time.
     /// </summary>

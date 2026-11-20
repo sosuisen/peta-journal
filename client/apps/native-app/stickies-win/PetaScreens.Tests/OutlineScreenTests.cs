@@ -246,6 +246,23 @@ public sealed class OutlineScreenTests
         );
     }
 
+    // Ctrl+Vは、クリップボードの画像をサーバーのassetsに保存し、カーソルの位置にそのリンクを入れる。
+    [UITestMethod]
+    public async Task Control_V_pastes_the_image_on_the_clipboard_as_a_link_to_the_assets()
+    {
+        await using var screen = await Screen.Open(Port);
+        await screen.TwoItems();
+        await Screen.PutImageOnClipboard();
+
+        Screen.Press(VirtualKey.V, Held.Control);
+
+        await Screen.Until("the second item links the image", () =>
+            screen.Bodies() is ["first", var second]
+            && second.StartsWith("second![", StringComparison.Ordinal)
+            && second.Contains("](../assets/", StringComparison.Ordinal)
+        );
+    }
+
     // Ctrl+Shift+Vは、クリップボードの文字をそのまま項目に貼る。
     [UITestMethod]
     public async Task Control_Shift_V_puts_the_text_into_the_item_as_it_is()

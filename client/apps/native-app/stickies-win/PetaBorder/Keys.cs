@@ -65,6 +65,17 @@ public sealed partial class Shell
         Send(new Event.PasteText(itemId, text, html, CursorOf(editor), raw));
     }
 
+    /// <summary>
+    /// The user pasted an image into the editor of an item. The shell wrote it to the file at
+    /// <paramref name="path"/>, which the core uploads, links at the cursor and then deletes
+    /// (ADR 071).
+    /// </summary>
+    public void PasteImage(string itemId, EditorState editor, string path)
+    {
+        ArgumentNullException.ThrowIfNull(editor);
+        border.PasteImage(itemId, path, CursorOf(editor));
+    }
+
     /// <summary>Where the cursor is in the editor, in the characters that the core counts.</summary>
     private static ulong CursorOf(EditorState editor) =>
         // WinUI counts in UTF-16 units (ADR 043)
