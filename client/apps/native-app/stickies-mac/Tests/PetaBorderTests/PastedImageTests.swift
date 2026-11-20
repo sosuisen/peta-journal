@@ -38,6 +38,20 @@ final class PastedImageTests: XCTestCase {
             try FileManager.default.contentsOfDirectory(atPath: file.deletingLastPathComponent().path), ["image.png"])
     }
 
+    // TIFFだけの画像は、PNGに直して書かれる。サーバーの画像として、ブラウザでも見られるためである。
+    func testAnImageOnlyInTiffIsWrittenAsPng() throws {
+        pasteboard.setData(Self.bitmap().tiffRepresentation, forType: .tiff)
+
+        let file = try XCTUnwrap(write())
+
+        XCTAssertEqual(file.lastPathComponent, "image.png")
+        let written = try Data(contentsOf: file)
+        XCTAssertEqual([UInt8](written.prefix(4)), [0x89, 0x50, 0x4E, 0x47])
+        let pixel = try XCTUnwrap(NSBitmapImageRep(data: written)?.colorAt(x: 0, y: 0)?.usingColorSpace(.deviceRGB))
+        XCTAssertEqual(pixel.redComponent, 1, accuracy: 0.01)
+        XCTAssertEqual(pixel.greenComponent, 0, accuracy: 0.01)
+    }
+
     /// A picture of one red pixel, drawn by the test.
     static func png() -> Data {
         bitmap().representation(using: .png, properties: [:])!
