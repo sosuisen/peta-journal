@@ -589,6 +589,7 @@ dependencies = [
  "facet_generate 0.22.3",
  "flatmarkdown",
  "serde",
+ "tempfile",
 ]
 
 [[package]]

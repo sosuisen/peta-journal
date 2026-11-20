@@ -189,9 +189,24 @@ class Shell(
      * the same items.
      */
     fun paste(itemId: String, text: String, cursor: Int) {
+        send(Event.PasteText(itemId, text, "", placeIn(itemId, cursor), false))
+    }
+
+    /**
+     * The user pasted the image in [file] into the edited item, with the cursor [cursor] UTF-16
+     * units into its Markdown. The core saves the image among the assets, deletes [file], and
+     * puts a link to the image at the cursor (ADR 071).
+     */
+    fun pasteImage(itemId: String, file: File, cursor: Int) {
+        if (closed) return
+        core.pasteImage(itemId, file.path, placeIn(itemId, cursor))
+        show()
+    }
+
+    /** The place [cursor] UTF-16 units into the Markdown of the item, in the characters of the core. */
+    private fun placeIn(itemId: String, cursor: Int): ULong {
         val body = view.outline.rows.firstOrNull { it.item.id == itemId }?.item?.body.orEmpty()
-        val place = body.codePointCount(0, cursor.coerceIn(0, body.length))
-        send(Event.PasteText(itemId, text, "", place.toULong(), false))
+        return body.codePointCount(0, cursor.coerceIn(0, body.length)).toULong()
     }
 
     /** The user left the editor of the item: what was typed is saved. */

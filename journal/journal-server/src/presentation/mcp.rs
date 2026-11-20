@@ -18,7 +18,7 @@ use serde_json::{json, Value};
 
 use crate::error::AppError;
 use crate::presentation::date_format::DateFormat;
-use crate::presentation::rest::{assets, sync};
+use crate::presentation::rest::sync;
 use crate::state::{blocking, SharedState};
 use journal_api_types::{
     AddPropertyDefinitionInput, AtlasCalloutInput, AtlasGroupInput, AtlasLinkInput,
@@ -1075,7 +1075,7 @@ impl JournalMcp {
         Parameters(a): Parameters<FilePathArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let r = run(move || assets::save_file_at(&state, &a.file_path)).await?;
+        let r = run(move || state.journal.save_asset_file(&a.file_path)).await?;
         ok(answer_json(&r))
     }
 
