@@ -36,22 +36,27 @@ The mode looks for the program on the `exec-path` first, then in `target/release
 `target/debug`. To use another one, set `peta-journal-shell-program`. Emacs 29.1 or newer is
 needed.
 
-### When `target` is on an external disk
+### After a new build
+
+Close every PetaJournal buffer with `C-x k` and run `M-x peta-journal` again. A running program
+stays the old one until its buffer is closed.
+
+If a copy of the program is on the `exec-path`, such as in `~/.local/bin`, the mode uses that copy
+first. The old copy keeps running after a build, so when a new feature does not show, suspect
+this.
+
+### Building on an external disk
 
 If `client/target` is a symbolic link to an external disk, the mode cannot find the program while
-the disk is out. Keep a copy of the program on the `exec-path` then, such as in `~/.local/bin`.
-
-The mode looks on the `exec-path` first, so after a build the old copy keeps running. When a new
-feature does not show, suspect this. Copy the program again after each build:
+the disk is out. Put only the intermediate files of the build on the external disk: set
+`build.build-dir`, which Cargo has had since 1.91, in an environment variable or in
+`~/.cargo/config.toml`.
 
 ```sh
-cd peta-journal/client
-cargo build --release -p outliner-emacs
-cp target/release/outliner-emacs ~/.local/bin/
+export CARGO_BUILD_BUILD_DIR='/Volumes/<disk>/rust-target/build/{workspace-path-hash}'
 ```
 
-Then close every PetaJournal buffer with `C-x k` and run `M-x peta-journal` again. A running
-program stays the old one until its buffer is closed.
+The program stays in `target/release`, so the mode finds it while the disk is out.
 
 ### Using another server
 
