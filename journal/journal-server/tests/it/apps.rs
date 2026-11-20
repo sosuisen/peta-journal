@@ -121,6 +121,38 @@ async fn an_app_folder_taken_away_is_no_longer_served_without_a_restart() {
     assert_eq!(fetch(&format!("/apps/{app}/")).await.status(), 404);
 }
 
+// `..`をアプリの名前やパスにしても、`apps/`の外にある設定フォルダのファイルは返らない。
+#[tokio::test]
+async fn no_file_outside_the_apps_folder_is_served() {
+    let (app, _) = put_app();
+
+    for path in [
+        "/apps/%2e%2e/config.json".to_string(),
+        "/apps/%2E%2E/config.json".to_string(),
+        format!("/apps/{app}/%2e%2e/%2e%2e/config.json"),
+        format!("/apps/{app}/..%2f..%2fconfig.json"),
+        format!("/apps/{app}/..%5c..%5cconfig.json"),
+    ] {
+        let response = fetch_as_written(&path).await;
+
+        assert!(!response.contains("weekNumbering"), "{path}: {response}");
+    }
+}
+
+/// GETs `path` exactly as written. A URL library would turn `%2e%2e` into `..` and resolve
+/// it before the request leaves.
+async fn fetch_as_written(path: &str) -> String {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let address = server().base_url.trim_start_matches("http://");
+    let mut stream = tokio::net::TcpStream::connect(address).await.unwrap();
+    let request = format!("GET {path} HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\n\r\n");
+    stream.write_all(request.as_bytes()).await.unwrap();
+    let mut response = String::new();
+    stream.read_to_string(&mut response).await.unwrap();
+    response
+}
+
 // ---- Caching ----
 
 // アプリのファイルは、名前にハッシュがあってもなくても、キャッシュされずに毎回確かめられる。サーバーは、ビルドツールごとのハッシュの形を知らないためである。
