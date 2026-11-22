@@ -350,6 +350,22 @@ fn a_loaded_page_reaches_emacs_as_rows() {
     );
 }
 
+// ページを開くと、全部の行が1つの入れ替えで送られる。
+#[test]
+fn an_opened_page_sends_all_its_rows_as_one_reset() {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/pages/notes".into(),
+    });
+    driver.load_page(&[item("a", 1, "x"), item("b", 1, "y")]);
+    let changes = driver.last_changes().unwrap();
+    let [ListChange::Reset { items }] = &changes[..] else {
+        panic!("{changes:?}");
+    };
+    let ids: Vec<&str> = items.iter().map(|row| row.id.as_str()).collect();
+    assert_eq!(ids, ["a", "b"]);
+}
+
 // 1つの行が変わるキーでは、その行の更新だけが送られる。
 #[test]
 fn a_key_that_changes_one_row_sends_only_its_update() {
