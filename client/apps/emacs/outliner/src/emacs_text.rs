@@ -13,7 +13,7 @@ use serde::Serialize;
 pub struct EmacsText {
     /// The shown text. A line break after each paragraph and each line of code.
     pub text: String,
-    /// The parts of the text that are not plain shown letters, in order.
+    /// The parts of the text that are not plain shown letters, in the order of `from`.
     pub spans: Vec<EmacsSpan>,
     /// How many characters `text` has.
     #[facet(skip)]
@@ -29,6 +29,9 @@ pub struct EmacsSpan {
     pub to: u32,
     pub looks: Vec<EmacsLook>,
     pub link: Option<RichLink>,
+    /// False for what Rust added, such as a list mark or the spaces of a table: they are
+    /// not letters of the shown text (ADR 044).
+    pub letters: bool,
 }
 
 /// How a part of the text looks.
@@ -57,6 +60,8 @@ pub enum EmacsLook {
     Heading4,
     Heading5,
     Heading6,
+    /// What stands before an entry of a list: a bullet, its number or a checkbox.
+    Mark,
 }
 
 /// The look of the line of a heading of `level`, from 1 to 6. `None` for any other paragraph.
@@ -71,6 +76,9 @@ fn heading_look(level: u8) -> Option<EmacsLook> {
         _ => None,
     }
 }
+
+/// How wide one step of the indent of a list is.
+const INDENT: &str = "  ";
 
 impl BodyModel for EmacsText {
     fn of(ast: Node, tags_dir: &str) -> EmacsText {
@@ -89,6 +97,7 @@ impl BodyModel for EmacsText {
 
 impl EmacsText {
     fn paragraph(&mut self, paragraph: &RichParagraph) {
+        self.before_paragraph(paragraph);
         let (start, first_span) = (self.length, self.spans.len());
         for run in &paragraph.runs {
             self.write(
@@ -96,6 +105,7 @@ impl EmacsText {
                 Part {
                     looks: looks_of(run.looks),
                     link: run.link.clone(),
+                    ..Part::default()
                 },
             );
         }
@@ -108,10 +118,22 @@ impl EmacsText {
                     to: self.length,
                     looks: vec![look],
                     link: None,
+                    letters: true,
                 },
             );
         }
         self.write("\n", Part::default());
+    }
+
+    /// The indent of the lists the paragraph is inside, and the mark of its entry.
+    fn before_paragraph(&mut self, paragraph: &RichParagraph) {
+        let steps = paragraph.depth.saturating_sub(1) as usize;
+        if steps > 0 {
+            self.write(&INDENT.repeat(steps), Part::added(Vec::new()));
+        }
+        if let Some(mark) = &paragraph.mark {
+            self.write(&format!("{mark} "), Part::added(vec![EmacsLook::Mark]));
+        }
     }
 
     /// Writes `letters` at the end of the text, with a span when they are not plain.
@@ -127,6 +149,7 @@ impl EmacsText {
                 to: self.length,
                 looks: part.looks,
                 link: part.link,
+                letters: !part.added,
             });
         }
     }
@@ -137,12 +160,23 @@ impl EmacsText {
 struct Part {
     looks: Vec<EmacsLook>,
     link: Option<RichLink>,
+    /// True for what Rust added, which is not shown letters.
+    added: bool,
 }
 
 impl Part {
+    /// What Rust adds, with `looks`.
+    fn added(looks: Vec<EmacsLook>) -> Part {
+        Part {
+            looks,
+            added: true,
+            ..Part::default()
+        }
+    }
+
     /// True for plain shown letters, which need no span.
     fn is_plain(&self) -> bool {
-        self.looks.is_empty() && self.link.is_none()
+        self.looks.is_empty() && self.link.is_none() && !self.added
     }
 }
 
