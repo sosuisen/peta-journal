@@ -6,7 +6,7 @@
 extension ViewModel {
     /// The view model of the first changes of a core. They hold every panel and a reset of the
     /// rows.
-    init(first changes: Changes) {
+    public init(first changes: Changes) {
         let panels = changes.panels
         func the<T>(_ value: (Panel) -> T?) -> T {
             let found = panels.compactMap(value)
@@ -33,7 +33,7 @@ extension ViewModel {
 
     /// Applies the changes: each panel that came takes the place of its part, and the changes
     /// to the rows are applied in order.
-    mutating func apply(_ changes: Changes) {
+    public mutating func apply(_ changes: Changes) {
         for panel in changes.panels { apply(panel) }
         if !changes.rows.isEmpty { outline.rows = outline.rows.applying(changes.rows) }
     }
@@ -61,7 +61,7 @@ extension ViewModel {
 extension Array where Element == Row {
     /// The rows after the changes, applied one after another. A place counts in the rows as the
     /// changes before it left them.
-    func applying(_ changes: [ListChange]) -> [Row] {
+    public func applying(_ changes: [ListChange]) -> [Row] {
         var rows = self
         for change in changes {
             switch change {

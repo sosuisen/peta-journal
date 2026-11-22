@@ -1,6 +1,7 @@
 #!/bin/sh
-# Formats the Swift of the two Apple shells (outliner-ios and stickies-mac) with swift-format,
-# and says what its lint finds. The settings are in .swift-format beside this file.
+# Formats the Swift of the two Apple shells (outliner-ios and stickies-mac) and of what they
+# share (swift-shared) with swift-format, and says what its lint finds. The settings are in
+# .swift-format beside this file.
 #
 #   ./swift-format.sh           formats the files in place, then lints them
 #   ./swift-format.sh --check   changes nothing: fails when a file is not formatted or the
@@ -29,7 +30,8 @@ esac
 set -- \
     outliner-ios/Package.swift outliner-ios/Sources outliner-ios/Tests \
     outliner-ios/App outliner-ios/AppTests outliner-ios/UITests \
-    stickies-mac/Package.swift stickies-mac/Sources stickies-mac/Tests stickies-mac/App
+    stickies-mac/Package.swift stickies-mac/Sources stickies-mac/Tests stickies-mac/App \
+    swift-shared/Package.swift swift-shared/Sources swift-shared/Tests
 
 if [ "$check" = no ]; then
     xcrun swift-format format --in-place --recursive "$@"

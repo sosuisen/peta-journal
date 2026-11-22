@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import Foundation
 import PetaCore
+import PetaShared
 @preconcurrency import PetaTypes
 
 /// What one window shows, kept up to date with the core. The views draw `view` and tell this

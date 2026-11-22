@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import PetaCore
+import PetaShared
 import PetaTypes
 
 /// What the app shows, kept up to date with the core. The screen draws `view` and tells this

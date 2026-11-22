@@ -1,7 +1,7 @@
 import PetaTypes
 import XCTest
 
-@testable import PetaBorder
+@testable import PetaShared
 
 /// The rows that the changes of the core make (ADR 076). That the changes make the screen of the
 /// core is tested in Rust, in `client-native-bridge`.

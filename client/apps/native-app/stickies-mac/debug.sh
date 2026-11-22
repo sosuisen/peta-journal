@@ -25,7 +25,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-if [ "$generate" = yes ] || [ ! -d generated ]; then
+if [ "$generate" = yes ] || [ ! -d generated ] || [ ! -d ../swift-shared/generated ]; then
     ./generate.sh
 fi
 xcodegen generate --quiet
