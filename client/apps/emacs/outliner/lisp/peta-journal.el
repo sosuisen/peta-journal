@@ -18,8 +18,8 @@
 
 (require 'calendar)
 (require 'cl-lib)
-(require 'map)
 (require 'parse-time)
+(require 'peta-journal-protocol)
 (require 'subr-x)
 (require 'text-property-search)
 
@@ -554,49 +554,58 @@ Nil unless ACK is behind the typing."
     (goto-char start)
     (insert (peta-journal--row-string row))))
 
-(defun peta-journal--apply-change (change typed)
-  "Apply one CHANGE of the rows, to the buffer and to `peta-journal--rows'.
-TYPED is the body to keep, from `peta-journal--typed'.  The places count in
-the rows as the changes before this one left them.  Returns the ids of the
-rows written, or t when all were."
-  (let ((rows peta-journal--rows))
-    (pcase change
-      (`(:Insert ,(map :at :item))
-       (let ((row (peta-journal--keep-typed item typed)))
-         (goto-char (peta-journal--nth-row at))
-         (insert (peta-journal--row-string row))
-         (setq peta-journal--rows (vconcat (seq-subseq rows 0 at) (vector row)
-                                           (seq-subseq rows at)))
-         (list (plist-get row :id))))
-      (`(:Remove ,(map :at))
+(defun peta-journal--change-handlers (typed)
+  "What to do with each kind of change of the rows, with the fields of the change.
+Each applies its change to the buffer and to `peta-journal--rows', and returns
+the ids of the rows it wrote, or t when it wrote all.  TYPED is the body to
+keep, from `peta-journal--typed'.  The places count in the rows as the changes
+before left them.  The kinds and their fields are those of
+`peta-journal-protocol-list-change-fields'."
+  (list
+   :insert
+   (lambda (at item)
+     (let ((row (peta-journal--keep-typed item typed))
+           (rows peta-journal--rows))
+       (goto-char (peta-journal--nth-row at))
+       (insert (peta-journal--row-string row))
+       (setq peta-journal--rows (vconcat (seq-subseq rows 0 at) (vector row)
+                                         (seq-subseq rows at)))
+       (list (peta-journal-protocol-row-view-id row))))
+   :remove
+   (lambda (at)
+     (let ((rows peta-journal--rows))
        (delete-region (peta-journal--nth-row at) (peta-journal--row-end at))
        (setq peta-journal--rows (vconcat (seq-subseq rows 0 at) (seq-subseq rows (1+ at))))
-       nil)
-      (`(:Move ,(map :from :to))
-       (let* ((row (aref rows from))
-              (start (peta-journal--nth-row from))
-              (text (buffer-substring start (peta-journal--row-end from))))
-         (delete-region start (peta-journal--row-end from))
-         (goto-char (peta-journal--nth-row to))
-         (insert text)
-         (let ((others (vconcat (seq-subseq rows 0 from) (seq-subseq rows (1+ from)))))
-           (setq peta-journal--rows (vconcat (seq-subseq others 0 to) (vector row)
-                                             (seq-subseq others to))))
-         ;; The images of the moved row were overlays on the text that was deleted
-         (list (plist-get row :id))))
-      (`(:Update ,(map :at :item))
-       (let ((row (peta-journal--keep-typed item typed)))
-         (peta-journal--write-row at row)
-         (setq peta-journal--rows (vconcat rows))
-         (aset peta-journal--rows at row)
-         (list (plist-get row :id))))
-      (`(:Reset ,(map :items))
-       (let ((new (vconcat (mapcar (lambda (row) (peta-journal--keep-typed row typed)) items))))
-         (erase-buffer)
-         (seq-doseq (row new)
-           (insert (peta-journal--row-string row)))
-         (setq peta-journal--rows new)
-         t)))))
+       nil))
+   :move
+   (lambda (from to)
+     (let* ((rows peta-journal--rows)
+            (row (aref rows from))
+            (start (peta-journal--nth-row from))
+            (text (buffer-substring start (peta-journal--row-end from)))
+            (others (vconcat (seq-subseq rows 0 from) (seq-subseq rows (1+ from)))))
+       (delete-region start (peta-journal--row-end from))
+       (goto-char (peta-journal--nth-row to))
+       (insert text)
+       (setq peta-journal--rows (vconcat (seq-subseq others 0 to) (vector row)
+                                         (seq-subseq others to)))
+       ;; The images of the moved row were overlays on the text that was deleted
+       (list (peta-journal-protocol-row-view-id row))))
+   :update
+   (lambda (at item)
+     (let ((row (peta-journal--keep-typed item typed)))
+       (peta-journal--write-row at row)
+       (setq peta-journal--rows (vconcat peta-journal--rows))
+       (aset peta-journal--rows at row)
+       (list (peta-journal-protocol-row-view-id row))))
+   :reset
+   (lambda (items)
+     (let ((new (vconcat (mapcar (lambda (row) (peta-journal--keep-typed row typed)) items))))
+       (erase-buffer)
+       (seq-doseq (row new)
+         (insert (peta-journal--row-string row)))
+       (setq peta-journal--rows new)
+       t))))
 
 (defun peta-journal--place-of (pos)
   "Where POS is: its item, its place in the body, and the index of the row."
@@ -636,6 +645,7 @@ Two edits of one item overwrite each other."
 The shell has handled the lines up to ACK.  Only the rows that a change names
 are rewritten, so what does not change stays where it is."
   (let* ((typed (peta-journal--typed ack))
+         (handlers (peta-journal--change-handlers typed))
          (new-page (not (equal page-id peta-journal--page-id)))
          (windows (get-buffer-window-list (current-buffer) nil t))
          (window-places (mapcar (lambda (w) (cons w (peta-journal--place-of (window-point w))))
@@ -646,7 +656,7 @@ are rewritten, so what does not change stays where it is."
          (inhibit-modification-hooks t))
     (save-excursion
       (seq-doseq (change changes)
-        (let ((ids (peta-journal--apply-change change typed)))
+        (let ((ids (peta-journal-protocol-handle-list-change change handlers)))
           (setq written (if (or (eq ids t) (eq written t)) t (append ids written))))))
     (setq peta-journal--page-id page-id)
     ;; The core has ended the edit of an item that is gone, for one deleted here or by
@@ -1032,41 +1042,43 @@ M-x peta-journal in that buffer starts it and shows the saved text.  See *peta-j
                (string-trim event))
        :error))))
 
+(defconst peta-journal--line-handlers
+  (list
+   :state (lambda (ack holding)
+            (setq peta-journal--ack ack
+                  peta-journal--holding holding))
+   :rows (lambda (ack page-id changes) (peta-journal--apply-rows changes page-id ack))
+   :focus (lambda (ack id cursor) (peta-journal--on-focus id cursor ack))
+   :scroll #'peta-journal--on-scroll
+   :title (lambda (title)
+            (setq peta-journal--title title)
+            (force-mode-line-update))
+   :page-path (lambda (path) (setq peta-journal--page-path path))
+   :index (lambda (folder demote-name)
+            (setq peta-journal--index-folder folder
+                  peta-journal--demote-name demote-name))
+   :properties #'peta-journal--on-properties
+   :status (lambda (connection)
+             (setq peta-journal--connection connection)
+             (force-mode-line-update))
+   :search #'peta-journal--on-search
+   :recent (lambda (paths) (setq peta-journal--recent (append paths nil)))
+   :sidebar (lambda (index headings recent)
+              (peta-journal--on-sidebar (list :index index :headings headings :recent recent)))
+   :backlinks (lambda (groups) (setq peta-journal--backlinks groups))
+   :message (lambda (text) (message "%s" text))
+   :copy (lambda (text)
+           (kill-new text)
+           (message "Copied the selected items"))
+   :page-names (lambda (query titles)
+                 (setq peta-journal--page-names (cons query (append titles nil))))
+   :ask #'peta-journal--on-ask)
+  "What to do with each kind of line from the shell, with the fields of the line.
+The kinds and their fields are those of `peta-journal-protocol-outbound-fields'.")
+
 (defun peta-journal--on-line (message)
   "Do what the line MESSAGE from the shell of the current buffer says."
-  (pcase (plist-get message :t)
-    ("state" (setq peta-journal--ack (plist-get message :ack)
-                   peta-journal--holding (plist-get message :holding)))
-    ("rows" (peta-journal--apply-rows (plist-get message :changes)
-                                      (plist-get message :page_id)
-                                      (plist-get message :ack)))
-    ("focus" (peta-journal--on-focus (plist-get message :id)
-                                     (plist-get message :cursor)
-                                     (plist-get message :ack)))
-    ("scroll" (peta-journal--on-scroll (plist-get message :id)))
-    ("title" (setq peta-journal--title (plist-get message :title))
-     (force-mode-line-update))
-    ("page_path" (setq peta-journal--page-path (plist-get message :path)))
-    ("index" (setq peta-journal--index-folder (plist-get message :folder)
-                   peta-journal--demote-name (plist-get message :demote_name)))
-    ("properties" (peta-journal--on-properties (plist-get message :rows)
-                                               (plist-get message :free_keys)
-                                               (plist-get message :datetime_keys)))
-    ("status" (setq peta-journal--connection (plist-get message :connection))
-     (force-mode-line-update))
-    ("search" (peta-journal--on-search (plist-get message :results)
-                                       (plist-get message :searching)))
-    ("recent" (setq peta-journal--recent (append (plist-get message :paths) nil)))
-    ("page_names" (setq peta-journal--page-names
-                        (cons (plist-get message :query)
-                              (append (plist-get message :titles) nil))))
-    ("backlinks" (setq peta-journal--backlinks (plist-get message :groups)))
-    ("sidebar" (peta-journal--on-sidebar message))
-    ("message" (message "%s" (plist-get message :text)))
-    ("copy" (kill-new (plist-get message :text))
-     (message "Copied the selected items"))
-    ("ask" (peta-journal--on-ask (plist-get message :req)
-                                 (plist-get message :message)))))
+  (peta-journal-protocol-handle-outbound message peta-journal--line-handlers))
 
 (defun peta-journal--on-focus (id cursor ack)
   "Put the point in the item ID at CURSOR.
