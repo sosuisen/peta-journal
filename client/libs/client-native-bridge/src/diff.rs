@@ -17,9 +17,18 @@ pub enum ListChange<T> {
 /// The changes that make `before` into `after`. `id` gives the id of an item: no two items
 /// of one list have the same id.
 pub fn list_changes<T: Clone + PartialEq>(
-    _before: &[T],
-    _after: &[T],
+    before: &[T],
+    after: &[T],
     _id: impl Fn(&T) -> &str,
 ) -> Vec<ListChange<T>> {
-    Vec::new()
+    let mut changes = Vec::new();
+    for (at, (old, new)) in before.iter().zip(after).enumerate() {
+        if old != new {
+            changes.push(ListChange::Update {
+                at: at as u32,
+                item: new.clone(),
+            });
+        }
+    }
+    changes
 }
