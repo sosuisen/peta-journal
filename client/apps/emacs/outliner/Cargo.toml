@@ -24,3 +24,5 @@ chrono = "0.4.45"
 [dev-dependencies]
 # The answers of the server in the tests, and the lines read back as JSON
 serde_json = { workspace = true }
+# The registry of the types, to write the Lisp of the protocol (ADR 078)
+facet_generate = "=0.22.3"
