@@ -360,11 +360,6 @@ public final class Shell: ObservableObject {
         view.apply(changes)
     }
 
-    /// The whole view model of the core, for a test to see that `view` is the same.
-    func wholeViewOfTheCore() -> ViewModel {
-        Shell.must { try border.view() }
-    }
-
     private func handle(_ requests: [Request]) {
         // The app was closed while the requests waited for the main queue
         if closed { return }

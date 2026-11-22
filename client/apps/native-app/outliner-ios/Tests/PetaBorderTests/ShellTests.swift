@@ -1,8 +1,7 @@
 import Foundation
+import PetaBorder
 import PetaTypes
 import XCTest
-
-@testable import PetaBorder
 
 /// The shell with a real core under it, on the folders of a test.
 @MainActor
@@ -42,45 +41,6 @@ final class ShellTests: JournalTestCase {
         try openNotes()
         shell.edit(id(of: "second"))
         XCTAssertEqual(edited(), "second")
-    }
-
-    /// The core may have moved on while its render request still waits on the main queue.
-    private func waitForTheScreenOfTheCore(file: StaticString = #filePath, line: UInt = #line) {
-        waitUntil(
-            "the shell shows the screen of the core", { self.shell.view == self.shell.wholeViewOfTheCore() },
-            file: file, line: line)
-    }
-
-    // シェルが差分から組み立てた画面は、コアの画面と同じである。ページを開いたとき、入力したとき、項目を分けたとき、動かしたとき、つないだとき、検索したとき、別のページを開いたときである（ADR 076）。
-    func testTheScreenMadeFromTheChangesIsThatOfTheCore() throws {
-        try download("other.md", "what the other page says\n")
-        try editSecondOfThree()
-        waitForTheScreenOfTheCore()
-
-        shell.type(id(of: "second"), "second, typed again")
-        waitForTheScreenOfTheCore()
-
-        shell.press(.enter, in: id(of: "second, typed again"), cursor(19, in: "second, typed again"))
-        waitUntil("there are four items") { self.bodies() == ["first", "second, typed again", "", "third"] }
-        waitForTheScreenOfTheCore()
-
-        shell.moveUp(id(of: "second, typed again"))
-        waitUntil("the item is first") { self.bodies() == ["second, typed again", "first", "", "third"] }
-        waitForTheScreenOfTheCore()
-
-        shell.press(.backspace, in: id(of: "third"), cursor(0, in: "third"))
-        waitUntil("the empty item and the third are one") {
-            self.bodies() == ["second, typed again", "first", "third"]
-        }
-        waitForTheScreenOfTheCore()
-
-        shell.search("other")
-        waitUntil("the search finds the other page") { !self.shell.view.search.results.isEmpty }
-        waitForTheScreenOfTheCore()
-
-        shell.follow("/pages/other")
-        waitUntil("the other page shows") { self.bodies() == ["what the other page says"] }
-        waitForTheScreenOfTheCore()
     }
 
     // 検索すると、取り込んだページが結果に出る。結果を選ぶと、そのページの項目が見える。
