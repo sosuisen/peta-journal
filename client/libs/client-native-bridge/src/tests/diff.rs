@@ -100,3 +100,9 @@ fn a_list_that_keeps_no_item_is_reset_once() {
         }]
     );
 }
+
+// 前も今も空のときは、操作がない。
+#[test]
+fn two_empty_lists_have_no_changes() {
+    assert_eq!(changes(&[], &[]), vec![]);
+}
