@@ -76,17 +76,22 @@ impl Shown {
             },
             Some((had_rows, had_panels)) => Changes {
                 rows: list_changes(had_rows, &rows, |row| &row.item.id),
-                panels: panels
-                    .iter()
-                    .zip(had_panels)
-                    .filter(|(panel, had)| panel != had)
-                    .map(|(panel, _)| panel.clone())
-                    .collect(),
+                panels: changed(had_panels, &panels),
             },
         };
         self.had = Some((rows, panels));
         changes
     }
+}
+
+/// The panels of `now` that differ from those the shell had. Both lists come from [`split`],
+/// so a panel has the same place in each.
+fn changed(had: &[Panel], now: &[Panel]) -> Vec<Panel> {
+    now.iter()
+        .zip(had)
+        .filter(|(panel, had)| panel != had)
+        .map(|(panel, _)| panel.clone())
+        .collect()
 }
 
 /// The rows of the outline, and the panels of the rest of `view`.
