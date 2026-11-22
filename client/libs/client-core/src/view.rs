@@ -3,8 +3,8 @@
 use crate::app::{ConnectionState, Model, Screen};
 use crate::body_model::{Bodies, BodyModel};
 use crate::model::{
-    shown_name, IndexSort, Item, ItemRef, Page, PropertyDefinition, PropertyValue, SearchResult,
-    WeekNumbering,
+    shown_name, value_type_of, IndexSort, Item, ItemRef, Page, PropertyDefinition, PropertyValue,
+    SearchResult, WeekNumbering,
 };
 use crate::ops::wiki;
 use crate::outline::tree::starts_date_group;
@@ -119,6 +119,8 @@ pub struct PageProperty {
     pub name: String,
     pub value: String,
     pub is_list: bool,
+    /// The type to send a new value with (see `value_type_of`).
+    pub value_type: String,
     /// False for the page's own dates, which every page has.
     pub removable: bool,
     /// False for `modified`: the server moves it on every save.
@@ -136,20 +138,48 @@ impl PageProperty {
             name: shown_name(key, definitions),
             value,
             is_list,
+            value_type: value_type_of(key, is_list, definitions),
             removable: true,
             editable: true,
         }
     }
 
-    fn date(key: &str, millis: i64) -> PageProperty {
+    fn date(key: &str, millis: i64, definitions: &[PropertyDefinition]) -> PageProperty {
         PageProperty {
             key: key.to_string(),
             name: key.to_string(),
             value: format_instant(millis),
             is_list: false,
+            value_type: value_type_of(key, false, definitions),
             removable: false,
             editable: key != "modified",
         }
+    }
+}
+
+/// A key that a new property row of the page may take.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FreeKey {
+    pub key: String,
+    /// The name the screen shows (see `shown_name`).
+    pub name: String,
+    /// The type to send the first value with (see `value_type_of`).
+    pub value_type: String,
+}
+
+impl FreeKey {
+    /// The keys of `definitions` usable on pages that `properties` does not have yet.
+    fn of(properties: &[PageProperty], definitions: &[PropertyDefinition]) -> Vec<FreeKey> {
+        definitions
+            .iter()
+            .filter(|d| d.page && !properties.iter().any(|p| p.key == d.key))
+            .map(|d| FreeKey {
+                key: d.key.clone(),
+                name: shown_name(&d.key, definitions),
+                value_type: d.value_type.clone(),
+            })
+            .collect()
     }
 }
 
@@ -178,6 +208,8 @@ pub struct PageView {
     pub demote_name: String,
     pub focus_item_id: Option<String>,
     pub properties: Vec<PageProperty>,
+    /// The keys a new property row may take: usable on pages and not on the page yet.
+    pub free_keys: Vec<FreeKey>,
     /// True when the property rows are shown: the page has some, or the menu opened them.
     pub show_properties: bool,
     pub backlinks: Vec<BacklinkGroup>,
@@ -438,6 +470,18 @@ fn screen(model: &Model) -> ScreenView {
             page_id: j.page.as_ref().map(|p| p.id.clone()),
         }),
         Screen::Page(p) => ScreenView::Page(p.page.as_ref().map(|pg| {
+            let definitions = &model.config.property_definitions;
+            let properties: Vec<PageProperty> = [
+                PageProperty::date("created", pg.created_date, definitions),
+                PageProperty::date("modified", pg.modified_date, definitions),
+            ]
+            .into_iter()
+            .chain(
+                pg.properties
+                    .iter()
+                    .map(|(k, v)| PageProperty::of(k, v, definitions)),
+            )
+            .collect();
             Box::new(PageView {
                 page: pg.clone(),
                 title: page::page_title(pg),
@@ -448,17 +492,8 @@ fn screen(model: &Model) -> ScreenView {
                 can_demote: p.can_demote_index,
                 demote_name: page::demote_name(pg),
                 focus_item_id: p.focus_item_id.clone(),
-                properties: [
-                    PageProperty::date("created", pg.created_date),
-                    PageProperty::date("modified", pg.modified_date),
-                ]
-                .into_iter()
-                .chain(
-                    pg.properties
-                        .iter()
-                        .map(|(k, v)| PageProperty::of(k, v, &model.config.property_definitions)),
-                )
-                .collect(),
+                free_keys: FreeKey::of(&properties, definitions),
+                properties,
                 // The dates do not count: every page has them
                 show_properties: p.properties_open || !pg.properties.is_empty(),
                 backlinks: page::backlink_groups(&p.backlinks)

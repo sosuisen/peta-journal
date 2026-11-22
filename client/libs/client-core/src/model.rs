@@ -523,6 +523,18 @@ pub fn list_type_of(key: &str) -> &'static str {
     }
 }
 
+/// The type to send a value of the key with. A list stays a list, even when it has no
+/// definition. Any other key without a definition is text.
+pub fn value_type_of(key: &str, is_list: bool, definitions: &[PropertyDefinition]) -> String {
+    if is_list {
+        return list_type_of(key).to_string();
+    }
+    definitions
+        .iter()
+        .find(|d| d.key == key)
+        .map_or_else(|| "text".to_string(), |d| d.value_type.clone())
+}
+
 /// The types a user may give a new key, in the order the settings offer them.
 pub const USER_VALUE_TYPES: [ValueType; 7] = [
     ValueType::Text,

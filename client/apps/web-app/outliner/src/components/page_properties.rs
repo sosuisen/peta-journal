@@ -4,7 +4,6 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
-use client_core::model::{list_type_of, shown_name, PropertyDefinition};
 use client_core::view::ScreenView;
 use client_core::Event;
 use leptos::prelude::*;
@@ -24,25 +23,18 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
         ScreenView::Page(Some(p)) => p.properties.clone(),
         _ => Vec::new(),
     });
-    let definitions = core.select(|v| v.config.property_definitions.clone());
+    let free_keys = core.select(|v| match &v.screen {
+        ScreenView::Page(Some(p)) => p.free_keys.clone(),
+        _ => Vec::new(),
+    });
     let type_of = move |key: &str| {
-        definitions.with(|ds| {
-            ds.iter()
-                .find(|d| d.key == key)
-                .map(|d| d.value_type.clone())
+        free_keys.with(|ks| {
+            ks.iter()
+                .find(|k| k.key == key)
+                .map(|k| k.value_type.clone())
                 .unwrap_or_else(|| "text".to_string())
         })
     };
-    // The keys a new row may take: usable on pages and not on the page yet
-    let free_keys = Memo::new(move |_| {
-        let used: Vec<String> = properties.with(|ps| ps.iter().map(|p| p.key.clone()).collect());
-        definitions.with(|ds| {
-            ds.iter()
-                .filter(|d| d.page && !used.contains(&d.key))
-                .cloned()
-                .collect::<Vec<PropertyDefinition>>()
-        })
-    });
     let next_id = StoredValue::new(1u32);
     let add_draft = move |_| {
         let id = next_id.get_value();
@@ -63,7 +55,7 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                     let key = key.clone();
                     move |_| properties.with(|ps| ps.iter().find(|q| q.key == key).map(|q| q.value.clone()).unwrap_or_default())
                 });
-                let value_type = if p.is_list { list_type_of(&p.key).to_string() } else { type_of(&p.key) };
+                let value_type = p.value_type.clone();
                 let send = {
                     let key = key.clone();
                     let value_type = value_type.clone();
@@ -112,7 +104,7 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                     <div class="property-row draft">
                         <select class="property-key-select" prop:value=move || key.get() on:change=pick>
                             <option value="">"key"</option>
-                            {move || free_keys.get().into_iter().map(|d| { let name = definitions.with(|ds| shown_name(&d.key, ds)); view! { <option value=d.key.clone()>{name}</option> } }).collect_view()}
+                            {move || free_keys.get().into_iter().map(|k| view! { <option value=k.key.clone()>{k.name.clone()}</option> }).collect_view()}
                         </select>
                         {move || {
                             let t = value_type.get();
