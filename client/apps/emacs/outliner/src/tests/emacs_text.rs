@@ -193,3 +193,22 @@ fn a_code_block_in_a_quote_is_flat_behind_a_quote_mark_on_each_line() {
         ]
     );
 }
+
+// 表の升は、全角を2と数えた幅で、列ごとにそろう。升の間の縦線は、升の後ろの改行の代わりの表示の文字である。
+#[test]
+fn the_cells_of_a_table_line_up_in_columns_and_the_bar_stands_for_the_line_break_of_a_cell() {
+    let text = text_of("| 名前 | 値 |\n|---|---|\n| a | 長い値 |");
+
+    assert_eq!(text.text, "名前 │ 値\na    │ 長い値\n");
+    assert_eq!(
+        parts_of(&text),
+        [
+            (0, 2, vec![EmacsLook::TableHeader], true),
+            (2, 3, vec![], false),
+            (4, 5, vec![], false),
+            (5, 6, vec![EmacsLook::TableHeader], true),
+            (8, 12, vec![], false),
+            (13, 14, vec![], false),
+        ]
+    );
+}
