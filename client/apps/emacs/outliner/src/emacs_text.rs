@@ -15,10 +15,6 @@ pub struct EmacsText {
     pub text: String,
     /// The parts of the text that are not plain shown letters, in the order of `from`.
     pub spans: Vec<EmacsSpan>,
-    /// How many characters `text` has.
-    #[facet(skip)]
-    #[serde(skip)]
-    length: u32,
 }
 
 /// A part of the text with its looks, its link or its image.
@@ -34,6 +30,16 @@ pub struct EmacsSpan {
     /// False for what Rust added, such as a list mark or the spaces of a table: they are
     /// not letters of the shown text (ADR 044).
     pub letters: bool,
+}
+
+impl EmacsSpan {
+    /// True when `other` tells the same of its letters, wherever it is.
+    fn same_as(&self, other: &EmacsSpan) -> bool {
+        self.looks == other.looks
+            && self.link == other.link
+            && self.image == other.image
+            && self.letters == other.letters
+    }
 }
 
 /// How a part of the text looks.
@@ -98,24 +104,53 @@ const RULE_WIDTH: usize = 20;
 impl BodyModel for EmacsText {
     fn of(ast: Node, tags_dir: &str) -> EmacsText {
         let rich = RichText::of(ast, tags_dir);
-        let mut text = EmacsText::default();
-        text.blocks(&rich.blocks);
-        text
+        let mut writer = Writer::default();
+        writer.blocks(&rich.blocks);
+        writer.made
     }
 }
 
-impl EmacsText {
+/// Makes an `EmacsText` from the top of the body to the bottom.
+#[derive(Default)]
+struct Writer {
+    made: EmacsText,
+    /// How many characters the text has.
+    length: u32,
+    /// What stands at the head of each line, for the entries and the quotes that the
+    /// blocks being written are inside, from the outside in.
+    prefixes: Vec<Prefix>,
+}
+
+/// What stands at the head of each line of a part that is inside another.
+struct Prefix {
+    /// For the first line only, with its looks, such as the mark of an entry. The first
+    /// line takes it.
+    first: Option<(String, Vec<EmacsLook>)>,
+    /// For each line after it, with its looks.
+    rest: (&'static str, Vec<EmacsLook>),
+}
+
+impl Writer {
     fn blocks(&mut self, blocks: &[RichBlock]) {
         for block in blocks {
             match block {
                 RichBlock::Text { paragraphs } => paragraphs
                     .iter()
                     .for_each(|paragraph| self.paragraph(paragraph)),
-                RichBlock::Code { lines, .. } => {
-                    self.write(lines, Part::looking(vec![EmacsLook::CodeBlock]));
-                    self.write("\n", Part::default());
+                RichBlock::Code { lines, .. } => self.code(lines),
+                RichBlock::Entries { entries } => {
+                    for entry in entries {
+                        self.within(
+                            Prefix {
+                                first: Some((format!("{} ", entry.mark), vec![EmacsLook::Mark])),
+                                rest: (INDENT, Vec::new()),
+                            },
+                            &entry.blocks,
+                        );
+                    }
                 }
                 RichBlock::Image { image } => {
+                    self.line_start();
                     // The line break too: an image has no shown letters (ADR 044). A line
                     // break alone would leave no place to show the image on.
                     let alt = if image.alt.is_empty() {
@@ -137,9 +172,49 @@ impl EmacsText {
         }
     }
 
+    /// Writes `blocks` with `prefix` at the head of each of their lines.
+    fn within(&mut self, prefix: Prefix, blocks: &[RichBlock]) {
+        self.prefixes.push(prefix);
+        self.blocks(blocks);
+        self.prefixes.pop();
+    }
+
+    /// The lines of a code block, each behind the prefixes of its line.
+    fn code(&mut self, lines: &str) {
+        let mut lines = lines.split('\n').peekable();
+        while let Some(line) = lines.next() {
+            self.line_start();
+            self.write(line, Part::looking(vec![EmacsLook::CodeBlock]));
+            // The line breaks between the lines are lines of the code too
+            if lines.peek().is_some() {
+                self.write("\n", Part::looking(vec![EmacsLook::CodeBlock]));
+            } else {
+                self.write("\n", Part::default());
+            }
+        }
+    }
+
+    /// Writes the prefixes at the head of a new line.
+    fn line_start(&mut self) {
+        let heads: Vec<(String, Vec<EmacsLook>)> = self
+            .prefixes
+            .iter_mut()
+            .map(|prefix| {
+                prefix
+                    .first
+                    .take()
+                    .unwrap_or_else(|| (prefix.rest.0.to_string(), prefix.rest.1.clone()))
+            })
+            .collect();
+        for (head, looks) in heads {
+            self.write(&head, Part::added(looks));
+        }
+    }
+
     fn paragraph(&mut self, paragraph: &RichParagraph) {
+        self.line_start();
         self.before_paragraph(paragraph);
-        let (start, first_span) = (self.length, self.spans.len());
+        let (start, first_span) = (self.length, self.made.spans.len());
         for run in &paragraph.runs {
             self.write(
                 &run.text,
@@ -152,7 +227,7 @@ impl EmacsText {
         }
         if let Some(look) = heading_look(paragraph.heading) {
             // Before the spans of its runs, so that the spans stay in the order of `from`
-            self.spans.insert(
+            self.made.spans.insert(
                 first_span,
                 EmacsSpan {
                     from: start,
@@ -188,22 +263,31 @@ impl EmacsText {
         }
     }
 
-    /// Writes `letters` at the end of the text, with a span when they are not plain.
+    /// Writes `letters` at the end of the text, with a span when they are not plain. A span
+    /// right after one that is the same grows it instead.
     fn write(&mut self, letters: &str, part: Part) {
+        if letters.is_empty() {
+            return;
+        }
         let from = self.length;
-        self.text.push_str(letters);
+        self.made.text.push_str(letters);
         self.length = self
             .length
             .saturating_add(u32::try_from(letters.chars().count()).unwrap_or(u32::MAX));
-        if !part.is_plain() {
-            self.spans.push(EmacsSpan {
-                from,
-                to: self.length,
-                looks: part.looks,
-                link: part.link,
-                image: part.image,
-                letters: !part.added,
-            });
+        if part.is_plain() {
+            return;
+        }
+        let span = EmacsSpan {
+            from,
+            to: self.length,
+            looks: part.looks,
+            link: part.link,
+            image: part.image,
+            letters: !part.added,
+        };
+        match self.made.spans.last_mut() {
+            Some(last) if last.to == from && last.same_as(&span) => last.to = span.to,
+            _ => self.made.spans.push(span),
         }
     }
 }
