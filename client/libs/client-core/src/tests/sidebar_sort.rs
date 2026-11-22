@@ -101,6 +101,14 @@ fn pages_with_the_same_date_keep_the_name_order() {
     assert_eq!(names(&sorted), vec!["c", "b", "a"]);
 }
 
+// 一覧の見出しは、そのフォルダの index ページを開く。ルートでは、ルートの index ページを開く。
+#[test]
+fn the_header_opens_the_index_page_of_its_folder() {
+    use crate::screens::sidebar::index_path;
+    assert_eq!(index_path("notes/sub/"), "notes/sub/index");
+    assert_eq!(index_path("(root)/"), "index");
+}
+
 // 親の項目は親ディレクトリの index ページを開く。ルートにはそれ以上の親がない。
 #[test]
 fn the_parent_entry_opens_the_index_page_of_the_parent_directory() {

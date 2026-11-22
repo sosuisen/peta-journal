@@ -250,9 +250,9 @@ fn DocPage() -> impl IntoView {
                             let p = p2.clone();
                                                         move || {
                                 let p = p.clone();
-                                let crumbs = p.dir_segments.iter().enumerate().map(|(i, DirSegment { name, path })| {
+                                let crumbs = p.dir_segments.iter().enumerate().map(|(i, DirSegment { name, index_path, .. })| {
                                     let last = i + 1 == p.dir_segments.len();
-                                                                        let path = path.clone();
+                                                                        let path = index_path.clone();
                                     if p.is_index && last {
                                         let pp = p.clone();
                                         view! {
@@ -261,7 +261,7 @@ fn DocPage() -> impl IntoView {
                                         }.into_any()
                                     } else {
                                         view! {
-                                            <a class="dir-segment" on:click=move |_| core.send(Event::GoToPage { path: format!("{path}/index"), new_tab: false, new_window: false })>{name.clone()}</a>
+                                            <a class="dir-segment" on:click=move |_| core.send(Event::GoToPage { path: path.clone(), new_tab: false, new_window: false })>{name.clone()}</a>
                                             <span class="breadcrumb-slash">"/"</span>
                                         }.into_any()
                                     }

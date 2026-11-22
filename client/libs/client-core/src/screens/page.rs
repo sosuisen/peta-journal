@@ -316,6 +316,7 @@ pub fn dir_path_segments(dir_path: &str) -> Vec<DirSegment> {
             DirSegment {
                 name: part.to_string(),
                 path: path.clone(),
+                index_path: format!("{path}/index"),
             }
         })
         .collect()

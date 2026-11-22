@@ -92,6 +92,7 @@ class AppliedTest {
             Panel.Sidebar(
                 SidebarView(
                     indexHeader = "index",
+                    indexPath = "index",
                     indexSort = IndexSort(IndexSortKey.NAME, SortOrder.ASC),
                     indexPages = emptyList(),
                     headings = emptyList(),

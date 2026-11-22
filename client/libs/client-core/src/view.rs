@@ -161,6 +161,8 @@ pub struct DirSegment {
     pub name: String,
     /// The folders from the root down to this one, with `/` between them.
     pub path: String,
+    /// The path of the index page of this folder, which the segment opens.
+    pub index_path: String,
 }
 
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
@@ -279,6 +281,8 @@ pub struct AtlasCard {
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct SidebarView {
     pub index_header: String,
+    /// The path of the index page that the header of the index list opens.
+    pub index_path: String,
     pub index_sort: IndexSort,
     /// The path the `../` entry opens; None in the root directory.
     pub index_parent_path: Option<String>,
@@ -549,6 +553,7 @@ fn sidebar(model: &Model) -> SidebarView {
     let index_sort = sidebar::index_sort(model);
     SidebarView {
         index_header: model.sidebar.index_header.clone(),
+        index_path: sidebar::index_path(&model.sidebar.index_header),
         index_sort,
         index_parent_path: sidebar::parent_index_path(&model.sidebar.index_header),
         index_pages: sidebar::sorted_index_pages(&model.sidebar.index_pages, index_sort)

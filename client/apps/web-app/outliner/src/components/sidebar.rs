@@ -151,6 +151,7 @@ pub fn Sidebar() -> impl IntoView {
     };
 
     let index_header = core.select(|v| v.sidebar.index_header.clone());
+    let index_path = core.select(|v| v.sidebar.index_path.clone());
     let index_pages = core.select(|v| v.sidebar.index_pages.clone());
     let index_sort = core.select(|v| v.sidebar.index_sort);
     let index_parent_path = core.select(|v| v.sidebar.index_parent_path.clone());
@@ -235,8 +236,7 @@ pub fn Sidebar() -> impl IntoView {
                             <div class="section-header">
                                 <h3 class="section-title section-title-link index-header-title" on:click={
                                                                         move |ev: web_sys::MouseEvent| {
-                                        let header = index_header.get();
-                                        let path = if header == "(root)/" { "index".to_string() } else { format!("{header}index") };
+                                        let path = index_path.get();
                                         core.send(Event::GoToPage { path, new_tab: ev.ctrl_key() || ev.meta_key(), new_window: ev.shift_key() });
                                     }
                                 }>
