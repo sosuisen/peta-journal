@@ -7,8 +7,8 @@ Markdown, and the sync uploads the pages that changed in the app.
 
 The core is the same Crux core as in the other frontends. There is no journal server on a
 phone, so the journal core runs inside the app (ADR 029). `client/libs/client-shell-embedded`
-wraps both, and is packed here for iOS as it is for Android. Swift gets the view model and the
-requests of the screen as bytes (bincode), and sends events the same way. ADR 034 says what
+wraps both, and is packed here for iOS as it is for Android. Swift gets what changed on the
+screen and the requests of the core as bytes (bincode), and sends events the same way. ADR 034 says what
 the iOS shell takes from the Android shell and where it differs. ADR 030 and ADR 031 say how
 the app syncs, where it keeps its data, how it edits and how it uploads.
 
@@ -141,7 +141,10 @@ copy of Dropbox.
   files through the `Shell`. `CloudAccount` is what the app needs of the account of the
   storage. `Border` is the core
   behind its border of bytes. `Shell` keeps the view model up to date with the core and sends
-  what the user did. The parts of an item as it is shown come from the core with each row
+  what the user did. `Applied.swift` makes the view model from the changes of the core (ADR 076):
+  the first changes hold every panel, and after them only the panels that changed come, with the
+  changes to the rows of the outline, which are applied in order. `Shell` never reads the whole
+  view model of the core, but its tests do, to see that the two are the same. The parts of an item as it is shown come from the core with each row
   (`Row.bodyModel`, ADR 042). `RichLinks` makes the link of a run a URL, which a text of
   SwiftUI takes, and back again when it is touched.
 - `PetaDropbox` is Dropbox, with the SDK. `DropboxAccount` is the sign-in and the sign-out, as
