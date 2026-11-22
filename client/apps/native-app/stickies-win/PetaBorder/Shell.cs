@@ -60,7 +60,7 @@ public sealed partial class Shell : IDisposable
         // The main thread keeps the requests in order. The first ones may come before the
         // border is there, and are still handled after this constructor
         border = new Border(server, requests => onMainThread(() => Handle(requests)));
-        View = border.View();
+        View = Applied.First(border.Changes());
         if (url is not null)
             Open(url);
     }
@@ -88,6 +88,12 @@ public sealed partial class Shell : IDisposable
     public FocusOrder? Focus => View.Outline.FocusOrder;
 
     public event Action? ViewChanged;
+
+    /// <summary>
+    /// The rows of the outline changed: the changes, applied in order to the rows as they were,
+    /// make them the rows of <see cref="View"/> now. It comes before <see cref="ViewChanged"/>.
+    /// </summary>
+    public event Action<IReadOnlyList<ListChange>>? RowsChanged;
     public event Action? TitleChanged;
     public event Action? UrlChanged;
     public event Action? QuestionChanged;
@@ -251,7 +257,7 @@ public sealed partial class Shell : IDisposable
     {
         border.Typed(typing);
         // As after Send: an editor that reads its old text back after a key loses the key
-        Show(border.View());
+        Show(border.Changes());
     }
 
     /// <summary>Answers the confirmation on screen.</summary>
@@ -261,7 +267,7 @@ public sealed partial class Shell : IDisposable
             return;
         Question = null;
         border.Answer(asked.Id, new UiOutput.Bool(yes));
-        Show(border.View());
+        Show(border.Changes());
         QuestionChanged?.Invoke();
     }
 
@@ -278,13 +284,19 @@ public sealed partial class Shell : IDisposable
         // Not left to the render request. It comes a turn of the main thread later, and an
         // editor that reads its old text back after a key loses the key. Some events, such as
         // the start of an edit, send no render request at all
-        Show(border.View());
+        Show(border.Changes());
     }
 
-    private void Show(ViewModel view)
+    /// <summary>
+    /// Puts what changed on the screen into <see cref="View"/>, and tells the views. The core
+    /// sends only what changed since it was last asked (ADR 076).
+    /// </summary>
+    private void Show(Changes changes)
     {
         var before = Title;
-        View = view;
+        Applied.To(View, changes);
+        if (changes.Rows.Count > 0)
+            RowsChanged?.Invoke(changes.Rows);
         // Not told when it is the same: everything that watches the title would run
         if (Title != before)
             TitleChanged?.Invoke();
@@ -302,7 +314,7 @@ public sealed partial class Shell : IDisposable
             switch (request.Effect)
             {
                 case ShellEffect.Render:
-                    Show(border.View());
+                    Show(border.Changes());
                     break;
                 case ShellEffect.Navigate { Value: var op }:
                     Open(op.Url);
@@ -319,7 +331,7 @@ public sealed partial class Shell : IDisposable
         // The order itself is in the view model. It is read again here: no render request has
         // to come with the order
         if (cursors.Count > 0)
-            Show(border.View());
+            Show(border.Changes());
         foreach (var id in cursors)
         {
             border.Answer(id, new UiOutput.Done());
