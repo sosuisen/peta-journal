@@ -82,9 +82,6 @@ public sealed class Border : IDisposable
         core.Resolve(id, output.BincodeSerialize());
     }
 
-    /// <summary>The whole view model, to draw after a render request.</summary>
-    public ViewModel View() => ViewModel.BincodeDeserialize(core.View());
-
     /// <summary>
     /// What changed on the screen since the last call: the changes to the rows of the outline,
     /// and the panels that changed (ADR 076). The first call gives a reset of the rows and

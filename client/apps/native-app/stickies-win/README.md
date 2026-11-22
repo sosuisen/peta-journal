@@ -8,8 +8,8 @@ the stickies are kept between runs. The keys of the outline work as in the web f
 
 The core is the same Crux core as in the web, the Emacs and the SwiftUI frontends.
 `client/libs/client-native-bridge` wraps it for a shell that is not written in Rust. Calls to
-the journal server, timers and the clock stay in Rust. C# gets the view model and the requests
-of the screen as bytes (bincode), and sends events and answers the same way. ADR 028 says why
+the journal server, timers and the clock stay in Rust. C# gets what changed on the screen (ADR 076) and
+the requests of the core as bytes (bincode), and sends events and answers the same way. ADR 028 says why
 the shell is made this way.
 
 ## Prerequisites

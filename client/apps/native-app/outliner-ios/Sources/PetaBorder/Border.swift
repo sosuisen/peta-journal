@@ -66,12 +66,6 @@ final class Border: @unchecked Sendable {
         try open.resolve(id: id, output: Data(try output.bincodeSerialize()))
     }
 
-    /// The whole view model of the core. Only the tests read it: the shell keeps its view model
-    /// from `changes()`, and the two are not to be mixed (ADR 076).
-    func view() throws -> ViewModel {
-        try ViewModel.bincodeDeserialize(input: [UInt8](open.view()))
-    }
-
     /// What changed on the screen since the last call: the changes to the rows of the outline,
     /// and the panels that changed (ADR 076). The first call gives a reset of the rows and every
     /// panel. Call it from the main thread only.

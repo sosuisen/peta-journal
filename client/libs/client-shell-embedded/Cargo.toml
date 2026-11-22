@@ -18,6 +18,8 @@ journal-core = { path = "../../../journal/journal-core", default-features = fals
 boltffi = "=0.32.1"
 
 [dev-dependencies]
+# The whole view model, for the tests to look for words in it (ADR 076)
+client-native-bridge = { path = "../client-native-bridge", features = ["test-support"] }
 tempfile = "3"
 # The date of today, to name the journal a test expects
 chrono = "0.4.45"

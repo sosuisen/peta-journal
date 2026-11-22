@@ -27,6 +27,10 @@ flatmarkdown = { workspace = true }
 tempfile = "3"
 
 [features]
+# The whole view model of `NativeShell::view`, for the tests of the crates with an entrance.
+# They turn it on in their `[dev-dependencies]`, so no app is built with it: a shell reads
+# only `changes()` (ADR 076)
+test-support = []
 # Describes the types that cross the border, to generate the types of the shells from them.
 # `#[effect(facet_typegen)]` asks for this name
 facet_typegen = [
