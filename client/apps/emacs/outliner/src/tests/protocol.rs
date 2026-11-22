@@ -1,7 +1,7 @@
+use crate::protocol::SelectionKey;
 use crate::protocol::{
     read_line, write_line, Bullet, Inbound, Outbound, RowView, SidebarView, TaskMark,
 };
-use client_core::app::SelectionKey;
 use client_core::view::TaskState;
 use serde_json::{json, Value};
 

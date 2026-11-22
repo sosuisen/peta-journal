@@ -1,9 +1,9 @@
+use crate::protocol::SelectionKey;
 use crate::protocol::{
     Bullet, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView, SidebarHeading,
     SidebarView,
 };
 use crate::shell::{Host, Input, Now, Shell};
-use client_core::app::SelectionKey;
 use client_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
 use client_core::model::{PropertyDefinition, TreeExport, Uploaded};
 use client_core::rest::ClientId;
