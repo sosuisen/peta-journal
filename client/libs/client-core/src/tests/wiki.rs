@@ -204,6 +204,32 @@ fn a_pick_for_an_item_that_is_gone_only_closes_the_popup() {
     assert!(update_calls(&h.api).is_empty());
 }
 
+// ポップアップが開いているとき、Escape はポップアップを閉じ、本文は変わらない。
+#[test]
+fn escape_closes_the_popup_and_leaves_the_body() {
+    let mut h = editing("see [[To]]");
+    offers(&mut h, &["Todo", "Tools"]);
+    typed_in_link(&mut h, "To");
+    h.fire_timers();
+    key(&mut h, "Escape");
+
+    let wiki = h.view().outline.wiki;
+    assert!(wiki.suggestions.is_empty());
+    assert_eq!(wiki.item_id, None);
+    assert!(update_calls(&h.api).is_empty());
+}
+
+// ポップアップが編集欄から取るキーは、上下の矢印、Enter、Escape だけである。
+#[test]
+fn the_popup_takes_the_arrows_up_and_down_enter_and_escape() {
+    use crate::ops::wiki::takes_key;
+    for key in ["ArrowUp", "ArrowDown", "Enter", "Escape"] {
+        assert!(takes_key(key), "{key}");
+    }
+    assert!(!takes_key("ArrowLeft"));
+    assert!(!takes_key("a"));
+}
+
 fn open_link_at(h: &mut Harness, cursor: usize) {
     h.send(Event::OpenLinkAt {
         item_id: "a".into(),

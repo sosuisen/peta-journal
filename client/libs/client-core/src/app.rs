@@ -392,7 +392,7 @@ pub enum Event {
         item_id: String,
         context: Option<WikiLinkContext>,
     },
-    /// ArrowUp, ArrowDown or Enter while the popup is open.
+    /// ArrowUp, ArrowDown, Enter or Escape while the popup is open.
     WikiKey {
         key: String,
     },
