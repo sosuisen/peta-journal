@@ -24,41 +24,9 @@ internal static class Applied
     {
         foreach (var panel in changes.Panels)
             Put(view, panel);
-        Rows(view.Outline.Rows, changes.Rows);
+        var rows = view.Outline.Rows;
+        ListChanges.Apply(rows, changes.Rows, row => row, (at, row) => rows[at] = row);
     }
-
-    /// <summary>Applies the changes to the rows, one after another.</summary>
-    public static void Rows<T>(IList<T> rows, IEnumerable<ListChange> changes, Func<Row, T> of)
-    {
-        foreach (var change in changes)
-        {
-            switch (change)
-            {
-                case ListChange.Insert insert:
-                    rows.Insert((int)insert.At, of(insert.Item));
-                    break;
-                case ListChange.Remove remove:
-                    rows.RemoveAt((int)remove.At);
-                    break;
-                case ListChange.Move move:
-                    var moved = rows[(int)move.From];
-                    rows.RemoveAt((int)move.From);
-                    rows.Insert((int)move.To, moved);
-                    break;
-                case ListChange.Update update:
-                    rows[(int)update.At] = of(update.Item);
-                    break;
-                case ListChange.Reset reset:
-                    rows.Clear();
-                    foreach (var row in reset.Items)
-                        rows.Add(of(row));
-                    break;
-            }
-        }
-    }
-
-    private static void Rows(IList<Row> rows, IEnumerable<ListChange> changes) =>
-        Rows(rows, changes, row => row);
 
     private static void Put(ViewModel view, Panel panel)
     {
