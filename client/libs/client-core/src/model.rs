@@ -755,6 +755,10 @@ mod tests {
             Some(TextKey::MoveTo(1))
         );
         assert_eq!(
+            deferred("ArrowRight").text_key(text, 1, 1),
+            Some(TextKey::MoveTo(2))
+        );
+        assert_eq!(
             deferred("ArrowRight").text_key(text, 3, 3),
             Some(TextKey::MoveTo(3))
         );
