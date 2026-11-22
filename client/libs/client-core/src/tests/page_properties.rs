@@ -293,6 +293,19 @@ fn a_dragged_tag_moves_before_or_after_the_target() {
     assert!(upserted(&h).is_empty());
 }
 
+// タグを自分自身の上に落としても、何も送らない。
+#[test]
+fn a_tag_dropped_on_itself_stays() {
+    let mut h = with_list("tags", &["a", "b"]);
+    h.send(Event::MovePageTag {
+        key: "tags".into(),
+        tag: "a".into(),
+        target: "a".into(),
+        after: true,
+    });
+    assert!(upserted(&h).is_empty());
+}
+
 // 打ったタグは、リストの後ろに足される。# と、すでにあるタグは落とされる。
 #[test]
 fn typed_tags_are_added_after_the_list() {
