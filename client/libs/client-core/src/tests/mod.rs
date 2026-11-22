@@ -7,6 +7,7 @@ mod edit;
 mod home;
 mod keys;
 mod level;
+mod list_changes;
 mod merge;
 mod moves;
 mod split;

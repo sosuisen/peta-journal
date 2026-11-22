@@ -1,4 +1,4 @@
-use crate::diff::{list_changes, ListChange};
+use crate::changes::{list_changes, ListChange};
 use proptest::prelude::*;
 
 /// An item of a list in a test: its id, and what it holds.

@@ -1,9 +1,10 @@
 //! [`NativeShell`]: the core under Crux's `EffectRouter`, which sends each effect either to this
 //! side or, as bytes, to the shell.
 
-use crate::changes::{Changes, Shown};
 use crate::clock::Clock;
 use crate::BorderApp;
+use crate::Changes;
+use client_core::changes::Shown;
 use client_core::drag::{DragMove, ItemDrag};
 use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, TimerOp, TimerOutput, UiOp,
@@ -253,7 +254,7 @@ pub struct NativeShell {
     /// The drag of the mouse that started on the text of an item, if one is on.
     drag: Mutex<ItemDrag>,
     /// What the shell was last told by [`NativeShell::changes`].
-    shown: Mutex<Shown>,
+    shown: Mutex<Shown<RichText>>,
 }
 
 impl NativeShell {
