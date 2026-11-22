@@ -330,6 +330,25 @@ The shell tells the place in the Markdown with a focus."
     (should-error (delete-char 1) :type 'text-read-only)
     (should (equal (peta-journal-test--shown) "• x\n• yz\n"))))
 
+;; Markdownを見せる行の更新で、本文が同じなら、行は書き換えられない。届いた表示の形は、pointが出たときに使われる。
+(ert-deftest peta-journal-an-update-of-the-markdown-row-with-the-same-body-keeps-the-row ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "**x**")
+                                      (peta-journal-test--row "b" 1 "y"))
+    (peta-journal-test--goto "a" 2)
+    (let ((marker (point-marker)))
+      (peta-journal-test--change
+       "page"
+       (list :Update
+             (list :at 0
+                   :item (peta-journal-test--row
+                          "a" 1 "**x**"
+                          :text (peta-journal-test--text
+                                 "x\n" (peta-journal-test--span 0 1 :looks ["bold"]))))))
+      (should (= marker (point)))
+      (should (= (peta-journal--cursor) 2)))
+    (peta-journal-test--goto "b" 0)
+    (should (equal (peta-journal-test--shown) "• x\n• y\n"))))
+
 ;;;; Protecting the marks
 
 ;; バレットと項目の区切りは編集できない。項目をまたぐ削除は、エラーになる。
