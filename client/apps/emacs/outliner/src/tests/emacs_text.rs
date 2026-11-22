@@ -114,3 +114,13 @@ fn a_quoted_paragraph_has_a_quote_mark_for_each_quote_which_is_not_letters() {
         ]
     );
 }
+
+// 区切り線は、表示の文字ではない線である。
+#[test]
+fn a_rule_is_a_line_that_is_not_letters() {
+    let text = text_of("上\n\n---\n\n下");
+
+    let line = "─".repeat(20);
+    assert_eq!(text.text, format!("上\n{line}\n下\n"));
+    assert_eq!(parts_of(&text), [(2, 22, vec![EmacsLook::Rule], false)]);
+}
