@@ -12,7 +12,7 @@
 use super::outline;
 use crate::body_model::Bodies;
 use crate::harness::{item, typed, Harness};
-use crate::model::Item;
+use crate::model::{Item, ItemPosition};
 use crate::RichText;
 use std::time::Instant;
 
@@ -28,7 +28,7 @@ fn timed<T>(work: impl FnOnce() -> T) -> f64 {
 fn report(name: &str, mut ms: Vec<f64>) {
     ms.sort_by(f64::total_cmp);
     println!(
-        "TIMING {name}: median {:.2}ms, worst {:.2}ms",
+        "TIMING {name}: median {:.3}ms, worst {:.3}ms",
         ms[ms.len() / 2],
         ms[ms.len() - 1]
     );
@@ -98,5 +98,61 @@ fn the_parts_of_the_view_model_of_a_key_on_a_long_page() {
     }
     for (name, ms) in parts {
         report(name, ms);
+    }
+}
+
+/// A doc page with `count` items, at the levels of the page of `TypingSpeedTests`.
+fn page_of(count: usize) -> Harness {
+    Harness::with_items(
+        (0..count)
+            .map(|n| {
+                let level = i32::try_from(n % 3 + 1).unwrap();
+                item(&format!("{n:04}"), level, &format!("item {n}"))
+            })
+            .collect(),
+    )
+}
+
+// 項目が1、10、100、1000のページで、キー、項目の追加、削除、移動のそれぞれに、ビューモデルを作り終えるまでの時間を測る。索引が行数の少ないページで逆効果にならないかを見るためである（#939）。
+#[test]
+#[ignore = "prints times: run it in release mode with --ignored --nocapture"]
+fn a_key_and_a_change_of_the_items_on_pages_of_every_length() {
+    for count in [1, 10, 100, 1000] {
+        let mut h = page_of(count);
+        let (mut keys, mut added, mut deleted, mut moved) = (vec![], vec![], vec![], vec![]);
+        let last = format!("{:04}", count - 1);
+        for n in 1..=KEYS {
+            keys.push(timed(|| {
+                typed(&mut h, "0000", &"a".repeat(n));
+                h.view()
+            }));
+            added.push(timed(|| {
+                h.model
+                    .state
+                    .add_item(item("new", 2, "new"), &ItemPosition::after("0000"));
+                h.view()
+            }));
+            deleted.push(timed(|| {
+                h.model.state.delete_item("new");
+                h.view()
+            }));
+            moved.push(timed(|| {
+                // The last item goes to the top and back, by turns
+                let item = Item::clone(&h.model.state.get_item_by_id(&last).unwrap());
+                let place = if n % 2 == 1 {
+                    ItemPosition::after("0000")
+                } else {
+                    ItemPosition::Last
+                };
+                h.model
+                    .state
+                    .replace_items(&[last.clone()], vec![item], &place);
+                h.view()
+            }));
+        }
+        report(&format!("{count} items: a key"), keys);
+        report(&format!("{count} items: an item added"), added);
+        report(&format!("{count} items: an item deleted"), deleted);
+        report(&format!("{count} items: an item moved"), moved);
     }
 }
