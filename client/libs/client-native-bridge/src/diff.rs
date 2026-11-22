@@ -19,15 +19,27 @@ pub enum ListChange<T> {
 pub fn list_changes<T: Clone + PartialEq>(
     before: &[T],
     after: &[T],
-    _id: impl Fn(&T) -> &str,
+    id: impl Fn(&T) -> &str,
 ) -> Vec<ListChange<T>> {
     let mut changes = Vec::new();
-    for (at, (old, new)) in before.iter().zip(after).enumerate() {
-        if old != new {
-            changes.push(ListChange::Update {
-                at: at as u32,
-                item: new.clone(),
-            });
+    let mut shown = before.to_vec();
+    for (at, new) in after.iter().enumerate() {
+        match shown.get(at) {
+            Some(old) if id(old) == id(new) => {
+                if old != new {
+                    changes.push(ListChange::Update {
+                        at: at as u32,
+                        item: new.clone(),
+                    });
+                }
+            }
+            _ => {
+                shown.insert(at, new.clone());
+                changes.push(ListChange::Insert {
+                    at: at as u32,
+                    item: new.clone(),
+                });
+            }
         }
     }
     changes
