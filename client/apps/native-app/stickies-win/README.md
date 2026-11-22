@@ -35,7 +35,8 @@ cd peta-journal/client/apps/native-app/stickies-win
 dotnet test PetaBorder.Tests
 ```
 
-`generate.sh` does the same as `generate.ps1`, for Git Bash.
+`generate.sh` does the same as `generate.ps1`, for Git Bash. It runs on a Mac too (see "Tests
+on a Mac" below).
 
 `generate.ps1` builds the Rust library optimized (`boltffi pack csharp --release`). It makes
 two C# projects under `generated/`. Run it again after a change in Rust. `generated/` is not
@@ -290,6 +291,10 @@ page with the typed name.
 `dotnet test PetaBorder.Tests` runs the tests of `PetaBorder`. `PetaScreens.Tests` tests the
 windows (see "Tests of the windows" below).
 
+`AppliedTests` need no journal server. They check that the changes of the core make the view
+model: the first changes make every part, a panel that comes takes the place of its part only,
+and the outline panel keeps the rows.
+
 `BorderTests` need no journal server. They check that C# reads what Rust writes (the view
 model, the requests) and that Rust reads what C# writes (events, answers). `StickyTests` need
 none either. `ShownTextTests` need none but one: the test of every kind of node gets the AST
@@ -312,6 +317,23 @@ The tests start the server themselves, with all its files in a temporary folder.
 `ShellTests` use port 18111, and `ShownTextTests` use port 18112. The tests check that the
 server writes its Markdown there before they use it. The notes of whoever runs the tests are
 never touched.
+
+### Tests on a Mac
+
+`PetaBorder` and its tests have no WinUI in them, so they run on a Mac too. `PetaScreens` and
+the app do not. On a Mac, `generate.sh` makes the core for the Mac
+(`libclient_shell_http.dylib`): `boltffi.toml` makes it for the system that runs it.
+
+```
+cd peta-journal/client/apps/native-app/stickies-win
+./generate.sh
+export PETA_E2E_SERVER="$PWD/../../../../journal/target/release/journal-server"
+dotnet test PetaBorder.Tests
+```
+
+Four tests of `ShellTests` are skipped on a Mac: those of a key with Control (folding, copying).
+The core reads the keys of the system it was built for, and a Mac has Command where Windows has
+Control. They run on Windows.
 
 ### Tests of the windows
 

@@ -1,0 +1,103 @@
+using System.Collections.ObjectModel;
+using PetaTypes;
+
+namespace PetaBorder.Tests;
+
+/// <summary>
+/// The view model that the changes of the core make (ADR 076). That the core sends the changes
+/// that make its own view model is tested in Rust, in <c>client-native-bridge</c>. No journal
+/// server is needed.
+/// </summary>
+public sealed class AppliedTests
+{
+    private static Row Row(string id) => new() { Item = new Item { Id = id } };
+
+    private static Changes Changes(IEnumerable<ListChange> rows, IEnumerable<Panel> panels) =>
+        new() { Rows = [.. rows], Panels = [.. panels] };
+
+    private static ListChange Reset(params string[] ids) =>
+        new ListChange.Reset(new ObservableCollection<Row>(ids.Select(Row)));
+
+    private static List<string> Ids(IEnumerable<Row> rows) => [.. rows.Select(row => row.Item.Id)];
+
+    /// <summary>The outline panel, with <c>SelectionMode</c> to tell one from another.</summary>
+    private static OutlinePanel Outline(bool selecting) =>
+        new()
+        {
+            SelectionMode = selecting,
+            Wiki = new WikiView { Suggestions = [] },
+        };
+
+    private static SearchView Search(string query) => new() { Query = query, Results = [] };
+
+    /// <summary>
+    /// Every panel once, as the first changes of a core hold them. Each panel has a value of its
+    /// own, so a panel put in the place of another is seen.
+    /// </summary>
+    private static List<Panel> EveryPanel() =>
+        [
+            new Panel.Screen(new ScreenView.Settings()),
+            new Panel.AtlasCards([]),
+            new Panel.AtlasCallouts([]),
+            new Panel.AtlasLinks([]),
+            new Panel.AtlasLinkSuggestions(["suggested"]),
+            new Panel.Outline(Outline(selecting: true)),
+            new Panel.Sidebar(new SidebarView { IndexHeader = "index", CurrentPageId = "current" }),
+            new Panel.Search(Search("first")),
+            new Panel.Config(new ConfigView { TagsDir = "tags" }),
+            new Panel.Connection(ConnectionState.Connected),
+            new Panel.Today("2026-11-22"),
+            new Panel.Calendar(new CalendarView { MonthName = "November" }),
+            new Panel.Title("the title"),
+            new Panel.History(new HistoryView { CanGoBack = true, Url = "/pages/back" }),
+        ];
+
+    // 最初の差分から、すべての欄が、それぞれのパネルの値で作られる。行は、入れ替えで届いた行である。
+    [Fact]
+    public void The_first_changes_make_every_part_from_its_panel()
+    {
+        var view = Applied.First(Changes([Reset("a")], EveryPanel()));
+
+        Assert.IsType<ScreenView.Settings>(view.Screen);
+        Assert.Equal(["suggested"], view.AtlasLinkSuggestions);
+        Assert.True(view.Outline.SelectionMode);
+        Assert.Equal("current", view.Sidebar.CurrentPageId);
+        Assert.Equal("first", view.Search.Query);
+        Assert.Equal("tags", view.Config.TagsDir);
+        Assert.Equal(ConnectionState.Connected, view.Connection);
+        Assert.Equal("2026-11-22", view.Today);
+        Assert.Equal("November", view.Calendar.MonthName);
+        Assert.Equal("the title", view.Title);
+        Assert.Equal("/pages/back", view.History.Url);
+        Assert.Equal(["a"], Ids(view.Outline.Rows));
+    }
+
+    // 届いたパネルだけが入れ替わり、ほかの欄は前のままである。
+    [Fact]
+    public void Only_the_panels_that_came_take_the_place_of_their_parts()
+    {
+        var view = Applied.First(Changes([], EveryPanel()));
+
+        Applied.To(
+            view,
+            Changes([], [new Panel.Search(Search("changed")), new Panel.Title("another")])
+        );
+
+        Assert.Equal("changed", view.Search.Query);
+        Assert.Equal("another", view.Title);
+        Assert.Equal("tags", view.Config.TagsDir);
+        Assert.Equal("/pages/back", view.History.Url);
+    }
+
+    // アウトラインのパネルは行を持たないので、届いても行は前のままである。
+    [Fact]
+    public void The_outline_panel_keeps_the_rows()
+    {
+        var view = Applied.First(Changes([Reset("a", "b")], EveryPanel()));
+
+        Applied.To(view, Changes([], [new Panel.Outline(Outline(selecting: false))]));
+
+        Assert.False(view.Outline.SelectionMode);
+        Assert.Equal(["a", "b"], Ids(view.Outline.Rows));
+    }
+}

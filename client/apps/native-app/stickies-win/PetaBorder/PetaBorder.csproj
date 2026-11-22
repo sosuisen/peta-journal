@@ -14,10 +14,18 @@
     <ProjectReference Include="..\generated\csharp\PetaTypes.csproj" />
     <ProjectReference Include="..\generated\PetaCore\BoltFFI.CSharp.csproj" />
     <!-- The core itself. The project of BoltFFI only packs it into its NuGet package, so it is
-         copied from here to wherever this project is used. -->
+         copied from here to wherever this project is used. generate.sh makes it for the system
+         that runs it: on a Mac, for the tests of this project. -->
     <Content
+      Condition="$([MSBuild]::IsOSPlatform('Windows'))"
       Include="..\generated\PetaCore\runtimes\win-x64\native\client_shell_http.dll"
       Link="client_shell_http.dll"
+      CopyToOutputDirectory="PreserveNewest"
+    />
+    <Content
+      Condition="$([MSBuild]::IsOSPlatform('OSX'))"
+      Include="..\generated\PetaCore\runtimes\osx-arm64\native\libclient_shell_http.dylib"
+      Link="libclient_shell_http.dylib"
       CopyToOutputDirectory="PreserveNewest"
     />
   </ItemGroup>
