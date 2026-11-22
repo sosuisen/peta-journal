@@ -10,6 +10,12 @@ The Emacs frontend of PetaJournal. It has two parts:
   does.
 
 They talk in JSON lines over stdin and stdout. `src/protocol.rs` defines the messages.
+`lisp/peta-journal-protocol.el` holds the names of the messages for Lisp. It is written from the
+Rust types, so do not edit it by hand. After a change to the types, write it again:
+
+```powershell
+$env:PETA_WRITE_LISP = "1"; cargo test -p outliner-emacs the_committed_lisp_protocol
+```
 
 ## Setup
 

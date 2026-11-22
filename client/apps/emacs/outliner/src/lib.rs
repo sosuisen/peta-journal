@@ -8,3 +8,7 @@ pub mod shell;
 
 #[cfg(test)]
 mod tests;
+
+/// Written only by a test, which keeps the committed file as the types make it.
+#[cfg(test)]
+mod lisp_protocol;

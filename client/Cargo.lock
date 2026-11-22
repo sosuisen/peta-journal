@@ -2941,6 +2941,7 @@ dependencies = [
  "crux_core",
  "facet",
  "facet-json",
+ "facet_generate 0.22.3",
  "page-urls",
  "serde_json",
 ]
