@@ -1,7 +1,7 @@
 //! Writes `lisp/peta-journal-protocol.el` from the facet registry of the protocol (ADR 078).
 //! The names of the lines come from the Rust types alone, so Lisp does not repeat them.
 
-use facet_generate::reflection::format::{ContainerFormat, Doc};
+use facet_generate::reflection::format::{ContainerFormat, Doc, VariantFormat};
 use facet_generate::Registry;
 use std::fmt::Write;
 
@@ -13,16 +13,35 @@ pub fn lisp_of(registry: &Registry) -> String {
     let mut lisp = String::new();
     for (name, format) in registry {
         let kind = lisp_name(&name.name);
-        if let ContainerFormat::Struct(fields, _) = format {
-            for field in fields {
-                let doc = docstring(&field.doc, &format!("The {} of a {}.", field.name, kind));
+        match format {
+            ContainerFormat::Struct(fields, _) => {
+                for field in fields {
+                    let doc = docstring(&field.doc, &format!("The {} of a {}.", field.name, kind));
+                    let _ = write!(
+                        lisp,
+                        "(defsubst {PREFIX}-{kind}-{} (value)\n  {doc}\n  (plist-get value :{}))\n\n",
+                        lisp_name(&field.name),
+                        field.name
+                    );
+                }
+            }
+            ContainerFormat::Enum(variants, _, doc)
+                if variants
+                    .values()
+                    .all(|variant| matches!(variant.value, VariantFormat::Unit)) =>
+            {
+                let names: Vec<String> = variants
+                    .values()
+                    .map(|variant| format!("\"{}\"", variant.name))
+                    .collect();
+                let doc = docstring(doc, &format!("The names of a {kind}."));
                 let _ = write!(
                     lisp,
-                    "(defsubst {PREFIX}-{kind}-{} (value)\n  {doc}\n  (plist-get value :{}))\n\n",
-                    lisp_name(&field.name),
-                    field.name
+                    "(defconst {PREFIX}-{kind}-names '({})\n  {doc})\n\n",
+                    names.join(" ")
                 );
             }
+            _ => {}
         }
     }
     lisp
