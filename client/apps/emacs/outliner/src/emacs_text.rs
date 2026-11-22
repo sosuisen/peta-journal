@@ -116,9 +116,15 @@ impl EmacsText {
                     self.write("\n", Part::default());
                 }
                 RichBlock::Image { image } => {
-                    // The line break too: an image has no shown letters (ADR 044)
+                    // The line break too: an image has no shown letters (ADR 044). A line
+                    // break alone would leave no place to show the image on.
+                    let alt = if image.alt.is_empty() {
+                        "image"
+                    } else {
+                        image.alt.as_str()
+                    };
                     self.write(
-                        &format!("{}\n", image.alt),
+                        &format!("{alt}\n"),
                         Part {
                             image: Some(image.clone()),
                             added: true,
