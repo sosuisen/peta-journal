@@ -2,7 +2,7 @@
 //! that look different. It is made from the `RichText` of the native shells, so the shown
 //! letters are counted as there (ADR 043, ADR 044).
 
-use client_core::rich_text::{Looks, RichBlock, RichLink, RichParagraph, RichText};
+use client_core::rich_text::{Looks, RichBlock, RichImage, RichLink, RichParagraph, RichText};
 use client_core::BodyModel;
 use facet::Facet;
 use flatmarkdown_ast::Node;
@@ -29,6 +29,8 @@ pub struct EmacsSpan {
     pub to: u32,
     pub looks: Vec<EmacsLook>,
     pub link: Option<RichLink>,
+    /// An image of the assets folder, shown in place of the text of the span.
+    pub image: Option<RichImage>,
     /// False for what Rust added, such as a list mark or the spaces of a table: they are
     /// not letters of the shown text (ADR 044).
     pub letters: bool,
@@ -113,6 +115,17 @@ impl EmacsText {
                     self.write(lines, Part::looking(vec![EmacsLook::CodeBlock]));
                     self.write("\n", Part::default());
                 }
+                RichBlock::Image { image } => {
+                    // The line break too: an image has no shown letters (ADR 044)
+                    self.write(
+                        &format!("{}\n", image.alt),
+                        Part {
+                            image: Some(image.clone()),
+                            added: true,
+                            ..Part::default()
+                        },
+                    );
+                }
                 _ => {}
             }
         }
@@ -140,6 +153,7 @@ impl EmacsText {
                     to: self.length,
                     looks: vec![look],
                     link: None,
+                    image: None,
                     letters: true,
                 },
             );
@@ -181,6 +195,7 @@ impl EmacsText {
                 to: self.length,
                 looks: part.looks,
                 link: part.link,
+                image: part.image,
                 letters: !part.added,
             });
         }
@@ -192,6 +207,7 @@ impl EmacsText {
 struct Part {
     looks: Vec<EmacsLook>,
     link: Option<RichLink>,
+    image: Option<RichImage>,
     /// True for what Rust added, which is not shown letters.
     added: bool,
 }
@@ -216,7 +232,7 @@ impl Part {
 
     /// True for plain shown letters, which need no span.
     fn is_plain(&self) -> bool {
-        self.looks.is_empty() && self.link.is_none() && !self.added
+        self.looks.is_empty() && self.link.is_none() && self.image.is_none() && !self.added
     }
 }
 
