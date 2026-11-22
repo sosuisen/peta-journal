@@ -1,23 +1,27 @@
 //! What changed on the screen since a shell was last told (ADR 076): the changes to the rows
-//! of the outline, and each panel that changed, whole.
+//! of the outline, and each panel that changed, whole. A shell of any body model takes them
+//! (ADR 078).
 
-use crate::diff::{list_changes, ListChange};
-use client_core::app::ConnectionState;
-use client_core::outline::{FocusOrder, FocusRequest};
-use client_core::screens::atlas::{Callout, LinkCard};
-use client_core::screens::calendar::CalendarView;
-use client_core::view::{
+mod diff;
+
+pub use diff::{list_changes, ListChange};
+
+use crate::app::ConnectionState;
+use crate::outline::{FocusOrder, FocusRequest};
+use crate::screens::atlas::{Callout, LinkCard};
+use crate::screens::calendar::CalendarView;
+use crate::view::{
     AtlasCard, ConfigView, HistoryView, Row, ScreenView, SearchView, SidebarView, WikiView,
 };
-use client_core::{RichText, ViewModel};
+use crate::ViewModel;
 use serde::Serialize;
 
 /// What changed since the shell was last told.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Changes {
+pub struct Changes<B> {
     /// The changes to the rows of the outline, to apply in order.
-    pub rows: Vec<ListChange<Row<RichText>>>,
+    pub rows: Vec<ListChange<Row<B>>>,
     /// The panels that changed, each whole.
     pub panels: Vec<Panel>,
 }
@@ -57,15 +61,21 @@ pub struct OutlinePanel {
 }
 
 /// What the shell was last told: the rows and the panels it has now.
-#[derive(Default)]
-pub struct Shown {
+pub struct Shown<B> {
     /// The rows and the panels the shell has. None before it was first told.
-    had: Option<(Vec<Row<RichText>>, Vec<Panel>)>,
+    had: Option<(Vec<Row<B>>, Vec<Panel>)>,
 }
 
-impl Shown {
+// Not derived: the derive would ask `B: Default`, which no body model needs to be
+impl<B> Default for Shown<B> {
+    fn default() -> Shown<B> {
+        Shown { had: None }
+    }
+}
+
+impl<B: Clone + PartialEq> Shown<B> {
     /// What changed from what the shell has to `view`. The shell has `view` after this.
-    pub fn changes(&mut self, view: ViewModel<RichText>) -> Changes {
+    pub fn changes(&mut self, view: ViewModel<B>) -> Changes<B> {
         let (rows, panels) = split(view);
         let changes = match &self.had {
             None => Changes {
@@ -95,7 +105,7 @@ fn changed(had: &[Panel], now: &[Panel]) -> Vec<Panel> {
 }
 
 /// The rows of the outline, and the panels of the rest of `view`.
-fn split(view: ViewModel<RichText>) -> (Vec<Row<RichText>>, Vec<Panel>) {
+fn split<B>(view: ViewModel<B>) -> (Vec<Row<B>>, Vec<Panel>) {
     let outline = view.outline;
     let panels = vec![
         Panel::Screen(view.screen),

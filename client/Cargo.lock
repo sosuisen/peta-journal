@@ -620,6 +620,7 @@ dependencies = [
  "percent-encoding",
  "peta-atlas",
  "property-names",
+ "proptest",
  "serde",
  "serde_json",
  "unicode-segmentation",
@@ -637,7 +638,6 @@ dependencies = [
  "facet",
  "facet_generate 0.22.3",
  "flatmarkdown",
- "proptest",
  "serde",
  "tempfile",
 ]

@@ -1,5 +1,4 @@
-use crate::changes::Changes;
-use crate::diff::ListChange;
+use crate::{Changes, ListChange};
 use crate::{Clock, Host, NativeShell, ShellEffectFfi};
 use client_core::drag::DragMove;
 use client_core::effects::{

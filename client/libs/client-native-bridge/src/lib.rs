@@ -4,18 +4,17 @@
 //! This crate has no way to the journal and no entrance for another language. A crate above
 //! it has both: it gives [`NativeShell`] a [`Host`] (ADR 036).
 
-mod changes;
 mod clock;
 #[cfg(feature = "facet_typegen")]
 pub mod codegen;
-mod diff;
 mod html;
 mod links;
 mod shell;
 
-pub use changes::{Changes, OutlinePanel, Panel};
+pub use client_core::changes::{ListChange, OutlinePanel, Panel};
+/// The changes of the screen of a native shell, whose body model is [`RichText`](client_core::RichText).
+pub type Changes = client_core::changes::Changes<client_core::RichText>;
 pub use clock::{Clock, SystemClock};
-pub use diff::ListChange;
 pub use html::copied_html;
 pub use links::{asset_address, page_address};
 pub use shell::{BorderError, Host, NativeShell, NothingThere, ShellEffect, ShellEffectFfi};

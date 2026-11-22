@@ -1,8 +1,8 @@
 //! Writes the types of the border for a shell that is not written in Rust (ADR 024). The types
 //! come from the shape of the Rust types, so a shell stops compiling when a type changes.
 
-use crate::changes::Changes;
 use crate::shell::{ShellEffect, ShellEffectFfi};
+use crate::Changes;
 use client_core::drag::DragMove;
 use client_core::effects::{NavigateOp, UiOp};
 use client_core::keys::KeyPress;

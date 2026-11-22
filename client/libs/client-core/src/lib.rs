@@ -5,6 +5,7 @@
 pub mod app;
 pub mod asts;
 pub mod body_model;
+pub mod changes;
 pub mod drag;
 pub mod effects;
 pub mod keys;

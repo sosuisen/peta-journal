@@ -1186,7 +1186,7 @@
 
 ### ネイティブアプリが画面の差分を受け取る
 
-出典: `client/libs/client-native-bridge/src/tests/diff.rs`、`client/libs/client-native-bridge/src/tests/changes.rs`、`client/libs/client-native-bridge/src/tests/shell.rs`、`client/libs/client-native-bridge/src/codegen.rs`、`client-shell-http`の`tests/ffi.rs`、`client-shell-embedded`の`tests.rs`、`stickies-win`の`PetaBorder.Tests/BorderTests.cs`と`PetaBorder.Tests/ShellTests.cs`、`outliner-android`の`shell/ChangesTest.kt`と`screen/ScreenOfTheCoreTest.kt`、`stickies-mac`の`BorderTests.swift`、`AppliedTests.swift`、`ShellTests.swift`、`outliner-ios`の`AppliedTests.swift`と`ShellTests.swift`
+出典: `client/libs/client-core/src/tests/list_changes.rs`、`client/libs/client-core/src/tests/changes.rs`、`client/libs/client-native-bridge/src/tests/shell.rs`、`client/libs/client-native-bridge/src/codegen.rs`、`client-shell-http`の`tests/ffi.rs`、`client-shell-embedded`の`tests.rs`、`stickies-win`の`PetaBorder.Tests/BorderTests.cs`と`PetaBorder.Tests/ShellTests.cs`、`outliner-android`の`shell/ChangesTest.kt`と`screen/ScreenOfTheCoreTest.kt`、`stickies-mac`の`BorderTests.swift`、`AppliedTests.swift`、`ShellTests.swift`、`outliner-ios`の`AppliedTests.swift`と`ShellTests.swift`
 
 - ネイティブのシェルは、`changes()`で、前に読んでから変わった所だけを受け取れる（ADR 076）。WinUI、Compose、SwiftUI（macOSとiOS）の、すべてのネイティブのシェルが使っている
   - アウトラインの行は、挿入、削除、移動、更新、入れ替えの操作の列で届く。操作を順に当てると、シェルの行がコアの行と同じになる
@@ -1195,6 +1195,7 @@
   - 前の行が1つも残らないとき（別のページを開いたとき）と、空のリストに行が来たときは、入れ替えが1つだけ届く
   - 行のほかは、`ViewModel`の欄ごとのパネルで届く。変わったパネルだけが、丸ごと届く。アウトラインのパネルは、行を除いた残りである
   - 最初の`changes()`は、行の入れ替えと全部のパネルである。何も変わっていなければ、空である
+  - 差分は`client-core`で作り、どの本文の形の画面からも作れる（ADR 078）。ネイティブのシェルは`RichText`の画面の差分を受け取る
 - iOSのSwiftUIのシェルも、受け取った差分から画面を組み立てる。組み立てた画面は、コアの`ViewModel`と同じである。ページを開いたとき、入力したとき、項目を分けたとき、動かしたとき、つないだとき、検索したとき、別のページを開いたときに確かめている
 - macOSのSwiftUIのシェル（付箋紙）も、受け取った差分から画面を組み立てる。組み立てた画面は、コアの`ViewModel`と同じである。ページを開いたとき、入力したとき、項目を分けたとき、項目を動かしたとき、検索したとき、別のページを開いたときに確かめている
 - Composeのシェル（Android）も、受け取った差分から画面を組み立てる。組み立てた画面は、コアの`ViewModel`と同じである。ページを開いたとき、入力したとき、項目を分けたとき、検索したときに確かめている
