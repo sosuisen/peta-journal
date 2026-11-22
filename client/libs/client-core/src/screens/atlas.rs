@@ -100,6 +100,21 @@ pub fn place_card(model: &mut Model, card_id: String, x: f64, y: f64) -> Cmd {
     save_bounds(model, &item, bounds)
 }
 
+/// Places a card dropped from the list of unplaced cards. The card is placed by its center,
+/// which lies this far from the grabbed spot of a card of the list.
+pub fn drop_card(
+    model: &mut Model,
+    card_id: String,
+    x: f64,
+    y: f64,
+    grab_x: f64,
+    grab_y: f64,
+) -> Cmd {
+    let center_x = x + (0.5 - grab_x) * CARD_WIDTH;
+    let center_y = y + (0.5 - grab_y) * CARD_HEIGHT;
+    place_card(model, card_id, center_x, center_y)
+}
+
 /// Scales a card, no smaller than [`MIN_CARD_SCALE`]. The card keeps its place. Its height is
 /// stored in whole pixels, so the scale moves in small steps. The width goes back to the
 /// label: a set width would not fit the label at the new scale.

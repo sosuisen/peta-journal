@@ -619,6 +619,16 @@ pub enum Event {
         x: f64,
         y: f64,
     },
+    /// A card of the list of unplaced cards let go on the canvas at `x`, `y`. `grab_x` and
+    /// `grab_y` are where the card was grabbed, as a part of its width and its height. The
+    /// grabbed spot stays under the pointer, so the card goes where the dragged image is.
+    DropAtlasCard {
+        card_id: String,
+        x: f64,
+        y: f64,
+        grab_x: f64,
+        grab_y: f64,
+    },
     /// The selected cards scaled with Ctrl and the wheel: the card takes the scale.
     ScaleAtlasCard {
         card_id: String,
@@ -1484,6 +1494,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         ToggleAtlas => screens::page::toggle_atlas(model),
         AtlasUp => screens::page::atlas_up(model),
         PlaceAtlasCard { card_id, x, y } => screens::atlas::place_card(model, card_id, x, y),
+        DropAtlasCard {
+            card_id,
+            x,
+            y,
+            grab_x,
+            grab_y,
+        } => screens::atlas::drop_card(model, card_id, x, y, grab_x, grab_y),
         ScaleAtlasCard { card_id, scale } => screens::atlas::scale_card(model, card_id, scale),
         SetAtlasGroupTitle {
             group_id,
