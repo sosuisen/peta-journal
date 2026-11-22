@@ -137,14 +137,8 @@ boxes of the other states.")
 (defface peta-journal-code '((t :inherit font-lock-constant-face))
   "Inline code and code blocks.")
 
-(defface peta-journal-math '((t :inherit font-lock-builtin-face))
-  "Inline math.")
-
 (defface peta-journal-quote '((t :inherit font-lock-doc-face))
   "A block quote.")
-
-(defface peta-journal-alert '((t :inherit font-lock-warning-face))
-  "The title line of an alert.")
 
 (defface peta-journal-list-mark '((t :inherit font-lock-builtin-face))
   "The mark of a list item or of a task in a list.")
@@ -152,191 +146,8 @@ boxes of the other states.")
 (defface peta-journal-rule '((t :inherit shadow))
   "A horizontal rule.")
 
-(defface peta-journal-subtext '((t :inherit shadow))
-  "Small text under a block.")
-
 (defface peta-journal-table '((t :inherit font-lock-type-face))
   "A table.")
-
-(defface peta-journal-image '((t :inherit font-lock-function-name-face))
-  "An image or another embedded file.")
-
-(defface peta-journal-footnote '((t :inherit font-lock-builtin-face))
-  "A footnote.")
-
-(defface peta-journal-emoji '((t :inherit font-lock-string-face))
-  "An emoji shortcode.")
-
-(defface peta-journal-html '((t :inherit font-lock-preprocessor-face))
-  "An HTML tag.")
-
-;;;; Finding Flat Markdown
-
-;; These rules follow the parser of the server only roughly.  The shell sends Emacs the text of a
-;; body and no parsed spans, and asking for them on each key would slow typing down.
-
-(defun peta-journal--word-char-p (char)
-  "Non-nil when CHAR is a letter or a digit.  CHAR is nil at the buffer edge."
-  (and char (string-match-p "[[:alnum:]]" (string char))))
-
-(defun peta-journal--delimiters-fit-p (mark start end)
-  "Non-nil when the pair of MARK from START to END can decorate its text.
-A regexp cannot check this.  It would take the characters around the pair
-into its match, and the next pair could not start at a character it took."
-  (let ((before (char-before start))
-        (after (char-after end)))
-    (and (not (memq before (list mark ?\\)))
-         (not (eq after mark))
-         (or (not (eq mark ?_))
-             (not (or (peta-journal--word-char-p before)
-                      (peta-journal--word-char-p after)))))))
-
-(defun peta-journal--fitting-pair (regexp mark)
-  "A font-lock matcher for REGEXP, when its ends are delimiters of MARK that fit."
-  (lambda (limit)
-    (let (found)
-      (while (and (not found) (re-search-forward regexp limit t))
-        (if (peta-journal--delimiters-fit-p mark (match-beginning 0) (match-end 0))
-            (setq found t)
-          (goto-char (1+ (match-beginning 0)))))
-      found)))
-
-(defun peta-journal--pair (delimiter)
-  "A font-lock matcher for text between two DELIMITERs on one line."
-  (let ((quoted (regexp-quote delimiter)))
-    (peta-journal--fitting-pair (concat quoted "[^ \t\n]\\(?:.*?[^ \t\n]\\)??" quoted)
-                                (aref delimiter 0))))
-
-(defconst peta-journal--bullet-regexp
-  (concat (regexp-opt (mapcar #'cdr (append peta-journal--bullets
-                                            peta-journal--collapsed-bullets)))
-          peta-journal--bullet-gap
-          "\\(?:" (regexp-opt (mapcar #'cdr peta-journal--task-marks))
-          peta-journal--bullet-gap "\\)?")
-  "The bullet in front of the first line of a body, with the mark of a task.
-A body that starts with such a mark and a no-break space reads as a task here.
-That only moves where the colors of its first line start.")
-
-(defconst peta-journal--line-start-regexp
-  (concat "^\\(?:" peta-journal--bullet-regexp "\\)?")
-  "What comes before the text of a line in a body.")
-
-(defun peta-journal--fence (opening)
-  "A font-lock matcher for a block that starts at a line matching OPENING.
-Group 1 of OPENING is the run of marks that the closing line repeats.
-A block with no closing ends with its body, since each item is parsed alone."
-  (let ((regexp (concat peta-journal--line-start-regexp " \\{0,3\\}" opening)))
-    (lambda (limit)
-      (when (re-search-forward regexp limit t)
-        (let* ((run (match-string 1))
-               (start (match-beginning 1))
-               (end (peta-journal--body-end (peta-journal--row-start (point))))
-               (closing (format "^ \\{0,3\\}%s%s* *$"
-                                (regexp-quote run)
-                                (regexp-quote (substring run 0 1)))))
-          (unless (re-search-forward closing end t)
-            (goto-char end))
-          (set-match-data (list start (point)))
-          t)))))
-
-(defun peta-journal--match-alert (limit)
-  "Find the title line of an alert before LIMIT.  Its kind may be in any case."
-  (let ((case-fold-search t))
-    (re-search-forward
-     (concat peta-journal--line-start-regexp
-             " \\{0,3\\}\\(>\\(?:>>\\)? *\\[!\\(?:note\\|tip\\|important\\|warning\\|caution\\)\\].*\\)$")
-     limit t)))
-
-(defun peta-journal--table-start ()
-  "The start of the head line above the line at the point, behind any bullet."
-  (save-excursion
-    (forward-line -1)
-    (if (looking-at peta-journal--bullet-regexp)
-        (match-end 0)
-      (point))))
-
-(defun peta-journal--table-end (body-end)
-  "The end of the last table line from the point, not going past BODY-END."
-  (save-excursion
-    (end-of-line)
-    (while (and (< (point) body-end)
-                (save-excursion
-                  (forward-line 1)
-                  (string-search "|" (buffer-substring (point) (line-end-position)))))
-      (forward-line 1)
-      (end-of-line))
-    (point)))
-
-(defun peta-journal--match-table (limit)
-  "Find a table before LIMIT, from the line above a delimiter line.
-A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
-  (let (found)
-    (while (and (not found)
-                (re-search-forward "^ *|? *:?-+:? *\\(?:| *:?-+:? *\\)*|? *$" limit t))
-      (when (string-search "|" (match-string 0))
-        (let ((start (peta-journal--table-start))
-              (end (peta-journal--table-end
-                    (peta-journal--body-end (peta-journal--row-start (point))))))
-          (goto-char end)
-          (set-match-data (list start end))
-          (setq found t))))
-    found))
-
-(defconst peta-journal--link-text-regexp
-  "\\[\\(?:[^][\\\n]\\|\\\\.\\|\\[[^][\\\n]*\\]\\)*\\]"
-  "The text of a Markdown link with its brackets, such as `[図\\[1\\]]'.
-A bracket in it has a `\\' before it, as the core writes the name of an image
-\(ADR 022), or pairs with another one.  Only one level of pairs counts.")
-
-(defconst peta-journal--font-lock-keywords
-  `(;; Code comes first: what has a face stays as it is, so nothing is decorated inside
-    (,(peta-journal--fence "\\(```+\\)[^`\n]*$") 0 'peta-journal-code)
-    (,(peta-journal--fence "\\(~~~+\\).*$") 0 'peta-journal-code)
-    (,(concat "^" peta-journal--bullet-regexp "\\( \\{4\\}.*\\(?:\n \\{4\\}.*\\)*\\)$")
-     1 'peta-journal-code)
-    ;; Before the rules: the `---' under a title is not a rule
-    (,(concat peta-journal--line-start-regexp "\\([^-+>|# \n][^\n]*\n *\\(?:=+\\|-+\\) *\\)$")
-     1 'peta-journal-heading)
-    ;; Before the emphasis: `***' would be an italic `*'
-    (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(\\([-*_]\\)\\(?: *\\2\\)\\{2,\\} *\\)$")
-     1 'peta-journal-rule)
-    ("\\$`[^`\n]+`\\$" 0 'peta-journal-math)
-    (,(peta-journal--fitting-pair "\\(`+\\)[^`\n]\\(?:.*?[^`\n]\\)??\\1" ?`)
-     0 'peta-journal-code)
-    ;; Links and the like come before the emphasis: `_' in a URL is not emphasis
-    ("\\[\\[[^]\n]+\\]\\]" 0 'peta-journal-link)
-    (,(concat "\\(?:^\\|[ \t" peta-journal--bullet-gap "]\\)"
-              "\\(#[[:alnum:]_-]\\(?:[[:alnum:]_/-]*[[:alnum:]_-]\\)?\\)")
-     1 'peta-journal-link)
-    (,(concat "!" peta-journal--link-text-regexp "([^)\n]*)") 0 'peta-journal-image)
-    (,(concat peta-journal--link-text-regexp "([^)\n]*)") 0 'peta-journal-link)
-    ("\\(?:https?://\\|www\\.\\)[^ \t\n<>]+" 0 'peta-journal-link)
-    ("[[:alnum:]._+-]+@[[:alnum:]-]+\\.[[:alnum:].-]+" 0 'peta-journal-link)
-    ("\\[\\^[^]\n]+\\]\\|\\^\\[[^]\n]*\\]" 0 'peta-journal-footnote)
-    ("\\(?:^\\|[^[:alnum:]]\\)\\(:\\(?:[-+]1\\|[a-z][a-z0-9_+-]*\\):\\)" 1 'peta-journal-emoji)
-    ("</?[A-Za-z][A-Za-z0-9-]*\\(?:[ \t/][^<>\n]*\\)?>" 0 'peta-journal-html)
-    ;; The longer delimiters come first: `**' also holds two `*'
-    (,(peta-journal--pair "**") 0 'peta-journal-bold keep)
-    (,(peta-journal--pair "__") 0 'peta-journal-underline keep)
-    (,(peta-journal--pair "~~") 0 'peta-journal-strike keep)
-    (,(peta-journal--pair "==") 0 'peta-journal-highlight keep)
-    (,(peta-journal--pair "||") 0 'peta-journal-spoiler keep)
-    (,(peta-journal--pair "*") 0 'peta-journal-italic keep)
-    (,(peta-journal--pair "_") 0 'peta-journal-italic keep)
-    (,(peta-journal--pair "~") 0 'peta-journal-script keep)
-    (,(peta-journal--pair "^") 0 'peta-journal-script keep)
-    ;; Blocks come after the inline rules, and fill in what they left
-    (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(#\\{1,6\\}\\(?: .*\\)?\\)$")
-     1 'peta-journal-heading keep)
-    (peta-journal--match-table 0 'peta-journal-table keep)
-    (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(-# .*\\)$") 1 'peta-journal-subtext keep)
-    (,(concat peta-journal--line-start-regexp
-              " *\\([-+*]\\(?: \\[[^]\n]\\]\\)?\\|[0-9]+[.)]\\)\\(?: \\|$\\)")
-     1 'peta-journal-list-mark keep)
-    (peta-journal--match-alert 1 'peta-journal-alert keep)
-    (,(peta-journal--fence "\\(>>>+\\).*$") 0 'peta-journal-quote keep)
-    (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(>.*\\)$") 1 'peta-journal-quote keep))
-  "What is highlighted in a body.")
 
 ;;;; State
 
@@ -592,7 +403,8 @@ Without its last line break: the newline of the row ends it."
 
 (defun peta-journal--body-string (row)
   "The body of ROW as it goes into the buffer.
-The Markdown in the item of `peta-journal--markdown-item', or else the shown text."
+The Markdown in the item of `peta-journal--markdown-item', or else the
+shown text."
   (if (equal (plist-get row :id) peta-journal--markdown-item)
       (plist-get row :body)
     ;; Only the Markdown is sent to the core: a change here would be one to a text it does not know
@@ -1001,7 +813,8 @@ An image taller than the window could not be scrolled through line by line."
           :max-height (- (window-body-height window t) (frame-char-height)))))
 
 (defun peta-journal--shown-image (id image)
-  "The Emacs image of the RichImage IMAGE in the item ID, or nil while there is none."
+  "The Emacs image of the RichImage IMAGE in the item ID.
+Nil while there is none."
   (when-let* ((bytes (peta-journal--image-bytes (peta-journal--image-url image))))
     (let ((width (peta-journal-protocol-rich-image-width image))
           (height (peta-journal-protocol-rich-image-height image)))
@@ -2458,23 +2271,6 @@ This is for `completion-at-point-functions'."
           (unless (member peta-journal--connection '("" "connected"))
             (format "  [%s]" peta-journal--connection))))
 
-(defvar font-lock-beg)
-(defvar font-lock-end)
-
-(defun peta-journal--extend-font-lock-region ()
-  "Grow the region font-lock is about to color to whole bodies.
-A code block or a quote spans lines, and a line alone does not say it is in one."
-  (let* ((first-row (peta-journal--row-start font-lock-beg))
-         (last-row (peta-journal--row-start (max font-lock-beg (1- font-lock-end))))
-         (beg (if first-row (min first-row font-lock-beg) font-lock-beg))
-         (end (if last-row
-                  (max font-lock-end (min (1+ (peta-journal--body-end last-row)) (point-max)))
-                font-lock-end)))
-    (unless (and (= beg font-lock-beg) (= end font-lock-end))
-      (setq font-lock-beg beg
-            font-lock-end end)
-      t)))
-
 (define-derived-mode peta-journal-mode text-mode "PetaJournal"
   "One page of PetaJournal in one buffer.
 Type in a body as in any buffer.  The outline changes through these keys:
@@ -2488,10 +2284,8 @@ Type in a body as in any buffer.  The outline changes through these keys:
   ;; Long items wrap all the time here: a mark on each wrapped line would only add noise
   (setq-local fringe-indicator-alist
               (cons '(continuation) fringe-indicator-alist))
-  (setq-local font-lock-defaults '(peta-journal--font-lock-keywords t))
-  (setq-local font-lock-extend-region-functions
-              (append font-lock-extend-region-functions
-                      '(peta-journal--extend-font-lock-region)))
+  ;; No keywords: the shell gives the colors (ADR 077).  Font Lock still shows `font-lock-face'
+  (setq-local font-lock-defaults '(nil t))
   (setq-local header-line-format '(:eval (peta-journal--header-line)))
   (add-hook 'completion-at-point-functions #'peta-journal--complete-wiki-link nil t)
   (add-hook 'after-change-functions #'peta-journal--after-change nil t)
