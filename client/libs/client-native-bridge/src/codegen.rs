@@ -1,6 +1,7 @@
 //! Writes the types of the border for a shell that is not written in Rust (ADR 024). The types
 //! come from the shape of the Rust types, so a shell stops compiling when a type changes.
 
+use crate::changes::Changes;
 use crate::shell::{ShellEffect, ShellEffectFfi};
 use client_core::drag::DragMove;
 use client_core::effects::{NavigateOp, UiOp};
@@ -38,6 +39,7 @@ pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
     registry.register_type::<ViewModel<RichText>>()?;
     // The generator does not look into the `Box` that keeps this one in the view model
     registry.register_type::<PageView>()?;
+    registry.register_type::<Changes>()?;
     let generator = registry.build()?;
     generator.swift(&Config::builder(PACKAGE, out.join("swift")).build())
 }
@@ -111,6 +113,7 @@ fn border_types() -> Result<Registry, TypeGenError> {
     let builder = add::<Typing>(builder)?;
     let builder = add::<ViewModel<RichText>>(builder)?;
     let builder = add::<PageView>(builder)?;
+    let builder = add::<Changes>(builder)?;
     builder.build().map_err(failed)
 }
 
