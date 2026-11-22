@@ -1435,6 +1435,21 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (should-not (process-live-p peta-journal--process))
     (should-not warning)))
 
+;;;; The protocol
+
+;; Emacsは、シェルが送るすべての種類の行と差分に、フィールドの数の引数を取る関数を持つ。種類とフィールドは、Rustの型から書いた一覧のとおりである。
+(ert-deftest peta-journal-every-kind-the-shell-sends-has-a-handler-of-its-fields ()
+  (pcase-dolist (`(,handlers . ,kinds)
+                 (list (cons peta-journal--line-handlers peta-journal-protocol-outbound-fields)
+                       (cons (peta-journal--change-handlers nil)
+                             peta-journal-protocol-list-change-fields)))
+    (pcase-dolist (`(,kind . ,fields) kinds)
+      (let ((handler (plist-get handlers kind)))
+        (should (functionp handler))
+        (pcase-let ((`(,least . ,most) (func-arity handler)))
+          (should (<= least (length fields)))
+          (should (or (eq most 'many) (<= (length fields) most))))))))
+
 ;;;; Two buffers
 
 ;; シェルからの行は、そのシェルのバッファだけを変える。
