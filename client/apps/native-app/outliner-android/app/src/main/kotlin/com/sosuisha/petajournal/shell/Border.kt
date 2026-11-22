@@ -2,6 +2,7 @@ package com.sosuisha.petajournal.shell
 
 import com.sosuisha.petajournal.core.PetaCore
 import com.sosuisha.petajournal.core.PetaShell
+import com.sosuisha.petajournal.types.Changes
 import com.sosuisha.petajournal.types.Event
 import com.sosuisha.petajournal.types.KeyPress
 import com.sosuisha.petajournal.types.Request
@@ -58,6 +59,13 @@ class Border(dataDir: File, markdownDir: File, onRequests: (List<Request>) -> Un
 
     /** The whole view model, to draw after a render request. */
     fun view(): ViewModel = ViewModel.bincodeDeserialize(core.view())
+
+    /**
+     * What changed on the screen since the last call: the changes to the rows of the outline,
+     * and the panels that changed (ADR 076). The first call gives a reset of the rows and every
+     * panel. Call it from the main thread only.
+     */
+    fun changes(): Changes = Changes.bincodeDeserialize(core.changes())
 
     override fun close() = core.close()
 }

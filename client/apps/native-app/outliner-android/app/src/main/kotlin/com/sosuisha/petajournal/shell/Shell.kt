@@ -56,8 +56,14 @@ class Shell(
 
     // What the screen draws
 
-    var view: ViewModel by mutableStateOf(border.view())
+    var view: ViewModel by mutableStateOf(firstView(border.changes()))
         private set
+
+    /**
+     * The whole view model as the core has it, for the tests to hold [view] against. The shell
+     * itself reads only the changes (ADR 076).
+     */
+    internal fun wholeViewOfTheCore(): ViewModel = border.view()
 
     /** True while files are taken in. The pages of an earlier sync can be read meanwhile. */
     var syncing: Boolean by mutableStateOf(false)
@@ -366,7 +372,7 @@ class Shell(
     }
 
     private fun show() {
-        view = border.view()
+        view = view.with(border.changes())
     }
 
     private fun handle(requests: List<Request>) {
