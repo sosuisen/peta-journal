@@ -133,3 +133,20 @@ fn the_lines_of_a_code_block_have_the_look_of_code() {
     assert_eq!(text.text, "前\nlet a;\nlet b;\n");
     assert_eq!(parts_of(&text), [(2, 15, vec![EmacsLook::CodeBlock], true)]);
 }
+
+// 画像は、代わりの文字とその改行の範囲に画像を持つ。どちらも表示の文字ではない。
+#[test]
+fn an_image_is_on_the_span_of_its_alt_text_which_is_not_letters() {
+    let text = text_of("前\n\n![猫](assets/sample.png)\n\n後");
+
+    assert_eq!(text.text, "前\n猫\n後\n");
+    let images: Vec<(u32, u32, Option<String>, bool)> = text
+        .spans
+        .iter()
+        .map(|span| {
+            let path = span.image.as_ref().map(|image| image.path.clone());
+            (span.from, span.to, path, span.letters)
+        })
+        .collect();
+    assert_eq!(images, [(2, 4, Some("assets/sample.png".into()), false)]);
+}
