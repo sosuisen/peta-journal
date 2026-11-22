@@ -8,6 +8,7 @@ use crate::components::item_view::ItemView;
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
+use client_core::util::date::task_duration;
 use client_core::Event;
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
@@ -190,19 +191,6 @@ fn task_time_info(item: &client_core::model::Item) -> Option<(String, String)> {
     let Some(end) = item.prop_str("end") else {
         return Some((format!("{begin_label}-"), format!("{begin_label}-")));
     };
-    let total_sec = ((dom::epoch_ms(end) - dom::epoch_ms(begin)) / 1000.0)
-        .floor()
-        .max(0.0) as i64;
-    let (h, m, s) = (total_sec / 3600, (total_sec % 3600) / 60, total_sec % 60);
-    let mut label = String::new();
-    if h > 0 {
-        label.push_str(&format!("{h}h"));
-    }
-    if m > 0 {
-        label.push_str(&format!("{m}m"));
-    }
-    if h == 0 && m == 0 {
-        label = format!("{s}s");
-    }
+    let label = task_duration(begin, end);
     Some((label, format!("{begin_label} - {}", dom::local_time(end))))
 }

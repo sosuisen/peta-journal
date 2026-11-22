@@ -192,8 +192,7 @@ fn visit(h: &mut Harness, name: &str) {
 fn go_to(h: &mut Harness, path: &str) -> String {
     h.send(Event::GoToPage {
         path: path.into(),
-        new_tab: false,
-        new_window: false,
+        open_in: crate::keys::OpenIn::Here,
     });
     h.navigations.last().unwrap().url.clone()
 }

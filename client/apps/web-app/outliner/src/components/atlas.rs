@@ -11,9 +11,8 @@ use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
 use client_core::app::Event;
-use client_core::screens::atlas::{
-    parent_dir_label, Callout, GroupTitle, LinkCard, CARD_HEIGHT, CARD_WIDTH,
-};
+use client_core::keys::Held;
+use client_core::screens::atlas::{parent_dir_label, Callout, GroupTitle, LinkCard};
 use client_core::view::{AtlasCard, ScreenView};
 use leptos::prelude::*;
 use peta_atlas::scene::{self, GroupRef};
@@ -236,10 +235,15 @@ pub fn Atlas() -> impl IntoView {
     // A click on the label of a card on the canvas; kept as long as the canvas lives
     let on_open = StoredValue::new_local(Closure::<dyn Fn(String, bool, bool)>::new(
         move |path: String, new_tab: bool, new_window: bool| {
+            // atlas.js gives Ctrl or Command as new_tab, and Shift as new_window
+            let held = Held {
+                shift: new_window,
+                ctrl: new_tab,
+                cmd: false,
+            };
             core.send(Event::GoToPage {
                 path,
-                new_tab,
-                new_window,
+                open_in: held.open_in(),
             });
         },
     ));
@@ -468,12 +472,12 @@ pub fn Atlas() -> impl IntoView {
             c.end_drag_from_list();
             c.group_target_from_list(ev.client_x() as f64, ev.client_y() as f64, ctrl)
         });
-        // The grabbed spot of the card stays under the pointer, as the dragged image shows it.
-        // The card is placed by its center, which lies this far from the grabbed spot.
-        core.send(Event::PlaceAtlasCard {
+        core.send(Event::DropAtlasCard {
             card_id: grab.page_id.clone(),
-            x: x + (0.5 - grab.x) * CARD_WIDTH,
-            y: y + (0.5 - grab.y) * CARD_HEIGHT,
+            x,
+            y,
+            grab_x: grab.x,
+            grab_y: grab.y,
         });
         if let Some(target_id) = target_id {
             core.send(Event::GroupAtlasCards {
@@ -543,8 +547,7 @@ pub fn Atlas() -> impl IntoView {
                                 <span class="atlas-card-label" on:click=move |ev: web_sys::MouseEvent| {
                                     core.send(Event::GoToPage {
                                         path: path.clone(),
-                                        new_tab: ev.ctrl_key() || ev.meta_key(),
-                                        new_window: ev.shift_key(),
+                                        open_in: dom::held(&ev).open_in(),
                                     });
                                 }>{card.label.clone()}</span>
                             </div>

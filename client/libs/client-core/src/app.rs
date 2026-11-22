@@ -392,7 +392,7 @@ pub enum Event {
         item_id: String,
         context: Option<WikiLinkContext>,
     },
-    /// ArrowUp, ArrowDown or Enter while the popup is open.
+    /// ArrowUp, ArrowDown, Enter or Escape while the popup is open.
     WikiKey {
         key: String,
     },
@@ -619,6 +619,16 @@ pub enum Event {
         x: f64,
         y: f64,
     },
+    /// A card of the list of unplaced cards let go on the canvas at `x`, `y`. `grab_x` and
+    /// `grab_y` are where the card was grabbed, as a part of its width and its height. The
+    /// grabbed spot stays under the pointer, so the card goes where the dragged image is.
+    DropAtlasCard {
+        card_id: String,
+        x: f64,
+        y: f64,
+        grab_x: f64,
+        grab_y: f64,
+    },
     /// The selected cards scaled with Ctrl and the wheel: the card takes the scale.
     ScaleAtlasCard {
         card_id: String,
@@ -714,6 +724,24 @@ pub enum Event {
     DeletePageProperty {
         key: String,
     },
+    /// The `×` of one tag of the list property `key`. The last tag takes the property with it.
+    RemovePageTag {
+        key: String,
+        tag: String,
+    },
+    /// A tag of the list property `key` dragged onto `target`, to go before it or after it.
+    MovePageTag {
+        key: String,
+        tag: String,
+        target: String,
+        after: bool,
+    },
+    /// Tags typed into the list property `key`, comma separated. The page may not have the
+    /// property yet.
+    AddPageTags {
+        key: String,
+        typed: String,
+    },
     /// The "+" button; the search box text is used as the title when present.
     CreateNewPage {
         search_query: String,
@@ -756,8 +784,7 @@ pub enum Event {
     /// Opens a page by its path, from the sidebar, the calendar or a link.
     GoToPage {
         path: String,
-        new_tab: bool,
-        new_window: bool,
+        open_in: crate::keys::OpenIn,
     },
     JournalNav(JournalNav),
     /// The month calendar shows another month.
@@ -804,6 +831,10 @@ pub enum Event {
     /// The server answered with the property definitions: when they are loaded, and after a
     /// change of them.
     PropertyDefinitionsLoaded {
+        definitions: Vec<PropertyDefinition>,
+    },
+    /// The server accepted a new key and answered with the whole list.
+    PropertyDefinitionAdded {
         definitions: Vec<PropertyDefinition>,
     },
     /// The server refused a change of the property definitions.
@@ -991,6 +1022,9 @@ pub struct ConfigState {
     pub property_definitions: Vec<PropertyDefinition>,
     /// Why the last definition was refused, shown under the settings form until the next try.
     pub definition_error: Option<String>,
+    /// How many keys the server accepted from the settings form. The form is cleared when it
+    /// grows.
+    pub definitions_added: u32,
 }
 
 #[derive(Debug, Default)]
@@ -1467,6 +1501,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         ToggleAtlas => screens::page::toggle_atlas(model),
         AtlasUp => screens::page::atlas_up(model),
         PlaceAtlasCard { card_id, x, y } => screens::atlas::place_card(model, card_id, x, y),
+        DropAtlasCard {
+            card_id,
+            x,
+            y,
+            grab_x,
+            grab_y,
+        } => screens::atlas::drop_card(model, card_id, x, y, grab_x, grab_y),
         ScaleAtlasCard { card_id, scale } => screens::atlas::scale_card(model, card_id, scale),
         SetAtlasGroupTitle {
             group_id,
@@ -1503,6 +1544,14 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             value,
         } => screens::page::set_property(model, key, value_type, value),
         DeletePageProperty { key } => screens::page::delete_property(model, key),
+        RemovePageTag { key, tag } => screens::page::remove_tag(model, key, &tag),
+        MovePageTag {
+            key,
+            tag,
+            target,
+            after,
+        } => screens::page::move_tag(model, key, &tag, &target, after),
+        AddPageTags { key, typed } => screens::page::add_tags(model, key, &typed),
         CreateNewPage { search_query } => screens::layout::create_new_page(model, search_query),
         DeleteCurrentPage => screens::layout::delete_current_page(model),
         PageDeleted => screens::layout::show_page_deleted(),
@@ -1529,14 +1578,10 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         NavigateToTags => {
             screens::navigate::open_folder(model, &format!("{}index", model.config.tags_dir))
         }
-        GoToPage {
-            path,
-            new_tab,
-            new_window,
-        } => screens::navigate::to_page(
+        GoToPage { path, open_in } => screens::navigate::to_page(
             &screens::atlas::folder_path(model, &path),
-            new_tab,
-            new_window,
+            open_in == crate::keys::OpenIn::Tab,
+            open_in == crate::keys::OpenIn::Window,
             false,
             None,
         ),
@@ -1578,6 +1623,11 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         ConfigLoaded { config } => screens::settings::show_config(model, config),
         PropertyDefinitionsLoaded { definitions } => {
             model.config.property_definitions = definitions;
+            done()
+        }
+        PropertyDefinitionAdded { definitions } => {
+            model.config.property_definitions = definitions;
+            model.config.definitions_added += 1;
             done()
         }
         PropertyDefinitionRefused { reason } => {

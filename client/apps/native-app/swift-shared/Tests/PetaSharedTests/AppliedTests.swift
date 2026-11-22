@@ -44,13 +44,13 @@ final class AppliedTests: XCTestCase {
             .outline(outline(selecting: true)),
             .sidebar(
                 SidebarView(
-                    indexHeader: "index", indexSort: IndexSort(key: .name, order: .asc), indexParentPath: nil,
+                    indexHeader: "index", indexPath: "index", indexSort: IndexSort(key: .name, order: .asc), indexParentPath: nil,
                     indexPages: [], headings: [], recentPages: [], currentPageId: "current")),
             .search(search("first")),
             .config(
                 ConfigView(
                     markdownDir: "markdown", weekNumbering: .iso, logicalOutdent: true, tagsDir: "tags",
-                    homeLink: "home", propertyDefinitions: [], definitionError: nil)),
+                    homeLink: "home", propertyDefinitions: [], definitionError: nil, definitionsAdded: 0)),
             .connection(.connected),
             .today("2026-11-22"),
             .calendar(

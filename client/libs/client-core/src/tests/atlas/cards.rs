@@ -79,6 +79,25 @@ fn a_dropped_card_takes_the_label_width_and_scale_1_with_its_center_at_the_given
     );
 }
 
+// 一覧から落としたカードは、つかんだ点がポインターの下に残るように置かれる。中心は、つかんだ点から一覧のカードの幅と高さの割合だけずれる。
+#[test]
+fn a_card_dropped_from_the_list_keeps_the_grabbed_spot_under_the_pointer() {
+    let mut h = atlas_with(&[("one", None)]);
+    h.send(Event::DropAtlasCard {
+        card_id: "a/b/one".into(),
+        x: 100.0,
+        y: 50.0,
+        grab_x: 0.25,
+        grab_y: 1.0,
+    });
+
+    // 120 wide and 40 high: the center is 30 right of a spot a quarter in, and 20 above the bottom
+    assert_eq!(
+        upserts(&h),
+        vec![("i-one".into(), "atlas_bounds".into(), "130,30,0,40".into())]
+    );
+}
+
 // ページに対応するアイテムがまだないカードは配置されず、何も保存されない。
 #[test]
 fn a_card_whose_page_has_no_item_yet_is_not_placed() {

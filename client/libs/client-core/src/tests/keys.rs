@@ -1,5 +1,7 @@
 use crate::app::SelectionKey;
-use crate::keys::{Chord, EditorKey, EditorState, Key, KeyMap, KeyPlatform, KeyPress};
+use crate::keys::{
+    Chord, EditorKey, EditorState, Held, Key, KeyMap, KeyPlatform, KeyPress, OpenIn,
+};
 
 const NOW: u64 = 1_000;
 
@@ -325,4 +327,15 @@ fn a_key_in_a_selection_sends_the_selection_key() {
     };
     let event = KeyMap::of(KeyPlatform::Windows).event_of(&press, NOW);
     assert_eq!(format!("{event:?}"), "Some(SelectionKey(Escape))");
+}
+
+// ページへのリンクは、Shiftで新しいウィンドウに、CtrlかCommandで新しいタブに、何もなければその場で開く。両方を押すとウィンドウになる。
+#[test]
+fn shift_opens_a_window_and_ctrl_or_command_a_tab() {
+    let open_in = |shift, ctrl, cmd| Held { shift, ctrl, cmd }.open_in();
+    assert_eq!(open_in(false, false, false), OpenIn::Here);
+    assert_eq!(open_in(false, true, false), OpenIn::Tab);
+    assert_eq!(open_in(false, false, true), OpenIn::Tab);
+    assert_eq!(open_in(true, false, false), OpenIn::Window);
+    assert_eq!(open_in(true, true, false), OpenIn::Window);
 }

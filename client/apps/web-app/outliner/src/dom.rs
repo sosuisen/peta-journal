@@ -2,6 +2,7 @@
 //! the page directly.
 
 use client_core::effects::LocalDateTimeDto;
+use client_core::keys::Held;
 use client_core::model::DeferredKey;
 use client_core::util::utf16;
 use wasm_bindgen::prelude::*;
@@ -68,6 +69,15 @@ pub fn auto_resize(el: &web_sys::HtmlTextAreaElement) {
 /// Returns true when a keydown event belongs to an IME composition session, e.g. the Enter
 /// that confirms a Japanese conversion candidate. Chromium reports this via `isComposing`;
 /// Safari fires the confirming Enter after `compositionend` with the legacy keyCode 229.
+/// The keys held down during a click, which decide where a page opens.
+pub fn held(ev: &web_sys::MouseEvent) -> Held {
+    Held {
+        shift: ev.shift_key(),
+        ctrl: ev.ctrl_key(),
+        cmd: ev.meta_key(),
+    }
+}
+
 pub fn is_ime_composing(ev: &web_sys::KeyboardEvent) -> bool {
     ev.is_composing() || ev.key_code() == 229
 }
@@ -352,10 +362,6 @@ pub fn local_time(iso: &str) -> String {
         return iso.to_string();
     }
     format!("{:02}:{:02}", d.get_hours(), d.get_minutes())
-}
-
-pub fn epoch_ms(iso: &str) -> f64 {
-    js_sys::Date::new(&JsValue::from_str(iso)).get_time()
 }
 
 /// A date-time as a `datetime-local` input shows it: local time to the minute,

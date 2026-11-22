@@ -3,8 +3,8 @@
 use crate::app::{ConnectionState, Model, Screen};
 use crate::body_model::{Bodies, BodyModel};
 use crate::model::{
-    shown_name, IndexSort, Item, ItemRef, Page, PropertyDefinition, PropertyValue, SearchResult,
-    WeekNumbering,
+    shown_name, value_type_of, IndexSort, Item, ItemRef, Page, PropertyDefinition, PropertyValue,
+    SearchResult, WeekNumbering,
 };
 use crate::ops::wiki;
 use crate::outline::tree::starts_date_group;
@@ -119,6 +119,10 @@ pub struct PageProperty {
     pub name: String,
     pub value: String,
     pub is_list: bool,
+    /// The items of a list, in order; none for a value that is no list.
+    pub values: Vec<String>,
+    /// The type to send a new value with (see `value_type_of`).
+    pub value_type: String,
     /// False for the page's own dates, which every page has.
     pub removable: bool,
     /// False for `modified`: the server moves it on every save.
@@ -127,29 +131,59 @@ pub struct PageProperty {
 
 impl PageProperty {
     fn of(key: &str, value: &PropertyValue, definitions: &[PropertyDefinition]) -> PageProperty {
-        let (value, is_list) = match value {
-            PropertyValue::List(values) => (values.join(", "), true),
-            PropertyValue::Text(text) => (text.clone(), false),
+        let (value, is_list, values) = match value {
+            PropertyValue::List(values) => (values.join(", "), true, values.clone()),
+            PropertyValue::Text(text) => (text.clone(), false, Vec::new()),
         };
         PageProperty {
             key: key.to_string(),
             name: shown_name(key, definitions),
             value,
             is_list,
+            values,
+            value_type: value_type_of(key, is_list, definitions),
             removable: true,
             editable: true,
         }
     }
 
-    fn date(key: &str, millis: i64) -> PageProperty {
+    fn date(key: &str, millis: i64, definitions: &[PropertyDefinition]) -> PageProperty {
         PageProperty {
             key: key.to_string(),
             name: key.to_string(),
             value: format_instant(millis),
             is_list: false,
+            values: Vec::new(),
+            value_type: value_type_of(key, false, definitions),
             removable: false,
             editable: key != "modified",
         }
+    }
+}
+
+/// A key that a new property row of the page may take.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FreeKey {
+    pub key: String,
+    /// The name the screen shows (see `shown_name`).
+    pub name: String,
+    /// The type to send the first value with (see `value_type_of`).
+    pub value_type: String,
+}
+
+impl FreeKey {
+    /// The keys of `definitions` usable on pages that `properties` does not have yet.
+    fn of(properties: &[PageProperty], definitions: &[PropertyDefinition]) -> Vec<FreeKey> {
+        definitions
+            .iter()
+            .filter(|d| d.page && !properties.iter().any(|p| p.key == d.key))
+            .map(|d| FreeKey {
+                key: d.key.clone(),
+                name: shown_name(&d.key, definitions),
+                value_type: d.value_type.clone(),
+            })
+            .collect()
     }
 }
 
@@ -161,6 +195,8 @@ pub struct DirSegment {
     pub name: String,
     /// The folders from the root down to this one, with `/` between them.
     pub path: String,
+    /// The path of the index page of this folder, which the segment opens.
+    pub index_path: String,
 }
 
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
@@ -176,6 +212,8 @@ pub struct PageView {
     pub demote_name: String,
     pub focus_item_id: Option<String>,
     pub properties: Vec<PageProperty>,
+    /// The keys a new property row may take: usable on pages and not on the page yet.
+    pub free_keys: Vec<FreeKey>,
     /// True when the property rows are shown: the page has some, or the menu opened them.
     pub show_properties: bool,
     pub backlinks: Vec<BacklinkGroup>,
@@ -279,6 +317,8 @@ pub struct AtlasCard {
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct SidebarView {
     pub index_header: String,
+    /// The path of the index page that the header of the index list opens.
+    pub index_path: String,
     pub index_sort: IndexSort,
     /// The path the `../` entry opens; None in the root directory.
     pub index_parent_path: Option<String>,
@@ -335,6 +375,9 @@ pub struct ConfigView {
     pub home_link: String,
     pub property_definitions: Vec<PropertyDefinition>,
     pub definition_error: Option<String>,
+    /// How many keys the server accepted from the settings form. The shell clears the form
+    /// when it grows.
+    pub definitions_added: u32,
 }
 
 /// Where the history of the opened pages can go (ADR 035). A shell that keeps no history in
@@ -411,6 +454,7 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
             home_link: model.config.home_link.clone(),
             property_definitions: model.config.property_definitions.clone(),
             definition_error: model.config.definition_error.clone(),
+            definitions_added: model.config.definitions_added,
         },
         connection: model.connection,
         today: model.today.clone(),
@@ -434,6 +478,18 @@ fn screen(model: &Model) -> ScreenView {
             page_id: j.page.as_ref().map(|p| p.id.clone()),
         }),
         Screen::Page(p) => ScreenView::Page(p.page.as_ref().map(|pg| {
+            let definitions = &model.config.property_definitions;
+            let properties: Vec<PageProperty> = [
+                PageProperty::date("created", pg.created_date, definitions),
+                PageProperty::date("modified", pg.modified_date, definitions),
+            ]
+            .into_iter()
+            .chain(
+                pg.properties
+                    .iter()
+                    .map(|(k, v)| PageProperty::of(k, v, definitions)),
+            )
+            .collect();
             Box::new(PageView {
                 page: pg.clone(),
                 title: page::page_title(pg),
@@ -444,17 +500,8 @@ fn screen(model: &Model) -> ScreenView {
                 can_demote: p.can_demote_index,
                 demote_name: page::demote_name(pg),
                 focus_item_id: p.focus_item_id.clone(),
-                properties: [
-                    PageProperty::date("created", pg.created_date),
-                    PageProperty::date("modified", pg.modified_date),
-                ]
-                .into_iter()
-                .chain(
-                    pg.properties
-                        .iter()
-                        .map(|(k, v)| PageProperty::of(k, v, &model.config.property_definitions)),
-                )
-                .collect(),
+                free_keys: FreeKey::of(&properties, definitions),
+                properties,
                 // The dates do not count: every page has them
                 show_properties: p.properties_open || !pg.properties.is_empty(),
                 backlinks: page::backlink_groups(&p.backlinks)
@@ -549,6 +596,7 @@ fn sidebar(model: &Model) -> SidebarView {
     let index_sort = sidebar::index_sort(model);
     SidebarView {
         index_header: model.sidebar.index_header.clone(),
+        index_path: sidebar::index_path(&model.sidebar.index_header),
         index_sort,
         index_parent_path: sidebar::parent_index_path(&model.sidebar.index_header),
         index_pages: sidebar::sorted_index_pages(&model.sidebar.index_pages, index_sort)

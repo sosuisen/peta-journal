@@ -119,6 +119,16 @@ pub fn sorted_index_pages(pages: &[Page], sort: IndexSort) -> Vec<Page> {
     sorted
 }
 
+/// The path of the index page of the folder `index_header` (`a/b/`, or `(root)/`), opened by
+/// the header of the index list.
+pub fn index_path(index_header: &str) -> String {
+    if index_header == "(root)/" {
+        "index".into()
+    } else {
+        format!("{index_header}index")
+    }
+}
+
 /// The path of the parent directory's index page, opened by the `../` entry of the index
 /// list. The root directory has no parent.
 pub fn parent_index_path(index_header: &str) -> Option<String> {

@@ -15,7 +15,7 @@ use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput,
     UiOp, UiOutput,
 };
-use client_core::model::bare_name;
+use client_core::model::{bare_name, value_type_of};
 use client_core::policy::{InOrder, Timers};
 use client_core::rest::ClientId;
 use client_core::screens::calendar::{month_page_name, year_page_name};
@@ -246,8 +246,7 @@ impl<H: Host> Shell<H> {
             }
             Inbound::GoToPage { path } => self.send(Event::GoToPage {
                 path,
-                new_tab: false,
-                new_window: false,
+                open_in: client_core::keys::OpenIn::Here,
             }),
             Inbound::GoToDate { date, unit } => self.go_to_date(&date, unit),
             // The whole path goes in the name: the core takes the folders out of it at the `/`
@@ -355,8 +354,7 @@ impl<H: Host> Shell<H> {
         };
         self.send(Event::GoToPage {
             path,
-            new_tab: false,
-            new_window: false,
+            open_in: client_core::keys::OpenIn::Here,
         });
     }
 
@@ -728,24 +726,22 @@ impl<H: Host> Shell<H> {
     }
 
     fn tell_properties(&mut self, view: &ViewModel<EmacsText>) {
-        let rows: Option<Vec<PropertyRow>> = match &view.screen {
-            ScreenView::Page(Some(page)) => Some(
-                page.properties
-                    .iter()
-                    .map(|p| PropertyRow::of(p, label(view, &p.key)))
-                    .collect(),
-            ),
+        let page = match &view.screen {
+            ScreenView::Page(Some(page)) => Some(page),
             _ => None,
         };
-        let is_used = |key: &str| rows.iter().flatten().any(|r| r.key == key);
-        let free_keys: Vec<FreeKey> = view
-            .config
-            .property_definitions
+        let rows: Option<Vec<PropertyRow>> = page.map(|page| {
+            page.properties
+                .iter()
+                .map(|p| PropertyRow::of(p, label(view, &p.key)))
+                .collect()
+        });
+        let free_keys: Vec<FreeKey> = page
             .iter()
-            .filter(|d| d.page && !is_used(&d.key))
-            .map(|d| FreeKey {
-                key: d.key.clone(),
-                label: label(view, &d.key),
+            .flat_map(|page| &page.free_keys)
+            .map(|free| FreeKey {
+                key: free.key.clone(),
+                label: label(view, &free.key),
             })
             .collect();
         let datetime_keys = datetime_keys(view, rows.iter().flatten(), &free_keys);
@@ -861,18 +857,15 @@ fn label(view: &ViewModel<EmacsText>, key: &str) -> String {
     format!("{name} ({})", property_type(view, key))
 }
 
-/// The type to send a value of the key with. A list stays a list, even when it has no definition.
+/// The type to send a value of the key with: the one the core gives the row of the page, or
+/// the one of the definition for a key the page does not have yet.
 fn property_type(view: &ViewModel<EmacsText>, key: &str) -> String {
-    let is_list = match &view.screen {
-        ScreenView::Page(Some(page)) => page.properties.iter().any(|p| p.key == key && p.is_list),
-        _ => false,
+    let row = match &view.screen {
+        ScreenView::Page(Some(page)) => page.properties.iter().find(|p| p.key == key),
+        _ => None,
     };
-    if is_list {
-        return client_core::model::list_type_of(key).to_string();
-    }
-    view.config
-        .property_definitions
-        .iter()
-        .find(|d| d.key == key)
-        .map_or_else(|| "text".to_string(), |d| d.value_type.clone())
+    row.map_or_else(
+        || value_type_of(key, false, &view.config.property_definitions),
+        |row| row.value_type.clone(),
+    )
 }

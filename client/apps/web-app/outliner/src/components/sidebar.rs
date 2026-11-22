@@ -151,6 +151,7 @@ pub fn Sidebar() -> impl IntoView {
     };
 
     let index_header = core.select(|v| v.sidebar.index_header.clone());
+    let index_path = core.select(|v| v.sidebar.index_path.clone());
     let index_pages = core.select(|v| v.sidebar.index_pages.clone());
     let index_sort = core.select(|v| v.sidebar.index_sort);
     let index_parent_path = core.select(|v| v.sidebar.index_parent_path.clone());
@@ -184,8 +185,7 @@ pub fn Sidebar() -> impl IntoView {
         move |page: &SidebarPage, ev: &web_sys::MouseEvent| {
             core.send(Event::GoToPage {
                 path: page.path.clone(),
-                new_tab: ev.ctrl_key() || ev.meta_key(),
-                new_window: ev.shift_key(),
+                open_in: dom::held(ev).open_in(),
             });
         }
     };
@@ -235,9 +235,8 @@ pub fn Sidebar() -> impl IntoView {
                             <div class="section-header">
                                 <h3 class="section-title section-title-link index-header-title" on:click={
                                                                         move |ev: web_sys::MouseEvent| {
-                                        let header = index_header.get();
-                                        let path = if header == "(root)/" { "index".to_string() } else { format!("{header}index") };
-                                        core.send(Event::GoToPage { path, new_tab: ev.ctrl_key() || ev.meta_key(), new_window: ev.shift_key() });
+                                        let path = index_path.get();
+                                        core.send(Event::GoToPage { path, open_in: dom::held(&ev).open_in() });
                                     }
                                 }>
                                     <svg class="page-icon" width="14" height="12"><use href="#icon-folder"/></svg>
@@ -250,7 +249,7 @@ pub fn Sidebar() -> impl IntoView {
                                 <div class="index-page-list">
                                     {move || index_parent_path.get().map(|path| view! {
                                         <div class="sidebar-item recent-page-item folder-item" on:click=move |ev: web_sys::MouseEvent| {
-                                            core.send(Event::GoToPage { path: path.clone(), new_tab: ev.ctrl_key() || ev.meta_key(), new_window: ev.shift_key() });
+                                            core.send(Event::GoToPage { path: path.clone(), open_in: dom::held(&ev).open_in() });
                                         }>
                                             <svg class="page-icon" width="14" height="12"><use href="#icon-folder"/></svg>
                                             <span class="page-label"><span class="page-name">"../"</span></span>

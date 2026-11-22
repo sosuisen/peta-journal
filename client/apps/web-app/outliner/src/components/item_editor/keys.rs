@@ -6,6 +6,7 @@ use crate::core::CoreHandle;
 use crate::dom;
 use crate::keyboard;
 use client_core::keys::{event_of, EditorKey, EditorState};
+use client_core::ops::wiki;
 use client_core::Event;
 use leptos::prelude::*;
 
@@ -36,18 +37,9 @@ pub(super) fn handle_keydown(
         return;
     }
     let key = ev.key();
-    if row.with_untracked(|r| r.suggestions_visible)
-        && matches!(key.as_str(), "ArrowUp" | "ArrowDown" | "Enter" | "Escape")
-    {
+    if row.with_untracked(|r| r.suggestions_visible) && wiki::takes_key(&key) {
         ev.prevent_default();
-        core.send(if key == "Escape" {
-            Event::WikiQuery {
-                item_id: item_id.to_string(),
-                context: None,
-            }
-        } else {
-            Event::WikiKey { key }
-        });
+        core.send(Event::WikiKey { key });
         return;
     }
     if key == "Enter" && ev.shift_key() && !ev.ctrl_key() {

@@ -250,6 +250,7 @@ fn sidebar_page(id: &str, label: &str, path: &str, is_dir: bool) -> client_core:
 fn core_sidebar(header: &str, parent: Option<&str>) -> client_core::view::SidebarView {
     client_core::view::SidebarView {
         index_header: header.into(),
+        index_path: client_core::screens::sidebar::index_path(header),
         index_parent_path: parent.map(Into::into),
         index_pages: vec![
             sidebar_page("s", "sub/", "notes/sub/index", true),
@@ -287,13 +288,6 @@ fn the_index_list_carries_the_paths_of_its_header_and_its_parent() {
             ("Idea", "notes/Idea", false, true)
         ]
     );
-}
-
-// ルートの一覧の見出しは、ルートのindexページを開く。
-#[test]
-fn the_header_of_the_root_opens_the_root_index() {
-    let sidebar = SidebarView::of(&core_sidebar("(root)/", None));
-    assert_eq!(sidebar.index.unwrap().path, "index");
 }
 
 // ページも親もない一覧は、出さない。

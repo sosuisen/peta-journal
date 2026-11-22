@@ -204,6 +204,32 @@ fn a_pick_for_an_item_that_is_gone_only_closes_the_popup() {
     assert!(update_calls(&h.api).is_empty());
 }
 
+// ポップアップが開いているとき、Escape はポップアップを閉じ、本文は変わらない。
+#[test]
+fn escape_closes_the_popup_and_leaves_the_body() {
+    let mut h = editing("see [[To]]");
+    offers(&mut h, &["Todo", "Tools"]);
+    typed_in_link(&mut h, "To");
+    h.fire_timers();
+    key(&mut h, "Escape");
+
+    let wiki = h.view().outline.wiki;
+    assert!(wiki.suggestions.is_empty());
+    assert_eq!(wiki.item_id, None);
+    assert!(update_calls(&h.api).is_empty());
+}
+
+// ポップアップが編集欄から取るキーは、上下の矢印、Enter、Escape だけである。
+#[test]
+fn the_popup_takes_the_arrows_up_and_down_enter_and_escape() {
+    use crate::ops::wiki::takes_key;
+    for key in ["ArrowUp", "ArrowDown", "Enter", "Escape"] {
+        assert!(takes_key(key), "{key}");
+    }
+    assert!(!takes_key("ArrowLeft"));
+    assert!(!takes_key("a"));
+}
+
 fn open_link_at(h: &mut Harness, cursor: usize) {
     h.send(Event::OpenLinkAt {
         item_id: "a".into(),
@@ -245,4 +271,22 @@ fn no_page_opens_when_the_cursor_is_not_on_a_link() {
     let mut h = Harness::with_items(vec![item("a", 1, "see [[notes/Idea]]")]);
     open_link_at(&mut h, 1);
     assert!(h.navigations.is_empty());
+}
+
+// 検索語は、カーソルの前の最後の `[[` からカーソルまでの文である。位置は文字で数える。
+#[test]
+fn the_query_is_the_text_from_the_last_opening_brackets_to_the_cursor() {
+    use crate::ops::wiki::query_at;
+    assert_eq!(query_at("a [[b]] [[日本]]", 12).as_deref(), Some("日本"));
+    assert_eq!(query_at("a [[b]] [[日本]]", 11).as_deref(), Some("日"));
+    assert_eq!(query_at("[[]]", 2).as_deref(), Some(""));
+}
+
+// `[[` がない、`[[` とカーソルの間に `]]` がある、カーソルの後に `]]` がないときは、検索語がない。
+#[test]
+fn there_is_no_query_outside_a_link() {
+    use crate::ops::wiki::query_at;
+    assert_eq!(query_at("plain", 3), None);
+    assert_eq!(query_at("[[a]] b", 6), None);
+    assert_eq!(query_at("[[ab", 4), None);
 }

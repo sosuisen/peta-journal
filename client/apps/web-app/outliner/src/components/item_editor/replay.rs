@@ -3,7 +3,7 @@
 
 use super::text::replace_range;
 use crate::core::CoreHandle;
-use client_core::model::DeferredKey;
+use client_core::model::{DeferredKey, TextKey};
 use client_core::util::utf16;
 use client_core::Event;
 use leptos::prelude::*;
@@ -53,70 +53,22 @@ fn replay_editing_key(
     el: &web_sys::HtmlTextAreaElement,
     key: &DeferredKey,
 ) -> bool {
-    if key.shift_key || key.alt_key {
-        return false;
-    }
-    let start = el.selection_start().ok().flatten().unwrap_or(0);
-    let end = el.selection_end().ok().flatten().unwrap_or(0);
     let value = el.value();
-    let len = value.encode_utf16().count() as u32;
-    // A key moves over a whole character: an emoji is two UTF-16 units (ADR 043)
-    let before = |at: u32| {
-        let chars = utf16::chars_of_utf16(&value, at as usize);
-        utf16::utf16_of_chars(&value, chars.saturating_sub(1)) as u32
+    // The textarea counts UTF-16 units; the core counts characters (ADR 043)
+    let chars = |at: Result<Option<u32>, _>| {
+        utf16::chars_of_utf16(&value, at.ok().flatten().unwrap_or(0) as usize)
     };
-    let after = |at: u32| {
-        let chars = utf16::chars_of_utf16(&value, at as usize);
-        utf16::utf16_of_chars(&value, chars + 1) as u32
-    };
-    let has_selection = start != end;
-    match key.key.as_str() {
-        "Backspace" => {
-            if !has_selection && start == 0 {
-                return false; // the handler merges with the item above
-            }
-            replace_range(
-                core,
-                item_id,
-                el,
-                "",
-                if has_selection { start } else { before(start) },
-                end,
-            );
+    let units = |at: usize| utf16::utf16_of_chars(&value, at) as u32;
+    let (start, end) = (chars(el.selection_start()), chars(el.selection_end()));
+    match key.text_key(&value, start, end) {
+        Some(TextKey::Delete { from, to }) => {
+            replace_range(core, item_id, el, "", units(from), units(to));
             true
         }
-        "Delete" => {
-            if !has_selection && end == len {
-                return false; // the handler merges the item below
-            }
-            replace_range(
-                core,
-                item_id,
-                el,
-                "",
-                start,
-                if has_selection { end } else { after(end) },
-            );
+        Some(TextKey::MoveTo(at)) => {
+            let _ = el.set_selection_range(units(at), units(at));
             true
         }
-        "ArrowLeft" => {
-            let p = before(start);
-            let _ = el.set_selection_range(p, p);
-            true
-        }
-        "ArrowRight" => {
-            let p = after(end);
-            let _ = el.set_selection_range(p, p);
-            true
-        }
-        "Home" => {
-            let _ = el.set_selection_range(0, 0);
-            true
-        }
-        "End" => {
-            let _ = el.set_selection_range(len, len);
-            true
-        }
-        _ => false,
+        None => false,
     }
 }

@@ -8,22 +8,12 @@ use crate::components::sidebar::Sidebar;
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
+use client_core::util::has_custom_scheme;
 use client_core::view::ScreenView;
 use client_core::Event;
 use leptos::prelude::*;
 
 const CONFIG_KEY: &str = "peta-journal-config";
-const STANDARD_PROTOCOLS: [&str; 9] = [
-    "http://",
-    "https://",
-    "mailto:",
-    "tel:",
-    "sms:",
-    "file:",
-    "data:",
-    "javascript:",
-    "about:",
-];
 
 fn load_sidebar_width() -> f64 {
     dom::local_storage_json::<serde_json::Value>(CONFIG_KEY)
@@ -36,22 +26,6 @@ fn save_sidebar_width(width: f64) {
         .unwrap_or_else(|| serde_json::json!({}));
     config["sidebarWidth"] = serde_json::json!(width);
     dom::local_storage_set_json(CONFIG_KEY, &config);
-}
-
-/// True for a link with a custom URL scheme (`peta-journal://...`), which the server opens.
-fn has_custom_protocol(href: &str) -> bool {
-    if href.starts_with('/')
-        || href.starts_with("./")
-        || href.starts_with("../")
-        || href.starts_with('#')
-    {
-        return false;
-    }
-    let lower = href.to_lowercase();
-    if STANDARD_PROTOCOLS.iter().any(|p| lower.starts_with(p)) {
-        return false;
-    }
-    href.contains("://")
 }
 
 #[component]
@@ -151,7 +125,7 @@ pub fn MainLayout() -> impl IntoView {
             let Some(href) = anchor.get_attribute("href") else {
                 return;
             };
-            if !has_custom_protocol(&href) {
+            if !has_custom_scheme(&href) {
                 return;
             }
             ev.prevent_default();

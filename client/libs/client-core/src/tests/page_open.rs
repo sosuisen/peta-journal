@@ -262,7 +262,7 @@ fn the_answers_for_a_page_the_screen_has_left_are_not_shown() {
     );
 }
 
-// フォルダの中のページは、根からそのフォルダまでの道を持つ。道の1つずつが、名前と、そこまでのパスを持つ。
+// フォルダの中のページは、根からそのフォルダまでの道を持つ。道の1つずつが、名前と、そこまでのパスと、そのフォルダの index ページのパスを持つ。
 #[test]
 fn a_page_in_a_folder_shows_the_way_to_its_folder() {
     let mut h = Harness::new();
@@ -273,10 +273,16 @@ fn a_page_in_a_folder_shows_the_way_to_its_folder() {
     let ScreenView::Page(Some(page)) = h.view().screen else {
         panic!("the page is not shown");
     };
-    let way: Vec<(&str, &str)> = page
+    let way: Vec<(&str, &str, &str)> = page
         .dir_segments
         .iter()
-        .map(|segment| (segment.name.as_str(), segment.path.as_str()))
+        .map(|segment| {
+            (
+                segment.name.as_str(),
+                segment.path.as_str(),
+                segment.index_path.as_str(),
+            )
+        })
         .collect();
-    assert_eq!(way, [("a", "a"), ("b", "a/b")]);
+    assert_eq!(way, [("a", "a", "a/index"), ("b", "a/b", "a/b/index")]);
 }

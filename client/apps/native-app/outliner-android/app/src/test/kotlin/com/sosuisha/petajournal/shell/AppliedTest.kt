@@ -92,6 +92,7 @@ class AppliedTest {
             Panel.Sidebar(
                 SidebarView(
                     indexHeader = "index",
+                    indexPath = "index",
                     indexSort = IndexSort(IndexSortKey.NAME, SortOrder.ASC),
                     indexPages = emptyList(),
                     headings = emptyList(),
@@ -108,6 +109,7 @@ class AppliedTest {
                     tagsDir = "tags",
                     homeLink = "home",
                     propertyDefinitions = emptyList(),
+                    definitionsAdded = 0u,
                 ),
             ),
             Panel.Connection(ConnectionState.CONNECTED),

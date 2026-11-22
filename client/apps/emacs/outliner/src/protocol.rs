@@ -547,7 +547,7 @@ impl SidebarView {
         SidebarView {
             index: listed.then(|| SidebarIndex {
                 header: sidebar.index_header.clone(),
-                path: index_path(&sidebar.index_header),
+                path: sidebar.index_path.clone(),
                 parent: sidebar.index_parent_path.clone(),
                 pages: lines(&sidebar.index_pages, true),
             }),
@@ -562,16 +562,6 @@ impl SidebarView {
                 .collect(),
             recent: lines(&sidebar.recent_pages, false),
         }
-    }
-}
-
-/// The path of the index page of the folder `header`, which the web frontend opens from the
-/// header of its list too.
-fn index_path(header: &str) -> String {
-    if header == "(root)/" {
-        "index".into()
-    } else {
-        format!("{header}index")
     }
 }
 

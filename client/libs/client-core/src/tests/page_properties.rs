@@ -1,7 +1,7 @@
 use crate::app::{Event, Screen};
 use crate::effects::{ApiOp, UiOp};
 use crate::harness::Harness;
-use crate::model::PropertyDefinition;
+use crate::model::{PropertyDefinition, PropertyValue};
 use crate::view::ScreenView;
 
 fn page_properties(h: &Harness) -> Vec<(String, String)> {
@@ -204,4 +204,207 @@ fn a_list_property_is_shown_as_one_comma_separated_line() {
     assert!(rows(&h)
         .iter()
         .any(|r| r == &("tags".to_string(), "a, b".to_string(), true, true)));
+    let ScreenView::Page(Some(p)) = &h.view().screen else {
+        panic!("no page")
+    };
+    let row = p.properties.iter().find(|r| r.key == "tags").unwrap();
+    assert_eq!(row.values, ["a", "b"]);
+}
+
+/// A shown page whose list property `key` holds `tags`.
+fn with_list(key: &str, tags: &[&str]) -> Harness {
+    let mut h = Harness::with_items(vec![]);
+    if let Screen::Page(p) = &mut h.model.screen {
+        p.page.as_mut().unwrap().properties.insert(
+            key.into(),
+            PropertyValue::List(tags.iter().map(|t| t.to_string()).collect()),
+        );
+    }
+    h
+}
+
+/// The values the server was asked to store, in order.
+fn upserted(h: &Harness) -> Vec<(String, String, String)> {
+    h.api
+        .calls
+        .iter()
+        .filter_map(|c| match c {
+            ApiOp::UpsertPageProperty {
+                key,
+                value_type,
+                value,
+                ..
+            } => Some((key.clone(), value_type.clone(), value.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+fn triple(key: &str, value_type: &str, value: &str) -> (String, String, String) {
+    (key.into(), value_type.into(), value.into())
+}
+
+// タグの × は、そのタグだけをリストから取り除く。
+#[test]
+fn the_cross_of_a_tag_takes_only_that_tag_out() {
+    let mut h = with_list("tags", &["a", "b", "c"]);
+    h.send(Event::RemovePageTag {
+        key: "tags".into(),
+        tag: "b".into(),
+    });
+    assert_eq!(upserted(&h), [triple("tags", "tags", "a, c")]);
+}
+
+// 最後のタグを取り除くと、プロパティごと消える。タグのない行は残らない。
+#[test]
+fn removing_the_last_tag_deletes_the_property() {
+    let mut h = with_list("books_list", &["a"]);
+    h.send(Event::RemovePageTag {
+        key: "books_list".into(),
+        tag: "a".into(),
+    });
+    assert!(upserted(&h).is_empty());
+    assert!(h
+        .api
+        .calls
+        .iter()
+        .any(|c| matches!(c, ApiOp::DeletePageProperty { key, .. } if key == "books_list")));
+}
+
+// ドラッグしたタグは、落とした先のタグの前か後ろに移る。元の場所に落としても何も送らない。
+#[test]
+fn a_dragged_tag_moves_before_or_after_the_target() {
+    let mut h = with_list("tags", &["a", "b", "c"]);
+    h.send(Event::MovePageTag {
+        key: "tags".into(),
+        tag: "a".into(),
+        target: "c".into(),
+        after: true,
+    });
+    assert_eq!(upserted(&h), [triple("tags", "tags", "b, c, a")]);
+
+    let mut h = with_list("tags", &["a", "b", "c"]);
+    h.send(Event::MovePageTag {
+        key: "tags".into(),
+        tag: "a".into(),
+        target: "b".into(),
+        after: false,
+    });
+    assert!(upserted(&h).is_empty());
+}
+
+// タグを自分自身の上に落としても、何も送らない。
+#[test]
+fn a_tag_dropped_on_itself_stays() {
+    let mut h = with_list("tags", &["a", "b"]);
+    h.send(Event::MovePageTag {
+        key: "tags".into(),
+        tag: "a".into(),
+        target: "a".into(),
+        after: true,
+    });
+    assert!(upserted(&h).is_empty());
+}
+
+// 打ったタグは、リストの後ろに足される。# と、すでにあるタグは落とされる。
+#[test]
+fn typed_tags_are_added_after_the_list() {
+    let mut h = with_list("tags", &["a", "b"]);
+    h.send(Event::AddPageTags {
+        key: "tags".into(),
+        typed: "#d, a".into(),
+    });
+    assert_eq!(upserted(&h), [triple("tags", "tags", "a, b, d")]);
+}
+
+// まだないリストのプロパティにタグを打つと、そのタグでプロパティができる。空のときは何も送らない。
+#[test]
+fn typed_tags_make_a_list_the_page_does_not_have_yet() {
+    let mut h = Harness::with_items(vec![]);
+    h.send(Event::AddPageTags {
+        key: "books_list".into(),
+        typed: " ".into(),
+    });
+    assert!(upserted(&h).is_empty());
+    h.send(Event::AddPageTags {
+        key: "books_list".into(),
+        typed: "x".into(),
+    });
+    assert_eq!(upserted(&h), [triple("books_list", "list", "x")]);
+}
+
+fn definition(key: &str, value_type: &str, page: bool) -> PropertyDefinition {
+    PropertyDefinition {
+        key: key.into(),
+        value_type: value_type.into(),
+        page,
+        ..PropertyDefinition::default()
+    }
+}
+
+/// The rows as the shell sends their values: key and the type of a new value.
+fn value_types(h: &Harness) -> Vec<(String, String)> {
+    match &h.view().screen {
+        ScreenView::Page(Some(p)) => p
+            .properties
+            .iter()
+            .map(|r| (r.key.clone(), r.value_type.clone()))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+// 行の新しい値は、定義の型で送られる。定義のないキーはテキストで、リストは定義がなくてもリストのまま送られる。
+#[test]
+fn a_row_sends_its_value_with_the_type_of_its_definition() {
+    let mut h = Harness::with_items(vec![]);
+    h.model.config.property_definitions = vec![
+        definition("created", "datetime", false),
+        definition("rating_n", "number", true),
+    ];
+    if let Screen::Page(p) = &mut h.model.screen {
+        let properties = &mut p.page.as_mut().unwrap().properties;
+        properties.insert("rating_n".into(), "3".into());
+        properties.insert("note".into(), "x".into());
+        properties.insert("tags".into(), ["a"].into());
+        properties.insert("books_list".into(), ["b"].into());
+    }
+    let types = value_types(&h);
+    let type_of = |key: &str| {
+        types
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, t)| t.as_str())
+            .unwrap()
+    };
+    assert_eq!(type_of("created"), "datetime");
+    assert_eq!(type_of("modified"), "text");
+    assert_eq!(type_of("rating_n"), "number");
+    assert_eq!(type_of("note"), "text");
+    assert_eq!(type_of("tags"), "tags");
+    assert_eq!(type_of("books_list"), "list");
+}
+
+// 新しい行が取れるキーは、ページに使える定義のうち、まだページにないものである。キーは表示の名前と型を持つ。
+#[test]
+fn a_new_row_may_take_the_page_keys_the_page_does_not_have_yet() {
+    let mut h = Harness::with_items(vec![]);
+    h.model.config.property_definitions = vec![
+        definition("rating_n", "number", true),
+        definition("due_d", "date", true),
+        definition("secret", "text", false),
+    ];
+    if let Screen::Page(p) = &mut h.model.screen {
+        let properties = &mut p.page.as_mut().unwrap().properties;
+        properties.insert("rating_n".into(), "3".into());
+    }
+    let ScreenView::Page(Some(p)) = &h.view().screen else {
+        panic!("no page")
+    };
+    let free: Vec<(&str, &str, &str)> = p
+        .free_keys
+        .iter()
+        .map(|k| (k.key.as_str(), k.name.as_str(), k.value_type.as_str()))
+        .collect();
+    assert_eq!(free, [("due_d", "due", "date")]);
 }

@@ -47,6 +47,28 @@ fn a_refused_definition_shows_the_reason_and_an_empty_key_is_not_sent() {
     );
 }
 
+// サーバーがキーを受け入れると、受け入れた数が増え、シェルはフォームを空にする。拒否されたキーと、送られなかったキーでは増えない。
+#[test]
+fn an_accepted_key_counts_and_a_refused_one_does_not() {
+    let mut h = Harness::with_items(vec![]);
+    let added = |h: &Harness| h.view().config.definitions_added;
+    h.send(Event::AddPropertyDefinition {
+        body: "rating".into(),
+        value_type: "number".into(),
+    });
+    assert_eq!(added(&h), 1);
+    h.api.fail_next("AddPropertyDefinition", "defined already");
+    h.send(Event::AddPropertyDefinition {
+        body: "rating".into(),
+        value_type: "number".into(),
+    });
+    h.send(Event::AddPropertyDefinition {
+        body: " ".into(),
+        value_type: "text".into(),
+    });
+    assert_eq!(added(&h), 1);
+}
+
 // 予約の接尾辞で終わる本体は、サーバーに送られず、その理由が示される。
 #[test]
 fn a_body_that_ends_with_a_reserved_suffix_is_not_sent() {

@@ -57,7 +57,10 @@ pub fn add_property_definition(model: &mut Model, body: String, value_type: Stri
         return done();
     };
     run(move |api| async move {
-        settle_definitions(&api, api.add_property_definition(&key, &value_type).await);
+        match api.add_property_definition(&key, &value_type).await {
+            Ok(definitions) => api.send_event(Event::PropertyDefinitionAdded { definitions }),
+            Err(e) => api.send_event(Event::PropertyDefinitionRefused { reason: e.0 }),
+        }
     })
 }
 

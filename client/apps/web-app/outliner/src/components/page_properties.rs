@@ -4,7 +4,7 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
-use client_core::model::{list_type_of, shown_name, PropertyDefinition};
+use client_core::keys::OpenIn;
 use client_core::view::ScreenView;
 use client_core::Event;
 use leptos::prelude::*;
@@ -24,25 +24,18 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
         ScreenView::Page(Some(p)) => p.properties.clone(),
         _ => Vec::new(),
     });
-    let definitions = core.select(|v| v.config.property_definitions.clone());
+    let free_keys = core.select(|v| match &v.screen {
+        ScreenView::Page(Some(p)) => p.free_keys.clone(),
+        _ => Vec::new(),
+    });
     let type_of = move |key: &str| {
-        definitions.with(|ds| {
-            ds.iter()
-                .find(|d| d.key == key)
-                .map(|d| d.value_type.clone())
+        free_keys.with(|ks| {
+            ks.iter()
+                .find(|k| k.key == key)
+                .map(|k| k.value_type.clone())
                 .unwrap_or_else(|| "text".to_string())
         })
     };
-    // The keys a new row may take: usable on pages and not on the page yet
-    let free_keys = Memo::new(move |_| {
-        let used: Vec<String> = properties.with(|ps| ps.iter().map(|p| p.key.clone()).collect());
-        definitions.with(|ds| {
-            ds.iter()
-                .filter(|d| d.page && !used.contains(&d.key))
-                .cloned()
-                .collect::<Vec<PropertyDefinition>>()
-        })
-    });
     let next_id = StoredValue::new(1u32);
     let add_draft = move |_| {
         let id = next_id.get_value();
@@ -63,7 +56,7 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                     let key = key.clone();
                     move |_| properties.with(|ps| ps.iter().find(|q| q.key == key).map(|q| q.value.clone()).unwrap_or_default())
                 });
-                let value_type = if p.is_list { list_type_of(&p.key).to_string() } else { type_of(&p.key) };
+                let value_type = p.value_type.clone();
                 let send = {
                     let key = key.clone();
                     let value_type = value_type.clone();
@@ -71,8 +64,11 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                 };
                 let remove = { let key = key.clone(); move |_| core.send(Event::DeletePageProperty { key: key.clone() }) };
                 let shown: AnyView = if p.is_list {
-                    let remove_last = { let key = key.clone(); move || core.send(Event::DeletePageProperty { key: key.clone() }) };
-                    view! { <TagList value=value.into() save=send remove_last=remove_last /> }.into_any()
+                    let tags = Memo::new({
+                        let key = key.clone();
+                        move |_| properties.with(|ps| ps.iter().find(|q| q.key == key).map(|q| q.values.clone()).unwrap_or_default())
+                    });
+                    view! { <TagList key=key.clone() tags=tags.into() added=|| () /> }.into_any()
                 } else if p.editable {
                     value_input(&value_type, value.into(), send, false, NodeRef::new())
                 } else {
@@ -112,7 +108,7 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                     <div class="property-row draft">
                         <select class="property-key-select" prop:value=move || key.get() on:change=pick>
                             <option value="">"key"</option>
-                            {move || free_keys.get().into_iter().map(|d| { let name = definitions.with(|ds| shown_name(&d.key, ds)); view! { <option value=d.key.clone()>{name}</option> } }).collect_view()}
+                            {move || free_keys.get().into_iter().map(|k| view! { <option value=k.key.clone()>{k.name.clone()}</option> }).collect_view()}
                         </select>
                         {move || {
                             let t = value_type.get();
@@ -126,9 +122,9 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                                 }
                             });
                             if t == "tags" || t == "list" {
-                                // The row goes with its last tag, as a saved list does
-                                let discard = move || drafts.update(|ds| ds.retain(|x| x.id != id));
-                                return Some(view! { <TagList value=Signal::derive(String::new) save=commit remove_last=discard open=true /> }.into_any());
+                                // The first tags make the property; the draft row is then gone
+                                let added = move || drafts.update(|ds| ds.retain(|x| x.id != id));
+                                return Some(view! { <TagList key=key.get_untracked() tags=Signal::derive(Vec::new) added=added open=true /> }.into_any());
                             }
                             (!t.is_empty()).then(|| value_input(&t, Signal::derive(move || initial.clone()), commit, true, input_ref))
                         }}
@@ -149,23 +145,15 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
 /// before or after it.
 #[component]
 fn TagList(
-    value: Signal<String>,
-    save: impl Fn(String) + Clone + Send + Sync + 'static,
-    remove_last: impl Fn() + Clone + Send + Sync + 'static,
+    key: String,
+    tags: Signal<Vec<String>>,
+    /// Called after tags were added: a draft row is then gone.
+    added: impl Fn() + Clone + Send + Sync + 'static,
     #[prop(optional)] open: bool,
 ) -> impl IntoView {
     let core: CoreHandle = expect_context();
     // Tag pages live where hashtags link to, so both reach the same page
     let tags_dir = core.select(|v| v.config.tags_dir.clone());
-    let tags = Memo::new(move |_| {
-        value.with(|v| {
-            v.split(',')
-                .map(str::trim)
-                .filter(|t| !t.is_empty())
-                .map(str::to_string)
-                .collect::<Vec<String>>()
-        })
-    });
     let adding = RwSignal::new(false);
     let input_ref = NodeRef::<leptos::html::Input>::new();
     let open_input = move || {
@@ -181,19 +169,12 @@ fn TagList(
     }
 
     let remove = {
-        let save = save.clone();
+        let key = key.clone();
         move |tag: String| {
-            let rest: Vec<String> = tags
-                .get_untracked()
-                .into_iter()
-                .filter(|t| *t != tag)
-                .collect();
-            // An empty list would stay as a row with no tags, so the property goes instead
-            if rest.is_empty() {
-                remove_last();
-            } else {
-                save(rest.join(", "));
-            }
+            core.send(Event::RemovePageTag {
+                key: key.clone(),
+                tag,
+            })
         }
     };
     // The tag being dragged, and the chip it would land at with whether it goes after it
@@ -204,20 +185,15 @@ fn TagList(
         drop_at.set(None);
     };
     let reorder = {
-        let save = save.clone();
+        let key = key.clone();
         move |target: String, after: bool| {
-            let Some(moved) = dragged.get_untracked() else {
-                return;
-            };
-            let old = tags.get_untracked();
-            let mut new: Vec<String> = old.iter().filter(|t| **t != moved).cloned().collect();
-            let Some(at) = new.iter().position(|t| *t == target) else {
-                return;
-            };
-            new.insert(if after { at + 1 } else { at }, moved);
-            // A drop back where the tag was would build the page again for nothing
-            if new != old {
-                save(new.join(", "));
+            if let Some(tag) = dragged.get_untracked() {
+                core.send(Event::MovePageTag {
+                    key: key.clone(),
+                    tag,
+                    target,
+                    after,
+                });
             }
         }
     };
@@ -227,9 +203,12 @@ fn TagList(
             return;
         }
         adding.set(false);
-        // The core drops a leading `#` and a tag that is already there
         if !typed.trim().is_empty() {
-            save(format!("{}, {typed}", value.get_untracked()));
+            core.send(Event::AddPageTags {
+                key: key.clone(),
+                typed,
+            });
+            added();
         }
     };
 
@@ -244,7 +223,7 @@ fn TagList(
                     let href = href.clone();
                     move |ev: web_sys::MouseEvent| {
                         // A modified click is left to the browser, so it opens a new tab or window
-                        if ev.ctrl_key() || ev.meta_key() || ev.shift_key() {
+                        if dom::held(&ev).open_in() != OpenIn::Here {
                             return;
                         }
                         ev.prevent_default();
