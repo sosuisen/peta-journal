@@ -1,3 +1,5 @@
+use crate::changes::Changes;
+use crate::diff::ListChange;
 use crate::{Clock, Host, NativeShell, ShellEffectFfi};
 use client_core::drag::DragMove;
 use client_core::effects::{
@@ -817,4 +819,65 @@ fn the_file_of_a_pasted_image_is_deleted_once_the_server_has_answered() {
     wait_until("both files are deleted", || {
         !saved.exists() && !refused.exists()
     });
+}
+
+/// The ids of the rows a reset gives the shell.
+fn reset_ids(changes: &Changes) -> Vec<String> {
+    match changes.rows.as_slice() {
+        [ListChange::Reset { items }] => items.iter().map(|row| row.item.id.clone()).collect(),
+        other => panic!("not one reset: {other:?}"),
+    }
+}
+
+/// A screen with the page `notes` open, as the view model shows it.
+fn screen_with_notes() -> Screen {
+    let screen = Screen::new();
+    screen.open_notes();
+    wait_until("the page is in the view", || {
+        screen.view().contains("the body of a")
+    });
+    screen
+}
+
+// 開いたページの最初の差分は、行の入れ替えと、全部のパネルである。
+#[test]
+fn the_first_changes_of_an_opened_page_are_a_reset_and_every_panel() {
+    let screen = screen_with_notes();
+
+    let changes = screen.shell.take_changes();
+
+    assert_eq!(reset_ids(&changes), ["a"]);
+    assert_eq!(changes.panels.len(), 14);
+}
+
+// 続けて読んだ差分は、空である。
+#[test]
+fn changes_read_again_at_once_are_empty() {
+    let screen = screen_with_notes();
+    screen.shell.take_changes();
+
+    let changes = screen.shell.take_changes();
+
+    assert!(changes.rows.is_empty() && changes.panels.is_empty());
+}
+
+// 入力した本文は、その行の更新として届く。
+#[test]
+fn a_typed_body_comes_as_an_update_of_its_row() {
+    let screen = screen_with_notes();
+    screen.shell.take_changes();
+    let typing = Typing::Changed {
+        item_id: "a".into(),
+        body: "typed into a".into(),
+    };
+    let mut bytes = Vec::new();
+    BincodeFfiFormat::serialize(&mut bytes, &typing).unwrap();
+
+    screen.shell.typed(&bytes).unwrap();
+
+    let changes = screen.shell.take_changes();
+    let [ListChange::Update { at: 0, item }] = changes.rows.as_slice() else {
+        panic!("not one update of the first row: {:?}", changes.rows);
+    };
+    assert_eq!(item.item.body, "typed into a");
 }
