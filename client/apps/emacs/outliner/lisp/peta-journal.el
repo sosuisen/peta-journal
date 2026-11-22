@@ -567,23 +567,26 @@ Without its last line break: the newline of the row ends it."
          (end (if (string-suffix-p "\n" whole) (1- (length whole)) (length whole)))
          (shown (substring whole 0 end)))
     (seq-doseq (span (peta-journal-protocol-emacs-text-spans text))
-      (let ((from (min end (peta-journal-protocol-emacs-span-from span)))
-            (to (min end (peta-journal-protocol-emacs-span-to span)))
-            (faces (peta-journal--span-faces span))
-            (link (peta-journal-protocol-emacs-span-link span)))
-        (when link
-          (setq faces (append faces '(peta-journal-link)))
-          (add-text-properties from to (list 'peta-link link
-                                             'keymap peta-journal--link-map
-                                             'mouse-face 'highlight
-                                             'help-echo "mouse-1: open the link")
-                               shown))
-        (when (< from to)
-          (when faces
-            (put-text-property from to 'font-lock-face faces shown))
-          (unless (peta-journal-protocol-emacs-span-letters span)
-            (put-text-property from to 'peta-added t shown)))))
+      (add-text-properties (min end (peta-journal-protocol-emacs-span-from span))
+                           (min end (peta-journal-protocol-emacs-span-to span))
+                           (peta-journal--span-properties span)
+                           shown))
     shown))
+
+(defun peta-journal--span-properties (span)
+  "The text properties of SPAN in the shown text."
+  (let ((faces (peta-journal--span-faces span))
+        (link (peta-journal-protocol-emacs-span-link span)))
+    (append
+     (when link
+       (list 'peta-link link
+             'keymap peta-journal--link-map
+             'mouse-face 'highlight
+             'help-echo "mouse-1: open the link"))
+     (when (or faces link)
+       (list 'font-lock-face (append faces (and link '(peta-journal-link)))))
+     (unless (peta-journal-protocol-emacs-span-letters span)
+       (list 'peta-added t)))))
 
 (defun peta-journal--body-string (row)
   "The body of ROW as it goes into the buffer.
