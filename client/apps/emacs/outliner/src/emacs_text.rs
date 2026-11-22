@@ -62,6 +62,8 @@ pub enum EmacsLook {
     Heading6,
     /// What stands before an entry of a list: a bullet, its number or a checkbox.
     Mark,
+    /// The mark before a quoted paragraph, one for each quote it is inside.
+    Quote,
 }
 
 /// The look of the line of a heading of `level`, from 1 to 6. `None` for any other paragraph.
@@ -79,6 +81,9 @@ fn heading_look(level: u8) -> Option<EmacsLook> {
 
 /// How wide one step of the indent of a list is.
 const INDENT: &str = "  ";
+
+/// The mark of one quote.
+const QUOTE: &str = "▎ ";
 
 impl BodyModel for EmacsText {
     fn of(ast: Node, tags_dir: &str) -> EmacsText {
@@ -125,8 +130,15 @@ impl EmacsText {
         self.write("\n", Part::default());
     }
 
-    /// The indent of the lists the paragraph is inside, and the mark of its entry.
+    /// The marks of the quotes the paragraph is inside, the indent of its lists, and the
+    /// mark of its entry.
     fn before_paragraph(&mut self, paragraph: &RichParagraph) {
+        if paragraph.quoted > 0 {
+            self.write(
+                &QUOTE.repeat(paragraph.quoted as usize),
+                Part::added(vec![EmacsLook::Quote]),
+            );
+        }
         let steps = paragraph.depth.saturating_sub(1) as usize;
         if steps > 0 {
             self.write(&INDENT.repeat(steps), Part::added(Vec::new()));
