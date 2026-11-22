@@ -2,7 +2,7 @@
 //! that look different. It is made from the `RichText` of the native shells, so the shown
 //! letters are counted as there (ADR 043, ADR 044).
 
-use client_core::rich_text::{Looks, RichBlock, RichParagraph, RichText};
+use client_core::rich_text::{Looks, RichBlock, RichLink, RichParagraph, RichText};
 use client_core::BodyModel;
 use facet::Facet;
 use flatmarkdown_ast::Node;
@@ -28,6 +28,7 @@ pub struct EmacsSpan {
     pub from: u32,
     pub to: u32,
     pub looks: Vec<EmacsLook>,
+    pub link: Option<RichLink>,
 }
 
 /// How a part of the text looks.
@@ -69,25 +70,46 @@ impl BodyModel for EmacsText {
 impl EmacsText {
     fn paragraph(&mut self, paragraph: &RichParagraph) {
         for run in &paragraph.runs {
-            self.write(&run.text, looks_of(run.looks));
+            self.write(
+                &run.text,
+                Part {
+                    looks: looks_of(run.looks),
+                    link: run.link.clone(),
+                },
+            );
         }
-        self.write("\n", Vec::new());
+        self.write("\n", Part::default());
     }
 
-    /// Writes `letters` at the end of the text, with a span when they look different.
-    fn write(&mut self, letters: &str, looks: Vec<EmacsLook>) {
+    /// Writes `letters` at the end of the text, with a span when they are not plain.
+    fn write(&mut self, letters: &str, part: Part) {
         let from = self.length;
         self.text.push_str(letters);
         self.length = self
             .length
             .saturating_add(u32::try_from(letters.chars().count()).unwrap_or(u32::MAX));
-        if !looks.is_empty() {
+        if !part.is_plain() {
             self.spans.push(EmacsSpan {
                 from,
                 to: self.length,
-                looks,
+                looks: part.looks,
+                link: part.link,
             });
         }
+    }
+}
+
+/// What a span tells of its letters, before its places are known.
+#[derive(Default)]
+struct Part {
+    looks: Vec<EmacsLook>,
+    link: Option<RichLink>,
+}
+
+impl Part {
+    /// True for plain shown letters, which need no span.
+    fn is_plain(&self) -> bool {
+        self.looks.is_empty() && self.link.is_none()
     }
 }
 
