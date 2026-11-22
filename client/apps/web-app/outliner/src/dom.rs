@@ -364,10 +364,6 @@ pub fn local_time(iso: &str) -> String {
     format!("{:02}:{:02}", d.get_hours(), d.get_minutes())
 }
 
-pub fn epoch_ms(iso: &str) -> f64 {
-    js_sys::Date::new(&JsValue::from_str(iso)).get_time()
-}
-
 /// A date-time as a `datetime-local` input shows it: local time to the minute,
 /// `YYYY-MM-DDTHH:MM`. Empty when the text is not a date-time.
 pub fn local_minutes(iso: &str) -> String {

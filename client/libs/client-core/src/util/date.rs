@@ -63,6 +63,24 @@ pub fn parse_rfc3339_millis(s: &str) -> Option<i64> {
     Some(day_millis + ((h * 60 + m) * 60 + sec) * 1000 + millis - offset_millis)
 }
 
+/// How long a task took, from its `begin` to its `end` instant: `1h5m`, `12m`, or `30s` under a
+/// minute. The seconds are shown only then. An instant that cannot be read, or an end before
+/// the begin, counts as no time.
+pub fn task_duration(begin: &str, end: &str) -> String {
+    let millis = match (parse_rfc3339_millis(begin), parse_rfc3339_millis(end)) {
+        (Some(begin), Some(end)) => (end - begin).max(0),
+        _ => 0,
+    };
+    let seconds = millis / 1000;
+    let (h, m, s) = (seconds / 3600, seconds % 3600 / 60, seconds % 60);
+    match (h, m) {
+        (0, 0) => format!("{s}s"),
+        (0, m) => format!("{m}m"),
+        (h, 0) => format!("{h}h"),
+        (h, m) => format!("{h}h{m}m"),
+    }
+}
+
 /// Moves an ISO date (YYYY-MM-DD) by a number of days. Other strings are returned as they are.
 pub fn shift_iso_date(iso_date: &str, days: i64) -> String {
     match Date::parse(iso_date) {
@@ -133,6 +151,27 @@ pub fn generate_untitled_title(now: LocalDateTime) -> String {
 mod tests {
     use super::*;
     use crate::effects::LocalDateTimeDto;
+
+    // 作業時間は、時と分で示す。0の単位は書かず、1分未満のときだけ秒で示す。
+    #[test]
+    fn a_task_takes_hours_and_minutes_and_seconds_only_under_a_minute() {
+        let at = |clock: &str| format!("2026-01-02T{clock}Z");
+        let took = |end: &str| task_duration(&at("10:00:00"), &at(end));
+        assert_eq!(took("11:05:59"), "1h5m");
+        assert_eq!(took("12:00:30"), "2h");
+        assert_eq!(took("10:12:00"), "12m");
+        assert_eq!(took("10:00:30"), "30s");
+    }
+
+    // 読めない時刻と、始まりより前の終わりは、0秒である。
+    #[test]
+    fn an_unreadable_instant_or_an_end_before_the_begin_takes_no_time() {
+        assert_eq!(task_duration("soon", "2026-01-02T10:00:00Z"), "0s");
+        assert_eq!(
+            task_duration("2026-01-02T10:00:00Z", "2026-01-02T09:00:00Z"),
+            "0s"
+        );
+    }
 
     // 日のジャーナルの名前は、年4桁、月2桁、日2桁を「-」でつないだものである。
     #[test]
