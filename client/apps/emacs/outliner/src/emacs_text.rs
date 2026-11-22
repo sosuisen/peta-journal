@@ -149,6 +149,13 @@ impl Writer {
                         );
                     }
                 }
+                RichBlock::Quote { blocks } => self.within(
+                    Prefix {
+                        first: None,
+                        rest: (QUOTE, vec![EmacsLook::Quote]),
+                    },
+                    blocks,
+                ),
                 RichBlock::Image { image } => {
                     self.line_start();
                     // The line break too: an image has no shown letters (ADR 044). A line
