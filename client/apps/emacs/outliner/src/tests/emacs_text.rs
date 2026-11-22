@@ -85,6 +85,32 @@ fn parts_of(text: &EmacsText) -> Vec<(u32, u32, Vec<EmacsLook>, bool)> {
         .collect()
 }
 
+// 見出しの見た目は、1から6のどの深さにもある。
+#[test]
+fn every_level_of_a_heading_from_one_to_six_has_its_own_look() {
+    let looks: Vec<Vec<EmacsLook>> = (1..=6)
+        .map(|level| {
+            let text = text_of(&format!("{} 題", "#".repeat(level)));
+            text.spans
+                .iter()
+                .flat_map(|span| span.looks.clone())
+                .collect()
+        })
+        .collect();
+
+    assert_eq!(
+        looks,
+        [
+            vec![EmacsLook::Heading1],
+            vec![EmacsLook::Heading2],
+            vec![EmacsLook::Heading3],
+            vec![EmacsLook::Heading4],
+            vec![EmacsLook::Heading5],
+            vec![EmacsLook::Heading6],
+        ]
+    );
+}
+
 // リストの段落の前には、深さの字下げと記号がある。どちらも表示の文字ではない。
 #[test]
 fn a_paragraph_of_a_list_has_the_indent_of_its_depth_and_its_mark_which_are_not_letters() {
