@@ -159,3 +159,21 @@ fn an_image_without_alt_text_shows_as_the_word_image() {
     assert_eq!(text.text, "image\n");
     assert_eq!(parts_of(&text), [(0, 6, vec![], false)]);
 }
+
+// リストの中のコードブロックも、項目の記号と字下げの後ろに平らになる。
+#[test]
+fn a_code_block_in_a_list_is_flat_behind_the_mark_and_the_indent_of_its_entry() {
+    let text = text_of("- 前\n\n  ```\n  a\n  b\n  ```");
+
+    assert_eq!(text.text, "• 前\n  a\n  b\n");
+    assert_eq!(
+        parts_of(&text),
+        [
+            (0, 2, vec![EmacsLook::Mark], false),
+            (4, 6, vec![], false),
+            (6, 8, vec![EmacsLook::CodeBlock], true),
+            (8, 10, vec![], false),
+            (10, 11, vec![EmacsLook::CodeBlock], true),
+        ]
+    );
+}
