@@ -101,6 +101,47 @@ fn a_list_that_keeps_no_item_is_reset_once() {
     );
 }
 
+// 操作を順に当てると、前のリストが今のリストになる。削除、挿入、移動、更新が混ざっていても同じである。
+#[test]
+fn the_changes_applied_in_order_make_the_list_before_into_the_list_after() {
+    let before = [
+        line("a", "one"),
+        line("b", "two"),
+        line("c", "three"),
+        line("d", "four"),
+        line("e", "five"),
+    ];
+    let after = [
+        line("e", "FIVE"),
+        line("c", "three"),
+        line("x", "new"),
+        line("a", "one"),
+        line("d", "FOUR"),
+    ];
+
+    assert_eq!(apply(&before, changes(&before, &after)), after);
+}
+
+/// The list as a shell has it after it applied the changes to `list`, one after another.
+fn apply(list: &[Line], changes: Vec<ListChange<Line>>) -> Vec<Line> {
+    let mut list = list.to_vec();
+    for change in changes {
+        match change {
+            ListChange::Insert { at, item } => list.insert(at as usize, item),
+            ListChange::Remove { at } => {
+                list.remove(at as usize);
+            }
+            ListChange::Move { from, to } => {
+                let item = list.remove(from as usize);
+                list.insert(to as usize, item);
+            }
+            ListChange::Update { at, item } => list[at as usize] = item,
+            ListChange::Reset { items } => list = items,
+        }
+    }
+    list
+}
+
 // 前も今も空のときは、操作がない。
 #[test]
 fn two_empty_lists_have_no_changes() {
