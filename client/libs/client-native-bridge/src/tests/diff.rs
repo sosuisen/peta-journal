@@ -56,3 +56,15 @@ fn a_new_item_is_inserted_in_its_place() {
         }]
     );
 }
+
+// 消えた行は、後ろの位置から順に削除になる。
+#[test]
+fn items_that_are_gone_are_removed_from_the_last_place_on() {
+    let before = [line("a", "one"), line("b", "two"), line("c", "three")];
+    let after = [line("b", "two")];
+
+    assert_eq!(
+        changes(&before, &after),
+        vec![ListChange::Remove { at: 2 }, ListChange::Remove { at: 0 }]
+    );
+}
