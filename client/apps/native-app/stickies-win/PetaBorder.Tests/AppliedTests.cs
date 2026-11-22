@@ -72,6 +72,22 @@ public sealed class AppliedTests
         Assert.Equal(["a"], Ids(view.Outline.Rows));
     }
 
+    // 最初の差分に、欠けたパネルや二度あるパネルがあれば、ビューモデルは作られない。境界の両側の版が違うときである。
+    [Fact]
+    public void The_first_changes_without_every_panel_once_make_no_view_model()
+    {
+        var missing = EveryPanel().Where(panel => panel is not Panel.Title);
+        var twice = EveryPanel().Append(new Panel.Title("again"));
+        // As many panels as there should be
+        var twiceInPlaceOfAnother = missing.Append(new Panel.Today("again"));
+
+        Assert.Throws<InvalidOperationException>(() => Applied.First(Changes([], missing)));
+        Assert.Throws<InvalidOperationException>(() => Applied.First(Changes([], twice)));
+        Assert.Throws<InvalidOperationException>(() =>
+            Applied.First(Changes([], twiceInPlaceOfAnother))
+        );
+    }
+
     // 届いたパネルだけが入れ替わり、ほかの欄は前のままである。
     [Fact]
     public void Only_the_panels_that_came_take_the_place_of_their_parts()
