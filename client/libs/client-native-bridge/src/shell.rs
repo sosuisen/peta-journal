@@ -13,7 +13,7 @@ use client_core::keys::{KeyMap, KeyPlatform, KeyPress};
 use client_core::policy::{InOrder, Timers};
 use client_core::rest::ClientId;
 use client_core::typing::{self, Typing};
-use client_core::{Effect, Event, Route};
+use client_core::{Effect, Event, RichText, Route, ViewModel};
 use crux_core::bridge::Request as BorderRequest;
 use crux_core::bridge::{BincodeFfiFormat, BridgeError, EffectId, FfiFormat};
 use crux_core::capability::Operation;
@@ -443,7 +443,16 @@ impl NativeShell {
 
     /// What changed since the last call, before it is written as bytes.
     pub(crate) fn take_changes(&self) -> Changes {
-        let view = self.router.view();
+        self.changes_from(self.whole_view())
+    }
+
+    /// The whole view model, as the core builds it from its model.
+    pub(crate) fn whole_view(&self) -> ViewModel<RichText> {
+        self.router.view()
+    }
+
+    /// What changed from what the shell has to `view`. The shell has `view` after this.
+    pub(crate) fn changes_from(&self, view: ViewModel<RichText>) -> Changes {
         self.shown.lock().unwrap().changes(view)
     }
 }

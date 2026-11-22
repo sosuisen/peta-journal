@@ -626,3 +626,6 @@ fn search(model: &Model) -> SearchView {
         searching: model.search.searching,
     }
 }
+
+#[cfg(test)]
+mod timing;
