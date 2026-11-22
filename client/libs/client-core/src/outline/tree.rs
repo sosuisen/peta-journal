@@ -6,6 +6,7 @@
 //! - the visible items: the own items plus transcluded descendants, minus collapsed subtrees.
 
 use crate::model::{Item, ItemPosition, ItemRef};
+use crate::outline::state::OwnItemIds;
 use std::collections::{HashMap, HashSet};
 
 /// Where an edit of an item shown in the outline is really stored.
@@ -233,7 +234,7 @@ pub fn selected_root_items(items: &[ItemRef], selected: &HashSet<String>) -> Vec
 /// Resolves the page, the level offset and the transclusion state for editing an item.
 pub fn edit_context_of(
     item: &Item,
-    own_ids: &HashSet<String>,
+    own_ids: &OwnItemIds,
     trees: &HashMap<String, Vec<ItemRef>>,
 ) -> EditContext {
     let is_own = own_ids.contains(&item.id);
@@ -328,7 +329,7 @@ pub fn transclusion_scoped_items(visible: &[ItemRef], ctx: &TransclusionContext)
 /// True when the visible item at the index is the first item of a journal day, so a date
 /// header goes above it. Transcluded descendants belong to another page and never start
 /// a group, and are skipped when looking for the item above.
-pub fn starts_date_group(visible: &[ItemRef], own_ids: &HashSet<String>, index: usize) -> bool {
+pub fn starts_date_group(visible: &[ItemRef], own_ids: &OwnItemIds, index: usize) -> bool {
     if index == 0 {
         return true;
     }
@@ -524,7 +525,7 @@ mod tests {
         let mut b = item("b", 1);
         Arc::make_mut(&mut b).name = "2026-01-01".into();
         let visible = vec![a, b];
-        let own: HashSet<String> = ["a", "b"].iter().map(|s| s.to_string()).collect();
+        let own: OwnItemIds = ["a", "b"].into_iter().collect();
         assert!(starts_date_group(&visible, &own, 0));
         assert!(starts_date_group(&visible, &own, 1));
     }

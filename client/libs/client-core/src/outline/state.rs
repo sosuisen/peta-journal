@@ -36,10 +36,39 @@ pub struct FocusOrder {
     pub item_id: Option<String>,
 }
 
+/// The ids of the own items, each with the place of the item among them. A row of the outline
+/// finds its item here at once: looking through the items for it, row by row, took most of the
+/// time of the view model on a long page (#937).
+#[derive(Debug, Default)]
+pub struct OwnItemIds(HashMap<String, usize>);
+
+impl OwnItemIds {
+    pub fn contains(&self, item_id: &str) -> bool {
+        self.0.contains_key(item_id)
+    }
+
+    /// The place of the item among the own items.
+    fn place(&self, item_id: &str) -> Option<usize> {
+        self.0.get(item_id).copied()
+    }
+}
+
+/// The ids in the order of the items. An id that is there twice has the place of the first,
+/// as a search from the start finds.
+impl<'a> FromIterator<&'a str> for OwnItemIds {
+    fn from_iter<I: IntoIterator<Item = &'a str>>(ids: I) -> Self {
+        let mut places = HashMap::new();
+        for (place, id) in ids.into_iter().enumerate() {
+            places.entry(id.to_string()).or_insert(place);
+        }
+        OwnItemIds(places)
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct OutlineState {
     items: Vec<ItemRef>,
-    own_item_ids: HashSet<String>,
+    own_item_ids: OwnItemIds,
     visible: Vec<ItemRef>,
     focused_item_id: Option<String>,
     editing_item_ids: HashSet<String>,
@@ -67,7 +96,7 @@ impl OutlineState {
 
     /// IDs of the items that belong to the pages shown in this outline. Transcluded
     /// descendants are shown too, but they belong to their source page and are not in this set.
-    pub fn own_item_ids(&self) -> &HashSet<String> {
+    pub fn own_item_ids(&self) -> &OwnItemIds {
         &self.own_item_ids
     }
 
@@ -126,8 +155,8 @@ impl OutlineState {
 
     /// Finds an item by its id, in the own items or the transcluded trees.
     pub fn get_item_by_id(&self, item_id: &str) -> Option<ItemRef> {
-        if let Some(found) = self.items.iter().find(|b| b.id == item_id) {
-            return Some(found.clone());
+        if let Some(place) = self.own_item_ids.place(item_id) {
+            return Some(self.items[place].clone());
         }
         self.transcluded_trees
             .values()
@@ -142,7 +171,7 @@ impl OutlineState {
 
     /// Checks whether the item has any immediate children (next item at a deeper level).
     pub fn has_children(&self, item_id: &str) -> bool {
-        if let Some(idx) = self.items.iter().position(|b| b.id == item_id) {
+        if let Some(idx) = self.own_item_ids.place(item_id) {
             let item = &self.items[idx];
             if let Some(source_id) = &item.transclude_item_id {
                 if self
@@ -432,7 +461,7 @@ impl OutlineState {
 
     /// Recomputes the own-id set and the visible list.
     fn refresh(&mut self) {
-        self.own_item_ids = self.items.iter().map(|b| b.id.clone()).collect();
+        self.own_item_ids = self.items.iter().map(|b| b.id.as_str()).collect();
         self.visible = compute_visible(
             &self.items,
             &self.collapsed_item_ids,
