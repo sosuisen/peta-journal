@@ -124,3 +124,12 @@ fn a_rule_is_a_line_that_is_not_letters() {
     assert_eq!(text.text, format!("上\n{line}\n下\n"));
     assert_eq!(parts_of(&text), [(2, 22, vec![EmacsLook::Rule], false)]);
 }
+
+// コードブロックの行は、コードの見た目を持つ。
+#[test]
+fn the_lines_of_a_code_block_have_the_look_of_code() {
+    let text = text_of("前\n```\nlet a;\nlet b;\n```");
+
+    assert_eq!(text.text, "前\nlet a;\nlet b;\n");
+    assert_eq!(parts_of(&text), [(2, 15, vec![EmacsLook::CodeBlock], true)]);
+}
