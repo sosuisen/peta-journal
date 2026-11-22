@@ -66,9 +66,10 @@ final class TypingSpeedTests: XCTestCase {
     func testAKeyOnALongPage() async throws {
         let url = try await longPage()
 
-        // The border alone: the event into the core, and the view model out of it
+        // The border alone: the event into the core, and the view model or the changes out of it
         var events: [Double] = []
         var views: [Double] = []
+        var changes: [Double] = []
         let border = Border(server: server.address) { _ in }
         try border.open(url)
         var seen = try border.view()
@@ -83,8 +84,15 @@ final class TypingSpeedTests: XCTestCase {
             events.append(try timed { try border.send(.bodyChanged(itemId: first, body: body, nowMs: 0)) })
             views.append(try timed { _ = try border.view() })
         }
+        _ = try border.changes()
+        for n in 0..<Self.keys {
+            let body = String(repeating: "c", count: n + 1)
+            try border.send(.bodyChanged(itemId: first, body: body, nowMs: 0))
+            changes.append(try timed { _ = try border.changes() })
+        }
         report("event into the core", events)
         report("view model out of the core", views)
+        report("changes out of the core (ADR 076)", changes)
 
         // The whole of it: the shell takes the key and the window is drawn again
         let shell = Shell(server: server.address, url: url)
