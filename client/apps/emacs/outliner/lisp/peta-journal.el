@@ -541,6 +541,25 @@ The bullet says how long the marks in front of the body are."
   (mapcar (lambda (look) (cdr (assoc look peta-journal--look-faces)))
           (peta-journal-protocol-emacs-span-looks span)))
 
+(defun peta-journal-follow-link (event)
+  "Open the link of the shown text that EVENT clicked on."
+  (interactive "e")
+  (let ((link (get-text-property (posn-point (event-start event)) 'peta-link)))
+    (peta-journal-protocol-handle-rich-link
+     link
+     (list :page (lambda (url) (peta-journal--go "go" :url url))
+           :web #'browse-url
+           :file (lambda (path)
+                   (browse-url (concat (string-trim-right peta-journal-server "/") "/" path)))))))
+
+(defvar peta-journal--link-map
+  (let ((map (make-sparse-keymap)))
+    ;; Not the point: it would come into the row, which then shows its Markdown and no link
+    (define-key map [down-mouse-1] #'ignore)
+    (define-key map [mouse-1] #'peta-journal-follow-link)
+    map)
+  "The keys on a link of the shown text.")
+
 (defun peta-journal--shown-string (text)
   "The EmacsText TEXT as it goes into the buffer.
 Without its last line break: the newline of the row ends it."
@@ -550,7 +569,15 @@ Without its last line break: the newline of the row ends it."
     (seq-doseq (span (peta-journal-protocol-emacs-text-spans text))
       (let ((from (min end (peta-journal-protocol-emacs-span-from span)))
             (to (min end (peta-journal-protocol-emacs-span-to span)))
-            (faces (peta-journal--span-faces span)))
+            (faces (peta-journal--span-faces span))
+            (link (peta-journal-protocol-emacs-span-link span)))
+        (when link
+          (setq faces (append faces '(peta-journal-link)))
+          (add-text-properties from to (list 'peta-link link
+                                             'keymap peta-journal--link-map
+                                             'mouse-face 'highlight
+                                             'help-echo "mouse-1: open the link")
+                               shown))
         (when (< from to)
           (when faces
             (put-text-property from to 'font-lock-face faces shown))
