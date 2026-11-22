@@ -4,6 +4,7 @@
 //! This crate has no way to the journal and no entrance for another language. A crate above
 //! it has both: it gives [`NativeShell`] a [`Host`] (ADR 036).
 
+mod changes;
 mod clock;
 #[cfg(feature = "facet_typegen")]
 pub mod codegen;
