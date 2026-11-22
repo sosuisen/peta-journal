@@ -146,7 +146,7 @@ fn a_key_and_a_change_of_the_items_on_pages_of_every_length() {
                 };
                 h.model
                     .state
-                    .replace_items(&[last.clone()], vec![item], &place);
+                    .replace_items(std::slice::from_ref(&last), vec![item], &place);
                 h.view()
             }));
         }
