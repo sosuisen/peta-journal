@@ -64,6 +64,8 @@ pub enum EmacsLook {
     Mark,
     /// The mark before a quoted paragraph, one for each quote it is inside.
     Quote,
+    /// A line across the page.
+    Rule,
 }
 
 /// The look of the line of a heading of `level`, from 1 to 6. `None` for any other paragraph.
@@ -84,6 +86,10 @@ const INDENT: &str = "  ";
 
 /// The mark of one quote.
 const QUOTE: &str = "▎ ";
+
+/// A rule is a line of this letter, this many letters wide.
+const RULE: &str = "─";
+const RULE_WIDTH: usize = 20;
 
 impl BodyModel for EmacsText {
     fn of(ast: Node, tags_dir: &str) -> EmacsText {
@@ -145,6 +151,9 @@ impl EmacsText {
         }
         if let Some(mark) = &paragraph.mark {
             self.write(&format!("{mark} "), Part::added(vec![EmacsLook::Mark]));
+        }
+        if paragraph.rule {
+            self.write(&RULE.repeat(RULE_WIDTH), Part::added(vec![EmacsLook::Rule]));
         }
     }
 
