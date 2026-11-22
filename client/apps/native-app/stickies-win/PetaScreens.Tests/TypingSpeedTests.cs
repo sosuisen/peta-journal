@@ -41,8 +41,8 @@ public sealed class TypingSpeedTests
     }
 
     /// <summary>
-    /// The border alone, on a core of its own: the event into the core, the view model out of
-    /// it as bytes, and the reading of the bytes in C#.
+    /// The border alone, on a core of its own: the event into the core, the view model and the
+    /// changes of the screen out of it as bytes, and the reading of the bytes in C#.
     /// </summary>
     private static void MeasureTheBorder(Screen screen)
     {
@@ -59,6 +59,10 @@ public sealed class TypingSpeedTests
         var events = new List<double>();
         var bytes = new List<double>();
         var reads = new List<double>();
+        var changed = new List<double>();
+        var changesRead = new List<double>();
+        // The first changes hold the whole screen; those of a key are what is measured
+        _ = core.Changes();
         for (var n = 1; n <= Keys; n++)
         {
             var typing = new Typing.Typed(first, new string('a', n), (ulong)n).BincodeSerialize();
@@ -66,16 +70,21 @@ public sealed class TypingSpeedTests
             byte[] view = [];
             bytes.Add(Timed(() => view = core.View()));
             reads.Add(Timed(() => ViewModel.BincodeDeserialize(view)));
+            byte[] changes = [];
+            changed.Add(Timed(() => changes = core.Changes()));
+            changesRead.Add(Timed(() => Changes.BincodeDeserialize(changes)));
         }
         Report("Rust: event into the core", events);
         Report("Rust: view model out of the core as bytes", bytes);
         Report("C#: view model read from the bytes", reads);
+        Report("Rust: changes out of the core as bytes (ADR 076)", changed);
+        Report("C#: changes read from the bytes (ADR 076)", changesRead);
         // The last edit is not saved: this core goes with the test, and its server too
     }
 
     /// <summary>
     /// The whole of it: the editor of the sticky takes the text of a key, the shell hands it to
-    /// the core and matches the rows of the new view model, and the window is laid out again.
+    /// the core and applies the changes of the screen, and the window is laid out again.
     /// </summary>
     private static async Task MeasureTheWindow(Screen screen)
     {
@@ -93,7 +102,7 @@ public sealed class TypingSpeedTests
             // Lets the render request of the core arrive, as between two keys
             await Task.Delay(5);
         }
-        Report("C#: the shell takes the key and matches the rows", shell);
+        Report("C#: the shell takes the key and applies the changes", shell);
         Report("WinUI: the window is laid out again", drawn);
         Assert.AreEqual(new string('b', Keys), screen.Rows[0].Item.Body);
     }

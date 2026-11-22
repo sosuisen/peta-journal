@@ -165,6 +165,74 @@ public sealed class ShellTests : IDisposable
         Assert.Equal("/pages/winui-notes", shell.Url);
     }
 
+    // 行の変化は、操作の列として知らされる。知らされた操作を順に当てると、シェルの行と同じになる（ADR 076）。
+    [Fact]
+    public void The_rows_are_told_as_changes_that_make_the_rows_of_the_shell()
+    {
+        var shell = NewShell("/pages/winui-notes");
+        List<Row> told = [];
+        shell.RowsChanged += changes => Apply(told, changes);
+        main.WaitUntil("the page is shown", () => shell.View.Outline.Rows.Count > 0);
+
+        var (first, _) = TwoItems(shell);
+        shell.Typed("first, typed again", first);
+
+        Assert.Equal(
+            shell.View.Outline.Rows.Select(row => (row.Item.Id, row.Item.Body)),
+            told.Select(row => (row.Item.Id, row.Item.Body))
+        );
+    }
+
+    // シェルが差分から組み立てた画面は、コアの画面と同じである。ページを開いたとき、入力したとき、項目を分けたとき、検索したときである（ADR 076）。
+    [Fact]
+    public void The_screen_made_from_the_changes_is_that_of_the_core()
+    {
+        var shell = ShellWithPage();
+        AssertTheScreenOfTheCore(shell);
+
+        var (first, _) = TwoItems(shell);
+        AssertTheScreenOfTheCore(shell);
+
+        shell.Typed("first, typed again", first);
+        AssertTheScreenOfTheCore(shell);
+
+        shell.Search("winui");
+        main.WaitUntil("a page is found", () => shell.View.Search.Results.Count > 0);
+        AssertTheScreenOfTheCore(shell);
+    }
+
+    private static void AssertTheScreenOfTheCore(Shell shell) =>
+        Assert.Equal(shell.WholeViewOfTheCore().BincodeSerialize(), shell.View.BincodeSerialize());
+
+    /// <summary>The rows after the changes, applied one after another as a list does.</summary>
+    private static void Apply(List<Row> rows, IReadOnlyList<ListChange> changes)
+    {
+        foreach (var change in changes)
+        {
+            switch (change)
+            {
+                case ListChange.Insert insert:
+                    rows.Insert((int)insert.At, insert.Item);
+                    break;
+                case ListChange.Remove remove:
+                    rows.RemoveAt((int)remove.At);
+                    break;
+                case ListChange.Move move:
+                    var moved = rows[(int)move.From];
+                    rows.RemoveAt((int)move.From);
+                    rows.Insert((int)move.To, moved);
+                    break;
+                case ListChange.Update update:
+                    rows[(int)update.At] = update.Item;
+                    break;
+                case ListChange.Reset reset:
+                    rows.Clear();
+                    rows.AddRange(reset.Items);
+                    break;
+            }
+        }
+    }
+
     // 編集中にウィンドウを閉じると、閉じたあとでエディタがカーソルを失う。そのときの編集の終わりは、何もしない。
     [Fact]
     public void The_end_of_an_edit_after_the_window_is_closed_does_nothing()

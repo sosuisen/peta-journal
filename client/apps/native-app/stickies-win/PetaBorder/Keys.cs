@@ -40,7 +40,7 @@ public sealed partial class Shell
     {
         if (!border.Press(press))
             return false;
-        Show(border.View());
+        Show(border.Changes());
         return true;
     }
 
@@ -51,7 +51,7 @@ public sealed partial class Shell
     public void Dragged(DragMove step)
     {
         if (border.Drag(step))
-            Show(border.View());
+            Show(border.Changes());
     }
 
     /// <summary>

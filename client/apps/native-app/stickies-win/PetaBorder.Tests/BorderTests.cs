@@ -78,6 +78,18 @@ public sealed class BorderTests
         Assert.Equal("apple 日本語", border.View().Search.Query);
     }
 
+    // Rustが書いた画面の差分を、C#が読める。最初の差分には、C#が送ったイベントの中身が入っている（ADR 076）。
+    [Fact]
+    public void The_changes_of_the_screen_written_by_Rust_are_read_in_CSharp()
+    {
+        using var border = new Border(Nowhere, _ => { });
+
+        border.Send(new Event.SearchQueryChanged("apple 日本語"));
+
+        var search = border.Changes().Panels.OfType<Panel.Search>().Single();
+        Assert.Equal("apple 日本語", search.Value.Query);
+    }
+
     // Rustが書いたシェルへの依頼を、C#が読める。
     [Fact]
     public void A_request_of_Rust_is_read_in_CSharp()

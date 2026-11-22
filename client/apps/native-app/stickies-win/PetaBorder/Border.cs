@@ -86,6 +86,13 @@ public sealed class Border : IDisposable
     public ViewModel View() => ViewModel.BincodeDeserialize(core.View());
 
     /// <summary>
+    /// What changed on the screen since the last call: the changes to the rows of the outline,
+    /// and the panels that changed (ADR 076). The first call gives a reset of the rows and
+    /// every panel. Call it from the main thread only.
+    /// </summary>
+    public Changes Changes() => PetaTypes.Changes.BincodeDeserialize(core.Changes());
+
+    /// <summary>
     /// The window closes, in whatever way, or the app ends. The text typed and still waiting
     /// for its save is saved before the core goes (#766).
     /// </summary>

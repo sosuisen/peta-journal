@@ -173,6 +173,10 @@ internal sealed class StickyWindow : Window
             Copy,
             Browse
         );
+        // The rows of the first screen are there; later ones come as changes to them
+        foreach (var row in Shell.View.Outline.Rows)
+            rows.Add(new RowModel(row));
+        Shell.RowsChanged += Apply;
         edgeScroll = DispatcherQueue.CreateTimer();
         edgeScroll.Interval = EdgeScroll.Interval;
         edgeScroll.Tick += (_, _) => ScrollAtEdge();
@@ -490,7 +494,6 @@ internal sealed class StickyWindow : Window
         wasSearching = searching;
         nothing.Visibility = hasPage ? Visibility.Collapsed : Visibility.Visible;
         selection.Visibility = hasPage ? Visibility.Visible : Visibility.Collapsed;
-        Sync(view.Outline.Rows);
         // A key must not change the text of an item while items are selected
         if (view.Outline.SelectionMode && !wasSelecting)
             selection.Focus(FocusState.Programmatic);
@@ -500,43 +503,15 @@ internal sealed class StickyWindow : Window
     }
 
     /// <summary>
-    /// Makes the rows of the list those of the core. A row that stays keeps its view: the
-    /// editor with the cursor is not made again at every key.
+    /// Applies the changes of the rows that the core sent. A row that stays keeps its view:
+    /// the editor with the cursor is not made again at every key, and only a changed row is
+    /// drawn again (ADR 076).
     /// </summary>
-    private void Sync(ObservableCollection<Row> wanted)
+    private void Apply(IReadOnlyList<ListChange> changes)
     {
-        var ids = new HashSet<string>(wanted.Select(row => row.Item.Id));
-        if (rows.Count > 0 && !rows.Any(row => ids.Contains(row.Id)))
-            rows.Clear();
-        for (var place = rows.Count - 1; place >= 0; place--)
-        {
-            if (!ids.Contains(rows[place].Id))
-                rows.RemoveAt(place);
-        }
-        for (var place = 0; place < wanted.Count; place++)
-        {
-            var id = wanted[place].Item.Id;
-            if (place < rows.Count && rows[place].Id == id)
-            {
-                rows[place].Set(wanted[place]);
-                continue;
-            }
-            var from = -1;
-            for (var later = place + 1; later < rows.Count && from < 0; later++)
-            {
-                if (rows[later].Id == id)
-                    from = later;
-            }
-            if (from < 0)
-            {
-                rows.Insert(place, new RowModel(wanted[place]));
-                continue;
-            }
-            rows.Move(from, place);
-            rows[place].Set(wanted[place]);
-        }
-        while (rows.Count > wanted.Count)
-            rows.RemoveAt(rows.Count - 1);
+        if (closed)
+            return;
+        ListChanges.Apply(rows, changes, row => new RowModel(row), (at, row) => rows[at].Set(row));
     }
 
     // ---- The cursor ----
