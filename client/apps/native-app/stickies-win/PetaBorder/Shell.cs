@@ -68,6 +68,12 @@ public sealed partial class Shell : IDisposable
     public ViewModel View { get; private set; }
 
     /// <summary>
+    /// The whole view model as the core has it, for the tests to hold <see cref="View"/> against.
+    /// The shell itself reads only the changes (ADR 076).
+    /// </summary>
+    internal ViewModel WholeViewOfTheCore() => border.View();
+
+    /// <summary>
     /// The name of what is open, as the core gives it in the view model. For a journal it is
     /// the date of the day at the top of the window, with "(Today)" behind the date of today.
     /// </summary>
