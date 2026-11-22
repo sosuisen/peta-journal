@@ -20,6 +20,14 @@
   (append more
           (list :id id :level level :body body :bullet "plain" :collapsed nil :header nil)))
 
+(defun peta-journal-test--show (rows page-id ack)
+  "Show the vector ROWS of PAGE-ID, as one reset of the rows sent with ACK."
+  (peta-journal--apply-rows (vector (list :Reset (list :items rows))) page-id ack))
+
+(defun peta-journal-test--change (page-id &rest changes)
+  "Apply CHANGES of the rows of PAGE-ID, sent with the ack 0."
+  (peta-journal--apply-rows (vconcat changes) page-id 0))
+
 (defmacro peta-journal-test--with-rows (rows &rest body)
   "Run BODY in a peta-journal buffer that shows ROWS, with the shell replaced."
   (declare (indent 1))
@@ -33,7 +41,7 @@
                     (setq peta-journal-test--sent
                           (append peta-journal-test--sent (list (cons type fields))))))
                  ((symbol-function 'peta-journal--wait) #'ignore))
-         (peta-journal--apply-rows (vconcat ,rows) "page" 0)
+         (peta-journal-test--show (vconcat ,rows) "page" 0)
          ,@body))))
 
 (defun peta-journal-test--goto (id cursor)
@@ -114,64 +122,71 @@
     (search-forward "──")
     (should-error (insert "x") :type 'text-read-only)))
 
-;; 変わった行だけが書き換えられ、他の行の位置は動かない。
-(ert-deftest peta-journal-only-the-changed-rows-are-rewritten ()
+;; 更新された行だけが書き換えられ、他の行の位置は動かない。
+(ert-deftest peta-journal-only-the-updated-row-is-rewritten ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "b" 1 "y"))
     (peta-journal--goto-item "a" 0)
     (let ((marker (point-marker)))
-      (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x")
-                                        (peta-journal-test--row "b" 1 "yy"))
-                                "page" 0)
+      (peta-journal-test--change "page" (list :Update (list :at 1 :item (peta-journal-test--row
+                                                                         "b" 1 "yy"))))
       (should (equal (peta-journal-test--shown) "• x\n• yy\n"))
       (should (= (marker-position marker) (peta-journal--body-start (point-min)))))))
 
-;; 変わった行より後ろの行も書き換えられない。行が増えても減っても同じである。
+;; 変わった行より後ろの行は書き換えられない。行の更新でも、挿入でも、削除でも同じである。
 (ert-deftest peta-journal-the-rows-after-a-change-are-not-rewritten ()
-  (dolist (new (list (list (peta-journal-test--row "a" 1 "x")
-                           (peta-journal-test--row "b" 1 "yy")
-                           (peta-journal-test--row "c" 1 "z"))
-                     (list (peta-journal-test--row "a" 1 "x")
-                           (peta-journal-test--row "n" 1 "新")
-                           (peta-journal-test--row "b" 1 "y")
-                           (peta-journal-test--row "c" 1 "z"))
-                     (list (peta-journal-test--row "a" 1 "x")
-                           (peta-journal-test--row "c" 1 "z"))))
+  (dolist (change (list (list :Update (list :at 1 :item (peta-journal-test--row "b" 1 "yy")))
+                        (list :Insert (list :at 1 :item (peta-journal-test--row "n" 1 "新")))
+                        (list :Remove (list :at 1))))
     (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
                                         (peta-journal-test--row "b" 1 "y")
                                         (peta-journal-test--row "c" 1 "z"))
       (let ((marker (copy-marker (peta-journal--body-start (peta-journal--find-row "c")))))
-        (peta-journal--apply-rows (vconcat new) "page" 0)
+        (peta-journal-test--change "page" change)
         (should (= (marker-position marker)
                    (peta-journal--body-start (peta-journal--find-row "c"))))))))
 
-;; 同じ行だけが届けば、どの行も書き換えられない。
-(ert-deftest peta-journal-the-same-rows-rewrite-nothing ()
+;; 届いた差分を順に当てると、バッファの行は届いた行と同じになる。場所は、前の差分を当てたあとの行で数える。
+(ert-deftest peta-journal-the-changes-are-applied-in-order ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "y")
+                                      (peta-journal-test--row "c" 1 "z"))
+    (peta-journal-test--change
+     "page"
+     (list :Remove (list :at 0))
+     (list :Move (list :from 1 :to 0))
+     (list :Insert (list :at 1 :item (peta-journal-test--row "n" 2 "新")))
+     (list :Update (list :at 2 :item (peta-journal-test--row "b" 1 "yy"))))
+    (should (equal (peta-journal-test--shown) "• z\n• 新\n• yy\n"))
+    (should (equal (mapcar (lambda (row) (plist-get row :id)) peta-journal--rows)
+                   '("c" "n" "b")))
+    (should (equal (peta-journal--id-at (peta-journal--find-row "n")) "n"))))
+
+;; 動いた行は、その本文のまま、新しい場所に描かれる。
+(ert-deftest peta-journal-a-moved-row-keeps-its-text ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "一\n二"))
+    (peta-journal-test--change "page" (list :Move (list :from 1 :to 0)))
+    (should (equal (peta-journal-test--shown) "• 一\n二\n• x\n"))
+    (peta-journal--goto-item "a" 0)
+    (should (equal (peta-journal--id-at (point)) "a"))))
+
+;; 差分がなければ、どの行も書き換えられない。
+(ert-deftest peta-journal-no-changes-rewrite-nothing ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "b" 1 "y"))
     (let ((first-row (copy-marker (peta-journal--body-start (peta-journal--find-row "a"))))
           (second-row (copy-marker (peta-journal--body-start (peta-journal--find-row "b")))))
-      (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x")
-                                        (peta-journal-test--row "b" 1 "y"))
-                                "page" 0)
+      (peta-journal-test--change "page")
       (should (= first-row (peta-journal--body-start (peta-journal--find-row "a"))))
       (should (= second-row (peta-journal--body-start (peta-journal--find-row "b")))))))
-
-;; 同じ内容の行が並んでいても、先頭と末尾の一致を二重に数えず、増減が正しく映る。
-(ert-deftest peta-journal-rows-with-the-same-content-are-counted-once ()
-  (let ((row (peta-journal-test--row "a" 1 "x")))
-    (peta-journal-test--with-rows (list row row)
-      (peta-journal--apply-rows (vector row row row) "page" 0)
-      (should (equal (peta-journal-test--shown) "• x\n• x\n• x\n"))
-      (peta-journal--apply-rows (vector row) "page" 0)
-      (should (equal (peta-journal-test--shown) "• x\n")))))
 
 ;; 空のページに行が届いても、すべての行が消えても、見える行は届いた行と同じである。
 (ert-deftest peta-journal-rows-can-go-from-none-to-some-and-back ()
   (peta-journal-test--with-rows nil
-    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x")) "page" 0)
+    (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "x")) "page" 0)
     (should (equal (peta-journal-test--shown) "• x\n"))
-    (peta-journal--apply-rows (vector) "page" 0)
+    (peta-journal-test--show (vector) "page" 0)
     (should (equal (peta-journal-test--shown) ""))))
 
 ;; 行が書き換えられても、カーソルは同じ項目の同じ文字の位置に残る。
@@ -179,7 +194,7 @@
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "b" 1 "abc"))
     (peta-journal--goto-item "b" 2)
-    (peta-journal--apply-rows (vector (peta-journal-test--row "z" 1 "新")
+    (peta-journal-test--show (vector (peta-journal-test--row "z" 1 "新")
                                       (peta-journal-test--row "a" 2 "x")
                                       (peta-journal-test--row "b" 2 "abc"))
                               "page" 0)
@@ -192,7 +207,7 @@
                                       (peta-journal-test--row "b" 1 "y")
                                       (peta-journal-test--row "c" 1 "z"))
     (peta-journal--goto-item "b" 0)
-    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x")
+    (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "c" 1 "z"))
                               "page" 0)
     (should (equal (peta-journal--id-at (point)) "c"))))
@@ -202,7 +217,7 @@
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "b" 1 "y"))
     (peta-journal--goto-item "b" 1)
-    (peta-journal--apply-rows (vector (peta-journal-test--row "p" 1 "別")
+    (peta-journal-test--show (vector (peta-journal-test--row "p" 1 "別")
                                       (peta-journal-test--row "q" 1 "頁"))
                               "other" 0)
     (should (equal (peta-journal--id-at (point)) "p"))
@@ -306,7 +321,7 @@
                                       (peta-journal-test--row "b" 1 "yz"))
     (peta-journal-test--goto "a" 1)
     (setq peta-journal-test--sent nil)
-    (peta-journal--apply-rows (vector (peta-journal-test--row "b" 1 "yz")) "page" 0)
+    (peta-journal-test--show (vector (peta-journal-test--row "b" 1 "yz")) "page" 0)
     (peta-journal--post-command)
     (should (equal peta-journal-test--sent
                    '(("edit_requested" :id "b" :cursor 0))))))
@@ -336,12 +351,12 @@
 (ert-deftest peta-journal-selected-rows-turn-the-selection-mode-on-and-off ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "b" 1 "y"))
-    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x" :selected t)
+    (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "x" :selected t)
                                       (peta-journal-test--row "b" 1 "y"))
                               "page" 0)
     (should peta-journal-selection-mode)
     (should buffer-read-only)
-    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x")
+    (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "b" 1 "y"))
                               "page" 0)
     (should-not peta-journal-selection-mode)
@@ -502,7 +517,7 @@
     (peta-journal-test--goto "a" 1)
     (insert "z")
     (setq peta-journal--seq 5)
-    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x")
+    (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "b" 1 "yy"))
                               "page" 4)
     (should (equal (peta-journal-test--shown) "• xz\n• yy\n"))))
@@ -512,7 +527,7 @@
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
     (peta-journal-test--goto "a" 1)
     (setq peta-journal--seq 5)
-    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "new")) "page" 5)
+    (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "new")) "page" 5)
     (should (equal (peta-journal-test--shown) "• new\n"))))
 
 ;; RETは、カーソルの位置を添えてcoreへ送る。
@@ -1428,7 +1443,11 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (let ((first (current-buffer)))
       (peta-journal-test--with-rows (list (peta-journal-test--row "b" 1 "二番目"))
         (peta-journal--on-line (list :t "rows"
-                                     :rows (vector (peta-journal-test--row "b" 1 "変更"))
+                                     :changes (vector
+                                               (list :Update
+                                                     (list :at 0
+                                                           :item (peta-journal-test--row
+                                                                  "b" 1 "変更"))))
                                      :page_id "page"
                                      :ack 0))
         (should (equal (peta-journal-test--shown) "• 変更\n"))
@@ -1467,16 +1486,16 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
           (rows (vector (peta-journal-test--row "b" 1 "y")))
           (messages nil))
       (peta-journal-test--with-rows (list (peta-journal-test--row "b" 1 "y"))
-        (peta-journal--apply-rows rows "other" 0)
+        (peta-journal-test--show rows "other" 0)
         (cl-letf (((symbol-function 'message)
                    (lambda (format-string &rest args)
                      (push (apply #'format format-string args) messages))))
-          (peta-journal--apply-rows rows "another" 0)
+          (peta-journal-test--show rows "another" 0)
           (should-not messages)
-          (peta-journal--apply-rows rows "page" 0)
+          (peta-journal-test--show rows "page" 0)
           (should (= (length messages) 1))
           (should (string-search first (car messages)))
-          (peta-journal--apply-rows rows "page" 0)
+          (peta-journal-test--show rows "page" 0)
           (should (= (length messages) 1)))))))
 
 ;;;; Closing what was typed
@@ -1909,11 +1928,11 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
                                         (peta-journal-test--row "b" 1 "下"))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
-    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "上")
+    (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "上")
                                       (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
                               "page" 0)
     (should (peta-journal-test--image-of "b"))
-    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "上")
+    (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "上")
                                       (peta-journal-test--row "b" 1 "文字だけ"))
                               "page" 0)
     (should-not (peta-journal-test--image-of "b"))))
@@ -2006,7 +2025,7 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
                                         (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") nil)
-    (peta-journal--apply-rows (vector (peta-journal-test--row "c" 1 "上")
+    (peta-journal-test--show (vector (peta-journal-test--row "c" 1 "上")
                                       (peta-journal-test--row "d" 1 "![p](../assets/p.png)"))
                               "other-page" 0)
     (should (= (length peta-journal-test--fetched) 2))))
@@ -2022,7 +2041,7 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
 (ert-deftest peta-journal-a-display-without-images-shows-the-text ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上"))
     (cl-letf (((symbol-function 'display-images-p) #'ignore))
-      (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "上")
+      (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "上")
                                         (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
                                 "page" 0)
       (should-not (peta-journal-test--image-of "b"))

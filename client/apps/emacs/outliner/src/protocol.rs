@@ -1,6 +1,7 @@
 //! The JSON lines this process and `peta-journal.el` send each other.
 
 use client_core::app::SelectionKey as CoreSelectionKey;
+use client_core::changes::ListChange;
 use client_core::view::{
     BacklinkGroup, PageProperty, Row, SearchEntry as CoreSearchEntry, SearchKind as CoreSearchKind,
     SidebarPage, SidebarView as CoreSidebar, TaskState,
@@ -249,10 +250,11 @@ pub enum Outbound {
         ack: u64,
         holding: bool,
     },
+    /// What changed in the rows since Emacs was last told, to apply in order (ADR 078).
     Rows {
         ack: u64,
         page_id: Option<String>,
-        rows: Vec<RowView>,
+        changes: Vec<ListChange<RowView>>,
     },
     /// Puts the point in an item. Without a cursor, a point already in the item stays.
     Focus {

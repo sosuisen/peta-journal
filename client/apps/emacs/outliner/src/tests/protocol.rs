@@ -3,6 +3,7 @@ use crate::protocol::{
     SidebarView, TaskMark,
 };
 use client_core::app::SelectionKey as CoreSelectionKey;
+use client_core::changes::ListChange;
 use client_core::view::{SearchEntry as CoreSearchEntry, SearchKind as CoreSearchKind, TaskState};
 use serde_json::{json, Value};
 
@@ -158,22 +159,31 @@ fn a_property_line_carries_its_key_and_value() {
     );
 }
 
-// 行は、Emacsが読むJSONとして書き出され、日本語はエスケープされない。
+// 行の差分は、Emacsが読むJSONとして、変化の種類の名前の下に書き出される。日本語はエスケープされない。
 #[test]
-fn rows_are_written_as_json_for_emacs() {
+fn the_changes_of_the_rows_are_written_as_json_for_emacs() {
     let message = Outbound::Rows {
         ack: 4,
         page_id: Some("p".into()),
-        rows: vec![row(Bullet::Plain)],
+        changes: vec![
+            ListChange::Update {
+                at: 0,
+                item: row(Bullet::Plain),
+            },
+            ListChange::Move { from: 2, to: 1 },
+        ],
     };
     assert_eq!(
         written(&message),
         json!({
             "t": "rows", "ack": 4, "page_id": "p",
-            "rows": [{
-                "id": "a", "level": 2, "body": "本文", "bullet": "plain",
-                "task": null, "collapsed": false, "header": null, "selected": false,
-            }],
+            "changes": [
+                {"Update": {"at": 0, "item": {
+                    "id": "a", "level": 2, "body": "本文", "bullet": "plain",
+                    "task": null, "collapsed": false, "header": null, "selected": false,
+                }}},
+                {"Move": {"from": 2, "to": 1}},
+            ],
         })
     );
     assert!(write_line(&message).contains("本文"));
@@ -205,9 +215,12 @@ fn the_state_of_a_task_goes_beside_the_bullet() {
     let message = Outbound::Rows {
         ack: 1,
         page_id: None,
-        rows: vec![task],
+        changes: vec![ListChange::Reset { items: vec![task] }],
     };
-    assert_eq!(written(&message)["rows"][0]["task"], json!("running"));
+    assert_eq!(
+        written(&message)["changes"][0]["Reset"]["items"][0]["task"],
+        json!("running")
+    );
 }
 
 fn sidebar_page(id: &str, label: &str, path: &str, is_dir: bool) -> client_core::view::SidebarPage {

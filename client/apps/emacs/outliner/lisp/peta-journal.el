@@ -18,6 +18,7 @@
 
 (require 'calendar)
 (require 'cl-lib)
+(require 'map)
 (require 'parse-time)
 (require 'subr-x)
 (require 'text-property-search)
@@ -528,13 +529,74 @@ The bullet says how long the marks in front of the body are."
     (put-text-property 0 1 'peta-row (plist-get row :id) text)
     text))
 
-(defun peta-journal--keep-typed-body (new ack)
-  "Give the edited row in NEW the text on screen, if ACK is behind the typing."
+(defun peta-journal--typed (ack)
+  "The edited item and its text on screen, as (ID . BODY).
+Nil unless ACK is behind the typing."
   (when (and peta-journal--current (< ack peta-journal--seq))
-    (when-let* ((old (peta-journal--row-of peta-journal--current))
-                (index (peta-journal--row-index peta-journal--current new)))
-      (setf (aref new index)
-            (plist-put (copy-sequence (aref new index)) :body (plist-get old :body))))))
+    (when-let* ((old (peta-journal--row-of peta-journal--current)))
+      (cons peta-journal--current (plist-get old :body)))))
+
+(defun peta-journal--keep-typed (row typed)
+  "ROW, with the body TYPED from `peta-journal--typed' when ROW is its item."
+  (if (and typed (equal (plist-get row :id) (car typed)))
+      (plist-put (copy-sequence row) :body (cdr typed))
+    row))
+
+(defun peta-journal--row-end (index)
+  "The end of the row at INDEX, which is the start of the next one."
+  (peta-journal--nth-row (1+ index)))
+
+(defun peta-journal--write-row (index row)
+  "Write ROW in place of the row at INDEX, or at INDEX when no row is there."
+  (let ((start (peta-journal--nth-row index)))
+    (when (< index (length peta-journal--rows))
+      (delete-region start (peta-journal--row-end index)))
+    (goto-char start)
+    (insert (peta-journal--row-string row))))
+
+(defun peta-journal--apply-change (change typed)
+  "Apply one CHANGE of the rows, to the buffer and to `peta-journal--rows'.
+TYPED is the body to keep, from `peta-journal--typed'.  The places count in
+the rows as the changes before this one left them.  Returns the ids of the
+rows written, or t when all were."
+  (let ((rows peta-journal--rows))
+    (pcase change
+      (`(:Insert ,(map :at :item))
+       (let ((row (peta-journal--keep-typed item typed)))
+         (goto-char (peta-journal--nth-row at))
+         (insert (peta-journal--row-string row))
+         (setq peta-journal--rows (vconcat (seq-subseq rows 0 at) (vector row)
+                                           (seq-subseq rows at)))
+         (list (plist-get row :id))))
+      (`(:Remove ,(map :at))
+       (delete-region (peta-journal--nth-row at) (peta-journal--row-end at))
+       (setq peta-journal--rows (vconcat (seq-subseq rows 0 at) (seq-subseq rows (1+ at))))
+       nil)
+      (`(:Move ,(map :from :to))
+       (let* ((row (aref rows from))
+              (start (peta-journal--nth-row from))
+              (text (buffer-substring start (peta-journal--row-end from))))
+         (delete-region start (peta-journal--row-end from))
+         (goto-char (peta-journal--nth-row to))
+         (insert text)
+         (let ((others (vconcat (seq-subseq rows 0 from) (seq-subseq rows (1+ from)))))
+           (setq peta-journal--rows (vconcat (seq-subseq others 0 to) (vector row)
+                                             (seq-subseq others to))))
+         ;; The images of the moved row were overlays on the text that was deleted
+         (list (plist-get row :id))))
+      (`(:Update ,(map :at :item))
+       (let ((row (peta-journal--keep-typed item typed)))
+         (peta-journal--write-row at row)
+         (setq peta-journal--rows (vconcat rows))
+         (aset peta-journal--rows at row)
+         (list (plist-get row :id))))
+      (`(:Reset ,(map :items))
+       (let ((new (vconcat (mapcar (lambda (row) (peta-journal--keep-typed row typed)) items))))
+         (erase-buffer)
+         (seq-doseq (row new)
+           (insert (peta-journal--row-string row)))
+         (setq peta-journal--rows new)
+         t)))))
 
 (defun peta-journal--place-of (pos)
   "Where POS is: its item, its place in the body, and the index of the row."
@@ -569,45 +631,34 @@ Two edits of one item overwrite each other."
     (message "%s also shows this page.  Edits of one item in both buffers overwrite each other"
              (buffer-name other))))
 
-(defun peta-journal--apply-rows (new page-id ack)
-  "Show the rows of the vector NEW of PAGE-ID.
-The shell has handled the lines up to ACK.  Only the rows that changed are
-rewritten, so what does not change stays where it is."
-  (peta-journal--keep-typed-body new ack)
-  (let* ((new-page (not (equal page-id peta-journal--page-id)))
+(defun peta-journal--apply-rows (changes page-id ack)
+  "Apply the CHANGES of the rows of PAGE-ID in order (ADR 078).
+The shell has handled the lines up to ACK.  Only the rows that a change names
+are rewritten, so what does not change stays where it is."
+  (let* ((typed (peta-journal--typed ack))
+         (new-page (not (equal page-id peta-journal--page-id)))
          (windows (get-buffer-window-list (current-buffer) nil t))
          (window-places (mapcar (lambda (w) (cons w (peta-journal--place-of (window-point w))))
                                 windows))
          (place (peta-journal--place-of (point)))
-         (old peta-journal--rows)
-         (prefix (or (cl-mismatch old new :test #'equal) (length old)))
-         ;; From the end, this gives the index in OLD of the last row that differs
-         (last-changed (cl-mismatch old new :test #'equal :from-end t
-                                    :start1 prefix :start2 prefix))
-         (suffix (if last-changed (- (length old) last-changed 1) 0))
-         (start (peta-journal--nth-row prefix))
-         (end (peta-journal--nth-row (- (length old) suffix)))
-         (written-end start)
+         (written nil)
          (inhibit-read-only t)
          (inhibit-modification-hooks t))
     (save-excursion
-      (delete-region start end)
-      (goto-char start)
-      (cl-loop for index from prefix below (- (length new) suffix)
-               do (insert (peta-journal--row-string (aref new index))))
-      (setq written-end (point)))
-    (setq peta-journal--rows new
-          peta-journal--page-id page-id)
+      (seq-doseq (change changes)
+        (let ((ids (peta-journal--apply-change change typed)))
+          (setq written (if (or (eq ids t) (eq written t)) t (append ids written))))))
+    (setq peta-journal--page-id page-id)
     ;; The core has ended the edit of an item that is gone, for one deleted here or by
     ;; another client.  Telling it so again would be about an item it does not know
-    (unless (and peta-journal--current (peta-journal--row-index peta-journal--current new))
+    (unless (and peta-journal--current (peta-journal--row-index peta-journal--current))
       (setq peta-journal--current nil))
     (when new-page
       (peta-journal--warn-if-shown-elsewhere)
       (peta-journal--forget-unknown-images))
     (restore-buffer-modified-p nil)
     (cond
-     ((zerop (length new)) (goto-char (point-min)))
+     ((zerop (length peta-journal--rows)) (goto-char (point-min)))
      ((or new-page (null place))
       (goto-char (peta-journal--row-body-start 0))
       (setq peta-journal--current nil
@@ -619,7 +670,9 @@ rewritten, so what does not change stays where it is."
           (set-window-point window (peta-journal--pos-of-place window-place))))))
     (setq peta-journal--last-point (point))
     ;; After the point has its place: the item it is in keeps its text
-    (peta-journal--draw-images start written-end)
+    (if (eq written t)
+        (peta-journal--draw-images (point-min) (point-max))
+      (mapc #'peta-journal--draw-images-of (delete-dups written)))
     (peta-journal--update-images)
     (peta-journal--show-selection)))
 
@@ -984,7 +1037,7 @@ M-x peta-journal in that buffer starts it and shows the saved text.  See *peta-j
   (pcase (plist-get message :t)
     ("state" (setq peta-journal--ack (plist-get message :ack)
                    peta-journal--holding (plist-get message :holding)))
-    ("rows" (peta-journal--apply-rows (plist-get message :rows)
+    ("rows" (peta-journal--apply-rows (plist-get message :changes)
                                       (plist-get message :page_id)
                                       (plist-get message :ack)))
     ("focus" (peta-journal--on-focus (plist-get message :id)
