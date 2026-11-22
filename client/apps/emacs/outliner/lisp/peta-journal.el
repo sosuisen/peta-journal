@@ -563,7 +563,8 @@ Without its last line break: the newline of the row ends it."
 The Markdown in the item of `peta-journal--markdown-item', or else the shown text."
   (if (equal (plist-get row :id) peta-journal--markdown-item)
       (plist-get row :body)
-    (peta-journal--shown-string (plist-get row :text))))
+    ;; Only the Markdown is sent to the core: a change here would be one to a text it does not know
+    (propertize (peta-journal--shown-string (plist-get row :text)) 'read-only t)))
 
 (defun peta-journal--redraw-item (id)
   "Write the row of the item ID again, as `peta-journal--body-string' gives it."
