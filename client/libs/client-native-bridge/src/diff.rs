@@ -25,6 +25,9 @@ pub fn list_changes<T: Clone + PartialEq>(
     let mut changes = Vec::new();
     let mut shown = before.to_vec();
     let kept: HashSet<&str> = after.iter().map(&id).collect();
+    if before.is_empty() && after.is_empty() {
+        return changes;
+    }
     if !before.iter().any(|old| kept.contains(id(old))) {
         return vec![ListChange::Reset {
             items: after.to_vec(),
