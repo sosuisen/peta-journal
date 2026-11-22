@@ -9,7 +9,7 @@ use crate::protocol::{
     SearchEntry, SidebarView,
 };
 use client_core::app::{JournalNav, WikiLinkContext};
-use client_core::changes::list_changes;
+use client_core::changes::{list_changes, Panel, ShownPanels};
 use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput,
     UiOp, UiOutput,
@@ -105,6 +105,8 @@ pub struct Shell<H: Host> {
     /// The line of Emacs being handled.
     ack: u64,
     sent: Sent,
+    /// The panels of the view when Emacs was last told.
+    panels: ShownPanels,
     /// The edit Emacs itself just started. It already has the point there, and answering would
     /// pull back a point that has moved on since.
     own_edit: Option<(String, usize)>,
@@ -134,6 +136,7 @@ impl<H: Host> Shell<H> {
             next_ask: 0,
             ack: 0,
             sent: Sent::default(),
+            panels: ShownPanels::default(),
             own_edit: None,
             after_render: Vec::new(),
             navigations: VecDeque::new(),
@@ -614,19 +617,32 @@ impl<H: Host> Shell<H> {
         });
     }
 
-    /// Tells Emacs what changed in the view.
+    /// Tells Emacs what changed in the view. What Emacs is told of a panel is made only when
+    /// the panel changed (ADR 078).
     fn tell_view(&mut self) {
         let view = self.core.view();
+        let changed = self.panels.changes(&view);
+        let any = |is: fn(&Panel) -> bool| changed.iter().any(is);
         self.tell_rows(&view);
-        self.tell_focus(&view);
-        self.tell_page_path(&view);
-        self.tell_index(&view);
-        self.tell_properties(&view);
-        self.tell_connection(&view);
-        self.tell_search(&view.search);
-        self.tell_recent(&view);
-        self.tell_sidebar(&view);
-        self.tell_backlinks(&view);
+        if any(|panel| matches!(panel, Panel::Outline(_))) {
+            self.tell_focus(&view);
+        }
+        if any(|panel| matches!(panel, Panel::Screen(_) | Panel::Config(_))) {
+            self.tell_page_path(&view);
+            self.tell_index(&view);
+            self.tell_properties(&view);
+            self.tell_backlinks(&view);
+        }
+        if any(|panel| matches!(panel, Panel::Connection(_))) {
+            self.tell_connection(&view);
+        }
+        if any(|panel| matches!(panel, Panel::Search(_))) {
+            self.tell_search(&view.search);
+        }
+        if any(|panel| matches!(panel, Panel::Sidebar(_))) {
+            self.tell_recent(&view);
+            self.tell_sidebar(&view);
+        }
     }
 
     fn tell_sidebar(&mut self, view: &ViewModel<()>) {
