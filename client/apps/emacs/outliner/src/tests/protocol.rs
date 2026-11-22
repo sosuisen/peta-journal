@@ -1,8 +1,9 @@
-use crate::protocol::SelectionKey;
 use crate::protocol::{
-    read_line, write_line, Bullet, Inbound, Outbound, RowView, SidebarView, TaskMark,
+    read_line, write_line, Bullet, Inbound, Outbound, RowView, SearchEntry, SelectionKey,
+    SidebarView, TaskMark,
 };
-use client_core::view::TaskState;
+use client_core::app::SelectionKey as CoreSelectionKey;
+use client_core::view::{SearchEntry as CoreSearchEntry, SearchKind as CoreSearchKind, TaskState};
 use serde_json::{json, Value};
 
 /// The line written for `message`, read back as JSON.
@@ -287,4 +288,52 @@ fn the_sidebar_is_a_line_with_its_type() {
     let line = written(&message);
     assert_eq!(line["t"], json!("sidebar"));
     assert_eq!(line["index"]["path"], json!("index"));
+}
+
+// Emacsの選択のキーは、同じ名前のコアのキーになる。
+#[test]
+fn a_selection_key_of_emacs_is_the_key_of_the_core_of_the_same_name() {
+    let keys = [
+        SelectionKey::Escape,
+        SelectionKey::Delete,
+        SelectionKey::MoveUp,
+        SelectionKey::MoveDown,
+        SelectionKey::Indent,
+        SelectionKey::Outdent,
+        SelectionKey::ExtendUp,
+        SelectionKey::ExtendDown,
+        SelectionKey::Copy,
+        SelectionKey::Cut,
+        SelectionKey::Undo,
+        SelectionKey::Redo,
+    ];
+    for key in keys {
+        let core: CoreSelectionKey = key.into();
+        assert_eq!(format!("{core:?}"), format!("{key:?}"));
+    }
+}
+
+// 検索の結果の種類は、コアの種類の名前で書き出される。
+#[test]
+fn the_kind_of_a_search_result_is_written_by_the_name_of_the_core() {
+    let kinds = [
+        (CoreSearchKind::Today, "today"),
+        (CoreSearchKind::Page, "page"),
+        (CoreSearchKind::Create, "create"),
+        (CoreSearchKind::Item, "item"),
+    ];
+    for (kind, name) in kinds {
+        let entry = CoreSearchEntry {
+            position: 0,
+            kind,
+            title: "t".into(),
+            label: "l".into(),
+            snippet: "s".into(),
+        };
+        let message = Outbound::Search {
+            results: vec![SearchEntry::of(&entry)],
+            searching: false,
+        };
+        assert_eq!(written(&message)["results"][0]["kind"], json!(name));
+    }
 }
