@@ -3,6 +3,7 @@ use crate::protocol::{
     SidebarHeading, SidebarView,
 };
 use crate::shell::{Host, Input, Now, Shell};
+use client_core::changes::ListChange;
 use client_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
 use client_core::model::{PropertyDefinition, TreeExport, Uploaded};
 use client_core::rest::ClientId;
@@ -211,6 +212,14 @@ impl Driver {
         })
     }
 
+    /// The changes of the rows that Emacs was told last.
+    fn last_changes(&self) -> Option<Vec<ListChange<RowView>>> {
+        self.sent().iter().rev().find_map(|m| match m {
+            Outbound::Rows { changes, .. } => Some(changes.clone()),
+            _ => None,
+        })
+    }
+
     fn rows_sent(&self) -> usize {
         self.sent()
             .iter()
@@ -317,6 +326,18 @@ fn a_loaded_page_reaches_emacs_as_rows() {
     assert_eq!(
         shown,
         [("a", 1, "親", Bullet::Plain), ("b", 2, "子", Bullet::Plain)]
+    );
+}
+
+// 1つの行が変わるキーでは、その行の更新だけが送られる。
+#[test]
+fn a_key_that_changes_one_row_sends_only_its_update() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y"), item("c", 1, "z")]);
+    driver.send(Inbound::TaskCycle { id: "b".into() });
+    let changes = driver.last_changes().unwrap();
+    assert!(
+        matches!(&changes[..], [ListChange::Update { at: 1, item }] if item.id == "b"),
+        "{changes:?}"
     );
 }
 
