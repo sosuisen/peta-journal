@@ -1,3 +1,5 @@
+use crate::tests::applied::applied;
+use crate::BorderApp;
 use crate::{Changes, ListChange};
 use crate::{Clock, Host, NativeShell, ShellEffectFfi};
 use client_core::drag::DragMove;
@@ -11,6 +13,7 @@ use client_core::testing::plain_item;
 use client_core::typing::Typing;
 use client_core::{EditPlace, Event, Route};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
+use crux_core::Core;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -836,6 +839,43 @@ fn screen_with_notes() -> Screen {
         screen.view().contains("the body of a")
     });
     screen
+}
+
+// シェルが差分を順に当てた画面は、コアの画面と同じである。ページを開いたとき、入力したとき、検索したときである（ADR 076）。
+#[test]
+fn the_screen_a_shell_makes_from_the_changes_is_that_of_the_core() {
+    let screen = screen_with_notes();
+    // What the core shows is read first: its threads may change it meanwhile
+    let shows = || {
+        let core = screen.shell.whole_view();
+        (screen.shell.changes_from(core.clone()), core)
+    };
+    let (first, core) = shows();
+    // Every part of the first view of the shell comes with the first changes
+    let mut shell = applied(Core::<BorderApp>::new().view(), first);
+    assert_eq!(shell, core);
+
+    let typing = Typing::Changed {
+        item_id: "a".into(),
+        body: "typed into a".into(),
+    };
+    let mut bytes = Vec::new();
+    BincodeFfiFormat::serialize(&mut bytes, &typing).unwrap();
+    screen.shell.typed(&bytes).unwrap();
+    let (changes, core) = shows();
+    shell = applied(shell, changes);
+    assert_eq!(shell, core);
+
+    screen.search("notes");
+    // Opening the page began timers of its own before the one of the search
+    screen.let_time_pass(screen.waits.begun.load(Ordering::SeqCst));
+    wait_until("the server is asked to search", || {
+        !screen.searches().is_empty()
+    });
+    assert_eq!(screen.shell.whole_view().search.query, "notes");
+    let (changes, core) = shows();
+    shell = applied(shell, changes);
+    assert_eq!(shell, core);
 }
 
 // 開いたページの最初の差分は、行の入れ替えと、全部のパネルである。
