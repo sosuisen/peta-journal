@@ -9,7 +9,6 @@ import com.sosuisha.petajournal.types.Request
 import com.sosuisha.petajournal.types.Requests
 import com.sosuisha.petajournal.types.Typing
 import com.sosuisha.petajournal.types.UiOutput
-import com.sosuisha.petajournal.types.ViewModel
 import java.io.File
 
 /**
@@ -56,9 +55,6 @@ class Border(dataDir: File, markdownDir: File, onRequests: (List<Request>) -> Un
 
     /** Answers the request with the number [id]. Throws when the core does not wait for it. */
     fun answer(id: UInt, output: UiOutput) = core.resolve(id, output.bincodeSerialize())
-
-    /** The whole view model, to draw after a render request. */
-    fun view(): ViewModel = ViewModel.bincodeDeserialize(core.view())
 
     /**
      * What changed on the screen since the last call: the changes to the rows of the outline,
