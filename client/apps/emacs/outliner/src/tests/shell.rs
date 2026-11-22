@@ -398,16 +398,21 @@ fn a_key_that_changes_one_row_sends_only_its_update() {
 // 入力した文はEmacsが持っているので、そのEmacsTextだけが送り返される。Emacsは、行を離れたときにそれで描く。
 #[test]
 fn typed_text_comes_back_only_as_its_emacs_text() {
-    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y")]);
     let before = driver.rows_sent();
     driver.send(Inbound::BodyChanged {
-        id: "a".into(),
+        id: "b".into(),
         body: "**xy**".into(),
     });
     assert_eq!(driver.rows_sent(), before + 1);
+    let changes = driver.last_changes().unwrap();
+    assert!(
+        matches!(&changes[..], [ListChange::Update { at: 1, item }] if item.id == "b"),
+        "{changes:?}"
+    );
     let rows = driver.last_rows().unwrap();
-    assert_eq!(rows[0].body, "**xy**");
-    assert_eq!(rows[0].text.text, "xy\n");
+    assert_eq!(rows[1].body, "**xy**");
+    assert_eq!(rows[1].text.text, "xy\n");
 }
 
 // 入力は、自動保存のタイマーを経て、一度だけ保存される。
