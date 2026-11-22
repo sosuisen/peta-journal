@@ -376,6 +376,17 @@ The shell tells the place in the Markdown with a focus."
         (peta-journal-test--click "web"))
       (should (equal opened "https://example.com/")))))
 
+;; Markdownを見せる行は、色を持たない。色は、表示の形の行だけが持つ。
+(ert-deftest peta-journal-the-markdown-row-has-no-colors ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "**x** `c` # [[頁]]")
+                                      (peta-journal-test--row "b" 1 "y"))
+    (peta-journal-test--goto "a" 0)
+    (font-lock-ensure)
+    (let ((start (peta-journal--find-row "a")))
+      (should-not (text-property-not-all (peta-journal--body-start start)
+                                         (peta-journal--body-end start)
+                                         'face nil)))))
+
 ;;;; Protecting the marks
 
 ;; バレットと項目の区切りは編集できない。項目をまたぐ削除は、エラーになる。
