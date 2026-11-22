@@ -22,51 +22,75 @@ pub fn list_changes<T: Clone + PartialEq>(
     after: &[T],
     id: impl Fn(&T) -> &str,
 ) -> Vec<ListChange<T>> {
-    let mut changes = Vec::new();
-    let mut shown = before.to_vec();
-    let kept: HashSet<&str> = after.iter().map(&id).collect();
     if before.is_empty() && after.is_empty() {
-        return changes;
+        return Vec::new();
     }
+    let kept: HashSet<&str> = after.iter().map(&id).collect();
     if !before.iter().any(|old| kept.contains(id(old))) {
         return vec![ListChange::Reset {
             items: after.to_vec(),
         }];
     }
-    for at in (0..shown.len()).rev() {
-        if !kept.contains(id(&shown[at])) {
-            shown.remove(at);
-            changes.push(ListChange::Remove { at: at as u32 });
+    let mut shown = Shown {
+        items: before.iter().collect(),
+        changes: Vec::new(),
+    };
+    shown.remove_gone(|item| kept.contains(id(item)));
+    for (at, new) in after.iter().enumerate() {
+        shown.place(at, new, &id);
+    }
+    shown.changes
+}
+
+/// The list as the shell has it after the changes so far: list C of ADR 076.
+struct Shown<'a, T> {
+    items: Vec<&'a T>,
+    changes: Vec<ListChange<T>>,
+}
+
+impl<'a, T: Clone + PartialEq> Shown<'a, T> {
+    /// Removes the items that are not kept, from the last place on: a place before them still
+    /// counts as it did.
+    fn remove_gone(&mut self, kept: impl Fn(&T) -> bool) {
+        for at in (0..self.items.len()).rev() {
+            if !kept(self.items[at]) {
+                self.items.remove(at);
+                self.changes.push(ListChange::Remove { at: place(at) });
+            }
         }
     }
-    for (at, new) in after.iter().enumerate() {
-        let found = shown[at..].iter().position(|old| id(old) == id(new));
-        match found {
-            None => {
-                shown.insert(at, new.clone());
-                changes.push(ListChange::Insert {
-                    at: at as u32,
-                    item: new.clone(),
-                });
-                continue;
-            }
-            Some(0) => {}
-            Some(later) => {
-                let moved = shown.remove(at + later);
-                shown.insert(at, moved);
-                changes.push(ListChange::Move {
-                    from: (at + later) as u32,
-                    to: at as u32,
-                });
-            }
+
+    /// Puts `new` at `at`. The places before it hold the items of the list after already, and
+    /// an id is in a list once: the item with the id of `new` is at `at` or later, or nowhere.
+    fn place(&mut self, at: usize, new: &'a T, id: impl Fn(&T) -> &str) {
+        let found = self.items[at..].iter().position(|old| id(old) == id(new));
+        let Some(later) = found else {
+            self.items.insert(at, new);
+            self.changes.push(ListChange::Insert {
+                at: place(at),
+                item: new.clone(),
+            });
+            return;
+        };
+        if later > 0 {
+            let moved = self.items.remove(at + later);
+            self.items.insert(at, moved);
+            self.changes.push(ListChange::Move {
+                from: place(at + later),
+                to: place(at),
+            });
         }
-        if shown[at] != *new {
-            shown[at] = new.clone();
-            changes.push(ListChange::Update {
-                at: at as u32,
+        if self.items[at] != new {
+            self.items[at] = new;
+            self.changes.push(ListChange::Update {
+                at: place(at),
                 item: new.clone(),
             });
         }
     }
-    changes
+}
+
+/// A place in a list, as it crosses the border.
+fn place(at: usize) -> u32 {
+    u32::try_from(at).expect("a list has fewer items than u32::MAX")
 }
