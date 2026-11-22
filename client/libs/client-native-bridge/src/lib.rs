@@ -13,7 +13,9 @@ mod html;
 mod links;
 mod shell;
 
+pub use changes::{Changes, OutlinePanel, Panel};
 pub use clock::{Clock, SystemClock};
+pub use diff::ListChange;
 pub use html::copied_html;
 pub use links::{asset_address, page_address};
 pub use shell::{BorderError, Host, NativeShell, NothingThere, ShellEffect, ShellEffectFfi};
