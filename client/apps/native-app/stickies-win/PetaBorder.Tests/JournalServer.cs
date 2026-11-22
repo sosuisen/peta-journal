@@ -129,7 +129,14 @@ internal sealed class JournalServer : IDisposable
     /// Changes something on the server as another client does: the web frontend or a tool.
     /// True when the server took it.
     /// </summary>
-    public bool Send(HttpMethod method, string path, string json)
+    public bool Send(HttpMethod method, string path, string json) =>
+        Answer(method, path, json) is not null;
+
+    /// <summary>
+    /// The body of the answer to a change made as <see cref="Send"/> makes it. <c>null</c>
+    /// when the server did not take it.
+    /// </summary>
+    public string? Answer(HttpMethod method, string path, string json)
     {
         using var request = new HttpRequestMessage(method, Address + path)
         {
@@ -138,7 +145,9 @@ internal sealed class JournalServer : IDisposable
         // A change names its client (ADR 015). This one is none of the shells of the test
         request.Headers.Add("X-Client-Id", AnotherClient);
         using var answer = Http.SendAsync(request).GetAwaiter().GetResult();
-        return answer.IsSuccessStatusCode;
+        return answer.IsSuccessStatusCode
+            ? answer.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+            : null;
     }
 
     public void Dispose()
