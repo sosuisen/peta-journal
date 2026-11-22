@@ -3,8 +3,52 @@
 use crate::app::Event;
 use crate::effects::ApiOp;
 use crate::harness::{item, Harness};
+use crate::model::ItemPosition;
 use crate::testing::shown;
 use crate::view::{Row, TaskState};
+
+/// The items whose rows say that they have children, in their order.
+fn with_children(h: &Harness) -> Vec<String> {
+    rows(h)
+        .iter()
+        .filter(|row| row.has_children)
+        .map(|row| row.item.id.clone())
+        .collect()
+}
+
+// 子のある項目だけが、子を持つとされる。項目を足したときと消したときに、その答えも変わる。
+#[test]
+fn only_an_item_with_children_has_children_and_the_answer_follows_added_and_deleted_items() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "b")]);
+    assert!(with_children(&h).is_empty());
+
+    h.model
+        .state
+        .add_item(item("child", 2, "child"), &ItemPosition::after("a"));
+    assert_eq!(with_children(&h), ["a"]);
+
+    h.model.state.delete_item("child");
+    assert!(with_children(&h).is_empty());
+}
+
+// 子が別の項目の下に動くと、子を持つとされる項目も変わる。
+#[test]
+fn a_child_moved_under_another_item_makes_that_item_the_one_with_children() {
+    let mut h = Harness::with_items(vec![
+        item("a", 1, "a"),
+        item("child", 2, "child"),
+        item("b", 1, "b"),
+    ]);
+    assert_eq!(with_children(&h), ["a"]);
+
+    h.model.state.replace_items(
+        &["child".to_string()],
+        vec![item("child", 2, "child")],
+        &ItemPosition::after("b"),
+    );
+
+    assert_eq!(with_children(&h), ["b"]);
+}
 
 fn rows(h: &Harness) -> Vec<Row<crate::RichText>> {
     h.view().outline.rows
