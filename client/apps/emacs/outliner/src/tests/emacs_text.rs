@@ -1,4 +1,5 @@
 use crate::emacs_text::{EmacsLook, EmacsText};
+use client_core::rich_text::RichLink;
 use client_core::BodyModel;
 
 fn text_of(markdown: &str) -> EmacsText {
@@ -34,5 +35,28 @@ fn the_looks_of_letters_are_the_looks_of_a_span_placed_in_code_points() {
             (3, 5, vec![EmacsLook::Bold]),
             (6, 10, vec![EmacsLook::Code])
         ]
+    );
+}
+
+// リンクのある文字は、範囲にリンクを持つ。
+#[test]
+fn letters_with_a_link_have_the_link_on_their_span() {
+    let text = text_of("see [web](https://example.com/) now");
+
+    assert_eq!(text.text, "see web now\n");
+    let links: Vec<(u32, u32, Option<RichLink>)> = text
+        .spans
+        .iter()
+        .map(|span| (span.from, span.to, span.link.clone()))
+        .collect();
+    assert_eq!(
+        links,
+        [(
+            4,
+            7,
+            Some(RichLink::Web {
+                url: "https://example.com/".into()
+            })
+        )]
     );
 }
