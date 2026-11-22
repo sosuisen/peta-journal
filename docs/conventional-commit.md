@@ -20,6 +20,7 @@
 | `outliner-android` | `client/apps/native-app/outliner-android` |
 | `stickies-mac` | `client/apps/native-app/stickies-mac` |
 | `stickies-win` | `client/apps/native-app/stickies-win` |
+| `swift-shared` | `client/apps/native-app/swift-shared`（macOSとiOSのSwiftのシェルが共有するパッケージ） |
 | `memoview-win` | `client/apps/webview-app/memoview-win` |
 
 ## クライアントのライブラリ（`client/libs/`）

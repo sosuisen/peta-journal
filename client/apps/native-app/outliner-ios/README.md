@@ -41,8 +41,9 @@ swift test           # runs the tests that need no simulator, on the Mac
 `generate.sh` makes two Swift packages. Run it again after a change in Rust. Neither is kept in
 the repository:
 
-- `generated/swift/PetaTypes`: the types that cross the border (`Event`, `ViewModel`,
-  `Request`, ...), made by `facet_generate` 0.22.3.
+- `../swift-shared/generated/swift/PetaTypes`: the types that cross the border (`Event`,
+  `ViewModel`, `Request`, ...), made by `facet_generate` 0.22.3. They are in the package that the
+  two Swift apps share, because SwiftPM takes a package of one name from one place only.
 - `generated/PetaCore`: the class `PetaCore` that calls the core, and the core as a library
   for a device, for the simulator and for the Mac (`PetaCore.xcframework`). BoltFFI makes
   both. The library for the Mac is there for `swift test`.
@@ -141,11 +142,12 @@ copy of Dropbox.
   files through the `Shell`. `CloudAccount` is what the app needs of the account of the
   storage. `Border` is the core
   behind its border of bytes. `Shell` keeps the view model up to date with the core and sends
-  what the user did. `Applied.swift` makes the view model from the changes of the core (ADR 076):
-  the first changes hold every panel, and after them only the panels that changed come, with the
-  changes to the rows of the outline, which are applied in order. The core has no call that
-  gives the whole view model any more: the Rust tests of `client-native-bridge` see that the
-  changes make the view model of the core. The parts of an item as it is shown come from the core with each row
+  what the user did. It makes the view model from the changes of the core (ADR 076) with
+  `PetaShared` of `../swift-shared`, which the Mac app shares: the first changes hold every panel,
+  and after them only the panels that changed come, with the changes to the rows of the
+  outline, which are applied in order. The core has no call that gives the whole view model any
+  more: the Rust tests of `client-native-bridge` see that the changes make the view model of the
+  core. The parts of an item as it is shown come from the core with each row
   (`Row.bodyModel`, ADR 042). `RichLinks` makes the link of a run a URL, which a text of
   SwiftUI takes, and back again when it is touched.
 - `PetaDropbox` is Dropbox, with the SDK. `DropboxAccount` is the sign-in and the sign-out, as

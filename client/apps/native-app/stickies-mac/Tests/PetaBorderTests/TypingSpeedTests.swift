@@ -1,11 +1,11 @@
 import AppKit
 import Foundation
+import PetaBorder
 import PetaScreens
+import PetaShared
 import PetaTypes
 import SwiftUI
 import XCTest
-
-@testable import PetaBorder
 
 /// Measures how long one key takes on a long page (ADR 024). It prints the times and fails on
 /// none of them. It needs a real journal server, so it is skipped without `PETA_E2E_SERVER`.

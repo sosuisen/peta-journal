@@ -45,8 +45,9 @@ swift test
 flag BoltFFI makes a debug build, which is about twice as slow). It makes two Swift packages.
 Run it again after a change in Rust. Neither is kept in the repository.
 
-- `generated/swift/PetaTypes`: the types that cross the border, generated from the Rust types
-  (`Event`, `ViewModel`, `Request`, ...).
+- `../swift-shared/generated/swift/PetaTypes`: the types that cross the border, generated from
+  the Rust types (`Event`, `ViewModel`, `Request`, ...). They are in the package that the two
+  Swift apps share, because SwiftPM takes a package of one name from one place only.
 - `generated/PetaCore`: the core as a static library (`PetaCore.xcframework`), and the Swift
   class `PetaCore` that calls it. BoltFFI makes both, from `client/libs/client-shell-http/src/ffi.rs`
   and `boltffi.toml` next to it.
@@ -59,11 +60,11 @@ Run it again after a change in Rust. Neither is kept in the repository.
   what the user did. It also holds what the core asks and waits for: a question to the user
   (`question`, shown as a dialog), an order to put the cursor in an item (`focus`), and the text
   on the clipboard.
-- `Applied.swift` keeps the view model of `Shell` from the changes of the core (ADR 076). The first
-  changes hold every panel; after them only the panels that changed come, and the changes to the
-  rows of the outline, which are applied in order. The core has no call that
-  gives the whole view model any more: the Rust tests of `client-native-bridge` see that the
-  changes make the view model of the core.
+- `Shell` keeps its view model from the changes of the core (ADR 076), with `PetaShared` of
+  `../swift-shared`, which the iOS app shares. The first changes hold every panel; after them only
+  the panels that changed come, and the changes to the rows of the outline, which are applied in
+  order. The core has no call that gives the whole view model any more: the Rust tests of
+  `client-native-bridge` see that the changes make the view model of the core.
 - `PastedImage` writes the image on the clipboard to a file of its own, for the core to upload
   (ADR 071).
 - `Keys.swift` says what a key in the editor of an item means to the outline (`Shell.pressed`).

@@ -1,7 +1,8 @@
 // swift-tools-version:5.9
 import PackageDescription
 
-// The packages under generated/ are made from the Rust crates by generate.sh.
+// The packages under generated/ and ../swift-shared/generated/ are made from the Rust crates by
+// generate.sh.
 let package = Package(
     name: "PetaBorder",
     platforms: [
@@ -13,7 +14,9 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "generated/PetaCore"),
-        .package(path: "generated/swift/PetaTypes"),
+        // The types of the border, from the package that both apps share
+        .package(path: "../swift-shared/generated/swift/PetaTypes"),
+        .package(path: "../swift-shared"),
     ],
     targets: [
         .target(
@@ -21,6 +24,7 @@ let package = Package(
             dependencies: [
                 .product(name: "PetaCore", package: "PetaCore"),
                 .product(name: "PetaTypes", package: "PetaTypes"),
+                .product(name: "PetaShared", package: "swift-shared"),
             ]
         ),
         // The views. They are a library so that a test can put them in a window
@@ -34,7 +38,10 @@ let package = Package(
         ),
         .testTarget(
             name: "PetaBorderTests",
-            dependencies: ["PetaBorder", "PetaScreens", .product(name: "PetaCore", package: "PetaCore")]
+            dependencies: [
+                "PetaBorder", "PetaScreens", .product(name: "PetaCore", package: "PetaCore"),
+                .product(name: "PetaShared", package: "swift-shared"),
+            ]
         ),
     ]
 )
