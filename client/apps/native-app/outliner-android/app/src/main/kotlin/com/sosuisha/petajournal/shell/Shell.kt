@@ -56,7 +56,7 @@ class Shell(
 
     // What the screen draws
 
-    var view: ViewModel by mutableStateOf(border.view())
+    var view: ViewModel by mutableStateOf(firstView(border.changes()))
         private set
 
     /**
@@ -372,7 +372,7 @@ class Shell(
     }
 
     private fun show() {
-        view = border.view()
+        view = view.with(border.changes())
     }
 
     private fun handle(requests: List<Request>) {
