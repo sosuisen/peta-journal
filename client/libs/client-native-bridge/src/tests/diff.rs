@@ -26,3 +26,18 @@ fn the_same_list_has_no_changes() {
 
     assert_eq!(changes(&list, &list), vec![]);
 }
+
+// 中身の変わった行は、その位置の更新になる。
+#[test]
+fn an_item_whose_content_changed_is_updated_in_its_place() {
+    let before = [line("a", "one"), line("b", "two")];
+    let after = [line("a", "one"), line("b", "TWO")];
+
+    assert_eq!(
+        changes(&before, &after),
+        vec![ListChange::Update {
+            at: 1,
+            item: line("b", "TWO")
+        }]
+    );
+}
