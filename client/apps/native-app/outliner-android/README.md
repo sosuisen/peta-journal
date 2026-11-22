@@ -7,8 +7,8 @@ changed in the app (ADR 031).
 
 The core is the same Crux core as in the other frontends. There is no journal server on a
 phone, so the journal core runs inside the app (ADR 029). `client/libs/client-shell-embedded`
-wraps both for Kotlin. Kotlin gets the view model and the requests of the screen as bytes
-(bincode), and sends events the same way. ADR 030 says how the app syncs, where it keeps its
+wraps both for Kotlin. Kotlin gets what changed on the screen (ADR 076) and the requests of the
+core as bytes (bincode), and sends events the same way. ADR 030 says how the app syncs, where it keeps its
 data and how it draws an item. ADR 031 says how it edits and uploads.
 
 ## Prerequisites

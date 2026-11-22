@@ -61,8 +61,9 @@ Run it again after a change in Rust. Neither is kept in the repository.
   on the clipboard.
 - `Applied.swift` keeps the view model of `Shell` from the changes of the core (ADR 076). The first
   changes hold every panel; after them only the panels that changed come, and the changes to the
-  rows of the outline, which are applied in order. `Shell` never reads the whole view model of the
-  core, but its tests do, to see that the two are the same.
+  rows of the outline, which are applied in order. The core has no call that
+  gives the whole view model any more: the Rust tests of `client-native-bridge` see that the
+  changes make the view model of the core.
 - `PastedImage` writes the image on the clipboard to a file of its own, for the core to upload
   (ADR 071).
 - `Keys.swift` says what a key in the editor of an item means to the outline (`Shell.pressed`).

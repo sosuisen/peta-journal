@@ -143,8 +143,9 @@ copy of Dropbox.
   behind its border of bytes. `Shell` keeps the view model up to date with the core and sends
   what the user did. `Applied.swift` makes the view model from the changes of the core (ADR 076):
   the first changes hold every panel, and after them only the panels that changed come, with the
-  changes to the rows of the outline, which are applied in order. `Shell` never reads the whole
-  view model of the core, but its tests do, to see that the two are the same. The parts of an item as it is shown come from the core with each row
+  changes to the rows of the outline, which are applied in order. The core has no call that
+  gives the whole view model any more: the Rust tests of `client-native-bridge` see that the
+  changes make the view model of the core. The parts of an item as it is shown come from the core with each row
   (`Row.bodyModel`, ADR 042). `RichLinks` makes the link of a run a URL, which a text of
   SwiftUI takes, and back again when it is touched.
 - `PetaDropbox` is Dropbox, with the SDK. `DropboxAccount` is the sign-in and the sign-out, as
