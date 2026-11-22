@@ -183,6 +183,27 @@ public sealed class ShellTests : IDisposable
         );
     }
 
+    // シェルが差分から組み立てた画面は、コアの画面と同じである。ページを開いたとき、入力したとき、項目を分けたとき、検索したときである（ADR 076）。
+    [Fact]
+    public void The_screen_made_from_the_changes_is_that_of_the_core()
+    {
+        var shell = ShellWithPage();
+        AssertTheScreenOfTheCore(shell);
+
+        var (first, _) = TwoItems(shell);
+        AssertTheScreenOfTheCore(shell);
+
+        shell.Typed("first, typed again", first);
+        AssertTheScreenOfTheCore(shell);
+
+        shell.Search("winui");
+        main.WaitUntil("a page is found", () => shell.View.Search.Results.Count > 0);
+        AssertTheScreenOfTheCore(shell);
+    }
+
+    private static void AssertTheScreenOfTheCore(Shell shell) =>
+        Assert.Equal(shell.WholeViewOfTheCore().BincodeSerialize(), shell.View.BincodeSerialize());
+
     /// <summary>The rows after the changes, applied one after another as a list does.</summary>
     private static void Apply(List<Row> rows, IReadOnlyList<ListChange> changes)
     {
