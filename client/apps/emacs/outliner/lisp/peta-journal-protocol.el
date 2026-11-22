@@ -32,6 +32,43 @@
   "What the mark at the start of a row shows. A task has the bullet of its
 kind too: its state is a mark of its own, as in the web frontend.")
 
+(defconst peta-journal-protocol-emacs-look-names '("bold" "italic" "struck" "underlined" "marked" "code" "raised" "lowered" "hidden" "heading1" "heading2" "heading3" "heading4" "heading5" "heading6" "mark" "quote" "rule" "code_block" "table_header")
+  "How a part of the text looks.")
+
+(defsubst peta-journal-protocol-emacs-span-from (value)
+  "Places in `text`, in characters (code points, ADR 043)."
+  (plist-get value :from))
+
+(defsubst peta-journal-protocol-emacs-span-to (value)
+  "The field to of the type emacs-span."
+  (plist-get value :to))
+
+(defsubst peta-journal-protocol-emacs-span-looks (value)
+  "The field looks of the type emacs-span."
+  (plist-get value :looks))
+
+(defsubst peta-journal-protocol-emacs-span-link (value)
+  "The field link of the type emacs-span."
+  (plist-get value :link))
+
+(defsubst peta-journal-protocol-emacs-span-image (value)
+  "An image of the assets folder, shown in place of the text of the span."
+  (plist-get value :image))
+
+(defsubst peta-journal-protocol-emacs-span-letters (value)
+  "False for what Rust added, such as a list mark or the spaces of a table:
+they are not letters of the shown text (ADR 044)."
+  (plist-get value :letters))
+
+(defsubst peta-journal-protocol-emacs-text-text (value)
+  "The shown text. A line break after each paragraph and each line of code."
+  (plist-get value :text))
+
+(defsubst peta-journal-protocol-emacs-text-spans (value)
+  "The parts of the text that are not plain shown letters, in the order of
+`from`."
+  (plist-get value :spans))
+
 (defsubst peta-journal-protocol-free-key-key (value)
   "The field key of the type free-key."
   (plist-get value :key))
@@ -149,6 +186,44 @@ The fields come in the order of `peta-journal-protocol-outbound-fields'."
   "The field editable of the type property-row."
   (plist-get value :editable))
 
+(defsubst peta-journal-protocol-rich-image-path (value)
+  "Where its file is under the Markdown folder, such as
+`assets/picture.png`."
+  (plist-get value :path))
+
+(defsubst peta-journal-protocol-rich-image-alt (value)
+  "What stands for the image where it cannot be seen."
+  (plist-get value :alt))
+
+(defsubst peta-journal-protocol-rich-image-width (value)
+  "The width that the page asks for, in points. `None` when it asks for
+none."
+  (plist-get value :width))
+
+(defsubst peta-journal-protocol-rich-image-height (value)
+  "The height that the page asks for, the same way."
+  (plist-get value :height))
+
+(defconst peta-journal-protocol-rich-link-fields
+  '((:page "url") (:web "url") (:file "path"))
+  "The fields of each kind of the type rich-link, in the order its handler
+takes them.")
+
+(defun peta-journal-protocol-handle-rich-link (value handlers)
+  "Call the function in HANDLERS for the kind of VALUE, with its fields.
+HANDLERS is a plist from the keyword of each kind to its function.
+The fields come in the order of `peta-journal-protocol-rich-link-fields'."
+  (pcase value
+    (`(:Page ,fields)
+     (funcall (plist-get handlers :page)
+              (plist-get fields :url)))
+    (`(:Web ,fields)
+     (funcall (plist-get handlers :web)
+              (plist-get fields :url)))
+    (`(:File ,fields)
+     (funcall (plist-get handlers :file)
+              (plist-get fields :path)))))
+
 (defsubst peta-journal-protocol-row-view-id (value)
   "The field id of the type row-view."
   (plist-get value :id))
@@ -158,8 +233,13 @@ The fields come in the order of `peta-journal-protocol-outbound-fields'."
   (plist-get value :level))
 
 (defsubst peta-journal-protocol-row-view-body (value)
-  "The field body of the type row-view."
+  "The Markdown of the body, which Emacs shows while the item is edited (ADR
+077)."
   (plist-get value :body))
+
+(defsubst peta-journal-protocol-row-view-text (value)
+  "The body as Emacs shows it while the item is not edited."
+  (plist-get value :text))
 
 (defsubst peta-journal-protocol-row-view-bullet (value)
   "The field bullet of the type row-view."

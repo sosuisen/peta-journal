@@ -1,3 +1,4 @@
+use crate::emacs_text::EmacsText;
 use crate::protocol::{
     Bullet, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView, SelectionKey,
     SidebarHeading, SidebarView,
@@ -7,6 +8,7 @@ use client_core::changes::ListChange;
 use client_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
 use client_core::model::{PropertyDefinition, TreeExport, Uploaded};
 use client_core::rest::ClientId;
+use client_core::BodyModel;
 use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
 
@@ -348,6 +350,21 @@ fn a_loaded_page_reaches_emacs_as_rows() {
         shown,
         [("a", 1, "親", Bullet::Plain), ("b", 2, "子", Bullet::Plain)]
     );
+}
+
+// シェルは、行ごとに、本文のMarkdownと、Emacsが描く形（EmacsText）を送る。
+#[test]
+fn each_row_reaches_emacs_with_its_markdown_and_its_emacs_text() {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/pages/notes".into(),
+    });
+    driver.load_page(&[item("a", 1, "**太字**")]);
+    let rows = driver.last_rows().unwrap();
+
+    assert_eq!(rows[0].body, "**太字**");
+    assert_eq!(rows[0].text, EmacsText::of_markdown("**太字**", "tags/"));
+    assert_eq!(rows[0].text.text, "太字\n");
 }
 
 // ページを開くと、全部の行が1つの入れ替えで送られる。
