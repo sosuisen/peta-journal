@@ -62,7 +62,41 @@ pub struct Shown {}
 
 impl Shown {
     /// What changed from what the shell has to `view`. The shell has `view` after this.
-    pub fn changes(&mut self, _view: ViewModel<RichText>) -> Changes {
-        todo!()
+    pub fn changes(&mut self, view: ViewModel<RichText>) -> Changes {
+        let (rows, panels) = split(view);
+        Changes {
+            rows: vec![ListChange::Reset { items: rows }],
+            panels,
+        }
     }
+}
+
+/// The rows of the outline, and the panels of the rest of `view`.
+fn split(view: ViewModel<RichText>) -> (Vec<Row<RichText>>, Vec<Panel>) {
+    let outline = view.outline;
+    let panels = vec![
+        Panel::Screen(view.screen),
+        Panel::AtlasCards(view.atlas_cards),
+        Panel::AtlasCallouts(view.atlas_callouts),
+        Panel::AtlasLinks(view.atlas_links),
+        Panel::AtlasLinkSuggestions(view.atlas_link_suggestions),
+        Panel::Outline(OutlinePanel {
+            selection_mode: outline.selection_mode,
+            focus_request: outline.focus_request,
+            focus_order: outline.focus_order,
+            focused_item_id: outline.focused_item_id,
+            key_relay_holding: outline.key_relay_holding,
+            wiki: outline.wiki,
+            scrolled_from_top: outline.scrolled_from_top,
+        }),
+        Panel::Sidebar(view.sidebar),
+        Panel::Search(view.search),
+        Panel::Config(view.config),
+        Panel::Connection(view.connection),
+        Panel::Today(view.today),
+        Panel::Calendar(view.calendar),
+        Panel::Title(view.title),
+        Panel::History(view.history),
+    ];
+    (outline.rows, panels)
 }
