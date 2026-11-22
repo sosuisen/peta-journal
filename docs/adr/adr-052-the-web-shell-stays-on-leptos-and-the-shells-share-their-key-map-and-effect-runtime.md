@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. Partly superseded by ADR 079
 
 ## Context
 
@@ -224,3 +224,10 @@ WebをWindowsとMacにそろえる。
 Shift+↑↓で項目の選択を始めるときは、コアが打った文字を保存する。
 これまでは、Windows、Mac、iOS、Androidが、先に`EditFinished`を送っていた。
 Webは送っていなかったので、選んだ項目を動かすと、保存前の文字が消えるおそれがあった。
+
+## 追記（2026-11-23）：Leptosを残す決定はADR 079で置き換えた
+
+ADR 079は、Web版のシェルを、LeptosからTypeScriptとJSX（TSX）で書くシェルに替えると決めた。
+このADRの1つめの決定（Web版をLeptosのまま残し、JSのフレームワークを併用しない）は、ADR 079で置き換えた。
+理由は、Leptosではテンプレートを型で守れないことと、ブラウザ上でのエラーをデバッグしにくいことである。
+キーの割り当てをコアに置く決定と、エフェクトの方針を共通にする決定は、そのまま残す。
