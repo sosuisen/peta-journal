@@ -81,6 +81,13 @@ impl PetaCore {
     pub fn view(&self) -> Vec<u8> {
         self.shell.view()
     }
+
+    /// What changed on the screen since the last call, as bytes of `Changes`: the changes to
+    /// the rows of the outline, and the panels that changed (ADR 076). The first call gives a
+    /// reset of the rows and every panel. Call it from the main thread only.
+    pub fn changes(&self) -> Vec<u8> {
+        self.shell.changes()
+    }
 }
 
 /// The HTML of a copy, from the AST that comes with the Markdown to copy (ADR 027). The links
