@@ -10,6 +10,24 @@ use client_core::rest::ClientId;
 use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
 
+/// Applies the changes to the rows in order, as `peta-journal.el` does.
+fn apply(rows: &mut Vec<RowView>, changes: &[ListChange<RowView>]) {
+    for change in changes {
+        match change {
+            ListChange::Insert { at, item } => rows.insert(*at as usize, item.clone()),
+            ListChange::Remove { at } => {
+                rows.remove(*at as usize);
+            }
+            ListChange::Move { from, to } => {
+                let row = rows.remove(*from as usize);
+                rows.insert(*to as usize, row);
+            }
+            ListChange::Update { at, item } => rows[*at as usize] = item.clone(),
+            ListChange::Reset { items } => rows.clone_from(items),
+        }
+    }
+}
+
 #[derive(Default)]
 pub(super) struct FakeHost {
     pub(super) out: Vec<Outbound>,
@@ -17,10 +35,15 @@ pub(super) struct FakeHost {
     uploads: Vec<(u64, String)>,
     timers: Vec<(u64, u32)>,
     streams: Vec<u64>,
+    /// The rows as Emacs has them, after the changes it was sent.
+    rows: Vec<RowView>,
 }
 
 impl Host for FakeHost {
     fn emit(&mut self, message: Outbound) {
+        if let Outbound::Rows { changes, .. } = &message {
+            apply(&mut self.rows, changes);
+        }
         self.out.push(message);
     }
     fn api(&mut self, id: u64, op: ApiOp) {
@@ -205,11 +228,9 @@ impl Driver {
         upload
     }
 
+    /// The rows Emacs has, when it was told of the rows since the last clear.
     fn last_rows(&self) -> Option<Vec<RowView>> {
-        self.sent().iter().rev().find_map(|m| match m {
-            Outbound::Rows { rows, .. } => Some(rows.clone()),
-            _ => None,
-        })
+        (self.rows_sent() > 0).then(|| self.shell.host.rows.clone())
     }
 
     /// The changes of the rows that Emacs was told last.
@@ -333,7 +354,7 @@ fn a_loaded_page_reaches_emacs_as_rows() {
 #[test]
 fn a_key_that_changes_one_row_sends_only_its_update() {
     let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y"), item("c", 1, "z")]);
-    driver.send(Inbound::TaskCycle { id: "b".into() });
+    driver.send(Inbound::Indent { id: "b".into() });
     let changes = driver.last_changes().unwrap();
     assert!(
         matches!(&changes[..], [ListChange::Update { at: 1, item }] if item.id == "b"),

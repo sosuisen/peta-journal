@@ -9,6 +9,7 @@ use crate::protocol::{
     SearchEntry, SidebarView,
 };
 use client_core::app::{JournalNav, WikiLinkContext};
+use client_core::changes::list_changes;
 use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput,
     UiOp, UiOutput,
@@ -639,15 +640,16 @@ impl<H: Host> Shell<H> {
     fn tell_rows(&mut self, view: &ViewModel<()>) {
         let rows: Vec<RowView> = view.outline.rows.iter().map(RowView::of).collect();
         let page_id = view.sidebar.current_page_id.clone();
-        if rows == self.sent.rows && page_id == self.sent.page_id {
+        let changes = list_changes(&self.sent.rows, &rows, |row| &row.id);
+        if changes.is_empty() && page_id == self.sent.page_id {
             return;
         }
-        self.sent.rows.clone_from(&rows);
+        self.sent.rows = rows;
         self.sent.page_id.clone_from(&page_id);
         self.host.emit(Outbound::Rows {
             ack: self.ack,
             page_id,
-            rows,
+            changes,
         });
     }
 

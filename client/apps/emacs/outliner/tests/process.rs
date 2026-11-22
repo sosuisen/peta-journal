@@ -246,6 +246,28 @@ fn item(id: &str, body: &str) -> Value {
     })
 }
 
+/// Applies the changes of a line of rows in order, as `peta-journal.el` does. A line of
+/// rows gets the rows Emacs has after it as `shown`.
+fn apply(rows: &mut Vec<Value>, changes: &Value) {
+    let at = |change: &Value, key: &str| change[key].as_u64().unwrap() as usize;
+    for change in changes.as_array().unwrap() {
+        let (kind, change) = change.as_object().unwrap().iter().next().unwrap();
+        match kind.as_str() {
+            "Insert" => rows.insert(at(change, "at"), change["item"].clone()),
+            "Remove" => {
+                rows.remove(at(change, "at"));
+            }
+            "Move" => {
+                let row = rows.remove(at(change, "from"));
+                rows.insert(at(change, "to"), row);
+            }
+            "Update" => rows[at(change, "at")] = change["item"].clone(),
+            "Reset" => rows.clone_from(change["items"].as_array().unwrap()),
+            other => panic!("no change of rows is called {other}"),
+        }
+    }
+}
+
 /// The side of Emacs: it starts the program, writes lines to it and reads its lines.
 struct Emacs {
     program: Child,
@@ -268,8 +290,14 @@ impl Emacs {
         let stdout = program.stdout.take().unwrap();
         let (to_test, lines) = channel();
         thread::spawn(move || {
+            let mut rows = Vec::new();
             for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-                let message = serde_json::from_str(&line).expect("a line of the shell is JSON");
+                let mut message: Value =
+                    serde_json::from_str(&line).expect("a line of the shell is JSON");
+                if message["t"] == "rows" {
+                    apply(&mut rows, &message["changes"]);
+                    message["shown"] = json!(rows);
+                }
                 let _ = to_test.send(message);
             }
         });
@@ -319,7 +347,7 @@ impl Emacs {
     fn waits_for_rows(&mut self, bodies: &[&str]) {
         self.waits_for(&format!("the rows {bodies:?}"), |message| {
             message["t"] == "rows"
-                && message["rows"]
+                && message["shown"]
                     .as_array()
                     .is_some_and(|rows| rows.iter().map(|row| &row["body"]).eq(bodies))
         });
