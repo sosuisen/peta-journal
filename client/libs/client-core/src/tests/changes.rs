@@ -3,6 +3,7 @@
 
 use crate::changes::{Changes, ListChange, OutlinePanel, Panel, Shown};
 use crate::harness::Harness;
+use crate::testing::plain_item;
 use crate::{PetaApp, RichText, ViewModel};
 use crux_core::App;
 
@@ -85,6 +86,26 @@ fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
                 Panel::History(view.history.clone()),
             ],
         }
+    );
+}
+
+// 本文が変わった行は、その場所の行の更新として、差分に入る。
+#[test]
+fn a_row_whose_body_changed_is_an_update_at_its_place() {
+    let before = Harness::with_items(vec![plain_item("a", 1, "one"), plain_item("b", 1, "two")]);
+    let after = Harness::with_items(vec![plain_item("a", 1, "one"), plain_item("b", 1, "three")]);
+    let mut shown = Shown::default();
+    shown.changes(before.view());
+    let view = after.view();
+
+    let changes = shown.changes(view.clone());
+
+    assert_eq!(
+        changes.rows,
+        vec![ListChange::Update {
+            at: 1,
+            item: view.outline.rows[1].clone()
+        }]
     );
 }
 
