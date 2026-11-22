@@ -376,6 +376,11 @@ The shell tells the place in the Markdown with a focus."
         (peta-journal-test--click "web"))
       (should (equal opened "https://example.com/")))))
 
+;; シェルが送る見た目のどれにも、faceがある。Rustに見た目が増えたら、ここで気づく。
+(ert-deftest peta-journal-every-look-has-a-face ()
+  (dolist (look peta-journal-protocol-emacs-look-names)
+    (should (facep (cdr (assoc look peta-journal--look-faces))))))
+
 ;; Markdownを見せる行は、色を持たない。色は、表示の形の行だけが持つ。
 (ert-deftest peta-journal-the-markdown-row-has-no-colors ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "**x** `c` # [[頁]]")
