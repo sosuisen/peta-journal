@@ -12,6 +12,20 @@ use crux_core::Command;
 /// How long typing may pause before the page names are searched.
 pub const SEARCH_DELAY_MS: u32 = 150;
 
+/// The text typed so far inside the `[[` the cursor is in, which the popup searches for.
+/// `cursor` counts characters (ADR 043). None when the cursor is in no link: no `[[` before
+/// it, a `]]` between that `[[` and it, or no `]]` after it.
+pub fn query_at(body: &str, cursor: usize) -> Option<String> {
+    let at = body
+        .char_indices()
+        .nth(cursor)
+        .map_or(body.len(), |(byte, _)| byte);
+    let (before, after) = body.split_at(at);
+    let open = before.rfind("[[")?;
+    let between = &before[open + 2..];
+    (!between.contains("]]") && after.contains("]]")).then(|| between.to_string())
+}
+
 /// Opens the page of the wiki link or the tag at the cursor. Off a link, nothing happens.
 pub fn open_link_at(model: &Model, item_id: &str, cursor: usize) -> Cmd {
     let link = model

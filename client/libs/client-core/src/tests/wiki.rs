@@ -246,3 +246,21 @@ fn no_page_opens_when_the_cursor_is_not_on_a_link() {
     open_link_at(&mut h, 1);
     assert!(h.navigations.is_empty());
 }
+
+// 検索語は、カーソルの前の最後の `[[` からカーソルまでの文である。位置は文字で数える。
+#[test]
+fn the_query_is_the_text_from_the_last_opening_brackets_to_the_cursor() {
+    use crate::ops::wiki::query_at;
+    assert_eq!(query_at("a [[b]] [[日本]]", 12).as_deref(), Some("日本"));
+    assert_eq!(query_at("a [[b]] [[日本]]", 11).as_deref(), Some("日"));
+    assert_eq!(query_at("[[]]", 2).as_deref(), Some(""));
+}
+
+// `[[` がない、`[[` とカーソルの間に `]]` がある、カーソルの後に `]]` がないときは、検索語がない。
+#[test]
+fn there_is_no_query_outside_a_link() {
+    use crate::ops::wiki::query_at;
+    assert_eq!(query_at("plain", 3), None);
+    assert_eq!(query_at("[[a]] b", 6), None);
+    assert_eq!(query_at("[[ab", 4), None);
+}
