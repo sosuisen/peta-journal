@@ -8,12 +8,21 @@ namespace PetaBorder;
 /// </summary>
 internal static class Applied
 {
+    /// <summary>The kinds of panel there are, such as <see cref="Panel.Search"/>.</summary>
+    private static readonly int PanelKinds = typeof(Panel)
+        .GetNestedTypes()
+        .Count(kind => kind.IsSubclassOf(typeof(Panel)));
+
     /// <summary>
     /// The view model of the first changes of a core. They hold every panel and a reset of
-    /// the rows.
+    /// the rows. Throws when a panel is missing or comes twice: the two sides of the border are
+    /// then of two versions, and a part would stay empty.
     /// </summary>
     public static ViewModel First(Changes changes)
     {
+        var kinds = changes.Panels.Select(panel => panel.GetType()).ToList();
+        if (kinds.Count != PanelKinds || kinds.Distinct().Count() != PanelKinds)
+            throw new InvalidOperationException("the first changes have each panel once");
         var view = new ViewModel { Outline = new OutlineView { Rows = [] } };
         To(view, changes);
         return view;
