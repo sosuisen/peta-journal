@@ -585,6 +585,8 @@ Without its last line break: the newline of the row ends it."
              'help-echo "mouse-1: open the link"))
      (when (or faces link)
        (list 'font-lock-face (append faces (and link '(peta-journal-link)))))
+     (when-let* ((image (peta-journal-protocol-emacs-span-image span)))
+       (list 'peta-image image))
      (unless (peta-journal-protocol-emacs-span-letters span)
        (list 'peta-added t)))))
 
@@ -603,7 +605,8 @@ The Markdown in the item of `peta-journal--markdown-item', or else the shown tex
           (inhibit-modification-hooks t))
       (save-excursion
         (peta-journal--write-row index (aref peta-journal--rows index))))
-    (restore-buffer-modified-p nil)))
+    (restore-buffer-modified-p nil)
+    (peta-journal--draw-images-of id)))
 
 (defun peta-journal--show-markdown (id)
   "Let the item ID show its Markdown, and the item that showed it its shown text."
@@ -803,7 +806,6 @@ are rewritten, so what does not change stays where it is."
     (if (eq written t)
         (peta-journal--draw-images (point-min) (point-max))
       (mapc #'peta-journal--draw-images-of (delete-dups written)))
-    (peta-journal--update-images)
     (peta-journal--show-selection)))
 
 (defvar peta-journal-selection-mode)
@@ -874,28 +876,14 @@ A step back from the start of this body goes on to the row above."
 
 ;;;; Images
 
-(defconst peta-journal--image-link-regexp
-  (concat "!" peta-journal--link-text-regexp
-          "(\\(?:\\.\\./assets/\\([A-Za-z0-9._-]+\\)\\|\\(https?://[^ \t\n()#]+\\)\\)"
-          "\\(?:#\\([^)\n]*\\)\\)?)")
-  "A link to an image on the server, or to one outside it.
-Group 1 is the name of a file on the server.  The server gives an uploaded file
-such a name, and a name of this form needs no escaping in a URL.  Group 2 is the
-URL of an image outside the server, and group 3 what follows the `#'.")
-
-(defun peta-journal--matched-image-url ()
-  "The URL of the image that `peta-journal--image-link-regexp' matched last."
-  (let ((name (match-string-no-properties 1)))
-    (if name
-        (peta-journal--asset-url name)
-      (match-string-no-properties 2))))
-
 ;; Global: buffers of the same server show the same files
 (defvar peta-journal--images (make-hash-table :test #'equal)
   "What is known of the images by URL: their bytes, `loading' or `missing'.")
 
-(defvar-local peta-journal--text-item nil
-  "The id of the item that shows its links as text, where the point was last.")
+(defun peta-journal--image-url (image)
+  "The URL of the RichImage IMAGE on the server."
+  (concat (string-trim-right peta-journal-server "/") "/"
+          (peta-journal-protocol-rich-image-path image)))
 
 (defun peta-journal--asset-url (name)
   "The URL of the file NAME in the assets of the server."
@@ -917,11 +905,11 @@ Not the time: two uses may come in the same instant.")
   "The URLs of the images that the open pages link to."
   (let ((urls (make-hash-table :test #'equal)))
     (dolist (page (peta-journal--pages))
-      (with-current-buffer page
-        (save-excursion
-          (goto-char (point-min))
-          (while (re-search-forward peta-journal--image-link-regexp nil t)
-            (puthash (peta-journal--matched-image-url) t urls)))))
+      ;; From the rows: the item that shows its Markdown has its images too
+      (seq-doseq (row (buffer-local-value 'peta-journal--rows page))
+        (seq-doseq (span (peta-journal-protocol-emacs-text-spans (plist-get row :text)))
+          (when-let* ((image (peta-journal-protocol-emacs-span-image span)))
+            (puthash (peta-journal--image-url image) t urls)))))
     urls))
 
 (defun peta-journal--trim-images ()
@@ -1001,14 +989,6 @@ The server may have been down, and nothing else would try again."
                (remhash url peta-journal--images)))
            peta-journal--images))
 
-(defun peta-journal--link-side (fragment key)
-  "The size that FRAGMENT of a link gives after KEY, or nil.
-As in the Web version, only a positive integer counts."
-  (when (and fragment
-             (string-match (format "\\(?:\\`\\|&\\)%s=\\([0-9]*[1-9][0-9]*\\)\\(?:&\\|\\'\\)" key)
-                           fragment))
-    (string-to-number (match-string 1 fragment))))
-
 (defun peta-journal--image-room (id)
   "The most an image in the item ID may take, as properties of the image.
 An image taller than the window could not be scrolled through line by line."
@@ -1020,14 +1000,14 @@ An image taller than the window could not be scrolled through line by line."
                         (* (1+ indent) (frame-char-width)))
           :max-height (- (window-body-height window t) (frame-char-height)))))
 
-(defun peta-journal--link-image (id url fragment)
-  "The image of the item ID for a link to the image at URL with FRAGMENT, or nil."
-  (when-let* ((bytes (peta-journal--image-bytes url)))
-    (let ((width (peta-journal--link-side fragment "w"))
-          (height (peta-journal--link-side fragment "h")))
+(defun peta-journal--shown-image (id image)
+  "The Emacs image of the RichImage IMAGE in the item ID, or nil while there is none."
+  (when-let* ((bytes (peta-journal--image-bytes (peta-journal--image-url image))))
+    (let ((width (peta-journal-protocol-rich-image-width image))
+          (height (peta-journal-protocol-rich-image-height image)))
       ;; Without a type, this tells it from the bytes, and gives nil if it cannot tell it. A
       ;; type that this build of Emacs cannot show is an error, which would stop the process
-      ;; filter: the link stays as text then
+      ;; filter: the text stays then
       (condition-case nil
           (apply #'create-image bytes nil t
                  (append (and width (list :width width))
@@ -1035,55 +1015,32 @@ An image taller than the window could not be scrolled through line by line."
                          (peta-journal--image-room id)))
         (error nil)))))
 
-(defun peta-journal--in-code-p (pos)
-  "Non-nil when the text at POS is code.  A link there is an example, not an image."
-  (let ((start (peta-journal--row-start pos)))
-    (font-lock-ensure start (peta-journal--body-end start)))
-  (memq 'peta-journal-code (ensure-list (get-text-property pos 'face))))
-
 (defun peta-journal--on-window-size-change (_window)
   "Fit the images of the current buffer to the new size of its window."
   (peta-journal--draw-images (point-min) (point-max)))
 
 (defun peta-journal--draw-images (start end)
-  "Show the links between START and END as images, but for the item at the point.
-START and END are the edges of rows.  An overlay leaves the text alone, so the
-body stays as the shell knows it."
+  "Show the images of the shown text between START and END.
+START and END are the edges of rows.  An image takes the place of the text
+that stands for it, but for its line break.  An overlay leaves the text alone."
   (remove-overlays start end 'peta-image t)
   (when (display-images-p)
-    (let ((text-item (peta-journal--id-at (point))))
-      (save-excursion
-        (goto-char start)
-        (while (re-search-forward peta-journal--image-link-regexp end t)
-          (let* ((link-start (match-beginning 0))
-                 (link-end (match-end 0))
-                 (url (peta-journal--matched-image-url))
-                 (fragment (match-string-no-properties 3))
-                 (id (peta-journal--id-at link-start)))
-            (unless (or (equal id text-item)
-                        (peta-journal--in-code-p link-start))
-              (when-let* ((image (peta-journal--link-image id url fragment)))
-                (let ((overlay (make-overlay link-start link-end)))
-                  (overlay-put overlay 'peta-image t)
-                  (overlay-put overlay 'display image)
-                  ;; The shell may rewrite the row, and nothing should stay behind
-                  (overlay-put overlay 'evaporate t))))))))))
+    (let ((pos start))
+      (while (< pos end)
+        (let ((next (next-single-property-change pos 'peta-image nil end)))
+          (when-let* ((image (get-text-property pos 'peta-image))
+                      (shown (peta-journal--shown-image (peta-journal--id-at pos) image)))
+            (let ((overlay (make-overlay pos (if (eq (char-before next) ?\n) (1- next) next))))
+              (overlay-put overlay 'peta-image t)
+              (overlay-put overlay 'display shown)
+              ;; The shell may rewrite the row, and nothing should stay behind
+              (overlay-put overlay 'evaporate t)))
+          (setq pos next))))))
 
 (defun peta-journal--draw-images-of (id)
-  "Show the links of the item ID as images, when it is there."
+  "Show the images of the item ID, when it is there."
   (when-let* ((start (peta-journal--find-row id)))
     (peta-journal--draw-images start (peta-journal--body-end start))))
-
-(defun peta-journal--update-images ()
-  "Give the item at the point its text, and the item it has left its images."
-  (let ((item (peta-journal--id-at (point)))
-        (left peta-journal--text-item))
-    (unless (equal item left)
-      (setq peta-journal--text-item item)
-      (when item
-        (peta-journal--draw-images-of item))
-      (when left
-        (peta-journal--draw-images-of left)))))
 
 ;;;; Talking to the shell
 
@@ -1213,15 +1170,13 @@ still under way: the point has moved on since."
         (peta-journal--goto-item id cursor)))
     (when (equal (peta-journal--id-at (point)) id)
       (setq peta-journal--current id
-            peta-journal--last-point (point)))
-    (peta-journal--update-images)))
+            peta-journal--last-point (point)))))
 
 (defun peta-journal--on-scroll (id)
   "Show the item ID."
   (when (peta-journal--find-row id)
     (peta-journal--goto-item id 0)
     (setq peta-journal--last-point (point))
-    (peta-journal--update-images)
     (dolist (window (get-buffer-window-list (current-buffer) nil t))
       (set-window-point window (point))
       (with-selected-window window (recenter)))))
@@ -1272,7 +1227,6 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
       (if (equal id peta-journal--markdown-item)
           (peta-journal--start-edit id)
         (peta-journal--enter-row id))))
-  (peta-journal--update-images)
   (setq peta-journal--last-point (point)))
 
 (defun peta-journal--enter-row (id)
