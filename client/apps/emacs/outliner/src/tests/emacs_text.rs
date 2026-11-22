@@ -150,3 +150,12 @@ fn an_image_is_on_the_span_of_its_alt_text_which_is_not_letters() {
         .collect();
     assert_eq!(images, [(2, 4, Some("assets/sample.png".into()), false)]);
 }
+
+// 代わりの文字のない画像は、`image`の文字で見える。改行だけでは、画像を見せる場所がない。
+#[test]
+fn an_image_without_alt_text_shows_as_the_word_image() {
+    let text = text_of("![](assets/sample.png)");
+
+    assert_eq!(text.text, "image\n");
+    assert_eq!(parts_of(&text), [(0, 6, vec![], false)]);
+}
