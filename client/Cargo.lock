@@ -2942,7 +2942,9 @@ dependencies = [
  "facet",
  "facet-json",
  "facet_generate 0.22.3",
+ "flatmarkdown-ast",
  "page-urls",
+ "serde",
  "serde_json",
 ]
 

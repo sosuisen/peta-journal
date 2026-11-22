@@ -20,6 +20,9 @@ facet = "=0.46.5"
 facet-json = "0.46.1"
 client-api-http = { path = "../../../libs/client-api-http" }
 chrono = "0.4.45"
+# The AST of a body, from which EmacsText is made, and the bound that BodyModel asks for
+flatmarkdown-ast = { workspace = true }
+serde = { workspace = true }
 
 [dev-dependencies]
 # The answers of the server in the tests, and the lines read back as JSON
