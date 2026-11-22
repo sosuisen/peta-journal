@@ -86,3 +86,17 @@ fn an_item_in_another_place_is_moved_and_then_updated_when_it_changed() {
         ]
     );
 }
+
+// 前の行が1つも残らないときは、入れ替えが1つだけになる。別のページを開いたときである。
+#[test]
+fn a_list_that_keeps_no_item_is_reset_once() {
+    let before = [line("a", "one"), line("b", "two")];
+    let after = [line("c", "three"), line("d", "four")];
+
+    assert_eq!(
+        changes(&before, &after),
+        vec![ListChange::Reset {
+            items: after.to_vec()
+        }]
+    );
+}
