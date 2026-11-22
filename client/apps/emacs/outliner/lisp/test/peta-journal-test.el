@@ -291,6 +291,19 @@ The shell tells the place in the Markdown with a focus."
     (should (equal (peta-journal-test--shown) "• x\n• - 項目\n"))
     (should (equal (car peta-journal-test--sent) '("edit_at_letter" :id "b" :letter 1)))))
 
+;; シェルが答えるfocusで、pointはMarkdownの中のその位置に置かれる。
+(ert-deftest peta-journal-the-focus-of-the-answer-puts-the-point-at-its-markdown-place ()
+  (let ((peta-journal-test--focus-place (lambda (_letter) 7)))
+    (peta-journal-test--with-rows
+        (list (peta-journal-test--row "a" 1 "x")
+              (peta-journal-test--row "b" 1 "**太字**の後"
+                                      :text (peta-journal-test--text
+                                             "太字の後\n"
+                                             (peta-journal-test--span 0 2 :looks ["bold"]))))
+      (peta-journal-test--goto "b" 3)
+      (should (equal (peta-journal--id-at (point)) "b"))
+      (should (= (peta-journal--cursor) 7)))))
+
 ;;;; Protecting the marks
 
 ;; バレットと項目の区切りは編集できない。項目をまたぐ削除は、エラーになる。
