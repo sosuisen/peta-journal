@@ -50,9 +50,14 @@ function writeAutoTemplate(dir: string): void {
   ].join('\n'));
 }
 
-/** Builds the Leptos frontend into `frontendDir`. Runs in `shellDir`, where Trunk.toml is. */
+/**
+ * Builds the Leptos frontend into `frontendDir`. Runs in `shellDir`, where Trunk.toml is. The
+ * timing test (`PETA_TIMING=1`) needs the release build: a debug build of wasm is many times
+ * slower, and its times say nothing.
+ */
 function frontendBuildCommand(): string {
-  return `trunk build --dist ${JSON.stringify(frontendDir)}`;
+  const release = process.env.PETA_TIMING ? ' --release' : '';
+  return `trunk build${release} --dist ${JSON.stringify(frontendDir)}`;
 }
 
 const serverDir = resolve(__dirname, '../../../../../journal');
