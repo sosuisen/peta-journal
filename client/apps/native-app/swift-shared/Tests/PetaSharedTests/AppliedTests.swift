@@ -50,7 +50,7 @@ final class AppliedTests: XCTestCase {
             .config(
                 ConfigView(
                     markdownDir: "markdown", weekNumbering: .iso, logicalOutdent: true, tagsDir: "tags",
-                    homeLink: "home", propertyDefinitions: [], definitionError: nil)),
+                    homeLink: "home", propertyDefinitions: [], definitionError: nil, definitionsAdded: 0)),
             .connection(.connected),
             .today("2026-11-22"),
             .calendar(

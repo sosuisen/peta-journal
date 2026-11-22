@@ -1,9 +1,7 @@
 //! The settings screen, ported from `settings.ts`.
 
 use crate::core::CoreHandle;
-use client_core::model::{
-    bare_name, shown_name, PropertyDefinition, WeekNumbering, USER_VALUE_TYPES,
-};
+use client_core::model::{shown_name, PropertyDefinition, WeekNumbering, USER_VALUE_TYPES};
 use client_core::Event;
 use leptos::prelude::*;
 
@@ -16,18 +14,17 @@ pub fn Settings() -> impl IntoView {
 
     let new_key = RwSignal::new(String::new());
     let new_type = RwSignal::new(USER_VALUE_TYPES[0].as_str().to_string());
-    // The form is cleared once the list holds the key, i.e. when the server accepted it
-    let submitted = RwSignal::new(Option::<String>::None);
-    Effect::new(move |_| {
-        let Some(body) = submitted.get() else { return };
-        if definitions.with(|d| d.iter().any(|def| bare_name(&def.key, d) == body)) {
+    // The form is cleared when the server accepted a key; the first run only reads the count
+    let added = core.select(|v| v.config.definitions_added);
+    Effect::new(move |seen: Option<u32>| {
+        let now = added.get();
+        if seen.is_some_and(|seen| seen != now) {
             new_key.set(String::new());
-            submitted.set(None);
         }
+        now
     });
     let add = move || {
         let body = new_key.get_untracked().trim().to_string();
-        submitted.set(Some(body.clone()));
         core.send(Event::AddPropertyDefinition {
             body,
             value_type: new_type.get_untracked(),

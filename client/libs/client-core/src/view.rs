@@ -375,6 +375,9 @@ pub struct ConfigView {
     pub home_link: String,
     pub property_definitions: Vec<PropertyDefinition>,
     pub definition_error: Option<String>,
+    /// How many keys the server accepted from the settings form. The shell clears the form
+    /// when it grows.
+    pub definitions_added: u32,
 }
 
 /// Where the history of the opened pages can go (ADR 035). A shell that keeps no history in
@@ -451,6 +454,7 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
             home_link: model.config.home_link.clone(),
             property_definitions: model.config.property_definitions.clone(),
             definition_error: model.config.definition_error.clone(),
+            definitions_added: model.config.definitions_added,
         },
         connection: model.connection,
         today: model.today.clone(),

@@ -833,6 +833,10 @@ pub enum Event {
     PropertyDefinitionsLoaded {
         definitions: Vec<PropertyDefinition>,
     },
+    /// The server accepted a new key and answered with the whole list.
+    PropertyDefinitionAdded {
+        definitions: Vec<PropertyDefinition>,
+    },
     /// The server refused a change of the property definitions.
     PropertyDefinitionRefused {
         reason: String,
@@ -1018,6 +1022,9 @@ pub struct ConfigState {
     pub property_definitions: Vec<PropertyDefinition>,
     /// Why the last definition was refused, shown under the settings form until the next try.
     pub definition_error: Option<String>,
+    /// How many keys the server accepted from the settings form. The form is cleared when it
+    /// grows.
+    pub definitions_added: u32,
 }
 
 #[derive(Debug, Default)]
@@ -1616,6 +1623,11 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         ConfigLoaded { config } => screens::settings::show_config(model, config),
         PropertyDefinitionsLoaded { definitions } => {
             model.config.property_definitions = definitions;
+            done()
+        }
+        PropertyDefinitionAdded { definitions } => {
+            model.config.property_definitions = definitions;
+            model.config.definitions_added += 1;
             done()
         }
         PropertyDefinitionRefused { reason } => {
