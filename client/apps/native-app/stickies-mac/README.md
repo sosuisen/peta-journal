@@ -7,8 +7,8 @@ are kept between runs. The keys of the outline work as in the web frontend (see 
 
 The core is the same Crux core as in the web and the Emacs frontends. `client/libs/client-native-bridge`
 wraps it for a shell that is not written in Rust. Calls to the journal server, timers and the
-clock stay in Rust. Swift gets the view model and the requests of the screen as bytes (bincode),
-and sends events and answers the same way.
+clock stay in Rust. Swift gets what changed on the screen and the requests of the core as bytes
+(bincode), and sends events and answers the same way.
 
 ## Prerequisites
 
@@ -59,6 +59,10 @@ Run it again after a change in Rust. Neither is kept in the repository.
   what the user did. It also holds what the core asks and waits for: a question to the user
   (`question`, shown as a dialog), an order to put the cursor in an item (`focus`), and the text
   on the clipboard.
+- `Applied.swift` keeps the view model of `Shell` from the changes of the core (ADR 076). The first
+  changes hold every panel; after them only the panels that changed come, and the changes to the
+  rows of the outline, which are applied in order. `Shell` never reads the whole view model of the
+  core, but its tests do, to see that the two are the same.
 - `PastedImage` writes the image on the clipboard to a file of its own, for the core to upload
   (ADR 071).
 - `Keys.swift` says what a key in the editor of an item means to the outline (`Shell.pressed`).
@@ -362,6 +366,11 @@ PETA_E2E_SERVER=$PWD/../../../../journal/target/release/journal-server \
 
 On an M1 MacBook Air (2026-11-11): the event into the core 0.07 ms, the view model out of the
 core and read in Swift 4.9 ms, the window drawn again 4.2 ms.
+
+With the changes of ADR 076, on an M1 Mac (2026-11-22, two runs each): the changes out of the
+core and read in Swift take 0.5 ms, against 4.2 ms for the whole view model. The shell takes the
+key in 0.9 ms, against 4.3 ms when it read the whole view model. The window is drawn again in
+7.7 ms, against 6.5 to 6.8 ms before.
 
 With decoration (ADR 025), same day: the text of one item is made in 2.5 ms. After a jump of one
 screen (26 new rows) the rows are drawn with their Markdown after 55 ms, the texts are then made

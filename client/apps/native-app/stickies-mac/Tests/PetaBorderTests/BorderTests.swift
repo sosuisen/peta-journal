@@ -67,6 +67,19 @@ final class BorderTests: XCTestCase {
         XCTAssertEqual(try border.view().search.query, "apple 日本語")
     }
 
+    // Rustが書いた画面の差分を、Swiftが読める。最初の差分には、Swiftが送ったイベントの中身が入っている。
+    func testTheChangesOfTheScreenWrittenByRustAreReadInSwift() throws {
+        let border = border()
+
+        try border.send(.searchQueryChanged("apple 日本語"))
+
+        let search = try border.changes().panels.compactMap { panel in
+            if case .search(let search) = panel { return search }
+            return nil
+        }
+        XCTAssertEqual(search.map(\.query), ["apple 日本語"])
+    }
+
     // Rustが書いたシェルへの依頼を、Swiftが読める。
     func testARequestOfRustIsReadInSwift() throws {
         let asked = Asked()
