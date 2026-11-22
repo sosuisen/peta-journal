@@ -1,6 +1,7 @@
 //! The specs of the outline, in the order of `docs/features.md`.
 
 // 今日を書き始める
+mod changes;
 mod collapse;
 mod edit;
 mod home;
