@@ -1,4 +1,4 @@
-use crate::lisp_protocol::lisp_of;
+use crate::lisp_protocol::{lisp_of, protocol_file};
 use facet::Facet;
 use facet_generate::reflection::RegistryBuilder;
 use facet_generate::Registry;
@@ -117,5 +117,20 @@ fn an_enum_of_names_gives_the_list_of_its_names_as_they_are_sent() {
             "(defconst peta-journal-protocol-task-look-names '(\"not_done\" \"done\")\n  \"The look of a task in a test.\")\n"
         ),
         "{lisp}"
+    );
+}
+
+// コミットしたLispのファイルは、Rustの型から書いたものと同じである。型を変えたら、PETA_WRITE_LISP=1を付けてこのテストを回し、ファイルを書き直す。
+#[test]
+fn the_committed_lisp_protocol_is_the_one_the_rust_types_make() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/lisp/peta-journal-protocol.el");
+    let lisp = protocol_file();
+    if std::env::var_os("PETA_WRITE_LISP").is_some() {
+        std::fs::write(path, &lisp).unwrap();
+    }
+    let kept = std::fs::read_to_string(path).unwrap_or_default();
+    assert!(
+        kept.replace("\r\n", "\n") == lisp,
+        "lisp/peta-journal-protocol.el is old: run this test with PETA_WRITE_LISP=1"
     );
 }
