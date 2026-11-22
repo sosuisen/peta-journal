@@ -99,3 +99,18 @@ fn a_paragraph_of_a_list_has_the_indent_of_its_depth_and_its_mark_which_are_not_
         ]
     );
 }
+
+// 引用の段落の前には、引用の深さだけ引用の印がある。表示の文字ではない。
+#[test]
+fn a_quoted_paragraph_has_a_quote_mark_for_each_quote_which_is_not_letters() {
+    let text = text_of("> 外\n>\n> > 中");
+
+    assert_eq!(text.text, "▎ 外\n▎ ▎ 中\n");
+    assert_eq!(
+        parts_of(&text),
+        [
+            (0, 2, vec![EmacsLook::Quote], false),
+            (4, 8, vec![EmacsLook::Quote], false),
+        ]
+    );
+}
