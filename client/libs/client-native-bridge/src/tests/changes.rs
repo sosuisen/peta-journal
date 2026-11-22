@@ -26,6 +26,23 @@ fn nothing_changed_gives_empty_changes() {
     );
 }
 
+// 変わったパネルだけが、差分に入る。
+#[test]
+fn only_the_panels_that_changed_are_in_the_changes() {
+    let mut shown = Shown::default();
+    shown.changes(first_view());
+    let mut view = first_view();
+    view.title = "notes".into();
+    view.history.can_go_back = true;
+
+    let changes = shown.changes(view.clone());
+
+    assert_eq!(
+        changes.panels,
+        vec![Panel::Title(view.title), Panel::History(view.history)]
+    );
+}
+
 // 最初の差分は、行の入れ替えと、全部のパネルである。
 #[test]
 fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
