@@ -63,8 +63,11 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                 };
                 let remove = { let key = key.clone(); move |_| core.send(Event::DeletePageProperty { key: key.clone() }) };
                 let shown: AnyView = if p.is_list {
-                    let remove_last = { let key = key.clone(); move || core.send(Event::DeletePageProperty { key: key.clone() }) };
-                    view! { <TagList value=value.into() save=send remove_last=remove_last /> }.into_any()
+                    let tags = Memo::new({
+                        let key = key.clone();
+                        move |_| properties.with(|ps| ps.iter().find(|q| q.key == key).map(|q| q.values.clone()).unwrap_or_default())
+                    });
+                    view! { <TagList key=key.clone() tags=tags.into() added=|| () /> }.into_any()
                 } else if p.editable {
                     value_input(&value_type, value.into(), send, false, NodeRef::new())
                 } else {
@@ -118,9 +121,9 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                                 }
                             });
                             if t == "tags" || t == "list" {
-                                // The row goes with its last tag, as a saved list does
-                                let discard = move || drafts.update(|ds| ds.retain(|x| x.id != id));
-                                return Some(view! { <TagList value=Signal::derive(String::new) save=commit remove_last=discard open=true /> }.into_any());
+                                // The first tags make the property; the draft row is then gone
+                                let added = move || drafts.update(|ds| ds.retain(|x| x.id != id));
+                                return Some(view! { <TagList key=key.get_untracked() tags=Signal::derive(Vec::new) added=added open=true /> }.into_any());
                             }
                             (!t.is_empty()).then(|| value_input(&t, Signal::derive(move || initial.clone()), commit, true, input_ref))
                         }}
@@ -141,23 +144,15 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
 /// before or after it.
 #[component]
 fn TagList(
-    value: Signal<String>,
-    save: impl Fn(String) + Clone + Send + Sync + 'static,
-    remove_last: impl Fn() + Clone + Send + Sync + 'static,
+    key: String,
+    tags: Signal<Vec<String>>,
+    /// Called after tags were added: a draft row is then gone.
+    added: impl Fn() + Clone + Send + Sync + 'static,
     #[prop(optional)] open: bool,
 ) -> impl IntoView {
     let core: CoreHandle = expect_context();
     // Tag pages live where hashtags link to, so both reach the same page
     let tags_dir = core.select(|v| v.config.tags_dir.clone());
-    let tags = Memo::new(move |_| {
-        value.with(|v| {
-            v.split(',')
-                .map(str::trim)
-                .filter(|t| !t.is_empty())
-                .map(str::to_string)
-                .collect::<Vec<String>>()
-        })
-    });
     let adding = RwSignal::new(false);
     let input_ref = NodeRef::<leptos::html::Input>::new();
     let open_input = move || {
@@ -173,19 +168,12 @@ fn TagList(
     }
 
     let remove = {
-        let save = save.clone();
+        let key = key.clone();
         move |tag: String| {
-            let rest: Vec<String> = tags
-                .get_untracked()
-                .into_iter()
-                .filter(|t| *t != tag)
-                .collect();
-            // An empty list would stay as a row with no tags, so the property goes instead
-            if rest.is_empty() {
-                remove_last();
-            } else {
-                save(rest.join(", "));
-            }
+            core.send(Event::RemovePageTag {
+                key: key.clone(),
+                tag,
+            })
         }
     };
     // The tag being dragged, and the chip it would land at with whether it goes after it
@@ -196,20 +184,15 @@ fn TagList(
         drop_at.set(None);
     };
     let reorder = {
-        let save = save.clone();
+        let key = key.clone();
         move |target: String, after: bool| {
-            let Some(moved) = dragged.get_untracked() else {
-                return;
-            };
-            let old = tags.get_untracked();
-            let mut new: Vec<String> = old.iter().filter(|t| **t != moved).cloned().collect();
-            let Some(at) = new.iter().position(|t| *t == target) else {
-                return;
-            };
-            new.insert(if after { at + 1 } else { at }, moved);
-            // A drop back where the tag was would build the page again for nothing
-            if new != old {
-                save(new.join(", "));
+            if let Some(tag) = dragged.get_untracked() {
+                core.send(Event::MovePageTag {
+                    key: key.clone(),
+                    tag,
+                    target,
+                    after,
+                });
             }
         }
     };
@@ -219,9 +202,12 @@ fn TagList(
             return;
         }
         adding.set(false);
-        // The core drops a leading `#` and a tag that is already there
         if !typed.trim().is_empty() {
-            save(format!("{}, {typed}", value.get_untracked()));
+            core.send(Event::AddPageTags {
+                key: key.clone(),
+                typed,
+            });
+            added();
         }
     };
 

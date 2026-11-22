@@ -3,7 +3,7 @@
 
 use crate::app::{done, log_error, run, Cmd, Event, Model, PageState, Screen};
 use crate::effects::{Api, ApiError, PageUpdate, UiOp};
-use crate::model::{BacklinkEntry, Page, PageWithItems, PropertyValue};
+use crate::model::{list_type_of, BacklinkEntry, Page, PageWithItems, PropertyValue};
 use crate::screens::{navigate, sidebar};
 use crate::util::filename::validate_file_name;
 use crate::view::DirSegment;
@@ -453,6 +453,59 @@ pub fn set_property(model: &mut Model, key: String, value_type: String, value: S
 }
 
 /// Removes a property of the doc page, the same way `set_property` sets one.
+/// The tags of the list property `key` of the shown doc page; none when it has no such list.
+fn tags_of(model: &Model, key: &str) -> Vec<String> {
+    match shown_doc_page(model).and_then(|page| page.properties.get(key)) {
+        Some(PropertyValue::List(tags)) => tags.clone(),
+        _ => Vec::new(),
+    }
+}
+
+/// Saves the tags as the list property `key`. An empty list would stay as a row with no tags,
+/// so the property goes instead.
+fn save_tags(model: &mut Model, key: String, tags: &[String]) -> Cmd {
+    if tags.is_empty() {
+        return delete_property(model, key);
+    }
+    let value_type = list_type_of(&key).to_string();
+    set_property(model, key, value_type, tags.join(", "))
+}
+
+/// Takes one tag out of the list property `key`.
+pub fn remove_tag(model: &mut Model, key: String, tag: &str) -> Cmd {
+    let rest: Vec<String> = tags_of(model, &key)
+        .into_iter()
+        .filter(|t| t != tag)
+        .collect();
+    save_tags(model, key, &rest)
+}
+
+/// Moves `tag` of the list property `key` to before `target`, or after it.
+pub fn move_tag(model: &mut Model, key: String, tag: &str, target: &str, after: bool) -> Cmd {
+    let old = tags_of(model, &key);
+    let mut new: Vec<String> = old.iter().filter(|t| *t != tag).cloned().collect();
+    let Some(at) = new.iter().position(|t| t == target) else {
+        return done();
+    };
+    new.insert(if after { at + 1 } else { at }, tag.to_string());
+    // A drop back where the tag was would build the page again for nothing
+    if new == old {
+        return done();
+    }
+    save_tags(model, key, &new)
+}
+
+/// Adds the comma separated `typed` tags to the list property `key`. `set_property` drops a
+/// leading `#` and a tag that is already there.
+pub fn add_tags(model: &mut Model, key: String, typed: &str) -> Cmd {
+    if typed.trim().is_empty() {
+        return done();
+    }
+    let value = format!("{}, {typed}", tags_of(model, &key).join(", "));
+    let value_type = list_type_of(&key).to_string();
+    set_property(model, key, value_type, value)
+}
+
 pub fn delete_property(model: &mut Model, key: String) -> Cmd {
     let Some(page) = shown_doc_page_mut(model) else {
         return done();

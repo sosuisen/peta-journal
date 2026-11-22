@@ -714,6 +714,24 @@ pub enum Event {
     DeletePageProperty {
         key: String,
     },
+    /// The `×` of one tag of the list property `key`. The last tag takes the property with it.
+    RemovePageTag {
+        key: String,
+        tag: String,
+    },
+    /// A tag of the list property `key` dragged onto `target`, to go before it or after it.
+    MovePageTag {
+        key: String,
+        tag: String,
+        target: String,
+        after: bool,
+    },
+    /// Tags typed into the list property `key`, comma separated. The page may not have the
+    /// property yet.
+    AddPageTags {
+        key: String,
+        typed: String,
+    },
     /// The "+" button; the search box text is used as the title when present.
     CreateNewPage {
         search_query: String,
@@ -1503,6 +1521,14 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             value,
         } => screens::page::set_property(model, key, value_type, value),
         DeletePageProperty { key } => screens::page::delete_property(model, key),
+        RemovePageTag { key, tag } => screens::page::remove_tag(model, key, &tag),
+        MovePageTag {
+            key,
+            tag,
+            target,
+            after,
+        } => screens::page::move_tag(model, key, &tag, &target, after),
+        AddPageTags { key, typed } => screens::page::add_tags(model, key, &typed),
         CreateNewPage { search_query } => screens::layout::create_new_page(model, search_query),
         DeleteCurrentPage => screens::layout::delete_current_page(model),
         PageDeleted => screens::layout::show_page_deleted(),

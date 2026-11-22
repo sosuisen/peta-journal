@@ -119,6 +119,8 @@ pub struct PageProperty {
     pub name: String,
     pub value: String,
     pub is_list: bool,
+    /// The items of a list, in order; none for a value that is no list.
+    pub values: Vec<String>,
     /// The type to send a new value with (see `value_type_of`).
     pub value_type: String,
     /// False for the page's own dates, which every page has.
@@ -129,15 +131,16 @@ pub struct PageProperty {
 
 impl PageProperty {
     fn of(key: &str, value: &PropertyValue, definitions: &[PropertyDefinition]) -> PageProperty {
-        let (value, is_list) = match value {
-            PropertyValue::List(values) => (values.join(", "), true),
-            PropertyValue::Text(text) => (text.clone(), false),
+        let (value, is_list, values) = match value {
+            PropertyValue::List(values) => (values.join(", "), true, values.clone()),
+            PropertyValue::Text(text) => (text.clone(), false, Vec::new()),
         };
         PageProperty {
             key: key.to_string(),
             name: shown_name(key, definitions),
             value,
             is_list,
+            values,
             value_type: value_type_of(key, is_list, definitions),
             removable: true,
             editable: true,
@@ -150,6 +153,7 @@ impl PageProperty {
             name: key.to_string(),
             value: format_instant(millis),
             is_list: false,
+            values: Vec::new(),
             value_type: value_type_of(key, false, definitions),
             removable: false,
             editable: key != "modified",
