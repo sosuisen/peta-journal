@@ -68,3 +68,21 @@ fn items_that_are_gone_are_removed_from_the_last_place_on() {
         vec![ListChange::Remove { at: 2 }, ListChange::Remove { at: 0 }]
     );
 }
+
+// 順の変わった行は、移動になる。中身も変わっていれば、続けて更新になる。
+#[test]
+fn an_item_in_another_place_is_moved_and_then_updated_when_it_changed() {
+    let before = [line("x", "one"), line("y", "two"), line("z", "three")];
+    let after = [line("z", "THREE"), line("x", "one"), line("y", "two")];
+
+    assert_eq!(
+        changes(&before, &after),
+        vec![
+            ListChange::Move { from: 2, to: 0 },
+            ListChange::Update {
+                at: 0,
+                item: line("z", "THREE")
+            },
+        ]
+    );
+}
