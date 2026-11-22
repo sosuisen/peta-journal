@@ -208,7 +208,7 @@ The shell tells the place in the Markdown with a focus."
 (ert-deftest peta-journal-the-point-stays-in-its-item-when-rows-change ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "b" 1 "abc"))
-    (peta-journal--goto-item "b" 2)
+    (peta-journal-test--goto "b" 2)
     (peta-journal-test--show (vector (peta-journal-test--row "z" 1 "新")
                                       (peta-journal-test--row "a" 2 "x")
                                       (peta-journal-test--row "b" 2 "abc"))
@@ -411,7 +411,7 @@ The shell tells the place in the Markdown with a focus."
     (peta-journal-test--show (vector (peta-journal-test--row "b" 1 "yz")) "page" 0)
     (peta-journal--post-command)
     (should (equal peta-journal-test--sent
-                   '(("edit_at_letter" :id "b" :letter 0))))))
+                   '(("edit_requested" :id "b" :cursor 0))))))
 
 ;; 項目の削除は、coreに頼むだけである。断られることがあるので、編集中の項目はそのままにする。
 (ert-deftest peta-journal-deleting-an-item-only-asks-the-core ()
@@ -1637,7 +1637,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (should (equal (peta-journal-test--shown) "• ☑ abxy\n"))
     (should (peta-journal-test--body-has-no-color-p "a"))
     (should (equal peta-journal-test--sent
-                   '(("edit_at_letter" :id "a" :letter 0)
+                   '(("edit_requested" :id "a" :cursor 0)
                      ("body_changed" :id "a" :body "axy")
                      ("body_changed" :id "a" :body "abxy"))))
     (should (eq (get-text-property (+ (peta-journal--find-row "a") 2) 'font-lock-face)

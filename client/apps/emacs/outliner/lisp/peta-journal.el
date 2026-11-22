@@ -584,6 +584,16 @@ The Markdown in the item of `peta-journal--markdown-item', or else the shown tex
       (when id
         (peta-journal--redraw-item id)))))
 
+(defun peta-journal--show-markdown-at-point ()
+  "Let the item at the point show its Markdown, with the point at its start.
+For a point that came into a row without a command, as when its item has gone.
+The edit starts with the next command."
+  (let ((id (peta-journal--id-at (point))))
+    (unless (equal id peta-journal--markdown-item)
+      (peta-journal--show-markdown id)
+      (when id
+        (peta-journal--goto-item id 0)))))
+
 (defun peta-journal--letter-at (pos)
   "The number of shown letters in front of POS in its body.
 What Rust added to the shown text, such as the mark of a list, is not a shown
@@ -752,6 +762,7 @@ are rewritten, so what does not change stays where it is."
       (pcase-dolist (`(,window . ,window-place) window-places)
         (when window-place
           (set-window-point window (peta-journal--pos-of-place window-place))))))
+    (peta-journal--show-markdown-at-point)
     (setq peta-journal--last-point (point))
     ;; After the point has its place: the item it is in keeps its text
     (if (eq written t)
