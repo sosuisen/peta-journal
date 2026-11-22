@@ -11,8 +11,8 @@ use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
 
 #[derive(Default)]
-struct FakeHost {
-    out: Vec<Outbound>,
+pub(super) struct FakeHost {
+    pub(super) out: Vec<Outbound>,
     apis: Vec<(u64, ApiOp)>,
     uploads: Vec<(u64, String)>,
     timers: Vec<(u64, u32)>,
@@ -49,7 +49,7 @@ impl Host for FakeHost {
     }
 }
 
-fn item(id: &str, level: i32, body: &str) -> Value {
+pub(super) fn item(id: &str, level: i32, body: &str) -> Value {
     json!({
         "id": id, "pageId": "p", "parentItemId": null, "dirPath": "", "name": "notes",
         "type": "doc", "createdDate": 0, "modifiedDate": 0, "idx": id, "level": level,
@@ -72,11 +72,11 @@ fn page_answer(items: &[Value]) -> ApiOutput {
     .unwrap()
 }
 
-struct Driver {
+pub(super) struct Driver {
     /// Never dropped. A test ends with commands of the core still waiting, and one of them
     /// sends an event from its destructor, which panics once the core is gone. The real
     /// process ends with `process::exit`, so this only happens in a test.
-    shell: ManuallyDrop<Shell<FakeHost>>,
+    pub(super) shell: ManuallyDrop<Shell<FakeHost>>,
     seq: u64,
 }
 
@@ -105,7 +105,7 @@ impl Driver {
         }
     }
 
-    fn send(&mut self, message: Inbound) {
+    pub(super) fn send(&mut self, message: Inbound) {
         self.seq += 1;
         self.shell.handle(Input::Emacs(Envelope {
             seq: self.seq,
@@ -123,7 +123,7 @@ impl Driver {
     }
 
     /// Answers every call still waiting with an error, for what a test does not care about.
-    fn fail_all_waiting_calls(&mut self) {
+    pub(super) fn fail_all_waiting_calls(&mut self) {
         while let Some((id, _)) = self.take_api(|_| true) {
             self.shell.handle(Input::ApiDone {
                 id,
@@ -161,7 +161,7 @@ impl Driver {
     }
 
     /// Opens a page with these items and forgets what was said until now.
-    fn open(items: &[Value]) -> Driver {
+    pub(super) fn open(items: &[Value]) -> Driver {
         let mut driver = Driver::new();
         driver.send(Inbound::Start {
             url: "/pages/notes".into(),
@@ -171,7 +171,7 @@ impl Driver {
         driver
     }
 
-    fn sent(&self) -> &[Outbound] {
+    pub(super) fn sent(&self) -> &[Outbound] {
         &self.shell.host.out
     }
 
