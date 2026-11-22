@@ -150,4 +150,35 @@ mod tests {
         }
         assert!(project.contains("<TargetFramework>net11.0</TargetFramework>"));
     }
+
+    /// Every file the generator wrote under `folder`, as one text.
+    fn written(folder: &Path) -> String {
+        let mut text = String::new();
+        for entry in std::fs::read_dir(folder).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                text += &written(&path);
+            } else {
+                text += &std::fs::read_to_string(&path).unwrap_or_default();
+            }
+        }
+        text
+    }
+
+    // 画面の差分の型（Changes、Panel、ListChange）が、Swift、C#、Kotlinの型として書かれる（ADR 076）。
+    #[test]
+    fn the_types_of_the_changes_are_written_for_every_shell() {
+        let out = std::env::temp_dir().join(format!("peta-change-types-{}", std::process::id()));
+        write_swift_types(&out).unwrap();
+        write_csharp_types(&out).unwrap();
+        write_kotlin_types(&out).unwrap();
+
+        let languages = ["swift", "csharp", "kotlin"].map(|language| written(&out.join(language)));
+        std::fs::remove_dir_all(&out).unwrap();
+        for types in languages {
+            for name in ["Changes", "Panel", "OutlinePanel", "ListChange"] {
+                assert!(types.contains(name), "no {name}");
+            }
+        }
+    }
 }
