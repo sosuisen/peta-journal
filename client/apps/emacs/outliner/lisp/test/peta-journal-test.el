@@ -30,6 +30,18 @@ Its shown text is BODY with no looks, unless MORE gives a :text."
   "Apply CHANGES of the rows of PAGE-ID, sent with the ack 0."
   (peta-journal--apply-rows (vconcat changes) page-id 0))
 
+;; Bound by a test that answers by itself
+(defvar peta-journal-test--focus-place #'identity
+  "The place in the Markdown that the shell gives for a shown letter, or nil to give none.")
+
+(defun peta-journal-test--answer (type fields)
+  "Answer the line of TYPE with FIELDS as the shell would, when it is an edit at a letter.
+The shell tells the place in the Markdown with a focus."
+  (when (and (equal type "edit_at_letter") peta-journal-test--focus-place)
+    (peta-journal--on-focus (plist-get fields :id)
+                            (funcall peta-journal-test--focus-place (plist-get fields :letter))
+                            peta-journal--seq)))
+
 (defmacro peta-journal-test--with-rows (rows &rest body)
   "Run BODY in a peta-journal buffer that shows ROWS, with the shell replaced."
   (declare (indent 1))
@@ -41,7 +53,8 @@ Its shown text is BODY with no looks, unless MORE gives a :text."
        (cl-letf (((symbol-function 'peta-journal--send)
                   (lambda (type &rest fields)
                     (setq peta-journal-test--sent
-                          (append peta-journal-test--sent (list (cons type fields))))))
+                          (append peta-journal-test--sent (list (cons type fields))))
+                    (peta-journal-test--answer type fields)))
                  ((symbol-function 'peta-journal--wait) #'ignore))
          (peta-journal-test--show (vconcat ,rows) "page" 0)
          ,@body))))
@@ -259,6 +272,24 @@ Its shown text is BODY with no looks, unless MORE gives a :text."
     (should (equal (get-text-property (match-beginning 0) 'font-lock-face)
                    '(peta-journal-bold)))
     (should-not (get-text-property (match-end 0) 'font-lock-face))))
+
+;; pointが別の行に入ると、その行はMarkdownを見せ、出た行は表示の形に戻る。シェルには、pointの前の表示の文字の数を送る。Rustが足した記号は数えない。
+(ert-deftest peta-journal-entering-a-row-shows-its-markdown-and-sends-the-letters-before-the-point ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "*x*"
+                                    :text (peta-journal-test--text
+                                           "x\n" (peta-journal-test--span 0 1 :looks ["italic"])))
+            (peta-journal-test--row "b" 1 "- 項目"
+                                    :text (peta-journal-test--text
+                                           "• 項目\n"
+                                           (peta-journal-test--span 0 2 :looks ["mark"]
+                                                                    :letters nil))))
+    (peta-journal-test--goto "a" 0)
+    (should (equal (peta-journal-test--shown) "• *x*\n• • 項目\n"))
+    (setq peta-journal-test--sent nil)
+    (peta-journal-test--goto "b" 3)
+    (should (equal (peta-journal-test--shown) "• x\n• - 項目\n"))
+    (should (equal (car peta-journal-test--sent) '("edit_at_letter" :id "b" :letter 1)))))
 
 ;;;; Protecting the marks
 
