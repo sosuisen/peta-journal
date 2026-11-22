@@ -9,6 +9,23 @@ fn first_view() -> ViewModel<RichText> {
     Core::<BorderApp>::new().view()
 }
 
+// 何も変わらなければ、差分は空である。
+#[test]
+fn nothing_changed_gives_empty_changes() {
+    let mut shown = Shown::default();
+    shown.changes(first_view());
+
+    let changes = shown.changes(first_view());
+
+    assert_eq!(
+        changes,
+        Changes {
+            rows: vec![],
+            panels: vec![]
+        }
+    );
+}
+
 // 最初の差分は、行の入れ替えと、全部のパネルである。
 #[test]
 fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
