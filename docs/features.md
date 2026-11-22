@@ -1186,7 +1186,7 @@
 
 ### ネイティブアプリが画面の差分を受け取る
 
-出典: `client/libs/client-core/src/tests/list_changes.rs`、`client/libs/client-core/src/tests/changes.rs`、`client/libs/client-native-bridge/src/tests/applied.rs`、`client/libs/client-native-bridge/src/tests/shell.rs`、`client/libs/client-native-bridge/src/codegen.rs`、`client-shell-http`の`tests/ffi.rs`、`client-shell-embedded`の`tests.rs`、`stickies-win`の`PetaBorder.Tests/BorderTests.cs`と`PetaBorder.Tests/ShellTests.cs`、`outliner-android`の`shell/ChangesTest.kt`と`shell/AppliedTest.kt`、`stickies-mac`の`BorderTests.swift`、`swift-shared`の`AppliedTests.swift`
+出典: `client/libs/client-core/src/tests/list_changes.rs`、`client/libs/client-core/src/tests/changes.rs`、`client/libs/client-native-bridge/src/tests/applied.rs`、`client/libs/client-native-bridge/src/tests/shell.rs`、`client/libs/client-native-bridge/src/codegen.rs`、`client-shell-http`の`tests/ffi.rs`、`client-shell-embedded`の`tests.rs`、`stickies-win`の`PetaBorder.Tests/AppliedTests.cs`、`PetaBorder.Tests/BorderTests.cs`、`PetaBorder.Tests/ShellTests.cs`、`outliner-android`の`shell/ChangesTest.kt`と`shell/AppliedTest.kt`、`stickies-mac`の`BorderTests.swift`、`swift-shared`の`AppliedTests.swift`
 
 - ネイティブのシェルは、`changes()`で、前に読んでから変わった所だけを受け取れる（ADR 076）。WinUI、Compose、SwiftUI（macOSとiOS）の、すべてのネイティブのシェルが使っている
   - アウトラインの行は、挿入、削除、移動、更新、入れ替えの操作の列で届く。操作を順に当てると、シェルの行がコアの行と同じになる
@@ -1202,6 +1202,7 @@
   - SwiftUIの2つのシェルは、差分を当てる処理を`swift-shared`で共有する
   - SwiftUIとComposeでは、最初の差分からすべての欄が作られる。そのあとは届いたパネルだけが入れ替わり、アウトラインのパネルが届いても行は前のままである
 - WinUIのシェルは、受け取った差分から画面を組み立てる
+  - 最初の差分から、すべての欄が作られる。そのあとは届いたパネルだけが入れ替わり、アウトラインのパネルが届いても行は前のままである
   - 行の変化は、操作の列としてシェルから知らされる。付箋紙は、その操作を自分の行に当てる。変わった行だけが描き直される
 - 差分の型（`Changes`、`Panel`、`OutlinePanel`、`ListChange`）は、Swift、C#、Kotlinの型として生成される。C#では、`ListChange`と`Panel`は閉じた型である
 
