@@ -23,7 +23,7 @@ use client_core::util::date::Date;
 use client_core::util::link_at;
 use client_core::util::week::week_page_name;
 use client_core::view::{ScreenView, SearchView};
-use client_core::{BodyModel, EditPlace, Event, PetaApp, ViewModel};
+use client_core::{EditPlace, Event, PetaApp, ViewModel};
 use crux_core::capability::Operation;
 use crux_core::{Core, Request};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -69,8 +69,6 @@ struct Sent {
     holding: bool,
     page_id: Option<String>,
     rows: Vec<RowView>,
-    /// The folder of the tags that the bodies of `rows` were made with.
-    tags_dir: String,
     focus_seq: u64,
     connection: Option<String>,
     search: Option<(Vec<client_core::view::SearchEntry>, bool)>,
@@ -280,6 +278,10 @@ impl<H: Host> Shell<H> {
                 self.own_edit = None;
             }
             Inbound::EditFinished { id } => self.send(Event::EditFinished { item_id: id }),
+            Inbound::EditAtLetter { id, letter } => self.send(Event::EditRequested {
+                item_id: id,
+                place: EditPlace::ShownLetter(letter),
+            }),
             Inbound::BodyChanged { id, body } => self.body_changed(id, body),
             Inbound::Typed { id, cursor } => self.typed(id, cursor),
             Inbound::Enter { id, cursor } => self.enter(id, cursor),
@@ -380,9 +382,8 @@ impl<H: Host> Shell<H> {
     }
 
     fn body_changed(&mut self, id: String, body: String) {
-        // Emacs has this text already: the render below must not send it back
+        // Emacs has this text already: the render below sends back only its EmacsText
         if let Some(row) = self.sent.rows.iter_mut().find(|r| r.id == id) {
-            row.text = EmacsText::of_markdown(&body, &self.sent.tags_dir);
             row.body = body.clone();
         }
         let now_ms = self.host.now().now_ms;
@@ -665,7 +666,6 @@ impl<H: Host> Shell<H> {
             return;
         }
         self.sent.rows = rows;
-        self.sent.tags_dir.clone_from(&view.config.tags_dir);
         self.sent.page_id.clone_from(&page_id);
         self.host.emit(Outbound::Rows {
             ack: self.ack,

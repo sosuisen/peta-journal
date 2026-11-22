@@ -208,6 +208,23 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--keys "C-x C-s")
     (peta-journal-e2e--wait-saved '("朝の散歩"))))
 
+;; pointのない行は、シェルが送る表示の形で、色つきで見える。その行に入ると、Markdownの中の同じ文字の位置で編集が始まる（ADR 077）。
+(ert-deftest peta-journal-e2e-a-row-shows-its-shown-text-until-the-point-enters-it ()
+  (peta-journal-e2e--with-app
+    (peta-journal-e2e--type "x")
+    (peta-journal-e2e--keys "RET")
+    (peta-journal-e2e--type "**太字**の後")
+    (peta-journal-e2e--keys "C-p")
+    (should (equal (peta-journal-e2e--shown) "• x\n• 太字の後\n"))
+    (save-excursion
+      (goto-char (point-min))
+      (search-forward "太字")
+      (should (memq 'peta-journal-bold (get-text-property (match-beginning 0) 'font-lock-face))))
+    ;; Over the line break and the bullet, to the front of 後
+    (peta-journal-e2e--keys "C-u 6 C-f")
+    (should (equal (peta-journal-e2e--shown) "• x\n• **太字**の後\n"))
+    (should (= (peta-journal--cursor) 7))))
+
 ;; Enterで項目が分かれ、カーソルは新しい項目の先頭へ移る。
 (ert-deftest peta-journal-e2e-enter-splits-the-item ()
   (peta-journal-e2e--with-app
@@ -689,7 +706,7 @@ the extension.  That file must hold BYTES in the notes under ROOT."
 ;; サーバーにないファイルは、取得できなかったものとして扱う。
 (ert-deftest peta-journal-e2e-a-file-not-on-the-server-is-missing ()
   (peta-journal-e2e--with-app
-    (let ((url (peta-journal--asset-url "no-such-file.png")))
+    (let ((url (peta-journal--image-url (list :path "assets/no-such-file.png"))))
       (peta-journal--fetch-image url)
       (peta-journal-e2e--wait-for "the answer of the server"
                                   (lambda () (gethash url peta-journal--images)))

@@ -137,14 +137,8 @@ boxes of the other states.")
 (defface peta-journal-code '((t :inherit font-lock-constant-face))
   "Inline code and code blocks.")
 
-(defface peta-journal-math '((t :inherit font-lock-builtin-face))
-  "Inline math.")
-
 (defface peta-journal-quote '((t :inherit font-lock-doc-face))
   "A block quote.")
-
-(defface peta-journal-alert '((t :inherit font-lock-warning-face))
-  "The title line of an alert.")
 
 (defface peta-journal-list-mark '((t :inherit font-lock-builtin-face))
   "The mark of a list item or of a task in a list.")
@@ -152,191 +146,8 @@ boxes of the other states.")
 (defface peta-journal-rule '((t :inherit shadow))
   "A horizontal rule.")
 
-(defface peta-journal-subtext '((t :inherit shadow))
-  "Small text under a block.")
-
 (defface peta-journal-table '((t :inherit font-lock-type-face))
   "A table.")
-
-(defface peta-journal-image '((t :inherit font-lock-function-name-face))
-  "An image or another embedded file.")
-
-(defface peta-journal-footnote '((t :inherit font-lock-builtin-face))
-  "A footnote.")
-
-(defface peta-journal-emoji '((t :inherit font-lock-string-face))
-  "An emoji shortcode.")
-
-(defface peta-journal-html '((t :inherit font-lock-preprocessor-face))
-  "An HTML tag.")
-
-;;;; Finding Flat Markdown
-
-;; These rules follow the parser of the server only roughly.  The shell sends Emacs the text of a
-;; body and no parsed spans, and asking for them on each key would slow typing down.
-
-(defun peta-journal--word-char-p (char)
-  "Non-nil when CHAR is a letter or a digit.  CHAR is nil at the buffer edge."
-  (and char (string-match-p "[[:alnum:]]" (string char))))
-
-(defun peta-journal--delimiters-fit-p (mark start end)
-  "Non-nil when the pair of MARK from START to END can decorate its text.
-A regexp cannot check this.  It would take the characters around the pair
-into its match, and the next pair could not start at a character it took."
-  (let ((before (char-before start))
-        (after (char-after end)))
-    (and (not (memq before (list mark ?\\)))
-         (not (eq after mark))
-         (or (not (eq mark ?_))
-             (not (or (peta-journal--word-char-p before)
-                      (peta-journal--word-char-p after)))))))
-
-(defun peta-journal--fitting-pair (regexp mark)
-  "A font-lock matcher for REGEXP, when its ends are delimiters of MARK that fit."
-  (lambda (limit)
-    (let (found)
-      (while (and (not found) (re-search-forward regexp limit t))
-        (if (peta-journal--delimiters-fit-p mark (match-beginning 0) (match-end 0))
-            (setq found t)
-          (goto-char (1+ (match-beginning 0)))))
-      found)))
-
-(defun peta-journal--pair (delimiter)
-  "A font-lock matcher for text between two DELIMITERs on one line."
-  (let ((quoted (regexp-quote delimiter)))
-    (peta-journal--fitting-pair (concat quoted "[^ \t\n]\\(?:.*?[^ \t\n]\\)??" quoted)
-                                (aref delimiter 0))))
-
-(defconst peta-journal--bullet-regexp
-  (concat (regexp-opt (mapcar #'cdr (append peta-journal--bullets
-                                            peta-journal--collapsed-bullets)))
-          peta-journal--bullet-gap
-          "\\(?:" (regexp-opt (mapcar #'cdr peta-journal--task-marks))
-          peta-journal--bullet-gap "\\)?")
-  "The bullet in front of the first line of a body, with the mark of a task.
-A body that starts with such a mark and a no-break space reads as a task here.
-That only moves where the colors of its first line start.")
-
-(defconst peta-journal--line-start-regexp
-  (concat "^\\(?:" peta-journal--bullet-regexp "\\)?")
-  "What comes before the text of a line in a body.")
-
-(defun peta-journal--fence (opening)
-  "A font-lock matcher for a block that starts at a line matching OPENING.
-Group 1 of OPENING is the run of marks that the closing line repeats.
-A block with no closing ends with its body, since each item is parsed alone."
-  (let ((regexp (concat peta-journal--line-start-regexp " \\{0,3\\}" opening)))
-    (lambda (limit)
-      (when (re-search-forward regexp limit t)
-        (let* ((run (match-string 1))
-               (start (match-beginning 1))
-               (end (peta-journal--body-end (peta-journal--row-start (point))))
-               (closing (format "^ \\{0,3\\}%s%s* *$"
-                                (regexp-quote run)
-                                (regexp-quote (substring run 0 1)))))
-          (unless (re-search-forward closing end t)
-            (goto-char end))
-          (set-match-data (list start (point)))
-          t)))))
-
-(defun peta-journal--match-alert (limit)
-  "Find the title line of an alert before LIMIT.  Its kind may be in any case."
-  (let ((case-fold-search t))
-    (re-search-forward
-     (concat peta-journal--line-start-regexp
-             " \\{0,3\\}\\(>\\(?:>>\\)? *\\[!\\(?:note\\|tip\\|important\\|warning\\|caution\\)\\].*\\)$")
-     limit t)))
-
-(defun peta-journal--table-start ()
-  "The start of the head line above the line at the point, behind any bullet."
-  (save-excursion
-    (forward-line -1)
-    (if (looking-at peta-journal--bullet-regexp)
-        (match-end 0)
-      (point))))
-
-(defun peta-journal--table-end (body-end)
-  "The end of the last table line from the point, not going past BODY-END."
-  (save-excursion
-    (end-of-line)
-    (while (and (< (point) body-end)
-                (save-excursion
-                  (forward-line 1)
-                  (string-search "|" (buffer-substring (point) (line-end-position)))))
-      (forward-line 1)
-      (end-of-line))
-    (point)))
-
-(defun peta-journal--match-table (limit)
-  "Find a table before LIMIT, from the line above a delimiter line.
-A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
-  (let (found)
-    (while (and (not found)
-                (re-search-forward "^ *|? *:?-+:? *\\(?:| *:?-+:? *\\)*|? *$" limit t))
-      (when (string-search "|" (match-string 0))
-        (let ((start (peta-journal--table-start))
-              (end (peta-journal--table-end
-                    (peta-journal--body-end (peta-journal--row-start (point))))))
-          (goto-char end)
-          (set-match-data (list start end))
-          (setq found t))))
-    found))
-
-(defconst peta-journal--link-text-regexp
-  "\\[\\(?:[^][\\\n]\\|\\\\.\\|\\[[^][\\\n]*\\]\\)*\\]"
-  "The text of a Markdown link with its brackets, such as `[図\\[1\\]]'.
-A bracket in it has a `\\' before it, as the core writes the name of an image
-\(ADR 022), or pairs with another one.  Only one level of pairs counts.")
-
-(defconst peta-journal--font-lock-keywords
-  `(;; Code comes first: what has a face stays as it is, so nothing is decorated inside
-    (,(peta-journal--fence "\\(```+\\)[^`\n]*$") 0 'peta-journal-code)
-    (,(peta-journal--fence "\\(~~~+\\).*$") 0 'peta-journal-code)
-    (,(concat "^" peta-journal--bullet-regexp "\\( \\{4\\}.*\\(?:\n \\{4\\}.*\\)*\\)$")
-     1 'peta-journal-code)
-    ;; Before the rules: the `---' under a title is not a rule
-    (,(concat peta-journal--line-start-regexp "\\([^-+>|# \n][^\n]*\n *\\(?:=+\\|-+\\) *\\)$")
-     1 'peta-journal-heading)
-    ;; Before the emphasis: `***' would be an italic `*'
-    (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(\\([-*_]\\)\\(?: *\\2\\)\\{2,\\} *\\)$")
-     1 'peta-journal-rule)
-    ("\\$`[^`\n]+`\\$" 0 'peta-journal-math)
-    (,(peta-journal--fitting-pair "\\(`+\\)[^`\n]\\(?:.*?[^`\n]\\)??\\1" ?`)
-     0 'peta-journal-code)
-    ;; Links and the like come before the emphasis: `_' in a URL is not emphasis
-    ("\\[\\[[^]\n]+\\]\\]" 0 'peta-journal-link)
-    (,(concat "\\(?:^\\|[ \t" peta-journal--bullet-gap "]\\)"
-              "\\(#[[:alnum:]_-]\\(?:[[:alnum:]_/-]*[[:alnum:]_-]\\)?\\)")
-     1 'peta-journal-link)
-    (,(concat "!" peta-journal--link-text-regexp "([^)\n]*)") 0 'peta-journal-image)
-    (,(concat peta-journal--link-text-regexp "([^)\n]*)") 0 'peta-journal-link)
-    ("\\(?:https?://\\|www\\.\\)[^ \t\n<>]+" 0 'peta-journal-link)
-    ("[[:alnum:]._+-]+@[[:alnum:]-]+\\.[[:alnum:].-]+" 0 'peta-journal-link)
-    ("\\[\\^[^]\n]+\\]\\|\\^\\[[^]\n]*\\]" 0 'peta-journal-footnote)
-    ("\\(?:^\\|[^[:alnum:]]\\)\\(:\\(?:[-+]1\\|[a-z][a-z0-9_+-]*\\):\\)" 1 'peta-journal-emoji)
-    ("</?[A-Za-z][A-Za-z0-9-]*\\(?:[ \t/][^<>\n]*\\)?>" 0 'peta-journal-html)
-    ;; The longer delimiters come first: `**' also holds two `*'
-    (,(peta-journal--pair "**") 0 'peta-journal-bold keep)
-    (,(peta-journal--pair "__") 0 'peta-journal-underline keep)
-    (,(peta-journal--pair "~~") 0 'peta-journal-strike keep)
-    (,(peta-journal--pair "==") 0 'peta-journal-highlight keep)
-    (,(peta-journal--pair "||") 0 'peta-journal-spoiler keep)
-    (,(peta-journal--pair "*") 0 'peta-journal-italic keep)
-    (,(peta-journal--pair "_") 0 'peta-journal-italic keep)
-    (,(peta-journal--pair "~") 0 'peta-journal-script keep)
-    (,(peta-journal--pair "^") 0 'peta-journal-script keep)
-    ;; Blocks come after the inline rules, and fill in what they left
-    (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(#\\{1,6\\}\\(?: .*\\)?\\)$")
-     1 'peta-journal-heading keep)
-    (peta-journal--match-table 0 'peta-journal-table keep)
-    (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(-# .*\\)$") 1 'peta-journal-subtext keep)
-    (,(concat peta-journal--line-start-regexp
-              " *\\([-+*]\\(?: \\[[^]\n]\\]\\)?\\|[0-9]+[.)]\\)\\(?: \\|$\\)")
-     1 'peta-journal-list-mark keep)
-    (peta-journal--match-alert 1 'peta-journal-alert keep)
-    (,(peta-journal--fence "\\(>>>+\\).*$") 0 'peta-journal-quote keep)
-    (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(>.*\\)$") 1 'peta-journal-quote keep))
-  "What is highlighted in a body.")
 
 ;;;; State
 
@@ -366,6 +177,9 @@ Completion sorts a plain list by name, which would hide the newest pages."
 (defvar-local peta-journal--rows [] "The rows on screen, as the shell sent them.")
 (defvar-local peta-journal--page-id nil "The id of the page on screen.")
 (defvar-local peta-journal--current nil "The id of the item being edited.")
+(defvar-local peta-journal--markdown-item nil
+  "The id of the item that shows its Markdown, where the point is (ADR 077).
+The other items show their shown text.")
 (defvar-local peta-journal--last-point nil "Where the point was after the last command.")
 (defvar-local peta-journal--title "" "The title of the page on screen.")
 (defvar-local peta-journal--page-path nil "The path of the page on screen, if it can be renamed.")
@@ -518,10 +332,126 @@ The bullet says how long the marks in front of the body are."
                   'front-sticky '(read-only))
     ""))
 
+(defconst peta-journal--look-faces
+  '(("bold" . peta-journal-bold) ("italic" . peta-journal-italic)
+    ("struck" . peta-journal-strike) ("underlined" . peta-journal-underline)
+    ("marked" . peta-journal-highlight) ("code" . peta-journal-code)
+    ("raised" . peta-journal-script) ("lowered" . peta-journal-script)
+    ("hidden" . peta-journal-spoiler)
+    ("heading1" . peta-journal-heading) ("heading2" . peta-journal-heading)
+    ("heading3" . peta-journal-heading) ("heading4" . peta-journal-heading)
+    ("heading5" . peta-journal-heading) ("heading6" . peta-journal-heading)
+    ("mark" . peta-journal-list-mark) ("quote" . peta-journal-quote)
+    ("rule" . peta-journal-rule) ("code_block" . peta-journal-code)
+    ("table_header" . peta-journal-table))
+  "The face of each look of a span, by the names of
+`peta-journal-protocol-emacs-look-names'.")
+
+(defun peta-journal--span-faces (span)
+  "The faces of the looks of SPAN."
+  (mapcar (lambda (look) (cdr (assoc look peta-journal--look-faces)))
+          (peta-journal-protocol-emacs-span-looks span)))
+
+(defun peta-journal-follow-link (event)
+  "Open the link of the shown text that EVENT clicked on."
+  (interactive "e")
+  (let ((link (get-text-property (posn-point (event-start event)) 'peta-link)))
+    (peta-journal-protocol-handle-rich-link
+     link
+     (list :page (lambda (url) (peta-journal--go "go" :url url))
+           :web #'browse-url
+           :file (lambda (path)
+                   (browse-url (concat (string-trim-right peta-journal-server "/") "/" path)))))))
+
+(defvar peta-journal--link-map
+  (let ((map (make-sparse-keymap)))
+    ;; Not the point: it would come into the row, which then shows its Markdown and no link
+    (define-key map [down-mouse-1] #'ignore)
+    (define-key map [mouse-1] #'peta-journal-follow-link)
+    map)
+  "The keys on a link of the shown text.")
+
+(defun peta-journal--shown-string (text)
+  "The EmacsText TEXT as it goes into the buffer.
+Without its last line break: the newline of the row ends it."
+  (let* ((whole (peta-journal-protocol-emacs-text-text text))
+         (end (if (string-suffix-p "\n" whole) (1- (length whole)) (length whole)))
+         (shown (substring whole 0 end)))
+    (seq-doseq (span (peta-journal-protocol-emacs-text-spans text))
+      (add-text-properties (min end (peta-journal-protocol-emacs-span-from span))
+                           (min end (peta-journal-protocol-emacs-span-to span))
+                           (peta-journal--span-properties span)
+                           shown))
+    shown))
+
+(defun peta-journal--span-properties (span)
+  "The text properties of SPAN in the shown text."
+  (let ((faces (peta-journal--span-faces span))
+        (link (peta-journal-protocol-emacs-span-link span)))
+    (append
+     (when link
+       (list 'peta-link link
+             'keymap peta-journal--link-map
+             'mouse-face 'highlight
+             'help-echo "mouse-1: open the link"))
+     (when (or faces link)
+       (list 'font-lock-face (append faces (and link '(peta-journal-link)))))
+     (when-let* ((image (peta-journal-protocol-emacs-span-image span)))
+       (list 'peta-image image))
+     (unless (peta-journal-protocol-emacs-span-letters span)
+       (list 'peta-added t)))))
+
+(defun peta-journal--body-string (row)
+  "The body of ROW as it goes into the buffer.
+The Markdown in the item of `peta-journal--markdown-item', or else the
+shown text."
+  (if (equal (plist-get row :id) peta-journal--markdown-item)
+      (plist-get row :body)
+    ;; Only the Markdown is sent to the core: a change here would be one to a text it does not know
+    (propertize (peta-journal--shown-string (plist-get row :text)) 'read-only t)))
+
+(defun peta-journal--redraw-item (id)
+  "Write the row of the item ID again, as `peta-journal--body-string' gives it."
+  (when-let* ((index (peta-journal--row-index id)))
+    (let ((inhibit-read-only t)
+          (inhibit-modification-hooks t))
+      (save-excursion
+        (peta-journal--write-row index (aref peta-journal--rows index))))
+    (restore-buffer-modified-p nil)
+    (peta-journal--draw-images-of id)))
+
+(defun peta-journal--show-markdown (id)
+  "Let the item ID show its Markdown, and the item that showed it its shown text."
+  (let ((old peta-journal--markdown-item))
+    (unless (equal id old)
+      (setq peta-journal--markdown-item id)
+      (when old
+        (peta-journal--redraw-item old))
+      (when id
+        (peta-journal--redraw-item id)))))
+
+(defun peta-journal--show-markdown-at-point ()
+  "Let the item at the point show its Markdown, with the point at its start.
+For a point that came into a row without a command, as when its item has gone.
+The edit starts with the next command."
+  (let ((id (peta-journal--id-at (point))))
+    (unless (equal id peta-journal--markdown-item)
+      (peta-journal--show-markdown id)
+      (when id
+        (peta-journal--goto-item id 0)))))
+
+(defun peta-journal--letter-at (pos)
+  "The number of shown letters in front of POS in its body.
+What Rust added to the shown text, such as the mark of a list, is not a shown
+letter (ADR 044)."
+  (let ((start (peta-journal--body-start (peta-journal--row-start pos))))
+    (cl-count-if-not (lambda (at) (get-text-property at 'peta-added))
+                     (number-sequence start (1- pos)))))
+
 (defun peta-journal--row-string (row)
   "The text of ROW, as it goes into the buffer."
   (let* ((prefix (peta-journal--body-prefix (plist-get row :level)))
-         (body (propertize (plist-get row :body) 'line-prefix prefix 'wrap-prefix prefix))
+         (body (propertize (peta-journal--body-string row) 'line-prefix prefix 'wrap-prefix prefix))
          (text (concat (peta-journal--header-string row)
                        (peta-journal--bullet-string row)
                        body
@@ -593,11 +523,15 @@ before left them.  The kinds and their fields are those of
        (list (peta-journal-protocol-row-view-id row))))
    :update
    (lambda (at item)
-     (let ((row (peta-journal--keep-typed item typed)))
-       (peta-journal--write-row at row)
+     (let ((row (peta-journal--keep-typed item typed))
+           (old (aref peta-journal--rows at)))
        (setq peta-journal--rows (vconcat peta-journal--rows))
        (aset peta-journal--rows at row)
-       (list (peta-journal-protocol-row-view-id row))))
+       ;; The text on screen is the same.  Writing it again would only move the point
+       (unless (equal-including-properties (peta-journal--row-string row)
+                                           (peta-journal--row-string old))
+         (peta-journal--write-row at row)
+         (list (peta-journal-protocol-row-view-id row)))))
    :reset
    (lambda (items)
      (let ((new (vconcat (mapcar (lambda (row) (peta-journal--keep-typed row typed)) items))))
@@ -678,12 +612,12 @@ are rewritten, so what does not change stays where it is."
       (pcase-dolist (`(,window . ,window-place) window-places)
         (when window-place
           (set-window-point window (peta-journal--pos-of-place window-place))))))
+    (peta-journal--show-markdown-at-point)
     (setq peta-journal--last-point (point))
     ;; After the point has its place: the item it is in keeps its text
     (if (eq written t)
         (peta-journal--draw-images (point-min) (point-max))
       (mapc #'peta-journal--draw-images-of (delete-dups written)))
-    (peta-journal--update-images)
     (peta-journal--show-selection)))
 
 (defvar peta-journal-selection-mode)
@@ -754,32 +688,14 @@ A step back from the start of this body goes on to the row above."
 
 ;;;; Images
 
-(defconst peta-journal--image-link-regexp
-  (concat "!" peta-journal--link-text-regexp
-          "(\\(?:\\.\\./assets/\\([A-Za-z0-9._-]+\\)\\|\\(https?://[^ \t\n()#]+\\)\\)"
-          "\\(?:#\\([^)\n]*\\)\\)?)")
-  "A link to an image on the server, or to one outside it.
-Group 1 is the name of a file on the server.  The server gives an uploaded file
-such a name, and a name of this form needs no escaping in a URL.  Group 2 is the
-URL of an image outside the server, and group 3 what follows the `#'.")
-
-(defun peta-journal--matched-image-url ()
-  "The URL of the image that `peta-journal--image-link-regexp' matched last."
-  (let ((name (match-string-no-properties 1)))
-    (if name
-        (peta-journal--asset-url name)
-      (match-string-no-properties 2))))
-
 ;; Global: buffers of the same server show the same files
 (defvar peta-journal--images (make-hash-table :test #'equal)
   "What is known of the images by URL: their bytes, `loading' or `missing'.")
 
-(defvar-local peta-journal--text-item nil
-  "The id of the item that shows its links as text, where the point was last.")
-
-(defun peta-journal--asset-url (name)
-  "The URL of the file NAME in the assets of the server."
-  (concat (string-trim-right peta-journal-server "/") "/assets/" name))
+(defun peta-journal--image-url (image)
+  "The URL of the RichImage IMAGE on the server."
+  (concat (string-trim-right peta-journal-server "/") "/"
+          (peta-journal-protocol-rich-image-path image)))
 
 (defvar peta-journal--image-uses (make-hash-table :test #'equal)
   "When each image was used last, by URL, as a count that only grows.
@@ -797,11 +713,11 @@ Not the time: two uses may come in the same instant.")
   "The URLs of the images that the open pages link to."
   (let ((urls (make-hash-table :test #'equal)))
     (dolist (page (peta-journal--pages))
-      (with-current-buffer page
-        (save-excursion
-          (goto-char (point-min))
-          (while (re-search-forward peta-journal--image-link-regexp nil t)
-            (puthash (peta-journal--matched-image-url) t urls)))))
+      ;; From the rows: the item that shows its Markdown has its images too
+      (seq-doseq (row (buffer-local-value 'peta-journal--rows page))
+        (seq-doseq (span (peta-journal-protocol-emacs-text-spans (plist-get row :text)))
+          (when-let* ((image (peta-journal-protocol-emacs-span-image span)))
+            (puthash (peta-journal--image-url image) t urls)))))
     urls))
 
 (defun peta-journal--trim-images ()
@@ -881,14 +797,6 @@ The server may have been down, and nothing else would try again."
                (remhash url peta-journal--images)))
            peta-journal--images))
 
-(defun peta-journal--link-side (fragment key)
-  "The size that FRAGMENT of a link gives after KEY, or nil.
-As in the Web version, only a positive integer counts."
-  (when (and fragment
-             (string-match (format "\\(?:\\`\\|&\\)%s=\\([0-9]*[1-9][0-9]*\\)\\(?:&\\|\\'\\)" key)
-                           fragment))
-    (string-to-number (match-string 1 fragment))))
-
 (defun peta-journal--image-room (id)
   "The most an image in the item ID may take, as properties of the image.
 An image taller than the window could not be scrolled through line by line."
@@ -900,14 +808,15 @@ An image taller than the window could not be scrolled through line by line."
                         (* (1+ indent) (frame-char-width)))
           :max-height (- (window-body-height window t) (frame-char-height)))))
 
-(defun peta-journal--link-image (id url fragment)
-  "The image of the item ID for a link to the image at URL with FRAGMENT, or nil."
-  (when-let* ((bytes (peta-journal--image-bytes url)))
-    (let ((width (peta-journal--link-side fragment "w"))
-          (height (peta-journal--link-side fragment "h")))
+(defun peta-journal--shown-image (id image)
+  "The Emacs image of the RichImage IMAGE in the item ID.
+Nil while there is none."
+  (when-let* ((bytes (peta-journal--image-bytes (peta-journal--image-url image))))
+    (let ((width (peta-journal-protocol-rich-image-width image))
+          (height (peta-journal-protocol-rich-image-height image)))
       ;; Without a type, this tells it from the bytes, and gives nil if it cannot tell it. A
       ;; type that this build of Emacs cannot show is an error, which would stop the process
-      ;; filter: the link stays as text then
+      ;; filter: the text stays then
       (condition-case nil
           (apply #'create-image bytes nil t
                  (append (and width (list :width width))
@@ -915,55 +824,32 @@ An image taller than the window could not be scrolled through line by line."
                          (peta-journal--image-room id)))
         (error nil)))))
 
-(defun peta-journal--in-code-p (pos)
-  "Non-nil when the text at POS is code.  A link there is an example, not an image."
-  (let ((start (peta-journal--row-start pos)))
-    (font-lock-ensure start (peta-journal--body-end start)))
-  (memq 'peta-journal-code (ensure-list (get-text-property pos 'face))))
-
 (defun peta-journal--on-window-size-change (_window)
   "Fit the images of the current buffer to the new size of its window."
   (peta-journal--draw-images (point-min) (point-max)))
 
 (defun peta-journal--draw-images (start end)
-  "Show the links between START and END as images, but for the item at the point.
-START and END are the edges of rows.  An overlay leaves the text alone, so the
-body stays as the shell knows it."
+  "Show the images of the shown text between START and END.
+START and END are the edges of rows.  An image takes the place of the text
+that stands for it, but for its line break.  An overlay leaves the text alone."
   (remove-overlays start end 'peta-image t)
   (when (display-images-p)
-    (let ((text-item (peta-journal--id-at (point))))
-      (save-excursion
-        (goto-char start)
-        (while (re-search-forward peta-journal--image-link-regexp end t)
-          (let* ((link-start (match-beginning 0))
-                 (link-end (match-end 0))
-                 (url (peta-journal--matched-image-url))
-                 (fragment (match-string-no-properties 3))
-                 (id (peta-journal--id-at link-start)))
-            (unless (or (equal id text-item)
-                        (peta-journal--in-code-p link-start))
-              (when-let* ((image (peta-journal--link-image id url fragment)))
-                (let ((overlay (make-overlay link-start link-end)))
-                  (overlay-put overlay 'peta-image t)
-                  (overlay-put overlay 'display image)
-                  ;; The shell may rewrite the row, and nothing should stay behind
-                  (overlay-put overlay 'evaporate t))))))))))
+    (let ((pos start))
+      (while (< pos end)
+        (let ((next (next-single-property-change pos 'peta-image nil end)))
+          (when-let* ((image (get-text-property pos 'peta-image))
+                      (shown (peta-journal--shown-image (peta-journal--id-at pos) image)))
+            (let ((overlay (make-overlay pos (if (eq (char-before next) ?\n) (1- next) next))))
+              (overlay-put overlay 'peta-image t)
+              (overlay-put overlay 'display shown)
+              ;; The shell may rewrite the row, and nothing should stay behind
+              (overlay-put overlay 'evaporate t)))
+          (setq pos next))))))
 
 (defun peta-journal--draw-images-of (id)
-  "Show the links of the item ID as images, when it is there."
+  "Show the images of the item ID, when it is there."
   (when-let* ((start (peta-journal--find-row id)))
     (peta-journal--draw-images start (peta-journal--body-end start))))
-
-(defun peta-journal--update-images ()
-  "Give the item at the point its text, and the item it has left its images."
-  (let ((item (peta-journal--id-at (point)))
-        (left peta-journal--text-item))
-    (unless (equal item left)
-      (setq peta-journal--text-item item)
-      (when item
-        (peta-journal--draw-images-of item))
-      (when left
-        (peta-journal--draw-images-of left)))))
 
 ;;;; Talking to the shell
 
@@ -1085,19 +971,21 @@ The kinds and their fields are those of `peta-journal-protocol-outbound-fields'.
 The shell has handled the lines up to ACK.  Nothing happens when lines are
 still under way: the point has moved on since."
   (when (>= ack peta-journal--seq)
-    (unless (and (null cursor) (equal (peta-journal--id-at (point)) id))
-      (peta-journal--goto-item id cursor))
+    (let ((shown (and (peta-journal--find-row id)
+                      (not (equal id peta-journal--markdown-item)))))
+      (when shown
+        (peta-journal--show-markdown id))
+      (unless (and (null cursor) (not shown) (equal (peta-journal--id-at (point)) id))
+        (peta-journal--goto-item id cursor)))
     (when (equal (peta-journal--id-at (point)) id)
       (setq peta-journal--current id
-            peta-journal--last-point (point)))
-    (peta-journal--update-images)))
+            peta-journal--last-point (point)))))
 
 (defun peta-journal--on-scroll (id)
   "Show the item ID."
   (when (peta-journal--find-row id)
     (peta-journal--goto-item id 0)
     (setq peta-journal--last-point (point))
-    (peta-journal--update-images)
     (dolist (window (get-buffer-window-list (current-buffer) nil t))
       (set-window-point window (point))
       (with-selected-window window (recenter)))))
@@ -1145,9 +1033,20 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
   (unless (or peta-journal-selection-mode
               (memq this-command peta-journal--commands-that-end-the-edit))
     (when-let* ((id (peta-journal--id-at (point))))
-      (peta-journal--start-edit id)))
-  (peta-journal--update-images)
+      (if (equal id peta-journal--markdown-item)
+          (peta-journal--start-edit id)
+        (peta-journal--enter-row id))))
   (setq peta-journal--last-point (point)))
+
+(defun peta-journal--enter-row (id)
+  "Show the Markdown of the item ID that the point has come into, and edit it.
+The point is on the shown text.  The shell turns the letters in front of it
+into the place in the Markdown, and tells it with a focus (ADR 077)."
+  (let ((letter (peta-journal--letter-at (point))))
+    (peta-journal--show-markdown id)
+    (peta-journal--goto-item id 0)
+    (setq peta-journal--current id)
+    (peta-journal--send-and-wait "edit_at_letter" :id id :letter letter)))
 
 (defun peta-journal--restyle-body (start level)
   "Give the body of the row at START the indent of LEVEL, without copied marks."
@@ -2368,23 +2267,6 @@ This is for `completion-at-point-functions'."
           (unless (member peta-journal--connection '("" "connected"))
             (format "  [%s]" peta-journal--connection))))
 
-(defvar font-lock-beg)
-(defvar font-lock-end)
-
-(defun peta-journal--extend-font-lock-region ()
-  "Grow the region font-lock is about to color to whole bodies.
-A code block or a quote spans lines, and a line alone does not say it is in one."
-  (let* ((first-row (peta-journal--row-start font-lock-beg))
-         (last-row (peta-journal--row-start (max font-lock-beg (1- font-lock-end))))
-         (beg (if first-row (min first-row font-lock-beg) font-lock-beg))
-         (end (if last-row
-                  (max font-lock-end (min (1+ (peta-journal--body-end last-row)) (point-max)))
-                font-lock-end)))
-    (unless (and (= beg font-lock-beg) (= end font-lock-end))
-      (setq font-lock-beg beg
-            font-lock-end end)
-      t)))
-
 (define-derived-mode peta-journal-mode text-mode "PetaJournal"
   "One page of PetaJournal in one buffer.
 Type in a body as in any buffer.  The outline changes through these keys:
@@ -2398,10 +2280,8 @@ Type in a body as in any buffer.  The outline changes through these keys:
   ;; Long items wrap all the time here: a mark on each wrapped line would only add noise
   (setq-local fringe-indicator-alist
               (cons '(continuation) fringe-indicator-alist))
-  (setq-local font-lock-defaults '(peta-journal--font-lock-keywords t))
-  (setq-local font-lock-extend-region-functions
-              (append font-lock-extend-region-functions
-                      '(peta-journal--extend-font-lock-region)))
+  ;; No keywords: the shell gives the colors (ADR 077).  Font Lock still shows `font-lock-face'
+  (setq-local font-lock-defaults '(nil t))
   (setq-local header-line-format '(:eval (peta-journal--header-line)))
   (add-hook 'completion-at-point-functions #'peta-journal--complete-wiki-link nil t)
   (add-hook 'after-change-functions #'peta-journal--after-change nil t)

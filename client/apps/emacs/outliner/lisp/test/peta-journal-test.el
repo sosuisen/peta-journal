@@ -16,9 +16,11 @@
   "The lines a test sent to the shell, oldest first.")
 
 (defun peta-journal-test--row (id level body &rest more)
-  "A row as the shell sends it, with ID, LEVEL and BODY, and MORE fields."
+  "A row as the shell sends it, with ID, LEVEL and BODY, and MORE fields.
+Its shown text is BODY with no looks, unless MORE gives a :text."
   (append more
-          (list :id id :level level :body body :bullet "plain" :collapsed nil :header nil)))
+          (list :id id :level level :body body :text (list :text (concat body "\n") :spans [])
+                :bullet "plain" :collapsed nil :header nil)))
 
 (defun peta-journal-test--show (rows page-id ack)
   "Show the vector ROWS of PAGE-ID, as one reset of the rows sent with ACK."
@@ -27,6 +29,18 @@
 (defun peta-journal-test--change (page-id &rest changes)
   "Apply CHANGES of the rows of PAGE-ID, sent with the ack 0."
   (peta-journal--apply-rows (vconcat changes) page-id 0))
+
+;; Bound by a test that answers by itself
+(defvar peta-journal-test--focus-place #'identity
+  "The place in the Markdown that the shell gives for a shown letter, or nil to give none.")
+
+(defun peta-journal-test--answer (type fields)
+  "Answer the line of TYPE with FIELDS as the shell would, when it is an edit at a letter.
+The shell tells the place in the Markdown with a focus."
+  (when (and (equal type "edit_at_letter") peta-journal-test--focus-place)
+    (peta-journal--on-focus (plist-get fields :id)
+                            (funcall peta-journal-test--focus-place (plist-get fields :letter))
+                            peta-journal--seq)))
 
 (defmacro peta-journal-test--with-rows (rows &rest body)
   "Run BODY in a peta-journal buffer that shows ROWS, with the shell replaced."
@@ -39,7 +53,8 @@
        (cl-letf (((symbol-function 'peta-journal--send)
                   (lambda (type &rest fields)
                     (setq peta-journal-test--sent
-                          (append peta-journal-test--sent (list (cons type fields))))))
+                          (append peta-journal-test--sent (list (cons type fields))))
+                    (peta-journal-test--answer type fields)))
                  ((symbol-function 'peta-journal--wait) #'ignore))
          (peta-journal-test--show (vconcat ,rows) "page" 0)
          ,@body))))
@@ -193,7 +208,7 @@
 (ert-deftest peta-journal-the-point-stays-in-its-item-when-rows-change ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "b" 1 "abc"))
-    (peta-journal--goto-item "b" 2)
+    (peta-journal-test--goto "b" 2)
     (peta-journal-test--show (vector (peta-journal-test--row "z" 1 "新")
                                       (peta-journal-test--row "a" 2 "x")
                                       (peta-journal-test--row "b" 2 "abc"))
@@ -232,6 +247,150 @@
     (should (equal (peta-journal--body-at (point)) "一\n- 二\n"))
     (peta-journal--goto-item "b" 0)
     (should (equal (peta-journal--id-at (point)) "b"))))
+
+;;;; The view mode and the edit mode (ADR 077)
+
+(defun peta-journal-test--span (from to &rest fields)
+  "A span of an EmacsText from FROM to TO, with FIELDS such as :looks."
+  (append fields (list :from from :to to :looks [] :link nil :image nil :letters t)))
+
+(defun peta-journal-test--text (text &rest spans)
+  "An EmacsText of TEXT with SPANS, as the shell sends it."
+  (list :text text :spans (vconcat spans)))
+
+;; pointのない行は、EmacsTextで描かれる。Markdownの記号は見えず、範囲の見た目の色が付く。
+(ert-deftest peta-journal-a-row-without-the-point-shows-its-emacs-text ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "x")
+            (peta-journal-test--row "b" 1 "**太字**の後"
+                                    :text (peta-journal-test--text
+                                           "太字の後\n"
+                                           (peta-journal-test--span 0 2 :looks ["bold"]))))
+    (should (equal (peta-journal-test--shown) "• x\n• 太字の後\n"))
+    (goto-char (point-min))
+    (search-forward "太字")
+    (should (equal (get-text-property (match-beginning 0) 'font-lock-face)
+                   '(peta-journal-bold)))
+    (should-not (get-text-property (match-end 0) 'font-lock-face))))
+
+;; pointが別の行に入ると、その行はMarkdownを見せ、出た行は表示の形に戻る。シェルには、pointの前の表示の文字の数を送る。Rustが足した記号は数えない。
+(ert-deftest peta-journal-entering-a-row-shows-its-markdown-and-sends-the-letters-before-the-point ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "*x*"
+                                    :text (peta-journal-test--text
+                                           "x\n" (peta-journal-test--span 0 1 :looks ["italic"])))
+            (peta-journal-test--row "b" 1 "- 項目"
+                                    :text (peta-journal-test--text
+                                           "• 項目\n"
+                                           (peta-journal-test--span 0 2 :looks ["mark"]
+                                                                    :letters nil))))
+    (peta-journal-test--goto "a" 0)
+    (should (equal (peta-journal-test--shown) "• *x*\n• • 項目\n"))
+    (setq peta-journal-test--sent nil)
+    (peta-journal-test--goto "b" 3)
+    (should (equal (peta-journal-test--shown) "• x\n• - 項目\n"))
+    (should (equal (car peta-journal-test--sent) '("edit_at_letter" :id "b" :letter 1)))))
+
+;; シェルが答えるfocusで、pointはMarkdownの中のその位置に置かれる。
+(ert-deftest peta-journal-the-focus-of-the-answer-puts-the-point-at-its-markdown-place ()
+  (let ((peta-journal-test--focus-place (lambda (_letter) 7)))
+    (peta-journal-test--with-rows
+        (list (peta-journal-test--row "a" 1 "x")
+              (peta-journal-test--row "b" 1 "**太字**の後"
+                                      :text (peta-journal-test--text
+                                             "太字の後\n"
+                                             (peta-journal-test--span 0 2 :looks ["bold"]))))
+      (peta-journal-test--goto "b" 3)
+      (should (equal (peta-journal--id-at (point)) "b"))
+      (should (= (peta-journal--cursor) 7)))))
+
+;; 行が書き換わってpointが別の行に移ると、その行がMarkdownを見せる。編集は、次のコマンドで始まる。
+(ert-deftest peta-journal-the-row-the-point-moves-to-on-new-rows-shows-its-markdown ()
+  (let ((z (peta-journal-test--row "c" 1 "*z*"
+                                   :text (peta-journal-test--text
+                                          "z\n" (peta-journal-test--span 0 1 :looks ["italic"])))))
+    (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                        (peta-journal-test--row "b" 1 "y")
+                                        z)
+      (peta-journal-test--goto "b" 0)
+      (setq peta-journal-test--sent nil)
+      (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "x") z) "page" 0)
+      (should (equal (peta-journal-test--shown) "• x\n• *z*\n"))
+      (should (equal (peta-journal--id-at (point)) "c"))
+      (peta-journal--post-command)
+      (should (equal peta-journal-test--sent '(("edit_requested" :id "c" :cursor 0)))))))
+
+;; pointのない行の表示の文字は、編集できない。編集は、Markdownを見せる行だけで行う。
+(ert-deftest peta-journal-the-shown-text-of-a-row-cannot-be-edited ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "yz"))
+    (peta-journal-test--goto "a" 0)
+    (goto-char (1+ (peta-journal--body-start (peta-journal--find-row "b"))))
+    (should-error (insert "w") :type 'text-read-only)
+    (should-error (delete-char 1) :type 'text-read-only)
+    (should (equal (peta-journal-test--shown) "• x\n• yz\n"))))
+
+;; Markdownを見せる行の更新で、本文が同じなら、行は書き換えられない。届いた表示の形は、pointが出たときに使われる。
+(ert-deftest peta-journal-an-update-of-the-markdown-row-with-the-same-body-keeps-the-row ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "**x**")
+                                      (peta-journal-test--row "b" 1 "y"))
+    (peta-journal-test--goto "a" 2)
+    (let ((marker (point-marker)))
+      (peta-journal-test--change
+       "page"
+       (list :Update
+             (list :at 0
+                   :item (peta-journal-test--row
+                          "a" 1 "**x**"
+                          :text (peta-journal-test--text
+                                 "x\n" (peta-journal-test--span 0 1 :looks ["bold"]))))))
+      (should (= marker (point)))
+      (should (= (peta-journal--cursor) 2)))
+    (peta-journal-test--goto "b" 0)
+    (should (equal (peta-journal-test--shown) "• x\n• y\n"))))
+
+(defun peta-journal-test--click (text)
+  "Click on the start of TEXT in the buffer, as a mouse would."
+  (goto-char (point-min))
+  (search-forward text)
+  (let ((event (list 'mouse-1 (list (selected-window) (match-beginning 0) '(0 . 0) 0))))
+    (funcall (lookup-key (get-text-property (match-beginning 0) 'keymap) [mouse-1]) event)))
+
+;; 表示の形の行のリンクは、クリックで開く。ページへのリンクはgoを送り、Webのリンクはブラウザーで開く。
+(ert-deftest peta-journal-a-click-on-a-shown-link-opens-it ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "x")
+            (peta-journal-test--row
+             "b" 1 "[[頁]] [web](https://example.com/)"
+             :text (peta-journal-test--text
+                    "頁 web\n"
+                    (peta-journal-test--span 0 1 :link '(:Page (:url "/pages/頁")))
+                    (peta-journal-test--span 2 5 :link '(:Web (:url "https://example.com/"))))))
+    (peta-journal-test--goto "a" 0)
+    (setq peta-journal-test--sent nil)
+    (peta-journal-test--click "頁")
+    (should (equal peta-journal-test--sent
+                   '(("edit_finished" :id "a") ("go" :url "/pages/頁"))))
+    (let ((opened nil))
+      (cl-letf (((symbol-function 'browse-url) (lambda (url &rest _) (setq opened url))))
+        (peta-journal-test--click "web"))
+      (should (equal opened "https://example.com/")))))
+
+;; シェルが送る見た目のどれにも、faceがある。Rustに見た目が増えたら、ここで気づく。
+(ert-deftest peta-journal-every-look-has-a-face ()
+  (dolist (look peta-journal-protocol-emacs-look-names)
+    (should (facep (cdr (assoc look peta-journal--look-faces))))))
+
+;; Markdownを見せる行は、色を持たない。色は、表示の形の行だけが持つ。
+(ert-deftest peta-journal-the-markdown-row-has-no-colors ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "**x** `c` # [[頁]]")
+                                      (peta-journal-test--row "b" 1 "y"))
+    (peta-journal-test--goto "a" 0)
+    (font-lock-ensure)
+    (let ((start (peta-journal--find-row "a")))
+      (should-not (text-property-not-all (peta-journal--body-start start)
+                                         (peta-journal--body-end start)
+                                         'face nil)))))
 
 ;;;; Protecting the marks
 
@@ -313,7 +472,7 @@
     (setq peta-journal-test--sent nil)
     (peta-journal-test--goto "b" 1)
     (should (equal peta-journal-test--sent
-                   '(("edit_requested" :id "b" :cursor 1))))))
+                   '(("edit_at_letter" :id "b" :letter 1))))))
 
 ;; 編集中の項目が届いた行から消えると、その編集は終わっている。終わりは送らない。
 (ert-deftest peta-journal-a-row-that-is-gone-is-no-longer-edited ()
@@ -1574,193 +1733,6 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (should (= (peta-journal--cursor) 0))
     (should (equal (peta-journal--body-at (point)) "x"))))
 
-;; タスクの本文の先頭の記法にも、色が付く。
-(ert-deftest peta-journal-the-start-of-the-body-of-a-task-has-its-color ()
-  (peta-journal-test--with-rows
-      (list (peta-journal-test--row "a" 1 "> 引用" :task "task")
-            (peta-journal-test--row "b" 1 "> 引用" :task "done" :bullet "transclusion"
-                                    :collapsed t))
-    (font-lock-ensure)
-    (goto-char (point-min))
-    (dotimes (_ 2)
-      (search-forward "引用")
-      (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-quote)))))
-
-;;;; The color of Flat Markdown
-
-(defun peta-journal-test--face (body text)
-  "The face of the start of TEXT, in a row that has BODY."
-  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 body))
-    (font-lock-ensure)
-    (goto-char (point-min))
-    (search-forward text)
-    (get-text-property (match-beginning 0) 'face)))
-
-;; 強調の記法には、それぞれの色が付く。
-(ert-deftest peta-journal-emphasis-has-its-color ()
-  (should (eq (peta-journal-test--face "a **太字** b" "太字") 'peta-journal-bold))
-  (should (eq (peta-journal-test--face "a *斜体* b" "斜体") 'peta-journal-italic))
-  (should (eq (peta-journal-test--face "a _斜体_ b" "斜体") 'peta-journal-italic))
-  (should (eq (peta-journal-test--face "a __下線__ b" "下線") 'peta-journal-underline))
-  (should (eq (peta-journal-test--face "a ~~取消~~ b" "取消") 'peta-journal-strike))
-  (should (eq (peta-journal-test--face "a ~下付~ b" "下付") 'peta-journal-script))
-  (should (eq (peta-journal-test--face "a ^上付^ b" "上付") 'peta-journal-script))
-  (should (eq (peta-journal-test--face "a ==目立つ== b" "目立つ") 'peta-journal-highlight))
-  (should (eq (peta-journal-test--face "a ||伏せ字|| b" "伏せ字") 'peta-journal-spoiler)))
-
-;; 強調にならない記号の並びには、色が付かない。
-(ert-deftest peta-journal-delimiters-that-do-not-emphasize-have-no-color ()
-  (should-not (peta-journal-test--face "a * x * b" "x"))
-  (should-not (peta-journal-test--face "a_b_c" "b"))
-  (should-not (peta-journal-test--face "a ===x=== b" "x"))
-  (should-not (peta-journal-test--face "a ~~~x~~~ b" "x"))
-  (should-not (peta-journal-test--face "a \\*x* b" "x")))
-
-;; インラインコードと数式には色が付き、その中の記号は修飾にならない。
-(ert-deftest peta-journal-inline-code-has-its-color-and-holds-no-decoration ()
-  (should (eq (peta-journal-test--face "a `コード` b" "コード") 'peta-journal-code))
-  (should (eq (peta-journal-test--face "a `` x`y `` b" "x`y") 'peta-journal-code))
-  (should (eq (peta-journal-test--face "a $`x^2`$ b" "x^2") 'peta-journal-math))
-  (should (eq (peta-journal-test--face "a `**x**` b" "x") 'peta-journal-code))
-  (should (eq (peta-journal-test--face "a `#tag [[y]]` b" "#tag") 'peta-journal-code))
-  (should (eq (peta-journal-test--face "a `#tag [[y]]` b" "[[y") 'peta-journal-code)))
-
-;; コードブロックは、閉じる行までの全体に色が付き、中の記号は修飾にならない。
-(ert-deftest peta-journal-a-code-block-has-its-color-up-to-its-closing ()
-  (let ((body "```rust\n**x**\n```\nc"))
-    (should (eq (peta-journal-test--face body "```rust") 'peta-journal-code))
-    (should (eq (peta-journal-test--face body "**x") 'peta-journal-code))
-    (should-not (peta-journal-test--face body "c")))
-  (should (eq (peta-journal-test--face "~~~\n*x*\n~~~" "*x") 'peta-journal-code))
-  (should (eq (peta-journal-test--face "````\n```\nx\n````" "x") 'peta-journal-code))
-  (should (eq (peta-journal-test--face "a\n```\nx\n```" "x") 'peta-journal-code)))
-
-;; 閉じていないコードブロックは本文の末尾までで、次の項目へ広がらない。
-(ert-deftest peta-journal-an-open-code-block-ends-with-its-item ()
-  (should (eq (peta-journal-test--face "```\nx" "x") 'peta-journal-code))
-  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "```\nx")
-                                      (peta-journal-test--row "b" 1 "y"))
-    (font-lock-ensure)
-    (goto-char (point-min))
-    (search-forward "y")
-    (should-not (get-text-property (match-beginning 0) 'face))))
-
-;; 本文の先頭の記法は、どのバレットの後ろでも色が付く。
-(ert-deftest peta-journal-the-start-of-a-body-has-its-color-behind-any-bullet ()
-  (peta-journal-test--with-rows
-      (list (peta-journal-test--row "a" 1 "> 引用" :collapsed t)
-            (peta-journal-test--row "b" 1 "> 引用" :bullet "transclusion")
-            (peta-journal-test--row "c" 1 "> 引用" :bullet "transclusion" :collapsed t))
-    (font-lock-ensure)
-    (goto-char (point-min))
-    (dotimes (_ 3)
-      (search-forward "引用")
-      (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-quote)))))
-
-;; 字下げのコードにも色が付く。
-(ert-deftest peta-journal-indented-code-has-its-color ()
-  (should (eq (peta-journal-test--face "    x = 1\n    y = 2" "y") 'peta-journal-code)))
-
-;; 引用とアラートには色が付く。引用の中の修飾は、修飾の色になる。
-(ert-deftest peta-journal-quotes-and-alerts-have-their-colors ()
-  (should (eq (peta-journal-test--face "> 引用" "引用") 'peta-journal-quote))
-  (should (eq (peta-journal-test--face "> a\n> 次の行" "次の行") 'peta-journal-quote))
-  (should (eq (peta-journal-test--face "> **太字**" "太字") 'peta-journal-bold))
-  (let ((body ">>>\n複数行\n>>>\n後"))
-    (should (eq (peta-journal-test--face body "複数行") 'peta-journal-quote))
-    (should-not (peta-journal-test--face body "後")))
-  (should (eq (peta-journal-test--face "> [!WARNING] 注意" "注意") 'peta-journal-alert))
-  (should (eq (peta-journal-test--face "> [!note]" "note") 'peta-journal-alert))
-  (let ((body ">>> [!TIP]\n本文\n>>>"))
-    (should (eq (peta-journal-test--face body "[!TIP") 'peta-journal-alert))
-    (should (eq (peta-journal-test--face body "本文") 'peta-journal-quote))))
-
-;; リストとタスクの記号、水平線、小さい文字には色が付く。リストの本文には付かない。
-(ert-deftest peta-journal-list-marks-rules-and-subtext-have-their-colors ()
-  (should (eq (peta-journal-test--face "- 項目" "-") 'peta-journal-list-mark))
-  (should-not (peta-journal-test--face "- 項目" "項目"))
-  (should (eq (peta-journal-test--face "* 項目" "*") 'peta-journal-list-mark))
-  (should (eq (peta-journal-test--face "12. 項目" "12.") 'peta-journal-list-mark))
-  (should (eq (peta-journal-test--face "- a\n  - 子" "- 子") 'peta-journal-list-mark))
-  (should (eq (peta-journal-test--face "- [ ] やる" "[ ]") 'peta-journal-list-mark))
-  (should (eq (peta-journal-test--face "- [x] 済み" "[x]") 'peta-journal-list-mark))
-  (should (eq (peta-journal-test--face "---" "---") 'peta-journal-rule))
-  (should (eq (peta-journal-test--face "***" "***") 'peta-journal-rule))
-  (should (eq (peta-journal-test--face "-# 小さい" "小さい") 'peta-journal-subtext)))
-
-;; 表は、区切りの行があるときだけ色が付き、表の続きの行までである。セルの中の修飾は、修飾の色になる。
-(ert-deftest peta-journal-a-table-has-its-color ()
-  (let ((body "| 見 | b |\n|:--|:-:|\n| 中 | d |\n後"))
-    (should (eq (peta-journal-test--face body "見") 'peta-journal-table))
-    (should (eq (peta-journal-test--face body "|:--") 'peta-journal-table))
-    (should (eq (peta-journal-test--face body "中") 'peta-journal-table))
-    (should-not (peta-journal-test--face body "後")))
-  (should (eq (peta-journal-test--face "見 | b\n--|--" "見") 'peta-journal-table))
-  (should-not (peta-journal-test--face "| 見 | b |" "見"))
-  (should (eq (peta-journal-test--face "| **太** |\n|--|" "太") 'peta-journal-bold)))
-
-;; 見出しは6段までで、本文のどの行でもよい。下線の見出しもある。中の修飾は、修飾の色になる。
-(ert-deftest peta-journal-a-heading-has-its-color ()
-  (should (eq (peta-journal-test--face "# 見" "見") 'peta-journal-heading))
-  (should (eq (peta-journal-test--face "###### 見" "見") 'peta-journal-heading))
-  (should-not (peta-journal-test--face "####### 見" "見"))
-  (should (eq (peta-journal-test--face "a\n# 見" "見") 'peta-journal-heading))
-  (should (eq (peta-journal-test--face "題\n===" "題") 'peta-journal-heading))
-  (should (eq (peta-journal-test--face "題\n---" "---") 'peta-journal-heading))
-  (should (eq (peta-journal-test--face "# **太** [[y]]" "太") 'peta-journal-bold))
-  (should (eq (peta-journal-test--face "# **太** [[y]]" "[[y") 'peta-journal-link)))
-
-;; タグは、文頭か空白の直後から、タグに使える文字までである。
-(ert-deftest peta-journal-a-tag-has-its-color-up-to-where-it-ends ()
-  (should (eq (peta-journal-test--face "#タグ" "タグ") 'peta-journal-link))
-  (should (eq (peta-journal-test--face "a #親/子-1 b" "子-1") 'peta-journal-link))
-  (should-not (peta-journal-test--face "a #タグ。本文" "本文"))
-  (should-not (peta-journal-test--face "a#b" "b"))
-  (should-not (peta-journal-test--face "\\#b" "b")))
-
-;; リンク、画像、脚注、絵文字、HTMLには色が付く。URLの中の記号は修飾にならない。
-(ert-deftest peta-journal-links-and-embedded-things-have-their-colors ()
-  (should (eq (peta-journal-test--face "[題](https://x.jp)" "題") 'peta-journal-link))
-  (should (eq (peta-journal-test--face "a https://x.jp/b_c_d e" "c_d") 'peta-journal-link))
-  (should (eq (peta-journal-test--face "a www.x.jp b" "www") 'peta-journal-link))
-  (should (eq (peta-journal-test--face "a me@x.jp b" "me@") 'peta-journal-link))
-  (should (eq (peta-journal-test--face "![写真](a_b_c.png#w=300)" "写真") 'peta-journal-image))
-  (should (eq (peta-journal-test--face "![図\\[1\\]](a.png)" "png") 'peta-journal-image))
-  (should (eq (peta-journal-test--face "[版 [2]](https://x.jp)" "x.jp") 'peta-journal-link))
-  (should (eq (peta-journal-test--face "注[^1]" "[^1") 'peta-journal-footnote))
-  (should (eq (peta-journal-test--face "[^1]: 注記" "[^1") 'peta-journal-footnote))
-  (should (eq (peta-journal-test--face "a ^[脚注] b" "脚注") 'peta-journal-footnote))
-  (should (eq (peta-journal-test--face "a :heart_eyes: b" "heart") 'peta-journal-emoji))
-  (should (eq (peta-journal-test--face "a :+1: b" "+1") 'peta-journal-emoji))
-  (should-not (peta-journal-test--face "12:30:45" "30"))
-  (should (eq (peta-journal-test--face "<b>太</b>" "<b") 'peta-journal-html))
-  (should-not (peta-journal-test--face "<b>太</b>" "太"))
-  (should (eq (peta-journal-test--face "<br />" "<br") 'peta-journal-html)))
-
-;; 行の一部だけを色付けし直しても、複数行の修飾は本文全体から判断される。
-(ert-deftest peta-journal-a-partial-fontify-sees-the-whole-body ()
-  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "```\nx\n```")
-                                      (peta-journal-test--row "b" 1 "y"))
-    (font-lock-set-defaults)
-    (goto-char (point-min))
-    (search-forward "x")
-    (font-lock-fontify-region (match-beginning 0) (match-end 0))
-    (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-code))
-    (goto-char (point-min))
-    (search-forward "```")
-    (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-code))))
-
-;; コードブロックを打ち始めると、打った行より後の行の色も変わる。
-(ert-deftest peta-journal-opening-a-block-recolors-the-lines-after-it ()
-  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x\ny"))
-    (font-lock-set-defaults)
-    (peta-journal-test--goto "a" 0)
-    (peta-journal-test--type "```\n")
-    (font-lock-fontify-region (point) (1+ (point)))
-    (goto-char (point-min))
-    (search-forward "y")
-    (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-code))))
-
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
@@ -1805,75 +1777,61 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
     (seq-some (lambda (overlay) (overlay-get overlay 'display))
               (overlays-in start (peta-journal--body-end start)))))
 
-;; カーソルのない項目では、リンクの代わりに画像が見える。バッファの文字は変わらない。
-(ert-deftest peta-journal-an-item-without-the-point-shows-its-image ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
-    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
-    (should (equal (image-property (peta-journal-test--image-of "b") :data)
-                   peta-journal-test--png))
-    (should (equal (peta-journal-test--shown) "• 上\n• ![p](../assets/p.png)\n"))))
+(defun peta-journal-test--image-row (id level &rest image)
+  "A row ID at LEVEL with the image `assets/p.png' alone, and the fields IMAGE such as :width."
+  (peta-journal-test--row
+   id level "![p](../assets/p.png)"
+   :text (peta-journal-test--text
+          "p\n"
+          (peta-journal-test--span
+           0 2 :letters nil
+           :image (append image (list :path "assets/p.png" :alt "p" :width nil :height nil))))))
 
-;; 画像は、リンクの部分だけを置き換える。前後の文字はそのまま見える。
-(ert-deftest peta-journal-an-image-replaces-only-its-link ()
+;; 表示の形の画像は、届いたあとで、代わりの文字の場所に画像として見える。大きさは、リンクの指定に従う。
+(ert-deftest peta-journal-an-image-of-the-shown-text-shows-at-its-size-once-it-arrives ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "前![p](../assets/p.png)後"))
+                                        (peta-journal-test--image-row "b" 1 :width 300 :height 240))
+    (should-not (peta-journal-test--image-of "b"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (let ((image (peta-journal-test--image-of "b")))
+      (should (equal (image-property image :data) peta-journal-test--png))
+      (should (equal (image-property image :width) 300))
+      (should (equal (image-property image :height) 240)))
+    (should (equal (peta-journal-test--shown) "• 上\n• p\n"))))
+
+;; 画像は、代わりの文字だけを置き換える。前後の文字と、行の区切りはそのまま見える。
+(ert-deftest peta-journal-an-image-replaces-only-its-alt-text ()
+  (peta-journal-test--with-images
+      (list (peta-journal-test--row "a" 1 "上")
+            (peta-journal-test--row
+             "b" 1 "前\n\n![p](../assets/p.png)\n\n後"
+             :text (peta-journal-test--text
+                    "前\np\n後\n"
+                    (peta-journal-test--span
+                     2 4 :letters nil
+                     :image '(:path "assets/p.png" :alt "p" :width nil :height nil)))))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
     (let* ((start (peta-journal--find-row "b"))
            (overlay (seq-find (lambda (overlay) (overlay-get overlay 'display))
                               (overlays-in start (peta-journal--body-end start)))))
       (should (equal (buffer-substring-no-properties (overlay-start overlay) (overlay-end overlay))
-                     "![p](../assets/p.png)")))))
+                     "p")))
+    (should (equal (peta-journal-test--shown) "• 上\n• 前\np\n後\n"))))
 
-;; リンクの文字に、`\`を付けた`[`と`]`や、対になった`[]`があっても、画像が見える（ADR 022）。
-(ert-deftest peta-journal-an-image-shows-when-its-link-text-has-brackets ()
+;; 画像の種類を表示できないEmacsでは、代わりの文字のまま見え、エラーにならない。
+(ert-deftest peta-journal-an-image-of-a-type-emacs-cannot-show-stays-text ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![図\\[1\\]\\\\](../assets/p.png)")
-                                        (peta-journal-test--row "c" 1 "![図 [2] 版](../assets/p.png)"))
-    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
-    (should (peta-journal-test--image-of "b"))
-    (should (peta-journal-test--image-of "c"))))
-
-;; `]`で終わったリンクの文字の後ろは、画像のリンクではない。
-(ert-deftest peta-journal-a-link-text-ends-at-its-unpaired-bracket ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![図]1](../assets/p.png)"))
-    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
-    (should-not (peta-journal-test--image-of "b"))))
-
-;; 画像の種類を表示できないEmacsでは、リンクの文字のまま見え、エラーにならない。
-(ert-deftest peta-journal-an-image-of-a-type-emacs-cannot-show-stays-a-link ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+                                        (peta-journal-test--image-row "b" 1))
     ;; A build without PNG, such as Emacs 31.1 on a Mac in 2026-11
     (let ((image-types (remq 'png image-types)))
       (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png))
     (should-not (peta-journal-test--image-of "b"))
-    (should (equal (peta-journal-test--shown) "• 上\n• ![p](../assets/p.png)\n"))))
-
-;; サーバーの外にある画像（`http://`と`https://`）も、そのURLから取得して見える。`#`のあとは大きさで、取得するURLには含めない。
-(ert-deftest peta-journal-an-image-outside-the-server-shows-from-its-url ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](https://example.com/a/p.png#w=20)")
-                                        (peta-journal-test--row "c" 1 "![q](http://example.com/q.png)"))
-    (should (equal peta-journal-test--fetched
-                   '("https://example.com/a/p.png" "http://example.com/q.png")))
-    (peta-journal--image-arrived "https://example.com/a/p.png" peta-journal-test--png)
-    (peta-journal--image-arrived "http://example.com/q.png" peta-journal-test--png)
-    (should (equal (image-property (peta-journal-test--image-of "b") :width) 20))
-    (should (peta-journal-test--image-of "c"))))
-
-;; `http`でも`https`でもないURLと、サーバーのassetsでない相対パスの画像は、文字のままで、取りにも行かない。
-(ert-deftest peta-journal-an-image-of-another-scheme-stays-a-link ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](file:///c:/p.png)")
-                                        (peta-journal-test--row "c" 1 "![q](q.png)"))
-    (should-not peta-journal-test--fetched)))
+    (should (equal (peta-journal-test--shown) "• 上\n• p\n"))))
 
 ;; 画像の中身が上限を超えると、開いたページにない画像から、使ってから長いものの順に忘れる。
 (ert-deftest peta-journal-images-over-the-limit-are-forgotten-from-the-least-used ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+                                        (peta-journal-test--image-row "b" 1))
     (let ((peta-journal-image-memory-limit (* 2 (length peta-journal-test--png))))
       (peta-journal--image-arrived (peta-journal-test--asset-url "old.png") peta-journal-test--png)
       (peta-journal--image-arrived (peta-journal-test--asset-url "new.png") peta-journal-test--png)
@@ -1882,33 +1840,30 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
       (should (gethash (peta-journal-test--asset-url "new.png") peta-journal--images))
       (should (peta-journal-test--image-of "b")))))
 
-;; 開いたページにある画像は、上限を超えても忘れない。忘れると、取り直しと描き直しを繰り返す。
+;; 開いたページにある画像は、上限を超えても忘れない。Markdownを見せる行の画像も同じである。忘れると、取り直しと描き直しを繰り返す。
 (ert-deftest peta-journal-an-image-on-an-open-page-is-kept-over-the-limit ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)")
-                                        (peta-journal-test--row "c" 1 "![q](../assets/q.png)"))
+  (peta-journal-test--with-images (list (peta-journal-test--image-row "a" 1)
+                                        (peta-journal-test--row "b" 1 "下"))
     (let ((peta-journal-image-memory-limit 1))
-      ;; The page asked for both as it was drawn
-      (setq peta-journal-test--fetched nil)
       (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
-      (peta-journal--image-arrived (peta-journal-test--asset-url "q.png") peta-journal-test--png)
-      (should (peta-journal-test--image-of "b"))
-      (should (peta-journal-test--image-of "c"))
+      (should (gethash (peta-journal-test--asset-url "p.png") peta-journal--images))
+      (peta-journal-test--goto "b" 0)
+      (should (peta-journal-test--image-of "a"))
       (should-not peta-journal-test--fetched))))
 
-;; カーソルのある項目では、画像ではなくリンクの文字が見える。
-(ert-deftest peta-journal-the-item-with-the-point-shows-its-link-as-text ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "![p](../assets/p.png)")
+;; pointのある項目は、Markdownを見せ、画像は見えない。
+(ert-deftest peta-journal-the-item-with-the-point-shows-no-image ()
+  (peta-journal-test--with-images (list (peta-journal-test--image-row "a" 1)
                                         (peta-journal-test--row "b" 1 "下"))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
-    (should-not (peta-journal-test--image-of "a"))))
+    (should-not (peta-journal-test--image-of "a"))
+    (should (equal (peta-journal-test--shown) "• ![p](../assets/p.png)\n• 下\n"))))
 
-;; カーソルを動かすと、入った項目は文字になり、出た項目は画像に戻る。
-(ert-deftest peta-journal-moving-the-point-swaps-the-image-and-the-text ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "![p](../assets/p.png)")
-                                        (peta-journal-test--row "b" 1 "![q](../assets/q.png)"))
+;; pointを動かすと、入った項目はMarkdownになり、出た項目は画像に戻る。
+(ert-deftest peta-journal-moving-the-point-swaps-the-image-and-the-markdown ()
+  (peta-journal-test--with-images (list (peta-journal-test--image-row "a" 1)
+                                        (peta-journal-test--image-row "b" 1))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
-    (peta-journal--image-arrived (peta-journal-test--asset-url "q.png") peta-journal-test--png)
     (should (peta-journal-test--image-of "b"))
     (peta-journal-test--goto "b" 0)
     (should (peta-journal-test--image-of "a"))
@@ -1917,34 +1872,35 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
     (should-not (peta-journal-test--image-of "a"))
     (should (peta-journal-test--image-of "b"))))
 
-;; カーソルを動かしても、本文の変更としてシェルへは送られない。
+;; pointを動かしても、本文の変更としてシェルへは送られない。
 (ert-deftest peta-journal-swapping-an-image-sends-no-change-of-the-body ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "![p](../assets/p.png)")
+  (peta-journal-test--with-images (list (peta-journal-test--image-row "a" 1)
                                         (peta-journal-test--row "b" 1 "下"))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
     (peta-journal-test--goto "b" 0)
     (peta-journal-test--goto "a" 0)
     (should-not (peta-journal-test--sent-of "body_changed"))))
 
-;; 項目を出ると、そこで打ったリンクも画像になる。
-(ert-deftest peta-journal-a-typed-link-becomes-an-image-when-the-point-leaves ()
+;; 項目を出ると、そこで打った画像も見える。シェルが送り返した表示の形で描くためである。
+(ert-deftest peta-journal-a-typed-image-shows-when-the-point-leaves ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "")
                                         (peta-journal-test--row "b" 1 "下"))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
     (peta-journal-test--goto "a" 0)
     (insert "![p](../assets/p.png)")
-    (peta-journal--post-command)
+    (peta-journal-test--change "page" (list :Update (list :at 0 :item (peta-journal-test--image-row
+                                                                       "a" 1))))
     (should-not (peta-journal-test--image-of "a"))
     (peta-journal-test--goto "b" 0)
     (should (peta-journal-test--image-of "a"))))
 
-;; シェルが項目を書き直しても、新しい本文の画像が見える。リンクが消えれば画像も消える。
-(ert-deftest peta-journal-a-rewritten-item-shows-the-image-of-its-new-body ()
+;; シェルが項目を書き直しても、新しい表示の形の画像が見える。画像がなくなれば、画像も消える。
+(ert-deftest peta-journal-a-rewritten-item-shows-the-image-of-its-new-text ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
                                         (peta-journal-test--row "b" 1 "下"))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
     (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "上")
-                                      (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+                                      (peta-journal-test--image-row "b" 1))
                               "page" 0)
     (should (peta-journal-test--image-of "b"))
     (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "上")
@@ -1952,64 +1908,50 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
                               "page" 0)
     (should-not (peta-journal-test--image-of "b"))))
 
-;; シェルの指示でカーソルが別の項目へ移っても、文字と画像が入れ替わる。
-(ert-deftest peta-journal-a-focus-from-the-shell-swaps-the-image-and-the-text ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "![p](../assets/p.png)")
+;; シェルの指示でpointが別の項目へ移っても、Markdownと画像が入れ替わる。
+(ert-deftest peta-journal-a-focus-from-the-shell-swaps-the-image-and-the-markdown ()
+  (peta-journal-test--with-images (list (peta-journal-test--image-row "a" 1)
                                         (peta-journal-test--row "b" 1 "下"))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
     (peta-journal--on-focus "b" 0 peta-journal--seq)
     (should (peta-journal-test--image-of "a"))))
 
-;; 画像の中身は1回だけサーバーへ取りに行く。同じ画像が2つあっても、カーソルが動いても同じである。
+;; 画像の中身は1回だけサーバーへ取りに行く。同じ画像が2つあっても、pointが動いても同じである。
 (ert-deftest peta-journal-an-image-is-fetched-once ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)")
-                                        (peta-journal-test--row "c" 1 "![p](../assets/p.png)"))
+                                        (peta-journal-test--image-row "b" 1)
+                                        (peta-journal-test--image-row "c" 1))
     (peta-journal-test--goto "b" 0)
     (peta-journal-test--goto "a" 0)
     (should (equal peta-journal-test--fetched
                    (list (peta-journal-test--asset-url "p.png"))))))
 
-;; 画像が届くまでは、リンクの文字が見える。
-(ert-deftest peta-journal-a-link-stays-text-until-its-image-arrives ()
+;; 画像が届くまでは、代わりの文字が見える。
+(ert-deftest peta-journal-the-alt-text-shows-until-its-image-arrives ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
-    (should-not (peta-journal-test--image-of "b"))))
+                                        (peta-journal-test--image-row "b" 1))
+    (should-not (peta-journal-test--image-of "b"))
+    (should (equal (peta-journal-test--shown) "• 上\n• p\n"))))
 
-(defun peta-journal-test--image-of-body (body &optional level)
-  "The image shown for an item with BODY at LEVEL, below an item with the point."
+(defun peta-journal-test--image-of-row (level &rest image)
+  "The image shown for an image row at LEVEL with the fields IMAGE, below an item with the point."
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" (or level 1) body))
+                                        (apply #'peta-journal-test--image-row "b" level image))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
     (peta-journal-test--image-of "b")))
 
-;; リンクの#w=と#h=は、Web版と同じように画像の大きさになる。
-(ert-deftest peta-journal-a-link-sets-the-size-of-its-image ()
-  (let ((image (peta-journal-test--image-of-body "![p](../assets/p.png#w=300&h=240)")))
-    (should (equal (image-property image :width) 300))
-    (should (equal (image-property image :height) 240))))
-
 ;; 片方だけの指定は、その向きだけを決める。
-(ert-deftest peta-journal-a-link-may-set-one-side-of-its-image ()
-  (let ((image (peta-journal-test--image-of-body "![p](../assets/p.png#h=240)")))
+(ert-deftest peta-journal-an-image-may-have-one-side-set ()
+  (let ((image (peta-journal-test--image-of-row 1 :height 240)))
     (should-not (image-property image :width))
     (should (equal (image-property image :height) 240))))
-
-;; 正の整数でない指定は、Web版と同じように無視する。
-(ert-deftest peta-journal-a-bad-size-in-a-link-is-ignored ()
-  (let ((image (peta-journal-test--image-of-body "![p](../assets/p.png#w&h=big)")))
-    (should image)
-    (should-not (image-property image :width))
-    (should-not (image-property image :height)))
-  (should-not (image-property (peta-journal-test--image-of-body "![p](../assets/p.png#w=0)")
-                              :width)))
 
 ;; 画像はウィンドウに収まる。字下げの深い項目では、字下げの分だけ小さくなる。
 (ert-deftest peta-journal-an-image-fits-the-room-beside-its-indent ()
   (cl-letf (((symbol-function 'window-body-width) (lambda (&rest _) 800))
             ((symbol-function 'window-body-height) (lambda (&rest _) 600)))
-    (let ((shallow (peta-journal-test--image-of-body "![p](../assets/p.png)" 1))
-          (deep (peta-journal-test--image-of-body "![p](../assets/p.png)" 3)))
+    (let ((shallow (peta-journal-test--image-of-row 1))
+          (deep (peta-journal-test--image-of-row 3)))
       (should (<= (image-property shallow :max-width) 800))
       (should (<= (image-property shallow :max-height) 600))
       (should (= (- (image-property shallow :max-width) (image-property deep :max-width))
@@ -2018,17 +1960,17 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
 ;; ウィンドウの大きさが変わると、画像も合わせ直す。
 (ert-deftest peta-journal-an-image-follows-the-size-of-the-window ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+                                        (peta-journal-test--image-row "b" 1))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
     (let ((before (image-property (peta-journal-test--image-of "b") :max-width)))
       (cl-letf (((symbol-function 'window-body-width) (lambda (&rest _) (+ before 100))))
         (peta-journal--on-window-size-change (selected-window)))
       (should (> (image-property (peta-journal-test--image-of "b") :max-width) before)))))
 
-;; 取得できなかった画像はリンクの文字のままで、カーソルが動くたびに取りに行くことはない。
+;; 取得できなかった画像は代わりの文字のままで、pointが動くたびに取りに行くことはない。
 (ert-deftest peta-journal-a-missing-image-stays-text-and-is-not-fetched-again ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+                                        (peta-journal-test--image-row "b" 1))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") nil)
     (peta-journal-test--goto "b" 0)
     (peta-journal-test--goto "a" 0)
@@ -2038,40 +1980,35 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
 ;; 別のページを開くと、取得できなかった画像をもう一度取りに行く。サーバーが止まっていただけかもしれない。
 (ert-deftest peta-journal-a-new-page-fetches-a-missing-image-again ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+                                        (peta-journal-test--image-row "b" 1))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") nil)
     (peta-journal-test--show (vector (peta-journal-test--row "c" 1 "上")
-                                      (peta-journal-test--row "d" 1 "![p](../assets/p.png)"))
+                                      (peta-journal-test--image-row "d" 1))
                               "other-page" 0)
     (should (= (length peta-journal-test--fetched) 2))))
 
-;; Emacsが読めない形式のファイルは、リンクの文字のままである。
+;; Emacsが読めない形式のファイルは、代わりの文字のままである。
 (ert-deftest peta-journal-a-file-emacs-cannot-read-stays-text ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+                                        (peta-journal-test--image-row "b" 1))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") "not an image")
     (should-not (peta-journal-test--image-of "b"))))
 
-;; 画像を出せない環境では、リンクの文字のままで、取りにも行かない。
+;; 画像を出せない環境では、代わりの文字のままで、取りにも行かない。
 (ert-deftest peta-journal-a-display-without-images-shows-the-text ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上"))
     (cl-letf (((symbol-function 'display-images-p) #'ignore))
       (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+                                        (peta-journal-test--image-row "b" 1))
                                 "page" 0)
       (should-not (peta-journal-test--image-of "b"))
       (should-not peta-journal-test--fetched))))
-
-;; コードの中のリンクは、書き方の例である。画像にしない。
-(ert-deftest peta-journal-a-link-in-code-stays-text ()
-  (dolist (body '("`![p](../assets/p.png)`" "```\n![p](../assets/p.png)\n```"))
-    (should-not (peta-journal-test--image-of-body body))))
 
 ;; サーバーのURLの末尾に/があっても、画像のURLは正しい形になる。
 (ert-deftest peta-journal-the-url-of-an-image-allows-a-slash-after-the-server ()
   (let ((peta-journal-server "http://localhost:9000/"))
     (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
-                                          (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+                                          (peta-journal-test--image-row "b" 1))
       (should (equal peta-journal-test--fetched '("http://localhost:9000/assets/p.png"))))))
 
 ;; 接続を始められなくても、エラーで止まらず、文字のままである。

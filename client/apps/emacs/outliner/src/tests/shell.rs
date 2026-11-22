@@ -395,15 +395,24 @@ fn a_key_that_changes_one_row_sends_only_its_update() {
     );
 }
 
-// 入力した文は、Emacsが持っているものなので、送り返されない。
+// 入力した文はEmacsが持っているので、そのEmacsTextだけが送り返される。Emacsは、行を離れたときにそれで描く。
 #[test]
-fn typed_text_is_not_sent_back_to_emacs() {
-    let mut driver = Driver::open(&[item("a", 1, "x")]);
+fn typed_text_comes_back_only_as_its_emacs_text() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y")]);
+    let before = driver.rows_sent();
     driver.send(Inbound::BodyChanged {
-        id: "a".into(),
-        body: "xy".into(),
+        id: "b".into(),
+        body: "**xy**".into(),
     });
-    assert_eq!(driver.rows_sent(), 0);
+    assert_eq!(driver.rows_sent(), before + 1);
+    let changes = driver.last_changes().unwrap();
+    assert!(
+        matches!(&changes[..], [ListChange::Update { at: 1, item }] if item.id == "b"),
+        "{changes:?}"
+    );
+    let rows = driver.last_rows().unwrap();
+    assert_eq!(rows[1].body, "**xy**");
+    assert_eq!(rows[1].text.text, "xy\n");
 }
 
 // 入力は、自動保存のタイマーを経て、一度だけ保存される。
@@ -448,6 +457,17 @@ fn starting_an_edit_from_emacs_does_not_move_the_point_back() {
         cursor: 1,
     });
     assert!(driver.focuses().is_empty());
+}
+
+// Emacsは、表示の文字の位置で編集を始められる。シェルは、その位置をMarkdownの位置に直して伝える（ADR 077）。
+#[test]
+fn an_edit_started_at_a_shown_letter_tells_emacs_its_place_in_the_markdown() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "**太字**の後")]);
+    driver.send(Inbound::EditAtLetter {
+        id: "b".into(),
+        letter: 3,
+    });
+    assert_eq!(driver.focuses(), [("b".to_string(), Some(7))]);
 }
 
 /// What the server answers for a split: the item with the text it keeps, and the item made.
