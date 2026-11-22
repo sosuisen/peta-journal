@@ -1,15 +1,42 @@
 //! Writes `lisp/peta-journal-protocol.el` from the facet registry of the protocol (ADR 078).
 //! The names of the lines come from the Rust types alone, so Lisp does not repeat them.
 
+use crate::protocol::Outbound;
 use facet_generate::reflection::format::{
     ContainerFormat, Doc, EnumTagging, Format, Named, VariantFormat,
 };
+use facet_generate::reflection::RegistryBuilder;
 use facet_generate::Registry;
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
 /// The prefix of every name in the Lisp file.
 const PREFIX: &str = "peta-journal-protocol";
+
+/// The head of the Lisp file.
+const HEADER: &str = r#";;; peta-journal-protocol.el --- The lines of the shell -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Written from the Rust types of src/protocol.rs (ADR 078).  Do not edit it by hand.
+;; Write it again with:
+;;   PETA_WRITE_LISP=1 cargo test -p outliner-emacs the_committed_lisp_protocol
+
+;;; Code:
+
+"#;
+
+/// The file `lisp/peta-journal-protocol.el`: the Lisp of the lines the shell sends to Emacs.
+pub fn protocol_file() -> String {
+    let registry = RegistryBuilder::new()
+        .add_type::<Outbound>()
+        .and_then(RegistryBuilder::build)
+        .expect("the protocol has a registry");
+    format!(
+        "{HEADER}{}(provide 'peta-journal-protocol)\n;;; peta-journal-protocol.el ends here\n",
+        lisp_of(&registry)
+    )
+}
 
 /// The Lisp of the types in `registry`.
 pub fn lisp_of(registry: &Registry) -> String {
@@ -193,9 +220,31 @@ fn lisp_name(name: &str) -> String {
 fn docstring(doc: &Doc, otherwise: &str) -> String {
     let text = doc.comments().join(" ");
     let text = if text.trim().is_empty() {
-        otherwise.to_string()
+        otherwise
     } else {
-        text.trim().to_string()
+        text.trim()
     };
-    format!("\"{}\"", text.replace('\\', "\\\\").replace('"', "\\\""))
+    let escaped = text.replace('\\', "\\\\").replace('"', "\\\"");
+    // The first line starts behind the indent of two and the quote
+    let mut lines = vec![String::new()];
+    let mut width = 3;
+    for word in escaped.split_whitespace() {
+        let line = lines.last_mut().expect("there is a line");
+        if !line.is_empty() && width + 1 + word.chars().count() > WIDTH {
+            lines.push(word.to_string());
+            width = word.chars().count();
+        } else {
+            if !line.is_empty() {
+                line.push(' ');
+                width += 1;
+            }
+            line.push_str(word);
+            width += word.chars().count();
+        }
+    }
+    format!("\"{}\"", lines.join("\n"))
 }
+
+/// The width of a line of a docstring, with room for its closing quote and parenthesis, as
+/// the byte compiler asks for at most 80.
+const WIDTH: usize = 76;
