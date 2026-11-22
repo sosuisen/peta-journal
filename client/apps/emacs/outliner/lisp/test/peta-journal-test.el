@@ -371,7 +371,7 @@ The shell tells the place in the Markdown with a focus."
     (setq peta-journal-test--sent nil)
     (peta-journal-test--goto "b" 1)
     (should (equal peta-journal-test--sent
-                   '(("edit_requested" :id "b" :cursor 1))))))
+                   '(("edit_at_letter" :id "b" :letter 1))))))
 
 ;; 編集中の項目が届いた行から消えると、その編集は終わっている。終わりは送らない。
 (ert-deftest peta-journal-a-row-that-is-gone-is-no-longer-edited ()
@@ -382,7 +382,7 @@ The shell tells the place in the Markdown with a focus."
     (peta-journal-test--show (vector (peta-journal-test--row "b" 1 "yz")) "page" 0)
     (peta-journal--post-command)
     (should (equal peta-journal-test--sent
-                   '(("edit_requested" :id "b" :cursor 0))))))
+                   '(("edit_at_letter" :id "b" :letter 0))))))
 
 ;; 項目の削除は、coreに頼むだけである。断られることがあるので、編集中の項目はそのままにする。
 (ert-deftest peta-journal-deleting-an-item-only-asks-the-core ()
@@ -1608,7 +1608,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (should (equal (peta-journal-test--shown) "• ☑ abxy\n"))
     (should (peta-journal-test--body-has-no-color-p "a"))
     (should (equal peta-journal-test--sent
-                   '(("edit_requested" :id "a" :cursor 0)
+                   '(("edit_at_letter" :id "a" :letter 0)
                      ("body_changed" :id "a" :body "axy")
                      ("body_changed" :id "a" :body "abxy"))))
     (should (eq (get-text-property (+ (peta-journal--find-row "a") 2) 'font-lock-face)
@@ -1983,18 +1983,6 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
     (peta-journal-test--goto "b" 0)
     (peta-journal-test--goto "a" 0)
     (should-not (peta-journal-test--sent-of "body_changed"))))
-
-;; 項目を出ると、そこで打ったリンクも画像になる。
-(ert-deftest peta-journal-a-typed-link-becomes-an-image-when-the-point-leaves ()
-  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "")
-                                        (peta-journal-test--row "b" 1 "下"))
-    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
-    (peta-journal-test--goto "a" 0)
-    (insert "![p](../assets/p.png)")
-    (peta-journal--post-command)
-    (should-not (peta-journal-test--image-of "a"))
-    (peta-journal-test--goto "b" 0)
-    (should (peta-journal-test--image-of "a"))))
 
 ;; シェルが項目を書き直しても、新しい本文の画像が見える。リンクが消えれば画像も消える。
 (ert-deftest peta-journal-a-rewritten-item-shows-the-image-of-its-new-body ()

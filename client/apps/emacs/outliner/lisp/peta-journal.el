@@ -551,8 +551,11 @@ Without its last line break: the newline of the row ends it."
       (let ((from (min end (peta-journal-protocol-emacs-span-from span)))
             (to (min end (peta-journal-protocol-emacs-span-to span)))
             (faces (peta-journal--span-faces span)))
-        (when (and faces (< from to))
-          (put-text-property from to 'font-lock-face faces shown))))
+        (when (< from to)
+          (when faces
+            (put-text-property from to 'font-lock-face faces shown))
+          (unless (peta-journal-protocol-emacs-span-letters span)
+            (put-text-property from to 'peta-added t shown)))))
     shown))
 
 (defun peta-journal--body-string (row)
@@ -561,6 +564,33 @@ The Markdown in the item of `peta-journal--markdown-item', or else the shown tex
   (if (equal (plist-get row :id) peta-journal--markdown-item)
       (plist-get row :body)
     (peta-journal--shown-string (plist-get row :text))))
+
+(defun peta-journal--redraw-item (id)
+  "Write the row of the item ID again, as `peta-journal--body-string' gives it."
+  (when-let* ((index (peta-journal--row-index id)))
+    (let ((inhibit-read-only t)
+          (inhibit-modification-hooks t))
+      (save-excursion
+        (peta-journal--write-row index (aref peta-journal--rows index))))
+    (restore-buffer-modified-p nil)))
+
+(defun peta-journal--show-markdown (id)
+  "Let the item ID show its Markdown, and the item that showed it its shown text."
+  (let ((old peta-journal--markdown-item))
+    (unless (equal id old)
+      (setq peta-journal--markdown-item id)
+      (when old
+        (peta-journal--redraw-item old))
+      (when id
+        (peta-journal--redraw-item id)))))
+
+(defun peta-journal--letter-at (pos)
+  "The number of shown letters in front of POS in its body.
+What Rust added to the shown text, such as the mark of a list, is not a shown
+letter (ADR 044)."
+  (let ((start (peta-journal--body-start (peta-journal--row-start pos))))
+    (cl-count-if-not (lambda (at) (get-text-property at 'peta-added))
+                     (number-sequence start (1- pos)))))
 
 (defun peta-journal--row-string (row)
   "The text of ROW, as it goes into the buffer."
@@ -1129,8 +1159,12 @@ The kinds and their fields are those of `peta-journal-protocol-outbound-fields'.
 The shell has handled the lines up to ACK.  Nothing happens when lines are
 still under way: the point has moved on since."
   (when (>= ack peta-journal--seq)
-    (unless (and (null cursor) (equal (peta-journal--id-at (point)) id))
-      (peta-journal--goto-item id cursor))
+    (let ((shown (and (peta-journal--find-row id)
+                      (not (equal id peta-journal--markdown-item)))))
+      (when shown
+        (peta-journal--show-markdown id))
+      (unless (and (null cursor) (not shown) (equal (peta-journal--id-at (point)) id))
+        (peta-journal--goto-item id cursor)))
     (when (equal (peta-journal--id-at (point)) id)
       (setq peta-journal--current id
             peta-journal--last-point (point)))
@@ -1165,8 +1199,7 @@ Not from here but from a timer: a process filter is no place for a prompt."
   "Tell the core that the item ID is being edited, in place of the one before.
 The core ends the edit of the one before (ADR 057)."
   (unless (equal id peta-journal--current)
-    (setq peta-journal--current id
-          peta-journal--markdown-item id)
+    (setq peta-journal--current id)
     (peta-journal--send "edit_requested" :id id :cursor (peta-journal--cursor))))
 
 (defun peta-journal--finish-edit ()
@@ -1190,9 +1223,21 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
   (unless (or peta-journal-selection-mode
               (memq this-command peta-journal--commands-that-end-the-edit))
     (when-let* ((id (peta-journal--id-at (point))))
-      (peta-journal--start-edit id)))
+      (if (equal id peta-journal--markdown-item)
+          (peta-journal--start-edit id)
+        (peta-journal--enter-row id))))
   (peta-journal--update-images)
   (setq peta-journal--last-point (point)))
+
+(defun peta-journal--enter-row (id)
+  "Show the Markdown of the item ID that the point has come into, and edit it.
+The point is on the shown text.  The shell turns the letters in front of it
+into the place in the Markdown, and tells it with a focus (ADR 077)."
+  (let ((letter (peta-journal--letter-at (point))))
+    (peta-journal--show-markdown id)
+    (peta-journal--goto-item id 0)
+    (setq peta-journal--current id)
+    (peta-journal--send-and-wait "edit_at_letter" :id id :letter letter)))
 
 (defun peta-journal--restyle-body (start level)
   "Give the body of the row at START the indent of LEVEL, without copied marks."
