@@ -41,3 +41,18 @@ fn an_item_whose_content_changed_is_updated_in_its_place() {
         }]
     );
 }
+
+// 新しい行は、その位置への挿入になる。
+#[test]
+fn a_new_item_is_inserted_in_its_place() {
+    let before = [line("a", "one"), line("c", "three")];
+    let after = [line("a", "one"), line("b", "two"), line("c", "three")];
+
+    assert_eq!(
+        changes(&before, &after),
+        vec![ListChange::Insert {
+            at: 1,
+            item: line("b", "two")
+        }]
+    );
+}
