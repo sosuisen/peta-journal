@@ -678,11 +678,15 @@ before left them.  The kinds and their fields are those of
        (list (peta-journal-protocol-row-view-id row))))
    :update
    (lambda (at item)
-     (let ((row (peta-journal--keep-typed item typed)))
-       (peta-journal--write-row at row)
+     (let ((row (peta-journal--keep-typed item typed))
+           (old (aref peta-journal--rows at)))
        (setq peta-journal--rows (vconcat peta-journal--rows))
        (aset peta-journal--rows at row)
-       (list (peta-journal-protocol-row-view-id row))))
+       ;; The text on screen is the same.  Writing it again would only move the point
+       (unless (equal-including-properties (peta-journal--row-string row)
+                                           (peta-journal--row-string old))
+         (peta-journal--write-row at row)
+         (list (peta-journal-protocol-row-view-id row)))))
    :reset
    (lambda (items)
      (let ((new (vconcat (mapcar (lambda (row) (peta-journal--keep-typed row typed)) items))))
