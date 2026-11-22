@@ -366,6 +366,9 @@ Completion sorts a plain list by name, which would hide the newest pages."
 (defvar-local peta-journal--rows [] "The rows on screen, as the shell sent them.")
 (defvar-local peta-journal--page-id nil "The id of the page on screen.")
 (defvar-local peta-journal--current nil "The id of the item being edited.")
+(defvar-local peta-journal--markdown-item nil
+  "The id of the item that shows its Markdown, where the point is (ADR 077).
+The other items show their shown text.")
 (defvar-local peta-journal--last-point nil "Where the point was after the last command.")
 (defvar-local peta-journal--title "" "The title of the page on screen.")
 (defvar-local peta-journal--page-path nil "The path of the page on screen, if it can be renamed.")
@@ -518,10 +521,51 @@ The bullet says how long the marks in front of the body are."
                   'front-sticky '(read-only))
     ""))
 
+(defconst peta-journal--look-faces
+  '(("bold" . peta-journal-bold) ("italic" . peta-journal-italic)
+    ("struck" . peta-journal-strike) ("underlined" . peta-journal-underline)
+    ("marked" . peta-journal-highlight) ("code" . peta-journal-code)
+    ("raised" . peta-journal-script) ("lowered" . peta-journal-script)
+    ("hidden" . peta-journal-spoiler)
+    ("heading1" . peta-journal-heading) ("heading2" . peta-journal-heading)
+    ("heading3" . peta-journal-heading) ("heading4" . peta-journal-heading)
+    ("heading5" . peta-journal-heading) ("heading6" . peta-journal-heading)
+    ("mark" . peta-journal-list-mark) ("quote" . peta-journal-quote)
+    ("rule" . peta-journal-rule) ("code_block" . peta-journal-code)
+    ("table_header" . peta-journal-table))
+  "The face of each look of a span, by the names of
+`peta-journal-protocol-emacs-look-names'.")
+
+(defun peta-journal--span-faces (span)
+  "The faces of the looks of SPAN."
+  (mapcar (lambda (look) (cdr (assoc look peta-journal--look-faces)))
+          (peta-journal-protocol-emacs-span-looks span)))
+
+(defun peta-journal--shown-string (text)
+  "The EmacsText TEXT as it goes into the buffer.
+Without its last line break: the newline of the row ends it."
+  (let* ((whole (peta-journal-protocol-emacs-text-text text))
+         (end (if (string-suffix-p "\n" whole) (1- (length whole)) (length whole)))
+         (shown (substring whole 0 end)))
+    (seq-doseq (span (peta-journal-protocol-emacs-text-spans text))
+      (let ((from (min end (peta-journal-protocol-emacs-span-from span)))
+            (to (min end (peta-journal-protocol-emacs-span-to span)))
+            (faces (peta-journal--span-faces span)))
+        (when (and faces (< from to))
+          (put-text-property from to 'font-lock-face faces shown))))
+    shown))
+
+(defun peta-journal--body-string (row)
+  "The body of ROW as it goes into the buffer.
+The Markdown in the item of `peta-journal--markdown-item', or else the shown text."
+  (if (equal (plist-get row :id) peta-journal--markdown-item)
+      (plist-get row :body)
+    (peta-journal--shown-string (plist-get row :text))))
+
 (defun peta-journal--row-string (row)
   "The text of ROW, as it goes into the buffer."
   (let* ((prefix (peta-journal--body-prefix (plist-get row :level)))
-         (body (propertize (plist-get row :body) 'line-prefix prefix 'wrap-prefix prefix))
+         (body (propertize (peta-journal--body-string row) 'line-prefix prefix 'wrap-prefix prefix))
          (text (concat (peta-journal--header-string row)
                        (peta-journal--bullet-string row)
                        body
@@ -1121,7 +1165,8 @@ Not from here but from a timer: a process filter is no place for a prompt."
   "Tell the core that the item ID is being edited, in place of the one before.
 The core ends the edit of the one before (ADR 057)."
   (unless (equal id peta-journal--current)
-    (setq peta-journal--current id)
+    (setq peta-journal--current id
+          peta-journal--markdown-item id)
     (peta-journal--send "edit_requested" :id id :cursor (peta-journal--cursor))))
 
 (defun peta-journal--finish-edit ()

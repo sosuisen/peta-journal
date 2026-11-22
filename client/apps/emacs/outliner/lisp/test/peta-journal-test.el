@@ -16,9 +16,11 @@
   "The lines a test sent to the shell, oldest first.")
 
 (defun peta-journal-test--row (id level body &rest more)
-  "A row as the shell sends it, with ID, LEVEL and BODY, and MORE fields."
+  "A row as the shell sends it, with ID, LEVEL and BODY, and MORE fields.
+Its shown text is BODY with no looks, unless MORE gives a :text."
   (append more
-          (list :id id :level level :body body :bullet "plain" :collapsed nil :header nil)))
+          (list :id id :level level :body body :text (list :text (concat body "\n") :spans [])
+                :bullet "plain" :collapsed nil :header nil)))
 
 (defun peta-journal-test--show (rows page-id ack)
   "Show the vector ROWS of PAGE-ID, as one reset of the rows sent with ACK."
