@@ -697,10 +697,6 @@ A step back from the start of this body goes on to the row above."
   (concat (string-trim-right peta-journal-server "/") "/"
           (peta-journal-protocol-rich-image-path image)))
 
-(defun peta-journal--asset-url (name)
-  "The URL of the file NAME in the assets of the server."
-  (concat (string-trim-right peta-journal-server "/") "/assets/" name))
-
 (defvar peta-journal--image-uses (make-hash-table :test #'equal)
   "When each image was used last, by URL, as a count that only grows.
 Not the time: two uses may come in the same instant.")

@@ -689,7 +689,7 @@ the extension.  That file must hold BYTES in the notes under ROOT."
 ;; サーバーにないファイルは、取得できなかったものとして扱う。
 (ert-deftest peta-journal-e2e-a-file-not-on-the-server-is-missing ()
   (peta-journal-e2e--with-app
-    (let ((url (peta-journal--asset-url "no-such-file.png")))
+    (let ((url (peta-journal--image-url (list :path "assets/no-such-file.png"))))
       (peta-journal--fetch-image url)
       (peta-journal-e2e--wait-for "the answer of the server"
                                   (lambda () (gethash url peta-journal--images)))
