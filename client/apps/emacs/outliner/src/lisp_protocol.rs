@@ -100,14 +100,13 @@ fn kinds(registry: &Registry, variants: &BTreeMap<u32, Named<VariantFormat>>) ->
 /// A reader for each field of the struct `kind`.
 fn readers(lisp: &mut String, kind: &str, fields: &[Named<Format>]) {
     for field in fields {
-        let doc = docstring(&field.doc, &format!("The {} of a {}.", field.name, kind));
+        let doc = docstring(
+            &field.doc,
+            &format!("The field {} of the type {}.", field.name, kind),
+        );
         let _ = write!(
             lisp,
-            "(defsubst {PREFIX}-{kind}-{} (value)
-  {doc}
-  (plist-get value :{}))
-
-",
+            "(defsubst {PREFIX}-{kind}-{} (value)\n  {doc}\n  (plist-get value :{}))\n\n",
             lisp_name(&field.name),
             field.name
         );
@@ -120,13 +119,10 @@ fn names(lisp: &mut String, kind: &str, variants: &BTreeMap<u32, Named<VariantFo
         .values()
         .map(|variant| format!("\"{}\"", variant.name))
         .collect();
-    let doc = docstring(doc, &format!("The names of a {kind}."));
+    let doc = docstring(doc, &format!("The names of the type {kind}."));
     let _ = write!(
         lisp,
-        "(defconst {PREFIX}-{kind}-names '({})
-  {doc})
-
-",
+        "(defconst {PREFIX}-{kind}-names '({})\n  {doc})\n\n",
         names.join(" ")
     );
 }
@@ -144,13 +140,15 @@ fn fields_of_kinds(lisp: &mut String, kind: &str, kinds: &[Kind]) {
             list
         })
         .collect();
+    let doc = docstring(
+        &Doc::default(),
+        &format!(
+            "The fields of each kind of the type {kind}, in the order its handler takes them."
+        ),
+    );
     let _ = write!(
         lisp,
-        "(defconst {PREFIX}-{kind}-fields
-  '({})
-  \"The fields of each kind of a {kind}, in the order its handler takes them.\")
-
-",
+        "(defconst {PREFIX}-{kind}-fields\n  '({})\n  {doc})\n\n",
         lists.join(" ")
     );
 }
@@ -159,11 +157,14 @@ fn fields_of_kinds(lisp: &mut String, kind: &str, kinds: &[Kind]) {
 fn handler(lisp: &mut String, kind: &str, tagging: &EnumTagging, kinds: &[Kind]) {
     let _ = write!(
         lisp,
-        "(defun {PREFIX}-handle-{kind} (value handlers)
-  \"Call the function in HANDLERS for the kind of VALUE, with its fields.
-HANDLERS is a plist from the keyword of each kind to its function.
-The fields come in the order of `{PREFIX}-{kind}-fields'.\"
-"
+        concat!(
+            "(defun {PREFIX}-handle-{kind} (value handlers)\n",
+            "  \"Call the function in HANDLERS for the kind of VALUE, with its fields.\n",
+            "HANDLERS is a plist from the keyword of each kind to its function.\n",
+            "The fields come in the order of `{PREFIX}-{kind}-fields'.\"\n",
+        ),
+        PREFIX = PREFIX,
+        kind = kind
     );
     let (head, fields) = match tagging {
         EnumTagging::Internal { tag } => (format!("(plist-get value :{tag})"), "value"),
@@ -183,19 +184,12 @@ The fields come in the order of `{PREFIX}-{kind}-fields'.\"
             .collect();
         let _ = write!(
             lisp,
-            "
-    ({pattern}
-     (funcall (plist-get handlers :{})
-              {}))",
+            "\n    ({pattern}\n     (funcall (plist-get handlers :{})\n              {}))",
             lisp_name(&each.name),
             arguments.join(" ")
         );
     }
-    lisp.push_str(
-        "))
-
-",
-    );
+    lisp.push_str("))\n\n");
 }
 
 /// A name of Rust, `RowView` or `page_id`, as Lisp writes it: `row-view`, `page-id`.

@@ -9,23 +9,23 @@
 ;;; Code:
 
 (defsubst peta-journal-protocol-backlink-entry-title (value)
-  "The title of a backlink-entry."
+  "The field title of the type backlink-entry."
   (plist-get value :title))
 
 (defsubst peta-journal-protocol-backlink-entry-url (value)
-  "The url of a backlink-entry."
+  "The field url of the type backlink-entry."
   (plist-get value :url))
 
 (defsubst peta-journal-protocol-backlink-entry-items (value)
-  "The items of a backlink-entry."
+  "The field items of the type backlink-entry."
   (plist-get value :items))
 
 (defsubst peta-journal-protocol-backlink-line-text (value)
-  "The text of a backlink-line."
+  "The field text of the type backlink-line."
   (plist-get value :text))
 
 (defsubst peta-journal-protocol-backlink-line-url (value)
-  "The url of a backlink-line."
+  "The field url of the type backlink-line."
   (plist-get value :url))
 
 (defconst peta-journal-protocol-bullet-names '("plain" "transclusion" "broken")
@@ -33,16 +33,17 @@
 kind too: its state is a mark of its own, as in the web frontend.")
 
 (defsubst peta-journal-protocol-free-key-key (value)
-  "The key of a free-key."
+  "The field key of the type free-key."
   (plist-get value :key))
 
 (defsubst peta-journal-protocol-free-key-label (value)
-  "The label of a free-key."
+  "The field label of the type free-key."
   (plist-get value :label))
 
 (defconst peta-journal-protocol-list-change-fields
   '((:insert "at" "item") (:remove "at") (:move "from" "to") (:update "at" "item") (:reset "items"))
-  "The fields of each kind of a list-change, in the order its handler takes them.")
+  "The fields of each kind of the type list-change, in the order its handler
+takes them.")
 
 (defun peta-journal-protocol-handle-list-change (value handlers)
   "Call the function in HANDLERS for the kind of VALUE, with its fields.
@@ -67,7 +68,8 @@ The fields come in the order of `peta-journal-protocol-list-change-fields'."
 
 (defconst peta-journal-protocol-outbound-fields
   '((:state "ack" "holding") (:rows "ack" "page_id" "changes") (:focus "ack" "id" "cursor") (:scroll "id") (:title "title") (:page-path "path") (:index "folder" "demote_name") (:properties "rows" "free_keys" "datetime_keys") (:status "connection") (:search "results" "searching") (:recent "paths") (:sidebar "index" "headings" "recent") (:backlinks "groups") (:message "text") (:copy "text") (:page-names "query" "titles") (:ask "req" "message"))
-  "The fields of each kind of a outbound, in the order its handler takes them.")
+  "The fields of each kind of the type outbound, in the order its handler
+takes them.")
 
 (defun peta-journal-protocol-handle-outbound (value handlers)
   "Call the function in HANDLERS for the kind of VALUE, with its fields.
@@ -127,7 +129,7 @@ The fields come in the order of `peta-journal-protocol-outbound-fields'."
               (plist-get value :req) (plist-get value :message)))))
 
 (defsubst peta-journal-protocol-property-row-key (value)
-  "The key of a property-row."
+  "The field key of the type property-row."
   (plist-get value :key))
 
 (defsubst peta-journal-protocol-property-row-label (value)
@@ -136,31 +138,31 @@ The fields come in the order of `peta-journal-protocol-outbound-fields'."
   (plist-get value :label))
 
 (defsubst peta-journal-protocol-property-row-value (value)
-  "The value of a property-row."
+  "The field value of the type property-row."
   (plist-get value :value))
 
 (defsubst peta-journal-protocol-property-row-removable (value)
-  "The removable of a property-row."
+  "The field removable of the type property-row."
   (plist-get value :removable))
 
 (defsubst peta-journal-protocol-property-row-editable (value)
-  "The editable of a property-row."
+  "The field editable of the type property-row."
   (plist-get value :editable))
 
 (defsubst peta-journal-protocol-row-view-id (value)
-  "The id of a row-view."
+  "The field id of the type row-view."
   (plist-get value :id))
 
 (defsubst peta-journal-protocol-row-view-level (value)
-  "The level of a row-view."
+  "The field level of the type row-view."
   (plist-get value :level))
 
 (defsubst peta-journal-protocol-row-view-body (value)
-  "The body of a row-view."
+  "The field body of the type row-view."
   (plist-get value :body))
 
 (defsubst peta-journal-protocol-row-view-bullet (value)
-  "The bullet of a row-view."
+  "The field bullet of the type row-view."
   (plist-get value :bullet))
 
 (defsubst peta-journal-protocol-row-view-task (value)
@@ -169,7 +171,7 @@ item is not a task."
   (plist-get value :task))
 
 (defsubst peta-journal-protocol-row-view-collapsed (value)
-  "The collapsed of a row-view."
+  "The field collapsed of the type row-view."
   (plist-get value :collapsed))
 
 (defsubst peta-journal-protocol-row-view-header (value)
@@ -177,15 +179,15 @@ item is not a task."
   (plist-get value :header))
 
 (defsubst peta-journal-protocol-row-view-selected (value)
-  "The selected of a row-view."
+  "The field selected of the type row-view."
   (plist-get value :selected))
 
 (defsubst peta-journal-protocol-search-entry-position (value)
-  "The position of a search-entry."
+  "The field position of the type search-entry."
   (plist-get value :position))
 
 (defsubst peta-journal-protocol-search-entry-kind (value)
-  "The kind of a search-entry."
+  "The field kind of the type search-entry."
   (plist-get value :kind))
 
 (defsubst peta-journal-protocol-search-entry-title (value)
@@ -193,26 +195,26 @@ item is not a task."
   (plist-get value :title))
 
 (defsubst peta-journal-protocol-search-entry-label (value)
-  "The label of a search-entry."
+  "The field label of the type search-entry."
   (plist-get value :label))
 
 (defsubst peta-journal-protocol-search-entry-snippet (value)
-  "The snippet of a search-entry."
+  "The field snippet of the type search-entry."
   (plist-get value :snippet))
 
 (defconst peta-journal-protocol-search-kind-names '("today" "page" "create" "item")
   "What a line of the search results opens.")
 
 (defsubst peta-journal-protocol-sidebar-heading-id (value)
-  "The id of a sidebar-heading."
+  "The field id of the type sidebar-heading."
   (plist-get value :id))
 
 (defsubst peta-journal-protocol-sidebar-heading-text (value)
-  "The text of a sidebar-heading."
+  "The field text of the type sidebar-heading."
   (plist-get value :text))
 
 (defsubst peta-journal-protocol-sidebar-heading-level (value)
-  "The level of a sidebar-heading."
+  "The field level of the type sidebar-heading."
   (plist-get value :level))
 
 (defsubst peta-journal-protocol-sidebar-index-header (value)
@@ -228,11 +230,11 @@ item is not a task."
   (plist-get value :parent))
 
 (defsubst peta-journal-protocol-sidebar-index-pages (value)
-  "The pages of a sidebar-index."
+  "The field pages of the type sidebar-index."
   (plist-get value :pages))
 
 (defsubst peta-journal-protocol-sidebar-line-label (value)
-  "The label of a sidebar-line."
+  "The field label of the type sidebar-line."
   (plist-get value :label))
 
 (defsubst peta-journal-protocol-sidebar-line-dir (value)
@@ -240,11 +242,11 @@ item is not a task."
   (plist-get value :dir))
 
 (defsubst peta-journal-protocol-sidebar-line-path (value)
-  "The path of a sidebar-line."
+  "The field path of the type sidebar-line."
   (plist-get value :path))
 
 (defsubst peta-journal-protocol-sidebar-line-folder (value)
-  "The folder of a sidebar-line."
+  "The field folder of the type sidebar-line."
   (plist-get value :folder))
 
 (defsubst peta-journal-protocol-sidebar-line-current (value)
@@ -257,11 +259,11 @@ to list."
   (plist-get value :index))
 
 (defsubst peta-journal-protocol-sidebar-view-headings (value)
-  "The headings of a sidebar-view."
+  "The field headings of the type sidebar-view."
   (plist-get value :headings))
 
 (defsubst peta-journal-protocol-sidebar-view-recent (value)
-  "The recent of a sidebar-view."
+  "The field recent of the type sidebar-view."
   (plist-get value :recent))
 
 (defconst peta-journal-protocol-task-mark-names '("task" "running" "done")
