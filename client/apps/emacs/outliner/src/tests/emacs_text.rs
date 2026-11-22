@@ -75,3 +75,27 @@ fn a_heading_has_the_look_of_its_level_over_its_whole_line() {
         ]
     );
 }
+
+/// The places, the looks and whether they are shown letters, of each span of `text`.
+fn parts_of(text: &EmacsText) -> Vec<(u32, u32, Vec<EmacsLook>, bool)> {
+    text.spans
+        .iter()
+        .map(|span| (span.from, span.to, span.looks.clone(), span.letters))
+        .collect()
+}
+
+// リストの段落の前には、深さの字下げと記号がある。どちらも表示の文字ではない。
+#[test]
+fn a_paragraph_of_a_list_has_the_indent_of_its_depth_and_its_mark_which_are_not_letters() {
+    let text = text_of("- 一つ\n  - 二つ");
+
+    assert_eq!(text.text, "• 一つ\n  • 二つ\n");
+    assert_eq!(
+        parts_of(&text),
+        [
+            (0, 2, vec![EmacsLook::Mark], false),
+            (5, 7, vec![], false),
+            (7, 9, vec![EmacsLook::Mark], false),
+        ]
+    );
+}
