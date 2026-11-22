@@ -1,15 +1,30 @@
 package com.sosuisha.petajournal.shell
 
+import com.sosuisha.petajournal.types.CalendarView
+import com.sosuisha.petajournal.types.Changes
+import com.sosuisha.petajournal.types.ConfigView
+import com.sosuisha.petajournal.types.ConnectionState
+import com.sosuisha.petajournal.types.HistoryView
+import com.sosuisha.petajournal.types.IndexSort
+import com.sosuisha.petajournal.types.IndexSortKey
 import com.sosuisha.petajournal.types.Item
 import com.sosuisha.petajournal.types.ListChange
+import com.sosuisha.petajournal.types.OutlinePanel
+import com.sosuisha.petajournal.types.Panel
 import com.sosuisha.petajournal.types.RichText
 import com.sosuisha.petajournal.types.Row
+import com.sosuisha.petajournal.types.ScreenView
+import com.sosuisha.petajournal.types.SearchView
+import com.sosuisha.petajournal.types.SidebarView
+import com.sosuisha.petajournal.types.SortOrder
+import com.sosuisha.petajournal.types.WeekNumbering
+import com.sosuisha.petajournal.types.WikiView
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * The rows that the changes of the core make (ADR 076). That the changes make the screen of the
- * core is tested in Rust, in `client-native-bridge`.
+ * The view model that the changes of the core make (ADR 076). That the core sends the changes
+ * that make its own view model is tested in Rust, in `client-native-bridge`.
  */
 class AppliedTest {
     private fun row(id: String, body: String = "") =
@@ -50,6 +65,68 @@ class AppliedTest {
 
     private fun ids(rows: List<Row>) = rows.map { it.item.id }
 
+    /** The outline panel, with `selectionMode` to tell one from another. */
+    private fun outline(selecting: Boolean) =
+        OutlinePanel(
+            selectionMode = selecting,
+            keyRelayHolding = false,
+            wiki = WikiView(suggestions = emptyList(), selectedIndex = 0u, x = 0.0, y = 0.0),
+            scrolledFromTop = false,
+        )
+
+    private fun search(query: String) =
+        SearchView(query = query, results = emptyList(), showDropdown = false, searching = false)
+
+    /**
+     * Every panel once, as the first changes of a core hold them. Each panel has a value of its
+     * own, so a panel put in the place of another is seen.
+     */
+    private fun everyPanel(): List<Panel> =
+        listOf(
+            Panel.Screen(ScreenView.Settings),
+            Panel.AtlasCards(emptyList()),
+            Panel.AtlasCallouts(emptyList()),
+            Panel.AtlasLinks(emptyList()),
+            Panel.AtlasLinkSuggestions(listOf("suggested")),
+            Panel.Outline(outline(selecting = true)),
+            Panel.Sidebar(
+                SidebarView(
+                    indexHeader = "index",
+                    indexSort = IndexSort(IndexSortKey.NAME, SortOrder.ASC),
+                    indexPages = emptyList(),
+                    headings = emptyList(),
+                    recentPages = emptyList(),
+                    currentPageId = "current",
+                ),
+            ),
+            Panel.Search(search("first")),
+            Panel.Config(
+                ConfigView(
+                    markdownDir = "markdown",
+                    weekNumbering = WeekNumbering.ISO,
+                    logicalOutdent = true,
+                    tagsDir = "tags",
+                    homeLink = "home",
+                    propertyDefinitions = emptyList(),
+                ),
+            ),
+            Panel.Connection(ConnectionState.CONNECTED),
+            Panel.Today("2026-11-22"),
+            Panel.Calendar(
+                CalendarView(
+                    year = 2026,
+                    month = 11u,
+                    monthName = "November",
+                    monthPage = "",
+                    yearPage = "",
+                    dayLabels = emptyList(),
+                    weeks = emptyList(),
+                ),
+            ),
+            Panel.Title("the title"),
+            Panel.History(HistoryView(canGoBack = true, canGoForward = false, url = "/pages/back")),
+        )
+
     // 行の操作は順に当たる。挿入、削除、移動、更新の位置は、その前の操作を当てたあとの行で数える。
     @Test
     fun the_changes_are_applied_in_order_and_each_place_counts_after_the_changes_before() {
@@ -77,5 +154,51 @@ class AppliedTest {
         val applied = rows.applied(listOf(ListChange.Reset(listOf(row("y"), row("z")))))
 
         assertEquals(listOf("y", "z"), ids(applied))
+    }
+
+    // 最初の差分から、すべての欄が、それぞれのパネルの値で作られる。行は、入れ替えで届いた行である。
+    @Test
+    fun the_first_changes_make_every_part_from_its_panel() {
+        val view = firstView(Changes(listOf(ListChange.Reset(listOf(row("a")))), everyPanel()))
+
+        assertEquals(ScreenView.Settings, view.screen)
+        assertEquals(listOf("suggested"), view.atlasLinkSuggestions)
+        assertEquals(true, view.outline.selectionMode)
+        assertEquals("current", view.sidebar.currentPageId)
+        assertEquals("first", view.search.query)
+        assertEquals("tags", view.config.tagsDir)
+        assertEquals(ConnectionState.CONNECTED, view.connection)
+        assertEquals("2026-11-22", view.today)
+        assertEquals("November", view.calendar.monthName)
+        assertEquals("the title", view.title)
+        assertEquals("/pages/back", view.history.url)
+        assertEquals(listOf("a"), ids(view.outline.rows))
+    }
+
+    // 届いたパネルだけが入れ替わり、ほかの欄は前のままである。
+    @Test
+    fun only_the_panels_that_came_take_the_place_of_their_parts() {
+        val view = firstView(Changes(emptyList(), everyPanel()))
+
+        val changed =
+            view.with(
+                Changes(emptyList(), listOf(Panel.Search(search("changed")), Panel.Title("another"))),
+            )
+
+        assertEquals("changed", changed.search.query)
+        assertEquals("another", changed.title)
+        assertEquals("tags", changed.config.tagsDir)
+        assertEquals("/pages/back", changed.history.url)
+    }
+
+    // アウトラインのパネルは行を持たないので、届いても行は前のままである。
+    @Test
+    fun the_outline_panel_keeps_the_rows() {
+        val view = firstView(Changes(listOf(ListChange.Reset(listOf(row("a"), row("b")))), everyPanel()))
+
+        val changed = view.with(Changes(emptyList(), listOf(Panel.Outline(outline(selecting = false)))))
+
+        assertEquals(false, changed.outline.selectionMode)
+        assertEquals(listOf("a", "b"), ids(changed.outline.rows))
     }
 }
