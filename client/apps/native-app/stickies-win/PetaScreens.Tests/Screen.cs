@@ -44,16 +44,15 @@ internal sealed class Screen : IAsyncDisposable
 
     public IReadOnlyList<Row> Rows => Shell.View.Outline.Rows;
 
+    /// <summary>The address of the journal server of the test.</summary>
+    public string Server => server.Address;
+
     /// <summary>
     /// A sticky that shows the page at <paramref name="url"/>, once its first item is there.
     /// Without a URL, the desk opens the stickies that were kept.
     /// </summary>
-    public static async Task<Screen> Open(int port, string? url = "/pages/screen")
-    {
-        var screen = new Screen(port);
-        current = screen;
-        FocusManager.GotFocus += screen.FocusMoved;
-        try
+    public static Task<Screen> Open(int port, string? url = "/pages/screen") =>
+        Start(new Screen(port), async screen =>
         {
             if (url is null)
                 screen.Desk.Open();
@@ -62,6 +61,49 @@ internal sealed class Screen : IAsyncDisposable
                 screen.Desk.Add(url);
                 await Until("the item is there", () => screen.Items().Count == 1);
             }
+        });
+
+    /// <summary>
+    /// A sticky that shows a page of <paramref name="items"/> items, once all of them are
+    /// there. The page is made on the server before the sticky opens. Each item has a line of
+    /// text, at one of three levels.
+    /// </summary>
+    public static Task<Screen> OpenLong(int port, int items) =>
+        Start(new Screen(port), async screen =>
+        {
+            var made = screen.server.Answer(
+                HttpMethod.Post,
+                "/api/pages/doc",
+                """{"title":"long"}"""
+            );
+            var page = System.Text.Json.JsonElement.Parse(made!);
+            var pageId = page.GetProperty("page").GetProperty("id").GetString();
+            // A new page has one empty item
+            for (var n = 1; n < items; n++)
+            {
+                var item = System.Text.Json.JsonSerializer.Serialize(
+                    new Dictionary<string, object?>
+                    {
+                        ["pageId"] = pageId,
+                        ["position"] = "last",
+                        ["level"] = n % 3 + 1,
+                        ["body"] = $"Item {n} with some text to draw",
+                    }
+                );
+                Assert.IsTrue(screen.server.Send(HttpMethod.Post, "/api/items", item));
+            }
+            screen.Desk.Add("/pages/long");
+            await Until("the items are there", () => screen.Rows.Count == items);
+            await Until("the first items are drawn", () => screen.Items().Count > 0);
+        });
+
+    private static async Task<Screen> Start(Screen screen, Func<Screen, Task> open)
+    {
+        current = screen;
+        FocusManager.GotFocus += screen.FocusMoved;
+        try
+        {
+            await open(screen);
             screen.ToFront();
             return screen;
         }
