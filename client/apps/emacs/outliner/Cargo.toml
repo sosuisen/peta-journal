@@ -23,6 +23,8 @@ chrono = "0.4.45"
 # The AST of a body, from which EmacsText is made, and the bound that BodyModel asks for
 flatmarkdown-ast = { workspace = true }
 serde = { workspace = true }
+# How wide Emacs shows a letter, to line up the cells of a table
+unicode-width = "0.2.3"
 
 [dev-dependencies]
 # The answers of the server in the tests, and the lines read back as JSON

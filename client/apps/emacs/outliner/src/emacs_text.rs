@@ -2,11 +2,14 @@
 //! that look different. It is made from the `RichText` of the native shells, so the shown
 //! letters are counted as there (ADR 043, ADR 044).
 
-use client_core::rich_text::{Looks, RichBlock, RichImage, RichLink, RichParagraph, RichText};
+use client_core::rich_text::{
+    Looks, RichBlock, RichImage, RichLink, RichParagraph, RichRun, RichTableRow, RichText,
+};
 use client_core::BodyModel;
 use facet::Facet;
 use flatmarkdown_ast::Node;
 use serde::Serialize;
+use unicode_width::UnicodeWidthStr;
 
 /// The body of an item as Emacs shows it: one text, and what each part of it looks like.
 #[derive(Facet, Debug, Clone, PartialEq, Default, Serialize)]
@@ -76,6 +79,8 @@ pub enum EmacsLook {
     Rule,
     /// The lines of a code block.
     CodeBlock,
+    /// A cell of the row of the titles of the columns of a table.
+    TableHeader,
 }
 
 /// The look of the line of a heading of `level`, from 1 to 6. `None` for any other paragraph.
@@ -100,6 +105,9 @@ const QUOTE: &str = "▎ ";
 /// A rule is a line of this letter, this many letters wide.
 const RULE: &str = "─";
 const RULE_WIDTH: usize = 20;
+
+/// What shows between the cells of a table, in place of the line break after a cell.
+const BAR: &str = "│";
 
 impl BodyModel for EmacsText {
     fn of(ast: Node, tags_dir: &str) -> EmacsText {
@@ -138,6 +146,7 @@ impl Writer {
                     .iter()
                     .for_each(|paragraph| self.paragraph(paragraph)),
                 RichBlock::Code { lines, .. } => self.code(lines),
+                RichBlock::Table { rows } => self.table(rows),
                 RichBlock::Entries { entries } => {
                     for entry in entries {
                         self.within(
@@ -218,20 +227,59 @@ impl Writer {
         }
     }
 
-    fn paragraph(&mut self, paragraph: &RichParagraph) {
-        self.line_start();
-        self.before_paragraph(paragraph);
-        let (start, first_span) = (self.length, self.made.spans.len());
-        for run in &paragraph.runs {
+    /// The letters of `runs` with their looks, and the look `more` on each.
+    fn runs(&mut self, runs: &[RichRun], more: Option<EmacsLook>) {
+        for run in runs {
+            let mut looks = looks_of(run.looks);
+            looks.extend(more);
             self.write(
                 &run.text,
                 Part {
-                    looks: looks_of(run.looks),
+                    looks,
                     link: run.link.clone(),
                     ..Part::default()
                 },
             );
         }
+    }
+
+    /// The rows of a table, one line each. The cells line up in columns, as wide as Emacs
+    /// shows them, with a wide letter counted as two. The line break after each cell but
+    /// the last shows as a bar.
+    fn table(&mut self, rows: &[RichTableRow]) {
+        let mut widths: Vec<usize> = Vec::new();
+        for row in rows {
+            for (column, cell) in row.cells.iter().enumerate() {
+                let width = cell_width(cell);
+                match widths.get_mut(column) {
+                    Some(wide) => *wide = (*wide).max(width),
+                    None => widths.push(width),
+                }
+            }
+        }
+        for row in rows {
+            self.line_start();
+            let more = row.header.then_some(EmacsLook::TableHeader);
+            let mut cells = row.cells.iter().zip(&widths).peekable();
+            while let Some((cell, width)) = cells.next() {
+                self.runs(&cell.runs, more);
+                if cells.peek().is_some() {
+                    let pad = " ".repeat(width.saturating_sub(cell_width(cell)) + 1);
+                    self.write(&pad, Part::added(Vec::new()));
+                    self.write(BAR, Part::default());
+                    self.write(" ", Part::added(Vec::new()));
+                } else {
+                    self.write("\n", Part::default());
+                }
+            }
+        }
+    }
+
+    fn paragraph(&mut self, paragraph: &RichParagraph) {
+        self.line_start();
+        self.before_paragraph(paragraph);
+        let (start, first_span) = (self.length, self.made.spans.len());
+        self.runs(&paragraph.runs, None);
         if let Some(look) = heading_look(paragraph.heading) {
             // Before the spans of its runs, so that the spans stay in the order of `from`
             self.made.spans.insert(
@@ -331,6 +379,11 @@ impl Part {
     fn is_plain(&self) -> bool {
         self.looks.is_empty() && self.link.is_none() && self.image.is_none() && !self.added
     }
+}
+
+/// How wide Emacs shows the letters of a cell, with a wide letter counted as two.
+fn cell_width(cell: &RichParagraph) -> usize {
+    cell.runs.iter().map(|run| run.text.width()).sum()
 }
 
 /// The looks of a run, in the order of `EmacsLook`.
