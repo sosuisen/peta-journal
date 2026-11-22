@@ -774,8 +774,7 @@ pub enum Event {
     /// Opens a page by its path, from the sidebar, the calendar or a link.
     GoToPage {
         path: String,
-        new_tab: bool,
-        new_window: bool,
+        open_in: crate::keys::OpenIn,
     },
     JournalNav(JournalNav),
     /// The month calendar shows another month.
@@ -1555,14 +1554,10 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         NavigateToTags => {
             screens::navigate::open_folder(model, &format!("{}index", model.config.tags_dir))
         }
-        GoToPage {
-            path,
-            new_tab,
-            new_window,
-        } => screens::navigate::to_page(
+        GoToPage { path, open_in } => screens::navigate::to_page(
             &screens::atlas::folder_path(model, &path),
-            new_tab,
-            new_window,
+            open_in == crate::keys::OpenIn::Tab,
+            open_in == crate::keys::OpenIn::Window,
             false,
             None,
         ),

@@ -10,6 +10,7 @@ use crate::components::settings::Settings;
 use crate::core::CoreHandle;
 use crate::dom;
 use client_core::app::JournalNav;
+use client_core::keys::OpenIn;
 use client_core::screens::calendar::CalendarNav;
 use client_core::util::filename::JournalType;
 use client_core::view::{BacklinkGroup, DirSegment, PageView, ScreenView};
@@ -112,7 +113,7 @@ fn Backlinks() -> impl IntoView {
     // new tab or window
     let follow = move |url: String| {
         move |ev: web_sys::MouseEvent| {
-            if ev.ctrl_key() || ev.meta_key() || ev.shift_key() {
+            if dom::held(&ev).open_in() != OpenIn::Here {
                 return;
             }
             ev.prevent_default();
@@ -261,7 +262,7 @@ fn DocPage() -> impl IntoView {
                                         }.into_any()
                                     } else {
                                         view! {
-                                            <a class="dir-segment" on:click=move |_| core.send(Event::GoToPage { path: path.clone(), new_tab: false, new_window: false })>{name.clone()}</a>
+                                            <a class="dir-segment" on:click=move |_| core.send(Event::GoToPage { path: path.clone(), open_in: OpenIn::Here })>{name.clone()}</a>
                                             <span class="breadcrumb-slash">"/"</span>
                                         }.into_any()
                                     }

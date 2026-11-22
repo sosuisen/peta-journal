@@ -185,8 +185,7 @@ pub fn Sidebar() -> impl IntoView {
         move |page: &SidebarPage, ev: &web_sys::MouseEvent| {
             core.send(Event::GoToPage {
                 path: page.path.clone(),
-                new_tab: ev.ctrl_key() || ev.meta_key(),
-                new_window: ev.shift_key(),
+                open_in: dom::held(ev).open_in(),
             });
         }
     };
@@ -237,7 +236,7 @@ pub fn Sidebar() -> impl IntoView {
                                 <h3 class="section-title section-title-link index-header-title" on:click={
                                                                         move |ev: web_sys::MouseEvent| {
                                         let path = index_path.get();
-                                        core.send(Event::GoToPage { path, new_tab: ev.ctrl_key() || ev.meta_key(), new_window: ev.shift_key() });
+                                        core.send(Event::GoToPage { path, open_in: dom::held(&ev).open_in() });
                                     }
                                 }>
                                     <svg class="page-icon" width="14" height="12"><use href="#icon-folder"/></svg>
@@ -250,7 +249,7 @@ pub fn Sidebar() -> impl IntoView {
                                 <div class="index-page-list">
                                     {move || index_parent_path.get().map(|path| view! {
                                         <div class="sidebar-item recent-page-item folder-item" on:click=move |ev: web_sys::MouseEvent| {
-                                            core.send(Event::GoToPage { path: path.clone(), new_tab: ev.ctrl_key() || ev.meta_key(), new_window: ev.shift_key() });
+                                            core.send(Event::GoToPage { path: path.clone(), open_in: dom::held(&ev).open_in() });
                                         }>
                                             <svg class="page-icon" width="14" height="12"><use href="#icon-folder"/></svg>
                                             <span class="page-label"><span class="page-name">"../"</span></span>

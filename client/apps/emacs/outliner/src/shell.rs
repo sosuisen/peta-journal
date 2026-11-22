@@ -248,8 +248,7 @@ impl<H: Host> Shell<H> {
             }
             Inbound::GoToPage { path } => self.send(Event::GoToPage {
                 path,
-                new_tab: false,
-                new_window: false,
+                open_in: client_core::keys::OpenIn::Here,
             }),
             Inbound::GoToDate { date, unit } => self.go_to_date(&date, unit),
             // The whole path goes in the name: the core takes the folders out of it at the `/`
@@ -353,8 +352,7 @@ impl<H: Host> Shell<H> {
         };
         self.send(Event::GoToPage {
             path,
-            new_tab: false,
-            new_window: false,
+            open_in: client_core::keys::OpenIn::Here,
         });
     }
 

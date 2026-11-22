@@ -11,6 +11,7 @@ use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
 use client_core::app::Event;
+use client_core::keys::Held;
 use client_core::screens::atlas::{
     parent_dir_label, Callout, GroupTitle, LinkCard, CARD_HEIGHT, CARD_WIDTH,
 };
@@ -236,10 +237,15 @@ pub fn Atlas() -> impl IntoView {
     // A click on the label of a card on the canvas; kept as long as the canvas lives
     let on_open = StoredValue::new_local(Closure::<dyn Fn(String, bool, bool)>::new(
         move |path: String, new_tab: bool, new_window: bool| {
+            // atlas.js gives Ctrl or Command as new_tab, and Shift as new_window
+            let held = Held {
+                shift: new_window,
+                ctrl: new_tab,
+                cmd: false,
+            };
             core.send(Event::GoToPage {
                 path,
-                new_tab,
-                new_window,
+                open_in: held.open_in(),
             });
         },
     ));
@@ -543,8 +549,7 @@ pub fn Atlas() -> impl IntoView {
                                 <span class="atlas-card-label" on:click=move |ev: web_sys::MouseEvent| {
                                     core.send(Event::GoToPage {
                                         path: path.clone(),
-                                        new_tab: ev.ctrl_key() || ev.meta_key(),
-                                        new_window: ev.shift_key(),
+                                        open_in: dom::held(&ev).open_in(),
                                     });
                                 }>{card.label.clone()}</span>
                             </div>

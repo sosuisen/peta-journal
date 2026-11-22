@@ -27,6 +27,42 @@ pub enum Key {
     Letter(String),
 }
 
+/// The keys held down while a link to a page is clicked. `cmd` is the Command key of a Mac,
+/// and the Meta key of a browser.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
+pub struct Held {
+    pub shift: bool,
+    pub ctrl: bool,
+    pub cmd: bool,
+}
+
+/// Where a clicked page opens.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
+pub enum OpenIn {
+    /// In place of the shown page.
+    #[default]
+    Here,
+    /// In a new tab of the browser.
+    Tab,
+    /// In a new window of the browser.
+    Window,
+}
+
+impl Held {
+    /// Shift opens a window, Ctrl or Command a tab. Shift wins when both are held.
+    pub fn open_in(self) -> OpenIn {
+        if self.shift {
+            OpenIn::Window
+        } else if self.ctrl || self.cmd {
+            OpenIn::Tab
+        } else {
+            OpenIn::Here
+        }
+    }
+}
+
 /// A key with the keys held down with it. `cmd` is the Command key of a Mac, and the Meta key
 /// of a browser.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]

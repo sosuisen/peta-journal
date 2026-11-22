@@ -2,6 +2,8 @@
 //! (`CalendarView`, ADR 052); this only draws it and sends the clicks.
 
 use crate::core::CoreHandle;
+use crate::dom;
+use client_core::keys::OpenIn;
 use client_core::screens::calendar::{CalendarDay, CalendarNav};
 use client_core::Event;
 use leptos::prelude::*;
@@ -27,15 +29,13 @@ pub fn Calendar(
     // Opens a journal by its name; Ctrl opens a tab, Shift a window.
     let open = move |page: String| {
         move |ev: web_sys::MouseEvent| {
-            let new_tab = ev.ctrl_key() || ev.meta_key();
-            let new_window = ev.shift_key();
+            let open_in = dom::held(&ev).open_in();
             core.send(Event::GoToPage {
                 path: page.clone(),
-                new_tab,
-                new_window,
+                open_in,
             });
             if let Some(cb) = on_navigate {
-                cb.run(new_tab || new_window);
+                cb.run(open_in != OpenIn::Here);
             }
         }
     };

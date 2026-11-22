@@ -4,6 +4,7 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
+use client_core::keys::OpenIn;
 use client_core::view::ScreenView;
 use client_core::Event;
 use leptos::prelude::*;
@@ -222,7 +223,7 @@ fn TagList(
                     let href = href.clone();
                     move |ev: web_sys::MouseEvent| {
                         // A modified click is left to the browser, so it opens a new tab or window
-                        if ev.ctrl_key() || ev.meta_key() || ev.shift_key() {
+                        if dom::held(&ev).open_in() != OpenIn::Here {
                             return;
                         }
                         ev.prevent_default();

@@ -7,6 +7,7 @@ use crate::components::item_html::{item_html, ImageSize};
 use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
+use client_core::keys::OpenIn;
 use client_core::util::date::generate_untitled_title;
 use client_core::{EditPlace, Event};
 use leptos::prelude::*;
@@ -156,10 +157,9 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
                 .ok()
                 .flatten()
             {
-                let new_tab = ev.ctrl_key() || ev.meta_key();
-                let new_window = ev.shift_key();
+                let open_in = dom::held(&ev).open_in();
                 let href = link.get_attribute("href");
-                if new_tab && !new_window && href.is_some() {
+                if open_in == OpenIn::Tab && href.is_some() {
                     return; // the browser opens it in a background tab
                 }
                 ev.prevent_default();
@@ -167,11 +167,15 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
                 let url = href.unwrap_or_else(|| {
                     page_urls::page_url(&generate_untitled_title(dom::local_now().into()))
                 });
-                if new_window || new_tab {
+                if open_in != OpenIn::Here {
                     let _ = dom::window().open_with_url_and_target_and_features(
                         &url,
                         "_blank",
-                        if new_window { "noopener" } else { "" },
+                        if open_in == OpenIn::Window {
+                            "noopener"
+                        } else {
+                            ""
+                        },
                     );
                 } else {
                     core.navigate(&url, false);
