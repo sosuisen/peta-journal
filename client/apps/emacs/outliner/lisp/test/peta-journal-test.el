@@ -1948,6 +1948,28 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
     (seq-some (lambda (overlay) (overlay-get overlay 'display))
               (overlays-in start (peta-journal--body-end start)))))
 
+(defun peta-journal-test--image-row (id level &rest image)
+  "A row ID at LEVEL with the image `assets/p.png' alone, and the fields IMAGE such as :width."
+  (peta-journal-test--row
+   id level "![p](../assets/p.png)"
+   :text (peta-journal-test--text
+          "p\n"
+          (peta-journal-test--span
+           0 2 :letters nil
+           :image (append image (list :path "assets/p.png" :alt "p" :width nil :height nil))))))
+
+;; 表示の形の画像は、届いたあとで、代わりの文字の場所に画像として見える。大きさは、リンクの指定に従う。
+(ert-deftest peta-journal-an-image-of-the-shown-text-shows-at-its-size-once-it-arrives ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--image-row "b" 1 :width 300 :height 240))
+    (should-not (peta-journal-test--image-of "b"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (let ((image (peta-journal-test--image-of "b")))
+      (should (equal (image-property image :data) peta-journal-test--png))
+      (should (equal (image-property image :width) 300))
+      (should (equal (image-property image :height) 240)))
+    (should (equal (peta-journal-test--shown) "• 上\n• p\n"))))
+
 ;; カーソルのない項目では、リンクの代わりに画像が見える。バッファの文字は変わらない。
 (ert-deftest peta-journal-an-item-without-the-point-shows-its-image ()
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
