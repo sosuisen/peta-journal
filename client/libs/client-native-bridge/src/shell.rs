@@ -425,7 +425,10 @@ impl NativeShell {
         self.router.view().history.url
     }
 
-    /// The whole [`ViewModel`](client_core::ViewModel), to draw after a render request.
+    /// The whole [`ViewModel`](client_core::ViewModel), as bytes. Only tests read it: a shell
+    /// keeps its view model from [`NativeShell::changes`], and the two are not to be mixed
+    /// (ADR 076).
+    #[cfg(any(test, feature = "test-support"))]
     pub fn view(&self) -> Vec<u8> {
         let view = self.router.routes.border.view();
         view.expect("the view model is always written")

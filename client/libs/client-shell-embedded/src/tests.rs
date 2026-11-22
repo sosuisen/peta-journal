@@ -79,7 +79,7 @@ fn event(event: &Event) -> Vec<u8> {
 
 /// The view model as text, to look for a word in it.
 fn shown(core: &PetaCore) -> String {
-    String::from_utf8_lossy(&core.view()).into_owned()
+    String::from_utf8_lossy(&core.shell.view()).into_owned()
 }
 
 /// The doc pages the journal holds, each as its folder and its name, without the root page.

@@ -8,6 +8,7 @@ use client_core::{EditPlace, Event};
 use client_native_bridge::ShellEffectFfi;
 use client_shell_http::ffi::{copied_html, PetaCore, PetaShell};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
+use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 
 mod common;
@@ -23,6 +24,30 @@ impl PetaShell for Kept {
     fn process_effects(&self, bytes: Vec<u8>) {
         let sent: Vec<Request<ShellEffectFfi>> = BincodeFfiFormat::deserialize(&bytes).unwrap();
         self.requests.lock().unwrap().extend(sent);
+    }
+}
+
+/// What the entrance has shown so far: every change read from it, as text. A shell has no
+/// other way to see the screen (ADR 076).
+struct Shown<'a> {
+    core: &'a PetaCore,
+    text: RefCell<String>,
+}
+
+impl<'a> Shown<'a> {
+    fn of(core: &'a PetaCore) -> Self {
+        Shown {
+            core,
+            text: RefCell::new(String::new()),
+        }
+    }
+
+    /// Reads the changes since the last call, and says whether the text was ever in them.
+    fn has_shown(&self, text: &str) -> bool {
+        let changes = self.core.changes();
+        let mut shown = self.text.borrow_mut();
+        shown.push_str(&String::from_utf8_lossy(&changes));
+        shown.contains(text)
     }
 }
 
@@ -42,9 +67,9 @@ fn a_shell_in_another_language_gets_the_requests_of_the_core() {
     });
 }
 
-// 入口から送ったイベントは、コアに届く。検索の箱への入力が、ビューモデルに入る。
+// 入口から送ったイベントは、コアに届く。検索の箱への入力が、画面の差分に入る。
 #[test]
-fn an_event_from_the_entrance_shows_in_the_view_model() {
+fn an_event_from_the_entrance_shows_in_the_changes_of_the_screen() {
     let (address, _seen) = start_server();
     let core = PetaCore::new(address, Arc::new(Kept::default()));
     let mut event = Vec::new();
@@ -52,23 +77,22 @@ fn an_event_from_the_entrance_shows_in_the_view_model() {
 
     core.update(&event).unwrap();
 
-    let view = core.view();
-    assert!(String::from_utf8_lossy(&view).contains("apple"));
+    let changes = core.changes();
+    assert!(String::from_utf8_lossy(&changes).contains("apple"));
 }
 
-// 入口から、画面の差分をbytesで読める。開いたページの行が、最初の差分に入る（ADR 076）。
+// 入口から、画面の差分をbytesで読める。開いたページの行が、差分で届く（ADR 076）。
 #[test]
 fn the_changes_of_the_screen_are_read_from_the_entrance_as_bytes() {
     let (address, _seen) = start_server();
     let core = PetaCore::new(address, Arc::new(Kept::default()));
+    let shown = Shown::of(&core);
+
     core.open("/pages/notes".into()).unwrap();
-    wait_until("the page shows", || {
-        String::from_utf8_lossy(&core.view()).contains("the body of a")
+
+    wait_until("the rows of the page come", || {
+        shown.has_shown("the body of a")
     });
-
-    let changes = core.changes();
-
-    assert!(String::from_utf8_lossy(&changes).contains("the body of a"));
 }
 
 // 入口からコアを閉じると、保存を待っていた本文が、閉じる前にサーバーに保存される（#766）。
@@ -76,10 +100,9 @@ fn the_changes_of_the_screen_are_read_from_the_entrance_as_bytes() {
 fn closing_from_the_entrance_saves_the_body_waiting_to_be_saved() {
     let (address, seen) = start_server();
     let core = PetaCore::new(address, Arc::new(Kept::default()));
+    let shown = Shown::of(&core);
     core.open("/pages/notes".into()).unwrap();
-    wait_until("the page shows", || {
-        String::from_utf8_lossy(&core.view()).contains("the body of a")
-    });
+    wait_until("the page shows", || shown.has_shown("the body of a"));
     let mut edit = Vec::new();
     let editing = Event::EditRequested {
         item_id: "a".into(),

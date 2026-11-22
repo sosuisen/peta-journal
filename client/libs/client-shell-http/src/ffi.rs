@@ -77,11 +77,6 @@ impl PetaCore {
         self.shell.close();
     }
 
-    /// The whole view model, to draw after a render request.
-    pub fn view(&self) -> Vec<u8> {
-        self.shell.view()
-    }
-
     /// What changed on the screen since the last call, as bytes of `Changes`: the changes to
     /// the rows of the outline, and the panels that changed (ADR 076). The first call gives a
     /// reset of the rows and every panel. Call it from the main thread only.
