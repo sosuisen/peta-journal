@@ -1,6 +1,8 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
+using PetaBorder;
 using PetaTypes;
 
 namespace PetaScreens.Tests;
@@ -41,44 +43,48 @@ public sealed class TypingSpeedTests
     }
 
     /// <summary>
-    /// The border alone, on a core of its own: the event into the core, the view model and the
-    /// changes of the screen out of it as bytes, and the reading of the bytes in C#.
+    /// The border alone, on a core of its own: the event into the core, the changes of the
+    /// screen out of it as bytes, and the reading of the bytes in C# (ADR 076).
     /// </summary>
     private static void MeasureTheBorder(Screen screen)
     {
         using var core = new PetaCore.PetaCore(screen.Server, new Unheard());
         core.Open("/pages/long");
+        // The rows as the changes make them: the core gives nothing else
+        var rows = new ObservableCollection<Row>();
+        void TakeTheChanges() =>
+            ListChanges.Apply(
+                rows,
+                Changes.BincodeDeserialize(core.Changes()).Rows,
+                row => row,
+                (at, row) => rows[at] = row
+            );
         var waited = Stopwatch.StartNew();
-        while (ViewModel.BincodeDeserialize(core.View()).Outline.Rows.Count < Items)
+        TakeTheChanges();
+        while (rows.Count < Items)
         {
             Assert.IsTrue(waited.Elapsed < TimeSpan.FromSeconds(10), "the long page never came");
             Thread.Sleep(10);
+            TakeTheChanges();
         }
-        var first = ViewModel.BincodeDeserialize(core.View()).Outline.Rows[0].Item.Id;
+        var first = rows[0].Item.Id;
         core.Update(new Event.EditRequested(first, new EditPlace.Markdown(0)).BincodeSerialize());
         var events = new List<double>();
-        var bytes = new List<double>();
-        var reads = new List<double>();
         var changed = new List<double>();
         var changesRead = new List<double>();
-        // The first changes hold the whole screen; those of a key are what is measured
+        // The changes of the edit are not those of a key
         _ = core.Changes();
         for (var n = 1; n <= Keys; n++)
         {
             var typing = new Typing.Typed(first, new string('a', n), (ulong)n).BincodeSerialize();
             events.Add(Timed(() => core.Typed(typing)));
-            byte[] view = [];
-            bytes.Add(Timed(() => view = core.View()));
-            reads.Add(Timed(() => ViewModel.BincodeDeserialize(view)));
             byte[] changes = [];
             changed.Add(Timed(() => changes = core.Changes()));
             changesRead.Add(Timed(() => Changes.BincodeDeserialize(changes)));
         }
         Report("Rust: event into the core", events);
-        Report("Rust: view model out of the core as bytes", bytes);
-        Report("C#: view model read from the bytes", reads);
-        Report("Rust: changes out of the core as bytes (ADR 076)", changed);
-        Report("C#: changes read from the bytes (ADR 076)", changesRead);
+        Report("Rust: changes out of the core as bytes", changed);
+        Report("C#: changes read from the bytes", changesRead);
         // The last edit is not saved: this core goes with the test, and its server too
     }
 
