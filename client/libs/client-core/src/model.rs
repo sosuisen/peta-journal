@@ -651,7 +651,45 @@ pub struct DeferredKey {
     pub meta_key: bool,
 }
 
+/// What a held key does when it is played into the text of an editor, and only edits or moves
+/// inside that text. Places count characters (ADR 043).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextKey {
+    /// The characters from `from` to `to` go.
+    Delete { from: usize, to: usize },
+    /// The cursor goes to the place.
+    MoveTo(usize),
+}
+
 impl DeferredKey {
+    /// What the key does in `text` with the selection from `start` to `end`, as the editor
+    /// would do it. None for a key the keydown handler takes: a Backspace at the start, which
+    /// joins the item above, a Delete at the end, which joins the item below, and any key that
+    /// is not Backspace, Delete, an arrow to the side, Home or End. Shift and Alt make the
+    /// key one of the handler too.
+    pub fn text_key(&self, text: &str, start: usize, end: usize) -> Option<TextKey> {
+        if self.shift_key || self.alt_key {
+            return None;
+        }
+        let len = text.chars().count();
+        let selected = start != end;
+        match self.key.as_str() {
+            "Backspace" if selected || start > 0 => Some(TextKey::Delete {
+                from: if selected { start } else { start - 1 },
+                to: end,
+            }),
+            "Delete" if selected || end < len => Some(TextKey::Delete {
+                from: start,
+                to: if selected { end } else { end + 1 },
+            }),
+            "ArrowLeft" => Some(TextKey::MoveTo(start.saturating_sub(1))),
+            "ArrowRight" => Some(TextKey::MoveTo((end + 1).min(len))),
+            "Home" => Some(TextKey::MoveTo(0)),
+            "End" => Some(TextKey::MoveTo(len)),
+            _ => None,
+        }
+    }
+
     /// True for a key that types a character; other keys are shortcuts or navigation. A typed
     /// letter can be several characters, as an emoji with a skin tone is (ADR 043).
     pub fn is_typed_character(&self) -> bool {
@@ -678,6 +716,68 @@ mod tests {
         assert!(deferred("👍🏽").is_typed_character());
         assert!(deferred("❤\u{fe0f}").is_typed_character());
         assert!(!deferred("Enter").is_typed_character());
+    }
+
+    // Backspace と Delete は、カーソルの前と後の1文字か、選んだ文字を消す。位置は文字で数え、絵文字も1文字である。
+    #[test]
+    fn backspace_and_delete_take_one_character_or_the_selection() {
+        let text = "a👍b";
+        assert_eq!(
+            deferred("Backspace").text_key(text, 2, 2),
+            Some(TextKey::Delete { from: 1, to: 2 })
+        );
+        assert_eq!(
+            deferred("Delete").text_key(text, 1, 1),
+            Some(TextKey::Delete { from: 1, to: 2 })
+        );
+        assert_eq!(
+            deferred("Backspace").text_key(text, 0, 3),
+            Some(TextKey::Delete { from: 0, to: 3 })
+        );
+        assert_eq!(
+            deferred("Delete").text_key(text, 3, 3),
+            None,
+            "the handler joins the item below"
+        );
+        assert_eq!(
+            deferred("Backspace").text_key(text, 0, 0),
+            None,
+            "the handler joins the item above"
+        );
+    }
+
+    // 横の矢印は1文字、Home と End は文の端へカーソルを動かす。右の矢印は文の終わりで止まる。
+    #[test]
+    fn the_side_arrows_home_and_end_move_the_cursor() {
+        let text = "a👍b";
+        assert_eq!(
+            deferred("ArrowLeft").text_key(text, 2, 2),
+            Some(TextKey::MoveTo(1))
+        );
+        assert_eq!(
+            deferred("ArrowRight").text_key(text, 3, 3),
+            Some(TextKey::MoveTo(3))
+        );
+        assert_eq!(
+            deferred("Home").text_key(text, 2, 2),
+            Some(TextKey::MoveTo(0))
+        );
+        assert_eq!(
+            deferred("End").text_key(text, 0, 0),
+            Some(TextKey::MoveTo(3))
+        );
+    }
+
+    // Shift か Alt を押したキーと、ほかのキーは、文の中では何もせず、キーのハンドラに任される。
+    #[test]
+    fn other_keys_are_left_to_the_key_handler() {
+        let shifted = DeferredKey {
+            key: "ArrowLeft".into(),
+            shift_key: true,
+            ..DeferredKey::default()
+        };
+        assert_eq!(shifted.text_key("ab", 1, 1), None);
+        assert_eq!(deferred("Enter").text_key("ab", 1, 1), None);
     }
 
     // サーバーが返す JSON を Item にデシリアライズすると、camelCase のフィールドと properties のアクセサがサーバーの形どおりに読み取られる。
