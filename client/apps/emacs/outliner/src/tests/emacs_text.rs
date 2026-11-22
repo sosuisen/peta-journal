@@ -60,3 +60,18 @@ fn letters_with_a_link_have_the_link_on_their_span() {
         )]
     );
 }
+
+// 見出しの段落は、行全体に見出しの深さの見た目を持つ。
+#[test]
+fn a_heading_has_the_look_of_its_level_over_its_whole_line() {
+    let text = text_of("## 見出し **強く**");
+
+    assert_eq!(text.text, "見出し 強く\n");
+    assert_eq!(
+        looks_of(&text),
+        [
+            (0, 6, vec![EmacsLook::Heading2]),
+            (4, 6, vec![EmacsLook::Bold])
+        ]
+    );
+}
