@@ -146,6 +146,31 @@
         (should (= (marker-position marker)
                    (peta-journal--body-start (peta-journal--find-row "c"))))))))
 
+;; 届いた差分を順に当てると、バッファの行は届いた行と同じになる。場所は、前の差分を当てたあとの行で数える。
+(ert-deftest peta-journal-the-changes-are-applied-in-order ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "y")
+                                      (peta-journal-test--row "c" 1 "z"))
+    (peta-journal-test--change
+     "page"
+     (list :Remove (list :at 0))
+     (list :Move (list :from 1 :to 0))
+     (list :Insert (list :at 1 :item (peta-journal-test--row "n" 2 "新")))
+     (list :Update (list :at 2 :item (peta-journal-test--row "b" 1 "yy"))))
+    (should (equal (peta-journal-test--shown) "• z\n• 新\n• yy\n"))
+    (should (equal (mapcar (lambda (row) (plist-get row :id)) peta-journal--rows)
+                   '("c" "n" "b")))
+    (should (equal (peta-journal--id-at (peta-journal--find-row "n")) "n"))))
+
+;; 動いた行は、その本文のまま、新しい場所に描かれる。
+(ert-deftest peta-journal-a-moved-row-keeps-its-text ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "一\n二"))
+    (peta-journal-test--change "page" (list :Move (list :from 1 :to 0)))
+    (should (equal (peta-journal-test--shown) "• 一\n二\n• x\n"))
+    (peta-journal--goto-item "a" 0)
+    (should (equal (peta-journal--id-at (point)) "a"))))
+
 ;; 差分がなければ、どの行も書き換えられない。
 (ert-deftest peta-journal-no-changes-rewrite-nothing ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
