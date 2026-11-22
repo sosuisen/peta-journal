@@ -280,6 +280,10 @@ impl<H: Host> Shell<H> {
                 self.own_edit = None;
             }
             Inbound::EditFinished { id } => self.send(Event::EditFinished { item_id: id }),
+            Inbound::EditAtLetter { id, letter } => self.send(Event::EditRequested {
+                item_id: id,
+                place: EditPlace::ShownLetter(letter),
+            }),
             Inbound::BodyChanged { id, body } => self.body_changed(id, body),
             Inbound::Typed { id, cursor } => self.typed(id, cursor),
             Inbound::Enter { id, cursor } => self.enter(id, cursor),

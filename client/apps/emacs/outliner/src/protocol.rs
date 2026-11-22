@@ -96,6 +96,13 @@ pub enum Inbound {
     EditFinished {
         id: String,
     },
+    /// Starts the edit of the item `id` with the cursor after `letter` letters of its shown
+    /// text, where the point came into its row (ADR 077). The core tells the place in the
+    /// Markdown as [`Outbound::Focus`].
+    EditAtLetter {
+        id: String,
+        letter: usize,
+    },
     BodyChanged {
         id: String,
         body: String,
