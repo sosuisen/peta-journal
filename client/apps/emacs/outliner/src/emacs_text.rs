@@ -66,6 +66,8 @@ pub enum EmacsLook {
     Quote,
     /// A line across the page.
     Rule,
+    /// The lines of a code block.
+    CodeBlock,
 }
 
 /// The look of the line of a heading of `level`, from 1 to 6. `None` for any other paragraph.
@@ -95,18 +97,27 @@ impl BodyModel for EmacsText {
     fn of(ast: Node, tags_dir: &str) -> EmacsText {
         let rich = RichText::of(ast, tags_dir);
         let mut text = EmacsText::default();
-        for block in &rich.blocks {
-            if let RichBlock::Text { paragraphs } = block {
-                paragraphs
-                    .iter()
-                    .for_each(|paragraph| text.paragraph(paragraph));
-            }
-        }
+        text.blocks(&rich.blocks);
         text
     }
 }
 
 impl EmacsText {
+    fn blocks(&mut self, blocks: &[RichBlock]) {
+        for block in blocks {
+            match block {
+                RichBlock::Text { paragraphs } => paragraphs
+                    .iter()
+                    .for_each(|paragraph| self.paragraph(paragraph)),
+                RichBlock::Code { lines, .. } => {
+                    self.write(lines, Part::looking(vec![EmacsLook::CodeBlock]));
+                    self.write("\n", Part::default());
+                }
+                _ => {}
+            }
+        }
+    }
+
     fn paragraph(&mut self, paragraph: &RichParagraph) {
         self.before_paragraph(paragraph);
         let (start, first_span) = (self.length, self.spans.len());
@@ -186,6 +197,14 @@ struct Part {
 }
 
 impl Part {
+    /// Shown letters with `looks`.
+    fn looking(looks: Vec<EmacsLook>) -> Part {
+        Part {
+            looks,
+            ..Part::default()
+        }
+    }
+
     /// What Rust adds, with `looks`.
     fn added(looks: Vec<EmacsLook>) -> Part {
         Part {
