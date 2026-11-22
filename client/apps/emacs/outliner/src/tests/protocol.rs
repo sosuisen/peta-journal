@@ -1,3 +1,4 @@
+use crate::emacs_text::EmacsText;
 use crate::protocol::{
     read_line, write_line, Bullet, Inbound, Outbound, RowView, SearchEntry, SelectionKey,
     SidebarView, TaskMark,
@@ -5,6 +6,7 @@ use crate::protocol::{
 use client_core::app::SelectionKey as CoreSelectionKey;
 use client_core::changes::ListChange;
 use client_core::view::{SearchEntry as CoreSearchEntry, SearchKind as CoreSearchKind, TaskState};
+use client_core::BodyModel;
 use serde_json::{json, Value};
 
 /// The line written for `message`, read back as JSON.
@@ -17,6 +19,7 @@ fn row(bullet: Bullet) -> RowView {
         id: "a".into(),
         level: 2,
         body: "本文".into(),
+        text: EmacsText::of_markdown("本文", "tags/"),
         bullet,
         task: None,
         collapsed: false,
@@ -168,7 +171,10 @@ fn the_changes_of_the_rows_are_written_as_json_for_emacs() {
         changes: vec![
             ListChange::Update {
                 at: 0,
-                item: row(Bullet::Plain),
+                item: RowView {
+                    text: EmacsText::of_markdown("**本文**", "tags/"),
+                    ..row(Bullet::Plain)
+                },
             },
             ListChange::Move { from: 2, to: 1 },
         ],
@@ -181,6 +187,10 @@ fn the_changes_of_the_rows_are_written_as_json_for_emacs() {
                 {"Update": {"at": 0, "item": {
                     "id": "a", "level": 2, "body": "本文", "bullet": "plain",
                     "task": null, "collapsed": false, "header": null, "selected": false,
+                    "text": {"text": "本文\n", "spans": [{
+                        "from": 0, "to": 2, "looks": ["bold"], "link": null, "image": null,
+                        "letters": true,
+                    }]},
                 }}},
                 {"Move": {"from": 2, "to": 1}},
             ],

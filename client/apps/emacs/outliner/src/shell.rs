@@ -4,6 +4,7 @@
 //! Everything here runs on one thread: the requests the core waits on stay here, and the host's
 //! threads only send back their results.
 
+use crate::emacs_text::EmacsText;
 use crate::protocol::{
     BacklinkEntry, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView,
     SearchEntry, SidebarView,
@@ -22,7 +23,7 @@ use client_core::util::date::Date;
 use client_core::util::link_at;
 use client_core::util::week::week_page_name;
 use client_core::view::{ScreenView, SearchView};
-use client_core::{EditPlace, Event, PetaApp, ViewModel};
+use client_core::{BodyModel, EditPlace, Event, PetaApp, ViewModel};
 use crux_core::capability::Operation;
 use crux_core::{Core, Request};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -68,6 +69,8 @@ struct Sent {
     holding: bool,
     page_id: Option<String>,
     rows: Vec<RowView>,
+    /// The folder of the tags that the bodies of `rows` were made with.
+    tags_dir: String,
     focus_seq: u64,
     connection: Option<String>,
     search: Option<(Vec<client_core::view::SearchEntry>, bool)>,
@@ -81,7 +84,7 @@ struct Sent {
 
 pub struct Shell<H: Host> {
     /// Emacs shows the Markdown of an item as it is, so its rows carry no body model (`()`).
-    pub(crate) core: Core<PetaApp<()>>,
+    pub(crate) core: Core<PetaApp<EmacsText>>,
     pub host: H,
     client_id: ClientId,
     apis: HashMap<u64, Request<ApiOp>>,
@@ -379,6 +382,7 @@ impl<H: Host> Shell<H> {
     fn body_changed(&mut self, id: String, body: String) {
         // Emacs has this text already: the render below must not send it back
         if let Some(row) = self.sent.rows.iter_mut().find(|r| r.id == id) {
+            row.text = EmacsText::of_markdown(&body, &self.sent.tags_dir);
             row.body = body.clone();
         }
         let now_ms = self.host.now().now_ms;
@@ -645,7 +649,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_sidebar(&mut self, view: &ViewModel<()>) {
+    fn tell_sidebar(&mut self, view: &ViewModel<EmacsText>) {
         let sidebar = SidebarView::of(&view.sidebar);
         if sidebar != self.sent.sidebar {
             self.sent.sidebar.clone_from(&sidebar);
@@ -653,7 +657,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_rows(&mut self, view: &ViewModel<()>) {
+    fn tell_rows(&mut self, view: &ViewModel<EmacsText>) {
         let rows: Vec<RowView> = view.outline.rows.iter().map(RowView::of).collect();
         let page_id = view.sidebar.current_page_id.clone();
         let changes = list_changes(&self.sent.rows, &rows, |row| &row.id);
@@ -661,6 +665,7 @@ impl<H: Host> Shell<H> {
             return;
         }
         self.sent.rows = rows;
+        self.sent.tags_dir.clone_from(&view.config.tags_dir);
         self.sent.page_id.clone_from(&page_id);
         self.host.emit(Outbound::Rows {
             ack: self.ack,
@@ -669,7 +674,7 @@ impl<H: Host> Shell<H> {
         });
     }
 
-    fn tell_focus(&mut self, view: &ViewModel<()>) {
+    fn tell_focus(&mut self, view: &ViewModel<EmacsText>) {
         let Some(request) = &view.outline.focus_request else {
             return;
         };
@@ -690,7 +695,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_page_path(&mut self, view: &ViewModel<()>) {
+    fn tell_page_path(&mut self, view: &ViewModel<EmacsText>) {
         let path = match &view.screen {
             ScreenView::Page(Some(page)) if !page.is_index && !page.is_atlas => {
                 Some(page.page.canonical_path())
@@ -703,7 +708,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_index(&mut self, view: &ViewModel<()>) {
+    fn tell_index(&mut self, view: &ViewModel<EmacsText>) {
         let index = match &view.screen {
             ScreenView::Page(Some(page)) if page.is_index && !page.is_root_index => {
                 let folder = page.page.dir_path.trim_end_matches('/').to_string();
@@ -722,7 +727,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_properties(&mut self, view: &ViewModel<()>) {
+    fn tell_properties(&mut self, view: &ViewModel<EmacsText>) {
         let rows: Option<Vec<PropertyRow>> = match &view.screen {
             ScreenView::Page(Some(page)) => Some(
                 page.properties
@@ -756,7 +761,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_connection(&mut self, view: &ViewModel<()>) {
+    fn tell_connection(&mut self, view: &ViewModel<EmacsText>) {
         let connection = view.connection.as_str().to_string();
         if self.sent.connection.as_ref() != Some(&connection) {
             self.sent.connection = Some(connection.clone());
@@ -777,7 +782,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_recent(&mut self, view: &ViewModel<()>) {
+    fn tell_recent(&mut self, view: &ViewModel<EmacsText>) {
         let paths: Vec<String> = view
             .sidebar
             .recent_pages
@@ -790,7 +795,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_backlinks(&mut self, view: &ViewModel<()>) {
+    fn tell_backlinks(&mut self, view: &ViewModel<EmacsText>) {
         let groups: Vec<BacklinkEntry> = match &view.screen {
             ScreenView::Page(Some(page)) => {
                 page.backlinks.iter().map(BacklinkEntry::from).collect()
@@ -833,7 +838,7 @@ fn page_titles(result: &ApiResult<ApiOutput>) -> Vec<String> {
 /// The keys whose value is a date and a time. Only the page's own dates cannot be removed, and
 /// they are dates without a definition.
 fn datetime_keys<'a>(
-    view: &ViewModel<()>,
+    view: &ViewModel<EmacsText>,
     rows: impl Iterator<Item = &'a PropertyRow>,
     free_keys: &[FreeKey],
 ) -> Vec<String> {
@@ -851,13 +856,13 @@ fn datetime_keys<'a>(
 
 /// What Emacs shows for the key: the body of its name and its type, so that two keys that
 /// share a body are told apart (ADR 047). A system key keeps its whole name.
-fn label(view: &ViewModel<()>, key: &str) -> String {
+fn label(view: &ViewModel<EmacsText>, key: &str) -> String {
     let name = bare_name(key, &view.config.property_definitions);
     format!("{name} ({})", property_type(view, key))
 }
 
 /// The type to send a value of the key with. A list stays a list, even when it has no definition.
-fn property_type(view: &ViewModel<()>, key: &str) -> String {
+fn property_type(view: &ViewModel<EmacsText>, key: &str) -> String {
     let is_list = match &view.screen {
         ScreenView::Page(Some(page)) => page.properties.iter().any(|p| p.key == key && p.is_list),
         _ => false,

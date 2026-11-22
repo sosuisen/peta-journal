@@ -1,5 +1,6 @@
 //! The JSON lines this process and `peta-journal.el` send each other.
 
+use crate::emacs_text::EmacsText;
 use client_core::app::SelectionKey as CoreSelectionKey;
 use client_core::changes::ListChange;
 use client_core::view::{
@@ -374,7 +375,10 @@ impl SearchKind {
 pub struct RowView {
     pub id: String,
     pub level: i32,
+    /// The Markdown of the body, which Emacs shows while the item is edited (ADR 077).
     pub body: String,
+    /// The body as Emacs shows it while the item is not edited.
+    pub text: EmacsText,
     pub bullet: Bullet,
     /// The state of the task, which Emacs marks behind the bullet. None when the item is
     /// not a task.
@@ -386,11 +390,12 @@ pub struct RowView {
 }
 
 impl RowView {
-    pub fn of(row: &Row<()>) -> RowView {
+    pub fn of(row: &Row<EmacsText>) -> RowView {
         RowView {
             id: row.item.id.clone(),
             level: row.item.level,
             body: row.item.body.clone(),
+            text: row.body_model.clone(),
             bullet: Bullet::of(row.is_broken_transclusion, row.is_transclusion),
             task: TaskMark::of(row.task),
             collapsed: row.is_collapsed && row.has_children,
