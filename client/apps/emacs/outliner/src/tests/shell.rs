@@ -450,6 +450,17 @@ fn starting_an_edit_from_emacs_does_not_move_the_point_back() {
     assert!(driver.focuses().is_empty());
 }
 
+// Emacsは、表示の文字の位置で編集を始められる。シェルは、その位置をMarkdownの位置に直して伝える（ADR 077）。
+#[test]
+fn an_edit_started_at_a_shown_letter_tells_emacs_its_place_in_the_markdown() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "**太字**の後")]);
+    driver.send(Inbound::EditAtLetter {
+        id: "b".into(),
+        letter: 3,
+    });
+    assert_eq!(driver.focuses(), [("b".to_string(), Some(7))]);
+}
+
 /// What the server answers for a split: the item with the text it keeps, and the item made.
 fn split_answer(item: Value, created: Value) -> ApiOutput {
     serde_json::from_value(json!({ "Split": { "item": item, "created": created } })).unwrap()
