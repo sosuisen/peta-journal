@@ -349,6 +349,33 @@ The shell tells the place in the Markdown with a focus."
     (peta-journal-test--goto "b" 0)
     (should (equal (peta-journal-test--shown) "• x\n• y\n"))))
 
+(defun peta-journal-test--click (text)
+  "Click on the start of TEXT in the buffer, as a mouse would."
+  (goto-char (point-min))
+  (search-forward text)
+  (let ((event (list 'mouse-1 (list (selected-window) (match-beginning 0) '(0 . 0) 0))))
+    (funcall (lookup-key (get-text-property (match-beginning 0) 'keymap) [mouse-1]) event)))
+
+;; 表示の形の行のリンクは、クリックで開く。ページへのリンクはgoを送り、Webのリンクはブラウザーで開く。
+(ert-deftest peta-journal-a-click-on-a-shown-link-opens-it ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "x")
+            (peta-journal-test--row
+             "b" 1 "[[頁]] [web](https://example.com/)"
+             :text (peta-journal-test--text
+                    "頁 web\n"
+                    (peta-journal-test--span 0 1 :link '(:Page (:url "/pages/頁")))
+                    (peta-journal-test--span 2 5 :link '(:Web (:url "https://example.com/"))))))
+    (peta-journal-test--goto "a" 0)
+    (setq peta-journal-test--sent nil)
+    (peta-journal-test--click "頁")
+    (should (equal peta-journal-test--sent
+                   '(("edit_finished" :id "a") ("go" :url "/pages/頁"))))
+    (let ((opened nil))
+      (cl-letf (((symbol-function 'browse-url) (lambda (url &rest _) (setq opened url))))
+        (peta-journal-test--click "web"))
+      (should (equal opened "https://example.com/")))))
+
 ;;;; Protecting the marks
 
 ;; バレットと項目の区切りは編集できない。項目をまたぐ削除は、エラーになる。
