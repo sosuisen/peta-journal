@@ -142,6 +142,19 @@ fn apply(list: &[Line], changes: Vec<ListChange<Line>>) -> Vec<Line> {
     list
 }
 
+// 空のリストに行が来たときは、入れ替えになる。空のページに最初の行が届いたときである。
+#[test]
+fn an_empty_list_that_gets_items_is_reset() {
+    let after = [line("a", "one")];
+
+    assert_eq!(
+        changes(&[], &after),
+        vec![ListChange::Reset {
+            items: after.to_vec()
+        }]
+    );
+}
+
 // 前も今も空のときは、操作がない。
 #[test]
 fn two_empty_lists_have_no_changes() {
