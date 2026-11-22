@@ -304,6 +304,22 @@ The shell tells the place in the Markdown with a focus."
       (should (equal (peta-journal--id-at (point)) "b"))
       (should (= (peta-journal--cursor) 7)))))
 
+;; 行が書き換わってpointが別の行に移ると、その行がMarkdownを見せる。編集は、次のコマンドで始まる。
+(ert-deftest peta-journal-the-row-the-point-moves-to-on-new-rows-shows-its-markdown ()
+  (let ((z (peta-journal-test--row "c" 1 "*z*"
+                                   :text (peta-journal-test--text
+                                          "z\n" (peta-journal-test--span 0 1 :looks ["italic"])))))
+    (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                        (peta-journal-test--row "b" 1 "y")
+                                        z)
+      (peta-journal-test--goto "b" 0)
+      (setq peta-journal-test--sent nil)
+      (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "x") z) "page" 0)
+      (should (equal (peta-journal-test--shown) "• x\n• *z*\n"))
+      (should (equal (peta-journal--id-at (point)) "c"))
+      (peta-journal--post-command)
+      (should (equal peta-journal-test--sent '(("edit_requested" :id "c" :cursor 0)))))))
+
 ;;;; Protecting the marks
 
 ;; バレットと項目の区切りは編集できない。項目をまたぐ削除は、エラーになる。
