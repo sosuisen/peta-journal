@@ -32,22 +32,32 @@ pub fn list_changes<T: Clone + PartialEq>(
         }
     }
     for (at, new) in after.iter().enumerate() {
-        match shown.get(at) {
-            Some(old) if id(old) == id(new) => {
-                if old != new {
-                    changes.push(ListChange::Update {
-                        at: at as u32,
-                        item: new.clone(),
-                    });
-                }
-            }
-            _ => {
+        let found = shown[at..].iter().position(|old| id(old) == id(new));
+        match found {
+            None => {
                 shown.insert(at, new.clone());
                 changes.push(ListChange::Insert {
                     at: at as u32,
                     item: new.clone(),
                 });
+                continue;
             }
+            Some(0) => {}
+            Some(later) => {
+                let moved = shown.remove(at + later);
+                shown.insert(at, moved);
+                changes.push(ListChange::Move {
+                    from: (at + later) as u32,
+                    to: at as u32,
+                });
+            }
+        }
+        if shown[at] != *new {
+            shown[at] = new.clone();
+            changes.push(ListChange::Update {
+                at: at as u32,
+                item: new.clone(),
+            });
         }
     }
     changes
