@@ -1,6 +1,7 @@
 use crate::emacs_text::{EmacsLook, EmacsText};
-use client_core::rich_text::RichLink;
+use client_core::rich_text::{RichBlock, RichLink, RichParagraph, RichText};
 use client_core::BodyModel;
+use proptest::prelude::*;
 
 fn text_of(markdown: &str) -> EmacsText {
     EmacsText::of_markdown(markdown, "tags/")
@@ -211,4 +212,95 @@ fn the_cells_of_a_table_line_up_in_columns_and_the_bar_stands_for_the_line_break
             (13, 14, vec![], false),
         ]
     );
+}
+
+/// Parts of bodies of every kind that `RichText` reads.
+const PARTS: &[&str] = &[
+    "plain 文字",
+    "**bold** and *it* ~~struck~~ ==mark==",
+    "# 見出し **強く**",
+    "- a\n- b\n  - c",
+    "1. one\n2. two",
+    "- [ ] task\n- [x] done",
+    "> quote\n>\n> > deep",
+    "```\ncode\nmore\n```",
+    "| a | b |\n|---|---|\n| 長い | x |",
+    "![猫](assets/sample.png)",
+    "![](assets/sample.png)",
+    "---",
+    "see [link](https://example.com/) and [[ページ]] #tag",
+    "- item\n\n  ```\n  in list\n  ```",
+    "> q\n>\n> ```\n> c\n> ```",
+    "a | b",
+];
+
+/// The shown text of `blocks` as the native shells count it: the letters of each paragraph
+/// and of the lines of each code block, each with a line break after it.
+fn native_shown(blocks: &[RichBlock], shown: &mut String) {
+    let paragraph = |paragraph: &RichParagraph, shown: &mut String| {
+        paragraph
+            .runs
+            .iter()
+            .for_each(|run| shown.push_str(&run.text));
+        shown.push('\n');
+    };
+    for block in blocks {
+        match block {
+            RichBlock::Text { paragraphs } => {
+                paragraphs.iter().for_each(|each| paragraph(each, shown))
+            }
+            RichBlock::Code { lines, .. } => {
+                shown.push_str(lines);
+                shown.push('\n');
+            }
+            RichBlock::Table { rows } => rows
+                .iter()
+                .flat_map(|row| &row.cells)
+                .for_each(|cell| paragraph(cell, shown)),
+            RichBlock::Image { .. } => {}
+            RichBlock::Entries { entries } => entries
+                .iter()
+                .for_each(|entry| native_shown(&entry.blocks, shown)),
+            RichBlock::Quote { blocks } => native_shown(blocks, shown),
+        }
+    }
+}
+
+/// The letters of `text` that are shown letters: those of no span that Rust added.
+fn emacs_letters(text: &EmacsText) -> Vec<char> {
+    text.text
+        .chars()
+        .enumerate()
+        .filter(|&(at, _)| {
+            let at = u32::try_from(at).unwrap();
+            !text
+                .spans
+                .iter()
+                .any(|span| !span.letters && span.from <= at && at < span.to)
+        })
+        .map(|(_, letter)| letter)
+        .collect()
+}
+
+proptest! {
+    // 表示の文字だけを拾うと、ネイティブと同じ表示の文字になる。表の縦線は、升の後ろの改行の代わりである。
+    #[test]
+    fn the_shown_letters_of_an_emacs_text_are_those_of_the_native_shells(
+        parts in prop::collection::vec(prop::sample::select(PARTS), 1..6)
+    ) {
+        let markdown = parts.join("\n\n");
+        let mut native = String::new();
+        native_shown(&RichText::of_markdown(&markdown, "tags/").blocks, &mut native);
+        let native: Vec<char> = native.chars().collect();
+
+        let emacs = emacs_letters(&text_of(&markdown));
+
+        prop_assert_eq!(emacs.len(), native.len(), "{:?}", markdown);
+        for (shown, written) in native.iter().zip(&emacs) {
+            prop_assert!(
+                shown == written || (*shown == '\n' && *written == '│'),
+                "{:?}: {:?} for {:?}", markdown, written, shown
+            );
+        }
+    }
 }

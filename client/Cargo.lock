@@ -2944,6 +2944,7 @@ dependencies = [
  "facet_generate 0.22.3",
  "flatmarkdown-ast",
  "page-urls",
+ "proptest",
  "serde",
  "serde_json",
  "unicode-width",

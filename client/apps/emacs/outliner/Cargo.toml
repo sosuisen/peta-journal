@@ -31,3 +31,5 @@ unicode-width = "0.2.3"
 serde_json = { workspace = true }
 # The registry of the types, to write the Lisp of the protocol (ADR 078)
 facet_generate = "=0.22.3"
+# Bodies of every kind, to check that EmacsText counts the shown letters as RichText does
+proptest = "1.12.0"
