@@ -23,7 +23,10 @@
 The last row is one level deeper when DEEPER is non-nil."
   (list :id (format "%04d" n)
         :level (+ (% n 3) 1 (if (and deeper (= n (1- length))) 1 0))
-        :body (format "item %d" n)
+        :body (format "**item** %d" n)
+        :text (list :text (format "item %d\n" n)
+                    :spans (vector (list :from 0 :to 4 :looks ["bold"] :link :null
+                                         :image :null :letters t)))
         :bullet "plain" :task :null :collapsed :false
         :header :null :selected :false))
 
