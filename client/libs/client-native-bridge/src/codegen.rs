@@ -45,7 +45,7 @@ pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
 }
 
 /// The enums with data that a shell takes apart with a `switch`.
-const CLOSED_RECORDS: [&str; 2] = ["RichBlock", "RichLink"];
+const CLOSED_RECORDS: [&str; 4] = ["RichBlock", "RichLink", "ListChange", "Panel"];
 
 /// Writes the same types as the C# project `PetaTypes` under `out/csharp`, for the WinUI shell.
 ///
@@ -138,7 +138,7 @@ fn failed(error: impl std::fmt::Display) -> TypeGenError {
 mod tests {
     use super::*;
 
-    // C#の型では、RichBlockとRichLinkは閉じたrecordで、プロジェクトは.NET 11である。
+    // C#の型では、RichBlock、RichLink、ListChange、Panelは閉じたrecordで、プロジェクトは.NET 11である。
     #[test]
     fn the_enums_of_csharp_are_closed_records_of_dotnet_11() {
         let out = std::env::temp_dir().join(format!("peta-csharp-types-{}", std::process::id()));
