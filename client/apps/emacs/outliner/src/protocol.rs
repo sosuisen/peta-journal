@@ -1,23 +1,43 @@
 //! The JSON lines this process and `peta-journal.el` send each other.
 
-use client_core::app::SelectionKey;
+use client_core::app::SelectionKey as CoreSelectionKey;
 use client_core::view::{
-    BacklinkGroup, PageProperty, Row, SearchEntry, SidebarPage, SidebarView as CoreSidebar,
-    TaskState,
+    BacklinkGroup, PageProperty, Row, SearchEntry as CoreSearchEntry, SearchKind as CoreSearchKind,
+    SidebarPage, SidebarView as CoreSidebar, TaskState,
 };
-use serde::{Deserialize, Serialize};
+use facet::Facet;
+
+/// Reads one line from Emacs. The error says what is wrong with the line.
+pub fn read_line(line: &str) -> Result<Envelope, String> {
+    // The line is read twice, as facet-json 0.46 does not rename the variants of an enum
+    // under `flatten`. Each read leaves out the fields of the other
+    let Sequence { seq } = facet_json::from_str(line).map_err(|e| e.to_string())?;
+    let message = facet_json::from_str(line).map_err(|e| e.to_string())?;
+    Ok(Envelope { seq, message })
+}
+
+/// The number of a line from Emacs, read apart from what the line asks for.
+#[derive(Facet)]
+struct Sequence {
+    seq: u64,
+}
+
+/// Writes a message as one line for Emacs, without the line break.
+pub fn write_line(message: &Outbound) -> String {
+    facet_json::to_string(message).expect("a message is always valid JSON")
+}
 
 /// One line from Emacs. Emacs numbers its lines, so it can tell which of them an answer has seen.
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, PartialEq)]
 pub struct Envelope {
     pub seq: u64,
-    #[serde(flatten)]
     pub message: Inbound,
 }
 
 /// What the user did in Emacs.
-#[derive(Debug, PartialEq, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[derive(Debug, PartialEq, Facet)]
+#[facet(tag = "type", rename_all = "snake_case")]
+#[repr(C)]
 pub enum Inbound {
     Start {
         url: String,
@@ -170,9 +190,47 @@ pub enum Inbound {
     },
 }
 
+/// The keys of the selection mode, by the names of the core's keys.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Facet)]
+#[repr(C)]
+pub enum SelectionKey {
+    Escape,
+    Delete,
+    MoveUp,
+    MoveDown,
+    Indent,
+    Outdent,
+    ExtendUp,
+    ExtendDown,
+    Copy,
+    Cut,
+    Undo,
+    Redo,
+}
+
+impl From<SelectionKey> for CoreSelectionKey {
+    fn from(key: SelectionKey) -> CoreSelectionKey {
+        match key {
+            SelectionKey::Escape => CoreSelectionKey::Escape,
+            SelectionKey::Delete => CoreSelectionKey::Delete,
+            SelectionKey::MoveUp => CoreSelectionKey::MoveUp,
+            SelectionKey::MoveDown => CoreSelectionKey::MoveDown,
+            SelectionKey::Indent => CoreSelectionKey::Indent,
+            SelectionKey::Outdent => CoreSelectionKey::Outdent,
+            SelectionKey::ExtendUp => CoreSelectionKey::ExtendUp,
+            SelectionKey::ExtendDown => CoreSelectionKey::ExtendDown,
+            SelectionKey::Copy => CoreSelectionKey::Copy,
+            SelectionKey::Cut => CoreSelectionKey::Cut,
+            SelectionKey::Undo => CoreSelectionKey::Undo,
+            SelectionKey::Redo => CoreSelectionKey::Redo,
+        }
+    }
+}
+
 /// Which page of a date to open.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Facet)]
+#[facet(rename_all = "snake_case")]
+#[repr(C)]
 pub enum DateUnit {
     Day,
     Week,
@@ -181,8 +239,9 @@ pub enum DateUnit {
 }
 
 /// What Emacs is told to do.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(tag = "t", rename_all = "snake_case")]
+#[derive(Debug, Clone, PartialEq, Facet)]
+#[facet(tag = "t", rename_all = "snake_case")]
+#[repr(C)]
 pub enum Outbound {
     /// Which line of Emacs was handled last, and whether the core holds keys for an editor that
     /// is not there yet. Emacs waits on this after a key that changes the outline.
@@ -262,8 +321,54 @@ pub enum Outbound {
     },
 }
 
+/// One line of the search results. `position` is what [`Inbound::SearchResult`] takes.
+#[derive(Debug, Clone, PartialEq, Facet)]
+pub struct SearchEntry {
+    pub position: usize,
+    pub kind: SearchKind,
+    /// The path of the page, or of the page to create.
+    pub title: String,
+    pub label: String,
+    pub snippet: String,
+}
+
+impl SearchEntry {
+    pub fn of(entry: &CoreSearchEntry) -> SearchEntry {
+        SearchEntry {
+            position: entry.position,
+            kind: SearchKind::of(entry.kind),
+            title: entry.title.clone(),
+            label: entry.label.clone(),
+            snippet: entry.snippet.clone(),
+        }
+    }
+}
+
+/// What a line of the search results opens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Facet)]
+#[facet(rename_all = "snake_case")]
+#[repr(C)]
+pub enum SearchKind {
+    /// Today's journal.
+    Today,
+    Page,
+    Create,
+    Item,
+}
+
+impl SearchKind {
+    pub fn of(kind: CoreSearchKind) -> SearchKind {
+        match kind {
+            CoreSearchKind::Today => SearchKind::Today,
+            CoreSearchKind::Page => SearchKind::Page,
+            CoreSearchKind::Create => SearchKind::Create,
+            CoreSearchKind::Item => SearchKind::Item,
+        }
+    }
+}
+
 /// One row of the outline, as Emacs draws it.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct RowView {
     pub id: String,
     pub level: i32,
@@ -295,8 +400,9 @@ impl RowView {
 
 /// What the mark at the start of a row shows. A task has the bullet of its kind too: its
 /// state is a mark of its own, as in the web frontend.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Facet)]
+#[facet(rename_all = "snake_case")]
+#[repr(C)]
 pub enum Bullet {
     Plain,
     Transclusion,
@@ -316,8 +422,9 @@ impl Bullet {
 }
 
 /// The state of a task, for the mark behind the bullet.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Facet)]
+#[facet(rename_all = "snake_case")]
+#[repr(C)]
 pub enum TaskMark {
     Task,
     Running,
@@ -335,7 +442,7 @@ impl TaskMark {
 }
 
 /// One property of the shown page.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct PropertyRow {
     pub key: String,
     /// What the list shows for the key: the body of its name and its type, as
@@ -360,7 +467,7 @@ impl PropertyRow {
 
 /// A key that the shown page can still take, with what Emacs shows for it (see
 /// [`PropertyRow::label`]).
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct FreeKey {
     pub key: String,
     pub label: String,
@@ -368,7 +475,7 @@ pub struct FreeKey {
 
 /// The sections of the sidebar. The calendar of the web frontend is left out: Emacs has its
 /// own (`peta-journal-calendar`).
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Default, Facet)]
 pub struct SidebarView {
     /// The pages of the folder of the shown page. `None` when there is nothing to list.
     pub index: Option<SidebarIndex>,
@@ -376,7 +483,7 @@ pub struct SidebarView {
     pub recent: Vec<SidebarLine>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct SidebarIndex {
     /// The folder, as `a/b/`, or `(root)/`.
     pub header: String,
@@ -388,7 +495,7 @@ pub struct SidebarIndex {
 }
 
 /// A page of a list of the sidebar, which opens by its path.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct SidebarLine {
     pub label: String,
     /// The folder shown before the label, for a recent page in a folder.
@@ -399,7 +506,7 @@ pub struct SidebarLine {
     pub current: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct SidebarHeading {
     pub id: String,
     pub text: String,
@@ -455,14 +562,14 @@ fn index_path(header: &str) -> String {
 }
 
 /// A page that links to the shown page.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct BacklinkEntry {
     pub title: String,
     pub url: String,
     pub items: Vec<BacklinkLine>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Facet)]
 pub struct BacklinkLine {
     pub text: String,
     pub url: String,

@@ -14,7 +14,12 @@ client-core = { path = "../../../libs/client-core" }
 # The URLs of the pages, as the journal makes them (ADR 061)
 page-urls = { path = "../../../../journal/page-urls" }
 crux_core = "=0.20.0"
-serde = { workspace = true }
-serde_json = { workspace = true }
+# Describes the lines of Emacs, and reads and writes them as JSON (ADR 078)
+facet = "=0.46.5"
+facet-json = "0.46.1"
 client-api-http = { path = "../../../libs/client-api-http" }
 chrono = "0.4.45"
+
+[dev-dependencies]
+# The answers of the server in the tests, and the lines read back as JSON
+serde_json = { workspace = true }

@@ -1,7 +1,15 @@
-use crate::protocol::{Bullet, Envelope, Inbound, Outbound, RowView, SidebarView, TaskMark};
-use client_core::app::SelectionKey;
-use client_core::view::TaskState;
-use serde_json::json;
+use crate::protocol::{
+    read_line, write_line, Bullet, Inbound, Outbound, RowView, SearchEntry, SelectionKey,
+    SidebarView, TaskMark,
+};
+use client_core::app::SelectionKey as CoreSelectionKey;
+use client_core::view::{SearchEntry as CoreSearchEntry, SearchKind as CoreSearchKind, TaskState};
+use serde_json::{json, Value};
+
+/// The line written for `message`, read back as JSON.
+fn written(message: &Outbound) -> Value {
+    serde_json::from_str(&write_line(message)).unwrap()
+}
 
 fn row(bullet: Bullet) -> RowView {
     RowView {
@@ -20,7 +28,7 @@ fn row(bullet: Bullet) -> RowView {
 #[test]
 fn a_line_from_emacs_has_a_sequence_number_and_a_message() {
     let line = r#"{"seq":7,"type":"body_changed","id":"a","body":"日本語"}"#;
-    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    let envelope = read_line(line).unwrap();
     assert_eq!(envelope.seq, 7);
     assert_eq!(
         envelope.message,
@@ -35,7 +43,7 @@ fn a_line_from_emacs_has_a_sequence_number_and_a_message() {
 #[test]
 fn an_answer_is_yes_or_no() {
     let line = r#"{"seq":1,"type":"answer","req":3,"yes":false}"#;
-    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    let envelope = read_line(line).unwrap();
     assert_eq!(envelope.message, Inbound::Answer { req: 3, yes: false });
 }
 
@@ -43,7 +51,7 @@ fn an_answer_is_yes_or_no() {
 #[test]
 fn a_rename_carries_the_new_path() {
     let line = r#"{"seq":1,"type":"rename_page","path":"a/b"}"#;
-    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    let envelope = read_line(line).unwrap();
     assert_eq!(envelope.message, Inbound::RenamePage { path: "a/b".into() });
 }
 
@@ -51,10 +59,10 @@ fn a_rename_carries_the_new_path() {
 #[test]
 fn a_selection_starts_on_an_item_and_takes_keys_by_name() {
     let line = r#"{"seq":1,"type":"select","id":"a"}"#;
-    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    let envelope = read_line(line).unwrap();
     assert_eq!(envelope.message, Inbound::Select { id: "a".into() });
     let line = r#"{"seq":2,"type":"selection_key","key":"MoveDown"}"#;
-    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    let envelope = read_line(line).unwrap();
     assert_eq!(
         envelope.message,
         Inbound::SelectionKey {
@@ -67,7 +75,7 @@ fn a_selection_starts_on_an_item_and_takes_keys_by_name() {
 #[test]
 fn a_transclusion_carries_the_item_and_the_pasted_text() {
     let line = r#"{"seq":1,"type":"paste_as_transclusion","id":"b","text":"abcdefghij"}"#;
-    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    let envelope = read_line(line).unwrap();
     assert_eq!(
         envelope.message,
         Inbound::PasteAsTransclusion {
@@ -76,7 +84,7 @@ fn a_transclusion_carries_the_item_and_the_pasted_text() {
         }
     );
     let line = r#"{"seq":2,"type":"remove_transclusion","id":"b"}"#;
-    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    let envelope = read_line(line).unwrap();
     assert_eq!(
         envelope.message,
         Inbound::RemoveTransclusion { id: "b".into() }
@@ -87,13 +95,13 @@ fn a_transclusion_carries_the_item_and_the_pasted_text() {
 #[test]
 fn a_folder_rename_carries_the_path_and_a_demotion_nothing() {
     let line = r#"{"seq":1,"type":"rename_folder","path":"a/c"}"#;
-    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    let envelope = read_line(line).unwrap();
     assert_eq!(
         envelope.message,
         Inbound::RenameFolder { path: "a/c".into() }
     );
     let line = r#"{"seq":2,"type":"demote_index"}"#;
-    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    let envelope = read_line(line).unwrap();
     assert_eq!(envelope.message, Inbound::DemoteIndex);
 }
 
@@ -101,7 +109,7 @@ fn a_folder_rename_carries_the_path_and_a_demotion_nothing() {
 #[test]
 fn a_stash_carries_the_item() {
     let line = r#"{"seq":1,"type":"send_to_stash","id":"a"}"#;
-    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    let envelope = read_line(line).unwrap();
     assert_eq!(envelope.message, Inbound::SendToStash { id: "a".into() });
 }
 
@@ -109,7 +117,7 @@ fn a_stash_carries_the_item() {
 #[test]
 fn a_page_deletion_carries_nothing() {
     let line = r#"{"seq":1,"type":"delete_page"}"#;
-    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    let envelope = read_line(line).unwrap();
     assert_eq!(envelope.message, Inbound::DeletePage);
 }
 
@@ -117,7 +125,7 @@ fn a_page_deletion_carries_nothing() {
 #[test]
 fn an_image_insertion_carries_the_item_the_cursor_and_the_path() {
     let line = r#"{"seq":1,"type":"insert_image","id":"a","path":"c:/写真/pic.png","cursor":2}"#;
-    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    let envelope = read_line(line).unwrap();
     assert_eq!(
         envelope.message,
         Inbound::InsertImage {
@@ -132,7 +140,7 @@ fn an_image_insertion_carries_the_item_the_cursor_and_the_path() {
 #[test]
 fn a_property_line_carries_its_key_and_value() {
     let set = r#"{"seq":1,"type":"set_property","key":"status","value":"draft"}"#;
-    let envelope: Envelope = serde_json::from_str(set).unwrap();
+    let envelope = read_line(set).unwrap();
     assert_eq!(
         envelope.message,
         Inbound::SetProperty {
@@ -141,7 +149,7 @@ fn a_property_line_carries_its_key_and_value() {
         }
     );
     let delete = r#"{"seq":2,"type":"delete_property","key":"status"}"#;
-    let envelope: Envelope = serde_json::from_str(delete).unwrap();
+    let envelope = read_line(delete).unwrap();
     assert_eq!(
         envelope.message,
         Inbound::DeleteProperty {
@@ -159,7 +167,7 @@ fn rows_are_written_as_json_for_emacs() {
         rows: vec![row(Bullet::Plain)],
     };
     assert_eq!(
-        serde_json::to_value(&message).unwrap(),
+        written(&message),
         json!({
             "t": "rows", "ack": 4, "page_id": "p",
             "rows": [{
@@ -168,7 +176,7 @@ fn rows_are_written_as_json_for_emacs() {
             }],
         })
     );
-    assert!(serde_json::to_string(&message).unwrap().contains("本文"));
+    assert!(write_line(&message).contains("本文"));
 }
 
 // バレットの種類は、壊れた参照、参照、通常の順で決まる。タスクかどうかは、バレットを変えない。
@@ -192,10 +200,14 @@ fn the_state_of_a_task_goes_beside_the_bullet() {
     );
     assert_eq!(TaskMark::of(Some(TaskState::Done)), Some(TaskMark::Done));
     assert_eq!(TaskMark::of(None), None);
-    assert_eq!(
-        serde_json::to_value(TaskMark::Running).unwrap(),
-        json!("running")
-    );
+    let mut task = row(Bullet::Plain);
+    task.task = Some(TaskMark::Running);
+    let message = Outbound::Rows {
+        ack: 1,
+        page_id: None,
+        rows: vec![task],
+    };
+    assert_eq!(written(&message)["rows"][0]["task"], json!("running"));
 }
 
 fn sidebar_page(id: &str, label: &str, path: &str, is_dir: bool) -> client_core::view::SidebarPage {
@@ -273,7 +285,55 @@ fn an_empty_index_list_is_left_out() {
 #[test]
 fn the_sidebar_is_a_line_with_its_type() {
     let message = Outbound::Sidebar(SidebarView::of(&core_sidebar("(root)/", None)));
-    let line = serde_json::to_value(&message).unwrap();
+    let line = written(&message);
     assert_eq!(line["t"], json!("sidebar"));
     assert_eq!(line["index"]["path"], json!("index"));
+}
+
+// Emacsの選択のキーは、同じ名前のコアのキーになる。
+#[test]
+fn a_selection_key_of_emacs_is_the_key_of_the_core_of_the_same_name() {
+    let keys = [
+        SelectionKey::Escape,
+        SelectionKey::Delete,
+        SelectionKey::MoveUp,
+        SelectionKey::MoveDown,
+        SelectionKey::Indent,
+        SelectionKey::Outdent,
+        SelectionKey::ExtendUp,
+        SelectionKey::ExtendDown,
+        SelectionKey::Copy,
+        SelectionKey::Cut,
+        SelectionKey::Undo,
+        SelectionKey::Redo,
+    ];
+    for key in keys {
+        let core: CoreSelectionKey = key.into();
+        assert_eq!(format!("{core:?}"), format!("{key:?}"));
+    }
+}
+
+// 検索の結果の種類は、コアの種類の名前で書き出される。
+#[test]
+fn the_kind_of_a_search_result_is_written_by_the_name_of_the_core() {
+    let kinds = [
+        (CoreSearchKind::Today, "today"),
+        (CoreSearchKind::Page, "page"),
+        (CoreSearchKind::Create, "create"),
+        (CoreSearchKind::Item, "item"),
+    ];
+    for (kind, name) in kinds {
+        let entry = CoreSearchEntry {
+            position: 0,
+            kind,
+            title: "t".into(),
+            label: "l".into(),
+            snippet: "s".into(),
+        };
+        let message = Outbound::Search {
+            results: vec![SearchEntry::of(&entry)],
+            searching: false,
+        };
+        assert_eq!(written(&message)["results"][0]["kind"], json!(name));
+    }
 }

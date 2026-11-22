@@ -6,7 +6,7 @@
 
 use crate::protocol::{
     BacklinkEntry, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView,
-    SidebarView,
+    SearchEntry, SidebarView,
 };
 use client_core::app::{JournalNav, WikiLinkContext};
 use client_core::effects::{
@@ -296,7 +296,7 @@ impl<H: Host> Shell<H> {
             Inbound::InsertImage { id, path, cursor } => self.insert_image(id, path, cursor),
             Inbound::DeleteItem { id } => self.send(Event::DeleteItem { item_id: id }),
             Inbound::Select { id } => self.send(Event::ShiftSelect { item_id: id }),
-            Inbound::SelectionKey { key } => self.send(Event::SelectionKey(key)),
+            Inbound::SelectionKey { key } => self.send(Event::SelectionKey(key.into())),
             Inbound::PasteAsTransclusion { id, text } => {
                 // The core asks for the clipboard text, and gets this one
                 self.clipboard = Some(text);
@@ -751,7 +751,10 @@ impl<H: Host> Shell<H> {
         if self.sent.search != now {
             self.sent.search.clone_from(&now);
             if let Some((results, searching)) = now {
-                self.host.emit(Outbound::Search { results, searching });
+                self.host.emit(Outbound::Search {
+                    results: results.iter().map(SearchEntry::of).collect(),
+                    searching,
+                });
             }
         }
     }

@@ -1,7 +1,7 @@
 //! The real [`Host`]: threads for HTTP, timers and the event stream, and JSON lines on stdin and
 //! stdout. The E2E test in `lisp/test/` runs this file, as a unit test would need the OS.
 
-use crate::protocol::{Envelope, Outbound};
+use crate::protocol::{read_line, write_line, Outbound};
 use crate::shell::{Host, Input, Now, Shell};
 use chrono::{Datelike, Local, Timelike};
 use client_api_http::{call, read_events, upload, UreqHttp};
@@ -67,7 +67,7 @@ impl ThreadHost {
 
 impl Host for ThreadHost {
     fn emit(&mut self, message: Outbound) {
-        let line = serde_json::to_string(&message).expect("a message is always valid JSON");
+        let line = write_line(&message);
         let mut out = self.stdout.lock();
         // Emacs has gone away when this fails, and stdin tells the main loop about that
         let _ = writeln!(out, "{line}").and_then(|()| out.flush());
@@ -117,7 +117,7 @@ impl Host for ThreadHost {
 fn read_emacs(to_main: &Sender<Message>) {
     for line in std::io::stdin().lock().lines() {
         let Ok(line) = line else { break };
-        match serde_json::from_str::<Envelope>(&line) {
+        match read_line(&line) {
             Ok(envelope) => {
                 let _ = to_main.send(Message::Input(Input::Emacs(envelope)));
             }
