@@ -21,5 +21,5 @@ pub fn list_changes<T: Clone + PartialEq>(
     _after: &[T],
     _id: impl Fn(&T) -> &str,
 ) -> Vec<ListChange<T>> {
-    todo!()
+    Vec::new()
 }
