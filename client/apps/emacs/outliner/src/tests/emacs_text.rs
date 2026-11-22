@@ -177,3 +177,19 @@ fn a_code_block_in_a_list_is_flat_behind_the_mark_and_the_indent_of_its_entry() 
         ]
     );
 }
+
+// 引用の中のコードブロックも、行ごとに引用の印の後ろに平らになる。
+#[test]
+fn a_code_block_in_a_quote_is_flat_behind_a_quote_mark_on_each_line() {
+    let text = text_of("> 前\n>\n> ```\n> a\n> ```");
+
+    assert_eq!(text.text, "▎ 前\n▎ a\n");
+    assert_eq!(
+        parts_of(&text),
+        [
+            (0, 2, vec![EmacsLook::Quote], false),
+            (4, 6, vec![EmacsLook::Quote], false),
+            (6, 7, vec![EmacsLook::CodeBlock], true),
+        ]
+    );
+}
