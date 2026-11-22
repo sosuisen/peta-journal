@@ -320,6 +320,16 @@ The shell tells the place in the Markdown with a focus."
       (peta-journal--post-command)
       (should (equal peta-journal-test--sent '(("edit_requested" :id "c" :cursor 0)))))))
 
+;; pointのない行の表示の文字は、編集できない。編集は、Markdownを見せる行だけで行う。
+(ert-deftest peta-journal-the-shown-text-of-a-row-cannot-be-edited ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "yz"))
+    (peta-journal-test--goto "a" 0)
+    (goto-char (1+ (peta-journal--body-start (peta-journal--find-row "b"))))
+    (should-error (insert "w") :type 'text-read-only)
+    (should-error (delete-char 1) :type 'text-read-only)
+    (should (equal (peta-journal-test--shown) "• x\n• yz\n"))))
+
 ;;;; Protecting the marks
 
 ;; バレットと項目の区切りは編集できない。項目をまたぐ削除は、エラーになる。
