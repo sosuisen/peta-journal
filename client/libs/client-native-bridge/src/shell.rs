@@ -1,6 +1,7 @@
 //! [`NativeShell`]: the core under Crux's `EffectRouter`, which sends each effect either to this
 //! side or, as bytes, to the shell.
 
+use crate::changes::{Changes, Shown};
 use crate::clock::Clock;
 use crate::BorderApp;
 use client_core::drag::{DragMove, ItemDrag};
@@ -251,6 +252,8 @@ pub struct NativeShell {
     keys: KeyMap,
     /// The drag of the mouse that started on the text of an item, if one is on.
     drag: Mutex<ItemDrag>,
+    /// What the shell was last told by [`NativeShell::changes`].
+    shown: Mutex<Shown>,
 }
 
 impl NativeShell {
@@ -299,6 +302,7 @@ impl NativeShell {
             to_shell,
             keys: KeyMap::of(key_platform()),
             drag: Mutex::new(ItemDrag::default()),
+            shown: Mutex::default(),
         }
     }
 
@@ -424,6 +428,23 @@ impl NativeShell {
     pub fn view(&self) -> Vec<u8> {
         let view = self.router.routes.border.view();
         view.expect("the view model is always written")
+    }
+
+    /// What changed on the screen since the last call, as bytes of [`Changes`]: the changes
+    /// to the rows of the outline, and the panels that changed (ADR 076). The first call gives
+    /// a reset of the rows and every panel. The shell calls this from its main thread only,
+    /// and draws from nothing else: what this keeps must be what the shell has.
+    pub fn changes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        BincodeFfiFormat::serialize(&mut bytes, &self.take_changes())
+            .expect("the changes are always written");
+        bytes
+    }
+
+    /// What changed since the last call, before it is written as bytes.
+    pub(crate) fn take_changes(&self) -> Changes {
+        let view = self.router.view();
+        self.shown.lock().unwrap().changes(view)
     }
 }
 

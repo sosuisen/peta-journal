@@ -56,6 +56,21 @@ fn an_event_from_the_entrance_shows_in_the_view_model() {
     assert!(String::from_utf8_lossy(&view).contains("apple"));
 }
 
+// 入口から、画面の差分をbytesで読める。開いたページの行が、最初の差分に入る（ADR 076）。
+#[test]
+fn the_changes_of_the_screen_are_read_from_the_entrance_as_bytes() {
+    let (address, _seen) = start_server();
+    let core = PetaCore::new(address, Arc::new(Kept::default()));
+    core.open("/pages/notes".into()).unwrap();
+    wait_until("the page shows", || {
+        String::from_utf8_lossy(&core.view()).contains("the body of a")
+    });
+
+    let changes = core.changes();
+
+    assert!(String::from_utf8_lossy(&changes).contains("the body of a"));
+}
+
 // 入口からコアを閉じると、保存を待っていた本文が、閉じる前にサーバーに保存される（#766）。
 #[test]
 fn closing_from_the_entrance_saves_the_body_waiting_to_be_saved() {

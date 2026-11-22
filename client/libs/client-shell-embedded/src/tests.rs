@@ -178,6 +178,21 @@ fn a_page_is_opened_by_its_url() {
     assert!(core.open(String::new()).is_err());
 }
 
+// 入口から、画面の差分をbytesで読める。開いたページの行が、最初の差分に入る（ADR 076）。
+#[test]
+fn the_changes_of_the_screen_are_read_as_bytes() {
+    let app = App::new();
+    app.download("notes.md", "- an apple\n");
+    let core = app.open(Arc::default());
+    core.sync();
+    core.open("/pages/notes".into()).unwrap();
+    wait_until("the page shows", || shown(&core).contains("an apple"));
+
+    let changes = core.changes();
+
+    assert!(String::from_utf8_lossy(&changes).contains("an apple"));
+}
+
 // アプリが裏に回るときにコアを閉じると、保存を待っていた本文が、閉じる前にジャーナルに保存される（#766）。
 #[test]
 fn closing_saves_the_body_still_waiting_to_be_saved() {

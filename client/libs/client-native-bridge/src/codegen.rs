@@ -1,6 +1,7 @@
 //! Writes the types of the border for a shell that is not written in Rust (ADR 024). The types
 //! come from the shape of the Rust types, so a shell stops compiling when a type changes.
 
+use crate::changes::Changes;
 use crate::shell::{ShellEffect, ShellEffectFfi};
 use client_core::drag::DragMove;
 use client_core::effects::{NavigateOp, UiOp};
@@ -38,12 +39,13 @@ pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
     registry.register_type::<ViewModel<RichText>>()?;
     // The generator does not look into the `Box` that keeps this one in the view model
     registry.register_type::<PageView>()?;
+    registry.register_type::<Changes>()?;
     let generator = registry.build()?;
     generator.swift(&Config::builder(PACKAGE, out.join("swift")).build())
 }
 
 /// The enums with data that a shell takes apart with a `switch`.
-const CLOSED_RECORDS: [&str; 2] = ["RichBlock", "RichLink"];
+const CLOSED_RECORDS: [&str; 4] = ["RichBlock", "RichLink", "ListChange", "Panel"];
 
 /// Writes the same types as the C# project `PetaTypes` under `out/csharp`, for the WinUI shell.
 ///
@@ -111,6 +113,7 @@ fn border_types() -> Result<Registry, TypeGenError> {
     let builder = add::<Typing>(builder)?;
     let builder = add::<ViewModel<RichText>>(builder)?;
     let builder = add::<PageView>(builder)?;
+    let builder = add::<Changes>(builder)?;
     builder.build().map_err(failed)
 }
 
@@ -135,7 +138,7 @@ fn failed(error: impl std::fmt::Display) -> TypeGenError {
 mod tests {
     use super::*;
 
-    // C#の型では、RichBlockとRichLinkは閉じたrecordで、プロジェクトは.NET 11である。
+    // C#の型では、RichBlock、RichLink、ListChange、Panelは閉じたrecordで、プロジェクトは.NET 11である。
     #[test]
     fn the_enums_of_csharp_are_closed_records_of_dotnet_11() {
         let out = std::env::temp_dir().join(format!("peta-csharp-types-{}", std::process::id()));
@@ -149,5 +152,36 @@ mod tests {
             assert!(!types.contains(&format!("abstract record {name} ")));
         }
         assert!(project.contains("<TargetFramework>net11.0</TargetFramework>"));
+    }
+
+    /// Every file the generator wrote under `folder`, as one text.
+    fn written(folder: &Path) -> String {
+        let mut text = String::new();
+        for entry in std::fs::read_dir(folder).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                text += &written(&path);
+            } else {
+                text += &std::fs::read_to_string(&path).unwrap_or_default();
+            }
+        }
+        text
+    }
+
+    // 画面の差分の型（Changes、Panel、ListChange）が、Swift、C#、Kotlinの型として書かれる（ADR 076）。
+    #[test]
+    fn the_types_of_the_changes_are_written_for_every_shell() {
+        let out = std::env::temp_dir().join(format!("peta-change-types-{}", std::process::id()));
+        write_swift_types(&out).unwrap();
+        write_csharp_types(&out).unwrap();
+        write_kotlin_types(&out).unwrap();
+
+        let languages = ["swift", "csharp", "kotlin"].map(|language| written(&out.join(language)));
+        std::fs::remove_dir_all(&out).unwrap();
+        for types in languages {
+            for name in ["Changes", "Panel", "OutlinePanel", "ListChange"] {
+                assert!(types.contains(name), "no {name}");
+            }
+        }
     }
 }

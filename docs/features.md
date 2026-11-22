@@ -1184,6 +1184,19 @@
 - Windowsの付箋紙アプリで、項目の文字をクリックすると、カーソルはその文字のMarkdownでの位置に置かれる。リストの印や区切り線は、コアの数える文字に入らない。印をクリックすると、その後ろの文字の先頭に置かれる
 - Windowsでは、`RichBlock`と`RichLink`は閉じた型で、描かない種類のあるswitch式はビルドを止める
 
+### ネイティブアプリが画面の差分を受け取る
+
+出典: `client/libs/client-native-bridge/src/tests/diff.rs`、`client/libs/client-native-bridge/src/tests/changes.rs`、`client/libs/client-native-bridge/src/tests/shell.rs`、`client/libs/client-native-bridge/src/codegen.rs`、`client-shell-http`の`tests/ffi.rs`、`client-shell-embedded`の`tests.rs`
+
+- ネイティブのシェルは、`changes()`で、前に読んでから変わった所だけを受け取れる（ADR 076）。まだどのシェルも使っていない
+  - アウトラインの行は、挿入、削除、移動、更新、入れ替えの操作の列で届く。操作を順に当てると、シェルの行がコアの行と同じになる
+  - 中身の変わらない行には、操作が来ない。1つのキーでは、その行の更新だけが届く
+  - 消えた行は、後ろの位置から順に削除される。順の変わった行は移動になり、中身も変われば続けて更新になる
+  - 前の行が1つも残らないとき（別のページを開いたとき）と、空のリストに行が来たときは、入れ替えが1つだけ届く
+  - 行のほかは、`ViewModel`の欄ごとのパネルで届く。変わったパネルだけが、丸ごと届く。アウトラインのパネルは、行を除いた残りである
+  - 最初の`changes()`は、行の入れ替えと全部のパネルである。何も変わっていなければ、空である
+- 差分の型（`Changes`、`Panel`、`OutlinePanel`、`ListChange`）は、Swift、C#、Kotlinの型として生成される。C#では、`ListChange`と`Panel`は閉じた型である
+
 ## スマホとDropboxの同期の決まり（Rust）
 
 AndroidとiOSのシェルが使う同期の決まりを、Rustに1回だけ書いたものである（ADR 054）。iOSとAndroidのシェルは、どちらもこれを使う。決まりは、下の「iPhoneで読み書きする」と「Androidで読み書きする」の同期と同じである。
