@@ -1,4 +1,5 @@
 use crate::diff::{list_changes, ListChange};
+use proptest::prelude::*;
 
 /// An item of a list in a test: its id, and what it holds.
 #[derive(Debug, Clone, PartialEq)]
@@ -120,6 +121,35 @@ fn the_changes_applied_in_order_make_the_list_before_into_the_list_after() {
     ];
 
     assert_eq!(apply(&before, changes(&before, &after)), after);
+}
+
+/// A list of up to 8 items, each id at most once and in any order. An item holds one of a
+/// few texts, so that an item of two lists often has another text in the other.
+fn any_list() -> impl Strategy<Value = Vec<Line>> {
+    let ids = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    proptest::sample::subsequence(ids.to_vec(), 0..=ids.len())
+        .prop_shuffle()
+        .prop_flat_map(|ids| {
+            let texts = proptest::collection::vec(0..3u8, ids.len());
+            (Just(ids), texts)
+        })
+        .prop_map(|(ids, texts)| {
+            ids.iter()
+                .zip(texts)
+                .map(|(id, text)| line(id, &format!("text {text}")))
+                .collect()
+        })
+}
+
+proptest! {
+    // IDが重ならない2つのリストなら、どの組でも、操作を順に当てると、前のリストが今のリストになる。
+    #[test]
+    fn the_changes_applied_in_order_make_any_list_into_any_other(
+        before in any_list(),
+        after in any_list(),
+    ) {
+        prop_assert_eq!(apply(&before, changes(&before, &after)), after);
+    }
 }
 
 /// The list as a shell has it after it applied the changes to `list`, one after another.

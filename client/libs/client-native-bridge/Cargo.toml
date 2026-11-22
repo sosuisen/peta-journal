@@ -25,6 +25,8 @@ facet_generate = { version = "=0.22.3", optional = true }
 flatmarkdown = { workspace = true }
 # The files of the images a test pastes
 tempfile = "3"
+# The lists of the property test of the list changes
+proptest = "1.12.0"
 
 [features]
 # Describes the types that cross the border, to generate the types of the shells from them.
