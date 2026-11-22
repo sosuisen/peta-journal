@@ -67,7 +67,7 @@ public final class Shell: ObservableObject {
         self.browse = browse
         self.openSticky = openSticky
         images = AssetImages(server: server)
-        view = Shell.must { try border.view() }
+        view = ViewModel(first: Shell.must { try border.changes() })
         title = view.title
         inbox.shell = self
         if let url { open(url) }
@@ -225,7 +225,7 @@ public final class Shell: ObservableObject {
     private func typed(_ typing: Typing) {
         Shell.must { try border.typed(typing) }
         // As after `send`: a text view that reads its old text back after a key loses the key
-        view = Shell.must { try border.view() }
+        refresh()
     }
 
     /// Answers the confirmation on screen.
@@ -233,7 +233,7 @@ public final class Shell: ObservableObject {
         guard let asked = question else { return }
         question = nil
         Shell.must { try border.answer(asked.id, with: .bool(yes)) }
-        view = Shell.must { try border.view() }
+        refresh()
     }
 
     private func ask(_ asked: Question) {
@@ -246,7 +246,7 @@ public final class Shell: ObservableObject {
         // Not left to the render request. It comes a turn of the main queue later, and a text
         // field that reads its old text back after a key loses the key. Some events, such as
         // the start of an edit, send no render request at all
-        view = Shell.must { try border.view() }
+        refresh()
     }
 
     /// The user pressed a key. The core decides what it means (ADR 052). False when it means
@@ -254,7 +254,7 @@ public final class Shell: ObservableObject {
     public func pressed(_ key: KeyPress) -> Bool {
         guard Shell.must({ try border.press(key) }) else { return false }
         // As after `send`: a text view that reads its old text back after a key loses the key
-        view = Shell.must { try border.view() }
+        refresh()
         return true
     }
 
@@ -262,7 +262,7 @@ public final class Shell: ObservableObject {
     /// the drag leaves the text and selects items, and which items.
     public func dragged(_ step: DragMove) {
         guard Shell.must({ try border.drag(step) }) else { return }
-        view = Shell.must { try border.view() }
+        refresh()
     }
 
     private func handle(_ requests: [Request]) {
@@ -271,7 +271,7 @@ public final class Shell: ObservableObject {
         for request in requests {
             switch request.effect {
             case .render:
-                view = Shell.must { try border.view() }
+                refresh()
             case .navigate(let op):
                 open(op.url)
             case .ui(.focusEditor(_, let keys)):
@@ -288,7 +288,7 @@ public final class Shell: ObservableObject {
             // Not added to the keys of an order before: the editor of that order took them, or
             // no editor took the cursor and they are for no item now
             keysToReplay = replay
-            view = Shell.must { try border.view() }
+            refresh()
         }
         for id in cursors {
             Shell.must { try border.answer(id, with: .done) }
@@ -314,6 +314,19 @@ public final class Shell: ObservableObject {
         default:
             break
         }
+    }
+
+    /// Brings `view` up to date with what changed in the core (ADR 076). Nothing is published
+    /// when nothing changed, so the views that watch the shell are not drawn again for it.
+    private func refresh() {
+        let changes = Shell.must { try border.changes() }
+        guard !changes.rows.isEmpty || !changes.panels.isEmpty else { return }
+        view.apply(changes)
+    }
+
+    /// The whole view model of the core, for a test to see that `view` is the same.
+    func wholeViewOfTheCore() -> ViewModel {
+        Shell.must { try border.view() }
     }
 
     /// Runs what crosses the border. The types on both sides are generated from one source, so

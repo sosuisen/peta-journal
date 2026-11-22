@@ -59,6 +59,38 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(shell.title, "swift-notes")
     }
 
+    // シェルが差分から組み立てた画面は、コアの画面と同じである。ページを開いたとき、入力したとき、項目を分けたとき、動かしたとき、検索したとき、別のページを開いたときである（ADR 076）。
+    func testTheScreenMadeFromTheChangesIsThatOfTheCore() async throws {
+        /// The core may have moved on while its render request still waits on the main queue
+        func waitForTheScreenOfTheCore() async throws {
+            try await waitUntil("the shell shows the screen of the core") { shell.view == shell.wholeViewOfTheCore() }
+        }
+        let shell = try await shellWithPage()
+        try await waitForTheScreenOfTheCore()
+
+        let first = shell.view.outline.rows[0].item.id
+        shell.startEditing(first)
+        shell.typed("first, typed again", into: first)
+        try await waitForTheScreenOfTheCore()
+
+        XCTAssertTrue(press(shell, .enter, in: first, editor("first, typed again", cursor: 18)))
+        try await waitUntil("the item is split") { shell.view.outline.rows.count == 2 }
+        try await waitForTheScreenOfTheCore()
+
+        XCTAssertTrue(
+            press(shell, .down, in: first, editor("first, typed again", cursor: 0), holding: [.shift, .option]))
+        try await waitUntil("the first item is below") { shell.view.outline.rows[1].item.id == first }
+        try await waitForTheScreenOfTheCore()
+
+        shell.search("swift")
+        try await waitUntil("the page is found") { !shell.view.search.results.isEmpty }
+        try await waitForTheScreenOfTheCore()
+
+        shell.open("/pages/another")
+        try await waitUntil("the other page is shown") { shell.title == "another" }
+        try await waitForTheScreenOfTheCore()
+    }
+
     // 項目に入力すると、少しあとにサーバーに保存される。
     func testTypingIntoAnItemIsSavedOnTheServer() async throws {
         let shell = Shell(server: server.address, url: "/pages/swift-notes")
