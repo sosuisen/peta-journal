@@ -50,6 +50,26 @@ pub enum EmacsLook {
     Lowered,
     /// A spoiler: not to be read at a glance.
     Hidden,
+    /// The line of a heading, by its level.
+    Heading1,
+    Heading2,
+    Heading3,
+    Heading4,
+    Heading5,
+    Heading6,
+}
+
+/// The look of the line of a heading of `level`, from 1 to 6. `None` for any other paragraph.
+fn heading_look(level: u8) -> Option<EmacsLook> {
+    match level {
+        1 => Some(EmacsLook::Heading1),
+        2 => Some(EmacsLook::Heading2),
+        3 => Some(EmacsLook::Heading3),
+        4 => Some(EmacsLook::Heading4),
+        5 => Some(EmacsLook::Heading5),
+        6 => Some(EmacsLook::Heading6),
+        _ => None,
+    }
 }
 
 impl BodyModel for EmacsText {
@@ -69,12 +89,25 @@ impl BodyModel for EmacsText {
 
 impl EmacsText {
     fn paragraph(&mut self, paragraph: &RichParagraph) {
+        let (start, first_span) = (self.length, self.spans.len());
         for run in &paragraph.runs {
             self.write(
                 &run.text,
                 Part {
                     looks: looks_of(run.looks),
                     link: run.link.clone(),
+                },
+            );
+        }
+        if let Some(look) = heading_look(paragraph.heading) {
+            // Before the spans of its runs, so that the spans stay in the order of `from`
+            self.spans.insert(
+                first_span,
+                EmacsSpan {
+                    from: start,
+                    to: self.length,
+                    looks: vec![look],
+                    link: None,
                 },
             );
         }
