@@ -233,6 +233,31 @@
     (peta-journal--goto-item "b" 0)
     (should (equal (peta-journal--id-at (point)) "b"))))
 
+;;;; The view mode and the edit mode (ADR 077)
+
+(defun peta-journal-test--span (from to &rest fields)
+  "A span of an EmacsText from FROM to TO, with FIELDS such as :looks."
+  (append fields (list :from from :to to :looks [] :link nil :image nil :letters t)))
+
+(defun peta-journal-test--text (text &rest spans)
+  "An EmacsText of TEXT with SPANS, as the shell sends it."
+  (list :text text :spans (vconcat spans)))
+
+;; pointのない行は、EmacsTextで描かれる。Markdownの記号は見えず、範囲の見た目の色が付く。
+(ert-deftest peta-journal-a-row-without-the-point-shows-its-emacs-text ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "x")
+            (peta-journal-test--row "b" 1 "**太字**の後"
+                                    :text (peta-journal-test--text
+                                           "太字の後\n"
+                                           (peta-journal-test--span 0 2 :looks ["bold"]))))
+    (should (equal (peta-journal-test--shown) "• x\n• 太字の後\n"))
+    (goto-char (point-min))
+    (search-forward "太字")
+    (should (equal (get-text-property (match-beginning 0) 'font-lock-face)
+                   '(peta-journal-bold)))
+    (should-not (get-text-property (match-end 0) 'font-lock-face))))
+
 ;;;; Protecting the marks
 
 ;; バレットと項目の区切りは編集できない。項目をまたぐ削除は、エラーになる。
