@@ -20,6 +20,17 @@ public sealed class ShellTests : IDisposable
         };
         """;
 
+    /// <summary>
+    /// Skips a test of a key with Control on a system other than Windows. The core reads the keys
+    /// of the system it was built for, and a Mac has Command where Windows has Control. The tests
+    /// run on a Mac as well, for those who work there (README).
+    /// </summary>
+    private static void SkipWithoutTheKeysOfWindows() =>
+        SkipTest.When(
+            !OperatingSystem.IsWindows(),
+            "the core built for this system reads Command where Windows has Control"
+        );
+
     private readonly JournalServer server = new(
         18111,
         new Dictionary<string, string> { ["asking"] = AskingExtension }
@@ -621,6 +632,7 @@ public sealed class ShellTests : IDisposable
     [Fact]
     public void The_fold_key_hides_the_children_and_the_unfold_key_shows_them()
     {
+        SkipWithoutTheKeysOfWindows();
         var shell = ShellWithPage();
         var (first, second) = TwoItems(shell);
         Assert.True(Press(shell, Tab, second, Editor("", 0)));
@@ -643,6 +655,7 @@ public sealed class ShellTests : IDisposable
     [Fact]
     public void An_item_without_children_is_not_folded()
     {
+        SkipWithoutTheKeysOfWindows();
         var shell = ShellWithPage();
         var first = shell.View.Outline.Rows[0].Item.Id;
 
@@ -783,6 +796,7 @@ public sealed class ShellTests : IDisposable
     [Fact]
     public void Copy_puts_the_selected_items_on_the_clipboard()
     {
+        SkipWithoutTheKeysOfWindows();
         var shell = ShellWithPage();
         SecondOfTwoSelected(shell);
         Press(shell, Up, Held.Shift);
@@ -875,6 +889,7 @@ public sealed class ShellTests : IDisposable
     [Fact]
     public void A_parent_and_its_child_copied_and_pasted_at_the_end_of_another_item_come_back_in_their_shape()
     {
+        SkipWithoutTheKeysOfWindows();
         var shell = ShellWithPage();
         var third = ParentChildAndThird(shell);
         var parent = shell.View.Outline.Rows[0].Item.Id;
