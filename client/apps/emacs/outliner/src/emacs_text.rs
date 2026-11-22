@@ -320,9 +320,6 @@ impl Writer {
     /// Writes `letters` at the end of the text, with a span when they are not plain. A span
     /// right after one that is the same grows it instead.
     fn write(&mut self, letters: &str, part: Part) {
-        if letters.is_empty() {
-            return;
-        }
         let from = self.length;
         self.made.text.push_str(letters);
         self.length = self
