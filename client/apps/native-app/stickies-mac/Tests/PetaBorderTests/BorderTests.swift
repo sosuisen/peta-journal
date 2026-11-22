@@ -58,15 +58,6 @@ final class BorderTests: XCTestCase {
         Border(server: nowhere) { asked.add($0) }
     }
 
-    // Rustが書いたビューモデルを、Swiftが読める。Swiftが送ったイベントの中身が、そこに入っている。
-    func testTheViewModelOfRustIsReadInSwift() throws {
-        let border = border()
-
-        try border.send(.searchQueryChanged("apple 日本語"))
-
-        XCTAssertEqual(try border.view().search.query, "apple 日本語")
-    }
-
     // Rustが書いた画面の差分を、Swiftが読める。最初の差分には、Swiftが送ったイベントの中身が入っている。
     func testTheChangesOfTheScreenWrittenByRustAreReadInSwift() throws {
         let border = border()

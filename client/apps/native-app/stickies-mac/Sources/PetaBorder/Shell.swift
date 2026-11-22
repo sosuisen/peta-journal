@@ -324,11 +324,6 @@ public final class Shell: ObservableObject {
         view.apply(changes)
     }
 
-    /// The whole view model of the core, for a test to see that `view` is the same.
-    func wholeViewOfTheCore() -> ViewModel {
-        Shell.must { try border.view() }
-    }
-
     /// Runs what crosses the border. The types on both sides are generated from one source, so
     /// a failure here is a build that mixes two versions.
     private static func must<T>(_ crossing: () throws -> T) -> T {

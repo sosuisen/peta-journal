@@ -3,8 +3,8 @@ import XCTest
 
 @testable import PetaBorder
 
-/// The rows that the changes of the core make (ADR 076). That the whole screen is that of the
-/// core is tested in `ShellTests`, against a server.
+/// The rows that the changes of the core make (ADR 076). That the changes make the screen of the
+/// core is tested in Rust, in `client-native-bridge`.
 final class AppliedTests: XCTestCase {
     private func row(_ id: String, _ body: String = "") -> Row {
         Row(

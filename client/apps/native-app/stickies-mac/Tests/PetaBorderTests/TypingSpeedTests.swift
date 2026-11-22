@@ -1,10 +1,11 @@
 import AppKit
 import Foundation
-import PetaBorder
 import PetaScreens
 import PetaTypes
 import SwiftUI
 import XCTest
+
+@testable import PetaBorder
 
 /// Measures how long one key takes on a long page (ADR 024). It prints the times and fails on
 /// none of them. It needs a real journal server, so it is skipped without `PETA_E2E_SERVER`.
@@ -66,33 +67,26 @@ final class TypingSpeedTests: XCTestCase {
     func testAKeyOnALongPage() async throws {
         let url = try await longPage()
 
-        // The border alone: the event into the core, and the view model or the changes out of it
+        // The border alone: the event into the core, and the changes out of it (ADR 076)
         var events: [Double] = []
-        var views: [Double] = []
         var changes: [Double] = []
         let border = Border(server: server.address) { _ in }
         try border.open(url)
-        var seen = try border.view()
+        var seen = ViewModel(first: try border.changes())
         while seen.outline.rows.count < Self.items {
             try await Task.sleep(nanoseconds: 10_000_000)
-            seen = try border.view()
+            seen.apply(try border.changes())
         }
         let first = seen.outline.rows[0].item.id
         try border.send(.editRequested(itemId: first, place: .markdown(0)))
+        _ = try border.changes()
         for n in 0..<Self.keys {
             let body = String(repeating: "a", count: n + 1)
             events.append(try timed { try border.send(.bodyChanged(itemId: first, body: body, nowMs: 0)) })
-            views.append(try timed { _ = try border.view() })
-        }
-        _ = try border.changes()
-        for n in 0..<Self.keys {
-            let body = String(repeating: "c", count: n + 1)
-            try border.send(.bodyChanged(itemId: first, body: body, nowMs: 0))
             changes.append(try timed { _ = try border.changes() })
         }
         report("event into the core", events)
-        report("view model out of the core", views)
-        report("changes out of the core (ADR 076)", changes)
+        report("changes out of the core", changes)
 
         // The whole of it: the shell takes the key and the window is drawn again
         let shell = Shell(server: server.address, url: url)
