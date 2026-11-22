@@ -3,8 +3,8 @@ import XCTest
 
 @testable import PetaShared
 
-/// The rows that the changes of the core make (ADR 076). That the changes make the screen of the
-/// core is tested in Rust, in `client-native-bridge`.
+/// The view model that the changes of the core make (ADR 076). That the core sends the changes
+/// that make its own view model is tested in Rust, in `client-native-bridge`.
 final class AppliedTests: XCTestCase {
     private func row(_ id: String, _ body: String = "") -> Row {
         Row(
@@ -19,6 +19,87 @@ final class AppliedTests: XCTestCase {
 
     private func ids(_ rows: [Row]) -> [String] {
         rows.map(\.item.id)
+    }
+
+    /// The outline panel, with `wiki` to tell one from another.
+    private func outline(selecting: Bool) -> OutlinePanel {
+        OutlinePanel(
+            selectionMode: selecting, focusRequest: nil, focusOrder: nil, focusedItemId: nil, keyRelayHolding: false,
+            wiki: WikiView(itemId: nil, suggestions: [], selectedIndex: 0, x: 0, y: 0), scrolledFromTop: false)
+    }
+
+    private func search(_ query: String) -> SearchView {
+        SearchView(query: query, results: [], showDropdown: false, selectedIndex: nil, searching: false)
+    }
+
+    /// Every panel once, as the first changes of a core hold them. Each panel has a value of
+    /// its own, so a panel put in the place of another is seen.
+    private func everyPanel() -> [Panel] {
+        [
+            .screen(.settings),
+            .atlasCards([]),
+            .atlasCallouts([]),
+            .atlasLinks([]),
+            .atlasLinkSuggestions(["suggested"]),
+            .outline(outline(selecting: true)),
+            .sidebar(
+                SidebarView(
+                    indexHeader: "index", indexSort: IndexSort(key: .name, order: .asc), indexParentPath: nil,
+                    indexPages: [], headings: [], recentPages: [], currentPageId: "current")),
+            .search(search("first")),
+            .config(
+                ConfigView(
+                    markdownDir: "markdown", weekNumbering: .iso, logicalOutdent: true, tagsDir: "tags",
+                    homeLink: "home", propertyDefinitions: [], definitionError: nil)),
+            .connection(.connected),
+            .today("2026-11-22"),
+            .calendar(
+                CalendarView(
+                    year: 2026, month: 11, monthName: "November", monthPage: "", yearPage: "", dayLabels: [],
+                    weeks: [])),
+            .title("the title"),
+            .history(HistoryView(canGoBack: true, canGoForward: false, url: "/pages/back")),
+        ]
+    }
+
+    // 最初の差分から、すべての欄が、それぞれのパネルの値で作られる。行は、入れ替えで届いた行である。
+    func testTheFirstChangesMakeEveryPartFromItsPanel() {
+        let view = ViewModel(first: Changes(rows: [.reset(items: [row("a")])], panels: everyPanel()))
+
+        XCTAssertEqual(view.screen, .settings)
+        XCTAssertEqual(view.atlasLinkSuggestions, ["suggested"])
+        XCTAssertEqual(view.outline.selectionMode, true)
+        XCTAssertEqual(view.sidebar.currentPageId, "current")
+        XCTAssertEqual(view.search.query, "first")
+        XCTAssertEqual(view.config.tagsDir, "tags")
+        XCTAssertEqual(view.connection, .connected)
+        XCTAssertEqual(view.today, "2026-11-22")
+        XCTAssertEqual(view.calendar.monthName, "November")
+        XCTAssertEqual(view.title, "the title")
+        XCTAssertEqual(view.history.url, "/pages/back")
+        XCTAssertEqual(ids(view.outline.rows), ["a"])
+    }
+
+    // 届いたパネルだけが入れ替わり、ほかの欄は前のままである。
+    func testOnlyThePanelsThatCameTakeThePlaceOfTheirParts() {
+        var view = ViewModel(first: Changes(rows: [], panels: everyPanel()))
+
+        view.apply(Changes(rows: [], panels: [.search(search("changed")), .title("another")]))
+
+        XCTAssertEqual(view.search.query, "changed")
+        XCTAssertEqual(view.title, "another")
+        XCTAssertEqual(view.config.tagsDir, "tags")
+        XCTAssertEqual(view.history.url, "/pages/back")
+    }
+
+    // アウトラインのパネルは行を持たないので、届いても行は前のままである。
+    func testTheOutlinePanelKeepsTheRows() {
+        var view = ViewModel(first: Changes(rows: [.reset(items: [row("a"), row("b")])], panels: everyPanel()))
+
+        view.apply(Changes(rows: [], panels: [.outline(outline(selecting: false))]))
+
+        XCTAssertEqual(view.outline.selectionMode, false)
+        XCTAssertEqual(ids(view.outline.rows), ["a", "b"])
     }
 
     // 行の操作は順に当たる。挿入、削除、移動、更新の位置は、その前の操作を当てたあとの行で数える。
