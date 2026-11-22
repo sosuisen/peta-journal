@@ -2,6 +2,7 @@
 //! order to the list it shows.
 
 use serde::Serialize;
+use std::collections::HashSet;
 
 /// One change to a list. A place counts in the list as the changes before this one left it.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
@@ -23,6 +24,13 @@ pub fn list_changes<T: Clone + PartialEq>(
 ) -> Vec<ListChange<T>> {
     let mut changes = Vec::new();
     let mut shown = before.to_vec();
+    let kept: HashSet<&str> = after.iter().map(&id).collect();
+    for at in (0..shown.len()).rev() {
+        if !kept.contains(id(&shown[at])) {
+            shown.remove(at);
+            changes.push(ListChange::Remove { at: at as u32 });
+        }
+    }
     for (at, new) in after.iter().enumerate() {
         match shown.get(at) {
             Some(old) if id(old) == id(new) => {
