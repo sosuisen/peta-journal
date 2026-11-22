@@ -43,7 +43,7 @@ public final class Shell: ObservableObject {
         }
         self.border = border
         self.copy = copy
-        view = Shell.must { try border.view() }
+        view = ViewModel(first: Shell.must { try border.changes() })
         inbox.shell = self
     }
 
@@ -352,10 +352,17 @@ public final class Shell: ObservableObject {
         show()
     }
 
+    /// Brings `view` up to date with what changed in the core (ADR 076).
     private func show() {
-        let next = Shell.must { try border.view() }
-        // Not set again when it is the same: everything that watches the view would be drawn
-        if next != view { view = next }
+        let changes = Shell.must { try border.changes() }
+        // Not set when nothing changed: everything that watches the view would be drawn
+        guard !changes.rows.isEmpty || !changes.panels.isEmpty else { return }
+        view.apply(changes)
+    }
+
+    /// The whole view model of the core, for a test to see that `view` is the same.
+    func wholeViewOfTheCore() -> ViewModel {
+        Shell.must { try border.view() }
     }
 
     private func handle(_ requests: [Request]) {
