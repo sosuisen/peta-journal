@@ -7,6 +7,7 @@
 mod clock;
 #[cfg(feature = "facet_typegen")]
 pub mod codegen;
+mod diff;
 mod html;
 mod links;
 mod shell;
