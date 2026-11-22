@@ -7,6 +7,16 @@ use client_core::view::{
 };
 use serde::{Deserialize, Serialize};
 
+/// Reads one line from Emacs. The error says what is wrong with the line.
+pub fn read_line(line: &str) -> Result<Envelope, String> {
+    serde_json::from_str(line).map_err(|e| e.to_string())
+}
+
+/// Writes a message as one line for Emacs, without the line break.
+pub fn write_line(message: &Outbound) -> String {
+    serde_json::to_string(message).expect("a message is always valid JSON")
+}
+
 /// One line from Emacs. Emacs numbers its lines, so it can tell which of them an answer has seen.
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct Envelope {

@@ -9,7 +9,7 @@
 //! program writes those lines to stdout; the time Emacs takes to read them is not in here.
 
 use super::shell::{item, Driver};
-use crate::protocol::{Inbound, Outbound};
+use crate::protocol::{write_line, Inbound, Outbound};
 use std::time::{Duration, Instant};
 
 const LENGTHS: [usize; 4] = [1, 10, 100, 1000];
@@ -37,7 +37,7 @@ fn time(driver: &mut Driver, message: Inbound) -> (Duration, usize) {
     let bytes: usize = driver
         .sent()
         .iter()
-        .map(|m: &Outbound| serde_json::to_string(m).unwrap().len() + 1)
+        .map(|m: &Outbound| write_line(m).len() + 1)
         .sum();
     (start.elapsed(), bytes)
 }
