@@ -1,7 +1,7 @@
 //! What changed on the screen since a shell was last told (ADR 076): the changes to the rows
 //! of the outline, and each panel that changed, whole.
 
-use crate::diff::ListChange;
+use crate::diff::{list_changes, ListChange};
 use client_core::app::ConnectionState;
 use client_core::outline::{FocusOrder, FocusRequest};
 use client_core::screens::atlas::{Callout, LinkCard};
@@ -58,16 +58,34 @@ pub struct OutlinePanel {
 
 /// What the shell was last told: the rows and the panels it has now.
 #[derive(Default)]
-pub struct Shown {}
+pub struct Shown {
+    /// The rows and the panels the shell has. None before it was first told.
+    had: Option<(Vec<Row<RichText>>, Vec<Panel>)>,
+}
 
 impl Shown {
     /// What changed from what the shell has to `view`. The shell has `view` after this.
     pub fn changes(&mut self, view: ViewModel<RichText>) -> Changes {
         let (rows, panels) = split(view);
-        Changes {
-            rows: vec![ListChange::Reset { items: rows }],
-            panels,
-        }
+        let changes = match &self.had {
+            None => Changes {
+                rows: vec![ListChange::Reset {
+                    items: rows.clone(),
+                }],
+                panels: panels.clone(),
+            },
+            Some((had_rows, had_panels)) => Changes {
+                rows: list_changes(had_rows, &rows, |row| &row.item.id),
+                panels: panels
+                    .iter()
+                    .zip(had_panels)
+                    .filter(|(panel, had)| panel != had)
+                    .map(|(panel, _)| panel.clone())
+                    .collect(),
+            },
+        };
+        self.had = Some((rows, panels));
+        changes
     }
 }
 
