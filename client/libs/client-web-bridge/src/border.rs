@@ -2,6 +2,13 @@
 //! those of the Rust fields, as the generated TypeScript has them (ADR 080). The names that
 //! serde gives for REST do not cross here.
 
+use facet::Facet;
+
+/// Reads a value the shell wrote. The error says why the JSON is not one.
+pub fn read<T: Facet<'static>>(json: &str) -> Result<T, String> {
+    facet_json::from_str(json).map_err(|error| error.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
