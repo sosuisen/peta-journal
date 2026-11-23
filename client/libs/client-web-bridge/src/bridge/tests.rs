@@ -4,6 +4,7 @@ use client_core::effects::{
 };
 use client_core::model::{Page, PageWithItems, Uploaded};
 use client_core::rest::ClientId;
+use client_core::screens::page::ATLAS_NAME;
 use client_core::testing::plain_item;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
@@ -21,6 +22,8 @@ struct Browser {
     timers: RefCell<Vec<(u64, Done<()>)>>,
     /// The files sent to the server, oldest first.
     uploads: RefCell<Vec<String>>,
+    /// What the local storage of the browser holds, by its key.
+    stored: RefCell<Vec<(&'static str, &'static str)>>,
     /// The URLs the address bar was given, and whether each replaced the one before.
     urls: RefCell<Vec<(String, bool)>>,
     asked: RefCell<Vec<(u32, UiOp)>>,
@@ -71,6 +74,12 @@ impl Host for FakeHost {
             .timers
             .borrow_mut()
             .retain(|(running, _)| *running != id);
+    }
+
+    fn load(&self, key: &str) -> Option<String> {
+        let stored = self.0.stored.borrow();
+        let found = stored.iter().find(|(stored, _)| *stored == key);
+        found.map(|(_, value)| value.to_string())
     }
 
     fn go_to(&self, url: &str, replace: bool) {
@@ -330,4 +339,28 @@ fn every_event_of_the_server_stream_reaches_the_core() {
     screen.serve();
 
     assert_eq!(screen.calls_named("GetRecentPages"), read + 2);
+}
+
+// 起動すると、ブラウザに残した並べ方とアトラスのフォルダがコアに戻る。
+#[test]
+fn the_start_gives_the_core_the_sorts_and_the_atlas_folders_the_browser_kept() {
+    let screen = Screen::new();
+    // As the web app in Leptos wrote them
+    screen.browser.stored.borrow_mut().extend([
+        (
+            "sidebar-index-sort",
+            r#"{"":{"key":"modified","order":"desc"}}"#,
+        ),
+        ("atlas-dirs", r#"[""]"#),
+    ]);
+
+    let changes = screen.bridge.start("/today");
+    screen.bridge.update(r#""NavigateToRoot""#).unwrap();
+
+    assert!(
+        changes.contains(r#""index_sort":{"key":"Modified","order":"Desc"}"#),
+        "{changes}"
+    );
+    let urls = screen.urls();
+    assert_eq!(urls.last().unwrap().0, format!("/pages/{ATLAS_NAME}"));
 }
