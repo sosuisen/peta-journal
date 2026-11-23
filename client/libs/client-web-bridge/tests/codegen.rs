@@ -19,6 +19,21 @@ fn the_program_writes_the_types_into_the_folder_it_is_given() {
     assert!(types.contains("export class Changes"));
 }
 
+// 書けない場所を渡すと、理由を示して失敗する。
+#[test]
+fn the_program_given_a_place_it_cannot_write_shows_why_and_fails() {
+    let file = Path::new(env!("CARGO_TARGET_TMPDIR")).join("web-types-not-a-folder");
+    std::fs::write(&file, "a file, not a folder").unwrap();
+
+    let output = Command::new(env!("CARGO_BIN_EXE_codegen"))
+        .arg(file.join("types"))
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    assert!(!output.stderr.is_empty());
+}
+
 // フォルダを渡さないと、使い方を示して失敗する。
 #[test]
 fn the_program_without_a_folder_shows_its_usage_and_fails() {
