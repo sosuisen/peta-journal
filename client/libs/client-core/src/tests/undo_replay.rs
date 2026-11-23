@@ -936,3 +936,42 @@ fn redoing_an_enter_leaves_only_the_new_item_being_edited() {
     assert!(h.model.state.is_editing("new1"));
     assert!(!h.model.state.is_editing("a"));
 }
+
+/// The ids the moves of the batches sent to the server move.
+fn moved_ids(h: &Harness) -> Vec<Vec<String>> {
+    batch_calls(&h.api)
+        .into_iter()
+        .flatten()
+        .filter_map(|op| match op {
+            BatchOpInput::Move { ids, .. } => Some(ids),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Two items, after an edit of the body of b that the undo history holds.
+fn harness_after_an_edit_of_b() -> Harness {
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "b2")]);
+    h.model
+        .undo
+        .record_update("body", &item("b", 1, "b1"), &item("b", 1, "b2"), 0);
+    h
+}
+
+// 移動の答えが届く前のCtrl+Zは、答えが届いてから、その移動を戻す。前の操作は戻さない。
+#[test]
+fn an_undo_pressed_before_the_answer_of_a_move_undoes_that_move_when_the_answer_is_there() {
+    let mut h = harness_after_an_edit_of_b();
+    h.hold("MoveItems");
+    h.send(Event::MoveDown {
+        item_id: "a".into(),
+    });
+
+    h.send(Event::Undo);
+    assert!(batch_calls(&h.api).is_empty());
+
+    h.release_held();
+    assert_eq!(h.items_ids(), ["a", "b"]);
+    assert_eq!(moved_ids(&h), [["a".to_string()]]);
+    assert_eq!(h.bodies(), ["a=a", "b=b2"]);
+}
