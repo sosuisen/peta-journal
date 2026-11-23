@@ -173,7 +173,8 @@ export function textBeforePoint(
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
   let before = '';
   for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-    const text = node.textContent ?? '';
+    // The walker shows only text nodes
+    const text = (node as Text).data;
     if (node === caret.offsetNode) {
       return before + text.slice(0, caret.offset);
     }
