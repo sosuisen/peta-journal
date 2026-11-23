@@ -16,6 +16,7 @@ use client_core::rest::ClientId;
 use client_core::typing::{self, Typing};
 use client_core::{Event, PetaApp, Route};
 use client_page_links::{copied_html, AppLinks};
+use crux_core::capability::Operation;
 use crux_core::{Core, Request, RequestHandle};
 use serde::de::DeserializeOwned;
 use std::cell::{Cell, RefCell};
@@ -277,11 +278,7 @@ impl<H: Host> Bridge<H> {
         self.process(effects);
     }
 
-    fn answer<Op: crux_core::capability::Operation>(
-        &self,
-        request: &mut Request<Op>,
-        output: Op::Output,
-    ) {
+    fn answer<Op: Operation>(&self, request: &mut Request<Op>, output: Op::Output) {
         if let Ok(effects) = self.core.resolve(request, output) {
             self.process(effects);
         }
@@ -300,7 +297,6 @@ impl<H: Host> Bridge<H> {
                     let op = request.operation;
                     self.go_to(&op.url, op.replace);
                 }
-                _ => {}
             }
         }
         if self.calls.get() == 0 && self.changed.get() {
@@ -308,13 +304,22 @@ impl<H: Host> Bridge<H> {
         }
     }
 
-    fn listen(&self, mut request: Request<SseOp>) {
+    /// What gives the core each answer to the request, once the browser has it.
+    fn answers_to<Op: Operation + 'static>(
+        &self,
+        mut request: Request<Op>,
+    ) -> impl FnMut(Op::Output) + 'static {
         let me = self.me.clone();
-        self.host.listen(Box::new(move |event| {
+        move |output| {
+            // The shell is gone, and the core with it
             if let Some(me) = me.upgrade() {
-                me.answer(&mut request, event);
+                me.answer(&mut request, output);
             }
-        }));
+        }
+    }
+
+    fn listen(&self, request: Request<SseOp>) {
+        self.host.listen(Box::new(self.answers_to(request)));
     }
 
     fn time(&self, request: Request<TimerOp>) {
@@ -383,13 +388,7 @@ impl<H: Host> Bridge<H> {
             _ => {}
         }
         let op = request.operation.clone();
-        let me = self.me.clone();
-        let done = Box::new(move |output| {
-            if let Some(me) = me.upgrade() {
-                me.answer(&mut request, output);
-            }
-        });
-        self.host.screen(&op, done);
+        self.host.screen(&op, Box::new(self.answers_to(request)));
     }
 
     /// Numbers a request for the shell, and keeps it until the shell answers. A notification
