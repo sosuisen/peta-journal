@@ -41,24 +41,26 @@ fn body_to_file(body: &mut String) {
 /// same body. The two have the same lines. Only a blank line or a line of backslashes differs,
 /// and a cursor on a blank line, or on the backslash in its place, goes to the start of it.
 fn moved_cursor(from: &str, to: &str, cursor: usize) -> usize {
-    let mut before = 0;
-    let mut rest = cursor;
-    for (from_line, to_line) in from.split('\n').zip(to.split('\n')) {
-        let from_length = from_line.chars().count();
-        let to_length = to_line.chars().count();
-        if rest <= from_length {
-            let blank = from_line.trim().is_empty() || to_line.trim().is_empty();
-            let column = if from_line != to_line && blank {
-                0
-            } else {
-                rest
-            };
-            return before + column.min(to_length);
-        }
-        rest -= from_length + 1;
-        before += to_length + 1;
-    }
-    to.chars().count()
+    let head: String = from.chars().take(cursor).collect();
+    let row = head.matches('\n').count();
+    let column = head
+        .rsplit('\n')
+        .next()
+        .map_or(0, |line| line.chars().count());
+    let from_line = from.split('\n').nth(row).unwrap_or_default();
+    let to_line = to.split('\n').nth(row).unwrap_or_default();
+    let blank = from_line.trim().is_empty() || to_line.trim().is_empty();
+    let column = if from_line != to_line && blank {
+        0
+    } else {
+        column.min(to_line.chars().count())
+    };
+    let before: usize = to
+        .split('\n')
+        .take(row)
+        .map(|l| l.chars().count() + 1)
+        .sum();
+    before + column
 }
 
 /// The answer of the server, with the bodies as the shell sees them.
@@ -82,11 +84,14 @@ pub fn output_to_shell(mut output: ApiOutput) -> ApiOutput {
             .filter_map(|entry| entry.source_item.as_mut())
             .for_each(item_to_shell),
         ApiOutput::Pasted(pasted) => {
-            if let Some(item) = pasted.items.iter().find(|i| i.id == pasted.cursor.item_id) {
+            let cursor = &mut pasted.cursor;
+            for item in &mut pasted.items {
                 let shell = flatmarkdown::body_from_file(&item.body);
-                pasted.cursor.position = moved_cursor(&item.body, &shell, pasted.cursor.position);
+                if item.id == cursor.item_id {
+                    cursor.position = moved_cursor(&item.body, &shell, cursor.position);
+                }
+                item.body = shell;
             }
-            items_to_shell(&mut pasted.items);
         }
         ApiOutput::Split(split) => {
             item_to_shell(&mut split.item);
