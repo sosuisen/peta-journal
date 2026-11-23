@@ -3,12 +3,14 @@
 
 use crate::body::HtmlBody;
 use crate::border::{read, write};
+use crate::lanes::{lane_of, Lane};
 use client_core::changes::{Changes, Shown};
-use client_core::effects::{ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto};
-use client_core::policy::InOrder;
+use client_core::effects::{ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, UiOp, UiOutput};
+use client_core::policy::{InOrder, Questions};
 use client_core::{Event, PetaApp, Route};
-use crux_core::{Core, Request};
+use crux_core::{Core, Request, RequestHandle};
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
 /// What the browser calls once it has the answer.
@@ -27,7 +29,7 @@ pub trait Host: 'static {
 
     /// Gives the shell an operation of the screen that only it can do, with its number. The
     /// shell answers with [`Bridge::resolve`].
-    fn ask(&self, id: u32, op: &client_core::effects::UiOp);
+    fn ask(&self, id: u32, op: &UiOp);
 
     /// Tells the shell that the screen changed while it was not calling. It then takes the
     /// changes with [`Bridge::changes`].
@@ -41,6 +43,11 @@ pub struct Bridge<H: Host> {
     me: Weak<Bridge<H>>,
     shown: RefCell<Shown<HtmlBody>>,
     to_server: RefCell<InOrder<Request<ApiOp>>>,
+    /// The requests the shell was given and has not answered yet, by their number.
+    asked: RefCell<HashMap<u32, Request<UiOp>>>,
+    last_asked: Cell<u32>,
+    /// The questions for the shell: one at a time, as in every shell (`client_core::policy`).
+    questions: RefCell<Questions<Request<UiOp>>>,
     /// How deep the calls of the shell are. The changes of a call go back as what it returns.
     calls: Cell<u32>,
     /// The screen changed since the shell last took the changes.
@@ -55,6 +62,9 @@ impl<H: Host> Bridge<H> {
             me: me.clone(),
             shown: RefCell::default(),
             to_server: RefCell::default(),
+            asked: RefCell::default(),
+            last_asked: Cell::new(0),
+            questions: RefCell::default(),
             calls: Cell::new(0),
             changed: Cell::new(false),
         })
@@ -74,6 +84,23 @@ impl<H: Host> Bridge<H> {
     pub fn update(&self, event: &str) -> Result<String, String> {
         let event: Event = read(event)?;
         Ok(self.in_call(|| self.send(event)))
+    }
+
+    /// Takes the answer of the shell to the request `id`: a [`UiOutput`] as JSON. When that
+    /// was its question, the shell gets the next one. Returns the changes.
+    pub fn resolve(&self, id: u32, output: &str) -> Result<String, String> {
+        let output: UiOutput = read(output)?;
+        let request = self.asked.borrow_mut().remove(&id);
+        let mut request = request.ok_or_else(|| format!("No request {id} waits for an answer"))?;
+        Ok(self.in_call(|| {
+            // What the core asks because of this answer goes behind the questions that wait
+            self.answer(&mut request, output);
+            let mut given = None;
+            self.questions
+                .borrow_mut()
+                .answered(id, |next| self.keep(next, &mut given));
+            self.tell(given);
+        }))
     }
 
     /// What changed on the screen since the last call, as JSON. The first call gives a reset.
@@ -114,11 +141,47 @@ impl<H: Host> Bridge<H> {
             match effect {
                 Effect::Render(_) => self.changed.set(true),
                 Effect::Api(request) => self.call(request),
+                Effect::Ui(request) => self.ui(request),
                 _ => {}
             }
         }
         if self.calls.get() == 0 && self.changed.get() {
             self.host.rendered();
+        }
+    }
+
+    fn ui(&self, request: Request<UiOp>) {
+        let mut given = None;
+        match lane_of(&request.operation) {
+            Lane::Shell => {
+                self.keep(request, &mut given);
+            }
+            Lane::Question => self
+                .questions
+                .borrow_mut()
+                .ask(request, |question| self.keep(question, &mut given)),
+            Lane::Wasm => {}
+        }
+        self.tell(given);
+    }
+
+    /// Numbers a request for the shell, and keeps it until the shell answers. A notification
+    /// has no answer, so it is not kept.
+    fn keep(&self, request: Request<UiOp>, given: &mut Option<(u32, UiOp)>) -> u32 {
+        let id = self.last_asked.get() + 1;
+        self.last_asked.set(id);
+        *given = Some((id, request.operation.clone()));
+        if !matches!(request.handle, RequestHandle::Never) {
+            self.asked.borrow_mut().insert(id, request);
+        }
+        id
+    }
+
+    /// Gives the shell the request kept. Not while the questions are borrowed: the shell may
+    /// answer at once.
+    fn tell(&self, given: Option<(u32, UiOp)>) {
+        if let Some((id, op)) = given {
+            self.host.ask(id, &op);
         }
     }
 
