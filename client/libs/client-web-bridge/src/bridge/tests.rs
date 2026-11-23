@@ -1,5 +1,7 @@
 use super::*;
-use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, UiOp};
+use client_core::effects::{
+    ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp,
+};
 use client_core::model::{Page, PageWithItems, Uploaded};
 use client_core::testing::plain_item;
 use std::cell::{Cell, RefCell};
@@ -12,6 +14,8 @@ struct Browser {
     calls: RefCell<VecDeque<(ApiOp, Done<ApiResult<ApiOutput>>)>>,
     /// Every request to the server, oldest first, answered or not.
     called: RefCell<Vec<ApiOp>>,
+    /// What the stream of the server calls with each of its events.
+    stream: RefCell<Option<Box<dyn FnMut(SseEvent)>>>,
     /// The timers that run, with what each calls when its time comes.
     timers: RefCell<Vec<(u64, Done<()>)>>,
     /// The files sent to the server, oldest first.
@@ -51,6 +55,10 @@ impl Host for FakeHost {
             original_name: "picture.png".into(),
         };
         done(Ok(ApiOutput::Uploaded(uploaded)));
+    }
+
+    fn listen(&self, heard: Box<dyn FnMut(SseEvent)>) {
+        *self.0.stream.borrow_mut() = Some(heard);
     }
 
     fn start_timer(&self, id: u64, _ms: u32, fired: Done<()>) {
@@ -133,6 +141,12 @@ impl Screen {
     fn open_notes(&self) {
         self.bridge.route("/pages/notes");
         self.serve();
+    }
+
+    fn server_says(&self, event: SseEvent) {
+        let mut stream = self.browser.stream.borrow_mut();
+        let heard = stream.as_mut().expect("the stream of the server is open");
+        heard(event);
     }
 
     /// Lets the time of every timer that runs pass.
@@ -299,4 +313,17 @@ fn a_timer_reaches_the_core_when_its_time_comes_and_a_cancelled_one_does_not() {
     screen.let_time_pass();
 
     assert_eq!(screen.searches(), ["second"]);
+}
+
+// サーバーのイベントの流れは、いくつでもコアに届く。開くたびに、最近のページが読み直される。
+#[test]
+fn every_event_of_the_server_stream_reaches_the_core() {
+    let screen = Screen::new();
+    screen.bridge.start("/today");
+    let read = screen.calls_named("GetRecentPages");
+
+    screen.server_says(SseEvent::Open);
+    screen.server_says(SseEvent::Open);
+
+    assert_eq!(screen.calls_named("GetRecentPages"), read + 2);
 }
