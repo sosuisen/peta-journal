@@ -1,11 +1,11 @@
 use crate::app::{EditPlace, Event};
 use crate::effects::ApiOutput;
 use crate::harness::{batch_calls, create_calls, delete_calls, item, update_calls, Harness};
+use crate::model::ItemExt;
 use std::collections::BTreeMap;
 
 use crate::model::{
-    BatchOpInput, Batched, Item, ItemPosition, PropertyValue, PropertyValueInput, TaskState,
-    TranscludedTrees,
+    BatchOpInput, Batched, Item, ItemPosition, PropertyValue, TaskState, TranscludedTrees,
 };
 use crate::outline::CursorState;
 use crate::testing::item_with;
@@ -592,12 +592,7 @@ fn undo_of_a_delete_sends_the_transclusion_and_the_properties_with_the_create() 
         panic!("not a create: {:?}", batch_calls(&h.api));
     };
     assert_eq!(transclude_item_id.as_deref(), Some("s"));
-    let expected: BTreeMap<String, PropertyValueInput> = gone
-        .properties
-        .iter()
-        .map(|(key, value)| (key.clone(), value.clone().into()))
-        .collect();
-    assert_eq!(properties, &expected);
+    assert_eq!(properties, &gone.properties);
 }
 
 fn create_op(id: &str, after: &str, level: i32, body: &str) -> BatchOpInput {

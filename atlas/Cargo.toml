@@ -14,6 +14,9 @@ marks = ["dep:picturesque-marks", "dep:serde", "dep:serde_json"]
 measure = ["dep:rustybuzz"]
 # Describes `Bounds` for the generation of the types of the native shells
 facet = ["dep:facet"]
+# Reads the item of the answer of the server as an atlas item. The client takes that type from
+# journal-api-types, and only this crate or that one may join it to `AtlasItem` (ADR 082).
+api-types = ["dep:journal-api-types"]
 
 [dependencies]
 picturesque-marks = { version = "0.4", optional = true }
@@ -21,3 +24,4 @@ serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
 rustybuzz = { version = "0.20.1", optional = true }
 facet = { version = "=0.46.5", optional = true }
+journal-api-types = { path = "../journal/journal-api-types", optional = true }

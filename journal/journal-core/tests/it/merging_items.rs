@@ -31,7 +31,7 @@ fn merging_appends_the_body_and_hands_the_children_to_the_receiving_item() {
         .merge(json!({ "itemId": id(&rows[2]), "intoId": id(&rows[0]) }))
         .unwrap();
 
-    assert_eq!(merged.item.body, "firstsecond");
+    assert_eq!(merged.item.item.body, "firstsecond");
     assert_eq!(
         notes.outline_of(&page),
         vs(&["1:firstsecond", "2:first child", "2:second child"])
@@ -52,7 +52,7 @@ fn merging_joins_the_bodies_the_request_carries_and_the_stored_ones_for_the_rest
     let merged = notes
         .merge(json!({ "itemId": id(&rows[1]), "intoId": id(&rows[0]), "body": "second typed" }))
         .unwrap();
-    assert_eq!(merged.item.body, "firstsecond typed");
+    assert_eq!(merged.item.item.body, "firstsecond typed");
 
     notes
         .merge(json!({ "itemId": id(&rows[2]), "intoId": id(&rows[0]), "intoBody": "typed " }))

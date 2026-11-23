@@ -11,6 +11,7 @@
 //! not saved yet (ADR 011). The screen changes when its answer is there.
 
 use crate::app::{done, log_error, run, Cmd, Event, Model, MoveDirection};
+use crate::model::ItemExt;
 use crate::model::{Item, ItemPosition, ItemRef, Page};
 use crate::ops::edit::{auto_save_again, take_unsaved};
 use crate::ops::file_reload::{leave_the_edit, read_again_if_out_of_place, replace_page, AskedAt};

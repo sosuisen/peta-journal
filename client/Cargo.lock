@@ -3073,6 +3073,7 @@ name = "peta-atlas"
 version = "0.1.0"
 dependencies = [
  "facet",
+ "journal-api-types",
  "picturesque-marks",
  "serde",
  "serde_json",

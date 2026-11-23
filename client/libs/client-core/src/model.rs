@@ -2,123 +2,18 @@
 
 pub use property_names::ValueType;
 use property_names::{body_of, type_of};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// An item as the server returns it (`ItemDto` in `journal-core/src/dto.rs`).
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Item {
-    pub id: String,
-    pub page_id: String,
-    #[serde(default)]
-    pub dir_path: String,
-    #[serde(default)]
-    pub name: String,
-    /// "journal" or "doc", from the parent page.
-    #[serde(rename = "type", default)]
-    pub item_type: String,
-    #[serde(default)]
-    pub created_date: i64,
-    #[serde(default)]
-    pub modified_date: i64,
-    #[serde(default)]
-    pub idx: String,
-    pub level: i32,
-    #[serde(default)]
-    pub body: String,
-    #[serde(default)]
-    pub collapsed: bool,
-    #[serde(default)]
-    pub types: Vec<String>,
-    /// Property values are strings or lists of strings.
-    #[serde(default)]
-    pub properties: BTreeMap<String, PropertyValue>,
-    #[serde(default)]
-    pub transclude_item_id: Option<String>,
-}
+/// An item as the server returns it. The server and the client share the fields the client
+/// reads (ADR 082); the client adds its methods through `ItemExt`.
+pub use journal_api_types::Item;
 
-/// The value of a property. The server has only these two shapes.
-///
-/// It is written in two ways. JSON has it as the server does: a string, or an array of
-/// strings. A format that does not describe itself, like the bincode of the native border
-/// (ADR 024), cannot tell the two apart by looking, so there it is an enum with a tag.
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PropertyValue {
-    Text(String),
-    List(Vec<String>),
-}
-
-impl PropertyValue {
-    /// The text, or None for a list.
-    pub fn as_text(&self) -> Option<&str> {
-        match self {
-            PropertyValue::Text(text) => Some(text),
-            PropertyValue::List(_) => None,
-        }
-    }
-
-    /// The list, or None for a text.
-    pub fn as_list(&self) -> Option<&[String]> {
-        match self {
-            PropertyValue::Text(_) => None,
-            PropertyValue::List(list) => Some(list),
-        }
-    }
-}
-
-// Short ways to write a value in a test. The app only makes values from owned strings.
-#[cfg(test)]
-impl From<&str> for PropertyValue {
-    fn from(text: &str) -> Self {
-        PropertyValue::Text(text.to_string())
-    }
-}
-
-#[cfg(test)]
-impl<const N: usize> From<[&str; N]> for PropertyValue {
-    fn from(list: [&str; N]) -> Self {
-        PropertyValue::List(list.iter().map(|text| text.to_string()).collect())
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(remote = "PropertyValue", untagged)]
-enum PropertyValueAsJson {
-    Text(String),
-    List(Vec<String>),
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(remote = "PropertyValue", rename = "PropertyValue")]
-enum PropertyValueWithTag {
-    Text(String),
-    List(Vec<String>),
-}
-
-impl Serialize for PropertyValue {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        if serializer.is_human_readable() {
-            PropertyValueAsJson::serialize(self, serializer)
-        } else {
-            PropertyValueWithTag::serialize(self, serializer)
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for PropertyValue {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        if deserializer.is_human_readable() {
-            PropertyValueAsJson::deserialize(deserializer)
-        } else {
-            PropertyValueWithTag::deserialize(deserializer)
-        }
-    }
-}
+/// The value of a property: a text, or a list of texts. The server and the client share it
+/// (ADR 082).
+pub use journal_api_types::PropertyValue;
 
 /// Items are shared between the state, the view model and undo snapshots, so they are
 /// reference counted: a change makes a new item instead of touching the shared one.
@@ -128,12 +23,32 @@ pub type ItemRef = Arc<Item>;
 /// batch writes, so the client keeps it in the type of the server (ADR 081).
 pub use journal_api_types::TaskStateInput as TaskState;
 
-impl Item {
-    pub fn is_task(&self) -> bool {
+/// What the client reads from an item. It is a trait because `Item` is a type of
+/// `journal-api-types`, and a crate cannot add methods to a type of another crate (ADR 082).
+pub trait ItemExt {
+    fn is_task(&self) -> bool;
+    fn task_state(&self) -> TaskState;
+    fn has_type(&self, name: &str) -> bool;
+    /// A string property, or None when unset or not a string.
+    fn prop_str(&self, key: &str) -> Option<&str>;
+    /// A list property, or an empty list when unset or not a list.
+    fn prop_list(&self, key: &str) -> Vec<String>;
+    /// The hashtags of the item, as kept in its tags property.
+    fn tags(&self) -> Vec<String>;
+    /// The zoom of the item as stored in its properties; 1 when unset.
+    fn zoom(&self) -> f64;
+    /// True for an item of a daily journal page (named YYYY-MM-DD).
+    fn is_daily_journal_item(&self) -> bool;
+    /// The heading level of a body that starts with `#`..`#####` followed by a space; 0 otherwise.
+    fn heading_level_of_body(&self) -> u8;
+}
+
+impl ItemExt for Item {
+    fn is_task(&self) -> bool {
         self.types.iter().any(|t| t == "task")
     }
 
-    pub fn task_state(&self) -> TaskState {
+    fn task_state(&self) -> TaskState {
         let text_of = |key| self.prop_str(key).map(str::to_string);
         TaskState {
             task: self.is_task(),
@@ -143,17 +58,15 @@ impl Item {
         }
     }
 
-    pub fn has_type(&self, name: &str) -> bool {
+    fn has_type(&self, name: &str) -> bool {
         self.types.iter().any(|t| t == name)
     }
 
-    /// A string property, or None when unset or not a string.
-    pub fn prop_str(&self, key: &str) -> Option<&str> {
+    fn prop_str(&self, key: &str) -> Option<&str> {
         self.properties.get(key).and_then(PropertyValue::as_text)
     }
 
-    /// A list property, or an empty list when unset or not a list.
-    pub fn prop_list(&self, key: &str) -> Vec<String> {
+    fn prop_list(&self, key: &str) -> Vec<String> {
         self.properties
             .get(key)
             .and_then(PropertyValue::as_list)
@@ -161,28 +74,24 @@ impl Item {
             .unwrap_or_default()
     }
 
-    /// The hashtags of the item, as kept in its tags property.
-    pub fn tags(&self) -> Vec<String> {
+    fn tags(&self) -> Vec<String> {
         self.prop_list("tags")
     }
 
-    /// The zoom of the item as stored in its properties; 1 when unset.
-    pub fn zoom(&self) -> f64 {
+    fn zoom(&self) -> f64 {
         self.prop_str("zoom")
             .and_then(|z| z.parse::<f64>().ok())
             .filter(|z| *z != 0.0)
             .unwrap_or(1.0)
     }
 
-    /// True for an item of a daily journal page (named YYYY-MM-DD).
-    pub fn is_daily_journal_item(&self) -> bool {
+    fn is_daily_journal_item(&self) -> bool {
         self.item_type == "journal"
             && crate::util::filename::classify_journal_file_name(&self.name)
                 == crate::util::filename::JournalType::Daily
     }
 
-    /// The heading level of a body that starts with `#`..`#####` followed by a space; 0 otherwise.
-    pub fn heading_level_of_body(&self) -> u8 {
+    fn heading_level_of_body(&self) -> u8 {
         let trimmed = self.body.trim_start();
         let hashes = trimmed.chars().take_while(|c| *c == '#').count();
         if (1..=5).contains(&hashes) && trimmed[hashes..].starts_with(' ') {
@@ -279,18 +188,7 @@ pub struct SearchResult {
 pub use journal_api_types::ItemPosition;
 
 /// One operation of a batch, as the server reads it (ADR 081).
-pub use journal_api_types::{BatchOpInput, PropertyValueInput};
-
-/// The value a batch writes. The client keeps its own `PropertyValue`: it also crosses the
-/// border of the native shells, in a form of its own.
-impl From<PropertyValue> for PropertyValueInput {
-    fn from(value: PropertyValue) -> PropertyValueInput {
-        match value {
-            PropertyValue::Text(text) => PropertyValueInput::Text(text),
-            PropertyValue::List(values) => PropertyValueInput::List(values),
-        }
-    }
-}
+pub use journal_api_types::BatchOpInput;
 
 /// How the server reads a pasted text. The names are the ones the server reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -703,40 +601,6 @@ mod tests {
         assert_eq!(item.prop_str("end"), Some("2026-01-01T00:00:00Z"));
         assert!(item.is_daily_journal_item());
         assert_eq!(item.heading_level_of_body(), 1);
-    }
-
-    // JSON の文字列は、文字列のプロパティ値として読み取られる。
-    #[test]
-    fn reads_a_json_string_as_a_text_value() {
-        let value: PropertyValue = serde_json::from_str(r#""1.5""#).unwrap();
-        assert_eq!(value, PropertyValue::Text("1.5".into()));
-    }
-
-    // プロパティ値は、サーバーと同じ形の JSON に書かれる。文字列は文字列に、リストは配列になる。
-    #[test]
-    fn writes_json_in_the_shape_of_the_server() {
-        let text = PropertyValue::Text("1.5".into());
-        let list = PropertyValue::List(vec!["x".into(), "y".into()]);
-        assert_eq!(serde_json::to_string(&text).unwrap(), r#""1.5""#);
-        assert_eq!(serde_json::to_string(&list).unwrap(), r#"["x","y"]"#);
-    }
-
-    // JSON の文字列の配列は、リストのプロパティ値として読み取られる。
-    #[test]
-    fn reads_a_json_array_of_strings_as_a_list_value() {
-        let value: PropertyValue = serde_json::from_str(r#"["x","y"]"#).unwrap();
-        assert_eq!(value, PropertyValue::List(vec!["x".into(), "y".into()]));
-    }
-
-    // 文字列でも文字列の配列でもない JSON は、プロパティ値として読み取れない。サーバーはこの 2 つの形しか返さない。
-    #[test]
-    fn refuses_json_of_any_other_shape() {
-        for json in ["1.5", "true", "null", "[1]", r#"{"a":"b"}"#] {
-            assert!(
-                serde_json::from_str::<PropertyValue>(json).is_err(),
-                "{json}"
-            );
-        }
     }
 
     // プロパティ値は、ネイティブのシェルとの境界の形式（bincode）に書いて、同じ値に読み戻せる（ADR 024）。

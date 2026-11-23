@@ -32,7 +32,7 @@ futures = "0.3"
 percent-encoding = "2.3.2"
 # Keeps a place that the core finds itself out of the middle of an emoji (ADR 043)
 unicode-segmentation = "1.13.3"
-peta-atlas = { path = "../../../atlas", features = ["marks"] }
+peta-atlas = { path = "../../../atlas", features = ["marks", "api-types"] }
 # rand of picturesque-marks, under peta-atlas, pulls in getrandom 0.4, which needs a backend on wasm
 getrandom-04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 uuid = { version = "1.29.2", features = ["v4", "js"] }

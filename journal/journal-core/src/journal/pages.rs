@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
+use journal_api_types::PropertyValue;
 use serde::Serialize;
-use serde_json::json;
 
 use crate::domain::journal_name::JournalName;
 use crate::domain::model::Page;
@@ -255,7 +255,8 @@ impl Journal {
             .find_list_by_targets(PAGE_TARGET, &ids)?;
         for dto in &mut answer.pages {
             if let Some(tags) = lists.get(&dto.id).and_then(|l| l.get("tags")) {
-                dto.properties.insert("tags".into(), json!(tags));
+                dto.properties
+                    .insert("tags".into(), PropertyValue::List(tags.clone()));
             }
         }
         Ok(answer)

@@ -3,6 +3,7 @@
 use crate::app::Event;
 use crate::effects::ApiOp;
 use crate::harness::{item, Harness};
+use crate::model::ItemExt;
 use crate::model::ItemPosition;
 use crate::testing::{item_with, shown};
 use crate::view::{Row, TaskState};

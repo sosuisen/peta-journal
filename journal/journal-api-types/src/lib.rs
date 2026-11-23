@@ -20,6 +20,7 @@ pub mod routes;
 
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::BTreeMap;
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -186,6 +187,128 @@ pub struct BatchInput {
     pub ops: Vec<BatchOpInput>,
 }
 
+/// An item as the server answers it, with the fields the clients read (ADR 082). The answer of
+/// the server has more fields, which a client passes over.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Item {
+    pub id: String,
+    pub page_id: String,
+    pub dir_path: String,
+    pub name: String,
+    /// "journal" or "doc", from the parent page.
+    #[serde(rename = "type")]
+    pub item_type: String,
+    pub created_date: i64,
+    pub modified_date: i64,
+    pub idx: String,
+    pub level: i32,
+    pub body: String,
+    pub collapsed: bool,
+    pub types: Vec<String>,
+    /// Property values are strings or lists of strings.
+    pub properties: BTreeMap<String, PropertyValue>,
+    pub transclude_item_id: Option<String>,
+}
+
+/// The value of a property. The server has only these two shapes.
+///
+/// It is written in two ways. JSON has it as the server does: a string, or an array of
+/// strings. A format that does not describe itself, like the bincode of the native border
+/// (ADR 024), cannot tell the two apart by looking, so there it is an enum with a tag.
+#[cfg_attr(feature = "facet", derive(facet::Facet), repr(C))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PropertyValue {
+    Text(String),
+    List(Vec<String>),
+}
+
+impl PropertyValue {
+    /// The text, or None for a list.
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            PropertyValue::Text(text) => Some(text),
+            PropertyValue::List(_) => None,
+        }
+    }
+
+    /// The list, or None for a text.
+    pub fn as_list(&self) -> Option<&[String]> {
+        match self {
+            PropertyValue::Text(_) => None,
+            PropertyValue::List(list) => Some(list),
+        }
+    }
+}
+
+/// A short way to write a text value.
+impl From<&str> for PropertyValue {
+    fn from(text: &str) -> Self {
+        PropertyValue::Text(text.to_string())
+    }
+}
+
+/// A short way to write a list value.
+impl<const N: usize> From<[&str; N]> for PropertyValue {
+    fn from(list: [&str; N]) -> Self {
+        PropertyValue::List(list.iter().map(|text| text.to_string()).collect())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "PropertyValue", untagged)]
+enum PropertyValueAsJson {
+    Text(String),
+    List(Vec<String>),
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "PropertyValue", rename = "PropertyValue")]
+enum PropertyValueWithTag {
+    Text(String),
+    List(Vec<String>),
+}
+
+impl Serialize for PropertyValue {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if serializer.is_human_readable() {
+            PropertyValueAsJson::serialize(self, serializer)
+        } else {
+            PropertyValueWithTag::serialize(self, serializer)
+        }
+    }
+}
+
+/// Written by hand: a derive would read the attributes of the type, but JSON has the form of
+/// `PropertyValueAsJson`.
+#[cfg(feature = "schemars")]
+impl schemars::JsonSchema for PropertyValue {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "PropertyValue".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "description": "The value of a property: a text, or a list of texts.",
+            "anyOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+            ]
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for PropertyValue {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        if deserializer.is_human_readable() {
+            PropertyValueAsJson::deserialize(deserializer)
+        } else {
+            PropertyValueWithTag::deserialize(deserializer)
+        }
+    }
+}
+
 /// Where an item goes on a page: first, last, or after another item. JSON has it as the text
 /// `first`, `last` or `after:<id>` (ADR 081).
 ///
@@ -276,15 +399,6 @@ impl<'de> Deserialize<'de> for ItemPosition {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-/// The value of a property: a text, or a list of texts.
-pub enum PropertyValueInput {
-    Text(String),
-    List(Vec<String>),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase")]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 /// One operation of a batch: 'create', 'update', 'move' or 'delete', named by `op`.
@@ -304,7 +418,7 @@ pub enum BatchOpInput {
         /// The properties of the item, as the undo of a deletion makes them again. The tags
         /// are left out: they come from the hashtags of the body
         #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
-        properties: std::collections::BTreeMap<String, PropertyValueInput>,
+        properties: std::collections::BTreeMap<String, PropertyValue>,
     },
     Update {
         id: String,
@@ -776,6 +890,103 @@ mod tests {
             request["properties"]["position"]["type"],
             json!("string"),
             "{request}"
+        );
+    }
+
+    // プロパティの値は、JSONでは文字列か文字列の配列として書かれ、同じ値に読み戻される。
+    #[test]
+    fn a_property_value_is_written_in_json_as_a_text_or_a_list_and_read_back() {
+        let values = [
+            (PropertyValue::Text("x".into()), json!("x")),
+            (
+                PropertyValue::List(vec!["a".into(), "b".into()]),
+                json!(["a", "b"]),
+            ),
+        ];
+
+        for (value, written) in values {
+            assert_eq!(serde_json::to_value(&value).unwrap(), written);
+            assert_eq!(
+                serde_json::from_value::<PropertyValue>(written).unwrap(),
+                value
+            );
+        }
+    }
+
+    // 文字列でも文字列の配列でもないJSONは、プロパティの値として読めない。サーバーはこの2つの形しか返さない。
+    #[test]
+    fn a_property_value_refuses_json_of_any_other_shape() {
+        for json in ["1.5", "true", "null", "[1]", r#"{"a":"b"}"#] {
+            assert!(
+                serde_json::from_str::<PropertyValue>(json).is_err(),
+                "{json}"
+            );
+        }
+    }
+
+    // プロパティの値は、文字列としては文字列の値だけを、リストとしてはリストの値だけを返す。
+    #[test]
+    fn a_property_value_gives_its_text_or_its_list_by_its_shape() {
+        let text = PropertyValue::from("x");
+        let list = PropertyValue::from(["a", "b"]);
+
+        assert_eq!((text.as_text(), text.as_list()), (Some("x"), None));
+        assert_eq!(
+            (list.as_text(), list.as_list()),
+            (None, Some(&["a".to_string(), "b".to_string()][..]))
+        );
+    }
+
+    // MCPのスキーマでは、一括の要求のプロパティの値は、文字列か文字列の配列である。
+    #[cfg(feature = "schemars")]
+    #[test]
+    fn a_property_value_is_a_text_or_a_list_in_the_schema_of_mcp() {
+        let request = serde_json::to_value(schemars::schema_for!(BatchInput)).unwrap();
+
+        assert_eq!(
+            request["$defs"]["PropertyValue"]["anyOf"],
+            json!([
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+            ]),
+            "{request}"
+        );
+    }
+
+    // 項目は、サーバーの答えのJSONから読める。サーバーだけの欄は読み飛ばす。
+    #[test]
+    fn an_item_is_read_from_the_answer_of_the_server_past_the_fields_of_the_server() {
+        let answer = json!({
+            "id": "i", "pageId": "p", "parentItemId": null, "dirPath": "d/", "name": "n",
+            "type": "doc", "createdDate": 1, "modifiedDate": 2, "idx": "a0", "level": 2,
+            "body": "text", "ast": "[]", "collapsed": true, "types": ["task"],
+            "properties": { "plan": "2026-11-24", "tags": ["x"] },
+            "transcludeItemId": "s", "url": "/u"
+        });
+
+        let item: Item = serde_json::from_value(answer).unwrap();
+
+        assert_eq!(
+            item,
+            Item {
+                id: "i".into(),
+                page_id: "p".into(),
+                dir_path: "d/".into(),
+                name: "n".into(),
+                item_type: "doc".into(),
+                created_date: 1,
+                modified_date: 2,
+                idx: "a0".into(),
+                level: 2,
+                body: "text".into(),
+                collapsed: true,
+                types: vec!["task".into()],
+                properties: BTreeMap::from([
+                    ("plan".into(), PropertyValue::Text("2026-11-24".into())),
+                    ("tags".into(), PropertyValue::List(vec!["x".into()])),
+                ]),
+                transclude_item_id: Some("s".into()),
+            }
         );
     }
 

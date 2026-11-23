@@ -1,7 +1,7 @@
 use crate::effects::{ApiError, ApiOp, ApiOutput, AtlasChange, FolderChoice};
 use crate::model::{
     BatchOpInput, ItemPosition, JournalBefore, Page, PageWithItems, PasteCursor, PasteMode,
-    PropertyValueInput, ServerConfig, TaskState, TreeExport,
+    PropertyValue, ServerConfig, TaskState, TreeExport,
 };
 use crate::rest::{rest_call, HttpReply, RestCall};
 use serde::Serialize;
@@ -537,10 +537,10 @@ fn a_batch_create_posts_its_transclusion_and_properties_as_the_server_reads_them
             body: id("text"),
             transclude_item_id: Some(id("s")),
             properties: [
-                ("status".to_string(), PropertyValueInput::Text(id("done"))),
+                ("status".to_string(), PropertyValue::Text(id("done"))),
                 (
                     "owners_list".to_string(),
-                    PropertyValueInput::List(vec![id("ann")]),
+                    PropertyValue::List(vec![id("ann")]),
                 ),
             ]
             .into(),

@@ -4,6 +4,7 @@
 //! read again.
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
+use crate::model::ItemExt;
 use crate::model::{BatchOpInput, Item, ItemPosition, TaskState};
 use crate::ops::action::show_empty_item;
 use crate::ops::edit::discard_pending_edit_of_focused_item;
@@ -276,11 +277,7 @@ impl Batch {
             level: item.level,
             body: item.body.clone(),
             transclude_item_id: item.transclude_item_id.clone(),
-            properties: item
-                .properties
-                .iter()
-                .map(|(key, value)| (key.clone(), value.clone().into()))
-                .collect(),
+            properties: item.properties.clone(),
         });
         // The making writes the body, the level, the transclusion and the properties
         let task = item.task_state();

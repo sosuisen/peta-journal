@@ -3,6 +3,7 @@
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, UiOp};
+use crate::model::ItemExt;
 use crate::model::{Item, ItemPosition, Stashed};
 use crate::ops::edit::{auto_save_again, focus_editor, save_target_id, take_unsaved};
 use crate::ops::file_reload::reload_shown_page;

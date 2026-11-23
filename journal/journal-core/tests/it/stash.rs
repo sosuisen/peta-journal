@@ -56,7 +56,7 @@ fn sending_to_the_stash_reuses_the_heading_the_page_has() {
     let stashed = notes.stash(&id(&rows[0]), None).unwrap();
 
     assert!(!stashed.created);
-    assert_eq!(stashed.heading.id, id(&rows[1]));
+    assert_eq!(stashed.heading.item.id, id(&rows[1]));
     assert_eq!(notes.outline_of(&page), vs(&["1:# Stash ", "2:a", "2:old"]));
 }
 

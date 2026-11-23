@@ -9,7 +9,7 @@ use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
 use client_core::util::date::task_duration;
-use client_core::Event;
+use client_core::{Event, ItemExt};
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 

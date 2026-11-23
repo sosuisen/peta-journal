@@ -3,6 +3,7 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{item, Harness};
+use crate::model::ItemExt;
 use crate::testing::item_with;
 
 // タスク状態の切り替えで次の状態が保存され、Undo に記録される。
