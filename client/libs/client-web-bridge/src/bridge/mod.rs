@@ -9,6 +9,7 @@ use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp,
     TimerOutput, UiOp, UiOutput,
 };
+use client_core::keys::{KeyMap, KeyPlatform, KeyPress};
 use client_core::policy::{InOrder, Questions, Timers};
 use client_core::rest::ClientId;
 use client_core::{Event, PetaApp, Route};
@@ -80,6 +81,7 @@ pub struct Bridge<H: Host> {
     host: H,
     me: Weak<Bridge<H>>,
     client_id: ClientId,
+    keys: KeyMap,
     shown: RefCell<Shown<HtmlBody>>,
     to_server: RefCell<InOrder<Request<ApiOp>>>,
     timers: RefCell<Timers<Request<TimerOp>>>,
@@ -106,6 +108,7 @@ impl<H: Host> Bridge<H> {
             host,
             me: me.clone(),
             client_id,
+            keys: KeyMap::of(KeyPlatform::Web),
             shown: RefCell::default(),
             to_server: RefCell::default(),
             timers: RefCell::default(),
@@ -168,6 +171,18 @@ impl<H: Host> Bridge<H> {
     pub fn update(&self, event: &str) -> Result<String, String> {
         let event: Event = read(event)?;
         Ok(self.in_call(|| self.send(event)))
+    }
+
+    /// Takes a key of the shell: a [`KeyPress`] as JSON (ADR 052). Returns the changes, or
+    /// nothing when the key means nothing to the outline there, and the shell leaves it to its
+    /// editor.
+    pub fn press(&self, key: &str) -> Result<Option<String>, String> {
+        let press: KeyPress = read(key)?;
+        let (_, now_ms) = self.host.now();
+        let Some(event) = self.keys.event_of(&press, now_ms) else {
+            return Ok(None);
+        };
+        Ok(Some(self.in_call(|| self.send(event))))
     }
 
     /// Pastes the image in the file into the item, at `cursor` in characters. The file is
