@@ -699,6 +699,7 @@ dependencies = [
  "crux_core",
  "facet",
  "facet-json",
+ "facet_generate 0.22.3",
  "flatmarkdown-ast",
  "flatmarkdown-ast2html",
  "page-urls",

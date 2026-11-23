@@ -20,3 +20,7 @@ serde = { workspace = true }
 page-urls = { path = "../../../journal/page-urls" }
 flatmarkdown-ast = { workspace = true }
 flatmarkdown-ast2html = { workspace = true }
+
+# Writes the TypeScript types of the border. Not in wasm: only the codegen runs it
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+facet_generate = "=0.22.3"
