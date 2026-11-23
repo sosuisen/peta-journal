@@ -7,8 +7,8 @@ use crate::app::{Event, Route};
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{item, split_calls, typed, update_calls, Harness};
 use crate::model::{
-    BacklinkEntry, BatchOpInput, Batched, Item, ItemPosition, JournalBefore, Page, PageWithItems,
-    PasteCursor, Pasted, Split, Stashed, TranscludedTrees,
+    BacklinkEntry, BatchOpInput, Batched, DocPage, Item, ItemPosition, JournalBefore,
+    MovedToJournal, Page, PageWithItems, PasteCursor, Pasted, Split, Stashed, TranscludedTrees,
 };
 
 fn notes() -> Page {
@@ -22,17 +22,23 @@ fn notes() -> Page {
 
 /// Opens the page `notes`, whose file holds an item with this body.
 fn open_with_body(h: &mut Harness, body: &str) {
-    for name in ["GetOrCreateDoc", "GetPageById"] {
-        h.api.answer_next(
-            name,
-            Ok(ApiOutput::Page(PageWithItems {
-                page: notes(),
-                items: vec![item("a", 1, body)],
-                created: false,
-                transcluded_trees: None,
-            })),
-        );
-    }
+    h.api.answer_next(
+        "GetOrCreateDoc",
+        Ok(ApiOutput::DocPage(DocPage {
+            page: notes(),
+            items: vec![],
+            created: false,
+        })),
+    );
+    h.api.answer_next(
+        "GetPageById",
+        Ok(ApiOutput::Page(PageWithItems {
+            page: notes(),
+            items: vec![item("a", 1, body)],
+            created: false,
+            transcluded_trees: None,
+        })),
+    );
     h.send(Event::Route {
         route: Route::Page {
             name: "notes".into(),
@@ -177,6 +183,8 @@ fn bodies_of(output: &ApiOutput) -> Vec<String> {
             .collect(),
         ApiOutput::Stashed(s) => [vec![s.heading.clone()], s.items.clone()].concat(),
         ApiOutput::Batched(b) => [b.items.clone(), b.created.clone()].concat(),
+        ApiOutput::DocPage(d) => d.items.clone(),
+        ApiOutput::MovedToJournal(m) => m.items.clone(),
         other => panic!("not an answer with items: {other:?}"),
     };
     items.into_iter().map(|i| i.body).collect()
@@ -219,6 +227,16 @@ fn every_item_of_an_answer_comes_with_blank_lines() {
             items: vec![from_file("a")],
             created: vec![from_file("b")],
         })),
+        ApiOutput::DocPage(DocPage {
+            page: notes(),
+            items: vec![from_file("a")],
+            created: false,
+        }),
+        ApiOutput::MovedToJournal(MovedToJournal {
+            page: notes(),
+            created: false,
+            items: vec![from_file("a")],
+        }),
     ];
 
     for answer in answers {
