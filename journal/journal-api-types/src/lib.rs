@@ -1107,6 +1107,114 @@ mod tests {
         );
     }
 
+    /// An item as the server answers it, with the fields only the server has.
+    fn item_answer(id: &str) -> serde_json::Value {
+        json!({
+            "id": id, "pageId": "p", "parentItemId": null, "dirPath": "", "name": "n",
+            "type": "doc", "createdDate": 0, "modifiedDate": 0, "idx": "a0", "level": 1,
+            "body": id, "ast": "[]", "collapsed": false, "types": [], "properties": {},
+            "transcludeItemId": null, "url": "/u"
+        })
+    }
+
+    /// The item that `item_answer` reads as.
+    fn item(id: &str) -> Item {
+        serde_json::from_value(item_answer(id)).unwrap()
+    }
+
+    /// A page as the server answers it, with the fields only the server has.
+    fn page_answer() -> serde_json::Value {
+        json!({
+            "id": "p", "parentId": "", "dirPath": "", "name": "n", "type": "doc",
+            "createdDate": 0, "modifiedDate": 0, "url": "/u", "properties": {}
+        })
+    }
+
+    // 項目やページを持つ答えの型は、サーバーの答えのJSONから読める。中の項目とページのサーバーだけの欄は読み飛ばす。
+    #[test]
+    fn the_answers_with_items_or_pages_are_read_past_the_fields_of_the_server() {
+        let page: Page = serde_json::from_value(page_answer()).unwrap();
+
+        let split: Split = serde_json::from_value(json!({
+            "item": item_answer("a"), "created": item_answer("b")
+        }))
+        .unwrap();
+        assert_eq!(
+            split,
+            Split {
+                item: item("a"),
+                created: item("b"),
+            }
+        );
+
+        let stashed: Stashed = serde_json::from_value(json!({
+            "heading": item_answer("h"), "created": true, "items": [item_answer("a")]
+        }))
+        .unwrap();
+        assert_eq!(
+            stashed,
+            Stashed {
+                heading: item("h"),
+                created: true,
+                items: vec![item("a")],
+            }
+        );
+
+        let pasted: Pasted = serde_json::from_value(json!({
+            "items": [item_answer("a")], "cursor": { "itemId": "a", "position": 1 }
+        }))
+        .unwrap();
+        assert_eq!(
+            pasted,
+            Pasted {
+                items: vec![item("a")],
+                cursor: PasteCursor {
+                    item_id: "a".into(),
+                    position: 1,
+                },
+            }
+        );
+
+        let batched: Batched = serde_json::from_value(json!({
+            "items": [item_answer("a")], "created": [item_answer("b")]
+        }))
+        .unwrap();
+        assert_eq!(
+            batched,
+            Batched {
+                items: vec![item("a")],
+                created: vec![item("b")],
+            }
+        );
+
+        let entry: BacklinkEntry = serde_json::from_value(json!({
+            "sourcePage": page_answer(), "sourceItem": item_answer("a")
+        }))
+        .unwrap();
+        assert_eq!(
+            entry,
+            BacklinkEntry {
+                source_page: page.clone(),
+                source_item: Some(item("a")),
+            }
+        );
+
+        let before: JournalBefore = serde_json::from_value(json!({
+            "found": true, "page": page_answer(), "items": [item_answer("a")],
+            "transcludedTrees": { "s": [item_answer("s")] }
+        }))
+        .unwrap();
+        assert_eq!(
+            before,
+            JournalBefore {
+                found: true,
+                page: Some(page),
+                items: vec![item("a")],
+                transcluded_trees: BTreeMap::from([("s".into(), vec![item("s")])]),
+            }
+        );
+    }
+
     // 欄がサーバーと同じ答えの型は、サーバーの答えのJSONに書かれ、同じ値に読み戻される。
     #[test]
     fn the_answers_with_the_fields_of_the_server_are_written_in_its_json_and_read_back() {
