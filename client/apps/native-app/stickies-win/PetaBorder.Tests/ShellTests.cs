@@ -876,6 +876,26 @@ public sealed class ShellTests : IDisposable
         );
     }
 
+    // 編集中のエディタに落とした画像は、落とした文字の位置にリンクされる。
+    [Fact]
+    public void An_image_dropped_on_an_editor_is_linked_where_it_was_dropped()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+        shell.Typed("abcd", item);
+        var image = Path.Combine(Directory.CreateTempSubdirectory().FullName, "sample.png");
+        File.WriteAllBytes(image, [1, 2, 3]);
+
+        shell.DropImage(item, Editor("abcd", 2), [image]);
+
+        main.WaitUntil("the image is linked between b and c", () =>
+            Bodies(shell) is [var body]
+            && body.StartsWith("ab![sample.png](../assets/", StringComparison.Ordinal)
+            && body.EndsWith(")cd", StringComparison.Ordinal)
+        );
+    }
+
     // 落とした元のファイルは、リンクされたあとも消えずに残る。コアが消すのは、シェルが作った写しである。
     [Fact]
     public void A_dropped_file_stays_where_it_was()
