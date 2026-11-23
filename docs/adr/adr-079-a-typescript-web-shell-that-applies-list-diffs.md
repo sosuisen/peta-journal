@@ -292,9 +292,11 @@ formatterにもプラグインが要る。
 
 ### Alternative 6: LitかPreact
 
-Litの`repeat`とPreactの仮想DOMは、どちらも並びを自分で比べ直す。
-SolidとReactより得るものがない。
-そのため、選ばなかった。
+Litの`repeat`とPreactの仮想DOMは、どちらも枠組みの中でキーを比べる。
+これは表のほかの枠組みと同じで、差にならない。
+SolidとReactより得るものは、見つけていない。
+ただし、型チェックなどは試していない。
+そのため、表に入れなかった。
 
 ### Alternative 7: Yew
 
