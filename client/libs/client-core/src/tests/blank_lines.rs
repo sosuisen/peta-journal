@@ -2,9 +2,9 @@
 //! the file has a line of one backslash in its place (ADR 070). The shell sees blank lines.
 
 use crate::app::{Event, Route};
-use crate::effects::ApiOutput;
+use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{item, split_calls, typed, update_calls, Harness};
-use crate::model::{Page, PageWithItems};
+use crate::model::{Page, PageWithItems, PasteCursor, Pasted};
 
 fn notes() -> Page {
     Page {
@@ -91,4 +91,34 @@ fn a_split_sends_the_body_of_the_file_and_the_cursor_in_it() {
         split_calls(&h.api),
         [("a".to_string(), "a\n\\\nb\n\\c".to_string(), 7)]
     );
+}
+
+// 貼り付けは、ファイルの形の本文とカーソルを送る。答えの本文とカーソルは、画面の形に直る。
+#[test]
+fn a_paste_sends_the_body_of_the_file_and_puts_the_cursor_back_on_the_screen() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a\n\nb")]);
+    let pasted = Pasted {
+        items: vec![item("a", 1, "a\n\\\nbX")],
+        cursor: PasteCursor {
+            item_id: "a".into(),
+            position: "a\n\\\nbX".len(),
+        },
+    };
+    h.api
+        .answer_next("PasteText", Ok(ApiOutput::Pasted(pasted)));
+
+    h.send(Event::PasteText {
+        item_id: "a".into(),
+        text: "X".into(),
+        html: String::new(),
+        cursor: "a\n\nb".len(),
+        raw: false,
+    });
+
+    assert!(matches!(
+        &h.api.calls[0],
+        ApiOp::PasteText { body, cursor: 5, .. } if body == "a\n\\\nb"
+    ));
+    assert_eq!(h.bodies(), ["a=a\n\nbX"]);
+    assert_eq!(h.focus_cursor(), Some("a\n\nbX".len()));
 }
