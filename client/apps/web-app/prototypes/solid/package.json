@@ -1,0 +1,23 @@
+{
+  "name": "prototype-solid",
+  "private": true,
+  "type": "module",
+  "description": "The Solid prototype of the web shell (#971, ADR 079)",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "check": "tsc --noEmit",
+    "format": "prettier --write src ../shared/src"
+  },
+  "dependencies": {
+    "@solidjs/web": "2.0.3",
+    "@tanstack/virtual-core": "3.19.13",
+    "solid-js": "2.0.3"
+  },
+  "devDependencies": {
+    "@solidjs/vite-plugin": "3.0.1",
+    "prettier": "3.10.1",
+    "typescript": "7.0.2",
+    "vite": "8.3.8"
+  }
+}
