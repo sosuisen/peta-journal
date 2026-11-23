@@ -255,6 +255,20 @@ describe('the outline', () => {
     ]);
   });
 
+  // 一覧がまだ1行も描いていない行へのスクロールは、一番上へのスクロールになる。コアが行を足したのと同じ変化で頼んだときである。
+  test('a scroll to a row the list has not drawn yet goes to the top', () => {
+    const { list, wasm, asked } = drawn([]);
+    const scrolled: ScrollToOptions[] = [];
+    list.scrollTo = ((options: ScrollToOptions) =>
+      scrolled.push(options)) as typeof list.scrollTo;
+    // The core has the row, and React has not drawn it yet
+    wasm.push([{ kind: 'Insert', at: 0, item: row('a') }]);
+
+    asked.scroller?.('a', false);
+
+    expect(scrolled).toEqual([{ top: 0, behavior: 'auto' }]);
+  });
+
   // アウトラインがなくなると、スクロールの役も外れる。
   test('without the outline nothing scrolls to an item', () => {
     const { asked, unmount } = drawn([row('a')]);
