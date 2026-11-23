@@ -3,4 +3,5 @@
 //! cross as the JSON of facet (ADR 080). The requests to the server, the event stream, the
 //! timers and the APIs of `window` stay here, in wasm.
 
+pub mod border;
 pub mod lanes;
