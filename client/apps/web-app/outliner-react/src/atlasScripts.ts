@@ -6,6 +6,19 @@ import tweedle from '../../../../../atlas/web/tweedle.umd.js?url';
 // @pixi/ui 2.4.1 for the dialogs of the atlas; it needs tweedle.js 2.1.0 as the global tweedle_js
 import pixiUi from '../../../../../atlas/web/pixi-ui.js?url';
 import atlas from '../../../../../atlas/web/atlas.js?url';
+// Noto Sans JP at weight 400 (OFL, see NotoSansJP-OFL.txt beside it)
+import labelFont from '../../../../assets/NotoSansJP-Regular.ttf?url';
+import titleFont from '../../../../assets/851tegaki_zatsu_normal_0883.ttf?url';
+
+/**
+ * The options of the canvas: the labels in the font that a static site draws an atlas in
+ * too, so a label takes the same width in both. The group titles and the callouts are in a
+ * font of their own.
+ */
+export const ATLAS_OPTIONS = {
+  labelFont: { family: 'PetaAtlas Label', url: labelFont },
+  titleFont: { family: '851 Tegaki Zatsu', url: titleFont },
+} as const;
 
 /** The scripts of the canvas, each after the ones whose globals it uses. */
 export const ATLAS_SCRIPTS: readonly string[] = [pixi, tweedle, pixiUi, atlas];
