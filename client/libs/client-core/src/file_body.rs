@@ -28,7 +28,44 @@ pub fn op_to_file(mut op: ApiOp) -> ApiOp {
             BatchOpInput::Update { body, .. } => body.iter_mut().for_each(body_to_file),
             BatchOpInput::Move { .. } | BatchOpInput::Delete { .. } => {}
         }),
-        _ => {}
+        // The requests without bodies. They are listed, so that a new request with a body is
+        // a build error here and not a body that the file splits at its blank lines.
+        ApiOp::GetPageById { .. }
+        | ApiOp::GetMostRecentJournalBefore { .. }
+        | ApiOp::GetMostRecentWeeklyJournalBefore { .. }
+        | ApiOp::GetOrCreateJournal { .. }
+        | ApiOp::GetOrCreateDoc { .. }
+        | ApiOp::FindPage { .. }
+        | ApiOp::ShiftItemLevels { .. }
+        | ApiOp::DeletePage { .. }
+        | ApiOp::DeleteItems { .. }
+        | ApiOp::CycleTask { .. }
+        | ApiOp::UpsertItemProperty { .. }
+        | ApiOp::DeleteItemProperty { .. }
+        | ApiOp::ChangeAtlas { .. }
+        | ApiOp::SearchCombined { .. }
+        | ApiOp::SearchPageNames { .. }
+        | ApiOp::GetRecentPages { .. }
+        | ApiOp::UpdatePage { .. }
+        | ApiOp::DemotePage { .. }
+        | ApiOp::UpsertPageProperty { .. }
+        | ApiOp::DeletePageProperty { .. }
+        | ApiOp::GetConfig
+        | ApiOp::GetPropertyDefinitions
+        | ApiOp::AddPropertyDefinition { .. }
+        | ApiOp::DeletePropertyDefinition { .. }
+        | ApiOp::UpdateConfig { .. }
+        | ApiOp::BrowseFolder
+        | ApiOp::ExportTreeMarkdown { .. }
+        | ApiOp::TranscludedItems { .. }
+        | ApiOp::SetTransclusion { .. }
+        | ApiOp::RemoveTransclusion { .. }
+        | ApiOp::AnswerConfirm { .. }
+        | ApiOp::GetChildPages { .. }
+        | ApiOp::GetBacklinks { .. }
+        | ApiOp::UploadAsset { .. }
+        | ApiOp::LaunchUrl { .. }
+        | ApiOp::OpenExportFolder { .. } => {}
     }
     op
 }
