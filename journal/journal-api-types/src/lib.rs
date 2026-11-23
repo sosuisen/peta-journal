@@ -289,6 +289,25 @@ impl Serialize for PropertyValue {
     }
 }
 
+/// Written by hand: a derive would read the attributes of the type, but JSON has the form of
+/// `PropertyValueAsJson`.
+#[cfg(feature = "schemars")]
+impl schemars::JsonSchema for PropertyValue {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "PropertyValue".into()
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "description": "The value of a property: a text, or a list of texts.",
+            "anyOf": [
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+            ]
+        })
+    }
+}
+
 impl<'de> Deserialize<'de> for PropertyValue {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         if deserializer.is_human_readable() {
@@ -389,15 +408,6 @@ impl<'de> Deserialize<'de> for ItemPosition {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-/// The value of a property: a text, or a list of texts.
-pub enum PropertyValueInput {
-    Text(String),
-    List(Vec<String>),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase")]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 /// One operation of a batch: 'create', 'update', 'move' or 'delete', named by `op`.
@@ -417,7 +427,7 @@ pub enum BatchOpInput {
         /// The properties of the item, as the undo of a deletion makes them again. The tags
         /// are left out: they come from the hashtags of the body
         #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
-        properties: std::collections::BTreeMap<String, PropertyValueInput>,
+        properties: std::collections::BTreeMap<String, PropertyValue>,
     },
     Update {
         id: String,

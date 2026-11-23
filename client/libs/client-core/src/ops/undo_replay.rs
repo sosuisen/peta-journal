@@ -276,11 +276,7 @@ impl Batch {
             level: item.level,
             body: item.body.clone(),
             transclude_item_id: item.transclude_item_id.clone(),
-            properties: item
-                .properties
-                .iter()
-                .map(|(key, value)| (key.clone(), value.clone().into()))
-                .collect(),
+            properties: item.properties.clone(),
         });
         // The making writes the body, the level, the transclusion and the properties
         let task = item.task_state();

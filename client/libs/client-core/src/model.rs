@@ -2,7 +2,7 @@
 
 pub use property_names::ValueType;
 use property_names::{body_of, type_of};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
@@ -41,84 +41,9 @@ pub struct Item {
     pub transclude_item_id: Option<String>,
 }
 
-/// The value of a property. The server has only these two shapes.
-///
-/// It is written in two ways. JSON has it as the server does: a string, or an array of
-/// strings. A format that does not describe itself, like the bincode of the native border
-/// (ADR 024), cannot tell the two apart by looking, so there it is an enum with a tag.
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PropertyValue {
-    Text(String),
-    List(Vec<String>),
-}
-
-impl PropertyValue {
-    /// The text, or None for a list.
-    pub fn as_text(&self) -> Option<&str> {
-        match self {
-            PropertyValue::Text(text) => Some(text),
-            PropertyValue::List(_) => None,
-        }
-    }
-
-    /// The list, or None for a text.
-    pub fn as_list(&self) -> Option<&[String]> {
-        match self {
-            PropertyValue::Text(_) => None,
-            PropertyValue::List(list) => Some(list),
-        }
-    }
-}
-
-// Short ways to write a value in a test. The app only makes values from owned strings.
-#[cfg(test)]
-impl From<&str> for PropertyValue {
-    fn from(text: &str) -> Self {
-        PropertyValue::Text(text.to_string())
-    }
-}
-
-#[cfg(test)]
-impl<const N: usize> From<[&str; N]> for PropertyValue {
-    fn from(list: [&str; N]) -> Self {
-        PropertyValue::List(list.iter().map(|text| text.to_string()).collect())
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(remote = "PropertyValue", untagged)]
-enum PropertyValueAsJson {
-    Text(String),
-    List(Vec<String>),
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(remote = "PropertyValue", rename = "PropertyValue")]
-enum PropertyValueWithTag {
-    Text(String),
-    List(Vec<String>),
-}
-
-impl Serialize for PropertyValue {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        if serializer.is_human_readable() {
-            PropertyValueAsJson::serialize(self, serializer)
-        } else {
-            PropertyValueWithTag::serialize(self, serializer)
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for PropertyValue {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        if deserializer.is_human_readable() {
-            PropertyValueAsJson::deserialize(deserializer)
-        } else {
-            PropertyValueWithTag::deserialize(deserializer)
-        }
-    }
-}
+/// The value of a property: a text, or a list of texts. The server and the client share it
+/// (ADR 082).
+pub use journal_api_types::PropertyValue;
 
 /// Items are shared between the state, the view model and undo snapshots, so they are
 /// reference counted: a change makes a new item instead of touching the shared one.
@@ -279,18 +204,7 @@ pub struct SearchResult {
 pub use journal_api_types::ItemPosition;
 
 /// One operation of a batch, as the server reads it (ADR 081).
-pub use journal_api_types::{BatchOpInput, PropertyValueInput};
-
-/// The value a batch writes. The client keeps its own `PropertyValue`: it also crosses the
-/// border of the native shells, in a form of its own.
-impl From<PropertyValue> for PropertyValueInput {
-    fn from(value: PropertyValue) -> PropertyValueInput {
-        match value {
-            PropertyValue::Text(text) => PropertyValueInput::Text(text),
-            PropertyValue::List(values) => PropertyValueInput::List(values),
-        }
-    }
-}
+pub use journal_api_types::BatchOpInput;
 
 /// How the server reads a pasted text. The names are the ones the server reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

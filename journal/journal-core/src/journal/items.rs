@@ -19,7 +19,7 @@ use crate::error::{parse_id, AppError};
 use super::{ChangedBy, Journal};
 pub use journal_api_types::{
     BatchInput, BatchOpInput, CreateItemInput, FlatMarkdownInput, ItemIdsInput, MergeItemsInput,
-    MoveItemsInput, PasteInput, PropertyInput, PropertyValueInput, ShiftLevelsInput, SplitInput,
+    MoveItemsInput, PasteInput, PropertyInput, PropertyValue, ShiftLevelsInput, SplitInput,
     StashInput, TaskStateInput, TransclusionInput, TreeMarkdownInput, UpdateItemInput,
 };
 
@@ -47,8 +47,8 @@ fn parse_batch_op(input: BatchOpInput) -> Result<BatchOp, AppError> {
                 .into_iter()
                 .map(|(key, value)| {
                     let values = match value {
-                        PropertyValueInput::Text(text) => vec![text],
-                        PropertyValueInput::List(values) => values,
+                        PropertyValue::Text(text) => vec![text],
+                        PropertyValue::List(values) => values,
                     };
                     Ok((PropertyKey::parse(&key)?, values))
                 })
