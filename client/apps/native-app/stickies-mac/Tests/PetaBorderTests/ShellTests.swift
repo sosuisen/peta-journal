@@ -186,6 +186,25 @@ final class ShellTests: XCTestCase {
         try await server.send("PUT", "/api/pages/\(pageId)/properties/tags", ["valueType": "tags", "value": tag])
     }
 
+    // 作れない名前のページを検索から作ろうとすると、コアの知らせが出る。知らせは答えを待たないので、閉じても何も送らない（#754）。
+    func testANoticeOfTheCoreShowsWhenAPageOfANameThatCannotBeMadeIsMade() async throws {
+        let shell = try await shellWithPage()
+
+        shell.search("a:b")
+        try await waitUntil("the search offers to make the page") {
+            shell.view.search.results.contains { $0.kind == .create }
+        }
+        let create = try XCTUnwrap(shell.view.search.results.first { $0.kind == .create })
+        shell.pick(create.position)
+
+        try await waitUntil("the core tells") { shell.question != nil }
+        XCTAssertEqual(shell.question?.kind, .notice)
+        XCTAssertTrue(shell.question?.message.contains(":") == true, shell.question?.message ?? "")
+        shell.answer(yes: true)
+        XCTAssertNil(shell.question)
+        XCTAssertEqual(shell.url, "/pages/swift-notes")
+    }
+
     // サーバーの拡張が確認を求めると、質問が出る。「いいえ」では何も起きず、「はい」で拡張が先へ進む。
     func testAConfirmationOfAnExtensionIsAnsweredWithYesOrNo() async throws {
         let shell = try await shellWithPage()
