@@ -46,10 +46,22 @@ export interface PanelChange {
   readonly value: unknown;
 }
 
-/** The panels by kind, after the panels that came. */
+/** The panels by kind. A panel that never came is missing. */
+export type Panels<P extends PanelChange> = {
+  readonly [K in P['kind']]?: Extract<P, { kind: K }>['value'];
+};
+
+/** The panels after the panels that came: each replaces the panel of its kind, whole. */
 export function panelsAfter<P extends PanelChange>(
-  panels: Partial<Record<P['kind'], unknown>>,
-  _changes: readonly P[],
-): Partial<Record<P['kind'], unknown>> {
-  return panels;
+  panels: Panels<P>,
+  changes: readonly P[],
+): Panels<P> {
+  if (changes.length === 0) {
+    return panels;
+  }
+  const after: Record<string, unknown> = { ...panels };
+  for (const change of changes) {
+    after[change.kind] = change.value;
+  }
+  return after as Panels<P>;
 }

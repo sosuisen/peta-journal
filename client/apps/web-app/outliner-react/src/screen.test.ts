@@ -48,12 +48,17 @@ describe('rows after their changes', () => {
 
 // パネルの差分を当てる
 describe('panels after their changes', () => {
+  type Panel =
+    | { kind: 'Title'; value: string }
+    | { kind: 'Today'; value: string }
+    | { kind: 'Sidebar'; value: { pages: string[] } };
+
   // 届いたパネルだけが入れ替わり、届かないパネルは前のままである。
   test('only the panels that came are replaced, and the others stay as they were', () => {
     const sidebar = { pages: ['a'] };
     const panels = { Title: 'old', Sidebar: sidebar };
 
-    const after = panelsAfter(panels, [
+    const after = panelsAfter<Panel>(panels, [
       { kind: 'Title', value: 'new' },
       { kind: 'Today', value: '2026-11-23' },
     ]);
