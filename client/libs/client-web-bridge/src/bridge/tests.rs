@@ -27,6 +27,8 @@ struct Browser {
     /// The URLs the address bar was given, and whether each replaced the one before.
     urls: RefCell<Vec<(String, bool)>>,
     asked: RefCell<Vec<(u32, UiOp)>>,
+    /// The operations of the screen the browser did itself, oldest first.
+    done_by_window: RefCell<Vec<UiOp>>,
     renders: Cell<usize>,
 }
 
@@ -84,6 +86,14 @@ impl Host for FakeHost {
 
     fn go_to(&self, url: &str, replace: bool) {
         self.0.urls.borrow_mut().push((url.to_string(), replace));
+    }
+
+    fn screen(&self, op: &UiOp, done: Done<UiOutput>) {
+        self.0.done_by_window.borrow_mut().push(op.clone());
+        // The user gives no name to the page
+        if let UiOp::Prompt(_) = op {
+            done(UiOutput::Text(Some(String::new())));
+        }
     }
 
     fn ask(&self, id: u32, op: &UiOp) {
@@ -363,4 +373,21 @@ fn the_start_gives_the_core_the_sorts_and_the_atlas_folders_the_browser_kept() {
     );
     let urls = screen.urls();
     assert_eq!(urls.last().unwrap().0, format!("/pages/{ATLAS_NAME}"));
+}
+
+// windowのAPIで済む画面の操作はブラウザがこなし、今の時刻はシェルに尋ねずに答える。名前のない新しいページは、その時刻から名前を得る。
+#[test]
+fn the_window_does_its_operations_and_the_time_is_answered_without_the_shell() {
+    let screen = Screen::new();
+
+    screen
+        .bridge
+        .update(r#"{"CreateNewPage":{"search_query":""}}"#)
+        .unwrap();
+
+    let by_window = screen.browser.done_by_window.borrow().clone();
+    assert_eq!(by_window, [UiOp::Prompt("Page title:".into())]);
+    assert!(screen.asked().is_empty());
+    let url = "/pages/Untitled-202602100900".to_string();
+    assert_eq!(screen.urls(), [(url, false)]);
 }
