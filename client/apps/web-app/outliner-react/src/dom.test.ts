@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
+  autoResize,
   charsOfUtf16,
   focusWithoutScroll,
   imageFile,
@@ -62,6 +63,18 @@ describe('the editor', () => {
 
     expect(document.activeElement).toBe(el);
     expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+  });
+
+  // 編集欄は、本文の高さに伸びる。
+  test('the editor grows to the height of its text', () => {
+    const el = textarea('one');
+    // jsdom lays nothing out: the text says how high it is
+    Object.defineProperty(el, 'scrollHeight', { value: 48 });
+    el.style.height = '20px';
+
+    autoResize(el);
+
+    expect(el.style.height).toBe('48px');
   });
 
   // IMEの変換中のキーと、Safariが変換の確定のあとに送るキーコード229のキーは、IMEのキーである。
