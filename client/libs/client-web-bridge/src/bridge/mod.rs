@@ -2,7 +2,7 @@
 //! that the tests run the same code as the web app.
 
 use crate::body::HtmlBody;
-use crate::border::write;
+use crate::border::{read, write};
 use client_core::changes::{Changes, Shown};
 use client_core::effects::{ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto};
 use client_core::policy::InOrder;
@@ -68,6 +68,12 @@ impl<H: Host> Bridge<H> {
                 self.send(Event::Route { route, today });
             }
         })
+    }
+
+    /// Takes an [`Event`] as JSON, and returns the changes.
+    pub fn update(&self, event: &str) -> Result<String, String> {
+        let event: Event = read(event)?;
+        Ok(self.in_call(|| self.send(event)))
     }
 
     /// What changed on the screen since the last call, as JSON. The first call gives a reset.
