@@ -9,6 +9,7 @@ use client_core::effects::{
 use client_core::keys::{Chord, EditorState, Key, KeyPress};
 use client_core::model::{Page, PageWithItems, Uploaded};
 use client_core::rest::ClientId;
+use client_core::screens::search::SEARCH_DELAY_MS;
 use client_core::testing::plain_item;
 use client_core::typing::Typing;
 use client_core::{EditPlace, Event, Route};
@@ -30,6 +31,18 @@ struct Waits {
     ended: AtomicUsize,
     /// How many waits have ended.
     over: AtomicUsize,
+    /// How long each wait is, in the order they began. The timers of the core begin on threads
+    /// of their own, so a timer that began earlier may come to wait later: its length tells
+    /// which one it is.
+    lengths: Mutex<Vec<u32>>,
+}
+
+impl Waits {
+    /// How many waits of this length have begun.
+    fn begun_of(&self, ms: u32) -> usize {
+        let lengths = self.lengths.lock().unwrap();
+        lengths.iter().filter(|&&length| length == ms).count()
+    }
 }
 
 /// A journal server with one page, `notes`, and an event stream the test writes.
@@ -116,8 +129,14 @@ impl Clock for FakeClock {
         (local, 1_000)
     }
 
-    fn sleep(&self, _ms: u32) {
-        let place = self.waits.begun.fetch_add(1, Ordering::SeqCst);
+    fn sleep(&self, ms: u32) {
+        let place = {
+            // The place and the length are kept together, so that a wait is counted as begun
+            // only once its length is known
+            let mut lengths = self.waits.lengths.lock().unwrap();
+            lengths.push(ms);
+            self.waits.begun.fetch_add(1, Ordering::SeqCst)
+        };
         while self.waits.ended.load(Ordering::SeqCst) <= place {
             thread::sleep(Duration::from_millis(1));
         }
@@ -171,10 +190,10 @@ impl Screen {
 
     /// Types into the search box, and waits until the timer for it runs.
     fn search(&self, query: &str) {
-        let timers = self.waits.begun.load(Ordering::SeqCst);
+        let timers = self.waits.begun_of(SEARCH_DELAY_MS);
         self.send(&Event::SearchQueryChanged(query.into()));
         wait_until("the timer of the search runs", || {
-            self.waits.begun.load(Ordering::SeqCst) == timers + 1
+            self.waits.begun_of(SEARCH_DELAY_MS) == timers + 1
         });
     }
 
