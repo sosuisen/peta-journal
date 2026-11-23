@@ -114,6 +114,14 @@ export class Core {
     return fromJsonReplay(json.parse(answer));
   }
 
+  /**
+   * The text typed inside the `[[wiki link]]` that the cursor at the UTF-16 place `cursor`
+   * is in. Undefined outside a link.
+   */
+  wikiQueryAt(text: string, cursor: number): string | undefined {
+    return this.shell.wikiQueryAt(text, cursor);
+  }
+
   /** Begins the clipboard write of a copy, while the user's key still allows it. */
   beginCopy(): void {
     this.shell.beginCopy();

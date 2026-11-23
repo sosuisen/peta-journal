@@ -1,5 +1,6 @@
 import { DeferredKey } from './border/peta-types';
 import type { Asked, Core } from './core';
+import { checkWikiLink } from './WikiSuggestions';
 import { autoResize, focusWithoutScroll, isImeComposing } from './dom';
 
 /**
@@ -101,6 +102,7 @@ export class AskedOps {
     const changed = () => {
       core.typed({ kind: 'Changed', item_id: itemId, body: editor.value });
       autoResize(editor);
+      checkWikiLink(core, itemId, editor);
     };
     for (const key of keys) {
       // A played Enter holds the keys again: those after it belong to the item it makes

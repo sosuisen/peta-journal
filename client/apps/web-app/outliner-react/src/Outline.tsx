@@ -5,6 +5,7 @@ import { useCore, usePanel, useScreen } from './context';
 import type { Core } from './core';
 import { chordOf } from './keys';
 import { OutlineItem } from './OutlineItem';
+import WikiSuggestions from './WikiSuggestions';
 
 /** The height of a row that was never measured. */
 const ESTIMATED_ROW_PX = 28;
@@ -150,6 +151,7 @@ export default function Outline({ header, footer }: Props) {
         </div>
         {footer !== undefined && <div className="outline-footer">{footer}</div>}
       </cdk-virtual-scroll-viewport>
+      <WikiSuggestions />
     </app-outline>
   );
 }

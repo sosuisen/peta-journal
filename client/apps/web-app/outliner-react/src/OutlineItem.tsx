@@ -12,6 +12,7 @@ import type { FocusRequest, Row } from './border/peta-types';
 import { deferredKey } from './asked';
 import { AskedOpsContext } from './askedContext';
 import { useCore } from './context';
+import { checkWikiLink } from './WikiSuggestions';
 import type { Core } from './core';
 import {
   autoResize,
@@ -578,6 +579,7 @@ function ItemEditor({
       core.typed({ kind: 'Changed', item_id: id, body: el.value });
     }
     autoResize(el);
+    checkWikiLink(core, id, el);
   };
 
   const keyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
