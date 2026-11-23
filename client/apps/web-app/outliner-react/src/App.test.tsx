@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import App from './App';
@@ -67,6 +67,13 @@ function app(...panels: Panel[]) {
   return { ...ui, ...drawn, show };
 }
 
+/** The heading of the page on the screen, not of the sidebar. */
+function pageHeading(): string | null {
+  return within(document.querySelector('main') as HTMLElement).getByRole(
+    'heading',
+  ).textContent;
+}
+
 function button(name: string | RegExp): HTMLElement {
   return screen.getByRole('button', { name });
 }
@@ -80,7 +87,7 @@ describe('the frame of the app', () => {
       value: { kind: 'Journal', value: journal('Daily') },
     });
 
-    expect(screen.getByRole('heading').textContent).toBe('2026-11-23 (Mon)');
+    expect(pageHeading()).toBe('2026-11-23 (Mon)');
   });
 
   // 上の端のボタンは、それぞれの移動をコアに頼む。
@@ -112,6 +119,19 @@ describe('the frame of the app', () => {
     expect(wasm.events).toEqual([
       { kind: 'CreateNewPage', search_query: '' },
       { kind: 'CreateNewPage', search_query: 'idea' },
+    ]);
+  });
+
+  // 横の欄にはサイドバーがある。サイドバーのアイコンは、枠が持つ絵を使う。
+  test('the side column holds the sidebar, whose icons the frame draws', () => {
+    const { container } = app();
+
+    expect(container.querySelector('aside app-sidebar')).not.toBeNull();
+    expect([...container.querySelectorAll('symbol')].map(s => s.id)).toEqual([
+      'icon-page',
+      'icon-page-filled',
+      'icon-folder',
+      'icon-item',
     ]);
   });
 
@@ -288,7 +308,7 @@ describe('a document page', () => {
 
     fireEvent.click(screen.getByText('work'));
 
-    expect(screen.getByRole('heading').textContent).toBe('plan');
+    expect(pageHeading()).toBe('plan');
     expect(container.querySelector('.dir-path-breadcrumb')?.className).toBe(
       'dir-path-breadcrumb',
     );
@@ -369,7 +389,7 @@ describe('a document page', () => {
       docPage('index', 'x/', { is_index: true, is_root_index: true }),
     );
 
-    expect(screen.getByRole('heading').textContent).toBe('(root)/');
+    expect(pageHeading()).toBe('(root)/');
     expect(container.querySelector('.index-label')?.textContent).toBe('index');
     expect(container.querySelector('.dir-path-breadcrumb')).toBeNull();
   });

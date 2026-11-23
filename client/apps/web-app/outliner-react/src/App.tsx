@@ -3,6 +3,7 @@ import { useAsked } from './askedContext';
 import type { JournalView, PageView } from './border/peta-types';
 import { useCore, usePanel } from './context';
 import Outline from './Outline';
+import Sidebar from './Sidebar';
 
 /**
  * The frame of the app, as the Leptos shell drew it: the header, the sidebar, the screen and
@@ -20,6 +21,7 @@ export default function App() {
 
   return (
     <app-main-layout>
+      <Icons />
       <div className={sidebarCollapsed ? 'layout sidebar-collapsed' : 'layout'}>
         <Header
           toggleSidebar={() => setSidebarCollapsed(collapsed => !collapsed)}
@@ -28,7 +30,9 @@ export default function App() {
           <aside
             className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}
             style={{ width: sidebarCollapsed ? '0px' : '260px' }}
-          />
+          >
+            <Sidebar />
+          </aside>
           <main className="content">
             <PageDispatcher />
           </main>
@@ -206,6 +210,49 @@ function Header({ toggleSidebar }: { readonly toggleSidebar: () => void }) {
     </header>
   );
 }
+
+/** The icons of the pages and the items, which the sidebar and the search draw with `<use>`. */
+function Icons() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" style={{ display: 'none' }}>
+      <symbol id="icon-page" viewBox="0 0 24 24" {...ICON_STROKE}>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+      </symbol>
+      <symbol
+        id="icon-page-filled"
+        viewBox="0 0 24 24"
+        {...ICON_STROKE}
+        fill="currentColor"
+      >
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" fill="none" stroke="#fff" />
+      </symbol>
+      <symbol id="icon-folder" viewBox="0 0 28 24" {...ICON_STROKE}>
+        <path d="M26 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6l3 3h11a2 2 0 0 1 2 2z" />
+      </symbol>
+      <symbol
+        id="icon-item"
+        viewBox="0 0 24 24"
+        {...ICON_STROKE}
+        strokeWidth="2.5"
+      >
+        <circle cx="5" cy="7" r="2.5" fill="currentColor" stroke="none" />
+        <line x1="11" y1="7" x2="21" y2="7" />
+        <line x1="11" y1="13" x2="19" y2="13" />
+        <line x1="11" y1="19" x2="17" y2="19" />
+      </symbol>
+    </svg>
+  );
+}
+
+const ICON_STROKE = {
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 3,
+  strokeLinecap: 'round',
+  strokeLinejoin: 'round',
+} as const;
 
 const STROKE = {
   fill: 'none',

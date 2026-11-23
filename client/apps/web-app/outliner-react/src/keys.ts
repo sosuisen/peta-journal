@@ -1,4 +1,4 @@
-import { Chord, EditorState, type Key } from './border/peta-types';
+import { Chord, EditorState, type Key, type OpenIn } from './border/peta-types';
 import { isOnFirstLine, isOnLastLine } from './layout';
 
 /** The keys of the browser by name, as the core knows them (ADR 052). */
@@ -50,4 +50,12 @@ export function editorState(el: HTMLTextAreaElement, key: string): EditorState {
     key === 'ArrowUp' && isOnFirstLine(el),
     key === 'ArrowDown' && isOnLastLine(el),
   );
+}
+
+/** Where a click opens a link: Shift a window, Ctrl or Command a tab. Shift wins over both. */
+export function openInOf(event: MouseEvent): OpenIn {
+  if (event.shiftKey) {
+    return { kind: 'Window' };
+  }
+  return event.ctrlKey || event.metaKey ? { kind: 'Tab' } : { kind: 'Here' };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { chordOf, editorState } from './keys';
+import { chordOf, editorState, openInOf } from './keys';
 
 function key(init: KeyboardEventInit): KeyboardEvent {
   return new KeyboardEvent('keydown', init);
@@ -65,5 +65,22 @@ describe('the editor as a key finds it', () => {
 
     expect([up.on_first_line, up.on_last_line]).toEqual([true, false]);
     expect([down.on_first_line, down.on_last_line]).toEqual([false, true]);
+  });
+});
+
+// リンクを開く場所
+describe('where a link opens', () => {
+  // Shiftを押したクリックは新しいウィンドウ、CtrlかCommandは新しいタブ、何もなければその場で開く。両方なら、Shiftが勝つ。
+  test('Shift opens a window, Ctrl or Command a tab, and nothing the place itself', () => {
+    const click = (init: MouseEventInit) =>
+      openInOf(new MouseEvent('click', init)).kind;
+
+    expect([
+      click({}),
+      click({ ctrlKey: true }),
+      click({ metaKey: true }),
+      click({ shiftKey: true }),
+      click({ shiftKey: true, ctrlKey: true }),
+    ]).toEqual(['Here', 'Tab', 'Tab', 'Window', 'Window']);
   });
 });
