@@ -13,7 +13,4 @@ export default defineConfig({
     port: 5181,
     proxy: { '/api': { target: api, changeOrigin: true } },
   },
-  test: {
-    environment: 'node',
-  },
 });
