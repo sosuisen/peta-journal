@@ -1,0 +1,12 @@
+{
+  "name": "prototype-bench",
+  "private": true,
+  "type": "module",
+  "description": "Measures the prototype web shells of #971 in the Chrome of this machine",
+  "scripts": {
+    "measure": "node measure.mjs"
+  },
+  "dependencies": {
+    "puppeteer-core": "25.18.1"
+  }
+}
