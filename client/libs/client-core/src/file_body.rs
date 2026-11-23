@@ -72,8 +72,7 @@ pub fn output_to_shell(mut output: ApiOutput) -> ApiOutput {
     match &mut output {
         ApiOutput::Page(page) => {
             items_to_shell(&mut page.items);
-            let trees = page.transcluded_trees.iter_mut();
-            trees_to_shell(trees.flat_map(|trees| trees.values_mut()));
+            trees_to_shell(page.transcluded_trees.values_mut());
         }
         ApiOutput::JournalBefore(journal) => {
             items_to_shell(&mut journal.items);
