@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { deferredKey } from './asked';
+import { AskedOps, deferredKey } from './asked';
 import type { DeferredKey } from './border/peta-types';
 import { outline, shell } from './test/screens';
 
@@ -310,6 +310,17 @@ describe('the confirm of a deletion', () => {
     wasm.ask(5, { kind: 'ConfirmDestructive', value: 'Delete?' });
 
     expect(told).toBe(0);
+  });
+});
+
+// 答えの行き先
+describe('where the answers go', () => {
+  // コアを渡す前に答えると、エラーになる。
+  test('an answer before the core is given is an error', () => {
+    const asked = new AskedOps();
+    asked.take({ id: 1, op: { kind: 'ConfirmDestructive', value: 'Delete?' } });
+
+    expect(() => asked.answerConfirm(true)).toThrow(Error);
   });
 });
 

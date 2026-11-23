@@ -170,17 +170,17 @@ export function textBeforePoint(
   ) {
     return null;
   }
+  // The walker shows only text nodes, and it reaches the caret: the container holds it
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
   let before = '';
-  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-    // The walker shows only text nodes
-    const text = (node as Text).data;
-    if (node === caret.offsetNode) {
-      return before + text.slice(0, caret.offset);
-    }
-    before += text;
+  for (
+    let node = walker.nextNode() as Text;
+    node !== caret.offsetNode;
+    node = walker.nextNode() as Text
+  ) {
+    before += node.data;
   }
-  return null;
+  return before + (caret.offsetNode as Text).data.slice(0, caret.offset);
 }
 
 /**

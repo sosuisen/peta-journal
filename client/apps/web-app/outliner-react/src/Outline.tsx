@@ -76,11 +76,7 @@ export default function Outline({ header, footer }: Props) {
       ? 0
       : virtualizer.getTotalSize() - (last.end - margin)) + room;
 
-  const scrolled = () => {
-    const list = viewport.current;
-    if (list === null) {
-      return;
-    }
+  const scrolled = (list: HTMLElement) => {
     const top = list.scrollTop;
     const shown = virtualizer.getVirtualItems();
     const topVisible = shown.find(item => item.end > top)?.index ?? 0;
@@ -101,7 +97,7 @@ export default function Outline({ header, footer }: Props) {
       <cdk-virtual-scroll-viewport
         ref={viewport}
         className="outline-viewport"
-        onScroll={scrolled}
+        onScroll={event => scrolled(event.currentTarget)}
       >
         {header !== undefined && (
           <div ref={headerBox} className="outline-header">

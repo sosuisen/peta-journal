@@ -55,11 +55,9 @@ export const OutlineItem = memo(function OutlineItem({
   const openMenu = (event: ReactMouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     const button = event.currentTarget.getBoundingClientRect();
-    const box = host.current?.getBoundingClientRect();
-    setMenuAt({
-      x: button.left - (box?.left ?? 0),
-      y: button.bottom - (box?.top ?? 0),
-    });
+    // The button is inside the box, so the box is on the page
+    const box = (host.current as HTMLDivElement).getBoundingClientRect();
+    setMenuAt({ x: button.left - box.left, y: button.bottom - box.top });
   };
   const menuButton = (
     <button className="item-menu" onClick={openMenu}>
@@ -352,11 +350,11 @@ function ItemView({ row }: { readonly row: Row }) {
   const html = row.body_model;
 
   // What the HTML leaves to the shell (ADR 026): the size of the images, the colours of code
+  // The view always draws its content, so the ref is set by its layout effects
   useLayoutEffect(() => {
-    if (content.current !== null) {
-      sizeImages(content.current);
-      highlightCode(content.current);
-    }
+    const drawn = content.current as HTMLDivElement;
+    sizeImages(drawn);
+    highlightCode(drawn);
   }, [html]);
 
   const pressed = (event: ReactMouseEvent<HTMLDivElement>) => {
@@ -414,20 +412,18 @@ function ItemView({ row }: { readonly row: Row }) {
 
 /** Opens what a click in a drawn body names: a footnote, a page of the app, or a web page. */
 function clickedLink(core: Core, event: ReactMouseEvent<HTMLDivElement>): void {
-  if (!(event.target instanceof Element)) {
-    return;
-  }
-  const footnote = event.target.closest('.footnote-ref a, .footnote-label');
+  // A click lands on an element, never on a text node
+  const target = event.target as Element;
+  const footnote = target.closest('.footnote-ref a, .footnote-label');
   if (footnote !== null) {
     event.preventDefault();
     event.stopPropagation();
-    const target = footnote.getAttribute('href')?.replace(/^#/, '');
-    if (target !== undefined) {
-      document.getElementById(target)?.scrollIntoView({ block: 'center' });
-    }
+    // flatmarkdown gives both links of a footnote an href of the form #id
+    const href = footnote.getAttribute('href') as string;
+    document.getElementById(href.slice(1))?.scrollIntoView({ block: 'center' });
     return;
   }
-  const page = event.target.closest(PAGE_LINKS);
+  const page = target.closest(PAGE_LINKS);
   if (page !== null) {
     const href = page.getAttribute('href');
     // Ctrl or Command opens a tab, as the browser does by itself; Shift opens a window
@@ -446,7 +442,7 @@ function clickedLink(core: Core, event: ReactMouseEvent<HTMLDivElement>): void {
     }
     return;
   }
-  const link = event.target.closest('a');
+  const link = target.closest('a');
   if (link !== null && link.href !== '') {
     event.preventDefault();
     event.stopPropagation();
@@ -519,9 +515,10 @@ function ItemEditor({
   const shiftHeld = useRef(false);
 
   // The body as the core has it: a paste, an undo and the completion change it from outside
+  // The editor always draws its textarea, so the ref is set by its layout effects
   useLayoutEffect(() => {
-    const el = area.current;
-    if (el !== null && el.value !== body) {
+    const el = area.current as HTMLTextAreaElement;
+    if (el.value !== body) {
       el.value = body;
       autoResize(el);
     }
@@ -529,10 +526,7 @@ function ItemEditor({
 
   // The focus and the cursor the core asks for, when the editor comes and at each new request
   useLayoutEffect(() => {
-    const el = area.current;
-    if (el === null) {
-      return;
-    }
+    const el = area.current as HTMLTextAreaElement;
     const mine = request !== null && request.item_id === id ? request : null;
     if (mine !== null && mine.seq !== followed.current) {
       followed.current = mine.seq;

@@ -26,6 +26,14 @@ export class AskedOps {
     this.core = core;
   }
 
+  /** The core asks only after it is made, so the core is always given by then. */
+  private get answering(): Core {
+    if (this.core === null) {
+      throw new Error('answerTo is not called before the core asks');
+    }
+    return this.core;
+  }
+
   readonly take = (asked: Asked): void => {
     const { id, op } = asked;
     switch (op.kind) {
@@ -52,7 +60,7 @@ export class AskedOps {
           if (editor !== null && op.item_id !== null) {
             this.replay(editor, op.item_id, keys);
           }
-          this.core?.resolve(id, { kind: 'Done' });
+          this.answering.resolve(id, { kind: 'Done' });
         }, 0);
         break;
       }
@@ -95,10 +103,7 @@ export class AskedOps {
     itemId: string,
     keys: readonly DeferredKey[],
   ): void {
-    const core = this.core;
-    if (core === null) {
-      return;
-    }
+    const core = this.answering;
     const changed = () => {
       core.typed({ kind: 'Changed', item_id: itemId, body: editor.value });
       autoResize(editor);
@@ -166,7 +171,7 @@ export class AskedOps {
     }
     this.confirm = null;
     this.changed();
-    this.core?.resolve(confirm.id, { kind: 'Bool', value: yes });
+    this.answering.resolve(confirm.id, { kind: 'Bool', value: yes });
   }
 
   readonly subscribe = (listener: () => void): (() => void) => {
