@@ -63,7 +63,7 @@ struct ParsedItem {
 
 #[derive(Deserialize)]
 struct CreateItemArgs {
-    position: String,
+    position: journal_api_types::ItemPosition,
     level: i32,
     body: String,
     #[serde(default)]
@@ -160,7 +160,8 @@ impl ExtensionRuntime {
             ctx.clone(),
             move |ctx: Ctx<'js>, args: Value<'js>| -> rquickjs::Result<String> {
                 let args: CreateItemArgs = from_js(&ctx, args)?;
-                let position = ItemPosition::parse(&args.position).map_err(|e| thrown(&ctx, e))?;
+                let position =
+                    ItemPosition::try_from(args.position).map_err(|e| thrown(&ctx, e))?;
                 let id = ids.generate_item_id();
                 requests.borrow_mut().push(ItemRequest {
                     id: id.clone(),

@@ -1,7 +1,7 @@
 use crate::effects::{ApiError, ApiOp, ApiOutput, AtlasChange, FolderChoice};
 use crate::model::{
-    BatchOp, ItemPosition, JournalBefore, Page, PageWithItems, PasteCursor, PasteMode,
-    PropertyValue, ServerConfig, TaskState, TreeExport,
+    BatchOpInput, ItemPosition, JournalBefore, Page, PageWithItems, PasteCursor, PasteMode,
+    PropertyValueInput, ServerConfig, TaskState, TreeExport,
 };
 use crate::rest::{rest_call, HttpReply, RestCall};
 use serde::Serialize;
@@ -529,7 +529,7 @@ fn a_split_posts_the_body_and_the_cursor_and_answers_the_item_and_the_item_made(
 #[test]
 fn a_batch_create_posts_its_transclusion_and_properties_as_the_server_reads_them() {
     let rest = call(ApiOp::ApplyBatch {
-        ops: vec![BatchOp::Create {
+        ops: vec![BatchOpInput::Create {
             id: id("n"),
             page_id: id("p"),
             position: ItemPosition::First,
@@ -537,10 +537,10 @@ fn a_batch_create_posts_its_transclusion_and_properties_as_the_server_reads_them
             body: id("text"),
             transclude_item_id: Some(id("s")),
             properties: [
-                ("status".to_string(), PropertyValue::Text(id("done"))),
+                ("status".to_string(), PropertyValueInput::Text(id("done"))),
                 (
                     "owners_list".to_string(),
-                    PropertyValue::List(vec![id("ann")]),
+                    PropertyValueInput::List(vec![id("ann")]),
                 ),
             ]
             .into(),
@@ -561,7 +561,7 @@ fn a_batch_create_posts_its_transclusion_and_properties_as_the_server_reads_them
 fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_items_written() {
     let rest = call(ApiOp::ApplyBatch {
         ops: vec![
-            BatchOp::Update {
+            BatchOpInput::Update {
                 id: id("a"),
                 body: Some(id("x")),
                 level: Some(2),
@@ -573,14 +573,14 @@ fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_ite
                     plan: None,
                 }),
             },
-            BatchOp::Update {
+            BatchOpInput::Update {
                 id: id("s"),
                 body: None,
                 level: None,
                 collapsed: None,
                 task: None,
             },
-            BatchOp::Create {
+            BatchOpInput::Create {
                 id: id("n"),
                 page_id: id("p"),
                 position: ItemPosition::after("a"),
@@ -589,12 +589,12 @@ fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_ite
                 transclude_item_id: None,
                 properties: Default::default(),
             },
-            BatchOp::Move {
+            BatchOpInput::Move {
                 ids: vec![id("m"), id("m1")],
                 page_id: id("p"),
                 position: ItemPosition::First,
             },
-            BatchOp::Delete { id: id("d") },
+            BatchOpInput::Delete { id: id("d") },
         ],
     });
     assert_eq!(
@@ -605,7 +605,7 @@ fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_ite
         rest.request.body,
         Some(json!({ "ops": [
             { "op": "update", "id": "a", "body": "x", "level": 2, "collapsed": true,
-              "task": { "task": true, "begin": "b", "end": null, "plan": null } },
+              "task": { "task": true, "begin": "b" } },
             { "op": "update", "id": "s" },
             { "op": "create", "id": "n", "pageId": "p", "position": "after:a", "level": 2,
               "body": "new" },

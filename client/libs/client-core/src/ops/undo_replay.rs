@@ -4,7 +4,7 @@
 //! read again.
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
-use crate::model::{BatchOp, Item, ItemPosition, TaskState};
+use crate::model::{BatchOpInput, Item, ItemPosition, TaskState};
 use crate::ops::action::show_empty_item;
 use crate::ops::edit::discard_pending_edit_of_focused_item;
 use crate::ops::edit::{begin_handover, save_target_id, show_parsed};
@@ -25,14 +25,14 @@ pub struct UndoSyncs {
 
 impl UndoSyncs {
     /// Numbers a sync that is about to be sent, and notes the items it writes.
-    fn begin(&mut self, ops: &[BatchOp]) -> u64 {
+    fn begin(&mut self, ops: &[BatchOpInput]) -> u64 {
         self.sent += 1;
         for op in ops {
             let ids = match op {
-                BatchOp::Create { id, .. }
-                | BatchOp::Update { id, .. }
-                | BatchOp::Delete { id } => std::slice::from_ref(id),
-                BatchOp::Move { ids, .. } => ids.as_slice(),
+                BatchOpInput::Create { id, .. }
+                | BatchOpInput::Update { id, .. }
+                | BatchOpInput::Delete { id } => std::slice::from_ref(id),
+                BatchOpInput::Move { ids, .. } => ids.as_slice(),
             };
             for id in ids {
                 self.last_of_item.insert(id.clone(), self.sent);
@@ -229,7 +229,7 @@ fn cursor_of(entry: &UndoEntry, dir: Direction) -> Option<CursorState> {
 /// What an undo or a redo sends to the server in one request.
 #[derive(Default)]
 struct Batch {
-    ops: Vec<BatchOp>,
+    ops: Vec<BatchOpInput>,
     /// The items whose body or task state the replay changed: they take the server's parse.
     reparsed: Vec<String>,
     /// The items the batch makes again: they are shown as the server made them.
@@ -243,7 +243,7 @@ impl Batch {
         let task_changed = before.task_state() != after.task_state();
         let task_target = save_target_id(target);
         let own_task = task_changed && task_target == target.id;
-        self.ops.push(BatchOp::Update {
+        self.ops.push(BatchOpInput::Update {
             id: target.id.clone(),
             body: Some(target.body.clone()),
             level: Some(target.level),
@@ -255,7 +255,7 @@ impl Batch {
             self.reparsed.push(target.id.clone());
         }
         if task_changed && !own_task {
-            self.ops.push(BatchOp::Update {
+            self.ops.push(BatchOpInput::Update {
                 id: task_target.clone(),
                 body: None,
                 level: None,
@@ -269,20 +269,24 @@ impl Batch {
     /// Adds the making of an item the replay put back, with the id it had, where the
     /// replayed state has it.
     fn push_create(&mut self, model: &Model, item: &Item) {
-        self.ops.push(BatchOp::Create {
+        self.ops.push(BatchOpInput::Create {
             id: item.id.clone(),
             page_id: item.page_id.clone(),
             position: position_by_index(model.state.items(), item),
             level: item.level,
             body: item.body.clone(),
             transclude_item_id: item.transclude_item_id.clone(),
-            properties: item.properties.clone(),
+            properties: item
+                .properties
+                .iter()
+                .map(|(key, value)| (key.clone(), value.clone().into()))
+                .collect(),
         });
         // The making writes the body, the level, the transclusion and the properties
         let task = item.task_state();
         let has_task = task != TaskState::default();
         if item.collapsed || has_task {
-            self.ops.push(BatchOp::Update {
+            self.ops.push(BatchOpInput::Update {
                 id: item.id.clone(),
                 body: None,
                 level: None,
@@ -298,7 +302,7 @@ impl Batch {
     /// stay together.
     fn push_move(&mut self, model: &Model, run: Option<(Vec<String>, &Item)>) {
         let Some((ids, first)) = run else { return };
-        self.ops.push(BatchOp::Move {
+        self.ops.push(BatchOpInput::Move {
             ids,
             page_id: first.page_id.clone(),
             position: position_by_index(model.state.items(), first),
@@ -377,7 +381,7 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
                 if exists_again {
                     put_back.insert(item.id.as_str());
                 } else {
-                    deletes.push(BatchOp::Delete {
+                    deletes.push(BatchOpInput::Delete {
                         id: item.id.clone(),
                     });
                 }
@@ -406,7 +410,7 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
     batch.push_move(model, moving.take());
     for (first, ids) in &transcluded_runs {
         if let Some(position) = position_in_transcluded_tree(model, first, ids) {
-            batch.ops.push(BatchOp::Move {
+            batch.ops.push(BatchOpInput::Move {
                 ids: ids.clone(),
                 page_id: first.page_id.clone(),
                 position,

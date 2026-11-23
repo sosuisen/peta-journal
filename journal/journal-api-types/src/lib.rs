@@ -18,7 +18,8 @@ pub const CLIENT_ID_HEADER: &str = "x-client-id";
 
 pub mod routes;
 
-use serde::{Deserialize, Serialize};
+use serde::de::Error as _;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -103,7 +104,7 @@ pub struct MoveToJournalInput {
     /// IDs of the items to move, in the order of the page
     pub item_ids: Vec<String>,
     /// Position in the journal: 'first', 'last', or 'after:<id>'
-    pub position: String,
+    pub position: ItemPosition,
     /// The text the editor of the first item has now, when it is not saved yet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
@@ -120,7 +121,7 @@ pub struct CreateItemInput {
     pub page_id: Option<String>,
     /// Position: 'first', 'last', or 'after:<id>'
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub position: Option<String>,
+    pub position: Option<ItemPosition>,
     /// Indentation level (1-based)
     pub level: i32,
     /// Markdown body text
@@ -158,7 +159,7 @@ pub struct MoveItemsInput {
     pub target_page_id: Option<String>,
     /// Position: 'first', 'last', or 'after:<id>'
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub position: Option<String>,
+    pub position: Option<ItemPosition>,
     /// Number to add to the level of each item. Left out or 0 for no change.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub level_delta: Option<i32>,
@@ -185,6 +186,95 @@ pub struct BatchInput {
     pub ops: Vec<BatchOpInput>,
 }
 
+/// Where an item goes on a page: first, last, or after another item. JSON has it as the text
+/// `first`, `last` or `after:<id>` (ADR 081).
+///
+/// A format that does not describe itself, like the bincode of the native border (ADR 024),
+/// has it as an enum with a tag instead.
+#[cfg_attr(feature = "facet", derive(facet::Facet), repr(C))]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ItemPosition {
+    First,
+    Last,
+    After(String),
+}
+
+/// The form of a format that does not describe itself. The types of a native shell are
+/// generated from the shape of the Rust type, so the bytes have to follow that shape too.
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "ItemPosition", rename = "ItemPosition")]
+enum ItemPositionWithTag {
+    First,
+    Last,
+    After(String),
+}
+
+impl ItemPosition {
+    pub fn after(id: impl Into<String>) -> ItemPosition {
+        ItemPosition::After(id.into())
+    }
+
+    fn parse(text: &str) -> Option<ItemPosition> {
+        match text {
+            "first" => Some(ItemPosition::First),
+            "last" => Some(ItemPosition::Last),
+            _ => text
+                .strip_prefix("after:")
+                .map(|id| ItemPosition::After(id.to_string())),
+        }
+    }
+}
+
+/// The text JSON has: `first`, `last` or `after:<id>`.
+impl std::fmt::Display for ItemPosition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ItemPosition::First => f.write_str("first"),
+            ItemPosition::Last => f.write_str("last"),
+            ItemPosition::After(id) => write!(f, "after:{id}"),
+        }
+    }
+}
+
+impl Serialize for ItemPosition {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if serializer.is_human_readable() {
+            serializer.collect_str(self)
+        } else {
+            ItemPositionWithTag::serialize(self, serializer)
+        }
+    }
+}
+
+/// Written by hand: a derive would show MCP an enum, but the tools take the text.
+#[cfg(feature = "schemars")]
+impl schemars::JsonSchema for ItemPosition {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "ItemPosition".into()
+    }
+
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "type": "string",
+            "description": "Position: 'first', 'last', or 'after:<id>'"
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for ItemPosition {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        if !deserializer.is_human_readable() {
+            return ItemPositionWithTag::deserialize(deserializer);
+        }
+        let text = String::deserialize(deserializer)?;
+        ItemPosition::parse(&text).ok_or_else(|| D::Error::custom(format!("bad position: {text}")))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
@@ -203,7 +293,7 @@ pub enum BatchOpInput {
     Create {
         id: String,
         page_id: String,
-        position: String,
+        position: ItemPosition,
         level: i32,
         #[serde(default)]
         body: String,
@@ -231,7 +321,7 @@ pub enum BatchOpInput {
     Move {
         ids: Vec<String>,
         page_id: String,
-        position: String,
+        position: ItemPosition,
     },
     Delete {
         id: String,
@@ -614,7 +704,7 @@ mod tests {
                 BatchOpInput::Create {
                     id: "i".into(),
                     page_id: "p".into(),
-                    position: "last".into(),
+                    position: ItemPosition::Last,
                     level: 1,
                     body: "text".into(),
                     transclude_item_id: None,
@@ -647,5 +737,56 @@ mod tests {
             serde_json::from_value::<BatchInput>(written).unwrap(),
             batch
         );
+    }
+
+    // 位置は、JSONでは"first"、"last"、"after:<id>"の文字列として書かれ、同じ位置に読み戻される。
+    #[test]
+    fn a_position_is_written_in_json_as_its_text_and_read_back() {
+        let positions = [
+            (ItemPosition::First, "first"),
+            (ItemPosition::Last, "last"),
+            (ItemPosition::after("x"), "after:x"),
+        ];
+
+        for (position, text) in positions {
+            let written = serde_json::to_value(&position).unwrap();
+            assert_eq!(written, json!(text));
+            assert_eq!(
+                serde_json::from_value::<ItemPosition>(written).unwrap(),
+                position
+            );
+        }
+    }
+
+    // MCPのスキーマでは、位置は、書き方を説明した文字列である。要求のスキーマの中でも、その場で文字列として書かれる。
+    #[cfg(feature = "schemars")]
+    #[test]
+    fn a_position_is_a_text_in_the_schema_of_mcp() {
+        let schema = serde_json::to_value(schemars::schema_for!(ItemPosition)).unwrap();
+        let request = serde_json::to_value(schemars::schema_for!(MoveToJournalInput)).unwrap();
+
+        assert_eq!(schema["type"], json!("string"));
+        assert!(
+            schema["description"]
+                .as_str()
+                .is_some_and(|text| text.contains("'after:<id>'")),
+            "{schema}"
+        );
+        assert_eq!(
+            request["properties"]["position"]["type"],
+            json!("string"),
+            "{request}"
+        );
+    }
+
+    // 決まりに合わない文字列は、位置として読めない。
+    #[test]
+    fn a_text_that_is_no_position_is_not_read() {
+        for text in ["nowhere", "", "after", "First"] {
+            assert!(
+                serde_json::from_value::<ItemPosition>(json!(text)).is_err(),
+                "{text}"
+            );
+        }
     }
 }

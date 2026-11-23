@@ -107,7 +107,7 @@ fn outdent_moves(h: &Harness) -> Vec<OutdentMove> {
                 ..
             } => Some(OutdentMove {
                 item_ids: item_ids.clone(),
-                position: position.to_api(),
+                position: position.to_string(),
                 level_delta: *level_delta,
                 body: body.clone(),
             }),

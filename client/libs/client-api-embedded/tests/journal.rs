@@ -7,7 +7,7 @@ use std::time::Duration;
 use client_api_embedded::{EmbeddedJournal, EventQueue};
 use client_core::effects::{ApiOp, ApiOutput, ApiResult, AtlasChange, SseEvent};
 use client_core::model::{
-    BacklinkEntry, BatchOp, Batched, Item, ItemPosition, JournalBefore, Page, PageWithItems,
+    BacklinkEntry, BatchOpInput, Batched, Item, ItemPosition, JournalBefore, Page, PageWithItems,
     PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split, Stashed,
 };
 use client_core::rest::ClientId;
@@ -453,7 +453,7 @@ fn an_item_takes_a_task_state_a_paste_a_stash_and_a_batch() {
 
     let batched = expect!(
         f.call(ApiOp::ApplyBatch {
-            ops: vec![BatchOp::Update {
+            ops: vec![BatchOpInput::Update {
                 id: aside.clone(),
                 body: Some("much later".into()),
                 level: None,

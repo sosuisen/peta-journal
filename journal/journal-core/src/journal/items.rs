@@ -39,7 +39,7 @@ fn parse_batch_op(input: BatchOpInput) -> Result<BatchOp, AppError> {
         } => BatchOp::Create {
             id: parse_id(&id)?,
             page_id: parse_id(&page_id)?,
-            position: parse_position(Some(&position))?,
+            position: parse_position(Some(position))?,
             level,
             body,
             transclude: transclude_item_id.as_deref().map(parse_id).transpose()?,
@@ -79,7 +79,7 @@ fn parse_batch_op(input: BatchOpInput) -> Result<BatchOp, AppError> {
         } => BatchOp::Move {
             ids: parse_ids(Some(&ids), "ids")?,
             page_id: parse_id(&page_id)?,
-            position: parse_position(Some(&position))?,
+            position: parse_position(Some(position))?,
         },
         BatchOpInput::Delete { id } => BatchOp::Delete { id: parse_id(&id)? },
     })
@@ -207,8 +207,12 @@ fn parse_ids(ids: Option<&[String]>, name: &str) -> Result<Vec<Hmtid>, AppError>
     ids.iter().map(|s| parse_id(s)).collect()
 }
 
-fn parse_position(position: Option<&str>) -> Result<ItemPosition, AppError> {
-    ItemPosition::parse(position.unwrap_or("")).map_err(AppError::bad_request)
+pub(super) fn parse_position(
+    position: Option<journal_api_types::ItemPosition>,
+) -> Result<ItemPosition, AppError> {
+    let position =
+        position.ok_or_else(|| AppError::bad_request("position must not be null or empty"))?;
+    ItemPosition::try_from(position).map_err(AppError::bad_request)
 }
 
 fn parse_paste_mode(mode: Option<&str>) -> Result<PasteMode, AppError> {
@@ -272,7 +276,7 @@ impl Journal {
             Some(s) if !s.is_empty() => Some(parse_id(s)?),
             _ => None,
         };
-        let position = parse_position(input.position.as_deref())?;
+        let position = parse_position(input.position.clone())?;
         let item = self.services.item_service.create_item(
             &page_id,
             &position,
@@ -476,7 +480,7 @@ impl Journal {
         input: MoveItemsInput,
         by: &ChangedBy,
     ) -> Result<ItemsAnswer, AppError> {
-        let position = parse_position(input.position.as_deref())?;
+        let position = parse_position(input.position.clone())?;
         let ids = parse_ids(input.item_ids.as_deref(), "itemIds")?;
         let target = parse_id(required(input.target_page_id.as_deref(), "targetPageId")?)?;
         let moved = self.services.item_service.move_edited_items(&MoveRequest {

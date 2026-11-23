@@ -4,14 +4,15 @@ use crate::harness::{batch_calls, create_calls, delete_calls, item, update_calls
 use std::collections::BTreeMap;
 
 use crate::model::{
-    BatchOp, Batched, Item, ItemPosition, PropertyValue, TaskState, TranscludedTrees,
+    BatchOpInput, Batched, Item, ItemPosition, PropertyValue, PropertyValueInput, TaskState,
+    TranscludedTrees,
 };
 use crate::outline::CursorState;
 use crate::testing::item_with;
 
 /// The update of a batch that writes a body, a level and a collapsed state, and no task state
-fn update_op(id: &str, level: i32, body: &str) -> BatchOp {
-    BatchOp::Update {
+fn update_op(id: &str, level: i32, body: &str) -> BatchOpInput {
+    BatchOpInput::Update {
         id: id.into(),
         body: Some(body.into()),
         level: Some(level),
@@ -226,7 +227,7 @@ fn done_state() -> TaskState {
 fn task_states_sent(h: &Harness) -> Vec<(String, TaskState)> {
     let ops = batch_calls(&h.api).into_iter().flatten();
     ops.filter_map(|op| match op {
-        BatchOp::Update {
+        BatchOpInput::Update {
             id,
             task: Some(state),
             ..
@@ -278,7 +279,7 @@ fn undo_and_redo_of_a_task_cycle_send_the_task_state_to_the_server() {
     h.send(Event::Undo);
     assert_eq!(
         batch_calls(&h.api),
-        [[BatchOp::Update {
+        [[BatchOpInput::Update {
             id: "a".into(),
             body: Some("x".into()),
             level: Some(1),
@@ -367,7 +368,10 @@ fn undo_of_a_create_removes_the_item_here_and_on_the_server() {
     h.model.undo.commit(Some(CursorState::new("n", 0)), 0);
     h.send(Event::Undo);
     assert_eq!(h.items_ids(), ["a"]);
-    assert_eq!(batch_calls(&h.api), [[BatchOp::Delete { id: "n".into() }]]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[BatchOpInput::Delete { id: "n".into() }]]
+    );
     assert!(delete_calls(&h.api).is_empty());
     // The recorded cursor is used
     assert_eq!(h.model.state.focused_item_id(), Some("a"));
@@ -393,7 +397,10 @@ fn undo_that_empties_the_page_shows_the_empty_item_the_server_made() {
 
     h.send(Event::Undo);
 
-    assert_eq!(batch_calls(&h.api), [[BatchOp::Delete { id: "n".into() }]]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[BatchOpInput::Delete { id: "n".into() }]]
+    );
     assert!(!h.api.called("CreateItem"));
     assert_eq!(h.items_ids(), ["e"]);
     assert_eq!(h.model.state.focused_item_id(), Some("e"));
@@ -420,8 +427,8 @@ fn undo_of_a_create_of_a_parent_and_its_child_deletes_them_as_one_group() {
     assert_eq!(
         sent,
         [[
-            BatchOp::Delete { id: "c".into() },
-            BatchOp::Delete { id: "p".into() },
+            BatchOpInput::Delete { id: "c".into() },
+            BatchOpInput::Delete { id: "p".into() },
         ]]
     );
 }
@@ -450,7 +457,7 @@ fn redo_of_a_create_makes_the_item_again_with_its_id_where_its_index_puts_it() {
     h.send(Event::Redo);
     assert_eq!(
         batch_calls(&h.api)[1],
-        [BatchOp::Create {
+        [BatchOpInput::Create {
             id: "n".into(),
             page_id: "page1".into(),
             position: ItemPosition::after("a"),
@@ -476,7 +483,7 @@ fn undo_of_a_delete_makes_the_item_again_with_its_id_where_it_was() {
 
     assert_eq!(
         batch_calls(&h.api),
-        [[BatchOp::Create {
+        [[BatchOpInput::Create {
             id: "b".into(),
             page_id: "page1".into(),
             position: ItemPosition::after("a"),
@@ -510,7 +517,7 @@ fn undo_of_a_delete_puts_back_the_collapsed_state_and_the_task_state_in_the_same
         batch_calls(&h.api),
         [[
             create_op("b", "a", 1, "gone"),
-            BatchOp::Update {
+            BatchOpInput::Update {
                 id: "b".into(),
                 body: None,
                 level: None,
@@ -521,6 +528,35 @@ fn undo_of_a_delete_puts_back_the_collapsed_state_and_the_task_state_in_the_same
                     end: None,
                     plan: None,
                 }),
+            },
+        ]]
+    );
+}
+
+// 削除の undo は、タスクでない項目でも、折りたたんであれば、折りたたみを更新で戻す。
+#[test]
+fn undo_of_a_delete_puts_back_the_collapsed_state_of_an_item_that_is_no_task() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("c", 1, "")]);
+    let gone = item_with("b", 1, |i| {
+        i.body = "gone".into();
+        i.collapsed = true;
+    });
+    h.model.undo.begin("delete-selection", None);
+    h.model.undo.push_delete(&gone);
+    h.model.undo.commit(None, 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(
+        batch_calls(&h.api),
+        [[
+            create_op("b", "a", 1, "gone"),
+            BatchOpInput::Update {
+                id: "b".into(),
+                body: None,
+                level: None,
+                collapsed: Some(true),
+                task: None,
             },
         ]]
     );
@@ -547,7 +583,7 @@ fn undo_of_a_delete_sends_the_transclusion_and_the_properties_with_the_create() 
 
     h.send(Event::Undo);
 
-    let BatchOp::Create {
+    let BatchOpInput::Create {
         transclude_item_id,
         properties,
         ..
@@ -556,11 +592,16 @@ fn undo_of_a_delete_sends_the_transclusion_and_the_properties_with_the_create() 
         panic!("not a create: {:?}", batch_calls(&h.api));
     };
     assert_eq!(transclude_item_id.as_deref(), Some("s"));
-    assert_eq!(properties, &gone.properties);
+    let expected: BTreeMap<String, PropertyValueInput> = gone
+        .properties
+        .iter()
+        .map(|(key, value)| (key.clone(), value.clone().into()))
+        .collect();
+    assert_eq!(properties, &expected);
 }
 
-fn create_op(id: &str, after: &str, level: i32, body: &str) -> BatchOp {
-    BatchOp::Create {
+fn create_op(id: &str, after: &str, level: i32, body: &str) -> BatchOpInput {
+    BatchOpInput::Create {
         id: id.into(),
         page_id: "page1".into(),
         position: ItemPosition::after(after),
@@ -610,7 +651,10 @@ fn redo_of_a_delete_removes_the_item_again_here_and_on_the_server() {
     h.send(Event::Redo);
 
     assert_eq!(h.items_ids(), ["a", "c"]);
-    assert_eq!(batch_calls(&h.api)[1], [BatchOp::Delete { id: "b".into() }]);
+    assert_eq!(
+        batch_calls(&h.api)[1],
+        [BatchOpInput::Delete { id: "b".into() }]
+    );
 }
 
 // いくつかの項目の削除の undo は、上の項目から順に作り直す。下の項目は、先に作り直した上の項目を位置の基準にするためである。
@@ -659,8 +703,8 @@ fn at(id: &str, idx: &str, level: i32) -> Item {
     item_with(id, level, |i| i.idx = idx.into())
 }
 
-fn move_op(ids: &[&str], position: ItemPosition) -> BatchOp {
-    BatchOp::Move {
+fn move_op(ids: &[&str], position: ItemPosition) -> BatchOpInput {
+    BatchOpInput::Move {
         ids: ids.iter().map(|id| id.to_string()).collect(),
         page_id: "page1".into(),
         position,

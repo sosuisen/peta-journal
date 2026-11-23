@@ -7,15 +7,15 @@ pub use journal_api_types::routes;
 use journal_api_types::routes::Route;
 use journal_api_types::{
     AddPropertyDefinitionInput, AnswerConfirmInput, AtlasCalloutInput, AtlasGroupInput,
-    AtlasLinkInput, AtlasTitleInput, CreateItemInput, DemotePageInput, GetOrCreateDocInput,
-    ItemIdsInput, LaunchUrlInput, MergeItemsInput, MoveItemsInput, MoveToJournalInput, PasteInput,
-    PropertyInput, ShiftLevelsInput, SplitInput, StashInput, TransclusionInput, UpdateConfigInput,
-    UpdateItemInput, UpdatePageInput,
+    AtlasLinkInput, AtlasTitleInput, BatchInput, CreateItemInput, DemotePageInput,
+    GetOrCreateDocInput, ItemIdsInput, LaunchUrlInput, MergeItemsInput, MoveItemsInput,
+    MoveToJournalInput, PasteInput, PropertyInput, ShiftLevelsInput, SplitInput, StashInput,
+    TransclusionInput, UpdateConfigInput, UpdateItemInput, UpdatePageInput,
 };
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 /// What `encodeURIComponent` leaves as it is.
 const COMPONENT: &AsciiSet = &NON_ALPHANUMERIC
@@ -324,7 +324,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             &[&file_name],
             self::body(MoveToJournalInput {
                 item_ids,
-                position: position.to_api(),
+                position: position.clone(),
                 body,
             }),
             page,
@@ -360,7 +360,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             &[],
             self::body(CreateItemInput {
                 page_id: Some(page_id),
-                position: Some(position.to_api()),
+                position: Some(position.clone()),
                 level,
                 body: Some(body),
                 id,
@@ -403,7 +403,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             self::body(MoveItemsInput {
                 item_ids: Some(item_ids),
                 target_page_id: Some(target_page_id),
-                position: Some(position.to_api()),
+                position: Some(position.clone()),
                 level_delta,
                 body,
             }),
@@ -475,7 +475,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         ApiOp::ApplyBatch { ops } => call(
             routes::APPLY_BATCH,
             &[],
-            Some(json!({ "ops": ops })),
+            self::body(BatchInput { ops }),
             |reply| parsed(reply).map(|batched| ApiOutput::Batched(Box::new(batched))),
         ),
         ApiOp::CycleTask { item_id } => call(routes::CYCLE_TASK, &[&item_id], None, item),

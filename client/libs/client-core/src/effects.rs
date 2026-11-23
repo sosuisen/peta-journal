@@ -2,7 +2,7 @@
 //! shell performs and resolves; the core never touches the network, timers or the DOM.
 
 use crate::model::{
-    BacklinkEntry, BatchOp, Batched, DeferredKey, Item, ItemPosition, JournalBefore, Page,
+    BacklinkEntry, BatchOpInput, Batched, DeferredKey, Item, ItemPosition, JournalBefore, Page,
     PageWithItems, PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split,
     Stashed, TreeExport, Uploaded,
 };
@@ -121,7 +121,7 @@ pub enum ApiOp {
     /// Applies operations to items in their order, all of them or none, as an undo or a redo
     /// sends what it replays.
     ApplyBatch {
-        ops: Vec<BatchOp>,
+        ops: Vec<BatchOpInput>,
     },
     CycleTask {
         item_id: String,
@@ -828,7 +828,7 @@ impl<Event: Send + 'static> Api<Event> {
     }
 
     /// The items the batch wrote, as they are after it.
-    pub async fn apply_batch(&self, ops: Vec<BatchOp>) -> ApiResult<Box<Batched>> {
+    pub async fn apply_batch(&self, ops: Vec<BatchOpInput>) -> ApiResult<Box<Batched>> {
         expect_output!(self.call(ApiOp::ApplyBatch { ops }).await, Batched)
     }
 
