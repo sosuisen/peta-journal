@@ -553,7 +553,10 @@ impl<Event: Send + 'static> Api<Event> {
 
     /// Asks the server. The bodies go and come in the form of the file (ADR 070).
     pub async fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
-        let output = self.ctx.request_from_shell(op).await?;
+        let output = self
+            .ctx
+            .request_from_shell(crate::file_body::op_to_file(op))
+            .await?;
         Ok(crate::file_body::output_to_shell(output))
     }
 

@@ -56,5 +56,8 @@ fn the_auto_save_sends_a_blank_line_as_a_backslash_line() {
 
     h.fire_timers();
 
-    assert_eq!(update_calls(&h.api), [("a".into(), Some("a\n\\\nb".into()))]);
+    assert_eq!(
+        update_calls(&h.api),
+        [("a".into(), Some("a\n\\\nb".into()))]
+    );
 }
