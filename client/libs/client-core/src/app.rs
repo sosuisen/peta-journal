@@ -1057,6 +1057,8 @@ pub struct Model {
     pub move_queue: VecDeque<(String, MoveDirection)>,
     /// The undos pressed while an answer was on its way; see `ops::undo_replay::perform`.
     pub held_undos: u32,
+    /// The task cycles whose answers are on their way.
+    pub task_cycles_awaited: u32,
     pub screen: Screen,
     pub current_page: Option<Page>,
     /// The name the core last gave to what is open; see `screens::navigate::set_title`.
@@ -1101,6 +1103,7 @@ impl Default for Model {
             move_in_progress: false,
             move_queue: VecDeque::new(),
             held_undos: 0,
+            task_cycles_awaited: 0,
             screen: Screen::None,
             current_page: None,
             title: String::new(),

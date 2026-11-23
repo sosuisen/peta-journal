@@ -93,7 +93,7 @@ pub fn perform(model: &mut Model, dir: Direction) -> Cmd {
 
 /// True while an operation that is recorded for undo when its answer is there waits for it.
 fn answer_awaited(model: &Model) -> bool {
-    model.move_in_progress
+    model.move_in_progress || model.task_cycles_awaited > 0
 }
 
 /// Runs the undos that waited for an answer, once no answer is awaited any longer.
