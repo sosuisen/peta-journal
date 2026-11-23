@@ -103,7 +103,7 @@ class FakeCanvas {
   endDragFromList() {
     this.given.push(['end', null]);
   }
-  groupTargetFromList(x: number, y: number, ctrl: boolean) {
+  groupTargetFromList(_x: number, _y: number, ctrl: boolean) {
     return ctrl ? this.target : null;
   }
   destroy() {
