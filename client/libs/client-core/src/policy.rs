@@ -155,6 +155,11 @@ impl<T> Timers<T> {
     pub fn is_empty(&self) -> bool {
         self.running.is_empty()
     }
+
+    /// The IDs of the timers that run.
+    pub fn ids(&self) -> impl Iterator<Item = u64> + '_ {
+        self.running.keys().copied()
+    }
 }
 
 #[cfg(test)]

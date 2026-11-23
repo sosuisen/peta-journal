@@ -19,6 +19,7 @@ use client_core::model::{bare_name, value_type_of};
 use client_core::policy::{InOrder, Timers};
 use client_core::rest::ClientId;
 use client_core::screens::calendar::{month_page_name, year_page_name};
+use client_core::screens::day::CHECK_MS;
 use client_core::util::date::Date;
 use client_core::util::link_at;
 use client_core::util::week::week_page_name;
@@ -94,6 +95,9 @@ pub struct Shell<H: Host> {
     /// The calls under way for an image: its upload, then the paste of its link.
     image_calls: HashSet<u64>,
     timers: Timers<Request<TimerOp>>,
+    /// The timer that waits to look at the clock again. It runs all the time and saves
+    /// nothing, so the shell is idle while only it runs.
+    clock_watch: Option<u64>,
     sse: Option<(u64, Request<SseOp>)>,
     next_stream: u64,
     /// The questions to the user with their messages, each waiting for the answer to the one
@@ -130,6 +134,7 @@ impl<H: Host> Shell<H> {
             image_files: Vec::new(),
             image_calls: HashSet::new(),
             timers: Timers::default(),
+            clock_watch: None,
             sse: None,
             next_stream: 0,
             asks: InOrder::new(),
@@ -177,7 +182,7 @@ impl<H: Host> Shell<H> {
 
     /// True when nothing that could still save something is under way.
     pub fn is_idle(&self) -> bool {
-        self.apis.is_empty() && self.timers.is_empty()
+        self.apis.is_empty() && self.timers.ids().all(|id| Some(id) == self.clock_watch)
     }
 
     fn on_api_done(&mut self, id: u64, result: ApiResult<ApiOutput>) {
@@ -551,6 +556,9 @@ impl<H: Host> Shell<H> {
     fn on_timer_op(&mut self, request: Request<TimerOp>) {
         match request.operation {
             TimerOp::Start { id, ms } => {
+                if ms == CHECK_MS {
+                    self.clock_watch = Some(id);
+                }
                 self.timers.start(id, request);
                 self.host.start_timer(id, ms);
             }
