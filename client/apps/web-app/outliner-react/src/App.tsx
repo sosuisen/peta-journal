@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useAsked } from './askedContext';
 import type { JournalView, PageView } from './border/peta-types';
 import { useCore, usePanel } from './context';
@@ -391,12 +391,6 @@ function Backlinks({ page }: { readonly page: PageView }) {
 function ConfirmDialog() {
   const asked = useAsked();
   const message = useSyncExternalStore(asked.subscribe, asked.confirmMessage);
-  const cancel = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (message !== null) {
-      cancel.current?.focus();
-    }
-  }, [message]);
   if (message === null) {
     return null;
   }
@@ -415,7 +409,8 @@ function ConfirmDialog() {
         <div className="confirm-buttons">
           <button
             type="button"
-            ref={cancel}
+            // Enter on the focused button must not delete
+            autoFocus
             onClick={() => asked.answerConfirm(false)}
           >
             Cancel
