@@ -177,4 +177,91 @@ mod tests {
         assert_eq!(timers.end(8), Some("search"));
         assert!(timers.is_empty());
     }
+
+    /// Gives each question the number the shell would give its request, from 1, and keeps
+    /// what the shell was given.
+    #[derive(Default)]
+    struct Screen {
+        given: Vec<(u32, &'static str)>,
+    }
+
+    impl Screen {
+        fn give(&mut self) -> impl FnOnce(&'static str) -> u32 + '_ {
+            |question| {
+                let id = self.given.len() as u32 + 1;
+                self.given.push((id, question));
+                id
+            }
+        }
+    }
+
+    // 何も聞いていないときの質問は、すぐにシェルへ渡る。
+    #[test]
+    fn a_question_goes_to_the_shell_at_once_when_none_is_on_the_screen() {
+        let (mut questions, mut screen) = (Questions::default(), Screen::default());
+
+        questions.ask("delete?", screen.give());
+
+        assert_eq!(screen.given, [(1, "delete?")]);
+    }
+
+    // 質問がシェルにある間の質問は、その答えを待つ。
+    #[test]
+    fn a_question_waits_for_the_answer_to_the_one_on_the_screen() {
+        let (mut questions, mut screen) = (Questions::default(), Screen::default());
+        questions.ask("delete?", screen.give());
+
+        questions.ask("rename?", screen.give());
+        questions.ask("move?", screen.give());
+        assert_eq!(screen.given, [(1, "delete?")]);
+
+        questions.answered(1, screen.give());
+        assert_eq!(screen.given, [(1, "delete?"), (2, "rename?")]);
+        questions.answered(2, screen.give());
+        assert_eq!(screen.given, [(1, "delete?"), (2, "rename?"), (3, "move?")]);
+    }
+
+    // 質問でない要求の答えでは、次の質問は渡らない。
+    #[test]
+    fn the_answer_to_a_request_that_is_not_the_question_gives_no_next_one() {
+        let (mut questions, mut screen) = (Questions::default(), Screen::default());
+        questions.ask("delete?", screen.give());
+        questions.ask("rename?", screen.give());
+
+        // The answer to a request for the clipboard, say
+        questions.answered(9, screen.give());
+
+        assert_eq!(screen.given, [(1, "delete?")]);
+    }
+
+    // すべての質問に答えたあとの質問は、またすぐにシェルへ渡る。
+    #[test]
+    fn a_question_after_all_are_answered_goes_to_the_shell_at_once() {
+        let (mut questions, mut screen) = (Questions::default(), Screen::default());
+        questions.ask("delete?", screen.give());
+        questions.answered(1, screen.give());
+
+        questions.ask("rename?", screen.give());
+
+        assert_eq!(screen.given, [(1, "delete?"), (2, "rename?")]);
+    }
+
+    // 確認と破壊的な確認と入力の求めだけが、質問である。
+    #[test]
+    fn only_a_confirm_a_destructive_confirm_and_a_prompt_are_questions() {
+        let questions = [
+            UiOp::Confirm("sure?".into()),
+            UiOp::ConfirmDestructive("delete?".into()),
+            UiOp::Prompt("name?".into()),
+        ];
+        assert!(questions.iter().all(is_question));
+
+        let others = [
+            UiOp::Alert("done".into()),
+            UiOp::SetTitle("notes".into()),
+            UiOp::ReadClipboardText,
+            UiOp::LocalNow,
+        ];
+        assert!(!others.iter().any(is_question));
+    }
 }
