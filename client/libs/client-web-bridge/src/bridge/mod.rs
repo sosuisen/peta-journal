@@ -12,6 +12,7 @@ use client_core::effects::{
 use client_core::keys::{KeyMap, KeyPlatform, KeyPress};
 use client_core::policy::{InOrder, Questions, Timers};
 use client_core::rest::ClientId;
+use client_core::typing::{self, Typing};
 use client_core::{Event, PetaApp, Route};
 use crux_core::{Core, Request, RequestHandle};
 use serde::de::DeserializeOwned;
@@ -183,6 +184,14 @@ impl<H: Host> Bridge<H> {
             return Ok(None);
         };
         Ok(Some(self.in_call(|| self.send(event))))
+    }
+
+    /// Takes a change of the Markdown of an item in its editor: a [`Typing`] as JSON. Returns
+    /// the changes.
+    pub fn typed(&self, typing: &str) -> Result<String, String> {
+        let typing: Typing = read(typing)?;
+        let (_, now_ms) = self.host.now();
+        Ok(self.in_call(|| self.send(typing::event_of(typing, now_ms))))
     }
 
     /// Pastes the image in the file into the item, at `cursor` in characters. The file is
