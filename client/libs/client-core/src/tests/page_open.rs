@@ -3,7 +3,7 @@
 use crate::app::{Event, Route};
 use crate::effects::{ApiOutput, UiOp};
 use crate::harness::{item, Harness};
-use crate::model::{BacklinkEntry, Page, PageWithItems};
+use crate::model::{BacklinkEntry, DocPage, Page, PageWithItems};
 use crate::view::ScreenView;
 
 fn doc(dir_path: &str, name: &str) -> Page {
@@ -30,11 +30,10 @@ fn visit(h: &mut Harness, name: &str, fragment: Option<&str>) {
 fn served(h: &mut Harness, page: Page, created: bool) {
     h.api.answer_next(
         "GetOrCreateDoc",
-        Ok(ApiOutput::Page(PageWithItems {
+        Ok(ApiOutput::DocPage(DocPage {
             page,
             items: vec![],
             created,
-            transcluded_trees: None,
         })),
     );
 }

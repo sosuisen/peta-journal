@@ -25,6 +25,8 @@ export default mergeConfig(
     test: {
       environment: 'jsdom',
       setupFiles: ['src/test/setup.ts'],
+      // Not the Playwright tests in e2e/: Playwright runs them
+      include: ['src/**/*.test.{ts,tsx}'],
       coverage: {
         provider: 'v8',
         include: ['src/**/*.{ts,tsx}'],

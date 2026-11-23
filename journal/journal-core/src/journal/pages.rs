@@ -44,13 +44,8 @@ impl PageWithItems {
     }
 }
 
-/// A document page that was found or made.
-#[derive(Debug, Clone, Serialize)]
-pub struct DocAnswer {
-    pub page: PageDto,
-    pub items: Vec<ItemDto>,
-    pub created: bool,
-}
+/// A document page that was found or made. The server and the clients share the type (ADR 082).
+pub type DocAnswer = journal_api_types::DocPage<PageDto, ItemDto>;
 
 /// A page looked for without making it, or none when it is not there.
 #[derive(Debug, Clone, Serialize)]

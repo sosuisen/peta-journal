@@ -24,14 +24,8 @@ pub struct JournalAnswer {
     pub transcluded_trees: BTreeMap<String, Vec<ItemDto>>,
 }
 
-/// The journal the items moved to, and the items as they are now.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MovedToJournalAnswer {
-    pub page: PageDto,
-    pub created: bool,
-    pub items: Vec<ItemDto>,
-}
+/// The journal the items moved to, and the items as they are now. The server and the clients share the type (ADR 082).
+pub type MovedToJournalAnswer = journal_api_types::MovedToJournal<PageDto, ItemDto>;
 
 /// The newest journal before a day or a week. `found` is false when there is none.
 /// The server and the clients share the type (ADR 082).

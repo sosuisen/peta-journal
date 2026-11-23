@@ -147,7 +147,7 @@ foreach ($server in @(Get-Process journal-server -ErrorAction SilentlyContinue))
 }
 if (Test-Port $port) { throw "Another program uses port $port. End it first." }
 
-# The React shell (ADR 079). The Leptos one in web-app/outliner is no longer built here.
+# The React shell (ADR 079)
 Invoke-Step 'Web frontend' { & "$apps/web-app/outliner-react/release.ps1" }
 Invoke-Step 'Journal server' { & "$root/journal/journal-server/release.ps1" }
 # Why a copy and not --frontend-dir: a new build in dist/ during development would change the

@@ -10,12 +10,6 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 # The numbers are not a target: the report is read for the lines no test reaches, which are
 # either removed or given a test of the behaviour that needs them.
 #
-# `outliner-web` (apps/web-app/outliner) is left out, as agreed on 2026-11-03, because it is the
-# wasm shell around the core: it only runs in the browser, so no ordinary test can run it. The
-# E2E tests in apps/web-app/outliner/e2e cover it instead. Its file without the browser
-# (src/components/item_html.rs) has ordinary tests, and `cargo test` runs them. It is not
-# measured: measuring the crate would count every browser file as untested.
-#
 # The browser side of `client-web-bridge` (src/web.rs) is built for wasm only, so a native build
 # leaves it out and it is not measured. cargo-mutants skips it too; see .cargo/mutants.toml.
 #

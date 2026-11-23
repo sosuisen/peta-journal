@@ -7,11 +7,11 @@ use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp, UiOutput,
 };
 use client_core::keys::{Chord, EditorState, Key, KeyPress};
-use client_core::model::{Page, PageWithItems, Uploaded};
+use client_core::model::{Page, Uploaded};
 use client_core::rest::ClientId;
 use client_core::screens::day::CHECK_MS;
 use client_core::screens::search::SEARCH_DELAY_MS;
-use client_core::testing::plain_item;
+use client_core::testing::{page_answer, plain_item};
 use client_core::typing::Typing;
 use client_core::{EditPlace, Event, Route};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
@@ -73,17 +73,17 @@ impl Host for FakeHost {
         }
         match op {
             ApiOp::GetOrCreateDoc { .. } | ApiOp::GetPageById { .. } => {
-                Ok(ApiOutput::Page(PageWithItems {
-                    page: Page {
-                        id: "p".into(),
-                        name: "notes".into(),
-                        page_type: "doc".into(),
-                        ..Default::default()
-                    },
-                    items: vec![plain_item("a", 1, "the body of a")],
-                    created: false,
-                    transcluded_trees: None,
-                }))
+                let page = Page {
+                    id: "p".into(),
+                    name: "notes".into(),
+                    page_type: "doc".into(),
+                    ..Default::default()
+                };
+                Ok(page_answer(
+                    &op,
+                    page,
+                    vec![plain_item("a", 1, "the body of a")],
+                ))
             }
             _ => Err(ApiError("the fake server does not know this".into())),
         }

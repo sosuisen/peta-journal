@@ -113,8 +113,9 @@ impl Server {
 
     /// Serves the doc page `notes`, with the ID `p` and these items.
     fn has_page(&self, items: &[Value]) {
+        let doc = json!({ "page": page_info(), "items": items, "created": false });
+        self.answers("POST", "/api/pages/doc", 200, &doc);
         let page = json!({ "page": page_info(), "items": items });
-        self.answers("POST", "/api/pages/doc", 200, &page);
         self.answers("GET", "/api/pages/p", 200, &page);
     }
 

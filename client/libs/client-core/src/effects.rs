@@ -2,9 +2,9 @@
 //! shell performs and resolves; the core never touches the network, timers or the DOM.
 
 use crate::model::{
-    BacklinkEntry, BatchOpInput, Batched, DeferredKey, Item, ItemPosition, JournalBefore, Page,
-    PageWithItems, PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split,
-    Stashed, TreeExport, Uploaded,
+    BacklinkEntry, BatchOpInput, Batched, DeferredKey, DocPage, Item, ItemPosition, JournalBefore,
+    MovedToJournal, Page, PageWithItems, PasteMode, Pasted, PropertyDefinition, SearchResult,
+    ServerConfig, Split, Stashed, TreeExport, Uploaded,
 };
 use crate::screens::page::split_doc_path;
 use crate::util::date::LocalDateTime;
@@ -288,6 +288,8 @@ pub enum AtlasChange {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ApiOutput {
     Page(PageWithItems),
+    DocPage(DocPage),
+    MovedToJournal(MovedToJournal),
     /// The page looked for, or none when it is not there
     FoundPage(Option<Page>),
     JournalBefore(JournalBefore),
@@ -590,7 +592,7 @@ impl<Event: Send + 'static> Api<Event> {
         item_ids: Vec<String>,
         position: ItemPosition,
         body: Option<&str>,
-    ) -> ApiResult<PageWithItems> {
+    ) -> ApiResult<MovedToJournal> {
         expect_output!(
             self.call(ApiOp::MoveItemsToJournal {
                 file_name: file_name.into(),
@@ -599,7 +601,7 @@ impl<Event: Send + 'static> Api<Event> {
                 body: body.map(str::to_string),
             })
             .await,
-            Page
+            MovedToJournal
         )
     }
 
@@ -622,14 +624,14 @@ impl<Event: Send + 'static> Api<Event> {
         expect_output!(self.call(op).await, FoundPage)
     }
 
-    pub async fn get_or_create_doc(&self, title: &str, dir_path: &str) -> ApiResult<PageWithItems> {
+    pub async fn get_or_create_doc(&self, title: &str, dir_path: &str) -> ApiResult<DocPage> {
         expect_output!(
             self.call(ApiOp::GetOrCreateDoc {
                 title: title.into(),
                 dir_path: dir_path.into()
             })
             .await,
-            Page
+            DocPage
         )
     }
 

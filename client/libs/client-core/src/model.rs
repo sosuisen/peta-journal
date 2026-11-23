@@ -319,6 +319,13 @@ pub struct PageWithItems {
 /// `GET /api/journals/before` and `/weekly/before`. The server and the client share the type (ADR 082).
 pub use journal_api_types::JournalBefore;
 
+/// A document page that was found or made. The server and the client share the type (ADR 082).
+pub use journal_api_types::DocPage;
+
+/// The journal that items moved to, and the items as they are now. The server and the client
+/// share the type (ADR 082).
+pub use journal_api_types::MovedToJournal;
+
 /// A page that links to another, and the item that holds the link. The server and the client share the type (ADR 082).
 pub use journal_api_types::BacklinkEntry;
 

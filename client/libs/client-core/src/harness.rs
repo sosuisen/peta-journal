@@ -423,7 +423,7 @@ impl FakeApi {
                 item_ids,
                 body,
                 ..
-            } => ApiOutput::Page(PageWithItems {
+            } => ApiOutput::MovedToJournal(MovedToJournal {
                 page: Page {
                     id: format!("page-{file_name}"),
                     name: file_name.clone(),
@@ -441,9 +441,9 @@ impl FakeApi {
                         item
                     })
                     .collect(),
-                ..Default::default()
+                created: false,
             }),
-            ApiOp::GetOrCreateDoc { title, dir_path } => ApiOutput::Page(PageWithItems {
+            ApiOp::GetOrCreateDoc { title, dir_path } => ApiOutput::DocPage(DocPage {
                 page: Page {
                     id: format!("page-{title}"),
                     name: title.clone(),
@@ -451,7 +451,8 @@ impl FakeApi {
                     page_type: "doc".into(),
                     ..Default::default()
                 },
-                ..Default::default()
+                items: Vec::new(),
+                created: false,
             }),
             // Every page is there, unless a test says it is gone
             ApiOp::FindPage {

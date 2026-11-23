@@ -1,7 +1,7 @@
 use crate::app::{Event, JournalState, Screen};
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{create_calls, item, move_calls, typed, Harness};
-use crate::model::{Page, PageWithItems};
+use crate::model::{MovedToJournal, Page};
 use crate::testing::item_with;
 
 fn journal_item(id: &str, level: i32, page: &str, name: &str) -> crate::model::Item {
@@ -200,7 +200,7 @@ fn a_journal_made_by_a_move_refreshes_the_recent_pages() {
         let mut h = harness();
         h.api.answer_next(
             "MoveItemsToJournal",
-            Ok(ApiOutput::Page(PageWithItems {
+            Ok(ApiOutput::MovedToJournal(MovedToJournal {
                 page: Page {
                     id: "p11".into(),
                     name: "2026-02-11".into(),
@@ -209,7 +209,6 @@ fn a_journal_made_by_a_move_refreshes_the_recent_pages() {
                 },
                 items: vec![item("a", 1, ""), item("a1", 2, "")],
                 created,
-                transcluded_trees: None,
             })),
         );
 

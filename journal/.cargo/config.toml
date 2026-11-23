@@ -32,8 +32,7 @@ cov = [
 # `cargo run` serves the web frontend from the folder that `npm run build` of the React shell
 # writes (ADR 010, ADR 079), so no flag is needed in development. The path is relative to the
 # folder of this workspace. A server started without cargo does not see this: it takes
-# `--frontend-dir`, or the `frontend/` folder beside its executable. The Leptos shell is
-# still served with `--frontend-dir ../client/apps/web-app/outliner/dist`.
+# `--frontend-dir`, or the `frontend/` folder beside its executable.
 [env]
 PETAJOURNAL_FRONTEND_DIR = { value = "../client/apps/web-app/outliner-react/dist", relative = true }
 

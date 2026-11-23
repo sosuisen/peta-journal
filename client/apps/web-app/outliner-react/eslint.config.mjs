@@ -12,6 +12,8 @@ export default defineConfig([
     'dist-e2e',
     'src/wasm',
     'src/border',
+    // The E2E tests have their own package and config of Playwright
+    'e2e',
     // Reports of `npm run coverage` and `npm run mutants`
     'coverage',
     'reports',

@@ -354,6 +354,27 @@ pub struct JournalBefore<P = Page, I = Item> {
     pub transcluded_trees: BTreeMap<String, Vec<I>>,
 }
 
+/// A document page that was found or made. It does not cross the native border.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocPage<P = Page, I = Item> {
+    pub page: P,
+    pub items: Vec<I>,
+    /// True when the page was made for this.
+    pub created: bool,
+}
+
+/// The journal that items moved to, and the items as they are now. It does not cross the
+/// native border.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MovedToJournal<P = Page, I = Item> {
+    pub page: P,
+    /// True when the journal was made for this.
+    pub created: bool,
+    pub items: Vec<I>,
+}
+
 /// A page that links to another, and the item that holds the link.
 #[cfg_attr(feature = "facet", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -1275,6 +1296,38 @@ mod tests {
                 page: Some(page),
                 items: vec![item("a")],
                 transcluded_trees: BTreeMap::from([("s".into(), vec![item("s")])]),
+            }
+        );
+    }
+
+    // ドキュメントの答えとジャーナルへの移動の答えは、サーバーの答えのJSONから読める。
+    #[test]
+    fn the_answers_of_a_doc_and_of_a_move_to_a_journal_are_read_from_the_server() {
+        let page: Page = serde_json::from_value(page_answer()).unwrap();
+
+        let doc: DocPage = serde_json::from_value(json!({
+            "page": page_answer(), "items": [item_answer("a")], "created": true
+        }))
+        .unwrap();
+        assert_eq!(
+            doc,
+            DocPage {
+                page: page.clone(),
+                items: vec![item("a")],
+                created: true,
+            }
+        );
+
+        let moved: MovedToJournal = serde_json::from_value(json!({
+            "page": page_answer(), "created": false, "items": [item_answer("a")]
+        }))
+        .unwrap();
+        assert_eq!(
+            moved,
+            MovedToJournal {
+                page,
+                created: false,
+                items: vec![item("a")],
             }
         );
     }
