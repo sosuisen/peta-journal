@@ -71,8 +71,11 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
     // What the core holds wins, as after an undo. Not while the keyboard composes a word: the
     // core has not heard of that word yet, and the field would lose it
     LaunchedEffect(body) {
-        if (field.composition == null && field.text != body) {
-            field = TextFieldValue(body, TextRange(field.selection.start.coerceAtMost(body.length)))
+        // Not `body`: on a slow phone a held Backspace may come in before this runs, and the
+        // field would get back the letter that it just deleted (#918)
+        val held = shell.bodyOf(id) ?: body
+        if (field.composition == null && field.text != held) {
+            field = TextFieldValue(held, TextRange(field.selection.start.coerceAtMost(held.length)))
         }
     }
     val asked = shell.view.outline.focusRequest?.takeIf { it.itemId == id }
