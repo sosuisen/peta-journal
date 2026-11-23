@@ -6,9 +6,10 @@ use crate::border::{read, write};
 use crate::lanes::{lane_of, Lane};
 use client_core::changes::{Changes, Shown};
 use client_core::effects::{
-    ApiError, ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, UiOp, UiOutput,
+    ApiError, ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, TimerOp, TimerOutput, UiOp,
+    UiOutput,
 };
-use client_core::policy::{InOrder, Questions};
+use client_core::policy::{InOrder, Questions, Timers};
 use client_core::{Event, PetaApp, Route};
 use crux_core::{Core, Request, RequestHandle};
 use std::cell::{Cell, RefCell};
@@ -35,6 +36,12 @@ pub trait Host: 'static {
     /// Sends a file to the server as an asset, and calls `done` with the answer.
     fn upload(&self, file: Self::File, done: Done<ApiResult<ApiOutput>>);
 
+    /// Starts the timer `id`, which calls `fired` after `ms` milliseconds.
+    fn start_timer(&self, id: u64, ms: u32, fired: Done<()>);
+
+    /// Stops the timer `id`, so that it never fires.
+    fn cancel_timer(&self, id: u64);
+
     /// Gives the shell an operation of the screen that only it can do, with its number. The
     /// shell answers with [`Bridge::resolve`].
     fn ask(&self, id: u32, op: &UiOp);
@@ -55,6 +62,7 @@ pub struct Bridge<H: Host> {
     me: Weak<Bridge<H>>,
     shown: RefCell<Shown<HtmlBody>>,
     to_server: RefCell<InOrder<Request<ApiOp>>>,
+    timers: RefCell<Timers<Request<TimerOp>>>,
     /// The files pasted, by the number the core knows each by. A file cannot cross into it.
     files: RefCell<HashMap<u64, H::File>>,
     last_file: Cell<u64>,
@@ -77,6 +85,7 @@ impl<H: Host> Bridge<H> {
             me: me.clone(),
             shown: RefCell::default(),
             to_server: RefCell::default(),
+            timers: RefCell::default(),
             files: RefCell::default(),
             last_file: Cell::new(0),
             asked: RefCell::default(),
@@ -186,6 +195,7 @@ impl<H: Host> Bridge<H> {
             match effect {
                 Effect::Render(_) => self.changed.set(true),
                 Effect::Api(request) => self.call(request),
+                Effect::Timer(request) => self.time(request),
                 Effect::Ui(request) => self.ui(request),
                 // A notification: the core does not wait for it
                 Effect::Navigate(request) => {
@@ -197,6 +207,34 @@ impl<H: Host> Bridge<H> {
         }
         if self.calls.get() == 0 && self.changed.get() {
             self.host.rendered();
+        }
+    }
+
+    fn time(&self, request: Request<TimerOp>) {
+        match request.operation {
+            TimerOp::Start { id, ms } => {
+                self.timers.borrow_mut().start(id, request);
+                let me = self.me.clone();
+                let fired = Box::new(move |()| {
+                    if let Some(me) = me.upgrade() {
+                        me.end_timer(id, TimerOutput::Fired);
+                    }
+                });
+                self.host.start_timer(id, ms, fired);
+            }
+            // A notification: the core waits for the answer of the timer, not of this
+            TimerOp::Cancel { id } => {
+                self.host.cancel_timer(id);
+                self.end_timer(id, TimerOutput::Cancelled);
+            }
+        }
+    }
+
+    /// Gives the core the end of the timer, unless it has ended already.
+    fn end_timer(&self, id: u64, output: TimerOutput) {
+        let running = self.timers.borrow_mut().end(id);
+        if let Some(mut request) = running {
+            self.answer(&mut request, output);
         }
     }
 
