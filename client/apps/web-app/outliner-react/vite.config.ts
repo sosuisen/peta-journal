@@ -9,6 +9,11 @@ const api = process.env.PETA_API ?? 'http://localhost:8087';
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // At the root, as Trunk puts the files of the Leptos shell: `/assets/` of the server is
+    // the images pasted into the journal
+    assetsDir: '',
+  },
   server: {
     port: 5181,
     proxy: { '/api': { target: api, changeOrigin: true } },
