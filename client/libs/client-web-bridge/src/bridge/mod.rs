@@ -164,6 +164,12 @@ impl<H: Host> Bridge<H> {
         self.in_call(|| self.open(url))
     }
 
+    /// Opens the page of the URL the browser went to in its history, as with its back button.
+    /// The shell is not calling: it is told to draw.
+    pub fn popped(&self, url: &str) {
+        self.open(url);
+    }
+
     /// Opens a link of the app, such as `/pages/notes`: the browser keeps it in its history,
     /// and its page opens. Returns the changes.
     pub fn go(&self, url: &str) -> String {
