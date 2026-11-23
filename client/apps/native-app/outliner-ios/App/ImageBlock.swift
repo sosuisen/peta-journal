@@ -23,7 +23,7 @@ struct ImageBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // The line names the image, and a touch on it edits the item, as on any text (#886)
-            Text(image.alt)
+            Text(image.alt.isEmpty ? image.path : image.alt)
             if let picture {
                 let (read, inFile) = (picture.image, picture.width)
                 let shape = read.size.width / max(read.size.height, 1)
