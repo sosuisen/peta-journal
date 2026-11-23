@@ -16,6 +16,7 @@ mod undo_replay;
 
 // 日々をたどる
 mod calendar;
+mod day_change;
 mod journal;
 mod journal_fragment;
 mod journal_moves;
