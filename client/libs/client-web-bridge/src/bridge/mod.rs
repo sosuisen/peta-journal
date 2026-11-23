@@ -164,6 +164,12 @@ impl<H: Host> Bridge<H> {
         self.in_call(|| self.open(url))
     }
 
+    /// Opens a link of the app, such as `/pages/notes`: the browser keeps it in its history,
+    /// and its page opens. Returns the changes.
+    pub fn go(&self, url: &str) -> String {
+        self.in_call(|| self.go_to(url, false))
+    }
+
     /// Goes to the URL as a link does: the browser keeps it in its history, and its page opens.
     fn go_to(&self, url: &str, replace: bool) {
         self.host.go_to(url, replace);
