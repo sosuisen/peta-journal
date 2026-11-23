@@ -1435,6 +1435,13 @@ mod tests {
             },
             json!({ "fileName": "f.png", "originalName": "o.png" }),
         );
+        round_trip(
+            FolderChoice {
+                selected: true,
+                path: "C:/notes".into(),
+            },
+            json!({ "selected": true, "path": "C:/notes" }),
+        );
     }
 
     // サーバーの設定は、サーバーの答えのJSONから読める。サーバーだけの欄は読み飛ばす。
