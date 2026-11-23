@@ -354,6 +354,27 @@ pub struct JournalBefore<P = Page, I = Item> {
     pub transcluded_trees: BTreeMap<String, Vec<I>>,
 }
 
+/// A document page that was found or made. It does not cross the native border.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DocPage<P = Page, I = Item> {
+    pub page: P,
+    pub items: Vec<I>,
+    /// True when the page was made for this.
+    pub created: bool,
+}
+
+/// The journal that items moved to, and the items as they are now. It does not cross the
+/// native border.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MovedToJournal<P = Page, I = Item> {
+    pub page: P,
+    /// True when the journal was made for this.
+    pub created: bool,
+    pub items: Vec<I>,
+}
+
 /// A page that links to another, and the item that holds the link.
 #[cfg_attr(feature = "facet", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
