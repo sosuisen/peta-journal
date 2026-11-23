@@ -225,6 +225,25 @@ impl Serialize for ItemPosition {
     }
 }
 
+/// Written by hand: a derive would show MCP an enum, but the tools take the text.
+#[cfg(feature = "schemars")]
+impl schemars::JsonSchema for ItemPosition {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "ItemPosition".into()
+    }
+
+    fn inline_schema() -> bool {
+        true
+    }
+
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "type": "string",
+            "description": "Position: 'first', 'last', or 'after:<id>'"
+        })
+    }
+}
+
 impl<'de> Deserialize<'de> for ItemPosition {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let text = String::deserialize(deserializer)?;
