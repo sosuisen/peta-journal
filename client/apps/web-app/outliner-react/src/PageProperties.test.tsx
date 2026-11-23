@@ -1,4 +1,4 @@
-import { createEvent, fireEvent } from '@testing-library/react';
+import { act, createEvent, fireEvent } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
@@ -320,6 +320,23 @@ describe('the tags of a list', () => {
     ]);
   });
 
+  // Enterのすぐあとに、入力欄が消える前のblurが来ても、タグを2度は足さない。
+  test('a blur that comes right after Enter, before the input is gone, adds nothing more', () => {
+    const { rows, wasm } = properties(pageWith([tags('tags', [])]));
+    fireEvent.click(at(rows()[0], '.property-tag-add'));
+    const input = at(rows()[0], '.property-tag-input');
+    input.value = 'b';
+
+    act(() => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+      fireEvent.blur(input);
+    });
+
+    expect(wasm.events).toEqual([
+      { kind: 'AddPageTags', key: 'tags', typed: 'b' },
+    ]);
+  });
+
   // Escapeで、何も足さずに入力欄を閉じる。ほかのキーでは閉じない。
   test('Escape closes the input without adding, and other keys keep it', () => {
     const { rows, wasm } = properties(pageWith([tags('tags', [])]));
@@ -579,13 +596,15 @@ describe('a new row', () => {
     expect(wasm.events).toEqual([]);
   });
 
-  // 新しい行は、いくつでも足せる。
-  test('more new rows can be added', () => {
+  // 新しい行は、いくつでも足せる。キーは行ごとに選ぶ。
+  test('more new rows can be added, each with its own key', () => {
     const { container, getByTitle } = newRow();
-
     fireEvent.click(getByTitle('Add property'));
+    const selects = () => [...container.querySelectorAll('select')];
 
-    expect(container.querySelectorAll('.property-row.draft')).toHaveLength(2);
+    fireEvent.change(selects()[1], { target: { value: 'status' } });
+
+    expect(selects().map(s => s.value)).toEqual(['', 'status']);
   });
 });
 
