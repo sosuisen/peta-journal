@@ -147,14 +147,15 @@ foreach ($server in @(Get-Process journal-server -ErrorAction SilentlyContinue))
 }
 if (Test-Port $port) { throw "Another program uses port $port. End it first." }
 
-Invoke-Step 'Web frontend' { & "$apps/web-app/outliner/release.ps1" }
+# The React shell (ADR 079). The Leptos one in web-app/outliner is no longer built here.
+Invoke-Step 'Web frontend' { & "$apps/web-app/outliner-react/release.ps1" }
 Invoke-Step 'Journal server' { & "$root/journal/journal-server/release.ps1" }
-# Why a copy and not --frontend-dir: a debug `trunk build` in dist/ would change the frontend
-# of the running release server too
+# Why a copy and not --frontend-dir: a new build in dist/ during development would change the
+# frontend of the running release server too
 Invoke-Step 'Copy the web frontend' {
     $frontend = "$release/frontend"
     if (Test-Path $frontend) { Remove-Item -Recurse -Force $frontend }
-    Copy-Item -Recurse "$apps/web-app/outliner/dist" $frontend
+    Copy-Item -Recurse "$apps/web-app/outliner-react/dist" $frontend
 }
 if (Get-Process outliner-emacs -ErrorAction SilentlyContinue) {
     Write-Warning 'The Emacs shell runs: its build is left out. Close the PetaJournal buffers in Emacs first.'

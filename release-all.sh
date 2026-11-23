@@ -103,15 +103,16 @@ if answers "$port"; then
     exit 1
 fi
 
+# The React shell (ADR 079). The Leptos one in web-app/outliner is no longer built here.
 step 'Web frontend'
-"$apps/web-app/outliner/release.sh"
+"$apps/web-app/outliner-react/release.sh"
 step 'Journal server'
 "$root/journal/journal-server/release.sh"
-# Why a copy and not --frontend-dir: a debug `trunk build` in dist/ would change the frontend
-# of the running release server too
+# Why a copy and not --frontend-dir: a new build in dist/ during development would change the
+# frontend of the running release server too
 step 'Copy the web frontend'
 rm -rf "$release/frontend"
-cp -R "$apps/web-app/outliner/dist" "$release/frontend"
+cp -R "$apps/web-app/outliner-react/dist" "$release/frontend"
 # The Emacs shell is not ended: Emacs would lose its buffers
 if pgrep -x outliner-emacs >/dev/null; then
     echo 'The Emacs shell runs: its build is left out. Close the PetaJournal buffers in Emacs first.' >&2
