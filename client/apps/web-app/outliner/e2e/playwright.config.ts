@@ -14,7 +14,13 @@ export const serverPort = 8187;
 export const dataDir = mkdtempSync(join(tmpdir(), 'peta-journal-e2e-'));
 /** The markdown folder the test server exports to. Lives inside `dataDir`, never the user's. */
 export const markdownDir = join(dataDir, 'markdown');
-const shellDir = resolve(__dirname, '..');
+/**
+ * The shell under test: the Leptos one, or the React one with `PETA_SHELL=react` (ADR 079).
+ * Both draw the same elements, so the same tests drive them. The tests move to the React
+ * shell when the Leptos one is removed.
+ */
+const react = process.env.PETA_SHELL === 'react';
+const shellDir = resolve(__dirname, react ? '../../outliner-react' : '..');
 /** Not `dist`: that folder belongs to the developer's own server, which may be reading it now. */
 const frontendDir = resolve(shellDir, 'dist-e2e');
 
@@ -51,11 +57,15 @@ function writeAutoTemplate(dir: string): void {
 }
 
 /**
- * Builds the Leptos frontend into `frontendDir`. Runs in `shellDir`, where Trunk.toml is. The
+ * Builds the frontend into `frontendDir`. Runs in `shellDir`, where Trunk.toml or package.json
+ * is. The React shell is always a release build of its wasm. For the Leptos one, the
  * timing test (`PETA_TIMING=1`) needs the release build: a debug build of wasm is many times
  * slower, and its times say nothing.
  */
 function frontendBuildCommand(): string {
+  if (react) {
+    return `npm run build -- --outDir ${JSON.stringify(frontendDir)} --emptyOutDir`;
+  }
   const release = process.env.PETA_TIMING ? ' --release' : '';
   return `trunk build${release} --dist ${JSON.stringify(frontendDir)}`;
 }
