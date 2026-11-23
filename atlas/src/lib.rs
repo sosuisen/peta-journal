@@ -169,6 +169,23 @@ pub trait AtlasItem {
     fn prop(&self, key: &str) -> Option<&str>;
 }
 
+#[cfg(feature = "api-types")]
+impl AtlasItem for journal_api_types::Item {
+    fn level(&self) -> i32 {
+        self.level
+    }
+
+    fn body(&self) -> &str {
+        &self.body
+    }
+
+    fn prop(&self, key: &str) -> Option<&str> {
+        self.properties
+            .get(key)
+            .and_then(journal_api_types::PropertyValue::as_text)
+    }
+}
+
 /// An item of the atlas with what it is and, for a card, the group item it is under.
 #[derive(Debug)]
 pub struct Entry<'a, T> {
@@ -289,6 +306,31 @@ mod tests {
                 .map(|(k, v)| (k.to_string(), v.to_string()))
                 .collect(),
         }
+    }
+
+    // サーバーの答えの項目は、文字列のプロパティだけをアトラスの値として読む。
+    #[cfg(feature = "api-types")]
+    #[test]
+    fn an_item_of_the_answer_gives_its_text_properties_to_the_atlas() {
+        let answer = journal_api_types::Item {
+            level: 2,
+            body: "card".into(),
+            properties: BTreeMap::from([
+                ("side".into(), "left".into()),
+                ("tags".into(), ["x"].into()),
+            ]),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            (
+                answer.level(),
+                answer.body(),
+                answer.prop("side"),
+                answer.prop("tags")
+            ),
+            (2, "card", Some("left"), None)
+        );
     }
 
     // 4つの数の値はbounds、それ以外はboundsでない
