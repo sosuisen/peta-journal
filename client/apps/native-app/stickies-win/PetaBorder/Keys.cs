@@ -78,30 +78,52 @@ public sealed partial class Shell
 
     /// <summary>
     /// The user dropped files on the drawn item. The image goes at the end of its body: the
-    /// drawn text and the Markdown do not line up.
+    /// drawn text and the Markdown do not line up. False when no file is an image.
     /// </summary>
-    public void DropImage(string itemId, IReadOnlyList<string> paths)
+    public bool DropImage(string itemId, IReadOnlyList<string> paths)
     {
         ArgumentNullException.ThrowIfNull(paths);
         var body = View.Outline.Rows.First(row => row.Item.Id == itemId).Item.Body;
-        Drop(itemId, paths, PetaCore.PetaNative.CharsOfUtf16(body, (ulong)body.Length));
+        return Drop(itemId, paths, PetaCore.PetaNative.CharsOfUtf16(body, (ulong)body.Length));
     }
 
     /// <summary>
     /// The user dropped files on the editor of an item. The cursor of <paramref name="editor"/>
-    /// is where they were dropped.
+    /// is where they were dropped. False when no file is an image.
     /// </summary>
-    public void DropImage(string itemId, EditorState editor, IReadOnlyList<string> paths)
+    public bool DropImage(string itemId, EditorState editor, IReadOnlyList<string> paths)
     {
         ArgumentNullException.ThrowIfNull(editor);
         ArgumentNullException.ThrowIfNull(paths);
-        Drop(itemId, paths, CursorOf(editor));
+        return Drop(itemId, paths, CursorOf(editor));
     }
 
-    /// <summary>Links the dropped image at <paramref name="cursor"/>, in the characters of the
-    /// core.</summary>
-    private void Drop(string itemId, IReadOnlyList<string> paths, ulong cursor) =>
-        border.PasteImage(itemId, CopyOf(paths[0]), cursor);
+    /// <summary>The kinds of file that are taken as images, as the web version takes <c>image/*</c>.</summary>
+    private static readonly string[] ImageExtensions =
+    [
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".bmp",
+        ".svg",
+    ];
+
+    /// <summary>
+    /// Links the first image of the dropped files at <paramref name="cursor"/>, in the
+    /// characters of the core. Only one, as in the web version. False when no file is an image.
+    /// </summary>
+    private bool Drop(string itemId, IReadOnlyList<string> paths, ulong cursor)
+    {
+        var image = paths.FirstOrDefault(path =>
+            ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)
+        );
+        if (image is null)
+            return false;
+        border.PasteImage(itemId, CopyOf(image), cursor);
+        return true;
+    }
 
     /// <summary>
     /// A copy of the file with the same name, in a folder of its own. The core deletes the file
