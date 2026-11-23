@@ -63,6 +63,7 @@ mod tests {
             "type DragMove",
             "type UiOp",
             "type UiOutput",
+            "type Replay",
         ] {
             assert!(types.contains(&format!("export {name}")), "no {name}");
         }
