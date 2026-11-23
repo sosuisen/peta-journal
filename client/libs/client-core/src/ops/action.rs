@@ -24,9 +24,20 @@ pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
                 target_id,
                 updated: Box::new(updated),
             }),
-            Err(e) => log_error(format!("Failed to cycle task: {e}")),
+            Err(e) => {
+                log_error(format!("Failed to cycle task: {e}"));
+                api.send_event(Event::TaskCycleFailed);
+            }
         }
     })
+}
+
+/// Ends the wait for the answer of a task cycle the server refused. The undos that waited for
+/// it are dropped: the change they were to undo did not happen.
+pub fn task_cycle_failed(model: &mut Model) -> Cmd {
+    model.task_cycles_awaited = model.task_cycles_awaited.saturating_sub(1);
+    model.held_undos = 0;
+    done()
 }
 
 /// The server changed the task state of the item `item_id`: the item saved under `target_id`

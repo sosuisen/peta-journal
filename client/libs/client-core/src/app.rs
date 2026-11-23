@@ -407,6 +407,8 @@ pub enum Event {
         target_id: String,
         updated: Box<Item>,
     },
+    /// The server refused a change of the task state, or could not be reached.
+    TaskCycleFailed,
     /// The server saved the collapsing or expanding of the item `before`.
     CollapseSaved {
         before: Box<Item>,
@@ -1368,6 +1370,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             target_id,
             updated,
         } => ops::action::show_task_cycled(model, &item_id, &target_id, *updated),
+        TaskCycleFailed => ops::action::task_cycle_failed(model),
         CollapseSaved { before } => ops::action::record_collapse(model, *before),
         CollapseRefused { before } => ops::action::put_collapse_back(model, *before),
         TransclusionChanged { item } => ops::action::show_transclusion_change(model, &item),
