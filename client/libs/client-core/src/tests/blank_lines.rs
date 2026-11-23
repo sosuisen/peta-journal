@@ -123,7 +123,7 @@ fn a_split_at_the_end_of_a_backslash_line_is_at_the_end_in_the_file() {
     );
 }
 
-// 空行の上での分割は、その行の`\`の前で分ける。空行は、新しい項目の先頭に移る。
+// 空白だけの行の上での分割は、カーソルが行のどこにあっても、その行の`\`の前で分ける。空行は、新しい項目の先頭に移る。
 #[test]
 fn a_split_on_a_blank_line_is_before_its_backslash() {
     let mut h = Harness::with_items(vec![item("a", 1, "a\n  \nb")]);
@@ -132,7 +132,7 @@ fn a_split_on_a_blank_line_is_before_its_backslash() {
     let now_ms = h.now_ms;
     h.send(Event::EnterPressed {
         item_id: "a".into(),
-        cursor: "a\n ".len(),
+        cursor: "a\n  ".len(),
         now_ms,
     });
 
