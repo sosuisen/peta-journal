@@ -244,6 +244,62 @@ pub struct SearchResult {
     pub score: f32,
 }
 
+/// A file the server saved.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Uploaded {
+    /// The name of the file on the server. The server makes it up. See ADR-022.
+    pub file_name: String,
+    /// The name the file came with.
+    pub original_name: String,
+}
+
+/// Where the cursor goes after a paste: right after the pasted text.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PasteCursor {
+    pub item_id: String,
+    pub position: usize,
+}
+
+/// A property definition (`GET /api/config/property-definitions`, the `definitions` list).
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PropertyDefinition {
+    pub key: String,
+    pub value_type: String,
+    /// Written by the server itself; shown read-only, cannot be defined again.
+    pub system: bool,
+    /// May be set on a page.
+    pub page: bool,
+}
+
+/// The server's settings (`GET /api/config`), with the fields the clients read (ADR 082). The
+/// answer of the server has more fields, which a client passes over.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerConfig {
+    pub markdown_dir: String,
+    pub week_numbering: String,
+    pub logical_outdent: bool,
+    /// Directory of the tag pages relative to the pages root, `tags/` style; empty for the root.
+    pub tags_dir: String,
+    /// The page the Home button opens, as the target of a wiki link; empty for today.
+    pub home_link: String,
+}
+
+/// `POST /api/items/export`.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TreeExport {
+    pub tree_markdown: String,
+    pub flat_markdown: String,
+}
+
 /// The value of a property. The server has only these two shapes.
 ///
 /// It is written in two ways. JSON has it as the server does: a string, or an array of
@@ -1047,6 +1103,72 @@ mod tests {
                     ("plan".into(), PropertyValue::from("2026-11-24")),
                     ("tags".into(), PropertyValue::from(["x"])),
                 ]),
+            }
+        );
+    }
+
+    // 欄がサーバーと同じ答えの型は、サーバーの答えのJSONに書かれ、同じ値に読み戻される。
+    #[test]
+    fn the_answers_with_the_fields_of_the_server_are_written_in_its_json_and_read_back() {
+        fn round_trip<T>(value: T, written: serde_json::Value)
+        where
+            T: Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+        {
+            assert_eq!(serde_json::to_value(&value).unwrap(), written);
+            assert_eq!(serde_json::from_value::<T>(written).unwrap(), value);
+        }
+
+        round_trip(
+            PropertyDefinition {
+                key: "plan".into(),
+                value_type: "date".into(),
+                system: true,
+                page: false,
+            },
+            json!({ "key": "plan", "valueType": "date", "system": true, "page": false }),
+        );
+        round_trip(
+            TreeExport {
+                tree_markdown: "- a".into(),
+                flat_markdown: "a".into(),
+            },
+            json!({ "treeMarkdown": "- a", "flatMarkdown": "a" }),
+        );
+        round_trip(
+            PasteCursor {
+                item_id: "i".into(),
+                position: 3,
+            },
+            json!({ "itemId": "i", "position": 3 }),
+        );
+        round_trip(
+            Uploaded {
+                file_name: "f.png".into(),
+                original_name: "o.png".into(),
+            },
+            json!({ "fileName": "f.png", "originalName": "o.png" }),
+        );
+    }
+
+    // サーバーの設定は、サーバーの答えのJSONから読める。サーバーだけの欄は読み飛ばす。
+    #[test]
+    fn the_config_is_read_from_the_answer_of_the_server_past_the_fields_of_the_server() {
+        let answer = json!({
+            "markdownDir": "m", "weekNumbering": "iso", "logicalOutdent": true,
+            "tagsDir": "tags/", "homeLink": "home", "wikilinkHref": "/w", "hashtagHref": "/h",
+            "pagesBase": "/p", "wikilinkFragmentPattern": "x"
+        });
+
+        let config: ServerConfig = serde_json::from_value(answer).unwrap();
+
+        assert_eq!(
+            config,
+            ServerConfig {
+                markdown_dir: "m".into(),
+                week_numbering: "iso".into(),
+                logical_outdent: true,
+                tags_dir: "tags/".into(),
+                home_link: "home".into(),
             }
         );
     }

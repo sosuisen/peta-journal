@@ -115,12 +115,8 @@ impl ItemsAnswer {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CursorDto {
-    pub item_id: String,
-    pub position: usize,
-}
+/// Where the cursor goes after a paste. The server and the clients share the type (ADR 082).
+pub use journal_api_types::PasteCursor as CursorDto;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PasteAnswer {
@@ -161,12 +157,8 @@ pub struct TranscludedItemsAnswer {
     pub item_ids: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TreeMarkdownAnswer {
-    pub tree_markdown: String,
-    pub flat_markdown: String,
-}
+/// A tree as Markdown. The server and the clients share the type (ADR 082).
+pub use journal_api_types::TreeExport as TreeMarkdownAnswer;
 
 impl From<TreeMarkdownExport> for TreeMarkdownAnswer {
     fn from(export: TreeMarkdownExport) -> TreeMarkdownAnswer {

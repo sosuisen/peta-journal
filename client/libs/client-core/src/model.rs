@@ -190,16 +190,8 @@ impl PasteMode {
     }
 }
 
-/// A file the server saved.
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Uploaded {
-    /// The name of the file on the server. The server makes it up. See ADR-022.
-    pub file_name: String,
-    /// The name the file came with.
-    pub original_name: String,
-}
+/// A file the server saved. The server and the client share the type (ADR 082).
+pub use journal_api_types::Uploaded;
 
 /// What a paste came to on the server.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
@@ -241,30 +233,11 @@ pub struct Split {
     pub created: Item,
 }
 
-/// Where the cursor goes after a paste: right after the pasted text.
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PasteCursor {
-    pub item_id: String,
-    pub position: usize,
-}
+/// Where the cursor goes after a paste. The server and the client share the type (ADR 082).
+pub use journal_api_types::PasteCursor;
 
-/// A property definition (`GET /api/config/property-definitions`, the `definitions` list).
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PropertyDefinition {
-    pub key: String,
-    #[serde(default)]
-    pub value_type: String,
-    /// Written by the server itself; shown read-only, cannot be defined again.
-    #[serde(default)]
-    pub system: bool,
-    /// May be set on a page.
-    #[serde(default)]
-    pub page: bool,
-}
+/// A property definition. The server and the client share the type (ADR 082).
+pub use journal_api_types::PropertyDefinition;
 
 /// The name the screen shows for the key: the body, without the suffix of its type (ADR
 /// 047). When another key of the definitions has the same body, the type is added, so that
@@ -324,24 +297,9 @@ pub const USER_VALUE_TYPES: [ValueType; 7] = [
     ValueType::List,
 ];
 
-/// The server's settings (`GET /api/config`).
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ServerConfig {
-    #[serde(default)]
-    pub markdown_dir: String,
-    #[serde(default)]
-    pub week_numbering: String,
-    #[serde(default)]
-    pub logical_outdent: bool,
-    /// Directory of the tag pages relative to the pages root, `tags/` style; empty for the root.
-    #[serde(default)]
-    pub tags_dir: String,
-    /// The page the Home button opens, as the target of a wiki link; empty for today.
-    #[serde(default)]
-    pub home_link: String,
-}
+/// The server's settings. The server and the client share the fields the client reads
+/// (ADR 082).
+pub use journal_api_types::ServerConfig;
 
 /// How weeks are numbered: US (Sunday start) or ISO (Monday start).
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
@@ -409,13 +367,8 @@ pub struct BacklinkEntry {
     pub source_item: Option<Item>,
 }
 
-/// `POST /api/items/export`.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TreeExport {
-    pub tree_markdown: String,
-    pub flat_markdown: String,
-}
+/// `POST /api/items/export`. The server and the client share the type (ADR 082).
+pub use journal_api_types::TreeExport;
 
 /// A key press kept for an editor that was not yet on screen when it was pressed.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]

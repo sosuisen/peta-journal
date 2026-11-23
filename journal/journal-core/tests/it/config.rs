@@ -56,3 +56,33 @@ fn the_config_has_the_values_to_render_the_links_of_a_body() {
     let config = notes.update_config(json!({ "tagsDir": "meta/tags" }));
     assert_eq!(config["hashtagHref"], json!("/pages/meta/tags/{}"));
 }
+
+// 設定の答えのJSONは、共有の欄とサーバーだけの欄を、同じ階層に並べる。
+#[test]
+fn the_json_of_the_config_has_the_shared_fields_and_the_server_fields_at_one_level() {
+    let notes = Core::new();
+
+    let config = answer(notes.core.journal.config());
+
+    let mut keys: Vec<&str> = config
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort_unstable();
+    assert_eq!(
+        keys,
+        [
+            "hashtagHref",
+            "homeLink",
+            "logicalOutdent",
+            "markdownDir",
+            "pagesBase",
+            "tagsDir",
+            "weekNumbering",
+            "wikilinkFragmentPattern",
+            "wikilinkHref"
+        ]
+    );
+}

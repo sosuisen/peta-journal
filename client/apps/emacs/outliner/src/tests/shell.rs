@@ -1964,7 +1964,10 @@ fn the_week_of_a_day_of_the_calendar_opens_the_week_page_of_the_servers_numberin
         "2026-W07"
     );
 
-    let config = serde_json::from_value(json!({ "Config": { "weekNumbering": "iso" } }));
+    let config = serde_json::from_value(json!({ "Config": {
+        "markdownDir": "", "weekNumbering": "iso", "logicalOutdent": false, "tagsDir": "",
+        "homeLink": ""
+    } }));
     driver.answer(|op| matches!(op, ApiOp::GetConfig), config.unwrap());
 
     assert_eq!(
