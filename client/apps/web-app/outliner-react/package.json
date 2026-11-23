@@ -9,7 +9,7 @@
   },
   "scripts": {
     "wasm": "wasm-pack build ../../../libs/client-web-bridge --target web --release --out-dir ../../apps/web-app/outliner-react/src/wasm --out-name bridge --no-pack",
-    "types": "cargo run -q -p client-web-bridge --bin codegen -- src/border",
+    "types": "cargo run -q -p client-web-bridge --bin web-codegen -- src/border",
     "border": "npm run wasm && npm run types",
     "predev": "npm run border",
     "dev": "vite",
