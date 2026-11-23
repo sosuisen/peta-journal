@@ -16,7 +16,63 @@
 //! shell does it with its own means. They hold no lock either: a shell with threads keeps them
 //! behind its own.
 
+use crate::effects::UiOp;
 use std::collections::{HashMap, VecDeque};
+
+/// True for an operation that asks the user and waits for the answer. The shell has one of
+/// these at a time: see [`Questions`].
+pub fn is_question(op: &UiOp) -> bool {
+    matches!(
+        op,
+        UiOp::Confirm(_) | UiOp::ConfirmDestructive(_) | UiOp::Prompt(_)
+    )
+}
+
+/// The questions of the core to the user, given to the shell one at a time. `T` is what the
+/// shell keeps of a question: the request to answer.
+///
+/// Giving a question to the shell is the shell's own work, and makes the number of its request.
+/// The shell does it in the `give` it passes, and the question that waits is given when the
+/// answer to that number comes.
+#[derive(Debug)]
+pub struct Questions<T> {
+    /// The number of the request with the question the shell has now.
+    asked: Option<u32>,
+    /// The questions, each waiting for the answer to the one before.
+    line: InOrder<T>,
+}
+
+impl<T> Default for Questions<T> {
+    fn default() -> Questions<T> {
+        Questions {
+            asked: None,
+            line: InOrder::new(),
+        }
+    }
+}
+
+impl<T> Questions<T> {
+    /// Takes a question in. When the shell has none, it is given now with `give`. Otherwise it
+    /// waits for the answers to those before it.
+    pub fn ask(&mut self, question: T, give: impl FnOnce(T) -> u32) {
+        if self.line.push(question) {
+            self.give_next(give);
+        }
+    }
+
+    /// The shell answered the request `id`. When that was its question, the next one that
+    /// waits is given with `give`.
+    pub fn answered(&mut self, id: u32, give: impl FnOnce(T) -> u32) {
+        if self.asked == Some(id) {
+            self.give_next(give);
+        }
+    }
+
+    /// Gives the question whose turn it is, if one waits.
+    fn give_next(&mut self, give: impl FnOnce(T) -> u32) {
+        self.asked = self.line.take_next().map(give);
+    }
+}
 
 /// What is done one at a time, in the order it came.
 ///
