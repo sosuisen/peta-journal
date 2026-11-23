@@ -1,8 +1,9 @@
 /**
  * The pieces of the shell that read or write the page directly, ported from `dom.rs` of the
  * Leptos shell (ADR 080). The textarea counts UTF-16 units, and the core counts characters
- * (ADR 043).
+ * (ADR 043). What measures the layout of text is in `layout.ts`.
  */
+import { mirrorOver } from './layout';
 
 /** The number of characters before a UTF-16 offset of `text`. */
 export function charsOfUtf16(text: string, units: number): number {
@@ -24,111 +25,12 @@ export function focusWithoutScroll(el: HTMLElement): void {
   el.focus({ preventScroll: true });
 }
 
-/** Grows the textarea to its content. */
-export function autoResize(el: HTMLTextAreaElement): void {
-  el.style.height = 'auto';
-  el.style.height = `${el.scrollHeight}px`;
-}
-
 /**
  * True when a key belongs to the composition of an IME, as the Enter that confirms a Japanese
  * conversion. Safari sends that Enter after `compositionend`, with the old key code 229.
  */
 export function isImeComposing(event: KeyboardEvent): boolean {
   return event.isComposing || event.keyCode === 229;
-}
-
-/**
- * Lays out a hidden copy of the text of the textarea, and measures where a place ends up.
- *
- * The whole text is copied, not only the part before the place: a word that did not fit on a
- * line would fit in a copy that stops in the middle of it. The place is measured at the
- * character after it, not at a marker after the part before it: at a wrap the browser draws
- * the caret before the first character of the next line.
- */
-function measureMarker(
-  el: HTMLTextAreaElement,
-  units: number,
-  markerText: string,
-): { left: number; top: number } {
-  const div = document.createElement('div');
-  const style = getComputedStyle(el);
-  Object.assign(div.style, {
-    position: 'absolute',
-    visibility: 'hidden',
-    whiteSpace: 'pre-wrap',
-    wordWrap: 'break-word',
-    boxSizing: 'border-box',
-    width: `${el.clientWidth}px`,
-    font: style.font,
-    letterSpacing: style.letterSpacing,
-    lineHeight: style.lineHeight,
-    padding: style.padding,
-    wordBreak: style.wordBreak,
-    overflowWrap: style.overflowWrap,
-  });
-  const value = el.value;
-  const at = Math.min(units, value.length);
-  const before = value.slice(0, at);
-  const after = value.slice(at);
-  // A newline is not drawn: the caret before it is at the end of its line, where a marker is
-  const next = [...after][0];
-  const [marked, rest] =
-    next !== undefined && next !== '\n'
-      ? [next, after.slice(next.length)]
-      : [markerText, after];
-  const marker = document.createElement('span');
-  marker.textContent = marked;
-  div.append(
-    document.createTextNode(before),
-    marker,
-    document.createTextNode(rest),
-  );
-  document.body.append(div);
-  const place = { left: marker.offsetLeft, top: marker.offsetTop };
-  div.remove();
-  return place;
-}
-
-function lineHeightOf(el: HTMLElement): number {
-  const height = parseFloat(getComputedStyle(el).lineHeight);
-  return Number.isNaN(height) ? 20 : height;
-}
-
-/** The caret at the UTF-16 place `units`, in the coordinates of the window. */
-export function caretRect(
-  el: HTMLTextAreaElement,
-  units: number,
-): { x: number; top: number; bottom: number } {
-  const { left, top } = measureMarker(el, units, '​');
-  const rect = el.getBoundingClientRect();
-  const y = rect.top + top - el.scrollTop;
-  return {
-    x: rect.left + left - el.scrollLeft,
-    top: y,
-    bottom: y + lineHeightOf(el),
-  };
-}
-
-function yAt(el: HTMLTextAreaElement, units: number): number {
-  return measureMarker(el, units, '|').top;
-}
-
-export function isOnFirstLine(el: HTMLTextAreaElement): boolean {
-  const start = el.selectionStart;
-  if (el.value === '' || start === 0) {
-    return true;
-  }
-  return Math.abs(yAt(el, start) - yAt(el, 0)) < 5;
-}
-
-export function isOnLastLine(el: HTMLTextAreaElement): boolean {
-  const length = el.value.length;
-  const start = el.selectionStart;
-  if (el.value === '' || start === length) {
-    return true;
-  }
-  return Math.abs(yAt(el, length) - yAt(el, start)) < 5;
 }
 
 interface CaretPosition {
@@ -170,16 +72,17 @@ export function textBeforePoint(
   ) {
     return null;
   }
+  // The walker shows only text nodes, and it reaches the caret: the container holds it
   const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
   let before = '';
-  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-    const text = node.textContent ?? '';
-    if (node === caret.offsetNode) {
-      return before + text.slice(0, caret.offset);
-    }
-    before += text;
+  for (
+    let node = walker.nextNode() as Text;
+    node !== caret.offsetNode;
+    node = walker.nextNode() as Text
+  ) {
+    before += node.data;
   }
-  return null;
+  return before + (caret.offsetNode as Text).data.slice(0, caret.offset);
 }
 
 /**
@@ -208,30 +111,10 @@ function mirrorOffsetAtPoint(
   x: number,
   y: number,
 ): number | null {
-  const div = document.createElement('div');
-  const style = getComputedStyle(el);
-  Object.assign(div.style, {
-    position: 'fixed',
-    left: `${rect.left}px`,
-    top: `${rect.top - el.scrollTop}px`,
-    width: `${el.clientWidth}px`,
-    // Not seen, but still hit by the point, unlike `visibility: hidden`
-    opacity: '0',
-    zIndex: '2147483647',
-    whiteSpace: 'pre-wrap',
-    wordWrap: 'break-word',
-    font: style.font,
-    letterSpacing: style.letterSpacing,
-    lineHeight: style.lineHeight,
-    padding: style.padding,
-    boxSizing: style.boxSizing,
-  });
-  const text = document.createTextNode(el.value);
-  div.append(text);
-  document.body.append(div);
+  const mirror = mirrorOver(el, rect);
   const caret = caretAtPoint(x, y);
-  div.remove();
-  return caret !== null && caret.offsetNode === text
+  mirror.remove();
+  return caret !== null && caret.offsetNode === mirror.text
     ? charsOfUtf16(el.value, caret.offset)
     : null;
 }

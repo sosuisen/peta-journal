@@ -1,7 +1,7 @@
 import { WikiLinkContext } from './border/peta-types';
 import { useCore, usePanel } from './context';
 import type { Core } from './core';
-import { caretRect } from './dom';
+import { caretRect } from './layout';
 
 /**
  * Tells the core the `[[wiki link]]` the cursor of the editor is in, with the place of the

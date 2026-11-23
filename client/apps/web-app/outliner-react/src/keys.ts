@@ -1,5 +1,5 @@
 import { Chord, EditorState, type Key } from './border/peta-types';
-import { isOnFirstLine, isOnLastLine } from './dom';
+import { isOnFirstLine, isOnLastLine } from './layout';
 
 /** The keys of the browser by name, as the core knows them (ADR 052). */
 const NAMED: Readonly<Record<string, Key>> = {

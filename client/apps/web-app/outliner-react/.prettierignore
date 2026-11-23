@@ -2,3 +2,7 @@ dist
 dist-e2e
 src/wasm
 src/border
+# Reports of `npm run coverage` and `npm run mutants`
+coverage
+reports
+.stryker-tmp

@@ -7,7 +7,16 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig([
   // The wasm and the types of the border are made from the Rust code (`npm run border`)
-  globalIgnores(['dist', 'dist-e2e', 'src/wasm', 'src/border']),
+  globalIgnores([
+    'dist',
+    'dist-e2e',
+    'src/wasm',
+    'src/border',
+    // Reports of `npm run coverage` and `npm run mutants`
+    'coverage',
+    'reports',
+    '.stryker-tmp',
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

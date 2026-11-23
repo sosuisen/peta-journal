@@ -1,6 +1,6 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useContext, useEffect, useRef, type ReactNode } from 'react';
-import { AskedOpsContext } from './askedContext';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { useAsked } from './askedContext';
 import { useCore, usePanel, useScreen } from './context';
 import type { Core } from './core';
 import { chordOf } from './keys';
@@ -25,7 +25,7 @@ interface Props {
  */
 export default function Outline({ header, footer }: Props) {
   const core = useCore();
-  const asked = useContext(AskedOpsContext);
+  const asked = useAsked();
   const { rows } = useScreen();
   const outline = usePanel('Outline');
   const viewport = useRef<HTMLElement>(null);
@@ -37,16 +37,13 @@ export default function Outline({ header, footer }: Props) {
     count: rows.length,
     getScrollElement: () => viewport.current,
     estimateSize: () => ESTIMATED_ROW_PX,
-    getItemKey: index => rows[index]?.item.id ?? index,
+    getItemKey: index => rows[index].item.id,
     overscan: 10,
     scrollMargin: headerBox.current?.offsetHeight ?? 0,
   });
 
   // A scroll to an item puts it a tenth down the list, as the sidebar and a search ask
   useEffect(() => {
-    if (asked === null) {
-      return;
-    }
     asked.scroller = (itemId, smooth) => {
       const index = core
         .current()
@@ -79,11 +76,7 @@ export default function Outline({ header, footer }: Props) {
       ? 0
       : virtualizer.getTotalSize() - (last.end - margin)) + room;
 
-  const scrolled = () => {
-    const list = viewport.current;
-    if (list === null) {
-      return;
-    }
+  const scrolled = (list: HTMLElement) => {
     const top = list.scrollTop;
     const shown = virtualizer.getVirtualItems();
     const topVisible = shown.find(item => item.end > top)?.index ?? 0;
@@ -104,7 +97,7 @@ export default function Outline({ header, footer }: Props) {
       <cdk-virtual-scroll-viewport
         ref={viewport}
         className="outline-viewport"
-        onScroll={scrolled}
+        onScroll={event => scrolled(event.currentTarget)}
       >
         {header !== undefined && (
           <div ref={headerBox} className="outline-header">
@@ -117,9 +110,6 @@ export default function Outline({ header, footer }: Props) {
         >
           {items.map(item => {
             const row = rows[item.index];
-            if (row === undefined) {
-              return null;
-            }
             return (
               <div
                 key={item.key}

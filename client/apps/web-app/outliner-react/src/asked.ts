@@ -1,7 +1,8 @@
 import { DeferredKey } from './border/peta-types';
 import type { Asked, Core } from './core';
 import { checkWikiLink } from './WikiSuggestions';
-import { autoResize, focusWithoutScroll, isImeComposing } from './dom';
+import { focusWithoutScroll, isImeComposing } from './dom';
+import { autoResize } from './layout';
 
 /**
  * The operations of the screen that only the shell can do (ADR 080): the focus of an editor,
@@ -24,6 +25,14 @@ export class AskedOps {
   /** The core that the answers go to. Set once, right after the core is made. */
   answerTo(core: Core): void {
     this.core = core;
+  }
+
+  /** The core asks only after it is made, so the core is always given by then. */
+  private get answering(): Core {
+    if (this.core === null) {
+      throw new Error('answerTo is not called before the core asks');
+    }
+    return this.core;
   }
 
   readonly take = (asked: Asked): void => {
@@ -52,7 +61,7 @@ export class AskedOps {
           if (editor !== null && op.item_id !== null) {
             this.replay(editor, op.item_id, keys);
           }
-          this.core?.resolve(id, { kind: 'Done' });
+          this.answering.resolve(id, { kind: 'Done' });
         }, 0);
         break;
       }
@@ -95,10 +104,7 @@ export class AskedOps {
     itemId: string,
     keys: readonly DeferredKey[],
   ): void {
-    const core = this.core;
-    if (core === null) {
-      return;
-    }
+    const core = this.answering;
     const changed = () => {
       core.typed({ kind: 'Changed', item_id: itemId, body: editor.value });
       autoResize(editor);
@@ -166,7 +172,7 @@ export class AskedOps {
     }
     this.confirm = null;
     this.changed();
-    this.core?.resolve(confirm.id, { kind: 'Bool', value: yes });
+    this.answering.resolve(confirm.id, { kind: 'Bool', value: yes });
   }
 
   readonly subscribe = (listener: () => void): (() => void) => {
