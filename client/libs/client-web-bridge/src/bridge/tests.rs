@@ -12,6 +12,8 @@ struct Browser {
     calls: RefCell<VecDeque<(ApiOp, Done<ApiResult<ApiOutput>>)>>,
     /// Every request to the server, oldest first, answered or not.
     called: RefCell<Vec<ApiOp>>,
+    /// The timers that run, with what each calls when its time comes.
+    timers: RefCell<Vec<(u64, Done<()>)>>,
     /// The files sent to the server, oldest first.
     uploads: RefCell<Vec<String>>,
     /// The URLs the address bar was given, and whether each replaced the one before.
@@ -49,6 +51,17 @@ impl Host for FakeHost {
             original_name: "picture.png".into(),
         };
         done(Ok(ApiOutput::Uploaded(uploaded)));
+    }
+
+    fn start_timer(&self, id: u64, _ms: u32, fired: Done<()>) {
+        self.0.timers.borrow_mut().push((id, fired));
+    }
+
+    fn cancel_timer(&self, id: u64) {
+        self.0
+            .timers
+            .borrow_mut()
+            .retain(|(running, _)| *running != id);
     }
 
     fn go_to(&self, url: &str, replace: bool) {
@@ -120,6 +133,24 @@ impl Screen {
     fn open_notes(&self) {
         self.bridge.route("/pages/notes");
         self.serve();
+    }
+
+    /// Lets the time of every timer that runs pass.
+    fn let_time_pass(&self) {
+        let timers = std::mem::take(&mut *self.browser.timers.borrow_mut());
+        for (_, fired) in timers {
+            fired(());
+        }
+    }
+
+    /// The queries the server was asked to search for, oldest first.
+    fn searches(&self) -> Vec<String> {
+        let called = self.browser.called.borrow();
+        let searches = called.iter().filter_map(|op| match op {
+            ApiOp::SearchCombined { query, .. } => Some(query.clone()),
+            _ => None,
+        });
+        searches.collect()
     }
 
     fn urls(&self) -> Vec<(String, bool)> {
@@ -249,4 +280,23 @@ fn the_file_of_a_pasted_image_is_sent_to_the_server_as_it_is() {
 
     let uploads = screen.browser.uploads.borrow();
     assert_eq!(*uploads, ["the file of the picture"]);
+}
+
+// タイマーは、時間が来るとコアに届き、取り消したものは届かない。
+#[test]
+fn a_timer_reaches_the_core_when_its_time_comes_and_a_cancelled_one_does_not() {
+    let screen = Screen::new();
+    screen.open_notes();
+
+    screen
+        .bridge
+        .update(r#"{"SearchQueryChanged":"first"}"#)
+        .unwrap();
+    screen
+        .bridge
+        .update(r#"{"SearchQueryChanged":"second"}"#)
+        .unwrap();
+    screen.let_time_pass();
+
+    assert_eq!(screen.searches(), ["second"]);
 }
