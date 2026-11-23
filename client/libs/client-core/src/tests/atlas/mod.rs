@@ -21,6 +21,7 @@ mod sync;
 use crate::app::{Event, PageState, Screen};
 use crate::effects::{ApiOp, ApiOutput, AtlasChange, UiOp};
 use crate::harness::Harness;
+use crate::model::PageExt;
 use crate::model::{Item, Page};
 use crate::screens::atlas::{Bounds, Callout, GroupTitle};
 use crate::screens::page::{page_title, ATLAS_NAME};

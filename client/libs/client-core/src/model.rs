@@ -3,7 +3,7 @@
 pub use property_names::ValueType;
 use property_names::{body_of, type_of};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -102,35 +102,24 @@ impl ItemExt for Item {
     }
 }
 
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Page {
-    pub id: String,
-    #[serde(default)]
-    pub parent_id: String,
-    #[serde(default)]
-    pub dir_path: String,
-    pub name: String,
-    /// "journal" or "doc".
-    #[serde(rename = "type", default)]
-    pub page_type: String,
-    #[serde(default)]
-    pub created_date: i64,
-    #[serde(default)]
-    pub modified_date: i64,
-    /// Property values are strings or lists of strings; empty in page lists.
-    #[serde(default)]
-    pub properties: BTreeMap<String, PropertyValue>,
+/// A page as the server returns it. The server and the client share the fields the client
+/// reads (ADR 082); the client adds its methods through `PageExt`.
+pub use journal_api_types::Page;
+
+/// What the client reads from a page. It is a trait because `Page` is a type of
+/// `journal-api-types`, and a crate cannot add methods to a type of another crate (ADR 082).
+pub trait PageExt {
+    fn is_journal(&self) -> bool;
+    /// `dirPath` without its trailing slash plus the name, the form used in URLs.
+    fn canonical_path(&self) -> String;
 }
 
-impl Page {
-    pub fn is_journal(&self) -> bool {
+impl PageExt for Page {
+    fn is_journal(&self) -> bool {
         self.page_type == "journal"
     }
 
-    /// `dirPath` without its trailing slash plus the name, the form used in URLs.
-    pub fn canonical_path(&self) -> String {
+    fn canonical_path(&self) -> String {
         if self.dir_path.is_empty() {
             self.name.clone()
         } else {
@@ -168,20 +157,8 @@ pub struct IndexSort {
     pub order: SortOrder,
 }
 
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchResult {
-    pub page_id: String,
-    pub page_title: String,
-    /// Empty for page hits.
-    #[serde(default)]
-    pub item_id: String,
-    #[serde(default)]
-    pub snippet: String,
-    #[serde(default)]
-    pub score: f32,
-}
+/// A page or an item that a search found. The server and the client share it (ADR 082).
+pub use journal_api_types::SearchResult;
 
 /// Where an item goes: first on the page, last, or after another item. The server and the
 /// client share the type (ADR 081).
@@ -501,6 +478,7 @@ impl DeferredKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
 
     fn deferred(key: &str) -> DeferredKey {
         DeferredKey {

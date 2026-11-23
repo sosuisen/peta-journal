@@ -4,6 +4,7 @@ use crate::app::{Event, PageState, Screen};
 use crate::effects::{ApiOp, ApiOutput, UiOp};
 use crate::harness::Harness;
 use crate::model::Page;
+use crate::model::PageExt;
 
 fn showing_a_page() -> Harness {
     let page = Page {

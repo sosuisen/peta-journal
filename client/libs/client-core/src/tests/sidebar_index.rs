@@ -3,6 +3,7 @@
 use crate::app::{Event, Route};
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::Harness;
+use crate::model::PageExt;
 use crate::model::{Page, PageWithItems};
 
 fn page(dir_path: &str, name: &str, page_type: &str) -> Page {
