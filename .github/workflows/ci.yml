@@ -47,9 +47,6 @@ jobs:
         run: cargo clippy -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi --all-targets
       - if: matrix.workspace == 'client'
         run: cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi --test codegen --test ffi
-      # The shell only runs in the browser, and the native build above does not show what breaks on wasm
-      - if: matrix.workspace == 'client'
-        run: cargo check --target wasm32-unknown-unknown -p outliner-web
       # The browser side of client-web-bridge (src/web.rs) is built for wasm only
       - if: matrix.workspace == 'client'
         run: cargo clippy --target wasm32-unknown-unknown -p client-web-bridge --lib

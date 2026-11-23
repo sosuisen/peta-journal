@@ -1,5 +1,5 @@
 {
-    "name": "outliner-web-e2e",
+    "name": "outliner-react-e2e",
     "version": "0.0.0",
     "private": true,
     "scripts": {
