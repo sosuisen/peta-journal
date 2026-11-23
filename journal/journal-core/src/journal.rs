@@ -35,8 +35,8 @@ pub use journals::{
     JournalAnswer, MostRecentJournalAnswer, MoveToJournalInput, MovedToJournalAnswer,
 };
 pub use pages::{
-    BacklinksAnswer, DocAnswer, FindPageQuery, FoundPageAnswer, PageAnswer, PageWithItems,
-    PagesAnswer,
+    BacklinksAnswer, DocAnswer, FindPageQuery, FoundPageAnswer, NarrowPage, PageAnswer,
+    PageWithItems, PagesAnswer,
 };
 pub use search::SearchAnswer;
 
