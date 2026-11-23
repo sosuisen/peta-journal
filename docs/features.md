@@ -1770,6 +1770,6 @@ Androidのシェル（`client/apps/native-app/outliner-android`）の機能で�
 出典: `core/model.rs`、`core/outline/state.rs`
 
 - サーバーが返すJSONは、camelCaseのフィールドとpropertiesのアクセサがサーバーの形どおりに読まれる
-- 項目の位置は、first・last・after:<id>の文字列として解析され、同じ文字列に戻る
+- 項目の位置は、サーバーとクライアントで同じ型である（ADR 081）。JSONでは`first`・`last`・`after:<id>`の文字列として書かれ、同じ位置に読み戻される。決まりに合わない文字列は読めない。MCPのスキーマでも文字列として示される
 - 項目の挿入は、after・First・Lastの各位置に置ける。置き換えでは古い項目を取り除いてから挿入する
 - フォーカス要求は、要求のたびに増える連番を持つ
