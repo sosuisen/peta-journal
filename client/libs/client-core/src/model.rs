@@ -603,40 +603,6 @@ mod tests {
         assert_eq!(item.heading_level_of_body(), 1);
     }
 
-    // JSON の文字列は、文字列のプロパティ値として読み取られる。
-    #[test]
-    fn reads_a_json_string_as_a_text_value() {
-        let value: PropertyValue = serde_json::from_str(r#""1.5""#).unwrap();
-        assert_eq!(value, PropertyValue::Text("1.5".into()));
-    }
-
-    // プロパティ値は、サーバーと同じ形の JSON に書かれる。文字列は文字列に、リストは配列になる。
-    #[test]
-    fn writes_json_in_the_shape_of_the_server() {
-        let text = PropertyValue::Text("1.5".into());
-        let list = PropertyValue::List(vec!["x".into(), "y".into()]);
-        assert_eq!(serde_json::to_string(&text).unwrap(), r#""1.5""#);
-        assert_eq!(serde_json::to_string(&list).unwrap(), r#"["x","y"]"#);
-    }
-
-    // JSON の文字列の配列は、リストのプロパティ値として読み取られる。
-    #[test]
-    fn reads_a_json_array_of_strings_as_a_list_value() {
-        let value: PropertyValue = serde_json::from_str(r#"["x","y"]"#).unwrap();
-        assert_eq!(value, PropertyValue::List(vec!["x".into(), "y".into()]));
-    }
-
-    // 文字列でも文字列の配列でもない JSON は、プロパティ値として読み取れない。サーバーはこの 2 つの形しか返さない。
-    #[test]
-    fn refuses_json_of_any_other_shape() {
-        for json in ["1.5", "true", "null", "[1]", r#"{"a":"b"}"#] {
-            assert!(
-                serde_json::from_str::<PropertyValue>(json).is_err(),
-                "{json}"
-            );
-        }
-    }
-
     // プロパティ値は、ネイティブのシェルとの境界の形式（bincode）に書いて、同じ値に読み戻せる（ADR 024）。
     #[test]
     fn round_trips_through_the_format_of_the_native_border() {

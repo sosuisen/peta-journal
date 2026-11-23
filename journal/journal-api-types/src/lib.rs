@@ -913,6 +913,46 @@ mod tests {
         }
     }
 
+    // 文字列でも文字列の配列でもないJSONは、プロパティの値として読めない。サーバーはこの2つの形しか返さない。
+    #[test]
+    fn a_property_value_refuses_json_of_any_other_shape() {
+        for json in ["1.5", "true", "null", "[1]", r#"{"a":"b"}"#] {
+            assert!(
+                serde_json::from_str::<PropertyValue>(json).is_err(),
+                "{json}"
+            );
+        }
+    }
+
+    // プロパティの値は、文字列としては文字列の値だけを、リストとしてはリストの値だけを返す。
+    #[test]
+    fn a_property_value_gives_its_text_or_its_list_by_its_shape() {
+        let text = PropertyValue::from("x");
+        let list = PropertyValue::from(["a", "b"]);
+
+        assert_eq!((text.as_text(), text.as_list()), (Some("x"), None));
+        assert_eq!(
+            (list.as_text(), list.as_list()),
+            (None, Some(&["a".to_string(), "b".to_string()][..]))
+        );
+    }
+
+    // MCPのスキーマでは、一括の要求のプロパティの値は、文字列か文字列の配列である。
+    #[cfg(feature = "schemars")]
+    #[test]
+    fn a_property_value_is_a_text_or_a_list_in_the_schema_of_mcp() {
+        let request = serde_json::to_value(schemars::schema_for!(BatchInput)).unwrap();
+
+        assert_eq!(
+            request["$defs"]["PropertyValue"]["anyOf"],
+            json!([
+                { "type": "string" },
+                { "type": "array", "items": { "type": "string" } }
+            ]),
+            "{request}"
+        );
+    }
+
     // 項目は、サーバーの答えのJSONから読める。サーバーだけの欄は読み飛ばす。
     #[test]
     fn an_item_is_read_from_the_answer_of_the_server_past_the_fields_of_the_server() {
