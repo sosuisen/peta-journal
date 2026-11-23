@@ -347,6 +347,17 @@ describe('a document page', () => {
     ]);
   });
 
+  // アトラスのページは、項目の代わりに、そのフォルダのキャンバスを出す。
+  test('an atlas page shows the canvas of its folder in place of the items', () => {
+    const { container } = page(
+      docPage('index', 'maps/', { is_atlas: true, is_index: true }),
+    );
+
+    expect(container.querySelector('app-page .atlas')).not.toBeNull();
+    expect(screen.getByTitle('Up')).not.toBeNull();
+    expect(container.querySelector('app-outline')).toBeNull();
+  });
+
   // プロパティは、見せるときだけ項目の上に出る。新しい行があれば、見せなくなっても残る。
   test('the properties show above the items when shown, and stay while a new row is there', () => {
     const { container, show } = page(docPage('notes'));

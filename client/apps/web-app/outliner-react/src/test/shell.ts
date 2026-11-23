@@ -136,6 +136,26 @@ export class WebShell {
     return this.wikiQuery(text, cursor);
   }
 
+  // The ids alone, so a test sees which cards and callouts were given
+  atlasCards(cards: string, links: string): string {
+    const ids = (text: string, id: string) =>
+      (json.parse(text) as Record<string, string>[]).map(c => c[id]);
+    return JSON.stringify({
+      cards: ids(cards, 'page_id'),
+      links: ids(links, 'item_id'),
+    });
+  }
+
+  atlasCallouts(callouts: string): string {
+    return JSON.stringify(
+      (json.parse(callouts) as { key: string }[]).map(c => c.key),
+    );
+  }
+
+  parentDirLabel(dirPath: string): string {
+    return `above ${dirPath}`;
+  }
+
   // The names are marked, so a test sees that they come from here
   shownNames(definitions: string): string[] {
     return (json.parse(definitions) as { key: string }[]).map(
