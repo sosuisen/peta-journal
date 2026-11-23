@@ -36,9 +36,27 @@ pub fn replay_of(key: &DeferredKey, text: &str, start: u64, end: u64) -> Replay 
     }
 }
 
+/// [`replay_of`] across the border: the key is a `DeferredKey` as JSON, and the answer is a
+/// [`Replay`] as JSON.
+pub fn replay_json(_key: &str, _text: &str, _start: u64, _end: u64) -> Result<String, String> {
+    Err("not yet".into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 境界では、キーをJSONで読み、するべきことをJSONで答える。読めないキーは理由とともに断る。
+    #[test]
+    fn across_the_border_the_key_and_the_answer_are_json() {
+        let key = r#"{"key":"Backspace","code":"Backspace","shift_key":false,"ctrl_key":false,"alt_key":false,"meta_key":false}"#;
+
+        assert_eq!(
+            replay_json(key, "ab", 2, 2).unwrap(),
+            r#"{"Delete":{"from":1,"to":2}}"#
+        );
+        assert!(replay_json("{}", "ab", 2, 2).is_err());
+    }
 
     fn key(name: &str) -> DeferredKey {
         DeferredKey {
