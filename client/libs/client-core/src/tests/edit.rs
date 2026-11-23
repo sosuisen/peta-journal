@@ -77,9 +77,9 @@ fn finish_edit_saves_typed_text_once_cancelling_the_auto_save_and_closes_the_edi
     assert_eq!(update_calls(&h.api).len(), 1, "the text is not sent twice");
 }
 
-// 編集を終えると、本文の前後の空白だけの行は削られて保存される。Markdownでは、ブロックの前後の空行に意味がなく、ファイルから読み戻すと消えるためである。
+// 編集を終えると、本文の末尾の空白だけの行は削られて保存される。先頭の空行は、ファイルでは`\`だけの行として残る（ADR 070）。末尾の`\`だけの行は、ほかのMarkdownビューアで文字の`\`が見えるためである。
 #[test]
-fn finish_edit_saves_the_body_without_its_blank_lines_before_and_after() {
+fn finish_edit_saves_the_body_without_its_blank_lines_at_the_end() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
     h.model.state.add_editing_item("a");
     typed(&mut h, "a", " \n\n  text\nmore  \n\t\n");
@@ -88,7 +88,7 @@ fn finish_edit_saves_the_body_without_its_blank_lines_before_and_after() {
     });
     assert_eq!(
         update_calls(&h.api),
-        [("a".into(), Some("  text\nmore  ".into()))]
+        [("a".into(), Some("\\\n\\\n  text\nmore  ".into()))]
     );
 }
 
