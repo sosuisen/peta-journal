@@ -174,6 +174,23 @@ final class JournalScreenTests: XCTestCase {
         waitFor(app.staticTexts["fresh"])
     }
 
+    // 作れない名前のページの検索結果は、ページを作らず、作れない訳を知らせる。知らせはOKだけで、閉じると消える（#754）。
+    func testTheResultForAPageOfANameThatCannotBeMadeTellsWhy() throws {
+        start()
+        waitFor(search)
+        search.tap()
+        search.typeText("a:b")
+        let result = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Create page \"a:b\"'")).firstMatch
+        waitFor(result)
+        result.tap()
+
+        let notice = app.alerts.firstMatch
+        waitFor(notice)
+        XCTAssertEqual(notice.buttons.count, 1)
+        notice.buttons["OK"].tap()
+        waitUntil("the notice has gone") { !app.alerts.firstMatch.exists }
+    }
+
     // 今日のボタンは、今日のジャーナルを開く。
     func testTheTodayButtonOpensTheJournalOfToday() throws {
         try download("notes.md", "the first item\n")
