@@ -816,6 +816,17 @@ impl Harness {
             .collect()
     }
 
+    /// The messages of the alerts the core asked the shell to show, in order.
+    pub fn alerts(&self) -> Vec<String> {
+        self.ui
+            .iter()
+            .filter_map(|op| match op {
+                UiOp::Alert(m) => Some(m.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
     pub fn focus_cursor(&self) -> Option<usize> {
         self.model.state.focus_request().and_then(|r| r.cursor)
     }
