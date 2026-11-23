@@ -5,56 +5,36 @@
 //! written with `flatmarkdown::body_to_file`.
 
 use crate::effects::{ApiOp, ApiOutput};
-use crate::model::{Item, TranscludedTrees};
+use crate::model::{BatchOpInput, Item, TranscludedTrees};
 
 /// The request to the server, with the bodies in the form of the file.
-pub fn op_to_file(op: ApiOp) -> ApiOp {
-    match op {
-        ApiOp::UpdateItem {
-            item_id,
-            body,
-            level,
-            collapsed,
-        } => ApiOp::UpdateItem {
-            item_id,
-            body: body.as_deref().map(flatmarkdown::body_to_file),
-            level,
-            collapsed,
-        },
-        ApiOp::PasteText {
-            item_id,
-            body,
-            cursor,
-            text,
-            mode,
-        } => {
-            let file = flatmarkdown::body_to_file(&body);
-            let cursor = moved_cursor(&body, &file, cursor);
-            ApiOp::PasteText {
-                item_id,
-                body: file,
-                cursor,
-                text,
-                mode,
-            }
+pub fn op_to_file(mut op: ApiOp) -> ApiOp {
+    match &mut op {
+        ApiOp::CreateItem { body, .. } => body_to_file(body),
+        ApiOp::UpdateItem { body, .. }
+        | ApiOp::MoveItems { body, .. }
+        | ApiOp::MoveItemsToJournal { body, .. }
+        | ApiOp::StashItem { body, .. } => body.iter_mut().for_each(body_to_file),
+        ApiOp::MergeItems {
+            body, into_body, ..
+        } => body.iter_mut().chain(into_body).for_each(body_to_file),
+        ApiOp::PasteText { body, cursor, .. } | ApiOp::SplitItem { body, cursor, .. } => {
+            let file = flatmarkdown::body_to_file(body);
+            *cursor = moved_cursor(body, &file, *cursor);
+            *body = file;
         }
-        ApiOp::SplitItem {
-            item_id,
-            root_id,
-            body,
-            cursor,
-        } => {
-            let file = flatmarkdown::body_to_file(&body);
-            let cursor = moved_cursor(&body, &file, cursor);
-            ApiOp::SplitItem {
-                item_id,
-                root_id,
-                body: file,
-                cursor,
-            }
-        }
-        other => other,
+        ApiOp::ApplyBatch { ops } => ops.iter_mut().for_each(|op| match op {
+            BatchOpInput::Create { body, .. } => body_to_file(body),
+            BatchOpInput::Update { body, .. } => body.iter_mut().for_each(body_to_file),
+            BatchOpInput::Move { .. } | BatchOpInput::Delete { .. } => {}
+        }),
+        _ => {}
     }
+    op
+}
+
+fn body_to_file(body: &mut String) {
+    *body = flatmarkdown::body_to_file(body);
 }
 
 /// The character `cursor` of `from`, moved to the same place in `to`, the other form of the
