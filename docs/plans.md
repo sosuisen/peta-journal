@@ -5,6 +5,6 @@
 
 ## #1023 React版で、assetsの画像を表示する
 
-- [ ] assetsの画像のURLは、アプリの一番上からのパスになる（`../assets/a.png`は`/assets/a.png`）
-- [ ] 絶対パスにしても、画像の大きさの断片は残る
-- [ ] assets以外の画像のURLは、書かれたままである
+- [x] assetsの画像のURLは、アプリの一番上からのパスになる（`../assets/a.png`は`/assets/a.png`）
+- [x] 絶対パスにしても、画像の大きさの断片は残る
+- [x] assets以外の画像のURLは、書かれたままである

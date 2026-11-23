@@ -101,4 +101,31 @@ mod tests {
 
         assert!(html.contains(r#"src="/assets/a.png""#), "{html}");
     }
+
+    // assetsの画像の大きさも、URLの断片に書かれる。
+    #[test]
+    fn an_asset_image_keeps_its_size_in_the_fragment() {
+        let html = HtmlBody::of(
+            client_core::asts::parse("![alt](../assets/a.png#w=300)"),
+            "tags/",
+        )
+        .0;
+
+        assert!(html.contains(r#"src="/assets/a.png#w=300""#), "{html}");
+    }
+
+    // assets以外の画像のURLは、書かれたままである。
+    #[test]
+    fn the_url_of_an_image_outside_the_assets_is_kept() {
+        let html = HtmlBody::of(
+            client_core::asts::parse("![alt](https://example.com/a.png)"),
+            "tags/",
+        )
+        .0;
+
+        assert!(
+            html.contains(r#"src="https://example.com/a.png""#),
+            "{html}"
+        );
+    }
 }
