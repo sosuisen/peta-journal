@@ -10,6 +10,10 @@ use std::rc::Rc;
 #[derive(Default)]
 struct Browser {
     calls: RefCell<VecDeque<(ApiOp, Done<ApiResult<ApiOutput>>)>>,
+    /// Every request to the server, oldest first, answered or not.
+    called: RefCell<Vec<ApiOp>>,
+    /// The URLs the address bar was given, and whether each replaced the one before.
+    urls: RefCell<Vec<(String, bool)>>,
     asked: RefCell<Vec<(u32, UiOp)>>,
     renders: Cell<usize>,
 }
@@ -32,7 +36,12 @@ impl Host for FakeHost {
     }
 
     fn call(&self, op: ApiOp, done: Done<ApiResult<ApiOutput>>) {
+        self.0.called.borrow_mut().push(op.clone());
         self.0.calls.borrow_mut().push_back((op, done));
+    }
+
+    fn go_to(&self, url: &str, replace: bool) {
+        self.0.urls.borrow_mut().push((url.to_string(), replace));
     }
 
     fn ask(&self, id: u32, op: &UiOp) {
@@ -100,6 +109,19 @@ impl Screen {
     fn open_notes(&self) {
         self.bridge.route("/pages/notes");
         self.serve();
+    }
+
+    fn urls(&self) -> Vec<(String, bool)> {
+        self.browser.urls.borrow().clone()
+    }
+
+    /// How often the server was asked for this operation, by the name of its variant.
+    fn calls_named(&self, name: &str) -> usize {
+        let called = self.browser.called.borrow();
+        let named = called
+            .iter()
+            .filter(|op| format!("{op:?}").starts_with(name));
+        named.count()
     }
 
     /// The operations the shell was asked for, oldest first.
@@ -177,4 +199,17 @@ fn a_second_destructive_confirm_reaches_the_shell_after_the_first_is_answered() 
     screen.serve();
 
     assert_eq!(screen.asked(), [confirm.clone(), confirm]);
+}
+
+// コアが求めたページの移動は、URLを変えてから、そのページを開く。
+#[test]
+fn a_navigation_the_core_asks_for_changes_the_url_and_then_opens_its_page() {
+    let screen = Screen::new();
+    screen.open_notes();
+    let journals = screen.calls_named("GetOrCreateJournal");
+
+    screen.bridge.update(r#""NavigateHome""#).unwrap();
+
+    assert_eq!(screen.urls(), [("/today".to_string(), false)]);
+    assert_eq!(screen.calls_named("GetOrCreateJournal"), journals + 1);
 }
