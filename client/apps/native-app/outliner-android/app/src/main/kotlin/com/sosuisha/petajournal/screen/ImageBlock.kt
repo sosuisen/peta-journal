@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -38,7 +39,7 @@ import kotlinx.coroutines.withContext
 
 /** What is known of the file of an image. */
 private sealed interface Picture {
-    /** Not read yet. Nothing is drawn, so that the alt does not flash before the image. */
+    /** Not read yet. Only the line of the alt is drawn. */
     data object Reading : Picture
 
     data object Missing : Picture
@@ -48,9 +49,9 @@ private sealed interface Picture {
 }
 
 /**
- * An image, as wide as the page asks, or else as wide as it is in its file. A pixel of the
- * page is one `dp`, as in a browser. It is never wider than the room it has. An image whose
- * file is not here, or cannot be read, shows what stands for it.
+ * An image under a line of its alt, as wide as the page asks, or else as wide as it is in its
+ * file. A pixel of the page is one `dp`, as in a browser. It is never wider than the room it
+ * has. An image whose file is not here, or cannot be read, shows only the line of its alt.
  */
 @Composable
 internal fun ImageBlock(image: ShownBlock.Image, file: (String) -> File?) {
@@ -58,10 +59,10 @@ internal fun ImageBlock(image: ShownBlock.Image, file: (String) -> File?) {
     val picture by produceState<Picture>(Picture.Reading, image.path) {
         value = withContext(Dispatchers.IO) { file(image.path)?.let { read(it, roomPx) } ?: Picture.Missing }
     }
-    when (val known = picture) {
-        Picture.Reading -> Unit
-        Picture.Missing -> Text(image.alt.ifEmpty { image.path }, style = MaterialTheme.typography.bodyLarge)
-        is Picture.Here -> {
+    Column {
+        // The line names the image, and a touch on it edits the item, as on any text (#886)
+        Text(image.alt, style = MaterialTheme.typography.bodyLarge)
+        (picture as? Picture.Here)?.let { known ->
             var large by remember { mutableStateOf(false) }
             val shape = known.bitmap.width.toFloat() / known.bitmap.height
             // The side that the page does not ask for follows the shape of the image
