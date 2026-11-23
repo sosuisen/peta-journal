@@ -1,7 +1,6 @@
 import hljs from 'highlight.js/lib/common';
 import {
   memo,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -26,6 +25,7 @@ import {
 import { autoResize } from './layout';
 import { startDrag } from './drag';
 import { chordOf, editorState } from './keys';
+import { useClosesOnOutside } from './menu';
 
 /** The font size of a heading line in its editor, by the level of the heading. */
 const HEADING_FONT_SIZES = ['1.6em', '1.4em', '1.2em', '1.1em', '1em'];
@@ -237,28 +237,7 @@ function ItemMenu({
 }) {
   const core = useCore();
   const id = row.item.id;
-  // A click outside or Escape closes the menu
-  useEffect(() => {
-    const clicked = (event: MouseEvent) => {
-      if (
-        !(event.target instanceof Element) ||
-        event.target.closest('.item-popup-menu') === null
-      ) {
-        close();
-      }
-    };
-    const pressed = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        close();
-      }
-    };
-    document.addEventListener('click', clicked);
-    document.addEventListener('keydown', pressed);
-    return () => {
-      document.removeEventListener('click', clicked);
-      document.removeEventListener('keydown', pressed);
-    };
-  }, [close]);
+  useClosesOnOutside('.item-popup-menu', close);
   const act = (action: () => void) => () => {
     action();
     close();
