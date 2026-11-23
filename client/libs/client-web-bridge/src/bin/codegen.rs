@@ -2,15 +2,21 @@
 //!
 //!   cargo run -p client-web-bridge --bin codegen -- <folder>
 
+// The program ends by returning from `main`, not with `exit`: a program that exits writes no
+// coverage
 #[cfg(not(target_arch = "wasm32"))]
-fn main() {
+fn main() -> std::process::ExitCode {
+    use std::process::ExitCode;
     let Some(out) = std::env::args().nth(1) else {
         eprintln!("usage: codegen <folder>");
-        std::process::exit(2);
+        return ExitCode::from(2);
     };
-    if let Err(error) = client_web_bridge::codegen::write_typescript_types(out.as_ref()) {
-        eprintln!("{error}");
-        std::process::exit(1);
+    match client_web_bridge::codegen::write_typescript_types(out.as_ref()) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("{error}");
+            ExitCode::FAILURE
+        }
     }
 }
 
