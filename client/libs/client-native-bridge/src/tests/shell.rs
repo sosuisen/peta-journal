@@ -177,12 +177,13 @@ impl Screen {
         }
     }
 
-    /// Types into the search box, and waits until the timer for it runs.
+    /// Types into the search box, and waits until the timer for it runs. A timer begun
+    /// before may count its wait meanwhile, as its thread gets to run late.
     fn search(&self, query: &str) {
         let timers = self.waits.begun.load(Ordering::SeqCst);
         self.send(&Event::SearchQueryChanged(query.into()));
         wait_until("the timer of the search runs", || {
-            self.waits.begun.load(Ordering::SeqCst) == timers + 1
+            self.waits.begun.load(Ordering::SeqCst) > timers
         });
     }
 
@@ -875,8 +876,10 @@ fn the_screen_a_shell_makes_from_the_changes_is_that_of_the_core() {
     assert_eq!(shell, core);
 
     screen.search("notes");
-    // Opening the page began timers of its own before the one of the search
-    screen.let_time_pass(screen.waits.begun.load(Ordering::SeqCst));
+    // Opening the page and typing began timers of their own. The thread of a timer counts
+    // its wait when it gets to run, so the one of the search may count after the count is
+    // read here: the time of every timer passes, also of those that count later
+    screen.let_time_pass(usize::MAX);
     wait_until("the server is asked to search", || {
         !screen.searches().is_empty()
     });
