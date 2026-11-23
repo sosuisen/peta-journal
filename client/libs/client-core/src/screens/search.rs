@@ -8,7 +8,8 @@ use crate::screens::navigate;
 use crate::util::filename::{classify_journal_file_name, validate_file_name, JournalType};
 use crux_core::Command;
 
-const DEBOUNCE_MS: u32 = 200;
+/// How long the search waits for more typing before it asks the server.
+pub const SEARCH_DELAY_MS: u32 = 200;
 
 pub fn query_changed(model: &mut Model, value: String) -> Cmd {
     model.search.query = value.clone();
@@ -29,7 +30,7 @@ pub fn query_changed(model: &mut Model, value: String) -> Cmd {
     let timer_id = model.next_timer_id();
     model.search.timer_id = timer_id;
     let search = run(move |api| async move {
-        if api.sleep(timer_id, DEBOUNCE_MS).await != TimerOutput::Fired {
+        if api.sleep(timer_id, SEARCH_DELAY_MS).await != TimerOutput::Fired {
             return;
         }
         match api.search_combined(&value, 20).await {

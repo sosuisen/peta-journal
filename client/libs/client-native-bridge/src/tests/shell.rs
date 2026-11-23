@@ -10,6 +10,7 @@ use client_core::keys::{Chord, EditorState, Key, KeyPress};
 use client_core::model::{Page, PageWithItems, Uploaded};
 use client_core::rest::ClientId;
 use client_core::screens::day::CHECK_MS;
+use client_core::screens::search::SEARCH_DELAY_MS;
 use client_core::testing::plain_item;
 use client_core::typing::Typing;
 use client_core::{EditPlace, Event, Route};
@@ -31,6 +32,18 @@ struct Waits {
     ended: AtomicUsize,
     /// How many waits have ended.
     over: AtomicUsize,
+    /// How long each wait is, in the order they began. The timers of the core begin on threads
+    /// of their own, so a timer that began earlier may come to wait later: its length tells
+    /// which one it is.
+    lengths: Mutex<Vec<u32>>,
+}
+
+impl Waits {
+    /// How many waits of this length have begun.
+    fn begun_of(&self, ms: u32) -> usize {
+        let lengths = self.lengths.lock().unwrap();
+        lengths.iter().filter(|&&length| length == ms).count()
+    }
 }
 
 /// A journal server with one page, `notes`, and an event stream the test writes.
@@ -119,13 +132,19 @@ impl Clock for FakeClock {
 
     fn sleep(&self, ms: u32) {
         // The clock stands at one day, so a look at the date would find nothing new. The core
-        // waits to look all the time: its wait would take the place of the timers of the test
+        // waits to look all the time: its wait is not counted with the timers of the test
         if ms == CHECK_MS {
             loop {
                 thread::park();
             }
         }
-        let place = self.waits.begun.fetch_add(1, Ordering::SeqCst);
+        let place = {
+            // The place and the length are kept together, so that a wait is counted as begun
+            // only once its length is known
+            let mut lengths = self.waits.lengths.lock().unwrap();
+            lengths.push(ms);
+            self.waits.begun.fetch_add(1, Ordering::SeqCst)
+        };
         while self.waits.ended.load(Ordering::SeqCst) <= place {
             thread::sleep(Duration::from_millis(1));
         }
@@ -177,13 +196,12 @@ impl Screen {
         }
     }
 
-    /// Types into the search box, and waits until the timer for it runs. A timer begun
-    /// before may count its wait meanwhile, as its thread gets to run late.
+    /// Types into the search box, and waits until the timer for it runs.
     fn search(&self, query: &str) {
-        let timers = self.waits.begun.load(Ordering::SeqCst);
+        let timers = self.waits.begun_of(SEARCH_DELAY_MS);
         self.send(&Event::SearchQueryChanged(query.into()));
         wait_until("the timer of the search runs", || {
-            self.waits.begun.load(Ordering::SeqCst) > timers
+            self.waits.begun_of(SEARCH_DELAY_MS) == timers + 1
         });
     }
 
@@ -876,10 +894,8 @@ fn the_screen_a_shell_makes_from_the_changes_is_that_of_the_core() {
     assert_eq!(shell, core);
 
     screen.search("notes");
-    // Opening the page and typing began timers of their own. The thread of a timer counts
-    // its wait when it gets to run, so the one of the search may count after the count is
-    // read here: the time of every timer passes, also of those that count later
-    screen.let_time_pass(usize::MAX);
+    // Opening the page began timers of its own before the one of the search
+    screen.let_time_pass(screen.waits.begun.load(Ordering::SeqCst));
     wait_until("the server is asked to search", || {
         !screen.searches().is_empty()
     });

@@ -75,15 +75,6 @@ fn save_title(h: &mut Harness, dir_path: &str, file_name: &str) {
     });
 }
 
-fn alerts(h: &Harness) -> Vec<String> {
-    h.ui.iter()
-        .filter_map(|op| match op {
-            UiOp::Alert(m) => Some(m.clone()),
-            _ => None,
-        })
-        .collect()
-}
-
 // 空の名前と、ファイル名に使えない文字を含む名前は、理由とともに断られる。
 #[test]
 fn an_empty_or_invalid_name_is_refused_with_the_reason() {
@@ -92,7 +83,7 @@ fn an_empty_or_invalid_name_is_refused_with_the_reason() {
     save_title(&mut h, "a/", "a:b");
 
     assert_eq!(
-        alerts(&h),
+        h.alerts(),
         [
             "Page name cannot be empty",
             "Title contains ':' (not allowed in filenames)"
@@ -147,7 +138,7 @@ fn a_refused_rename_shows_the_reason_or_a_default_message() {
     h.api.fail_next("UpdatePage", "");
     save_title(&mut h, "a/", "theirs");
 
-    assert_eq!(alerts(&h), ["disk full", "Failed to rename page"]);
+    assert_eq!(h.alerts(), ["disk full", "Failed to rename page"]);
     assert!(h.navigations.is_empty());
 }
 
@@ -157,5 +148,5 @@ fn without_a_doc_page_there_is_nothing_to_rename() {
     let mut h = Harness::new();
     save_title(&mut h, "a/", "theirs");
     assert!(!h.api.called("UpdatePage"));
-    assert!(alerts(&h).is_empty());
+    assert!(h.alerts().is_empty());
 }

@@ -28,7 +28,7 @@ impl Core {
             .unwrap()
             .items
             .into_iter()
-            .map(|item| item.id)
+            .map(|item| item.item.id)
             .collect()
     }
 }

@@ -2,6 +2,7 @@
 //! `outline-state.service.ts`. The visible list is recomputed after every change, so
 //! the readers never pay for it.
 
+use crate::model::ItemExt;
 use crate::model::{Item, ItemPosition, ItemRef, TranscludedTrees};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;

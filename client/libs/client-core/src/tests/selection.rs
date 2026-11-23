@@ -609,6 +609,21 @@ fn a_delete_of_an_item_the_server_refuses_changes_nothing() {
     assert!(h.model.undo.pop_undo().is_none());
 }
 
+// サーバーが削除を断ると、その理由が出る。理由がなければ既定の文が出る。
+#[test]
+fn a_refused_delete_shows_the_reason_or_a_default_message() {
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);
+    h.api.fail_next("DeleteItems", "disk full");
+    h.send(Event::DeleteItem {
+        item_id: "a".into(),
+    });
+    select(&mut h, &["b"]);
+    h.api.fail_next("DeleteItems", "");
+    key(&mut h, SelectionKey::Delete);
+
+    assert_eq!(h.alerts(), ["disk full", "Failed to delete items"]);
+}
+
 // 他の項目からトランスクルードされている項目の削除を断ると、何も消えず、編集は続き、選択にもならない。
 #[test]
 fn a_no_to_deleting_a_transcluded_item_changes_nothing() {

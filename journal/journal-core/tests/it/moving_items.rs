@@ -44,7 +44,7 @@ fn bodies(moved: ItemsAnswer) -> Vec<Value> {
     moved
         .items
         .into_iter()
-        .map(|item| json!(item.body))
+        .map(|item| json!(item.item.body))
         .collect()
 }
 
