@@ -5,6 +5,9 @@ import App from './App';
 import {
   BacklinkGroup,
   BacklinkItem,
+  CalendarDay,
+  CalendarView,
+  CalendarWeek,
   ConfigView,
   DirSegment,
   JournalView,
@@ -58,6 +61,24 @@ function journal(
     pageId,
   );
 }
+
+/** A month of one day, the 23rd, which is both today and the day of the journal. */
+const NOVEMBER: Panel = {
+  kind: 'Calendar',
+  value: new CalendarView(
+    2026,
+    11,
+    'November',
+    '2026-11',
+    '2026',
+    [],
+    [
+      new CalendarWeek(48, '2026-W48', [
+        new CalendarDay('2026-11-23', 23, false, true, true),
+      ]),
+    ],
+  ),
+};
 
 /** Draws the app on a core whose start answers `panels`. */
 function app(...panels: Panel[]) {
@@ -275,6 +296,49 @@ describe('a journal', () => {
       ]);
       unmount();
     }
+  });
+
+  // 日付かカレンダーのボタンを押すと、見出しの下にカレンダーが開く。開くときは、今日の月を出すようコアに頼む。もう一度押すと閉じる。
+  test('the date or the calendar button opens a calendar under the header at the month of today, and closes it', () => {
+    const { container, wasm } = app(NOVEMBER, {
+      kind: 'Screen',
+      value: { kind: 'Journal', value: journal('Daily') },
+    });
+    const popup = () => container.querySelector('app-journal app-calendar');
+    const before = popup();
+
+    fireEvent.click(screen.getByText('2026-11-23 (Mon)'));
+    const opened = popup();
+    fireEvent.click(container.querySelector('.calendar-btn') as Element);
+    const closed = popup();
+    fireEvent.click(container.querySelector('.calendar-btn') as Element);
+
+    expect([before, closed]).toEqual([null, null]);
+    expect(opened?.previousElementSibling?.className).toBe('journal-header');
+    expect(popup()?.querySelector('.selected')?.textContent).toBe('23');
+    expect(wasm.events).toEqual([
+      { kind: 'CalendarNav', value: { kind: 'Today' } },
+      { kind: 'CalendarNav', value: { kind: 'Today' } },
+    ]);
+  });
+
+  // カレンダーでジャーナルを開くと閉じる。ほかのタブか窓で開いたときは、開いたままである。
+  test('opening a journal from the calendar closes it, unless it opened in another tab or window', () => {
+    const { container } = app(NOVEMBER, {
+      kind: 'Screen',
+      value: { kind: 'Journal', value: journal('Daily') },
+    });
+    const popup = () => container.querySelector('app-journal app-calendar');
+    const day = () =>
+      within(popup() as HTMLElement).getByText('23') as HTMLElement;
+
+    fireEvent.click(container.querySelector('.calendar-btn') as Element);
+    fireEvent.click(day(), { ctrlKey: true });
+    const kept = popup();
+    fireEvent.click(day());
+
+    expect(kept).not.toBeNull();
+    expect(popup()).toBeNull();
   });
 
   // ページのある日誌は、その項目を出す。
