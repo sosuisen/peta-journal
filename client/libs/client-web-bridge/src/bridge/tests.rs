@@ -431,3 +431,28 @@ fn typing_in_an_editor_changes_the_body_of_its_row() {
 
     assert!(changes.contains("typed text"), "{changes}");
 }
+
+// 本文から出たドラッグは、項目の選択に変わる。本文の中のドラッグは、シェルの編集欄に任される。
+#[test]
+fn a_drag_that_leaves_the_text_selects_items() {
+    let screen = Screen::new();
+    screen.open_notes();
+    screen.bridge.changes();
+    let pressed = screen
+        .bridge
+        .drag(r#"{"Pressed":{"item_id":"a","top":0.0,"bottom":20.0}}"#)
+        .unwrap();
+    let in_text = screen
+        .bridge
+        .drag(r#"{"Moved":{"y":10.0,"item_under":"a"}}"#)
+        .unwrap();
+
+    let beyond = screen
+        .bridge
+        .drag(r#"{"Moved":{"y":60.0,"item_under":"b"}}"#)
+        .unwrap();
+
+    assert_eq!((pressed, in_text), (None, None));
+    let changes = beyond.expect("the drag selects items");
+    assert!(changes.contains(r#""is_selected":true"#), "{changes}");
+}
