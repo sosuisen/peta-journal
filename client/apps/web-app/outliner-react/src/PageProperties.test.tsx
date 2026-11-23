@@ -112,19 +112,20 @@ describe('the saved properties', () => {
     ]);
   });
 
-  // 文字の値は、変えたときに保存する。コアが値を変えれば、入力欄も変わる。
-  test('a text value is saved on change, and follows the core', () => {
+  // 文字の値は、変えたときに1度だけ保存する。コアが値を変えれば、入力欄も変わる。
+  test('a text value is saved once on change, and follows the core', () => {
     const { rows, wasm, show } = properties(
       pageWith([property('status', 'draft')]),
     );
     const input = at(rows()[0], 'input');
 
+    show(pageWith([property('status', 'later')]));
+    const shown = input.value;
     fireEvent.change(input, { target: { value: 'done' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     fireEvent.blur(input);
-    show(pageWith([property('status', 'later')]));
 
-    expect(input.value).toBe('later');
+    expect(shown).toBe('later');
     expect(wasm.events).toEqual([
       {
         kind: 'SetPageProperty',
@@ -139,7 +140,7 @@ describe('the saved properties', () => {
   test('the input fits the type of the value', () => {
     const { rows } = properties(
       pageWith(
-        ['number', 'date', 'list', 'bounds', 'text'].map(type =>
+        ['number', 'date', 'tags', 'list', 'bounds', 'text'].map(type =>
           property(type, '', { value_type: type }),
         ),
       ),
@@ -150,6 +151,7 @@ describe('the saved properties', () => {
     ).toEqual([
       ['number', ''],
       ['date', ''],
+      ['text', 'a, b'],
       ['text', 'a, b'],
       ['text', 'x, y, width, height'],
       ['text', ''],
@@ -254,6 +256,7 @@ describe('the tags of a list', () => {
       ['#b', '/pages/tags/b'],
     ]);
     expect(left).toBe(false);
+    expect(links[0].getAttribute('draggable')).toBe('false');
     expect(wasm.links).toEqual(['/pages/tags/b']);
   });
 
@@ -390,17 +393,20 @@ describe('the order of the tags', () => {
     return fireEvent(chip, event);
   }
 
-  // タグを別のタグの右半分に落とすと、その後ろに動く。左半分なら前に動く。
-  test('a tag dropped on the right half of another goes after it, and on the left half before it', () => {
+  // タグを別のタグの右半分に落とすと、その後ろに動く。真ん中か左半分なら前に動く。落としたあと、印は消える。
+  test('a tag dropped on the right half of another goes after it, on the middle or the left half before it', () => {
     const { chip, wasm } = chips();
     const moved = dataTransfer();
 
     fireEvent.dragStart(chip(0), { dataTransfer: moved });
     dragAt('dragOver', chip(2), 60, moved);
-    dragAt('drop', chip(2), 60, moved);
+    const taken = !dragAt('drop', chip(2), 60, moved);
+    const marks = [0, 1, 2].map(n => chip(n).className);
     fireEvent.dragStart(chip(2), { dataTransfer: moved });
-    dragAt('drop', chip(1), 40, moved);
+    dragAt('drop', chip(1), 50, moved);
 
+    expect(taken).toBe(true);
+    expect(marks).toEqual(['property-tag', 'property-tag', 'property-tag']);
     expect([...moved.data]).toEqual([['text/plain', '#c']]);
     expect([moved.effectAllowed, moved.dropEffect]).toEqual(['move', 'move']);
     expect(wasm.events).toEqual([
@@ -415,7 +421,7 @@ describe('the order of the tags', () => {
     const moved = dataTransfer();
 
     fireEvent.dragStart(chip(0), { dataTransfer: moved });
-    dragAt('dragOver', chip(1), 40, moved);
+    const taken = !dragAt('dragOver', chip(1), 40, moved);
     const before = [chip(0).className, chip(1).className];
     dragAt('dragOver', chip(1), 60, moved);
     const after = chip(1).className;
@@ -424,6 +430,7 @@ describe('the order of the tags', () => {
     dragAt('dragOver', chip(2), 60, moved);
     fireEvent.dragEnd(chip(0));
 
+    expect(taken).toBe(true);
     expect(before).toEqual([
       'property-tag dragging',
       'property-tag drop-before',
@@ -495,10 +502,10 @@ describe('a new row', () => {
     input.value = 'draft';
     fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
     const left = fireEvent.keyDown(input, { key: 'Enter' });
+    const gone = row() === null;
     fireEvent.blur(input);
 
-    expect([focused, left]).toEqual([true, false]);
-    expect(row()).toBeNull();
+    expect([focused, left, gone]).toEqual([true, false, true]);
     expect(wasm.events).toEqual([
       {
         kind: 'SetPageProperty',
@@ -572,6 +579,20 @@ describe('a new row', () => {
     ]);
   });
 
+  // 一覧の型のキーも、タグの入力欄を開く。新しい行には、まだタグがない。
+  test('a key of the list type also opens the input of the tags, with no tag yet', () => {
+    const drawn = properties(
+      pageWith([], [new FreeKey('kinds', 'Kinds', 'list')]),
+    );
+    fireEvent.click(drawn.getByTitle('Add property'));
+    const row = drawn.container.querySelector('.property-row.draft') as Element;
+
+    fireEvent.change(at(row, 'select'), { target: { value: 'kinds' } });
+
+    expect(row.querySelector('.property-tag-input')).not.toBeNull();
+    expect(row.querySelector('.property-tag')).toBeNull();
+  });
+
   // 新しい行の×で、保存せずに行を消す。×を押しても、入力欄はフォーカスを手放さない。
   test('the × of a new row removes it without saving', () => {
     const { row, pick, wasm } = newRow();
@@ -596,15 +617,20 @@ describe('a new row', () => {
     expect(wasm.events).toEqual([]);
   });
 
-  // 新しい行は、いくつでも足せる。キーは行ごとに選ぶ。
-  test('more new rows can be added, each with its own key', () => {
+  // 新しい行は、いくつでも足せる。キーは行ごとに選び、行ごとに消す。
+  test('more new rows can be added, each with its own key, and removed one by one', () => {
     const { container, getByTitle } = newRow();
     fireEvent.click(getByTitle('Add property'));
     const selects = () => [...container.querySelectorAll('select')];
 
     fireEvent.change(selects()[1], { target: { value: 'status' } });
+    const picked = selects().map(s => s.value);
+    fireEvent.click(
+      container.querySelectorAll('.property-row.draft .property-remove')[0],
+    );
 
-    expect(selects().map(s => s.value)).toEqual(['', 'status']);
+    expect(picked).toEqual(['', 'status']);
+    expect(selects().map(s => s.value)).toEqual(['status']);
   });
 });
 
