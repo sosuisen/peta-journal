@@ -148,6 +148,20 @@ class ItemLookTest : JournalScreenFixture() {
         compose.onNode(hasContentDescription("a cat")).assertExists()
     }
 
+    // 画像は、1行目に代わりの文字（alt）が見え、その下に絵が見える（#886）。
+    @Test
+    fun an_image_shows_its_alt_on_a_line_above_the_picture() {
+        picture("cat.png", width = 40, height = 20)
+        download("notes.md", "![a cat](../assets/cat.png)" + NL)
+
+        openNotes()
+
+        waitForPicture("a cat")
+        val line = compose.onNode(shown("a cat")).getUnclippedBoundsInRoot()
+        val picture = compose.onNode(hasContentDescription("a cat")).getUnclippedBoundsInRoot()
+        assertTrue("the alt ends at ${line.bottom}, below the top of the picture at ${picture.top}", line.bottom <= picture.top)
+    }
+
     // ファイルのない画像は、代わりの文字（alt）が見える。
     @Test
     fun an_image_whose_file_is_not_here_shows_its_alt() {
