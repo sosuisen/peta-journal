@@ -206,4 +206,16 @@ describe('the core in wasm', () => {
     expect(JSON.parse(core.atlasCallouts([callout]))).toEqual(['k']);
     expect(core.parentDirLabel('a/b/')).toBe('above a/b/');
   });
+
+  // wasmは、ドラッグで項目を選ぶ間に、アウトラインの端でスクロールする幅と、その1歩の時間を決める。
+  test('wasm gives how far and how often a drag scrolls the outline at an edge', () => {
+    const { core } = shell();
+
+    expect([
+      core.edgeStep(105, 100, 300),
+      core.edgeStep(200, 100, 300),
+      core.edgeStep(295, 100, 300),
+    ]).toEqual([-5, 0, 5]);
+    expect(core.edgeStepMs()).toBe(16);
+  });
 });

@@ -156,6 +156,18 @@ export class WebShell {
     return `above ${dirPath}`;
   }
 
+  /** Five pixels a step, in a band of ten inside each edge. */
+  edgeStep(y: number, top: number, bottom: number): number {
+    if (y < top + 10) {
+      return -5;
+    }
+    return y > bottom - 10 ? 5 : 0;
+  }
+
+  edgeStepMs(): number {
+    return 16;
+  }
+
   // The names are marked, so a test sees that they come from here
   shownNames(definitions: string): string[] {
     return (json.parse(definitions) as { key: string }[]).map(
