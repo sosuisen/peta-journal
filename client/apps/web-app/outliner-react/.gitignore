@@ -5,3 +5,7 @@ dist-e2e
 # Made from the Rust code by `npm run border`
 src/wasm
 src/border
+# Reports of `npm run coverage` and `npm run mutants`
+coverage
+reports
+.stryker-tmp
