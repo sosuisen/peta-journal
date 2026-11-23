@@ -696,6 +696,7 @@ name = "client-web-bridge"
 version = "0.1.0"
 dependencies = [
  "client-core",
+ "client-page-links",
  "crux_core",
  "facet",
  "facet-json",

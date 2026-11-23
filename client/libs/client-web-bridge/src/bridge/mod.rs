@@ -15,6 +15,7 @@ use client_core::policy::{InOrder, Questions, Timers};
 use client_core::rest::ClientId;
 use client_core::typing::{self, Typing};
 use client_core::{Event, PetaApp, Route};
+use client_page_links::{copied_html, AppLinks};
 use crux_core::{Core, Request, RequestHandle};
 use serde::de::DeserializeOwned;
 use std::cell::{Cell, RefCell};
@@ -60,6 +61,13 @@ pub trait Host: 'static {
     /// Does an operation of the screen with the APIs of `window`, and calls `done` with the
     /// answer when the core waits for one.
     fn screen(&self, op: &UiOp, done: Done<UiOutput>);
+
+    /// The origin the app is open at, such as `http://localhost:8080`. Another app needs it to
+    /// open a page of this app.
+    fn origin(&self) -> String;
+
+    /// Writes the Markdown and the HTML of a copy to the clipboard.
+    fn copy(&self, markdown: &str, html: &str);
 
     /// Gives the shell an operation of the screen that only it can do, with its number. The
     /// shell answers with [`Bridge::resolve`].
@@ -355,10 +363,24 @@ impl<H: Host> Bridge<H> {
     /// Does an operation of the screen without the shell. The time is answered here, as the
     /// shell would only read the same clock.
     fn by_window(&self, mut request: Request<UiOp>) {
-        if let UiOp::LocalNow = request.operation {
-            let (local, now_ms) = self.host.now();
-            self.answer(&mut request, UiOutput::Now { local, now_ms });
-            return;
+        match &request.operation {
+            UiOp::LocalNow => {
+                let (local, now_ms) = self.host.now();
+                self.answer(&mut request, UiOutput::Now { local, now_ms });
+                return;
+            }
+            // A notification: the core does not wait for it
+            UiOp::CopyMarkdown { markdown, ast } => {
+                let app_url = self.host.origin();
+                let tags_dir = self.core.view().config.tags_dir;
+                let links = AppLinks {
+                    app_url: &app_url,
+                    tags_dir: &tags_dir,
+                };
+                self.host.copy(markdown, &copied_html(ast, links));
+                return;
+            }
+            _ => {}
         }
         let op = request.operation.clone();
         let me = self.me.clone();
