@@ -13,7 +13,6 @@
 
 | scope | ディレクトリ |
 |-------|-------------|
-| `outliner-web` | `client/apps/web-app/outliner` |
 | `outliner-react` | `client/apps/web-app/outliner-react` |
 | `todo-web` | `client/apps/web-app/todo` |
 | `outliner-emacs` | `client/apps/emacs/outliner` |

@@ -6,8 +6,8 @@
 
 - `client/libs/client-core/src/tests/**/*.rs`（`tests/`）
 - `client/libs/client-core/src/outline/*.rs`、`util/*.rs`、`model.rs`（`core/`）
-- `client/apps/web-app/outliner/src/components/item_html.rs`（`outliner-web`）
-- `client/apps/web-app/outliner/e2e/tests/*.spec.ts`（`client/apps/web-app/outliner/e2e/`）
+- `client/libs/client-web-bridge/src/body.rs`（`client-web-bridge`）
+- `client/apps/web-app/outliner-react/e2e/tests/*.spec.ts`（`client/apps/web-app/outliner-react/e2e/`）
 - `client/apps/emacs/outliner/src/tests/*.rs`、`tests/*.rs`、`lisp/test/*.el`（`outliner-emacs`）
 
 2026-11-03時点のテストから作った。「Emacsで読み書きする」の節だけは、2026-11-06時点のテストから作った。
@@ -16,7 +16,7 @@
 
 ### アプリを開く
 
-出典: `client/apps/web-app/outliner/e2e/journal`、`tests/home.rs`
+出典: `client/apps/web-app/outliner-react/e2e/journal`、`tests/home.rs`
 
 - 今日のジャーナルが開く
   - ホームリンクがなければ、ホームは今日のページを開く
@@ -40,7 +40,7 @@
 
 ### 項目を書く
 
-出典: `tests/edit.rs`、`core/util/mod.rs`、`client/apps/web-app/outliner/e2e/outline`
+出典: `tests/edit.rs`、`core/util/mod.rs`、`client/apps/web-app/outliner-react/e2e/outline`
 
 - 入力した文はすぐ表示され、最後の入力から一定時間後に一度だけ自動保存される
   - 続けて入力すると、自動保存のタイマーは置き換わる
@@ -95,7 +95,7 @@
 
 ### キーの意味
 
-出典: `tests/keys.rs`、`tests/typing.rs`、`client-native-bridge`の`tests/shell.rs`、`client/apps/web-app/outliner/e2e`、macOSとWindowsの`OutlineScreenTests`
+出典: `tests/keys.rs`、`tests/typing.rs`、`client-native-bridge`の`tests/shell.rs`、`client/apps/web-app/outliner-react/e2e`、macOSとWindowsの`OutlineScreenTests`
 
 - どのキーがアウトラインの何になるかは、コアの表（`KeyMap`）が決める（ADR 052）。表はデータで、Windows、Mac、Webの3つがある。シェルは、キーと修飾キーの組（`Chord`）と編集欄の状態を渡すだけである
   - Windowsの表はWebと同じである。MacはCtrlの代わりにCmd、Altの代わりにOptionを使う。Macでは、Cmd+Enterでも、Ctrl+Enterでもタスクを進め、Cmd+ZでもCtrl+Zでも取り消す。Ctrl+↑↓とCtrl+Oは、macOSに任せる
@@ -113,7 +113,7 @@
 
 ### 項目を分ける（Enter）
 
-出典: `tests/split.rs`、`client/apps/web-app/outliner/e2e/outline`、`client/apps/web-app/outliner/e2e/transclusion-enter`、`journal/journal-server/tests/it/api.rs`
+出典: `tests/split.rs`、`client/apps/web-app/outliner-react/e2e/outline`、`client/apps/web-app/outliner-react/e2e/transclusion-enter`、`journal/journal-server/tests/it/api.rs`
 
 - Enterは、本文とカーソルを1つの要求でサーバーに送る（`POST /api/items/{id}/split`、ADR 011）。答えが届いてから画面を変える
   - 途中でのEnterは、カーソルより前の文を残し、残りを下の新しい項目へ移す。編集は新しい項目へ移り、カーソルはその先頭に置かれる
@@ -177,7 +177,7 @@
 
 ### 項目をつなぐ（Backspace・Delete）
 
-出典: `tests/merge.rs`、`client/apps/web-app/outliner/e2e/outline`、`client/apps/web-app/outliner/e2e/transclusion-delete`
+出典: `tests/merge.rs`、`client/apps/web-app/outliner-react/e2e/outline`、`client/apps/web-app/outliner-react/e2e/transclusion-delete`
 
 - 行頭のBackspaceは、文を上の項目につなぎ、その項目を削除し、上の項目の編集を続ける
   - サーバーには結合を1回だけ送る。本文の更新と削除を別々には送らない
@@ -218,7 +218,7 @@
 
 ### 構造を整える
 
-出典: `tests/level.rs`、`tests/moves.rs`、`tests/collapse.rs`、`core/outline/tree.rs`、`core/outline/state.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/outline-logical-outdent`、`client/apps/web-app/outliner/e2e/transclusion-move`
+出典: `tests/level.rs`、`tests/moves.rs`、`tests/collapse.rs`、`core/outline/tree.rs`、`core/outline/state.rs`、`client/apps/web-app/outliner-react/e2e/outline-structure`、`client/apps/web-app/outliner-react/e2e/outline-logical-outdent`、`client/apps/web-app/outliner-react/e2e/transclusion-move`
 
 - インデント（Tab）
   - 項目が子ごと1段深くなり、1つの相対シフトとして保存され、Undoに記録される
@@ -272,7 +272,7 @@
 
 ### 取り消す
 
-出典: `tests/undo_replay.rs`、`core/outline/undo.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/selection-delete`、`journal/journal-server/tests/it/api.rs`
+出典: `tests/undo_replay.rs`、`core/outline/undo.rs`、`client/apps/web-app/outliner-react/e2e/outline-structure`、`client/apps/web-app/outliner-react/e2e/selection-delete`、`journal/journal-server/tests/it/api.rs`
 
 - Undoは古い本文を戻し、そのエントリをRedoスタックへ移す。Redoはそれを元に戻す
   - 画面はすぐに変わる。サーバーには、1つのエントリの更新、作成、削除を、1つの要求にまとめて送る（ADR 011）
@@ -283,7 +283,7 @@
   - Redoの後に別の項目へ移動しても、Redoした本文の内容で表示される
   - 本文を変えない操作のRedoでは、サーバーの応答が項目の種類を上書きしない
   - サーバーが要求を断ると、何も書かれない。ページは、サーバーの持つ形に読み直される
-  - UndoやRedoでページの項目がなくなると、サーバーが同じ要求で作った空の項目が表示され、フォーカスの対象になる。空の項目を作る要求は送らない（`client/apps/web-app/outliner/e2e/empty-page`）
+  - UndoやRedoでページの項目がなくなると、サーバーが同じ要求で作った空の項目が表示され、フォーカスの対象になる。空の項目を作る要求は送らない（`client/apps/web-app/outliner-react/e2e/empty-page`）
   - UndoとRedoを続けて、先の要求の応答が後から届いても、後の操作の結果が表示されたままである。応答は、項目ごとに、その項目を最後に書いた要求のものだけを受け取る
   - 編集を終えたときの本文の保存の答えがUndoのあとに届いても、項目はUndoで戻した本文と型のままである。答えは、送った本文を項目がまだ表示しているときだけ受け取る
     - 別々の項目のUndoを続けたときは、先の応答も、その項目に反映される
@@ -296,7 +296,7 @@
   - UndoとRedoのあとに編集中なのは、カーソルが戻った項目だけである。消えた項目に編集中の印が残ると、ほかのクライアントの変更が取り込まれなくなる
   - 作成のRedoは、項目を元のIDのまま、そのindexの位置に作り直す
 - 削除のUndoは、項目を元のIDのまま、元の位置に作り直す。サーバーが決めた並び順の値を受け取る
-  - 作り直した項目の折りたたみとタスクの状態は、同じ要求の更新で戻す（`client/apps/web-app/outliner/e2e/selection-delete`）
+  - 作り直した項目の折りたたみとタスクの状態は、同じ要求の更新で戻す（`client/apps/web-app/outliner-react/e2e/selection-delete`）
   - トランスクルージョンの元とプロパティは、作成の操作に入れて送り、サーバーがそれも書く（`journal/journal-core/tests/it/batch.rs`）
     - トランスクルージョンは、バッチの項目をすべて作ってから張る。元の項目と、それを写す項目を一緒に作り直せる
     - 元の項目がもうなければ、写さずに本文だけで作り直す。Undoが断られて項目が戻らなくなるよりよいためである
@@ -336,7 +336,7 @@
 
 ### タスクにする
 
-出典: `tests/task.rs`、`tests/view.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/journal`、サーバーの`tests/it/api.rs`
+出典: `tests/task.rs`、`tests/view.rs`、`client/apps/web-app/outliner-react/e2e/outline-structure`、`client/apps/web-app/outliner-react/e2e/journal`、サーバーの`tests/it/api.rs`
 
 - Ctrl+Enterでタスクの状態が次へ切り替わり、保存され、Undoに記録される
   - チェックボックスが本文の前に出る
@@ -350,7 +350,7 @@
 
 ### 日を移る
 
-出典: `tests/journal.rs`、`tests/journal_fragment.rs`、`tests/day_change.rs`、`core/util/date.rs`、`core/util/week.rs`、`core/util/filename.rs`、`client/apps/web-app/outliner/e2e/journal`
+出典: `tests/journal.rs`、`tests/journal_fragment.rs`、`tests/day_change.rs`、`core/util/date.rs`、`core/util/week.rs`、`core/util/filename.rs`、`client/apps/web-app/outliner-react/e2e/journal`
 
 - `today`は今日の日付のジャーナルを開く。タイトルはTodayである
   - 日付のジャーナルは、その日の日本語表記をタイトルと見出しに持つ。週・月・年も同様である
@@ -396,7 +396,7 @@
 
 ### 項目を別の日へ送る
 
-出典: `tests/journal_moves.rs`、`client/apps/web-app/outliner/e2e/journal`、`journal/journal-server/tests/it/api.rs`
+出典: `tests/journal_moves.rs`、`client/apps/web-app/outliner-react/e2e/journal`、`journal/journal-server/tests/it/api.rs`
 
 - 別の日への移動は、サーバーに1回の要求（`POST /api/journals/{date}/move`）で送り、答えを待ってから表示する（ADR 011）。ジャーナルの取得や作成、空の項目の削除や作成は別には送らない
   - 入力した直後に別の日へ動かすと、打ったばかりの文は移動の要求に入って届く。保存を別には送らず、その自動保存は取り消される
@@ -419,7 +419,7 @@
 
 ### 片付ける
 
-出典: `tests/stash.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`journal/journal-server/tests/it/api.rs`
+出典: `tests/stash.rs`、`client/apps/web-app/outliner-react/e2e/outline-structure`、`journal/journal-server/tests/it/api.rs`
 
 - Send to Stashは、サーバーに1回の要求（`POST /api/items/{id}/stash`）で送り、答えを待ってから表示する（ADR 011）。見出しの作成や移動は別には送らない
   - ページ末尾に「# Stash」見出しが作られ、部分木がタグなしでその下へ、見出しの子の階層で移る
@@ -437,7 +437,7 @@
 
 ### 複数の項目を選ぶ
 
-出典: `tests/selection.rs`、`core/outline/selection.rs`、`core/outline/tree.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/transclusion-delete`、`tests/drag.rs`、macOSとWindowsの`OutlineScreenTests`
+出典: `tests/selection.rs`、`core/outline/selection.rs`、`core/outline/tree.rs`、`client/apps/web-app/outliner-react/e2e/outline-structure`、`client/apps/web-app/outliner-react/e2e/transclusion-delete`、`tests/drag.rs`、macOSとWindowsの`OutlineScreenTests`
 
 - 項目を選ぶと、その下の項目もすべて選ばれる。どの選び方でも同じである
   - 折りたたまれて見えない子も選ばれる
@@ -460,7 +460,7 @@
 
 ### 選んだ項目を動かす
 
-出典: `tests/selection.rs`、`client/apps/web-app/outliner/e2e/outline-structure`、`client/apps/web-app/outliner/e2e/selection-delete`、`client/apps/web-app/outliner/e2e/transclusion-delete`
+出典: `tests/selection.rs`、`client/apps/web-app/outliner-react/e2e/outline-structure`、`client/apps/web-app/outliner-react/e2e/selection-delete`、`client/apps/web-app/outliner-react/e2e/transclusion-delete`
 
 - Deleteで1つのUndoエントリとして削除する。ページが空になるなら、サーバーが作った空の項目が1つ残る
   - 残った空の項目は編集中になり、そのまま打った文字が入る
@@ -472,10 +472,10 @@
   - サーバーが断ると、画面は変わらない。そのあとの移動は、いつもどおり始まる
 - TabとShift+Tabで、選んだ項目がまとめて1段深く、1段浅くなる。先頭の項目は深くできない
 - Ctrl+ZとCtrl+Yは、エディタの中と同じようにUndoとRedoをする
-  - 選択範囲を削除した直後のように、選択もエディタもないときも、Ctrl+ZとCtrl+Shift+ZはページのUndoとRedoをする（`client/apps/web-app/outliner/e2e/tests/selection-delete.spec.ts`）
+  - 選択範囲を削除した直後のように、選択もエディタもないときも、Ctrl+ZとCtrl+Shift+ZはページのUndoとRedoをする（`client/apps/web-app/outliner-react/e2e/tests/selection-delete.spec.ts`）
 - Ctrl+Cで、ツリー形式のMarkdownがクリップボードに載り、フラット形式がモデルに記憶される
   - コアは、そのMarkdownを自分で解析し、ASTもシェルに渡す（ADR 027、ADR 041）
-  - outliner-webは、そのASTから作ったHTMLも、クリップボードに載せる。Markdownは解析しない
+  - Web版は、そのASTから作ったHTMLも、クリップボードに載せる。Markdownは解析しない
     - ウィキリンクと`.md`への相対リンクは、そのページを開くふつうのリンクになる。表示する文字は変わらない
     - ハッシュタグは、タグのページを開くリンクになる。表示する文字は`#`とタグ名である
     - リンク先は、アプリのURLから始まるまるごとのURLである。貼り付けた先のアプリから開ける
@@ -502,7 +502,7 @@
 
 ### 貼り付ける
 
-出典: `tests/paste.rs`、`journal/journal-server/tests/it/api.rs`、`client/apps/web-app/outliner/e2e/outline-content`
+出典: `tests/paste.rs`、`journal/journal-server/tests/it/api.rs`、`client/apps/web-app/outliner-react/e2e/outline-content`
 
 - 貼り付けは、項目の今の本文、カーソル、文字列を、1つの要求でサーバーに送る
   - 入力してまだ保存していない文は、貼り付けの要求に入って届く。その自動保存は取り消される
@@ -538,7 +538,7 @@
   - ない項目への貼り付けは断る
   - トランスクルージョンへの貼り付けは、元の項目への貼り付けになる。作る項目は、必ず元の項目のページに、元の項目の階層を基準に作る。写している側のページには作らない。写している側のページにも、変更を知らせる
 - 画像はアップロードされてカーソル位置にリンクされ、カーソルはリンクの直後に置かれる
-  - アップロードのあと、リンクの文字列を、そのまま1項目に入れる貼り付け（`POST /api/items/{id}/paste`）として1つの要求で送る（ADR 011、`client/apps/web-app/outliner/e2e/image-paste`）。項目の保存は別には送らない
+  - アップロードのあと、リンクの文字列を、そのまま1項目に入れる貼り付け（`POST /api/items/{id}/paste`）として1つの要求で送る（ADR 011、`client/apps/web-app/outliner-react/e2e/image-paste`）。項目の保存は別には送らない
   - 本文は、アップロードの答えが届いたときのものを送る。待つ間に打ってまだ保存していない文は、要求に入って残る
   - 待つ間に同じ項目に打つと、リンクは、打ち終えたときのカーソルの位置に入る。打った文字の途中には入らない。別の項目に打っても、リンクの位置は変わらない
     - 打つたびにシェルが送るカーソル（`Typed`）を使う。Emacs版は、アップロードの間キーを止めるので、打つことはない
@@ -601,12 +601,12 @@
   - 同名のページがあれば確認する。「はい」で上書きし、「いいえ」で両方残る
   - サーバーが断ると、その理由が出る。理由がなければ既定の文が出る
 - ページの削除は確認の後に行われ、今日のジャーナルが開く。最近のページも読み直される
-  - サーバーへの要求は、削除の1つである（ADR 011、`client/apps/web-app/outliner/e2e/page-delete-demote`）。画面が読み込んだページのIDで消す。ページを引く要求は送らない
+  - サーバーへの要求は、削除の1つである（ADR 011、`client/apps/web-app/outliner-react/e2e/page-delete-demote`）。画面が読み込んだページのIDで消す。ページを引く要求は送らない
   - ページがまだ読み込まれていなければ、確認も削除もしない
   - サーバーは、ページのファイルも消す。名前を変えた後で書き出す前に削除しても、古い名前のファイルは残らない（`journal/journal-server/tests/it/api.rs`）
   - 「いいえ」なら何も削除されない。`today`と設定画面では削除するページがない
   - サーバーが断ると理由か既定の文が出て、今日へは移らない
-- アトラスを持つindexページの降格では、まず確認し、承諾後に降格を1つの要求で送る（ADR 011、`client/apps/web-app/outliner/e2e/page-delete-demote`）。アトラスの削除と改名は別には送らない。降格したページが開く
+- アトラスを持つindexページの降格では、まず確認し、承諾後に降格を1つの要求で送る（ADR 011、`client/apps/web-app/outliner-react/e2e/page-delete-demote`）。アトラスの削除と改名は別には送らない。降格したページが開く
   - 「いいえ」なら、アトラスもindexページもそのまま残る
   - アトラスのないindexページは、確認なしに降格する
   - 降格できるか（子のページがないか）の答えは、そのページを開いている間だけ、降格のメニューに効く。別のページへ移ったあとに届いた答えは使わない
@@ -624,7 +624,7 @@
 
 ### ページを開く
 
-出典: `tests/page_open.rs`、`tests/sidebar_index.rs`、`tests/sidebar_sort.rs`、`tests/search.rs`、`tests/tags_button.rs`、`tests/backlinks.rs`、`client/apps/web-app/outliner/e2e/outline-content`
+出典: `tests/page_open.rs`、`tests/sidebar_index.rs`、`tests/sidebar_sort.rs`、`tests/search.rs`、`tests/tags_button.rs`、`tests/backlinks.rs`、`client/apps/web-app/outliner-react/e2e/outline-content`
 
 - docページを開くと、ページ・項目・バックリンクがサーバーから読まれ、タイトルはフォルダ付きの名前になる
   - ウィンドウのタイトルも、フォルダ付きの名前になる。次のページを読み込めなかったときは、前のタイトルのままである
@@ -651,7 +651,7 @@
   - 入力が一息置いた後に検索され、結果はページと項目に分かれる。ページ作成の項目も出る。`#タグ`を含む検索語では出ない
   - 検索語が空になると結果はすぐ消え、続けて入力すると最後の検索語だけが検索される。検索に失敗しても、それまでの結果は残る
   - 検索語を変えると選択は消える。答えが届く前にEnterを押しても、前の検索語の結果は開かない
-  - 答えが届く前の上下キーとEnterは、答えを待ってから順に効く。前の検索語の結果は選ばず、開かない（Web版は`client/apps/web-app/outliner/e2e/tests/journal.spec.ts`）
+  - 答えが届く前の上下キーとEnterは、答えを待ってから順に効く。前の検索語の結果は選ばず、開かない（Web版は`client/apps/web-app/outliner-react/e2e/tests/journal.spec.ts`）
     - Escapeと検索の失敗は、待っているキーを捨てる。`Open Today`を選んで開くキーは、答えを待たない
   - 検索語を受けてから、答えが届くか失敗するまで、検索中である
   - 検索語が`today`なら、答えを待たずに、一覧の先頭に`Open Today`が出る。大文字小文字と前後の空白は区別しない。選ぶと今日のジャーナルが開く
@@ -764,7 +764,7 @@
 
 ### 項目をつなぐ
 
-出典: `tests/wiki.rs`、`tests/transclusion.rs`、`core/outline/state.rs`、`client/apps/web-app/outliner/e2e/outline-content`、`client/apps/web-app/outliner/e2e/transclusion-menu`
+出典: `tests/wiki.rs`、`tests/transclusion.rs`、`core/outline/state.rs`、`client/apps/web-app/outliner-react/e2e/outline-content`、`client/apps/web-app/outliner-react/e2e/transclusion-menu`
 
 - `[[`の中で入力すると、一息置いた後にページ名の候補が出る。ポップアップはカーソルの少し下に置かれ、最初の候補が選ばれている
   - 続けて入力すると最後の検索語だけが検索される。検索語が空になると候補は消え、`[[`の外に出るとポップアップは閉じる
@@ -776,7 +776,7 @@
   - 入れ子の`[[`があるときは、内側のリンクが置き換えられる。閉じる`]]`がなければ何も入らない
   - 項目がもうなければ、ポップアップが閉じるだけである
 - 本文のウィキリンクをクリックすると、そのページが開く
-  - Web版で、Ctrl+クリック（MacではCmd+クリック）と中ボタンのクリックは、そのページを新しいタブで開く（`client/apps/web-app/outliner/e2e/tests/outline-content.spec.ts`）。MacのCtrl+クリックは右クリックである
+  - Web版で、Ctrl+クリック（MacではCmd+クリック）と中ボタンのクリックは、そのページを新しいタブで開く（`client/apps/web-app/outliner-react/e2e/tests/outline-content.spec.ts`）。MacのCtrl+クリックは右クリックである
   - Shiftを押したクリックは新しいウィンドウに、CtrlかCmdを押したクリックは新しいタブに、ページを開く。Shiftが先に効く（`tests/keys.rs`）
 - 編集中にCtrl+O（Macの付箋紙ではCmd+O、Emacsでは`C-c C-o`）を押すと、カーソルの下のウィキリンクまたはハッシュタグのページが開く
   - リンクの両端もリンクの上である。ウィキリンクの中の`#`はタグではない
@@ -799,7 +799,7 @@
 
 ### 本文を読む
 
-出典: `tests/view.rs`、`outliner-web`、`client/apps/web-app/outliner/e2e/outline-content.spec.ts`
+出典: `tests/view.rs`、`client-web-bridge`、`client/apps/web-app/outliner-react/e2e/outline-content.spec.ts`
 
 - ズーム
   - 倍率が表示に反映されて保存され、リセットで1.0に戻る
@@ -808,7 +808,7 @@
 - 項目へのスクロールの求めは、なめらかなスクロールとしてシェルに渡る
 - Markdownの解析の型は、crates.ioの`flatmarkdown-ast`クレートにある（`petajournal/flatmarkdown`リポジトリ）。その機能一覧とテストは、そのリポジトリにある
   - 解析したASTは、typeタグ付きのJSONに戻せる
-- HTMLの描画（outliner-web）
+- HTMLの描画（client-web-bridge）
   - 項目のASTは、crates.ioの`flatmarkdown-ast2html`クレートがHTMLにする（ADR 026）。HTMLの形の機能一覧とテストは、`petajournal/flatmarkdown`リポジトリにある
   - 本文が空の項目は、何も表示しない
   - 画像URLのフラグメントのwとhは、imgのwidthとheightになる。リストの中など、深いところにある画像でも同じである
@@ -1008,7 +1008,7 @@
 - サーバーの拡張が項目を書いたと知らされると、ファイルの変更と同じように、表示中のページが読み直される
 - ほかのクライアントがAPIでページを変えたと知らされると、表示中のページが読み直される（ADR 015）
   - このクライアント自身の変更の知らせでは、ページは読み直されない
-  - 編集中でも、すぐに読み直す。ほかのクライアントが消した項目や変えた文は、編集を終えなくても画面に出る（`client/apps/web-app/outliner/e2e/tests/other-client.spec.ts`）
+  - 編集中でも、すぐに読み直す。ほかのクライアントが消した項目や変えた文は、編集を終えなくても画面に出る（`client/apps/web-app/outliner-react/e2e/tests/other-client.spec.ts`）
   - 何も置かれていない表示中のアトラスも、アウトラインを取得し直す
   - Emacs版でも、開き直さなくてもバッファに出る
 - MCPのツールがページを変えたと知らされると、表示中のページが読み直される
@@ -1033,7 +1033,7 @@
 
 ### サーバーで拡張関数を動かす
 
-出典: `journal/journal-core/src/application/extension_runtime.rs`、`confirm_service.rs`、`journal/journal-core/tests/it/extensions.rs`、`client/apps/web-app/outliner/e2e/extension-template`
+出典: `journal/journal-core/src/application/extension_runtime.rs`、`confirm_service.rs`、`journal/journal-core/tests/it/extensions.rs`、`client/apps/web-app/outliner-react/e2e/extension-template`
 
 - 拡張の`main.js`は、サーバーのQuickJSで動く
   - `onPageCreate(page)`はページの情報を受け取り、`peta.createItem`で頼んだ項目が返る。`createItem`が返すIDは、次の項目の置き場所に使える
@@ -1269,7 +1269,7 @@
 
 ### Web版のReactのシェル
 
-出典: `client/apps/web-app/outliner-react/src/*.test.ts`、`client/apps/web-app/outliner-react/src/*.test.tsx`、`client/apps/web-app/outliner/e2e/playwright.config.ts`
+出典: `client/apps/web-app/outliner-react/src/*.test.ts`、`client/apps/web-app/outliner-react/src/*.test.tsx`、`client/apps/web-app/outliner-react/e2e/playwright.config.ts`
 
 - Reactのシェル（`outliner-react`）は、wasmの差分から画面を組み立てる（ADR 079、ADR 080）。今は、項目、検索、プロパティ、設定、アトラスの画面がある
   - journal-serverは、既定でReactのシェルを配る。`cargo run`は`outliner-react/dist`を、`release-all`はそのコピーを配る
@@ -1356,7 +1356,7 @@
   - 項目を選ぶ間、マウスをアウトラインの上か下の端に置くと、1歩ずつスクロールする。幅と1歩の時間はwasmが決める
   - 1歩ごとに、止まったマウスの下の項目をコアに渡す。一番上より上には行かない
   - マウスが端から離れるか、ボタンを放すか、新しいドラッグが始まると止まる。文字を選ぶ間はスクロールしない
-- Leptos版のE2Eは、`PETA_SHELL=react`でReact版に向けられる。React版をビルドし、使い捨てのサーバーがそれを配る
+- E2Eは、React版をビルドし、使い捨てのサーバーがそれを配る。Leptos版のシェルは消した
 - React版で、空のページ、アウトライン、構造、内容、論理的なアウトデント、クリックの位置、要求の順、選択の削除のE2Eが通る
 
 ## スマホとDropboxの同期の決まり（Rust）

@@ -70,9 +70,6 @@ writes. The executable started by hand (`./target/release/journal-server`) does 
 setting: pass `--frontend-dir`, or copy `dist/` to `target/release/frontend/`. With neither
 folder the server serves the API only, and logs `Frontend: not served` at startup.
 
-To use the Leptos shell instead, pass `--frontend-dir ../client/apps/web-app/outliner/dist`
-after `trunk build` in that folder.
-
 The server reads the files from disk on every request. After a new build of the frontend,
 reload the browser; the server need not restart.
 
@@ -96,49 +93,29 @@ binary starts the server once on a free port with everything under a temporary d
 ## Rust frontend (client)
 
 `client/` holds the frontend: a [Crux](https://github.com/redbadger/crux) core
-(`libs/client-core`, the outline logic, tested without a browser) and a [Leptos](https://leptos.dev/) shell
-(`apps/web-app/outliner`) built to WebAssembly with trunk. It replaced the Angular frontend.
+(`libs/client-core`, the outline logic, tested without a browser) and the shells around it.
 
-The journal server now serves the React shell (`apps/web-app/outliner-react`, ADR 079) by
-default. Its core runs in wasm too. It is built with `npm run build`, or with `release.ps1`
-(`release.sh`) in its folder, and needs Node.js and
-[wasm-pack](https://rustwasm.github.io/wasm-pack/) beside Rust. Its README has the commands.
-The Leptos shell below stays until it is removed.
+The web shell is in React (`apps/web-app/outliner-react`, ADR 079). Its core runs in wasm.
+It replaced the Leptos shell, which replaced the Angular frontend.
 
 ### Prerequisites
 
 - `rustup`. `rust-toolchain.toml` sets the version of Rust and adds the `wasm32-unknown-unknown`
   target.
-- trunk: `cargo install trunk --locked`
+- Node.js
+- [wasm-pack](https://rustwasm.github.io/wasm-pack/): `cargo install wasm-pack`
 
 ### Build and run
 
 ```powershell
-cd peta-journal/client/apps/web-app/outliner
-trunk build                 # debug files in dist/, for development
-trunk build --release       # small files in dist/, for daily use and distribution
+cd peta-journal/client/apps/web-app/outliner-react
+npm install                 # once
+npm run build               # the files in dist/
 ```
 
-Two scripts in that folder do the same from any folder:
-
-```powershell
-./client/apps/web-app/outliner/debug.ps1      # trunk build (on macOS and Linux: debug.sh)
-./client/apps/web-app/outliner/release.ps1    # trunk build --release (on macOS and Linux: release.sh)
-```
-
-The journal server serves this `dist/` at `http://localhost:8087` when it is started with
-`--frontend-dir`; see "Build and run" of the Rust server above. `trunk serve` is not used: `Trunk.toml` has no proxy to the journal server, so its
-page cannot reach the API.
-
-`vendor/highlight.min.js` is highlight.js bundled for the browser. To move to a new highlight.js
-version, bundle it in a scratch directory and copy the two files over:
-
-```powershell
-mkdir hljs-build; cd hljs-build
-npm i highlight.js@11 esbuild
-npx esbuild node_modules/highlight.js/lib/common.js --bundle --format=iife --global-name=hljs --minify --outfile=<peta-journal>/client/apps/web-app/outliner/vendor/highlight.min.js
-cp node_modules/highlight.js/styles/github.css <peta-journal>/client/apps/web-app/outliner/vendor/highlight-github.css
-```
+`release.ps1` (on macOS and Linux: `release.sh`) in that folder does the same from any folder.
+The journal server serves this `dist/` at `http://localhost:8087`; see "Build and run" of the
+Rust server above. The README of the shell has the other commands, such as `npm run dev`.
 
 ### Tests
 
@@ -147,13 +124,13 @@ cd peta-journal/client
 cargo test                  # core (the ported service specs) and the shells
 ```
 
-The Playwright suite in `client/apps/web-app/outliner/e2e/` drives the Rust server and the Rust frontend the way they run for
-the user: it builds the server with `cargo build --release` and the frontend with `trunk build`
-into `dist-e2e/`, then starts one journal server on port 8187 that serves those files and the
-API. Install trunk once with `cargo install trunk`:
+The Playwright suite in `client/apps/web-app/outliner-react/e2e/` drives the Rust server and
+the React shell the way they run for the user. It builds the server with
+`cargo build --release` and the shell with `npm run build` into `dist-e2e/`. Then it starts one
+journal server on port 8187 that serves those files and the API:
 
 ```bash
-cd peta-journal/client/apps/web-app/outliner/e2e
+cd peta-journal/client/apps/web-app/outliner-react/e2e
 npm install
 npx playwright install chromium   # once
 npm run e2e
@@ -186,8 +163,7 @@ cargo cov --html     # target/llvm-cov/html/index.html, line by line
 
 `cargo cov` is an alias in `.cargo/config.toml`. It measures `client-core`, `client-page-links`,
 `client-api-http`, `client-api-embedded`, `outliner-emacs`, `client-native-bridge`, `client-shell-http` and
-`client-shell-embedded`. The wasm shell `outliner-web` (`apps/web-app/outliner`) is left out: it only runs in
-the browser, so the E2E tests cover it instead.
+`client-shell-embedded`.
 
 No file of `outliner-emacs` is left out. Its tests start the program itself, and `cargo cov`
 measures that run too.
@@ -343,7 +319,7 @@ cargo test --all-features
   that can be edited need it.
 - `tweedle.umd.js`: tweedle.js, the global `tweedle_js`. `pixi-ui.js` needs it.
 
-The web shell loads all four from `index.html` of `client/apps/web-app/outliner`.
+The web shell loads all four in `src/atlasScripts.ts` of `client/apps/web-app/outliner-react`.
 A page that only shows an atlas, such as a static site, needs `pixi.min.js` and `atlas.js`.
 Load `pixi.min.js` first.
 
@@ -365,13 +341,14 @@ Then build the frontend, open an atlas, and check the drawing and a dialog.
 
 `.github/workflows/ci.yml` runs on every pull request and every push to `main`. A change to the
 documents alone does not start it. On Ubuntu, each of the three workspaces runs `cargo fmt --check`,
-`cargo clippy` and `cargo test`. The frontend also checks the shell for wasm. A fourth job checks
+`cargo clippy` and `cargo test`. The frontend also checks the browser side of
+`client-web-bridge` for wasm. A fourth job checks
 `client/apps/web-app/todo` on Node 24: the format, lint, the tests and the build. The end-to-end tests
-in `client/apps/web-app/outliner/e2e/` do not run there, so run them by hand. A warning from clippy does not fail the run.
+in `client/apps/web-app/outliner-react/e2e/` do not run there, so run them by hand. A warning from clippy does not fail the run.
 
 ## Development Workflow
 
-1. Build the frontend: `./client/apps/web-app/outliner/debug.ps1` (or `debug.sh`)
+1. Build the frontend: `./client/apps/web-app/outliner-react/release.ps1` (or `release.sh`)
 2. Start the journal server: `./journal/journal-server/debug.ps1` (or `debug.sh`)
 3. Open `http://localhost:8087`
 
