@@ -5,4 +5,6 @@
 
 pub mod body;
 pub mod border;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod codegen;
 pub mod lanes;
