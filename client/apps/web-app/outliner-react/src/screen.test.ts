@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { rowsAfter } from './screen';
+import { panelsAfter, rowsAfter } from './screen';
 
 // 行の差分を当てる
 describe('rows after their changes', () => {
@@ -43,5 +43,27 @@ describe('rows after their changes', () => {
     const rows = ['a'];
 
     expect(rowsAfter(rows, [])).toBe(rows);
+  });
+});
+
+// パネルの差分を当てる
+describe('panels after their changes', () => {
+  // 届いたパネルだけが入れ替わり、届かないパネルは前のままである。
+  test('only the panels that came are replaced, and the others stay as they were', () => {
+    const sidebar = { pages: ['a'] };
+    const panels = { Title: 'old', Sidebar: sidebar };
+
+    const after = panelsAfter(panels, [
+      { kind: 'Title', value: 'new' },
+      { kind: 'Today', value: '2026-11-23' },
+    ]);
+
+    expect(after).toEqual({
+      Title: 'new',
+      Sidebar: sidebar,
+      Today: '2026-11-23',
+    });
+    expect(after.Sidebar).toBe(sidebar);
+    expect(panels.Title).toBe('old');
   });
 });

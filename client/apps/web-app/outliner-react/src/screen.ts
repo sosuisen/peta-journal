@@ -39,3 +39,17 @@ export function rowsAfter<T>(
   }
   return after;
 }
+
+/** A panel of the screen, as `Panel` of the border has it: its kind and its whole value. */
+export interface PanelChange {
+  readonly kind: string;
+  readonly value: unknown;
+}
+
+/** The panels by kind, after the panels that came. */
+export function panelsAfter<P extends PanelChange>(
+  panels: Partial<Record<P['kind'], unknown>>,
+  _changes: readonly P[],
+): Partial<Record<P['kind'], unknown>> {
+  return panels;
+}
