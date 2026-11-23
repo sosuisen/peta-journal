@@ -619,3 +619,53 @@ fn an_answer_or_a_timer_that_comes_after_the_shell_is_gone_does_nothing() {
     let mut stream = browser.stream.borrow_mut();
     (stream.as_mut().expect("the stream was opened"))(SseEvent::Open);
 }
+
+// サーバーが忙しい間に続けて貼った2つの画像は、どちらもそのファイルのままサーバーへ送られる。
+#[test]
+fn two_images_pasted_while_the_server_is_busy_are_both_sent_as_they_are() {
+    let screen = Screen::new();
+    screen.open_notes();
+    // The server has not answered yet when the images are pasted
+    screen
+        .bridge
+        .update(r#"{"DeleteItem":{"item_id":"a"}}"#)
+        .unwrap();
+
+    screen
+        .bridge
+        .paste_image("b", "the first picture".into(), 0);
+    screen
+        .bridge
+        .paste_image("b", "the second picture".into(), 0);
+    screen.serve();
+
+    let uploads = screen.browser.uploads.borrow();
+    assert_eq!(*uploads, ["the first picture", "the second picture"]);
+}
+
+// シェルに同時に渡した操作は、それぞれの番号で答えられる。
+#[test]
+fn operations_the_shell_holds_at_once_are_each_answered_by_their_own_number() {
+    let screen = Screen::new();
+    screen.open_notes();
+    screen.bridge.press(&key_in_a(r#""Enter""#)).unwrap();
+    screen.serve();
+    screen
+        .bridge
+        .update(r#"{"DeleteItem":{"item_id":"b"}}"#)
+        .unwrap();
+    screen.serve();
+    let [UiOp::FocusEditor { .. }, UiOp::ConfirmDestructive(_)] = screen.asked().as_slice() else {
+        panic!(
+            "the shell holds a focus and a confirm: {:?}",
+            screen.asked()
+        );
+    };
+    let (focus, confirm) = (screen.asked()[0].clone(), screen.asked()[1].clone());
+
+    screen.answer(&confirm, r#"{"Bool":true}"#);
+    screen.answer(&focus, r#""Done""#);
+
+    screen.serve();
+    assert_eq!(screen.calls_named("DeleteItems"), 1);
+}
