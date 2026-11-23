@@ -322,10 +322,16 @@ describe('closing and opening a section', () => {
 
     close('work/');
     close('Contents');
+    const labels = ['work/', 'Contents', 'Recent Pages'].map(title =>
+      within(section(title))
+        .getAllByRole('button', { name: /Collapse|Expand/ })
+        .map(b => b.getAttribute('aria-label')),
+    );
 
     expect(names(section('work/'))).toEqual([]);
     expect(section('Contents').querySelector('.contents-item')).toBeNull();
     expect(names(section('Recent Pages'))).toEqual(['notes', 'diary']);
+    expect(labels).toEqual([['Expand'], ['Expand'], ['Collapse']]);
     expect(
       (
         JSON.parse(localStorage.getItem('sidebar-collapsed') ?? '') as string[]
