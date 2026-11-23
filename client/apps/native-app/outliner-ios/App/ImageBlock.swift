@@ -11,9 +11,9 @@ private enum Picture {
     case here(image: UIImage, width: CGFloat)
 }
 
-/// An image, as wide as the page asks, or else as wide as it is in its file. A pixel of the
-/// page is one point, as in a browser. It is never wider than the room it has. An image whose
-/// file is not here, or cannot be read, shows what stands for it.
+/// An image under a line of its alt, as wide as the page asks, or else as wide as it is in its
+/// file. A pixel of the page is one point, as in a browser. It is never wider than the room it
+/// has. An image whose file is not here, or cannot be read, shows only the line of its alt.
 struct ImageBlock: View {
     let image: RichImage
     let file: (String) -> URL?
@@ -22,13 +22,12 @@ struct ImageBlock: View {
     @State private var large = false
 
     var body: some View {
-        Group {
+        VStack(alignment: .leading, spacing: 0) {
+            // The line names the image, and a touch on it edits the item, as on any text (#886)
+            Text(image.alt)
             switch picture {
-            case .reading:
-                // Not nothing at all: a view that is not there reads no file
-                Color.clear.frame(width: 1, height: 1)
-            case .missing:
-                Text(image.alt.isEmpty ? image.path : image.alt)
+            case .reading, .missing:
+                EmptyView()
             case .here(let read, let inFile):
                 let shape = read.size.width / max(read.size.height, 1)
                 // The side that the page does not ask for follows the shape of the image
