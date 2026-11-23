@@ -58,7 +58,7 @@ internal fun ImageBlock(image: ShownBlock.Image, file: (String) -> File?) {
     }
     Column {
         // The line names the image, and a touch on it edits the item, as on any text (#886)
-        Text(image.alt, style = MaterialTheme.typography.bodyLarge)
+        Text(image.alt.ifEmpty { image.path }, style = MaterialTheme.typography.bodyLarge)
         picture?.let { known ->
             var large by remember { mutableStateOf(false) }
             val shape = known.bitmap.width.toFloat() / known.bitmap.height
