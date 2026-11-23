@@ -300,6 +300,70 @@ pub struct TreeExport {
     pub flat_markdown: String,
 }
 
+// The answers below hold items or pages. The server writes them with its own item and page,
+// which have more fields; a client reads them with `Item` and `Page`, the default (ADR 082).
+
+/// What a paste came to on the server.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Pasted<I = Item> {
+    /// The item pasted into, then the items created below it, in their order on the page.
+    pub items: Vec<I>,
+    pub cursor: PasteCursor,
+}
+
+/// What a batch came to on the server. It does not cross the native border.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Batched<I = Item> {
+    /// The items the batch wrote, as they are now.
+    pub items: Vec<I>,
+    /// The empty items the server made on the pages the batch left without an item.
+    pub created: Vec<I>,
+}
+
+/// What sending an item to the stash came to on the server.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Stashed<I = Item> {
+    /// The `# Stash` heading the items went under.
+    pub heading: I,
+    /// True when the heading was made for this.
+    pub created: bool,
+    /// The moved items, as they are now.
+    pub items: Vec<I>,
+}
+
+/// What a split came to on the server.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Split<I = Item> {
+    /// The item that was split, with the text it keeps.
+    pub item: I,
+    /// The item made beside it.
+    pub created: I,
+}
+
+/// `GET /api/journals/before` and `/weekly/before`. It does not cross the native border.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JournalBefore<P = Page, I = Item> {
+    pub found: bool,
+    pub page: Option<P>,
+    pub items: Vec<I>,
+    /// The trees of the items that the transclusions show, by the id of their source.
+    pub transcluded_trees: BTreeMap<String, Vec<I>>,
+}
+
+/// A page that links to another, and the item that holds the link.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BacklinkEntry<P = Page, I = Item> {
+    pub source_page: P,
+    /// None when the source page links by the tag in its tags property.
+    pub source_item: Option<I>,
+}
+
 /// The value of a property. The server has only these two shapes.
 ///
 /// It is written in two ways. JSON has it as the server does: a string, or an array of
@@ -1103,6 +1167,114 @@ mod tests {
                     ("plan".into(), PropertyValue::from("2026-11-24")),
                     ("tags".into(), PropertyValue::from(["x"])),
                 ]),
+            }
+        );
+    }
+
+    /// An item as the server answers it, with the fields only the server has.
+    fn item_answer(id: &str) -> serde_json::Value {
+        json!({
+            "id": id, "pageId": "p", "parentItemId": null, "dirPath": "", "name": "n",
+            "type": "doc", "createdDate": 0, "modifiedDate": 0, "idx": "a0", "level": 1,
+            "body": id, "ast": "[]", "collapsed": false, "types": [], "properties": {},
+            "transcludeItemId": null, "url": "/u"
+        })
+    }
+
+    /// The item that `item_answer` reads as.
+    fn item(id: &str) -> Item {
+        serde_json::from_value(item_answer(id)).unwrap()
+    }
+
+    /// A page as the server answers it, with the fields only the server has.
+    fn page_answer() -> serde_json::Value {
+        json!({
+            "id": "p", "parentId": "", "dirPath": "", "name": "n", "type": "doc",
+            "createdDate": 0, "modifiedDate": 0, "url": "/u", "properties": {}
+        })
+    }
+
+    // 項目やページを持つ答えの型は、サーバーの答えのJSONから読める。中の項目とページのサーバーだけの欄は読み飛ばす。
+    #[test]
+    fn the_answers_with_items_or_pages_are_read_past_the_fields_of_the_server() {
+        let page: Page = serde_json::from_value(page_answer()).unwrap();
+
+        let split: Split = serde_json::from_value(json!({
+            "item": item_answer("a"), "created": item_answer("b")
+        }))
+        .unwrap();
+        assert_eq!(
+            split,
+            Split {
+                item: item("a"),
+                created: item("b"),
+            }
+        );
+
+        let stashed: Stashed = serde_json::from_value(json!({
+            "heading": item_answer("h"), "created": true, "items": [item_answer("a")]
+        }))
+        .unwrap();
+        assert_eq!(
+            stashed,
+            Stashed {
+                heading: item("h"),
+                created: true,
+                items: vec![item("a")],
+            }
+        );
+
+        let pasted: Pasted = serde_json::from_value(json!({
+            "items": [item_answer("a")], "cursor": { "itemId": "a", "position": 1 }
+        }))
+        .unwrap();
+        assert_eq!(
+            pasted,
+            Pasted {
+                items: vec![item("a")],
+                cursor: PasteCursor {
+                    item_id: "a".into(),
+                    position: 1,
+                },
+            }
+        );
+
+        let batched: Batched = serde_json::from_value(json!({
+            "items": [item_answer("a")], "created": [item_answer("b")]
+        }))
+        .unwrap();
+        assert_eq!(
+            batched,
+            Batched {
+                items: vec![item("a")],
+                created: vec![item("b")],
+            }
+        );
+
+        let entry: BacklinkEntry = serde_json::from_value(json!({
+            "sourcePage": page_answer(), "sourceItem": item_answer("a")
+        }))
+        .unwrap();
+        assert_eq!(
+            entry,
+            BacklinkEntry {
+                source_page: page.clone(),
+                source_item: Some(item("a")),
+            }
+        );
+
+        let before: JournalBefore = serde_json::from_value(json!({
+            "found": true, "page": page_answer(), "items": [item_answer("a")],
+            "transcludedTrees": { "s": [item_answer("s")] }
+        }))
+        .unwrap();
+        assert_eq!(
+            before,
+            JournalBefore {
+                found: true,
+                page: Some(page),
+                items: vec![item("a")],
+                transcluded_trees: BTreeMap::from([("s".into(), vec![item("s")])]),
             }
         );
     }

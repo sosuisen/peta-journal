@@ -58,6 +58,13 @@ struct Outline: View {
                 guard let edited = shell.view.outline.rows.first(where: \.isEditing)?.item.id else { return }
                 withAnimation { list.scrollTo(edited) }
             }
+            // The field of the edited item left the screen with the keyboard, as when the
+            // screen is turned and the item goes out of what is seen. The keyboard keeps its
+            // height then, and nothing else brings the item back (#792)
+            .onReceive(NotificationCenter.default.publisher(for: .editedFieldLeft)) { _ in
+                guard let edited = shell.view.outline.rows.first(where: \.isEditing)?.item.id else { return }
+                list.scrollTo(edited)
+            }
         }
     }
 

@@ -43,7 +43,7 @@ fn older_journal(name: &str) -> ApiOutput {
         found: true,
         page: Some(journal_page(name)),
         items: vec![journal_item(&format!("item-{name}"), name)],
-        transcluded_trees: None,
+        transcluded_trees: Default::default(),
     })
 }
 
@@ -243,7 +243,7 @@ fn a_collapsed_item_of_an_older_journal_hides_its_children() {
             found: true,
             page: Some(journal_page(name)),
             items: vec![parent, child],
-            transcluded_trees: None,
+            transcluded_trees: Default::default(),
         })),
     );
     visit(&mut h, TODAY);
@@ -500,7 +500,7 @@ fn the_journals_before_are_no_longer_loaded_once_the_outline_holds_enough_items(
             items: (0..100)
                 .map(|i| journal_item(&format!("item-{i}"), name))
                 .collect(),
-            transcluded_trees: None,
+            transcluded_trees: Default::default(),
         })),
     );
     h.api.answer_next(

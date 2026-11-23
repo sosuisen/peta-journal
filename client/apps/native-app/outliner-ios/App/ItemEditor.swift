@@ -205,6 +205,9 @@ struct ItemEditor: UIViewRepresentable {
             {
                 typist.leaves(at: selectedRange.location)
                 KeyboardKeeper.onScreen?.keep { typist.nobodyCame() }
+                // The list brings the item back to what is seen, and the field takes the
+                // keyboard from the keeper again (#792)
+                NotificationCenter.default.post(name: .editedFieldLeft, object: nil)
             }
             super.willMove(toWindow: next)
         }
@@ -439,6 +442,11 @@ struct KeyboardKeeping: UIViewRepresentable {
     }
 
     func updateUIView(_ keeper: KeyboardKeeper, context: Context) {}
+}
+
+extension Notification.Name {
+    /// The field of the item that is edited left the screen, and the keeper has the keyboard.
+    static let editedFieldLeft = Notification.Name("editedFieldLeft")
 }
 
 final class KeyboardKeeper: UITextView, UITextViewDelegate {

@@ -762,8 +762,8 @@ fn every_answer_becomes_the_output_of_its_operation() {
         ),
         (
             ApiOp::GetMostRecentJournalBefore { before: id("d") },
-            json_of(JournalBefore::default()),
-            ApiOutput::JournalBefore(JournalBefore::default()),
+            json_of(<JournalBefore>::default()),
+            ApiOutput::JournalBefore(<JournalBefore>::default()),
         ),
         (
             ApiOp::DeleteItems { item_ids: vec![] },
