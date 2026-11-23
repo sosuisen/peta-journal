@@ -122,6 +122,17 @@ describe('the frame of the app', () => {
     ]);
   });
 
+  // 上の端の中ほどに、新しいページのボタンと検索欄がある。
+  test('the middle of the header holds the new page button and the search', () => {
+    const { container } = app();
+
+    expect(
+      [...(container.querySelector('.header-center')?.children ?? [])].map(e =>
+        e.tagName.toLowerCase(),
+      ),
+    ).toEqual(['button', 'app-search-bar']);
+  });
+
   // 横の欄にはサイドバーがある。サイドバーのアイコンは、枠が持つ絵を使う。
   test('the side column holds the sidebar, whose icons the frame draws', () => {
     const { container } = app();
