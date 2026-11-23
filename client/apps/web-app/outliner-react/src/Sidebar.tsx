@@ -18,9 +18,7 @@ type Section = 'index' | 'contents' | 'recent';
 /** What the browser keeps under `key`, or `fallback` when it keeps nothing it can read. */
 function stored<T>(key: string, fallback: T): T {
   try {
-    return (
-      (JSON.parse(localStorage.getItem(key) ?? '') as T | null) ?? fallback
-    );
+    return JSON.parse(localStorage.getItem(key) ?? '') as T;
   } catch {
     return fallback;
   }
