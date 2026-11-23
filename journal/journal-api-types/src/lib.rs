@@ -212,6 +212,46 @@ pub struct Item {
     pub transclude_item_id: Option<String>,
 }
 
+/// A page as the server answers it, with the fields the clients read (ADR 082). The answer of
+/// the server has more fields, which a client passes over.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Page {
+    pub id: String,
+    #[serde(default)]
+    pub parent_id: String,
+    #[serde(default)]
+    pub dir_path: String,
+    pub name: String,
+    /// "journal" or "doc".
+    #[serde(rename = "type", default)]
+    pub page_type: String,
+    #[serde(default)]
+    pub created_date: i64,
+    #[serde(default)]
+    pub modified_date: i64,
+    /// Property values are strings or lists of strings; empty in page lists.
+    #[serde(default)]
+    pub properties: BTreeMap<String, PropertyValue>,
+}
+
+/// A page or an item that a search found. The server and the clients share it (ADR 082).
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResult {
+    pub page_id: String,
+    pub page_title: String,
+    /// Empty for page hits.
+    #[serde(default)]
+    pub item_id: String,
+    #[serde(default)]
+    pub snippet: String,
+    #[serde(default)]
+    pub score: f32,
+}
+
 /// The value of a property. The server has only these two shapes.
 ///
 /// It is written in two ways. JSON has it as the server does: a string, or an array of
