@@ -41,6 +41,17 @@ wasmのpanicのスタックは読みにくく、ソースマップも弱い。
 ほかに、コアとの配線が長い。
 `Memo`、`Effect`、クロージャの`clone`と`move`で、約800行ある。
 
+### シェルの枠組みを選ぶ基準
+
+このプロジェクトのシェルは、それぞれのプラットフォームの標準の枠組みで書く。
+ネイティブのシェルは、WindowsではWinUI、AndroidではCompose、macOSとiOSではSwiftUIである。
+Web版のシェルも、同じ考え方で、Webの標準の枠組みから選ぶ。
+この基準は、開発者が決めた。
+
+この基準では、まずRustの枠組み（Leptos、Dioxus、Sycamore、Yew、Dominator）が外れる。
+どれも、Webの標準の枠組みではないためである。
+Webのフロントエンドで、WinUIやSwiftUIに当たる水準の標準は、Reactであると開発者は見ている。
+
 ### TypeScriptにしたときの量
 
 #931で、Web版の5,807行を仕事の種類ごとに数えた（2026-11-23）。
