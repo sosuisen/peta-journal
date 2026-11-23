@@ -270,13 +270,10 @@ pub struct PasteCursor {
 #[serde(rename_all = "camelCase")]
 pub struct PropertyDefinition {
     pub key: String,
-    #[serde(default)]
     pub value_type: String,
     /// Written by the server itself; shown read-only, cannot be defined again.
-    #[serde(default)]
     pub system: bool,
     /// May be set on a page.
-    #[serde(default)]
     pub page: bool,
 }
 
@@ -286,17 +283,12 @@ pub struct PropertyDefinition {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerConfig {
-    #[serde(default)]
     pub markdown_dir: String,
-    #[serde(default)]
     pub week_numbering: String,
-    #[serde(default)]
     pub logical_outdent: bool,
     /// Directory of the tag pages relative to the pages root, `tags/` style; empty for the root.
-    #[serde(default)]
     pub tags_dir: String,
     /// The page the Home button opens, as the target of a wiki link; empty for today.
-    #[serde(default)]
     pub home_link: String,
 }
 
