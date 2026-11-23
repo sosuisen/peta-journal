@@ -1,7 +1,8 @@
 import { DeferredKey } from './border/peta-types';
 import type { Asked, Core } from './core';
 import { checkWikiLink } from './WikiSuggestions';
-import { autoResize, focusWithoutScroll, isImeComposing } from './dom';
+import { focusWithoutScroll, isImeComposing } from './dom';
+import { autoResize } from './layout';
 
 /**
  * The operations of the screen that only the shell can do (ADR 080): the focus of an editor,

@@ -1,18 +1,16 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
-  autoResize,
   charsOfUtf16,
   focusWithoutScroll,
   imageFile,
   isImeComposing,
-  isOnFirstLine,
-  isOnLastLine,
   localTime,
   setCursorChars,
   textBeforePoint,
   textareaOffsetAtPoint,
   utf16OfChars,
 } from './dom';
+import { autoResize, isOnFirstLine, isOnLastLine } from './layout';
 
 /** jsdom lays nothing out: the tests say what the browser finds under a point. */
 function caretAt(offsetNode: Node, offset: number): void {

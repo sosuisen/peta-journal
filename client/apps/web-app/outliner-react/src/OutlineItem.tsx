@@ -14,7 +14,6 @@ import { useCore } from './context';
 import { checkWikiLink } from './WikiSuggestions';
 import type { Core } from './core';
 import {
-  autoResize,
   charsOfUtf16,
   focusWithoutScroll,
   imageFile,
@@ -24,6 +23,7 @@ import {
   textareaOffsetAtPoint,
   textBeforePoint,
 } from './dom';
+import { autoResize } from './layout';
 import { startDrag } from './drag';
 import { chordOf, editorState } from './keys';
 
