@@ -61,3 +61,15 @@ fn the_auto_save_sends_a_blank_line_as_a_backslash_line() {
         [("a".into(), Some("a\n\\\nb".into()))]
     );
 }
+
+// `\`だけの行は、`\`を1つ足して送る。読み戻すときに、空行と区別するためである。
+#[test]
+fn a_line_of_backslashes_is_sent_with_one_more() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.state.add_editing_item("a");
+    typed(&mut h, "a", "a\n\\");
+
+    h.fire_timers();
+
+    assert_eq!(update_calls(&h.api), [("a".into(), Some("a\n\\\\".into()))]);
+}
