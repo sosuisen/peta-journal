@@ -1,6 +1,6 @@
 use super::*;
 use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, UiOp};
-use client_core::model::{Page, PageWithItems};
+use client_core::model::{Page, PageWithItems, Uploaded};
 use client_core::testing::plain_item;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
@@ -12,6 +12,8 @@ struct Browser {
     calls: RefCell<VecDeque<(ApiOp, Done<ApiResult<ApiOutput>>)>>,
     /// Every request to the server, oldest first, answered or not.
     called: RefCell<Vec<ApiOp>>,
+    /// The files sent to the server, oldest first.
+    uploads: RefCell<Vec<String>>,
     /// The URLs the address bar was given, and whether each replaced the one before.
     urls: RefCell<Vec<(String, bool)>>,
     asked: RefCell<Vec<(u32, UiOp)>>,
@@ -38,6 +40,15 @@ impl Host for FakeHost {
     fn call(&self, op: ApiOp, done: Done<ApiResult<ApiOutput>>) {
         self.0.called.borrow_mut().push(op.clone());
         self.0.calls.borrow_mut().push_back((op, done));
+    }
+
+    fn upload(&self, file: String, done: Done<ApiResult<ApiOutput>>) {
+        self.0.uploads.borrow_mut().push(file);
+        let uploaded = Uploaded {
+            file_name: "saved.png".into(),
+            original_name: "picture.png".into(),
+        };
+        done(Ok(ApiOutput::Uploaded(uploaded)));
     }
 
     fn go_to(&self, url: &str, replace: bool) {
@@ -223,4 +234,19 @@ fn a_url_that_names_nothing_is_replaced_by_the_page_of_today() {
 
     assert_eq!(screen.urls(), [("/today".to_string(), true)]);
     assert_eq!(screen.calls_named("GetOrCreateJournal"), 1);
+}
+
+// 貼った画像のファイルは、そのままサーバーへ送られる。
+#[test]
+fn the_file_of_a_pasted_image_is_sent_to_the_server_as_it_is() {
+    let screen = Screen::new();
+    screen.open_notes();
+
+    screen
+        .bridge
+        .paste_image("a", "the file of the picture".into(), 0);
+    screen.serve();
+
+    let uploads = screen.browser.uploads.borrow();
+    assert_eq!(*uploads, ["the file of the picture"]);
 }
