@@ -236,12 +236,9 @@ pub enum ApiOp {
     },
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-pub struct FolderChoice {
-    pub selected: bool,
-    #[serde(default)]
-    pub path: String,
-}
+/// The folder the person chose in the dialog of the server. The server and the client share
+/// the type (ADR 082).
+pub use journal_api_types::FolderChoice;
 
 /// A change of the outline of an atlas page, which the server makes. Each card is named by the
 /// id of its item, or a page card by the id of its page.
