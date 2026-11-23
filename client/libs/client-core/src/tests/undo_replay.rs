@@ -976,3 +976,22 @@ fn an_undo_pressed_before_the_answer_of_a_move_undoes_that_move_when_the_answer_
     assert_eq!(moved_ids(&h), [["a".to_string()]]);
     assert_eq!(h.bodies(), ["a=", "b=b2"]);
 }
+
+// タスクの切り替えの答えが届く前のCtrl+Zは、答えが届いてから、その切り替えを戻す。前の操作は戻さない。
+#[test]
+fn an_undo_pressed_before_the_answer_of_a_task_cycle_undoes_that_cycle_when_the_answer_is_there()
+{
+    let mut h = harness_after_an_edit_of_b();
+    h.hold("CycleTask");
+    h.send(Event::TaskCycle {
+        item_id: "a".into(),
+    });
+
+    h.send(Event::Undo);
+    assert!(batch_calls(&h.api).is_empty());
+
+    h.release_held();
+    assert!(!h.model.state.get_item_by_id("a").unwrap().is_task());
+    assert_eq!(h.bodies(), ["a=", "b=b2"]);
+    assert_eq!(task_states_sent(&h), [("a".to_string(), TaskState::default())]);
+}
