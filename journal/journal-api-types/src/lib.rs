@@ -648,4 +648,34 @@ mod tests {
             batch
         );
     }
+
+    // 位置は、JSONでは"first"、"last"、"after:<id>"の文字列として書かれ、同じ位置に読み戻される。
+    #[test]
+    fn a_position_is_written_in_json_as_its_text_and_read_back() {
+        let positions = [
+            (ItemPosition::First, "first"),
+            (ItemPosition::Last, "last"),
+            (ItemPosition::after("x"), "after:x"),
+        ];
+
+        for (position, text) in positions {
+            let written = serde_json::to_value(&position).unwrap();
+            assert_eq!(written, json!(text));
+            assert_eq!(
+                serde_json::from_value::<ItemPosition>(written).unwrap(),
+                position
+            );
+        }
+    }
+
+    // 決まりに合わない文字列は、位置として読めない。
+    #[test]
+    fn a_text_that_is_no_position_is_not_read() {
+        for text in ["nowhere", "", "after", "First"] {
+            assert!(
+                serde_json::from_value::<ItemPosition>(json!(text)).is_err(),
+                "{text}"
+            );
+        }
+    }
 }
