@@ -6,6 +6,8 @@ members = [
     "libs/client-api-http",
     "libs/client-api-embedded",
     "apps/web-app/outliner",
+    # The prototype shells of #971 (ADR 079); no app is built from it
+    "apps/web-app/prototypes/bridge",
     "apps/emacs/outliner",
     "libs/client-native-bridge",
     "libs/client-shell-http",

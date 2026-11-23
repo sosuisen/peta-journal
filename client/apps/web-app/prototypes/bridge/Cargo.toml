@@ -1,0 +1,34 @@
+[package]
+name = "web-prototype-bridge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The core for the prototype web shells of #971: events in, changes out, as JSON or as JS values"
+publish = false
+
+# A prototype to compare Solid and React (#971, ADR 079). It is not part of any app.
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+client-core = { path = "../../../../libs/client-core" }
+# The URLs of the pages, as the journal makes them (ADR 061)
+page-urls = { path = "../../../../../journal/page-urls" }
+flatmarkdown-ast = { workspace = true }
+flatmarkdown-ast2html = { workspace = true }
+crux_core = "=0.20.0"
+serde = { workspace = true }
+serde_json = { workspace = true }
+# The second way to carry the changes, which ADR 079 asks the prototype to measure
+serde-wasm-bindgen = "0.6.5"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+gloo-net = { version = "0.6", features = ["http", "eventsource"] }
+gloo-timers = { version = "0.3", features = ["futures"] }
+console_error_panic_hook = "0.1"
+web-sys = { version = "0.3", features = [
+  "Window", "Document", "EventSource", "MessageEvent", "Event", "FormData", "File", "Blob",
+  "console",
+] }

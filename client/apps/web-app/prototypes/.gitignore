@@ -1,0 +1,4 @@
+node_modules/
+dist/
+# wasm-pack writes the package of the bridge here
+pkg/
