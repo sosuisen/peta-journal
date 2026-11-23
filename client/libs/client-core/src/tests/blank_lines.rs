@@ -4,7 +4,7 @@
 use crate::app::{Event, Route};
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{item, split_calls, typed, update_calls, Harness};
-use crate::model::{Page, PageWithItems, PasteCursor, Pasted};
+use crate::model::{Page, PageWithItems, PasteCursor, Pasted, Split};
 
 fn notes() -> Page {
     Page {
@@ -91,6 +91,28 @@ fn a_split_sends_the_body_of_the_file_and_the_cursor_in_it() {
         split_calls(&h.api),
         [("a".to_string(), "a\n\\\nb\n\\c".to_string(), 7)]
     );
+}
+
+// 分割の答えの本文の`\`だけの行は、画面では空行になる。
+#[test]
+fn the_bodies_of_a_split_answer_are_shown_with_blank_lines() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a\n\nb\nc")]);
+    h.model.state.add_editing_item("a");
+    let split = Split {
+        item: item("a", 1, "a\n\\\nb"),
+        created: item("n", 1, "\\\nc"),
+    };
+    h.api
+        .answer_next("SplitItem", Ok(ApiOutput::Split(Box::new(split))));
+
+    let now_ms = h.now_ms;
+    h.send(Event::EnterPressed {
+        item_id: "a".into(),
+        cursor: "a\n\nb\n".len(),
+        now_ms,
+    });
+
+    assert_eq!(h.bodies(), ["a=a\n\nb", "n=\nc"]);
 }
 
 // 貼り付けは、ファイルの形の本文とカーソルを送る。答えの本文とカーソルは、画面の形に直る。
