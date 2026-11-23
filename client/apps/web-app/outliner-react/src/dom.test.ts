@@ -115,6 +115,27 @@ describe('the text under a point', () => {
     expect(textBeforePoint(body, 0, 0)).toBe('one t');
   });
 
+  // caretPositionFromPointのないSafariでは、caretRangeFromPointで同じ文字を答える。点が何の上にもなければ、何も答えない。
+  test('Safari, which has only caretRangeFromPoint, gets the same letters', () => {
+    const body = document.createElement('div');
+    body.textContent = 'one';
+    document.body.append(body);
+    const range = document.createRange();
+    range.setStart(body.firstChild as Node, 2);
+    let under: Range | null = range;
+    Object.defineProperty(document, 'caretRangeFromPoint', {
+      configurable: true,
+      value: () => under,
+    });
+
+    const letters = textBeforePoint(body, 0, 0);
+    under = null;
+
+    expect(letters).toBe('on');
+    expect(textBeforePoint(body, 0, 0)).toBeNull();
+    Reflect.deleteProperty(document, 'caretRangeFromPoint');
+  });
+
   // 点が本文の文字の上にないときは、何も答えない。
   test('nothing when the point is on no letter of the body', () => {
     const body = document.createElement('div');
