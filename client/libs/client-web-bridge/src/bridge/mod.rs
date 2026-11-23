@@ -54,6 +54,10 @@ pub trait Host: 'static {
     /// Stops the timer `id`, so that it never fires.
     fn cancel_timer(&self, id: u64);
 
+    /// Does an operation of the screen with the APIs of `window`, and calls `done` with the
+    /// answer when the core waits for one.
+    fn screen(&self, op: &UiOp, done: Done<UiOutput>);
+
     /// Gives the shell an operation of the screen that only it can do, with its number. The
     /// shell answers with [`Bridge::resolve`].
     fn ask(&self, id: u32, op: &UiOp);
@@ -299,9 +303,27 @@ impl<H: Host> Bridge<H> {
                 .questions
                 .borrow_mut()
                 .ask(request, |question| self.keep(question, &mut given)),
-            Lane::Wasm => {}
+            Lane::Wasm => self.by_window(request),
         }
         self.tell(given);
+    }
+
+    /// Does an operation of the screen without the shell. The time is answered here, as the
+    /// shell would only read the same clock.
+    fn by_window(&self, mut request: Request<UiOp>) {
+        if let UiOp::LocalNow = request.operation {
+            let (local, now_ms) = self.host.now();
+            self.answer(&mut request, UiOutput::Now { local, now_ms });
+            return;
+        }
+        let op = request.operation.clone();
+        let me = self.me.clone();
+        let done = Box::new(move |output| {
+            if let Some(me) = me.upgrade() {
+                me.answer(&mut request, output);
+            }
+        });
+        self.host.screen(&op, done);
     }
 
     /// Numbers a request for the shell, and keeps it until the shell answers. A notification
