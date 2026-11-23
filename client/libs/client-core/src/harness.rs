@@ -586,6 +586,8 @@ pub struct Harness {
     /// What `Prompt` answers.
     pub prompt: Option<String>,
     pub now_ms: u64,
+    /// What `LocalNow` answers: the local date and time of the shell.
+    pub local_now: LocalDateTimeDto,
     /// The operation whose requests wait for `release_held` instead of an answer at once,
     /// as a slow request does.
     holding: Option<&'static str>,
@@ -614,6 +616,13 @@ impl Harness {
             confirm: true,
             prompt: None,
             now_ms: 1_000_000,
+            local_now: LocalDateTimeDto {
+                year: 2026,
+                month: 2,
+                day: 10,
+                hour: 9,
+                minute: 5,
+            },
             holding: None,
             held: Vec::new(),
         }
@@ -723,13 +732,7 @@ impl Harness {
                     UiOp::Confirm(_) | UiOp::ConfirmDestructive(_) => UiOutput::Bool(self.confirm),
                     UiOp::Prompt(_) => UiOutput::Text(self.prompt.clone()),
                     UiOp::LocalNow => UiOutput::Now {
-                        local: LocalDateTimeDto {
-                            year: 2026,
-                            month: 2,
-                            day: 10,
-                            hour: 9,
-                            minute: 5,
-                        },
+                        local: self.local_now,
                         now_ms: self.now_ms,
                     },
                     _ => UiOutput::Done,
