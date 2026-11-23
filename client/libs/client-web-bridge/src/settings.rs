@@ -1,13 +1,22 @@
 //! What the settings screen of the web shell shows of the property definitions.
 
+use client_core::model::{shown_name, PropertyDefinition, USER_VALUE_TYPES};
+
 /// The names the screen shows for the keys of `definitions`, given as JSON, in their order.
 pub fn shown_names(definitions: &str) -> Result<Vec<String>, String> {
-    Ok(Vec::new())
+    let definitions: Vec<PropertyDefinition> = crate::border::read(definitions)?;
+    Ok(definitions
+        .iter()
+        .map(|d| shown_name(&d.key, &definitions))
+        .collect())
 }
 
 /// The types a user may give a new key, in the order the settings offer them.
 pub fn user_value_types() -> Vec<String> {
-    Vec::new()
+    USER_VALUE_TYPES
+        .iter()
+        .map(|t| t.as_str().to_string())
+        .collect()
 }
 
 #[cfg(test)]
