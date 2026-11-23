@@ -1,4 +1,5 @@
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import App from './App';
 import {
@@ -12,6 +13,8 @@ import {
   type JournalType,
   type Panel,
 } from './border/peta-types';
+import { AskedOpsContext } from './askedContext';
+import { CoreContext } from './context';
 import { draw, outline, shell } from './test/screens';
 
 afterEach(() => {
@@ -117,11 +120,17 @@ describe('the frame of the app', () => {
     const { container } = app();
     const sidebar = () => container.querySelector('aside') as HTMLElement;
 
+    const layout = () => container.querySelector('.layout')?.className;
+
     fireEvent.click(button('☰'));
-    const closed = [sidebar().className, sidebar().style.width];
+    const closed = [sidebar().className, sidebar().style.width, layout()];
     fireEvent.click(button('☰'));
 
-    expect(closed).toEqual(['sidebar collapsed', '0px']);
+    expect(closed).toEqual([
+      'sidebar collapsed',
+      '0px',
+      'layout sidebar-collapsed',
+    ]);
     expect([sidebar().className, sidebar().style.width]).toEqual([
       'sidebar',
       '260px',
@@ -186,24 +195,50 @@ describe('the page menu', () => {
     expect(inJournal).toBeNull();
     expect(wasm.events).toEqual([{ kind: 'EditPageProperties' }]);
   });
+
+  // 開けなかったページにも、プロパティの編集はない。
+  test('a page that did not open cannot edit its properties', () => {
+    app({ kind: 'Screen', value: { kind: 'Page', value: null } });
+
+    fireEvent.click(button('⋮'));
+
+    expect(screen.queryByText('Edit properties')).toBeNull();
+  });
 });
 
 // 日誌
 describe('a journal', () => {
   // 日と週の日誌には、前と次への移動がある。
   test('a daily or weekly journal moves to the one before and after', () => {
-    const { wasm } = app({
+    for (const kind of ['Daily', 'Weekly'] as const) {
+      const { wasm, unmount } = app({
+        kind: 'Screen',
+        value: { kind: 'Journal', value: journal(kind) },
+      });
+
+      fireEvent.click(button('<'));
+      fireEvent.click(button('>'));
+
+      expect(wasm.events).toEqual([
+        { kind: 'JournalNav', value: { kind: 'Prev' } },
+        { kind: 'JournalNav', value: { kind: 'Next' } },
+      ]);
+      unmount();
+    }
+  });
+
+  // ページのある日誌は、その項目を出す。
+  test('a journal with a page shows its items', () => {
+    const { container, show } = app({
       kind: 'Screen',
-      value: { kind: 'Journal', value: journal('Weekly') },
+      value: { kind: 'Journal', value: journal('Daily') },
     });
 
-    fireEvent.click(button('<'));
-    fireEvent.click(button('>'));
+    act(() => {
+      show({ kind: 'Outline', value: outline() });
+    });
 
-    expect(wasm.events).toEqual([
-      { kind: 'JournalNav', value: { kind: 'Prev' } },
-      { kind: 'JournalNav', value: { kind: 'Next' } },
-    ]);
+    expect(container.querySelector('app-outline')).not.toBeNull();
   });
 
   // 月と年の日誌と、種類のない日誌には、移動がない。
@@ -298,6 +333,26 @@ describe('a document page', () => {
       'dir-path-breadcrumb index-breadcrumb',
     );
     expect(wasm.events).toEqual([{ kind: 'DemoteIndex' }]);
+  });
+
+  // 深いフォルダの目次では、上のフォルダは目次へのリンクで、最後のフォルダだけが題名である。
+  test('in a deep index the upper folders lead to their index, and only the last is the title', () => {
+    const { container } = page(
+      docPage('index', 'work/plan/', {
+        is_index: true,
+        dir_segments: [
+          new DirSegment('work', 'work/', 'work/index'),
+          new DirSegment('plan', 'work/plan/', 'work/plan/index'),
+        ],
+      }),
+    );
+
+    expect(
+      [...container.querySelectorAll('.dir-segment')].map(a => a.textContent),
+    ).toEqual(['work']);
+    expect(container.querySelector('.dir-segment-title')?.textContent).toBe(
+      'plan',
+    );
   });
 
   // 名前を変えられない目次には、ボタンがない。
@@ -396,6 +451,37 @@ describe('the keys of the whole page', () => {
     expect([kept, reached]).toEqual([true, false]);
     expect(wasm.events).toEqual([{ kind: 'NavigateHome' }]);
     editor.remove();
+  });
+
+  // StrictModeで枠を描き直しても、キーは一度だけ届く。枠がなくなれば、ページのキーは聞かない。
+  test('in StrictMode a key arrives once, and without the frame the page keys are off', () => {
+    const { core, wasm, asked } = shell();
+    const { unmount } = render(
+      <StrictMode>
+        <CoreContext value={core}>
+          <AskedOpsContext value={asked}>
+            <App />
+          </AskedOpsContext>
+        </CoreContext>
+      </StrictMode>,
+    );
+    const home = () =>
+      fireEvent.keyDown(document.body, {
+        key: 'Enter',
+        ctrlKey: true,
+        altKey: true,
+      });
+
+    home();
+    const once = wasm.events.length;
+    unmount();
+    home();
+
+    expect([once, wasm.events.length]).toEqual([1, 1]);
+    expect([
+      fireEvent.dragOver(document.body),
+      fireEvent.drop(document.body),
+    ]).toEqual([true, true]);
   });
 
   // Shift、Command、IMEの変換が加わると、ホームは開かない。
@@ -541,6 +627,13 @@ describe('the confirm dialog', () => {
     expect(
       answers(() => fireEvent.keyDown(button('OK'), { key: 'Escape' })),
     ).toEqual([[{ id: 9, output: { kind: 'Bool', value: false } }], null]);
+  });
+
+  // ダイアログのEscapeは、ダイアログが使い、ブラウザには渡さない。
+  test('Escape in the dialog is the dialog’s', () => {
+    asking();
+
+    expect(fireEvent.keyDown(button('OK'), { key: 'Escape' })).toBe(false);
   });
 
   // ほかのキーでは、答えない。
