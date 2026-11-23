@@ -52,6 +52,9 @@ jobs:
       # The shell only runs in the browser, and the native build above does not show what breaks on wasm
       - if: matrix.workspace == 'client'
         run: cargo check --target wasm32-unknown-unknown -p outliner-web
+      # The browser side of client-web-bridge (src/web.rs) is built for wasm only
+      - if: matrix.workspace == 'client'
+        run: cargo clippy --target wasm32-unknown-unknown -p client-web-bridge --lib
       # The Emacs mode of client/apps/emacs/outliner. These tests need no process. The E2E tests are
       # in the emacs-e2e job: they need the journal server too.
       # Why not emacs-nox: it has no images and no fringes, and some of the tests are about them
