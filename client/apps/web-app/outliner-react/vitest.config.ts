@@ -1,5 +1,5 @@
 import { defineConfig, mergeConfig } from 'vitest/config';
-import vite from './vite.config';
+import vite from './vite.config.ts';
 
 /**
  * `npm run coverage` measures the test coverage with the V8 coverage of Node. It prints a table
