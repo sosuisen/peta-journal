@@ -131,6 +131,19 @@ describe('the property definitions', () => {
     ]);
   });
 
+  // コアが定義を変えると、名前もwasmに尋ね直す。
+  test('the names follow the definitions the core gives', () => {
+    const { container, show } = settings(
+      config({ property_definitions: definitions }),
+    );
+
+    show(config({ property_definitions: [definition('due_d')] }));
+
+    expect(rows(container)).toEqual([
+      ['', 'shown due_d', 'text', '', 'Delete'],
+    ]);
+  });
+
   // Deleteは、その場でもう一度尋ねる。Noでやめ、Yesで消す。
   test('Delete asks once more in place, No keeps the key and Yes deletes it', () => {
     const { container, wasm } = settings(
@@ -151,7 +164,7 @@ describe('the property definitions', () => {
     ]);
   });
 
-  // 新しいキーは、名前と、wasmが決めた型から選んだものを、Addで足す。名前の前後の空白は除く。
+  // 新しいキーは、名前と、wasmが決めた型から選んだものを、Addで足す。名前の前後の空白は除く。ページは読み込み直さない。
   test('a new key is added with its name and a type chosen from wasm', () => {
     const { wasm } = settings();
     const name = screen.getByPlaceholderText<HTMLInputElement>('new key');
@@ -161,9 +174,10 @@ describe('the property definitions', () => {
     fireEvent.click(screen.getByText('Add'));
     fireEvent.input(name, { target: { value: ' rating ' } });
     fireEvent.change(type, { target: { value: 'number' } });
-    fireEvent.click(screen.getByText('Add'));
+    const kept = !fireEvent.submit(name.form as HTMLFormElement);
 
     expect(types).toEqual(['text', 'number']);
+    expect(kept).toBe(true);
     expect(wasm.events).toEqual([
       { kind: 'AddPropertyDefinition', body: '', value_type: 'text' },
       { kind: 'AddPropertyDefinition', body: 'rating', value_type: 'number' },
