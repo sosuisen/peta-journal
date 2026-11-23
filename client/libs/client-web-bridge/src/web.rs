@@ -543,6 +543,26 @@ impl WebShell {
         crate::settings::user_value_types()
     }
 
+    /// The placed cards of an atlas, the link cards among them, as `setCards` of `atlas.js`
+    /// takes them. The cards and the links are given as JSON.
+    #[wasm_bindgen(js_name = atlasCards)]
+    pub fn atlas_cards(&self, cards: &str, links: &str) -> Result<String, JsError> {
+        crate::atlas::placed_json(cards, links).map_err(|e| JsError::new(&e))
+    }
+
+    /// The callouts of an atlas as `setCallouts` of `atlas.js` takes them. The callouts are
+    /// given as JSON.
+    #[wasm_bindgen(js_name = atlasCallouts)]
+    pub fn atlas_callouts(&self, callouts: &str) -> Result<String, JsError> {
+        crate::atlas::callouts_json(callouts).map_err(|e| JsError::new(&e))
+    }
+
+    /// The folder above the folder `dirPath`, as the up button of an atlas names it.
+    #[wasm_bindgen(js_name = parentDirLabel)]
+    pub fn parent_dir_label(&self, dir_path: &str) -> String {
+        crate::atlas::parent_dir_label(dir_path)
+    }
+
     /// Begins the clipboard write of a copy or a cut of the selection. The shell calls this
     /// from the handler of the user's key or copy event, before the event goes to the core:
     /// Safari lets a page write the clipboard only then. Without `ClipboardItem` (older
