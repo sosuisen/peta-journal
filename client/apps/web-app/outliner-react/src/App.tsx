@@ -5,6 +5,7 @@ import { useCore, usePanel } from './context';
 import Outline from './Outline';
 import PageProperties, { type Draft } from './PageProperties';
 import SearchBar from './SearchBar';
+import Settings from './Settings';
 import Sidebar from './Sidebar';
 
 /**
@@ -272,6 +273,8 @@ function PageDispatcher() {
     shown = <Journal journal={screen.value} />;
   } else if (screen?.kind === 'Page' && screen.value !== null) {
     shown = <DocPage page={screen.value} />;
+  } else if (screen?.kind === 'Settings') {
+    shown = <Settings />;
   }
   return <app-page-dispatcher>{shown}</app-page-dispatcher>;
 }
