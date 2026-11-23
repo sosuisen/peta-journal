@@ -228,6 +228,43 @@ fn the_same_journal_is_not_loaded_again_unless_an_item_is_named() {
     assert_eq!(h.api.calls_named("GetOrCreateJournal").len(), 2);
 }
 
+// 遡って読み込んだジャーナルで折りたたまれた項目は、その子を隠す。
+#[test]
+fn a_collapsed_item_of_an_older_journal_hides_its_children() {
+    let name = "2026-02-09";
+    let parent = item_with("parent", 1, |i| {
+        i.page_id = format!("page-{name}");
+        i.item_type = "journal".into();
+        i.name = name.into();
+        i.collapsed = true;
+    });
+    let child = item_with("child", 2, |i| {
+        i.page_id = format!("page-{name}");
+        i.item_type = "journal".into();
+        i.name = name.into();
+    });
+    let mut h = Harness::new();
+    h.api.answer_next(
+        "GetMostRecentJournalBefore",
+        Ok(ApiOutput::JournalBefore(JournalBefore {
+            found: true,
+            page: Some(journal_page(name)),
+            items: vec![parent, child],
+            transcluded_trees: None,
+        })),
+    );
+    visit(&mut h, TODAY);
+
+    let rows: Vec<String> = h
+        .view()
+        .outline
+        .rows
+        .iter()
+        .map(|r| r.item.id.clone())
+        .collect();
+    assert_eq!(rows, ["item-2026-02-10", "parent"]);
+}
+
 // スクロールすると、見出しは一番上に見える項目の日になる。残りの項目が少なくなると、最後の項目の日より前のジャーナルが読み込まれる。
 #[test]
 fn scrolling_moves_the_header_date_and_loads_more_when_the_end_comes_near() {
