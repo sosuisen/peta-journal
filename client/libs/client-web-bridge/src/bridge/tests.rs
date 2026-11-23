@@ -1,5 +1,5 @@
 use super::*;
-use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent};
+use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, UiOp};
 use client_core::model::{Page, PageWithItems};
 use client_core::testing::plain_item;
 use std::cell::{Cell, RefCell};
