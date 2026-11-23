@@ -152,4 +152,11 @@ describe('the core in wasm', () => {
     expect(wasm.replays).toEqual([{ key, text: 'ab', start: 1, end: 2 }]);
     expect(query).toBe('no');
   });
+
+  // タグのページのURLは、wasmが決める。
+  test('wasm gives the url of the page of a tag', () => {
+    const { core } = shell();
+
+    expect(core.tagUrl('tags/', 'plan')).toBe('/pages/tags/plan');
+  });
 });

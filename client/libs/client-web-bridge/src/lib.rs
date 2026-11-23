@@ -10,6 +10,7 @@ pub mod bridge;
 pub mod codegen;
 pub mod lanes;
 pub mod replay;
+pub mod tags;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
 pub mod wiki;

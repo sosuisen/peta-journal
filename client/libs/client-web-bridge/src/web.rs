@@ -524,6 +524,12 @@ impl WebShell {
         crate::wiki::query_at(text, cursor.into())
     }
 
+    /// The URL of the page of the tag `tag`, in the folder of the tags `tagsDir`.
+    #[wasm_bindgen(js_name = tagUrl)]
+    pub fn tag_url(&self, tags_dir: &str, tag: &str) -> String {
+        crate::tags::tag_url(tags_dir, tag)
+    }
+
     /// Begins the clipboard write of a copy or a cut of the selection. The shell calls this
     /// from the handler of the user's key or copy event, before the event goes to the core:
     /// Safari lets a page write the clipboard only then. Without `ClipboardItem` (older

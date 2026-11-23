@@ -122,6 +122,11 @@ export class Core {
     return this.shell.wikiQueryAt(text, cursor);
   }
 
+  /** The URL of the page of the tag `tag`, in the folder of the tags `tagsDir`. */
+  tagUrl(tagsDir: string, tag: string): string {
+    return this.shell.tagUrl(tagsDir, tag);
+  }
+
   /** Begins the clipboard write of a copy, while the user's key still allows it. */
   beginCopy(): void {
     this.shell.beginCopy();

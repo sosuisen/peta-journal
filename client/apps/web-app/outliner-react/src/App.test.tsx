@@ -328,6 +328,43 @@ describe('a document page', () => {
     ]);
   });
 
+  // プロパティは、見せるときだけ項目の上に出る。新しい行があれば、見せなくなっても残る。
+  test('the properties show above the items when shown, and stay while a new row is there', () => {
+    const { container, show } = page(docPage('notes'));
+    const hidden = container.querySelector('.page-properties');
+    const shown = (show_properties: boolean) =>
+      show({
+        kind: 'Screen',
+        value: {
+          kind: 'Page',
+          value: docPage('notes', '', { show_properties }),
+        },
+      });
+
+    shown(true);
+    const above = container.querySelector('.outline-header .page-properties');
+    fireEvent.click(screen.getByTitle('Add property'));
+    shown(false);
+
+    expect(hidden).toBeNull();
+    expect(above).not.toBeNull();
+    expect(container.querySelector('.property-row.draft')).not.toBeNull();
+  });
+
+  // 新しい行がなく、見せなくなれば、プロパティは消える。
+  test('without a new row the properties go when they are no longer shown', () => {
+    const { container, show } = page(
+      docPage('notes', '', { show_properties: true }),
+    );
+
+    show({
+      kind: 'Screen',
+      value: { kind: 'Page', value: docPage('notes') },
+    });
+
+    expect(container.querySelector('.page-properties')).toBeNull();
+  });
+
   // 一番上のフォルダのページは、道筋を出さない。下に動かしたページは、見出しに印がつく。
   test('a page at the top has no path, and a scrolled one marks its header', () => {
     const { container, show } = page(docPage('notes'));

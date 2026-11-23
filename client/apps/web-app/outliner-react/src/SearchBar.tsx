@@ -1,7 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from 'react';
+import { useEffect, type KeyboardEvent } from 'react';
 import type { SearchEntry, SearchKey } from './border/peta-types';
 import { useCore, usePanel } from './context';
 import { isImeComposing } from './dom';
+import { useShownValue } from './shownValue';
 
 /** How long the results stay after the input loses the focus: a press on one comes first. */
 const CLOSE_AFTER_BLUR_MS = 200;
@@ -18,17 +19,8 @@ export default function SearchBar() {
   const core = useCore();
   const search = usePanel('Search');
   const editing = usePanel('Outline')?.focused_item_id != null;
-  const input = useRef<HTMLInputElement>(null);
-  const query = search?.query ?? '';
-
-  // The query as the core has it, as cleared after a navigation. The input keeps its own
-  // value in between, so that an IME composition is never written over
-  useLayoutEffect(() => {
-    const el = input.current as HTMLInputElement;
-    if (el.value !== query) {
-      el.value = query;
-    }
-  }, [query]);
+  // The query as the core has it, as cleared after a navigation
+  const input = useShownValue(search?.query ?? '');
 
   useFocusKeys(input, editing);
 

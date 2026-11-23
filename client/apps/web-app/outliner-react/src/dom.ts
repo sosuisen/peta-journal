@@ -141,3 +141,31 @@ export function localTime(iso: string): string {
   const two = (n: number) => String(n).padStart(2, '0');
   return `${two(date.getHours())}:${two(date.getMinutes())}`;
 }
+
+function localMinutesOf(date: Date): string {
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}T${two(date.getHours())}:${two(date.getMinutes())}`;
+}
+
+/** A date-time as a `datetime-local` input shows it: local time to the minute. */
+export function localMinutes(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : localMinutesOf(date);
+}
+
+/** The current local time to the minute, `YYYY-MM-DDTHH:MM`. */
+export function nowLocalMinutes(): string {
+  return localMinutesOf(new Date());
+}
+
+/**
+ * A `datetime-local` value as the server stores a date-time: UTC to the second,
+ * `YYYY-MM-DDTHH:MM:SSZ`. Empty when the text is not a date-time.
+ */
+export function localMinutesToUtc(local: string): string {
+  const date = new Date(local);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  return `${date.toISOString().slice(0, 19)}Z`;
+}
