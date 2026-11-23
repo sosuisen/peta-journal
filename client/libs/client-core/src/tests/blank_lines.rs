@@ -4,7 +4,10 @@
 use crate::app::{Event, Route};
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{item, split_calls, typed, update_calls, Harness};
-use crate::model::{Page, PageWithItems, PasteCursor, Pasted, Split};
+use crate::model::{
+    BacklinkEntry, Batched, Item, JournalBefore, Page, PageWithItems, PasteCursor, Pasted, Split,
+    Stashed, TranscludedTrees,
+};
 
 fn notes() -> Page {
     Page {
@@ -143,4 +146,83 @@ fn a_paste_sends_the_body_of_the_file_and_puts_the_cursor_back_on_the_screen() {
     ));
     assert_eq!(h.bodies(), ["a=a\n\nbX"]);
     assert_eq!(h.focus_cursor(), Some("a\n\nbX".len()));
+}
+
+/// An item whose body in the file has a backslash line.
+fn from_file(id: &str) -> Item {
+    item(id, 1, "a\n\\\nb")
+}
+
+/// The bodies of every item an answer has, in no order.
+fn bodies_of(output: &ApiOutput) -> Vec<String> {
+    let trees = |trees: &Option<TranscludedTrees>| -> Vec<Item> {
+        trees
+            .iter()
+            .flat_map(|t| t.values().flatten().cloned())
+            .collect()
+    };
+    let items: Vec<Item> = match output {
+        ApiOutput::Page(p) => [p.items.clone(), trees(&p.transcluded_trees)].concat(),
+        ApiOutput::JournalBefore(j) => [j.items.clone(), trees(&j.transcluded_trees)].concat(),
+        ApiOutput::Item(i) => vec![i.clone()],
+        ApiOutput::Items(items) => items.clone(),
+        ApiOutput::Backlinks(entries) => entries
+            .iter()
+            .filter_map(|e| e.source_item.clone())
+            .collect(),
+        ApiOutput::Stashed(s) => [vec![s.heading.clone()], s.items.clone()].concat(),
+        ApiOutput::Batched(b) => [b.items.clone(), b.created.clone()].concat(),
+        other => panic!("not an answer with items: {other:?}"),
+    };
+    items.into_iter().map(|i| i.body).collect()
+}
+
+// サーバーのどの答えの項目も、本文の`\`だけの行は空行になる。トランスクルージョンの元の項目、バックリンクの項目も同じである。
+#[test]
+fn every_item_of_an_answer_comes_with_blank_lines() {
+    let trees = || {
+        Some(TranscludedTrees::from([(
+            "s".to_string(),
+            vec![from_file("s")],
+        )]))
+    };
+    let answers = [
+        ApiOutput::Page(PageWithItems {
+            page: notes(),
+            items: vec![from_file("a")],
+            created: false,
+            transcluded_trees: trees(),
+        }),
+        ApiOutput::JournalBefore(JournalBefore {
+            found: true,
+            page: Some(notes()),
+            items: vec![from_file("a")],
+            transcluded_trees: trees(),
+        }),
+        ApiOutput::Item(from_file("a")),
+        ApiOutput::Items(vec![from_file("a"), from_file("b")]),
+        ApiOutput::Backlinks(vec![BacklinkEntry {
+            source_page: notes(),
+            source_item: Some(from_file("a")),
+        }]),
+        ApiOutput::Stashed(Box::new(Stashed {
+            heading: from_file("h"),
+            created: false,
+            items: vec![from_file("a")],
+        })),
+        ApiOutput::Batched(Box::new(Batched {
+            items: vec![from_file("a")],
+            created: vec![from_file("b")],
+        })),
+    ];
+
+    for answer in answers {
+        let shown = crate::file_body::output_to_shell(answer.clone());
+
+        let bodies = bodies_of(&shown);
+        assert!(
+            !bodies.is_empty() && bodies.iter().all(|b| b == "a\n\nb"),
+            "{answer:?} came as {bodies:?}"
+        );
+    }
 }
