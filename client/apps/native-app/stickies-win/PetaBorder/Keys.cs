@@ -84,11 +84,13 @@ public sealed partial class Shell
     {
         ArgumentNullException.ThrowIfNull(paths);
         var body = View.Outline.Rows.First(row => row.Item.Id == itemId).Item.Body;
-        border.PasteImage(
-            itemId,
-            paths[0],
-            PetaCore.PetaNative.CharsOfUtf16(body, (ulong)body.Length)
+        // The core deletes the file it is given (ADR 071): it gets a copy with the same name
+        var copy = Path.Combine(
+            Directory.CreateTempSubdirectory("peta-dropped-").FullName,
+            Path.GetFileName(paths[0])
         );
+        File.Copy(paths[0], copy);
+        border.PasteImage(itemId, copy, PetaCore.PetaNative.CharsOfUtf16(body, (ulong)body.Length));
     }
 
     /// <summary>Where the cursor is in the editor, in the characters that the core counts.</summary>
