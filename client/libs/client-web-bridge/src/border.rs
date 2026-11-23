@@ -116,6 +116,22 @@ mod tests {
         assert!(!json.contains("pageId"), "{json}");
     }
 
+    // 小数のない数で書かれた小数も読める。JSON.rawJSONのないブラウザは、0.0を0と書くためである。
+    #[test]
+    fn a_float_written_without_a_fraction_is_read() {
+        let pressed: DragMove =
+            read(r#"{"Pressed":{"item_id":"i1","top":0,"bottom":20}}"#).unwrap();
+
+        assert_eq!(
+            pressed,
+            DragMove::Pressed {
+                item_id: "i1".into(),
+                top: 0.0,
+                bottom: 20.0,
+            }
+        );
+    }
+
     // facetのJSONでないものは、読めない理由とともに断られる。
     #[test]
     fn what_is_not_the_json_of_facet_is_refused() {
