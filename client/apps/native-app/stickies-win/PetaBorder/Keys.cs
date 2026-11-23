@@ -84,13 +84,7 @@ public sealed partial class Shell
     {
         ArgumentNullException.ThrowIfNull(paths);
         var body = View.Outline.Rows.First(row => row.Item.Id == itemId).Item.Body;
-        // The core deletes the file it is given (ADR 071): it gets a copy with the same name
-        var copy = Path.Combine(
-            Directory.CreateTempSubdirectory("peta-dropped-").FullName,
-            Path.GetFileName(paths[0])
-        );
-        File.Copy(paths[0], copy);
-        border.PasteImage(itemId, copy, PetaCore.PetaNative.CharsOfUtf16(body, (ulong)body.Length));
+        Drop(itemId, paths, PetaCore.PetaNative.CharsOfUtf16(body, (ulong)body.Length));
     }
 
     /// <summary>
@@ -101,12 +95,26 @@ public sealed partial class Shell
     {
         ArgumentNullException.ThrowIfNull(editor);
         ArgumentNullException.ThrowIfNull(paths);
+        Drop(itemId, paths, CursorOf(editor));
+    }
+
+    /// <summary>Links the dropped image at <paramref name="cursor"/>, in the characters of the
+    /// core.</summary>
+    private void Drop(string itemId, IReadOnlyList<string> paths, ulong cursor) =>
+        border.PasteImage(itemId, CopyOf(paths[0]), cursor);
+
+    /// <summary>
+    /// A copy of the file with the same name, in a folder of its own. The core deletes the file
+    /// it is given (ADR 071), and the file the user dropped must stay.
+    /// </summary>
+    private static string CopyOf(string path)
+    {
         var copy = Path.Combine(
             Directory.CreateTempSubdirectory("peta-dropped-").FullName,
-            Path.GetFileName(paths[0])
+            Path.GetFileName(path)
         );
-        File.Copy(paths[0], copy);
-        border.PasteImage(itemId, copy, CursorOf(editor));
+        File.Copy(path, copy);
+        return copy;
     }
 
     /// <summary>Where the cursor is in the editor, in the characters that the core counts.</summary>
