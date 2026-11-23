@@ -76,6 +76,21 @@ public sealed partial class Shell
         border.PasteImage(itemId, path, CursorOf(editor));
     }
 
+    /// <summary>
+    /// The user dropped files on the drawn item. The image goes at the end of its body: the
+    /// drawn text and the Markdown do not line up.
+    /// </summary>
+    public void DropImage(string itemId, IReadOnlyList<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        var body = View.Outline.Rows.First(row => row.Item.Id == itemId).Item.Body;
+        border.PasteImage(
+            itemId,
+            paths[0],
+            PetaCore.PetaNative.CharsOfUtf16(body, (ulong)body.Length)
+        );
+    }
+
     /// <summary>Where the cursor is in the editor, in the characters that the core counts.</summary>
     private static ulong CursorOf(EditorState editor) =>
         // WinUI counts in UTF-16 units (ADR 043)
