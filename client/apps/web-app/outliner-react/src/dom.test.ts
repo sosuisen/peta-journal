@@ -204,7 +204,7 @@ describe('the text under a point', () => {
   // 写しでも文字が見つからなければ、先頭の位置とする。
   test('the start when even the copy finds no letter', () => {
     const el = textarea('one');
-    caretAt(document.body, 0);
+    caretAt(document.body, 2);
 
     expect(textareaOffsetAtPoint(el, 0, 0)).toBe(0);
   });
