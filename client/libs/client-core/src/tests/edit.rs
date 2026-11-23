@@ -480,9 +480,9 @@ fn leaving_an_item_without_typed_text_ends_its_edit() {
     assert!(update_calls(&h.api).is_empty());
 }
 
-// 打った文字のある項目から別の項目へ移ると、本文の前後の空白だけの行は削られて保存される。空白だけの本文は空になる。
+// 打った文字のある項目から別の項目へ移ると、本文の末尾の空白だけの行は削られて保存される。空白だけの本文は空になる。
 #[test]
-fn leaving_an_item_saves_its_body_without_the_blank_lines_before_and_after() {
+fn leaving_an_item_saves_its_body_without_the_blank_lines_at_the_end() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "b")]);
     h.send(Event::EditRequested {
         item_id: "a".into(),
