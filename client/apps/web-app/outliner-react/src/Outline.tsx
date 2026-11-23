@@ -1,6 +1,6 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useContext, useEffect, useRef, type ReactNode } from 'react';
-import { AskedOpsContext } from './askedContext';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { useAsked } from './askedContext';
 import { useCore, usePanel, useScreen } from './context';
 import type { Core } from './core';
 import { chordOf } from './keys';
@@ -25,7 +25,7 @@ interface Props {
  */
 export default function Outline({ header, footer }: Props) {
   const core = useCore();
-  const asked = useContext(AskedOpsContext);
+  const asked = useAsked();
   const { rows } = useScreen();
   const outline = usePanel('Outline');
   const viewport = useRef<HTMLElement>(null);
@@ -44,9 +44,6 @@ export default function Outline({ header, footer }: Props) {
 
   // A scroll to an item puts it a tenth down the list, as the sidebar and a search ask
   useEffect(() => {
-    if (asked === null) {
-      return;
-    }
     asked.scroller = (itemId, smooth) => {
       const index = core
         .current()

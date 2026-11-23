@@ -1,7 +1,6 @@
 import hljs from 'highlight.js/lib/common';
 import {
   memo,
-  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -10,7 +9,7 @@ import {
 } from 'react';
 import type { FocusRequest, Row } from './border/peta-types';
 import { deferredKey } from './asked';
-import { AskedOpsContext } from './askedContext';
+import { useAsked } from './askedContext';
 import { useCore } from './context';
 import { checkWikiLink } from './WikiSuggestions';
 import type { Core } from './core';
@@ -510,7 +509,7 @@ function ItemEditor({
   readonly holdingKeys: boolean;
 }) {
   const core = useCore();
-  const asked = useContext(AskedOpsContext);
+  const asked = useAsked();
   const id = row.item.id;
   const body = row.item.body;
   const area = useRef<HTMLTextAreaElement>(null);
@@ -590,7 +589,7 @@ function ItemEditor({
       return;
     }
     // The keys played after the held ones, into the next editor, wait behind them
-    if (asked?.keepForReplay(native) === true) {
+    if (asked.keepForReplay(native)) {
       event.preventDefault();
       return;
     }

@@ -1,11 +1,5 @@
-import {
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react';
-import { AskedOpsContext } from './askedContext';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useAsked } from './askedContext';
 import type { JournalView, PageView } from './border/peta-types';
 import { useCore, usePanel } from './context';
 import Outline from './Outline';
@@ -62,7 +56,7 @@ function connectionName(kind: string | undefined): string {
 /** The keys of the whole page: Ctrl+Alt+Enter opens Home. Files dropped off an item stay out. */
 function useGlobalKeys(): void {
   const core = useCore();
-  const asked = useContext(AskedOpsContext);
+  const asked = useAsked();
   useEffect(() => {
     // A key pressed while an editor waits for its focus is kept for that editor. An editor
     // that has the focus keeps such a key by itself
@@ -75,7 +69,7 @@ function useGlobalKeys(): void {
       ) {
         return;
       }
-      if (asked?.keepForReplay(event) === true) {
+      if (asked.keepForReplay(event)) {
         event.preventDefault();
       }
     };
@@ -395,18 +389,15 @@ function Backlinks({ page }: { readonly page: PageView }) {
  * answers OK to Enter: Cancel has the focus here.
  */
 function ConfirmDialog() {
-  const asked = useContext(AskedOpsContext);
-  const message = useSyncExternalStore(
-    asked?.subscribe ?? noSubscribe,
-    asked?.confirmMessage ?? noMessage,
-  );
+  const asked = useAsked();
+  const message = useSyncExternalStore(asked.subscribe, asked.confirmMessage);
   const cancel = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (message !== null) {
       cancel.current?.focus();
     }
   }, [message]);
-  if (message === null || asked === null) {
+  if (message === null) {
     return null;
   }
   return (
@@ -441,9 +432,6 @@ function ConfirmDialog() {
     </div>
   );
 }
-
-const noSubscribe = () => () => {};
-const noMessage = () => null;
 
 declare module 'react' {
   // eslint-disable-next-line @typescript-eslint/no-namespace
