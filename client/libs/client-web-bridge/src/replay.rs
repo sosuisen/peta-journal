@@ -1,7 +1,8 @@
 //! The play of a held key into the editor that was not on screen when it was pressed. The core
 //! decides what the key does (`DeferredKey`); the shell does it to its textarea.
 
-use client_core::model::DeferredKey;
+use client_core::model::{DeferredKey, TextKey};
+use client_core::util::utf16::{chars_of_utf16, utf16_of_chars};
 
 /// What the shell does with a held key, in the textarea that has `text`. Places count UTF-16
 /// units, as the textarea does.
@@ -19,8 +20,20 @@ pub enum Replay {
 }
 
 /// What `key` does in `text` with the selection from `start` to `end`.
-pub fn replay_of(_key: &DeferredKey, _text: &str, _start: u64, _end: u64) -> Replay {
-    Replay::Press
+pub fn replay_of(key: &DeferredKey, text: &str, start: u64, end: u64) -> Replay {
+    if key.is_typed_character() {
+        return Replay::Type(key.key.clone());
+    }
+    let chars = |units: u64| chars_of_utf16(text, usize::try_from(units).unwrap_or(usize::MAX));
+    let units = |chars: usize| utf16_of_chars(text, chars) as u64;
+    match key.text_key(text, chars(start), chars(end)) {
+        Some(TextKey::Delete { from, to }) => Replay::Delete {
+            from: units(from),
+            to: units(to),
+        },
+        Some(TextKey::MoveTo(at)) => Replay::MoveTo(units(at)),
+        None => Replay::Press,
+    }
 }
 
 #[cfg(test)]
