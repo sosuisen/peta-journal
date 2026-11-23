@@ -1,4 +1,4 @@
-import { fireEvent } from '@testing-library/react';
+import { createEvent, fireEvent } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
@@ -361,16 +361,28 @@ describe('the order of the tags', () => {
     };
   }
 
+  /** jsdom has no DragEvent, so the place of the pointer is put on the event by hand. */
+  function dragAt(
+    kind: 'dragOver' | 'drop',
+    chip: Element,
+    clientX: number,
+    moved?: ReturnType<typeof dataTransfer>,
+  ): boolean {
+    const event = createEvent[kind](chip, { dataTransfer: moved });
+    Object.defineProperty(event, 'clientX', { value: clientX });
+    return fireEvent(chip, event);
+  }
+
   // タグを別のタグの右半分に落とすと、その後ろに動く。左半分なら前に動く。
   test('a tag dropped on the right half of another goes after it, and on the left half before it', () => {
     const { chip, wasm } = chips();
     const moved = dataTransfer();
 
     fireEvent.dragStart(chip(0), { dataTransfer: moved });
-    fireEvent.dragOver(chip(2), { clientX: 60, dataTransfer: moved });
-    fireEvent.drop(chip(2), { clientX: 60, dataTransfer: moved });
+    dragAt('dragOver', chip(2), 60, moved);
+    dragAt('drop', chip(2), 60, moved);
     fireEvent.dragStart(chip(2), { dataTransfer: moved });
-    fireEvent.drop(chip(1), { clientX: 40, dataTransfer: moved });
+    dragAt('drop', chip(1), 40, moved);
 
     expect([...moved.data]).toEqual([['text/plain', '#c']]);
     expect([moved.effectAllowed, moved.dropEffect]).toEqual(['move', 'move']);
@@ -386,13 +398,13 @@ describe('the order of the tags', () => {
     const moved = dataTransfer();
 
     fireEvent.dragStart(chip(0), { dataTransfer: moved });
-    fireEvent.dragOver(chip(1), { clientX: 40, dataTransfer: moved });
+    dragAt('dragOver', chip(1), 40, moved);
     const before = [chip(0).className, chip(1).className];
-    fireEvent.dragOver(chip(1), { clientX: 60, dataTransfer: moved });
+    dragAt('dragOver', chip(1), 60, moved);
     const after = chip(1).className;
     fireEvent.dragLeave(chip(1));
     const left = chip(1).className;
-    fireEvent.dragOver(chip(2), { clientX: 60, dataTransfer: moved });
+    dragAt('dragOver', chip(2), 60, moved);
     fireEvent.dragEnd(chip(0));
 
     expect(before).toEqual([
@@ -411,8 +423,8 @@ describe('the order of the tags', () => {
   test('something dragged from elsewhere cannot be dropped on a tag', () => {
     const { chip, wasm } = chips();
 
-    const over = fireEvent.dragOver(chip(1), { clientX: 60 });
-    const dropped = fireEvent.drop(chip(1), { clientX: 60 });
+    const over = dragAt('dragOver', chip(1), 60);
+    const dropped = dragAt('drop', chip(1), 60);
 
     expect([over, dropped]).toEqual([true, true]);
     expect(chip(1).className).toBe('property-tag');
