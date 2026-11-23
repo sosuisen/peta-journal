@@ -855,6 +855,27 @@ public sealed class ShellTests : IDisposable
         main.WaitUntil("the file is deleted", () => !File.Exists(image));
     }
 
+    // 描かれた項目に落とした画像は、本文の末尾にリンクされる。
+    [Fact]
+    public void An_image_dropped_on_a_drawn_item_is_linked_at_the_end_of_its_body()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+        shell.Typed("abc", item);
+        shell.FinishEditing(item);
+        main.WaitUntil("the item has its text", () => Bodies(shell) is ["abc"]);
+        var image = Path.Combine(Directory.CreateTempSubdirectory().FullName, "sample.png");
+        File.WriteAllBytes(image, [1, 2, 3]);
+
+        shell.DropImage(item, [image]);
+
+        main.WaitUntil("the image is linked after the text", () =>
+            Bodies(shell) is [var body]
+            && body.StartsWith("abc![sample.png](../assets/", StringComparison.Ordinal)
+        );
+    }
+
     /// <summary>The level and the body of each item, as "level body".</summary>
     private static List<string> LevelsAndBodies(Shell shell) =>
         [.. shell.View.Outline.Rows.Select(row => $"{row.Item.Level} {row.Item.Body}")];
