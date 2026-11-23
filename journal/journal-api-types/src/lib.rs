@@ -355,7 +355,7 @@ pub struct JournalBefore<P = Page, I = Item> {
 }
 
 /// `GET /api/pages/{id}`: a page with its items.
-/// facet needs `I: 'static` for the map of trees; every item type is.
+// facet needs `I: 'static` for the map of trees; every item type is.
 #[cfg_attr(feature = "facet", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -367,7 +367,7 @@ pub struct PageWithItems<P = Page, I: 'static = Item> {
 }
 
 /// A journal that was found or made, with its items.
-/// facet needs `I: 'static` for the map of trees; every item type is.
+// facet needs `I: 'static` for the map of trees; every item type is.
 #[cfg_attr(feature = "facet", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
