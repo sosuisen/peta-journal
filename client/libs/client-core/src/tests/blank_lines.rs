@@ -1,13 +1,11 @@
 //! Blank lines in a body. A blank line between two blocks would end the item in its file, so
 //! the file has a line of one backslash in its place (ADR 070). The shell sees blank lines.
 
-use std::collections::BTreeMap;
-
 use crate::app::{Event, Route};
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{item, split_calls, typed, update_calls, Harness};
 use crate::model::{
-    BacklinkEntry, BatchOpInput, Batched, DocPage, Item, ItemPosition, JournalBefore,
+    BacklinkEntry, BatchOpInput, Batched, DocPage, Item, ItemPosition, JournalBefore, JournalPage,
     MovedToJournal, Page, PageWithItems, PasteCursor, Pasted, Split, Stashed, TranscludedTrees,
 };
 
@@ -35,8 +33,7 @@ fn open_with_body(h: &mut Harness, body: &str) {
         Ok(ApiOutput::Page(PageWithItems {
             page: notes(),
             items: vec![item("a", 1, body)],
-            created: false,
-            transcluded_trees: None,
+            transcluded_trees: TranscludedTrees::new(),
         })),
     );
     h.send(Event::Route {
@@ -201,18 +198,12 @@ fn from_file(id: &str) -> Item {
 
 /// The bodies of every item an answer has, in no order.
 fn bodies_of(output: &ApiOutput) -> Vec<String> {
-    let trees = |trees: &Option<TranscludedTrees>| -> Vec<Item> {
-        trees
-            .iter()
-            .flat_map(|t| t.values().flatten().cloned())
-            .collect()
-    };
+    let trees =
+        |trees: &TranscludedTrees| -> Vec<Item> { trees.values().flatten().cloned().collect() };
     let items: Vec<Item> = match output {
         ApiOutput::Page(p) => [p.items.clone(), trees(&p.transcluded_trees)].concat(),
-        ApiOutput::JournalBefore(j) => {
-            let trees = j.transcluded_trees.values().flatten().cloned();
-            j.items.iter().cloned().chain(trees).collect()
-        }
+        ApiOutput::JournalBefore(j) => [j.items.clone(), trees(&j.transcluded_trees)].concat(),
+        ApiOutput::Journal(j) => [j.items.clone(), trees(&j.transcluded_trees)].concat(),
         ApiOutput::Item(i) => vec![i.clone()],
         ApiOutput::Items(items) => items.clone(),
         ApiOutput::Backlinks(entries) => entries
@@ -231,14 +222,14 @@ fn bodies_of(output: &ApiOutput) -> Vec<String> {
 // サーバーのどの答えの項目も、本文の`\`だけの行は空行になる。トランスクルージョンの元の項目、バックリンクの項目も同じである。
 #[test]
 fn every_item_of_an_answer_comes_with_blank_lines() {
-    let trees = || {
-        Some(TranscludedTrees::from([(
-            "s".to_string(),
-            vec![from_file("s")],
-        )]))
-    };
+    let trees = || TranscludedTrees::from([("s".to_string(), vec![from_file("s")])]);
     let answers = [
         ApiOutput::Page(PageWithItems {
+            page: notes(),
+            items: vec![from_file("a")],
+            transcluded_trees: trees(),
+        }),
+        ApiOutput::Journal(JournalPage {
             page: notes(),
             items: vec![from_file("a")],
             created: false,
@@ -248,7 +239,7 @@ fn every_item_of_an_answer_comes_with_blank_lines() {
             found: true,
             page: Some(notes()),
             items: vec![from_file("a")],
-            transcluded_trees: BTreeMap::from([("s".to_string(), vec![from_file("s")])]),
+            transcluded_trees: trees(),
         }),
         ApiOutput::Item(from_file("a")),
         ApiOutput::Items(vec![from_file("a"), from_file("b")]),
