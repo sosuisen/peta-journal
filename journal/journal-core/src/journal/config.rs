@@ -16,14 +16,13 @@ pub trait FolderWatch: Send + Sync {
     fn restart(&self);
 }
 
+/// The settings as the server answers them: the fields the clients read, and the fields only
+/// the server has (ADR 082). JSON has them all at one level.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigAnswer {
-    pub markdown_dir: String,
-    pub week_numbering: String,
-    pub logical_outdent: bool,
-    pub tags_dir: String,
-    pub home_link: String,
+    #[serde(flatten)]
+    pub config: journal_api_types::ServerConfig,
     /// The template of the href of a wikilink, for the renderers of flatmarkdown (ADR 061).
     /// It is not a setting: the clients that cannot call Rust read it here.
     pub wikilink_href: String,
@@ -43,25 +42,21 @@ pub struct PropertyDefinitionsAnswer {
     pub definitions: Vec<PropertyDefinitionDto>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PropertyDefinitionDto {
-    pub key: String,
-    pub value_type: String,
-    pub system: bool,
-    pub page: bool,
-}
+/// A property definition. The server and the clients share the type (ADR 082).
+pub use journal_api_types::PropertyDefinition as PropertyDefinitionDto;
 
 impl Journal {
     pub fn config(&self) -> ConfigAnswer {
         let config = &self.services.config;
         ConfigAnswer {
-            markdown_dir: config.markdown_dir(),
-            week_numbering: config.week_numbering(),
-            logical_outdent: config.logical_outdent(),
+            config: journal_api_types::ServerConfig {
+                markdown_dir: config.markdown_dir(),
+                week_numbering: config.week_numbering(),
+                logical_outdent: config.logical_outdent(),
+                tags_dir: config.tags_dir(),
+                home_link: config.home_link(),
+            },
             hashtag_href: page_urls::hashtag_href(&config.tags_dir()),
-            tags_dir: config.tags_dir(),
-            home_link: config.home_link(),
             wikilink_href: page_urls::wikilink_href(),
             pages_base: page_urls::PAGES_BASE.to_string(),
             wikilink_fragment_pattern: page_urls::ITEM_ID_PATTERN.to_string(),

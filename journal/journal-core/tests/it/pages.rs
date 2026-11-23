@@ -543,7 +543,7 @@ fn a_wiki_link_to_a_page_shows_up_in_its_backlinks() {
 fn a_tag_page_lists_the_pages_and_items_that_use_its_tag() {
     let notes = Core::new();
     let tag = "backlink-tag";
-    let tag_path = format!("{}{tag}", notes.core.journal.config().tags_dir);
+    let tag_path = format!("{}{tag}", notes.core.journal.config().config.tags_dir);
     let by_page_tag = notes.new_doc_page("backlinks-by-page-tag");
     notes.set_tags(&by_page_tag, tag);
     let target = notes.doc_page_named(tag).unwrap();

@@ -3,7 +3,6 @@
 use std::path::Path;
 
 use anyhow::Context;
-use serde::Serialize;
 
 use crate::domain::asset_name::saved_name;
 use crate::error::AppError;
@@ -14,13 +13,9 @@ use super::Journal;
 /// screenshots. A file is held in memory while it is saved, so the limit stays.
 pub const ASSET_LIMIT_BYTES: usize = 50 * 1024 * 1024;
 
-/// A file saved among the assets: the name it has there, and the name it came with.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SavedAsset {
-    pub file_name: String,
-    pub original_name: String,
-}
+/// A file saved among the assets: the name it has there, and the name it came with. The
+/// server and the clients share the type (ADR 082).
+pub use journal_api_types::Uploaded as SavedAsset;
 
 impl Journal {
     /// Saves a file into `{markdownDir}/assets` under a new name (ADR 022).

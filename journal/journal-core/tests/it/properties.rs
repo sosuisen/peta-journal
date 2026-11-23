@@ -584,7 +584,7 @@ fn moving_a_tag_page_into_a_folder_renames_its_tag_after_the_folder() {
     let tagged = notes.new_doc_page("moved-tag-page");
     notes.set_tags(&tagged, old);
     let tag_page = notes.doc_page_named(old).unwrap();
-    let tags_dir = notes.core.journal.config().tags_dir;
+    let tags_dir = notes.core.journal.config().config.tags_dir;
 
     notes
         .core
