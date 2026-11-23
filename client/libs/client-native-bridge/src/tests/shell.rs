@@ -9,6 +9,7 @@ use client_core::effects::{
 use client_core::keys::{Chord, EditorState, Key, KeyPress};
 use client_core::model::{Page, PageWithItems, Uploaded};
 use client_core::rest::ClientId;
+use client_core::screens::day::CHECK_MS;
 use client_core::testing::plain_item;
 use client_core::typing::Typing;
 use client_core::{EditPlace, Event, Route};
@@ -116,7 +117,14 @@ impl Clock for FakeClock {
         (local, 1_000)
     }
 
-    fn sleep(&self, _ms: u32) {
+    fn sleep(&self, ms: u32) {
+        // The clock stands at one day, so a look at the date would find nothing new. The core
+        // waits to look all the time: its wait would take the place of the timers of the test
+        if ms == CHECK_MS {
+            loop {
+                thread::park();
+            }
+        }
         let place = self.waits.begun.fetch_add(1, Ordering::SeqCst);
         while self.waits.ended.load(Ordering::SeqCst) <= place {
             thread::sleep(Duration::from_millis(1));
