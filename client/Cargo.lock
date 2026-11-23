@@ -699,6 +699,10 @@ dependencies = [
  "crux_core",
  "facet",
  "facet-json",
+ "flatmarkdown-ast",
+ "flatmarkdown-ast2html",
+ "page-urls",
+ "serde",
 ]
 
 [[package]]

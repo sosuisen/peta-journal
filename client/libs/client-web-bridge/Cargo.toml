@@ -15,3 +15,8 @@ client-core = { path = "../client-core", features = ["facet_typegen"] }
 facet = "=0.46.5"
 facet-json = "=0.46.1"
 crux_core = "=0.20.0"
+serde = { workspace = true }
+# The URLs of the pages, as the journal makes them (ADR 061)
+page-urls = { path = "../../../journal/page-urls" }
+flatmarkdown-ast = { workspace = true }
+flatmarkdown-ast2html = { workspace = true }

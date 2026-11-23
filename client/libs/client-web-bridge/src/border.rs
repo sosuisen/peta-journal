@@ -2,11 +2,18 @@
 //! those of the Rust fields, as the generated TypeScript has them (ADR 080). The names that
 //! serde gives for REST do not cross here.
 
+use crate::body::HtmlBody;
+use client_core::changes::Changes;
 use facet::Facet;
 
 /// Reads a value the shell wrote. The error says why the JSON is not one.
 pub fn read<T: Facet<'static>>(json: &str) -> Result<T, String> {
     facet_json::from_str(json).map_err(|error| error.to_string())
+}
+
+/// Writes the changes of the screen for the shell.
+pub fn write(changes: &Changes<HtmlBody>) -> String {
+    facet_json::to_string(changes).expect("the changes are always valid JSON")
 }
 
 #[cfg(test)]
@@ -90,7 +97,6 @@ mod tests {
     // 画面の差分は、facetのJSONで書かれ、項目の名前はRustのフィールド名である。
     #[test]
     fn the_changes_are_written_as_the_json_of_facet_with_the_names_of_the_rust_fields() {
-        use crate::body::HtmlBody;
         use client_core::changes::Shown;
         use client_core::testing::plain_item;
         use client_core::{Model, PetaApp};
