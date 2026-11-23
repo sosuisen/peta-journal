@@ -137,6 +137,9 @@ pub struct Shell<H: Host> {
     sent: Sent,
     /// The panels of the view when Emacs was last told.
     panels: ShownPanels,
+    /// Whether the core held keys at the last render. It is read from there, and not from a
+    /// view made again: the core changes it only in an update, and every update renders.
+    relay_holding: bool,
     /// The edit Emacs itself just started. It already has the point there, and answering would
     /// pull back a point that has moved on since.
     own_edit: Option<(String, usize)>,
@@ -168,6 +171,7 @@ impl<H: Host> Shell<H> {
             ack: 0,
             sent: Sent::default(),
             panels: ShownPanels::default(),
+            relay_holding: false,
             own_edit: None,
             after_render: Vec::new(),
             navigations: VecDeque::new(),
@@ -657,6 +661,7 @@ impl<H: Host> Shell<H> {
     /// the panel changed (ADR 078).
     fn tell_view(&mut self) {
         let view = self.core.view();
+        self.relay_holding = view.outline.key_relay_holding;
         let changed = self.panels.changes(&view);
         let any = |is: fn(&Panel) -> bool| changed.iter().any(is);
         self.tell_rows(&view);
@@ -844,7 +849,7 @@ impl<H: Host> Shell<H> {
     fn tell_state(&mut self) {
         // The link goes in at the cursor the insertion started with: a key typed in the meantime
         // would move the text under it
-        let holding = self.core.view().outline.key_relay_holding || !self.image_calls.is_empty();
+        let holding = self.relay_holding || !self.image_calls.is_empty();
         if self.ack != self.sent.ack || holding != self.sent.holding {
             self.sent.ack = self.ack;
             self.sent.holding = holding;
