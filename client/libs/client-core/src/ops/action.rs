@@ -283,11 +283,12 @@ fn transcluded_delete_message(count: usize) -> String {
 
 /// Asks the server to delete items as one group: it deletes all of them or none, copies what
 /// a transclusion showed before any of it goes, and keeps the page non-empty. The screen
-/// changes with the answer. When the server refuses, nothing has changed here.
+/// changes with the answer. When the server refuses, nothing has changed here, and the user
+/// is told why.
 pub async fn request_delete(api: &Api<Event>, item_ids: Vec<String>) {
     match api.delete_items(item_ids.clone()).await {
         Ok(created) => api.send_event(Event::SelectionDeleted { item_ids, created }),
-        Err(e) => log_error(format!("Failed to delete selected items: {e}")),
+        Err(e) => api.alert(e.message_or("Failed to delete items")),
     }
 }
 
