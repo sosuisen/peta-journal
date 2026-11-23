@@ -1,8 +1,11 @@
-import { act, fireEvent, screen } from '@testing-library/react';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { StrictMode } from 'react';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { FocusRequest, Row } from './border/peta-types';
+import { AskedOpsContext } from './askedContext';
+import { CoreContext } from './context';
 import { OutlineItem } from './OutlineItem';
-import { draw, focusAt, row, shell } from './test/screens';
+import { draw, focusAt, outline, row, shell } from './test/screens';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -36,6 +39,16 @@ function item(
       />,
     );
   return { ...ui, ...view, redraw };
+}
+
+/** Runs `act` and says whether its event of `type` reached the page around the app. */
+function reachesThePage(type: string, act: () => void): boolean {
+  let reached = false;
+  const outside = () => (reached = true);
+  document.addEventListener(type, outside);
+  act();
+  document.removeEventListener(type, outside);
+  return reached;
 }
 
 /** The box of the item, which carries its state. */
@@ -73,12 +86,15 @@ describe('how an item shows', () => {
     expect(box('a').style.paddingLeft).toBe('24px');
   });
 
-  // ふつうの項目には、クラスも段もない。
-  test('a plain item has no class and no level', () => {
+  // ふつうの項目には、クラスも段も倍率もない。
+  test('a plain item has no class, no level and no zoom', () => {
     item(row('a', 'one'));
 
     expect(box('a').className).toBe('outline-item');
     expect(box('a').dataset.headingLevel).toBeUndefined();
+    expect(
+      box('a').querySelector<HTMLElement>(':scope > .item-content')?.style.zoom,
+    ).toBe('');
   });
 
   // 拡大した項目は、その倍率で描かれる。
@@ -132,14 +148,19 @@ describe('how an item shows', () => {
 describe('an item with children', () => {
   // 三角を押すと、開け閉めをコアに頼む。閉じた項目では、三角に印がつく。
   test('the triangle asks the core to open or close the item, and is marked when closed', () => {
-    const { wasm } = item(
+    const { wasm, redraw } = item(
       row('a', 'one', { has_children: true, is_collapsed: true }),
     );
     const toggle = box('a').querySelector('.collapse-toggle');
 
     fireEvent.click(toggle as Element);
+    const closed = toggle?.className;
+    redraw(row('a', 'one', { has_children: true }));
 
-    expect(toggle?.className).toBe('collapse-toggle collapsed');
+    expect([closed, toggle?.className]).toEqual([
+      'collapse-toggle collapsed',
+      'collapse-toggle',
+    ]);
     expect(wasm.events).toEqual([{ kind: 'CollapseToggle', item_id: 'a' }]);
   });
 
@@ -273,8 +294,8 @@ describe('the menu of an item', () => {
     fireEvent.click(screen.getByText(name));
   }
 
-  // メニューは、ボタンの下に開く。
-  test('the menu opens under its button', () => {
+  // メニューは、ボタンの下に開く。ボタンのクリックは、外に伝わらない。
+  test('the menu opens under its button, and the click goes no further', () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
       function (this: HTMLElement) {
         return this.classList.contains('item-menu')
@@ -283,8 +304,13 @@ describe('the menu of an item', () => {
       },
     );
 
-    open(row('a', 'one'));
+    item(row('a', 'one'));
 
+    const reached = reachesThePage('click', () =>
+      fireEvent.click(box('a').querySelector('.item-menu') as Element),
+    );
+
+    expect(reached).toBe(false);
     expect([menu()?.style.left, menu()?.style.top]).toEqual(['20px', '30px']);
   });
 
@@ -339,6 +365,23 @@ describe('the menu of an item', () => {
     expect(screen.queryByText('Reset Zoom')).toBeNull();
   });
 
+  // 閉じたメニューは、ページに聞き手を残さない。
+  test('a closed menu leaves no listener on the page', () => {
+    const added = vi.spyOn(document, 'addEventListener');
+    const removed = vi.spyOn(document, 'removeEventListener');
+    open(row('a', 'one'));
+    const listeners = added.mock.calls.filter(
+      ([type]) => type === 'click' || type === 'keydown',
+    );
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    for (const [type, listener] of listeners) {
+      expect(removed).toHaveBeenCalledWith(type, listener);
+    }
+    expect(listeners).toHaveLength(2);
+  });
+
   // メニューの外のクリックとEscapeは、メニューを閉じる。メニューの中のクリックは閉じない。
   test('a click outside and Escape close the menu, and a click inside does not', () => {
     open(row('a', 'one'));
@@ -362,9 +405,10 @@ describe('the drawn body', () => {
     return box(id).querySelector('app-item-view .item-content') as HTMLElement;
   }
 
-  // 本文は、wasmが作ったHTMLで描かれる。画像は、URLの断片の大きさになる。
-  test('the body is the HTML of wasm, and an image gets the size of its fragment', () => {
-    item(
+  // 本文は、wasmが作ったHTMLで描かれる。画像は、URLの断片の大きさになる。本文が変わっても同じである。
+  test('the body is the HTML of wasm, and an image gets the size of its fragment, also after a change', () => {
+    const { redraw } = item(row('a', '', { body_model: '<p>none</p>' }));
+    redraw(
       row('a', '', {
         body_model:
           '<p><img src="a.png#w=300&amp;h=240"><img src="b.png#w=0&amp;h=x"><img src="c.png"></p>',
@@ -387,8 +431,21 @@ describe('the drawn body', () => {
   test('code that names its language is coloured and labelled once, and other code is left alone', () => {
     const named = '<pre><code class="language-rust">let x = 1;</code></pre>';
     const plain = '<pre><code>plain words</code></pre>';
-    const { redraw } = item(row('a', '', { body_model: named + plain }));
-    redraw(row('a', 'other', { body_model: named + plain }));
+    const { core, asked } = shell();
+    // The app runs in StrictMode, which runs each effect twice
+    render(
+      <StrictMode>
+        <CoreContext value={core}>
+          <AskedOpsContext value={asked}>
+            <OutlineItem
+              row={row('a', '', { body_model: named + plain })}
+              request={null}
+              holdingKeys={false}
+            />
+          </AskedOpsContext>
+        </CoreContext>
+      </StrictMode>,
+    );
 
     const [rust, other] = [...content().querySelectorAll('pre')];
 
@@ -422,6 +479,77 @@ describe('the drawn body', () => {
       },
     ]);
     expect(wasm.drags.map(d => d.kind)).toEqual(['Pressed']);
+  });
+
+  // 描いた本文からのドラッグは、コアの置いたカーソルから、マウスの下の文字までを選ぶ。
+  test('a drag from the drawn body selects from where the core put the cursor', () => {
+    const { wasm, redraw } = item(row('a', 'one two'));
+    Object.defineProperty(document, 'caretPositionFromPoint', {
+      configurable: true,
+      value: () => ({ offsetNode: document.body, offset: 0 }),
+    });
+    wasm.answerNext(
+      [],
+      [
+        {
+          kind: 'Outline',
+          value: outline({ focus_request: focusAt(1, 'a', 4) }),
+        },
+      ],
+    );
+    fireEvent.mouseDown(content());
+    redraw(row('a', 'one two', { is_editing: true }));
+    const editor = document.getElementById(
+      'item-editor-a',
+    ) as HTMLTextAreaElement;
+    Object.defineProperty(document, 'caretPositionFromPoint', {
+      configurable: true,
+      value: () => ({ offsetNode: editor, offset: 1 }),
+    });
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: () => null,
+    });
+    wasm.takesDrags = false;
+
+    fireEvent.mouseMove(document);
+
+    expect([editor.selectionStart, editor.selectionEnd]).toEqual([1, 4]);
+    expect(editor.selectionDirection).toBe('backward');
+    Reflect.deleteProperty(document, 'elementFromPoint');
+  });
+
+  // コアがカーソルを置かなかったときと、ほかの項目に置いたときは、ドラッグは文字を選ばない。
+  test('a drag selects no text when the core put no cursor in the item', () => {
+    for (const panel of [
+      outline({ focus_request: focusAt(1, 'a', null) }),
+      outline({ focus_request: focusAt(1, 'b', 2) }),
+    ]) {
+      const { wasm, redraw, unmount } = item(row('a', 'one two'));
+      Object.defineProperty(document, 'caretPositionFromPoint', {
+        configurable: true,
+        value: () => ({ offsetNode: document.body, offset: 0 }),
+      });
+      wasm.answerNext([], [{ kind: 'Outline', value: panel }]);
+      fireEvent.mouseDown(content());
+      redraw(row('a', 'one two', { is_editing: true }));
+      const editor = document.getElementById(
+        'item-editor-a',
+      ) as HTMLTextAreaElement;
+      editor.setSelectionRange(2, 2);
+      Object.defineProperty(document, 'elementFromPoint', {
+        configurable: true,
+        value: () => null,
+      });
+      wasm.takesDrags = false;
+
+      fireEvent.mouseMove(document);
+      fireEvent.mouseUp(document);
+
+      expect([editor.selectionStart, editor.selectionEnd]).toEqual([2, 2]);
+      unmount();
+      Reflect.deleteProperty(document, 'elementFromPoint');
+    }
   });
 
   // 文字の外を押すと、置き場所なしで編集を頼む。
@@ -475,12 +603,16 @@ describe('the links of the drawn body', () => {
   test('a link to a page and a tag open in the app', () => {
     const { wasm, opened } = links();
 
-    const kept = [
-      !fireEvent.click(screen.getByText('notes')),
-      !fireEvent.click(screen.getByText('#x')),
-    ];
+    let kept: boolean[] = [];
+    const reached = reachesThePage('click', () => {
+      kept = [
+        !fireEvent.click(screen.getByText('notes')),
+        !fireEvent.click(screen.getByText('#x')),
+      ];
+    });
 
     expect(kept).toEqual([true, true]);
+    expect(reached).toBe(false);
     expect(wasm.links).toEqual(['/pages/notes', '/tags/x']);
     expect(opened).toEqual([]);
   });
@@ -489,7 +621,9 @@ describe('the links of the drawn body', () => {
   test('Shift opens a page in a window, and Ctrl or Command leave a tab to the browser', () => {
     const { wasm, opened } = links();
 
-    fireEvent.click(screen.getByText('notes'), { shiftKey: true });
+    const reached = reachesThePage('click', () =>
+      fireEvent.click(screen.getByText('notes'), { shiftKey: true }),
+    );
     const ctrl = !fireEvent.click(screen.getByText('notes'), { ctrlKey: true });
     const cmd = !fireEvent.click(screen.getByText('notes'), { metaKey: true });
     fireEvent.click(screen.getByText('notes'), {
@@ -497,7 +631,7 @@ describe('the links of the drawn body', () => {
       shiftKey: true,
     });
 
-    expect([ctrl, cmd]).toEqual([false, false]);
+    expect([ctrl, cmd, reached]).toEqual([false, false, false]);
     expect(opened).toEqual([
       ['/pages/notes', '_blank', 'noopener'],
       ['/pages/notes', '_blank', 'noopener'],
@@ -509,10 +643,13 @@ describe('the links of the drawn body', () => {
   test('a web link opens in a tab, and in a window with Shift', () => {
     const { opened } = links();
 
-    const kept = !fireEvent.click(screen.getByText('web'));
+    let kept = false;
+    const reached = reachesThePage('click', () => {
+      kept = !fireEvent.click(screen.getByText('web'));
+    });
     fireEvent.click(screen.getByText('web'), { shiftKey: true });
 
-    expect(kept).toBe(true);
+    expect([kept, reached]).toEqual([true, false]);
     expect(opened).toEqual([
       ['https://example.com/', '_blank', undefined],
       ['https://example.com/', '_blank', 'noopener'],
@@ -556,9 +693,12 @@ describe('the links of the drawn body', () => {
       }),
     );
 
-    const kept = !fireEvent.click(screen.getByText('1'));
+    let kept = false;
+    const reached = reachesThePage('click', () => {
+      kept = !fireEvent.click(screen.getByText('1'));
+    });
 
-    expect(kept).toBe(true);
+    expect([kept, reached]).toEqual([true, false]);
     expect(scrolled).toEqual([['fn-1', { block: 'center' }]]);
     expect(wasm.links).toEqual([]);
     Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
@@ -685,6 +825,16 @@ describe('the item in edit', () => {
     expect([deep.style.fontSize, deep.style.fontWeight]).toEqual(['', 'bold']);
   });
 
+  // 見出しの段があっても、見出しの行でなければ、ふつうの文字である。
+  test('a line that is not a heading line is plain, whatever its level', () => {
+    const { editor } = editing('one', {
+      heading_line: false,
+      heading_level: 2,
+    });
+
+    expect([editor.style.fontSize, editor.style.fontWeight]).toEqual(['', '']);
+  });
+
   // 編集欄を離れると、編集の終わりをコアに知らせる。
   test('leaving the editor tells the core the edit is over', () => {
     const { wasm, editor } = editing('one');
@@ -738,8 +888,10 @@ describe('typing in the editor', () => {
   // コアが本文を変えたら（打った括弧を閉じたら）、編集欄はコアの本文になり、カーソルは打った所に残る。
   test('when the core changes the typed body, the editor takes it, and the cursor stays', () => {
     const { wasm, editor } = editing('');
+    // Another row comes first, and keeps its own body
+    act(() => wasm.push([{ kind: 'Insert', at: 0, item: row('b', 'other') }]));
     wasm.answerNext([
-      { kind: 'Update', at: 0, item: row('a', '[]', { is_editing: true }) },
+      { kind: 'Update', at: 1, item: row('a', '[]', { is_editing: true }) },
     ]);
 
     type(editor, '[', 'insertText');
@@ -843,6 +995,16 @@ describe('the keys of the editor', () => {
     expect(wasm.presses).toEqual([]);
   });
 
+  // Shiftとほかのキーは、改行でなく、キーとしてコアに渡る。
+  test('Shift with another key goes to the core as a key, not as a line break', () => {
+    const { wasm, editor } = editing();
+
+    fireEvent.keyDown(editor, { key: 'ArrowDown', shiftKey: true });
+
+    expect(editor.value).toBe('one');
+    expect(wasm.presses).toHaveLength(1);
+  });
+
   // Ctrl+Shift+Enterは、改行でなく、キーとしてコアに渡る。
   test('Ctrl+Shift+Enter goes to the core as a key, not as a line break', () => {
     const { wasm, editor } = editing();
@@ -910,7 +1072,8 @@ describe('a paste into the editor and an image dropped on it', () => {
       clipboardData: {
         items:
           image === null ? [] : [{ type: image.type, getAsFile: () => image }],
-        getData: (type: string) => (type === 'text/plain' ? text : html),
+        getData: (type: string) =>
+          ({ 'text/plain': text, 'text/html': html })[type] ?? '',
       },
     };
   }
@@ -987,5 +1150,86 @@ describe('a paste into the editor and an image dropped on it', () => {
 
     expect([dropped, text]).toEqual([true, false]);
     expect(wasm.pastes).toEqual([{ itemId: 'a', file: image, cursor: 1 }]);
+  });
+});
+
+// 編集欄の高さ
+describe('the height of the editor', () => {
+  // jsdom lays nothing out: the text of an editor is 10px high for each letter
+  const scrollHeight = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'scrollHeight',
+  );
+  beforeEach(() => {
+    Object.defineProperty(HTMLTextAreaElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get(this: HTMLTextAreaElement) {
+        return this.value.length * 10;
+      },
+    });
+  });
+  afterEach(() => {
+    Reflect.deleteProperty(HTMLTextAreaElement.prototype, 'scrollHeight');
+    if (scrollHeight !== undefined) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'scrollHeight',
+        scrollHeight,
+      );
+    }
+  });
+
+  function editing(body: string, request: FocusRequest | null = null) {
+    const drawn = item(row('a', body, { is_editing: true }), { request });
+    const editor = document.getElementById(
+      'item-editor-a',
+    ) as HTMLTextAreaElement;
+    return { ...drawn, editor };
+  }
+
+  // 編集欄は、出たときに本文の高さになる。コアの頼みでフォーカスしたときも同じである。
+  test('the editor has the height of its text when it comes, also at a request of the core', () => {
+    const { editor, unmount } = editing('one');
+    const plain = editor.style.height;
+    unmount();
+    const { editor: asked } = editing('three', focusAt(1, 'a', 0));
+
+    expect([plain, asked.style.height]).toEqual(['30px', '50px']);
+  });
+
+  // コアの頼みが来るたびに、高さを合わせ直す。
+  test('each request of the core fits the height again', () => {
+    const { editor, redraw } = editing('one');
+    editor.value = 'one two';
+
+    redraw(row('a', 'one', { is_editing: true }), focusAt(1, 'a', 0));
+
+    expect(editor.style.height).toBe('70px');
+  });
+
+  // コアの本文が変わったとき、文字を打ったとき、改行を入れたときに、高さを合わせる。
+  test('the height follows a new body of the core, typed text and a line break', () => {
+    const { wasm, editor, redraw } = editing('one');
+    redraw(row('a', 'one two', { is_editing: true }));
+    const changed = editor.style.height;
+    // The core takes the typed text as it is
+    wasm.answerNext([
+      {
+        kind: 'Update',
+        at: 0,
+        item: row('a', 'one two!', { is_editing: true }),
+      },
+    ]);
+    editor.value += '!';
+    fireEvent.input(editor, { inputType: 'insertText', data: '!' });
+    const typed = editor.style.height;
+    editor.setSelectionRange(8, 8);
+    fireEvent.keyDown(editor, { key: 'Enter', shiftKey: true });
+
+    expect([changed, typed, editor.style.height]).toEqual([
+      '70px',
+      '80px',
+      '90px',
+    ]);
   });
 });
