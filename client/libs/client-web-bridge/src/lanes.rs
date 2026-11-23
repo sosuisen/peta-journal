@@ -1,4 +1,40 @@
 //! Who does each operation of the screen in the web app.
+//!
+//! The native bridge has a table of its own, as who does what differs there: a native shell
+//! shows every dialog itself (ADR 080).
+
+use client_core::effects::UiOp;
+
+/// Who does an operation of the screen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Lane {
+    /// Wasm, with the clock and the APIs of `window`.
+    Wasm,
+    /// The shell, one question at a time (`client_core::policy::Questions`).
+    Question,
+    /// The shell, which has the elements on the screen.
+    Shell,
+}
+
+/// Who does `op`. The dialogs of the browser (`alert`, `confirm`, `prompt`) are of `window`,
+/// so wasm shows them. The confirm of a destructive change is a dialog of the shell instead:
+/// the dialog of the browser answers OK to Enter.
+pub fn lane_of(op: &UiOp) -> Lane {
+    match op {
+        UiOp::FocusEditor { .. } | UiOp::ScrollToItem { .. } => Lane::Shell,
+        UiOp::ConfirmDestructive(_) => Lane::Question,
+        UiOp::LocalNow
+        | UiOp::SetTitle(_)
+        | UiOp::SaveAtlasDirs(_)
+        | UiOp::CopyMarkdown { .. }
+        | UiOp::CopyFailed
+        | UiOp::ReadClipboardText
+        | UiOp::Alert(_)
+        | UiOp::Confirm(_)
+        | UiOp::Prompt(_)
+        | UiOp::OpenWindow { .. } => Lane::Wasm,
+    }
+}
 
 #[cfg(test)]
 mod tests {
