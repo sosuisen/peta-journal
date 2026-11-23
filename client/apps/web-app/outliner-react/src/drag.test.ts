@@ -225,8 +225,8 @@ describe('the scroll at an edge of the outline while a drag selects items', () =
     expect([first, outline.scrollTop]).toEqual([2, 0]);
   });
 
-  // マウスが端から離れると、スクロールは止まる。端に戻ると、また始まる。
-  test('the scroll stops when the mouse leaves the edge, and starts again at it', () => {
+  // 端でマウスを動かし続けても、1歩の幅は変わらない。マウスが端から離れると、スクロールは止まる。端に戻ると、また始まる。
+  test('moves at the edge keep one step at a time, and the scroll stops off the edge and starts again at it', () => {
     vi.useFakeTimers();
     const { core } = shell();
     const outline = outlineOf(0);
@@ -235,6 +235,7 @@ describe('the scroll at an edge of the outline while a drag selects items', () =
 
     startDrag(core, 'a', a, null);
     moveTo(295);
+    moveTo(296);
     vi.advanceTimersByTime(16);
     moveTo(200);
     vi.advanceTimersByTime(48);
