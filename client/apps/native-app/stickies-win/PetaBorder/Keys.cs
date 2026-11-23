@@ -93,6 +93,22 @@ public sealed partial class Shell
         border.PasteImage(itemId, copy, PetaCore.PetaNative.CharsOfUtf16(body, (ulong)body.Length));
     }
 
+    /// <summary>
+    /// The user dropped files on the editor of an item. The cursor of <paramref name="editor"/>
+    /// is where they were dropped.
+    /// </summary>
+    public void DropImage(string itemId, EditorState editor, IReadOnlyList<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(editor);
+        ArgumentNullException.ThrowIfNull(paths);
+        var copy = Path.Combine(
+            Directory.CreateTempSubdirectory("peta-dropped-").FullName,
+            Path.GetFileName(paths[0])
+        );
+        File.Copy(paths[0], copy);
+        border.PasteImage(itemId, copy, CursorOf(editor));
+    }
+
     /// <summary>Where the cursor is in the editor, in the characters that the core counts.</summary>
     private static ulong CursorOf(EditorState editor) =>
         // WinUI counts in UTF-16 units (ADR 043)
