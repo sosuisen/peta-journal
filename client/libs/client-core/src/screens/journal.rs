@@ -182,6 +182,11 @@ pub fn show_older_journal(
     }
     let is_new = journal_mut(model).is_some_and(|j| j.loaded_dates.insert(older.name.clone()));
     if is_new {
+        // The collapsed set is kept as it is for the items already shown, so the new items
+        // add their own flags to it
+        for item in older.items.iter().filter(|i| i.collapsed) {
+            model.state.set_collapsed(&item.id, true);
+        }
         let mut all: Vec<_> = model.state.items().to_vec();
         all.extend(older.items.into_iter().map(std::sync::Arc::new));
         model.state.set_item_refs(all);
