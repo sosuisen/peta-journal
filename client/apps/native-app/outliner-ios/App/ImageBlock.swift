@@ -18,7 +18,8 @@ struct ImageBlock: View {
 
     /// Nil until the file is read, and when it is not here or cannot be read.
     @State private var picture: Picture?
-    @State private var large = false
+    /// The image of the item that a touch opened large, by its path.
+    @Environment(\.openedImage) private var opened
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -38,10 +39,11 @@ struct ImageBlock: View {
                     .padding(.vertical, 4)
                     .accessibilityLabel(image.alt)
                     .accessibilityIdentifier("picture")
-                    // Before the touch that edits the item, which is told where it was
-                    .highPriorityGesture(TapGesture().onEnded { large = true })
-                    .fullScreenCover(isPresented: $large) {
-                        LargeImage(image: image, small: read, file: file) { large = false }
+                    // The touch of the item opens it. A touch of its own here would take every
+                    // touch of the item, also on the line above (#886)
+                    .opens(image.path)
+                    .fullScreenCover(isPresented: large) {
+                        LargeImage(image: image, small: read, file: file) { opened.wrappedValue = nil }
                     }
             }
         }
@@ -50,6 +52,11 @@ struct ImageBlock: View {
             let room = await UIScreen.main.nativeBounds.width
             picture = await Task.detached { found.flatMap { read($0, roomPx: room) } }.value
         }
+    }
+
+    /// Whether the image is open large, as the item says.
+    private var large: Binding<Bool> {
+        Binding(get: { opened.wrappedValue == image.path }, set: { if !$0 { opened.wrappedValue = nil } })
     }
 }
 

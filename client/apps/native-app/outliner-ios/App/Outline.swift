@@ -78,6 +78,10 @@ struct OutlineRow: View {
     let onFile: (URL) -> Void
     /// Where the texts of the item stand, for a touch to find its letter.
     @State private var targets: [LetterTarget] = []
+    /// Where the images of the item stand, for a touch to open one large.
+    @State private var images: [ImageTarget] = []
+    /// The path of the image that a touch opened large.
+    @State private var opened: String?
 
     /// How wide and how high the bullet of an item is.
     private static let bullet: CGFloat = 7
@@ -141,11 +145,17 @@ struct OutlineRow: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .coordinateSpace(name: Touches.space)
                         .onPreferenceChange(LetterTargets.self) { targets = $0 }
+                        .onPreferenceChange(ImageTargets.self) { images = $0 }
+                        .environment(\.openedImage, $opened)
                         // A touch on a link or an image opens it, and any other touch edits the
                         // item with the cursor where it was touched
                         .contentShape(Rectangle())
                         .onTapGesture(coordinateSpace: .named(Touches.space)) { point in
-                            shell.edit(id, letter: Touches.letter(at: point, in: targets))
+                            if let image = Touches.image(at: point, in: images) {
+                                opened = image
+                            } else {
+                                shell.edit(id, letter: Touches.letter(at: point, in: targets))
+                            }
                         }
                 }
             }

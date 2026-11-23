@@ -46,12 +46,43 @@ enum Touches {
         return Cursor.characters(utf16: units, in: string)
     }
 
+    /// The path of the image under the touch at `point`, `nil` when the touch is on none.
+    static func image(at point: CGPoint, in targets: [ImageTarget]) -> String? {
+        targets.first { $0.frame.contains(point) }?.path
+    }
+
     /// How far a point is from a frame: 0 inside it. Up and down count more than sideways, so
     /// that a touch beside a line goes to that line.
     private static func distance(_ point: CGPoint, _ frame: CGRect) -> CGFloat {
         let across = max(frame.minX - point.x, 0, point.x - frame.maxX)
         let down = max(frame.minY - point.y, 0, point.y - frame.maxY)
         return across + down * 100
+    }
+}
+
+/// An image of an item that a touch can fall on, to open it large: its path, and where it stands.
+struct ImageTarget: Equatable {
+    let path: String
+    let frame: CGRect
+}
+
+struct ImageTargets: PreferenceKey {
+    static var defaultValue: [ImageTarget] { [] }
+
+    static func reduce(value: inout [ImageTarget], nextValue: () -> [ImageTarget]) {
+        value += nextValue()
+    }
+}
+
+private struct OpenedImageKey: EnvironmentKey {
+    static let defaultValue: Binding<String?> = .constant(nil)
+}
+
+extension EnvironmentValues {
+    /// The path of the image of the item that is open large, `nil` when none is.
+    var openedImage: Binding<String?> {
+        get { self[OpenedImageKey.self] }
+        set { self[OpenedImageKey.self] = newValue }
     }
 }
 
@@ -75,6 +106,16 @@ struct LetterTargets: PreferenceKey {
 }
 
 extension View {
+    /// Tells the item where this image stands, so that a touch on it opens the image `path`.
+    func opens(_ path: String) -> some View {
+        background(
+            GeometryReader { place in
+                Color.clear.preference(
+                    key: ImageTargets.self,
+                    value: [ImageTarget(path: path, frame: place.frame(in: .named(Touches.space)))])
+            })
+    }
+
     /// Tells the item where this text stands, so that a touch on it finds its letter.
     func letters(_ text: NSAttributedString, start: UInt32, wraps: Bool = true) -> some View {
         background(
