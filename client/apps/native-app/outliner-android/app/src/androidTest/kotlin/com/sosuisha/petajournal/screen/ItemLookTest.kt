@@ -162,6 +162,17 @@ class ItemLookTest : JournalScreenFixture() {
         assertTrue("the alt ends at ${line.bottom}, below the top of the picture at ${picture.top}", line.bottom <= picture.top)
     }
 
+    // 代わりの文字（alt）のない画像は、1行目にファイルのパスが見える（#886）。
+    @Test
+    fun an_image_without_an_alt_shows_its_path_on_the_line_above_the_picture() {
+        picture("cat.png", width = 40, height = 20)
+        download("notes.md", "![](../assets/cat.png)" + NL)
+
+        openNotes()
+
+        waitFor("assets/cat.png")
+    }
+
     // ファイルのない画像は、代わりの文字（alt）が見える。
     @Test
     fun an_image_whose_file_is_not_here_shows_its_alt() {
