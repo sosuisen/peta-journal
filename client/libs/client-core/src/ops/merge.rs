@@ -7,7 +7,7 @@
 //! saved yet (ADR 011). The screen changes when its answer is there.
 
 use crate::app::Event;
-use crate::app::{done, log_error, run, Cmd, EditPlace, Model};
+use crate::app::{done, run, Cmd, EditPlace, Model};
 use crate::model::Item;
 use crate::ops::action::confirm_deleting_transcluded;
 use crate::ops::edit::{record_typing, show_parsed, take_unsaved, typed_body};
@@ -132,7 +132,7 @@ pub fn merge_answered(model: &mut Model, key: JoinKey, item_id: &str, agreed: bo
                 merged: Box::new(merged),
             }),
             Err(e) => {
-                log_error(format!("Failed to merge items: {e}"));
+                api.alert(e.message_or("Failed to merge items"));
                 let carried = [(goes.id, body), (into.id, into_body)];
                 api.send_event(Event::MergeFailed {
                     unsaved: carried

@@ -178,6 +178,25 @@ fn a_merge_the_server_refuses_changes_nothing_on_screen_and_stops_holding_keys()
     assert!(h.model.undo.pop_undo().is_none());
 }
 
+// サーバーが結合を断ると、その理由が出る。理由がなければ既定の文が出る。
+#[test]
+fn a_refused_merge_shows_the_reason_or_a_default_message() {
+    let mut h = harness();
+    h.api
+        .fail_next("MergeItems", "A transclusion cannot be merged");
+    h.send(Event::BackspaceAtStart {
+        item_id: "b".into(),
+    });
+    h.api.fail_next("MergeItems", "");
+    h.send(Event::DeleteAtEnd {
+        item_id: "a".into(),
+    });
+    assert_eq!(
+        h.alerts(),
+        ["A transclusion cannot be merged", "Failed to merge items"]
+    );
+}
+
 // 結合に失敗すると、要求に入っていた未保存の入力は、もう一度自動保存にかけられる。消える側の項目のものも、受け取る側の項目のものも保存される。
 #[test]
 fn after_a_failed_merge_the_text_typed_and_not_saved_yet_is_auto_saved_again() {
