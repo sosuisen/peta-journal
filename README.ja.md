@@ -18,23 +18,28 @@
 
 Web版を使うときに起動するのは、journal-serverだけである。journal-serverが、APIと画面の両方を`http://localhost:8087`で配信する（[ADR 010](docs/adr/adr-010-journal-server-serves-the-web-frontend.md)）。
 
-画面は、Trunkが`client/apps/web-app/outliner/dist/`に出力したファイルである。journal-serverは、リクエストのたびにこのフォルダからファイルを読む。
+画面は、React版のシェル（[ADR 079](docs/adr/adr-079-a-typescript-web-shell-that-applies-list-diffs.md)）を`npm run build`で`client/apps/web-app/outliner-react/dist/`に出力したファイルである。journal-serverは、リクエストのたびにこのフォルダからファイルを読む。
+
+Leptos版のシェル（`client/apps/web-app/outliner`）も、消すまでは残っている。使うときは、そのフォルダで`trunk build`し、journal-serverに`--frontend-dir ../client/apps/web-app/outliner/dist`を渡す。
 
 ### 準備（一度だけ）
 
 - Rust 1.85以上
 - wasmのターゲット: `rustup target add wasm32-unknown-unknown`
-- Trunk: `cargo install trunk --locked`
+- Node.js
+- wasm-pack: `cargo install wasm-pack`
+- Leptos版も使うときは、Trunk: `cargo install trunk --locked`
 
 Windows ARM64では、[README.md](README.md)の「Build」にある準備も行う。
 
 ### デバッグ（開発）
 
-画面をデバッグ版でビルドし、journal-serverを`cargo run`で起動する。
+画面をビルドし、journal-serverを`cargo run`で起動する。
 
 ```powershell
-cd peta-journal/client/apps/web-app/outliner
-trunk build
+cd peta-journal/client/apps/web-app/outliner-react
+npm install
+npm run build
 
 cd ../../../../journal
 cargo run
@@ -43,7 +48,7 @@ cargo run
 ブラウザで`http://localhost:8087`を開く。
 
 - 画面のフォルダは、指定しなくてよい。`cargo run`では、`journal/.cargo/config.toml`が`PETAJOURNAL_FRONTEND_DIR`に`dist/`の場所を設定する。
-- 画面のコードを変えたら、`trunk build`をやり直して、ブラウザを読み直す。journal-serverは再起動しなくてよい。
+- 画面のコードを変えたら、`npm run build`をやり直して、ブラウザを読み直す。journal-serverは再起動しなくてよい。
 - サーバーのコードを変えたら、Ctrl+Cで止めて、`cargo run`をやり直す。
 - 起動時のログに`Frontend: <フォルダ>`と出れば、画面が配信されている。`Frontend: not served`と出たら、配信されていない。
 
@@ -76,12 +81,12 @@ Emacs版のプログラムが動いているときは、そのビルドを飛ば
 手で行うときは、次のようにする。
 
 ```powershell
-cd peta-journal/client/apps/web-app/outliner
-trunk build --release
+cd peta-journal/client/apps/web-app/outliner-react
+npm run build
 
 cd ../../../../journal
 cargo build --release
-./target/release/journal-server --frontend-dir ../client/apps/web-app/outliner/dist
+./target/release/journal-server --frontend-dir ../client/apps/web-app/outliner-react/dist
 ```
 
 ブラウザで`http://localhost:8087`を開く。データは`~/.peta-journal`に置かれる。
@@ -99,11 +104,11 @@ cargo build --release
      ...
    ```
 
-デバッグ版とリリース版の画面は、同じ`dist/`に出力される。本番のサーバーが`dist/`を直接読んでいると、開発で`trunk build`を実行したときに、本番の画面もデバッグ版に変わる。開発と普段使いを同じPCで続けるなら、2の方法で、リリース版の`dist/`の中身を`frontend/`にコピーして使う。
+開発のビルドと普段使いのビルドは、同じ`dist/`に出力される。本番のサーバーが`dist/`を直接読んでいると、開発で`npm run build`を実行したときに、本番の画面も変わる。開発と普段使いを同じPCで続けるなら、2の方法で、`dist/`の中身を`frontend/`にコピーして使う。
 
 更新するときは、次のようにする。
 
-- 画面だけを更新する: `trunk build --release`をやり直す。`frontend/`を使っているなら、中身をコピーし直す。そのあと、ブラウザを読み直す。
+- 画面だけを更新する: `npm run build`をやり直す。`frontend/`を使っているなら、中身をコピーし直す。そのあと、ブラウザを読み直す。
 - サーバーを更新する: journal-serverを止めて、`cargo build --release`をやり直し、起動し直す。
 
 ポートやデータの場所などの設定は、[BUILD.md](BUILD.md)の「Rust server」にある。
