@@ -416,3 +416,18 @@ fn a_key_that_means_nothing_to_the_outline_is_left_to_the_editor_and_one_that_do
     let changes = down.expect("the key moves to the next item");
     assert!(changes.contains(r#""focused_item_id":"b""#), "{changes}");
 }
+
+// 編集欄への入力は、行の本文を変える。
+#[test]
+fn typing_in_an_editor_changes_the_body_of_its_row() {
+    let screen = Screen::new();
+    screen.open_notes();
+    screen.bridge.changes();
+
+    let changes = screen
+        .bridge
+        .typed(r#"{"Typed":{"item_id":"a","body":"typed text","cursor":10}}"#)
+        .unwrap();
+
+    assert!(changes.contains("typed text"), "{changes}");
+}
