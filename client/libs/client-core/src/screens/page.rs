@@ -144,9 +144,7 @@ pub fn show_page_items(model: &mut Model, page_id: &str, loaded: PageWithItems) 
         return done();
     }
     model.state.set_items(loaded.items);
-    if let Some(trees) = loaded.transcluded_trees {
-        model.state.set_transcluded_trees(trees);
-    }
+    model.state.set_transcluded_trees(loaded.transcluded_trees);
     let focus_item_id = page_state(model).and_then(|p| p.focus_item_id.clone());
     scroll_to_item(model, focus_item_id)
 }

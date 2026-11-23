@@ -148,9 +148,9 @@ pub fn show_replaced_page(
     keep_typed_bodies(model, &mut items);
     let made_again = make_lost_typing_again(model, page_id, &mut items);
     replace_page_items(model, page_id, items);
-    if let Some(trees) = loaded.transcluded_trees {
-        model.state.merge_transcluded_trees(trees);
-    }
+    model
+        .state
+        .merge_transcluded_trees(loaded.transcluded_trees);
     if let Some(focus) = end_lost_edits(model, &ids_before) {
         return Command::all([made_again, focus]);
     }

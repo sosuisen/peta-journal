@@ -15,7 +15,7 @@ use journal_api_types::{
 };
 use journal_core::dto::ItemFields;
 use journal_core::journal::{
-    BacklinksAnswer, ChangedBy, DocAnswer, FoundPageAnswer, PageAnswer, PagesAnswer,
+    BacklinksAnswer, ChangedBy, DocAnswer, FoundPageAnswer, NarrowPage, PageAnswer, PagesAnswer,
 };
 
 pub fn routes() -> Router<SharedState> {

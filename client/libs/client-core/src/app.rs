@@ -541,7 +541,7 @@ pub enum Event {
     JournalLoaded {
         date: String,
         title: String,
-        loaded: Box<PageWithItems>,
+        loaded: Box<JournalPage>,
     },
     /// The server answered the journal before one that is shown; the load goes on until
     /// the outline holds `target_item_count` items.

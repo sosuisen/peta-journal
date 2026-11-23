@@ -757,8 +757,8 @@ fn every_answer_becomes_the_output_of_its_operation() {
     let cases = vec![
         (
             ApiOp::GetPageById { page_id: id("p") },
-            json_of(PageWithItems::default()),
-            ApiOutput::Page(PageWithItems::default()),
+            json_of(<PageWithItems>::default()),
+            ApiOutput::Page(<PageWithItems>::default()),
         ),
         (
             ApiOp::GetOrCreateDoc {

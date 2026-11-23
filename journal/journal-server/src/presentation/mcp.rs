@@ -28,8 +28,8 @@ use journal_api_types::{
 };
 use journal_core::dto::ItemFields;
 use journal_core::journal::{
-    ChangedBy, CreateItemInput, ItemIdsInput, MoveItemsInput, PropertyInput, TransclusionInput,
-    TreeMarkdownInput, UpdateConfigInput, UpdateItemInput,
+    ChangedBy, CreateItemInput, ItemIdsInput, MoveItemsInput, NarrowPage, PropertyInput,
+    TransclusionInput, TreeMarkdownInput, UpdateConfigInput, UpdateItemInput,
 };
 
 /// The answer of an operation of the journal (ADR 029), as the JSON a tool gives back.

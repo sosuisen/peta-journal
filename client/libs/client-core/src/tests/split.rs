@@ -369,8 +369,7 @@ fn reloaded(own: Vec<Item>, tree: Vec<Item>) -> crate::effects::ApiResult<ApiOut
             ..Default::default()
         },
         items: own,
-        transcluded_trees: Some(TranscludedTrees::from([("s".to_string(), tree)])),
-        ..Default::default()
+        transcluded_trees: TranscludedTrees::from([("s".to_string(), tree)]),
     }))
 }
 
@@ -561,10 +560,10 @@ fn an_undo_that_overtakes_the_reading_after_a_split_keeps_the_cursor_where_the_u
         page_id: "page1".into(),
         loaded: Box::new(PageWithItems {
             items: vec![item("a", 1, ""), root()],
-            transcluded_trees: Some(TranscludedTrees::from([(
+            transcluded_trees: TranscludedTrees::from([(
                 "s".to_string(),
                 vec![source("s", 1, "sho")],
-            )])),
+            )]),
             ..Default::default()
         }),
         asked_at: asked_after_the_split,

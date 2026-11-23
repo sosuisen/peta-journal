@@ -45,8 +45,7 @@ fn with_items(h: &mut Harness, page: Page, items: Vec<crate::model::Item>) {
         Ok(ApiOutput::Page(PageWithItems {
             page,
             items,
-            created: false,
-            transcluded_trees: None,
+            transcluded_trees: Default::default(),
         })),
     );
 }
@@ -240,8 +239,7 @@ fn the_answers_for_a_page_the_screen_has_left_are_not_shown() {
         loaded: Box::new(PageWithItems {
             page: doc("", "Old"),
             items: vec![item("old1", 1, "old")],
-            created: false,
-            transcluded_trees: None,
+            transcluded_trees: Default::default(),
         }),
     });
     h.send(Event::BacklinksLoaded {

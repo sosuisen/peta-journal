@@ -145,8 +145,7 @@ fn a_page_in_a_folder_lists_its_siblings() {
             Ok(ApiOutput::Page(PageWithItems {
                 page: doc("notes/", "index"),
                 items: vec![],
-                created: false,
-                transcluded_trees: None,
+                transcluded_trees: Default::default(),
             })),
         );
     }
