@@ -64,13 +64,16 @@ first of these folders:
 2. the `frontend/` folder beside the server executable
 
 Under `cargo run`, `.cargo/config.toml` sets `PETAJOURNAL_FRONTEND_DIR` to
-`client/apps/web-app/outliner/dist`, the folder `trunk build` writes. The executable started
-by hand (`./target/release/journal-server`) does not see that setting: pass `--frontend-dir`, or
-copy `dist/` to `target/release/frontend/`. With neither folder the server serves the API only,
-and logs `Frontend: not served` at startup.
+`client/apps/web-app/outliner-react/dist`, the folder `npm run build` of the React shell
+writes. The executable started by hand (`./target/release/journal-server`) does not see that
+setting: pass `--frontend-dir`, or copy `dist/` to `target/release/frontend/`. With neither
+folder the server serves the API only, and logs `Frontend: not served` at startup.
 
-The server reads the files from disk on every request. After `trunk build`, reload the browser;
-the server need not restart.
+To use the Leptos shell instead, pass `--frontend-dir ../client/apps/web-app/outliner/dist`
+after `trunk build` in that folder.
+
+The server reads the files from disk on every request. After a new build of the frontend,
+reload the browser; the server need not restart.
 
 `RUST_LOG` controls logging (default `info,tantivy=warn`), e.g. `RUST_LOG=journal_server=debug`.
 
@@ -95,6 +98,12 @@ binary starts the server once on a free port with everything under a temporary d
 (`libs/client-core`, the outline logic, tested without a browser) and a [Leptos](https://leptos.dev/) shell
 (`apps/web-app/outliner`) built to WebAssembly with trunk. It replaced the Angular frontend.
 
+The journal server now serves the React shell (`apps/web-app/outliner-react`, ADR 079) by
+default. Its core runs in wasm too. It is built with `npm run build`, or with `release.ps1`
+(`release.sh`) in its folder, and needs Node.js and
+[wasm-pack](https://rustwasm.github.io/wasm-pack/) beside Rust. Its README has the commands.
+The Leptos shell below stays until it is removed.
+
 ### Prerequisites
 
 - Rust 1.85 or newer with the `wasm32-unknown-unknown` target: `rustup target add wasm32-unknown-unknown`
@@ -115,8 +124,8 @@ Two scripts in that folder do the same from any folder:
 ./client/apps/web-app/outliner/release.ps1    # trunk build --release (on macOS and Linux: release.sh)
 ```
 
-The journal server serves `dist/` at `http://localhost:8087`; see "Build and run" of the Rust
-server above. `trunk serve` is not used: `Trunk.toml` has no proxy to the journal server, so its
+The journal server serves this `dist/` at `http://localhost:8087` when it is started with
+`--frontend-dir`; see "Build and run" of the Rust server above. `trunk serve` is not used: `Trunk.toml` has no proxy to the journal server, so its
 page cannot reach the API.
 
 `vendor/highlight.min.js` is highlight.js bundled for the browser. To move to a new highlight.js

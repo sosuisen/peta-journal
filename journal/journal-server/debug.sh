@@ -5,7 +5,7 @@
 #   ./debug.sh
 #   ./debug.sh --help
 #
-# It serves the web frontend from client/apps/web-app/outliner/dist (journal/.cargo/config.toml).
+# It serves the web frontend from client/apps/web-app/outliner-react/dist (journal/.cargo/config.toml).
 set -eu
 cd "$(dirname "$0")"
 exec cargo run -p journal-server -- "$@"

@@ -4,6 +4,20 @@ The web shell of PetaJournal in React (ADR 079, ADR 080). The core runs in wasm
 (`client/libs/client-web-bridge`). This shell draws the rows and the panels that the core
 sends, and does the operations of the screen that the core asks for.
 
+## Build
+
+The journal server serves `dist/` of this folder at `http://localhost:8087` by default
+(`journal/.cargo/config.toml`). It needs Node.js, and
+[wasm-pack](https://rustwasm.github.io/wasm-pack/) for the wasm of the core:
+
+```
+cargo install wasm-pack
+./release.ps1    # npm install once, then npm run build (on macOS and Linux: release.sh)
+```
+
+`npm run build` builds the wasm and the types of the border first. The server need not
+restart: reload the browser after the build.
+
 ## Commands
 
 ```

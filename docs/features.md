@@ -1264,6 +1264,7 @@
 出典: `client/apps/web-app/outliner-react/src/*.test.ts`、`client/apps/web-app/outliner-react/src/*.test.tsx`、`client/apps/web-app/outliner/e2e/playwright.config.ts`
 
 - Reactのシェル（`outliner-react`）は、wasmの差分から画面を組み立てる（ADR 079、ADR 080）。今は、項目、検索、プロパティ、設定、アトラスの画面がある
+  - journal-serverは、既定でReactのシェルを配る。`cargo run`は`outliner-react/dist`を、`release-all`はそのコピーを配る
   - 行の操作（挿入、削除、移動、更新、入れ替え）を順に当てると、行はコアの行と同じになる。移動は、取り除いてから`to`に入れる
   - 届いたパネルだけが入れ替わり、届かないパネルは前のままである。何も届かなければ、パネルはそのままである
 - 枠（`App.tsx`）
