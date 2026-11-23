@@ -63,6 +63,8 @@ fn answer_of(op: &ApiOp) -> ApiResult<ApiOutput> {
                 transcluded_trees: None,
             }))
         }
+        // Every item is transcluded by an item on another page
+        ApiOp::TranscludedItems { item_ids } => Ok(ApiOutput::ItemIds(item_ids.clone())),
         _ => Err(ApiError("the fake server does not know this".into())),
     }
 }
@@ -93,6 +95,27 @@ impl Screen {
 
     fn renders(&self) -> usize {
         self.browser.renders.get()
+    }
+
+    fn open_notes(&self) {
+        self.bridge.route("/pages/notes");
+        self.serve();
+    }
+
+    /// The operations the shell was asked for, oldest first.
+    fn asked(&self) -> Vec<UiOp> {
+        let asked = self.browser.asked.borrow();
+        asked.iter().map(|(_, op)| op.clone()).collect()
+    }
+
+    /// Answers the operation the way the shell does: by its number, with JSON.
+    fn answer(&self, op: &UiOp, output: &str) {
+        let id = {
+            let asked = self.browser.asked.borrow();
+            let found = asked.iter().find(|(_, asked)| asked == op);
+            found.expect("the shell was asked for this").0
+        };
+        self.bridge.resolve(id, output).unwrap();
     }
 }
 
@@ -126,4 +149,32 @@ fn what_a_call_of_the_shell_changes_comes_back_as_its_changes_without_a_render()
 
     assert!(changes.contains("a query"), "{changes}");
     assert_eq!(screen.renders(), renders);
+}
+
+// 2つ目の破壊的な確認は、1つ目が答えられるまでシェルに届かない。
+#[test]
+fn a_second_destructive_confirm_reaches_the_shell_after_the_first_is_answered() {
+    let screen = Screen::new();
+    screen.open_notes();
+    let confirm = UiOp::ConfirmDestructive(
+        "1 item to delete is transcluded by another item. \
+         Delete anyway? Each transclusion keeps a plain copy."
+            .into(),
+    );
+
+    screen
+        .bridge
+        .update(r#"{"DeleteItem":{"item_id":"a"}}"#)
+        .unwrap();
+    screen
+        .bridge
+        .update(r#"{"DeleteItem":{"item_id":"b"}}"#)
+        .unwrap();
+    screen.serve();
+    assert_eq!(screen.asked(), [confirm.clone()]);
+
+    screen.answer(&confirm, r#"{"Bool":false}"#);
+    screen.serve();
+
+    assert_eq!(screen.asked(), [confirm.clone(), confirm]);
 }
