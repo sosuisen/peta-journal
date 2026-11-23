@@ -1,9 +1,12 @@
 //! The `[[wiki link]]` completion for the web shell: what is typed inside the brackets.
 
+use client_core::util::utf16::chars_of_utf16;
+
 /// The text between `[[` and the cursor at the UTF-16 place `cursor`, while the cursor is
 /// inside a `[[...]]`. None outside one.
-pub fn query_at(_text: &str, _cursor: u64) -> Option<String> {
-    None
+pub fn query_at(text: &str, cursor: u64) -> Option<String> {
+    let units = usize::try_from(cursor).unwrap_or(usize::MAX);
+    client_core::ops::wiki::query_at(text, chars_of_utf16(text, units))
 }
 
 #[cfg(test)]
