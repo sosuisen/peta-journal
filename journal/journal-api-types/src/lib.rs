@@ -1279,6 +1279,38 @@ mod tests {
         );
     }
 
+    // ドキュメントの答えとジャーナルへの移動の答えは、サーバーの答えのJSONから読める。
+    #[test]
+    fn the_answers_of_a_doc_and_of_a_move_to_a_journal_are_read_from_the_server() {
+        let page: Page = serde_json::from_value(page_answer()).unwrap();
+
+        let doc: DocPage = serde_json::from_value(json!({
+            "page": page_answer(), "items": [item_answer("a")], "created": true
+        }))
+        .unwrap();
+        assert_eq!(
+            doc,
+            DocPage {
+                page: page.clone(),
+                items: vec![item("a")],
+                created: true,
+            }
+        );
+
+        let moved: MovedToJournal = serde_json::from_value(json!({
+            "page": page_answer(), "created": false, "items": [item_answer("a")]
+        }))
+        .unwrap();
+        assert_eq!(
+            moved,
+            MovedToJournal {
+                page,
+                created: false,
+                items: vec![item("a")],
+            }
+        );
+    }
+
     // 欄がサーバーと同じ答えの型は、サーバーの答えのJSONに書かれ、同じ値に読み戻される。
     #[test]
     fn the_answers_with_the_fields_of_the_server_are_written_in_its_json_and_read_back() {
