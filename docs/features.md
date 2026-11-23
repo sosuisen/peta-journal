@@ -1223,13 +1223,14 @@
 
 ### Web版のシェル（TypeScript）がwasmと話す
 
-出典: `client/libs/client-web-bridge/src/lanes.rs`、`src/border.rs`、`src/body.rs`、`src/codegen.rs`、`src/bridge/tests.rs`
+出典: `client/libs/client-web-bridge/src/lanes.rs`、`src/border.rs`、`src/body.rs`、`src/codegen.rs`、`src/bridge/tests.rs`、`tests/codegen.rs`
 
 - Web版のシェルとwasmの間は、facetのJSONで渡る（ADR 080）。項目の名前は、Rustのフィールド名である。RESTのcamelCaseの名前は使わない
   - シェルが書くイベント、キー、入力、ドラッグ、答えは、wasmで読める。TypeScriptの生成コードが書いたJSONと同じ形である
   - 小数のない数で書かれた小数も読める。`JSON.rawJSON`のないブラウザは、`0.0`を`0`と書くためである
   - 読めないJSONは、理由とともに断られる
 - 境界の型（`Event`、`KeyPress`、`Typing`、`DragMove`、`UiOp`、`UiOutput`、`Changes`）は、TypeScriptの型として生成される
+  - コマンド`codegen`は、渡したフォルダに型を書き出す。フォルダを渡さないときは使い方を、書けないときは理由を示して失敗する
 - 行の本文は、wasmが作ったHTMLで届く。シェルは、それを要素に入れるだけである
 - シェルの呼び出し（`update`、`press`、`typed`、`drag`、`resolve`、`go`、`pasteImage`）は、変わった画面を差分で返す。このときは、描き直しを知らせない
 - サーバーの答えのように、シェルの呼び出しの外で画面が変わると、シェルに描き直しを知らせる。シェルは`changes()`で差分を受け取る
