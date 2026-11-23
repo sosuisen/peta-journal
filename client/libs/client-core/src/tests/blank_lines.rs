@@ -1,6 +1,8 @@
 //! Blank lines in a body. A blank line between two blocks would end the item in its file, so
 //! the file has a line of one backslash in its place (ADR 070). The shell sees blank lines.
 
+use std::collections::BTreeMap;
+
 use crate::app::{Event, Route};
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{item, split_calls, typed, update_calls, Harness};
@@ -163,7 +165,10 @@ fn bodies_of(output: &ApiOutput) -> Vec<String> {
     };
     let items: Vec<Item> = match output {
         ApiOutput::Page(p) => [p.items.clone(), trees(&p.transcluded_trees)].concat(),
-        ApiOutput::JournalBefore(j) => [j.items.clone(), trees(&j.transcluded_trees)].concat(),
+        ApiOutput::JournalBefore(j) => {
+            let trees = j.transcluded_trees.values().flatten().cloned();
+            j.items.iter().cloned().chain(trees).collect()
+        }
         ApiOutput::Item(i) => vec![i.clone()],
         ApiOutput::Items(items) => items.clone(),
         ApiOutput::Backlinks(entries) => entries
@@ -197,7 +202,7 @@ fn every_item_of_an_answer_comes_with_blank_lines() {
             found: true,
             page: Some(notes()),
             items: vec![from_file("a")],
-            transcluded_trees: trees(),
+            transcluded_trees: BTreeMap::from([("s".to_string(), vec![from_file("s")])]),
         }),
         ApiOutput::Item(from_file("a")),
         ApiOutput::Items(vec![from_file("a"), from_file("b")]),

@@ -5,7 +5,7 @@
 //! written with `flatmarkdown::body_to_file`.
 
 use crate::effects::{ApiOp, ApiOutput};
-use crate::model::{BatchOpInput, Item, TranscludedTrees};
+use crate::model::{BatchOpInput, Item};
 
 /// The request to the server, with the bodies in the form of the file.
 pub fn op_to_file(mut op: ApiOp) -> ApiOp {
@@ -66,11 +66,12 @@ pub fn output_to_shell(mut output: ApiOutput) -> ApiOutput {
     match &mut output {
         ApiOutput::Page(page) => {
             items_to_shell(&mut page.items);
-            trees_to_shell(&mut page.transcluded_trees);
+            let trees = page.transcluded_trees.iter_mut();
+            trees_to_shell(trees.flat_map(|trees| trees.values_mut()));
         }
         ApiOutput::JournalBefore(journal) => {
             items_to_shell(&mut journal.items);
-            trees_to_shell(&mut journal.transcluded_trees);
+            trees_to_shell(journal.transcluded_trees.values_mut());
         }
         ApiOutput::Item(item) => item_to_shell(item),
         ApiOutput::Items(items) => items_to_shell(items),
@@ -102,11 +103,9 @@ pub fn output_to_shell(mut output: ApiOutput) -> ApiOutput {
     output
 }
 
-fn trees_to_shell(trees: &mut Option<TranscludedTrees>) {
-    trees
-        .iter_mut()
-        .flat_map(|trees| trees.values_mut())
-        .for_each(|items| items_to_shell(items));
+/// The items of the transcluded trees, one list for each source item.
+fn trees_to_shell<'a>(trees: impl Iterator<Item = &'a mut Vec<Item>>) {
+    trees.for_each(|items| items_to_shell(items));
 }
 
 fn items_to_shell(items: &mut [Item]) {
