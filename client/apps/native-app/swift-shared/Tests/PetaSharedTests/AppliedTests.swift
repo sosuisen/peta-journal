@@ -44,7 +44,8 @@ final class AppliedTests: XCTestCase {
             .outline(outline(selecting: true)),
             .sidebar(
                 SidebarView(
-                    indexHeader: "index", indexPath: "index", indexSort: IndexSort(key: .name, order: .asc), indexParentPath: nil,
+                    indexHeader: "index", indexPath: "index", indexSort: IndexSort(key: .name, order: .asc),
+                    indexParentPath: nil,
                     indexPages: [], headings: [], recentPages: [], currentPageId: "current")),
             .search(search("first")),
             .config(
