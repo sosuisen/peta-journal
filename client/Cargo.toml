@@ -8,6 +8,8 @@ members = [
     "apps/web-app/outliner",
     "apps/emacs/outliner",
     "libs/client-native-bridge",
+    # The core for the web shell in TypeScript (ADR 079)
+    "libs/client-web-bridge",
     "libs/client-shell-http",
     "libs/client-shell-embedded",
     "libs/client-cloud-sync",

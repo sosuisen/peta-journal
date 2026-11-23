@@ -1,0 +1,17 @@
+[package]
+name = "client-web-bridge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The core for the web shell in TypeScript: events in, changes out, as the JSON of facet (ADR 079, ADR 080)"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# The facet derives write the border as JSON, as for Emacs (ADR 078, ADR 080)
+client-core = { path = "../client-core", features = ["facet_typegen"] }
+facet = "=0.46.5"
+facet-json = "=0.46.1"
+crux_core = "=0.20.0"
