@@ -512,3 +512,20 @@ fn a_link_the_shell_opens_goes_into_the_history_and_its_page_opens() {
     let changes = screen.bridge.changes();
     assert!(changes.contains("the body of a"), "{changes}");
 }
+
+// ブラウザの履歴で戻ると、そのページが開き、シェルに描き直しを知らせる。
+#[test]
+fn going_back_in_the_history_opens_the_page_and_tells_the_shell_to_draw_it() {
+    let screen = Screen::new();
+    screen.bridge.start("/today");
+    screen.serve();
+    screen.bridge.changes();
+    let renders = screen.renders();
+
+    screen.bridge.popped("/pages/notes");
+    screen.serve();
+
+    assert!(screen.renders() > renders);
+    let changes = screen.bridge.changes();
+    assert!(changes.contains("the body of a"), "{changes}");
+}
