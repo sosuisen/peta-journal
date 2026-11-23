@@ -2,7 +2,7 @@
 
 /// The URL of the page of the tag `tag`, in the folder of the tags `tags_dir`.
 pub fn tag_url(tags_dir: &str, tag: &str) -> String {
-    String::new()
+    page_urls::page_url(&page_urls::tag_page_name(tags_dir, tag))
 }
 
 #[cfg(test)]
