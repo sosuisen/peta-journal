@@ -679,10 +679,9 @@ fn operations_the_shell_holds_at_once_are_each_answered_by_their_own_number() {
     assert_eq!(screen.calls_named("DeleteItems"), 1);
 }
 
-// [[の補完の候補が出ている間、上下のキーは候補を選び、編集欄のカーソルは動かさない。
-#[test]
-fn while_page_names_are_offered_the_arrow_keys_pick_one() {
-    let screen = Screen::new();
+/// Opens the editor of the item a and types a wiki link query there. With `served`, the
+/// page names found for it are offered.
+fn query_in_a(screen: &Screen, served: bool) {
     screen.open_notes();
     screen
         .bridge
@@ -691,10 +690,48 @@ fn while_page_names_are_offered_the_arrow_keys_pick_one() {
     let query = r#"{"WikiQuery":{"item_id":"a","context":{"query":"no","x":1.0,"y":2.0}}}"#;
     screen.bridge.update(query).unwrap();
     screen.let_time_pass();
-    screen.serve();
+    if served {
+        screen.serve();
+    }
+}
+
+// [[の補完の候補が出ている間、上下のキーは候補を選び、編集欄のカーソルは動かさない。上は、先頭から末尾へ回る。
+#[test]
+fn while_page_names_are_offered_the_arrow_keys_pick_one() {
+    let screen = Screen::new();
+    query_in_a(&screen, true);
+
+    let up = screen.bridge.press(&key_in_a(r#""Up""#)).unwrap();
+    let down = screen.bridge.press(&key_in_a(r#""Down""#)).unwrap();
+
+    let up = up.expect("the popup takes Up");
+    let down = down.expect("the popup takes Down");
+    assert!(up.contains(r#""selected_index":1"#), "{up}");
+    assert!(down.contains(r#""selected_index":0"#), "{down}");
+}
+
+// 候補が出ている間、Enterは選んだ候補を入れて候補を閉じ、Escapeは候補を閉じる。
+#[test]
+fn while_page_names_are_offered_enter_and_escape_close_them() {
+    for key in [r#""Enter""#, r#""Escape""#] {
+        let screen = Screen::new();
+        query_in_a(&screen, true);
+
+        let changes = screen.bridge.press(&key_in_a(key)).unwrap();
+
+        let changes = changes.expect("the popup takes the key");
+        assert!(changes.contains(r#""suggestions":[]"#), "{key}: {changes}");
+    }
+}
+
+// 候補がまだ届いていない間は、下のキーはアウトラインのキーとして次の項目へ移る。
+#[test]
+fn before_page_names_arrive_the_arrow_keys_move_in_the_outline() {
+    let screen = Screen::new();
+    query_in_a(&screen, false);
 
     let changes = screen.bridge.press(&key_in_a(r#""Down""#)).unwrap();
 
-    let changes = changes.expect("the popup takes the key");
-    assert!(changes.contains(r#""selected_index":1"#), "{changes}");
+    let changes = changes.expect("the outline takes the key");
+    assert!(changes.contains(r#""focused_item_id":"b""#), "{changes}");
 }
