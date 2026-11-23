@@ -11,7 +11,7 @@ use client_core::effects::{
     UiOutput,
 };
 use client_core::keys::{KeyMap, KeyPlatform, KeyPress};
-use client_core::policy::{InOrder, Timers};
+use client_core::policy::{is_question, InOrder, Questions, Timers};
 use client_core::rest::ClientId;
 use client_core::typing::{self, Typing};
 use client_core::{Effect, Event, RichText, Route, ViewModel};
@@ -82,25 +82,6 @@ pub const CLOSE_LIMIT: Duration = Duration::from_secs(5);
 /// The way to the shell: bytes with a list of requests.
 type ToShell = Arc<dyn Fn(Vec<u8>) + Send + Sync>;
 
-/// The questions of the core to the user. The shell has one of them at a time
-/// (`client_core::policy`): a dialog on the screen is in the way of everything else, and so is
-/// a second one above it.
-#[derive(Default)]
-struct Questions {
-    /// The number of the request with the question the shell has now.
-    asked: Option<u32>,
-    /// The questions, each waiting for the answer to the one before.
-    line: InOrder<Request<UiOp>>,
-}
-
-/// True for an operation that asks the user and waits for the answer.
-fn is_question(op: &UiOp) -> bool {
-    matches!(
-        op,
-        UiOp::Confirm(_) | UiOp::ConfirmDestructive(_) | UiOp::Prompt(_)
-    )
-}
-
 /// Where the effects go: over the border as bytes, or back to the core from this side.
 #[derive(Clone)]
 struct Lanes {
@@ -110,7 +91,9 @@ struct Lanes {
     timers: Arc<Mutex<Timers<Request<TimerOp>>>>,
     /// The requests to the server, each waiting for the answer to the one before.
     to_server: Arc<Mutex<InOrder<Request<ApiOp>>>>,
-    questions: Arc<Mutex<Questions>>,
+    /// The questions of the core to the user. The shell has one of them at a time
+    /// (`client_core::policy`).
+    questions: Arc<Mutex<Questions<Request<UiOp>>>>,
     pasted: Arc<Mutex<PastedFiles>>,
 }
 
@@ -193,24 +176,14 @@ impl Lanes {
 
     /// Gives the shell a question, or keeps it until the questions before it are answered.
     fn ask(&self, to_shell: &ToShell, request: Request<UiOp>) {
-        let mut questions = self.questions.lock().unwrap();
-        if questions.line.push(request) {
-            self.ask_next(to_shell, &mut questions);
-        }
-    }
-
-    /// Gives the shell the question whose turn it is, if one waits.
-    fn ask_next(&self, to_shell: &ToShell, questions: &mut Questions) {
-        let next = questions.line.take_next();
-        questions.asked = next.map(|request| self.send(to_shell, ShellEffect::Ui(request)));
+        let give = |request| self.send(to_shell, ShellEffect::Ui(request));
+        self.questions.lock().unwrap().ask(request, give);
     }
 
     /// The shell answered the request `id`. When that was its question, it gets the next one.
     fn answered(&self, to_shell: &ToShell, id: u32) {
-        let mut questions = self.questions.lock().unwrap();
-        if questions.asked == Some(id) {
-            self.ask_next(to_shell, &mut questions);
-        }
+        let give = |request| self.send(to_shell, ShellEffect::Ui(request));
+        self.questions.lock().unwrap().answered(id, give);
     }
 
     fn time(&self, clock: &Arc<dyn Clock>, request: Request<TimerOp>) {
