@@ -3,6 +3,7 @@
 use client_core::BodyModel;
 use flatmarkdown_ast::{Node, PropValue};
 use serde::Serialize;
+use std::collections::BTreeMap;
 
 /// The body of a row as HTML, which the shell puts into its element as it is (ADR 079). Wasm
 /// makes it, so that the shell needs no code that turns the AST into HTML.
@@ -12,34 +13,47 @@ pub struct HtmlBody(pub String);
 
 impl BodyModel for HtmlBody {
     fn of(mut ast: Node, tags_dir: &str) -> HtmlBody {
-        keep_image_sizes(&mut ast);
+        ready_image_urls(&mut ast);
         let options = page_urls::html_options(tags_dir);
         HtmlBody(flatmarkdown_ast2html::ast_to_html_with(&ast, &options))
     }
 }
 
-/// Puts the size of every image under `node` into the fragment of its URL, as `w` and `h`.
-/// `ast_to_html_with` leaves the size out, because each app uses it in its own way (ADR 026).
-/// The shell reads it back from the `<img>`.
-fn keep_image_sizes(node: &mut Node) {
+/// Readies the URL of every image under `node` for the `<img>` of the shell.
+fn ready_image_urls(node: &mut Node) {
     if let Node::Embed { url, props, .. } = node {
-        if client_core::rich_text::asset_path(url).is_some() {
-            *url = format!("/{}", url.trim_start_matches(['.', '/']));
-        }
-        let sides: Vec<String> = ["w", "h"]
-            .into_iter()
-            .filter_map(|side| match props.get(side) {
-                Some(PropValue::Text(text)) => Some(format!("{side}={}", text.trim())),
-                _ => None,
-            })
-            .collect();
-        if !sides.is_empty() {
-            url.push('#');
-            url.push_str(&sides.join("&"));
-        }
+        start_asset_at_top(url);
+        keep_size(url, props);
     }
     for child in node.children_mut().into_iter().flatten() {
-        keep_image_sizes(child);
+        ready_image_urls(child);
+    }
+}
+
+/// Makes the URL of a file of the assets folder start at the top of the app: `/assets/a.png`
+/// for `../assets/a.png`. A page writes it relative to its own file. The browser would read it
+/// from the URL of the page, which is deeper for a page in a folder. No `<base>` is used: it
+/// would also move the links to a footnote (`#fn-1`) off the page.
+fn start_asset_at_top(url: &mut String) {
+    if client_core::rich_text::asset_path(url).is_some() {
+        *url = format!("/{}", url.trim_start_matches(['.', '/']));
+    }
+}
+
+/// Puts the size of the image into the fragment of its URL, as `w` and `h`.
+/// `ast_to_html_with` leaves the size out, because each app uses it in its own way (ADR 026).
+/// The shell reads it back from the `<img>`.
+fn keep_size(url: &mut String, props: &BTreeMap<String, PropValue>) {
+    let sides: Vec<String> = ["w", "h"]
+        .into_iter()
+        .filter_map(|side| match props.get(side) {
+            Some(PropValue::Text(text)) => Some(format!("{side}={}", text.trim())),
+            _ => None,
+        })
+        .collect();
+    if !sides.is_empty() {
+        url.push('#');
+        url.push_str(&sides.join("&"));
     }
 }
 
