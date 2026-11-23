@@ -23,6 +23,7 @@ import { draw, outline, shell } from './test/screens';
 
 afterEach(() => {
   vi.useRealTimers();
+  localStorage.clear();
 });
 
 /** A document page named `title` in the folder `dirPath`. Each test changes what it needs. */
@@ -189,6 +190,62 @@ describe('the frame of the app', () => {
       '260px',
     ]);
     expect(container.querySelector('.layout')?.className).toBe('layout');
+  });
+
+  // 横の欄は、ブラウザに残した幅で始まる。残した幅がないか読めなければ、260pxで始まる。閉じた横の欄には、幅を変えるつまみがない。
+  test('the sidebar starts at the width kept in the browser, or 260px, and a closed one has no handle', () => {
+    localStorage.setItem(
+      'peta-journal-config',
+      JSON.stringify({ sidebarWidth: 320 }),
+    );
+    const kept = app();
+    const width = () =>
+      (kept.container.querySelector('aside') as HTMLElement).style.width;
+    const keptWidth = width();
+    fireEvent.click(button('☰'));
+    const handle = kept.container.querySelector('.resize-handle');
+    kept.unmount();
+    localStorage.setItem('peta-journal-config', '{');
+    const unreadable = app();
+
+    expect([keptWidth, handle]).toEqual(['320px', null]);
+    expect(
+      (unreadable.container.querySelector('aside') as HTMLElement).style.width,
+    ).toBe('260px');
+  });
+
+  // つまみを引くと、マウスが動いた分だけ横の欄の幅が変わる。幅は200pxから600pxの間である。変えた幅は、ほかの設定を残したままブラウザに残す。放したあとの動きでは変わらない。
+  test('dragging the handle changes the width by the move, from 200px to 600px, and keeps it', () => {
+    localStorage.setItem(
+      'peta-journal-config',
+      JSON.stringify({ other: true }),
+    );
+    const { container } = app();
+    const width = () =>
+      (container.querySelector('aside') as HTMLElement).style.width;
+    const handle = container.querySelector('.resize-handle') as Element;
+
+    const pressed = fireEvent.mouseDown(handle, { clientX: 100 });
+    fireEvent.mouseMove(document, { clientX: 150 });
+    const wider = width();
+    fireEvent.mouseMove(document, { clientX: 1000 });
+    const widest = width();
+    fireEvent.mouseMove(document, { clientX: 0 });
+    const narrowest = width();
+    fireEvent.mouseMove(document, { clientX: 120 });
+    fireEvent.mouseUp(document);
+    fireEvent.mouseMove(document, { clientX: 300 });
+
+    expect(pressed).toBe(false);
+    expect([wider, widest, narrowest, width()]).toEqual([
+      '310px',
+      '600px',
+      '200px',
+      '280px',
+    ]);
+    expect(
+      JSON.parse(localStorage.getItem('peta-journal-config') ?? ''),
+    ).toEqual({ other: true, sidebarWidth: 280 });
   });
 
   // 下の端は、接続の状態と、フォーカスした項目を出す。状態がまだなければ、接続中である。
