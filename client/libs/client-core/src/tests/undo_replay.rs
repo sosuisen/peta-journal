@@ -949,12 +949,11 @@ fn moved_ids(h: &Harness) -> Vec<Vec<String>> {
         .collect()
 }
 
-/// Two items, after an edit of the body of b that the undo history holds.
+/// Items a and b, after an edit of the body of b that the undo history holds.
 fn harness_after_an_edit_of_b() -> Harness {
-    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "b2")]);
-    h.model
-        .undo
-        .record_update("body", &item("b", 1, "b1"), &item("b", 1, "b2"), 0);
+    let b = |body: &str| item_with("b", 1, |i| (i.idx, i.body) = ("b".into(), body.into()));
+    let mut h = Harness::with_items(vec![at("a", "a", 1), b("b2")]);
+    h.model.undo.record_update("body", &b("b1"), &b("b2"), 0);
     h
 }
 
@@ -963,6 +962,8 @@ fn harness_after_an_edit_of_b() -> Harness {
 fn an_undo_pressed_before_the_answer_of_a_move_undoes_that_move_when_the_answer_is_there() {
     let mut h = harness_after_an_edit_of_b();
     h.hold("MoveItems");
+    h.api
+        .answer_next("MoveItems", Ok(ApiOutput::Items(vec![at("a", "c", 1)])));
     h.send(Event::MoveDown {
         item_id: "a".into(),
     });
@@ -973,5 +974,5 @@ fn an_undo_pressed_before_the_answer_of_a_move_undoes_that_move_when_the_answer_
     h.release_held();
     assert_eq!(h.items_ids(), ["a", "b"]);
     assert_eq!(moved_ids(&h), [["a".to_string()]]);
-    assert_eq!(h.bodies(), ["a=a", "b=b2"]);
+    assert_eq!(h.bodies(), ["a=", "b=b2"]);
 }

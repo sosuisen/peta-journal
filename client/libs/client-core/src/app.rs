@@ -1055,6 +1055,8 @@ pub struct Model {
     /// Moves run one after another; see `ops::moves`.
     pub move_in_progress: bool,
     pub move_queue: VecDeque<(String, MoveDirection)>,
+    /// The undos pressed while an answer was on its way; see `ops::undo_replay::perform`.
+    pub held_undos: u32,
     pub screen: Screen,
     pub current_page: Option<Page>,
     /// The name the core last gave to what is open; see `screens::navigate::set_title`.
@@ -1098,6 +1100,7 @@ impl Default for Model {
             edits: EditState::default(),
             move_in_progress: false,
             move_queue: VecDeque::new(),
+            held_undos: 0,
             screen: Screen::None,
             current_page: None,
             title: String::new(),

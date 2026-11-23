@@ -53,9 +53,15 @@ pub enum Direction {
     Redo,
 }
 
-/// Undoes or redoes the most recent entry, then makes sure the page keeps one item.
+/// Undoes or redoes the most recent entry, then makes sure the page keeps one item. An undo
+/// pressed while the answer of an operation is on its way waits for that answer: the
+/// operation is recorded for undo only when its answer is there, and the undo is meant for it.
 pub fn perform(model: &mut Model, dir: Direction) -> Cmd {
     if model.undo.is_pending() {
+        return done();
+    }
+    if dir == Direction::Undo && answer_awaited(model) {
+        model.held_undos += 1;
         return done();
     }
     let entry = match dir {
@@ -83,6 +89,20 @@ pub fn perform(model: &mut Model, dir: Direction) -> Cmd {
     }
     let sync = sync_to_server(model, &ops, dir);
     Command::all([discard, focus, sync])
+}
+
+/// True while an operation that is recorded for undo when its answer is there waits for it.
+fn answer_awaited(model: &Model) -> bool {
+    model.move_in_progress
+}
+
+/// Runs the undos that waited for an answer, once no answer is awaited any longer.
+pub fn replay_held_undos(model: &mut Model) -> Cmd {
+    if answer_awaited(model) {
+        return done();
+    }
+    let held = std::mem::take(&mut model.held_undos);
+    Command::all((0..held).map(|_| perform(model, Direction::Undo)))
 }
 
 /// Applies one recorded operation to the state, in the undo or the redo direction.
