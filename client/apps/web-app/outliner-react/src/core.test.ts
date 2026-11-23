@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'vitest';
 import type { Asked } from './core';
 import { Core } from './core';
-import { PropertyDefinition } from './border/peta-types';
+import {
+  AtlasCard,
+  Bounds,
+  Callout,
+  LinkCard,
+  PropertyDefinition,
+} from './border/peta-types';
 import { WebShell } from './test/shell';
 import { outline, row, shell } from './test/screens';
 
@@ -173,5 +179,31 @@ describe('the core in wasm', () => {
       'shown due_d',
     ]);
     expect(core.userValueTypes()).toEqual(['text', 'number']);
+  });
+
+  // アトラスのキャンバスに描くカードと吹き出し、上のボタンの名前は、wasmが決める。
+  test('wasm gives what the canvas of an atlas draws, and the name of the up button', () => {
+    const { core } = shell();
+    const card = new AtlasCard(
+      'a',
+      'A',
+      'm/a',
+      false,
+      null,
+      null,
+      null,
+      [],
+      null,
+      false,
+    );
+    const link = new LinkCard('l', 'x/Foo', new Bounds(1, 2, 0, 0), null, null);
+    const callout = new Callout('k', 1, 2, 1, 'left', 'hi');
+
+    expect(JSON.parse(core.atlasCards([card], [link]))).toEqual({
+      cards: ['a'],
+      links: ['l'],
+    });
+    expect(JSON.parse(core.atlasCallouts([callout]))).toEqual(['k']);
+    expect(core.parentDirLabel('a/b/')).toBe('above a/b/');
   });
 });
