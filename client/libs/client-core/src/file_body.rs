@@ -5,7 +5,7 @@
 //! written with `flatmarkdown::body_to_file`.
 
 use crate::effects::{ApiOp, ApiOutput};
-use crate::model::Item;
+use crate::model::{Item, TranscludedTrees};
 
 /// The request to the server, with the bodies in the form of the file.
 pub fn op_to_file(op: ApiOp) -> ApiOp {
@@ -82,27 +82,51 @@ fn moved_cursor(from: &str, to: &str, cursor: usize) -> usize {
 }
 
 /// The answer of the server, with the bodies as the shell sees them.
-pub fn output_to_shell(output: ApiOutput) -> ApiOutput {
-    match output {
-        ApiOutput::Page(mut page) => {
+pub fn output_to_shell(mut output: ApiOutput) -> ApiOutput {
+    match &mut output {
+        ApiOutput::Page(page) => {
             items_to_shell(&mut page.items);
-            ApiOutput::Page(page)
+            trees_to_shell(&mut page.transcluded_trees);
         }
-        ApiOutput::Pasted(mut pasted) => {
+        ApiOutput::JournalBefore(journal) => {
+            items_to_shell(&mut journal.items);
+            trees_to_shell(&mut journal.transcluded_trees);
+        }
+        ApiOutput::Item(item) => item_to_shell(item),
+        ApiOutput::Items(items) => items_to_shell(items),
+        ApiOutput::Backlinks(entries) => entries
+            .iter_mut()
+            .filter_map(|entry| entry.source_item.as_mut())
+            .for_each(item_to_shell),
+        ApiOutput::Pasted(pasted) => {
             if let Some(item) = pasted.items.iter().find(|i| i.id == pasted.cursor.item_id) {
                 let shell = flatmarkdown::body_from_file(&item.body);
                 pasted.cursor.position = moved_cursor(&item.body, &shell, pasted.cursor.position);
             }
             items_to_shell(&mut pasted.items);
-            ApiOutput::Pasted(pasted)
         }
-        ApiOutput::Split(mut split) => {
+        ApiOutput::Split(split) => {
             item_to_shell(&mut split.item);
             item_to_shell(&mut split.created);
-            ApiOutput::Split(split)
         }
-        other => other,
+        ApiOutput::Stashed(stashed) => {
+            item_to_shell(&mut stashed.heading);
+            items_to_shell(&mut stashed.items);
+        }
+        ApiOutput::Batched(batched) => {
+            items_to_shell(&mut batched.items);
+            items_to_shell(&mut batched.created);
+        }
+        _ => {}
     }
+    output
+}
+
+fn trees_to_shell(trees: &mut Option<TranscludedTrees>) {
+    trees
+        .iter_mut()
+        .flat_map(|trees| trees.values_mut())
+        .for_each(|items| items_to_shell(items));
 }
 
 fn items_to_shell(items: &mut [Item]) {
