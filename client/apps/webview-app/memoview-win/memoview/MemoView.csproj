@@ -14,7 +14,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <FmAst2HtmlVersion>0.9.0</FmAst2HtmlVersion>
+    <FmAst2HtmlVersion>0.10.0</FmAst2HtmlVersion>
     <FmAst2HtmlUrl>https://unpkg.com/flatmarkdown-ast2html@$(FmAst2HtmlVersion)/dist/index.global.js</FmAst2HtmlUrl>
     <!-- The version is part of the file name. A new version is then a file that does not
          exist yet, and the build downloads it. -->
