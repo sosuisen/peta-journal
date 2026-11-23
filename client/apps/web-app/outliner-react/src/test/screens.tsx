@@ -106,11 +106,13 @@ export function shell(): Shell {
   return { core, wasm: WebShell.last, asked };
 }
 
-/** Draws `ui` inside the contexts of the shell. */
+/** Draws `ui` inside the contexts of the shell. `rerender` keeps them. */
 export function draw({ core, asked }: Shell, ui: ReactNode): RenderResult {
-  return render(
-    <CoreContext value={core}>
-      <AskedOpsContext value={asked}>{ui}</AskedOpsContext>
-    </CoreContext>,
-  );
+  return render(ui, {
+    wrapper: ({ children }) => (
+      <CoreContext value={core}>
+        <AskedOpsContext value={asked}>{children}</AskedOpsContext>
+      </CoreContext>
+    ),
+  });
 }
