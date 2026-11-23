@@ -109,3 +109,21 @@ fn a_page_the_shell_opens_is_read_and_the_shell_is_told_to_draw_it_when_the_answ
     let changes = screen.bridge.changes();
     assert!(changes.contains("the body of a"), "{changes}");
 }
+
+// シェルの呼び出しの中で変わった画面は、戻り値の差分で返り、描き直しは知らせない。
+#[test]
+fn what_a_call_of_the_shell_changes_comes_back_as_its_changes_without_a_render() {
+    let screen = Screen::new();
+    screen.bridge.route("/pages/notes");
+    screen.serve();
+    screen.bridge.changes();
+    let renders = screen.renders();
+
+    let changes = screen
+        .bridge
+        .update(r#"{"SearchQueryChanged":"a query"}"#)
+        .unwrap();
+
+    assert!(changes.contains("a query"), "{changes}");
+    assert_eq!(screen.renders(), renders);
+}
