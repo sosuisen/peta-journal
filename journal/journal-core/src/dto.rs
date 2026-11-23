@@ -41,12 +41,8 @@ pub struct ItemDto {
 /// (ADR 082).
 pub use journal_api_types::SearchResult as SearchResultDto;
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BacklinkEntryDto {
-    pub source_page: PageDto,
-    pub source_item: Option<ItemDto>,
-}
+/// A page that links to another, and the item that holds the link. The server and the clients share the type (ADR 082).
+pub type BacklinkEntryDto = journal_api_types::BacklinkEntry<PageDto, ItemDto>;
 
 /// A page without its properties, for lists of pages.
 pub fn page_dto(page: &Page) -> PageDto {

@@ -34,14 +34,8 @@ pub struct MovedToJournalAnswer {
 }
 
 /// The newest journal before a day or a week. `found` is false when there is none.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MostRecentJournalAnswer {
-    pub found: bool,
-    pub page: Option<PageDto>,
-    pub items: Vec<ItemDto>,
-    pub transcluded_trees: BTreeMap<String, Vec<ItemDto>>,
-}
+/// The server and the clients share the type (ADR 082).
+pub type MostRecentJournalAnswer = journal_api_types::JournalBefore<PageDto, ItemDto>;
 
 impl Journal {
     /// Finds the journal of the name, or makes it. The name is a day (`2026-11-11`), a week

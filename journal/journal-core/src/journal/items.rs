@@ -118,31 +118,18 @@ impl ItemsAnswer {
 /// Where the cursor goes after a paste. The server and the clients share the type (ADR 082).
 pub use journal_api_types::PasteCursor as CursorDto;
 
-#[derive(Debug, Clone, Serialize)]
-pub struct PasteAnswer {
-    pub items: Vec<ItemDto>,
-    pub cursor: CursorDto,
-}
+/// What a paste came to. The server and the clients share the type (ADR 082).
+pub type PasteAnswer = journal_api_types::Pasted<ItemDto>;
 
-#[derive(Debug, Clone, Serialize)]
-pub struct SplitAnswer {
-    pub item: ItemDto,
-    pub created: ItemDto,
-}
+/// What a split came to. The server and the clients share the type (ADR 082).
+pub type SplitAnswer = journal_api_types::Split<ItemDto>;
 
-#[derive(Debug, Clone, Serialize)]
-pub struct StashAnswer {
-    pub heading: ItemDto,
-    pub created: bool,
-    pub items: Vec<ItemDto>,
-}
+/// What a stash came to. The server and the clients share the type (ADR 082).
+pub type StashAnswer = journal_api_types::Stashed<ItemDto>;
 
-/// The items a batch wrote, and the empty items made on the pages it left without an item
-#[derive(Debug, Clone, Serialize)]
-pub struct BatchAnswer {
-    pub items: Vec<ItemDto>,
-    pub created: Vec<ItemDto>,
-}
+/// The items a batch wrote, and the empty items made on the pages it left without an item.
+/// The server and the clients share the type (ADR 082).
+pub type BatchAnswer = journal_api_types::Batched<ItemDto>;
 
 /// The empty items made on the pages a deletion left without an item
 #[derive(Debug, Clone, Serialize)]
