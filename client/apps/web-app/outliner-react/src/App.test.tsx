@@ -115,6 +115,19 @@ describe('the frame of the app', () => {
     ]);
   });
 
+  // 横の欄にはサイドバーがある。サイドバーのアイコンは、枠が持つ絵を使う。
+  test('the side column holds the sidebar, whose icons the frame draws', () => {
+    const { container } = app();
+
+    expect(container.querySelector('aside app-sidebar')).not.toBeNull();
+    expect([...container.querySelectorAll('symbol')].map(s => s.id)).toEqual([
+      'icon-page',
+      'icon-page-filled',
+      'icon-folder',
+      'icon-item',
+    ]);
+  });
+
   // メニューのボタンは、横の欄を閉じたり開いたりする。
   test('the menu button closes and opens the sidebar', () => {
     const { container } = app();
