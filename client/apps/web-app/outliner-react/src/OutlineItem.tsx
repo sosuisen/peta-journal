@@ -1,5 +1,6 @@
 import hljs from 'highlight.js/lib/common';
 import {
+  Fragment,
   memo,
   useLayoutEffect,
   useRef,
@@ -84,8 +85,12 @@ export const OutlineItem = memo(function OutlineItem({
         <div className="item-controls">
           <div className="slot-menu">{row.has_children && menuButton}</div>
           <div className="slot-toggle">
+            {/* Keys, so a new child makes a new triangle: the same button restyled from the
+                menu would run the transition of its color, and the browser recomputes its
+                style on every frame of it */}
             {row.has_children ? (
               <button
+                key="toggle"
                 className={
                   row.is_collapsed
                     ? 'collapse-toggle collapsed'
@@ -105,7 +110,7 @@ export const OutlineItem = memo(function OutlineItem({
                 </svg>
               </button>
             ) : (
-              menuButton
+              <Fragment key="menu">{menuButton}</Fragment>
             )}
           </div>
         </div>
