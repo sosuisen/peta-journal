@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, searchForWorkspaceRoot } from 'vite';
 import react from '@vitejs/plugin-react';
 
 /**
@@ -17,5 +17,14 @@ export default defineConfig({
   server: {
     port: 5181,
     proxy: { '/api': { target: api, changeOrigin: true } },
+    fs: {
+      // The app, the styles of the Leptos shell, and the scripts and fonts of the atlas
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        '../outliner',
+        '../../../../atlas/web',
+        '../../../assets',
+      ],
+    },
   },
 });
