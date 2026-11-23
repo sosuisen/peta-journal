@@ -530,6 +530,19 @@ impl WebShell {
         crate::tags::tag_url(tags_dir, tag)
     }
 
+    /// The names the settings show for the keys of the property definitions, given as JSON,
+    /// in their order.
+    #[wasm_bindgen(js_name = shownNames)]
+    pub fn shown_names(&self, definitions: &str) -> Result<Vec<String>, JsError> {
+        crate::settings::shown_names(definitions).map_err(|e| JsError::new(&e))
+    }
+
+    /// The types a user may give a new key, in the order the settings offer them.
+    #[wasm_bindgen(js_name = userValueTypes)]
+    pub fn user_value_types(&self) -> Vec<String> {
+        crate::settings::user_value_types()
+    }
+
     /// Begins the clipboard write of a copy or a cut of the selection. The shell calls this
     /// from the handler of the user's key or copy event, before the event goes to the core:
     /// Safari lets a page write the clipboard only then. Without `ClipboardItem` (older
