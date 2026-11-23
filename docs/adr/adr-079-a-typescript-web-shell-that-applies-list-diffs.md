@@ -191,7 +191,11 @@ Angularは、`ng new`で作ったプロジェクトに`strictTemplates`を入れ
 AngularのコンパイラーはDOMの属性の値の型を調べない（`checkTypeOfDomBindings`が常に`false`）。
 `clas="a"`のような静的な属性は、ただのHTMLの属性として扱われ、名前を調べない。
 Svelteは、`svelte-check` 4.7.8とTypeScript 6で確かめた。
-`svelte-check`は、TypeScript 7にまだ対応していない（peerDependenciesが`^5.0.0 || ^6.0.0`）。
+TypeScript 7.0には、安定したJSのAPIがない（`exports`は`unstable/`だけ）。
+そのため、TypeScriptのAPIを使う道具には、TypeScript 6が要る。
+`svelte-check`のpeerDependenciesは`^5.0.0 || ^6.0.0`で、Angularの`@angular/compiler-cli`は`>=6.0 <6.1`である。
+`svelte-check`には、TypeScript 7で調べる`--tsgo`があるが、試していない。
+TSXは`tsc`だけで調べられるので、TypeScript 7をそのまま使えた。
 
 ほかの行の確かめ方は、次のとおりである。
 
@@ -322,8 +326,8 @@ JSXだけなら、読みやすさも得られる。
 `aria-`の名前は、SolidとReactと違って見つかる。
 しかし、知らない要素と、`style:`の名前と値は通る。
 `.svelte`という独自の形式のために、型チェックに`svelte-check`が、formatterにプラグインが要る。
-`svelte-check`は、TypeScript 7にまだ対応していない。
-TypeScriptの新しい版を使うには、この道具を待つことになる。
+TypeScriptの版を上げるときは、`svelte-check`の対応を待つことがある。
+今は、TypeScript 7の`--tsgo`は試験的である。`svelte-check`の開発者は、TypeScript 6と7を並べて入れる形を勧めている（language-tools #3063）。
 そのため、選ばなかった。
 
 ### Alternative 5: Angular
