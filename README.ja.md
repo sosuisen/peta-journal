@@ -24,8 +24,7 @@ Leptos版のシェル（`client/apps/web-app/outliner`）も、消すまでは�
 
 ### 準備（一度だけ）
 
-- Rust 1.85以上
-- wasmのターゲット: `rustup target add wasm32-unknown-unknown`
+- `rustup`。Rustの版とwasmのターゲットは、`rust-toolchain.toml`が決める。最初のビルドで、rustupが入れる
 - Node.js
 - wasm-pack: `cargo install wasm-pack`
 - Leptos版も使うときは、Trunk: `cargo install trunk --locked`

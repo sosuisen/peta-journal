@@ -11,7 +11,8 @@ REST API, the SSE stream, the MCP tools and the web frontend on port 8087, and k
 
 ### Prerequisites
 
-- Rust 1.85 or newer (`rustup`), with a C compiler for the bundled SQLite.
+- `rustup`, with a C compiler for the bundled SQLite. `rust-toolchain.toml` sets the version of
+  Rust, and rustup installs it on the first build.
 - Network access during the first build: the Japanese dictionary (IPADIC) for the search
   index is downloaded by the `lindera-ipadic` crate and compiled into the binary. Set
   `LINDERA_BUILD_DICTIONARY_CACHE_DIR` to a directory to keep the built dictionary between
@@ -106,7 +107,8 @@ The Leptos shell below stays until it is removed.
 
 ### Prerequisites
 
-- Rust 1.85 or newer with the `wasm32-unknown-unknown` target: `rustup target add wasm32-unknown-unknown`
+- `rustup`. `rust-toolchain.toml` sets the version of Rust and adds the `wasm32-unknown-unknown`
+  target.
 - trunk: `cargo install trunk --locked`
 
 ### Build and run
@@ -245,7 +247,9 @@ boltffi pack android --release
 ```
 
 This needs the Android NDK (`ANDROID_NDK_HOME`) and the Rust targets `aarch64-linux-android` and
-`x86_64-linux-android`. The output is `client/apps/native-app/outliner-android/generated`: the libraries under
+`x86_64-linux-android`. Add them inside the repository, so that they go to the version in
+`rust-toolchain.toml`: `rustup target add aarch64-linux-android x86_64-linux-android`.
+The output is `client/apps/native-app/outliner-android/generated`: the libraries under
 `jniLibs`, and the Kotlin under `kotlin`. It is not kept in the repository.
 `client/apps/native-app/outliner-android/generate.ps1` runs both steps.
 
@@ -254,7 +258,9 @@ The tests of the crate run on the development machine, with `cargo test -p clien
 The iOS shell uses the same crate (ADR 034). On a Mac, `client/apps/native-app/outliner-ios/generate.sh` writes the
 Swift types and packs the crate with `boltffi pack apple --release`, for a device, for the
 simulator and for the Mac. This needs the Rust targets `aarch64-apple-ios` and
-`aarch64-apple-ios-sim`. The output is `client/apps/native-app/outliner-ios/generated`.
+`aarch64-apple-ios-sim`. Add them inside the repository, so that they go to the version in
+`rust-toolchain.toml`: `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`.
+The output is `client/apps/native-app/outliner-ios/generated`.
 
 ### Emacs frontend
 
