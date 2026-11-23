@@ -1,7 +1,7 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{batch_calls, item, move_calls, typed, Harness};
-use crate::model::{BatchOp, ItemPosition, TranscludedTrees};
+use crate::model::{BatchOpInput, ItemPosition, TranscludedTrees};
 use crate::testing::item_with;
 
 fn page_harness() -> Harness {
@@ -394,14 +394,14 @@ fn undo_of_a_move_inside_a_transclusion_puts_the_item_back_after_its_old_sibling
 
     h.send(Event::Undo);
 
-    let moves: Vec<BatchOp> = batch_calls(&h.api)
+    let moves: Vec<BatchOpInput> = batch_calls(&h.api)
         .into_iter()
         .flatten()
-        .filter(|op| matches!(op, BatchOp::Move { .. }))
+        .filter(|op| matches!(op, BatchOpInput::Move { .. }))
         .collect();
     assert_eq!(
         moves,
-        [BatchOp::Move {
+        [BatchOpInput::Move {
             ids: vec!["c2".into()],
             page_id: "page1".into(),
             position: ItemPosition::after("c1"),

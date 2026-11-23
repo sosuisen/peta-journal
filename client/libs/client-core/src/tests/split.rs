@@ -1,7 +1,7 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{batch_calls, create_calls, item, split_calls, typed, update_calls, Harness};
-use crate::model::{BatchOp, Item, Page, PageWithItems, Split, TranscludedTrees};
+use crate::model::{BatchOpInput, Item, Page, PageWithItems, Split, TranscludedTrees};
 use crate::testing::item_with;
 
 fn harness() -> Harness {
@@ -242,10 +242,10 @@ fn undo_of_an_enter_in_the_middle_puts_the_body_back_and_removes_the_new_item() 
     assert_eq!(h.focus_cursor(), Some(5));
     let batch = &batch_calls(&h.api)[0];
     assert!(
-        matches!(&batch[0], BatchOp::Update { id, body, .. } if id == "a" && body.as_deref() == Some("hello world")),
+        matches!(&batch[0], BatchOpInput::Update { id, body, .. } if id == "a" && body.as_deref() == Some("hello world")),
         "{batch:?}"
     );
-    assert_eq!(batch[1], BatchOp::Delete { id: "new1".into() });
+    assert_eq!(batch[1], BatchOpInput::Delete { id: "new1".into() });
 }
 
 // 末尾や先頭での Enter は本文を変えないので、undo には作成だけが記録される。
@@ -259,7 +259,7 @@ fn an_enter_that_leaves_the_body_as_it_is_records_only_the_creation() {
     assert_eq!(h.bodies(), ["a=hello world", "b=body of b"]);
     assert_eq!(
         batch_calls(&h.api),
-        [[BatchOp::Delete { id: "new1".into() }]]
+        [[BatchOpInput::Delete { id: "new1".into() }]]
     );
 }
 
@@ -531,10 +531,10 @@ fn undo_of_a_split_transclusion_puts_the_body_of_the_source_back_and_removes_the
 
     let batch = &batch_calls(&h.api)[0];
     assert!(
-        matches!(&batch[0], BatchOp::Update { id, body, .. } if id == "s" && body.as_deref() == Some("shown")),
+        matches!(&batch[0], BatchOpInput::Update { id, body, .. } if id == "s" && body.as_deref() == Some("shown")),
         "{batch:?}"
     );
-    assert_eq!(batch[1], BatchOp::Delete { id: "n".into() });
+    assert_eq!(batch[1], BatchOpInput::Delete { id: "n".into() });
 }
 
 // 分割のあとの読み直しの答えより先に取り消すと、編集とカーソルは取り消しが置いた所に残る。読み直しのあとの編集の移動は行わない。
@@ -777,7 +777,7 @@ fn undo_and_redo_of_an_enter_make_the_item_again_where_it_was_after_the_server_r
     h.send(Event::Undo);
     h.send(Event::Redo);
 
-    let BatchOp::Create { position, .. } = &batch_calls(&h.api)[1][0] else {
+    let BatchOpInput::Create { position, .. } = &batch_calls(&h.api)[1][0] else {
         panic!("not a create: {:?}", batch_calls(&h.api));
     };
     assert_eq!(position, &crate::model::ItemPosition::after("a"));

@@ -124,14 +124,9 @@ impl<'de> Deserialize<'de> for PropertyValue {
 /// reference counted: a change makes a new item instead of touching the shared one.
 pub type ItemRef = Arc<Item>;
 
-/// The task state of an item, with the times and the plan that go with it.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct TaskState {
-    pub task: bool,
-    pub begin: Option<String>,
-    pub end: Option<String>,
-    pub plan: Option<String>,
-}
+/// The task state of an item, with the times and the plan that go with it. It is the state a
+/// batch writes, so the client keeps it in the type of the server (ADR 081).
+pub use journal_api_types::TaskStateInput as TaskState;
 
 impl Item {
     pub fn is_task(&self) -> bool {
@@ -283,48 +278,18 @@ pub struct SearchResult {
 /// client share the type (ADR 081).
 pub use journal_api_types::ItemPosition;
 
-/// One operation of a batch. The server applies the operations of a batch in their order, all
-/// of them or none. The names are the ones the server reads.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "op", rename_all = "camelCase")]
-pub enum BatchOp {
-    /// Makes an item with the id it names, as the undo of a deletion makes the item again.
-    #[serde(rename_all = "camelCase")]
-    Create {
-        id: String,
-        page_id: String,
-        position: ItemPosition,
-        level: i32,
-        body: String,
-        /// The source item the item shows, for a transclusion made again.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        transclude_item_id: Option<String>,
-        /// The properties of the item made again. The server leaves the tags to the hashtags
-        /// of the body.
-        #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-        properties: BTreeMap<String, PropertyValue>,
-    },
-    /// Writes the fields given. A task state is written whole, with its times.
-    Update {
-        id: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        body: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        level: Option<i32>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        collapsed: Option<bool>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        task: Option<TaskState>,
-    },
-    /// Moves items, in their order, to a position on a page, as the undo of a move does.
-    #[serde(rename_all = "camelCase")]
-    Move {
-        ids: Vec<String>,
-        page_id: String,
-        position: ItemPosition,
-    },
-    /// Deletes an item. The server deletes the items of a batch last, as one group.
-    Delete { id: String },
+/// One operation of a batch, as the server reads it (ADR 081).
+pub use journal_api_types::{BatchOpInput, PropertyValueInput};
+
+/// The value a batch writes. The client keeps its own `PropertyValue`: it also crosses the
+/// border of the native shells, in a form of its own.
+impl From<PropertyValue> for PropertyValueInput {
+    fn from(value: PropertyValue) -> PropertyValueInput {
+        match value {
+            PropertyValue::Text(text) => PropertyValueInput::Text(text),
+            PropertyValue::List(values) => PropertyValueInput::List(values),
+        }
+    }
 }
 
 /// How the server reads a pasted text. The names are the ones the server reads.

@@ -321,7 +321,7 @@ impl FakeApi {
                 let mut written: Vec<Item> = Vec::new();
                 for op in ops {
                     let item = match op {
-                        BatchOp::Update {
+                        BatchOpInput::Update {
                             id,
                             body,
                             level,
@@ -337,7 +337,7 @@ impl FakeApi {
                             }
                             item
                         }
-                        BatchOp::Create {
+                        BatchOpInput::Create {
                             id,
                             page_id,
                             level,
@@ -350,7 +350,7 @@ impl FakeApi {
                             item.idx = format!("created{}", self.created);
                             item
                         }
-                        BatchOp::Move { ids, .. } => {
+                        BatchOpInput::Move { ids, .. } => {
                             // A moved item keeps what an update before it wrote, at a new index
                             for id in ids {
                                 self.created += 1;
@@ -362,7 +362,7 @@ impl FakeApi {
                             }
                             continue;
                         }
-                        BatchOp::Delete { .. } => continue,
+                        BatchOpInput::Delete { .. } => continue,
                     };
                     // An item written twice is answered once, as it is at the end
                     written.retain(|earlier| earlier.id != item.id);
@@ -900,7 +900,7 @@ pub fn delete_calls(api: &FakeApi) -> Vec<Vec<String>> {
 }
 
 /// The batches sent, each the operations of one request.
-pub fn batch_calls(api: &FakeApi) -> Vec<Vec<BatchOp>> {
+pub fn batch_calls(api: &FakeApi) -> Vec<Vec<BatchOpInput>> {
     api.calls
         .iter()
         .filter_map(|op| match op {
