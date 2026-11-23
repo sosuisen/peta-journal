@@ -76,4 +76,12 @@ mod tests {
         );
         assert!(plain.contains(r#"src="img.png""#), "{plain}");
     }
+
+    // assetsの画像のURLは、アプリの一番上からのパスになる。ページのURLがフォルダーの下にあっても、画像に届く。
+    #[test]
+    fn the_url_of_an_asset_image_starts_at_the_top_of_the_app() {
+        let html = HtmlBody::of(client_core::asts::parse("![alt](../assets/a.png)"), "tags/").0;
+
+        assert!(html.contains(r#"src="/assets/a.png""#), "{html}");
+    }
 }
