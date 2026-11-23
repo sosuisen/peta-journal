@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useAsked } from './askedContext';
+import Atlas from './Atlas';
 import type { JournalView, PageView } from './border/peta-types';
 import { useCore, usePanel } from './context';
 import Outline from './Outline';
@@ -387,14 +388,23 @@ function DocPage({ page }: { readonly page: PageView }) {
         )}
         {title}
       </div>
-      <Outline
-        header={
-          page.show_properties || drafts.length > 0 ? (
-            <PageProperties page={page} drafts={drafts} setDrafts={setDrafts} />
-          ) : undefined
-        }
-        footer={<Backlinks page={page} />}
-      />
+      {/* The canvas takes the place of the items: an atlas page shows its directory */}
+      {page.is_atlas ? (
+        <Atlas dirPath={page.page.dir_path} />
+      ) : (
+        <Outline
+          header={
+            page.show_properties || drafts.length > 0 ? (
+              <PageProperties
+                page={page}
+                drafts={drafts}
+                setDrafts={setDrafts}
+              />
+            ) : undefined
+          }
+          footer={<Backlinks page={page} />}
+        />
+      )}
     </app-page>
   );
 }
