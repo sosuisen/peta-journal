@@ -158,12 +158,6 @@ impl<H: Host> Bridge<H> {
             .unwrap_or_default()
     }
 
-    /// Shows what the URL names, such as `/pages/notes` or `/today`, and returns the changes.
-    /// The browser calls this when its URL changes, as with its back button.
-    pub fn route(&self, url: &str) -> String {
-        self.in_call(|| self.open(url))
-    }
-
     /// Opens the page of the URL the browser went to in its history, as with its back button.
     /// The shell is not calling: it is told to draw.
     pub fn popped(&self, url: &str) {

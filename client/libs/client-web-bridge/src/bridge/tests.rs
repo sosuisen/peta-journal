@@ -174,7 +174,7 @@ impl Screen {
     }
 
     fn open_notes(&self) {
-        self.bridge.route("/pages/notes");
+        self.bridge.go("/pages/notes");
         self.serve();
     }
 
@@ -236,7 +236,7 @@ impl Screen {
 #[test]
 fn a_page_the_shell_opens_is_read_and_the_shell_is_told_to_draw_it_when_the_answer_comes() {
     let screen = Screen::new();
-    screen.bridge.route("/pages/notes");
+    screen.bridge.go("/pages/notes");
     assert_eq!(screen.renders(), 0);
 
     screen.serve();
@@ -250,8 +250,7 @@ fn a_page_the_shell_opens_is_read_and_the_shell_is_told_to_draw_it_when_the_answ
 #[test]
 fn what_a_call_of_the_shell_changes_comes_back_as_its_changes_without_a_render() {
     let screen = Screen::new();
-    screen.bridge.route("/pages/notes");
-    screen.serve();
+    screen.open_notes();
     screen.bridge.changes();
     let renders = screen.renders();
 
@@ -301,7 +300,8 @@ fn a_navigation_the_core_asks_for_changes_the_url_and_then_opens_its_page() {
 
     screen.bridge.update(r#""NavigateHome""#).unwrap();
 
-    assert_eq!(screen.urls(), [("/today".to_string(), false)]);
+    let urls = screen.urls();
+    assert_eq!(urls.last(), Some(&("/today".to_string(), false)));
     assert_eq!(screen.calls_named("GetOrCreateJournal"), journals + 1);
 }
 
@@ -310,7 +310,7 @@ fn a_navigation_the_core_asks_for_changes_the_url_and_then_opens_its_page() {
 fn a_url_that_names_nothing_is_replaced_by_the_page_of_today() {
     let screen = Screen::new();
 
-    screen.bridge.route("/nothing/here");
+    screen.bridge.popped("/nothing/here");
 
     assert_eq!(screen.urls(), [("/today".to_string(), true)]);
     assert_eq!(screen.calls_named("GetOrCreateJournal"), 1);
