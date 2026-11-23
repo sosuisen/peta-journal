@@ -391,3 +391,28 @@ fn the_window_does_its_operations_and_the_time_is_answered_without_the_shell() {
     let url = "/pages/Untitled-202602100900".to_string();
     assert_eq!(screen.urls(), [(url, false)]);
 }
+
+/// A key pressed in the editor of the item `a`, whose text is `ab`, with the caret at its end.
+fn key_in_a(key: &str) -> String {
+    format!(
+        r#"{{"InEditor":{{"item_id":"a",
+            "chord":{{"key":{key},"shift":false,"ctrl":false,"alt":false,"cmd":false}},
+            "editor":{{"text":"ab","selection_start":2,"selection_end":2,
+                      "on_first_line":true,"on_last_line":true}}}}}}"#
+    )
+}
+
+// アウトラインに意味のないキーは、シェルの編集欄に任される。意味のあるキーは、差分を返す。
+#[test]
+fn a_key_that_means_nothing_to_the_outline_is_left_to_the_editor_and_one_that_does_gives_changes() {
+    let screen = Screen::new();
+    screen.open_notes();
+    screen.bridge.changes();
+
+    let letter = screen.bridge.press(&key_in_a(r#"{"Letter":"x"}"#)).unwrap();
+    let down = screen.bridge.press(&key_in_a(r#""Down""#)).unwrap();
+
+    assert_eq!(letter, None);
+    let changes = down.expect("the key moves to the next item");
+    assert!(changes.contains(r#""focused_item_id":"b""#), "{changes}");
+}
