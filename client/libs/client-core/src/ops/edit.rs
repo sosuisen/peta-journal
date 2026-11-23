@@ -205,23 +205,22 @@ pub fn show_saved_body(model: &mut Model, sent: &str, saved: &Item) -> Cmd {
 /// source there.
 fn left_text(model: &Model, item: &Item) -> String {
     match model.state.get_item_by_id(&item.id) {
-        Some(held) => without_blank_edges(&held.body),
-        None => without_blank_edges(&item.body),
+        Some(held) => without_blank_end(&held.body),
+        None => without_blank_end(&item.body),
     }
 }
 
-/// The body without the lines of only blanks before and after it. Markdown gives them no
-/// meaning, and a file read back has none. Only when the edit ends: while typing, a line just
+/// The body without the lines of only blanks at its end. The file keeps the blank lines at
+/// the start and in the middle as lines of one backslash (ADR 070), but one at the end would
+/// show as a `\` in other Markdown viewers. Only when the edit ends: while typing, a line just
 /// begun at the end would go.
-fn without_blank_edges(body: &str) -> String {
+fn without_blank_end(body: &str) -> String {
     let lines: Vec<&str> = body.lines().collect();
-    let blank = |line: &&str| line.trim().is_empty();
-    let start = lines.iter().position(|l| !blank(l)).unwrap_or(lines.len());
     let end = lines
         .iter()
-        .rposition(|l| !blank(l))
-        .map_or(start, |i| i + 1);
-    lines[start..end].join("\n")
+        .rposition(|line| !line.trim().is_empty())
+        .map_or(0, |i| i + 1);
+    lines[..end].join("\n")
 }
 
 /// Saves a body of the shown item. When the item is a transclusion root, the AST and types

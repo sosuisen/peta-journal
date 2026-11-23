@@ -7,9 +7,9 @@ description = "The URLs of the pages of PetaJournal: how they are made and read 
 
 [dependencies]
 # The same version as the crates of flatmarkdown in client/Cargo.toml and journal-core (ADR 020)
-flatmarkdown-ast2html = "=0.9.0"
+flatmarkdown-ast2html = "=0.10.0"
 
 [dev-dependencies]
-flatmarkdown-ast = "=0.9.0"
+flatmarkdown-ast = "=0.10.0"
 hmtid = { path = "../hmtid" }
 proptest = "1.12.0"

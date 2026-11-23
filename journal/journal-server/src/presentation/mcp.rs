@@ -351,7 +351,7 @@ impl JournalMcp {
     }
 
     #[tool(
-        description = "Create a new item in a page. Use position to specify where: 'first' for page start, 'last' for page end, 'after:<id>' to insert after a specific item."
+        description = "Create a new item in a page. Use position to specify where: 'first' for page start, 'last' for page end, 'after:<id>' to insert after a specific item. In Flat Markdown, one block is one item: give each paragraph, heading or list an item of its own."
     )]
     async fn create_item(
         &self,
@@ -363,7 +363,7 @@ impl JournalMcp {
     }
 
     #[tool(
-        description = "Update an existing item's body, level, or collapsed state. A field that is left out stays as it is."
+        description = "Update an existing item's body, level, or collapsed state. A field that is left out stays as it is. In Flat Markdown, one block is one item: a body holds one paragraph, heading or list."
     )]
     async fn update_item(
         &self,
@@ -1105,7 +1105,8 @@ impl ServerHandler for JournalMcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(
-                "PetaJournal: journals, documents and outline items of a local markdown folder."
+                "PetaJournal: journals, documents and outline items of a local markdown folder. \
+                 The pages are written in Flat Markdown, where one block is one item."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder().enable_tools().build(),

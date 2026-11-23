@@ -14,7 +14,7 @@ MemoView needs one JavaScript file to build and to run:
 client\apps\webview-app\memoview-win\memoview\vendor\fm-ast2html-<version>.js
 ```
 
-`<version>` is the value of `FmAst2HtmlVersion` in `MemoView.csproj`, for example `fm-ast2html-0.9.0.js`.
+`<version>` is the value of `FmAst2HtmlVersion` in `MemoView.csproj`, for example `fm-ast2html-0.10.0.js`.
 
 This file is the npm package [flatmarkdown-ast2html](https://www.npmjs.com/package/flatmarkdown-ast2html).
 It turns the AST of each item into HTML inside the WebView.
