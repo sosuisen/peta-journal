@@ -213,3 +213,14 @@ fn a_navigation_the_core_asks_for_changes_the_url_and_then_opens_its_page() {
     assert_eq!(screen.urls(), [("/today".to_string(), false)]);
     assert_eq!(screen.calls_named("GetOrCreateJournal"), journals + 1);
 }
+
+// 何も指さないURLは、今日のページに置き換わる。
+#[test]
+fn a_url_that_names_nothing_is_replaced_by_the_page_of_today() {
+    let screen = Screen::new();
+
+    screen.bridge.route("/nothing/here");
+
+    assert_eq!(screen.urls(), [("/today".to_string(), true)]);
+    assert_eq!(screen.calls_named("GetOrCreateJournal"), 1);
+}
