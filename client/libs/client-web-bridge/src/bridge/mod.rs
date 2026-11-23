@@ -5,6 +5,7 @@ use crate::body::HtmlBody;
 use crate::border::{read, write};
 use crate::lanes::{lane_of, Lane};
 use client_core::changes::{Changes, Shown};
+use client_core::drag::{DragMove, ItemDrag};
 use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp,
     TimerOutput, UiOp, UiOutput,
@@ -83,6 +84,8 @@ pub struct Bridge<H: Host> {
     me: Weak<Bridge<H>>,
     client_id: ClientId,
     keys: KeyMap,
+    /// The drag of the mouse that started on the text of an item, if one is on.
+    drag: RefCell<ItemDrag>,
     shown: RefCell<Shown<HtmlBody>>,
     to_server: RefCell<InOrder<Request<ApiOp>>>,
     timers: RefCell<Timers<Request<TimerOp>>>,
@@ -110,6 +113,7 @@ impl<H: Host> Bridge<H> {
             me: me.clone(),
             client_id,
             keys: KeyMap::of(KeyPlatform::Web),
+            drag: RefCell::default(),
             shown: RefCell::default(),
             to_server: RefCell::default(),
             timers: RefCell::default(),
@@ -192,6 +196,22 @@ impl<H: Host> Bridge<H> {
         let typing: Typing = read(typing)?;
         let (_, now_ms) = self.host.now();
         Ok(self.in_call(|| self.send(typing::event_of(typing, now_ms))))
+    }
+
+    /// Takes a step of a drag of the mouse: a [`DragMove`] as JSON. Returns the changes when
+    /// it told the core something, as that the drag left the text and selects items. Nothing
+    /// while the drag stays in the text, which the shell leaves to its editor.
+    pub fn drag(&self, step: &str) -> Result<Option<String>, String> {
+        let step: DragMove = read(step)?;
+        let events = self.drag.borrow_mut().events_of(step);
+        if events.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(self.in_call(|| {
+            for event in events {
+                self.send(event);
+            }
+        })))
     }
 
     /// Pastes the image in the file into the item, at `cursor` in characters. The file is
