@@ -175,6 +175,20 @@ describe('an item with children', () => {
     expect(box('a').querySelector('.slot-toggle .item-menu')).not.toBeNull();
     expect(box('a').querySelector('.collapse-toggle')).toBeNull();
   });
+
+  // 子ができると、三角の場所のメニューのボタンは、新しい三角に替わる。同じボタンの色を変えると、CSSのトランジションが走り、そのあいだブラウザがスタイルを計算し直すためである。
+  test('a new child puts a new triangle in place of the menu button, not the same button restyled', () => {
+    const { redraw } = item(row('a', 'one'));
+    const menu = box('a').querySelector('.slot-toggle button');
+
+    redraw(row('a', 'one', { has_children: true }));
+    const toggle = box('a').querySelector('.slot-toggle button');
+    redraw(row('a', 'one'));
+
+    expect(toggle?.className).toBe('collapse-toggle');
+    expect(toggle).not.toBe(menu);
+    expect(box('a').querySelector('.slot-toggle button')).not.toBe(toggle);
+  });
 });
 
 // タスクの時刻
