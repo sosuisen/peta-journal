@@ -52,8 +52,7 @@ pub fn page_answer(op: &ApiOp, page: Page, items: Vec<Item>) -> ApiOutput {
         _ => ApiOutput::Page(PageWithItems {
             page,
             items,
-            created: false,
-            transcluded_trees: None,
+            transcluded_trees: Default::default(),
         }),
     }
 }

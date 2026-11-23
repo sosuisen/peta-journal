@@ -551,7 +551,7 @@ fn a_journal_is_made_by_its_name_and_found_as_the_most_recent_before_a_later_one
         f.call(ApiOp::GetOrCreateJournal {
             file_name: "2031-05-06".into(),
         }),
-        Page
+        Journal
     );
     assert!(day.created);
     let before = expect!(
@@ -566,7 +566,7 @@ fn a_journal_is_made_by_its_name_and_found_as_the_most_recent_before_a_later_one
         f.call(ApiOp::GetOrCreateJournal {
             file_name: "2031-W19".into(),
         }),
-        Page
+        Journal
     );
     let before = expect!(
         f.call(ApiOp::GetMostRecentWeeklyJournalBefore {
@@ -1095,7 +1095,7 @@ fn the_journal_before_a_day_is_read_with_every_field_but_the_ast_and_the_parent(
         f.call(ApiOp::GetOrCreateJournal {
             file_name: "2026-01-05".into(),
         }),
-        Page
+        Journal
     );
     f.item(&journal.page.id, "a day");
 

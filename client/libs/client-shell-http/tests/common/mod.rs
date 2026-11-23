@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 pub const CONFIRM: &str = r#"{"type":"confirm","requestId":"confirm-7","message":"Insert?"}"#;
 
 /// The one page the server knows, `notes` with the id `p`, and its one item `a`.
-pub const PAGE: &str = r#"{"page":{"id":"p","parentId":"","dirPath":"","name":"notes","type":"doc","createdDate":0,"modifiedDate":0,"properties":{}},"items":[{"id":"a","pageId":"p","parentItemId":null,"dirPath":"","name":"notes","type":"doc","createdDate":0,"modifiedDate":0,"idx":"a","level":1,"body":"the body of a","ast":"","collapsed":false,"types":[],"properties":{},"transcludeItemId":null}],"created":false}"#;
+pub const PAGE: &str = r#"{"page":{"id":"p","parentId":"","dirPath":"","name":"notes","type":"doc","createdDate":0,"modifiedDate":0,"properties":{}},"items":[{"id":"a","pageId":"p","parentItemId":null,"dirPath":"","name":"notes","type":"doc","createdDate":0,"modifiedDate":0,"idx":"a","level":1,"body":"the body of a","ast":"","collapsed":false,"types":[],"properties":{},"transcludeItemId":null}],"created":false,"transcludedTrees":{}}"#;
 
 /// A journal server that knows one page, `notes` (`PAGE`), and nothing else: it answers 404
 /// to the rest, and sends one message on its event stream. It keeps the first line of each request, such as `GET /api/config HTTP/1.1`.

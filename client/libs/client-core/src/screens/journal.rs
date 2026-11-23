@@ -2,7 +2,7 @@
 //! followed by the older ones as the user scrolls, and moving between days.
 
 use crate::app::{done, log_error, run, Cmd, Event, JournalNav, JournalState, Model, Screen};
-use crate::model::{Item, PageWithItems, TranscludedTrees};
+use crate::model::{Item, JournalPage, TranscludedTrees};
 use crate::ops::edit::focus_editor;
 use crate::ops::moves::CrossDayMove;
 use crate::screens::{navigate, page, sidebar};
@@ -71,7 +71,7 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
 }
 
 /// Shows the journal of a date under the title.
-fn show_journal(model: &mut Model, date: String, title: String, loaded: PageWithItems) -> Cmd {
+fn show_journal(model: &mut Model, date: String, title: String, loaded: JournalPage) -> Cmd {
     let Some(j) = journal_mut(model) else {
         return done();
     };
@@ -81,9 +81,7 @@ fn show_journal(model: &mut Model, date: String, title: String, loaded: PageWith
     j.loaded_dates.insert(date);
     let focus_item_id = j.focus_item_id.clone();
     model.state.set_items(loaded.items);
-    if let Some(trees) = loaded.transcluded_trees {
-        model.state.set_transcluded_trees(trees);
-    }
+    model.state.set_transcluded_trees(loaded.transcluded_trees);
     let mut cmds = vec![
         navigate::set_title(model, title),
         sidebar::set_current_page(model, Some(loaded.page)),
@@ -98,12 +96,7 @@ fn show_journal(model: &mut Model, date: String, title: String, loaded: PageWith
 /// The server answered the journal of a date: the screen shows it, and a daily or weekly
 /// journal goes on to the older ones that fill the buffer. An answer for a date the user has
 /// moved on from does neither.
-pub fn journal_loaded(
-    model: &mut Model,
-    date: String,
-    title: String,
-    loaded: PageWithItems,
-) -> Cmd {
+pub fn journal_loaded(model: &mut Model, date: String, title: String, loaded: JournalPage) -> Cmd {
     // The journals before a day the user has moved on from would go under the day shown
     if journal(model).map(|j| j.current_date.as_str()) != Some(date.as_str()) {
         return done();
@@ -155,7 +148,7 @@ fn load_journal_before(
                     target_item_count,
                     name: page.name,
                     items: older.items,
-                    transcluded_trees: Some(older.transcluded_trees.into_iter().collect()),
+                    transcluded_trees: Some(older.transcluded_trees),
                 }),
                 None => api.send_event(Event::PreviousJournalsLoaded { journal }),
             },

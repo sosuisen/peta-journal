@@ -1,7 +1,5 @@
 //! The page operations.
 
-use std::collections::BTreeMap;
-
 use journal_api_types::PropertyValue;
 use serde::Serialize;
 
@@ -21,17 +19,18 @@ const DEFAULT_RECENT_PAGES: i64 = 10;
 const PAGE_TARGET: &str = "page";
 
 /// A page with its items, and the trees of the items that its transclusions show.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PageWithItems<I = ItemDto> {
-    pub page: PageDto,
-    pub items: Vec<I>,
-    pub transcluded_trees: BTreeMap<String, Vec<I>>,
+/// The server and the clients share the type (ADR 082).
+pub type PageWithItems<I = ItemDto> = journal_api_types::PageWithItems<PageDto, I>;
+
+/// Narrows the items of a page answer. It is a trait because `PageWithItems` is a type of
+/// `journal-api-types`, and a crate cannot add methods to a type of another crate (ADR 082).
+pub trait NarrowPage {
+    /// The same answer with only these fields of each item.
+    fn with_fields(self, fields: &ItemFields) -> PageWithItems<NarrowItem>;
 }
 
-impl PageWithItems {
-    /// The same answer with only these fields of each item.
-    pub fn with_fields(self, fields: &ItemFields) -> PageWithItems<NarrowItem> {
+impl NarrowPage for PageWithItems {
+    fn with_fields(self, fields: &ItemFields) -> PageWithItems<NarrowItem> {
         PageWithItems {
             items: fields.of_each(&self.items),
             transcluded_trees: self

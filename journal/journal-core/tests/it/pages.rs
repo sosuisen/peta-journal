@@ -3,7 +3,7 @@
 
 use journal_core::dto::ItemFields;
 use journal_core::error::AppError;
-use journal_core::journal::PageAnswer;
+use journal_core::journal::{NarrowPage, PageAnswer};
 use serde_json::{json, Value};
 
 use crate::common::items::{answer, field_of_each, id, input};

@@ -354,6 +354,32 @@ pub struct JournalBefore<P = Page, I = Item> {
     pub transcluded_trees: BTreeMap<String, Vec<I>>,
 }
 
+/// `GET /api/pages/{id}`: a page with its items.
+// facet needs `I: 'static` for the map of trees; every item type is.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PageWithItems<P = Page, I: 'static = Item> {
+    pub page: P,
+    pub items: Vec<I>,
+    /// The trees of the items that the transclusions show, by the id of their source.
+    pub transcluded_trees: BTreeMap<String, Vec<I>>,
+}
+
+/// A journal that was found or made, with its items.
+// facet needs `I: 'static` for the map of trees; every item type is.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JournalPage<P = Page, I: 'static = Item> {
+    pub page: P,
+    pub items: Vec<I>,
+    /// True when the journal was made for this.
+    pub created: bool,
+    /// The trees of the items that the transclusions show, by the id of their source.
+    pub transcluded_trees: BTreeMap<String, Vec<I>>,
+}
+
 /// A document page that was found or made. It does not cross the native border.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1328,6 +1354,42 @@ mod tests {
                 page,
                 created: false,
                 items: vec![item("a")],
+            }
+        );
+    }
+
+    // ページの答えとジャーナルの答えは、サーバーの答えのJSONから読める。
+    #[test]
+    fn the_answers_of_a_page_and_of_a_journal_are_read_from_the_server() {
+        let page: Page = serde_json::from_value(page_answer()).unwrap();
+        let trees = BTreeMap::from([("s".to_string(), vec![item("s")])]);
+
+        let loaded: PageWithItems = serde_json::from_value(json!({
+            "page": page_answer(), "items": [item_answer("a")],
+            "transcludedTrees": { "s": [item_answer("s")] }
+        }))
+        .unwrap();
+        assert_eq!(
+            loaded,
+            PageWithItems {
+                page: page.clone(),
+                items: vec![item("a")],
+                transcluded_trees: trees.clone(),
+            }
+        );
+
+        let journal: JournalPage = serde_json::from_value(json!({
+            "page": page_answer(), "items": [item_answer("a")], "created": true,
+            "transcludedTrees": { "s": [item_answer("s")] }
+        }))
+        .unwrap();
+        assert_eq!(
+            journal,
+            JournalPage {
+                page,
+                items: vec![item("a")],
+                created: true,
+                transcluded_trees: trees,
             }
         );
     }

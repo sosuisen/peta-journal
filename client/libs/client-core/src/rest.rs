@@ -247,6 +247,10 @@ fn pages(reply: &HttpReply) -> ApiResult<ApiOutput> {
     parsed::<PagesEnvelope>(reply).map(|e| ApiOutput::Pages(e.pages))
 }
 
+fn journal(reply: &HttpReply) -> ApiResult<ApiOutput> {
+    parsed(reply).map(ApiOutput::Journal)
+}
+
 fn doc_page(reply: &HttpReply) -> ApiResult<ApiOutput> {
     parsed(reply).map(ApiOutput::DocPage)
 }
@@ -320,7 +324,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
                 .asking(&[("week", &before)])
         }
         ApiOp::GetOrCreateJournal { file_name } => {
-            call(routes::GET_OR_CREATE_JOURNAL, &[&file_name], None, page)
+            call(routes::GET_OR_CREATE_JOURNAL, &[&file_name], None, journal)
         }
         ApiOp::MoveItemsToJournal {
             file_name,

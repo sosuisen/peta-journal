@@ -406,7 +406,7 @@ impl FakeApi {
                 items: vec![plain_item("reloaded", 1, "reloaded")],
                 ..Default::default()
             }),
-            ApiOp::GetOrCreateJournal { file_name } => ApiOutput::Page(PageWithItems {
+            ApiOp::GetOrCreateJournal { file_name } => ApiOutput::Journal(JournalPage {
                 page: Page {
                     id: format!("page-{file_name}"),
                     name: file_name.clone(),

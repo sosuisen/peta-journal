@@ -4,7 +4,6 @@ use std::collections::BTreeMap;
 
 use chrono::NaiveDate;
 use hmtid::Hmtid;
-use serde::Serialize;
 
 use crate::application::journal_service::{naive_date, MostRecentJournalResult};
 use crate::domain::journal_name::JournalName;
@@ -14,15 +13,8 @@ use crate::error::{parse_id, AppError};
 use super::{ChangedBy, Journal};
 pub use journal_api_types::MoveToJournalInput;
 
-/// A journal that was found or made.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct JournalAnswer {
-    pub page: PageDto,
-    pub items: Vec<ItemDto>,
-    pub created: bool,
-    pub transcluded_trees: BTreeMap<String, Vec<ItemDto>>,
-}
+/// A journal that was found or made. The server and the clients share the type (ADR 082).
+pub type JournalAnswer = journal_api_types::JournalPage<PageDto, ItemDto>;
 
 /// The journal the items moved to, and the items as they are now. The server and the clients share the type (ADR 082).
 pub type MovedToJournalAnswer = journal_api_types::MovedToJournal<PageDto, ItemDto>;

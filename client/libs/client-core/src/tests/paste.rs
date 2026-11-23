@@ -292,8 +292,7 @@ fn answer_reload(h: &mut Harness, source_tree: Vec<Item>) {
             ..Default::default()
         },
         items: vec![item("top", 1, ""), root],
-        transcluded_trees: Some(trees),
-        ..Default::default()
+        transcluded_trees: trees,
     };
     h.api.answer_next("GetPageById", Ok(ApiOutput::Page(page)));
 }
