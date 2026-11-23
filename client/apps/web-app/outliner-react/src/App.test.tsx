@@ -5,6 +5,7 @@ import App from './App';
 import {
   BacklinkGroup,
   BacklinkItem,
+  ConfigView,
   DirSegment,
   JournalView,
   Page,
@@ -234,6 +235,24 @@ describe('the page menu', () => {
     fireEvent.click(button('⋮'));
 
     expect(screen.queryByText('Edit properties')).toBeNull();
+  });
+});
+
+// 設定の画面
+describe('the settings screen', () => {
+  // 画面が設定のとき、設定の画面を出す。
+  test('the settings show when the screen is the settings', () => {
+    const { container } = app(
+      { kind: 'Screen', value: { kind: 'Settings' } },
+      {
+        kind: 'Config',
+        value: new ConfigView('', { kind: 'Us' }, false, '', '', [], null, 0),
+      },
+    );
+
+    expect(
+      container.querySelector('app-page-dispatcher > app-settings'),
+    ).not.toBeNull();
   });
 });
 
