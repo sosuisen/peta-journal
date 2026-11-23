@@ -499,3 +499,16 @@ fn copied_markdown_is_written_with_html_whose_links_open_the_pages_of_the_app() 
         "{html}"
     );
 }
+
+// シェルが開いたリンクは、URLを履歴に積んでから、そのページを開く。
+#[test]
+fn a_link_the_shell_opens_goes_into_the_history_and_its_page_opens() {
+    let screen = Screen::new();
+
+    screen.bridge.go("/pages/notes");
+    screen.serve();
+
+    assert_eq!(screen.urls(), [("/pages/notes".to_string(), false)]);
+    let changes = screen.bridge.changes();
+    assert!(changes.contains("the body of a"), "{changes}");
+}
