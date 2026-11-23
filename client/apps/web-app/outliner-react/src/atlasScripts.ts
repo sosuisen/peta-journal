@@ -1,14 +1,14 @@
 // The canvas of an atlas is the class of atlas.js, drawn by PixiJS. The scripts put their
 // classes on the window, as the Leptos shell loaded them in its index.html. Vite gives their
 // URLs, and copies them into the build.
-import pixi from '../../../../../atlas/web/pixi.min.js?url';
-import tweedle from '../../../../../atlas/web/tweedle.umd.js?url';
+import pixi from '@atlas-web/pixi.min.js?url';
+import tweedle from '@atlas-web/tweedle.umd.js?url';
 // @pixi/ui 2.4.1 for the dialogs of the atlas; it needs tweedle.js 2.1.0 as the global tweedle_js
-import pixiUi from '../../../../../atlas/web/pixi-ui.js?url';
-import atlas from '../../../../../atlas/web/atlas.js?url';
+import pixiUi from '@atlas-web/pixi-ui.js?url';
+import atlas from '@atlas-web/atlas.js?url';
 // Noto Sans JP at weight 400 (OFL, see NotoSansJP-OFL.txt beside it)
-import labelFont from '../../../../assets/NotoSansJP-Regular.ttf?url';
-import titleFont from '../../../../assets/851tegaki_zatsu_normal_0883.ttf?url';
+import labelFont from '@client-assets/NotoSansJP-Regular.ttf?url';
+import titleFont from '@client-assets/851tegaki_zatsu_normal_0883.ttf?url';
 
 /**
  * The options of the canvas: the labels in the font that a static site draws an atlas in
