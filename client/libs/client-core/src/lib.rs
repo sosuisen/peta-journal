@@ -8,6 +8,7 @@ pub mod body_model;
 pub mod changes;
 pub mod drag;
 pub mod effects;
+mod file_body;
 pub mod keys;
 pub mod model;
 pub mod ops;

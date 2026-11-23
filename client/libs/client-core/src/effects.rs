@@ -551,8 +551,10 @@ impl<Event: Send + 'static> Api<Event> {
         Api { ctx }
     }
 
+    /// Asks the server. The bodies go and come in the form of the file (ADR 070).
     pub async fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
-        self.ctx.request_from_shell(op).await
+        let output = self.ctx.request_from_shell(op).await?;
+        Ok(crate::file_body::output_to_shell(output))
     }
 
     pub async fn get_page_by_id(&self, page_id: &str) -> ApiResult<PageWithItems> {
