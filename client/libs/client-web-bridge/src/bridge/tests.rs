@@ -2,7 +2,7 @@ use super::*;
 use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp,
 };
-use client_core::model::{Page, PageWithItems, TreeExport, Uploaded};
+use client_core::model::{Page, PageWithItems, Split, TreeExport, Uploaded};
 use client_core::rest::ClientId;
 use client_core::screens::page::ATLAS_NAME;
 use client_core::testing::plain_item;
@@ -135,6 +135,15 @@ fn answer_of(op: &ApiOp) -> ApiResult<ApiOutput> {
                 transcluded_trees: None,
             }))
         }
+        // The text of the item stays in it, and the new item below is empty
+        ApiOp::SplitItem { item_id, body, .. } => {
+            let mut created = plain_item("new", 1, "");
+            created.idx = format!("{item_id}\u{1}");
+            Ok(ApiOutput::Split(Box::new(Split {
+                item: plain_item(item_id, 1, body),
+                created,
+            })))
+        }
         ApiOp::ExportTreeMarkdown { .. } => Ok(ApiOutput::TreeExport(TreeExport {
             tree_markdown: "- see [[notes]]".into(),
             flat_markdown: "see [[notes]]".into(),
@@ -174,8 +183,7 @@ impl Screen {
     }
 
     fn open_notes(&self) {
-        self.bridge.go("/pages/notes");
-        self.serve();
+        self.go_and_serve("/pages/notes");
     }
 
     fn server_says(&self, event: SseEvent) {
@@ -221,14 +229,21 @@ impl Screen {
         asked.iter().map(|(_, op)| op.clone()).collect()
     }
 
+    fn go_and_serve(&self, url: &str) {
+        self.bridge.go(url);
+        self.serve();
+    }
+
+    /// The number the shell was given the operation with.
+    fn id_of(&self, op: &UiOp) -> u32 {
+        let asked = self.browser.asked.borrow();
+        let found = asked.iter().find(|(_, asked)| asked == op);
+        found.expect("the shell was asked for this").0
+    }
+
     /// Answers the operation the way the shell does: by its number, with JSON.
     fn answer(&self, op: &UiOp, output: &str) {
-        let id = {
-            let asked = self.browser.asked.borrow();
-            let found = asked.iter().find(|(_, asked)| asked == op);
-            found.expect("the shell was asked for this").0
-        };
-        self.bridge.resolve(id, output).unwrap();
+        self.bridge.resolve(self.id_of(op), output).unwrap();
     }
 }
 
@@ -528,4 +543,79 @@ fn going_back_in_the_history_opens_the_page_and_tells_the_shell_to_draw_it() {
     assert!(screen.renders() > renders);
     let changes = screen.bridge.changes();
     assert!(changes.contains("the body of a"), "{changes}");
+}
+
+// 編集欄へのフォーカスは番号つきでシェルに渡り、シェルの答えがコアに届く。
+#[test]
+fn the_focus_of_an_editor_reaches_the_shell_with_a_number_and_its_answer_reaches_the_core() {
+    let screen = Screen::new();
+    screen.open_notes();
+
+    screen.bridge.press(&key_in_a(r#""Enter""#)).unwrap();
+    screen.serve();
+    let focus = screen
+        .asked()
+        .into_iter()
+        .find(|op| matches!(op, UiOp::FocusEditor { item_id: Some(id), .. } if id == "new"));
+    let focus = focus.expect("the editor of the new item is to have the focus");
+
+    screen.answer(&focus, r#""Done""#);
+    // Answered once: the core waits for it no more
+    let again = screen.bridge.resolve(screen.id_of(&focus), r#""Done""#);
+    assert!(again.is_err());
+}
+
+// 項目までのスクロールはシェルに渡る。知らせなので、シェルの答えは待たない。
+#[test]
+fn a_scroll_to_an_item_reaches_the_shell_and_waits_for_no_answer() {
+    let screen = Screen::new();
+    screen.go_and_serve("/pages/notes#b");
+
+    let scroll = UiOp::ScrollToItem {
+        item_id: "b".into(),
+        smooth: false,
+    };
+    assert!(screen.asked().contains(&scroll), "{:?}", screen.asked());
+    let answer = screen.bridge.resolve(screen.id_of(&scroll), r#""Done""#);
+    assert!(answer.is_err());
+}
+
+// 貼られていないファイルの貼り付けは、サーバーに送られない。
+#[test]
+fn a_paste_of_a_file_that_was_never_pasted_sends_nothing_to_the_server() {
+    let screen = Screen::new();
+    screen.open_notes();
+
+    screen
+        .bridge
+        .update(r#"{"PasteImage":{"item_id":"a","file":99,"cursor":0}}"#)
+        .unwrap();
+    screen.serve();
+
+    assert!(screen.browser.uploads.borrow().is_empty());
+}
+
+// シェルがなくなったあとに来た答えとタイマーは、何もしない。
+#[test]
+fn an_answer_or_a_timer_that_comes_after_the_shell_is_gone_does_nothing() {
+    let screen = Screen::new();
+    screen.bridge.start("/pages/notes");
+    screen
+        .bridge
+        .update(r#"{"SearchQueryChanged":"a query"}"#)
+        .unwrap();
+    let Screen { bridge, browser } = screen;
+
+    drop(bridge);
+
+    let calls = std::mem::take(&mut *browser.calls.borrow_mut());
+    for (op, done) in calls {
+        done(answer_of(&op));
+    }
+    let timers = std::mem::take(&mut *browser.timers.borrow_mut());
+    for (_, fired) in timers {
+        fired(());
+    }
+    let mut stream = browser.stream.borrow_mut();
+    (stream.as_mut().expect("the stream was opened"))(SseEvent::Open);
 }
