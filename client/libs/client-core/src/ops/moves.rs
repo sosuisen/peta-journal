@@ -316,6 +316,8 @@ pub fn show_moved(
 /// the auto-save of the typed text the move was to carry.
 pub fn move_failed(model: &mut Model, unsaved: Option<&str>) -> Cmd {
     model.key_relay.release();
+    // The undos waited for this move, which did not happen
+    model.held_undos = 0;
     let save = auto_save_again(model, unsaved);
     Command::all([save, move_done(model, false)])
 }
