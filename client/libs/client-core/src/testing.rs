@@ -1,6 +1,7 @@
 //! Item fixtures for tests, like `core/testing/item-fixture.ts`.
 
-use crate::model::{Item, ItemRef};
+use crate::effects::{ApiOp, ApiOutput};
+use crate::model::{DocPage, Item, ItemRef, Page, PageWithItems};
 use std::sync::Arc;
 
 pub fn plain_item(id: &str, level: i32, body: &str) -> Item {
@@ -37,4 +38,22 @@ pub fn item(id: &str, level: i32) -> ItemRef {
 pub fn shown(body: &str) -> crate::RichText {
     use crate::BodyModel;
     crate::RichText::of(crate::asts::parse(body), "")
+}
+
+/// What a fake server answers to a doc lookup or a page load: the page with these items.
+/// A doc lookup and a page load have answers of different types.
+pub fn page_answer(op: &ApiOp, page: Page, items: Vec<Item>) -> ApiOutput {
+    match op {
+        ApiOp::GetOrCreateDoc { .. } => ApiOutput::DocPage(DocPage {
+            page,
+            items,
+            created: false,
+        }),
+        _ => ApiOutput::Page(PageWithItems {
+            page,
+            items,
+            created: false,
+            transcluded_trees: None,
+        }),
+    }
 }

@@ -90,6 +90,14 @@ fn page_info(dir_path: &str, name: &str) -> Value {
     })
 }
 
+/// The answer to a doc lookup of the page "notes", which the server has.
+fn doc_answer() -> ApiOutput {
+    serde_json::from_value(json!({
+        "DocPage": { "page": page_info("", "notes"), "items": [], "created": false }
+    }))
+    .unwrap()
+}
+
 fn page_answer(items: &[Value]) -> ApiOutput {
     serde_json::from_value(json!({
         "Page": { "page": page_info("", "notes"), "items": items }
@@ -177,7 +185,7 @@ impl Driver {
     fn load_page(&mut self, items: &[Value]) {
         self.answer(
             |op| matches!(op, ApiOp::GetOrCreateDoc { .. }),
-            page_answer(&[]),
+            doc_answer(),
         );
         self.answer(
             |op| matches!(op, ApiOp::GetPageById { .. }),
@@ -1265,7 +1273,7 @@ fn an_index_or_atlas_page_has_no_path_to_rename() {
             url: format!("/pages/a/{name}"),
         });
         let answer = serde_json::from_value(json!({
-            "Page": { "page": page_info("a/", name), "items": [] }
+            "DocPage": { "page": page_info("a/", name), "items": [], "created": false }
         }))
         .unwrap();
         driver.answer(|op| matches!(op, ApiOp::GetOrCreateDoc { .. }), answer);
@@ -1281,7 +1289,7 @@ impl Driver {
             url: "/pages/a/b/index".into(),
         });
         let answer = serde_json::from_value(json!({
-            "Page": { "page": page_info("a/b/", "index"), "items": [] }
+            "DocPage": { "page": page_info("a/b/", "index"), "items": [], "created": false }
         }))
         .unwrap();
         driver.answer(|op| matches!(op, ApiOp::GetOrCreateDoc { .. }), answer);
@@ -1541,7 +1549,7 @@ fn open_with_properties(properties: Value) -> Driver {
     let mut page = page_info("", "notes");
     page["properties"] = properties;
     let answer: ApiOutput = serde_json::from_value(json!({
-        "Page": { "page": page, "items": [] }
+        "DocPage": { "page": page, "items": [], "created": false }
     }))
     .unwrap();
     driver.answer(|op| matches!(op, ApiOp::GetOrCreateDoc { .. }), answer);

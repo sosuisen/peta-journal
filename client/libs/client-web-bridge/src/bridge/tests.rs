@@ -2,10 +2,10 @@ use super::*;
 use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp,
 };
-use client_core::model::{Page, PageWithItems, SearchResult, Split, TreeExport, Uploaded};
+use client_core::model::{Page, SearchResult, Split, TreeExport, Uploaded};
 use client_core::rest::ClientId;
 use client_core::screens::page::ATLAS_NAME;
-use client_core::testing::plain_item;
+use client_core::testing::{page_answer, plain_item};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::rc::Rc;
@@ -120,20 +120,17 @@ impl Host for FakeHost {
 fn answer_of(op: &ApiOp) -> ApiResult<ApiOutput> {
     match op {
         ApiOp::GetOrCreateDoc { .. } | ApiOp::GetPageById { .. } => {
-            Ok(ApiOutput::Page(PageWithItems {
-                page: Page {
-                    id: "p".into(),
-                    name: "notes".into(),
-                    page_type: "doc".into(),
-                    ..Default::default()
-                },
-                items: vec![
-                    plain_item("a", 1, "the body of a"),
-                    plain_item("b", 1, "the body of b"),
-                ],
-                created: false,
-                transcluded_trees: None,
-            }))
+            let page = Page {
+                id: "p".into(),
+                name: "notes".into(),
+                page_type: "doc".into(),
+                ..Default::default()
+            };
+            let items = vec![
+                plain_item("a", 1, "the body of a"),
+                plain_item("b", 1, "the body of b"),
+            ];
+            Ok(page_answer(op, page, items))
         }
         // The text of the item stays in it, and the new item below is empty
         ApiOp::SplitItem { item_id, body, .. } => {

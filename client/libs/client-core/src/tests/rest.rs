@@ -1,7 +1,7 @@
 use crate::effects::{ApiError, ApiOp, ApiOutput, AtlasChange, FolderChoice};
 use crate::model::{
-    BatchOpInput, ItemPosition, JournalBefore, Page, PageWithItems, PasteCursor, PasteMode,
-    PropertyValue, ServerConfig, TaskState, TreeExport,
+    BatchOpInput, DocPage, ItemPosition, JournalBefore, MovedToJournal, Page, PageWithItems,
+    PasteCursor, PasteMode, PropertyValue, ServerConfig, TaskState, TreeExport,
 };
 use crate::rest::{rest_call, HttpReply, RestCall};
 use serde::Serialize;
@@ -759,6 +759,32 @@ fn every_answer_becomes_the_output_of_its_operation() {
             ApiOp::GetPageById { page_id: id("p") },
             json_of(PageWithItems::default()),
             ApiOutput::Page(PageWithItems::default()),
+        ),
+        (
+            ApiOp::GetOrCreateDoc {
+                title: "t".into(),
+                dir_path: String::new(),
+            },
+            json!({ "page": json_of(page.clone()), "items": [], "created": true }),
+            ApiOutput::DocPage(DocPage {
+                page: page.clone(),
+                items: vec![],
+                created: true,
+            }),
+        ),
+        (
+            ApiOp::MoveItemsToJournal {
+                file_name: "2026-02-11".into(),
+                item_ids: vec![],
+                position: ItemPosition::Last,
+                body: None,
+            },
+            json!({ "page": json_of(page.clone()), "created": true, "items": [] }),
+            ApiOutput::MovedToJournal(MovedToJournal {
+                page: page.clone(),
+                created: true,
+                items: vec![],
+            }),
         ),
         (
             ApiOp::GetMostRecentJournalBefore { before: id("d") },

@@ -7,7 +7,7 @@ use std::time::Duration;
 use client_api_embedded::{EmbeddedJournal, EventQueue};
 use client_core::effects::{ApiOp, ApiOutput, ApiResult, AtlasChange, SseEvent};
 use client_core::model::{
-    BacklinkEntry, BatchOpInput, Batched, Item, ItemPosition, JournalBefore, Page, PageWithItems,
+    BacklinkEntry, BatchOpInput, Batched, DocPage, Item, ItemPosition, JournalBefore, Page,
     PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split, Stashed,
 };
 use client_core::rest::ClientId;
@@ -144,13 +144,13 @@ impl Fixture {
         self.journal.call(op)
     }
 
-    fn doc(&self, title: &str, dir_path: &str) -> PageWithItems {
+    fn doc(&self, title: &str, dir_path: &str) -> DocPage {
         expect!(
             self.call(ApiOp::GetOrCreateDoc {
                 title: title.into(),
                 dir_path: dir_path.into(),
             }),
-            Page
+            DocPage
         )
     }
 
@@ -591,7 +591,7 @@ fn items_are_moved_to_the_journal_of_a_day_which_is_made_for_them() {
             position: ItemPosition::Last,
             body: None,
         }),
-        Page
+        MovedToJournal
     );
 
     assert!(journal.created);
@@ -1007,7 +1007,7 @@ fn a_page_and_its_items_are_read_with_every_field_but_the_ast_and_the_parent() {
     );
 
     assert_eq!(
-        drift::<PageWithItems>(&answer),
+        drift::<DocPage>(&answer),
         [unread_of_items(".items[]"), unread_of_pages(".page")].concat()
     );
 }
