@@ -3,22 +3,36 @@ import { useCore, usePanel } from './context';
 import { openInOf } from './keys';
 
 /**
- * The month calendar of the sidebar. The core decides what it shows (`CalendarView`, ADR 052);
- * this only draws it and sends the clicks. Today is the selected day.
+ * Which day is drawn as the selected one: today, as in the sidebar, or the day of the journal
+ * on the screen, as in the header of a journal.
  */
-export default function Calendar() {
+type Selects = 'Today' | 'JournalDay';
+
+/**
+ * The month calendar of the sidebar and of the header of a journal. The core decides what it
+ * shows (`CalendarView`, ADR 052); this only draws it and sends the clicks.
+ *
+ * `onNavigate` is called after a journal is opened, with whether it opened in another tab or
+ * window. The header of a journal closes its calendar by it.
+ */
+export default function Calendar({
+  selects = 'Today',
+  onNavigate,
+}: {
+  readonly selects?: Selects;
+  readonly onNavigate?: (elsewhere: boolean) => void;
+}) {
   const core = useCore();
   const calendar = usePanel('Calendar');
   if (calendar === undefined) {
     return null;
   }
   // Opens a journal by its name; Ctrl opens a tab, Shift a window
-  const open = (page: string) => (event: MouseEvent) =>
-    core.send({
-      kind: 'GoToPage',
-      path: page,
-      open_in: openInOf(event.nativeEvent),
-    });
+  const open = (page: string) => (event: MouseEvent) => {
+    const open_in = openInOf(event.nativeEvent);
+    core.send({ kind: 'GoToPage', path: page, open_in });
+    onNavigate?.(open_in.kind !== 'Here');
+  };
   return (
     <app-calendar>
       <div className="calendar">
@@ -64,7 +78,11 @@ export default function Calendar() {
             ...week.days.map(day => (
               <div
                 key={day.date}
-                className={dayClass(day.other_month, day.today)}
+                className={dayClass(
+                  day.other_month,
+                  day.today,
+                  selects === 'Today' ? day.today : day.selected,
+                )}
                 onClick={open(day.date)}
               >
                 {day.day}
@@ -77,11 +95,16 @@ export default function Calendar() {
   );
 }
 
-function dayClass(otherMonth: boolean, today: boolean): string {
+function dayClass(
+  otherMonth: boolean,
+  today: boolean,
+  selected: boolean,
+): string {
   return [
     'day-cell',
     otherMonth ? 'other-month' : '',
-    today ? 'today selected' : '',
+    today ? 'today' : '',
+    selected ? 'selected' : '',
   ]
     .filter(name => name !== '')
     .join(' ');
