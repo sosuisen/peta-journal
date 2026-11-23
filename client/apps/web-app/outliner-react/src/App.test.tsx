@@ -308,13 +308,13 @@ describe('a journal', () => {
     const before = popup();
 
     fireEvent.click(screen.getByText('2026-11-23 (Mon)'));
-    const opened = popup();
+    const opened = popup()?.previousElementSibling?.className;
     fireEvent.click(container.querySelector('.calendar-btn') as Element);
     const closed = popup();
     fireEvent.click(container.querySelector('.calendar-btn') as Element);
 
     expect([before, closed]).toEqual([null, null]);
-    expect(opened?.previousElementSibling?.className).toBe('journal-header');
+    expect(opened).toBe('journal-header');
     expect(popup()?.querySelector('.selected')?.textContent).toBe('23');
     expect(wasm.events).toEqual([
       { kind: 'CalendarNav', value: { kind: 'Today' } },
@@ -329,8 +329,7 @@ describe('a journal', () => {
       value: { kind: 'Journal', value: journal('Daily') },
     });
     const popup = () => container.querySelector('app-journal app-calendar');
-    const day = () =>
-      within(popup() as HTMLElement).getByText('23') as HTMLElement;
+    const day = () => within(popup() as HTMLElement).getByText('23');
 
     fireEvent.click(container.querySelector('.calendar-btn') as Element);
     fireEvent.click(day(), { ctrlKey: true });
