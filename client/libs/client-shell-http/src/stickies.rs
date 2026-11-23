@@ -129,6 +129,17 @@ pub fn sticky_colors() -> Vec<PetaStickyColor> {
         .collect()
 }
 
+/// The color of a sticky without paper. The menu offers it after the colors, where the shell
+/// draws it.
+#[boltffi::export]
+pub fn sticky_transparent() -> PetaStickyColor {
+    let (name, hex) = client_stickies::TRANSPARENT;
+    PetaStickyColor {
+        name: name.to_string(),
+        hex: hex.to_string(),
+    }
+}
+
 /// The zoom `steps` tenths larger (smaller when negative), between three tenths and three.
 /// With no step, it is a kept zoom put in the same bounds.
 #[boltffi::export]

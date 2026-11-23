@@ -4,8 +4,8 @@
 #![cfg(feature = "ffi")]
 
 use client_shell_http::stickies::{
-    smallest_sticky, sticky_colors, sticky_rgb, sticky_yellow, sticky_zoom, usual_sticky, PetaRgb,
-    PetaSize, PetaSticky, PetaStickyColor, PetaStickyStore,
+    smallest_sticky, sticky_colors, sticky_rgb, sticky_transparent, sticky_yellow, sticky_zoom,
+    usual_sticky, PetaRgb, PetaSize, PetaSticky, PetaStickyColor, PetaStickyStore,
 };
 
 fn sticky(id: &str) -> PetaSticky {
@@ -37,7 +37,7 @@ fn a_sticky_put_through_the_entrance_is_read_back_whole() {
     assert_eq!(PetaStickyStore::new(file).stickies(), [sticky("a")]);
 }
 
-// 入口から、新しい付箋紙の色、選べる色、ズーム、色の読み方、ウィンドウの大きさが得られる。
+// 入口から、新しい付箋紙の色、選べる色、透明、ズーム、色の読み方、ウィンドウの大きさが得られる。
 #[test]
 fn the_look_of_a_sticky_comes_through_the_entrance() {
     assert_eq!(sticky_yellow(), "#FFF8D0");
@@ -48,6 +48,13 @@ fn the_look_of_a_sticky_comes_through_the_entrance() {
         PetaStickyColor {
             name: "Blue".into(),
             hex: "#D1E1FF".into(),
+        }
+    );
+    assert_eq!(
+        sticky_transparent(),
+        PetaStickyColor {
+            name: "Transparent".into(),
+            hex: "#FFFFFF00".into(),
         }
     );
     assert_eq!(sticky_zoom(1.0, 1), 1.1);

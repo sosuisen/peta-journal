@@ -25,6 +25,10 @@ pub const COLORS: [(&str, &str); 9] = [
     ("Light Gray", "#F8F8F8"),
 ];
 
+/// The color of a sticky without paper: only what is written on it is seen. It is
+/// `#RRGGBBAA`, with no alpha. It is not among `COLORS`: the macOS shell does not draw it yet.
+pub const TRANSPARENT: (&str, &str) = ("Transparent", "#FFFFFF00");
+
 /// A size of a window, in points as they are at a scale of 100%.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Size {
@@ -59,7 +63,7 @@ pub struct StickySettings {
     /// The size of the window. Rolled up, it is still the size of the whole sticky.
     pub width: f64,
     pub height: f64,
-    /// The color of the paper, as `#RRGGBB`.
+    /// The color of the paper, as `#RRGGBB`, or `TRANSPARENT` for no paper.
     #[serde(default = "yellow")]
     pub color: String,
     /// The window stays above the windows of other apps.
