@@ -3,7 +3,7 @@
 
 use crate::app::{Event, Route};
 use crate::effects::ApiOutput;
-use crate::harness::{item, Harness};
+use crate::harness::{item, typed, update_calls, Harness};
 use crate::model::{Page, PageWithItems};
 
 fn notes() -> Page {
@@ -45,4 +45,16 @@ fn a_backslash_line_of_a_loaded_body_is_shown_as_a_blank_line() {
     open_with_body(&mut h, "a\n\\\nb");
 
     assert_eq!(h.bodies(), ["a=a\n\nb"]);
+}
+
+// 自動保存は、本文の途中の空行を`\`だけの行として送る。ファイルで項目が分かれないためである。
+#[test]
+fn the_auto_save_sends_a_blank_line_as_a_backslash_line() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.state.add_editing_item("a");
+    typed(&mut h, "a", "a\n\nb");
+
+    h.fire_timers();
+
+    assert_eq!(update_calls(&h.api), [("a".into(), Some("a\n\\\nb".into()))]);
 }
