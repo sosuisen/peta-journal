@@ -21,6 +21,23 @@ pub fn op_to_file(op: ApiOp) -> ApiOp {
             level,
             collapsed,
         },
+        ApiOp::PasteText {
+            item_id,
+            body,
+            cursor,
+            text,
+            mode,
+        } => {
+            let file = flatmarkdown::body_to_file(&body);
+            let cursor = moved_cursor(&body, &file, cursor);
+            ApiOp::PasteText {
+                item_id,
+                body: file,
+                cursor,
+                text,
+                mode,
+            }
+        }
         ApiOp::SplitItem {
             item_id,
             root_id,
@@ -28,7 +45,7 @@ pub fn op_to_file(op: ApiOp) -> ApiOp {
             cursor,
         } => {
             let file = flatmarkdown::body_to_file(&body);
-            let cursor = cursor_to_file(&body, &file, cursor);
+            let cursor = moved_cursor(&body, &file, cursor);
             ApiOp::SplitItem {
                 item_id,
                 root_id,
@@ -40,27 +57,28 @@ pub fn op_to_file(op: ApiOp) -> ApiOp {
     }
 }
 
-/// The character `cursor` of `body`, moved to the same place in `file`, its form in the file.
-/// The two have the same lines. Only a blank line or a line of backslashes differs, and a
-/// cursor on a blank line goes to the start of its backslash.
-fn cursor_to_file(body: &str, file: &str, cursor: usize) -> usize {
+/// The character `cursor` of `from`, moved to the same place in `to`, the other form of the
+/// same body. The two have the same lines. Only a blank line or a line of backslashes differs,
+/// and a cursor on a blank line, or on the backslash in its place, goes to the start of it.
+fn moved_cursor(from: &str, to: &str, cursor: usize) -> usize {
     let mut before = 0;
     let mut rest = cursor;
-    for (line, file_line) in body.split('\n').zip(file.split('\n')) {
-        let length = line.chars().count();
-        let file_length = file_line.chars().count();
-        if rest <= length {
-            let column = if line != file_line && line.trim().is_empty() {
+    for (from_line, to_line) in from.split('\n').zip(to.split('\n')) {
+        let from_length = from_line.chars().count();
+        let to_length = to_line.chars().count();
+        if rest <= from_length {
+            let blank = from_line.trim().is_empty() || to_line.trim().is_empty();
+            let column = if from_line != to_line && blank {
                 0
             } else {
                 rest
             };
-            return before + column.min(file_length);
+            return before + column.min(to_length);
         }
-        rest -= length + 1;
-        before += file_length + 1;
+        rest -= from_length + 1;
+        before += to_length + 1;
     }
-    file.chars().count()
+    to.chars().count()
 }
 
 /// The answer of the server, with the bodies as the shell sees them.
@@ -69,6 +87,14 @@ pub fn output_to_shell(output: ApiOutput) -> ApiOutput {
         ApiOutput::Page(mut page) => {
             items_to_shell(&mut page.items);
             ApiOutput::Page(page)
+        }
+        ApiOutput::Pasted(mut pasted) => {
+            if let Some(item) = pasted.items.iter().find(|i| i.id == pasted.cursor.item_id) {
+                let shell = flatmarkdown::body_from_file(&item.body);
+                pasted.cursor.position = moved_cursor(&item.body, &shell, pasted.cursor.position);
+            }
+            items_to_shell(&mut pasted.items);
+            ApiOutput::Pasted(pasted)
         }
         other => other,
     }
