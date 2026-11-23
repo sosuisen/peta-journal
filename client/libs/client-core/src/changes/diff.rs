@@ -15,6 +15,21 @@ pub enum ListChange<T> {
     Reset { items: Vec<T> },
 }
 
+impl<T> ListChange<T> {
+    /// The same change, with each item made into another form by `to`.
+    pub fn map<U>(self, mut to: impl FnMut(T) -> U) -> ListChange<U> {
+        match self {
+            ListChange::Insert { at, item } => ListChange::Insert { at, item: to(item) },
+            ListChange::Remove { at } => ListChange::Remove { at },
+            ListChange::Move { from, to: place } => ListChange::Move { from, to: place },
+            ListChange::Update { at, item } => ListChange::Update { at, item: to(item) },
+            ListChange::Reset { items } => ListChange::Reset {
+                items: items.into_iter().map(to).collect(),
+            },
+        }
+    }
+}
+
 /// The changes that make `before` into `after`. `id` gives the id of an item: no two items
 /// of one list have the same id.
 pub fn list_changes<T: Clone + PartialEq>(

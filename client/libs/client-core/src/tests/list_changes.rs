@@ -190,3 +190,47 @@ fn an_empty_list_that_gets_items_is_reset() {
 fn two_empty_lists_have_no_changes() {
     assert_eq!(changes(&[], &[]), vec![]);
 }
+
+// 操作の行を別の形に変えても、位置はそのまま残る。シェルが、比べた行を送る形に変えるときである。
+#[test]
+fn a_change_keeps_its_places_when_its_items_take_another_form() {
+    let changes = vec![
+        ListChange::Insert {
+            at: 0,
+            item: line("a", "one"),
+        },
+        ListChange::Remove { at: 1 },
+        ListChange::Move { from: 2, to: 0 },
+        ListChange::Update {
+            at: 1,
+            item: line("b", "two"),
+        },
+        ListChange::Reset {
+            items: vec![line("c", "three"), line("d", "four")],
+        },
+    ];
+
+    let texts: Vec<ListChange<String>> = changes
+        .into_iter()
+        .map(|change| change.map(|line| line.text))
+        .collect();
+
+    assert_eq!(
+        texts,
+        vec![
+            ListChange::Insert {
+                at: 0,
+                item: "one".to_string()
+            },
+            ListChange::Remove { at: 1 },
+            ListChange::Move { from: 2, to: 0 },
+            ListChange::Update {
+                at: 1,
+                item: "two".to_string()
+            },
+            ListChange::Reset {
+                items: vec!["three".to_string(), "four".to_string()]
+            },
+        ]
+    );
+}
