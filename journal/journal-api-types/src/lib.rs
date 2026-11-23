@@ -195,30 +195,20 @@ pub struct BatchInput {
 pub struct Item {
     pub id: String,
     pub page_id: String,
-    #[serde(default)]
     pub dir_path: String,
-    #[serde(default)]
     pub name: String,
     /// "journal" or "doc", from the parent page.
-    #[serde(rename = "type", default)]
+    #[serde(rename = "type")]
     pub item_type: String,
-    #[serde(default)]
     pub created_date: i64,
-    #[serde(default)]
     pub modified_date: i64,
-    #[serde(default)]
     pub idx: String,
     pub level: i32,
-    #[serde(default)]
     pub body: String,
-    #[serde(default)]
     pub collapsed: bool,
-    #[serde(default)]
     pub types: Vec<String>,
     /// Property values are strings or lists of strings.
-    #[serde(default)]
     pub properties: BTreeMap<String, PropertyValue>,
-    #[serde(default)]
     pub transclude_item_id: Option<String>,
 }
 
