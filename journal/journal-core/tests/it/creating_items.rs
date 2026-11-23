@@ -33,6 +33,7 @@ impl Core {
             .get_item(item_id)
             .unwrap()
             .item
+            .item
             .modified_date
     }
 }
@@ -170,7 +171,7 @@ fn a_client_id_is_kept() {
         )
         .unwrap();
 
-    assert_eq!(created.item.id, made_up);
+    assert_eq!(created.item.item.id, made_up);
 }
 
 // タスクの接頭辞で始まる本文で作った項目はタスクであり、本文に接頭辞は残らない。

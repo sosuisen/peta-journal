@@ -128,7 +128,7 @@ impl Core {
                     &by_the_client(),
                 )
                 .unwrap();
-            after = created.item.id.clone();
+            after = created.item.item.id.clone();
         }
         self.core
             .journal

@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, HashSet};
 
 use hmtid::Hmtid;
+use journal_api_types::PropertyValue;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -25,29 +26,18 @@ pub struct PageDto {
     /// The URL that opens the page in the app, encoded, without the origin (ADR 061).
     pub url: String,
     /// Property values are strings or lists of strings; empty in page lists.
-    pub properties: BTreeMap<String, Value>,
+    pub properties: BTreeMap<String, PropertyValue>,
 }
 
+/// An item as the server answers it: the fields the clients read, and the fields only the
+/// server has (ADR 082). JSON has them all at one level.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ItemDto {
-    pub id: String,
-    pub page_id: String,
+    #[serde(flatten)]
+    pub item: journal_api_types::Item,
     pub parent_item_id: Option<String>,
-    pub dir_path: String,
-    pub name: String,
-    #[serde(rename = "type")]
-    pub item_type: String,
-    pub created_date: i64,
-    pub modified_date: i64,
-    pub idx: String,
-    pub level: i32,
-    pub body: String,
     pub ast: String,
-    pub collapsed: bool,
-    pub types: Vec<String>,
-    pub properties: BTreeMap<String, Value>,
-    pub transclude_item_id: Option<String>,
     /// The URL that opens the page of the item at the item, encoded, without the origin
     /// (ADR 061).
     pub url: String,
@@ -104,19 +94,16 @@ pub fn page_dto_with(
 fn properties_json(
     scalars: Option<&BTreeMap<String, String>>,
     lists: Option<&BTreeMap<String, Vec<String>>>,
-) -> BTreeMap<String, Value> {
-    let mut properties: BTreeMap<String, Value> = BTreeMap::new();
+) -> BTreeMap<String, PropertyValue> {
+    let mut properties = BTreeMap::new();
     if let Some(s) = scalars {
         for (k, v) in s {
-            properties.insert(k.clone(), Value::String(v.clone()));
+            properties.insert(k.clone(), PropertyValue::Text(v.clone()));
         }
     }
     if let Some(l) = lists {
         for (k, v) in l {
-            properties.insert(
-                k.clone(),
-                Value::Array(v.iter().map(|x| Value::String(x.clone())).collect()),
-            );
+            properties.insert(k.clone(), PropertyValue::List(v.clone()));
         }
     }
     properties
@@ -129,27 +116,29 @@ pub fn item_dto(
 ) -> ItemDto {
     let properties = properties_json(scalars, lists);
     ItemDto {
-        id: item.id.to_string(),
-        page_id: item.page_id.to_string(),
-        parent_item_id: item.parent_item_id.as_ref().map(|p| p.to_string()),
-        dir_path: item.dir_path.clone(),
-        name: item.name.clone(),
-        item_type: if item.item_type.is_empty() {
-            "doc".into()
-        } else {
-            item.item_type.clone()
+        item: journal_api_types::Item {
+            id: item.id.to_string(),
+            page_id: item.page_id.to_string(),
+            dir_path: item.dir_path.clone(),
+            name: item.name.clone(),
+            item_type: if item.item_type.is_empty() {
+                "doc".into()
+            } else {
+                item.item_type.clone()
+            },
+            created_date: item.created_date,
+            modified_date: item.modified_date,
+            idx: item.idx.clone(),
+            level: item.level,
+            body: item.body.clone(),
+            collapsed: item.collapsed,
+            types: item.types.clone(),
+            properties,
+            transclude_item_id: item.transclude_item_id.as_ref().map(|p| p.to_string()),
         },
-        created_date: item.created_date,
-        modified_date: item.modified_date,
-        idx: item.idx.clone(),
-        level: item.level,
-        body: item.body.clone(),
+        parent_item_id: item.parent_item_id.as_ref().map(|p| p.to_string()),
         // The journal keeps no AST. The apps that do not parse a body themselves read it here
         ast: MarkdownParser.parse_to_ast(&item.body),
-        collapsed: item.collapsed,
-        types: item.types.clone(),
-        properties,
-        transclude_item_id: item.transclude_item_id.as_ref().map(|p| p.to_string()),
         url: page_urls::item_url(&format!("{}{}", item.dir_path, item.name), item.id.as_ref()),
     }
 }
@@ -311,5 +300,59 @@ impl ItemDtoAssembler {
         }
         trees.insert(source_id, self.to_dtos(&descendants)?);
         self.load_trees(&descendants, trees, visited, depth + 1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn id(text: &str) -> Hmtid {
+        Hmtid::parse(text).unwrap()
+    }
+
+    // 項目の答えのJSONは、共有の欄とサーバーだけの欄を、同じ階層に並べる。
+    #[test]
+    fn the_json_of_an_item_has_the_shared_fields_and_the_server_fields_at_one_level() {
+        let page = Page::new(id("2026-11-24-00-00-00-AAAAAAA"), "d/", "n", "doc", 1);
+        let item = Item::new_on(id("2026-11-24-00-00-01-AAAAAAA"), &page, 1);
+        let scalars = BTreeMap::from([("plan".to_string(), "2026-11-24".to_string())]);
+        let lists = BTreeMap::from([("tags".to_string(), vec!["x".to_string()])]);
+
+        let json = serde_json::to_value(item_dto(&item, Some(&scalars), Some(&lists))).unwrap();
+
+        let mut keys: Vec<&str> = json
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            [
+                "ast",
+                "body",
+                "collapsed",
+                "createdDate",
+                "dirPath",
+                "id",
+                "idx",
+                "level",
+                "modifiedDate",
+                "name",
+                "pageId",
+                "parentItemId",
+                "properties",
+                "transcludeItemId",
+                "type",
+                "types",
+                "url"
+            ]
+        );
+        assert_eq!(
+            json["properties"],
+            serde_json::json!({ "plan": "2026-11-24", "tags": ["x"] })
+        );
     }
 }
