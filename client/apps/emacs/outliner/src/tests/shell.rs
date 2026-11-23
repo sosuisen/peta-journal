@@ -732,7 +732,8 @@ fn a_failure_of_another_call_is_not_reported_as_one_of_the_image() {
     driver.send(Inbound::DeleteItem { id: "a".into() });
     let upload = driver.insert_image("a", 1);
     driver.fail_all_waiting_calls();
-    assert_eq!(driver.messages(), Vec::<String>::new());
+    // The failed deletion is told as itself, with the reason of the server
+    assert_eq!(driver.messages(), ["not in this test"]);
     assert_eq!(driver.holding(), Some(true));
 
     driver.shell.handle(Input::ApiDone {
