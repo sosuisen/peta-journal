@@ -38,8 +38,8 @@ fn body_to_file(body: &mut String) {
 }
 
 /// The character `cursor` of `from`, moved to the same place in `to`, the other form of the
-/// same body. The two have the same lines. Only a blank line or a line of backslashes differs,
-/// and a cursor on a blank line, or on the backslash in its place, goes to the start of it.
+/// same body. The two have the same lines. Only a blank line or a line of backslashes differs.
+/// A cursor on a blank line, or on the backslash in its place, goes to the start of the line.
 fn moved_cursor(from: &str, to: &str, cursor: usize) -> usize {
     let head: String = from.chars().take(cursor).collect();
     let row = head.matches('\n').count();
@@ -50,10 +50,14 @@ fn moved_cursor(from: &str, to: &str, cursor: usize) -> usize {
     let from_line = from.split('\n').nth(row).unwrap_or_default();
     let to_line = to.split('\n').nth(row).unwrap_or_default();
     let blank = from_line.trim().is_empty() || to_line.trim().is_empty();
-    let column = if from_line != to_line && blank {
+    let column = if from_line == to_line {
+        column
+    } else if blank || column == 0 {
         0
     } else {
-        column.min(to_line.chars().count())
+        // A line of backslashes has one more in the file. The added one goes before the
+        // cursor, so the text before the cursor keeps all its backslashes.
+        column + to_line.chars().count() - from_line.chars().count()
     };
     let before: usize = to
         .split('\n')
