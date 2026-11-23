@@ -990,6 +990,56 @@ mod tests {
         );
     }
 
+    // ページは、サーバーの答えのJSONから読める。サーバーだけの欄は読み飛ばす。
+    #[test]
+    fn a_page_is_read_from_the_answer_of_the_server_past_the_fields_of_the_server() {
+        let answer = json!({
+            "id": "p", "parentId": "q", "dirPath": "d/", "name": "n", "type": "journal",
+            "createdDate": 1, "modifiedDate": 2, "url": "/u",
+            "properties": { "plan": "2026-11-24", "tags": ["x"] }
+        });
+
+        let page: Page = serde_json::from_value(answer).unwrap();
+
+        assert_eq!(
+            page,
+            Page {
+                id: "p".into(),
+                parent_id: "q".into(),
+                dir_path: "d/".into(),
+                name: "n".into(),
+                page_type: "journal".into(),
+                created_date: 1,
+                modified_date: 2,
+                properties: BTreeMap::from([
+                    ("plan".into(), PropertyValue::from("2026-11-24")),
+                    ("tags".into(), PropertyValue::from(["x"])),
+                ]),
+            }
+        );
+    }
+
+    // 検索の結果は、サーバーと同じ形のJSONに書かれ、同じ値に読み戻される。
+    #[test]
+    fn a_search_result_is_written_in_the_json_of_the_server_and_read_back() {
+        let result = SearchResult {
+            page_id: "p".into(),
+            page_title: "t".into(),
+            item_id: "i".into(),
+            snippet: "s".into(),
+            score: 1.5,
+        };
+        let written = json!({
+            "pageId": "p", "pageTitle": "t", "itemId": "i", "snippet": "s", "score": 1.5
+        });
+
+        assert_eq!(serde_json::to_value(&result).unwrap(), written);
+        assert_eq!(
+            serde_json::from_value::<SearchResult>(written).unwrap(),
+            result
+        );
+    }
+
     // 決まりに合わない文字列は、位置として読めない。
     #[test]
     fn a_text_that_is_no_position_is_not_read() {
