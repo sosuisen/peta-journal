@@ -5,8 +5,8 @@ use crate::app::{Event, Route};
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{item, split_calls, typed, update_calls, Harness};
 use crate::model::{
-    BacklinkEntry, Batched, Item, JournalBefore, Page, PageWithItems, PasteCursor, Pasted, Split,
-    Stashed, TranscludedTrees,
+    BacklinkEntry, BatchOpInput, Batched, Item, ItemPosition, JournalBefore, Page, PageWithItems,
+    PasteCursor, Pasted, Split, Stashed, TranscludedTrees,
 };
 
 fn notes() -> Page {
@@ -223,6 +223,96 @@ fn every_item_of_an_answer_comes_with_blank_lines() {
         assert!(
             !bodies.is_empty() && bodies.iter().all(|b| b == "a\n\nb"),
             "{answer:?} came as {bodies:?}"
+        );
+    }
+}
+
+/// The bodies every request carries, in no order.
+fn bodies_sent(op: &ApiOp) -> Vec<String> {
+    match op {
+        ApiOp::CreateItem { body, .. } => vec![body.clone()],
+        ApiOp::MoveItems { body, .. }
+        | ApiOp::MoveItemsToJournal { body, .. }
+        | ApiOp::StashItem { body, .. } => body.iter().cloned().collect(),
+        ApiOp::MergeItems {
+            body, into_body, ..
+        } => body.iter().chain(into_body).cloned().collect(),
+        ApiOp::ApplyBatch { ops } => ops
+            .iter()
+            .filter_map(|op| match op {
+                BatchOpInput::Create { body, .. } => Some(body.clone()),
+                BatchOpInput::Update { body, .. } => body.clone(),
+                _ => None,
+            })
+            .collect(),
+        other => panic!("not a request with bodies: {other:?}"),
+    }
+}
+
+// サーバーへのどの要求の本文も、空行は`\`だけの行になる。作成、移動、結合、stash、undoのbatchである。
+#[test]
+fn every_body_of_a_request_goes_with_backslash_lines() {
+    let body = || "a\n\nb".to_string();
+    let requests = [
+        ApiOp::CreateItem {
+            page_id: "notes".into(),
+            position: ItemPosition::Last,
+            level: 1,
+            body: body(),
+            id: None,
+        },
+        ApiOp::MoveItems {
+            item_ids: vec!["a".into()],
+            target_page_id: "notes".into(),
+            position: ItemPosition::Last,
+            level_delta: None,
+            body: Some(body()),
+        },
+        ApiOp::MoveItemsToJournal {
+            file_name: "2026-02-10".into(),
+            item_ids: vec!["a".into()],
+            position: ItemPosition::Last,
+            body: Some(body()),
+        },
+        ApiOp::MergeItems {
+            item_id: "a".into(),
+            into_id: "b".into(),
+            body: Some(body()),
+            into_body: Some(body()),
+        },
+        ApiOp::StashItem {
+            item_id: "a".into(),
+            body: Some(body()),
+        },
+        ApiOp::ApplyBatch {
+            ops: vec![
+                BatchOpInput::Create {
+                    id: "a".into(),
+                    page_id: "notes".into(),
+                    position: ItemPosition::Last,
+                    level: 1,
+                    body: body(),
+                    transclude_item_id: None,
+                    properties: Default::default(),
+                },
+                BatchOpInput::Update {
+                    id: "b".into(),
+                    body: Some(body()),
+                    level: None,
+                    collapsed: None,
+                    task: None,
+                },
+            ],
+        },
+    ];
+
+    for request in requests {
+        let sent = crate::file_body::op_to_file(request.clone());
+
+        let bodies = bodies_sent(&sent);
+        assert!(
+            !bodies.is_empty() && bodies.iter().all(|b| b == "a\n\\\nb"),
+            "{request:?} went as {bodies:?}"
         );
     }
 }
