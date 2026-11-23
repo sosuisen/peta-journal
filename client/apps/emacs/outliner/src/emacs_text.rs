@@ -8,7 +8,8 @@ use client_core::rich_text::{
 use client_core::BodyModel;
 use facet::Facet;
 use flatmarkdown_ast::Node;
-use serde::Serialize;
+use serde::{Serialize, Serializer};
+use std::sync::Arc;
 use unicode_width::UnicodeWidthStr;
 
 /// The body of an item as Emacs shows it: one text, and what each part of it looks like.
@@ -115,6 +116,33 @@ impl BodyModel for EmacsText {
         let mut writer = Writer::default();
         writer.blocks(&rich.blocks);
         writer.made
+    }
+}
+
+/// The body model of the rows of the Emacs shell: an [`EmacsText`] that the core, the view and
+/// the rows the shell sent all share (#960). The view is made again after every key, and the
+/// core copies each body model into it and keeps a copy for the next view. A copy of the
+/// shared text is a count, where a copy of the text itself was the text and all its parts.
+#[derive(Debug, Clone, Default)]
+pub struct SharedText(pub Arc<EmacsText>);
+
+/// Most rows have the same text as the time before, shared: those are equal without comparing
+/// the letters.
+impl PartialEq for SharedText {
+    fn eq(&self, other: &SharedText) -> bool {
+        Arc::ptr_eq(&self.0, &other.0) || self.0 == other.0
+    }
+}
+
+impl Serialize for SharedText {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
+impl BodyModel for SharedText {
+    fn of(ast: Node, tags_dir: &str) -> SharedText {
+        SharedText(Arc::new(EmacsText::of(ast, tags_dir)))
     }
 }
 

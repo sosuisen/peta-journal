@@ -1,4 +1,4 @@
-use crate::emacs_text::{EmacsLook, EmacsText};
+use crate::emacs_text::{EmacsLook, EmacsText, SharedText};
 use client_core::rich_text::{RichBlock, RichLink, RichParagraph, RichText};
 use client_core::BodyModel;
 use proptest::prelude::*;
@@ -329,4 +329,14 @@ proptest! {
             );
         }
     }
+}
+
+// 別々に作った同じ本文のSharedTextは等しい。同じものを共有していなくても、行は変わっていない。
+#[test]
+fn shared_texts_made_apart_from_the_same_body_are_equal() {
+    let one = SharedText::of_markdown("**本文**", "tags/");
+    let other = SharedText::of_markdown("**本文**", "tags/");
+
+    assert_eq!(one, other);
+    assert_ne!(one, SharedText::of_markdown("本文", "tags/"));
 }
