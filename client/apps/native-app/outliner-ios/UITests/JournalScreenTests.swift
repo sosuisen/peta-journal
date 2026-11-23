@@ -248,6 +248,27 @@ final class JournalScreenTests: XCTestCase {
         waitUntil("the large picture is closed") { !large.exists }
     }
 
+    /// Puts a picture into the assets folder, as a download does.
+    private func picture(_ name: String) throws {
+        let drawn = UIGraphicsImageRenderer(size: CGSize(width: 80, height: 40)).pngData { paper in
+            UIColor.orange.setFill()
+            paper.fill(CGRect(x: 0, y: 0, width: 80, height: 40))
+        }
+        try drawn.write(to: root.appendingPathComponent("markdown/assets/\(name)"))
+    }
+
+    // 画像は、1行目に代わりの文字（alt）を表示し、その下に絵を表示する（#886）。
+    func testAnImageShowsItsAltOnALineAboveThePicture() throws {
+        try download("notes.md", "![a picture](../assets/pic.png)\n")
+        try picture("pic.png")
+        openNotes()
+        let picture = app.images["picture"]
+        waitFor(picture)
+        let line = app.staticTexts["a picture"]
+        waitFor(line)
+        XCTAssertLessThanOrEqual(line.frame.maxY, picture.frame.minY)
+    }
+
     // ファイルがまだない画像は、代わりの文字を表示する。
     func testAnImageWhoseFileIsNotHereShowsItsAlt() throws {
         try download("notes.md", "![a picture](../assets/none.png)\n")
