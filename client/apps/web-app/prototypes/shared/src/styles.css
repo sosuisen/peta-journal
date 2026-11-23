@@ -1,0 +1,136 @@
+/* The look of both prototypes of #971. It is the same for both, so that only the framework
+   differs. */
+
+:root {
+  --text: #222;
+  --muted: #777;
+  --line: #ddd;
+  --hover: #f3f3f3;
+  --selected: #dbe8ff;
+  --background: #fff;
+  font-family: system-ui, sans-serif;
+  font-size: 15px;
+  color: var(--text);
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.toolbar .framework {
+  font-weight: bold;
+}
+
+.toolbar .numbers {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: pre;
+}
+
+.search {
+  position: relative;
+  flex: 1;
+  max-width: 480px;
+}
+
+.search input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  font: inherit;
+}
+
+.search ul {
+  position: absolute;
+  z-index: 1;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--background);
+  border: 1px solid var(--line);
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.search li {
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.search li.chosen {
+  background: var(--selected);
+}
+
+.search .snippet {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.outline {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 16px;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.row.selected {
+  background: var(--selected);
+}
+
+.bullet {
+  flex: none;
+  width: 16px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.body {
+  flex: 1;
+  min-height: 1.4em;
+  cursor: text;
+  overflow-wrap: anywhere;
+}
+
+.body p {
+  margin: 0;
+}
+
+.body textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  border: none;
+  outline: 1px solid var(--line);
+  resize: none;
+  field-sizing: content;
+}
+
+.date-header {
+  margin: 12px 0 4px;
+  font-weight: bold;
+}
