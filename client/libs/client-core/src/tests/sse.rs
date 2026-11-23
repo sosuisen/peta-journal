@@ -3,6 +3,7 @@
 use crate::app::{ConnectionState, Event};
 use crate::effects::{ApiOp, SseEvent, TimerOp, UiOp};
 use crate::harness::Harness;
+use crate::screens::day::CHECK_MS;
 
 fn started() -> Harness {
     let mut h = Harness::new();
@@ -16,11 +17,13 @@ fn sse(h: &mut Harness, event: SseEvent) {
     h.send(Event::Sse(event));
 }
 
+/// The delays of the timers that wait to reconnect. The timer that waits to look at the
+/// clock again runs beside them all the time.
 fn pending_delays_ms(h: &Harness) -> Vec<u32> {
     h.timers
         .iter()
         .filter_map(|t| match t.operation {
-            TimerOp::Start { ms, .. } => Some(ms),
+            TimerOp::Start { ms, .. } if ms != CHECK_MS => Some(ms),
             _ => None,
         })
         .collect()

@@ -531,6 +531,10 @@ pub enum Event {
         file_name: String,
     },
     DemoteIndex,
+    /// The clock of the shell says that today is `today`, `YYYY-MM-DD` (#796).
+    DateChecked {
+        today: String,
+    },
     /// The server answered the journal of `date`; `title` is the title of the window for it.
     JournalLoaded {
         date: String,
@@ -1454,6 +1458,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         } => screens::page::save_title(model, dir_path, file_name),
         DemoteIndex => screens::page::demote_index(model),
         Demoted { path } => screens::page::show_demoted(&path),
+        DateChecked { today } => screens::day::checked(model, today),
         JournalLoaded {
             date,
             title,
