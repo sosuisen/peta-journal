@@ -3,14 +3,13 @@
 
 use axum::extract::{Path, State};
 use axum::{Extension, Json, Router};
-use serde::Serialize;
 
 use crate::application::folder_chooser;
 use crate::error::HttpError;
 use crate::presentation::client_id::ClientId;
 use crate::presentation::rest::At;
 use crate::state::{blocking, SharedState};
-use journal_api_types::routes;
+use journal_api_types::{routes, FolderChoice};
 use journal_core::journal::{
     AddPropertyDefinitionInput, ChangedBy, ConfigAnswer, PropertyDefinitionsAnswer,
     UpdateConfigInput,
@@ -27,12 +26,6 @@ pub fn routes() -> Router<SharedState> {
             delete_property_definition,
         )
         .at(routes::BROWSE_FOLDER, browse_folder)
-}
-
-#[derive(Serialize)]
-struct BrowseFolderResponse {
-    selected: bool,
-    path: String,
 }
 
 async fn get_config(State(state): State<SharedState>) -> Json<ConfigAnswer> {
@@ -73,10 +66,10 @@ async fn delete_property_definition(
     .await
 }
 
-async fn browse_folder() -> Result<Json<BrowseFolderResponse>, HttpError> {
+async fn browse_folder() -> Result<Json<FolderChoice>, HttpError> {
     blocking(move || {
         let choice = folder_chooser::choose_folder();
-        Ok(Json(BrowseFolderResponse {
+        Ok(Json(FolderChoice {
             selected: choice.selected,
             path: choice.path,
         }))
