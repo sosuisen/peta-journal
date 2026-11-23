@@ -104,6 +104,25 @@ fn a_split_sends_the_body_of_the_file_and_the_cursor_in_it() {
     );
 }
 
+// `\`だけの行の末尾での分割は、ファイルでも行の末尾で分ける。足した`\`の分だけ、カーソルが後ろにずれる。
+#[test]
+fn a_split_at_the_end_of_a_backslash_line_is_at_the_end_in_the_file() {
+    let mut h = Harness::with_items(vec![item("a", 1, "a\n\\\nb")]);
+    h.model.state.add_editing_item("a");
+
+    let now_ms = h.now_ms;
+    h.send(Event::EnterPressed {
+        item_id: "a".into(),
+        cursor: "a\n\\".len(),
+        now_ms,
+    });
+
+    assert_eq!(
+        split_calls(&h.api),
+        [("a".to_string(), "a\n\\\\\nb".to_string(), "a\n\\\\".len())]
+    );
+}
+
 // 空行の上での分割は、その行の`\`の前で分ける。空行は、新しい項目の先頭に移る。
 #[test]
 fn a_split_on_a_blank_line_is_before_its_backslash() {
