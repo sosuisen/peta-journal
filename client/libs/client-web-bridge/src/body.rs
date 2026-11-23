@@ -23,6 +23,9 @@ impl BodyModel for HtmlBody {
 /// The shell reads it back from the `<img>`.
 fn keep_image_sizes(node: &mut Node) {
     if let Node::Embed { url, props, .. } = node {
+        if client_core::rich_text::asset_path(url).is_some() {
+            *url = format!("/{}", url.trim_start_matches(['.', '/']));
+        }
         let sides: Vec<String> = ["w", "h"]
             .into_iter()
             .filter_map(|side| match props.get(side) {
