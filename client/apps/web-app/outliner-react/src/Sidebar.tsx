@@ -302,9 +302,7 @@ function PageContextMenu({
     >
       <button
         className="index-sort-item"
-        onClick={event => {
-          // The menu goes now: the click must not reach the listener of a menu not there
-          event.stopPropagation();
+        onClick={() => {
           open();
           close();
         }}
@@ -334,10 +332,7 @@ function IndexSortControl({
       <button
         className="collapse-btn index-sort-btn"
         title="Sort"
-        onClick={event => {
-          event.stopPropagation();
-          setOpen(shown => !shown);
-        }}
+        onClick={() => setOpen(shown => !shown)}
       >
         {/* Three bars of falling length: the usual sort glyph, unlike the collapse chevrons */}
         <svg width="12" height="12" viewBox="0 0 12 12" fill="#888">
@@ -369,7 +364,8 @@ function SortMenu({
   readonly close: () => void;
   readonly choose: (sort: IndexSort) => void;
 }) {
-  useClosesOnOutside('.index-sort-menu', close);
+  // The button is inside too: its own click opens and closes the menu
+  useClosesOnOutside('.index-sort', close);
   return (
     <div className="index-sort-menu">
       {SORTS.map(item => {
@@ -378,8 +374,7 @@ function SortMenu({
           <button
             key={`${item.key.kind}-${item.order.kind}`}
             className={current ? 'index-sort-item current' : 'index-sort-item'}
-            onClick={event => {
-              event.stopPropagation();
+            onClick={() => {
               choose(item);
               close();
             }}

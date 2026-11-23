@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 
 /**
  * Closes an open menu on a click outside `selector` and on Escape. The menu calls it while it
- * is drawn. The button that opens the menu stops its click, or the click would close it again.
+ * is drawn. The button that opens the menu must be inside `selector` or stop its click: React
+ * adds these listeners before that click reaches the document, which would close the menu.
  */
 export function useClosesOnOutside(selector: string, close: () => void): void {
   useEffect(() => {
