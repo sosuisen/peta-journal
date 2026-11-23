@@ -1,15 +1,23 @@
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { startDrag } from './drag';
 import { shell } from './test/screens';
 
 afterEach(() => {
+  vi.useRealTimers();
   Reflect.deleteProperty(document, 'elementFromPoint');
   Reflect.deleteProperty(document, 'caretPositionFromPoint');
   document.body.replaceChildren();
 });
 
-/** The item `id` on the page, as the outline draws it, with its editor holding `text`. */
-function itemOf(id: string, text = ''): HTMLTextAreaElement {
+/**
+ * The item `id` in `list`, as the outline draws it, with its editor holding `text`. The page
+ * itself stands for a list when there is no outline.
+ */
+function itemOf(
+  id: string,
+  text = '',
+  list: Element = document.body,
+): HTMLTextAreaElement {
   const host = document.createElement('app-outline-item');
   const box = document.createElement('div');
   box.id = id;
@@ -19,8 +27,33 @@ function itemOf(id: string, text = ''): HTMLTextAreaElement {
   editor.value = text;
   box.append(editor);
   host.append(box);
-  document.body.append(host);
+  list.append(host);
   return editor;
+}
+
+/**
+ * The outline seen from 100 to 300 on the screen, scrolled by `scrolled`. jsdom scrolls
+ * nothing, so the outline keeps the place it is given.
+ */
+function outlineOf(scrolled: number): HTMLElement {
+  const viewport = document.createElement('cdk-virtual-scroll-viewport');
+  viewport.className = 'outline-viewport';
+  viewport.getBoundingClientRect = () => new DOMRect(0, 100, 100, 200);
+  let top = scrolled;
+  Object.defineProperty(viewport, 'scrollTop', {
+    configurable: true,
+    get: () => top,
+    set: (value: number) => {
+      top = value;
+    },
+  });
+  document.body.append(viewport);
+  return viewport;
+}
+
+/** The mouse moves to `y` with its button held. */
+function moveTo(y: number) {
+  document.dispatchEvent(new MouseEvent('mousemove', { clientY: y }));
 }
 
 /** jsdom lays nothing out: the tests say what is under the mouse. */
@@ -139,5 +172,98 @@ describe('a drag from the text of an item', () => {
       'Moved',
       'Released',
     ]);
+  });
+});
+
+// 項目を選ぶドラッグの、アウトラインの端でのスクロール
+describe('the scroll at an edge of the outline while a drag selects items', () => {
+  // コアが項目を選ぶ間、マウスを下の端に置くと、アウトラインが1歩ずつ下にスクロールする。1歩ごとに、止まったマウスの下の項目をコアに渡す。ボタンを放すと止まる。
+  test('the mouse held at the bottom edge scrolls the outline step by step, telling the core the item under it', () => {
+    vi.useFakeTimers();
+    const { core, wasm } = shell();
+    const outline = outlineOf(0);
+    const a = itemOf('a', '', outline);
+    itemOf('b', '', outline);
+    itemOf('c', '', outline);
+    under(document.getElementById('b'), a, 0);
+
+    startDrag(core, 'a', a, null);
+    moveTo(295);
+    // The core has nothing more to do while the selection reaches the same item
+    wasm.takesDrags = false;
+    vi.advanceTimersByTime(16);
+    const first = outline.scrollTop;
+    under(document.getElementById('c'), a, 0);
+    vi.advanceTimersByTime(16);
+    const second = outline.scrollTop;
+    document.dispatchEvent(new MouseEvent('mouseup'));
+    vi.advanceTimersByTime(48);
+
+    expect([first, second, outline.scrollTop]).toEqual([5, 10, 10]);
+    expect(wasm.drags.slice(1)).toEqual([
+      { kind: 'Moved', y: 295, item_under: 'b' },
+      { kind: 'Moved', y: 295, item_under: 'b' },
+      { kind: 'Moved', y: 295, item_under: 'c' },
+      { kind: 'Released' },
+    ]);
+  });
+
+  // 上の端では上にスクロールし、一番上より上には行かない。
+  test('the top edge scrolls the outline up, no further than its top', () => {
+    vi.useFakeTimers();
+    const { core } = shell();
+    const outline = outlineOf(7);
+    const a = itemOf('a', '', outline);
+    under(null, a, 0);
+
+    startDrag(core, 'a', a, null);
+    moveTo(105);
+    vi.advanceTimersByTime(16);
+    const first = outline.scrollTop;
+    vi.advanceTimersByTime(16);
+
+    expect([first, outline.scrollTop]).toEqual([2, 0]);
+  });
+
+  // マウスが端から離れると、スクロールは止まる。端に戻ると、また始まる。
+  test('the scroll stops when the mouse leaves the edge, and starts again at it', () => {
+    vi.useFakeTimers();
+    const { core } = shell();
+    const outline = outlineOf(0);
+    const a = itemOf('a', '', outline);
+    under(null, a, 0);
+
+    startDrag(core, 'a', a, null);
+    moveTo(295);
+    vi.advanceTimersByTime(16);
+    moveTo(200);
+    vi.advanceTimersByTime(48);
+    const left = outline.scrollTop;
+    moveTo(295);
+    vi.advanceTimersByTime(16);
+
+    expect([left, outline.scrollTop]).toEqual([5, 10]);
+  });
+
+  // 文字を選ぶ間は、端でもスクロールしない。新しいドラッグは、前のドラッグのスクロールを止める。
+  test('no scroll while the drag selects letters, and a new drag stops the scroll before', () => {
+    vi.useFakeTimers();
+    const { core, wasm } = shell();
+    const outline = outlineOf(0);
+    const a = itemOf('a', '', outline);
+    under(null, a, 0);
+    wasm.takesDrags = false;
+
+    startDrag(core, 'a', a, null);
+    moveTo(295);
+    vi.advanceTimersByTime(48);
+    const letters = outline.scrollTop;
+    wasm.takesDrags = true;
+    startDrag(core, 'a', a, null);
+    moveTo(295);
+    startDrag(core, 'a', a, null);
+    vi.advanceTimersByTime(48);
+
+    expect([letters, outline.scrollTop]).toEqual([0, 0]);
   });
 });
