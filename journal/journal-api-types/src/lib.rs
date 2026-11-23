@@ -715,6 +715,21 @@ mod tests {
         }
     }
 
+    // MCPのスキーマでは、位置は、書き方を説明した文字列である。
+    #[cfg(feature = "schemars")]
+    #[test]
+    fn a_position_is_a_text_in_the_schema_of_mcp() {
+        let schema = serde_json::to_value(schemars::schema_for!(ItemPosition)).unwrap();
+
+        assert_eq!(schema["type"], json!("string"));
+        assert!(
+            schema["description"]
+                .as_str()
+                .is_some_and(|text| text.contains("'after:<id>'")),
+            "{schema}"
+        );
+    }
+
     // 決まりに合わない文字列は、位置として読めない。
     #[test]
     fn a_text_that_is_no_position_is_not_read() {
