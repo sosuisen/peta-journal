@@ -155,7 +155,7 @@ fn load_journal_before(
                     target_item_count,
                     name: page.name,
                     items: older.items,
-                    transcluded_trees: older.transcluded_trees,
+                    transcluded_trees: Some(older.transcluded_trees.into_iter().collect()),
                 }),
                 None => api.send_event(Event::PreviousJournalsLoaded { journal }),
             },
