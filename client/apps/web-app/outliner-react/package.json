@@ -1,0 +1,45 @@
+{
+  "name": "outliner-react",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The web shell of PetaJournal in React, around the core in wasm (ADR 079, ADR 080)",
+  "engines": {
+    "node": "^22.13.0 || ^24.0.0 || >=26.0.0"
+  },
+  "scripts": {
+    "wasm": "wasm-pack build ../../../libs/client-web-bridge --target web --release --out-dir ../../apps/web-app/outliner-react/src/wasm --out-name bridge --no-pack",
+    "types": "cargo run -q -p client-web-bridge --bin codegen -- src/border",
+    "border": "npm run wasm && npm run types",
+    "predev": "npm run border",
+    "dev": "vite",
+    "prebuild": "npm run border",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "3.14.28",
+    "highlight.js": "11.12.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@typescript/native": "npm:typescript@~7.0.2",
+    "@vitejs/plugin-react": "^6.3.0",
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "typescript": "npm:@typescript/typescript6@~6.0.2",
+    "typescript-eslint": "^8.73.0",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
+  }
+}
