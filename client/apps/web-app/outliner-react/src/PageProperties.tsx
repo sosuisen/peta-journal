@@ -226,14 +226,17 @@ function ValueInput(props: ValueProps) {
   return <TextInput {...props} />;
 }
 
-const TEXT_INPUTS: Readonly<
-  Record<string, { type: string; placeholder: string }>
-> = {
-  number: { type: 'number', placeholder: '' },
-  date: { type: 'date', placeholder: '' },
-  tags: { type: 'text', placeholder: 'a, b' },
-  list: { type: 'text', placeholder: 'a, b' },
-  bounds: { type: 'text', placeholder: 'x, y, width, height' },
+/** The value types with an input of their own. Any other type is typed as text. */
+const INPUT_TYPES: Readonly<Record<string, string>> = {
+  number: 'number',
+  date: 'date',
+};
+
+/** The value types typed as text in a form of their own. */
+const PLACEHOLDERS: Readonly<Record<string, string>> = {
+  tags: 'a, b',
+  list: 'a, b',
+  bounds: 'x, y, width, height',
 };
 
 /**
@@ -257,16 +260,12 @@ function TextInput({ valueType, value, save, draft }: ValueProps) {
       save(typed);
     }
   };
-  const { type, placeholder } = TEXT_INPUTS[valueType] ?? {
-    type: 'text',
-    placeholder: '',
-  };
   return (
     <input
       ref={input}
-      type={type}
+      type={INPUT_TYPES[valueType]}
       className="property-value"
-      placeholder={placeholder}
+      placeholder={PLACEHOLDERS[valueType]}
       autoFocus={draft}
       onKeyDown={event => {
         if (draft && isEnter(event)) {
