@@ -5,11 +5,13 @@ import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.getAlignmentLinePosition
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onFirst
@@ -171,6 +173,20 @@ class ItemLookTest : JournalScreenFixture() {
         openNotes()
 
         waitFor("assets/cat.png")
+    }
+
+    // 画像の1行目に触れると、その項目がMarkdownの入力欄になる（#886）。
+    @Test
+    fun a_touch_on_the_line_above_an_image_edits_the_item() {
+        picture("cat.png", width = 40, height = 20)
+        download("notes.md", "![a cat](../assets/cat.png)" + NL)
+        openNotes()
+        waitForPicture("a cat")
+
+        compose.onNode(shown("a cat")).performClick()
+
+        compose.waitUntil(WAIT_MS) { compose.onAllNodes(hasTestTag(EDITOR_TAG)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("![a cat](../assets/cat.png)")
     }
 
     // ファイルのない画像は、代わりの文字（alt）が見える。
