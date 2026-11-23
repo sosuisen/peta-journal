@@ -602,6 +602,27 @@ class EditTest : JournalScreenFixture() {
         waitForItems("1 first", "1 econd")
     }
 
+    // 画面のキーボードのBackspaceを押し続けると、描き直しの直後に次のBackspaceが来ても、残った文字の末尾にカーソルがある。
+    @Test
+    fun holding_backspace_of_the_keyboard_on_the_screen_keeps_the_cursor_at_the_end_of_what_is_left() {
+        editSecondOfTwo("first", "abcdefg")
+        val root = compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().root as ViewRootForTest
+        // As on a slow phone: each Backspace after the first comes just after the screen was drawn again
+        var more = 3
+        afterDrawn = {
+            if (more > 0) {
+                more -= 1
+                checkNotNull(root.view.onCreateInputConnection(EditorInfo())).deleteSurroundingText(1, 0)
+            }
+        }
+
+        pressBackspaceOnTheScreen()
+
+        waitForItems("1 first", "1 abc")
+        compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("abc")
+        assertEquals(TextRange(3), cursor())
+    }
+
     // 画面のキーボードのBackspaceは、先頭から文字を選んでいるときは、項目をつながない。
     @Test
     fun backspace_of_the_keyboard_on_the_screen_with_text_chosen_from_the_start_joins_nothing() {
