@@ -33,6 +33,28 @@ public sealed class StickyLookTests
         Assert.Equal(PetaCore.PetaNative.StickyYellow(), new StickyLook().Color);
     }
 
+    // 色のメニューは、9色のあとに透明を出す。
+    [Fact]
+    public void The_menu_offers_transparent_after_the_colors()
+    {
+        Assert.Equal(PetaCore.PetaNative.StickyColors().Length + 1, StickyLook.Colors.Count);
+        Assert.Equal(("Transparent", "#FFFFFF00"), StickyLook.Colors[^1]);
+    }
+
+    // 透明な付箋紙は、フォーカスがないときだけ、書かれたこと以外を隠す。色のある付箋紙は、何も隠さない。
+    [Fact]
+    public void Only_a_transparent_sticky_without_the_focus_is_bare()
+    {
+        var look = new StickyLook(StickyLook.Colors[^1].Hex);
+        Assert.True(look.Transparent);
+        Assert.True(look.Bare(focused: false));
+        Assert.False(look.Bare(focused: true));
+
+        look.Color = PetaCore.PetaNative.StickyYellow();
+        Assert.False(look.Transparent);
+        Assert.False(look.Bare(focused: false));
+    }
+
     // 縮小は、拡大と逆の向きに大きさを変える。
     [Fact]
     public void Zooming_out_makes_the_page_smaller()

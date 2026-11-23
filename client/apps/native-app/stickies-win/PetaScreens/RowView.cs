@@ -311,7 +311,10 @@ internal sealed class RowView : Grid
         var first = Math.Round(FontSize * Zoom * RowLook.FirstLineScale(row) * LineHeight);
         var side = Math.Round(line * 0.85);
         marks.Children.Clear();
-        marks.Children.Add(Bullet(row.IsCollapsed, side, Math.Max(line, first)));
+        var bullet = Bullet(row.IsCollapsed, side, Math.Max(line, first));
+        // Unseen, and not gone: the text stays where it is when the bullet comes back
+        bullet.Opacity = window.Bare ? 0 : 1;
+        marks.Children.Add(bullet);
         if (row.Task is { } task)
         {
             var box = TaskBox(task, side, Math.Max(line, first));

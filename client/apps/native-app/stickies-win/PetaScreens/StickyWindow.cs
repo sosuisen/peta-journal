@@ -75,6 +75,12 @@ internal sealed class StickyWindow : Window
         Margin = new Thickness(0, 0, 4, 0),
     };
     private readonly FontIcon large = new() { FontSize = WindowGlyphSize };
+
+    /// <summary>The button for a new sticky, at the left of the title bar.</summary>
+    private readonly Button add;
+
+    /// <summary>What is behind a sticky without paper. It is made once it is needed.</summary>
+    private ClearBackdrop? clear;
     private readonly TextBlock status = new()
     {
         FontFamily = RowView.TextFont,
@@ -189,6 +195,12 @@ internal sealed class StickyWindow : Window
         back = Tool("\uE76B", "Back (Alt+Left)", Shell.GoBack);
         forward = Tool("\uE76C", "Forward (Alt+Right)", Shell.GoForward);
         list = Rows();
+        // A new sticky is one click away from every sticky: one without the focus, and one
+        // that is rolled up. So this button is not among the tools, which are hidden then.
+        // It answers when it is pressed, and does not wait for the mouse button to come up
+        add = Tool("", "New sticky (Ctrl+N)", () => desk.Add());
+        add.ClickMode = ClickMode.Press;
+        add.Margin = new Thickness(4, 0, 0, 0);
         // Takes the keys while items are selected. No editor has the cursor then
         selection = new ContentControl
         {
@@ -216,6 +228,7 @@ internal sealed class StickyWindow : Window
         if (kept?.RolledUp == true)
             Roll(animated: false);
         Measure();
+        ShowTools();
 
         Shell.ViewChanged += Draw;
         Shell.TitleChanged += Name;
@@ -232,6 +245,7 @@ internal sealed class StickyWindow : Window
         Look.Changed += () =>
         {
             Paint();
+            ShowTools();
             if (AppWindow.Presenter is OverlappedPresenter above)
                 above.IsAlwaysOnTop = Look.AlwaysOnTop;
             foreach (var row in rows)
@@ -282,6 +296,9 @@ internal sealed class StickyWindow : Window
     /// <summary>Only the title bar of the window is shown.</summary>
     public bool RolledUp { get; private set; }
 
+    /// <summary>The sticky shows only what is written on it: no bullets either.</summary>
+    public bool Bare { get; private set; }
+
     /// <summary>How many pixels of the screen one pixel of the layout is.</summary>
     private double Scale => Native.GetDpiForWindow(handle) / 96.0;
 
@@ -299,12 +316,6 @@ internal sealed class StickyWindow : Window
         bar.ColumnDefinitions.Add(new ColumnDefinition());
         bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        // A new sticky is one click away from every sticky: one without the focus, and one
-        // that is rolled up. So this button is not among the tools, which are hidden then.
-        // It answers when it is pressed, and does not wait for the mouse button to come up
-        var add = Tool("\uE710", "New sticky (Ctrl+N)", () => desk.Add());
-        add.ClickMode = ClickMode.Press;
-        add.Margin = new Thickness(4, 0, 0, 0);
         bar.Children.Add(add);
         // The window is moved by this part of the bar. The tools beside it take their clicks
         var grip = new Border { Background = Clear, Child = name };
@@ -438,13 +449,23 @@ internal sealed class StickyWindow : Window
     }
 
     /// <summary>The color of the paper. It is light in every color, and so the text on it is
-    /// always dark.</summary>
+    /// always dark. A sticky without paper shows the windows behind it.</summary>
     private void Paint()
     {
-        var paper = PetaCore.PetaNative.StickyRgb(Look.Color);
-        root.Background = new SolidColorBrush(
-            Color.FromArgb(255, paper.Red, paper.Green, paper.Blue)
-        );
+        if (Look.Transparent)
+        {
+            SystemBackdrop = clear ??= new ClearBackdrop(handle);
+            // Not null: the clicks on the empty part of the paper still come to the window
+            root.Background = Clear;
+        }
+        else
+        {
+            SystemBackdrop = null;
+            var paper = PetaCore.PetaNative.StickyRgb(Look.Color);
+            root.Background = new SolidColorBrush(
+                Color.FromArgb(255, paper.Red, paper.Green, paper.Blue)
+            );
+        }
         var bar = AppWindow.TitleBar;
         bar.ButtonBackgroundColor = Colors.Transparent;
         bar.ButtonInactiveBackgroundColor = Colors.Transparent;
@@ -1001,6 +1022,64 @@ internal sealed class StickyWindow : Window
         tools.Visibility = shown;
         windowButtons.Visibility = shown;
         large.Glyph = Maximized ? "\uE923" : "\uE922";
+        ShowBare();
+    }
+
+    /// <summary>
+    /// A sticky without paper that is not worked on shows only what is written on it. The
+    /// name and the button stay where they are, unseen: the name is where the window is
+    /// moved, and the text does not move when they come back.
+    /// </summary>
+    private void ShowBare()
+    {
+        var bare = Look.Bare(hasFocus);
+        name.Opacity = bare ? 0 : 1;
+        add.Opacity = bare ? 0 : 1;
+        add.IsHitTestVisible = !bare;
+        // Hidden, and not disabled: the wheel still scrolls the list
+        ScrollViewer.SetVerticalScrollBarVisibility(
+            list,
+            bare ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto
+        );
+        if (bare == Bare)
+            return;
+        Bare = bare;
+        // The line around the window and its shadow go too. The border itself stays: without
+        // it the size of the window would change, and the text would move
+        var border = bare ? Native.NoColor : Native.UsualColor;
+        _ = Native.DwmSetWindowAttribute(handle, Native.BorderColor, ref border, sizeof(uint));
+        CutToPaper(bare);
+        foreach (var row in rows)
+            row.View?.Draw();
+    }
+
+    /// <summary>
+    /// Cuts the window to its paper, or makes it whole again. Windows draws no shadow under a
+    /// window that has a region. The frame is left alone: without the frame of DWM, Windows
+    /// draws the old frame of Windows instead. Only the edges where the window is made larger
+    /// are cut off. They come back with the focus.
+    /// </summary>
+    private void CutToPaper(bool cut)
+    {
+        if (!cut)
+        {
+            _ = Native.SetWindowRgn(handle, IntPtr.Zero, true);
+            return;
+        }
+        var corner = new Native.Point();
+        if (
+            !Native.GetWindowRect(handle, out var outer)
+            || !Native.GetClientRect(handle, out var paper)
+            || !Native.ClientToScreen(handle, ref corner)
+        )
+            return;
+        var left = corner.X - outer.Left;
+        var top = corner.Y - outer.Top;
+        _ = Native.SetWindowRgn(
+            handle,
+            Native.CreateRectRgn(left, top, left + paper.Right, top + paper.Bottom),
+            true
+        );
     }
 
     /// <summary>
@@ -1068,6 +1147,19 @@ internal sealed class StickyWindow : Window
     {
         switch (message)
         {
+            // Windows would paint the background of the window over what shows through
+            case Native.WmEraseBackground when Look.Transparent && clear is not null:
+                clear.Erase(wParam);
+                return 1;
+            // Windows draws its title bar of old in the window then: it is wiped away
+            case Native.WmNcActivate
+            or Native.WmNcPaint
+            or Native.WmSetText when Look.Transparent && clear is not null:
+            {
+                var answer = Native.DefSubclassProc(window, message, wParam, lParam);
+                clear.Wipe();
+                return answer;
+            }
             // A double click on the title bar rolls the sticky up. Windows would make the
             // window as large as the screen: that is left to the button of the title bar
             case Native.WmNcLeftButtonDoubleClick when wParam == Native.HitCaption:

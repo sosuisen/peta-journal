@@ -143,6 +143,13 @@ fn a_new_sticky_is_yellow_among_the_nine_colors_of_petasti() {
     assert_eq!(COLORS.len(), 9);
 }
 
+// 透明は、Petastiの透明な付箋紙と同じく、アルファが0の白である。9色には入らない。
+#[test]
+fn transparent_is_white_with_no_alpha_and_not_among_the_nine_colors() {
+    assert_eq!(TRANSPARENT, ("Transparent", "#FFFFFF00"));
+    assert!(!COLORS.contains(&TRANSPARENT));
+}
+
 // ズームは、1割ずつ変わる。0.1を足し続けても、端数は出ない。
 #[test]
 fn the_zoom_changes_by_whole_tenths() {

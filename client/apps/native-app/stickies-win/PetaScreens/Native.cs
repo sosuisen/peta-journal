@@ -72,6 +72,123 @@ internal static class Native
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool RemoveWindowSubclass(IntPtr window, SubclassProc proc, UIntPtr id);
 
+    /// <summary>What a queue of work of the system is made for: the thread that makes it.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct DispatcherQueueOptions
+    {
+        public int Size;
+        public int ThreadType;
+        public int ApartmentType;
+    }
+
+    public const int QueueOfThisThread = 2;
+    public const int SingleThreadedApartment = 2;
+
+    [DllImport("CoreMessaging.dll")]
+    public static extern int CreateDispatcherQueueController(
+        DispatcherQueueOptions options,
+        out IntPtr controller
+    );
+
+    public const uint WmEraseBackground = 0x0014;
+    public const uint WmSetText = 0x000C;
+    public const uint WmNcPaint = 0x0085;
+    public const uint WmNcActivate = 0x0086;
+
+    /// <summary>The color of the line around a window, from Windows 11 on.</summary>
+    public const int BorderColor = 34;
+    public const uint NoColor = 0xFFFFFFFE;
+    public const uint UsualColor = 0xFFFFFFFF;
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetWindowRect(IntPtr window, out Rect rect);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ClientToScreen(IntPtr window, ref Point point);
+
+    /// <summary>Cuts the window to the region. Windows owns the region from then on.</summary>
+    [DllImport("user32.dll")]
+    public static extern int SetWindowRgn(
+        IntPtr window,
+        IntPtr region,
+        [MarshalAs(UnmanagedType.Bool)] bool redraw
+    );
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmSetWindowAttribute(
+        IntPtr window,
+        int attribute,
+        ref uint value,
+        int size
+    );
+
+    /// <summary>The blur behind a window: on, and only in the region that is given.</summary>
+    public const uint BlurEnableInRegion = 0x1 | 0x2;
+
+    public const int BlackBrush = 4;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct BlurBehind
+    {
+        public uint Flags;
+
+        [MarshalAs(UnmanagedType.Bool)]
+        public bool Enable;
+        public IntPtr Region;
+
+        [MarshalAs(UnmanagedType.Bool)]
+        public bool TransitionOnMaximized;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Margins
+    {
+        public int Left;
+        public int Right;
+        public int Top;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Rect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmEnableBlurBehindWindow(IntPtr window, ref BlurBehind blur);
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmExtendFrameIntoClientArea(IntPtr window, ref Margins margins);
+
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
+
+    [DllImport("gdi32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool DeleteObject(IntPtr gdiObject);
+
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr GetStockObject(int kind);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetClientRect(IntPtr window, out Rect rect);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetWindowDC(IntPtr window);
+
+    [DllImport("user32.dll")]
+    public static extern int ReleaseDC(IntPtr window, IntPtr deviceContext);
+
+    [DllImport("user32.dll")]
+    public static extern int FillRect(IntPtr deviceContext, ref Rect rect, IntPtr brush);
+
     [DllImport("comctl32.dll")]
     public static extern IntPtr DefSubclassProc(
         IntPtr window,

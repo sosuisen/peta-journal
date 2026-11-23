@@ -269,6 +269,12 @@ app with all its stickies kept, as Command+Q does on a Mac.
 The menu gives the sticky another color: yellow, red, green, blue, orange,
 purple, white, gray or light gray. They are the colors of the SwiftUI shell.
 A sticky is light in every color, also when Windows is in dark mode.
+After the colors, the menu offers "Transparent": a sticky without paper, which shows the
+windows behind it. While another window has the focus, it shows only its text. The line
+around the window, its shadow, the name and the button of its title bar, the bullets, and the
+scroll bar are not seen then. Its edges cannot be dragged then: a click gives it the focus
+first. They keep their place, so the text does not move when they come back. The SwiftUI shell has no
+transparent sticky yet.
 
 A double click on the title bar rolls the sticky up, so that only its title bar is left, and
 another one rolls it down again to the size it had. A sticky that is rolled up shows no tools
