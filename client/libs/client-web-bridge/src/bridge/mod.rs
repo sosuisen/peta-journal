@@ -218,9 +218,6 @@ impl<H: Host> Bridge<H> {
         let KeyPress::InEditor { item_id, chord, .. } = press else {
             return None;
         };
-        if chord.shift || chord.ctrl || chord.alt || chord.cmd {
-            return None;
-        }
         let name = match chord.key {
             Key::Up => "ArrowUp",
             Key::Down => "ArrowDown",
