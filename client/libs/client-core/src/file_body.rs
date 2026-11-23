@@ -96,12 +96,19 @@ pub fn output_to_shell(output: ApiOutput) -> ApiOutput {
             items_to_shell(&mut pasted.items);
             ApiOutput::Pasted(pasted)
         }
+        ApiOutput::Split(mut split) => {
+            item_to_shell(&mut split.item);
+            item_to_shell(&mut split.created);
+            ApiOutput::Split(split)
+        }
         other => other,
     }
 }
 
 fn items_to_shell(items: &mut [Item]) {
-    for item in items {
-        item.body = flatmarkdown::body_from_file(&item.body);
-    }
+    items.iter_mut().for_each(item_to_shell);
+}
+
+fn item_to_shell(item: &mut Item) {
+    item.body = flatmarkdown::body_from_file(&item.body);
 }
