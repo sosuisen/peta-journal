@@ -1051,6 +1051,72 @@ mod tests {
         );
     }
 
+    // 欄がサーバーと同じ答えの型は、サーバーの答えのJSONに書かれ、同じ値に読み戻される。
+    #[test]
+    fn the_answers_with_the_fields_of_the_server_are_written_in_its_json_and_read_back() {
+        fn round_trip<T>(value: T, written: serde_json::Value)
+        where
+            T: Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+        {
+            assert_eq!(serde_json::to_value(&value).unwrap(), written);
+            assert_eq!(serde_json::from_value::<T>(written).unwrap(), value);
+        }
+
+        round_trip(
+            PropertyDefinition {
+                key: "plan".into(),
+                value_type: "date".into(),
+                system: true,
+                page: false,
+            },
+            json!({ "key": "plan", "valueType": "date", "system": true, "page": false }),
+        );
+        round_trip(
+            TreeExport {
+                tree_markdown: "- a".into(),
+                flat_markdown: "a".into(),
+            },
+            json!({ "treeMarkdown": "- a", "flatMarkdown": "a" }),
+        );
+        round_trip(
+            PasteCursor {
+                item_id: "i".into(),
+                position: 3,
+            },
+            json!({ "itemId": "i", "position": 3 }),
+        );
+        round_trip(
+            Uploaded {
+                file_name: "f.png".into(),
+                original_name: "o.png".into(),
+            },
+            json!({ "fileName": "f.png", "originalName": "o.png" }),
+        );
+    }
+
+    // サーバーの設定は、サーバーの答えのJSONから読める。サーバーだけの欄は読み飛ばす。
+    #[test]
+    fn the_config_is_read_from_the_answer_of_the_server_past_the_fields_of_the_server() {
+        let answer = json!({
+            "markdownDir": "m", "weekNumbering": "iso", "logicalOutdent": true,
+            "tagsDir": "tags/", "homeLink": "home", "wikilinkHref": "/w", "hashtagHref": "/h",
+            "pagesBase": "/p", "wikilinkFragmentPattern": "x"
+        });
+
+        let config: ServerConfig = serde_json::from_value(answer).unwrap();
+
+        assert_eq!(
+            config,
+            ServerConfig {
+                markdown_dir: "m".into(),
+                week_numbering: "iso".into(),
+                logical_outdent: true,
+                tags_dir: "tags/".into(),
+                home_link: "home".into(),
+            }
+        );
+    }
+
     // 検索の結果は、サーバーと同じ形のJSONに書かれ、同じ値に読み戻される。
     #[test]
     fn a_search_result_is_written_in_the_json_of_the_server_and_read_back() {
