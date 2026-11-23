@@ -38,4 +38,16 @@ mod tests {
         assert!(html.contains("<strong>bold</strong>"), "{html}");
         assert!(html.contains(r#"href="/pages/notes""#), "{html}");
     }
+
+    // 本文が求める画像の大きさは、画像のURLの断片に書かれる。深いところの画像も同じである。
+    #[test]
+    fn the_size_an_image_asks_for_is_written_in_the_fragment_of_its_url() {
+        let html = |body: &str| HtmlBody::of(client_core::asts::parse(body), "tags/").0;
+
+        let sized = html("- ![alt](img.png#w=300&h=240)");
+        let plain = html("![alt](img.png)");
+
+        assert!(sized.contains(r#"src="img.png#w=300&amp;h=240""#), "{sized}");
+        assert!(plain.contains(r#"src="img.png""#), "{plain}");
+    }
 }
