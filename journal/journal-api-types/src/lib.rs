@@ -244,6 +244,15 @@ pub struct SearchResult {
     pub score: f32,
 }
 
+/// The folder the person chose in the dialog of the server. It does not cross the native border.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct FolderChoice {
+    /// True when a folder was chosen.
+    pub selected: bool,
+    /// The chosen folder, or an empty string.
+    pub path: String,
+}
+
 /// A file the server saved.
 #[cfg_attr(feature = "facet", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1434,6 +1443,13 @@ mod tests {
                 original_name: "o.png".into(),
             },
             json!({ "fileName": "f.png", "originalName": "o.png" }),
+        );
+        round_trip(
+            FolderChoice {
+                selected: true,
+                path: "C:/notes".into(),
+            },
+            json!({ "selected": true, "path": "C:/notes" }),
         );
     }
 
