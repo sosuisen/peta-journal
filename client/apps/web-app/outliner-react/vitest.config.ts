@@ -12,6 +12,11 @@ import vite from './vite.config.ts';
  * are left out, as is the code of the tests in src/test. Stryker skips them too; see
  * stryker.config.mjs.
  *
+ * These files are left out too, as agreed on 2026-11-23, because no test in jsdom can check
+ * them. They are checked in a real browser.
+ * - src/layout.ts: it measures where the browser lays out text, and jsdom lays nothing out
+ * - src/main.tsx: the entry point, which loads the wasm and puts the app in #root
+ *
  * The components are drawn in jsdom, on a wasm of the tests (src/test/shell.ts).
  */
 export default mergeConfig(
@@ -28,6 +33,8 @@ export default mergeConfig(
           'src/test/**',
           'src/border/**',
           'src/wasm/**',
+          'src/layout.ts',
+          'src/main.tsx',
         ],
         reporter: ['text', 'html'],
       },
