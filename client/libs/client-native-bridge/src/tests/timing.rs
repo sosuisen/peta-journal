@@ -10,9 +10,9 @@
 
 use crate::{Clock, Host, NativeShell};
 use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent};
-use client_core::model::{Page, PageWithItems};
+use client_core::model::Page;
 use client_core::rest::ClientId;
-use client_core::testing::plain_item;
+use client_core::testing::{page_answer, plain_item};
 use client_core::typing::Typing;
 use client_core::{EditPlace, Event, Route};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat};
@@ -30,23 +30,20 @@ impl Host for LongPage {
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
         match op {
             ApiOp::GetOrCreateDoc { .. } | ApiOp::GetPageById { .. } => {
-                Ok(ApiOutput::Page(PageWithItems {
-                    page: Page {
-                        id: "p".into(),
-                        name: "long".into(),
-                        page_type: "doc".into(),
-                        ..Default::default()
-                    },
-                    // The levels of the page of TypingSpeedTests
-                    items: (0..ITEMS)
-                        .map(|n| {
-                            let level = i32::try_from(n % 3 + 1).unwrap();
-                            plain_item(&format!("{n:04}"), level, &format!("item {n}"))
-                        })
-                        .collect(),
-                    created: false,
-                    transcluded_trees: None,
-                }))
+                let page = Page {
+                    id: "p".into(),
+                    name: "long".into(),
+                    page_type: "doc".into(),
+                    ..Default::default()
+                };
+                // The levels of the page of TypingSpeedTests
+                let items = (0..ITEMS)
+                    .map(|n| {
+                        let level = i32::try_from(n % 3 + 1).unwrap();
+                        plain_item(&format!("{n:04}"), level, &format!("item {n}"))
+                    })
+                    .collect();
+                Ok(page_answer(&op, page, items))
             }
             _ => Err(ApiError("the long page is all this server knows".into())),
         }

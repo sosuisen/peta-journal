@@ -247,6 +247,14 @@ fn pages(reply: &HttpReply) -> ApiResult<ApiOutput> {
     parsed::<PagesEnvelope>(reply).map(|e| ApiOutput::Pages(e.pages))
 }
 
+fn doc_page(reply: &HttpReply) -> ApiResult<ApiOutput> {
+    parsed(reply).map(ApiOutput::DocPage)
+}
+
+fn moved_to_journal(reply: &HttpReply) -> ApiResult<ApiOutput> {
+    parsed(reply).map(ApiOutput::MovedToJournal)
+}
+
 fn journal_before(reply: &HttpReply) -> ApiResult<ApiOutput> {
     parsed(reply).map(ApiOutput::JournalBefore)
 }
@@ -327,7 +335,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
                 position: position.clone(),
                 body,
             }),
-            page,
+            moved_to_journal,
         ),
         ApiOp::FindPage {
             journal,
@@ -347,7 +355,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
                 title: Some(title),
                 dir_path: Some(dir_path),
             }),
-            page,
+            doc_page,
         ),
         ApiOp::CreateItem {
             page_id,

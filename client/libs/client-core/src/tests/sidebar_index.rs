@@ -4,7 +4,7 @@ use crate::app::{Event, Route};
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::Harness;
 use crate::model::PageExt;
-use crate::model::{Page, PageWithItems};
+use crate::model::{DocPage, Page, PageWithItems};
 
 fn page(dir_path: &str, name: &str, page_type: &str) -> Page {
     Page {
@@ -24,11 +24,10 @@ fn doc(dir_path: &str, name: &str) -> Page {
 fn served(h: &mut Harness, page: Page) {
     h.api.answer_next(
         "GetOrCreateDoc",
-        Ok(ApiOutput::Page(PageWithItems {
+        Ok(ApiOutput::DocPage(DocPage {
             page,
             items: vec![],
             created: false,
-            transcluded_trees: None,
         })),
     );
 }
