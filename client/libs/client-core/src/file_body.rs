@@ -73,6 +73,8 @@ pub fn output_to_shell(mut output: ApiOutput) -> ApiOutput {
             items_to_shell(&mut journal.items);
             trees_to_shell(journal.transcluded_trees.values_mut());
         }
+        ApiOutput::DocPage(page) => items_to_shell(&mut page.items),
+        ApiOutput::MovedToJournal(moved) => items_to_shell(&mut moved.items),
         ApiOutput::Item(item) => item_to_shell(item),
         ApiOutput::Items(items) => items_to_shell(items),
         ApiOutput::Backlinks(entries) => entries
