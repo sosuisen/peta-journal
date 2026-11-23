@@ -136,6 +136,11 @@ export class WebShell {
     return this.wikiQuery(text, cursor);
   }
 
+  // The rule of page-urls, without its encoding: the tests use plain names
+  tagUrl(tagsDir: string, tag: string): string {
+    return `/pages/${tagsDir}${tag}`;
+  }
+
   beginCopy(): void {
     this.copies += 1;
   }
