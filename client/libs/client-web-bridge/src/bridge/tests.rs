@@ -2,7 +2,7 @@ use super::*;
 use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp,
 };
-use client_core::model::{Page, PageWithItems, Split, TreeExport, Uploaded};
+use client_core::model::{Page, PageWithItems, SearchResult, Split, TreeExport, Uploaded};
 use client_core::rest::ClientId;
 use client_core::screens::page::ATLAS_NAME;
 use client_core::testing::plain_item;
@@ -144,6 +144,15 @@ fn answer_of(op: &ApiOp) -> ApiResult<ApiOutput> {
                 created,
             })))
         }
+        ApiOp::SearchPageNames { .. } => Ok(ApiOutput::SearchResults(
+            ["notes", "novel"]
+                .map(|title| SearchResult {
+                    page_id: title.into(),
+                    page_title: title.into(),
+                    ..SearchResult::default()
+                })
+                .to_vec(),
+        )),
         ApiOp::ExportTreeMarkdown { .. } => Ok(ApiOutput::TreeExport(TreeExport {
             tree_markdown: "- see [[notes]]".into(),
             flat_markdown: "see [[notes]]".into(),
@@ -668,4 +677,24 @@ fn operations_the_shell_holds_at_once_are_each_answered_by_their_own_number() {
 
     screen.serve();
     assert_eq!(screen.calls_named("DeleteItems"), 1);
+}
+
+// [[の補完の候補が出ている間、上下のキーは候補を選び、編集欄のカーソルは動かさない。
+#[test]
+fn while_page_names_are_offered_the_arrow_keys_pick_one() {
+    let screen = Screen::new();
+    screen.open_notes();
+    screen
+        .bridge
+        .update(r#"{"EditRequested":{"item_id":"a","place":"Unplaced"}}"#)
+        .unwrap();
+    let query = r#"{"WikiQuery":{"item_id":"a","context":{"query":"no","x":1.0,"y":2.0}}}"#;
+    screen.bridge.update(query).unwrap();
+    screen.let_time_pass();
+    screen.serve();
+
+    let changes = screen.bridge.press(&key_in_a(r#""Down""#)).unwrap();
+
+    let changes = changes.expect("the popup takes the key");
+    assert!(changes.contains(r#""selected_index":1"#), "{changes}");
 }
