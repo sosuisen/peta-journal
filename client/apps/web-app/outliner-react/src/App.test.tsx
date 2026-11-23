@@ -261,19 +261,25 @@ describe('the page menu', () => {
 
 // 設定の画面
 describe('the settings screen', () => {
-  // 画面が設定のとき、設定の画面を出す。
-  test('the settings show when the screen is the settings', () => {
-    const { container } = app(
+  // 画面が設定のとき、設定の画面を出す。見つからないページの画面には、設定が届いていても何も出さない。
+  test('the settings show when the screen is the settings, and not for a missing page', () => {
+    const { container, show } = app(
       { kind: 'Screen', value: { kind: 'Settings' } },
       {
         kind: 'Config',
         value: new ConfigView('', { kind: 'Us' }, false, '', '', [], null, 0),
       },
     );
+    const settings = () =>
+      container.querySelector('app-page-dispatcher > app-settings');
+    const shown = settings();
 
+    show({ kind: 'Screen', value: { kind: 'Page', value: null } });
+
+    expect(shown).not.toBeNull();
     expect(
-      container.querySelector('app-page-dispatcher > app-settings'),
-    ).not.toBeNull();
+      container.querySelector('app-page-dispatcher')?.children,
+    ).toHaveLength(0);
   });
 });
 
