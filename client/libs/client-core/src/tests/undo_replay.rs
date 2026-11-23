@@ -1,6 +1,7 @@
 use crate::app::{EditPlace, Event};
 use crate::effects::ApiOutput;
 use crate::harness::{batch_calls, create_calls, delete_calls, item, update_calls, Harness};
+use crate::model::ItemExt;
 use std::collections::BTreeMap;
 
 use crate::model::{

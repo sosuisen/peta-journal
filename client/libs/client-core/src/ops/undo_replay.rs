@@ -4,6 +4,7 @@
 //! read again.
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
+use crate::model::ItemExt;
 use crate::model::{BatchOpInput, Item, ItemPosition, TaskState};
 use crate::ops::action::show_empty_item;
 use crate::ops::edit::discard_pending_edit_of_focused_item;

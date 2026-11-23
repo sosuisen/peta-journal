@@ -10,12 +10,13 @@
 
 use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{AtlasChange, TimerOutput, UiOp};
+use crate::model::ItemExt;
 use crate::model::{Item, Page, PropertyValue};
 use crate::ops::file_reload;
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
 use crate::screens::sidebar;
 use crux_core::Command;
-use peta_atlas::{AtlasItem, Kind};
+use peta_atlas::Kind;
 
 pub use peta_atlas::marks::{
     callout_face_svg, group_color, link_blob_svg, tag_blob_svg, tag_icon_svg,
@@ -27,19 +28,6 @@ pub use peta_atlas::{
 
 /// The width of a card in the list of unplaced cards, which a drop from the list reads.
 pub const CARD_WIDTH: f64 = 120.0;
-impl AtlasItem for Item {
-    fn level(&self) -> i32 {
-        self.level
-    }
-
-    fn body(&self) -> &str {
-        &self.body
-    }
-
-    fn prop(&self, key: &str) -> Option<&str> {
-        self.prop_str(key)
-    }
-}
 
 type Entry<'a> = peta_atlas::Entry<'a, Item>;
 

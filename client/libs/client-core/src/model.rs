@@ -7,39 +7,9 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// An item as the server returns it (`ItemDto` in `journal-core/src/dto.rs`).
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Item {
-    pub id: String,
-    pub page_id: String,
-    #[serde(default)]
-    pub dir_path: String,
-    #[serde(default)]
-    pub name: String,
-    /// "journal" or "doc", from the parent page.
-    #[serde(rename = "type", default)]
-    pub item_type: String,
-    #[serde(default)]
-    pub created_date: i64,
-    #[serde(default)]
-    pub modified_date: i64,
-    #[serde(default)]
-    pub idx: String,
-    pub level: i32,
-    #[serde(default)]
-    pub body: String,
-    #[serde(default)]
-    pub collapsed: bool,
-    #[serde(default)]
-    pub types: Vec<String>,
-    /// Property values are strings or lists of strings.
-    #[serde(default)]
-    pub properties: BTreeMap<String, PropertyValue>,
-    #[serde(default)]
-    pub transclude_item_id: Option<String>,
-}
+/// An item as the server returns it. The server and the client share the fields the client
+/// reads (ADR 082); the client adds its methods through `ItemExt`.
+pub use journal_api_types::Item;
 
 /// The value of a property: a text, or a list of texts. The server and the client share it
 /// (ADR 082).
@@ -53,12 +23,32 @@ pub type ItemRef = Arc<Item>;
 /// batch writes, so the client keeps it in the type of the server (ADR 081).
 pub use journal_api_types::TaskStateInput as TaskState;
 
-impl Item {
-    pub fn is_task(&self) -> bool {
+/// What the client reads from an item. It is a trait because `Item` is a type of
+/// `journal-api-types`, and a crate cannot add methods to a type of another crate (ADR 082).
+pub trait ItemExt {
+    fn is_task(&self) -> bool;
+    fn task_state(&self) -> TaskState;
+    fn has_type(&self, name: &str) -> bool;
+    /// A string property, or None when unset or not a string.
+    fn prop_str(&self, key: &str) -> Option<&str>;
+    /// A list property, or an empty list when unset or not a list.
+    fn prop_list(&self, key: &str) -> Vec<String>;
+    /// The hashtags of the item, as kept in its tags property.
+    fn tags(&self) -> Vec<String>;
+    /// The zoom of the item as stored in its properties; 1 when unset.
+    fn zoom(&self) -> f64;
+    /// True for an item of a daily journal page (named YYYY-MM-DD).
+    fn is_daily_journal_item(&self) -> bool;
+    /// The heading level of a body that starts with `#`..`#####` followed by a space; 0 otherwise.
+    fn heading_level_of_body(&self) -> u8;
+}
+
+impl ItemExt for Item {
+    fn is_task(&self) -> bool {
         self.types.iter().any(|t| t == "task")
     }
 
-    pub fn task_state(&self) -> TaskState {
+    fn task_state(&self) -> TaskState {
         let text_of = |key| self.prop_str(key).map(str::to_string);
         TaskState {
             task: self.is_task(),
@@ -68,17 +58,15 @@ impl Item {
         }
     }
 
-    pub fn has_type(&self, name: &str) -> bool {
+    fn has_type(&self, name: &str) -> bool {
         self.types.iter().any(|t| t == name)
     }
 
-    /// A string property, or None when unset or not a string.
-    pub fn prop_str(&self, key: &str) -> Option<&str> {
+    fn prop_str(&self, key: &str) -> Option<&str> {
         self.properties.get(key).and_then(PropertyValue::as_text)
     }
 
-    /// A list property, or an empty list when unset or not a list.
-    pub fn prop_list(&self, key: &str) -> Vec<String> {
+    fn prop_list(&self, key: &str) -> Vec<String> {
         self.properties
             .get(key)
             .and_then(PropertyValue::as_list)
@@ -86,28 +74,24 @@ impl Item {
             .unwrap_or_default()
     }
 
-    /// The hashtags of the item, as kept in its tags property.
-    pub fn tags(&self) -> Vec<String> {
+    fn tags(&self) -> Vec<String> {
         self.prop_list("tags")
     }
 
-    /// The zoom of the item as stored in its properties; 1 when unset.
-    pub fn zoom(&self) -> f64 {
+    fn zoom(&self) -> f64 {
         self.prop_str("zoom")
             .and_then(|z| z.parse::<f64>().ok())
             .filter(|z| *z != 0.0)
             .unwrap_or(1.0)
     }
 
-    /// True for an item of a daily journal page (named YYYY-MM-DD).
-    pub fn is_daily_journal_item(&self) -> bool {
+    fn is_daily_journal_item(&self) -> bool {
         self.item_type == "journal"
             && crate::util::filename::classify_journal_file_name(&self.name)
                 == crate::util::filename::JournalType::Daily
     }
 
-    /// The heading level of a body that starts with `#`..`#####` followed by a space; 0 otherwise.
-    pub fn heading_level_of_body(&self) -> u8 {
+    fn heading_level_of_body(&self) -> u8 {
         let trimmed = self.body.trim_start();
         let hashes = trimmed.chars().take_while(|c| *c == '#').count();
         if (1..=5).contains(&hashes) && trimmed[hashes..].starts_with(' ') {

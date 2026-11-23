@@ -2,6 +2,7 @@
 
 use crate::app::{ConnectionState, Model, Screen};
 use crate::body_model::{Bodies, BodyModel};
+use crate::model::ItemExt;
 use crate::model::{
     shown_name, value_type_of, IndexSort, Item, ItemRef, Page, PropertyDefinition, PropertyValue,
     SearchResult, WeekNumbering,

@@ -9,6 +9,7 @@
 use crate::app::Event;
 use crate::app::{done, log_error, run, Cmd, EditPlace, Model};
 use crate::model::Item;
+use crate::model::ItemExt;
 use crate::ops::action::confirm_deleting_transcluded;
 use crate::ops::edit::{record_typing, show_parsed, take_unsaved, typed_body};
 use crate::ops::outline_events::edit_requested;
