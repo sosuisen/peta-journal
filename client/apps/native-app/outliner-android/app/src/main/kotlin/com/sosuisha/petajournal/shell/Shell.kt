@@ -214,9 +214,12 @@ class Shell(
 
     /** The place [cursor] UTF-16 units into the Markdown of the item, in the characters of the core. */
     private fun placeIn(itemId: String, cursor: Int): ULong {
-        val body = view.outline.rows.firstOrNull { it.item.id == itemId }?.item?.body.orEmpty()
+        val body = bodyOf(itemId).orEmpty()
         return body.codePointCount(0, cursor.coerceIn(0, body.length)).toULong()
     }
+
+    /** The Markdown of the item as the core holds it now, or `null` when the screen shows no such item. */
+    fun bodyOf(itemId: String): String? = view.outline.rows.firstOrNull { it.item.id == itemId }?.item?.body
 
     /** The user left the editor of the item: what was typed is saved. */
     fun finish(itemId: String) = send(Event.EditFinished(itemId))

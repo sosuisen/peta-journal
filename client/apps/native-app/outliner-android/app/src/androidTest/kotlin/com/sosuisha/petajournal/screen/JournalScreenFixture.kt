@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.geometry.Offset
@@ -112,10 +113,19 @@ abstract class JournalScreenFixture {
                     },
                     onFile = { opened += it },
                 )
+                // Read here, so that this is drawn again with the screen whenever the view changes
+                shell.view
+                SideEffect { afterDrawn() }
             }
         }
         compose.waitUntil(WAIT_MS) { !shell.syncing }
     }
+
+    /**
+     * Runs on the main thread each time the screen is drawn again after a change of the view,
+     * before the effects of that drawing start. On a slow phone the keyboard may come in there.
+     */
+    protected var afterDrawn: () -> Unit = {}
 
     protected var signIns = 0
     protected var signOuts = 0
