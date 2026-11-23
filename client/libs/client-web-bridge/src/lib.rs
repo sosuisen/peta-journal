@@ -12,3 +12,4 @@ pub mod lanes;
 pub mod replay;
 #[cfg(target_arch = "wasm32")]
 pub mod web;
+pub mod wiki;
