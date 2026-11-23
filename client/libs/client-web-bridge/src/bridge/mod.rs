@@ -6,10 +6,11 @@ use crate::border::{read, write};
 use crate::lanes::{lane_of, Lane};
 use client_core::changes::{Changes, Shown};
 use client_core::effects::{
-    ApiError, ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, TimerOp, TimerOutput, UiOp,
-    UiOutput,
+    ApiError, ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp,
+    TimerOutput, UiOp, UiOutput,
 };
 use client_core::policy::{InOrder, Questions, Timers};
+use client_core::rest::ClientId;
 use client_core::{Event, PetaApp, Route};
 use crux_core::{Core, Request, RequestHandle};
 use std::cell::{Cell, RefCell};
@@ -36,6 +37,10 @@ pub trait Host: 'static {
     /// Sends a file to the server as an asset, and calls `done` with the answer.
     fn upload(&self, file: Self::File, done: Done<ApiResult<ApiOutput>>);
 
+    /// Opens the stream of the server's events in place of the one open, and calls `heard`
+    /// with each of its events. After an error the stream stays closed.
+    fn listen(&self, heard: Box<dyn FnMut(SseEvent)>);
+
     /// Starts the timer `id`, which calls `fired` after `ms` milliseconds.
     fn start_timer(&self, id: u64, ms: u32, fired: Done<()>);
 
@@ -60,6 +65,7 @@ pub struct Bridge<H: Host> {
     core: Core<PetaApp<HtmlBody>>,
     host: H,
     me: Weak<Bridge<H>>,
+    client_id: ClientId,
     shown: RefCell<Shown<HtmlBody>>,
     to_server: RefCell<InOrder<Request<ApiOp>>>,
     timers: RefCell<Timers<Request<TimerOp>>>,
@@ -78,11 +84,14 @@ pub struct Bridge<H: Host> {
 }
 
 impl<H: Host> Bridge<H> {
-    pub fn new(host: H) -> Rc<Bridge<H>> {
+    /// Makes the core. The server knows the changes of this window by `client_id`: the
+    /// browser sends it with each request.
+    pub fn new(host: H, client_id: ClientId) -> Rc<Bridge<H>> {
         Rc::new_cyclic(|me| Bridge {
             core: Core::new(),
             host,
             me: me.clone(),
+            client_id,
             shown: RefCell::default(),
             to_server: RefCell::default(),
             timers: RefCell::default(),
@@ -93,6 +102,16 @@ impl<H: Host> Bridge<H> {
             questions: RefCell::default(),
             calls: Cell::new(0),
             changed: Cell::new(false),
+        })
+    }
+
+    /// Starts the core, which connects to the server, and opens what the URL names. Returns
+    /// the changes.
+    pub fn start(&self, url: &str) -> String {
+        self.in_call(|| {
+            let client_id = self.client_id.clone();
+            self.send(Event::Start { client_id });
+            self.open(url);
         })
     }
 
@@ -196,6 +215,7 @@ impl<H: Host> Bridge<H> {
                 Effect::Render(_) => self.changed.set(true),
                 Effect::Api(request) => self.call(request),
                 Effect::Timer(request) => self.time(request),
+                Effect::Sse(request) => self.listen(request),
                 Effect::Ui(request) => self.ui(request),
                 // A notification: the core does not wait for it
                 Effect::Navigate(request) => {
@@ -208,6 +228,15 @@ impl<H: Host> Bridge<H> {
         if self.calls.get() == 0 && self.changed.get() {
             self.host.rendered();
         }
+    }
+
+    fn listen(&self, mut request: Request<SseOp>) {
+        let me = self.me.clone();
+        self.host.listen(Box::new(move |event| {
+            if let Some(me) = me.upgrade() {
+                me.answer(&mut request, event);
+            }
+        }));
     }
 
     fn time(&self, request: Request<TimerOp>) {

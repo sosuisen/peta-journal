@@ -3,6 +3,7 @@ use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp,
 };
 use client_core::model::{Page, PageWithItems, Uploaded};
+use client_core::rest::ClientId;
 use client_core::testing::plain_item;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
@@ -119,7 +120,7 @@ struct Screen {
 impl Screen {
     fn new() -> Screen {
         let browser = Rc::new(Browser::default());
-        let bridge = Bridge::new(FakeHost(browser.clone()));
+        let bridge = Bridge::new(FakeHost(browser.clone()), ClientId::new());
         Screen { bridge, browser }
     }
 
@@ -320,10 +321,13 @@ fn a_timer_reaches_the_core_when_its_time_comes_and_a_cancelled_one_does_not() {
 fn every_event_of_the_server_stream_reaches_the_core() {
     let screen = Screen::new();
     screen.bridge.start("/today");
+    screen.serve();
     let read = screen.calls_named("GetRecentPages");
 
     screen.server_says(SseEvent::Open);
+    screen.serve();
     screen.server_says(SseEvent::Open);
+    screen.serve();
 
     assert_eq!(screen.calls_named("GetRecentPages"), read + 2);
 }
