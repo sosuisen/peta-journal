@@ -18,7 +18,8 @@ pub const CLIENT_ID_HEADER: &str = "x-client-id";
 
 pub mod routes;
 
-use serde::{Deserialize, Serialize};
+use serde::de::Error as _;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -183,6 +184,52 @@ pub struct ItemIdsInput {
 pub struct BatchInput {
     /// The operations, done in this order in one transaction
     pub ops: Vec<BatchOpInput>,
+}
+
+/// Where an item goes on a page: first, last, or after another item. JSON has it as the text
+/// `first`, `last` or `after:<id>` (ADR 081).
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ItemPosition {
+    First,
+    Last,
+    After(String),
+}
+
+impl ItemPosition {
+    pub fn after(id: impl Into<String>) -> ItemPosition {
+        ItemPosition::After(id.into())
+    }
+
+    fn text(&self) -> String {
+        match self {
+            ItemPosition::First => "first".to_string(),
+            ItemPosition::Last => "last".to_string(),
+            ItemPosition::After(id) => format!("after:{id}"),
+        }
+    }
+
+    fn parse(text: &str) -> Option<ItemPosition> {
+        match text {
+            "first" => Some(ItemPosition::First),
+            "last" => Some(ItemPosition::Last),
+            _ => text
+                .strip_prefix("after:")
+                .map(|id| ItemPosition::After(id.to_string())),
+        }
+    }
+}
+
+impl Serialize for ItemPosition {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.text())
+    }
+}
+
+impl<'de> Deserialize<'de> for ItemPosition {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        ItemPosition::parse(&text).ok_or_else(|| D::Error::custom(format!("bad position: {text}")))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
