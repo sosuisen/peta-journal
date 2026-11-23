@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react';
-import type { PropertyDefinition, WeekNumbering } from './border/peta-types';
+import type {
+  ConfigView,
+  PropertyDefinition,
+  WeekNumbering,
+} from './border/peta-types';
 import { useCore, usePanel } from './context';
 import { useSavedOnChange, useShownValue } from './shownValue';
 
@@ -10,30 +14,29 @@ const WEEK_NUMBERINGS: Readonly<Record<string, WeekNumbering['kind']>> = {
 
 /** The settings screen, ported from the Leptos shell. The core keeps the settings. */
 export default function Settings() {
-  const core = useCore();
   const config = usePanel('Config');
-  const definitions = config?.property_definitions;
+  return config === undefined ? null : <SettingsOf config={config} />;
+}
+
+function SettingsOf({ config }: { readonly config: ConfigView }) {
+  const core = useCore();
+  const definitions = config.property_definitions;
   // The names are the rule of the core: a type is added when two keys have the same name
   const names = useMemo(
-    () => (definitions === undefined ? [] : core.shownNames(definitions)),
+    () => core.shownNames(definitions),
     [core, definitions],
   );
   const types = useMemo(() => core.userValueTypes(), [core]);
   const [newKey, setNewKey] = useState('');
   const [newType, setNewType] = useState(types[0]);
   // The form is cleared when the core accepted a key
-  const added = config?.definitions_added;
+  const added = config.definitions_added;
   const [seen, setSeen] = useState(added);
   if (seen !== added) {
     setSeen(added);
-    if (seen !== undefined) {
-      setNewKey('');
-    }
+    setNewKey('');
   }
 
-  if (config === undefined) {
-    return null;
-  }
   return (
     <app-settings>
       <div className="settings">
