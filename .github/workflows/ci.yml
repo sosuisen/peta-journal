@@ -29,10 +29,8 @@ jobs:
         working-directory: ${{ matrix.workspace }}
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-          targets: wasm32-unknown-unknown
+      # Installs the version, components and targets in rust-toolchain.toml
+      - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: ${{ matrix.workspace }}
@@ -72,7 +70,8 @@ jobs:
       PETA_E2E_SERVER: ${{ github.workspace }}/journal/target/debug/journal-server
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      # Installs the version, components and targets in rust-toolchain.toml
+      - run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
