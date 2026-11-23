@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { Asked } from './core';
 import { Core } from './core';
+import { PropertyDefinition } from './border/peta-types';
 import { WebShell } from './test/shell';
 import { outline, row, shell } from './test/screens';
 
@@ -158,5 +159,19 @@ describe('the core in wasm', () => {
     const { core } = shell();
 
     expect(core.tagUrl('tags/', 'plan')).toBe('/pages/tags/plan');
+  });
+
+  // 設定に出すキーの名前と、新しいキーに選べる型は、wasmが決める。
+  test('wasm gives the shown names of the keys and the types of a new key', () => {
+    const { core } = shell();
+    const definitions = ['rating_n', 'due_d'].map(
+      key => new PropertyDefinition(key, 'text', false, false),
+    );
+
+    expect(core.shownNames(definitions)).toEqual([
+      'shown rating_n',
+      'shown due_d',
+    ]);
+    expect(core.userValueTypes()).toEqual(['text', 'number']);
   });
 });
