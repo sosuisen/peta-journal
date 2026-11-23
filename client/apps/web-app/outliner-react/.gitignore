@@ -1,0 +1,7 @@
+node_modules
+dist
+dist-e2e
+*.tsbuildinfo
+# Made from the Rust code by `npm run border`
+src/wasm
+src/border

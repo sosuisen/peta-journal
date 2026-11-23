@@ -503,6 +503,27 @@ impl WebShell {
         self.bridge.paste_image(item_id, file, cursor)
     }
 
+    /// What a held key does in the editor with `text` and the selection from `start` to `end`,
+    /// in UTF-16 units. Takes a `DeferredKey` as JSON, and returns a `Replay` as JSON.
+    #[wasm_bindgen(js_name = replayOf)]
+    pub fn replay_of(
+        &self,
+        key: &str,
+        text: &str,
+        start: u32,
+        end: u32,
+    ) -> Result<String, JsError> {
+        crate::replay::replay_json(key, text, start.into(), end.into())
+            .map_err(|e| JsError::new(&e))
+    }
+
+    /// The text typed inside the `[[wiki link]]` that the cursor at the UTF-16 place `cursor`
+    /// is in. Undefined outside a link.
+    #[wasm_bindgen(js_name = wikiQueryAt)]
+    pub fn wiki_query_at(&self, text: &str, cursor: u32) -> Option<String> {
+        crate::wiki::query_at(text, cursor.into())
+    }
+
     /// Begins the clipboard write of a copy or a cut of the selection. The shell calls this
     /// from the handler of the user's key or copy event, before the event goes to the core:
     /// Safari lets a page write the clipboard only then. Without `ClipboardItem` (older

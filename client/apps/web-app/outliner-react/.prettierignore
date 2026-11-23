@@ -1,0 +1,4 @@
+dist
+dist-e2e
+src/wasm
+src/border

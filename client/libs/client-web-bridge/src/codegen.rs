@@ -1,6 +1,7 @@
 //! Writes the types of the border as TypeScript, for the web shell (ADR 080).
 
 use crate::body::HtmlBody;
+use crate::replay::Replay;
 use client_core::changes::Changes;
 use client_core::drag::DragMove;
 use client_core::effects::{UiOp, UiOutput};
@@ -28,6 +29,7 @@ pub fn write_typescript_types(out: &Path) -> Result<(), String> {
     let builder = add::<UiOp>(builder)?;
     let builder = add::<UiOutput>(builder)?;
     let builder = add::<Changes<HtmlBody>>(builder)?;
+    let builder = add::<Replay>(builder)?;
     let registry = builder.build().map_err(|e| e.to_string())?;
     Installer::new(PACKAGE, out)
         .plugin(JsonPlugin)
@@ -63,6 +65,7 @@ mod tests {
             "type DragMove",
             "type UiOp",
             "type UiOutput",
+            "type Replay",
         ] {
             assert!(types.contains(&format!("export {name}")), "no {name}");
         }
