@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import ImageIO
+import PetaShared
 import UniformTypeIdentifiers
 
 /// The file that the image on the clipboard is written to. The core uploads it to the journal
@@ -11,7 +12,11 @@ public enum PastedImage {
     public static func write(from pasteboard: NSPasteboard) -> URL? {
         if let image = imageFile(pasteboard) {
             // A HEIC, as a photo of a phone, is written as a PNG or a JPEG: a browser may not show it
-            if let (content, ext) = shownInBrowsers(image) {
+            if let kind = UTType(filenameExtension: image.pathExtension),
+                let source = CGImageSourceCreateWithURL(image as CFURL, nil),
+                let (content, type) = BrowserImage.fromHeic(source, of: kind),
+                let ext = type.preferredFilenameExtension
+            {
                 let name = image.deletingPathExtension().appendingPathExtension(ext).lastPathComponent
                 return inFolderOfItsOwn(named: name) { try content.write(to: $0) }
             }
@@ -34,25 +39,6 @@ public enum PastedImage {
             .urlReadingFileURLsOnly: true, .urlReadingContentsConformToTypes: ["public.image"],
         ]
         return (pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL])?.first
-    }
-
-    /// The HEIC image in `file` as a PNG when it has transparency, and a JPEG when not, with
-    /// the extension of that type. `nil` for any other image, and for a HEIC that cannot be read.
-    private static func shownInBrowsers(_ file: URL) -> (Data, String)? {
-        // HEIC is not a kind of HEIF to the system: both are asked for
-        guard let kind = UTType(filenameExtension: file.pathExtension),
-            kind.conforms(to: .heic) || kind.conforms(to: .heif),
-            let source = CGImageSourceCreateWithURL(file as CFURL, nil),
-            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-        else { return nil }
-        // A photo as a PNG would be many times larger
-        let shown: UTType = [.none, .noneSkipFirst, .noneSkipLast].contains(image.alphaInfo) ? .jpeg : .png
-        let converted = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(converted, shown.identifier as CFString, 1, nil)
-        else { return nil }
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination), let ext = shown.preferredFilenameExtension else { return nil }
-        return (converted as Data, ext)
     }
 
     /// Makes the file `name` in a folder of its own, and gives it. `nil` when it cannot be made.

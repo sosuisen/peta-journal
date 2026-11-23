@@ -8,6 +8,11 @@ The Android and Windows apps apply the changes in their own languages (`Applied.
 `Applied.cs`). That the changes make the view model of the core is tested in Rust, in
 `client-native-bridge`.
 
+`BrowserImage.swift` makes a pasted HEIC image a PNG, or a JPEG when it has no transparency: a
+browser may not show HEIC, and the web shells show the assets too (ADR 071). The iOS app gets
+HEIC from Photos and the stickers of the keyboard, the Mac app from a file copied in the Finder.
+Each app tests it through its own `PastedImage`.
+
 `generated/swift/PetaTypes` holds the types that cross the border. `generate.sh` of either app
 makes it; it is not kept in the repository. Both apps take the types from here, because SwiftPM
 takes a package of one name from one place only.
