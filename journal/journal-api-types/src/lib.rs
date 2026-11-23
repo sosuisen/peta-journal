@@ -594,6 +594,7 @@ pub enum ChangeSource {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::collections::BTreeMap;
 
     // ページの変更の知らせは、変更したクライアントがいるときだけ、そのIDを書く。
     #[test]
@@ -776,6 +777,63 @@ mod tests {
             request["properties"]["position"]["type"],
             json!("string"),
             "{request}"
+        );
+    }
+
+    // プロパティの値は、JSONでは文字列か文字列の配列として書かれ、同じ値に読み戻される。
+    #[test]
+    fn a_property_value_is_written_in_json_as_a_text_or_a_list_and_read_back() {
+        let values = [
+            (PropertyValue::Text("x".into()), json!("x")),
+            (
+                PropertyValue::List(vec!["a".into(), "b".into()]),
+                json!(["a", "b"]),
+            ),
+        ];
+
+        for (value, written) in values {
+            assert_eq!(serde_json::to_value(&value).unwrap(), written);
+            assert_eq!(
+                serde_json::from_value::<PropertyValue>(written).unwrap(),
+                value
+            );
+        }
+    }
+
+    // 項目は、サーバーの答えのJSONから読める。サーバーだけの欄は読み飛ばす。
+    #[test]
+    fn an_item_is_read_from_the_answer_of_the_server_past_the_fields_of_the_server() {
+        let answer = json!({
+            "id": "i", "pageId": "p", "parentItemId": null, "dirPath": "d/", "name": "n",
+            "type": "doc", "createdDate": 1, "modifiedDate": 2, "idx": "a0", "level": 2,
+            "body": "text", "ast": "[]", "collapsed": true, "types": ["task"],
+            "properties": { "plan": "2026-11-24", "tags": ["x"] },
+            "transcludeItemId": "s", "url": "/u"
+        });
+
+        let item: Item = serde_json::from_value(answer).unwrap();
+
+        assert_eq!(
+            item,
+            Item {
+                id: "i".into(),
+                page_id: "p".into(),
+                dir_path: "d/".into(),
+                name: "n".into(),
+                item_type: "doc".into(),
+                created_date: 1,
+                modified_date: 2,
+                idx: "a0".into(),
+                level: 2,
+                body: "text".into(),
+                collapsed: true,
+                types: vec!["task".into()],
+                properties: BTreeMap::from([
+                    ("plan".into(), PropertyValue::Text("2026-11-24".into())),
+                    ("tags".into(), PropertyValue::List(vec!["x".into()])),
+                ]),
+                transclude_item_id: Some("s".into()),
+            }
         );
     }
 
