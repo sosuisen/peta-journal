@@ -61,9 +61,13 @@ describe('the input of the search', () => {
 
     fireEvent.focus(input);
     fireEvent.blur(input);
-    act(() => vi.advanceTimersByTime(199));
+    act(() => {
+      vi.advanceTimersByTime(199);
+    });
     const before = wasm.events.length;
-    act(() => vi.advanceTimersByTime(1));
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
 
     expect(before).toBe(1);
     expect(wasm.events).toEqual([
