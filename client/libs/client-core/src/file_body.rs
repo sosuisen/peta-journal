@@ -74,6 +74,10 @@ pub fn output_to_shell(mut output: ApiOutput) -> ApiOutput {
             items_to_shell(&mut page.items);
             trees_to_shell(page.transcluded_trees.values_mut());
         }
+        ApiOutput::Journal(journal) => {
+            items_to_shell(&mut journal.items);
+            trees_to_shell(journal.transcluded_trees.values_mut());
+        }
         ApiOutput::JournalBefore(journal) => {
             items_to_shell(&mut journal.items);
             trees_to_shell(journal.transcluded_trees.values_mut());
@@ -108,7 +112,21 @@ pub fn output_to_shell(mut output: ApiOutput) -> ApiOutput {
             items_to_shell(&mut batched.items);
             items_to_shell(&mut batched.created);
         }
-        _ => {}
+        // The answers without items. They are listed, so that a new answer with items is a
+        // build error here and not a body that the shell shows with its backslash lines.
+        ApiOutput::FoundPage(_)
+        | ApiOutput::PageInfo(_)
+        | ApiOutput::Pages(_)
+        | ApiOutput::SearchResults(_)
+        | ApiOutput::Config(_)
+        | ApiOutput::PropertyDefinitions(_)
+        | ApiOutput::Folder(_)
+        | ApiOutput::TreeExport(_)
+        | ApiOutput::ItemIds(_)
+        | ApiOutput::Uploaded(_)
+        | ApiOutput::Launched(_)
+        | ApiOutput::PageNameTaken(_)
+        | ApiOutput::Done => {}
     }
     output
 }
