@@ -87,6 +87,29 @@ mod tests {
         );
     }
 
+    // 画面の差分は、facetのJSONで書かれ、項目の名前はRustのフィールド名である。
+    #[test]
+    fn the_changes_are_written_as_the_json_of_facet_with_the_names_of_the_rust_fields() {
+        use crate::body::HtmlBody;
+        use client_core::changes::Shown;
+        use client_core::testing::plain_item;
+        use client_core::{Model, PetaApp};
+        use crux_core::App;
+        let mut model = Model::default();
+        model.state.set_items(vec![plain_item("i1", 1, "text")]);
+        let view = PetaApp::<HtmlBody>::default().view(&model);
+
+        let json = write(&Shown::default().changes(view));
+
+        assert!(
+            json.starts_with(r#"{"rows":[{"Reset":{"items":[{"item":{"id":"i1","#),
+            "{json}"
+        );
+        assert!(json.contains(r#""page_id":"page1""#), "{json}");
+        assert!(json.contains(r#""item_type":"doc""#), "{json}");
+        assert!(!json.contains("pageId"), "{json}");
+    }
+
     // facetのJSONでないものは、読めない理由とともに断られる。
     #[test]
     fn what_is_not_the_json_of_facet_is_refused() {
