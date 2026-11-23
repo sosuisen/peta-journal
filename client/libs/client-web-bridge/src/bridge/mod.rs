@@ -31,6 +31,10 @@ pub trait Host: 'static {
     /// shell answers with [`Bridge::resolve`].
     fn ask(&self, id: u32, op: &UiOp);
 
+    /// Puts the URL into the address bar and the history of the browser, or in place of the
+    /// URL there when `replace`.
+    fn go_to(&self, url: &str, replace: bool);
+
     /// Tells the shell that the screen changed while it was not calling. It then takes the
     /// changes with [`Bridge::changes`].
     fn rendered(&self);
@@ -71,13 +75,22 @@ impl<H: Host> Bridge<H> {
     }
 
     /// Shows what the URL names, such as `/pages/notes` or `/today`, and returns the changes.
+    /// The browser calls this when its URL changes, as with its back button.
     pub fn route(&self, url: &str) -> String {
-        self.in_call(|| {
-            if let Some(route) = Route::parse_url(url) {
-                let today = self.host.now().0.day_name();
-                self.send(Event::Route { route, today });
-            }
-        })
+        self.in_call(|| self.open(url))
+    }
+
+    /// Goes to the URL as a link does: the browser keeps it in its history, and its page opens.
+    fn go_to(&self, url: &str, replace: bool) {
+        self.host.go_to(url, replace);
+        self.open(url);
+    }
+
+    fn open(&self, url: &str) {
+        if let Some(route) = Route::parse_url(url) {
+            let today = self.host.now().0.day_name();
+            self.send(Event::Route { route, today });
+        }
     }
 
     /// Takes an [`Event`] as JSON, and returns the changes.
@@ -142,6 +155,11 @@ impl<H: Host> Bridge<H> {
                 Effect::Render(_) => self.changed.set(true),
                 Effect::Api(request) => self.call(request),
                 Effect::Ui(request) => self.ui(request),
+                // A notification: the core does not wait for it
+                Effect::Navigate(request) => {
+                    let op = request.operation;
+                    self.go_to(&op.url, op.replace);
+                }
                 _ => {}
             }
         }
