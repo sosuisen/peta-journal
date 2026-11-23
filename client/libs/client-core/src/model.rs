@@ -3,7 +3,7 @@
 pub use property_names::ValueType;
 use property_names::{body_of, type_of};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -300,21 +300,15 @@ impl WeekNumbering {
     }
 }
 
-pub type TranscludedTrees = HashMap<String, Vec<Item>>;
+pub type TranscludedTrees = BTreeMap<String, Vec<Item>>;
 
-/// `GET /api/pages/{id}` and the journal endpoints: a page with its items.
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PageWithItems {
-    pub page: Page,
-    #[serde(default)]
-    pub items: Vec<Item>,
-    #[serde(default)]
-    pub created: bool,
-    #[serde(default)]
-    pub transcluded_trees: Option<TranscludedTrees>,
-}
+/// `GET /api/pages/{id}`: a page with its items. The server and the client share the type
+/// (ADR 082).
+pub use journal_api_types::PageWithItems;
+
+/// A journal that was found or made, with its items. The server and the client share the type
+/// (ADR 082).
+pub use journal_api_types::JournalPage;
 
 /// `GET /api/journals/before` and `/weekly/before`. The server and the client share the type (ADR 082).
 pub use journal_api_types::JournalBefore;

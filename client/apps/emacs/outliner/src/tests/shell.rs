@@ -100,7 +100,7 @@ fn doc_answer() -> ApiOutput {
 
 fn page_answer(items: &[Value]) -> ApiOutput {
     serde_json::from_value(json!({
-        "Page": { "page": page_info("", "notes"), "items": items }
+        "Page": { "page": page_info("", "notes"), "items": items, "transcludedTrees": {} }
     }))
     .unwrap()
 }

@@ -3,7 +3,7 @@
 use crate::app::{Event, JournalNav, Route};
 use crate::effects::{ApiOp, ApiOutput, UiOp};
 use crate::harness::Harness;
-use crate::model::{JournalBefore, Page, PageWithItems, WeekNumbering};
+use crate::model::{JournalBefore, JournalPage, Page, WeekNumbering};
 use crate::testing::{item_with, plain_item};
 use crate::view::ScreenView;
 
@@ -177,7 +177,7 @@ fn the_answer_for_a_day_left_behind_loads_no_older_journals() {
     h.send(Event::JournalLoaded {
         date: "2026-02-09".into(),
         title: "2026年2月9日 月曜日".into(),
-        loaded: Box::new(PageWithItems {
+        loaded: Box::new(JournalPage {
             page: journal_page("2026-02-09"),
             items: vec![journal_item("item-2026-02-09", "2026-02-09")],
             ..Default::default()
@@ -200,7 +200,7 @@ fn an_older_journal_loaded_for_a_day_left_behind_is_not_appended() {
         target_item_count: 50,
         name: "2026-02-08".into(),
         items: vec![journal_item("item-2026-02-08", "2026-02-08")],
-        transcluded_trees: None,
+        transcluded_trees: Default::default(),
     });
     h.send(Event::PreviousJournalsLoaded {
         journal: "2026-02-10".into(),
@@ -296,7 +296,7 @@ fn the_window_title_of_a_journal_follows_the_day_at_the_top() {
     let mut h = Harness::new();
     h.api.answer_next(
         "GetOrCreateJournal",
-        Ok(ApiOutput::Page(PageWithItems {
+        Ok(ApiOutput::Journal(JournalPage {
             page: journal_page(TODAY),
             items: vec![journal_item("item-today", TODAY)],
             ..Default::default()
@@ -413,11 +413,11 @@ fn scrolling_a_weekly_journal_loads_the_week_before() {
     let mut h = Harness::new();
     h.api.answer_next(
         "GetOrCreateJournal",
-        Ok(ApiOutput::Page(PageWithItems {
+        Ok(ApiOutput::Journal(JournalPage {
             page: journal_page("2026-W07"),
             items: vec![journal_item("w", "2026-W07")],
             created: false,
-            transcluded_trees: None,
+            transcluded_trees: Default::default(),
         })),
     );
     visit(&mut h, "2026-W07");
@@ -445,11 +445,11 @@ fn a_journal_made_by_opening_it_refreshes_the_recent_pages() {
         let mut h = Harness::new();
         h.api.answer_next(
             "GetOrCreateJournal",
-            Ok(ApiOutput::Page(PageWithItems {
+            Ok(ApiOutput::Journal(JournalPage {
                 page: journal_page(TODAY),
                 items: vec![journal_item("i", TODAY)],
                 created,
-                transcluded_trees: None,
+                transcluded_trees: Default::default(),
             })),
         );
 
@@ -474,11 +474,11 @@ fn the_answer_for_a_day_the_user_has_moved_on_from_is_not_shown() {
     h.send(Event::JournalLoaded {
         date: "2026-02-08".into(),
         title: "old".into(),
-        loaded: Box::new(PageWithItems {
+        loaded: Box::new(JournalPage {
             page: journal_page("2026-02-08"),
             items: vec![journal_item("old1", "2026-02-08")],
             created: false,
-            transcluded_trees: None,
+            transcluded_trees: Default::default(),
         }),
     });
 

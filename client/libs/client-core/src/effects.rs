@@ -3,8 +3,8 @@
 
 use crate::model::{
     BacklinkEntry, BatchOpInput, Batched, DeferredKey, DocPage, Item, ItemPosition, JournalBefore,
-    MovedToJournal, Page, PageWithItems, PasteMode, Pasted, PropertyDefinition, SearchResult,
-    ServerConfig, Split, Stashed, TreeExport, Uploaded,
+    JournalPage, MovedToJournal, Page, PageWithItems, PasteMode, Pasted, PropertyDefinition,
+    SearchResult, ServerConfig, Split, Stashed, TreeExport, Uploaded,
 };
 use crate::screens::page::split_doc_path;
 use crate::util::date::LocalDateTime;
@@ -288,6 +288,7 @@ pub enum AtlasChange {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ApiOutput {
     Page(PageWithItems),
+    Journal(JournalPage),
     DocPage(DocPage),
     MovedToJournal(MovedToJournal),
     /// The page looked for, or none when it is not there
@@ -567,13 +568,13 @@ impl<Event: Send + 'static> Api<Event> {
         )
     }
 
-    pub async fn get_or_create_journal(&self, file_name: &str) -> ApiResult<PageWithItems> {
+    pub async fn get_or_create_journal(&self, file_name: &str) -> ApiResult<JournalPage> {
         expect_output!(
             self.call(ApiOp::GetOrCreateJournal {
                 file_name: file_name.into()
             })
             .await,
-            Page
+            Journal
         )
     }
 

@@ -115,7 +115,7 @@ impl Server {
     fn has_page(&self, items: &[Value]) {
         let doc = json!({ "page": page_info(), "items": items, "created": false });
         self.answers("POST", "/api/pages/doc", 200, &doc);
-        let page = json!({ "page": page_info(), "items": items });
+        let page = json!({ "page": page_info(), "items": items, "transcludedTrees": {} });
         self.answers("GET", "/api/pages/p", 200, &page);
     }
 
