@@ -71,4 +71,11 @@ describe('panels after their changes', () => {
     expect(after.Sidebar).toBe(sidebar);
     expect(panels.Title).toBe('old');
   });
+
+  // パネルが1つも届かなければ、パネルは同じオブジェクトのままである。
+  test('without a panel the panels are the very same object', () => {
+    const panels = { Title: 'old' };
+
+    expect(panelsAfter<Panel>(panels, [])).toBe(panels);
+  });
 });
