@@ -215,6 +215,7 @@ pub struct Item {
     pub collapsed: bool,
     #[serde(default)]
     pub types: Vec<String>,
+    /// Property values are strings or lists of strings.
     #[serde(default)]
     pub properties: BTreeMap<String, PropertyValue>,
     #[serde(default)]
