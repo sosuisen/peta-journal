@@ -120,7 +120,7 @@ impl Core {
                 .create_item(
                     CreateItemInput {
                         page_id: Some(page_id.to_string()),
-                        position: Some(format!("after:{after}")),
+                        position: Some(journal_api_types::ItemPosition::after(after)),
                         level,
                         body: Some(body.to_string()),
                         id: None,

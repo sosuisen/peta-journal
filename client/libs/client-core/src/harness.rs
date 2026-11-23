@@ -839,7 +839,7 @@ pub fn create_calls(api: &FakeApi) -> Vec<(String, String, i32, String, Option<S
                 id,
             } => Some((
                 page_id.clone(),
-                position.to_api(),
+                position.to_string(),
                 *level,
                 body.clone(),
                 id.clone(),
@@ -933,7 +933,11 @@ pub fn move_calls(api: &FakeApi) -> Vec<(Vec<String>, String, String)> {
                 target_page_id,
                 position,
                 ..
-            } => Some((item_ids.clone(), target_page_id.clone(), position.to_api())),
+            } => Some((
+                item_ids.clone(),
+                target_page_id.clone(),
+                position.to_string(),
+            )),
             _ => None,
         })
         .collect()

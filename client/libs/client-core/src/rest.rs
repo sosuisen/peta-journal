@@ -324,7 +324,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             &[&file_name],
             self::body(MoveToJournalInput {
                 item_ids,
-                position: position.to_api(),
+                position: position.clone(),
                 body,
             }),
             page,
@@ -360,7 +360,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             &[],
             self::body(CreateItemInput {
                 page_id: Some(page_id),
-                position: Some(position.to_api()),
+                position: Some(position.clone()),
                 level,
                 body: Some(body),
                 id,
@@ -403,7 +403,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             self::body(MoveItemsInput {
                 item_ids: Some(item_ids),
                 target_page_id: Some(target_page_id),
-                position: Some(position.to_api()),
+                position: Some(position.clone()),
                 level_delta,
                 body,
             }),

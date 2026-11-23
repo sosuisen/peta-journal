@@ -300,7 +300,7 @@ fn a_journal_made_by_a_move_gets_the_items_its_extension_asked_for_after_the_mov
             "2031-02-02",
             MoveToJournalInput {
                 item_ids: vec![rows[0]["id"].as_str().unwrap().to_string()],
-                position: "last".to_string(),
+                position: journal_api_types::ItemPosition::Last,
                 body: None,
             },
             &by_the_client(),

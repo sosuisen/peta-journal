@@ -2,7 +2,6 @@
 
 pub use property_names::ValueType;
 use property_names::{body_of, type_of};
-use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
@@ -280,70 +279,9 @@ pub struct SearchResult {
     pub score: f32,
 }
 
-/// Where an item goes: first on the page, last, or after another item.
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ItemPosition {
-    First,
-    Last,
-    After(String),
-}
-
-impl ItemPosition {
-    pub fn after(id: impl Into<String>) -> ItemPosition {
-        ItemPosition::After(id.into())
-    }
-
-    /// The form the server takes: `first`, `last` or `after:<id>`.
-    pub fn to_api(&self) -> String {
-        match self {
-            ItemPosition::First => "first".to_string(),
-            ItemPosition::Last => "last".to_string(),
-            ItemPosition::After(id) => format!("after:{id}"),
-        }
-    }
-
-    pub fn parse(s: &str) -> Option<ItemPosition> {
-        match s {
-            "first" => Some(ItemPosition::First),
-            "last" => Some(ItemPosition::Last),
-            _ => s
-                .strip_prefix("after:")
-                .map(|id| ItemPosition::After(id.to_string())),
-        }
-    }
-}
-
-/// The form of a format that does not describe itself, like the bincode of the native border
-/// (ADR 024). The types of a native shell are generated from the shape of the Rust type, so
-/// the bytes have to follow that shape too.
-#[derive(Serialize, Deserialize)]
-#[serde(remote = "ItemPosition", rename = "ItemPosition")]
-enum ItemPositionWithTag {
-    First,
-    Last,
-    After(String),
-}
-
-impl Serialize for ItemPosition {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        if serializer.is_human_readable() {
-            serializer.serialize_str(&self.to_api())
-        } else {
-            ItemPositionWithTag::serialize(self, serializer)
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for ItemPosition {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        if !deserializer.is_human_readable() {
-            return ItemPositionWithTag::deserialize(deserializer);
-        }
-        let s = String::deserialize(deserializer)?;
-        ItemPosition::parse(&s).ok_or_else(|| D::Error::custom(format!("bad position: {s}")))
-    }
-}
+/// Where an item goes: first on the page, last, or after another item. The server and the
+/// client share the type (ADR 081).
+pub use journal_api_types::ItemPosition;
 
 /// One operation of a batch. The server applies the operations of a batch in their order, all
 /// of them or none. The names are the ones the server reads.
@@ -886,17 +824,5 @@ mod tests {
         assert_eq!(item.prop_str("zoom"), None);
         assert_eq!(item.zoom(), 1.0);
         assert!(item.tags().is_empty());
-    }
-
-    // ItemPosition は first・last・after:<id> の文字列を解析して同じ文字列に戻し、after は "after:x" という JSON 文字列にシリアライズされる。
-    #[test]
-    fn position_round_trips() {
-        for s in ["first", "last", "after:2026-01-01-00-00-00-AAAAAAA"] {
-            assert_eq!(ItemPosition::parse(s).unwrap().to_api(), s);
-        }
-        assert_eq!(
-            serde_json::to_string(&ItemPosition::after("x")).unwrap(),
-            "\"after:x\""
-        );
     }
 }

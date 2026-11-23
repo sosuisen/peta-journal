@@ -2325,6 +2325,7 @@ dependencies = [
 name = "journal-api-types"
 version = "1.0.0"
 dependencies = [
+ "facet",
  "serde",
 ]
 

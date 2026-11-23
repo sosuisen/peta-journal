@@ -58,7 +58,7 @@ fn journal_moves(h: &Harness) -> Vec<JournalMove> {
             } => Some(JournalMove {
                 date: file_name.clone(),
                 item_ids: item_ids.clone(),
-                position: position.to_api(),
+                position: position.to_string(),
                 body: body.clone(),
             }),
             _ => None,

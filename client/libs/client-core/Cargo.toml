@@ -45,4 +45,4 @@ facet = { version = "=0.46.5", optional = true }
 proptest = "1.12.0"
 
 [features]
-facet_typegen = ["dep:facet", "peta-atlas/facet", "flatmarkdown-ast/facet"]
+facet_typegen = ["dep:facet", "peta-atlas/facet", "flatmarkdown-ast/facet", "journal-api-types/facet"]

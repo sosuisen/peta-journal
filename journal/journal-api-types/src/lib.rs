@@ -104,7 +104,7 @@ pub struct MoveToJournalInput {
     /// IDs of the items to move, in the order of the page
     pub item_ids: Vec<String>,
     /// Position in the journal: 'first', 'last', or 'after:<id>'
-    pub position: String,
+    pub position: ItemPosition,
     /// The text the editor of the first item has now, when it is not saved yet.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
@@ -121,7 +121,7 @@ pub struct CreateItemInput {
     pub page_id: Option<String>,
     /// Position: 'first', 'last', or 'after:<id>'
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub position: Option<String>,
+    pub position: Option<ItemPosition>,
     /// Indentation level (1-based)
     pub level: i32,
     /// Markdown body text
@@ -159,7 +159,7 @@ pub struct MoveItemsInput {
     pub target_page_id: Option<String>,
     /// Position: 'first', 'last', or 'after:<id>'
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub position: Option<String>,
+    pub position: Option<ItemPosition>,
     /// Number to add to the level of each item. Left out or 0 for no change.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub level_delta: Option<i32>,
@@ -188,8 +188,22 @@ pub struct BatchInput {
 
 /// Where an item goes on a page: first, last, or after another item. JSON has it as the text
 /// `first`, `last` or `after:<id>` (ADR 081).
+///
+/// A format that does not describe itself, like the bincode of the native border (ADR 024),
+/// has it as an enum with a tag instead.
+#[cfg_attr(feature = "facet", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ItemPosition {
+    First,
+    Last,
+    After(String),
+}
+
+/// The form of a format that does not describe itself. The types of a native shell are
+/// generated from the shape of the Rust type, so the bytes have to follow that shape too.
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "ItemPosition", rename = "ItemPosition")]
+enum ItemPositionWithTag {
     First,
     Last,
     After(String),
@@ -198,14 +212,6 @@ pub enum ItemPosition {
 impl ItemPosition {
     pub fn after(id: impl Into<String>) -> ItemPosition {
         ItemPosition::After(id.into())
-    }
-
-    fn text(&self) -> String {
-        match self {
-            ItemPosition::First => "first".to_string(),
-            ItemPosition::Last => "last".to_string(),
-            ItemPosition::After(id) => format!("after:{id}"),
-        }
     }
 
     fn parse(text: &str) -> Option<ItemPosition> {
@@ -219,9 +225,24 @@ impl ItemPosition {
     }
 }
 
+/// The text JSON has: `first`, `last` or `after:<id>`.
+impl std::fmt::Display for ItemPosition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ItemPosition::First => f.write_str("first"),
+            ItemPosition::Last => f.write_str("last"),
+            ItemPosition::After(id) => write!(f, "after:{id}"),
+        }
+    }
+}
+
 impl Serialize for ItemPosition {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.text())
+        if serializer.is_human_readable() {
+            serializer.collect_str(self)
+        } else {
+            ItemPositionWithTag::serialize(self, serializer)
+        }
     }
 }
 
@@ -246,6 +267,9 @@ impl schemars::JsonSchema for ItemPosition {
 
 impl<'de> Deserialize<'de> for ItemPosition {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        if !deserializer.is_human_readable() {
+            return ItemPositionWithTag::deserialize(deserializer);
+        }
         let text = String::deserialize(deserializer)?;
         ItemPosition::parse(&text).ok_or_else(|| D::Error::custom(format!("bad position: {text}")))
     }
@@ -269,7 +293,7 @@ pub enum BatchOpInput {
     Create {
         id: String,
         page_id: String,
-        position: String,
+        position: ItemPosition,
         level: i32,
         #[serde(default)]
         body: String,
@@ -297,7 +321,7 @@ pub enum BatchOpInput {
     Move {
         ids: Vec<String>,
         page_id: String,
-        position: String,
+        position: ItemPosition,
     },
     Delete {
         id: String,
@@ -680,7 +704,7 @@ mod tests {
                 BatchOpInput::Create {
                     id: "i".into(),
                     page_id: "p".into(),
-                    position: "last".into(),
+                    position: ItemPosition::Last,
                     level: 1,
                     body: "text".into(),
                     transclude_item_id: None,

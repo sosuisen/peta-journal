@@ -104,7 +104,7 @@ fn the_clients_hear_of_both_pages_of_a_move_over_mcp() {
             MoveItemsInput {
                 item_ids: Some(vec![item]),
                 target_page_id: Some(to.clone()),
-                position: Some("last".to_string()),
+                position: Some(journal_api_types::ItemPosition::Last),
                 ..MoveItemsInput::default()
             },
             &ChangedBy::Mcp,

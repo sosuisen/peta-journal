@@ -188,25 +188,19 @@ pub enum ItemPosition {
     After(Hmtid),
 }
 
-impl ItemPosition {
-    /// Parses `first`, `last` or `after:<id>`.
-    pub fn parse(s: &str) -> Result<ItemPosition, String> {
-        if s.is_empty() {
-            return Err("position must not be null or empty".to_string());
-        }
-        match s {
-            "first" => Ok(ItemPosition::First),
-            "last" => Ok(ItemPosition::Last),
-            _ => {
-                if let Some(rest) = s.strip_prefix("after:") {
-                    Hmtid::parse(rest)
-                        .map(ItemPosition::After)
-                        .map_err(|e| e.to_string())
-                } else {
-                    Err(format!("Unknown position: {s}"))
-                }
+/// The position a request names, with the id of `after` read. The text of a position is read by
+/// the shared type (ADR 081).
+impl TryFrom<journal_api_types::ItemPosition> for ItemPosition {
+    type Error = String;
+
+    fn try_from(position: journal_api_types::ItemPosition) -> Result<ItemPosition, String> {
+        Ok(match position {
+            journal_api_types::ItemPosition::First => ItemPosition::First,
+            journal_api_types::ItemPosition::Last => ItemPosition::Last,
+            journal_api_types::ItemPosition::After(id) => {
+                ItemPosition::After(Hmtid::parse(&id).map_err(|e| e.to_string())?)
             }
-        }
+        })
     }
 }
 
