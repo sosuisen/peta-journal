@@ -454,7 +454,7 @@ internal sealed class StickyWindow : Window
     {
         if (Look.Transparent)
         {
-            SystemBackdrop = clear ??= new ClearBackdrop();
+            SystemBackdrop = clear ??= new ClearBackdrop(handle);
             // Not null: the clicks on the empty part of the paper still come to the window
             root.Background = Clear;
         }
@@ -1044,8 +1044,42 @@ internal sealed class StickyWindow : Window
         if (bare == Bare)
             return;
         Bare = bare;
+        // The line around the window and its shadow go too. The border itself stays: without
+        // it the size of the window would change, and the text would move
+        var border = bare ? Native.NoColor : Native.UsualColor;
+        _ = Native.DwmSetWindowAttribute(handle, Native.BorderColor, ref border, sizeof(uint));
+        CutToPaper(bare);
         foreach (var row in rows)
             row.View?.Draw();
+    }
+
+    /// <summary>
+    /// Cuts the window to its paper, or makes it whole again. Windows draws no shadow under a
+    /// window that has a region. The frame is left alone: without the frame of DWM, Windows
+    /// draws the old frame of Windows instead. Only the edges where the window is made larger
+    /// are cut off. They come back with the focus.
+    /// </summary>
+    private void CutToPaper(bool cut)
+    {
+        if (!cut)
+        {
+            _ = Native.SetWindowRgn(handle, IntPtr.Zero, true);
+            return;
+        }
+        var corner = new Native.Point();
+        if (
+            !Native.GetWindowRect(handle, out var outer)
+            || !Native.GetClientRect(handle, out var paper)
+            || !Native.ClientToScreen(handle, ref corner)
+        )
+            return;
+        var left = corner.X - outer.Left;
+        var top = corner.Y - outer.Top;
+        _ = Native.SetWindowRgn(
+            handle,
+            Native.CreateRectRgn(left, top, left + paper.Right, top + paper.Bottom),
+            true
+        );
     }
 
     /// <summary>
@@ -1113,6 +1147,19 @@ internal sealed class StickyWindow : Window
     {
         switch (message)
         {
+            // Windows would paint the background of the window over what shows through
+            case Native.WmEraseBackground when Look.Transparent && clear is not null:
+                clear.Erase(wParam);
+                return 1;
+            // Windows draws its title bar of old in the window then: it is wiped away
+            case Native.WmNcActivate
+            or Native.WmNcPaint
+            or Native.WmSetText when Look.Transparent && clear is not null:
+            {
+                var answer = Native.DefSubclassProc(window, message, wParam, lParam);
+                clear.Wipe();
+                return answer;
+            }
             // A double click on the title bar rolls the sticky up. Windows would make the
             // window as large as the screen: that is left to the button of the title bar
             case Native.WmNcLeftButtonDoubleClick when wParam == Native.HitCaption:
