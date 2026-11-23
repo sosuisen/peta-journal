@@ -8,7 +8,7 @@ import { Server, editorOf, openEditor, openPage, test } from './support';
  *   PETA_TIMING=1 npx playwright test timing
  *
  * The time is the main thread's busy time from Chrome (`Performance.getMetrics`) while one key
- * is handled: the core and the Leptos shell in wasm, the DOM, style and layout. A key that types
+ * is handled: the core in wasm, the React shell, the DOM, style and layout. A key that types
  * is measured before the auto-save of the core (300ms) can start.
  */
 const lengths = [1, 10, 100, 1000];

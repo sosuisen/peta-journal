@@ -39,21 +39,15 @@ export default defineConfig({
     alias: { '@atlas-web': atlasWeb, '@client-assets': clientAssets },
   },
   build: {
-    // At the root, as Trunk puts the files of the Leptos shell: `/assets/` of the server is
-    // the images pasted into the journal
+    // At the root: `/assets/` of the server is the images pasted into the journal
     assetsDir: '',
   },
   server: {
     port: 5181,
     proxy: { '/api': { target: api, changeOrigin: true } },
     fs: {
-      // The app, the styles of the Leptos shell, and the scripts and fonts of the atlas
-      allow: [
-        searchForWorkspaceRoot(process.cwd()),
-        join(root, 'client', 'apps', 'web-app', 'outliner'),
-        atlasWeb,
-        clientAssets,
-      ],
+      // The app, and the scripts and fonts of the atlas
+      allow: [searchForWorkspaceRoot(process.cwd()), atlasWeb, clientAssets],
     },
   },
 });

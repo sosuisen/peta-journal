@@ -4,7 +4,7 @@
 
 ローカルの Markdown ファイルの上に載る、オフラインファーストのアウトライナー。毎日のジャーナルに書いたものが、ページ・リンク・タグ・地図（アトラス）へ育っていく。ジャーナルサーバーを中心に、拡張機能・外部アプリ・AI エージェント・別の PC がゆるくつながる。
 
-このストーリーマップは、2026-11-02 時点のフロントエンド（`client`）の仕様から逆算して作った。出典は、コアのテスト（`client/libs/client-core/src/tests/*.rs` の日本語の説明）、E2E テスト（`client/apps/web-app/outliner/e2e/tests/*.spec.ts`）、画面のモジュールコメント、`docs/properties.md`、`docs/folder-sync-journeys.md` である。
+このストーリーマップは、2026-11-02 時点のフロントエンド（`client`）の仕様から逆算して作った。出典は、コアのテスト（`client/libs/client-core/src/tests/*.rs` の日本語の説明）、E2E テスト（`client/apps/web-app/outliner-react/e2e/tests/*.spec.ts`）、画面のモジュールコメント、`docs/properties.md`、`docs/folder-sync-journeys.md` である。
 
 ## ペイン（仮）
 
@@ -32,7 +32,7 @@
 7. 連携
 
 - 今日を書き始める #利用者
-  - // 出典: client/apps/web-app/outliner/e2e/journal.spec.ts, tests/edit.rs, tests/split.rs, tests/merge.rs
+  - // 出典: client/apps/web-app/outliner-react/e2e/journal.spec.ts, tests/edit.rs, tests/split.rs, tests/merge.rs
   - アプリを開く
     - 今日のジャーナルが空の項目1つで開く
       - フッターにサーバーとの接続状態が出る
@@ -55,7 +55,7 @@
       - ^ 短い間隔の入力は1つの取り消し単位にまとまる
         - ^ 作成・削除・移動・折りたたみもサーバーごと戻る
 - 日々をたどる #利用者
-  - // 出典: client/apps/web-app/outliner/e2e/journal.spec.ts, tests/journal_moves.rs, tests/journal_fragment.rs, tests/task.rs, tests/stash.rs, util/date.rs, util/week.rs
+  - // 出典: client/apps/web-app/outliner-react/e2e/journal.spec.ts, tests/journal_moves.rs, tests/journal_fragment.rs, tests/task.rs, tests/stash.rs, util/date.rs, util/week.rs
   - タスクにする
     - v Ctrl+Enter で 通常 → タスク → 進行中 → 完了 と切り替わる
       - ^ チェックボックスが本文の前に出る
@@ -75,7 +75,7 @@
   - 片付ける
     - vv Send to Stash で項目を子ごとページ末尾の「# Stash」見出しの下へ移す
 - まとめて扱う #利用者
-  - // 出典: client/apps/web-app/outliner/e2e/outline-structure.spec.ts, tests/selection.rs, tests/paste.rs, outline/selection.rs, ops/outline_events.rs
+  - // 出典: client/apps/web-app/outliner-react/e2e/outline-structure.spec.ts, tests/selection.rs, tests/paste.rs, outline/selection.rs, ops/outline_events.rs
   - 複数の項目を選ぶ
     - vv エディタから Shift+↑↓ で上下の項目へ選択を広げる
       - ^ 本文の外へマウスをドラッグすると項目の選択になり、端で自動スクロールする
@@ -93,7 +93,7 @@
           - ^ Shift を押しながら貼ると、分けずにそのまま1項目に入る
             - ^ 画像はアップロードされ、カーソル位置にリンクされる
 - ページで知識を整える #利用者
-  - // 出典: tests/page_properties.rs, tests/rename.rs, tests/backlinks.rs, tests/sidebar_sort.rs, tests/sidebar_menu.rs, tests/tags_button.rs, tests/view.rs, client/apps/web-app/outliner/e2e/outline-content.spec.ts, client/apps/web-app/outliner/src/components/item_html.rs
+  - // 出典: tests/page_properties.rs, tests/rename.rs, tests/backlinks.rs, tests/sidebar_sort.rs, tests/sidebar_menu.rs, tests/tags_button.rs, tests/view.rs, client/apps/web-app/outliner-react/e2e/outline-content.spec.ts, client/libs/client-web-bridge/src/body.rs
   - ページを作る
     - vv 検索バーに名前を打って作る（開いているページのフォルダにも作れる）
       - ^ ヘッダーの新規ページボタンで作る

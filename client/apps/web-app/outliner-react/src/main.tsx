@@ -1,6 +1,5 @@
 import 'highlight.js/styles/github.css';
-// The styles of the Leptos shell, which draws the same elements. They move here when it goes
-import '../../outliner/styles.css';
+import './styles.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';

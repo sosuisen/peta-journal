@@ -103,7 +103,7 @@ if answers "$port"; then
     exit 1
 fi
 
-# The React shell (ADR 079). The Leptos one in web-app/outliner is no longer built here.
+# The React shell (ADR 079)
 step 'Web frontend'
 "$apps/web-app/outliner-react/release.sh"
 step 'Journal server'

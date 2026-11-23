@@ -20,14 +20,11 @@ Web版を使うときに起動するのは、journal-serverだけである。jou
 
 画面は、React版のシェル（[ADR 079](docs/adr/adr-079-a-typescript-web-shell-that-applies-list-diffs.md)）を`npm run build`で`client/apps/web-app/outliner-react/dist/`に出力したファイルである。journal-serverは、リクエストのたびにこのフォルダからファイルを読む。
 
-Leptos版のシェル（`client/apps/web-app/outliner`）も、消すまでは残っている。使うときは、そのフォルダで`trunk build`し、journal-serverに`--frontend-dir ../client/apps/web-app/outliner/dist`を渡す。
-
 ### 準備（一度だけ）
 
 - `rustup`。Rustの版とwasmのターゲットは、`rust-toolchain.toml`が決める。最初のビルドで、rustupが入れる
 - Node.js
 - wasm-pack: `cargo install wasm-pack`
-- Leptos版も使うときは、Trunk: `cargo install trunk --locked`
 
 Windows ARM64では、[README.md](README.md)の「Build」にある準備も行う。
 
@@ -99,7 +96,7 @@ cargo build --release
    journal-server（Windowsでは journal-server.exe）
    frontend/
      index.html
-     outliner-web-<ハッシュ>.js
+     index-<ハッシュ>.js
      ...
    ```
 

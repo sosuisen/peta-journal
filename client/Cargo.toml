@@ -5,7 +5,6 @@ members = [
     "libs/client-page-links",
     "libs/client-api-http",
     "libs/client-api-embedded",
-    "apps/web-app/outliner",
     "apps/emacs/outliner",
     "libs/client-native-bridge",
     # The core for the web shell in TypeScript (ADR 079)
