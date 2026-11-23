@@ -13,12 +13,19 @@ use client_core::policy::{InOrder, Questions, Timers};
 use client_core::rest::ClientId;
 use client_core::{Event, PetaApp, Route};
 use crux_core::{Core, Request, RequestHandle};
+use serde::de::DeserializeOwned;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
 /// The URL of the journal of today.
 const TODAY: &str = "/today";
+
+/// The key of the local storage that keeps the sort of each folder's index list.
+pub const INDEX_SORTS_KEY: &str = "sidebar-index-sort";
+
+/// The key of the local storage that keeps the folders last seen as their atlas.
+pub const ATLAS_DIRS_KEY: &str = "atlas-dirs";
 
 /// What the browser calls once it has the answer.
 pub type Done<T> = Box<dyn FnOnce(T)>;
@@ -50,6 +57,9 @@ pub trait Host: 'static {
     /// Gives the shell an operation of the screen that only it can do, with its number. The
     /// shell answers with [`Bridge::resolve`].
     fn ask(&self, id: u32, op: &UiOp);
+
+    /// The value the local storage of the browser keeps under `key`.
+    fn load(&self, key: &str) -> Option<String>;
 
     /// Puts the URL into the address bar and the history of the browser, or in place of the
     /// URL there when `replace`.
@@ -109,10 +119,22 @@ impl<H: Host> Bridge<H> {
     /// the changes.
     pub fn start(&self, url: &str) -> String {
         self.in_call(|| {
+            self.send(Event::IndexSortsRestored(self.stored(INDEX_SORTS_KEY)));
+            self.send(Event::AtlasDirsRestored(self.stored(ATLAS_DIRS_KEY)));
             let client_id = self.client_id.clone();
             self.send(Event::Start { client_id });
             self.open(url);
         })
+    }
+
+    /// What the browser keeps under `key`, or nothing when it keeps nothing it can read. The
+    /// JSON is that of serde, as the web app in Leptos wrote it: what the browser kept then
+    /// is still read.
+    fn stored<T: DeserializeOwned + Default>(&self, key: &str) -> T {
+        let stored = self.host.load(key);
+        stored
+            .and_then(|json| serde_json::from_str(&json).ok())
+            .unwrap_or_default()
     }
 
     /// Shows what the URL names, such as `/pages/notes` or `/today`, and returns the changes.
