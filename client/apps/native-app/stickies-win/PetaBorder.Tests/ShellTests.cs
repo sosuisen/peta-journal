@@ -876,6 +876,21 @@ public sealed class ShellTests : IDisposable
         );
     }
 
+    // 落とした元のファイルは、リンクされたあとも消えずに残る。コアが消すのは、シェルが作った写しである。
+    [Fact]
+    public void A_dropped_file_stays_where_it_was()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        var image = Path.Combine(Directory.CreateTempSubdirectory().FullName, "sample.png");
+        File.WriteAllBytes(image, [1, 2, 3]);
+
+        shell.DropImage(item, [image]);
+
+        main.WaitUntil("the image is linked", () => Bodies(shell) is [var body] && body.Length > 0);
+        Assert.Equal([1, 2, 3], File.ReadAllBytes(image));
+    }
+
     /// <summary>The level and the body of each item, as "level body".</summary>
     private static List<string> LevelsAndBodies(Shell shell) =>
         [.. shell.View.Outline.Rows.Select(row => $"{row.Item.Level} {row.Item.Body}")];
