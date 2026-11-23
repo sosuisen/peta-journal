@@ -37,16 +37,12 @@ import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** What is known of the file of an image. */
-private sealed interface Picture {
-    /** Not read yet. Only the line of the alt is drawn. */
-    data object Reading : Picture
-
-    data object Missing : Picture
-
-    /** @param width the width of the image in its file, which [bitmap] may be smaller than. */
-    data class Here(val bitmap: ImageBitmap, val width: Int) : Picture
-}
+/**
+ * The image as read from its file.
+ *
+ * @param width the width of the image in its file, which [bitmap] may be smaller than.
+ */
+private class Picture(val bitmap: ImageBitmap, val width: Int)
 
 /**
  * An image under a line of its alt, as wide as the page asks, or else as wide as it is in its
@@ -56,13 +52,14 @@ private sealed interface Picture {
 @Composable
 internal fun ImageBlock(image: ShownBlock.Image, file: (String) -> File?) {
     val roomPx = LocalWindowInfo.current.containerSize.width
-    val picture by produceState<Picture>(Picture.Reading, image.path) {
-        value = withContext(Dispatchers.IO) { file(image.path)?.let { read(it, roomPx) } ?: Picture.Missing }
+    // Null until the file is read, and when it is not here or cannot be read
+    val picture by produceState<Picture?>(null, image.path) {
+        value = withContext(Dispatchers.IO) { file(image.path)?.let { read(it, roomPx) } }
     }
     Column {
         // The line names the image, and a touch on it edits the item, as on any text (#886)
         Text(image.alt, style = MaterialTheme.typography.bodyLarge)
-        (picture as? Picture.Here)?.let { known ->
+        picture?.let { known ->
             var large by remember { mutableStateOf(false) }
             val shape = known.bitmap.width.toFloat() / known.bitmap.height
             // The side that the page does not ask for follows the shape of the image
@@ -137,10 +134,10 @@ private fun LargeImage(image: ShownBlock.Image, small: ImageBitmap, file: (Strin
  * Reads the image of the file. A large image is read smaller, by whole halves, down to no
  * less than [roomPx] wide: a photo at its full size takes the memory of many screens.
  */
-private fun read(file: File, roomPx: Int): Picture.Here? {
+private fun read(file: File, roomPx: Int): Picture? {
     val size = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(file.path, size)
     val halves = generateSequence(1) { it * 2 }.takeWhile { size.outWidth / it >= roomPx }.lastOrNull() ?: 1
     val bitmap = BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = halves })
-    return bitmap?.let { Picture.Here(it.asImageBitmap(), size.outWidth) }
+    return bitmap?.let { Picture(it.asImageBitmap(), size.outWidth) }
 }
