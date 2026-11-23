@@ -221,6 +221,22 @@ describe('the canvas of an atlas', () => {
     });
   });
 
+  // 同じ場所でほかのフォルダのアトラスに移ると、前のキャンバスを壊し、そのフォルダのキャンバスを作る。
+  test('another folder in the same place destroys the canvas and makes one of its own', async () => {
+    localStorage.setItem(
+      'atlas-views',
+      JSON.stringify({ 'n/': { x: 1, y: 2, zoom: 3 } }),
+    );
+    const { canvas, rerender } = await atlas('m/');
+    const first = canvas();
+
+    rerender(<Atlas dirPath="n/" />);
+    await act(() => scripts.loaded);
+
+    expect(first.destroyed).toBe(true);
+    expect(canvas().start).toEqual([1, 2, 3]);
+  });
+
   // 残した位置が読めなければ、真ん中から始める。
   test('an unreadable view starts at the middle', async () => {
     localStorage.setItem('atlas-views', '{');
@@ -469,17 +485,20 @@ describe('the unplaced cards', () => {
       expect(moved.effectAllowed).toBe('move');
     }));
 
-  // リストのカードをキャンバスの上で引くと、キャンバスがグループを示す。落とすと、その場所と、つかんだ場所をコアに渡す。
-  test('a listed card over the canvas shows its group there, and a drop gives the place to the core', async () => {
+  // リストのカードをキャンバスの上で引くと、キャンバスがグループを示す。CtrlかCommandを押すと、入るグループも示す。Ctrlなしで落とすと、カードの上でもグループには入らず、その場所と、つかんだ場所をコアに渡す。
+  test('a listed card over the canvas shows its group there, and a drop without Ctrl gives only the place to the core', async () => {
     const { host, canvas, wasm } = await unplaced();
     const moved = dataTransfer([CARD_MIME]);
     moved.setData(CARD_MIME, JSON.stringify({ page_id: 'b', x: 0.5, y: 0.25 }));
+    canvas().target = 'a';
 
+    drag('dragOver', host, { x: 140, y: 60 }, moved);
     const over = drag('dragOver', host, { x: 150, y: 70, meta: true }, moved);
     const dropped = drag('drop', host, { x: 150, y: 70 }, moved);
 
     expect([over, dropped, moved.dropEffect]).toEqual([false, false, 'move']);
-    expect(canvas().given.slice(-2)).toEqual([
+    expect(canvas().given.slice(-3)).toEqual([
+      ['over', [140, 60, false]],
       ['over', [150, 70, true]],
       ['end', null],
     ]);
