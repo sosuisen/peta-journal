@@ -6,8 +6,8 @@
  * Before a PR, only the files the PR changed are mutated:
  * `npm run mutants -- --mutate src/screen.ts,src/core.ts`.
  *
- * The wasm and the types of the border are made from the Rust code, and are left out, as in
- * the coverage; see vitest.config.ts.
+ * The wasm and the types of the border are made from the Rust code, and are left out with the
+ * code of the tests, as in the coverage; see vitest.config.ts.
  *
  * @type {import('@stryker-mutator/api/core').PartialStrykerOptions}
  */
@@ -19,7 +19,8 @@ export default {
   coverageAnalysis: 'perTest',
   mutate: [
     'src/**/*.{ts,tsx}',
-    '!src/**/*.test.ts',
+    '!src/**/*.test.{ts,tsx}',
+    '!src/test/**',
     '!src/border/**',
     '!src/wasm/**',
   ],

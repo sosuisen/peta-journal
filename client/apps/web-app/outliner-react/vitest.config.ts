@@ -9,16 +9,26 @@ import vite from './vite.config';
  * either removed or given a test of the behaviour that needs them.
  *
  * The wasm and the types of the border are made from the Rust code (`npm run border`), and
- * are left out. Stryker skips them too; see stryker.config.mjs.
+ * are left out, as is the code of the tests in src/test. Stryker skips them too; see
+ * stryker.config.mjs.
+ *
+ * The components are drawn in jsdom, on a wasm of the tests (src/test/shell.ts).
  */
 export default mergeConfig(
   vite,
   defineConfig({
     test: {
+      environment: 'jsdom',
+      setupFiles: ['src/test/setup.ts'],
       coverage: {
         provider: 'v8',
         include: ['src/**/*.{ts,tsx}'],
-        exclude: ['src/**/*.test.ts', 'src/border/**', 'src/wasm/**'],
+        exclude: [
+          'src/**/*.test.{ts,tsx}',
+          'src/test/**',
+          'src/border/**',
+          'src/wasm/**',
+        ],
         reporter: ['text', 'html'],
       },
     },
