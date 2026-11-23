@@ -2,7 +2,7 @@ use super::*;
 use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp,
 };
-use client_core::model::{Page, PageWithItems, Uploaded};
+use client_core::model::{Page, PageWithItems, TreeExport, Uploaded};
 use client_core::rest::ClientId;
 use client_core::screens::page::ATLAS_NAME;
 use client_core::testing::plain_item;
@@ -20,6 +20,8 @@ struct Browser {
     stream: RefCell<Option<Box<dyn FnMut(SseEvent)>>>,
     /// The timers that run, with what each calls when its time comes.
     timers: RefCell<Vec<(u64, Done<()>)>>,
+    /// What was written to the clipboard: the Markdown and the HTML.
+    copied: RefCell<Vec<(String, String)>>,
     /// The files sent to the server, oldest first.
     uploads: RefCell<Vec<String>>,
     /// What the local storage of the browser holds, by its key.
@@ -96,6 +98,15 @@ impl Host for FakeHost {
         }
     }
 
+    fn origin(&self) -> String {
+        "http://app.test".into()
+    }
+
+    fn copy(&self, markdown: &str, html: &str) {
+        let copied = (markdown.to_string(), html.to_string());
+        self.0.copied.borrow_mut().push(copied);
+    }
+
     fn ask(&self, id: u32, op: &UiOp) {
         self.0.asked.borrow_mut().push((id, op.clone()));
     }
@@ -124,6 +135,10 @@ fn answer_of(op: &ApiOp) -> ApiResult<ApiOutput> {
                 transcluded_trees: None,
             }))
         }
+        ApiOp::ExportTreeMarkdown { .. } => Ok(ApiOutput::TreeExport(TreeExport {
+            tree_markdown: "- see [[notes]]".into(),
+            flat_markdown: "see [[notes]]".into(),
+        })),
         // Every item is transcluded by an item on another page
         ApiOp::TranscludedItems { item_ids } => Ok(ApiOutput::ItemIds(item_ids.clone())),
         _ => Err(ApiError("the fake server does not know this".into())),
@@ -455,4 +470,32 @@ fn a_drag_that_leaves_the_text_selects_items() {
     assert_eq!((pressed, in_text), (None, None));
     let changes = beyond.expect("the drag selects items");
     assert!(changes.contains(r#""is_selected":true"#), "{changes}");
+}
+
+// コピーしたMarkdownは、アプリのページへのリンクを持つHTMLとともに、クリップボードに書かれる。
+#[test]
+fn copied_markdown_is_written_with_html_whose_links_open_the_pages_of_the_app() {
+    let screen = Screen::new();
+    screen.open_notes();
+    let select = [
+        r#"{"Pressed":{"item_id":"a","top":0.0,"bottom":20.0}}"#,
+        r#"{"Moved":{"y":60.0,"item_under":"a"}}"#,
+        r#""Released""#,
+    ];
+    for step in select {
+        screen.bridge.drag(step).unwrap();
+    }
+
+    screen.bridge.update(r#"{"SelectionKey":"Copy"}"#).unwrap();
+    screen.serve();
+
+    let copied = screen.browser.copied.borrow();
+    let [(markdown, html)] = copied.as_slice() else {
+        panic!("one copy is written: {copied:?}");
+    };
+    assert_eq!(markdown, "- see [[notes]]");
+    assert!(
+        html.contains(r#"href="http://app.test/pages/notes""#),
+        "{html}"
+    );
 }
