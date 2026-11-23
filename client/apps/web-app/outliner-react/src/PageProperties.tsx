@@ -1,12 +1,10 @@
 import {
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
   type Dispatch,
   type DragEvent,
   type KeyboardEvent,
-  type RefObject,
   type SetStateAction,
 } from 'react';
 import type { FreeKey, PageProperty, PageView } from './border/peta-types';
@@ -18,6 +16,7 @@ import {
   nowLocalMinutes,
 } from './dom';
 import { openInOf } from './keys';
+import { useShownValue } from './shownValue';
 
 /**
  * A row added with `+` and not yet saved. It becomes a property once it has a key and a
@@ -312,19 +311,6 @@ function DateTimeInput({ value, save, draft }: ValueProps) {
 
 function isEnter(event: KeyboardEvent): boolean {
   return event.key === 'Enter' && !isImeComposing(event.nativeEvent);
-}
-
-/**
- * Writes the value of the core into the input when it changes. The input keeps its own
- * value in between, so typing is never written over.
- */
-function useShownValue(value: string): RefObject<HTMLInputElement | null> {
-  const input = useRef<HTMLInputElement>(null);
-  useLayoutEffect(() => {
-    const el = input.current as HTMLInputElement;
-    el.value = value;
-  }, [value]);
-  return input;
 }
 
 /** Where a tag dropped on a chip lands. */
