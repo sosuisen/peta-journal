@@ -327,7 +327,8 @@ JSXだけなら、読みやすさも得られる。
 しかし、知らない要素と、`style:`の名前と値は通る。
 `.svelte`という独自の形式のために、型チェックに`svelte-check`が、formatterにプラグインが要る。
 TypeScriptの版を上げるときは、`svelte-check`の対応を待つことがある。
-今は、TypeScript 7の`--tsgo`は試験的である。`svelte-check`の開発者は、TypeScript 6と7を並べて入れる形を勧めている（language-tools #3063）。
+今は、TypeScript 7の`--tsgo`は試験的である。
+`svelte-check`の開発者は、TypeScript 6と7を並べて入れる形を勧めている（language-tools #3063）。
 そのため、選ばなかった。
 
 ### Alternative 5: Angular
