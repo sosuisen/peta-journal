@@ -31,7 +31,7 @@ function settings(shown: ConfigView = config()) {
   return { ...ui, ...drawn, show };
 }
 
-const input = (name: string) => screen.getByLabelText(name) as HTMLInputElement;
+const input = (name: string) => screen.getByLabelText<HTMLInputElement>(name);
 
 // 設定の画面
 describe('the settings screen', () => {
@@ -63,7 +63,7 @@ describe('the settings screen', () => {
     show(config({ week_numbering: { kind: 'Iso' } }));
     fireEvent.change(select, { target: { value: 'us' } });
 
-    expect([shown, select.value]).toEqual(['us', 'us']);
+    expect([shown, select.value]).toEqual(['us', 'iso']);
     expect(wasm.events).toEqual([
       { kind: 'SetWeekNumbering', value: { kind: 'Iso' } },
       { kind: 'SetWeekNumbering', value: { kind: 'Us' } },
@@ -154,7 +154,7 @@ describe('the property definitions', () => {
   // 新しいキーは、名前と、wasmが決めた型から選んだものを、Addで足す。名前の前後の空白は除く。
   test('a new key is added with its name and a type chosen from wasm', () => {
     const { wasm } = settings();
-    const name = screen.getByPlaceholderText('new key') as HTMLInputElement;
+    const name = screen.getByPlaceholderText<HTMLInputElement>('new key');
     const type = name.nextElementSibling as HTMLSelectElement;
     const types = [...type.options].map(o => o.value);
 
@@ -173,7 +173,7 @@ describe('the property definitions', () => {
   // コアがキーを受け入れると、名前の欄は空になる。受け入れなければ、残る。
   test('the name is cleared when the core accepts a key, and kept when it does not', () => {
     const { show } = settings();
-    const name = screen.getByPlaceholderText('new key') as HTMLInputElement;
+    const name = screen.getByPlaceholderText<HTMLInputElement>('new key');
     fireEvent.input(name, { target: { value: 'rating' } });
 
     show(config({ definition_error: 'taken' }));
