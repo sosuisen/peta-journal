@@ -244,6 +244,70 @@ pub struct SearchResult {
     pub score: f32,
 }
 
+/// A file the server saved.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Uploaded {
+    /// The name of the file on the server. The server makes it up. See ADR-022.
+    pub file_name: String,
+    /// The name the file came with.
+    pub original_name: String,
+}
+
+/// Where the cursor goes after a paste: right after the pasted text.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PasteCursor {
+    pub item_id: String,
+    pub position: usize,
+}
+
+/// A property definition (`GET /api/config/property-definitions`, the `definitions` list).
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PropertyDefinition {
+    pub key: String,
+    #[serde(default)]
+    pub value_type: String,
+    /// Written by the server itself; shown read-only, cannot be defined again.
+    #[serde(default)]
+    pub system: bool,
+    /// May be set on a page.
+    #[serde(default)]
+    pub page: bool,
+}
+
+/// The server's settings (`GET /api/config`), with the fields the clients read (ADR 082). The
+/// answer of the server has more fields, which a client passes over.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerConfig {
+    #[serde(default)]
+    pub markdown_dir: String,
+    #[serde(default)]
+    pub week_numbering: String,
+    #[serde(default)]
+    pub logical_outdent: bool,
+    /// Directory of the tag pages relative to the pages root, `tags/` style; empty for the root.
+    #[serde(default)]
+    pub tags_dir: String,
+    /// The page the Home button opens, as the target of a wiki link; empty for today.
+    #[serde(default)]
+    pub home_link: String,
+}
+
+/// `POST /api/items/export`.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TreeExport {
+    pub tree_markdown: String,
+    pub flat_markdown: String,
+}
+
 /// The value of a property. The server has only these two shapes.
 ///
 /// It is written in two ways. JSON has it as the server does: a string, or an array of
