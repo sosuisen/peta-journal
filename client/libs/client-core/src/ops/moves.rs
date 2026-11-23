@@ -16,6 +16,7 @@ use crate::model::{Item, ItemPosition, ItemRef, Page};
 use crate::ops::edit::{auto_save_again, take_unsaved};
 use crate::ops::file_reload::{leave_the_edit, read_again_if_out_of_place, replace_page, AskedAt};
 use crate::ops::split::host_page_of_transclusion;
+use crate::ops::undo_replay::replay_held_undos;
 use crate::outline::tree::{
     find_cross_page_placement, find_move_down_target, find_move_up_target, get_subtree,
     selected_root_items, transclusion_context_of, transclusion_scoped_items, ScanDirection,
@@ -71,7 +72,9 @@ pub fn move_done(model: &mut Model, handover: bool) -> Cmd {
         model.edits.edit_handovers = model.edits.edit_handovers.saturating_sub(1);
     }
     model.move_in_progress = false;
-    start_next_move(model)
+    let next = start_next_move(model);
+    let undos = replay_held_undos(model);
+    Command::all([next, undos])
 }
 
 /// Moves an item and its children up or down past the neighbouring sibling tree. None when
@@ -314,6 +317,8 @@ pub fn show_moved(
 /// the auto-save of the typed text the move was to carry.
 pub fn move_failed(model: &mut Model, unsaved: Option<&str>) -> Cmd {
     model.key_relay.release();
+    // The undos waited for this move, which did not happen
+    model.held_undos = 0;
     let save = auto_save_again(model, unsaved);
     Command::all([save, move_done(model, false)])
 }

@@ -7,6 +7,7 @@ use crate::model::ItemExt;
 use crate::model::{Item, ItemPosition, Stashed};
 use crate::ops::edit::{auto_save_again, focus_editor, save_target_id, take_unsaved};
 use crate::ops::file_reload::reload_shown_page;
+use crate::ops::undo_replay::replay_held_undos;
 use crux_core::Command;
 
 /// Cycles the task state: normal → task → running → done → normal. One request: the server
@@ -15,6 +16,7 @@ pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
     let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
+    model.task_cycles_awaited += 1;
     run(move |api| async move {
         let target_id = save_target_id(&item);
         match api.cycle_task(&target_id).await {
@@ -23,18 +25,35 @@ pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
                 target_id,
                 updated: Box::new(updated),
             }),
-            Err(e) => log_error(format!("Failed to cycle task: {e}")),
+            Err(e) => {
+                log_error(format!("Failed to cycle task: {e}"));
+                api.send_event(Event::TaskCycleFailed);
+            }
         }
     })
+}
+
+/// Ends the wait for the answer of a task cycle the server refused. The undos that waited for
+/// it are dropped: the change they were to undo did not happen.
+pub fn task_cycle_failed(model: &mut Model) -> Cmd {
+    model.task_cycles_awaited = model.task_cycles_awaited.saturating_sub(1);
+    model.held_undos = 0;
+    done()
 }
 
 /// The server changed the task state of the item `item_id`: the item saved under `target_id`
 /// shows the new types and properties, and the change can be undone.
 pub fn show_task_cycled(model: &mut Model, item_id: &str, target_id: &str, updated: Item) -> Cmd {
+    model.task_cycles_awaited = model.task_cycles_awaited.saturating_sub(1);
+    record_task_cycle(model, item_id, target_id, updated);
+    replay_held_undos(model)
+}
+
+fn record_task_cycle(model: &mut Model, item_id: &str, target_id: &str, updated: Item) {
     // Why not the item as it was when the key was pressed: a second key may be pressed before
     // the answer to the first one is here, and its item would lack what that answer wrote
     let Some(before) = model.cloned_item(item_id) else {
-        return done();
+        return;
     };
     let (types, properties) = (updated.types.clone(), updated.properties.clone());
     model.state.update_item(target_id, |i| {
@@ -47,7 +66,6 @@ pub fn show_task_cycled(model: &mut Model, item_id: &str, target_id: &str, updat
     model
         .undo
         .record_update("cycle-task", &before, &after, model.clock_ms);
-    done()
 }
 
 /// Shift+Wheel: a tenth more or less zoom, between 0.1 and 3.0.
