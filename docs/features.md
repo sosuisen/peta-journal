@@ -347,13 +347,17 @@
 
 ### 日を移る
 
-出典: `tests/journal.rs`、`tests/journal_fragment.rs`、`core/util/date.rs`、`core/util/week.rs`、`core/util/filename.rs`、`client/apps/web-app/outliner/e2e/journal`
+出典: `tests/journal.rs`、`tests/journal_fragment.rs`、`tests/day_change.rs`、`core/util/date.rs`、`core/util/week.rs`、`core/util/filename.rs`、`client/apps/web-app/outliner/e2e/journal`
 
 - `today`は今日の日付のジャーナルを開く。タイトルはTodayである
   - 日付のジャーナルは、その日の日本語表記をタイトルと見出しに持つ。週・月・年も同様である
   - 開いたことで作られたジャーナルは、最近のページに出る
   - 読み込めなければ、画面は空のままである
   - 同じジャーナルへの遷移では読み直さない。項目を指すフラグメント付きなら読み直す
+- 日付が変わると、`today`は新しい日のジャーナルを開く。コアがシェルの時計を1分ごとに見るので、どのシェルも日付を見張らない
+  - 日付が変わらなければ、サーバーには何も頼まない
+  - 項目を編集している間は開き直さない。編集が終わったあとの確かめで開く
+  - 日付で開いたジャーナルは開き直さない。今日の日付だけが新しい日になる
 - 日次ジャーナルの下には、前のジャーナルが見つからなくなるまで続けて読み込まれ、見出しが日付ごとに付く
   - 週のジャーナルは前の週を読み込む。月と年のジャーナルは前のものを読み込まない
   - ページ名の`-W`の前に日本語などがあっても、週のジャーナルかを調べるときに落ちない。週のジャーナルではないと分かる
