@@ -1,6 +1,9 @@
 import { WebShell } from './wasm/bridge';
 import {
+  AtlasCard,
+  Callout,
   Changes,
+  LinkCard,
   DeferredKey,
   PropertyDefinition,
   fromJsonReplay,
@@ -138,6 +141,26 @@ export class Core {
   /** The types a user may give a new key, in the order the settings offer them. */
   userValueTypes(): string[] {
     return this.shell.userValueTypes();
+  }
+
+  /** The placed cards of an atlas and its link cards, as `setCards` of `atlas.js` takes them. */
+  atlasCards(cards: readonly AtlasCard[], links: readonly LinkCard[]): string {
+    return this.shell.atlasCards(
+      json.stringify(cards.map(c => AtlasCard.toJson(c))),
+      json.stringify(links.map(l => LinkCard.toJson(l))),
+    );
+  }
+
+  /** The callouts of an atlas, as `setCallouts` of `atlas.js` takes them. */
+  atlasCallouts(callouts: readonly Callout[]): string {
+    return this.shell.atlasCallouts(
+      json.stringify(callouts.map(c => Callout.toJson(c))),
+    );
+  }
+
+  /** The folder above the folder `dirPath`, as the up button of an atlas names it. */
+  parentDirLabel(dirPath: string): string {
+    return this.shell.parentDirLabel(dirPath);
   }
 
   /** Begins the clipboard write of a copy, while the user's key still allows it. */
