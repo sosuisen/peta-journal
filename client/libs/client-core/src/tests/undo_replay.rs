@@ -997,3 +997,19 @@ fn an_undo_pressed_before_the_answer_of_a_task_cycle_undoes_that_cycle_when_the_
         [("a".to_string(), TaskState::default())]
     );
 }
+
+// サーバーが移動を断ると、答えを待っていたCtrl+Zは何も戻さない。戻すはずだった移動は、起きていないためである。
+#[test]
+fn an_undo_that_waited_for_a_refused_move_undoes_nothing() {
+    let mut h = harness_after_an_edit_of_b();
+    h.hold("MoveItems");
+    h.api.fail_next("MoveItems", "refused");
+    h.send(Event::MoveDown {
+        item_id: "a".into(),
+    });
+    h.send(Event::Undo);
+
+    h.release_held();
+    assert!(batch_calls(&h.api).is_empty());
+    assert_eq!(h.bodies(), ["a=", "b=b2"]);
+}
