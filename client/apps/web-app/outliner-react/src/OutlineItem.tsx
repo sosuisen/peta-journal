@@ -384,19 +384,13 @@ function ItemView({ row }: { readonly row: Row }) {
     });
     const request = core.current().panels.Outline?.focus_request;
     const cursor = request?.item_id === id ? request.cursor : null;
-    startDrag(
-      core,
-      id,
-      element,
-      cursor === null || cursor === undefined ? null : Number(cursor),
-    );
+    startDrag(core, id, element, cursor === null ? null : Number(cursor));
   };
 
   // An image dropped on the drawn item goes at the end of its body: the drawn text and the
   // Markdown do not line up
   const dropped = (event: React.DragEvent<HTMLDivElement>) => {
-    const file =
-      event.dataTransfer === null ? null : imageFile(event.dataTransfer);
+    const file = imageFile(event.dataTransfer);
     if (file === null) {
       return;
     }
