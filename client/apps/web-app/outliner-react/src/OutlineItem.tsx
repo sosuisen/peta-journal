@@ -464,11 +464,8 @@ function clickedLink(core: Core, event: ReactMouseEvent<HTMLDivElement>): void {
 /** Gives each image the size that the fragment of its URL carries (`#w=300&h=240`). */
 function sizeImages(content: Element): void {
   for (const image of content.querySelectorAll('img')) {
-    const fragment = image.getAttribute('src')?.split('#')[1];
-    if (fragment === undefined) {
-      continue;
-    }
-    const sides = new URLSearchParams(fragment);
+    // A URL without a fragment gives no sides
+    const sides = new URLSearchParams(image.getAttribute('src')?.split('#')[1]);
     for (const [side, name] of [
       ['w', 'width'],
       ['h', 'height'],
@@ -668,10 +665,10 @@ function ItemEditor({
     core.pasteImage(id, file, at);
   };
 
-  const headingSize =
-    row.heading_line && row.heading_level >= 1 && row.heading_level <= 5
-      ? HEADING_FONT_SIZES[row.heading_level - 1]
-      : undefined;
+  // A level out of the sizes, as 0 or 6, has no size of its own
+  const headingSize: string | undefined = row.heading_line
+    ? HEADING_FONT_SIZES[row.heading_level - 1]
+    : undefined;
 
   return (
     <app-item-editor>
