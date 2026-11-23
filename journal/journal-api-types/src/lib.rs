@@ -20,6 +20,7 @@ pub mod routes;
 
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::collections::BTreeMap;
 
 fn is_false(value: &bool) -> bool {
     !*value
@@ -184,6 +185,118 @@ pub struct ItemIdsInput {
 pub struct BatchInput {
     /// The operations, done in this order in one transaction
     pub ops: Vec<BatchOpInput>,
+}
+
+/// An item as the server answers it, with the fields the clients read (ADR 082). The answer of
+/// the server has more fields, which a client passes over.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Item {
+    pub id: String,
+    pub page_id: String,
+    #[serde(default)]
+    pub dir_path: String,
+    #[serde(default)]
+    pub name: String,
+    /// "journal" or "doc", from the parent page.
+    #[serde(rename = "type", default)]
+    pub item_type: String,
+    #[serde(default)]
+    pub created_date: i64,
+    #[serde(default)]
+    pub modified_date: i64,
+    #[serde(default)]
+    pub idx: String,
+    pub level: i32,
+    #[serde(default)]
+    pub body: String,
+    #[serde(default)]
+    pub collapsed: bool,
+    #[serde(default)]
+    pub types: Vec<String>,
+    #[serde(default)]
+    pub properties: BTreeMap<String, PropertyValue>,
+    #[serde(default)]
+    pub transclude_item_id: Option<String>,
+}
+
+/// The value of a property. The server has only these two shapes.
+///
+/// It is written in two ways. JSON has it as the server does: a string, or an array of
+/// strings. A format that does not describe itself, like the bincode of the native border
+/// (ADR 024), cannot tell the two apart by looking, so there it is an enum with a tag.
+#[cfg_attr(feature = "facet", derive(facet::Facet), repr(C))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PropertyValue {
+    Text(String),
+    List(Vec<String>),
+}
+
+impl PropertyValue {
+    /// The text, or None for a list.
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            PropertyValue::Text(text) => Some(text),
+            PropertyValue::List(_) => None,
+        }
+    }
+
+    /// The list, or None for a text.
+    pub fn as_list(&self) -> Option<&[String]> {
+        match self {
+            PropertyValue::Text(_) => None,
+            PropertyValue::List(list) => Some(list),
+        }
+    }
+}
+
+/// A short way to write a text value.
+impl From<&str> for PropertyValue {
+    fn from(text: &str) -> Self {
+        PropertyValue::Text(text.to_string())
+    }
+}
+
+/// A short way to write a list value.
+impl<const N: usize> From<[&str; N]> for PropertyValue {
+    fn from(list: [&str; N]) -> Self {
+        PropertyValue::List(list.iter().map(|text| text.to_string()).collect())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "PropertyValue", untagged)]
+enum PropertyValueAsJson {
+    Text(String),
+    List(Vec<String>),
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "PropertyValue", rename = "PropertyValue")]
+enum PropertyValueWithTag {
+    Text(String),
+    List(Vec<String>),
+}
+
+impl Serialize for PropertyValue {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if serializer.is_human_readable() {
+            PropertyValueAsJson::serialize(self, serializer)
+        } else {
+            PropertyValueWithTag::serialize(self, serializer)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PropertyValue {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        if deserializer.is_human_readable() {
+            PropertyValueAsJson::deserialize(deserializer)
+        } else {
+            PropertyValueWithTag::deserialize(deserializer)
+        }
+    }
 }
 
 /// Where an item goes on a page: first, last, or after another item. JSON has it as the text
@@ -594,7 +707,6 @@ pub enum ChangeSource {
 mod tests {
     use super::*;
     use serde_json::json;
-    use std::collections::BTreeMap;
 
     // ページの変更の知らせは、変更したクライアントがいるときだけ、そのIDを書く。
     #[test]
