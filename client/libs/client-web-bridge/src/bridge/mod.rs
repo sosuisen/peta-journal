@@ -10,7 +10,7 @@ use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp,
     TimerOutput, UiOp, UiOutput,
 };
-use client_core::keys::{KeyMap, KeyPlatform, KeyPress};
+use client_core::keys::{Key, KeyMap, KeyPlatform, KeyPress};
 use client_core::policy::{InOrder, Questions, Timers};
 use client_core::rest::ClientId;
 use client_core::typing::{self, Typing};
@@ -201,11 +201,36 @@ impl<H: Host> Bridge<H> {
     /// editor.
     pub fn press(&self, key: &str) -> Result<Option<String>, String> {
         let press: KeyPress = read(key)?;
+        if let Some(key) = self.wiki_key(&press) {
+            return Ok(Some(self.in_call(|| self.send(Event::WikiKey { key }))));
+        }
         let (_, now_ms) = self.host.now();
         let Some(event) = self.keys.event_of(&press, now_ms) else {
             return Ok(None);
         };
         Ok(Some(self.in_call(|| self.send(event))))
+    }
+
+    /// The key that the popup of page names takes from the editor of an item, named as the
+    /// browser names it: the arrows up and down, Enter and Escape. None while the popup of the
+    /// item offers no name.
+    fn wiki_key(&self, press: &KeyPress) -> Option<String> {
+        let KeyPress::InEditor { item_id, chord, .. } = press else {
+            return None;
+        };
+        if chord.shift || chord.ctrl || chord.alt || chord.cmd {
+            return None;
+        }
+        let name = match chord.key {
+            Key::Up => "ArrowUp",
+            Key::Down => "ArrowDown",
+            Key::Enter => "Enter",
+            Key::Escape => "Escape",
+            _ => return None,
+        };
+        let wiki = self.core.view().outline.wiki;
+        let offered = wiki.item_id.as_ref() == Some(item_id) && !wiki.suggestions.is_empty();
+        offered.then(|| name.to_string())
     }
 
     /// Takes a change of the Markdown of an item in its editor: a [`Typing`] as JSON. Returns
