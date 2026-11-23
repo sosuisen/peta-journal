@@ -254,8 +254,9 @@ impl Journal {
             .properties
             .find_list_by_targets(PAGE_TARGET, &ids)?;
         for dto in &mut answer.pages {
-            if let Some(tags) = lists.get(&dto.id).and_then(|l| l.get("tags")) {
-                dto.properties
+            if let Some(tags) = lists.get(&dto.page.id).and_then(|l| l.get("tags")) {
+                dto.page
+                    .properties
                     .insert("tags".into(), PropertyValue::List(tags.clone()));
             }
         }

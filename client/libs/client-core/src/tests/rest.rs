@@ -120,7 +120,10 @@ fn finding_a_page_answers_the_page_or_none() {
         title: "t".into(),
         dir_path: String::new(),
     };
-    let page = json!({ "id": "p", "name": "t", "dirPath": "", "type": "doc" });
+    let page = json!({
+        "id": "p", "parentId": "", "dirPath": "", "name": "t", "type": "doc",
+        "createdDate": 0, "modifiedDate": 0, "url": "/t", "properties": {}
+    });
 
     let found = answer(find(), json!({ "page": page }));
     let none = answer(find(), json!({ "page": null }));

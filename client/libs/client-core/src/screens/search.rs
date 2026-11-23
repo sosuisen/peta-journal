@@ -3,6 +3,7 @@
 
 use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model, SearchKey};
 use crate::effects::TimerOutput;
+use crate::model::PageExt;
 use crate::model::SearchResult;
 use crate::screens::navigate;
 use crate::util::filename::{classify_journal_file_name, validate_file_name, JournalType};

@@ -212,6 +212,38 @@ pub struct Item {
     pub transclude_item_id: Option<String>,
 }
 
+/// A page as the server answers it, with the fields the clients read (ADR 082). The answer of
+/// the server has more fields, which a client passes over.
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Page {
+    pub id: String,
+    pub parent_id: String,
+    pub dir_path: String,
+    pub name: String,
+    /// "journal" or "doc".
+    #[serde(rename = "type")]
+    pub page_type: String,
+    pub created_date: i64,
+    pub modified_date: i64,
+    /// Property values are strings or lists of strings; empty in page lists.
+    pub properties: BTreeMap<String, PropertyValue>,
+}
+
+/// A page or an item that a search found. The server and the clients share it (ADR 082).
+#[cfg_attr(feature = "facet", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResult {
+    pub page_id: String,
+    pub page_title: String,
+    /// Empty for page hits.
+    pub item_id: String,
+    pub snippet: String,
+    pub score: f32,
+}
+
 /// The value of a property. The server has only these two shapes.
 ///
 /// It is written in two ways. JSON has it as the server does: a string, or an array of
@@ -987,6 +1019,56 @@ mod tests {
                 ]),
                 transclude_item_id: Some("s".into()),
             }
+        );
+    }
+
+    // ページは、サーバーの答えのJSONから読める。サーバーだけの欄は読み飛ばす。
+    #[test]
+    fn a_page_is_read_from_the_answer_of_the_server_past_the_fields_of_the_server() {
+        let answer = json!({
+            "id": "p", "parentId": "q", "dirPath": "d/", "name": "n", "type": "journal",
+            "createdDate": 1, "modifiedDate": 2, "url": "/u",
+            "properties": { "plan": "2026-11-24", "tags": ["x"] }
+        });
+
+        let page: Page = serde_json::from_value(answer).unwrap();
+
+        assert_eq!(
+            page,
+            Page {
+                id: "p".into(),
+                parent_id: "q".into(),
+                dir_path: "d/".into(),
+                name: "n".into(),
+                page_type: "journal".into(),
+                created_date: 1,
+                modified_date: 2,
+                properties: BTreeMap::from([
+                    ("plan".into(), PropertyValue::from("2026-11-24")),
+                    ("tags".into(), PropertyValue::from(["x"])),
+                ]),
+            }
+        );
+    }
+
+    // 検索の結果は、サーバーと同じ形のJSONに書かれ、同じ値に読み戻される。
+    #[test]
+    fn a_search_result_is_written_in_the_json_of_the_server_and_read_back() {
+        let result = SearchResult {
+            page_id: "p".into(),
+            page_title: "t".into(),
+            item_id: "i".into(),
+            snippet: "s".into(),
+            score: 1.5,
+        };
+        let written = json!({
+            "pageId": "p", "pageTitle": "t", "itemId": "i", "snippet": "s", "score": 1.5
+        });
+
+        assert_eq!(serde_json::to_value(&result).unwrap(), written);
+        assert_eq!(
+            serde_json::from_value::<SearchResult>(written).unwrap(),
+            result
         );
     }
 

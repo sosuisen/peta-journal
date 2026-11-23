@@ -1105,8 +1105,8 @@ fn search_results_are_numbered_and_open_by_their_number() {
     }
     let results = serde_json::from_value(json!({
         "SearchResults": [
-            { "pageId": "p1", "pageTitle": "rust", "itemId": "", "snippet": "" },
-            { "pageId": "p2", "pageTitle": "memo", "itemId": "i1", "snippet": "rust本" },
+            { "pageId": "p1", "pageTitle": "rust", "itemId": "", "snippet": "", "score": 0.0 },
+            { "pageId": "p2", "pageTitle": "memo", "itemId": "i1", "snippet": "rust本", "score": 0.0 },
         ]
     }))
     .unwrap();
@@ -1978,8 +1978,8 @@ fn the_page_names_for_a_wiki_link_reach_emacs_with_what_was_typed() {
     let mut driver = Driver::open(&[item("a", 1, "see [[no]]")]);
     ask_for_page_names(&mut driver, "no");
     let found = serde_json::from_value(json!({ "SearchResults": [
-        { "pageId": "p", "pageTitle": "notes" },
-        { "pageId": "q", "pageTitle": "work/notebook" },
+        { "pageId": "p", "pageTitle": "notes", "itemId": "", "snippet": "", "score": 0.0 },
+        { "pageId": "q", "pageTitle": "work/notebook", "itemId": "", "snippet": "", "score": 0.0 },
     ] }));
     driver.answer(
         |op| matches!(op, ApiOp::SearchPageNames { query, .. } if query == "no"),

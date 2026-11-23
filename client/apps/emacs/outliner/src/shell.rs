@@ -15,7 +15,7 @@ use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput,
     UiOp, UiOutput,
 };
-use client_core::model::{bare_name, value_type_of};
+use client_core::model::{bare_name, value_type_of, PageExt};
 use client_core::policy::{InOrder, Timers};
 use client_core::rest::ClientId;
 use client_core::screens::calendar::{month_page_name, year_page_name};

@@ -3,6 +3,7 @@
 
 use crate::app::{done, log_error, run, Cmd, Event, Model, PageState, Screen};
 use crate::effects::{Api, ApiError, PageUpdate, UiOp};
+use crate::model::PageExt;
 use crate::model::{list_type_of, BacklinkEntry, Page, PageWithItems, PropertyValue};
 use crate::screens::{navigate, sidebar};
 use crate::util::filename::validate_file_name;

@@ -12,21 +12,15 @@ use crate::domain::model::{BacklinkEntry, Item, Page, SearchResult};
 use crate::error::AppError;
 use crate::infrastructure::persistence::{ItemRepository, PropertyRepository};
 
+/// A page as the server answers it: the fields the clients read, and the fields only the
+/// server has (ADR 082). JSON has them all at one level.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PageDto {
-    pub id: String,
-    pub parent_id: String,
-    pub dir_path: String,
-    pub name: String,
-    #[serde(rename = "type")]
-    pub page_type: String,
-    pub created_date: i64,
-    pub modified_date: i64,
+    #[serde(flatten)]
+    pub page: journal_api_types::Page,
     /// The URL that opens the page in the app, encoded, without the origin (ADR 061).
     pub url: String,
-    /// Property values are strings or lists of strings; empty in page lists.
-    pub properties: BTreeMap<String, PropertyValue>,
 }
 
 /// An item as the server answers it: the fields the clients read, and the fields only the
@@ -43,15 +37,9 @@ pub struct ItemDto {
     pub url: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchResultDto {
-    pub page_id: String,
-    pub page_title: String,
-    pub item_id: String,
-    pub snippet: String,
-    pub score: f32,
-}
+/// A search result has the same fields on the server and the clients, so they share one type
+/// (ADR 082).
+pub use journal_api_types::SearchResult as SearchResultDto;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -71,22 +59,24 @@ pub fn page_dto_with(
     lists: Option<&BTreeMap<String, Vec<String>>>,
 ) -> PageDto {
     PageDto {
-        properties: properties_json(scalars, lists),
-        id: page.id.to_string(),
-        parent_id: page
-            .parent_id
-            .as_ref()
-            .map(|p| p.to_string())
-            .unwrap_or_default(),
-        dir_path: page.dir_path.clone(),
-        name: page.name.clone(),
-        page_type: if page.page_type.is_empty() {
-            "doc".into()
-        } else {
-            page.page_type.clone()
+        page: journal_api_types::Page {
+            id: page.id.to_string(),
+            parent_id: page
+                .parent_id
+                .as_ref()
+                .map(|p| p.to_string())
+                .unwrap_or_default(),
+            dir_path: page.dir_path.clone(),
+            name: page.name.clone(),
+            page_type: if page.page_type.is_empty() {
+                "doc".into()
+            } else {
+                page.page_type.clone()
+            },
+            created_date: page.created_date,
+            modified_date: page.modified_date,
+            properties: properties_json(scalars, lists),
         },
-        created_date: page.created_date,
-        modified_date: page.modified_date,
         url: page_urls::page_url(&format!("{}{}", page.dir_path, page.name)),
     }
 }
@@ -309,6 +299,38 @@ mod tests {
 
     fn id(text: &str) -> Hmtid {
         Hmtid::parse(text).unwrap()
+    }
+
+    // ページの答えのJSONは、共有の欄とサーバーだけの欄を、同じ階層に並べる。
+    #[test]
+    fn the_json_of_a_page_has_the_shared_fields_and_the_server_fields_at_one_level() {
+        let page = Page::new(id("2026-11-24-00-00-00-AAAAAAA"), "d/", "n", "doc", 1);
+        let lists = BTreeMap::from([("tags".to_string(), vec!["x".to_string()])]);
+
+        let json = serde_json::to_value(page_dto_with(&page, None, Some(&lists))).unwrap();
+
+        let mut keys: Vec<&str> = json
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            [
+                "createdDate",
+                "dirPath",
+                "id",
+                "modifiedDate",
+                "name",
+                "parentId",
+                "properties",
+                "type",
+                "url"
+            ]
+        );
+        assert_eq!(json["properties"], serde_json::json!({ "tags": ["x"] }));
     }
 
     // 項目の答えのJSONは、共有の欄とサーバーだけの欄を、同じ階層に並べる。
