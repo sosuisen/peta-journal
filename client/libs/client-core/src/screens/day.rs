@@ -24,8 +24,8 @@ pub fn watch(model: &mut Model) -> Cmd {
     })
 }
 
-/// The clock says `today`: the journal of today opens the new day when the date changed, and
-/// the core looks at the clock again later.
+/// The clock says `today`: the journal of today opens the new day when the date changed and
+/// no item is being edited, and the core looks at the clock again later.
 pub fn checked(model: &mut Model, today: String) -> Cmd {
     let next = watch(model);
     model.today = today;
@@ -33,7 +33,10 @@ pub fn checked(model: &mut Model, today: String) -> Cmd {
         &model.screen,
         Screen::Journal(j) if j.page_name == "today" && j.current_date != model.today
     );
-    if !old_day {
+    // Opening a page closes the editor, and the text typed would be cut short. The next look
+    // at the clock tries again
+    let editing = !model.state.editing_item_ids().is_empty();
+    if !old_day || editing {
         return next;
     }
     Command::all([next, route::open(model, "today", None)])
