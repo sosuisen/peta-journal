@@ -9,6 +9,7 @@ import PageProperties, { type Draft } from './PageProperties';
 import SearchBar from './SearchBar';
 import Settings from './Settings';
 import Sidebar from './Sidebar';
+import { useSidebarWidth } from './sidebarWidth';
 
 /**
  * The frame of the app, as the Leptos shell drew it: the header, the sidebar, the screen and
@@ -18,6 +19,7 @@ import Sidebar from './Sidebar';
 export default function App() {
   const core = useCore();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidth, startResize] = useSidebarWidth();
   const connection = usePanel('Connection');
   const outline = usePanel('Outline');
 
@@ -34,10 +36,13 @@ export default function App() {
         <div className="body">
           <aside
             className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}
-            style={{ width: sidebarCollapsed ? '0px' : '260px' }}
+            style={{ width: sidebarCollapsed ? '0px' : `${sidebarWidth}px` }}
           >
             <Sidebar />
           </aside>
+          {!sidebarCollapsed && (
+            <div className="resize-handle" onMouseDown={startResize} />
+          )}
           <main className="content">
             <PageDispatcher />
           </main>
