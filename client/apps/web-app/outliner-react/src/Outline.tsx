@@ -37,7 +37,7 @@ export default function Outline({ header, footer }: Props) {
     count: rows.length,
     getScrollElement: () => viewport.current,
     estimateSize: () => ESTIMATED_ROW_PX,
-    getItemKey: index => rows[index]?.item.id ?? index,
+    getItemKey: index => rows[index].item.id,
     overscan: 10,
     scrollMargin: headerBox.current?.offsetHeight ?? 0,
   });
@@ -114,9 +114,6 @@ export default function Outline({ header, footer }: Props) {
         >
           {items.map(item => {
             const row = rows[item.index];
-            if (row === undefined) {
-              return null;
-            }
             return (
               <div
                 key={item.key}
