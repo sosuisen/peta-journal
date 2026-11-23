@@ -13,6 +13,9 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
+/// The URL of the journal of today.
+const TODAY: &str = "/today";
+
 /// What the browser calls once it has the answer.
 pub type Done<T> = Box<dyn FnOnce(T)>;
 
@@ -86,10 +89,14 @@ impl<H: Host> Bridge<H> {
         self.open(url);
     }
 
+    /// Opens the page the URL names. A URL that names nothing gives way to today.
     fn open(&self, url: &str) {
-        if let Some(route) = Route::parse_url(url) {
-            let today = self.host.now().0.day_name();
-            self.send(Event::Route { route, today });
+        match Route::parse_url(url) {
+            Some(route) => {
+                let today = self.host.now().0.day_name();
+                self.send(Event::Route { route, today });
+            }
+            None => self.go_to(TODAY, true),
         }
     }
 
