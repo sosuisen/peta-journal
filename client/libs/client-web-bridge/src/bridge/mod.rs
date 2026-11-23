@@ -5,7 +5,9 @@ use crate::body::HtmlBody;
 use crate::border::{read, write};
 use crate::lanes::{lane_of, Lane};
 use client_core::changes::{Changes, Shown};
-use client_core::effects::{ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, UiOp, UiOutput};
+use client_core::effects::{
+    ApiError, ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, UiOp, UiOutput,
+};
 use client_core::policy::{InOrder, Questions};
 use client_core::{Event, PetaApp, Route};
 use crux_core::{Core, Request, RequestHandle};
@@ -30,6 +32,9 @@ pub trait Host: 'static {
     /// Asks the server, and calls `done` with its answer.
     fn call(&self, op: ApiOp, done: Done<ApiResult<ApiOutput>>);
 
+    /// Sends a file to the server as an asset, and calls `done` with the answer.
+    fn upload(&self, file: Self::File, done: Done<ApiResult<ApiOutput>>);
+
     /// Gives the shell an operation of the screen that only it can do, with its number. The
     /// shell answers with [`Bridge::resolve`].
     fn ask(&self, id: u32, op: &UiOp);
@@ -50,6 +55,9 @@ pub struct Bridge<H: Host> {
     me: Weak<Bridge<H>>,
     shown: RefCell<Shown<HtmlBody>>,
     to_server: RefCell<InOrder<Request<ApiOp>>>,
+    /// The files pasted, by the number the core knows each by. A file cannot cross into it.
+    files: RefCell<HashMap<u64, H::File>>,
+    last_file: Cell<u64>,
     /// The requests the shell was given and has not answered yet, by their number.
     asked: RefCell<HashMap<u32, Request<UiOp>>>,
     last_asked: Cell<u32>,
@@ -69,6 +77,8 @@ impl<H: Host> Bridge<H> {
             me: me.clone(),
             shown: RefCell::default(),
             to_server: RefCell::default(),
+            files: RefCell::default(),
+            last_file: Cell::new(0),
             asked: RefCell::default(),
             last_asked: Cell::new(0),
             questions: RefCell::default(),
@@ -104,6 +114,21 @@ impl<H: Host> Bridge<H> {
     pub fn update(&self, event: &str) -> Result<String, String> {
         let event: Event = read(event)?;
         Ok(self.in_call(|| self.send(event)))
+    }
+
+    /// Pastes the image in the file into the item, at `cursor` in characters. The file is
+    /// saved among the assets, and its link is pasted once it is there (ADR 071).
+    pub fn paste_image(&self, item_id: &str, file: H::File, cursor: usize) -> String {
+        let number = self.last_file.get() + 1;
+        self.last_file.set(number);
+        self.files.borrow_mut().insert(number, file);
+        self.in_call(|| {
+            self.send(Event::PasteImage {
+                item_id: item_id.to_string(),
+                file: number,
+                cursor,
+            })
+        })
     }
 
     /// Takes the answer of the shell to the request `id`: a [`UiOutput`] as JSON. When that
@@ -223,19 +248,27 @@ impl<H: Host> Bridge<H> {
         let Some(mut request) = next else {
             return;
         };
-        let me = self.me.clone();
         let op = request.operation.clone();
-        self.host.call(
-            op,
-            Box::new(move |output| {
-                // The shell is gone, and the core with it
-                let Some(me) = me.upgrade() else {
-                    return;
-                };
-                me.answer(&mut request, output);
-                me.call_next();
-            }),
-        );
+        let me = self.me.clone();
+        let done: Done<ApiResult<ApiOutput>> = Box::new(move |output| {
+            // The shell is gone, and the core with it
+            let Some(me) = me.upgrade() else {
+                return;
+            };
+            me.answer(&mut request, output);
+            me.call_next();
+        });
+        match op {
+            ApiOp::UploadAsset { file: number } => {
+                // Taken out first: the answer may come at once, and paste another file
+                let file = self.files.borrow_mut().remove(&number);
+                match file {
+                    Some(file) => self.host.upload(file, done),
+                    None => done(Err(ApiError(format!("No pasted file {number}")))),
+                }
+            }
+            op => self.host.call(op, done),
+        }
     }
 }
 
