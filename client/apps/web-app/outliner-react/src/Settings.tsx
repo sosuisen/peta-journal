@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { PropertyDefinition, WeekNumbering } from './border/peta-types';
 import { useCore, usePanel } from './context';
-import { useShownValue } from './shownValue';
+import { useSavedOnChange, useShownValue } from './shownValue';
 
 const WEEK_NUMBERINGS: Readonly<Record<string, WeekNumbering['kind']>> = {
   us: 'Us',
@@ -210,13 +210,7 @@ function SavedInput({
   readonly save: (value: string) => void;
 }) {
   const input = useShownValue(value);
-  // The change of the DOM, not the one of React, which comes on every letter
-  useEffect(() => {
-    const el = input.current as HTMLInputElement;
-    const changed = () => save(el.value);
-    el.addEventListener('change', changed);
-    return () => el.removeEventListener('change', changed);
-  }, [input, save]);
+  useSavedOnChange(input, save);
   return (
     <input
       ref={input}

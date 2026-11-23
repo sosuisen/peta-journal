@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useRef,
   useState,
   type Dispatch,
@@ -16,7 +15,7 @@ import {
   nowLocalMinutes,
 } from './dom';
 import { openInOf } from './keys';
-import { useShownValue } from './shownValue';
+import { useSavedOnChange, useShownValue } from './shownValue';
 
 /**
  * A row added with `+` and not yet saved. It becomes a property once it has a key and a
@@ -245,16 +244,8 @@ const PLACEHOLDERS: Readonly<Record<string, string>> = {
  */
 function TextInput({ valueType, value, save, draft }: ValueProps) {
   const input = useShownValue(value);
-  // The change of the DOM, not the one of React, which comes on every letter
-  useEffect(() => {
-    const el = input.current as HTMLInputElement;
-    if (draft) {
-      return;
-    }
-    const changed = () => save(el.value);
-    el.addEventListener('change', changed);
-    return () => el.removeEventListener('change', changed);
-  }, [input, draft, save]);
+  // A new row is saved on Enter and on a blur instead
+  useSavedOnChange(input, draft ? undefined : save);
   const leave = (typed: string) => {
     if (draft && typed !== '') {
       save(typed);
