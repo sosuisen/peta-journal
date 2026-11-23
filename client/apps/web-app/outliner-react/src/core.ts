@@ -163,6 +163,19 @@ export class Core {
     return this.shell.parentDirLabel(dirPath);
   }
 
+  /**
+   * How far the outline scrolls in one step while a drag selects items, with the mouse at
+   * `y` in a list seen from `top` to `bottom`. Below zero is up; zero outside the bands.
+   */
+  edgeStep(y: number, top: number, bottom: number): number {
+    return this.shell.edgeStep(y, top, bottom);
+  }
+
+  /** How long one step of the scroll at an edge takes, in milliseconds. */
+  edgeStepMs(): number {
+    return this.shell.edgeStepMs();
+  }
+
   /** Begins the clipboard write of a copy, while the user's key still allows it. */
   beginCopy(): void {
     this.shell.beginCopy();

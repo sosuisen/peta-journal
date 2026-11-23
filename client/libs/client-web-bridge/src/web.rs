@@ -557,6 +557,19 @@ impl WebShell {
         crate::atlas::callouts_json(callouts).map_err(|e| JsError::new(&e))
     }
 
+    /// How far the outline scrolls in one step while a drag selects items, with the mouse at
+    /// `y` in a list seen from `top` to `bottom`. Below zero is up; zero outside the bands.
+    #[wasm_bindgen(js_name = edgeStep)]
+    pub fn edge_step(&self, y: f64, top: f64, bottom: f64) -> f64 {
+        client_core::drag::edge_step(y, top, bottom)
+    }
+
+    /// How long one step of the scroll at an edge of the outline takes, in milliseconds.
+    #[wasm_bindgen(js_name = edgeStepMs)]
+    pub fn edge_step_ms(&self) -> u32 {
+        client_core::drag::EDGE_STEP_MS
+    }
+
     /// The folder above the folder `dirPath`, as the up button of an atlas names it.
     #[wasm_bindgen(js_name = parentDirLabel)]
     pub fn parent_dir_label(&self, dir_path: &str) -> String {
