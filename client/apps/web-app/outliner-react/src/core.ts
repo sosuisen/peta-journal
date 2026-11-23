@@ -2,6 +2,7 @@ import { WebShell } from './wasm/bridge';
 import {
   Changes,
   DeferredKey,
+  PropertyDefinition,
   fromJsonReplay,
   fromJsonUiOp,
   toJsonDragMove,
@@ -125,6 +126,18 @@ export class Core {
   /** The URL of the page of the tag `tag`, in the folder of the tags `tagsDir`. */
   tagUrl(tagsDir: string, tag: string): string {
     return this.shell.tagUrl(tagsDir, tag);
+  }
+
+  /** The names the settings show for the keys of `definitions`, in their order. */
+  shownNames(definitions: readonly PropertyDefinition[]): string[] {
+    return this.shell.shownNames(
+      json.stringify(definitions.map(d => PropertyDefinition.toJson(d))),
+    );
+  }
+
+  /** The types a user may give a new key, in the order the settings offer them. */
+  userValueTypes(): string[] {
+    return this.shell.userValueTypes();
   }
 
   /** Begins the clipboard write of a copy, while the user's key still allows it. */

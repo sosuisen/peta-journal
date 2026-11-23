@@ -136,6 +136,17 @@ export class WebShell {
     return this.wikiQuery(text, cursor);
   }
 
+  // The names are marked, so a test sees that they come from here
+  shownNames(definitions: string): string[] {
+    return (json.parse(definitions) as { key: string }[]).map(
+      d => `shown ${d.key}`,
+    );
+  }
+
+  userValueTypes(): string[] {
+    return ['text', 'number'];
+  }
+
   // The rule of page-urls, without its encoding: the tests use plain names
   tagUrl(tagsDir: string, tag: string): string {
     return `/pages/${tagsDir}${tag}`;
