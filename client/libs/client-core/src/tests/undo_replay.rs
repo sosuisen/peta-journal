@@ -1013,3 +1013,21 @@ fn an_undo_that_waited_for_a_refused_move_undoes_nothing() {
     assert!(batch_calls(&h.api).is_empty());
     assert_eq!(h.bodies(), ["a=", "b=b2"]);
 }
+
+// サーバーがタスクの切り替えを断ると、答えを待っていたCtrl+Zは何も戻さない。そのあとのCtrl+Zは、前の操作を戻す。
+#[test]
+fn an_undo_that_waited_for_a_refused_task_cycle_undoes_nothing() {
+    let mut h = harness_after_an_edit_of_b();
+    h.hold("CycleTask");
+    h.api.fail_next("CycleTask", "refused");
+    h.send(Event::TaskCycle {
+        item_id: "a".into(),
+    });
+    h.send(Event::Undo);
+
+    h.release_held();
+    assert!(batch_calls(&h.api).is_empty());
+
+    h.send(Event::Undo);
+    assert_eq!(h.bodies(), ["a=", "b=b1"]);
+}
