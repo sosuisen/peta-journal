@@ -6,6 +6,7 @@ use crate::effects::ApiOp;
 use crate::harness::Harness;
 use crate::rest::ClientId;
 use crate::view::ScreenView;
+use crate::EditPlace;
 
 /// A shell that started, with the journal of 2026-02-10 open as today.
 fn today_open() -> Harness {
@@ -76,6 +77,26 @@ fn the_clock_is_looked_at_again_and_again() {
     h.local_now.day = 11;
     h.fire_timers();
 
+    assert_eq!(shown_date(&h), "2026-02-11");
+}
+
+// 項目を編集している間は、日付が変わっても開き直さない。編集が終わったあとの確かめで、新しい日を開く。
+#[test]
+fn an_item_being_edited_keeps_the_old_day_until_the_edit_ends() {
+    let mut h = today_open();
+    h.send(Event::EditRequested {
+        item_id: "item-2026-02-10".into(),
+        place: EditPlace::Markdown(0),
+    });
+
+    h.local_now.day = 11;
+    h.fire_timers();
+    assert_eq!(shown_date(&h), "2026-02-10");
+
+    h.send(Event::EditFinished {
+        item_id: "item-2026-02-10".into(),
+    });
+    h.fire_timers();
     assert_eq!(shown_date(&h), "2026-02-11");
 }
 
