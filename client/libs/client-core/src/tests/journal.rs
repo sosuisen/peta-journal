@@ -232,17 +232,10 @@ fn the_same_journal_is_not_loaded_again_unless_an_item_is_named() {
 #[test]
 fn a_collapsed_item_of_an_older_journal_hides_its_children() {
     let name = "2026-02-09";
-    let parent = item_with("parent", 1, |i| {
-        i.page_id = format!("page-{name}");
-        i.item_type = "journal".into();
-        i.name = name.into();
-        i.collapsed = true;
-    });
-    let child = item_with("child", 2, |i| {
-        i.page_id = format!("page-{name}");
-        i.item_type = "journal".into();
-        i.name = name.into();
-    });
+    let mut parent = journal_item("parent", name);
+    parent.collapsed = true;
+    let mut child = journal_item("child", name);
+    child.level = 2;
     let mut h = Harness::new();
     h.api.answer_next(
         "GetMostRecentJournalBefore",
