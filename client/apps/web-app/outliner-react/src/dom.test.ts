@@ -4,7 +4,10 @@ import {
   focusWithoutScroll,
   imageFile,
   isImeComposing,
+  localMinutes,
+  localMinutesToUtc,
   localTime,
+  nowLocalMinutes,
   setCursorChars,
   textBeforePoint,
   textareaOffsetAtPoint,
@@ -247,5 +250,33 @@ describe('the time of day', () => {
 
     expect(localTime(time)).toBe('09:05');
     expect(localTime('soon')).toBe('soon');
+  });
+});
+
+// 日時の入力欄の値
+describe('the value of a date-time input', () => {
+  // UTCの日時は、ブラウザの時間帯の分までになる。読めない値は空である。
+  test('a UTC time becomes the local time to the minute, and an unreadable one is empty', () => {
+    const time = new Date(2026, 0, 2, 3, 4, 59).toISOString();
+
+    expect(localMinutes(time)).toBe('2026-01-02T03:04');
+    expect(localMinutes('soon')).toBe('');
+  });
+
+  // 入力欄の値は、サーバーが残す形のUTCの秒までになる。読めない値は空である。
+  test('an input value becomes UTC to the second, as the server keeps it', () => {
+    const utc = new Date(2026, 10, 23, 9, 5).toISOString().slice(0, 19) + 'Z';
+
+    expect(localMinutesToUtc('2026-11-23T09:05')).toBe(utc);
+    expect(localMinutesToUtc('')).toBe('');
+  });
+
+  // 今の時刻は、ブラウザの時間帯の分までである。
+  test('now is the local time to the minute', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 10, 23, 21, 7, 30));
+
+    expect(nowLocalMinutes()).toBe('2026-11-23T21:07');
+    vi.useRealTimers();
   });
 });
