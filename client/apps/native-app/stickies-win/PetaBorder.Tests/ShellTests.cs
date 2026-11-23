@@ -896,6 +896,42 @@ public sealed class ShellTests : IDisposable
         );
     }
 
+    // 落としたファイルの中で、最初の画像だけがリンクされる。画像でないファイルは飛ばされる。
+    [Fact]
+    public void Only_the_first_image_of_the_dropped_files_is_linked()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        var folder = Directory.CreateTempSubdirectory().FullName;
+        string[] files = ["notes.txt", "first.png", "second.jpg"];
+        foreach (var file in files)
+            File.WriteAllBytes(Path.Combine(folder, file), [1, 2, 3]);
+
+        var taken = shell.DropImage(item, [.. files.Select(file => Path.Combine(folder, file))]);
+
+        Assert.True(taken);
+        main.WaitUntil("the first image is linked", () =>
+            Bodies(shell) is [var body]
+            && body.StartsWith("![first.png](../assets/", StringComparison.Ordinal)
+            && !body.Contains("second", StringComparison.Ordinal)
+        );
+    }
+
+    // 落としたファイルに画像がなければ、何もリンクされない。
+    [Fact]
+    public void Dropped_files_without_an_image_are_not_taken()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        var notes = Path.Combine(Directory.CreateTempSubdirectory().FullName, "notes.txt");
+        File.WriteAllBytes(notes, [1, 2, 3]);
+
+        var taken = shell.DropImage(item, [notes]);
+
+        Assert.False(taken);
+        Assert.True(File.Exists(notes));
+    }
+
     // 落とした元のファイルは、リンクされたあとも消えずに残る。コアが消すのは、シェルが作った写しである。
     [Fact]
     public void A_dropped_file_stays_where_it_was()
