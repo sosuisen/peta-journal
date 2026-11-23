@@ -1,0 +1,11 @@
+# Every workspace (journal, client, atlas) and CI build with this version of Rust.
+# rustup finds this file from any folder below it, and installs the version on first use.
+#
+# To move to a new version, change `channel` here, then fix what the new version reports.
+#
+# The targets of the phones are not listed. Every machine would download them, CI too.
+# Add them on the machine that builds the phone apps: see BUILD.md.
+[toolchain]
+channel = "1.100.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]
