@@ -21,6 +21,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 # The URLs of the pages, as the journal makes them (ADR 061)
 page-urls = { path = "../../../journal/page-urls" }
+# The cards and the callouts of an atlas, as atlas.js reads them
+peta-atlas = { path = "../../../atlas", features = ["marks"] }
 flatmarkdown-ast = { workspace = true }
 flatmarkdown-ast2html = { workspace = true }
 

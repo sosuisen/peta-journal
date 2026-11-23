@@ -1,21 +1,60 @@
 //! What the canvas of an atlas in the web shell draws: the cards and the callouts as the JSON
 //! that `atlas.js` reads, made by the scene of peta-atlas as the Leptos shell made them.
 
+use client_core::screens::atlas::{Callout, GroupTitle, LinkCard};
+use client_core::view::AtlasCard;
+use peta_atlas::scene::{self, GroupRef};
+
+/// The group of a card as the scene takes it.
+fn group_ref(group: Option<&String>, title: Option<&GroupTitle>) -> Option<GroupRef> {
+    group.map(|id| GroupRef {
+        id: id.clone(),
+        title: title.map(|t| (t.text.clone(), t.side.clone())),
+    })
+}
+
 /// The placed cards, the link cards among them, as `setCards` of `atlas.js` takes them. The
 /// cards and the links are given as the JSON of the border.
 pub fn placed_json(cards: &str, links: &str) -> Result<String, String> {
-    Ok(String::new())
+    let cards: Vec<AtlasCard> = crate::border::read(cards)?;
+    let links: Vec<LinkCard> = crate::border::read(links)?;
+    let mut placed: Vec<scene::Card> = cards
+        .iter()
+        .filter_map(|c| {
+            let page = scene::Page {
+                id: &c.page_id,
+                label: &c.label,
+                path: &c.path,
+                is_dir: c.is_dir,
+                icon_tags: &c.icon_tags,
+                published: c.published,
+            };
+            let group = group_ref(c.group.as_ref(), c.group_title.as_ref());
+            c.bounds
+                .map(|b| scene::Card::page(&page, b, group.as_ref()))
+        })
+        .collect();
+    placed.extend(links.iter().map(|l| {
+        let group = group_ref(l.group.as_ref(), l.group_title.as_ref());
+        scene::Card::link(&l.item_id, &l.target, l.bounds, group.as_ref())
+    }));
+    Ok(scene::cards_json(&placed))
 }
 
 /// The callouts, each with its character drawn from its text, as `setCallouts` of
 /// `atlas.js` takes them. The callouts are given as the JSON of the border.
 pub fn callouts_json(callouts: &str) -> Result<String, String> {
-    Ok(String::new())
+    let callouts: Vec<Callout> = crate::border::read(callouts)?;
+    let all: Vec<scene::Callout> = callouts
+        .iter()
+        .map(|c| scene::Callout::new(&c.key, c.x, c.y, c.scale, &c.side, &c.text))
+        .collect();
+    Ok(scene::callouts_json(&all))
 }
 
 /// The folder above the folder `dir_path`, as the up button of an atlas names it.
 pub fn parent_dir_label(dir_path: &str) -> String {
-    String::new()
+    client_core::screens::atlas::parent_dir_label(dir_path)
 }
 
 #[cfg(test)]
