@@ -327,7 +327,9 @@ describe('closing and opening a section', () => {
     expect(section('Contents').querySelector('.contents-item')).toBeNull();
     expect(names(section('Recent Pages'))).toEqual(['notes', 'diary']);
     expect(
-      JSON.parse(localStorage.getItem('sidebar-collapsed') ?? '').sort(),
+      (
+        JSON.parse(localStorage.getItem('sidebar-collapsed') ?? '') as string[]
+      ).sort(),
     ).toEqual(['contents', 'index']);
   });
 
