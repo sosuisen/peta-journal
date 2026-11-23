@@ -1332,6 +1332,42 @@ mod tests {
         );
     }
 
+    // ページの答えとジャーナルの答えは、サーバーの答えのJSONから読める。
+    #[test]
+    fn the_answers_of_a_page_and_of_a_journal_are_read_from_the_server() {
+        let page: Page = serde_json::from_value(page_answer()).unwrap();
+        let trees = BTreeMap::from([("s".to_string(), vec![item("s")])]);
+
+        let loaded: PageWithItems = serde_json::from_value(json!({
+            "page": page_answer(), "items": [item_answer("a")],
+            "transcludedTrees": { "s": [item_answer("s")] }
+        }))
+        .unwrap();
+        assert_eq!(
+            loaded,
+            PageWithItems {
+                page: page.clone(),
+                items: vec![item("a")],
+                transcluded_trees: trees.clone(),
+            }
+        );
+
+        let journal: JournalPage = serde_json::from_value(json!({
+            "page": page_answer(), "items": [item_answer("a")], "created": true,
+            "transcludedTrees": { "s": [item_answer("s")] }
+        }))
+        .unwrap();
+        assert_eq!(
+            journal,
+            JournalPage {
+                page,
+                items: vec![item("a")],
+                created: true,
+                transcluded_trees: trees,
+            }
+        );
+    }
+
     // 欄がサーバーと同じ答えの型は、サーバーの答えのJSONに書かれ、同じ値に読み戻される。
     #[test]
     fn the_answers_with_the_fields_of_the_server_are_written_in_its_json_and_read_back() {
