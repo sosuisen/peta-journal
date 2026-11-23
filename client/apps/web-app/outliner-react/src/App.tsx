@@ -3,6 +3,7 @@ import { useAsked } from './askedContext';
 import type { JournalView, PageView } from './border/peta-types';
 import { useCore, usePanel } from './context';
 import Outline from './Outline';
+import SearchBar from './SearchBar';
 import Sidebar from './Sidebar';
 
 /**
@@ -165,6 +166,7 @@ function Header({ toggleSidebar }: { readonly toggleSidebar: () => void }) {
         >
           +
         </button>
+        <SearchBar />
       </div>
       <div className="header-right">
         <button
