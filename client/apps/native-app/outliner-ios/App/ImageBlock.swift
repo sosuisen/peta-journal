@@ -2,34 +2,31 @@ import ImageIO
 import PetaBorder
 import SwiftUI
 
-/// What is known of the file of an image.
-private enum Picture {
-    /// Not read yet. Nothing is drawn, so that the alt does not flash before the image.
-    case reading
-    case missing
-    /// `width` is the width of the image in its file, which `image` may be smaller than.
-    case here(image: UIImage, width: CGFloat)
+/// The image as read from its file. `width` is the width of the image in its file, which
+/// `image` may be smaller than.
+private struct Picture {
+    let image: UIImage
+    let width: CGFloat
 }
 
-/// An image, as wide as the page asks, or else as wide as it is in its file. A pixel of the
-/// page is one point, as in a browser. It is never wider than the room it has. An image whose
-/// file is not here, or cannot be read, shows what stands for it.
+/// An image under a line of its alt, as wide as the page asks, or else as wide as it is in its
+/// file. A pixel of the page is one point, as in a browser. It is never wider than the room it
+/// has. An image whose file is not here, or cannot be read, shows only the line of its alt.
 struct ImageBlock: View {
     let image: RichImage
     let file: (String) -> URL?
 
-    @State private var picture = Picture.reading
-    @State private var large = false
+    /// Nil until the file is read, and when it is not here or cannot be read.
+    @State private var picture: Picture?
+    /// The image of the item that a touch opened large, by its path.
+    @Environment(\.openedImage) private var opened
 
     var body: some View {
-        Group {
-            switch picture {
-            case .reading:
-                // Not nothing at all: a view that is not there reads no file
-                Color.clear.frame(width: 1, height: 1)
-            case .missing:
-                Text(image.alt.isEmpty ? image.path : image.alt)
-            case .here(let read, let inFile):
+        VStack(alignment: .leading, spacing: 0) {
+            // The line names the image, and a touch on it edits the item, as on any text (#886)
+            Text(image.alt.isEmpty ? image.path : image.alt)
+            if let picture {
+                let (read, inFile) = (picture.image, picture.width)
                 let shape = read.size.width / max(read.size.height, 1)
                 // The side that the page does not ask for follows the shape of the image
                 let width = image.width.map { CGFloat($0) } ?? image.height.map { CGFloat($0) * shape } ?? inFile
@@ -42,18 +39,24 @@ struct ImageBlock: View {
                     .padding(.vertical, 4)
                     .accessibilityLabel(image.alt)
                     .accessibilityIdentifier("picture")
-                    // Before the touch that edits the item, which is told where it was
-                    .highPriorityGesture(TapGesture().onEnded { large = true })
-                    .fullScreenCover(isPresented: $large) {
-                        LargeImage(image: image, small: read, file: file) { large = false }
+                    // The touch of the item opens it. A touch of its own here would take every
+                    // touch of the item, also on the line above (#886)
+                    .opens(image.path)
+                    .fullScreenCover(isPresented: large) {
+                        LargeImage(image: image, small: read, file: file) { opened.wrappedValue = nil }
                     }
             }
         }
         .task(id: image.path) {
             let found = file(image.path)
             let room = await UIScreen.main.nativeBounds.width
-            picture = await Task.detached { found.flatMap { read($0, roomPx: room) } ?? .missing }.value
+            picture = await Task.detached { found.flatMap { read($0, roomPx: room) } }.value
         }
+    }
+
+    /// Whether the image is open large, as the item says.
+    private var large: Binding<Bool> {
+        Binding(get: { opened.wrappedValue == image.path }, set: { if !$0 { opened.wrappedValue = nil } })
     }
 }
 
@@ -114,11 +117,7 @@ private struct LargeImage: View {
         .task {
             let found = file(image.path)
             let room = await UIScreen.main.nativeBounds.width * largeWidths
-            if case .here(let read, _) = await Task.detached(operation: { found.flatMap { read($0, roomPx: room) } })
-                .value
-            {
-                sharp = read
-            }
+            sharp = await Task.detached { found.flatMap { read($0, roomPx: room) } }.value?.image
         }
     }
 
@@ -148,5 +147,5 @@ private func read(_ file: URL, roomPx: CGFloat) -> Picture? {
         kCGImageSourceThumbnailMaxPixelSize: max(width, height) * smaller,
     ]
     guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
-    return .here(image: UIImage(cgImage: image), width: shownWidth)
+    return Picture(image: UIImage(cgImage: image), width: shownWidth)
 }

@@ -232,11 +232,7 @@ final class JournalScreenTests: XCTestCase {
     // assetsフォルダーの画像は絵として表示され、タッチで大きく開き、もう一度のタッチで閉じる。
     func testAnImageShowsAsAPictureAndATouchOpensItLargeAndAnotherClosesIt() throws {
         try download("notes.md", "![a picture](../assets/pic.png)\n")
-        let drawn = UIGraphicsImageRenderer(size: CGSize(width: 80, height: 40)).pngData { paper in
-            UIColor.orange.setFill()
-            paper.fill(CGRect(x: 0, y: 0, width: 80, height: 40))
-        }
-        try drawn.write(to: root.appendingPathComponent("markdown/assets/pic.png"))
+        try picture("pic.png")
         openNotes()
         let picture = app.images["picture"]
         waitFor(picture)
@@ -246,6 +242,50 @@ final class JournalScreenTests: XCTestCase {
         waitFor(large)
         large.tap()
         waitUntil("the large picture is closed") { !large.exists }
+    }
+
+    /// Puts a picture into the assets folder, as a download does.
+    private func picture(_ name: String) throws {
+        let drawn = UIGraphicsImageRenderer(size: CGSize(width: 80, height: 40)).pngData { paper in
+            UIColor.orange.setFill()
+            paper.fill(CGRect(x: 0, y: 0, width: 80, height: 40))
+        }
+        try drawn.write(to: root.appendingPathComponent("markdown/assets/\(name)"))
+    }
+
+    // 画像は、1行目に代わりの文字（alt）を表示し、その下に絵を表示する（#886）。
+    func testAnImageShowsItsAltOnALineAboveThePicture() throws {
+        try download("notes.md", "![a picture](../assets/pic.png)\n")
+        try picture("pic.png")
+        openNotes()
+        let picture = app.images["picture"]
+        waitFor(picture)
+        let line = app.staticTexts["a picture"]
+        waitFor(line)
+        XCTAssertLessThanOrEqual(line.frame.maxY, picture.frame.minY)
+    }
+
+    // 代わりの文字（alt）のない画像は、1行目にファイルのパスを表示する（#886）。
+    func testAnImageWithoutAnAltShowsItsPathOnTheLineAboveThePicture() throws {
+        try download("notes.md", "![](../assets/pic.png)\n")
+        try picture("pic.png")
+        openNotes()
+        waitFor(app.staticTexts["assets/pic.png"])
+    }
+
+    // 画像の1行目に触れると、その項目がMarkdownの入力欄になる（#886）。
+    func testATouchOnTheLineAboveAnImageEditsTheItem() throws {
+        try download("notes.md", "![a picture](../assets/pic.png)\n")
+        try picture("pic.png")
+        openNotes()
+        waitFor(app.images["picture"])
+        let line = app.staticTexts["a picture"]
+        waitFor(line)
+
+        line.tap()
+
+        waitFor(editor)
+        waitUntil("the field edits the image, not \(editedText)") { editedText == "![a picture](../assets/pic.png)" }
     }
 
     // ファイルがまだない画像は、代わりの文字を表示する。
