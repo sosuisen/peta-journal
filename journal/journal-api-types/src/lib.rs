@@ -758,11 +758,12 @@ mod tests {
         }
     }
 
-    // MCPのスキーマでは、位置は、書き方を説明した文字列である。
+    // MCPのスキーマでは、位置は、書き方を説明した文字列である。要求のスキーマの中でも、その場で文字列として書かれる。
     #[cfg(feature = "schemars")]
     #[test]
     fn a_position_is_a_text_in_the_schema_of_mcp() {
         let schema = serde_json::to_value(schemars::schema_for!(ItemPosition)).unwrap();
+        let request = serde_json::to_value(schemars::schema_for!(MoveToJournalInput)).unwrap();
 
         assert_eq!(schema["type"], json!("string"));
         assert!(
@@ -770,6 +771,11 @@ mod tests {
                 .as_str()
                 .is_some_and(|text| text.contains("'after:<id>'")),
             "{schema}"
+        );
+        assert_eq!(
+            request["properties"]["position"]["type"],
+            json!("string"),
+            "{request}"
         );
     }
 
