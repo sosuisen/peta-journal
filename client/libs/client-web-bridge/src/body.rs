@@ -1,7 +1,7 @@
 //! The body of a row, as the web shell draws it.
 
 use client_core::BodyModel;
-use flatmarkdown_ast::Node;
+use flatmarkdown_ast::{Node, PropValue};
 use serde::Serialize;
 
 /// The body of a row as HTML, which the shell puts into its element as it is (ADR 079). Wasm
@@ -11,9 +11,32 @@ use serde::Serialize;
 pub struct HtmlBody(pub String);
 
 impl BodyModel for HtmlBody {
-    fn of(ast: Node, tags_dir: &str) -> HtmlBody {
+    fn of(mut ast: Node, tags_dir: &str) -> HtmlBody {
+        keep_image_sizes(&mut ast);
         let options = page_urls::html_options(tags_dir);
         HtmlBody(flatmarkdown_ast2html::ast_to_html_with(&ast, &options))
+    }
+}
+
+/// Puts the size of every image under `node` into the fragment of its URL, as `w` and `h`.
+/// `ast_to_html_with` leaves the size out, because each app uses it in its own way (ADR 026).
+/// The shell reads it back from the `<img>`.
+fn keep_image_sizes(node: &mut Node) {
+    if let Node::Embed { url, props, .. } = node {
+        let sides: Vec<String> = ["w", "h"]
+            .into_iter()
+            .filter_map(|side| match props.get(side) {
+                Some(PropValue::Text(text)) => Some(format!("{side}={}", text.trim())),
+                _ => None,
+            })
+            .collect();
+        if !sides.is_empty() {
+            url.push('#');
+            url.push_str(&sides.join("&"));
+        }
+    }
+    for child in node.children_mut().into_iter().flatten() {
+        keep_image_sizes(child);
     }
 }
 
@@ -47,7 +70,10 @@ mod tests {
         let sized = html("- ![alt](img.png#w=300&h=240)");
         let plain = html("![alt](img.png)");
 
-        assert!(sized.contains(r#"src="img.png#w=300&amp;h=240""#), "{sized}");
+        assert!(
+            sized.contains(r#"src="img.png#w=300&amp;h=240""#),
+            "{sized}"
+        );
         assert!(plain.contains(r#"src="img.png""#), "{plain}");
     }
 }
