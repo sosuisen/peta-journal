@@ -1,4 +1,5 @@
 import AppKit
+import UniformTypeIdentifiers
 import XCTest
 
 @testable import PetaBorder
@@ -75,6 +76,29 @@ final class PastedImageTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: original.path))
     }
 
+    // Finderでコピーした、透明部分のあるHEICの画像は、PNGに直して写される。HEICを表示できないブラウザがあるためである。透明部分は残る（#923）。
+    func testAHeicFileWithTransparencyCopiedInTheFinderIsWrittenAsPng() throws {
+        pasteboard.writeObjects([try file(named: "sample.heic", content: Self.heic(alpha: 0)) as NSURL])
+
+        let file = try XCTUnwrap(write())
+
+        XCTAssertEqual(file.lastPathComponent, "sample.png")
+        let image = try XCTUnwrap(CGImageSourceCreateWithURL(file as CFURL, nil))
+        XCTAssertEqual(CGImageSourceGetType(image) as String?, UTType.png.identifier)
+        XCTAssertEqual(try Self.pixel(of: Data(contentsOf: file))[3], 0)
+    }
+
+    // Finderでコピーした、透明部分のないHEICの画像（写真）は、JPEGに直して写される。PNGにすると、写真のファイルは大きくなりすぎるためである（#923）。
+    func testAHeicFileWithoutTransparencyCopiedInTheFinderIsWrittenAsJpeg() throws {
+        pasteboard.writeObjects([try file(named: "sample.heic", content: Self.heic(alpha: 255)) as NSURL])
+
+        let file = try XCTUnwrap(write())
+
+        XCTAssertEqual(file.lastPathComponent, "sample.jpeg")
+        let image = try XCTUnwrap(CGImageSourceCreateWithURL(file as CFURL, nil))
+        XCTAssertEqual(CGImageSourceGetType(image) as String?, UTType.jpeg.identifier)
+    }
+
     // 文字もあるペーストボードでは、画像を書かない。Officeのように、文字に画像も添えるアプリがあり、貼りたいのは文字のほうである。
     func testNoImageIsWrittenWhenThePasteboardHasTextToo() {
         pasteboard.declareTypes([.string, .png, .tiff], owner: nil)
@@ -117,6 +141,25 @@ final class PastedImageTests: XCTestCase {
         var pixel = [Int](repeating: 0, count: bitmap.samplesPerPixel)
         bitmap.getPixel(&pixel, atX: 0, y: 0)
         return pixel
+    }
+
+    /// A picture of one pixel drawn by the test, written as HEIC as the camera of a phone does.
+    private static func heic(alpha: UInt8) throws -> Data {
+        // Red, as much as the alpha lets: the colors are multiplied by the alpha
+        var pixel = [alpha, 0, 0, alpha]
+        let context = try XCTUnwrap(
+            CGContext(
+                data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: alpha == 255
+                    ? CGImageAlphaInfo.noneSkipLast.rawValue : CGImageAlphaInfo.premultipliedLast.rawValue))
+        let image = try XCTUnwrap(context.makeImage())
+        let data = NSMutableData()
+        let destination = try XCTUnwrap(
+            CGImageDestinationCreateWithData(data, UTType.heic.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, image, nil)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        return data as Data
     }
 
     private static func bitmap() -> NSBitmapImageRep {
