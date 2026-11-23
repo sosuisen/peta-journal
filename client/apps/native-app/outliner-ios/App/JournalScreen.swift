@@ -75,13 +75,18 @@ struct JournalScreen: View {
             shell.question?.text ?? "", isPresented: Binding(get: { shell.question != nil }, set: { _ in }),
             presenting: shell.question
         ) { question in
-            // The button for yes names what a question about a loss does
-            if question.destructive {
-                Button("Delete", role: .destructive) { shell.answer(yes: true) }
+            if !question.waits {
+                // A notice: there is nothing to choose
+                Button("OK", role: .cancel) { shell.answer(yes: true) }
             } else {
-                Button("OK") { shell.answer(yes: true) }
+                // The button for yes names what a question about a loss does
+                if question.destructive {
+                    Button("Delete", role: .destructive) { shell.answer(yes: true) }
+                } else {
+                    Button("OK") { shell.answer(yes: true) }
+                }
+                Button("Cancel", role: .cancel) { shell.answer(yes: false) }
             }
-            Button("Cancel", role: .cancel) { shell.answer(yes: false) }
         }
         .quickLookPreview($file)
     }

@@ -275,16 +275,22 @@ public final class Shell: ObservableObject {
     // MARK: - Questions
 
     /// The user answered `question`: the core goes on with what it asked about, or leaves it.
+    /// A notice waits for no answer: it only goes away.
     public func answer(yes: Bool) {
         guard let asked = question else { return }
-        question = nil
-        Shell.must { try border.answer(asked.id, with: .bool(yes)) }
+        question = later.isEmpty ? nil : later.removeFirst()
+        if asked.waits { Shell.must { try border.answer(asked.id, with: .bool(yes)) } }
         show()
     }
 
+    /// What came while another question was shown, in the order it came.
+    private var later: [Question] = []
+
     /// Shows a question of the core. The core asks the next one only after this is answered.
+    /// A notice may come at any time: it waits behind what is shown, which may be a question
+    /// that the core waits for.
     private func put(_ next: Question) {
-        question = next
+        if question == nil { question = next } else { later.append(next) }
     }
 
     // MARK: - Taking in files
@@ -389,6 +395,9 @@ public final class Shell: ObservableObject {
             put(Question(text: text, destructive: false, id: id))
         case .confirmDestructive(let text):
             put(Question(text: text, destructive: true, id: id))
+        case .alert(let text):
+            // As when a page of a name that cannot be made is made from the search
+            put(Question(text: text, destructive: false, id: id, waits: false))
         case .copyMarkdown(let markdown, _):
             copy(markdown)
         case .prompt, .readClipboardText:
@@ -412,11 +421,13 @@ public final class Shell: ObservableObject {
 }
 
 /// A question of the core with the answers yes and no. `destructive` says that yes loses
-/// something, so no is the answer to choose by default.
+/// something, so no is the answer to choose by default. A notice of the core, as why a page
+/// cannot be made, does not wait for an answer (`waits` is false): it has only OK.
 public struct Question: Equatable {
     public let text: String
     public let destructive: Bool
     let id: UInt32
+    public var waits = true
 }
 
 /// Where the requests of the core find the shell, which is made after the core.
