@@ -3,6 +3,7 @@ import { useAsked } from './askedContext';
 import type { JournalView, PageView } from './border/peta-types';
 import { useCore, usePanel } from './context';
 import Outline from './Outline';
+import PageProperties, { type Draft } from './PageProperties';
 import SearchBar from './SearchBar';
 import Sidebar from './Sidebar';
 
@@ -311,6 +312,8 @@ function Journal({ journal }: { readonly journal: JournalView }) {
 
 function DocPage({ page }: { readonly page: PageView }) {
   const core = useCore();
+  // Kept by the page, so the new rows stay while the core draws the properties again
+  const [drafts, setDrafts] = useState<readonly Draft[]>([]);
   const scrolled = usePanel('Outline')?.scrolled_from_top ?? false;
   const crumbs = page.dir_segments.map((segment, index) => {
     const last = index + 1 === page.dir_segments.length;
@@ -381,7 +384,14 @@ function DocPage({ page }: { readonly page: PageView }) {
         )}
         {title}
       </div>
-      <Outline footer={<Backlinks page={page} />} />
+      <Outline
+        header={
+          page.show_properties || drafts.length > 0 ? (
+            <PageProperties page={page} drafts={drafts} setDrafts={setDrafts} />
+          ) : undefined
+        }
+        footer={<Backlinks page={page} />}
+      />
     </app-page>
   );
 }
