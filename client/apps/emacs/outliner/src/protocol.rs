@@ -397,12 +397,13 @@ pub struct RowView {
 }
 
 impl RowView {
-    pub fn of(row: &Row<EmacsText>) -> RowView {
+    /// The row `row`, with `text` as its shown body.
+    pub fn of<B>(row: &Row<B>, text: EmacsText) -> RowView {
         RowView {
             id: row.item.id.clone(),
             level: row.item.level,
             body: row.item.body.clone(),
-            text: row.body_model.clone(),
+            text,
             bullet: Bullet::of(row.is_broken_transclusion, row.is_transclusion),
             task: TaskMark::of(row.task),
             collapsed: row.is_collapsed && row.has_children,

@@ -4,7 +4,7 @@
 //! Everything here runs on one thread: the requests the core waits on stay here, and the host's
 //! threads only send back their results.
 
-use crate::emacs_text::EmacsText;
+use crate::emacs_text::{EmacsText, SharedText};
 use crate::protocol::{
     BacklinkEntry, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView,
     SearchEntry, SidebarView,
@@ -23,7 +23,7 @@ use client_core::screens::day::CHECK_MS;
 use client_core::util::date::Date;
 use client_core::util::link_at;
 use client_core::util::week::week_page_name;
-use client_core::view::{ScreenView, SearchView};
+use client_core::view::{Row, ScreenView, SearchView};
 use client_core::{EditPlace, Event, PetaApp, ViewModel};
 use crux_core::capability::Operation;
 use crux_core::{Core, Request};
@@ -69,7 +69,7 @@ struct Sent {
     ack: u64,
     holding: bool,
     page_id: Option<String>,
-    rows: Vec<RowView>,
+    rows: Vec<SentRow>,
     focus_seq: u64,
     connection: Option<String>,
     search: Option<(Vec<client_core::view::SearchEntry>, bool)>,
@@ -81,9 +81,34 @@ struct Sent {
     backlinks: Vec<BacklinkEntry>,
 }
 
+/// A row as Emacs was told of it. Its text is shared with the view, and is copied into the
+/// row only when the row goes to Emacs: a row that did not change is compared, not copied
+/// (#960).
+#[derive(Clone, PartialEq)]
+struct SentRow {
+    /// The row with an empty text.
+    row: RowView,
+    text: SharedText,
+}
+
+impl SentRow {
+    fn of(row: &Row<SharedText>) -> SentRow {
+        SentRow {
+            row: RowView::of(row, EmacsText::default()),
+            text: row.body_model.clone(),
+        }
+    }
+
+    fn into_view(self) -> RowView {
+        RowView {
+            text: EmacsText::clone(&self.text.0),
+            ..self.row
+        }
+    }
+}
+
 pub struct Shell<H: Host> {
-    /// Emacs shows the Markdown of an item as it is, so its rows carry no body model (`()`).
-    pub(crate) core: Core<PetaApp<EmacsText>>,
+    pub(crate) core: Core<PetaApp<SharedText>>,
     pub host: H,
     client_id: ClientId,
     apis: HashMap<u64, Request<ApiOp>>,
@@ -386,8 +411,8 @@ impl<H: Host> Shell<H> {
 
     fn body_changed(&mut self, id: String, body: String) {
         // Emacs has this text already: the render below sends back only its EmacsText
-        if let Some(row) = self.sent.rows.iter_mut().find(|r| r.id == id) {
-            row.body = body.clone();
+        if let Some(sent) = self.sent.rows.iter_mut().find(|sent| sent.row.id == id) {
+            sent.row.body = body.clone();
         }
         let now_ms = self.host.now().now_ms;
         self.send(Event::BodyChanged {
@@ -656,7 +681,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_sidebar(&mut self, view: &ViewModel<EmacsText>) {
+    fn tell_sidebar(&mut self, view: &ViewModel<SharedText>) {
         let sidebar = SidebarView::of(&view.sidebar);
         if sidebar != self.sent.sidebar {
             self.sent.sidebar.clone_from(&sidebar);
@@ -664,10 +689,10 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_rows(&mut self, view: &ViewModel<EmacsText>) {
-        let rows: Vec<RowView> = view.outline.rows.iter().map(RowView::of).collect();
+    fn tell_rows(&mut self, view: &ViewModel<SharedText>) {
+        let rows: Vec<SentRow> = view.outline.rows.iter().map(SentRow::of).collect();
         let page_id = view.sidebar.current_page_id.clone();
-        let changes = list_changes(&self.sent.rows, &rows, |row| &row.id);
+        let changes = list_changes(&self.sent.rows, &rows, |sent| &sent.row.id);
         if changes.is_empty() && page_id == self.sent.page_id {
             return;
         }
@@ -676,11 +701,14 @@ impl<H: Host> Shell<H> {
         self.host.emit(Outbound::Rows {
             ack: self.ack,
             page_id,
-            changes,
+            changes: changes
+                .into_iter()
+                .map(|change| change.map(SentRow::into_view))
+                .collect(),
         });
     }
 
-    fn tell_focus(&mut self, view: &ViewModel<EmacsText>) {
+    fn tell_focus(&mut self, view: &ViewModel<SharedText>) {
         let Some(request) = &view.outline.focus_request else {
             return;
         };
@@ -701,7 +729,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_page_path(&mut self, view: &ViewModel<EmacsText>) {
+    fn tell_page_path(&mut self, view: &ViewModel<SharedText>) {
         let path = match &view.screen {
             ScreenView::Page(Some(page)) if !page.is_index && !page.is_atlas => {
                 Some(page.page.canonical_path())
@@ -714,7 +742,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_index(&mut self, view: &ViewModel<EmacsText>) {
+    fn tell_index(&mut self, view: &ViewModel<SharedText>) {
         let index = match &view.screen {
             ScreenView::Page(Some(page)) if page.is_index && !page.is_root_index => {
                 let folder = page.page.dir_path.trim_end_matches('/').to_string();
@@ -733,7 +761,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_properties(&mut self, view: &ViewModel<EmacsText>) {
+    fn tell_properties(&mut self, view: &ViewModel<SharedText>) {
         let page = match &view.screen {
             ScreenView::Page(Some(page)) => Some(page),
             _ => None,
@@ -765,7 +793,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_connection(&mut self, view: &ViewModel<EmacsText>) {
+    fn tell_connection(&mut self, view: &ViewModel<SharedText>) {
         let connection = view.connection.as_str().to_string();
         if self.sent.connection.as_ref() != Some(&connection) {
             self.sent.connection = Some(connection.clone());
@@ -786,7 +814,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_recent(&mut self, view: &ViewModel<EmacsText>) {
+    fn tell_recent(&mut self, view: &ViewModel<SharedText>) {
         let paths: Vec<String> = view
             .sidebar
             .recent_pages
@@ -799,7 +827,7 @@ impl<H: Host> Shell<H> {
         }
     }
 
-    fn tell_backlinks(&mut self, view: &ViewModel<EmacsText>) {
+    fn tell_backlinks(&mut self, view: &ViewModel<SharedText>) {
         let groups: Vec<BacklinkEntry> = match &view.screen {
             ScreenView::Page(Some(page)) => {
                 page.backlinks.iter().map(BacklinkEntry::from).collect()
@@ -842,7 +870,7 @@ fn page_titles(result: &ApiResult<ApiOutput>) -> Vec<String> {
 /// The keys whose value is a date and a time. Only the page's own dates cannot be removed, and
 /// they are dates without a definition.
 fn datetime_keys<'a>(
-    view: &ViewModel<EmacsText>,
+    view: &ViewModel<SharedText>,
     rows: impl Iterator<Item = &'a PropertyRow>,
     free_keys: &[FreeKey],
 ) -> Vec<String> {
@@ -860,14 +888,14 @@ fn datetime_keys<'a>(
 
 /// What Emacs shows for the key: the body of its name and its type, so that two keys that
 /// share a body are told apart (ADR 047). A system key keeps its whole name.
-fn label(view: &ViewModel<EmacsText>, key: &str) -> String {
+fn label(view: &ViewModel<SharedText>, key: &str) -> String {
     let name = bare_name(key, &view.config.property_definitions);
     format!("{name} ({})", property_type(view, key))
 }
 
 /// The type to send a value of the key with: the one the core gives the row of the page, or
 /// the one of the definition for a key the page does not have yet.
-fn property_type(view: &ViewModel<EmacsText>, key: &str) -> String {
+fn property_type(view: &ViewModel<SharedText>, key: &str) -> String {
     let row = match &view.screen {
         ScreenView::Page(Some(page)) => page.properties.iter().find(|p| p.key == key),
         _ => None,
