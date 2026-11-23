@@ -24,6 +24,20 @@ page-urls = { path = "../../../journal/page-urls" }
 flatmarkdown-ast = { workspace = true }
 flatmarkdown-ast2html = { workspace = true }
 
+# The browser behind the core (src/web.rs)
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+gloo-net = { version = "0.6", features = ["http"] }
+gloo-timers = "0.3"
+console_error_panic_hook = "0.1"
+web-sys = { version = "0.3", features = [
+  "Window", "Document", "Location", "History", "Storage", "Navigator", "Clipboard",
+  "ClipboardItem", "Blob", "BlobPropertyBag", "File", "FormData", "Event", "MessageEvent",
+  "EventSource", "console",
+] }
+
 # Writes the TypeScript types of the border. Not in wasm: only the codegen runs it
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 facet_generate = "=0.22.3"

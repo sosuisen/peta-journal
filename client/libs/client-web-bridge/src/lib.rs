@@ -9,3 +9,5 @@ pub mod bridge;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod codegen;
 pub mod lanes;
+#[cfg(target_arch = "wasm32")]
+pub mod web;

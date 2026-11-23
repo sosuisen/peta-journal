@@ -17,7 +17,7 @@ struct Browser {
     /// Every request to the server, oldest first, answered or not.
     called: RefCell<Vec<ApiOp>>,
     /// What the stream of the server calls with each of its events.
-    stream: RefCell<Option<Box<dyn FnMut(SseEvent)>>>,
+    stream: RefCell<Option<Listener>>,
     /// The timers that run, with what each calls when its time comes.
     timers: RefCell<Vec<(u64, Done<()>)>>,
     /// What was written to the clipboard: the Markdown and the HTML.
@@ -65,7 +65,7 @@ impl Host for FakeHost {
         done(Ok(ApiOutput::Uploaded(uploaded)));
     }
 
-    fn listen(&self, heard: Box<dyn FnMut(SseEvent)>) {
+    fn listen(&self, heard: Listener) {
         *self.0.stream.borrow_mut() = Some(heard);
     }
 
@@ -283,7 +283,7 @@ fn a_second_destructive_confirm_reaches_the_shell_after_the_first_is_answered() 
         .update(r#"{"DeleteItem":{"item_id":"b"}}"#)
         .unwrap();
     screen.serve();
-    assert_eq!(screen.asked(), [confirm.clone()]);
+    assert_eq!(screen.asked(), std::slice::from_ref(&confirm));
 
     screen.answer(&confirm, r#"{"Bool":false}"#);
     screen.serve();

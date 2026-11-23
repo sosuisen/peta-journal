@@ -35,6 +35,9 @@ pub const ATLAS_DIRS_KEY: &str = "atlas-dirs";
 /// What the browser calls once it has the answer.
 pub type Done<T> = Box<dyn FnOnce(T)>;
 
+/// What the browser calls with each event of the stream of the server.
+pub type Listener = Box<dyn FnMut(SseEvent)>;
+
 /// What the browser does for the core.
 pub trait Host: 'static {
     /// A file the browser holds, such as a pasted image.
@@ -51,7 +54,7 @@ pub trait Host: 'static {
 
     /// Opens the stream of the server's events in place of the one open, and calls `heard`
     /// with each of its events. After an error the stream stays closed.
-    fn listen(&self, heard: Box<dyn FnMut(SseEvent)>);
+    fn listen(&self, heard: Listener);
 
     /// Starts the timer `id`, which calls `fired` after `ms` milliseconds.
     fn start_timer(&self, id: u64, ms: u32, fired: Done<()>);
