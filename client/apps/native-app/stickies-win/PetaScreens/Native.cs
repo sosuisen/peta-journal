@@ -72,6 +72,24 @@ internal static class Native
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool RemoveWindowSubclass(IntPtr window, SubclassProc proc, UIntPtr id);
 
+    /// <summary>What a queue of work of the system is made for: the thread that makes it.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct DispatcherQueueOptions
+    {
+        public int Size;
+        public int ThreadType;
+        public int ApartmentType;
+    }
+
+    public const int QueueOfThisThread = 2;
+    public const int SingleThreadedApartment = 2;
+
+    [DllImport("CoreMessaging.dll")]
+    public static extern int CreateDispatcherQueueController(
+        DispatcherQueueOptions options,
+        out IntPtr controller
+    );
+
     [DllImport("comctl32.dll")]
     public static extern IntPtr DefSubclassProc(
         IntPtr window,
