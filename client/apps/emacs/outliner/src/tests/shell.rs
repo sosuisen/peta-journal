@@ -1702,6 +1702,27 @@ fn shutting_down_saves_the_edit_and_waits_for_the_answer() {
     assert!(driver.shell.is_idle());
 }
 
+// 自動保存を待つ間は、終わってよい状態にならない。時計を見る待ちだけが残れば、終わってよい状態になる。
+#[test]
+fn a_waiting_auto_save_keeps_the_shell_busy_but_the_clock_watch_does_not() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.fail_all_waiting_calls();
+    driver.send(Inbound::EditRequested {
+        id: "a".into(),
+        cursor: 1,
+    });
+    driver.send(Inbound::BodyChanged {
+        id: "a".into(),
+        body: "書きかけ".into(),
+    });
+    driver.fail_all_waiting_calls();
+    assert!(!driver.shell.is_idle());
+
+    fire_timers(&mut driver);
+    driver.fail_all_waiting_calls();
+    assert!(driver.shell.is_idle());
+}
+
 // 編集を終えると、入力した文は、自動保存のタイマーを待たずに保存される。
 #[test]
 fn ending_an_edit_saves_the_typed_text_at_once() {
