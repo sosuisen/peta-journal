@@ -38,8 +38,10 @@ pub fn replay_of(key: &DeferredKey, text: &str, start: u64, end: u64) -> Replay 
 
 /// [`replay_of`] across the border: the key is a `DeferredKey` as JSON, and the answer is a
 /// [`Replay`] as JSON.
-pub fn replay_json(_key: &str, _text: &str, _start: u64, _end: u64) -> Result<String, String> {
-    Err("not yet".into())
+pub fn replay_json(key: &str, text: &str, start: u64, end: u64) -> Result<String, String> {
+    let key: DeferredKey = crate::border::read(key)?;
+    let replay = replay_of(&key, text, start, end);
+    Ok(facet_json::to_string(&replay).expect("a replay is always valid JSON"))
 }
 
 #[cfg(test)]
@@ -55,7 +57,7 @@ mod tests {
             replay_json(key, "ab", 2, 2).unwrap(),
             r#"{"Delete":{"from":1,"to":2}}"#
         );
-        assert!(replay_json("{}", "ab", 2, 2).is_err());
+        assert!(replay_json("not json", "ab", 2, 2).is_err());
     }
 
     fn key(name: &str) -> DeferredKey {
