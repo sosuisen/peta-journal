@@ -4,10 +4,19 @@ import { CalendarDay, CalendarView, CalendarWeek } from './border/peta-types';
 import Calendar from './Calendar';
 import { draw, shell } from './test/screens';
 
-/** November 2026 as the core shows it, cut to two weeks. The 23rd is today. */
+/**
+ * November 2026 as the core shows it, cut to two weeks. The 23rd is today, and the 24th is
+ * the day of the journal on the screen.
+ */
 function november(): CalendarView {
   const day = (date: string, other = false, today = false) =>
-    new CalendarDay(date, Number(date.slice(8)), other, today, false);
+    new CalendarDay(
+      date,
+      Number(date.slice(8)),
+      other,
+      today,
+      date === '2026-11-24',
+    );
   return new CalendarView(
     2026,
     11,
@@ -74,6 +83,37 @@ describe('the calendar', () => {
       'day-cell today selected',
       'day-cell',
     ]);
+  });
+
+  // 日誌の見出しのカレンダーは、画面の日誌の日を、選んだ日として印をつける。
+  test('in the header of a journal, the day of the journal is the selected day', () => {
+    const ui = shell();
+    ui.wasm.push([], [{ kind: 'Calendar', value: november() }]);
+    const { container } = draw(ui, <Calendar selects="JournalDay" />);
+
+    expect(
+      [...container.querySelectorAll('.day-cell')].map(e => e.className),
+    ).toEqual([
+      'day-cell other-month',
+      'day-cell other-month',
+      'day-cell today',
+      'day-cell selected',
+    ]);
+  });
+
+  // ジャーナルを開いたあと、ほかのタブか窓で開いたかを知らせる。日誌の見出しは、それでカレンダーを閉じるかを決める。
+  test('after a journal is opened, it tells whether it opened in another tab or window', () => {
+    const ui = shell();
+    ui.wasm.push([], [{ kind: 'Calendar', value: november() }]);
+    const opened: boolean[] = [];
+    draw(ui, <Calendar onNavigate={elsewhere => opened.push(elsewhere)} />);
+
+    fireEvent.click(screen.getByText('23'));
+    fireEvent.click(screen.getByText('48'), { ctrlKey: true });
+    fireEvent.click(screen.getByText('November'), { shiftKey: true });
+    fireEvent.click(screen.getByRole('button', { name: '>' }));
+
+    expect(opened).toEqual([false, true, true]);
   });
 
   // 日、週の番号、月、年を押すと、そのジャーナルを開く。押したキーで、開く場所が決まる。

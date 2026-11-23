@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useAsked } from './askedContext';
 import Atlas from './Atlas';
 import type { JournalView, PageView } from './border/peta-types';
+import Calendar from './Calendar';
 import { useCore, usePanel } from './context';
 import Outline from './Outline';
 import PageProperties, { type Draft } from './PageProperties';
@@ -284,10 +285,37 @@ function Journal({ journal }: { readonly journal: JournalView }) {
   const core = useCore();
   const scrolled = usePanel('Outline')?.scrolled_from_top ?? false;
   const kind = journal.journal_type?.kind;
+  const [showCalendar, setShowCalendar] = useState(false);
+  const toggle = () => {
+    if (!showCalendar) {
+      // The calendar opens at the month of today, as the sidebar's shows
+      core.send({ kind: 'CalendarNav', value: { kind: 'Today' } });
+    }
+    setShowCalendar(!showCalendar);
+  };
   return (
     <app-journal>
       <div className={scrolled ? 'journal-header scrolled' : 'journal-header'}>
-        <h2 className="journal-date">{journal.display_date}</h2>
+        <h2 className="journal-date" onClick={toggle}>
+          {journal.display_date}
+        </h2>
+        <button className="calendar-btn" onClick={toggle}>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#666"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+        </button>
         {(kind === 'Daily' || kind === 'Weekly') && (
           <>
             <button
@@ -309,6 +337,13 @@ function Journal({ journal }: { readonly journal: JournalView }) {
           </>
         )}
       </div>
+      {/* A journal opened in another tab or window leaves this one, and its calendar, open */}
+      {showCalendar && (
+        <Calendar
+          selects="JournalDay"
+          onNavigate={elsewhere => setShowCalendar(elsewhere)}
+        />
+      )}
       {journal.page_id !== null && <Outline />}
     </app-journal>
   );
