@@ -193,45 +193,17 @@ impl PasteMode {
 /// A file the server saved. The server and the client share the type (ADR 082).
 pub use journal_api_types::Uploaded;
 
-/// What a paste came to on the server.
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Pasted {
-    /// The item pasted into, then the items created below it, in their order on the page.
-    pub items: Vec<Item>,
-    pub cursor: PasteCursor,
-}
+/// What a paste came to on the server. The server and the client share the type (ADR 082).
+pub use journal_api_types::Pasted;
 
-/// What a batch came to on the server.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Batched {
-    /// The items the batch wrote, as they are now.
-    pub items: Vec<Item>,
-    /// The empty items the server made on the pages the batch left without an item.
-    pub created: Vec<Item>,
-}
+/// What a batch came to on the server. The server and the client share the type (ADR 082).
+pub use journal_api_types::Batched;
 
-/// What sending an item to the stash came to on the server.
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Stashed {
-    /// The `# Stash` heading the items went under.
-    pub heading: Item,
-    /// True when the heading was made for this.
-    pub created: bool,
-    /// The moved items, as they are now.
-    pub items: Vec<Item>,
-}
+/// What sending an item to the stash came to on the server. The server and the client share the type (ADR 082).
+pub use journal_api_types::Stashed;
 
-/// What a split came to on the server.
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Split {
-    /// The item that was split, with the text it keeps.
-    pub item: Item,
-    /// The item made beside it.
-    pub created: Item,
-}
+/// What a split came to on the server. The server and the client share the type (ADR 082).
+pub use journal_api_types::Split;
 
 /// Where the cursor goes after a paste. The server and the client share the type (ADR 082).
 pub use journal_api_types::PasteCursor;
@@ -344,28 +316,11 @@ pub struct PageWithItems {
     pub transcluded_trees: Option<TranscludedTrees>,
 }
 
-/// `GET /api/journals/before` and `/weekly/before`.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct JournalBefore {
-    pub found: bool,
-    #[serde(default)]
-    pub page: Option<Page>,
-    #[serde(default)]
-    pub items: Vec<Item>,
-    #[serde(default)]
-    pub transcluded_trees: Option<TranscludedTrees>,
-}
+/// `GET /api/journals/before` and `/weekly/before`. The server and the client share the type (ADR 082).
+pub use journal_api_types::JournalBefore;
 
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BacklinkEntry {
-    pub source_page: Page,
-    /// None when the source page links by the tag in its tags property.
-    #[serde(default)]
-    pub source_item: Option<Item>,
-}
+/// A page that links to another, and the item that holds the link. The server and the client share the type (ADR 082).
+pub use journal_api_types::BacklinkEntry;
 
 /// `POST /api/items/export`. The server and the client share the type (ADR 082).
 pub use journal_api_types::TreeExport;
