@@ -21,7 +21,9 @@ extension ViewModel {
             atlasLinks: the { if case .atlasLinks(let it) = $0 { it } else { nil } },
             atlasLinkSuggestions: the { if case .atlasLinkSuggestions(let it) = $0 { it } else { nil } },
             outline: OutlineView(outline, rows: [Row]().applying(changes.rows)),
-            sidebar: the { if case .sidebar(let it) = $0 { it } else { nil } },
+            indexPages: the { if case .indexPages(let it) = $0 { it } else { nil } },
+            headings: the { if case .headings(let it) = $0 { it } else { nil } },
+            recentPages: the { if case .recentPages(let it) = $0 { it } else { nil } },
             search: the { if case .search(let it) = $0 { it } else { nil } },
             config: the { if case .config(let it) = $0 { it } else { nil } },
             connection: the { if case .connection(let it) = $0 { it } else { nil } },
@@ -46,7 +48,9 @@ extension ViewModel {
         case .atlasLinks(let value): atlasLinks = value
         case .atlasLinkSuggestions(let value): atlasLinkSuggestions = value
         case .outline(let value): outline = OutlineView(value, rows: outline.rows)
-        case .sidebar(let value): sidebar = value
+        case .indexPages(let value): indexPages = value
+        case .headings(let value): headings = value
+        case .recentPages(let value): recentPages = value
         case .search(let value): search = value
         case .config(let value): config = value
         case .connection(let value): connection = value
