@@ -22,7 +22,7 @@ pub use places::{markdown_place, place_after, touched_place};
 
 use crate::body_model::BodyModel;
 use flatmarkdown_ast::Node;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// The body of an item as it is shown: its parts from top to bottom.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
@@ -220,10 +220,10 @@ impl Looks {
 
 /// Where a link of an item leads.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RichLink {
-    /// A page of the app: its URL, such as `/pages/notes#item`, as it is written and not
-    /// encoded. A wikilink, a hashtag and a link to a `.md` file lead to a page.
+    /// A page of the app: its URL, such as `/pages/notes#item`, encoded as `page_urls` makes it
+    /// (ADR 061). A wikilink, a hashtag and a link to a `.md` file lead to a page.
     Page { url: String },
     /// An address that the browser opens.
     Web { url: String },

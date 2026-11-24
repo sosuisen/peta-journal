@@ -57,6 +57,7 @@ mod sse;
 
 // 外のプログラムと組む
 mod launcher;
+mod links;
 
 // 開いたページをたどる
 mod history;

@@ -636,7 +636,10 @@ impl<H: Host> Shell<H> {
                 let mut request = request;
                 self.resolve(&mut request, UiOutput::Now { local, now_ms });
             }
-            UiOp::OpenWindow { .. }
+            // Emacs opens the links of an item itself, and sends no keys with a click on a page
+            // in the sidebar: the core does not order these yet (#1063)
+            UiOp::OpenNewView { .. }
+            | UiOp::OpenInBrowser { .. }
             | UiOp::SaveAtlasDirs(_)
             | UiOp::CopyFailed
             | UiOp::Prompt(_)

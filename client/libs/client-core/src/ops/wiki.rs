@@ -35,7 +35,7 @@ pub fn open_link_at(model: &Model, item_id: &str, cursor: usize) -> Cmd {
     match link {
         Some(Link::Wiki(content)) => match page_urls::split_wikilink(&content) {
             (name, None) => open_page(name),
-            (name, item) => to_page(name, false, false, false, item),
+            (name, item) => to_page(name, false, item),
         },
         Some(Link::Tag(tag)) => open_page(&page_urls::tag_page_name(&model.config.tags_dir, &tag)),
         None => done(),

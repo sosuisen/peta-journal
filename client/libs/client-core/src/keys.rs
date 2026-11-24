@@ -37,26 +37,26 @@ pub struct Held {
     pub cmd: bool,
 }
 
-/// Where a clicked page opens.
+/// Where a clicked page opens (ADR 083).
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, serde::Serialize)]
 pub enum OpenIn {
     /// In place of the shown page.
     #[default]
     Here,
-    /// In a new tab of the browser.
-    Tab,
-    /// In a new window of the browser.
-    Window,
+    /// In a new view of the app: a new tab of the web frontend, or a new sticky.
+    NewView,
+    /// The page of the web frontend, in the browser.
+    Browser,
 }
 
 impl Held {
-    /// Shift opens a window, Ctrl or Command a tab. Shift wins when both are held.
+    /// Shift opens the browser, Ctrl or Command a new view. Shift wins when both are held.
     pub fn open_in(self) -> OpenIn {
         if self.shift {
-            OpenIn::Window
+            OpenIn::Browser
         } else if self.ctrl || self.cmd {
-            OpenIn::Tab
+            OpenIn::NewView
         } else {
             OpenIn::Here
         }

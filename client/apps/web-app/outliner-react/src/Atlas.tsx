@@ -290,13 +290,13 @@ function makeCanvas(
   const start = loadViews()[dir] ?? { x: 0, y: 0, zoom: 1 };
   const made = new window.AtlasCanvas(
     host,
-    // atlas.js gives Ctrl or Command as newTab, and Shift as newWindow
+    // atlas.js gives Ctrl or Command as newTab, and Shift as newWindow: a new view and the browser
     (path, newTab, newWindow) => {
       let open_in: OpenIn = { kind: 'Here' };
       if (newWindow) {
-        open_in = { kind: 'Window' };
+        open_in = { kind: 'Browser' };
       } else if (newTab) {
-        open_in = { kind: 'Tab' };
+        open_in = { kind: 'NewView' };
       }
       core.send({ kind: 'GoToPage', path, open_in });
     },

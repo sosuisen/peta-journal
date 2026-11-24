@@ -8,9 +8,9 @@ use journal_api_types::routes::Route;
 use journal_api_types::{
     AddPropertyDefinitionInput, AnswerConfirmInput, AtlasCalloutInput, AtlasGroupInput,
     AtlasLinkInput, AtlasTitleInput, BatchInput, CreateItemInput, DemotePageInput,
-    GetOrCreateDocInput, ItemIdsInput, LaunchUrlInput, MergeItemsInput, MoveItemsInput,
-    MoveToJournalInput, PasteInput, PropertyInput, ShiftLevelsInput, SplitInput, StashInput,
-    TransclusionInput, UpdateConfigInput, UpdateItemInput, UpdatePageInput,
+    GetOrCreateDocInput, ItemIdsInput, MergeItemsInput, MoveItemsInput, MoveToJournalInput,
+    PasteInput, PropertyInput, ShiftLevelsInput, SplitInput, StashInput, TransclusionInput,
+    UpdateConfigInput, UpdateItemInput, UpdatePageInput,
 };
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use serde::de::DeserializeOwned;
@@ -212,10 +212,6 @@ struct DefinitionsEnvelope {
 #[serde(rename_all = "camelCase")]
 struct ItemIdsEnvelope {
     item_ids: Vec<String>,
-}
-#[derive(Deserialize)]
-struct LaunchEnvelope {
-    success: bool,
 }
 
 fn done(reply: &HttpReply) -> ApiResult<ApiOutput> {
@@ -657,12 +653,6 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             parsed::<BacklinksEnvelope>(reply).map(|e| ApiOutput::Backlinks(e.entries))
         }),
         ApiOp::UploadAsset { .. } => return None,
-        ApiOp::LaunchUrl { url } => call(
-            routes::LAUNCH_URL,
-            &[],
-            body(LaunchUrlInput { url: Some(url) }),
-            |reply| parsed::<LaunchEnvelope>(reply).map(|e| ApiOutput::Launched(e.success)),
-        ),
         ApiOp::OpenExportFolder { page_id } => {
             call(routes::OPEN_EXPORT_FOLDER, &[&page_id], None, done)
         }

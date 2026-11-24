@@ -23,6 +23,8 @@ journal-names = { path = "../../../journal/journal-names" }
 page-names = { path = "../../../journal/page-names" }
 # The URLs of the pages, as the journal makes them (ADR 061)
 page-urls = { path = "../../../journal/page-urls" }
+# The address of a file of the assets folder, as a copy and a native shell write it (ADR 083)
+client-page-links = { path = "../client-page-links" }
 # The bodies of the requests, in the types the journal reads them with
 journal-api-types = { path = "../../../journal/journal-api-types" }
 # Makes the name of a new key from its body and type (ADR 047)

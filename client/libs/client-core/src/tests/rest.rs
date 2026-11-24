@@ -858,11 +858,6 @@ fn every_answer_becomes_the_output_of_its_operation() {
             json!({ "itemIds": ["a"] }),
             ApiOutput::ItemIds(vec![id("a")]),
         ),
-        (
-            ApiOp::LaunchUrl { url: id("x://y") },
-            json!({ "success": true }),
-            ApiOutput::Launched(true),
-        ),
     ];
     for (op, body, expected) in cases {
         assert_eq!(answer(op.clone(), body), expected, "{op:?}");

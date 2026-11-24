@@ -226,10 +226,6 @@ pub enum ApiOp {
     UploadAsset {
         file: u64,
     },
-    /// `POST /api/launcher/open` with a custom URL scheme.
-    LaunchUrl {
-        url: String,
-    },
     /// `POST /api/pages/{id}/open-folder`: the OS shows the folder of the page's markdown file.
     OpenExportFolder {
         page_id: String,
@@ -307,7 +303,6 @@ pub enum ApiOutput {
     Stashed(Box<Stashed>),
     Batched(Box<Batched>),
     Uploaded(Uploaded),
-    Launched(bool),
     /// Another page has the name a page was to take; the server's message says which.
     PageNameTaken(String),
     Done,
@@ -439,9 +434,16 @@ pub enum UiOp {
     ConfirmDestructive(String),
     /// Resolved with `UiOutput::Text`; None when dismissed.
     Prompt(String),
-    OpenWindow {
+    /// Opens the URL of the app, such as `/pages/notes`, in a new view: a new tab of the web
+    /// frontend, or a new sticky (ADR 083).
+    OpenNewView {
         url: String,
-        new_window: bool,
+    },
+    /// Opens the address in the browser (ADR 083). An address of the journal server starts
+    /// with `/`, as `/pages/notes` or `/assets/a.png`: the bridge of a native shell puts the
+    /// address of the server before it.
+    OpenInBrowser {
+        address: String,
     },
     /// Resolved with `UiOutput::Now`.
     LocalNow,
@@ -1128,13 +1130,6 @@ impl<Event: Send + 'static> Api<Event> {
 
     pub async fn upload_asset(&self, file: u64) -> ApiResult<Uploaded> {
         expect_output!(self.call(ApiOp::UploadAsset { file }).await, Uploaded)
-    }
-
-    pub async fn launch_url(&self, url: &str) -> ApiResult<bool> {
-        expect_output!(
-            self.call(ApiOp::LaunchUrl { url: url.into() }).await,
-            Launched
-        )
     }
 
     pub async fn open_export_folder(&self, page_id: &str) -> ApiResult<()> {

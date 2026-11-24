@@ -64,7 +64,6 @@ pub fn op_to_file(mut op: ApiOp) -> ApiOp {
         | ApiOp::GetChildPages { .. }
         | ApiOp::GetBacklinks { .. }
         | ApiOp::UploadAsset { .. }
-        | ApiOp::LaunchUrl { .. }
         | ApiOp::OpenExportFolder { .. } => {}
     }
     op
@@ -161,7 +160,6 @@ pub fn output_to_shell(mut output: ApiOutput) -> ApiOutput {
         | ApiOutput::TreeExport(_)
         | ApiOutput::ItemIds(_)
         | ApiOutput::Uploaded(_)
-        | ApiOutput::Launched(_)
         | ApiOutput::PageNameTaken(_)
         | ApiOutput::Done => {}
     }

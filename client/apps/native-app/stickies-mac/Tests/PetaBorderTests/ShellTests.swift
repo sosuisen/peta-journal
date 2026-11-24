@@ -161,9 +161,45 @@ final class ShellTests: XCTestCase {
 
         shell.follow(.page(url: "/pages/apple-pie"), holding: .command)
 
+        try await waitUntil("a new sticky is asked for") { asked != nil }
         XCTAssertEqual(asked, "/pages/apple-pie")
         XCTAssertEqual(shell.url, "/pages/swift-notes")
         XCTAssertNil(browsed)
+    }
+
+    // ページへのリンクをキーを押さずに、またはOptionだけを押してたどると、その付箋紙でページが開く。ブラウザには渡らない（ADR 083）。
+    func testALinkToAPageFollowedWithoutAKeyOpensThePageInTheSticky() async throws {
+        for held: NSEvent.ModifierFlags in [[], .option] {
+            var browsed: URL?
+            let shell = Shell(
+                server: server.address, url: "/pages/swift-notes", clipboard: { nil },
+                browse: { browsed = $0 })
+            try await waitUntil("the page is shown") { !shell.view.outline.rows.isEmpty }
+
+            shell.follow(.page(url: "/pages/apple-pie"), holding: held)
+
+            try await waitUntil("the linked page is shown") { shell.title == "apple-pie" }
+            XCTAssertEqual(shell.url, "/pages/apple-pie")
+            XCTAssertNil(browsed)
+        }
+    }
+
+    // Shiftを押したページへのリンクと、資産のファイルとWebへのリンクは、ブラウザに渡る。ページはWebのフロントエンドで、資産のファイルはジャーナルサーバーが出すもので開く。付箋紙のページは変わらない。
+    func testALinkThatGoesToTheBrowserLeavesTheStickyWithItsPage() async throws {
+        var browsed: URL?
+        let shell = Shell(
+            server: server.address, url: "/pages/swift-notes", clipboard: { nil },
+            browse: { browsed = $0 })
+        try await waitUntil("the page is shown") { !shell.view.outline.rows.isEmpty }
+        func opens(_ link: RichLink, _ held: NSEvent.ModifierFlags, _ address: String) async throws {
+            shell.follow(link, holding: held)
+            try await waitUntil("\(address) opens in the browser") { browsed?.absoluteString == address }
+        }
+
+        try await opens(.page(url: "/pages/linked/idea"), .shift, "\(server.address)/pages/linked/idea")
+        try await opens(.file(path: "assets/report a.pdf"), [], "\(server.address)/assets/report%20a.pdf")
+        try await opens(.web(url: "https://example.com/a"), .command, "https://example.com/a")
+        XCTAssertEqual(shell.url, "/pages/swift-notes")
     }
 
     /// Types into the first item and presses Enter at the end of it, which makes a second item.

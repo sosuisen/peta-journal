@@ -131,7 +131,7 @@ final class OutlineScreenTests: XCTestCase {
 
         try click(on: "Idea", in: editors()[0])
 
-        XCTAssertEqual(shell.url, "/pages/Idea")
+        try await waitUntil("the page opens") { self.shell.url == "/pages/Idea" }
         XCTAssertNil(browsed)
     }
 
@@ -141,7 +141,8 @@ final class OutlineScreenTests: XCTestCase {
 
         try click(on: "Idea", in: editors()[0], holding: .shift)
 
-        XCTAssertEqual(browsed, URL(string: "\(server.address)/pages/Idea"))
+        let address = URL(string: "\(server.address)/pages/Idea")
+        try await waitUntil("the page opens in the browser") { self.browsed == address }
         XCTAssertEqual(shell.url, "/pages/screen")
     }
 
@@ -151,7 +152,7 @@ final class OutlineScreenTests: XCTestCase {
 
         try click(on: "Idea", in: editors()[0], holding: .command)
 
-        XCTAssertEqual(askedSticky, "/pages/Idea")
+        try await waitUntil("a new sticky is asked for") { self.askedSticky == "/pages/Idea" }
         XCTAssertEqual(shell.url, "/pages/screen")
         XCTAssertNil(browsed)
     }
@@ -163,7 +164,7 @@ final class OutlineScreenTests: XCTestCase {
 
         try click(on: "#todo", in: editors()[0])
 
-        XCTAssertEqual(shell.url, "/pages/\(tags)todo")
+        try await waitUntil("the page of the tag opens") { self.shell.url == "/pages/\(tags)todo" }
         XCTAssertNil(browsed)
     }
 
@@ -173,7 +174,8 @@ final class OutlineScreenTests: XCTestCase {
 
         try click(on: "#todo", in: editors()[0], holding: .shift)
 
-        XCTAssertEqual(browsed, URL(string: "\(server.address)/pages/\(shell.view.config.tagsDir)todo"))
+        let address = URL(string: "\(server.address)/pages/\(shell.view.config.tagsDir)todo")
+        try await waitUntil("the page of the tag opens in the browser") { self.browsed == address }
         XCTAssertEqual(shell.url, "/pages/screen")
     }
 
@@ -183,7 +185,7 @@ final class OutlineScreenTests: XCTestCase {
 
         try click(on: "out", in: editors()[0])
 
-        XCTAssertEqual(browsed, URL(string: "https://example.com/a"))
+        try await waitUntil("the link opens in the browser") { self.browsed == URL(string: "https://example.com/a") }
         XCTAssertEqual(shell.url, "/pages/screen")
         XCTAssertEqual(editors()[0].string, "Idea #todo out plain")
         XCTAssertTrue(focused === editors()[1])

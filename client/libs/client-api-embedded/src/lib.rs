@@ -249,12 +249,11 @@ impl EmbeddedJournal {
 
             // What the journal server does with the machine it runs on. An app does these
             // itself, with what its platform gives it
-            ApiOp::BrowseFolder
-            | ApiOp::LaunchUrl { .. }
-            | ApiOp::OpenExportFolder { .. }
-            | ApiOp::UploadAsset { .. } => Err(AppError::not_found(
-                "The journal inside the app does not do this",
-            )),
+            ApiOp::BrowseFolder | ApiOp::OpenExportFolder { .. } | ApiOp::UploadAsset { .. } => {
+                Err(AppError::not_found(
+                    "The journal inside the app does not do this",
+                ))
+            }
         }
     }
 }

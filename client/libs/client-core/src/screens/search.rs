@@ -228,7 +228,7 @@ fn navigate_to_result(model: &mut Model, result: &SearchResult) -> Cmd {
     let fragment = (!result.item_id.is_empty()).then_some(result.item_id.as_str());
     Command::all([
         clear,
-        navigate::to_page(&result.page_title, false, false, false, fragment),
+        navigate::to_page(&result.page_title, false, fragment),
     ])
 }
 

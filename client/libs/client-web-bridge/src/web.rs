@@ -293,13 +293,14 @@ impl Host for Browser {
                 let answer = window().prompt_with_message(message).ok().flatten();
                 done(UiOutput::Text(answer));
             }
-            UiOp::OpenWindow { url, new_window } => {
-                // The core makes the URL encoded (ADR 061)
-                let _ = if *new_window {
-                    window().open_with_url_and_target_and_features(url, "_blank", "noopener")
-                } else {
-                    window().open_with_url_and_target(url, "_blank")
-                };
+            // The core makes the URL encoded (ADR 061). A new view of the app is a new tab
+            UiOp::OpenNewView { url } => {
+                let _ = window().open_with_url_and_target(url, "_blank");
+            }
+            // The browser is a new window, that the page it opens cannot reach back from
+            UiOp::OpenInBrowser { address } => {
+                let _ =
+                    window().open_with_url_and_target_and_features(address, "_blank", "noopener");
             }
             // The rest are not for the window (`crate::lanes`)
             _ => {}

@@ -141,32 +141,19 @@ public sealed partial class Shell : IDisposable
         DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>
-    /// The user clicked a link of a shown item, with the keys in <paramref name="held"/>. A link
-    /// to a page clicked without a key opens the page in this sticky, and with Control in a new
-    /// sticky. Any other link opens in the browser: a page opens in the web frontend, and a
-    /// file of the assets folder as the journal server serves it.
+    /// The user clicked a link of a shown item, with the keys in <paramref name="held"/>. The
+    /// core decides how it opens (ADR 083): here, in a new sticky, or in the browser. Alt means
+    /// nothing to it.
     /// </summary>
     public void Follow(RichLink link, Held held)
     {
         ArgumentNullException.ThrowIfNull(link);
-        if (link is RichLink.Page here && held == Held.None)
+        var keys = new PetaTypes.Held
         {
-            Open(here.Url);
-            return;
-        }
-        if (link is RichLink.Page elsewhere && held == Held.Control)
-        {
-            NewStickyAsked?.Invoke(elsewhere.Url);
-            return;
-        }
-        var address = link switch
-        {
-            RichLink.Page page => PetaCore.PetaNative.PageAddress(server, page.Url),
-            RichLink.Web web => web.Url,
-            RichLink.File file => AssetAddress(file.Path)?.AbsoluteUri,
+            Shift = held.HasFlag(Held.Shift),
+            Ctrl = held.HasFlag(Held.Control),
         };
-        if (Uri.TryCreate(address, UriKind.Absolute, out var there))
-            browse(there);
+        Send(new Event.LinkClicked(link, keys));
     }
 
     /// <summary>
@@ -379,6 +366,15 @@ public sealed partial class Shell : IDisposable
                     if (!disposed)
                         border.Answer(id, new UiOutput.Text(text));
                 });
+                break;
+            // A new view of the app is a new sticky (ADR 083)
+            case UiOp.OpenNewView { Url: var url }:
+                NewStickyAsked?.Invoke(url);
+                break;
+            // The bridge has put the address of the server before an address of the server
+            case UiOp.OpenInBrowser { Address: var address }:
+                if (Uri.TryCreate(address, UriKind.Absolute, out var there))
+                    browse(there);
                 break;
         }
     }

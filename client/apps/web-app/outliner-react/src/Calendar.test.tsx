@@ -127,8 +127,8 @@ describe('the calendar', () => {
 
     expect(wasm.events).toEqual([
       { kind: 'GoToPage', path: '2026-11-23', open_in: here },
-      { kind: 'GoToPage', path: '2026-W48', open_in: { kind: 'Tab' } },
-      { kind: 'GoToPage', path: '2026-11', open_in: { kind: 'Window' } },
+      { kind: 'GoToPage', path: '2026-W48', open_in: { kind: 'NewView' } },
+      { kind: 'GoToPage', path: '2026-11', open_in: { kind: 'Browser' } },
       { kind: 'GoToPage', path: '2026', open_in: here },
     ]);
   });

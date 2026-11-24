@@ -1109,13 +1109,15 @@ public sealed class ShellTests : IDisposable
         Assert.Equal("/pages/winui-notes", shell.Url);
     }
 
-    // ページへのリンクをキーを押さずにクリックすると、その付箋紙でページが開く。ブラウザには渡らない。
-    [Fact]
-    public void A_link_to_a_page_clicked_without_a_key_opens_the_page_in_the_sticky()
+    // ページへのリンクをキーを押さずにクリックすると、その付箋紙でページが開く。Altだけを押しても同じである。ブラウザには渡らない（ADR 083）。
+    [Theory]
+    [InlineData(Held.None)]
+    [InlineData(Held.Alt)]
+    public void A_link_to_a_page_clicked_without_a_key_opens_the_page_in_the_sticky(Held held)
     {
         var shell = ShellWithPage();
 
-        shell.Follow(new RichLink.Page("/pages/apple-pie"), Held.None);
+        shell.Follow(new RichLink.Page("/pages/apple-pie"), held);
 
         main.WaitUntil("the linked page is shown", () => shell.Title == "apple-pie");
         Assert.Equal("/pages/apple-pie", shell.Url);
@@ -1132,6 +1134,7 @@ public sealed class ShellTests : IDisposable
 
         shell.Follow(new RichLink.Page("/pages/apple-pie"), Held.Control);
 
+        main.WaitUntil("a new sticky is asked for", () => asked is not null);
         Assert.Equal("/pages/apple-pie", asked);
         Assert.Equal("/pages/winui-notes", shell.Url);
         Assert.Null(browsed);
@@ -1142,22 +1145,43 @@ public sealed class ShellTests : IDisposable
     public void A_link_that_goes_to_the_browser_leaves_the_sticky_with_its_page()
     {
         var shell = ShellWithPage();
+        void Opens(RichLink link, Held held, string address)
+        {
+            shell.Follow(link, held);
+            main.WaitUntil($"{address} opens in the browser", () =>
+                browsed?.AbsoluteUri == address
+            );
+        }
 
-        shell.Follow(new RichLink.Page("/pages/linked/idea"), Held.Shift);
-        Assert.Equal($"{server.Address}/pages/linked/idea", browsed?.AbsoluteUri);
-
-        shell.Follow(new RichLink.Page("/pages/メモ/案 1#item"), Held.Shift);
-        Assert.Equal(
-            $"{server.Address}/pages/%E3%83%A1%E3%83%A2/%E6%A1%88%201#item",
-            browsed?.AbsoluteUri
+        Opens(
+            new RichLink.Page("/pages/linked/idea"),
+            Held.Shift,
+            $"{server.Address}/pages/linked/idea"
         );
-
-        shell.Follow(new RichLink.File("assets/report a.pdf"), Held.None);
-        Assert.Equal($"{server.Address}/assets/report%20a.pdf", browsed?.AbsoluteUri);
-
-        shell.Follow(new RichLink.Web("https://example.com/a"), Held.None);
-        Assert.Equal(new Uri("https://example.com/a"), browsed);
+        Opens(
+            new RichLink.Page("/pages/メモ/案 1#item"),
+            Held.Shift | Held.Control,
+            $"{server.Address}/pages/%E3%83%A1%E3%83%A2/%E6%A1%88%201#item"
+        );
+        Opens(
+            new RichLink.File("assets/report a.pdf"),
+            Held.None,
+            $"{server.Address}/assets/report%20a.pdf"
+        );
+        Opens(new RichLink.Web("https://example.com/a"), Held.Control, "https://example.com/a");
         Assert.Equal("/pages/winui-notes", shell.Url);
+    }
+
+    // assetsのファイルの画像は、journalサーバーのアドレスから読む。ファイル名はURLの形に直る。
+    [Fact]
+    public void The_image_of_a_file_of_the_assets_is_read_from_the_journal_server()
+    {
+        var shell = ShellWithPage();
+
+        Assert.Equal(
+            $"{server.Address}/assets/my%20picture.png",
+            shell.AssetAddress("assets/my picture.png")?.AbsoluteUri
+        );
     }
 
     /// <summary>
