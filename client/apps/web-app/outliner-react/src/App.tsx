@@ -126,7 +126,11 @@ function useGlobalKeys(): void {
 function useDayWatch(): void {
   const core = useCore();
   useEffect(() => {
-    const shown = () => core.send({ kind: 'DateMayHaveChanged' });
+    const shown = () => {
+      if (document.visibilityState === 'visible') {
+        core.send({ kind: 'DateMayHaveChanged' });
+      }
+    };
     document.addEventListener('visibilitychange', shown);
   }, [core]);
 }
