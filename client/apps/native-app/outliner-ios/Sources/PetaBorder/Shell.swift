@@ -67,6 +67,12 @@ public final class Shell: ObservableObject {
         told { $0.today() }
     }
 
+    /// The day may have changed while the core could not look at the clock, as when the app
+    /// was in the back: the journal of today opens the new day at once (#796).
+    public func dayMayHaveChanged() {
+        send(.dateMayHaveChanged)
+    }
+
     /// Opens the screen that the app showed when it was used last. The journal of today opens
     /// when there is none, as in a new app, and when its page has gone since. Without `make`,
     /// the journal of today is not made, and no screen opens then.
