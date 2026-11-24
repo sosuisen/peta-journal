@@ -58,6 +58,17 @@ jobs:
       - if: matrix.workspace == 'client'
         working-directory: client/apps/emacs/outliner
         run: emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit
+      # The formatter of the Emacs Lisp is shared with other projects. A new tag of it changes
+      # nothing here until this line asks for it
+      - if: matrix.workspace == 'client'
+        uses: actions/checkout@v7
+        with:
+          repository: sosuisen/elisp-formatter
+          ref: v0.1.0
+          path: elisp-formatter
+      - if: matrix.workspace == 'client'
+        working-directory: client/apps/emacs/outliner
+        run: emacs -Q --batch -l "$GITHUB_WORKSPACE/elisp-formatter/elisp-formatter.el" -f elisp-formatter-check lisp
 
   # The E2E tests of the Emacs mode press real keys, with the real shell and a real server
   emacs-e2e:

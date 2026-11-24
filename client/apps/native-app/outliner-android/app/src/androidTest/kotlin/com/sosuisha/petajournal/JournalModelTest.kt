@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.sosuisha.petajournal.sync.SyncState
 import com.sosuisha.petajournal.types.ScreenView
+import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -14,11 +15,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
 
 /**
- * When the app syncs, and what the sign-in and the sign-out do to it. The model has a real
- * core under it, on the folders of a test. The cloud is the account of a test.
+ * When the app syncs, and what the sign-in and the sign-out do to it. The model has a real core
+ * under it, on the folders of a test. The cloud is the account of a test.
  */
 @RunWith(AndroidJUnit4::class)
 class JournalModelTest {
@@ -32,15 +32,17 @@ class JournalModelTest {
         root.deleteRecursively()
     }
 
-    @After
-    fun close() = onMain { opened?.close() }
+    @After fun close() = onMain { opened?.close() }
 
     private fun onMain(work: () -> Unit) = instrumentation.runOnMainSync(work)
 
     /** Opens the app on the folders of the test. An edit syncs after [afterEditMs]. */
     private fun open(account: FakeAccount, afterEditMs: Long = NEVER_MS): JournalModel {
         lateinit var model: JournalModel
-        onMain { model = JournalModel(app, File(root, "files"), File(root, "cache"), account, afterEditMs) }
+        onMain {
+            model =
+                JournalModel(app, File(root, "files"), File(root, "cache"), account, afterEditMs)
+        }
         opened = model
         return model
     }
@@ -77,7 +79,10 @@ class JournalModelTest {
 
         assertTrue(model.shell.unopened)
         assertEquals(SyncState.SignedOut, model.cloud?.state)
-        assertEquals(emptyList<String>(), File(root, "files/markdown/journals").list().orEmpty().toList())
+        assertEquals(
+            emptyList<String>(),
+            File(root, "files/markdown/journals").list().orEmpty().toList(),
+        )
     }
 
     // サインインしているアプリは、今日のジャーナルを開く。
@@ -103,7 +108,10 @@ class JournalModelTest {
 
         assertTrue(account.isSignedIn)
         assertTrue(inFront)
-        waitUntil { File(root, "files/markdown/docs/trip.md").exists() && model.cloud?.state == SyncState.Idle }
+        waitUntil {
+            File(root, "files/markdown/docs/trip.md").exists() &&
+                model.cloud?.state == SyncState.Idle
+        }
     }
 
     // 始めた同期は、コアの知らせを待たずに、画面で動いていると分かる。その間、画面はサインアウトを出さない。コアは、同期の途中のサインアウトを受け付けない。

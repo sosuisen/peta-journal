@@ -5,22 +5,22 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import java.io.File
@@ -60,7 +60,11 @@ private fun EntriesBlock(list: ShownBlock.Entries, image: (String) -> File?) {
     Column(Modifier.padding(start = ems(list.indent))) {
         for (entry in list.entries) {
             Row {
-                Text(entry.mark, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(end = 8.dp))
+                Text(
+                    entry.mark,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(end = 8.dp),
+                )
                 Blocks(entry.blocks, image)
             }
         }
@@ -72,8 +76,7 @@ private fun EntriesBlock(list: ShownBlock.Entries, image: (String) -> File?) {
 private fun QuoteBlock(quote: ShownBlock.Quote, image: (String) -> File?) {
     val line = MaterialTheme.colorScheme.outline
     Box(
-        Modifier
-            .padding(vertical = 4.dp)
+        Modifier.padding(vertical = 4.dp)
             .drawBehind { drawRect(line, size = Size(3.dp.toPx(), size.height)) }
             .padding(start = ems(quote.indent)),
     ) {
@@ -83,23 +86,26 @@ private fun QuoteBlock(quote: ShownBlock.Quote, image: (String) -> File?) {
 
 /** [count] ems of the usual text, as the core gives an indent (#795). */
 @Composable
-private fun ems(count: Float): Dp = with(LocalDensity.current) { MaterialTheme.typography.bodyLarge.fontSize.toDp() * count }
+private fun ems(count: Float): Dp =
+    with(LocalDensity.current) { MaterialTheme.typography.bodyLarge.fontSize.toDp() * count }
 
 /** The lines of the code as they were written. A long line is scrolled sideways, not broken. */
 @Composable
 private fun CodeBlock(code: ShownBlock.Code) {
-    val target = rememberTouchTarget { code.start + code.lines.codePointCount(0, it.coerceIn(0, code.lines.length)) }
+    val target = rememberTouchTarget {
+        code.start + code.lines.codePointCount(0, it.coerceIn(0, code.lines.length))
+    }
     Text(
         code.lines,
         style = MaterialTheme.typography.bodyMedium,
         fontFamily = FontFamily.Monospace,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .horizontalScroll(rememberScrollState())
-            .padding(8.dp)
-            .touchTarget(target),
+        modifier =
+            Modifier.fillMaxWidth()
+                .padding(vertical = 4.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .horizontalScroll(rememberScrollState())
+                .padding(8.dp)
+                .touchTarget(target),
         onTextLayout = { target?.layout = it },
     )
 }
@@ -117,7 +123,12 @@ private fun TableBlock(table: ShownBlock.Table) {
                         cell.text,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = if (row.header) FontWeight.Bold else null,
-                        modifier = Modifier.weight(1f).fillMaxHeight().border(0.5.dp, line).padding(6.dp).touchTarget(target),
+                        modifier =
+                            Modifier.weight(1f)
+                                .fillMaxHeight()
+                                .border(0.5.dp, line)
+                                .padding(6.dp)
+                                .touchTarget(target),
                         onTextLayout = { target?.layout = it },
                     )
                 }

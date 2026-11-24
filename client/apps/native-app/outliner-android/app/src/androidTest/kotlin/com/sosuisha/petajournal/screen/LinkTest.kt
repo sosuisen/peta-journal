@@ -4,12 +4,12 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import java.io.File
 import com.sosuisha.petajournal.types.ScreenView
 import com.sosuisha.petajournal.types.SearchKind
+import java.io.File
 import org.junit.Assert.assertEquals
-import org.junit.runner.RunWith
 import org.junit.Test
+import org.junit.runner.RunWith
 
 /** What a touch on a link or a tag opens. */
 @RunWith(AndroidJUnit4::class)
@@ -76,7 +76,9 @@ class LinkTest : JournalScreenFixture() {
 
         compose.onNode(hasText("#topic"), useUnmergedTree = true).performClick()
 
-        compose.waitUntil(WAIT_MS) { compose.onAllNodes(hasText("topic")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(WAIT_MS) {
+            compose.onAllNodes(hasText("topic")).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     // まだないページへのリンクに触れても、ページは作られない。ないことが見え、元のページが開いたままになる。
@@ -91,8 +93,13 @@ class LinkTest : JournalScreenFixture() {
         waitFor("No page yet: ghost")
         compose.onNode(hasText("notes")).assertExists()
         type("ghost")
-        compose.waitUntil(WAIT_MS) { shell.view.search.results.any { it.kind == SearchKind.CREATE } }
-        assertEquals(emptyList<String>(), shell.view.search.results.filter { it.kind == SearchKind.PAGE }.map { it.title })
+        compose.waitUntil(WAIT_MS) {
+            shell.view.search.results.any { it.kind == SearchKind.CREATE }
+        }
+        assertEquals(
+            emptyList<String>(),
+            shell.view.search.results.filter { it.kind == SearchKind.PAGE }.map { it.title },
+        )
     }
 
     // まだないページへのリンクに触れたあとの「Make it」は、そのページを作って開く。
@@ -106,7 +113,9 @@ class LinkTest : JournalScreenFixture() {
 
         compose.onNodeWithText("Make it").performClick()
 
-        compose.waitUntil(WAIT_MS) { (shell.view.screen as? ScreenView.Page)?.value?.title == "ghost" }
+        compose.waitUntil(WAIT_MS) {
+            (shell.view.screen as? ScreenView.Page)?.value?.title == "ghost"
+        }
         compose.onNodeWithText("Make it").assertDoesNotExist()
         compose.waitUntil(WAIT_MS) { isWritten("docs/ghost.md") }
     }

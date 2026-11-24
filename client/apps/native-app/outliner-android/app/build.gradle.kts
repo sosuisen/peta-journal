@@ -1,6 +1,17 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.ncorti.ktfmt.gradle")
+}
+
+// The formatter of the Kotlin code: `gradlew ktfmtFormat` writes it, and `gradlew ktfmtCheck`
+// fails when a file is not formatted. The Kotlin style keeps the indent of 4 spaces
+ktfmt { kotlinLangStyle() }
+
+// generate.ps1 writes the Kotlin of the border. It is not kept in the repository, and the next
+// generate.ps1 would undo any formatting
+tasks.withType<com.ncorti.ktfmt.gradle.tasks.KtfmtBaseTask>().configureEach {
+    exclude { it.file.invariantSeparatorsPath.contains("/generated/") }
 }
 
 // The App key of the Dropbox app and the Markdown folder in Dropbox, such as `/PetaJournal`.
@@ -13,9 +24,7 @@ val dropboxFolder = (findProperty("dropboxFolder") as String?).orEmpty()
 android {
     namespace = "com.sosuisha.petajournal"
     // Compose UI 1.13 needs the APIs of 37.1
-    compileSdk {
-        version = release(37) { minorApiLevel = 1 }
-    }
+    compileSdk { version = release(37) { minorApiLevel = 1 } }
 
     defaultConfig {
         applicationId = "com.sosuisha.petajournal"

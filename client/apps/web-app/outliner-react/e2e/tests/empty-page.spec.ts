@@ -3,7 +3,10 @@ import { Server, openEditor, openPage, test } from './support';
 
 // The server keeps every page with at least one item, whoever deletes the last one.
 test.describe('a page keeps one item', () => {
-  test('an undo that takes away the last item leaves the empty item the server made', async ({ page, request }) => {
+  test('an undo that takes away the last item leaves the empty item the server made', async ({
+    page,
+    request,
+  }) => {
     const server = new Server(request);
     const p = await server.newDocPage('undo-empties');
     const [a] = await server.fill(p.id, ['a']);
@@ -19,7 +22,10 @@ test.describe('a page keeps one item', () => {
 
     await page.keyboard.press('Control+z');
 
-    const left = await server.itemsSettled(p.id, i => i.length === 1 && i[0].id !== b.id);
+    const left = await server.itemsSettled(
+      p.id,
+      i => i.length === 1 && i[0].id !== b.id,
+    );
     expect(left[0].body).toBe('');
     await expect(page.locator(`[id="${left[0].id}"]`)).toHaveCount(1);
   });

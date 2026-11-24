@@ -9,8 +9,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * What the sync makes of the failures of the Dropbox SDK. The screen tells only whether there
- * was no connection (ADR 054).
+ * What the sync makes of the failures of the Dropbox SDK. The screen tells only whether there was
+ * no connection (ADR 054).
  */
 class DropboxFailuresTest {
     // SDKが包んだ通信の失敗は、通信の失敗になる。通信を切ったときにSDKが投げる形である。
@@ -36,6 +36,9 @@ class DropboxFailuresTest {
     // 同期の分かる失敗は、そのまま渡る。
     @Test
     fun a_failure_that_the_sync_knows_goes_on_as_it_is() {
-        assertEquals(PetaDropboxError.UploadConflict, dropboxFailure(PetaDropboxError.UploadConflict))
+        assertEquals(
+            PetaDropboxError.UploadConflict,
+            dropboxFailure(PetaDropboxError.UploadConflict),
+        )
     }
 }

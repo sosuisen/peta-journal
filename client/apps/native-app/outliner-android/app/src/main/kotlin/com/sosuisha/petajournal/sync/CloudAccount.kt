@@ -4,9 +4,9 @@ import android.content.Context
 import com.sosuisha.petajournal.core.PetaDropboxSdk
 
 /**
- * The account of the cloud storage that the app is signed in to: the sign-in, the sign-out,
- * and the calls of the SDK of the storage that the sync makes. The app knows the storage only
- * by this, so a test puts its own account here.
+ * The account of the cloud storage that the app is signed in to: the sign-in, the sign-out, and the
+ * calls of the SDK of the storage that the sync makes. The app knows the storage only by this, so a
+ * test puts its own account here.
  */
 interface CloudAccount {
     /** False in an app that was built without what the storage asks of an app: it syncs nothing. */
@@ -21,8 +21,8 @@ interface CloudAccount {
     fun signIn(from: Context)
 
     /**
-     * Keeps the credential of a sign-in that has just ended, if any. It is for the time the
-     * app comes to the front: the sign-in ends in the browser.
+     * Keeps the credential of a sign-in that has just ended, if any. It is for the time the app
+     * comes to the front: the sign-in ends in the browser.
      */
     fun keepNewSignIn()
 

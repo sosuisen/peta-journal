@@ -1,12 +1,12 @@
 package com.sosuisha.petajournal.shell
 
+import java.io.File
+import java.nio.file.Files
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
-import java.io.File
-import java.nio.file.Files
 
 /** The file that a pasted image is written to, for the core to save it (ADR 071). */
 class PastedImageTest {
@@ -49,6 +49,7 @@ class PastedImageTest {
     }
 
     private companion object {
-        val DRAWING = byteArrayOf(0x89.toByte(), 'P'.code.toByte(), 'N'.code.toByte(), 'G'.code.toByte())
+        val DRAWING =
+            byteArrayOf(0x89.toByte(), 'P'.code.toByte(), 'N'.code.toByte(), 'G'.code.toByte())
     }
 }

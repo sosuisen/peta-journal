@@ -785,7 +785,7 @@ The list of properties takes the point, so the current buffer may not be the pag
     (peta-journal-e2e--wait-page-title "新しい日時のページ")
     (peta-journal-e2e--wait-for
      "the key published" (lambda () (seq-find (lambda (k) (equal (plist-get k :key) "published"))
-                                         peta-journal--free-keys)))
+                                              peta-journal--free-keys)))
     (let ((before (format-time-string "%Y-%m-%d %H:%M")))
       (execute-kbd-macro (vconcat (kbd "C-c C-x p s") "published" (kbd "RET RET")))
       (peta-journal-e2e--wait-for

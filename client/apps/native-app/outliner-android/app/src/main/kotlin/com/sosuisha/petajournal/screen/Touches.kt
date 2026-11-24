@@ -13,9 +13,9 @@ import androidx.compose.ui.text.TextLayoutResult
 import kotlin.math.max
 
 /**
- * The texts of an item that a touch can fall on, as they are laid out. Each text of the item
- * tells where it stands and how its letters are laid out; a touch on the item finds the letter
- * under it, and the core puts the cursor at its place in the Markdown (ADR 042).
+ * The texts of an item that a touch can fall on, as they are laid out. Each text of the item tells
+ * where it stands and how its letters are laid out; a touch on the item finds the letter under it,
+ * and the core puts the cursor at its place in the Markdown (ADR 042).
  */
 class Touches {
     private val targets = mutableListOf<TouchTarget>()
@@ -32,9 +32,9 @@ class Touches {
     }
 
     /**
-     * How many letters of the shown text of the item stand before a touch at [point] of the
-     * item. A touch beside the texts goes to the nearest line of the text nearest to it. `null`
-     * when the item shows no text, as an image alone.
+     * How many letters of the shown text of the item stand before a touch at [point] of the item. A
+     * touch beside the texts goes to the nearest line of the text nearest to it. `null` when the
+     * item shows no text, as an image alone.
      */
     fun letter(point: Offset): Int? {
         val item = item?.takeIf { it.isAttached } ?: return null
@@ -43,9 +43,10 @@ class Touches {
             val layout = target.layout ?: return@mapNotNull null
             Triple(target, coordinates, layout)
         }
-        val (target, coordinates, layout) = placed.minByOrNull { (_, coordinates) ->
-            distance(point, item.localBoundingBoxOf(coordinates, clipBounds = false))
-        } ?: return null
+        val (target, coordinates, layout) =
+            placed.minByOrNull { (_, coordinates) ->
+                distance(point, item.localBoundingBoxOf(coordinates, clipBounds = false))
+            } ?: return null
         val inside = coordinates.localPositionOf(item, point)
         return target.letter(layout.getOffsetForPosition(inside))
     }
@@ -70,9 +71,8 @@ class TouchTarget {
 }
 
 /**
- * Makes the text that is drawn here one that a touch can fall on. [letter] gives how many
- * letters of the shown text of the item stand before an offset of the text. `null` outside an
- * item.
+ * Makes the text that is drawn here one that a touch can fall on. [letter] gives how many letters
+ * of the shown text of the item stand before an offset of the text. `null` outside an item.
  */
 @Composable
 fun rememberTouchTarget(letter: (Int) -> Int): TouchTarget? {

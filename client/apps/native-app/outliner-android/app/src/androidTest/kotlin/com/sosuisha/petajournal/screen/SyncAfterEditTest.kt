@@ -10,8 +10,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sosuisha.petajournal.sync.SyncState
 import org.junit.Assert.assertFalse
-import org.junit.runner.RunWith
 import org.junit.Test
+import org.junit.runner.RunWith
 
 /** How long the sync of these tests waits after the last change of a page. */
 private const val AFTER_CHANGE_MS = 1_500L

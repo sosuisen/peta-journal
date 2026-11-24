@@ -15,8 +15,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The parts of an item, written from the parts that the core gives with the row (ADR 042). How
- * the core makes the parts is tested in Rust.
+ * The parts of an item, written from the parts that the core gives with the row (ADR 042). How the
+ * core makes the parts is tested in Rust.
  */
 @RunWith(AndroidJUnit4::class)
 class ShownTextTest {
@@ -24,10 +24,22 @@ class ShownTextTest {
 
     private fun run(text: String, link: RichLink? = null) = RichRun(text, plain, link)
 
-    private fun paragraph(vararg runs: RichRun, mark: String? = null, depth: UInt = 0u, start: UInt = 0u) =
+    private fun paragraph(
+        vararg runs: RichRun,
+        mark: String? = null,
+        depth: UInt = 0u,
+        start: UInt = 0u,
+    ) =
         RichParagraph(
-            heading = 0u, scale = 1.0f, depth = depth, quoted = 0u, indent = 0.0f, mark = mark, rule = false,
-            runs = runs.toList(), start = start,
+            heading = 0u,
+            scale = 1.0f,
+            depth = depth,
+            quoted = 0u,
+            indent = 0.0f,
+            mark = mark,
+            rule = false,
+            runs = runs.toList(),
+            start = start,
         )
 
     private fun text(vararg paragraphs: RichParagraph) = RichBlock.Text(paragraphs.toList())
@@ -40,7 +52,10 @@ class ShownTextTest {
     // 段落は、文字の部品になる。終わりに改行はない。
     @Test
     fun paragraphs_are_one_text_without_a_line_break_at_its_end() {
-        assertEquals(listOf("one\ntwo"), shown(text(paragraph(run("one")), paragraph(run("two")))).map(::letters))
+        assertEquals(
+            listOf("one\ntwo"),
+            shown(text(paragraph(run("one")), paragraph(run("two")))).map(::letters),
+        )
     }
 
     // コードブロックは、その行のままの部品になる。
@@ -52,7 +67,11 @@ class ShownTextTest {
     // 箇条書きの項目は、印から始まる。
     @Test
     fun an_entry_of_a_list_starts_with_its_mark() {
-        val list = text(paragraph(run("c"), mark = "3.", depth = 1u), paragraph(run("d"), mark = "☑", depth = 1u))
+        val list =
+            text(
+                paragraph(run("c"), mark = "3.", depth = 1u),
+                paragraph(run("d"), mark = "☑", depth = 1u),
+            )
         assertEquals(listOf("3. c\n☑ d"), shown(list).map(::letters))
     }
 
@@ -78,20 +97,25 @@ class ShownTextTest {
     fun a_list_or_a_quote_that_holds_a_part_has_the_indent_that_the_core_gives() {
         val code = RichBlock.Code("c", 0u)
         val list = RichBlock.Entries(listOf(RichEntry("•", listOf(code))), 1.25f)
-        val indents = shown(list, RichBlock.Quote(listOf(code), 1.75f)).map {
-            when (it) {
-                is ShownBlock.Entries -> it.indent
-                is ShownBlock.Quote -> it.indent
-                else -> null
+        val indents =
+            shown(list, RichBlock.Quote(listOf(code), 1.75f)).map {
+                when (it) {
+                    is ShownBlock.Entries -> it.indent
+                    is ShownBlock.Quote -> it.indent
+                    else -> null
+                }
             }
-        }
         assertEquals(listOf(1.25f, 1.75f), indents)
     }
 
     // 文字の位置は、項目の表示の文字のうち、その前に立つ文字の数になる。印の上は、その段落の先頭である。
     @Test
     fun a_place_in_a_text_is_the_count_of_the_shown_letters_before_it() {
-        val list = text(paragraph(run("ab"), mark = "1.", depth = 1u), paragraph(run("😀c"), mark = "2.", depth = 1u, start = 3u))
+        val list =
+            text(
+                paragraph(run("ab"), mark = "1.", depth = 1u),
+                paragraph(run("😀c"), mark = "2.", depth = 1u, start = 3u),
+            )
         val shown = shown(list).single() as ShownBlock.Text
 
         // The text is "1. ab\n2. 😀c"; 😀 is two UTF-16 units and one letter of the core
@@ -113,11 +137,15 @@ class ShownTextTest {
     fun a_touch_on_a_link_gives_where_the_core_says_it_leads() {
         val page = RichLink.Page("/pages/other%20page")
         val touched = mutableListOf<RichLink>()
-        val shown = shown(text(paragraph(run("other", page), run(" plain")))) { touched += it }.single() as ShownBlock.Text
+        val shown =
+            shown(text(paragraph(run("other", page), run(" plain")))) { touched += it }.single()
+                as ShownBlock.Text
 
         val links = shown.text.getLinkAnnotations(0, shown.text.length)
         assertEquals(listOf(0 to 5), links.map { it.start to it.end })
-        (links.single().item as LinkAnnotation.Clickable).linkInteractionListener?.onClick(links.single().item)
+        (links.single().item as LinkAnnotation.Clickable)
+            .linkInteractionListener
+            ?.onClick(links.single().item)
         assertEquals(listOf<RichLink>(page), touched)
     }
 

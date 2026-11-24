@@ -3,8 +3,8 @@ package com.sosuisha.petajournal.screen
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertTextEquals
-import androidx.compose.ui.test.click
 import androidx.compose.ui.test.center
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -13,8 +13,8 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
-import org.junit.runner.RunWith
 import org.junit.Test
+import org.junit.runner.RunWith
 
 /** The pad that moves the cursor, as the arrow keys of a desktop do. */
 @RunWith(AndroidJUnit4::class)
@@ -22,15 +22,21 @@ class CursorArrowsTest : JournalScreenFixture() {
     private fun arrow(arrow: Arrow) = pad("Move cursor", arrow)
 
     /** Touches the item that shows [text] at its end, so that the edit goes on there. */
-    private fun touchEnd(text: String) = compose.onNodeWithText(text).performTouchInput { click(centerRight) }
+    private fun touchEnd(text: String) =
+        compose.onNodeWithText(text).performTouchInput { click(centerRight) }
 
     /** Puts the cursor of the field before the UTF-16 unit [at]. */
     private fun cursorAt(at: Int) =
-        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) { it(at, at, true) }
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) {
+            it(at, at, true)
+        }
 
     /** Where the cursor of the field is, in UTF-16 units. */
     private fun cursor(): TextRange =
-        compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange]
+        compose
+            .onNodeWithTag(EDITOR_TAG)
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.TextSelectionRange]
 
     /** Opens a page of two items, and touches the one that shows [edited] to edit it. */
     private fun editOneOfTwo(first: String, second: String, edited: String) {
@@ -43,10 +49,16 @@ class CursorArrowsTest : JournalScreenFixture() {
 
     /** Waits until the field edits [text], with the cursor before the UTF-16 unit [at]. */
     private fun waitForEdit(text: String, at: Int) =
-        compose.waitUntil(WAIT_MS) { runCatching { editedText() == text && cursor() == TextRange(at) }.getOrDefault(false) }
+        compose.waitUntil(WAIT_MS) {
+            runCatching { editedText() == text && cursor() == TextRange(at) }.getOrDefault(false)
+        }
 
     private fun editedText(): String =
-        compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().config[SemanticsProperties.EditableText].text
+        compose
+            .onNodeWithTag(EDITOR_TAG)
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.EditableText]
+            .text
 
     // カーソルのパッドは、編集しているときだけ出る。
     @Test
@@ -85,7 +97,9 @@ class CursorArrowsTest : JournalScreenFixture() {
         touchEnd("abcdefgh")
         cursorAt(8)
 
-        compose.onNode(hasContentDescription("Move cursor")).performTouchInput { down(nearEdge(Arrow.Left)) }
+        compose.onNode(hasContentDescription("Move cursor")).performTouchInput {
+            down(nearEdge(Arrow.Left))
+        }
         compose.waitUntil(WAIT_MS) { cursor() == TextRange(0) }
         compose.onNode(hasContentDescription("Move cursor")).performTouchInput { up() }
 

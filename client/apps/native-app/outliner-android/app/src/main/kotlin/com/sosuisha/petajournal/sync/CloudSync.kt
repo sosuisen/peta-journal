@@ -24,23 +24,23 @@ sealed interface SyncState {
 
     /**
      * The last sync failed. What it had downloaded and uploaded stays. [offline] says that the
-     * cloud could not be reached. The screen tells only that: the words of the SDK are long,
-     * and mean nothing to the user. They go to the log.
+     * cloud could not be reached. The screen tells only that: the words of the SDK are long, and
+     * mean nothing to the user. They go to the log.
      */
     data class Failed(val offline: Boolean) : SyncState
 }
 
 /**
- * The syncs with the cloud, for the screen. The core runs them, one at a time, on a thread of
- * its own (ADR 054); this keeps where they stand on the main thread. It is used on the main
- * thread. The downloads go to the Markdown folder of the core of [shell].
+ * The syncs with the cloud, for the screen. The core runs them, one at a time, on a thread of its
+ * own (ADR 054); this keeps where they stand on the main thread. It is used on the main thread. The
+ * downloads go to the Markdown folder of the core of [shell].
  *
  * @param temp where a download is written before it is whole.
  * @param cursor keeps where the last download ended.
  * @param record keeps the versions of the files in the cloud that the app has seen.
  * @param shell takes in the downloaded files, and its core tells when a page changed.
- * @param afterChangeMs how long the sync waits after the last change of a page before it
- *   starts (ADR 055).
+ * @param afterChangeMs how long the sync waits after the last change of a page before it starts
+ *   (ADR 055).
  * @param onMainThread runs what it is given on the main thread, later and in order.
  * @param log keeps why a sync failed, for the one who looks into it.
  */
@@ -54,15 +54,16 @@ class CloudSync(
     onMainThread: (() -> Unit) -> Unit,
     log: (String) -> Unit = {},
 ) {
-    private val sync = PetaCloudSync(
-        shell.core,
-        afterChangeMs.toULong(),
-        temp.path,
-        cursor.path,
-        record.path,
-        signedIn,
-        Host(shell::syncAndWait, { onMainThread(::read) }, log),
-    )
+    private val sync =
+        PetaCloudSync(
+            shell.core,
+            afterChangeMs.toULong(),
+            temp.path,
+            cursor.path,
+            record.path,
+            signedIn,
+            Host(shell::syncAndWait, { onMainThread(::read) }, log),
+        )
 
     init {
         // A word that the keyboard composes is not saved yet, and the sync waits for it
@@ -73,18 +74,17 @@ class CloudSync(
         private set
 
     /**
-     * Whether the sync that runs is one the user waits for: the app came to the front, and
-     * the pages may be old until the sync rests. The screen then shows where it stands in a
-     * dialog. A sync after an edit is not in front: the user goes on typing.
+     * Whether the sync that runs is one the user waits for: the app came to the front, and the
+     * pages may be old until the sync rests. The screen then shows where it stands in a dialog. A
+     * sync after an edit is not in front: the user goes on typing.
      */
     var inFront: Boolean by mutableStateOf(false)
         private set
 
     /**
      * Starts a sync with the Markdown folder at the path [folder] of the cloud. While one runs,
-     * another starts after it, once. [inFront] says that the user waits for it. [sdk] throws
-     * only a `PetaDropboxError`: the core makes any other exception a failure that is not
-     * offline.
+     * another starts after it, once. [inFront] says that the user waits for it. [sdk] throws only a
+     * `PetaDropboxError`: the core makes any other exception a failure that is not offline.
      */
     fun start(sdk: PetaDropboxSdk, folder: String, inFront: Boolean = false) {
         sync.start(sdk, folder, inFront)
@@ -94,9 +94,9 @@ class CloudSync(
     }
 
     /**
-     * The user has signed out. What was downloaded stays. The core forgets where the last
-     * download ended: the next sign-in may be to another account. Not for the time a sync
-     * runs: the screen offers no sign-out then.
+     * The user has signed out. What was downloaded stays. The core forgets where the last download
+     * ended: the next sign-in may be to another account. Not for the time a sync runs: the screen
+     * offers no sign-out then.
      */
     fun signOut() {
         sync.signOut()
@@ -104,8 +104,8 @@ class CloudSync(
     }
 
     /**
-     * Reads where the sync stands from the core. What the core told on its thread may be old
-     * by the time it reaches the main thread: a sync may have started since.
+     * Reads where the sync stands from the core. What the core told on its thread may be old by the
+     * time it reaches the main thread: a sync may have started since.
      */
     private fun read() {
         state = screenState(sync.state())
@@ -117,7 +117,8 @@ private fun screenState(state: PetaSyncState): SyncState =
     when (state) {
         PetaSyncState.SignedOut -> SyncState.SignedOut
         PetaSyncState.Idle -> SyncState.Idle
-        is PetaSyncState.Downloading -> SyncState.Downloading(state.done.toInt(), state.total.toInt())
+        is PetaSyncState.Downloading ->
+            SyncState.Downloading(state.done.toInt(), state.total.toInt())
         is PetaSyncState.Uploading -> SyncState.Uploading(state.done.toInt(), state.total.toInt())
         is PetaSyncState.Failed -> SyncState.Failed(state.offline)
     }

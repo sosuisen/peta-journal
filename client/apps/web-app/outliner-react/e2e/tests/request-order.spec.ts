@@ -1,5 +1,14 @@
 import { expect } from '@playwright/test';
-import { Server, StoredItem, editorOf, openEditor, openPage, outlineOf, shownBodies, test } from './support';
+import {
+  Server,
+  StoredItem,
+  editorOf,
+  openEditor,
+  openPage,
+  outlineOf,
+  shownBodies,
+  test,
+} from './support';
 
 /**
  * The server must get the requests in the order the core made them. A browser sends requests
@@ -20,15 +29,21 @@ test.describe('request order', () => {
     await openPage(page, doc.title);
   });
 
-  test('a join right after typing waits for the slow save of the typed text, and keeps the text', async ({ page }) => {
+  test('a join right after typing waits for the slow save of the typed text, and keeps the text', async ({
+    page,
+  }) => {
     const a = byBody('a').id;
     const b = byBody('b').id;
     // The save of `b` is slow on its way to the server, as on a server that has just started
     const sent: string[] = [];
     let release = () => {};
-    const held = new Promise<void>(resolve => { release = resolve; });
+    const held = new Promise<void>(resolve => {
+      release = resolve;
+    });
     let sawSave = () => {};
-    const saveOnItsWay = new Promise<void>(resolve => { sawSave = resolve; });
+    const saveOnItsWay = new Promise<void>(resolve => {
+      sawSave = resolve;
+    });
     await page.route('**/api/**', async route => {
       const request = route.request();
       if (request.method() === 'GET') return route.continue();
@@ -58,7 +73,9 @@ test.describe('request order', () => {
     expect(outlineOf(await server.items(pageId))).toEqual(['1:a', '1:b']);
     release();
 
-    expect(outlineOf(await server.itemsSettled(pageId, i => i.length === 1))).toEqual(['1:abX']);
+    expect(
+      outlineOf(await server.itemsSettled(pageId, i => i.length === 1)),
+    ).toEqual(['1:abX']);
     expect(sent.at(-1)).toBe('POST /api/items/merge');
     await expect.poll(() => shownBodies(page)).toEqual(['abX']);
     await expect(editorOf(page, a)).toBeFocused();

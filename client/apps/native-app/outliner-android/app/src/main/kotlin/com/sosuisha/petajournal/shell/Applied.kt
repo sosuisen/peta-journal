@@ -20,7 +20,8 @@ internal fun firstView(changes: Changes): ViewModel {
         atlasCallouts = panels.the<Panel.AtlasCallouts>().value,
         atlasLinks = panels.the<Panel.AtlasLinks>().value,
         atlasLinkSuggestions = panels.the<Panel.AtlasLinkSuggestions>().value,
-        outline = outlineOf(panels.the<Panel.Outline>().value, emptyList<Row>().applied(changes.rows)),
+        outline =
+            outlineOf(panels.the<Panel.Outline>().value, emptyList<Row>().applied(changes.rows)),
         sidebar = panels.the<Panel.Sidebar>().value,
         search = panels.the<Panel.Search>().value,
         config = panels.the<Panel.Config>().value,

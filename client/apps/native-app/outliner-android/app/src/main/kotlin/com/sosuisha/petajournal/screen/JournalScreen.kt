@@ -6,17 +6,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
@@ -27,33 +27,33 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import java.io.File
 import com.sosuisha.petajournal.shell.Question
 import com.sosuisha.petajournal.shell.Shell
 import com.sosuisha.petajournal.sync.SyncState
+import com.sosuisha.petajournal.types.Row as OutlineRow
 import com.sosuisha.petajournal.types.ScreenView
 import com.sosuisha.petajournal.types.SearchEntry
-import com.sosuisha.petajournal.types.Row as OutlineRow
 import com.sosuisha.petajournal.types.ViewModel
+import java.io.File
 
 /** The name that the tests find the search field by. */
 const val SEARCH_TAG = "search"
@@ -71,9 +71,10 @@ const val FOLDED_TAG = "folded"
 const val SELECTED_TAG = "selected"
 
 /**
- * The one screen of the app: a bar with the menu, back and forward, the search field and the
- * button for today, and under it the results of the search or the page that is open. [cloud] is where the sync
- * with the cloud stands, and `null` in an app that syncs nothing. [syncInFront] says that the user waits for the sync.
+ * The one screen of the app: a bar with the menu, back and forward, the search field and the button
+ * for today, and under it the results of the search or the page that is open. [cloud] is where the
+ * sync with the cloud stands, and `null` in an app that syncs nothing. [syncInFront] says that the
+ * user waits for the sync.
  */
 @Composable
 fun JournalScreen(
@@ -98,16 +99,25 @@ fun JournalScreen(
             CompositionLocalProvider(LocalCaret provides remember { Caret() }) {
                 Column(Modifier.safeDrawingPadding()) {
                     // At the top, where it stays while an item is edited and the keyboard is up
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         cloud?.let { SyncMenu(it, onSignIn, onSync, onSignOut) }
                         HistoryButton("Back", view.history.canGoBack, shell::back, left = true)
-                        HistoryButton("Forward", view.history.canGoForward, shell::forward, left = false)
+                        HistoryButton(
+                            "Forward",
+                            view.history.canGoForward,
+                            shell::forward,
+                            left = false,
+                        )
                         OutlinedTextField(
                             value = view.search.query,
                             onValueChange = shell::search,
                             singleLine = true,
                             placeholder = { Text("Search") },
-                            modifier = Modifier.weight(1f).padding(horizontal = 4.dp).testTag(SEARCH_TAG),
+                            modifier =
+                                Modifier.weight(1f).padding(horizontal = 4.dp).testTag(SEARCH_TAG),
                         )
                         TodayButton(shell::today)
                     }
@@ -117,7 +127,9 @@ fun JournalScreen(
                         if (shell.syncing) LinearProgressIndicator(Modifier.fillMaxSize())
                     }
                     if (cloud == SyncState.SignedOut) {
-                        Button(onSignIn, Modifier.padding(horizontal = 8.dp)) { Text("Sign in to Dropbox") }
+                        Button(onSignIn, Modifier.padding(horizontal = 8.dp)) {
+                            Text("Sign in to Dropbox")
+                        }
                     }
                     val waiting = if (syncInFront) progress(cloud) else null
                     waiting?.let { Waiting(it) }
@@ -125,11 +137,14 @@ fun JournalScreen(
                     val rows = view.outline.rows
                     val edited = rows.firstOrNull { it.isEditing }
                     // The tools act on the item that is edited, or on the first that is selected
-                    val target = (edited ?: rows.firstOrNull { it.isSelected })?.takeUnless { searching }
+                    val target =
+                        (edited ?: rows.firstOrNull { it.isSelected })?.takeUnless { searching }
                     // Full or shrunk, whatever is edited or selected. Full at first
                     var full by rememberSaveable { mutableStateOf(true) }
                     KeyboardWatch(edited, shell)
-                    BackHandler(enabled = edited == null && rows.any { it.isSelected }) { shell.unselect() }
+                    BackHandler(enabled = edited == null && rows.any { it.isSelected }) {
+                        shell.unselect()
+                    }
                     // The rest of the height: the tools stay above the keyboard
                     Box(Modifier.weight(1f)) {
                         Column {
@@ -138,17 +153,29 @@ fun JournalScreen(
                             } else {
                                 shell.question?.let { Asked(it, shell::answer) }
                                 shell.missing?.let { MissingPage(it, shell::make) }
-                                shell.missingFile?.let { Text("No file yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
-                                val links = Links(shell::follow) { path -> shell.attached(path)?.let(onFile) }
+                                shell.missingFile?.let {
+                                    Text(
+                                        "No file yet: $it",
+                                        Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                    )
+                                }
+                                val links =
+                                    Links(shell::follow) { path ->
+                                        shell.attached(path)?.let(onFile)
+                                    }
                                 Outline(title(view), view.outline.rows, links, shell::image, shell)
                             }
                         }
-                        // Over the top of the page, so that it takes no room. Not at the bottom: the
-                        // user types on the last lines most of the time, and it hid them. Not in the
+                        // Over the top of the page, so that it takes no room. Not at the bottom:
+                        // the
+                        // user types on the last lines most of the time, and it hid them. Not in
+                        // the
                         // middle: it hid the line that is edited (#884). Not while the dialog says
                         // the same
-                        if (waiting == null) cloud?.let { SyncCallout(it, onSync, Modifier.align(Alignment.TopEnd)) }
-                        if (target != null && !full) ShrunkTools({ full = true }, Modifier.align(Alignment.BottomEnd))
+                        if (waiting == null)
+                            cloud?.let { SyncCallout(it, onSync, Modifier.align(Alignment.TopEnd)) }
+                        if (target != null && !full)
+                            ShrunkTools({ full = true }, Modifier.align(Alignment.BottomEnd))
                     }
                     if (target != null && full) Tools(target, rows, shell) { full = false }
                 }
@@ -158,9 +185,9 @@ fun JournalScreen(
 }
 
 /**
- * The keyboard went down while an item was edited: by the tool, or by the button of the system.
- * The edit ends, and the item stays selected, so that the tools still act on it. The app hears
- * of the system button only through the room the keyboard takes.
+ * The keyboard went down while an item was edited: by the tool, or by the button of the system. The
+ * edit ends, and the item stays selected, so that the tools still act on it. The app hears of the
+ * system button only through the room the keyboard takes.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -171,9 +198,7 @@ private fun KeyboardWatch(edited: OutlineRow?, shell: Shell) {
     // Set while the keyboard is up for an edit that has not ended. The keyboard of an edit
     // that ended is still going down when the next edit starts, and must not end that one
     var armed by remember { mutableStateOf(false) }
-    LaunchedEffect(edited == null) {
-        if (edited == null) armed = false
-    }
+    LaunchedEffect(edited == null) { if (edited == null) armed = false }
     LaunchedEffect(up) {
         if (up) {
             armed = now != null
@@ -195,14 +220,16 @@ private fun title(view: ViewModel): String =
     }
 
 /**
- * The button that opens the journal of today. Its face is the icon of the web app: a book
- * with a ribbon.
+ * The button that opens the journal of today. Its face is the icon of the web app: a book with a
+ * ribbon.
  */
 @Composable
 private fun TodayButton(onTouch: () -> Unit) {
     val ink = MaterialTheme.colorScheme.onSurfaceVariant
     Box(
-        Modifier.size(48.dp).clickable(onClick = onTouch).semantics { contentDescription = "Today" },
+        Modifier.size(48.dp).clickable(onClick = onTouch).semantics {
+            contentDescription = "Today"
+        },
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.size(24.dp)) {
@@ -225,13 +252,16 @@ private fun TodayButton(onTouch: () -> Unit) {
 }
 
 /**
- * The button that goes back or forward in the history of the pages. It is narrower than the
- * others, as two of them stand beside the search field. Without a page in its direction, it
- * is there but cannot be touched, so the bar does not move.
+ * The button that goes back or forward in the history of the pages. It is narrower than the others,
+ * as two of them stand beside the search field. Without a page in its direction, it is there but
+ * cannot be touched, so the bar does not move.
  */
 @Composable
 private fun HistoryButton(name: String, enabled: Boolean, onTouch: () -> Unit, left: Boolean) {
-    val ink = MaterialTheme.colorScheme.onSurfaceVariant.let { if (enabled) it else it.copy(alpha = 0.38f) }
+    val ink =
+        MaterialTheme.colorScheme.onSurfaceVariant.let {
+            if (enabled) it else it.copy(alpha = 0.38f)
+        }
     Box(
         Modifier.size(width = 36.dp, height = 48.dp)
             .clickable(enabled = enabled, onClick = onTouch)
@@ -253,7 +283,9 @@ private fun Results(entries: List<SearchEntry>, onPick: (SearchEntry) -> Unit) {
     LazyColumn(Modifier.fillMaxSize()) {
         items(entries, key = { it.position.toLong() }) { entry ->
             Column(
-                Modifier.fillMaxWidth().clickable { onPick(entry) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth()
+                    .clickable { onPick(entry) }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 Text(entry.label, style = MaterialTheme.typography.titleMedium)
                 if (entry.snippet.isNotEmpty()) {
@@ -265,8 +297,8 @@ private fun Results(entries: List<SearchEntry>, onPick: (SearchEntry) -> Unit) {
 }
 
 /**
- * A question of the core, over the page. A touch outside the dialog answers no. The button
- * for yes names what a question about a loss does, and has the colour of an error.
+ * A question of the core, over the page. A touch outside the dialog answers no. The button for yes
+ * names what a question about a loss does, and has the colour of an error.
  */
 @Composable
 private fun Asked(question: Question, onAnswer: (Boolean) -> Unit) {
@@ -275,7 +307,9 @@ private fun Asked(question: Question, onAnswer: (Boolean) -> Unit) {
         text = { Text(question.text) },
         confirmButton = {
             if (question.destructive) {
-                TextButton({ onAnswer(true) }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                TextButton({ onAnswer(true) }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
             } else {
                 TextButton({ onAnswer(true) }) { Text("OK") }
             }
@@ -286,12 +320,15 @@ private fun Asked(question: Question, onAnswer: (Boolean) -> Unit) {
 }
 
 /**
- * A link named a page that is not there. The page is made only when the user asks for it
- * here (ADR 031).
+ * A link named a page that is not there. The page is made only when the user asks for it here (ADR
+ * 031).
  */
 @Composable
 private fun MissingPage(name: String, onMake: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text("No page yet: $name", Modifier.weight(1f))
         TextButton(onMake) { Text("Make it") }
     }

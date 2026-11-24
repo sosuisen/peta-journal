@@ -6,52 +6,55 @@ import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.TouchInjectionScope
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.percentOffset
-import androidx.compose.ui.test.TouchInjectionScope
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.percentOffset
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import java.io.File
-import com.sosuisha.petajournal.shell.Shell
 import com.sosuisha.petajournal.core.PetaDropboxSdk
+import com.sosuisha.petajournal.shell.Shell
 import com.sosuisha.petajournal.sync.CloudSync
+import java.io.File
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.runner.RunWith
 
 /**
- * What the tests of the screen start from: the screen with a real core under it, on the
- * folders of a test.
+ * What the tests of the screen start from: the screen with a real core under it, on the folders of
+ * a test.
  */
 @RunWith(AndroidJUnit4::class)
 abstract class JournalScreenFixture {
-    @get:Rule
-    val compose = createComposeRule()
+    @get:Rule val compose = createComposeRule()
 
     protected lateinit var root: File
     protected lateinit var shell: Shell
 
-    /** What the shell put on the clipboard, the last last. It is on the clipboard of the system too. */
+    /**
+     * What the shell put on the clipboard, the last last. It is on the clipboard of the system too.
+     */
     protected val copied = mutableListOf<String>()
 
     private fun copy(text: String) {
         copied.add(text)
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("test", text))
+        context
+            .getSystemService(ClipboardManager::class.java)
+            .setPrimaryClip(ClipData.newPlainText("test", text))
     }
 
     @Before
@@ -67,20 +70,26 @@ abstract class JournalScreenFixture {
     }
 
     /**
-     * Puts a doc page into the Markdown folder, as a download does. A file without the lines
-     * that the core writes above each item is one item, with the whole text as its body.
+     * Puts a doc page into the Markdown folder, as a download does. A file without the lines that
+     * the core writes above each item is one item, with the whole text as its body.
      */
-    protected fun download(name: String, text: String) = File(root, "markdown/docs/$name").writeText(text)
+    protected fun download(name: String, text: String) =
+        File(root, "markdown/docs/$name").writeText(text)
 
     /**
-     * Opens the app on the folders, and waits until the files are taken in. With a cloud, the
-     * app syncs with it when "Sync" is touched; [signedIn] says whether the user has signed in.
-     * It syncs after an edit only once no page has changed for [afterChangeMs].
+     * Opens the app on the folders, and waits until the files are taken in. With a cloud, the app
+     * syncs with it when "Sync" is touched; [signedIn] says whether the user has signed in. It
+     * syncs after an edit only once no page has changed for [afterChangeMs].
      */
-    protected fun start(cloud: PetaDropboxSdk? = null, signedIn: Boolean = true, afterChangeMs: Long = 600_000) {
+    protected fun start(
+        cloud: PetaDropboxSdk? = null,
+        signedIn: Boolean = true,
+        afterChangeMs: Long = 600_000,
+    ) {
         val main = Handler(Looper.getMainLooper())
         compose.runOnUiThread {
-            shell = Shell(File(root, "data"), File(root, "markdown"), { main.post(it) }, copy = ::copy)
+            shell =
+                Shell(File(root, "data"), File(root, "markdown"), { main.post(it) }, copy = ::copy)
             shell.sync()
         }
         sync = cloud?.let {
@@ -95,11 +104,12 @@ abstract class JournalScreenFixture {
                 onMainThread = { main.post(it) },
             )
         }
-        val browser = object : UriHandler {
-            override fun openUri(uri: String) {
-                browsed += uri
+        val browser =
+            object : UriHandler {
+                override fun openUri(uri: String) {
+                    browsed += uri
+                }
             }
-        }
         compose.setContent {
             CompositionLocalProvider(LocalUriHandler provides browser) {
                 JournalScreen(
@@ -138,10 +148,13 @@ abstract class JournalScreenFixture {
     protected fun type(query: String) = compose.onNodeWithTag(SEARCH_TAG).performTextInput(query)
 
     /** A text on the screen that is not what the search field holds. */
-    protected fun shown(text: String): SemanticsMatcher = hasText(text, substring = true) and !hasSetTextAction()
+    protected fun shown(text: String): SemanticsMatcher =
+        hasText(text, substring = true) and !hasSetTextAction()
 
     protected fun waitFor(text: String) =
-        compose.waitUntil(WAIT_MS) { compose.onAllNodes(shown(text)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(WAIT_MS) {
+            compose.onAllNodes(shown(text)).fetchSemanticsNodes().isNotEmpty()
+        }
 
     /** Opens the page `notes`, which a test has put into the Markdown folder. */
     protected fun openNotes() {
@@ -152,8 +165,8 @@ abstract class JournalScreenFixture {
     }
 
     /**
-     * Touches the pad [name] near the edge of [arrow], as a thumb does: not on the drawn
-     * arrow, but in the part of the pad that belongs to it.
+     * Touches the pad [name] near the edge of [arrow], as a thumb does: not on the drawn arrow, but
+     * in the part of the pad that belongs to it.
      */
     internal fun pad(name: String, arrow: Arrow) =
         compose.onNode(hasContentDescription(name)).performTouchInput { click(nearEdge(arrow)) }

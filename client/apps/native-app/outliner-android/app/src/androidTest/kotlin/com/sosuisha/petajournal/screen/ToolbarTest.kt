@@ -2,11 +2,11 @@ package com.sosuisha.petajournal.screen
 
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.hasAnyDescendant
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -14,8 +14,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
-import org.junit.runner.RunWith
 import org.junit.Test
+import org.junit.runner.RunWith
 
 /** The tools of the row at the bottom that the other tests do not cover. */
 @RunWith(AndroidJUnit4::class)
@@ -23,12 +23,15 @@ class ToolbarTest : JournalScreenFixture() {
     private fun tool(name: String) = compose.onNode(hasContentDescription(name)).performClick()
 
     /** Touches the item that shows [text] at its end, so that the edit goes on there. */
-    private fun touchEnd(text: String) = compose.onNodeWithText(text).performTouchInput { click(centerRight) }
+    private fun touchEnd(text: String) =
+        compose.onNodeWithText(text).performTouchInput { click(centerRight) }
 
     /** The items of the page that are shown, each as its level and its body. */
-    private fun items(): List<String> = shell.view.outline.rows.map { "${it.item.level} ${it.item.body}" }
+    private fun items(): List<String> =
+        shell.view.outline.rows.map { "${it.item.level} ${it.item.body}" }
 
-    private fun waitForItems(vararg items: String) = compose.waitUntil(WAIT_MS) { items() == items.toList() }
+    private fun waitForItems(vararg items: String) =
+        compose.waitUntil(WAIT_MS) { items() == items.toList() }
 
     /** Opens a page of two items, and edits the first after the second became its child. */
     private fun editAParent() {
@@ -62,10 +65,20 @@ class ToolbarTest : JournalScreenFixture() {
         compose.onNodeWithTag(FOLDED_TAG, useUnmergedTree = true).assertDoesNotExist()
 
         tool("Collapse")
-        compose.waitUntil(WAIT_MS) { compose.onAllNodesWithTag(FOLDED_TAG, useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
+        compose.waitUntil(WAIT_MS) {
+            compose
+                .onAllNodesWithTag(FOLDED_TAG, useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .size == 1
+        }
         tool("Expand")
 
-        compose.waitUntil(WAIT_MS) { compose.onAllNodesWithTag(FOLDED_TAG, useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(WAIT_MS) {
+            compose
+                .onAllNodesWithTag(FOLDED_TAG, useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .isEmpty()
+        }
     }
 
     // 子のない項目では、折りたたみの道具は押せない。
@@ -101,20 +114,39 @@ class ToolbarTest : JournalScreenFixture() {
     fun holding_the_pad_keeps_moving_the_item() {
         download(
             "notes.md",
-            above('A') + "one" + NL + NL + above('B') + "two" + NL + NL + above('C') + "three" + NL + NL + above('D') + "four" + NL,
+            above('A') +
+                "one" +
+                NL +
+                NL +
+                above('B') +
+                "two" +
+                NL +
+                NL +
+                above('C') +
+                "three" +
+                NL +
+                NL +
+                above('D') +
+                "four" +
+                NL,
         )
         openNotes()
         waitFor("four")
         touchEnd("four")
 
-        compose.onNode(hasContentDescription("Move block")).performTouchInput { down(nearEdge(Arrow.Up)) }
+        compose.onNode(hasContentDescription("Move block")).performTouchInput {
+            down(nearEdge(Arrow.Up))
+        }
         waitForItems("1 four", "1 one", "1 two", "1 three")
         compose.onNode(hasContentDescription("Move block")).performTouchInput { up() }
     }
 
     /** Opens a page of three items and selects the middle one, as Hide keyboard leaves it. */
     private fun selectTwo() {
-        download("notes.md", above('A') + "one" + NL + NL + above('B') + "two" + NL + NL + above('C') + "three" + NL)
+        download(
+            "notes.md",
+            above('A') + "one" + NL + NL + above('B') + "two" + NL + NL + above('C') + "three" + NL,
+        )
         openNotes()
         waitFor("three")
         touchEnd("two")
@@ -122,7 +154,8 @@ class ToolbarTest : JournalScreenFixture() {
         compose.waitUntil(WAIT_MS) { selected() == listOf("two") }
     }
 
-    private fun selected(): List<String> = shell.view.outline.rows.filter { it.isSelected }.map { it.item.body }
+    private fun selected(): List<String> =
+        shell.view.outline.rows.filter { it.isSelected }.map { it.item.body }
 
     // 選んでいる項目は、色で示される。選び直すと、色も移る。
     @Test
@@ -192,7 +225,9 @@ class ToolbarTest : JournalScreenFixture() {
 
         tool("Show keyboard")
 
-        compose.waitUntil(WAIT_MS) { compose.onAllNodesWithTag(EDITOR_TAG).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(WAIT_MS) {
+            compose.onAllNodesWithTag(EDITOR_TAG).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNode(hasContentDescription("Copy")).assertDoesNotExist()
         compose.onNode(hasContentDescription("Cut")).assertDoesNotExist()
     }
@@ -218,7 +253,10 @@ class ToolbarTest : JournalScreenFixture() {
         touchEnd("two")
 
         // The touch ends the selection: the tools of the edit come when the core has answered
-        compose.waitUntil(WAIT_MS) { selected().isEmpty() && compose.onAllNodesWithTag(EDITOR_TAG).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(WAIT_MS) {
+            selected().isEmpty() &&
+                compose.onAllNodesWithTag(EDITOR_TAG).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNode(hasContentDescription("Expand tools")).assertExists()
     }
 }

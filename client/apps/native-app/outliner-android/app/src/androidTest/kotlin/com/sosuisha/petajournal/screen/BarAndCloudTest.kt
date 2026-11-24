@@ -12,16 +12,16 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import java.io.File
-import java.util.concurrent.CountDownLatch
 import com.sosuisha.petajournal.core.PetaDropboxSdk
 import com.sosuisha.petajournal.sync.SyncState
 import com.sosuisha.petajournal.types.ScreenView
+import java.io.File
+import java.util.concurrent.CountDownLatch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.runner.RunWith
 import org.junit.Test
+import org.junit.runner.RunWith
 
 /** The bar at the top with its menu, the sync with the cloud, and the sign-in. */
 @RunWith(AndroidJUnit4::class)
@@ -105,9 +105,7 @@ class BarAndCloudTest : JournalScreenFixture() {
         compose.onNodeWithText("Sign in to Dropbox").assertExists()
         compose.onNodeWithTag(SEARCH_TAG).assertDoesNotExist()
         compose.onNode(hasContentDescription("Today")).assertDoesNotExist()
-        compose.runOnIdle {
-            assertFalse(shell.view.screen is ScreenView.Journal)
-        }
+        compose.runOnIdle { assertFalse(shell.view.screen is ScreenView.Journal) }
     }
 
     // サインインのあとの最初の同期が終わると、今日のジャーナルが開き、上端のバーが出る。

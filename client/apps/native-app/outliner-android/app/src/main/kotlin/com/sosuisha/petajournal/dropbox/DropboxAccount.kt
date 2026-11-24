@@ -12,24 +12,35 @@ private const val CREDENTIAL = "credential-write"
 private const val READ_ONLY = "credential"
 
 /**
- * The account of Dropbox that the app is signed in to: the sign-in, the sign-out, and the
- * calls of the SDK that the sync of the core makes. All that the app knows of the Dropbox SDK
- * outside this package goes through here.
+ * The account of Dropbox that the app is signed in to: the sign-in, the sign-out, and the calls of
+ * the SDK that the sync of the core makes. All that the app knows of the Dropbox SDK outside this
+ * package goes through here.
  *
  * @param kept where the credential of Dropbox is kept.
- * @param key the App key of the Dropbox app. It is empty in an app that was built without
- *   one.
+ * @param key the App key of the Dropbox app. It is empty in an app that was built without one.
  * @param folder the path of the Markdown folder in Dropbox, such as `/PetaJournal`.
  */
-class DropboxAccount internal constructor(
+class DropboxAccount
+internal constructor(
     private val kept: SharedPreferences,
     private val key: String,
     override val folder: String,
     private val sdk: DropboxSdk,
 ) : CloudAccount {
-    /** The account with the Dropbox SDK. The credential is in the storage of the app only. The app is in no backup. */
-    constructor(context: Context, key: String, folder: String) :
-        this(context.getSharedPreferences("dropbox", Context.MODE_PRIVATE), key, folder, RealDropboxSdk)
+    /**
+     * The account with the Dropbox SDK. The credential is in the storage of the app only. The app
+     * is in no backup.
+     */
+    constructor(
+        context: Context,
+        key: String,
+        folder: String,
+    ) : this(
+        context.getSharedPreferences("dropbox", Context.MODE_PRIVATE),
+        key,
+        folder,
+        RealDropboxSdk,
+    )
 
     init {
         // A sign-in of a version that only read cannot upload: the user signs in again
@@ -39,9 +50,11 @@ class DropboxAccount internal constructor(
         }
     }
 
-    override val isSetUp: Boolean get() = key.isNotEmpty()
+    override val isSetUp: Boolean
+        get() = key.isNotEmpty()
 
-    override val isSignedIn: Boolean get() = kept.contains(CREDENTIAL)
+    override val isSignedIn: Boolean
+        get() = kept.contains(CREDENTIAL)
 
     override fun signIn(from: Context) = sdk.startSignIn(from, key)
 

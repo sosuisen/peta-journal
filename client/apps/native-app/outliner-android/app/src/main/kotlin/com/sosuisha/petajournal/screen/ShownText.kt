@@ -40,11 +40,12 @@ sealed interface ShownBlock {
      *
      * @param path where its file is under the Markdown folder, such as `assets/picture.png`.
      * @param alt what stands for the image where it cannot be seen.
-     * @param width the width that the page asks for, in pixels of a web page. `null` when it
-     *   asks for none.
+     * @param width the width that the page asks for, in pixels of a web page. `null` when it asks
+     *   for none.
      * @param height the height that the page asks for, the same way.
      */
-    data class Image(val path: String, val alt: String, val width: Int?, val height: Int?) : ShownBlock
+    data class Image(val path: String, val alt: String, val width: Int?, val height: Int?) :
+        ShownBlock
 
     /**
      * A list that holds a part of its own kind, such as a code block: its entries apart.
@@ -67,9 +68,9 @@ data class TableRow(val header: Boolean, val cells: List<Cell>)
 data class Cell(val text: AnnotatedString, val places: List<LetterPlace>)
 
 /**
- * Where the letters of a paragraph begin in a text that is drawn, and where they stand in the
- * shown text of the item, as the core counts it (`RichParagraph.start`). A touch on the text
- * finds its letter by this (ADR 042).
+ * Where the letters of a paragraph begin in a text that is drawn, and where they stand in the shown
+ * text of the item, as the core counts it (`RichParagraph.start`). A touch on the text finds its
+ * letter by this (ADR 042).
  *
  * @param at where the letters begin in the text, in UTF-16 units: after the mark of an entry.
  * @param start how many letters of the shown text of the item stand before them.
@@ -78,9 +79,9 @@ data class Cell(val text: AnnotatedString, val places: List<LetterPlace>)
 data class LetterPlace(val at: Int, val start: Int, val letters: String)
 
 /**
- * How many letters of the shown text of the item stand before [offset] of a text whose
- * paragraphs stand at [places]. The core counts letters by code point; a text counts UTF-16
- * units. An offset in a mark counts as the start of its paragraph.
+ * How many letters of the shown text of the item stand before [offset] of a text whose paragraphs
+ * stand at [places]. The core counts letters by code point; a text counts UTF-16 units. An offset
+ * in a mark counts as the start of its paragraph.
  */
 fun letterAt(places: List<LetterPlace>, offset: Int): Int {
     val index = places.indexOfLast { it.at <= offset }
@@ -98,37 +99,52 @@ data class Entry(val mark: String, val blocks: List<ShownBlock>)
 
 /**
  * An item as it is shown: with its decoration, not as Markdown. The core makes the parts of the
- * item and gives them with the row (ADR 042); this writes the text of each part as Compose
- * draws it. A `when` takes every kind of part, so a kind that the core makes later stops the
- * build until it is drawn here.
+ * item and gives them with the row (ADR 042); this writes the text of each part as Compose draws
+ * it. A `when` takes every kind of part, so a kind that the core makes later stops the build until
+ * it is drawn here.
  *
  * [onLink] gets where a link that the user touched leads, as the core says.
  */
-fun shownBlocks(rich: RichText, onLink: (RichLink) -> Unit): List<ShownBlock> = blocks(rich.blocks, onLink)
+fun shownBlocks(rich: RichText, onLink: (RichLink) -> Unit): List<ShownBlock> =
+    blocks(rich.blocks, onLink)
 
 private fun blocks(blocks: List<RichBlock>, onLink: (RichLink) -> Unit): List<ShownBlock> =
     blocks.mapNotNull { block ->
         when (block) {
-            is RichBlock.Text -> TextWriter(onLink).let { writer ->
-                writer.text(block.paragraphs).takeIf { it.isNotEmpty() }?.let { ShownBlock.Text(it, writer.places) }
-            }
+            is RichBlock.Text ->
+                TextWriter(onLink).let { writer ->
+                    writer
+                        .text(block.paragraphs)
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { ShownBlock.Text(it, writer.places) }
+                }
             is RichBlock.Code -> ShownBlock.Code(block.lines, block.start.toInt())
-            is RichBlock.Table -> ShownBlock.Table(
-                block.rows.map { row ->
-                    TableRow(row.header, row.cells.map { cell -> TextWriter(onLink).let { Cell(it.text(listOf(cell)), it.places) } })
-                },
-            )
-            is RichBlock.Image -> with(block.image) { ShownBlock.Image(path, alt, width?.toInt(), height?.toInt()) }
+            is RichBlock.Table ->
+                ShownBlock.Table(
+                    block.rows.map { row ->
+                        TableRow(
+                            row.header,
+                            row.cells.map { cell ->
+                                TextWriter(onLink).let { Cell(it.text(listOf(cell)), it.places) }
+                            },
+                        )
+                    },
+                )
+            is RichBlock.Image ->
+                with(block.image) { ShownBlock.Image(path, alt, width?.toInt(), height?.toInt()) }
             is RichBlock.Entries ->
-            ShownBlock.Entries(block.entries.map { Entry(it.mark, blocks(it.blocks, onLink)) }, block.indent)
+                ShownBlock.Entries(
+                    block.entries.map { Entry(it.mark, blocks(it.blocks, onLink)) },
+                    block.indent,
+                )
             is RichBlock.Quote -> ShownBlock.Quote(blocks(block.blocks, onLink), block.indent)
         }
     }
 
 /**
- * Writes paragraphs into one text. Each is a paragraph of the text: a list moves its entries to
- * the right, and the first line of an entry starts with its mark. This is the look of this
- * shell: it is not kept the same as the stylesheet of the web frontend.
+ * Writes paragraphs into one text. Each is a paragraph of the text: a list moves its entries to the
+ * right, and the first line of an entry starts with its mark. This is the look of this shell: it is
+ * not kept the same as the stylesheet of the web frontend.
  */
 private class TextWriter(private val onLink: (RichLink) -> Unit) {
     private val out = AnnotatedString.Builder()
@@ -146,17 +162,29 @@ private class TextWriter(private val onLink: (RichLink) -> Unit) {
     private fun paragraph(paragraph: RichParagraph) {
         val quoted = paragraph.quoted.toInt()
         val indent = paragraph.indent
-        out.pushStyle(ParagraphStyle(textIndent = TextIndent(firstLine = indent.em, restLine = indent.em)))
+        out.pushStyle(
+            ParagraphStyle(textIndent = TextIndent(firstLine = indent.em, restLine = indent.em)),
+        )
         if (quoted > 0) out.pushStyle(SpanStyle(color = QUOTED))
         val heading = paragraph.heading.toInt()
-        if (heading > 0) out.pushStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = paragraph.scale.em))
+        if (heading > 0)
+            out.pushStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = paragraph.scale.em))
         paragraph.mark?.let { out.append("$it ") }
         if (paragraph.rule) out.append("────────")
-        places += LetterPlace(out.length, paragraph.start.toInt(), paragraph.runs.joinToString("") { it.text })
+        places +=
+            LetterPlace(
+                out.length,
+                paragraph.start.toInt(),
+                paragraph.runs.joinToString("") { it.text },
+            )
         for (run in paragraph.runs) {
             val link = run.link
             if (link != null) {
-                out.pushLink(LinkAnnotation.Clickable(LINK_TAG, TextLinkStyles(SpanStyle(color = LINK))) { onLink(link) })
+                out.pushLink(
+                    LinkAnnotation.Clickable(LINK_TAG, TextLinkStyles(SpanStyle(color = LINK))) {
+                        onLink(link)
+                    },
+                )
             }
             out.pushStyle(style(run.looks))
             out.append(run.text)
@@ -172,26 +200,29 @@ private class TextWriter(private val onLink: (RichLink) -> Unit) {
 
 /** How the letters of a run look. */
 private fun style(looks: Looks): SpanStyle {
-    val decorations = listOfNotNull(
-        TextDecoration.LineThrough.takeIf { looks.struck },
-        TextDecoration.Underline.takeIf { looks.underlined },
-    )
+    val decorations =
+        listOfNotNull(
+            TextDecoration.LineThrough.takeIf { looks.struck },
+            TextDecoration.Underline.takeIf { looks.underlined },
+        )
     val small = looks.raised || looks.lowered
     return SpanStyle(
         fontWeight = if (looks.bold) FontWeight.Bold else null,
         fontStyle = if (looks.italic) FontStyle.Italic else null,
         fontFamily = if (looks.code) FontFamily.Monospace else null,
         textDecoration = if (decorations.isEmpty()) null else TextDecoration.combine(decorations),
-        background = when {
-            looks.hidden -> HIDDEN
-            looks.marked -> MARKED
-            else -> Color.Unspecified
-        },
-        baselineShift = when {
-            looks.raised -> BaselineShift.Superscript
-            looks.lowered -> BaselineShift.Subscript
-            else -> null
-        },
+        background =
+            when {
+                looks.hidden -> HIDDEN
+                looks.marked -> MARKED
+                else -> Color.Unspecified
+            },
+        baselineShift =
+            when {
+                looks.raised -> BaselineShift.Superscript
+                looks.lowered -> BaselineShift.Subscript
+                else -> null
+            },
         fontSize = if (small) 0.75.em else TextUnit.Unspecified,
     )
 }

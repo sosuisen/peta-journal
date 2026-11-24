@@ -9,25 +9,25 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
 
 /**
- * When the activity asks the model to sync. The activity is the real one. Its model is on
- * the folders of a test, with the account of a test: the test touches neither the pages nor
- * the sign-in of the app.
+ * When the activity asks the model to sync. The activity is the real one. Its model is on the
+ * folders of a test, with the account of a test: the test touches neither the pages nor the sign-in
+ * of the app.
  */
 @RunWith(AndroidJUnit4::class)
 class MainActivityTest {
-    @get:Rule
-    val compose = createEmptyComposeRule()
+    @get:Rule val compose = createEmptyComposeRule()
 
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    private val app =
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val root = File(app.cacheDir, "activity-test")
     private var scenario: ActivityScenario<MainActivity>? = null
 
@@ -44,7 +44,9 @@ class MainActivityTest {
 
     /** Opens the app with the account, and brings it to the front. */
     private fun launch(account: FakeAccount): ActivityScenario<MainActivity> {
-        JournalModel.make = { JournalModel(it, File(root, "files"), File(root, "cache"), account, NEVER_MS) }
+        JournalModel.make = {
+            JournalModel(it, File(root, "files"), File(root, "cache"), account, NEVER_MS)
+        }
         return ActivityScenario.launch(MainActivity::class.java).also { scenario = it }
     }
 

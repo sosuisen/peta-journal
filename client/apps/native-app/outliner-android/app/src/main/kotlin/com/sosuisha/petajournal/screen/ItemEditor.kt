@@ -8,9 +8,9 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.OpenableColumns
-import android.view.inputmethod.InputContentInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputConnectionWrapper
+import android.view.inputmethod.InputContentInfo
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.contextmenu.builder.item
 import androidx.compose.foundation.text.contextmenu.data.TextContextMenuKeys
@@ -19,24 +19,24 @@ import androidx.compose.foundation.text.contextmenu.modifier.filterTextContextMe
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.PlatformTextInputInterceptor
@@ -44,19 +44,19 @@ import androidx.compose.ui.platform.PlatformTextInputMethodRequest
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.pasteText
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
-import kotlin.concurrent.thread
+import androidx.compose.ui.text.input.TextFieldValue
 import com.sosuisha.petajournal.shell.PastedImage
 import com.sosuisha.petajournal.shell.Shell
 import com.sosuisha.petajournal.types.EditorKey
 import com.sosuisha.petajournal.types.EditorState
 import com.sosuisha.petajournal.types.Row
+import kotlin.concurrent.thread
 
 /**
- * The Markdown of the item that is edited (ADR 031). The core has the text: this field shows
- * it, and tells the core of every change.
+ * The Markdown of the item that is edited (ADR 031). The core has the text: this field shows it,
+ * and tells the core of every change.
  */
 @Composable
 internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
@@ -97,7 +97,9 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
             // A word that the keyboard composes ends here, and the core has not heard of it yet
             if (field.composition != null) shell.type(id, field.text)
             val text = field.text
-            val from = if (arrow == Arrow.Left || arrow == Arrow.Up) field.selection.min else field.selection.max
+            val from =
+                if (arrow == Arrow.Left || arrow == Arrow.Up) field.selection.min
+                else field.selection.max
             when (val place = moved(arrow, text, field.selection, lines)) {
                 null -> shell.press(arrow.key, id, cursorAt(from, text))
                 else -> field = TextFieldValue(text, TextRange(place))
@@ -107,9 +109,7 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
         onDispose { if (caret.move === move) caret.move = null }
     }
     val joinsAtStart = { field.selection == TextRange.Zero && field.composition == null }
-    val clipboard = LocalContext.current.let { context ->
-        remember(context) { Clipboard(context) }
-    }
+    val clipboard = LocalContext.current.let { context -> remember(context) { Clipboard(context) } }
     // The core pastes, so that a list becomes items and what the app copied comes back as the
     // same items. Chosen text gives way to the pasted text in the field, as in any field
     val pasteText = { text: String ->
@@ -133,30 +133,42 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
         val cursor = field.selection.min
         val (resolver, cache) = context.contentResolver to context.cacheDir
         thread {
-            val file = resolver.openInputStream(image)?.let { PastedImage.write(it, cache, resolver.nameOf(image), type) }
-            if (file != null) Handler(Looper.getMainLooper()).post { shell.pasteImage(id, file, cursor) }
+            val file =
+                resolver.openInputStream(image)?.let {
+                    PastedImage.write(it, cache, resolver.nameOf(image), type)
+                }
+            if (file != null)
+                Handler(Looper.getMainLooper()).post { shell.pasteImage(id, file, cursor) }
         }
         Unit
     }
-    val paste = { clipboard.image()?.let { (image, type) -> pasteImage(image, type) } ?: clipboard.text()?.let(pasteText) }
+    val paste = {
+        clipboard.image()?.let { (image, type) -> pasteImage(image, type) }
+            ?: clipboard.text()?.let(pasteText)
+    }
     // The keyboard puts in what it shows of the clipboard as typed text. What the app copied
     // goes through the core, so that it comes back as the same items
-    val pastes = { text: CharSequence -> (text.toString() == shell.copied).also { if (it) pasteText(text.toString()) } }
+    val pastes = { text: CharSequence ->
+        (text.toString() == shell.copied).also { if (it) pasteText(text.toString()) }
+    }
     // The keyboard on the screen sends no key for Backspace. It asks the field to delete the
     // character before the cursor. At the start there is none: the field changes nothing and
     // tells of nothing. So the screen stands between the keyboard and the field, and hears it
-    val keyboard = remember(id) {
-        PlatformTextInputInterceptor { request, next ->
-            next.startInputMethod(
-                PlatformTextInputMethodRequest { attributes ->
-                    val connection = request.createInputConnection(attributes)
-                    // The keyboard offers the images it has, such as those of its clipboard
-                    attributes.contentMimeTypes = arrayOf("image/*")
-                    KeyboardOnTheScreen(connection, joinsAtStart, pastes, pasteImage) { shell.press(EditorKey.BACKSPACE, id, cursorAt(0, field.text)) }
-                },
-            )
+    val keyboard =
+        remember(id) {
+            PlatformTextInputInterceptor { request, next ->
+                next.startInputMethod(
+                    PlatformTextInputMethodRequest { attributes ->
+                        val connection = request.createInputConnection(attributes)
+                        // The keyboard offers the images it has, such as those of its clipboard
+                        attributes.contentMimeTypes = arrayOf("image/*")
+                        KeyboardOnTheScreen(connection, joinsAtStart, pastes, pasteImage) {
+                            shell.press(EditorKey.BACKSPACE, id, cursorAt(0, field.text))
+                        }
+                    },
+                )
+            }
         }
-    }
     InterceptPlatformTextInput(keyboard) {
         BasicTextField(
             value = field,
@@ -165,10 +177,11 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
                 when {
                     // The core splits the item: the field takes no line break. The field tells of
                     // a change that was not taken once more, and that is not a second Enter
-                    enter != null -> if (next.text != refused) {
-                        refused = next.text
-                        shell.press(EditorKey.ENTER, id, cursorAt(enter, field.text))
-                    }
+                    enter != null ->
+                        if (next.text != refused) {
+                            refused = next.text
+                            shell.press(EditorKey.ENTER, id, cursorAt(enter, field.text))
+                        }
                     else -> {
                         refused = null
                         field = next
@@ -180,56 +193,63 @@ internal fun ItemEditor(row: Row, shell: Shell, modifier: Modifier) {
                     }
                 }
             },
-            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+            textStyle =
+                MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurface,
+                ),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             onTextLayout = { lines = it },
-            modifier = modifier
-                // A keyboard with real keys sends the key. The core joins the item to the one
-                // before
-                .onPreviewKeyEvent { pressed ->
-                    val joins = pressed.key == Key.Backspace && joinsAtStart()
-                    if (joins && pressed.type == KeyEventType.KeyDown) shell.press(EditorKey.BACKSPACE, id, cursorAt(0, field.text))
-                    joins
-                }
-                // Ctrl+V of a keyboard with real keys, Paste of the menu of the text, and the
-                // paste of a service of accessibility all paste through the core
-                .onPreviewKeyEvent { pressed ->
-                    val ctrlV = pressed.key == Key.V && pressed.isCtrlPressed && !pressed.isShiftPressed
-                    if (ctrlV && pressed.type == KeyEventType.KeyDown) paste()
-                    ctrlV
-                }
-                // The filter also runs on the items that the app adds: its own Paste has a key of its own
-                .filterTextContextMenuComponents { it.key != TextContextMenuKeys.PasteKey }
-                .appendTextContextMenuComponents {
-                    if (clipboard.hasText()) {
-                        item(CorePasteKey, label = clipboard.pasteLabel) {
-                            paste()
-                            close()
+            modifier =
+                modifier
+                    // A keyboard with real keys sends the key. The core joins the item to the one
+                    // before
+                    .onPreviewKeyEvent { pressed ->
+                        val joins = pressed.key == Key.Backspace && joinsAtStart()
+                        if (joins && pressed.type == KeyEventType.KeyDown)
+                            shell.press(EditorKey.BACKSPACE, id, cursorAt(0, field.text))
+                        joins
+                    }
+                    // Ctrl+V of a keyboard with real keys, Paste of the menu of the text, and the
+                    // paste of a service of accessibility all paste through the core
+                    .onPreviewKeyEvent { pressed ->
+                        val ctrlV =
+                            pressed.key == Key.V && pressed.isCtrlPressed && !pressed.isShiftPressed
+                        if (ctrlV && pressed.type == KeyEventType.KeyDown) paste()
+                        ctrlV
+                    }
+                    // The filter also runs on the items that the app adds: its own Paste has a key
+                    // of its own
+                    .filterTextContextMenuComponents { it.key != TextContextMenuKeys.PasteKey }
+                    .appendTextContextMenuComponents {
+                        if (clipboard.hasText()) {
+                            item(CorePasteKey, label = clipboard.pasteLabel) {
+                                paste()
+                                close()
+                            }
                         }
                     }
-                }
-                .semantics {
-                    pasteText {
-                        paste()
-                        true
+                    .semantics {
+                        pasteText {
+                            paste()
+                            true
+                        }
                     }
-                }
-                .focusRequester(focus)
-                .onFocusChanged {
-                    if (focused && !it.isFocused) shell.finish(id)
-                    focused = it.isFocused
-                }
-                .testTag(EDITOR_TAG),
+                    .focusRequester(focus)
+                    .onFocusChanged {
+                        if (focused && !it.isFocused) shell.finish(id)
+                        focused = it.isFocused
+                    }
+                    .testTag(EDITOR_TAG),
         )
     }
 }
 
 /**
- * The keyboard on the screen as the field hears it, with two changes. A Backspace at the
- * start is not for the field: [atStart] says whether the cursor is at the start, with no text
- * chosen and no word being composed, and [join] is called then. Text that the keyboard puts in
- * goes to [pastes] first, which tells whether it pasted the text. An image that the keyboard
- * puts in goes to [pastesImage]. The field hears nothing of what was taken.
+ * The keyboard on the screen as the field hears it, with two changes. A Backspace at the start is
+ * not for the field: [atStart] says whether the cursor is at the start, with no text chosen and no
+ * word being composed, and [join] is called then. Text that the keyboard puts in goes to [pastes]
+ * first, which tells whether it pasted the text. An image that the keyboard puts in goes to
+ * [pastesImage]. The field hears nothing of what was taken.
  */
 private class KeyboardOnTheScreen(
     keyboard: InputConnection,
@@ -273,10 +293,18 @@ private class Clipboard(private val context: Context) {
     /** The word of the system for Paste, as the menu of any field shows it. */
     val pasteLabel: String = context.getString(android.R.string.paste)
 
-    /** Whether there is something to paste. It does not read the clipboard, which the system tells the user of. */
+    /**
+     * Whether there is something to paste. It does not read the clipboard, which the system tells
+     * the user of.
+     */
     fun hasText(): Boolean = manager.hasPrimaryClip()
 
-    fun text(): String? = manager.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
+    fun text(): String? =
+        manager.primaryClip
+            ?.takeIf { it.itemCount > 0 }
+            ?.getItemAt(0)
+            ?.coerceToText(context)
+            ?.toString()
 
     /**
      * The image on the clipboard and its media type, such as `image/png`, or `null` when it holds
@@ -285,7 +313,10 @@ private class Clipboard(private val context: Context) {
     fun image(): Pair<Uri, String>? {
         val clip = manager.primaryClip?.takeIf { it.itemCount > 0 } ?: return null
         val description = clip.description
-        val type = (0 until description.mimeTypeCount).map(description::getMimeType).firstOrNull { it.startsWith("image/") }
+        val type =
+            (0 until description.mimeTypeCount).map(description::getMimeType).firstOrNull {
+                it.startsWith("image/")
+            }
         val uri = clip.getItemAt(0).uri
         return if (type != null && uri != null) uri to type else null
     }
@@ -309,29 +340,35 @@ internal fun telling(next: TextFieldValue, body: String): Telling? =
     }
 
 /** The name that the content at [uri] came with, or `null` when its app tells none. */
-private fun ContentResolver.nameOf(uri: Uri): String? =
-    runCatching {
-        query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { row ->
-            if (row.moveToFirst()) row.getString(0) else null
-        }
-    }.getOrNull()
+private fun ContentResolver.nameOf(uri: Uri): String? = runCatching {
+    query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { row ->
+        if (row.moveToFirst()) row.getString(0) else null
+    }
+}
+    .getOrNull()
 
 /**
- * Where Enter was pressed, as the place in the text before the key, when [next] is [before]
- * with one line break typed at the cursor. `null` for any other change.
+ * Where Enter was pressed, as the place in the text before the key, when [next] is [before] with
+ * one line break typed at the cursor. `null` for any other change.
  */
 private fun enterAt(before: TextFieldValue, next: TextFieldValue): Int? {
     val at = next.selection.start - 1
-    val typed = next.composition == null && next.selection.collapsed && next.text.getOrNull(at) == '\n'
+    val typed =
+        next.composition == null && next.selection.collapsed && next.text.getOrNull(at) == '\n'
     return at.takeIf { typed && next.text.removeRange(at, at + 1) == before.text }
 }
 
 /**
- * Where the cursor goes in [text] for [arrow], from [selection], in UTF-16 units. `null` when
- * it leaves the item: at the start for Left, on the first line for Up, at the end for Right,
- * and on the last line for Down. Chosen text gives way to a cursor at its start or its end.
+ * Where the cursor goes in [text] for [arrow], from [selection], in UTF-16 units. `null` when it
+ * leaves the item: at the start for Left, on the first line for Up, at the end for Right, and on
+ * the last line for Down. Chosen text gives way to a cursor at its start or its end.
  */
-private fun moved(arrow: Arrow, text: String, selection: TextRange, lines: TextLayoutResult?): Int? {
+private fun moved(
+    arrow: Arrow,
+    text: String,
+    selection: TextRange,
+    lines: TextLayoutResult?,
+): Int? {
     if (!selection.collapsed && (arrow == Arrow.Left || arrow == Arrow.Right)) {
         return if (arrow == Arrow.Left) selection.min else selection.max
     }
@@ -345,8 +382,8 @@ private fun moved(arrow: Arrow, text: String, selection: TextRange, lines: TextL
 }
 
 /**
- * The place on the line [by] lines away from the line of [offset], under the same spot of
- * the screen. `null` when there is no such line.
+ * The place on the line [by] lines away from the line of [offset], under the same spot of the
+ * screen. `null` when there is no such line.
  */
 private fun TextLayoutResult.onLine(offset: Int, by: Int): Int? {
     val line = getLineForOffset(offset) + by
@@ -358,16 +395,17 @@ private fun TextLayoutResult.onLine(offset: Int, by: Int): Int? {
 
 /** The key of the arrow, for the core, which moves the cursor to the next item (ADR 052). */
 private val Arrow.key: EditorKey
-    get() = when (this) {
-        Arrow.Left -> EditorKey.LEFT
-        Arrow.Up -> EditorKey.UP
-        Arrow.Right -> EditorKey.RIGHT
-        Arrow.Down -> EditorKey.DOWN
-    }
+    get() =
+        when (this) {
+            Arrow.Left -> EditorKey.LEFT
+            Arrow.Up -> EditorKey.UP
+            Arrow.Right -> EditorKey.RIGHT
+            Arrow.Down -> EditorKey.DOWN
+        }
 
 /**
- * A field with a cursor [at] UTF-16 units into [text], and nothing chosen. The cursor is on
- * the first and the last line: the field only hands a key to the core at the edge of its text.
+ * A field with a cursor [at] UTF-16 units into [text], and nothing chosen. The cursor is on the
+ * first and the last line: the field only hands a key to the core at the edge of its text.
  */
 private fun cursorAt(at: Int, text: String) =
     EditorState(text, at.toULong(), at.toULong(), onFirstLine = true, onLastLine = true)

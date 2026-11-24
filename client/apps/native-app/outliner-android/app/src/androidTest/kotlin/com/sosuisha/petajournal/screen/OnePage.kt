@@ -14,10 +14,11 @@ internal const val FOLDER = "/PetaJournal"
 
 /**
  * A Dropbox with one page, or one that cannot be reached, or one that [refuses] the sync for
- * another reason. It keeps what is uploaded. It fails as `SdkDropbox` does, with a failure
- * that the sync knows.
+ * another reason. It keeps what is uploaded. It fails as `SdkDropbox` does, with a failure that the
+ * sync knows.
  */
-internal class OnePage(var reachable: Boolean = true, private val refuses: Boolean = false) : PetaDropboxSdk {
+internal class OnePage(var reachable: Boolean = true, private val refuses: Boolean = false) :
+    PetaDropboxSdk {
     private val text = "京都で会議がありました。\n".toByteArray()
 
     /** The text of each uploaded file, by its path under the Markdown folder. */
@@ -45,7 +46,12 @@ internal class OnePage(var reachable: Boolean = true, private val refuses: Boole
 
     override fun download(rev: String, to: String) = File(to).writeBytes(text)
 
-    override fun upload(path: String, from: String, over: String?, modifiedMs: Long): PetaDropboxFile {
+    override fun upload(
+        path: String,
+        from: String,
+        over: String?,
+        modifiedMs: Long,
+    ): PetaDropboxFile {
         val content = File(from).readBytes()
         uploaded[path.removePrefix("$FOLDER/")] = String(content)
         return PetaDropboxFile(path, contentHash(content), "next")

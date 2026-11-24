@@ -307,3 +307,17 @@ emacs -Q --batch -L lisp -L lisp/test -l lisp/test/peta-journal-e2e.el -f ert-ru
 ```
 
 Windowsでは、`emacs`は本物の`emacs.exe`でなければならない。`emacsclient`のラッパーは使えない。
+
+### 整形
+
+フォーマッターは、ほかのプロジェクトと共有する[elisp-formatter](https://github.com/sosuisen/elisp-formatter)である。`emacs-lisp-mode`の字下げでファイルを整える。字下げは空白で行い、タブは使わない。行の終わりの空白も消す。そのため、EmacsのTABと同じ字下げになる。CIは、タグ`v0.1.0`を取ってきて、整形されているかを確かめる。
+
+- マクロは、その`declare (indent ...)`に従って字下げする。新しいマクロには、これを書く。
+- 記号を並べた`'(...)`のリストは、最初の記号だけを1行目に置く。残りがその下に揃う。
+
+elisp-formatterを好きな場所に一度cloneし、このフォルダーから回す。
+
+```powershell
+emacs -Q --batch -l <elisp-formatter>/elisp-formatter.el -f elisp-formatter-write lisp   # ファイルを整形する
+emacs -Q --batch -l <elisp-formatter>/elisp-formatter.el -f elisp-formatter-check lisp   # 何も変えず、整形が要れば失敗する
+```
