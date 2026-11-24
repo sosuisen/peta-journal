@@ -1250,6 +1250,7 @@
 - Windowsの付箋紙アプリで、項目の文字をクリックすると、カーソルはその文字のMarkdownでの位置に置かれる。リストの印や区切り線は、コアの数える文字に入らない。印をクリックすると、その後ろの文字の先頭に置かれる
 - macOSとWindowsの付箋紙アプリで、項目を選んでいるあいだに項目の外（タイトルバー、ボタン、項目のない所）をクリックすると、選択が終わる。Web版と同じく、コアの`SelectionClickOutside`で終える（Windowsの`OutlineScreenTests`、#1062）
 - Windowsの付箋紙アプリで、編集中でない空の項目には、行頭の点（バレット）が見えない。コアの`show_bullet`に従う。点は場所を残したまま見えなくなるので、文字は動かない（Windowsの`RowLookTests`、`OutlineScreenTests`）
+- macOSの付箋紙アプリでも、編集中でない空の項目には、行頭の点（バレット）が見えない。コアの`show_bullet`に従う。点は場所を残したまま見えなくなるので、文字は動かない（macOSの`ShellTests`）
 - Windowsでは、`RichBlock`と`RichLink`は閉じた型で、描かない種類のあるswitch式はビルドを止める
 
 ### ネイティブアプリが画面の差分を受け取る

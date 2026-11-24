@@ -495,6 +495,22 @@ final class ShellTests: XCTestCase {
         try await waitUntil("the task is done") { shell.view.outline.rows[0].task == .done }
     }
 
+    // 編集中でない空の項目には、バレットが見えない。編集に入ると見える。透明な付箋紙では、どの項目にも見えない（#1042）。
+    func testTheBulletOfAnEmptyItemIsSeenOnlyWhileItIsEdited() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let second = shell.view.outline.rows[1].item.id
+        try await waitUntil("the new item is edited") { shell.view.outline.rows[1].isEditing }
+        XCTAssertTrue(shell.view.outline.rows[1].showsBullet(bare: false))
+
+        shell.finishEditing(second)
+
+        try await waitUntil("the item is not edited") { !shell.view.outline.rows[1].isEditing }
+        XCTAssertFalse(shell.view.outline.rows[1].showsBullet(bare: false))
+        XCTAssertTrue(shell.view.outline.rows[0].showsBullet(bare: false))
+        XCTAssertFalse(shell.view.outline.rows[0].showsBullet(bare: true))
+    }
+
     // 子を隠した項目のバレットは、二重の円である。子を表示すると、ふつうのバレットに戻る。
     func testTheBulletOfAnItemWithHiddenChildrenIsADoubleCircle() async throws {
         let shell = try await shellWithPage()

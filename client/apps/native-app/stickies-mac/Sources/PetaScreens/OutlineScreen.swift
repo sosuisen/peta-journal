@@ -123,7 +123,6 @@ private struct ItemEditor: View {
 
     private var text: some View {
         HStack(alignment: .top) {
-            // Without the bullet an item with no text cannot be seen
             ForEach(Array(row.marks.enumerated()), id: \.offset) { place, mark in
                 let size = NSFont.systemFontSize * zoom
                 let line = NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: size))
@@ -133,7 +132,7 @@ private struct ItemEditor: View {
                     for: .boldSystemFont(ofSize: size * row.firstLineScale))
                 if place == 0 {
                     // Not taken away: the text would move when the focus comes back
-                    Bullet(mark: mark, line: line, first: first).opacity(bare ? 0 : 1)
+                    Bullet(mark: mark, line: line, first: first).opacity(row.showsBullet(bare: bare) ? 1 : 0)
                 } else {
                     // The mark after the bullet is the state of a task: a click steps it
                     TaskBox(mark: mark, line: line, first: first)
