@@ -197,7 +197,7 @@ fn the_headings_of_a_doc_page_are_listed_in_the_sidebar() {
 
     let headings: Vec<(String, u8)> = h
         .view()
-        .sidebar
+        .headings
         .headings
         .iter()
         .map(|x| (x.text.clone(), x.level))

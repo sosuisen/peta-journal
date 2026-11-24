@@ -5,8 +5,8 @@ use client_core::app::SelectionKey as CoreSelectionKey;
 use client_core::changes::ListChange;
 use client_core::rich_text::RichLink;
 use client_core::view::{
-    BacklinkGroup, PageProperty, Row, SearchEntry as CoreSearchEntry, SearchKind as CoreSearchKind,
-    SidebarPage, SidebarView as CoreSidebar, TaskState,
+    BacklinkGroup, HeadingsView, IndexPagesView, PageProperty, RecentPagesView, Row,
+    SearchEntry as CoreSearchEntry, SearchKind as CoreSearchKind, SidebarPage, TaskState,
 };
 use facet::Facet;
 
@@ -550,9 +550,13 @@ pub struct SidebarHeading {
 }
 
 impl SidebarView {
-    pub fn of(sidebar: &CoreSidebar) -> SidebarView {
+    pub fn of(
+        index: &IndexPagesView,
+        headings: &HeadingsView,
+        recent: &RecentPagesView,
+    ) -> SidebarView {
         // As in the web frontend, only the index list marks the page on screen
-        let current = sidebar.current_page_id.as_deref();
+        let current = index.current_page_id.as_deref();
         let lines = |pages: &[SidebarPage], marked: bool| -> Vec<SidebarLine> {
             pages
                 .iter()
@@ -565,15 +569,15 @@ impl SidebarView {
                 })
                 .collect()
         };
-        let listed = !sidebar.index_pages.is_empty() || sidebar.index_parent_path.is_some();
+        let listed = !index.pages.is_empty() || index.parent_path.is_some();
         SidebarView {
             index: listed.then(|| SidebarIndex {
-                header: sidebar.index_header.clone(),
-                path: sidebar.index_path.clone(),
-                parent: sidebar.index_parent_path.clone(),
-                pages: lines(&sidebar.index_pages, true),
+                header: index.header.clone(),
+                path: index.path.clone(),
+                parent: index.parent_path.clone(),
+                pages: lines(&index.pages, true),
             }),
-            headings: sidebar
+            headings: headings
                 .headings
                 .iter()
                 .map(|heading| SidebarHeading {
@@ -582,7 +586,7 @@ impl SidebarView {
                     level: heading.level,
                 })
                 .collect(),
-            recent: lines(&sidebar.recent_pages, false),
+            recent: lines(&recent.pages, false),
         }
     }
 }

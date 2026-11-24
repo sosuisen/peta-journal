@@ -319,19 +319,33 @@ pub struct AtlasCard {
     pub published: bool,
 }
 
+/// The pages of the folder of the page on screen, as the sidebar lists them (ADR 085).
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
-pub struct SidebarView {
-    pub index_header: String,
-    /// The path of the index page that the header of the index list opens.
-    pub index_path: String,
-    pub index_sort: IndexSort,
+pub struct IndexPagesView {
+    pub header: String,
+    /// The path of the index page that the header of the list opens.
+    pub path: String,
+    pub sort: IndexSort,
     /// The path the `../` entry opens; None in the root directory.
-    pub index_parent_path: Option<String>,
-    pub index_pages: Vec<SidebarPage>,
-    pub headings: Vec<Heading>,
-    pub recent_pages: Vec<SidebarPage>,
+    pub parent_path: Option<String>,
+    pub pages: Vec<SidebarPage>,
+    /// The page on screen, which the list marks.
     pub current_page_id: Option<String>,
+}
+
+/// The headings of the doc page on screen, as the sidebar lists them (ADR 085).
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+pub struct HeadingsView {
+    pub headings: Vec<Heading>,
+}
+
+/// The doc pages changed last, as the sidebar lists them (ADR 085).
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+pub struct RecentPagesView {
+    pub pages: Vec<SidebarPage>,
 }
 
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
@@ -411,7 +425,9 @@ pub struct ViewModel<B> {
     /// The page names offered in the dialog of a link.
     pub atlas_link_suggestions: Vec<String>,
     pub outline: OutlineView<B>,
-    pub sidebar: SidebarView,
+    pub index_pages: IndexPagesView,
+    pub headings: HeadingsView,
+    pub recent_pages: RecentPagesView,
     pub search: SearchView,
     pub config: ConfigView,
     pub connection: ConnectionState,
@@ -450,7 +466,9 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
         atlas_links: atlas::link_cards(model),
         atlas_link_suggestions: model.atlas_link_search.suggestions.clone(),
         outline: outline(model, bodies),
-        sidebar: sidebar(model),
+        index_pages: index_pages(model),
+        headings: headings(model),
+        recent_pages: recent_pages(model),
         search: search(model),
         config: ConfigView {
             markdown_dir: model.config.markdown_dir.clone(),
@@ -600,18 +618,14 @@ fn outline<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> OutlineView<B> {
     }
 }
 
-fn sidebar(model: &Model) -> SidebarView {
-    let headings = match &model.current_page {
-        Some(p) if p.page_type == "doc" => model.state.headings(),
-        _ => Vec::new(),
-    };
-    let index_sort = sidebar::index_sort(model);
-    SidebarView {
-        index_header: model.sidebar.index_header.clone(),
-        index_path: sidebar::index_path(&model.sidebar.index_header),
-        index_sort,
-        index_parent_path: sidebar::parent_index_path(&model.sidebar.index_header),
-        index_pages: sidebar::sorted_index_pages(&model.sidebar.index_pages, index_sort)
+fn index_pages(model: &Model) -> IndexPagesView {
+    let sort = sidebar::index_sort(model);
+    IndexPagesView {
+        header: model.sidebar.index_header.clone(),
+        path: sidebar::index_path(&model.sidebar.index_header),
+        sort,
+        parent_path: sidebar::parent_index_path(&model.sidebar.index_header),
+        pages: sidebar::sorted_index_pages(&model.sidebar.index_pages, sort)
             .into_iter()
             .map(|p| SidebarPage {
                 label: sidebar::index_page_name(&p),
@@ -622,8 +636,21 @@ fn sidebar(model: &Model) -> SidebarView {
                 page: p,
             })
             .collect(),
-        headings,
-        recent_pages: model
+        current_page_id: model.current_page.as_ref().map(|p| p.id.clone()),
+    }
+}
+
+fn headings(model: &Model) -> HeadingsView {
+    let headings = match &model.current_page {
+        Some(p) if p.page_type == "doc" => model.state.headings(),
+        _ => Vec::new(),
+    };
+    HeadingsView { headings }
+}
+
+fn recent_pages(model: &Model) -> RecentPagesView {
+    RecentPagesView {
+        pages: model
             .recent_pages
             .iter()
             .map(|p| {
@@ -638,7 +665,6 @@ fn sidebar(model: &Model) -> SidebarView {
                 }
             })
             .collect(),
-        current_page_id: model.current_page.as_ref().map(|p| p.id.clone()),
     }
 }
 

@@ -52,8 +52,8 @@ fn open(h: &mut Harness, page: Page) {
 
 fn listed(h: &Harness) -> Vec<String> {
     h.view()
-        .sidebar
         .index_pages
+        .pages
         .iter()
         .map(|p| p.label.clone())
         .collect()
@@ -85,10 +85,10 @@ fn an_index_page_lists_the_pages_of_its_folder() {
     open(&mut h, doc("notes/", "index"));
 
     assert_eq!(asked_for(&h), ["notes/index", "notes/index"]);
-    assert_eq!(h.view().sidebar.index_header, "notes/");
-    assert_eq!(h.view().sidebar.index_parent_path.as_deref(), Some("index"));
+    assert_eq!(h.view().index_pages.header, "notes/");
+    assert_eq!(h.view().index_pages.parent_path.as_deref(), Some("index"));
     assert_eq!(listed(&h), ["sub/", "Idea"]);
-    assert!(h.view().sidebar.index_pages[0].is_dir);
+    assert!(h.view().index_pages.pages[0].is_dir);
 }
 
 fn can_demote(h: &Harness) -> bool {
@@ -129,8 +129,8 @@ fn the_root_index_lists_only_the_doc_pages() {
     );
     open(&mut h, doc("", "index"));
 
-    assert_eq!(h.view().sidebar.index_header, "(root)/");
-    assert_eq!(h.view().sidebar.index_parent_path, None);
+    assert_eq!(h.view().index_pages.header, "(root)/");
+    assert_eq!(h.view().index_pages.parent_path, None);
     assert_eq!(listed(&h), ["Idea"]);
 }
 
@@ -155,7 +155,7 @@ fn a_page_in_a_folder_lists_its_siblings() {
     open(&mut h, page);
 
     assert_eq!(asked_for(&h), ["notes/index"]);
-    assert_eq!(h.view().sidebar.index_header, "notes/");
+    assert_eq!(h.view().index_pages.header, "notes/");
     assert_eq!(listed(&h), ["Idea", "Other"]);
 }
 
@@ -177,7 +177,7 @@ fn a_page_without_a_parent_lists_nothing_and_a_journal_clears_the_list() {
         },
         today: "2026-02-10".into(),
     });
-    assert_eq!(h.view().sidebar.index_header, "");
+    assert_eq!(h.view().index_pages.header, "");
     assert!(listed(&h).is_empty());
 }
 
@@ -221,8 +221,8 @@ fn recent_pages_show_their_folder_on_its_own_line() {
 
     let labels: Vec<(Option<String>, String)> = h
         .view()
-        .sidebar
         .recent_pages
+        .pages
         .iter()
         .map(|p| (p.dir_label.clone(), p.label.clone()))
         .collect();
