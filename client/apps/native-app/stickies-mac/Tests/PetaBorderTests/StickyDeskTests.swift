@@ -84,7 +84,7 @@ final class StickyDeskTests: XCTestCase {
 
         first.shell.follow(.page(url: "/pages/linked-sticky"), holding: .command)
 
-        XCTAssertEqual(desk.stickies.count, 2)
+        try await waitUntil("a new sticky opens") { self.desk.stickies.count == 2 }
         let opened = try XCTUnwrap(desk.stickies.last)
         try await waitUntil("the new sticky shows the page") { opened.shell.title == "linked-sticky" }
         XCTAssertEqual(opened.shell.url, "/pages/linked-sticky")
@@ -148,7 +148,7 @@ final class StickyDeskTests: XCTestCase {
 
         first.shell.follow(.page(url: "/pages/placed-sticky"), holding: .command)
 
-        XCTAssertEqual(desk.stickies.count, 3)
+        try await waitUntil("a new sticky opens") { self.desk.stickies.count == 3 }
         XCTAssertEqual(step(from: first, to: try XCTUnwrap(desk.stickies.last)), usual)
     }
 

@@ -103,23 +103,13 @@ public final class Shell: ObservableObject {
         return String(format: "%04d-%02d-%02d", day.year ?? 0, day.month ?? 0, day.day ?? 0)
     }
 
-    /// The user clicked a link of a shown item, with the keys `held`. A link to a page, and to
-    /// the page of a tag, opens the page in this window. With Command held it opens in a new
-    /// sticky, and with Shift in the browser: the journal server serves the web frontend too. A
-    /// link out of the journal, and to a file of the assets folder, opens in the browser.
+    /// The user clicked a link of a shown item, with the keys `held`. The core decides how it
+    /// opens (ADR 083): here, in a new sticky, or in the browser. Option means nothing to it, and
+    /// Control+click comes as a right click.
     public func follow(_ link: RichLink, holding held: NSEvent.ModifierFlags = []) {
-        switch link {
-        case .page(let url):
-            if held.contains(.command) {
-                openSticky(url)
-            } else if held.contains(.shift) {
-                browse(pageAddress(appUrl: server, url: url))
-            } else {
-                open(url)
-            }
-        case .web(let address): browse(address)
-        case .file(let path): if let address = images.address(of: path) { browse(address) }
-        }
+        let keys = Held(
+            shift: held.contains(.shift), ctrl: held.contains(.control), cmd: held.contains(.command))
+        send(.linkClicked(link: link, held: keys))
     }
 
     private func browse(_ address: String) {
@@ -333,6 +323,12 @@ public final class Shell: ObservableObject {
             copy(markdown, html.isEmpty ? nil : html)
         case .readClipboardText:
             Shell.must { try border.answer(id, with: .text(clipboard())) }
+        // A new view of the app is a new sticky (ADR 083)
+        case .openNewView(let url):
+            openSticky(url)
+        // The bridge has put the address of the server before an address of the server
+        case .openInBrowser(let address):
+            browse(address)
         default:
             break
         }
