@@ -224,7 +224,7 @@ internal sealed class PartWriter
             );
         Line(
             runs,
-            RowLook.HeadingScale(paragraph.Heading),
+            paragraph.Scale,
             Indent(depth, quoted),
             (int)paragraph.Start
         );
