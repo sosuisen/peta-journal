@@ -114,6 +114,9 @@ pub struct RichParagraph {
     pub depth: u32,
     /// How many quotes the paragraph is inside.
     pub quoted: u32,
+    /// How far the paragraph stands to the right of the part it is in, in ems: one step for
+    /// each list and each quote it is inside (#795).
+    pub indent: f32,
     /// What stands before the first paragraph of an entry of a list: a bullet, its number or
     /// a checkbox.
     pub mark: Option<String>,
@@ -134,6 +137,7 @@ impl Default for RichParagraph {
             scale: 1.0,
             depth: 0,
             quoted: 0,
+            indent: 0.0,
             mark: None,
             rule: false,
             runs: Vec::new(),
@@ -154,6 +158,14 @@ pub fn heading_scale(level: u8) -> f32 {
         0 => 1.0,
         level => HEADING_SCALES[usize::from(level.min(5)) - 1],
     }
+}
+
+/// How far a list or a quote moves what is inside it to the right, in ems.
+pub const INDENT_STEP: f32 = 1.5;
+
+/// How far a paragraph inside `depth` lists and `quoted` quotes stands to the right, in ems.
+fn indent(depth: u32, quoted: u32) -> f32 {
+    (depth + quoted) as f32 * INDENT_STEP
 }
 
 /// Letters with one look and one link.

@@ -350,8 +350,9 @@ fn a_line_end_is_a_space_and_a_break_is_a_line_break() {
 // 箇条書きの項目は、印と深さを持つ段落になる。
 #[test]
 fn the_entries_of_a_list_have_a_mark_and_a_depth() {
-    let entry = |depth, text| RichParagraph {
+    let entry = |depth: u32, text| RichParagraph {
         depth,
+        indent: depth as f32 * 1.5,
         mark: Some("•".to_string()),
         ..paragraph(vec![run(text)])
     };
@@ -390,11 +391,13 @@ fn the_second_paragraph_of_an_entry_has_no_mark() {
         [
             RichParagraph {
                 depth: 1,
+                indent: 1.5,
                 mark: Some("•".to_string()),
                 ..paragraph(vec![run("one")])
             },
             RichParagraph {
                 depth: 1,
+                indent: 1.5,
                 ..paragraph(vec![run("more")])
             },
         ]
@@ -409,16 +412,19 @@ fn an_entry_without_text_is_a_paragraph_with_only_its_mark() {
         [
             RichParagraph {
                 depth: 1,
+                indent: 1.5,
                 mark: Some("•".to_string()),
                 ..paragraph(vec![run("a")])
             },
             RichParagraph {
                 depth: 1,
+                indent: 1.5,
                 mark: Some("•".to_string()),
                 ..paragraph(vec![])
             },
             RichParagraph {
                 depth: 1,
+                indent: 1.5,
                 mark: Some("•".to_string()),
                 ..paragraph(vec![run("b")])
             },
@@ -434,10 +440,12 @@ fn a_paragraph_in_a_quote_knows_how_deep_it_is_quoted() {
         [
             RichParagraph {
                 quoted: 1,
+                indent: 1.5,
                 ..paragraph(vec![run("said")])
             },
             RichParagraph {
                 quoted: 2,
+                indent: 3.0,
                 ..paragraph(vec![run("before")])
             },
             paragraph(vec![run("after")]),
@@ -450,6 +458,7 @@ fn a_paragraph_in_a_quote_knows_how_deep_it_is_quoted() {
 fn an_alert_is_a_quote_with_its_title_first() {
     let quoted = |text| RichParagraph {
         quoted: 1,
+        indent: 1.5,
         ..paragraph(vec![run(text)])
     };
     assert_eq!(
