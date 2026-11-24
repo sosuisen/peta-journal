@@ -126,17 +126,17 @@ function useGlobalKeys(): void {
 function useDayWatch(): void {
   const core = useCore();
   useEffect(() => {
+    const tell = () => core.send({ kind: 'DateMayHaveChanged' });
     const shown = () => {
       if (document.visibilityState === 'visible') {
-        core.send({ kind: 'DateMayHaveChanged' });
+        tell();
       }
     };
-    const focused = () => core.send({ kind: 'DateMayHaveChanged' });
     document.addEventListener('visibilitychange', shown);
-    window.addEventListener('focus', focused);
+    window.addEventListener('focus', tell);
     return () => {
       document.removeEventListener('visibilitychange', shown);
-      window.removeEventListener('focus', focused);
+      window.removeEventListener('focus', tell);
     };
   }, [core]);
 }
