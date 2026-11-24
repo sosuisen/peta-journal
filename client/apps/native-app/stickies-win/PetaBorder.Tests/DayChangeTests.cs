@@ -13,6 +13,13 @@ public sealed class DayChangeTests
         Assert.True(DayChange.MayFollow(PowerBroadcast, power));
     }
 
+    // 時刻が変わったことも、日付が変わったかもしれないことを示す。時計を手で合わせたときなどである。
+    [Fact]
+    public void A_change_of_the_time_means_the_day_may_have_changed()
+    {
+        Assert.True(DayChange.MayFollow(0x001E, 0));
+    }
+
     // スリープに入ることや、ほかのメッセージは、日付が変わったかもしれないことを示さない。
     [Theory]
     [InlineData(PowerBroadcast, 0x0004)]
