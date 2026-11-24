@@ -109,6 +109,14 @@ fn a_folder_rename_carries_the_path_and_a_demotion_nothing() {
     assert_eq!(envelope.message, Inbound::DemoteIndex);
 }
 
+// 日付が変わったかもしれないという知らせは、中身のない行として届く。
+#[test]
+fn a_day_that_may_have_changed_arrives_with_nothing_more() {
+    let line = r#"{"seq":3,"type":"day_may_have_changed"}"#;
+    let envelope = read_line(line).unwrap();
+    assert_eq!(envelope.message, Inbound::DayMayHaveChanged);
+}
+
 // Stashへ送る項目は、そのidとして届く。
 #[test]
 fn a_stash_carries_the_item() {
