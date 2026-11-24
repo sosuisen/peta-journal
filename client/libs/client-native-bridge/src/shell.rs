@@ -47,6 +47,22 @@ pub trait Host: Send + Sync + 'static {
     fn upload(&self, _path: &Path) -> ApiResult<ApiOutput> {
         Err(ApiError("this journal takes no files".into()))
     }
+    /// The address of the journal server, such as `http://localhost:8080`, where the browser
+    /// opens a page of the web frontend and a file of the assets folder. None for a journal
+    /// inside the app, which has no server.
+    fn app_url(&self) -> Option<String> {
+        None
+    }
+}
+
+/// Puts the address of the server before an address of the server that the core orders to
+/// open in the browser (ADR 083). The core does not know the server.
+fn on_the_server(op: &mut UiOp, app_url: Option<String>) {
+    if let (UiOp::OpenInBrowser { address }, Some(app_url)) = (op, app_url) {
+        if address.starts_with('/') {
+            *address = format!("{}{address}", app_url.trim_end_matches('/'));
+        }
+    }
 }
 
 /// The files of the images the shell pasted, by the number the core knows each by: a file
@@ -265,7 +281,10 @@ impl NativeShell {
                 Effect::Ui(request) if is_question(&request.operation) => {
                     lanes.ask(&of_router, request);
                 }
-                Effect::Ui(request) => send(ShellEffect::Ui(request)),
+                Effect::Ui(mut request) => {
+                    on_the_server(&mut request.operation, host.app_url());
+                    send(ShellEffect::Ui(request))
+                }
                 Effect::Navigate(request) => send(ShellEffect::Navigate(request)),
             }
         });

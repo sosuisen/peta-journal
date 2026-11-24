@@ -6,9 +6,10 @@ use client_core::drag::DragMove;
 use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp, UiOutput,
 };
-use client_core::keys::{Chord, EditorState, Key, KeyPress};
+use client_core::keys::{Chord, EditorState, Held, Key, KeyPress};
 use client_core::model::{JournalPage, Page, Uploaded};
 use client_core::rest::ClientId;
+use client_core::rich_text::RichLink;
 use client_core::screens::day::CHECK_MS;
 use client_core::screens::search::SEARCH_DELAY_MS;
 use client_core::testing::{page_answer, plain_item};
@@ -58,6 +59,10 @@ struct FakeHost {
 }
 
 impl Host for FakeHost {
+    fn app_url(&self) -> Option<String> {
+        Some("http://localhost:8080".into())
+    }
+
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
         // Text the server is slow to save: it is in the calls only once it has been saved
         if format!("{op:?}").contains("slowly") {
@@ -994,4 +999,30 @@ fn a_typed_body_comes_as_an_update_of_its_row() {
         panic!("not one update of the first row: {:?}", changes.rows);
     };
     assert_eq!(item.item.body, "typed into a");
+}
+
+// ブラウザで開くjournalサーバーのアドレスには、サーバーのアドレスが前に付く。外へのリンクは、そのまま開く（ADR 083）。
+#[test]
+fn an_address_of_the_server_opens_in_the_browser_with_the_server_before_it() {
+    let screen = Screen::new();
+    let click = |link| Event::LinkClicked {
+        link,
+        held: Held::default(),
+    };
+
+    screen.send(&click(RichLink::File {
+        path: "assets/a b.png".into(),
+    }));
+    screen.send(&click(RichLink::Web {
+        url: "https://example.com/".into(),
+    }));
+
+    let opened = |address: &str| UiOp::OpenInBrowser {
+        address: address.into(),
+    };
+    wait_until("both open in the browser", || {
+        let ops = screen.ui_ops();
+        ops.contains(&opened("http://localhost:8080/assets/a%20b.png"))
+            && ops.contains(&opened("https://example.com/"))
+    });
 }

@@ -867,9 +867,6 @@ fn what_the_server_does_with_its_machine_is_not_done_inside_the_app() {
 
     for op in [
         ApiOp::BrowseFolder,
-        ApiOp::LaunchUrl {
-            url: "obsidian://open".into(),
-        },
         ApiOp::OpenExportFolder { page_id: page },
         ApiOp::UploadAsset { file: 1 },
     ] {

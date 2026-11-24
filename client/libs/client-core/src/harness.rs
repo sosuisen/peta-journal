@@ -113,7 +113,6 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::GetChildPages { .. } => "GetChildPages",
         ApiOp::GetBacklinks { .. } => "GetBacklinks",
         ApiOp::UploadAsset { .. } => "UploadAsset",
-        ApiOp::LaunchUrl { .. } => "LaunchUrl",
         ApiOp::OpenExportFolder { .. } => "OpenExportFolder",
     }
 }
@@ -557,7 +556,6 @@ impl FakeApi {
                 ..Default::default()
             }),
             ApiOp::BrowseFolder => ApiOutput::Folder(FolderChoice::default()),
-            ApiOp::LaunchUrl { .. } => ApiOutput::Launched(true),
             ApiOp::OpenExportFolder { .. } => ApiOutput::Done,
             ApiOp::GetMostRecentJournalBefore { .. }
             | ApiOp::GetMostRecentWeeklyJournalBefore { .. } => {

@@ -32,7 +32,8 @@ pub fn lane_of(op: &UiOp) -> Lane {
         | UiOp::Alert(_)
         | UiOp::Confirm(_)
         | UiOp::Prompt(_)
-        | UiOp::OpenWindow { .. } => Lane::Wasm,
+        | UiOp::OpenNewView { .. }
+        | UiOp::OpenInBrowser { .. } => Lane::Wasm,
     }
 }
 
@@ -53,9 +54,11 @@ mod tests {
             UiOp::Alert("done".into()),
             UiOp::Confirm("sure?".into()),
             UiOp::Prompt("name?".into()),
-            UiOp::OpenWindow {
+            UiOp::OpenNewView {
                 url: "/pages/notes".into(),
-                new_window: true,
+            },
+            UiOp::OpenInBrowser {
+                address: "/assets/a.png".into(),
             },
         ];
 

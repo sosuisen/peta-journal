@@ -8,6 +8,8 @@ use std::path::Path;
 
 struct JournalServer {
     http: UreqHttp,
+    /// The address of the server, where the web frontend and the assets are served too.
+    server: String,
 }
 
 impl Host for JournalServer {
@@ -22,6 +24,10 @@ impl Host for JournalServer {
     fn events(&self, send: &mut dyn FnMut(SseEvent)) {
         read_events(&self.http, send);
     }
+
+    fn app_url(&self) -> Option<String> {
+        Some(self.server.clone())
+    }
 }
 
 /// Starts the core for the journal server at `server`, such as `http://localhost:8080`, with
@@ -31,7 +37,8 @@ pub fn connect(server: String, to_shell: impl Fn(Vec<u8>) + Send + Sync + 'stati
     // One ID for this shell: the server hears it in the requests, and the core at the start
     let client_id = ClientId::new();
     let host = JournalServer {
-        http: UreqHttp::new(server, client_id.clone()),
+        http: UreqHttp::new(server.clone(), client_id.clone()),
+        server,
     };
     NativeShell::new(host, SystemClock, client_id, to_shell)
 }

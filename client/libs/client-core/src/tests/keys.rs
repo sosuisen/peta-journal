@@ -329,13 +329,13 @@ fn a_key_in_a_selection_sends_the_selection_key() {
     assert_eq!(format!("{event:?}"), "Some(SelectionKey(Escape))");
 }
 
-// ページへのリンクは、Shiftで新しいウィンドウに、CtrlかCommandで新しいタブに、何もなければその場で開く。両方を押すとウィンドウになる。
+// ページは、Shiftでブラウザに、CtrlかCommandでアプリの新しい画面に、何もなければその場で開く。両方を押すとブラウザになる（ADR 083）。
 #[test]
-fn shift_opens_a_window_and_ctrl_or_command_a_tab() {
+fn shift_opens_the_browser_and_ctrl_or_command_a_new_view() {
     let open_in = |shift, ctrl, cmd| Held { shift, ctrl, cmd }.open_in();
     assert_eq!(open_in(false, false, false), OpenIn::Here);
-    assert_eq!(open_in(false, true, false), OpenIn::Tab);
-    assert_eq!(open_in(false, false, true), OpenIn::Tab);
-    assert_eq!(open_in(true, false, false), OpenIn::Window);
-    assert_eq!(open_in(true, true, false), OpenIn::Window);
+    assert_eq!(open_in(false, true, false), OpenIn::NewView);
+    assert_eq!(open_in(false, false, true), OpenIn::NewView);
+    assert_eq!(open_in(true, false, false), OpenIn::Browser);
+    assert_eq!(open_in(true, true, false), OpenIn::Browser);
 }

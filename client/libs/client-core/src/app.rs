@@ -868,8 +868,11 @@ pub enum Event {
     },
 
     // ---- links ----
-    LaunchUrl {
-        url: String,
+    /// The user clicked a link in the text of an item, with the keys `held`. The core decides
+    /// how it opens (ADR 083).
+    LinkClicked {
+        link: crate::rich_text::RichLink,
+        held: crate::keys::Held,
     },
     /// Shows the folder of the page's markdown file in the file manager of the OS.
     OpenExportFolder {
@@ -1601,12 +1604,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         NavigateToTags => {
             screens::navigate::open_folder(model, &format!("{}index", model.config.tags_dir))
         }
-        GoToPage { path, open_in } => screens::navigate::to_page(
-            &screens::atlas::folder_path(model, &path),
-            open_in == crate::keys::OpenIn::Tab,
-            open_in == crate::keys::OpenIn::Window,
-            false,
-            None,
+        GoToPage { path, open_in } => screens::navigate::open_url_in(
+            screens::navigate::page_url(&screens::atlas::folder_path(model, &path), None),
+            open_in,
         ),
         JournalNav(nav) => screens::journal::nav(model, nav),
         CalendarNav(nav) => screens::calendar::nav(model, nav),
@@ -1670,11 +1670,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             done()
         }
 
-        LaunchUrl { url } => run(move |api| async move {
-            if !api.launch_url(&url).await.unwrap_or(false) {
-                log_error(format!("Failed to launch app with URL: {url}"));
-            }
-        }),
+        LinkClicked { link, held } => screens::navigate::link_clicked(link, held),
         OpenExportFolder { page_id } => run(move |api| async move {
             if let Err(e) = api.open_export_folder(&page_id).await {
                 log_error(format!(
