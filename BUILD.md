@@ -167,7 +167,9 @@ test reaches is either removed, or given a test of the behaviour that needs it.
 
 `cargo cov` is an alias in `.cargo/config.toml`. It measures `client-core`, `client-page-links`,
 `client-api-http`, `client-api-embedded`, `outliner-emacs`, `client-native-bridge`, `client-shell-http`,
-`client-shell-embedded`, `client-cloud-sync`, `client-stickies`, `client-web-bridge` and `shell-check`.
+`client-shell-embedded`, `client-cloud-sync`, `client-stickies`, `client-web-bridge`, `shell-check` and
+`app-icon`: every crate of the workspace. `scripts/verification.test.mjs` checks that no crate is
+missing, and guards the floor and the files left out.
 
 No file of `outliner-emacs` is left out. Its tests start the program itself, and `cargo cov`
 measures that run too.

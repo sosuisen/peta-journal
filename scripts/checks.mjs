@@ -37,6 +37,13 @@ const rust = (args) => [
 const emacs = '"$PETA_EMACS"';
 
 export const JOBS = {
+  // The settings of the checks themselves: the coverage floors, the files left out, the jobs of the
+  // CI and the hook (scripts/verification.test.mjs). Any file can change them, and the run is short
+  guard: {
+    dir: '.',
+    touchedBy: [''],
+    steps: [{ run: 'node --test "scripts/*.test.mjs"' }],
+  },
   journal: {
     dir: 'journal',
     touchedBy: JOURNAL,

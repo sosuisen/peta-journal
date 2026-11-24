@@ -2,7 +2,7 @@
 [target.wasm32-unknown-unknown]
 rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 
-# `cargo cov` measures the test coverage of the crates that run natively with cargo-llvm-cov. It
+# `cargo cov` measures the test coverage of every crate of the workspace with cargo-llvm-cov. It
 # prints a table per file; `cargo cov --html` writes a browsable report to target/llvm-cov/html/.
 # Setup, once: `rustup component add llvm-tools-preview` and
 # `cargo install cargo-llvm-cov --locked`.
@@ -11,6 +11,9 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 # the measured crates together, not file by file. The report is read for the lines no test
 # reaches. They are either removed or given a test of the behaviour that needs them. A test only
 # to reach a line is not written.
+#
+# scripts/verification.test.mjs fails when a crate of the workspace is not measured, or when the
+# floor or the files left out change. Such a change needs the consent of the developer.
 #
 # Why `--no-rustc-wrapper`: by default, cargo-llvm-cov 0.9 builds through a rustc wrapper of its
 # own. The wrapper instruments only the crates of the workspace. On Windows, it left
@@ -56,6 +59,8 @@ cov = [
     "client-web-bridge",
     "-p",
     "shell-check",
+    "-p",
+    "app-icon",
     # What only a native shell needs is measured too: the generation of its types, and the
     # entrance for another language
     "--features",

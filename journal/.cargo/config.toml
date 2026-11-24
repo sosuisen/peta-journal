@@ -1,5 +1,5 @@
-# `cargo cov` measures the test coverage of the core and server crates with cargo-llvm-cov. The
-# tests of the server crate run most of the core crate, so the two are measured together. It prints a
+# `cargo cov` measures the test coverage of every crate of the workspace with cargo-llvm-cov. The
+# tests of the server crate run most of the core crate, so they are measured together. It prints a
 # table per file; `cargo cov --html` writes a browsable report to target/llvm-cov/html/.
 # Setup, once: `rustup component add llvm-tools-preview` and
 # `cargo install cargo-llvm-cov --locked`.
@@ -8,6 +8,9 @@
 # the measured crates together, not file by file. The report is read for the lines no test
 # reaches. They are either removed or given a test of the behaviour that needs them. A test only
 # to reach a line is not written.
+#
+# scripts/verification.test.mjs fails when a crate of the workspace is not measured, or when the
+# floor or the files left out change. Such a change needs the consent of the developer.
 #
 # Why `--no-rustc-wrapper`: by default, cargo-llvm-cov 0.9 builds through a rustc wrapper of its
 # own. The wrapper instruments only the crates of the workspace. On Windows, it left journal-core
@@ -30,6 +33,7 @@
 cov = [
     "llvm-cov",
     "--no-rustc-wrapper",
+    "-p", "hmtid",
     "-p", "journal-core",
     "-p", "journal-server",
     "-p", "property-names",
