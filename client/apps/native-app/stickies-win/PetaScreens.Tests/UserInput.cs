@@ -103,7 +103,22 @@ internal static class UserInput
         await Task.Delay(Pause);
     }
 
+    /// <summary>
+    /// A move of the mouse by nothing. Windows lets the process that sent the last input put
+    /// its window in front, and this input changes nothing on the screen.
+    /// </summary>
+    public static void Nudge() =>
+        Send(
+            new Input
+            {
+                Type = 0,
+                Mouse = new MouseInput { Flags = Move },
+            }
+        );
+
     private const int Pause = 30;
+
+    private const uint Move = 0x0001;
 
     private const uint LeftDown = 0x0002;
     private const uint LeftUp = 0x0004;

@@ -171,7 +171,19 @@ internal sealed class Screen : IAsyncDisposable
     }
 
     /// <summary>Brings the first sticky to the front, where the keys of Windows go.</summary>
-    public void ToFront() => SetForegroundWindow(Handle(Window));
+    public void ToFront() => BringToFront(Handle(Window));
+
+    /// <summary>
+    /// Puts the window in front. Windows refuses SetForegroundWindow to a process that did not
+    /// send the last input. A move of the mouse by nothing makes the tests that process.
+    /// </summary>
+    private static void BringToFront(IntPtr window)
+    {
+        if (GetForegroundWindow() == window)
+            return;
+        UserInput.Nudge();
+        SetForegroundWindow(window);
+    }
 
     /// <summary>The items of the first sticky as it shows them, from the top down.</summary>
     public List<RowView> Items() => Items(Window);
@@ -230,7 +242,32 @@ internal sealed class Screen : IAsyncDisposable
         await Until("the element is on the screen", () =>
             element.XamlRoot is not null && element.ActualWidth > 0
         );
-        SetForegroundWindow(Handle(sticky));
+        await Until("the sticky is in front", () =>
+        {
+            BringToFront(Handle(sticky));
+            return GetForegroundWindow() == Handle(sticky);
+        });
+        // A window that was just opened may still move or grow, and a click on the place of a
+        // moment ago lands beside the element. The place has to stay the same for a while
+        (int X, int Y) target = default;
+        var still = 0;
+        await Until("the element stays in place", () =>
+        {
+            var now = ScreenPlace(element, sticky, across);
+            still = now == target ? still + 1 : 0;
+            target = now;
+            return still >= 5;
+        });
+        await UserInput.Click(target.X, target.Y, held, right);
+    }
+
+    /// <summary>The place on the screen, in pixels, of a point across the middle of the element.</summary>
+    private static (int X, int Y) ScreenPlace(
+        FrameworkElement element,
+        StickyWindow sticky,
+        double across
+    )
+    {
         var root = (UIElement)sticky.Content;
         var place = element
             .TransformToVisual(root)
@@ -238,11 +275,9 @@ internal sealed class Screen : IAsyncDisposable
         var scale = root.XamlRoot.RasterizationScale;
         var corner = new Point();
         ClientToScreen(Handle(sticky), ref corner);
-        await UserInput.Click(
+        return (
             corner.X + (int)Math.Round(place.X * scale),
-            corner.Y + (int)Math.Round(place.Y * scale),
-            held,
-            right
+            corner.Y + (int)Math.Round(place.Y * scale)
         );
     }
 
