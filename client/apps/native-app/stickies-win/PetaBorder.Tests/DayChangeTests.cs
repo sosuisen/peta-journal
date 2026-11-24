@@ -1,0 +1,15 @@
+namespace PetaBorder.Tests;
+
+public sealed class DayChangeTests
+{
+    private const uint PowerBroadcast = 0x0218;
+
+    // スリープからの復帰は、日付が変わったかもしれないことを示す。人が戻ったときも、自動で戻ったときもである。
+    [Theory]
+    [InlineData(0x0012)]
+    [InlineData(0x0007)]
+    public void Waking_from_sleep_means_the_day_may_have_changed(int power)
+    {
+        Assert.True(DayChange.MayFollow(PowerBroadcast, power));
+    }
+}
