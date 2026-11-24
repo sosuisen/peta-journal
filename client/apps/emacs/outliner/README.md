@@ -408,16 +408,18 @@ On Windows, `emacs` must be the real `emacs.exe`, not an `emacsclient` wrapper.
 
 ### Formatting
 
-Emacs Lisp has no formatter of its own. `format.el` indents the files as `emacs-lisp-mode` does,
-with spaces and no tabs, and removes the spaces at the end of a line. CI runs the check.
+The formatter is [elisp-formatter](https://github.com/sosuisen/elisp-formatter), shared with
+other projects. It indents the files as `emacs-lisp-mode` does, with spaces and no tabs, and
+removes the spaces at the end of a line. So TAB in Emacs gives the same indent. CI fetches the
+tag `v0.1.0` and runs the check.
 
 - A macro is indented by its `declare (indent ...)` form. Give a new macro one.
-- The rules are those of `emacs-lisp-mode`, so TAB in Emacs gives the same indent. A plist
-  goes under its first value.
 - For a quoted list of symbols, put the first symbol alone on the first line. The rest then go
   under it.
 
+Clone elisp-formatter once, anywhere, and run it from this folder:
+
 ```powershell
-emacs -Q --batch -l format.el -f peta-format-write   # formats the files
-emacs -Q --batch -l format.el -f peta-format-check   # changes nothing, fails on a change
+emacs -Q --batch -l <elisp-formatter>/elisp-formatter.el -f elisp-formatter-write lisp   # formats the files
+emacs -Q --batch -l <elisp-formatter>/elisp-formatter.el -f elisp-formatter-check lisp   # changes nothing, fails on a change
 ```
