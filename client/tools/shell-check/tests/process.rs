@@ -91,6 +91,26 @@ fn exits_with_2_when_a_source_folder_is_not_there() {
     assert_eq!(output.status.code(), Some(2));
 }
 
+// ルールのファイルがTOMLとして読めなければ、動かずに終了コード2で終わる。
+#[test]
+fn exits_with_2_when_the_rules_are_no_toml() {
+    let root = repository("bad-toml", "", "[s2\n");
+    let output = run_s2(&root);
+    assert_eq!(output.status.code(), Some(2));
+}
+
+// コアの`app.rs`に`pub enum Event`が無ければ、動かずに終了コード2で終わる。
+#[test]
+fn exits_with_2_when_the_core_has_no_event() {
+    let root = repository("no-event", "", SHELL_TOML);
+    write(
+        &root.join("client/libs/client-core/src/app.rs"),
+        "pub enum Route {\n}\n",
+    );
+    let output = run_s2(&root);
+    assert_eq!(output.status.code(), Some(2));
+}
+
 // 引数が足りなければ、使い方を出して終了コード2で終わる。
 #[test]
 fn exits_with_2_and_prints_the_usage_without_a_shell() {

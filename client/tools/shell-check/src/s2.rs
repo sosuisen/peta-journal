@@ -34,12 +34,11 @@ impl Language {
     }
 }
 
+/// `name` starts with an ASCII letter, as every kind of `Event` does.
 fn lower_camel(name: &str) -> String {
-    let mut chars = name.chars();
-    match chars.next() {
-        Some(first) => first.to_ascii_lowercase().to_string() + chars.as_str(),
-        None => String::new(),
-    }
+    let mut lower = name.to_string();
+    lower[..1].make_ascii_lowercase();
+    lower
 }
 
 fn names_implicit_member(text: &str, member: &str) -> bool {
