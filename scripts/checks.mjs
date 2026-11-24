@@ -6,8 +6,8 @@
 //   node scripts/checks.mjs run <job>          runs the checks of the job
 //   node scripts/checks.mjs jobs <file>...     prints the jobs that the files touch
 //
-// A step can need something that a machine may not have: an OS, or a program given by an
-// environment variable. On a developer's machine, such a step is skipped and reported. In the CI
+// A step can need something that a machine may not have: an OS, a program on the PATH, or a
+// program given by an environment variable. On a developer's machine, such a step is skipped and reported. In the CI
 // (CI=true), a missing need fails the job, so that no check is skipped there without a sign.
 
 import { spawnSync } from 'node:child_process';
@@ -37,6 +37,13 @@ const rust = (args) => [
 const emacs = '"$PETA_EMACS"';
 
 export const JOBS = {
+  // The settings of the checks themselves: the coverage floors, the files left out, the jobs of the
+  // CI and the hook (scripts/verification.test.mjs). Any file can change them, and the run is short
+  guard: {
+    dir: '.',
+    touchedBy: [''],
+    steps: [{ run: 'node --test "scripts/*.test.mjs"' }],
+  },
   journal: {
     dir: 'journal',
     touchedBy: JOURNAL,
@@ -134,11 +141,12 @@ export const JOBS = {
     touchedBy: ['client/apps/webview-app/memoview-win/'],
     steps: [
       // CSharpier is a local tool of memoview-win (dotnet-tools.json)
-      { run: 'dotnet tool restore' },
-      { run: 'dotnet csharpier check .' },
+      // The .NET SDK may be missing on a Mac. A Mac with it runs these steps too
+      { tools: ['dotnet'], run: 'dotnet tool restore' },
+      { tools: ['dotnet'], run: 'dotnet csharpier check .' },
       // Why in this folder: its global.json selects the test runner, and the SDK finds it only
       // from the current folder upward. The analyzers run in both builds
-      { cwd: 'client/apps/webview-app/memoview-win/memoview-tests', run: 'dotnet test' },
+      { cwd: 'client/apps/webview-app/memoview-win/memoview-tests', tools: ['dotnet'], run: 'dotnet test' },
       // The tests compile only the files without WinUI. The build shows what breaks in the rest.
       // WinUI builds only on Windows, with the MSBuild of Visual Studio
       {
@@ -180,7 +188,16 @@ function missing(step, env) {
   for (const name of step.needs ?? []) {
     if (!env[name]) return `環境変数${name}がない`;
   }
+  for (const tool of step.tools ?? []) {
+    if (!onPath(tool)) return `${tool}がPATHにない`;
+  }
   return undefined;
+}
+
+// Whether a program is on the PATH
+function onPath(program) {
+  const [finder, args] = process.platform === 'win32' ? ['where', [program]] : ['/bin/sh', ['-c', `command -v ${program}`]];
+  return spawnSync(finder, args, { stdio: 'ignore' }).status === 0;
 }
 
 // Runs the steps of a job. `log` gets every line of output. Returns

@@ -12,6 +12,7 @@
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { JOBS, jobsFor, runJob } from '../../scripts/checks.mjs';
 
 // `gh pr create`, or a pull request made through the REST API
@@ -50,6 +51,29 @@ try {
 } catch {
   // Offline: the last fetched base is used
 }
+// The hook and the list of checks are read from the checkout where Claude Code started, on main.
+// A checkout not pulled would run an old list, so the hook stops until it is pulled
+const HOOK_ROOT = resolve(fileURLToPath(import.meta.url), '..', '..', '..');
+try {
+  execFileSync('git', ['fetch', '-q', 'origin', 'main'], { cwd: HOOK_ROOT, stdio: 'ignore' });
+} catch {
+  // Offline: the last fetched main is used
+}
+const lf = (s) => s.replace(/\r\n/g, '\n');
+const stale = ['.claude/hooks/verify-before-pr.mjs', 'scripts/checks.mjs'].filter((path) => {
+  try {
+    return lf(git(HOOK_ROOT, 'show', `origin/main:${path}`)) !== lf(readFileSync(join(HOOK_ROOT, path), 'utf8')).trim();
+  } catch {
+    return false; // not on main yet
+  }
+});
+if (stale.length > 0) {
+  answer(
+    'deny',
+    `検証のスクリプトが、origin/mainと違います（${stale.join('、')}）。${HOOK_ROOT}でmainをpullしてから、PRを作り直してください。`,
+  );
+}
+
 const files = git(root, 'diff', '--name-only', `origin/${base}...HEAD`).split('\n').filter(Boolean);
 const jobs = jobsFor(files);
 if (jobs.length === 0) process.exit(0);

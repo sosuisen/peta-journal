@@ -4,9 +4,10 @@
 #   only, so no native test can reach it, and every mutant of it would be missed. The code it
 #   calls is in src/bridge/, whose tests run it with a fake browser. The React shell checks it
 #   in the browser.
-#
-# `cargo cov` does not measure it either: a native build leaves it out; see .cargo/config.toml.
-exclude_globs = ["libs/client-web-bridge/src/web.rs"]
+#   `cargo cov` does not measure it either: a native build leaves it out; see .cargo/config.toml.
+# - tools/app-icon/src/main.rs: the entry point of the tool, which reads the arguments and writes
+#   the icon files (2026-11-25). `cargo cov` leaves it out too; see .cargo/config.toml.
+exclude_globs = ["libs/client-web-bridge/src/web.rs", "tools/app-icon/src/main.rs"]
 
 # A mutant that loops for ever runs until this limit: twice the time of the unmutated tests,
 # not five times.

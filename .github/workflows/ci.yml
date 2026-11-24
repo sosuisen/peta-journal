@@ -10,6 +10,16 @@ permissions:
   contents: read
 
 jobs:
+  # The settings of the checks: the coverage floors, the files left out, the jobs and the hook
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: node scripts/checks.mjs run guard
+
   rust:
     name: ${{ matrix.workspace }}
     runs-on: ubuntu-latest
