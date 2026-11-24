@@ -37,6 +37,12 @@ class PastedImageTest {
         assertEquals("image", write(null, null).name)
     }
 
+    // 種類が画像でなければ、名前は拡張子のない image である。
+    @Test
+    fun an_image_whose_type_is_not_an_image_is_named_image_with_no_extension() {
+        assertEquals("image", write(null, "application/octet-stream").name)
+    }
+
     // 同じ名前の2つの画像は、別々のファイルに書かれる。前の画像の保存が終わる前に、次を貼れるためである。
     @Test
     fun two_images_of_one_name_are_written_to_two_files() {
