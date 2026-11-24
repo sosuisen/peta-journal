@@ -197,6 +197,16 @@ class AppliedTest {
         assertEquals("/pages/back", changed.history.url)
     }
 
+    // 後の差分の行の操作は、今の行に当たる。
+    @Test
+    fun the_rows_of_a_later_change_are_applied_to_the_rows_there() {
+        val view = firstView(Changes(listOf(ListChange.Reset(listOf(row("a")))), everyPanel()))
+
+        val changed = view.with(Changes(listOf(ListChange.Insert(1u, row("b"))), emptyList()))
+
+        assertEquals(listOf("a", "b"), ids(changed.outline.rows))
+    }
+
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
     @Test
     fun the_outline_panel_keeps_the_rows() {

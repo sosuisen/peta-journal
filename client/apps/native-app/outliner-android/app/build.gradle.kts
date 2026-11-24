@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.ncorti.ktfmt.gradle")
+    id("pl.droidsonroids.pitest")
 }
 
 // The formatter of the Kotlin code: `gradlew ktfmtFormat` writes it, and `gradlew ktfmtCheck`
@@ -73,4 +74,22 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test:runner:1.7.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest:$composeUi")
+}
+
+// The mutation tests: `gradlew :app:pitestDebug`. PIT runs only the tests in src/test, on the
+// JVM. The tests of the screen run on a device, so PIT cannot see them, and the classes it
+// mutates are only the ones that src/test tests. Why not `telling` of ItemEditor.kt: PIT takes
+// whole classes, and the rest of that file is the screen
+pitest {
+    targetClasses.set(
+        listOf(
+            "com.sosuisha.petajournal.dropbox.DropboxFailuresKt",
+            "com.sosuisha.petajournal.screen.PadKt",
+            "com.sosuisha.petajournal.shell.AppliedKt",
+            "com.sosuisha.petajournal.shell.PastedImage*",
+        ),
+    )
+    targetTests.set(listOf("com.sosuisha.petajournal.*Test"))
+    outputFormats.set(listOf("HTML", "XML"))
+    timestampedReports.set(false)
 }
