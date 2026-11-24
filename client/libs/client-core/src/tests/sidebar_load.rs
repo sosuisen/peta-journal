@@ -3,7 +3,7 @@
 use crate::app::{Event, Route};
 use crate::effects::{ApiOutput, SseEvent};
 use crate::harness::Harness;
-use crate::model::{DocPage, Page, PageExt};
+use crate::model::{DocPage, Item, Page, PageExt, PageWithItems};
 use crate::rest::ClientId;
 use crate::view::LoadState;
 
@@ -225,4 +225,94 @@ fn the_folder_pages_are_loaded_and_empty_on_a_page_without_a_folder() {
     });
 
     assert_eq!(folder(&h), (vec![], LoadState::Loaded));
+}
+
+/// A heading item with this text in Markdown.
+fn heading(id: &str, body: &str) -> Item {
+    crate::testing::item_with(id, 1, |i| {
+        i.body = body.into();
+        i.types = vec!["heading".into()];
+    })
+}
+
+/// The server answers the next item load of a page with these items.
+fn items_of(h: &mut Harness, page: Page, items: Vec<Item>) {
+    h.api.answer_next(
+        "GetPageById",
+        Ok(ApiOutput::Page(PageWithItems {
+            page,
+            items,
+            transcluded_trees: Default::default(),
+        })),
+    );
+}
+
+/// The texts of the headings, and their state.
+fn headings(h: &Harness) -> (Vec<String>, LoadState) {
+    let view = h.view().headings;
+    let texts = view.headings.iter().map(|x| x.text.clone()).collect();
+    (texts, view.state)
+}
+
+// 目次は、ページの項目が届くまで、空の一覧で読み込み中である。前のページの目次は出ない。
+#[test]
+fn the_headings_are_loading_and_empty_until_the_items_arrive() {
+    let mut h = Harness::new();
+    items_of(&mut h, doc("", "Old"), vec![heading("h1", "# Old")]);
+    open(&mut h, doc("", "Old"));
+    assert_eq!(headings(&h), (vec!["Old".to_string()], LoadState::Loaded));
+    h.hold("GetPageById");
+
+    open(&mut h, doc("", "New"));
+
+    assert_eq!(headings(&h), (vec![], LoadState::Loading));
+}
+
+// 目次は、ページの項目が届くと、見出しの一覧で読み込み済みになる。
+#[test]
+fn the_headings_are_loaded_with_the_items() {
+    let mut h = Harness::new();
+    h.hold("GetPageById");
+    open(&mut h, doc("", "New"));
+
+    items_of(&mut h, doc("", "New"), vec![heading("h1", "# Top")]);
+    h.release_held();
+
+    assert_eq!(headings(&h), (vec!["Top".to_string()], LoadState::Loaded));
+}
+
+// ページの読み込みに失敗すると、目次は空の一覧で失敗になる。ページそのものを読めないときも同じである。
+#[test]
+fn the_headings_fail_empty_when_the_page_cannot_be_read() {
+    let mut h = Harness::new();
+    h.api.fail_next("GetPageById", "offline");
+    open(&mut h, doc("", "New"));
+    assert_eq!(headings(&h), (vec![], LoadState::Failed));
+
+    let mut h = Harness::new();
+    h.api.fail_next("GetOrCreateDoc", "offline");
+    open(&mut h, doc("", "New"));
+    assert_eq!(headings(&h), (vec![], LoadState::Failed));
+}
+
+// 日誌では、目次は、日誌が届くと空の一覧で読み込み済みになる。
+#[test]
+fn the_headings_of_a_journal_are_loaded_and_empty_when_it_arrives() {
+    let mut h = Harness::new();
+    items_of(&mut h, doc("", "Old"), vec![heading("h1", "# Old")]);
+    open(&mut h, doc("", "Old"));
+    h.hold("GetOrCreateJournal");
+
+    h.send(Event::Route {
+        route: Route::Page {
+            name: "today".into(),
+            fragment: None,
+        },
+        today: "2026-02-10".into(),
+    });
+    let during = headings(&h);
+    h.release_held();
+
+    assert_eq!(during, (vec![], LoadState::Loading));
+    assert_eq!(headings(&h), (vec![], LoadState::Loaded));
 }
