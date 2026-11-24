@@ -55,6 +55,14 @@ class ShownTextTest {
         assertEquals(listOf("3. c\n☑ d"), shown(list).map(::letters))
     }
 
+    // 見出しの段落の文字は、コアが決めた倍率（em）の大きさになる（#795）。
+    @Test
+    fun a_heading_has_the_size_that_the_core_gives() {
+        val heading = paragraph(run("h")).copy(heading = 5u, scale = 1.25f)
+        val text = (shown(text(heading)).single() as ShownBlock.Text).text
+        assertEquals(1.25f, text.spanStyles.single { it.item.fontSize.isEm }.item.fontSize.value)
+    }
+
     // 文字の位置は、項目の表示の文字のうち、その前に立つ文字の数になる。印の上は、その段落の先頭である。
     @Test
     fun a_place_in_a_text_is_the_count_of_the_shown_letters_before_it() {
