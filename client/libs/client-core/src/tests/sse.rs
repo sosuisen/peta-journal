@@ -233,3 +233,13 @@ fn a_journal_that_could_not_be_loaded_opens_once_the_server_is_up() {
 
     assert_eq!(h.model.shown_page_id().as_deref(), Some("page-2026-02-09"));
 }
+
+// 表示中のページは、つなぎ直してストリームが開くと読み直される。切れていた間の変更は知らされないからである。
+#[test]
+fn the_shown_page_is_read_again_once_the_stream_is_back() {
+    let mut h = Harness::with_items(vec![crate::harness::item("a", 1, "old")]);
+
+    server_comes_up(&mut h);
+
+    assert_eq!(h.bodies(), ["reloaded=reloaded"]);
+}
