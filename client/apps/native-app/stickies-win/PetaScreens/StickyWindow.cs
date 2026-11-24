@@ -947,14 +947,25 @@ internal sealed class StickyWindow : Window
             AppWindow.Resize(Pixels(sticky.Width, sticky.Height));
             return;
         }
-        // A little down and to the right of the newest sticky
-        if (before is not null)
+        if (before is null)
         {
-            var step = (int)Math.Round(BarHeight * before.Scale);
-            var corner = before.AppWindow.Position;
-            AppWindow.Move(new PointInt32(corner.X + step, corner.Y + step));
+            AppWindow.Resize(Pixels(Usual.Width, Usual.Height));
+            return;
         }
+        // A little down and to the right of the sticky the user worked in
+        var step = (int)Math.Round(BarHeight * before.Scale);
+        var corner = before.AppWindow.Position;
+        var work = DisplayArea
+            .GetFromWindowId(before.AppWindow.Id, DisplayAreaFallback.Nearest)
+            .WorkArea;
+        AppWindow.Move(new PointInt32(corner.X + step, corner.Y + step));
+        // After the move: the scale is that of the screen the window is on
         AppWindow.Resize(Pixels(Usual.Width, Usual.Height));
+        var size = AppWindow.Size;
+        var inside = new Area(corner.X + step, corner.Y + step, size.Width, size.Height).Within(
+            new Area(work.X, work.Y, work.Width, work.Height)
+        );
+        AppWindow.Move(new PointInt32(inside.Left, inside.Top));
     }
 
     private SizeInt32 Pixels(double width, double height) =>
