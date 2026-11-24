@@ -407,6 +407,19 @@ fn a_loaded_page_reaches_emacs_as_rows() {
     );
 }
 
+// 編集中でない空の項目は、行頭の点のない行としてEmacsに届く。ほかのシェルと同じである（#1042）。
+#[test]
+fn an_empty_item_that_is_not_edited_reaches_emacs_without_a_bullet() {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/pages/notes".into(),
+    });
+    driver.load_page(&[item("a", 1, "親"), item("b", 1, "")]);
+    let rows = driver.last_rows().unwrap();
+    let bullets: Vec<_> = rows.iter().map(|r| r.bullet).collect();
+    assert_eq!(bullets, [Bullet::Plain, Bullet::Hidden]);
+}
+
 // シェルは、行ごとに、本文のMarkdownと、Emacsが描く形（EmacsText）を送る。
 #[test]
 fn each_row_reaches_emacs_with_its_markdown_and_its_emacs_text() {
