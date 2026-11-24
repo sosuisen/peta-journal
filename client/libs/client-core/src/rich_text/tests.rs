@@ -334,11 +334,11 @@ fn a_heading_has_the_scale_of_its_level() {
 // 段落の字下げは、リストと引用の深さの和の1.5em倍である（#795）。
 #[test]
 fn a_paragraph_is_indented_by_its_depth_and_its_quotes() {
-    let indents: Vec<_> = paragraphs("text\n\n- one\n  - two\n\n> - quoted")
+    let indents: Vec<_> = paragraphs("text\n\n- one\n  - two\n\n> - quoted\n>\n> ***")
         .iter()
         .map(|p| p.indent)
         .collect();
-    assert_eq!(indents, [0.0, 1.5, 3.0, 3.0]);
+    assert_eq!(indents, [0.0, 1.5, 3.0, 3.0, 1.5]);
 }
 
 // 段落の中の改行は空白になり、改行の記号は改行になる。
