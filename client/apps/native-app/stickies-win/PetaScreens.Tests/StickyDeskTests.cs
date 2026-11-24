@@ -40,6 +40,26 @@ public sealed class StickyDeskTests
         Assert.AreEqual(first.AppWindow.Size, second.AppWindow.Size);
     }
 
+    // Ctrl+Nで足した付箋紙は、押した付箋紙の左上隅から少し右下に出る。最後に開いた付箋紙の右下ではない。
+    [UITestMethod]
+    public async Task Control_N_adds_a_sticky_a_little_down_and_right_of_the_sticky_it_was_pressed_on()
+    {
+        await using var screen = await Screen.Open(Port);
+        Screen.Press(VirtualKey.N, Held.Control);
+        await Screen.Until("a second sticky is open", () => screen.Desk.Stickies.Count == 2);
+        screen.Window.AppWindow.Move(new(200, 200));
+        screen.Desk.Stickies[1].AppWindow.Move(new(700, 400));
+        await Task.Delay(100);
+        screen.ToFront();
+
+        Screen.Press(VirtualKey.N, Held.Control);
+
+        await Screen.Until("a third sticky is open", () => screen.Desk.Stickies.Count == 3);
+        var corner = screen.Desk.Stickies[2].AppWindow.Position;
+        Assert.AreEqual(corner.X - 200, corner.Y - 200);
+        Assert.IsInRange(1, 100, corner.X - 200);
+    }
+
     // 付箋紙は、それぞれが自分のページを持つ。1つでページを開いても、ほかの付箋紙は変わらない。
     [UITestMethod]
     public async Task Each_sticky_has_a_page_of_its_own()
