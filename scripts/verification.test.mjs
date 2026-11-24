@@ -132,6 +132,7 @@ test('each job measures the coverage in a step that is never skipped', () => {
     assert.ok(step, `${job}: no step "${run}"`);
     assert.equal(step.needs, undefined, job);
     assert.equal(step.os, undefined, job);
+    assert.equal(step.tools, undefined, job);
   }
 });
 
