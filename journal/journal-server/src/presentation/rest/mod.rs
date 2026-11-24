@@ -6,7 +6,6 @@ pub mod config;
 pub mod confirm;
 pub mod items;
 pub mod journals;
-pub mod launcher;
 pub mod pages;
 pub mod search;
 pub mod sync;
@@ -77,7 +76,6 @@ pub fn router() -> Router<SharedState> {
         .merge(confirm::routes())
         .merge(sync::routes())
         .merge(assets::routes())
-        .merge(launcher::routes())
         .layer(axum::middleware::from_fn(write_dates))
         .layer(axum::middleware::from_fn(require_client_id))
 }

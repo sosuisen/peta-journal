@@ -77,7 +77,7 @@ MCPには足さない。
 - `GET /api/events`：SSEで変更を知らせる。
 - `GET /api/health`：サーバーが動いているかを答える。
 - `POST /api/config/browse-folder`：PCのフォルダーを選ぶダイアログを出す。
-- `POST /api/launcher/open`、`POST /api/pages/{id}/open-folder`：PCのOSで、ファイルやフォルダーを開く。
+- `POST /api/pages/{id}/open-folder`：PCのOSで、フォルダーを開く。
 - `GET /assets/{file_name}`：アセットのファイルを、ブラウザーへそのまま返す。
 - `POST /api/confirm/{request_id}`：拡張関数がクライアントに出した質問に答える。MCPのクライアントは、この質問を受け取らない。
 - `GET /api/sync/pending-deletes`、`POST /api/sync/pending-deletes`：消えたファイルの扱いを選ぶHTMLの画面と、そのフォームの送信先である。ブラウザーのためだけにある。
