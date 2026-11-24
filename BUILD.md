@@ -267,7 +267,8 @@ tests do not run in CI.
 
 The shell for Windows. It is the same app as the SwiftUI shell: stickies that each show one page
 (ADR 028). `client/apps/native-app/stickies-win/README.md` describes the tools, the build of the app and the tests.
-Its tests do not run in CI.
+The CI runs the tests of `PetaBorder` and measures their coverage. The tests of the windows do
+not run in CI: they press real keys.
 
 ## Android frontend (outliner-android)
 
