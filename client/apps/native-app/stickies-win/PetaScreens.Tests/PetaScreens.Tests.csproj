@@ -22,4 +22,9 @@
     <!-- The journal server of the tests is the one of PetaBorder.Tests -->
     <Compile Include="..\PetaBorder.Tests\JournalServer.cs" Link="JournalServer.cs" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- The core has a Held too (ADR 083). The tests hold the keys of the border -->
+    <Using Include="PetaBorder.Held" Alias="Held" />
+  </ItemGroup>
 </Project>
