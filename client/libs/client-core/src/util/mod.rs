@@ -72,28 +72,6 @@ pub fn char_len(text: &str) -> usize {
     text.chars().count()
 }
 
-/// The schemes that the browser or the app opens itself. The server opens no link of these.
-const STANDARD_SCHEMES: [&str; 9] = [
-    "http://",
-    "https://",
-    "mailto:",
-    "tel:",
-    "sms:",
-    "file:",
-    "data:",
-    "javascript:",
-    "about:",
-];
-
-/// True for a link with a custom URL scheme (`peta-journal://...`), which the server opens with
-/// the app of the scheme. A relative link and one of a standard scheme are no such link.
-pub fn has_custom_scheme(href: &str) -> bool {
-    let relative = ["/", "./", "../", "#"].iter().any(|p| href.starts_with(p));
-    let lower = href.to_lowercase();
-    let standard = STANDARD_SCHEMES.iter().any(|s| lower.starts_with(s));
-    !relative && !standard && href.contains("://")
-}
-
 /// What a link in a body leads to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Link {
@@ -287,28 +265,5 @@ mod tests {
         assert_eq!(split_at_char("日本語", 1), ("日", "本語"));
         assert_eq!(split_at_char("ab", 9), ("ab", ""));
         assert_eq!(char_len("日本語"), 3);
-    }
-
-    // 独自のスキームのリンク（`obsidian://`など）は、サーバーが開くリンクである。
-    #[test]
-    fn a_link_of_a_custom_scheme_is_opened_by_the_server() {
-        assert!(has_custom_scheme("obsidian://open?vault=a"));
-        assert!(has_custom_scheme("peta-journal://page/x"));
-    }
-
-    // 相対のリンクと、標準のスキームのリンクは、サーバーが開くリンクではない。スキームの大文字と小文字は区別しない。
-    #[test]
-    fn a_relative_link_or_one_of_a_standard_scheme_is_not() {
-        for href in [
-            "/docs/x",
-            "./a://b",
-            "../a",
-            "#x",
-            "HTTPS://example.com",
-            "mailto:a@b",
-        ] {
-            assert!(!has_custom_scheme(href), "{href}");
-        }
-        assert!(!has_custom_scheme("no-scheme"));
     }
 }
