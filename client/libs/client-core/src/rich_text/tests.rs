@@ -649,6 +649,22 @@ fn a_code_block_inside_a_list_keeps_its_lines_and_the_entries_keep_their_numbers
     assert_eq!(all_letters(&entries[1].blocks), "second");
 }
 
+// 部品を持つリストと引用は、中のものを1段（1.5em）右へ寄せる。段落の字下げと同じ幅である（#795）。
+#[test]
+fn a_list_or_a_quote_that_holds_a_part_moves_it_one_step_right() {
+    let code = "```\na\n```";
+    let in_list = shown(&format!("- a\n\n  {}", code.replace('\n', "\n  ")));
+    let in_quote = shown(&format!("> {}", code.replace('\n', "\n> ")));
+    let indents: Vec<_> = [in_list, in_quote]
+        .iter()
+        .map(|blocks| match blocks.as_slice() {
+            [RichBlock::Entries { indent, .. }] | [RichBlock::Quote { indent, .. }] => *indent,
+            blocks => panic!("not one list or quote: {blocks:?}"),
+        })
+        .collect();
+    assert_eq!(indents, [1.5, 1.5]);
+}
+
 // 引用の中の表も、セルごとに分かれて残る。
 #[test]
 fn a_table_inside_a_quote_has_each_cell_apart() {
