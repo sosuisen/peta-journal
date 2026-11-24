@@ -23,7 +23,7 @@ final class ShellTests: XCTestCase {
     private var server: JournalServer!
 
     override func setUp() async throws {
-        server = try JournalServer(port: 18097, functions: ["asking": Self.askingExtension])
+        server = try JournalServer(functions: ["asking": Self.askingExtension])
     }
 
     override func tearDown() async throws {

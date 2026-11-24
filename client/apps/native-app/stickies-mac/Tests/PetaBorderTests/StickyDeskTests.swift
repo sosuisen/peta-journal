@@ -16,7 +16,7 @@ final class StickyDeskTests: XCTestCase {
     private var later: [StickyDesk] = []
 
     override func setUp() async throws {
-        server = try JournalServer(port: 18098)
+        server = try JournalServer()
         file = FileManager.default.temporaryDirectory
             .appendingPathComponent("peta-stickies-\(UUID().uuidString)")
             .appendingPathComponent("stickies.json")

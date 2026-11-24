@@ -24,7 +24,7 @@ final class OutlineScreenTests: XCTestCase {
     private var askedSticky: String?
 
     override func setUp() async throws {
-        server = try JournalServer(port: 18094)
+        server = try JournalServer()
         shell = Shell(
             server: server.address, url: "/pages/screen", clipboard: { [weak self] in self?.pasteboard },
             image: { [weak self] in self?.pastedImage },
