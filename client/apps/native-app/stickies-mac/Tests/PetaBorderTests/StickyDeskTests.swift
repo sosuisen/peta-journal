@@ -100,6 +100,70 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(first.window.frame.size, second.window.frame.size)
     }
 
+    /// How far the top left corner of `new` is to the right of and down from that of `origin`.
+    private func step(from origin: Sticky, to new: Sticky) -> CGSize {
+        CGSize(
+            width: new.window.frame.minX - origin.window.frame.minX,
+            height: origin.window.frame.maxY - new.window.frame.maxY)
+    }
+
+    /// Two stickies, the second a little down and to the right of the first, as a sticky is
+    /// added, and then moved far from there: a new sticky placed by the last one would be far
+    /// from the first. `step` is how far the second was from the first.
+    private func twoStickies(url: String? = nil) -> (first: Sticky, step: CGSize) {
+        let first = desk.add(url: url)
+        let second = desk.add()
+        let step = step(from: first, to: second)
+        second.window.setFrameOrigin(NSPoint(x: first.window.frame.minX + 300, y: first.window.frame.minY - 200))
+        return (first, step)
+    }
+
+    /// Cmd+N, as AppKit gives it to the window of `sticky`.
+    private func pressCommandN(in sticky: Sticky) async throws {
+        sticky.window.makeKeyAndOrderFront(nil)
+        // SwiftUI takes the keys of its buttons once it has drawn them
+        try await Task.sleep(nanoseconds: 300_000_000)
+        let event = try XCTUnwrap(
+            NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [.command], timestamp: 0,
+                windowNumber: sticky.window.windowNumber, context: nil, characters: "n",
+                charactersIgnoringModifiers: "n", isARepeat: false, keyCode: 45))
+        XCTAssertTrue(sticky.window.performKeyEquivalent(with: event))
+    }
+
+    // Cmd+Nで足した付箋紙は、最後に開いた付箋紙ではなく、Cmd+Nを押した付箋紙の左上隅から少し右下に出る。
+    func testAStickyAddedWithCommandNComesJustBelowRightOfTheStickyItCameFrom() async throws {
+        let (first, usual) = twoStickies()
+
+        try await pressCommandN(in: first)
+
+        XCTAssertEqual(desk.stickies.count, 3)
+        XCTAssertEqual(step(from: first, to: try XCTUnwrap(desk.stickies.last)), usual)
+    }
+
+    // リンクから開いた付箋紙は、リンクをたどった付箋紙の左上隅から少し右下に出る。
+    func testAStickyOpenedByALinkComesJustBelowRightOfTheStickyOfTheLink() async throws {
+        let (first, usual) = twoStickies(url: "/pages/placed-from")
+        try await waitUntil("the page is shown") { first.shell.title == "placed-from" }
+
+        first.shell.follow(.page(url: "/pages/placed-sticky"), holding: .command)
+
+        XCTAssertEqual(desk.stickies.count, 3)
+        XCTAssertEqual(step(from: first, to: try XCTUnwrap(desk.stickies.last)), usual)
+    }
+
+    // その位置では付箋紙のスクリーンからはみ出るときは、新しい付箋紙の全体がそのスクリーンに収まる位置まで戻す。
+    func testAStickyThatWouldStickOutOfTheScreenIsMovedBackOntoIt() async throws {
+        let first = desk.add()
+        let screen = try XCTUnwrap(first.window.screen).visibleFrame
+        first.window.setFrameOrigin(NSPoint(x: screen.maxX - first.window.frame.width, y: screen.minY))
+
+        try await pressCommandN(in: first)
+
+        let added = try XCTUnwrap(desk.stickies.last).window.frame
+        XCTAssertTrue(screen.contains(added), "\(added) is not in \(screen)")
+    }
+
     // 閉じた付箋紙は、なくなる。ほかの付箋紙は残る。
     func testAStickyThatIsClosedIsGone() async throws {
         let first = desk.add()

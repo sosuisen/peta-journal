@@ -137,23 +137,28 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         }
     }
 
-    /// Opens a new sticky that shows what `url` names, or no page yet.
+    /// Opens a new sticky that shows what `url` names, or no page yet. It comes a little down
+    /// and to the right of `origin`, the window it was asked from, or of the newest sticky.
     @discardableResult
-    public func add(url: String? = nil) -> Sticky {
-        show(nil, url: url)
+    public func add(url: String? = nil, nextTo origin: NSWindow? = nil) -> Sticky {
+        show(nil, url: url, nextTo: origin)
     }
 
     /// `kept` is a sticky of the run before, which comes back as it was.
     @discardableResult
-    private func show(_ kept: StickySettings?, url: String? = nil) -> Sticky {
+    private func show(_ kept: StickySettings?, url: String? = nil, nextTo origin: NSWindow? = nil) -> Sticky {
+        // The window of this sticky, for the stickies asked from it. The shell comes first
+        weak var made: NSWindow?
         let shell = Shell(
-            server: server, url: kept?.url ?? url, openSticky: { [weak self] in self?.add(url: $0) })
+            server: server, url: kept?.url ?? url,
+            openSticky: { [weak self] in self?.add(url: $0, nextTo: made) })
         let look = StickyLook(
             color: kept?.color ?? StickySettings.yellow, alwaysOnTop: kept?.alwaysOnTop ?? false,
             zoom: kept?.zoom ?? 1)
         let window = StickyWindow(
             contentRect: NSRect(origin: .zero, size: NSSize(width: usualSticky().width, height: usualSticky().height)),
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        made = window
         // The desk keeps the window, and lets it go when it is closed
         window.isReleasedWhenClosed = false
         // The paper is light in every color, and so the text on it is always dark
@@ -174,14 +179,14 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         let tools = NSTitlebarAccessoryViewController()
         tools.layoutAttribute = .trailing
         let buttons = FirstClickHostingView(
-            rootView: StickyTools(look: look, shell: shell, onAdd: { [weak self] in self?.add() }))
+            rootView: StickyTools(look: look, shell: shell, onAdd: { [weak self] in self?.add(nextTo: made) }))
         buttons.frame.size = buttons.fittingSize
         tools.view = buttons
         window.addTitlebarAccessoryViewController(tools)
         if let kept {
             window.setFrame(NSRect(x: kept.x, y: kept.y, width: kept.width, height: kept.height), display: false)
         } else {
-            place(window)
+            place(window, nextTo: origin)
         }
         let sticky = Sticky(id: kept?.id ?? UUID().uuidString, window: window, shell: shell, look: look)
         stickies.append(sticky)
@@ -305,10 +310,10 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         return menu
     }
 
-    /// A little down and to the right of the newest sticky, as new windows are everywhere
-    /// on the Mac.
-    private func place(_ window: NSWindow) {
-        guard let before = stickies.last?.window else {
+    /// A little down and to the right of `origin`, or of the newest sticky, as new windows are
+    /// everywhere on the Mac. Near the edge of the screen, AppKit keeps the window on it.
+    private func place(_ window: NSWindow, nextTo origin: NSWindow?) {
+        guard let before = origin ?? stickies.last?.window else {
             window.center()
             return
         }
