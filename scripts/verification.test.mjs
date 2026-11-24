@@ -154,8 +154,7 @@ test('each job measures the coverage in a step that is never skipped', () => {
     assert.ok(step, `${job}: no step "${run}"`);
     assert.equal(step.needs, undefined, job);
     assert.equal(step.os, undefined, job);
-    // A step may need a program on the PATH, such as dotnet on a Mac. A machine without it skips
-    // the step and says so, and the CI fails without it
+    assert.equal(step.tools, undefined, job);
   }
 });
 

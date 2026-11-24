@@ -6,9 +6,11 @@
 //   node scripts/checks.mjs run <job>          runs the checks of the job
 //   node scripts/checks.mjs jobs <file>...     prints the jobs that the files touch
 //
-// A step can need something that a machine may not have: an OS, a program on the PATH, or a
-// program given by an environment variable. On a developer's machine, such a step is skipped and reported. In the CI
+// A step can need something that a machine cannot have: another OS, or a program given by an
+// environment variable. On a developer's machine, such a step is skipped and reported. In the CI
 // (CI=true), a missing need fails the job, so that no check is skipped there without a sign.
+// A tool that can be installed on any OS, such as dotnet, is not such a need. Without it the
+// step fails, on a developer's machine too.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -61,8 +63,8 @@ export const JOBS = {
   client: {
     dir: 'client',
     touchedBy: CLIENT_RUST,
-    // The apps in other languages have jobs of their own, or none in the CI yet
-    notTouchedBy: ['client/apps/web-app/', 'client/apps/webview-app/', 'client/apps/native-app/'],
+    // The web apps have jobs of their own
+    notTouchedBy: ['client/apps/web-app/', 'client/apps/webview-app/'],
     steps: [
       ...rust('--workspace'),
       // What only a native shell needs is behind features: the generation of its types, and the
@@ -92,7 +94,7 @@ export const JOBS = {
   'emacs-e2e': {
     dir: '.',
     touchedBy: CLIENT_RUST,
-    notTouchedBy: ['client/apps/web-app/', 'client/apps/webview-app/', 'client/apps/native-app/'],
+    notTouchedBy: ['client/apps/web-app/', 'client/apps/webview-app/'],
     steps: [
       { cwd: 'journal', run: 'cargo build -p journal-server' },
       { cwd: 'client', run: 'cargo build -p outliner-emacs' },
@@ -124,7 +126,7 @@ export const JOBS = {
   'outliner-react': {
     dir: 'client/apps/web-app/outliner-react',
     touchedBy: ['client/apps/web-app/outliner-react/', ...CLIENT_RUST],
-    notTouchedBy: ['client/apps/web-app/todo/', 'client/apps/webview-app/', 'client/apps/emacs/', 'client/apps/native-app/'],
+    notTouchedBy: ['client/apps/web-app/todo/', 'client/apps/webview-app/', 'client/apps/emacs/'],
     steps: [
       { run: 'npm ci' },
       { run: 'npm run border' },
@@ -141,13 +143,12 @@ export const JOBS = {
     touchedBy: ['client/apps/webview-app/memoview-win/'],
     steps: [
       // CSharpier is a local tool of memoview-win (dotnet-tools.json)
-      // The .NET SDK may be missing on a Mac. A Mac with it runs these steps too
-      { tools: ['dotnet'], run: 'dotnet tool restore' },
-      { tools: ['dotnet'], run: 'dotnet csharpier check .' },
+      { run: 'dotnet tool restore' },
+      { run: 'dotnet csharpier check .' },
       // Runs the tests, and fails below 90% of the lines covered (the Coverage target of
       // MemoView.Tests.csproj). Why in this folder: its global.json selects the test runner, and
       // the SDK finds it only from the current folder upward. The analyzers run in both builds
-      { cwd: 'client/apps/webview-app/memoview-win/memoview-tests', tools: ['dotnet'], run: 'dotnet build -t:Coverage' },
+      { cwd: 'client/apps/webview-app/memoview-win/memoview-tests', run: 'dotnet build -t:Coverage' },
       // The tests compile only the files without WinUI. The build shows what breaks in the rest.
       // WinUI builds only on Windows, with the MSBuild of Visual Studio
       {
@@ -174,18 +175,17 @@ export const JOBS = {
     ],
     steps: [
       // generated/: the C# types of the border and the core as a library, from the Rust code
-      { os: 'win32', tools: ['boltffi'], run: 'pwsh -NoProfile -File generate.ps1' },
-      { os: 'darwin', tools: ['boltffi'], run: './generate.sh' },
+      { os: 'win32', run: 'pwsh -NoProfile -File generate.ps1' },
+      { os: 'darwin', run: './generate.sh' },
       // Some tests of PetaBorder talk to a real journal server
       { cwd: 'journal', run: 'cargo build -p journal-server' },
       // CSharpier is a local tool of stickies-win (dotnet-tools.json)
-      { tools: ['dotnet'], run: 'dotnet tool restore' },
-      { tools: ['dotnet'], run: 'dotnet csharpier check .' },
+      { run: 'dotnet tool restore' },
+      { run: 'dotnet csharpier check .' },
       // Runs the tests, and fails below 90% of the lines covered (the Coverage target of
       // PetaBorder.Tests.csproj). The analyzers run in the build
       {
         cwd: 'client/apps/native-app/stickies-win/PetaBorder.Tests',
-        tools: ['dotnet'],
         programs: [`journal/target/debug/journal-server${EXE}`],
         env: { PETA_E2E_SERVER: join(ROOT, 'journal', 'target', 'debug', `journal-server${EXE}`) },
         run: 'dotnet build -t:Coverage',
@@ -224,16 +224,7 @@ function missing(step, env) {
   for (const name of step.needs ?? []) {
     if (!env[name]) return `環境変数${name}がない`;
   }
-  for (const tool of step.tools ?? []) {
-    if (!onPath(tool)) return `${tool}がPATHにない`;
-  }
   return undefined;
-}
-
-// Whether a program is on the PATH
-function onPath(program) {
-  const [finder, args] = process.platform === 'win32' ? ['where', [program]] : ['/bin/sh', ['-c', `command -v ${program}`]];
-  return spawnSync(finder, args, { stdio: 'ignore' }).status === 0;
 }
 
 // Runs the steps of a job. `log` gets every line of output. Returns
