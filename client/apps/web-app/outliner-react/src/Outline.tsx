@@ -1,7 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useAsked } from './askedContext';
-import { useCore, usePanel, useScreen } from './context';
+import { useCore, usePanel, useRows } from './context';
 import type { Core } from './core';
 import { chordOf } from './keys';
 import { OutlineItem } from './OutlineItem';
@@ -26,7 +26,7 @@ interface Props {
 export default function Outline({ header, footer }: Props) {
   const core = useCore();
   const asked = useAsked();
-  const { rows } = useScreen();
+  const rows = useRows();
   const outline = usePanel('Outline');
   const viewport = useRef<HTMLElement>(null);
   const headerBox = useRef<HTMLDivElement>(null);

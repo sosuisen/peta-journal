@@ -105,6 +105,24 @@ The formatter and the linter are both swift-format, which comes with Xcode. Its 
 `client/apps/native-app/.swift-format`, one file for both apps: lines of 120 letters and an
 indent of 4 spaces. Run it after every change in Swift. `generated/` is not formatted.
 
+## Coverage
+
+`coverage.sh` runs `swift test` with code coverage, after `generate.sh`. It prints the lines
+covered of each file in `Sources/`, and fails when less than 90% of the lines of the module are
+covered. It builds journal-server first, as most of the tests need it.
+
+```
+./coverage.sh
+```
+
+Not measured, with the consent of the developer (the comment of `coverage.sh` says the same):
+
+- `App/`, the entry point of the app. `swift test` does not build it.
+- `generated/`, which `generate.sh` makes from the Rust crates. The Rust tests check it.
+- `../swift-shared`, a package of its own that outliner-ios shares.
+
+The CI does not run it yet: there is no job for stickies-mac (#761).
+
 ## Mutation tests
 
 The mutation tests of the three Swift packages are swift-mutation-testing. Run them before each
