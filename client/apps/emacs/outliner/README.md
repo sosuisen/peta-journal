@@ -413,6 +413,9 @@ other projects. It indents the files as `emacs-lisp-mode` does, with spaces and 
 removes the spaces at the end of a line. So TAB in Emacs gives the same indent. CI fetches the
 tag `v0.1.0` and runs the check.
 
+The indent depends on the version of Emacs. For example, Emacs 30 and 31 indent a plist in
+`'(...)` differently. So format with Emacs 31. CI uses Emacs 31 from snap too.
+
 - A macro is indented by its `declare (indent ...)` form. Give a new macro one.
 - For a quoted list of symbols, put the first symbol alone on the first line. The rest then go
   under it.
