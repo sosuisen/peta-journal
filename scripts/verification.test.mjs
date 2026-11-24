@@ -20,7 +20,7 @@ const FLOOR = 90;
 const RUST = {
   journal:
     'src[/\\\\]main\\.rs$|application[/\\\\]folder_chooser\\.rs$|infrastructure[/\\\\]launcher\\.rs$|infrastructure[/\\\\]pending_delete_prompt\\.rs$|[/\\\\]atlas[/\\\\]',
-  client: '[/\\\\](journal|atlas)[/\\\\]',
+  client: '[/\\\\](journal|atlas)[/\\\\]|app-icon[/\\\\]src[/\\\\]main\\.rs$',
   atlas: '[/\\\\]journal[/\\\\]',
 };
 

@@ -28,6 +28,10 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 # The browser side of `client-web-bridge` (src/web.rs) is built for wasm only, so a native build
 # leaves it out and it is not measured. cargo-mutants skips it too; see .cargo/mutants.toml.
 #
+# tools/app-icon/src/main.rs is left out, as agreed on 2026-11-25. It is the entry point of the
+# tool: it reads the arguments and writes the icon files. The work is in src/lib.rs, which is
+# measured. cargo-mutants skips it too; see .cargo/mutants.toml.
+#
 # No file of `outliner-emacs` is left out, as agreed on 2026-11-10. Its tests in
 # apps/emacs/outliner/tests/process.rs run the program itself, and that run is measured too. For
 # this the program ends by returning from `main`: a killed program writes no coverage.
@@ -67,7 +71,7 @@ cov = [
     "client-native-bridge/facet_typegen,client-shell-http/ffi",
     # `[/\\]`: the paths have backslashes on Windows
     "--ignore-filename-regex",
-    "[/\\\\](journal|atlas)[/\\\\]",
+    "[/\\\\](journal|atlas)[/\\\\]|app-icon[/\\\\]src[/\\\\]main\\.rs$",
     "--fail-under-lines",
     "90",
 ]
