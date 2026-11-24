@@ -25,6 +25,7 @@ export default function App() {
 
   useEffect(() => core.start(), [core]);
   useGlobalKeys();
+  useDayWatch();
 
   return (
     <app-main-layout>
@@ -115,6 +116,29 @@ function useGlobalKeys(): void {
       document.removeEventListener('drop', refuse);
     };
   }, [asked, core]);
+}
+
+/**
+ * Tells the core that the day may have changed when the page comes back. The browser holds
+ * the timers of a hidden tab and of a PC that sleeps, and the core would open the new day
+ * only up to a minute later (#1031).
+ */
+function useDayWatch(): void {
+  const core = useCore();
+  useEffect(() => {
+    const tell = () => core.send({ kind: 'DateMayHaveChanged' });
+    const shown = () => {
+      if (document.visibilityState === 'visible') {
+        tell();
+      }
+    };
+    document.addEventListener('visibilitychange', shown);
+    window.addEventListener('focus', tell);
+    return () => {
+      document.removeEventListener('visibilitychange', shown);
+      window.removeEventListener('focus', tell);
+    };
+  }, [core]);
 }
 
 function Header({ toggleSidebar }: { readonly toggleSidebar: () => void }) {

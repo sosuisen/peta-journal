@@ -656,6 +656,71 @@ describe('the backlinks', () => {
   });
 });
 
+/** The page is shown or hidden, as the browser tells when a tab or the PC comes back. */
+function turnPage(state: DocumentVisibilityState) {
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    get: () => state,
+  });
+  fireEvent(document, new Event('visibilitychange'));
+}
+
+// 日付の変わり目
+describe('a day that may have changed', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(document, 'visibilityState');
+  });
+
+  // ページがまた見えるようになると、日付が変わったかもしれないとコアに知らせる。スリープから戻ったときなどである。
+  test('the page shown again tells the core that the day may have changed', () => {
+    const { wasm } = app();
+
+    turnPage('visible');
+
+    expect(wasm.events).toEqual([{ kind: 'DateMayHaveChanged' }]);
+  });
+
+  // ページが隠れたときは、知らせない。
+  test('the page hidden tells the core nothing', () => {
+    const { wasm } = app();
+
+    turnPage('hidden');
+
+    expect(wasm.events).toEqual([]);
+  });
+
+  // 窓にフォーカスが戻ると、知らせる。見えたままの窓に、スリープから戻ったときなどである。
+  test('the window focused again tells the core that the day may have changed', () => {
+    const { wasm } = app();
+
+    fireEvent.focus(window);
+
+    expect(wasm.events).toEqual([{ kind: 'DateMayHaveChanged' }]);
+  });
+
+  // StrictModeで枠を描き直しても、一度だけ知らせる。枠がなくなれば、知らせない。
+  test('in StrictMode the core is told once, and without the frame not at all', () => {
+    const { core, wasm, asked } = shell();
+    const { unmount } = render(
+      <StrictMode>
+        <CoreContext value={core}>
+          <AskedOpsContext value={asked}>
+            <App />
+          </AskedOpsContext>
+        </CoreContext>
+      </StrictMode>,
+    );
+
+    fireEvent.focus(window);
+    const once = wasm.events.length;
+    unmount();
+    fireEvent.focus(window);
+    turnPage('visible');
+
+    expect([once, wasm.events.length]).toEqual([1, 1]);
+  });
+});
+
 // ページ全体のキー
 describe('the keys of the whole page', () => {
   // Ctrl+Alt+Enterは、ホームを開く。編集欄には届かない。
