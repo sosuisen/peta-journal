@@ -26,7 +26,8 @@ pub const COLORS: [(&str, &str); 9] = [
 ];
 
 /// The color of a sticky without paper: only what is written on it is seen. It is
-/// `#RRGGBBAA`, with no alpha. It is not among `COLORS`: the macOS shell does not draw it yet.
+/// `#RRGGBBAA`, with no alpha. It is not among `COLORS`, the colors of paper: the menus of the
+/// shells offer it after them.
 pub const TRANSPARENT: (&str, &str) = ("Transparent", "#FFFFFF00");
 
 /// A size of a window, in points as they are at a scale of 100%.

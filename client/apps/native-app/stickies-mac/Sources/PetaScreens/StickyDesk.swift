@@ -164,7 +164,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         // The paper is light in every color, and so the text on it is always dark
         window.appearance = NSAppearance(named: .aqua)
         window.titlebarAppearsTransparent = true
-        window.backgroundColor = StickyLook.color(of: look.color)
+        paint(window, color: look.color)
         window.level = look.alwaysOnTop ? .floating : .normal
         let paper = NSHostingView(rootView: OutlineScreen(shell: shell, look: look))
         // The paper lies in a plain view. As the content view itself, it would not let the
@@ -222,7 +222,9 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         look.$color.dropFirst()
             .sink { [weak self, weak sticky] color in
                 guard let sticky else { return }
-                sticky.window.backgroundColor = StickyLook.color(of: color)
+                self?.paint(sticky.window, color: color)
+                // The menu of the title bar shows without taking the focus
+                self?.bare(sticky, color: color)
                 self?.keep(sticky, color: color)
             }
             .store(in: &sticky.hears)
@@ -310,6 +312,13 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         return menu
     }
 
+    /// Gives the window the color of its paper. Without paper the window is not opaque, and
+    /// what is behind it shows through.
+    private func paint(_ window: NSWindow, color: String) {
+        window.backgroundColor = StickyLook.color(of: color)
+        window.isOpaque = !StickyLook.isTransparent(color)
+    }
+
     /// A little down and to the right of `origin`, or of the newest sticky, as new windows are
     /// everywhere on the Mac. Near the edge of the screen, AppKit keeps the window on it.
     private func place(_ window: NSWindow, nextTo origin: NSWindow?) {
@@ -359,6 +368,19 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         if sticky.look.toolsShown != shown { sticky.look.toolsShown = shown }
         // A sticky that is not worked on is only its name and the plus
         for button in (sticky.window as? StickyWindow)?.windowButtons ?? [] { button.isHidden = !shown }
+        bare(sticky)
+    }
+
+    /// A sticky without paper and without the focus shows only what is written on it. The
+    /// name, the plus and the shadow would only cover what is behind it. The tools keep their
+    /// place, so that nothing moves when the focus comes back.
+    /// `color` is the color the sticky is just changing to.
+    private func bare(_ sticky: Sticky, color: String? = nil) {
+        let bare = StickyLook.isTransparent(color ?? sticky.look.color) && !sticky.hasFocus
+        if sticky.look.bare != bare { sticky.look.bare = bare }
+        sticky.window.titleVisibility = bare ? .hidden : .visible
+        sticky.window.hasShadow = !bare
+        for tools in sticky.window.titlebarAccessoryViewControllers { tools.view.alphaValue = bare ? 0 : 1 }
     }
 
     /// The app is ending. The windows that macOS closes from here on were not closed by the
