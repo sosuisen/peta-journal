@@ -13,7 +13,8 @@ final class AppliedTests: XCTestCase {
                 idx: "", level: 1, body: body, collapsed: false, types: [], properties: [:], transcludeItemId: nil),
             bodyModel: RichText(blocks: []), position: 0, indentPx: 0, isEditing: false, isSelected: false,
             isCollapsed: false, hasChildren: false, headingLevel: 0, isHeading: false, headingLine: false,
-            firstLineScale: 1, task: nil, hasOwnZoom: false, isTransclusion: false, isBrokenTransclusion: false, showBullet: true,
+            firstLineScale: 1, task: nil, hasOwnZoom: false, isTransclusion: false, isBrokenTransclusion: false,
+            showBullet: true,
             effectiveZoom: 1, dateHeader: nil, suggestionsVisible: false)
     }
 
