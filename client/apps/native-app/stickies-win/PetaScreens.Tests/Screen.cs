@@ -71,31 +71,96 @@ internal sealed class Screen : IAsyncDisposable
     public static Task<Screen> OpenLong(int port, int items) =>
         Start(new Screen(port), async screen =>
         {
-            var made = screen.server.Answer(
-                HttpMethod.Post,
-                "/api/pages/doc",
-                """{"title":"long"}"""
+            screen.MakePage(
+                "long",
+                [
+                    .. Enumerable
+                        .Range(0, items)
+                        .Select(n => (n % 3 + 1, n == 0 ? "" : $"Item {n} with some text to draw")),
+                ]
             );
-            var page = System.Text.Json.JsonElement.Parse(made!);
-            var pageId = page.GetProperty("page").GetProperty("id").GetString();
-            // A new page has one empty item
-            for (var n = 1; n < items; n++)
-            {
-                var item = System.Text.Json.JsonSerializer.Serialize(
-                    new Dictionary<string, object?>
-                    {
-                        ["pageId"] = pageId,
-                        ["position"] = "last",
-                        ["level"] = n % 3 + 1,
-                        ["body"] = $"Item {n} with some text to draw",
-                    }
-                );
-                Assert.IsTrue(screen.server.Send(HttpMethod.Post, "/api/items", item));
-            }
             screen.Desk.Add("/pages/long");
             await Until("the items are there", () => screen.Rows.Count == items);
             await Until("the first items are drawn", () => screen.Items().Count > 0);
         });
+
+    /// <summary>
+    /// A sticky that shows a page with an item for each of <paramref name="bodies"/>, once all
+    /// of them are drawn. The page is made on the server before the sticky opens.
+    /// </summary>
+    public static Task<Screen> OpenWritten(int port, params string[] bodies) =>
+        Start(new Screen(port), async screen =>
+        {
+            screen.MakePage("written", [.. bodies.Select(body => (1, body))]);
+            screen.Desk.Add("/pages/written");
+            await Until("the items are drawn", () => screen.Items().Count == bodies.Length);
+        });
+
+    /// <summary>Makes a page on the server with the items, each at its level.</summary>
+    private void MakePage(string title, IReadOnlyList<(int Level, string Body)> items)
+    {
+        var made = server.Answer(HttpMethod.Post, "/api/pages/doc", $$"""{"title":"{{title}}"}""");
+        var page = System.Text.Json.JsonElement.Parse(made!);
+        var pageId = page.GetProperty("page").GetProperty("id").GetString();
+        // A new page has one empty item: it becomes the first
+        var first = page.GetProperty("items")[0].GetProperty("id").GetString();
+        Assert.IsTrue(
+            server.Send(
+                HttpMethod.Put,
+                $"/api/items/{first}",
+                System.Text.Json.JsonSerializer.Serialize(
+                    new Dictionary<string, object?>
+                    {
+                        ["body"] = items[0].Body,
+                        ["level"] = items[0].Level,
+                    }
+                )
+            )
+        );
+        foreach (var (level, body) in items.Skip(1))
+        {
+            var item = System.Text.Json.JsonSerializer.Serialize(
+                new Dictionary<string, object?>
+                {
+                    ["pageId"] = pageId,
+                    ["position"] = "last",
+                    ["level"] = level,
+                    ["body"] = body,
+                }
+            );
+            Assert.IsTrue(server.Send(HttpMethod.Post, "/api/items", item));
+        }
+    }
+
+    /// <summary>Makes the journal of the day on the server, with one item.</summary>
+    public void MakeJournal(string day, string body)
+    {
+        var made = server.Answer(HttpMethod.Post, $"/api/journals/{day}", "{}");
+        var first = System
+            .Text.Json.JsonElement.Parse(made!)
+            .GetProperty("items")[0]
+            .GetProperty("id")
+            .GetString();
+        Assert.IsTrue(
+            server.Send(
+                HttpMethod.Put,
+                $"/api/items/{first}",
+                System.Text.Json.JsonSerializer.Serialize(
+                    new Dictionary<string, object?> { ["body"] = body }
+                )
+            )
+        );
+    }
+
+    /// <summary>Makes the item show the item <paramref name="sourceId"/>, as the server does.</summary>
+    public void Transclude(string itemId, string sourceId) =>
+        Assert.IsTrue(
+            server.Send(
+                HttpMethod.Post,
+                $"/api/items/{itemId}/transclude",
+                $$"""{"sourceItemId":"{{sourceId}}"}"""
+            )
+        );
 
     private static async Task<Screen> Start(Screen screen, Func<Screen, Task> open)
     {
@@ -446,7 +511,8 @@ internal sealed class Screen : IAsyncDisposable
     private static IntPtr Handle(StickyWindow window) =>
         WinRT.Interop.WindowNative.GetWindowHandle(window);
 
-    private static IEnumerable<T> Under<T>(DependencyObject parent)
+    /// <summary>The elements of the type under the parent, at every depth.</summary>
+    public static IEnumerable<T> Under<T>(DependencyObject parent)
         where T : DependencyObject
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
