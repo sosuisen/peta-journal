@@ -62,4 +62,25 @@ internal sealed partial class RowView
             deferral.Complete();
         }
     }
+
+    /// <summary>Where the cursor would stand at each place of the editor, from 0 to its end.</summary>
+    private List<Caret> Carets()
+    {
+        var text = editor.Text;
+        var carets = new List<Caret>(text.Length + 1);
+        for (var place = 0; place <= text.Length; place++)
+        {
+            var rect =
+                place < text.Length ? editor.GetRectFromCharacterIndex(place, false)
+                : text.Length > 0 ? editor.GetRectFromCharacterIndex(text.Length - 1, true)
+                : new Windows.Foundation.Rect(0, 0, 0, editor.ActualHeight);
+            // After a line break at the end there is a line with no letter in it
+            carets.Add(
+                place == text.Length && text.Length > 0 && text[^1] == '\r'
+                    ? new Caret(0, rect.Bottom, rect.Bottom + rect.Height)
+                    : new Caret(rect.Left, rect.Top, rect.Bottom)
+            );
+        }
+        return carets;
+    }
 }
