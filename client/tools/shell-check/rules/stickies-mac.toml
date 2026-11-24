@@ -1,0 +1,12 @@
+# The rules of the macOS stickies (ADR 064).
+
+[s2]
+language = "swift"
+sources = [
+    "client/apps/native-app/stickies-mac/App",
+    "client/apps/native-app/stickies-mac/Sources",
+    "client/apps/native-app/swift-shared/Sources",
+]
+
+# The kinds of `Event` that this shell need not name, besides those of core.toml.
+[s2.excluded]

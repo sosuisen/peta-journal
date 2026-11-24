@@ -1,0 +1,11 @@
+[package]
+name = "shell-check"
+description = "Checks by reading the sources that the shells go through the core (ADR 064)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+serde.workspace = true
+toml = "1.2.2"
