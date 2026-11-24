@@ -42,7 +42,11 @@ public sealed class AppliedTests
             new Panel.AtlasLinks([]),
             new Panel.AtlasLinkSuggestions(["suggested"]),
             new Panel.Outline(Outline(selecting: true)),
-            new Panel.Sidebar(new SidebarView { IndexHeader = "index", CurrentPageId = "current" }),
+            new Panel.IndexPages(
+                new IndexPagesView { Header = "index", CurrentPageId = "current", State = LoadState.Loaded }
+            ),
+            new Panel.Headings(new HeadingsView { Headings = [], State = LoadState.Failed }),
+            new Panel.RecentPages(new RecentPagesView { Pages = [], State = LoadState.Loading }),
             new Panel.Search(Search("first")),
             new Panel.Config(new ConfigView { TagsDir = "tags" }),
             new Panel.Connection(ConnectionState.Connected),
@@ -61,7 +65,9 @@ public sealed class AppliedTests
         Assert.IsType<ScreenView.Settings>(view.Screen);
         Assert.Equal(["suggested"], view.AtlasLinkSuggestions);
         Assert.True(view.Outline.SelectionMode);
-        Assert.Equal("current", view.Sidebar.CurrentPageId);
+        Assert.Equal("current", view.IndexPages.CurrentPageId);
+        Assert.Equal(LoadState.Failed, view.Headings.State);
+        Assert.Equal(LoadState.Loading, view.RecentPages.State);
         Assert.Equal("first", view.Search.Query);
         Assert.Equal("tags", view.Config.TagsDir);
         Assert.Equal(ConnectionState.Connected, view.Connection);
