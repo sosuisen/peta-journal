@@ -60,6 +60,25 @@ public sealed class StickyDeskTests
         Assert.IsInRange(1, 100, corner.X - 200);
     }
 
+    // スクリーンの右下の隅で足した付箋紙は、はみ出さず、全体がスクリーンに収まる位置まで戻る。
+    [UITestMethod]
+    public async Task A_sticky_added_at_the_corner_of_the_screen_comes_back_inside_it()
+    {
+        await using var screen = await Screen.Open(Port);
+        var window = screen.Window.AppWindow;
+        var work = DisplayArea.GetFromWindowId(window.Id, DisplayAreaFallback.Nearest).WorkArea;
+        window.Move(new(work.X + work.Width - 50, work.Y + work.Height - 50));
+        await Task.Delay(100);
+        screen.ToFront();
+
+        Screen.Press(VirtualKey.N, Held.Control);
+
+        await Screen.Until("a second sticky is open", () => screen.Desk.Stickies.Count == 2);
+        var added = screen.Desk.Stickies[1].AppWindow;
+        Assert.AreEqual(work.X + work.Width, added.Position.X + added.Size.Width);
+        Assert.AreEqual(work.Y + work.Height, added.Position.Y + added.Size.Height);
+    }
+
     // 付箋紙は、それぞれが自分のページを持つ。1つでページを開いても、ほかの付箋紙は変わらない。
     [UITestMethod]
     public async Task Each_sticky_has_a_page_of_its_own()
