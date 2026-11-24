@@ -216,9 +216,9 @@ The shell tells the place in the Markdown with a focus."
                                       (peta-journal-test--row "b" 1 "abc"))
     (peta-journal-test--goto "b" 2)
     (peta-journal-test--show (vector (peta-journal-test--row "z" 1 "新")
-                                      (peta-journal-test--row "a" 2 "x")
-                                      (peta-journal-test--row "b" 2 "abc"))
-                              "page" 0)
+                                     (peta-journal-test--row "a" 2 "x")
+                                     (peta-journal-test--row "b" 2 "abc"))
+                             "page" 0)
     (should (equal (peta-journal--id-at (point)) "b"))
     (should (= (peta-journal--cursor) 2))))
 
@@ -229,8 +229,8 @@ The shell tells the place in the Markdown with a focus."
                                       (peta-journal-test--row "c" 1 "z"))
     (peta-journal--goto-item "b" 0)
     (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "x")
-                                      (peta-journal-test--row "c" 1 "z"))
-                              "page" 0)
+                                     (peta-journal-test--row "c" 1 "z"))
+                             "page" 0)
     (should (equal (peta-journal--id-at (point)) "c"))))
 
 ;; 別のページが開くと、カーソルは先頭の項目へ移る。
@@ -239,8 +239,8 @@ The shell tells the place in the Markdown with a focus."
                                       (peta-journal-test--row "b" 1 "y"))
     (peta-journal--goto-item "b" 1)
     (peta-journal-test--show (vector (peta-journal-test--row "p" 1 "別")
-                                      (peta-journal-test--row "q" 1 "頁"))
-                              "other" 0)
+                                     (peta-journal-test--row "q" 1 "頁"))
+                             "other" 0)
     (should (equal (peta-journal--id-at (point)) "p"))
     (should (= (peta-journal--cursor) 0))))
 
@@ -517,13 +517,13 @@ The shell tells the place in the Markdown with a focus."
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "b" 1 "y"))
     (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "x" :selected t)
-                                      (peta-journal-test--row "b" 1 "y"))
-                              "page" 0)
+                                     (peta-journal-test--row "b" 1 "y"))
+                             "page" 0)
     (should peta-journal-selection-mode)
     (should buffer-read-only)
     (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "x")
-                                      (peta-journal-test--row "b" 1 "y"))
-                              "page" 0)
+                                     (peta-journal-test--row "b" 1 "y"))
+                             "page" 0)
     (should-not peta-journal-selection-mode)
     (should-not buffer-read-only)))
 
@@ -683,8 +683,8 @@ The shell tells the place in the Markdown with a focus."
     (insert "z")
     (setq peta-journal--seq 5)
     (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "x")
-                                      (peta-journal-test--row "b" 1 "yy"))
-                              "page" 4)
+                                     (peta-journal-test--row "b" 1 "yy"))
+                             "page" 4)
     (should (equal (peta-journal-test--shown) "• xz\n• yy\n"))))
 
 ;; 同じ番号まで処理された答えは、入力中の項目にも反映する。
@@ -862,10 +862,10 @@ Either can be nil, for a clipboard without it."
 
 ;; 別のページを開くコマンドの直後は、離れるページの項目で編集を始めない。
 (ert-deftest peta-journal-going-to-another-page-leaves-the-edit-closed ()
-  (dolist (command '(peta-journal-today peta-journal-back peta-journal-forward
-                     peta-journal-next-day peta-journal-previous-day
-                     peta-journal-open-at-point peta-journal-rename-page
-                     peta-journal-delete-page))
+  (dolist (command '(peta-journal-today
+                     peta-journal-back peta-journal-forward peta-journal-next-day
+                     peta-journal-previous-day peta-journal-open-at-point
+                     peta-journal-rename-page peta-journal-delete-page))
     (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
       (peta-journal-test--goto "a" 0)
       (peta-journal--go "back")
@@ -1922,12 +1922,12 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
                                         (peta-journal-test--row "b" 1 "下"))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
     (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "上")
-                                      (peta-journal-test--image-row "b" 1))
-                              "page" 0)
+                                     (peta-journal-test--image-row "b" 1))
+                             "page" 0)
     (should (peta-journal-test--image-of "b"))
     (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "上")
-                                      (peta-journal-test--row "b" 1 "文字だけ"))
-                              "page" 0)
+                                     (peta-journal-test--row "b" 1 "文字だけ"))
+                             "page" 0)
     (should-not (peta-journal-test--image-of "b"))))
 
 ;; シェルの指示でpointが別の項目へ移っても、Markdownと画像が入れ替わる。
@@ -2005,8 +2005,8 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
                                         (peta-journal-test--image-row "b" 1))
     (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") nil)
     (peta-journal-test--show (vector (peta-journal-test--row "c" 1 "上")
-                                      (peta-journal-test--image-row "d" 1))
-                              "other-page" 0)
+                                     (peta-journal-test--image-row "d" 1))
+                             "other-page" 0)
     (should (= (length peta-journal-test--fetched) 2))))
 
 ;; Emacsが読めない形式のファイルは、代わりの文字のままである。
@@ -2021,8 +2021,8 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
   (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上"))
     (cl-letf (((symbol-function 'display-images-p) #'ignore))
       (peta-journal-test--show (vector (peta-journal-test--row "a" 1 "上")
-                                        (peta-journal-test--image-row "b" 1))
-                                "page" 0)
+                                       (peta-journal-test--image-row "b" 1))
+                               "page" 0)
       (should-not (peta-journal-test--image-of "b"))
       (should-not peta-journal-test--fetched))))
 
@@ -2130,7 +2130,7 @@ The sidebar is closed at the end."
 ;; ページの行でRETを押すと、そのパスのページが開く。フォルダの見出しと「../」も、そのindexページを開く。
 (ert-deftest peta-journal-a-line-of-the-sidebar-opens-its-page ()
   (pcase-dolist (`(,line . ,path) '(("Idea" . "notes/Idea") ("work/plan" . "work/plan")
-                                   ("notes/" . "notes/index") ("../" . "index")))
+                                    ("notes/" . "notes/index") ("../" . "index")))
     (peta-journal-test--with-sidebar
       (peta-journal-sidebar)
       (setq peta-journal-test--sent nil)

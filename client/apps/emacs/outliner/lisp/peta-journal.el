@@ -1031,10 +1031,10 @@ The core ends the edit of the one before (ADR 057)."
     (setq peta-journal--current nil)))
 
 (defconst peta-journal--commands-that-end-the-edit
-  '(peta-journal-save peta-journal-today peta-journal-back peta-journal-forward
-    peta-journal-next-day peta-journal-previous-day peta-journal-open-at-point
-    peta-journal-search peta-journal-rename-page peta-journal-demote-index
-    peta-journal-delete-page)
+  '(peta-journal-save
+    peta-journal-today peta-journal-back peta-journal-forward peta-journal-next-day
+    peta-journal-previous-day peta-journal-open-at-point peta-journal-search
+    peta-journal-rename-page peta-journal-demote-index peta-journal-delete-page)
   "The commands after which the point stays in an item that is not being edited.
 A saved edit must stay closed, and a page being left has nothing more to edit.")
 
@@ -1207,6 +1207,7 @@ the buffer cannot change then."
 (defmacro peta-journal--define-selection-key (command key doc)
   "Define COMMAND, which sends the selection key KEY to the core.
 DOC says what it does."
+  (declare (indent 2) (doc-string 3))
   `(defun ,command ()
      ,doc
      (interactive)
