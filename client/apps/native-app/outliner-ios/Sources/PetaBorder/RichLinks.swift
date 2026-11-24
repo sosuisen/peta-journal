@@ -2,8 +2,9 @@ import Foundation
 @_exported import PetaTypes
 
 /// The link of a run as a URL, which a text of SwiftUI takes, and back again when it is touched.
-/// The core says where a link leads (ADR 042): a web address stays as it is, and a page or a
-/// file of the assets folder gets an address of the app, which nothing outside opens.
+/// The core says where a link leads (ADR 042): an address out of the app stays as it is,
+/// whatever its scheme (#1071), and a page or a file of the assets folder gets an address of the
+/// app, which nothing outside opens.
 public enum RichLinks {
     private static let scheme = "peta-journal"
 
@@ -16,10 +17,11 @@ public enum RichLinks {
         }
     }
 
-    /// Where the link of this URL leads. `nil` for a URL that `url(of:)` did not make.
+    /// Where the link of this URL leads. `nil` for an address of the app that `url(of:)` did
+    /// not make.
     public static func link(of url: URL) -> RichLink? {
-        if url.scheme == "https" || url.scheme == "http" { return .web(url: url.absoluteString) }
-        guard url.scheme == scheme,
+        if url.scheme != scheme { return .web(url: url.absoluteString) }
+        guard
             let to = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                 .queryItems?.first(where: { $0.name == "to" })?.value
         else { return nil }
