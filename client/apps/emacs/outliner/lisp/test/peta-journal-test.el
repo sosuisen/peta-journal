@@ -929,6 +929,14 @@ Either can be nil, for a clipboard without it."
       (peta-journal--on-frame-focus))
     (should (equal peta-journal-test--sent '(("day_may_have_changed"))))))
 
+;; フォーカスがEmacsから去ったときは、何も送らない。
+(ert-deftest peta-journal-the-focus-gone-from-emacs-tells-nothing ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (setq peta-journal-test--sent nil)
+    (cl-letf (((symbol-function 'frame-focus-state) (lambda (&optional _frame) nil)))
+      (peta-journal--on-frame-focus))
+    (should-not peta-journal-test--sent)))
+
 ;; 降格は、付く名前を挙げて尋ね、「はい」なら送る。
 (ert-deftest peta-journal-demoting-asks-with-the-new-name-and-sends-on-yes ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
