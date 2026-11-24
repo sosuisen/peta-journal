@@ -168,6 +168,32 @@ S4の○は、カレンダーの`weeks_of`のように、分岐の多い新し�
 - S4は、Web版とMacの付箋紙で試す。
   RustとSwiftで、画面を組み立てる関数がどれだけ警告されるかを比べるためである。
 
+### Web版での試し方（2026-11-24の追記）
+
+このADRを受理したあと、Web版はLeptosからReactに変わった（ADR 079、`32403401`）。
+今のWeb版（`client/apps/web-app/outliner-react`）は、TypeScriptで書かれている。
+Web版は、コアを`./wasm/bridge`からだけ呼ぶ。
+`./wasm/bridge`は、Rustのクレート`client/libs/client-web-bridge`をwasmにしたものである。
+そのため、Web版での試し方を次のように変える。
+
+- S1は、`client-web-bridge`の`use client_core::…`を見る。
+  TypeScriptの側は`./wasm/bridge`しか読み込まないので、S1の対象にしない。
+  2026-11-24の時点で、`client-web-bridge`は`client_core::asts::parse`、`client_core::ops::wiki::query_at`、`client_core::screens::atlas::parent_dir_label`なども使っている。
+  これらを許すかは、許可リストを作るときに1つずつ決める。
+- S4は、`outliner-react`のTypeScriptを測る。
+  `.ts`と`.tsx`の両方を対象にし、`wasm/`の下の生成物は対象にしない。
+  比べる組は、RustとSwiftから、TypeScriptとSwiftに変わる。
+  lizardが`.tsx`のJSXを正しく読めるかは、S4の最初に確かめる。
+  `client-web-bridge`のRustもS4で測るかは、試す中で決める。
+- Web版の手順1は、古いコミットでは行わない。
+  `898c0a1e^`と`58e24f0f^`のコードはLeptos版で、もう使わないためである。
+  代わりに、Web版の2件を今のWeb版に移した形で、捨てるブランチに書き足して確かめる。
+  S1では、`client-web-bridge`に、`client_core::util::auto_close`と`client_core::util::date`を直接使うコードを書き足す。
+  S1がその`use`を出すかを確かめる。
+  S4では、`outliner-react`のTypeScriptに、月のカレンダーの日と週を計算する、分岐の多い関数を書き足す。
+  S4がその関数を警告するかを確かめる。
+  これは本物の過去の問題ではないが、今のコードの形でチェックの作りを確かめられる。
+
 ### 置き場所と道具
 
 チェックは、Rustのクレート`client/tools/shell-check/`に置く。
