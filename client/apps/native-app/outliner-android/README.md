@@ -36,6 +36,15 @@ cd peta-journal/client/apps/native-app/outliner-android
 ./gradlew :app:connectedDebugAndroidTest    # runs the tests on a device or an emulator
 ```
 
+The formatter of the Kotlin code is ktfmt, in the Kotlin style with an indent of 4 spaces. It
+needs no device and no `generated/`. It leaves `generated/kotlin` alone, as `generate.ps1`
+writes it again. `./gradlew check` also runs `ktfmtCheck`.
+
+```
+./gradlew ktfmtFormat     # formats the Kotlin code
+./gradlew ktfmtCheck      # changes nothing, and fails when there is something to change
+```
+
 Two scripts do the usual steps. Both run `generate` first when `generated/` is missing, and
 with `-Generate`. Everything else goes to Gradle:
 
