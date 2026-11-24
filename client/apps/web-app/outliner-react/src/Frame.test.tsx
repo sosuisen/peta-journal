@@ -28,4 +28,20 @@ describe('a frame of the app', () => {
 
     expect(screen.queryByRole('alert')).not.toBeNull();
   });
+
+  // あるフレームで例外が出ても、ほかのフレームは描かれたままである。
+  test('a part that fails leaves the other frames drawn', () => {
+    render(
+      <>
+        <Frame>
+          <Broken />
+        </Frame>
+        <Frame>
+          <p>sidebar</p>
+        </Frame>
+      </>,
+    );
+
+    expect(screen.queryByText('sidebar')).not.toBeNull();
+  });
 });
