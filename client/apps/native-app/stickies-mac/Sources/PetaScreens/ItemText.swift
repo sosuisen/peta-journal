@@ -24,6 +24,8 @@ struct ItemText: NSViewRepresentable {
     let changes: Int
     /// The level of the heading when the item is one heading line, and 0 otherwise.
     var heading = 0
+    /// How much larger than the usual text the Markdown is (`Row.editedScale`).
+    var scale = 1.0
     let request: FocusRequest?
     let order: FocusOrder?
     let shell: Shell
@@ -54,7 +56,7 @@ struct ItemText: NSViewRepresentable {
     }
 
     func updateNSView(_ view: ItemTextView, context: Context) {
-        let font = ItemTextView.markdownFont(heading: heading, zoom: zoom)
+        let font = ItemTextView.markdownFont(heading: heading, scale: scale, zoom: zoom)
         context.coordinator.body = item.body
         context.coordinator.font = font
         // The view with the cursor is Markdown at once, before the core counts its item as
@@ -331,11 +333,10 @@ final class ItemTextView: NSTextView {
 
     /// The font of the Markdown of an item. An item that is one heading line has the size of
     /// its heading, in bold, as the web frontend has: the text keeps its size when the cursor
-    /// goes in and out.
-    static func markdownFont(heading: Int, zoom: Double) -> NSFont {
-        let size = NSFont.systemFontSize * CGFloat(zoom)
-        guard (1...5).contains(heading) else { return .systemFont(ofSize: size) }
-        return .boldSystemFont(ofSize: size * CGFloat(Row.headingScales[heading - 1]))
+    /// goes in and out. `scale` is the size that the core gives (`Row.editedScale`).
+    static func markdownFont(heading: Int, scale: Double, zoom: Double) -> NSFont {
+        let size = NSFont.systemFontSize * CGFloat(zoom * scale)
+        return heading > 0 ? .boldSystemFont(ofSize: size) : .systemFont(ofSize: size)
     }
 
     /// The view shows the Markdown of its item, and can be typed into.
