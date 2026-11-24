@@ -234,7 +234,7 @@ fn a_journal_that_could_not_be_loaded_opens_once_the_server_is_up() {
     assert_eq!(h.model.shown_page_id().as_deref(), Some("page-2026-02-09"));
 }
 
-// 表示中のページは、つなぎ直してストリームが開くと読み直される。切れていた間の変更は知らされないからである。
+// 表示中のページは、つなぎ直してストリームが開くと読み直される。切れていた間の変更は知らされないからである。開き直しはしないので、元に戻す履歴と編集は残る。
 #[test]
 fn the_shown_page_is_read_again_once_the_stream_is_back() {
     let mut h = Harness::with_items(vec![crate::harness::item("a", 1, "old")]);
@@ -242,6 +242,24 @@ fn the_shown_page_is_read_again_once_the_stream_is_back() {
     server_comes_up(&mut h);
 
     assert_eq!(h.bodies(), ["reloaded=reloaded"]);
+    assert!(!h.api.called("GetOrCreateDoc"));
+}
+
+// 表示中のジャーナルも、つなぎ直してストリームが開くと読み直され、開き直されはしない。
+#[test]
+fn the_shown_journal_is_read_again_and_not_opened_again_once_the_stream_is_back() {
+    let mut h = started();
+    visit(&mut h, "2026-02-09");
+
+    server_comes_up(&mut h);
+
+    assert_eq!(h.api.calls_named("GetOrCreateJournal").len(), 1);
+    assert_eq!(
+        h.api.calls_named("GetPageById"),
+        [&ApiOp::GetPageById {
+            page_id: "page-2026-02-09".into()
+        }]
+    );
 }
 
 // つなぎ直してストリームが開くと、サーバーの設定も読み直される。起動のときに読めなかったかもしれないからである（#756）。
