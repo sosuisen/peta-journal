@@ -45,6 +45,15 @@ writes it again. `./gradlew check` also runs `ktfmtCheck`.
 ./gradlew ktfmtCheck      # changes nothing, and fails when there is something to change
 ```
 
+The mutation tests are PIT, through the Gradle plugin `pl.droidsonroids.pitest`. Run them before
+each pull request. PIT runs only the tests in `app/src/test`, on the JVM, so it mutates only the
+classes that they test: they are listed in `app/build.gradle.kts`. The report is in
+`app/build/reports/pitest/debug/index.html`.
+
+```
+./gradlew :app:pitestDebug
+```
+
 Two scripts do the usual steps. Both run `generate` first when `generated/` is missing, and
 with `-Generate`. Everything else goes to Gradle:
 
