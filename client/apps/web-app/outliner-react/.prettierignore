@@ -2,9 +2,9 @@ dist
 dist-e2e
 src/wasm
 src/border
-# The E2E tests have their own package
-e2e
 # Reports of `npm run coverage` and `npm run mutants`
 coverage
 reports
 .stryker-tmp
+# npm writes it
+e2e/package-lock.json
