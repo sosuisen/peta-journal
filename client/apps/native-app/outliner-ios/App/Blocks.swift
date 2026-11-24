@@ -19,8 +19,9 @@ struct Blocks: View {
                     TableBlock(rows: rows, links: links)
                 case .image(let shown):
                     ImageBlock(image: shown, file: image)
-                case .entries(let entries, _):
-                    // The entries of a list, each after its mark
+                case .entries(let entries, let indent):
+                    // The entries of a list, each after its mark, as far to the right as the
+                    // core says (#795)
                     VStack(alignment: .leading, spacing: 2) {
                         ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
                             HStack(alignment: .top, spacing: 8) {
@@ -29,21 +30,25 @@ struct Blocks: View {
                             }
                         }
                     }
-                case .quote(let inside, _):
-                    Blocks(blocks: inside, links: links, image: image).modifier(Quoted(depth: 1))
+                    .padding(.leading, Letters.ems(indent))
+                case .quote(let inside, let indent):
+                    Blocks(blocks: inside, links: links, image: image)
+                        .modifier(Quoted(depth: 1, indent: Letters.ems(indent)))
                 }
             }
         }
     }
 }
 
-/// What is quoted has a line down its left side, one for each quote it is inside.
+/// What is quoted has a line down its left side, one for each quote it is inside. It stands
+/// `indent` points to the right.
 private struct Quoted: ViewModifier {
     let depth: Int
+    let indent: CGFloat
 
     func body(content: Content) -> some View {
         content
-            .padding(.leading, CGFloat(depth) * 12)
+            .padding(.leading, indent)
             .overlay(alignment: .leading) {
                 HStack(spacing: 9) {
                     ForEach(0..<depth, id: \.self) { _ in Rectangle().fill(Color(.systemGray3)).frame(width: 3) }
@@ -68,13 +73,8 @@ struct Paragraphs: View {
                         if let mark = paragraph.mark { Text(mark).frame(minWidth: 16, alignment: .leading) }
                         Text(letters(paragraph)).letters(measured(paragraph), start: paragraph.start)
                     }
-                    // A paragraph of an entry that is not its first one stands under the text
-                    .padding(
-                        .leading,
-                        CGFloat(max(Int(paragraph.depth) - 1, 0)) * 22
-                            + (paragraph.depth > 0 && paragraph.mark == nil ? 22 : 0)
-                    )
-                    .modifier(Quoted(depth: Int(paragraph.quoted)))
+                    // As far to the right as the core says, for its lists and quotes (#795)
+                    .modifier(Quoted(depth: Int(paragraph.quoted), indent: Letters.ems(paragraph.indent)))
                 }
             }
         }
@@ -87,12 +87,12 @@ struct Paragraphs: View {
     }
 
     private func letters(_ paragraph: RichParagraph) -> AttributedString {
-        let size = Letters.plain * Letters.larger(heading: Int(paragraph.heading))
+        let size = Letters.plain * CGFloat(paragraph.scale)
         var all = AttributedString()
         for run in paragraph.runs {
             var part = AttributedString(run.text)
             let looks = run.looks
-            part.font = Font(Self.font(run.looks, heading: Int(paragraph.heading)))
+            part.font = Font(Self.font(run.looks, of: paragraph))
             if looks.struck { part.strikethroughStyle = .single }
             if looks.underlined { part.underlineStyle = .single }
             if looks.marked { part.backgroundColor = Color.yellow.opacity(0.45) }
@@ -111,16 +111,17 @@ struct Paragraphs: View {
         for run in paragraph.runs {
             all.append(
                 NSAttributedString(
-                    string: run.text, attributes: [.font: Self.font(run.looks, heading: Int(paragraph.heading))]))
+                    string: run.text, attributes: [.font: Self.font(run.looks, of: paragraph)]))
         }
         return all
     }
 
-    /// The font of the letters of a run. The same font draws them and measures a touch.
-    private static func font(_ looks: Looks, heading: Int) -> UIFont {
-        let size = Letters.plain * Letters.larger(heading: heading)
+    /// The font of the letters of a run of the paragraph. The same font draws them and measures
+    /// a touch. A heading has the size that the core gives (#795).
+    static func font(_ looks: Looks, of paragraph: RichParagraph) -> UIFont {
+        let size = Letters.plain * CGFloat(paragraph.scale)
         let points = looks.raised || looks.lowered ? size * 0.75 : size
-        let weight: UIFont.Weight = heading > 0 || looks.bold ? .bold : .regular
+        let weight: UIFont.Weight = paragraph.heading > 0 || looks.bold ? .bold : .regular
         let font =
             looks.code
             ? UIFont.monospacedSystemFont(ofSize: points, weight: weight)
