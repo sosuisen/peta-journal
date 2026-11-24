@@ -12,7 +12,7 @@ The journal server serves `dist/` of this folder at `http://localhost:8087` by d
 
 ```
 cargo install wasm-pack
-./release.ps1    # npm install once, then npm run build (on macOS and Linux: release.sh)
+./release.ps1    # npm install, then npm run build (on macOS and Linux: release.sh)
 ```
 
 `npm run build` builds the wasm and the types of the border first. The server need not
