@@ -1,5 +1,6 @@
 import Foundation
 import ImageIO
+import PetaShared
 import UniformTypeIdentifiers
 
 /// The file that a pasted image is written to. The core saves it among the assets and then
@@ -23,25 +24,15 @@ public enum PastedImage {
     }
 
     /// The image as a browser shows it: a HEIC, as a sticker of the keyboard and Photos give,
-    /// becomes a PNG when it has transparency, and a JPEG when not, under the name without its
-    /// extension. Any other image stays as it came,
-    /// and so does a HEIC that cannot be read.
+    /// becomes a PNG or a JPEG, under the name without its extension. Any other image stays as
+    /// it came, and so does a HEIC that cannot be read.
     private static func shownInBrowsers(_ content: Data, named name: String?, type: String?) -> (
         Data, String?, String?
     ) {
-        // HEIC is not a kind of HEIF to the system: both are asked for
-        guard let type, let kind = UTType(type), kind.conforms(to: .heic) || kind.conforms(to: .heif),
-            let source = CGImageSourceCreateWithData(content as CFData, nil),
-            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        guard let type, let kind = UTType(type), let source = CGImageSourceCreateWithData(content as CFData, nil),
+            let (converted, shown) = BrowserImage.fromHeic(source, of: kind)
         else { return (content, name, type) }
-        // A photo as a PNG would be many times larger
-        let shown: UTType = [.none, .noneSkipFirst, .noneSkipLast].contains(image.alphaInfo) ? .jpeg : .png
-        let converted = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(converted, shown.identifier as CFString, 1, nil)
-        else { return (content, name, type) }
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination) else { return (content, name, type) }
-        return (converted as Data, name.map { ($0 as NSString).deletingPathExtension }, shown.identifier)
+        return (converted, name.map { ($0 as NSString).deletingPathExtension }, shown.identifier)
     }
 
     /// The name of the file: the name the image came with, or "image", and the extension of its

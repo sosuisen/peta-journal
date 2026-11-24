@@ -1,5 +1,8 @@
 import AppKit
 import Foundation
+import ImageIO
+import PetaShared
+import UniformTypeIdentifiers
 
 /// The file that the image on the clipboard is written to. The core uploads it to the journal
 /// server and then deletes it (ADR 071).
@@ -8,6 +11,15 @@ public enum PastedImage {
     /// `nil` when the pasteboard holds no image, or text or another file with its image.
     public static func write(from pasteboard: NSPasteboard) -> URL? {
         if let image = imageFile(pasteboard) {
+            // A HEIC, as a photo of a phone, is written as a PNG or a JPEG: a browser may not show it
+            if let kind = UTType(filenameExtension: image.pathExtension),
+                let source = CGImageSourceCreateWithURL(image as CFURL, nil),
+                let (content, type) = BrowserImage.fromHeic(source, of: kind),
+                let ext = type.preferredFilenameExtension
+            {
+                let name = image.deletingPathExtension().appendingPathExtension(ext).lastPathComponent
+                return inFolderOfItsOwn(named: name) { try content.write(to: $0) }
+            }
             // A copy: the core deletes the file it was given, and the original is the user's
             return inFolderOfItsOwn(named: image.lastPathComponent) {
                 try FileManager.default.copyItem(at: image, to: $0)
