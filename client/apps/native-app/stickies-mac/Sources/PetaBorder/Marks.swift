@@ -33,12 +33,4 @@ extension Row {
     public var editedHeading: Int {
         headingLine ? Int(headingLevel) : 0
     }
-
-    /// How much larger than the usual text the first line of the item is drawn. The marks
-    /// before the text stand in the middle of that line. An item that is edited shows its
-    /// Markdown, which is large only when it is one heading line.
-    public var firstLineScale: Double {
-        let level = isEditing ? editedHeading : Int(headingLevel)
-        return (1...5).contains(level) ? Row.headingScales[level - 1] : 1
-    }
 }

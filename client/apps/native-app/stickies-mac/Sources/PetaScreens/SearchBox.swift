@@ -27,7 +27,7 @@ struct SearchBox: View {
                             }
                     }
                 }
-                if search.results.isEmpty, !search.searching, !search.query.isEmpty {
+                if search.foundNothing {
                     Text("Nothing found").font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -49,6 +49,21 @@ struct SearchBox: View {
     }
 }
 
+extension SearchView {
+    /// The search for what was typed is over, and found no page.
+    var foundNothing: Bool {
+        results.isEmpty && !searching && !query.isEmpty
+    }
+}
+
+extension SearchEntry {
+    /// The words around what was found, under the name of the entry. `nil` when there are
+    /// none: the snippet of a page found by its name is the name again.
+    var shownSnippet: String? {
+        snippet.isEmpty || snippet == title ? nil : snippet
+    }
+}
+
 private struct SearchEntryRow: View {
     let entry: SearchEntry
     let isChosen: Bool
@@ -57,8 +72,8 @@ private struct SearchEntryRow: View {
         VStack(alignment: .leading, spacing: 1) {
             Text(entry.label)
             // The snippet of a page found by its name is the name again
-            if !entry.snippet.isEmpty, entry.snippet != entry.title {
-                Text(entry.snippet).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            if let snippet = entry.shownSnippet {
+                Text(snippet).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
