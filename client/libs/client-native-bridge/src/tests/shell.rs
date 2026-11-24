@@ -7,7 +7,7 @@ use client_core::effects::{
     ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp, UiOutput,
 };
 use client_core::keys::{Chord, EditorState, Key, KeyPress};
-use client_core::model::{Page, Uploaded};
+use client_core::model::{JournalPage, Page, Uploaded};
 use client_core::rest::ClientId;
 use client_core::screens::day::CHECK_MS;
 use client_core::screens::search::SEARCH_DELAY_MS;
@@ -17,7 +17,7 @@ use client_core::{EditPlace, Event, Route};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
 use crux_core::Core;
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -85,6 +85,15 @@ impl Host for FakeHost {
                     vec![plain_item("a", 1, "the body of a")],
                 ))
             }
+            ApiOp::GetOrCreateJournal { file_name } => Ok(ApiOutput::Journal(JournalPage {
+                page: Page {
+                    id: format!("page-{file_name}"),
+                    name: file_name.clone(),
+                    page_type: "journal".into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })),
             _ => Err(ApiError("the fake server does not know this".into())),
         }
     }
@@ -116,6 +125,8 @@ impl Host for FakeHost {
 /// A clock that stands at one time, and whose waits the test ends.
 struct FakeClock {
     waits: Arc<Waits>,
+    /// The day of the month the clock says. A test moves it on.
+    day: Arc<AtomicU32>,
 }
 
 impl Clock for FakeClock {
@@ -123,7 +134,7 @@ impl Clock for FakeClock {
         let local = LocalDateTimeDto {
             year: 2026,
             month: 11,
-            day: 6,
+            day: self.day.load(Ordering::SeqCst),
             hour: 9,
             minute: 30,
         };
@@ -161,6 +172,8 @@ struct Screen {
     uploads: Arc<Mutex<Vec<Vec<u8>>>>,
     stream: Sender<SseEvent>,
     waits: Arc<Waits>,
+    /// The day of the month of the clock.
+    day: Arc<AtomicU32>,
 }
 
 impl Screen {
@@ -171,8 +184,10 @@ impl Screen {
         let uploads: Arc<Mutex<Vec<Vec<u8>>>> = Arc::default();
         let (stream, from_test) = channel();
         let waits: Arc<Waits> = Arc::default();
+        let day = Arc::new(AtomicU32::new(6));
         let clock = FakeClock {
             waits: waits.clone(),
+            day: day.clone(),
         };
         let host = FakeHost {
             calls: calls.clone(),
@@ -193,6 +208,7 @@ impl Screen {
             uploads,
             stream,
             waits,
+            day,
         }
     }
 
@@ -217,6 +233,18 @@ impl Screen {
             .iter()
             .filter_map(|op| match op {
                 ApiOp::SearchCombined { query, .. } => Some(query.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The days of the journals the server was asked for, oldest first.
+    fn journals_asked(&self) -> Vec<String> {
+        let calls = self.calls.lock().unwrap();
+        calls
+            .iter()
+            .filter_map(|op| match op {
+                ApiOp::GetOrCreateJournal { file_name } => Some(file_name.clone()),
                 _ => None,
             })
             .collect()
@@ -481,6 +509,26 @@ fn the_time_is_answered_without_the_shell() {
         ["/pages/Untitled-202611060930"]
     );
     assert!(!screen.ui_ops().contains(&UiOp::LocalNow));
+}
+
+// 時計が次の日になり、シェルが「日付が変わったかもしれない」と知らせると、`/today`は新しい日を開く。日付は、Rust側の時計から入る。
+#[test]
+fn the_journal_of_today_opens_the_new_day_when_the_shell_tells_of_it() {
+    let screen = Screen::new();
+    screen.shell.open("/today").unwrap();
+    wait_until("the journal of today is in the view", || {
+        screen.view().contains("2026年11月6日 金曜日 (Today)")
+    });
+
+    screen.day.store(7, Ordering::SeqCst);
+    screen.send(&Event::DateMayHaveChanged);
+
+    wait_until("the journal of the new day is asked for", || {
+        screen.journals_asked() == ["2026-11-06", "2026-11-07"]
+    });
+    wait_until("the journal of the new day is in the view", || {
+        screen.view().contains("2026年11月7日 土曜日 (Today)")
+    });
 }
 
 // タイマーは、Rust側で時間が過ぎると鳴る。検索は、入力のあとの待ちが明けてから、サーバーに送られる。

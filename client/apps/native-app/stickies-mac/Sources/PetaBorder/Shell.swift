@@ -136,6 +136,12 @@ public final class Shell: ObservableObject {
                 renderedEnd: UInt64(shown.upperBound + 1)))
     }
 
+    /// The day may have changed while the core could not look at the clock, as when the Mac
+    /// woke: the journal of today opens the new day at once (#796).
+    public func dayMayHaveChanged() {
+        send(.dateMayHaveChanged)
+    }
+
     /// The user clicked the mark of a task: its state goes one step on, as with the key.
     public func clickedTask(of itemId: String) {
         send(.taskCycle(itemId: itemId))

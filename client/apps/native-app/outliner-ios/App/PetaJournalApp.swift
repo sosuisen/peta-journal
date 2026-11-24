@@ -17,10 +17,17 @@ struct PetaJournalApp: App {
                 }
             }
             .onOpenURL { opened.model?.cameBack($0) }
+            // Midnight, or a clock that was set. The core looks at the clock once a minute too
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) {
+                _ in opened.model?.shell.dayMayHaveChanged()
+            }
         }
         .onChange(of: phase) { _, now in
             // The app syncs whenever it comes to the front, and when it goes to the back
             if now == .active { opened.model?.sync(inFront: true) }
+            // The wait of the core does not count the time in the back, and the new day would
+            // come late
+            if now == .active { opened.model?.shell.dayMayHaveChanged() }
             if now == .background { opened.model?.syncInTheBack() }
         }
     }
