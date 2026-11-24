@@ -3,7 +3,7 @@
 use crate::app::{Event, Route};
 use crate::effects::{ApiOutput, SseEvent};
 use crate::harness::Harness;
-use crate::model::{DocPage, Item, Page, PageExt, PageWithItems};
+use crate::model::{DocPage, Item, JournalPage, Page, PageExt, PageWithItems};
 use crate::rest::ClientId;
 use crate::view::LoadState;
 
@@ -224,6 +224,35 @@ fn the_folder_pages_are_loaded_and_empty_on_a_page_without_a_folder() {
         today: "2026-02-10".into(),
     });
 
+    assert_eq!(folder(&h), (vec![], LoadState::Loaded));
+}
+
+// 文書でないページは、親のページがあっても、フォルダのページを問い合わせない。
+#[test]
+fn a_page_that_is_not_a_doc_asks_for_no_folder_pages() {
+    let mut h = Harness::new();
+    let mut journal = doc("journals/", "2026-02-10");
+    journal.page_type = "journal".into();
+    journal.parent_id = "journals/index".into();
+    h.api.answer_next(
+        "GetOrCreateJournal",
+        Ok(ApiOutput::Journal(JournalPage {
+            page: journal,
+            items: vec![],
+            created: false,
+            transcluded_trees: Default::default(),
+        })),
+    );
+
+    h.send(Event::Route {
+        route: Route::Page {
+            name: "today".into(),
+            fragment: None,
+        },
+        today: "2026-02-10".into(),
+    });
+
+    assert!(!h.api.called("GetChildPages"));
     assert_eq!(folder(&h), (vec![], LoadState::Loaded));
 }
 
