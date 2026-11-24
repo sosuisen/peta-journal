@@ -11,6 +11,7 @@ namespace PetaScreens;
 internal static class Native
 {
     public const uint WmGetMinMaxInfo = 0x0024;
+    public const uint WmNcLeftButtonDown = 0x00A1;
     public const uint WmNcLeftButtonDoubleClick = 0x00A3;
     public const uint WmNcRightButtonUp = 0x00A5;
     public const uint WmSysCommand = 0x0112;

@@ -24,8 +24,47 @@ struct SelectionKeys: NSViewRepresentable {
 
 final class SelectionKeysView: NSView {
     weak var shell: Shell?
+    private var clicks: Any?
 
     override var acceptsFirstResponder: Bool { true }
+
+    deinit {
+        if let clicks { NSEvent.removeMonitor(clicks) }
+    }
+
+    // The clicks of the title bar and of the buttons do not come to this view. The window
+    // shows them all to a monitor first
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if let clicks { NSEvent.removeMonitor(clicks) }
+        clicks = nil
+        guard window != nil else { return }
+        clicks = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            self?.pressed(event)
+            return event
+        }
+    }
+
+    /// A press on anything but an item ends a selection, as the web frontend does. A press on
+    /// an item is left to the item: it starts an edit or a drag, and the core ends the
+    /// selection then.
+    private func pressed(_ event: NSEvent) {
+        guard let shell, let window, event.window === window, shell.view.outline.selectionMode else {
+            return
+        }
+        if !isOnItem(event, in: window) { shell.clickedOutsideItems() }
+    }
+
+    private func isOnItem(_ event: NSEvent, in window: NSWindow) -> Bool {
+        guard let content = window.contentView, let frame = content.superview else { return false }
+        // `hitTest` takes the place in the view around the content
+        var hit = content.hitTest(frame.convert(event.locationInWindow, from: nil))
+        while let view = hit {
+            if view is ItemTextView { return true }
+            hit = view.superview
+        }
+        return false
+    }
 
     override func keyDown(with event: NSEvent) {
         guard let shell, shell.view.outline.selectionMode else { return super.keyDown(with: event) }

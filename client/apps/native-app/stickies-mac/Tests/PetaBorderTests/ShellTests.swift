@@ -587,6 +587,18 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(bodies(shell), ["first", "second"])
     }
 
+    // 選んでいるあいだに項目の外をクリックすると、選択が消える。項目は消えない。
+    func testAClickOutsideTheItemsEndsTheSelection() async throws {
+        let shell = try await shellWithPage()
+        try await secondOfTwoSelected(shell)
+
+        shell.clickedOutsideItems()
+
+        XCTAssertFalse(shell.view.outline.selectionMode)
+        XCTAssertEqual(selected(shell), [])
+        XCTAssertEqual(bodies(shell), ["first", "second"])
+    }
+
     // 選んだ項目を消せる。
     func testTheSelectedItemsAreDeleted() async throws {
         let shell = try await shellWithPage()

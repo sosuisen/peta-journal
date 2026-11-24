@@ -377,6 +377,31 @@ public sealed class OutlineScreenTests
         await Screen.Until("the text reaches the core", () => screen.BodiesAre("first!", "second"));
     }
 
+    // 選んでいるあいだに検索ボタンをクリックすると、選択が消える。
+    [UITestMethod]
+    public async Task A_click_on_the_search_button_ends_the_selection()
+    {
+        await using var screen = await Screen.Open(Port);
+        await screen.SecondOfTwoSelected();
+
+        await screen.Click(Screen.ButtonOf(screen.Window, "Search pages (Ctrl+F)"));
+
+        await Screen.Until("the selection ends", () => !screen.Shell.View.Outline.SelectionMode);
+    }
+
+    // 選んでいるあいだにタイトルバーをクリックすると、選択が消える。
+    [UITestMethod]
+    public async Task A_click_on_the_title_bar_ends_the_selection()
+    {
+        await using var screen = await Screen.Open(Port);
+        await screen.SecondOfTwoSelected();
+
+        // The title bar is the room left of the Back button
+        await screen.Click(Screen.ButtonOf(screen.Window, "Back (Alt+Left)"), across: -3);
+
+        await Screen.Until("the selection ends", () => !screen.Shell.View.Outline.SelectionMode);
+    }
+
     // 編集していない項目を右クリックすると、メニューに「Paste as Transclusion」がある。
     [UITestMethod]
     public async Task The_menu_of_an_item_that_is_not_edited_has_paste_as_transclusion()

@@ -354,7 +354,35 @@ internal sealed class StickyWindow : Window
         // Also when a text box took them: a drag that starts in an editor selects its text
         root.AddHandler(UIElement.PointerMovedEvent, new PointerEventHandler(Dragged), true);
         root.AddHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(Dropped), true);
+        // Also when a button took it: a click on a button of the bar ends a selection too
+        root.AddHandler(
+            UIElement.PointerPressedEvent,
+            new PointerEventHandler(PressedOutsideItems),
+            true
+        );
         return root;
+    }
+
+    /// <summary>
+    /// A press on anything but an item ends a selection, as the web frontend does. A press on
+    /// an item is left to the item: it starts an edit or a drag, and the core ends the
+    /// selection then.
+    /// </summary>
+    private void PressedOutsideItems(object sender, PointerRoutedEventArgs e)
+    {
+        if (!Shell.View.Outline.SelectionMode || IsOnItem(e.OriginalSource as DependencyObject))
+            return;
+        Shell.ClickedOutsideItems();
+    }
+
+    private static bool IsOnItem(DependencyObject? element)
+    {
+        for (var at = element; at is not null; at = VisualTreeHelper.GetParent(at))
+        {
+            if (at is RowView)
+                return true;
+        }
+        return false;
     }
 
     private static Button Tool(string glyph, string tip, Action clicked, double size = 14)
@@ -1175,6 +1203,12 @@ internal sealed class StickyWindow : Window
                 clear.Wipe();
                 return answer;
             }
+            // The title bar is no part of the content: its clicks come only here. Windows
+            // still moves the window by it
+            case Native.WmNcLeftButtonDown when wParam == Native.HitCaption:
+                if (Shell.View.Outline.SelectionMode)
+                    Shell.ClickedOutsideItems();
+                return Native.DefSubclassProc(window, message, wParam, lParam);
             // A double click on the title bar rolls the sticky up. Windows would make the
             // window as large as the screen: that is left to the button of the title bar
             case Native.WmNcLeftButtonDoubleClick when wParam == Native.HitCaption:

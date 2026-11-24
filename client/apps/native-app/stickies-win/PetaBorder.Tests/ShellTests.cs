@@ -766,6 +766,20 @@ public sealed class ShellTests : IDisposable
         Assert.Equal(["first", "second"], Bodies(shell));
     }
 
+    // 選んでいるあいだに項目の外をクリックすると、選択が消える。項目は消えない。
+    [Fact]
+    public void A_click_outside_the_items_ends_the_selection()
+    {
+        var shell = ShellWithPage();
+        SecondOfTwoSelected(shell);
+
+        shell.ClickedOutsideItems();
+
+        Assert.False(shell.View.Outline.SelectionMode);
+        Assert.Empty(Selected(shell));
+        Assert.Equal(["first", "second"], Bodies(shell));
+    }
+
     // 選んだ項目を消せる。
     [Fact]
     public void The_selected_items_are_deleted()
