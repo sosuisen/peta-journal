@@ -254,3 +254,17 @@ fn the_server_config_is_read_again_once_the_stream_is_back() {
 
     assert_eq!(h.api.calls_named("GetConfig").len(), loads + 1);
 }
+
+// 起動して最初にストリームが開いたときは、ページを読み直さない。起動のときに読んでいるからである。
+#[test]
+fn the_first_open_of_the_stream_reads_no_page_again() {
+    let mut h = Harness::with_items(vec![crate::harness::item("a", 1, "old")]);
+    h.send(Event::Start {
+        client_id: crate::rest::ClientId::new(),
+    });
+
+    sse(&mut h, SseEvent::Open);
+
+    assert!(!h.api.called("GetPageById"));
+    assert_eq!(h.api.calls_named("GetConfig").len(), 1);
+}
