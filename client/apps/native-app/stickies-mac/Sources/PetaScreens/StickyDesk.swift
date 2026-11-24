@@ -164,7 +164,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         // The paper is light in every color, and so the text on it is always dark
         window.appearance = NSAppearance(named: .aqua)
         window.titlebarAppearsTransparent = true
-        window.backgroundColor = StickyLook.color(of: look.color)
+        paint(window, color: look.color)
         window.level = look.alwaysOnTop ? .floating : .normal
         let paper = NSHostingView(rootView: OutlineScreen(shell: shell, look: look))
         // The paper lies in a plain view. As the content view itself, it would not let the
@@ -222,7 +222,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         look.$color.dropFirst()
             .sink { [weak self, weak sticky] color in
                 guard let sticky else { return }
-                sticky.window.backgroundColor = StickyLook.color(of: color)
+                self?.paint(sticky.window, color: color)
                 self?.keep(sticky, color: color)
             }
             .store(in: &sticky.hears)
@@ -308,6 +308,13 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
             menu.addItem(MenuEntry(color.name, checked: look.color == color.hex) { look.color = color.hex })
         }
         return menu
+    }
+
+    /// Gives the window the color of its paper. Without paper the window is not opaque, and
+    /// what is behind it shows through.
+    private func paint(_ window: NSWindow, color: String) {
+        window.backgroundColor = StickyLook.color(of: color)
+        window.isOpaque = !StickyLook.isTransparent(color)
     }
 
     /// A little down and to the right of `origin`, or of the newest sticky, as new windows are

@@ -42,8 +42,17 @@ public final class StickyLook: ObservableObject {
         zoom = 1
     }
 
-    /// The color that `#RRGGBB` names. Anything else is the yellow of a new sticky.
+    /// `hex` is the color of no paper: what is behind the sticky shows through.
+    public nonisolated static func isTransparent(_ hex: String) -> Bool {
+        hex == stickyTransparent().hex
+    }
+
+    /// The color that `#RRGGBB` names, or that of no paper. Anything else is the yellow of a
+    /// new sticky.
     public nonisolated static func color(of hex: String) -> NSColor {
+        // Not quite clear: macOS hands a click on a clear place of a window to the window
+        // behind it, and the paper could not be clicked
+        if isTransparent(hex) { return NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.01) }
         let rgb = stickyRgb(hex: hex)
         return NSColor(
             srgbRed: CGFloat(rgb.red) / 255, green: CGFloat(rgb.green) / 255, blue: CGFloat(rgb.blue) / 255,
