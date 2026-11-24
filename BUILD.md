@@ -366,13 +366,19 @@ node scripts/checks.mjs jobs journal/journal-core/src/lib.rs
 node scripts/checks.mjs run todo
 ```
 
-A step that the machine cannot run is skipped, and the hook reports it. On a developer's machine,
-the Emacs steps need two environment variables:
+The hook itself is read from main, from the checkout where Claude Code started. Pull main there
+before a pull request: an old hook stops it. The list of checks is read from the branch, so a job
+that the branch adds runs too.
+
+Only a step for another OS is skipped on a developer's machine, and the hook reports it. In the
+CI, such a step fails the job. Any other step fails when what it needs is missing: a program, a
+file, or an environment variable. The Emacs steps need two environment variables:
 
 - `PETA_EMACS`: the `emacs` program, version 31. Not an `emacsclient` wrapper.
 - `ELISP_FORMATTER`: the `elisp-formatter.el` of `sosuisen/elisp-formatter`.
 
-In the CI, a step that cannot run fails the job instead.
+On Windows, the build of memoview needs the MSBuild of Visual Studio. The hook finds it with
+vswhere, or `MSBUILD` names it.
 
 ## Development Workflow
 

@@ -6,14 +6,16 @@
 //
 // - The changes are those of the commits since the base branch (`--base`, or main).
 // - A job that passed on the same commit is not run again. The marks are in .git/peta-verify/.
-// - A step that this machine cannot run (another OS, a program not set up) does not stop the pull
-//   request. The hook tells the AI, which writes it in the pull request and in the issue.
+// - A step for another OS does not stop the pull request. The hook tells the AI, which writes it
+//   in the pull request and in the issue. A program that is not set up stops it.
+// - Claude Code runs this script from the checkout where it started, which must be on main. So a
+//   branch made before the hook still gets it. The list of checks is read from the branch, so a
+//   job that the branch adds runs before its pull request.
 
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { JOBS, jobsFor, runJob } from '../../scripts/checks.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // `gh pr create`, or a pull request made through the REST API
 const CREATES_PR = /\bgh\s+pr\s+create\b|\bgh\s+api\b[^\n|;&]*\/pulls(?![\w/])/;
@@ -51,8 +53,8 @@ try {
 } catch {
   // Offline: the last fetched base is used
 }
-// The hook and the list of checks are read from the checkout where Claude Code started, on main.
-// A checkout not pulled would run an old list, so the hook stops until it is pulled
+// This script is read from the checkout where Claude Code started, on main. A checkout not pulled
+// would run an old hook, so the hook stops until it is pulled
 const HOOK_ROOT = resolve(fileURLToPath(import.meta.url), '..', '..', '..');
 try {
   execFileSync('git', ['fetch', '-q', 'origin', 'main'], { cwd: HOOK_ROOT, stdio: 'ignore' });
@@ -60,7 +62,7 @@ try {
   // Offline: the last fetched main is used
 }
 const lf = (s) => s.replace(/\r\n/g, '\n');
-const stale = ['.claude/hooks/verify-before-pr.mjs', 'scripts/checks.mjs'].filter((path) => {
+const stale = ['.claude/hooks/verify-before-pr.mjs'].filter((path) => {
   try {
     return lf(git(HOOK_ROOT, 'show', `origin/main:${path}`)) !== lf(readFileSync(join(HOOK_ROOT, path), 'utf8')).trim();
   } catch {
@@ -73,6 +75,13 @@ if (stale.length > 0) {
     `検証のスクリプトが、origin/mainと違います（${stale.join('、')}）。${HOOK_ROOT}でmainをpullしてから、PRを作り直してください。`,
   );
 }
+
+// The list of checks of the branch
+const CHECKS = join(root, 'scripts', 'checks.mjs');
+if (!existsSync(CHECKS)) {
+  answer('deny', `このブランチには検証の一覧（scripts/checks.mjs）がありません。mainを取り込んでから、PRを作り直してください。`);
+}
+const { JOBS, jobsFor, runJob } = await import(pathToFileURL(CHECKS).href);
 
 const files = git(root, 'diff', '--name-only', `origin/${base}...HEAD`).split('\n').filter(Boolean);
 const jobs = jobsFor(files);
@@ -115,7 +124,7 @@ answer(
   undefined,
   [
     done,
-    'ただし、この機械では回せなかった段があります。PRの本文の「確かめていないこと」に書き、Refsのissueにチェックボックスを足してください。',
+    'ただし、ほかのOSの段は回していません。PRの本文の「確かめていないこと」に書き、Refsのissueにチェックボックスを足してください。',
     ...skipped.map((s) => `- ${s.job}: ${s.step}（${s.why}）`),
   ].join('\n'),
 );

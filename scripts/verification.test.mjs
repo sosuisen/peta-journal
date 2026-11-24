@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { JOBS, ROOT } from './checks.mjs';
+import { JOBS, ROOT, runJob } from './checks.mjs';
 
 const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 
@@ -180,6 +180,31 @@ test('the hook before a pull request is set', () => {
   const entry = hooks.PreToolUse.find((h) => h.matcher === 'Bash|PowerShell');
   assert.ok(entry);
   assert.ok(entry.hooks.some((h) => h.type === 'command' && h.command.includes('.claude/hooks/verify-before-pr.mjs')));
+});
+
+// 手元で飛ばしてよいのは、ほかのOSの段だけである。環境変数のない段は、手元でも失敗する。
+test('only a step for another os is skipped on a developer machine', () => {
+  const other = process.platform === 'win32' ? 'darwin' : 'win32';
+  const quiet = { log: () => {} };
+  JOBS['test-other-os'] = { dir: '.', touchedBy: [], steps: [{ os: other, run: 'never' }] };
+  JOBS['test-no-variable'] = { dir: '.', touchedBy: [], steps: [{ needs: ['PETA_NO_SUCH_VARIABLE'], run: 'never' }] };
+  try {
+    const skipped = runJob('test-other-os', quiet);
+    assert.equal(skipped.failed, undefined);
+    assert.equal(skipped.skipped.length, 1);
+    assert.equal(runJob('test-other-os', { ...quiet, strict: true }).failed.step, 'never');
+    assert.equal(runJob('test-no-variable', quiet).failed.step, 'never');
+  } finally {
+    delete JOBS['test-other-os'];
+    delete JOBS['test-no-variable'];
+  }
+});
+
+// PRの前のフックは、PRのブランチの検証の一覧を回す。
+test('the hook runs the list of checks of the branch', () => {
+  const hook = read('.claude/hooks/verify-before-pr.mjs');
+  assert.ok(!/^import .*checks\.mjs/m.test(hook), 'the hook imports the list next to itself, which is on main');
+  assert.match(hook, /join\(root, 'scripts', 'checks\.mjs'\)/);
 });
 
 // コードに、カバレッジの測定から行を外す印がない。

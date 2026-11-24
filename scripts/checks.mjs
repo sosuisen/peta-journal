@@ -6,11 +6,10 @@
 //   node scripts/checks.mjs run <job>          runs the checks of the job
 //   node scripts/checks.mjs jobs <file>...     prints the jobs that the files touch
 //
-// A step can need something that a machine cannot have: another OS, or a program given by an
-// environment variable. On a developer's machine, such a step is skipped and reported. In the CI
-// (CI=true), a missing need fails the job, so that no check is skipped there without a sign.
-// A tool that can be installed on any OS, such as dotnet, is not such a need. Without it the
-// step fails, on a developer's machine too.
+// Only a step for another OS (`os`) is skipped on a developer's machine, and reported. In the CI
+// (CI=true), it fails the job, so that no check is skipped there without a sign. Everything else
+// that a step needs can be set up on any machine: a program given by an environment variable
+// (`needs`), a program on the PATH, a file (`programs`). Without it, the step fails everywhere.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -218,13 +217,9 @@ function findMsbuild() {
   return found.stdout.split(/\r?\n/).find((l) => l.trim())?.trim();
 }
 
-// Why a step cannot run on this machine, or undefined when it can
-function missing(step, env) {
-  if (step.os && step.os !== process.platform) return `${step.os}でしか動かない`;
-  for (const name of step.needs ?? []) {
-    if (!env[name]) return `環境変数${name}がない`;
-  }
-  return undefined;
+// Why a step is for another OS, or undefined when it is for this one
+function otherOs(step) {
+  return step.os && step.os !== process.platform ? `${step.os}でしか動かない` : undefined;
 }
 
 // Runs the steps of a job. `log` gets every line of output. Returns
@@ -239,13 +234,15 @@ export function runJob(name, { root = ROOT, strict = false, log = (s) => process
   }
   const skipped = [];
   for (const step of job.steps) {
-    const why = missing(step, env);
+    const why = otherOs(step);
     if (why) {
       if (strict) return { failed: { step: step.run, tail: why }, skipped };
       skipped.push({ step: step.run, why });
       continue;
     }
     const cwd = join(root, step.cwd ?? job.dir);
+    const unset = (step.needs ?? []).find((v) => !env[v]);
+    if (unset) return { failed: { step: step.run, tail: `環境変数${unset}がない` }, skipped };
     const absent = (step.programs ?? []).find((p) => !existsSync(join(root, p)));
     if (absent) return { failed: { step: step.run, tail: `${absent}がない` }, skipped };
     log(`\n$ (${step.cwd ?? job.dir}) ${step.run}\n`);
