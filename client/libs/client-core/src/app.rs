@@ -789,6 +789,8 @@ pub enum Event {
         is_root: bool,
         pages: Vec<Page>,
     },
+    /// The server could not answer the pages of the directory the index list shows.
+    IndexPagesFailed,
     /// The wait before the next try to connect the event stream ended.
     SseReconnect,
     /// The Home button: the page set in the settings, or today
@@ -1049,6 +1051,11 @@ pub struct ConfigState {
 pub struct SidebarState {
     pub index_header: String,
     pub index_pages: Vec<Page>,
+    /// The id of the page whose children the index list shows. None for a page that is not
+    /// in a folder.
+    pub index_folder: Option<String>,
+    /// Whether the index list of `index_folder` arrived.
+    pub index_state: crate::view::LoadState,
     /// The sort of each directory's index list, by its header (`dir/` or `(root)/`).
     pub index_sorts: HashMap<String, IndexSort>,
     /// The folders last seen as their atlas page, by dir path (empty for the root). A
@@ -1601,6 +1608,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             is_root,
             pages,
         } => screens::sidebar::show_index_pages(model, header, is_root, pages),
+        IndexPagesFailed => screens::sidebar::index_pages_failed(model),
         SseReconnect => screens::sse::connect(model),
         NavigateHome => screens::settings::navigate_home(model),
         NavigateToRoot => screens::navigate::open_folder(model, "index"),

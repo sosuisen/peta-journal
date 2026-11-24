@@ -46,12 +46,24 @@ pub fn set_current_page(model: &mut Model, page: Option<Page>) -> Cmd {
 pub fn load_index_pages(model: &mut Model) -> Cmd {
     let page = match &model.current_page {
         Some(p) if p.page_type == "doc" => p.clone(),
-        _ => {
-            model.sidebar.index_header.clear();
-            model.sidebar.index_pages.clear();
-            return done();
-        }
+        _ => return no_folder(model),
     };
+    // The page whose children the list shows: an index page lists its own folder
+    let folder = if page.name == "index" {
+        page.id.clone()
+    } else if !page.parent_id.is_empty() {
+        page.parent_id.clone()
+    } else {
+        return no_folder(model);
+    };
+    // The list of another folder is wrong for this page. The same folder keeps its list
+    // while it loads again, as its pages are the same.
+    if model.sidebar.index_folder.as_deref() != Some(folder.as_str()) {
+        model.sidebar.index_folder = Some(folder);
+        model.sidebar.index_header.clear();
+        model.sidebar.index_pages.clear();
+        model.sidebar.index_state = LoadState::Loading;
+    }
     run(move |api| async move {
         let loaded = if page.name == "index" {
             let is_root = page.dir_path.is_empty();
@@ -63,7 +75,7 @@ pub fn load_index_pages(model: &mut Model) -> Cmd {
             api.get_child_pages(&page.id)
                 .await
                 .map(|children| (header, is_root, children))
-        } else if !page.parent_id.is_empty() {
+        } else {
             match api.get_page_by_id(&page.parent_id).await {
                 Ok(parent) => {
                     let is_root = parent.page.dir_path.is_empty();
@@ -78,8 +90,6 @@ pub fn load_index_pages(model: &mut Model) -> Cmd {
                 }
                 Err(e) => Err(e),
             }
-        } else {
-            Ok((String::new(), false, Vec::new()))
         };
         match loaded {
             Ok((header, is_root, pages)) => api.send_event(Event::IndexPagesLoaded {
@@ -87,14 +97,36 @@ pub fn load_index_pages(model: &mut Model) -> Cmd {
                 is_root,
                 pages,
             }),
-            Err(e) => log_error(format!("Failed to load index pages: {e}")),
+            Err(e) => {
+                log_error(format!("Failed to load index pages: {e}"));
+                api.send_event(Event::IndexPagesFailed);
+            }
         }
     })
+}
+
+/// A page that is not in a folder lists no pages, and has nothing to wait for.
+fn no_folder(model: &mut Model) -> Cmd {
+    model.sidebar.index_folder = None;
+    model.sidebar.index_header.clear();
+    model.sidebar.index_pages.clear();
+    model.sidebar.index_state = LoadState::Loaded;
+    done()
+}
+
+/// The server could not answer the pages of the folder. A list already shown for this
+/// folder stays; the list of a folder still loading is empty and failed.
+pub fn index_pages_failed(model: &mut Model) -> Cmd {
+    if model.sidebar.index_state == LoadState::Loading {
+        model.sidebar.index_state = LoadState::Failed;
+    }
+    done()
 }
 
 /// The server answered the pages of the directory: the index list shows them. The root
 /// directory lists doc pages only.
 pub fn show_index_pages(model: &mut Model, header: String, is_root: bool, pages: Vec<Page>) -> Cmd {
+    model.sidebar.index_state = LoadState::Loaded;
     model.sidebar.index_header = header;
     // The atlas page is opened by the map button of the index page, not by name
     let pages = pages.into_iter().filter(|c| !page::is_atlas(c));

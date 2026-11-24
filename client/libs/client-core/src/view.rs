@@ -343,6 +343,7 @@ pub struct IndexPagesView {
     pub pages: Vec<SidebarPage>,
     /// The page on screen, which the list marks.
     pub current_page_id: Option<String>,
+    pub state: LoadState,
 }
 
 /// The headings of the doc page on screen, as the sidebar lists them (ADR 085).
@@ -649,6 +650,7 @@ fn index_pages(model: &Model) -> IndexPagesView {
             })
             .collect(),
         current_page_id: model.current_page.as_ref().map(|p| p.id.clone()),
+        state: model.sidebar.index_state,
     }
 }
 

@@ -181,17 +181,9 @@ fn a_page_without_a_parent_lists_nothing_and_a_journal_clears_the_list() {
     assert!(listed(&h).is_empty());
 }
 
-// サーバーが一覧を返せなければ、前の一覧がそのまま残る。
+// 親のページを読めなければ、フォルダのページは問い合わせない。
 #[test]
-fn a_failed_load_keeps_the_list_as_it_was() {
-    let mut h = Harness::new();
-    h.model.sidebar.index_header = "old/".into();
-    h.model.sidebar.index_pages = vec![doc("old/", "Kept")];
-    h.api.fail_next("GetChildPages", "offline");
-    h.api.fail_next("GetChildPages", "offline");
-    open(&mut h, doc("notes/", "index"));
-    assert_eq!(listed(&h), ["Kept"]);
-
+fn a_parent_that_cannot_be_read_asks_for_no_pages() {
     let mut h = Harness::new();
     h.api.fail_next("GetPageById", "offline");
     h.api.fail_next("GetPageById", "offline");
