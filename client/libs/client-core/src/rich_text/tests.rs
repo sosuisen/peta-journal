@@ -319,6 +319,17 @@ fn a_heading_has_its_level() {
     );
 }
 
+// 見出しの段落は、レベルの倍率を持つ。h6はh5と同じ1で、見出しでない段落も1である（#795）。
+#[test]
+fn a_heading_has_the_scale_of_its_level() {
+    let scales: Vec<_> =
+        paragraphs("# 1\n\n## 2\n\n### 3\n\n#### 4\n\n##### 5\n\n###### 6\n\ntext")
+            .iter()
+            .map(|p| p.scale)
+            .collect();
+    assert_eq!(scales, [1.6, 1.4, 1.2, 1.1, 1.0, 1.0, 1.0]);
+}
+
 // 段落の中の改行は空白になり、改行の記号は改行になる。
 #[test]
 fn a_line_end_is_a_space_and_a_break_is_a_line_break() {
