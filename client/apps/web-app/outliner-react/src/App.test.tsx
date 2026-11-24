@@ -688,6 +688,15 @@ describe('a day that may have changed', () => {
 
     expect(wasm.events).toEqual([]);
   });
+
+  // 窓にフォーカスが戻ると、知らせる。見えたままの窓に、スリープから戻ったときなどである。
+  test('the window focused again tells the core that the day may have changed', () => {
+    const { wasm } = app();
+
+    fireEvent.focus(window);
+
+    expect(wasm.events).toEqual([{ kind: 'DateMayHaveChanged' }]);
+  });
 });
 
 // ページ全体のキー
