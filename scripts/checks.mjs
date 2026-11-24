@@ -191,6 +191,30 @@ export const JOBS = {
       },
     ],
   },
+  // The sticky notes on macOS, in SwiftUI. Everything here needs Xcode, so every step is for macOS:
+  // elsewhere the hook skips them and says so. The tests that put the views in windows run here too
+  'stickies-mac': {
+    dir: 'client/apps/native-app/stickies-mac',
+    touchedBy: ['client/apps/native-app/stickies-mac/', 'client/apps/native-app/swift-shared/', ...CLIENT_RUST],
+    notTouchedBy: [
+      'client/apps/web-app/',
+      'client/apps/webview-app/',
+      'client/apps/emacs/',
+      'client/apps/native-app/outliner-android/',
+      'client/apps/native-app/outliner-ios/',
+      'client/apps/native-app/stickies-win/',
+    ],
+    steps: [
+      // generated/ and ../swift-shared/generated/: the core as a library and the types of the
+      // border, from the Rust code
+      { os: 'darwin', run: './generate.sh' },
+      // swift-format checks the Swift of both Apple shells and of swift-shared at once
+      { os: 'darwin', cwd: 'client/apps/native-app', run: './swift-format.sh --check' },
+      // Builds journal-server, runs the tests, and fails below 90% of the lines covered. The files
+      // left out are in the comment of coverage.sh
+      { os: 'darwin', run: './coverage.sh' },
+    ],
+  },
 };
 
 // The jobs that the changed files touch. Every kind of file counts, Markdown too: a test can read
