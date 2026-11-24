@@ -267,7 +267,8 @@ tests do not run in CI.
 
 The shell for Windows. It is the same app as the SwiftUI shell: stickies that each show one page
 (ADR 028). `client/apps/native-app/stickies-win/README.md` describes the tools, the build of the app and the tests.
-Its tests do not run in CI.
+The CI runs the tests of `PetaBorder` and measures their coverage. The tests of the windows do
+not run in CI: they press real keys.
 
 ## Android frontend (outliner-android)
 
@@ -348,6 +349,15 @@ Then build the frontend, open an atlas, and check the drawing and a dialog.
 `.github/workflows/ci.yml` runs only when asked: from the Actions tab, or with
 `gh workflow run CI --ref <branch>`. The runs are paid.
 
+Each OS can be left out with an input. The jobs on Linux and on Windows run by default, the jobs
+on macOS do not. The minutes cost twice as much on Windows, and about ten times on macOS. The
+`guard` job runs every time.
+
+```
+gh workflow run CI --ref <branch> -f linux=false   # only the Windows jobs
+gh workflow run CI --ref <branch> -f macos=true    # the macOS jobs too
+```
+
 The checks of each job are listed once, in `scripts/checks.mjs`: the format, the lint, the tests
 and the coverage. The workflow only installs the tools, then runs `node scripts/checks.mjs run <job>`.
 The mutation tests are not in the list. Run them on your machine before a pull request.
@@ -357,6 +367,8 @@ The mutation tests are not in the list. Run them on your machine before a pull r
 A Claude Code hook (`.claude/settings.json`, `.claude/hooks/verify-before-pr.mjs`) runs the same
 checks before `gh pr create`. It runs the jobs that the commits of the branch touch. A failed check
 stops the pull request.
+Every changed file counts, Markdown too: a test may read it as its data. Only the files under
+`docs/` touch no job.
 
 To see which jobs some files touch, or to run a job by hand:
 
@@ -365,13 +377,22 @@ node scripts/checks.mjs jobs journal/journal-core/src/lib.rs
 node scripts/checks.mjs run todo
 ```
 
-A step that the machine cannot run is skipped, and the hook reports it. On a developer's machine,
-the Emacs steps need two environment variables:
+The hook uses the newer of main and the branch, for every file of the checks (the hook, its
+setting, and `scripts/`). Claude Code runs the hook from the checkout where it started: pull main
+there, or the hook stops the pull request. When main changed a file of the checks after the
+branch left it, the hook stops until the branch takes main in. Then the hook and the list of
+checks of the branch run, so a job that the branch adds runs too. `scripts/hook.test.mjs` tests
+this.
+
+Only a step for another OS is skipped on a developer's machine, and the hook reports it. In the
+CI, such a step fails the job. Any other step fails when what it needs is missing: a program, a
+file, or an environment variable. The Emacs steps need two environment variables:
 
 - `PETA_EMACS`: the `emacs` program, version 31. Not an `emacsclient` wrapper.
 - `ELISP_FORMATTER`: the `elisp-formatter.el` of `sosuisen/elisp-formatter`.
 
-In the CI, a step that cannot run fails the job instead.
+On Windows, the build of memoview needs the MSBuild of Visual Studio. The hook finds it with
+vswhere, or `MSBUILD` names it.
 
 ## Development Workflow
 
