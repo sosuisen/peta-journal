@@ -92,6 +92,7 @@
         - ^ このアプリからコピーした文は階層を保って戻る
           - ^ Shift を押しながら貼ると、分けずにそのまま1項目に入る
             - ^ 画像はアップロードされ、カーソル位置にリンクされる
+              - ^ 画像のファイルをドロップすると、落とした位置にリンクされる
 - ページで知識を整える #利用者
   - // 出典: tests/page_properties.rs, tests/rename.rs, tests/backlinks.rs, tests/sidebar_sort.rs, tests/sidebar_menu.rs, tests/tags_button.rs, tests/view.rs, client/apps/web-app/outliner-react/e2e/outline-content.spec.ts, client/libs/client-web-bridge/src/body.rs
   - ページを作る
