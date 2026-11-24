@@ -160,12 +160,16 @@ cargo install cargo-llvm-cov --locked
 cargo install cargo-mutants --locked
 ```
 
-After a change, read the coverage for the lines no test reaches (the numbers are not a target):
+After a change, read the coverage for the lines no test reaches:
 
 ```
 cargo cov            # a table per file
 cargo cov --html     # target/llvm-cov/html/index.html, line by line
 ```
+
+`cargo cov` fails when less than 90% of the lines are covered. The lines are counted over all the
+measured crates together. The CI runs it too. A line no test reaches is either removed, or given
+a test of the behaviour that needs it. `.cargo/config.toml` lists the files left out and why.
 
 Before a PR, run the mutation test on the changed code. Every mutant runs the test suite of the
 crate, and the workspace has about 3100 mutants, so a full run takes many hours:

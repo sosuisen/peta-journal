@@ -1,0 +1,31 @@
+# `cargo cov` measures the test coverage of this crate with cargo-llvm-cov, with every feature on.
+# It prints a table per file; `cargo cov --html` writes a browsable report to
+# target/llvm-cov/html/.
+# Setup, once: `rustup component add llvm-tools-preview` and
+# `cargo install cargo-llvm-cov --locked`.
+#
+# Below 90% of the lines, `cargo cov` fails, and so does the CI. The lines are counted over the
+# whole crate, not file by file. The report is read for the lines no test reaches. They are either
+# removed or given a test of the behaviour that needs them. A test only to reach a line is not
+# written.
+#
+# Why `--no-rustc-wrapper`: by default, cargo-llvm-cov 0.9 builds through a rustc wrapper of its
+# own. In the journal and client workspaces, the wrapper left some crates without
+# instrumentation on Windows (2026-11-25). This crate was measured either way. The three
+# workspaces build the same way, so that one rule holds for all of them.
+#
+# The crate journal-api-types (../journal) is outside this workspace. Without the wrapper, its
+# files show up in the table too. Its own workspace measures it, so the regex leaves it out.
+#
+# No file is left out of the measurement.
+[alias]
+cov = [
+    "llvm-cov",
+    "--no-rustc-wrapper",
+    "--all-features",
+    # `[/\\]`: the paths have backslashes on Windows
+    "--ignore-filename-regex",
+    "[/\\\\]journal[/\\\\]",
+    "--fail-under-lines",
+    "90",
+]

@@ -153,7 +153,7 @@ rustup component add llvm-tools-preview
 cargo install cargo-llvm-cov --locked
 ```
 
-After a change, read the coverage for the lines no test reaches (the numbers are not a target):
+After a change, read the coverage for the lines no test reaches:
 
 ```
 cd peta-journal/client
@@ -161,9 +161,13 @@ cargo cov            # a table per file
 cargo cov --html     # target/llvm-cov/html/index.html, line by line
 ```
 
+`cargo cov` fails when less than 90% of the lines are covered. The lines are counted over all the
+measured crates together. The CI runs it too, and in `journal` and `atlas` as well. A line no
+test reaches is either removed, or given a test of the behaviour that needs it.
+
 `cargo cov` is an alias in `.cargo/config.toml`. It measures `client-core`, `client-page-links`,
-`client-api-http`, `client-api-embedded`, `outliner-emacs`, `client-native-bridge`, `client-shell-http` and
-`client-shell-embedded`.
+`client-api-http`, `client-api-embedded`, `outliner-emacs`, `client-native-bridge`, `client-shell-http`,
+`client-shell-embedded`, `client-cloud-sync`, `client-stickies`, `client-web-bridge` and `shell-check`.
 
 No file of `outliner-emacs` is left out. Its tests start the program itself, and `cargo cov`
 measures that run too.

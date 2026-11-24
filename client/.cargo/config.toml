@@ -7,8 +7,20 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 # Setup, once: `rustup component add llvm-tools-preview` and
 # `cargo install cargo-llvm-cov --locked`.
 #
-# The numbers are not a target: the report is read for the lines no test reaches, which are
-# either removed or given a test of the behaviour that needs them.
+# Below 90% of the lines, `cargo cov` fails, and so does the CI. The lines are counted over all
+# the measured crates together, not file by file. The report is read for the lines no test
+# reaches. They are either removed or given a test of the behaviour that needs them. A test only
+# to reach a line is not written.
+#
+# Why `--no-rustc-wrapper`: by default, cargo-llvm-cov 0.9 builds through a rustc wrapper of its
+# own. The wrapper instruments only the crates of the workspace. On Windows, it left
+# client-api-embedded and client-shell-embedded without instrumentation (2026-11-25). Both use
+# journal-core. Their tests ran, but no line of them was counted. The cause is not known. Without
+# the wrapper, every crate is instrumented, the dependencies too, so the first build takes longer.
+#
+# The crates of ../journal and ../atlas are outside this workspace. Without the wrapper, their
+# files show up in the table too. Their own workspaces measure them, so the regex below leaves
+# them out.
 #
 # The browser side of `client-web-bridge` (src/web.rs) is built for wasm only, so a native build
 # leaves it out and it is not measured. cargo-mutants skips it too; see .cargo/mutants.toml.
@@ -19,6 +31,7 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 [alias]
 cov = [
     "llvm-cov",
+    "--no-rustc-wrapper",
     "-p",
     "client-core",
     "-p",
@@ -47,6 +60,11 @@ cov = [
     # entrance for another language
     "--features",
     "client-native-bridge/facet_typegen,client-shell-http/ffi",
+    # `[/\\]`: the paths have backslashes on Windows
+    "--ignore-filename-regex",
+    "[/\\\\](journal|atlas)[/\\\\]",
+    "--fail-under-lines",
+    "90",
 ]
 
 # rust-lld links much faster than the MSVC link.exe, and it comes with the Rust toolchain. Every
