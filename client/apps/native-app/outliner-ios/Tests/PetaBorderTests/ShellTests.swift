@@ -279,6 +279,19 @@ final class ShellTests: JournalTestCase {
         waitUntil("the new item is edited") { self.edited() == "" }
     }
 
+    // アプリを閉じたあとのキーは、何もしない。画面を下ろす途中でも、欄はキーを伝えてくるためである。
+    func testAKeyAfterTheAppClosedDoesNothing() throws {
+        try download("notes.md", "first\n")
+        try openNotes()
+        let first = id(of: "first")
+        shell.edit(first)
+
+        shell.close()
+
+        XCTAssertFalse(shell.press(.enter, in: first, cursor(5, in: "first")))
+        XCTAssertEqual(bodies(), ["first"])
+    }
+
     // 先頭でのBackspaceは、項目を前の項目につなぐ。編集は、つないだ項目で続く。カーソルは、つなぎ目に置かれる。
     func testBackspaceAtTheStartJoinsTheItemToTheOneBeforeAndTheEditGoesOnWhereTheyMeet() throws {
         try editSecondOfThree()
