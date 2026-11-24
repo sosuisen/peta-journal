@@ -34,6 +34,14 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets ${{ matrix.args }}
       - run: cargo test ${{ matrix.args }}
+      # The test coverage fails below 90% of the lines. The `cov` alias in .cargo/config.toml of the
+      # workspace holds the crates and the floor, the same as on a developer's machine. It runs the
+      # tests again, in a build of its own with the instrumentation.
+      - run: rustup component add llvm-tools-preview
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov@0.9.2
+      - run: cargo cov --summary-only
       # The apps on a phone build the core without the extensions, a path the server never
       # takes (ADR 058)
       - if: matrix.workspace == 'journal'

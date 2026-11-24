@@ -4,8 +4,19 @@
 # Setup, once: `rustup component add llvm-tools-preview` and
 # `cargo install cargo-llvm-cov --locked`.
 #
-# The numbers are not a target: the report is read for the lines no test reaches, which are
-# either removed or given a test of the behaviour that needs them.
+# Below 90% of the lines, `cargo cov` fails, and so does the CI. The lines are counted over all
+# the measured crates together, not file by file. The report is read for the lines no test
+# reaches. They are either removed or given a test of the behaviour that needs them. A test only
+# to reach a line is not written.
+#
+# Why `--no-rustc-wrapper`: by default, cargo-llvm-cov 0.9 builds through a rustc wrapper of its
+# own. The wrapper instruments only the crates of the workspace. On Windows, it left journal-core
+# and journal-server without instrumentation (2026-11-25). Their tests ran, but no line of them
+# was counted. The cause is not known. Without the wrapper, every crate is instrumented, the
+# dependencies too, so the first build takes longer.
+#
+# The atlas crate (../atlas) is outside this workspace. Without the wrapper, its files show up in
+# the table too. Its own workspace measures it, so the regex below leaves it out.
 #
 # These files are left out of the measurement, as agreed on 2026-11-02, because no ordinary
 # test can run them: they hand over to the OS.
@@ -18,6 +29,7 @@
 [alias]
 cov = [
     "llvm-cov",
+    "--no-rustc-wrapper",
     "-p", "journal-core",
     "-p", "journal-server",
     "-p", "property-names",
@@ -26,7 +38,8 @@ cov = [
     "-p", "page-names",
     "-p", "page-urls",
     # `[/\\]`: the paths have backslashes on Windows
-    "--ignore-filename-regex", "src[/\\\\]main\\.rs$|application[/\\\\]folder_chooser\\.rs$|infrastructure[/\\\\]launcher\\.rs$|infrastructure[/\\\\]pending_delete_prompt\\.rs$",
+    "--ignore-filename-regex", "src[/\\\\]main\\.rs$|application[/\\\\]folder_chooser\\.rs$|infrastructure[/\\\\]launcher\\.rs$|infrastructure[/\\\\]pending_delete_prompt\\.rs$|[/\\\\]atlas[/\\\\]",
+    "--fail-under-lines", "90",
 ]
 
 # `cargo run` serves the web frontend from the folder that `npm run build` of the React shell
