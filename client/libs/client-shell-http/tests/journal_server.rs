@@ -2,6 +2,8 @@
 //! a small one of the test. This is the only test of `src/server.rs`.
 
 use client_core::effects::{UiOp, UiOutput};
+use client_core::keys::Held;
+use client_core::rich_text::RichLink;
 use client_core::Event;
 use client_native_bridge::{NativeShell, ShellEffectFfi};
 use client_shell_http::connect;
@@ -15,6 +17,8 @@ use common::{start_server, wait_until};
 /// The shell on the other side of the border, with what it was sent.
 struct Screen {
     shell: NativeShell,
+    /// The address of the server of the test, such as `http://127.0.0.1:50000`.
+    address: String,
     requests: Arc<Mutex<Vec<Request<ShellEffectFfi>>>>,
     seen: Arc<Mutex<Vec<String>>>,
 }
@@ -24,12 +28,13 @@ impl Screen {
         let (address, seen) = start_server();
         let requests: Arc<Mutex<Vec<Request<ShellEffectFfi>>>> = Arc::default();
         let kept = requests.clone();
-        let shell = connect(address, move |bytes| {
+        let shell = connect(address.clone(), move |bytes| {
             let sent: Vec<Request<ShellEffectFfi>> = BincodeFfiFormat::deserialize(&bytes).unwrap();
             kept.lock().unwrap().extend(sent);
         });
         Screen {
             shell,
+            address,
             requests,
             seen,
         }
@@ -141,5 +146,25 @@ fn a_pasted_image_reaches_the_upload_of_the_server() {
 
     wait_until("the server is sent the image", || {
         screen.saw("POST /api/assets/upload ")
+    });
+}
+
+// 押したassetsのファイルは、シェルがつながったjournalサーバーのアドレスで、ブラウザで開く（ADR 083）。
+#[test]
+fn a_clicked_file_of_the_assets_opens_on_the_server_the_shell_is_connected_to() {
+    let screen = Screen::new();
+
+    screen.send(&Event::LinkClicked {
+        link: RichLink::File {
+            path: "assets/report.pdf".into(),
+        },
+        held: Held::default(),
+    });
+
+    let opened = UiOp::OpenInBrowser {
+        address: format!("{}/assets/report.pdf", screen.address),
+    };
+    wait_until("the file opens in the browser", || {
+        screen.asked(&opened).is_some()
     });
 }
