@@ -3,6 +3,7 @@
 use crate::emacs_text::EmacsText;
 use client_core::app::SelectionKey as CoreSelectionKey;
 use client_core::changes::ListChange;
+use client_core::rich_text::RichLink;
 use client_core::view::{
     BacklinkGroup, PageProperty, Row, SearchEntry as CoreSearchEntry, SearchKind as CoreSearchKind,
     SidebarPage, SidebarView as CoreSidebar, TaskState,
@@ -88,6 +89,10 @@ pub enum Inbound {
     OpenLinkAt {
         id: String,
         cursor: usize,
+    },
+    /// The user clicked a link of a shown row. The core decides how it opens (ADR 083).
+    LinkClicked {
+        link: RichLink,
     },
     JournalNav {
         forward: bool,
@@ -320,6 +325,11 @@ pub enum Outbound {
     /// Text for the kill ring, such as the Markdown of the copied items.
     Copy {
         text: String,
+    },
+    /// An address that the core ordered to open in the browser (ADR 083). An address that
+    /// starts with `/` is on the journal server, which only Emacs knows.
+    Browse {
+        address: String,
     },
     /// The pages whose names match `query`, for the completion of a wiki link. It is sent
     /// even when nothing was found, as Emacs waits for it.

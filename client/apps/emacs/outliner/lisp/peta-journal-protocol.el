@@ -104,7 +104,7 @@ The fields come in the order of `peta-journal-protocol-list-change-fields'."
               (plist-get fields :items)))))
 
 (defconst peta-journal-protocol-outbound-fields
-  '((:state "ack" "holding") (:rows "ack" "page_id" "changes") (:focus "ack" "id" "cursor") (:scroll "id") (:title "title") (:page-path "path") (:index "folder" "demote_name") (:properties "rows" "free_keys" "datetime_keys") (:status "connection") (:search "results" "searching") (:recent "paths") (:sidebar "index" "headings" "recent") (:backlinks "groups") (:message "text") (:copy "text") (:page-names "query" "titles") (:ask "req" "message"))
+  '((:state "ack" "holding") (:rows "ack" "page_id" "changes") (:focus "ack" "id" "cursor") (:scroll "id") (:title "title") (:page-path "path") (:index "folder" "demote_name") (:properties "rows" "free_keys" "datetime_keys") (:status "connection") (:search "results" "searching") (:recent "paths") (:sidebar "index" "headings" "recent") (:backlinks "groups") (:message "text") (:copy "text") (:browse "address") (:page-names "query" "titles") (:ask "req" "message"))
   "The fields of each kind of the type outbound, in the order its handler
 takes them.")
 
@@ -158,6 +158,9 @@ The fields come in the order of `peta-journal-protocol-outbound-fields'."
     ("copy"
      (funcall (plist-get handlers :copy)
               (plist-get value :text)))
+    ("browse"
+     (funcall (plist-get handlers :browse)
+              (plist-get value :address)))
     ("page_names"
      (funcall (plist-get handlers :page-names)
               (plist-get value :query) (plist-get value :titles)))

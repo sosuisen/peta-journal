@@ -15,6 +15,7 @@ use client_core::effects::{
     ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput,
     UiOp, UiOutput,
 };
+use client_core::keys::Held;
 use client_core::model::{bare_name, value_type_of, PageExt};
 use client_core::policy::{InOrder, Timers};
 use client_core::rest::ClientId;
@@ -298,6 +299,11 @@ impl<H: Host> Shell<H> {
             Inbound::SetProperty { key, value } => self.set_property(key, value),
             Inbound::DeleteProperty { key } => self.send(Event::DeletePageProperty { key }),
             Inbound::OpenLinkAt { id, cursor } => self.open_link_at(id, cursor),
+            // Emacs has no new view, so a click holds no keys (ADR 083)
+            Inbound::LinkClicked { link } => self.send(Event::LinkClicked {
+                link,
+                held: Held::default(),
+            }),
             Inbound::JournalNav { forward } => self.send(Event::JournalNav(if forward {
                 JournalNav::Next
             } else {
@@ -636,10 +642,9 @@ impl<H: Host> Shell<H> {
                 let mut request = request;
                 self.resolve(&mut request, UiOutput::Now { local, now_ms });
             }
-            // Emacs opens the links of an item itself, and sends no keys with a click on a page
-            // in the sidebar: the core does not order these yet (#1063)
+            UiOp::OpenInBrowser { address } => self.host.emit(Outbound::Browse { address }),
+            // Emacs sends no keys with a click, so the core asks for no new view (ADR 083)
             UiOp::OpenNewView { .. }
-            | UiOp::OpenInBrowser { .. }
             | UiOp::SaveAtlasDirs(_)
             | UiOp::CopyFailed
             | UiOp::Prompt(_)
