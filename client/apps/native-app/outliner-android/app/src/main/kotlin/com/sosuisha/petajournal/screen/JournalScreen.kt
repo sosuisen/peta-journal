@@ -42,10 +42,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.sosuisha.petajournal.shell.Outside
 import com.sosuisha.petajournal.shell.Question
 import com.sosuisha.petajournal.shell.Shell
 import com.sosuisha.petajournal.sync.SyncState
@@ -87,6 +89,16 @@ fun JournalScreen(
     onFile: (File) -> Unit = {},
 ) {
     val view = shell.view
+    val uriHandler = LocalUriHandler.current
+    // What a link opens outside the app, which the core ordered (ADR 083)
+    LaunchedEffect(shell.outside) {
+        when (val outside = shell.outside) {
+            is Outside.Web -> uriHandler.openUri(outside.address)
+            is Outside.Document -> onFile(outside.file)
+            null -> return@LaunchedEffect
+        }
+        shell.handedOn()
+    }
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
             // A new app before the sign-in: the bar would make pages before the first download
@@ -152,17 +164,13 @@ fun JournalScreen(
                                 Results(view.search.results, shell::pick)
                             } else {
                                 shell.question?.let { Asked(it, shell::answer) }
-                                shell.missing?.let { MissingPage(it, shell::make) }
                                 shell.missingFile?.let {
                                     Text(
                                         "No file yet: $it",
                                         Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                                     )
                                 }
-                                val links =
-                                    Links(shell::follow) { path ->
-                                        shell.attached(path)?.let(onFile)
-                                    }
+                                val links = Links(shell::follow)
                                 Outline(title(view), view.outline.rows, links, shell::image, shell)
                             }
                         }
@@ -317,19 +325,4 @@ private fun Asked(question: Question, onAnswer: (Boolean) -> Unit) {
         // A notice has nothing to cancel
         dismissButton = { if (question.waits) TextButton({ onAnswer(false) }) { Text("Cancel") } },
     )
-}
-
-/**
- * A link named a page that is not there. The page is made only when the user asks for it here (ADR
- * 031).
- */
-@Composable
-private fun MissingPage(name: String, onMake: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("No page yet: $name", Modifier.weight(1f))
-        TextButton(onMake) { Text("Make it") }
-    }
 }
