@@ -189,8 +189,8 @@ open build/Build/Products/Debug/PetaStickies.app --args -server http://localhost
 ```
 
 `open` only brings a running app to the front: it starts no new one, and the arguments and a new
-build are ignored. Quit the app first (Cmd+Q). Start the journal server before the app, too: the
-app does not load the page again when the server comes up later.
+build are ignored. Quit the app first (Cmd+Q). The journal server may start after the app: the
+core keeps trying to connect, at most 30 seconds apart, and loads the page once the server is up.
 
 `Sources/PetaScreens` holds the views, and `App/` only the start of the app. The views draw the
 view model of `Shell` and decide nothing about the outline. They are a library so that tests can
