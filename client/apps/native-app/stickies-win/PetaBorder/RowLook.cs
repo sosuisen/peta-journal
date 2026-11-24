@@ -37,7 +37,7 @@ public static class RowLook
     public static bool ShowsBullet(Row row, bool bare)
     {
         ArgumentNullException.ThrowIfNull(row);
-        return row.ShowBullet;
+        return row.ShowBullet && !bare;
     }
 
     /// <summary>
