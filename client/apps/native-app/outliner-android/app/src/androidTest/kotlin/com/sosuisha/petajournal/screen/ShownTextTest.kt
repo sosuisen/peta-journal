@@ -63,6 +63,15 @@ class ShownTextTest {
         assertEquals(1.25f, text.spanStyles.single { it.item.fontSize.isEm }.item.fontSize.value)
     }
 
+    // 段落は、コアが決めた字下げ（em）だけ右に寄る（#795）。
+    @Test
+    fun a_paragraph_is_indented_as_far_as_the_core_says() {
+        val entry = paragraph(run("e"), mark = "•", depth = 1u).copy(indent = 1.25f)
+        val text = (shown(text(entry)).single() as ShownBlock.Text).text
+        val indent = text.paragraphStyles.single().item.textIndent!!
+        assertEquals(listOf(1.25f, 1.25f), listOf(indent.firstLine.value, indent.restLine.value))
+    }
+
     // 文字の位置は、項目の表示の文字のうち、その前に立つ文字の数になる。印の上は、その段落の先頭である。
     @Test
     fun a_place_in_a_text_is_the_count_of_the_shown_letters_before_it() {
