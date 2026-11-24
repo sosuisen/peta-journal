@@ -384,9 +384,27 @@ types, not from what serde writes. A Rust type with a hand-written `Serialize` c
 bytes than its shape says. Then everything compiles, and the shell cannot read the bytes. Only
 a test that crosses the border finds this.
 
-These tests do not run in CI. Run them by hand after a change to a type that crosses the
-border. CI does run the Rust tests of the entrance
+The CI runs these tests on Windows, in the job `stickies-win`, with a journal server. It also
+runs the Rust tests of the entrance
 (`cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi`).
+The tests of the windows (`PetaScreens.Tests`) do not run in CI: they press real keys.
+
+### Coverage
+
+```
+dotnet tool restore
+cd PetaBorder.Tests
+dotnet build -t:Coverage
+```
+
+It runs the tests of `PetaBorder` with coverlet.console, a local tool of `stickies-win`, and
+prints a table. It writes `PetaBorder.Tests/coverage/coverage.cobertura.xml`. It fails when less
+than 90% of the lines of `PetaBorder` are covered, and the CI runs it. Set `PETA_E2E_SERVER`
+first: a skipped test reaches no line. A line no test reaches is either removed, or given a test
+of the behaviour that needs it.
+
+Not done yet (#1085): only `PetaBorder` is measured. `PetaScreens` and `PetaStickies` are
+not, because their tests do not run in the CI yet. The whole app has to be measured.
 
 ### Mutation testing
 

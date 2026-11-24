@@ -7,3 +7,5 @@ obj/
 StrykerOutput/
 # What the test runs report
 TestResults/
+# What "dotnet build -t:Coverage" reports
+coverage/
