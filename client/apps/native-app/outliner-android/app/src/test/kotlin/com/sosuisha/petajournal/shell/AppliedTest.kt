@@ -55,6 +55,7 @@ class AppliedTest {
             headingLevel = 0u,
             isHeading = false,
             headingLine = false,
+            firstLineScale = 1.0f,
             hasOwnZoom = false,
             isTransclusion = false,
             isBrokenTransclusion = false,

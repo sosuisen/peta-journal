@@ -112,7 +112,7 @@ public sealed class ShownTextTests
     private static RichEntry Entry(string mark, params RichBlock[] blocks) =>
         new() { Mark = mark, Blocks = new(blocks) };
 
-    private static RichBlock.Entries Entries(params RichEntry[] entries) => new(new(entries));
+    private static RichBlock.Entries Entries(params RichEntry[] entries) => new(new(entries), 1.5f);
 
     // 段落に触れた位置は、コアが数える表示の文字の数になる。リストの印は数えず、絵文字は1文字と数える（ADR 043）。
     [Fact]
@@ -344,7 +344,7 @@ public sealed class ShownTextTests
     [Fact]
     public void A_part_in_a_quote_that_the_core_took_apart_stands_to_the_right()
     {
-        var shown = Shown(new RichBlock.Quote([new RichBlock.Code("code", 0)]));
+        var shown = Shown(new RichBlock.Quote([new RichBlock.Code("code", 0)], 1.5f));
 
         var code = Assert.IsType<ShownParagraph>(Assert.Single(shown.Parts));
         Assert.Equal(1, code.Indent);

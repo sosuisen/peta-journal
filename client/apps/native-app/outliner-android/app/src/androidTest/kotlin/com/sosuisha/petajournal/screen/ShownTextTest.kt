@@ -24,7 +24,10 @@ class ShownTextTest {
     private fun run(text: String, link: RichLink? = null) = RichRun(text, plain, link)
 
     private fun paragraph(vararg runs: RichRun, mark: String? = null, depth: UInt = 0u, start: UInt = 0u) =
-        RichParagraph(heading = 0u, depth = depth, quoted = 0u, mark = mark, rule = false, runs = runs.toList(), start = start)
+        RichParagraph(
+            heading = 0u, scale = 1.0f, depth = depth, quoted = 0u, indent = 0.0f, mark = mark, rule = false,
+            runs = runs.toList(), start = start,
+        )
 
     private fun text(vararg paragraphs: RichParagraph) = RichBlock.Text(paragraphs.toList())
 
