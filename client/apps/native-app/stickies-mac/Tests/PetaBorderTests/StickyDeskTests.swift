@@ -463,14 +463,17 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(next.stickies[0].window.backgroundColor, StickyLook.color(of: "#D0E8FF"))
     }
 
-    // 付箋紙の色は、Petastiの付箋紙の色から選ぶ。透明は入れない。
+    // 付箋紙の色は、Petastiの付箋紙の9色と、そのあとの透明から選ぶ。
     func testTheColorsOfAStickyAreThoseOfPetasti() {
         XCTAssertEqual(
             StickyLook.colors.map(\.name),
-            ["Yellow", "Red", "Green", "Blue", "Orange", "Purple", "White", "Gray", "Light Gray"])
+            ["Yellow", "Red", "Green", "Blue", "Orange", "Purple", "White", "Gray", "Light Gray", "Transparent"])
         XCTAssertEqual(
             StickyLook.colors.map(\.hex),
-            ["#FFF8D0", "#FFCAC4", "#EDFFC4", "#D1E1FF", "#FFDD9E", "#F8D0FF", "#FFFFFF", "#E0E0E0", "#F8F8F8"])
+            [
+                "#FFF8D0", "#FFCAC4", "#EDFFC4", "#D1E1FF", "#FFDD9E", "#F8D0FF", "#FFFFFF", "#E0E0E0", "#F8F8F8",
+                "#FFFFFF00",
+            ])
     }
 
     // 色は、#RRGGBBの形で書く。読めない色は、黄色になる。
