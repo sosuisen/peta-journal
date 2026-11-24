@@ -119,3 +119,27 @@ fn a_journal_opened_by_its_date_stays_when_the_date_changes() {
     assert_eq!(shown_date(&h), "2026-02-10");
     assert_eq!(h.model.today, "2026-02-11");
 }
+
+// シェルが「日付が変わったかもしれない」と知らせると（スリープから戻ったときなど）、次の確かめを待たずに、新しい日を開く。
+#[test]
+fn a_shell_that_tells_of_a_possible_new_day_opens_it_without_waiting() {
+    let mut h = today_open();
+
+    h.local_now.day = 11;
+    h.send(Event::DateMayHaveChanged);
+
+    assert_eq!(journals_asked(&h), ["2026-02-10", "2026-02-11"]);
+    assert_eq!(shown_date(&h), "2026-02-11");
+}
+
+// シェルの知らせは、時計を見る確かめを増やさない。知らせのあとも、待っている確かめは1つである。
+#[test]
+fn a_tell_of_a_possible_new_day_keeps_one_look_at_the_clock_waiting() {
+    let mut h = today_open();
+    let waiting = h.pending_timer_ids().len();
+
+    h.send(Event::DateMayHaveChanged);
+    h.send(Event::DateMayHaveChanged);
+
+    assert_eq!(h.pending_timer_ids().len(), waiting);
+}
