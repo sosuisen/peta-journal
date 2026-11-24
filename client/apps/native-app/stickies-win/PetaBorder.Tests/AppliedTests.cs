@@ -43,7 +43,12 @@ public sealed class AppliedTests
             new Panel.AtlasLinkSuggestions(["suggested"]),
             new Panel.Outline(Outline(selecting: true)),
             new Panel.IndexPages(
-                new IndexPagesView { Header = "index", CurrentPageId = "current", State = LoadState.Loaded }
+                new IndexPagesView
+                {
+                    Header = "index",
+                    CurrentPageId = "current",
+                    State = LoadState.Loaded,
+                }
             ),
             new Panel.Headings(new HeadingsView { Headings = [], State = LoadState.Failed }),
             new Panel.RecentPages(new RecentPagesView { Pages = [], State = LoadState.Loading }),
