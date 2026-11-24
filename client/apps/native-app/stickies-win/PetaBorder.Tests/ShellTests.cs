@@ -1172,6 +1172,18 @@ public sealed class ShellTests : IDisposable
         Assert.Equal("/pages/winui-notes", shell.Url);
     }
 
+    // assetsのファイルの画像は、journalサーバーのアドレスから読む。ファイル名はURLの形に直る。
+    [Fact]
+    public void The_image_of_a_file_of_the_assets_is_read_from_the_journal_server()
+    {
+        var shell = ShellWithPage();
+
+        Assert.Equal(
+            $"{server.Address}/assets/my%20picture.png",
+            shell.AssetAddress("assets/my picture.png")?.AbsoluteUri
+        );
+    }
+
     /// <summary>
     /// Makes the journal of a day long ago, with one item, and waits until the server has it.
     /// </summary>
