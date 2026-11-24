@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1980" height="1672" viewBox="0 0 1980 1672" role="img">
 <title>PetaJournal architecture: clients, local server, storage and sync</title>
-<desc>The libraries of the frontend side begin with client-. client-core was peta-core. The packages of the apps have the names of the apps (ADR 040): outliner-emacs was client-shell-emacs. Six frontends share one core. The four native apps have the same shape. Each has a shell crate at the entrance. It is the entrance of BoltFFI, and it gives client-native-bridge an implementation of Host. client-native-bridge has the Host trait and carries events and effects as bytes between client-core and the app. It was shell-native. The Host of a shell crate calls an API crate. The WinUI frontend is stickies-win (C#, WinUI), and the SwiftUI frontend is stickies-mac (Swift, SwiftUI). Both are connected by bincode over BoltFFI to a Rust library with client-shell-http, client-native-bridge, client-core and client-api-http (Rust, ureq). client-shell-http is new: it has what shell-native had for the journal server. client-api-http was server-client. It talks to the local server with REST and SSE. The Android frontend is outliner-android (Kotlin, Compose), and the iOS frontend is outliner-ios (Swift, SwiftUI). Both are connected by bincode over BoltFFI to a Rust library with client-shell-embedded, client-native-bridge, client-core, client-api-embedded and journal-core. client-shell-embedded was shell-android. client-api-embedded was embedded-journal. It asks no server: it calls journal-core, the inside of the journal server, in the same library. journal-core keeps a SQLite database in the app and syncs the pages with the .md files of a folder of the app, in both directions. The Kotlin side and the Swift side download and upload those files with the Dropbox SDK. client-core parses the Markdown of an item with flatmarkdown into an AST, a Node of flatmarkdown-ast. From the AST it makes the body model of the row of the view model: HTML for the browser frontend, and RichText for the four native apps (ADR 042). RichText is what is shown: text, code, tables, images, lists and quotes, with the looks of the letters and where each link leads. The types of the four native apps are generated from it, in C#, Swift and Kotlin. Each native app draws an item from that type with the parts of its OS, images as pictures. The browser frontend is outliner-react (TypeScript, React), around one WASM binary with client-web-bridge and client-core (Rust, Crux) (ADR 079, ADR 080). outliner-react draws the DOM and sends the events of the user. client-web-bridge gives it the changes of the screen as the JSON of facet. client-web-bridge runs the effects: it talks to the server with fetch and EventSource, and runs the timers and the APIs of the window. It makes the HTML of an item with flatmarkdown-ast2html from the AST of the row, with the link targets and the image sizes. outliner-react adds the code colours. The Emacs frontend is peta-journal.el (Emacs Lisp), connected by JSON lines over stdin and stdout to a Rust process with outliner-emacs, client-core and client-api-http. Two more frontends do not use the core. The todo frontend (TypeScript, React) talks to the server with fetch and EventSource, and renders the AST with flatmarkdown-ast2react, a TypeScript package. The memoview frontend (C#, WinUI) talks to the server with HttpClient, and renders the AST in its WebView with the WASM build of flatmarkdown-ast2html, which npm serves (ADR 023). The arrows from the server to todo and to memoview carry the AST of an item: these two draw from the AST and do not read the Markdown. The arrow to the AI agent carries the Markdown of an item. The arrows to the four frontends that use client-core and ask the server carry the Markdown too: client-core does not read the AST of the answer. A label in a gray envelope on an arrow names the main data that the arrow carries. It does not say in which direction. The bincode arrows of the four native apps carry RichText: it is in the rows of the changes. The pipe of the Emacs frontend carries the Markdown: Emacs shows it as it is. In the iOS and Android apps, client-api-embedded gets the Markdown from journal-core with a function call. The local server has two parts. journal-server (Rust, axum) serves REST and SSE at /api/events. It also serves MCP at /mcp. It calls journal-core (Rust) in the same process. journal-core keeps the pages in a SQLite database. It syncs the pages with .md files in a local folder outside the server, in both directions. That arrow carries Markdown. Dropbox, a cloud storage service, may sync that folder with remote machines and with the mobile apps. A box below the cloud storage stands for the remote machines and the mobile devices. An AI agent talks to it as an MCP client over Streamable HTTP. Astro makes a web site from the .md files of the local folder. That arrow carries Markdown too. The folders of .md files are painted yellow. The local server is painted gray. A ribbon of one colour joins the boxes of one crate. The purple ribbon joins client-core of all six frontends. The pink ribbon joins client-native-bridge of the four native apps. The olive ribbon joins client-shell-http of Windows and macOS. The blue ribbon joins client-shell-embedded of iOS and Android. The green ribbon joins client-api-http of Emacs, Windows and macOS. The teal ribbon joins client-api-embedded of iOS and Android. The orange ribbon joins journal-core of the server, of iOS and of Android. A box below the notes says what client-core is responsible for. It has no screen: it takes events from the shell, and answers with effects and the changes of the screen. It does not rewrite the items. journal-core does that in one transaction: split, merge, paste, move, indent and the task state. client-core turns one operation of the user into one request, and puts the answer into the state of the screen. It decides which operation a key or a click means: Enter splits an item, adds a line inside a code fence, or outdents an empty last item. It builds the request, with the text that is not saved yet, and the way to read the answer. The shell sends it. It shows the answer: it rewrites the state of the screen, places the cursor and records the undo. Indent and collapsing are shown before the answer comes. It keeps the state of the screen: the tree of the outline, the selection, the cursor, the unsaved text and the history of undo and redo. It saves typed text after a short pause, and takes in the changes of other clients and of the .md files. It has the logic of the screens: the route, the journal, a page, the sidebar, search, settings, the atlas and the names for a wiki link. It makes the view model again after every event, and parses the Markdown of each item for the body model of its row. It compares the view model with the one the shell was last told of. It makes the changes from that: the changes to the rows of the outline, and each panel that changed whole (ADR 076, ADR 078). Every shell uses this one diff, so the arrows from client-core to the shells carry effects and changes. A second box below it lists the flatmarkdown libraries. A dark chip in a box names a flatmarkdown crate that the box uses. Only the boxes with a description have chips. The other boxes of the same crate leave them out. A box also has a chip for a crate that it uses through page-urls or client-page-links. page-urls builds the URLs of pages with flatmarkdown-ast2html (ADR 061). client-core, journal-core, outliner-emacs and client-web-bridge use page-urls. client-page-links uses flatmarkdown-ast2html. client-web-bridge and client-native-bridge use client-page-links. So the four native apps and Emacs use flatmarkdown-ast2html too, not only the browser frontend. The chip ast2html.wasm names the WASM build of flatmarkdown-ast2html, and a white chip names a TypeScript package.</desc>
+<desc>The libraries of the frontend side begin with client-. client-core was peta-core. The packages of the apps have the names of the apps (ADR 040): outliner-emacs was client-shell-emacs. Six frontends share one core. The four native apps have the same shape. Each has a shell crate at the entrance. It is the entrance of BoltFFI, and it gives client-native-bridge an implementation of Host. client-native-bridge has the Host trait and carries events and effects as bytes between client-core and the app. It was shell-native. The Host of a shell crate calls an API crate. The WinUI frontend is stickies-win (C#, WinUI), and the SwiftUI frontend is stickies-mac (Swift, SwiftUI). Both are connected by bincode over BoltFFI to a Rust library with client-shell-http, client-stickies, client-native-bridge, client-core and client-api-http (Rust, ureq). client-shell-http is new: it has what shell-native had for the journal server. client-shell-http calls client-stickies (Rust): what is kept of each sticky between two runs of the app, and the rules of how a sticky looks, written once for both apps. client-api-http was server-client. It talks to the local server with REST and SSE. The Android frontend is outliner-android (Kotlin, Compose), and the iOS frontend is outliner-ios (Swift, SwiftUI). Both are connected by bincode over BoltFFI to a Rust library with client-shell-embedded, client-native-bridge, client-core, client-api-embedded, client-cloud-sync and journal-core. client-shell-embedded was shell-android. client-api-embedded was embedded-journal. It asks no server: it calls journal-core, the inside of the journal server, in the same library. journal-core keeps a SQLite database in the app and syncs the pages with the .md files of a folder of the app, in both directions. client-shell-embedded calls client-cloud-sync (Rust), which has the rules of the sync of that folder with Dropbox (ADR 054). The Kotlin side and the Swift side give only the calls of the Dropbox SDK, the sign-in and the screen: the SDK downloads and uploads the files that client-cloud-sync names. stickies-mac and outliner-ios share swift-shared, a Swift package: it keeps the whole view model from the changes of the core (ADR 076), and makes a pasted HEIC image a PNG or a JPEG (ADR 071). client-core parses the Markdown of an item with flatmarkdown into an AST, a Node of flatmarkdown-ast. From the AST it makes the body model of the row of the view model: HTML for the browser frontend, and RichText for the four native apps (ADR 042). RichText is what is shown: text, code, tables, images, lists and quotes, with the looks of the letters and where each link leads. The types of the four native apps are generated from it, in C#, Swift and Kotlin. Each native app draws an item from that type with the parts of its OS, images as pictures. The browser frontend is outliner-react (TypeScript, React), around one WASM binary with client-web-bridge and client-core (Rust, Crux) (ADR 079, ADR 080). outliner-react draws the DOM and sends the events of the user. client-web-bridge gives it the changes of the screen as the JSON of facet. client-web-bridge runs the effects: it talks to the server with fetch and EventSource, and runs the timers and the APIs of the window. It makes the HTML of an item with flatmarkdown-ast2html from the AST of the row, with the link targets and the image sizes. outliner-react adds the code colours. The Emacs frontend is peta-journal.el (Emacs Lisp), connected by JSON lines over stdin and stdout to a Rust process with outliner-emacs, client-core and client-api-http. Two more frontends do not use the core. The todo frontend (TypeScript, React) talks to the server with fetch and EventSource, and renders the AST with flatmarkdown-ast2react, a TypeScript package. The memoview frontend (C#, WinUI) talks to the server with HttpClient, and renders the AST in its WebView with the WASM build of flatmarkdown-ast2html, which npm serves (ADR 023). The arrows from the server to todo and to memoview carry the AST of an item: these two draw from the AST and do not read the Markdown. The arrow to the AI agent carries the Markdown of an item. The arrows to the four frontends that use client-core and ask the server carry the Markdown too: client-core does not read the AST of the answer. A label in a gray envelope on an arrow names the main data that the arrow carries. It does not say in which direction. The bincode arrows of the four native apps carry RichText: it is in the rows of the changes. The pipe of the Emacs frontend carries the Markdown: Emacs shows it as it is. In the iOS and Android apps, client-api-embedded gets the Markdown from journal-core with a function call. The local server has two parts. journal-server (Rust, axum) serves REST and SSE at /api/events. It also serves MCP at /mcp. It calls journal-core (Rust) in the same process. journal-core keeps the pages in a SQLite database. It syncs the pages with .md files in a local folder outside the server, in both directions. That arrow carries Markdown. Dropbox, a cloud storage service, may sync that folder with remote machines and with the mobile apps. A box below the cloud storage stands for the remote machines and the mobile devices. An AI agent talks to it as an MCP client over Streamable HTTP. Astro makes a web site from the .md files of the local folder. That arrow carries Markdown too. The folders of .md files are painted yellow. The local server is painted gray. A ribbon of one colour joins the boxes of one crate. The purple ribbon joins client-core of all six frontends. The pink ribbon joins client-native-bridge of the four native apps. The olive ribbon joins client-shell-http of Windows and macOS. The brown ribbon joins client-stickies of Windows and macOS. The red ribbon joins swift-shared of macOS and iOS. The slate ribbon joins client-cloud-sync of iOS and Android. The blue ribbon joins client-shell-embedded of iOS and Android. The green ribbon joins client-api-http of Emacs, Windows and macOS. The teal ribbon joins client-api-embedded of iOS and Android. The orange ribbon joins journal-core of the server, of iOS and of Android. A box below the notes says what client-core is responsible for. It has no screen: it takes events from the shell, and answers with effects and the changes of the screen. It does not rewrite the items. journal-core does that in one transaction: split, merge, paste, move, indent and the task state. client-core turns one operation of the user into one request, and puts the answer into the state of the screen. It decides which operation a key or a click means: Enter splits an item, adds a line inside a code fence, or outdents an empty last item. It builds the request, with the text that is not saved yet, and the way to read the answer. The shell sends it. It shows the answer: it rewrites the state of the screen, places the cursor and records the undo. Indent and collapsing are shown before the answer comes. It keeps the state of the screen: the tree of the outline, the selection, the cursor, the unsaved text and the history of undo and redo. It saves typed text after a short pause, and takes in the changes of other clients and of the .md files. It has the logic of the screens: the route, the journal, a page, the sidebar, search, settings, the atlas and the names for a wiki link. It makes the view model again after every event, and parses the Markdown of each item for the body model of its row. It compares the view model with the one the shell was last told of. It makes the changes from that: the changes to the rows of the outline, and each panel that changed whole (ADR 076, ADR 078). Every shell uses this one diff, so the arrows from client-core to the shells carry effects and changes. A second box below it lists the flatmarkdown libraries. A dark chip in a box names a flatmarkdown crate that the box uses. Only the boxes with a description have chips. The other boxes of the same crate leave them out. A box also has a chip for a crate that it uses through page-urls or client-page-links. page-urls builds the URLs of pages with flatmarkdown-ast2html (ADR 061). client-core, journal-core, outliner-emacs and client-web-bridge use page-urls. client-page-links uses flatmarkdown-ast2html. client-web-bridge and client-native-bridge use client-page-links. So the four native apps and Emacs use flatmarkdown-ast2html too, not only the browser frontend. The chip ast2html.wasm names the WASM build of flatmarkdown-ast2html, and a white chip names a TypeScript package.</desc>
 <defs>
 <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#5F5E5A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></marker>
 <style>
@@ -26,6 +26,10 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 .green text { fill: #27500A; }
 .olive rect { fill: #F4F3D2; stroke: #74740F; stroke-width: 1; }
 .olive text { fill: #4A4A08; }
+.brown rect { fill: #F5EBDD; stroke: #8A5A2B; stroke-width: 1; }
+.brown text { fill: #5A3A16; }
+.slate rect { fill: #E8EDF4; stroke: #4A5D78; stroke-width: 1; }
+.slate text { fill: #2C3A4E; }
 .other rect { fill: #FFFFFF; }
 .store path { fill: #FFFFFF; stroke: #5F5E5A; stroke-width: 1; stroke-linejoin: round; }
 .store path.folder { fill: #FFF1A8; stroke: #9A7B00; }
@@ -39,7 +43,10 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 </defs>
 <rect x="0" y="0" width="1980" height="1672" fill="#FFFFFF" />
 <rect x="0" y="460" width="1980" height="112" fill="#534AB7" fill-opacity="0.14" />
-<rect x="665" y="278" width="665" height="72" fill="#74740F" fill-opacity="0.16" />
+<rect x="1005" y="174" width="640" height="38" fill="#B23B3B" fill-opacity="0.12" />
+<rect x="665" y="246" width="665" height="64" fill="#74740F" fill-opacity="0.16" />
+<rect x="665" y="316" width="665" height="42" fill="#8A5A2B" fill-opacity="0.16" />
+<rect x="1335" y="648" width="645" height="64" fill="#4A5D78" fill-opacity="0.16" />
 <rect x="1335" y="278" width="645" height="72" fill="#185FA5" fill-opacity="0.14" />
 <rect x="665" y="362" width="1315" height="80" fill="#993556" fill-opacity="0.14" />
 <rect x="335" y="574" width="995" height="72" fill="#3B6D11" fill-opacity="0.14" />
@@ -55,6 +62,9 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <rect x="847" y="12" width="57" height="9" fill="#185FA5" fill-opacity="0.14" />
 <rect x="847" y="24" width="57" height="9" fill="#0F6E56" fill-opacity="0.18" />
 <rect x="847" y="36" width="57" height="9" fill="#E8830C" fill-opacity="0.22" />
+<rect x="725" y="12" width="57" height="9" fill="#8A5A2B" fill-opacity="0.16" />
+<rect x="725" y="36" width="57" height="9" fill="#4A5D78" fill-opacity="0.16" />
+<rect x="664" y="24" width="57" height="9" fill="#B23B3B" fill-opacity="0.12" />
 <text x="914" y="30" dominant-baseline="central">共通のライブラリ</text>
 <g class="gray">
 <rect x="1126" y="21" width="28" height="18" rx="4" style="fill:#D3D1C7" />
@@ -78,8 +88,8 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 
 <rect class="frame" x="680" y="20" width="300" height="600" rx="14" />
 <text class="th" x="696" y="42" dominant-baseline="central">Windowsネイティブアプリ（付箋紙）</text>
-<rect class="inner" x="696" y="194" width="268" height="410" rx="10" />
-<text x="712" y="212" dominant-baseline="central">Rustライブラリ</text>
+<rect class="inner" x="696" y="170" width="268" height="434" rx="10" />
+<text x="712" y="186" dominant-baseline="central">Rustライブラリ</text>
 
 <g class="gray other">
 <rect x="52" y="200" width="236" height="52" rx="8" />
@@ -131,9 +141,13 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="830" y="95" text-anchor="middle" dominant-baseline="central">ネイティブ描画・操作を送信</text>
 </g>
 <g class="olive">
-<rect x="712" y="230" width="236" height="56" rx="8" />
-<text class="th" x="830" y="247" text-anchor="middle" dominant-baseline="central">client-shell-http（Rust）</text>
-<text x="830" y="269" text-anchor="middle" dominant-baseline="central">FFIの入口・Hostの実装を注入</text>
+<rect x="712" y="196" width="236" height="52" rx="8" />
+<text class="th" x="830" y="212" text-anchor="middle" dominant-baseline="central">client-shell-http（Rust）</text>
+<text x="830" y="232" text-anchor="middle" dominant-baseline="central">FFIの入口・Hostの実装を注入</text>
+</g>
+<g class="brown">
+<rect x="772" y="266" width="176" height="32" rx="8" />
+<text class="th" x="860" y="282" text-anchor="middle" dominant-baseline="central">client-stickies（Rust）</text>
 </g>
 <g class="pink">
 <rect x="742" y="314" width="206" height="64" rx="8" />
@@ -178,8 +192,9 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <line class="arr" x1="590" y1="410" x2="590" y2="372" marker-end="url(#arrow)" />
 <text x="582" y="391" text-anchor="end" dominant-baseline="central">Effect・差分</text>
 
-<line class="arr" x1="830" y1="288" x2="830" y2="312" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<line class="arr" x1="727" y1="288" x2="727" y2="524" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<line class="arr" x1="757" y1="250" x2="757" y2="312" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<line class="arr" x1="860" y1="250" x2="860" y2="264" marker-end="url(#arrow)" />
+<line class="arr" x1="727" y1="250" x2="727" y2="524" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <line class="arr" x1="770" y1="380" x2="770" y2="410" marker-end="url(#arrow)" />
 <text x="778" y="395" dominant-baseline="central">Event</text>
 <line class="arr" x1="920" y1="410" x2="920" y2="380" marker-end="url(#arrow)" />
@@ -188,9 +203,9 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <line class="arr" x1="564" y1="114" x2="564" y2="228" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="556" y="174" text-anchor="end" dominant-baseline="central">JSON lines・stdio（パイプ）</text>
 <g class="badge"><rect x="568" y="163" width="76" height="22" rx="2" /><path d="M568 163L578 174L568 185" /><text x="610" y="174" text-anchor="middle" dominant-baseline="central">Markdown</text></g>
-<line class="arr" x1="921" y1="114" x2="921" y2="228" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="913" y="174" text-anchor="end" dominant-baseline="central">bincode（BoltFFI）</text>
-<g class="badge"><rect x="841" y="128" width="72" height="22" rx="2" /><path d="M841 128L851 139L841 150" /><text x="882" y="139" text-anchor="middle" dominant-baseline="central">RichText</text></g>
+<line class="arr" x1="921" y1="114" x2="921" y2="194" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="913" y="158" text-anchor="end" dominant-baseline="central">bincode（BoltFFI）</text>
+<g class="badge"><rect x="841" y="124" width="72" height="22" rx="2" /><path d="M841 124L851 135L841 146" /><text x="882" y="135" text-anchor="middle" dominant-baseline="central">RichText</text></g>
 
 <path class="arr" d="M64 372V740H262" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="72" y="598" dominant-baseline="central">REST・SSE</text>
@@ -206,16 +221,23 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 
 <rect class="frame" x="1010" y="20" width="300" height="600" rx="14" />
 <text class="th" x="1026" y="42" dominant-baseline="central">macOSネイティブアプリ（付箋紙）</text>
-<rect class="inner" x="1026" y="194" width="268" height="410" rx="10" />
-<text x="1042" y="212" dominant-baseline="central">Rustライブラリ</text>
+<rect class="inner" x="1026" y="170" width="268" height="434" rx="10" />
+<text x="1042" y="186" dominant-baseline="central">Rustライブラリ</text>
 <g class="gray other">
 <rect x="1042" y="56" width="236" height="56" rx="8" />
 <text class="th" x="1160" y="73" text-anchor="middle" dominant-baseline="central">stickies-mac（Swift, SwiftUI）</text>
 <text x="1160" y="95" text-anchor="middle" dominant-baseline="central">AppKitで描画・操作を送信</text>
+<rect x="1042" y="124" width="100" height="26" rx="8" />
+<text class="th" x="1092" y="137" text-anchor="middle" dominant-baseline="central" style="font-size:13px">swift-shared</text>
 </g>
+<line class="arr" x1="1092" y1="113" x2="1092" y2="122" marker-end="url(#arrow)" />
 <g class="olive">
-<rect x="1042" y="230" width="236" height="56" rx="8" />
-<text class="th" x="1160" y="258" text-anchor="middle" dominant-baseline="central">client-shell-http</text>
+<rect x="1042" y="196" width="236" height="52" rx="8" />
+<text class="th" x="1160" y="222" text-anchor="middle" dominant-baseline="central">client-shell-http</text>
+</g>
+<g class="brown">
+<rect x="1102" y="266" width="176" height="32" rx="8" />
+<text class="th" x="1190" y="282" text-anchor="middle" dominant-baseline="central">client-stickies</text>
 </g>
 <g class="pink">
 <rect x="1072" y="314" width="206" height="56" rx="8" />
@@ -229,15 +251,16 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <rect x="1042" y="526" width="236" height="56" rx="8" />
 <text class="th" x="1160" y="554" text-anchor="middle" dominant-baseline="central">client-api-http</text>
 </g>
-<line class="arr" x1="1160" y1="288" x2="1160" y2="312" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<line class="arr" x1="1057" y1="288" x2="1057" y2="524" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<line class="arr" x1="1087" y1="250" x2="1087" y2="312" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<line class="arr" x1="1190" y1="250" x2="1190" y2="264" marker-end="url(#arrow)" />
+<line class="arr" x1="1057" y1="250" x2="1057" y2="524" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <line class="arr" x1="1100" y1="372" x2="1100" y2="410" marker-end="url(#arrow)" />
 <text x="1108" y="391" dominant-baseline="central">Event</text>
 <line class="arr" x1="1250" y1="410" x2="1250" y2="372" marker-end="url(#arrow)" />
 <text x="1242" y="391" text-anchor="end" dominant-baseline="central">Effect・差分</text>
-<line class="arr" x1="1251" y1="114" x2="1251" y2="228" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="1243" y="181" text-anchor="end" dominant-baseline="central">bincode（BoltFFI）</text>
-<g class="badge"><rect x="1171" y="135" width="72" height="22" rx="2" /><path d="M1171 135L1181 146L1171 157" /><text x="1212" y="146" text-anchor="middle" dominant-baseline="central">RichText</text></g>
+<line class="arr" x1="1251" y1="114" x2="1251" y2="194" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<text x="1243" y="158" text-anchor="end" dominant-baseline="central">bincode（BoltFFI）</text>
+<g class="badge"><rect x="1171" y="124" width="72" height="22" rx="2" /><path d="M1171 124L1181 135L1171 146" /><text x="1212" y="135" text-anchor="middle" dominant-baseline="central">RichText</text></g>
 <path class="arr" d="M1057 584V658" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1065" y="637" dominant-baseline="central">REST・SSE（ureq）</text>
 <g class="badge"><rect x="977" y="626" width="76" height="22" rx="2" /><path d="M977 626L987 637L977 648" /><text x="1019" y="637" text-anchor="middle" dominant-baseline="central">Markdown</text></g>
@@ -250,24 +273,33 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <rect x="1360" y="56" width="260" height="56" rx="8" />
 <text class="th" x="1490" y="73" text-anchor="middle" dominant-baseline="central">outliner-ios（Swift, SwiftUI）</text>
 <text x="1490" y="95" text-anchor="middle" dominant-baseline="central">SwiftUIで描画・操作を送信</text>
+<rect x="1372" y="124" width="100" height="26" rx="8" />
+<text class="th" x="1422" y="137" text-anchor="middle" dominant-baseline="central" style="font-size:13px">swift-shared</text>
 </g>
+<line class="arr" x1="1422" y1="113" x2="1422" y2="122" marker-end="url(#arrow)" />
 <g class="blue">
 <rect x="1372" y="230" width="236" height="56" rx="8" />
 <text class="th" x="1490" y="247" text-anchor="middle" dominant-baseline="central">client-shell-embedded（Rust）</text>
 <text x="1490" y="269" text-anchor="middle" dominant-baseline="central">FFIの入口・Hostの実装を注入</text>
 </g>
 <g class="pink">
-<rect x="1402" y="314" width="206" height="56" rx="8" />
-<text class="th" x="1505" y="342" text-anchor="middle" dominant-baseline="central">client-native-bridge</text>
+<rect x="1402" y="314" width="190" height="56" rx="8" />
+<text class="th" x="1497" y="342" text-anchor="middle" dominant-baseline="central">client-native-bridge</text>
 </g>
 <g class="purple">
-<rect x="1402" y="412" width="206" height="96" rx="8" />
-<text class="th" x="1505" y="460" text-anchor="middle" dominant-baseline="central">client-core</text>
+<rect x="1402" y="412" width="190" height="96" rx="8" />
+<text class="th" x="1497" y="460" text-anchor="middle" dominant-baseline="central">client-core</text>
 </g>
 <g class="teal">
-<rect x="1372" y="526" width="236" height="56" rx="8" />
-<text class="th" x="1490" y="554" text-anchor="middle" dominant-baseline="central">client-api-embedded（Rust）</text>
+<rect x="1372" y="526" width="220" height="56" rx="8" />
+<text class="th" x="1482" y="554" text-anchor="middle" dominant-baseline="central">client-api-embedded（Rust）</text>
 </g>
+<g class="slate">
+<rect x="1402" y="598" width="206" height="52" rx="8" />
+<text class="th" x="1505" y="614" text-anchor="middle" dominant-baseline="central">client-cloud-sync（Rust）</text>
+<text x="1505" y="634" text-anchor="middle" dominant-baseline="central">Dropbox同期の規則</text>
+</g>
+<line class="arr" x1="1600" y1="288" x2="1600" y2="596" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <line class="arr" x1="1490" y1="288" x2="1490" y2="312" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <line class="arr" x1="1387" y1="288" x2="1387" y2="524" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <line class="arr" x1="1430" y1="372" x2="1430" y2="410" marker-end="url(#arrow)" />
@@ -277,9 +309,9 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <line class="arr" x1="1581" y1="114" x2="1581" y2="228" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1573" y="181" text-anchor="end" dominant-baseline="central">bincode（BoltFFI）</text>
 <g class="badge"><rect x="1501" y="135" width="72" height="22" rx="2" /><path d="M1501 135L1511 146L1501 157" /><text x="1542" y="146" text-anchor="middle" dominant-baseline="central">RichText</text></g>
-<line class="arr" x1="1470" y1="584" x2="1470" y2="684" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<g class="badge"><rect x="1390" y="623" width="76" height="22" rx="2" /><path d="M1390 623L1400 634L1390 645" /><text x="1432" y="634" text-anchor="middle" dominant-baseline="central">Markdown</text></g>
-<text x="1478" y="634" dominant-baseline="central">関数呼び出し</text>
+<line class="arr" x1="1387" y1="584" x2="1387" y2="684" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<g class="badge"><rect x="1395" y="656" width="76" height="22" rx="2" /><path d="M1395 656L1405 667L1395 678" /><text x="1437" y="667" text-anchor="middle" dominant-baseline="central">Markdown</text></g>
+<text x="1479" y="667" dominant-baseline="central">関数呼び出し</text>
 <g transform="translate(0,120)">
 <g class="coral">
 <rect x="1372" y="566" width="236" height="56" rx="8" />
@@ -300,7 +332,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <path class="arr" d="M1292 802H1427V722" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1360" y="787" text-anchor="middle" dominant-baseline="central">同期</text>
 <g class="badge"><rect x="1322" y="806" width="76" height="22" rx="2" /><path d="M1322 806L1332 817L1322 828" /><text x="1364" y="817" text-anchor="middle" dominant-baseline="central">Markdown</text></g>
-<text x="1437" y="734" dominant-baseline="central">Dropbox SDK（Swift）で同期</text>
+<text x="1437" y="734" dominant-baseline="central">Dropbox SDK（Swift）で転送</text>
 </g>
 
 <rect class="frame" x="1660" y="20" width="300" height="856" rx="14" />
@@ -317,17 +349,22 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text class="th" x="1810" y="258" text-anchor="middle" dominant-baseline="central">client-shell-embedded</text>
 </g>
 <g class="pink">
-<rect x="1722" y="314" width="206" height="56" rx="8" />
-<text class="th" x="1825" y="342" text-anchor="middle" dominant-baseline="central">client-native-bridge</text>
+<rect x="1722" y="314" width="190" height="56" rx="8" />
+<text class="th" x="1817" y="342" text-anchor="middle" dominant-baseline="central">client-native-bridge</text>
 </g>
 <g class="purple">
-<rect x="1722" y="412" width="206" height="96" rx="8" />
-<text class="th" x="1825" y="460" text-anchor="middle" dominant-baseline="central">client-core</text>
+<rect x="1722" y="412" width="190" height="96" rx="8" />
+<text class="th" x="1817" y="460" text-anchor="middle" dominant-baseline="central">client-core</text>
 </g>
 <g class="teal">
-<rect x="1692" y="526" width="236" height="56" rx="8" />
-<text class="th" x="1810" y="554" text-anchor="middle" dominant-baseline="central">client-api-embedded</text>
+<rect x="1692" y="526" width="220" height="56" rx="8" />
+<text class="th" x="1802" y="554" text-anchor="middle" dominant-baseline="central">client-api-embedded</text>
 </g>
+<g class="slate">
+<rect x="1722" y="598" width="206" height="52" rx="8" />
+<text class="th" x="1825" y="624" text-anchor="middle" dominant-baseline="central">client-cloud-sync</text>
+</g>
+<line class="arr" x1="1920" y1="288" x2="1920" y2="596" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <line class="arr" x1="1810" y1="288" x2="1810" y2="312" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <line class="arr" x1="1707" y1="288" x2="1707" y2="524" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <line class="arr" x1="1750" y1="372" x2="1750" y2="410" marker-end="url(#arrow)" />
@@ -337,9 +374,9 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <line class="arr" x1="1901" y1="114" x2="1901" y2="228" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1893" y="174" text-anchor="end" dominant-baseline="central">bincode（BoltFFI）</text>
 <g class="badge"><rect x="1821" y="128" width="72" height="22" rx="2" /><path d="M1821 128L1831 139L1821 150" /><text x="1862" y="139" text-anchor="middle" dominant-baseline="central">RichText</text></g>
-<line class="arr" x1="1790" y1="584" x2="1790" y2="684" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<g class="badge"><rect x="1710" y="623" width="76" height="22" rx="2" /><path d="M1710 623L1720 634L1710 645" /><text x="1752" y="634" text-anchor="middle" dominant-baseline="central">Markdown</text></g>
-<text x="1798" y="634" dominant-baseline="central">関数呼び出し</text>
+<line class="arr" x1="1707" y1="584" x2="1707" y2="684" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<g class="badge"><rect x="1715" y="656" width="76" height="22" rx="2" /><path d="M1715 656L1725 667L1715 678" /><text x="1757" y="667" text-anchor="middle" dominant-baseline="central">Markdown</text></g>
+<text x="1799" y="667" dominant-baseline="central">関数呼び出し</text>
 <g transform="translate(0,120)">
 <g class="coral">
 <rect x="1692" y="566" width="236" height="56" rx="8" />
@@ -360,7 +397,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <path class="arr" d="M1260 838V860H1747V722" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1500" y="845" text-anchor="middle" dominant-baseline="central">同期</text>
 <g class="badge"><rect x="1462" y="864" width="76" height="22" rx="2" /><path d="M1462 864L1472 875L1462 886" /><text x="1504" y="875" text-anchor="middle" dominant-baseline="central">Markdown</text></g>
-<text x="1757" y="734" dominant-baseline="central">Dropbox SDK（Kotlin）で同期</text>
+<text x="1757" y="734" dominant-baseline="central">Dropbox SDK（Kotlin）で転送</text>
 </g>
 
 <g transform="translate(0,120)">
