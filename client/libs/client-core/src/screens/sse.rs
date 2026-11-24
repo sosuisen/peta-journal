@@ -9,7 +9,7 @@ use crate::screens::{atlas, page, settings, sidebar};
 use crux_core::Command;
 use journal_api_types::{ChangeSource, ClientMessage};
 
-const MAX_RECONNECT_ATTEMPTS: u32 = 10;
+const MAX_DELAY_MS: u32 = 30_000;
 
 /// Opens the stream; every event on it becomes [`Event::Sse`].
 pub fn connect(model: &mut Model) -> Cmd {
@@ -99,11 +99,12 @@ fn reload_for_another_client(model: &mut Model, page_id: &str) -> Cmd {
     }
 }
 
+/// Tries again until the stream opens: the server may start long after the shell (#756).
 fn schedule_reconnect(model: &mut Model) -> Cmd {
-    if model.sse_reconnect_attempts >= MAX_RECONNECT_ATTEMPTS {
-        return done();
-    }
-    let delay = (1000u32 * 2u32.pow(model.sse_reconnect_attempts)).min(30_000);
+    let delay = 2u32
+        .saturating_pow(model.sse_reconnect_attempts)
+        .saturating_mul(1000)
+        .min(MAX_DELAY_MS);
     model.sse_reconnect_attempts += 1;
     let timer_id = model.next_timer_id();
     run(move |api| async move {
