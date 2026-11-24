@@ -216,6 +216,12 @@ public sealed partial class Shell : IDisposable
         Send(new Event.EditRequested(itemId, new EditPlace.ShownLetter((ulong)letter)));
 
     /// <summary>
+    /// The user clicked something in the sticky that is no item, such as the title bar or a
+    /// button. The core ends a selection, unless the items are being selected by a drag.
+    /// </summary>
+    public void ClickedOutsideItems() => Send(new Event.SelectionClickOutside());
+
+    /// <summary>
     /// The user put the cursor in the item, <paramref name="cursor"/> characters into its
     /// Markdown. The core ends the edit of another item and a selection (ADR 057).
     /// </summary>
