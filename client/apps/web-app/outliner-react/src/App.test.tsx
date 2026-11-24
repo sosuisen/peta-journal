@@ -17,8 +17,10 @@ import {
   type JournalType,
   type Panel,
 } from './border/peta-types';
+import { AskedOps } from './asked';
 import { AskedOpsContext } from './askedContext';
 import { CoreContext } from './context';
+import type { Core } from './core';
 import { draw, outline, shell } from './test/screens';
 
 afterEach(() => {
@@ -933,5 +935,31 @@ describe('the confirm dialog', () => {
 
     expect(wasm.answers).toEqual([]);
     expect(screen.queryByRole('alertdialog')).not.toBeNull();
+  });
+});
+
+/** Draws the app on a core that is still loading, as `main.tsx` gives it before the wasm. */
+function loading() {
+  const core = new Promise<Core>(() => {});
+  return render(
+    <CoreContext value={core}>
+      <AskedOpsContext value={new AskedOps()}>
+        <App />
+      </AskedOpsContext>
+    </CoreContext>,
+  );
+}
+
+// コアのロード中の画面
+describe('the app while the core loads', () => {
+  // コアのロード中も、ヘッダー・サイドバー・本文・フッターの枠が描かれる。
+  test('the header, the sidebar, the page and the footer are drawn', () => {
+    const { container } = loading();
+
+    const frames = ['header', 'aside', 'main', 'footer'].map(
+      tag => container.querySelector(tag) !== null,
+    );
+
+    expect(frames).toEqual([true, true, true, true]);
   });
 });
