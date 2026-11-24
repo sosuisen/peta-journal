@@ -201,6 +201,14 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
                 if let sticky { self?.keep(sticky, url: .some(url)) }
             }
             .store(in: &sticky.hears)
+        // The core looks at the clock once a minute, but its wait does not count the time the
+        // Mac slept: after a night asleep, the journal of today would show the old day a while
+        NotificationCenter.default.publisher(for: .NSCalendarDayChanged)
+            .merge(with: NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification))
+            // The change of the day is told on any thread
+            .receive(on: DispatchQueue.main)
+            .sink { [weak shell] _ in MainActor.assumeIsolated { shell?.dayMayHaveChanged() } }
+            .store(in: &sticky.hears)
         // The paper is not the content view, so its name does not reach the window by itself.
         // A window without a name is hard to find among the others
         shell.$title
