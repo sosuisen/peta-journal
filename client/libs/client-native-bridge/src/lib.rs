@@ -16,7 +16,7 @@ pub use client_core::changes::{ListChange, OutlinePanel, Panel};
 pub type Changes = client_core::changes::Changes<client_core::RichText>;
 pub use clock::{Clock, SystemClock};
 pub use html::copied_html;
-pub use links::{asset_address, page_address};
+pub use links::asset_address;
 pub use shell::{BorderError, Host, NativeShell, NothingThere, ShellEffect, ShellEffectFfi};
 
 /// The core under the border. A row gives a native shell the parts of its body to draw

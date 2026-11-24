@@ -222,8 +222,8 @@ impl Looks {
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RichLink {
-    /// A page of the app: its URL, such as `/pages/notes#item`, as it is written and not
-    /// encoded. A wikilink, a hashtag and a link to a `.md` file lead to a page.
+    /// A page of the app: its URL, such as `/pages/notes#item`, encoded as `page_urls` makes it
+    /// (ADR 061). A wikilink, a hashtag and a link to a `.md` file lead to a page.
     Page { url: String },
     /// An address that the browser opens.
     Web { url: String },
