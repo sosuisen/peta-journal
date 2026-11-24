@@ -1130,14 +1130,14 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (save-current-buffer (peta-journal-properties))
     (peta-journal--on-line
      '(:t "properties"
-       :rows [(:key "status" :label "status" :value "done" :removable t :editable t)]
-       :free_keys []))
+          :rows [(:key "status" :label "status" :value "done" :removable t :editable t)]
+          :free_keys []))
     (should (string-search "status  done" (peta-journal-test--properties-text)))
     (peta-journal-test--with-rows (list (peta-journal-test--row "b" 1 "y"))
       (peta-journal--on-line
        '(:t "properties"
-         :rows [(:key "other" :label "other" :value "z" :removable t :editable t)]
-         :free_keys [])))
+            :rows [(:key "other" :label "other" :value "z" :removable t :editable t)]
+            :free_keys [])))
     (should-not (string-search "other" (peta-journal-test--properties-text)))))
 
 ;; ジャーナルには、プロパティの一覧がない。
@@ -1238,10 +1238,10 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
           (execute-kbd-macro (kbd "s"))))
       (peta-journal--on-line
        '(:t "properties"
-         :rows [(:key "created" :label "created" :value "2026-11-07" :removable nil :editable t)
-                (:key "modified" :label "modified" :value "2026-11-08" :removable nil :editable nil)
-                (:key "status" :label "status" :value "done" :removable t :editable t)]
-         :free_keys []))
+            :rows [(:key "created" :label "created" :value "2026-11-07" :removable nil :editable t)
+                   (:key "modified" :label "modified" :value "2026-11-08" :removable nil :editable nil)
+                   (:key "status" :label "status" :value "done" :removable t :editable t)]
+            :free_keys []))
       (with-selected-window (get-buffer-window "*PetaJournal Properties*")
         (should (equal (buffer-substring-no-properties (line-beginning-position)
                                                        (line-end-position))
@@ -1286,15 +1286,15 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
            (set-time-zone-rule "JST-9")
            (peta-journal--on-line
             '(:t "properties"
-              :rows [(:key "created" :label "created" :value "2026-11-07T15:21:04.123Z"
-                      :removable nil :editable t)
-                     (:key "modified" :label "modified" :value "2026-11-08T00:00:00Z"
-                      :removable nil :editable nil)
-                     (:key "met" :label "met" :value "soon" :removable t :editable t)
-                     (:key "status" :label "status" :value "2026-11-07T15:21:04Z"
-                      :removable t :editable t)]
-              :free_keys [(:key "published" :label "published")]
-              :datetime_keys ["created" "modified" "met" "published"]))
+                 :rows [(:key "created" :label "created" :value "2026-11-07T15:21:04.123Z"
+                              :removable nil :editable t)
+                        (:key "modified" :label "modified" :value "2026-11-08T00:00:00Z"
+                              :removable nil :editable nil)
+                        (:key "met" :label "met" :value "soon" :removable t :editable t)
+                        (:key "status" :label "status" :value "2026-11-07T15:21:04Z"
+                              :removable t :editable t)]
+                 :free_keys [(:key "published" :label "published")]
+                 :datetime_keys ["created" "modified" "met" "published"]))
            ,@body)
        (set-time-zone-rule zone))))
 
@@ -2057,11 +2057,11 @@ Without a sort function of its own, the list is sorted by name, as `completions-
 
 (defconst peta-journal-test--sidebar
   '(:t "sidebar"
-    :index (:header "notes/" :path "notes/index" :parent "index"
-            :pages [(:label "sub/" :dir nil :path "notes/sub/index" :folder t :current nil)
-                    (:label "Idea" :dir nil :path "notes/Idea" :folder nil :current t)])
-    :headings [(:id "a" :text "Top" :level 1) (:id "b" :text "Inner" :level 2)]
-    :recent [(:label "plan" :dir "work/" :path "work/plan" :folder nil :current nil)])
+       :index (:header "notes/" :path "notes/index" :parent "index"
+                       :pages [(:label "sub/" :dir nil :path "notes/sub/index" :folder t :current nil)
+                               (:label "Idea" :dir nil :path "notes/Idea" :folder nil :current t)])
+       :headings [(:id "a" :text "Top" :level 1) (:id "b" :text "Inner" :level 2)]
+       :recent [(:label "plan" :dir "work/" :path "work/plan" :folder nil :current nil)])
   "A sidebar as the shell tells it.")
 
 (defmacro peta-journal-test--with-sidebar (&rest body)
@@ -2152,7 +2152,7 @@ The sidebar is closed at the end."
   (peta-journal-test--with-sidebar
     (peta-journal-sidebar)
     (peta-journal--on-line '(:t "sidebar" :index nil :headings []
-                             :recent [(:label "x" :dir nil :path "x" :folder nil :current nil)]))
+                                :recent [(:label "x" :dir nil :path "x" :folder nil :current nil)]))
     (should (equal (peta-journal-test--sidebar-lines) '("▾ Recent Pages" "  x")))))
 
 (defun peta-journal-test--sidebar-tab (text)
