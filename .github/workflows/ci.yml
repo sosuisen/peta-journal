@@ -49,9 +49,14 @@ jobs:
         run: cargo clippy --target wasm32-unknown-unknown -p client-web-bridge --lib
       # The Emacs mode of client/apps/emacs/outliner. These tests need no process. The E2E tests are
       # in the emacs-e2e job: they need the journal server too.
-      # Why not emacs-nox: it has no images and no fringes, and some of the tests are about them
+      # The Emacs is the snap, not the apt package. The apt Emacs of Ubuntu is 30. The indent of
+      # Emacs 30 differs from Emacs 31, which the developer uses, so the format check fails there.
+      # Why not purcell/setup-emacs: its Emacs has no X and no images, and some of the tests are
+      # about them. The snap moves to a new major version by itself, so the step checks it.
       - if: matrix.workspace == 'client'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends emacs-gtk
+        run: |
+          sudo snap install emacs --classic
+          emacs --batch --eval '(unless (= emacs-major-version 31) (error "Emacs %s is not 31" emacs-version))'
       - if: matrix.workspace == 'client'
         working-directory: client/apps/emacs/outliner
         run: emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit
@@ -82,7 +87,10 @@ jobs:
           workspaces: |
             journal
             client
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends emacs-gtk
+      # The same Emacs as the client job. See there why it is the snap
+      - run: |
+          sudo snap install emacs --classic
+          emacs --batch --eval '(unless (= emacs-major-version 31) (error "Emacs %s is not 31" emacs-version))'
       - working-directory: journal
         run: cargo build -p journal-server
       - working-directory: client
