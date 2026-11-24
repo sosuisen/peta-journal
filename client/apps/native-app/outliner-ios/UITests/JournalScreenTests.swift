@@ -717,7 +717,10 @@ final class JournalScreenTests: XCTestCase {
         try download("notes.md", above("A") + "parent\n\n" + above("B") + "child\n")
         openNotes()
         edit("child")
+        let before = editor.frame.minX
         pad("Move block", "right")
+        // Without the indent, the parent has no child, and a tool of children reads wrong (#829)
+        waitUntil("the child is indented") { editor.frame.minX > before }
         done()
         edit("parent")
     }

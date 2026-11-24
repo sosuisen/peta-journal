@@ -3,6 +3,7 @@ import PetaTypes
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+import os
 
 /// The Markdown of the item that is edited (ADR 031). The core has the text: this field shows
 /// it, and tells the core of every change.
@@ -271,15 +272,32 @@ struct ItemEditor: UIViewRepresentable {
             shell.paste(text, into: itemId, at: cursor)
         }
 
+        /// Why a pasted image did not reach the core. Nothing shows on the screen: the paste
+        /// only does nothing, and a test that fails at it once has nothing else to read.
+        nonisolated private static let log = Logger(subsystem: "com.sosuisha.petajournal", category: "paste")
+
         /// Writes the image to a file for the core, away from the main thread: it may be large
         /// and come from another app.
         fileprivate func pasteImage(_ image: NSItemProvider, at cursor: Int) {
             guard
                 let type = image.registeredTypeIdentifiers.first(where: { UTType($0)?.conforms(to: .image) == true })
-            else { return }
+            else {
+                Typist.log.error("no image type in \(image.registeredTypeIdentifiers, privacy: .public)")
+                return
+            }
             let (shell, itemId, name) = (shell, itemId, image.suggestedName)
-            _ = image.loadDataRepresentation(forTypeIdentifier: type) { data, _ in
-                guard let data, let file = try? PastedImage.write(data, named: name, type: type) else { return }
+            _ = image.loadDataRepresentation(forTypeIdentifier: type) { data, error in
+                guard let data else {
+                    Typist.log.error("the image was not read: \(String(describing: error), privacy: .public)")
+                    return
+                }
+                let file: URL
+                do {
+                    file = try PastedImage.write(data, named: name, type: type)
+                } catch {
+                    Typist.log.error("the image was not written: \(error, privacy: .public)")
+                    return
+                }
                 Task { @MainActor in shell.pasteImage(file, into: itemId, at: cursor) }
             }
         }
