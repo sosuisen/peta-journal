@@ -316,3 +316,20 @@ fn the_headings_of_a_journal_are_loaded_and_empty_when_it_arrives() {
     assert_eq!(during, (vec![], LoadState::Loading));
     assert_eq!(headings(&h), (vec![], LoadState::Loaded));
 }
+
+// 日誌の読み込みに失敗すると、目次は空の一覧で失敗になる。
+#[test]
+fn the_headings_fail_when_the_journal_cannot_be_read() {
+    let mut h = Harness::new();
+    h.api.fail_next("GetOrCreateJournal", "offline");
+
+    h.send(Event::Route {
+        route: Route::Page {
+            name: "today".into(),
+            fragment: None,
+        },
+        today: "2026-02-10".into(),
+    });
+
+    assert_eq!(headings(&h), (vec![], LoadState::Failed));
+}
