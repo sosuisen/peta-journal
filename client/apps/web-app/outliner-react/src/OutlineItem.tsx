@@ -7,7 +7,12 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from 'react';
-import type { FocusRequest, Row } from './border/peta-types';
+import type { FocusRequest, Held, Row } from './border/peta-types';
+import {
+  eventLinkClicked,
+  richLinkPage,
+  richLinkWeb,
+} from './border/peta-types';
 import { deferredKey } from './asked';
 import { useAsked } from './askedContext';
 import { useCore } from './context';
@@ -387,15 +392,33 @@ function ItemView({ row }: { readonly row: Row }) {
         className="item-content"
         dangerouslySetInnerHTML={{ __html: html }}
         onMouseDown={pressed}
-        onClick={event => clickedLink(core, event)}
+        onClick={event => clickedLink(core, event, heldOf(event))}
+        onAuxClick={event => {
+          // The middle button opens a new view, as Ctrl does
+          if (event.button === 1) {
+            clickedLink(core, event, { shift: false, ctrl: true, cmd: false });
+          }
+        }}
         onDrop={dropped}
       />
     </app-item-view>
   );
 }
 
-/** Opens what a click in a drawn body names: a footnote, a page of the app, or a web page. */
-function clickedLink(core: Core, event: ReactMouseEvent<HTMLDivElement>): void {
+/** The keys held down at a click. */
+function heldOf(event: ReactMouseEvent): Held {
+  return { shift: event.shiftKey, ctrl: event.ctrlKey, cmd: event.metaKey };
+}
+
+/**
+ * Opens what a click in a drawn body names. A footnote comes to the middle of the screen. A
+ * link goes to the core with the keys `held`, and the core decides how it opens (ADR 083).
+ */
+function clickedLink(
+  core: Core,
+  event: ReactMouseEvent<HTMLDivElement>,
+  held: Held,
+): void {
   // A click lands on an element, never on a text node
   const target = event.target as Element;
   const footnote = target.closest('.footnote-ref a, .footnote-label');
@@ -408,30 +431,22 @@ function clickedLink(core: Core, event: ReactMouseEvent<HTMLDivElement>): void {
     return;
   }
   const page = target.closest(PAGE_LINKS);
-  if (page !== null) {
-    const href = page.getAttribute('href');
-    // Ctrl or Command opens a tab, as the browser does by itself; Shift opens a window
-    if (
-      href === null ||
-      ((event.ctrlKey || event.metaKey) && !event.shiftKey)
-    ) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.shiftKey) {
-      window.open(href, '_blank', 'noopener');
-    } else {
-      core.go(href);
-    }
+  const href = page?.getAttribute('href') ?? null;
+  // The address the browser reads from the link, also for a file of the assets folder
+  const link = page === null ? target.closest('a') : null;
+  const clicked =
+    href !== null
+      ? richLinkPage(href)
+      : link !== null && link.href !== ''
+        ? richLinkWeb(link.href)
+        : null;
+  if (clicked === null) {
     return;
   }
-  const link = target.closest('a');
-  if (link !== null && link.href !== '') {
-    event.preventDefault();
-    event.stopPropagation();
-    window.open(link.href, '_blank', event.shiftKey ? 'noopener' : undefined);
-  }
+  // The browser would open it too
+  event.preventDefault();
+  event.stopPropagation();
+  core.send(eventLinkClicked(clicked, held));
 }
 
 /** Gives each image the size that the fragment of its URL carries (`#w=300&h=240`). */

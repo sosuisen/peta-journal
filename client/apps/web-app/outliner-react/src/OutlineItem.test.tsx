@@ -2,6 +2,11 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { FocusRequest, Row } from './border/peta-types';
+import {
+  eventLinkClicked,
+  richLinkPage,
+  richLinkWeb,
+} from './border/peta-types';
 import { AskedOpsContext } from './askedContext';
 import { CoreContext } from './context';
 import { OutlineItem } from './OutlineItem';
@@ -599,74 +604,74 @@ describe('the drawn body', () => {
 // 描いた本文のリンク
 describe('the links of the drawn body', () => {
   function links() {
-    const opened: unknown[][] = [];
-    vi.spyOn(window, 'open').mockImplementation((...args) => {
-      opened.push(args);
-      return null;
-    });
-    const drawn = item(
+    return item(
       row('a', '', {
         body_model:
           '<p><a data-wikilink href="/pages/notes">notes</a> <a class="hashtag" href="/tags/x">#x</a> <a href="https://example.com/">web</a></p>',
       }),
     );
-    return { ...drawn, opened };
   }
 
-  // ページへのリンクとタグは、アプリの中で開く。
-  test('a link to a page and a tag open in the app', () => {
-    const { wasm, opened } = links();
+  const none = { shift: false, ctrl: false, cmd: false };
+
+  // ページへのリンクとタグは、押したキーとともにコアへ渡す。ブラウザはリンク先へ移らない（ADR 083）。
+  test('a link to a page and a tag go to the core with the keys held', () => {
+    const { wasm } = links();
 
     let kept: boolean[] = [];
     const reached = reachesThePage('click', () => {
       kept = [
         !fireEvent.click(screen.getByText('notes')),
-        !fireEvent.click(screen.getByText('#x')),
+        !fireEvent.click(screen.getByText('#x'), { shiftKey: true }),
+        !fireEvent.click(screen.getByText('notes'), { ctrlKey: true }),
+        !fireEvent.click(screen.getByText('notes'), { metaKey: true }),
       ];
     });
 
-    expect(kept).toEqual([true, true]);
+    expect(kept).toEqual([true, true, true, true]);
     expect(reached).toBe(false);
-    expect(wasm.links).toEqual(['/pages/notes', '/tags/x']);
-    expect(opened).toEqual([]);
-  });
-
-  // Shiftを押したページへのリンクは、新しいウィンドウで開く。CtrlとCommandは、ブラウザが新しいタブで開く。
-  test('Shift opens a page in a window, and Ctrl or Command leave a tab to the browser', () => {
-    const { wasm, opened } = links();
-
-    const reached = reachesThePage('click', () =>
-      fireEvent.click(screen.getByText('notes'), { shiftKey: true }),
-    );
-    const ctrl = !fireEvent.click(screen.getByText('notes'), { ctrlKey: true });
-    const cmd = !fireEvent.click(screen.getByText('notes'), { metaKey: true });
-    fireEvent.click(screen.getByText('notes'), {
-      ctrlKey: true,
-      shiftKey: true,
-    });
-
-    expect([ctrl, cmd, reached]).toEqual([false, false, false]);
-    expect(opened).toEqual([
-      ['/pages/notes', '_blank', 'noopener'],
-      ['/pages/notes', '_blank', 'noopener'],
+    expect(wasm.events).toEqual([
+      eventLinkClicked(richLinkPage('/pages/notes'), none),
+      eventLinkClicked(richLinkPage('/tags/x'), { ...none, shift: true }),
+      eventLinkClicked(richLinkPage('/pages/notes'), { ...none, ctrl: true }),
+      eventLinkClicked(richLinkPage('/pages/notes'), { ...none, cmd: true }),
     ]);
-    expect(wasm.links).toEqual([]);
   });
 
-  // Webのリンクは、新しいタブで開く。Shiftでは、新しいウィンドウで開く。
-  test('a web link opens in a tab, and in a window with Shift', () => {
-    const { opened } = links();
+  // 外へのリンクは、ブラウザが解いたアドレスでコアへ渡す。
+  test('a link out of the journal goes to the core with the address the browser reads', () => {
+    const { wasm } = links();
 
     let kept = false;
     const reached = reachesThePage('click', () => {
-      kept = !fireEvent.click(screen.getByText('web'));
+      kept = !fireEvent.click(screen.getByText('web'), { shiftKey: true });
     });
-    fireEvent.click(screen.getByText('web'), { shiftKey: true });
 
     expect([kept, reached]).toEqual([true, false]);
-    expect(opened).toEqual([
-      ['https://example.com/', '_blank', undefined],
-      ['https://example.com/', '_blank', 'noopener'],
+    expect(wasm.events).toEqual([
+      eventLinkClicked(richLinkWeb('https://example.com/'), {
+        ...none,
+        shift: true,
+      }),
+    ]);
+  });
+
+  // 中ボタンのクリックは、Ctrlを押したクリックとしてコアへ渡す。
+  test('a middle click goes to the core as a click with Ctrl', () => {
+    const { wasm } = links();
+
+    const kept = !fireEvent(
+      screen.getByText('notes'),
+      new MouseEvent('auxclick', {
+        button: 1,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+
+    expect(kept).toBe(true);
+    expect(wasm.events).toEqual([
+      eventLinkClicked(richLinkPage('/pages/notes'), { ...none, ctrl: true }),
     ]);
   });
 
@@ -688,7 +693,7 @@ describe('the links of the drawn body', () => {
     fireEvent.click(screen.getByText(/text/));
 
     expect(opened).toEqual([]);
-    expect(wasm.links).toEqual([]);
+    expect(wasm.events).toEqual([]);
   });
 
   // 脚注の参照を押すと、脚注を画面の中ほどに出す。アプリのリンクとしては開かない。

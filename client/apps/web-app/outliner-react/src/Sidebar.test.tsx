@@ -71,7 +71,11 @@ describe('the index section', () => {
     fireEvent.click(screen.getByText('work/'), { ctrlKey: true });
 
     expect(wasm.events).toEqual([
-      { kind: 'GoToPage', path: '/pages/work/index', open_in: { kind: 'Tab' } },
+      {
+        kind: 'GoToPage',
+        path: '/pages/work/index',
+        open_in: { kind: 'NewView' },
+      },
     ]);
   });
 
@@ -91,7 +95,7 @@ describe('the index section', () => {
     ).toEqual(['notes']);
     expect(wasm.events).toEqual([
       { kind: 'GoToPage', path: '/pages/index', open_in: here },
-      { kind: 'GoToPage', path: '/pages/plan', open_in: { kind: 'Window' } },
+      { kind: 'GoToPage', path: '/pages/plan', open_in: { kind: 'Browser' } },
     ]);
   });
 

@@ -308,7 +308,7 @@ describe('what is done on the canvas', () => {
     open('m/a', true, true);
 
     expect(wasm.events).toEqual(
-      ['Here', 'Tab', 'Window'].map(kind => ({
+      ['Here', 'NewView', 'Browser'].map(kind => ({
         kind: 'GoToPage',
         path: 'm/a',
         open_in: { kind },
@@ -460,7 +460,7 @@ describe('the unplaced cards', () => {
       ['atlas-card folder', 'C'],
     ]);
     expect(wasm.events).toEqual([
-      { kind: 'GoToPage', path: 'm/c', open_in: { kind: 'Tab' } },
+      { kind: 'GoToPage', path: 'm/c', open_in: { kind: 'NewView' } },
     ]);
   });
 

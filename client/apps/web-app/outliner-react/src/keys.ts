@@ -52,10 +52,12 @@ export function editorState(el: HTMLTextAreaElement, key: string): EditorState {
   );
 }
 
-/** Where a click opens a link: Shift a window, Ctrl or Command a tab. Shift wins over both. */
+/** Where a click opens a page: Shift the browser, Ctrl or Command a new view. Shift wins over both. */
 export function openInOf(event: MouseEvent): OpenIn {
   if (event.shiftKey) {
-    return { kind: 'Window' };
+    return { kind: 'Browser' };
   }
-  return event.ctrlKey || event.metaKey ? { kind: 'Tab' } : { kind: 'Here' };
+  return event.ctrlKey || event.metaKey
+    ? { kind: 'NewView' }
+    : { kind: 'Here' };
 }

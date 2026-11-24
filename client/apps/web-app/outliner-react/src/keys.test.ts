@@ -81,6 +81,6 @@ describe('where a link opens', () => {
       click({ metaKey: true }),
       click({ shiftKey: true }),
       click({ shiftKey: true, ctrlKey: true }),
-    ]).toEqual(['Here', 'Tab', 'Tab', 'Window', 'Window']);
+    ]).toEqual(['Here', 'NewView', 'NewView', 'Browser', 'Browser']);
   });
 });
