@@ -268,41 +268,46 @@ public sealed class ShownTextTests
         Assert.Equal([0.75, 0.75, 1], shown.Runs.Select(run => run.Scale));
     }
 
-    // 見出しは、その段の大きさで、太字で出る。大きさは、Web版と同じである。
+    // 見出しは、コアが決めた倍率の大きさで、太字で出る（#795）。
     [Fact]
     public void A_heading_is_large_and_bold()
     {
         var one = Paragraph(Run("one"));
         one.Heading = 1;
+        one.Scale = 2;
         var three = Paragraph(Run("three"));
         three.Heading = 3;
+        three.Scale = 1.5f;
+        var text = Paragraph(Run("text"));
+        text.Scale = 1;
 
-        var shown = Shown(Text(one, three, Paragraph(Run("text"))))
-            .Parts.Cast<ShownParagraph>()
-            .ToList();
+        var shown = Shown(Text(one, three, text)).Parts.Cast<ShownParagraph>().ToList();
 
-        Assert.Equal([1.6, 1.2, 1], shown.Select(paragraph => paragraph.Scale));
+        Assert.Equal([2, 1.5, 1], shown.Select(paragraph => paragraph.Scale));
         Assert.Equal(RunStyle.Bold, shown[0].Runs[0].Style);
         Assert.Equal(RunStyle.None, shown[2].Runs[0].Style);
     }
 
-    // リストの項目は入れ子の分だけ右に寄る。引用の中は右に寄り、薄い文字になる。
+    // リストの項目と引用の中は、コアが決めた字下げ（em）だけ右に寄る。引用の中は薄い文字になる（#795）。
     [Fact]
     public void The_entries_of_a_list_and_a_quote_stand_to_the_right()
     {
         var top = Paragraph(Run("a"));
         top.Depth = 1;
+        top.Indent = 1.5f;
         top.Mark = "•";
         var inner = Paragraph(Run("b"));
         inner.Depth = 2;
+        inner.Indent = 3;
         inner.Mark = "3.";
         var quoted = Paragraph(Run("q"));
         quoted.Quoted = 1;
+        quoted.Indent = 1.5f;
 
         var shown = Shown(Text(top, inner, quoted)).Parts.Cast<ShownParagraph>().ToList();
 
         Assert.Equal(["• a", "3. b", "q"], shown.Select(paragraph => paragraph.Text));
-        Assert.Equal([0, 1, 1], shown.Select(paragraph => paragraph.Indent));
+        Assert.Equal([1.5, 3, 1.5], shown.Select(paragraph => paragraph.Indent));
         Assert.Equal(RunStyle.Quote, shown[2].Runs[0].Style);
     }
 
@@ -337,7 +342,7 @@ public sealed class ShownTextTests
         );
 
         Assert.Equal("1. x\na. let x = 1\nb. ", shown.Text);
-        Assert.Equal([0, 1, 1], shown.Parts.Cast<ShownParagraph>().Select(part => part.Indent));
+        Assert.Equal([1.5, 3, 3], shown.Parts.Cast<ShownParagraph>().Select(part => part.Indent));
     }
 
     // コアが分けた引用の中の部品は、右に寄る。
@@ -347,7 +352,7 @@ public sealed class ShownTextTests
         var shown = Shown(new RichBlock.Quote([new RichBlock.Code("code", 0)], 1.5f));
 
         var code = Assert.IsType<ShownParagraph>(Assert.Single(shown.Parts));
-        Assert.Equal(1, code.Indent);
+        Assert.Equal(1.5, code.Indent);
         Assert.Equal(RunStyle.Code | RunStyle.Quote, code.Runs[0].Style);
     }
 

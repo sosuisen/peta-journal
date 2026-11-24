@@ -51,7 +51,7 @@ public closed record ShownPart;
 
 /// <summary>A line or a block of a shown text.</summary>
 /// <param name="Scale">How much larger than the usual text it is: more than 1 for a heading.</param>
-/// <param name="Indent">How many steps to the right it stands, in a list or a quote.</param>
+/// <param name="Indent">How far to the right it stands, in ems, in a list or a quote.</param>
 /// <param name="Start">
 /// How many letters of the shown text of the item stand before it, as the core counts them
 /// (<c>RichParagraph.Start</c>). None for a line that has only the mark of an entry.
@@ -59,7 +59,7 @@ public closed record ShownPart;
 public sealed record ShownParagraph(
     IReadOnlyList<ShownRun> Runs,
     double Scale,
-    int Indent,
+    double Indent,
     int? Start
 ) : ShownPart
 {
@@ -97,7 +97,7 @@ public sealed record ShownParagraph(
 }
 
 /// <summary>A table: its rows, each with a paragraph in each cell.</summary>
-public sealed record ShownTable(IReadOnlyList<ShownTableRow> Rows, int Indent) : ShownPart;
+public sealed record ShownTable(IReadOnlyList<ShownTableRow> Rows, double Indent) : ShownPart;
 
 /// <param name="Header">True for the row of the titles of the columns.</param>
 public sealed record ShownTableRow(bool Header, IReadOnlyList<ShownParagraph> Cells);
@@ -106,7 +106,7 @@ public sealed record ShownTableRow(bool Header, IReadOnlyList<ShownParagraph> Ce
 /// <param name="Path">Where its file is under the Markdown folder, such as <c>assets/a.png</c>.</param>
 /// <param name="Width">The width that the page asks for, at a zoom of 1. None when it asks for none.</param>
 /// <param name="Height">The height that the page asks for, the same way.</param>
-public sealed record ShownPicture(string Path, string Alt, uint? Width, uint? Height, int Indent)
+public sealed record ShownPicture(string Path, string Alt, uint? Width, uint? Height, double Indent)
     : ShownPart
 {
     /// <summary>What stands for the image until its file is here.</summary>
@@ -144,15 +144,15 @@ public sealed record ShownText(IReadOnlyList<ShownPart> Parts)
     {
         ArgumentNullException.ThrowIfNull(rich);
         var writer = new PartWriter();
-        writer.Blocks(rich.Blocks, depth: 0, quoted: 0);
+        writer.Blocks(rich.Blocks, indent: 0, quoted: 0);
         return new ShownText(writer.Parts);
     }
 }
 
 /// <summary>
 /// Puts the parts of an item one below the other. A list and a quote that the core took apart
-/// move what is in them to the right. This is the look of this shell: it is not kept the same as
-/// the stylesheet of the web frontend.
+/// move what is in them to the right, as far as the core says. The sizes and the indents come
+/// from the core, so that every shell has the same ones (#795).
 /// </summary>
 internal sealed class PartWriter
 {
@@ -163,8 +163,11 @@ internal sealed class PartWriter
     /// <summary>The mark of the entry of a list that the next part is the first of.</summary>
     private string? lead;
 
-    /// <summary>The parts inside <paramref name="depth"/> lists and <paramref name="quoted"/> quotes.</summary>
-    public void Blocks(IEnumerable<RichBlock> blocks, int depth, int quoted)
+    /// <summary>
+    /// The parts <paramref name="indent"/> ems to the right, inside <paramref name="quoted"/>
+    /// quotes. The core says how far each list and quote moves what is in it (#795).
+    /// </summary>
+    public void Blocks(IEnumerable<RichBlock> blocks, double indent, int quoted)
     {
         foreach (var block in blocks)
         {
@@ -175,7 +178,7 @@ internal sealed class PartWriter
                     foreach (var paragraph in text.Paragraphs)
                         Paragraph(
                             paragraph,
-                            depth + (int)paragraph.Depth,
+                            indent + paragraph.Indent,
                             quoted + (int)paragraph.Quoted
                         );
                 },
@@ -183,13 +186,15 @@ internal sealed class PartWriter
                     Line(
                         [new ShownRun(code.Lines, Quoted(RunStyle.Code, quoted), null)],
                         1,
-                        Indent(depth, quoted),
+                        indent,
                         (int)code.Start
                     ),
-                RichBlock.Table table => () => Table(table.Rows, depth, quoted),
-                RichBlock.Image image => () => Picture(image.Image_, depth, quoted),
-                RichBlock.Entries entries => () => Entries(entries.Entries_, depth, quoted),
-                RichBlock.Quote quote => () => Blocks(quote.Blocks, depth, quoted + 1),
+                RichBlock.Table table => () => Table(table.Rows, indent, quoted),
+                RichBlock.Image image => () => Picture(image.Image_, indent, quoted),
+                RichBlock.Entries entries => () =>
+                    Entries(entries.Entries_, indent + entries.Indent, quoted),
+                RichBlock.Quote quote => () =>
+                    Blocks(quote.Blocks, indent + quote.Indent, quoted + 1),
             };
             write();
         }
@@ -199,18 +204,17 @@ internal sealed class PartWriter
     /// The entries of a list, each with its mark. An entry without anything in it still shows
     /// its mark.
     /// </summary>
-    private void Entries(IEnumerable<RichEntry> entries, int depth, int quoted)
+    private void Entries(IEnumerable<RichEntry> entries, double indent, int quoted)
     {
         foreach (var entry in entries)
         {
             lead = entry.Mark;
-            Blocks(entry.Blocks, depth + 1, quoted);
-            if (lead is not null)
-                Line([], 1, Indent(depth + 1, quoted), null);
+            Blocks(entry.Blocks, indent, quoted);
+            Lead(indent);
         }
     }
 
-    private void Paragraph(RichParagraph paragraph, int depth, int quoted)
+    private void Paragraph(RichParagraph paragraph, double indent, int quoted)
     {
         if (paragraph.Mark is { } mark)
             lead = mark;
@@ -222,21 +226,16 @@ internal sealed class PartWriter
             runs.Add(
                 new ShownRun(run.Text, Quoted(heading | StyleOf(run.Looks), quoted), run.Link)
             );
-        Line(
-            runs,
-            RowLook.HeadingScale(paragraph.Heading),
-            Indent(depth, quoted),
-            (int)paragraph.Start
-        );
+        Line(runs, paragraph.Scale, indent, (int)paragraph.Start);
     }
 
     /// <summary>
     /// A table, each cell one paragraph. Its first line stands below the mark of the entry
     /// that it is the first of.
     /// </summary>
-    private void Table(IEnumerable<RichTableRow> rows, int depth, int quoted)
+    private void Table(IEnumerable<RichTableRow> rows, double indent, int quoted)
     {
-        Lead(depth, quoted);
+        Lead(indent);
         var shown = rows.Select(row => new ShownTableRow(
                 row.Header,
                 [
@@ -260,32 +259,24 @@ internal sealed class PartWriter
             ))
             .ToList();
         if (shown.Any(row => row.Cells.Count > 0))
-            Parts.Add(new ShownTable(shown, Indent(depth, quoted)));
+            Parts.Add(new ShownTable(shown, indent));
     }
 
-    private void Picture(RichImage image, int depth, int quoted)
+    private void Picture(RichImage image, double indent, int quoted)
     {
-        Lead(depth, quoted);
-        Parts.Add(
-            new ShownPicture(
-                image.Path,
-                image.Alt,
-                image.Width,
-                image.Height,
-                Indent(depth, quoted)
-            )
-        );
+        Lead(indent);
+        Parts.Add(new ShownPicture(image.Path, image.Alt, image.Width, image.Height, indent));
     }
 
     /// <summary>The mark of an entry, on a line of its own above a part that is not a line.</summary>
-    private void Lead(int depth, int quoted)
+    private void Lead(double indent)
     {
         if (lead is not null)
-            Line([], 1, Indent(depth, quoted), null);
+            Line([], 1, indent, null);
     }
 
     /// <summary>One line, which starts with the mark of the entry that it is the first of.</summary>
-    private void Line(List<ShownRun> runs, double scale, int indent, int? start)
+    private void Line(List<ShownRun> runs, double scale, double indent, int? start)
     {
         if (lead is not null)
         {
@@ -295,12 +286,6 @@ internal sealed class PartWriter
         if (runs.Count > 0)
             Parts.Add(new ShownParagraph(runs, scale, indent, start));
     }
-
-    /// <summary>
-    /// How many steps to the right a part stands. The entries of a list at the top stand at
-    /// the left edge, with their marks.
-    /// </summary>
-    private static int Indent(int depth, int quoted) => quoted + Math.Max(depth - 1, 0);
 
     private static RunStyle Quoted(RunStyle style, int quoted) =>
         quoted > 0 ? style | RunStyle.Quote : style;

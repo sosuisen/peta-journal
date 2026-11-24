@@ -5,27 +5,33 @@ namespace PetaBorder.Tests;
 /// <summary>How a row is drawn, as far as the view model decides it.</summary>
 public sealed class RowLookTests
 {
-    // 編集中の項目の1行目は、本文全体が1行の見出しのときだけ、見出しの大きさになる。編集していない項目は、見出しの大きさで描く。
+    // 編集欄の文字の倍率は、本文全体が1行の見出しのときだけ見出しの倍率である。コアがまだ編集中と数えていなくても同じである（#795）。
     [Fact]
-    public void An_edited_item_is_large_only_when_it_is_one_heading_line()
+    public void The_editor_is_large_only_when_the_body_is_one_heading_line()
     {
-        var oneHeadingLine = new Row
+        var oneHeadingLine = new Row { HeadingLine = true, FirstLineScale = 1.4f };
+        var headingAndMore = new Row { HeadingLine = false, FirstLineScale = 1.4f };
+        var edited = new Row
         {
-            HeadingLevel = 1,
-            HeadingLine = true,
-            IsEditing = true,
-        };
-        var headingAndMore = new Row
-        {
-            HeadingLevel = 1,
             HeadingLine = false,
             IsEditing = true,
+            FirstLineScale = 1,
         };
-        var shown = new Row { HeadingLevel = 1, HeadingLine = false };
 
-        Assert.Equal(1.6, RowLook.FirstLineScale(oneHeadingLine));
-        Assert.Equal(1, RowLook.FirstLineScale(headingAndMore));
-        Assert.Equal(1.6, RowLook.FirstLineScale(shown));
+        Assert.Equal(1.4, RowLook.EditedScale(oneHeadingLine), 5);
+        Assert.Equal(1, RowLook.EditedScale(headingAndMore));
+        Assert.Equal(1, RowLook.EditedScale(edited));
+    }
+
+    // 編集欄の文字は、本文全体が1行の見出しのときだけ、その見出しの段として太字になる。
+    [Fact]
+    public void The_editor_takes_the_level_only_of_one_heading_line()
+    {
+        var oneHeadingLine = new Row { HeadingLevel = 2, HeadingLine = true };
+        var headingAndMore = new Row { HeadingLevel = 2, HeadingLine = false };
+
+        Assert.Equal(2, RowLook.EditedHeading(oneHeadingLine));
+        Assert.Equal(0, RowLook.EditedHeading(headingAndMore));
     }
 
     // 行頭の点は、コアが出すと言う項目にだけ出る。編集中でない空の項目には出ない。ほかのシェルと同じである（#1042）。
