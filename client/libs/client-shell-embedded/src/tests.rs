@@ -918,3 +918,19 @@ fn a_link_to_a_file_gives_the_file_or_the_screen_tells_that_it_is_not_here() {
     core.attached("assets/lost.pdf".into());
     assert_eq!(core.today().missing_file, None);
 }
+
+// コアがブラウザで開くように命じたassetsのファイルのアドレスは、そのファイルを答える。名前は復号して探す。なければ、画面はないことを伝える（ADR 083）。
+#[test]
+fn the_address_of_a_file_that_the_core_orders_open_gives_the_file() {
+    let app = App::new();
+    let assets = app.markdown().join("markdown/assets");
+    std::fs::create_dir_all(&assets).unwrap();
+    std::fs::write(assets.join("report a.pdf"), "pdf").unwrap();
+    let core = app.open(Arc::default());
+
+    let file = core.file_at("/assets/report%20a.pdf".into()).unwrap();
+    assert!(file.ends_with("report a.pdf"));
+    assert_eq!(core.screen().missing_file, None);
+    assert_eq!(core.file_at("/assets/lost%20b.pdf".into()), None);
+    assert_eq!(core.screen().missing_file, Some("assets/lost b.pdf".into()));
+}

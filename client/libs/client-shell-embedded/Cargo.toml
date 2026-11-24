@@ -16,6 +16,8 @@ client-api-embedded = { path = "../client-api-embedded" }
 client-cloud-sync = { path = "../client-cloud-sync" }
 journal-core = { path = "../../../journal/journal-core", default-features = false }
 boltffi = "=0.32.1"
+# Reads back the address of a file that the core orders to open (ADR 083)
+percent-encoding = "2.3.2"
 
 [dev-dependencies]
 # The whole view model, for the tests to look for words in it (ADR 076)

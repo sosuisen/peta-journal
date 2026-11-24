@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 
 use client_cloud_sync::find_without_case;
+use percent_encoding::percent_decode_str;
 
 use crate::PetaCore;
 
@@ -117,6 +118,15 @@ impl PetaCore {
         let file = self.image(path.clone());
         self.screen.lock().unwrap().missing_file = file.is_none().then_some(path);
         file
+    }
+
+    /// The core ordered the browser to open an address of the journal server, such as
+    /// `/assets/report%20a.pdf` (ADR 083). The app has no server, so the file of the assets
+    /// folder opens instead. Answers with the file, as `attached` does. When it is not here,
+    /// `missing_file` names it.
+    pub fn file_at(&self, address: String) -> Option<String> {
+        let path = percent_decode_str(address.trim_start_matches('/')).decode_utf8_lossy();
+        self.attached(path.into_owned())
     }
 }
 
