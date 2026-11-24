@@ -280,7 +280,8 @@ private fun Asked(question: Question, onAnswer: (Boolean) -> Unit) {
                 TextButton({ onAnswer(true) }) { Text("OK") }
             }
         },
-        dismissButton = { TextButton({ onAnswer(false) }) { Text("Cancel") } },
+        // A notice has nothing to cancel
+        dismissButton = { if (question.waits) TextButton({ onAnswer(false) }) { Text("Cancel") } },
     )
 }
 
