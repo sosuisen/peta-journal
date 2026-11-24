@@ -147,6 +147,20 @@ fn a_one_line_heading_is_a_heading_line_but_a_heading_with_more_lines_is_not() {
     assert_eq!((r[2].heading_level, r[2].heading_line), (0, false));
 }
 
+// 行の1行目の倍率は、見出しの倍率である。編集中は、本文全体が1行の見出しのときだけ見出しの倍率になる（#795）。
+#[test]
+fn the_first_line_of_a_row_has_the_scale_of_its_heading_and_while_edited_only_on_a_heading_line() {
+    let mut h = Harness::with_items(vec![
+        item("one", 1, "## Title"),
+        item("many", 1, "## Title\nmore"),
+        item("edited", 1, "## Title\nmore"),
+        item("text", 1, "plain"),
+    ]);
+    h.model.state.add_editing_item("edited");
+    let scales: Vec<_> = rows(&h).iter().map(|r| r.first_line_scale).collect();
+    assert_eq!(scales, [1.4, 1.4, 1.0, 1.0]);
+}
+
 // ズームの変更で倍率が表示に反映されて保存され、リセットで 1.0 に戻る。
 #[test]
 fn set_zoom_shows_and_saves_the_factor() {
