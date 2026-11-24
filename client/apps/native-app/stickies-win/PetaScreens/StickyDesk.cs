@@ -32,15 +32,21 @@ public sealed class StickyDesk
         if (kept.Count == 0)
             Add();
         foreach (var sticky in kept)
-            Show(sticky, null);
+            Show(sticky, null, null);
     }
 
     /// <summary>Opens a new sticky that shows what the URL names, or no page yet.</summary>
-    public void Add(string? url = null) => Show(null, url);
+    public void Add(string? url = null) => Show(null, url, stickies.LastOrDefault());
 
-    private void Show(PetaCore.PetaSticky? kept, string? url)
+    /// <summary>
+    /// Opens a new sticky a little down and to the right of the sticky that the user worked
+    /// in, with what the URL names or no page yet.
+    /// </summary>
+    internal void AddNextTo(StickyWindow from, string? url = null) => Show(null, url, from);
+
+    private void Show(PetaCore.PetaSticky? kept, string? url, StickyWindow? before)
     {
-        var window = new StickyWindow(this, server, kept, url, stickies.LastOrDefault());
+        var window = new StickyWindow(this, server, kept, url, before);
         stickies.Add(window);
         window.Keep();
         window.Activate();
