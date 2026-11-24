@@ -190,6 +190,12 @@ public sealed partial class Shell : IDisposable
         Send(new Event.OutlineScrolled(top > 0, (ulong)top, (ulong)first, (ulong)(last + 1)));
 
     /// <summary>
+    /// The day may have changed while the core could not look at the clock, as when the PC
+    /// woke: the journal of today opens the new day at once (#1031).
+    /// </summary>
+    public void DayMayHaveChanged() => Send(new Event.DateMayHaveChanged());
+
+    /// <summary>
     /// The user clicked the mark of a task: its state goes one step on, as with the key.
     /// </summary>
     public void ClickedTask(string itemId) => Send(new Event.TaskCycle(itemId));

@@ -1174,6 +1174,25 @@ public sealed class ShellTests : IDisposable
         Assert.Equal($"{date} (Today)", shell.Title);
     }
 
+    // 日付が変わったかもしれないと知らせても、同じ日のうちは、今日のジャーナルは開き直されない。編集中の項目は、編集のまま残る。
+    [Fact]
+    public void Telling_that_the_day_may_have_changed_on_the_same_day_keeps_the_journal_of_today()
+    {
+        var shell = NewShell("/today");
+        main.WaitUntil("the journal is shown", () => shell.View.Outline.Rows.Count > 0);
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+        shell.Typed("draft", item);
+        var title = shell.Title;
+
+        shell.DayMayHaveChanged();
+
+        main.WaitUntil("the item is still edited", () =>
+            shell.View.Outline.Rows[0].IsEditing && shell.View.Outline.Rows[0].Item.Body == "draft"
+        );
+        Assert.Equal(title, shell.Title);
+    }
+
     // 今日でない日のジャーナルのタイトルは、その日付だけである。
     [Fact]
     public void The_title_of_the_journal_of_another_day_is_its_date_alone()
