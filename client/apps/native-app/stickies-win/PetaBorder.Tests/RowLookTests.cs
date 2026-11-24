@@ -27,4 +27,24 @@ public sealed class RowLookTests
         Assert.Equal(1, RowLook.FirstLineScale(headingAndMore));
         Assert.Equal(1.6, RowLook.FirstLineScale(shown));
     }
+
+    // 行頭の点は、コアが出すと言う項目にだけ出る。編集中でない空の項目には出ない。ほかのシェルと同じである（#1042）。
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void The_bullet_shows_only_when_the_core_says_so(bool showBullet, bool shown)
+    {
+        var row = new Row { ShowBullet = showBullet };
+
+        Assert.Equal(shown, RowLook.ShowsBullet(row, bare: false));
+    }
+
+    // 文字だけを見せる付箋紙では、コアが出すと言う項目にも、行頭の点を出さない。
+    [Fact]
+    public void A_bare_sticky_shows_no_bullet()
+    {
+        var row = new Row { ShowBullet = true };
+
+        Assert.False(RowLook.ShowsBullet(row, bare: true));
+    }
 }

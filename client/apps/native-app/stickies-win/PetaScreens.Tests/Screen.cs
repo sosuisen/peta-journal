@@ -194,6 +194,11 @@ internal sealed class Screen : IAsyncDisposable
     /// <summary>The text box that edits the item. It is hidden while the item is not edited.</summary>
     public static TextBox EditorOf(RowView item) => Under<TextBox>(item).First();
 
+    /// <summary>The bullet before the text of the item: the dots are drawn in it.</summary>
+    public static UIElement BulletOf(RowView item) =>
+        (UIElement)
+            VisualTreeHelper.GetParent(Under<Microsoft.UI.Xaml.Shapes.Ellipse>(item).First());
+
     /// <summary>The number of the item whose editor has the cursor, if one has it.</summary>
     public int? Focused =>
         FocusManager.GetFocusedElement(Window.Content.XamlRoot) is TextBox focused

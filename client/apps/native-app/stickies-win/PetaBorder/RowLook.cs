@@ -30,6 +30,17 @@ public static class RowLook
         level is >= 1 and <= 5 ? HeadingScales[level - 1] : 1;
 
     /// <summary>
+    /// The bullet before the text is seen. The core shows none before an empty item that is
+    /// not edited, as in the other shells (#1042). A <paramref name="bare"/> sticky shows only
+    /// its text.
+    /// </summary>
+    public static bool ShowsBullet(Row row, bool bare)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        return row.ShowBullet && !bare;
+    }
+
+    /// <summary>
     /// How much larger than the usual text the first line of the item is drawn. The marks
     /// before the text stand in the middle of that line. An item that is edited shows its
     /// Markdown, which is large only when it is one heading line.
