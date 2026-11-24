@@ -3,10 +3,8 @@
 ;;; Commentary:
 
 ;; Emacs Lisp has no formatter of its own, so Emacs indents it.  The rule is the indent of
-;; `emacs-lisp-mode', with spaces and no tabs, and no space at the end of a line.  One rule
-;; differs: a list that starts with a keyword is a plist, and its lines go under its first
-;; key.  `emacs-lisp-mode' would put them under the first value.  A macro of the shell is
-;; indented by its `declare' form.
+;; `emacs-lisp-mode', with spaces and no tabs, and no space at the end of a line, so TAB in
+;; Emacs gives the same indent.  A macro of the shell is indented by its `declare' form.
 ;;
 ;;   emacs -Q --batch -l format.el -f peta-format-write   ; formats the files
 ;;   emacs -Q --batch -l format.el -f peta-format-check   ; changes nothing, fails on a change
@@ -39,25 +37,12 @@ are evaluated: loading the files would run the rest of them."
                 (eval form t))))
         (end-of-file nil)))))
 
-(defun peta-format--indent-function (indent-point state)
-  "Indent a list that starts with a keyword under its first element.
-Such a list is a plist, which is data.  `lisp-indent-function' takes it
-for a call and lines it up under the first value.  The other lists go to
-`lisp-indent-function' with INDENT-POINT and STATE."
-  (let ((open (nth 1 state)))
-    (if (and open (eq (char-after (1+ open)) ?:))
-        (save-excursion
-          (goto-char (1+ open))
-          (current-column))
-      (lisp-indent-function indent-point state))))
-
 (defun peta-format--formatted (file)
   "Return the text of FILE as the formatter writes it."
   (with-temp-buffer
     (insert-file-contents file)
     (emacs-lisp-mode)
     (setq indent-tabs-mode nil)
-    (setq-local lisp-indent-function #'peta-format--indent-function)
     (let ((inhibit-message t))
       (indent-region (point-min) (point-max)))
     (delete-trailing-whitespace)

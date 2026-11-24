@@ -412,9 +412,8 @@ Emacs Lisp has no formatter of its own. `format.el` indents the files as `emacs-
 with spaces and no tabs, and removes the spaces at the end of a line. CI runs the check.
 
 - A macro is indented by its `declare (indent ...)` form. Give a new macro one.
-- One rule differs from `emacs-lisp-mode`. A list that starts with a keyword is a plist. Its lines
-  go under its first key, not under its first value. So TAB in Emacs may indent a plist
-  differently. Run `format.el` after such an edit.
+- The rules are those of `emacs-lisp-mode`, so TAB in Emacs gives the same indent. A plist
+  goes under its first value.
 - For a quoted list of symbols, put the first symbol alone on the first line. The rest then go
   under it.
 
