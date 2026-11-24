@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { Suspense, useEffect, useState, useSyncExternalStore } from 'react';
 import { useAsked } from './askedContext';
 import Atlas from './Atlas';
 import type { JournalView, PageView } from './border/peta-types';
@@ -17,50 +17,75 @@ import { useSidebarWidth } from './sidebarWidth';
  * asks for find their components.
  */
 export default function App() {
-  const core = useCore();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, startResize] = useSidebarWidth();
-  const connection = usePanel('Connection');
-  const outline = usePanel('Outline');
-
-  useEffect(() => core.start(), [core]);
-  useGlobalKeys();
-  useDayWatch();
 
   return (
     <app-main-layout>
       <Icons />
       <div className={sidebarCollapsed ? 'layout sidebar-collapsed' : 'layout'}>
-        <Header
-          toggleSidebar={() => setSidebarCollapsed(collapsed => !collapsed)}
-        />
+        <Suspense fallback={<header className="header" />}>
+          <Header
+            toggleSidebar={() => setSidebarCollapsed(collapsed => !collapsed)}
+          />
+        </Suspense>
         <div className="body">
           <aside
             className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}
             style={{ width: sidebarCollapsed ? '0px' : `${sidebarWidth}px` }}
           >
-            <Sidebar />
+            <Suspense>
+              <Sidebar />
+            </Suspense>
           </aside>
           {!sidebarCollapsed && (
             <div className="resize-handle" onMouseDown={startResize} />
           )}
           <main className="content">
-            <PageDispatcher />
+            <Suspense>
+              <PageDispatcher />
+            </Suspense>
           </main>
         </div>
         <footer className="footer">
-          <span
-            className={`connection-status ${connectionName(connection?.kind)}`}
-          >
-            {connectionName(connection?.kind)}
-          </span>
-          {outline?.focused_item_id != null && (
-            <span className="item-id">Item: {outline.focused_item_id}</span>
-          )}
+          <Suspense>
+            <Status />
+          </Suspense>
         </footer>
       </div>
       <ConfirmDialog />
+      <Suspense>
+        <Start />
+      </Suspense>
     </app-main-layout>
+  );
+}
+
+/**
+ * Starts the core, and listens to the page. Last in the app: its effect runs after those of
+ * the frames, so that the first operations the core asks for find their components.
+ */
+function Start() {
+  const core = useCore();
+  useEffect(() => core.start(), [core]);
+  useGlobalKeys();
+  useDayWatch();
+  return null;
+}
+
+/** The connection to the server, and the item that has the focus. */
+function Status() {
+  const connection = usePanel('Connection');
+  const outline = usePanel('Outline');
+  return (
+    <>
+      <span className={`connection-status ${connectionName(connection?.kind)}`}>
+        {connectionName(connection?.kind)}
+      </span>
+      {outline?.focused_item_id != null && (
+        <span className="item-id">Item: {outline.focused_item_id}</span>
+      )}
+    </>
   );
 }
 
