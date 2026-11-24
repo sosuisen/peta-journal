@@ -12,4 +12,14 @@ public sealed class DayChangeTests
     {
         Assert.True(DayChange.MayFollow(PowerBroadcast, power));
     }
+
+    // スリープに入ることや、ほかのメッセージは、日付が変わったかもしれないことを示さない。
+    [Theory]
+    [InlineData(PowerBroadcast, 0x0004)]
+    [InlineData(0x000F, 0x0012)]
+    [InlineData(0x0006, 0x0007)]
+    public void Going_to_sleep_or_other_messages_do_not_mean_a_new_day(uint message, int wParam)
+    {
+        Assert.False(DayChange.MayFollow(message, wParam));
+    }
 }
