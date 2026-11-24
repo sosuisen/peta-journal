@@ -189,3 +189,34 @@ fn an_open_stream_reads_the_definitions_again() {
 
     assert_eq!(shown_keys(&h), ["score"]);
 }
+
+fn visit(h: &mut Harness, name: &str) {
+    h.send(Event::Route {
+        route: crate::app::Route::Page {
+            name: name.into(),
+            fragment: None,
+        },
+        today: "2026-02-10".into(),
+    });
+}
+
+/// The server was down when the shell started: the stream broke, and comes back once the
+/// server is up.
+fn server_comes_up(h: &mut Harness) {
+    sse(h, SseEvent::Error);
+    h.fire_timers();
+    sse(h, SseEvent::Open);
+}
+
+// サーバーが落ちていてページを読めなかったとき、つなぎ直してストリームが開くと、そのページを開き直す（#756）。
+#[test]
+fn a_page_that_could_not_be_loaded_opens_once_the_server_is_up() {
+    let mut h = started();
+    h.api.fail_next("GetOrCreateDoc", "connection refused");
+    visit(&mut h, "Notes");
+    assert_eq!(h.model.shown_page_id(), None);
+
+    server_comes_up(&mut h);
+
+    assert_eq!(h.model.shown_page_id().as_deref(), Some("page-Notes"));
+}
