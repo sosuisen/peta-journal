@@ -113,6 +113,10 @@ fn load_shown_page_again(model: &mut Model) -> Cmd {
             let (name, fragment) = (p.page_name.clone(), p.focus_item_id.clone());
             route::open(model, &name, fragment)
         }
+        Screen::Journal(j) if j.page.is_none() => {
+            let (name, fragment) = (j.page_name.clone(), j.focus_item_id.clone());
+            route::open(model, &name, fragment)
+        }
         _ => done(),
     }
 }
