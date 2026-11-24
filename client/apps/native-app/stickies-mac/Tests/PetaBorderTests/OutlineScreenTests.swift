@@ -43,8 +43,8 @@ final class OutlineScreenTests: XCTestCase {
 
     override func tearDown() async throws {
         // A click on a link takes no events after its own: the button that comes up would end
-        // the drag of a later test
-        while NSApp.nextEvent(
+        // the drag of a later test. `NSApp` is nil when a skipped setUp never made the window
+        while NSApplication.shared.nextEvent(
             matching: [.leftMouseUp, .leftMouseDragged], until: .distantPast, inMode: .default, dequeue: true) != nil
         {}
         window?.close()
