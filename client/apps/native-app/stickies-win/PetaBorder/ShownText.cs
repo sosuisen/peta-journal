@@ -151,8 +151,8 @@ public sealed record ShownText(IReadOnlyList<ShownPart> Parts)
 
 /// <summary>
 /// Puts the parts of an item one below the other. A list and a quote that the core took apart
-/// move what is in them to the right. This is the look of this shell: it is not kept the same as
-/// the stylesheet of the web frontend.
+/// move what is in them to the right, as far as the core says. The sizes and the indents come
+/// from the core, so that every shell has the same ones (#795).
 /// </summary>
 internal sealed class PartWriter
 {
