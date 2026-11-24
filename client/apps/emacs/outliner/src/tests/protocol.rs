@@ -210,9 +210,9 @@ fn the_changes_of_the_rows_are_written_as_json_for_emacs() {
 // バレットの種類は、壊れた参照、参照、通常の順で決まる。タスクかどうかは、バレットを変えない。
 #[test]
 fn the_bullet_shows_what_the_row_is_in_order_of_importance() {
-    assert_eq!(Bullet::of(true, true), Bullet::Broken);
-    assert_eq!(Bullet::of(false, true), Bullet::Transclusion);
-    assert_eq!(Bullet::of(false, false), Bullet::Plain);
+    assert_eq!(Bullet::of(true, true, true), Bullet::Broken);
+    assert_eq!(Bullet::of(false, true, true), Bullet::Transclusion);
+    assert_eq!(Bullet::of(false, false, true), Bullet::Plain);
 }
 
 // タスクの状態は、バレットとは別に伝わる。タスクでない行には、状態がない。

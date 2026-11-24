@@ -407,7 +407,11 @@ impl RowView {
             level: row.item.level,
             body: row.item.body.clone(),
             text,
-            bullet: Bullet::of(row.is_broken_transclusion, row.is_transclusion),
+            bullet: Bullet::of(
+                row.is_broken_transclusion,
+                row.is_transclusion,
+                row.show_bullet,
+            ),
             task: TaskMark::of(row.task),
             collapsed: row.is_collapsed && row.has_children,
             header: row.date_header.clone(),
@@ -425,11 +429,15 @@ pub enum Bullet {
     Plain,
     Transclusion,
     Broken,
+    /// No bullet: the core shows none before an empty item that is not edited (#1042).
+    Hidden,
 }
 
 impl Bullet {
-    pub fn of(broken: bool, transclusion: bool) -> Bullet {
-        if broken {
+    pub fn of(broken: bool, transclusion: bool, shown: bool) -> Bullet {
+        if !shown {
+            Bullet::Hidden
+        } else if broken {
             Bullet::Broken
         } else if transclusion {
             Bullet::Transclusion
