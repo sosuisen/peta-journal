@@ -101,9 +101,11 @@ final class OutlineScreenTests: XCTestCase {
         try await waitUntil("the first item is decorated") { self.editors()[0].string == "Idea #todo out plain" }
     }
 
-    /// A click on the first letter of the word. The window of a test takes no click: the tests
-    /// do not come to the front. So this does what a window does with one: it asks which view
-    /// is there, gives it the cursor if the view takes it, and then hands it the click.
+    /// A click on the first letter of the word. The window of a test takes no click: `swift test`
+    /// is no app, and cannot come to the front. So this does what a window does with one: it
+    /// asks which view is there, gives it the cursor if the view takes it, and then hands it the
+    /// click. The click is taken from the queue first, as the app takes it: it is the current
+    /// event while the view gets the cursor.
     private func click(on word: String, in editor: NSTextView, holding keys: NSEvent.ModifierFlags = []) throws {
         let letter = NSRange(location: (editor.string as NSString).range(of: word).location, length: 1)
         let layout = try XCTUnwrap(editor.layoutManager)
@@ -120,9 +122,13 @@ final class OutlineScreenTests: XCTestCase {
         }
         // A text view waits for the button to come up before it goes on
         NSApp.postEvent(try mouse(.leftMouseUp), atStart: false)
+        // Before the click is the current event: the list answers for itself then
         let hit = try XCTUnwrap(window.contentView?.hitTest(place))
+        NSApp.postEvent(try mouse(.leftMouseDown), atStart: true)
+        let down = try XCTUnwrap(
+            NSApp.nextEvent(matching: .leftMouseDown, until: .distantPast, inMode: .default, dequeue: true))
         if hit.acceptsFirstResponder { window.makeFirstResponder(hit) }
-        hit.mouseDown(with: try mouse(.leftMouseDown))
+        hit.mouseDown(with: down)
     }
 
     // 装飾付きの項目のウィキリンクをクリックすると、そのページが付箋紙で開く。
@@ -191,14 +197,21 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertTrue(focused === editors()[1])
     }
 
-    // 装飾付きの項目の、リンクでない文字をクリックすると、その項目がMarkdownになってカーソルが入る。
-    func testAClickBesideTheLinksPutsTheCursorInTheItem() async throws {
+    // 装飾付きの項目の、リンクでない文字をクリックすると、その項目がMarkdownになって、クリックした文字のところにカーソルが入る。
+    func testAClickBesideTheLinksPutsTheCursorInTheItemAtTheLetterClicked() async throws {
         try await itemWithLinksAndTheCursorInTheNext()
 
         try click(on: "plain", in: editors()[0])
 
         XCTAssertTrue(focused === editors()[0])
-        XCTAssertEqual(editors()[0].string, "[[Idea]] #todo [out](https://example.com/a) plain")
+        let markdown = "[[Idea]] #todo [out](https://example.com/a) plain"
+        XCTAssertEqual(editors()[0].string, markdown)
+        // The place nearest the middle of "p", in the Markdown: before or after it
+        let plain = (markdown as NSString).range(of: "plain").location
+        try await waitUntil("the cursor is at the letter clicked") {
+            (plain...plain + 1).contains(self.editors()[0].selectedRange().location)
+        }
+        XCTAssertEqual(editors()[0].selectedRange().length, 0)
         XCTAssertNil(browsed)
         XCTAssertEqual(shell.url, "/pages/screen")
     }
@@ -1190,4 +1203,5 @@ final class OutlineScreenTests: XCTestCase {
 
         XCTAssertFalse(shell.view.outline.selectionMode)
     }
+
 }
