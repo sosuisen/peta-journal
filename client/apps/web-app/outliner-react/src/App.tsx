@@ -131,7 +131,9 @@ function useDayWatch(): void {
         core.send({ kind: 'DateMayHaveChanged' });
       }
     };
+    const focused = () => core.send({ kind: 'DateMayHaveChanged' });
     document.addEventListener('visibilitychange', shown);
+    window.addEventListener('focus', focused);
   }, [core]);
 }
 
