@@ -105,4 +105,16 @@ class LinkTest : JournalScreenFixture() {
 
         compose.runOnIdle { assertEquals(listOf("https://example.com/page"), browsed) }
     }
+
+    // http以外のスキームのリンクも、そのアドレスがOSに渡される（#1071）。
+    @Test
+    fun a_link_of_another_scheme_is_handed_to_the_os() {
+        download("notes.md", "[write to me](mailto:someone@example.com)" + NL)
+        openNotes()
+        waitFor("write to me")
+
+        compose.onNode(hasText("write to me"), useUnmergedTree = true).performClick()
+
+        compose.runOnIdle { assertEquals(listOf("mailto:someone@example.com"), browsed) }
+    }
 }
