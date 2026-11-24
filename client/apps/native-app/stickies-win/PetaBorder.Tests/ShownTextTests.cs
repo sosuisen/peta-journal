@@ -342,7 +342,7 @@ public sealed class ShownTextTests
         );
 
         Assert.Equal("1. x\na. let x = 1\nb. ", shown.Text);
-        Assert.Equal([0, 1, 1], shown.Parts.Cast<ShownParagraph>().Select(part => part.Indent));
+        Assert.Equal([1.5, 3, 3], shown.Parts.Cast<ShownParagraph>().Select(part => part.Indent));
     }
 
     // コアが分けた引用の中の部品は、右に寄る。
@@ -352,7 +352,7 @@ public sealed class ShownTextTests
         var shown = Shown(new RichBlock.Quote([new RichBlock.Code("code", 0)], 1.5f));
 
         var code = Assert.IsType<ShownParagraph>(Assert.Single(shown.Parts));
-        Assert.Equal(1, code.Indent);
+        Assert.Equal(1.5, code.Indent);
         Assert.Equal(RunStyle.Code | RunStyle.Quote, code.Runs[0].Style);
     }
 

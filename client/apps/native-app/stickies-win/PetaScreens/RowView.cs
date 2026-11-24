@@ -710,7 +710,7 @@ internal sealed class RowView : Grid
     }
 
     /// <summary>How far to the right a part stands that is <paramref name="indent"/> steps in.</summary>
-    private Thickness Indented(int indent) => new(indent * 16 * Zoom, 0, 0, 0);
+    private Thickness Indented(double indent) => new(indent * 16 * Zoom, 0, 0, 0);
 
     /// <summary>
     /// A table with a line around each cell, as macOS draws a table. The columns share the
