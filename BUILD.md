@@ -358,6 +358,8 @@ The mutation tests are not in the list. Run them on your machine before a pull r
 A Claude Code hook (`.claude/settings.json`, `.claude/hooks/verify-before-pr.mjs`) runs the same
 checks before `gh pr create`. It runs the jobs that the commits of the branch touch. A failed check
 stops the pull request.
+Every changed file counts, Markdown too: a test may read it as its data. Only the files under
+`docs/` touch no job.
 
 To see which jobs some files touch, or to run a job by hand:
 

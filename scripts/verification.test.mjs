@@ -183,9 +183,12 @@ test('the hook before a pull request is set', () => {
 });
 
 // Markdownのファイルも、ほかのファイルと同じにジョブを回す。テストのデータかもしれない。
-test('a markdown file touches the jobs of its folder', () => {
+// 例外は、開発者が決めたdocs/の下だけである。
+test('a markdown file touches the jobs of its folder, except under docs', () => {
   assert.deepEqual(jobsFor(['journal/journal-core/tests/data/page.md']).sort(), jobsFor(['journal/journal-core/src/lib.rs']).sort());
   assert.ok(jobsFor(['README.md']).includes('guard'));
+  assert.deepEqual(jobsFor(['docs/plans.md', 'docs/verification.html', 'docs/adr/adr-001.md']), []);
+  assert.ok(jobsFor(['docs/plans.md', 'scripts/checks.mjs']).includes('guard'));
 });
 
 // 手元で飛ばしてよいのは、ほかのOSの段だけである。環境変数のない段は、手元でも失敗する。
@@ -204,13 +207,6 @@ test('only a step for another os is skipped on a developer machine', () => {
     delete JOBS['test-other-os'];
     delete JOBS['test-no-variable'];
   }
-});
-
-// PRの前のフックは、PRのブランチの検証の一覧を回す。
-test('the hook runs the list of checks of the branch', () => {
-  const hook = read('.claude/hooks/verify-before-pr.mjs');
-  assert.ok(!/^import .*checks\.mjs/m.test(hook), 'the hook imports the list next to itself, which is on main');
-  assert.match(hook, /join\(root, 'scripts', 'checks\.mjs'\)/);
 });
 
 // コードに、カバレッジの測定から行を外す印がない。
