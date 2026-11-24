@@ -343,12 +343,33 @@ Then build the frontend, open an atlas, and check the drawing and a dialog.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every pull request and every push to `main`. A change to the
-documents alone does not start it. On Ubuntu, each of the three workspaces runs `cargo fmt --check`,
-`cargo clippy` and `cargo test`. The frontend also checks the browser side of
-`client-web-bridge` for wasm. A fourth job checks
-`client/apps/web-app/todo` on Node 24: the format, lint, the tests and the build. The end-to-end tests
-in `client/apps/web-app/outliner-react/e2e/` do not run there, so run them by hand. A warning from clippy does not fail the run.
+`.github/workflows/ci.yml` runs only when asked: from the Actions tab, or with
+`gh workflow run CI --ref <branch>`. The runs are paid.
+
+The checks of each job are listed once, in `scripts/checks.mjs`: the format, the lint, the tests
+and the coverage. The workflow only installs the tools, then runs `node scripts/checks.mjs run <job>`.
+The mutation tests are not in the list. Run them on your machine before a pull request.
+
+### The checks before a pull request
+
+A Claude Code hook (`.claude/settings.json`, `.claude/hooks/verify-before-pr.mjs`) runs the same
+checks before `gh pr create`. It runs the jobs that the commits of the branch touch. A failed check
+stops the pull request.
+
+To see which jobs some files touch, or to run a job by hand:
+
+```
+node scripts/checks.mjs jobs journal/journal-core/src/lib.rs
+node scripts/checks.mjs run todo
+```
+
+A step that the machine cannot run is skipped, and the hook reports it. On a developer's machine,
+the Emacs steps need two environment variables:
+
+- `PETA_EMACS`: the `emacs` program, version 31. Not an `emacsclient` wrapper.
+- `ELISP_FORMATTER`: the `elisp-formatter.el` of `sosuisen/elisp-formatter`.
+
+In the CI, a step that cannot run fails the job instead.
 
 ## Development Workflow
 
