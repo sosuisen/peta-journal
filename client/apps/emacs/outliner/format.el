@@ -3,7 +3,10 @@
 ;;; Commentary:
 
 ;; Emacs Lisp has no formatter of its own, so Emacs indents it.  The rule is the indent of
-;; `emacs-lisp-mode', with spaces and no tabs, and no space at the end of a line.
+;; `emacs-lisp-mode', with spaces and no tabs, and no space at the end of a line.  One rule
+;; differs: a list that starts with a keyword is a plist, and its lines go under its first
+;; key.  `emacs-lisp-mode' would put them under the first value.  A macro of the shell is
+;; indented by its `declare' form.
 ;;
 ;;   emacs -Q --batch -l format.el -f peta-format-write   ; formats the files
 ;;   emacs -Q --batch -l format.el -f peta-format-check   ; changes nothing, fails on a change
@@ -21,12 +24,40 @@
   (cons (expand-file-name "format.el" peta-format--root)
         (directory-files-recursively (expand-file-name "lisp" peta-format--root) "\\.el\\'")))
 
+(defun peta-format--learn-macros ()
+  "Define the macros of the shell.
+Then the indent follows their `declare' forms.  Only the `defmacro' forms
+are evaluated: loading the files would run the rest of them."
+  (dolist (file (peta-format--files))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (condition-case nil
+          (while t
+            (let ((form (read (current-buffer))))
+              (when (eq (car-safe form) 'defmacro)
+                (eval form t))))
+        (end-of-file nil)))))
+
+(defun peta-format--indent-function (indent-point state)
+  "Indent a list that starts with a keyword under its first element.
+Such a list is a plist, which is data.  `lisp-indent-function' takes it
+for a call and lines it up under the first value.  The other lists go to
+`lisp-indent-function' with INDENT-POINT and STATE."
+  (let ((open (nth 1 state)))
+    (if (and open (eq (char-after (1+ open)) ?:))
+        (save-excursion
+          (goto-char (1+ open))
+          (current-column))
+      (lisp-indent-function indent-point state))))
+
 (defun peta-format--formatted (file)
   "Return the text of FILE as the formatter writes it."
   (with-temp-buffer
     (insert-file-contents file)
     (emacs-lisp-mode)
     (setq indent-tabs-mode nil)
+    (setq-local lisp-indent-function #'peta-format--indent-function)
     (let ((inhibit-message t))
       (indent-region (point-min) (point-max)))
     (delete-trailing-whitespace)
@@ -40,6 +71,7 @@
 
 (defun peta-format--changed ()
   "Return the files the formatter would change, each with its formatted text."
+  (peta-format--learn-macros)
   (let (changed)
     (dolist (file (peta-format--files) (nreverse changed))
       (let ((formatted (peta-format--formatted file)))
