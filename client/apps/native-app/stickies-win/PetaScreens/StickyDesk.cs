@@ -36,7 +36,7 @@ public sealed class StickyDesk
     }
 
     /// <summary>Opens a new sticky that shows what the URL names, or no page yet.</summary>
-    public void Add(string? url = null) => Show(null, url, stickies.LastOrDefault());
+    public void Add(string? url = null) => Show(null, url, null);
 
     /// <summary>
     /// Opens a new sticky a little down and to the right of the sticky that the user worked
