@@ -992,4 +992,26 @@ describe('the app while the core loads', () => {
       screen.queryByText('Recent Pages') !== null,
     ]).toEqual(['2026-11-23 (Mon)', true]);
   });
+
+  // wasmのロードに失敗すると、各フレームに描けなかったことが表示される。
+  test('each frame tells that it could not be drawn when the wasm fails to load', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const failed = Promise.reject(new Error('no wasm'));
+    // Caught here too, or the rejection is reported as one nobody handles
+    failed.catch(() => {});
+    let drawn: HTMLElement | undefined;
+    await act(async () => {
+      drawn = loading(failed).container;
+    });
+
+    const told = ['header', 'aside', 'main', 'footer'].map(
+      tag =>
+        within(drawn?.querySelector(tag) as HTMLElement).queryByRole(
+          'alert',
+        ) !== null,
+    );
+
+    expect(told).toEqual([true, true, true, true]);
+    vi.restoreAllMocks();
+  });
 });
