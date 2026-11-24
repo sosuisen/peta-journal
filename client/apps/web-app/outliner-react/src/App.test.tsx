@@ -962,4 +962,11 @@ describe('the app while the core loads', () => {
 
     expect(frames).toEqual([true, true, true, true]);
   });
+
+  // コアのロード中、フッターは接続状態を connecting と表示する。
+  test('the footer shows the connection as connecting', () => {
+    const { container } = loading();
+
+    expect(container.querySelector('footer')?.textContent).toBe('connecting');
+  });
 });
