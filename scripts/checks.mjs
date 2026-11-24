@@ -193,12 +193,12 @@ export const JOBS = {
   },
 };
 
-// The jobs that the changed files touch. Markdown files touch no job: they change no check.
+// The jobs that the changed files touch. Every kind of file counts, Markdown too: a test can read
+// a Markdown file as its data, and the name of a file does not tell which ones it reads.
 export function jobsFor(files) {
-  const code = files.filter((f) => !f.endsWith('.md'));
   return Object.keys(JOBS).filter((name) => {
     const { touchedBy, notTouchedBy = [] } = JOBS[name];
-    return code.some(
+    return files.some(
       (f) => ALL.includes(f) || (touchedBy.some((p) => f.startsWith(p)) && !notTouchedBy.some((p) => f.startsWith(p))),
     );
   });

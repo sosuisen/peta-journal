@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { JOBS, ROOT, runJob } from './checks.mjs';
+import { JOBS, ROOT, jobsFor, runJob } from './checks.mjs';
 
 const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 
@@ -180,6 +180,12 @@ test('the hook before a pull request is set', () => {
   const entry = hooks.PreToolUse.find((h) => h.matcher === 'Bash|PowerShell');
   assert.ok(entry);
   assert.ok(entry.hooks.some((h) => h.type === 'command' && h.command.includes('.claude/hooks/verify-before-pr.mjs')));
+});
+
+// Markdownのファイルも、ほかのファイルと同じにジョブを回す。テストのデータかもしれない。
+test('a markdown file touches the jobs of its folder', () => {
+  assert.deepEqual(jobsFor(['journal/journal-core/tests/data/page.md']).sort(), jobsFor(['journal/journal-core/src/lib.rs']).sort());
+  assert.ok(jobsFor(['README.md']).includes('guard'));
 });
 
 // 手元で飛ばしてよいのは、ほかのOSの段だけである。環境変数のない段は、手元でも失敗する。
