@@ -921,6 +921,14 @@ Either can be nil, for a clipboard without it."
       (should (equal asked '("Rename folder to: " "work/memo"))))
     (should (equal peta-journal-test--sent '(("rename_folder" :path "work/notes"))))))
 
+;; Emacsのフレームにフォーカスが来ると、ページのバッファーから、日付が変わったかもしれないと送る。スリープから戻ったときなどである。
+(ert-deftest peta-journal-a-frame-focused-tells-that-the-day-may-have-changed ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (setq peta-journal-test--sent nil)
+    (cl-letf (((symbol-function 'frame-focus-state) (lambda (&optional _frame) t)))
+      (peta-journal--on-frame-focus))
+    (should (equal peta-journal-test--sent '(("day_may_have_changed"))))))
+
 ;; 降格は、付く名前を挙げて尋ね、「はい」なら送る。
 (ert-deftest peta-journal-demoting-asks-with-the-new-name-and-sends-on-yes ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
