@@ -709,8 +709,11 @@ internal sealed class RowView : Grid
         }
     }
 
-    /// <summary>How far to the right a part stands that is <paramref name="indent"/> steps in.</summary>
-    private Thickness Indented(double indent) => new(indent * 16 * Zoom, 0, 0, 0);
+    /// <summary>
+    /// How far to the right a part stands that is <paramref name="indent"/> ems in. An em is the
+    /// size of the usual text, as in the other shells (#795).
+    /// </summary>
+    private Thickness Indented(double indent) => new(indent * FontSize * Zoom, 0, 0, 0);
 
     /// <summary>
     /// A table with a line around each cell, as macOS draws a table. The columns share the
