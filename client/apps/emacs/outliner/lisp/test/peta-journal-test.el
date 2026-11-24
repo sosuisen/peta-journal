@@ -86,6 +86,12 @@ The shell tells the place in the Markdown with a focus."
                                       (peta-journal-test--row "b" 2 "子"))
     (should (equal (peta-journal-test--shown) "• 親\n• 子\n"))))
 
+;; 点のない行は、点の代わりに同じ幅の空白で描かれる。編集中でない空の項目である（#1042）。
+(ert-deftest peta-journal-a-row-without-a-bullet-keeps-its-place ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "親")
+                                      (peta-journal-test--row "b" 1 "" :bullet "hidden"))
+    (should (equal (peta-journal-test--shown) "• 親\n  \n"))))
+
 ;; 字下げは表示だけで、レベルの分の幅になる。
 (ert-deftest peta-journal-the-indent-of-a-row-follows-its-level ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "親")

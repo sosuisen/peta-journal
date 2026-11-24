@@ -28,7 +28,7 @@
   "The field url of the type backlink-line."
   (plist-get value :url))
 
-(defconst peta-journal-protocol-bullet-names '("plain" "transclusion" "broken")
+(defconst peta-journal-protocol-bullet-names '("plain" "transclusion" "broken" "hidden")
   "What the mark at the start of a row shows. A task has the bullet of its
 kind too: its state is a mark of its own, as in the web frontend.")
 
