@@ -38,4 +38,13 @@ public sealed class RowLookTests
 
         Assert.Equal(shown, RowLook.ShowsBullet(row, bare: false));
     }
+
+    // 文字だけを見せる付箋紙では、コアが出すと言う項目にも、行頭の点を出さない。
+    [Fact]
+    public void A_bare_sticky_shows_no_bullet()
+    {
+        var row = new Row { ShowBullet = true };
+
+        Assert.False(RowLook.ShowsBullet(row, bare: true));
+    }
 }
