@@ -13,11 +13,12 @@ final class ShownTextTests: XCTestCase {
     }
 
     private func paragraph(
-        _ runs: RichRun..., heading: UInt8 = 0, mark: String? = nil, rule: Bool = false, start: UInt32 = 0
+        _ runs: RichRun..., heading: UInt8 = 0, scale: Float = 1, quoted: UInt32 = 0, indent: Float = 0,
+        mark: String? = nil, rule: Bool = false, start: UInt32 = 0
     ) -> RichParagraph {
         RichParagraph(
-            heading: heading, scale: 1, depth: 0, quoted: 0, indent: 0, mark: mark, rule: rule, runs: runs, start: start
-        )
+            heading: heading, scale: scale, depth: 0, quoted: quoted, indent: indent, mark: mark, rule: rule,
+            runs: runs, start: start)
     }
 
     private func text(_ paragraphs: RichParagraph...) -> RichBlock { .text(paragraphs: paragraphs) }
@@ -95,11 +96,44 @@ final class ShownTextTests: XCTestCase {
         XCTAssertEqual(shown(text(paragraph(run("one")), paragraph(run("two")))).string, "one\ntwo")
     }
 
-    // 見出しは、本文より大きな文字で出る。
-    func testAHeadingIsLargerThanTheText() {
-        let shown = shown(text(paragraph(run("H"), heading: 1), paragraph(run("p"))))
-        let size = { (at: Int) in (shown.attribute(.font, at: at, effectiveRange: nil) as? NSFont)?.pointSize ?? 0 }
-        XCTAssertGreaterThan(size(0), size(2))
+    private func pointSize(_ text: NSAttributedString, at place: Int) -> CGFloat {
+        (text.attribute(.font, at: place, effectiveRange: nil) as? NSFont)?.pointSize ?? 0
+    }
+
+    private func headIndent(_ text: NSAttributedString, at place: Int) -> CGFloat {
+        (text.attribute(.paragraphStyle, at: place, effectiveRange: nil) as? NSParagraphStyle)?.headIndent ?? -1
+    }
+
+    // 見出しは、コアが決めた倍率の大きさで、太字で出る（#795）。
+    func testAHeadingIsAsLargeAsTheCoreSaysAndBold() {
+        // The shown text is "H\nS\np"
+        let shown = shown(
+            text(
+                paragraph(run("H"), heading: 1, scale: 2), paragraph(run("S"), heading: 6, scale: 1.5),
+                paragraph(run("p"))))
+        let size = NSFont.systemFontSize
+
+        XCTAssertEqual(pointSize(shown, at: 0), size * 2, accuracy: 0.001)
+        XCTAssertEqual(pointSize(shown, at: 2), size * 1.5, accuracy: 0.001)
+        XCTAssertEqual(pointSize(shown, at: 4), size)
+        XCTAssertTrue(isBold(shown, at: 2))
+        XCTAssertFalse(isBold(shown, at: 4))
+    }
+
+    // リストの項目と引用の中は、コアが決めた字下げ（em）だけ右に寄る（#795）。
+    func testListsAndQuotesStandAsFarToTheRightAsTheCoreSays() {
+        // The shown text is "a\n• b\n◦ c\nq"
+        let inner = RichBlock.entries(entries: [RichEntry(mark: "◦", blocks: [text(paragraph(run("c")))])], indent: 1.5)
+        let shown = shown(
+            text(paragraph(run("a"), indent: 3)),
+            .entries(entries: [RichEntry(mark: "•", blocks: [text(paragraph(run("b"))), inner])], indent: 1.5),
+            .quote(blocks: [text(paragraph(run("q"), quoted: 1))], indent: 1.5))
+        let em = NSFont.systemFontSize
+
+        XCTAssertEqual(headIndent(shown, at: 0), em * 3, accuracy: 0.001)
+        XCTAssertEqual(headIndent(shown, at: 2), em * 1.5, accuracy: 0.001)
+        XCTAssertEqual(headIndent(shown, at: 6), em * 3, accuracy: 0.001)
+        XCTAssertEqual(headIndent(shown, at: 10), em * 1.5, accuracy: 0.001)
     }
 
     // ズームすると、表示するテキストの文字が大きくなる。
