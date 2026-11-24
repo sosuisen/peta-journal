@@ -4,6 +4,7 @@ import Atlas from './Atlas';
 import type { JournalView, PageView } from './border/peta-types';
 import Calendar from './Calendar';
 import { useCore, usePanel } from './context';
+import Frame from './Frame';
 import Outline from './Outline';
 import PageProperties, { type Draft } from './PageProperties';
 import SearchBar from './SearchBar';
@@ -17,46 +18,43 @@ import { useSidebarWidth } from './sidebarWidth';
  * asks for find their components.
  */
 export default function App() {
-  const core = useCore();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, startResize] = useSidebarWidth();
-  const connection = usePanel('Connection');
-  const outline = usePanel('Outline');
-
-  useEffect(() => core.start(), [core]);
-  useGlobalKeys();
-  useDayWatch();
 
   return (
     <app-main-layout>
       <Icons />
       <div className={sidebarCollapsed ? 'layout sidebar-collapsed' : 'layout'}>
-        <Header
-          toggleSidebar={() => setSidebarCollapsed(collapsed => !collapsed)}
-        />
+        <header className="header">
+          <Frame>
+            <Header
+              toggleSidebar={() => setSidebarCollapsed(collapsed => !collapsed)}
+            />
+          </Frame>
+        </header>
         <div className="body">
           <aside
             className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}
             style={{ width: sidebarCollapsed ? '0px' : `${sidebarWidth}px` }}
           >
-            <Sidebar />
+            <Frame>
+              <Sidebar />
+            </Frame>
           </aside>
           {!sidebarCollapsed && (
             <div className="resize-handle" onMouseDown={startResize} />
           )}
           <main className="content">
-            <PageDispatcher />
+            <Frame>
+              <PageDispatcher />
+            </Frame>
           </main>
         </div>
         <footer className="footer">
-          <span
-            className={`connection-status ${connectionName(connection?.kind)}`}
-          >
-            {connectionName(connection?.kind)}
-          </span>
-          {outline?.focused_item_id != null && (
-            <span className="item-id">Item: {outline.focused_item_id}</span>
-          )}
+          <Frame fallback={<Connection kind={undefined} />}>
+            <Status />
+            <Start />
+          </Frame>
         </footer>
       </div>
       <ConfirmDialog />
@@ -64,8 +62,37 @@ export default function App() {
   );
 }
 
-function connectionName(kind: string | undefined): string {
-  return (kind ?? 'Connecting').toLowerCase();
+/**
+ * Starts the core, and listens to the page. In the footer, the last part of the frame: its
+ * effect runs after those of the other parts, so that the first operations the core asks for
+ * find their components. Not in a part of its own, which would tell a failed wasm twice.
+ */
+function Start() {
+  const core = useCore();
+  useEffect(() => core.start(), [core]);
+  useGlobalKeys();
+  useDayWatch();
+  return null;
+}
+
+/** The connection to the server, and the item that has the focus. */
+function Status() {
+  const connection = usePanel('Connection');
+  const outline = usePanel('Outline');
+  return (
+    <>
+      <Connection kind={connection?.kind} />
+      {outline?.focused_item_id != null && (
+        <span className="item-id">Item: {outline.focused_item_id}</span>
+      )}
+    </>
+  );
+}
+
+/** The state of the connection, as connecting before the core first tells it. */
+function Connection({ kind }: { readonly kind: string | undefined }) {
+  const name = (kind ?? 'Connecting').toLowerCase();
+  return <span className={`connection-status ${name}`}>{name}</span>;
 }
 
 /** The keys of the whole page: Ctrl+Alt+Enter opens Home. Files dropped off an item stay out. */
@@ -141,6 +168,7 @@ function useDayWatch(): void {
   }, [core]);
 }
 
+/** The buttons and the search of the header. */
 function Header({ toggleSidebar }: { readonly toggleSidebar: () => void }) {
   const core = useCore();
   const screen = usePanel('Screen');
@@ -148,7 +176,7 @@ function Header({ toggleSidebar }: { readonly toggleSidebar: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const onDocPage = screen?.kind === 'Page' && screen.value !== null;
   return (
-    <header className="header">
+    <>
       <div className="header-left">
         <button className="menu-btn" onClick={toggleSidebar}>
           ☰
@@ -242,7 +270,7 @@ function Header({ toggleSidebar }: { readonly toggleSidebar: () => void }) {
           )}
         </div>
       </div>
-    </header>
+    </>
   );
 }
 
