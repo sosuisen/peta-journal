@@ -26,6 +26,14 @@ the app syncs, where it keeps its data, how it edits and how it uploads.
 
   The version has to be the same as the `boltffi` dependency in
   `client/libs/client-shell-embedded/Cargo.toml`.
+- [swift-mutation-testing](https://github.com/ericodx/swift-mutation-testing) 1.7.1, for the
+  mutation tests. Its tap has to be trusted once:
+
+  ```
+  brew tap ericodx/homebrew-tools
+  brew trust ericodx/tools
+  brew install swift-mutation-testing
+  ```
 
 ## Build and test
 
@@ -63,6 +71,9 @@ cd peta-journal/client/apps/native-app
 The formatter and the linter are both swift-format, which comes with Xcode. Its settings are in
 `client/apps/native-app/.swift-format`, one file for both apps: lines of 120 letters and an
 indent of 4 spaces. Run it after every change in Swift. `generated/` is not formatted.
+
+The mutation tests are `../mutation-test.sh outliner-ios`. Run them before each pull request.
+They are told of in the README of `stickies-mac`.
 
 ## The icon of the app
 

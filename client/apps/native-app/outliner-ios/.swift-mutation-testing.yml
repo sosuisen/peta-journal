@@ -1,0 +1,10 @@
+# The settings of swift-mutation-testing for this package. Run it with ../mutation-test.sh
+exclude:
+  # generate.sh makes it from the Rust crates, and the Rust tests check it
+  - "/generated/"
+  # swift test does not build the app: its tests run in a simulator (debug.sh --test)
+  - "/App/"
+  - "/AppTests/"
+  - "/UITests/"
+  # It only calls the Dropbox SDK, so no test runs it without a real Dropbox account
+  - "/Sources/PetaDropbox/SdkDropbox.swift"

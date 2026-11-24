@@ -2,3 +2,5 @@
 /generated/
 # Swift Package Manager
 /.build/
+# Made by swift-mutation-testing (../mutation-test.sh)
+/.swift-mutation-testing-cache/

@@ -6,3 +6,5 @@
 /PetaStickies.xcodeproj/
 /build/
 /build.log
+# Made by swift-mutation-testing (../mutation-test.sh)
+/.swift-mutation-testing-cache/
