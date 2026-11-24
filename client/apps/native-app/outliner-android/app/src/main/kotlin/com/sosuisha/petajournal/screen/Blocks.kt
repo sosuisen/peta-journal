@@ -20,6 +20,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import java.io.File
 
@@ -55,7 +57,7 @@ private fun TextBlock(block: ShownBlock.Text) {
 /** The entries of a list, each after its mark. */
 @Composable
 private fun EntriesBlock(list: ShownBlock.Entries, image: (String) -> File?) {
-    Column {
+    Column(Modifier.padding(start = ems(list.indent))) {
         for (entry in list.entries) {
             Row {
                 Text(entry.mark, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(end = 8.dp))
@@ -73,11 +75,15 @@ private fun QuoteBlock(quote: ShownBlock.Quote, image: (String) -> File?) {
         Modifier
             .padding(vertical = 4.dp)
             .drawBehind { drawRect(line, size = Size(3.dp.toPx(), size.height)) }
-            .padding(start = 12.dp),
+            .padding(start = ems(quote.indent)),
     ) {
         Blocks(quote.blocks, image)
     }
 }
+
+/** [count] ems of the usual text, as the core gives an indent (#795). */
+@Composable
+private fun ems(count: Float): Dp = with(LocalDensity.current) { MaterialTheme.typography.bodyLarge.fontSize.toDp() * count }
 
 /** The lines of the code as they were written. A long line is scrolled sideways, not broken. */
 @Composable

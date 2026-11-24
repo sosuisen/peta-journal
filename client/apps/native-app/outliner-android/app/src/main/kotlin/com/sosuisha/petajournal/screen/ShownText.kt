@@ -46,11 +46,19 @@ sealed interface ShownBlock {
      */
     data class Image(val path: String, val alt: String, val width: Int?, val height: Int?) : ShownBlock
 
-    /** A list that holds a part of its own kind, such as a code block: its entries apart. */
-    data class Entries(val entries: List<Entry>) : ShownBlock
+    /**
+     * A list that holds a part of its own kind, such as a code block: its entries apart.
+     *
+     * @param indent how far the entries stand to the right of the list, in ems (#795).
+     */
+    data class Entries(val entries: List<Entry>, val indent: Float) : ShownBlock
 
-    /** A quote that holds a part of its own kind. */
-    data class Quote(val blocks: List<ShownBlock>) : ShownBlock
+    /**
+     * A quote that holds a part of its own kind.
+     *
+     * @param indent how far what is quoted stands to the right of the quote, in ems (#795).
+     */
+    data class Quote(val blocks: List<ShownBlock>, val indent: Float) : ShownBlock
 }
 
 /** @param header true for the row of the titles of the columns. */
@@ -111,8 +119,9 @@ private fun blocks(blocks: List<RichBlock>, onLink: (RichLink) -> Unit): List<Sh
                 },
             )
             is RichBlock.Image -> with(block.image) { ShownBlock.Image(path, alt, width?.toInt(), height?.toInt()) }
-            is RichBlock.Entries -> ShownBlock.Entries(block.entries.map { Entry(it.mark, blocks(it.blocks, onLink)) })
-            is RichBlock.Quote -> ShownBlock.Quote(blocks(block.blocks, onLink))
+            is RichBlock.Entries ->
+            ShownBlock.Entries(block.entries.map { Entry(it.mark, blocks(it.blocks, onLink)) }, block.indent)
+            is RichBlock.Quote -> ShownBlock.Quote(blocks(block.blocks, onLink), block.indent)
         }
     }
 
