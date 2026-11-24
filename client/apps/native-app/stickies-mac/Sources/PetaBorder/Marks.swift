@@ -31,10 +31,10 @@ extension Row {
     }
 
     /// How much larger than the usual text the Markdown in the editor is. It is large only when
-    /// the whole body is one heading line. The cursor may go in before the core counts the item
-    /// as edited: the scale of the core is then the shown one, and is used only for one heading
-    /// line, whose shown first line has the same size (#795).
+    /// the whole body is one heading line, and then it is the scale of the first line that the
+    /// core gives, edited or not: the cursor may go in before the core counts the item as
+    /// edited (#795).
     public var editedScale: Double {
-        isEditing || headingLine ? Double(firstLineScale) : 1
+        headingLine ? Double(firstLineScale) : 1
     }
 }
