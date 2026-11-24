@@ -2,8 +2,8 @@ import PetaTypes
 
 extension Row {
     /// What stands before the text of the item: the bullet, and after it the state of a task.
-    /// Every item has a bullet, a task as well. That is so in all shells: the bullet is what
-    /// makes the item a part of the outline, and the state of the task is said on top of it.
+    /// A task has a bullet as well: the state of the task is said on top of it. Whether the
+    /// bullet is seen is `showsBullet(bare:)`.
     public var marks: [String] {
         // A circle around the bullet says that children are hidden, as in the web frontend
         let bullet = isCollapsed ? "◉" : "•"
@@ -13,6 +13,12 @@ extension Row {
         // The box with a line is the one all shells mean for a running task: the checkbox of
         // the web that is neither checked nor empty
         return [bullet, task == .running ? "⊟" : "☐"]
+    }
+
+    /// The bullet before the text is seen. The core shows none before an empty item that is
+    /// not edited, as in the other shells (#1042). A `bare` sticky shows only its text.
+    public func showsBullet(bare: Bool) -> Bool {
+        showBullet && !bare
     }
 }
 
