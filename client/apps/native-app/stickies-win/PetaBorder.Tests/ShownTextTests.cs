@@ -268,20 +268,22 @@ public sealed class ShownTextTests
         Assert.Equal([0.75, 0.75, 1], shown.Runs.Select(run => run.Scale));
     }
 
-    // 見出しは、その段の大きさで、太字で出る。大きさは、Web版と同じである。
+    // 見出しは、コアが決めた倍率の大きさで、太字で出る（#795）。
     [Fact]
     public void A_heading_is_large_and_bold()
     {
         var one = Paragraph(Run("one"));
         one.Heading = 1;
+        one.Scale = 2;
         var three = Paragraph(Run("three"));
         three.Heading = 3;
+        three.Scale = 1.5f;
+        var text = Paragraph(Run("text"));
+        text.Scale = 1;
 
-        var shown = Shown(Text(one, three, Paragraph(Run("text"))))
-            .Parts.Cast<ShownParagraph>()
-            .ToList();
+        var shown = Shown(Text(one, three, text)).Parts.Cast<ShownParagraph>().ToList();
 
-        Assert.Equal([1.6, 1.2, 1], shown.Select(paragraph => paragraph.Scale));
+        Assert.Equal([2, 1.5, 1], shown.Select(paragraph => paragraph.Scale));
         Assert.Equal(RunStyle.Bold, shown[0].Runs[0].Style);
         Assert.Equal(RunStyle.None, shown[2].Runs[0].Style);
     }
