@@ -22,14 +22,14 @@ pub(super) fn tag(tags_dir: &str, tag: &str) -> RichLink {
     }
 }
 
-/// Where the address of a link leads. A relative address is read from the top of the app, so
-/// that `../assets/report.pdf` names the file of the assets folder. `None` for any other link,
-/// such as one to a file of the PC or a `mailto:`: it leads nowhere.
+/// Where the address of a link leads. An address with a scheme leads out of the app, whatever
+/// the scheme is: `mailto:`, `obsidian://` and a drive of Windows (`C:`) as well. The shell has
+/// the OS open it (#1071). A relative address is read from the top of the app, so that
+/// `../assets/report.pdf` names the file of the assets folder. `None` for any other relative
+/// address: it leads nowhere.
 pub(super) fn target(address: &str) -> Option<RichLink> {
-    let scheme = scheme_of(address);
-    if let Some(scheme) = scheme {
-        let web = scheme.eq_ignore_ascii_case("https") || scheme.eq_ignore_ascii_case("http");
-        return web.then(|| RichLink::Web {
+    if scheme_of(address).is_some() {
+        return Some(RichLink::Web {
             url: address.to_string(),
         });
     }
