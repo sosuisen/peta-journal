@@ -313,7 +313,7 @@ internal sealed class RowView : Grid
         var line = Math.Round(FontSize * Zoom * LineHeight);
         // The first line of a heading is higher. The marks keep their size and stand in the
         // middle of it, as in the web frontend
-        var first = Math.Round(FontSize * Zoom * RowLook.FirstLineScale(row) * LineHeight);
+        var first = Math.Round(FontSize * Zoom * row.FirstLineScale * LineHeight);
         var side = Math.Round(line * 0.85);
         marks.Children.Clear();
         var bullet = Bullet(row.IsCollapsed, side, Math.Max(line, first));
@@ -420,7 +420,7 @@ internal sealed class RowView : Grid
         var heading = RowLook.EditedHeading(row);
         // An item that is one heading line has the size of its heading, in bold, as the web
         // frontend has: the text keeps its size when the cursor goes in and out
-        editor.FontSize = FontSize * Zoom * RowLook.HeadingScale(heading);
+        editor.FontSize = FontSize * Zoom * RowLook.EditedScale(row);
         editor.FontWeight = heading > 0 ? FontWeights.Bold : FontWeights.Normal;
         // Text that is still being composed is not in the core yet, and must not be lost to
         // what the core has
