@@ -20,4 +20,9 @@
   <ItemGroup>
     <InternalsVisibleTo Include="PetaScreens.Tests" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- The core has a Held too (ADR 083). The screens hold the keys of the border -->
+    <Using Include="PetaBorder.Held" Alias="Held" />
+  </ItemGroup>
 </Project>
