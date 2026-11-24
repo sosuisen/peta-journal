@@ -463,6 +463,25 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(next.stickies[0].window.backgroundColor, StickyLook.color(of: "#D0E8FF"))
     }
 
+    /// The window shows what is behind it.
+    private func seesThrough(_ sticky: Sticky) -> Bool {
+        !sticky.window.isOpaque && (sticky.window.backgroundColor.usingColorSpace(.sRGB)?.alphaComponent ?? 1) < 0.05
+    }
+
+    // 透明を選ぶと、付箋紙のウィンドウは後ろが透けて見える。次の起動でも透明で戻る。色を戻すと、透けなくなる。
+    func testATransparentStickyShowsWhatIsBehindItAndComesBackSo() async throws {
+        let sticky = desk.add()
+        XCTAssertFalse(seesThrough(sticky))
+
+        sticky.look.color = "#FFFFFF00"
+
+        XCTAssertTrue(seesThrough(sticky))
+        let next = nextRun().stickies[0]
+        XCTAssertTrue(seesThrough(next))
+        next.look.color = "#FFF8D0"
+        XCTAssertFalse(seesThrough(next))
+    }
+
     // 付箋紙の色は、Petastiの付箋紙の9色と、そのあとの透明から選ぶ。
     func testTheColorsOfAStickyAreThoseOfPetasti() {
         XCTAssertEqual(
