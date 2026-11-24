@@ -20,19 +20,41 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
-  <!-- "dotnet build -t:Coverage" runs the tests and measures the coverage of the lines of
-       PetaBorder with coverlet.console, a local tool (dotnet-tools.json). Below 90% of the lines,
-       it fails, and so does the CI. A line no test reaches is either removed, or given a test of
-       the behaviour that needs it. The tests with the journal server need PETA_E2E_SERVER: a
-       skipped test reaches no line.
-       The projects under generated/ are made by tools. Not done yet (#1085): only PetaBorder is
-       measured (include). PetaScreens and PetaStickies are not: their tests press real keys on
-       the screen, and do not run in the CI yet. The whole app has to be measured, as the
-       developer decided. scripts/verification.test.mjs guards these values. -->
+  <!-- "dotnet build -t:Coverage" runs the tests of the app and measures the coverage of its lines
+       with coverlet.console, a local tool (dotnet-tools.json). Below 90% of the lines, it fails,
+       and so does the CI. A line no test reaches is either removed, or given a test of the
+       behaviour that needs it.
+       It runs two sets of tests, and adds up what they reach:
+       1. PetaScreens.Tests, the tests of the windows (ADR 059). They press real keys: do not use
+          the keyboard or the mouse while they run. They build and run on Windows only.
+       2. PetaBorder.Tests. The coverage of both is counted here, against the floor.
+       The tests with the journal server need PETA_E2E_SERVER: a skipped test reaches no line.
+       What is measured: PetaBorder and PetaScreens. The projects under generated/ are made by
+       tools from the Rust code, and are measured in Rust.
+       Left out, as the developer agreed on 2026-11-25 (#1085):
+       - obj/: the code that the WinRT source generator writes into the build.
+       - PetaStickies (App.xaml.cs): the entry point of the app. The tests start TestApp instead,
+         so no test loads it.
+       - PetaScreens/Launch.cs: it hands a link to another app of Windows. A test would open the
+         real browser.
+       - PetaScreens/RowView.Drop.cs: the files dropped from the explorer. SendInput cannot start
+         the drag of files of another app.
+       scripts/verification.test.mjs guards these values. -->
+  <PropertyGroup>
+    <ScreensTests>$(MSBuildProjectDirectory)/../PetaScreens.Tests/bin/$(Configuration)/net11.0-windows10.0.22621.0/win-x64/PetaScreens.Tests</ScreensTests>
+  </PropertyGroup>
   <Target Name="Coverage" DependsOnTargets="Build">
     <Exec
       WorkingDirectory="$(MSBuildProjectDirectory)"
-      Command="dotnet coverlet &quot;$(TargetPath)&quot; --target dotnet --targetargs &quot;$(TargetPath)&quot; --include &quot;[PetaBorder]*&quot; --threshold 90 --threshold-type line --threshold-stat total --format cobertura --output coverage/"
+      Command="dotnet build ../PetaScreens.Tests -c $(Configuration) -nologo -v:q"
+    />
+    <Exec
+      WorkingDirectory="$(MSBuildProjectDirectory)"
+      Command="dotnet coverlet &quot;$(ScreensTests).dll&quot; --target &quot;$(ScreensTests).exe&quot; --include &quot;[PetaBorder]*&quot; --include &quot;[PetaScreens]*&quot; --exclude-by-file &quot;**/obj/**&quot; --exclude-by-file &quot;**/PetaScreens/Launch.cs&quot; --exclude-by-file &quot;**/PetaScreens/RowView.Drop.cs&quot; --format json --output coverage/screens.json"
+    />
+    <Exec
+      WorkingDirectory="$(MSBuildProjectDirectory)"
+      Command="dotnet coverlet &quot;$(TargetPath)&quot; --target dotnet --targetargs &quot;$(TargetPath)&quot; --include &quot;[PetaBorder]*&quot; --include &quot;[PetaScreens]*&quot; --exclude-by-file &quot;**/obj/**&quot; --exclude-by-file &quot;**/PetaScreens/Launch.cs&quot; --exclude-by-file &quot;**/PetaScreens/RowView.Drop.cs&quot; --merge-with coverage/screens.json --threshold 90 --threshold-type line --threshold-stat total --format cobertura --output coverage/"
     />
   </Target>
 </Project>

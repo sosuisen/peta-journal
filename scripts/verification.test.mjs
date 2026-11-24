@@ -51,23 +51,44 @@ const COVERAGE_STEP = {
 };
 
 // The arguments of coverlet.console in the Coverage target of each C# test project
+// The options of each coverlet command in the Coverage target of each C# test project, in order.
+// The last command adds up what the commands before it measured, and fails under the floor
+const STICKIES_MEASURED = [
+  '--include "[PetaBorder]*"',
+  '--include "[PetaScreens]*"',
+  // The files left out with the consent of the developer (2026-11-25, #1085)
+  '--exclude-by-file "**/obj/**"',
+  '--exclude-by-file "**/PetaScreens/Launch.cs"',
+  '--exclude-by-file "**/PetaScreens/RowView.Drop.cs"',
+];
+const DOTNET_FLOOR = [`--threshold ${FLOOR}`, '--threshold-type line', '--threshold-stat total'];
 const DOTNET = {
   'client/apps/webview-app/memoview-win/memoview-tests/MemoView.Tests.csproj': [
-    '--include-test-assembly',
-    '--exclude-by-file "**/memoview-tests/**"',
+    ['--include-test-assembly', '--exclude-by-file "**/memoview-tests/**"', ...DOTNET_FLOOR],
   ],
-  'client/apps/native-app/stickies-win/PetaBorder.Tests/PetaBorder.Tests.csproj': ['--include "[PetaBorder]*"'],
+  'client/apps/native-app/stickies-win/PetaBorder.Tests/PetaBorder.Tests.csproj': [
+    // The tests of the windows
+    STICKIES_MEASURED,
+    // The tests of PetaBorder, added to those of the windows
+    [...STICKIES_MEASURED, '--merge-with coverage/screens.json', ...DOTNET_FLOOR],
+  ],
 };
-const DOTNET_FLOOR = [`--threshold ${FLOOR}`, '--threshold-type line', '--threshold-stat total'];
 
-// The options of the coverlet command of a csproj, each with its value
+// The options of each coverlet command of a csproj, each option with its value
 function coverletOptions(project) {
   const targets = [...read(project).matchAll(/<Target Name="Coverage"[\s\S]*?<\/Target>/g)];
   assert.equal(targets.length, 1, `${project}: one Coverage target`);
-  const command = targets[0][0].match(/Command="([^"]*)"/)[1].replaceAll('&quot;', '"');
-  assert.ok(command.startsWith('dotnet coverlet '), project);
-  // The first two options name the assembly and how to run its tests
-  return command.split(/ (?=--)/).slice(1).filter((o) => !/^--(target|targetargs|format|output) /.test(o));
+  return [...targets[0][0].matchAll(/Command="([^"]*)"/g)]
+    .map((m) => m[1].replaceAll('&quot;', '"'))
+    .filter((command) => command.startsWith('dotnet coverlet '))
+    .map((command) =>
+      // The first option names the assembly. The others name how to run its tests and where
+      // the report goes
+      command
+        .split(/ (?=--)/)
+        .slice(1)
+        .filter((o) => !/^--(target|targetargs|format|output) /.test(o)),
+    );
 }
 
 // The strings of the `cov` alias in .cargo/config.toml, unescaped
@@ -161,7 +182,8 @@ test('each job measures the coverage in a step that is never skipped', () => {
 // C#のテストのプロジェクトは、9割未満で失敗し、了解した範囲を測る。
 test('each c# test project fails under the floor and measures the agreed files', () => {
   for (const [project, measured] of Object.entries(DOTNET)) {
-    assert.deepEqual(coverletOptions(project).sort(), [...DOTNET_FLOOR, ...measured].sort(), project);
+    const sorted = (commands) => commands.map((options) => [...options].sort());
+    assert.deepEqual(sorted(coverletOptions(project)), sorted(measured), project);
   }
 });
 
@@ -267,7 +289,8 @@ test('every step of a job has a command on the os of its runner in the CI', () =
 
 // コードに、カバレッジの測定から行を外す印がない。
 test('no code leaves lines out of the coverage with a comment or an attribute', () => {
-  const marks = /\b(v8|c8|istanbul) ignore\b|LCOV_EXCL|cfg(_attr)?\((not\()?coverage|coverage\(off\)|coverage_nightly/;
+  const marks =
+    /\b(v8|c8|istanbul) ignore\b|LCOV_EXCL|cfg(_attr)?\((not\()?coverage|coverage\(off\)|coverage_nightly|ExcludeFromCodeCoverage/;
   const files = execFileSync('git', ['ls-files'], { cwd: ROOT, encoding: 'utf8' })
     .split('\n')
     .filter((f) => /\.(rs|ts|tsx|js|mjs|cs|swift|kt|el)$/.test(f) && f !== 'scripts/verification.test.mjs');
