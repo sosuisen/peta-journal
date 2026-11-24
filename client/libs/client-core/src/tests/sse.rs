@@ -243,3 +243,14 @@ fn the_shown_page_is_read_again_once_the_stream_is_back() {
 
     assert_eq!(h.bodies(), ["reloaded=reloaded"]);
 }
+
+// つなぎ直してストリームが開くと、サーバーの設定も読み直される。起動のときに読めなかったかもしれないからである（#756）。
+#[test]
+fn the_server_config_is_read_again_once_the_stream_is_back() {
+    let mut h = started();
+    let loads = h.api.calls_named("GetConfig").len();
+
+    server_comes_up(&mut h);
+
+    assert_eq!(h.api.calls_named("GetConfig").len(), loads + 1);
+}
