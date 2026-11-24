@@ -76,6 +76,69 @@ public sealed partial class Shell
         border.PasteImage(itemId, path, CursorOf(editor));
     }
 
+    /// <summary>
+    /// The user dropped files on the drawn item. The image goes at the end of its body: the
+    /// drawn text and the Markdown do not line up. False when no file is an image.
+    /// </summary>
+    public bool DropImage(string itemId, IReadOnlyList<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        var body = View.Outline.Rows.First(row => row.Item.Id == itemId).Item.Body;
+        return Drop(itemId, paths, PetaCore.PetaNative.CharsOfUtf16(body, (ulong)body.Length));
+    }
+
+    /// <summary>
+    /// The user dropped files on the editor of an item. The cursor of <paramref name="editor"/>
+    /// is where they were dropped. False when no file is an image.
+    /// </summary>
+    public bool DropImage(string itemId, EditorState editor, IReadOnlyList<string> paths)
+    {
+        ArgumentNullException.ThrowIfNull(editor);
+        ArgumentNullException.ThrowIfNull(paths);
+        return Drop(itemId, paths, CursorOf(editor));
+    }
+
+    /// <summary>The kinds of file that are taken as images, as the web version takes <c>image/*</c>.</summary>
+    private static readonly string[] ImageExtensions =
+    [
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".bmp",
+        ".svg",
+    ];
+
+    /// <summary>
+    /// Links the first image of the dropped files at <paramref name="cursor"/>, in the
+    /// characters of the core. Only one, as in the web version. False when no file is an image.
+    /// </summary>
+    private bool Drop(string itemId, IReadOnlyList<string> paths, ulong cursor)
+    {
+        var image = paths.FirstOrDefault(path =>
+            ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)
+        );
+        if (image is null)
+            return false;
+        border.PasteImage(itemId, CopyOf(image), cursor);
+        return true;
+    }
+
+    /// <summary>
+    /// A copy of the file with the same name, in a folder of its own. The core deletes the file
+    /// it is given (ADR 071), and the file the user dropped must stay.
+    /// </summary>
+    private static string CopyOf(string path)
+    {
+        var copy = Path.Combine(
+            Directory.CreateTempSubdirectory("peta-dropped-").FullName,
+            Path.GetFileName(path)
+        );
+        File.Copy(path, copy);
+        return copy;
+    }
+
     /// <summary>Where the cursor is in the editor, in the characters that the core counts.</summary>
     private static ulong CursorOf(EditorState editor) =>
         // WinUI counts in UTF-16 units (ADR 043)

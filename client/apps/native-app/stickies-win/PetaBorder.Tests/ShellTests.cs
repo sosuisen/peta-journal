@@ -855,6 +855,98 @@ public sealed class ShellTests : IDisposable
         main.WaitUntil("the file is deleted", () => !File.Exists(image));
     }
 
+    // 描かれた項目に落とした画像は、本文の末尾にリンクされる。
+    [Fact]
+    public void An_image_dropped_on_a_drawn_item_is_linked_at_the_end_of_its_body()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+        shell.Typed("abc", item);
+        shell.FinishEditing(item);
+        main.WaitUntil("the item has its text", () => Bodies(shell) is ["abc"]);
+        var image = Path.Combine(Directory.CreateTempSubdirectory().FullName, "sample.png");
+        File.WriteAllBytes(image, [1, 2, 3]);
+
+        shell.DropImage(item, [image]);
+
+        main.WaitUntil("the image is linked after the text", () =>
+            Bodies(shell) is [var body]
+            && body.StartsWith("abc![sample.png](../assets/", StringComparison.Ordinal)
+        );
+    }
+
+    // 編集中のエディタに落とした画像は、落とした文字の位置にリンクされる。
+    [Fact]
+    public void An_image_dropped_on_an_editor_is_linked_where_it_was_dropped()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        shell.StartEditing(item);
+        shell.Typed("abcd", item);
+        var image = Path.Combine(Directory.CreateTempSubdirectory().FullName, "sample.png");
+        File.WriteAllBytes(image, [1, 2, 3]);
+
+        shell.DropImage(item, Editor("abcd", 2), [image]);
+
+        main.WaitUntil("the image is linked between b and c", () =>
+            Bodies(shell) is [var body]
+            && body.StartsWith("ab![sample.png](../assets/", StringComparison.Ordinal)
+            && body.EndsWith(")cd", StringComparison.Ordinal)
+        );
+    }
+
+    // 落としたファイルの中で、最初の画像だけがリンクされる。画像でないファイルは飛ばされる。
+    [Fact]
+    public void Only_the_first_image_of_the_dropped_files_is_linked()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        var folder = Directory.CreateTempSubdirectory().FullName;
+        string[] files = ["notes.txt", "first.png", "second.jpg"];
+        foreach (var file in files)
+            File.WriteAllBytes(Path.Combine(folder, file), [1, 2, 3]);
+
+        var taken = shell.DropImage(item, [.. files.Select(file => Path.Combine(folder, file))]);
+
+        Assert.True(taken);
+        main.WaitUntil("the first image is linked", () =>
+            Bodies(shell) is [var body]
+            && body.StartsWith("![first.png](../assets/", StringComparison.Ordinal)
+            && !body.Contains("second", StringComparison.Ordinal)
+        );
+    }
+
+    // 落としたファイルに画像がなければ、何もリンクされない。
+    [Fact]
+    public void Dropped_files_without_an_image_are_not_taken()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        var notes = Path.Combine(Directory.CreateTempSubdirectory().FullName, "notes.txt");
+        File.WriteAllBytes(notes, [1, 2, 3]);
+
+        var taken = shell.DropImage(item, [notes]);
+
+        Assert.False(taken);
+        Assert.True(File.Exists(notes));
+    }
+
+    // 落とした元のファイルは、リンクされたあとも消えずに残る。コアが消すのは、シェルが作った写しである。
+    [Fact]
+    public void A_dropped_file_stays_where_it_was()
+    {
+        var shell = ShellWithPage();
+        var item = shell.View.Outline.Rows[0].Item.Id;
+        var image = Path.Combine(Directory.CreateTempSubdirectory().FullName, "sample.png");
+        File.WriteAllBytes(image, [1, 2, 3]);
+
+        shell.DropImage(item, [image]);
+
+        main.WaitUntil("the image is linked", () => Bodies(shell) is [var body] && body.Length > 0);
+        Assert.Equal([1, 2, 3], File.ReadAllBytes(image));
+    }
+
     /// <summary>The level and the body of each item, as "level body".</summary>
     private static List<string> LevelsAndBodies(Shell shell) =>
         [.. shell.View.Outline.Rows.Select(row => $"{row.Item.Level} {row.Item.Body}")];
