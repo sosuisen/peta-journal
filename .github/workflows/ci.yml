@@ -1,6 +1,8 @@
 name: CI
 
-# The CI runs only when asked, from the Actions tab or with `gh workflow run CI --ref <branch>`
+# The CI runs only when asked, from the Actions tab or with `gh workflow run CI --ref <branch>`.
+# The checks of each job are in scripts/checks.mjs. The hook before a pull request
+# (.claude/hooks/verify-before-pr.mjs) runs the same checks on a developer's machine.
 on:
   workflow_dispatch:
 
@@ -14,16 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - workspace: journal
-            args: --workspace
-          - workspace: client
-            args: --workspace
-          - workspace: atlas
-            args: --all-features
-    defaults:
-      run:
-        working-directory: ${{ matrix.workspace }}
+        workspace: [journal, client, atlas]
     steps:
       - uses: actions/checkout@v7
       # Installs the version, components and targets in rust-toolchain.toml
@@ -31,32 +24,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: ${{ matrix.workspace }}
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets ${{ matrix.args }}
-      - run: cargo test ${{ matrix.args }}
-      # The test coverage fails below 90% of the lines. The `cov` alias in .cargo/config.toml of the
-      # workspace holds the crates and the floor, the same as on a developer's machine. It runs the
-      # tests again, in a build of its own with the instrumentation.
       - run: rustup component add llvm-tools-preview
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-llvm-cov@0.9.2
-      - run: cargo cov --summary-only
-      # The apps on a phone build the core without the extensions, a path the server never
-      # takes (ADR 058)
-      - if: matrix.workspace == 'journal'
-        run: cargo test -p journal-core --no-default-features
-      # What only a native shell needs is behind features: the generation of its types, and the
-      # entrance for another language
-      - if: matrix.workspace == 'client'
-        run: cargo clippy -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi --all-targets
-      - if: matrix.workspace == 'client'
-        run: cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi --test codegen --test ffi
-      # The browser side of client-web-bridge (src/web.rs) is built for wasm only
-      - if: matrix.workspace == 'client'
-        run: cargo clippy --target wasm32-unknown-unknown -p client-web-bridge --lib
-      # The Emacs mode of client/apps/emacs/outliner. These tests need no process. The E2E tests are
-      # in the emacs-e2e job: they need the journal server too.
+      # The Emacs mode of client/apps/emacs/outliner is checked in the client job.
       # The Emacs is the snap, not the apt package. The apt Emacs of Ubuntu is 30. The indent of
       # Emacs 30 differs from Emacs 31, which the developer uses, so the format check fails there.
       # Why not purcell/setup-emacs: its Emacs has no X and no images, and some of the tests are
@@ -65,9 +37,6 @@ jobs:
         run: |
           sudo snap install emacs --classic
           emacs --batch --eval '(unless (= emacs-major-version 31) (error "Emacs %s is not 31" emacs-version))'
-      - if: matrix.workspace == 'client'
-        working-directory: client/apps/emacs/outliner
-        run: emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit
       # The formatter of the Emacs Lisp is shared with other projects. A new tag of it changes
       # nothing here until this line asks for it
       - if: matrix.workspace == 'client'
@@ -76,16 +45,15 @@ jobs:
           repository: sosuisen/elisp-formatter
           ref: v0.1.0
           path: elisp-formatter
-      - if: matrix.workspace == 'client'
-        working-directory: client/apps/emacs/outliner
-        run: emacs -Q --batch -l "$GITHUB_WORKSPACE/elisp-formatter/elisp-formatter.el" -f elisp-formatter-check lisp
+      - run: node scripts/checks.mjs run ${{ matrix.workspace }}
+        env:
+          PETA_EMACS: emacs
+          ELISP_FORMATTER: ${{ github.workspace }}/elisp-formatter/elisp-formatter.el
 
   # The E2E tests of the Emacs mode press real keys, with the real shell and a real server
   emacs-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    env:
-      PETA_E2E_SERVER: ${{ github.workspace }}/journal/target/debug/journal-server
     steps:
       - uses: actions/checkout@v7
       # Installs the version, components and targets in rust-toolchain.toml
@@ -99,21 +67,13 @@ jobs:
       - run: |
           sudo snap install emacs --classic
           emacs --batch --eval '(unless (= emacs-major-version 31) (error "Emacs %s is not 31" emacs-version))'
-      - working-directory: journal
-        run: cargo build -p journal-server
-      - working-directory: client
-        run: cargo build -p outliner-emacs
-      # The tests skip themselves when a program is missing, and the job would pass with no test run
-      - run: test -x "$PETA_E2E_SERVER" && test -x client/target/debug/outliner-emacs
-      - working-directory: client/apps/emacs/outliner
-        run: emacs -Q --batch -L lisp -L lisp/test -l lisp/test/peta-journal-e2e.el -f ert-run-tests-batch-and-exit
+      - run: node scripts/checks.mjs run emacs-e2e
+        env:
+          PETA_EMACS: emacs
 
   todo:
     name: client/apps/web-app/todo
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: client/apps/web-app/todo
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -121,12 +81,7 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: client/apps/web-app/todo/package-lock.json
-      - run: npm ci
-      - run: npm run format:check
-      - run: npm run lint
-      # Runs the tests, and fails below 90% of the lines covered (vitest.config.ts)
-      - run: npm run coverage
-      - run: npm run build
+      - run: node scripts/checks.mjs run todo
 
   # The web shell in React. Its core is the wasm of client-web-bridge. The tests, the lint and the
   # types need that wasm and the types of the border, which `npm run border` makes from the Rust
@@ -134,9 +89,6 @@ jobs:
   outliner-react:
     name: client/apps/web-app/outliner-react
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: client/apps/web-app/outliner-react
     steps:
       - uses: actions/checkout@v7
       # Installs the version, components and targets in rust-toolchain.toml
@@ -152,14 +104,7 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: client/apps/web-app/outliner-react/package-lock.json
-      - run: npm ci
-      - run: npm run border
-      - run: npm run format:check
-      - run: npm run lint
-      # Runs the tests, and fails below 90% of the lines covered (vitest.config.ts)
-      - run: npm run coverage
-      # `--ignore-scripts`: the step above built the border, and `prebuild` would build it again
-      - run: npm run build --ignore-scripts
+      - run: node scripts/checks.mjs run outliner-react
 
   memoview-win:
     name: client/apps/webview-app/memoview-win
@@ -167,16 +112,5 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-      # CSharpier is a local tool of memoview-win (dotnet-tools.json)
-      - run: dotnet tool restore
-        working-directory: client/apps/webview-app/memoview-win
-      - run: dotnet csharpier check .
-        working-directory: client/apps/webview-app/memoview-win
-      # Why in this folder: its global.json selects the test runner, and the SDK finds it only
-      # from the current folder upward.
-      # The analyzers run in both builds below. Their settings are in Directory.Build.props
-      - run: dotnet test
-        working-directory: client/apps/webview-app/memoview-win/memoview-tests
-      # The tests compile only the files without WinUI. The build shows what breaks in the rest
       - uses: microsoft/setup-msbuild@v3
-      - run: msbuild client/apps/webview-app/memoview-win/memoview/MemoView.csproj -restore -p:Platform=x64 -nologo -v:m
+      - run: node scripts/checks.mjs run memoview-win

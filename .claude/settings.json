@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/verify-before-pr.mjs\"",
+            "timeout": 3600,
+            "statusMessage": "PRの前に、CIと同じ検証を回しています"
+          }
+        ]
+      }
+    ]
+  }
+}
