@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { JOBS, ROOT, jobsFor, runJob } from './checks.mjs';
+import { JOBS, ROOT, commandOf, jobsFor, runJob } from './checks.mjs';
 
 const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 
@@ -206,6 +206,44 @@ test('only a step for another os is skipped on a developer machine', () => {
   } finally {
     delete JOBS['test-other-os'];
     delete JOBS['test-no-variable'];
+  }
+});
+
+// 1つの段は、OSごとのコマンドを持てる。コマンドのあるOSでは、CIでも飛ばさずに回す。
+test('a step with a command for each os runs on those oses', () => {
+  const quiet = { log: () => {} };
+  JOBS['test-each-os'] = { dir: '.', touchedBy: [], steps: [{ run: { [process.platform]: 'node --version', nowhere: 'never' } }] };
+  JOBS['test-no-command'] = { dir: '.', touchedBy: [], steps: [{ run: { nowhere: 'never' } }] };
+  try {
+    assert.deepEqual(runJob('test-each-os', { ...quiet, strict: true }), { failed: undefined, skipped: [] });
+    assert.equal(runJob('test-no-command', quiet).skipped.length, 1);
+    assert.equal(runJob('test-no-command', { ...quiet, strict: true }).failed.step, 'never');
+  } finally {
+    delete JOBS['test-each-os'];
+    delete JOBS['test-no-command'];
+  }
+});
+
+// The OS of each job in the CI, from the runs-on of its block in ci.yml
+function ciOses() {
+  const RUNNER = { ubuntu: 'linux', windows: 'win32', macos: 'darwin' };
+  const oses = {};
+  for (const block of read('.github/workflows/ci.yml').split(/\n(?=  [\w-]+:\n)/)) {
+    const os = RUNNER[block.match(/runs-on: (\w+)-/)?.[1]];
+    const matrix = block.match(/workspace: \[([^\]]+)\]/)?.[1].split(',').map((s) => s.trim()) ?? [];
+    const named = [...block.matchAll(/node scripts\/checks\.mjs run ([\w-]+)/g)].map((m) => m[1]);
+    for (const job of [...named, ...matrix]) oses[job] = os;
+  }
+  return oses;
+}
+
+// CIのランナーでは、どのジョブのどの段にも、そのOSのコマンドがある。CIで飛ばす段はない。
+test('every step of a job has a command on the os of its runner in the CI', () => {
+  const oses = ciOses();
+  assert.deepEqual(Object.keys(oses).sort(), Object.keys(JOBS).sort());
+  for (const [job, os] of Object.entries(oses)) {
+    assert.ok(os, `${job}: no runner`);
+    for (const step of JOBS[job].steps) assert.ok(commandOf(step, os) !== undefined, `${job} on ${os}: ${JSON.stringify(step.run)}`);
   }
 });
 

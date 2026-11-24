@@ -174,8 +174,8 @@ export const JOBS = {
     ],
     steps: [
       // generated/: the C# types of the border and the core as a library, from the Rust code
-      { os: 'win32', run: 'pwsh -NoProfile -File generate.ps1' },
-      { os: 'darwin', run: './generate.sh' },
+      // One step with a command for each OS: a step for another OS fails the job in the CI
+      { run: { win32: 'pwsh -NoProfile -File generate.ps1', darwin: './generate.sh' } },
       // Some tests of PetaBorder talk to a real journal server
       { cwd: 'journal', run: 'cargo build -p journal-server' },
       // CSharpier is a local tool of stickies-win (dotnet-tools.json)
@@ -220,9 +220,22 @@ function findMsbuild() {
   return found.stdout.split(/\r?\n/).find((l) => l.trim())?.trim();
 }
 
+// The command of a step on this OS. `run` is a command, or a command for each OS
+export function commandOf(step, platform = process.platform) {
+  if (typeof step.run !== 'string') return step.run[platform];
+  return step.os && step.os !== platform ? undefined : step.run;
+}
+
+// The name of a step in the reports
+function nameOf(step) {
+  return typeof step.run === 'string' ? step.run : Object.values(step.run).join(' | ');
+}
+
 // Why a step is for another OS, or undefined when it is for this one
 function otherOs(step) {
-  return step.os && step.os !== process.platform ? `${step.os}でしか動かない` : undefined;
+  if (commandOf(step) !== undefined) return undefined;
+  const oses = typeof step.run === 'string' ? [step.os] : Object.keys(step.run);
+  return `${oses.join('、')}でしか動かない`;
 }
 
 // Runs the steps of a job. `log` gets every line of output. Returns
@@ -237,20 +250,21 @@ export function runJob(name, { root = ROOT, strict = false, log = (s) => process
   }
   const skipped = [];
   for (const step of job.steps) {
+    const label = nameOf(step);
     const why = otherOs(step);
     if (why) {
-      if (strict) return { failed: { step: step.run, tail: why }, skipped };
-      skipped.push({ step: step.run, why });
+      if (strict) return { failed: { step: label, tail: why }, skipped };
+      skipped.push({ step: label, why });
       continue;
     }
     const cwd = join(root, step.cwd ?? job.dir);
     const unset = (step.needs ?? []).find((v) => !env[v]);
-    if (unset) return { failed: { step: step.run, tail: `環境変数${unset}がない` }, skipped };
+    if (unset) return { failed: { step: label, tail: `環境変数${unset}がない` }, skipped };
     const absent = (step.programs ?? []).find((p) => !existsSync(join(root, p)));
-    if (absent) return { failed: { step: step.run, tail: `${absent}がない` }, skipped };
-    log(`\n$ (${step.cwd ?? job.dir}) ${step.run}\n`);
+    if (absent) return { failed: { step: label, tail: `${absent}がない` }, skipped };
+    log(`\n$ (${step.cwd ?? job.dir}) ${commandOf(step)}\n`);
     // The variables are put in here, not by the shell: cmd.exe on Windows does not read `$NAME`
-    const command = step.run.replace(/\$([A-Z_]+)/g, (_, v) => env[v] ?? '');
+    const command = commandOf(step).replace(/\$([A-Z_]+)/g, (_, v) => env[v] ?? '');
     // The shell is called by hand: `shell: true` warns that the command is not escaped (DEP0190)
     const [shell, args] =
       process.platform === 'win32'
@@ -266,7 +280,7 @@ export function runJob(name, { root = ROOT, strict = false, log = (s) => process
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}${r.error ? String(r.error) : ''}`;
     log(out);
     if (r.status !== 0) {
-      return { failed: { step: step.run, tail: out.trimEnd().split('\n').slice(-40).join('\n') }, skipped };
+      return { failed: { step: label, tail: out.trimEnd().split('\n').slice(-40).join('\n') }, skipped };
     }
   }
   return { failed: undefined, skipped };
