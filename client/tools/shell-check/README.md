@@ -1,7 +1,13 @@
 # shell-check
 
 Checks by reading the sources that the shells go through the core. ADR 064 says what the
-checks are and how they are tried. They are run by hand, not in CI, while they are tried.
+checks are and how they are tried.
+
+`cargo test` runs the checks on this repository, on the machine of the developer and in CI
+(`tests/repository.rs`). It checks every shell that has rules in `rules/`. When a check finds
+something, the test fails and prints what it found.
+
+To run a check by hand:
 
 ```
 cd peta-journal/client
