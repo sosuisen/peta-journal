@@ -506,6 +506,18 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertFalse(try isBare(sticky))
     }
 
+    // フォーカスのない付箋紙を、タイトルバーのメニューで透明にすると、すぐに書かれた文字だけになる。メニューは、フォーカスを移さずに出るためである。色を戻すと、名前とツールが戻る。
+    func testAStickyWithoutTheFocusThatIsMadeTransparentShowsOnlyWhatIsWritten() async throws {
+        let sticky = desk.add()
+        desk.windowDidResignKey(Notification(name: NSWindow.didResignKeyNotification, object: sticky.window))
+
+        sticky.look.color = "#FFFFFF00"
+        XCTAssertTrue(try isBare(sticky))
+
+        sticky.look.color = "#FFF8D0"
+        XCTAssertFalse(try isBare(sticky))
+    }
+
     // 色のある付箋紙は、フォーカスがなくても、名前とツールとバレットを見せる。
     func testAStickyWithPaperWithoutTheFocusShowsItsNameAndTools() async throws {
         let sticky = desk.add()
