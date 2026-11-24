@@ -697,6 +697,28 @@ describe('a day that may have changed', () => {
 
     expect(wasm.events).toEqual([{ kind: 'DateMayHaveChanged' }]);
   });
+
+  // StrictModeで枠を描き直しても、一度だけ知らせる。枠がなくなれば、知らせない。
+  test('in StrictMode the core is told once, and without the frame not at all', () => {
+    const { core, wasm, asked } = shell();
+    const { unmount } = render(
+      <StrictMode>
+        <CoreContext value={core}>
+          <AskedOpsContext value={asked}>
+            <App />
+          </AskedOpsContext>
+        </CoreContext>
+      </StrictMode>,
+    );
+
+    fireEvent.focus(window);
+    const once = wasm.events.length;
+    unmount();
+    fireEvent.focus(window);
+    turnPage('visible');
+
+    expect([once, wasm.events.length]).toEqual([1, 1]);
+  });
 });
 
 // ページ全体のキー
