@@ -405,3 +405,13 @@ emacs -Q --batch -L lisp -L lisp/test -l lisp/test/peta-journal-e2e.el -f ert-ru
 ```
 
 On Windows, `emacs` must be the real `emacs.exe`, not an `emacsclient` wrapper.
+
+### Formatting
+
+Emacs Lisp has no formatter of its own. `format.el` indents the files as `emacs-lisp-mode` does,
+with spaces and no tabs, and removes the spaces at the end of a line. CI runs the check.
+
+```powershell
+emacs -Q --batch -l format.el -f peta-format-write   # formats the files
+emacs -Q --batch -l format.el -f peta-format-check   # changes nothing, fails on a change
+```

@@ -307,3 +307,12 @@ emacs -Q --batch -L lisp -L lisp/test -l lisp/test/peta-journal-e2e.el -f ert-ru
 ```
 
 Windowsでは、`emacs`は本物の`emacs.exe`でなければならない。`emacsclient`のラッパーは使えない。
+
+### 整形
+
+Emacs Lispには、専用のフォーマッターがない。`format.el`は、`emacs-lisp-mode`の字下げでファイルを整える。字下げは空白で行い、タブは使わない。行の終わりの空白も消す。CIは、整形されているかを確かめる。
+
+```powershell
+emacs -Q --batch -l format.el -f peta-format-write   # ファイルを整形する
+emacs -Q --batch -l format.el -f peta-format-check   # 何も変えず、整形が要れば失敗する
+```
