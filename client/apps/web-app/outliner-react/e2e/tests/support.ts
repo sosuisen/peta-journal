@@ -1,4 +1,9 @@
-import { APIRequestContext, Page, expect, test as base } from '@playwright/test';
+import {
+  APIRequestContext,
+  Page,
+  expect,
+  test as base,
+} from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { serverPort } from '../playwright.config';
 
@@ -8,7 +13,9 @@ import { serverPort } from '../playwright.config';
  */
 export const test = base.extend({
   request: async ({ playwright }, use) => {
-    const context = await playwright.request.newContext({ extraHTTPHeaders: { 'X-Client-Id': randomUUID() } });
+    const context = await playwright.request.newContext({
+      extraHTTPHeaders: { 'X-Client-Id': randomUUID() },
+    });
     await use(context);
     await context.dispose();
   },
@@ -33,7 +40,9 @@ export class Server {
   /** Creates an empty doc page with a unique title and returns its id and title. */
   async newDocPage(prefix: string): Promise<{ id: string; title: string }> {
     const title = `${prefix}-${Date.now()}`;
-    const resp = await this.request.post(`${this.base}/api/pages/doc`, { data: { title, dirPath: '' } });
+    const resp = await this.request.post(`${this.base}/api/pages/doc`, {
+      data: { title, dirPath: '' },
+    });
     expect(resp.ok()).toBe(true);
     const { page } = await resp.json();
     return { id: page.id, title };
@@ -63,12 +72,21 @@ export class Server {
     const resp = await this.request.get(`${this.base}/api/pages/${pageId}`);
     expect(resp.ok()).toBe(true);
     const { items } = await resp.json();
-    return items.map((i: StoredItem) => ({ id: i.id, level: i.level, body: i.body, types: i.types ?? [], properties: i.properties ?? {}, collapsed: !!i.collapsed }));
+    return items.map((i: StoredItem) => ({
+      id: i.id,
+      level: i.level,
+      body: i.body,
+      types: i.types ?? [],
+      properties: i.properties ?? {},
+      collapsed: !!i.collapsed,
+    }));
   }
 
   /** Makes the atlas page of a directory, which turns the page of that name into its index page. */
   async newAtlas(dirPath: string): Promise<{ id: string }> {
-    const resp = await this.request.post(`${this.base}/api/pages/doc`, { data: { title: 'index_atlas', dirPath } });
+    const resp = await this.request.post(`${this.base}/api/pages/doc`, {
+      data: { title: 'index_atlas', dirPath },
+    });
     expect(resp.ok()).toBe(true);
     return { id: (await resp.json()).page.id };
   }
@@ -96,19 +114,28 @@ export class Server {
 
   /** Changes the body of an item the way another client does. */
   async updateBody(itemId: string, body: string): Promise<void> {
-    const resp = await this.request.put(`${this.base}/api/items/${itemId}`, { data: { body } });
+    const resp = await this.request.put(`${this.base}/api/items/${itemId}`, {
+      data: { body },
+    });
     expect(resp.ok()).toBe(true);
   }
 
   /** Waits until the stored items of the page satisfy the check; the auto-save needs a moment. */
-  async itemsSettled(pageId: string, check: (items: StoredItem[]) => boolean): Promise<StoredItem[]> {
-    await expect.poll(async () => check(await this.items(pageId)), { timeout: 5_000 }).toBe(true);
+  async itemsSettled(
+    pageId: string,
+    check: (items: StoredItem[]) => boolean,
+  ): Promise<StoredItem[]> {
+    await expect
+      .poll(async () => check(await this.items(pageId)), { timeout: 5_000 })
+      .toBe(true);
     return this.items(pageId);
   }
 
   /** Turns the logical outdent on or off for the whole app; the app reads it when a page loads. */
   async setLogicalOutdent(on: boolean): Promise<void> {
-    const resp = await this.request.put(`${this.base}/api/config`, { data: { logicalOutdent: on } });
+    const resp = await this.request.put(`${this.base}/api/config`, {
+      data: { logicalOutdent: on },
+    });
     expect(resp.ok()).toBe(true);
   }
 
@@ -122,22 +149,38 @@ export class Server {
 
   /** The most recently touched journal pages, newest first. */
   async recentJournals(): Promise<Array<{ id: string; name: string }>> {
-    const resp = await this.request.get(`${this.base}/api/pages/recent?maxResults=10&type=journal`);
+    const resp = await this.request.get(
+      `${this.base}/api/pages/recent?maxResults=10&type=journal`,
+    );
     expect(resp.ok()).toBe(true);
     const { pages } = await resp.json();
-    return pages.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name }));
+    return pages.map((p: { id: string; name: string }) => ({
+      id: p.id,
+      name: p.name,
+    }));
   }
 }
 
 /** "level:body" of every stored item, the shape most assertions compare. */
-export const outlineOf = (items: StoredItem[]) => items.map(i => `${i.level}:${i.body}`);
+export const outlineOf = (items: StoredItem[]) =>
+  items.map(i => `${i.level}:${i.body}`);
 
-export const editorOf = (page: Page, itemId: string) => page.locator(`#item-editor-${itemId}`);
+export const editorOf = (page: Page, itemId: string) =>
+  page.locator(`#item-editor-${itemId}`);
 
 /** The items the outline shows, as text. */
 export async function shownBodies(page: Page): Promise<string[]> {
-  return page.locator('app-outline-item').evaluateAll(els =>
-    els.map(e => (e.querySelector('textarea')?.value ?? e.querySelector('.item-body, app-item-view')?.textContent ?? '').trim()));
+  return page
+    .locator('app-outline-item')
+    .evaluateAll(els =>
+      els.map(e =>
+        (
+          e.querySelector('textarea')?.value ??
+          e.querySelector('.item-body, app-item-view')?.textContent ??
+          ''
+        ).trim(),
+      ),
+    );
 }
 
 /** Opens a page of the app and waits for its outline. */

@@ -5,13 +5,17 @@ import { Server, openPage, test } from './support';
 function writesOf(page: Page): string[] {
   const writes: string[] = [];
   page.on('request', r => {
-    if (r.method() !== 'GET') writes.push(`${r.method()} ${new URL(r.url()).pathname}`);
+    if (r.method() !== 'GET')
+      writes.push(`${r.method()} ${new URL(r.url()).pathname}`);
   });
   return writes;
 }
 
 test.describe('deleting and demoting a page', () => {
-  test('Delete page deletes the shown page with one request and opens today', async ({ page, request }) => {
+  test('Delete page deletes the shown page with one request and opens today', async ({
+    page,
+    request,
+  }) => {
     const server = new Server(request);
     const p = await server.newDocPage('delete-page');
     await openPage(page, p.title);
@@ -28,7 +32,10 @@ test.describe('deleting and demoting a page', () => {
     expect(writes.filter(w => w.startsWith('DELETE'))).toHaveLength(1);
   });
 
-  test('the demote button deletes the atlas and renames the index page with one request', async ({ page, request }) => {
+  test('the demote button deletes the atlas and renames the index page with one request', async ({
+    page,
+    request,
+  }) => {
     const server = new Server(request);
     const p = await server.newDocPage('demote-page');
     const atlas = await server.newAtlas(`${p.title}/`);
@@ -42,6 +49,8 @@ test.describe('deleting and demoting a page', () => {
     expect(await server.hasPage(atlas.id)).toBe(false);
     expect(await server.hasPage(p.id)).toBe(true);
     expect(writes[0]).toBe(`POST /api/pages/${p.id}/demote`);
-    expect(writes.filter(w => w.startsWith('DELETE') || w.startsWith('PUT'))).toEqual([]);
+    expect(
+      writes.filter(w => w.startsWith('DELETE') || w.startsWith('PUT')),
+    ).toEqual([]);
   });
 });

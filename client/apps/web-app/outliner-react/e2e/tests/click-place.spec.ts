@@ -12,7 +12,12 @@ test.describe('a click on the shown text', () => {
   });
 
   /** Clicks on the left half of the letter `offset` letters into `word` of the shown item. */
-  async function clickBefore(page: Page, itemId: string, word: string, offset: number) {
+  async function clickBefore(
+    page: Page,
+    itemId: string,
+    word: string,
+    offset: number,
+  ) {
     const point = await page.locator(`[id="${itemId}"]`).evaluate(
       (el, [word, offset]) => {
         const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -40,19 +45,27 @@ test.describe('a click on the shown text', () => {
   }
 
   // 太字やリンクの記号は飛ばされ、カーソルは、クリックした文字のMarkdownでの位置に置かれる。
-  test('the marks of bold letters and of a link are left out', async ({ page }) => {
+  test('the marks of bold letters and of a link are left out', async ({
+    page,
+  }) => {
     const doc = await server.newDocPage('click-place-marks');
-    const [item] = await server.fill(doc.id, ['**bold** and [link](https://x.example/a) end']);
+    const [item] = await server.fill(doc.id, [
+      '**bold** and [link](https://x.example/a) end',
+    ]);
     await openPage(page, doc.title);
 
     // A click on the link itself follows it: the click is after it
     await clickBefore(page, item.id, 'end', 1);
 
-    expect(await cursorOf(page, item.id)).toBe('**bold** and [link](https://x.example/a) e'.length);
+    expect(await cursorOf(page, item.id)).toBe(
+      '**bold** and [link](https://x.example/a) e'.length,
+    );
   });
 
   // リストの項目では、ページの上のタグの間の改行や印は飛ばされる。
-  test('a click in an entry of a list leaves out what the page adds', async ({ page }) => {
+  test('a click in an entry of a list leaves out what the page adds', async ({
+    page,
+  }) => {
     const doc = await server.newDocPage('click-place-list');
     const [item] = await server.fill(doc.id, ['- first\n- second']);
     await openPage(page, doc.title);

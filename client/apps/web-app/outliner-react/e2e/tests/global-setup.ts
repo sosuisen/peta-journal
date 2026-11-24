@@ -12,14 +12,16 @@ import { dataDir, serverPort } from '../playwright.config';
 export default async function globalSetup(): Promise<void> {
   const resp = await fetch(`http://localhost:${serverPort}/api/config`);
   if (!resp.ok) {
-    throw new Error(`GET /api/config on the test server failed: ${resp.status}`);
+    throw new Error(
+      `GET /api/config on the test server failed: ${resp.status}`,
+    );
   }
   const { markdownDir } = (await resp.json()) as { markdownDir?: string };
   const root = resolve(dataDir) + sep;
   if (!markdownDir || !(resolve(markdownDir) + sep).startsWith(root)) {
     throw new Error(
-      `The test server's markdown dir is "${markdownDir}", which is not inside the test data dir "${dataDir}". `
-      + 'Refusing to run: the tests would write into a real markdown folder.',
+      `The test server's markdown dir is "${markdownDir}", which is not inside the test data dir "${dataDir}". ` +
+        'Refusing to run: the tests would write into a real markdown folder.',
     );
   }
 }

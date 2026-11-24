@@ -1,6 +1,14 @@
 import { expect } from '@playwright/test';
 import { serverPort } from '../playwright.config';
-import { Server, StoredItem, editorOf, openEditor, openPage, outlineOf, test } from './support';
+import {
+  Server,
+  StoredItem,
+  editorOf,
+  openEditor,
+  openPage,
+  outlineOf,
+  test,
+} from './support';
 
 // An item another page transcludes is deleted only after the user says OK in a dialog whose
 // Cancel has the focus, so Enter alone keeps the item.
@@ -26,12 +34,16 @@ test.describe('deleting a transcluded item', () => {
 
   async function selectFirstAndDelete(page: import('@playwright/test').Page) {
     await openEditor(page, items[0].id);
-    await page.keyboard.press('Shift+ArrowDown');  // leaves the editor: the item is selected
-    await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(1);
+    await page.keyboard.press('Shift+ArrowDown'); // leaves the editor: the item is selected
+    await expect(
+      page.locator('app-outline-item .outline-item.selected'),
+    ).toHaveCount(1);
     await page.keyboard.press('Delete');
   }
 
-  test('the dialog asks first, and Enter on its focused Cancel keeps the item and the selection', async ({ page }) => {
+  test('the dialog asks first, and Enter on its focused Cancel keeps the item and the selection', async ({
+    page,
+  }) => {
     await selectFirstAndDelete(page);
 
     const dialog = page.locator('.confirm-dialog');
@@ -42,36 +54,59 @@ test.describe('deleting a transcluded item', () => {
     await page.keyboard.press('Enter');
 
     await expect(dialog).toBeHidden();
-    await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(1);
-    expect(outlineOf(await server.items(pageId))).toEqual(['1:shown elsewhere', '1:plain']);
+    await expect(
+      page.locator('app-outline-item .outline-item.selected'),
+    ).toHaveCount(1);
+    expect(outlineOf(await server.items(pageId))).toEqual([
+      '1:shown elsewhere',
+      '1:plain',
+    ]);
   });
 
-  test('Escape closes the dialog and keeps the item and the selection', async ({ page }) => {
+  test('Escape closes the dialog and keeps the item and the selection', async ({
+    page,
+  }) => {
     await selectFirstAndDelete(page);
     await expect(page.locator('.confirm-dialog')).toBeVisible();
 
     await page.keyboard.press('Escape');
 
     await expect(page.locator('.confirm-dialog')).toBeHidden();
-    await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(1);
-    expect(outlineOf(await server.items(pageId))).toEqual(['1:shown elsewhere', '1:plain']);
+    await expect(
+      page.locator('app-outline-item .outline-item.selected'),
+    ).toHaveCount(1);
+    expect(outlineOf(await server.items(pageId))).toEqual([
+      '1:shown elsewhere',
+      '1:plain',
+    ]);
   });
 
   test('OK deletes the item', async ({ page }) => {
     await selectFirstAndDelete(page);
 
-    await page.locator('.confirm-dialog').getByRole('button', { name: 'OK' }).click();
+    await page
+      .locator('.confirm-dialog')
+      .getByRole('button', { name: 'OK' })
+      .click();
 
-    expect(outlineOf(await server.itemsSettled(pageId, i => i.length === 1))).toEqual(['1:plain']);
+    expect(
+      outlineOf(await server.itemsSettled(pageId, i => i.length === 1)),
+    ).toEqual(['1:plain']);
   });
 
-  test('an item nothing transcludes is deleted without a dialog', async ({ page }) => {
+  test('an item nothing transcludes is deleted without a dialog', async ({
+    page,
+  }) => {
     await openEditor(page, items[1].id);
-    await page.keyboard.press('Shift+ArrowDown');  // leaves the editor: the item is selected
-    await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(1);
+    await page.keyboard.press('Shift+ArrowDown'); // leaves the editor: the item is selected
+    await expect(
+      page.locator('app-outline-item .outline-item.selected'),
+    ).toHaveCount(1);
     await page.keyboard.press('Delete');
 
-    expect(outlineOf(await server.itemsSettled(pageId, i => i.length === 1))).toEqual(['1:shown elsewhere']);
+    expect(
+      outlineOf(await server.itemsSettled(pageId, i => i.length === 1)),
+    ).toEqual(['1:shown elsewhere']);
     await expect(page.locator('.confirm-dialog')).toHaveCount(0);
   });
 });
@@ -98,34 +133,51 @@ test.describe('joining a transcluded item in the editor', () => {
     await openPage(page, source.title);
   });
 
-  test('Backspace at the start of A2 asks first, and Cancel keeps A2 with the cursor at its start', async ({ page }) => {
+  test('Backspace at the start of A2 asks first, and Cancel keeps A2 with the cursor at its start', async ({
+    page,
+  }) => {
     await openEditor(page, items[1].id);
     await page.keyboard.press('Home');
     await page.keyboard.press('Backspace');
 
     const dialog = page.locator('.confirm-dialog');
     await expect(dialog).toBeVisible();
-    await page.keyboard.press('Enter');  // Cancel has the focus
+    await page.keyboard.press('Enter'); // Cancel has the focus
 
     await expect(dialog).toBeHidden();
     const editor = editorOf(page, items[1].id);
     await expect(editor).toBeFocused();
-    expect(await editor.evaluate((el: HTMLTextAreaElement) => el.selectionStart)).toBe(0);
-    expect(outlineOf(await server.items(pageId))).toEqual(['1:one', '1:two', '1:three']);
+    expect(
+      await editor.evaluate((el: HTMLTextAreaElement) => el.selectionStart),
+    ).toBe(0);
+    expect(outlineOf(await server.items(pageId))).toEqual([
+      '1:one',
+      '1:two',
+      '1:three',
+    ]);
   });
 
-  test('Backspace at the start of A2 joins it into A1 after OK', async ({ page }) => {
+  test('Backspace at the start of A2 joins it into A1 after OK', async ({
+    page,
+  }) => {
     await openEditor(page, items[1].id);
     await page.keyboard.press('Home');
     await page.keyboard.press('Backspace');
 
-    await page.locator('.confirm-dialog').getByRole('button', { name: 'OK' }).click();
+    await page
+      .locator('.confirm-dialog')
+      .getByRole('button', { name: 'OK' })
+      .click();
 
-    expect(outlineOf(await server.itemsSettled(pageId, i => i.length === 2))).toEqual(['1:onetwo', '1:three']);
+    expect(
+      outlineOf(await server.itemsSettled(pageId, i => i.length === 2)),
+    ).toEqual(['1:onetwo', '1:three']);
     await expect(editorOf(page, items[0].id)).toBeFocused();
   });
 
-  test('Delete at the end of A1 asks first, and Escape keeps A2 with the cursor at the end of A1', async ({ page }) => {
+  test('Delete at the end of A1 asks first, and Escape keeps A2 with the cursor at the end of A1', async ({
+    page,
+  }) => {
     await openEditor(page, items[0].id);
     await page.keyboard.press('End');
     await page.keyboard.press('Delete');
@@ -136,8 +188,14 @@ test.describe('joining a transcluded item in the editor', () => {
     await expect(page.locator('.confirm-dialog')).toBeHidden();
     const editor = editorOf(page, items[0].id);
     await expect(editor).toBeFocused();
-    expect(await editor.evaluate((el: HTMLTextAreaElement) => el.selectionStart)).toBe(3);
-    expect(outlineOf(await server.items(pageId))).toEqual(['1:one', '1:two', '1:three']);
+    expect(
+      await editor.evaluate((el: HTMLTextAreaElement) => el.selectionStart),
+    ).toBe(3);
+    expect(outlineOf(await server.items(pageId))).toEqual([
+      '1:one',
+      '1:two',
+      '1:three',
+    ]);
   });
 });
 
@@ -167,15 +225,24 @@ test.describe('deleting a selected transclusion', () => {
   });
 
   for (const key of ['Delete', 'Backspace', 'Control+x']) {
-    test(`${key} deletes the transclusion and keeps its source`, async ({ page }) => {
+    test(`${key} deletes the transclusion and keeps its source`, async ({
+      page,
+    }) => {
       await openEditor(page, host[0].id);
-      await page.keyboard.press('Shift+ArrowDown');  // leaves the editor: "before" is selected
-      await page.keyboard.press('Shift+ArrowDown');  // B and what it shows join the selection
-      await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(3);
+      await page.keyboard.press('Shift+ArrowDown'); // leaves the editor: "before" is selected
+      await page.keyboard.press('Shift+ArrowDown'); // B and what it shows join the selection
+      await expect(
+        page.locator('app-outline-item .outline-item.selected'),
+      ).toHaveCount(3);
       await page.keyboard.press(key);
 
-      expect(outlineOf(await server.itemsSettled(hostId, i => i.length === 1))).toEqual(['1:after']);
-      expect(outlineOf(await server.items(sourceId))).toEqual(['1:source', '2:child']);
+      expect(
+        outlineOf(await server.itemsSettled(hostId, i => i.length === 1)),
+      ).toEqual(['1:after']);
+      expect(outlineOf(await server.items(sourceId))).toEqual([
+        '1:source',
+        '2:child',
+      ]);
       await expect(page.locator('.confirm-dialog')).toHaveCount(0);
     });
   }

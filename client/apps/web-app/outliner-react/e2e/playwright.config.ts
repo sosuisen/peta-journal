@@ -29,7 +29,10 @@ function writeConfig(): void {
   const configDir = join(dataDir, 'config');
   mkdirSync(configDir, { recursive: true });
   mkdirSync(join(markdownDir, 'docs'), { recursive: true });
-  writeFileSync(join(configDir, 'config.json'), JSON.stringify({ weekNumbering: 'iso' }));
+  writeFileSync(
+    join(configDir, 'config.json'),
+    JSON.stringify({ weekNumbering: 'iso' }),
+  );
   writeAutoTemplate(join(configDir, 'functions', 'auto-template'));
 }
 
@@ -42,13 +45,28 @@ export const templateTag = 'template-tag';
  * Not the sample template.md: its weekday templates would fill the journal pages of other tests.
  */
 function writeAutoTemplate(dir: string): void {
-  const source = resolve(__dirname, '../../../../../ext-functions/auto-template');
+  const source = resolve(
+    __dirname,
+    '../../../../../ext-functions/auto-template',
+  );
   mkdirSync(dir, { recursive: true });
-  for (const file of ['config.json', 'main.js']) copyFileSync(join(source, file), join(dir, file));
-  writeFileSync(join(dir, 'e2e.md'), [
-    '---', `pattern: /^${templatePagePrefix}/`, '---', 'from page template', '',
-    '---', `tag: ${templateTag}`, '---', 'from tag template', '',
-  ].join('\n'));
+  for (const file of ['config.json', 'main.js'])
+    copyFileSync(join(source, file), join(dir, file));
+  writeFileSync(
+    join(dir, 'e2e.md'),
+    [
+      '---',
+      `pattern: /^${templatePagePrefix}/`,
+      '---',
+      'from page template',
+      '',
+      '---',
+      `tag: ${templateTag}`,
+      '---',
+      'from tag template',
+      '',
+    ].join('\n'),
+  );
 }
 
 /**
@@ -72,16 +90,23 @@ function serverBuildCommand(): string {
 
 function serverCommand(): string {
   writeConfig();
-  const binary = join(serverDir, 'target/release/journal-server'
-    + (process.platform === 'win32' ? '.exe' : ''));
+  const binary = join(
+    serverDir,
+    'target/release/journal-server' +
+      (process.platform === 'win32' ? '.exe' : ''),
+  );
   return [
-    JSON.stringify(binary), '--port', String(serverPort),
+    JSON.stringify(binary),
+    '--port',
+    String(serverPort),
     // Everything the server writes is under this folder. Started with `--data-dir` alone, a
     // test server read `~/.peta-journal/config.json` and exported the test pages into the
     // user's real markdown folder, which the user's own server then imported. That overwrote
     // real journal pages once (see ADR 002)
-    '--throwaway-dir', JSON.stringify(dataDir),
-    '--frontend-dir', JSON.stringify(frontendDir),
+    '--throwaway-dir',
+    JSON.stringify(dataDir),
+    '--frontend-dir',
+    JSON.stringify(frontendDir),
   ].join(' ');
 }
 

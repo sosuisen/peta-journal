@@ -1,11 +1,11 @@
 {
-    "name": "outliner-react-e2e",
-    "version": "0.0.0",
-    "private": true,
-    "scripts": {
-        "e2e": "playwright test"
-    },
-    "devDependencies": {
-        "@playwright/test": "^1.56.1"
-    }
+  "name": "outliner-react-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
 }

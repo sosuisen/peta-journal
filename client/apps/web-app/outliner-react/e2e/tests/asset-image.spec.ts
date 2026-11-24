@@ -2,13 +2,20 @@ import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { serverPort } from '../playwright.config';
 import { Server, openPage, test } from './support';
 
-const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+const PNG_1X1 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 const base = `http://localhost:${serverPort}`;
 
 /** Puts a small PNG into the assets folder and returns the name the server gave it. */
 async function uploadImage(request: APIRequestContext): Promise<string> {
   const resp = await request.post(`${base}/api/assets/upload`, {
-    multipart: { file: { name: 'pic.png', mimeType: 'image/png', buffer: Buffer.from(PNG_1X1, 'base64') } },
+    multipart: {
+      file: {
+        name: 'pic.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from(PNG_1X1, 'base64'),
+      },
+    },
   });
   expect(resp.ok()).toBe(true);
   const { fileName } = await resp.json();
@@ -16,9 +23,14 @@ async function uploadImage(request: APIRequestContext): Promise<string> {
 }
 
 /** Creates a doc page in `dirPath` and returns its id and the name its URL holds. */
-async function newPageIn(request: APIRequestContext, dirPath: string): Promise<{ id: string; name: string }> {
+async function newPageIn(
+  request: APIRequestContext,
+  dirPath: string,
+): Promise<{ id: string; name: string }> {
   const title = `asset-image-${Date.now()}`;
-  const resp = await request.post(`${base}/api/pages/doc`, { data: { title, dirPath } });
+  const resp = await request.post(`${base}/api/pages/doc`, {
+    data: { title, dirPath },
+  });
   expect(resp.ok()).toBe(true);
   const { page } = await resp.json();
   return { id: page.id, name: `${dirPath}${title}` };
@@ -28,7 +40,11 @@ async function newPageIn(request: APIRequestContext, dirPath: string): Promise<{
 async function loadedWidth(page: Page): Promise<number> {
   const image = page.locator('app-outline-item img').first();
   await image.waitFor();
-  return image.evaluate(el => (el as HTMLImageElement).complete ? (el as HTMLImageElement).naturalWidth : -1);
+  return image.evaluate(el =>
+    (el as HTMLImageElement).complete
+      ? (el as HTMLImageElement).naturalWidth
+      : -1,
+  );
 }
 
 test.describe('an image of the assets folder', () => {

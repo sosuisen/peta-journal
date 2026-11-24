@@ -26,13 +26,22 @@ async function metrics(cdp: CDPSession): Promise<Metrics> {
 }
 
 /** The busy time of the main thread, in ms, while `act` runs and `waitMs` passes. */
-async function busy(page: Page, cdp: CDPSession, act: () => Promise<void>, waitMs: number) {
+async function busy(
+  page: Page,
+  cdp: CDPSession,
+  act: () => Promise<void>,
+  waitMs: number,
+) {
   const before = await metrics(cdp);
   await act();
   await page.waitForTimeout(waitMs);
   const after = await metrics(cdp);
   const ms = (name: string) => (after[name] - before[name]) * 1000;
-  return { task: ms('TaskDuration'), script: ms('ScriptDuration'), layout: ms('LayoutDuration') + ms('RecalcStyleDuration') };
+  return {
+    task: ms('TaskDuration'),
+    script: ms('ScriptDuration'),
+    layout: ms('LayoutDuration') + ms('RecalcStyleDuration'),
+  };
 }
 
 function median(values: number[]): number {
@@ -40,9 +49,16 @@ function median(values: number[]): number {
   return sorted[Math.floor(sorted.length / 2)];
 }
 
-function report(what: string, length: number, runs: Array<{ task: number; script: number; layout: number }>) {
-  const m = (key: 'task' | 'script' | 'layout') => median(runs.map(r => r[key])).toFixed(2);
-  console.log(`${what.padEnd(7)} ${String(length).padStart(5)} items: busy ${m('task')}ms (script ${m('script')}ms, style and layout ${m('layout')}ms)`);
+function report(
+  what: string,
+  length: number,
+  runs: Array<{ task: number; script: number; layout: number }>,
+) {
+  const m = (key: 'task' | 'script' | 'layout') =>
+    median(runs.map(r => r[key])).toFixed(2);
+  console.log(
+    `${what.padEnd(7)} ${String(length).padStart(5)} items: busy ${m('task')}ms (script ${m('script')}ms, style and layout ${m('layout')}ms)`,
+  );
 }
 
 test.describe('timing', () => {
@@ -50,20 +66,28 @@ test.describe('timing', () => {
   test.setTimeout(600_000);
 
   // 文字を打つときと、行が変わるときに、ブラウザが働く時間を、項目の数ごとに表示する。
-  test('a key and a change of the rows on pages of every length', async ({ page, request }) => {
+  test('a key and a change of the rows on pages of every length', async ({
+    page,
+    request,
+  }) => {
     const server = new Server(request);
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Performance.enable');
     for (const length of lengths) {
       const { id, title } = await server.newDocPage(`timing-${length}`);
-      const lines = Array.from({ length }, (_, n) => '  '.repeat(n % 3) + `item ${n}`);
+      const lines = Array.from(
+        { length },
+        (_, n) => '  '.repeat(n % 3) + `item ${n}`,
+      );
       const items = await server.fill(id, lines);
       await openPage(page, title);
 
       await openEditor(page, items[0].id);
       const typed = [];
       for (let n = 0; n < keys; n++) {
-        typed.push(await busy(page, cdp, () => page.keyboard.press('x'), typedWaitMs));
+        typed.push(
+          await busy(page, cdp, () => page.keyboard.press('x'), typedWaitMs),
+        );
       }
       report('type', length, typed);
 
@@ -74,7 +98,9 @@ test.describe('timing', () => {
       const moved = [];
       for (let n = 0; n < keys; n++) {
         const key = n % 2 === 0 ? 'Shift+Tab' : 'Tab';
-        moved.push(await busy(page, cdp, () => page.keyboard.press(key), movedWaitMs));
+        moved.push(
+          await busy(page, cdp, () => page.keyboard.press(key), movedWaitMs),
+        );
       }
       await editorOf(page, items[1].id).waitFor();
       report('indent', length, moved);
