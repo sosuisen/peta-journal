@@ -105,20 +105,16 @@ fn reload_for_another_client(model: &mut Model, page_id: &str) -> Cmd {
     }
 }
 
-/// The stream is back after it broke. A page that could not be loaded, as when the server was
-/// not up yet, is opened again (#756).
+/// The stream is back after it broke: what changed meanwhile was told to no one, so the shown
+/// page is read again. A page that could not be loaded, as when the server was not up yet, is
+/// opened again (#756).
 fn load_shown_page_again(model: &mut Model) -> Cmd {
-    match &model.screen {
-        Screen::Page(p) if p.page.is_none() => {
-            let (name, fragment) = (p.page_name.clone(), p.focus_item_id.clone());
-            route::open(model, &name, fragment)
-        }
-        Screen::Journal(j) if j.page.is_none() => {
-            let (name, fragment) = (j.page_name.clone(), j.focus_item_id.clone());
-            route::open(model, &name, fragment)
-        }
-        _ => file_reload::reload_shown_page(model),
-    }
+    let (name, fragment) = match &model.screen {
+        Screen::Page(p) if p.page.is_none() => (p.page_name.clone(), p.focus_item_id.clone()),
+        Screen::Journal(j) if j.page.is_none() => (j.page_name.clone(), j.focus_item_id.clone()),
+        _ => return file_reload::reload_shown_page(model),
+    };
+    route::open(model, &name, fragment)
 }
 
 /// Tries again until the stream opens: the server may start long after the shell (#756).
