@@ -75,6 +75,9 @@ pub enum Inbound {
     DemoteIndex,
     /// Deletes the page on screen. The core asks first.
     DeletePage,
+    /// The day may have changed while the core could not look at the clock, as when Emacs
+    /// comes back to the front after the PC slept (#1031).
+    DayMayHaveChanged,
     SetProperty {
         key: String,
         value: String,
