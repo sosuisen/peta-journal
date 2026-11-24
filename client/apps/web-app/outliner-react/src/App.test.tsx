@@ -656,6 +656,31 @@ describe('the backlinks', () => {
   });
 });
 
+/** The page is shown or hidden, as the browser tells when a tab or the PC comes back. */
+function turnPage(state: DocumentVisibilityState) {
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    get: () => state,
+  });
+  fireEvent(document, new Event('visibilitychange'));
+}
+
+// 日付の変わり目
+describe('a day that may have changed', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(document, 'visibilityState');
+  });
+
+  // ページがまた見えるようになると、日付が変わったかもしれないとコアに知らせる。スリープから戻ったときなどである。
+  test('the page shown again tells the core that the day may have changed', () => {
+    const { wasm } = app();
+
+    turnPage('visible');
+
+    expect(wasm.events).toEqual([{ kind: 'DateMayHaveChanged' }]);
+  });
+});
+
 // ページ全体のキー
 describe('the keys of the whole page', () => {
   // Ctrl+Alt+Enterは、ホームを開く。編集欄には届かない。
