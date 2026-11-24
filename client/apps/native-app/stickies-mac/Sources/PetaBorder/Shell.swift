@@ -154,6 +154,12 @@ public final class Shell: ObservableObject {
         send(.editRequested(itemId: itemId, place: .shownLetter(UInt64(letter))))
     }
 
+    /// The user clicked something in the sticky that is no item, such as the title bar or a
+    /// button. The core ends a selection, unless the items are being selected by a drag.
+    public func clickedOutsideItems() {
+        send(.selectionClickOutside)
+    }
+
     /// The user put the cursor in the item, `cursor` characters into its Markdown. The core
     /// ends the edit of another item and a selection (ADR 057).
     public func startEditing(_ itemId: String, at cursor: Int = 0) {
