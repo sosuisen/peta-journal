@@ -1,6 +1,7 @@
 using Microsoft.UI.Windowing;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 using PetaBorder;
+using Windows.Graphics;
 using Windows.System;
 
 namespace PetaScreens.Tests;
@@ -47,8 +48,13 @@ public sealed class StickyDeskTests
         await using var screen = await Screen.Open(Port);
         Screen.Press(VirtualKey.N, Held.Control);
         await Screen.Until("a second sticky is open", () => screen.Desk.Stickies.Count == 2);
-        screen.Window.AppWindow.Move(new(200, 200));
-        screen.Desk.Stickies[1].AppWindow.Move(new(700, 400));
+        // At the top of the screen: below it, a small screen too has room for the step down
+        var work = DisplayArea
+            .GetFromWindowId(screen.Window.AppWindow.Id, DisplayAreaFallback.Nearest)
+            .WorkArea;
+        var first = new PointInt32(work.X + 200, work.Y);
+        screen.Window.AppWindow.Move(first);
+        screen.Desk.Stickies[1].AppWindow.Move(new(work.X + 700, work.Y + 200));
         await Task.Delay(100);
         screen.ToFront();
 
@@ -56,8 +62,8 @@ public sealed class StickyDeskTests
 
         await Screen.Until("a third sticky is open", () => screen.Desk.Stickies.Count == 3);
         var corner = screen.Desk.Stickies[2].AppWindow.Position;
-        Assert.AreEqual(corner.X - 200, corner.Y - 200);
-        Assert.IsInRange(1, 100, corner.X - 200);
+        Assert.AreEqual(corner.X - first.X, corner.Y - first.Y);
+        Assert.IsInRange(1, 100, corner.X - first.X);
     }
 
     // スクリーンの右下の隅で足した付箋紙は、はみ出さず、全体がスクリーンに収まる位置まで戻る。
