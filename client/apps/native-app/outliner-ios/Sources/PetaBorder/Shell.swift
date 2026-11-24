@@ -11,10 +11,11 @@ public final class Shell: ObservableObject {
     @Published public private(set) var view: ViewModel
     /// True while files are taken in. The pages of an earlier sync can be read meanwhile.
     @Published public private(set) var syncing = false
-    /// The page that a link named and that is not there, until another page opens.
-    @Published public private(set) var missing: String?
     /// The file that a link named and that is not here, until the next link is touched.
     @Published public private(set) var missingFile: String?
+    /// The file of the assets folder that a link opened, shown over the screen until the user
+    /// closes it.
+    @Published public var file: URL?
     /// What the core asks the user before it does what is hard to undo, or nil.
     @Published public private(set) var question: Question?
     /// True when `restore` opened no screen and was not to make the journal of today. A new
@@ -25,15 +26,20 @@ public final class Shell: ObservableObject {
     private let border: Border
     /// Puts text on the clipboard of the system.
     private let copy: (String) -> Void
+    /// Opens an address in the browser of the system.
+    private let browse: (URL) -> Void
     /// Takes in the files, one sync after the other, and closes the core after the last.
     private let worker = DispatchQueue(label: "peta-journal.take-in")
     private var closed = false
 
     /// Opens the journal of the app. `dataDir` keeps its database, its index and its settings,
     /// and `markdownDir` is the folder the files from Dropbox are put in. The core tells the
-    /// sync when a page changed (ADR 055). `copy` puts text on the clipboard of the system.
-    /// Throws when the journal cannot be opened.
-    public init(dataDir: URL, markdownDir: URL, copy: @escaping (String) -> Void = { _ in }) throws {
+    /// sync when a page changed (ADR 055). `copy` puts text on the clipboard of the system, and
+    /// `browse` opens an address in its browser. Throws when the journal cannot be opened.
+    public init(
+        dataDir: URL, markdownDir: URL, copy: @escaping (String) -> Void = { _ in },
+        browse: @escaping (URL) -> Void = { _ in }
+    ) throws {
         let inbox = Inbox()
         // The main queue keeps the requests in order. The first ones may come before the shell
         // is there, and are still handled after this initializer
@@ -44,22 +50,18 @@ public final class Shell: ObservableObject {
         }
         self.border = border
         self.copy = copy
+        self.browse = browse
         view = ViewModel(first: Shell.must { try border.changes() })
         inbox.shell = self
     }
 
     // MARK: - Opening
 
-    /// The user touched a link to a page. `url` is the URL of the page, such as
-    /// `/pages/notes`. A link to a page that is not there opens nothing, and `missing` names
-    /// the page: a touch by mistake must not put an empty page into Dropbox (ADR 031).
-    public func follow(_ url: String) {
-        told { $0.follow(url: url) }
-    }
-
-    /// The user wants the page that `missing` names: it is made and opens.
-    public func make() {
-        told { $0.make() }
+    /// The user touched a link of a shown item. The core decides how it opens (ADR 083). A
+    /// touch holds no keys, so a page opens here, and is made when it is not there, as in the
+    /// other shells.
+    public func follow(_ link: RichLink) {
+        send(.linkClicked(link: link, held: Held(shift: false, ctrl: false, cmd: false)))
     }
 
     /// The user wants the journal of today: it is made when it is not there, and opens.
@@ -97,7 +99,6 @@ public final class Shell: ObservableObject {
         // A field that loses the focus while the screen is taken down still tells of it
         if closed { return }
         let screen = asking(core)
-        missing = screen.missing
         missingFile = screen.missingFile
         unopened = screen.unopened
         show()
@@ -269,13 +270,16 @@ public final class Shell: ObservableObject {
         core.image(path: path).map { URL(fileURLWithPath: $0) }
     }
 
-    /// The user touched a link to a file of the assets folder. `path` is its path under the
-    /// Markdown folder. Answers with the file to open, or `nil` when it is not here: then
-    /// `missingFile` names it.
-    public func attached(_ path: String) -> URL? {
-        let file = core.attached(path: path).map { URL(fileURLWithPath: $0) }
-        missingFile = core.screen().missingFile
-        return file
+    /// The core ordered the browser to open `address` (ADR 083). An address of the journal
+    /// server, which starts with `/`, is a file of the assets folder: the app has no server,
+    /// so the file opens in the app. When it is not here, `missingFile` names it.
+    private func open(_ address: String) {
+        if address.hasPrefix("/") {
+            file = core.fileAt(address: address).map { URL(fileURLWithPath: $0) }
+            missingFile = core.screen().missingFile
+        } else if let url = URL(string: address) {
+            browse(url)
+        }
     }
 
     // MARK: - Questions
@@ -406,10 +410,13 @@ public final class Shell: ObservableObject {
             put(Question(text: text, destructive: false, id: id, waits: false))
         case .copyMarkdown(let markdown, _):
             copy(markdown)
+        case .openInBrowser(let address):
+            open(address)
         case .prompt, .readClipboardText:
             Shell.must { try border.answer(id, with: .text(nil)) }
         default:
-            // The others wait for no answer, such as the title to set and the item to scroll to
+            // The others wait for no answer, such as the title to set and the item to scroll to.
+            // A new view is never asked for: a touch holds no keys (ADR 083)
             break
         }
     }

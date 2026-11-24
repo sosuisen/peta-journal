@@ -1,5 +1,6 @@
 import PetaBorder
 import PetaDropbox
+import PetaTypes
 import SwiftUI
 
 @main
@@ -68,7 +69,7 @@ private final class Opened: ObservableObject {
         // The take-in of the start runs first, on the same thread
         let shell = model.shell
         shell.sync {
-            DispatchQueue.main.async { MainActor.assumeIsolated { shell.follow(url) } }
+            DispatchQueue.main.async { MainActor.assumeIsolated { shell.follow(.page(url: url)) } }
         }
     }
 }

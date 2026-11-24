@@ -379,18 +379,14 @@ final class JournalScreenTests: XCTestCase {
         XCTAssertFalse(app.buttons["Forward"].isEnabled)
     }
 
-    // まだないページへのリンクは、そう知らせるだけでページを作らず、ボタンで作る。
-    func testALinkToAPageThatIsNotThereSaysSoAndTheButtonMakesIt() throws {
+    // まだないページへのリンクに触れると、ほかのシェルと同じく、そのページができて開く（ADR 083）。
+    func testALinkToAPageThatIsNotThereMakesThePageAndOpensIt() throws {
         try download("notes.md", "[[nowhere]]\n")
         openNotes()
         let link = app.links["nowhere"]
         waitFor(link)
         link.tap()
-        waitFor(app.staticTexts["No page yet: nowhere"])
-        // The page that holds the link is still open
-        XCTAssertTrue(app.staticTexts["notes"].exists)
-        app.buttons["Make it"].tap()
-        waitUntil("the new page is open") { !app.staticTexts["notes"].exists && !app.buttons["Make it"].exists }
+        waitUntil("the new page is open") { !app.staticTexts["notes"].exists }
         waitFor(app.staticTexts["nowhere"])
     }
 

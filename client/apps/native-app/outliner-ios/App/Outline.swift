@@ -29,7 +29,6 @@ struct Outline: View {
     @ObservedObject var shell: Shell
     /// What the keyboard and the tools cover at the bottom of the page.
     let covered: CGFloat
-    let onFile: (URL) -> Void
 
     var body: some View {
         let view = shell.view
@@ -39,7 +38,7 @@ struct Outline: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     Text(title(view)).font(.title2).padding(.vertical, 8)
                     ForEach(view.outline.rows, id: \.item.id) { row in
-                        OutlineRow(row: row, shell: shell, onFile: onFile)
+                        OutlineRow(row: row, shell: shell)
                             .id(row.item.id)
                     }
                 }
@@ -82,7 +81,6 @@ struct Outline: View {
 struct OutlineRow: View {
     let row: Row
     let shell: Shell
-    let onFile: (URL) -> Void
     /// Where the texts of the item stand, for a touch to find its letter.
     @State private var targets: [LetterTarget] = []
     /// Where the images of the item stand, for a touch to open one large.
@@ -148,7 +146,7 @@ struct OutlineRow: View {
                         .accessibilityLabel("Empty item")
                         .accessibilityAddTraits(.isButton)
                 } else {
-                    Blocks(blocks: blocks, links: Links(shell: shell, onFile: onFile), image: shell.image)
+                    Blocks(blocks: blocks, links: Links(shell: shell), image: shell.image)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .coordinateSpace(name: Touches.space)
                         .onPreferenceChange(LetterTargets.self) { targets = $0 }
@@ -221,15 +219,10 @@ private struct TaskMark: View {
 /// Where the links of an item lead.
 struct Links {
     let shell: Shell
-    let onFile: (URL) -> Void
 
-    /// The user touched a link of the text, where the core says it leads.
+    /// The user touched a link of the text. The core decides how it opens (ADR 083).
     @MainActor
     func open(_ link: RichLink) {
-        switch link {
-        case .web(let address): if let url = URL(string: address) { UIApplication.shared.open(url) }
-        case .page(let url): shell.follow(url)
-        case .file(let path): if let file = shell.attached(path) { onFile(file) }
-        }
+        shell.follow(link)
     }
 }
