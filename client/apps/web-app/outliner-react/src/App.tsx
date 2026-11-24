@@ -1,9 +1,10 @@
-import { Suspense, useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useAsked } from './askedContext';
 import Atlas from './Atlas';
 import type { JournalView, PageView } from './border/peta-types';
 import Calendar from './Calendar';
 import { useCore, usePanel } from './context';
+import Frame from './Frame';
 import Outline from './Outline';
 import PageProperties, { type Draft } from './PageProperties';
 import SearchBar from './SearchBar';
@@ -24,46 +25,47 @@ export default function App() {
     <app-main-layout>
       <Icons />
       <div className={sidebarCollapsed ? 'layout sidebar-collapsed' : 'layout'}>
-        <Suspense fallback={<header className="header" />}>
-          <Header
-            toggleSidebar={() => setSidebarCollapsed(collapsed => !collapsed)}
-          />
-        </Suspense>
+        <header className="header">
+          <Frame>
+            <Header
+              toggleSidebar={() => setSidebarCollapsed(collapsed => !collapsed)}
+            />
+          </Frame>
+        </header>
         <div className="body">
           <aside
             className={sidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}
             style={{ width: sidebarCollapsed ? '0px' : `${sidebarWidth}px` }}
           >
-            <Suspense>
+            <Frame>
               <Sidebar />
-            </Suspense>
+            </Frame>
           </aside>
           {!sidebarCollapsed && (
             <div className="resize-handle" onMouseDown={startResize} />
           )}
           <main className="content">
-            <Suspense>
+            <Frame>
               <PageDispatcher />
-            </Suspense>
+            </Frame>
           </main>
         </div>
         <footer className="footer">
-          <Suspense fallback={<Connection kind={undefined} />}>
+          <Frame fallback={<Connection kind={undefined} />}>
             <Status />
-          </Suspense>
+            <Start />
+          </Frame>
         </footer>
       </div>
       <ConfirmDialog />
-      <Suspense>
-        <Start />
-      </Suspense>
     </app-main-layout>
   );
 }
 
 /**
- * Starts the core, and listens to the page. Last in the app: its effect runs after those of
- * the frames, so that the first operations the core asks for find their components.
+ * Starts the core, and listens to the page. In the footer, the last part of the frame: its
+ * effect runs after those of the other parts, so that the first operations the core asks for
+ * find their components. Not in a part of its own, which would tell a failed wasm twice.
  */
 function Start() {
   const core = useCore();
@@ -166,6 +168,7 @@ function useDayWatch(): void {
   }, [core]);
 }
 
+/** The buttons and the search of the header. */
 function Header({ toggleSidebar }: { readonly toggleSidebar: () => void }) {
   const core = useCore();
   const screen = usePanel('Screen');
@@ -173,7 +176,7 @@ function Header({ toggleSidebar }: { readonly toggleSidebar: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const onDocPage = screen?.kind === 'Page' && screen.value !== null;
   return (
-    <header className="header">
+    <>
       <div className="header-left">
         <button className="menu-btn" onClick={toggleSidebar}>
           ☰
@@ -267,7 +270,7 @@ function Header({ toggleSidebar }: { readonly toggleSidebar: () => void }) {
           )}
         </div>
       </div>
-    </header>
+    </>
   );
 }
 

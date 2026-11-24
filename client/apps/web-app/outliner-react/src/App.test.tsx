@@ -949,6 +949,17 @@ function loading(core = new Promise<Core>(() => {}), asked = new AskedOps()) {
   );
 }
 
+/**
+ * Does `step` inside an awaited act. React waits for a promise that a component suspends on
+ * only inside an awaited act.
+ */
+async function settled(step: () => unknown): Promise<void> {
+  await act(() => {
+    step();
+    return Promise.resolve();
+  });
+}
+
 // コアのロード中の画面
 describe('the app while the core loads', () => {
   // コアのロード中も、ヘッダー・サイドバー・本文・フッターの枠が描かれる。
@@ -976,16 +987,13 @@ describe('the app while the core loads', () => {
       [],
       [{ kind: 'Screen', value: { kind: 'Journal', value: journal('Daily') } }],
     );
-    let ready = (_core: Core) => {};
+    let ready: (core: Core) => void = () => {};
     const core = new Promise<Core>(resolve => {
       ready = resolve;
     });
-    // Awaited: React waits for a promise only when it is drawn inside an awaited act
-    await act(async () => {
-      loading(core, ui.asked);
-    });
+    await settled(() => loading(core, ui.asked));
 
-    await act(async () => ready(ui.core));
+    await settled(() => ready(ui.core));
 
     expect([
       pageHeading(),
@@ -999,14 +1007,11 @@ describe('the app while the core loads', () => {
     const failed = Promise.reject(new Error('no wasm'));
     // Caught here too, or the rejection is reported as one nobody handles
     failed.catch(() => {});
-    let drawn: HTMLElement | undefined;
-    await act(async () => {
-      drawn = loading(failed).container;
-    });
+    await settled(() => loading(failed));
 
     const told = ['header', 'aside', 'main', 'footer'].map(
       tag =>
-        within(drawn?.querySelector(tag) as HTMLElement).queryByRole(
+        within(document.querySelector(tag) as HTMLElement).queryByRole(
           'alert',
         ) !== null,
     );
