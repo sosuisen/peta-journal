@@ -781,6 +781,8 @@ pub enum Event {
     RecentPagesLoaded {
         pages: Vec<Page>,
     },
+    /// The server could not answer the most recent doc pages.
+    RecentPagesFailed,
     /// The server answered the pages of the directory the index list shows.
     IndexPagesLoaded {
         header: String,
@@ -1080,6 +1082,8 @@ pub struct Model {
     /// The name the core last gave to what is open; see `screens::navigate::set_title`.
     pub title: String,
     pub recent_pages: Vec<Page>,
+    /// Whether the recent pages arrived. A reload keeps the pages it replaces.
+    pub recent_pages_state: crate::view::LoadState,
     pub sidebar: SidebarState,
     pub search: SearchState,
     pub wiki: WikiState,
@@ -1124,6 +1128,7 @@ impl Default for Model {
             current_page: None,
             title: String::new(),
             recent_pages: Vec::new(),
+            recent_pages_state: crate::view::LoadState::Loading,
             sidebar: SidebarState::default(),
             search: SearchState::default(),
             wiki: WikiState::default(),
@@ -1589,10 +1594,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             results,
         } => screens::search::show_results(model, timer_id, &query, results),
         SearchFailed { timer_id } => screens::search::search_failed(model, timer_id),
-        RecentPagesLoaded { pages } => {
-            model.recent_pages = pages;
-            done()
-        }
+        RecentPagesLoaded { pages } => screens::sidebar::show_recent_pages(model, pages),
+        RecentPagesFailed => screens::sidebar::recent_pages_failed(model),
         IndexPagesLoaded {
             header,
             is_root,

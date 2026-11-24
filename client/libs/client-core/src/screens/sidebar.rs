@@ -4,14 +4,35 @@
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{IndexSort, IndexSortKey, Page, PropertyValue, SortOrder};
 use crate::screens::page;
+use crate::view::LoadState;
 
 /// Reloads the ten most recent doc pages.
 pub fn refresh_recent_pages() -> Cmd {
     run(|api| async move {
-        if let Ok(pages) = api.get_recent_pages(10, Some("doc")).await {
-            api.send_event(Event::RecentPagesLoaded { pages });
+        match api.get_recent_pages(10, Some("doc")).await {
+            Ok(pages) => api.send_event(Event::RecentPagesLoaded { pages }),
+            Err(e) => {
+                log_error(format!("Failed to load recent pages: {e}"));
+                api.send_event(Event::RecentPagesFailed);
+            }
         }
     })
+}
+
+/// The server answered the recent pages: the list shows them.
+pub fn show_recent_pages(model: &mut Model, pages: Vec<Page>) -> Cmd {
+    model.recent_pages = pages;
+    model.recent_pages_state = LoadState::Loaded;
+    done()
+}
+
+/// The server could not answer the recent pages. A list already shown stays: it changes
+/// little between two loads, and the next reconnect or page move loads it again.
+pub fn recent_pages_failed(model: &mut Model) -> Cmd {
+    if model.recent_pages_state == LoadState::Loading {
+        model.recent_pages_state = LoadState::Failed;
+    }
+    done()
 }
 
 /// Makes a page the current one and loads the sidebar's index pages for it.

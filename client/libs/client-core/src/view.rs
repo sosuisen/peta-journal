@@ -319,6 +319,17 @@ pub struct AtlasCard {
     pub published: bool,
 }
 
+/// Whether a list of the sidebar is loading, loaded or failed (ADR 085). A list that is
+/// loading or failed is empty.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+pub enum LoadState {
+    #[default]
+    Loading,
+    Loaded,
+    Failed,
+}
+
 /// The pages of the folder of the page on screen, as the sidebar lists them (ADR 085).
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
@@ -346,6 +357,7 @@ pub struct HeadingsView {
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct RecentPagesView {
     pub pages: Vec<SidebarPage>,
+    pub state: LoadState,
 }
 
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
@@ -665,6 +677,7 @@ fn recent_pages(model: &Model) -> RecentPagesView {
                 }
             })
             .collect(),
+        state: model.recent_pages_state,
     }
 }
 
