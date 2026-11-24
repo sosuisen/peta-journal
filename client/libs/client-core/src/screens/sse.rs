@@ -28,7 +28,7 @@ pub fn on_event(model: &mut Model, event: SseEvent) -> Cmd {
                 sidebar::refresh_recent_pages(),
                 settings::load_property_definitions(),
                 if reconnected {
-                    load_shown_page_again(model)
+                    reconnected_to(model)
                 } else {
                     done()
                 },
@@ -105,9 +105,14 @@ fn reload_for_another_client(model: &mut Model, page_id: &str) -> Cmd {
     }
 }
 
-/// The stream is back after it broke: what changed meanwhile was told to no one, so the shown
-/// page is read again. A page that could not be loaded, as when the server was not up yet, is
-/// opened again (#756).
+/// The stream is back after it broke. The server may not have been up when the shell started,
+/// so what the start loaded is loaded again (#756).
+fn reconnected_to(model: &mut Model) -> Cmd {
+    Command::all([settings::load_server_config(), load_shown_page_again(model)])
+}
+
+/// What changed while the stream was down was told to no one, so the shown page is read
+/// again. A page that could not be loaded is opened again.
 fn load_shown_page_again(model: &mut Model) -> Cmd {
     let (name, fragment) = match &model.screen {
         Screen::Page(p) if p.page.is_none() => (p.page_name.clone(), p.focus_item_id.clone()),
