@@ -140,7 +140,7 @@ private class TextWriter(private val onLink: (RichLink) -> Unit) {
         out.pushStyle(ParagraphStyle(textIndent = TextIndent(firstLine = indent.em, restLine = indent.em)))
         if (quoted > 0) out.pushStyle(SpanStyle(color = QUOTED))
         val heading = paragraph.heading.toInt()
-        if (heading > 0) out.pushStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = headingSize(heading).em))
+        if (heading > 0) out.pushStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = paragraph.scale.em))
         paragraph.mark?.let { out.append("$it ") }
         if (paragraph.rule) out.append("────────")
         places += LetterPlace(out.length, paragraph.start.toInt(), paragraph.runs.joinToString("") { it.text })
@@ -194,6 +194,3 @@ private val LINK = Color(0xFF0A58CA)
 private val MARKED = Color(0xFFFFF3A3)
 private val QUOTED = Color(0xFF555555)
 private val HIDDEN = Color(0xFFDDDDDD)
-
-/** How much larger than the text a heading of this level is, as a web browser draws it. */
-private fun headingSize(level: Int): Double = listOf(2.0, 1.5, 1.17, 1.0, 0.83, 0.67)[level.coerceIn(1, 6) - 1]
