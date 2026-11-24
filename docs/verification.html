@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>検証の仕組み</title>
+<style>
+  :root {
+    --text: #1f2328;
+    --muted: #59636e;
+    --line: #d1d9e0;
+    --head: #f6f8fa;
+    --missing: #fde4e4;
+    --missing-text: #8c1d1d;
+    --code: #eff1f3;
+  }
+  body {
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+    max-width: 1200px;
+    color: var(--text);
+    font: 15px/1.7 "Segoe UI", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  }
+  h1 { font-size: 28px; margin: 0 0 8px; }
+  h2 { font-size: 20px; margin: 40px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  p, li { margin: 4px 0; }
+  .date { color: var(--muted); }
+  code {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--code);
+    font: 13px/1.5 "Cascadia Code", Consolas, monospace;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+  th, td { padding: 8px 10px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { background: var(--head); white-space: nowrap; }
+  td:first-child { white-space: nowrap; }
+  /* The CI column holds two letters, such as あり, on one line */
+  table.modules td:last-child { white-space: nowrap; }
+  td.missing { background: var(--missing); color: var(--missing-text); }
+  td.na { background: #eef0f2; color: var(--muted); }
+  td.ok { background: #e3f5e6; }
+  .note { display: block; margin-top: 4px; color: var(--missing-text); font-size: 12px; }
+  .note::before { content: "※"; }
+  .legend { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+  .swatch { display: inline-block; width: 16px; height: 16px; border: 1px solid var(--line); background: var(--missing); }
+  .swatch.na { margin-left: 16px; background: #eef0f2; }
+  .swatch.ok { margin-left: 16px; background: #e3f5e6; }
+</style>
+</head>
+<body>
+
+<h1>検証の仕組み</h1>
+<p>この文書は、peta-journalのコードを、何で、どこで確かめるかをまとめる。</p>
+<p class="date">更新日：2026-11-24</p>
+
+<h2>方針</h2>
+<ul>
+  <li>検証は手元でもCIでも同じ道具で回す。<br>CIでは整形せず、未整形のファイルがあれば失敗させる。</li>
+  <li>守らせたい決まりは、ビルドかテストを失敗させる形にする。<br>人間がレビューで見るのは、道具で守らせられない部分だけである。</li>
+  <li>個々の検証ツールの方針は、verificationスキルを参照。</li>
+</ul>
+
+<h2>モジュールごとの道具</h2>
+<p class="legend"><span class="swatch ok" style="margin-left:0"></span>問題なし<span class="swatch" style="margin-left:16px"></span>まだ実装されていない検証<span class="swatch na"></span>対象外</p>
+<table class="modules">
+  <thead>
+    <tr><th>モジュール</th><th>整形</th><th>型</th><th>lint</th><th>shell-check</th><th>テスト</th><th>カバレッジ</th><th>ミューテーション</th><th>CI</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>journal</code>（Rust）</td><td class="ok">rustfmt</td><td class="ok">rustc</td><td class="ok">clippy</td><td class="na">対象外</td><td class="ok"><code>cargo test</code></td><td><code>cargo cov</code><span class="note">9割未満でも失敗しない。CIでは測らない</span></td><td>cargo-mutants（<code>scripts/mutants-parallel.py</code>）<span class="note">CIでは回らない</span></td><td>あり<span class="note">部分的。カバレッジとミューテーションは回らない</span></td></tr>
+    <tr><td><code>client</code>（Rust）</td><td class="ok">rustfmt</td><td class="ok">rustc</td><td class="ok">clippy</td><td class="na">対象外</td><td class="ok"><code>cargo test</code></td><td><code>cargo cov</code><span class="note">9割未満でも失敗しない。CIでは測らない</span></td><td>cargo-mutants<span class="note">CIでは回らない</span></td><td>あり<span class="note">部分的。カバレッジとミューテーションは回らない</span></td></tr>
+    <tr><td><code>atlas</code>（Rust）</td><td class="ok">rustfmt</td><td class="ok">rustc</td><td class="ok">clippy</td><td class="na">対象外</td><td class="ok"><code>cargo test</code></td><td class="missing">設定なし</td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
+    <tr><td><code>outliner-emacs</code>（Elisp）</td><td class="ok">elisp-formatter</td><td class="ok">Rustの部分はrustc<span class="note">Elispは静的な型を持たない</span></td><td class="missing">なし</td><td class="missing">未<span class="note">#1075</span></td><td class="ok">ERT、E2E</td><td>Rustの部分は<code>client</code>の<code>cargo cov</code><span class="note">Elispの部分は測らない</span></td><td>Rustの部分は<code>client</code>のcargo-mutants<span class="note">Elispの部分は試さない</span></td><td>あり<span class="note">部分的。Rustの部分のカバレッジとミューテーションは回らない</span></td></tr>
+    <tr><td><code>outliner-react</code>（TypeScript）</td><td>prettier<span class="note">CIでは回らない</span></td><td><code>tsc -b</code><span class="note">CIでは回らない</span></td><td>eslint<span class="note">CIでは回らない</span></td><td class="missing">未<span class="note">#1075</span></td><td>vitest、Playwright（e2e）<span class="note">CIでは回らない</span></td><td><code>npm run coverage</code><span class="note">9割未満でも失敗しない。CIでは測らない</span></td><td>Stryker（<code>npm run mutants</code>）<span class="note">CIでは回らない</span></td><td class="missing">なし</td></tr>
+    <tr><td><code>todo</code>（TypeScript）</td><td class="ok">prettier</td><td class="ok"><code>tsc -b</code>（<code>npm run build</code>）</td><td class="ok">eslint</td><td class="na">対象外</td><td class="ok">vitest</td><td class="missing">設定なし</td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
+    <tr><td><code>stickies-win</code>（C#）</td><td>CSharpier<span class="note">CIでは回らない</span></td><td>C#のコンパイラ<span class="note">CIでは回らない</span></td><td>.NETのアナライザー（<code>latest-recommended</code>）<span class="note">CIでは回らない</span></td><td class="missing">未<span class="note">#1075</span></td><td><code>PetaBorder.Tests</code>、<code>PetaScreens.Tests</code>（画面）<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td>Stryker.NET（<code>mutation.ps1</code>）<span class="note">CIでは回らない</span></td><td class="missing">なし</td></tr>
+    <tr><td><code>memoview-win</code>（C#）</td><td class="ok">CSharpier</td><td class="ok">C#のコンパイラ</td><td class="ok">.NETのアナライザー（<code>latest-recommended</code>）</td><td class="na">対象外</td><td class="ok"><code>memoview-tests</code></td><td class="missing">設定なし</td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
+    <tr><td><code>stickies-mac</code>（Swift）</td><td>swift-format<span class="note">CIでは回らない</span></td><td>Swiftのコンパイラ<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="ok">S2</td><td>XCTest<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="missing">設定なし</td><td class="missing">なし</td></tr>
+    <tr><td><code>outliner-ios</code>（Swift）</td><td>swift-format<span class="note">CIでは回らない</span></td><td>Swiftのコンパイラ<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="missing">未<span class="note">#1075</span></td><td>XCTest<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="missing">設定なし</td><td class="missing">なし</td></tr>
+    <tr><td><code>outliner-android</code>（Kotlin）</td><td>ktfmt<span class="note">CIでは回らない</span></td><td>Kotlinのコンパイラ<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="missing">未<span class="note">#1075</span></td><td>JUnit、画面のテスト<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td>PIT（<code>gradlew :app:pitestDebug</code>）<span class="note">CIでは回らない</span></td><td class="missing">なし</td></tr>
+  </tbody>
+</table>
+
+<p>設定の置き場所は次のとおりである。</p>
+<ul>
+  <li>Rustのカバレッジ：<code>journal/.cargo/config.toml</code>と<code>client/.cargo/config.toml</code>の<code>cov</code>。<br>測らないファイルと、その理由もここに書く。</li>
+  <li>Rustのミューテーション：<code>journal/.cargo/mutants.toml</code>と<code>client/.cargo/mutants.toml</code>。</li>
+  <li>Swiftの整形：<code>client/apps/native-app/.swift-format</code>（macOSとiOSで共有する）。</li>
+  <li>Kotlinの整形とPIT：<code>client/apps/native-app/outliner-android/app/build.gradle.kts</code>。</li>
+  <li><code>outliner-react</code>のカバレッジとStryker：<code>vitest.config.ts</code>と<code>stryker.config.mjs</code>。</li>
+</ul>
+
+<h2>シェルがコアを通っているかのチェック（shell-check）</h2>
+<p>ADR 064の静的なチェックは、<code>client/tools/shell-check</code>にある。<br>
+できたチェックから順に、<code>client</code>の<code>cargo test</code>で回す（ADR 064の2026-11-24の追記）。<br>
+見つかれば、手元でもCIでもテストが落ちる。</p>
+<p class="legend"><span class="swatch ok" style="margin-left:0"></span>問題なし<span class="swatch" style="margin-left:16px"></span>まだ実装されていない検証</p>
+<table>
+  <thead>
+    <tr><th>チェック</th><th>中身</th><th>状態</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>S1</td><td>依存の許可リスト</td><td class="missing">試す前（#1052）</td></tr>
+    <tr><td>S2</td><td><code>Event</code>のすべての種類が、シェルのソースに出てくる</td><td><code>cargo test</code>で回る（<code>tests/repository.rs</code>）<span class="note">対象は<code>stickies-mac</code>だけ。ほかのシェルは#1075</span></td></tr>
+    <tr><td>S3</td><td>OSの部品の編集コマンド</td><td class="missing">試す前（#1051）</td></tr>
+    <tr><td>S4</td><td>関数の分岐の数</td><td class="missing">試す前（#1053）</td></tr>
+  </tbody>
+</table>
+<p>S2は、<code>rules/</code>にルールのファイルがあるシェルを、すべて調べる。<br>
+シェルを足すときは、<code>main</code>で何も出ない状態にしてから、ルールのファイルを置く。</p>
+
+<h2>手元だけで回すもの</h2>
+<p>次のテストは、CIでは回さない。<br>PRの前に、変えた範囲に関わるものを手元で回す。</p>
+<ul>
+  <li><code>stickies-win</code>の画面のテスト（<code>PetaScreens.Tests</code>）。<br>本物のマウスとキーを使うので、回す前に開発者に確かめる。<br>回している間、開発者はPCに触れない。</li>
+  <li><code>outliner-react</code>のe2e（Playwright）。<br>テスト用のサーバーを一時フォルダで起こすので、開発者のノートには触れない。</li>
+  <li><code>stickies-mac</code>と<code>outliner-ios</code>のビルドとテスト。<br>macOSでしか回せない。<br>Windowsで変えたときは、issueのチェックボックスに残す。</li>
+  <li><code>outliner-android</code>の画面のテスト。<br>エミュレーター（<code>Medium_Phone_API_35</code>）で回す。</li>
+</ul>
+
+<h2>方針に足りないところ</h2>
+<p>2026-11-24の時点で、次の点が方針に届いていない。</p>
+<ul>
+  <li>カバレッジの9割を、どのモジュールもビルドで確かめていない。<br><code>cargo cov</code>と<code>npm run coverage</code>は数字を出すだけで、失敗させない。</li>
+  <li>カバレッジを測る設定がないモジュールがある（<code>atlas</code>、<code>todo</code>、C#、Swift、Kotlin）。</li>
+  <li>CIに入っていないモジュールがある（<code>outliner-react</code>、<code>stickies-win</code>、<code>stickies-mac</code>、<code>outliner-ios</code>、<code>outliner-android</code>）。<br>これらの整形の確かめは、手元でしか行われていない。</li>
+</ul>
+
+</body>
+</html>
