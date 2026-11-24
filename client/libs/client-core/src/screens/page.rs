@@ -162,8 +162,8 @@ pub fn show_page_items(model: &mut Model, page_id: &str, loaded: PageWithItems) 
 /// still on screen fail; a reload of a page already shown keeps its headings.
 pub fn page_failed(model: &mut Model, page_name: &str) -> Cmd {
     let shown = page_state(model).is_some_and(|p| p.page_name == page_name);
-    if shown && model.headings_state == LoadState::Loading {
-        model.headings_state = LoadState::Failed;
+    if shown {
+        model.headings_state.fail();
     }
     done()
 }

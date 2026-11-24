@@ -330,6 +330,16 @@ pub enum LoadState {
     Failed,
 }
 
+impl LoadState {
+    /// A load failed. A list that never arrived fails; a list already shown stays, as a
+    /// reload changes little.
+    pub fn fail(&mut self) {
+        if *self == LoadState::Loading {
+            *self = LoadState::Failed;
+        }
+    }
+}
+
 /// The pages of the folder of the page on screen, as the sidebar lists them (ADR 085).
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]

@@ -42,8 +42,8 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
 /// screen fail; a reload of a journal already shown keeps them.
 pub fn journal_failed(model: &mut Model, date: &str) -> Cmd {
     let shown = journal(model).is_some_and(|j| j.current_date == date);
-    if shown && model.headings_state == LoadState::Loading {
-        model.headings_state = LoadState::Failed;
+    if shown {
+        model.headings_state.fail();
     }
     done()
 }

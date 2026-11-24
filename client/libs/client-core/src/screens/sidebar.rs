@@ -29,9 +29,7 @@ pub fn show_recent_pages(model: &mut Model, pages: Vec<Page>) -> Cmd {
 /// The server could not answer the recent pages. A list already shown stays: it changes
 /// little between two loads, and the next reconnect or page move loads it again.
 pub fn recent_pages_failed(model: &mut Model) -> Cmd {
-    if model.recent_pages_state == LoadState::Loading {
-        model.recent_pages_state = LoadState::Failed;
-    }
+    model.recent_pages_state.fail();
     done()
 }
 
@@ -117,9 +115,7 @@ fn no_folder(model: &mut Model) -> Cmd {
 /// The server could not answer the pages of the folder. A list already shown for this
 /// folder stays; the list of a folder still loading is empty and failed.
 pub fn index_pages_failed(model: &mut Model) -> Cmd {
-    if model.sidebar.index_state == LoadState::Loading {
-        model.sidebar.index_state = LoadState::Failed;
-    }
+    model.sidebar.index_state.fail();
     done()
 }
 
