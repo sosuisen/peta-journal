@@ -19,4 +19,20 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+
+  <!-- "dotnet build -t:Coverage" runs the tests and measures the coverage of the lines of
+       PetaBorder with coverlet.console, a local tool (dotnet-tools.json). Below 90% of the lines,
+       it fails, and so does the CI. A line no test reaches is either removed, or given a test of
+       the behaviour that needs it. The tests with the journal server need PETA_E2E_SERVER: a
+       skipped test reaches no line.
+       Only the hand-written PetaBorder is measured (include). The projects under generated/ are
+       made by tools. PetaScreens is WinUI: its tests press real keys on the screen, and do not
+       run in the CI. No file of PetaBorder is left out. scripts/verification.test.mjs guards
+       these values. -->
+  <Target Name="Coverage" DependsOnTargets="Build">
+    <Exec
+      WorkingDirectory="$(MSBuildProjectDirectory)"
+      Command="dotnet coverlet &quot;$(TargetPath)&quot; --target dotnet --targetargs &quot;$(TargetPath)&quot; --include &quot;[PetaBorder]*&quot; --threshold 90 --threshold-type line --threshold-stat total --format cobertura --output coverage/"
+    />
+  </Target>
 </Project>
