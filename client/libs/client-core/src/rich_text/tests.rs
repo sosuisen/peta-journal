@@ -314,6 +314,7 @@ fn a_heading_has_its_level() {
         paragraphs("## Title"),
         [RichParagraph {
             heading: 2,
+            scale: 1.4,
             ..paragraph(vec![run("Title")])
         }]
     );

@@ -285,6 +285,7 @@ impl<'t> Writer<'t> {
         }
         self.open = Some(RichParagraph {
             heading,
+            scale: super::heading_scale(heading),
             depth: self.depth,
             quoted: self.quoted,
             mark: self.mark.take(),
