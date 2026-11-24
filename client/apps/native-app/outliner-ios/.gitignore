@@ -8,3 +8,5 @@ build/
 Dropbox.xcconfig
 Info.plist
 build.log
+# Made by swift-mutation-testing (../mutation-test.sh)
+/.swift-mutation-testing-cache/

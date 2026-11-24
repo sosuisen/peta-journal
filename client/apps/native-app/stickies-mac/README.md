@@ -32,6 +32,14 @@ clock stay in Rust. Swift gets what changed on the screen and the requests of th
   ```
   brew install xcodegen
   ```
+- [swift-mutation-testing](https://github.com/ericodx/swift-mutation-testing) 1.7.1, for the
+  mutation tests. Its tap has to be trusted once:
+
+  ```
+  brew tap ericodx/homebrew-tools
+  brew trust ericodx/tools
+  brew install swift-mutation-testing
+  ```
 
 ## Build and test
 
@@ -96,6 +104,26 @@ cd peta-journal/client/apps/native-app
 The formatter and the linter are both swift-format, which comes with Xcode. Its settings are in
 `client/apps/native-app/.swift-format`, one file for both apps: lines of 120 letters and an
 indent of 4 spaces. Run it after every change in Swift. `generated/` is not formatted.
+
+## Mutation tests
+
+The mutation tests of the three Swift packages are swift-mutation-testing. Run them before each
+pull request, after `generate.sh`. They mutate only what `swift test` tests: the settings of
+each package are in its `.swift-mutation-testing.yml`.
+
+```
+../mutation-test.sh stickies-mac    # also builds journal-server: most of the tests need it
+../mutation-test.sh outliner-ios
+../mutation-test.sh swift-shared
+```
+
+The verdicts are kept in `.swift-mutation-testing-cache/` of each package, and a run tests
+again only the mutants in the files that changed. With no cache, `stickies-mac` takes about
+half an hour.
+
+The tool copies a package into a folder of its own in `$TMPDIR` to build it. `mutation-test.sh`
+puts a link to `swift-shared` beside that folder, as the packages name `../swift-shared`. Run
+one at a time.
 
 ## Build and run the app
 

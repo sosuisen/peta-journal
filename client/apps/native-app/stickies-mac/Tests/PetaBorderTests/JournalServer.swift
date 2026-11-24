@@ -10,12 +10,13 @@ final class JournalServer {
     private let process = Process()
     private let root: URL
 
-    /// Starts the server and waits until it answers. `functions` are the extensions of the
-    /// server: the `main.js` of each, by its name.
-    init(port: Int, functions: [String: String] = [:]) throws {
+    /// Starts the server on a port that is free, and waits until it answers. `functions` are
+    /// the extensions of the server: the `main.js` of each, by its name.
+    init(functions: [String: String] = [:]) throws {
         guard let program = ProcessInfo.processInfo.environment["PETA_E2E_SERVER"] else {
             throw XCTSkip("PETA_E2E_SERVER does not name the journal-server program")
         }
+        let port = try Self.freePort()
         address = "http://127.0.0.1:\(port)"
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("peta-swiftui-test-\(UUID().uuidString)")
@@ -100,7 +101,30 @@ final class JournalServer {
         try? FileManager.default.removeItem(at: root)
     }
 
+    /// A port that nothing listens on now. Why not a port of each test: when a run of the tests
+    /// is killed, as the mutation tests do, its server goes on, and the next run would talk to
+    /// that server
+    private static func freePort() throws -> Int {
+        let socket = Darwin.socket(AF_INET, SOCK_STREAM, 0)
+        guard socket >= 0 else { throw ServerError.noFreePort }
+        defer { close(socket) }
+        var address = sockaddr_in()
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        // Port 0: the system picks a free one
+        address.sin_port = 0
+        var size = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let found = withUnsafeMutablePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                bind(socket, $0, size) == 0 && getsockname(socket, $0, &size) == 0
+            }
+        }
+        guard found else { throw ServerError.noFreePort }
+        return Int(UInt16(bigEndian: address.sin_port))
+    }
+
     enum ServerError: Error {
+        case noFreePort
         case neverCameUp
         case writesElsewhere(String)
         case refused(String)

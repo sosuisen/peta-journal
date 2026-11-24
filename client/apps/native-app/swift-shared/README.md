@@ -20,4 +20,5 @@ takes a package of one name from one place only.
 ```sh
 ../stickies-mac/generate.sh   # or ../outliner-ios/generate.sh
 swift test
+../mutation-test.sh swift-shared   # the mutation tests, told of in the README of stickies-mac
 ```

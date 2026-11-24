@@ -279,6 +279,29 @@ final class ShellTests: JournalTestCase {
         waitUntil("the new item is edited") { self.edited() == "" }
     }
 
+    // 行の端にないカーソルの矢印は、アウトラインには意味がないので、欄に任される。編集は、同じ項目で続く。
+    func testAnArrowAwayFromTheEdgeOfTheLinesIsLeftToTheField() throws {
+        try editSecondOfThree()
+        let middle = EditorState(
+            text: "second", selectionStart: 3, selectionEnd: 3, onFirstLine: false, onLastLine: false)
+
+        XCTAssertFalse(shell.press(.up, in: id(of: "second"), middle))
+        XCTAssertEqual(edited(), "second")
+    }
+
+    // アプリを閉じたあとのキーは、何もしない。画面を下ろす途中でも、欄はキーを伝えてくるためである。
+    func testAKeyAfterTheAppClosedDoesNothing() throws {
+        try download("notes.md", "first\n")
+        try openNotes()
+        let first = id(of: "first")
+        shell.edit(first)
+
+        shell.close()
+
+        XCTAssertFalse(shell.press(.enter, in: first, cursor(5, in: "first")))
+        XCTAssertEqual(bodies(), ["first"])
+    }
+
     // 先頭でのBackspaceは、項目を前の項目につなぐ。編集は、つないだ項目で続く。カーソルは、つなぎ目に置かれる。
     func testBackspaceAtTheStartJoinsTheItemToTheOneBeforeAndTheEditGoesOnWhereTheyMeet() throws {
         try editSecondOfThree()
@@ -467,7 +490,7 @@ final class ShellTests: JournalTestCase {
     func testNavigateUpMovesTheEditToTheItemAboveAtThePlace() throws {
         try editSecondOfThree()
 
-        shell.press(.up, in: id(of: "second"), cursor(3, in: "second"))
+        XCTAssertTrue(shell.press(.up, in: id(of: "second"), cursor(3, in: "second")))
 
         waitUntil("the item above is edited") { self.edited() == "first" }
         XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 3)

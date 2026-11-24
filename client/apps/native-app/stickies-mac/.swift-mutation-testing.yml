@@ -1,0 +1,8 @@
+# The settings of swift-mutation-testing for this package. Run it with ../mutation-test.sh
+exclude:
+  # generate.sh makes it from the Rust crates, and the Rust tests check it
+  - "/generated/"
+  # swift test does not build the app
+  - "/App/"
+# Most tests start a journal-server, and the whole suite takes about 80 seconds
+timeout: 240

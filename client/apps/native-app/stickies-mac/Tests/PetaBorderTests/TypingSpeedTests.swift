@@ -19,7 +19,7 @@ final class TypingSpeedTests: XCTestCase {
     private var server: JournalServer!
 
     override func setUp() async throws {
-        server = try JournalServer(port: 18095)
+        server = try JournalServer()
     }
 
     override func tearDown() async throws {

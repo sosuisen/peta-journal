@@ -16,7 +16,7 @@ final class JournalScreenTests: XCTestCase {
 
     /// The journal of today with many items, above the journal of a day long ago.
     override func setUp() async throws {
-        server = try JournalServer(port: 18100)
+        server = try JournalServer()
         let old = Shell(server: server.address, url: "/pages/2020-01-02")
         try await waitUntil("the old journal is shown") { !old.view.outline.rows.isEmpty }
         try await add(40, "long ago", to: old)

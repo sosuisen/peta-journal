@@ -47,8 +47,8 @@ writes it again. `./gradlew check` also runs `ktfmtCheck`.
 
 The mutation tests are PIT, through the Gradle plugin `pl.droidsonroids.pitest`. Run them before
 each pull request. PIT runs only the tests in `app/src/test`, on the JVM, so it mutates only the
-classes that they test: they are listed in `app/build.gradle.kts`. The report is in
-`app/build/reports/pitest/debug/index.html`.
+classes that they test: they are listed in `app/build.gradle.kts`. Gradle fetches PIT, so
+nothing more has to be installed. The report is in `app/build/reports/pitest/debug/index.html`.
 
 ```
 ./gradlew :app:pitestDebug

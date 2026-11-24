@@ -94,6 +94,15 @@ final class AppliedTests: XCTestCase {
         XCTAssertEqual(view.history.url, "/pages/back")
     }
 
+    // 後の差分の行の操作は、今の行に当たる。
+    func testTheRowsOfALaterChangeAreAppliedToTheRowsThere() {
+        var view = ViewModel(first: Changes(rows: [.reset(items: [row("a")])], panels: everyPanel()))
+
+        view.apply(Changes(rows: [.insert(at: 1, item: row("b"))], panels: []))
+
+        XCTAssertEqual(ids(view.outline.rows), ["a", "b"])
+    }
+
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
     func testTheOutlinePanelKeepsTheRows() {
         var view = ViewModel(first: Changes(rows: [.reset(items: [row("a"), row("b")])], panels: everyPanel()))

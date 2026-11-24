@@ -1,0 +1,4 @@
+# The settings of swift-mutation-testing for this package. Run it with ../mutation-test.sh
+# generate.sh makes generated/ from the Rust crates, and the Rust tests check it
+exclude:
+  - "/generated/"
