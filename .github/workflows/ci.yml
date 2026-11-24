@@ -116,6 +116,29 @@ jobs:
           cache-dependency-path: client/apps/web-app/outliner-react/package-lock.json
       - run: node scripts/checks.mjs run outliner-react
 
+  # The sticky notes on Windows. The tests of PetaBorder need the core as a library, made from the
+  # Rust code with BoltFFI, and a journal server. The tests of the windows do not run here: they
+  # press real keys on the screen.
+  stickies-win:
+    name: client/apps/native-app/stickies-win
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Installs the version, components and targets in rust-toolchain.toml
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            journal
+            client
+      # The version has to be the same as the boltffi dependency of client-shell-http
+      - run: cargo install boltffi_cli --version =0.32.1 --locked
+      # The projects target .NET 11
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 11.0.x
+      - run: node scripts/checks.mjs run stickies-win
+
   memoview-win:
     name: client/apps/webview-app/memoview-win
     # The app is WinUI. It builds only on Windows, with the MSBuild of Visual Studio

@@ -61,8 +61,8 @@ export const JOBS = {
   client: {
     dir: 'client',
     touchedBy: CLIENT_RUST,
-    // The web apps have jobs of their own
-    notTouchedBy: ['client/apps/web-app/', 'client/apps/webview-app/'],
+    // The apps in other languages have jobs of their own, or none in the CI yet
+    notTouchedBy: ['client/apps/web-app/', 'client/apps/webview-app/', 'client/apps/native-app/'],
     steps: [
       ...rust('--workspace'),
       // What only a native shell needs is behind features: the generation of its types, and the
@@ -92,7 +92,7 @@ export const JOBS = {
   'emacs-e2e': {
     dir: '.',
     touchedBy: CLIENT_RUST,
-    notTouchedBy: ['client/apps/web-app/', 'client/apps/webview-app/'],
+    notTouchedBy: ['client/apps/web-app/', 'client/apps/webview-app/', 'client/apps/native-app/'],
     steps: [
       { cwd: 'journal', run: 'cargo build -p journal-server' },
       { cwd: 'client', run: 'cargo build -p outliner-emacs' },
@@ -124,7 +124,7 @@ export const JOBS = {
   'outliner-react': {
     dir: 'client/apps/web-app/outliner-react',
     touchedBy: ['client/apps/web-app/outliner-react/', ...CLIENT_RUST],
-    notTouchedBy: ['client/apps/web-app/todo/', 'client/apps/webview-app/', 'client/apps/emacs/'],
+    notTouchedBy: ['client/apps/web-app/todo/', 'client/apps/webview-app/', 'client/apps/emacs/', 'client/apps/native-app/'],
     steps: [
       { run: 'npm ci' },
       { run: 'npm run border' },
@@ -144,15 +144,51 @@ export const JOBS = {
       // The .NET SDK may be missing on a Mac. A Mac with it runs these steps too
       { tools: ['dotnet'], run: 'dotnet tool restore' },
       { tools: ['dotnet'], run: 'dotnet csharpier check .' },
-      // Why in this folder: its global.json selects the test runner, and the SDK finds it only
-      // from the current folder upward. The analyzers run in both builds
-      { cwd: 'client/apps/webview-app/memoview-win/memoview-tests', tools: ['dotnet'], run: 'dotnet test' },
+      // Runs the tests, and fails below 90% of the lines covered (the Coverage target of
+      // MemoView.Tests.csproj). Why in this folder: its global.json selects the test runner, and
+      // the SDK finds it only from the current folder upward. The analyzers run in both builds
+      { cwd: 'client/apps/webview-app/memoview-win/memoview-tests', tools: ['dotnet'], run: 'dotnet build -t:Coverage' },
       // The tests compile only the files without WinUI. The build shows what breaks in the rest.
       // WinUI builds only on Windows, with the MSBuild of Visual Studio
       {
         os: 'win32',
         needs: ['MSBUILD'],
         run: '"$MSBUILD" memoview/MemoView.csproj -restore -p:Platform=x64 -nologo -v:m',
+      },
+    ],
+  },
+  // The sticky notes on Windows. PetaBorder, the C# side of the border, is tested without WinUI.
+  // The tests of the windows (PetaScreens.Tests) press real keys, and run on a developer's
+  // machine only. The app builds on Windows only, but PetaBorder and its tests run on a Mac too.
+  'stickies-win': {
+    dir: 'client/apps/native-app/stickies-win',
+    touchedBy: ['client/apps/native-app/stickies-win/', ...CLIENT_RUST],
+    notTouchedBy: [
+      'client/apps/web-app/',
+      'client/apps/webview-app/',
+      'client/apps/emacs/',
+      'client/apps/native-app/outliner-android/',
+      'client/apps/native-app/outliner-ios/',
+      'client/apps/native-app/stickies-mac/',
+      'client/apps/native-app/swift-shared/',
+    ],
+    steps: [
+      // generated/: the C# types of the border and the core as a library, from the Rust code
+      { os: 'win32', tools: ['boltffi'], run: 'pwsh -NoProfile -File generate.ps1' },
+      { os: 'darwin', tools: ['boltffi'], run: './generate.sh' },
+      // Some tests of PetaBorder talk to a real journal server
+      { cwd: 'journal', run: 'cargo build -p journal-server' },
+      // CSharpier is a local tool of stickies-win (dotnet-tools.json)
+      { tools: ['dotnet'], run: 'dotnet tool restore' },
+      { tools: ['dotnet'], run: 'dotnet csharpier check .' },
+      // Runs the tests, and fails below 90% of the lines covered (the Coverage target of
+      // PetaBorder.Tests.csproj). The analyzers run in the build
+      {
+        cwd: 'client/apps/native-app/stickies-win/PetaBorder.Tests',
+        tools: ['dotnet'],
+        programs: [`journal/target/debug/journal-server${EXE}`],
+        env: { PETA_E2E_SERVER: join(ROOT, 'journal', 'target', 'debug', `journal-server${EXE}`) },
+        run: 'dotnet build -t:Coverage',
       },
     ],
   },

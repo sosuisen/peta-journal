@@ -46,7 +46,29 @@ const COVERAGE_STEP = {
   atlas: 'cargo cov --summary-only',
   todo: 'npm run coverage',
   'outliner-react': 'npm run coverage',
+  'memoview-win': 'dotnet build -t:Coverage',
+  'stickies-win': 'dotnet build -t:Coverage',
 };
+
+// The arguments of coverlet.console in the Coverage target of each C# test project
+const DOTNET = {
+  'client/apps/webview-app/memoview-win/memoview-tests/MemoView.Tests.csproj': [
+    '--include-test-assembly',
+    '--exclude-by-file "**/memoview-tests/**"',
+  ],
+  'client/apps/native-app/stickies-win/PetaBorder.Tests/PetaBorder.Tests.csproj': ['--include "[PetaBorder]*"'],
+};
+const DOTNET_FLOOR = [`--threshold ${FLOOR}`, '--threshold-type line', '--threshold-stat total'];
+
+// The options of the coverlet command of a csproj, each with its value
+function coverletOptions(project) {
+  const targets = [...read(project).matchAll(/<Target Name="Coverage"[\s\S]*?<\/Target>/g)];
+  assert.equal(targets.length, 1, `${project}: one Coverage target`);
+  const command = targets[0][0].match(/Command="([^"]*)"/)[1].replaceAll('&quot;', '"');
+  assert.ok(command.startsWith('dotnet coverlet '), project);
+  // The first two options name the assembly and how to run its tests
+  return command.split(/ (?=--)/).slice(1).filter((o) => !/^--(target|targetargs|format|output) /.test(o));
+}
 
 // The strings of the `cov` alias in .cargo/config.toml, unescaped
 function covAlias(workspace) {
@@ -132,7 +154,15 @@ test('each job measures the coverage in a step that is never skipped', () => {
     assert.ok(step, `${job}: no step "${run}"`);
     assert.equal(step.needs, undefined, job);
     assert.equal(step.os, undefined, job);
-    assert.equal(step.tools, undefined, job);
+    // A step may need a program on the PATH, such as dotnet on a Mac. A machine without it skips
+    // the step and says so, and the CI fails without it
+  }
+});
+
+// C#のテストのプロジェクトは、9割未満で失敗し、了解した範囲を測る。
+test('each c# test project fails under the floor and measures the agreed files', () => {
+  for (const [project, measured] of Object.entries(DOTNET)) {
+    assert.deepEqual(coverletOptions(project).sort(), [...DOTNET_FLOOR, ...measured].sort(), project);
   }
 });
 
