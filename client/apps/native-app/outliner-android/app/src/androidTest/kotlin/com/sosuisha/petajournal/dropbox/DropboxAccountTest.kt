@@ -18,8 +18,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The sign-in and the sign-out. The Dropbox SDK is an SDK of the test, and the credential is
- * kept in a place of the test: the credential of the app itself is not touched.
+ * The sign-in and the sign-out. The Dropbox SDK is an SDK of the test, and the credential is kept
+ * in a place of the test: the credential of the app itself is not touched.
  */
 @RunWith(AndroidJUnit4::class)
 class DropboxAccountTest {
@@ -61,13 +61,18 @@ class DropboxAccountTest {
     /** A Dropbox with one file in the folder of the app. */
     private object OneFile : PetaDropboxSdk {
         override fun list(folder: String) =
-            PetaListing(listOf(PetaDropboxEntry.File(PetaDropboxFile("$folder/docs/a.md", "hash", "r1"))), "c1", false)
+            PetaListing(
+                listOf(PetaDropboxEntry.File(PetaDropboxFile("$folder/docs/a.md", "hash", "r1"))),
+                "c1",
+                false,
+            )
 
         override fun listAfter(cursor: String) = PetaListing(emptyList(), cursor, false)
 
         override fun download(rev: String, to: String) = Unit
 
-        override fun upload(path: String, from: String, over: String?, modifiedMs: Long) = PetaDropboxFile(path, "hash", "r2")
+        override fun upload(path: String, from: String, over: String?, modifiedMs: Long) =
+            PetaDropboxFile(path, "hash", "r2")
     }
 
     @Before

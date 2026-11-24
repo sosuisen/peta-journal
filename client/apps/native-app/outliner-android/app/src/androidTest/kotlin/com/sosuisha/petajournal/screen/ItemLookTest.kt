@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsEqualTo
@@ -17,7 +18,6 @@ import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sosuisha.petajournal.types.ScreenView
@@ -25,10 +25,13 @@ import java.io.File
 import kotlin.math.abs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.runner.RunWith
 import org.junit.Test
+import org.junit.runner.RunWith
 
-/** How an item looks: its decoration, its code, tables and images, and where its bullet and its mark stand. */
+/**
+ * How an item looks: its decoration, its code, tables and images, and where its bullet and its mark
+ * stand.
+ */
 @RunWith(AndroidJUnit4::class)
 class ItemLookTest : JournalScreenFixture() {
     // 今日のページで下に続く過去の日付は、今日の日付と同じ大きさで見える（#885）。
@@ -80,7 +83,9 @@ class ItemLookTest : JournalScreenFixture() {
         openNotes()
 
         waitFor("name")
-        for (cell in listOf("name", "count", "apple", "2")) compose.onNode(hasText(cell)).assertExists()
+        for (cell in listOf("name", "count", "apple", "2")) compose
+            .onNode(hasText(cell))
+            .assertExists()
     }
 
     /** Puts a picture into the assets folder, as a download does. */
@@ -91,7 +96,9 @@ class ItemLookTest : JournalScreenFixture() {
     }
 
     private fun waitForPicture(alt: String) =
-        compose.waitUntil(WAIT_MS) { compose.onAllNodes(hasContentDescription(alt)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(WAIT_MS) {
+            compose.onAllNodes(hasContentDescription(alt)).fetchSemanticsNodes().isNotEmpty()
+        }
 
     // assetsの画像は、前後の文字のあいだに、絵として見える。ファイルの名前の大文字と小文字は問わない。
     @Test
@@ -110,12 +117,18 @@ class ItemLookTest : JournalScreenFixture() {
     @Test
     fun an_image_has_the_width_that_the_page_asks_for() {
         picture("cat.png", width = 40, height = 20)
-        download("notes.md", "![asked](../assets/cat.png#w=120)" + NL + NL + "![natural](../assets/cat.png)" + NL)
+        download(
+            "notes.md",
+            "![asked](../assets/cat.png#w=120)" + NL + NL + "![natural](../assets/cat.png)" + NL,
+        )
 
         openNotes()
 
         waitForPicture("asked")
-        compose.onNode(hasContentDescription("asked")).assertWidthIsEqualTo(120.dp).assertHeightIsEqualTo(60.dp)
+        compose
+            .onNode(hasContentDescription("asked"))
+            .assertWidthIsEqualTo(120.dp)
+            .assertHeightIsEqualTo(60.dp)
         compose.onNode(hasContentDescription("natural")).assertWidthIsEqualTo(40.dp)
     }
 
@@ -123,13 +136,26 @@ class ItemLookTest : JournalScreenFixture() {
     @Test
     fun an_image_has_the_height_that_the_page_asks_for() {
         picture("cat.png", width = 40, height = 20)
-        download("notes.md", "![both](../assets/cat.png#w=120&h=30)" + NL + NL + "![tall](../assets/cat.png#h=60)" + NL)
+        download(
+            "notes.md",
+            "![both](../assets/cat.png#w=120&h=30)" +
+                NL +
+                NL +
+                "![tall](../assets/cat.png#h=60)" +
+                NL,
+        )
 
         openNotes()
 
         waitForPicture("both")
-        compose.onNode(hasContentDescription("both")).assertWidthIsEqualTo(120.dp).assertHeightIsEqualTo(30.dp)
-        compose.onNode(hasContentDescription("tall")).assertWidthIsEqualTo(120.dp).assertHeightIsEqualTo(60.dp)
+        compose
+            .onNode(hasContentDescription("both"))
+            .assertWidthIsEqualTo(120.dp)
+            .assertHeightIsEqualTo(30.dp)
+        compose
+            .onNode(hasContentDescription("tall"))
+            .assertWidthIsEqualTo(120.dp)
+            .assertHeightIsEqualTo(60.dp)
     }
 
     // 画像に触れると、その画像が大きく開く。開いた画像に触れると、閉じる。
@@ -161,7 +187,10 @@ class ItemLookTest : JournalScreenFixture() {
         waitForPicture("a cat")
         val line = compose.onNode(shown("a cat")).getUnclippedBoundsInRoot()
         val picture = compose.onNode(hasContentDescription("a cat")).getUnclippedBoundsInRoot()
-        assertTrue("the alt ends at ${line.bottom}, below the top of the picture at ${picture.top}", line.bottom <= picture.top)
+        assertTrue(
+            "the alt ends at ${line.bottom}, below the top of the picture at ${picture.top}",
+            line.bottom <= picture.top,
+        )
     }
 
     // 代わりの文字（alt）のない画像は、1行目にファイルのパスが見える（#886）。
@@ -185,7 +214,9 @@ class ItemLookTest : JournalScreenFixture() {
 
         compose.onNode(shown("a cat")).performClick()
 
-        compose.waitUntil(WAIT_MS) { compose.onAllNodes(hasTestTag(EDITOR_TAG)).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(WAIT_MS) {
+            compose.onAllNodes(hasTestTag(EDITOR_TAG)).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag(EDITOR_TAG).assertTextEquals("![a cat](../assets/cat.png)")
     }
 
@@ -215,33 +246,71 @@ class ItemLookTest : JournalScreenFixture() {
     fun a_code_block_inside_a_list_shows_its_lines_as_they_were_written() {
         download(
             "notes.md",
-            above('A') + "1. step one" + NL + NL + "   ```" + NL + "   val x = 1" + NL + "     val y = 2" + NL + "   ```" + NL +
-                "2. step two" + NL,
+            above('A') +
+                "1. step one" +
+                NL +
+                NL +
+                "   ```" +
+                NL +
+                "   val x = 1" +
+                NL +
+                "     val y = 2" +
+                NL +
+                "   ```" +
+                NL +
+                "2. step two" +
+                NL,
         )
 
         openNotes()
 
         waitFor("step one")
         compose.onNode(hasText("val x = 1\n  val y = 2")).assertExists()
-        for (text in listOf("1.", "step one", "2.", "step two")) compose.onNode(hasText(text)).assertExists()
+        for (text in listOf("1.", "step one", "2.", "step two")) compose
+            .onNode(hasText(text))
+            .assertExists()
     }
 
     // 引用の中の表も、セルごとに分かれて見える。
     @Test
     fun a_table_inside_a_quote_shows_each_cell_apart() {
-        download("notes.md", above('A') + "> said:" + NL + ">" + NL + "> | name | count |" + NL + "> |---|---|" + NL + "> | apple | 2 |" + NL)
+        download(
+            "notes.md",
+            above('A') +
+                "> said:" +
+                NL +
+                ">" +
+                NL +
+                "> | name | count |" +
+                NL +
+                "> |---|---|" +
+                NL +
+                "> | apple | 2 |" +
+                NL,
+        )
 
         openNotes()
 
         waitFor("said:")
-        for (cell in listOf("name", "count", "apple", "2")) compose.onNode(hasText(cell)).assertExists()
+        for (cell in listOf("name", "count", "apple", "2")) compose
+            .onNode(hasText(cell))
+            .assertExists()
     }
 
     // リストの中の画像も、絵として見える。リストの中のリストでも同じである。
     @Test
     fun an_image_inside_a_list_shows_as_a_picture() {
         picture("cat.png", width = 40, height = 20)
-        download("notes.md", above('A') + "- outer" + NL + "  - look ![a cat](../assets/cat.png)" + NL + "- next" + NL)
+        download(
+            "notes.md",
+            above('A') +
+                "- outer" +
+                NL +
+                "  - look ![a cat](../assets/cat.png)" +
+                NL +
+                "- next" +
+                NL,
+        )
 
         openNotes()
 
@@ -254,10 +323,21 @@ class ItemLookTest : JournalScreenFixture() {
     fun a_task_shows_the_mark_of_its_state() {
         download(
             "notes.md",
-            above('A') + "- [ ] buy milk" + NL + NL +
-                above('B', " begin=\"2020-01-01T00:00:00Z\"") + "- [ ] write the report" + NL + NL +
-                above('C', " end=\"2020-01-02T00:00:00Z\"") + "- [x] call home" + NL + NL +
-                above('D') + "not a task" + NL,
+            above('A') +
+                "- [ ] buy milk" +
+                NL +
+                NL +
+                above('B', " begin=\"2020-01-01T00:00:00Z\"") +
+                "- [ ] write the report" +
+                NL +
+                NL +
+                above('C', " end=\"2020-01-02T00:00:00Z\"") +
+                "- [x] call home" +
+                NL +
+                NL +
+                above('D') +
+                "not a task" +
+                NL,
         )
 
         openNotes()
@@ -265,7 +345,10 @@ class ItemLookTest : JournalScreenFixture() {
         waitFor("call home")
         // The mark of the file is not part of the text
         compose.onNode(hasText("buy milk")).assertExists()
-        val marks = compose.onAllNodes(hasContentDescription("Task", substring = true)).fetchSemanticsNodes()
+        val marks =
+            compose
+                .onAllNodes(hasContentDescription("Task", substring = true))
+                .fetchSemanticsNodes()
         assertEquals(
             listOf("Task not started", "Task running", "Task done"),
             marks.map { it.config[SemanticsProperties.ContentDescription].single() },
@@ -291,12 +374,14 @@ class ItemLookTest : JournalScreenFixture() {
 
     /** How far down the screen the middle of the letters of the first line of a text is, in dp. */
     private fun middleOfLetters(text: SemanticsNodeInteraction, sizeSp: Float): Float {
-        val line = text.getUnclippedBoundsInRoot().top + text.getAlignmentLinePosition(FirstBaseline)
+        val line =
+            text.getUnclippedBoundsInRoot().top + text.getAlignmentLinePosition(FirstBaseline)
         // The middle of the height of a letter is this much of its size above the line it stands on
         return line.value - 0.38f * sizeSp * compose.density.fontScale
     }
 
-    private fun bullet(): SemanticsNode = compose.onNodeWithTag(BULLET_TAG, useUnmergedTree = true).fetchSemanticsNode()
+    private fun bullet(): SemanticsNode =
+        compose.onNodeWithTag(BULLET_TAG, useUnmergedTree = true).fetchSemanticsNode()
 
     // 見出しのバレットは、見出しの大きな文字の真ん中の高さにある。
     @Test
@@ -307,9 +392,13 @@ class ItemLookTest : JournalScreenFixture() {
 
         val bullet = middle(bullet()) / compose.density.density
         // The first heading is 1.6 times as large as plain text, as the core says (#795)
-        val heading = middleOfLetters(compose.onNode(hasText("Big"), useUnmergedTree = true), sizeSp = 25.6f)
+        val heading =
+            middleOfLetters(compose.onNode(hasText("Big"), useUnmergedTree = true), sizeSp = 25.6f)
 
-        assertTrue("the bullet is at ${bullet}dp, the letters at ${heading}dp", abs(bullet - heading) < 1f)
+        assertTrue(
+            "the bullet is at ${bullet}dp, the letters at ${heading}dp",
+            abs(bullet - heading) < 1f,
+        )
     }
 
     // ふつうの項目のバレットは、文字の高さの真ん中にある。大きさは7dpである。
@@ -320,9 +409,13 @@ class ItemLookTest : JournalScreenFixture() {
         waitFor("plain")
 
         val bullet = middle(bullet()) / compose.density.density
-        val letters = middleOfLetters(compose.onNode(hasText("plain"), useUnmergedTree = true), sizeSp = 16f)
+        val letters =
+            middleOfLetters(compose.onNode(hasText("plain"), useUnmergedTree = true), sizeSp = 16f)
 
-        assertTrue("the bullet is at ${bullet}dp, the letters at ${letters}dp", abs(bullet - letters) < 1f)
+        assertTrue(
+            "the bullet is at ${bullet}dp, the letters at ${letters}dp",
+            abs(bullet - letters) < 1f,
+        )
         assertEquals(7f, bullet().boundsInRoot.height / compose.density.density, 0.6f)
     }
 

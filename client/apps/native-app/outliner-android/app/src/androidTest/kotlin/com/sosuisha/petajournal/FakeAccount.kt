@@ -7,7 +7,8 @@ import com.sosuisha.petajournal.screen.OnePage
 import com.sosuisha.petajournal.sync.CloudAccount
 
 /** An account of a cloud with one page. It keeps what the app asked of it. */
-internal class FakeAccount(override val isSetUp: Boolean = true, signedIn: Boolean = true) : CloudAccount {
+internal class FakeAccount(override val isSetUp: Boolean = true, signedIn: Boolean = true) :
+    CloudAccount {
     @Volatile
     override var isSignedIn = signedIn
         private set

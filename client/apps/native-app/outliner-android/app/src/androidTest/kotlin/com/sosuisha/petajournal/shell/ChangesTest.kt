@@ -25,8 +25,7 @@ class ChangesTest {
         border = Border(File(root, "data"), File(root, "markdown")) {}
     }
 
-    @After
-    fun closeTheCore() = border.close()
+    @After fun closeTheCore() = border.close()
 
     // Rustが書いた画面の差分を、Kotlinが読める。最初の差分には、Kotlinが送ったイベントの中身が入っている。
     @Test

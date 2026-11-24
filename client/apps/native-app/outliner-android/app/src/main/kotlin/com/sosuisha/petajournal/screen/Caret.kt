@@ -3,7 +3,12 @@ package com.sosuisha.petajournal.screen
 import androidx.compose.runtime.compositionLocalOf
 
 /** A button that moves the cursor, as an arrow key of a desktop does. */
-internal enum class Arrow { Left, Up, Down, Right }
+internal enum class Arrow {
+    Left,
+    Up,
+    Down,
+    Right,
+}
 
 /**
  * The way from the arrow buttons to the field of the item that is edited. The field holds the

@@ -12,30 +12,30 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
-import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.withKeyDown
 import androidx.compose.ui.text.TextRange
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import java.io.File
 import com.sosuisha.petajournal.types.TaskState
+import java.io.File
 import org.junit.Assert.assertEquals
-import org.junit.runner.RunWith
 import org.junit.Test
+import org.junit.runner.RunWith
 
 /** The edit of an item: the field, Enter, and the tools above the keyboard. */
 @RunWith(AndroidJUnit4::class)
@@ -48,7 +48,8 @@ class EditTest : JournalScreenFixture() {
     }
 
     /** Waits until the core has saved an edit and written it to the file of the page. */
-    private fun waitForWritten(text: String) = compose.waitUntil(WAIT_MS) { writtenNotes().contains(text) }
+    private fun waitForWritten(text: String) =
+        compose.waitUntil(WAIT_MS) { writtenNotes().contains(text) }
 
     // 項目に触れると、その項目がMarkdownの本文の入力欄になる。
     @Test
@@ -138,7 +139,10 @@ class EditTest : JournalScreenFixture() {
     // ほかの項目に触れると、編集がそこへ移る。前の項目は、飾りのついた表示に戻る。
     @Test
     fun a_touch_on_another_item_moves_the_edit_there() {
-        download("notes.md", above('A') + "a **bold** word" + NL + NL + above('B') + "the other" + NL)
+        download(
+            "notes.md",
+            above('A') + "a **bold** word" + NL + NL + above('B') + "the other" + NL,
+        )
         openNotes()
         waitFor("the other")
         touchEnd("a bold word")
@@ -153,7 +157,17 @@ class EditTest : JournalScreenFixture() {
     private fun editSecondOfThree() {
         download(
             "notes.md",
-            above('A') + "first" + NL + NL + above('B') + "second" + NL + NL + above('C') + "third" + NL,
+            above('A') +
+                "first" +
+                NL +
+                NL +
+                above('B') +
+                "second" +
+                NL +
+                NL +
+                above('C') +
+                "third" +
+                NL,
         )
         openNotes()
         waitFor("third")
@@ -164,20 +178,26 @@ class EditTest : JournalScreenFixture() {
     private fun tool(name: String) = compose.onNode(hasContentDescription(name)).performClick()
 
     /** Touches the item that shows [text] at its end, so that the edit goes on there. */
-    private fun touchEnd(text: String) = compose.onNodeWithText(text).performTouchInput { click(centerRight) }
+    private fun touchEnd(text: String) =
+        compose.onNodeWithText(text).performTouchInput { click(centerRight) }
 
     /** The items of the page, each as its level and its body. */
-    private fun items(): List<String> = shell.view.outline.rows.map { "${it.item.level} ${it.item.body}" }
+    private fun items(): List<String> =
+        shell.view.outline.rows.map { "${it.item.level} ${it.item.body}" }
 
     /** The word of the system for Paste, as the menu of the text shows it. */
-    private val PASTE = InstrumentationRegistry.getInstrumentation().targetContext.getString(android.R.string.paste)
+    private val PASTE =
+        InstrumentationRegistry.getInstrumentation().targetContext.getString(android.R.string.paste)
 
-    private fun waitForItems(vararg items: String) = compose.waitUntil(WAIT_MS) { items() == items.toList() }
+    private fun waitForItems(vararg items: String) =
+        compose.waitUntil(WAIT_MS) { items() == items.toList() }
 
     /** Puts [text] on the clipboard of the system, as another app does. */
     private fun onTheClipboard(text: String) = compose.runOnUiThread {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("test", text))
+        context
+            .getSystemService(ClipboardManager::class.java)
+            .setPrimaryClip(ClipData.newPlainText("test", text))
     }
 
     // Markdownのリストを項目の終わりに貼り付けると、1つ目はその項目に続き、2つ目は下の新しい項目になる。
@@ -191,11 +211,24 @@ class EditTest : JournalScreenFixture() {
         waitForItems("1 first", "1 secondapple", "1 pear", "1 third")
     }
 
-    /** Opens a page of a parent with a child and a third item, copies the parent and its child with the tool, and edits the third at its end. */
+    /**
+     * Opens a page of a parent with a child and a third item, copies the parent and its child with
+     * the tool, and edits the third at its end.
+     */
     private fun copyParentAndChildThenEditThird() {
         download(
             "notes.md",
-            above('A') + "parent" + NL + NL + above('B').replace("<!-- @ ", "<!-- @@ ") + "child" + NL + NL + above('C') + "third" + NL,
+            above('A') +
+                "parent" +
+                NL +
+                NL +
+                above('B').replace("<!-- @ ", "<!-- @@ ") +
+                "child" +
+                NL +
+                NL +
+                above('C') +
+                "third" +
+                NL,
         )
         openNotes()
         waitForItems("1 parent", "2 child", "1 third")
@@ -206,7 +239,12 @@ class EditTest : JournalScreenFixture() {
         compose.waitUntil(WAIT_MS) { copied.isNotEmpty() }
         touchEnd("third")
         // The touch ends the selection: the field of the item comes when the core has answered
-        compose.waitUntil(WAIT_MS) { compose.onAllNodes(hasTestTag(EDITOR_TAG) and hasText("third")).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(WAIT_MS) {
+            compose
+                .onAllNodes(hasTestTag(EDITOR_TAG) and hasText("third"))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
     }
 
     // 親と子を選んでコピーの道具でコピーし、別の項目の終わりに貼り付けると、親と子の形のまま戻る。
@@ -235,7 +273,9 @@ class EditTest : JournalScreenFixture() {
         editSecondOfThree()
         onTheClipboard("- apple" + NL + "- pear")
 
-        compose.onNodeWithTag(EDITOR_TAG).performKeyInput { withKeyDown(Key.CtrlLeft) { pressKey(Key.V) } }
+        compose.onNodeWithTag(EDITOR_TAG).performKeyInput {
+            withKeyDown(Key.CtrlLeft) { pressKey(Key.V) }
+        }
 
         waitForItems("1 first", "1 secondapple", "1 pear", "1 third")
     }
@@ -257,7 +297,9 @@ class EditTest : JournalScreenFixture() {
     fun a_paste_over_chosen_text_puts_the_pasted_text_in_its_place() {
         editSecondOfThree()
         onTheClipboard("best")
-        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) { it(0, 6, false) }
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) {
+            it(0, 6, false)
+        }
 
         compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.PasteText)
 
@@ -326,12 +368,15 @@ class EditTest : JournalScreenFixture() {
     }
 
     /**
-     * Opens a page whose third item shows the second one, and joins the second to the first
-     * with Backspace at its start. The second item goes away then.
+     * Opens a page whose third item shows the second one, and joins the second to the first with
+     * Backspace at its start. The second item goes away then.
      */
     private fun deleteAnItemThatAnotherShows() {
         val shows = " transclude=\"2020-01-01-00-00-00-AAAAAAB\""
-        download("notes.md", above('A') + "first" + NL + NL + above('B') + "second" + NL + NL + above('C', shows))
+        download(
+            "notes.md",
+            above('A') + "first" + NL + NL + above('B') + "second" + NL + NL + above('C', shows),
+        )
         openNotes()
         waitFor("first")
         compose.onAllNodes(hasText("second")).onFirst().performTouchInput { click(centerRight) }
@@ -409,7 +454,9 @@ class EditTest : JournalScreenFixture() {
 
     /** Puts the cursor of the field before the UTF-16 unit [at]. */
     private fun cursorAt(at: Int) =
-        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) { it(at, at, true) }
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) {
+            it(at, at, true)
+        }
 
     // 文の途中での改行は、カーソルの位置で項目を分ける。絵文字は、1文字として数える。
     @Test
@@ -471,11 +518,15 @@ class EditTest : JournalScreenFixture() {
         compose.onNodeWithTag(EDITOR_TAG).assertTextEquals(second)
     }
 
-    private fun pressBackspace() = compose.onNodeWithTag(EDITOR_TAG).performKeyInput { pressKey(Key.Backspace) }
+    private fun pressBackspace() =
+        compose.onNodeWithTag(EDITOR_TAG).performKeyInput { pressKey(Key.Backspace) }
 
     /** Where the cursor of the field is, in UTF-16 units. */
     private fun cursor(): TextRange =
-        compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().config[SemanticsProperties.TextSelectionRange]
+        compose
+            .onNodeWithTag(EDITOR_TAG)
+            .fetchSemanticsNode()
+            .config[SemanticsProperties.TextSelectionRange]
 
     // 先頭でのBackspaceは、項目を前の項目につなぐ。編集は、つないだ項目で続く。カーソルは、つなぎ目に置かれる。
     @Test
@@ -536,7 +587,9 @@ class EditTest : JournalScreenFixture() {
     @Test
     fun backspace_with_text_chosen_from_the_start_only_deletes_what_is_chosen() {
         editSecondOfTwo("first", "second")
-        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) { it(0, 3, true) }
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) {
+            it(0, 3, true)
+        }
 
         pressBackspace()
 
@@ -559,10 +612,13 @@ class EditTest : JournalScreenFixture() {
     }
 
     /**
-     * Presses Backspace as the keyboard on the screen does. Gboard sends no key: it asks the
-     * field to delete the character before the cursor, also when there is none.
+     * Presses Backspace as the keyboard on the screen does. Gboard sends no key: it asks the field
+     * to delete the character before the cursor, also when there is none.
      */
-    /** Puts [text] in at the cursor as the keyboard on the screen does, as with what it shows of the clipboard. */
+    /**
+     * Puts [text] in at the cursor as the keyboard on the screen does, as with what it shows of the
+     * clipboard.
+     */
     private fun commitOnTheScreen(text: String) {
         val root = compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().root as ViewRootForTest
         compose.runOnUiThread {
@@ -607,12 +663,14 @@ class EditTest : JournalScreenFixture() {
     fun holding_backspace_of_the_keyboard_on_the_screen_keeps_the_cursor_at_the_end_of_what_is_left() {
         editSecondOfTwo("first", "abcdefg")
         val root = compose.onNodeWithTag(EDITOR_TAG).fetchSemanticsNode().root as ViewRootForTest
-        // As on a slow phone: each Backspace after the first comes just after the screen was drawn again
+        // As on a slow phone: each Backspace after the first comes just after the screen was drawn
+        // again
         var more = 3
         afterDrawn = {
             if (more > 0) {
                 more -= 1
-                checkNotNull(root.view.onCreateInputConnection(EditorInfo())).deleteSurroundingText(1, 0)
+                checkNotNull(root.view.onCreateInputConnection(EditorInfo()))
+                    .deleteSurroundingText(1, 0)
             }
         }
 
@@ -627,7 +685,9 @@ class EditTest : JournalScreenFixture() {
     @Test
     fun backspace_of_the_keyboard_on_the_screen_with_text_chosen_from_the_start_joins_nothing() {
         editSecondOfTwo("first", "second")
-        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) { it(0, 3, true) }
+        compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.SetSelection) {
+            it(0, 3, true)
+        }
 
         pressBackspaceOnTheScreen()
         compose.onNodeWithTag(EDITOR_TAG).performTextInput("x")

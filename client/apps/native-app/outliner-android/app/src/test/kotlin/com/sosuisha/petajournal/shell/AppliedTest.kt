@@ -23,8 +23,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * The view model that the changes of the core make (ADR 076). That the core sends the changes
- * that make its own view model is tested in Rust, in `client-native-bridge`.
+ * The view model that the changes of the core make (ADR 076). That the core sends the changes that
+ * make its own view model is tested in Rust, in `client-native-bridge`.
  */
 class AppliedTest {
     private fun row(id: String, body: String = "") =
@@ -185,7 +185,10 @@ class AppliedTest {
 
         val changed =
             view.with(
-                Changes(emptyList(), listOf(Panel.Search(search("changed")), Panel.Title("another"))),
+                Changes(
+                    emptyList(),
+                    listOf(Panel.Search(search("changed")), Panel.Title("another")),
+                ),
             )
 
         assertEquals("changed", changed.search.query)
@@ -197,9 +200,11 @@ class AppliedTest {
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
     @Test
     fun the_outline_panel_keeps_the_rows() {
-        val view = firstView(Changes(listOf(ListChange.Reset(listOf(row("a"), row("b")))), everyPanel()))
+        val view =
+            firstView(Changes(listOf(ListChange.Reset(listOf(row("a"), row("b")))), everyPanel()))
 
-        val changed = view.with(Changes(emptyList(), listOf(Panel.Outline(outline(selecting = false)))))
+        val changed =
+            view.with(Changes(emptyList(), listOf(Panel.Outline(outline(selecting = false)))))
 
         assertEquals(false, changed.outline.selectionMode)
         assertEquals(listOf("a", "b"), ids(changed.outline.rows))

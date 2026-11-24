@@ -2,9 +2,9 @@ package com.sosuisha.petajournal.screen
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
@@ -36,11 +36,16 @@ import androidx.compose.ui.window.PopupProperties
 import com.sosuisha.petajournal.sync.SyncState
 
 /**
- * The menu at the left of the bar, with what is done to the sync. There is none before the
- * sign-in: the button for the sign-in is on the screen then.
+ * The menu at the left of the bar, with what is done to the sync. There is none before the sign-in:
+ * the button for the sign-in is on the screen then.
  */
 @Composable
-internal fun SyncMenu(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit, onSignOut: () -> Unit) {
+internal fun SyncMenu(
+    state: SyncState,
+    onSignIn: () -> Unit,
+    onSync: () -> Unit,
+    onSignOut: () -> Unit,
+) {
     if (state == SyncState.SignedOut) return
     var open by remember { mutableStateOf(false) }
     // Nothing is asked of a sync that runs
@@ -57,7 +62,8 @@ internal fun SyncMenu(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit
         DropdownMenu(open, { open = false }, properties = PopupProperties(focusable = false)) {
             DropdownMenuItem({ Text("Sync") }, entry(onSync), enabled = resting)
             // A credential that Dropbox no longer takes is replaced by a new sign-in
-            if (state is SyncState.Failed) DropdownMenuItem({ Text("Sign in to Dropbox") }, entry(onSignIn))
+            if (state is SyncState.Failed)
+                DropdownMenuItem({ Text("Sign in to Dropbox") }, entry(onSignIn))
             DropdownMenuItem({ Text("Sign out") }, entry(onSignOut), enabled = resting)
         }
     }
@@ -66,15 +72,21 @@ internal fun SyncMenu(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit
 /** How far a sync that moves files is, in words and as a part of the whole, or null. */
 internal fun progress(state: SyncState?): Pair<String, Float>? =
     when (state) {
-        is SyncState.Downloading -> if (state.total > 0) "Downloading ${state.done} of ${state.total}" to state.done.toFloat() / state.total else null
-        is SyncState.Uploading -> if (state.total > 0) "Uploading ${state.done} of ${state.total}" to state.done.toFloat() / state.total else null
+        is SyncState.Downloading ->
+            if (state.total > 0)
+                "Downloading ${state.done} of ${state.total}" to state.done.toFloat() / state.total
+            else null
+        is SyncState.Uploading ->
+            if (state.total > 0)
+                "Uploading ${state.done} of ${state.total}" to state.done.toFloat() / state.total
+            else null
         else -> null
     }
 
 /**
- * Where the sync stands, over the page, while the user waits for it: the app came to the
- * front, and the pages may be old until the files have moved. The dialog cannot be closed:
- * an edit of an old page would be merged with the new one later.
+ * Where the sync stands, over the page, while the user waits for it: the app came to the front, and
+ * the pages may be old until the files have moved. The dialog cannot be closed: an edit of an old
+ * page would be merged with the new one later.
  */
 @Composable
 internal fun Waiting(progress: Pair<String, Float>) {
@@ -89,16 +101,20 @@ internal fun Waiting(progress: Pair<String, Float>) {
 }
 
 /**
- * Where a sync stands that the user does not wait for, such as the one after an edit, and
- * why the last one failed. It lies over the top of the page, and takes no room there.
+ * Where a sync stands that the user does not wait for, such as the one after an edit, and why the
+ * last one failed. It lies over the top of the page, and takes no room there.
  */
 @Composable
 internal fun SyncCallout(state: SyncState, onSync: () -> Unit, modifier: Modifier) {
-    val (words, again) = when (state) {
-        is SyncState.Downloading, is SyncState.Uploading -> (progress(state)?.first ?: "Syncing…") to false
-        is SyncState.Failed -> (if (state.offline) "Sync failed: no connection" else "Sync failed") to true
-        SyncState.SignedOut, SyncState.Idle -> return
-    }
+    val (words, again) =
+        when (state) {
+            is SyncState.Downloading,
+            is SyncState.Uploading -> (progress(state)?.first ?: "Syncing…") to false
+            is SyncState.Failed ->
+                (if (state.offline) "Sync failed: no connection" else "Sync failed") to true
+            SyncState.SignedOut,
+            SyncState.Idle -> return
+        }
     Surface(
         modifier.padding(12.dp),
         shape = Callout,
@@ -106,10 +122,15 @@ internal fun SyncCallout(state: SyncState, onSync: () -> Unit, modifier: Modifie
         contentColor = MaterialTheme.colorScheme.inverseOnSurface,
         shadowElevation = 6.dp,
     ) {
-        Row(Modifier.padding(start = 16.dp, end = 16.dp + TAIL), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.padding(start = 16.dp, end = 16.dp + TAIL),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(words, Modifier.padding(vertical = 12.dp).weight(1f, fill = false))
             if (again) {
-                TextButton(onSync) { Text("Try again", color = MaterialTheme.colorScheme.inversePrimary) }
+                TextButton(onSync) {
+                    Text("Try again", color = MaterialTheme.colorScheme.inversePrimary)
+                }
             }
         }
     }
@@ -120,18 +141,23 @@ private val TAIL = 8.dp
 
 /** A speech balloon with its tail on the right side, as the callout of the sync. */
 private object Callout : Shape {
-    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
         val tail = with(density) { TAIL.toPx() }
         val corner = with(density) { 4.dp.toPx() }
         val side = size.width - tail
         val middle = size.height / 2
-        val balloon = Path().apply {
-            addRoundRect(RoundRect(0f, 0f, side, size.height, CornerRadius(corner)))
-            moveTo(side, middle - tail)
-            lineTo(size.width, middle)
-            lineTo(side, middle + tail)
-            close()
-        }
+        val balloon =
+            Path().apply {
+                addRoundRect(RoundRect(0f, 0f, side, size.height, CornerRadius(corner)))
+                moveTo(side, middle - tail)
+                lineTo(size.width, middle)
+                lineTo(side, middle + tail)
+                close()
+            }
         return Outline.Generic(balloon)
     }
 }

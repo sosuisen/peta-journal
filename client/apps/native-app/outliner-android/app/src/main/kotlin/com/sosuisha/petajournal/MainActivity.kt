@@ -6,8 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import java.io.File
 import com.sosuisha.petajournal.screen.JournalScreen
+import java.io.File
 
 class MainActivity : ComponentActivity() {
     private val model: JournalModel by viewModels { JournalModel.factory }
@@ -28,15 +28,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Opens a file of the assets folder with another app, or tells that the device has none for it. */
+    /**
+     * Opens a file of the assets folder with another app, or tells that the device has none for it.
+     */
     private fun open(file: File) {
-        if (!viewWithAnotherApp(this, file)) Toast.makeText(this, "No app opens ${file.name}", Toast.LENGTH_LONG).show()
+        if (!viewWithAnotherApp(this, file))
+            Toast.makeText(this, "No app opens ${file.name}", Toast.LENGTH_LONG).show()
     }
 
     /**
-     * The app saves what waits to be saved, and syncs, when it goes to the back: what was
-     * written goes up before Android may stop the app. A sync that Android stops goes on when
-     * the app opens again.
+     * The app saves what waits to be saved, and syncs, when it goes to the back: what was written
+     * goes up before Android may stop the app. A sync that Android stops goes on when the app opens
+     * again.
      */
     override fun onStop() {
         super.onStop()
@@ -45,7 +48,10 @@ class MainActivity : ComponentActivity() {
         if (isChangingConfigurations) model.screenIsMadeAgain() else model.wentToTheBack()
     }
 
-    /** The app syncs whenever it comes to the front, also back from the sign-in. Not when only the screen was made again. */
+    /**
+     * The app syncs whenever it comes to the front, also back from the sign-in. Not when only the
+     * screen was made again.
+     */
     override fun onResume() {
         super.onResume()
         model.syncInFront()

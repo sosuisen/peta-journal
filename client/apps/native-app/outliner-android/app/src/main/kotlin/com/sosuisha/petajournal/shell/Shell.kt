@@ -14,8 +14,8 @@ import com.sosuisha.petajournal.types.Request
 import com.sosuisha.petajournal.types.SearchEntry
 import com.sosuisha.petajournal.types.SelectionKey
 import com.sosuisha.petajournal.types.ShellEffect
-import com.sosuisha.petajournal.types.UiOp
 import com.sosuisha.petajournal.types.Typing
+import com.sosuisha.petajournal.types.UiOp
 import com.sosuisha.petajournal.types.UiOutput
 import com.sosuisha.petajournal.types.ViewModel
 import java.io.File
@@ -23,12 +23,12 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 
 /**
- * What the app shows, kept up to date with the core. The screen draws [view] and tells this
- * what the user did. All of it runs on the main thread, but the taking in of files.
+ * What the app shows, kept up to date with the core. The screen draws [view] and tells this what
+ * the user did. All of it runs on the main thread, but the taking in of files.
  *
- * [onMainThread] runs what it is given on the main thread, later and in order. The core calls
- * from its own threads. The core tells the sync when a page changed (ADR 055). [copy] puts
- * text on the clipboard of the system.
+ * [onMainThread] runs what it is given on the main thread, later and in order. The core calls from
+ * its own threads. The core tells the sync when a page changed (ADR 055). [copy] puts text on the
+ * clipboard of the system.
  */
 class Shell(
     dataDir: File,
@@ -38,7 +38,8 @@ class Shell(
 ) : AutoCloseable {
     // The main thread keeps the requests in order. The first ones may come before the border
     // is there, and are still handled after this constructor
-    private val border = Border(dataDir, markdownDir) { requests -> onMainThread { handle(requests) } }
+    private val border =
+        Border(dataDir, markdownDir) { requests -> onMainThread { handle(requests) } }
 
     /**
      * The Markdown that the app put on the clipboard last, `null` before the first copy. The
@@ -48,7 +49,8 @@ class Shell(
         private set
 
     /** The core, for the sync to hear from it when a page changed (ADR 055). */
-    val core: PetaCore get() = border.core
+    val core: PetaCore
+        get() = border.core
 
     /** Takes in the files, one sync after the other, and closes the core after the last. */
     private val worker = Executors.newSingleThreadExecutor()
@@ -76,9 +78,9 @@ class Shell(
         private set
 
     /**
-     * True when [restore] opened no screen and was not to make the journal of today. A new
-     * app waits for the sign-in: a journal made before the first download would be a second
-     * file for a day that Dropbox may hold already.
+     * True when [restore] opened no screen and was not to make the journal of today. A new app
+     * waits for the sign-in: a journal made before the first download would be a second file for a
+     * day that Dropbox may hold already.
      */
     var unopened: Boolean by mutableStateOf(false)
         private set
@@ -86,9 +88,9 @@ class Shell(
     // The screen that is open. The core decides what opens (ADR 056)
 
     /**
-     * The user touched a link to a page. [url] is the URL of the page, such as `/pages/notes`.
-     * A link to a page that is not there opens nothing, and [missing] names the page: a touch
-     * by mistake must not put an empty page into Dropbox (ADR 031).
+     * The user touched a link to a page. [url] is the URL of the page, such as `/pages/notes`. A
+     * link to a page that is not there opens nothing, and [missing] names the page: a touch by
+     * mistake must not put an empty page into Dropbox (ADR 031).
      */
     fun follow(url: String) = told { core.follow(url) }
 
@@ -99,9 +101,9 @@ class Shell(
     fun today() = told { core.today() }
 
     /**
-     * Opens the screen that the app showed when it was used last. The journal of today opens
-     * when there is none, as in a new app, and when its page has gone since. Without [make],
-     * the journal of today is not made, and no screen opens then.
+     * Opens the screen that the app showed when it was used last. The journal of today opens when
+     * there is none, as in a new app, and when its page has gone since. Without [make], the journal
+     * of today is not made, and no screen opens then.
      */
     fun restore(make: Boolean = true) = told { core.restore(make) }
 
@@ -131,8 +133,8 @@ class Shell(
     fun search(query: String) = send(Event.SearchQueryChanged(query))
 
     /**
-     * The user chose a search result: its page opens. The results for the journal of today
-     * and for a new page make their page.
+     * The user chose a search result: its page opens. The results for the journal of today and for
+     * a new page make their page.
      */
     fun pick(entry: SearchEntry) {
         send(Event.SearchResultClicked(entry.position))
@@ -141,10 +143,10 @@ class Shell(
     // The edit of an item
 
     /**
-     * The user touched an item: it is edited (ADR 031). The core ends the edit of another item
-     * and a selection (ADR 057). [letter] is how many letters of the shown text of the item
-     * stand before the touch, as `RichParagraph.start` counts them: the cursor goes to that
-     * place in the Markdown. Without it the cursor is at the end, where the writing goes on.
+     * The user touched an item: it is edited (ADR 031). The core ends the edit of another item and
+     * a selection (ADR 057). [letter] is how many letters of the shown text of the item stand
+     * before the touch, as `RichParagraph.start` counts them: the cursor goes to that place in the
+     * Markdown. Without it the cursor is at the end, where the writing goes on.
      */
     fun edit(itemId: String, letter: Int? = null) {
         val place = letter?.let { EditPlace.ShownLetter(it.toULong()) } ?: EditPlace.Unplaced
@@ -155,15 +157,15 @@ class Shell(
     fun type(itemId: String, body: String) = typed(Typing.Changed(itemId, body))
 
     /**
-     * The user typed into the item, and the cursor is [cursor] UTF-16 units into [body]. The
-     * core closes an opening just typed (ADR 057), and saves the body a moment later.
+     * The user typed into the item, and the cursor is [cursor] UTF-16 units into [body]. The core
+     * closes an opening just typed (ADR 057), and saves the body a moment later.
      */
     fun type(itemId: String, body: String, cursor: Int) =
         typed(Typing.Typed(itemId, body, cursor.coerceAtLeast(0).toULong()))
 
     /**
-     * Told when the keyboard composes a word in an item. The core does not hear of the word
-     * until it is committed. The sync with the cloud waits for the end of the input (#884).
+     * Told when the keyboard composes a word in an item. The core does not hear of the word until
+     * it is committed. The sync with the cloud waits for the end of the input (#884).
      */
     var onComposing: () -> Unit = {}
 
@@ -179,11 +181,11 @@ class Shell(
     }
 
     /**
-     * The user pressed a key in the editor of the item: Enter, Backspace, or an arrow of the
-     * cursor pad. The core decides what it means (ADR 052): Enter splits the item, Backspace
-     * at the start joins it to the item before, and an arrow at the edge of the text leaves
-     * the item. False when the key means nothing to the outline there. [editor] counts in
-     * UTF-16 units, as the fields of Android do.
+     * The user pressed a key in the editor of the item: Enter, Backspace, or an arrow of the cursor
+     * pad. The core decides what it means (ADR 052): Enter splits the item, Backspace at the start
+     * joins it to the item before, and an arrow at the edge of the text leaves the item. False when
+     * the key means nothing to the outline there. [editor] counts in UTF-16 units, as the fields of
+     * Android do.
      */
     fun press(key: EditorKey, itemId: String, editor: EditorState): Boolean {
         if (closed || !border.press(KeyPress.Named(itemId, key, editor))) return false
@@ -192,10 +194,10 @@ class Shell(
     }
 
     /**
-     * The user pasted [text] into the edited item, with the cursor [cursor] UTF-16 units into
-     * its Markdown. The core cuts the text into items (ADR 011): its first line goes on after
-     * the cursor, and each line after it is an item below. What the app copied comes back as
-     * the same items.
+     * The user pasted [text] into the edited item, with the cursor [cursor] UTF-16 units into its
+     * Markdown. The core cuts the text into items (ADR 011): its first line goes on after the
+     * cursor, and each line after it is an item below. What the app copied comes back as the same
+     * items.
      */
     fun paste(itemId: String, text: String, cursor: Int) {
         send(Event.PasteText(itemId, text, "", placeIn(itemId, cursor), false))
@@ -203,8 +205,8 @@ class Shell(
 
     /**
      * The user pasted the image in [file] into the edited item, with the cursor [cursor] UTF-16
-     * units into its Markdown. The core saves the image among the assets, deletes [file], and
-     * puts a link to the image at the cursor (ADR 071).
+     * units into its Markdown. The core saves the image among the assets, deletes [file], and puts
+     * a link to the image at the cursor (ADR 071).
      */
     fun pasteImage(itemId: String, file: File, cursor: Int) {
         if (closed) return
@@ -212,14 +214,20 @@ class Shell(
         show()
     }
 
-    /** The place [cursor] UTF-16 units into the Markdown of the item, in the characters of the core. */
+    /**
+     * The place [cursor] UTF-16 units into the Markdown of the item, in the characters of the core.
+     */
     private fun placeIn(itemId: String, cursor: Int): ULong {
         val body = bodyOf(itemId).orEmpty()
         return body.codePointCount(0, cursor.coerceIn(0, body.length)).toULong()
     }
 
-    /** The Markdown of the item as the core holds it now, or `null` when the screen shows no such item. */
-    fun bodyOf(itemId: String): String? = view.outline.rows.firstOrNull { it.item.id == itemId }?.item?.body
+    /**
+     * The Markdown of the item as the core holds it now, or `null` when the screen shows no such
+     * item.
+     */
+    fun bodyOf(itemId: String): String? =
+        view.outline.rows.firstOrNull { it.item.id == itemId }?.item?.body
 
     /** The user left the editor of the item: what was typed is saved. */
     fun finish(itemId: String) = send(Event.EditFinished(itemId))
@@ -243,8 +251,8 @@ class Shell(
     fun toggleCollapsed(itemId: String) = send(Event.CollapseToggle(itemId))
 
     /**
-     * Selects the item with everything under it (ADR 031). The edit of the item has ended:
-     * the keyboard is down, and the tools act on the selected items.
+     * Selects the item with everything under it (ADR 031). The edit of the item has ended: the
+     * keyboard is down, and the tools act on the selected items.
      */
     fun select(itemId: String) = send(Event.ShiftSelect(itemId))
 
@@ -255,8 +263,8 @@ class Shell(
     fun moveSelected(key: SelectionKey) = send(Event.SelectionKey(key))
 
     /**
-     * Puts the selected items on the clipboard, as Markdown. The core keeps how they stood, so
-     * that they are pasted back as the same items.
+     * Puts the selected items on the clipboard, as Markdown. The core keeps how they stood, so that
+     * they are pasted back as the same items.
      */
     fun copySelected() = send(Event.SelectionKey(SelectionKey.COPY))
 
@@ -264,8 +272,8 @@ class Shell(
     fun cutSelected() = send(Event.SelectionKey(SelectionKey.CUT))
 
     /**
-     * The day may have changed while the core could not look at the clock, as when the app was
-     * in the back: the journal of today opens the new day at once (#796).
+     * The day may have changed while the core could not look at the clock, as when the app was in
+     * the back: the journal of today opens the new day at once (#796).
      */
     fun dayMayHaveChanged() = send(Event.DateMayHaveChanged)
 
@@ -284,9 +292,9 @@ class Shell(
     fun image(path: String): File? = core.image(path)?.let(::File)
 
     /**
-     * The user touched a link to a file of the assets folder. [path] is its path under the
-     * Markdown folder. Answers with the file to open, or `null` when it is not here: then
-     * [missingFile] names it.
+     * The user touched a link to a file of the assets folder. [path] is its path under the Markdown
+     * folder. Answers with the file to open, or `null` when it is not here: then [missingFile]
+     * names it.
      */
     fun attached(path: String): File? {
         val file = core.attached(path)?.let(::File)
@@ -300,8 +308,8 @@ class Shell(
     private val later = ArrayDeque<Question>()
 
     /**
-     * The user answered [question]: the core goes on with what it asked about, or leaves it.
-     * A notice waits for no answer: the core would take one as a mistake.
+     * The user answered [question]: the core goes on with what it asked about, or leaves it. A
+     * notice waits for no answer: the core would take one as a mistake.
      */
     fun answer(yes: Boolean) {
         val asked = question ?: return
@@ -311,9 +319,9 @@ class Shell(
     }
 
     /**
-     * Shows a question or a notice of the core. The core asks the next question only after
-     * this one is answered, but a notice comes at any time: it waits behind what is shown, as
-     * the question it took the place of would wait for ever for its answer.
+     * Shows a question or a notice of the core. The core asks the next question only after this one
+     * is answered, but a notice comes at any time: it waits behind what is shown, as the question
+     * it took the place of would wait for ever for its answer.
      */
     private fun put(next: Question) {
         if (question == null) question = next else later.addLast(next)
@@ -322,10 +330,10 @@ class Shell(
     // The files of the Markdown folder
 
     /**
-     * Takes in the files of the Markdown folder, after a download has changed them, and writes
-     * the pages that changed in the app. It runs on a thread of its own: the first sync of a
-     * large folder takes long. [then] is called on that thread when the core is done, or at
-     * once when the app has closed.
+     * Takes in the files of the Markdown folder, after a download has changed them, and writes the
+     * pages that changed in the app. It runs on a thread of its own: the first sync of a large
+     * folder takes long. [then] is called on that thread when the core is done, or at once when the
+     * app has closed.
      */
     fun sync(then: () -> Unit = {}) {
         if (closed) return then()
@@ -343,11 +351,11 @@ class Shell(
     }
 
     /**
-     * Does what [sync] does, and returns when the core is done. It is for the thread of a sync
-     * with the cloud, which uploads what the core wrote. It must not be the main thread.
+     * Does what [sync] does, and returns when the core is done. It is for the thread of a sync with
+     * the cloud, which uploads what the core wrote. It must not be the main thread.
      *
-     * A new app that waited for the sign-in opens its first screen after it: the download
-     * has brought the journal of today, if Dropbox holds one.
+     * A new app that waited for the sign-in opens its first screen after it: the download has
+     * brought the journal of today, if Dropbox holds one.
      */
     fun syncAndWait() {
         val done = CountDownLatch(1)
@@ -357,9 +365,9 @@ class Shell(
     }
 
     /**
-     * The app goes to the back, where Android may stop it. The edit ends, and the text typed
-     * and still waiting for its save is saved before this returns: the moment later, when it
-     * would be saved, may never come (#766). The sync after this writes it to its file.
+     * The app goes to the back, where Android may stop it. The edit ends, and the text typed and
+     * still waiting for its save is saved before this returns: the moment later, when it would be
+     * saved, may never come (#766). The sync after this writes it to its file.
      */
     fun wentToTheBack() {
         if (closed) return
@@ -418,7 +426,8 @@ class Shell(
                 copied = op.markdown
                 copy(op.markdown)
             }
-            is UiOp.Prompt, is UiOp.ReadClipboardText -> border.answer(id, UiOutput.Text(null))
+            is UiOp.Prompt,
+            is UiOp.ReadClipboardText -> border.answer(id, UiOutput.Text(null))
             // The others wait for no answer, such as the title to set and the item to scroll to
             else -> Unit
         }
@@ -426,8 +435,13 @@ class Shell(
 }
 
 /**
- * A question of the core with the answers yes and no. [destructive] says that yes loses
- * something, so no is the answer to choose by default. Without [waits] it is a notice: the
- * core waits for no answer, and only OK closes it.
+ * A question of the core with the answers yes and no. [destructive] says that yes loses something,
+ * so no is the answer to choose by default. Without [waits] it is a notice: the core waits for no
+ * answer, and only OK closes it.
  */
-class Question(val text: String, val destructive: Boolean, internal val id: UInt, val waits: Boolean = true)
+class Question(
+    val text: String,
+    val destructive: Boolean,
+    internal val id: UInt,
+    val waits: Boolean = true,
+)

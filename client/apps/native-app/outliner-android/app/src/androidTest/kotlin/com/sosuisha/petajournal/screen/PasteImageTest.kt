@@ -15,14 +15,15 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.platform.app.InstrumentationRegistry
+import java.io.File
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 
 /** An image pasted into an item goes into the assets, and its link into the item (ADR 071). */
 class PasteImageTest : JournalScreenFixture() {
-    private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
+    private val context
+        get() = InstrumentationRegistry.getInstrumentation().targetContext
 
     /** Opens a page of one item, and edits it at its end. */
     private fun editNotes() {
@@ -48,8 +49,11 @@ class PasteImageTest : JournalScreenFixture() {
         editNotes()
         val image = TestImages.address("pasted.png")
         compose.runOnUiThread {
-            context.getSystemService(ClipboardManager::class.java)
-                .setPrimaryClip(ClipData(ClipDescription("image", arrayOf("image/png")), ClipData.Item(image)))
+            context
+                .getSystemService(ClipboardManager::class.java)
+                .setPrimaryClip(
+                    ClipData(ClipDescription("image", arrayOf("image/png")), ClipData.Item(image)),
+                )
         }
 
         compose.onNodeWithTag(EDITOR_TAG).performSemanticsAction(SemanticsActions.PasteText)

@@ -24,9 +24,7 @@ val dropboxFolder = (findProperty("dropboxFolder") as String?).orEmpty()
 android {
     namespace = "com.sosuisha.petajournal"
     // Compose UI 1.13 needs the APIs of 37.1
-    compileSdk {
-        version = release(37) { minorApiLevel = 1 }
-    }
+    compileSdk { version = release(37) { minorApiLevel = 1 } }
 
     defaultConfig {
         applicationId = "com.sosuisha.petajournal"

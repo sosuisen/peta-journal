@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -14,7 +15,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
 
 /** How a file of the assets folder is handed to another app. No other app opens in the test. */
 @RunWith(AndroidJUnit4::class)
@@ -24,7 +24,10 @@ class OtherAppTest {
     /** A folder of the test in the assets folder: the app lends only files of the assets folder. */
     private val assets = File(context.filesDir, "markdown/assets/other-app-test")
 
-    /** Starts no app. It keeps what was to be started, or it is a device without an app for the file. */
+    /**
+     * Starts no app. It keeps what was to be started, or it is a device without an app for the
+     * file.
+     */
     private class Device(base: Context, private val hasApp: Boolean = true) : ContextWrapper(base) {
         val started = mutableListOf<Intent>()
 
@@ -60,7 +63,10 @@ class OtherAppTest {
         assertEquals("application/pdf", view.type)
         assertEquals("content", view.data?.scheme)
         assertEquals("${context.packageName}.files", view.data?.authority)
-        assertEquals(Intent.FLAG_GRANT_READ_URI_PERMISSION, view.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        assertEquals(
+            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            view.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION,
+        )
         assertEquals(0, view.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
     }
 

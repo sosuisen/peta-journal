@@ -10,8 +10,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.io.File
-import org.junit.runner.RunWith
 import org.junit.Test
+import org.junit.runner.RunWith
 
 /** A page that a download changed while it is open. */
 @RunWith(AndroidJUnit4::class)
@@ -49,7 +49,8 @@ class DownloadedPageTest : JournalScreenFixture() {
         waitFor("changed elsewhere")
     }
 
-    private fun touchEnd(text: String) = compose.onNodeWithText(text).performTouchInput { click(centerRight) }
+    private fun touchEnd(text: String) =
+        compose.onNodeWithText(text).performTouchInput { click(centerRight) }
 
     /** A page `notes` with the items "first" and "second", open. */
     private fun openFirstAndSecond(): File {
@@ -68,7 +69,10 @@ class DownloadedPageTest : JournalScreenFixture() {
 
     private fun waitForEditor(text: String) =
         compose.waitUntil(WAIT_MS) {
-            compose.onAllNodes(hasTestTag(EDITOR_TAG) and hasText(text)).fetchSemanticsNodes().isNotEmpty()
+            compose
+                .onAllNodes(hasTestTag(EDITOR_TAG) and hasText(text))
+                .fetchSemanticsNodes()
+                .isNotEmpty()
         }
 
     // 項目を編集している間でも、ほかの端末が別の項目を書き換えたファイルは、取り込んだあとに画面に出る。編集は続く（ADR 069）。
@@ -109,7 +113,12 @@ class DownloadedPageTest : JournalScreenFixture() {
         waitForEditor("first typed")
 
         // The item "second" changes too: when it shows, the page has been read again
-        file.writeText(file.readText().replace("first", "changed elsewhere").replace("second", "second changed"))
+        file.writeText(
+            file
+                .readText()
+                .replace("first", "changed elsewhere")
+                .replace("second", "second changed"),
+        )
         file.setLastModified(file.lastModified() + 10_000)
         compose.runOnUiThread { shell.sync() }
         waitFor("second changed")

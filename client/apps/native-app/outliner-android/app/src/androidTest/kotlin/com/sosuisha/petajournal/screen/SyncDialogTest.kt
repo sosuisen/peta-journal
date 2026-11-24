@@ -7,11 +7,11 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import java.io.File
 import com.sosuisha.petajournal.shell.Shell
 import com.sosuisha.petajournal.sync.SyncState
-import org.junit.runner.RunWith
+import java.io.File
 import org.junit.Test
+import org.junit.runner.RunWith
 
 /** The dialog that shows a sync while the user waits for it. */
 @RunWith(AndroidJUnit4::class)
