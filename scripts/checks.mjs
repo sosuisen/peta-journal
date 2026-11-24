@@ -164,7 +164,7 @@ export function jobsFor(files) {
 // The MSBuild of Visual Studio is not on the PATH of a developer's machine. vswhere finds it
 function findMsbuild() {
   if (process.env.MSBUILD) return process.env.MSBUILD;
-  const onPath = spawnSync('msbuild', ['-version'], { stdio: 'ignore', shell: true });
+  const onPath = spawnSync('msbuild -version', { stdio: 'ignore', shell: true });
   if (onPath.status === 0) return 'msbuild';
   const vswhere = 'C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe';
   if (process.platform !== 'win32' || !existsSync(vswhere)) return undefined;
@@ -207,10 +207,15 @@ export function runJob(name, { root = ROOT, strict = false, log = (s) => process
     log(`\n$ (${step.cwd ?? job.dir}) ${step.run}\n`);
     // The variables are put in here, not by the shell: cmd.exe on Windows does not read `$NAME`
     const command = step.run.replace(/\$([A-Z_]+)/g, (_, v) => env[v] ?? '');
-    const r = spawnSync(command, {
+    // The shell is called by hand: `shell: true` warns that the command is not escaped (DEP0190)
+    const [shell, args] =
+      process.platform === 'win32'
+        ? [env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${command}"`]]
+        : ['/bin/sh', ['-c', command]];
+    const r = spawnSync(shell, args, {
       cwd,
       env: { ...env, ...step.env },
-      shell: true,
+      windowsVerbatimArguments: process.platform === 'win32',
       encoding: 'utf8',
       maxBuffer: 1 << 30,
     });
