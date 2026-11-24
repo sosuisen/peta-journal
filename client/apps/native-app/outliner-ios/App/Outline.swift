@@ -7,15 +7,9 @@ enum Letters {
     /// The size of plain text, which follows the size the user chose for the device.
     static var plain: CGFloat { UIFont.preferredFont(forTextStyle: .body).pointSize }
 
-    /// How many times the size of plain text the letters of a heading are.
-    static func larger(heading: Int) -> CGFloat {
-        switch heading {
-        case 1: return 1.6
-        case 2: return 1.4
-        case 3: return 1.2
-        case 4: return 1.1
-        default: return 1
-        }
+    /// `count` ems of plain text, as the core gives an indent (#795).
+    static func ems(_ count: Float) -> CGFloat {
+        plain * CGFloat(count)
     }
 
     /// How high a line of letters of the size is.
@@ -101,8 +95,9 @@ struct OutlineRow: View {
         let id = row.item.id
         let blocks = row.isEditing ? [] : row.bodyModel.blocks
         // The bullet and the mark stand beside the middle of the first line. An item that
-        // starts with a heading has a higher first line
-        let first = Letters.line(Letters.plain * firstLarger(blocks))
+        // starts with a heading has a higher first line, as the core says (#795). The editor
+        // has letters of plain size
+        let first = Letters.line(Letters.plain * (row.isEditing ? 1 : CGFloat(row.firstLineScale)))
         VStack(alignment: .leading, spacing: 0) {
             if let date = row.dateHeader {
                 // As large as the date of today at the top: each is the title of a day
@@ -172,12 +167,6 @@ struct OutlineRow: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier(row.isSelected ? "selected" : "")
         }
-    }
-
-    /// How many times larger than plain text the letters of the first line are.
-    private func firstLarger(_ blocks: [RichBlock]) -> CGFloat {
-        guard case .text(let paragraphs) = blocks.first, let paragraph = paragraphs.first else { return 1 }
-        return Letters.larger(heading: Int(paragraph.heading))
     }
 }
 
