@@ -1,17 +1,21 @@
 import { fireEvent, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   Heading,
+  HeadingsView,
+  IndexPagesView,
   IndexSort,
   Page,
+  RecentPagesView,
   SidebarPage,
-  SidebarView,
+  type LoadState,
 } from './border/peta-types';
 import Sidebar from './Sidebar';
 import { draw, shell } from './test/screens';
 
 afterEach(() => {
   localStorage.clear();
+  vi.restoreAllMocks();
 });
 
 /** A page of the sidebar named `label`, at `path`. */
@@ -31,25 +35,52 @@ function page(
   return Object.assign(shown, changes);
 }
 
+const loaded: LoadState = { kind: 'Loaded' };
+
+/** What each list of the sidebar changes from the folder `work/`, with the page b open. */
+interface Changes {
+  readonly index?: Partial<IndexPagesView>;
+  readonly headings?: Partial<HeadingsView>;
+  readonly recent?: Partial<RecentPagesView>;
+}
+
 /** The sidebar of the folder `work/`, with the page b open. Each test changes what it needs. */
-function view(changes: Partial<SidebarView> = {}): SidebarView {
-  const shown = new SidebarView(
+function sidebar(changes: Changes = {}) {
+  const index = new IndexPagesView(
     'work/',
     '/pages/work/index',
     new IndexSort({ kind: 'Name' }, { kind: 'Asc' }),
     '/pages/index',
     [page('a', 'plan'), page('b', 'notes')],
-    [new Heading('h1', 'Goals', 1), new Heading('h2', 'Steps', 2)],
-    [page('b', 'notes'), page('c', 'diary')],
     'b',
+    loaded,
   );
-  return Object.assign(shown, changes);
+  const headings = new HeadingsView(
+    [new Heading('h1', 'Goals', 1), new Heading('h2', 'Steps', 2)],
+    loaded,
+  );
+  const recent = new RecentPagesView(
+    [page('b', 'notes'), page('c', 'diary')],
+    loaded,
+  );
+  const ui = shell();
+  ui.wasm.push(
+    [],
+    [
+      { kind: 'IndexPages', value: Object.assign(index, changes.index) },
+      { kind: 'Headings', value: Object.assign(headings, changes.headings) },
+      { kind: 'RecentPages', value: Object.assign(recent, changes.recent) },
+    ],
+  );
+  return { ...ui, ...draw(ui, <Sidebar />) };
 }
 
-function sidebar(shown: SidebarView = view()) {
-  const ui = shell();
-  ui.wasm.push([], [{ kind: 'Sidebar', value: shown }]);
-  return { ...ui, ...draw(ui, <Sidebar />) };
+const loading = { state: { kind: 'Loading' } } as const;
+const failed = { state: { kind: 'Failed' } } as const;
+
+/** Whether a list of the sidebar is drawn as loading. */
+function busy(container: HTMLElement): number {
+  return container.querySelectorAll('[aria-busy="true"]').length;
 }
 
 const here = { kind: 'Here' } as const;
@@ -101,7 +132,7 @@ describe('the index section', () => {
 
   // 上のフォルダがなければ、../は出ない。
   test('without a folder above there is no ../', () => {
-    sidebar(view({ index_parent_path: null }));
+    sidebar({ index: { parent_path: null } });
     const withoutParent = names(section('work/'));
 
     expect(withoutParent).toEqual(['plan', 'notes']);
@@ -109,16 +140,16 @@ describe('the index section', () => {
 
   // 目次のページも上のフォルダもなければ、目次の節はない。
   test('without pages and a folder above there is no index section', () => {
-    const { container } = sidebar(
-      view({ index_pages: [], index_parent_path: null }),
-    );
+    const { container } = sidebar({
+      index: { pages: [], parent_path: null },
+    });
 
     expect(container.querySelector('.index-header-title')).toBeNull();
   });
 
   // 上のフォルダだけでも、目次の節は出る。
   test('a folder above alone shows the index section', () => {
-    sidebar(view({ index_pages: [] }));
+    sidebar({ index: { pages: [] } });
 
     expect(names(section('work/'))).toEqual(['../']);
   });
@@ -133,11 +164,7 @@ describe('the sort of the index', () => {
 
   // 並べ方のメニューは、6つの並べ方を出し、今のものに印がつく。
   test('the menu shows the six sorts, and marks the one in use', () => {
-    sidebar(
-      view({
-        index_sort: new IndexSort({ kind: 'Modified' }, { kind: 'Desc' }),
-      }),
-    );
+    sidebar({ index: { sort: new IndexSort({ kind: 'Modified' }, { kind: 'Desc' }) } });
 
     const menu = openMenu();
 
@@ -241,7 +268,7 @@ describe('the contents section', () => {
 
   // 見出しがなければ、節はない。
   test('without headings there is no section', () => {
-    sidebar(view({ headings: [] }));
+    sidebar({ headings: { headings: [] } });
 
     expect(screen.queryByText('Contents')).toBeNull();
   });
@@ -265,15 +292,15 @@ describe('the recent pages section', () => {
 
   // フォルダ、公開したページ、ふつうのページで、アイコンが違う。フォルダの名前があれば、名前の前に出る。
   test('a folder, a published page and a plain page have their own icons, and a folder name comes first', () => {
-    const { container } = sidebar(
-      view({
-        recent_pages: [
+    const { container } = sidebar({
+      recent: {
+        pages: [
           page('d', 'work', { is_dir: true }),
           page('e', 'post', { published: true, dir_label: 'blog/' }),
           page('f', 'memo'),
         ],
-      }),
-    );
+      },
+    });
     const items = section('Recent Pages').querySelectorAll('.sidebar-item');
 
     expect(
@@ -384,6 +411,71 @@ describe('a right click on a page', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
 
     expect([clicked, menu()]).toEqual([null, null]);
+  });
+});
+
+// 読み込み中と失敗の一覧
+describe('the lists that are loading or failed', () => {
+  // 読み込み中のフォルダのページは、見出しなしで読み込み中と描かれる。失敗すると、そう書かれる。
+  test('the pages of a folder show as loading without a title, and tell when they failed', () => {
+    const { container } = sidebar({ index: { ...loading, header: '' } });
+    const whileLoading = [
+      busy(container),
+      container.querySelector('.index-header-title'),
+    ];
+    sidebar({ index: { ...failed, header: '' } });
+
+    expect(whileLoading).toEqual([1, null]);
+    expect(screen.queryByText('The folder could not be loaded.')).not.toBeNull();
+  });
+
+  // 読み込み中の目次は、見出しとともに読み込み中と描かれる。失敗すると、そう書かれる。
+  test('the contents show as loading under their title, and tell when they failed', () => {
+    const { container } = sidebar({ headings: { ...loading, headings: [] } });
+    const whileLoading = busy(section('Contents'));
+    container.remove();
+    sidebar({ headings: { ...failed, headings: [] } });
+
+    expect(whileLoading).toBe(1);
+    expect(
+      within(section('Contents')).queryByText(
+        'The contents could not be loaded.',
+      ),
+    ).not.toBeNull();
+  });
+
+  // 読み込み中の最近のページは、見出しとともに読み込み中と描かれる。失敗すると、そう書かれる。
+  test('the recent pages show as loading under their title, and tell when they failed', () => {
+    const { container } = sidebar({ recent: { ...loading, pages: [] } });
+    const whileLoading = busy(section('Recent Pages'));
+    container.remove();
+    sidebar({ recent: { ...failed, pages: [] } });
+
+    expect(whileLoading).toBe(1);
+    expect(
+      within(section('Recent Pages')).queryByText(
+        'The recent pages could not be loaded.',
+      ),
+    ).not.toBeNull();
+  });
+
+  // 読み込み済みの一覧は、読み込み中とは描かれない。
+  test('loaded lists are not drawn as loading', () => {
+    const { container } = sidebar();
+
+    expect(busy(container)).toBe(0);
+  });
+
+  // 1つの一覧が描けなくても、ほかの一覧は描かれる。
+  test('a list that cannot be drawn leaves the others', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const broken = null as unknown as Heading[];
+
+    sidebar({ headings: { headings: broken } });
+
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(names(section('work/'))).toEqual(['../', 'plan', 'notes']);
+    expect(names(section('Recent Pages'))).toEqual(['notes', 'diary']);
   });
 });
 
