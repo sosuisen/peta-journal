@@ -868,10 +868,12 @@ that stands for it, but for its line break.  An overlay leaves the text alone."
 (defun peta-journal--on-frame-focus ()
   "Tell the shell of each page that the day may have changed.
 Emacs calls this when the focus of a frame changes, as when it comes back
-after the PC slept.  The core then opens the new day at once (#1031)."
-  (dolist (page (peta-journal--pages))
-    (with-current-buffer page
-      (peta-journal--send "day_may_have_changed"))))
+after the PC slept.  The core then opens the new day at once (#1031).
+Nothing is told when the focus left Emacs."
+  (when (seq-some #'frame-focus-state (frame-list))
+    (dolist (page (peta-journal--pages))
+      (with-current-buffer page
+        (peta-journal--send "day_may_have_changed")))))
 
 (defun peta-journal--wait-until (done)
   "Handle the output of the shell until the function DONE says so.
