@@ -220,3 +220,16 @@ fn a_page_that_could_not_be_loaded_opens_once_the_server_is_up() {
 
     assert_eq!(h.model.shown_page_id().as_deref(), Some("page-Notes"));
 }
+
+// サーバーが落ちていてジャーナルを読めなかったとき、つなぎ直してストリームが開くと、そのジャーナルを開き直す（#756）。
+#[test]
+fn a_journal_that_could_not_be_loaded_opens_once_the_server_is_up() {
+    let mut h = started();
+    h.api.fail_next("GetOrCreateJournal", "connection refused");
+    visit(&mut h, "2026-02-09");
+    assert_eq!(h.model.shown_page_id(), None);
+
+    server_comes_up(&mut h);
+
+    assert_eq!(h.model.shown_page_id().as_deref(), Some("page-2026-02-09"));
+}
