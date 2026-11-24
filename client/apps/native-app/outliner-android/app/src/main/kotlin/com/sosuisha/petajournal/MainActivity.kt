@@ -49,5 +49,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         model.syncInFront()
+        // The wait of the core does not count the time in the back or asleep, and the new day
+        // would come late
+        model.shell.dayMayHaveChanged()
     }
 }

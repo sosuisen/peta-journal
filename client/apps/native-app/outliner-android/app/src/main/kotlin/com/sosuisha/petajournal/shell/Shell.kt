@@ -263,6 +263,12 @@ class Shell(
     /** Puts the selected items on the clipboard, as [copySelected] does, and deletes them. */
     fun cutSelected() = send(Event.SelectionKey(SelectionKey.CUT))
 
+    /**
+     * The day may have changed while the core could not look at the clock, as when the app was
+     * in the back: the journal of today opens the new day at once (#796).
+     */
+    fun dayMayHaveChanged() = send(Event.DateMayHaveChanged)
+
     /** Takes back the last change of the page. */
     fun undo() = send(Event.Undo)
 
