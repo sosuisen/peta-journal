@@ -622,73 +622,17 @@ fn opened() -> PetaScreen {
     PetaScreen::default()
 }
 
-// ないページへのリンクに触れても、ページは作られず、何も開かない。画面は、そのページがないことを伝える。
+// ページのURLをコアが求めると、そのページが開き、画面は何も伝えない。リンクに触れたときである（ADR 083）。
 #[test]
-fn a_link_to_a_page_that_is_not_there_names_it_and_makes_nothing() {
-    let app = App::new();
-    let core = app.open(Arc::default());
-    let before = core.core.pages.find_all().unwrap().len();
-
-    let screen = core.follow("/pages/nowhere/ghost#item".into());
-
-    assert_eq!(screen.missing, Some("nowhere/ghost".into()));
-    assert_eq!(core.screen(), screen);
-    assert_eq!(core.core.pages.find_all().unwrap().len(), before);
-}
-
-// ページへのリンクに触れると、そのページが開き、画面は何も伝えない。
-#[test]
-fn a_link_to_a_page_opens_it_and_the_screen_tells_nothing() {
+fn a_url_of_a_page_that_the_core_asks_for_opens_it_and_the_screen_tells_nothing() {
     let app = App::new();
     app.download("notes.md", "an apple\n");
     let core = app.open(Arc::default());
     core.sync();
-    core.follow("/pages/ghost".into());
 
-    assert_eq!(core.follow("/pages/notes".into()), opened());
+    assert_eq!(core.navigated("/pages/notes".into()), opened());
 
     wait_until("the page shows", || shown(&core).contains("an apple"));
-}
-
-// ないページを作るように頼むと、ないと伝えたページができて開く。
-#[test]
-fn the_page_that_was_not_there_is_made_when_the_user_asks_for_it() {
-    let app = App::new();
-    let core = app.open(Arc::default());
-    core.follow("/pages/work/plan".into());
-
-    assert_eq!(core.make(), opened());
-
-    wait_until("the page is made", || {
-        page_names(&core).contains(&"work/plan".to_string())
-    });
-}
-
-// 符号化したURLのページがなければ、画面は復号したページ名を伝え、頼むとその名前のページができる。
-#[test]
-fn a_page_of_an_encoded_url_is_named_and_made_by_its_decoded_name() {
-    let app = App::new();
-    let core = app.open(Arc::default());
-
-    let screen = core.follow("/pages/C%23%20notes#20260426035700_QZ998PX".into());
-    assert_eq!(screen.missing, Some("C# notes".into()));
-    assert_eq!(core.make(), opened());
-
-    wait_until("the page is made", || {
-        page_names(&core).contains(&"C# notes".to_string())
-    });
-}
-
-// ないと伝えたページがなければ、作るように頼んでも、何も起きない。
-#[test]
-fn nothing_is_made_when_no_page_was_missing() {
-    let app = App::new();
-    let core = app.open(Arc::default());
-    let before = core.core.pages.find_all().unwrap().len();
-
-    assert_eq!(core.make(), opened());
-
-    assert_eq!(core.core.pages.find_all().unwrap().len(), before);
 }
 
 // 今日のジャーナルを頼むと、なければ作られて開く。
@@ -715,6 +659,22 @@ fn a_url_that_the_core_asks_for_makes_its_page() {
     });
 }
 
+// コアが求めた符号化したURLのページがなければ、復号した名前のページができる。ないページへのリンクに触れたときである（ADR 083）。
+#[test]
+fn a_page_of_an_encoded_url_is_made_by_its_decoded_name() {
+    let app = App::new();
+    let core = app.open(Arc::default());
+
+    assert_eq!(
+        core.navigated("/pages/C%23%20notes#20260426035700_QZ998PX".into()),
+        opened()
+    );
+
+    wait_until("the page is made", || {
+        page_names(&core).contains(&"C# notes".to_string())
+    });
+}
+
 // アプリを開くと、前に見ていたページが開く。今日のジャーナルは作られない。
 #[test]
 fn the_app_opens_at_the_page_it_showed_before() {
@@ -722,7 +682,7 @@ fn the_app_opens_at_the_page_it_showed_before() {
     app.download("notes.md", "an apple\n");
     let core = app.open(Arc::default());
     core.sync();
-    core.follow("/pages/notes".into());
+    core.navigated("/pages/notes".into());
     drop(core);
     let core = app.open(Arc::default());
 
@@ -750,7 +710,7 @@ fn the_app_opens_at_today_when_the_page_it_showed_has_gone() {
     app.download("notes.md", "an apple\n");
     let core = app.open(Arc::default());
     core.sync();
-    core.follow("/pages/notes".into());
+    core.navigated("/pages/notes".into());
     drop(core);
     app.remove("notes.md");
     let core = app.open(Arc::default());
@@ -780,7 +740,7 @@ fn an_app_that_showed_a_page_opens_it_also_when_it_is_not_to_make_today() {
     app.download("notes.md", "an apple\n");
     let core = app.open(Arc::default());
     core.sync();
-    core.follow("/pages/notes".into());
+    core.navigated("/pages/notes".into());
     drop(core);
     let core = app.open(Arc::default());
 
@@ -804,29 +764,25 @@ fn an_app_that_opened_no_screen_opens_the_first_screen_after_the_taking_in() {
     wait_until("the journal of today shows", || {
         shown(&core).contains("the weather was fine")
     });
-    core.follow("/pages/ghost".into());
-    assert_eq!(core.open_first_screen().missing, Some("ghost".into()));
 }
 
-// 戻ると前のページが、進むと戻る前のページが開く。ないと伝えていたページとファイルは、伝えなくなる。
+// 戻ると前のページが、進むと戻る前のページが開く。ないと伝えていたファイルは、伝えなくなる。
 #[test]
-fn back_and_forward_open_the_pages_of_the_history_and_forget_what_was_missing() {
+fn back_and_forward_open_the_pages_of_the_history_and_forget_the_missing_file() {
     let app = App::new();
     app.download("notes.md", "an apple\n");
     app.download("other.md", "a pear\n");
     let core = app.open(Arc::default());
     core.sync();
-    core.follow("/pages/notes".into());
-    core.follow("/pages/other".into());
+    core.navigated("/pages/notes".into());
+    core.navigated("/pages/other".into());
     wait_until("the other page shows", || shown(&core).contains("a pear"));
-    core.follow("/pages/ghost".into());
-    core.attached("assets/lost.pdf".into());
+    core.file_at("/assets/lost.pdf".into());
 
     assert_eq!(core.back(), opened());
 
     wait_until("the notes show", || shown(&core).contains("an apple"));
-    core.follow("/pages/ghost".into());
-    core.attached("assets/lost.pdf".into());
+    core.file_at("/assets/lost.pdf".into());
     assert_eq!(core.forward(), opened());
     wait_until("the other page shows", || shown(&core).contains("a pear"));
 }
@@ -839,8 +795,8 @@ fn the_page_that_back_opened_opens_when_the_app_opens_again() {
     app.download("other.md", "a pear\n");
     let core = app.open(Arc::default());
     core.sync();
-    core.follow("/pages/notes".into());
-    core.follow("/pages/other".into());
+    core.navigated("/pages/notes".into());
+    core.navigated("/pages/other".into());
     wait_until("the other page shows", || shown(&core).contains("a pear"));
 
     core.back();
@@ -861,8 +817,8 @@ fn the_page_that_forward_opened_opens_when_the_app_opens_again() {
     app.download("other.md", "a pear\n");
     let core = app.open(Arc::default());
     core.sync();
-    core.follow("/pages/notes".into());
-    core.follow("/pages/other".into());
+    core.navigated("/pages/notes".into());
+    core.navigated("/pages/other".into());
     wait_until("the other page shows", || shown(&core).contains("a pear"));
     core.back();
     wait_until("the notes show", || shown(&core).contains("an apple"));
@@ -901,7 +857,7 @@ fn the_file_of_an_image_is_found_whatever_the_case_and_the_form_of_its_name() {
     assert_eq!(core.image("assets".into()), None);
 }
 
-// assetsのファイルへのリンクは、そのファイルを答える。なければ、画面はないことを伝え、次のリンクかページを開いたときに伝えなくなる。
+// assetsのファイルのアドレスは、そのファイルを答える。名前の大文字と小文字は問わない。なければ、画面はないことを伝え、次のリンクかページを開いたときに伝えなくなる。
 #[test]
 fn a_link_to_a_file_gives_the_file_or_the_screen_tells_that_it_is_not_here() {
     let app = App::new();
@@ -910,12 +866,12 @@ fn a_link_to_a_file_gives_the_file_or_the_screen_tells_that_it_is_not_here() {
     std::fs::write(assets.join("report.pdf"), "pdf").unwrap();
     let core = app.open(Arc::default());
 
-    assert_eq!(core.attached("assets/lost.pdf".into()), None);
+    assert_eq!(core.file_at("/assets/lost.pdf".into()), None);
     assert_eq!(core.screen().missing_file, Some("assets/lost.pdf".into()));
-    let file = core.attached("assets/Report.pdf".into()).unwrap();
+    let file = core.file_at("/assets/Report.pdf".into()).unwrap();
     assert!(file.ends_with("report.pdf"));
     assert_eq!(core.screen().missing_file, None);
-    core.attached("assets/lost.pdf".into());
+    core.file_at("/assets/lost.pdf".into());
     assert_eq!(core.today().missing_file, None);
 }
 
