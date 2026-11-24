@@ -99,13 +99,13 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <rect class="inner" x="36" y="194" width="268" height="330" rx="10" style="stroke-dasharray:none" />
 <text x="52" y="212" dominant-baseline="central">wasm</text>
 <g class="teal">
-<rect x="52" y="300" width="236" height="72" rx="8" />
-<text class="th" x="170" y="313" text-anchor="middle" dominant-baseline="central">client-web-bridge（Rust）</text>
-<text x="170" y="331" text-anchor="middle" dominant-baseline="central">Effect実行・本文をHTMLに</text>
+<rect x="52" y="230" width="236" height="140" rx="8" />
+<text class="th" x="170" y="280" text-anchor="middle" dominant-baseline="central">client-web-bridge（Rust）</text>
+<text x="170" y="302" text-anchor="middle" dominant-baseline="central">Effect実行・本文をHTMLに</text>
 </g>
 <g class="chip">
-<rect x="139" y="346" width="62" height="18" rx="9" />
-<text x="170" y="355" text-anchor="middle" dominant-baseline="central">ast2html</text>
+<rect x="139" y="323" width="62" height="18" rx="9" />
+<text x="170" y="332" text-anchor="middle" dominant-baseline="central">ast2html</text>
 </g>
 <g class="purple">
 <rect x="82" y="412" width="206" height="96" rx="8" />
@@ -183,7 +183,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="118" y="391" dominant-baseline="central">Event</text>
 <line class="arr" x1="260" y1="410" x2="260" y2="372" marker-end="url(#arrow)" />
 <text x="252" y="391" text-anchor="end" dominant-baseline="central">Effect・差分</text>
-<line class="arr" x1="250" y1="114" x2="250" y2="298" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+<line class="arr" x1="250" y1="114" x2="250" y2="228" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="242" y="122" text-anchor="end" dominant-baseline="central">PetaBorder&lt;FFI&gt;</text>
 <text x="242" y="140" text-anchor="end" dominant-baseline="central">（wasm-bindgen）</text>
 <g class="badge"><rect x="196" y="152" width="46" height="22" rx="2" /><path d="M196 152L206 163L196 174" /><text x="224" y="163" text-anchor="middle" dominant-baseline="central">HTML</text></g>
