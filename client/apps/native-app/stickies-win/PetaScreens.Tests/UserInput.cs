@@ -104,6 +104,26 @@ internal static class UserInput
     }
 
     /// <summary>
+    /// Clicks twice with the left button at the place on the screen. The four presses go to
+    /// Windows at once: a pause after the first press would start a move of the window.
+    /// </summary>
+    public static async Task DoubleClick(int x, int y)
+    {
+        if (!SetCursorPos(x, y))
+            throw new InvalidOperationException("Windows did not move the mouse");
+        await Task.Delay(Pause);
+        foreach (var flags in new[] { LeftDown, LeftUp, LeftDown, LeftUp })
+            Send(
+                new Input
+                {
+                    Type = 0,
+                    Mouse = new MouseInput { Flags = flags },
+                }
+            );
+        await Task.Delay(Pause);
+    }
+
+    /// <summary>
     /// A move of the mouse by nothing. Windows lets the process that sent the last input put
     /// its window in front, and this input changes nothing on the screen.
     /// </summary>

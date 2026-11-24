@@ -292,14 +292,15 @@ internal sealed class Screen : IAsyncDisposable
 
     /// <summary>
     /// Clicks the element of the sticky with the mouse, at <paramref name="across"/> of its
-    /// width. The sticky is the first one when none is named.
+    /// width, or clicks it twice. The sticky is the first one when none is named.
     /// </summary>
     public async Task Click(
         FrameworkElement element,
         StickyWindow? sticky = null,
         double across = 0.5,
         Held held = Held.None,
-        bool right = false
+        bool right = false,
+        bool twice = false
     )
     {
         sticky ??= Window;
@@ -323,7 +324,10 @@ internal sealed class Screen : IAsyncDisposable
             target = now;
             return still >= 5;
         });
-        await UserInput.Click(target.X, target.Y, held, right);
+        if (twice)
+            await UserInput.DoubleClick(target.X, target.Y);
+        else
+            await UserInput.Click(target.X, target.Y, held, right);
     }
 
     /// <summary>The place on the screen, in pixels, of a point across the middle of the element.</summary>
@@ -361,6 +365,23 @@ internal sealed class Screen : IAsyncDisposable
         });
         return found!;
     }
+
+    /// <summary>
+    /// Clicks the title bar of the sticky, in the room left of the Back button, or clicks it
+    /// twice.
+    /// </summary>
+    public Task ClickTitleBar(
+        StickyWindow? sticky = null,
+        bool right = false,
+        bool twice = false
+    ) =>
+        Click(
+            ButtonOf(sticky ?? Window, "Back (Alt+Left)"),
+            sticky,
+            across: -3,
+            right: right,
+            twice: twice
+        );
 
     /// <summary>The button of the title bar of the sticky that has the tip.</summary>
     public static Button ButtonOf(StickyWindow sticky, string tip) =>

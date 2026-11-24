@@ -396,8 +396,7 @@ public sealed class OutlineScreenTests
         await using var screen = await Screen.Open(Port);
         await screen.SecondOfTwoSelected();
 
-        // The title bar is the room left of the Back button
-        await screen.Click(Screen.ButtonOf(screen.Window, "Back (Alt+Left)"), across: -3);
+        await screen.ClickTitleBar();
 
         await Screen.Until("the selection ends", () => !screen.Shell.View.Outline.SelectionMode);
     }
