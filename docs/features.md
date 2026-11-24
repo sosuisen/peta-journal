@@ -805,6 +805,7 @@
   - リンクをどう開くかは、コアが決める（ADR 083、`client/libs/client-core/src/tests/links.rs`）。シェルは、押したリンクと、Shift、Ctrl、Commandのキーをコアに送るだけである
     - キーのないページへのリンクは、その画面で開く。CtrlかCommandは、アプリの新しい画面（Webは新しいタブ、付箋紙は新しい付箋紙）で開く。Shiftは、Web版のそのページをブラウザで開く。Shiftが先に効く（`tests/keys.rs`）
     - Webへのリンクと`assets`のファイルは、キーにかかわらずブラウザで開く。`assets`のファイルは、journalサーバーの`/assets/...`で開く
+    - スキームのあるアドレスは、スキームにかかわらず外へのリンクになり、OSが開く。`mailto:`、`obsidian://`、`file:`、Windowsのドライブのパス（`C:\...`）も同じである（#1071、`rich_text/tests.rs`）。開くアプリがなければ、付箋紙では何も起きず、Androidでは「No app opens」と知らせる
     - ネイティブのシェルでは、`/`で始まるアドレスの前に、ブリッジがjournalサーバーのアドレスを付ける（`client-native-bridge`の`tests/shell.rs`）
 - 編集中にCtrl+O（Macの付箋紙ではCmd+O、Emacsでは`C-c C-o`）を押すと、カーソルの下のウィキリンクまたはハッシュタグのページが開く
   - リンクの両端もリンクの上である。ウィキリンクの中の`#`はタグではない
