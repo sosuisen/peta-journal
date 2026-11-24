@@ -1,4 +1,5 @@
 import PetaBorder
+import PetaTypes
 import SwiftUI
 import UIKit
 import XCTest
@@ -70,7 +71,7 @@ final class DownloadWhileEditingTests: XCTestCase {
     /// the ID of the item then: another device that changes the item keeps it.
     private func editTheTrip() throws -> String {
         sync()
-        model.shell.follow("/pages/trip")
+        model.shell.follow(.page(url: "/pages/trip"))
         // Not the count of the rows: the journal of today, shown before, has one item too
         waitUntil("the page shows its item") {
             model.shell.view.outline.rows.map(\.item.body) == [DownloadWhileEditingTests.first]

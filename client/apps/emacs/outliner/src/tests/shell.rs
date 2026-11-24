@@ -8,6 +8,7 @@ use client_core::changes::ListChange;
 use client_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
 use client_core::model::{PropertyDefinition, TreeExport, Uploaded};
 use client_core::rest::ClientId;
+use client_core::rich_text::RichLink;
 use client_core::BodyModel;
 use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
@@ -898,6 +899,60 @@ fn copying_the_selection_gives_emacs_its_markdown() {
 "
         .into()
     }));
+}
+
+// 表示の形の行のリンクのクリックは、コアが開き方を決める。Webへのリンクとassetsのファイルは、ブラウザで開くようにEmacsに届く。ファイルのアドレスは、journalサーバーの上のものである（ADR 083）。
+#[test]
+fn a_click_on_a_link_out_of_the_page_gives_emacs_an_address_to_browse() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+
+    driver.send(Inbound::LinkClicked {
+        link: RichLink::Web {
+            url: "https://example.com/a".into(),
+        },
+    });
+    driver.send(Inbound::LinkClicked {
+        link: RichLink::File {
+            path: "assets/report a.pdf".into(),
+        },
+    });
+
+    let browsed: Vec<&Outbound> = driver
+        .sent()
+        .iter()
+        .filter(|line| matches!(line, Outbound::Browse { .. }))
+        .collect();
+    assert_eq!(
+        browsed,
+        [
+            &Outbound::Browse {
+                address: "https://example.com/a".into()
+            },
+            &Outbound::Browse {
+                address: "/assets/report%20a.pdf".into()
+            },
+        ]
+    );
+}
+
+// ページへのリンクのクリックは、そのページを開く。ブラウザには何も届かない（ADR 083）。
+#[test]
+fn a_click_on_a_link_to_a_page_opens_the_page() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+
+    driver.send(Inbound::LinkClicked {
+        link: RichLink::Page {
+            url: "/pages/other".into(),
+        },
+    });
+
+    assert!(
+        driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "other"))
+    );
+    assert!(!driver
+        .sent()
+        .iter()
+        .any(|line| matches!(line, Outbound::Browse { .. })));
 }
 
 // 項目のidを貼り付けると、その項目がトランスクルージョンの元としてサーバーへ送られる。

@@ -1,4 +1,5 @@
 import PetaBorder
+import PetaTypes
 import XCTest
 
 @testable import PetaJournal
@@ -126,8 +127,7 @@ final class JournalModelTests: XCTestCase {
         model.sync(inFront: true)
         waitUntil("the first sync rests") { model.cloud?.state == .idle }
 
-        model.shell.follow("/pages/brand-new")
-        model.shell.make()
+        model.shell.follow(.page(url: "/pages/brand-new"))
 
         waitUntil("the page goes up") { account.page.uploaded.contains("/PetaJournal/docs/brand-new.md") }
         XCTAssertEqual(account.syncs, 1)
@@ -140,8 +140,7 @@ final class JournalModelTests: XCTestCase {
         let model = try open(account, afterEdit: wait)
         model.sync(inFront: true)
         waitUntil("the first sync rests") { model.cloud?.state == .idle }
-        model.shell.follow("/pages/brand-new")
-        model.shell.make()
+        model.shell.follow(.page(url: "/pages/brand-new"))
 
         // Twice the wait, with a word composed all the time
         for _ in 0..<6 {

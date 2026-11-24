@@ -355,15 +355,18 @@ The bullet says how long the marks in front of the body are."
           (peta-journal-protocol-emacs-span-looks span)))
 
 (defun peta-journal-follow-link (event)
-  "Open the link of the shown text that EVENT clicked on."
+  "Open the link of the shown text that EVENT clicked on.
+The core decides how it opens (ADR 083)."
   (interactive "e")
   (let ((link (get-text-property (posn-point (event-start event)) 'peta-link)))
-    (peta-journal-protocol-handle-rich-link
-     link
-     (list :page (lambda (url) (peta-journal--go "go" :url url))
-           :web #'browse-url
-           :file (lambda (path)
-                   (browse-url (concat (string-trim-right peta-journal-server "/") "/" path)))))))
+    (peta-journal--go "link_clicked" :link link)))
+
+(defun peta-journal--browse (address)
+  "Open ADDRESS in the browser, as the core ordered.
+An ADDRESS that starts with / is on the journal server."
+  (browse-url (if (string-prefix-p "/" address)
+                  (concat (string-trim-right peta-journal-server "/") address)
+                address)))
 
 (defvar peta-journal--link-map
   (let ((map (make-sparse-keymap)))
@@ -968,6 +971,7 @@ M-x peta-journal in that buffer starts it and shows the saved text.  See *peta-j
    :copy (lambda (text)
            (kill-new text)
            (message "Copied the selected items"))
+   :browse #'peta-journal--browse
    :page-names (lambda (query titles)
                  (setq peta-journal--page-names (cons query (append titles nil))))
    :ask #'peta-journal--on-ask)

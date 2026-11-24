@@ -32,7 +32,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -46,13 +45,8 @@ import com.sosuisha.petajournal.types.TaskState
 import java.io.File
 import kotlin.math.roundToInt
 
-/**
- * Where the links of an item lead.
- *
- * @param onPage gets the URL of a page, such as `/pages/notes`.
- * @param onFile gets the path of a file of the assets folder, such as `assets/report.pdf`.
- */
-internal class Links(val onPage: (String) -> Unit, val onFile: (String) -> Unit)
+/** Where the links of an item go: the core decides how each opens (ADR 083). */
+internal class Links(val onLink: (RichLink) -> Unit)
 
 @Composable
 internal fun Outline(
@@ -85,19 +79,9 @@ internal fun Outline(
 
 @Composable
 private fun OutlineRow(row: Row, links: Links, image: (String) -> File?, shell: Shell) {
-    val uriHandler = LocalUriHandler.current
     // The blocks are kept while the item stays the same, and must not keep old links
     val now by rememberUpdatedState(links)
-    val blocks =
-        remember(row.bodyModel) {
-            shownBlocks(row.bodyModel) { link ->
-                when (link) {
-                    is RichLink.Web -> uriHandler.openUri(link.url)
-                    is RichLink.Page -> now.onPage(link.url)
-                    is RichLink.File -> now.onFile(link.path)
-                }
-            }
-        }
+    val blocks = remember(row.bodyModel) { shownBlocks(row.bodyModel) { link -> now.onLink(link) } }
     Column {
         row.dateHeader?.let { date ->
             // As large as the date of today at the top: each is the title of a day

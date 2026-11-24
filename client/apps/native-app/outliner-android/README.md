@@ -22,6 +22,17 @@ data and how it draws an item. ADR 031 says how it edits and uploads.
   ```
   cargo install boltffi_cli --version '=0.32.1' --locked
   ```
+- For `connectedDebugAndroidTest`, an emulator or a device. An emulator takes some GB, so its
+  AVD can be kept on another disk: set `ANDROID_AVD_HOME` to a folder there, for both the
+  commands below and the emulator. `ANDROID_HOME/cmdline-tools/latest/bin` has `sdkmanager`
+  and `avdmanager`:
+
+  ```
+  export ANDROID_AVD_HOME=/Volumes/<disk>/android-avd
+  sdkmanager "emulator" "system-images;android-37.0;google_apis;arm64-v8a"
+  avdmanager create avd -n peta-api37 -k "system-images;android-37.0;google_apis;arm64-v8a" -d pixel_5
+  $ANDROID_HOME/emulator/emulator -avd peta-api37 -no-snapshot &
+  ```
 
   The version has to be the same as the `boltffi` dependency in
   `client/libs/client-shell-embedded/Cargo.toml`.

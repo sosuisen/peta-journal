@@ -1,11 +1,9 @@
 package com.sosuisha.petajournal.screen
 
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sosuisha.petajournal.types.ScreenView
-import com.sosuisha.petajournal.types.SearchKind
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -14,7 +12,7 @@ import org.junit.runner.RunWith
 /** What a touch on a link or a tag opens. */
 @RunWith(AndroidJUnit4::class)
 class LinkTest : JournalScreenFixture() {
-    // assetsのファイルへのリンクに触れると、そのファイルが開かれる。名前の大文字と小文字は問わない。
+    // assetsのファイルへのリンクに触れると、コアがブラウザで開くように命じても、そのファイルが開かれる。アプリにはサーバーがないため。名前の大文字と小文字は問わない（ADR 083）。
     @Test
     fun a_link_to_a_file_of_the_assets_folder_opens_the_file() {
         File(root, "markdown/assets").mkdirs()
@@ -81,42 +79,18 @@ class LinkTest : JournalScreenFixture() {
         }
     }
 
-    // まだないページへのリンクに触れても、ページは作られない。ないことが見え、元のページが開いたままになる。
+    // まだないページへのリンクに触れると、ほかのシェルと同じく、そのページができて開き、ファイルが書かれる（ADR 083）。
     @Test
-    fun a_link_to_a_page_that_is_not_there_says_so_and_makes_no_page() {
+    fun a_link_to_a_page_that_is_not_there_makes_the_page_and_opens_it() {
         download("notes.md", "[[ghost]]" + NL)
         openNotes()
         waitFor("ghost")
 
         compose.onNode(hasText("ghost"), useUnmergedTree = true).performClick()
-
-        waitFor("No page yet: ghost")
-        compose.onNode(hasText("notes")).assertExists()
-        type("ghost")
-        compose.waitUntil(WAIT_MS) {
-            shell.view.search.results.any { it.kind == SearchKind.CREATE }
-        }
-        assertEquals(
-            emptyList<String>(),
-            shell.view.search.results.filter { it.kind == SearchKind.PAGE }.map { it.title },
-        )
-    }
-
-    // まだないページへのリンクに触れたあとの「Make it」は、そのページを作って開く。
-    @Test
-    fun the_button_beside_a_page_that_is_not_there_makes_it() {
-        download("notes.md", "[[ghost]]" + NL)
-        openNotes()
-        waitFor("ghost")
-        compose.onNode(hasText("ghost"), useUnmergedTree = true).performClick()
-        waitFor("No page yet: ghost")
-
-        compose.onNodeWithText("Make it").performClick()
 
         compose.waitUntil(WAIT_MS) {
             (shell.view.screen as? ScreenView.Page)?.value?.title == "ghost"
         }
-        compose.onNodeWithText("Make it").assertDoesNotExist()
         compose.waitUntil(WAIT_MS) { isWritten("docs/ghost.md") }
     }
 

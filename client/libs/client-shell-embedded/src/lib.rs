@@ -288,9 +288,8 @@ impl PetaCore {
 
 impl PetaCore {
     /// Opens what the URL names, such as `/pages/notes` or `/today`. A page that is not there
-    /// is an error, and it is not made. It is for a link in a page: a touch by mistake must
-    /// not put an empty page into Dropbox (ADR 031). The error is the name of the page that
-    /// is not there, for the screen to offer to make it.
+    /// is an error, and it is not made. It is for the screen of the last start, which may have
+    /// gone since. The error is the name of the page that is not there.
     fn open(&self, url: String) -> Result<(), String> {
         match Route::parse_url(&url) {
             Some(route) if self.is_there(&route) => self.opened(&url),
@@ -298,9 +297,10 @@ impl PetaCore {
         }
     }
 
-    /// Opens what the URL names, and makes the page or the journal when it is not there
-    /// (ADR 031). It is for the user who asked for a new page. The error, when the URL names
-    /// nothing, is the name of the page as `open` gives it.
+    /// Opens what the URL names, and makes the page or the journal when it is not there. It is
+    /// for a page the user asked for: by a link, a search result or the button of today, as in
+    /// the other shells (ADR 083). The error, when the URL names nothing, is the name of the
+    /// page as `open` gives it.
     fn open_or_make(&self, url: String) -> Result<(), String> {
         self.opened(&url)
     }

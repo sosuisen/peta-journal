@@ -61,10 +61,10 @@ final class ShellTests: JournalTestCase {
         try download("other.md", "what the other page says\n")
         try openNotes()
 
-        shell.follow("/pages/other")
+        shell.follow(.page(url: "/pages/other"))
 
         waitUntil("the other page shows") { self.bodies() == ["what the other page says"] }
-        XCTAssertNil(shell.missing)
+        XCTAssertEqual(browsed, [])
     }
 
     // 戻ると前のページが開き、進むと戻る前のページが開く。開いたページの履歴は、コアが持つ（ADR 035）。
@@ -73,7 +73,7 @@ final class ShellTests: JournalTestCase {
         try download("other.md", "what the other page says\n")
         try openNotes()
         XCTAssertFalse(shell.view.history.canGoBack)
-        shell.follow("/pages/other")
+        shell.follow(.page(url: "/pages/other"))
         waitUntil("the other page shows") { self.bodies() == ["what the other page says"] }
 
         shell.back()
@@ -86,29 +86,26 @@ final class ShellTests: JournalTestCase {
         waitUntil("the other page shows again") { self.bodies() == ["what the other page says"] }
     }
 
-    // まだないページへのリンクに触れても、ページは作られない。ないことが見え、元のページが開いたままになる。
-    func testALinkToAPageThatIsNotThereSaysSoAndMakesNoPage() throws {
+    // まだないページへのリンクに触れると、ほかのシェルと同じく、そのページができて開き、ファイルが書かれる（ADR 083）。
+    func testALinkToAPageThatIsNotThereMakesThePageAndOpensIt() throws {
         try download("notes.md", "[[nowhere]]\n")
         try openNotes()
 
-        shell.follow("/pages/nowhere")
-
-        XCTAssertEqual(shell.missing, "nowhere")
-        XCTAssertEqual(bodies(), ["[[nowhere]]"])
-        XCTAssertNil(written("docs/nowhere.md"))
-    }
-
-    // まだないページへのリンクに触れたあとに作ると、そのページができて開き、ファイルが書かれる。
-    func testThePageThatALinkNamedIsMadeWhenTheUserAsksForIt() throws {
-        try download("notes.md", "[[nowhere]]\n")
-        try openNotes()
-        shell.follow("/pages/nowhere")
-
-        shell.make()
+        shell.follow(.page(url: "/pages/nowhere"))
 
         waitUntil("the new page is open") { self.title() == "nowhere" }
-        XCTAssertNil(shell.missing)
         XCTAssertNotNil(written("docs/nowhere.md"))
+    }
+
+    // Webへのリンクに触れると、そのアドレスがブラウザに渡る。開いているページは変わらない。
+    func testALinkOutOfTheJournalOpensInTheBrowser() throws {
+        try download("notes.md", "[a](https://example.com/a)\n")
+        try openNotes()
+
+        shell.follow(.web(url: "https://example.com/a"))
+
+        waitUntil("the address goes to the browser") { self.browsed.map(\.absoluteString) == ["https://example.com/a"] }
+        XCTAssertEqual(title(), "notes")
     }
 
     private func title() -> String? {
@@ -539,17 +536,21 @@ final class ShellTests: JournalTestCase {
         XCTAssertNil(shell.question)
     }
 
-    // assetsのファイルへのリンクは、そのファイルを答える。ファイルがなければ、ないことが残り、次のリンクで消える。
-    func testALinkToAFileOfTheAssetsFolderGivesTheFileOrSaysThatItIsNotHere() throws {
+    // assetsのファイルへのリンクは、コアがブラウザで開くように命じても、アプリの中でそのファイルを開く。アプリにはサーバーがないため。ファイルがなければ、ないことが残り、次のリンクで消える（ADR 083）。
+    func testALinkToAFileOfTheAssetsFolderOpensTheFileOrSaysThatItIsNotHere() throws {
         try FileManager.default.createDirectory(
             at: markdown.appendingPathComponent("assets"), withIntermediateDirectories: true)
-        try Data("pdf".utf8).write(to: markdown.appendingPathComponent("assets/report.pdf"))
+        try Data("pdf".utf8).write(to: markdown.appendingPathComponent("assets/report a.pdf"))
         try start()
 
-        XCTAssertNil(shell.attached("assets/lost.pdf"))
-        XCTAssertEqual(shell.missingFile, "assets/lost.pdf")
-        XCTAssertEqual(shell.attached("assets/Report.pdf")?.lastPathComponent, "report.pdf")
+        shell.follow(.file(path: "assets/lost.pdf"))
+        waitUntil("the file is said to be missing") { self.shell.missingFile == "assets/lost.pdf" }
+        XCTAssertNil(shell.file)
+
+        shell.follow(.file(path: "assets/Report a.pdf"))
+        waitUntil("the file opens") { self.shell.file?.lastPathComponent == "report a.pdf" }
         XCTAssertNil(shell.missingFile)
+        XCTAssertEqual(browsed, [])
     }
 
     // クラウドとの同期のスレッドは、コアが取り込みと書き出しを終えるまで待つ。

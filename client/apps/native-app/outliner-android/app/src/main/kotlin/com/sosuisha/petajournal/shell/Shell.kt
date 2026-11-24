@@ -9,8 +9,10 @@ import com.sosuisha.petajournal.types.EditPlace
 import com.sosuisha.petajournal.types.EditorKey
 import com.sosuisha.petajournal.types.EditorState
 import com.sosuisha.petajournal.types.Event
+import com.sosuisha.petajournal.types.Held
 import com.sosuisha.petajournal.types.KeyPress
 import com.sosuisha.petajournal.types.Request
+import com.sosuisha.petajournal.types.RichLink
 import com.sosuisha.petajournal.types.SearchEntry
 import com.sosuisha.petajournal.types.SelectionKey
 import com.sosuisha.petajournal.types.ShellEffect
@@ -65,12 +67,12 @@ class Shell(
     var syncing: Boolean by mutableStateOf(false)
         private set
 
-    /** The page that a link named and that is not there, until another page opens. */
-    var missing: String? by mutableStateOf(null)
-        private set
-
     /** The file that a link named and that is not here, until the next link is touched. */
     var missingFile: String? by mutableStateOf(null)
+        private set
+
+    /** What a link opens outside the app, until the screen has [handedOn] it. */
+    var outside: Outside? by mutableStateOf(null)
         private set
 
     /** What the core asks the user before it does what is hard to undo, or null. */
@@ -88,14 +90,12 @@ class Shell(
     // The screen that is open. The core decides what opens (ADR 056)
 
     /**
-     * The user touched a link to a page. [url] is the URL of the page, such as `/pages/notes`. A
-     * link to a page that is not there opens nothing, and [missing] names the page: a touch by
-     * mistake must not put an empty page into Dropbox (ADR 031).
+     * The user touched a link of a shown item. The core decides how it opens (ADR 083). A touch
+     * holds no keys, so a page opens here, and is made when it is not there, as in the other
+     * shells.
      */
-    fun follow(url: String) = told { core.follow(url) }
-
-    /** The user wants the page that [missing] names: it is made and opens. */
-    fun make() = told { core.make() }
+    fun follow(link: RichLink) =
+        send(Event.LinkClicked(link, Held(shift = false, ctrl = false, cmd = false)))
 
     /** The user wants the journal of today: it is made when it is not there, and opens. */
     fun today() = told { core.today() }
@@ -121,7 +121,6 @@ class Shell(
         // A field that loses the focus while the screen is taken down still tells of it
         if (closed) return
         val screen = asking()
-        missing = screen.missing
         missingFile = screen.missingFile
         unopened = screen.unopened
         show()
@@ -292,14 +291,22 @@ class Shell(
     fun image(path: String): File? = core.image(path)?.let(::File)
 
     /**
-     * The user touched a link to a file of the assets folder. [path] is its path under the Markdown
-     * folder. Answers with the file to open, or `null` when it is not here: then [missingFile]
-     * names it.
+     * The core ordered the browser to open [address] (ADR 083). An address of the journal server,
+     * which starts with `/`, is a file of the assets folder: the app has no server, so the file
+     * opens in another app. When it is not here, [missingFile] names it.
      */
-    fun attached(path: String): File? {
-        val file = core.attached(path)?.let(::File)
-        missingFile = core.screen().missingFile
-        return file
+    private fun open(address: String) {
+        if (address.startsWith("/")) {
+            outside = core.fileAt(address)?.let { Outside.Document(File(it)) }
+            missingFile = core.screen().missingFile
+        } else {
+            outside = Outside.Web(address)
+        }
+    }
+
+    /** The screen opened what [outside] named. */
+    fun handedOn() {
+        outside = null
     }
 
     // The questions of the core
@@ -426,9 +433,11 @@ class Shell(
                 copied = op.markdown
                 copy(op.markdown)
             }
+            is UiOp.OpenInBrowser -> open(op.address)
             is UiOp.Prompt,
             is UiOp.ReadClipboardText -> border.answer(id, UiOutput.Text(null))
-            // The others wait for no answer, such as the title to set and the item to scroll to
+            // The others wait for no answer, such as the title to set and the item to scroll to.
+            // A new view is never asked for: a touch holds no keys (ADR 083)
             else -> Unit
         }
     }
@@ -445,3 +454,12 @@ class Question(
     internal val id: UInt,
     val waits: Boolean = true,
 )
+
+/** What a link opens outside the app. */
+sealed interface Outside {
+    /** An address for the browser. */
+    data class Web(val address: String) : Outside
+
+    /** A file of the assets folder, for another app to show. */
+    data class Document(val file: File) : Outside
+}

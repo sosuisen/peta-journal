@@ -15,8 +15,6 @@ struct JournalScreen: View {
     var onSync: () -> Void = {}
     var onSignOut: () -> Void = {}
 
-    /// The file of the assets folder that is shown over the screen.
-    @State private var file: URL?
     /// Whether the search field has the keyboard.
     @FocusState private var searches: Bool
     /// How much of the page the keyboard covers.
@@ -88,7 +86,7 @@ struct JournalScreen: View {
                 Button("Cancel", role: .cancel) { shell.answer(yes: false) }
             }
         }
-        .quickLookPreview($file)
+        .quickLookPreview($shell.file)
     }
 
     /// How much of the page the keyboard covers, above the edge that the page keeps free at
@@ -151,11 +149,10 @@ struct JournalScreen: View {
                     }
                 } else {
                     VStack(alignment: .leading, spacing: 0) {
-                        if let missing = shell.missing { MissingPage(name: missing, onMake: shell.make) }
                         if let missing = shell.missingFile {
                             Text("No file yet: \(missing)").padding(.horizontal, 12).padding(.vertical, 4)
                         }
-                        Outline(shell: shell, covered: covered, onFile: { file = $0 })
+                        Outline(shell: shell, covered: covered)
                     }
                 }
                 // Over the top of the page, so that it takes no room. Not at the bottom: the user
@@ -216,20 +213,6 @@ private struct TodayIcon: View {
 
 /// A link named a page that is not there. The page is made only when the user asks for it
 /// here (ADR 031).
-private struct MissingPage: View {
-    let name: String
-    let onMake: () -> Void
-
-    var body: some View {
-        HStack {
-            Text("No page yet: \(name)").frame(maxWidth: .infinity, alignment: .leading)
-            Button("Make it", action: onMake)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 4)
-    }
-}
-
 private struct Results: View {
     let entries: [SearchEntry]
     let onPick: (SearchEntry) -> Void

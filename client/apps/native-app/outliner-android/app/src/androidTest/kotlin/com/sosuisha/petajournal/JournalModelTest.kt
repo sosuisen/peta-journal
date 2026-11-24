@@ -5,6 +5,7 @@ import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.sosuisha.petajournal.sync.SyncState
+import com.sosuisha.petajournal.types.RichLink
 import com.sosuisha.petajournal.types.ScreenView
 import java.io.File
 import org.junit.After
@@ -149,10 +150,7 @@ class JournalModelTest {
         onMain { model.syncInFront() }
         waitUntil { model.cloud?.state == SyncState.Idle }
 
-        onMain {
-            model.shell.follow("/pages/brand-new")
-            model.shell.make()
-        }
+        onMain { model.shell.follow(RichLink.Page("/pages/brand-new")) }
 
         waitUntil { "docs/brand-new.md" in account.page.uploaded }
         assertEquals(1, account.syncs)

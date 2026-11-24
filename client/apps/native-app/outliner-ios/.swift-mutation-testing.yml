@@ -8,3 +8,5 @@ exclude:
   - "/UITests/"
   # It only calls the Dropbox SDK, so no test runs it without a real Dropbox account
   - "/Sources/PetaDropbox/SdkDropbox.swift"
+  # What xcodebuild leaves there, as debug.sh does, with the sources of the packages it fetched
+  - "/build/"

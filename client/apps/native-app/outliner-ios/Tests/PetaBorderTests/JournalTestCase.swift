@@ -10,6 +10,8 @@ class JournalTestCase: XCTestCase {
     var shell: Shell!
     /// What the shell put on the clipboard, the last last.
     var copied: [String] = []
+    /// The addresses that the shell opened in the browser.
+    var browsed: [URL] = []
 
     override func setUp() async throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("peta-shell-\(UUID().uuidString)")
@@ -40,7 +42,8 @@ class JournalTestCase: XCTestCase {
     func start() throws {
         shell = try Shell(
             dataDir: root.appendingPathComponent("data"), markdownDir: markdown,
-            copy: { [weak self] in self?.copied.append($0) })
+            copy: { [weak self] in self?.copied.append($0) },
+            browse: { [weak self] in self?.browsed.append($0) })
         takeIn()
     }
 

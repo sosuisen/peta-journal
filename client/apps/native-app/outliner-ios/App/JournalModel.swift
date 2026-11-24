@@ -31,7 +31,8 @@ final class JournalModel: ObservableObject {
         try? kept.setResourceValues(noBackup)
 
         let shell = try Shell(
-            dataDir: data, markdownDir: markdown, copy: { UIPasteboard.general.string = $0 })
+            dataDir: data, markdownDir: markdown, copy: { UIPasteboard.general.string = $0 },
+            browse: { UIApplication.shared.open($0) })
         self.shell = shell
 
         if !account.isSetUp {

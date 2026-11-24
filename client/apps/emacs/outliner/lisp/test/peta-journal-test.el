@@ -362,8 +362,8 @@ The shell tells the place in the Markdown with a focus."
   (let ((event (list 'mouse-1 (list (selected-window) (match-beginning 0) '(0 . 0) 0))))
     (funcall (lookup-key (get-text-property (match-beginning 0) 'keymap) [mouse-1]) event)))
 
-;; 表示の形の行のリンクは、クリックで開く。ページへのリンクはgoを送り、Webのリンクはブラウザーで開く。
-(ert-deftest peta-journal-a-click-on-a-shown-link-opens-it ()
+;; 表示の形の行のリンクのクリックは、リンクをそのままシェルに送る。開き方はコアが決める（ADR 083）。
+(ert-deftest peta-journal-a-click-on-a-shown-link-sends-it-to-the-shell ()
   (peta-journal-test--with-rows
       (list (peta-journal-test--row "a" 1 "x")
             (peta-journal-test--row
@@ -376,11 +376,21 @@ The shell tells the place in the Markdown with a focus."
     (setq peta-journal-test--sent nil)
     (peta-journal-test--click "頁")
     (should (equal peta-journal-test--sent
-                   '(("edit_finished" :id "a") ("go" :url "/pages/頁"))))
-    (let ((opened nil))
-      (cl-letf (((symbol-function 'browse-url) (lambda (url &rest _) (setq opened url))))
-        (peta-journal-test--click "web"))
-      (should (equal opened "https://example.com/")))))
+                   '(("edit_finished" :id "a") ("link_clicked" :link (:Page (:url "/pages/頁"))))))
+    (setq peta-journal-test--sent nil)
+    (peta-journal-test--click "web")
+    (should (equal peta-journal-test--sent
+                   '(("link_clicked" :link (:Web (:url "https://example.com/"))))))))
+
+;; コアがブラウザで開くように命じたアドレスは、ブラウザで開く。/で始まるアドレスは、journalサーバーの上のものである。
+(ert-deftest peta-journal-an-address-the-core-orders-opens-in-the-browser ()
+  (let ((opened nil)
+        (peta-journal-server "http://localhost:8080/"))
+    (cl-letf (((symbol-function 'browse-url) (lambda (url &rest _) (push url opened))))
+      (peta-journal--on-line '(:t "browse" :address "https://example.com/a"))
+      (peta-journal--on-line '(:t "browse" :address "/assets/report%20a.pdf")))
+    (should (equal (reverse opened)
+                   '("https://example.com/a" "http://localhost:8080/assets/report%20a.pdf")))))
 
 ;; シェルが送る見た目のどれにも、faceがある。Rustに見た目が増えたら、ここで気づく。
 (ert-deftest peta-journal-every-look-has-a-face ()

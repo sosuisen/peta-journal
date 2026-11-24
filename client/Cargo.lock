@@ -597,6 +597,7 @@ dependencies = [
  "client-native-bridge",
  "crux_core",
  "journal-core",
+ "percent-encoding",
  "serde_json",
  "tempfile",
 ]

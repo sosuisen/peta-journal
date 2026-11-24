@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 
 use client_cloud_sync::find_without_case;
+use percent_encoding::percent_decode_str;
 
 use crate::PetaCore;
 
@@ -15,9 +16,6 @@ const TODAY: &str = "/today";
 #[boltffi::data]
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PetaScreen {
-    /// The page that a link named and that is not there, until another page opens. The screen
-    /// offers to make it: a touch by mistake must not put an empty page into Dropbox (ADR 031).
-    pub missing: Option<String>,
     /// The file of the assets folder that a link named and that is not here, until the next
     /// link is touched or a page opens. No download has brought it yet.
     pub missing_file: Option<String>,
@@ -34,35 +32,20 @@ impl PetaCore {
         self.screen.lock().unwrap().clone()
     }
 
-    /// The user touched a link to a page, such as `/pages/notes`. A page that is not there is
-    /// not made: nothing opens, and `missing` names the page.
-    pub fn follow(&self, url: String) -> PetaScreen {
-        self.go(&url, false)
-    }
-
-    /// The user wants the page that `missing` names: it is made and opens.
-    pub fn make(&self) -> PetaScreen {
-        let missing = self.screen.lock().unwrap().missing.clone();
-        match missing {
-            Some(page) => self.go(&journal_core::page_urls::page_url(&page), true),
-            None => self.screen(),
-        }
-    }
-
     /// The user wants the journal of today: it is made when it is not there, and opens.
     pub fn today(&self) -> PetaScreen {
-        self.go(TODAY, true)
+        let _ = self.go(TODAY, true);
+        self.screen()
     }
 
     /// Opens the screen that the app showed when it was used last. The journal of today opens
     /// when there is none, as in a new app, and when its page has gone since. Without `make`
     /// the journal of today is not made, no screen opens, and the screen is `unopened`.
     pub fn restore(&self, make: bool) -> PetaScreen {
-        let before = self.last_screen();
-        if let Some(url) = &before {
-            self.go(url, false);
-        }
-        let none = before.is_none() || self.screen.lock().unwrap().missing.is_some();
+        let none = match self.last_screen() {
+            Some(url) => self.go(&url, false).is_err(),
+            None => true,
+        };
         if none && make {
             self.today();
         }
@@ -97,10 +80,12 @@ impl PetaCore {
         self.screen()
     }
 
-    /// The core asked for the URL, as after a search result was chosen. The user asked for
-    /// it, so a page that is not there is made.
+    /// The core asked for the URL, as after a search result was chosen or a link was touched
+    /// (ADR 083). A page that is not there is made, as in the other shells.
     pub fn navigated(&self, url: String) -> PetaScreen {
-        self.go(&url, true)
+        // A URL that names no page opens nothing, as in the other shells
+        let _ = self.go(&url, true);
+        self.screen()
     }
 
     /// The file of an image of a page. `path` is its path under the Markdown folder, such as
@@ -111,9 +96,14 @@ impl PetaCore {
             .map(|file| file.to_string_lossy().into_owned())
     }
 
-    /// The user touched a link to a file of the assets folder. Answers with the file to open,
-    /// as `image` does. When it is not here, `missing_file` names it.
-    pub fn attached(&self, path: String) -> Option<String> {
+    /// The core ordered the browser to open an address of the journal server, such as
+    /// `/assets/report%20a.pdf` (ADR 083). The app has no server, so the file of the assets
+    /// folder opens instead. Answers with the file, as `image` does. When it is not here,
+    /// `missing_file` names it, such as `assets/report a.pdf`.
+    pub fn file_at(&self, address: String) -> Option<String> {
+        let path = percent_decode_str(address.trim_start_matches('/'))
+            .decode_utf8_lossy()
+            .into_owned();
         let file = self.image(path.clone());
         self.screen.lock().unwrap().missing_file = file.is_none().then_some(path);
         file
@@ -121,8 +111,9 @@ impl PetaCore {
 }
 
 impl PetaCore {
-    /// Opens the URL, and makes its page when `make` says so.
-    fn go(&self, url: &str, make: bool) -> PetaScreen {
+    /// Opens the URL, and makes its page when `make` says so. The error names the page that
+    /// did not open.
+    fn go(&self, url: &str, make: bool) -> Result<(), String> {
         let opened = if make {
             self.open_or_make(url.to_string())
         } else {
@@ -130,11 +121,10 @@ impl PetaCore {
         };
         let mut screen = self.screen.lock().unwrap();
         screen.missing_file = None;
-        screen.missing = opened.err();
-        if screen.missing.is_none() {
+        if opened.is_ok() {
             screen.unopened = false;
         }
-        screen.clone()
+        opened
     }
 
     /// Keeps the URL on screen as the last screen, for the next start. The shell does not know
@@ -147,9 +137,7 @@ impl PetaCore {
 
     /// The pages of the history opened before, so what the last one told is gone.
     fn turned(&self) {
-        let mut screen = self.screen.lock().unwrap();
-        screen.missing = None;
-        screen.missing_file = None;
+        self.screen.lock().unwrap().missing_file = None;
     }
 
     fn file(&self, path: &str) -> Option<PathBuf> {
