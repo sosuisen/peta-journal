@@ -145,4 +145,135 @@ final class ShownTextTests: XCTestCase {
     func testAnEmptyItemShowsNothing() {
         XCTAssertEqual(shown().string, "")
     }
+
+    // 中身のないリストの項目も、印だけは出る。
+    func testAnEntryWithNothingInItStillShowsItsMark() {
+        let list = RichBlock.entries(
+            entries: [RichEntry(mark: "1.", blocks: [text(paragraph(run("one")))]), RichEntry(mark: "2.", blocks: [])],
+            indent: 0)
+
+        XCTAssertEqual(shown(list).string, "1. one\n2. ")
+    }
+
+    private func isBold(_ text: NSAttributedString, at place: Int) -> Bool {
+        let font = text.attribute(.font, at: place, effectiveRange: nil) as? NSFont
+        return font?.fontDescriptor.symbolicTraits.contains(.bold) ?? false
+    }
+
+    // 表のセルは、それぞれ枠に入って出る。見出しの行は太字である。
+    func testTheCellsOfATableAreInBoxesAndItsHeaderIsBold() throws {
+        let table = RichBlock.table(rows: [
+            RichTableRow(header: true, cells: [paragraph(run("Name")), paragraph(run("Age"))]),
+            RichTableRow(header: false, cells: [paragraph(run("Ann")), paragraph(run("7"))]),
+        ])
+
+        let shown = shown(table)
+
+        XCTAssertEqual(shown.string, "Name\nAge\nAnn\n7")
+        let style = try XCTUnwrap(shown.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)
+        let box = try XCTUnwrap(style.textBlocks.first as? NSTextTableBlock)
+        XCTAssertEqual(box.table.numberOfColumns, 2)
+        XCTAssertTrue(isBold(shown, at: 0))
+        XCTAssertFalse(isBold(shown, at: (shown.string as NSString).range(of: "Ann").location))
+    }
+
+    // 行のない表は、何も出ない。
+    func testATableWithoutRowsShowsNothing() {
+        XCTAssertEqual(shown(.table(rows: [])).string, "")
+    }
+
+    // 高さだけを求めた画像は、その高さに合わせ、縦横の比を保つ。
+    func testAnImageWithOnlyAHeightKeepsItsShape() {
+        let file = NSImage(size: NSSize(width: 100, height: 50))
+
+        let drawn = picture(in: shown(image("assets/a.png", height: 100)) { _ in file })
+
+        XCTAssertEqual(drawn?.size(room: 50), CGSize(width: 200, height: 100))
+    }
+
+    private func run(_ text: String, _ change: (inout Looks) -> Void) -> RichRun {
+        var looks = Looks.plain
+        change(&looks)
+        return RichRun(text: text, looks: looks, link: nil)
+    }
+
+    // 文字の見た目は、斜体、取り消し線、下線、マーカー、伏せ字、上付き、下付きで出る。上付きと下付きは、小さな文字になる。
+    func testTheLooksOfTheLettersAreShown() {
+        let shown = shown(
+            text(
+                paragraph(
+                    run("p"), run("i") { $0.italic = true }, run("s") { $0.struck = true },
+                    run("u") { $0.underlined = true }, run("m") { $0.marked = true }, run("h") { $0.hidden = true },
+                    run("r") { $0.raised = true }, run("l") { $0.lowered = true })))
+        func value(_ key: NSAttributedString.Key, of letter: String) -> Any? {
+            shown.attribute(key, at: (shown.string as NSString).range(of: letter).location, effectiveRange: nil)
+        }
+        func font(of letter: String) -> NSFont? { value(.font, of: letter) as? NSFont }
+        func offset(of letter: String) -> CGFloat { value(.baselineOffset, of: letter) as? CGFloat ?? 0 }
+
+        XCTAssertEqual(font(of: "i")?.fontDescriptor.symbolicTraits.contains(.italic), true)
+        XCTAssertNotNil(value(.strikethroughStyle, of: "s"))
+        XCTAssertNotNil(value(.underlineStyle, of: "u"))
+        XCTAssertNotNil(value(.backgroundColor, of: "m"))
+        XCTAssertNotNil(value(.backgroundColor, of: "h"))
+        XCTAssertNotEqual(value(.backgroundColor, of: "m") as? NSColor, value(.backgroundColor, of: "h") as? NSColor)
+        XCTAssertGreaterThan(offset(of: "r"), 0)
+        XCTAssertLessThan(offset(of: "l"), 0)
+        XCTAssertEqual(font(of: "r")?.pointSize, NSFont.systemFontSize * 0.75)
+        XCTAssertEqual(font(of: "l")?.pointSize, NSFont.systemFontSize * 0.75)
+        for letter in ["p", "i", "s", "u", "m", "h"] {
+            XCTAssertEqual(font(of: letter)?.pointSize, NSFont.systemFontSize, letter)
+        }
+        let looks: [NSAttributedString.Key] = [.strikethroughStyle, .underlineStyle, .backgroundColor, .baselineOffset]
+        XCTAssertTrue(looks.allSatisfy { value($0, of: "p") == nil })
+        XCTAssertEqual(font(of: "p")?.fontDescriptor.symbolicTraits.contains(.italic), false)
+    }
+}
+
+/// The texts of the items of a screen, made outside the drawing of SwiftUI.
+@MainActor
+final class ShownTextsTests: XCTestCase {
+    private func shell() -> Shell {
+        // Nothing is read from the server: the texts are made from what they are handed
+        Shell(server: "http://127.0.0.1:9", url: nil, clipboard: { nil })
+    }
+
+    private func rich(_ letters: String) -> RichText {
+        RichText(blocks: [
+            .text(paragraphs: [
+                RichParagraph(
+                    heading: 0, scale: 1, depth: 0, quoted: 0, indent: 0, mark: nil, rule: false,
+                    runs: [RichRun(text: letters, looks: .plain, link: nil)], start: 0)
+            ])
+        ])
+    }
+
+    /// Lets the main queue run what was put on it before.
+    private func nextTurn() async {
+        await withCheckedContinuation { done in DispatchQueue.main.async { done.resume() } }
+    }
+
+    // 1つだけ頼んだテキストも、描画の外で作られる。
+    func testATextAskedForAloneIsMade() async {
+        let texts = ShownTexts(shell: shell())
+
+        texts.want("a", rich: rich("one"), zoom: 1)
+        await nextTurn()
+
+        XCTAssertEqual(texts.text(of: "a", rich: rich("one"), zoom: 1)?.string, "one")
+    }
+
+    // 頼んだテキストは、描画の外で作られる。1回の描画で頼んだ行は、まとめて作られ、1度だけ知らされる。
+    func testTheTextsAskedForInOneDrawingAreMadeTogetherAndToldOnce() async {
+        let texts = ShownTexts(shell: shell())
+
+        texts.want("a", rich: rich("one"), zoom: 1)
+        texts.want("b", rich: rich("two"), zoom: 1)
+        XCTAssertNil(texts.text(of: "a", rich: rich("one"), zoom: 1))
+        await nextTurn()
+
+        XCTAssertEqual(texts.text(of: "a", rich: rich("one"), zoom: 1)?.string, "one")
+        XCTAssertEqual(texts.text(of: "b", rich: rich("two"), zoom: 1)?.string, "two")
+        XCTAssertEqual(texts.changes, 1)
+    }
 }
