@@ -260,8 +260,8 @@ Emacs with it. Both have an `.sh` twin.
 ## SwiftUI frontend (stickies-mac)
 
 The shell for macOS, a Walking Skeleton so far: it opens one page and saves what is typed into an
-item. `client/apps/native-app/stickies-mac/README.md` describes the tools, the build of the app and the tests. Its
-tests do not run in CI.
+item. `client/apps/native-app/stickies-mac/README.md` describes the tools, the build of the app and the tests. The
+CI runs its tests and measures their coverage on macOS, when it is started with `macos=true`.
 
 ## WinUI frontend (stickies-win)
 
