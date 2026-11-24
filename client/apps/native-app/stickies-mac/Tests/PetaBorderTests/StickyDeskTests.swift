@@ -482,6 +482,39 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertFalse(seesThrough(next))
     }
 
+    /// The name, the tools, the bullets and the scroll bar of the sticky are hidden, and so is
+    /// the shadow of its window.
+    private func isBare(_ sticky: Sticky) throws -> Bool {
+        let tools = try XCTUnwrap(sticky.window.titlebarAccessoryViewControllers.first).view
+        let hidden = [
+            sticky.window.titleVisibility == .hidden, tools.alphaValue == 0, !sticky.window.hasShadow,
+            sticky.look.bare,
+        ]
+        XCTAssertTrue(Set(hidden).count == 1, "only some are hidden: \(hidden)")
+        return hidden[0]
+    }
+
+    // 透明な付箋紙は、フォーカスがないとき、書かれた文字だけを見せる。タイトルバーの名前とツール、バレット、スクロールバー、ウィンドウの影は隠れる。フォーカスが戻ると、また出る。
+    func testATransparentStickyWithoutTheFocusShowsOnlyWhatIsWritten() async throws {
+        let sticky = desk.add()
+        sticky.look.color = "#FFFFFF00"
+
+        desk.windowDidResignKey(Notification(name: NSWindow.didResignKeyNotification, object: sticky.window))
+        XCTAssertTrue(try isBare(sticky))
+
+        desk.windowDidBecomeKey(Notification(name: NSWindow.didBecomeKeyNotification, object: sticky.window))
+        XCTAssertFalse(try isBare(sticky))
+    }
+
+    // 色のある付箋紙は、フォーカスがなくても、名前とツールとバレットを見せる。
+    func testAStickyWithPaperWithoutTheFocusShowsItsNameAndTools() async throws {
+        let sticky = desk.add()
+
+        desk.windowDidResignKey(Notification(name: NSWindow.didResignKeyNotification, object: sticky.window))
+
+        XCTAssertFalse(try isBare(sticky))
+    }
+
     // 付箋紙の色は、Petastiの付箋紙の9色と、そのあとの透明から選ぶ。
     func testTheColorsOfAStickyAreThoseOfPetasti() {
         XCTAssertEqual(
