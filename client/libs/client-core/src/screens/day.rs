@@ -1,5 +1,6 @@
 //! The date of today, as the clock of the shell has it (#796). The core asks the clock again
-//! and again, so that the journal of today follows a new day. No shell watches the date.
+//! and again, so that the journal of today follows a new day. A shell may also tell the core
+//! to look at once, as when the machine woke.
 
 use crate::app::{run, Cmd, Event, Model, Screen};
 use crate::effects::TimerOutput;
@@ -24,10 +25,26 @@ pub fn watch(model: &mut Model) -> Cmd {
     })
 }
 
-/// The clock says `today`: the journal of today opens the new day when the date changed and
-/// no item is being edited, and the core looks at the clock again later.
+/// The clock says `today` after the wait: the core sees the date, and looks again later.
 pub fn checked(model: &mut Model, today: String) -> Cmd {
     let next = watch(model);
+    Command::all([next, seen(model, today)])
+}
+
+/// Looks at the clock now. The wait of [`watch`] goes on: a second one would look twice as
+/// often.
+pub fn look() -> Cmd {
+    run(|api| async move {
+        let (now, _) = api.local_now().await;
+        api.send_event(Event::DateSeen {
+            today: now.day_name(),
+        });
+    })
+}
+
+/// The clock says `today`: the journal of today opens the new day when the date changed and
+/// no item is being edited.
+pub fn seen(model: &mut Model, today: String) -> Cmd {
     model.today = today;
     let old_day = matches!(
         &model.screen,
@@ -37,7 +54,7 @@ pub fn checked(model: &mut Model, today: String) -> Cmd {
     // at the clock tries again
     let editing = !model.state.editing_item_ids().is_empty();
     if !old_day || editing {
-        return next;
+        return Command::done();
     }
-    Command::all([next, route::open(model, "today", None)])
+    route::open(model, "today", None)
 }

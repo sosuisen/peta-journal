@@ -537,6 +537,13 @@ pub enum Event {
     DateChecked {
         today: String,
     },
+    /// The date may have changed while the core could not look at the clock: the machine
+    /// woke, or the system said that the day changed. The core looks at once (#796).
+    DateMayHaveChanged,
+    /// The clock says that today is `today`, looked at for [`Event::DateMayHaveChanged`].
+    DateSeen {
+        today: String,
+    },
     /// The server answered the journal of `date`; `title` is the title of the window for it.
     JournalLoaded {
         date: String,
@@ -1468,6 +1475,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         DemoteIndex => screens::page::demote_index(model),
         Demoted { path } => screens::page::show_demoted(&path),
         DateChecked { today } => screens::day::checked(model, today),
+        DateMayHaveChanged => screens::day::look(),
+        DateSeen { today } => screens::day::seen(model, today),
         JournalLoaded {
             date,
             title,
