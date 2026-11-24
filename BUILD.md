@@ -349,6 +349,15 @@ Then build the frontend, open an atlas, and check the drawing and a dialog.
 `.github/workflows/ci.yml` runs only when asked: from the Actions tab, or with
 `gh workflow run CI --ref <branch>`. The runs are paid.
 
+Each OS can be left out with an input. The jobs on Linux and on Windows run by default, the jobs
+on macOS do not. The minutes cost twice as much on Windows, and about ten times on macOS. The
+`guard` job runs every time.
+
+```
+gh workflow run CI --ref <branch> -f linux=false   # only the Windows jobs
+gh workflow run CI --ref <branch> -f macos=true    # the macOS jobs too
+```
+
 The checks of each job are listed once, in `scripts/checks.mjs`: the format, the lint, the tests
 and the coverage. The workflow only installs the tools, then runs `node scripts/checks.mjs run <job>`.
 The mutation tests are not in the list. Run them on your machine before a pull request.

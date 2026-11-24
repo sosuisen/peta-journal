@@ -3,8 +3,25 @@ name: CI
 # The CI runs only when asked, from the Actions tab or with `gh workflow run CI --ref <branch>`.
 # The checks of each job are in scripts/checks.mjs. The hook before a pull request
 # (.claude/hooks/verify-before-pr.mjs) runs the same checks on a developer's machine.
+#
+# Each OS can be left out, as the minutes cost more on Windows and much more on macOS. The jobs
+# of an OS left out show as skipped. The guard job runs every time. For only the Windows jobs:
+# `gh workflow run CI --ref <branch> -f linux=false`
 on:
   workflow_dispatch:
+    inputs:
+      linux:
+        description: Run the jobs on Linux
+        type: boolean
+        default: true
+      windows:
+        description: Run the jobs on Windows
+        type: boolean
+        default: true
+      macos:
+        description: Run the jobs on macOS (about ten times the cost of Linux)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -22,6 +39,7 @@ jobs:
 
   rust:
     name: ${{ matrix.workspace }}
+    if: inputs.linux
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -62,6 +80,7 @@ jobs:
 
   # The E2E tests of the Emacs mode press real keys, with the real shell and a real server
   emacs-e2e:
+    if: inputs.linux
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -83,6 +102,7 @@ jobs:
 
   todo:
     name: client/apps/web-app/todo
+    if: inputs.linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -98,6 +118,7 @@ jobs:
   # code. The e2e tests with Playwright run on a developer's machine only.
   outliner-react:
     name: client/apps/web-app/outliner-react
+    if: inputs.linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -121,6 +142,7 @@ jobs:
   # press real keys on the screen.
   stickies-win:
     name: client/apps/native-app/stickies-win
+    if: inputs.windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -150,6 +172,7 @@ jobs:
   memoview-win:
     name: client/apps/webview-app/memoview-win
     # The app is WinUI. It builds only on Windows, with the MSBuild of Visual Studio
+    if: inputs.windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
