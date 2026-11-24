@@ -14,6 +14,28 @@ cargo test
 `journal-server/debug.ps1` builds the debug build and starts it (`cargo run`), and
 `journal-server/release.ps1` makes the release build. Both have an `.sh` twin.
 
+### The cache of the Japanese dictionary
+
+`journal-core` embeds the IPADIC dictionary of Lindera for the search. A new `target` folder
+downloads it (12MB) and builds it (about 8 seconds). This happens in each new worktree and
+after each clean build. The clients that use `journal-core` do the same.
+
+Set a cache folder once on each PC. Lindera then builds the dictionary into it once, and
+every `target` folder uses it. A clean build of `journal-core` took 31 seconds instead of 36
+(2026-11-24). It also builds without a network.
+
+The folder must be outside the repository: a worktree is a folder of its own. So it goes in
+the Cargo settings of the user, `~/.cargo/config.toml`, and not in `.cargo/config.toml` here.
+Write the full path: Cargo does not read `~` or `$HOME` there.
+
+```toml
+[env]
+LINDERA_BUILD_DICTIONARY_CACHE_DIR = "C:/Users/<you>/.cache/lindera"
+```
+
+On macOS, write `/Users/<you>/.cache/lindera`. The folder name inside holds the version of
+Lindera, so a new version builds the dictionary again. See issue #874.
+
 | Crate | What it is |
 |---|---|
 | `hmtid` | HMTID (human-readable monotonic timestamp identifier), a port of the `hmtid` npm package |
