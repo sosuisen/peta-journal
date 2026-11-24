@@ -126,6 +126,20 @@ final class ShellTests: JournalTestCase {
         XCTAssertNotNil(written("docs/fresh.md"))
     }
 
+    // 作れない名前のページを作ろうとすると、コアの知らせが出る。知らせは答えを待たないので、閉じても何も送らない（#754）。
+    func testANoticeOfTheCoreShowsWhenAPageOfANameThatCannotBeMadeIsMade() throws {
+        try start()
+
+        pick(.create, searchingFor: "a:b")
+
+        waitUntil("the core tells") { self.shell.question != nil }
+        XCTAssertEqual(shell.question?.waits, false)
+        XCTAssertTrue(shell.question?.text.contains(":") == true, "\(shell.question?.text ?? "")")
+        shell.answer(yes: true)
+        XCTAssertNil(shell.question)
+        XCTAssertNil(written("docs/a:b.md"))
+    }
+
     // 「today」と打つと、今日のジャーナルを開く結果が出る。選ぶと、今日のジャーナルができて開く。
     func testTheResultForTodayMakesTheJournalOfTodayAndOpensIt() throws {
         try start()

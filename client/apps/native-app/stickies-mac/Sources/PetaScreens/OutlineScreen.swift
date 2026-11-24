@@ -63,6 +63,8 @@ public struct OutlineScreen: View {
                 Button("OK", role: .destructive) { shell.answer(yes: true) }
                 Button("Cancel", role: .cancel) { shell.answer(yes: false) }
                     .keyboardShortcut(.defaultAction)
+            case .notice:
+                Button("OK") { shell.answer(yes: true) }.keyboardShortcut(.defaultAction)
             }
         }
     }

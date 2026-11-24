@@ -230,15 +230,21 @@ public final class Shell: ObservableObject {
     }
 
     /// Answers the confirmation on screen.
+    /// A notice waits for no answer: it only goes away.
     public func answer(yes: Bool) {
         guard let asked = question else { return }
-        question = nil
-        Shell.must { try border.answer(asked.id, with: .bool(yes)) }
+        question = later.isEmpty ? nil : later.removeFirst()
+        if asked.kind != .notice { Shell.must { try border.answer(asked.id, with: .bool(yes)) } }
         refresh()
     }
 
+    /// What came while another question was shown, in the order it came.
+    private var later: [Question] = []
+
+    /// A notice may come at any time: it waits behind what is shown, which may be a question
+    /// that the core waits for.
     private func ask(_ asked: Question) {
-        question = asked
+        if question == nil { question = asked } else { later.append(asked) }
     }
 
     /// Sends what the user did to the core.
@@ -303,6 +309,9 @@ public final class Shell: ObservableObject {
             ask(Question(id: id, message: message, kind: .confirm))
         case .confirmDestructive(let message):
             ask(Question(id: id, message: message, kind: .confirmDestructive))
+        case .alert(let message):
+            // As when a page of a name that cannot be made is made from the search box
+            ask(Question(id: id, message: message, kind: .notice))
         // No prompt is shown. The core asks one only for a new page without a name, and this
         // app has no way to make one: its search box makes a page with the typed name
         case .copyMarkdown(let markdown, let ast):
@@ -336,7 +345,7 @@ public final class Shell: ObservableObject {
     }
 }
 
-/// Something the core asks the user and waits for.
+/// Something the core asks the user and waits for, or tells the user.
 public struct Question: Equatable, Identifiable {
     /// The number of the request of the core.
     public let id: UInt32
@@ -348,6 +357,9 @@ public struct Question: Equatable, Identifiable {
         case confirm
         /// Yes or no to something hard to undo: the dialog must answer no by default.
         case confirmDestructive
+        /// Only OK: the core tells something, as why a page cannot be made, and waits for no
+        /// answer.
+        case notice
     }
 }
 
