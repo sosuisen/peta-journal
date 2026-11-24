@@ -101,9 +101,11 @@ final class OutlineScreenTests: XCTestCase {
         try await waitUntil("the first item is decorated") { self.editors()[0].string == "Idea #todo out plain" }
     }
 
-    /// A click on the first letter of the word. The window of a test takes no click: the tests
-    /// do not come to the front. So this does what a window does with one: it asks which view
-    /// is there, gives it the cursor if the view takes it, and then hands it the click.
+    /// A click on the first letter of the word. The window of a test takes no click: `swift test`
+    /// is no app, and cannot come to the front. So this does what a window does with one: it
+    /// asks which view is there, gives it the cursor if the view takes it, and then hands it the
+    /// click. The click is taken from the queue first, as the app takes it: it is the current
+    /// event while the view gets the cursor.
     private func click(on word: String, in editor: NSTextView, holding keys: NSEvent.ModifierFlags = []) throws {
         let letter = NSRange(location: (editor.string as NSString).range(of: word).location, length: 1)
         let layout = try XCTUnwrap(editor.layoutManager)
@@ -120,9 +122,13 @@ final class OutlineScreenTests: XCTestCase {
         }
         // A text view waits for the button to come up before it goes on
         NSApp.postEvent(try mouse(.leftMouseUp), atStart: false)
+        // Before the click is the current event: the list answers for itself then
         let hit = try XCTUnwrap(window.contentView?.hitTest(place))
+        NSApp.postEvent(try mouse(.leftMouseDown), atStart: true)
+        let down = try XCTUnwrap(
+            NSApp.nextEvent(matching: .leftMouseDown, until: .distantPast, inMode: .default, dequeue: true))
         if hit.acceptsFirstResponder { window.makeFirstResponder(hit) }
-        hit.mouseDown(with: try mouse(.leftMouseDown))
+        hit.mouseDown(with: down)
     }
 
     // 装飾付きの項目のウィキリンクをクリックすると、そのページが付箋紙で開く。
@@ -191,14 +197,21 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertTrue(focused === editors()[1])
     }
 
-    // 装飾付きの項目の、リンクでない文字をクリックすると、その項目がMarkdownになってカーソルが入る。
-    func testAClickBesideTheLinksPutsTheCursorInTheItem() async throws {
+    // 装飾付きの項目の、リンクでない文字をクリックすると、その項目がMarkdownになって、クリックした文字のところにカーソルが入る。
+    func testAClickBesideTheLinksPutsTheCursorInTheItemAtTheLetterClicked() async throws {
         try await itemWithLinksAndTheCursorInTheNext()
 
         try click(on: "plain", in: editors()[0])
 
         XCTAssertTrue(focused === editors()[0])
-        XCTAssertEqual(editors()[0].string, "[[Idea]] #todo [out](https://example.com/a) plain")
+        let markdown = "[[Idea]] #todo [out](https://example.com/a) plain"
+        XCTAssertEqual(editors()[0].string, markdown)
+        // The place nearest the middle of "p", in the Markdown: before or after it
+        let plain = (markdown as NSString).range(of: "plain").location
+        try await waitUntil("the cursor is at the letter clicked") {
+            (plain...plain + 1).contains(self.editors()[0].selectedRange().location)
+        }
+        XCTAssertEqual(editors()[0].selectedRange().length, 0)
         XCTAssertNil(browsed)
         XCTAssertEqual(shell.url, "/pages/screen")
     }
@@ -1018,4 +1031,177 @@ final class OutlineScreenTests: XCTestCase {
         look.resetZoom()
         try await waitUntil("the text is as large as before") { self.editors()[0].font?.pointSize == size }
     }
+
+    /// The screen with a look that the test changes.
+    private func screen(with look: StickyLook) async throws {
+        window.contentView = NSHostingView(rootView: OutlineScreen(shell: shell, look: look))
+        try await waitUntil("the editor of the item is there") { self.editors().count == 1 }
+    }
+
+    // 変換の途中で画面が描き直されても、変換の途中の文字は残る。
+    func testTextStillBeingComposedStaysWhenTheScreenIsDrawnAgain() async throws {
+        let look = StickyLook()
+        try await screen(with: look)
+        let editor = editors()[0]
+        type("a", into: editor)
+        editor.setMarkedText(
+            "にほん", selectedRange: NSRange(location: 3, length: 0), replacementRange: editor.selectedRange())
+
+        look.zoomIn()
+
+        try await waitUntil("the text is larger") { (editor.font?.pointSize ?? 0) > NSFont.systemFontSize }
+        XCTAssertTrue(editor.hasMarkedText())
+        XCTAssertEqual(editor.string, "aにほん")
+        XCTAssertEqual(bodies(), ["a"])
+    }
+
+    // 項目から検索欄へ移り、また項目に戻ると、項目はもう一度編集中になる。
+    func testAnItemThatTheCursorComesBackToFromTheSearchBoxIsEditedAgain() async throws {
+        let look = StickyLook()
+        try await screen(with: look)
+        type("typed", into: editors()[0])
+        look.searching = true
+        try await waitUntil("the search box has the cursor") { self.searchField()?.currentEditor() != nil }
+        try await waitUntil("the item is not edited") { !self.shell.view.outline.rows[0].isEditing }
+        XCTAssertEqual(shell.view.outline.focusedItemId, shell.view.outline.rows[0].item.id)
+
+        // The search field has an editor of its own, above the items
+        let item = try XCTUnwrap(editors().first { !$0.isFieldEditor })
+        window.makeFirstResponder(item)
+
+        try await waitUntil("the item is edited again") { self.shell.view.outline.rows[0].isEditing }
+    }
+
+    // 編集中の項目をクリックすると、カーソルはクリックした文字のそばに移る。
+    func testAClickInTheMarkdownPutsTheCursorAtTheLetterClicked() async throws {
+        let editor = editors()[0]
+        type("alpha beta", into: editor)
+
+        try click(on: "beta", in: editor)
+
+        // The place nearest the middle of "b": before or after it
+        XCTAssertTrue((6...7).contains(editor.selectedRange().location))
+        XCTAssertEqual(editor.selectedRange().length, 0)
+    }
+
+    // 編集中の項目をShift-クリックすると、カーソルからクリックした文字までが選ばれる。
+    func testAShiftClickInTheMarkdownSelectsFromTheCursorToTheLetterClicked() async throws {
+        let editor = editors()[0]
+        type("alpha beta", into: editor)
+        editor.setSelectedRange(NSRange(location: 0, length: 0))
+
+        try click(on: "beta", in: editor, holding: .shift)
+
+        XCTAssertEqual(editor.selectedRange().location, 0)
+        XCTAssertGreaterThanOrEqual(editor.selectedRange().length, 6)
+    }
+
+    // 編集メニューの「取り消す」と「やり直す」は、項目の中でいつも選べる。履歴はテキストではなくコアにある。
+    func testUndoAndRedoOfTheMenuCanAlwaysBeChosenInAnItem() {
+        let editor = editors()[0]
+
+        for name in ["undo:", "redo:"] {
+            let entry = NSMenuItem(title: name, action: Selector((name)), keyEquivalent: "")
+            XCTAssertTrue(editor.validateUserInterfaceItem(entry), name)
+        }
+    }
+
+    // 2行ある項目の2行目で上矢印を押すと、カーソルは項目の中で1行目へ動く。前の項目へは移らない。行の末尾からでも同じである。
+    func testUpOnTheSecondLineOfAnItemStaysInTheItem() async throws {
+        try await twoItems()
+        let second = editors()[1]
+        // The cursor is at the start of "second": a line break before it
+        press(Self.returnKey, "\r", .shift, in: second)
+        XCTAssertEqual(second.string, "\nsecond")
+
+        for place in [7, 1] {
+            second.setSelectedRange(NSRange(location: place, length: 0))
+            second.doCommand(by: #selector(NSResponder.moveUp(_:)))
+
+            XCTAssertTrue(focused === second, "from \(place)")
+            XCTAssertEqual(second.selectedRange().location, 0, "from \(place)")
+        }
+    }
+
+    // 項目の末尾の改行のあとの空の行で上矢印を押すと、カーソルは項目の中で上の行へ動く。
+    func testUpOnTheEmptyLineAfterALineBreakAtTheEndStaysInTheItem() async throws {
+        try await twoItems()
+        let second = editors()[1]
+        second.setSelectedRange(NSRange(location: 6, length: 0))
+        press(Self.returnKey, "\r", .shift, in: second)
+        XCTAssertEqual(second.string, "second\n")
+
+        second.doCommand(by: #selector(NSResponder.moveUp(_:)))
+
+        XCTAssertTrue(focused === second)
+        XCTAssertLessThan(second.selectedRange().location, 7)
+    }
+
+    // 候補が出ているときに検索欄でEscapeを押すと、候補が消える。候補がないときに押すと、検索欄が閉じる。
+    func testEscapeInTheSearchBoxHidesTheResultsAndThenClosesTheBox() async throws {
+        window.contentView = NSHostingView(rootView: OutlineScreen(shell: shell, searching: true))
+        try await waitUntil("the search box has the cursor") { self.searchField()?.currentEditor() != nil }
+        let typing = try XCTUnwrap(searchField()?.currentEditor() as? NSTextView)
+        typing.insertText("screen", replacementRange: typing.selectedRange())
+        try await waitUntil("the results are shown") { self.shell.view.search.showDropdown }
+
+        typing.doCommand(by: #selector(NSResponder.cancelOperation(_:)))
+
+        XCTAssertFalse(shell.view.search.showDropdown)
+        XCTAssertNotNil(searchField())
+        typing.doCommand(by: #selector(NSResponder.cancelOperation(_:)))
+        try await waitUntil("the search box is closed") { self.searchField() == nil }
+    }
+
+    // 検索欄でいま開いているページを選ぶと、検索欄の文字は消える。
+    func testTheSearchBoxIsEmptiedWhenThePageThatIsOpenIsChosen() async throws {
+        window.contentView = NSHostingView(rootView: OutlineScreen(shell: shell, searching: true))
+        try await waitUntil("the search box has the cursor") { self.searchField()?.currentEditor() != nil }
+        let typing = try XCTUnwrap(searchField()?.currentEditor() as? NSTextView)
+        typing.insertText("screen", replacementRange: typing.selectedRange())
+        try await waitUntil("the page is found") { self.shell.view.search.results.first?.title == "screen" }
+
+        typing.doCommand(by: #selector(NSResponder.moveDown(_:)))
+        typing.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+
+        try await waitUntil("the query is empty") { self.shell.view.search.query.isEmpty }
+        try await waitUntil("the search box is empty") { self.searchField().map { $0.stringValue.isEmpty } ?? true }
+    }
+
+    // 付箋の下端にかかった項目の中で文字をドラッグしても、付箋はスクロールしない。項目は選ばれない。
+    func testADragOfLettersInAnItemAtTheBottomEdgeDoesNotScroll() async throws {
+        try await longPage()
+        let (scroll, _) = try list()
+        let shown = scroll.convert(scroll.bounds, to: nil)
+        // The lowest editor that can be seen whole, and a place on its text in the band at the
+        // bottom edge
+        let editor = try XCTUnwrap(editors().last { $0.convert($0.bounds, to: nil).minY >= shown.minY })
+        let text = editor.convert(editor.bounds, to: nil)
+        let edge = text.minY + 2
+        XCTAssertNotEqual(EdgeScroll.step(y: shown.maxY - edge, top: 0, bottom: shown.height), 0)
+
+        try drag(from: editor, through: [NSPoint(x: text.minX + 1, y: edge)], holding: 0.5)
+
+        XCTAssertEqual(scroll.contentView.bounds.minY, 0)
+        XCTAssertFalse(shell.view.outline.selectionMode)
+    }
+
+    /// A press of the left button at the place of the window, as the window takes it from the
+    /// queue. The monitors of the app see it there.
+    private func press(at place: NSPoint) throws {
+        NSApp.postEvent(try mouse(.leftMouseDown, at: place), atStart: true)
+        let taken = try XCTUnwrap(
+            NSApp.nextEvent(matching: .leftMouseDown, until: .distantPast, inMode: .default, dequeue: true))
+        NSApp.sendEvent(taken)
+    }
+
+    // 選んでいるあいだに、項目のないところを押すと、選択が消える。
+    func testAPressBesideTheItemsEndsTheSelection() async throws {
+        _ = try await secondOfTwoSelected()
+
+        try press(at: NSPoint(x: 300, y: 20))
+
+        XCTAssertFalse(shell.view.outline.selectionMode)
+    }
+
 }

@@ -61,4 +61,21 @@ final class AssetImagesTests: XCTestCase {
         XCTAssertNil(images.image("assets/gone.png"))
         XCTAssertEqual(asked.count, 1)
     }
+
+    // 本物のjournalサーバーからは、assetsフォルダーにある画像が届く。ない画像は、ないものとして届く。
+    func testTheJournalServerHandsOverTheImagesOfTheAssetsFolder() async throws {
+        let server = try JournalServer()
+        defer { server.stop() }
+        let assets = server.markdown.appendingPathComponent("assets")
+        try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+        try png().write(to: assets.appendingPathComponent("here.png"))
+        let images = AssetImages(server: server.address)
+
+        _ = images.image("assets/here.png")
+        _ = images.image("assets/gone.png")
+
+        try await waitUntil("both answers came") { images.arrived == 2 }
+        XCTAssertEqual(images.image("assets/here.png")?.size, NSSize(width: 2, height: 1))
+        XCTAssertNil(images.image("assets/gone.png"))
+    }
 }

@@ -7,6 +7,8 @@ final class JournalServer {
     /// The client that `send` changes things as.
     private static let anotherClient = UUID().uuidString.lowercased()
     let address: String
+    /// The folder of the Markdown files that the server serves.
+    let markdown: URL
     private let process = Process()
     private let root: URL
 
@@ -21,7 +23,7 @@ final class JournalServer {
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("peta-swiftui-test-\(UUID().uuidString)")
         let config = root.appendingPathComponent("config")
-        let markdown = root.appendingPathComponent("markdown")
+        markdown = root.appendingPathComponent("markdown")
         try FileManager.default.createDirectory(at: config, withIntermediateDirectories: true)
         // No markdown folder is named: a throw-away server has `markdown/` under its folder
         let settings = ["weekNumbering": "iso"]

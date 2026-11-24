@@ -24,8 +24,6 @@ struct ItemText: NSViewRepresentable {
     let changes: Int
     /// The level of the heading when the item is one heading line, and 0 otherwise.
     var heading = 0
-    /// The first item of the page: the cursor goes here when the core names no item.
-    let isFirst: Bool
     let request: FocusRequest?
     let order: FocusOrder?
     let shell: Shell
@@ -66,7 +64,7 @@ struct ItemText: NSViewRepresentable {
         } else {
             show(view)
         }
-        context.coordinator.putCursor(in: view, request: request, order: order, isFirst: isFirst)
+        context.coordinator.putCursor(in: view, request: request, order: order)
     }
 
     /// The Markdown of the item, to type into.
@@ -171,10 +169,11 @@ final class Editor: NSObject, NSTextViewDelegate {
         return shell.pressed(.named(itemId: itemId, key: key, editor: view.state(measuringLines: lines)))
     }
 
-    /// Tells the shell a key of the keyboard, which the core finds in the keys of the Mac.
+    /// Tells the shell a key of the keyboard, which the core finds in the keys of the Mac. The
+    /// lines are not measured: Up and Down that the core does not take here come back from
+    /// AppKit as `moveUp:` and `moveDown:`, which measure them.
     func pressed(_ chord: Chord, in view: ItemTextView) -> Bool {
-        let lines = chord.key == .up || chord.key == .down
-        return shell.pressed(.inEditor(itemId: itemId, chord: chord, editor: view.state(measuringLines: lines)))
+        shell.pressed(.inEditor(itemId: itemId, chord: chord, editor: view.state(measuringLines: false)))
     }
 
     /// The user pasted: the core pastes the text of the clipboard at the cursor.
@@ -251,18 +250,17 @@ final class Editor: NSObject, NSTextViewDelegate {
 
     /// Carries out an order of the core that is new and names this item.
     func putCursor(
-        in view: ItemTextView, request: FocusRequest?, order: FocusOrder?, isFirst: Bool, tries: Int = 10
+        in view: ItemTextView, request: FocusRequest?, order: FocusOrder?, tries: Int = 10
     ) {
         let asked = request.flatMap { $0.itemId == itemId && $0.seq != cursors.request ? $0 : nil }
-        let ordered = order.flatMap {
-            $0.number != cursors.order && ($0.itemId == itemId || ($0.itemId == nil && isFirst)) ? $0 : nil
-        }
+        // The core names the item of every order it gives: none is for the first editor alone
+        let ordered = order.flatMap { $0.number != cursors.order && $0.itemId == itemId ? $0 : nil }
         guard asked != nil || ordered != nil else { return }
         guard let window = view.window else {
             // The editor of a new item is not in its window yet when the order comes with it
             guard tries > 0 else { return }
             DispatchQueue.main.async { [self] in
-                putCursor(in: view, request: request, order: order, isFirst: isFirst, tries: tries - 1)
+                putCursor(in: view, request: request, order: order, tries: tries - 1)
             }
             return
         }
@@ -529,11 +527,6 @@ final class ItemTextView: NSTextView {
     /// as it is.
     override func pasteAsPlainText(_ sender: Any?) {
         onPaste?(true, self)
-    }
-
-    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
-        if item.action == #selector(undo(_:)) || item.action == #selector(redo(_:)) { return true }
-        return super.validateUserInterfaceItem(item)
     }
 
     func height(forWidth width: CGFloat) -> CGFloat {

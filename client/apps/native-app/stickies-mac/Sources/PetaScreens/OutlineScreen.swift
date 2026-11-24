@@ -44,8 +44,6 @@ public struct OutlineScreen: View {
         }
         .background(SelectionKeys(shell: shell, selecting: shell.view.outline.selectionMode))
         .background(Color(nsColor: StickyLook.color(of: look.color)))
-        // The name of the window. A window without a name is hard to find among the others
-        .navigationTitle(shell.title.isEmpty ? "PetaStickies" : shell.title)
         // The page that was searched for is here. Not by the title: that of a journal changes
         // when it is scrolled
         .onChange(of: shell.url) { _ in look.searching = false }
@@ -84,11 +82,15 @@ public struct OutlineScreen: View {
         .scrollIndicators(look.bare ? .never : .automatic)
     }
 
-    /// What is wrong with the server, or nothing.
     private var status: String {
-        if shell.url == nil { return "" }
+        Self.status(url: shell.url, connection: shell.view.connection)
+    }
+
+    /// What is wrong with the server, or nothing. A screen without a page has no items to wait
+    /// for.
+    static func status(url: String?, connection: ConnectionState) -> String {
+        if url == nil { return "" }
         // Not a switch: the optimizing compiler of Swift 6.4.2 crashes on one over this enum
-        let connection = shell.view.connection
         if connection == .connected { return "" }
         if connection == .connecting { return "Connecting to the journal server…" }
         return "No connection to the journal server"
@@ -129,7 +131,7 @@ private struct ItemEditor: View {
                 // The first line of a heading is higher. The marks keep their size and stand
                 // in the middle of it, as in the web frontend
                 let first = NSLayoutManager().defaultLineHeight(
-                    for: .boldSystemFont(ofSize: size * row.firstLineScale))
+                    for: .boldSystemFont(ofSize: size * CGFloat(row.firstLineScale)))
                 if place == 0 {
                     // Not taken away: the text would move when the focus comes back
                     Bullet(mark: mark, line: line, first: first).opacity(row.showsBullet(bare: bare) ? 1 : 0)
@@ -142,7 +144,7 @@ private struct ItemEditor: View {
             ItemText(
                 item: row.item, rich: row.bodyModel, isEditing: row.isEditing,
                 shown: texts.text(of: row.item.id, rich: row.bodyModel, zoom: zoom),
-                texts: texts, changes: texts.changes, heading: row.editedHeading, isFirst: row.position == 0,
+                texts: texts, changes: texts.changes, heading: row.editedHeading,
                 request: shell.view.outline.focusRequest, order: shell.view.outline.focusOrder, shell: shell,
                 cursors: cursors,
                 zoom: zoom)

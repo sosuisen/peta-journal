@@ -21,14 +21,14 @@ struct StickyTools: View {
             .keyboardShortcut("[")
             .help("Back")
             .opacity(look.toolsShown ? 1 : 0)
-            .disabled(!look.toolsShown || !shell.view.history.canGoBack)
+            .disabled(!Self.usable(shown: look.toolsShown, possible: shell.view.history.canGoBack))
             Button(action: shell.goForward) {
                 Image(systemName: "chevron.right")
             }
             .keyboardShortcut("]")
             .help("Forward")
             .opacity(look.toolsShown ? 1 : 0)
-            .disabled(!look.toolsShown || !shell.view.history.canGoForward)
+            .disabled(!Self.usable(shown: look.toolsShown, possible: shell.view.history.canGoForward))
             Button {
                 look.searching.toggle()
             } label: {
@@ -59,5 +59,11 @@ struct StickyTools: View {
             .frame(width: 0, height: 0)
         }
         .padding(.horizontal, 8)
+    }
+
+    /// An arrow of the history can be clicked. Only while it is shown: a sticky without the
+    /// focus keeps the place of its tools, and a click there must not go back.
+    static func usable(shown: Bool, possible: Bool) -> Bool {
+        shown && possible
     }
 }

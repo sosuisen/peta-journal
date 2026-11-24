@@ -590,11 +590,23 @@ final class StickyDeskTests: XCTestCase {
     /// menu that opens is closed at once, and its entries are the answer. With `control` it is
     /// a click of the left button while the Control key is down.
     private func rightClick(on editor: NSTextView, of sticky: Sticky, control: Bool = false) throws -> [String] {
+        try click(at: firstLetter(of: editor), of: sticky, right: !control, holding: control ? [.control] : [])
+    }
+
+    /// The middle of the first letter of the editor, in its window.
+    private func firstLetter(of editor: NSTextView) throws -> NSPoint {
         let layout = try XCTUnwrap(editor.layoutManager)
         let container = try XCTUnwrap(editor.textContainer)
         let box = layout.boundingRect(forGlyphRange: NSRange(location: 0, length: 1), in: container)
         let origin = editor.textContainerOrigin
-        let place = editor.convert(NSPoint(x: origin.x + box.midX, y: origin.y + box.midY), to: nil)
+        return editor.convert(NSPoint(x: origin.x + box.midX, y: origin.y + box.midY), to: nil)
+    }
+
+    /// A click as AppKit gives it to the window, at the place of the window. The entries of a
+    /// menu that opens are the answer: the menu is closed at once.
+    private func click(
+        at place: NSPoint, of sticky: Sticky, right: Bool, holding keys: NSEvent.ModifierFlags = []
+    ) throws -> [String] {
         var shown: [String] = []
         // A menu holds the main thread while it is open: the test would never go on
         let opened = NotificationCenter.default.addObserver(
@@ -609,13 +621,13 @@ final class StickyDeskTests: XCTestCase {
         func mouse(_ type: NSEvent.EventType) throws -> NSEvent {
             try XCTUnwrap(
                 NSEvent.mouseEvent(
-                    with: type, location: place, modifierFlags: control ? [.control] : [], timestamp: 0,
+                    with: type, location: place, modifierFlags: keys, timestamp: 0,
                     windowNumber: sticky.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1,
                     pressure: 1))
         }
         // A text view waits for the button to come up before it goes on
-        if control { NSApp.postEvent(try mouse(.leftMouseUp), atStart: false) }
-        sticky.window.sendEvent(try mouse(control ? .leftMouseDown : .rightMouseDown))
+        if !right { NSApp.postEvent(try mouse(.leftMouseUp), atStart: false) }
+        sticky.window.sendEvent(try mouse(right ? .rightMouseDown : .leftMouseDown))
         return shown
     }
 
@@ -656,6 +668,25 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(shown.first, "Keep on Top")
         XCTAssertEqual(editors(of: sticky)[0].string, "bold text")
         XCTAssertTrue(sticky.window.firstResponder === editors(of: sticky)[1])
+    }
+
+    // タイトルバーを右クリックすると、付箋紙のメニューが出る。
+    func testARightClickOnTheTitleBarShowsTheMenuOfTheSticky() async throws {
+        let sticky = desk.add()
+        let place = NSPoint(x: sticky.window.frame.width / 2, y: sticky.window.frame.height - 10)
+
+        let shown = try click(at: place, of: sticky, right: true)
+
+        XCTAssertEqual(shown.first, "Keep on Top")
+    }
+
+    // 編集中でない項目を、何も押さずにクリックしても、メニューは出ない。
+    func testAPlainClickOnAnItemThatIsNotEditedShowsNoMenu() async throws {
+        let sticky = try await stickyWithABoldItemAndTheCursorInTheNext()
+
+        let shown = try click(at: try firstLetter(of: editors(of: sticky)[0]), of: sticky, right: false)
+
+        XCTAssertEqual(shown, [])
     }
 
     // メニューで常に手前に表示を選ぶと、ウィンドウがほかのウィンドウの上にとどまり、項目に印が付く。もう一度選ぶと、普通のウィンドウに戻る。
