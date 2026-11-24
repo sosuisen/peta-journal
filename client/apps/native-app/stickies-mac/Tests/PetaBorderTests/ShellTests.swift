@@ -31,8 +31,8 @@ final class ShellTests: XCTestCase {
     }
 
     /// Waits for what the core and the server do. A test that waits in vain fails here.
-    private func waitUntil(_ what: String, _ done: () -> Bool) async throws {
-        let deadline = Date().addingTimeInterval(10)
+    private func waitUntil(_ what: String, seconds: TimeInterval = 10, _ done: () -> Bool) async throws {
+        let deadline = Date().addingTimeInterval(seconds)
         while !done() {
             if Date() > deadline {
                 XCTFail("never happened: \(what)")
@@ -57,6 +57,22 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(page(shell)?.page.name, "swift-notes")
         XCTAssertEqual(shell.view.outline.rows.map(\.item.body), [""])
         XCTAssertEqual(shell.title, "swift-notes")
+    }
+
+    // サーバーがアプリよりあとに上がっても、上がるとページが読み込まれ、その行が画面に出る（#756）。
+    func testThePageIsShownOnceAServerThatStartsLaterIsUp() async throws {
+        let later = try JournalServer(later: true)
+        defer { later.stop() }
+        let shell = Shell(server: later.address, url: "/pages/swift-later")
+        // The core has found no server, and waits to try again
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        XCTAssertNil(page(shell))
+
+        try later.start()
+
+        // The core tries again 1, 2, 4, 8 and 16 seconds apart
+        try await waitUntil("the page is shown", seconds: 40) { !shell.view.outline.rows.isEmpty }
+        XCTAssertEqual(page(shell)?.page.name, "swift-later")
     }
 
     // 項目に入力すると、少しあとにサーバーに保存される。
