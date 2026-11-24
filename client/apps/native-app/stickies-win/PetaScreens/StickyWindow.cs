@@ -198,7 +198,7 @@ internal sealed class StickyWindow : Window
         // A new sticky is one click away from every sticky: one without the focus, and one
         // that is rolled up. So this button is not among the tools, which are hidden then.
         // It answers when it is pressed, and does not wait for the mouse button to come up
-        add = Tool("", "New sticky (Ctrl+N)", () => desk.Add());
+        add = Tool("", "New sticky (Ctrl+N)", () => desk.AddNextTo(this));
         add.ClickMode = ClickMode.Press;
         add.Margin = new Thickness(4, 0, 0, 0);
         // Takes the keys while items are selected. No editor has the cursor then
@@ -232,7 +232,7 @@ internal sealed class StickyWindow : Window
 
         Shell.ViewChanged += Draw;
         Shell.TitleChanged += Name;
-        Shell.NewStickyAsked += url => desk.Add(url);
+        Shell.NewStickyAsked += url => desk.AddNextTo(this, url);
         Shell.QuestionChanged += Ask;
         Shell.FocusChanged += () => PutCursor();
         Shell.UrlChanged += () =>
@@ -719,7 +719,7 @@ internal sealed class StickyWindow : Window
         {
             Action? does = e.Key switch
             {
-                VirtualKey.N => () => desk.Add(),
+                VirtualKey.N => () => desk.AddNextTo(this),
                 VirtualKey.F => ToggleSearch,
                 // Ends the app and keeps the stickies. A sticky that is closed is gone
                 VirtualKey.Q => desk.End,
@@ -947,14 +947,25 @@ internal sealed class StickyWindow : Window
             AppWindow.Resize(Pixels(sticky.Width, sticky.Height));
             return;
         }
-        // A little down and to the right of the newest sticky
-        if (before is not null)
+        if (before is null)
         {
-            var step = (int)Math.Round(BarHeight * before.Scale);
-            var corner = before.AppWindow.Position;
-            AppWindow.Move(new PointInt32(corner.X + step, corner.Y + step));
+            AppWindow.Resize(Pixels(Usual.Width, Usual.Height));
+            return;
         }
+        // A little down and to the right of the sticky the user worked in
+        var step = (int)Math.Round(BarHeight * before.Scale);
+        var corner = before.AppWindow.Position;
+        var work = DisplayArea
+            .GetFromWindowId(before.AppWindow.Id, DisplayAreaFallback.Nearest)
+            .WorkArea;
+        AppWindow.Move(new PointInt32(corner.X + step, corner.Y + step));
+        // After the move: the scale is that of the screen the window is on
         AppWindow.Resize(Pixels(Usual.Width, Usual.Height));
+        var size = AppWindow.Size;
+        var inside = new Area(corner.X + step, corner.Y + step, size.Width, size.Height).Within(
+            new Area(work.X, work.Y, work.Width, work.Height)
+        );
+        AppWindow.Move(new PointInt32(inside.Left, inside.Top));
     }
 
     private SizeInt32 Pixels(double width, double height) =>
