@@ -107,9 +107,8 @@ const TABLE: &[(Route, Mcp)] = &[
     (routes::SCAN_FOLDER, Tool("scan_folder")),
     (routes::PENDING_DELETES, OnlyForScreens),
     (routes::SUBMIT_PENDING_DELETES, OnlyForScreens),
-    // assets and the launcher
+    // assets
     (routes::UPLOAD_ASSET, Tool("upload_asset")),
-    (routes::LAUNCH_URL, OnlyForScreens),
 ];
 
 /// The routes the table of the API names, read from its source: `(method, pattern)` of every

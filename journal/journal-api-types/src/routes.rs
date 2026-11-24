@@ -180,10 +180,9 @@ pub const SCAN_FOLDER: Route = Route::post("/api/sync/scan");
 pub const PENDING_DELETES: Route = Route::get("/api/sync/pending-deletes");
 pub const SUBMIT_PENDING_DELETES: Route = Route::post("/api/sync/pending-deletes");
 
-// ---- assets and the launcher ----
+// ---- assets ----
 
 pub const UPLOAD_ASSET: Route = Route::post("/api/assets/upload");
-pub const LAUNCH_URL: Route = Route::post("/api/launcher/open");
 
 #[cfg(test)]
 mod tests {

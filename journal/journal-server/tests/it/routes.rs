@@ -4,7 +4,7 @@
 //!
 //! Left out: `/api/events` (a stream, see `the_clients_hear_which_client_changed_the_page`),
 //! the routes that open a window of the OS (`/api/config/browse-folder`,
-//! `/api/launcher/open`, `/api/pages/{id}/open-folder`), the uploads and the files of
+//! `/api/pages/{id}/open-folder`), the uploads and the files of
 //! `/assets` (the `Assets` tests), the page of the pending deletions (a form of HTML, see
 //! `client_id.rs`). `/api/confirm/{id}` answers a question the test asks through the state of
 //! the server, as no extension is installed here.

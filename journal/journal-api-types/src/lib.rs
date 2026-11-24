@@ -863,14 +863,6 @@ pub struct AnswerConfirmInput {
     pub ok: bool,
 }
 
-/// An address for the machine of the server to open.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct LaunchUrlInput {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub url: Option<String>,
-}
-
 // ---- the event stream ----
 
 /// What the journal tells its clients on the event stream (`/api/events`).
