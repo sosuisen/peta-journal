@@ -54,9 +54,11 @@ It applies to the rows drawn after a change.  Only a graphical Emacs shows it."
   :type 'natnum)
 
 (defconst peta-journal--bullets
-  '(("plain" . "•") ("transclusion" . "⊡") ("broken" . "✗"))
+  '(("plain" . "•") ("transclusion" . "⊡") ("broken" . "✗") ("hidden" . " "))
   "The mark of each kind of row.
-A transclusion has a square around its dot, as the web frontend draws it.")
+A transclusion has a square around its dot, as the web frontend draws it.
+A hidden bullet is a space: the body stays where it is when the bullet comes
+back.")
 
 (defconst peta-journal--collapsed-bullets
   '(("plain" . "◉") ("transclusion" . "▣"))
