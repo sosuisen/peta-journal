@@ -131,8 +131,16 @@ jobs:
           workspaces: |
             journal
             client
-      # The version has to be the same as the boltffi dependency of client-shell-http
-      - run: cargo install boltffi_cli --version =0.32.1 --locked
+      # The version has to be the same as the boltffi dependency of client-shell-http.
+      # Building it takes about 20 minutes, so the program is kept in the cache. The key holds
+      # the version: a new version builds once, then comes from the cache
+      - id: boltffi
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/boltffi.exe
+          key: boltffi-cli-0.32.1-${{ runner.os }}
+      - if: steps.boltffi.outputs.cache-hit != 'true'
+        run: cargo install boltffi_cli --version =0.32.1 --locked
       # The projects target .NET 11
       - uses: actions/setup-dotnet@v6
         with:
