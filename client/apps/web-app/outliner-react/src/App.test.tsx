@@ -679,6 +679,15 @@ describe('a day that may have changed', () => {
 
     expect(wasm.events).toEqual([{ kind: 'DateMayHaveChanged' }]);
   });
+
+  // ページが隠れたときは、知らせない。
+  test('the page hidden tells the core nothing', () => {
+    const { wasm } = app();
+
+    turnPage('hidden');
+
+    expect(wasm.events).toEqual([]);
+  });
 });
 
 // ページ全体のキー
