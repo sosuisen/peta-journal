@@ -284,10 +284,10 @@ fn native_shown(blocks: &[RichBlock], shown: &mut String) {
                 .flat_map(|row| &row.cells)
                 .for_each(|cell| paragraph(cell, shown)),
             RichBlock::Image { .. } => {}
-            RichBlock::Entries { entries } => entries
+            RichBlock::Entries { entries, .. } => entries
                 .iter()
                 .for_each(|entry| native_shown(&entry.blocks, shown)),
-            RichBlock::Quote { blocks } => native_shown(blocks, shown),
+            RichBlock::Quote { blocks, .. } => native_shown(blocks, shown),
         }
     }
 }

@@ -20,10 +20,10 @@ fn without_starts(blocks: &mut [RichBlock]) {
                 .flat_map(|row| row.cells.iter_mut())
                 .for_each(|cell| cell.start = 0),
             RichBlock::Image { .. } => {}
-            RichBlock::Entries { entries } => entries
+            RichBlock::Entries { entries, .. } => entries
                 .iter_mut()
                 .for_each(|entry| without_starts(&mut entry.blocks)),
-            RichBlock::Quote { blocks } => without_starts(blocks),
+            RichBlock::Quote { blocks, .. } => without_starts(blocks),
         }
     }
 }
@@ -105,12 +105,12 @@ fn letters(block: &RichBlock) -> String {
             .collect::<Vec<_>>()
             .join("\n"),
         RichBlock::Image { image } => image.alt.clone(),
-        RichBlock::Entries { entries } => entries
+        RichBlock::Entries { entries, .. } => entries
             .iter()
             .map(|e| format!("{} {}", e.mark, all_letters(&e.blocks)))
             .collect::<Vec<_>>()
             .join("\n"),
-        RichBlock::Quote { blocks } => all_letters(blocks),
+        RichBlock::Quote { blocks, .. } => all_letters(blocks),
     }
 }
 
@@ -632,7 +632,7 @@ fn an_image_outside_the_assets_folder_is_its_words() {
 #[test]
 fn a_code_block_inside_a_list_keeps_its_lines_and_the_entries_keep_their_numbers() {
     let blocks = shown("1. first\n\n   ```\n   a\n     b\n   ```\n2. second");
-    let [RichBlock::Entries { entries }] = blocks.as_slice() else {
+    let [RichBlock::Entries { entries, .. }] = blocks.as_slice() else {
         panic!("no entries: {blocks:?}");
     };
     let marks: Vec<_> = entries.iter().map(|e| e.mark.as_str()).collect();
@@ -669,7 +669,7 @@ fn a_list_or_a_quote_that_holds_a_part_moves_it_one_step_right() {
 #[test]
 fn a_table_inside_a_quote_has_each_cell_apart() {
     let blocks = shown("> said:\n>\n> | name | count |\n> |---|---|\n> | apple | 2 |");
-    let [RichBlock::Quote { blocks: inside }] = blocks.as_slice() else {
+    let [RichBlock::Quote { blocks: inside, .. }] = blocks.as_slice() else {
         panic!("no quote: {blocks:?}");
     };
     assert_eq!(letters(&inside[0]), "said:");
@@ -683,12 +683,12 @@ fn a_table_inside_a_quote_has_each_cell_apart() {
 #[test]
 fn an_image_inside_a_list_inside_a_list_is_a_picture() {
     let blocks = shown("- outer\n  - look ![a cat](../assets/cat.png)\n- next");
-    let [RichBlock::Entries { entries: outer }] = blocks.as_slice() else {
+    let [RichBlock::Entries { entries: outer, .. }] = blocks.as_slice() else {
         panic!("no entries: {blocks:?}");
     };
     let marks: Vec<_> = outer.iter().map(|e| e.mark.as_str()).collect();
     assert_eq!(marks, ["•", "•"]);
-    let Some(RichBlock::Entries { entries: inner }) = outer[0].blocks.last() else {
+    let Some(RichBlock::Entries { entries: inner, .. }) = outer[0].blocks.last() else {
         panic!("no inner list: {:?}", outer[0]);
     };
     assert_eq!(
@@ -712,7 +712,7 @@ fn a_list_and_a_quote_that_hold_no_part_of_their_own_stay_one_text() {
 #[test]
 fn a_multiline_quote_with_a_part_of_its_own_is_taken_apart() {
     let blocks = shown(">>>\nsaid\n\n```\ncode\n```\n>>>");
-    let [RichBlock::Quote { blocks: inside }] = blocks.as_slice() else {
+    let [RichBlock::Quote { blocks: inside, .. }] = blocks.as_slice() else {
         panic!("no quote: {blocks:?}");
     };
     assert_eq!(all_letters(inside), "said\ncode");
@@ -722,7 +722,7 @@ fn a_multiline_quote_with_a_part_of_its_own_is_taken_apart() {
 #[test]
 fn the_entries_of_a_task_list_have_a_checkbox() {
     let blocks = shown("- plain\n- [ ] open\n\n  ```\n  code\n  ```\n- [x] done");
-    let [RichBlock::Entries { entries }] = blocks.as_slice() else {
+    let [RichBlock::Entries { entries, .. }] = blocks.as_slice() else {
         panic!("no entries: {blocks:?}");
     };
     let marks: Vec<_> = entries.iter().map(|e| e.mark.as_str()).collect();
@@ -1050,11 +1050,11 @@ fn starts(blocks: &[RichBlock]) -> Vec<u32> {
                 .flat_map(|row| row.cells.iter().map(|cell| cell.start))
                 .collect(),
             RichBlock::Image { .. } => vec![],
-            RichBlock::Entries { entries } => entries
+            RichBlock::Entries { entries, .. } => entries
                 .iter()
                 .flat_map(|entry| starts(&entry.blocks))
                 .collect(),
-            RichBlock::Quote { blocks } => starts(blocks),
+            RichBlock::Quote { blocks, .. } => starts(blocks),
         })
         .collect()
 }

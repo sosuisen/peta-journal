@@ -101,10 +101,10 @@ pub(super) fn count_letters(blocks: &mut [RichBlock], letters: &mut ShownLetters
                 .flat_map(|row| row.cells.iter_mut())
                 .for_each(|cell| count_paragraph(cell, letters)),
             RichBlock::Image { .. } => {}
-            RichBlock::Entries { entries } => entries
+            RichBlock::Entries { entries, .. } => entries
                 .iter_mut()
                 .for_each(|entry| count_letters(&mut entry.blocks, letters)),
-            RichBlock::Quote { blocks } => count_letters(blocks, letters),
+            RichBlock::Quote { blocks, .. } => count_letters(blocks, letters),
         }
     }
 }

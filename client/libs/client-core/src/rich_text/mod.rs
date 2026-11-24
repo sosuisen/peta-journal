@@ -63,10 +63,14 @@ pub enum RichBlock {
     /// A list that holds a part of its own kind, such as a code block: its entries apart.
     Entries {
         entries: Vec<RichEntry>,
+        /// How far what the list holds stands to the right of the list, in ems.
+        indent: f32,
     },
     /// A quote that holds a part of its own kind.
     Quote {
         blocks: Vec<RichBlock>,
+        /// How far what the quote holds stands to the right of the quote, in ems.
+        indent: f32,
     },
 }
 
