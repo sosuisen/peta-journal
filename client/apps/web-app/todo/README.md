@@ -45,3 +45,7 @@ served by the journal server here, so `?port=` sends the app to it. The journal 
 `http://localhost:5180` call it by default (`--cors-origins`).
 
 `npm test` runs the tests, `npm run lint` the lint, and `npm run format` the formatter.
+
+`npm run coverage` runs the tests and measures their coverage. It prints a table per file and
+writes a browsable report to `coverage/index.html`. It fails when less than 90% of the lines are
+covered, and the CI runs it. The settings are in `vitest.config.ts`.

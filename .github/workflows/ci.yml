@@ -124,8 +124,42 @@ jobs:
       - run: npm ci
       - run: npm run format:check
       - run: npm run lint
-      - run: npm test
+      # Runs the tests, and fails below 90% of the lines covered (vitest.config.ts)
+      - run: npm run coverage
       - run: npm run build
+
+  # The web shell in React. Its core is the wasm of client-web-bridge. The tests, the lint and the
+  # types need that wasm and the types of the border, which `npm run border` makes from the Rust
+  # code. The e2e tests with Playwright run on a developer's machine only.
+  outliner-react:
+    name: client/apps/web-app/outliner-react
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client/apps/web-app/outliner-react
+    steps:
+      - uses: actions/checkout@v7
+      # Installs the version, components and targets in rust-toolchain.toml
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: client
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: client/apps/web-app/outliner-react/package-lock.json
+      - run: npm ci
+      - run: npm run border
+      - run: npm run format:check
+      - run: npm run lint
+      # Runs the tests, and fails below 90% of the lines covered (vitest.config.ts)
+      - run: npm run coverage
+      # `--ignore-scripts`: the step above built the border, and `prebuild` would build it again
+      - run: npm run build --ignore-scripts
 
   memoview-win:
     name: client/apps/webview-app/memoview-win
