@@ -37,6 +37,8 @@ pub(super) struct FakeHost {
     uploads: Vec<(u64, String)>,
     timers: Vec<(u64, u32)>,
     streams: Vec<u64>,
+    /// The day of November 2026 that the clock of the host shows. The 6th when not set.
+    day: Option<u8>,
     /// The rows as Emacs has them, after the changes it was sent.
     rows: Vec<RowView>,
 }
@@ -65,7 +67,7 @@ impl Host for FakeHost {
             local: LocalDateTimeDto {
                 year: 2026,
                 month: 11,
-                day: 6,
+                day: self.day.unwrap_or(6).into(),
                 hour: 9,
                 minute: 30,
             },
@@ -330,6 +332,51 @@ fn today_opens_the_journal_of_the_hosts_date() {
     });
     assert!(driver.waiting(
         |op| matches!(op, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-11-06")
+    ));
+}
+
+/// Opens the journal of today, which the server has with no items, and forgets the rest.
+fn open_today() -> Driver {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/today".into(),
+    });
+    let mut page = page_info("", "2026-11-06");
+    page["type"] = json!("journal");
+    let journal = serde_json::from_value(json!({
+        "Journal": { "page": page, "items": [], "created": false, "transcludedTrees": {} }
+    }));
+    driver.answer(
+        |op| matches!(op, ApiOp::GetOrCreateJournal { .. }),
+        journal.unwrap(),
+    );
+    driver.fail_all_waiting_calls();
+    driver
+}
+
+// 時計を見る待ちが明けて、日付が変わっていれば、/todayは新しい日のジャーナルを開く。日付は、ホストの時計から入る。
+#[test]
+fn the_clock_watch_opens_the_journal_of_the_new_day() {
+    let mut driver = open_today();
+    driver.shell.host.day = Some(7);
+
+    fire_timers(&mut driver);
+
+    assert!(driver.waiting(
+        |op| matches!(op, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-11-07")
+    ));
+}
+
+// Emacsが「日付が変わったかもしれない」と知らせると、時計を見る待ちを待たずに、/todayは新しい日のジャーナルを開く。
+#[test]
+fn a_day_that_may_have_changed_opens_the_journal_of_the_new_day_at_once() {
+    let mut driver = open_today();
+    driver.shell.host.day = Some(7);
+
+    driver.send(Inbound::DayMayHaveChanged);
+
+    assert!(driver.waiting(
+        |op| matches!(op, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-11-07")
     ));
 }
 

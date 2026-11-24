@@ -294,6 +294,7 @@ impl<H: Host> Shell<H> {
             }),
             Inbound::DemoteIndex => self.send(Event::DemoteIndex),
             Inbound::DeletePage => self.send(Event::DeleteCurrentPage),
+            Inbound::DayMayHaveChanged => self.send(Event::DateMayHaveChanged),
             Inbound::SetProperty { key, value } => self.set_property(key, value),
             Inbound::DeleteProperty { key } => self.send(Event::DeletePageProperty { key }),
             Inbound::OpenLinkAt { id, cursor } => self.open_link_at(id, cursor),
@@ -629,8 +630,13 @@ impl<H: Host> Shell<H> {
             // A new page from the header and a page in another window start from events that
             // Emacs does not send. The clipboard is read in `process`. A failed copy leaves the
             // kill ring as it was
-            UiOp::LocalNow
-            | UiOp::OpenWindow { .. }
+            // The core looks at the clock for a new day (#1031)
+            UiOp::LocalNow => {
+                let Now { local, now_ms } = self.host.now();
+                let mut request = request;
+                self.resolve(&mut request, UiOutput::Now { local, now_ms });
+            }
+            UiOp::OpenWindow { .. }
             | UiOp::SaveAtlasDirs(_)
             | UiOp::CopyFailed
             | UiOp::Prompt(_)

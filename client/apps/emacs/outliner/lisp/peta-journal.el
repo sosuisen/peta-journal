@@ -865,6 +865,16 @@ that stands for it, but for its line break.  An overlay leaves the text alone."
                                      (decode-coding-string line 'utf-8))
                                    "\n")))))
 
+(defun peta-journal--on-frame-focus ()
+  "Tell the shell of each page that the day may have changed.
+Emacs calls this when the focus of a frame changes, as when it comes back
+after the PC slept.  The core then opens the new day at once (#1031).
+Nothing is told when the focus left Emacs."
+  (when (seq-some #'frame-focus-state (frame-list))
+    (dolist (page (peta-journal--pages))
+      (with-current-buffer page
+        (peta-journal--send "day_may_have_changed")))))
+
 (defun peta-journal--wait-until (done)
   "Handle the output of the shell until the function DONE says so.
 The wait has a limit."
@@ -2359,6 +2369,7 @@ rule of encoding a name stays in one place."
       (setq peta-journal--idle-timer
             (run-with-idle-timer peta-journal-idle-finish-seconds t #'peta-journal--idle)))
     (add-hook 'kill-emacs-hook #'peta-journal--stop-all)
+    (add-function :after after-focus-change-function #'peta-journal--on-frame-focus)
     (if path
         (peta-journal--send "start_at_page" :path path)
       (peta-journal--send "start" :url url))))
