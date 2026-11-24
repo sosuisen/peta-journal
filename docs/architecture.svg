@@ -120,7 +120,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <g class="blue">
 <rect x="382" y="230" width="236" height="140" rx="8" />
 <text class="th" x="500" y="280" text-anchor="middle" dominant-baseline="central">outliner-emacs（Rust）</text>
-<text x="500" y="302" text-anchor="middle" dominant-baseline="central">差分送信・Effect実行</text>
+<text x="500" y="302" text-anchor="middle" dominant-baseline="central">Effect実行・本文をEmacsTextに</text>
 </g>
 <g class="chip">
 <rect x="469" y="323" width="62" height="18" rx="9" />
