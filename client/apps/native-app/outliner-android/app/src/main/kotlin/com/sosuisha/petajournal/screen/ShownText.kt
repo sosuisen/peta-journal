@@ -136,7 +136,7 @@ private class TextWriter(private val onLink: (RichLink) -> Unit) {
 
     private fun paragraph(paragraph: RichParagraph) {
         val quoted = paragraph.quoted.toInt()
-        val indent = (paragraph.depth.toInt() + quoted) * 1.5
+        val indent = paragraph.indent
         out.pushStyle(ParagraphStyle(textIndent = TextIndent(firstLine = indent.em, restLine = indent.em)))
         if (quoted > 0) out.pushStyle(SpanStyle(color = QUOTED))
         val heading = paragraph.heading.toInt()
