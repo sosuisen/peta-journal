@@ -43,6 +43,26 @@ public sealed class OutlineScreenTests
         Assert.AreEqual(0, screen.Editor.SelectionStart);
     }
 
+    // 編集中でない空の項目には、行頭の点が見えない。文字のある項目と、編集中の項目には見える（#1042）。
+    [UITestMethod]
+    public async Task An_empty_item_that_is_not_edited_shows_no_bullet()
+    {
+        await using var screen = await Screen.Open(Port);
+        await screen.Edit(0);
+        await screen.Type("first");
+        Screen.Press(VirtualKey.Enter);
+        await Screen.Until("the cursor is in the new item", () => screen.Focused == 1);
+        Assert.AreEqual(1, Screen.BulletOf(screen.Items()[1]).Opacity);
+
+        Screen.Press(VirtualKey.Up);
+
+        await Screen.Until("the cursor is in the first item", () => screen.Focused == 0);
+        await Screen.Until("the empty item has no bullet", () =>
+            Screen.BulletOf(screen.Items()[1]).Opacity == 0
+        );
+        Assert.AreEqual(1, Screen.BulletOf(screen.Items()[0]).Opacity);
+    }
+
     // 上矢印は、前の項目へ、同じ位置のまま移る。
     [UITestMethod]
     public async Task Up_goes_to_the_item_before_at_the_same_place()
