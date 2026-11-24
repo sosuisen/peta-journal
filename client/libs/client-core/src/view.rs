@@ -64,6 +64,10 @@ pub struct Row<B> {
     pub is_heading: bool,
     /// True when the whole body is one heading line, which the editor shows large and bold.
     pub heading_line: bool,
+    /// How much larger than the usual text the first line of the item is drawn. An item that
+    /// is edited shows its Markdown, which is large only when it is one heading line. Every
+    /// shell takes it from here (#795).
+    pub first_line_scale: f32,
     /// The task's state, for the checkbox; `None` when the item is not a task.
     pub task: Option<TaskState>,
     /// True when the item has a zoom of its own, which the menu offers to reset.
@@ -544,6 +548,7 @@ fn outline<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> OutlineView<B> {
 
         let is_editing = editing.contains(&item.id);
         let heading_level = item.heading_level_of_body();
+        let heading_line = heading_level > 0 && !item.body.contains('\n');
         let is_broken = state.is_broken_transclusion(&item.id);
         let date_header = (item.item_type == "journal"
             && item.name != journal_date
@@ -558,7 +563,12 @@ fn outline<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> OutlineView<B> {
             has_children: state.has_children(&item.id),
             heading_level,
             is_heading: item.body.trim_start().starts_with('#'),
-            heading_line: heading_level > 0 && !item.body.contains('\n'),
+            heading_line,
+            first_line_scale: crate::rich_text::heading_scale(if is_editing && !heading_line {
+                0
+            } else {
+                heading_level
+            }),
             task: TaskState::of(item),
             has_own_zoom: (item.zoom() - 1.0).abs() > f64::EPSILON,
             is_transclusion: item.transclude_item_id.is_some(),
