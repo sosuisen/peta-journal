@@ -4,6 +4,7 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sosuisha.petajournal.types.Looks
 import com.sosuisha.petajournal.types.RichBlock
+import com.sosuisha.petajournal.types.RichEntry
 import com.sosuisha.petajournal.types.RichImage
 import com.sosuisha.petajournal.types.RichLink
 import com.sosuisha.petajournal.types.RichParagraph
@@ -70,6 +71,21 @@ class ShownTextTest {
         val text = (shown(text(entry)).single() as ShownBlock.Text).text
         val indent = text.paragraphStyles.single().item.textIndent!!
         assertEquals(listOf(1.25f, 1.25f), listOf(indent.firstLine.value, indent.restLine.value))
+    }
+
+    // 部品を持つリストと引用は、コアが決めた字下げ（em）を持つ（#795）。
+    @Test
+    fun a_list_or_a_quote_that_holds_a_part_has_the_indent_that_the_core_gives() {
+        val code = RichBlock.Code("c", 0u)
+        val list = RichBlock.Entries(listOf(RichEntry("•", listOf(code))), 1.25f)
+        val indents = shown(list, RichBlock.Quote(listOf(code), 1.75f)).map {
+            when (it) {
+                is ShownBlock.Entries -> it.indent
+                is ShownBlock.Quote -> it.indent
+                else -> null
+            }
+        }
+        assertEquals(listOf(1.25f, 1.75f), indents)
     }
 
     // 文字の位置は、項目の表示の文字のうち、その前に立つ文字の数になる。印の上は、その段落の先頭である。
