@@ -1156,6 +1156,10 @@ internal sealed class StickyWindow : Window
         UIntPtr data
     )
     {
+        // Windows tells every window when the PC woke or the clock was set. The window goes on
+        // to hear it as it would without this
+        if (DayChange.MayFollow(message, wParam))
+            Shell.DayMayHaveChanged();
         switch (message)
         {
             // Windows would paint the background of the window over what shows through
