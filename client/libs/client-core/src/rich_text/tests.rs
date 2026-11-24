@@ -20,10 +20,10 @@ fn without_starts(blocks: &mut [RichBlock]) {
                 .flat_map(|row| row.cells.iter_mut())
                 .for_each(|cell| cell.start = 0),
             RichBlock::Image { .. } => {}
-            RichBlock::Entries { entries } => entries
+            RichBlock::Entries { entries, .. } => entries
                 .iter_mut()
                 .for_each(|entry| without_starts(&mut entry.blocks)),
-            RichBlock::Quote { blocks } => without_starts(blocks),
+            RichBlock::Quote { blocks, .. } => without_starts(blocks),
         }
     }
 }
@@ -105,12 +105,12 @@ fn letters(block: &RichBlock) -> String {
             .collect::<Vec<_>>()
             .join("\n"),
         RichBlock::Image { image } => image.alt.clone(),
-        RichBlock::Entries { entries } => entries
+        RichBlock::Entries { entries, .. } => entries
             .iter()
             .map(|e| format!("{} {}", e.mark, all_letters(&e.blocks)))
             .collect::<Vec<_>>()
             .join("\n"),
-        RichBlock::Quote { blocks } => all_letters(blocks),
+        RichBlock::Quote { blocks, .. } => all_letters(blocks),
     }
 }
 
@@ -314,9 +314,31 @@ fn a_heading_has_its_level() {
         paragraphs("## Title"),
         [RichParagraph {
             heading: 2,
+            scale: 1.4,
             ..paragraph(vec![run("Title")])
         }]
     );
+}
+
+// 見出しの段落は、レベルの倍率を持つ。h6はh5と同じ1で、見出しでない段落も1である（#795）。
+#[test]
+fn a_heading_has_the_scale_of_its_level() {
+    let scales: Vec<_> =
+        paragraphs("# 1\n\n## 2\n\n### 3\n\n#### 4\n\n##### 5\n\n###### 6\n\ntext")
+            .iter()
+            .map(|p| p.scale)
+            .collect();
+    assert_eq!(scales, [1.6, 1.4, 1.2, 1.1, 1.0, 1.0, 1.0]);
+}
+
+// 段落の字下げは、リストと引用の深さの和の1.5em倍である（#795）。
+#[test]
+fn a_paragraph_is_indented_by_its_depth_and_its_quotes() {
+    let indents: Vec<_> = paragraphs("text\n\n- one\n  - two\n\n> - quoted\n>\n> ***")
+        .iter()
+        .map(|p| p.indent)
+        .collect();
+    assert_eq!(indents, [0.0, 1.5, 3.0, 3.0, 1.5]);
 }
 
 // 段落の中の改行は空白になり、改行の記号は改行になる。
@@ -328,8 +350,9 @@ fn a_line_end_is_a_space_and_a_break_is_a_line_break() {
 // 箇条書きの項目は、印と深さを持つ段落になる。
 #[test]
 fn the_entries_of_a_list_have_a_mark_and_a_depth() {
-    let entry = |depth, text| RichParagraph {
+    let entry = |depth: u32, text| RichParagraph {
         depth,
+        indent: depth as f32 * 1.5,
         mark: Some("•".to_string()),
         ..paragraph(vec![run(text)])
     };
@@ -368,11 +391,13 @@ fn the_second_paragraph_of_an_entry_has_no_mark() {
         [
             RichParagraph {
                 depth: 1,
+                indent: 1.5,
                 mark: Some("•".to_string()),
                 ..paragraph(vec![run("one")])
             },
             RichParagraph {
                 depth: 1,
+                indent: 1.5,
                 ..paragraph(vec![run("more")])
             },
         ]
@@ -387,16 +412,19 @@ fn an_entry_without_text_is_a_paragraph_with_only_its_mark() {
         [
             RichParagraph {
                 depth: 1,
+                indent: 1.5,
                 mark: Some("•".to_string()),
                 ..paragraph(vec![run("a")])
             },
             RichParagraph {
                 depth: 1,
+                indent: 1.5,
                 mark: Some("•".to_string()),
                 ..paragraph(vec![])
             },
             RichParagraph {
                 depth: 1,
+                indent: 1.5,
                 mark: Some("•".to_string()),
                 ..paragraph(vec![run("b")])
             },
@@ -412,10 +440,12 @@ fn a_paragraph_in_a_quote_knows_how_deep_it_is_quoted() {
         [
             RichParagraph {
                 quoted: 1,
+                indent: 1.5,
                 ..paragraph(vec![run("said")])
             },
             RichParagraph {
                 quoted: 2,
+                indent: 3.0,
                 ..paragraph(vec![run("before")])
             },
             paragraph(vec![run("after")]),
@@ -428,6 +458,7 @@ fn a_paragraph_in_a_quote_knows_how_deep_it_is_quoted() {
 fn an_alert_is_a_quote_with_its_title_first() {
     let quoted = |text| RichParagraph {
         quoted: 1,
+        indent: 1.5,
         ..paragraph(vec![run(text)])
     };
     assert_eq!(
@@ -601,7 +632,7 @@ fn an_image_outside_the_assets_folder_is_its_words() {
 #[test]
 fn a_code_block_inside_a_list_keeps_its_lines_and_the_entries_keep_their_numbers() {
     let blocks = shown("1. first\n\n   ```\n   a\n     b\n   ```\n2. second");
-    let [RichBlock::Entries { entries }] = blocks.as_slice() else {
+    let [RichBlock::Entries { entries, .. }] = blocks.as_slice() else {
         panic!("no entries: {blocks:?}");
     };
     let marks: Vec<_> = entries.iter().map(|e| e.mark.as_str()).collect();
@@ -618,11 +649,27 @@ fn a_code_block_inside_a_list_keeps_its_lines_and_the_entries_keep_their_numbers
     assert_eq!(all_letters(&entries[1].blocks), "second");
 }
 
+// 部品を持つリストと引用は、中のものを1段（1.5em）右へ寄せる。段落の字下げと同じ幅である（#795）。
+#[test]
+fn a_list_or_a_quote_that_holds_a_part_moves_it_one_step_right() {
+    let code = "```\na\n```";
+    let in_list = shown(&format!("- a\n\n  {}", code.replace('\n', "\n  ")));
+    let in_quote = shown(&format!("> {}", code.replace('\n', "\n> ")));
+    let indents: Vec<_> = [in_list, in_quote]
+        .iter()
+        .map(|blocks| match blocks.as_slice() {
+            [RichBlock::Entries { indent, .. }] | [RichBlock::Quote { indent, .. }] => *indent,
+            blocks => panic!("not one list or quote: {blocks:?}"),
+        })
+        .collect();
+    assert_eq!(indents, [1.5, 1.5]);
+}
+
 // 引用の中の表も、セルごとに分かれて残る。
 #[test]
 fn a_table_inside_a_quote_has_each_cell_apart() {
     let blocks = shown("> said:\n>\n> | name | count |\n> |---|---|\n> | apple | 2 |");
-    let [RichBlock::Quote { blocks: inside }] = blocks.as_slice() else {
+    let [RichBlock::Quote { blocks: inside, .. }] = blocks.as_slice() else {
         panic!("no quote: {blocks:?}");
     };
     assert_eq!(letters(&inside[0]), "said:");
@@ -636,12 +683,12 @@ fn a_table_inside_a_quote_has_each_cell_apart() {
 #[test]
 fn an_image_inside_a_list_inside_a_list_is_a_picture() {
     let blocks = shown("- outer\n  - look ![a cat](../assets/cat.png)\n- next");
-    let [RichBlock::Entries { entries: outer }] = blocks.as_slice() else {
+    let [RichBlock::Entries { entries: outer, .. }] = blocks.as_slice() else {
         panic!("no entries: {blocks:?}");
     };
     let marks: Vec<_> = outer.iter().map(|e| e.mark.as_str()).collect();
     assert_eq!(marks, ["•", "•"]);
-    let Some(RichBlock::Entries { entries: inner }) = outer[0].blocks.last() else {
+    let Some(RichBlock::Entries { entries: inner, .. }) = outer[0].blocks.last() else {
         panic!("no inner list: {:?}", outer[0]);
     };
     assert_eq!(
@@ -665,7 +712,7 @@ fn a_list_and_a_quote_that_hold_no_part_of_their_own_stay_one_text() {
 #[test]
 fn a_multiline_quote_with_a_part_of_its_own_is_taken_apart() {
     let blocks = shown(">>>\nsaid\n\n```\ncode\n```\n>>>");
-    let [RichBlock::Quote { blocks: inside }] = blocks.as_slice() else {
+    let [RichBlock::Quote { blocks: inside, .. }] = blocks.as_slice() else {
         panic!("no quote: {blocks:?}");
     };
     assert_eq!(all_letters(inside), "said\ncode");
@@ -675,7 +722,7 @@ fn a_multiline_quote_with_a_part_of_its_own_is_taken_apart() {
 #[test]
 fn the_entries_of_a_task_list_have_a_checkbox() {
     let blocks = shown("- plain\n- [ ] open\n\n  ```\n  code\n  ```\n- [x] done");
-    let [RichBlock::Entries { entries }] = blocks.as_slice() else {
+    let [RichBlock::Entries { entries, .. }] = blocks.as_slice() else {
         panic!("no entries: {blocks:?}");
     };
     let marks: Vec<_> = entries.iter().map(|e| e.mark.as_str()).collect();
@@ -1003,11 +1050,11 @@ fn starts(blocks: &[RichBlock]) -> Vec<u32> {
                 .flat_map(|row| row.cells.iter().map(|cell| cell.start))
                 .collect(),
             RichBlock::Image { .. } => vec![],
-            RichBlock::Entries { entries } => entries
+            RichBlock::Entries { entries, .. } => entries
                 .iter()
                 .flat_map(|entry| starts(&entry.blocks))
                 .collect(),
-            RichBlock::Quote { blocks } => starts(blocks),
+            RichBlock::Quote { blocks, .. } => starts(blocks),
         })
         .collect()
 }

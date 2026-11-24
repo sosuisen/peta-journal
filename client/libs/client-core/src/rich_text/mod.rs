@@ -63,10 +63,14 @@ pub enum RichBlock {
     /// A list that holds a part of its own kind, such as a code block: its entries apart.
     Entries {
         entries: Vec<RichEntry>,
+        /// How far what the list holds stands to the right of the list, in ems.
+        indent: f32,
     },
     /// A quote that holds a part of its own kind.
     Quote {
         blocks: Vec<RichBlock>,
+        /// How far what the quote holds stands to the right of the quote, in ems.
+        indent: f32,
     },
 }
 
@@ -103,14 +107,20 @@ pub struct RichEntry {
 
 /// One paragraph of a text.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
-#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RichParagraph {
     /// The level of a heading, from 1 to 6, and 0 for any other paragraph.
     pub heading: u8,
+    /// How much larger than the usual text the letters are drawn: the scale of the heading,
+    /// and 1 for any other paragraph. Every shell takes it from here (#795).
+    pub scale: f32,
     /// How many lists the paragraph is inside.
     pub depth: u32,
     /// How many quotes the paragraph is inside.
     pub quoted: u32,
+    /// How far the paragraph stands to the right of the part it is in, in ems: one step for
+    /// each list and each quote it is inside (#795).
+    pub indent: f32,
     /// What stands before the first paragraph of an entry of a list: a bullet, its number or
     /// a checkbox.
     pub mark: Option<String>,
@@ -122,6 +132,44 @@ pub struct RichParagraph {
     /// from top to bottom, each with a line break after it. A shell adds the letters before a
     /// touch in the paragraph to this, and tells the core (`EditPlace::ShownLetter`).
     pub start: u32,
+}
+
+impl Default for RichParagraph {
+    fn default() -> RichParagraph {
+        RichParagraph {
+            heading: 0,
+            scale: 1.0,
+            depth: 0,
+            quoted: 0,
+            indent: 0.0,
+            mark: None,
+            rule: false,
+            runs: Vec::new(),
+            start: 0,
+        }
+    }
+}
+
+/// How much larger than the usual text a heading of each level is, from the first to the
+/// fifth. A sixth level is as large as the fifth: smaller than the usual text, it would read
+/// as less than a heading.
+const HEADING_SCALES: [f32; 5] = [1.6, 1.4, 1.2, 1.1, 1.0];
+
+/// How much larger than the usual text the letters of a heading of `level` are. 1 for a level
+/// that is no heading.
+pub fn heading_scale(level: u8) -> f32 {
+    match level {
+        0 => 1.0,
+        level => HEADING_SCALES[usize::from(level.min(5)) - 1],
+    }
+}
+
+/// How far a list or a quote moves what is inside it to the right, in ems.
+pub const INDENT_STEP: f32 = 1.5;
+
+/// How far a paragraph inside `depth` lists and `quoted` quotes stands to the right, in ems.
+fn indent(depth: u32, quoted: u32) -> f32 {
+    (depth + quoted) as f32 * INDENT_STEP
 }
 
 /// Letters with one look and one link.

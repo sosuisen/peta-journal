@@ -15,7 +15,8 @@ final class ShownTextTests: XCTestCase {
     private func paragraph(
         _ runs: RichRun..., heading: UInt8 = 0, mark: String? = nil, rule: Bool = false, start: UInt32 = 0
     ) -> RichParagraph {
-        RichParagraph(heading: heading, depth: 0, quoted: 0, mark: mark, rule: rule, runs: runs, start: start)
+        RichParagraph(
+            heading: heading, scale: 1, depth: 0, quoted: 0, indent: 0, mark: mark, rule: rule, runs: runs, start: start)
     }
 
     private func text(_ paragraphs: RichParagraph...) -> RichBlock { .text(paragraphs: paragraphs) }

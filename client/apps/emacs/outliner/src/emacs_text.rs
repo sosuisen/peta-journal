@@ -175,7 +175,7 @@ impl Writer {
                     .for_each(|paragraph| self.paragraph(paragraph)),
                 RichBlock::Code { lines, .. } => self.code(lines),
                 RichBlock::Table { rows } => self.table(rows),
-                RichBlock::Entries { entries } => {
+                RichBlock::Entries { entries, .. } => {
                     for entry in entries {
                         self.within(
                             Prefix {
@@ -186,7 +186,7 @@ impl Writer {
                         );
                     }
                 }
-                RichBlock::Quote { blocks } => self.within(
+                RichBlock::Quote { blocks, .. } => self.within(
                     Prefix {
                         first: None,
                         rest: (QUOTE, vec![EmacsLook::Quote]),

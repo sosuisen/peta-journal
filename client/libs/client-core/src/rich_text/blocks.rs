@@ -47,14 +47,20 @@ impl<'t> Reader<'t> {
                             blocks: self.within(entry.children()),
                         })
                         .collect();
-                    self.blocks.push(RichBlock::Entries { entries });
+                    self.blocks.push(RichBlock::Entries {
+                        entries,
+                        indent: super::INDENT_STEP,
+                    });
                 }
                 Node::BlockQuote { children } | Node::MultilineBlockQuote { children }
                     if holds_own_part(node) =>
                 {
                     self.end_text();
                     let blocks = self.within(children);
-                    self.blocks.push(RichBlock::Quote { blocks });
+                    self.blocks.push(RichBlock::Quote {
+                        blocks,
+                        indent: super::INDENT_STEP,
+                    });
                 }
                 Node::CodeBlock { literal, .. } => {
                     self.end_text();

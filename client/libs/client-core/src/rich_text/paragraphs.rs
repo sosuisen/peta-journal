@@ -142,6 +142,7 @@ impl<'t> Writer<'t> {
                         self.paragraphs.push(RichParagraph {
                             depth: self.depth,
                             quoted: self.quoted,
+                            indent: super::indent(self.depth, self.quoted),
                             mark: Some(mark),
                             ..RichParagraph::default()
                         });
@@ -154,6 +155,7 @@ impl<'t> Writer<'t> {
                 self.paragraphs.push(RichParagraph {
                     depth: self.depth,
                     quoted: self.quoted,
+                    indent: super::indent(self.depth, self.quoted),
                     rule: true,
                     ..RichParagraph::default()
                 });
@@ -285,8 +287,10 @@ impl<'t> Writer<'t> {
         }
         self.open = Some(RichParagraph {
             heading,
+            scale: super::heading_scale(heading),
             depth: self.depth,
             quoted: self.quoted,
+            indent: super::indent(self.depth, self.quoted),
             mark: self.mark.take(),
             rule: false,
             runs,
