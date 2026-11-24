@@ -92,6 +92,18 @@ dotnet test
 Run `dotnet test` in this folder, not at the root of the repository.
 The `global.json` in this folder selects the test runner, and the SDK finds it only from the current folder upward.
 
+To measure the coverage of the lines too, run this in the same folder:
+
+```powershell
+dotnet tool restore
+dotnet build -t:Coverage
+```
+
+It runs the tests with coverlet.console, a local tool of `memoview-win`, and prints a table. It writes `coverage\coverage.cobertura.xml`.
+It fails when less than 90% of the lines of the app files are covered, and the CI runs it.
+A line no test reaches is either removed, or given a test of the behaviour that needs it.
+Only the files of the tests are left out. `MemoView.Tests.csproj` tells why the tool is coverlet.console.
+
 The tests cover the code that does not use WinUI: the rows of the items, the state of a task, the addresses of links and images, the page document, the messages from the page, and the settings file.
 They do not start the app. The window has no tests.
 The script inside the WebView (`Web\page.js`) does not run in the tests. They only check that it sends the messages the app reads.

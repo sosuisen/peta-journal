@@ -35,4 +35,20 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+
+  <!-- "dotnet build -t:Coverage" runs the tests and measures the coverage of the lines with
+       coverlet.console, a local tool (dotnet-tools.json). Below 90% of the lines of the app files
+       together, it fails, and so does the CI. A line no test reaches is either removed, or given a
+       test of the behaviour that needs it.
+       Why coverlet.console: the app files are compiled into this test assembly, and the coverlet
+       extension of Microsoft.Testing.Platform cannot measure the assembly that runs the tests.
+       coverlet.console rewrites the assembly on disk before the tests start.
+       The files of the tests are left out (exclude-by-file): only the files of the app count.
+       No file of the app is left out. scripts/verification.test.mjs guards these values. -->
+  <Target Name="Coverage" DependsOnTargets="Build">
+    <Exec
+      WorkingDirectory="$(MSBuildProjectDirectory)"
+      Command="dotnet coverlet &quot;$(TargetPath)&quot; --target dotnet --targetargs &quot;$(TargetPath)&quot; --include-test-assembly --exclude-by-file &quot;**/memoview-tests/**&quot; --threshold 90 --threshold-type line --threshold-stat total --format cobertura --output coverage/"
+    />
+  </Target>
 </Project>
