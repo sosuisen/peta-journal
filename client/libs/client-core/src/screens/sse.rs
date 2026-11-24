@@ -2,10 +2,10 @@
 //! with exponential backoff, and what a `pagesUpdated` or a `propertyDefinitionsUpdated`
 //! event triggers.
 
-use crate::app::{done, run, Cmd, ConnectionState, Event, Model};
+use crate::app::{done, run, Cmd, ConnectionState, Event, Model, Screen};
 use crate::effects::{SseEvent, SseOp, TimerOutput};
 use crate::ops::file_reload;
-use crate::screens::{atlas, page, settings, sidebar};
+use crate::screens::{atlas, page, route, settings, sidebar};
 use crux_core::Command;
 use journal_api_types::{ChangeSource, ClientMessage};
 
@@ -21,11 +21,17 @@ pub fn on_event(model: &mut Model, event: SseEvent) -> Cmd {
     match event {
         SseEvent::Open => {
             model.connection = ConnectionState::Connected;
+            let reconnected = model.sse_reconnect_attempts > 0;
             model.sse_reconnect_attempts = 0;
             // What changed while the stream was down was told to no one
             Command::all([
                 sidebar::refresh_recent_pages(),
                 settings::load_property_definitions(),
+                if reconnected {
+                    load_shown_page_again(model)
+                } else {
+                    done()
+                },
             ])
         }
         SseEvent::Message(data) => on_message(model, &data),
@@ -96,6 +102,18 @@ fn reload_for_another_client(model: &mut Model, page_id: &str) -> Cmd {
         file_reload::reload_page(model, page_id)
     } else {
         atlas::reload_atlas(model, page_id)
+    }
+}
+
+/// The stream is back after it broke. A page that could not be loaded, as when the server was
+/// not up yet, is opened again (#756).
+fn load_shown_page_again(model: &mut Model) -> Cmd {
+    match &model.screen {
+        Screen::Page(p) if p.page.is_none() => {
+            let (name, fragment) = (p.page_name.clone(), p.focus_item_id.clone());
+            route::open(model, &name, fragment)
+        }
+        _ => done(),
     }
 }
 
