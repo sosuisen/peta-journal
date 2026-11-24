@@ -160,7 +160,7 @@ private struct TextWriter {
                 startLine(line)
                 picture(shown, line)
                 endLine(line)
-            case .entries(let entries):
+            case .entries(let entries, _):
                 for entry in entries {
                     lead = entry.mark
                     self.blocks(entry.blocks, depth: depth + 1, quoted: quoted)
@@ -170,7 +170,7 @@ private struct TextWriter {
                         endLine(line)
                     }
                 }
-            case .quote(let inside):
+            case .quote(let inside, _):
                 self.blocks(inside, depth: depth, quoted: quoted + 1)
             }
         }

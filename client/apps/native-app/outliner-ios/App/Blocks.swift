@@ -19,7 +19,7 @@ struct Blocks: View {
                     TableBlock(rows: rows, links: links)
                 case .image(let shown):
                     ImageBlock(image: shown, file: image)
-                case .entries(let entries):
+                case .entries(let entries, _):
                     // The entries of a list, each after its mark
                     VStack(alignment: .leading, spacing: 2) {
                         ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
@@ -29,7 +29,7 @@ struct Blocks: View {
                             }
                         }
                     }
-                case .quote(let inside):
+                case .quote(let inside, _):
                     Blocks(blocks: inside, links: links, image: image).modifier(Quoted(depth: 1))
                 }
             }
