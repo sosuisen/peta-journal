@@ -12,7 +12,7 @@ public enum ShownText {
         _ rich: RichText, zoom: Double = 1, image: @escaping (String) -> NSImage? = { _ in nil }
     ) -> NSAttributedString {
         var writer = TextWriter(size: NSFont.systemFontSize * zoom, image: image)
-        writer.blocks(rich.blocks, depth: 0, quoted: 0)
+        writer.blocks(rich.blocks, indent: 0, quoted: 0)
         return writer.finished()
     }
 
@@ -114,8 +114,8 @@ final class FittedPicture: NSTextAttachment {
     }
 }
 
-/// Writes the parts of an item, one line or more each, into one text. This is the look of this
-/// shell: it is not kept the same as the stylesheet of the web frontend.
+/// Writes the parts of an item, one line or more each, into one text. The sizes of the headings
+/// and the indents come from the core, so that every shell has the same ones (#795).
 private struct TextWriter {
     let size: Double
     let image: (String) -> NSImage?
@@ -140,14 +140,15 @@ private struct TextWriter {
         return text
     }
 
-    /// The parts inside `depth` lists and `quoted` quotes.
-    mutating func blocks(_ blocks: [RichBlock], depth: Int, quoted: Int) {
+    /// The parts `indent` ems to the right, inside `quoted` quotes. The core says how far each
+    /// list and quote moves what is in it (#795).
+    mutating func blocks(_ blocks: [RichBlock], indent: Double, quoted: Int) {
         for block in blocks {
-            let line = Line(depth: depth, quoted: quoted)
+            let line = Line(indent: indent, quoted: quoted)
             switch block {
             case .text(let paragraphs):
                 for paragraph in paragraphs {
-                    let at = Line(depth: depth + Int(paragraph.depth), quoted: quoted + Int(paragraph.quoted))
+                    let at = Line(indent: indent + Double(paragraph.indent), quoted: quoted + Int(paragraph.quoted))
                     self.paragraph(paragraph, at)
                 }
             case .code(let lines, let start):
@@ -160,33 +161,38 @@ private struct TextWriter {
                 startLine(line)
                 picture(shown, line)
                 endLine(line)
-            case .entries(let entries, _):
+            case .entries(let entries, let step):
+                let inner = Line(indent: indent + Double(step), quoted: quoted)
                 for entry in entries {
                     lead = entry.mark
-                    self.blocks(entry.blocks, depth: depth + 1, quoted: quoted)
+                    self.blocks(entry.blocks, indent: inner.indent, quoted: quoted)
                     // An entry without anything in it still shows its mark
                     if lead != nil {
-                        startLine(Line(depth: depth + 1, quoted: quoted))
-                        endLine(line)
+                        startLine(inner)
+                        endLine(inner)
                     }
                 }
-            case .quote(let inside, _):
-                self.blocks(inside, depth: depth, quoted: quoted + 1)
+            case .quote(let inside, let step):
+                self.blocks(inside, indent: indent + Double(step), quoted: quoted + 1)
             }
         }
     }
 
     /// Where a line stands: how far it is moved to the right, and how large its letters are.
     private struct Line {
-        var depth: Int
+        /// How far to the right it stands, in ems.
+        var indent: Double
         var quoted: Int
         var heading = 0
+        /// How much larger than the usual text its letters are: the scale of its heading.
+        var scale = 1.0
         var style: NSParagraphStyle?
     }
 
     private mutating func paragraph(_ paragraph: RichParagraph, _ at: Line) {
         var line = at
         line.heading = Int(paragraph.heading)
+        line.scale = Double(paragraph.scale)
         if let mark = paragraph.mark { lead = mark }
         startLine(line)
         if paragraph.rule {
@@ -277,8 +283,7 @@ private struct TextWriter {
         if letters.isEmpty { return }
         let looks = run.looks
         let shifted = looks.raised || looks.lowered
-        let scale = line.heading > 0 ? Row.headingScales[min(line.heading, 5) - 1] : 1
-        let points = size * scale * (shifted ? 0.75 : 1)
+        let points = size * line.scale * (shifted ? 0.75 : 1)
         var font =
             looks.code
             ? NSFont.monospacedSystemFont(ofSize: points, weight: .regular)
@@ -306,7 +311,7 @@ private struct TextWriter {
     /// Lists and quotes move their lines to the right.
     private func paragraphStyle(_ line: Line) -> NSParagraphStyle {
         let style = NSMutableParagraphStyle()
-        let indent = CGFloat(line.depth + line.quoted) * size * 1.5
+        let indent = CGFloat(line.indent * size)
         style.firstLineHeadIndent = indent
         style.headIndent = indent
         return style
