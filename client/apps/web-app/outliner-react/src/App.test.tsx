@@ -939,11 +939,10 @@ describe('the confirm dialog', () => {
 });
 
 /** Draws the app on a core that is still loading, as `main.tsx` gives it before the wasm. */
-function loading() {
-  const core = new Promise<Core>(() => {});
+function loading(core = new Promise<Core>(() => {}), asked = new AskedOps()) {
   return render(
     <CoreContext value={core}>
-      <AskedOpsContext value={new AskedOps()}>
+      <AskedOpsContext value={asked}>
         <App />
       </AskedOpsContext>
     </CoreContext>,
@@ -968,5 +967,29 @@ describe('the app while the core loads', () => {
     const { container } = loading();
 
     expect(container.querySelector('footer')?.textContent).toBe('connecting');
+  });
+
+  // コアの準備ができると、コアが始まり、開いたページとサイドバーが描かれる。
+  test('the core starts when it is ready, and the page it opened and the sidebar show', async () => {
+    const ui = shell();
+    ui.wasm.answerNext(
+      [],
+      [{ kind: 'Screen', value: { kind: 'Journal', value: journal('Daily') } }],
+    );
+    let ready = (_core: Core) => {};
+    const core = new Promise<Core>(resolve => {
+      ready = resolve;
+    });
+    // Awaited: React waits for a promise only when it is drawn inside an awaited act
+    await act(async () => {
+      loading(core, ui.asked);
+    });
+
+    await act(async () => ready(ui.core));
+
+    expect([
+      pageHeading(),
+      screen.queryByText('Recent Pages') !== null,
+    ]).toEqual(['2026-11-23 (Mon)', true]);
   });
 });
