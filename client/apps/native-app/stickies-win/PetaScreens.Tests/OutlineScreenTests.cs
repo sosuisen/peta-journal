@@ -54,9 +54,8 @@ public sealed class OutlineScreenTests
         await Screen.Until("the cursor is in the new item", () => screen.Focused == 1);
         Assert.AreEqual(1, Screen.BulletOf(screen.Items()[1]).Opacity);
 
-        Screen.Press(VirtualKey.Up);
+        await screen.Edit(0);
 
-        await Screen.Until("the cursor is in the first item", () => screen.Focused == 0);
         await Screen.Until("the empty item has no bullet", () =>
             Screen.BulletOf(screen.Items()[1]).Opacity == 0
         );

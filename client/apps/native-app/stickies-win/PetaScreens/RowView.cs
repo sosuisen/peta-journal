@@ -306,8 +306,7 @@ internal sealed class RowView : Grid
 
     /// <summary>
     /// What stands before the text of the item: the bullet, and after it the state of a task.
-    /// Every item has a bullet, a task as well. Without the bullet an item with no text cannot
-    /// be seen.
+    /// An empty item that is not edited shows no bullet, as in the other shells (#1042).
     /// </summary>
     private void DrawMarks(Row row)
     {
@@ -319,7 +318,7 @@ internal sealed class RowView : Grid
         marks.Children.Clear();
         var bullet = Bullet(row.IsCollapsed, side, Math.Max(line, first));
         // Unseen, and not gone: the text stays where it is when the bullet comes back
-        bullet.Opacity = window.Bare ? 0 : 1;
+        bullet.Opacity = RowLook.ShowsBullet(row, window.Bare) ? 1 : 0;
         marks.Children.Add(bullet);
         if (row.Task is { } task)
         {
