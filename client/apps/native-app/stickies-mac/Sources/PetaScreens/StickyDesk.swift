@@ -223,6 +223,8 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
             .sink { [weak self, weak sticky] color in
                 guard let sticky else { return }
                 self?.paint(sticky.window, color: color)
+                // The menu of the title bar shows without taking the focus
+                self?.bare(sticky, color: color)
                 self?.keep(sticky, color: color)
             }
             .store(in: &sticky.hears)
@@ -372,8 +374,9 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     /// A sticky without paper and without the focus shows only what is written on it. The
     /// name, the plus and the shadow would only cover what is behind it. The tools keep their
     /// place, so that nothing moves when the focus comes back.
-    private func bare(_ sticky: Sticky) {
-        let bare = StickyLook.isTransparent(sticky.look.color) && !sticky.hasFocus
+    /// `color` is the color the sticky is just changing to.
+    private func bare(_ sticky: Sticky, color: String? = nil) {
+        let bare = StickyLook.isTransparent(color ?? sticky.look.color) && !sticky.hasFocus
         if sticky.look.bare != bare { sticky.look.bare = bare }
         sticky.window.titleVisibility = bare ? .hidden : .visible
         sticky.window.hasShadow = !bare
