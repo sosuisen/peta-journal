@@ -50,12 +50,12 @@ fn an_open_stream_is_connected() {
     assert_eq!(h.api.calls_named("GetRecentPages").len(), recent_loads + 1);
 }
 
-// 切れると状態はエラーになり、間隔を倍にしながらつなぎ直す。間隔は30秒を超えず、10回で諦める。
+// 切れると状態はエラーになり、間隔を倍にしながらつなぎ直す。間隔は30秒を超えず、つながるまで諦めない。サーバーがあとから上がることがあるためである（#756）。
 #[test]
-fn a_broken_stream_reconnects_with_a_growing_delay_and_gives_up_after_ten_tries() {
+fn a_broken_stream_reconnects_with_a_growing_delay_until_it_connects() {
     let mut h = started();
     let mut delays = Vec::new();
-    for attempt in 1..=10 {
+    for attempt in 1..=40 {
         sse(&mut h, SseEvent::Error);
         assert_eq!(h.view().connection, ConnectionState::Error);
         delays.extend(pending_delays_ms(&h));
@@ -63,14 +63,9 @@ fn a_broken_stream_reconnects_with_a_growing_delay_and_gives_up_after_ten_tries(
         assert_eq!(h.view().connection, ConnectionState::Connecting);
         assert_eq!(h.sse.len(), 1 + attempt);
     }
-    assert_eq!(
-        delays,
-        [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000, 30000, 30000]
-    );
-
-    sse(&mut h, SseEvent::Error);
-    assert!(pending_delays_ms(&h).is_empty(), "no eleventh try");
-    assert_eq!(h.view().connection, ConnectionState::Error);
+    assert_eq!(delays[..6], [1000, 2000, 4000, 8000, 16000, 30000]);
+    // Past the 32nd try, a doubling of the delay would no longer fit in a u32
+    assert!(delays[6..].iter().all(|&d| d == 30000));
 }
 
 // 一度つながると、次に切れたときの間隔は最初からになる。
