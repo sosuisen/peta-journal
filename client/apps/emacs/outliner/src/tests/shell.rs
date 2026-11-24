@@ -367,6 +367,19 @@ fn the_clock_watch_opens_the_journal_of_the_new_day() {
     ));
 }
 
+// Emacsが「日付が変わったかもしれない」と知らせると、時計を見る待ちを待たずに、/todayは新しい日のジャーナルを開く。
+#[test]
+fn a_day_that_may_have_changed_opens_the_journal_of_the_new_day_at_once() {
+    let mut driver = open_today();
+    driver.shell.host.day = Some(7);
+
+    driver.send(Inbound::DayMayHaveChanged);
+
+    assert!(driver.waiting(
+        |op| matches!(op, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-11-07")
+    ));
+}
+
 /// An image the server saved under the name it came with.
 fn uploaded(name: &str) -> Uploaded {
     Uploaded {
