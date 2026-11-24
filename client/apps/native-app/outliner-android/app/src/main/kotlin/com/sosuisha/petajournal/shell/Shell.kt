@@ -296,17 +296,27 @@ class Shell(
 
     // The questions of the core
 
-    /** The user answered [question]: the core goes on with what it asked about, or leaves it. */
+    /** What the core asked or told while [question] was shown, oldest first. */
+    private val later = ArrayDeque<Question>()
+
+    /**
+     * The user answered [question]: the core goes on with what it asked about, or leaves it.
+     * A notice waits for no answer: the core would take one as a mistake.
+     */
     fun answer(yes: Boolean) {
         val asked = question ?: return
-        question = null
-        border.answer(asked.id, UiOutput.Bool(yes))
+        question = later.removeFirstOrNull()
+        if (asked.waits) border.answer(asked.id, UiOutput.Bool(yes))
         show()
     }
 
-    /** Shows a question of the core. The core asks the next one only after this is answered. */
+    /**
+     * Shows a question or a notice of the core. The core asks the next question only after
+     * this one is answered, but a notice comes at any time: it waits behind what is shown, as
+     * the question it took the place of would wait for ever for its answer.
+     */
     private fun put(next: Question) {
-        question = next
+        if (question == null) question = next else later.addLast(next)
     }
 
     // The files of the Markdown folder
@@ -402,6 +412,8 @@ class Shell(
             }
             is UiOp.Confirm -> put(Question(op.value, destructive = false, id))
             is UiOp.ConfirmDestructive -> put(Question(op.value, destructive = true, id))
+            // Such as why a page of that name cannot be made
+            is UiOp.Alert -> put(Question(op.value, destructive = false, id, waits = false))
             is UiOp.CopyMarkdown -> {
                 copied = op.markdown
                 copy(op.markdown)
@@ -415,6 +427,7 @@ class Shell(
 
 /**
  * A question of the core with the answers yes and no. [destructive] says that yes loses
- * something, so no is the answer to choose by default.
+ * something, so no is the answer to choose by default. Without [waits] it is a notice: the
+ * core waits for no answer, and only OK closes it.
  */
-class Question(val text: String, val destructive: Boolean, internal val id: UInt)
+class Question(val text: String, val destructive: Boolean, internal val id: UInt, val waits: Boolean = true)
