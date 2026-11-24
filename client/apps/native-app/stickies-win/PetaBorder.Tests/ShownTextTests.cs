@@ -288,23 +288,26 @@ public sealed class ShownTextTests
         Assert.Equal(RunStyle.None, shown[2].Runs[0].Style);
     }
 
-    // リストの項目は入れ子の分だけ右に寄る。引用の中は右に寄り、薄い文字になる。
+    // リストの項目と引用の中は、コアが決めた字下げ（em）だけ右に寄る。引用の中は薄い文字になる（#795）。
     [Fact]
     public void The_entries_of_a_list_and_a_quote_stand_to_the_right()
     {
         var top = Paragraph(Run("a"));
         top.Depth = 1;
+        top.Indent = 1.5f;
         top.Mark = "•";
         var inner = Paragraph(Run("b"));
         inner.Depth = 2;
+        inner.Indent = 3;
         inner.Mark = "3.";
         var quoted = Paragraph(Run("q"));
         quoted.Quoted = 1;
+        quoted.Indent = 1.5f;
 
         var shown = Shown(Text(top, inner, quoted)).Parts.Cast<ShownParagraph>().ToList();
 
         Assert.Equal(["• a", "3. b", "q"], shown.Select(paragraph => paragraph.Text));
-        Assert.Equal([0, 1, 1], shown.Select(paragraph => paragraph.Indent));
+        Assert.Equal([1.5, 3, 1.5], shown.Select(paragraph => paragraph.Indent));
         Assert.Equal(RunStyle.Quote, shown[2].Runs[0].Style);
     }
 
