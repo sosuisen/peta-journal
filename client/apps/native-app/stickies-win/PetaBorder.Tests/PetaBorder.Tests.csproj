@@ -25,10 +25,10 @@
        it fails, and so does the CI. A line no test reaches is either removed, or given a test of
        the behaviour that needs it. The tests with the journal server need PETA_E2E_SERVER: a
        skipped test reaches no line.
-       Only the hand-written PetaBorder is measured (include). The projects under generated/ are
-       made by tools. PetaScreens is WinUI: its tests press real keys on the screen, and do not
-       run in the CI. No file of PetaBorder is left out. scripts/verification.test.mjs guards
-       these values. -->
+       The projects under generated/ are made by tools. Not done yet (#1085): only PetaBorder is
+       measured (include). PetaScreens and PetaStickies are not: their tests press real keys on
+       the screen, and do not run in the CI yet. The whole app has to be measured, as the
+       developer decided. scripts/verification.test.mjs guards these values. -->
   <Target Name="Coverage" DependsOnTargets="Build">
     <Exec
       WorkingDirectory="$(MSBuildProjectDirectory)"

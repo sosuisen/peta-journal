@@ -102,7 +102,8 @@ dotnet build -t:Coverage
 It runs the tests with coverlet.console, a local tool of `memoview-win`, and prints a table. It writes `coverage\coverage.cobertura.xml`.
 It fails when less than 90% of the lines of the app files are covered, and the CI runs it.
 A line no test reaches is either removed, or given a test of the behaviour that needs it.
-Only the files of the tests are left out. `MemoView.Tests.csproj` tells why the tool is coverlet.console.
+`MemoView.Tests.csproj` tells why the tool is coverlet.console.
+Not done yet (#1086): only the app files compiled into the tests are measured. The files with WinUI and `JournalApiService.cs` are not. The whole app has to be measured.
 
 The tests cover the code that does not use WinUI: the rows of the items, the state of a task, the addresses of links and images, the page document, the messages from the page, and the settings file.
 They do not start the app. The window has no tests.

@@ -401,7 +401,10 @@ It runs the tests of `PetaBorder` with coverlet.console, a local tool of `sticki
 prints a table. It writes `PetaBorder.Tests/coverage/coverage.cobertura.xml`. It fails when less
 than 90% of the lines of `PetaBorder` are covered, and the CI runs it. Set `PETA_E2E_SERVER`
 first: a skipped test reaches no line. A line no test reaches is either removed, or given a test
-of the behaviour that needs it. No file of `PetaBorder` is left out.
+of the behaviour that needs it.
+
+Not done yet (#1085): only `PetaBorder` is measured. `PetaScreens` and `PetaStickies` are
+not, because their tests do not run in the CI yet. The whole app has to be measured.
 
 ### Mutation testing
 

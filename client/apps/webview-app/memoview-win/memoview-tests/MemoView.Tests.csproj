@@ -44,7 +44,10 @@
        extension of Microsoft.Testing.Platform cannot measure the assembly that runs the tests.
        coverlet.console rewrites the assembly on disk before the tests start.
        The files of the tests are left out (exclude-by-file): only the files of the app count.
-       No file of the app is left out. scripts/verification.test.mjs guards these values. -->
+       Not done yet (#1086): only the files of the app compiled into this project are measured.
+       The files with WinUI (MainWindow.xaml.cs, App.xaml.cs) and JournalApiService.cs are not.
+       The whole app has to be measured, as the developer decided.
+       scripts/verification.test.mjs guards these values. -->
   <Target Name="Coverage" DependsOnTargets="Build">
     <Exec
       WorkingDirectory="$(MSBuildProjectDirectory)"
