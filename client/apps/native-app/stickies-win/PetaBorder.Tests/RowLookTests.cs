@@ -23,6 +23,17 @@ public sealed class RowLookTests
         Assert.Equal(1, RowLook.EditedScale(edited));
     }
 
+    // 編集欄の文字は、本文全体が1行の見出しのときだけ、その見出しの段として太字になる。
+    [Fact]
+    public void The_editor_takes_the_level_only_of_one_heading_line()
+    {
+        var oneHeadingLine = new Row { HeadingLevel = 2, HeadingLine = true };
+        var headingAndMore = new Row { HeadingLevel = 2, HeadingLine = false };
+
+        Assert.Equal(2, RowLook.EditedHeading(oneHeadingLine));
+        Assert.Equal(0, RowLook.EditedHeading(headingAndMore));
+    }
+
     // 行頭の点は、コアが出すと言う項目にだけ出る。編集中でない空の項目には出ない。ほかのシェルと同じである（#1042）。
     [Theory]
     [InlineData(true, true)]
