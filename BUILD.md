@@ -366,9 +366,12 @@ node scripts/checks.mjs jobs journal/journal-core/src/lib.rs
 node scripts/checks.mjs run todo
 ```
 
-The hook itself is read from main, from the checkout where Claude Code started. Pull main there
-before a pull request: an old hook stops it. The list of checks is read from the branch, so a job
-that the branch adds runs too.
+The hook uses the newer of main and the branch, for every file of the checks (the hook, its
+setting, and `scripts/`). Claude Code runs the hook from the checkout where it started: pull main
+there, or the hook stops the pull request. When main changed a file of the checks after the
+branch left it, the hook stops until the branch takes main in. Then the hook and the list of
+checks of the branch run, so a job that the branch adds runs too. `scripts/hook.test.mjs` tests
+this.
 
 Only a step for another OS is skipped on a developer's machine, and the hook reports it. In the
 CI, such a step fails the job. Any other step fails when what it needs is missing: a program, a
