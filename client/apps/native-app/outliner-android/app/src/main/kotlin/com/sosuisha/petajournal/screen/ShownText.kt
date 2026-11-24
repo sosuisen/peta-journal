@@ -46,11 +46,19 @@ sealed interface ShownBlock {
      */
     data class Image(val path: String, val alt: String, val width: Int?, val height: Int?) : ShownBlock
 
-    /** A list that holds a part of its own kind, such as a code block: its entries apart. */
-    data class Entries(val entries: List<Entry>) : ShownBlock
+    /**
+     * A list that holds a part of its own kind, such as a code block: its entries apart.
+     *
+     * @param indent how far the entries stand to the right of the list, in ems (#795).
+     */
+    data class Entries(val entries: List<Entry>, val indent: Float) : ShownBlock
 
-    /** A quote that holds a part of its own kind. */
-    data class Quote(val blocks: List<ShownBlock>) : ShownBlock
+    /**
+     * A quote that holds a part of its own kind.
+     *
+     * @param indent how far what is quoted stands to the right of the quote, in ems (#795).
+     */
+    data class Quote(val blocks: List<ShownBlock>, val indent: Float) : ShownBlock
 }
 
 /** @param header true for the row of the titles of the columns. */
@@ -111,8 +119,9 @@ private fun blocks(blocks: List<RichBlock>, onLink: (RichLink) -> Unit): List<Sh
                 },
             )
             is RichBlock.Image -> with(block.image) { ShownBlock.Image(path, alt, width?.toInt(), height?.toInt()) }
-            is RichBlock.Entries -> ShownBlock.Entries(block.entries.map { Entry(it.mark, blocks(it.blocks, onLink)) })
-            is RichBlock.Quote -> ShownBlock.Quote(blocks(block.blocks, onLink))
+            is RichBlock.Entries ->
+            ShownBlock.Entries(block.entries.map { Entry(it.mark, blocks(it.blocks, onLink)) }, block.indent)
+            is RichBlock.Quote -> ShownBlock.Quote(blocks(block.blocks, onLink), block.indent)
         }
     }
 
@@ -136,11 +145,11 @@ private class TextWriter(private val onLink: (RichLink) -> Unit) {
 
     private fun paragraph(paragraph: RichParagraph) {
         val quoted = paragraph.quoted.toInt()
-        val indent = (paragraph.depth.toInt() + quoted) * 1.5
+        val indent = paragraph.indent
         out.pushStyle(ParagraphStyle(textIndent = TextIndent(firstLine = indent.em, restLine = indent.em)))
         if (quoted > 0) out.pushStyle(SpanStyle(color = QUOTED))
         val heading = paragraph.heading.toInt()
-        if (heading > 0) out.pushStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = headingSize(heading).em))
+        if (heading > 0) out.pushStyle(SpanStyle(fontWeight = FontWeight.Bold, fontSize = paragraph.scale.em))
         paragraph.mark?.let { out.append("$it ") }
         if (paragraph.rule) out.append("────────")
         places += LetterPlace(out.length, paragraph.start.toInt(), paragraph.runs.joinToString("") { it.text })
@@ -194,6 +203,3 @@ private val LINK = Color(0xFF0A58CA)
 private val MARKED = Color(0xFFFFF3A3)
 private val QUOTED = Color(0xFF555555)
 private val HIDDEN = Color(0xFFDDDDDD)
-
-/** How much larger than the text a heading of this level is, as a web browser draws it. */
-private fun headingSize(level: Int): Double = listOf(2.0, 1.5, 1.17, 1.0, 0.83, 0.67)[level.coerceIn(1, 6) - 1]

@@ -4,6 +4,7 @@ import androidx.compose.ui.text.LinkAnnotation
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.sosuisha.petajournal.types.Looks
 import com.sosuisha.petajournal.types.RichBlock
+import com.sosuisha.petajournal.types.RichEntry
 import com.sosuisha.petajournal.types.RichImage
 import com.sosuisha.petajournal.types.RichLink
 import com.sosuisha.petajournal.types.RichParagraph
@@ -53,6 +54,38 @@ class ShownTextTest {
     fun an_entry_of_a_list_starts_with_its_mark() {
         val list = text(paragraph(run("c"), mark = "3.", depth = 1u), paragraph(run("d"), mark = "☑", depth = 1u))
         assertEquals(listOf("3. c\n☑ d"), shown(list).map(::letters))
+    }
+
+    // 見出しの段落の文字は、コアが決めた倍率（em）の大きさになる（#795）。
+    @Test
+    fun a_heading_has_the_size_that_the_core_gives() {
+        val heading = paragraph(run("h")).copy(heading = 5u, scale = 1.25f)
+        val text = (shown(text(heading)).single() as ShownBlock.Text).text
+        assertEquals(1.25f, text.spanStyles.single { it.item.fontSize.isEm }.item.fontSize.value)
+    }
+
+    // 段落は、コアが決めた字下げ（em）だけ右に寄る（#795）。
+    @Test
+    fun a_paragraph_is_indented_as_far_as_the_core_says() {
+        val entry = paragraph(run("e"), mark = "•", depth = 1u).copy(indent = 1.25f)
+        val text = (shown(text(entry)).single() as ShownBlock.Text).text
+        val indent = text.paragraphStyles.single().item.textIndent!!
+        assertEquals(listOf(1.25f, 1.25f), listOf(indent.firstLine.value, indent.restLine.value))
+    }
+
+    // 部品を持つリストと引用は、コアが決めた字下げ（em）を持つ（#795）。
+    @Test
+    fun a_list_or_a_quote_that_holds_a_part_has_the_indent_that_the_core_gives() {
+        val code = RichBlock.Code("c", 0u)
+        val list = RichBlock.Entries(listOf(RichEntry("•", listOf(code))), 1.25f)
+        val indents = shown(list, RichBlock.Quote(listOf(code), 1.75f)).map {
+            when (it) {
+                is ShownBlock.Entries -> it.indent
+                is ShownBlock.Quote -> it.indent
+                else -> null
+            }
+        }
+        assertEquals(listOf(1.25f, 1.75f), indents)
     }
 
     // 文字の位置は、項目の表示の文字のうち、その前に立つ文字の数になる。印の上は、その段落の先頭である。
