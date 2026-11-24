@@ -33,10 +33,12 @@ final class RichTextTests: JournalTestCase {
         XCTAssertEqual(paragraphs.flatMap(\.runs).compactMap(\.link), [.page(url: "/pages/\(tagsDir)topic")])
     }
 
-    // リンクは、URLにしてから戻しても、同じ行き先になる。ページの中の項目への印と、符号化した文字も残る。
+    // リンクは、URLにしてから戻しても、同じ行き先になる。ページの中の項目への印と、符号化した文字も残る。外へのリンクは、どのスキームでもそのまま残る（#1071）。
     func testALinkIsTheSameAfterItIsMadeAURLAndBack() {
         let links: [RichLink] = [
             .web(url: "https://example.com/a?b=c#d"),
+            .web(url: "mailto:someone@example.com"),
+            .web(url: "obsidian://open?vault=notes"),
             .page(url: "/pages/other%20page#2020-01-01-00-00-00-AAAAAAA"),
             .file(path: "assets/Report 1.pdf"),
         ]
@@ -45,9 +47,8 @@ final class RichTextTests: JournalTestCase {
         }
     }
 
-    // アプリが作っていないURLは、どこへも行かない。
-    func testAURLThatTheAppDidNotMakeLeadsNowhere() {
-        XCTAssertNil(RichLinks.link(of: URL(string: "mailto:someone@example.com")!))
+    // アプリのアドレスで、アプリが作っていないものは、どこへも行かない。
+    func testAnAddressOfTheAppThatTheAppDidNotMakeLeadsNowhere() {
         XCTAssertNil(RichLinks.link(of: URL(string: "peta-journal://other?to=x")!))
         XCTAssertNil(RichLinks.link(of: URL(string: "peta-journal://page")!))
     }

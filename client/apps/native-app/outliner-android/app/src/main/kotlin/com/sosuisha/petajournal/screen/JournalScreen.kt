@@ -1,5 +1,7 @@
 package com.sosuisha.petajournal.screen
 
+import android.content.ActivityNotFoundException
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -41,6 +43,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
@@ -90,10 +93,21 @@ fun JournalScreen(
 ) {
     val view = shell.view
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     // What a link opens outside the app, which the core ordered (ADR 083)
     LaunchedEffect(shell.outside) {
         when (val outside = shell.outside) {
-            is Outside.Web -> uriHandler.openUri(outside.address)
+            // A link may have any scheme (#1071), and the device may have no app for it
+            is Outside.Web ->
+                try {
+                    uriHandler.openUri(outside.address)
+                } catch (none: IllegalArgumentException) {
+                    Toast.makeText(context, "No app opens ${outside.address}", Toast.LENGTH_LONG)
+                        .show()
+                } catch (none: ActivityNotFoundException) {
+                    Toast.makeText(context, "No app opens ${outside.address}", Toast.LENGTH_LONG)
+                        .show()
+                }
             is Outside.Document -> onFile(outside.file)
             null -> return@LaunchedEffect
         }

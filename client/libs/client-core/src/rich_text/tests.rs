@@ -256,7 +256,7 @@ fn a_relative_link_to_an_md_file_leads_to_its_page() {
     );
 }
 
-// リンクの行き先は、Web、ページ、assetsのファイルに分かれる。ほかのリンクは、どこにも行かない。
+// リンクの行き先は、Web、ページ、assetsのファイルに分かれる。ほかの相対アドレスは、どこにも行かない。
 #[test]
 fn a_link_leads_to_the_web_to_a_page_or_to_a_file_of_the_assets_folder() {
     let web = "https://example.com/a?b=c";
@@ -298,13 +298,30 @@ fn a_link_leads_to_the_web_to_a_page_or_to_a_file_of_the_assets_folder() {
         file("assets/Report 1.pdf")
     );
     assert_eq!(target("../../Assets/a.pdf#page=2"), file("Assets/a.pdf"));
-    assert_eq!(target("file:///C:/notes.txt"), None);
     assert_eq!(target("../other/report.pdf"), None);
-    assert_eq!(target("mailto:someone@example.com"), None);
     assert_eq!(target("//host/assets/a.pdf"), None);
-    assert_eq!(target("C:/assets/a.pdf"), None);
     // A colon after a space starts no scheme: the address is a relative path
     assert_eq!(target("my notes:1/../assets/a.pdf"), file("assets/a.pdf"));
+}
+
+// スキームのあるアドレスは、スキームにかかわらず外へのリンクになる。シェルがOSに開かせる。Windowsのドライブ（1文字のスキーム）も同じである（#1071）。
+#[test]
+fn an_address_of_any_scheme_leads_out_of_the_app() {
+    for address in [
+        "mailto:someone@example.com",
+        "obsidian://open?vault=notes",
+        "file:///C:/notes.txt",
+        "C:/assets/a.pdf",
+        "C:\\Users\\a.txt",
+    ] {
+        assert_eq!(
+            target(address),
+            Some(RichLink::Web {
+                url: address.to_string()
+            }),
+            "{address}"
+        );
+    }
 }
 
 // 見出しは、そのレベルを持つ。
