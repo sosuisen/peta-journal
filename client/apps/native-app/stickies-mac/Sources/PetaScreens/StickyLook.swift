@@ -18,8 +18,11 @@ public final class StickyLook: ObservableObject {
     /// are shown then. This is not kept.
     @Published public var toolsShown = true
 
-    /// The colors the menu of a sticky offers, as `client-stickies` has them.
-    public static let colors: [(name: String, hex: String)] = stickyColors().map { ($0.name, $0.hex) }
+    /// The colors the menu of a sticky offers, as `client-stickies` has them, and then no paper
+    /// at all.
+    public static let colors: [(name: String, hex: String)] = (stickyColors() + [stickyTransparent()]).map {
+        ($0.name, $0.hex)
+    }
 
     public init(color: String = StickySettings.yellow, alwaysOnTop: Bool = false, zoom: Double = 1) {
         self.color = color
