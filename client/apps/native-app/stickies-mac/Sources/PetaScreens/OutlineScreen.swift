@@ -71,7 +71,7 @@ public struct OutlineScreen: View {
 
     private var rows: some View {
         List(shell.view.outline.rows, id: \.item.id) { row in
-            ItemEditor(row: row, shell: shell, cursors: cursors, texts: texts, zoom: look.zoom)
+            ItemEditor(row: row, shell: shell, cursors: cursors, texts: texts, zoom: look.zoom, bare: look.bare)
                 .listRowSeparator(.hidden)
                 .listRowBackground(row.isSelected ? Color.accentColor.opacity(0.25) : Color.clear)
                 // A journal tells the day at the top of the window by the rows that are drawn
@@ -80,6 +80,8 @@ public struct OutlineScreen: View {
         }
         // The paper shows through the list
         .scrollContentBackground(.hidden)
+        // On a sticky without paper the bar would only cover what is behind it
+        .scrollIndicators(look.bare ? .never : .automatic)
     }
 
     /// What is wrong with the server, or nothing.
@@ -102,6 +104,8 @@ private struct ItemEditor: View {
     @ObservedObject var texts: ShownTexts
     /// How large the item is shown: 1 is the usual size.
     let zoom: Double
+    /// The sticky shows only what is written on it.
+    let bare: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -128,7 +132,8 @@ private struct ItemEditor: View {
                 let first = NSLayoutManager().defaultLineHeight(
                     for: .boldSystemFont(ofSize: size * row.firstLineScale))
                 if place == 0 {
-                    Bullet(mark: mark, line: line, first: first)
+                    // Not taken away: the text would move when the focus comes back
+                    Bullet(mark: mark, line: line, first: first).opacity(bare ? 0 : 1)
                 } else {
                     // The mark after the bullet is the state of a task: a click steps it
                     TaskBox(mark: mark, line: line, first: first)

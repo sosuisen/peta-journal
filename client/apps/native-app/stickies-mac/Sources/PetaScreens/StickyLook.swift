@@ -17,6 +17,10 @@ public final class StickyLook: ObservableObject {
     /// The sticky is worked on: its window has the focus, and it is not rolled up. Its tools
     /// are shown then. This is not kept.
     @Published public var toolsShown = true
+    /// The sticky shows only what is written on it: it has no paper, and its window does not
+    /// have the focus. Its bullets and its scroll bar would only cover what is behind it. This
+    /// is not kept.
+    @Published public internal(set) var bare = false
 
     /// The colors the menu of a sticky offers, as `client-stickies` has them, and then no paper
     /// at all.

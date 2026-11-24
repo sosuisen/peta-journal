@@ -366,6 +366,18 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         if sticky.look.toolsShown != shown { sticky.look.toolsShown = shown }
         // A sticky that is not worked on is only its name and the plus
         for button in (sticky.window as? StickyWindow)?.windowButtons ?? [] { button.isHidden = !shown }
+        bare(sticky)
+    }
+
+    /// A sticky without paper and without the focus shows only what is written on it. The
+    /// name, the plus and the shadow would only cover what is behind it. The tools keep their
+    /// place, so that nothing moves when the focus comes back.
+    private func bare(_ sticky: Sticky) {
+        let bare = StickyLook.isTransparent(sticky.look.color) && !sticky.hasFocus
+        if sticky.look.bare != bare { sticky.look.bare = bare }
+        sticky.window.titleVisibility = bare ? .hidden : .visible
+        sticky.window.hasShadow = !bare
+        for tools in sticky.window.titlebarAccessoryViewControllers { tools.view.alphaValue = bare ? 0 : 1 }
     }
 
     /// The app is ending. The windows that macOS closes from here on were not closed by the
