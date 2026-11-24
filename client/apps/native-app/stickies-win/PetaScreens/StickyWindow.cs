@@ -971,8 +971,14 @@ internal sealed class StickyWindow : Window
         }
         try
         {
-            System.Diagnostics.Process.Start(
-                new System.Diagnostics.ProcessStartInfo(address.LocalPath) { UseShellExecute = true })?.Dispose();
+            System
+                .Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(address.LocalPath)
+                    {
+                        UseShellExecute = true,
+                    }
+                )
+                ?.Dispose();
         }
         catch (System.ComponentModel.Win32Exception)
         {
