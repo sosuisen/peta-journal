@@ -1,7 +1,8 @@
-import { useCallback, useState, type MouseEvent } from 'react';
-import type { IndexSort, SidebarPage } from './border/peta-types';
+import { useCallback, useState, type MouseEvent, type ReactNode } from 'react';
+import type { IndexSort, LoadState, SidebarPage } from './border/peta-types';
 import Calendar from './Calendar';
 import { useCore, usePanel } from './context';
+import Frame from './Frame';
 import { openInOf } from './keys';
 import { useClosesOnOutside } from './menu';
 
@@ -14,6 +15,8 @@ const COLLAPSED_KEY = 'sidebar-collapsed';
 const INDEX_SORT_KEY = 'sidebar-index-sort';
 
 type Section = 'index' | 'contents' | 'recent';
+
+const LOADING: LoadState = { kind: 'Loading' };
 
 /** What the browser keeps under `key`, or `fallback` when it keeps nothing it can read. */
 function stored<T>(key: string, fallback: T): T {
@@ -48,153 +51,37 @@ function sameSort(a: IndexSort, b: IndexSort): boolean {
 
 /**
  * The sidebar, ported from the Leptos shell: the calendar, the index pages, the table of
- * contents, the recent pages and the settings button. A right click on a page opens a menu
- * that shows the folder of its markdown file.
+ * contents, the recent pages and the settings button. Each list waits for the core and fails
+ * in a frame of its own (ADR 085), so a slow or broken list leaves the others.
  */
 export default function Sidebar() {
-  const core = useCore();
-  const sidebar = usePanel('Sidebar');
-  const [collapsed, setCollapsed] = useState(
-    () => new Set(stored<string[]>(COLLAPSED_KEY, [])),
-  );
-  const [contextMenu, setContextMenu] = useState<{
-    pageId: string;
-    x: number;
-    y: number;
-  } | null>(null);
-  const closeContextMenu = useCallback(() => setContextMenu(null), []);
-
-  const toggle = (section: Section) => () => {
-    const next = new Set(collapsed);
-    if (!next.delete(section)) {
-      next.add(section);
-    }
-    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
-    setCollapsed(next);
-  };
-  const go = (path: string) => (event: MouseEvent) =>
-    core.send({
-      kind: 'GoToPage',
-      path,
-      open_in: openInOf(event.nativeEvent),
-    });
-
-  const pageList = (pages: readonly SidebarPage[], marksOpen: boolean) =>
-    pages.map(shown => (
-      <PageEntry
-        key={shown.page.id}
-        shown={shown}
-        active={marksOpen && sidebar?.current_page_id === shown.page.id}
-        onClick={go(shown.path)}
-        onContextMenu={event => {
-          event.preventDefault();
-          setContextMenu({
-            pageId: shown.page.id,
-            x: event.clientX,
-            y: event.clientY,
-          });
-        }}
-      />
-    ));
-
-  const parent = sidebar?.index_parent_path ?? null;
-  const indexPages = sidebar?.index_pages ?? [];
-  const headings = sidebar?.headings ?? [];
-
   return (
     <app-sidebar>
       <nav className="sidebar">
         <div className="sidebar-content">
           <div className="sidebar-section">
-            <Calendar />
+            <Frame>
+              <Calendar />
+            </Frame>
           </div>
-
-          {sidebar !== undefined &&
-            (indexPages.length > 0 || parent !== null) && (
-              <div className="sidebar-section">
-                <div className="section-header">
-                  <h3
-                    className="section-title section-title-link index-header-title"
-                    onClick={go(sidebar.index_path)}
-                  >
-                    <svg className="page-icon" width="14" height="12">
-                      <use href="#icon-folder" />
-                    </svg>
-                    <span className="index-header-name">
-                      {sidebar.index_header}
-                    </span>
-                  </h3>
-                  <IndexSortControl
-                    dir={sidebar.index_header}
-                    sort={sidebar.index_sort}
-                  />
-                  <SectionToggle
-                    collapsed={collapsed.has('index')}
-                    onToggle={toggle('index')}
-                  />
-                </div>
-                {!collapsed.has('index') && (
-                  <div className="index-page-list">
-                    {parent !== null && (
-                      <div
-                        className="sidebar-item recent-page-item folder-item"
-                        onClick={go(parent)}
-                      >
-                        <svg className="page-icon" width="14" height="12">
-                          <use href="#icon-folder" />
-                        </svg>
-                        <span className="page-label">
-                          <span className="page-name">../</span>
-                        </span>
-                      </div>
-                    )}
-                    {pageList(indexPages, true)}
-                  </div>
-                )}
-              </div>
-            )}
-
-          {headings.length > 0 && (
-            <div className="sidebar-section">
-              <div className="section-header">
-                <h3 className="section-title">Contents</h3>
-                <SectionToggle
-                  collapsed={collapsed.has('contents')}
-                  onToggle={toggle('contents')}
-                />
-              </div>
-              {!collapsed.has('contents') && (
-                <div className="contents-list">
-                  {headings.map(heading => (
-                    <div
-                      key={heading.id}
-                      className={`contents-item contents-h${heading.level}`}
-                      onClick={() =>
-                        core.send({
-                          kind: 'ScrollToItemRequested',
-                          item_id: heading.id,
-                        })
-                      }
-                    >
-                      {heading.text}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="sidebar-section">
-            <div className="section-header">
-              <h3 className="section-title">Recent Pages</h3>
-              <SectionToggle
-                collapsed={collapsed.has('recent')}
-                onToggle={toggle('recent')}
+          <Frame>
+            <IndexSection />
+          </Frame>
+          <Frame>
+            <ContentsSection />
+          </Frame>
+          <Frame
+            fallback={
+              <ListSection
+                section="recent"
+                title="Recent Pages"
+                state={LOADING}
+                failed=""
               />
-            </div>
-            {!collapsed.has('recent') &&
-              pageList(sidebar?.recent_pages ?? [], false)}
-          </div>
+            }
+          >
+            <RecentSection />
+          </Frame>
         </div>
 
         <div className="sidebar-footer">
@@ -204,27 +91,245 @@ export default function Sidebar() {
             className="footer-logo"
           />
           <span className="footer-text">PetaJournal</span>
-          <button
-            className="settings-btn"
-            title="Settings"
-            onClick={() => core.go('/settings')}
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#888"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-          </button>
+          <Frame>
+            <SettingsButton />
+          </Frame>
         </div>
       </nav>
+    </app-sidebar>
+  );
+}
+
+/**
+ * Whether a section is closed, and the toggle that closes and opens it. The browser keeps the
+ * closed sections together, so a toggle reads them again: each section holds only its own.
+ */
+function useCollapsed(section: Section): [boolean, () => void] {
+  const [collapsed, setCollapsed] = useState(() =>
+    new Set(stored<string[]>(COLLAPSED_KEY, [])).has(section),
+  );
+  const toggle = () => {
+    const closed = new Set(stored<string[]>(COLLAPSED_KEY, []));
+    if (!closed.delete(section)) {
+      closed.add(section);
+    }
+    localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...closed]));
+    setCollapsed(!collapsed);
+  };
+  return [collapsed, toggle];
+}
+
+/** Opens a page by its path, where the keys held on the click say. */
+function useGo(): (path: string) => (event: MouseEvent) => void {
+  const core = useCore();
+  return path => event =>
+    core.send({
+      kind: 'GoToPage',
+      path,
+      open_in: openInOf(event.nativeEvent),
+    });
+}
+
+/** A list that has not arrived yet. */
+function Skeleton() {
+  return (
+    <div className="sidebar-skeleton" aria-busy="true">
+      <div className="skeleton-line" />
+      <div className="skeleton-line" />
+      <div className="skeleton-line" />
+    </div>
+  );
+}
+
+/** A list that could not be loaded. */
+function Failed({ text }: { readonly text: string }) {
+  return <p className="sidebar-failed">{text}</p>;
+}
+
+/**
+ * A section under a fixed title, which draws its list once it is loaded. While it loads it
+ * shows a skeleton, and when it failed it says so.
+ */
+function ListSection({
+  section,
+  title,
+  state,
+  failed,
+  children,
+}: {
+  readonly section: Section;
+  readonly title: string;
+  readonly state: LoadState;
+  readonly failed: string;
+  readonly children?: ReactNode;
+}) {
+  const [collapsed, toggle] = useCollapsed(section);
+  let body: ReactNode = children;
+  if (state.kind === 'Loading') {
+    body = <Skeleton />;
+  } else if (state.kind === 'Failed') {
+    body = <Failed text={failed} />;
+  }
+  return (
+    <div className="sidebar-section">
+      <div className="section-header">
+        <h3 className="section-title">{title}</h3>
+        <SectionToggle collapsed={collapsed} onToggle={toggle} />
+      </div>
+      {!collapsed && body}
+    </div>
+  );
+}
+
+/** The pages of the folder of the page on screen, under the folder's name. */
+function IndexSection() {
+  const index = usePanel('IndexPages');
+  const go = useGo();
+  const [collapsed, toggle] = useCollapsed('index');
+  // The name of a folder still loading is not known yet
+  if (index === undefined || index.state.kind === 'Loading') {
+    return (
+      <div className="sidebar-section">
+        <Skeleton />
+      </div>
+    );
+  }
+  if (index.state.kind === 'Failed') {
+    return (
+      <div className="sidebar-section">
+        <Failed text="The folder could not be loaded." />
+      </div>
+    );
+  }
+  const parent = index.parent_path;
+  if (index.pages.length === 0 && parent === null) {
+    return null;
+  }
+  return (
+    <div className="sidebar-section">
+      <div className="section-header">
+        <h3
+          className="section-title section-title-link index-header-title"
+          onClick={go(index.path)}
+        >
+          <svg className="page-icon" width="14" height="12">
+            <use href="#icon-folder" />
+          </svg>
+          <span className="index-header-name">{index.header}</span>
+        </h3>
+        <IndexSortControl dir={index.header} sort={index.sort} />
+        <SectionToggle collapsed={collapsed} onToggle={toggle} />
+      </div>
+      {!collapsed && (
+        <div className="index-page-list">
+          {parent !== null && (
+            <div
+              className="sidebar-item recent-page-item folder-item"
+              onClick={go(parent)}
+            >
+              <svg className="page-icon" width="14" height="12">
+                <use href="#icon-folder" />
+              </svg>
+              <span className="page-label">
+                <span className="page-name">../</span>
+              </span>
+            </div>
+          )}
+          <PageList pages={index.pages} current={index.current_page_id} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The headings of the doc page on screen. A page without headings has no section. */
+function ContentsSection() {
+  const core = useCore();
+  const contents = usePanel('Headings');
+  const state = contents?.state ?? LOADING;
+  const headings = contents === undefined ? [] : contents.headings;
+  if (state.kind === 'Loaded' && headings.length === 0) {
+    return null;
+  }
+  return (
+    <ListSection
+      section="contents"
+      title="Contents"
+      state={state}
+      failed="The contents could not be loaded."
+    >
+      <div className="contents-list">
+        {headings.map(heading => (
+          <div
+            key={heading.id}
+            className={`contents-item contents-h${heading.level}`}
+            onClick={() =>
+              core.send({
+                kind: 'ScrollToItemRequested',
+                item_id: heading.id,
+              })
+            }
+          >
+            {heading.text}
+          </div>
+        ))}
+      </div>
+    </ListSection>
+  );
+}
+
+/** The doc pages changed last. The page on screen is not marked here. */
+function RecentSection() {
+  const recent = usePanel('RecentPages');
+  return (
+    <ListSection
+      section="recent"
+      title="Recent Pages"
+      state={recent?.state ?? LOADING}
+      failed="The recent pages could not be loaded."
+    >
+      <PageList pages={recent?.pages ?? []} current={null} />
+    </ListSection>
+  );
+}
+
+/**
+ * The pages of a list; the page `current` is marked. A right click on a page opens a menu
+ * that shows the folder of its markdown file.
+ */
+function PageList({
+  pages,
+  current,
+}: {
+  readonly pages: readonly SidebarPage[];
+  readonly current: string | null;
+}) {
+  const core = useCore();
+  const go = useGo();
+  const [contextMenu, setContextMenu] = useState<{
+    pageId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+  return (
+    <>
+      {pages.map(shown => (
+        <PageEntry
+          key={shown.page.id}
+          shown={shown}
+          active={current === shown.page.id}
+          onClick={go(shown.path)}
+          onContextMenu={event => {
+            event.preventDefault();
+            setContextMenu({
+              pageId: shown.page.id,
+              x: event.clientX,
+              y: event.clientY,
+            });
+          }}
+        />
+      ))}
       {contextMenu !== null && (
         <PageContextMenu
           at={contextMenu}
@@ -234,7 +339,32 @@ export default function Sidebar() {
           }
         />
       )}
-    </app-sidebar>
+    </>
+  );
+}
+
+function SettingsButton() {
+  const core = useCore();
+  return (
+    <button
+      className="settings-btn"
+      title="Settings"
+      onClick={() => core.go('/settings')}
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#888"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </svg>
+    </button>
   );
 }
 

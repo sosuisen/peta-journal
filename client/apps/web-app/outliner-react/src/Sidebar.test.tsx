@@ -13,8 +13,25 @@ import {
 import Sidebar from './Sidebar';
 import { draw, shell } from './test/screens';
 
+/** The panel whose reading fails, as a bug in the part that reads it would. */
+const broken = vi.hoisted(() => ({ panel: null as string | null }));
+
+vi.mock('./context', async original => {
+  const context = await original<typeof import('./context')>();
+  return {
+    ...context,
+    usePanel: (kind: Parameters<typeof context.usePanel>[0]) => {
+      if (kind === broken.panel) {
+        throw new Error(`${kind} is broken`);
+      }
+      return context.usePanel(kind);
+    },
+  };
+});
+
 afterEach(() => {
   localStorage.clear();
+  broken.panel = null;
   vi.restoreAllMocks();
 });
 
@@ -164,7 +181,9 @@ describe('the sort of the index', () => {
 
   // 並べ方のメニューは、6つの並べ方を出し、今のものに印がつく。
   test('the menu shows the six sorts, and marks the one in use', () => {
-    sidebar({ index: { sort: new IndexSort({ kind: 'Modified' }, { kind: 'Desc' }) } });
+    sidebar({
+      index: { sort: new IndexSort({ kind: 'Modified' }, { kind: 'Desc' }) },
+    });
 
     const menu = openMenu();
 
@@ -426,7 +445,9 @@ describe('the lists that are loading or failed', () => {
     sidebar({ index: { ...failed, header: '' } });
 
     expect(whileLoading).toEqual([1, null]);
-    expect(screen.queryByText('The folder could not be loaded.')).not.toBeNull();
+    expect(
+      screen.queryByText('The folder could not be loaded.'),
+    ).not.toBeNull();
   });
 
   // 読み込み中の目次は、見出しとともに読み込み中と描かれる。失敗すると、そう書かれる。
@@ -469,9 +490,9 @@ describe('the lists that are loading or failed', () => {
   // 1つの一覧が描けなくても、ほかの一覧は描かれる。
   test('a list that cannot be drawn leaves the others', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    const broken = null as unknown as Heading[];
+    broken.panel = 'Headings';
 
-    sidebar({ headings: { headings: broken } });
+    sidebar();
 
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(names(section('work/'))).toEqual(['../', 'plan', 'notes']);

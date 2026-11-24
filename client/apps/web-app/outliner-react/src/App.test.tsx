@@ -1011,9 +1011,10 @@ describe('the app while the core loads', () => {
 
     const told = ['header', 'aside', 'main', 'footer'].map(
       tag =>
-        within(document.querySelector(tag) as HTMLElement).queryByRole(
+        // The sidebar has a frame for each of its parts
+        within(document.querySelector(tag) as HTMLElement).queryAllByRole(
           'alert',
-        ) !== null,
+        ).length > 0,
     );
 
     expect(told).toEqual([true, true, true, true]);
