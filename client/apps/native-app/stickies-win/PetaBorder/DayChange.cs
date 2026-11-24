@@ -10,5 +10,6 @@ public static class DayChange
     /// The date may have changed when Windows told a window <paramref name="message"/> with
     /// <paramref name="wParam"/>.
     /// </summary>
-    public static bool MayFollow(uint message, nint wParam) => true;
+    public static bool MayFollow(uint message, nint wParam) =>
+        message == 0x0218 && wParam is 0x0012 or 0x0007;
 }
