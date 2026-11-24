@@ -48,7 +48,7 @@ export default function App() {
           </main>
         </div>
         <footer className="footer">
-          <Suspense>
+          <Suspense fallback={<Connection kind={undefined} />}>
             <Status />
           </Suspense>
         </footer>
@@ -79,9 +79,7 @@ function Status() {
   const outline = usePanel('Outline');
   return (
     <>
-      <span className={`connection-status ${connectionName(connection?.kind)}`}>
-        {connectionName(connection?.kind)}
-      </span>
+      <Connection kind={connection?.kind} />
       {outline?.focused_item_id != null && (
         <span className="item-id">Item: {outline.focused_item_id}</span>
       )}
@@ -89,8 +87,10 @@ function Status() {
   );
 }
 
-function connectionName(kind: string | undefined): string {
-  return (kind ?? 'Connecting').toLowerCase();
+/** The state of the connection, as connecting before the core first tells it. */
+function Connection({ kind }: { readonly kind: string | undefined }) {
+  const name = (kind ?? 'Connecting').toLowerCase();
+  return <span className={`connection-status ${name}`}>{name}</span>;
 }
 
 /** The keys of the whole page: Ctrl+Alt+Enter opens Home. Files dropped off an item stay out. */
