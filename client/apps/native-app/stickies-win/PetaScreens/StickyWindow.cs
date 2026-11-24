@@ -957,11 +957,27 @@ internal sealed class StickyWindow : Window
         }
     }
 
+    /// <summary>
+    /// Opens the address with the app that Windows has for its scheme, whatever the scheme is
+    /// (#1071). A path of a drive (<c>file:</c>) is not for <see cref="Launcher"/>, so the shell
+    /// of Windows opens it as a double click would.
+    /// </summary>
     private static void Browse(Uri address)
     {
-        // A note must not start any app by a link: only what a browser or a mail app opens
-        if (address.Scheme is "http" or "https" or "mailto")
+        if (!address.IsFile)
+        {
             _ = Launcher.LaunchUriAsync(address);
+            return;
+        }
+        try
+        {
+            System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(address.LocalPath) { UseShellExecute = true })?.Dispose();
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // No file there, or no app for it: the click does nothing, as for a link of no page
+        }
     }
 
     // ---- The window ----
