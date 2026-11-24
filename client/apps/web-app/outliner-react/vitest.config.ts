@@ -5,8 +5,10 @@ import vite from './vite.config.ts';
  * `npm run coverage` measures the test coverage with the V8 coverage of Node. It prints a table
  * per file and writes a browsable report to coverage/index.html.
  *
- * The numbers are not a target: the report is read for the lines no test reaches, which are
- * either removed or given a test of the behaviour that needs them.
+ * Below 90% of the lines, it fails, and so does the CI. The lines are counted over the whole
+ * app, not file by file. The report is read for the lines no test reaches. They are either
+ * removed or given a test of the behaviour that needs them. A test only to reach a line is not
+ * written.
  *
  * The wasm and the types of the border are made from the Rust code (`npm run border`), and
  * are left out, as is the code of the tests in src/test. Stryker skips them too; see
@@ -39,6 +41,7 @@ export default mergeConfig(
           'src/main.tsx',
         ],
         reporter: ['text', 'html'],
+        thresholds: { lines: 90 },
       },
     },
   }),

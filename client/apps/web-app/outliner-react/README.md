@@ -35,11 +35,14 @@ so the tests also read and write the JSON of the border.
 
 ## Coverage and mutation testing
 
-After a change, read the coverage for the lines no test reaches. The numbers are not a target:
+After a change, read the coverage for the lines no test reaches:
 
 ```
 npm run coverage   # a table per file, and coverage/index.html line by line
 ```
+
+`npm run coverage` fails when less than 90% of the lines are covered, and the CI runs it. A line
+no test reaches is either removed, or given a test of the behaviour that needs it.
 
 Before a PR, run the mutation testing of Stryker on the files the PR changed:
 
