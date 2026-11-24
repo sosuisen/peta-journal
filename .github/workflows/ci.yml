@@ -124,7 +124,8 @@ jobs:
       - run: npm ci
       - run: npm run format:check
       - run: npm run lint
-      - run: npm test
+      # Runs the tests, and fails below 90% of the lines covered (vitest.config.ts)
+      - run: npm run coverage
       - run: npm run build
 
   memoview-win:

@@ -74,7 +74,7 @@
     <tr><td><code>atlas</code>（Rust）</td><td class="ok">rustfmt</td><td class="ok">rustc</td><td class="ok">clippy</td><td class="na">対象外</td><td class="ok"><code>cargo test</code></td><td class="ok"><code>cargo cov</code></td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
     <tr><td><code>outliner-emacs</code>（Elisp）</td><td class="ok">elisp-formatter</td><td class="ok">Rustの部分はrustc<span class="note">Elispは静的な型を持たない</span></td><td class="missing">なし</td><td class="missing">未<span class="note">#1075</span></td><td class="ok">ERT、E2E</td><td>Rustの部分は<code>client</code>の<code>cargo cov</code><span class="note">Elispの部分は測らない</span></td><td>Rustの部分は<code>client</code>のcargo-mutants<span class="note">Elispの部分は試さない</span></td><td>あり<span class="note">部分的。Elispの部分のカバレッジは測らない</span></td></tr>
     <tr><td><code>outliner-react</code>（TypeScript）</td><td>prettier<span class="note">CIでは回らない</span></td><td><code>tsc -b</code><span class="note">CIでは回らない</span></td><td>eslint<span class="note">CIでは回らない</span></td><td class="missing">未<span class="note">#1075</span></td><td>vitest、Playwright（e2e）<span class="note">CIでは回らない</span></td><td><code>npm run coverage</code><span class="note">9割未満でも失敗しない。CIでは測らない</span></td><td class="ok">Stryker（<code>npm run mutants</code>）</td><td class="missing">なし</td></tr>
-    <tr><td><code>todo</code>（TypeScript）</td><td class="ok">prettier</td><td class="ok"><code>tsc -b</code>（<code>npm run build</code>）</td><td class="ok">eslint</td><td class="na">対象外</td><td class="ok">vitest</td><td class="missing">設定なし</td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
+    <tr><td><code>todo</code>（TypeScript）</td><td class="ok">prettier</td><td class="ok"><code>tsc -b</code>（<code>npm run build</code>）</td><td class="ok">eslint</td><td class="na">対象外</td><td class="ok">vitest</td><td class="ok">Vitest（<code>npm run coverage</code>）</td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
     <tr><td><code>stickies-win</code>（C#）</td><td>CSharpier<span class="note">CIでは回らない</span></td><td>C#のコンパイラ<span class="note">CIでは回らない</span></td><td>.NETのアナライザー（<code>latest-recommended</code>）<span class="note">CIでは回らない</span></td><td class="missing">未<span class="note">#1075</span></td><td><code>PetaBorder.Tests</code>、<code>PetaScreens.Tests</code>（画面）<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="ok">Stryker.NET（<code>mutation.ps1</code>）</td><td class="missing">なし</td></tr>
     <tr><td><code>memoview-win</code>（C#）</td><td class="ok">CSharpier</td><td class="ok">C#のコンパイラ</td><td class="ok">.NETのアナライザー（<code>latest-recommended</code>）</td><td class="na">対象外</td><td class="ok"><code>memoview-tests</code></td><td class="missing">設定なし</td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
     <tr><td><code>stickies-mac</code>（Swift）</td><td>swift-format<span class="note">CIでは回らない</span></td><td>Swiftのコンパイラ<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="ok">S2</td><td>XCTest<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="ok">swift-mutation-testing（<code>mutation-test.sh</code>）</td><td class="missing">なし</td></tr>
@@ -123,8 +123,8 @@
 <h2>方針に足りないところ</h2>
 <p>2026-11-24の時点で、次の点が方針に届いていない。</p>
 <ul>
-  <li>カバレッジの9割を、Rust（<code>journal</code>、<code>client</code>、<code>atlas</code>）のほかは、ビルドで確かめていない（#1078）。<br><code>npm run coverage</code>は数字を出すだけで、失敗させない。</li>
-  <li>カバレッジを測る設定がないモジュールがある（<code>todo</code>、C#、Swift、Kotlin）。</li>
+  <li>カバレッジの9割を、Rust（<code>journal</code>、<code>client</code>、<code>atlas</code>）と<code>todo</code>のほかは、ビルドで確かめていない（#1078）。<br><code>npm run coverage</code>は数字を出すだけで、失敗させない。</li>
+  <li>カバレッジを測る設定がないモジュールがある（C#、Swift、Kotlin）。</li>
   <li>CIに入っていないモジュールがある（<code>outliner-react</code>、<code>stickies-win</code>、<code>stickies-mac</code>、<code>outliner-ios</code>、<code>outliner-android</code>）。<br>これらの整形の確かめは、手元でしか行われていない。</li>
 </ul>
 
