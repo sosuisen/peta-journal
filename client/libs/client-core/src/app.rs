@@ -599,6 +599,14 @@ pub enum Event {
         page_id: String,
         loaded: Box<PageWithItems>,
     },
+    /// The server could not answer the doc page of a path, or its items.
+    PageFailed {
+        page_name: String,
+    },
+    /// The server could not answer the journal of a date.
+    JournalFailed {
+        date: String,
+    },
     /// The server answered the backlinks of a doc page.
     BacklinksLoaded {
         page_id: String,
@@ -1091,6 +1099,8 @@ pub struct Model {
     pub recent_pages: Vec<Page>,
     /// Whether the recent pages arrived. A reload keeps the pages it replaces.
     pub recent_pages_state: crate::view::LoadState,
+    /// Whether the items of the page on screen arrived, which the headings are made from.
+    pub headings_state: crate::view::LoadState,
     pub sidebar: SidebarState,
     pub search: SearchState,
     pub wiki: WikiState,
@@ -1136,6 +1146,7 @@ impl Default for Model {
             title: String::new(),
             recent_pages: Vec::new(),
             recent_pages_state: crate::view::LoadState::Loading,
+            headings_state: crate::view::LoadState::Loading,
             sidebar: SidebarState::default(),
             search: SearchState::default(),
             wiki: WikiState::default(),
@@ -1528,6 +1539,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         PageItemsLoaded { page_id, loaded } => {
             screens::page::show_page_items(model, &page_id, *loaded)
         }
+        PageFailed { page_name } => screens::page::page_failed(model, &page_name),
+        JournalFailed { date } => screens::journal::journal_failed(model, &date),
         BacklinksLoaded { page_id, entries } => {
             screens::page::show_backlinks(model, &page_id, entries)
         }

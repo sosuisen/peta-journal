@@ -351,6 +351,7 @@ pub struct IndexPagesView {
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct HeadingsView {
     pub headings: Vec<Heading>,
+    pub state: LoadState,
 }
 
 /// The doc pages changed last, as the sidebar lists them (ADR 085).
@@ -655,11 +656,13 @@ fn index_pages(model: &Model) -> IndexPagesView {
 }
 
 fn headings(model: &Model) -> HeadingsView {
+    let state = model.headings_state;
+    // Until the items arrive, the items held are those of the page left behind
     let headings = match &model.current_page {
-        Some(p) if p.page_type == "doc" => model.state.headings(),
+        Some(p) if p.page_type == "doc" && state == LoadState::Loaded => model.state.headings(),
         _ => Vec::new(),
     };
-    HeadingsView { headings }
+    HeadingsView { headings, state }
 }
 
 fn recent_pages(model: &Model) -> RecentPagesView {
