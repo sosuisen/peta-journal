@@ -492,6 +492,7 @@ function DocPage({ page }: { readonly page: PageView }) {
     title = (
       <>
         <div className="title-row">
+          <AtlasButton atlas={false} />
           <h2 className="page-title root-index-title">(root)/</h2>
         </div>
         <div className="index-label">index</div>

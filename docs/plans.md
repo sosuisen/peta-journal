@@ -7,6 +7,6 @@
 
 - [x] インデックスページには、地図ボタン（title「Atlas」）が見出しの行にある。押すとToggleAtlasが送られる
 - [x] アトラスページには、同じ場所に押された状態のボタン（title「Index」）があり、題名はフォルダの名前である
-- [ ] ルートの目次にも、地図ボタンがある
-- [ ] 文書のページには、地図ボタンがない
-- [ ] `rules/outliner-react.toml`の除外から`ToggleAtlas`を消す
+- [x] ルートの目次にも、地図ボタンがある
+- [x] 文書のページには、地図ボタンがない
+- [x] `rules/outliner-react.toml`の除外から`ToggleAtlas`を消す
