@@ -23,6 +23,7 @@ import com.sosuisha.petajournal.types.ViewModel
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * What the app shows, kept up to date with the core. The screen draws [view] and tells this what
@@ -381,12 +382,22 @@ class Shell(
         border.leave()
     }
 
-    /** Lets go of the journal. A sync that runs ends first, on its own thread. */
+    /**
+     * Lets go of the journal. A sync that runs ends first, on its own thread. It does not wait for
+     * it: a sync may take long, and this is called on the main thread. See [awaitClosed].
+     */
     override fun close() {
         closed = true
         worker.execute { border.close() }
         worker.shutdown()
     }
+
+    /**
+     * Waits until the core has let go of the journal after [close], for at most [ms]. False when it
+     * has not by then. Until it has, another core cannot open the same folders: the index is
+     * locked. It must not be the main thread.
+     */
+    fun awaitClosed(ms: Long): Boolean = worker.awaitTermination(ms, TimeUnit.MILLISECONDS)
 
     // The events and the requests of the core
 

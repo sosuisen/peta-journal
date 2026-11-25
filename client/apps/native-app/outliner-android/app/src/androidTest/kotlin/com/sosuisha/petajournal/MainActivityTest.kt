@@ -30,22 +30,31 @@ class MainActivityTest {
         InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val root = File(app.cacheDir, "activity-test")
     private var scenario: ActivityScenario<MainActivity>? = null
+    private var model: JournalModel? = null
 
     @Before
     fun emptyFolders() {
         root.deleteRecursively()
     }
 
+    /**
+     * The activity closes its model when it ends. The next test empties the folders: the core must
+     * have let go of them first (#1132).
+     */
     @After
     fun close() {
         scenario?.close()
         JournalModel.make = ::JournalModel
+        val closing = model ?: return
+        check(closing.awaitClosed(CLOSE_MS)) { "the core did not close in $CLOSE_MS ms" }
     }
 
     /** Opens the app with the account, and brings it to the front. */
     private fun launch(account: FakeAccount): ActivityScenario<MainActivity> {
         JournalModel.make = {
-            JournalModel(it, File(root, "files"), File(root, "cache"), account, NEVER_MS)
+            JournalModel(it, File(root, "files"), File(root, "cache"), account, NEVER_MS).also {
+                model = it
+            }
         }
         return ActivityScenario.launch(MainActivity::class.java).also { scenario = it }
     }
@@ -114,5 +123,8 @@ class MainActivityTest {
     private companion object {
         /** Longer than a test runs: no edit syncs. */
         const val NEVER_MS = 600_000L
+
+        /** How long a closed core may take to let go of the journal. */
+        const val CLOSE_MS = 10_000L
     }
 }

@@ -33,7 +33,13 @@ class JournalModelTest {
         root.deleteRecursively()
     }
 
-    @After fun close() = onMain { opened?.close() }
+    /** The next test empties the folders: the core must have let go of them first (#1132). */
+    @After
+    fun close() {
+        val model = opened ?: return
+        onMain { model.close() }
+        check(model.awaitClosed(WAIT_MS)) { "the core did not close in $WAIT_MS ms" }
+    }
 
     private fun onMain(work: () -> Unit) = instrumentation.runOnMainSync(work)
 
@@ -54,6 +60,18 @@ class JournalModelTest {
             check(SystemClock.uptimeMillis() < end) { "waited $WAIT_MS ms in vain" }
             Thread.sleep(20)
         }
+    }
+
+    // 閉じたアプリのコアが閉じ終わるのを待てば、同じフォルダーでアプリを開き直せる。閉じ終わる前は、索引のロックが取れずに開けないことがある（#1132）。
+    @Test
+    fun the_app_opens_again_on_the_same_folders_once_its_core_has_closed() {
+        val first = open(FakeAccount())
+        onMain { first.close() }
+
+        assertTrue(first.awaitClosed(WAIT_MS))
+        val again = open(FakeAccount())
+
+        assertTrue(again.shell.view.screen is ScreenView.Journal)
     }
 
     // クラウドの用意がないアプリは、何も同期しない。今日のジャーナルが開く。
