@@ -47,9 +47,14 @@ In TypeScript, a kind is named as the string under the key `kind`, such as
 `{ kind: 'PasteText', ... }`, or as the generated function that makes it, such as
 `eventPasteText(...)`. The same string under another key does not count.
 
-The `language` of the rules of a shell is `swift`, `csharp`, `kotlin` or `typescript`. It also
-says which files are read: `.swift`, `.cs`, `.kt`, or `.ts` and `.tsx`. In TypeScript the
-tests, `.test.ts` and `.test.tsx`, are not read.
+In Rust, a kind is named as a variant of `Event`, such as `Event::PasteText { ... }`. `Event`
+must be a whole name: the `Open` of `SseEvent::Open` does not count. The Emacs outliner is
+checked in its Rust part only: the Lisp sends the lines of `src/protocol.rs`, and the Rust part
+makes an `Event` of each.
+
+The `language` of the rules of a shell is `swift`, `csharp`, `kotlin`, `typescript` or `rust`.
+It also says which files are read: `.swift`, `.cs`, `.kt`, `.ts` and `.tsx`, or `.rs`. In
+TypeScript the tests, `.test.ts` and `.test.tsx`, are not read.
 
 The `skipped` folders of the rules of a shell are not read, though they are under `sources`.
 They hold what is not the shell's own code, such as the types generated from the core, which
