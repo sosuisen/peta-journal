@@ -544,6 +544,21 @@ describe('a document page', () => {
     expect(titleFields(container).name).not.toBeNull();
   });
 
+  // 一番上のフォルダのページには、フォルダの欄がない。名前だけを変える。
+  test('a page at the top has no field of the folder, and only its name changes', () => {
+    const { wasm, container } = page(docPage('plan'));
+
+    fireEvent.click(screen.getByRole('heading', { name: 'plan' }));
+    const { dir, name } = titleFields(container);
+    fireEvent.change(name as HTMLInputElement, { target: { value: 'idea' } });
+    fireEvent.keyDown(name as HTMLInputElement, { key: 'Enter' });
+
+    expect(dir).toBeNull();
+    expect(wasm.events).toEqual([
+      { kind: 'PageTitleSave', dir_path: '', file_name: 'idea' },
+    ]);
+  });
+
   // アトラスのページは、項目の代わりに、そのフォルダのキャンバスを出す。
   test('an atlas page shows the canvas of its folder in place of the items', () => {
     const { container } = page(
