@@ -377,6 +377,17 @@ node scripts/checks.mjs jobs journal/journal-core/src/lib.rs
 node scripts/checks.mjs run todo
 ```
 
+The hook writes the output of each step into a log as it comes, the output of the Mac too. To
+watch the log while the hook runs, print its path for the commit at HEAD, then follow it:
+
+```
+node scripts/checks.mjs log
+Get-Content -Wait <the path>    # PowerShell
+tail -f <the path>              # bash
+```
+
+A job run by hand shows the output on the screen as it comes.
+
 The hook uses the newer of main and the branch, for every file of the checks (the hook, its
 setting, and `scripts/`). Claude Code runs the hook from the checkout where it started: pull main
 there, or the hook stops the pull request. When main changed a file of the checks after the
