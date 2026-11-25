@@ -241,6 +241,18 @@ mod tests {
         assert!(!Language::TypeScript.names("label('Undo')", "Undo"));
     }
 
+    // TypeScriptでは、`Event::PasteText`は、生成された関数`eventPasteText(...)`としても書かれる。長い名前や、別の名前の中の同じ名前は、`Event`の種類に数えない。
+    #[test]
+    fn typescript_names_a_kind_by_the_function_that_makes_it() {
+        assert!(Language::TypeScript.names(
+            "core.send(eventPasteText(id, text, html, cursor, raw));",
+            "PasteText"
+        ));
+        assert!(Language::TypeScript.names("  eventLinkClicked,\n", "LinkClicked"));
+        assert!(!Language::TypeScript.names("eventPasteTextLater(id)", "PasteText"));
+        assert!(!Language::TypeScript.names("preventPasteText(id)", "PasteText"));
+    }
+
     // TypeScriptのシェルでは、`.ts`と`.tsx`のファイルが読まれ、テストのファイルは読まれない。
     #[test]
     fn typescript_reads_ts_and_tsx_but_no_tests() {
