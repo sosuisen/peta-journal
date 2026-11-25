@@ -358,7 +358,11 @@ on macOS do not. The minutes cost twice as much on Windows, and about ten times 
 ```
 gh workflow run CI --ref <branch> -f linux=false   # only the Windows jobs
 gh workflow run CI --ref <branch> -f macos=true    # the macOS jobs too
+gh workflow run CI --ref <branch> -f ios_only=true # only outliner-ios, and the guard
 ```
+
+`ios_only` leaves out every other job, whatever the other inputs say. With `macos=true` the
+stickies-mac job would run too, on the costly runner.
 
 The checks of each job are listed once, in `scripts/checks.mjs`: the format, the lint, the tests
 and the coverage. The workflow only installs the tools, then runs `node scripts/checks.mjs run <job>`.
