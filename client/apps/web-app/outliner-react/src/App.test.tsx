@@ -585,6 +585,31 @@ describe('a document page', () => {
     expect(name?.selectionEnd).toBe(2);
   });
 
+  // 目次のページでは、最後のフォルダを押すと編集になる。名前は変えられず、フォルダの欄の終わりにカーソルが入る。
+  test('in an index a press on the last folder edits the folder, and the name stays', () => {
+    const { wasm, container } = page(
+      docPage('index', 'work/plan/', {
+        is_index: true,
+        dir_segments: [
+          new DirSegment('work', 'work/', 'work/index'),
+          new DirSegment('plan', 'work/plan/', 'work/plan/index'),
+        ],
+      }),
+    );
+
+    fireEvent.click(screen.getByText('plan'));
+    const { dir, name } = titleFields(container);
+    expect(document.activeElement).toBe(dir);
+    expect(dir?.selectionStart).toBe('work/plan'.length);
+    expect(name?.disabled).toBe(true);
+    fireEvent.change(dir as HTMLInputElement, { target: { value: 'home' } });
+    fireEvent.keyDown(dir as HTMLInputElement, { key: 'Enter' });
+
+    expect(wasm.events).toEqual([
+      { kind: 'PageTitleSave', dir_path: 'home', file_name: 'index' },
+    ]);
+  });
+
   // アトラスのページは、項目の代わりに、そのフォルダのキャンバスを出す。
   test('an atlas page shows the canvas of its folder in place of the items', () => {
     const { container } = page(
