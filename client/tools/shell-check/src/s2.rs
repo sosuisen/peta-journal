@@ -16,6 +16,9 @@ pub enum Language {
     /// The generated Kotlin types name `Event::PasteText` as `Event.PasteText`, a nested class,
     /// and `Event::Undo` as the object `Event.Undo`.
     Kotlin,
+    /// The generated TypeScript types name `Event::PasteText` as `{ kind: 'PasteText', ... }`.
+    #[serde(rename = "typescript")]
+    TypeScript,
 }
 
 impl Language {
@@ -25,6 +28,7 @@ impl Language {
             Language::Swift => "swift",
             Language::CSharp => "cs",
             Language::Kotlin => "kt",
+            Language::TypeScript => "ts",
         }
     }
 
@@ -41,6 +45,7 @@ impl Language {
         match self {
             Language::Swift => names_implicit_member(text, &lower_camel(variant)),
             Language::CSharp | Language::Kotlin => names_whole(text, &format!("Event.{variant}")),
+            Language::TypeScript => text.contains(&format!("'{variant}'")),
         }
     }
 }
