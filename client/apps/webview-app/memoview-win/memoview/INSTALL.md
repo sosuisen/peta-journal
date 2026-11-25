@@ -43,7 +43,7 @@ curl.exe -L -o vendor\fm-ast2html-<version>.js https://unpkg.com/flatmarkdown-as
 ```
 
 You can also build the file from the source.
-The source is the folder `flatmarkdown-ast2html-wasm` of the [flatmarkdown](https://github.com/petajournal/flatmarkdown) repository.
+The source is the folder `flatmarkdown-ast2html-wasm` of the [flatmarkdown](https://github.com/sosuisen/flatmarkdown) repository.
 Run `npm run build` there. Its README lists the tools that the build needs.
 Then copy `dist\index.global.js` to `vendor\fm-ast2html-<version>.js`.
 
