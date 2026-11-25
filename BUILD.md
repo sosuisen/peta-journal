@@ -384,9 +384,21 @@ branch left it, the hook stops until the branch takes main in. Then the hook and
 checks of the branch run, so a job that the branch adds runs too. `scripts/hook.test.mjs` tests
 this.
 
-Only a step for another OS is skipped on a developer's machine, and the hook reports it. In the
-CI, such a step fails the job. Any other step fails when what it needs is missing: a program, a
-file, or an environment variable. The Emacs steps need two environment variables:
+On Windows, a step for macOS runs on your Mac over SSH, when you have one (`scripts/mac.mjs`). The
+job is run there by the list of checks of the same commit. A failure there stops the pull request.
+Nothing about the Mac is in the repository. Set it up in your Git settings:
+
+- A remote named `mac`, whose URL is a clone on the Mac that is used for the tests only
+  (`git remote add mac <host>:<folder>`). The commit is pushed to its branch `peta-verify`.
+- An SSH that asks nothing. Put the key in the agent. On Windows, Git must use the SSH of
+  Windows to read that agent: `git config --global core.sshCommand C:/Windows/System32/OpenSSH/ssh.exe`.
+
+The commands run in the login shell of the Mac, so they find the tools of its PATH.
+
+Only a step for another OS that no machine ran is skipped on a developer's machine, and the hook
+reports it: with no Mac, or when the Mac cannot be reached. In the CI, such a step fails the job.
+Any other step fails when what it needs is missing: a program, a file, or an environment
+variable. The Emacs steps need two environment variables:
 
 - `PETA_EMACS`: the `emacs` program, version 31. Not an `emacsclient` wrapper.
 - `ELISP_FORMATTER`: the `elisp-formatter.el` of `sosuisen/elisp-formatter`.
