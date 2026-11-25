@@ -369,6 +369,17 @@ pub fn end_handover(model: &mut Model) -> Cmd {
     done()
 }
 
+/// The field of an ordered editor took the keyboard: the core stops holding keys, and the keys
+/// held since the order go to the same editor with an order of their own (ADR 087).
+pub fn editor_focused(model: &mut Model, item_id: Option<String>) -> Cmd {
+    let keys = model.key_relay.release();
+    if keys.is_empty() {
+        return done();
+    }
+    model.state.order_focus(item_id.as_deref());
+    run(move |api| async move { api.focus_editor(item_id, keys).await })
+}
+
 /// Focuses the editor of an item once the next render is done, playing the keys that were
 /// held for it; the first editor on the page when None.
 pub fn focus_editor(model: &mut Model, item_id: Option<String>) -> Cmd {

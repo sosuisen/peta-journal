@@ -516,7 +516,9 @@ pub enum Event {
     /// A key pressed while the relay holds keys for the next editor.
     KeyHeld(DeferredKey),
     /// The field of an editor that the core ordered focused took the keyboard (ADR 087).
-    EditorFocused,
+    EditorFocused {
+        item_id: Option<String>,
+    },
     SelectionKey(SelectionKey),
     SelectionClickOutside,
     OutlineScrolled {
@@ -1469,10 +1471,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             model.key_relay.hold(key);
             done()
         }
-        EditorFocused => {
-            model.key_relay.release();
-            done()
-        }
+        EditorFocused { item_id } => ops::edit::editor_focused(model, item_id),
         SelectionKey(key) => ops::outline_events::selection_key(model, key),
         SelectionClickOutside => {
             if model.state.item_selection_mode() && !model.selection.is_dragging() {

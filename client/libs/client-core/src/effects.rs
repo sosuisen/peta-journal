@@ -1210,10 +1210,10 @@ impl Api<crate::app::Event> {
         let _ = self
             .ctx
             .request_from_shell(UiOp::FocusEditor {
-                item_id,
+                item_id: item_id.clone(),
                 replay_keys,
             })
             .await;
-        self.send_event(crate::app::Event::EditorFocused);
+        self.send_event(crate::app::Event::EditorFocused { item_id });
     }
 }

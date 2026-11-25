@@ -78,7 +78,10 @@ fn keys_held_before_the_answer_come_with_a_second_order_to_focus_the_same_editor
         replayed(&h),
         [
             (Some("new1".to_string()), vec![]),
-            (Some("new1".to_string()), vec!["x".to_string(), "y".to_string()]),
+            (
+                Some("new1".to_string()),
+                vec!["x".to_string(), "y".to_string()]
+            ),
         ]
     );
     assert!(!h.view().outline.key_relay_holding);
