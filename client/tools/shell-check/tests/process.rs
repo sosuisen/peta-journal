@@ -72,6 +72,23 @@ fn prints_nothing_and_exits_with_0_when_every_kind_is_named() {
     assert_eq!(output.status.code(), Some(0));
 }
 
+// ルールの`skipped`に書いたフォルダのソースは読まれない。生成物やテストの手助けが種類の名前を書いていても、シェルが扱ったことにはならない。
+#[test]
+fn does_not_read_a_skipped_folder() {
+    let rules = SHELL_TOML.replace(
+        "sources = [\"app/Sources\"]",
+        "sources = [\"app/Sources\"]\nskipped = [\"app/Sources/Generated\"]",
+    );
+    let root = repository("skipped", "send(.start)\n", &rules);
+    write(
+        &root.join("app/Sources/Generated/Event.swift"),
+        "case .pasteText(let text):\n",
+    );
+    let output = run_s2(&root);
+    assert_eq!(stdout(&output), "missing: PasteText\n");
+    assert_eq!(output.status.code(), Some(1));
+}
+
 // `Event`に無い名前が除外リストにあれば、出力される。
 #[test]
 fn prints_an_exclusion_that_is_no_kind_of_event() {
