@@ -71,31 +71,96 @@ internal sealed class Screen : IAsyncDisposable
     public static Task<Screen> OpenLong(int port, int items) =>
         Start(new Screen(port), async screen =>
         {
-            var made = screen.server.Answer(
-                HttpMethod.Post,
-                "/api/pages/doc",
-                """{"title":"long"}"""
+            screen.MakePage(
+                "long",
+                [
+                    .. Enumerable
+                        .Range(0, items)
+                        .Select(n => (n % 3 + 1, n == 0 ? "" : $"Item {n} with some text to draw")),
+                ]
             );
-            var page = System.Text.Json.JsonElement.Parse(made!);
-            var pageId = page.GetProperty("page").GetProperty("id").GetString();
-            // A new page has one empty item
-            for (var n = 1; n < items; n++)
-            {
-                var item = System.Text.Json.JsonSerializer.Serialize(
-                    new Dictionary<string, object?>
-                    {
-                        ["pageId"] = pageId,
-                        ["position"] = "last",
-                        ["level"] = n % 3 + 1,
-                        ["body"] = $"Item {n} with some text to draw",
-                    }
-                );
-                Assert.IsTrue(screen.server.Send(HttpMethod.Post, "/api/items", item));
-            }
             screen.Desk.Add("/pages/long");
             await Until("the items are there", () => screen.Rows.Count == items);
             await Until("the first items are drawn", () => screen.Items().Count > 0);
         });
+
+    /// <summary>
+    /// A sticky that shows a page with an item for each of <paramref name="bodies"/>, once all
+    /// of them are drawn. The page is made on the server before the sticky opens.
+    /// </summary>
+    public static Task<Screen> OpenWritten(int port, params string[] bodies) =>
+        Start(new Screen(port), async screen =>
+        {
+            screen.MakePage("written", [.. bodies.Select(body => (1, body))]);
+            screen.Desk.Add("/pages/written");
+            await Until("the items are drawn", () => screen.Items().Count == bodies.Length);
+        });
+
+    /// <summary>Makes a page on the server with the items, each at its level.</summary>
+    private void MakePage(string title, IReadOnlyList<(int Level, string Body)> items)
+    {
+        var made = server.Answer(HttpMethod.Post, "/api/pages/doc", $$"""{"title":"{{title}}"}""");
+        var page = System.Text.Json.JsonElement.Parse(made!);
+        var pageId = page.GetProperty("page").GetProperty("id").GetString();
+        // A new page has one empty item: it becomes the first
+        var first = page.GetProperty("items")[0].GetProperty("id").GetString();
+        Assert.IsTrue(
+            server.Send(
+                HttpMethod.Put,
+                $"/api/items/{first}",
+                System.Text.Json.JsonSerializer.Serialize(
+                    new Dictionary<string, object?>
+                    {
+                        ["body"] = items[0].Body,
+                        ["level"] = items[0].Level,
+                    }
+                )
+            )
+        );
+        foreach (var (level, body) in items.Skip(1))
+        {
+            var item = System.Text.Json.JsonSerializer.Serialize(
+                new Dictionary<string, object?>
+                {
+                    ["pageId"] = pageId,
+                    ["position"] = "last",
+                    ["level"] = level,
+                    ["body"] = body,
+                }
+            );
+            Assert.IsTrue(server.Send(HttpMethod.Post, "/api/items", item));
+        }
+    }
+
+    /// <summary>Makes the journal of the day on the server, with one item.</summary>
+    public void MakeJournal(string day, string body)
+    {
+        var made = server.Answer(HttpMethod.Post, $"/api/journals/{day}", "{}");
+        var first = System
+            .Text.Json.JsonElement.Parse(made!)
+            .GetProperty("items")[0]
+            .GetProperty("id")
+            .GetString();
+        Assert.IsTrue(
+            server.Send(
+                HttpMethod.Put,
+                $"/api/items/{first}",
+                System.Text.Json.JsonSerializer.Serialize(
+                    new Dictionary<string, object?> { ["body"] = body }
+                )
+            )
+        );
+    }
+
+    /// <summary>Makes the item show the item <paramref name="sourceId"/>, as the server does.</summary>
+    public void Transclude(string itemId, string sourceId) =>
+        Assert.IsTrue(
+            server.Send(
+                HttpMethod.Post,
+                $"/api/items/{itemId}/transclude",
+                $$"""{"sourceItemId":"{{sourceId}}"}"""
+            )
+        );
 
     private static async Task<Screen> Start(Screen screen, Func<Screen, Task> open)
     {
@@ -171,7 +236,19 @@ internal sealed class Screen : IAsyncDisposable
     }
 
     /// <summary>Brings the first sticky to the front, where the keys of Windows go.</summary>
-    public void ToFront() => SetForegroundWindow(Handle(Window));
+    public void ToFront() => BringToFront(Handle(Window));
+
+    /// <summary>
+    /// Puts the window in front. Windows refuses SetForegroundWindow to a process that did not
+    /// send the last input. A move of the mouse by nothing makes the tests that process.
+    /// </summary>
+    private static void BringToFront(IntPtr window)
+    {
+        if (GetForegroundWindow() == window)
+            return;
+        UserInput.Nudge();
+        SetForegroundWindow(window);
+    }
 
     /// <summary>The items of the first sticky as it shows them, from the top down.</summary>
     public List<RowView> Items() => Items(Window);
@@ -215,34 +292,94 @@ internal sealed class Screen : IAsyncDisposable
 
     /// <summary>
     /// Clicks the element of the sticky with the mouse, at <paramref name="across"/> of its
-    /// width. The sticky is the first one when none is named.
+    /// width, or clicks it twice. The sticky is the first one when none is named.
     /// </summary>
     public async Task Click(
         FrameworkElement element,
         StickyWindow? sticky = null,
         double across = 0.5,
         Held held = Held.None,
-        bool right = false
+        bool right = false,
+        bool twice = false
     )
     {
-        sticky ??= Window;
+        var target = await PlaceToPress(element, sticky ?? Window, across);
+        if (twice)
+            await UserInput.DoubleClick(target.X, target.Y);
+        else
+            await UserInput.Click(target.X, target.Y, held, right);
+    }
+
+    /// <summary>
+    /// Drags with the left button from the middle of <paramref name="from"/> to
+    /// <paramref name="to"/>, at <paramref name="down"/> of its height. <paramref name="held"/>
+    /// runs before the button comes up.
+    /// </summary>
+    public async Task Drag(
+        FrameworkElement from,
+        FrameworkElement to,
+        double down = 0.5,
+        Func<Task>? held = null
+    )
+    {
+        var start = await PlaceToPress(from, Window, 0.5);
+        await UserInput.Drag(start, ScreenPlace(to, Window, 0.5, down), held);
+    }
+
+    /// <summary>
+    /// The place on the screen to press the element, once the element is laid out, its sticky
+    /// is in front and the place stays the same.
+    /// </summary>
+    private static async Task<(int X, int Y)> PlaceToPress(
+        FrameworkElement element,
+        StickyWindow sticky,
+        double across
+    )
+    {
         // A window that was just opened is not laid out yet
         await Until("the element is on the screen", () =>
             element.XamlRoot is not null && element.ActualWidth > 0
         );
-        SetForegroundWindow(Handle(sticky));
+        await Until("the sticky is in front", () =>
+        {
+            BringToFront(Handle(sticky));
+            return GetForegroundWindow() == Handle(sticky);
+        });
+        // A window that was just opened may still move or grow, and a click on the place of a
+        // moment ago lands beside the element. The place has to stay the same for a while
+        (int X, int Y) target = default;
+        var still = 0;
+        await Until("the element stays in place", () =>
+        {
+            var now = ScreenPlace(element, sticky, across);
+            still = now == target ? still + 1 : 0;
+            target = now;
+            return still >= 5;
+        });
+        return target;
+    }
+
+    /// <summary>
+    /// The place on the screen, in pixels, of a point of the element: at
+    /// <paramref name="across"/> of its width and <paramref name="down"/> of its height.
+    /// </summary>
+    private static (int X, int Y) ScreenPlace(
+        FrameworkElement element,
+        StickyWindow sticky,
+        double across,
+        double down = 0.5
+    )
+    {
         var root = (UIElement)sticky.Content;
         var place = element
             .TransformToVisual(root)
-            .TransformPoint(new(element.ActualWidth * across, element.ActualHeight / 2));
+            .TransformPoint(new(element.ActualWidth * across, element.ActualHeight * down));
         var scale = root.XamlRoot.RasterizationScale;
         var corner = new Point();
         ClientToScreen(Handle(sticky), ref corner);
-        await UserInput.Click(
+        return (
             corner.X + (int)Math.Round(place.X * scale),
-            corner.Y + (int)Math.Round(place.Y * scale),
-            held,
-            right
+            corner.Y + (int)Math.Round(place.Y * scale)
         );
     }
 
@@ -261,6 +398,46 @@ internal sealed class Screen : IAsyncDisposable
         });
         return found!;
     }
+
+    /// <summary>The button with the text in the dialog that the first sticky shows now.</summary>
+    public async Task<Button> DialogButton(string text)
+    {
+        Button? found = null;
+        await Until($"the dialog has {text}", () =>
+        {
+            found = Dialogs()
+                .SelectMany(Under<Button>)
+                .FirstOrDefault(button =>
+                    button.Content as string == text && button.ActualWidth > 0
+                );
+            return found is not null;
+        });
+        return found!;
+    }
+
+    /// <summary>The dialogs that the first sticky shows now.</summary>
+    public IEnumerable<ContentDialog> Dialogs() =>
+        VisualTreeHelper
+            .GetOpenPopupsForXamlRoot(Window.Content.XamlRoot)
+            .Select(popup => popup.Child)
+            .OfType<ContentDialog>();
+
+    /// <summary>
+    /// Clicks the title bar of the sticky, in the room left of the Back button, or clicks it
+    /// twice.
+    /// </summary>
+    public Task ClickTitleBar(
+        StickyWindow? sticky = null,
+        bool right = false,
+        bool twice = false
+    ) =>
+        Click(
+            ButtonOf(sticky ?? Window, "Back (Alt+Left)"),
+            sticky,
+            across: -3,
+            right: right,
+            twice: twice
+        );
 
     /// <summary>The button of the title bar of the sticky that has the tip.</summary>
     public static Button ButtonOf(StickyWindow sticky, string tip) =>
@@ -411,7 +588,8 @@ internal sealed class Screen : IAsyncDisposable
     private static IntPtr Handle(StickyWindow window) =>
         WinRT.Interop.WindowNative.GetWindowHandle(window);
 
-    private static IEnumerable<T> Under<T>(DependencyObject parent)
+    /// <summary>The elements of the type under the parent, at every depth.</summary>
+    public static IEnumerable<T> Under<T>(DependencyObject parent)
         where T : DependencyObject
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)

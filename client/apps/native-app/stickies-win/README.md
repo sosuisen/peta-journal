@@ -341,6 +341,10 @@ Four tests of `ShellTests` are skipped on a Mac: those of a key with Control (fo
 The core reads the keys of the system it was built for, and a Mac has Command where Windows has
 Control. They run on Windows.
 
+The hook before a pull request does not run them on a Mac. Every step of the job `stickies-win`
+in `scripts/checks.mjs` is for Windows, as the developer decided (#1085): the app runs on Windows
+only. On a Mac, the hook skips the job and says so.
+
 ### Tests of the windows
 
 `PetaScreens.Tests` opens real stickies and works them as a user does (ADR 059). It is a WinUI
@@ -387,7 +391,8 @@ a test that crosses the border finds this.
 The CI runs these tests on Windows, in the job `stickies-win`, with a journal server. It also
 runs the Rust tests of the entrance
 (`cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi`).
-The tests of the windows (`PetaScreens.Tests`) do not run in CI: they press real keys.
+The tests of the windows (`PetaScreens.Tests`) press real keys. They run in the coverage step
+below, on the Windows runner of the CI too. The job builds the app (`PetaStickies`) as well.
 
 ### Coverage
 
@@ -397,14 +402,16 @@ cd PetaBorder.Tests
 dotnet build -t:Coverage
 ```
 
-It runs the tests of `PetaBorder` with coverlet.console, a local tool of `stickies-win`, and
-prints a table. It writes `PetaBorder.Tests/coverage/coverage.cobertura.xml`. It fails when less
-than 90% of the lines of `PetaBorder` are covered, and the CI runs it. Set `PETA_E2E_SERVER`
-first: a skipped test reaches no line. A line no test reaches is either removed, or given a test
-of the behaviour that needs it.
+It measures the whole app with coverlet.console, a local tool of `stickies-win`. First it runs
+the tests of the windows (`PetaScreens.Tests`), then the tests of `PetaBorder`, and adds up the
+lines that both reached in `PetaBorder` and `PetaScreens`. It prints a table, and writes
+`PetaBorder.Tests/coverage/coverage.cobertura.xml`. It fails when less than 90% of those lines
+are covered, and the CI runs it. Set `PETA_E2E_SERVER` first: a skipped test reaches no line. A
+line no test reaches is either removed, or given a test of the behaviour that needs it.
 
-Not done yet (#1085): only `PetaBorder` is measured. `PetaScreens` and `PetaStickies` are
-not, because their tests do not run in the CI yet. The whole app has to be measured.
+Keep the keyboard and the mouse still while it runs: the tests of the windows press real keys.
+
+The files left out of the measurement, and why, are in the comment of `PetaBorder.Tests.csproj`.
 
 ### Mutation testing
 
