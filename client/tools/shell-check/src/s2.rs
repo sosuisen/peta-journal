@@ -19,6 +19,8 @@ pub enum Language {
     /// The generated TypeScript types name `Event::PasteText` as `{ kind: 'PasteText', ... }`.
     #[serde(rename = "typescript")]
     TypeScript,
+    /// A shell in Rust names `Event::PasteText` as it is.
+    Rust,
 }
 
 impl Language {
@@ -29,6 +31,7 @@ impl Language {
             Language::Swift => name.ends_with(".swift"),
             Language::CSharp => name.ends_with(".cs"),
             Language::Kotlin => name.ends_with(".kt"),
+            Language::Rust => false,
             Language::TypeScript => {
                 (name.ends_with(".ts") || name.ends_with(".tsx"))
                     && !name.ends_with(".test.ts")
@@ -55,6 +58,7 @@ impl Language {
         match self {
             Language::Swift => names_implicit_member(text, &lower_camel(variant)),
             Language::CSharp | Language::Kotlin => names_whole(text, &format!("Event.{variant}")),
+            Language::Rust => text.contains(&format!("Event::{variant}")),
             Language::TypeScript => {
                 names_kind(text, variant) || names_whole(text, &format!("event{variant}"))
             }
