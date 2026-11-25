@@ -65,9 +65,9 @@ function commit(dir, message) {
 }
 
 // Runs the hook of main for `gh pr create` in the branch. Returns the answer of the hook
-function runHook({ main, branch, ran }) {
+function runHook({ main, branch, ran }, command = 'gh pr create') {
   const r = spawnSync(process.execPath, [join(main, HOOK)], {
-    input: JSON.stringify({ tool_input: { command: 'gh pr create' }, cwd: branch }),
+    input: JSON.stringify({ tool_input: { command }, cwd: branch }),
     encoding: 'utf8',
     env: { ...process.env, RAN: ran, PETA_VERIFY_HANDED: '' },
   });
@@ -75,6 +75,31 @@ function runHook({ main, branch, ran }) {
   const out = r.stdout.trim() ? JSON.parse(r.stdout).hookSpecificOutput : {};
   return { ...out, ran: existsSync(ran) ? readFileSync(ran, 'utf8').split('\n').filter(Boolean) : [] };
 }
+
+// フックは、PRを作るコマンドの前にだけ動く。PRの一覧や1つのPRを読むGETでは動かない。
+test('the hook runs before a command that makes a pull request, and not before one that reads them', () => {
+  const repo = repository();
+  const makes = [
+    'gh pr create --base main',
+    'gh api -X POST repos/o/r/pulls -f title=x',
+    'gh api repos/o/r/pulls -f title=x -F "body=@pr.md"',
+    'gh api --method=post "repos/o/r/pulls" --input body.json',
+    'git push && gh api repos/o/r/pulls -f title=x',
+  ];
+  const reads = [
+    'gh api "repos/o/r/pulls?head=o:b&state=all" --jq .',
+    'gh api repos/o/r/pulls',
+    'gh api -X GET repos/o/r/pulls -f state=all',
+    'gh api repos/o/r/pulls/12 -f state=closed -X PATCH',
+    'gh api -X POST repos/o/r/issues/12/assignees -f "assignees[]=me"',
+    'gh pr list --head b',
+    'gh api "repos/o/r/pulls" --jq . && gh api -X POST repos/o/r/issues/1/comments -f body=x',
+  ];
+  // The hook answers only when it ran: a command it lets pass gets no answer at all
+  const answered = (command) => Object.keys(runHook(repo, command)).some((k) => k !== 'ran');
+  for (const command of reads) assert.equal(answered(command), false, command);
+  for (const command of makes) assert.equal(answered(command), true, command);
+});
 
 // mainが検証のファイルをあとで変えたら、ブランチに取り込むまでPRを止める。
 test('the hook stops when main has newer checks', () => {

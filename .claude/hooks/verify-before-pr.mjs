@@ -24,8 +24,18 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// `gh pr create`, or a pull request made through the REST API
-const CREATES_PR = /\bgh\s+pr\s+create\b|\bgh\s+api\b[^\n|;&]*\/pulls(?![\w/])/;
+// `gh pr create`, or a pull request made through the REST API: a POST to `.../pulls`. gh api
+// sends a POST when it is given fields, unless the method says otherwise. A GET of the list of
+// pull requests is not one, with a query (`pulls?head=...`) or without
+function createsPr(command) {
+  if (/\bgh\s+pr\s+create\b/.test(command)) return true;
+  return command.split(/[\n|;&]/).some((part) => {
+    if (!/\bgh\s+api\b/.test(part) || !/\/pulls(?=["'\s]|$)/.test(part)) return false;
+    const method = part.match(/(?:-X|--method)[\s=]*["']?(\w+)/)?.[1]?.toUpperCase();
+    if (method) return method === 'POST';
+    return /\s(?:-f|-F|--field|--raw-field|--input)(?=[\s=])/.test(part);
+  });
+}
 
 const lf = (s) => s.replace(/\r\n/g, '\n').trim();
 // The code that runs. It is read first: a pull of the checkout while the hook runs must not hide
@@ -34,7 +44,7 @@ const running = lf(readFileSync(fileURLToPath(import.meta.url), 'utf8'));
 
 const input = JSON.parse(readFileSync(0, 'utf8'));
 const command = input.tool_input?.command ?? '';
-if (!CREATES_PR.test(command)) process.exit(0);
+if (!createsPr(command)) process.exit(0);
 
 // From here on, an error stops the pull request. Before here, it would stop every command
 process.on('uncaughtException', (e) => {
