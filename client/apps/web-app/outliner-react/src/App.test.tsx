@@ -529,6 +529,21 @@ describe('a document page', () => {
     ]);
   });
 
+  // IMEの変換を確定するEnterでは、保存しない。
+  test('the Enter that confirms a conversion of the IME does not save the title', () => {
+    const { wasm, container } = page(docPage('plan', 'work/'));
+
+    fireEvent.click(screen.getByRole('heading', { name: 'plan' }));
+    const { name } = titleFields(container);
+    fireEvent.keyDown(name as HTMLInputElement, {
+      key: 'Enter',
+      isComposing: true,
+    });
+
+    expect(wasm.events).toEqual([]);
+    expect(titleFields(container).name).not.toBeNull();
+  });
+
   // アトラスのページは、項目の代わりに、そのフォルダのキャンバスを出す。
   test('an atlas page shows the canvas of its folder in place of the items', () => {
     const { container } = page(
