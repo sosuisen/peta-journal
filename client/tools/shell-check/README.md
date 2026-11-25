@@ -40,8 +40,8 @@ The check reads text, not types. In Swift, a kind is named as an implicit member
 `.pasteText`. A member of another enum with the same name, such as the `.redo` of
 `SelectionKey`, counts as the kind too.
 
-In C#, a kind is named as a nested class of `Event`, such as `new Event.PasteText(...)`.
+In C# and Kotlin, a kind is named as a nested class of `Event`, such as `Event.PasteText(...)`.
 `Event` must be a whole name: the `Back` of `KeyEvent.Back` does not count.
 
-The `language` of the rules of a shell is `swift` or `csharp`. It also says which files are
-read: `.swift` or `.cs`.
+The `language` of the rules of a shell is `swift`, `csharp` or `kotlin`. It also says which
+files are read: `.swift`, `.cs` or `.kt`.

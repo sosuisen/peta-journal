@@ -13,6 +13,9 @@ pub enum Language {
     Swift,
     /// The generated C# types name `Event::PasteText` as `Event.PasteText`, a nested class.
     CSharp,
+    /// The generated Kotlin types name `Event::PasteText` as `Event.PasteText`, a nested class,
+    /// and `Event::Undo` as the object `Event.Undo`.
+    Kotlin,
 }
 
 impl Language {
@@ -21,6 +24,7 @@ impl Language {
         match self {
             Language::Swift => "swift",
             Language::CSharp => "cs",
+            Language::Kotlin => "kt",
         }
     }
 
@@ -31,12 +35,12 @@ impl Language {
     /// A member of another enum with the same name, such as the `.redo` of `SelectionKey`,
     /// still counts: the check reads text, not types.
     ///
-    /// In C# the name is a nested class of `Event`, such as `Event.PasteText`. `Event` must be a
-    /// whole name: the `Back` of `KeyEvent.Back` is not the event.
+    /// In C# and Kotlin the name is a nested class of `Event`, such as `Event.PasteText`. `Event`
+    /// must be a whole name: the `Back` of `KeyEvent.Back` is not the event.
     pub fn names(self, text: &str, variant: &str) -> bool {
         match self {
             Language::Swift => names_implicit_member(text, &lower_camel(variant)),
-            Language::CSharp => names_whole(text, &format!("Event.{variant}")),
+            Language::CSharp | Language::Kotlin => names_whole(text, &format!("Event.{variant}")),
         }
     }
 }
@@ -172,6 +176,20 @@ mod tests {
     #[test]
     fn csharp_does_not_count_a_longer_name() {
         assert!(!Language::CSharp.names("new Event.PasteTextLater()", "PasteText"));
+    }
+
+    // Kotlinでは、`Event::PasteText`は入れ子のクラス`Event.PasteText`として書かれる。中身のない種類は、`Event.Undo`のようにobjectとして書かれる。
+    #[test]
+    fn kotlin_names_a_kind_as_a_nested_class_of_event() {
+        assert!(Language::Kotlin.names("send(Event.PasteText(itemId, text))", "PasteText"));
+        assert!(Language::Kotlin.names("fun undo() = send(Event.Undo)\n", "Undo"));
+    }
+
+    // Kotlinで、`Event`で終わる別の名前の中の同じ名前や、長い名前は、`Event`の種類に数えない。
+    #[test]
+    fn kotlin_does_not_count_another_name() {
+        assert!(!Language::Kotlin.names("KeyEvent.Back", "Back"));
+        assert!(!Language::Kotlin.names("Event.PasteTextLater()", "PasteText"));
     }
 
     // ソースに出てこず、除外リストにも無い種類が、問題として出る。
