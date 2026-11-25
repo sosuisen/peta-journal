@@ -48,7 +48,9 @@ impl Language {
     /// still counts: the check reads text, not types.
     ///
     /// In C# and Kotlin the name is a nested class of `Event`, such as `Event.PasteText`. `Event`
-    /// must be a whole name: the `Back` of `KeyEvent.Back` is not the event.
+    /// must be a whole name: the `Back` of `KeyEvent.Back` is not the event. In Rust the name
+    /// is a variant of `Event`, such as `Event::PasteText`, and `SseEvent::Open` is not the
+    /// event.
     ///
     /// In TypeScript the name is the string under the key `kind`, such as `kind: 'PasteText'`.
     /// The same string under another key, or as an argument, is not the event. Prettier writes
