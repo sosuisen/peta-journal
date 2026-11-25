@@ -30,8 +30,6 @@ class MainActivityTest {
         InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val root = File(app.cacheDir, "activity-test")
     private var scenario: ActivityScenario<MainActivity>? = null
-    private var model: JournalModel? = null
-
     /** How many models the app made. */
     private var made = 0
 
@@ -41,22 +39,22 @@ class MainActivityTest {
     }
 
     /**
-     * The activity closes its model when it ends. The next test empties the folders: the core must
-     * have let go of them first (#1132).
+     * The model of the process stays open after the activity. The test closes it, and the next test
+     * empties the folders: the core must have let go of them first (#1132).
      */
     @After
     fun close() {
         scenario?.close()
         JournalModel.make = ::JournalModel
-        val closing = model ?: return
-        check(closing.awaitClosed(CLOSE_MS)) { "the core did not close in $CLOSE_MS ms" }
+        val model = JournalModel.forget() ?: return
+        InstrumentationRegistry.getInstrumentation().runOnMainSync { model.close() }
+        check(model.awaitClosed(CLOSE_MS)) { "the core did not close in $CLOSE_MS ms" }
     }
 
     /** Opens the app with the account, and brings it to the front. */
     private fun launch(account: FakeAccount): ActivityScenario<MainActivity> {
         JournalModel.make = {
             JournalModel(it, File(root, "files"), File(root, "cache"), account, NEVER_MS).also {
-                model = it
                 made++
             }
         }
