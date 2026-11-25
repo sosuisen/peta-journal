@@ -515,8 +515,11 @@ describe('a document page', () => {
     fireEvent.click(screen.getByRole('heading', { name: 'plan' }));
     const { name } = titleFields(container);
     fireEvent.change(name as HTMLInputElement, { target: { value: 'idea' } });
+    fireEvent.keyDown(name as HTMLInputElement, { key: 'a' });
+    const shown = titleFields(container).name;
     fireEvent.keyDown(name as HTMLInputElement, { key: 'Escape' });
 
+    expect(shown).toBe(name);
     expect(wasm.events).toEqual([]);
     expect(pageHeading()).toBe('plan');
   });
@@ -585,6 +588,23 @@ describe('a document page', () => {
     expect(name?.selectionEnd).toBe(2);
   });
 
+  // 入力すると、カーソルは入力した文字のあとに進む。見出しを押した位置には戻らない。
+  test('the cursor moves on with the typing, and does not go back to where the title was pressed', () => {
+    const { container } = page(docPage('plan', 'work/'));
+    const heading = screen.getByRole('heading', { name: 'plan' });
+    Object.defineProperty(document, 'caretPositionFromPoint', {
+      configurable: true,
+      value: () => ({ offsetNode: heading.firstChild, offset: 2 }),
+    });
+    fireEvent.click(heading);
+    const { name } = titleFields(container) as { name: HTMLInputElement };
+
+    name.setSelectionRange(5, 5);
+    fireEvent.change(name, { target: { value: 'plans' } });
+
+    expect(name.selectionStart).toBe(5);
+  });
+
   // 目次のページでは、最後のフォルダを押すと編集になる。名前は変えられず、フォルダの欄の終わりにカーソルが入る。
   test('in an index a press on the last folder edits the folder, and the name stays', () => {
     const { wasm, container } = page(
@@ -600,6 +620,7 @@ describe('a document page', () => {
     fireEvent.click(screen.getByText('plan'));
     const { dir, name } = titleFields(container);
     expect(document.activeElement).toBe(dir);
+    expect(dir?.value).toBe('work/plan');
     expect(dir?.selectionStart).toBe('work/plan'.length);
     expect(name?.disabled).toBe(true);
     fireEvent.change(dir as HTMLInputElement, { target: { value: 'home' } });
