@@ -480,7 +480,15 @@ function DocPage({ page }: { readonly page: PageView }) {
     );
   });
   let title;
-  if (page.is_root_index) {
+  if (page.is_atlas) {
+    // The title of an atlas page follows its folder: no path and no index mark
+    title = (
+      <div className="title-row">
+        <AtlasButton atlas />
+        <h2 className="page-title atlas-title">{page.title}</h2>
+      </div>
+    );
+  } else if (page.is_root_index) {
     title = (
       <>
         <div className="title-row">
@@ -509,9 +517,9 @@ function DocPage({ page }: { readonly page: PageView }) {
   return (
     <app-page>
       <div className={scrolled ? 'page-header scrolled' : 'page-header'}>
-        {!page.is_root_index && page.page.dir_path !== '' && (
+        {!page.is_atlas && !page.is_root_index && page.page.dir_path !== '' && (
           <div className="title-row">
-            {page.is_index && <AtlasButton atlas={page.is_atlas} />}
+            {page.is_index && <AtlasButton atlas={false} />}
             <div
               className={
                 page.is_index
