@@ -494,6 +494,31 @@ fn taking_in_the_downloads_starts_no_sync() {
     assert!(app.stays_quiet());
 }
 
+// ダウンロードの取り込みと同時に画面がページを読んでも、同期は始まらない。取り込みが書き直すページは、読み取りの変更ではない。
+#[test]
+fn reading_a_page_while_the_downloads_are_taken_in_starts_no_sync() {
+    let (app, sync) = app_waiting(100);
+    fs::write(app.dir.path().join("markdown/docs/notes.md"), "- a\n").unwrap();
+    app.core.sync();
+    sync.start(empty(), "/PetaJournal".into(), true);
+    app.until_rest();
+    for n in 0..100 {
+        let file = format!("markdown/docs/sample-{n}.md");
+        fs::write(app.dir.path().join(file), "- a\n").unwrap();
+    }
+
+    std::thread::scope(|threads| {
+        threads.spawn(|| app.core.sync());
+        threads.spawn(|| {
+            for _ in 0..100 {
+                app.core.open("/pages/notes".into()).unwrap();
+            }
+        });
+    });
+
+    assert!(app.stays_quiet());
+}
+
 // アプリを開くと、Markdownフォルダーに、ページの2つのフォルダーと、画像のフォルダーができる（ADR 030）。
 #[test]
 fn the_app_makes_the_folders_of_the_pages_and_the_images() {
