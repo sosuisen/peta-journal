@@ -209,6 +209,16 @@ mod tests {
         ));
     }
 
+    // TypeScriptで、長い名前や、`kind`でないキーの同じ名前は、`Event`の種類に数えない。
+    #[test]
+    fn typescript_does_not_count_another_name_or_key() {
+        assert!(!Language::TypeScript.names("{ kind: 'PasteTextLater' }", "PasteText"));
+        assert!(!Language::TypeScript.names("core.drag({ kind: 'Pressed' })", "Moved"));
+        assert!(!Language::TypeScript.names("{ key: 'Undo' }", "Undo"));
+        assert!(!Language::TypeScript.names("{ subkind: 'Undo' }", "Undo"));
+        assert!(!Language::TypeScript.names("label('Undo')", "Undo"));
+    }
+
     // ソースに出てこず、除外リストにも無い種類が、問題として出る。
     #[test]
     fn a_kind_neither_named_nor_excluded_is_missing() {
