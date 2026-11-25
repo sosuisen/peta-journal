@@ -13,9 +13,9 @@ import { streamed } from './checks.mjs';
 
 export const REMOTE = 'mac';
 
-// The ref of the Mac clone that holds the commit to check. One ref is enough: it is pushed again
-// for each check, and the clone is used for nothing else
-const REF = 'refs/heads/peta-verify';
+// The branch of the Mac clone that holds the commit to check. Each commit has its own, so no push
+// is forced: the developer would have to allow each forced push. It is deleted after the job
+const branchOf = (head) => `peta-verify-${head}`;
 
 // The line of the output that holds the result of the job on the Mac
 export const RESULT = 'PETA_RESULT ';
@@ -69,13 +69,15 @@ async function runOnMac({ root, remote, onMac, streamOnMac, name, log }) {
     return { failed: { step: 'Macへ渡す', tail: '作業ツリーに変更がある。Macで回すのは、コミットだけである。' } };
   }
   const head = gitOut(root, 'rev-parse', 'HEAD');
-  const push = run('git', ['push', '-q', '--force', REMOTE, `HEAD:${REF}`], { cwd: root });
+  const branch = branchOf(head);
+  const push = run('git', ['push', '-q', REMOTE, `HEAD:refs/heads/${branch}`], { cwd: root });
   if (push.status !== 0) return { failed: { step: 'Macへ渡す', tail: `${push.stdout}${push.stderr}`.trim() } };
-  // The clone goes back to main, where the developer left it, even when the job fails
+  // The clone goes back to main, where the developer left it, even when the job fails. The
+  // branch goes too
   const command = [
     `cd ${quote(remote.path)}`,
     `git switch -q --detach ${head}`,
-    `{ "$SHELL" -lic ${quote(`node scripts/checks.mjs run ${name} --result`)}; s=$?; git switch -q main; exit $s; }`,
+    `{ "$SHELL" -lic ${quote(`node scripts/checks.mjs run ${name} --result`)}; s=$?; git switch -q main; git branch -q -D ${branch}; exit $s; }`,
   ].join(' && ');
   const { out } = await streamOnMac(command, log);
   const line = out.split('\n').findLast((l) => l.startsWith(RESULT));

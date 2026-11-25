@@ -121,18 +121,41 @@ test('a checkout with changes is not sent to the mac', async () => {
   writeFileSync(join(here, 'app.txt'), 'three\n');
   const answer = await macOf(here).runJob('stickies-mac');
   assert.equal(answer.failed.step, 'Macへ渡す');
-  assert.throws(() => git(clone, 'rev-parse', '--verify', 'refs/heads/peta-verify'));
+  assert.equal(git(clone, 'branch', '--list', 'peta-verify*'), '');
 });
 
 // コミットをMacのクローンへpushし、そのコミットでジョブを回して、結果の行を返す。
 test('the commit is pushed to the mac, and the job runs on it there', async () => {
-  const { here, clone, git } = fakeMac();
+  const { here, git } = fakeMac();
   const head = git(here, 'rev-parse', 'HEAD');
   let logged = '';
   const answer = await macOf(here).runJob('stickies-mac', { log: (s) => (logged += s) });
   assert.deepEqual(answer, { skipped: [], job: 'stickies-mac', head });
-  assert.equal(git(clone, 'rev-parse', 'refs/heads/peta-verify'), head);
   assert.match(logged, /working on the mac/);
+});
+
+// pushは押し付けない。押し付けのpushは、開発者が毎回許可するためである。
+// 押し付けを拒むクローンでも、前後しない2つのコミットと、同じコミットの回し直しが回る。
+test('commits that do not follow each other run on a mac that refuses a forced push', async () => {
+  const { here, clone, git } = fakeMac();
+  git(clone, 'config', 'receive.denyNonFastForwards', 'true');
+  const first = git(here, 'rev-parse', 'HEAD');
+  assert.equal((await macOf(here).runJob('stickies-mac')).head, first);
+  git(here, 'reset', '-q', '--hard', 'HEAD~1');
+  writeFileSync(join(here, 'app.txt'), 'another\n');
+  git(here, 'add', '-A');
+  git(here, 'commit', '-q', '-m', 'another change');
+  const second = git(here, 'rev-parse', 'HEAD');
+  assert.equal((await macOf(here).runJob('stickies-mac')).head, second);
+  assert.equal((await macOf(here).runJob('stickies-mac')).head, second);
+});
+
+// 回したあと、Macのクローンには検証のブランチを残さない。
+test('the clone keeps no branch of the checks after a job', async () => {
+  const { here, clone, git } = fakeMac();
+  await macOf(here).runJob('stickies-mac');
+  await macOf(here).runJob('broken');
+  assert.equal(git(clone, 'branch', '--list', 'peta-verify*'), '');
 });
 
 // 結果の行がなければ、出力の終わりを添えて落ちる。落ちても、クローンはmainに戻る。
