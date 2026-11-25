@@ -647,6 +647,16 @@ impl Harness {
         self.pump();
     }
 
+    /// The field of the oldest order to focus an editor takes the keyboard now: that order is
+    /// answered, and what follows runs.
+    pub fn take_focus_of_the_oldest_order(&mut self) {
+        if !self.held_focus.is_empty() {
+            let mut request = self.held_focus.remove(0);
+            let _ = request.resolve(UiOutput::Done);
+        }
+        self.pump();
+    }
+
     /// The fields of the orders to focus an editor take the keyboard now, oldest first: the
     /// orders are answered, and what follows runs.
     pub fn take_focus(&mut self) {

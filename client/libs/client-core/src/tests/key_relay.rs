@@ -62,6 +62,7 @@ fn the_core_holds_keys_until_the_shell_answers_the_order_to_focus_an_editor() {
     h.take_focus();
 
     assert!(!h.view().outline.key_relay_holding);
+    assert_eq!(replayed(&h).len(), 1, "no keys, no second order");
 }
 
 // 答えまでに預かったキーは、同じ項目へのもう一度のフォーカスの指示で渡り、預かるのは終わる。
@@ -85,4 +86,26 @@ fn keys_held_before_the_answer_come_with_a_second_order_to_focus_the_same_editor
         ]
     );
     assert!(!h.view().outline.key_relay_holding);
+}
+
+// 答えを待つ間に次の移動が始まると、前の指示の答えでは預かるのをやめない。キーは、あとの指示の答えのあとで渡る。
+#[test]
+fn the_answer_to_an_order_that_a_later_move_overtook_does_not_end_the_hold() {
+    let mut h = harness();
+    enter(&mut h, "a", 5);
+    // Joins b to new1: the edit moves again before the field of new1 took the keyboard
+    h.send(Event::BackspaceAtStart {
+        item_id: "b".into(),
+    });
+    h.send(Event::KeyHeld(key("x")));
+
+    h.take_focus_of_the_oldest_order();
+    assert!(h.view().outline.key_relay_holding);
+
+    h.take_focus_of_the_oldest_order();
+    assert!(!h.view().outline.key_relay_holding);
+    assert_eq!(
+        replayed(&h).last(),
+        Some(&(Some("new1".to_string()), vec!["x".to_string()]))
+    );
 }
