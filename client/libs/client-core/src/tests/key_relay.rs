@@ -63,3 +63,23 @@ fn the_core_holds_keys_until_the_shell_answers_the_order_to_focus_an_editor() {
 
     assert!(!h.view().outline.key_relay_holding);
 }
+
+// 答えまでに預かったキーは、同じ項目へのもう一度のフォーカスの指示で渡り、預かるのは終わる。
+#[test]
+fn keys_held_before_the_answer_come_with_a_second_order_to_focus_the_same_editor() {
+    let mut h = harness();
+    enter(&mut h, "a", 5);
+    h.send(Event::KeyHeld(key("x")));
+    h.send(Event::KeyHeld(key("y")));
+
+    h.take_focus();
+
+    assert_eq!(
+        replayed(&h),
+        [
+            (Some("new1".to_string()), vec![]),
+            (Some("new1".to_string()), vec!["x".to_string(), "y".to_string()]),
+        ]
+    );
+    assert!(!h.view().outline.key_relay_holding);
+}
