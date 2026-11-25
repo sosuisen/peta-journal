@@ -390,6 +390,38 @@ final class JournalScreenTests: XCTestCase {
         waitFor(app.staticTexts["nowhere"])
     }
 
+    // MARK: - The menu of an item
+
+    // 項目を長押しすると、項目のメニューが出る。「Delete」を選ぶと、項目は消える。
+    func testALongPressOnAnItemOpensItsMenuAndDeleteTakesItAway() throws {
+        try download("notes.md", above("A") + "first\n\n" + above("B") + "second\n")
+        openNotes()
+        let second = app.staticTexts["second"]
+        waitFor(second)
+
+        second.press(forDuration: 1)
+        waitFor(app.buttons["Send to Stash"])
+        XCTAssertFalse(app.buttons["Remove Transclusion"].exists)
+        app.buttons["Delete"].tap()
+
+        waitUntil("the item is gone") { !second.exists }
+        XCTAssertTrue(app.staticTexts["first"].exists)
+    }
+
+    // 別の項目を見せている項目のメニューには、「Remove Transclusion」がある。選ぶと、見せていた文字は消える。
+    func testTheMenuOfAnItemThatShowsAnotherRemovesTheTransclusion() throws {
+        let shows = " transclude=\"2020-01-01-00-00-00-BBBBBBB\""
+        try download("notes.md", above("A") + "first\n\n" + above("B") + "second\n\n" + above("C", shows))
+        openNotes()
+        let shown = app.staticTexts.matching(NSPredicate(format: "label == %@", "second"))
+        waitUntil("the second item shows twice") { shown.count == 2 }
+
+        shown.element(boundBy: 1).press(forDuration: 1)
+        app.buttons["Remove Transclusion"].tap()
+
+        waitUntil("the item shows once") { shown.count == 1 }
+    }
+
     // MARK: - Editing
 
     // 新しいジャーナルの空のアイテムは、タッチして書ける。
