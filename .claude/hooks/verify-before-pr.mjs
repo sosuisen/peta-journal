@@ -10,6 +10,8 @@
 //   failure there stops the pull request, as a failure here does.
 // - A step for another OS that no machine ran does not stop the pull request. The hook tells the
 //   AI, which writes it in the pull request and in the issue. A program that is not set up stops it.
+// - A hook that throws lets the command run: Claude Code does not take a crash as a "no". So an
+//   error in the checks answers "deny", and the pull request waits until it is fixed.
 // - The newer of main and the branch is used, for every file of the checks (VERIFICATION).
 //   Claude Code runs this script from the checkout where it started, which must be on main. So a
 //   branch made before the hook still gets it. When main changed a file of the checks after the
@@ -24,9 +26,19 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 // `gh pr create`, or a pull request made through the REST API
 const CREATES_PR = /\bgh\s+pr\s+create\b|\bgh\s+api\b[^\n|;&]*\/pulls(?![\w/])/;
 
+const lf = (s) => s.replace(/\r\n/g, '\n').trim();
+// The code that runs. It is read first: a pull of the checkout while the hook runs must not hide
+// that this code is older than main
+const running = lf(readFileSync(fileURLToPath(import.meta.url), 'utf8'));
+
 const input = JSON.parse(readFileSync(0, 'utf8'));
 const command = input.tool_input?.command ?? '';
 if (!CREATES_PR.test(command)) process.exit(0);
+
+// From here on, an error stops the pull request. Before here, it would stop every command
+process.on('uncaughtException', (e) => {
+  answer('deny', `PRの前の検証が、エラーで止まりました。直してから、PRを作り直してください。\n${e?.stack ?? e}`);
+});
 
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
 
@@ -72,8 +84,6 @@ if (!process.env[HANDED]) {
   } catch {
     // Offline: the last fetched main is used
   }
-  const lf = (s) => s.replace(/\r\n/g, '\n').trim();
-  const running = lf(readFileSync(join(HOOK_ROOT, HOOK), 'utf8'));
   let onMain;
   try {
     onMain = lf(git(HOOK_ROOT, 'show', `origin/main:${HOOK}`));
@@ -152,6 +162,10 @@ for (const name of jobs) {
         result.failed.tail,
       ].join('\n'),
     );
+  }
+  // A result in another shape is not a pass, and leaves no mark: the job runs again next time
+  if (!Array.isArray(result?.skipped)) {
+    throw new Error(`${name}の結果の形が違います: ${JSON.stringify(result)}`);
   }
   const ranElsewhere = result.remote ?? [];
   writeFileSync(mark, JSON.stringify({ skipped: result.skipped, remote: ranElsewhere }));

@@ -153,3 +153,62 @@ export const runJob = (name, { remote }) => ({ skipped: [], remote: remote ? ['s
   assert.match(answer.additionalContext, /mac: swift test/);
   assert.doesNotMatch(answer.additionalContext, /回していません/);
 });
+
+// 検証の途中で例外が出たら、PRを止める。落ちたフックを、Claude Codeは止める答えとして扱わないため。
+test('the hook stops the pull request when a check throws', () => {
+  const repo = repository();
+  write(
+    repo.branch,
+    'scripts/checks.mjs',
+    `export const JOBS = { broken: { dir: '.' } };
+export const jobsFor = () => ['broken'];
+export const logFileFor = () => process.env.RAN + '.log';
+export async function runJob() {
+  throw new Error('the check broke');
+}
+`,
+  );
+  commit(repo.branch, 'break the checks');
+
+  const answer = runHook(repo);
+  assert.equal(answer.permissionDecision, 'deny');
+  assert.match(answer.permissionDecisionReason, /the check broke/);
+});
+
+// 形の違う結果は、通ったことにしない。印も残さないので、次に同じコミットで回し直せる。
+test('the hook stops and leaves no mark when a check answers in another shape', () => {
+  const repo = repository();
+  write(
+    repo.branch,
+    'scripts/checks.mjs',
+    `export const JOBS = { odd: { dir: '.' } };
+export const jobsFor = () => ['odd'];
+export const logFileFor = () => process.env.RAN + '.log';
+export const runJob = () => ({ remote: [] });
+`,
+  );
+  commit(repo.branch, 'answer in another shape');
+
+  const answer = runHook(repo);
+  assert.equal(answer.permissionDecision, 'deny');
+  const head = git(repo.branch, 'rev-parse', 'HEAD');
+  assert.equal(existsSync(join(repo.tmp, `odd-${head}`)), false);
+});
+
+// 動いているフックがmainと違えば、起動したあとにディスクのファイルがmainと同じになっても、PRを止める。
+test('the hook stops when it started from a file older than main, even if the file is pulled while it runs', () => {
+  const repo = repository();
+  const onMain = readFileSync(join(repo.main, HOOK), 'utf8');
+  // The running hook is older than main, and a pull puts the hook of main on disk right after it starts
+  const older = onMain.replace(
+    "const input = JSON.parse(readFileSync(0, 'utf8'));",
+    `const input = JSON.parse(readFileSync(0, 'utf8'));\nwriteFileSync(fileURLToPath(import.meta.url), ${JSON.stringify(onMain)});`,
+  );
+  assert.notEqual(older, onMain);
+  write(repo.main, HOOK, older);
+
+  const answer = runHook(repo);
+  assert.equal(answer.permissionDecision, 'deny');
+  assert.match(answer.permissionDecisionReason, /pull/);
+  assert.deepEqual(answer.ran, []);
+});
