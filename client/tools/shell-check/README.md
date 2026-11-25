@@ -43,5 +43,14 @@ The check reads text, not types. In Swift, a kind is named as an implicit member
 In C# and Kotlin, a kind is named as a nested class of `Event`, such as `Event.PasteText(...)`.
 `Event` must be a whole name: the `Back` of `KeyEvent.Back` does not count.
 
-The `language` of the rules of a shell is `swift`, `csharp` or `kotlin`. It also says which
-files are read: `.swift`, `.cs` or `.kt`.
+In TypeScript, a kind is named as the string under the key `kind`, such as
+`{ kind: 'PasteText', ... }`, or as the generated function that makes it, such as
+`eventPasteText(...)`. The same string under another key does not count.
+
+The `language` of the rules of a shell is `swift`, `csharp`, `kotlin` or `typescript`. It also
+says which files are read: `.swift`, `.cs`, `.kt`, or `.ts` and `.tsx`. In TypeScript the
+tests, `.test.ts` and `.test.tsx`, are not read.
+
+The `skipped` folders of the rules of a shell are not read, though they are under `sources`.
+They hold what is not the shell's own code, such as the types generated from the core, which
+name every kind.
