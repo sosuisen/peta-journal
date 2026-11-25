@@ -56,6 +56,18 @@ class JournalModelTest {
         }
     }
 
+    // 閉じたアプリのコアが閉じ終わるのを待てば、同じフォルダーでアプリを開き直せる。閉じ終わる前は、索引のロックが取れずに開けないことがある（#1132）。
+    @Test
+    fun the_app_opens_again_on_the_same_folders_once_its_core_has_closed() {
+        val first = open(FakeAccount())
+        onMain { first.close() }
+
+        assertTrue(first.awaitClosed(WAIT_MS))
+        val again = open(FakeAccount())
+
+        assertTrue(again.shell.view.screen is ScreenView.Journal)
+    }
+
     // クラウドの用意がないアプリは、何も同期しない。今日のジャーナルが開く。
     @Test
     fun an_app_without_a_cloud_syncs_nothing_and_opens_at_today() {
