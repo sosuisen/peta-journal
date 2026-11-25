@@ -475,6 +475,30 @@ describe('a document page', () => {
     ]);
   });
 
+  /** The fields of the folder and the name, shown in place of the title while it is edited. */
+  function titleFields(container: HTMLElement) {
+    return {
+      dir: container.querySelector<HTMLInputElement>('.edit-dir-path'),
+      name: container.querySelector<HTMLInputElement>('.edit-file-name'),
+    };
+  }
+
+  // 文書のページの見出しを押すと、フォルダとページ名の欄が出る。Enterで、新しいフォルダと名前をコアに送る。
+  test('a press on the title of a page shows its folder and name, and Enter saves them', () => {
+    const { wasm, container } = page(docPage('plan', 'work/'));
+
+    fireEvent.click(screen.getByRole('heading', { name: 'plan' }));
+    const { dir, name } = titleFields(container);
+    fireEvent.change(dir as HTMLInputElement, { target: { value: 'home' } });
+    fireEvent.change(name as HTMLInputElement, { target: { value: 'idea' } });
+    fireEvent.keyDown(name as HTMLInputElement, { key: 'Enter' });
+
+    expect(wasm.events).toEqual([
+      { kind: 'PageTitleSave', dir_path: 'home', file_name: 'idea' },
+    ]);
+    expect(titleFields(container).name).toBeNull();
+  });
+
   // アトラスのページは、項目の代わりに、そのフォルダのキャンバスを出す。
   test('an atlas page shows the canvas of its folder in place of the items', () => {
     const { container } = page(
