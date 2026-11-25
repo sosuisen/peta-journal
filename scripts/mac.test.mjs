@@ -75,7 +75,8 @@ function fakeMac({ host = 'fakemac' } = {}) {
 
   // The login shell of the Mac (`"$SHELL" -lic <command>`) runs its command
   const login = join(tmp, 'login.sh');
-  writeFileSync(login, '#!/bin/sh\nshift\nexec sh -c "$1"\n');
+  // `"$SHELL"` runs the file itself, so it must be executable outside Windows
+  writeFileSync(login, '#!/bin/sh\nshift\nexec sh -c "$1"\n', { mode: 0o755 });
   const ssh = join(tmp, 'ssh.mjs');
   writeFileSync(
     ssh,
