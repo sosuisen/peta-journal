@@ -3,6 +3,10 @@ import XCTest
 
 @testable import PetaDropbox
 
+#if os(iOS)
+    import UIKit
+#endif
+
 /// The sign-in and the sign-out. The Dropbox SDK is an SDK of the test: the token of the app
 /// itself is not touched.
 final class DropboxAccountTests: XCTestCase {
@@ -29,6 +33,25 @@ final class DropboxAccountTests: XCTestCase {
         XCTAssertEqual(sdk.keys, [])
         XCTAssertEqual(sdk.signOuts, 0)
     }
+
+    #if os(iOS)
+        // サインインでは、アプリが要るファイルの読み書きの権限だけを、Dropboxに求める。
+        @MainActor
+        func testTheSignInAsksDropboxForTheFilesOnly() {
+            account().signIn(over: UIViewController())
+
+            XCTAssertEqual(
+                sdk.signInScopes, [["files.metadata.read", "files.content.read", "files.content.write"]])
+        }
+
+        // App keyなしでビルドしたアプリは、サインインを始めない。
+        @MainActor
+        func testAnAppWithoutTheAppKeyStartsNoSignIn() {
+            account(key: "").signIn(over: UIViewController())
+
+            XCTAssertEqual(sdk.signInScopes, [])
+        }
+    #endif
 
     // App keyのあるアプリは、そのApp keyをSDKに1回だけ伝える。
     func testAnAppWithTheAppKeyTellsTheSdkTheKeyOnce() {
@@ -100,6 +123,16 @@ private final class FakeSdk: DropboxSdk {
     }
 
     var isSignedIn: Bool { signedIn }
+
+    #if os(iOS)
+        /// The scopes of each sign-in that was started.
+        var signInScopes: [[String]] = []
+
+        @MainActor
+        func startSignIn(over screen: UIViewController, scopes: [String]) {
+            signInScopes.append(scopes)
+        }
+    #endif
 
     func endSignIn(_ url: URL, then: @escaping (Bool) -> Void) -> Bool {
         let answer = answer
