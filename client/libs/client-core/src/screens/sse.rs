@@ -2,14 +2,14 @@
 //! with exponential backoff, and what a `pagesUpdated` or a `propertyDefinitionsUpdated`
 //! event triggers.
 
-use crate::app::{done, run, Cmd, ConnectionState, Event, Model};
+use crate::app::{done, run, Cmd, ConnectionState, Event, Model, Screen};
 use crate::effects::{SseEvent, SseOp, TimerOutput};
 use crate::ops::file_reload;
-use crate::screens::{atlas, page, settings, sidebar};
+use crate::screens::{atlas, page, route, settings, sidebar};
 use crux_core::Command;
 use journal_api_types::{ChangeSource, ClientMessage};
 
-const MAX_RECONNECT_ATTEMPTS: u32 = 10;
+const MAX_DELAY_MS: u32 = 30_000;
 
 /// Opens the stream; every event on it becomes [`Event::Sse`].
 pub fn connect(model: &mut Model) -> Cmd {
@@ -21,11 +21,17 @@ pub fn on_event(model: &mut Model, event: SseEvent) -> Cmd {
     match event {
         SseEvent::Open => {
             model.connection = ConnectionState::Connected;
+            let reconnected = model.sse_reconnect_attempts > 0;
             model.sse_reconnect_attempts = 0;
             // What changed while the stream was down was told to no one
             Command::all([
                 sidebar::refresh_recent_pages(),
                 settings::load_property_definitions(),
+                if reconnected {
+                    reconnected_to(model)
+                } else {
+                    done()
+                },
             ])
         }
         SseEvent::Message(data) => on_message(model, &data),
@@ -99,11 +105,29 @@ fn reload_for_another_client(model: &mut Model, page_id: &str) -> Cmd {
     }
 }
 
+/// The stream is back after it broke. The server may not have been up when the shell started,
+/// so what the start loaded is loaded again (#756).
+fn reconnected_to(model: &mut Model) -> Cmd {
+    Command::all([settings::load_server_config(), load_shown_page_again(model)])
+}
+
+/// What changed while the stream was down was told to no one, so the shown page is read
+/// again. A page that could not be loaded is opened again.
+fn load_shown_page_again(model: &mut Model) -> Cmd {
+    let (name, fragment) = match &model.screen {
+        Screen::Page(p) if p.page.is_none() => (p.page_name.clone(), p.focus_item_id.clone()),
+        Screen::Journal(j) if j.page.is_none() => (j.page_name.clone(), j.focus_item_id.clone()),
+        _ => return file_reload::reload_shown_page(model),
+    };
+    route::open(model, &name, fragment)
+}
+
+/// Tries again until the stream opens: the server may start long after the shell (#756).
 fn schedule_reconnect(model: &mut Model) -> Cmd {
-    if model.sse_reconnect_attempts >= MAX_RECONNECT_ATTEMPTS {
-        return done();
-    }
-    let delay = (1000u32 * 2u32.pow(model.sse_reconnect_attempts)).min(30_000);
+    let delay = 2u32
+        .saturating_pow(model.sse_reconnect_attempts)
+        .saturating_mul(1000)
+        .min(MAX_DELAY_MS);
     model.sse_reconnect_attempts += 1;
     let timer_id = model.next_timer_id();
     run(move |api| async move {

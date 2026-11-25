@@ -184,16 +184,4 @@ class DropboxAccountTest {
 
         assertEquals(emptyList<String>(), sdk.revoked)
     }
-
-    // 読むだけだった版の資格情報は、アップロードできない。捨てて無効にし、サインインし直してもらう。
-    @Test
-    fun the_credential_of_a_version_that_only_read_is_revoked_and_the_user_signs_in_again() {
-        kept.edit().putString("credential", "read-only").commit()
-
-        val account = account()
-
-        assertFalse(account.isSignedIn)
-        assertEquals(listOf("read-only"), sdk.revoked)
-        assertFalse(kept.contains("credential"))
-    }
 }

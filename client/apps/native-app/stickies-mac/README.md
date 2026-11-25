@@ -105,6 +105,26 @@ The formatter and the linter are both swift-format, which comes with Xcode. Its 
 `client/apps/native-app/.swift-format`, one file for both apps: lines of 120 letters and an
 indent of 4 spaces. Run it after every change in Swift. `generated/` is not formatted.
 
+## Coverage
+
+`coverage.sh` runs `swift test` with code coverage, after `generate.sh`. It prints the lines
+covered of each file in `Sources/`, and fails when less than 90% of the lines of the module are
+covered. It builds journal-server first, as most of the tests need it.
+
+```
+./coverage.sh
+```
+
+Not measured, with the consent of the developer (the comment of `coverage.sh` says the same):
+
+- `App/`, the entry point of the app. `swift test` does not build it.
+- `generated/`, which `generate.sh` makes from the Rust crates. The Rust tests check it.
+- `../swift-shared`, a package of its own that outliner-ios shares.
+
+The hook before a pull request runs it, with `generate.sh` and `swift-format.sh --check`
+(the `stickies-mac` job of `scripts/checks.mjs`). The CI runs the same job on macOS when it is
+started with `macos=true`.
+
 ## Mutation tests
 
 The mutation tests of the three Swift packages are swift-mutation-testing. Run them before each
@@ -171,8 +191,8 @@ open build/Build/Products/Debug/PetaStickies.app --args -server http://localhost
 ```
 
 `open` only brings a running app to the front: it starts no new one, and the arguments and a new
-build are ignored. Quit the app first (Cmd+Q). Start the journal server before the app, too: the
-app does not load the page again when the server comes up later.
+build are ignored. Quit the app first (Cmd+Q). The journal server may start after the app: the
+core keeps trying to connect, at most 30 seconds apart, and loads the page once the server is up.
 
 `Sources/PetaScreens` holds the views, and `App/` only the start of the app. The views draw the
 view model of `Shell` and decide nothing about the outline. They are a library so that tests can
@@ -300,8 +320,8 @@ address of the journal server (`-server`): this app has no address that another 
 
 An item whose body is one heading line (`## Title`) shows its Markdown at the size of its
 heading, in bold, also while it is edited: the text keeps its size when the cursor goes in and
-out. The sizes of the five levels are those of the web frontend (1.6, 1.4, 1.2, 1.1 and 1 times
-the usual size). The bullet and the box of a task keep their size and stand in the middle of
+out. The sizes of the headings and the indents of lists and quotes come from the core, so that
+every shell has the same ones (#795). The bullet and the box of a task keep their size and stand in the middle of
 the first line, however high it is.
 
 The bullet of an item is a dot. While the children of the item are hidden, a pale circle lies
@@ -428,6 +448,6 @@ what serde writes. A Rust type with a hand-written `Serialize` can write other b
 shape says. Then everything compiles, and the shell cannot read the bytes. Only a test that
 crosses the border finds this.
 
-These tests do not run in CI. A macOS runner costs much more than a Linux one, so this is put
-off. Run them by hand after a change to a type that crosses the border. CI does run the Rust
+The CI runs these tests only when it is started with `macos=true`: a macOS runner costs about
+ten times a Linux one. The hook before a pull request runs them on a Mac. CI does run the Rust
 tests of the entrance (`cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi`).

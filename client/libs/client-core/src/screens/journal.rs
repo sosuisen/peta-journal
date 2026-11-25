@@ -9,6 +9,7 @@ use crate::screens::{navigate, page, sidebar};
 use crate::util::date::{format_journal_date, Date};
 use crate::util::filename::{classify_journal_file_name, JournalType};
 use crate::util::week::week_page_name_after;
+use crate::view::LoadState;
 use crux_core::Command;
 
 /// How many items the outline keeps loaded ahead of the scroll position.
@@ -32,7 +33,19 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         loading: false,
         focus_item_id: fragment.filter(|f| !f.is_empty()),
     });
+    // The headings of the page left behind are wrong for the journal
+    model.headings_state = LoadState::Loading;
     load_journal(model, date)
+}
+
+/// The server could not answer the journal of a date. The headings of the journal still on
+/// screen fail; a reload of a journal already shown keeps them.
+pub fn journal_failed(model: &mut Model, date: &str) -> Cmd {
+    let shown = journal(model).is_some_and(|j| j.current_date == date);
+    if shown {
+        model.headings_state.fail();
+    }
+    done()
 }
 
 fn journal_mut(model: &mut Model) -> Option<&mut JournalState> {
@@ -55,7 +68,10 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
     run(move |api| async move {
         let result = match api.get_or_create_journal(&date).await {
             Ok(r) => r,
-            Err(e) => return log_error(format!("Failed to load journal {date}: {e}")),
+            Err(e) => {
+                log_error(format!("Failed to load journal {date}: {e}"));
+                return api.send_event(Event::JournalFailed { date });
+            }
         };
         let title = if date == today {
             "Today".to_string()
@@ -82,6 +98,7 @@ fn show_journal(model: &mut Model, date: String, title: String, loaded: JournalP
     let focus_item_id = j.focus_item_id.clone();
     model.state.set_items(loaded.items);
     model.state.set_transcluded_trees(loaded.transcluded_trees);
+    model.headings_state = LoadState::Loaded;
     let mut cmds = vec![
         navigate::set_title(model, title),
         sidebar::set_current_page(model, Some(loaded.page)),

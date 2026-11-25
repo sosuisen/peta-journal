@@ -9,10 +9,13 @@ import { CoreContext } from './context';
 import { Core } from './core';
 import init from './wasm/bridge';
 
-await init();
 const asked = new AskedOps();
-const core = new Core(asked.take);
-asked.answerTo(core);
+// Not awaited: the frame is drawn while the wasm loads, and each part waits for the core
+const core = init().then(() => {
+  const made = new Core(asked.take);
+  asked.answerTo(made);
+  return made;
+});
 
 const root = document.getElementById('root');
 if (root === null) {

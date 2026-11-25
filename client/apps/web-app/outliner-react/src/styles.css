@@ -166,7 +166,11 @@ app-main-layout {
   flex: 1;
   overflow: hidden;
 }
+/* The column draws the background and the line, so they show while its parts load */
 .layout aside.sidebar {
+  background: #f8f9fa;
+  border-right: 1px solid #e0e0e0;
+  box-sizing: border-box;
   flex-shrink: 0;
   overflow-y: auto;
   transition: width 0.2s;
@@ -224,6 +228,12 @@ app-main-layout {
 .connection-status.error {
   color: #f44336;
 }
+/* A part of the frame that could not be drawn, in the color of an error of the connection */
+.frame-error {
+  margin: 8px;
+  color: #f44336;
+  font-size: 13px;
+}
 .footer .item-id {
   margin-left: 16px;
   color: #888;
@@ -237,8 +247,6 @@ app-sidebar {
 app-sidebar nav.sidebar {
   width: 100%;
   height: 100%;
-  background: #f8f9fa;
-  border-right: 1px solid #e0e0e0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -313,6 +321,33 @@ app-sidebar nav.sidebar {
   width: 12px;
   color: #007bff;
   font-size: 11px;
+}
+/* A list of the sidebar that has not arrived: gray bars of the height of a page line */
+.sidebar-skeleton {
+  padding: 4px 12px;
+}
+.skeleton-line {
+  height: 13px;
+  margin: 8px 0;
+  border-radius: 4px;
+  background: #e6e8eb;
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+.skeleton-line:nth-child(2) {
+  width: 80%;
+}
+.skeleton-line:nth-child(3) {
+  width: 60%;
+}
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+.sidebar-failed {
+  margin: 4px 12px;
+  color: #999;
+  font-size: 12px;
 }
 .sidebar-context-menu {
   position: fixed;

@@ -23,14 +23,18 @@ extension Row {
 }
 
 extension Row {
-    /// How much larger than the usual text a heading of each level is, from the first to the
-    /// fifth. The web frontend has the same sizes.
-    public static let headingScales: [Double] = [1.6, 1.4, 1.2, 1.1, 1]
-
     /// The level of the heading when the whole body is one heading line, and 0 otherwise. Such
     /// an item is edited at the size of its heading, in bold: the text does not jump when the
     /// cursor goes in.
     public var editedHeading: Int {
         headingLine ? Int(headingLevel) : 0
+    }
+
+    /// How much larger than the usual text the Markdown in the editor is. It is large only when
+    /// the whole body is one heading line, and then it is the scale of the first line that the
+    /// core gives, edited or not: the cursor may go in before the core counts the item as
+    /// edited (#795).
+    public var editedScale: Double {
+        headingLine ? Double(firstLineScale) : 1
     }
 }

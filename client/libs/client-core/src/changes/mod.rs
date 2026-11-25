@@ -11,7 +11,8 @@ use crate::outline::{FocusOrder, FocusRequest};
 use crate::screens::atlas::{Callout, LinkCard};
 use crate::screens::calendar::CalendarView;
 use crate::view::{
-    AtlasCard, ConfigView, HistoryView, Row, ScreenView, SearchView, SidebarView, WikiView,
+    AtlasCard, ConfigView, HeadingsView, HistoryView, IndexPagesView, RecentPagesView, Row,
+    ScreenView, SearchView, WikiView,
 };
 use crate::ViewModel;
 use serde::Serialize;
@@ -37,7 +38,9 @@ pub enum Panel {
     AtlasLinks(Vec<LinkCard>),
     AtlasLinkSuggestions(Vec<String>),
     Outline(OutlinePanel),
-    Sidebar(SidebarView),
+    IndexPages(IndexPagesView),
+    Headings(HeadingsView),
+    RecentPages(RecentPagesView),
     Search(SearchView),
     Config(ConfigView),
     Connection(ConnectionState),
@@ -141,7 +144,9 @@ fn panels<B>(view: &ViewModel<B>) -> Vec<Panel> {
             wiki: outline.wiki.clone(),
             scrolled_from_top: outline.scrolled_from_top,
         }),
-        Panel::Sidebar(view.sidebar.clone()),
+        Panel::IndexPages(view.index_pages.clone()),
+        Panel::Headings(view.headings.clone()),
+        Panel::RecentPages(view.recent_pages.clone()),
         Panel::Search(view.search.clone()),
         Panel::Config(view.config.clone()),
         Panel::Connection(view.connection),

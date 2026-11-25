@@ -43,11 +43,12 @@ final class AppliedTests: XCTestCase {
             .atlasLinks([]),
             .atlasLinkSuggestions(["suggested"]),
             .outline(outline(selecting: true)),
-            .sidebar(
-                SidebarView(
-                    indexHeader: "index", indexPath: "index", indexSort: IndexSort(key: .name, order: .asc),
-                    indexParentPath: nil,
-                    indexPages: [], headings: [], recentPages: [], currentPageId: "current")),
+            .indexPages(
+                IndexPagesView(
+                    header: "index", path: "index", sort: IndexSort(key: .name, order: .asc), parentPath: nil,
+                    pages: [], currentPageId: "current", state: .loaded)),
+            .headings(HeadingsView(headings: [], state: .failed)),
+            .recentPages(RecentPagesView(pages: [], state: .loading)),
             .search(search("first")),
             .config(
                 ConfigView(
@@ -71,7 +72,9 @@ final class AppliedTests: XCTestCase {
         XCTAssertEqual(view.screen, .settings)
         XCTAssertEqual(view.atlasLinkSuggestions, ["suggested"])
         XCTAssertEqual(view.outline.selectionMode, true)
-        XCTAssertEqual(view.sidebar.currentPageId, "current")
+        XCTAssertEqual(view.indexPages.currentPageId, "current")
+        XCTAssertEqual(view.headings.state, .failed)
+        XCTAssertEqual(view.recentPages.state, .loading)
         XCTAssertEqual(view.search.query, "first")
         XCTAssertEqual(view.config.tagsDir, "tags")
         XCTAssertEqual(view.connection, .connected)

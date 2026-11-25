@@ -4,17 +4,21 @@
 //
 // Usage:
 //   node scripts/checks.mjs run <job>          runs the checks of the job
+//   node scripts/checks.mjs run <job> --result also prints the result as one line of JSON
 //   node scripts/checks.mjs jobs <file>...     prints the jobs that the files touch
+//   node scripts/checks.mjs log                prints the log that the hook writes for HEAD
 //
 // Only a step for another OS (`os`) is skipped on a developer's machine, and reported. In the CI
-// (CI=true), it fails the job, so that no check is skipped there without a sign. Everything else
+// (CI=true), it fails the job, so that no check is skipped there without a sign. On Windows, a
+// step for macOS runs on the Mac of the developer when there is one (scripts/mac.mjs). Everything else
 // that a step needs can be set up on any machine: a program given by an environment variable
 // (`needs`), a program on the PATH, a file (`programs`). Without it, the step fails everywhere.
 
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { RESULT, macOf } from './mac.mjs';
 
 export const ROOT = resolve(fileURLToPath(import.meta.url), '..', '..');
 
@@ -191,6 +195,30 @@ export const JOBS = {
       },
     ],
   },
+  // The sticky notes on macOS, in SwiftUI. Everything here needs Xcode, so every step is for macOS:
+  // elsewhere the hook skips them and says so. The tests that put the views in windows run here too
+  'stickies-mac': {
+    dir: 'client/apps/native-app/stickies-mac',
+    touchedBy: ['client/apps/native-app/stickies-mac/', 'client/apps/native-app/swift-shared/', ...CLIENT_RUST],
+    notTouchedBy: [
+      'client/apps/web-app/',
+      'client/apps/webview-app/',
+      'client/apps/emacs/',
+      'client/apps/native-app/outliner-android/',
+      'client/apps/native-app/outliner-ios/',
+      'client/apps/native-app/stickies-win/',
+    ],
+    steps: [
+      // generated/ and ../swift-shared/generated/: the core as a library and the types of the
+      // border, from the Rust code
+      { os: 'darwin', run: './generate.sh' },
+      // swift-format checks the Swift of both Apple shells and of swift-shared at once
+      { os: 'darwin', cwd: 'client/apps/native-app', run: './swift-format.sh --check' },
+      // Builds journal-server, runs the tests, and fails below 90% of the lines covered. The files
+      // left out are in the comment of coverage.sh
+      { os: 'darwin', run: './coverage.sh' },
+    ],
+  },
 };
 
 // The jobs that the changed files touch. Every kind of file counts, Markdown too: a test can read
@@ -238,9 +266,74 @@ function otherOs(step) {
   return `${oses.join('、')}でしか動かない`;
 }
 
-// Runs the steps of a job. `log` gets every line of output. Returns
-// { failed: {step, tail} | undefined, skipped: [{step, why}] }
-export function runJob(name, { root = ROOT, strict = false, log = (s) => process.stdout.write(s) } = {}) {
+// The other machine that runs the steps for its OS, for a checkout at `root`: the Mac of the
+// developer, on another OS than macOS. Undefined when there is none
+export function remoteFor(root = ROOT) {
+  return process.platform === 'darwin' ? undefined : macOf(root);
+}
+
+// The log that the hook before a pull request writes for the commit at HEAD of `root`. The
+// marks of the jobs that passed are in the same folder. The AI prints this path before the hook
+// runs, so that the developer can watch the log
+export function logFileFor(root = ROOT) {
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  return join(resolve(root, git('rev-parse', '--git-common-dir')), 'peta-verify', `${git('rev-parse', 'HEAD')}.log`);
+}
+
+// Runs a command in the shell of this OS. `log` gets the output as it comes. Resolves to
+// { status, out }, with all of the output
+export function runCommand(command, { cwd, env, log }) {
+  // The shell is called by hand: `shell: true` warns that the command is not escaped (DEP0190)
+  const [shell, args] =
+    process.platform === 'win32'
+      ? [env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${command}"`]]
+      : ['/bin/sh', ['-c', command]];
+  return streamed(shell, args, { cwd, env, windowsVerbatimArguments: process.platform === 'win32' }, log);
+}
+
+// Runs a program, and hands its output to `log` as it comes. Resolves to { status, out }
+export function streamed(program, args, options, log) {
+  return new Promise((done) => {
+    let out = '';
+    const child = spawn(program, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] });
+    const take = (chunk) => {
+      out += chunk;
+      log(chunk);
+    };
+    // The decoder of a stream keeps a letter whole when its bytes come in two chunks
+    child.stdout.setEncoding('utf8').on('data', take);
+    child.stderr.setEncoding('utf8').on('data', take);
+    child.on('error', (e) => take(String(e)));
+    child.on('close', (status) => done({ status: status ?? 1, out }));
+  });
+}
+
+// Runs the steps of a job. `log` gets the output as it comes. Resolves to
+// { failed: {step, tail} | undefined, skipped: [{step, why}], remote: [step] }
+// The steps that this OS cannot run and `remote` can run are run there, with the whole job: the
+// other machine runs the job by its own list of checks, from its first step. `remote` lists them
+export async function runJob(name, { root = ROOT, strict = false, remote, log = (s) => process.stdout.write(s) } = {}) {
+  const here = await runHere(name, { root, strict, log });
+  const forRemote = (s) => remote && commandOf(s.of, remote.platform) !== undefined;
+  const result = { failed: here.failed, skipped: here.skipped.map(({ step, why }) => ({ step, why })), remote: [] };
+  if (here.failed || !here.skipped.some(forRemote)) return result;
+  log(`\n### ${name}（${remote.platform}）\n`);
+  const there = await remote.runJob(name, { log });
+  if (there.unreachable) {
+    result.skipped = here.skipped.map((s) => ({ step: s.step, why: forRemote(s) ? `${s.why}。${there.unreachable}` : s.why }));
+    return result;
+  }
+  if (there.failed) return { ...result, failed: { step: `${there.failed.step}（${remote.platform}）`, tail: there.failed.tail } };
+  const left = new Set(there.skipped.map((s) => s.step));
+  return {
+    failed: undefined,
+    skipped: result.skipped.filter((s) => left.has(s.step)),
+    remote: here.skipped.filter((s) => !left.has(s.step)).map((s) => s.step),
+  };
+}
+
+// Runs the steps of a job that this OS can run. The skipped ones keep their step in `of`
+async function runHere(name, { root, strict, log }) {
   const job = JOBS[name];
   if (!job) throw new Error(`unknown job: ${name}`);
   const env = { ...process.env };
@@ -254,7 +347,7 @@ export function runJob(name, { root = ROOT, strict = false, log = (s) => process
     const why = otherOs(step);
     if (why) {
       if (strict) return { failed: { step: label, tail: why }, skipped };
-      skipped.push({ step: label, why });
+      skipped.push({ step: label, why, of: step });
       continue;
     }
     const cwd = join(root, step.cwd ?? job.dir);
@@ -265,21 +358,8 @@ export function runJob(name, { root = ROOT, strict = false, log = (s) => process
     log(`\n$ (${step.cwd ?? job.dir}) ${commandOf(step)}\n`);
     // The variables are put in here, not by the shell: cmd.exe on Windows does not read `$NAME`
     const command = commandOf(step).replace(/\$([A-Z_]+)/g, (_, v) => env[v] ?? '');
-    // The shell is called by hand: `shell: true` warns that the command is not escaped (DEP0190)
-    const [shell, args] =
-      process.platform === 'win32'
-        ? [env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${command}"`]]
-        : ['/bin/sh', ['-c', command]];
-    const r = spawnSync(shell, args, {
-      cwd,
-      env: { ...env, ...step.env },
-      windowsVerbatimArguments: process.platform === 'win32',
-      encoding: 'utf8',
-      maxBuffer: 1 << 30,
-    });
-    const out = `${r.stdout ?? ''}${r.stderr ?? ''}${r.error ? String(r.error) : ''}`;
-    log(out);
-    if (r.status !== 0) {
+    const { status, out } = await runCommand(command, { cwd, env: { ...env, ...step.env }, log });
+    if (status !== 0) {
       return { failed: { step: label, tail: out.trimEnd().split('\n').slice(-40).join('\n') }, skipped };
     }
   }
@@ -288,17 +368,26 @@ export function runJob(name, { root = ROOT, strict = false, log = (s) => process
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [command, ...args] = process.argv.slice(2);
-  if (command === 'run' && args.length === 1) {
-    const { failed, skipped } = runJob(args[0], { strict: process.env.CI === 'true' });
+  const result = args.includes('--result');
+  const names = args.filter((a) => a !== '--result');
+  if (command === 'run' && names.length === 1) {
+    const strict = process.env.CI === 'true';
+    const outcome = await runJob(names[0], { strict, remote: strict ? undefined : remoteFor() });
+    const { failed, skipped } = outcome;
+    for (const s of outcome.remote) console.log(`on the other machine: ${s}`);
     for (const s of skipped) console.log(`skipped: ${s.step} (${s.why})`);
+    // The hook on another machine reads this line, when it ran the job here
+    if (result) console.log(`${RESULT}${JSON.stringify({ failed, skipped })}`);
     if (failed) {
       console.error(`failed: ${failed.step}\n${failed.tail}`);
       process.exit(1);
     }
   } else if (command === 'jobs') {
     console.log(jobsFor(args).join('\n'));
+  } else if (command === 'log' && args.length === 0) {
+    console.log(logFileFor());
   } else {
-    console.error('usage: node scripts/checks.mjs run <job> | jobs <file>...');
+    console.error('usage: node scripts/checks.mjs run <job> | jobs <file>... | log');
     process.exit(2);
   }
 }

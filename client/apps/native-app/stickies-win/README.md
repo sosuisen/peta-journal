@@ -123,8 +123,8 @@ server and the page:
 PetaStickies.exe -server http://localhost:8087 -url /pages/notes
 ```
 
-Start the journal server before the app: the app does not load the page again when the server
-comes up later.
+The journal server may start after the app: the core keeps trying to connect, at most 30 seconds
+apart, and loads the page once the server is up.
 
 `PetaStickies` holds the app: its start, its arguments, its resources and its icon. The windows
 are in `PetaScreens`, a WinUI class library, so that the tests of `PetaScreens.Tests` can open

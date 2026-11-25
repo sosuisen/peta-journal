@@ -260,8 +260,8 @@ Emacs with it. Both have an `.sh` twin.
 ## SwiftUI frontend (stickies-mac)
 
 The shell for macOS, a Walking Skeleton so far: it opens one page and saves what is typed into an
-item. `client/apps/native-app/stickies-mac/README.md` describes the tools, the build of the app and the tests. Its
-tests do not run in CI.
+item. `client/apps/native-app/stickies-mac/README.md` describes the tools, the build of the app and the tests. The
+CI runs its tests and measures their coverage on macOS, when it is started with `macos=true`.
 
 ## WinUI frontend (stickies-win)
 
@@ -377,6 +377,17 @@ node scripts/checks.mjs jobs journal/journal-core/src/lib.rs
 node scripts/checks.mjs run todo
 ```
 
+The hook writes the output of each step into a log as it comes, the output of the Mac too. To
+watch the log while the hook runs, print its path for the commit at HEAD, then follow it:
+
+```
+node scripts/checks.mjs log
+Get-Content -Wait <the path>    # PowerShell
+tail -f <the path>              # bash
+```
+
+A job run by hand shows the output on the screen as it comes.
+
 The hook uses the newer of main and the branch, for every file of the checks (the hook, its
 setting, and `scripts/`). Claude Code runs the hook from the checkout where it started: pull main
 there, or the hook stops the pull request. When main changed a file of the checks after the
@@ -384,9 +395,21 @@ branch left it, the hook stops until the branch takes main in. Then the hook and
 checks of the branch run, so a job that the branch adds runs too. `scripts/hook.test.mjs` tests
 this.
 
-Only a step for another OS is skipped on a developer's machine, and the hook reports it. In the
-CI, such a step fails the job. Any other step fails when what it needs is missing: a program, a
-file, or an environment variable. The Emacs steps need two environment variables:
+On Windows, a step for macOS runs on your Mac over SSH, when you have one (`scripts/mac.mjs`). The
+job is run there by the list of checks of the same commit. A failure there stops the pull request.
+Nothing about the Mac is in the repository. Set it up in your Git settings:
+
+- A remote named `mac`, whose URL is a clone on the Mac that is used for the tests only
+  (`git remote add mac <host>:<folder>`). The commit is pushed to its branch `peta-verify`.
+- An SSH that asks nothing. Put the key in the agent. On Windows, Git must use the SSH of
+  Windows to read that agent: `git config --global core.sshCommand C:/Windows/System32/OpenSSH/ssh.exe`.
+
+The commands run in the login shell of the Mac, so they find the tools of its PATH.
+
+Only a step for another OS that no machine ran is skipped on a developer's machine, and the hook
+reports it: with no Mac, or when the Mac cannot be reached. In the CI, such a step fails the job.
+Any other step fails when what it needs is missing: a program, a file, or an environment
+variable. The Emacs steps need two environment variables:
 
 - `PETA_EMACS`: the `emacs` program, version 31. Not an `emacsclient` wrapper.
 - `ELISP_FORMATTER`: the `elisp-formatter.el` of `sosuisen/elisp-formatter`.

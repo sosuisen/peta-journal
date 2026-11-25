@@ -52,8 +52,8 @@ fn open(h: &mut Harness, page: Page) {
 
 fn listed(h: &Harness) -> Vec<String> {
     h.view()
-        .sidebar
         .index_pages
+        .pages
         .iter()
         .map(|p| p.label.clone())
         .collect()
@@ -85,10 +85,10 @@ fn an_index_page_lists_the_pages_of_its_folder() {
     open(&mut h, doc("notes/", "index"));
 
     assert_eq!(asked_for(&h), ["notes/index", "notes/index"]);
-    assert_eq!(h.view().sidebar.index_header, "notes/");
-    assert_eq!(h.view().sidebar.index_parent_path.as_deref(), Some("index"));
+    assert_eq!(h.view().index_pages.header, "notes/");
+    assert_eq!(h.view().index_pages.parent_path.as_deref(), Some("index"));
     assert_eq!(listed(&h), ["sub/", "Idea"]);
-    assert!(h.view().sidebar.index_pages[0].is_dir);
+    assert!(h.view().index_pages.pages[0].is_dir);
 }
 
 fn can_demote(h: &Harness) -> bool {
@@ -129,8 +129,8 @@ fn the_root_index_lists_only_the_doc_pages() {
     );
     open(&mut h, doc("", "index"));
 
-    assert_eq!(h.view().sidebar.index_header, "(root)/");
-    assert_eq!(h.view().sidebar.index_parent_path, None);
+    assert_eq!(h.view().index_pages.header, "(root)/");
+    assert_eq!(h.view().index_pages.parent_path, None);
     assert_eq!(listed(&h), ["Idea"]);
 }
 
@@ -155,7 +155,7 @@ fn a_page_in_a_folder_lists_its_siblings() {
     open(&mut h, page);
 
     assert_eq!(asked_for(&h), ["notes/index"]);
-    assert_eq!(h.view().sidebar.index_header, "notes/");
+    assert_eq!(h.view().index_pages.header, "notes/");
     assert_eq!(listed(&h), ["Idea", "Other"]);
 }
 
@@ -177,21 +177,13 @@ fn a_page_without_a_parent_lists_nothing_and_a_journal_clears_the_list() {
         },
         today: "2026-02-10".into(),
     });
-    assert_eq!(h.view().sidebar.index_header, "");
+    assert_eq!(h.view().index_pages.header, "");
     assert!(listed(&h).is_empty());
 }
 
-// サーバーが一覧を返せなければ、前の一覧がそのまま残る。
+// 親のページを読めなければ、フォルダのページは問い合わせない。
 #[test]
-fn a_failed_load_keeps_the_list_as_it_was() {
-    let mut h = Harness::new();
-    h.model.sidebar.index_header = "old/".into();
-    h.model.sidebar.index_pages = vec![doc("old/", "Kept")];
-    h.api.fail_next("GetChildPages", "offline");
-    h.api.fail_next("GetChildPages", "offline");
-    open(&mut h, doc("notes/", "index"));
-    assert_eq!(listed(&h), ["Kept"]);
-
+fn a_parent_that_cannot_be_read_asks_for_no_pages() {
     let mut h = Harness::new();
     h.api.fail_next("GetPageById", "offline");
     h.api.fail_next("GetPageById", "offline");
@@ -221,8 +213,8 @@ fn recent_pages_show_their_folder_on_its_own_line() {
 
     let labels: Vec<(Option<String>, String)> = h
         .view()
-        .sidebar
         .recent_pages
+        .pages
         .iter()
         .map(|p| (p.dir_label.clone(), p.label.clone()))
         .collect();

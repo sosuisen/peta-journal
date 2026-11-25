@@ -6,10 +6,11 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { test } from 'node:test';
-import { JOBS, ROOT, commandOf, jobsFor, runJob } from './checks.mjs';
+import { JOBS, ROOT, commandOf, jobsFor, logFileFor, runJob } from './checks.mjs';
 
 const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 
@@ -48,6 +49,19 @@ const COVERAGE_STEP = {
   'outliner-react': 'npm run coverage',
   'memoview-win': 'dotnet build -t:Coverage',
   'stickies-win': 'dotnet build -t:Coverage',
+  'stickies-mac': './coverage.sh',
+};
+
+// The coverage steps that run on one OS only, as the module builds nowhere else. The CI runs them
+// on that OS, where a step for another OS fails the job
+const COVERAGE_OS = {
+  'stickies-mac': 'darwin',
+};
+
+// The floor and the folder measured by coverage.sh of stickies-mac. App/, generated/ and
+// ../swift-shared are left out, with the consent of the developer
+const SWIFT = {
+  'client/apps/native-app/stickies-mac/coverage.sh': { floor: String(FLOOR), measured: 'Sources/' },
 };
 
 // The arguments of coverlet.console in the Coverage target of each C# test project
@@ -174,8 +188,21 @@ test('each job measures the coverage in a step that is never skipped', () => {
     const step = JOBS[job].steps.find((s) => s.run === run);
     assert.ok(step, `${job}: no step "${run}"`);
     assert.equal(step.needs, undefined, job);
-    assert.equal(step.os, undefined, job);
+    assert.equal(step.os, COVERAGE_OS[job], job);
     assert.equal(step.tools, undefined, job);
+  }
+});
+
+// Swiftのカバレッジのスクリプトは、9割未満で失敗し、了解した範囲を測る。
+test('each swift coverage script fails under the floor and measures the agreed folder', () => {
+  for (const [script, expected] of Object.entries(SWIFT)) {
+    const text = read(script);
+    const floors = [...text.matchAll(/^floor=(.*)$/gm)].map((m) => m[1]);
+    assert.deepEqual(floors, [expected.floor], script);
+    const reports = [...text.matchAll(/llvm-cov report [\s\S]*?-instr-profile="[^"]+" (\S+)\)/g)].map((m) => m[1]);
+    assert.deepEqual(reports, [expected.measured], script);
+    // A filter of llvm-cov would leave files out of that folder
+    assert.ok(!/-ignore-filename-regex/.test(text), script);
   }
 });
 
@@ -214,17 +241,17 @@ test('a markdown file touches the jobs of its folder, except under docs', () => 
 });
 
 // 手元で飛ばしてよいのは、ほかのOSの段だけである。環境変数のない段は、手元でも失敗する。
-test('only a step for another os is skipped on a developer machine', () => {
+test('only a step for another os is skipped on a developer machine', async () => {
   const other = process.platform === 'win32' ? 'darwin' : 'win32';
   const quiet = { log: () => {} };
   JOBS['test-other-os'] = { dir: '.', touchedBy: [], steps: [{ os: other, run: 'never' }] };
   JOBS['test-no-variable'] = { dir: '.', touchedBy: [], steps: [{ needs: ['PETA_NO_SUCH_VARIABLE'], run: 'never' }] };
   try {
-    const skipped = runJob('test-other-os', quiet);
+    const skipped = await runJob('test-other-os', quiet);
     assert.equal(skipped.failed, undefined);
     assert.equal(skipped.skipped.length, 1);
-    assert.equal(runJob('test-other-os', { ...quiet, strict: true }).failed.step, 'never');
-    assert.equal(runJob('test-no-variable', quiet).failed.step, 'never');
+    assert.equal((await runJob('test-other-os', { ...quiet, strict: true })).failed.step, 'never');
+    assert.equal((await runJob('test-no-variable', quiet)).failed.step, 'never');
   } finally {
     delete JOBS['test-other-os'];
     delete JOBS['test-no-variable'];
@@ -232,17 +259,130 @@ test('only a step for another os is skipped on a developer machine', () => {
 });
 
 // 1つの段は、OSごとのコマンドを持てる。コマンドのあるOSでは、CIでも飛ばさずに回す。
-test('a step with a command for each os runs on those oses', () => {
+test('a step with a command for each os runs on those oses', async () => {
   const quiet = { log: () => {} };
   JOBS['test-each-os'] = { dir: '.', touchedBy: [], steps: [{ run: { [process.platform]: 'node --version', nowhere: 'never' } }] };
   JOBS['test-no-command'] = { dir: '.', touchedBy: [], steps: [{ run: { nowhere: 'never' } }] };
   try {
-    assert.deepEqual(runJob('test-each-os', { ...quiet, strict: true }), { failed: undefined, skipped: [] });
-    assert.equal(runJob('test-no-command', quiet).skipped.length, 1);
-    assert.equal(runJob('test-no-command', { ...quiet, strict: true }).failed.step, 'never');
+    assert.deepEqual(await runJob('test-each-os', { ...quiet, strict: true }), { failed: undefined, skipped: [], remote: [] });
+    assert.equal((await runJob('test-no-command', quiet)).skipped.length, 1);
+    assert.equal((await runJob('test-no-command', { ...quiet, strict: true })).failed.step, 'never');
   } finally {
     delete JOBS['test-each-os'];
     delete JOBS['test-no-command'];
+  }
+});
+
+// 段の出力は、段が終わるのを待たずに、出たそばからログに渡る。開発者が進み具合を見られるようにするため。
+test('the output of a step reaches the log while the step runs', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'peta-stream-'));
+  const script = join(dir, 'slow.mjs');
+  writeFileSync(script, "console.log('first'); setTimeout(() => console.log('second'), 1500);\n");
+  JOBS['test-slow'] = { dir: '.', touchedBy: [], steps: [{ run: `node "${script}"` }] };
+  try {
+    let firstAt;
+    const result = await runJob('test-slow', {
+      log: (s) => {
+        if (firstAt === undefined && s.includes('first')) firstAt = Date.now();
+      },
+    });
+    const endedAt = Date.now();
+    assert.equal(result.failed, undefined);
+    assert.ok(endedAt - firstAt >= 1000, `the first line came ${endedAt - firstAt}ms before the end`);
+  } finally {
+    delete JOBS['test-slow'];
+  }
+});
+
+// フックのログは、HEADのコミットの名前で、Gitの共通のフォルダーの下に置く。ワークツリーでも同じ場所になる。
+test('the log of the hook is named by the commit at HEAD, in the common folder of git', () => {
+  const git = (...args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
+  const common = resolve(ROOT, git('rev-parse', '--git-common-dir'));
+  assert.equal(logFileFor(ROOT), join(common, 'peta-verify', `${git('rev-parse', 'HEAD')}.log`));
+});
+
+// 落ちた段は、その出力の終わりを添えて知らせる。
+test('a failed step tells the end of its output', async () => {
+  JOBS['test-fails'] = { dir: '.', touchedBy: [], steps: [{ run: 'node -e "console.log(41); process.exit(3)"' }] };
+  try {
+    const { failed } = await runJob('test-fails', { log: () => {} });
+    assert.match(failed.tail, /41/);
+  } finally {
+    delete JOBS['test-fails'];
+  }
+});
+
+// A machine of another OS that runs a job by its own list, and answers with `answer`
+function otherMachine(platform, answer) {
+  const ran = [];
+  return { ran, remote: { platform, runJob: (name) => (ran.push(name), answer) } };
+}
+
+// ほかのOSの段は、そのOSの機械があれば、ジョブごとそこで回す。そこでも飛んだ段だけが、飛ばした段に残る。
+test('a step for another os runs with its job on a machine of that os', async () => {
+  const quiet = { log: () => {} };
+  JOBS['test-two-oses'] = {
+    dir: '.',
+    touchedBy: [],
+    steps: [
+      { os: 'far', run: 'far only' },
+      { os: 'nowhere', run: 'nowhere only' },
+    ],
+  };
+  try {
+    const { ran, remote } = otherMachine('far', { failed: undefined, skipped: [{ step: 'nowhere only', why: 'no' }] });
+    const result = await runJob('test-two-oses', { ...quiet, remote });
+    assert.deepEqual(ran, ['test-two-oses']);
+    assert.equal(result.failed, undefined);
+    assert.deepEqual(result.remote, ['far only']);
+    assert.deepEqual(
+      result.skipped.map((s) => s.step),
+      ['nowhere only'],
+    );
+  } finally {
+    delete JOBS['test-two-oses'];
+  }
+});
+
+// ほかのOSの機械で段が落ちたら、ジョブも落ちる。
+test('a step that fails on the machine of another os fails the job', async () => {
+  const quiet = { log: () => {} };
+  JOBS['test-far'] = { dir: '.', touchedBy: [], steps: [{ os: 'far', run: 'far only' }] };
+  try {
+    const { remote } = otherMachine('far', { failed: { step: 'far only', tail: 'broken' }, skipped: [] });
+    const { failed } = await runJob('test-far', { ...quiet, remote });
+    assert.match(failed.step, /far only/);
+    assert.equal(failed.tail, 'broken');
+  } finally {
+    delete JOBS['test-far'];
+  }
+});
+
+// ほかのOSの機械につながらなければ、機械がないときと同じく飛ばし、そのわけを添える。
+test('a step for another os is skipped with the reason when its machine cannot be reached', async () => {
+  const quiet = { log: () => {} };
+  JOBS['test-far'] = { dir: '.', touchedBy: [], steps: [{ os: 'far', run: 'far only' }] };
+  try {
+    const { remote } = otherMachine('far', { unreachable: 'away' });
+    const result = await runJob('test-far', { ...quiet, remote });
+    assert.equal(result.failed, undefined);
+    assert.equal(result.skipped.length, 1);
+    assert.match(result.skipped[0].why, /away/);
+  } finally {
+    delete JOBS['test-far'];
+  }
+});
+
+// ほかのOSの機械は、その機械で回せる段がないジョブでは使わない。
+test('a job with no step for the other machine does not use it', async () => {
+  const quiet = { log: () => {} };
+  JOBS['test-nowhere'] = { dir: '.', touchedBy: [], steps: [{ os: 'nowhere', run: 'nowhere only' }] };
+  try {
+    const { ran, remote } = otherMachine('far', { failed: undefined, skipped: [] });
+    assert.equal((await runJob('test-nowhere', { ...quiet, remote })).skipped.length, 1);
+    assert.deepEqual(ran, []);
+  } finally {
+    delete JOBS['test-nowhere'];
   }
 });
 

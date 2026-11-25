@@ -694,14 +694,19 @@ impl<H: Host> Shell<H> {
         if any(|panel| matches!(panel, Panel::Search(_))) {
             self.tell_search(&view.search);
         }
-        if any(|panel| matches!(panel, Panel::Sidebar(_))) {
+        if any(|panel| {
+            matches!(
+                panel,
+                Panel::IndexPages(_) | Panel::Headings(_) | Panel::RecentPages(_)
+            )
+        }) {
             self.tell_recent(&view);
             self.tell_sidebar(&view);
         }
     }
 
     fn tell_sidebar(&mut self, view: &ViewModel<SharedText>) {
-        let sidebar = SidebarView::of(&view.sidebar);
+        let sidebar = SidebarView::of(&view.index_pages, &view.headings, &view.recent_pages);
         if sidebar != self.sent.sidebar {
             self.sent.sidebar.clone_from(&sidebar);
             self.host.emit(Outbound::Sidebar(sidebar));
@@ -710,7 +715,7 @@ impl<H: Host> Shell<H> {
 
     fn tell_rows(&mut self, view: &ViewModel<SharedText>) {
         let rows: Vec<SentRow> = view.outline.rows.iter().map(SentRow::of).collect();
-        let page_id = view.sidebar.current_page_id.clone();
+        let page_id = view.index_pages.current_page_id.clone();
         let changes = list_changes(&self.sent.rows, &rows, |sent| &sent.row.id);
         if changes.is_empty() && page_id == self.sent.page_id {
             return;
@@ -835,8 +840,8 @@ impl<H: Host> Shell<H> {
 
     fn tell_recent(&mut self, view: &ViewModel<SharedText>) {
         let paths: Vec<String> = view
-            .sidebar
             .recent_pages
+            .pages
             .iter()
             .map(|p| p.path.clone())
             .collect();

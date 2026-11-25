@@ -65,8 +65,14 @@ internal static class Applied
                 view.Outline.Wiki = outline.Wiki;
                 view.Outline.ScrolledFromTop = outline.ScrolledFromTop;
                 break;
-            case Panel.Sidebar sidebar:
-                view.Sidebar = sidebar.Value;
+            case Panel.IndexPages indexPages:
+                view.IndexPages = indexPages.Value;
+                break;
+            case Panel.Headings headings:
+                view.Headings = headings.Value;
+                break;
+            case Panel.RecentPages recentPages:
+                view.RecentPages = recentPages.Value;
                 break;
             case Panel.Search search:
                 view.Search = search.Value;

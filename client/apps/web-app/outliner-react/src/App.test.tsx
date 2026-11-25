@@ -17,8 +17,10 @@ import {
   type JournalType,
   type Panel,
 } from './border/peta-types';
+import { AskedOps } from './asked';
 import { AskedOpsContext } from './askedContext';
 import { CoreContext } from './context';
+import type { Core } from './core';
 import { draw, outline, shell } from './test/screens';
 
 afterEach(() => {
@@ -933,5 +935,89 @@ describe('the confirm dialog', () => {
 
     expect(wasm.answers).toEqual([]);
     expect(screen.queryByRole('alertdialog')).not.toBeNull();
+  });
+});
+
+/** Draws the app on a core that is still loading, as `main.tsx` gives it before the wasm. */
+function loading(core = new Promise<Core>(() => {}), asked = new AskedOps()) {
+  return render(
+    <CoreContext value={core}>
+      <AskedOpsContext value={asked}>
+        <App />
+      </AskedOpsContext>
+    </CoreContext>,
+  );
+}
+
+/**
+ * Does `step` inside an awaited act. React waits for a promise that a component suspends on
+ * only inside an awaited act.
+ */
+async function settled(step: () => unknown): Promise<void> {
+  await act(() => {
+    step();
+    return Promise.resolve();
+  });
+}
+
+// コアのロード中の画面
+describe('the app while the core loads', () => {
+  // コアのロード中も、ヘッダー・サイドバー・本文・フッターの枠が描かれる。
+  test('the header, the sidebar, the page and the footer are drawn', () => {
+    const { container } = loading();
+
+    const frames = ['header', 'aside', 'main', 'footer'].map(
+      tag => container.querySelector(tag) !== null,
+    );
+
+    expect(frames).toEqual([true, true, true, true]);
+  });
+
+  // コアのロード中、フッターは接続状態を connecting と表示する。
+  test('the footer shows the connection as connecting', () => {
+    const { container } = loading();
+
+    expect(container.querySelector('footer')?.textContent).toBe('connecting');
+  });
+
+  // コアの準備ができると、コアが始まり、開いたページとサイドバーが描かれる。
+  test('the core starts when it is ready, and the page it opened and the sidebar show', async () => {
+    const ui = shell();
+    ui.wasm.answerNext(
+      [],
+      [{ kind: 'Screen', value: { kind: 'Journal', value: journal('Daily') } }],
+    );
+    let ready: (core: Core) => void = () => {};
+    const core = new Promise<Core>(resolve => {
+      ready = resolve;
+    });
+    await settled(() => loading(core, ui.asked));
+
+    await settled(() => ready(ui.core));
+
+    expect([
+      pageHeading(),
+      screen.queryByText('Recent Pages') !== null,
+    ]).toEqual(['2026-11-23 (Mon)', true]);
+  });
+
+  // wasmのロードに失敗すると、各フレームに描けなかったことが表示される。
+  test('each frame tells that it could not be drawn when the wasm fails to load', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const failed = Promise.reject(new Error('no wasm'));
+    // Caught here too, or the rejection is reported as one nobody handles
+    failed.catch(() => {});
+    await settled(() => loading(failed));
+
+    const told = ['header', 'aside', 'main', 'footer'].map(
+      tag =>
+        // The sidebar has a frame for each of its parts
+        within(document.querySelector(tag) as HTMLElement).queryAllByRole(
+          'alert',
+        ).length > 0,
+    );
+
+    expect(told).toEqual([true, true, true, true]);
+    vi.restoreAllMocks();
   });
 });

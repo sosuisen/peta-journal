@@ -18,6 +18,7 @@ const HOOK = '.claude/hooks/verify-before-pr.mjs';
 const stub = (jobs) => `import { appendFileSync } from 'node:fs';
 export const JOBS = ${JSON.stringify(Object.fromEntries(jobs.map((j) => [j, { dir: '.' }])))};
 export const jobsFor = () => Object.keys(JOBS);
+export const logFileFor = () => process.env.RAN + '.log';
 export function runJob(name) {
   appendFileSync(process.env.RAN, name + '\\n');
   return { skipped: [] };
@@ -129,4 +130,26 @@ test('the hook stops when its checkout is behind main', () => {
   const answer = runHook(repo);
   assert.equal(answer.permissionDecision, 'deny');
   assert.match(answer.permissionDecisionReason, /pull/);
+});
+
+// ほかのOSの機械で回した段は、通った段として知らせ、回していない段には数えない。
+test('the hook tells the steps that ran on the machine of another os', () => {
+  const repo = repository();
+  write(
+    repo.branch,
+    'scripts/checks.mjs',
+    `export const JOBS = { mac: { dir: '.' } };
+export const jobsFor = () => ['mac'];
+export const remoteFor = () => ({ platform: 'darwin' });
+export const logFileFor = () => process.env.RAN + '.log';
+export const runJob = (name, { remote }) => ({ skipped: [], remote: remote ? ['swift test'] : [] });
+`,
+  );
+  commit(repo.branch, 'run on a mac');
+
+  const answer = runHook(repo);
+  assert.equal(answer.permissionDecision, undefined);
+  assert.match(answer.additionalContext, /Macで回して通りました/);
+  assert.match(answer.additionalContext, /mac: swift test/);
+  assert.doesNotMatch(answer.additionalContext, /回していません/);
 });
