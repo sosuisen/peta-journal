@@ -1,0 +1,54 @@
+# The rules of the outliner on the web (ADR 064).
+
+[s2]
+language = "typescript"
+sources = ["client/apps/web-app/outliner-react/src"]
+# src/border and src/wasm are made from the Rust code by `npm run border`: the types name every
+# kind. src/test holds what the tests share.
+skipped = [
+    "client/apps/web-app/outliner-react/src/border",
+    "client/apps/web-app/outliner-react/src/wasm",
+    "client/apps/web-app/outliner-react/src/test",
+]
+
+# The kinds of `Event` that this shell need not name, besides those of core.toml. The reasons
+# are of six kinds:
+#
+# - "bridge": client-web-bridge sends it when the shell calls a method of `WebShell`.
+# - "key": the core makes it from a key that the shell gives to `press`.
+# - "typing": the core makes it from a change that the shell gives to `typed`.
+# - "drag": the core makes it from a step of a drag that the shell gives to `drag`.
+# - "none": the app has no such part.
+# - "not yet": the app does not offer it yet, though it could.
+[s2.excluded]
+AtlasDirsRestored = "bridge: WebShell.start, from what the browser keeps"
+Back = "none: the back button of the browser opens the page, by Route"
+BackspaceAtStart = "key: Backspace at the start of an item"
+BodyChanged = "typing: the core makes it from a Typing Changed given to typed"
+DeleteAtEnd = "key: Delete at the end of an item"
+DeleteItem = "none: no tool deletes one item; Delete deletes the selected items, by SelectionKey"
+DragBeyondBounds = "drag: the drag leaves the outline above or below"
+EnterPressed = "key: Enter"
+Forward = "none: the forward button of the browser opens the page, by Route"
+IndexSortsRestored = "bridge: WebShell.start, from what the browser keeps"
+Indent = "key: Tab or Alt+Shift+Right"
+ItemMouseEnter = "drag: the drag goes over another item"
+MoveDown = "key: Alt+Shift+Down"
+MoveUp = "key: Alt+Shift+Up"
+NavigateDown = "key: Down on the last line, or Right at the end"
+NavigateUp = "key: Up on the first line, or Left at the start"
+Open = "none: the browser keeps the history; a page opens by Route (ADR 035)"
+OpenLinkAt = "key: Ctrl+O, or Cmd+O on a Mac"
+Outdent = "key: Shift+Tab or Alt+Shift+Left"
+PageTitleSave = "not yet: the title of a page cannot be edited, see #1171"
+PasteImage = "bridge: WebShell.pasteImage"
+Redo = "key: Ctrl+Shift+Z, or Cmd+Shift+Z on a Mac"
+Route = "bridge: WebShell.start, WebShell.go and the back and forward buttons of the browser"
+SelectionKey = "key: a key while items are selected"
+SelectionMouseUp = "drag: the drag that selects items ends"
+SetCollapsed = "key: Ctrl+Up folds an item and Ctrl+Down unfolds it, or Cmd on a Mac"
+ShiftSelect = "key: Shift+Up on the first line, or Shift+Down on the last line"
+Start = "bridge: WebShell.start"
+ToggleAtlas = "not yet: no map button between the index and atlas pages, see #1170"
+Undo = "key: Ctrl+Z, or Cmd+Z on a Mac"
+WikiKey = "bridge: WebShell.press, while the list of page names is open"

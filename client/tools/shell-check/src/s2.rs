@@ -16,15 +16,24 @@ pub enum Language {
     /// The generated Kotlin types name `Event::PasteText` as `Event.PasteText`, a nested class,
     /// and `Event::Undo` as the object `Event.Undo`.
     Kotlin,
+    /// The generated TypeScript types name `Event::PasteText` as `{ kind: 'PasteText', ... }`.
+    #[serde(rename = "typescript")]
+    TypeScript,
 }
 
 impl Language {
-    /// The file extension of a source in this language.
-    pub fn extension(self) -> &'static str {
+    /// True when the file `name` is a source in this language. In TypeScript the tests sit
+    /// beside the sources, as `App.test.tsx` beside `App.tsx`, and are not read.
+    pub fn reads(self, name: &str) -> bool {
         match self {
-            Language::Swift => "swift",
-            Language::CSharp => "cs",
-            Language::Kotlin => "kt",
+            Language::Swift => name.ends_with(".swift"),
+            Language::CSharp => name.ends_with(".cs"),
+            Language::Kotlin => name.ends_with(".kt"),
+            Language::TypeScript => {
+                (name.ends_with(".ts") || name.ends_with(".tsx"))
+                    && !name.ends_with(".test.ts")
+                    && !name.ends_with(".test.tsx")
+            }
         }
     }
 
@@ -37,10 +46,18 @@ impl Language {
     ///
     /// In C# and Kotlin the name is a nested class of `Event`, such as `Event.PasteText`. `Event`
     /// must be a whole name: the `Back` of `KeyEvent.Back` is not the event.
+    ///
+    /// In TypeScript the name is the string under the key `kind`, such as `kind: 'PasteText'`.
+    /// The same string under another key, or as an argument, is not the event. Prettier writes
+    /// the strings with single quotes. The name is also the generated function that makes the
+    /// event, such as `eventPasteText(...)`.
     pub fn names(self, text: &str, variant: &str) -> bool {
         match self {
             Language::Swift => names_implicit_member(text, &lower_camel(variant)),
             Language::CSharp | Language::Kotlin => names_whole(text, &format!("Event.{variant}")),
+            Language::TypeScript => {
+                names_kind(text, variant) || names_whole(text, &format!("event{variant}"))
+            }
         }
     }
 }
@@ -58,6 +75,19 @@ fn names_whole(text: &str, name: &str) -> bool {
         let before = text[..at].chars().next_back();
         let after = text[at + name.len()..].chars().next();
         !before.is_some_and(is_name_char) && !after.is_some_and(is_name_char)
+    })
+}
+
+fn names_kind(text: &str, variant: &str) -> bool {
+    let needle = format!("'{variant}'");
+    text.match_indices(&needle).any(|(at, _)| {
+        let Some(key) = text[..at].trim_end().strip_suffix(':') else {
+            return false;
+        };
+        let Some(before) = key.trim_end().strip_suffix("kind") else {
+            return false;
+        };
+        !before.chars().next_back().is_some_and(is_name_char)
     })
 }
 
@@ -190,6 +220,50 @@ mod tests {
     fn kotlin_does_not_count_another_name() {
         assert!(!Language::Kotlin.names("KeyEvent.Back", "Back"));
         assert!(!Language::Kotlin.names("Event.PasteTextLater()", "PasteText"));
+    }
+
+    // TypeScriptでは、`Event::PasteText`は`kind: 'PasteText'`として書かれる。複数行のオブジェクトでも同じである。
+    #[test]
+    fn typescript_names_a_kind_as_the_kind_of_an_object() {
+        assert!(Language::TypeScript
+            .names("core.send({ kind: 'PasteText', item_id: id })", "PasteText"));
+        assert!(Language::TypeScript.names("core.send({ kind: 'Undo' });", "Undo"));
+        assert!(Language::TypeScript.names(
+            "core.send({\n      kind: 'SetPageProperty',\n      key,\n    })",
+            "SetPageProperty"
+        ));
+    }
+
+    // TypeScriptで、長い名前や、`kind`でないキーの同じ名前は、`Event`の種類に数えない。
+    #[test]
+    fn typescript_does_not_count_another_name_or_key() {
+        assert!(!Language::TypeScript.names("{ kind: 'PasteTextLater' }", "PasteText"));
+        assert!(!Language::TypeScript.names("core.drag({ kind: 'Pressed' })", "Moved"));
+        assert!(!Language::TypeScript.names("{ key: 'Undo' }", "Undo"));
+        assert!(!Language::TypeScript.names("{ subkind: 'Undo' }", "Undo"));
+        assert!(!Language::TypeScript.names("label('Undo')", "Undo"));
+    }
+
+    // TypeScriptでは、`Event::PasteText`は、生成された関数`eventPasteText(...)`としても書かれる。長い名前や、別の名前の中の同じ名前は、`Event`の種類に数えない。
+    #[test]
+    fn typescript_names_a_kind_by_the_function_that_makes_it() {
+        assert!(Language::TypeScript.names(
+            "core.send(eventPasteText(id, text, html, cursor, raw));",
+            "PasteText"
+        ));
+        assert!(Language::TypeScript.names("  eventLinkClicked,\n", "LinkClicked"));
+        assert!(!Language::TypeScript.names("eventPasteTextLater(id)", "PasteText"));
+        assert!(!Language::TypeScript.names("preventPasteText(id)", "PasteText"));
+    }
+
+    // TypeScriptのシェルでは、`.ts`と`.tsx`のファイルが読まれ、テストのファイルは読まれない。
+    #[test]
+    fn typescript_reads_ts_and_tsx_but_no_tests() {
+        assert!(Language::TypeScript.reads("core.ts"));
+        assert!(Language::TypeScript.reads("App.tsx"));
+        assert!(!Language::TypeScript.reads("core.test.ts"));
+        assert!(!Language::TypeScript.reads("App.test.tsx"));
+        assert!(!Language::TypeScript.reads("styles.css"));
     }
 
     // ソースに出てこず、除外リストにも無い種類が、問題として出る。
