@@ -113,9 +113,6 @@ registers at <https://www.dropbox.com/developers/apps>:
 > unchecked (2026-11-13). PetaJournal needs only the three scopes above, which are
 > Individual Scopes.
 
-A sign-in of a version of the app that only read cannot upload. The app lets go of it, and
-shows the sign-in again.
-
 The key and the path of the Markdown folder in Dropbox come from outside the repository, as
 Gradle properties. Write them once into the `gradle.properties` of your home folder:
 `~/.gradle/gradle.properties`, which is `C:\Users\<name>\.gradle\gradle.properties` on
