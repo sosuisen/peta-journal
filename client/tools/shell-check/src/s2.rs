@@ -31,7 +31,7 @@ impl Language {
             Language::Swift => name.ends_with(".swift"),
             Language::CSharp => name.ends_with(".cs"),
             Language::Kotlin => name.ends_with(".kt"),
-            Language::Rust => false,
+            Language::Rust => name.ends_with(".rs"),
             Language::TypeScript => {
                 (name.ends_with(".ts") || name.ends_with(".tsx"))
                     && !name.ends_with(".test.ts")
