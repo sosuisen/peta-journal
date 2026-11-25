@@ -13,8 +13,9 @@ final class JournalServer {
     private let root: URL
 
     /// Starts the server on a port that is free, and waits until it answers. `functions` are
-    /// the extensions of the server: the `main.js` of each, by its name.
-    init(functions: [String: String] = [:]) throws {
+    /// the extensions of the server: the `main.js` of each, by its name. With `later`, the
+    /// server has its address but is not started until `start`.
+    init(functions: [String: String] = [:], later: Bool = false) throws {
         guard let program = ProcessInfo.processInfo.environment["PETA_E2E_SERVER"] else {
             throw XCTSkip("PETA_E2E_SERVER does not name the journal-server program")
         }
@@ -46,6 +47,11 @@ final class JournalServer {
         ]
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
+        if !later { try start() }
+    }
+
+    /// Starts the server, and waits until it answers.
+    func start() throws {
         try process.run()
         try waitUntilUp(markdown: markdown)
     }

@@ -50,12 +50,12 @@ fn an_open_stream_is_connected() {
     assert_eq!(h.api.calls_named("GetRecentPages").len(), recent_loads + 1);
 }
 
-// 切れると状態はエラーになり、間隔を倍にしながらつなぎ直す。間隔は30秒を超えず、10回で諦める。
+// 切れると状態はエラーになり、間隔を倍にしながらつなぎ直す。間隔は30秒を超えず、つながるまで諦めない。サーバーがあとから上がることがあるためである（#756）。
 #[test]
-fn a_broken_stream_reconnects_with_a_growing_delay_and_gives_up_after_ten_tries() {
+fn a_broken_stream_reconnects_with_a_growing_delay_until_it_connects() {
     let mut h = started();
     let mut delays = Vec::new();
-    for attempt in 1..=10 {
+    for attempt in 1..=40 {
         sse(&mut h, SseEvent::Error);
         assert_eq!(h.view().connection, ConnectionState::Error);
         delays.extend(pending_delays_ms(&h));
@@ -63,14 +63,9 @@ fn a_broken_stream_reconnects_with_a_growing_delay_and_gives_up_after_ten_tries(
         assert_eq!(h.view().connection, ConnectionState::Connecting);
         assert_eq!(h.sse.len(), 1 + attempt);
     }
-    assert_eq!(
-        delays,
-        [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000, 30000, 30000]
-    );
-
-    sse(&mut h, SseEvent::Error);
-    assert!(pending_delays_ms(&h).is_empty(), "no eleventh try");
-    assert_eq!(h.view().connection, ConnectionState::Error);
+    assert_eq!(delays[..6], [1000, 2000, 4000, 8000, 16000, 30000]);
+    // Past the 32nd try, a doubling of the delay would no longer fit in a u32
+    assert!(delays[6..].iter().all(|&d| d == 30000));
 }
 
 // 一度つながると、次に切れたときの間隔は最初からになる。
@@ -193,4 +188,101 @@ fn an_open_stream_reads_the_definitions_again() {
     sse(&mut h, SseEvent::Open);
 
     assert_eq!(shown_keys(&h), ["score"]);
+}
+
+fn visit(h: &mut Harness, name: &str) {
+    h.send(Event::Route {
+        route: crate::app::Route::Page {
+            name: name.into(),
+            fragment: None,
+        },
+        today: "2026-02-10".into(),
+    });
+}
+
+/// The server was down when the shell started: the stream broke, and comes back once the
+/// server is up.
+fn server_comes_up(h: &mut Harness) {
+    sse(h, SseEvent::Error);
+    h.fire_timers();
+    sse(h, SseEvent::Open);
+}
+
+// サーバーが落ちていてページを読めなかったとき、つなぎ直してストリームが開くと、そのページを開き直す（#756）。
+#[test]
+fn a_page_that_could_not_be_loaded_opens_once_the_server_is_up() {
+    let mut h = started();
+    h.api.fail_next("GetOrCreateDoc", "connection refused");
+    visit(&mut h, "Notes");
+    assert_eq!(h.model.shown_page_id(), None);
+
+    server_comes_up(&mut h);
+
+    assert_eq!(h.model.shown_page_id().as_deref(), Some("page-Notes"));
+}
+
+// サーバーが落ちていてジャーナルを読めなかったとき、つなぎ直してストリームが開くと、そのジャーナルを開き直す（#756）。
+#[test]
+fn a_journal_that_could_not_be_loaded_opens_once_the_server_is_up() {
+    let mut h = started();
+    h.api.fail_next("GetOrCreateJournal", "connection refused");
+    visit(&mut h, "2026-02-09");
+    assert_eq!(h.model.shown_page_id(), None);
+
+    server_comes_up(&mut h);
+
+    assert_eq!(h.model.shown_page_id().as_deref(), Some("page-2026-02-09"));
+}
+
+// 表示中のページは、つなぎ直してストリームが開くと読み直される。切れていた間の変更は知らされないからである。開き直しはしないので、元に戻す履歴と編集は残る。
+#[test]
+fn the_shown_page_is_read_again_once_the_stream_is_back() {
+    let mut h = Harness::with_items(vec![crate::harness::item("a", 1, "old")]);
+
+    server_comes_up(&mut h);
+
+    assert_eq!(h.bodies(), ["reloaded=reloaded"]);
+    assert!(!h.api.called("GetOrCreateDoc"));
+}
+
+// 表示中のジャーナルも、つなぎ直してストリームが開くと読み直され、開き直されはしない。
+#[test]
+fn the_shown_journal_is_read_again_and_not_opened_again_once_the_stream_is_back() {
+    let mut h = started();
+    visit(&mut h, "2026-02-09");
+
+    server_comes_up(&mut h);
+
+    assert_eq!(h.api.calls_named("GetOrCreateJournal").len(), 1);
+    assert_eq!(
+        h.api.calls_named("GetPageById"),
+        [&ApiOp::GetPageById {
+            page_id: "page-2026-02-09".into()
+        }]
+    );
+}
+
+// つなぎ直してストリームが開くと、サーバーの設定も読み直される。起動のときに読めなかったかもしれないからである（#756）。
+#[test]
+fn the_server_config_is_read_again_once_the_stream_is_back() {
+    let mut h = started();
+    let loads = h.api.calls_named("GetConfig").len();
+
+    server_comes_up(&mut h);
+
+    assert_eq!(h.api.calls_named("GetConfig").len(), loads + 1);
+}
+
+// 起動して最初にストリームが開いたときは、ページを読み直さない。起動のときに読んでいるからである。
+#[test]
+fn the_first_open_of_the_stream_reads_no_page_again() {
+    let mut h = Harness::with_items(vec![crate::harness::item("a", 1, "old")]);
+    h.send(Event::Start {
+        client_id: crate::rest::ClientId::new(),
+    });
+
+    sse(&mut h, SseEvent::Open);
+
+    assert!(!h.api.called("GetPageById"));
+    assert_eq!(h.api.calls_named("GetConfig").len(), 1);
 }
