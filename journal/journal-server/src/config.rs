@@ -33,7 +33,7 @@ pub struct Cli {
     /// Starts a throw-away server, as a test needs it: the data, the search index, the
     /// configuration and the markdown folder are all under this directory (data/, index/,
     /// config/, markdown/), and the markdown folder never leaves it, whatever config.json or
-    /// a client says. Not to be given together with the four directories above. It has no
+    /// a client says. It takes connections from this machine only. Not to be given together with the four directories above. It has no
     /// environment variable: a variable left set would turn the server of a user into a
     /// throw-away one without a word
     #[arg(long, conflicts_with_all = ["data_dir", "db", "index_dir", "config_dir"])]
@@ -228,6 +228,15 @@ impl Settings {
         }
     }
 
+    /// The machines the server takes connections from. A throw-away server is for the tests
+    /// and the tools on this machine.
+    pub fn reach(&self) -> crate::listen::Reach {
+        match self.throwaway_dir {
+            Some(_) => crate::listen::Reach::ThisMachine,
+            None => crate::listen::Reach::Everywhere,
+        }
+    }
+
     /// The settings of the server as the journal reads them from `config.json`.
     pub fn config_service(&self) -> ConfigService {
         match &self.throwaway_dir {
@@ -326,6 +335,20 @@ mod tests {
 
         assert_eq!(settings.throwaway_dir, None);
         assert_eq!(settings.config_service().markdown_dir(), "/notes");
+    }
+
+    // 使い捨てのサーバーはこの機械からだけ受け、普通のサーバーはどこからでも受ける。
+    #[test]
+    fn a_throw_away_server_is_reached_from_this_machine_only_and_another_from_everywhere() {
+        let throwaway = Settings::from_cli(Cli::parse_from([
+            "journal-server",
+            "--throwaway-dir",
+            "/tmp/e2e",
+        ]));
+        let ordinary = Settings::from_cli(Cli::parse_from(["journal-server"]));
+
+        assert_eq!(throwaway.reach(), crate::listen::Reach::ThisMachine);
+        assert_eq!(ordinary.reach(), crate::listen::Reach::Everywhere);
     }
 
     // `--frontend-dir`で指定したフォルダが、画面のフォルダになる。

@@ -140,7 +140,9 @@ The test server runs with `--throwaway-dir <a temporary directory>`. Its data, i
 its configuration and its markdown folder are all under that directory, and the server keeps the
 markdown folder there whatever `config.json` or a client says, so its export never lands in the
 markdown folder of `~/.peta-journal/config.json`. A global setup checks this before the first
-test and refuses to run otherwise. When starting a second server by hand for an experiment, start
+test and refuses to run otherwise. The server takes connections from this machine only (`::1`
+and `127.0.0.1`). Windows then does not ask to let it through the firewall, which it would ask for
+each new path of the program (#1150). When starting a second server by hand for an experiment, start
 it with `--throwaway-dir` too. With `--data-dir` alone it will export into your real markdown
 folder.
 
