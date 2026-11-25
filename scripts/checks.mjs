@@ -249,22 +249,14 @@ function findMsbuild() {
   return found.stdout.split(/\r?\n/).find((l) => l.trim())?.trim();
 }
 
-// The command of a step on this OS. `run` is a command, or a command for each OS
+// The command of a step on an OS, or undefined when the step is for another OS
 export function commandOf(step, platform = process.platform) {
-  if (typeof step.run !== 'string') return step.run[platform];
   return step.os && step.os !== platform ? undefined : step.run;
-}
-
-// The name of a step in the reports
-function nameOf(step) {
-  return typeof step.run === 'string' ? step.run : Object.values(step.run).join(' | ');
 }
 
 // Why a step is for another OS, or undefined when it is for this one
 function otherOs(step) {
-  if (commandOf(step) !== undefined) return undefined;
-  const oses = typeof step.run === 'string' ? [step.os] : Object.keys(step.run);
-  return `${oses.join('、')}でしか動かない`;
+  return commandOf(step) === undefined ? `${step.os}でしか動かない` : undefined;
 }
 
 // The other machine that runs the steps for its OS, for a checkout at `root`: the Mac of the
@@ -344,24 +336,23 @@ async function runHere(name, { root, strict, log }) {
   }
   const skipped = [];
   for (const step of job.steps) {
-    const label = nameOf(step);
     const why = otherOs(step);
     if (why) {
-      if (strict) return { failed: { step: label, tail: why }, skipped };
-      skipped.push({ step: label, why, of: step });
+      if (strict) return { failed: { step: step.run, tail: why }, skipped };
+      skipped.push({ step: step.run, why, of: step });
       continue;
     }
     const cwd = join(root, step.cwd ?? job.dir);
     const unset = (step.needs ?? []).find((v) => !env[v]);
-    if (unset) return { failed: { step: label, tail: `環境変数${unset}がない` }, skipped };
+    if (unset) return { failed: { step: step.run, tail: `環境変数${unset}がない` }, skipped };
     const absent = (step.programs ?? []).find((p) => !existsSync(join(root, p)));
-    if (absent) return { failed: { step: label, tail: `${absent}がない` }, skipped };
-    log(`\n$ (${step.cwd ?? job.dir}) ${commandOf(step)}\n`);
+    if (absent) return { failed: { step: step.run, tail: `${absent}がない` }, skipped };
+    log(`\n$ (${step.cwd ?? job.dir}) ${step.run}\n`);
     // The variables are put in here, not by the shell: cmd.exe on Windows does not read `$NAME`
-    const command = commandOf(step).replace(/\$([A-Z_]+)/g, (_, v) => env[v] ?? '');
+    const command = step.run.replace(/\$([A-Z_]+)/g, (_, v) => env[v] ?? '');
     const { status, out } = await runCommand(command, { cwd, env: { ...env, ...step.env }, log });
     if (status !== 0) {
-      return { failed: { step: label, tail: out.trimEnd().split('\n').slice(-40).join('\n') }, skipped };
+      return { failed: { step: step.run, tail: out.trimEnd().split('\n').slice(-40).join('\n') }, skipped };
     }
   }
   return { failed: undefined, skipped };

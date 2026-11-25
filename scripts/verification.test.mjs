@@ -237,21 +237,6 @@ test('only a step for another os is skipped on a developer machine', async () =>
   }
 });
 
-// 1つの段は、OSごとのコマンドを持てる。コマンドのあるOSでは、CIでも飛ばさずに回す。
-test('a step with a command for each os runs on those oses', async () => {
-  const quiet = { log: () => {} };
-  JOBS['test-each-os'] = { dir: '.', touchedBy: [], steps: [{ run: { [process.platform]: 'node --version', nowhere: 'never' } }] };
-  JOBS['test-no-command'] = { dir: '.', touchedBy: [], steps: [{ run: { nowhere: 'never' } }] };
-  try {
-    assert.deepEqual(await runJob('test-each-os', { ...quiet, strict: true }), { failed: undefined, skipped: [], remote: [] });
-    assert.equal((await runJob('test-no-command', quiet)).skipped.length, 1);
-    assert.equal((await runJob('test-no-command', { ...quiet, strict: true })).failed.step, 'never');
-  } finally {
-    delete JOBS['test-each-os'];
-    delete JOBS['test-no-command'];
-  }
-});
-
 // 段の出力は、段が終わるのを待たずに、出たそばからログに渡る。開発者が進み具合を見られるようにするため。
 test('the output of a step reaches the log while the step runs', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'peta-stream-'));
