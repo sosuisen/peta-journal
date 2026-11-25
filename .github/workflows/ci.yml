@@ -169,6 +169,31 @@ jobs:
           dotnet-version: 11.0.x
       - run: node scripts/checks.mjs run stickies-win
 
+  # The sticky notes on macOS. The tests need the core as a library, made from the Rust code with
+  # BoltFFI, and a journal server. Swift and swift-format come with the Xcode of the runner.
+  stickies-mac:
+    name: client/apps/native-app/stickies-mac
+    if: inputs.macos
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Installs the version, components and targets in rust-toolchain.toml
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            journal
+            client
+      # The same version as the stickies-win job, kept in the cache for the same reason
+      - id: boltffi
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/boltffi
+          key: boltffi-cli-0.32.1-${{ runner.os }}
+      - if: steps.boltffi.outputs.cache-hit != 'true'
+        run: cargo install boltffi_cli --version =0.32.1 --locked
+      - run: node scripts/checks.mjs run stickies-mac
+
   memoview-win:
     name: client/apps/webview-app/memoview-win
     # The app is WinUI. It builds only on Windows, with the MSBuild of Visual Studio
