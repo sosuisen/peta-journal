@@ -462,9 +462,12 @@ interface TitleEdit {
  * new folder and name to the core.
  */
 function TitleFields({
+  inFolder,
   edit,
   setEdit,
 }: {
+  /** False for a page at the top, which has no field of the folder. */
+  readonly inFolder: boolean;
   readonly edit: TitleEdit;
   readonly setEdit: (edit: TitleEdit | null) => void;
 }) {
@@ -504,13 +507,17 @@ function TitleFields({
         }
       }}
     >
-      <input
-        className="edit-dir-path"
-        value={edit.dir}
-        onChange={event => setEdit({ ...edit, dir: event.target.value })}
-        onKeyDown={onKeyDown}
-      />
-      <span className="edit-slash">/</span>
+      {inFolder && (
+        <>
+          <input
+            className="edit-dir-path"
+            value={edit.dir}
+            onChange={event => setEdit({ ...edit, dir: event.target.value })}
+            onKeyDown={onKeyDown}
+          />
+          <span className="edit-slash">/</span>
+        </>
+      )}
       <input
         className="edit-file-name"
         value={edit.name}
@@ -602,7 +609,13 @@ function DocPage({ page }: { readonly page: PageView }) {
   return (
     <app-page>
       <div className={scrolled ? 'page-header scrolled' : 'page-header'}>
-        {edit !== null && <TitleFields edit={edit} setEdit={setEdit} />}
+        {edit !== null && (
+          <TitleFields
+            inFolder={page.page.dir_path !== ''}
+            edit={edit}
+            setEdit={setEdit}
+          />
+        )}
         {edit === null &&
           !page.is_atlas &&
           !page.is_root_index &&
