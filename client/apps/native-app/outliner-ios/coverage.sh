@@ -37,6 +37,8 @@ cd "$here"
 [ -f Dropbox.xcconfig ] || : >Dropbox.xcconfig
 xcodegen generate --quiet
 rm -rf build/coverage.xcresult
+# A new checkout, such as on a runner of the CI, has no build/ yet, and the log goes there
+mkdir -p build
 # A Mac that goes to sleep stops the simulator, and the tests then wait in vain
 if ! caffeinate -dimsu xcodebuild -project PetaJournal.xcodeproj -scheme PetaJournal \
     -destination "platform=iOS Simulator,name=$device" -derivedDataPath build \
