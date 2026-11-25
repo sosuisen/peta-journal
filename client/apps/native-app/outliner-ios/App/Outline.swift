@@ -23,6 +23,9 @@ struct Outline: View {
     @ObservedObject var shell: Shell
     /// What the keyboard and the tools cover at the bottom of the page.
     let covered: CGFloat
+    /// The rows that the list has drawn. It is no state of the view: a row that comes or goes
+    /// draws nothing again
+    @State private var drawn = Drawn()
 
     var body: some View {
         let view = shell.view
@@ -34,6 +37,11 @@ struct Outline: View {
                     ForEach(view.outline.rows, id: \.item.id) { row in
                         OutlineRow(row: row, shell: shell)
                             .id(row.item.id)
+                            // The list draws the rows near what is seen: the core learns by
+                            // them where the page is scrolled, and a journal loads the days
+                            // before when its end comes near
+                            .onAppear { drawn.came(Int(row.position), shell) }
+                            .onDisappear { drawn.went(Int(row.position), shell) }
                     }
                 }
                 .padding(.horizontal, 12)
@@ -67,6 +75,26 @@ struct Outline: View {
         case .journal(let journal): return journal.displayDate
         default: return ""
         }
+    }
+}
+
+/// The positions of the rows that the list has drawn, which it tells the core as they change.
+final class Drawn {
+    private var positions = Set<Int>()
+
+    @MainActor func came(_ position: Int, _ shell: Shell) {
+        positions.insert(position)
+        tell(shell)
+    }
+
+    @MainActor func went(_ position: Int, _ shell: Shell) {
+        positions.remove(position)
+        tell(shell)
+    }
+
+    @MainActor private func tell(_ shell: Shell) {
+        guard let first = positions.min(), let last = positions.max() else { return }
+        shell.scrolled(top: first, shown: first...last)
     }
 }
 
