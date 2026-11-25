@@ -138,8 +138,8 @@ jobs:
       - run: node scripts/checks.mjs run outliner-react
 
   # The sticky notes on Windows. The tests of PetaBorder need the core as a library, made from the
-  # Rust code with BoltFFI, and a journal server. The tests of the windows do not run here: they
-  # press real keys on the screen.
+  # Rust code with BoltFFI, and a journal server. The tests of the windows run here too: they press
+  # real keys on the screen of the runner.
   stickies-win:
     name: client/apps/native-app/stickies-win
     if: inputs.windows

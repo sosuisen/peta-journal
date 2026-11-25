@@ -162,9 +162,10 @@ export const JOBS = {
     ],
   },
   // The sticky notes on Windows. PetaBorder, the C# side of the border, is tested without WinUI.
-  // The tests of the windows (PetaScreens.Tests) press real keys, and run on a developer's
-  // machine only. Every step is for Windows. PetaBorder and its tests could run on a Mac, but the
-  // developer decided not to run them there (#1085): the app runs on Windows only.
+  // The tests of the windows (PetaScreens.Tests) press real keys. They run in the coverage step,
+  // on the Windows runner of the CI too. Every step is for Windows. PetaBorder and its tests could
+  // run on a Mac, but the developer decided not to run them there (#1085): the app runs on Windows
+  // only.
   'stickies-win': {
     dir: 'client/apps/native-app/stickies-win',
     touchedBy: ['client/apps/native-app/stickies-win/', ...CLIENT_RUST],
@@ -194,6 +195,9 @@ export const JOBS = {
         env: { PETA_E2E_SERVER: join(ROOT, 'journal', 'target', 'debug', `journal-server${EXE}`) },
         run: 'dotnet build -t:Coverage',
       },
+      // The app itself. Its entry point is left out of the coverage, and no test builds it, so
+      // only this step shows what breaks in it. WinUI builds only on Windows
+      { os: 'win32', run: 'dotnet build PetaStickies -nologo -v:q' },
     ],
   },
   // The sticky notes on macOS, in SwiftUI. Everything here needs Xcode, so every step is for macOS:
