@@ -192,6 +192,18 @@ mod tests {
         assert!(!Language::Kotlin.names("Event.PasteTextLater()", "PasteText"));
     }
 
+    // TypeScriptでは、`Event::PasteText`は`kind: 'PasteText'`として書かれる。複数行のオブジェクトでも同じである。
+    #[test]
+    fn typescript_names_a_kind_as_the_kind_of_an_object() {
+        assert!(Language::TypeScript
+            .names("core.send({ kind: 'PasteText', item_id: id })", "PasteText"));
+        assert!(Language::TypeScript.names("core.send({ kind: 'Undo' });", "Undo"));
+        assert!(Language::TypeScript.names(
+            "core.send({\n      kind: 'SetPageProperty',\n      key,\n    })",
+            "SetPageProperty"
+        ));
+    }
+
     // ソースに出てこず、除外リストにも無い種類が、問題として出る。
     #[test]
     fn a_kind_neither_named_nor_excluded_is_missing() {
