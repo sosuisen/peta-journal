@@ -4,13 +4,15 @@ name: CI
 # The checks of each job are in scripts/checks.mjs. The hook before a pull request
 # (.claude/hooks/verify-before-pr.mjs) runs the same checks on a developer's machine.
 #
-# Each OS can be left out, as the minutes cost more on Windows and much more on macOS. The jobs
-# of an OS left out show as skipped. The guard job runs every time. For only the Windows jobs:
-# `gh workflow run CI --ref <branch> -f linux=false`
+# The jobs of every OS run by default. The repository is public, and its standard runners cost
+# nothing, also on macOS. A larger runner would cost: none of the jobs uses one.
+#
+# Each OS can still be left out, to wait less. The jobs of an OS left out show as skipped. The
+# guard job runs every time. For only the Windows jobs:
+# `gh workflow run CI --ref <branch> -f linux=false -f macos=false`
 #
 # ios_only runs the guard and the outliner-ios job, and no other job, whatever the inputs of the
-# OS say. The macOS runner costs much, and the stickies-mac job would run with macos=true:
-# `gh workflow run CI --ref <branch> -f ios_only=true`
+# OS say: `gh workflow run CI --ref <branch> -f ios_only=true`
 on:
   workflow_dispatch:
     inputs:
@@ -23,9 +25,9 @@ on:
         type: boolean
         default: true
       macos:
-        description: Run the jobs on macOS (about ten times the cost of Linux)
+        description: Run the jobs on macOS
         type: boolean
-        default: false
+        default: true
       ios_only:
         description: Run only the outliner-ios job on macOS, and the guard
         type: boolean

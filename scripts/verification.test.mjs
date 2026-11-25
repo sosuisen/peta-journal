@@ -413,7 +413,7 @@ function ciOses() {
   return oses;
 }
 
-// CIは、OSごとに回すかを選べる。既定はLinuxとWindowsを回し、macOSは回さない（開発者が決めた）。
+// CIは、OSごとに回すかを選べる。既定はすべてのOSを回す（開発者が決めた。publicのリポジトリでは、macOSも無料である）。
 // guardは毎回回る。ほかのジョブは、ランナーのOSの入力で決まる。ただし、ios_onlyのときは、outliner-iosだけが回る。
 test('the CI runs each os when asked, only outliner-ios with ios_only, and the guard every time', () => {
   const ci = read('.github/workflows/ci.yml');
@@ -421,7 +421,7 @@ test('the CI runs each os when asked, only outliner-ios with ios_only, and the g
   const defaults = Object.fromEntries(
     [...ci.matchAll(/\n {6}(\w+):\n {8}description: [^\n]*\n {8}type: boolean\n {8}default: (true|false)(?=\n)/g)].map((m) => [m[1], m[2]]),
   );
-  assert.deepEqual(defaults, { linux: 'true', windows: 'true', macos: 'false', ios_only: 'false' });
+  assert.deepEqual(defaults, { linux: 'true', windows: 'true', macos: 'true', ios_only: 'false' });
   for (const block of ci.split('\njobs:\n')[1].split(/\n(?=  [\w-]+:\n)/)) {
     const name = block.match(/^ {2}([\w-]+):$/m)?.[1];
     if (!name) continue; // a comment before the first job

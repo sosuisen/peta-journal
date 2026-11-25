@@ -263,7 +263,7 @@ Emacs with it. Both have an `.sh` twin.
 
 The shell for macOS, a Walking Skeleton so far: it opens one page and saves what is typed into an
 item. `client/apps/native-app/stickies-mac/README.md` describes the tools, the build of the app and the tests. The
-CI runs its tests and measures their coverage on macOS, when it is started with `macos=true`.
+CI runs its tests and measures their coverage on macOS.
 
 ## WinUI frontend (stickies-win)
 
@@ -349,20 +349,20 @@ Then build the frontend, open an atlas, and check the drawing and a dialog.
 ## CI
 
 `.github/workflows/ci.yml` runs only when asked: from the Actions tab, or with
-`gh workflow run CI --ref <branch>`. The runs are paid.
+`gh workflow run CI --ref <branch>`.
 
-Each OS can be left out with an input. The jobs on Linux and on Windows run by default, the jobs
-on macOS do not. The minutes cost twice as much on Windows, and about ten times on macOS. The
-`guard` job runs every time.
+The jobs of every OS run by default. The repository is public, so the standard runners of GitHub
+cost nothing, also on macOS. A larger runner would cost: none of the jobs uses one.
+
+Each OS can be left out with an input, to wait less. The `guard` job runs every time.
 
 ```
-gh workflow run CI --ref <branch> -f linux=false   # only the Windows jobs
-gh workflow run CI --ref <branch> -f macos=true    # the macOS jobs too
-gh workflow run CI --ref <branch> -f ios_only=true # only outliner-ios, and the guard
+gh workflow run CI --ref <branch> -f macos=false                 # Linux and Windows
+gh workflow run CI --ref <branch> -f linux=false -f macos=false  # only the Windows jobs
+gh workflow run CI --ref <branch> -f ios_only=true               # only outliner-ios, and the guard
 ```
 
-`ios_only` leaves out every other job, whatever the other inputs say. With `macos=true` the
-stickies-mac job would run too, on the costly runner.
+`ios_only` leaves out every other job, whatever the other inputs say.
 
 The checks of each job are listed once, in `scripts/checks.mjs`: the format, the lint, the tests
 and the coverage. The workflow only installs the tools, then runs `node scripts/checks.mjs run <job>`.
