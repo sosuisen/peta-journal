@@ -311,6 +311,11 @@ What each class does:
   `JournalModel` knows the cloud storage only as `CloudAccount`, and takes its folders from
   outside. A test opens the model, and the real `MainActivity` over it, on folders of its own
   and with an account of its own. `viewWithAnotherApp` hands a file to another app.
+- There is one `JournalModel` for the process, not one for each screen: `JournalModel.of`
+  makes it for the first screen, and gives it to the next ones. The journal is not closed
+  when the app is left: a closed core lets go of its folders only after the sync that runs,
+  and until then no core opens them again (#1135). What waits to be saved is saved when the
+  app goes to the back.
 - The sync with Dropbox is in Rust, in the core (`client-cloud-sync`, ADR 054): what to
   download, what to upload, the record of the versions, and one sync at a time. The iOS
   shell runs the same code.
