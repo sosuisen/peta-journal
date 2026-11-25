@@ -86,6 +86,9 @@ schemes:
       targets:
         PetaJournal: all
     test:
+      gatherCoverageData: true
       targets:
+        - package: PetaJournal/PetaBorderTests
+        - package: PetaJournal/PetaDropboxTests
         - PetaJournalTests
         - PetaJournalUITests

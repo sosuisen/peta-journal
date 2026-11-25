@@ -41,7 +41,8 @@ the app syncs, where it keeps its data, how it edits and how it uploads.
 cd peta-journal/client/apps/native-app/outliner-ios
 ./generate.sh        # makes generated/ from the Rust crates
 swift test           # runs the tests that need no simulator, on the Mac
-./debug.sh --test    # runs the tests of the screen in a simulator
+./debug.sh --test    # runs every test in a simulator, those of the screen too
+./coverage.sh        # runs every test in a simulator, and fails under 90% of the lines covered
 ./debug.sh           # builds the app (the Debug build) and starts it in a simulator
 ./release.sh         # builds the app (the Release build) for a simulator
 ```
@@ -215,12 +216,20 @@ copy of Dropbox.
 (`client-cloud-sync`). The tests of `Shell` and of `ShownText` run the real
 core, with its files in a temporary folder.
 
-`./debug.sh --test` runs, in the simulator, the tests of `JournalModel` (`AppTests`) inside the
-app, with an account of the test, and then the tests of the screen (`UITests`). Each test of
-the screen gives
-the app a folder of its own, by `PETA_ROOT`. The app syncs with nothing then. They take
-several minutes. `debug.sh` keeps the Mac awake meanwhile (`caffeinate`): on a Mac that goes to
-sleep, the tests end with "Timed out while preparing execution worker".
+`./debug.sh --test` runs, in the simulator, the tests of the packages, the tests of
+`JournalModel` (`AppTests`) inside the app, with an account of the test, and then the tests of
+the screen (`UITests`). Each test of the screen gives the app a folder of its own, by
+`PETA_ROOT`. The app syncs with nothing then. A test of the sync asks for a cloud of the test
+by `PETA_CLOUD` (`App/TestCloud.swift`): it reaches no Dropbox. The tests take about 15
+minutes. `debug.sh` keeps the Mac awake meanwhile (`caffeinate`): on a Mac that goes to sleep,
+the tests end with "Timed out while preparing execution worker".
 
-Not tested: `SdkDropbox` and `RealDropboxSdk`, which need an account of Dropbox, and what
-the screen shows of a sync (the menu, the dialog, the callout). The tests do not run in CI.
+`./coverage.sh` runs all those tests with code coverage. It fails when less than 90% of the
+lines of `App/` and `Sources/` are covered. The lines are counted over the whole module, not
+file by file. Not tested, and left out of the measurement: `SdkDropbox` and `RealDropboxSdk`
+(`DropboxSdk.swift`). They only pass each call on to the SDK of Dropbox, and a test of them
+needs an account of Dropbox.
+
+The hook before a pull request runs `generate.sh`, the format check and `coverage.sh` on the
+Mac (the job `outliner-ios` of `scripts/checks.mjs`). The CI runs them when it is started with
+`macos=true`.
