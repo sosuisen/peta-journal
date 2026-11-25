@@ -266,6 +266,17 @@ mod tests {
         assert!(!Language::TypeScript.reads("styles.css"));
     }
 
+    // Rustでは、`Event::PasteText`は`Event::PasteText`として書かれる。
+    #[test]
+    fn rust_names_a_kind_as_a_variant_of_event() {
+        assert!(Language::Rust.names(
+            "self.send(Event::PasteText {\n    item_id: id,\n})",
+            "PasteText"
+        ));
+        assert!(Language::Rust.names("self.send(Event::Undo),", "Undo"));
+        assert!(Language::Rust.names("Event::SelectionKey(key.into())", "SelectionKey"));
+    }
+
     // ソースに出てこず、除外リストにも無い種類が、問題として出る。
     #[test]
     fn a_kind_neither_named_nor_excluded_is_missing() {
