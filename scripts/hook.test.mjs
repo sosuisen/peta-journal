@@ -65,9 +65,9 @@ function commit(dir, message) {
 }
 
 // Runs the hook of main for `gh pr create` in the branch. Returns the answer of the hook
-function runHook({ main, branch, ran }) {
+function runHook({ main, branch, ran }, command = 'gh pr create') {
   const r = spawnSync(process.execPath, [join(main, HOOK)], {
-    input: JSON.stringify({ tool_input: { command: 'gh pr create' }, cwd: branch }),
+    input: JSON.stringify({ tool_input: { command }, cwd: branch }),
     encoding: 'utf8',
     env: { ...process.env, RAN: ran, PETA_VERIFY_HANDED: '' },
   });
@@ -75,6 +75,31 @@ function runHook({ main, branch, ran }) {
   const out = r.stdout.trim() ? JSON.parse(r.stdout).hookSpecificOutput : {};
   return { ...out, ran: existsSync(ran) ? readFileSync(ran, 'utf8').split('\n').filter(Boolean) : [] };
 }
+
+// フックは、PRを作るコマンドの前にだけ動く。PRの一覧や1つのPRを読むGETでは動かない。
+test('the hook runs before a command that makes a pull request, and not before one that reads them', () => {
+  const repo = repository();
+  const makes = [
+    'gh pr create --base main',
+    'gh api -X POST repos/o/r/pulls -f title=x',
+    'gh api repos/o/r/pulls -f title=x -F "body=@pr.md"',
+    'gh api --method=post "repos/o/r/pulls" --input body.json',
+    'git push && gh api repos/o/r/pulls -f title=x',
+  ];
+  const reads = [
+    'gh api "repos/o/r/pulls?head=o:b&state=all" --jq .',
+    'gh api repos/o/r/pulls',
+    'gh api -X GET repos/o/r/pulls -f state=all',
+    'gh api repos/o/r/pulls/12 -f state=closed -X PATCH',
+    'gh api -X POST repos/o/r/issues/12/assignees -f "assignees[]=me"',
+    'gh pr list --head b',
+    'gh api "repos/o/r/pulls" --jq . && gh api -X POST repos/o/r/issues/1/comments -f body=x',
+  ];
+  // The hook answers only when it ran: a command it lets pass gets no answer at all
+  const answered = (command) => Object.keys(runHook(repo, command)).some((k) => k !== 'ran');
+  for (const command of reads) assert.equal(answered(command), false, command);
+  for (const command of makes) assert.equal(answered(command), true, command);
+});
 
 // mainが検証のファイルをあとで変えたら、ブランチに取り込むまでPRを止める。
 test('the hook stops when main has newer checks', () => {
@@ -132,26 +157,28 @@ test('the hook stops when its checkout is behind main', () => {
   assert.match(answer.permissionDecisionReason, /pull/);
 });
 
-// ほかのOSの機械で回した段は、通った段として知らせ、回していない段には数えない。
-test('the hook tells the steps that ran on the machine of another os', () => {
+// フックは、ほかの機械を使わず、画面に触れる段を飛ばす。飛ばした段はCIに任せ、PRは止めない（ADR 086）。
+test('the hook uses no other machine, skips the steps on the screen, and leaves them to the ci', () => {
   const repo = repository();
   write(
     repo.branch,
     'scripts/checks.mjs',
-    `export const JOBS = { mac: { dir: '.' } };
-export const jobsFor = () => ['mac'];
+    `export const JOBS = { win: { dir: '.' } };
+export const jobsFor = () => ['win'];
 export const remoteFor = () => ({ platform: 'darwin' });
 export const logFileFor = () => process.env.RAN + '.log';
-export const runJob = (name, { remote }) => ({ skipped: [], remote: remote ? ['swift test'] : [] });
+export const runJob = (name, { remote, screen }) => ({
+  skipped: [{ step: 'press keys', why: JSON.stringify({ remote: remote ?? null, screen }) }],
+});
 `,
   );
-  commit(repo.branch, 'run on a mac');
+  commit(repo.branch, 'a job with a step on the screen');
 
   const answer = runHook(repo);
   assert.equal(answer.permissionDecision, undefined);
-  assert.match(answer.additionalContext, /Macで回して通りました/);
-  assert.match(answer.additionalContext, /mac: swift test/);
-  assert.doesNotMatch(answer.additionalContext, /回していません/);
+  assert.match(answer.additionalContext, /win: press keys（\{"remote":null,"screen":false\}）/);
+  assert.match(answer.additionalContext, /PRのCIが回し/);
+  assert.doesNotMatch(answer.additionalContext, /issue/);
 });
 
 // 検証の途中で例外が出たら、PRを止める。落ちたフックを、Claude Codeは止める答えとして扱わないため。
