@@ -341,6 +341,10 @@ Four tests of `ShellTests` are skipped on a Mac: those of a key with Control (fo
 The core reads the keys of the system it was built for, and a Mac has Command where Windows has
 Control. They run on Windows.
 
+The hook before a pull request does not run them on a Mac. Every step of the job `stickies-win`
+in `scripts/checks.mjs` is for Windows, as the developer decided (#1085): the app runs on Windows
+only. On a Mac, the hook skips the job and says so.
+
 ### Tests of the windows
 
 `PetaScreens.Tests` opens real stickies and works them as a user does (ADR 059). It is a WinUI
