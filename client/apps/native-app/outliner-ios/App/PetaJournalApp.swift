@@ -41,16 +41,21 @@ private final class Opened: ObservableObject {
     let failure: String
 
     init() {
-        let named = ProcessInfo.processInfo.environment["PETA_ROOT"].map { URL(fileURLWithPath: $0) }
+        let environment = ProcessInfo.processInfo.environment
+        let named = environment["PETA_ROOT"].map { URL(fileURLWithPath: $0) }
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let root = named ?? support.appendingPathComponent("PetaJournal")
         let info = Bundle.main.infoDictionary ?? [:]
+        // A test of the screen syncs with the cloud of the test that it asks for, or with none
+        let testCloud = named == nil ? nil : TestCloud.asked(environment)
         do {
-            let account = DropboxAccount(
-                // A test of the screen syncs nothing
-                key: named == nil ? info["DropboxKey"] as? String ?? "" : "",
-                folder: info["DropboxFolder"] as? String ?? "")
+            let account: CloudAccount =
+                testCloud
+                ?? DropboxAccount(
+                    key: named == nil ? info["DropboxKey"] as? String ?? "" : "",
+                    folder: info["DropboxFolder"] as? String ?? "")
             let made = try JournalModel(root: root, account: account)
+            testCloud?.cameBackTo = { url in MainActor.assumeIsolated { made.cameBack(url) } }
             Opened.prepareForTest(made)
             model = made
             failure = ""

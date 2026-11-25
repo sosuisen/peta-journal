@@ -194,6 +194,32 @@ jobs:
         run: cargo install boltffi_cli --version =0.32.1 --locked
       - run: node scripts/checks.mjs run stickies-mac
 
+  outliner-ios:
+    name: client/apps/native-app/outliner-ios
+    if: inputs.macos
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Installs the version, components and targets in rust-toolchain.toml
+      - run: rustup toolchain install
+      # The targets of the phone and the simulator are not in rust-toolchain.toml: every machine
+      # would download them
+      - run: rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: client
+      # The same version as the stickies-mac job, kept in the cache for the same reason
+      - id: boltffi
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/boltffi
+          key: boltffi-cli-0.32.1-${{ runner.os }}
+      - if: steps.boltffi.outputs.cache-hit != 'true'
+        run: cargo install boltffi_cli --version =0.32.1 --locked
+      # Makes the Xcode project from project.yml
+      - run: brew install xcodegen
+      - run: node scripts/checks.mjs run outliner-ios
+
   memoview-win:
     name: client/apps/webview-app/memoview-win
     # The app is WinUI. It builds only on Windows, with the MSBuild of Visual Studio
