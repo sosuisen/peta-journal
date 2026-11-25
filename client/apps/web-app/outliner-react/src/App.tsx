@@ -455,7 +455,7 @@ function AtlasButton({ atlas }: { readonly atlas: boolean }) {
 interface TitleEdit {
   readonly dir: string;
   readonly name: string;
-  /** Where the cursor goes in the name when the fields show. */
+  /** Where the cursor goes when the fields show: in the folder of an index, else in the name. */
   readonly caret: number;
 }
 
@@ -482,14 +482,9 @@ function TitleFields({
   const dirField = useRef<HTMLInputElement>(null);
   const nameField = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (index) {
-      const end = edit.dir.length;
-      dirField.current?.focus();
-      dirField.current?.setSelectionRange(end, end);
-    } else {
-      nameField.current?.focus();
-      nameField.current?.setSelectionRange(edit.caret, edit.caret);
-    }
+    const field = index ? dirField.current : nameField.current;
+    field?.focus();
+    field?.setSelectionRange(edit.caret, edit.caret);
     // Only when the fields show: the cursor then follows the typing
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -553,6 +548,9 @@ function TitleFields({
 function DocPage({ page }: { readonly page: PageView }) {
   const core = useCore();
   const [edit, setEdit] = useState<TitleEdit | null>(null);
+  const dir = page.page.dir_path.replace(/\/$/, '');
+  const startEdit = (caret: number) =>
+    setEdit({ dir, name: page.page.name, caret });
   // Kept by the page, so the new rows stay while the core draws the properties again
   const [drafts, setDrafts] = useState<readonly Draft[]>([]);
   const scrolled = usePanel('Outline')?.scrolled_from_top ?? false;
@@ -563,13 +561,7 @@ function DocPage({ page }: { readonly page: PageView }) {
         {page.is_index && last ? (
           <span
             className="dir-segment-title"
-            onClick={() =>
-              setEdit({
-                dir: page.page.dir_path.replace(/\/$/, ''),
-                name: page.page.name,
-                caret: 0,
-              })
-            }
+            onClick={() => startEdit(dir.length)}
           >
             {segment.name}
           </span>
@@ -629,17 +621,15 @@ function DocPage({ page }: { readonly page: PageView }) {
       <h2
         className="page-title"
         onClick={event =>
-          setEdit({
-            dir: page.page.dir_path.replace(/\/$/, ''),
-            name: page.page.name,
-            caret: (
+          startEdit(
+            (
               textBeforePoint(
                 event.currentTarget,
                 event.clientX,
                 event.clientY,
               ) ?? page.page.name
             ).length,
-          })
+          )
         }
       >
         {page.title}
