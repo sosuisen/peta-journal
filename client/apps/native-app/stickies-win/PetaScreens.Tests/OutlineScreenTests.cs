@@ -425,7 +425,11 @@ public sealed class OutlineScreenTests
         screen.Shell.Open("/pages/apple-pie");
         await Screen.Until("the second page is shown", () => screen.Shell.Title == "apple-pie");
         screen.Shell.Open("/pages/screen");
-        await Screen.Until("the first page is shown again", () => screen.Shell.Title == "screen");
+        // The title changes before the rows come: the item is clicked once it is there
+        await Screen.Until(
+            "the first page is shown again",
+            () => screen.Shell.Title == "screen" && screen.Items().Count == 1
+        );
         await screen.Edit(0);
 
         Screen.Press(VirtualKey.F, Held.Control);
