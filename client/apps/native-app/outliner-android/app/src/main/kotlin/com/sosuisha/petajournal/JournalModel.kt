@@ -160,6 +160,9 @@ internal constructor(
         shell.close()
     }
 
+    /** Waits, for at most [ms], until the journal is let go of after [close]. */
+    internal fun awaitClosed(ms: Long): Boolean = shell.awaitClosed(ms)
+
     companion object {
         /**
          * Makes the model for the screen. A test of the screen puts a model on its own folders and
