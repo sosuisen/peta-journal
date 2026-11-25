@@ -3,6 +3,7 @@ import { useAsked } from './askedContext';
 import Atlas from './Atlas';
 import type { JournalView, PageView } from './border/peta-types';
 import Calendar from './Calendar';
+import { isImeComposing } from './dom';
 import { useCore, usePanel } from './context';
 import Frame from './Frame';
 import Outline from './Outline';
@@ -485,6 +486,9 @@ function TitleFields({
     }
   };
   const onKeyDown = (event: React.KeyboardEvent) => {
+    if (isImeComposing(event.nativeEvent)) {
+      return;
+    }
     if (event.key === 'Enter') {
       end(true);
     } else if (event.key === 'Escape') {
