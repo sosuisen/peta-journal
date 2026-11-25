@@ -402,7 +402,8 @@ job is run there by the list of checks of the same commit. A failure there stops
 Nothing about the Mac is in the repository. Set it up in your Git settings:
 
 - A remote named `mac`, whose URL is a clone on the Mac that is used for the tests only
-  (`git remote add mac <host>:<folder>`). The commit is pushed to its branch `peta-verify`.
+  (`git remote add mac <host>:<folder>`). The commit is pushed to a branch of its own there,
+  `peta-verify-<commit>`, which is deleted after the job. No push is forced.
 - An SSH that asks nothing. Put the key in the agent. On Windows, Git must use the SSH of
   Windows to read that agent: `git config --global core.sshCommand C:/Windows/System32/OpenSSH/ssh.exe`.
 
