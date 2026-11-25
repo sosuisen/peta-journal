@@ -1647,6 +1647,7 @@ Androidのシェル（`client/apps/native-app/outliner-android`）の機能で�
   - SDKを呼ぶ`SdkDropbox`は、SDKの例外を、コアの`PetaDropboxError`に読み替えて投げる。iOSと同じ形である（ADR 054）
   - 出典: `client/apps/native-app/outliner-android/app/src/test/kotlin/com/sosuisha/petajournal/dropbox/DropboxFailuresTest.kt`
 - アプリは、前に出るたびに、新しいサインインを探して同期する。後ろへ回るときも同期する。端末を回したときなど、画面を作り直すだけのときは、どちらの同期もしない。アプリは前にいたままだからである
+- ジャーナルは、プロセスに1つだけ開く。アプリを離れて開き直しても、開いたままのジャーナルを使う。閉じたジャーナルは、走っている同期が終わるまで索引を放さず、そのあいだは同じフォルダーで開き直せないためである（#1135）
   - 出典: `client/apps/native-app/outliner-android/app/src/androidTest/kotlin/com/sosuisha/petajournal/MainActivityTest.kt`
 - OSのボタンでキーボードを閉じても、キーボードを閉じる道具と同じく、編集を終えて項目を選ぶ。OSのボタンは、キーボードの範囲（`WindowInsets.isImeVisible`）の変化で知る
 - システムの戻る操作は、項目の選択を終える

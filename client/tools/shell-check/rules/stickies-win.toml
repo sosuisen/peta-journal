@@ -1,0 +1,102 @@
+# The rules of the Windows stickies (ADR 064).
+
+[s2]
+language = "csharp"
+sources = [
+    "client/apps/native-app/stickies-win/PetaBorder",
+    "client/apps/native-app/stickies-win/PetaScreens",
+    "client/apps/native-app/stickies-win/PetaStickies",
+]
+
+# The kinds of `Event` that this shell need not name, besides those of core.toml. The reasons
+# are of six kinds, as for the macOS stickies:
+#
+# - "bridge": client-native-bridge sends it when the shell calls a method of `PetaCore`.
+# - "key": the core makes it from a key that the shell gives to `Press`.
+# - "drag": the core makes it from a step that the shell gives to `Drag`.
+# - "typing": the core makes it from a change that the shell gives to `Typed`.
+# - "none": the stickies have no such part. A sticky shows one page, without the sidebar, the
+#   header of a page, the atlas or the settings of the web frontend.
+# - "not yet": the stickies do not offer it yet, though they could.
+[s2.excluded]
+AddAtlasCallout = "none: no atlas"
+AddAtlasLink = "none: no atlas"
+AddPageTags = "none: no properties of a page"
+AddPropertyDefinition = "none: no settings"
+AtlasDirsRestored = "none: no atlas"
+AtlasUp = "none: no atlas"
+BackspaceAtStart = "key: EditorKey::Backspace at the start of an item"
+BodyChanged = "typing: the core makes it from a Typing.Changed given to typed"
+BrowseFolder = "none: no settings"
+CalendarNav = "none: no calendar"
+CollapseToggle = "not yet: a click on the bullet does not collapse; keys do"
+CreateNewPage = "none: no header of a page"
+DeleteAtEnd = "key: EditorKey::Delete at the end of an item"
+DeleteCurrentPage = "none: no header of a page"
+DeleteItem = "not yet: the menu of an item has only Paste as Transclusion"
+DeletePageProperty = "none: no properties of a page"
+DeletePropertyDefinition = "none: no settings"
+DemoteIndex = "none: no index pages"
+DragBeyondBounds = "drag: a drag past the edge of the outline"
+DropAtlasCard = "none: no atlas"
+EditPageProperties = "none: no properties of a page"
+EnterPressed = "key: EditorKey::Enter"
+GoToPage = "none: no sidebar; a page opens with Open"
+GroupAtlasCards = "none: no atlas"
+Indent = "key: EditorKey::Tab or EditorKey::MoveIn"
+IndexSortsRestored = "none: no index pages"
+ItemMouseEnter = "drag: a drag selection over an item"
+JournalNav = "none: no header of a journal"
+KeyHeld = "not yet: the keys typed while the edit moves to another item are not held"
+MoveAtlasCallout = "none: no atlas"
+MoveDown = "key: EditorKey::MoveDown"
+MovePageTag = "none: no properties of a page"
+MoveUp = "key: EditorKey::MoveUp"
+NavigateDown = "key: EditorKey::Down on the last line, or EditorKey::Right at the end"
+NavigateHome = "none: no Home button"
+NavigateToRoot = "none: no sidebar"
+NavigateToTags = "none: no sidebar"
+NavigateToToday = "none: no sidebar; today opens with Open"
+NavigateUp = "key: EditorKey::Up on the first line, or EditorKey::Left at the start"
+Open = "bridge: PetaCore.Open"
+OpenExportFolder = "none: no header of a page"
+OpenLinkAt = "key: EditorKey::OpenLink"
+Outdent = "key: EditorKey::BackTab or EditorKey::MoveOut"
+PageTitleSave = "none: no header of a page"
+PasteImage = "bridge: PetaCore.PasteImage"
+PlaceAtlasCard = "none: no atlas"
+Redo = "key: EditorKey::Redo"
+RemoveAtlasCard = "none: no atlas"
+RemoveAtlasLink = "none: no atlas"
+RemovePageTag = "none: no properties of a page"
+RemoveTransclusion = "not yet: the menu of an item has only Paste as Transclusion"
+ResetZoom = "none: a sticky keeps its own zoom, by StickyZoom of client-shell-http"
+Route = "none: a page opens with Open, which keeps the history in the core (ADR 035)"
+ScaleAtlasCallout = "none: no atlas"
+ScaleAtlasCard = "none: no atlas"
+ScrollToItemRequested = "none: no sidebar with the headings of a page"
+SearchAtlasLinks = "none: no atlas"
+SearchDropdown = "none: the list of results opens as a query is typed, and closes with Escape or a pick; the focus of the search box does not open it"
+SelectionKey = "key: a chord given to press as KeyPress.InSelection"
+SelectionMouseUp = "drag: the end of a drag selection"
+SendToStash = "not yet: the menu of an item has only Paste as Transclusion"
+SetAtlasCallout = "none: no atlas"
+SetAtlasGroupTitle = "none: no atlas"
+SetAtlasLink = "none: no atlas"
+SetCollapsed = "key: EditorKey::Fold or EditorKey::Unfold"
+SetHomeLink = "none: no settings"
+SetIndexSort = "none: no index pages"
+SetLogicalOutdent = "none: no settings"
+SetPageProperty = "none: no properties of a page"
+SetTagsDir = "none: no settings"
+SetWeekNumbering = "none: no settings"
+ShiftSelect = "key: EditorKey::SelectUp or EditorKey::SelectDown at the edge of an item"
+Start = "bridge: PetaCore is made"
+ToggleAtlas = "none: no atlas"
+Typed = "typing: the core makes it from a Typing.Typed given to typed"
+Undo = "key: EditorKey::Undo"
+UngroupAtlasCards = "none: no atlas"
+WikiKey = "not yet: no list of page names for [[ ]]"
+WikiPick = "not yet: no list of page names for [[ ]]"
+WikiQuery = "not yet: no list of page names for [[ ]]"
+ZoomStep = "none: a sticky keeps its own zoom, by StickyZoom of client-shell-http"

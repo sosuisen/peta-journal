@@ -5,12 +5,11 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import com.sosuisha.petajournal.screen.JournalScreen
 import java.io.File
 
 class MainActivity : ComponentActivity() {
-    private val model: JournalModel by viewModels { JournalModel.factory }
+    private val model by lazy { JournalModel.of(application) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

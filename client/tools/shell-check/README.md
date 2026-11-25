@@ -39,3 +39,9 @@ server. The rules of a shell exclude the kinds that this shell need not name.
 The check reads text, not types. In Swift, a kind is named as an implicit member, such as
 `.pasteText`. A member of another enum with the same name, such as the `.redo` of
 `SelectionKey`, counts as the kind too.
+
+In C# and Kotlin, a kind is named as a nested class of `Event`, such as `Event.PasteText(...)`.
+`Event` must be a whole name: the `Back` of `KeyEvent.Back` does not count.
+
+The `language` of the rules of a shell is `swift`, `csharp` or `kotlin`. It also says which
+files are read: `.swift`, `.cs` or `.kt`.

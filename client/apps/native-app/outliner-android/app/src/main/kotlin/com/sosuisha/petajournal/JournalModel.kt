@@ -7,10 +7,6 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.sosuisha.petajournal.dropbox.DropboxAccount
 import com.sosuisha.petajournal.shell.Shell
 import com.sosuisha.petajournal.sync.CloudAccount
@@ -21,8 +17,10 @@ import java.io.File
 private const val AFTER_EDIT_MS = 3_000L
 
 /**
- * Keeps the shell while the screen is made again, as when the device is turned. The journal can be
- * open only once, and closes when the app is left for good.
+ * The journal of the app, one for the process (#1135). It stays open while the screen is made
+ * again, as when the device is turned, and also when the app is left and opened again: the journal
+ * can be open only once, and a closed one may take long to let go of its folders, after the sync
+ * that runs. What waits to be saved is saved when the app goes to the back.
  *
  * @param filesDir where the app keeps its files: the Markdown folder, the data of the core, and
  *   what the sync knows of the cloud.
@@ -37,7 +35,7 @@ internal constructor(
     cacheDir: File,
     private val account: CloudAccount,
     afterEditMs: Long,
-) : AndroidViewModel(app) {
+) {
     /** The model of the app: its own folders, and the account of Dropbox. */
     constructor(
         app: Application,
@@ -153,9 +151,7 @@ internal constructor(
         sync.signOut()
     }
 
-    override fun onCleared() = close()
-
-    /** Closes the journal. The model does nothing more after it. */
+    /** Closes the journal, for a test. The model does nothing more after it. */
     internal fun close() {
         shell.close()
     }
@@ -165,15 +161,24 @@ internal constructor(
 
     companion object {
         /**
-         * Makes the model for the screen. A test of the screen puts a model on its own folders and
+         * Makes the model of the process. A test of the screen puts a model on its own folders and
          * with its own account here.
          */
         internal var make: (Application) -> JournalModel = ::JournalModel
 
-        internal val factory = viewModelFactory {
-            initializer {
-                make(checkNotNull(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]))
-            }
-        }
+        /** The model of the process, once the first screen has made it. */
+        private var opened: JournalModel? = null
+
+        /**
+         * The model of the app. The first screen makes it, and the next ones use it. On the main
+         * thread only.
+         */
+        fun of(app: Application): JournalModel = opened ?: make(app).also { opened = it }
+
+        /**
+         * Lets go of the model of the process, for a test that opens the app on folders of its own.
+         * It returns the model, for the test to close it.
+         */
+        internal fun forget(): JournalModel? = opened.also { opened = null }
     }
 }
