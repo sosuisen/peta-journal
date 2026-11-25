@@ -48,6 +48,19 @@ const COVERAGE_STEP = {
   'outliner-react': 'npm run coverage',
   'memoview-win': 'dotnet build -t:Coverage',
   'stickies-win': 'dotnet build -t:Coverage',
+  'stickies-mac': './coverage.sh',
+};
+
+// The coverage steps that run on one OS only, as the module builds nowhere else. The CI runs them
+// on that OS, where a step for another OS fails the job
+const COVERAGE_OS = {
+  'stickies-mac': 'darwin',
+};
+
+// The floor and the folder measured by coverage.sh of stickies-mac. App/, generated/ and
+// ../swift-shared are left out, with the consent of the developer
+const SWIFT = {
+  'client/apps/native-app/stickies-mac/coverage.sh': { floor: String(FLOOR), measured: 'Sources/' },
 };
 
 // The arguments of coverlet.console in the Coverage target of each C# test project
@@ -153,8 +166,21 @@ test('each job measures the coverage in a step that is never skipped', () => {
     const step = JOBS[job].steps.find((s) => s.run === run);
     assert.ok(step, `${job}: no step "${run}"`);
     assert.equal(step.needs, undefined, job);
-    assert.equal(step.os, undefined, job);
+    assert.equal(step.os, COVERAGE_OS[job], job);
     assert.equal(step.tools, undefined, job);
+  }
+});
+
+// Swiftのカバレッジのスクリプトは、9割未満で失敗し、了解した範囲を測る。
+test('each swift coverage script fails under the floor and measures the agreed folder', () => {
+  for (const [script, expected] of Object.entries(SWIFT)) {
+    const text = read(script);
+    const floors = [...text.matchAll(/^floor=(.*)$/gm)].map((m) => m[1]);
+    assert.deepEqual(floors, [expected.floor], script);
+    const reports = [...text.matchAll(/llvm-cov report [\s\S]*?-instr-profile="[^"]+" (\S+)\)/g)].map((m) => m[1]);
+    assert.deepEqual(reports, [expected.measured], script);
+    // A filter of llvm-cov would leave files out of that folder
+    assert.ok(!/-ignore-filename-regex/.test(text), script);
   }
 });
 

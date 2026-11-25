@@ -22,9 +22,16 @@ export PETA_E2E_SERVER
 cd "$here"
 swift test --enable-code-coverage
 
-bin=$(swift build --show-bin-path)
-report=$(xcrun llvm-cov report "$bin/PetaBorderTests.xctest/Contents/MacOS/PetaBorderTests" \
-    -instr-profile="$bin/codecov/default.profdata" Sources/)
+# The name of the test bundle depends on the version of SwiftPM: PetaBorderTests.xctest with
+# Xcode 27, PetaBorderPackageTests.xctest with Xcode 26. So the one bundle of the build is used
+bundles=$(find "$(swift build --show-bin-path)" -maxdepth 1 -name '*.xctest')
+if [ "$(echo "$bundles" | grep -c .)" -ne 1 ]; then
+    echo "Expected one test bundle, found: $bundles" >&2
+    exit 1
+fi
+tests="$bundles/Contents/MacOS/$(basename "$bundles" .xctest)"
+profile="$(dirname "$(swift test --show-codecov-path)")/default.profdata"
+report=$(xcrun llvm-cov report "$tests" -instr-profile="$profile" Sources/)
 echo "$report"
 
 # The row of the total: the lines are the 8th column, the missed lines the 9th

@@ -121,7 +121,9 @@ Not measured, with the consent of the developer (the comment of `coverage.sh` sa
 - `generated/`, which `generate.sh` makes from the Rust crates. The Rust tests check it.
 - `../swift-shared`, a package of its own that outliner-ios shares.
 
-The CI does not run it yet: there is no job for stickies-mac (#761).
+The hook before a pull request runs it, with `generate.sh` and `swift-format.sh --check`
+(the `stickies-mac` job of `scripts/checks.mjs`). The CI runs the same job on macOS when it is
+started with `macos=true`.
 
 ## Mutation tests
 
@@ -446,6 +448,6 @@ what serde writes. A Rust type with a hand-written `Serialize` can write other b
 shape says. Then everything compiles, and the shell cannot read the bytes. Only a test that
 crosses the border finds this.
 
-These tests do not run in CI. A macOS runner costs much more than a Linux one, so this is put
-off. Run them by hand after a change to a type that crosses the border. CI does run the Rust
+The CI runs these tests only when it is started with `macos=true`: a macOS runner costs about
+ten times a Linux one. The hook before a pull request runs them on a Mac. CI does run the Rust
 tests of the entrance (`cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi`).
