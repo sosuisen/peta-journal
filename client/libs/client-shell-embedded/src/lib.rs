@@ -49,14 +49,18 @@ struct Door {
     exports: ExportQueueRepository,
     /// Told when a page changed in the app: the sync starts a moment later (ADR 055).
     on_change: RwLock<Option<Box<dyn Fn() + Send + Sync>>>,
+    /// Held by each operation for reading, and by the take-in of the downloads for writing.
+    take_in: RwLock<()>,
 }
 
 impl Door {
     /// Does what the frontend core asks of the journal. When the operation put a page in the
     /// queue of the pages to write to their files, a page changed in the app, whatever the
-    /// operation was (ADR 055). A page that the take-in of the downloads left in the queue
-    /// does not count: the reads that follow the take-in put none in.
+    /// operation was (ADR 055). A page that the take-in of the downloads puts in the queue
+    /// does not count: no operation runs while the take-in runs, so none can take its pages
+    /// for its own (#1166).
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
+        let _apart = self.take_in.read().unwrap();
         let before = self.exports.last_queued_at().unwrap_or(None);
         let done = match &*self.journal.read().unwrap() {
             Some(journal) => journal.call(op),
@@ -190,6 +194,7 @@ impl PetaCore {
             events,
             exports: ExportQueueRepository::new(Arc::clone(&core.db)),
             on_change: RwLock::new(None),
+            take_in: RwLock::new(()),
         });
         let host = Embedded { door: door.clone() };
         Ok(PetaCore {
@@ -209,6 +214,7 @@ impl PetaCore {
     /// are written to the folder (ADR 031). The shell calls this after a download from
     /// Dropbox, and it uploads after it. Answers with the number of files taken in.
     pub fn sync(&self) -> u32 {
+        let _apart = self.door.take_in.write().unwrap();
         let summary = self.core.reconcile.scan();
         self.delete_pages_of_missing_files();
         // After the scan: a file is written over only when its changes are taken in
