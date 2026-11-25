@@ -614,13 +614,16 @@
 
 ### ページを作る・直す
 
-出典: `tests/new_page.rs`、`tests/rename.rs`、`tests/delete_page.rs`、`tests/atlas/navigation.rs`、`core/util/filename.rs`、`tests/sidebar_menu.rs`
+出典: `tests/new_page.rs`、`tests/rename.rs`、`tests/delete_page.rs`、`tests/atlas/navigation.rs`、`core/util/filename.rs`、`tests/sidebar_menu.rs`、`client/apps/web-app/outliner-react/src/App.test.tsx`
 
 - ヘッダーの「+」は新しいdocページを開く
   - 検索バーに文があれば、それが名前になる。空なら名前を尋ね、取り消すと何も作られない
   - 空の名前を答えると、今の日時からのUntitledの名前になる
   - ファイル名に使えない名前は断られ、理由が出る。ジャーナルの日付の名前は検査されずに開く
 - 名前の変更
+  - Webのアウトライナーでは、見出しを押すと、フォルダとページ名の欄になる。カーソルは押した位置に置かれる。Enterか、欄の外へのフォーカスの移動で保存し、Escapeで取り消す。IMEの変換を確定するEnterでは保存しない
+    - 一番上のフォルダのページには、フォルダの欄がない
+    - 目次のページでは、道筋の最後のフォルダを押すと編集になる。ページ名は変えられず、フォルダの欄の終わりにカーソルが入る
   - 空の名前と、ファイル名に使えない文字を含む名前は、理由とともに断られる
   - 名前の中の`/`はフォルダの区切りである。`b/c`と付けると、フォルダ`a/b/`の`c`になる
   - 名前もフォルダも変わらなければ、サーバーには何も送られない
