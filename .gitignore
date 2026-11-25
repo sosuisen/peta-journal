@@ -9,3 +9,6 @@ devcontainer.json
 
 # Personal shell settings
 .zshenv
+
+# Preview of a Markdown file, made by the editor
+.markdown-preview.html
