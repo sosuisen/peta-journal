@@ -303,7 +303,39 @@ internal sealed class Screen : IAsyncDisposable
         bool twice = false
     )
     {
-        sticky ??= Window;
+        var target = await PlaceToPress(element, sticky ?? Window, across);
+        if (twice)
+            await UserInput.DoubleClick(target.X, target.Y);
+        else
+            await UserInput.Click(target.X, target.Y, held, right);
+    }
+
+    /// <summary>
+    /// Drags with the left button from the middle of <paramref name="from"/> to
+    /// <paramref name="to"/>, at <paramref name="down"/> of its height. <paramref name="held"/>
+    /// runs before the button comes up.
+    /// </summary>
+    public async Task Drag(
+        FrameworkElement from,
+        FrameworkElement to,
+        double down = 0.5,
+        Func<Task>? held = null
+    )
+    {
+        var start = await PlaceToPress(from, Window, 0.5);
+        await UserInput.Drag(start, ScreenPlace(to, Window, 0.5, down), held);
+    }
+
+    /// <summary>
+    /// The place on the screen to press the element, once the element is laid out, its sticky
+    /// is in front and the place stays the same.
+    /// </summary>
+    private static async Task<(int X, int Y)> PlaceToPress(
+        FrameworkElement element,
+        StickyWindow sticky,
+        double across
+    )
+    {
         // A window that was just opened is not laid out yet
         await Until("the element is on the screen", () =>
             element.XamlRoot is not null && element.ActualWidth > 0
@@ -324,23 +356,24 @@ internal sealed class Screen : IAsyncDisposable
             target = now;
             return still >= 5;
         });
-        if (twice)
-            await UserInput.DoubleClick(target.X, target.Y);
-        else
-            await UserInput.Click(target.X, target.Y, held, right);
+        return target;
     }
 
-    /// <summary>The place on the screen, in pixels, of a point across the middle of the element.</summary>
+    /// <summary>
+    /// The place on the screen, in pixels, of a point of the element: at
+    /// <paramref name="across"/> of its width and <paramref name="down"/> of its height.
+    /// </summary>
     private static (int X, int Y) ScreenPlace(
         FrameworkElement element,
         StickyWindow sticky,
-        double across
+        double across,
+        double down = 0.5
     )
     {
         var root = (UIElement)sticky.Content;
         var place = element
             .TransformToVisual(root)
-            .TransformPoint(new(element.ActualWidth * across, element.ActualHeight / 2));
+            .TransformPoint(new(element.ActualWidth * across, element.ActualHeight * down));
         var scale = root.XamlRoot.RasterizationScale;
         var corner = new Point();
         ClientToScreen(Handle(sticky), ref corner);
@@ -365,6 +398,29 @@ internal sealed class Screen : IAsyncDisposable
         });
         return found!;
     }
+
+    /// <summary>The button with the text in the dialog that the first sticky shows now.</summary>
+    public async Task<Button> DialogButton(string text)
+    {
+        Button? found = null;
+        await Until($"the dialog has {text}", () =>
+        {
+            found = Dialogs()
+                .SelectMany(Under<Button>)
+                .FirstOrDefault(button =>
+                    button.Content as string == text && button.ActualWidth > 0
+                );
+            return found is not null;
+        });
+        return found!;
+    }
+
+    /// <summary>The dialogs that the first sticky shows now.</summary>
+    public IEnumerable<ContentDialog> Dialogs() =>
+        VisualTreeHelper
+            .GetOpenPopupsForXamlRoot(Window.Content.XamlRoot)
+            .Select(popup => popup.Child)
+            .OfType<ContentDialog>();
 
     /// <summary>
     /// Clicks the title bar of the sticky, in the room left of the Back button, or clicks it

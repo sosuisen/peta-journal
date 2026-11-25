@@ -1,7 +1,10 @@
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 using PetaBorder;
 using PetaTypes;
 using Windows.System;
+using Border = Microsoft.UI.Xaml.Controls.Border;
 
 namespace PetaScreens.Tests;
 
@@ -437,5 +440,97 @@ public sealed class OutlineScreenTests
 
         await Screen.Until("the page found is shown", () => screen.Shell.Title == "apple-pie");
         await Screen.Until("the search box is closed", () => !screen.Window.Look.Searching);
+    }
+
+    // 検索結果をクリックすると、そのページが開く。
+    [UITestMethod]
+    public async Task A_click_on_a_page_found_by_the_search_opens_it()
+    {
+        await using var screen = await Screen.Open(Port);
+        screen.Shell.Open("/pages/apple-pie");
+        await Screen.Until("the second page is shown", () => screen.Shell.Title == "apple-pie");
+        screen.Shell.Open("/pages/screen");
+        await Screen.Until("the first page is shown again", () => screen.Shell.Title == "screen");
+        await screen.Click(Screen.ButtonOf(screen.Window, "Search pages (Ctrl+F)"));
+        await Screen.Until("the search box is open", () => screen.Window.Look.Searching);
+        await Task.Delay(100);
+        UserInput.Type("apple");
+        Border? found = null;
+        await Screen.Until("the page is found", () =>
+        {
+            found = Screen
+                .Under<Border>((UIElement)screen.Window.Content)
+                .FirstOrDefault(entry =>
+                    entry.Child is StackPanel { Children: [TextBlock { Text: "apple-pie" }, ..] }
+                );
+            return found is not null;
+        });
+
+        await screen.Click(found!);
+
+        await Screen.Until("the page found is shown", () => screen.Shell.Title == "apple-pie");
+        await Screen.Until("the search box is closed", () => !screen.Window.Look.Searching);
+    }
+
+    // ドラッグで項目をまたぐと、またいだ項目が選ばれる。
+    [UITestMethod]
+    public async Task A_drag_across_items_selects_them()
+    {
+        await using var screen = await Screen.OpenWritten(Port, "one", "two", "three");
+
+        await screen.Drag(
+            Screen.Under<RichTextBlock>(screen.Items()[0]).First(),
+            screen.Items()[2]
+        );
+
+        await Screen.Until("the items are selected", () =>
+            screen.SelectedAre("one", "two", "three")
+        );
+    }
+
+    // ほかの項目に映されている項目を消すときは、先に確かめる。OKで消える。
+    [UITestMethod]
+    public async Task Deleting_an_item_that_another_item_transcludes_asks_first_and_OK_deletes_it()
+    {
+        await using var screen = await Screen.OpenWritten(Port, "source", "other", "shows it");
+        var source = await TranscludedAndSelected(screen);
+
+        Screen.Press(VirtualKey.Delete);
+        await screen.Click(await screen.DialogButton("OK"));
+
+        await Screen.Until("the item is deleted", () =>
+            screen.Rows.Count == 2 && screen.Rows.All(row => row.Item.Id != source)
+        );
+    }
+
+    // 確かめるダイアログでは、Enterは取り消しになる。何も消えず、選択も残る。
+    [UITestMethod]
+    public async Task Enter_in_the_dialog_before_deleting_a_transcluded_item_deletes_nothing()
+    {
+        await using var screen = await Screen.OpenWritten(Port, "source", "other", "shows it");
+        var source = await TranscludedAndSelected(screen);
+
+        Screen.Press(VirtualKey.Delete);
+        await screen.DialogButton("Cancel");
+        Screen.Press(VirtualKey.Enter);
+
+        await Screen.Until("the dialog is closed", () => !screen.Dialogs().Any());
+        await Task.Delay(300);
+        Assert.AreEqual(source, screen.Rows[0].Item.Id);
+        Assert.IsTrue(screen.SelectedAre("source"));
+    }
+
+    /// <summary>
+    /// Makes the last item show the first one, and selects the first one. Returns the id of
+    /// the first one.
+    /// </summary>
+    private static async Task<string> TranscludedAndSelected(Screen screen)
+    {
+        var source = screen.Rows[0].Item.Id;
+        screen.Transclude(screen.Rows[2].Item.Id, source);
+        await screen.Edit(0);
+        Screen.Press(VirtualKey.Up, Held.Shift);
+        await Screen.Until("the first item is selected", () => screen.SelectedAre("source"));
+        return source;
     }
 }

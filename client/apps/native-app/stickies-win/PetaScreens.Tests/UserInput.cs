@@ -124,6 +124,87 @@ internal static class UserInput
     }
 
     /// <summary>
+    /// Presses the left button at <paramref name="from"/>, moves the mouse to
+    /// <paramref name="to"/> in steps, and lets the button go there. The window sees each
+    /// step. <paramref name="held"/> runs while the button is still down.
+    /// </summary>
+    public static async Task Drag((int X, int Y) from, (int X, int Y) to, Func<Task>? held)
+    {
+        MoveTo(from.X, from.Y);
+        await Task.Delay(Pause);
+        Send(
+            new Input
+            {
+                Type = 0,
+                Mouse = new MouseInput { Flags = LeftDown },
+            }
+        );
+        // A button that stays down after a failed test holds the mouse of the whole desktop
+        try
+        {
+            await Task.Delay(Pause);
+            const int steps = 10;
+            for (var step = 1; step <= steps; step++)
+            {
+                MoveTo(
+                    from.X + (to.X - from.X) * step / steps,
+                    from.Y + (to.Y - from.Y) * step / steps
+                );
+                await Task.Delay(Pause);
+            }
+            if (held is not null)
+                await held();
+        }
+        finally
+        {
+            Send(
+                new Input
+                {
+                    Type = 0,
+                    Mouse = new MouseInput { Flags = LeftUp },
+                }
+            );
+        }
+        await Task.Delay(Pause);
+    }
+
+    /// <summary>
+    /// Moves the mouse to the place on the screen, as a mouse does. The window hears it as a
+    /// move of the pointer, which a move by <c>SetCursorPos</c> is not.
+    /// </summary>
+    private static void MoveTo(int x, int y)
+    {
+        // An absolute move counts from 0 to 65535 across the screens
+        var left = GetSystemMetrics(VirtualLeft);
+        var top = GetSystemMetrics(VirtualTop);
+        var width = GetSystemMetrics(VirtualWidth);
+        var height = GetSystemMetrics(VirtualHeight);
+        Send(
+            new Input
+            {
+                Type = 0,
+                Mouse = new MouseInput
+                {
+                    X = (int)Math.Round((x - left) * 65535.0 / (width - 1)),
+                    Y = (int)Math.Round((y - top) * 65535.0 / (height - 1)),
+                    Flags = Move | Absolute | VirtualDesk,
+                },
+            }
+        );
+    }
+
+    private const int VirtualLeft = 76;
+    private const int VirtualTop = 77;
+    private const int VirtualWidth = 78;
+    private const int VirtualHeight = 79;
+
+    private const uint Absolute = 0x8000;
+    private const uint VirtualDesk = 0x4000;
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int index);
+
+    /// <summary>
     /// A move of the mouse by nothing. Windows lets the process that sent the last input put
     /// its window in front, and this input changes nothing on the screen.
     /// </summary>
