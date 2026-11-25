@@ -518,7 +518,7 @@ test('every step of stickies-win runs on windows only', () => {
 test('both test projects of stickies-win run their tests in an x64 process', () => {
   const dir = 'client/apps/native-app/stickies-win';
   for (const project of ['PetaScreens.Tests', 'PetaBorder.Tests']) {
-    assert.match(read(`${dir}/${project}/${project}.csproj`), /<RuntimeIdentifier>win-x64<\/RuntimeIdentifier>/, project);
+    assert.match(read(`${dir}/${project}/${project}.csproj`), /<RuntimeIdentifier( Condition="[^"]*")?>win-x64<\/RuntimeIdentifier>/, project);
   }
   // coverlet starts the .exe of each project: `dotnet` would start the process of the machine
   const targets = [...read(`${dir}/PetaBorder.Tests/PetaBorder.Tests.csproj`).matchAll(/--target &quot;([^&]*)&quot;/g)];
