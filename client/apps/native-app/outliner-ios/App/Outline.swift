@@ -159,6 +159,17 @@ struct OutlineRow: View {
                         }
                 }
             }
+            // A long press opens the menu of the item. Not while it is edited: the field has
+            // a menu of its own then, for the text
+            .contextMenu {
+                if !row.isEditing {
+                    if row.isTransclusion {
+                        Button("Remove Transclusion") { shell.removeTransclusion(id) }
+                    }
+                    Button("Send to Stash") { shell.sendToStash(id) }
+                    Button("Delete", role: .destructive) { shell.delete(id) }
+                }
+            }
             .padding(.leading, CGFloat(row.indentPx))
             .padding(.vertical, 3)
             // A selected item is coloured behind, so that the user sees what the tools act on
