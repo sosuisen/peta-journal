@@ -26,6 +26,7 @@ import { draw, outline, shell } from './test/screens';
 afterEach(() => {
   vi.useRealTimers();
   localStorage.clear();
+  Reflect.deleteProperty(document, 'caretPositionFromPoint');
 });
 
 /** A document page named `title` in the folder `dirPath`. Each test changes what it needs. */
@@ -557,6 +558,23 @@ describe('a document page', () => {
     expect(wasm.events).toEqual([
       { kind: 'PageTitleSave', dir_path: '', file_name: 'idea' },
     ]);
+  });
+
+  // ページ名の欄にカーソルが入り、見出しを押した位置に置かれる。
+  test('the cursor goes into the field of the name, where the title was pressed', () => {
+    const { container } = page(docPage('plan', 'work/'));
+    const heading = screen.getByRole('heading', { name: 'plan' });
+    Object.defineProperty(document, 'caretPositionFromPoint', {
+      configurable: true,
+      value: () => ({ offsetNode: heading.firstChild, offset: 2 }),
+    });
+
+    fireEvent.click(heading);
+
+    const { name } = titleFields(container);
+    expect(document.activeElement).toBe(name);
+    expect(name?.selectionStart).toBe(2);
+    expect(name?.selectionEnd).toBe(2);
   });
 
   // アトラスのページは、項目の代わりに、そのフォルダのキャンバスを出す。
