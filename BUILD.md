@@ -57,6 +57,8 @@ server used in `application.properties`, kept for people with old notes):
 | `petajournal.import.debounce-ms` | `--import-debounce-ms` | `PETAJOURNAL_IMPORT_DEBOUNCE_MS` |
 | `petajournal.import.scan-interval` | `--import-scan-interval` | `PETAJOURNAL_IMPORT_SCAN_INTERVAL` |
 | `petajournal.import.delete-prompt-cooldown` | `--import-delete-prompt-cooldown` | `PETAJOURNAL_IMPORT_DELETE_PROMPT_COOLDOWN` |
+| (none) | `--import-copy-wait` | `PETAJOURNAL_IMPORT_COPY_WAIT` |
+| (none) | `--export-overwrite-wait` | `PETAJOURNAL_EXPORT_OVERWRITE_WAIT` |
 | `quarkus.http.cors.origins` | `--cors-origins` | `PETAJOURNAL_CORS_ORIGINS` |
 | (none) | `--frontend-dir` | `PETAJOURNAL_FRONTEND_DIR` |
 
