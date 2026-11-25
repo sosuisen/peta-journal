@@ -6,8 +6,10 @@
 //
 // - The changes are those of the commits since the base branch (`--base`, or main).
 // - A job that passed on the same commit is not run again. The marks are in .git/peta-verify/.
-// - A step for another OS does not stop the pull request. The hook tells the AI, which writes it
-//   in the pull request and in the issue. A program that is not set up stops it.
+// - A step for macOS runs on the Mac of the developer when there is one (scripts/mac.mjs). A
+//   failure there stops the pull request, as a failure here does.
+// - A step for another OS that no machine ran does not stop the pull request. The hook tells the
+//   AI, which writes it in the pull request and in the issue. A program that is not set up stops it.
 // - The newer of main and the branch is used, for every file of the checks (VERIFICATION).
 //   Claude Code runs this script from the checkout where it started, which must be on main. So a
 //   branch made before the hook still gets it. When main changed a file of the checks after the
@@ -111,7 +113,7 @@ if (!process.env[HANDED]) {
 }
 
 // The list of checks of the branch. It is the newest: main has none newer (above)
-const { JOBS, jobsFor, runJob } = await import(pathToFileURL(join(root, 'scripts', 'checks.mjs')).href);
+const { JOBS, jobsFor, runJob, remoteFor } = await import(pathToFileURL(join(root, 'scripts', 'checks.mjs')).href);
 
 const files = git(root, 'diff', '--name-only', `origin/${base}...HEAD`).split('\n').filter(Boolean);
 const jobs = jobsFor(files);
@@ -122,15 +124,22 @@ const marks = join(resolve(root, git(root, 'rev-parse', '--git-common-dir')), 'p
 mkdirSync(marks, { recursive: true });
 const logFile = join(marks, `${head}.log`);
 
+// An older list of checks has no other machine
+const remote = remoteFor?.(root);
 const skipped = [];
+const elsewhere = [];
 for (const name of jobs) {
   const mark = join(marks, `${name}-${head}`);
   if (existsSync(mark)) {
-    skipped.push(...JSON.parse(readFileSync(mark, 'utf8')).map((s) => ({ job: name, ...s })));
+    const kept = JSON.parse(readFileSync(mark, 'utf8'));
+    // A mark of an older hook is the list of the skipped steps
+    const { skipped: s = kept, remote: r = [] } = Array.isArray(kept) ? {} : kept;
+    skipped.push(...s.map((x) => ({ job: name, ...x })));
+    elsewhere.push(...r.map((step) => ({ job: name, step })));
     continue;
   }
   appendFileSync(logFile, `\n### ${name}\n`);
-  const result = runJob(name, { root, log: (s) => appendFileSync(logFile, s) });
+  const result = runJob(name, { root, remote, log: (s) => appendFileSync(logFile, s) });
   if (result.failed) {
     answer(
       'deny',
@@ -143,11 +152,16 @@ for (const name of jobs) {
       ].join('\n'),
     );
   }
-  writeFileSync(mark, JSON.stringify(result.skipped));
+  const ranElsewhere = result.remote ?? [];
+  writeFileSync(mark, JSON.stringify({ skipped: result.skipped, remote: ranElsewhere }));
   skipped.push(...result.skipped.map((s) => ({ job: name, ...s })));
+  elsewhere.push(...ranElsewhere.map((step) => ({ job: name, step })));
 }
 
-const done = `CIと同じ検証が通りました（${jobs.join('、')}）。`;
+const done = [
+  `CIと同じ検証が通りました（${jobs.join('、')}）。`,
+  ...(elsewhere.length > 0 ? ['次の段は、Macで回して通りました。', ...elsewhere.map((s) => `- ${s.job}: ${s.step}`)] : []),
+].join('\n');
 if (skipped.length === 0) answer(undefined, undefined, done);
 answer(
   undefined,
