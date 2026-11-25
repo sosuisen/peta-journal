@@ -561,6 +561,23 @@ describe('a document page', () => {
     expect(wasm.events).toEqual([{ kind: 'DemoteIndex' }]);
   });
 
+  // 目次のページには、見出しの行に地図のボタンがある。押すと、そのフォルダのアトラスに切り替わる。
+  test('an index has the map button in its header, which switches to the atlas', () => {
+    const { wasm } = page(
+      docPage('index', 'work/', {
+        is_index: true,
+        dir_segments: [new DirSegment('work', 'work/', 'work/index')],
+      }),
+    );
+
+    fireEvent.click(screen.getByTitle('Atlas'));
+
+    expect(screen.getByTitle('Atlas').getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+    expect(wasm.events).toEqual([{ kind: 'ToggleAtlas' }]);
+  });
+
   // 深いフォルダの目次では、上のフォルダは目次へのリンクで、最後のフォルダだけが題名である。
   test('in a deep index the upper folders lead to their index, and only the last is the title', () => {
     const { container } = page(
