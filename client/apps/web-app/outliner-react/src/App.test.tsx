@@ -499,6 +499,19 @@ describe('a document page', () => {
     expect(titleFields(container).name).toBeNull();
   });
 
+  // Escapeでは、何も送らずに見出しに戻る。
+  test('Escape goes back to the title and saves nothing', () => {
+    const { wasm, container } = page(docPage('plan', 'work/'));
+
+    fireEvent.click(screen.getByRole('heading', { name: 'plan' }));
+    const { name } = titleFields(container);
+    fireEvent.change(name as HTMLInputElement, { target: { value: 'idea' } });
+    fireEvent.keyDown(name as HTMLInputElement, { key: 'Escape' });
+
+    expect(wasm.events).toEqual([]);
+    expect(pageHeading()).toBe('plan');
+  });
+
   // アトラスのページは、項目の代わりに、そのフォルダのキャンバスを出す。
   test('an atlas page shows the canvas of its folder in place of the items', () => {
     const { container } = page(
