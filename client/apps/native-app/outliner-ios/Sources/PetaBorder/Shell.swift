@@ -75,6 +75,24 @@ public final class Shell: ObservableObject {
         send(.dateMayHaveChanged)
     }
 
+    /// The user chose "Delete" in the menu of the item. The core asks first when another item
+    /// shows this one.
+    public func delete(_ itemId: String) {
+        send(.deleteItem(itemId: itemId))
+    }
+
+    /// The user chose "Send to Stash" in the menu of the item: it goes with its children under
+    /// the heading `# Stash` at the end of the page.
+    public func sendToStash(_ itemId: String) {
+        send(.sendToStash(itemId: itemId))
+    }
+
+    /// The user chose "Remove Transclusion" in the menu of an item that shows another. The
+    /// item stays, empty, and the item it showed stays where it is.
+    public func removeTransclusion(_ itemId: String) {
+        send(.removeTransclusion(itemId: itemId))
+    }
+
     /// Opens the screen that the app showed when it was used last. The journal of today opens
     /// when there is none, as in a new app, and when its page has gone since. Without `make`,
     /// the journal of today is not made, and no screen opens then.
