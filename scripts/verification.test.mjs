@@ -413,9 +413,17 @@ function ciOses() {
   return oses;
 }
 
-// CIは、OSごとに回すかを選べる。既定はすべてのOSを回す（開発者が決めた。publicのリポジトリでは、macOSも無料である）。
-// guardは毎回回る。ほかのジョブは、ランナーのOSの入力で決まる。ただし、ios_onlyのときは、outliner-iosだけが回る。
-test('the CI runs each os when asked, only outliner-ios with ios_only, and the guard every time', () => {
+// CIは、PR、PRへのpush、mainへのpushで回る。docs/の下だけの変更では回らない（開発者が決めた）。
+test('the CI runs on pull requests and on pushes to main, except for docs only', () => {
+  const ci = read('.github/workflows/ci.yml');
+  const on = ci.split('\non:\n')[1].split('\npermissions:')[0];
+  assert.match(on, /\n {2}pull_request:\n {4}paths-ignore: \['docs\/\*\*'\]\n/);
+  assert.match(on, /\n {2}push:\n {4}branches: \[main\]\n {4}paths-ignore: \['docs\/\*\*'\]\n/);
+});
+
+// 手で起こすときは、OSごとに回すかを選べる。既定はすべてのOSを回す（開発者が決めた。publicのリポジトリでは、macOSも無料である）。
+// PRとpushでは、すべてのジョブが回る。guardは毎回回る。ios_onlyのときは、outliner-iosだけが回る。
+test('the CI runs each os when asked, every job on a push, only outliner-ios with ios_only, and the guard every time', () => {
   const ci = read('.github/workflows/ci.yml');
   const INPUT = { linux: 'linux', win32: 'windows', darwin: 'macos' };
   const defaults = Object.fromEntries(
@@ -431,8 +439,8 @@ test('the CI runs each os when asked, only outliner-ios with ios_only, and the g
       name === 'guard'
         ? undefined
         : name === 'outliner-ios'
-          ? `inputs.${INPUT[os]} || inputs.ios_only`
-          : `inputs.${INPUT[os]} && !inputs.ios_only`;
+          ? `github.event_name != 'workflow_dispatch' || inputs.${INPUT[os]} || inputs.ios_only`
+          : `(github.event_name != 'workflow_dispatch' || inputs.${INPUT[os]}) && !inputs.ios_only`;
     assert.equal(cond, expected, name);
   }
 });

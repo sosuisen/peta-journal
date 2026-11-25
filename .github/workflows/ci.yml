@@ -1,13 +1,17 @@
 name: CI
 
-# The CI runs only when asked, from the Actions tab or with `gh workflow run CI --ref <branch>`.
-# The checks of each job are in scripts/checks.mjs. The hook before a pull request
+# The CI runs on each pull request, on each push to it, and on each push to main. It can also be
+# started by hand, from the Actions tab or with `gh workflow run CI --ref <branch>`. The checks of
+# each job are in scripts/checks.mjs. The hook before a pull request
 # (.claude/hooks/verify-before-pr.mjs) runs the same checks on a developer's machine.
 #
-# The jobs of every OS run by default. The repository is public, and its standard runners cost
-# nothing, also on macOS. A larger runner would cost: none of the jobs uses one.
+# The jobs of every OS run. The repository is public, and its standard runners cost nothing, also
+# on macOS. A larger runner would cost: none of the jobs uses one.
 #
-# Each OS can still be left out, to wait less. The jobs of an OS left out show as skipped. The
+# A change only under docs/ starts no run, as the hook runs no job for it. A markdown file
+# elsewhere starts one: it can be the data of a test.
+#
+# By hand, each OS can be left out, to wait less. The jobs of an OS left out show as skipped. The
 # guard job runs every time. For only the Windows jobs:
 # `gh workflow run CI --ref <branch> -f linux=false -f macos=false`
 #
@@ -32,9 +36,20 @@ on:
         description: Run only the outliner-ios job on macOS, and the guard
         type: boolean
         default: false
+  pull_request:
+    paths-ignore: ['docs/**']
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**']
 
 permissions:
   contents: read
+
+# A new push to a pull request stops the run of the commit before it. A run on main is not
+# stopped: the caches that every branch reads are saved there
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # The settings of the checks: the coverage floors, the files left out, the jobs and the hook
@@ -49,7 +64,7 @@ jobs:
 
   rust:
     name: ${{ matrix.workspace }}
-    if: inputs.linux && !inputs.ios_only
+    if: (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -90,7 +105,7 @@ jobs:
 
   # The E2E tests of the Emacs mode press real keys, with the real shell and a real server
   emacs-e2e:
-    if: inputs.linux && !inputs.ios_only
+    if: (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -112,7 +127,7 @@ jobs:
 
   todo:
     name: client/apps/web-app/todo
-    if: inputs.linux && !inputs.ios_only
+    if: (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -128,7 +143,7 @@ jobs:
   # code. The e2e tests with Playwright run on a developer's machine only.
   outliner-react:
     name: client/apps/web-app/outliner-react
-    if: inputs.linux && !inputs.ios_only
+    if: (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -152,7 +167,7 @@ jobs:
   # real keys on the screen of the runner.
   stickies-win:
     name: client/apps/native-app/stickies-win
-    if: inputs.windows && !inputs.ios_only
+    if: (github.event_name != 'workflow_dispatch' || inputs.windows) && !inputs.ios_only
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -183,7 +198,7 @@ jobs:
   # BoltFFI, and a journal server. Swift and swift-format come with the Xcode of the runner.
   stickies-mac:
     name: client/apps/native-app/stickies-mac
-    if: inputs.macos && !inputs.ios_only
+    if: (github.event_name != 'workflow_dispatch' || inputs.macos) && !inputs.ios_only
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -206,7 +221,7 @@ jobs:
 
   outliner-ios:
     name: client/apps/native-app/outliner-ios
-    if: inputs.macos || inputs.ios_only
+    if: github.event_name != 'workflow_dispatch' || inputs.macos || inputs.ios_only
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -233,7 +248,7 @@ jobs:
   memoview-win:
     name: client/apps/webview-app/memoview-win
     # The app is WinUI. It builds only on Windows, with the MSBuild of Visual Studio
-    if: inputs.windows && !inputs.ios_only
+    if: (github.event_name != 'workflow_dispatch' || inputs.windows) && !inputs.ios_only
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7

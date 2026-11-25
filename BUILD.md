@@ -348,13 +348,16 @@ Then build the frontend, open an atlas, and check the drawing and a dialog.
 
 ## CI
 
-`.github/workflows/ci.yml` runs only when asked: from the Actions tab, or with
-`gh workflow run CI --ref <branch>`.
+`.github/workflows/ci.yml` runs on each pull request, on each push to it, and on each push to
+`main`. A change only under `docs/` starts no run. A new push to a pull request stops the run of
+the commit before it.
 
-The jobs of every OS run by default. The repository is public, so the standard runners of GitHub
-cost nothing, also on macOS. A larger runner would cost: none of the jobs uses one.
+The jobs of every OS run. The repository is public, so the standard runners of GitHub cost
+nothing, also on macOS. A larger runner would cost: none of the jobs uses one.
 
-Each OS can be left out with an input, to wait less. The `guard` job runs every time.
+The CI can also be started by hand, from the Actions tab or with `gh workflow run CI --ref
+<branch>`. By hand, each OS can be left out with an input, to wait less. The `guard` job runs
+every time.
 
 ```
 gh workflow run CI --ref <branch> -f macos=false                 # Linux and Windows
