@@ -476,6 +476,8 @@ function TitleFields({
         dir_path: edit.dir,
         file_name: edit.name,
       });
+    } else if (event.key === 'Escape') {
+      setEdit(null);
     }
   };
   return (
