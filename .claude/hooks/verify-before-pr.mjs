@@ -18,7 +18,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // `gh pr create`, or a pull request made through the REST API
@@ -113,16 +113,17 @@ if (!process.env[HANDED]) {
 }
 
 // The list of checks of the branch. It is the newest: main has none newer (above)
-const { JOBS, jobsFor, runJob, remoteFor } = await import(pathToFileURL(join(root, 'scripts', 'checks.mjs')).href);
+const { JOBS, jobsFor, runJob, remoteFor, logFileFor } = await import(pathToFileURL(join(root, 'scripts', 'checks.mjs')).href);
 
 const files = git(root, 'diff', '--name-only', `origin/${base}...HEAD`).split('\n').filter(Boolean);
 const jobs = jobsFor(files);
 if (jobs.length === 0) process.exit(0);
 
 const head = git(root, 'rev-parse', 'HEAD');
-const marks = join(resolve(root, git(root, 'rev-parse', '--git-common-dir')), 'peta-verify');
+// Each step writes its output here as it comes (`node scripts/checks.mjs log` prints the path)
+const logFile = logFileFor(root);
+const marks = dirname(logFile);
 mkdirSync(marks, { recursive: true });
-const logFile = join(marks, `${head}.log`);
 
 // An older list of checks has no other machine
 const remote = remoteFor?.(root);
@@ -139,7 +140,7 @@ for (const name of jobs) {
     continue;
   }
   appendFileSync(logFile, `\n### ${name}\n`);
-  const result = runJob(name, { root, remote, log: (s) => appendFileSync(logFile, s) });
+  const result = await runJob(name, { root, remote, log: (s) => appendFileSync(logFile, s) });
   if (result.failed) {
     answer(
       'deny',

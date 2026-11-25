@@ -18,6 +18,7 @@ const HOOK = '.claude/hooks/verify-before-pr.mjs';
 const stub = (jobs) => `import { appendFileSync } from 'node:fs';
 export const JOBS = ${JSON.stringify(Object.fromEntries(jobs.map((j) => [j, { dir: '.' }])))};
 export const jobsFor = () => Object.keys(JOBS);
+export const logFileFor = () => process.env.RAN + '.log';
 export function runJob(name) {
   appendFileSync(process.env.RAN, name + '\\n');
   return { skipped: [] };
@@ -140,6 +141,7 @@ test('the hook tells the steps that ran on the machine of another os', () => {
     `export const JOBS = { mac: { dir: '.' } };
 export const jobsFor = () => ['mac'];
 export const remoteFor = () => ({ platform: 'darwin' });
+export const logFileFor = () => process.env.RAN + '.log';
 export const runJob = (name, { remote }) => ({ skipped: [], remote: remote ? ['swift test'] : [] });
 `,
   );
