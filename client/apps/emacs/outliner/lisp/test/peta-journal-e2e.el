@@ -189,7 +189,9 @@ The server is a real one, with its files in a temporary folder."
               (with-temp-buffer
                 ;; The server may move a file away after the list is made, as a rename does
                 (ignore-error file-missing
-                  (insert-file-contents file)
+                  ;; The server writes UTF-8. Emacs on a Japanese Windows would guess Shift_JIS
+                  (let ((coding-system-for-read 'utf-8))
+                    (insert-file-contents file))
                   (search-forward text nil t))))
             (directory-files-recursively folder "\\.md\\'")))
 
@@ -367,7 +369,8 @@ The server is a real one, with its files in a temporary folder."
     (let ((file (peta-journal-e2e--wait-for-file (expand-file-name "markdown" root) "前")))
       (with-temp-file file
         (set-buffer-file-coding-system 'utf-8-unix)
-        (insert-file-contents file)
+        (let ((coding-system-for-read 'utf-8))
+          (insert-file-contents file))
         (goto-char (point-min))
         (search-forward "前")
         (replace-match "外からの変更")))
