@@ -498,10 +498,10 @@ fn taking_in_the_downloads_starts_no_sync() {
 #[test]
 fn reading_a_page_while_the_downloads_are_taken_in_starts_no_sync() {
     let (app, sync) = app_waiting(100);
-    fs::write(app.dir.path().join("markdown/docs/notes.md"), "- a\n").unwrap();
-    app.core.sync();
     sync.start(empty(), "/PetaJournal".into(), true);
     app.until_rest();
+    fs::write(app.dir.path().join("markdown/docs/notes.md"), "- a\n").unwrap();
+    app.core.sync();
     for n in 0..100 {
         let file = format!("markdown/docs/sample-{n}.md");
         fs::write(app.dir.path().join(file), "- a\n").unwrap();
