@@ -483,6 +483,41 @@ final class ShellTests: JournalTestCase {
         waitUntil("the item is a child again") { self.items() == ["1 first", "2 second", "1 third"] }
     }
 
+    // 項目のメニューで消すと、項目はページから消える。
+    func testAnItemDeletedFromItsMenuLeavesThePage() throws {
+        try download("notes.md", above("A") + "first\n\n" + above("B") + "second\n\n" + above("C") + "third\n")
+        try openNotes()
+
+        shell.delete(id(of: "second"))
+
+        waitUntil("the item is gone") { self.bodies() == ["first", "third"] }
+    }
+
+    // 項目のメニューでstashへ送ると、項目はページの終わりの`# Stash`の見出しの下へ移る。
+    func testAnItemSentToTheStashFromItsMenuGoesUnderTheStashHeadingAtTheEnd() throws {
+        try download("notes.md", above("A") + "first\n\n" + above("B") + "second\n\n" + above("C") + "third\n")
+        try openNotes()
+
+        shell.sendToStash(id(of: "second"))
+
+        waitUntil("the item is under the heading") { self.bodies() == ["first", "third", "# Stash", "second"] }
+    }
+
+    // 項目のメニューでtransclusionを外すと、その項目は空の項目になる。見せていた項目は残る。
+    func testATransclusionRemovedFromItsMenuLeavesAnEmptyItemAndTheItemItShowedStays() throws {
+        let shows = " transclude=\"2020-01-01-00-00-00-AAAAAAB\""
+        try download("notes.md", above("A") + "first\n\n" + above("B") + "second\n\n" + above("C", shows))
+        try openNotes()
+        waitUntil("the transclusion is shown") { self.shell.view.outline.rows.count == 3 }
+        let transclusion = shell.view.outline.rows[2]
+        XCTAssertTrue(transclusion.isTransclusion)
+
+        shell.removeTransclusion(transclusion.item.id)
+
+        waitUntil("the transclusion is gone") { self.shell.view.outline.rows.last?.isTransclusion == false }
+        XCTAssertEqual(bodies(), ["first", "second", ""])
+    }
+
     // 最初の行での上の矢印で、カーソルは上の項目へ移る。行の中の位置は変わらない。
     func testNavigateUpMovesTheEditToTheItemAboveAtThePlace() throws {
         try editSecondOfThree()
