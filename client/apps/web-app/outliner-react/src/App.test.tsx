@@ -637,6 +637,28 @@ describe('a document page', () => {
     expect(container.querySelector('.index-label')?.textContent).toBe('index');
     expect(container.querySelector('.dir-path-breadcrumb')).toBeNull();
   });
+
+  // 一番上の目次にも、地図のボタンがある。
+  test('the index at the top has the map button too', () => {
+    const { wasm } = page(
+      docPage('index', 'x/', { is_index: true, is_root_index: true }),
+    );
+
+    fireEvent.click(screen.getByTitle('Atlas'));
+
+    expect(wasm.events).toEqual([{ kind: 'ToggleAtlas' }]);
+  });
+
+  // 文書のページには、地図のボタンがない。アトラスは、フォルダの目次のものだからである。
+  test('a document page has no map button', () => {
+    page(
+      docPage('plan', 'work/', {
+        dir_segments: [new DirSegment('work', 'work/', 'work/index')],
+      }),
+    );
+
+    expect(screen.queryByTitle('Atlas')).toBeNull();
+  });
 });
 
 // 被リンク
