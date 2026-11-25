@@ -8,6 +8,8 @@ English | [日本語](README.ja.md)
 
 PetaJournal is an open environment that loosely connects note-taking apps, such as an outliner, sticky notes and a task manager, through a journal server running on your own PC.
 
+(This project is still an experimental prototype.)
+
 ## Features
 
 - Works without a network connection. The journal server runs on your own PC.
