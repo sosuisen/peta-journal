@@ -512,6 +512,23 @@ describe('a document page', () => {
     expect(pageHeading()).toBe('plan');
   });
 
+  // フォーカスが欄の外に出ると保存する。フォルダの欄からページ名の欄に移るだけなら、保存しない。
+  test('the title is saved when the focus leaves its fields, and not when it moves between them', () => {
+    const { wasm, container } = page(docPage('plan', 'work/'));
+
+    fireEvent.click(screen.getByRole('heading', { name: 'plan' }));
+    const { dir, name } = titleFields(container);
+    fireEvent.change(name as HTMLInputElement, { target: { value: 'idea' } });
+    fireEvent.blur(dir as HTMLInputElement, { relatedTarget: name });
+    const between = [...wasm.events];
+    fireEvent.blur(name as HTMLInputElement, { relatedTarget: null });
+
+    expect(between).toEqual([]);
+    expect(wasm.events).toEqual([
+      { kind: 'PageTitleSave', dir_path: 'work', file_name: 'idea' },
+    ]);
+  });
+
   // アトラスのページは、項目の代わりに、そのフォルダのキャンバスを出す。
   test('an atlas page shows the canvas of its folder in place of the items', () => {
     const { container } = page(
