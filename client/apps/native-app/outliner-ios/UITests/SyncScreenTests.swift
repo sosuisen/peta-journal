@@ -9,6 +9,12 @@ final class SyncScreenTests: XCTestCase {
 
     private static let wait: TimeInterval = 15
 
+    /// How long the file of a test cloud takes to move. The dialog of the download shows only
+    /// while it moves: with 2 seconds, it was gone now and then before the test looked for it,
+    /// as the app takes a while to start in the simulator (#1176). Below `wait`, so that the
+    /// test sees it go
+    private static let download: TimeInterval = 6
+
     override func setUpWithError() throws {
         continueAfterFailure = false
         root = FileManager.default.temporaryDirectory.appendingPathComponent("peta-\(UUID().uuidString)")
@@ -57,7 +63,7 @@ final class SyncScreenTests: XCTestCase {
 
     // 新しいアプリは、サインインのボタンだけを見せる。サインインのあとは、ダイアログで同期を待たせ、終わればジャーナルを開く。
     func testANewAppShowsOnlyTheSignInAndWaitsForTheFirstDownloadInADialog() {
-        start("signedOut", delay: 2)
+        start("signedOut", delay: SyncScreenTests.download)
         waitFor(app.buttons["Sign in to Dropbox"])
         XCTAssertFalse(app.textFields["search"].exists)
 
@@ -71,7 +77,7 @@ final class SyncScreenTests: XCTestCase {
 
     // アプリが前に来ると同期し、ダイアログで待たせる。終われば、ダウンロードしたページが見える。
     func testTheAppSyncsWhenItComesToTheFrontAndShowsTheDownloadedPage() {
-        start("signedIn", delay: 2, opening: "/pages/trip")
+        start("signedIn", delay: SyncScreenTests.download, opening: "/pages/trip")
 
         waitFor(shown("Downloading"))
         waitUntilGone(shown("Downloading"))
