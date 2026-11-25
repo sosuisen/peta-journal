@@ -366,7 +366,8 @@ The mutation tests are not in the list. Run them on your machine before a pull r
 
 A Claude Code hook (`.claude/settings.json`, `.claude/hooks/verify-before-pr.mjs`) runs the same
 checks before `gh pr create`. It runs the jobs that the commits of the branch touch. A failed check
-stops the pull request.
+stops the pull request. An error in the hook or in the checks stops it too. Claude Code would let
+the command run if the hook only crashed.
 Every changed file counts, Markdown too: a test may read it as its data. Only the files under
 `docs/` touch no job.
 
@@ -390,7 +391,8 @@ A job run by hand shows the output on the screen as it comes.
 
 The hook uses the newer of main and the branch, for every file of the checks (the hook, its
 setting, and `scripts/`). Claude Code runs the hook from the checkout where it started: pull main
-there, or the hook stops the pull request. When main changed a file of the checks after the
+there, or the hook stops the pull request. A pull while the hook runs does not hide an old hook: it
+reads its own code when it starts. When main changed a file of the checks after the
 branch left it, the hook stops until the branch takes main in. Then the hook and the list of
 checks of the branch run, so a job that the branch adds runs too. `scripts/hook.test.mjs` tests
 this.
