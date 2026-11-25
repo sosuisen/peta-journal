@@ -247,7 +247,7 @@ test('each c# test project fails under the floor and measures the agreed files',
 test('the CI runs every job of the list', () => {
   const ci = read('.github/workflows/ci.yml');
   const named = [...ci.matchAll(/node scripts\/checks\.mjs run ([\w-]+)/g)].map((m) => m[1]);
-  const matrix = ci.match(/workspace: \[([^\]]+)\]/)[1].split(',').map((s) => s.trim());
+  const matrix = rustWorkspaces(ci);
   assert.ok(ci.includes('node scripts/checks.mjs run ${{ matrix.workspace }}'));
   assert.deepEqual([...named, ...matrix].sort(), Object.keys(JOBS).sort());
 });
@@ -400,40 +400,75 @@ test('a job with no step for the other machine does not use it', async () => {
   }
 });
 
+// The workspaces that the rust job can run, from the plan job of ci.yml
+function rustWorkspaces(ci) {
+  return JSON.parse(ci.match(/\n {10}RUST: '(\[[^\]]+\])'\n/)[1]);
+}
+
 // The OS of each job in the CI, from the runs-on of its block in ci.yml
 function ciOses() {
   const RUNNER = { ubuntu: 'linux', windows: 'win32', macos: 'darwin' };
   const oses = {};
   for (const block of read('.github/workflows/ci.yml').split(/\n(?=  [\w-]+:\n)/)) {
     const os = RUNNER[block.match(/runs-on: (\w+)-/)?.[1]];
-    const matrix = block.match(/workspace: \[([^\]]+)\]/)?.[1].split(',').map((s) => s.trim()) ?? [];
+    const matrix = block.includes('${{ matrix.workspace }}') ? rustWorkspaces(read('.github/workflows/ci.yml')) : [];
     const named = [...block.matchAll(/node scripts\/checks\.mjs run ([\w-]+)/g)].map((m) => m[1]);
     for (const job of [...named, ...matrix]) oses[job] = os;
   }
   return oses;
 }
 
-// CIは、OSごとに回すかを選べる。既定はLinuxとWindowsを回し、macOSは回さない（開発者が決めた）。
-// guardは毎回回る。ほかのジョブは、ランナーのOSの入力で決まる。ただし、ios_onlyのときは、outliner-iosだけが回る。
-test('the CI runs each os when asked, only outliner-ios with ios_only, and the guard every time', () => {
+// CIは、PR、PRへのpush、mainへのpushで回る。docs/の下だけの変更でも起動する。
+// 起動しないと、mainの保護が求めるチェックが来ず、PRをマージできないためである（開発者が決めた）。
+test('the CI runs on pull requests and on pushes to main, also for docs only', () => {
+  const ci = read('.github/workflows/ci.yml');
+  const on = ci.split('\non:\n')[1].split('\npermissions:')[0];
+  assert.match(on, /\n {2}pull_request:\n {2}push:\n {4}branches: \[main\]\n$/);
+});
+
+// planのジョブは、フックと同じ決まり（checks.mjsのjobs）で、回すジョブを選ぶ。
+// ciのジョブは、ほかのすべてのジョブを待ち、1つでも失敗か中止があれば失敗する。mainの保護が求めるのは、このチェックだけである。
+test('the plan job picks the jobs as the hook does, and the ci job waits for every other job', () => {
+  const ci = read('.github/workflows/ci.yml');
+  const ids = [...ci.split('\njobs:\n')[1].matchAll(/^ {2}([\w-]+):$/gm)].map((m) => m[1]);
+  assert.match(ci, /\| xargs -0 node scripts\/checks\.mjs jobs \|/);
+  const needs = ci
+    .match(/\n {2}ci:\n {4}if: always\(\)\n {4}needs: \[([^\]]+)\]/)[1]
+    .split(',')
+    .map((s) => s.trim());
+  assert.deepEqual(needs.sort(), ids.filter((id) => id !== 'ci').sort());
+  assert.match(
+    ci,
+    /\n {6}- if: contains\(needs\.\*\.result, 'failure'\) \|\| contains\(needs\.\*\.result, 'cancelled'\)\n {8}run: exit 1\n/,
+  );
+});
+
+// 手で起こすときは、OSごとに回すかを選べる。既定はすべてのOSを回す（開発者が決めた。publicのリポジトリでは、macOSも無料である）。
+// ほかのジョブは、planが選んだときだけ回る。guardは毎回回る。ios_onlyのときは、outliner-iosだけが回る。
+test('the CI runs the jobs that the plan picks, each os when asked, only outliner-ios with ios_only, and the guard every time', () => {
   const ci = read('.github/workflows/ci.yml');
   const INPUT = { linux: 'linux', win32: 'windows', darwin: 'macos' };
   const defaults = Object.fromEntries(
     [...ci.matchAll(/\n {6}(\w+):\n {8}description: [^\n]*\n {8}type: boolean\n {8}default: (true|false)(?=\n)/g)].map((m) => [m[1], m[2]]),
   );
-  assert.deepEqual(defaults, { linux: 'true', windows: 'true', macos: 'false', ios_only: 'false' });
+  assert.deepEqual(defaults, { linux: 'true', windows: 'true', macos: 'true', ios_only: 'false' });
+  const UNPICKED = { plan: undefined, guard: undefined, ci: 'always()' };
   for (const block of ci.split('\njobs:\n')[1].split(/\n(?=  [\w-]+:\n)/)) {
     const name = block.match(/^ {2}([\w-]+):$/m)?.[1];
     if (!name) continue; // a comment before the first job
-    const os = { ubuntu: 'linux', windows: 'win32', macos: 'darwin' }[block.match(/runs-on: (\w+)-/)?.[1]];
     const cond = block.match(/\n {4}if: (.*)/)?.[1];
+    if (name in UNPICKED) {
+      assert.equal(cond, UNPICKED[name], name);
+      continue;
+    }
+    const input = INPUT[{ ubuntu: 'linux', windows: 'win32', macos: 'darwin' }[block.match(/runs-on: (\w+)-/)[1]]];
+    const picked = name === 'rust' ? `needs.plan.outputs.rust != '[]'` : `contains(fromJSON(needs.plan.outputs.jobs), '${name}')`;
     const expected =
-      name === 'guard'
-        ? undefined
-        : name === 'outliner-ios'
-          ? `inputs.${INPUT[os]} || inputs.ios_only`
-          : `inputs.${INPUT[os]} && !inputs.ios_only`;
+      name === 'outliner-ios'
+        ? `${picked} && (github.event_name != 'workflow_dispatch' || inputs.${input} || inputs.ios_only)`
+        : `${picked} && (github.event_name != 'workflow_dispatch' || inputs.${input}) && !inputs.ios_only`;
     assert.equal(cond, expected, name);
+    assert.match(block, /\n {4}needs: plan\n/, name);
   }
 });
 
