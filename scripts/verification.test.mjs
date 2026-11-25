@@ -52,8 +52,9 @@ const COVERAGE_STEP = {
   'stickies-mac': './coverage.sh',
 };
 
-// The coverage steps that run on one OS only, as the module builds nowhere else. The CI runs them
-// on that OS, where a step for another OS fails the job
+// The coverage steps that run on one OS only: stickies-mac builds nowhere else, and the developer
+// runs stickies-win on Windows only (#1085). The CI runs them on that OS, where a step for another
+// OS fails the job
 const COVERAGE_OS = {
   'stickies-win': 'win32',
   'stickies-mac': 'darwin',
