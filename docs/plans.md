@@ -12,4 +12,4 @@
 - [x] 一番上のフォルダのページには、フォルダの欄がない
 - [x] カーソルは、見出しを押した位置に置かれる
 - [x] 目次のページでは、最後のフォルダを押すと編集になる。ページ名の欄は変えられず、フォルダの欄にカーソルが入る
-- [ ] `rules/outliner-react.toml`の除外から`PageTitleSave`を消す
+- [x] `rules/outliner-react.toml`の除外から`PageTitleSave`を消す
