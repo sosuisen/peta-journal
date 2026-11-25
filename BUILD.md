@@ -17,6 +17,9 @@ REST API, the SSE stream, the MCP tools and the web frontend on port 8087, and k
   index is downloaded by the `lindera-ipadic` crate and compiled into the binary. Set
   `LINDERA_BUILD_DICTIONARY_CACHE_DIR` to a directory to keep the built dictionary between
   clean builds.
+- On Windows ARM64: install "C++ Clang Compiler for Windows" and "MSBuild support for
+  LLVM(clang-cl) toolset" with the Visual Studio Installer, and run `cargo` in the Developer
+  PowerShell for VS.
 
 ### Build and run
 
@@ -440,7 +443,23 @@ vswhere, or `MSBUILD` names it.
 3. Open `http://localhost:8087`
 
 After a change to the frontend, run the script again and reload the browser. The journal
-server keeps running.
+server keeps running. After a change to the server, stop it with Ctrl+C and run `debug` again.
+The startup log says `Frontend: <folder>` when the server serves the frontend, and
+`Frontend: not served` when it does not.
+
+The debug server reads and writes the same data as daily use (`~/.peta-journal`). To try
+something without touching that data, give another port and a throwaway folder:
+
+```powershell
+cd peta-journal/journal
+cargo run -- --port 8088 --throwaway-dir <a folder>
+```
+
+Then open `http://localhost:8088`. The data, the search index, the configuration and the
+markdown folder are all under that folder (`data/`, `index/`, `config/`, `markdown/`), and the
+server refuses a markdown folder outside it, even one given on the settings screen. It takes
+connections from this machine only. Do not start it with `--data-dir` alone: it would export
+the pages you try into the markdown folder of `~/.peta-journal/config.json` (ADR 002).
 
 ## Daily use
 
@@ -451,6 +470,46 @@ makes the release builds of every app for this system. It copies `dist/` of the 
 folder (ADR 073). The config folder is `~/.peta-journal`, or `PETAJOURNAL_CONFIG_DIR` when it is
 set. Then it starts the server. When port 8087 answers, it opens `http://localhost:8087` and
 `http://localhost:8087/apps/todo/` in the browser, and starts PetaStickies. Pass `-NoPull` (or
-`--no-pull`) to build what is checked out.
-The steps by hand are in [README.ja.md](README.ja.md).
+`--no-pull`) to build what is checked out. When `git pull` changes the script itself, it starts
+the new version of the script again.
+
+On Windows, `release-all.ps1` also closes and builds MemoView and the Windows PetaStickies. It
+skips the build of the Emacs frontend while that program runs: close the PetaJournal buffers in
+Emacs and run the script again.
+
+### By hand
+
+To start the web version for daily use by hand, make the release builds and start the
+executable:
+
+```powershell
+cd peta-journal/client/apps/web-app/outliner-react
+npm run build
+
+cd ../../../../journal
+cargo build --release
+./target/release/journal-server --frontend-dir ../client/apps/web-app/outliner-react/dist
+```
+
+Open `http://localhost:8087`. The data is under `~/.peta-journal`.
+
+The development build and the release build of the frontend both go to the same `dist/`. While
+the server for daily use reads `dist/` directly, `npm run build` for development changes the
+screen of daily use too. When you develop and use PetaJournal on the same PC, copy the contents
+of `dist/` to `journal/target/release/frontend/` instead of passing `--frontend-dir`, and start
+the server with no flags. This is also the layout for distribution:
+
+```
+journal-server (journal-server.exe on Windows)
+frontend/
+  index.html
+  index-<hash>.js
+  ...
+```
+
+To update:
+
+- The frontend only: run `npm run build` again, copy the contents of `dist/` again if you use
+  `frontend/`, and reload the browser.
+- The server: stop it, run `cargo build --release` again, and start it again.
 
