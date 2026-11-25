@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useAsked } from './askedContext';
 import Atlas from './Atlas';
 import type { JournalView, PageView } from './border/peta-types';
@@ -468,20 +468,38 @@ function TitleFields({
   readonly setEdit: (edit: TitleEdit | null) => void;
 }) {
   const core = useCore();
-  const onKeyDown = (event: React.KeyboardEvent) => {
-    if (event.key === 'Enter') {
-      setEdit(null);
+  // A field taken away while it has the focus may still tell that it lost it: one end only
+  const ended = useRef(false);
+  const end = (save: boolean) => {
+    if (ended.current) {
+      return;
+    }
+    ended.current = true;
+    setEdit(null);
+    if (save) {
       core.send({
         kind: 'PageTitleSave',
         dir_path: edit.dir,
         file_name: edit.name,
       });
+    }
+  };
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      end(true);
     } else if (event.key === 'Escape') {
-      setEdit(null);
+      end(false);
     }
   };
   return (
-    <div className="edit-row">
+    <div
+      className="edit-row"
+      onBlur={event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          end(true);
+        }
+      }}
+    >
       <input
         className="edit-dir-path"
         value={edit.dir}
