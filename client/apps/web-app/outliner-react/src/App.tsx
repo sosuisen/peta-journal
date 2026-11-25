@@ -3,7 +3,7 @@ import { useAsked } from './askedContext';
 import Atlas from './Atlas';
 import type { JournalView, PageView } from './border/peta-types';
 import Calendar from './Calendar';
-import { isImeComposing } from './dom';
+import { isImeComposing, textBeforePoint } from './dom';
 import { useCore, usePanel } from './context';
 import Frame from './Frame';
 import Outline from './Outline';
@@ -455,6 +455,8 @@ function AtlasButton({ atlas }: { readonly atlas: boolean }) {
 interface TitleEdit {
   readonly dir: string;
   readonly name: string;
+  /** Where the cursor goes in the name when the fields show. */
+  readonly caret: number;
 }
 
 /**
@@ -474,6 +476,13 @@ function TitleFields({
   const core = useCore();
   // A field taken away while it has the focus may still tell that it lost it: one end only
   const ended = useRef(false);
+  const nameField = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    nameField.current?.focus();
+    nameField.current?.setSelectionRange(edit.caret, edit.caret);
+    // Only when the fields show: the cursor then follows the typing
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const end = (save: boolean) => {
     if (ended.current) {
       return;
@@ -519,6 +528,7 @@ function TitleFields({
         </>
       )}
       <input
+        ref={nameField}
         className="edit-file-name"
         value={edit.name}
         onChange={event => setEdit({ ...edit, name: event.target.value })}
@@ -595,10 +605,17 @@ function DocPage({ page }: { readonly page: PageView }) {
     title = (
       <h2
         className="page-title"
-        onClick={() =>
+        onClick={event =>
           setEdit({
             dir: page.page.dir_path.replace(/\/$/, ''),
             name: page.page.name,
+            caret: (
+              textBeforePoint(
+                event.currentTarget,
+                event.clientX,
+                event.clientY,
+              ) ?? page.page.name
+            ).length,
           })
         }
       >

@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { StrictMode } from 'react';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import App from './App';
 import {
   BacklinkGroup,
@@ -22,6 +22,14 @@ import { AskedOpsContext } from './askedContext';
 import { CoreContext } from './context';
 import type { Core } from './core';
 import { draw, outline, shell } from './test/screens';
+
+// jsdom finds no letter under a point; a test that needs one puts its own in place
+beforeEach(() => {
+  Object.defineProperty(document, 'caretPositionFromPoint', {
+    configurable: true,
+    value: () => null,
+  });
+});
 
 afterEach(() => {
   vi.useRealTimers();
