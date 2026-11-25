@@ -41,6 +41,10 @@ impl Language {
     ///
     /// In C# and Kotlin the name is a nested class of `Event`, such as `Event.PasteText`. `Event`
     /// must be a whole name: the `Back` of `KeyEvent.Back` is not the event.
+    ///
+    /// In TypeScript the name is the string under the key `kind`, such as `kind: 'PasteText'`.
+    /// The same string under another key, or as an argument, is not the event. Prettier writes
+    /// the strings with single quotes.
     pub fn names(self, text: &str, variant: &str) -> bool {
         match self {
             Language::Swift => names_implicit_member(text, &lower_camel(variant)),
@@ -69,11 +73,13 @@ fn names_whole(text: &str, name: &str) -> bool {
 fn names_kind(text: &str, variant: &str) -> bool {
     let needle = format!("'{variant}'");
     text.match_indices(&needle).any(|(at, _)| {
-        let key = text[..at].trim_end().strip_suffix(':').map(str::trim_end);
-        key.is_some_and(|key| {
-            key.strip_suffix("kind")
-                .is_some_and(|before| !before.chars().next_back().is_some_and(is_name_char))
-        })
+        let Some(key) = text[..at].trim_end().strip_suffix(':') else {
+            return false;
+        };
+        let Some(before) = key.trim_end().strip_suffix("kind") else {
+            return false;
+        };
+        !before.chars().next_back().is_some_and(is_name_char)
     })
 }
 
