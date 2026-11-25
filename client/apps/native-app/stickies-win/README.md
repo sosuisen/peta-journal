@@ -345,6 +345,10 @@ The hook before a pull request does not run them on a Mac. Every step of the job
 in `scripts/checks.mjs` is for Windows, as the developer decided (#1085): the app runs on Windows
 only. On a Mac, the hook skips the job and says so.
 
+The hook does not run the tests of the windows below either, as they press real keys (ADR 086).
+They are in the coverage step, which has `screen: true`. The CI runs them, and so does
+`node scripts/checks.mjs run stickies-win` run by hand.
+
 ### Tests of the windows
 
 `PetaScreens.Tests` opens real stickies and works them as a user does (ADR 059). It is a WinUI

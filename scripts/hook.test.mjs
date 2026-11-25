@@ -132,26 +132,28 @@ test('the hook stops when its checkout is behind main', () => {
   assert.match(answer.permissionDecisionReason, /pull/);
 });
 
-// ほかのOSの機械で回した段は、通った段として知らせ、回していない段には数えない。
-test('the hook tells the steps that ran on the machine of another os', () => {
+// フックは、ほかの機械を使わず、画面に触れる段を飛ばす。飛ばした段はCIに任せ、PRは止めない（ADR 086）。
+test('the hook uses no other machine, skips the steps on the screen, and leaves them to the ci', () => {
   const repo = repository();
   write(
     repo.branch,
     'scripts/checks.mjs',
-    `export const JOBS = { mac: { dir: '.' } };
-export const jobsFor = () => ['mac'];
+    `export const JOBS = { win: { dir: '.' } };
+export const jobsFor = () => ['win'];
 export const remoteFor = () => ({ platform: 'darwin' });
 export const logFileFor = () => process.env.RAN + '.log';
-export const runJob = (name, { remote }) => ({ skipped: [], remote: remote ? ['swift test'] : [] });
+export const runJob = (name, { remote, screen }) => ({
+  skipped: [{ step: 'press keys', why: JSON.stringify({ remote: remote ?? null, screen }) }],
+});
 `,
   );
-  commit(repo.branch, 'run on a mac');
+  commit(repo.branch, 'a job with a step on the screen');
 
   const answer = runHook(repo);
   assert.equal(answer.permissionDecision, undefined);
-  assert.match(answer.additionalContext, /Macで回して通りました/);
-  assert.match(answer.additionalContext, /mac: swift test/);
-  assert.doesNotMatch(answer.additionalContext, /回していません/);
+  assert.match(answer.additionalContext, /win: press keys（\{"remote":null,"screen":false\}）/);
+  assert.match(answer.additionalContext, /PRのCIが回し/);
+  assert.doesNotMatch(answer.additionalContext, /issue/);
 });
 
 // 検証の途中で例外が出たら、PRを止める。落ちたフックを、Claude Codeは止める答えとして扱わないため。

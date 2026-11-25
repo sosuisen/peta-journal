@@ -197,8 +197,8 @@ test('each typescript app fails under the floor and leaves out only the agreed f
   }
 });
 
-// カバレッジを測るジョブは、どれもカバレッジの段を持ち、その段は飛ばされない。
-test('each job measures the coverage in a step that is never skipped', () => {
+// カバレッジを測るジョブは、どれもカバレッジの段を持ち、その段はCIでは飛ばされない。
+test('each job measures the coverage in a step that the ci never skips', () => {
   for (const [job, run] of Object.entries(COVERAGE_STEP)) {
     const step = JOBS[job].steps.find((s) => s.run === run);
     assert.ok(step, `${job}: no step "${run}"`);
@@ -285,6 +285,30 @@ test('only a step for another os is skipped on a developer machine', async () =>
     delete JOBS['test-other-os'];
     delete JOBS['test-no-variable'];
   }
+});
+
+// 画面に触れる段は、screen: falseのとき（フック）だけ飛ばす。手で回したときとCIでは回す（ADR 086）。
+test('a step on the screen is skipped only when the screen is not to be touched', async () => {
+  const quiet = { log: () => {} };
+  JOBS['test-screen'] = { dir: '.', touchedBy: [], steps: [{ screen: true, run: 'node -e "process.exit(3)"' }] };
+  try {
+    const hook = await runJob('test-screen', { ...quiet, screen: false });
+    assert.equal(hook.failed, undefined);
+    assert.deepEqual(
+      hook.skipped.map((s) => s.step),
+      ['node -e "process.exit(3)"'],
+    );
+    assert.notEqual((await runJob('test-screen', quiet)).failed, undefined);
+    assert.notEqual((await runJob('test-screen', { ...quiet, strict: true })).failed, undefined);
+  } finally {
+    delete JOBS['test-screen'];
+  }
+});
+
+// 画面に触れる段は、stickies-winのカバレッジの段だけである（開発者が決めた、ADR 086）。
+test('only the coverage step of stickies-win touches the screen', () => {
+  const screen = Object.entries(JOBS).flatMap(([job, { steps }]) => steps.filter((s) => s.screen).map((s) => `${job}: ${s.run}`));
+  assert.deepEqual(screen, ['stickies-win: dotnet build -t:Coverage']);
 });
 
 // 段の出力は、段が終わるのを待たずに、出たそばからログに渡る。開発者が進み具合を見られるようにするため。

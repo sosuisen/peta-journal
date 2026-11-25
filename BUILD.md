@@ -381,6 +381,16 @@ A Claude Code hook (`.claude/settings.json`, `.claude/hooks/verify-before-pr.mjs
 checks before `gh pr create`. It runs the jobs that the commits of the branch touch. A failed check
 stops the pull request. An error in the hook or in the checks stops it too. Claude Code would let
 the command run if the hook only crashed.
+The hook finds a failure before the CI does. It is not what proves the pull request: the
+required `ci` check of the CI is (ADR 086). So the hook runs only the steps that this machine can
+run, and leaves the rest to the CI:
+
+- A step for another OS is skipped. The hook does not use your Mac.
+- A step that touches the screen (`screen: true` in `scripts/checks.mjs`) is skipped, as you could
+  not use the PC meanwhile. It is the coverage step of `stickies-win`, which presses real keys.
+
+A skipped step does not stop the pull request. The hook lists the skipped steps, and the CI of
+the pull request runs them.
 Every changed file counts, Markdown too: a test may read it as its data. Only the files under
 `docs/` touch no job.
 
@@ -391,7 +401,10 @@ node scripts/checks.mjs jobs journal/journal-core/src/lib.rs
 node scripts/checks.mjs run todo
 ```
 
-The hook writes the output of each step into a log as it comes, the output of the Mac too. To
+A job run by hand runs every step that it can, the steps on the screen too. On Windows, a step
+for macOS runs on your Mac (see below).
+
+The hook writes the output of each step into a log as it comes. To
 watch the log while the hook runs, print its path for the commit at HEAD, then follow it:
 
 ```
@@ -410,9 +423,10 @@ branch left it, the hook stops until the branch takes main in. Then the hook and
 checks of the branch run, so a job that the branch adds runs too. `scripts/hook.test.mjs` tests
 this.
 
-On Windows, a step for macOS runs on your Mac over SSH, when you have one (`scripts/mac.mjs`). The
-job is run there by the list of checks of the same commit. A failure there stops the pull request.
-Nothing about the Mac is in the repository. Set it up in your Git settings:
+A job run by hand on Windows runs its steps for macOS on your Mac over SSH, when you have one
+(`scripts/mac.mjs`). Use it to try Swift code without waiting for the CI. The job is run there by
+the list of checks of the same commit. A failure there fails the job. Nothing about the Mac is in
+the repository. Set it up in your Git settings:
 
 - A remote named `mac`, whose URL is a clone on the Mac that is used for the tests only
   (`git remote add mac <host>:<folder>`). The commit is pushed to a branch of its own there,
@@ -422,8 +436,8 @@ Nothing about the Mac is in the repository. Set it up in your Git settings:
 
 The commands run in the login shell of the Mac, so they find the tools of its PATH.
 
-Only a step for another OS that no machine ran is skipped on a developer's machine, and the hook
-reports it: with no Mac, or when the Mac cannot be reached. In the CI, such a step fails the job.
+In a job run by hand, only a step for another OS that no machine ran is skipped, and reported:
+with no Mac, or when the Mac cannot be reached. In the CI, such a step fails the job.
 Any other step fails when what it needs is missing: a program, a file, or an environment
 variable. The Emacs steps need two environment variables:
 
