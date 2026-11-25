@@ -288,6 +288,13 @@ mod tests {
         assert!(!Language::Rust.names("Event::PasteTextLater", "PasteText"));
     }
 
+    // Rustのシェルでは、`.rs`のファイルが読まれる。
+    #[test]
+    fn rust_reads_rs_files() {
+        assert!(Language::Rust.reads("shell.rs"));
+        assert!(!Language::Rust.reads("peta-journal.el"));
+    }
+
     // ソースに出てこず、除外リストにも無い種類が、問題として出る。
     #[test]
     fn a_kind_neither_named_nor_excluded_is_missing() {
