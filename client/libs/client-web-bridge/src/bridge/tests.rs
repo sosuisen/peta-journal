@@ -404,7 +404,7 @@ fn the_start_gives_the_core_the_sorts_and_the_atlas_folders_the_browser_kept() {
     screen.bridge.update(r#""NavigateToRoot""#).unwrap();
 
     assert!(
-        changes.contains(r#""index_sort":{"key":"Modified","order":"Desc"}"#),
+        changes.contains(r#""sort":{"key":"Modified","order":"Desc"}"#),
         "{changes}"
     );
     let urls = screen.urls();

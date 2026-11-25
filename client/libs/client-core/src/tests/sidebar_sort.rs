@@ -128,20 +128,17 @@ fn the_view_sorts_the_index_list_by_the_sort_of_its_directory() {
     let mut h = Harness::with_items(vec![]);
     h.model.sidebar.index_header = "notes/".into();
     h.model.sidebar.index_pages = vec![page("a", 10, None), page("b", 30, None)];
-    assert_eq!(h.view().sidebar.index_sort, IndexSort::default());
+    assert_eq!(h.view().index_pages.sort, IndexSort::default());
 
     h.send(Event::SetIndexSort {
         dir: "notes/".into(),
         sort: sort(IndexSortKey::Modified, SortOrder::Desc),
     });
-    let sidebar = h.view().sidebar;
+    let index = h.view().index_pages;
+    assert_eq!(index.sort, sort(IndexSortKey::Modified, SortOrder::Desc));
     assert_eq!(
-        sidebar.index_sort,
-        sort(IndexSortKey::Modified, SortOrder::Desc)
-    );
-    assert_eq!(
-        sidebar
-            .index_pages
+        index
+            .pages
             .iter()
             .map(|p| p.label.clone())
             .collect::<Vec<_>>(),
@@ -155,8 +152,8 @@ fn the_view_sorts_the_index_list_by_the_sort_of_its_directory() {
     ];
     let flags: Vec<(String, bool)> = h
         .view()
-        .sidebar
         .index_pages
+        .pages
         .iter()
         .map(|p| (p.label.clone(), p.published))
         .collect();
@@ -167,7 +164,7 @@ fn the_view_sorts_the_index_list_by_the_sort_of_its_directory() {
 
     // Another directory keeps the default
     h.model.sidebar.index_header = "other/".into();
-    assert_eq!(h.view().sidebar.index_sort, IndexSort::default());
+    assert_eq!(h.view().index_pages.sort, IndexSort::default());
 }
 
 // 起動時にブラウザから戻された並び順は、そのフォルダの一覧に使われる。
@@ -186,8 +183,8 @@ fn the_sorts_restored_at_startup_are_used_for_their_folders() {
     ));
     let labels: Vec<String> = h
         .view()
-        .sidebar
         .index_pages
+        .pages
         .iter()
         .map(|p| p.label.clone())
         .collect();

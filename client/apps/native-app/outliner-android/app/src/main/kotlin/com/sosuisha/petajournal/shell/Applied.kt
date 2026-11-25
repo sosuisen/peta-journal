@@ -22,7 +22,9 @@ internal fun firstView(changes: Changes): ViewModel {
         atlasLinkSuggestions = panels.the<Panel.AtlasLinkSuggestions>().value,
         outline =
             outlineOf(panels.the<Panel.Outline>().value, emptyList<Row>().applied(changes.rows)),
-        sidebar = panels.the<Panel.Sidebar>().value,
+        indexPages = panels.the<Panel.IndexPages>().value,
+        headings = panels.the<Panel.Headings>().value,
+        recentPages = panels.the<Panel.RecentPages>().value,
         search = panels.the<Panel.Search>().value,
         config = panels.the<Panel.Config>().value,
         connection = panels.the<Panel.Connection>().value,
@@ -81,7 +83,9 @@ private fun ViewModel.with(panel: Panel): ViewModel =
         is Panel.AtlasLinks -> copy(atlasLinks = panel.value)
         is Panel.AtlasLinkSuggestions -> copy(atlasLinkSuggestions = panel.value)
         is Panel.Outline -> copy(outline = outlineOf(panel.value, outline.rows))
-        is Panel.Sidebar -> copy(sidebar = panel.value)
+        is Panel.IndexPages -> copy(indexPages = panel.value)
+        is Panel.Headings -> copy(headings = panel.value)
+        is Panel.RecentPages -> copy(recentPages = panel.value)
         is Panel.Search -> copy(search = panel.value)
         is Panel.Config -> copy(config = panel.value)
         is Panel.Connection -> copy(connection = panel.value)

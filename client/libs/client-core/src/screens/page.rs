@@ -7,7 +7,7 @@ use crate::model::PageExt;
 use crate::model::{list_type_of, BacklinkEntry, Page, PageWithItems, PropertyValue};
 use crate::screens::{navigate, sidebar};
 use crate::util::filename::validate_file_name;
-use crate::view::DirSegment;
+use crate::view::{DirSegment, LoadState};
 use crux_core::Command;
 use std::collections::BTreeMap;
 
@@ -60,12 +60,17 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         properties_open: false,
         backlinks: Vec::new(),
     });
+    // The headings of the page left behind are wrong for this one
+    model.headings_state = LoadState::Loading;
     let page_name = name.to_string();
     let load = run(move |api| async move {
         let (dir_path, title) = split_doc_path(&page_name);
         let result = match api.get_or_create_doc(&title, &dir_path).await {
             Ok(r) => r,
-            Err(e) => return log_error(format!("Failed to load page {page_name}: {e}")),
+            Err(e) => {
+                log_error(format!("Failed to load page {page_name}: {e}"));
+                return api.send_event(Event::PageFailed { page_name });
+            }
         };
         let p = result.page.clone();
         // If the URL does not match the canonical path, redirect, e.g. the server resolved
@@ -98,7 +103,10 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
                 page_id: p.id,
                 loaded: Box::new(loaded),
             }),
-            Err(e) => log_error(format!("Failed to load items for page {}: {e}", p.id)),
+            Err(e) => {
+                log_error(format!("Failed to load items for page {}: {e}", p.id));
+                api.send_event(Event::PageFailed { page_name });
+            }
         }
     });
     Command::all([remember, load])
@@ -145,8 +153,19 @@ pub fn show_page_items(model: &mut Model, page_id: &str, loaded: PageWithItems) 
     }
     model.state.set_items(loaded.items);
     model.state.set_transcluded_trees(loaded.transcluded_trees);
+    model.headings_state = LoadState::Loaded;
     let focus_item_id = page_state(model).and_then(|p| p.focus_item_id.clone());
     scroll_to_item(model, focus_item_id)
+}
+
+/// The server could not answer the page of a path, or its items. The headings of the page
+/// still on screen fail; a reload of a page already shown keeps its headings.
+pub fn page_failed(model: &mut Model, page_name: &str) -> Cmd {
+    let shown = page_state(model).is_some_and(|p| p.page_name == page_name);
+    if shown {
+        model.headings_state.fail();
+    }
+    done()
 }
 
 /// Loads the backlinks of the shown doc page again: any page may have changed its links.

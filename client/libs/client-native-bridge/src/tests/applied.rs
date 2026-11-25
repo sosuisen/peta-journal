@@ -24,7 +24,9 @@ pub(super) fn applied(mut view: ViewModel<RichText>, changes: Changes) -> ViewMo
                 outline.wiki = value.wiki;
                 outline.scrolled_from_top = value.scrolled_from_top;
             }
-            Panel::Sidebar(value) => view.sidebar = value,
+            Panel::IndexPages(value) => view.index_pages = value,
+            Panel::Headings(value) => view.headings = value,
+            Panel::RecentPages(value) => view.recent_pages = value,
             Panel::Search(value) => view.search = value,
             Panel::Config(value) => view.config = value,
             Panel::Connection(value) => view.connection = value,

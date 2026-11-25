@@ -4,18 +4,21 @@ import com.sosuisha.petajournal.types.CalendarView
 import com.sosuisha.petajournal.types.Changes
 import com.sosuisha.petajournal.types.ConfigView
 import com.sosuisha.petajournal.types.ConnectionState
+import com.sosuisha.petajournal.types.HeadingsView
 import com.sosuisha.petajournal.types.HistoryView
+import com.sosuisha.petajournal.types.IndexPagesView
 import com.sosuisha.petajournal.types.IndexSort
 import com.sosuisha.petajournal.types.IndexSortKey
 import com.sosuisha.petajournal.types.Item
 import com.sosuisha.petajournal.types.ListChange
+import com.sosuisha.petajournal.types.LoadState
 import com.sosuisha.petajournal.types.OutlinePanel
 import com.sosuisha.petajournal.types.Panel
+import com.sosuisha.petajournal.types.RecentPagesView
 import com.sosuisha.petajournal.types.RichText
 import com.sosuisha.petajournal.types.Row
 import com.sosuisha.petajournal.types.ScreenView
 import com.sosuisha.petajournal.types.SearchView
-import com.sosuisha.petajournal.types.SidebarView
 import com.sosuisha.petajournal.types.SortOrder
 import com.sosuisha.petajournal.types.WeekNumbering
 import com.sosuisha.petajournal.types.WikiView
@@ -90,17 +93,18 @@ class AppliedTest {
             Panel.AtlasLinks(emptyList()),
             Panel.AtlasLinkSuggestions(listOf("suggested")),
             Panel.Outline(outline(selecting = true)),
-            Panel.Sidebar(
-                SidebarView(
-                    indexHeader = "index",
-                    indexPath = "index",
-                    indexSort = IndexSort(IndexSortKey.NAME, SortOrder.ASC),
-                    indexPages = emptyList(),
-                    headings = emptyList(),
-                    recentPages = emptyList(),
+            Panel.IndexPages(
+                IndexPagesView(
+                    header = "index",
+                    path = "index",
+                    sort = IndexSort(IndexSortKey.NAME, SortOrder.ASC),
+                    pages = emptyList(),
                     currentPageId = "current",
+                    state = LoadState.LOADED,
                 ),
             ),
+            Panel.Headings(HeadingsView(headings = emptyList(), state = LoadState.FAILED)),
+            Panel.RecentPages(RecentPagesView(pages = emptyList(), state = LoadState.LOADING)),
             Panel.Search(search("first")),
             Panel.Config(
                 ConfigView(
@@ -167,7 +171,9 @@ class AppliedTest {
         assertEquals(ScreenView.Settings, view.screen)
         assertEquals(listOf("suggested"), view.atlasLinkSuggestions)
         assertEquals(true, view.outline.selectionMode)
-        assertEquals("current", view.sidebar.currentPageId)
+        assertEquals("current", view.indexPages.currentPageId)
+        assertEquals(LoadState.FAILED, view.headings.state)
+        assertEquals(LoadState.LOADING, view.recentPages.state)
         assertEquals("first", view.search.query)
         assertEquals("tags", view.config.tagsDir)
         assertEquals(ConnectionState.CONNECTED, view.connection)

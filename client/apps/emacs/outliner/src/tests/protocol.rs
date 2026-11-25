@@ -255,12 +255,12 @@ fn sidebar_page(id: &str, label: &str, path: &str, is_dir: bool) -> client_core:
     }
 }
 
-fn core_sidebar(header: &str, parent: Option<&str>) -> client_core::view::SidebarView {
-    client_core::view::SidebarView {
-        index_header: header.into(),
-        index_path: client_core::screens::sidebar::index_path(header),
-        index_parent_path: parent.map(Into::into),
-        index_pages: vec![
+fn core_index(header: &str, parent: Option<&str>) -> client_core::view::IndexPagesView {
+    client_core::view::IndexPagesView {
+        header: header.into(),
+        path: client_core::screens::sidebar::index_path(header),
+        parent_path: parent.map(Into::into),
+        pages: vec![
             sidebar_page("s", "sub/", "notes/sub/index", true),
             sidebar_page("i", "Idea", "notes/Idea", false),
         ],
@@ -269,10 +269,15 @@ fn core_sidebar(header: &str, parent: Option<&str>) -> client_core::view::Sideba
     }
 }
 
+/// The sidebar of Emacs with this list of the folder, and no headings and no recent pages.
+fn sidebar_of(index: &client_core::view::IndexPagesView) -> SidebarView {
+    SidebarView::of(index, &Default::default(), &Default::default())
+}
+
 // フォルダの一覧には、見出しのindexページへのパスと、親のフォルダへのパスが付く。今のページには印が付く。
 #[test]
 fn the_index_list_carries_the_paths_of_its_header_and_its_parent() {
-    let sidebar = SidebarView::of(&core_sidebar("notes/", Some("index")));
+    let sidebar = sidebar_of(&core_index("notes/", Some("index")));
     let index = sidebar.index.unwrap();
     assert_eq!(index.header, "notes/");
     assert_eq!(index.path, "notes/index");
@@ -301,15 +306,15 @@ fn the_index_list_carries_the_paths_of_its_header_and_its_parent() {
 // ページも親もない一覧は、出さない。
 #[test]
 fn an_empty_index_list_is_left_out() {
-    let mut core = core_sidebar("", None);
-    core.index_pages.clear();
-    assert!(SidebarView::of(&core).index.is_none());
+    let mut core = core_index("", None);
+    core.pages.clear();
+    assert!(sidebar_of(&core).index.is_none());
 }
 
 // サイドバーは、種類の名前の付いた1行のJSONになる。
 #[test]
 fn the_sidebar_is_a_line_with_its_type() {
-    let message = Outbound::Sidebar(SidebarView::of(&core_sidebar("(root)/", None)));
+    let message = Outbound::Sidebar(sidebar_of(&core_index("(root)/", None)));
     let line = written(&message);
     assert_eq!(line["t"], json!("sidebar"));
     assert_eq!(line["index"]["path"], json!("index"));

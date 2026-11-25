@@ -39,6 +39,7 @@ mod rename;
 mod route;
 mod search;
 mod sidebar_index;
+mod sidebar_load;
 mod sidebar_menu;
 mod sidebar_sort;
 mod tags_button;
