@@ -53,11 +53,7 @@ pub fn run_s2(root: &Path, rules: &Path, shell: &str) -> Result<Report, String> 
         events::event_variants(&app).ok_or_else(|| format!("{APP_RS} has no `pub enum Event`"))?;
     let mut sources = String::new();
     for folder in &rules.s2.sources {
-        read_sources(
-            &root.join(folder),
-            rules.s2.language.extension(),
-            &mut sources,
-        )?;
+        read_sources(&root.join(folder), rules.s2.language, &mut sources)?;
     }
     Ok(s2::check(
         &variants,
@@ -75,15 +71,19 @@ fn read_toml<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, String> {
     toml::from_str(&read(path)?).map_err(|e| format!("{}: {e}", path.display()))
 }
 
-/// Adds the text of every file with `extension` under `folder` to `into`. A folder that is not
+/// Adds the text of every source of `language` under `folder` to `into`. A folder that is not
 /// there is an error: a rule that names a wrong folder would let every kind look missing.
-fn read_sources(folder: &Path, extension: &str, into: &mut String) -> Result<(), String> {
+fn read_sources(folder: &Path, language: Language, into: &mut String) -> Result<(), String> {
     let entries = fs::read_dir(folder).map_err(|e| format!("{}: {e}", folder.display()))?;
     for entry in entries {
         let path = entry.map_err(|e| e.to_string())?.path();
         if path.is_dir() {
-            read_sources(&path, extension, into)?;
-        } else if path.extension().is_some_and(|ext| ext == extension) {
+            read_sources(&path, language, into)?;
+        } else if path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| language.reads(name))
+        {
             into.push_str(&read(&path)?);
             into.push('\n');
         }

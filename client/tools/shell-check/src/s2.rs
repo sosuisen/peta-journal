@@ -22,13 +22,18 @@ pub enum Language {
 }
 
 impl Language {
-    /// The file extension of a source in this language.
-    pub fn extension(self) -> &'static str {
+    /// True when the file `name` is a source in this language. In TypeScript the tests sit
+    /// beside the sources, as `App.test.tsx` beside `App.tsx`, and are not read.
+    pub fn reads(self, name: &str) -> bool {
         match self {
-            Language::Swift => "swift",
-            Language::CSharp => "cs",
-            Language::Kotlin => "kt",
-            Language::TypeScript => "ts",
+            Language::Swift => name.ends_with(".swift"),
+            Language::CSharp => name.ends_with(".cs"),
+            Language::Kotlin => name.ends_with(".kt"),
+            Language::TypeScript => {
+                (name.ends_with(".ts") || name.ends_with(".tsx"))
+                    && !name.ends_with(".test.ts")
+                    && !name.ends_with(".test.tsx")
+            }
         }
     }
 
