@@ -281,6 +281,13 @@ mod tests {
         assert!(Language::Rust.names("Event::SelectionKey(key.into())", "SelectionKey"));
     }
 
+    // Rustで、`Event`で終わる別の名前の中の同じ名前や、長い名前は、`Event`の種類に数えない。
+    #[test]
+    fn rust_does_not_count_another_name() {
+        assert!(!Language::Rust.names("heard(SseEvent::Open)", "Open"));
+        assert!(!Language::Rust.names("Event::PasteTextLater", "PasteText"));
+    }
+
     // ソースに出てこず、除外リストにも無い種類が、問題として出る。
     #[test]
     fn a_kind_neither_named_nor_excluded_is_missing() {
