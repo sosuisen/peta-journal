@@ -372,6 +372,9 @@ pub fn end_handover(model: &mut Model) -> Cmd {
 /// The field of an ordered editor took the keyboard: the core stops holding keys, and the keys
 /// held since the order go to the same editor with an order of their own (ADR 087).
 pub fn editor_focused(model: &mut Model, item_id: Option<String>) -> Cmd {
+    if !model.key_relay.answered() {
+        return done();
+    }
     let keys = model.key_relay.release();
     if keys.is_empty() {
         return done();

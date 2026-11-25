@@ -16,6 +16,8 @@ use crate::model::DeferredKey;
 #[derive(Debug, Default)]
 pub struct KeyRelay {
     held: Option<Vec<DeferredKey>>,
+    /// The orders to focus an editor that the shell has not answered yet.
+    unanswered: usize,
 }
 
 impl KeyRelay {
@@ -38,11 +40,20 @@ impl KeyRelay {
     /// Returns the keys held so far, for the order to focus the next editor. It goes on holding
     /// until the field of that editor takes the keyboard (ADR 087).
     pub fn hand_over(&mut self) -> Vec<DeferredKey> {
+        self.unanswered += 1;
         self.held.as_mut().map(std::mem::take).unwrap_or_default()
+    }
+
+    /// The shell answered an order to focus an editor. True when no later order waits for its
+    /// answer: the keys are for the editor of the last order only.
+    pub fn answered(&mut self) -> bool {
+        self.unanswered = self.unanswered.saturating_sub(1);
+        self.unanswered == 0
     }
 
     /// Stops holding and returns the keys in the order they were pressed.
     pub fn release(&mut self) -> Vec<DeferredKey> {
+        self.unanswered = 0;
         self.held.take().unwrap_or_default()
     }
 }

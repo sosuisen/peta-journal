@@ -7,8 +7,8 @@
 
 - [x] FocusEditorを出したあとも、答えが来るまで預かり続ける
 - [x] 答えまでに預かったキーは、同じ項目へのもう一度のFocusEditorで渡り、預かるのは終わる
-- [ ] 答えまでに預かったキーがなければ、FocusEditorはもう出ず、預かるのは終わる
-- [ ] 古い注文の答えでは、預かるのをやめない
+- [x] 答えまでに預かったキーがなければ、FocusEditorはもう出ず、預かるのは終わる
+- [x] 古い注文の答えでは、預かるのをやめない
 - [ ] iOS：欄がキーボードを取ったときにFocusEditorに答える
 - [ ] iOS：預かる文字をKeyHeldでコアに送り、Typist.heldを消す
 - [ ] rules/outliner-ios.tomlからKeyHeldの除外を外す
