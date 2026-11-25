@@ -58,7 +58,7 @@ impl Language {
         match self {
             Language::Swift => names_implicit_member(text, &lower_camel(variant)),
             Language::CSharp | Language::Kotlin => names_whole(text, &format!("Event.{variant}")),
-            Language::Rust => text.contains(&format!("Event::{variant}")),
+            Language::Rust => names_whole(text, &format!("Event::{variant}")),
             Language::TypeScript => {
                 names_kind(text, variant) || names_whole(text, &format!("event{variant}"))
             }

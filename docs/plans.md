@@ -6,6 +6,6 @@
 ## #1075 S2をoutliner-emacs（Rust）に広げる
 
 - [x] Rustでは、`Event`の種類は`Event::PasteText`として書かれる
-- [ ] Rustで、`SseEvent::Open`のような`Event`で終わる別の名前の中の同じ名前や、長い名前は、種類に数えない
+- [x] Rustで、`SseEvent::Open`のような`Event`で終わる別の名前の中の同じ名前や、長い名前は、種類に数えない
 - [ ] Rustのシェルでは、`.rs`のファイルが読まれる
 - [ ] `rules/outliner-emacs.toml`を置き、`main`で何も出ない
