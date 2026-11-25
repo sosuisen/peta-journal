@@ -40,7 +40,7 @@ struct Outline: View {
                             // The list draws the rows near what is seen: the core learns by
                             // them where the page is scrolled, and a journal loads the days
                             // before when its end comes near
-                            .onAppear { drawn.came(row.item.id, at: Int(row.position), shell) }
+                            .onAppear { drawn.came(row.item.id, shell) }
                             .onDisappear { drawn.went(row.item.id, shell) }
                     }
                 }
@@ -78,24 +78,26 @@ struct Outline: View {
     }
 }
 
-/// The positions of the rows that the list has drawn, which it tells the core as they change.
-/// They are known by their items: when another page opens, a row of the page before may go
-/// after a row of the new page came at the same position
+/// The rows that the list has drawn, which it tells the core as they change. They are known
+/// by their items, and their positions are read when they are told: when another page opens,
+/// a row of the page before may go after a row of the new page came at its position, and a
+/// new item above moves the rows below it
 final class Drawn {
-    private var positions: [String: Int] = [:]
+    private var items = Set<String>()
 
-    @MainActor func came(_ itemId: String, at position: Int, _ shell: Shell) {
-        positions[itemId] = position
+    @MainActor func came(_ itemId: String, _ shell: Shell) {
+        items.insert(itemId)
         tell(shell)
     }
 
     @MainActor func went(_ itemId: String, _ shell: Shell) {
-        positions[itemId] = nil
+        items.remove(itemId)
         tell(shell)
     }
 
     @MainActor private func tell(_ shell: Shell) {
-        guard let first = positions.values.min(), let last = positions.values.max() else { return }
+        let positions = shell.view.outline.rows.filter { items.contains($0.item.id) }.map { Int($0.position) }
+        guard let first = positions.min(), let last = positions.max() else { return }
         shell.scrolled(top: first, shown: first...last)
     }
 }
