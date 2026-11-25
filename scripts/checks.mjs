@@ -4,10 +4,12 @@
 //
 // Usage:
 //   node scripts/checks.mjs run <job>          runs the checks of the job
+//   node scripts/checks.mjs run <job> --result also prints the result as one line of JSON
 //   node scripts/checks.mjs jobs <file>...     prints the jobs that the files touch
 //
 // Only a step for another OS (`os`) is skipped on a developer's machine, and reported. In the CI
-// (CI=true), it fails the job, so that no check is skipped there without a sign. Everything else
+// (CI=true), it fails the job, so that no check is skipped there without a sign. On Windows, a
+// step for macOS runs on the Mac of the developer when there is one (scripts/mac.mjs). Everything else
 // that a step needs can be set up on any machine: a program given by an environment variable
 // (`needs`), a program on the PATH, a file (`programs`). Without it, the step fails everywhere.
 
@@ -15,6 +17,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { RESULT, macOf } from './mac.mjs';
 
 export const ROOT = resolve(fileURLToPath(import.meta.url), '..', '..');
 
@@ -262,9 +265,38 @@ function otherOs(step) {
   return `${oses.join('、')}でしか動かない`;
 }
 
+// The other machine that runs the steps for its OS, for a checkout at `root`: the Mac of the
+// developer, on another OS than macOS. Undefined when there is none
+export function remoteFor(root = ROOT) {
+  return process.platform === 'darwin' ? undefined : macOf(root);
+}
+
 // Runs the steps of a job. `log` gets every line of output. Returns
-// { failed: {step, tail} | undefined, skipped: [{step, why}] }
-export function runJob(name, { root = ROOT, strict = false, log = (s) => process.stdout.write(s) } = {}) {
+// { failed: {step, tail} | undefined, skipped: [{step, why}], remote: [step] }
+// The steps that this OS cannot run and `remote` can run are run there, with the whole job: the
+// other machine runs the job by its own list of checks, from its first step. `remote` lists them
+export function runJob(name, { root = ROOT, strict = false, remote, log = (s) => process.stdout.write(s) } = {}) {
+  const here = runHere(name, { root, strict, log });
+  const forRemote = (s) => remote && commandOf(s.of, remote.platform) !== undefined;
+  const result = { failed: here.failed, skipped: here.skipped.map(({ step, why }) => ({ step, why })), remote: [] };
+  if (here.failed || !here.skipped.some(forRemote)) return result;
+  log(`\n### ${name}（${remote.platform}）\n`);
+  const there = remote.runJob(name, { log });
+  if (there.unreachable) {
+    result.skipped = here.skipped.map((s) => ({ step: s.step, why: forRemote(s) ? `${s.why}。${there.unreachable}` : s.why }));
+    return result;
+  }
+  if (there.failed) return { ...result, failed: { step: `${there.failed.step}（${remote.platform}）`, tail: there.failed.tail } };
+  const left = new Set(there.skipped.map((s) => s.step));
+  return {
+    failed: undefined,
+    skipped: result.skipped.filter((s) => left.has(s.step)),
+    remote: here.skipped.filter((s) => !left.has(s.step)).map((s) => s.step),
+  };
+}
+
+// Runs the steps of a job that this OS can run. The skipped ones keep their step in `of`
+function runHere(name, { root, strict, log }) {
   const job = JOBS[name];
   if (!job) throw new Error(`unknown job: ${name}`);
   const env = { ...process.env };
@@ -278,7 +310,7 @@ export function runJob(name, { root = ROOT, strict = false, log = (s) => process
     const why = otherOs(step);
     if (why) {
       if (strict) return { failed: { step: label, tail: why }, skipped };
-      skipped.push({ step: label, why });
+      skipped.push({ step: label, why, of: step });
       continue;
     }
     const cwd = join(root, step.cwd ?? job.dir);
@@ -312,9 +344,16 @@ export function runJob(name, { root = ROOT, strict = false, log = (s) => process
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [command, ...args] = process.argv.slice(2);
-  if (command === 'run' && args.length === 1) {
-    const { failed, skipped } = runJob(args[0], { strict: process.env.CI === 'true' });
+  const result = args.includes('--result');
+  const names = args.filter((a) => a !== '--result');
+  if (command === 'run' && names.length === 1) {
+    const strict = process.env.CI === 'true';
+    const outcome = runJob(names[0], { strict, remote: strict ? undefined : remoteFor() });
+    const { failed, skipped } = outcome;
+    for (const s of outcome.remote) console.log(`on the other machine: ${s}`);
     for (const s of skipped) console.log(`skipped: ${s.step} (${s.why})`);
+    // The hook on another machine reads this line, when it ran the job here
+    if (result) console.log(`${RESULT}${JSON.stringify({ failed, skipped })}`);
     if (failed) {
       console.error(`failed: ${failed.step}\n${failed.tail}`);
       process.exit(1);

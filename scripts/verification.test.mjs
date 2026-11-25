@@ -241,12 +241,86 @@ test('a step with a command for each os runs on those oses', () => {
   JOBS['test-each-os'] = { dir: '.', touchedBy: [], steps: [{ run: { [process.platform]: 'node --version', nowhere: 'never' } }] };
   JOBS['test-no-command'] = { dir: '.', touchedBy: [], steps: [{ run: { nowhere: 'never' } }] };
   try {
-    assert.deepEqual(runJob('test-each-os', { ...quiet, strict: true }), { failed: undefined, skipped: [] });
+    assert.deepEqual(runJob('test-each-os', { ...quiet, strict: true }), { failed: undefined, skipped: [], remote: [] });
     assert.equal(runJob('test-no-command', quiet).skipped.length, 1);
     assert.equal(runJob('test-no-command', { ...quiet, strict: true }).failed.step, 'never');
   } finally {
     delete JOBS['test-each-os'];
     delete JOBS['test-no-command'];
+  }
+});
+
+// A machine of another OS that runs a job by its own list, and answers with `answer`
+function otherMachine(platform, answer) {
+  const ran = [];
+  return { ran, remote: { platform, runJob: (name) => (ran.push(name), answer) } };
+}
+
+// ほかのOSの段は、そのOSの機械があれば、ジョブごとそこで回す。そこでも飛んだ段だけが、飛ばした段に残る。
+test('a step for another os runs with its job on a machine of that os', () => {
+  const quiet = { log: () => {} };
+  JOBS['test-two-oses'] = {
+    dir: '.',
+    touchedBy: [],
+    steps: [
+      { os: 'far', run: 'far only' },
+      { os: 'nowhere', run: 'nowhere only' },
+    ],
+  };
+  try {
+    const { ran, remote } = otherMachine('far', { failed: undefined, skipped: [{ step: 'nowhere only', why: 'no' }] });
+    const result = runJob('test-two-oses', { ...quiet, remote });
+    assert.deepEqual(ran, ['test-two-oses']);
+    assert.equal(result.failed, undefined);
+    assert.deepEqual(result.remote, ['far only']);
+    assert.deepEqual(
+      result.skipped.map((s) => s.step),
+      ['nowhere only'],
+    );
+  } finally {
+    delete JOBS['test-two-oses'];
+  }
+});
+
+// ほかのOSの機械で段が落ちたら、ジョブも落ちる。
+test('a step that fails on the machine of another os fails the job', () => {
+  const quiet = { log: () => {} };
+  JOBS['test-far'] = { dir: '.', touchedBy: [], steps: [{ os: 'far', run: 'far only' }] };
+  try {
+    const { remote } = otherMachine('far', { failed: { step: 'far only', tail: 'broken' }, skipped: [] });
+    const { failed } = runJob('test-far', { ...quiet, remote });
+    assert.match(failed.step, /far only/);
+    assert.equal(failed.tail, 'broken');
+  } finally {
+    delete JOBS['test-far'];
+  }
+});
+
+// ほかのOSの機械につながらなければ、機械がないときと同じく飛ばし、そのわけを添える。
+test('a step for another os is skipped with the reason when its machine cannot be reached', () => {
+  const quiet = { log: () => {} };
+  JOBS['test-far'] = { dir: '.', touchedBy: [], steps: [{ os: 'far', run: 'far only' }] };
+  try {
+    const { remote } = otherMachine('far', { unreachable: 'away' });
+    const result = runJob('test-far', { ...quiet, remote });
+    assert.equal(result.failed, undefined);
+    assert.equal(result.skipped.length, 1);
+    assert.match(result.skipped[0].why, /away/);
+  } finally {
+    delete JOBS['test-far'];
+  }
+});
+
+// ほかのOSの機械は、その機械で回せる段がないジョブでは使わない。
+test('a job with no step for the other machine does not use it', () => {
+  const quiet = { log: () => {} };
+  JOBS['test-nowhere'] = { dir: '.', touchedBy: [], steps: [{ os: 'nowhere', run: 'nowhere only' }] };
+  try {
+    const { ran, remote } = otherMachine('far', { failed: undefined, skipped: [] });
+    assert.equal(runJob('test-nowhere', { ...quiet, remote }).skipped.length, 1);
+    assert.deepEqual(ran, []);
+  } finally {
+    delete JOBS['test-nowhere'];
   }
 });
 
