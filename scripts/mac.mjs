@@ -9,6 +9,7 @@
 // The commands run in the login shell of the Mac, so they find the tools of its PATH.
 
 import { spawnSync } from 'node:child_process';
+import { streamed } from './checks.mjs';
 
 export const REMOTE = 'mac';
 
@@ -48,15 +49,17 @@ export function macOf(root) {
   if (!remote) return undefined;
   // A path with a space in the SSH command is not split right. The paths of OpenSSH have none
   const [ssh, ...sshArgs] = (gitOut(root, 'config', 'core.sshCommand') || 'ssh').split(/\s+/);
-  const onMac = (command) =>
-    run(ssh, [...sshArgs, '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'ServerAliveInterval=30', remote.host, command]);
+  const sshTo = (command) => [...sshArgs, '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'ServerAliveInterval=30', remote.host, command];
+  const onMac = (command) => run(ssh, sshTo(command));
+  // The output of the job comes to `log` as the Mac sends it
+  const streamOnMac = (command, log) => streamed(ssh, sshTo(command), {}, log);
   return {
     platform: 'darwin',
-    runJob: (name, { log = () => {} } = {}) => runOnMac({ root, remote, onMac, name, log }),
+    runJob: (name, { log = () => {} } = {}) => runOnMac({ root, remote, onMac, streamOnMac, name, log }),
   };
 }
 
-function runOnMac({ root, remote, onMac, name, log }) {
+async function runOnMac({ root, remote, onMac, streamOnMac, name, log }) {
   const reach = onMac('echo ok');
   if (reach.status !== 0) {
     // Away from the Mac, the steps are skipped as without one. The hook says so
@@ -74,9 +77,7 @@ function runOnMac({ root, remote, onMac, name, log }) {
     `git switch -q --detach ${head}`,
     `{ "$SHELL" -lic ${quote(`node scripts/checks.mjs run ${name} --result`)}; s=$?; git switch -q main; exit $s; }`,
   ].join(' && ');
-  const r = onMac(command);
-  const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
-  log(out);
+  const { out } = await streamOnMac(command, log);
   const line = out.split('\n').findLast((l) => l.startsWith(RESULT));
   if (!line) return { failed: { step: 'Macで回す', tail: out.trimEnd().split('\n').slice(-40).join('\n') } };
   return JSON.parse(line.slice(RESULT.length));
