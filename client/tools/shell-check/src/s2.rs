@@ -45,7 +45,7 @@ impl Language {
         match self {
             Language::Swift => names_implicit_member(text, &lower_camel(variant)),
             Language::CSharp | Language::Kotlin => names_whole(text, &format!("Event.{variant}")),
-            Language::TypeScript => text.contains(&format!("'{variant}'")),
+            Language::TypeScript => names_kind(text, variant),
         }
     }
 }
@@ -63,6 +63,17 @@ fn names_whole(text: &str, name: &str) -> bool {
         let before = text[..at].chars().next_back();
         let after = text[at + name.len()..].chars().next();
         !before.is_some_and(is_name_char) && !after.is_some_and(is_name_char)
+    })
+}
+
+fn names_kind(text: &str, variant: &str) -> bool {
+    let needle = format!("'{variant}'");
+    text.match_indices(&needle).any(|(at, _)| {
+        let key = text[..at].trim_end().strip_suffix(':').map(str::trim_end);
+        key.is_some_and(|key| {
+            key.strip_suffix("kind")
+                .is_some_and(|before| !before.chars().next_back().is_some_and(is_name_char))
+        })
     })
 }
 
