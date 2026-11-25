@@ -236,6 +236,16 @@ mod tests {
         assert!(!Language::TypeScript.names("label('Undo')", "Undo"));
     }
 
+    // TypeScriptのシェルでは、`.ts`と`.tsx`のファイルが読まれ、テストのファイルは読まれない。
+    #[test]
+    fn typescript_reads_ts_and_tsx_but_no_tests() {
+        assert!(Language::TypeScript.reads("core.ts"));
+        assert!(Language::TypeScript.reads("App.tsx"));
+        assert!(!Language::TypeScript.reads("core.test.ts"));
+        assert!(!Language::TypeScript.reads("App.test.tsx"));
+        assert!(!Language::TypeScript.reads("styles.css"));
+    }
+
     // ソースに出てこず、除外リストにも無い種類が、問題として出る。
     #[test]
     fn a_kind_neither_named_nor_excluded_is_missing() {

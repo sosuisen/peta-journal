@@ -8,5 +8,5 @@
 - [x] TypeScriptでは、`Event`の種類は`kind: 'PasteText'`として書かれる。複数行のオブジェクトでも同じである
 - [x] TypeScriptで、長い名前や、`kind`でないキーの同じ名前は、種類に数えない
 - [ ] TypeScriptのシェルでは、`.ts`と`.tsx`のファイルが読まれ、テストのファイル（`.test.ts`、`.test.tsx`）は読まれない
-- [ ] ルールの`skipped`に書いたフォルダは読まれない（`src/border`と`src/wasm`の生成物）
+- [ ] ルールの`skipped`に書いたフォルダは読まれない（`src/border`と`src/wasm`の生成物、テストの手助けの`src/test`）
 - [ ] `rules/outliner-react.toml`を置き、`main`で何も出ない
