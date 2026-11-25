@@ -49,12 +49,15 @@ impl Language {
     ///
     /// In TypeScript the name is the string under the key `kind`, such as `kind: 'PasteText'`.
     /// The same string under another key, or as an argument, is not the event. Prettier writes
-    /// the strings with single quotes.
+    /// the strings with single quotes. The name is also the generated function that makes the
+    /// event, such as `eventPasteText(...)`.
     pub fn names(self, text: &str, variant: &str) -> bool {
         match self {
             Language::Swift => names_implicit_member(text, &lower_camel(variant)),
             Language::CSharp | Language::Kotlin => names_whole(text, &format!("Event.{variant}")),
-            Language::TypeScript => names_kind(text, variant),
+            Language::TypeScript => {
+                names_kind(text, variant) || names_whole(text, &format!("event{variant}"))
+            }
         }
     }
 }
