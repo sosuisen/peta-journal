@@ -35,6 +35,12 @@ impl KeyRelay {
         }
     }
 
+    /// Returns the keys held so far, for the order to focus the next editor. It goes on holding
+    /// until the field of that editor takes the keyboard (ADR 087).
+    pub fn hand_over(&mut self) -> Vec<DeferredKey> {
+        self.held.as_mut().map(std::mem::take).unwrap_or_default()
+    }
+
     /// Stops holding and returns the keys in the order they were pressed.
     pub fn release(&mut self) -> Vec<DeferredKey> {
         self.held.take().unwrap_or_default()

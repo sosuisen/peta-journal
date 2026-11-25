@@ -373,6 +373,6 @@ pub fn end_handover(model: &mut Model) -> Cmd {
 /// held for it; the first editor on the page when None.
 pub fn focus_editor(model: &mut Model, item_id: Option<String>) -> Cmd {
     model.state.order_focus(item_id.as_deref());
-    let keys = model.key_relay.release();
+    let keys = model.key_relay.hand_over();
     run(move |api| async move { api.focus_editor(item_id, keys).await })
 }

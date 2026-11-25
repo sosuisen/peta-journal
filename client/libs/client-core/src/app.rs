@@ -515,6 +515,8 @@ pub enum Event {
     },
     /// A key pressed while the relay holds keys for the next editor.
     KeyHeld(DeferredKey),
+    /// The field of an editor that the core ordered focused took the keyboard (ADR 087).
+    EditorFocused,
     SelectionKey(SelectionKey),
     SelectionClickOutside,
     OutlineScrolled {
@@ -1465,6 +1467,10 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         StashFailed { unsaved } => ops::action::stash_failed(model, unsaved.as_deref()),
         KeyHeld(key) => {
             model.key_relay.hold(key);
+            done()
+        }
+        EditorFocused => {
+            model.key_relay.release();
             done()
         }
         SelectionKey(key) => ops::outline_events::selection_key(model, key),
