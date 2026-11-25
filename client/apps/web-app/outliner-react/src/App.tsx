@@ -465,21 +465,31 @@ interface TitleEdit {
  */
 function TitleFields({
   inFolder,
+  index,
   edit,
   setEdit,
 }: {
   /** False for a page at the top, which has no field of the folder. */
   readonly inFolder: boolean;
+  /** True for an index, whose name stays: only its folder changes. */
+  readonly index: boolean;
   readonly edit: TitleEdit;
   readonly setEdit: (edit: TitleEdit | null) => void;
 }) {
   const core = useCore();
   // A field taken away while it has the focus may still tell that it lost it: one end only
   const ended = useRef(false);
+  const dirField = useRef<HTMLInputElement>(null);
   const nameField = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    nameField.current?.focus();
-    nameField.current?.setSelectionRange(edit.caret, edit.caret);
+    if (index) {
+      const end = edit.dir.length;
+      dirField.current?.focus();
+      dirField.current?.setSelectionRange(end, end);
+    } else {
+      nameField.current?.focus();
+      nameField.current?.setSelectionRange(edit.caret, edit.caret);
+    }
     // Only when the fields show: the cursor then follows the typing
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -519,6 +529,7 @@ function TitleFields({
       {inFolder && (
         <>
           <input
+            ref={dirField}
             className="edit-dir-path"
             value={edit.dir}
             onChange={event => setEdit({ ...edit, dir: event.target.value })}
@@ -530,6 +541,7 @@ function TitleFields({
       <input
         ref={nameField}
         className="edit-file-name"
+        disabled={index}
         value={edit.name}
         onChange={event => setEdit({ ...edit, name: event.target.value })}
         onKeyDown={onKeyDown}
@@ -549,7 +561,18 @@ function DocPage({ page }: { readonly page: PageView }) {
     return (
       <span key={segment.index_path}>
         {page.is_index && last ? (
-          <span className="dir-segment-title">{segment.name}</span>
+          <span
+            className="dir-segment-title"
+            onClick={() =>
+              setEdit({
+                dir: page.page.dir_path.replace(/\/$/, ''),
+                name: page.page.name,
+                caret: 0,
+              })
+            }
+          >
+            {segment.name}
+          </span>
         ) : (
           <a
             className="dir-segment"
@@ -629,6 +652,7 @@ function DocPage({ page }: { readonly page: PageView }) {
         {edit !== null && (
           <TitleFields
             inFolder={page.page.dir_path !== ''}
+            index={page.is_index}
             edit={edit}
             setEdit={setEdit}
           />
