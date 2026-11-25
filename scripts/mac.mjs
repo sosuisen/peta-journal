@@ -1,5 +1,6 @@
-// Runs a job of scripts/checks.mjs on a Mac of the developer, over SSH. The hook before a pull
-// request uses it on Windows, for the steps that only macOS can run.
+// Runs a job of scripts/checks.mjs on a Mac of the developer, over SSH. A job run by hand on
+// Windows uses it, for the steps that only macOS can run. The hook before a pull request does not
+// (ADR 086): the CI runs those steps.
 //
 // Nothing about the Mac is written here. It comes from the Git settings of the developer:
 // - A remote named `mac`, whose URL is the clone on the Mac that the tests use (`host:path`, or

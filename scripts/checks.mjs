@@ -9,10 +9,15 @@
 //   node scripts/checks.mjs log                prints the log that the hook writes for HEAD
 //
 // Only a step for another OS (`os`) is skipped on a developer's machine, and reported. In the CI
-// (CI=true), it fails the job, so that no check is skipped there without a sign. On Windows, a
-// step for macOS runs on the Mac of the developer when there is one (scripts/mac.mjs). Everything else
-// that a step needs can be set up on any machine: a program given by an environment variable
-// (`needs`), a program on the PATH, a file (`programs`). Without it, the step fails everywhere.
+// (CI=true), it fails the job, so that no check is skipped there without a sign. Run by hand on
+// Windows, a step for macOS runs on the Mac of the developer when there is one (scripts/mac.mjs).
+// Everything else that a step needs can be set up on any machine: a program given by an
+// environment variable (`needs`), a program on the PATH, a file (`programs`). Without it, the step
+// fails everywhere.
+//
+// The hook skips more (ADR 086): it uses no other machine, and it skips a step that touches the
+// screen (`screen: true`), as the developer could not use the PC meanwhile. The required `ci`
+// check of the CI runs them all.
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -187,9 +192,11 @@ export const JOBS = {
       { os: 'win32', run: 'dotnet tool restore' },
       { os: 'win32', run: 'dotnet csharpier check .' },
       // Runs the tests, and fails below 90% of the lines covered (the Coverage target of
-      // PetaBorder.Tests.csproj). The analyzers run in the build
+      // PetaBorder.Tests.csproj). The analyzers run in the build. The tests of the windows press
+      // real keys, so the hook leaves this step to the CI (ADR 086)
       {
         os: 'win32',
+        screen: true,
         cwd: 'client/apps/native-app/stickies-win/PetaBorder.Tests',
         programs: [`journal/target/debug/journal-server${EXE}`],
         env: { PETA_E2E_SERVER: join(ROOT, 'journal', 'target', 'debug', `journal-server${EXE}`) },
@@ -333,9 +340,13 @@ export function streamed(program, args, options, log) {
 // Runs the steps of a job. `log` gets the output as it comes. Resolves to
 // { failed: {step, tail} | undefined, skipped: [{step, why}], remote: [step] }
 // The steps that this OS cannot run and `remote` can run are run there, with the whole job: the
-// other machine runs the job by its own list of checks, from its first step. `remote` lists them
-export async function runJob(name, { root = ROOT, strict = false, remote, log = (s) => process.stdout.write(s) } = {}) {
-  const here = await runHere(name, { root, strict, log });
+// other machine runs the job by its own list of checks, from its first step. `remote` lists them.
+// With `screen: false`, a step that touches the screen is skipped too
+export async function runJob(
+  name,
+  { root = ROOT, strict = false, remote, screen = true, log = (s) => process.stdout.write(s) } = {},
+) {
+  const here = await runHere(name, { root, strict, screen, log });
   const forRemote = (s) => remote && commandOf(s.of, remote.platform) !== undefined;
   const result = { failed: here.failed, skipped: here.skipped.map(({ step, why }) => ({ step, why })), remote: [] };
   if (here.failed || !here.skipped.some(forRemote)) return result;
@@ -355,7 +366,7 @@ export async function runJob(name, { root = ROOT, strict = false, remote, log = 
 }
 
 // Runs the steps of a job that this OS can run. The skipped ones keep their step in `of`
-async function runHere(name, { root, strict, log }) {
+async function runHere(name, { root, strict, screen, log }) {
   const job = JOBS[name];
   if (!job) throw new Error(`unknown job: ${name}`);
   const env = { ...process.env };
@@ -365,6 +376,10 @@ async function runHere(name, { root, strict, log }) {
   }
   const skipped = [];
   for (const step of job.steps) {
+    if (step.screen && !screen) {
+      skipped.push({ step: step.run, why: '画面に触れる', of: step });
+      continue;
+    }
     const why = otherOs(step);
     if (why) {
       if (strict) return { failed: { step: step.run, tail: why }, skipped };

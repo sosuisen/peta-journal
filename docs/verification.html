@@ -117,7 +117,6 @@
 <p>次のテストは、CIでは回さない。<br>PRの前に、変えた範囲に関わるものを手元で回す。</p>
 <ul>
   <li><code>outliner-react</code>のe2e（Playwright）。<br>テスト用のサーバーを一時フォルダで起こすので、開発者のノートには触れない。</li>
-  <li><code>stickies-mac</code>と<code>outliner-ios</code>は、PRの前のフックが回す。<br>Windowsでは、開発者のMacがあれば、フックがSSHでMacで回す（<code>scripts/mac.mjs</code>）。<br>Macがないか、つながらないときは、フックが飛ばして知らせるので、issueのチェックボックスに残す。</li>
   <li><code>outliner-android</code>の画面のテスト。<br>エミュレーター（<code>Medium_Phone_API_35</code>）で回す。</li>
 </ul>
 
