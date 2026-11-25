@@ -232,4 +232,5 @@ needs an account of Dropbox.
 
 The hook before a pull request runs `generate.sh`, the format check and `coverage.sh` on the
 Mac (the job `outliner-ios` of `scripts/checks.mjs`). The CI runs them when it is started with
-`macos=true`.
+`macos=true`. To run this job alone, without the other jobs on macOS, start the CI with
+`ios_only=true`.
