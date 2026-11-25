@@ -43,7 +43,9 @@ mkdir -p build
 if ! caffeinate -dimsu xcodebuild -project PetaJournal.xcodeproj -scheme PetaJournal \
     -destination "platform=iOS Simulator,name=$device" -derivedDataPath build \
     -enableCodeCoverage YES -resultBundlePath build/coverage.xcresult test >build/coverage.log 2>&1; then
-    grep -E "error:|Test Case.*failed|TEST FAILED" build/coverage.log || tail -n 30 build/coverage.log
+    # A panic of the core names where it stopped on the line after "panicked at" (#1176)
+    awk '/error:|Test Case.*failed|TEST FAILED/ { print; found = 1 } /panicked at/ { print; getline; print; found = 1 }
+        END { exit !found }' build/coverage.log || tail -n 30 build/coverage.log
     echo "The tests failed. The whole log is in $here/build/coverage.log" >&2
     exit 1
 fi
