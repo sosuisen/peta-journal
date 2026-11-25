@@ -450,8 +450,56 @@ function AtlasButton({ atlas }: { readonly atlas: boolean }) {
   );
 }
 
+/** The folder and the name of a page while its title is edited. */
+interface TitleEdit {
+  readonly dir: string;
+  readonly name: string;
+}
+
+/**
+ * The fields that take the place of the title of a page while it is edited. Enter sends the
+ * new folder and name to the core.
+ */
+function TitleFields({
+  edit,
+  setEdit,
+}: {
+  readonly edit: TitleEdit;
+  readonly setEdit: (edit: TitleEdit | null) => void;
+}) {
+  const core = useCore();
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      setEdit(null);
+      core.send({
+        kind: 'PageTitleSave',
+        dir_path: edit.dir,
+        file_name: edit.name,
+      });
+    }
+  };
+  return (
+    <div className="edit-row">
+      <input
+        className="edit-dir-path"
+        value={edit.dir}
+        onChange={event => setEdit({ ...edit, dir: event.target.value })}
+        onKeyDown={onKeyDown}
+      />
+      <span className="edit-slash">/</span>
+      <input
+        className="edit-file-name"
+        value={edit.name}
+        onChange={event => setEdit({ ...edit, name: event.target.value })}
+        onKeyDown={onKeyDown}
+      />
+    </div>
+  );
+}
+
 function DocPage({ page }: { readonly page: PageView }) {
   const core = useCore();
+  const [edit, setEdit] = useState<TitleEdit | null>(null);
   // Kept by the page, so the new rows stay while the core draws the properties again
   const [drafts, setDrafts] = useState<readonly Draft[]>([]);
   const scrolled = usePanel('Outline')?.scrolled_from_top ?? false;
@@ -513,26 +561,42 @@ function DocPage({ page }: { readonly page: PageView }) {
       </div>
     );
   } else {
-    title = <h2 className="page-title">{page.title}</h2>;
+    title = (
+      <h2
+        className="page-title"
+        onClick={() =>
+          setEdit({
+            dir: page.page.dir_path.replace(/\/$/, ''),
+            name: page.page.name,
+          })
+        }
+      >
+        {page.title}
+      </h2>
+    );
   }
   return (
     <app-page>
       <div className={scrolled ? 'page-header scrolled' : 'page-header'}>
-        {!page.is_atlas && !page.is_root_index && page.page.dir_path !== '' && (
-          <div className="title-row">
-            {page.is_index && <AtlasButton atlas={false} />}
-            <div
-              className={
-                page.is_index
-                  ? 'dir-path-breadcrumb index-breadcrumb'
-                  : 'dir-path-breadcrumb'
-              }
-            >
-              {crumbs}
+        {edit !== null && <TitleFields edit={edit} setEdit={setEdit} />}
+        {edit === null &&
+          !page.is_atlas &&
+          !page.is_root_index &&
+          page.page.dir_path !== '' && (
+            <div className="title-row">
+              {page.is_index && <AtlasButton atlas={false} />}
+              <div
+                className={
+                  page.is_index
+                    ? 'dir-path-breadcrumb index-breadcrumb'
+                    : 'dir-path-breadcrumb'
+                }
+              >
+                {crumbs}
+              </div>
             </div>
-          </div>
-        )}
-        {title}
+          )}
+        {edit === null && title}
       </div>
       {/* The canvas takes the place of the items: an atlas page shows its directory */}
       {page.is_atlas ? (
