@@ -32,6 +32,9 @@ class MainActivityTest {
     private var scenario: ActivityScenario<MainActivity>? = null
     private var model: JournalModel? = null
 
+    /** How many models the app made. */
+    private var made = 0
+
     @Before
     fun emptyFolders() {
         root.deleteRecursively()
@@ -54,6 +57,7 @@ class MainActivityTest {
         JournalModel.make = {
             JournalModel(it, File(root, "files"), File(root, "cache"), account, NEVER_MS).also {
                 model = it
+                made++
             }
         }
         return ActivityScenario.launch(MainActivity::class.java).also { scenario = it }
@@ -106,6 +110,17 @@ class MainActivityTest {
 
         assertEquals(2, account.looks)
         assertEquals(3, account.syncs)
+    }
+
+    // アプリを離れて開き直しても、ジャーナルは開いたままで、同じものを使う。前のジャーナルが閉じ終わるのを待たずに開ける（#1135）。
+    @Test
+    fun the_app_that_is_left_and_opened_again_keeps_the_same_journal_open() {
+        val account = FakeAccount()
+        launch(account).close()
+
+        launch(account)
+
+        assertEquals(1, made)
     }
 
     // サインインのボタンは、このアクティビティからサインインを始める。
