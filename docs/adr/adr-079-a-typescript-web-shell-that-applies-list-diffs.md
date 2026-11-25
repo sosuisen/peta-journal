@@ -221,7 +221,7 @@ Web版のシェルを、LeptosからTypeScriptとJSX（TSX）で書くシェル�
 枠組みは、Contextの基準のとおり、Webの標準の枠組みから選ぶ。
 枠組みは、Reactにする。
 SolidとReactを#971で試作して比べ、開発者がReactに決めた（2026-11-23）。
-判断の結果と理由は、#971のコメント（https://github.com/petajournal/peta-journal/issues/971#issuecomment-7094381181）にある。
+判断の結果と理由は、#971のコメント（https://github.com/sosuisen/peta-journal/issues/971#issuecomment-7094381181）にある。
 
 ### ADR 052との関係
 

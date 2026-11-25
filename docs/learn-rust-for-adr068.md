@@ -35,8 +35,8 @@ Rustをやめる候補として、主な言語とマイナーな言語を比べ�
 まずRustのままでビルドを軽くする。
 検討事項として、次のissueを作った。
 
-- [#874](https://github.com/petajournal/peta-journal/issues/874)：IPADICの辞書を、埋め込まずに実行時に読む
-- [#875](https://github.com/petajournal/peta-journal/issues/875)：serdeとfacetの`derive`を、どちらかに寄せる
+- [#874](https://github.com/sosuisen/peta-journal/issues/874)：IPADICの辞書を、埋め込まずに実行時に読む
+- [#875](https://github.com/sosuisen/peta-journal/issues/875)：serdeとfacetの`derive`を、どちらかに寄せる
 
 ### エフェクトの考え方
 

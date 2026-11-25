@@ -846,10 +846,10 @@
   - 自前のzoomを持つ項目だけがzoomを持つ。子は継承するが自前ではない
 - 一行だけの見出しは見出し行である。続きの行がある見出しは違う
 - 項目へのスクロールの求めは、なめらかなスクロールとしてシェルに渡る
-- Markdownの解析の型は、crates.ioの`flatmarkdown-ast`クレートにある（`petajournal/flatmarkdown`リポジトリ）。その機能一覧とテストは、そのリポジトリにある
+- Markdownの解析の型は、crates.ioの`flatmarkdown-ast`クレートにある（`sosuisen/flatmarkdown`リポジトリ）。その機能一覧とテストは、そのリポジトリにある
   - 解析したASTは、typeタグ付きのJSONに戻せる
 - HTMLの描画（client-web-bridge）
-  - 項目のASTは、crates.ioの`flatmarkdown-ast2html`クレートがHTMLにする（ADR 026）。HTMLの形の機能一覧とテストは、`petajournal/flatmarkdown`リポジトリにある
+  - 項目のASTは、crates.ioの`flatmarkdown-ast2html`クレートがHTMLにする（ADR 026）。HTMLの形の機能一覧とテストは、`sosuisen/flatmarkdown`リポジトリにある
   - 本文が空の項目は、何も表示しない
   - 画像URLのフラグメントのwとhは、imgのwidthとheightになる。リストの中など、深いところにある画像でも同じである
     - 値のない辺、数値でない辺、0の辺は、与えられていないものとする
