@@ -230,6 +230,7 @@ file by file. Not tested, and left out of the measurement: `SdkDropbox` and `Rea
 (`DropboxSdk.swift`). They only pass each call on to the SDK of Dropbox, and a test of them
 needs an account of Dropbox.
 
-The hook before a pull request runs `generate.sh`, the format check and `coverage.sh` on the
-Mac (the job `outliner-ios` of `scripts/checks.mjs`). The CI runs them on macOS. To run this
-job alone, without the other jobs, start the CI with `ios_only=true`.
+The CI runs `generate.sh`, the format check and `coverage.sh` on macOS (the job `outliner-ios`
+of `scripts/checks.mjs`). To run this job alone, without the other jobs, start the CI with
+`ios_only=true`. On Windows, `node scripts/checks.mjs run outliner-ios` runs them on your Mac.
+The hook before a pull request does not run them on a Mac (ADR 086).

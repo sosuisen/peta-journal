@@ -1,16 +1,16 @@
 // A PreToolUse hook of Claude Code. Before a pull request is created, it runs the checks of the CI
 // (scripts/checks.mjs) for the jobs that the branch changes. A failed check stops the creation.
 //
-// Why a hook: the CI runs only after the pull request is made. The hook stops a failing pull
-// request before it is made, and runs the steps for macOS on the Mac of the developer. The rules
-// of the checks are kept by this hook, not only by the skills of the AI.
+// Why a hook: the CI runs only after the pull request is made. The hook finds a failure before
+// it is made, without waiting for the CI. The required `ci` check of the CI is what proves that
+// every job passed on every OS (ADR 086).
 //
 // - The changes are those of the commits since the base branch (`--base`, or main).
 // - A job that passed on the same commit is not run again. The marks are in .git/peta-verify/.
-// - A step for macOS runs on the Mac of the developer when there is one (scripts/mac.mjs). A
-//   failure there stops the pull request, as a failure here does.
-// - A step for another OS that no machine ran does not stop the pull request. The hook tells the
-//   AI, which writes it in the pull request and in the issue. A program that is not set up stops it.
+// - Only the steps that this machine can run are run. A step for another OS is skipped, and so is
+//   a step that touches the screen (`screen: true`): the developer could not use the PC meanwhile.
+//   No step runs on the Mac of the developer. A skipped step does not stop the pull request, as
+//   the CI runs it. A program that is not set up stops it.
 // - A hook that throws lets the command run: Claude Code does not take a crash as a "no". So an
 //   error in the checks answers "deny", and the pull request waits until it is fixed.
 // - The newer of main and the branch is used, for every file of the checks (VERIFICATION).
@@ -24,8 +24,18 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// `gh pr create`, or a pull request made through the REST API
-const CREATES_PR = /\bgh\s+pr\s+create\b|\bgh\s+api\b[^\n|;&]*\/pulls(?![\w/])/;
+// `gh pr create`, or a pull request made through the REST API: a POST to `.../pulls`. gh api
+// sends a POST when it is given fields, unless the method says otherwise. A GET of the list of
+// pull requests is not one, with a query (`pulls?head=...`) or without
+function createsPr(command) {
+  if (/\bgh\s+pr\s+create\b/.test(command)) return true;
+  return command.split(/[\n|;&]/).some((part) => {
+    if (!/\bgh\s+api\b/.test(part) || !/\/pulls(?=["'\s]|$)/.test(part)) return false;
+    const method = part.match(/(?:-X|--method)[\s=]*["']?(\w+)/)?.[1]?.toUpperCase();
+    if (method) return method === 'POST';
+    return /\s(?:-f|-F|--field|--raw-field|--input)(?=[\s=])/.test(part);
+  });
+}
 
 const lf = (s) => s.replace(/\r\n/g, '\n').trim();
 // The code that runs. It is read first: a pull of the checkout while the hook runs must not hide
@@ -34,7 +44,7 @@ const running = lf(readFileSync(fileURLToPath(import.meta.url), 'utf8'));
 
 const input = JSON.parse(readFileSync(0, 'utf8'));
 const command = input.tool_input?.command ?? '';
-if (!CREATES_PR.test(command)) process.exit(0);
+if (!createsPr(command)) process.exit(0);
 
 // From here on, an error stops the pull request. Before here, it would stop every command
 process.on('uncaughtException', (e) => {
@@ -124,7 +134,7 @@ if (!process.env[HANDED]) {
 }
 
 // The list of checks of the branch. It is the newest: main has none newer (above)
-const { JOBS, jobsFor, runJob, remoteFor, logFileFor } = await import(pathToFileURL(join(root, 'scripts', 'checks.mjs')).href);
+const { JOBS, jobsFor, runJob, logFileFor } = await import(pathToFileURL(join(root, 'scripts', 'checks.mjs')).href);
 
 const files = git(root, 'diff', '--name-only', `origin/${base}...HEAD`).split('\n').filter(Boolean);
 const jobs = jobsFor(files);
@@ -136,22 +146,18 @@ const logFile = logFileFor(root);
 const marks = dirname(logFile);
 mkdirSync(marks, { recursive: true });
 
-// An older list of checks has no other machine
-const remote = remoteFor?.(root);
 const skipped = [];
-const elsewhere = [];
 for (const name of jobs) {
   const mark = join(marks, `${name}-${head}`);
   if (existsSync(mark)) {
     const kept = JSON.parse(readFileSync(mark, 'utf8'));
     // A mark of an older hook is the list of the skipped steps
-    const { skipped: s = kept, remote: r = [] } = Array.isArray(kept) ? {} : kept;
-    skipped.push(...s.map((x) => ({ job: name, ...x })));
-    elsewhere.push(...r.map((step) => ({ job: name, step })));
+    skipped.push(...(Array.isArray(kept) ? kept : kept.skipped).map((x) => ({ job: name, ...x })));
     continue;
   }
   appendFileSync(logFile, `\n### ${name}\n`);
-  const result = await runJob(name, { root, remote, log: (s) => appendFileSync(logFile, s) });
+  // No other machine, and no step that touches the screen: the CI runs them (ADR 086)
+  const result = await runJob(name, { root, screen: false, log: (s) => appendFileSync(logFile, s) });
   if (result.failed) {
     answer(
       'deny',
@@ -168,23 +174,18 @@ for (const name of jobs) {
   if (!Array.isArray(result?.skipped)) {
     throw new Error(`${name}の結果の形が違います: ${JSON.stringify(result)}`);
   }
-  const ranElsewhere = result.remote ?? [];
-  writeFileSync(mark, JSON.stringify({ skipped: result.skipped, remote: ranElsewhere }));
+  writeFileSync(mark, JSON.stringify({ skipped: result.skipped }));
   skipped.push(...result.skipped.map((s) => ({ job: name, ...s })));
-  elsewhere.push(...ranElsewhere.map((step) => ({ job: name, step })));
 }
 
-const done = [
-  `CIと同じ検証が通りました（${jobs.join('、')}）。`,
-  ...(elsewhere.length > 0 ? ['次の段は、Macで回して通りました。', ...elsewhere.map((s) => `- ${s.job}: ${s.step}`)] : []),
-].join('\n');
+const done = `CIと同じ検証が通りました（${jobs.join('、')}）。`;
 if (skipped.length === 0) answer(undefined, undefined, done);
 answer(
   undefined,
   undefined,
   [
     done,
-    'ただし、ほかのOSの段は回していません。PRの本文の「確かめていないこと」に書き、Refsのissueにチェックボックスを足してください。',
+    '次の段は、この機械では回していません。PRのCIが回し、必須のciのチェックが結果を確かめます。PRを作ったら、CIの結果を確かめてください。',
     ...skipped.map((s) => `- ${s.job}: ${s.step}（${s.why}）`),
   ].join('\n'),
 );
