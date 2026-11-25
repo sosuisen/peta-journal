@@ -40,8 +40,8 @@ struct Outline: View {
                             // The list draws the rows near what is seen: the core learns by
                             // them where the page is scrolled, and a journal loads the days
                             // before when its end comes near
-                            .onAppear { drawn.came(Int(row.position), shell) }
-                            .onDisappear { drawn.went(Int(row.position), shell) }
+                            .onAppear { drawn.came(row.item.id, at: Int(row.position), shell) }
+                            .onDisappear { drawn.went(row.item.id, shell) }
                     }
                 }
                 .padding(.horizontal, 12)
@@ -79,21 +79,23 @@ struct Outline: View {
 }
 
 /// The positions of the rows that the list has drawn, which it tells the core as they change.
+/// They are known by their items: when another page opens, a row of the page before may go
+/// after a row of the new page came at the same position
 final class Drawn {
-    private var positions = Set<Int>()
+    private var positions: [String: Int] = [:]
 
-    @MainActor func came(_ position: Int, _ shell: Shell) {
-        positions.insert(position)
+    @MainActor func came(_ itemId: String, at position: Int, _ shell: Shell) {
+        positions[itemId] = position
         tell(shell)
     }
 
-    @MainActor func went(_ position: Int, _ shell: Shell) {
-        positions.remove(position)
+    @MainActor func went(_ itemId: String, _ shell: Shell) {
+        positions[itemId] = nil
         tell(shell)
     }
 
     @MainActor private func tell(_ shell: Shell) {
-        guard let first = positions.min(), let last = positions.max() else { return }
+        guard let first = positions.values.min(), let last = positions.values.max() else { return }
         shell.scrolled(top: first, shown: first...last)
     }
 }
