@@ -1,9 +1,9 @@
 // A PreToolUse hook of Claude Code. Before a pull request is created, it runs the checks of the CI
 // (scripts/checks.mjs) for the jobs that the branch changes. A failed check stops the creation.
 //
-// Why a hook: the CI runs only after the pull request is made, and main is not protected, so a
-// failed CI does not stop a merge. The hook stops a failing pull request before it is made. The
-// rules of the checks are kept by this hook, not only by the skills of the AI.
+// Why a hook: the CI runs only after the pull request is made. The hook stops a failing pull
+// request before it is made, and runs the steps for macOS on the Mac of the developer. The rules
+// of the checks are kept by this hook, not only by the skills of the AI.
 //
 // - The changes are those of the commits since the base branch (`--base`, or main).
 // - A job that passed on the same commit is not run again. The marks are in .git/peta-verify/.

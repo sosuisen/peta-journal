@@ -8,8 +8,13 @@ name: CI
 # The jobs of every OS run. The repository is public, and its standard runners cost nothing, also
 # on macOS. A larger runner would cost: none of the jobs uses one.
 #
-# A change only under docs/ starts no run, as the hook runs no job for it. A markdown file
-# elsewhere starts one: it can be the data of a test.
+# The plan job picks the jobs that the changed files touch, with the same rule as the hook
+# (`node scripts/checks.mjs jobs`). The other jobs are skipped. A change only under docs/ touches
+# no job but the guard. By hand, every job is picked.
+#
+# The ci job waits for all the others, and fails if one of them failed or was cancelled. A skipped
+# job counts as passed. The protection of main asks for this one check only: a job that is
+# skipped, or added later, needs no change of the protection.
 #
 # By hand, each OS can be left out, to wait less. The jobs of an OS left out show as skipped. The
 # guard job runs every time. For only the Windows jobs:
@@ -37,10 +42,8 @@ on:
         type: boolean
         default: false
   pull_request:
-    paths-ignore: ['docs/**']
   push:
     branches: [main]
-    paths-ignore: ['docs/**']
 
 permissions:
   contents: read
@@ -52,6 +55,37 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # The jobs that the changed files touch, as a JSON list. `rust` holds those of the matrix
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      jobs: ${{ steps.plan.outputs.jobs }}
+      rust: ${{ steps.plan.outputs.rust }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # Without a base to compare with (by hand, or the first push of main), every file counts
+      - id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          RUST: '["journal","client","atlas"]'
+        run: |
+          if [ "$EVENT" != workflow_dispatch ] && git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            git diff --name-only "$BASE"...HEAD > "$RUNNER_TEMP/files"
+          else
+            git ls-files > "$RUNNER_TEMP/files"
+          fi
+          # xargs may start node more than once for many files; unique joins the lists
+          jobs=$(tr '\n' '\0' < "$RUNNER_TEMP/files" | xargs -0 node scripts/checks.mjs jobs | jq -Rnc '[inputs | select(. != "")] | unique')
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+          echo "rust=$(jq -c --argjson rust "$RUST" '[.[] | select(IN($rust[]))]' <<< "$jobs")" >> "$GITHUB_OUTPUT"
+          echo "$jobs"
+
   # The settings of the checks: the coverage floors, the files left out, the jobs and the hook
   guard:
     runs-on: ubuntu-latest
@@ -64,12 +98,13 @@ jobs:
 
   rust:
     name: ${{ matrix.workspace }}
-    if: (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
+    needs: plan
+    if: needs.plan.outputs.rust != '[]' && (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        workspace: [journal, client, atlas]
+        workspace: ${{ fromJSON(needs.plan.outputs.rust) }}
     steps:
       - uses: actions/checkout@v7
       # Installs the version, components and targets in rust-toolchain.toml
@@ -105,7 +140,8 @@ jobs:
 
   # The E2E tests of the Emacs mode press real keys, with the real shell and a real server
   emacs-e2e:
-    if: (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.jobs), 'emacs-e2e') && (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -127,7 +163,8 @@ jobs:
 
   todo:
     name: client/apps/web-app/todo
-    if: (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.jobs), 'todo') && (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -143,7 +180,8 @@ jobs:
   # code. The e2e tests with Playwright run on a developer's machine only.
   outliner-react:
     name: client/apps/web-app/outliner-react
-    if: (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.jobs), 'outliner-react') && (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -167,7 +205,8 @@ jobs:
   # real keys on the screen of the runner.
   stickies-win:
     name: client/apps/native-app/stickies-win
-    if: (github.event_name != 'workflow_dispatch' || inputs.windows) && !inputs.ios_only
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.jobs), 'stickies-win') && (github.event_name != 'workflow_dispatch' || inputs.windows) && !inputs.ios_only
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -198,7 +237,8 @@ jobs:
   # BoltFFI, and a journal server. Swift and swift-format come with the Xcode of the runner.
   stickies-mac:
     name: client/apps/native-app/stickies-mac
-    if: (github.event_name != 'workflow_dispatch' || inputs.macos) && !inputs.ios_only
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.jobs), 'stickies-mac') && (github.event_name != 'workflow_dispatch' || inputs.macos) && !inputs.ios_only
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -221,7 +261,8 @@ jobs:
 
   outliner-ios:
     name: client/apps/native-app/outliner-ios
-    if: github.event_name != 'workflow_dispatch' || inputs.macos || inputs.ios_only
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.jobs), 'outliner-ios') && (github.event_name != 'workflow_dispatch' || inputs.macos || inputs.ios_only)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -248,9 +289,19 @@ jobs:
   memoview-win:
     name: client/apps/webview-app/memoview-win
     # The app is WinUI. It builds only on Windows, with the MSBuild of Visual Studio
-    if: (github.event_name != 'workflow_dispatch' || inputs.windows) && !inputs.ios_only
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.jobs), 'memoview-win') && (github.event_name != 'workflow_dispatch' || inputs.windows) && !inputs.ios_only
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
       - uses: microsoft/setup-msbuild@v3
       - run: node scripts/checks.mjs run memoview-win
+
+  # The one check that the protection of main asks for
+  ci:
+    if: always()
+    needs: [plan, guard, rust, emacs-e2e, todo, outliner-react, stickies-win, stickies-mac, outliner-ios, memoview-win]
+    runs-on: ubuntu-latest
+    steps:
+      - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

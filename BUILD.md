@@ -349,8 +349,12 @@ Then build the frontend, open an atlas, and check the drawing and a dialog.
 ## CI
 
 `.github/workflows/ci.yml` runs on each pull request, on each push to it, and on each push to
-`main`. A change only under `docs/` starts no run. A new push to a pull request stops the run of
-the commit before it.
+`main`. A new push to a pull request stops the run of the commit before it.
+
+The `plan` job picks the jobs that the changed files touch, with the same rule as the hook before
+a pull request (`node scripts/checks.mjs jobs`). The other jobs are skipped. A change only under
+`docs/` runs the `guard` job only. The `ci` job waits for all the others, and fails if one of them
+failed or was cancelled. The protection of `main` asks for this one check.
 
 The jobs of every OS run. The repository is public, so the standard runners of GitHub cost
 nothing, also on macOS. A larger runner would cost: none of the jobs uses one.
