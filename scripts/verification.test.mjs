@@ -50,20 +50,33 @@ const COVERAGE_STEP = {
   'memoview-win': 'dotnet build -t:Coverage',
   'stickies-win': 'dotnet build -t:Coverage',
   'stickies-mac': './coverage.sh',
+  'outliner-ios': './coverage.sh',
 };
 
-// The coverage steps that run on one OS only: stickies-mac builds nowhere else, and the developer
-// runs stickies-win on Windows only (#1085). The CI runs them on that OS, where a step for another
-// OS fails the job
+// The coverage steps that run on one OS only: stickies-mac and outliner-ios build nowhere else, and
+// the developer runs stickies-win on Windows only (#1085). The CI runs them on that OS, where a step
+// for another OS fails the job
 const COVERAGE_OS = {
   'stickies-win': 'win32',
   'stickies-mac': 'darwin',
+  'outliner-ios': 'darwin',
 };
 
 // The floor and the folder measured by coverage.sh of stickies-mac. App/, generated/ and
 // ../swift-shared are left out, with the consent of the developer
 const SWIFT = {
   'client/apps/native-app/stickies-mac/coverage.sh': { floor: String(FLOOR), measured: 'Sources/' },
+};
+
+// The floor, the folders and the files left out of coverage.sh of outliner-ios, which reads the
+// result of xcodebuild. The two files only pass each call on to the SDK of Dropbox, and are left
+// out with the consent of the developer (2026-11-25, #1088)
+const XCCOV = {
+  'client/apps/native-app/outliner-ios/coverage.sh': {
+    floor: String(FLOOR),
+    measured: 'App/ Sources/',
+    excluded: 'Sources/PetaDropbox/SdkDropbox.swift Sources/PetaDropbox/DropboxSdk.swift',
+  },
 };
 
 // The arguments of coverlet.console in the Coverage target of each C# test project
@@ -205,6 +218,20 @@ test('each swift coverage script fails under the floor and measures the agreed f
     assert.deepEqual(reports, [expected.measured], script);
     // A filter of llvm-cov would leave files out of that folder
     assert.ok(!/-ignore-filename-regex/.test(text), script);
+  }
+});
+
+// xcodebuildの結果を読むカバレッジのスクリプトは、9割未満で失敗し、了解したフォルダーを、了解したファイルだけ除いて測る。
+test('each xcodebuild coverage script fails under the floor and measures the agreed folders', () => {
+  for (const [script, expected] of Object.entries(XCCOV)) {
+    const text = read(script);
+    const value = (name) => [...text.matchAll(new RegExp(`^${name}=(.*)$`, 'gm'))].map((m) => m[1].replace(/^"|"$/g, ''));
+    assert.deepEqual(value('floor'), [expected.floor], script);
+    assert.deepEqual(value('measured'), [expected.measured], script);
+    assert.deepEqual(value('excluded'), [expected.excluded], script);
+    // Each file of those folders is read, and the tests run with the coverage on
+    assert.match(text, /for folder in \$measured; do/, script);
+    assert.match(text, /-enableCodeCoverage YES/, script);
   }
 });
 

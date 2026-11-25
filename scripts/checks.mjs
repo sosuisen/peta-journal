@@ -224,6 +224,31 @@ export const JOBS = {
       { os: 'darwin', run: './coverage.sh' },
     ],
   },
+  // The outliner on iOS, in SwiftUI. Everything here needs Xcode and the simulator of an iPhone, so
+  // every step is for macOS. The tests of the packages, of the app and of the screen all run in the
+  // simulator, in the coverage step
+  'outliner-ios': {
+    dir: 'client/apps/native-app/outliner-ios',
+    touchedBy: ['client/apps/native-app/outliner-ios/', 'client/apps/native-app/swift-shared/', ...CLIENT_RUST],
+    notTouchedBy: [
+      'client/apps/web-app/',
+      'client/apps/webview-app/',
+      'client/apps/emacs/',
+      'client/apps/native-app/outliner-android/',
+      'client/apps/native-app/stickies-mac/',
+      'client/apps/native-app/stickies-win/',
+    ],
+    steps: [
+      // generated/ and ../swift-shared/generated/: the core as a library for the phone, the
+      // simulator and the Mac, and the types of the border, from the Rust code
+      { os: 'darwin', run: './generate.sh' },
+      // swift-format checks the Swift of both Apple shells and of swift-shared at once
+      { os: 'darwin', cwd: 'client/apps/native-app', run: './swift-format.sh --check' },
+      // Runs every test in the simulator, and fails below 90% of the lines covered. The files left
+      // out are in the comment of coverage.sh
+      { os: 'darwin', run: './coverage.sh' },
+    ],
+  },
 };
 
 // The jobs that the changed files touch. Every kind of file counts, Markdown too: a test can read
