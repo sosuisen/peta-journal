@@ -33,7 +33,13 @@ class JournalModelTest {
         root.deleteRecursively()
     }
 
-    @After fun close() = onMain { opened?.close() }
+    /** The next test empties the folders: the core must have let go of them first (#1132). */
+    @After
+    fun close() {
+        val model = opened ?: return
+        onMain { model.close() }
+        check(model.awaitClosed(WAIT_MS)) { "the core did not close in $WAIT_MS ms" }
+    }
 
     private fun onMain(work: () -> Unit) = instrumentation.runOnMainSync(work)
 

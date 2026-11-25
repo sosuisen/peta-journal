@@ -64,9 +64,11 @@ abstract class JournalScreenFixture {
         File(root, "markdown/docs").mkdirs()
     }
 
+    /** The next test empties the folders: the core must have let go of them first (#1132). */
     @After
     fun close() {
         compose.runOnUiThread { shell.close() }
+        check(shell.awaitClosed(WAIT_MS)) { "the core did not close in $WAIT_MS ms" }
     }
 
     /**
