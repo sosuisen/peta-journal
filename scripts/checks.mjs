@@ -163,7 +163,8 @@ export const JOBS = {
   },
   // The sticky notes on Windows. PetaBorder, the C# side of the border, is tested without WinUI.
   // The tests of the windows (PetaScreens.Tests) press real keys, and run on a developer's
-  // machine only. The app builds on Windows only, but PetaBorder and its tests run on a Mac too.
+  // machine only. Every step is for Windows. PetaBorder and its tests could run on a Mac, but the
+  // developer decided not to run them there (#1085): the app runs on Windows only.
   'stickies-win': {
     dir: 'client/apps/native-app/stickies-win',
     touchedBy: ['client/apps/native-app/stickies-win/', ...CLIENT_RUST],
@@ -178,16 +179,16 @@ export const JOBS = {
     ],
     steps: [
       // generated/: the C# types of the border and the core as a library, from the Rust code
-      // One step with a command for each OS: a step for another OS fails the job in the CI
-      { run: { win32: 'pwsh -NoProfile -File generate.ps1', darwin: './generate.sh' } },
+      { os: 'win32', run: 'pwsh -NoProfile -File generate.ps1' },
       // Some tests of PetaBorder talk to a real journal server
-      { cwd: 'journal', run: 'cargo build -p journal-server' },
+      { os: 'win32', cwd: 'journal', run: 'cargo build -p journal-server' },
       // CSharpier is a local tool of stickies-win (dotnet-tools.json)
-      { run: 'dotnet tool restore' },
-      { run: 'dotnet csharpier check .' },
+      { os: 'win32', run: 'dotnet tool restore' },
+      { os: 'win32', run: 'dotnet csharpier check .' },
       // Runs the tests, and fails below 90% of the lines covered (the Coverage target of
       // PetaBorder.Tests.csproj). The analyzers run in the build
       {
+        os: 'win32',
         cwd: 'client/apps/native-app/stickies-win/PetaBorder.Tests',
         programs: [`journal/target/debug/journal-server${EXE}`],
         env: { PETA_E2E_SERVER: join(ROOT, 'journal', 'target', 'debug', `journal-server${EXE}`) },

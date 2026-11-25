@@ -55,6 +55,7 @@ const COVERAGE_STEP = {
 // The coverage steps that run on one OS only, as the module builds nowhere else. The CI runs them
 // on that OS, where a step for another OS fails the job
 const COVERAGE_OS = {
+  'stickies-win': 'win32',
   'stickies-mac': 'darwin',
 };
 
@@ -402,6 +403,14 @@ test('every step of a job has a command on the os of its runner in the CI', () =
   for (const [job, os] of Object.entries(oses)) {
     assert.ok(os, `${job}: no runner`);
     for (const step of JOBS[job].steps) assert.ok(commandOf(step, os) !== undefined, `${job} on ${os}: ${JSON.stringify(step.run)}`);
+  }
+});
+
+// stickies-winのどの段も、Windowsでしか回らない。Macでは回さない（開発者が決めた、#1085）。
+test('every step of stickies-win runs on windows only', () => {
+  for (const step of JOBS['stickies-win'].steps) {
+    assert.notEqual(commandOf(step, 'win32'), undefined, step.run);
+    assert.equal(commandOf(step, 'darwin'), undefined, step.run);
   }
 });
 
