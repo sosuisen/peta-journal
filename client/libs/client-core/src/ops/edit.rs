@@ -281,6 +281,15 @@ impl DirtyEdit {
 /// with a block that is still open, and switches the item to view mode. Does nothing while
 /// a handover runs or when another handler already ended the edit.
 pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
+    // No field takes the keyboard for the item of the order now. Without this, the keys held
+    // after the order would come with an order of their own, which no field answers (#1219)
+    let ordered = model
+        .state
+        .focus_order()
+        .and_then(|order| order.item_id.as_deref());
+    if ordered == Some(item_id) {
+        model.key_relay.release();
+    }
     if model.edits.edit_handovers > 0 || !model.state.is_editing(item_id) {
         return done();
     }
