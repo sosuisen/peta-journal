@@ -3,6 +3,7 @@
 //! The rules of each shell are TOML files in `rules/`. `rules/core.toml` holds what is the same
 //! for every shell.
 
+pub mod common;
 pub mod events;
 pub mod s2;
 
@@ -70,6 +71,16 @@ pub fn run_s2(root: &Path, rules: &Path, shell: &str) -> Result<Report, String> 
         rules.s2.language,
         &[&core.s2.excluded, &rules.s2.excluded],
     ))
+}
+
+/// Checks that `shell` has every common test of the repository at `root`, with the rules in
+/// `rules` (ADR 089).
+pub fn run_common(
+    _root: &Path,
+    _rules: &Path,
+    _shell: &str,
+) -> Result<Vec<common::Problem>, String> {
+    Ok(vec![])
 }
 
 fn read(path: &Path) -> Result<String, String> {

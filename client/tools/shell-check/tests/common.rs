@@ -8,7 +8,8 @@ use shell_check::common::Problem;
 
 const APP_RS: &str = "pub enum Event {\n    Start,\n}\n";
 
-const CORE_TOML: &str = "[s2.excluded]\n\n[common.list-changes]\nexamples = \"list-changes.json\"\n";
+const CORE_TOML: &str =
+    "[s2.excluded]\n\n[common.list-changes]\nexamples = \"list-changes.json\"\n";
 
 /// The rules of a TypeScript shell whose tests are under `app/src`, with `entry` as what it
 /// says of the common test `list-changes`.
@@ -22,7 +23,8 @@ fn shell_toml(entry: &str) -> String {
 /// A repository with the core, the rules of `shell` and the files of `files`, each a path from
 /// the root and its text.
 fn repository(name: &str, shell: &str, files: &[(&str, &str)]) -> PathBuf {
-    let root = std::env::temp_dir().join(format!("shell-check-common-{name}-{}", std::process::id()));
+    let root =
+        std::env::temp_dir().join(format!("shell-check-common-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
     write(&root.join("client/libs/client-core/src/app.rs"), APP_RS);
     write(&root.join("rules/core.toml"), CORE_TOML);
