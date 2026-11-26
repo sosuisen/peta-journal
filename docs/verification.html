@@ -23,6 +23,7 @@
   }
   h1 { font-size: 28px; margin: 0 0 8px; }
   h2 { font-size: 20px; margin: 40px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  h3 { font-size: 16px; margin: 28px 0 8px; }
   p, li { margin: 4px 0; }
   .date { color: var(--muted); }
   code {
@@ -52,7 +53,7 @@
 
 <h1>検証の仕組み</h1>
 <p>この文書は、peta-journalのコードを、何で、どこで確かめるかをまとめる。</p>
-<p class="date">更新日：2026-11-24</p>
+<p class="date">更新日：2026-11-26</p>
 
 <h2>方針</h2>
 <ul>
@@ -72,14 +73,14 @@
     <tr><td><code>journal</code>（Rust）</td><td class="ok">rustfmt</td><td class="ok">rustc</td><td class="ok">clippy</td><td class="na">対象外</td><td class="ok"><code>cargo test</code></td><td class="ok"><code>cargo cov</code></td><td class="ok">cargo-mutants（<code>scripts/mutants-parallel.py</code>）</td><td class="ok">あり</td></tr>
     <tr><td><code>client</code>（Rust）</td><td class="ok">rustfmt</td><td class="ok">rustc</td><td class="ok">clippy</td><td class="na">対象外</td><td class="ok"><code>cargo test</code></td><td class="ok"><code>cargo cov</code></td><td class="ok">cargo-mutants</td><td class="ok">あり</td></tr>
     <tr><td><code>atlas</code>（Rust）</td><td class="ok">rustfmt</td><td class="ok">rustc</td><td class="ok">clippy</td><td class="na">対象外</td><td class="ok"><code>cargo test</code></td><td class="ok"><code>cargo cov</code></td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
-    <tr><td><code>outliner-emacs</code>（Elisp）</td><td class="ok">elisp-formatter</td><td class="ok">Rustの部分はrustc<span class="note">Elispは静的な型を持たない</span></td><td class="missing">なし</td><td class="missing">未<span class="note">#1075</span></td><td class="ok">ERT、E2E</td><td>Rustの部分は<code>client</code>の<code>cargo cov</code><span class="note">Elispの部分は測らない</span></td><td>Rustの部分は<code>client</code>のcargo-mutants<span class="note">Elispの部分は試さない</span></td><td>あり<span class="note">部分的。Elispの部分のカバレッジは測らない</span></td></tr>
-    <tr><td><code>outliner-react</code>（TypeScript）</td><td class="ok">prettier</td><td class="ok"><code>tsc -b</code></td><td class="ok">eslint</td><td class="missing">未<span class="note">#1075</span></td><td>vitest、Playwright（e2e）<span class="note">e2eはCIでは回らない</span></td><td class="ok">Vitest（<code>npm run coverage</code>）</td><td class="ok">Stryker（<code>npm run mutants</code>）</td><td>あり<span class="note">部分的。e2eは回らない</span></td></tr>
+    <tr><td><code>outliner-emacs</code>（Elisp）</td><td class="ok">elisp-formatter</td><td class="ok">Rustの部分はrustc<span class="note">Elispは静的な型を持たない</span></td><td class="missing">なし</td><td class="ok">S2</td><td class="ok">ERT、E2E</td><td>Rustの部分は<code>client</code>の<code>cargo cov</code><span class="note">Elispの部分は測らない</span></td><td>Rustの部分は<code>client</code>のcargo-mutants<span class="note">Elispの部分は試さない</span></td><td>あり<span class="note">部分的。Elispの部分のカバレッジは測らない</span></td></tr>
+    <tr><td><code>outliner-react</code>（TypeScript）</td><td class="ok">prettier</td><td class="ok"><code>tsc -b</code></td><td class="ok">eslint</td><td class="ok">S2</td><td>vitest、Playwright（e2e）<span class="note">e2eはCIでは回らない</span></td><td class="ok">Vitest（<code>npm run coverage</code>）</td><td class="ok">Stryker（<code>npm run mutants</code>）</td><td>あり<span class="note">部分的。e2eは回らない</span></td></tr>
     <tr><td><code>todo</code>（TypeScript）</td><td class="ok">prettier</td><td class="ok"><code>tsc -b</code>（<code>npm run build</code>）</td><td class="ok">eslint</td><td class="na">対象外</td><td class="ok">vitest</td><td class="ok">Vitest（<code>npm run coverage</code>）</td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
-    <tr><td><code>stickies-win</code>（C#）</td><td class="ok">CSharpier</td><td class="ok">C#のコンパイラ</td><td class="ok">.NETのアナライザー（<code>latest-recommended</code>）</td><td class="missing">未<span class="note">#1075</span></td><td class="ok"><code>PetaBorder.Tests</code>、<code>PetaScreens.Tests</code>（画面）</td><td class="ok">coverlet.console（<code>dotnet build -t:Coverage</code>）</td><td class="ok">Stryker.NET（<code>mutation.ps1</code>）</td><td class="ok">あり</td></tr>
+    <tr><td><code>stickies-win</code>（C#）</td><td class="ok">CSharpier</td><td class="ok">C#のコンパイラ</td><td class="ok">.NETのアナライザー（<code>latest-recommended</code>）</td><td class="ok">S2</td><td class="ok"><code>PetaBorder.Tests</code>、<code>PetaScreens.Tests</code>（画面）</td><td class="ok">coverlet.console（<code>dotnet build -t:Coverage</code>）</td><td class="ok">Stryker.NET（<code>mutation.ps1</code>）</td><td class="ok">あり</td></tr>
     <tr><td><code>memoview-win</code>（C#）</td><td class="ok">CSharpier</td><td class="ok">C#のコンパイラ</td><td class="ok">.NETのアナライザー（<code>latest-recommended</code>）</td><td class="na">対象外</td><td class="ok"><code>memoview-tests</code></td><td>coverlet.console（<code>dotnet build -t:Coverage</code>）<span class="note">測るのはテストに入れたファイルだけ。WinUIのファイルはまだ（#1086）</span></td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
     <tr><td><code>stickies-mac</code>（Swift）</td><td class="ok">swift-format</td><td class="ok">Swiftのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">XCTest</td><td class="ok"><code>coverage.sh</code><span class="note">測らないのは<code>App/</code>（エントリーポイント）</span></td><td class="ok">swift-mutation-testing（<code>mutation-test.sh</code>）</td><td class="ok">あり</td></tr>
-    <tr><td><code>outliner-ios</code>（Swift）</td><td class="ok">swift-format</td><td class="ok">Swiftのコンパイラ</td><td class="missing">設定なし</td><td class="missing">未<span class="note">#1075</span></td><td class="ok">XCTest（パッケージ、<code>AppTests</code>、<code>UITests</code>（画面））</td><td class="ok"><code>coverage.sh</code></td><td class="ok">swift-mutation-testing（<code>mutation-test.sh</code>）</td><td class="ok">あり</td></tr>
-    <tr><td><code>outliner-android</code>（Kotlin）</td><td>ktfmt<span class="note">CIでは回らない</span></td><td>Kotlinのコンパイラ<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="missing">未<span class="note">#1075</span></td><td>JUnit、画面のテスト<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="ok">PIT（<code>gradlew :app:pitestDebug</code>）</td><td class="missing">なし</td></tr>
+    <tr><td><code>outliner-ios</code>（Swift）</td><td class="ok">swift-format</td><td class="ok">Swiftのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">XCTest（パッケージ、<code>AppTests</code>、<code>UITests</code>（画面））</td><td class="ok"><code>coverage.sh</code></td><td class="ok">swift-mutation-testing（<code>mutation-test.sh</code>）</td><td class="ok">あり</td></tr>
+    <tr><td><code>outliner-android</code>（Kotlin）</td><td>ktfmt<span class="note">CIでは回らない</span></td><td>Kotlinのコンパイラ<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="ok">S2</td><td>JUnit、画面のテスト<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="ok">PIT（<code>gradlew :app:pitestDebug</code>）</td><td class="missing">なし</td></tr>
   </tbody>
 </table>
 
@@ -95,21 +96,44 @@
 </ul>
 
 <h2>シェルがコアを通っているかのチェック（shell-check）</h2>
-<p>ADR 064の静的なチェックは、<code>client/tools/shell-check</code>にある。<br>
+<p>shell-checkは、<code>client/tools/shell-check</code>にある。<br>
+チェックは2つの系統に分かれる（ADR 090）。<br>
+S系統（静的）は、シェルのソースを読む（ADR 064）。<br>
+D系統（動的）は、コアが作った例を、各シェルのテストで回す。<br>
+D系統は、どのシェルも回さなければならない共通のテストである（ADR 089）。<br>
 できたチェックから順に、<code>client</code>の<code>cargo test</code>で回す（ADR 064の2026-11-24の追記）。<br>
 見つかれば、手元でもCIでもテストが落ちる。</p>
 <p class="legend"><span class="swatch ok" style="margin-left:0"></span>問題なし<span class="swatch" style="margin-left:16px"></span>まだ実装されていない検証</p>
 <table>
   <thead>
-    <tr><th>チェック</th><th>中身</th><th>状態</th></tr>
+    <tr><th>系統</th><th>チェック</th><th>中身</th><th>状態</th></tr>
   </thead>
   <tbody>
-    <tr><td>S1</td><td>依存の許可リスト</td><td class="missing">試す前（#1052）</td></tr>
-    <tr><td>S2</td><td><code>Event</code>のすべての種類が、シェルのソースに出てくる</td><td><code>cargo test</code>で回る（<code>tests/repository.rs</code>）<span class="note">対象は<code>stickies-mac</code>だけ。ほかのシェルは#1075</span></td></tr>
-    <tr><td>S3</td><td>OSの部品の編集コマンド</td><td class="missing">試す前（#1051）</td></tr>
-    <tr><td>S4</td><td>関数の分岐の数</td><td class="missing">試す前（#1053）</td></tr>
+    <tr><td>S（静的）</td><td>S1</td><td>依存の許可リスト</td><td class="missing">試す前（#1052）</td></tr>
+    <tr><td>S（静的）</td><td>S2</td><td><code>Event</code>のすべての種類が、シェルのソースに出てくる</td><td class="ok"><code>cargo test</code>で回る（<code>tests/repository.rs</code>）<span class="note">対象は、<code>rules/</code>にルールのある6つのシェルすべて</span></td></tr>
+    <tr><td>S（静的）</td><td>S3</td><td>OSの部品の編集コマンド</td><td class="missing">試す前（#1051）</td></tr>
+    <tr><td>S（静的）</td><td>S4</td><td>関数の分岐の数</td><td class="missing">試す前（#1053）</td></tr>
+    <tr><td>D（動的）</td><td>D1</td><td>差分を当てた結果が、どのシェルでもコアと同じ（<code>common/list-changes.json</code>）</td><td class="missing">作る前（#1208）</td></tr>
+    <tr><td>D（動的）</td><td>D2</td><td>境界の値を読んで書き直すと、どのシェルでも元に戻る（<code>common/border-web.json</code>、<code>common/border-native.json</code>）</td><td class="missing">作る前（#1209）</td></tr>
   </tbody>
 </table>
+
+<h3>共通のテストのテスト（ADR 089）</h3>
+<p>D系統のテストは、各シェルが書く。<br>
+書いていないシェル、回していないシェル、例を飛ばしたシェルに気づくため、次の3段で確かめる。<br>
+まだ入れていないシェルは、<code>rules/&lt;シェル&gt;.toml</code>に<code>pending = &lt;issueの番号&gt;</code>と書けば通る。<br>
+要らないシェルは、<code>excluded</code>に理由を書く。</p>
+<table>
+  <thead>
+    <tr><th>段</th><th>確かめること</th><th>どこで回るか</th><th>状態</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>各シェルに、共通のテストのファイルがあり、例のファイルを読んでいる</td><td>shell-checkの<code>cargo test</code>（<code>tests/repository.rs</code>）</td><td class="missing">作る前（#1207）</td></tr>
+    <tr><td>2</td><td>各シェルのテストが、例をすべて回した</td><td>各シェルのテスト</td><td class="missing">作る前（#1208、#1209）</td></tr>
+    <tr><td>3</td><td>各シェルのジョブ（<code>scripts/checks.mjs</code>）が、共通のテストを含むテストの段を持つ</td><td><code>scripts/verification.test.mjs</code>（<code>guard</code>）</td><td class="missing">作る前（#1207）</td></tr>
+  </tbody>
+</table>
+<p>テストが落ちうることは、各シェルのPRの前のミューテーションテストで確かめる。</p>
 <p>S2は、<code>rules/</code>にルールのファイルがあるシェルを、すべて調べる。<br>
 シェルを足すときは、<code>main</code>で何も出ない状態にしてから、ルールのファイルを置く。</p>
 
