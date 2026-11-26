@@ -9,6 +9,7 @@ mod home;
 mod key_relay;
 mod keys;
 mod level;
+mod list_change_examples;
 mod list_changes;
 mod merge;
 mod moves;

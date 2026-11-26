@@ -72,7 +72,7 @@ ZoomStep = "none: no zoom of an item"
 tests = ["client/apps/emacs/outliner/src/tests"]
 
 [common.list-changes]
-pending = 1208
+pending = 1215
 
 [common.border-web]
 excluded = "the Emacs shell has a border of its own, the JSON Lines between its Rust and its Lisp (ADR 078); #1209 decides its D2"
