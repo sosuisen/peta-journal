@@ -54,6 +54,9 @@ pub enum Problem {
     /// The test tool of the shell does not run the file `file`: it is outside the folders of
     /// the tests, or not named as a test.
     NotCollected { test: String, file: PathBuf },
+    /// No file in the folder of the Rust file `file` declares it as a module, so cargo does
+    /// not build it.
+    NotDeclared { test: String, file: PathBuf },
 }
 
 /// What is wrong with what `shell` has for the common tests `tests`, in the repository at
@@ -92,6 +95,12 @@ fn check_file(
             file: file.to_path_buf(),
         });
     }
+    if shell.language == Language::Rust && !is_declared(root, file) {
+        return Some(Problem::NotDeclared {
+            test: name.to_string(),
+            file: file.to_path_buf(),
+        });
+    }
     if !text.contains(&common.examples) {
         return Some(Problem::DoesNotRead {
             test: name.to_string(),
@@ -100,6 +109,26 @@ fn check_file(
         });
     }
     None
+}
+
+/// True when a Rust file in the folder of `file` declares it as a module, as `mod.rs`, `lib.rs`
+/// or `main.rs` does with `mod list_changes;`. A file that declares a module of another folder
+/// with `#[path]` is not seen.
+fn is_declared(root: &Path, file: &Path) -> bool {
+    let (Some(stem), Some(folder)) = (file.file_stem().and_then(|s| s.to_str()), file.parent())
+    else {
+        return false;
+    };
+    let declaration = format!("mod {stem};");
+    let Ok(entries) = fs::read_dir(root.join(folder)) else {
+        return false;
+    };
+    entries.flatten().map(|entry| entry.path()).any(|path| {
+        path != root.join(file)
+            && path.extension().is_some_and(|ext| ext == "rs")
+            && fs::read_to_string(&path)
+                .is_ok_and(|text| text.lines().any(|line| line.trim() == declaration))
+    })
 }
 
 /// True when the test tool of `shell` runs the file `file`.
