@@ -136,3 +136,19 @@ fn the_answer_to_an_order_that_a_later_move_overtook_does_not_end_the_hold() {
     h.take_focus();
     assert!(!h.view().outline.key_relay_holding);
 }
+
+// 注文の項目の編集が、欄がキーボードを取らないまま終わると、コアは預かるのをやめる。注文のあとに預けたキーは、どこにも渡らない。
+#[test]
+fn the_end_of_the_edit_of_the_ordered_item_ends_the_hold_and_the_keys_go() {
+    let mut h = harness();
+    enter(&mut h, "a", 5);
+    h.send(Event::KeyHeld(key("x")));
+
+    h.send(Event::EditFinished {
+        item_id: "new1".into(),
+    });
+    h.take_focus();
+
+    assert!(!h.view().outline.key_relay_holding);
+    assert_eq!(replayed(&h), [(Some("new1".to_string()), vec![])]);
+}
