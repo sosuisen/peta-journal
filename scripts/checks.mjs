@@ -229,6 +229,9 @@ export const JOBS = {
       // Builds journal-server, runs the tests, and fails below 90% of the lines covered. The files
       // left out are in the comment of coverage.sh
       { os: 'darwin', run: './coverage.sh' },
+      // The tests of swift-shared, among them the common tests (ADR 089). `swift test` here does
+      // not run the tests of a package it depends on
+      { os: 'darwin', cwd: 'client/apps/native-app/swift-shared', run: 'swift test' },
     ],
   },
   // The outliner on iOS, in SwiftUI. Everything here needs Xcode and the simulator of an iPhone, so
@@ -254,6 +257,9 @@ export const JOBS = {
       // Runs every test in the simulator, and fails below 90% of the lines covered. The files left
       // out are in the comment of coverage.sh
       { os: 'darwin', run: './coverage.sh' },
+      // The tests of swift-shared, among them the common tests (ADR 089). The scheme of the app
+      // does not run them; they need no simulator
+      { os: 'darwin', cwd: 'client/apps/native-app/swift-shared', run: 'swift test' },
     ],
   },
 };
