@@ -46,4 +46,18 @@ mod tests {
     fn the_web_part_of_the_list_change_examples_is_current() {
         is_current(&list_changes_file(), "web", list_changes()).unwrap();
     }
+
+    /// The file of the examples of the values of the border of the web shell (ADR 090 D2).
+    fn border_file() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tools/shell-check/common/border-web.json")
+    }
+
+    // 境界の値の例のファイルの節は、今の見本と同じである。シェルが読む`Changes`と、シェルが書く`Event`である。
+    #[test]
+    fn the_examples_of_the_border_values_are_current() {
+        is_current(&border_file(), "changes", border_examples::<Changes<HtmlBody>>("Changes"))
+            .unwrap();
+        is_current(&border_file(), "events", border_examples::<Event>("Event")).unwrap();
+    }
 }
