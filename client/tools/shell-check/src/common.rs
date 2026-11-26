@@ -1,6 +1,7 @@
 //! The check that every shell has the common tests (ADR 089).
 
 use std::collections::BTreeMap;
+use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -78,6 +79,39 @@ pub enum Problem {
     MoreThanOne { test: String },
     /// The shell says something of `name`, which is no common test of `rules/core.toml`.
     UnknownTest { name: String },
+}
+
+impl fmt::Display for Problem {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Problem::NotNamed { test } => {
+                write!(
+                    f,
+                    "{test}: the shell has no test, no pending issue and no reason"
+                )
+            }
+            Problem::NoFile { test, file } => write!(f, "{test}: {} is not there", file.display()),
+            Problem::DoesNotRead {
+                test,
+                file,
+                examples,
+            } => write!(f, "{test}: {} does not read {examples}", file.display()),
+            Problem::NotCollected { test, file } => {
+                write!(f, "{test}: the test tool does not run {}", file.display())
+            }
+            Problem::NotDeclared { test, file } => {
+                write!(f, "{test}: no mod declares {}", file.display())
+            }
+            Problem::NoIssue { test } => write!(f, "{test}: pending has no issue"),
+            Problem::MoreThanOne { test } => write!(
+                f,
+                "{test}: the shell says more than one of test, pending and excluded"
+            ),
+            Problem::UnknownTest { name } => {
+                write!(f, "{name}: no common test of rules/core.toml")
+            }
+        }
+    }
 }
 
 /// What is wrong with what `shell` has for the common tests `tests`, in the repository at

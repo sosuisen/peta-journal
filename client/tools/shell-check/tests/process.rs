@@ -138,7 +138,7 @@ fn exits_with_2_and_prints_the_usage_without_a_shell() {
         .starts_with("usage:"));
 }
 
-// S2でないチェックの名前には、終了コード2で終わる。
+// 知らないチェックの名前には、終了コード2で終わる。
 #[test]
 fn exits_with_2_for_an_unknown_check() {
     let output = shell_check(&["s9", "shell"]);
