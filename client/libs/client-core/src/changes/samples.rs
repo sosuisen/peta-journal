@@ -483,6 +483,46 @@ mod tests {
     }
 
     #[derive(Facet)]
+    #[repr(C)]
+    #[allow(dead_code)]
+    enum Mark {
+        Plain,
+        Bold,
+        Held(u32),
+        Italic,
+    }
+
+    /// A type that holds `Mark` only below `DEEPEST`, eight types down.
+    macro_rules! chain {
+        ($name:ident, $field:ty) => {
+            #[derive(Facet)]
+            #[allow(dead_code)]
+            struct $name {
+                next: $field,
+            }
+        };
+    }
+    chain!(Deep0, Deep1);
+    chain!(Deep1, Deep2);
+    chain!(Deep2, Deep3);
+    chain!(Deep3, Deep4);
+    chain!(Deep4, Deep5);
+    chain!(Deep5, Deep6);
+    chain!(Deep6, Deep7);
+    chain!(Deep7, Mark);
+
+    // 深いところでしか届かない列挙型も、何も持たない変種を順に使い、そのすべてが見本に出る。
+    #[test]
+    fn an_enum_reached_only_deep_takes_turns_among_its_variants_that_hold_nothing() {
+        let registry = registry::<Deep0>();
+
+        assert_eq!(
+            uncovered(&registry, "Deep0"),
+            [("Mark".to_string(), "Held".to_string())]
+        );
+    }
+
+    #[derive(Facet)]
     #[allow(dead_code)]
     struct Numbers {
         a: u64,
