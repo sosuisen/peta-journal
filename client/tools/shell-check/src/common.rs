@@ -83,16 +83,14 @@ pub enum Problem {
 pub fn check(root: &Path, tests: &BTreeMap<String, CommonTest>, shell: &Shell) -> Vec<Problem> {
     let mut problems = Vec::new();
     for (name, common) in tests {
-        let said = shell.entries.get(name).map_or(0, Entry::said);
-        if said == 0 {
+        let Some(entry) = shell.entries.get(name).filter(|entry| entry.said() > 0) else {
             problems.push(Problem::NotNamed { test: name.clone() });
             continue;
-        }
-        if said > 1 {
+        };
+        if entry.said() > 1 {
             problems.push(Problem::MoreThanOne { test: name.clone() });
             continue;
         }
-        let entry = &shell.entries[name];
         if let Some(file) = &entry.test {
             problems.extend(check_file(root, shell, name, common, file));
         }
