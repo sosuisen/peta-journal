@@ -12,14 +12,13 @@ skipped = [
 ]
 
 # The kinds of `Event` that this shell need not name, besides those of core.toml. The reasons
-# are of six kinds:
+# are of five kinds:
 #
 # - "bridge": client-web-bridge sends it when the shell calls a method of `WebShell`.
 # - "key": the core makes it from a key that the shell gives to `press`.
 # - "typing": the core makes it from a change that the shell gives to `typed`.
 # - "drag": the core makes it from a step of a drag that the shell gives to `drag`.
 # - "none": the app has no such part.
-# - "not yet": the app does not offer it yet, though it could.
 [s2.excluded]
 AtlasDirsRestored = "bridge: WebShell.start, from what the browser keeps"
 Back = "none: the back button of the browser opens the page, by Route"
@@ -40,7 +39,6 @@ NavigateUp = "key: Up on the first line, or Left at the start"
 Open = "none: the browser keeps the history; a page opens by Route (ADR 035)"
 OpenLinkAt = "key: Ctrl+O, or Cmd+O on a Mac"
 Outdent = "key: Shift+Tab or Alt+Shift+Left"
-PageTitleSave = "not yet: the title of a page cannot be edited, see #1171"
 PasteImage = "bridge: WebShell.pasteImage"
 Redo = "key: Ctrl+Shift+Z, or Cmd+Shift+Z on a Mac"
 Route = "bridge: WebShell.start, WebShell.go and the back and forward buttons of the browser"

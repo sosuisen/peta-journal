@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { StrictMode } from 'react';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import App from './App';
 import {
   BacklinkGroup,
@@ -23,9 +23,18 @@ import { CoreContext } from './context';
 import type { Core } from './core';
 import { draw, outline, shell } from './test/screens';
 
+// jsdom finds no letter under a point; a test that needs one puts its own in place
+beforeEach(() => {
+  Object.defineProperty(document, 'caretPositionFromPoint', {
+    configurable: true,
+    value: () => null,
+  });
+});
+
 afterEach(() => {
   vi.useRealTimers();
   localStorage.clear();
+  Reflect.deleteProperty(document, 'caretPositionFromPoint');
 });
 
 /** A document page named `title` in the folder `dirPath`. Each test changes what it needs. */
@@ -472,6 +481,153 @@ describe('a document page', () => {
     );
     expect(wasm.events).toEqual([
       { kind: 'GoToPage', path: 'work/index', open_in: { kind: 'Here' } },
+    ]);
+  });
+
+  /** The fields of the folder and the name, shown in place of the title while it is edited. */
+  function titleFields(container: HTMLElement) {
+    return {
+      dir: container.querySelector<HTMLInputElement>('.edit-dir-path'),
+      name: container.querySelector<HTMLInputElement>('.edit-file-name'),
+    };
+  }
+
+  // 文書のページの見出しを押すと、フォルダとページ名の欄が出る。Enterで、新しいフォルダと名前をコアに送る。
+  test('a press on the title of a page shows its folder and name, and Enter saves them', () => {
+    const { wasm, container } = page(docPage('plan', 'work/'));
+
+    fireEvent.click(screen.getByRole('heading', { name: 'plan' }));
+    const { dir, name } = titleFields(container);
+    fireEvent.change(dir as HTMLInputElement, { target: { value: 'home' } });
+    fireEvent.change(name as HTMLInputElement, { target: { value: 'idea' } });
+    fireEvent.keyDown(name as HTMLInputElement, { key: 'Enter' });
+
+    expect(wasm.events).toEqual([
+      { kind: 'PageTitleSave', dir_path: 'home', file_name: 'idea' },
+    ]);
+    expect(titleFields(container).name).toBeNull();
+  });
+
+  // Escapeでは、何も送らずに見出しに戻る。
+  test('Escape goes back to the title and saves nothing', () => {
+    const { wasm, container } = page(docPage('plan', 'work/'));
+
+    fireEvent.click(screen.getByRole('heading', { name: 'plan' }));
+    const { name } = titleFields(container);
+    fireEvent.change(name as HTMLInputElement, { target: { value: 'idea' } });
+    fireEvent.keyDown(name as HTMLInputElement, { key: 'a' });
+    const shown = titleFields(container).name;
+    fireEvent.keyDown(name as HTMLInputElement, { key: 'Escape' });
+
+    expect(shown).toBe(name);
+    expect(wasm.events).toEqual([]);
+    expect(pageHeading()).toBe('plan');
+  });
+
+  // フォーカスが欄の外に出ると保存する。フォルダの欄からページ名の欄に移るだけなら、保存しない。
+  test('the title is saved when the focus leaves its fields, and not when it moves between them', () => {
+    const { wasm, container } = page(docPage('plan', 'work/'));
+
+    fireEvent.click(screen.getByRole('heading', { name: 'plan' }));
+    const { dir, name } = titleFields(container);
+    fireEvent.change(name as HTMLInputElement, { target: { value: 'idea' } });
+    fireEvent.blur(dir as HTMLInputElement, { relatedTarget: name });
+    const between = [...wasm.events];
+    fireEvent.blur(name as HTMLInputElement, { relatedTarget: null });
+
+    expect(between).toEqual([]);
+    expect(wasm.events).toEqual([
+      { kind: 'PageTitleSave', dir_path: 'work', file_name: 'idea' },
+    ]);
+  });
+
+  // IMEの変換を確定するEnterでは、保存しない。
+  test('the Enter that confirms a conversion of the IME does not save the title', () => {
+    const { wasm, container } = page(docPage('plan', 'work/'));
+
+    fireEvent.click(screen.getByRole('heading', { name: 'plan' }));
+    const { name } = titleFields(container);
+    fireEvent.keyDown(name as HTMLInputElement, {
+      key: 'Enter',
+      isComposing: true,
+    });
+
+    expect(wasm.events).toEqual([]);
+    expect(titleFields(container).name).not.toBeNull();
+  });
+
+  // 一番上のフォルダのページには、フォルダの欄がない。名前だけを変える。
+  test('a page at the top has no field of the folder, and only its name changes', () => {
+    const { wasm, container } = page(docPage('plan'));
+
+    fireEvent.click(screen.getByRole('heading', { name: 'plan' }));
+    const { dir, name } = titleFields(container);
+    fireEvent.change(name as HTMLInputElement, { target: { value: 'idea' } });
+    fireEvent.keyDown(name as HTMLInputElement, { key: 'Enter' });
+
+    expect(dir).toBeNull();
+    expect(wasm.events).toEqual([
+      { kind: 'PageTitleSave', dir_path: '', file_name: 'idea' },
+    ]);
+  });
+
+  // ページ名の欄にカーソルが入り、見出しを押した位置に置かれる。
+  test('the cursor goes into the field of the name, where the title was pressed', () => {
+    const { container } = page(docPage('plan', 'work/'));
+    const heading = screen.getByRole('heading', { name: 'plan' });
+    Object.defineProperty(document, 'caretPositionFromPoint', {
+      configurable: true,
+      value: () => ({ offsetNode: heading.firstChild, offset: 2 }),
+    });
+
+    fireEvent.click(heading);
+
+    const { name } = titleFields(container);
+    expect(document.activeElement).toBe(name);
+    expect(name?.selectionStart).toBe(2);
+    expect(name?.selectionEnd).toBe(2);
+  });
+
+  // 入力すると、カーソルは入力した文字のあとに進む。見出しを押した位置には戻らない。
+  test('the cursor moves on with the typing, and does not go back to where the title was pressed', () => {
+    const { container } = page(docPage('plan', 'work/'));
+    const heading = screen.getByRole('heading', { name: 'plan' });
+    Object.defineProperty(document, 'caretPositionFromPoint', {
+      configurable: true,
+      value: () => ({ offsetNode: heading.firstChild, offset: 2 }),
+    });
+    fireEvent.click(heading);
+    const { name } = titleFields(container) as { name: HTMLInputElement };
+
+    name.setSelectionRange(5, 5);
+    fireEvent.change(name, { target: { value: 'plans' } });
+
+    expect(name.selectionStart).toBe(5);
+  });
+
+  // 目次のページでは、最後のフォルダを押すと編集になる。名前は変えられず、フォルダの欄の終わりにカーソルが入る。
+  test('in an index a press on the last folder edits the folder, and the name stays', () => {
+    const { wasm, container } = page(
+      docPage('index', 'work/plan/', {
+        is_index: true,
+        dir_segments: [
+          new DirSegment('work', 'work/', 'work/index'),
+          new DirSegment('plan', 'work/plan/', 'work/plan/index'),
+        ],
+      }),
+    );
+
+    fireEvent.click(screen.getByText('plan'));
+    const { dir, name } = titleFields(container);
+    expect(document.activeElement).toBe(dir);
+    expect(dir?.value).toBe('work/plan');
+    expect(dir?.selectionStart).toBe('work/plan'.length);
+    expect(name?.disabled).toBe(true);
+    fireEvent.change(dir as HTMLInputElement, { target: { value: 'home' } });
+    fireEvent.keyDown(dir as HTMLInputElement, { key: 'Enter' });
+
+    expect(wasm.events).toEqual([
+      { kind: 'PageTitleSave', dir_path: 'home', file_name: 'index' },
     ]);
   });
 
