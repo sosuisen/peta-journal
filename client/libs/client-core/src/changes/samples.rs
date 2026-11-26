@@ -47,9 +47,14 @@ pub fn uncovered(registry: &Registry, root: &str) -> Vec<(String, String)> {
     reachable.difference(&sampler.covered).cloned().collect()
 }
 
-/// Below this depth, the samples hold no optional value, empty lists and maps, and the first
-/// variant of an enum that holds nothing, so that a type that holds itself ends.
+/// This many types down, the samples hold no optional value, empty lists and maps, and the
+/// variants of an enum that hold nothing, so that a type that holds itself ends. Only the
+/// types count: every type that holds itself does so through a type.
 const DEEPEST: usize = 8;
+
+/// The most turns of samples that are made to hold every variant inside. A variant behind
+/// other enums that take turns comes up only every few turns.
+const TURNS: usize = 64;
 
 /// The numbers at the edges that the shells may not hold as they are, as a JavaScript number
 /// beyond 2^53. Each kind takes the next in turn.
@@ -89,6 +94,8 @@ impl<'r> Sampler<'r> {
 
     fn samples(&mut self, root: &str) -> Vec<Sample> {
         let name = named(self.registry, root);
+        let mut reachable = BTreeSet::new();
+        reach(self.registry, &name, &mut BTreeSet::new(), &mut reachable);
         match &self.registry[&name] {
             ContainerFormat::Enum(variants, _, _) => {
                 let mut samples: Vec<Sample> = variants
@@ -98,8 +105,10 @@ impl<'r> Sampler<'r> {
                         value: self.variant(&name, variant, 0),
                     })
                     .collect();
-                for turn in 2.. {
-                    let before = samples.len();
+                for turn in 2..=TURNS {
+                    if self.covered.is_superset(&reachable) {
+                        break;
+                    }
                     for variant in variants.values() {
                         let held = self.covered.len();
                         let value = self.variant(&name, variant, 0);
@@ -107,9 +116,6 @@ impl<'r> Sampler<'r> {
                             let id = format!("{}-{turn}", variant.name);
                             samples.push(Sample { id, value });
                         }
-                    }
-                    if samples.len() == before {
-                        break;
                     }
                 }
                 samples
@@ -119,14 +125,16 @@ impl<'r> Sampler<'r> {
                     id: root.to_string(),
                     value: self.named(&name, 0),
                 }];
-                for turn in 2.. {
-                    let held = self.covered.len();
-                    let value = self.named(&name, 0);
-                    if self.covered.len() == held {
+                for turn in 2..=TURNS {
+                    if self.covered.is_superset(&reachable) {
                         break;
                     }
-                    let id = format!("{root}-{turn}");
-                    samples.push(Sample { id, value });
+                    let held = self.covered.len();
+                    let value = self.named(&name, 0);
+                    if self.covered.len() > held {
+                        let id = format!("{root}-{turn}");
+                        samples.push(Sample { id, value });
+                    }
                 }
                 let value = self.named(&name, DEEPEST);
                 samples.push(Sample {
@@ -153,21 +161,21 @@ impl<'r> Sampler<'r> {
             Format::F64 => json!(self.turn("f64", F64S)),
             Format::Str => json!(self.turn("str", STRS)),
             Format::Option(_) if deep => Value::Null,
-            Format::Option(inner) => self.value(inner, depth + 1),
+            Format::Option(inner) => self.value(inner, depth),
             Format::Seq(_) | Format::Set(_) if deep => json!([]),
             Format::Seq(inner) | Format::Set(inner) => Value::Array(self.elements(inner, depth)),
             Format::Map { .. } if deep => json!({}),
             Format::Map { key, value } => {
-                let key = match self.value(key, depth + 1) {
+                let key = match self.value(key, depth) {
                     Value::String(key) => key,
                     key => key.to_string(),
                 };
-                let value = self.value(value, depth + 1);
+                let value = self.value(value, depth);
                 Value::Object(Map::from_iter([(key, value)]))
             }
             Format::Tuple(formats) => self.all(formats, depth),
             Format::TupleArray { content, size } => {
-                Value::Array((0..*size).map(|_| self.value(content, depth + 1)).collect())
+                Value::Array((0..*size).map(|_| self.value(content, depth)).collect())
             }
             // None of these crosses the border now. A sample of one is to be made when it does
             other => panic!("no sample is made for the format {other:?}"),
@@ -180,11 +188,11 @@ impl<'r> Sampler<'r> {
             if let ContainerFormat::Enum(variants, _, _) = &self.registry[name] {
                 return variants
                     .values()
-                    .map(|variant| self.variant(name, variant, depth + 2))
+                    .map(|variant| self.variant(name, variant, depth + 1))
                     .collect();
             }
         }
-        vec![self.value(inner, depth + 1)]
+        vec![self.value(inner, depth)]
     }
 
     fn named(&mut self, name: &QualifiedTypeName, depth: usize) -> Value {
@@ -200,16 +208,17 @@ impl<'r> Sampler<'r> {
             ContainerFormat::Struct(fields, _) => self.fields(fields, depth),
             ContainerFormat::Enum(variants, _, _) => {
                 let variants: Vec<&Named<VariantFormat>> = variants.values().collect();
-                let chosen = if depth >= DEEPEST {
-                    variants
-                        .iter()
-                        .position(|variant| matches!(variant.value, VariantFormat::Unit))
-                        .unwrap_or(0)
-                } else {
-                    let turn = self.turns.entry(name.to_string()).or_default();
-                    *turn += 1;
-                    (*turn - 1) % variants.len()
-                };
+                // Deep down, only the variants that hold nothing, so that the sample ends. They
+                // take turns too: an enum may be reached only that deep
+                let choices: Vec<usize> = (0..variants.len())
+                    .filter(|&index| {
+                        depth < DEEPEST || matches!(variants[index].value, VariantFormat::Unit)
+                    })
+                    .collect();
+                let choices = if choices.is_empty() { vec![0] } else { choices };
+                let turn = self.turns.entry(name.to_string()).or_default();
+                *turn += 1;
+                let chosen = choices[(*turn - 1) % choices.len()];
                 self.variant(name, variants[chosen], depth)
             }
         }
@@ -248,7 +257,7 @@ impl<'r> Sampler<'r> {
         Value::Array(
             formats
                 .iter()
-                .map(|format| self.value(format, depth + 1))
+                .map(|format| self.value(format, depth))
                 .collect(),
         )
     }

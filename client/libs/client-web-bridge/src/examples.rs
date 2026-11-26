@@ -33,20 +33,25 @@ fn crossing<'a, T: Facet<'a>>(value: &T) -> Value {
 mod tests {
     use super::*;
     use client_core::changes::examples::is_current;
-    use client_core::changes::samples::samples;
+    use client_core::changes::samples::{samples, uncovered};
     use client_core::changes::Changes;
     use client_core::Event;
     use facet_generate::reflection::RegistryBuilder;
+    use facet_generate::Registry;
     use std::path::PathBuf;
+
+    /// The description of the types of `T`, as the generator of the TypeScript types reads it.
+    fn registry<T: Facet<'static>>() -> Registry {
+        RegistryBuilder::new()
+            .add_type::<T>()
+            .and_then(RegistryBuilder::build)
+            .expect("the types of the border are described")
+    }
 
     /// The examples of the type `root` that crosses the border, for D2 (ADR 090): the samples
     /// of the core, each read as `T` and written as the JSON that crosses.
     fn border_examples<T: Facet<'static>>(root: &str) -> Value {
-        let registry = RegistryBuilder::new()
-            .add_type::<T>()
-            .and_then(RegistryBuilder::build)
-            .expect("the types of the border are described");
-        let examples: Vec<Value> = samples(&registry, root)
+        let examples: Vec<Value> = samples(&registry::<T>(), root)
             .into_iter()
             .map(|sample| {
                 let value: T =
@@ -75,6 +80,21 @@ mod tests {
     fn border_file() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../tools/shell-check/common/border-web.json")
+    }
+
+    // 境界の値の例は、`Changes`と`Event`から届くすべての列挙型の、すべての変種を持つ。
+    #[test]
+    fn the_examples_of_the_border_values_hold_every_variant() {
+        for (registry, root) in [
+            (registry::<Changes<HtmlBody>>(), "Changes"),
+            (registry::<Event>(), "Event"),
+        ] {
+            assert_eq!(
+                uncovered(&registry, root),
+                Vec::<(String, String)>::new(),
+                "{root}"
+            );
+        }
     }
 
     // 境界の値の例のファイルの節は、今の見本と同じである。シェルが読む`Changes`と、シェルが書く`Event`である。
