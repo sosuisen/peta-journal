@@ -1,4 +1,4 @@
-use crate::changes::examples::{is_part, row_examples};
+use crate::changes::examples::{is_current, is_part, row_examples};
 use crate::changes::ListChange;
 use serde_json::json;
 use std::collections::BTreeSet;
@@ -107,4 +107,17 @@ fn writing_makes_the_file_that_is_not_there() {
     is_part(&file, "native", json!("00"), true).unwrap();
 
     assert_eq!(is_part(&file, "native", json!("00"), false), Ok(()));
+}
+
+// 書き直すかは、環境変数`PETA_WRITE_EXAMPLES`で決まる。ふだんのテストでは、違う節は失敗になる。
+#[test]
+fn whether_a_part_is_written_is_told_by_the_environment() {
+    let file = examples_file("environment", Some(r#"{"web": 1}"#));
+
+    let result = is_current(&file, "web", json!(2));
+
+    assert_eq!(
+        result.is_ok(),
+        std::env::var_os("PETA_WRITE_EXAMPLES").is_some()
+    );
 }
