@@ -845,3 +845,37 @@ fn undoing_the_delete_of_a_source_item_makes_it_again_on_the_source_page() {
     assert_eq!(h.items_ids(), ["top", "root"]);
     assert_eq!(shown(&h), ["top:1=", "root:2=shown", "c:3=child"]);
 }
+
+// 貼り付けで作られた2つの項目のRedoは、上の項目から順に、それぞれをその上の項目の後ろに作り直す。下の項目は、作り直したばかりの上の項目の後ろに入る（#736）。
+#[test]
+fn redoing_a_paste_that_made_two_items_makes_each_after_the_one_above_it() {
+    let mut h = transclusion_harness();
+    let tree = vec![
+        source_item_at("s", 1, "shownone", "s"),
+        source_item_at("n1", 2, "two", "t"),
+        source_item_at("n2", 3, "three", "u"),
+    ];
+    answer_paste(&mut h, tree.clone(), "n2", 5);
+    answer_reload(&mut h, tree.clone());
+    paste(&mut h, "root", "one\n  two\n    three", 5);
+    h.send(Event::Undo);
+    let sent = batch_calls(&h.api).len();
+    answer_reload(&mut h, tree);
+
+    h.send(Event::Redo);
+
+    let made: Vec<_> = batch_calls(&h.api)[sent]
+        .iter()
+        .filter_map(|op| match op {
+            BatchOpInput::Create { id, position, .. } => Some((id.clone(), position.clone())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        made,
+        [
+            ("n1".to_string(), ItemPosition::after("s")),
+            ("n2".to_string(), ItemPosition::after("n1")),
+        ]
+    );
+}
