@@ -75,6 +75,24 @@ public final class Shell: ObservableObject {
         send(.dateMayHaveChanged)
     }
 
+    /// The user chose "Delete" in the menu of the item. The core asks first when another item
+    /// shows this one.
+    public func delete(_ itemId: String) {
+        send(.deleteItem(itemId: itemId))
+    }
+
+    /// The user chose "Send to Stash" in the menu of the item: it goes with its children under
+    /// the heading `# Stash` at the end of the page.
+    public func sendToStash(_ itemId: String) {
+        send(.sendToStash(itemId: itemId))
+    }
+
+    /// The user chose "Remove Transclusion" in the menu of an item that shows another. The
+    /// item stays, empty, and the item it showed stays where it is.
+    public func removeTransclusion(_ itemId: String) {
+        send(.removeTransclusion(itemId: itemId))
+    }
+
     /// The page was scrolled: the row at `top` is the first that can be seen, and the rows of
     /// `shown` are drawn. A journal loads the days before when the end of what it has comes
     /// near.
