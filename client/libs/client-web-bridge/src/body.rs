@@ -46,9 +46,8 @@ fn start_asset_at_top(url: &mut String) {
 fn keep_size(url: &mut String, props: &BTreeMap<String, PropValue>) {
     let sides: Vec<String> = ["w", "h"]
         .into_iter()
-        .filter_map(|side| match props.get(side) {
-            Some(PropValue::Text(text)) => Some(format!("{side}={}", text.trim())),
-            _ => None,
+        .filter_map(|side| {
+            client_core::rich_text::image_side(props, side).map(|pixels| format!("{side}={pixels}"))
         })
         .collect();
     if !sides.is_empty() {
@@ -92,6 +91,23 @@ mod tests {
             "{sized}"
         );
         assert!(plain.contains(r#"src="img.png""#), "{plain}");
+    }
+
+    // コアが0より大きい数として読めない大きさは、URLの断片に書かれない。ネイティブのシェルと同じ大きさになる（#1041）。
+    #[test]
+    fn a_size_the_core_does_not_read_as_a_number_above_zero_is_not_written_in_the_fragment() {
+        let html = |body: &str| HtmlBody::of(client_core::asts::parse(body), "tags/").0;
+
+        for body in [
+            "![alt](<img.png#w= 200>)",
+            "![alt](img.png#w=1e2)",
+            "![alt](img.png#w=abc)",
+            "![alt](img.png#w=0)",
+        ] {
+            assert!(html(body).contains(r#"src="img.png""#), "{}", html(body));
+        }
+        let mixed = html("![alt](img.png#w=0&h=240)");
+        assert!(mixed.contains(r#"src="img.png#h=240""#), "{mixed}");
     }
 
     // assetsの画像のURLは、アプリの一番上からのパスになる。ページのURLがフォルダーの下にあっても、画像に届く。

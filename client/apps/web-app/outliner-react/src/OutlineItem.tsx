@@ -449,7 +449,10 @@ function clickedLink(
   core.send(eventLinkClicked(clicked, held));
 }
 
-/** Gives each image the size that the fragment of its URL carries (`#w=300&h=240`). */
+/**
+ * Gives each image the size that the fragment of its URL carries (`#w=300&h=240`). The wasm
+ * writes only the sides that the core reads as pixels, so they are not checked again here.
+ */
 function sizeImages(content: Element): void {
   for (const image of content.querySelectorAll('img')) {
     // A URL without a fragment gives no sides
@@ -458,9 +461,9 @@ function sizeImages(content: Element): void {
       ['w', 'width'],
       ['h', 'height'],
     ] as const) {
-      const pixels = Number(sides.get(side));
-      if (Number.isInteger(pixels) && pixels > 0) {
-        image.setAttribute(name, String(pixels));
+      const pixels = sides.get(side);
+      if (pixels !== null) {
+        image.setAttribute(name, pixels);
       }
     }
   }
