@@ -5,6 +5,8 @@ use super::{list_changes, ListChange};
 use crate::testing::plain_item;
 use crate::view::Row;
 use crate::BodyModel;
+use serde_json::Value;
+use std::path::Path;
 use std::sync::Arc;
 
 /// One example: a list, the changes that `list_changes` makes from it to another, and that
@@ -16,6 +18,13 @@ pub struct ListExample<T> {
     pub before: Vec<T>,
     pub changes: Vec<ListChange<T>>,
     pub after: Vec<T>,
+}
+
+/// Ok when the part `key` of the JSON file `file` is `part`. With the environment variable
+/// `PETA_WRITE_EXAMPLES` set, it writes `part` there instead, and keeps the other parts.
+pub fn is_current(file: &Path, key: &str, part: Value) -> Result<(), String> {
+    let _ = (file, key, part);
+    Err("not yet".to_string())
 }
 
 /// The examples of the rows of the outline.
