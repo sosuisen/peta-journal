@@ -655,3 +655,36 @@ fn deleting_an_item_that_is_gone_sends_nothing() {
     assert!(delete_calls(&h.api).is_empty());
     assert_eq!(h.items_ids(), ["a"]);
 }
+
+/// Items `a` to `d`, with `b` and `c` selected.
+fn selection_harness() -> Harness {
+    let mut h = Harness::with_items(vec![
+        item("a", 1, "a"),
+        item("b", 1, "b"),
+        item("c", 1, "c"),
+        item("d", 1, "d"),
+    ]);
+    select(&mut h, &["b", "c"]);
+    h
+}
+
+/// True when `ids` are selected, and no editor is open or asked for.
+fn still_selected(h: &Harness, ids: &[&str]) -> bool {
+    let selected: std::collections::HashSet<String> = ids.iter().map(|s| s.to_string()).collect();
+    h.model.state.item_selection_mode()
+        && *h.model.state.selected_item_ids() == selected
+        && h.model.state.editing_item_ids().is_empty()
+        && h.focused_editor_requests().is_empty()
+}
+
+// 選択した項目の移動を元に戻しても、選択はそのまま残り、エディタは開かない。続けて選んだまま操作できる（#739）。
+#[test]
+fn the_undo_of_a_move_of_the_selection_keeps_the_selection_and_opens_no_editor() {
+    let mut h = selection_harness();
+    h.send(Event::SelectionKey(SelectionKey::MoveUp));
+
+    h.send(Event::SelectionKey(SelectionKey::Undo));
+
+    assert!(h.api.called("ApplyBatch"), "the move is undone");
+    assert!(still_selected(&h, &["b", "c"]));
+}
