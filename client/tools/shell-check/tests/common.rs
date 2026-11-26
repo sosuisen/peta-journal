@@ -72,3 +72,21 @@ fn a_shell_that_says_nothing_of_a_common_test_is_reported() {
         }]
     );
 }
+
+// テストのファイルがないと、出る。
+#[test]
+fn a_test_file_that_is_not_there_is_reported() {
+    let root = repository(
+        "no-file",
+        &shell_toml("test = \"app/src/listChanges.test.ts\""),
+        &[],
+    );
+
+    assert_eq!(
+        problems(&root),
+        vec![Problem::NoFile {
+            test: "list-changes".into(),
+            file: "app/src/listChanges.test.ts".into(),
+        }]
+    );
+}
