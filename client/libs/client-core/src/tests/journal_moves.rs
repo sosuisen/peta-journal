@@ -240,6 +240,28 @@ fn text_typed_just_before_a_move_to_another_day_travels_in_the_move_itself() {
     h.fire_timers();
     assert!(crate::harness::update_calls(&h.api).is_empty());
 }
+// トランスクルージョンのルートに打って、まだ保存していない文も、別の日への移動の要求に入って届く。サーバーはその文を元の項目に書く。保存を別には送らない（#734）。
+#[test]
+fn text_typed_into_a_transclusion_root_travels_in_a_move_to_another_day() {
+    let mut h = harness();
+    h.model.state.update_item("d", |i| {
+        i.transclude_item_id = Some("s".into());
+        i.body = "shown".into();
+    });
+    let mut trees = crate::model::TranscludedTrees::new();
+    trees.insert("s".into(), vec![item("s", 1, "shown")]);
+    h.model.state.set_transcluded_trees(trees);
+    typed(&mut h, "d", "shown typed");
+
+    h.send(Event::MoveDown {
+        item_id: "d".into(),
+    });
+
+    assert_eq!(journal_moves(&h)[0].body, Some("shown typed".to_string()));
+    h.fire_timers();
+    assert!(crate::harness::update_calls(&h.api).is_empty());
+}
+
 // 別の日への移動が断られると、画面は変わらず、要求に入れた文はもう一度自動保存にかけられる。次の移動を始められる。
 #[test]
 fn after_a_refused_move_to_another_day_nothing_changes_and_the_typed_text_is_auto_saved_again() {

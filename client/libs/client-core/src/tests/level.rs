@@ -33,6 +33,34 @@ fn indent_moves_the_item_with_its_children_one_level_deeper_and_saves_one_relati
     assert_eq!(h.model.undo.pop_undo().unwrap().label, "indent");
 }
 
+// トランスクルージョンのルートに打って、まだ保存していない文は、インデントのあとも行に残り、元の項目に自動保存される（#734）。
+#[test]
+fn text_typed_into_a_transclusion_root_stays_through_an_indent_and_is_saved_to_its_source() {
+    let mut h = Harness::with_items(vec![
+        item("a", 1, ""),
+        item_with("root", 1, |i| {
+            i.transclude_item_id = Some("s".into());
+            i.body = "shown".into();
+        }),
+    ]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert("s".into(), vec![item("s", 1, "shown")]);
+    h.model.state.set_transcluded_trees(trees);
+    typed(&mut h, "root", "shown typed");
+
+    h.send(Event::Indent {
+        item_id: "root".into(),
+    });
+
+    let row = h.model.state.get_visible_item("root").unwrap();
+    assert_eq!((row.level, row.body.as_str()), (2, "shown typed"));
+    h.fire_timers();
+    assert_eq!(
+        update_calls(&h.api),
+        [("s".into(), Some("shown typed".into()))]
+    );
+}
+
 // 先頭の項目ではインデントが何もしない。
 #[test]
 fn indent_does_nothing_for_the_first_item() {
