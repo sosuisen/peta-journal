@@ -25,13 +25,22 @@
 param([switch]$NoPull)
 $ErrorActionPreference = 'Stop'
 
+# Windows PowerShell 5.1 (powershell.exe) starts this script too: the steps run in pwsh.
+# Why the syntax of 5.1 here: 5.1 reads the whole script before it runs a line of it
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    $pwshArgs = @('-NoProfile', '-File', $PSCommandPath)
+    if ($NoPull) { $pwshArgs += '-NoPull' }
+    & pwsh @pwshArgs
+    exit $LASTEXITCODE
+}
+
 $root = $PSScriptRoot
 $port = 8087
 $apps = "$root/client/apps"
 $release = "$root/journal/target/release"
 $configDir = $env:PETAJOURNAL_CONFIG_DIR
 if (-not $configDir) {
-    $userHome = $env:HOME ? $env:HOME : $env:USERPROFILE
+    $userHome = if ($env:HOME) { $env:HOME } else { $env:USERPROFILE }
     $configDir = Join-Path $userHome '.peta-journal'
 }
 
