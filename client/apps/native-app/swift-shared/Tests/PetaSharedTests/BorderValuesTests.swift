@@ -23,7 +23,8 @@ final class BorderValuesTests: XCTestCase {
         for _ in 0..<6 {
             url.deleteLastPathComponent()
         }
-        let data = try Data(contentsOf: url.appendingPathComponent("tools/shell-check/common/border-native.json"))
+        let file = url.appendingPathComponent("tools/shell-check/common/border-native.json")
+        let data = try Data(contentsOf: file)
         return try JSONDecoder().decode(File.self, from: data)
     }
 
@@ -41,7 +42,10 @@ final class BorderValuesTests: XCTestCase {
 
     /// Reads each example as the shell reads the border, writes it back as the shell writes it,
     /// and expects the bytes it began with. Gives the ids of the examples it ran.
-    private func readAndWriteBack(_ examples: [Example], _ readAndWrite: ([UInt8]) throws -> [UInt8]) throws -> [String] {
+    private func readAndWriteBack(
+        _ examples: [Example],
+        _ readAndWrite: ([UInt8]) throws -> [UInt8]
+    ) throws -> [String] {
         var ran: [String] = []
         for example in examples {
             let read = bytes(example.bytes)
@@ -59,7 +63,9 @@ final class BorderValuesTests: XCTestCase {
     func testTheShellReadsAndWritesBackEveryExampleOfTheChangesAsItWas() throws {
         let file = try examplesFile()
 
-        let ran = try readAndWriteBack(file.changes) { try Changes.bincodeDeserialize(input: $0).bincodeSerialize() }
+        let ran = try readAndWriteBack(file.changes) {
+            try Changes.bincodeDeserialize(input: $0).bincodeSerialize()
+        }
 
         XCTAssertFalse(ran.isEmpty)
         XCTAssertEqual(ran, file.changes.map(\.id))
@@ -70,7 +76,9 @@ final class BorderValuesTests: XCTestCase {
     func testTheShellReadsAndWritesBackEveryExampleOfTheEventsAsItWas() throws {
         let file = try examplesFile()
 
-        let ran = try readAndWriteBack(file.events) { try Event.bincodeDeserialize(input: $0).bincodeSerialize() }
+        let ran = try readAndWriteBack(file.events) {
+            try Event.bincodeDeserialize(input: $0).bincodeSerialize()
+        }
 
         XCTAssertFalse(ran.isEmpty)
         XCTAssertEqual(ran, file.events.map(\.id))
