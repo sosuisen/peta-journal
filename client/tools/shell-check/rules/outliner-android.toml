@@ -99,7 +99,7 @@ ZoomStep = "none: no zoom"
 tests = ["client/apps/native-app/outliner-android/app/src/test/kotlin"]
 
 [common.list-changes]
-pending = 1208
+pending = 1214
 
 [common.border-web]
 excluded = "a native shell reads the border of client-native-bridge, not that of client-web-bridge"
