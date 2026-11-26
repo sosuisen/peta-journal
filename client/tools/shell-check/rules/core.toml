@@ -1,5 +1,23 @@
 # The rules that hold for every shell (ADR 064).
 
+# The common tests that every shell runs (ADR 089, ADR 090). The core writes the examples of
+# each into client/tools/shell-check/common/. Each shell names its test of each in its own rules,
+# or the issue that writes it (`pending`), or why it needs none (`excluded`).
+#
+# - list-changes: D1, the shell applies the changes of a list as the core does (#1208)
+# - border-web: D2, the web shell reads and writes the values of its border back as they were
+#   (#1209)
+# - border-native: D2, a native shell reads and writes the values of its border back as they
+#   were (#1209)
+[common.list-changes]
+examples = "list-changes.json"
+
+[common.border-web]
+examples = "border-web.json"
+
+[common.border-native]
+examples = "border-native.json"
+
 # S2: the kinds of `Event` that the core sends to itself. No shell sends them, so no shell
 # needs to name them. The reasons are of four kinds:
 #
