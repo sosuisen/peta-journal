@@ -27,6 +27,20 @@ pub struct Entry {
     pub excluded: Option<String>,
 }
 
+impl Entry {
+    /// How many of `test`, `pending` and `excluded` the entry says. It must say one.
+    fn said(&self) -> usize {
+        [
+            self.test.is_some(),
+            self.pending.is_some(),
+            self.excluded.is_some(),
+        ]
+        .into_iter()
+        .filter(|&said| said)
+        .count()
+    }
+}
+
 /// A shell, as the check of the common tests sees it.
 pub struct Shell<'a> {
     pub language: Language,
@@ -59,6 +73,9 @@ pub enum Problem {
     NotDeclared { test: String, file: PathBuf },
     /// The shell waits for the common test `test` with no issue: its `pending` is 0.
     NoIssue { test: String },
+    /// The shell says more than one of `test`, `pending` and `excluded` of the common test
+    /// `test`.
+    MoreThanOne { test: String },
 }
 
 /// What is wrong with what `shell` has for the common tests `tests`, in the repository at
@@ -66,10 +83,16 @@ pub enum Problem {
 pub fn check(root: &Path, tests: &BTreeMap<String, CommonTest>, shell: &Shell) -> Vec<Problem> {
     let mut problems = Vec::new();
     for (name, common) in tests {
-        let Some(entry) = shell.entries.get(name) else {
+        let said = shell.entries.get(name).map_or(0, Entry::said);
+        if said == 0 {
             problems.push(Problem::NotNamed { test: name.clone() });
             continue;
-        };
+        }
+        if said > 1 {
+            problems.push(Problem::MoreThanOne { test: name.clone() });
+            continue;
+        }
+        let entry = &shell.entries[name];
         if let Some(file) = &entry.test {
             problems.extend(check_file(root, shell, name, common, file));
         }
