@@ -1,0 +1,68 @@
+# The rules of the outliner in Emacs (ADR 064).
+
+[s2]
+language = "rust"
+# The Lisp sends the lines of src/protocol.rs, and src/shell.rs makes an `Event` of each. The
+# Lisp names no kind of `Event`, so it is not read.
+sources = ["client/apps/emacs/outliner/src"]
+# src/tests holds the tests.
+skipped = ["client/apps/emacs/outliner/src/tests"]
+
+# The kinds of `Event` that this shell need not name, besides those of core.toml. The reasons
+# are all "none": the app has no such part, or Emacs does it itself. The whole page is one
+# buffer: the point moves between items, and keys are typed, as in any buffer. The README says
+# that the atlas, extensions and settings are not in this version.
+[s2.excluded]
+AddAtlasCallout = "none: no atlas"
+AddAtlasLink = "none: no atlas"
+AddPageTags = "none: a list property is set whole, by SetPageProperty, with its values separated by commas"
+AddPropertyDefinition = "none: no settings; a new key is defined in the web app"
+AtlasDirsRestored = "none: no atlas"
+AtlasUp = "none: no atlas"
+BrowseFolder = "none: no settings"
+CalendarNav = "none: C-c C-x c picks a date in the calendar of Emacs, and its page opens by GoToPage"
+CreateNewPage = "none: the search box offers an entry that makes a new page, by SearchResultClicked"
+DeletePropertyDefinition = "none: no settings"
+DragBeyondBounds = "none: no drag selection; C-c SPC selects items, by ShiftSelect"
+DropAtlasCard = "none: no atlas"
+EditPageProperties = "none: C-c C-x p shows the properties in a window of Emacs, even while there are none"
+GroupAtlasCards = "none: no atlas"
+IndexSortsRestored = "none: no sort of an index page"
+ItemMouseEnter = "none: no drag selection; C-c SPC selects items, by ShiftSelect"
+KeyHeld = "none: the whole page is one buffer, so no key waits while the edit moves to another item"
+MoveAtlasCallout = "none: no atlas"
+MovePageTag = "none: a list property is set whole, by SetPageProperty"
+NavigateDown = "none: the point moves to the next item as in any buffer"
+NavigateHome = "none: no Home button"
+NavigateToRoot = "none: the sidebar opens the index of a folder, by GoToPage"
+NavigateToTags = "none: no button of the tags; a tag at the point opens with C-c C-o, by OpenLinkAt"
+NavigateToToday = "none: C-c C-j opens today's journal, by Open"
+NavigateUp = "none: the point moves to the item above as in any buffer"
+OpenExportFolder = "none: no command opens the folder of the Markdown files"
+PlaceAtlasCard = "none: no atlas"
+RemoveAtlasCard = "none: no atlas"
+RemoveAtlasLink = "none: no atlas"
+RemovePageTag = "none: a list property is set whole, by SetPageProperty"
+ResetZoom = "none: no zoom of an item"
+Route = "none: a page opens with Open, which keeps the history in the core (ADR 035)"
+ScaleAtlasCallout = "none: no atlas"
+ScaleAtlasCard = "none: no atlas"
+ScrollToItemRequested = "none: a heading in the sidebar moves the point in the buffer, in Lisp"
+SearchAtlasLinks = "none: no atlas"
+SearchKey = "none: the minibuffer moves among the results, and RET opens one, by SearchResultClicked"
+SelectionClickOutside = "none: C-g, q or Escape ends a selection, by SelectionKey"
+SelectionMouseUp = "none: no drag selection; C-c SPC selects items, by ShiftSelect"
+SetAtlasCallout = "none: no atlas"
+SetAtlasGroupTitle = "none: no atlas"
+SetAtlasLink = "none: no atlas"
+SetCollapsed = "none: C-c C-f folds and unfolds an item, by CollapseToggle"
+SetHomeLink = "none: no settings"
+SetIndexSort = "none: no sort of an index page"
+SetLogicalOutdent = "none: no settings"
+SetTagsDir = "none: no settings"
+SetWeekNumbering = "none: no settings"
+ToggleAtlas = "none: no atlas"
+UngroupAtlasCards = "none: no atlas"
+WikiKey = "none: C-M-i completes the name of a page with the completion of Emacs"
+WikiPick = "none: C-M-i completes the name of a page with the completion of Emacs"
+ZoomStep = "none: no zoom of an item"
