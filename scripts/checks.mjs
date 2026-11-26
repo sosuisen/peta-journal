@@ -20,7 +20,8 @@
 // check of the CI runs them all.
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { arch } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RESULT, macOf } from './mac.mjs';
@@ -36,12 +37,23 @@ const CLIENT_RUST = ['client/', ...ATLAS];
 // Files that change every job
 const ALL = ['rust-toolchain.toml', '.github/workflows/ci.yml', 'scripts/checks.mjs'];
 
+// The coverage of the aarch64 Rust of Windows does not work: llvm-profdata takes no .profraw that
+// it writes ("malformed instrumentation profile data: symbol name is empty", Rust 1.100.0, even for
+// a crate of one function). The x86_64 Rust of the same version measures under emulation, so an
+// ARM64 PC measures with it. A RUSTUP_TOOLCHAIN that is set already is kept
+function covEnv() {
+  if (process.platform !== 'win32' || arch() !== 'arm64' || process.env.RUSTUP_TOOLCHAIN) return undefined;
+  const channel = readFileSync(join(ROOT, 'rust-toolchain.toml'), 'utf8').match(/^channel = "([^"]+)"/m)?.[1];
+  if (!channel) throw new Error('rust-toolchain.toml has no channel');
+  return { RUSTUP_TOOLCHAIN: `${channel}-x86_64-pc-windows-msvc` };
+}
+
 const rust = (args) => [
   { run: 'cargo fmt --check' },
   { run: `cargo clippy --all-targets ${args}` },
   { run: `cargo test ${args}` },
   // Fails below 90% of the lines. The `cov` alias in .cargo/config.toml holds the crates and the floor
-  { run: 'cargo cov --summary-only' },
+  { run: 'cargo cov --summary-only', env: covEnv() },
 ];
 
 const emacs = '"$PETA_EMACS"';
