@@ -51,11 +51,12 @@ final class OutlineScreenTests: XCTestCase {
         server?.stop()
     }
 
-    private func waitUntil(_ what: String, _ done: () -> Bool) async throws {
+    /// Waits until `done`. A wait that fails tells `more` too, after what never happened.
+    private func waitUntil(_ what: String, _ done: () -> Bool, more: (() -> String)? = nil) async throws {
         let deadline = Date().addingTimeInterval(10)
         while !done() {
             if Date() > deadline {
-                XCTFail("never happened: \(what)")
+                XCTFail("never happened: \(what)" + (more.map { "\n\($0())" } ?? ""))
                 throw CancellationError()
             }
             try await Task.sleep(nanoseconds: 10_000_000)
@@ -278,8 +279,19 @@ final class OutlineScreenTests: XCTestCase {
         press(36, "\r", [], in: editor)
         editor.insertText("y", replacementRange: editor.selectedRange())
 
-        try await waitUntil("the letters are in two new items") { self.bodies() == ["first", "x", "y"] }
-        try await waitUntil("the cursor is in the last item") { self.focused === self.editors().last }
+        try await waitUntil("the letters are in two new items", { self.bodies() == ["first", "x", "y"] }, more: held)
+        try await waitUntil("the cursor is in the last item", { self.focused === self.editors().last }, more: held)
+    }
+
+    /// What the test of the keys held while the edit moves saw: it fails now and then in the CI,
+    /// and never on a developer's Mac (#1224).
+    private func held() -> String {
+        let editors = editors()
+        let focused = editors.firstIndex { $0 === self.focused }.map(String.init) ?? "none"
+        return "items: \(bodies()), the core holds keys: \(shell.holdsKeys), editors: \(editors.count), "
+            + "the editor with the cursor: \(focused), in the editors: \(editors.map(\.string)), "
+            // Taken: the test ends with this message
+            + "the keys to replay that no editor took: \(shell.takeKeysToReplay().map(\.key))"
     }
 
     // 上矢印は、前の項目へ、同じ位置のまま移る。
