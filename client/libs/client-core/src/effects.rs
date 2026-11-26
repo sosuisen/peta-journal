@@ -1205,7 +1205,8 @@ impl<Event: Send + 'static> Api<Event> {
 
 impl Api<crate::app::Event> {
     /// Focuses an editor after the next render; resolves when its field takes the keyboard.
-    /// Then the core stops holding keys for it (ADR 087).
+    /// Then the core stops holding keys for it, or orders the same editor again with the keys
+    /// held since (ADR 087).
     pub async fn focus_editor(&self, item_id: Option<String>, replay_keys: Vec<DeferredKey>) {
         let _ = self
             .ctx

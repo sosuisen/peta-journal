@@ -204,10 +204,13 @@ copy of Dropbox.
   tells of no change then, so it hears the key itself (`deleteBackward`). Nothing is joined
   while text is chosen, or while the keyboard composes a word.
 - After Enter, the edit moves to the field of the new item. That takes a moment: the core
-  splits the item, and the screen gives the keyboard to the new field. What is typed
-  meanwhile is kept and typed into the new field. `KeyboardKeeper` has the keyboard while
-  neither field is on the screen. Without this, the first letters after Enter were lost now
-  and then.
+  splits the item, and the screen gives the keyboard to the new field. The core says so
+  (`keyRelayHolding`) until the new field takes the keyboard and answers its order
+  (`UiOp.focusEditor`), not when the order is drawn (ADR 087). What is typed meanwhile goes
+  to the core (`Event.keyHeld`): the letters, Enter and Backspace. The core gives them back
+  to the new field, which plays them. `KeyboardKeeper` has the keyboard while neither field
+  is on the screen, and keeps none of what is typed into it. Without this, the first letters
+  after Enter were lost now and then.
 
 ## Tests
 

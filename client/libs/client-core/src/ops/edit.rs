@@ -369,14 +369,18 @@ pub fn end_handover(model: &mut Model) -> Cmd {
     done()
 }
 
-/// The field of an ordered editor took the keyboard: the core stops holding keys, and the keys
-/// held since the order go to the same editor with an order of their own (ADR 087).
+/// The field of an ordered editor took the keyboard. The keys held since the order go to the
+/// same editor with an order of their own, and the core holds on until that order is answered
+/// too: the field may have taken the keyboard before the order reached the shell, and a key
+/// typed into it before the next order would overtake them. The core stops holding at an answer
+/// with no keys held since its order (ADR 087).
 pub fn editor_focused(model: &mut Model, item_id: Option<String>) -> Cmd {
     if !model.key_relay.answered() {
         return done();
     }
-    let keys = model.key_relay.release();
+    let keys = model.key_relay.hand_over();
     if keys.is_empty() {
+        model.key_relay.release();
         return done();
     }
     model.state.order_focus(item_id.as_deref());

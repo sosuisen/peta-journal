@@ -34,6 +34,7 @@ final class JournalModel: ObservableObject {
             dataDir: data, markdownDir: markdown, copy: { UIPasteboard.general.string = $0 },
             browse: { UIApplication.shared.open($0) })
         self.shell = shell
+        shell.onKeyboardOrder = { ItemEditor.keyboardOrdered() }
 
         if !account.isSetUp {
             cloud = nil

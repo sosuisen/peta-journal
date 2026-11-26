@@ -585,6 +585,19 @@ final class JournalScreenTests: XCTestCase {
         XCTAssertEqual(order(["first", "second"]), ["first", "second"])
     }
 
+    // 続けて打った2つのEnterも、それぞれ新しいアイテムを作る。その間に打った文字は、それぞれのアイテムに入る。
+    func testTwoEntersTypedOneAfterTheOtherMakeTwoItemsWithWhatWasTypedAfterEach() throws {
+        try download("notes.md", "first\n")
+        openNotes()
+        edit("first")
+        editor.typeText("\nsecond\nthird")
+        waitUntil("the newest item is edited, and has \(String(describing: editor.value))") {
+            editor.value as? String == "third"
+        }
+        done()
+        XCTAssertEqual(order(["first", "second", "third"]), ["first", "second", "third"])
+    }
+
     private static let backspace = XCUIKeyboardKey.delete.rawValue
 
     /// Opens a page of one item, touches it, and presses Enter at its end. The edit is then in

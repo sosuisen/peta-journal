@@ -218,9 +218,81 @@ public final class Shell: ObservableObject {
         border.pasteImage(file, into: itemId, cursor: UInt64(Cursor.characters(utf16: cursor, in: body)))
     }
 
-    /// The user left the editor of the item: what was typed is saved.
+    /// The user left the editor of the item: what was typed is saved. An order to put the
+    /// keyboard in a field that no field took is answered: no field takes it now, and the
+    /// keys held for it are for no item.
     public func finish(_ itemId: String) {
         send(.editFinished(itemId: itemId))
+        _ = keyboardTaken()
+    }
+
+    // MARK: - Keys typed while the edit moves
+
+    /// True while the core moves the edit to another item, as after Enter, until the field of
+    /// that item takes the keyboard (ADR 087). What is typed then is for that item, not for the
+    /// field that still has the keyboard, and goes to the core with `hold`.
+    ///
+    /// It reads the core afresh: an answer to an order (`keyboardTaken`) may have ended the
+    /// holding a moment ago, and the render that tells the view of it comes a turn of the main
+    /// queue later. A key held meanwhile would be lost, as the core no longer holds.
+    public var holdsKeys: Bool {
+        show()
+        return view.outline.keyRelayHolding
+    }
+
+    /// The user typed `text` while the core moves the edit. The core holds each letter, and a
+    /// line break as the key Enter, and gives them back once the field of the item takes the
+    /// keyboard (`keyboardTaken`).
+    public func hold(_ text: String) {
+        for letter in text {
+            hold(letter == "\n" ? Shell.named("Enter") : Shell.letter(letter))
+        }
+    }
+
+    /// The user pressed Backspace while the core moves the edit.
+    public func holdBackspace() {
+        hold(Shell.named("Backspace"))
+    }
+
+    /// Hands a key to the core while it moves the edit, as a played key after an Enter does.
+    public func hold(_ key: DeferredKey) {
+        send(.keyHeld(key))
+    }
+
+    /// A key that is not a letter, by the name the core keeps it under (the `key` of a
+    /// keyboard event of the web).
+    private static func named(_ name: String) -> DeferredKey {
+        DeferredKey(key: name, code: name, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false)
+    }
+
+    private static func letter(_ letter: Character) -> DeferredKey {
+        DeferredKey(key: String(letter), code: "", shiftKey: false, ctrlKey: false, altKey: false, metaKey: false)
+    }
+
+    /// Told when the core orders a field to take the keyboard. The field of the edited item
+    /// that has the keyboard already answers then, with `keyboardTaken`.
+    public var onKeyboardOrder: () -> Void = {}
+
+    /// True while an order of the core to put the keyboard in a field waits for its answer.
+    public var waitsForTheKeyboard: Bool { !unanswered.isEmpty }
+
+    /// The orders to put the keyboard in a field that are not answered yet, the first first.
+    private var unanswered: [UInt32] = []
+    /// The keys that the core gave with those orders, in the order they were typed.
+    private var keysToPlay: [DeferredKey] = []
+
+    /// A field of an item took the keyboard. The orders that wait are answered, and the core
+    /// stops holding keys, or gives the keys held since with an order of its own. Returns the
+    /// keys to play into the field, once: a letter as text, Enter and Backspace as the keys.
+    public func keyboardTaken() -> [DeferredKey] {
+        defer { keysToPlay = [] }
+        let orders = unanswered
+        unanswered = []
+        // Not shown now: a field takes the keyboard while the screen is drawn. The core asks for
+        // a render after the answer, which comes a turn of the main queue later. The keys played
+        // after this read that view, which says whether the core still holds keys
+        for id in orders { Shell.must { try border.answer(id, with: .done) } }
+        return keysToPlay
     }
 
     /// Makes the item a child of the item above it.
@@ -424,11 +496,17 @@ public final class Shell: ObservableObject {
     /// Does what the core asks of the screen, and answers when the core waits for an answer.
     private func ask(_ id: UInt32, _ op: UiOp) {
         switch op {
-        case .focusEditor:
-            // The row that is edited takes the focus by itself when it is drawn. The core
-            // waits for this answer before it ends a move or a split
+        case .focusEditor(_, let keys):
+            // The row that is edited takes the keyboard by itself when it is drawn, a moment
+            // later: the field answers then (`keyboardTaken`). The core holds the keys typed
+            // meanwhile, and waits for the answer before it ends a move or a split
+            unanswered.append(id)
+            keysToPlay += keys
             show()
-            Shell.must { try border.answer(id, with: .done) }
+            // The field may have the keyboard already: the drawing before the order asked it to
+            // take it, or it kept it, as after a move of its item. No field takes the keyboard
+            // anew then, and a view that did not change draws nothing again
+            onKeyboardOrder()
         case .confirm(let text):
             put(Question(text: text, destructive: false, id: id))
         case .confirmDestructive(let text):
