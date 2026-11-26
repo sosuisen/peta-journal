@@ -326,6 +326,24 @@ final class ShellTests: JournalTestCase {
         keys.map(\.key)
     }
 
+    /// Answers each order of the core to take the keyboard until the core holds no more keys,
+    /// and returns the names of all the keys it gave, in the order they were typed.
+    ///
+    /// Not only the first order: the server splits the item while the test holds the keys. When
+    /// the split comes back first, the core has given its order already, and the keys held after
+    /// it come with the next order (#1219).
+    private func keysGivenUntilTheHoldingEnds() -> [String] {
+        var given: [String] = []
+        repeat {
+            waitUntil("the core orders a field to take the keyboard") { self.shell.waitsForTheKeyboard }
+            given += names(shell.keyboardTaken())
+            waitUntil("the core orders again or no longer holds") {
+                self.shell.waitsForTheKeyboard || !self.shell.holdsKeys
+            }
+        } while shell.waitsForTheKeyboard
+        return given
+    }
+
     // 項目を分ける間に打った文字は、コアが預かり、新しい項目の欄がキーボードを取ったときに、その欄へ渡される。
     func testWhatIsTypedWhileTheItemIsSplitIsGivenToTheFieldThatTakesTheKeyboard() throws {
         try pressEnterAtTheEndOfFirst()
@@ -334,7 +352,7 @@ final class ShellTests: JournalTestCase {
         shell.hold("ab")
         waitForTheOrderOfTheNewItem()
 
-        XCTAssertEqual(names(shell.keyboardTaken()), ["a", "b"])
+        XCTAssertEqual(keysGivenUntilTheHoldingEnds(), ["a", "b"])
     }
 
     // コアは、注文を出したあとも、欄がキーボードを取るまで預かり続ける。その間に打った文字は次の注文で渡され、その注文に答えると預かりは終わる。
@@ -369,7 +387,7 @@ final class ShellTests: JournalTestCase {
         shell.holdBackspace()
         waitForTheOrderOfTheNewItem()
 
-        XCTAssertEqual(names(shell.keyboardTaken()), ["a", "Enter", "b", "Backspace"])
+        XCTAssertEqual(keysGivenUntilTheHoldingEnds(), ["a", "Enter", "b", "Backspace"])
     }
 
     // キーボードを取る欄がないまま編集が終わると、コアは預かるのをやめ、預けた文字はどこにも入らない。
