@@ -231,7 +231,14 @@ public final class Shell: ObservableObject {
     /// True while the core moves the edit to another item, as after Enter, until the field of
     /// that item takes the keyboard (ADR 087). What is typed then is for that item, not for the
     /// field that still has the keyboard, and goes to the core with `hold`.
-    public var holdsKeys: Bool { view.outline.keyRelayHolding }
+    ///
+    /// It reads the core afresh: an answer to an order (`keyboardTaken`) may have ended the
+    /// holding a moment ago, and the render that tells the view of it comes a turn of the main
+    /// queue later. A key held meanwhile would be lost, as the core no longer holds.
+    public var holdsKeys: Bool {
+        show()
+        return view.outline.keyRelayHolding
+    }
 
     /// The user typed `text` while the core moves the edit. The core holds each letter, and a
     /// line break as the key Enter, and gives them back once the field of the item takes the
