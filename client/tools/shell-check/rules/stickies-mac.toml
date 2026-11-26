@@ -103,7 +103,7 @@ ZoomStep = "none: a sticky keeps its own zoom, by sticky_zoom of client-shell-ht
 tests = ["client/apps/native-app/swift-shared/Tests"]
 
 [common.list-changes]
-pending = 1216
+test = "client/apps/native-app/swift-shared/Tests/PetaSharedTests/ListChangesTests.swift"
 
 [common.border-web]
 excluded = "a native shell reads the border of client-native-bridge, not that of client-web-bridge"
