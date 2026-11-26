@@ -211,3 +211,20 @@ fn a_common_test_says_one_of_test_pending_and_excluded() {
     );
     assert_eq!(problems(&excluded), vec![]);
 }
+
+// 共通のテストの一覧にない名前を書くと、出る。名前を書き誤ったまま、そのテストを備えたつもりにならないためである。
+#[test]
+fn a_name_that_is_no_common_test_is_reported() {
+    let shell = format!(
+        "{}\n[common.list-change]\npending = 1208\n",
+        shell_toml("pending = 1208")
+    );
+    let root = repository("unknown", &shell, &[]);
+
+    assert_eq!(
+        problems(&root),
+        vec![Problem::UnknownTest {
+            name: "list-change".into()
+        }]
+    );
+}
