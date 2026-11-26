@@ -97,8 +97,10 @@ pub fn show_split(model: &mut Model, item_id: &str, cursor_before: usize, split:
     if let Some(host_page_id) = host_page_of_transclusion(model, item_id) {
         return show_split_in_transclusion(model, item_id, cursor_before, split, host_page_id);
     }
-    let keys = model.key_relay.release();
+    let keys = model.key_relay.hand_over();
     let Some(before) = model.state.get_item_by_id(item_id) else {
+        // No editor is focused: no answer would end the hold
+        model.key_relay.release();
         return done();
     };
     let Split { item, created } = split;
@@ -235,12 +237,14 @@ pub fn focus_after_split(
     if asked_at.is_overtaken(model) {
         return leave_the_edit(model);
     }
-    let keys = model.key_relay.release();
+    let keys = model.key_relay.hand_over();
     let (target, cursor) = if model.state.get_visible_item(created_id).is_some() {
         (created_id.to_string(), 0)
     } else if let Some(item) = model.current_item(item_id) {
         (item_id.to_string(), char_len(&item.body))
     } else {
+        // No editor is focused: no answer would end the hold
+        model.key_relay.release();
         return done();
     };
     model.state.add_editing_item(&target);

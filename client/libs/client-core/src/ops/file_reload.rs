@@ -103,8 +103,10 @@ impl AskedAt {
 /// gone on, so the edit and the cursor stay where that change left them. The keys that waited
 /// for the next editor go to the editor that has the focus now.
 pub fn leave_the_edit(model: &mut Model) -> Cmd {
-    let keys = model.key_relay.release();
+    let keys = model.key_relay.hand_over();
     if keys.is_empty() {
+        // No editor is focused: no answer would end the hold
+        model.key_relay.release();
         return done();
     }
     let focused = model.state.focused_item_id().map(str::to_string);
@@ -236,7 +238,7 @@ fn open_editor_at(model: &mut Model, id: &str, cursor: usize) -> Cmd {
     model.state.add_editing_item(id);
     model.state.set_focused_item(id, Some(cursor));
     model.state.order_focus(Some(id));
-    let (id, keys) = (id.to_string(), model.key_relay.release());
+    let (id, keys) = (id.to_string(), model.key_relay.hand_over());
     run(move |api| async move { api.focus_editor(Some(id), keys).await })
 }
 

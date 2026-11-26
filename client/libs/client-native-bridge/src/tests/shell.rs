@@ -471,8 +471,23 @@ fn every_answer_reaches_the_core_for_its_own_question() {
         r#"{"type":"confirm","requestId":"confirm-2","message":"Replace?"}"#.into(),
     ));
 
-    screen.answer(&first, &UiOutput::Bool(false));
-    screen.answer(&second, &UiOutput::Bool(true));
+    // The two questions may reach the shell in either order: the core may take the two messages
+    // on two threads (#1168). Each is answered once the shell has it
+    let answers = [(first, false), (second, true)];
+    for answered in 0..answers.len() {
+        let asked = || {
+            let ops = screen.ui_ops();
+            ops.into_iter()
+                .filter(|op| answers.iter().any(|(question, _)| question == op))
+                .collect::<Vec<_>>()
+        };
+        wait_until("the shell is asked one more question", || {
+            asked().len() > answered
+        });
+        let question = asked()[answered].clone();
+        let ok = answers.iter().find(|(q, _)| *q == question).unwrap().1;
+        screen.answer(&question, &UiOutput::Bool(ok));
+    }
 
     wait_until("both answers are sent to the server", || {
         screen.calls_named("AnswerConfirm") == 2

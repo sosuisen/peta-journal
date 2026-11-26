@@ -97,6 +97,18 @@ fn a_message_of_the_event_stream_reaches_the_core() {
 fn a_new_page_without_a_name_is_named_after_the_clock() {
     let screen = Screen::new();
     let prompt = UiOp::Prompt("Page title:".into());
+    // The shell has one question at a time: the confirm of the event stream is answered first,
+    // or it may come before the prompt and keep it waiting (#1185)
+    let confirm = UiOp::Confirm("Insert?".into());
+    wait_until("the shell is asked to confirm", || {
+        screen.asked(&confirm).is_some()
+    });
+    let mut no = Vec::new();
+    BincodeFfiFormat::serialize(&mut no, &UiOutput::Bool(false)).unwrap();
+    screen
+        .shell
+        .resolve(screen.asked(&confirm).unwrap(), &no)
+        .unwrap();
     screen.send(&Event::CreateNewPage {
         search_query: String::new(),
     });

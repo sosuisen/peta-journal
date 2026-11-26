@@ -1,8 +1,9 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useAsked } from './askedContext';
 import Atlas from './Atlas';
 import type { JournalView, PageView } from './border/peta-types';
 import Calendar from './Calendar';
+import { isImeComposing, textBeforePoint } from './dom';
 import { useCore, usePanel } from './context';
 import Frame from './Frame';
 import Outline from './Outline';
@@ -406,8 +407,150 @@ function Journal({ journal }: { readonly journal: JournalView }) {
   );
 }
 
+/**
+ * Switches between the index page of a folder and its atlas. The icon names the page the
+ * button opens: a map on the index page, a bulleted outline on the atlas page.
+ */
+function AtlasButton({ atlas }: { readonly atlas: boolean }) {
+  const core = useCore();
+  return (
+    <button
+      className={atlas ? 'atlas-btn active' : 'atlas-btn'}
+      title={atlas ? 'Index' : 'Atlas'}
+      aria-pressed={atlas}
+      onClick={() => core.send({ kind: 'ToggleAtlas' })}
+    >
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {atlas ? (
+          <>
+            <line x1="9" y1="6" x2="20" y2="6" />
+            <line x1="9" y1="12" x2="20" y2="12" />
+            <line x1="9" y1="18" x2="20" y2="18" />
+            <circle cx="4" cy="6" r="1" fill="currentColor" />
+            <circle cx="4" cy="12" r="1" fill="currentColor" />
+            <circle cx="4" cy="18" r="1" fill="currentColor" />
+          </>
+        ) : (
+          <>
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+            <line x1="8" y1="2" x2="8" y2="18" />
+            <line x1="16" y1="6" x2="16" y2="22" />
+          </>
+        )}
+      </svg>
+    </button>
+  );
+}
+
+/** The folder and the name of a page while its title is edited. */
+interface TitleEdit {
+  readonly dir: string;
+  readonly name: string;
+  /** Where the cursor goes when the fields show: in the folder of an index, else in the name. */
+  readonly caret: number;
+}
+
+/**
+ * The fields that take the place of the title of a page while it is edited. Enter sends the
+ * new folder and name to the core.
+ */
+function TitleFields({
+  inFolder,
+  index,
+  edit,
+  setEdit,
+}: {
+  /** False for a page at the top, which has no field of the folder. */
+  readonly inFolder: boolean;
+  /** True for an index, whose name stays: only its folder changes. */
+  readonly index: boolean;
+  readonly edit: TitleEdit;
+  readonly setEdit: (edit: TitleEdit | null) => void;
+}) {
+  const core = useCore();
+  // A field taken away while it has the focus may still tell that it lost it: one end only
+  const ended = useRef(false);
+  const dirField = useRef<HTMLInputElement>(null);
+  const nameField = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const field = index ? dirField.current : nameField.current;
+    field?.focus();
+    field?.setSelectionRange(edit.caret, edit.caret);
+    // Only when the fields show: the cursor then follows the typing
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const end = (save: boolean) => {
+    if (ended.current) {
+      return;
+    }
+    ended.current = true;
+    setEdit(null);
+    if (save) {
+      core.send({
+        kind: 'PageTitleSave',
+        dir_path: edit.dir,
+        file_name: edit.name,
+      });
+    }
+  };
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (isImeComposing(event.nativeEvent)) {
+      return;
+    }
+    if (event.key === 'Enter') {
+      end(true);
+    } else if (event.key === 'Escape') {
+      end(false);
+    }
+  };
+  return (
+    <div
+      className="edit-row"
+      onBlur={event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          end(true);
+        }
+      }}
+    >
+      {inFolder && (
+        <>
+          <input
+            ref={dirField}
+            className="edit-dir-path"
+            value={edit.dir}
+            onChange={event => setEdit({ ...edit, dir: event.target.value })}
+            onKeyDown={onKeyDown}
+          />
+          <span className="edit-slash">/</span>
+        </>
+      )}
+      <input
+        ref={nameField}
+        className="edit-file-name"
+        disabled={index}
+        value={edit.name}
+        onChange={event => setEdit({ ...edit, name: event.target.value })}
+        onKeyDown={onKeyDown}
+      />
+    </div>
+  );
+}
+
 function DocPage({ page }: { readonly page: PageView }) {
   const core = useCore();
+  const [edit, setEdit] = useState<TitleEdit | null>(null);
+  const dir = page.page.dir_path.replace(/\/$/, '');
+  const startEdit = (caret: number) =>
+    setEdit({ dir, name: page.page.name, caret });
   // Kept by the page, so the new rows stay while the core draws the properties again
   const [drafts, setDrafts] = useState<readonly Draft[]>([]);
   const scrolled = usePanel('Outline')?.scrolled_from_top ?? false;
@@ -416,7 +559,12 @@ function DocPage({ page }: { readonly page: PageView }) {
     return (
       <span key={segment.index_path}>
         {page.is_index && last ? (
-          <span className="dir-segment-title">{segment.name}</span>
+          <span
+            className="dir-segment-title"
+            onClick={() => startEdit(dir.length)}
+          >
+            {segment.name}
+          </span>
         ) : (
           <a
             className="dir-segment"
@@ -436,10 +584,19 @@ function DocPage({ page }: { readonly page: PageView }) {
     );
   });
   let title;
-  if (page.is_root_index) {
+  if (page.is_atlas) {
+    // The title of an atlas page follows its folder: no path and no index mark
+    title = (
+      <div className="title-row">
+        <AtlasButton atlas />
+        <h2 className="page-title atlas-title">{page.title}</h2>
+      </div>
+    );
+  } else if (page.is_root_index) {
     title = (
       <>
         <div className="title-row">
+          <AtlasButton atlas={false} />
           <h2 className="page-title root-index-title">(root)/</h2>
         </div>
         <div className="index-label">index</div>
@@ -460,25 +617,54 @@ function DocPage({ page }: { readonly page: PageView }) {
       </div>
     );
   } else {
-    title = <h2 className="page-title">{page.title}</h2>;
+    title = (
+      <h2
+        className="page-title"
+        onClick={event =>
+          startEdit(
+            (
+              textBeforePoint(
+                event.currentTarget,
+                event.clientX,
+                event.clientY,
+              ) ?? page.page.name
+            ).length,
+          )
+        }
+      >
+        {page.title}
+      </h2>
+    );
   }
   return (
     <app-page>
       <div className={scrolled ? 'page-header scrolled' : 'page-header'}>
-        {!page.is_root_index && page.page.dir_path !== '' && (
-          <div className="title-row">
-            <div
-              className={
-                page.is_index
-                  ? 'dir-path-breadcrumb index-breadcrumb'
-                  : 'dir-path-breadcrumb'
-              }
-            >
-              {crumbs}
-            </div>
-          </div>
+        {edit !== null && (
+          <TitleFields
+            inFolder={page.page.dir_path !== ''}
+            index={page.is_index}
+            edit={edit}
+            setEdit={setEdit}
+          />
         )}
-        {title}
+        {edit === null &&
+          !page.is_atlas &&
+          !page.is_root_index &&
+          page.page.dir_path !== '' && (
+            <div className="title-row">
+              {page.is_index && <AtlasButton atlas={false} />}
+              <div
+                className={
+                  page.is_index
+                    ? 'dir-path-breadcrumb index-breadcrumb'
+                    : 'dir-path-breadcrumb'
+                }
+              >
+                {crumbs}
+              </div>
+            </div>
+          )}
+        {edit === null && title}
       </div>
       {/* The canvas takes the place of the items: an atlas page shows its directory */}
       {page.is_atlas ? (

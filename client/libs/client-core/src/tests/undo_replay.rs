@@ -359,6 +359,27 @@ fn keeps_editing_the_updated_item_with_the_cursor_at_the_end_of_its_body() {
     assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
 }
 
+// 削除の undo は、トランスクルージョンが同じページの項目を見せていても、項目をこのページの項目として戻す（#736）。
+#[test]
+fn undo_of_a_delete_puts_the_item_back_on_this_page_when_a_transclusion_shows_this_page_too() {
+    let root = item_with("root", 1, |i| {
+        i.transclude_item_id = Some("a".into());
+        i.body = "a".into();
+    });
+    let mut h = Harness::with_items(vec![item("a", 1, "a"), item("b", 1, "b"), root]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert("a".into(), vec![item_with("a", 1, |i| i.body = "a".into())]);
+    h.model.state.set_transcluded_trees(trees);
+    h.send(Event::DeleteItem {
+        item_id: "b".into(),
+    });
+    assert_eq!(h.items_ids(), ["a", "root"]);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.items_ids(), ["a", "b", "root"]);
+}
+
 // 作成の undo は、項目をここで消し、削除を同じ1つの要求でサーバーに送る。記録されたカーソルが使われる。
 #[test]
 fn undo_of_a_create_removes_the_item_here_and_on_the_server() {

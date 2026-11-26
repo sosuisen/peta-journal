@@ -253,7 +253,7 @@ pub fn focus_moved_at(model: &mut Model, item_id: String, asked_at: AskedAt) -> 
         return Command::all([keys, done]);
     }
     model.state.order_focus(Some(&item_id));
-    let keys = model.key_relay.release();
+    let keys = model.key_relay.hand_over();
     run(move |api| async move {
         api.focus_editor(Some(item_id), keys).await;
         api.send_event(Event::MoveDone { handover: true });

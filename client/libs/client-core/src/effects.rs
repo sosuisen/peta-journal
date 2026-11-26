@@ -1142,17 +1142,6 @@ impl<Event: Send + 'static> Api<Event> {
 
     // ---- Other shell requests ----
 
-    /// Focuses an editor after the next render; resolves when it is focused.
-    pub async fn focus_editor(&self, item_id: Option<String>, replay_keys: Vec<DeferredKey>) {
-        let _ = self
-            .ctx
-            .request_from_shell(UiOp::FocusEditor {
-                item_id,
-                replay_keys,
-            })
-            .await;
-    }
-
     pub async fn ui(&self, op: UiOp) -> UiOutput {
         self.ctx.request_from_shell(op).await
     }
@@ -1211,5 +1200,20 @@ impl<Event: Send + 'static> Api<Event> {
 
     pub fn ctx(&self) -> &CommandContext<Effect, Event> {
         &self.ctx
+    }
+}
+
+impl Api<crate::app::Event> {
+    /// Focuses an editor after the next render; resolves when its field takes the keyboard.
+    /// Then the core stops holding keys for it (ADR 087).
+    pub async fn focus_editor(&self, item_id: Option<String>, replay_keys: Vec<DeferredKey>) {
+        let _ = self
+            .ctx
+            .request_from_shell(UiOp::FocusEditor {
+                item_id: item_id.clone(),
+                replay_keys,
+            })
+            .await;
+        self.send_event(crate::app::Event::EditorFocused { item_id });
     }
 }

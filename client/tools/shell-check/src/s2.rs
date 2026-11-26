@@ -19,6 +19,8 @@ pub enum Language {
     /// The generated TypeScript types name `Event::PasteText` as `{ kind: 'PasteText', ... }`.
     #[serde(rename = "typescript")]
     TypeScript,
+    /// A shell in Rust names `Event::PasteText` as it is.
+    Rust,
 }
 
 impl Language {
@@ -29,6 +31,7 @@ impl Language {
             Language::Swift => name.ends_with(".swift"),
             Language::CSharp => name.ends_with(".cs"),
             Language::Kotlin => name.ends_with(".kt"),
+            Language::Rust => name.ends_with(".rs"),
             Language::TypeScript => {
                 (name.ends_with(".ts") || name.ends_with(".tsx"))
                     && !name.ends_with(".test.ts")
@@ -45,7 +48,9 @@ impl Language {
     /// still counts: the check reads text, not types.
     ///
     /// In C# and Kotlin the name is a nested class of `Event`, such as `Event.PasteText`. `Event`
-    /// must be a whole name: the `Back` of `KeyEvent.Back` is not the event.
+    /// must be a whole name: the `Back` of `KeyEvent.Back` is not the event. In Rust the name
+    /// is a variant of `Event`, such as `Event::PasteText`, and `SseEvent::Open` is not the
+    /// event.
     ///
     /// In TypeScript the name is the string under the key `kind`, such as `kind: 'PasteText'`.
     /// The same string under another key, or as an argument, is not the event. Prettier writes
@@ -55,6 +60,7 @@ impl Language {
         match self {
             Language::Swift => names_implicit_member(text, &lower_camel(variant)),
             Language::CSharp | Language::Kotlin => names_whole(text, &format!("Event.{variant}")),
+            Language::Rust => names_whole(text, &format!("Event::{variant}")),
             Language::TypeScript => {
                 names_kind(text, variant) || names_whole(text, &format!("event{variant}"))
             }
@@ -264,6 +270,31 @@ mod tests {
         assert!(!Language::TypeScript.reads("core.test.ts"));
         assert!(!Language::TypeScript.reads("App.test.tsx"));
         assert!(!Language::TypeScript.reads("styles.css"));
+    }
+
+    // Rustでは、`Event::PasteText`は`Event::PasteText`として書かれる。
+    #[test]
+    fn rust_names_a_kind_as_a_variant_of_event() {
+        assert!(Language::Rust.names(
+            "self.send(Event::PasteText {\n    item_id: id,\n})",
+            "PasteText"
+        ));
+        assert!(Language::Rust.names("self.send(Event::Undo),", "Undo"));
+        assert!(Language::Rust.names("Event::SelectionKey(key.into())", "SelectionKey"));
+    }
+
+    // Rustで、`Event`で終わる別の名前の中の同じ名前や、長い名前は、`Event`の種類に数えない。
+    #[test]
+    fn rust_does_not_count_another_name() {
+        assert!(!Language::Rust.names("heard(SseEvent::Open)", "Open"));
+        assert!(!Language::Rust.names("Event::PasteTextLater", "PasteText"));
+    }
+
+    // Rustのシェルでは、`.rs`のファイルが読まれる。
+    #[test]
+    fn rust_reads_rs_files() {
+        assert!(Language::Rust.reads("shell.rs"));
+        assert!(!Language::Rust.reads("peta-journal.el"));
     }
 
     // ソースに出てこず、除外リストにも無い種類が、問題として出る。
