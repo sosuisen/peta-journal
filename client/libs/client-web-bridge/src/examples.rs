@@ -49,8 +49,10 @@ mod tests {
         let examples: Vec<Value> = samples(&registry, root)
             .into_iter()
             .map(|sample| {
-                let value: T = crate::border::read(&sample.value.to_string())
-                    .unwrap_or_else(|error| panic!("the sample {} is no {root}: {error}", sample.id));
+                let value: T =
+                    crate::border::read(&sample.value.to_string()).unwrap_or_else(|error| {
+                        panic!("the sample {} is no {root}: {error}", sample.id)
+                    });
                 json!({ "id": sample.id, "value": crossing(&value) })
             })
             .collect();
@@ -78,8 +80,12 @@ mod tests {
     // 境界の値の例のファイルの節は、今の見本と同じである。シェルが読む`Changes`と、シェルが書く`Event`である。
     #[test]
     fn the_examples_of_the_border_values_are_current() {
-        is_current(&border_file(), "changes", border_examples::<Changes<HtmlBody>>("Changes"))
-            .unwrap();
+        is_current(
+            &border_file(),
+            "changes",
+            border_examples::<Changes<HtmlBody>>("Changes"),
+        )
+        .unwrap();
         is_current(&border_file(), "events", border_examples::<Event>("Event")).unwrap();
     }
 }

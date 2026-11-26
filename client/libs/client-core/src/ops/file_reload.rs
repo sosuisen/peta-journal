@@ -82,7 +82,8 @@ pub fn take_indices(
 /// The requests go to the server one at a time, so the answer can take a while, and the
 /// user may undo in that time. The answer then holds the page as it was before the undo. On
 /// 2026-11-18 such an answer put back, on the screen, a split that Ctrl+Z had just taken back.
-#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+// Crosses as the value it holds, as serde writes it and the generated types read it (#1209)
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), facet(transparent))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct AskedAt(u64);
 
