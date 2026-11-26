@@ -150,11 +150,13 @@ pub fn merge_answered(model: &mut Model, key: JoinKey, item_id: &str, agreed: bo
 /// Shows what the server wrote for a join, records it as one undo entry, and edits the
 /// joined item with the cursor where the two texts meet.
 pub fn show_merged(model: &mut Model, key: JoinKey, item_id: &str, merged: Item) -> Cmd {
-    let keys = model.key_relay.release();
+    let keys = model.key_relay.hand_over();
     let (Some(gone), Some(before)) = (
         model.state.get_item_by_id(item_id),
         model.state.get_item_by_id(&merged.id),
     ) else {
+        // No editor is focused: no answer would end the hold
+        model.key_relay.release();
         return done();
     };
     let meet = char_len(&before.body);

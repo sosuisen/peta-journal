@@ -6,6 +6,7 @@ mod changes;
 mod collapse;
 mod edit;
 mod home;
+mod key_relay;
 mod keys;
 mod level;
 mod list_changes;

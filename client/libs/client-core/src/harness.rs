@@ -591,6 +591,10 @@ pub struct Harness {
     /// as a slow request does.
     holding: Option<&'static str>,
     held: Vec<Request<ApiOp>>,
+    /// True when the orders to focus an editor wait for `take_focus` instead of an answer at
+    /// once, as on iOS, where the field takes the keyboard a moment after it is drawn.
+    pub focus_takes_time: bool,
+    held_focus: Vec<Request<UiOp>>,
 }
 
 impl Default for Harness {
@@ -624,6 +628,8 @@ impl Harness {
             },
             holding: None,
             held: Vec::new(),
+            focus_takes_time: false,
+            held_focus: Vec::new(),
         }
     }
 
@@ -637,6 +643,25 @@ impl Harness {
         self.holding = None;
         for request in std::mem::take(&mut self.held) {
             self.handle(Effect::Api(request));
+        }
+        self.pump();
+    }
+
+    /// The field of the oldest order to focus an editor takes the keyboard now: that order is
+    /// answered, and what follows runs.
+    pub fn take_focus_of_the_oldest_order(&mut self) {
+        if !self.held_focus.is_empty() {
+            let mut request = self.held_focus.remove(0);
+            let _ = request.resolve(UiOutput::Done);
+        }
+        self.pump();
+    }
+
+    /// The fields of the orders to focus an editor take the keyboard now, oldest first: the
+    /// orders are answered, and what follows runs.
+    pub fn take_focus(&mut self) {
+        for mut request in std::mem::take(&mut self.held_focus) {
+            let _ = request.resolve(UiOutput::Done);
         }
         self.pump();
     }
@@ -750,7 +775,12 @@ impl Harness {
                         self.root.spawn(|ctx| cmd.into_future(ctx));
                     }
                 }
+                let focus = matches!(op, UiOp::FocusEditor { .. });
                 self.ui.push(op);
+                if focus && self.focus_takes_time {
+                    self.held_focus.push(request);
+                    return;
+                }
                 let _ = request.resolve(answer);
             }
             Effect::Navigate(mut request) => {
