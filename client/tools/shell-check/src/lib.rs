@@ -22,6 +22,9 @@ const APP_RS: &str = "client/libs/client-core/src/app.rs";
 #[derive(Debug, Deserialize)]
 struct CoreRules {
     s2: Exclusions,
+    /// The common tests that every shell runs (ADR 089), by name.
+    #[serde(default)]
+    common: BTreeMap<String, common::CommonTest>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -34,6 +37,20 @@ struct Exclusions {
 #[derive(Debug, Deserialize)]
 struct ShellRules {
     s2: ShellS2,
+    #[serde(default)]
+    common: ShellCommon,
+}
+
+/// What a shell says of the common tests (ADR 089).
+#[derive(Debug, Default, Deserialize)]
+struct ShellCommon {
+    /// The folders whose tests the test tool of the shell runs, from the root of the
+    /// repository.
+    #[serde(default)]
+    tests: Vec<PathBuf>,
+    /// What the shell says of each common test, by its name.
+    #[serde(flatten)]
+    entries: BTreeMap<String, common::Entry>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -75,12 +92,10 @@ pub fn run_s2(root: &Path, rules: &Path, shell: &str) -> Result<Report, String> 
 
 /// Checks that `shell` has every common test of the repository at `root`, with the rules in
 /// `rules` (ADR 089).
-pub fn run_common(
-    _root: &Path,
-    _rules: &Path,
-    _shell: &str,
-) -> Result<Vec<common::Problem>, String> {
-    Ok(vec![])
+pub fn run_common(_root: &Path, rules: &Path, shell: &str) -> Result<Vec<common::Problem>, String> {
+    let core: CoreRules = read_toml(&rules.join("core.toml"))?;
+    let rules: ShellRules = read_toml(&rules.join(format!("{shell}.toml")))?;
+    Ok(common::check(&core.common, &rules.common.entries))
 }
 
 fn read(path: &Path) -> Result<String, String> {
