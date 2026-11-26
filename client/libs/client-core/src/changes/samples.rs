@@ -563,6 +563,141 @@ mod tests {
     }
 
     #[derive(Facet)]
+    #[repr(C)]
+    #[allow(dead_code)]
+    enum OnlyA {
+        V,
+    }
+    #[derive(Facet)]
+    #[repr(C)]
+    #[allow(dead_code)]
+    enum OnlyB {
+        V,
+    }
+    #[derive(Facet)]
+    #[repr(C)]
+    #[allow(dead_code)]
+    enum OnlyC {
+        V,
+    }
+    #[derive(Facet)]
+    #[repr(C)]
+    #[allow(dead_code)]
+    enum OnlyD {
+        V,
+    }
+    #[derive(Facet)]
+    #[repr(C)]
+    #[allow(dead_code)]
+    enum OnlyE {
+        V,
+    }
+
+    /// Holds an enum in each kind of format that holds another, eight types down.
+    #[derive(Facet)]
+    #[allow(dead_code)]
+    struct Holder {
+        maybe: Option<OnlyA>,
+        list: Vec<OnlyB>,
+        map: std::collections::BTreeMap<String, OnlyC>,
+        pair: (Option<OnlyD>, u8),
+        row: [Option<OnlyE>; 1],
+    }
+
+    chain!(Hold0, Hold1);
+    chain!(Hold1, Hold2);
+    chain!(Hold2, Hold3);
+    chain!(Hold3, Hold4);
+    chain!(Hold4, Hold5);
+    chain!(Hold5, Hold6);
+    chain!(Hold6, Hold7);
+    chain!(Hold7, Holder);
+
+    /// The variants of `Holder` that no sample can hold: deep down, the options are empty.
+    fn held_by_nothing() -> Vec<(String, String)> {
+        ["OnlyA", "OnlyB", "OnlyC", "OnlyD", "OnlyE"]
+            .map(|name| (name.to_string(), "V".to_string()))
+            .to_vec()
+    }
+
+    // 選べる値、並び、対応表、組、配列の中の列挙型も、届くものとして数える。深いところで空になれば、見本のない変種として示される。
+    #[test]
+    fn an_enum_inside_any_format_is_reachable_and_told_when_no_sample_holds_it() {
+        let registry = registry::<Hold0>();
+
+        assert_eq!(uncovered(&registry, "Hold0"), held_by_nothing());
+    }
+
+    #[derive(Facet)]
+    #[repr(C)]
+    #[allow(dead_code)]
+    enum Pick {
+        A,
+        B,
+    }
+
+    #[derive(Facet)]
+    #[repr(C)]
+    #[allow(dead_code)]
+    enum Lone {
+        V,
+    }
+
+    #[derive(Facet)]
+    #[allow(dead_code)]
+    struct Partly {
+        pick: Pick,
+        maybe: Option<Lone>,
+        far: Hold0,
+    }
+
+    // 構造体の型の見本は、新しい変種を持つときだけ足す。持てない変種が残っても、それで止まる。浅いところの選べる値は、値を持つ。
+    #[test]
+    fn a_struct_gets_more_samples_only_while_they_hold_new_variants() {
+        let registry = registry::<Partly>();
+
+        let samples = samples(&registry, "Partly");
+
+        let ids: Vec<&str> = samples.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(ids, ["Partly", "Partly-2", "empty"]);
+        assert_eq!(samples[0].value["maybe"], json!("V"));
+        assert_eq!(uncovered(&registry, "Partly"), held_by_nothing());
+    }
+
+    #[derive(Facet)]
+    #[allow(dead_code)]
+    struct Pair(u8, bool);
+
+    // 組の構造体の見本は、持つ値の並びである。
+    #[test]
+    fn a_tuple_struct_is_the_list_of_what_it_holds() {
+        let samples = samples(&registry::<Pair>(), "Pair");
+
+        assert_eq!(samples[0].value, json!([u8::MAX, true]));
+    }
+
+    #[derive(Facet)]
+    #[allow(dead_code)]
+    struct Turns {
+        i: [i64; 3],
+        f: [f64; 4],
+        g: [f32; 4],
+    }
+
+    // 数の種類ごとに、端の値を順にすべて使う。
+    #[test]
+    fn each_kind_of_number_takes_all_its_values_in_turn() {
+        let samples = samples(&registry::<Turns>(), "Turns");
+
+        assert_eq!(samples[0].value["i"], json!(I64S));
+        assert_eq!(samples[0].value["i"][1], json!(-1));
+        assert_eq!(samples[0].value["f"], json!(F64S));
+        assert_eq!(samples[0].value["f"][1], json!(-2.5));
+        assert_eq!(samples[0].value["g"], json!(F32S));
+        assert_eq!(samples[0].value["g"][1], json!(-1.25));
+    }
+
+    #[derive(Facet)]
     #[allow(dead_code)]
     struct Numbers {
         a: u64,
