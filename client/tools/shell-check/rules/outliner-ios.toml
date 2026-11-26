@@ -105,4 +105,4 @@ test = "client/apps/native-app/swift-shared/Tests/PetaSharedTests/ListChangesTes
 excluded = "a native shell reads the border of client-native-bridge, not that of client-web-bridge"
 
 [common.border-native]
-pending = 1209
+test = "client/apps/native-app/swift-shared/Tests/PetaSharedTests/BorderValuesTests.swift"
