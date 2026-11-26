@@ -261,6 +261,19 @@ fn undo_of_an_enter_in_the_middle_puts_the_body_back_and_removes_the_new_item() 
     assert_eq!(batch[1], BatchOpInput::Delete { id: "new1".into() });
 }
 
+// 2行目以降の行頭での Enter の undo は、改行のある元の本文を戻す。カーソルは Enter を押した位置に戻る（#927）。
+#[test]
+fn undo_of_an_enter_at_the_start_of_a_later_line_puts_the_newline_back() {
+    let mut h = Harness::with_items(vec![item("a", 1, "abc\ndef")]);
+    h.model.state.add_editing_item("a");
+    enter(&mut h, "a", 4);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.bodies(), ["a=abc\ndef"]);
+    assert_eq!(h.focus_cursor(), Some(4));
+}
+
 // 末尾や先頭での Enter は本文を変えないので、undo には作成だけが記録される。
 #[test]
 fn an_enter_that_leaves_the_body_as_it_is_records_only_the_creation() {
