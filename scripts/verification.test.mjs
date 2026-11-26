@@ -514,6 +514,20 @@ test('every step of stickies-win runs on windows only', () => {
   }
 });
 
+// stickies-winの2つのテストのプロジェクトは、どちらもx64のプロセスで回る。コアのDLLはx64で、ARM64のWindowsでも、arm64のプロセスでは読めない（#1175）。
+test('both test projects of stickies-win run their tests in an x64 process', () => {
+  const dir = 'client/apps/native-app/stickies-win';
+  for (const project of ['PetaScreens.Tests', 'PetaBorder.Tests']) {
+    assert.match(read(`${dir}/${project}/${project}.csproj`), /<RuntimeIdentifier( Condition="[^"]*")?>win-x64<\/RuntimeIdentifier>/, project);
+  }
+  // coverlet starts the .exe of each project: `dotnet` would start the process of the machine
+  const targets = [...read(`${dir}/PetaBorder.Tests/PetaBorder.Tests.csproj`).matchAll(/--target &quot;([^&]*)&quot;/g)];
+  assert.deepEqual(
+    targets.map((m) => m[1]),
+    ['$(ScreensTests).exe', '$(BorderTests).exe'],
+  );
+});
+
 // コードに、カバレッジの測定から行を外す印がない。
 test('no code leaves lines out of the coverage with a comment or an attribute', () => {
   const marks =

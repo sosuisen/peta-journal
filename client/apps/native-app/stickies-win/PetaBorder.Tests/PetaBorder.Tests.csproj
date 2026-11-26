@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
+    <!-- The core is built for x64 on Windows (generate.ps1). On an ARM64 Windows, the tests run
+         in an x64 process, as in PetaScreens.Tests, or they cannot load it (#1175). On a Mac,
+         the core is built for the Mac, and the tests run as the machine does. -->
+    <RuntimeIdentifier Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-x64</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>
@@ -44,6 +48,10 @@
     <ScreensTests>$(MSBuildProjectDirectory)/../PetaScreens.Tests/bin/$(Configuration)/net11.0-windows10.0.22621.0/win-x64/PetaScreens.Tests</ScreensTests>
   </PropertyGroup>
   <Target Name="Coverage" DependsOnTargets="Build">
+    <!-- The .exe, not "dotnet": "dotnet" would run the tests in a process of the machine -->
+    <PropertyGroup>
+      <BorderTests>$(TargetDir)$(TargetName)</BorderTests>
+    </PropertyGroup>
     <Exec
       WorkingDirectory="$(MSBuildProjectDirectory)"
       Command="dotnet build ../PetaScreens.Tests -c $(Configuration) -nologo -v:q"
@@ -54,7 +62,7 @@
     />
     <Exec
       WorkingDirectory="$(MSBuildProjectDirectory)"
-      Command="dotnet coverlet &quot;$(TargetPath)&quot; --target dotnet --targetargs &quot;$(TargetPath)&quot; --include &quot;[PetaBorder]*&quot; --include &quot;[PetaScreens]*&quot; --exclude-by-file &quot;**/obj/**&quot; --exclude-by-file &quot;**/PetaScreens/Launch.cs&quot; --exclude-by-file &quot;**/PetaScreens/RowView.Drop.cs&quot; --merge-with coverage/screens.json --threshold 90 --threshold-type line --threshold-stat total --format cobertura --output coverage/"
+      Command="dotnet coverlet &quot;$(TargetPath)&quot; --target &quot;$(BorderTests).exe&quot; --include &quot;[PetaBorder]*&quot; --include &quot;[PetaScreens]*&quot; --exclude-by-file &quot;**/obj/**&quot; --exclude-by-file &quot;**/PetaScreens/Launch.cs&quot; --exclude-by-file &quot;**/PetaScreens/RowView.Drop.cs&quot; --merge-with coverage/screens.json --threshold 90 --threshold-type line --threshold-stat total --format cobertura --output coverage/"
     />
   </Target>
 </Project>
