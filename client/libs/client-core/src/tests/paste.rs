@@ -2,8 +2,8 @@ use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{batch_calls, item, typed, update_calls, Harness};
 use crate::model::{
-    BatchOpInput, Item, Page, PageWithItems, PasteCursor, PasteMode, Pasted, TranscludedTrees,
-    Uploaded,
+    BatchOpInput, Item, ItemPosition, Page, PageWithItems, PasteCursor, PasteMode, Pasted,
+    TranscludedTrees, Uploaded,
 };
 use crate::outline::UndoOp;
 use crate::testing::item_with;
@@ -774,4 +774,108 @@ fn a_paste_whose_new_item_is_in_place_does_not_read_again() {
     paste(&mut h, "a", "x\ny", 2);
 
     assert!(!h.api.called("GetPageById"));
+}
+
+/// An item of the source page "src" at the index `idx`.
+fn source_item_at(id: &str, level: i32, body: &str, idx: &str) -> Item {
+    let mut item = source_item(id, level, body);
+    item.idx = idx.into();
+    item
+}
+
+// トランスクルージョンのルートへの貼り付けのRedoは、作られた項目を元のページに、トランスクルージョンが見せる木の中で上にある項目の後ろに作り直す。このページの項目としては入れず、ページを読み直す（#736）。
+#[test]
+fn redoing_a_paste_into_a_transclusion_root_makes_the_item_again_on_the_source_page() {
+    let mut h = transclusion_harness();
+    let tree = vec![
+        source_item_at("s", 1, "shownone", "s"),
+        source_item_at("n1", 2, "two", "t"),
+        source_item_at("c", 2, "child", "u"),
+    ];
+    answer_paste(&mut h, tree[..2].to_vec(), "n1", 3);
+    answer_reload(&mut h, tree.clone());
+    paste(&mut h, "root", "one\n  two", 5);
+    h.send(Event::Undo);
+    let sent = batch_calls(&h.api).len();
+    answer_reload(&mut h, tree);
+
+    h.send(Event::Redo);
+
+    let redo = &batch_calls(&h.api)[sent];
+    assert!(
+        redo.iter().any(|op| matches!(op,
+            BatchOpInput::Create { id, page_id, position, .. }
+                if id == "n1" && page_id == "src" && *position == ItemPosition::after("s"))),
+        "{redo:?}"
+    );
+    assert_eq!(h.items_ids(), ["top", "root"]);
+    assert_eq!(
+        shown(&h),
+        ["top:1=", "root:2=shownone", "n1:3=two", "c:3=child"]
+    );
+}
+
+// 元のページの項目の削除のUndoも、その項目を元のページに、トランスクルージョンが見せる木の中で上にある項目の後ろに作り直す。このページの項目としては入れず、ページを読み直す（#736）。
+#[test]
+fn undoing_the_delete_of_a_source_item_makes_it_again_on_the_source_page() {
+    let mut h = transclusion_harness();
+    let tree = vec![
+        source_item_at("s", 1, "shown", "s"),
+        source_item_at("c", 2, "child", "t"),
+    ];
+    let mut trees = TranscludedTrees::new();
+    trees.insert("s".into(), tree.clone());
+    h.model.state.set_transcluded_trees(trees);
+    h.send(Event::DeleteItem {
+        item_id: "c".into(),
+    });
+    assert_eq!(shown(&h), ["top:1=", "root:2=shown"]);
+    let sent = batch_calls(&h.api).len();
+    answer_reload(&mut h, tree);
+
+    h.send(Event::Undo);
+
+    let undo = &batch_calls(&h.api)[sent];
+    assert!(
+        undo.iter().any(|op| matches!(op,
+            BatchOpInput::Create { id, page_id, position, .. }
+                if id == "c" && page_id == "src" && *position == ItemPosition::after("s"))),
+        "{undo:?}"
+    );
+    assert_eq!(h.items_ids(), ["top", "root"]);
+    assert_eq!(shown(&h), ["top:1=", "root:2=shown", "c:3=child"]);
+}
+
+// 貼り付けで作られた2つの項目のRedoは、上の項目から順に、それぞれをその上の項目の後ろに作り直す。下の項目は、作り直したばかりの上の項目の後ろに入る（#736）。
+#[test]
+fn redoing_a_paste_that_made_two_items_makes_each_after_the_one_above_it() {
+    let mut h = transclusion_harness();
+    let tree = vec![
+        source_item_at("s", 1, "shownone", "s"),
+        source_item_at("n1", 2, "two", "t"),
+        source_item_at("n2", 3, "three", "u"),
+    ];
+    answer_paste(&mut h, tree.clone(), "n2", 5);
+    answer_reload(&mut h, tree.clone());
+    paste(&mut h, "root", "one\n  two\n    three", 5);
+    h.send(Event::Undo);
+    let sent = batch_calls(&h.api).len();
+    answer_reload(&mut h, tree);
+
+    h.send(Event::Redo);
+
+    let made: Vec<_> = batch_calls(&h.api)[sent]
+        .iter()
+        .filter_map(|op| match op {
+            BatchOpInput::Create { id, position, .. } => Some((id.clone(), position.clone())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        made,
+        [
+            ("n1".to_string(), ItemPosition::after("s")),
+            ("n2".to_string(), ItemPosition::after("n1")),
+        ]
+    );
 }

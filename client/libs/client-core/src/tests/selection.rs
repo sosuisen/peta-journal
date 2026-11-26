@@ -13,6 +13,39 @@ fn select(h: &mut Harness, ids: &[&str]) {
     h.model.state.set_item_selection_mode(true);
 }
 
+// トランスクルージョンが見せる元のページの項目を削除すると、元のページで削除され、画面からも消える（#736）。
+#[test]
+fn a_deleted_item_that_a_transclusion_shows_is_gone_from_the_screen() {
+    let root = item_with("root", 1, |i| {
+        i.transclude_item_id = Some("s".into());
+        i.body = "shown".into();
+    });
+    let mut h = Harness::with_items(vec![root]);
+    let source = |id: &str, level: i32| {
+        item_with(id, level, |i| {
+            i.page_id = "src".into();
+            i.body = id.into();
+        })
+    };
+    let mut trees = TranscludedTrees::new();
+    trees.insert("s".into(), vec![source("s", 1), source("c", 2)]);
+    h.model.state.set_transcluded_trees(trees);
+
+    h.send(Event::DeleteItem {
+        item_id: "c".into(),
+    });
+
+    assert_eq!(delete_calls(&h.api), [vec!["c".to_string()]]);
+    let shown: Vec<_> = h
+        .model
+        .state
+        .visible_items()
+        .iter()
+        .map(|i| i.id.clone())
+        .collect();
+    assert_eq!(shown, ["root"]);
+}
+
 // 選択範囲の削除で項目が一つの Undo エントリとして削除され、ページが空にならないようサーバーが作った空の項目が表示される。
 // サーバーには、選んだ項目を1つのグループとして1回で送る。空の項目を作る要求は送らない。
 #[test]

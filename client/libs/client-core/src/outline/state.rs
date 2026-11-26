@@ -341,6 +341,10 @@ impl OutlineState {
     pub fn delete_items(&mut self, item_ids: &[String]) {
         let ids: HashSet<&String> = item_ids.iter().collect();
         self.items.retain(|b| !ids.contains(&b.id));
+        // An item of a source page that a transclusion shows is deleted on its page
+        for tree in self.transcluded_trees.values_mut() {
+            tree.retain(|b| !ids.contains(&b.id));
+        }
         self.editing_item_ids.retain(|id| !ids.contains(id));
         self.refresh();
     }

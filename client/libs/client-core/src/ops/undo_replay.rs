@@ -5,7 +5,7 @@
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::ItemExt;
-use crate::model::{BatchOpInput, Item, ItemPosition, TaskState};
+use crate::model::{BatchOpInput, Item, ItemPosition, ItemRef, TaskState};
 use crate::ops::action::show_empty_item;
 use crate::ops::edit::discard_pending_edit_of_focused_item;
 use crate::ops::edit::{begin_handover, save_target_id, show_parsed};
@@ -137,19 +137,52 @@ fn apply_to_state(model: &mut Model, op: &UndoOp, dir: Direction) {
             if dir == Direction::Undo {
                 model.state.delete_item(&item.id);
             } else {
-                let position = position_by_index(model.state.items(), item);
-                model.state.add_item(item.clone(), &position);
+                show_again(model, item);
             }
         }
         UndoOp::Delete { item } => {
             if dir == Direction::Undo {
-                let position = position_by_index(model.state.items(), item);
-                model.state.add_item(item.clone(), &position);
+                show_again(model, item);
             } else {
                 model.state.delete_item(&item.id);
             }
         }
     }
+}
+
+/// Shows an item that the replay makes again, where its index sorts it among the items of
+/// this page. An item of a page that only a transclusion shows is left out: this page does not
+/// hold the order of the source page, which is read again after the answer.
+fn show_again(model: &mut Model, item: &Item) {
+    if is_of_a_transclusion(model, item) {
+        return;
+    }
+    let position = position_by_index(model.state.items(), item);
+    model.state.add_item(item.clone(), &position);
+}
+
+/// True when the item is of a page that this page shows only through a transclusion.
+fn is_of_a_transclusion(model: &Model, item: &Item) -> bool {
+    let on_page = |i: &ItemRef| i.page_id == item.page_id;
+    !model.state.items().iter().any(on_page)
+        && model
+            .state
+            .transcluded_trees()
+            .values()
+            .flatten()
+            .any(on_page)
+}
+
+/// Where an item of a source page goes when the replay makes it again: after the item of
+/// that page that a transclusion shows and that its index sorts after.
+fn position_on_the_source_page(model: &Model, item: &Item, made: &[&Item]) -> ItemPosition {
+    let shown = model.state.transcluded_trees().values().flatten();
+    let above = shown
+        .map(|i| &**i)
+        .chain(made.iter().copied())
+        .filter(|i| i.page_id == item.page_id && i.idx < item.idx)
+        .max_by(|a, b| a.idx.cmp(&b.idx));
+    above.map_or(ItemPosition::First, |i| ItemPosition::after(i.id.clone()))
 }
 
 /// True when an update moved an item of this page. A move is recorded as an update that
@@ -287,13 +320,12 @@ impl Batch {
         }
     }
 
-    /// Adds the making of an item the replay put back, with the id it had, where the
-    /// replayed state has it.
-    fn push_create(&mut self, model: &Model, item: &Item) {
+    /// Adds the making of an item the replay put back, with the id it had, at `position`.
+    fn push_create(&mut self, item: &Item, position: ItemPosition) {
         self.ops.push(BatchOpInput::Create {
             id: item.id.clone(),
             page_id: item.page_id.clone(),
-            position: position_by_index(model.state.items(), item),
+            position,
             level: item.level,
             body: item.body.clone(),
             transclude_item_id: item.transclude_item_id.clone(),
@@ -370,6 +402,8 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
     let mut deletes = Vec::new();
     // The items moved inside a transclusion, with the ones that move along with them
     let mut transcluded_runs: Vec<(&Item, Vec<String>)> = Vec::new();
+    // The items of a source page made again, which this page does not show until it is read
+    let mut made_in_transclusions: Vec<&Item> = Vec::new();
     for op in ops {
         match op {
             UndoOp::Update { before, after } => {
@@ -395,7 +429,9 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
             UndoOp::Create { item } | UndoOp::Delete { item } => {
                 // The redo of a create and the undo of a delete put the item back
                 let exists_again = matches!(op, UndoOp::Create { .. }) == (dir == Direction::Redo);
-                if exists_again {
+                if exists_again && is_of_a_transclusion(model, item) {
+                    made_in_transclusions.push(item);
+                } else if exists_again {
                     put_back.insert(item.id.as_str());
                 } else {
                     deletes.push(BatchOpInput::Delete {
@@ -419,7 +455,7 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
         }
         batch.push_move(model, moving.take());
         if put_back.contains(item.id.as_str()) {
-            batch.push_create(model, item);
+            batch.push_create(item, position_by_index(model.state.items(), item));
         } else if moved.contains(item.id.as_str()) {
             moving = Some((vec![item.id.clone()], item));
         }
@@ -434,8 +470,14 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
             });
         }
     }
+    // From the top down, so that a child is made after its parent
+    made_in_transclusions.sort_by(|a, b| a.idx.cmp(&b.idx));
+    for (at, item) in made_in_transclusions.iter().enumerate() {
+        let position = position_on_the_source_page(model, item, &made_in_transclusions[..at]);
+        batch.push_create(item, position);
+    }
     // The transclusion shows the source tree as the server has it now
-    let read_again = !transcluded_runs.is_empty();
+    let read_again = !transcluded_runs.is_empty() || !made_in_transclusions.is_empty();
     batch.ops.extend(deletes);
     let sync = model.undo_syncs.begin(&batch.ops);
     run(move |api| async move {
