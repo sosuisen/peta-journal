@@ -1,6 +1,7 @@
 //! The check that every shell has the common tests (ADR 089).
 
 use std::collections::BTreeMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
@@ -31,6 +32,13 @@ pub enum Problem {
     NotNamed { test: String },
     /// The file `file` of the test is not there.
     NoFile { test: String, file: PathBuf },
+    /// The file `file` of the test does not name the file of its examples, so it cannot read
+    /// them.
+    DoesNotRead {
+        test: String,
+        file: PathBuf,
+        examples: String,
+    },
 }
 
 /// What is wrong with the tests that `entries` name for the common tests `tests`, in the
@@ -41,19 +49,32 @@ pub fn check(
     entries: &BTreeMap<String, Entry>,
 ) -> Vec<Problem> {
     let mut problems = Vec::new();
-    for name in tests.keys() {
+    for (name, common) in tests {
         let Some(entry) = entries.get(name) else {
             problems.push(Problem::NotNamed { test: name.clone() });
             continue;
         };
         if let Some(file) = &entry.test {
-            if !root.join(file).is_file() {
-                problems.push(Problem::NoFile {
-                    test: name.clone(),
-                    file: file.clone(),
-                });
-            }
+            problems.extend(check_file(root, name, common, file));
         }
     }
     problems
+}
+
+/// What is wrong with the file `file` of the test of the common test `name`.
+fn check_file(root: &Path, name: &str, common: &CommonTest, file: &Path) -> Option<Problem> {
+    let Ok(text) = fs::read_to_string(root.join(file)) else {
+        return Some(Problem::NoFile {
+            test: name.to_string(),
+            file: file.to_path_buf(),
+        });
+    };
+    if !text.contains(&common.examples) {
+        return Some(Problem::DoesNotRead {
+            test: name.to_string(),
+            file: file.to_path_buf(),
+            examples: common.examples.clone(),
+        });
+    }
+    None
 }
