@@ -1,5 +1,8 @@
 using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 using PetaBorder;
 using Windows.System;
@@ -93,13 +96,36 @@ public sealed class TitleBarScreenTests
     public async Task Keep_on_top_in_the_menu_of_the_title_bar_keeps_the_sticky_above_other_windows()
     {
         await using var screen = await Screen.Open(Port);
+        var presenter = (OverlappedPresenter)screen.Window.AppWindow.Presenter;
 
         await screen.ClickTitleBar(right: true);
-        await screen.Click(await screen.MenuEntry("Keep on top"));
+        var entry = await screen.MenuEntry("Keep on top");
+        // Why the marks: the test fails now and then in the CI, and never on a developer's PC.
+        // They tell which part of the click the entry saw, and when
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var seen = new List<string>();
+        void Mark(string what) => seen.Add($"{what}@{clock.ElapsedMilliseconds}ms");
+        entry.AddHandler(
+            UIElement.PointerPressedEvent,
+            new PointerEventHandler((_, _) => Mark("pressed")),
+            true
+        );
+        entry.AddHandler(
+            UIElement.PointerReleasedEvent,
+            new PointerEventHandler((_, _) => Mark("released")),
+            true
+        );
+        entry.Click += (_, _) => Mark("click");
+        await screen.Click(entry);
+        Mark("sent");
 
-        await Screen.Until("the sticky stays on top", () =>
-            screen.Window.Look.AlwaysOnTop
-            && ((OverlappedPresenter)screen.Window.AppWindow.Presenter).IsAlwaysOnTop
+        await Screen.Until(
+            "the sticky stays on top",
+            () => screen.Window.Look.AlwaysOnTop && presenter.IsAlwaysOnTop,
+            () =>
+                $"entry saw=[{string.Join(", ", seen)}] checked={(entry as ToggleMenuFlyoutItem)?.IsChecked} "
+                + $"look on top={screen.Window.Look.AlwaysOnTop} presenter on top={presenter.IsAlwaysOnTop} "
+                + $"menus open={VisualTreeHelper.GetOpenPopupsForXamlRoot(screen.Window.Content.XamlRoot).Count}"
         );
     }
 
