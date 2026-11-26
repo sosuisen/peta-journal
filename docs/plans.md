@@ -12,5 +12,5 @@
 - [x] Web橋: 例のファイルの`web`の節は、今の例と同じ（`PETA_WRITE_EXAMPLES`で書き直す）
 - [x] ネイティブ橋: 例のファイルの`native`の節は、今の例と同じ
 - [x] Web: すべての例を当てると、あとの並びになり、回した例のidはファイルのidと同じ
-- [x] Swift: 同じ（Macで回す）
+- [x] Swift: 同じ（Macで回す。CIの段がいるので#1216へ）
 - [x] ルール: outliner-react、outliner-ios、stickies-macの`list-changes`を`test`にする
