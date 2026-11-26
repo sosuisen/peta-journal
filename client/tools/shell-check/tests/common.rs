@@ -109,3 +109,27 @@ fn a_test_file_that_does_not_read_the_examples_is_reported() {
         }]
     );
 }
+
+// テストのファイルが、テストの道具の集める場所の外にあると、出る。集めるのは、testsのフォルダーの下の、言語のテストのファイルの名前のものだけである。
+#[test]
+fn a_test_file_that_the_test_tool_does_not_collect_is_reported() {
+    for (name, file) in [
+        ("outside", "app/lib/listChanges.test.ts"),
+        ("not-a-test", "app/src/listChanges.ts"),
+    ] {
+        let root = repository(
+            name,
+            &shell_toml(&format!("test = \"{file}\"")),
+            &[(file, READS_THE_EXAMPLES)],
+        );
+
+        assert_eq!(
+            problems(&root),
+            vec![Problem::NotCollected {
+                test: "list-changes".into(),
+                file: file.into(),
+            }],
+            "{file}"
+        );
+    }
+}
