@@ -57,3 +57,18 @@ fn a_shell_with_the_common_test_has_no_problem() {
 
     assert_eq!(problems(&root), vec![]);
 }
+
+// 共通のテストに、テストのファイルもpendingもexcludedもないシェルは、出る。
+#[test]
+fn a_shell_that_says_nothing_of_a_common_test_is_reported() {
+    let shell = "[s2]\nlanguage = \"typescript\"\nsources = [\"app/src\"]\n\n\
+                 [common]\ntests = [\"app/src\"]\n";
+    let root = repository("not-named", shell, &[]);
+
+    assert_eq!(
+        problems(&root),
+        vec![Problem::NotNamed {
+            test: "list-changes".into()
+        }]
+    );
+}
