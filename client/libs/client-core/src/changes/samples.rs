@@ -221,9 +221,7 @@ impl<'r> Sampler<'r> {
                 } else {
                     choices
                 };
-                let turn = self.turns.entry(name.to_string()).or_default();
-                *turn += 1;
-                let chosen = choices[(*turn - 1) % choices.len()];
+                let chosen = self.turn(&name.to_string(), &choices);
                 self.variant(name, variants[chosen], depth)
             }
         }
