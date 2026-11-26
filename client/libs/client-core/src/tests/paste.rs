@@ -788,9 +788,9 @@ fn source_item_at(id: &str, level: i32, body: &str, idx: &str) -> Item {
 fn redoing_a_paste_into_a_transclusion_root_makes_the_item_again_on_the_source_page() {
     let mut h = transclusion_harness();
     let tree = vec![
-        source_item_at("s", 1, "shownone", "a"),
-        source_item_at("n1", 2, "two", "b"),
-        source_item_at("c", 2, "child", "c"),
+        source_item_at("s", 1, "shownone", "s"),
+        source_item_at("n1", 2, "two", "t"),
+        source_item_at("c", 2, "child", "u"),
     ];
     answer_paste(&mut h, tree[..2].to_vec(), "n1", 3);
     answer_reload(&mut h, tree.clone());
