@@ -1,11 +1,32 @@
 //! The examples that the web shell runs in its tests as the core does (ADR 089, ADR 090), as
 //! the JSON that crosses the border of the web shell.
 
-use serde_json::Value;
+use crate::body::HtmlBody;
+use client_core::changes::examples::row_examples;
+use facet::Facet;
+use serde_json::{json, Value};
 
 /// The part of the web shell in `list-changes.json`: the examples of the changes to the rows.
+/// Each holds the rows before, the changes and the rows after, as the shell reads them.
 pub fn list_changes() -> Value {
-    Value::Null
+    let rows: Vec<Value> = row_examples::<HtmlBody>()
+        .into_iter()
+        .map(|example| {
+            json!({
+                "id": example.id,
+                "before": crossing(&example.before),
+                "changes": crossing(&example.changes),
+                "after": crossing(&example.after),
+            })
+        })
+        .collect();
+    json!({ "rows": rows })
+}
+
+/// `value` as the JSON of facet that crosses the border.
+fn crossing<'a, T: Facet<'a>>(value: &T) -> Value {
+    let text = facet_json::to_string(value).expect("the examples are always valid JSON");
+    serde_json::from_str(&text).expect("facet writes JSON that serde reads")
 }
 
 #[cfg(test)]

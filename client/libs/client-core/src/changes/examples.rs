@@ -6,6 +6,8 @@ use crate::testing::plain_item;
 use crate::view::Row;
 use crate::BodyModel;
 use serde_json::Value;
+use std::env;
+use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -23,8 +25,23 @@ pub struct ListExample<T> {
 /// Ok when the part `key` of the JSON file `file` is `part`. With the environment variable
 /// `PETA_WRITE_EXAMPLES` set, it writes `part` there instead, and keeps the other parts.
 pub fn is_current(file: &Path, key: &str, part: Value) -> Result<(), String> {
-    let _ = (file, key, part);
-    Err("not yet".to_string())
+    let mut whole: Value = match fs::read_to_string(file) {
+        Ok(text) => serde_json::from_str(&text).map_err(|error| error.to_string())?,
+        Err(_) => Value::Object(Default::default()),
+    };
+    if whole.get(key) == Some(&part) {
+        return Ok(());
+    }
+    if env::var_os("PETA_WRITE_EXAMPLES").is_none() {
+        return Err(format!(
+            "the part {key} of {} is not the examples of the core: run the test again with \
+             PETA_WRITE_EXAMPLES=1 to write them",
+            file.display()
+        ));
+    }
+    whole[key] = part;
+    let text = serde_json::to_string_pretty(&whole).map_err(|error| error.to_string())?;
+    fs::write(file, text + "\n").map_err(|error| error.to_string())
 }
 
 /// The examples of the rows of the outline.
