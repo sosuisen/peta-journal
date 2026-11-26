@@ -33,7 +33,29 @@ fn crossing<'a, T: Facet<'a>>(value: &T) -> Value {
 mod tests {
     use super::*;
     use client_core::changes::examples::is_current;
+    use client_core::changes::samples::samples;
+    use client_core::changes::Changes;
+    use client_core::Event;
+    use facet_generate::reflection::RegistryBuilder;
     use std::path::PathBuf;
+
+    /// The examples of the type `root` that crosses the border, for D2 (ADR 090): the samples
+    /// of the core, each read as `T` and written as the JSON that crosses.
+    fn border_examples<T: Facet<'static>>(root: &str) -> Value {
+        let registry = RegistryBuilder::new()
+            .add_type::<T>()
+            .and_then(RegistryBuilder::build)
+            .expect("the types of the border are described");
+        let examples: Vec<Value> = samples(&registry, root)
+            .into_iter()
+            .map(|sample| {
+                let value: T = crate::border::read(&sample.value.to_string())
+                    .unwrap_or_else(|error| panic!("the sample {} is no {root}: {error}", sample.id));
+                json!({ "id": sample.id, "value": crossing(&value) })
+            })
+            .collect();
+        Value::Array(examples)
+    }
 
     /// The file of the examples of the changes to lists, in the repository.
     fn list_changes_file() -> PathBuf {

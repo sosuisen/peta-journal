@@ -1,0 +1,1740 @@
+{
+  "changes": [
+    {
+      "id": "Changes",
+      "value": {
+        "panels": [
+          {
+            "Screen": "None"
+          },
+          {
+            "AtlasCards": [
+              {
+                "bounds": {
+                  "height": 1.5e+300,
+                  "width": -2.5,
+                  "x": 5e-324,
+                  "y": 0.1
+                },
+                "group": "😀👍🏽",
+                "group_color": "\"quoted\" \\ back\nline\ttab",
+                "group_title": {
+                  "side": "日本語の文",
+                  "text": "é"
+                },
+                "icon_tags": [
+                  ""
+                ],
+                "is_dir": true,
+                "label": "日本語の文",
+                "page_id": "",
+                "path": "é",
+                "published": false
+              }
+            ]
+          },
+          {
+            "AtlasCallouts": [
+              {
+                "key": "😀👍🏽",
+                "scale": -2.5,
+                "side": "\"quoted\" \\ back\nline\ttab",
+                "text": "",
+                "x": 5e-324,
+                "y": 0.1
+              }
+            ]
+          },
+          {
+            "AtlasLinks": [
+              {
+                "bounds": {
+                  "height": -2.5,
+                  "width": 0.1,
+                  "x": 1.5e+300,
+                  "y": 5e-324
+                },
+                "group": "😀👍🏽",
+                "group_title": {
+                  "side": "\"quoted\" \\ back\nline\ttab",
+                  "text": ""
+                },
+                "item_id": "日本語の文",
+                "target": "é"
+              }
+            ]
+          },
+          {
+            "AtlasLinkSuggestions": [
+              "日本語の文"
+            ]
+          },
+          {
+            "Outline": {
+              "focus_order": {
+                "item_id": "😀👍🏽",
+                "number": 9007199254740993
+              },
+              "focus_request": {
+                "cursor": 18446744073709551615,
+                "item_id": "é",
+                "seq": 1
+              },
+              "focused_item_id": "\"quoted\" \\ back\nline\ttab",
+              "key_relay_holding": false,
+              "scrolled_from_top": true,
+              "selection_mode": true,
+              "wiki": {
+                "item_id": "",
+                "selected_index": 0,
+                "suggestions": [
+                  "日本語の文"
+                ],
+                "x": 1.5e+300,
+                "y": 5e-324
+              }
+            }
+          },
+          {
+            "IndexPages": {
+              "current_page_id": "",
+              "header": "é",
+              "pages": [
+                {
+                  "dir_label": "😀👍🏽",
+                  "is_dir": true,
+                  "label": "é",
+                  "page": {
+                    "created_date": -9223372036854775808,
+                    "dir_path": "é",
+                    "id": "",
+                    "modified_date": -1,
+                    "name": "😀👍🏽",
+                    "page_type": "\"quoted\" \\ back\nline\ttab",
+                    "parent_id": "日本語の文",
+                    "properties": {
+                      "": {
+                        "Text": "日本語の文"
+                      }
+                    }
+                  },
+                  "path": "\"quoted\" \\ back\nline\ttab",
+                  "published": false
+                }
+              ],
+              "parent_path": "\"quoted\" \\ back\nline\ttab",
+              "path": "😀👍🏽",
+              "sort": {
+                "key": "Name",
+                "order": "Asc"
+              },
+              "state": "Loading"
+            }
+          },
+          {
+            "Headings": {
+              "headings": [
+                {
+                  "id": "日本語の文",
+                  "level": 0,
+                  "text": "é"
+                }
+              ],
+              "state": "Loaded"
+            }
+          },
+          {
+            "RecentPages": {
+              "pages": [
+                {
+                  "dir_label": "日本語の文",
+                  "is_dir": true,
+                  "label": "",
+                  "page": {
+                    "created_date": 9223372036854775807,
+                    "dir_path": "",
+                    "id": "😀👍🏽",
+                    "modified_date": -9223372036854775808,
+                    "name": "日本語の文",
+                    "page_type": "é",
+                    "parent_id": "\"quoted\" \\ back\nline\ttab",
+                    "properties": {
+                      "😀👍🏽": {
+                        "Text": "\"quoted\" \\ back\nline\ttab"
+                      }
+                    }
+                  },
+                  "path": "é",
+                  "published": false
+                }
+              ],
+              "state": "Failed"
+            }
+          },
+          {
+            "Search": {
+              "query": "😀👍🏽",
+              "results": [
+                {
+                  "kind": "Today",
+                  "label": "",
+                  "position": 1,
+                  "snippet": "日本語の文",
+                  "title": "\"quoted\" \\ back\nline\ttab"
+                }
+              ],
+              "searching": true,
+              "selected_index": 18446744073709551615,
+              "show_dropdown": false
+            }
+          },
+          {
+            "Config": {
+              "definition_error": "é",
+              "definitions_added": 0,
+              "home_link": "\"quoted\" \\ back\nline\ttab",
+              "logical_outdent": false,
+              "markdown_dir": "é",
+              "property_definitions": [
+                {
+                  "key": "",
+                  "page": false,
+                  "system": true,
+                  "value_type": "日本語の文"
+                }
+              ],
+              "tags_dir": "😀👍🏽",
+              "week_numbering": "Us"
+            }
+          },
+          {
+            "Connection": "Connecting"
+          },
+          {
+            "Today": "😀👍🏽"
+          },
+          {
+            "Calendar": {
+              "day_labels": [
+                "é"
+              ],
+              "month": 4294967295,
+              "month_name": "\"quoted\" \\ back\nline\ttab",
+              "month_page": "",
+              "weeks": [
+                {
+                  "days": [
+                    {
+                      "date": "\"quoted\" \\ back\nline\ttab",
+                      "day": 4294967295,
+                      "other_month": true,
+                      "selected": true,
+                      "today": false
+                    }
+                  ],
+                  "number": 0,
+                  "page": "😀👍🏽"
+                }
+              ],
+              "year": -2147483648,
+              "year_page": "日本語の文"
+            }
+          },
+          {
+            "Title": ""
+          },
+          {
+            "History": {
+              "can_go_back": false,
+              "can_go_forward": true,
+              "url": "日本語の文"
+            }
+          }
+        ],
+        "rows": [
+          {
+            "Insert": {
+              "at": 4294967295,
+              "item": {
+                "body_model": "é",
+                "date_header": "😀👍🏽",
+                "effective_zoom": 0.1,
+                "first_line_scale": 0.5,
+                "has_children": true,
+                "has_own_zoom": false,
+                "heading_level": 255,
+                "heading_line": true,
+                "indent_px": 7,
+                "is_broken_transclusion": false,
+                "is_collapsed": false,
+                "is_editing": false,
+                "is_heading": false,
+                "is_selected": true,
+                "is_transclusion": true,
+                "item": {
+                  "body": "é",
+                  "collapsed": true,
+                  "created_date": -9223372036854775808,
+                  "dir_path": "😀👍🏽",
+                  "id": "日本語の文",
+                  "idx": "日本語の文",
+                  "item_type": "",
+                  "level": -2147483648,
+                  "modified_date": -1,
+                  "name": "\"quoted\" \\ back\nline\ttab",
+                  "page_id": "é",
+                  "properties": {
+                    "\"quoted\" \\ back\nline\ttab": {
+                      "Text": ""
+                    }
+                  },
+                  "transclude_item_id": "日本語の文",
+                  "types": [
+                    "😀👍🏽"
+                  ]
+                },
+                "position": 18446744073709551615,
+                "show_bullet": true,
+                "suggestions_visible": false,
+                "task": "NotStarted"
+              }
+            }
+          },
+          {
+            "Remove": {
+              "at": 0
+            }
+          },
+          {
+            "Move": {
+              "from": 4294967295,
+              "to": 0
+            }
+          },
+          {
+            "Update": {
+              "at": 4294967295,
+              "item": {
+                "body_model": "",
+                "date_header": "日本語の文",
+                "effective_zoom": -2.5,
+                "first_line_scale": -1.25,
+                "has_children": true,
+                "has_own_zoom": false,
+                "heading_level": 0,
+                "heading_line": true,
+                "indent_px": 7,
+                "is_broken_transclusion": false,
+                "is_collapsed": false,
+                "is_editing": false,
+                "is_heading": false,
+                "is_selected": true,
+                "is_transclusion": true,
+                "item": {
+                  "body": "",
+                  "collapsed": true,
+                  "created_date": 9223372036854775807,
+                  "dir_path": "日本語の文",
+                  "id": "\"quoted\" \\ back\nline\ttab",
+                  "idx": "\"quoted\" \\ back\nline\ttab",
+                  "item_type": "😀👍🏽",
+                  "level": -2147483648,
+                  "modified_date": -9223372036854775808,
+                  "name": "é",
+                  "page_id": "",
+                  "properties": {
+                    "é": {
+                      "List": [
+                        "😀👍🏽"
+                      ]
+                    }
+                  },
+                  "transclude_item_id": "\"quoted\" \\ back\nline\ttab",
+                  "types": [
+                    "日本語の文"
+                  ]
+                },
+                "position": 9007199254740993,
+                "show_bullet": true,
+                "suggestions_visible": false,
+                "task": "Running"
+              }
+            }
+          },
+          {
+            "Reset": {
+              "items": [
+                {
+                  "body_model": "😀👍🏽",
+                  "date_header": "\"quoted\" \\ back\nline\ttab",
+                  "effective_zoom": 1.5e+300,
+                  "first_line_scale": 16777216,
+                  "has_children": true,
+                  "has_own_zoom": false,
+                  "heading_level": 255,
+                  "heading_line": true,
+                  "indent_px": 7,
+                  "is_broken_transclusion": false,
+                  "is_collapsed": false,
+                  "is_editing": false,
+                  "is_heading": false,
+                  "is_selected": true,
+                  "is_transclusion": true,
+                  "item": {
+                    "body": "😀👍🏽",
+                    "collapsed": true,
+                    "created_date": -1,
+                    "dir_path": "\"quoted\" \\ back\nline\ttab",
+                    "id": "é",
+                    "idx": "é",
+                    "item_type": "日本語の文",
+                    "level": -2147483648,
+                    "modified_date": 9223372036854775807,
+                    "name": "",
+                    "page_id": "😀👍🏽",
+                    "properties": {
+                      "": {
+                        "Text": "日本語の文"
+                      }
+                    },
+                    "transclude_item_id": "é",
+                    "types": [
+                      "\"quoted\" \\ back\nline\ttab"
+                    ]
+                  },
+                  "position": 0,
+                  "show_bullet": true,
+                  "suggestions_visible": false,
+                  "task": "Done"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "Changes-2",
+      "value": {
+        "panels": [
+          {
+            "Screen": {
+              "Journal": {
+                "current_date": "日本語の文",
+                "display_date": "é",
+                "journal_type": "Daily",
+                "page_id": "😀👍🏽"
+              }
+            }
+          },
+          {
+            "AtlasCards": [
+              {
+                "bounds": {
+                  "height": 1.5e+300,
+                  "width": -2.5,
+                  "x": 5e-324,
+                  "y": 0.1
+                },
+                "group": "é",
+                "group_color": "😀👍🏽",
+                "group_title": {
+                  "side": "",
+                  "text": "日本語の文"
+                },
+                "icon_tags": [
+                  "\"quoted\" \\ back\nline\ttab"
+                ],
+                "is_dir": false,
+                "label": "",
+                "page_id": "\"quoted\" \\ back\nline\ttab",
+                "path": "日本語の文",
+                "published": true
+              }
+            ]
+          },
+          {
+            "AtlasCallouts": [
+              {
+                "key": "é",
+                "scale": -2.5,
+                "side": "😀👍🏽",
+                "text": "\"quoted\" \\ back\nline\ttab",
+                "x": 5e-324,
+                "y": 0.1
+              }
+            ]
+          },
+          {
+            "AtlasLinks": [
+              {
+                "bounds": {
+                  "height": -2.5,
+                  "width": 0.1,
+                  "x": 1.5e+300,
+                  "y": 5e-324
+                },
+                "group": "é",
+                "group_title": {
+                  "side": "😀👍🏽",
+                  "text": "\"quoted\" \\ back\nline\ttab"
+                },
+                "item_id": "",
+                "target": "日本語の文"
+              }
+            ]
+          },
+          {
+            "AtlasLinkSuggestions": [
+              ""
+            ]
+          },
+          {
+            "Outline": {
+              "focus_order": {
+                "item_id": "é",
+                "number": 0
+              },
+              "focus_request": {
+                "cursor": 9007199254740993,
+                "item_id": "日本語の文",
+                "seq": 18446744073709551615
+              },
+              "focused_item_id": "😀👍🏽",
+              "key_relay_holding": true,
+              "scrolled_from_top": false,
+              "selection_mode": false,
+              "wiki": {
+                "item_id": "\"quoted\" \\ back\nline\ttab",
+                "selected_index": 1,
+                "suggestions": [
+                  ""
+                ],
+                "x": 1.5e+300,
+                "y": 5e-324
+              }
+            }
+          },
+          {
+            "IndexPages": {
+              "current_page_id": "\"quoted\" \\ back\nline\ttab",
+              "header": "日本語の文",
+              "pages": [
+                {
+                  "dir_label": "é",
+                  "is_dir": false,
+                  "label": "日本語の文",
+                  "page": {
+                    "created_date": -1,
+                    "dir_path": "日本語の文",
+                    "id": "\"quoted\" \\ back\nline\ttab",
+                    "modified_date": 9223372036854775807,
+                    "name": "é",
+                    "page_type": "😀👍🏽",
+                    "parent_id": "",
+                    "properties": {
+                      "\"quoted\" \\ back\nline\ttab": {
+                        "Text": ""
+                      }
+                    }
+                  },
+                  "path": "😀👍🏽",
+                  "published": true
+                }
+              ],
+              "parent_path": "😀👍🏽",
+              "path": "é",
+              "sort": {
+                "key": "Modified",
+                "order": "Desc"
+              },
+              "state": "Loading"
+            }
+          },
+          {
+            "Headings": {
+              "headings": [
+                {
+                  "id": "",
+                  "level": 0,
+                  "text": "日本語の文"
+                }
+              ],
+              "state": "Loaded"
+            }
+          },
+          {
+            "RecentPages": {
+              "pages": [
+                {
+                  "dir_label": "",
+                  "is_dir": false,
+                  "label": "\"quoted\" \\ back\nline\ttab",
+                  "page": {
+                    "created_date": -9223372036854775808,
+                    "dir_path": "\"quoted\" \\ back\nline\ttab",
+                    "id": "é",
+                    "modified_date": -1,
+                    "name": "",
+                    "page_type": "日本語の文",
+                    "parent_id": "😀👍🏽",
+                    "properties": {
+                      "é": {
+                        "Text": "😀👍🏽"
+                      }
+                    }
+                  },
+                  "path": "日本語の文",
+                  "published": true
+                }
+              ],
+              "state": "Failed"
+            }
+          },
+          {
+            "Search": {
+              "query": "é",
+              "results": [
+                {
+                  "kind": "Page",
+                  "label": "\"quoted\" \\ back\nline\ttab",
+                  "position": 18446744073709551615,
+                  "snippet": "",
+                  "title": "😀👍🏽"
+                }
+              ],
+              "searching": false,
+              "selected_index": 9007199254740993,
+              "show_dropdown": true
+            }
+          },
+          {
+            "Config": {
+              "definition_error": "日本語の文",
+              "definitions_added": 4294967295,
+              "home_link": "😀👍🏽",
+              "logical_outdent": true,
+              "markdown_dir": "日本語の文",
+              "property_definitions": [
+                {
+                  "key": "\"quoted\" \\ back\nline\ttab",
+                  "page": true,
+                  "system": false,
+                  "value_type": ""
+                }
+              ],
+              "tags_dir": "é",
+              "week_numbering": "Iso"
+            }
+          },
+          {
+            "Connection": "Connected"
+          },
+          {
+            "Today": "é"
+          },
+          {
+            "Calendar": {
+              "day_labels": [
+                "日本語の文"
+              ],
+              "month": 0,
+              "month_name": "😀👍🏽",
+              "month_page": "\"quoted\" \\ back\nline\ttab",
+              "weeks": [
+                {
+                  "days": [
+                    {
+                      "date": "😀👍🏽",
+                      "day": 0,
+                      "other_month": false,
+                      "selected": false,
+                      "today": true
+                    }
+                  ],
+                  "number": 4294967295,
+                  "page": "é"
+                }
+              ],
+              "year": 7,
+              "year_page": ""
+            }
+          },
+          {
+            "Title": "\"quoted\" \\ back\nline\ttab"
+          },
+          {
+            "History": {
+              "can_go_back": true,
+              "can_go_forward": false,
+              "url": ""
+            }
+          }
+        ],
+        "rows": [
+          {
+            "Insert": {
+              "at": 0,
+              "item": {
+                "body_model": "😀👍🏽",
+                "date_header": "\"quoted\" \\ back\nline\ttab",
+                "effective_zoom": 0.1,
+                "first_line_scale": 1.0000000116860974e-7,
+                "has_children": false,
+                "has_own_zoom": true,
+                "heading_level": 255,
+                "heading_line": false,
+                "indent_px": -2147483648,
+                "is_broken_transclusion": true,
+                "is_collapsed": true,
+                "is_editing": true,
+                "is_heading": true,
+                "is_selected": false,
+                "is_transclusion": false,
+                "item": {
+                  "body": "😀👍🏽",
+                  "collapsed": false,
+                  "created_date": -1,
+                  "dir_path": "\"quoted\" \\ back\nline\ttab",
+                  "id": "é",
+                  "idx": "é",
+                  "item_type": "日本語の文",
+                  "level": 7,
+                  "modified_date": 9223372036854775807,
+                  "name": "",
+                  "page_id": "😀👍🏽",
+                  "properties": {
+                    "": {
+                      "List": [
+                        "日本語の文"
+                      ]
+                    }
+                  },
+                  "transclude_item_id": "é",
+                  "types": [
+                    "\"quoted\" \\ back\nline\ttab"
+                  ]
+                },
+                "position": 9007199254740993,
+                "show_bullet": false,
+                "suggestions_visible": true,
+                "task": "NotStarted"
+              }
+            }
+          },
+          {
+            "Remove": {
+              "at": 4294967295
+            }
+          },
+          {
+            "Move": {
+              "from": 0,
+              "to": 4294967295
+            }
+          },
+          {
+            "Update": {
+              "at": 0,
+              "item": {
+                "body_model": "日本語の文",
+                "date_header": "é",
+                "effective_zoom": -2.5,
+                "first_line_scale": 0.5,
+                "has_children": false,
+                "has_own_zoom": true,
+                "heading_level": 0,
+                "heading_line": false,
+                "indent_px": -2147483648,
+                "is_broken_transclusion": true,
+                "is_collapsed": true,
+                "is_editing": true,
+                "is_heading": true,
+                "is_selected": false,
+                "is_transclusion": false,
+                "item": {
+                  "body": "日本語の文",
+                  "collapsed": false,
+                  "created_date": -9223372036854775808,
+                  "dir_path": "é",
+                  "id": "",
+                  "idx": "",
+                  "item_type": "\"quoted\" \\ back\nline\ttab",
+                  "level": 7,
+                  "modified_date": -1,
+                  "name": "😀👍🏽",
+                  "page_id": "日本語の文",
+                  "properties": {
+                    "😀👍🏽": {
+                      "Text": "\"quoted\" \\ back\nline\ttab"
+                    }
+                  },
+                  "transclude_item_id": "",
+                  "types": [
+                    "é"
+                  ]
+                },
+                "position": 0,
+                "show_bullet": false,
+                "suggestions_visible": true,
+                "task": "Running"
+              }
+            }
+          },
+          {
+            "Reset": {
+              "items": [
+                {
+                  "body_model": "\"quoted\" \\ back\nline\ttab",
+                  "date_header": "",
+                  "effective_zoom": 1.5e+300,
+                  "first_line_scale": -1.25,
+                  "has_children": false,
+                  "has_own_zoom": true,
+                  "heading_level": 255,
+                  "heading_line": false,
+                  "indent_px": -2147483648,
+                  "is_broken_transclusion": true,
+                  "is_collapsed": true,
+                  "is_editing": true,
+                  "is_heading": true,
+                  "is_selected": false,
+                  "is_transclusion": false,
+                  "item": {
+                    "body": "\"quoted\" \\ back\nline\ttab",
+                    "collapsed": false,
+                    "created_date": 9223372036854775807,
+                    "dir_path": "",
+                    "id": "😀👍🏽",
+                    "idx": "😀👍🏽",
+                    "item_type": "é",
+                    "level": 7,
+                    "modified_date": -9223372036854775808,
+                    "name": "日本語の文",
+                    "page_id": "\"quoted\" \\ back\nline\ttab",
+                    "properties": {
+                      "日本語の文": {
+                        "List": [
+                          "é"
+                        ]
+                      }
+                    },
+                    "transclude_item_id": "😀👍🏽",
+                    "types": [
+                      ""
+                    ]
+                  },
+                  "position": 1,
+                  "show_bullet": false,
+                  "suggestions_visible": true,
+                  "task": "Done"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "Changes-3",
+      "value": {
+        "panels": [
+          {
+            "Screen": {
+              "Page": {
+                "backlinks": [
+                  {
+                    "items": [
+                      {
+                        "id": "😀👍🏽",
+                        "text": "\"quoted\" \\ back\nline\ttab",
+                        "url": ""
+                      }
+                    ],
+                    "title": "日本語の文",
+                    "url": "é"
+                  }
+                ],
+                "can_demote": false,
+                "demote_name": "日本語の文",
+                "dir_segments": [
+                  {
+                    "index_path": "",
+                    "name": "😀👍🏽",
+                    "path": "\"quoted\" \\ back\nline\ttab"
+                  }
+                ],
+                "focus_item_id": "é",
+                "free_keys": [
+                  {
+                    "key": "😀👍🏽",
+                    "name": "\"quoted\" \\ back\nline\ttab",
+                    "value_type": ""
+                  }
+                ],
+                "is_atlas": true,
+                "is_index": true,
+                "is_root_index": false,
+                "page": {
+                  "created_date": 9223372036854775807,
+                  "dir_path": "é",
+                  "id": "",
+                  "modified_date": -9223372036854775808,
+                  "name": "😀👍🏽",
+                  "page_type": "\"quoted\" \\ back\nline\ttab",
+                  "parent_id": "日本語の文",
+                  "properties": {
+                    "": {
+                      "Text": "日本語の文"
+                    }
+                  }
+                },
+                "properties": [
+                  {
+                    "editable": true,
+                    "is_list": true,
+                    "key": "😀👍🏽",
+                    "name": "\"quoted\" \\ back\nline\ttab",
+                    "removable": false,
+                    "value": "",
+                    "value_type": "é",
+                    "values": [
+                      "日本語の文"
+                    ]
+                  }
+                ],
+                "show_properties": false,
+                "title": "é"
+              }
+            }
+          },
+          {
+            "AtlasCards": [
+              {
+                "bounds": {
+                  "height": 1.5e+300,
+                  "width": -2.5,
+                  "x": 5e-324,
+                  "y": 0.1
+                },
+                "group": "\"quoted\" \\ back\nline\ttab",
+                "group_color": "",
+                "group_title": {
+                  "side": "é",
+                  "text": "😀👍🏽"
+                },
+                "icon_tags": [
+                  "日本語の文"
+                ],
+                "is_dir": true,
+                "label": "é",
+                "page_id": "日本語の文",
+                "path": "😀👍🏽",
+                "published": false
+              }
+            ]
+          },
+          {
+            "AtlasCallouts": [
+              {
+                "key": "\"quoted\" \\ back\nline\ttab",
+                "scale": -2.5,
+                "side": "",
+                "text": "日本語の文",
+                "x": 5e-324,
+                "y": 0.1
+              }
+            ]
+          },
+          {
+            "AtlasLinks": [
+              {
+                "bounds": {
+                  "height": -2.5,
+                  "width": 0.1,
+                  "x": 1.5e+300,
+                  "y": 5e-324
+                },
+                "group": "\"quoted\" \\ back\nline\ttab",
+                "group_title": {
+                  "side": "",
+                  "text": "日本語の文"
+                },
+                "item_id": "é",
+                "target": "😀👍🏽"
+              }
+            ]
+          },
+          {
+            "AtlasLinkSuggestions": [
+              "é"
+            ]
+          },
+          {
+            "Outline": {
+              "focus_order": {
+                "item_id": "\"quoted\" \\ back\nline\ttab",
+                "number": 1
+              },
+              "focus_request": {
+                "cursor": 0,
+                "item_id": "😀👍🏽",
+                "seq": 9007199254740993
+              },
+              "focused_item_id": "",
+              "key_relay_holding": false,
+              "scrolled_from_top": true,
+              "selection_mode": true,
+              "wiki": {
+                "item_id": "日本語の文",
+                "selected_index": 18446744073709551615,
+                "suggestions": [
+                  "é"
+                ],
+                "x": 1.5e+300,
+                "y": 5e-324
+              }
+            }
+          },
+          {
+            "IndexPages": {
+              "current_page_id": "日本語の文",
+              "header": "😀👍🏽",
+              "pages": [
+                {
+                  "dir_label": "\"quoted\" \\ back\nline\ttab",
+                  "is_dir": true,
+                  "label": "😀👍🏽",
+                  "page": {
+                    "created_date": -1,
+                    "dir_path": "😀👍🏽",
+                    "id": "日本語の文",
+                    "modified_date": 9223372036854775807,
+                    "name": "\"quoted\" \\ back\nline\ttab",
+                    "page_type": "",
+                    "parent_id": "é",
+                    "properties": {
+                      "日本語の文": {
+                        "Text": "é"
+                      }
+                    }
+                  },
+                  "path": "",
+                  "published": false
+                }
+              ],
+              "parent_path": "",
+              "path": "\"quoted\" \\ back\nline\ttab",
+              "sort": {
+                "key": "Published",
+                "order": "Asc"
+              },
+              "state": "Loading"
+            }
+          },
+          {
+            "Headings": {
+              "headings": [
+                {
+                  "id": "é",
+                  "level": 0,
+                  "text": "😀👍🏽"
+                }
+              ],
+              "state": "Loaded"
+            }
+          },
+          {
+            "RecentPages": {
+              "pages": [
+                {
+                  "dir_label": "é",
+                  "is_dir": true,
+                  "label": "日本語の文",
+                  "page": {
+                    "created_date": -9223372036854775808,
+                    "dir_path": "日本語の文",
+                    "id": "\"quoted\" \\ back\nline\ttab",
+                    "modified_date": -1,
+                    "name": "é",
+                    "page_type": "😀👍🏽",
+                    "parent_id": "",
+                    "properties": {
+                      "\"quoted\" \\ back\nline\ttab": {
+                        "Text": ""
+                      }
+                    }
+                  },
+                  "path": "😀👍🏽",
+                  "published": false
+                }
+              ],
+              "state": "Failed"
+            }
+          },
+          {
+            "Search": {
+              "query": "\"quoted\" \\ back\nline\ttab",
+              "results": [
+                {
+                  "kind": "Create",
+                  "label": "日本語の文",
+                  "position": 9007199254740993,
+                  "snippet": "é",
+                  "title": ""
+                }
+              ],
+              "searching": true,
+              "selected_index": 0,
+              "show_dropdown": false
+            }
+          },
+          {
+            "Config": {
+              "definition_error": "😀👍🏽",
+              "definitions_added": 0,
+              "home_link": "",
+              "logical_outdent": false,
+              "markdown_dir": "😀👍🏽",
+              "property_definitions": [
+                {
+                  "key": "日本語の文",
+                  "page": false,
+                  "system": true,
+                  "value_type": "é"
+                }
+              ],
+              "tags_dir": "\"quoted\" \\ back\nline\ttab",
+              "week_numbering": "Us"
+            }
+          },
+          {
+            "Connection": "Disconnected"
+          },
+          {
+            "Today": "\"quoted\" \\ back\nline\ttab"
+          },
+          {
+            "Calendar": {
+              "day_labels": [
+                "😀👍🏽"
+              ],
+              "month": 4294967295,
+              "month_name": "",
+              "month_page": "日本語の文",
+              "weeks": [
+                {
+                  "days": [
+                    {
+                      "date": "",
+                      "day": 4294967295,
+                      "other_month": true,
+                      "selected": true,
+                      "today": false
+                    }
+                  ],
+                  "number": 0,
+                  "page": "\"quoted\" \\ back\nline\ttab"
+                }
+              ],
+              "year": -2147483648,
+              "year_page": "é"
+            }
+          },
+          {
+            "Title": "日本語の文"
+          },
+          {
+            "History": {
+              "can_go_back": false,
+              "can_go_forward": true,
+              "url": "é"
+            }
+          }
+        ],
+        "rows": [
+          {
+            "Insert": {
+              "at": 4294967295,
+              "item": {
+                "body_model": "é",
+                "date_header": "😀👍🏽",
+                "effective_zoom": 0.1,
+                "first_line_scale": 16777216,
+                "has_children": true,
+                "has_own_zoom": false,
+                "heading_level": 255,
+                "heading_line": true,
+                "indent_px": 7,
+                "is_broken_transclusion": false,
+                "is_collapsed": false,
+                "is_editing": false,
+                "is_heading": false,
+                "is_selected": true,
+                "is_transclusion": true,
+                "item": {
+                  "body": "é",
+                  "collapsed": true,
+                  "created_date": 9223372036854775807,
+                  "dir_path": "😀👍🏽",
+                  "id": "日本語の文",
+                  "idx": "日本語の文",
+                  "item_type": "",
+                  "level": -2147483648,
+                  "modified_date": -9223372036854775808,
+                  "name": "\"quoted\" \\ back\nline\ttab",
+                  "page_id": "é",
+                  "properties": {
+                    "\"quoted\" \\ back\nline\ttab": {
+                      "Text": ""
+                    }
+                  },
+                  "transclude_item_id": "日本語の文",
+                  "types": [
+                    "😀👍🏽"
+                  ]
+                },
+                "position": 0,
+                "show_bullet": true,
+                "suggestions_visible": false,
+                "task": "NotStarted"
+              }
+            }
+          },
+          {
+            "Remove": {
+              "at": 0
+            }
+          },
+          {
+            "Move": {
+              "from": 4294967295,
+              "to": 0
+            }
+          },
+          {
+            "Update": {
+              "at": 4294967295,
+              "item": {
+                "body_model": "",
+                "date_header": "日本語の文",
+                "effective_zoom": -2.5,
+                "first_line_scale": 1.0000000116860974e-7,
+                "has_children": true,
+                "has_own_zoom": false,
+                "heading_level": 0,
+                "heading_line": true,
+                "indent_px": 7,
+                "is_broken_transclusion": false,
+                "is_collapsed": false,
+                "is_editing": false,
+                "is_heading": false,
+                "is_selected": true,
+                "is_transclusion": true,
+                "item": {
+                  "body": "",
+                  "collapsed": true,
+                  "created_date": -1,
+                  "dir_path": "日本語の文",
+                  "id": "\"quoted\" \\ back\nline\ttab",
+                  "idx": "\"quoted\" \\ back\nline\ttab",
+                  "item_type": "😀👍🏽",
+                  "level": -2147483648,
+                  "modified_date": 9223372036854775807,
+                  "name": "é",
+                  "page_id": "",
+                  "properties": {
+                    "é": {
+                      "List": [
+                        "😀👍🏽"
+                      ]
+                    }
+                  },
+                  "transclude_item_id": "\"quoted\" \\ back\nline\ttab",
+                  "types": [
+                    "日本語の文"
+                  ]
+                },
+                "position": 1,
+                "show_bullet": true,
+                "suggestions_visible": false,
+                "task": "Running"
+              }
+            }
+          },
+          {
+            "Reset": {
+              "items": [
+                {
+                  "body_model": "😀👍🏽",
+                  "date_header": "\"quoted\" \\ back\nline\ttab",
+                  "effective_zoom": 1.5e+300,
+                  "first_line_scale": 0.5,
+                  "has_children": true,
+                  "has_own_zoom": false,
+                  "heading_level": 255,
+                  "heading_line": true,
+                  "indent_px": 7,
+                  "is_broken_transclusion": false,
+                  "is_collapsed": false,
+                  "is_editing": false,
+                  "is_heading": false,
+                  "is_selected": true,
+                  "is_transclusion": true,
+                  "item": {
+                    "body": "😀👍🏽",
+                    "collapsed": true,
+                    "created_date": -9223372036854775808,
+                    "dir_path": "\"quoted\" \\ back\nline\ttab",
+                    "id": "é",
+                    "idx": "é",
+                    "item_type": "日本語の文",
+                    "level": -2147483648,
+                    "modified_date": -1,
+                    "name": "",
+                    "page_id": "😀👍🏽",
+                    "properties": {
+                      "": {
+                        "Text": "日本語の文"
+                      }
+                    },
+                    "transclude_item_id": "é",
+                    "types": [
+                      "\"quoted\" \\ back\nline\ttab"
+                    ]
+                  },
+                  "position": 18446744073709551615,
+                  "show_bullet": true,
+                  "suggestions_visible": false,
+                  "task": "Done"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "Changes-4",
+      "value": {
+        "panels": [
+          {
+            "Screen": "Settings"
+          },
+          {
+            "AtlasCards": [
+              {
+                "bounds": {
+                  "height": 1.5e+300,
+                  "width": -2.5,
+                  "x": 5e-324,
+                  "y": 0.1
+                },
+                "group": "",
+                "group_color": "日本語の文",
+                "group_title": {
+                  "side": "😀👍🏽",
+                  "text": "\"quoted\" \\ back\nline\ttab"
+                },
+                "icon_tags": [
+                  "é"
+                ],
+                "is_dir": false,
+                "label": "😀👍🏽",
+                "page_id": "é",
+                "path": "\"quoted\" \\ back\nline\ttab",
+                "published": true
+              }
+            ]
+          },
+          {
+            "AtlasCallouts": [
+              {
+                "key": "",
+                "scale": -2.5,
+                "side": "日本語の文",
+                "text": "é",
+                "x": 5e-324,
+                "y": 0.1
+              }
+            ]
+          },
+          {
+            "AtlasLinks": [
+              {
+                "bounds": {
+                  "height": -2.5,
+                  "width": 0.1,
+                  "x": 1.5e+300,
+                  "y": 5e-324
+                },
+                "group": "",
+                "group_title": {
+                  "side": "日本語の文",
+                  "text": "é"
+                },
+                "item_id": "😀👍🏽",
+                "target": "\"quoted\" \\ back\nline\ttab"
+              }
+            ]
+          },
+          {
+            "AtlasLinkSuggestions": [
+              "😀👍🏽"
+            ]
+          },
+          {
+            "Outline": {
+              "focus_order": {
+                "item_id": "",
+                "number": 18446744073709551615
+              },
+              "focus_request": {
+                "cursor": 1,
+                "item_id": "\"quoted\" \\ back\nline\ttab",
+                "seq": 0
+              },
+              "focused_item_id": "日本語の文",
+              "key_relay_holding": true,
+              "scrolled_from_top": false,
+              "selection_mode": false,
+              "wiki": {
+                "item_id": "é",
+                "selected_index": 9007199254740993,
+                "suggestions": [
+                  "😀👍🏽"
+                ],
+                "x": 1.5e+300,
+                "y": 5e-324
+              }
+            }
+          },
+          {
+            "IndexPages": {
+              "current_page_id": "é",
+              "header": "\"quoted\" \\ back\nline\ttab",
+              "pages": [
+                {
+                  "dir_label": "",
+                  "is_dir": false,
+                  "label": "\"quoted\" \\ back\nline\ttab",
+                  "page": {
+                    "created_date": 9223372036854775807,
+                    "dir_path": "\"quoted\" \\ back\nline\ttab",
+                    "id": "é",
+                    "modified_date": -9223372036854775808,
+                    "name": "",
+                    "page_type": "日本語の文",
+                    "parent_id": "😀👍🏽",
+                    "properties": {
+                      "é": {
+                        "Text": "😀👍🏽"
+                      }
+                    }
+                  },
+                  "path": "日本語の文",
+                  "published": true
+                }
+              ],
+              "parent_path": "日本語の文",
+              "path": "",
+              "sort": {
+                "key": "Name",
+                "order": "Desc"
+              },
+              "state": "Loading"
+            }
+          },
+          {
+            "Headings": {
+              "headings": [
+                {
+                  "id": "😀👍🏽",
+                  "level": 0,
+                  "text": "\"quoted\" \\ back\nline\ttab"
+                }
+              ],
+              "state": "Loaded"
+            }
+          },
+          {
+            "RecentPages": {
+              "pages": [
+                {
+                  "dir_label": "😀👍🏽",
+                  "is_dir": false,
+                  "label": "é",
+                  "page": {
+                    "created_date": -1,
+                    "dir_path": "é",
+                    "id": "",
+                    "modified_date": 9223372036854775807,
+                    "name": "😀👍🏽",
+                    "page_type": "\"quoted\" \\ back\nline\ttab",
+                    "parent_id": "日本語の文",
+                    "properties": {
+                      "": {
+                        "Text": "日本語の文"
+                      }
+                    }
+                  },
+                  "path": "\"quoted\" \\ back\nline\ttab",
+                  "published": true
+                }
+              ],
+              "state": "Failed"
+            }
+          },
+          {
+            "Search": {
+              "query": "",
+              "results": [
+                {
+                  "kind": "Item",
+                  "label": "é",
+                  "position": 0,
+                  "snippet": "😀👍🏽",
+                  "title": "日本語の文"
+                }
+              ],
+              "searching": false,
+              "selected_index": 1,
+              "show_dropdown": true
+            }
+          },
+          {
+            "Config": {
+              "definition_error": "\"quoted\" \\ back\nline\ttab",
+              "definitions_added": 4294967295,
+              "home_link": "日本語の文",
+              "logical_outdent": true,
+              "markdown_dir": "\"quoted\" \\ back\nline\ttab",
+              "property_definitions": [
+                {
+                  "key": "é",
+                  "page": true,
+                  "system": false,
+                  "value_type": "😀👍🏽"
+                }
+              ],
+              "tags_dir": "",
+              "week_numbering": "Iso"
+            }
+          },
+          {
+            "Connection": "Error"
+          },
+          {
+            "Today": ""
+          },
+          {
+            "Calendar": {
+              "day_labels": [
+                "\"quoted\" \\ back\nline\ttab"
+              ],
+              "month": 0,
+              "month_name": "日本語の文",
+              "month_page": "é",
+              "weeks": [
+                {
+                  "days": [
+                    {
+                      "date": "日本語の文",
+                      "day": 0,
+                      "other_month": false,
+                      "selected": false,
+                      "today": true
+                    }
+                  ],
+                  "number": 4294967295,
+                  "page": ""
+                }
+              ],
+              "year": 7,
+              "year_page": "😀👍🏽"
+            }
+          },
+          {
+            "Title": "é"
+          },
+          {
+            "History": {
+              "can_go_back": true,
+              "can_go_forward": false,
+              "url": "😀👍🏽"
+            }
+          }
+        ],
+        "rows": [
+          {
+            "Insert": {
+              "at": 0,
+              "item": {
+                "body_model": "\"quoted\" \\ back\nline\ttab",
+                "date_header": "",
+                "effective_zoom": 0.1,
+                "first_line_scale": -1.25,
+                "has_children": false,
+                "has_own_zoom": true,
+                "heading_level": 255,
+                "heading_line": false,
+                "indent_px": -2147483648,
+                "is_broken_transclusion": true,
+                "is_collapsed": true,
+                "is_editing": true,
+                "is_heading": true,
+                "is_selected": false,
+                "is_transclusion": false,
+                "item": {
+                  "body": "\"quoted\" \\ back\nline\ttab",
+                  "collapsed": false,
+                  "created_date": 9223372036854775807,
+                  "dir_path": "",
+                  "id": "😀👍🏽",
+                  "idx": "😀👍🏽",
+                  "item_type": "é",
+                  "level": 7,
+                  "modified_date": -9223372036854775808,
+                  "name": "日本語の文",
+                  "page_id": "\"quoted\" \\ back\nline\ttab",
+                  "properties": {
+                    "日本語の文": {
+                      "List": [
+                        "é"
+                      ]
+                    }
+                  },
+                  "transclude_item_id": "😀👍🏽",
+                  "types": [
+                    ""
+                  ]
+                },
+                "position": 1,
+                "show_bullet": false,
+                "suggestions_visible": true,
+                "task": "NotStarted"
+              }
+            }
+          },
+          {
+            "Remove": {
+              "at": 4294967295
+            }
+          },
+          {
+            "Move": {
+              "from": 0,
+              "to": 4294967295
+            }
+          },
+          {
+            "Update": {
+              "at": 0,
+              "item": {
+                "body_model": "é",
+                "date_header": "😀👍🏽",
+                "effective_zoom": -2.5,
+                "first_line_scale": 16777216,
+                "has_children": false,
+                "has_own_zoom": true,
+                "heading_level": 0,
+                "heading_line": false,
+                "indent_px": -2147483648,
+                "is_broken_transclusion": true,
+                "is_collapsed": true,
+                "is_editing": true,
+                "is_heading": true,
+                "is_selected": false,
+                "is_transclusion": false,
+                "item": {
+                  "body": "é",
+                  "collapsed": false,
+                  "created_date": -1,
+                  "dir_path": "😀👍🏽",
+                  "id": "日本語の文",
+                  "idx": "日本語の文",
+                  "item_type": "",
+                  "level": 7,
+                  "modified_date": 9223372036854775807,
+                  "name": "\"quoted\" \\ back\nline\ttab",
+                  "page_id": "é",
+                  "properties": {
+                    "\"quoted\" \\ back\nline\ttab": {
+                      "Text": ""
+                    }
+                  },
+                  "transclude_item_id": "日本語の文",
+                  "types": [
+                    "😀👍🏽"
+                  ]
+                },
+                "position": 18446744073709551615,
+                "show_bullet": false,
+                "suggestions_visible": true,
+                "task": "Running"
+              }
+            }
+          },
+          {
+            "Reset": {
+              "items": [
+                {
+                  "body_model": "",
+                  "date_header": "日本語の文",
+                  "effective_zoom": 1.5e+300,
+                  "first_line_scale": 1.0000000116860974e-7,
+                  "has_children": false,
+                  "has_own_zoom": true,
+                  "heading_level": 255,
+                  "heading_line": false,
+                  "indent_px": -2147483648,
+                  "is_broken_transclusion": true,
+                  "is_collapsed": true,
+                  "is_editing": true,
+                  "is_heading": true,
+                  "is_selected": false,
+                  "is_transclusion": false,
+                  "item": {
+                    "body": "",
+                    "collapsed": false,
+                    "created_date": -9223372036854775808,
+                    "dir_path": "日本語の文",
+                    "id": "\"quoted\" \\ back\nline\ttab",
+                    "idx": "\"quoted\" \\ back\nline\ttab",
+                    "item_type": "😀👍🏽",
+                    "level": 7,
+                    "modified_date": -1,
+                    "name": "é",
+                    "page_id": "",
+                    "properties": {
+                      "é": {
+                        "List": [
+                          "😀👍🏽"
+                        ]
+                      }
+                    },
+                    "transclude_item_id": "\"quoted\" \\ back\nline\ttab",
+                    "types": [
+                      "日本語の文"
+                    ]
+                  },
+                  "position": 9007199254740993,
+                  "show_bullet": false,
+                  "suggestions_visible": true,
+                  "task": "Done"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "empty",
+      "value": {
+        "panels": [],
+        "rows": []
+      }
+    }
+  ]
+}
