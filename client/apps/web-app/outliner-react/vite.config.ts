@@ -32,11 +32,17 @@ const root = repositoryRoot();
 const atlasWeb = join(root, 'atlas', 'web');
 /** The fonts of the clients. */
 const clientAssets = join(root, 'client', 'assets');
+/** The examples of the core that every shell runs in its tests (ADR 089). */
+const commonTests = join(root, 'client', 'tools', 'shell-check', 'common');
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: { '@atlas-web': atlasWeb, '@client-assets': clientAssets },
+    alias: {
+      '@atlas-web': atlasWeb,
+      '@client-assets': clientAssets,
+      '@common-tests': commonTests,
+    },
   },
   build: {
     // At the root: `/assets/` of the server is the images pasted into the journal
@@ -46,8 +52,13 @@ export default defineConfig({
     port: 5181,
     proxy: { '/api': { target: api, changeOrigin: true } },
     fs: {
-      // The app, and the scripts and fonts of the atlas
-      allow: [searchForWorkspaceRoot(process.cwd()), atlasWeb, clientAssets],
+      // The app, the scripts and fonts of the atlas, and the examples of the core
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        atlasWeb,
+        clientAssets,
+        commonTests,
+      ],
     },
   },
 });
