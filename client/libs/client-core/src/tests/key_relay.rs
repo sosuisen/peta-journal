@@ -88,6 +88,31 @@ fn keys_held_before_the_answer_come_with_a_second_order_to_focus_the_same_editor
     assert!(!h.view().outline.key_relay_holding);
 }
 
+// キーを渡す注文の答えを待つ間も、コアは預かり続ける。その間のキーは、答えのあとの注文で渡る。注文より先に欄がキーボードを取り、キーが注文を追い越すシェルがあるためである。
+#[test]
+fn keys_held_while_the_order_that_carries_keys_waits_come_with_the_order_after_its_answer() {
+    let mut h = harness();
+    enter(&mut h, "a", 5);
+    h.send(Event::KeyHeld(key("x")));
+    h.take_focus();
+    assert!(h.view().outline.key_relay_holding);
+
+    h.send(Event::KeyHeld(key("y")));
+    h.take_focus();
+    assert!(h.view().outline.key_relay_holding);
+    h.take_focus();
+
+    assert!(!h.view().outline.key_relay_holding);
+    assert_eq!(
+        replayed(&h),
+        [
+            (Some("new1".to_string()), vec![]),
+            (Some("new1".to_string()), vec!["x".to_string()]),
+            (Some("new1".to_string()), vec!["y".to_string()]),
+        ]
+    );
+}
+
 // 答えを待つ間に次の移動が始まると、前の指示の答えでは預かるのをやめない。キーは、あとの指示の答えのあとで渡る。
 #[test]
 fn the_answer_to_an_order_that_a_later_move_overtook_does_not_end_the_hold() {
