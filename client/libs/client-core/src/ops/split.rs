@@ -54,19 +54,27 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
         return Command::all([discard, outdent, focus]);
     }
 
-    let mut cursor = cursor.min(char_len(&item.body));
+    let pressed_at = cursor.min(char_len(&item.body));
+    let mut cursor = pressed_at;
     let (before, after) = split_at_char(&item.body, cursor);
     if let Some(line) = before.strip_suffix('\n') {
         item.body = format!("{line}{after}");
         cursor -= 1;
     }
-    Command::all([discard, split_on_server(model, item, cursor, unsaved)])
+    let split = split_on_server(model, item, cursor, pressed_at, unsaved);
+    Command::all([discard, split])
 }
 
 /// Asks the server to split an item at the cursor. The request carries the body the editor
 /// has now, so what was typed and not saved yet is saved with it. A block still open after
 /// the cursor is closed first: the server refuses a body that is not (ADR 050).
-fn split_on_server(model: &Model, item: Item, cursor: usize, unsaved: bool) -> Cmd {
+fn split_on_server(
+    model: &Model,
+    item: Item,
+    cursor: usize,
+    pressed_at: usize,
+    unsaved: bool,
+) -> Cmd {
     // Of an item of another page, the server has to know which transclusion shows it here:
     // at the end of the last item it shows, the new item goes on this page
     let root_id = if model.state.is_own_item(&item.id) {
@@ -82,7 +90,7 @@ fn split_on_server(model: &Model, item: Item, cursor: usize, unsaved: bool) -> C
         {
             Ok(split) => api.send_event(Event::SplitDone {
                 item_id: item.id,
-                cursor_before: cursor,
+                cursor_before: pressed_at,
                 split,
             }),
             Err(e) => {
