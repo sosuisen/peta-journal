@@ -532,6 +532,32 @@ mod tests {
     }
 
     #[derive(Facet)]
+    #[repr(C)]
+    #[allow(dead_code)]
+    enum Link {
+        Page(String),
+        Web(String),
+        File(String),
+    }
+
+    chain!(Far0, Far1);
+    chain!(Far1, Far2);
+    chain!(Far2, Far3);
+    chain!(Far3, Far4);
+    chain!(Far4, Far5);
+    chain!(Far5, Far6);
+    chain!(Far6, Far7);
+    chain!(Far7, Link);
+
+    // 深いところでしか届かない列挙型のすべての変種が何かを持つなら、そのすべてを順に使う。
+    #[test]
+    fn an_enum_reached_only_deep_whose_variants_all_hold_something_takes_turns_among_them_all() {
+        let registry = registry::<Far0>();
+
+        assert_eq!(uncovered(&registry, "Far0"), Vec::<(String, String)>::new());
+    }
+
+    #[derive(Facet)]
     #[allow(dead_code)]
     struct Numbers {
         a: u64,
