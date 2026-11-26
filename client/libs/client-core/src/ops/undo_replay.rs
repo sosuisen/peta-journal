@@ -5,7 +5,7 @@
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::ItemExt;
-use crate::model::{BatchOpInput, Item, ItemPosition, TaskState};
+use crate::model::{BatchOpInput, Item, ItemPosition, ItemRef, TaskState};
 use crate::ops::action::show_empty_item;
 use crate::ops::edit::discard_pending_edit_of_focused_item;
 use crate::ops::edit::{begin_handover, save_target_id, show_parsed};
@@ -163,7 +163,7 @@ fn show_again(model: &mut Model, item: &Item) {
 
 /// True when the item is of a page that this page shows only through a transclusion.
 fn is_of_a_transclusion(model: &Model, item: &Item) -> bool {
-    let on_page = |i: &crate::model::ItemRef| i.page_id == item.page_id;
+    let on_page = |i: &ItemRef| i.page_id == item.page_id;
     !model.state.items().iter().any(on_page)
         && model
             .state
