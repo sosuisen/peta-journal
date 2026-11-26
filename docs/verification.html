@@ -52,7 +52,7 @@
 
 <h1>検証の仕組み</h1>
 <p>この文書は、peta-journalのコードを、何で、どこで確かめるかをまとめる。</p>
-<p class="date">更新日：2026-11-24</p>
+<p class="date">更新日：2026-11-26</p>
 
 <h2>方針</h2>
 <ul>
@@ -95,21 +95,44 @@
 </ul>
 
 <h2>シェルがコアを通っているかのチェック（shell-check）</h2>
-<p>ADR 064の静的なチェックは、<code>client/tools/shell-check</code>にある。<br>
+<p>shell-checkは、<code>client/tools/shell-check</code>にある。<br>
+チェックは2つの系統に分かれる（ADR 090）。<br>
+S系統（静的）は、シェルのソースを読む（ADR 064）。<br>
+D系統（動的）は、コアが作った例を、各シェルのテストで回す。<br>
+D系統は、どのシェルも回さなければならない共通のテストである（ADR 089）。<br>
 できたチェックから順に、<code>client</code>の<code>cargo test</code>で回す（ADR 064の2026-11-24の追記）。<br>
 見つかれば、手元でもCIでもテストが落ちる。</p>
 <p class="legend"><span class="swatch ok" style="margin-left:0"></span>問題なし<span class="swatch" style="margin-left:16px"></span>まだ実装されていない検証</p>
 <table>
   <thead>
-    <tr><th>チェック</th><th>中身</th><th>状態</th></tr>
+    <tr><th>系統</th><th>チェック</th><th>中身</th><th>状態</th></tr>
   </thead>
   <tbody>
-    <tr><td>S1</td><td>依存の許可リスト</td><td class="missing">試す前（#1052）</td></tr>
-    <tr><td>S2</td><td><code>Event</code>のすべての種類が、シェルのソースに出てくる</td><td><code>cargo test</code>で回る（<code>tests/repository.rs</code>）<span class="note">対象は<code>stickies-mac</code>だけ。ほかのシェルは#1075</span></td></tr>
-    <tr><td>S3</td><td>OSの部品の編集コマンド</td><td class="missing">試す前（#1051）</td></tr>
-    <tr><td>S4</td><td>関数の分岐の数</td><td class="missing">試す前（#1053）</td></tr>
+    <tr><td>S（静的）</td><td>S1</td><td>依存の許可リスト</td><td class="missing">試す前（#1052）</td></tr>
+    <tr><td>S（静的）</td><td>S2</td><td><code>Event</code>のすべての種類が、シェルのソースに出てくる</td><td><code>cargo test</code>で回る（<code>tests/repository.rs</code>）<span class="note">対象は<code>stickies-mac</code>だけ。ほかのシェルは#1075</span></td></tr>
+    <tr><td>S（静的）</td><td>S3</td><td>OSの部品の編集コマンド</td><td class="missing">試す前（#1051）</td></tr>
+    <tr><td>S（静的）</td><td>S4</td><td>関数の分岐の数</td><td class="missing">試す前（#1053）</td></tr>
+    <tr><td>D（動的）</td><td>D1</td><td>差分を当てた結果が、どのシェルでもコアと同じ（<code>common/list-changes.json</code>）</td><td class="missing">作る前（#1208）</td></tr>
+    <tr><td>D（動的）</td><td>D2</td><td>境界の値を読んで書き直すと、どのシェルでも元に戻る（<code>common/border-web.json</code>、<code>common/border-native.json</code>）</td><td class="missing">作る前（#1209）</td></tr>
   </tbody>
 </table>
+
+<h3>共通のテストのテスト（ADR 089）</h3>
+<p>D系統のテストは、各シェルが書く。<br>
+書いていないシェル、回していないシェル、例を飛ばしたシェルに気づくため、次の3段で確かめる。<br>
+まだ入れていないシェルは、<code>rules/&lt;シェル&gt;.toml</code>に<code>pending = &lt;issueの番号&gt;</code>と書けば通る。<br>
+要らないシェルは、<code>excluded</code>に理由を書く。</p>
+<table>
+  <thead>
+    <tr><th>段</th><th>確かめること</th><th>どこで回るか</th><th>状態</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>1</td><td>各シェルに、共通のテストのファイルがあり、例のファイルを読んでいる</td><td>shell-checkの<code>cargo test</code>（<code>tests/repository.rs</code>）</td><td class="missing">作る前（#1207）</td></tr>
+    <tr><td>2</td><td>各シェルのテストが、例をすべて回した</td><td>各シェルのテスト</td><td class="missing">作る前（#1208、#1209）</td></tr>
+    <tr><td>3</td><td>各シェルのジョブ（<code>scripts/checks.mjs</code>）が、共通のテストを含むテストの段を持つ</td><td><code>scripts/verification.test.mjs</code>（<code>guard</code>）</td><td class="missing">作る前（#1207）</td></tr>
+  </tbody>
+</table>
+<p>テストが落ちうることは、各シェルのPRの前のミューテーションテストで確かめる。</p>
 <p>S2は、<code>rules/</code>にルールのファイルがあるシェルを、すべて調べる。<br>
 シェルを足すときは、<code>main</code>で何も出ない状態にしてから、ルールのファイルを置く。</p>
 
