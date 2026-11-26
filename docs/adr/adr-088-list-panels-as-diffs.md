@@ -158,7 +158,7 @@ Swift、Kotlin、C#は、型を名前で比べる。
 ### 範囲の外のこと
 
 アトラスの並び（`Panel::AtlasCards`、`Panel::AtlasCallouts`、`Panel::AtlasLinks`、`Panel::AtlasLinkSuggestions`）は、このADRの範囲の外とする。
-アトラスを通常のアウトラインと同じ形にする別のissueがあり、その後に扱うほうがよいためである。
+ADR 053で、アトラスのページを普通のページにし、アウトラインと同じ項目のAPIで編集すると決めた。その実装のあとに扱うほうがよいためである。
 
 次の3つは、差分とは別の話なので、別のissueにする。
 
@@ -227,4 +227,4 @@ ADR 076のままにする。
 
 - パネルの`Panel::Headings`、`Panel::RecentPages`、`Panel::IndexPages`、`Panel::Search`は残り、並びでないフィールドだけを持つ。
 - 送るJSONの形は、アウトラインの行については変わらない。
-- アトラスの並びは、別のissueのあとに、同じ形に移すかを決める。
+- アトラスの並びは、ADR 053の実装のあとに、同じ形に移すかを決める。
