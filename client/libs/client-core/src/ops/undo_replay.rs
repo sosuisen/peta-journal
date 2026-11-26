@@ -200,6 +200,9 @@ fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction, moves: b
     // The item edited before the replay may be gone now; a mark left on it would hold back
     // every later reload from another client
     model.state.remove_all_editing_items();
+    if entry.label == "move-selection" {
+        return done();
+    }
     let Some(cursor) = cursor_of(entry, dir) else {
         return done();
     };
