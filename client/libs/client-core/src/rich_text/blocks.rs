@@ -4,6 +4,7 @@
 use super::paragraphs::{marks, paragraphs};
 use super::{links, RichBlock, RichEntry, RichImage, RichParagraph, RichTableRow};
 use flatmarkdown_ast::{extract_text, Node, PropValue};
+use std::collections::BTreeMap;
 
 /// The parts of the body whose AST is `ast`, from top to bottom.
 ///
@@ -158,15 +159,20 @@ fn asset_image(node: &Node) -> Option<RichImage> {
         return None;
     };
     let path = links::asset_path(url)?;
-    // A side that is not a number above zero is not asked for, as in the web app
-    let side = |name: &str| match props.get(name) {
-        Some(PropValue::Text(value)) => value.parse::<u32>().ok().filter(|n| *n > 0),
-        _ => None,
-    };
     Some(RichImage {
         path,
         alt: extract_text(node),
-        width: side("w"),
-        height: side("h"),
+        width: image_side(props, "w"),
+        height: image_side(props, "h"),
     })
+}
+
+/// The side of an image that its URL asks for, `w` or `h` in pixels. A side that is not a
+/// number above zero is not asked for. Every shell reads the sides by this rule, the web app
+/// too, so that an image has the same size in each.
+pub fn image_side(props: &BTreeMap<String, PropValue>, name: &str) -> Option<u32> {
+    match props.get(name) {
+        Some(PropValue::Text(value)) => value.parse::<u32>().ok().filter(|n| *n > 0),
+        _ => None,
+    }
 }

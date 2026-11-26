@@ -46,9 +46,8 @@ fn start_asset_at_top(url: &mut String) {
 fn keep_size(url: &mut String, props: &BTreeMap<String, PropValue>) {
     let sides: Vec<String> = ["w", "h"]
         .into_iter()
-        .filter_map(|side| match props.get(side) {
-            Some(PropValue::Text(text)) => Some(format!("{side}={}", text.trim())),
-            _ => None,
+        .filter_map(|side| {
+            client_core::rich_text::image_side(props, side).map(|pixels| format!("{side}={pixels}"))
         })
         .collect();
     if !sides.is_empty() {

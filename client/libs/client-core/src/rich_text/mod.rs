@@ -17,6 +17,7 @@ mod places;
 #[cfg(test)]
 mod tests;
 
+pub use blocks::image_side;
 pub use links::asset_path;
 pub use places::{markdown_place, place_after, touched_place};
 
