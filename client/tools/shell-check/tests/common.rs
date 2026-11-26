@@ -185,3 +185,29 @@ fn a_pending_test_needs_the_number_of_an_issue() {
         }]
     );
 }
+
+// test、pending、excludedは、ちょうど1つだけ書く。2つ以上を書くと出て、何も書かない節は、書かないのと同じに出る。
+#[test]
+fn a_common_test_says_one_of_test_pending_and_excluded() {
+    let two = repository(
+        "two",
+        &shell_toml("pending = 1208\nexcluded = \"no rows\""),
+        &[],
+    );
+    let none = repository("none", &shell_toml(""), &[]);
+    let excluded = repository("excluded", &shell_toml("excluded = \"no rows\""), &[]);
+
+    assert_eq!(
+        problems(&two),
+        vec![Problem::MoreThanOne {
+            test: "list-changes".into()
+        }]
+    );
+    assert_eq!(
+        problems(&none),
+        vec![Problem::NotNamed {
+            test: "list-changes".into()
+        }]
+    );
+    assert_eq!(problems(&excluded), vec![]);
+}
