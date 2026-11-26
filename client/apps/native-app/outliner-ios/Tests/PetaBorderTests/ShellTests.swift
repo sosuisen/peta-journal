@@ -160,6 +160,37 @@ final class ShellTests: JournalTestCase {
         waitUntil("the journal is open") { self.isJournal() }
     }
 
+    // ジャーナルを、読んだ日の終わり近くまでスクロールすると、その前の日を読み足す。
+    func testScrollingTheJournalNearTheEndOfTheDaysItHasLoadsTheDaysBefore() throws {
+        // More days than the journal loads at first: each day has one item
+        let days = 130
+        for ago in 1...days {
+            try journal(daysAgo: ago, "day \(ago)")
+        }
+        try start()
+        shell.today()
+        waitUntil("the first days are loaded") { self.shell.view.outline.rows.count >= 100 }
+        let loaded = shell.view.outline.rows.count
+        XCTAssertFalse(bodies().contains("day \(days)"))
+
+        shell.scrolled(top: loaded - 5, shown: (loaded - 10)...(loaded - 1))
+
+        waitUntil("the days before are loaded") { self.bodies().contains("day \(days)") }
+    }
+
+    /// Puts the journal of the day `ago` days before today into the Markdown folder, with one
+    /// item of `text`.
+    private func journal(daysAgo ago: Int, _ text: String) throws {
+        let day = Calendar.current.date(byAdding: .day, value: -ago, to: Date())!
+        let format = DateFormatter()
+        format.locale = Locale(identifier: "en_US_POSIX")
+        format.dateFormat = "yyyy-MM-dd"
+        let name = format.string(from: day)
+        let folder = markdown.appendingPathComponent("journals")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data("\(text)\n".utf8).write(to: folder.appendingPathComponent("\(name).md"))
+    }
+
     /// Ends the app, and opens it again on the same folders, at the screen it had.
     private func openAgain() {
         shell.close()

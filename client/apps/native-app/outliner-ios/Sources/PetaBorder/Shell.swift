@@ -93,6 +93,16 @@ public final class Shell: ObservableObject {
         send(.removeTransclusion(itemId: itemId))
     }
 
+    /// The page was scrolled: the row at `top` is the first that can be seen, and the rows of
+    /// `shown` are drawn. A journal loads the days before when the end of what it has comes
+    /// near.
+    public func scrolled(top: Int, shown: ClosedRange<Int>) {
+        send(
+            .outlineScrolled(
+                scrolledFromTop: top > 0, topVisibleIndex: UInt64(top), renderedStart: UInt64(shown.lowerBound),
+                renderedEnd: UInt64(shown.upperBound + 1)))
+    }
+
     /// Opens the screen that the app showed when it was used last. The journal of today opens
     /// when there is none, as in a new app, and when its page has gone since. Without `make`,
     /// the journal of today is not made, and no screen opens then.

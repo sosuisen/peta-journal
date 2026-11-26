@@ -59,7 +59,6 @@ NavigateUp = "key: EditorKey.up on the first line, or EditorKey.left at the star
 Open = "bridge: PetaCore.today, PetaCore.restore, PetaCore.openFirstScreen and PetaCore.navigated"
 OpenExportFolder = "none: no header of a page"
 OpenLinkAt = "none: a touch opens a link, by LinkClicked"
-OutlineScrolled = "not yet: the outline does not tell the core where it is scrolled, see #1162"
 PageTitleSave = "none: no header of a page"
 PasteAsTransclusion = "not yet: no menu of an item, see #798"
 PasteImage = "bridge: PetaCore.pasteImage"
