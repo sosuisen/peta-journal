@@ -157,3 +157,38 @@ fn exits_with_2_for_a_wrong_option() {
         Some(2)
     );
 }
+
+// commonは、共通のテストで見つけたものを1行ずつ出力し、終了コードは1である。何もなければ、何も出力せず0で終わる。
+#[test]
+fn common_prints_what_it_found_and_exits_with_1() {
+    let core = format!("{CORE_TOML}\n[common.list-changes]\nexamples = \"list-changes.json\"\n");
+    let missing = repository("common-missing", "send(.start)\n", SHELL_TOML);
+    write(&missing.join("rules/core.toml"), &core);
+    let pending = repository(
+        "common-pending",
+        "send(.start)\n",
+        &format!("{SHELL_TOML}\n[common.list-changes]\npending = 1208\n"),
+    );
+    write(&pending.join("rules/core.toml"), &core);
+
+    let run = |root: &Path| {
+        shell_check(&[
+            "common",
+            "shell",
+            "--root",
+            root.to_str().unwrap(),
+            "--rules",
+            root.join("rules").to_str().unwrap(),
+        ])
+    };
+    let found = run(&missing);
+    let clean = run(&pending);
+
+    assert_eq!(
+        stdout(&found),
+        "list-changes: the shell has no test, no pending issue and no reason\n"
+    );
+    assert_eq!(found.status.code(), Some(1));
+    assert_eq!(stdout(&clean), "");
+    assert_eq!(clean.status.code(), Some(0));
+}
