@@ -27,6 +27,10 @@ flatmarkdown = { workspace = true }
 tempfile = "3"
 # The examples that the shells run, which are JSON (src/examples.rs)
 serde_json = { workspace = true }
+# The samples of the types of the border, read as the types to write their bytes, for the
+# examples of D2 (ADR 090, tests/border_examples.rs)
+client-core = { path = "../client-core", features = ["border_examples"] }
+facet-json = "=0.46.1"
 
 [features]
 # The whole view model of `NativeShell::view`, for the tests of the crates with an entrance.

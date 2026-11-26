@@ -569,6 +569,7 @@ dependencies = [
  "client-page-links",
  "crux_core",
  "facet",
+ "facet-json",
  "facet_generate 0.22.3",
  "flatmarkdown",
  "serde",
