@@ -351,6 +351,16 @@ final class ShellTests: JournalTestCase {
         waitUntil("the core no longer holds") { !self.shell.holdsKeys }
     }
 
+    // 欄が最後の注文に答えると、預かりはすぐに終わる。そのあとすぐに打った文字は、捨てられずに欄へ入る。
+    func testTheHoldingEndsAsSoonAsTheFieldAnswersTheLastOrder() throws {
+        try pressEnterAtTheEndOfFirst()
+        waitForTheOrderOfTheNewItem()
+
+        XCTAssertEqual(shell.keyboardTaken(), [])
+
+        XCTAssertFalse(shell.holdsKeys)
+    }
+
     // 預ける改行はEnterのキー、預けるBackspaceはBackspaceのキーになる。打った順に渡される。
     func testALineBreakIsHeldAsEnterAndABackspaceAsBackspace() throws {
         try pressEnterAtTheEndOfFirst()
