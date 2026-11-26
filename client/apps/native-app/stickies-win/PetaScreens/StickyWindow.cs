@@ -280,6 +280,9 @@ internal sealed class StickyWindow : Window
         Closed += (_, _) =>
         {
             closed = true;
+            // A sticky closed during a drag never hears the button come up, and a step of the
+            // scroll in a closed window ends the app inside WinUI (#1126)
+            edgeScroll.Stop();
             Native.RemoveWindowSubclass(handle, hears, 1);
             Shell.Dispose();
             desk.Closed(this, closedByButton);
@@ -659,7 +662,7 @@ internal sealed class StickyWindow : Window
     private void ScrollAtEdge()
     {
         var step = EdgeScroll.Step(dragPoint.Y, 0, list.ActualHeight);
-        if (dragging is null || scroller is null || step == 0)
+        if (closed || dragging is null || scroller is null || step == 0)
         {
             edgeScroll.Stop();
             return;

@@ -491,6 +491,54 @@ public sealed class OutlineScreenTests
         );
     }
 
+    // ドラッグしたままマウスを下の端に置くと、リストが流れ、流れてきた項目も選ばれる（#1126）。
+    // 子から始めた選択は親の下にとどまる（ADR 049）ので、いちばん上の段の項目3から始める。
+    [UITestMethod]
+    public async Task A_drag_held_at_the_bottom_edge_scrolls_and_selects_the_items_that_come()
+    {
+        await using var screen = await Screen.OpenLong(Port, 40);
+        var root = (FrameworkElement)screen.Window.Content;
+
+        await screen.Drag(
+            Screen.Under<RichTextBlock>(screen.Items()[3]).First(),
+            root,
+            down: 0.99,
+            held: () =>
+                Screen.Until("the last item comes and is selected", () =>
+                    screen.Rows[^1].IsSelected
+                )
+        );
+
+        Assert.IsTrue(screen.Rows.Skip(3).All(row => row.IsSelected));
+    }
+
+    // 下の端でドラッグしたまま付箋紙を閉じても、アプリは落ちない。閉じた付箋紙はボタンが
+    // 放されたことを聞かないので、リストを流すタイマーが動き続けて落ちていた（#1126）。
+    [UITestMethod]
+    public async Task A_sticky_closed_while_a_drag_is_held_at_the_bottom_edge_does_not_end_the_app()
+    {
+        await using var screen = await Screen.OpenLong(Port, 40);
+        var root = (FrameworkElement)screen.Window.Content;
+        var scroller = Screen.Under<ScrollViewer>(Screen.Under<ListView>(root).First()).First();
+        var closed = false;
+        screen.Window.Closed += (_, _) => closed = true;
+
+        await screen.Drag(
+            Screen.Under<RichTextBlock>(screen.Items()[3]).First(),
+            root,
+            down: 0.99,
+            held: async () =>
+            {
+                await Screen.Until("the list scrolls", () => scroller.VerticalOffset > 0);
+                screen.Window.Close();
+                // The steps of the scroll would come while the button is still down
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
+        );
+
+        Assert.IsTrue(closed);
+    }
+
     // ほかの項目に映されている項目を消すときは、先に確かめる。OKで消える。
     [UITestMethod]
     public async Task Deleting_an_item_that_another_item_transcludes_asks_first_and_OK_deletes_it()
