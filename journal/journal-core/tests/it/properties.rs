@@ -760,6 +760,36 @@ fn a_file_written_with_the_old_tag_key_keeps_its_tags() {
     assert!(text.contains("tags:\n  - old-key\n"), "{text}");
 }
 
+// ファイルの時刻がページの最後の変更より少し前でも、前回の同期のあとにページが変わっていなければ、ファイルのタグが取り込まれる。ファイルの時刻の刻みは、ページの日付の時計より粗いことがある（#730）。
+#[test]
+fn the_tags_of_a_file_are_taken_in_when_its_coarse_time_is_just_before_the_page_changed() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("file-coarse-time");
+    notes.fill(&page, &["before the edit"]);
+    let changed = notes.page(&page)["page"]["modifiedDate"].as_i64().unwrap();
+    // Without `modified:` in it, the file is as new as its time says, as an editor saves it
+    let text: String = notes
+        .file_of_doc("file-coarse-time")
+        .lines()
+        .filter(|l| !l.starts_with("modified: "))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    let path = notes.markdown_path("file-coarse-time");
+    std::fs::write(
+        &path,
+        text.replacen("---\n\n", "tags:\n  - from-file\n---\n\n", 1),
+    )
+    .unwrap();
+    let just_before = std::time::UNIX_EPOCH + std::time::Duration::from_millis(changed as u64 - 1);
+    let file = std::fs::File::options().write(true).open(&path).unwrap();
+    file.set_modified(just_before).unwrap();
+    drop(file);
+
+    notes.core.reconcile.scan();
+
+    assert_eq!(notes.page_properties(&page)["tags"], json!(["from-file"]));
+}
+
 // ページの日付はプロパティとして設定でき、削除はできない。
 #[test]
 fn the_dates_of_a_page_are_set_as_properties_and_cannot_be_removed() {
