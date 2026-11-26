@@ -36,6 +36,19 @@ fn enter_in_the_middle_keeps_the_text_before_the_cursor_and_moves_the_rest_below
     assert_eq!(h.focus_cursor(), Some(0));
 }
 
+// 2行目以降の行頭でのEnterは、カーソルの直前の改行を除いて分割する。上の項目の最後に改行は残らない（#927）。
+#[test]
+fn enter_at_the_start_of_a_later_line_leaves_no_newline_at_the_end_of_the_item_above() {
+    let mut h = Harness::with_items(vec![item("a", 1, "abc\ndef")]);
+    h.model.state.add_editing_item("a");
+    enter(&mut h, "a", 4);
+    assert_eq!(h.bodies(), ["a=abc", "new1=def"]);
+    assert_eq!(
+        split_calls(&h.api),
+        [("a".to_string(), "abcdef".to_string(), 3)]
+    );
+}
+
 // 閉じていないコードフェンスの中のEnterは、項目を分けずに改行を入れ、カーソルを次の行へ進める。改行はふつうの入力と同じく後で保存される。
 #[test]
 fn enter_inside_an_open_code_fence_adds_a_line_instead_of_an_item() {
@@ -246,6 +259,19 @@ fn undo_of_an_enter_in_the_middle_puts_the_body_back_and_removes_the_new_item() 
         "{batch:?}"
     );
     assert_eq!(batch[1], BatchOpInput::Delete { id: "new1".into() });
+}
+
+// 2行目以降の行頭での Enter の undo は、改行のある元の本文を戻す。カーソルは Enter を押した位置に戻る（#927）。
+#[test]
+fn undo_of_an_enter_at_the_start_of_a_later_line_puts_the_newline_back() {
+    let mut h = Harness::with_items(vec![item("a", 1, "abc\ndef")]);
+    h.model.state.add_editing_item("a");
+    enter(&mut h, "a", 4);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.bodies(), ["a=abc\ndef"]);
+    assert_eq!(h.focus_cursor(), Some(4));
 }
 
 // 末尾や先頭での Enter は本文を変えないので、undo には作成だけが記録される。
