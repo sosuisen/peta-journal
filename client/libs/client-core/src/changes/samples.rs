@@ -63,8 +63,8 @@ const I64S: &[i64] = &[i64::MIN, -1, i64::MAX];
 const U32S: &[u32] = &[u32::MAX, 0];
 const I32S: &[i32] = &[i32::MIN, 7];
 const U8S: &[u8] = &[u8::MAX, 0];
-const F64S: &[f64] = &[0.1, -2.5, 1.5e300, 5e-324];
-const F32S: &[f32] = &[0.5, -1.25, 16_777_216.0, 1e-7];
+const F64S: &[f64] = &[0.1, -2.5, f64::MAX, 5e-324];
+const F32S: &[f32] = &[0.5, -1.25, f32::MAX, 1e-7];
 /// Text that a shell may change when it reads it: letters beyond ASCII, a letter and its
 /// accent apart (not NFC), letters beyond the 16 bits of UTF-16, and what JSON escapes.
 const STRS: &[&str] = &[

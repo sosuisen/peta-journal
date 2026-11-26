@@ -49,7 +49,7 @@ mod tests {
     }
 
     /// The examples of the type `root` that crosses the border, for D2 (ADR 090): the samples
-    /// of the core, each read as `T` and written as the JSON that crosses.
+    /// of the core, each read as `T` and written as the text of the JSON that crosses.
     fn border_examples<T: Facet<'static>>(root: &str) -> Value {
         let examples: Vec<Value> = samples(&registry::<T>(), root)
             .into_iter()
@@ -58,7 +58,10 @@ mod tests {
                     crate::border::read(&sample.value.to_string()).unwrap_or_else(|error| {
                         panic!("the sample {} is no {root}: {error}", sample.id)
                     });
-                json!({ "id": sample.id, "value": crossing(&value) })
+                // The text itself, not a JSON value of it: what facet writes is what the shell
+                // reads, as a float that facet writes with all its digits
+                let text = facet_json::to_string(&value).expect("the samples are valid JSON");
+                json!({ "id": sample.id, "json": text })
             })
             .collect();
         Value::Array(examples)
