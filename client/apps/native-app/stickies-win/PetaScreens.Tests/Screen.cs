@@ -208,14 +208,20 @@ internal sealed class Screen : IAsyncDisposable
     /// <summary>The screen of the test that runs now. A wait that fails tells how it looks.</summary>
     private static Screen? current;
 
-    /// <summary>Waits until <paramref name="done"/>, while the windows go on.</summary>
-    public static async Task Until(string what, Func<bool> done)
+    /// <summary>
+    /// Waits until <paramref name="done"/>, while the windows go on. A wait that fails tells
+    /// <paramref name="more"/> too, after how the screen looks.
+    /// </summary>
+    public static async Task Until(string what, Func<bool> done, Func<string>? more = null)
     {
         var deadline = DateTime.Now.AddSeconds(10);
         while (!done())
         {
             if (DateTime.Now > deadline)
-                Assert.Fail($"never happened: {what}\n{current?.Describe()}");
+                Assert.Fail(
+                    $"never happened: {what}\n{current?.Describe()}"
+                        + (more is null ? "" : $"\n{more()}")
+                );
             await Task.Delay(10);
         }
     }
