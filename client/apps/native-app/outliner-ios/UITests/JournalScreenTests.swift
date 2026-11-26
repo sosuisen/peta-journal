@@ -217,6 +217,29 @@ final class JournalScreenTests: XCTestCase {
         XCTAssertEqual(past.frame.height, today.frame.height)
     }
 
+    // 今日のページを下までスクロールすると、前の日が読み足され、最初に読んだ日より前の日も見える（#1162）。
+    func testScrollingThePageOfTodayDownLoadsTheDaysBefore() throws {
+        // More days than the journal loads at first: each day has one item
+        let days = 130
+        let format = DateFormatter()
+        format.locale = Locale(identifier: "en_US_POSIX")
+        format.dateFormat = "yyyy-MM-dd"
+        for ago in 1...days {
+            let day = Calendar.current.date(byAdding: .day, value: -ago, to: Date())!
+            try Data("day \(ago)\n".utf8).write(
+                to: root.appendingPathComponent("markdown/journals/\(format.string(from: day)).md"))
+        }
+        start()
+        waitFor(app.staticTexts["day 1"])
+
+        let oldest = app.staticTexts["day \(days)"]
+        for _ in 0..<60 where !oldest.exists {
+            app.swipeUp(velocity: .fast)
+        }
+
+        XCTAssertTrue(oldest.exists)
+    }
+
     // アプリは、前に表示していたページで開く。
     func testTheAppOpensAtThePageItShowedBefore() throws {
         try download("notes.md", "the first item\n")
