@@ -208,14 +208,19 @@ impl<'r> Sampler<'r> {
             ContainerFormat::Struct(fields, _) => self.fields(fields, depth),
             ContainerFormat::Enum(variants, _, _) => {
                 let variants: Vec<&Named<VariantFormat>> = variants.values().collect();
-                // Deep down, only the variants that hold nothing, so that the sample ends. They
-                // take turns too: an enum may be reached only that deep
+                // Deep down, only the variants that hold nothing, so that the sample ends, or all
+                // of them when each holds something: there, what they hold is empty. They take
+                // turns too: an enum may be reached only that deep
                 let choices: Vec<usize> = (0..variants.len())
                     .filter(|&index| {
                         depth < DEEPEST || matches!(variants[index].value, VariantFormat::Unit)
                     })
                     .collect();
-                let choices = if choices.is_empty() { vec![0] } else { choices };
+                let choices = if choices.is_empty() {
+                    (0..variants.len()).collect()
+                } else {
+                    choices
+                };
                 let turn = self.turns.entry(name.to_string()).or_default();
                 *turn += 1;
                 let chosen = choices[(*turn - 1) % choices.len()];
