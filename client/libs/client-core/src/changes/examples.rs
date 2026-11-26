@@ -25,6 +25,17 @@ pub struct ListExample<T> {
 /// Ok when the part `key` of the JSON file `file` is `part`. With the environment variable
 /// `PETA_WRITE_EXAMPLES` set, it writes `part` there instead, and keeps the other parts.
 pub fn is_current(file: &Path, key: &str, part: Value) -> Result<(), String> {
+    is_part(
+        file,
+        key,
+        part,
+        env::var_os("PETA_WRITE_EXAMPLES").is_some(),
+    )
+}
+
+/// Ok when the part `key` of the JSON file `file` is `part`. When `write`, it writes `part`
+/// there instead, and keeps the other parts.
+pub(crate) fn is_part(file: &Path, key: &str, part: Value, write: bool) -> Result<(), String> {
     let mut whole: Value = match fs::read_to_string(file) {
         Ok(text) => serde_json::from_str(&text).map_err(|error| error.to_string())?,
         Err(_) => Value::Object(Default::default()),
@@ -32,7 +43,7 @@ pub fn is_current(file: &Path, key: &str, part: Value) -> Result<(), String> {
     if whole.get(key) == Some(&part) {
         return Ok(());
     }
-    if env::var_os("PETA_WRITE_EXAMPLES").is_none() {
+    if !write {
         return Err(format!(
             "the part {key} of {} is not the examples of the core: run the test again with \
              PETA_WRITE_EXAMPLES=1 to write them",
