@@ -2,7 +2,7 @@
 
 use crate::app::{Event, SelectionKey};
 use crate::effects::{ApiOutput, UiOp};
-use crate::harness::{delete_calls, item, move_calls, op_name, Harness};
+use crate::harness::{batch_calls, delete_calls, item, move_calls, op_name, Harness};
 use crate::model::TranscludedTrees;
 use crate::testing::item_with;
 
@@ -687,4 +687,33 @@ fn the_undo_of_a_move_of_the_selection_keeps_the_selection_and_opens_no_editor()
 
     assert!(h.api.called("ApplyBatch"), "the move is undone");
     assert!(still_selected(&h, &["b", "c"]));
+}
+
+// 選択した項目の移動をやり直しても、選択はそのまま残り、エディタは開かない（#739）。
+#[test]
+fn the_redo_of_a_move_of_the_selection_keeps_the_selection_and_opens_no_editor() {
+    let mut h = selection_harness();
+    h.send(Event::SelectionKey(SelectionKey::MoveUp));
+    h.send(Event::SelectionKey(SelectionKey::Undo));
+
+    h.send(Event::SelectionKey(SelectionKey::Redo));
+
+    assert_eq!(batch_calls(&h.api).len(), 2, "the move is done again");
+    assert!(still_selected(&h, &["b", "c"]));
+}
+
+// 選択した項目のインデントとアウトデントを元に戻しても、選択はそのまま残り、エディタは開かない（#739）。
+#[test]
+fn the_undo_of_an_indent_or_outdent_of_the_selection_keeps_the_selection_and_opens_no_editor() {
+    for key in [SelectionKey::Indent, SelectionKey::Outdent] {
+        let mut h = selection_harness();
+        if key == SelectionKey::Outdent {
+            h.send(Event::SelectionKey(SelectionKey::Indent));
+        }
+        h.send(Event::SelectionKey(key));
+
+        h.send(Event::SelectionKey(SelectionKey::Undo));
+
+        assert!(still_selected(&h, &["b", "c"]), "{key:?}");
+    }
 }
