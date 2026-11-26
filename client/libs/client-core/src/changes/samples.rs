@@ -646,10 +646,11 @@ mod tests {
     struct Partly {
         pick: Pick,
         maybe: Option<Lone>,
+        marks: std::collections::BTreeMap<String, u8>,
         far: Hold0,
     }
 
-    // 構造体の型の見本は、新しい変種を持つときだけ足す。持てない変種が残っても、それで止まる。浅いところの選べる値は、値を持つ。
+    // 構造体の型の見本は、新しい変種を持つときだけ足す。持てない変種が残っても、それで止まる。浅いところの選べる値と対応表は、値を持つ。
     #[test]
     fn a_struct_gets_more_samples_only_while_they_hold_new_variants() {
         let registry = registry::<Partly>();
@@ -659,6 +660,7 @@ mod tests {
         let ids: Vec<&str> = samples.iter().map(|s| s.id.as_str()).collect();
         assert_eq!(ids, ["Partly", "Partly-2", "empty"]);
         assert_eq!(samples[0].value["maybe"], json!("V"));
+        assert_eq!(samples[0].value["marks"].as_object().unwrap().len(), 1);
         assert_eq!(uncovered(&registry, "Partly"), held_by_nothing());
     }
 
