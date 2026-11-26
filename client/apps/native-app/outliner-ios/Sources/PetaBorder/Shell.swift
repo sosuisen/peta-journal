@@ -281,12 +281,10 @@ public final class Shell: ObservableObject {
         defer { keysToPlay = [] }
         let orders = unanswered
         unanswered = []
+        // Not shown now: a field takes the keyboard while the screen is drawn. The core asks for
+        // a render after the answer, which comes a turn of the main queue later. The keys played
+        // after this read that view, which says whether the core still holds keys
         for id in orders { Shell.must { try border.answer(id, with: .done) } }
-        // Not now: a field takes the keyboard while the screen is drawn. The keys played after
-        // this read the new view, which says whether the core still holds keys
-        if !orders.isEmpty {
-            DispatchQueue.main.async { [weak self] in self?.show() }
-        }
         return keysToPlay
     }
 
