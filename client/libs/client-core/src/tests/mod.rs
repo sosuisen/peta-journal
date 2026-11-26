@@ -1,4 +1,4 @@
-//! The specs of the outline, in the order of `docs/features.md`.
+//! The specs of the outline, in the order of `docs/features-web.md`.
 
 // 今日を書き始める
 mod blank_lines;
