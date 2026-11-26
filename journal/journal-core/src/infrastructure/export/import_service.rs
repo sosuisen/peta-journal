@@ -423,7 +423,12 @@ impl MarkdownImportService {
         self.waiting_transclusions
             .lock()
             .extend(merge.waiting_transclusions.iter().cloned());
-        let file_is_older = had_file && file_modified < page.modified_date;
+        // The page has nothing the file lacks when it did not change since the last sync: the
+        // file is newer then, whatever its time. A file time can be coarser than the clock of
+        // the page, and come out just before the last change of the page (#730)
+        let last_synced = states.iter().map(|s| s.last_synced).max();
+        let changed_since_sync = last_synced.is_none_or(|synced| page.modified_date > synced);
+        let file_is_older = had_file && changed_since_sync && file_modified < page.modified_date;
         // A file newer than the page says which tags it has, so a file without tags has none
         let page_tags = if file_is_older {
             self.page_service.page_tags(&page.id)?
