@@ -3,6 +3,7 @@
 //! (ADR 078).
 
 mod diff;
+pub mod examples;
 
 pub use diff::{list_changes, ListChange};
 

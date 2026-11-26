@@ -106,7 +106,7 @@ ZoomStep = "none: a sticky keeps its own zoom, by StickyZoom of client-shell-htt
 tests = ["client/apps/native-app/stickies-win/PetaBorder.Tests"]
 
 [common.list-changes]
-pending = 1208
+pending = 1213
 
 [common.border-web]
 excluded = "a native shell reads the border of client-native-bridge, not that of client-web-bridge"

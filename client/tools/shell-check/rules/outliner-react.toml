@@ -55,7 +55,7 @@ WikiKey = "bridge: WebShell.press, while the list of page names is open"
 tests = ["client/apps/web-app/outliner-react/src"]
 
 [common.list-changes]
-pending = 1208
+test = "client/apps/web-app/outliner-react/src/listChanges.test.ts"
 
 [common.border-web]
 pending = 1209

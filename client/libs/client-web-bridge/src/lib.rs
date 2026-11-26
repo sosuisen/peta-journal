@@ -9,6 +9,7 @@ pub mod border;
 pub mod bridge;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod codegen;
+pub mod examples;
 pub mod lanes;
 pub mod replay;
 pub mod settings;
