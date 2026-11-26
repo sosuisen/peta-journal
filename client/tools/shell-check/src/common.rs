@@ -1,7 +1,7 @@
 //! The check that every shell has the common tests (ADR 089).
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
@@ -29,17 +29,30 @@ pub struct Entry {
 pub enum Problem {
     /// The shell has no test for the common test `test`, no issue for it and no reason.
     NotNamed { test: String },
+    /// The file `file` of the test is not there.
+    NoFile { test: String, file: PathBuf },
 }
 
-/// What is wrong with the tests that `entries` name for the common tests `tests`.
+/// What is wrong with the tests that `entries` name for the common tests `tests`, in the
+/// repository at `root`.
 pub fn check(
+    root: &Path,
     tests: &BTreeMap<String, CommonTest>,
     entries: &BTreeMap<String, Entry>,
 ) -> Vec<Problem> {
     let mut problems = Vec::new();
     for name in tests.keys() {
-        if !entries.contains_key(name) {
+        let Some(entry) = entries.get(name) else {
             problems.push(Problem::NotNamed { test: name.clone() });
+            continue;
+        };
+        if let Some(file) = &entry.test {
+            if !root.join(file).is_file() {
+                problems.push(Problem::NoFile {
+                    test: name.clone(),
+                    file: file.clone(),
+                });
+            }
         }
     }
     problems

@@ -92,10 +92,10 @@ pub fn run_s2(root: &Path, rules: &Path, shell: &str) -> Result<Report, String> 
 
 /// Checks that `shell` has every common test of the repository at `root`, with the rules in
 /// `rules` (ADR 089).
-pub fn run_common(_root: &Path, rules: &Path, shell: &str) -> Result<Vec<common::Problem>, String> {
+pub fn run_common(root: &Path, rules: &Path, shell: &str) -> Result<Vec<common::Problem>, String> {
     let core: CoreRules = read_toml(&rules.join("core.toml"))?;
     let rules: ShellRules = read_toml(&rules.join(format!("{shell}.toml")))?;
-    Ok(common::check(&core.common, &rules.common.entries))
+    Ok(common::check(root, &core.common, &rules.common.entries))
 }
 
 fn read(path: &Path) -> Result<String, String> {
