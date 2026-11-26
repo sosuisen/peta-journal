@@ -307,6 +307,75 @@ final class ShellTests: JournalTestCase {
         waitUntil("the new item is edited") { self.edited() == "" }
     }
 
+    /// Presses Enter at the end of the item `first`, the only item of the page. The core holds
+    /// the keys from then on, until the field of the new item takes the keyboard (ADR 087).
+    private func pressEnterAtTheEndOfFirst() throws {
+        try download("notes.md", "first\n")
+        try openNotes()
+        shell.edit(id(of: "first"))
+        shell.press(.enter, in: id(of: "first"), cursor(5, in: "first"))
+    }
+
+    /// Waits until the core orders the field of the new item to take the keyboard.
+    private func waitForTheOrderOfTheNewItem() {
+        waitUntil("the new item is edited") { self.edited() == "" }
+        waitUntil("the core orders a field to take the keyboard") { self.shell.waitsForTheKeyboard }
+    }
+
+    private func names(_ keys: [DeferredKey]) -> [String] {
+        keys.map(\.key)
+    }
+
+    // 項目を分ける間に打った文字は、コアが預かり、新しい項目の欄がキーボードを取ったときに、その欄へ渡される。
+    func testWhatIsTypedWhileTheItemIsSplitIsGivenToTheFieldThatTakesTheKeyboard() throws {
+        try pressEnterAtTheEndOfFirst()
+        XCTAssertTrue(shell.holdsKeys)
+
+        shell.hold("ab")
+        waitForTheOrderOfTheNewItem()
+
+        XCTAssertEqual(names(shell.keyboardTaken()), ["a", "b"])
+    }
+
+    // コアは、注文を出したあとも、欄がキーボードを取るまで預かり続ける。その間に打った文字は、次の注文で渡される。
+    func testTheCoreHoldsTheKeysUntilTheFieldTakesTheKeyboard() throws {
+        try pressEnterAtTheEndOfFirst()
+        waitForTheOrderOfTheNewItem()
+        XCTAssertTrue(shell.holdsKeys)
+
+        shell.hold("c")
+        XCTAssertEqual(shell.keyboardTaken(), [])
+
+        waitUntil("the core orders the field again") { self.shell.waitsForTheKeyboard }
+        XCTAssertEqual(names(shell.keyboardTaken()), ["c"])
+        XCTAssertFalse(shell.holdsKeys)
+    }
+
+    // 預ける改行はEnterのキー、預けるBackspaceはBackspaceのキーになる。打った順に渡される。
+    func testALineBreakIsHeldAsEnterAndABackspaceAsBackspace() throws {
+        try pressEnterAtTheEndOfFirst()
+
+        shell.hold("a\nb")
+        shell.holdBackspace()
+        waitForTheOrderOfTheNewItem()
+
+        XCTAssertEqual(names(shell.keyboardTaken()), ["a", "Enter", "b", "Backspace"])
+    }
+
+    // キーボードを取る欄がないまま編集が終わると、コアは預かるのをやめ、預けた文字はどこにも入らない。
+    func testTheEndOfTheEditWithoutAFieldEndsTheHoldingAndTheKeysGo() throws {
+        try pressEnterAtTheEndOfFirst()
+        shell.hold("ab")
+        waitForTheOrderOfTheNewItem()
+
+        shell.finish(id(of: ""))
+
+        XCTAssertFalse(shell.waitsForTheKeyboard)
+        waitUntil("the core no longer holds") { !self.shell.holdsKeys }
+        XCTAssertEqual(shell.keyboardTaken(), [])
+        XCTAssertEqual(bodies(), ["first", ""])
+    }
+
     // 行の端にないカーソルの矢印は、アウトラインには意味がないので、欄に任される。編集は、同じ項目で続く。
     func testAnArrowAwayFromTheEdgeOfTheLinesIsLeftToTheField() throws {
         try editSecondOfThree()
