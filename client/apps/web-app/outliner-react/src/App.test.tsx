@@ -561,6 +561,44 @@ describe('a document page', () => {
     expect(wasm.events).toEqual([{ kind: 'DemoteIndex' }]);
   });
 
+  // 目次のページには、見出しの行に地図のボタンがある。押すと、そのフォルダのアトラスに切り替わる。
+  test('an index has the map button in its header, which switches to the atlas', () => {
+    const { wasm } = page(
+      docPage('index', 'work/', {
+        is_index: true,
+        dir_segments: [new DirSegment('work', 'work/', 'work/index')],
+      }),
+    );
+
+    fireEvent.click(screen.getByTitle('Atlas'));
+
+    expect(screen.getByTitle('Atlas').getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+    expect(wasm.events).toEqual([{ kind: 'ToggleAtlas' }]);
+  });
+
+  // アトラスのページでは、同じボタンが押された形で目次に戻る。見出しはフォルダの名前で、道筋と目次の印は出さない。
+  test('an atlas page has the button pressed to go back to the index, and the folder as its title', () => {
+    const { wasm, container } = page(
+      docPage('maps', 'maps/', {
+        is_atlas: true,
+        is_index: true,
+        dir_segments: [new DirSegment('maps', 'maps/', 'maps/index')],
+      }),
+    );
+
+    fireEvent.click(screen.getByTitle('Index'));
+
+    expect(screen.getByTitle('Index').getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    expect(pageHeading()).toBe('maps');
+    expect(container.querySelector('.dir-path-breadcrumb')).toBeNull();
+    expect(container.querySelector('.index-label')).toBeNull();
+    expect(wasm.events).toEqual([{ kind: 'ToggleAtlas' }]);
+  });
+
   // 深いフォルダの目次では、上のフォルダは目次へのリンクで、最後のフォルダだけが題名である。
   test('in a deep index the upper folders lead to their index, and only the last is the title', () => {
     const { container } = page(
@@ -598,6 +636,28 @@ describe('a document page', () => {
     expect(pageHeading()).toBe('(root)/');
     expect(container.querySelector('.index-label')?.textContent).toBe('index');
     expect(container.querySelector('.dir-path-breadcrumb')).toBeNull();
+  });
+
+  // 一番上の目次にも、地図のボタンがある。
+  test('the index at the top has the map button too', () => {
+    const { wasm } = page(
+      docPage('index', 'x/', { is_index: true, is_root_index: true }),
+    );
+
+    fireEvent.click(screen.getByTitle('Atlas'));
+
+    expect(wasm.events).toEqual([{ kind: 'ToggleAtlas' }]);
+  });
+
+  // 文書のページには、地図のボタンがない。アトラスは、フォルダの目次のものだからである。
+  test('a document page has no map button', () => {
+    page(
+      docPage('plan', 'work/', {
+        dir_segments: [new DirSegment('work', 'work/', 'work/index')],
+      }),
+    );
+
+    expect(screen.queryByTitle('Atlas')).toBeNull();
   });
 });
 

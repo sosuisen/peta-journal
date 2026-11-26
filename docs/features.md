@@ -862,7 +862,7 @@
 
 ### アトラスを開く
 
-出典: `tests/atlas/navigation.rs`
+出典: `tests/atlas/navigation.rs`、`client/apps/web-app/outliner-react/src/App.test.tsx`
 
 - indexページのマップボタンは、そのディレクトリのアトラスを開く。ルートのindexはルートのアトラスを開く
 - アトラスページのマップボタンは、indexページに戻る

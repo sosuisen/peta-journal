@@ -406,6 +406,50 @@ function Journal({ journal }: { readonly journal: JournalView }) {
   );
 }
 
+/**
+ * Switches between the index page of a folder and its atlas. The icon names the page the
+ * button opens: a map on the index page, a bulleted outline on the atlas page.
+ */
+function AtlasButton({ atlas }: { readonly atlas: boolean }) {
+  const core = useCore();
+  return (
+    <button
+      className={atlas ? 'atlas-btn active' : 'atlas-btn'}
+      title={atlas ? 'Index' : 'Atlas'}
+      aria-pressed={atlas}
+      onClick={() => core.send({ kind: 'ToggleAtlas' })}
+    >
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {atlas ? (
+          <>
+            <line x1="9" y1="6" x2="20" y2="6" />
+            <line x1="9" y1="12" x2="20" y2="12" />
+            <line x1="9" y1="18" x2="20" y2="18" />
+            <circle cx="4" cy="6" r="1" fill="currentColor" />
+            <circle cx="4" cy="12" r="1" fill="currentColor" />
+            <circle cx="4" cy="18" r="1" fill="currentColor" />
+          </>
+        ) : (
+          <>
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+            <line x1="8" y1="2" x2="8" y2="18" />
+            <line x1="16" y1="6" x2="16" y2="22" />
+          </>
+        )}
+      </svg>
+    </button>
+  );
+}
+
 function DocPage({ page }: { readonly page: PageView }) {
   const core = useCore();
   // Kept by the page, so the new rows stay while the core draws the properties again
@@ -436,10 +480,19 @@ function DocPage({ page }: { readonly page: PageView }) {
     );
   });
   let title;
-  if (page.is_root_index) {
+  if (page.is_atlas) {
+    // The title of an atlas page follows its folder: no path and no index mark
+    title = (
+      <div className="title-row">
+        <AtlasButton atlas />
+        <h2 className="page-title atlas-title">{page.title}</h2>
+      </div>
+    );
+  } else if (page.is_root_index) {
     title = (
       <>
         <div className="title-row">
+          <AtlasButton atlas={false} />
           <h2 className="page-title root-index-title">(root)/</h2>
         </div>
         <div className="index-label">index</div>
@@ -465,8 +518,9 @@ function DocPage({ page }: { readonly page: PageView }) {
   return (
     <app-page>
       <div className={scrolled ? 'page-header scrolled' : 'page-header'}>
-        {!page.is_root_index && page.page.dir_path !== '' && (
+        {!page.is_atlas && !page.is_root_index && page.page.dir_path !== '' && (
           <div className="title-row">
+            {page.is_index && <AtlasButton atlas={false} />}
             <div
               className={
                 page.is_index
