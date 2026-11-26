@@ -57,6 +57,8 @@ pub enum Problem {
     /// No file in the folder of the Rust file `file` declares it as a module, so cargo does
     /// not build it.
     NotDeclared { test: String, file: PathBuf },
+    /// The shell waits for the common test `test` with no issue: its `pending` is 0.
+    NoIssue { test: String },
 }
 
 /// What is wrong with what `shell` has for the common tests `tests`, in the repository at
@@ -70,6 +72,9 @@ pub fn check(root: &Path, tests: &BTreeMap<String, CommonTest>, shell: &Shell) -
         };
         if let Some(file) = &entry.test {
             problems.extend(check_file(root, shell, name, common, file));
+        }
+        if entry.pending == Some(0) {
+            problems.push(Problem::NoIssue { test: name.clone() });
         }
     }
     problems
