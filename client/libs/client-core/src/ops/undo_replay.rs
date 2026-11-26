@@ -233,6 +233,10 @@ fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction, moves: b
     // The item edited before the replay may be gone now; a mark left on it would hold back
     // every later reload from another client
     model.state.remove_all_editing_items();
+    // The selection stays, so that the user can go on with it, as with any other key on it
+    if is_of_the_selection(entry) {
+        return done();
+    }
     let Some(cursor) = cursor_of(entry, dir) else {
         return done();
     };
@@ -253,6 +257,12 @@ fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction, moves: b
             api.send_event(Event::HandoverEnded);
         }
     })
+}
+
+/// True when the entry is of a key on the selected items: a move, an indent or an outdent of
+/// them, or their deletion. Such an entry records no cursor.
+fn is_of_the_selection(entry: &UndoEntry) -> bool {
+    entry.label.ends_with("-selection")
 }
 
 fn cursor_of(entry: &UndoEntry, dir: Direction) -> Option<CursorState> {
