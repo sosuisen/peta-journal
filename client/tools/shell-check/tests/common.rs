@@ -170,3 +170,18 @@ fn a_rust_test_file_that_no_mod_declares_is_reported() {
     );
     assert_eq!(problems(&declared), vec![]);
 }
+
+// pendingにissueの番号があれば、テストのファイルがなくても出ない。番号が0だと、出る。
+#[test]
+fn a_pending_test_needs_the_number_of_an_issue() {
+    let pending = repository("pending", &shell_toml("pending = 1208"), &[]);
+    let no_issue = repository("no-issue", &shell_toml("pending = 0"), &[]);
+
+    assert_eq!(problems(&pending), vec![]);
+    assert_eq!(
+        problems(&no_issue),
+        vec![Problem::NoIssue {
+            test: "list-changes".into()
+        }]
+    );
+}
