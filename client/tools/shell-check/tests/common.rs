@@ -133,3 +133,40 @@ fn a_test_file_that_the_test_tool_does_not_collect_is_reported() {
         );
     }
 }
+
+/// The rules of a Rust shell whose tests are modules under `app/src/tests`.
+const RUST_SHELL: &str = "[s2]\nlanguage = \"rust\"\nsources = [\"app/src\"]\n\n\
+                          [common]\ntests = [\"app/src/tests\"]\n\n[common.list-changes]\n\
+                          test = \"app/src/tests/list_changes.rs\"\n";
+
+const RUST_TEST: &str = "const CASES: &str = include_str!(\"../../common/list-changes.json\");\n";
+
+// Rustのテストのファイルは、同じフォルダーのmodで読まれていないと、出る。cargoは、modで読まれたファイルしかビルドしない。
+#[test]
+fn a_rust_test_file_that_no_mod_declares_is_reported() {
+    let undeclared = repository(
+        "rust-undeclared",
+        RUST_SHELL,
+        &[
+            ("app/src/tests/list_changes.rs", RUST_TEST),
+            ("app/src/tests/mod.rs", "mod protocol;\n"),
+        ],
+    );
+    let declared = repository(
+        "rust-declared",
+        RUST_SHELL,
+        &[
+            ("app/src/tests/list_changes.rs", RUST_TEST),
+            ("app/src/tests/mod.rs", "mod list_changes;\nmod protocol;\n"),
+        ],
+    );
+
+    assert_eq!(
+        problems(&undeclared),
+        vec![Problem::NotDeclared {
+            test: "list-changes".into(),
+            file: "app/src/tests/list_changes.rs".into(),
+        }]
+    );
+    assert_eq!(problems(&declared), vec![]);
+}
