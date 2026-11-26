@@ -49,3 +49,16 @@ ShiftSelect = "key: Shift+Up on the first line, or Shift+Down on the last line"
 Start = "bridge: WebShell.start"
 Undo = "key: Ctrl+Z, or Cmd+Z on a Mac"
 WikiKey = "bridge: WebShell.press, while the list of page names is open"
+
+# The common tests (ADR 089). Vitest runs the `.test.ts` and `.test.tsx` under src.
+[common]
+tests = ["client/apps/web-app/outliner-react/src"]
+
+[common.list-changes]
+pending = 1208
+
+[common.border-web]
+pending = 1209
+
+[common.border-native]
+excluded = "the web shell reads the border of client-web-bridge, not that of client-native-bridge"

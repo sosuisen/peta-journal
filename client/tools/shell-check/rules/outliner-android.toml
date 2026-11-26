@@ -93,3 +93,16 @@ WikiKey = "not yet: no list of page names for [[ ]], see #1148"
 WikiPick = "not yet: no list of page names for [[ ]], see #1148"
 WikiQuery = "not yet: no list of page names for [[ ]], see #1148"
 ZoomStep = "none: no zoom"
+
+# The common tests (ADR 089). `testDebugUnitTest` runs the tests under app/src/test on the JVM.
+[common]
+tests = ["client/apps/native-app/outliner-android/app/src/test/kotlin"]
+
+[common.list-changes]
+pending = 1208
+
+[common.border-web]
+excluded = "a native shell reads the border of client-native-bridge, not that of client-web-bridge"
+
+[common.border-native]
+pending = 1209
