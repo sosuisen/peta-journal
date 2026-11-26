@@ -3,6 +3,8 @@
 use crate::app::Event;
 use crate::effects::ApiOp;
 use crate::harness::{create_calls, item, move_calls, typed, update_calls, Harness};
+use crate::model::TranscludedTrees;
+use crate::testing::item_with;
 
 /// The stash requests sent: (item id, body).
 fn stash_calls(h: &Harness) -> Vec<(String, Option<String>)> {
@@ -67,6 +69,37 @@ fn text_typed_just_before_sending_to_the_stash_travels_in_the_request() {
     h.fire_timers();
     assert!(update_calls(&h.api).is_empty());
     assert_eq!(h.outline(), ["z:1=", "new1:1=# Stash", "a:2=todo typed"]);
+}
+
+// トランスクルージョンのルートに打って、まだ保存していない文も、Stash への要求に入って届く。答えのあとも、行は打った文を見せる（#734）。
+#[test]
+fn text_typed_into_a_transclusion_root_travels_in_the_stash_and_stays_on_its_row() {
+    let mut h = Harness::with_items(vec![
+        item_with("root", 1, |i| {
+            i.transclude_item_id = Some("s".into());
+            i.body = "shown".into();
+        }),
+        item("z", 1, ""),
+    ]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert("s".into(), vec![item("s", 1, "shown")]);
+    h.model.state.set_transcluded_trees(trees);
+    typed(&mut h, "root", "shown typed");
+
+    h.send(Event::SendToStash {
+        item_id: "root".into(),
+    });
+
+    assert_eq!(
+        stash_calls(&h),
+        [("root".to_string(), Some("shown typed".to_string()))]
+    );
+    assert_eq!(h.items_ids(), ["z", "new1", "root"]);
+    // The row shows the body of the source, whatever the server answers for the root
+    let row = h.model.state.get_visible_item("root").unwrap();
+    assert_eq!(row.body, "shown typed");
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
 }
 
 // Stash への送付が断られると、画面は変わらず、要求に入れた文はもう一度自動保存にかけられる。

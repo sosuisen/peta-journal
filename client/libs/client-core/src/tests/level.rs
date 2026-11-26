@@ -52,7 +52,8 @@ fn text_typed_into_a_transclusion_root_stays_through_an_indent_and_is_saved_to_i
         item_id: "root".into(),
     });
 
-    assert_eq!(h.outline(), ["a:1=", "root:2=shown typed"]);
+    let row = h.model.state.get_visible_item("root").unwrap();
+    assert_eq!((row.level, row.body.as_str()), (2, "shown typed"));
     h.fire_timers();
     assert_eq!(
         update_calls(&h.api),
