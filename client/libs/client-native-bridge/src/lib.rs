@@ -5,6 +5,8 @@
 //! it has both: it gives [`NativeShell`] a [`Host`] (ADR 036).
 
 mod clock;
+#[cfg(test)]
+mod examples;
 #[cfg(feature = "facet_typegen")]
 pub mod codegen;
 mod html;

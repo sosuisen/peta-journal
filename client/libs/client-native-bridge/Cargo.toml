@@ -25,6 +25,8 @@ facet_generate = { version = "=0.22.3", optional = true }
 flatmarkdown = { workspace = true }
 # The files of the images a test pastes
 tempfile = "3"
+# The examples that the shells run, which are JSON (src/examples.rs)
+serde_json = { workspace = true }
 
 [features]
 # The whole view model of `NativeShell::view`, for the tests of the crates with an entrance.
