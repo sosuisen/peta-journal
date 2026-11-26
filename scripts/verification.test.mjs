@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
@@ -60,6 +60,18 @@ const COVERAGE_OS = {
   'stickies-win': 'win32',
   'stickies-mac': 'darwin',
   'outliner-ios': 'darwin',
+};
+
+// The job and the step that run the common tests of each shell that has rules in
+// client/tools/shell-check/rules (ADR 089). A shell whose job is not there yet names the issue
+// that makes it
+const COMMON_TESTS_STEP = {
+  'outliner-react': { job: 'outliner-react', run: 'npm run coverage' },
+  'outliner-emacs': { job: 'client', run: 'cargo test --workspace' },
+  'outliner-android': { pending: 1205 },
+  'outliner-ios': { job: 'outliner-ios', run: './coverage.sh' },
+  'stickies-mac': { job: 'stickies-mac', run: './coverage.sh' },
+  'stickies-win': { job: 'stickies-win', run: 'dotnet build -t:Coverage' },
 };
 
 // The floor and the folder measured by coverage.sh of stickies-mac. App/, generated/ and
@@ -205,6 +217,27 @@ test('each job measures the coverage in a step that the ci never skips', () => {
     assert.equal(step.needs, undefined, job);
     assert.equal(step.os, COVERAGE_OS[job], job);
     assert.equal(step.tools, undefined, job);
+  }
+});
+
+// ルールのあるどのシェルも、共通のテストを回す段をジョブに持つか、ジョブを作るissueを持つ。共通のテストの例が変われば、そのジョブが回る（ADR 089）。
+test('each shell with rules runs the common tests in a step of its job', () => {
+  const rules = join(ROOT, 'client', 'tools', 'shell-check', 'rules');
+  const shells = readdirSync(rules)
+    .filter((name) => name.endsWith('.toml') && name !== 'core.toml')
+    .map((name) => name.replace(/\.toml$/, ''))
+    .sort();
+  assert.deepEqual(Object.keys(COMMON_TESTS_STEP).sort(), shells);
+  for (const [shell, { job, run, pending }] of Object.entries(COMMON_TESTS_STEP)) {
+    if (pending !== undefined) {
+      assert.ok(Number.isInteger(pending) && pending > 0, `${shell}: pending needs an issue`);
+      continue;
+    }
+    assert.ok(
+      JOBS[job]?.steps.some((s) => s.run === run),
+      `${shell}: the job ${job} has no step "${run}"`,
+    );
+    assert.ok(jobsFor(['client/tools/shell-check/common/list-changes.json']).includes(job), shell);
   }
 });
 
