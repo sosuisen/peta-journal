@@ -54,7 +54,12 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
         return Command::all([discard, outdent, focus]);
     }
 
-    let cursor = cursor.min(char_len(&item.body));
+    let mut cursor = cursor.min(char_len(&item.body));
+    let (before, after) = split_at_char(&item.body, cursor);
+    if let Some(line) = before.strip_suffix('\n') {
+        item.body = format!("{line}{after}");
+        cursor -= 1;
+    }
     Command::all([discard, split_on_server(model, item, cursor, unsaved)])
 }
 
