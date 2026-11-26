@@ -430,7 +430,7 @@ describe('the drawn body', () => {
     redraw(
       row('a', '', {
         body_model:
-          '<p><img src="a.png#w=300&amp;h=240"><img src="b.png#w=0&amp;h=x"><img src="c.png"></p>',
+          '<p><img src="a.png#w=300&amp;h=240"><img src="b.png#h=120"><img src="c.png"></p>',
       }),
     );
 
@@ -441,7 +441,7 @@ describe('the drawn body', () => {
 
     expect(sizes).toEqual([
       ['300', '240'],
-      [null, null],
+      [null, '120'],
       [null, null],
     ]);
   });
