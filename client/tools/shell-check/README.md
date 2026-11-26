@@ -86,3 +86,18 @@ runs. The check prints a line for each of these:
 
 The test itself checks that it ran every example of the file. `scripts/verification.test.mjs`
 checks that the job of every shell runs its tests, in `COMMON_TESTS_STEP`.
+
+### The files of the examples
+
+The core writes them, with a part for each border. `list-changes.json` (D1) has the part `web`,
+as the JSON of facet that the web shell reads, and the part `native`, as the bincode of `Changes`
+in hexadecimal that the native shells read. The examples are in
+`client-core/src/changes/examples.rs`.
+
+A test of the crate of each border fails when its part is not the examples of the core:
+`client-web-bridge` for `web`, `client-native-bridge` for `native`. To write the parts again
+after the examples or the types of the border changed, run in `client/`:
+
+```
+PETA_WRITE_EXAMPLES=1 cargo test -p client-web-bridge -p client-native-bridge examples
+```
