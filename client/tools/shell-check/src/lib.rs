@@ -1,4 +1,5 @@
-//! Static checks that the shells go through the core (ADR 064). They read the sources as text.
+//! Checks that the shells go through the core (ADR 064), and that every shell has the common
+//! tests (ADR 089). They read the sources as text.
 //!
 //! The rules of each shell are TOML files in `rules/`. `rules/core.toml` holds what is the same
 //! for every shell.

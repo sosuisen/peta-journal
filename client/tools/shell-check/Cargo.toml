@@ -1,6 +1,6 @@
 [package]
 name = "shell-check"
-description = "Checks by reading the sources that the shells go through the core (ADR 064)"
+description = "Checks that the shells go through the core (ADR 064) and have the common tests (ADR 089)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

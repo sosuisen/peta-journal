@@ -128,9 +128,9 @@ D系統は、どのシェルも回さなければならない共通のテスト�
     <tr><th>段</th><th>確かめること</th><th>どこで回るか</th><th>状態</th></tr>
   </thead>
   <tbody>
-    <tr><td>1</td><td>各シェルに、共通のテストのファイルがあり、例のファイルを読んでいる</td><td>shell-checkの<code>cargo test</code>（<code>tests/repository.rs</code>）</td><td class="missing">作る前（#1207）</td></tr>
+    <tr><td>1</td><td>各シェルに、共通のテストのファイルがあり、例のファイルを読んでいる</td><td>shell-checkの<code>cargo test</code>（<code>tests/repository.rs</code>）</td><td class="ok">回る<span class="note">共通のテストはまだどのシェルにもなく、すべて<code>pending</code>（#1208、#1209）か<code>excluded</code></span></td></tr>
     <tr><td>2</td><td>各シェルのテストが、例をすべて回した</td><td>各シェルのテスト</td><td class="missing">作る前（#1208、#1209）</td></tr>
-    <tr><td>3</td><td>各シェルのジョブ（<code>scripts/checks.mjs</code>）が、共通のテストを含むテストの段を持つ</td><td><code>scripts/verification.test.mjs</code>（<code>guard</code>）</td><td class="missing">作る前（#1207）</td></tr>
+    <tr><td>3</td><td>各シェルのジョブ（<code>scripts/checks.mjs</code>）が、共通のテストを含むテストの段を持つ</td><td><code>scripts/verification.test.mjs</code>（<code>guard</code>）</td><td class="ok">回る（<code>COMMON_TESTS_STEP</code>）<span class="note"><code>outliner-android</code>はジョブがなく、<code>pending</code>（#1205）</span></td></tr>
   </tbody>
 </table>
 <p>テストが落ちうることは、各シェルのPRの前のミューテーションテストで確かめる。</p>
