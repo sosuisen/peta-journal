@@ -69,8 +69,8 @@ const COMMON_TESTS_STEP = {
   'outliner-react': { job: 'outliner-react', run: 'npm run coverage' },
   'outliner-emacs': { job: 'client', run: 'cargo test --workspace' },
   'outliner-android': { pending: 1205 },
-  'outliner-ios': { job: 'outliner-ios', run: 'swift test' },
-  'stickies-mac': { job: 'stickies-mac', run: 'swift test' },
+  'outliner-ios': { job: 'outliner-ios', run: './coverage.sh' },
+  'stickies-mac': { job: 'stickies-mac', run: './coverage.sh' },
   'stickies-win': { job: 'stickies-win', run: 'dotnet build -t:Coverage' },
 };
 
