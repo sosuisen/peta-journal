@@ -71,8 +71,14 @@ struct ItemEditor: UIViewRepresentable {
         guard !typist.taken else { return }
         typist.taken = true
         field.takeTheKeyboard()
-        // Not now: the field tells the shell of the text, and the screen is being drawn
-        DispatchQueue.main.async { typist.typeWhatWasHeld(into: field) }
+    }
+
+    /// The core ordered a field to take the keyboard. The field of the edited item answers when
+    /// it has the keyboard already: it takes it no more (`Shell.onKeyboardOrder`).
+    @MainActor
+    static func keyboardOrdered() {
+        guard let field = Field.holder, let typist = field.delegate as? Typist, typist.isEdited else { return }
+        typist.tookTheKeyboard(field)
     }
 
     /// Moves the cursor of the field that is edited, as an arrow key of a desktop does. The
@@ -120,7 +126,7 @@ struct ItemEditor: UIViewRepresentable {
         override func becomeFirstResponder() -> Bool {
             let got = super.becomeFirstResponder()
             if got { Field.holder = self }
-            if got, let typist = delegate as? Typist { typist.placeWhatWasHeld(into: self) }
+            if got, let typist = delegate as? Typist { typist.tookTheKeyboard(self) }
             return got
         }
 
@@ -205,7 +211,9 @@ struct ItemEditor: UIViewRepresentable {
             if next == nil, let typist, typist.edits, isFirstResponder || (justLost && UIResponder.withKeyboard == nil)
             {
                 typist.leaves(at: selectedRange.location)
-                KeyboardKeeper.onScreen?.keep { typist.nobodyCame() }
+                KeyboardKeeper.onScreen?.keep(
+                    typed: typist.keeperTyping(field: nil),
+                    nobodyCame: { typist.nobodyCame() })
                 // The list brings the item back to what is seen, and the field takes the
                 // keyboard from the keeper again (#792)
                 NotificationCenter.default.post(name: .editedFieldLeft, object: nil)
@@ -252,17 +260,16 @@ struct ItemEditor: UIViewRepresentable {
             self.shell = shell
         }
 
-        /// What was typed while the edit moved to another item. After Enter, the core takes
-        /// a moment to split the item, and says so (`keyRelayHolding`). Then the screen takes
-        /// a moment to give the keyboard to the field of the new item: the old field still
-        /// has it, and is no longer of the item that is edited. A letter that went into the
-        /// old item would be lost. The field that gets the keyboard next gets the letters.
-        fileprivate static var held = ""
+        /// True while the edit moves to another item, until the field of that item takes the
+        /// keyboard (ADR 087). After Enter, the core takes a moment to split the item, and the
+        /// screen another to give the keyboard to the field of the new item. The old field or
+        /// the keeper has the keyboard meanwhile. What is typed goes to the core, which holds it
+        /// for the field that takes the keyboard.
+        private var holding: Bool { shell.holdsKeys }
 
-        /// True while what is typed is not for the item of this field.
-        private var moving: Bool {
-            let outline = shell.view.outline
-            return outline.keyRelayHolding || outline.rows.first(where: \.isEditing)?.item.id != itemId
+        /// Whether the item of this field is the one that is edited.
+        fileprivate var isEdited: Bool {
+            shell.view.outline.rows.first(where: \.isEditing)?.item.id == itemId
         }
 
         /// Backspace at the start of the field. The core joins the item to the one before, and
@@ -303,19 +310,17 @@ struct ItemEditor: UIViewRepresentable {
         }
 
         fileprivate func backspaceAtStart(of text: String) {
-            if !moving { shell.press(.backspace, in: itemId, .cursor(at: 0, in: text)) }
+            if holding { return shell.holdBackspace() }
+            shell.press(.backspace, in: itemId, .cursor(at: 0, in: text))
         }
 
         func textView(_ field: UITextView, shouldChangeTextIn range: NSRange, replacementText typed: String) -> Bool {
-            if moving {
-                Typist.held += typed
-                return false
-            }
-            if !Typist.held.isEmpty {
-                // What was held comes first. It moves the cursor, so the place that this
-                // change names is no longer right: the letters go in after the others
-                Typist.held += typed
-                typeWhatWasHeld(into: field)
+            if holding {
+                if !typed.isEmpty {
+                    shell.hold(typed)
+                } else if range.length > 0 {
+                    shell.holdBackspace()
+                }
                 return false
             }
             // The Enter that confirms a word of the keyboard does not split the item
@@ -324,41 +329,94 @@ struct ItemEditor: UIViewRepresentable {
             return false
         }
 
-        /// Puts what was held into the field at once, as the field takes the keyboard, up to an
-        /// Enter among it. The keyboard reads the letters before the cursor for the next key,
-        /// as for a space after a word in Japanese: an empty field would get a wide space. The
-        /// core hears of the letters a moment later, and the rest goes in then.
-        fileprivate func placeWhatWasHeld(into field: UITextView) {
-            let line = Typist.held.prefix { $0 != "\n" }
-            guard !line.isEmpty, !moving else { return }
-            Typist.held.removeFirst(line.count)
+        /// The field took the keyboard: it answers the orders of the core, and plays the keys
+        /// that the core held for it. The letters before the first other key go in at once:
+        /// the keyboard reads the letters before the cursor for the next key, as for a space
+        /// after a word in Japanese, and an empty field would get a wide space. The core hears
+        /// of them a moment later, and the other keys are played then.
+        fileprivate func tookTheKeyboard(_ field: UITextView) {
+            let keys = shell.keyboardTaken()
             KeyboardKeeper.onScreen?.forget()
-            let chosen = field.selectedRange
-            field.text = ((field.text ?? "") as NSString).replacingCharacters(in: chosen, with: String(line))
-            field.selectedRange = NSRange(location: chosen.location + String(line).utf16.count, length: 0)
-            field.invalidateIntrinsicContentSize()
-            untold = true
+            guard !keys.isEmpty else { return }
+            let line = keys.prefix(while: Typist.isLetter).map(\.key).joined()
+            let rest = Array(keys.drop(while: Typist.isLetter))
+            if !line.isEmpty {
+                let chosen = field.selectedRange
+                field.text = ((field.text ?? "") as NSString).replacingCharacters(in: chosen, with: line)
+                field.selectedRange = NSRange(location: chosen.location + line.utf16.count, length: 0)
+                field.invalidateIntrinsicContentSize()
+                untold = true
+            }
             // Not now: the field may take the keyboard while the screen is drawn
             DispatchQueue.main.async { [self] in
-                untold = false
-                telling = true
-                shell.type(itemId, field.text, cursor: field.selectedRange.location)
-                telling = false
-                typeWhatWasHeld(into: field)
+                if !line.isEmpty {
+                    untold = false
+                    telling = true
+                    shell.type(itemId, field.text, cursor: field.selectedRange.location)
+                    telling = false
+                }
+                play(rest, into: field)
             }
         }
 
-        /// Types what was held into the field, at its cursor. An Enter among it splits the
-        /// item, and what came after it waits for the field of the new item.
-        func typeWhatWasHeld(into field: UITextView) {
-            let typed = Typist.held
-            if typed.isEmpty || moving { return }
-            Typist.held = ""
-            KeyboardKeeper.onScreen?.forget()
-            guard let enter = typed.firstIndex(of: "\n") else { return field.insertText(typed) }
-            if enter > typed.startIndex { field.insertText(String(typed[..<enter])) }
-            Typist.held = String(typed[typed.index(after: enter)...])
-            pressEnter(in: field, over: field.selectedRange)
+        /// A key that the core holds as a letter, and not as a key such as Enter.
+        private static func isLetter(_ key: DeferredKey) -> Bool {
+            key.code.isEmpty
+        }
+
+        /// Plays keys that the core held into the field, at its cursor. An Enter among them
+        /// splits the item, and the core holds the keys after it again, for the new item.
+        private func play(_ keys: [DeferredKey], into field: UITextView) {
+            for (index, key) in keys.enumerated() {
+                if holding {
+                    keys[index...].forEach(shell.hold)
+                    return
+                }
+                switch key.key {
+                case "Enter": pressEnter(in: field, over: field.selectedRange)
+                case "Backspace": field.deleteBackward()
+                default: field.insertText(key.key)
+                }
+            }
+        }
+
+        /// Where the keeper sends what is typed into it, which has the keyboard while no field of
+        /// an item has it: `added`, after `removed` characters were taken away. While the edit
+        /// moves, the core holds it. This typist goes with its field once its item is no longer
+        /// edited, as after Enter, so the core is told without it. Else the edit goes on in
+        /// this item (`typedIntoTheKeeper`).
+        fileprivate func keeperTyping(field: UITextView?) -> (String, Int) -> Void {
+            { [shell, weak self, weak field] added, removed in
+                guard !shell.holdsKeys else {
+                    for _ in 0..<removed { shell.holdBackspace() }
+                    return shell.hold(added)
+                }
+                self?.typedIntoTheKeeper(added, removing: removed, field: field)
+            }
+        }
+
+        /// What was typed into the keeper while the edit of this item goes on: in `field` when
+        /// it is on the screen, and through the core when the field left the screen with the
+        /// keyboard (#792), at the cursor where it left. The field shows the text when it is
+        /// back.
+        private func typedIntoTheKeeper(_ added: String, removing removed: Int, field: UITextView?) {
+            if let field, field.window != nil {
+                for _ in 0..<removed { field.deleteBackward() }
+                return field.insertText(added)
+            }
+            guard let left = Typist.left, left.itemId == itemId,
+                let body = shell.view.outline.rows.first(where: { $0.item.id == itemId })?.item.body
+            else { return }
+            let text = body as NSString
+            let end = min(left.cursor, text.length)
+            var start = end
+            for _ in 0..<removed where start > 0 {
+                start = text.rangeOfComposedCharacterSequence(at: start - 1).location
+            }
+            let changed = text.replacingCharacters(in: NSRange(location: start, length: end - start), with: added)
+            let cursor = start + added.utf16.count
+            Typist.left = (itemId, cursor)
+            shell.type(itemId, changed, cursor: cursor)
         }
 
         private func pressEnter(in field: UITextView, over range: NSRange) {
@@ -374,24 +432,19 @@ struct ItemEditor: UIViewRepresentable {
             // The keeper has the keyboard until the field of the new item takes it. The keyboard
             // may still type into this field without asking its delegate, and the letters
             // would go into the item that is no longer edited
-            if moving {
+            if holding {
                 KeyboardKeeper.onScreen?.keep(
-                    while: { [shell] in shell.view.outline.keyRelayHolding },
+                    while: { [shell] in shell.holdsKeys && !shell.waitsForTheKeyboard },
                     settled: { [weak self, weak field] in
-                        // The core did not split the item, as when the server refused: the
-                        // edit goes on in this field
-                        guard let self, let field, field.window != nil, !self.moving else { return false }
-                        field.becomeFirstResponder()
-                        self.typeWhatWasHeld(into: field)
-                        return true
+                        // The edit goes on in this item, as when Enter in an empty last child
+                        // outdents it, or when the server refused to split it. The field takes
+                        // the keyboard back, and answers the core
+                        guard let self, let field, field.window != nil, self.isEdited else { return false }
+                        return field.becomeFirstResponder()
                     },
+                    typed: keeperTyping(field: field),
                     nobodyCame: { [weak self] in self?.nobodyCame() })
             }
-        }
-
-        func textViewDidBeginEditing(_ field: UITextView) {
-            // Not now: the field may get the keyboard while the screen is drawn
-            DispatchQueue.main.async { self.typeWhatWasHeld(into: field) }
         }
 
         func textViewDidChange(_ field: UITextView) {
@@ -423,7 +476,7 @@ struct ItemEditor: UIViewRepresentable {
         /// Moves the cursor of `field` for `arrow`. At the edge of the text the cursor leaves
         /// the item, as the arrow keys of the web frontend do.
         fileprivate func move(_ arrow: Arrow, in field: UITextView) {
-            if moving { return }
+            if holding { return }
             if field.markedTextRange != nil {
                 // A word that the keyboard composes ends here, and the core has not heard of it
                 field.unmarkText()
@@ -491,8 +544,11 @@ final class KeyboardKeeper: UITextView, UITextViewDelegate {
 
     /// What is done when no field took the keyboard in time.
     private var nobodyCame: (() -> Void)?
-    /// What was held for the next field before the keeper took the keyboard.
-    private var heldBefore = ""
+    /// Where what is typed into the keeper goes: the letters added, after the number of
+    /// characters taken away.
+    private var typed: ((String, Int) -> Void)?
+    /// The text of the keeper that `typed` was told of.
+    private var told = ""
     /// Which time the keeper took the keyboard. A wait of an earlier time ends without a word:
     /// the keeper waits for another field now.
     private var turn = 0
@@ -502,24 +558,26 @@ final class KeyboardKeeper: UITextView, UITextViewDelegate {
     /// moves the edit, `settled` may give the keyboard back to a field, and says whether it did.
     ///
     /// What is typed goes into the keeper, as into a field: the keyboard reads the letters
-    /// before the cursor, as for a space after a word in Japanese. The field that gets the
-    /// keyboard next gets them.
+    /// before the cursor, as for a space after a word in Japanese. The keeper keeps none of it:
+    /// `typed` hears of each change.
     fileprivate func keep(
         while waiting: @escaping () -> Bool = { false },
         settled: @escaping () -> Bool = { false },
+        typed: @escaping (String, Int) -> Void,
         nobodyCame: @escaping () -> Void
     ) {
         self.nobodyCame = nobodyCame
-        heldBefore = ItemEditor.Typist.held
-        text = ""
+        self.typed = typed
+        forget()
         turn += 1
         becomeFirstResponder()
         wait(turn, while: waiting, settled: settled)
     }
 
-    /// Lets go of what was typed into the keeper: a field has it now.
+    /// Lets go of the letters that the keyboard reads before the cursor: a field has the
+    /// keyboard now.
     fileprivate func forget() {
-        heldBefore = ""
+        told = ""
         text = ""
     }
 
@@ -535,11 +593,10 @@ final class KeyboardKeeper: UITextView, UITextViewDelegate {
     }
 
     /// No field came, as when the item that is edited was scrolled off the screen: the
-    /// keyboard goes, and what was typed for nobody with it
+    /// keyboard goes. The end of the edit lets go of what the core held for nobody
     private func giveUp(_ turn: Int) {
         DispatchQueue.main.asyncAfter(deadline: .now() + KeyboardKeeper.patience) { [weak self] in
             guard let self, self.turn == turn, self.isFirstResponder else { return }
-            ItemEditor.Typist.held = ""
             self.forget()
             self.resignFirstResponder()
             self.nobodyCame?()
@@ -550,7 +607,12 @@ final class KeyboardKeeper: UITextView, UITextViewDelegate {
     func textViewDidChange(_ keeper: UITextView) {
         // Not while the keyboard composes a word: the word is not there yet
         guard keeper.markedTextRange == nil else { return }
-        ItemEditor.Typist.held = heldBefore + (keeper.text ?? "")
+        let now = keeper.text ?? ""
+        let same = zip(told, now).prefix { $0 == $1 }.count
+        let removed = told.count - same
+        let added = String(now.dropFirst(same))
+        told = now
+        if removed > 0 || !added.isEmpty { typed?(added, removed) }
     }
 }
 

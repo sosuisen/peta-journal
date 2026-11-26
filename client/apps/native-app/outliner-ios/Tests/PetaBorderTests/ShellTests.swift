@@ -337,7 +337,7 @@ final class ShellTests: JournalTestCase {
         XCTAssertEqual(names(shell.keyboardTaken()), ["a", "b"])
     }
 
-    // コアは、注文を出したあとも、欄がキーボードを取るまで預かり続ける。その間に打った文字は、次の注文で渡される。
+    // コアは、注文を出したあとも、欄がキーボードを取るまで預かり続ける。その間に打った文字は次の注文で渡され、その注文に答えると預かりは終わる。
     func testTheCoreHoldsTheKeysUntilTheFieldTakesTheKeyboard() throws {
         try pressEnterAtTheEndOfFirst()
         waitForTheOrderOfTheNewItem()
@@ -348,7 +348,7 @@ final class ShellTests: JournalTestCase {
 
         waitUntil("the core orders the field again") { self.shell.waitsForTheKeyboard }
         XCTAssertEqual(names(shell.keyboardTaken()), ["c"])
-        XCTAssertFalse(shell.holdsKeys)
+        waitUntil("the core no longer holds") { !self.shell.holdsKeys }
     }
 
     // 預ける改行はEnterのキー、預けるBackspaceはBackspaceのキーになる。打った順に渡される。
@@ -436,11 +436,24 @@ final class ShellTests: JournalTestCase {
         try editSecondOfThree()
 
         shell.moveUp(id(of: "second"))
-        waitUntil("the item is first") { self.bodies() == ["second", "first", "third"] }
+        waitWhileTheFieldAnswers("the item is first") { self.bodies() == ["second", "first", "third"] }
         shell.moveDown(id(of: "second"))
         shell.moveDown(id(of: "second"))
 
-        waitUntil("the item is last") { self.bodies() == ["first", "third", "second"] }
+        waitWhileTheFieldAnswers("the item is last") { self.bodies() == ["first", "third", "second"] }
+    }
+
+    /// Waits until the condition holds, while the field of the edited item keeps the keyboard:
+    /// it answers each order of the core to take the keyboard, as the field on the screen does.
+    /// The core ends a move only after the answer, and starts the next one then (ADR 087).
+    private func waitWhileTheFieldAnswers(
+        _ what: String, _ holds: @escaping () -> Bool, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        let answering = {
+            _ = self.shell.keyboardTaken()
+            return holds()
+        }
+        waitUntil(what, answering, file: file, line: line)
     }
 
     // タスクの切り替えは、項目をタスクにし、そのたびに状態を進める。最後はタスクでなくなる。
