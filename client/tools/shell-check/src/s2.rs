@@ -40,6 +40,16 @@ impl Language {
         }
     }
 
+    /// True when the test tool of a shell in this language takes the file `name` as a test,
+    /// in a folder of its tests. Vitest takes only `.test.ts` and `.test.tsx`; the tools of the
+    /// other languages take every source in the folders of the tests.
+    pub fn names_a_test(self, name: &str) -> bool {
+        match self {
+            Language::TypeScript => name.ends_with(".test.ts") || name.ends_with(".test.tsx"),
+            _ => self.reads(name),
+        }
+    }
+
     /// True when `text` names the kind `variant` of `Event`.
     ///
     /// In Swift the name is an implicit member such as `.pasteText`. The dot must not follow a

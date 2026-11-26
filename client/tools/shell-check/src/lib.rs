@@ -95,7 +95,12 @@ pub fn run_s2(root: &Path, rules: &Path, shell: &str) -> Result<Report, String> 
 pub fn run_common(root: &Path, rules: &Path, shell: &str) -> Result<Vec<common::Problem>, String> {
     let core: CoreRules = read_toml(&rules.join("core.toml"))?;
     let rules: ShellRules = read_toml(&rules.join(format!("{shell}.toml")))?;
-    Ok(common::check(root, &core.common, &rules.common.entries))
+    let shell = common::Shell {
+        language: rules.s2.language,
+        tests: &rules.common.tests,
+        entries: &rules.common.entries,
+    };
+    Ok(common::check(root, &core.common, &shell))
 }
 
 fn read(path: &Path) -> Result<String, String> {

@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
+use crate::s2::Language;
+
 /// A common test, as `rules/core.toml` names it.
 #[derive(Debug, Deserialize)]
 pub struct CommonTest {
@@ -25,6 +27,16 @@ pub struct Entry {
     pub excluded: Option<String>,
 }
 
+/// A shell, as the check of the common tests sees it.
+pub struct Shell<'a> {
+    pub language: Language,
+    /// The folders whose tests the test tool of the shell runs, from the root of the
+    /// repository.
+    pub tests: &'a [PathBuf],
+    /// What the shell says of each common test, by its name.
+    pub entries: &'a BTreeMap<String, Entry>,
+}
+
 /// What the check found in the rules or the tests of a shell.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Problem {
@@ -39,36 +51,47 @@ pub enum Problem {
         file: PathBuf,
         examples: String,
     },
+    /// The test tool of the shell does not run the file `file`: it is outside the folders of
+    /// the tests, or not named as a test.
+    NotCollected { test: String, file: PathBuf },
 }
 
-/// What is wrong with the tests that `entries` name for the common tests `tests`, in the
-/// repository at `root`.
-pub fn check(
-    root: &Path,
-    tests: &BTreeMap<String, CommonTest>,
-    entries: &BTreeMap<String, Entry>,
-) -> Vec<Problem> {
+/// What is wrong with what `shell` has for the common tests `tests`, in the repository at
+/// `root`.
+pub fn check(root: &Path, tests: &BTreeMap<String, CommonTest>, shell: &Shell) -> Vec<Problem> {
     let mut problems = Vec::new();
     for (name, common) in tests {
-        let Some(entry) = entries.get(name) else {
+        let Some(entry) = shell.entries.get(name) else {
             problems.push(Problem::NotNamed { test: name.clone() });
             continue;
         };
         if let Some(file) = &entry.test {
-            problems.extend(check_file(root, name, common, file));
+            problems.extend(check_file(root, shell, name, common, file));
         }
     }
     problems
 }
 
 /// What is wrong with the file `file` of the test of the common test `name`.
-fn check_file(root: &Path, name: &str, common: &CommonTest, file: &Path) -> Option<Problem> {
+fn check_file(
+    root: &Path,
+    shell: &Shell,
+    name: &str,
+    common: &CommonTest,
+    file: &Path,
+) -> Option<Problem> {
     let Ok(text) = fs::read_to_string(root.join(file)) else {
         return Some(Problem::NoFile {
             test: name.to_string(),
             file: file.to_path_buf(),
         });
     };
+    if !is_collected(shell, file) {
+        return Some(Problem::NotCollected {
+            test: name.to_string(),
+            file: file.to_path_buf(),
+        });
+    }
     if !text.contains(&common.examples) {
         return Some(Problem::DoesNotRead {
             test: name.to_string(),
@@ -77,4 +100,13 @@ fn check_file(root: &Path, name: &str, common: &CommonTest, file: &Path) -> Opti
         });
     }
     None
+}
+
+/// True when the test tool of `shell` runs the file `file`.
+fn is_collected(shell: &Shell, file: &Path) -> bool {
+    let named_as_a_test = file
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| shell.language.names_a_test(name));
+    named_as_a_test && shell.tests.iter().any(|folder| file.starts_with(folder))
 }
