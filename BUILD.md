@@ -447,10 +447,26 @@ Any other step fails when what it needs is missing: a program, a file, or an env
 variable. The Emacs steps need two environment variables:
 
 - `PETA_EMACS`: the `emacs` program, version 31. Not an `emacsclient` wrapper.
-- `ELISP_FORMATTER`: the `elisp-formatter.el` of `sosuisen/elisp-formatter`.
+- `ELISP_FORMATTER`: the `elisp-formatter.el` of `sosuisen/elisp-formatter`, at the tag that
+  `.github/workflows/ci.yml` checks out.
+
+The hook reads these when Claude Code starts. Restart Claude Code after you set them.
 
 On Windows, the build of memoview needs the MSBuild of Visual Studio. The hook finds it with
-vswhere, or `MSBUILD` names it.
+vswhere, or `MSBUILD` names it. That MSBuild needs the ".NET SDK" component of Visual Studio
+(`Microsoft.NetCore.Component.SDK`): without it, it cannot resolve `Microsoft.NET.Sdk`.
+
+On Windows ARM64, the checks need more, as the apps and their tests are x64:
+
+- The x64 Rust of the version in `rust-toolchain.toml`, with its `llvm-tools-preview`:
+  `rustup toolchain install <version>-x86_64-pc-windows-msvc --component llvm-tools-preview`.
+  `stickies-win/generate.ps1` builds the core with it, as BoltFFI packs for x64 only. `cargo cov`
+  measures with it too: the coverage of the aarch64 Rust of Windows does not work (llvm-profdata
+  takes none of its `.profraw` files, "symbol name is empty"). Both pick it by themselves, under
+  emulation, unless `RUSTUP_TOOLCHAIN` is set.
+- The .NET runtimes of the target frameworks of the tests, for arm64: `MemoView.Tests` is
+  `net10.0`, and runs in the arm64 `dotnet`.
+- Emacs: GNU Emacs for Windows is x64 only, and runs under emulation.
 
 ## Development Workflow
 
