@@ -76,6 +76,8 @@ pub enum Problem {
     /// The shell says more than one of `test`, `pending` and `excluded` of the common test
     /// `test`.
     MoreThanOne { test: String },
+    /// The shell says something of `name`, which is no common test of `rules/core.toml`.
+    UnknownTest { name: String },
 }
 
 /// What is wrong with what `shell` has for the common tests `tests`, in the repository at
@@ -96,6 +98,11 @@ pub fn check(root: &Path, tests: &BTreeMap<String, CommonTest>, shell: &Shell) -
         }
         if entry.pending == Some(0) {
             problems.push(Problem::NoIssue { test: name.clone() });
+        }
+    }
+    for name in shell.entries.keys() {
+        if !tests.contains_key(name) {
+            problems.push(Problem::UnknownTest { name: name.clone() });
         }
     }
     problems
