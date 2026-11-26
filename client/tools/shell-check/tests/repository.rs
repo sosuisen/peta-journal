@@ -62,3 +62,24 @@ fn s2_finds_nothing_in_any_shell_with_rules() {
         found.join("\n")
     );
 }
+
+// ルールのあるどのシェルも、共通のテストをすべて備えるか、pendingかexcludedに書いている（ADR 089）。
+#[test]
+fn every_shell_with_rules_has_the_common_tests() {
+    let root = manifest().join("../../..");
+    let rules = manifest().join("rules");
+
+    let mut found = Vec::new();
+    for shell in shells(&rules) {
+        let problems = shell_check::run_common(&root, &rules, &shell).unwrap();
+        found.extend(problems.iter().map(|p| format!("{shell}: {p}")));
+    }
+
+    assert!(
+        found.is_empty(),
+        "A shell does not have a common test (ADR 089):\n{}\n\
+         Write the test, or in rules/<shell>.toml give the issue that writes it as `pending`, \
+         or the reason the shell needs none as `excluded`. See client/tools/shell-check/README.md.",
+        found.join("\n")
+    );
+}

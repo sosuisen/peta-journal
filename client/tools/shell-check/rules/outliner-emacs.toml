@@ -66,3 +66,16 @@ UngroupAtlasCards = "none: no atlas"
 WikiKey = "none: C-M-i completes the name of a page with the completion of Emacs"
 WikiPick = "none: C-M-i completes the name of a page with the completion of Emacs"
 ZoomStep = "none: no zoom of an item"
+
+# The common tests (ADR 089). `cargo test` of the client runs the modules under src/tests.
+[common]
+tests = ["client/apps/emacs/outliner/src/tests"]
+
+[common.list-changes]
+pending = 1208
+
+[common.border-web]
+excluded = "the Emacs shell has a border of its own, the JSON Lines between its Rust and its Lisp (ADR 078); #1209 decides its D2"
+
+[common.border-native]
+excluded = "the Emacs shell has a border of its own, the JSON Lines between its Rust and its Lisp (ADR 078); #1209 decides its D2"

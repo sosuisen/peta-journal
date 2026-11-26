@@ -93,3 +93,17 @@ WikiKey = "not yet: no list of page names for [[ ]], see #1165"
 WikiPick = "not yet: no list of page names for [[ ]], see #1165"
 WikiQuery = "not yet: no list of page names for [[ ]], see #1165"
 ZoomStep = "none: no zoom of the page"
+
+# The common tests (ADR 089). The code that applies the changes and reads the border is shared
+# with the other Apple shell in swift-shared, so its tests run them once for both.
+[common]
+tests = ["client/apps/native-app/swift-shared/Tests"]
+
+[common.list-changes]
+pending = 1208
+
+[common.border-web]
+excluded = "a native shell reads the border of client-native-bridge, not that of client-web-bridge"
+
+[common.border-native]
+pending = 1209

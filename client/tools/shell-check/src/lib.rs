@@ -1,8 +1,10 @@
-//! Static checks that the shells go through the core (ADR 064). They read the sources as text.
+//! Checks that the shells go through the core (ADR 064), and that every shell has the common
+//! tests (ADR 089). They read the sources as text.
 //!
 //! The rules of each shell are TOML files in `rules/`. `rules/core.toml` holds what is the same
 //! for every shell.
 
+pub mod common;
 pub mod events;
 pub mod s2;
 
@@ -21,6 +23,9 @@ const APP_RS: &str = "client/libs/client-core/src/app.rs";
 #[derive(Debug, Deserialize)]
 struct CoreRules {
     s2: Exclusions,
+    /// The common tests that every shell runs (ADR 089), by name.
+    #[serde(default)]
+    common: BTreeMap<String, common::CommonTest>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -33,6 +38,20 @@ struct Exclusions {
 #[derive(Debug, Deserialize)]
 struct ShellRules {
     s2: ShellS2,
+    #[serde(default)]
+    common: ShellCommon,
+}
+
+/// What a shell says of the common tests (ADR 089).
+#[derive(Debug, Default, Deserialize)]
+struct ShellCommon {
+    /// The folders whose tests the test tool of the shell runs, from the root of the
+    /// repository.
+    #[serde(default)]
+    tests: Vec<PathBuf>,
+    /// What the shell says of each common test, by its name.
+    #[serde(flatten)]
+    entries: BTreeMap<String, common::Entry>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -70,6 +89,19 @@ pub fn run_s2(root: &Path, rules: &Path, shell: &str) -> Result<Report, String> 
         rules.s2.language,
         &[&core.s2.excluded, &rules.s2.excluded],
     ))
+}
+
+/// Checks that `shell` has every common test of the repository at `root`, with the rules in
+/// `rules` (ADR 089).
+pub fn run_common(root: &Path, rules: &Path, shell: &str) -> Result<Vec<common::Problem>, String> {
+    let core: CoreRules = read_toml(&rules.join("core.toml"))?;
+    let rules: ShellRules = read_toml(&rules.join(format!("{shell}.toml")))?;
+    let shell = common::Shell {
+        language: rules.s2.language,
+        tests: &rules.common.tests,
+        entries: &rules.common.entries,
+    };
+    Ok(common::check(root, &core.common, &shell))
 }
 
 fn read(path: &Path) -> Result<String, String> {

@@ -1,4 +1,4 @@
-//! `shell-check s2 <shell> [--root <repository>] [--rules <folder>]`
+//! `shell-check <s2|common> <shell> [--root <repository>] [--rules <folder>]`
 //!
 //! Prints what the check found. The exit code is 0 when it found nothing, 1 when it found
 //! something, and 2 when it could not run.
@@ -6,7 +6,8 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "usage: shell-check s2 <shell> [--root <repository>] [--rules <folder>]";
+const USAGE: &str =
+    "usage: shell-check <s2|common> <shell> [--root <repository>] [--rules <folder>]";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -38,15 +39,24 @@ fn run(args: &[String]) -> Result<bool, String> {
             _ => return Err(USAGE.to_string()),
         }
     }
-    if check != "s2" {
-        return Err(USAGE.to_string());
+    let found: Vec<String> = match check {
+        "s2" => {
+            let report = shell_check::run_s2(&root, &rules, shell)?;
+            let missing = report.missing.iter().map(|name| format!("missing: {name}"));
+            let unknown = report
+                .unknown_exclusions
+                .iter()
+                .map(|name| format!("unknown exclusion: {name}"));
+            missing.chain(unknown).collect()
+        }
+        "common" => shell_check::run_common(&root, &rules, shell)?
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
+        _ => return Err(USAGE.to_string()),
+    };
+    for line in &found {
+        println!("{line}");
     }
-    let report = shell_check::run_s2(&root, &rules, shell)?;
-    for name in &report.missing {
-        println!("missing: {name}");
-    }
-    for name in &report.unknown_exclusions {
-        println!("unknown exclusion: {name}");
-    }
-    Ok(report.is_clean())
+    Ok(found.is_empty())
 }

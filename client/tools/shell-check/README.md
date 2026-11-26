@@ -1,7 +1,9 @@
 # shell-check
 
-Checks by reading the sources that the shells go through the core. ADR 064 says what the
-checks are and how they are tried.
+Checks that the shells go through the core and treat its values as it does. The checks are of
+two kinds (ADR 090). The static checks, S1 to S4, read the sources of the shells (ADR 064). The
+dynamic checks, D1 and D2, are common tests that every shell runs on examples that the core
+writes (ADR 089). For them, this crate checks that every shell has the tests.
 
 `cargo test` runs the checks on this repository, on the machine of the developer and in CI
 (`tests/repository.rs`). It checks every shell that has rules in `rules/`. When a check finds
@@ -12,6 +14,7 @@ To run a check by hand:
 ```
 cd peta-journal/client
 cargo run -q -p shell-check -- s2 stickies-mac
+cargo run -q -p shell-check -- common stickies-mac
 ```
 
 The exit code is 0 when the check found nothing, 1 when it found something, and 2 when it
@@ -59,3 +62,27 @@ TypeScript the tests, `.test.ts` and `.test.tsx`, are not read.
 The `skipped` folders of the rules of a shell are not read, though they are under `sources`.
 They hold what is not the shell's own code, such as the types generated from the core, which
 name every kind.
+
+## The common tests
+
+`rules/core.toml` names the common tests under `[common]`, each with the file of its examples
+in `common/`. Every shell says, for each common test, one of these in its rules:
+
+- `test`: the file of its test, from the root of the repository.
+- `pending`: the issue that writes the test. The shell passes until then.
+- `excluded`: why the shell needs no such test, in one line.
+
+`[common]` of a shell also names, as `tests`, the folders whose tests the test tool of the shell
+runs. The check prints a line for each of these:
+
+- A common test of which the shell says none of the three, or more than one.
+- A `pending` with 0 as the issue.
+- A name that is no common test of `rules/core.toml`.
+- A test file that is not there.
+- A test file that the test tool does not run: it is outside the folders of `tests`, or in
+  TypeScript its name does not end in `.test.ts` or `.test.tsx`.
+- A Rust test file that no `mod` in its folder declares, so cargo does not build it.
+- A test file that does not name the file of its examples, so it cannot read them.
+
+The test itself checks that it ran every example of the file. `scripts/verification.test.mjs`
+checks that the job of every shell runs its tests, in `COMMON_TESTS_STEP`.
