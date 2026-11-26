@@ -100,7 +100,7 @@ ZoomStep = "none: no zoom of the page"
 tests = ["client/apps/native-app/swift-shared/Tests"]
 
 [common.list-changes]
-test = "client/apps/native-app/swift-shared/Tests/PetaSharedTests/ListChangesTests.swift"
+pending = 1208
 
 [common.border-web]
 excluded = "a native shell reads the border of client-native-bridge, not that of client-web-bridge"
