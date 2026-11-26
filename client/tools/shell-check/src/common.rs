@@ -181,21 +181,23 @@ fn check_file(
 /// True when a Rust file in the folder of `file` declares it as a module, as `mod.rs`, `lib.rs`
 /// or `main.rs` does with `mod list_changes;`. A file that declares a module of another folder
 /// with `#[path]` is not seen.
+///
+/// `file` was read, so it has a name and a folder that can be listed.
 fn is_declared(root: &Path, file: &Path) -> bool {
-    let (Some(stem), Some(folder)) = (file.file_stem().and_then(|s| s.to_str()), file.parent())
-    else {
-        return false;
-    };
-    let declaration = format!("mod {stem};");
-    let Ok(entries) = fs::read_dir(root.join(folder)) else {
-        return false;
-    };
-    entries.flatten().map(|entry| entry.path()).any(|path| {
-        path != root.join(file)
-            && path.extension().is_some_and(|ext| ext == "rs")
-            && fs::read_to_string(&path)
-                .is_ok_and(|text| text.lines().any(|line| line.trim() == declaration))
-    })
+    let file = root.join(file);
+    let declaration = format!("mod {};", file.file_stem().unwrap_or_default().display());
+    let folder = file.parent().unwrap_or(root);
+    fs::read_dir(folder)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .any(|path| {
+            path != file
+                && path.extension().is_some_and(|ext| ext == "rs")
+                && fs::read_to_string(&path)
+                    .is_ok_and(|text| text.lines().any(|line| line.trim() == declaration))
+        })
 }
 
 /// True when the test tool of `shell` runs the file `file`.
