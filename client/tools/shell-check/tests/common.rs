@@ -90,3 +90,22 @@ fn a_test_file_that_is_not_there_is_reported() {
         }]
     );
 }
+
+// テストのファイルが例のファイルの名前を読んでいないと、出る。
+#[test]
+fn a_test_file_that_does_not_read_the_examples_is_reported() {
+    let root = repository(
+        "does-not-read",
+        &shell_toml("test = \"app/src/listChanges.test.ts\""),
+        &[("app/src/listChanges.test.ts", "test('rows', () => {});\n")],
+    );
+
+    assert_eq!(
+        problems(&root),
+        vec![Problem::DoesNotRead {
+            test: "list-changes".into(),
+            file: "app/src/listChanges.test.ts".into(),
+            examples: "list-changes.json".into(),
+        }]
+    );
+}
