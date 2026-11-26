@@ -1,5 +1,7 @@
-# Auto detect text files and normalize line endings to LF in the repository
-* text=auto
+# Auto detect text files and use LF for them, in the repository and in the working tree.
+# Why eol=lf: without it, core.autocrlf=true (the default of Git for Windows) checks them out
+# with CRLF, and the checks that read them line by line (scripts/*.test.mjs) fail
+* text=auto eol=lf
 
 # Force LF for shell scripts
 *.sh text eol=lf
