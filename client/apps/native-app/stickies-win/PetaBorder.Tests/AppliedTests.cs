@@ -41,6 +41,16 @@ public sealed class AppliedTests
             Path = id,
         };
 
+    private static SearchEntry Result(string key, string snippet) =>
+        new()
+        {
+            Key = key,
+            Kind = SearchKind.Item,
+            Title = "t",
+            Label = "t",
+            Snippet = snippet,
+        };
+
     private static Heading Heading(string id, string text) =>
         new()
         {
@@ -209,6 +219,22 @@ public sealed class AppliedTests
         Assert.Equal("current", view.IndexPages.CurrentPageId);
         Assert.Equal(["d", "c"], view.RecentPages.Pages.Select(page => page.Label));
         Assert.Equal(LoadState.Loading, view.RecentPages.State);
+    }
+
+    // 後の差分の検索の結果の操作は、今の結果に当たる。検索のパネルの値は前のままである。
+    [Fact]
+    public void The_search_results_of_a_later_change_are_applied_to_the_results_there()
+    {
+        var first = Changes([], EveryPanel());
+        first.SearchResults = [new SearchChange.Reset([Result("item:a", "one"), Result("item:b", "two")])];
+        var view = Applied.First(first);
+        var later = Changes([], []);
+        later.SearchResults = [new SearchChange.Update(1, Result("item:b", "three"))];
+
+        Applied.To(view, later);
+
+        Assert.Equal(["one", "three"], view.Search.Results.Select(result => result.Snippet));
+        Assert.Equal("first", view.Search.Query);
     }
 
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
