@@ -217,3 +217,17 @@ fn a_link_card_goes_under_a_parent_as_the_card_of_a_page_does() {
 
     assert_eq!(batches(&h), [[leveled("l", 2), moved(&["l"], "i-one")]]);
 }
+
+// 親の下の親から出されたカードは、元の親の木の末尾の次に、元の親と同じレベルで入る。外側の親の子のままである。
+#[test]
+fn a_card_taken_out_of_a_parent_under_a_parent_goes_behind_its_tree_at_its_level() {
+    let mut h = atlas_with_nested_parents("0,200,0,40");
+    h.send(Event::UngroupAtlasCards {
+        card_ids: vec!["a/b/two".into()],
+    });
+
+    assert_eq!(
+        batches(&h),
+        [[leveled("i-two", 2), moved(&["i-two"], "p"), unsided("p"),]]
+    );
+}

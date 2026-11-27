@@ -89,6 +89,43 @@ fn a_card_dropped_on_a_card_of_a_group_goes_to_the_end_of_the_group() {
     );
 }
 
+// グループのカードの上にドロップされたカードは、自分より下にある最初の兄弟の前に入る。
+#[test]
+fn a_card_dropped_on_a_card_of_a_group_goes_in_before_the_first_card_below_it() {
+    let mut h = atlas_of(
+        vec![child("one"), child("three"), child("two")],
+        vec![
+            atlas_item("g", 1, "", &[]),
+            card_item("one", 2, Some("0,0,0,40")),
+            card_item("two", 2, Some("0,100,0,40")),
+            card_item("three", 1, Some("0,50,0,40")),
+        ],
+    );
+    group(&mut h, &["a/b/three"], "a/b/one");
+
+    assert_eq!(
+        batches(&h),
+        [[leveled("i-three", 2), moved(&["i-three"], "i-one")]]
+    );
+}
+
+// 新しいグループでは、ドロップ先のカードより上にあるカードが、その前に並ぶ。
+#[test]
+fn a_card_that_lies_above_the_card_it_is_dropped_on_comes_before_it_in_the_new_group() {
+    let mut h = atlas_with(&[("one", Some("0,100,0,40")), ("two", Some("0,0,0,40"))]);
+    group(&mut h, &["a/b/two"], "a/b/one");
+
+    assert_eq!(
+        batches(&h),
+        [[
+            made(ItemPosition::after("i-one"), "", &[]),
+            leveled("i-two", 2),
+            leveled("i-one", 2),
+            moved(&["i-two", "i-one"], NEW),
+        ]]
+    );
+}
+
 // 同じグループのカードの上にドロップされたカードは、動かない。
 #[test]
 fn a_card_dropped_on_a_card_of_its_own_group_stays() {
