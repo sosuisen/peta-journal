@@ -6,7 +6,6 @@ use std::sync::Arc;
 use hmtid::Hmtid;
 use rusqlite::{Connection, Transaction};
 
-use super::atlas_service::AtlasService;
 use super::config_service::ConfigService;
 use super::markdown_parser::MarkdownParser;
 use crate::domain::id_generator::IdGenerator;
@@ -37,7 +36,7 @@ pub struct DocResult {
 }
 
 /// What a page operation does outside the database, once its transaction is committed: the
-/// search index, the files, the tag pages and the atlas pages.
+/// search index, the files and the tag pages.
 #[derive(Default)]
 struct AfterCommit {
     /// Pages to index anew, each with the items to index under its title.
@@ -48,8 +47,6 @@ struct AfterCommit {
     deleted: Vec<Page>,
     /// The tags before and after, for the tag pages.
     tag_changes: Vec<(Vec<String>, Vec<String>)>,
-    /// The pages of a directory changed, so the atlas pages are written again.
-    atlases_stale: bool,
 }
 
 pub struct PageService {
@@ -60,8 +57,6 @@ pub struct PageService {
     properties: PropertyRepository,
     ids: Arc<IdGenerator>,
     config: Arc<ConfigService>,
-    /// Keeps the atlas pages in step with the pages of their directories.
-    atlas: Arc<AtlasService>,
 }
 
 /// A title a page may take: not blank, not padded, and a file name on every OS.
@@ -121,7 +116,6 @@ impl PageService {
         properties: PropertyRepository,
         ids: Arc<IdGenerator>,
         config: Arc<ConfigService>,
-        atlas: Arc<AtlasService>,
     ) -> PageService {
         PageService {
             pages,
@@ -131,7 +125,6 @@ impl PageService {
             properties,
             ids,
             config,
-            atlas,
         }
     }
 
@@ -181,7 +174,7 @@ impl PageService {
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         self.make_ancestor_pages_in(&tx, dir, true, &mut effects)?;
-        let mut result = match self.find_doc_in(&tx, dir, file_name)? {
+        let result = match self.find_doc_in(&tx, dir, file_name)? {
             Some(page) => DocResult {
                 items: ItemRepository::find_by_page_id_in(&tx, &page.id)?,
                 page,
@@ -191,10 +184,6 @@ impl PageService {
         };
         tx.commit()?;
         self.finish(effects);
-        if result.created {
-            // A new atlas page is written at once, by the sync after the commit
-            result.items = self.items.find_by_page_id(&result.page.id)?;
-        }
         Ok(result)
     }
 
@@ -216,7 +205,6 @@ impl PageService {
         }
         effects.indexed.push((page.clone(), Vec::new()));
         effects.exported.insert(id.clone());
-        effects.atlases_stale = true;
         Ok(DocResult {
             items: ItemRepository::find_by_page_id_in(tx, &id)?,
             page,
@@ -381,7 +369,6 @@ impl PageService {
         }
 
         effects.exported.insert(page_id.clone());
-        effects.atlases_stale = true;
         tx.commit()?;
         self.finish(effects);
         Ok(updated)
@@ -769,13 +756,6 @@ impl PageService {
         for page in &effects.deleted {
             // Remove the markdown file too, otherwise the folder scan would bring the page back
             self.export.delete_page_file(page);
-            // An atlas keeps the card of a page it does not know, so a deleted page says so
-            if let Err(e) = self.atlas.forget_page(&page.id) {
-                tracing::warn!(
-                    "Could not take the deleted page {} off the atlases: {e}",
-                    page.id
-                );
-            }
         }
         for (before, after) in &effects.tag_changes {
             self.update_tag_pages(before, after);
@@ -795,8 +775,8 @@ impl PageService {
         Ok(())
     }
 
-    /// Deletes a page with its items and their properties, in the transaction. Its file, its
-    /// card on the atlases and the tag pages its tags held up go after the commit.
+    /// Deletes a page with its items and their properties, in the transaction. Its file and
+    /// the tag pages its tags held up go after the commit.
     fn delete_page_in(
         &self,
         tx: &Connection,
@@ -839,7 +819,6 @@ impl PageService {
         effects.removed_page_ids.push(page_id.to_string());
         effects.deleted.push(page.clone());
         effects.tag_changes.push((tags, Vec::new()));
-        effects.atlases_stale = true;
         Ok(())
     }
 

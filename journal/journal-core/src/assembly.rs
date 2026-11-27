@@ -138,7 +138,6 @@ impl JournalCore {
             properties.clone(),
             Arc::clone(&search),
             Arc::clone(&export),
-            Arc::clone(&ids),
             messages.clone(),
         ));
         let page_service = Arc::new(PageService::new(
@@ -149,7 +148,6 @@ impl JournalCore {
             properties.clone(),
             Arc::clone(&ids),
             Arc::clone(&config),
-            Arc::clone(&atlas),
         ));
         let item_service = Arc::new(ItemService::new(
             items.clone(),
