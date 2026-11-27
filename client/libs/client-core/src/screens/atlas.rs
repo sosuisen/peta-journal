@@ -86,6 +86,44 @@ struct Card<'a> {
     place: Option<Bounds>,
 }
 
+/// An item that goes under another item, with the bounds it takes there.
+#[derive(Clone, Copy)]
+struct Moving<'a> {
+    item: &'a Item,
+    /// Its bounds counted from its new parent, so it stays where it lies on the canvas. None
+    /// for an item that lies nowhere: it gets no bounds.
+    bounds: Option<Bounds>,
+}
+
+impl<'a> Moving<'a> {
+    /// The card as it goes right under the item that lies at `origin` on the canvas, or to the
+    /// top for the center of the canvas.
+    fn of(card: &Card<'a>, origin: Option<(f64, f64)>) -> Moving<'a> {
+        let bounds = match (card.place, origin) {
+            (Some(place), Some((x, y))) => Some(place.moved_by(-x, -y)),
+            _ => None,
+        };
+        Moving {
+            item: card.item,
+            bounds,
+        }
+    }
+
+    /// The item with the bounds it has.
+    fn staying(item: &'a Item) -> Moving<'a> {
+        Moving {
+            item,
+            bounds: bounds_of(item),
+        }
+    }
+
+    /// The bounds to write: none when they stay as they are stored.
+    fn new_bounds(&self) -> Option<Bounds> {
+        self.bounds
+            .filter(|bounds| bounds_of(self.item) != Some(*bounds))
+    }
+}
+
 impl Card<'_> {
     /// The name the shell calls the card by: the id of its page, or of the item of a link card.
     fn id(&self) -> &str {
@@ -447,25 +485,32 @@ fn delete(model: &Model, item_id: String) -> Cmd {
 
 /// The operations that take items behind the item `after` at a level, in their order; none
 /// for no items. The level is written first: the server checks the levels of the items it
-/// moves.
-fn taken_behind(atlas_id: &str, items: &[&Item], after: &str, level: i32) -> Vec<BatchOpInput> {
+/// moves. With the level go the bounds counted from the new parent, when they change.
+fn taken_behind(atlas_id: &str, items: &[Moving], after: &str, level: i32) -> Vec<BatchOpInput> {
     if items.is_empty() {
         return Vec::new();
     }
     let mut ops: Vec<BatchOpInput> = items
         .iter()
-        .map(|item| BatchOpInput::Update {
-            id: item.id.clone(),
+        .map(|moving| BatchOpInput::Update {
+            id: moving.item.id.clone(),
             body: None,
             level: Some(level),
             collapsed: None,
             task: None,
-            properties: Default::default(),
+            properties: moving
+                .new_bounds()
+                .map(|bounds| {
+                    let value = PropertyValue::Text(bounds.to_string());
+                    (BOUNDS_KEY.to_string(), value)
+                })
+                .into_iter()
+                .collect(),
             dropped_properties: Vec::new(),
         })
         .collect();
     ops.push(BatchOpInput::Move {
-        ids: items.iter().map(|item| item.id.clone()).collect(),
+        ids: items.iter().map(|moving| moving.item.id.clone()).collect(),
         page_id: atlas_id.to_string(),
         position: ItemPosition::after(after),
     });
@@ -520,6 +565,7 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
     let joining: Vec<&Item> = joining.iter().map(|card| card.item).collect();
     match target.group {
         Some(group) => {
+            let joining: Vec<Moving> = joining.into_iter().map(Moving::staying).collect();
             let mut ops = put_under(model, group, &joining);
             ops.extend(left);
             change(model, ops)
@@ -528,7 +574,10 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
             let target = target.item.clone();
             let joining: Vec<Item> = joining.into_iter().cloned().collect();
             change_with_new_item(model, move |atlas_id, group_id| {
-                let members: Vec<&Item> = std::iter::once(&target).chain(&joining).collect();
+                let members: Vec<Moving> = std::iter::once(&target)
+                    .chain(&joining)
+                    .map(Moving::staying)
+                    .collect();
                 let members = in_reading_order(&members);
                 let mut ops = vec![new_item(
                     atlas_id.clone(),
@@ -547,13 +596,15 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
 
 /// Cards let go on the blob of a parent go under its item, each where it lies among the items
 /// under it ([`put_under`]). A card right under the parent already stays where it is in the
-/// outline. The parent a card leaves loses its side when nothing stays under it.
+/// outline. The bounds of a card are written anew in the same batch, counted from the parent,
+/// so the card stays where it lies on the canvas (ADR 053). The parent a card leaves loses its
+/// side when nothing stays under it.
 pub fn move_cards(model: &mut Model, card_ids: Vec<String>, parent_id: String) -> Cmd {
     let cards = card_entries(model);
-    let Some(parent) = entries(model)
+    let Some((parent, origin)) = entries(model)
         .into_iter()
         .find(|e| e.is_parent && e.item.id == parent_id)
-        .map(|e| e.item)
+        .map(|e| (e.item, e.place.map(|place| (place.x, place.y))))
     else {
         return done();
     };
@@ -562,7 +613,10 @@ pub fn move_cards(model: &mut Model, card_ids: Vec<String>, parent_id: String) -
         .filter(|card| card_ids.iter().any(|id| id == card.id()))
         .filter(|card| card.group.is_none_or(|group| group.id != parent.id))
         .collect();
-    let items: Vec<&Item> = joining.iter().map(|card| card.item).collect();
+    let items: Vec<Moving> = joining
+        .iter()
+        .map(|card| Moving::of(card, origin))
+        .collect();
     let mut ops = put_under(model, parent, &items);
     ops.extend(sides_dropped(model, &joining));
     change(model, ops)
@@ -580,26 +634,26 @@ fn under<'a>(model: &'a Model, parent: &Item) -> impl Iterator<Item = &'a Item> 
         .map(|item| &**item)
 }
 
-/// Where an item lies as the order of the outline reads the canvas: the upper one comes
-/// first, and of two at the same height the left one (ADR 053). None for an item without a
-/// place.
-fn reading_place(item: &Item) -> Option<(f64, f64)> {
-    bounds_of(item).map(|b| (b.y, b.x))
+/// Where bounds lie as the order of the outline reads the canvas: the upper one comes first,
+/// and of two at the same height the left one (ADR 053).
+fn reading_place(bounds: Bounds) -> (f64, f64) {
+    (bounds.y, bounds.x)
 }
 
-/// Whether an item lies below a card. An item without a place lies nowhere, and neither is
-/// any item below a card without one.
-fn lies_below(item: &Item, card: &Item) -> bool {
-    match (reading_place(item), reading_place(card)) {
-        (Some(item), Some(card)) => item > card,
+/// Whether an item lies below a card that goes under the same parent, both by their bounds
+/// counted from that parent. An item without bounds lies nowhere, and neither is any item
+/// below a card without them.
+fn lies_below(item: &Item, card: &Moving) -> bool {
+    match (bounds_of(item), card.bounds) {
+        (Some(item), Some(card)) => reading_place(item) > reading_place(card),
         _ => false,
     }
 }
 
 /// The cards in the order the outline reads the canvas. Two at the same place keep their
 /// order, and a card without a place comes last.
-fn in_reading_order<'a>(cards: &[&'a Item]) -> Vec<&'a Item> {
-    let place = |card: &Item| reading_place(card).unwrap_or((f64::MAX, f64::MAX));
+fn in_reading_order<'a>(cards: &[Moving<'a>]) -> Vec<Moving<'a>> {
+    let place = |card: &Moving| card.bounds.map_or((f64::MAX, f64::MAX), reading_place);
     let mut cards = cards.to_vec();
     cards.sort_by(|a, b| {
         let (a, b) = (place(a), place(b));
@@ -609,19 +663,20 @@ fn in_reading_order<'a>(cards: &[&'a Item]) -> Vec<&'a Item> {
 }
 
 /// The operations that put cards under `parent`: each goes in before the first item right
-/// under it that lies below the card, or else at the end of its tree. Cards that go in at
-/// the same place go in the upper ones first. The other items keep their order, so the
-/// canvas does not write over an order made in the outline (ADR 053).
-fn put_under(model: &Model, parent: &Item, joining: &[&Item]) -> Vec<BatchOpInput> {
+/// under it that lies below the card, or else at the end of its tree. The card and the item
+/// are compared by their bounds counted from the parent. Cards that go in at the same place go
+/// in the upper ones first. The other items keep their order, so the canvas does not write
+/// over an order made in the outline (ADR 053).
+fn put_under(model: &Model, parent: &Item, joining: &[Moving]) -> Vec<BatchOpInput> {
     let level = parent.level + 1;
     let staying: Vec<&Item> = under(model, parent)
-        .filter(|item| !joining.iter().any(|j| j.id == item.id))
+        .filter(|item| !joining.iter().any(|j| j.item.id == item.id))
         .collect();
     let joining = in_reading_order(joining);
     let siblings = || staying.iter().filter(|item| item.level == level);
     // The cards that go in before the sibling; before none, the ones no sibling lies below
-    let going_before = |sibling: Option<&Item>| -> Vec<&Item> {
-        let first_below = |card: &Item| siblings().find(|s| lies_below(s, card)).map(|s| &s.id);
+    let going_before = |sibling: Option<&Item>| -> Vec<Moving> {
+        let first_below = |card: &Moving| siblings().find(|s| lies_below(s, card)).map(|s| &s.id);
         joining
             .iter()
             .copied()
@@ -678,10 +733,10 @@ pub fn ungroup_cards(model: &mut Model, card_ids: Vec<String>) -> Cmd {
     let ops: Vec<BatchOpInput> = groups_of(&leaving)
         .into_iter()
         .flat_map(|group| {
-            let of_group: Vec<&Item> = leaving
+            let of_group: Vec<Moving> = leaving
                 .iter()
                 .filter(|card| card.group.is_some_and(|g| g.id == group.id))
-                .map(|card| card.item)
+                .map(|card| Moving::staying(card.item))
                 .collect();
             let last = last_staying(model, group, &all);
             let mut ops = taken_behind(&group.page_id, &of_group, &last.id, group.level);
