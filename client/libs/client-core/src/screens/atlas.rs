@@ -94,7 +94,7 @@ fn card_entries(model: &Model) -> Vec<Card<'_>> {
     let mut taken: Vec<&str> = Vec::new();
     entries(model)
         .into_iter()
-        .filter(|e| e.kind == Kind::Card)
+        .filter(|e| e.kind == Kind::Card && !e.is_parent)
         .map(|e| {
             let page_id = plain::card_link(&e.item.body)
                 .and_then(|link| page_of(model, link.target))
@@ -103,7 +103,7 @@ fn card_entries(model: &Model) -> Vec<Card<'_>> {
             taken.extend(page_id);
             Card {
                 item: e.item,
-                group: e.group,
+                group: e.group(),
                 page_id,
             }
         })
@@ -568,7 +568,7 @@ fn group_title(group: &Item) -> Option<GroupTitle> {
 pub fn set_group_title(model: &mut Model, group_id: String, side: String, title: String) -> Cmd {
     let Some(group) = entries(model)
         .into_iter()
-        .find(|e| e.kind == Kind::Group && e.item.id == group_id)
+        .find(|e| e.is_parent && e.item.id == group_id)
         .map(|e| e.item.clone())
     else {
         return done();
@@ -606,7 +606,7 @@ pub struct Callout {
 pub fn shown_callouts(model: &Model) -> Vec<Callout> {
     entries(model)
         .into_iter()
-        .filter(|e| e.kind == Kind::Callout)
+        .filter(|e| e.kind == Kind::Callout && !e.is_parent)
         .filter_map(|e| {
             let bounds = bounds_of(e.item).filter(|b| b.height > 0.0)?;
             Some(Callout {
