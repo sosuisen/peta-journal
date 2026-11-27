@@ -164,4 +164,23 @@ mod tests {
             }
         );
     }
+
+    // 新しい形の項目には、移すものがない。カード、子を持つ項目、レベル1のコールアウトである。
+    #[test]
+    fn nothing_moves_in_an_atlas_of_the_plain_form() {
+        let items = [
+            item(1, 1, "[[d/a]]"),
+            item(2, 1, "Title"),
+            item(3, 2, "[[x/b]]"),
+            item(4, 1, "Hello"),
+        ];
+        let props = props(&[
+            (1, "atlas_bounds", "0,0,0,40"),
+            (2, "atlas_side", "left"),
+            (4, "atlas_type", "callout"),
+            (4, "atlas_bounds", "9,9,0,40"),
+        ]);
+
+        assert_eq!(migration(&items, &props), None);
+    }
 }
