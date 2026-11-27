@@ -1343,6 +1343,41 @@ fn the_same_query_again_does_not_stay_searching() {
     assert!(!searching(&driver));
 }
 
+// 同じ検索語の新しい答えで結果だけが変わっても、その結果をEmacsに伝える。結果は、パネルではなく差分で届くためである。
+#[test]
+fn new_results_of_the_same_query_are_told() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::Search { query: "ru".into() });
+    fire_timers(&mut driver);
+    driver.answer(
+        |op| matches!(op, ApiOp::SearchCombined { .. }),
+        no_results(),
+    );
+    driver.send(Inbound::Search { query: "ru".into() });
+    fire_timers(&mut driver);
+    let found = serde_json::from_value(json!({
+        "SearchResults": [
+            { "pageId": "p1", "pageTitle": "rust", "itemId": "", "snippet": "", "score": 0.0 },
+        ]
+    }))
+    .unwrap();
+
+    driver.answer(|op| matches!(op, ApiOp::SearchCombined { .. }), found);
+
+    let titles = driver
+        .sent()
+        .iter()
+        .rev()
+        .find_map(|m| match m {
+            Outbound::Search { results, .. } => {
+                Some(results.iter().map(|r| r.title.clone()).collect::<Vec<_>>())
+            }
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(titles.first().map(String::as_str), Some("rust"));
+}
+
 // 空の検索語は検索しないので、検索中にならない。
 #[test]
 fn an_empty_query_is_not_a_running_search() {
