@@ -119,6 +119,31 @@ final class AppliedTests: XCTestCase {
         XCTAssertEqual(view.headings.state, .failed)
     }
 
+    // 後の差分のページの操作は、今のフォルダのページと最近のページに当たる。それぞれのパネルの値は前のままである。
+    func testThePagesOfALaterChangeAreAppliedToTheListsThere() {
+        func page(_ id: String) -> SidebarPage {
+            SidebarPage(
+                page: Page(
+                    id: id, parentId: "", dirPath: "", name: id, pageType: "doc", createdDate: 0, modifiedDate: 0,
+                    properties: [:]),
+                label: id, published: false, isDir: false, dirLabel: nil, path: id)
+        }
+        var view = ViewModel(
+            first: Changes(
+                rows: [], headings: [], indexPages: [.reset(items: [page("a"), page("b")])],
+                recentPages: [.reset(items: [page("c")])], panels: everyPanel()))
+
+        view.apply(
+            Changes(
+                rows: [], headings: [], indexPages: [.remove(at: 0)], recentPages: [.insert(at: 0, item: page("d"))],
+                panels: []))
+
+        XCTAssertEqual(view.indexPages.pages.map(\.label), ["b"])
+        XCTAssertEqual(view.indexPages.currentPageId, "current")
+        XCTAssertEqual(view.recentPages.pages.map(\.label), ["d", "c"])
+        XCTAssertEqual(view.recentPages.state, .loading)
+    }
+
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
     func testTheOutlinePanelKeepsTheRows() {
         var view = ViewModel(
