@@ -215,6 +215,67 @@ mod tests {
 
         assert_eq!(title(" Tools ").as_deref(), Some("Tools"));
         assert_eq!(title("[[d/e/page]]").as_deref(), Some("page"));
+        assert_eq!(title("[[d/e/page|Shown]]").as_deref(), Some("Shown"));
         assert_eq!(title(" "), None);
+    }
+
+    // 最初の1行が1つのwiki linkだけの項目は、2行目より後に何があってもカードである。
+    #[test]
+    fn an_item_whose_first_line_is_one_wiki_link_is_a_card_whatever_follows() {
+        let items = [
+            item(1, "[[d/a]]\nmore text\n[[d/b]]", &[]),
+            item(1, "text\n[[d/a]]", &[]),
+            item(1, "\n[[d/a]]", &[]),
+        ];
+
+        assert_eq!(
+            read(&items),
+            [("[[d/a]]\nmore text\n[[d/b]]", Kind::Card, None)]
+        );
+    }
+
+    // カードのリンクは、最初の1行のパスとラベルである。ラベルがなければ、リンク先の名前を出す。
+    #[test]
+    fn the_link_of_a_card_is_the_path_and_the_label_of_its_first_line() {
+        let link = |body: &'static str| card_link(body).map(|l| (l.target, l.label, l.shown()));
+
+        assert_eq!(
+            link(" [[ d/e/page ]] \nmore"),
+            Some(("d/e/page", None, "page".to_string()))
+        );
+        assert_eq!(
+            link("[[d/e/page| My page ]]"),
+            Some(("d/e/page", Some("My page"), "My page".to_string()))
+        );
+        // An empty label is no label
+        assert_eq!(
+            link("[[d/e/index| ]]"),
+            Some(("d/e/index", None, "e/".to_string()))
+        );
+    }
+
+    // リンクでない1行目、パスのないリンク、2つのリンクは、カードのリンクではない。
+    #[test]
+    fn a_first_line_that_is_not_one_link_with_a_path_is_no_card_link() {
+        for body in [
+            "d/p",
+            "[[]]",
+            "[[|label]]",
+            "[[a]] and [[b]]",
+            "see [[a]]",
+            "",
+        ] {
+            assert_eq!(card_link(body), None, "{body}");
+        }
+    }
+
+    // 宛先を変えたカードの本文は、ラベルと2行目より後を保つ。
+    #[test]
+    fn a_card_linked_to_another_page_keeps_its_label_and_its_later_lines() {
+        assert_eq!(relinked("[[d/a]]", "x/b"), "[[x/b]]");
+        assert_eq!(
+            relinked("[[d/a|Shown]]\nmore\nlines", "x/b"),
+            "[[x/b|Shown]]\nmore\nlines"
+        );
     }
 }
