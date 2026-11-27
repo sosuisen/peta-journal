@@ -36,14 +36,14 @@ struct SearchBox: View {
 
     private func entries(of search: SearchView) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            ForEach(search.results, id: \.position) { entry in
+            ForEach(Array(search.results.enumerated()), id: \.element.key) { position, entry in
                 Button {
-                    shell.pick(entry.position)
+                    shell.pick(UInt64(position))
                 } label: {
-                    SearchEntryRow(entry: entry, isChosen: search.selectedIndex == entry.position)
+                    SearchEntryRow(entry: entry, isChosen: search.selectedIndex == UInt64(position))
                 }
                 .buttonStyle(.plain)
-                .id(entry.position)
+                .id(UInt64(position))
             }
         }
     }
