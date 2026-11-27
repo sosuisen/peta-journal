@@ -286,6 +286,7 @@ test('the e2e tests run in a step that neither the ci nor the hook skips, when t
     assert.ok(step, `${shell}: the job ${job} has no step "${run}"`);
     assert.equal(step.os, undefined, shell);
     assert.equal(step.screen, undefined, shell);
+    assert.equal(step.ciOnly, undefined, shell);
     assert.equal(step.needs, undefined, shell);
     for (const file of [`${JOBS[job].dir}/tests/outline.spec.ts`, 'client/apps/web-app/outliner-react/src/App.tsx', 'journal/journal-server/src/main.rs']) {
       assert.ok(jobsFor([file]).includes(job), `${shell}: ${file}`);
@@ -443,10 +444,34 @@ test('a step on the screen is skipped only when the screen is not to be touched'
   }
 });
 
-// フックが飛ばす段は、stickies-winのカバレッジの段（画面に触れる。ADR 086）と、outliner-androidのカバレッジの段（エミュレーターで画面のテストを回す。#1205）だけである（開発者が決めた）。
-test('only the coverage steps of stickies-win and outliner-android are left to the CI by the hook', () => {
+// 画面に触れる段は、stickies-winのカバレッジの段だけである（開発者が決めた、ADR 086）。
+test('only the coverage step of stickies-win touches the screen', () => {
   const screen = Object.entries(JOBS).flatMap(([job, { steps }]) => steps.filter((s) => s.screen).map((s) => `${job}: ${s.run}`));
-  assert.deepEqual(screen, ['stickies-win: dotnet build -t:Coverage', 'outliner-android: ./coverage.sh']);
+  assert.deepEqual(screen, ['stickies-win: dotnet build -t:Coverage']);
+});
+
+// CIだけが回す段は、screen: falseのとき（フック）だけ飛ばす。手で回したときとCIでは回す（開発者が決めた、2026-11-28）。
+test('a step for the ci only is skipped only by the hook', async () => {
+  const quiet = { log: () => {} };
+  JOBS['test-ci-only'] = { dir: '.', touchedBy: [], steps: [{ ciOnly: true, run: 'node -e "process.exit(3)"' }] };
+  try {
+    const hook = await runJob('test-ci-only', { ...quiet, screen: false });
+    assert.equal(hook.failed, undefined);
+    assert.deepEqual(
+      hook.skipped.map((s) => s.step),
+      ['node -e "process.exit(3)"'],
+    );
+    assert.notEqual((await runJob('test-ci-only', quiet)).failed, undefined);
+    assert.notEqual((await runJob('test-ci-only', { ...quiet, strict: true })).failed, undefined);
+  } finally {
+    delete JOBS['test-ci-only'];
+  }
+});
+
+// CIだけが回す段は、outliner-androidのカバレッジの段だけである。エミュレーターで画面のテストを回すので、フックには重い（開発者が決めた、2026-11-28、#1205）。
+test('only the coverage step of outliner-android is for the ci only', () => {
+  const ciOnly = Object.entries(JOBS).flatMap(([job, { steps }]) => steps.filter((s) => s.ciOnly).map((s) => `${job}: ${s.run}`));
+  assert.deepEqual(ciOnly, ['outliner-android: ./coverage.sh']);
 });
 
 // 段の出力は、段が終わるのを待たずに、出たそばからログに渡る。開発者が進み具合を見られるようにするため。

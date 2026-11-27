@@ -15,9 +15,11 @@
 // environment variable (`needs`), a program on the PATH, a file (`programs`). Without it, the step
 // fails everywhere.
 //
-// The hook skips more (ADR 086): it uses no other machine, and it skips a step that touches the
-// screen (`screen: true`), as the developer could not use the PC meanwhile. The required `ci`
-// check of the CI runs them all.
+// The hook skips more (ADR 086): it uses no other machine, and it skips two marks of steps. The
+// required `ci` check of the CI runs them all.
+// - `screen: true`: the step touches the screen, and the developer could not use the PC meanwhile.
+// - `ciOnly: true`: the step is too heavy for the hook, such as the tests in an emulator, and only
+//   the CI runs it. It touches no screen.
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -330,7 +332,7 @@ export const JOBS = {
       // Runs every test, those of the screen in an emulator without a window, and fails below 90%
       // of the lines covered (the coverage task of app/build.gradle.kts). The emulator is heavy,
       // so the hook leaves this step to the CI (#1205)
-      { os: 'linux', screen: true, run: './coverage.sh' },
+      { os: 'linux', ciOnly: true, run: './coverage.sh' },
     ],
   },
 };
@@ -418,12 +420,14 @@ export function streamed(program, args, options, log) {
 // { failed: {step, tail} | undefined, skipped: [{step, why}], remote: [step] }
 // The steps that this OS cannot run and `remote` can run are run there, with the whole job: the
 // other machine runs the job by its own list of checks, from its first step. `remote` lists them.
-// With `screen: false`, a step that touches the screen is skipped too
+// With `screen: false`, a step that touches the screen is skipped too. With `ciOnly: false`, a
+// step for the CI only is skipped too. It follows `screen` unless it is given: the hook gives
+// `screen: false` alone, and skips both
 export async function runJob(
   name,
-  { root = ROOT, strict = false, remote, screen = true, log = (s) => process.stdout.write(s) } = {},
+  { root = ROOT, strict = false, remote, screen = true, ciOnly = screen, log = (s) => process.stdout.write(s) } = {},
 ) {
-  const here = await runHere(name, { root, strict, screen, log });
+  const here = await runHere(name, { root, strict, screen, ciOnly, log });
   const forRemote = (s) => remote && commandOf(s.of, remote.platform) !== undefined;
   const result = { failed: here.failed, skipped: here.skipped.map(({ step, why }) => ({ step, why })), remote: [] };
   if (here.failed || !here.skipped.some(forRemote)) return result;
@@ -443,7 +447,7 @@ export async function runJob(
 }
 
 // Runs the steps of a job that this OS can run. The skipped ones keep their step in `of`
-async function runHere(name, { root, strict, screen, log }) {
+async function runHere(name, { root, strict, screen, ciOnly, log }) {
   const job = JOBS[name];
   if (!job) throw new Error(`unknown job: ${name}`);
   const env = { ...process.env };
@@ -455,6 +459,10 @@ async function runHere(name, { root, strict, screen, log }) {
   for (const step of job.steps) {
     if (step.screen && !screen) {
       skipped.push({ step: step.run, why: '画面に触れる', of: step });
+      continue;
+    }
+    if (step.ciOnly && !ciOnly) {
+      skipped.push({ step: step.run, why: 'フックには重いので、CIだけが回す', of: step });
       continue;
     }
     const why = otherOs(step);

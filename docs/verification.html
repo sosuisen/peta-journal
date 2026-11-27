@@ -53,7 +53,7 @@
 
 <h1>検証の仕組み</h1>
 <p>この文書は、peta-journalのコードを、何で、どこで確かめるかをまとめる。</p>
-<p class="date">更新日：2026-11-27</p>
+<p class="date">更新日：2026-11-28</p>
 
 <h2>方針</h2>
 <ul>
@@ -80,7 +80,7 @@
     <tr><td><code>memoview-win</code>（C#）</td><td class="ok">CSharpier</td><td class="ok">C#のコンパイラ</td><td class="ok">.NETのアナライザー（<code>latest-recommended</code>）</td><td class="na">対象外</td><td class="ok"><code>memoview-tests</code></td><td class="na">対象外<span class="note">WebViewのためのサンプルなので、今は9割の対象にしない。開発を進めるとき（#812）は、始める前に対象に足す。テストに入れたファイルだけは、今も測っている（<code>dotnet build -t:Coverage</code>）</span></td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
     <tr><td><code>stickies-mac</code>（Swift）</td><td class="ok">swift-format</td><td class="ok">Swiftのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">XCTest</td><td class="ok"><code>coverage.sh</code><span class="note">測らないのは<code>App/</code>（エントリーポイント）</span></td><td class="ok">swift-mutation-testing（<code>mutation-test.sh</code>）</td><td class="ok">あり</td></tr>
     <tr><td><code>outliner-ios</code>（Swift）</td><td class="ok">swift-format</td><td class="ok">Swiftのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">XCTest（パッケージ、<code>AppTests</code>、<code>UITests</code>（画面））</td><td class="ok"><code>coverage.sh</code></td><td class="ok">swift-mutation-testing（<code>mutation-test.sh</code>）</td><td class="ok">あり</td></tr>
-    <tr><td><code>outliner-android</code>（Kotlin）</td><td class="ok">ktfmt</td><td class="ok">Kotlinのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">JUnit、画面のテスト（エミュレーター）</td><td class="ok">JaCoCo（<code>coverage.sh</code>）</td><td class="ok">PIT（<code>gradlew :app:pitestDebug</code>）</td><td class="ok">あり</td></tr>
+    <tr><td><code>outliner-android</code>（Kotlin）</td><td class="ok">ktfmt</td><td class="ok">Kotlinのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">JUnit、画面のテスト（エミュレーター）<span class="note">画面のテストが落ちたら、落ちたテストだけを1回だけ回し直し、通れば通す。回し直したテストは、ログとCIの警告に出る</span></td><td class="ok">JaCoCo（<code>coverage.sh</code>）<span class="note">測らないのは<code>generated/</code>と、Dropboxを呼ぶだけの2つのファイル（<code>SdkDropbox.kt</code>、<code>DropboxSdk.kt</code>。#1088）</span></td><td class="ok">PIT（<code>gradlew :app:pitestDebug</code>）</td><td class="ok">あり</td></tr>
   </tbody>
 </table>
 
@@ -140,6 +140,19 @@ D系統は、どのシェルも回さなければならない共通のテスト�
 
 <h2>手元だけで回すもの</h2>
 <p>CIで回さないテストは、ミューテーションテストのほかにない。</p>
+
+<h2>PRの前のフックが飛ばす段</h2>
+<p>PRの前のフックは、CIと同じ段（<code>scripts/checks.mjs</code>）を手元で回す。<br>ただし、次の印の段は飛ばし、飛ばした理由をログに書く。必須の<code>ci</code>のチェックが、CIで回す。</p>
+<table>
+  <thead>
+    <tr><th>印</th><th>意味</th><th>付いた段</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>screen: true</code></td><td>画面に触れる。回している間、開発者がPCを使えない（ADR 086）</td><td><code>stickies-win</code>のカバレッジの段</td></tr>
+    <tr><td><code>ciOnly: true</code></td><td>フックには重いので、CIだけが回す。画面には触れない</td><td><code>outliner-android</code>のカバレッジの段（エミュレーターで画面のテストを回す）</td></tr>
+  </tbody>
+</table>
+<p>どの段にどの印が付くかは、<code>scripts/verification.test.mjs</code>が見張る。</p>
 
 <h2>方針に足りないところ</h2>
 <p>2026-11-25の時点で、次の点が方針に届いていない。</p>
