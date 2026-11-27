@@ -37,9 +37,10 @@ if ! "$adb" devices | grep -q "device$"; then
         waited=$((waited + 2))
     done
     echo "The emulator started in $waited s"
-    # A new emulator shows its lock screen. The app under it does not have the focus, and Android
-    # lets only the app with the focus read the clipboard: the tests of the paste would fail
+    # A new emulator may show its lock screen, and no app can start under it
     "$adb" shell input keyevent 82
+    # Keeps the log of the whole run, to read after a test failed
+    "$adb" logcat -G 16M
 fi
 
 # Packs the core only for the kind of the device: each one is about 70MB
@@ -51,5 +52,9 @@ if ! ./gradlew :app:coverage "-Pabi=$abi"; then
         [ -f "$results" ] || continue
         awk '/<testcase / { test = $0 } /<failure|<error/ { print test; left = 6 } left > 0 { print; left-- }' "$results"
     done
+    # What Android said about the clipboard and which window has the focus: Android lets only the
+    # app with the focus read the clipboard
+    "$adb" logcat -d 2>/dev/null | grep -i "clipboard" | tail -n 20 || true
+    "$adb" shell dumpsys window 2>/dev/null | grep -E "mCurrentFocus|mFocusedApp" || true
     exit 1
 fi
