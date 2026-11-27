@@ -2,8 +2,8 @@
 //! blobs of the parents.
 
 use super::*;
-use crate::rich_text::RichLink;
 use crate::model::PropertyValue;
+use crate::rich_text::RichLink;
 use crate::screens::atlas::{AtlasGroup, CardTone, GroupLook};
 use crate::view::LoadState;
 
@@ -187,6 +187,7 @@ fn a_parent_that_is_a_page_card_opens_its_page_and_has_its_icon() {
         ],
     );
     h.model.sidebar.index_state = LoadState::Loaded;
+    h.model.config.tags_dir = "tags/".into();
 
     let looks: Vec<GroupLook> = h
         .view()

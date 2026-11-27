@@ -18,8 +18,8 @@
 
 use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, ApiResult, TimerOutput, UiOp};
-use crate::model::ItemExt;
 use crate::model::{BatchOpInput, Item, ItemPosition, Page, PropertyValue};
+use crate::model::{ItemExt, PageExt};
 use crate::ops::file_reload;
 use crate::rich_text::{RichBlock, RichRun, RichText};
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
@@ -575,17 +575,67 @@ pub struct AtlasGroup {
     /// The id of the item
     pub id: String,
     pub title: Option<GroupTitle>,
+    pub look: GroupLook,
+}
+
+/// How the title of a group is drawn along its blob, by what its item is.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub enum GroupLook {
+    /// The text of the item
+    Text,
+    /// The label of a page card, which opens its page, with the icon of the page. A link to a
+    /// page that is not there opens nothing.
+    Page {
+        path: Option<String>,
+        tone: CardTone,
+        icon_tags: Vec<String>,
+    },
+    /// The character of a callout, with the text in its bubble
+    Callout,
 }
 
 /// The groups of the items a card is under, the outermost first.
-fn groups(parents: &[&Item]) -> Vec<AtlasGroup> {
+fn groups(model: &Model, parents: &[&Item]) -> Vec<AtlasGroup> {
     parents
         .iter()
         .map(|parent| AtlasGroup {
             id: parent.id.clone(),
             title: group_title(parent),
+            look: group_look(model, parent),
         })
         .collect()
+}
+
+fn group_look(model: &Model, parent: &Item) -> GroupLook {
+    if parent.prop_str(TYPE_KEY) == Some(CALLOUT_TYPE) {
+        return GroupLook::Callout;
+    }
+    let Some(link) = plain::card_link(&parent.body) else {
+        return GroupLook::Text;
+    };
+    let page = page_of(model, link.target);
+    let tone = tone_of(model, Some(link));
+    GroupLook::Page {
+        path: match page {
+            Some(page) => Some(opened_path(page)),
+            None => (tone != CardTone::Missing).then(|| link.target.to_string()),
+        },
+        tone,
+        icon_tags: page
+            .map(|page| icon_tags(page, &model.config.tags_dir))
+            .unwrap_or_default(),
+    }
+}
+
+/// The path a click on the card of a page of the directory opens. A folder opens as its atlas,
+/// so the map stays a map on the way down.
+pub fn opened_path(page: &Page) -> String {
+    if sidebar::is_directory(page) {
+        format!("{}{}", page.dir_path, ATLAS_NAME)
+    } else {
+        page.canonical_path()
+    }
 }
 
 /// Gives a group of the shown atlas page a title along a side of its outline. An empty title
@@ -820,7 +870,7 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
                 text: card.item.body.clone(),
                 tone: tone_of(model, link),
                 bounds: bounds_of(card.item)?,
-                groups: groups(&card.parents),
+                groups: groups(model, &card.parents),
             })
         })
         .collect()
@@ -1001,7 +1051,7 @@ pub fn cards(model: &Model) -> Vec<PageCard> {
                 label: link.and_then(|l| l.label).map(str::to_string),
                 text: card.map(|c| c.item.body.clone()).unwrap_or_default(),
                 bounds: card.and_then(|c| bounds_of(c.item)),
-                groups: card.map(|c| groups(&c.parents)).unwrap_or_default(),
+                groups: card.map(|c| groups(model, &c.parents)).unwrap_or_default(),
                 page,
             }
         })

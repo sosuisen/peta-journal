@@ -91,7 +91,7 @@ mod tests {
             {"page_id":"a","label":"A","path":"m/a","is_dir":false,
              "bounds":{"x":10.0,"y":20.0,"width":0.0,"height":0.0},
              "icon_tags":["sun"],
-             "groups":[{"id":"g","title":{"side":"top","text":"Plan"}}],"published":false,"text":""},
+             "groups":[{"id":"g","title":{"side":"top","text":"Plan"},"look":"Text"}],"published":false,"text":""},
             {"page_id":"b","label":"B","path":"m/b","is_dir":true,"bounds":null,
              "icon_tags":[],"groups":[],"published":false,"text":""}
         ]"#;
