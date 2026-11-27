@@ -16,6 +16,7 @@ import {
   type Event,
   type HeadingChange,
   type PageChange,
+  type SearchChange,
   type KeyPress,
   type RowChange,
   type Panel,
@@ -34,6 +35,7 @@ export interface Lists {
   readonly headings?: HeadingChange[];
   readonly index_pages?: PageChange[];
   readonly recent_pages?: PageChange[];
+  readonly search_results?: SearchChange[];
 }
 
 /** The changes the core answers: none, unless a test gives some. */
@@ -42,10 +44,22 @@ function written(
   panels: Panel[] = [],
   lists: Lists = {},
 ): string {
-  const { headings = [], index_pages = [], recent_pages = [] } = lists;
+  const {
+    headings = [],
+    index_pages = [],
+    recent_pages = [],
+    search_results = [],
+  } = lists;
   return json.stringify(
     Changes.toJson(
-      new Changes(rows, headings, index_pages, recent_pages, panels),
+      new Changes(
+        rows,
+        headings,
+        index_pages,
+        recent_pages,
+        search_results,
+        panels,
+      ),
     ),
   );
 }

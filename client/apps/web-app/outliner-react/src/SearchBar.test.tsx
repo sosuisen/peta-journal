@@ -77,6 +77,33 @@ describe('the input of the search', () => {
   });
 });
 
+// 検索の結果
+describe('the results of the search', () => {
+  // 結果は差分で届く。変わった結果だけが、新しい文言になる。
+  test('the results come as changes, and a changed one shows its new label', () => {
+    const { container, wasm } = searchBar(search({ show_dropdown: true }));
+    const plan = entry(0, 'Create', 'plan', 'Create page "plan"');
+    const diary = entry(1, 'Create', 'work/plan', 'Create page "work/plan"');
+
+    act(() =>
+      wasm.push([], [], {
+        search_results: [{ kind: 'Reset', items: [plan, diary] }],
+      }),
+    );
+    act(() =>
+      wasm.push([], [], {
+        search_results: [
+          { kind: 'Update', at: 1, item: { ...diary, label: 'changed' } },
+        ],
+      }),
+    );
+
+    expect(
+      [...container.querySelectorAll('.search-create')].map(e => e.textContent),
+    ).toEqual(['Create page "plan"', 'changed']);
+  });
+});
+
 // 検索のキー
 describe('the keys of the search', () => {
   // 上下とEscapeはコアに渡り、ブラウザには渡らない。
