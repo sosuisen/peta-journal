@@ -17,6 +17,9 @@ mod waiting;
 // まとまりを作る
 mod groups;
 
+// 動かして親子と並びを変える
+mod moving;
+
 // 書き込む
 mod callouts;
 mod links;
