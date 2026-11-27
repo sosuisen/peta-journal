@@ -1,7 +1,10 @@
 //! The changes of the screen since a shell was last told (ADR 076), for a shell of any body
 //! model (ADR 078).
 
-use crate::changes::{Changes, ListChange, OutlinePanel, Panel, RowChange, Shown};
+use crate::changes::{
+    Changes, HeadingChange, ListChange, OutlinePanel, Panel, RowChange, Shown,
+};
+use crate::outline::state::Heading;
 use crate::harness::Harness;
 use crate::testing::plain_item;
 use crate::{PetaApp, RichText, ViewModel};
@@ -89,6 +92,33 @@ fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
             ],
         }
     );
+}
+
+// 文字の変わった見出しは、その場所の見出しの更新として、差分に入る。見出しのパネルは送られない。
+#[test]
+fn a_heading_whose_text_changed_is_an_update_of_the_headings_at_its_place() {
+    let heading = |id: &str, text: &str| Heading {
+        id: id.into(),
+        text: text.into(),
+        level: 1,
+    };
+    let mut before = first_view();
+    before.headings.headings = vec![heading("a", "One"), heading("b", "Two")];
+    let mut after = before.clone();
+    after.headings.headings[1] = heading("b", "Three");
+    let mut shown = Shown::default();
+    shown.changes(before);
+
+    let changes = shown.changes(after);
+
+    assert_eq!(
+        changes.headings,
+        vec![HeadingChange::Update {
+            at: 1,
+            item: heading("b", "Three")
+        }]
+    );
+    assert_eq!(changes.panels, vec![]);
 }
 
 // 本文が変わった行は、その場所の行の更新として、差分に入る。
