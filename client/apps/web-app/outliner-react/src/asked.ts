@@ -112,9 +112,14 @@ export class AskedOps {
       autoResize(editor);
       checkWikiLink(core, itemId, editor);
     };
+    const holding = () =>
+      core.current().panels.Outline?.key_relay_holding === true;
+    // A hold that is there before the first key is for a later order: the keys were pressed
+    // before that move, and are this editor's
+    const holdingBefore = holding();
     for (const key of keys) {
       // A played Enter holds the keys again: those after it belong to the item it makes
-      if (core.current().panels.Outline?.key_relay_holding === true) {
+      if (!holdingBefore && holding()) {
         core.send({ kind: 'KeyHeld', value: key });
         continue;
       }
