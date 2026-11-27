@@ -8,7 +8,7 @@ import com.sosuisha.petajournal.types.Heading
 import com.sosuisha.petajournal.types.HeadingChange
 import com.sosuisha.petajournal.types.HeadingsPanel
 import com.sosuisha.petajournal.types.HistoryView
-import com.sosuisha.petajournal.types.IndexPagesView
+import com.sosuisha.petajournal.types.IndexPagesPanel
 import com.sosuisha.petajournal.types.IndexSort
 import com.sosuisha.petajournal.types.IndexSortKey
 import com.sosuisha.petajournal.types.Item
@@ -17,7 +17,7 @@ import com.sosuisha.petajournal.types.OutlinePanel
 import com.sosuisha.petajournal.types.Page
 import com.sosuisha.petajournal.types.PageChange
 import com.sosuisha.petajournal.types.Panel
-import com.sosuisha.petajournal.types.RecentPagesView
+import com.sosuisha.petajournal.types.RecentPagesPanel
 import com.sosuisha.petajournal.types.RichText
 import com.sosuisha.petajournal.types.Row
 import com.sosuisha.petajournal.types.RowChange
@@ -31,7 +31,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /** The changes of the rows and the panels, with no change of the headings. */
-private fun Changes(rows: List<RowChange>, panels: List<Panel>) = Changes(rows, emptyList(), panels)
+private fun Changes(rows: List<RowChange>, panels: List<Panel>) =
+    Changes(rows, emptyList(), emptyList(), emptyList(), panels)
 
 /**
  * The view model that the changes of the core make (ADR 076). That the core sends the changes that
@@ -102,17 +103,16 @@ class AppliedTest {
             Panel.AtlasLinkSuggestions(listOf("suggested")),
             Panel.Outline(outline(selecting = true)),
             Panel.IndexPages(
-                IndexPagesView(
+                IndexPagesPanel(
                     header = "index",
                     path = "index",
                     sort = IndexSort(IndexSortKey.NAME, SortOrder.ASC),
-                    pages = emptyList(),
                     currentPageId = "current",
                     state = LoadState.LOADED,
                 ),
             ),
             Panel.Headings(HeadingsPanel(state = LoadState.FAILED)),
-            Panel.RecentPages(RecentPagesView(pages = emptyList(), state = LoadState.LOADING)),
+            Panel.RecentPages(RecentPagesPanel(state = LoadState.LOADING)),
             Panel.Search(search("first")),
             Panel.Config(
                 ConfigView(
@@ -227,22 +227,27 @@ class AppliedTest {
         val view =
             firstView(
                 Changes(
-                    emptyList(),
-                    listOf(
-                        HeadingChange.Reset(
-                            listOf(Heading("a", "One", 1u), Heading("b", "Two", 2u)),
+                    rows = emptyList(),
+                    headings =
+                        listOf(
+                            HeadingChange.Reset(
+                                listOf(Heading("a", "One", 1u), Heading("b", "Two", 2u)),
+                            ),
                         ),
-                    ),
-                    everyPanel(),
+                    indexPages = emptyList(),
+                    recentPages = emptyList(),
+                    panels = everyPanel(),
                 ),
             )
 
         val changed =
             view.with(
                 Changes(
-                    emptyList(),
-                    listOf(HeadingChange.Update(1u, Heading("b", "Three", 2u))),
-                    emptyList(),
+                    rows = emptyList(),
+                    headings = listOf(HeadingChange.Update(1u, Heading("b", "Three", 2u))),
+                    indexPages = emptyList(),
+                    recentPages = emptyList(),
+                    panels = emptyList(),
                 ),
             )
 

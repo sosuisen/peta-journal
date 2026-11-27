@@ -4,19 +4,24 @@ import com.sosuisha.petajournal.types.Changes
 import com.sosuisha.petajournal.types.Heading
 import com.sosuisha.petajournal.types.HeadingChange
 import com.sosuisha.petajournal.types.HeadingsView
+import com.sosuisha.petajournal.types.IndexPagesPanel
+import com.sosuisha.petajournal.types.IndexPagesView
 import com.sosuisha.petajournal.types.OutlinePanel
 import com.sosuisha.petajournal.types.OutlineView
+import com.sosuisha.petajournal.types.PageChange
 import com.sosuisha.petajournal.types.Panel
+import com.sosuisha.petajournal.types.RecentPagesView
 import com.sosuisha.petajournal.types.Row
 import com.sosuisha.petajournal.types.RowChange
+import com.sosuisha.petajournal.types.SidebarPage
 import com.sosuisha.petajournal.types.ViewModel
 
 // The view model that the changes of the core make (ADR 076). The core sends only what changed;
 // the shell keeps the whole of it for the screen to read.
 
 /**
- * The view model of the first changes of a core. They hold every panel and a reset of the rows and
- * of the headings.
+ * The view model of the first changes of a core. They hold every panel and a reset of the rows, the
+ * headings and the pages of the sidebar.
  */
 internal fun firstView(changes: Changes): ViewModel {
     val panels = changes.panels
@@ -28,13 +33,21 @@ internal fun firstView(changes: Changes): ViewModel {
         atlasLinkSuggestions = panels.the<Panel.AtlasLinkSuggestions>().value,
         outline =
             outlineOf(panels.the<Panel.Outline>().value, emptyList<Row>().applied(changes.rows)),
-        indexPages = panels.the<Panel.IndexPages>().value,
+        indexPages =
+            indexPagesOf(
+                panels.the<Panel.IndexPages>().value,
+                emptyList<SidebarPage>().after(changes.indexPages.map { it.change }),
+            ),
         headings =
             HeadingsView(
                 headings = emptyList<Heading>().after(changes.headings.map { it.change }),
                 state = panels.the<Panel.Headings>().value.state,
             ),
-        recentPages = panels.the<Panel.RecentPages>().value,
+        recentPages =
+            RecentPagesView(
+                pages = emptyList<SidebarPage>().after(changes.recentPages.map { it.change }),
+                state = panels.the<Panel.RecentPages>().value.state,
+            ),
         search = panels.the<Panel.Search>().value,
         config = panels.the<Panel.Config>().value,
         connection = panels.the<Panel.Connection>().value,
@@ -56,6 +69,14 @@ internal fun ViewModel.with(changes: Changes): ViewModel {
     if (changes.headings.isNotEmpty()) {
         val headings = view.headings.headings.after(changes.headings.map { it.change })
         view = view.copy(headings = view.headings.copy(headings = headings))
+    }
+    if (changes.indexPages.isNotEmpty()) {
+        val pages = view.indexPages.pages.after(changes.indexPages.map { it.change })
+        view = view.copy(indexPages = view.indexPages.copy(pages = pages))
+    }
+    if (changes.recentPages.isNotEmpty()) {
+        val pages = view.recentPages.pages.after(changes.recentPages.map { it.change })
+        view = view.copy(recentPages = view.recentPages.copy(pages = pages))
     }
     return view
 }
@@ -118,6 +139,27 @@ private val HeadingChange.change: Change<Heading>
             is HeadingChange.Reset -> Change.Reset(items)
         }
 
+private val PageChange.change: Change<SidebarPage>
+    get() =
+        when (this) {
+            is PageChange.Insert -> Change.Insert(at.toInt(), item)
+            is PageChange.Remove -> Change.Remove(at.toInt())
+            is PageChange.Move -> Change.Move(from.toInt(), to.toInt())
+            is PageChange.Update -> Change.Update(at.toInt(), item)
+            is PageChange.Reset -> Change.Reset(items)
+        }
+
+private fun indexPagesOf(panel: IndexPagesPanel, pages: List<SidebarPage>) =
+    IndexPagesView(
+        header = panel.header,
+        path = panel.path,
+        sort = panel.sort,
+        parentPath = panel.parentPath,
+        pages = pages,
+        currentPageId = panel.currentPageId,
+        state = panel.state,
+    )
+
 private inline fun <reified P : Panel> List<Panel>.the(): P = filterIsInstance<P>().single()
 
 private fun outlineOf(panel: OutlinePanel, rows: List<Row>) =
@@ -140,9 +182,9 @@ private fun ViewModel.with(panel: Panel): ViewModel =
         is Panel.AtlasLinks -> copy(atlasLinks = panel.value)
         is Panel.AtlasLinkSuggestions -> copy(atlasLinkSuggestions = panel.value)
         is Panel.Outline -> copy(outline = outlineOf(panel.value, outline.rows))
-        is Panel.IndexPages -> copy(indexPages = panel.value)
+        is Panel.IndexPages -> copy(indexPages = indexPagesOf(panel.value, indexPages.pages))
         is Panel.Headings -> copy(headings = headings.copy(state = panel.value.state))
-        is Panel.RecentPages -> copy(recentPages = panel.value)
+        is Panel.RecentPages -> copy(recentPages = recentPages.copy(state = panel.value.state))
         is Panel.Search -> copy(search = panel.value)
         is Panel.Config -> copy(config = panel.value)
         is Panel.Connection -> copy(connection = panel.value)
