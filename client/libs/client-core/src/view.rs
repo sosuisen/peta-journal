@@ -469,21 +469,30 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
         screen: screen(model),
         atlas_cards: atlas::cards(model)
             .into_iter()
-            .map(|(p, bounds, group, group_title)| AtlasCard {
-                page_id: p.id.clone(),
-                label: sidebar::index_page_name(&p),
-                path: if sidebar::is_directory(&p) {
-                    format!("{}{}", p.dir_path, page::ATLAS_NAME)
-                } else {
-                    p.canonical_path()
-                },
-                is_dir: sidebar::is_directory(&p),
-                bounds,
-                group_color: group.as_deref().map(atlas::group_color),
-                icon_tags: atlas::icon_tags(&p, &model.config.tags_dir),
-                group,
-                group_title,
-                published: sidebar::is_published(&p),
+            .map(|card| {
+                let atlas::PageCard {
+                    page: p,
+                    label,
+                    bounds,
+                    group,
+                    group_title,
+                } = card;
+                AtlasCard {
+                    page_id: p.id.clone(),
+                    label: label.unwrap_or_else(|| sidebar::index_page_name(&p)),
+                    path: if sidebar::is_directory(&p) {
+                        format!("{}{}", p.dir_path, page::ATLAS_NAME)
+                    } else {
+                        p.canonical_path()
+                    },
+                    is_dir: sidebar::is_directory(&p),
+                    bounds,
+                    group_color: group.as_deref().map(atlas::group_color),
+                    icon_tags: atlas::icon_tags(&p, &model.config.tags_dir),
+                    group,
+                    group_title,
+                    published: sidebar::is_published(&p),
+                }
             })
             .collect(),
         atlas_callouts: atlas::shown_callouts(model),

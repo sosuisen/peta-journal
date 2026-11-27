@@ -1,7 +1,7 @@
 //! The canvas of an atlas page: the pages and folders of its directory as cards. The atlas
 //! page is a plain page (ADR 053): the server writes nothing into it by itself, and its
 //! outline may be edited here, in the outline or in the `.md`.
-//! A card is an item whose body is one wiki link. It stands for the page of the directory
+//! A card is an item whose first line is one wiki link. It stands for the page of the directory
 //! that the link names, or else it is a link card. A card lies where the `atlas_bounds`
 //! property of its item says, in coordinates whose origin is the center of the canvas. A card
 //! without the property waits in the list of unplaced cards, and so does a page of the
@@ -93,8 +93,8 @@ fn card_entries(model: &Model) -> Vec<Card<'_>> {
         .into_iter()
         .filter(|e| e.kind == Kind::Card)
         .map(|e| {
-            let page_id = link_target(&e.item.body)
-                .and_then(|target| page_of(model, target))
+            let page_id = plain::card_link(&e.item.body)
+                .and_then(|link| page_of(model, link.target))
                 .map(|page| page.id.as_str())
                 .filter(|id| !taken.contains(id));
             taken.extend(page_id);
@@ -728,7 +728,7 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
         .filter_map(|card| {
             Some(LinkCard {
                 item_id: card.item.id.clone(),
-                target: link_target(&card.item.body)?.to_string(),
+                target: plain::card_link(&card.item.body)?.target.to_string(),
                 bounds: bounds_of(card.item)?,
                 group: card.group.map(|g| g.id.clone()),
                 group_title: card.group.and_then(group_title),
@@ -763,7 +763,7 @@ pub fn add_link(model: &mut Model, x: f64, y: f64, target: String) -> Cmd {
 }
 
 /// Links a link card to another page. An empty target changes nothing, as "Remove Link" takes
-/// a card away.
+/// a card away. The card keeps the label of its link and the lines after the first.
 pub fn set_link(model: &mut Model, item_id: String, target: String) -> Cmd {
     let Some(card) = link_cards(model).into_iter().find(|c| c.item_id == item_id) else {
         return done();
@@ -771,10 +771,15 @@ pub fn set_link(model: &mut Model, item_id: String, target: String) -> Cmd {
     let Some(target) = typed_link_target(&target) else {
         return done();
     };
-    if target == card.target {
+    let Some(item) = model
+        .state
+        .get_item_by_id(&item_id)
+        .filter(|_| target != card.target)
+    else {
         return done();
-    }
-    change(model, vec![new_body(&item_id, link_body(&target))])
+    };
+    let body = plain::relinked(&item.body, &target);
+    change(model, vec![new_body(&item_id, body)])
 }
 
 /// Takes a link card off the atlas: its item is deleted, and with it the link.
@@ -827,28 +832,39 @@ pub fn show_link_suggestions(model: &mut Model, timer_id: u64, titles: Vec<Strin
     done()
 }
 
-/// The cards of the pages of the shown atlas page, in the order of the sidebar's index list,
-/// each with its place, the id of its group and the title of that group. The item on the
-/// atlas page that links to the page holds the place and the group. A page that no item links
-/// to has neither: it waits in the list of unplaced cards until it is dropped on the canvas.
-#[allow(clippy::type_complexity)]
-pub fn cards(model: &Model) -> Vec<(Page, Option<Bounds>, Option<String>, Option<GroupTitle>)> {
+/// The card of a page of the directory of the shown atlas page.
+pub struct PageCard {
+    pub page: Page,
+    /// The label of the link of the card; none for a link without one, or a page with no card
+    pub label: Option<String>,
+    pub bounds: Option<Bounds>,
+    /// The id of the group item the card is under
+    pub group: Option<String>,
+    pub group_title: Option<GroupTitle>,
+}
+
+/// The cards of the pages of the shown atlas page, in the order of the sidebar's index list.
+/// The item on the atlas page that links to the page holds the label, the place and the
+/// group. A page that no item links to has none of them: it waits in the list of unplaced
+/// cards until it is dropped on the canvas.
+pub fn cards(model: &Model) -> Vec<PageCard> {
     if shown_atlas_page(model).is_none() {
         return Vec::new();
     }
     let cards = card_entries(model);
     sidebar::sorted_index_pages(&model.sidebar.index_pages, sidebar::index_sort(model))
         .into_iter()
-        .map(|p| {
-            let card = cards.iter().find(|c| c.page_id == Some(p.id.as_str()));
-            let bounds = card.and_then(|c| bounds_of(c.item));
+        .map(|page| {
+            let card = cards.iter().find(|c| c.page_id == Some(page.id.as_str()));
+            let link = card.and_then(|c| plain::card_link(&c.item.body));
             let group = card.and_then(|c| c.group);
-            (
-                p,
-                bounds,
-                group.map(|g| g.id.clone()),
-                group.and_then(group_title),
-            )
+            PageCard {
+                label: link.and_then(|l| l.label).map(str::to_string),
+                bounds: card.and_then(|c| bounds_of(c.item)),
+                group: group.map(|g| g.id.clone()),
+                group_title: group.and_then(group_title),
+                page,
+            }
         })
         .collect()
 }
