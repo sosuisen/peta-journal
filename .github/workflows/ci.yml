@@ -286,6 +286,50 @@ jobs:
       - run: brew install xcodegen
       - run: node scripts/checks.mjs run outliner-ios
 
+  # The outliner on Android. The tests of the screen run in an emulator on the runner, with KVM.
+  # The Android SDK and the NDK come with the runner (ANDROID_HOME, ANDROID_NDK_HOME).
+  outliner-android:
+    name: client/apps/native-app/outliner-android
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.jobs), 'outliner-android') && (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      # Installs the version, components and targets in rust-toolchain.toml
+      - run: rustup toolchain install
+      # The targets of the phone and the emulator are not in rust-toolchain.toml: every machine
+      # would download them
+      - run: rustup target add aarch64-linux-android x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: client
+      # The same version as the stickies-win job, kept in the cache for the same reason
+      - id: boltffi
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/boltffi
+          key: boltffi-cli-0.32.1-${{ runner.os }}
+      - if: steps.boltffi.outputs.cache-hit != 'true'
+        run: cargo install boltffi_cli --version =0.32.1 --locked
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      # Keeps what Gradle downloads in the cache
+      - uses: gradle/actions/setup-gradle@v6
+      # A runner lets only root use KVM, and the emulator is too slow without it
+      - run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      # The emulator of coverage.sh: the same system image as in README.md, for the CPU of the runner
+      - run: |
+          sdk="$ANDROID_HOME/cmdline-tools/latest/bin"
+          echo y | "$sdk/sdkmanager" emulator "system-images;android-37.0;google_apis;x86_64" > /dev/null
+          echo no | "$sdk/avdmanager" create avd -n peta-api37 -k "system-images;android-37.0;google_apis;x86_64" -d pixel_5
+      - run: node scripts/checks.mjs run outliner-android
+
   memoview-win:
     name: client/apps/webview-app/memoview-win
     # The app is WinUI. It builds only on Windows, with the MSBuild of Visual Studio
@@ -300,7 +344,7 @@ jobs:
   # The one check that the protection of main asks for
   ci:
     if: always()
-    needs: [plan, guard, rust, emacs-e2e, todo, outliner-react, stickies-win, stickies-mac, outliner-ios, memoview-win]
+    needs: [plan, guard, rust, emacs-e2e, todo, outliner-react, stickies-win, stickies-mac, outliner-ios, outliner-android, memoview-win]
     runs-on: ubuntu-latest
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')

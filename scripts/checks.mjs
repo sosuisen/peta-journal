@@ -274,6 +274,37 @@ export const JOBS = {
       { os: 'darwin', cwd: 'client/apps/native-app/swift-shared', run: 'swift test' },
     ],
   },
+  // The outliner on Android, in Kotlin with Compose. The steps are shell scripts, so they are for
+  // Linux, the OS of its runner in the CI: elsewhere the hook skips them and says so. They need
+  // ANDROID_HOME, a JDK 21 and BoltFFI (README.md of the module)
+  'outliner-android': {
+    dir: 'client/apps/native-app/outliner-android',
+    touchedBy: ['client/apps/native-app/outliner-android/', ...CLIENT_RUST],
+    notTouchedBy: [
+      'client/apps/web-app/',
+      'client/apps/webview-app/',
+      'client/apps/emacs/',
+      'client/apps/native-app/outliner-ios/',
+      'client/apps/native-app/stickies-mac/',
+      'client/apps/native-app/stickies-win/',
+      'client/apps/native-app/swift-shared/',
+    ],
+    steps: [
+      // generated/: the Kotlin types of the border and the core as a library for each kind of
+      // device, from the Rust code
+      { os: 'linux', needs: ['ANDROID_NDK_HOME'], run: './generate.sh' },
+      { os: 'linux', run: './gradlew ktfmtCheck' },
+      // The tests of the JVM, among them the common tests (ADR 089). They need no device
+      { os: 'linux', run: './gradlew :app:testDebugUnitTest' },
+      // The app and the tests of the screen, built as they are without the coverage. The hook
+      // does not run the step below, so only this step shows it what breaks in them
+      { os: 'linux', run: './gradlew :app:assembleDebug :app:assembleDebugAndroidTest' },
+      // Runs every test, those of the screen in an emulator without a window, and fails below 90%
+      // of the lines covered (the coverage task of app/build.gradle.kts). The emulator is heavy,
+      // so the hook leaves this step to the CI (#1205)
+      { os: 'linux', screen: true, run: './coverage.sh' },
+    ],
+  },
 };
 
 // The jobs that the changed files touch. Every kind of file counts, Markdown too: a test can read

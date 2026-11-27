@@ -51,15 +51,17 @@ const COVERAGE_STEP = {
   'stickies-win': 'dotnet build -t:Coverage',
   'stickies-mac': './coverage.sh',
   'outliner-ios': './coverage.sh',
+  'outliner-android': './coverage.sh',
 };
 
 // The coverage steps that run on one OS only: stickies-mac and outliner-ios build nowhere else, and
-// the developer runs stickies-win on Windows only (#1085). The CI runs them on that OS, where a step
-// for another OS fails the job
+// the developer runs stickies-win on Windows only (#1085). The steps of outliner-android are shell
+// scripts, for Linux. The CI runs them on that OS, where a step for another OS fails the job
 const COVERAGE_OS = {
   'stickies-win': 'win32',
   'stickies-mac': 'darwin',
   'outliner-ios': 'darwin',
+  'outliner-android': 'linux',
 };
 
 // The job and the step that run the common tests of each shell that has rules in
@@ -71,7 +73,7 @@ const COMMON_TESTS_STEP = {
     job: 'client',
     run: '"$PETA_EMACS" -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit',
   },
-  'outliner-android': { pending: 1205 },
+  'outliner-android': { job: 'outliner-android', run: './gradlew :app:testDebugUnitTest' },
   'outliner-ios': { job: 'outliner-ios', run: 'swift test' },
   'stickies-mac': { job: 'stickies-mac', run: 'swift test' },
   'stickies-win': { job: 'stickies-win', run: 'dotnet build -t:Coverage' },
@@ -91,6 +93,16 @@ const XCCOV = {
     floor: String(FLOOR),
     measured: 'App/ Sources/',
     excluded: 'Sources/PetaDropbox/SdkDropbox.swift Sources/PetaDropbox/DropboxSdk.swift',
+  },
+};
+
+// The floor, the folder and the files left out of the coverage task of outliner-android, which
+// reads the report of JaCoCo. generated/ is not in that folder
+const GRADLE = {
+  'client/apps/native-app/outliner-android/app/build.gradle.kts': {
+    floor: String(FLOOR),
+    measured: '"src/main/kotlin"',
+    excluded: 'listOf<String>()',
   },
 };
 
@@ -274,6 +286,22 @@ test('each xcodebuild coverage script fails under the floor and measures the agr
   }
 });
 
+// Gradleのカバレッジのタスクは、9割未満で失敗し、了解したフォルダーを、JVMのテストと端末のテストの両方で測る。
+test('each gradle coverage task fails under the floor and measures the agreed folder with both kinds of tests', () => {
+  for (const [script, expected] of Object.entries(GRADLE)) {
+    const text = read(script);
+    const value = (name) => [...text.matchAll(new RegExp(`^val ${name} = (.*)$`, 'gm'))].map((m) => m[1]);
+    assert.deepEqual(value('coverageFloor'), [expected.floor], script);
+    assert.deepEqual(value('coverageMeasured'), [expected.measured], script);
+    assert.deepEqual(value('coverageExcluded'), [expected.excluded], script);
+    assert.match(text, /if \(percent < floor\) throw GradleException\(/, script);
+    // The tests on a device run most of the code. Without them, the number would be of a few files
+    assert.match(text, /dependsOn\("testDebugUnitTest", "connectedDebugAndroidTest"\)/, script);
+    // A filter of the classes would leave files out of that folder. The one filter is of ktfmt
+    assert.equal(text.match(/\bexcludes?\b/g)?.length, 1, script);
+  }
+});
+
 // C#のテストのプロジェクトは、9割未満で失敗し、了解した範囲を測る。
 test('each c# test project fails under the floor and measures the agreed files', () => {
   for (const [project, measured] of Object.entries(DOTNET)) {
@@ -344,10 +372,10 @@ test('a step on the screen is skipped only when the screen is not to be touched'
   }
 });
 
-// 画面に触れる段は、stickies-winのカバレッジの段だけである（開発者が決めた、ADR 086）。
-test('only the coverage step of stickies-win touches the screen', () => {
+// フックが飛ばす段は、stickies-winのカバレッジの段（画面に触れる。ADR 086）と、outliner-androidのカバレッジの段（エミュレーターで画面のテストを回す。#1205）だけである（開発者が決めた）。
+test('only the coverage steps of stickies-win and outliner-android are left to the CI by the hook', () => {
   const screen = Object.entries(JOBS).flatMap(([job, { steps }]) => steps.filter((s) => s.screen).map((s) => `${job}: ${s.run}`));
-  assert.deepEqual(screen, ['stickies-win: dotnet build -t:Coverage']);
+  assert.deepEqual(screen, ['stickies-win: dotnet build -t:Coverage', 'outliner-android: ./coverage.sh']);
 });
 
 // 段の出力は、段が終わるのを待たずに、出たそばからログに渡る。開発者が進み具合を見られるようにするため。
