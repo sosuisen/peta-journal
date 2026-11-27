@@ -15,6 +15,7 @@ import {
   toJsonUiOutput,
   type DragMove,
   type Event,
+  type Heading,
   type KeyPress,
   type Panel,
   type Replay,
@@ -26,9 +27,13 @@ import {
 import * as json from './border/serde/json';
 import { panelsAfter, listAfter, type Panels } from './screen';
 
-/** What the shell draws: the rows of the outline and the panels, as the core last told. */
+/**
+ * What the shell draws: the rows of the outline, the headings of the page and the panels, as
+ * the core last told.
+ */
 export interface Screen {
   readonly rows: readonly Row[];
+  readonly headings: readonly Heading[];
   readonly panels: Panels<Panel>;
 }
 
@@ -44,7 +49,7 @@ export interface Asked {
  * `useSyncExternalStore`.
  */
 export class Core {
-  private screen: Screen = { rows: [], panels: {} };
+  private screen: Screen = { rows: [], headings: [], panels: {} };
   private readonly listeners = new Set<() => void>();
   private readonly shell: WebShell;
 
@@ -189,12 +194,13 @@ export class Core {
   readonly current = (): Screen => this.screen;
 
   private take(changes: string): void {
-    const { rows, panels } = Changes.fromJson(json.parse(changes));
-    if (rows.length === 0 && panels.length === 0) {
+    const { rows, headings, panels } = Changes.fromJson(json.parse(changes));
+    if (rows.length === 0 && headings.length === 0 && panels.length === 0) {
       return;
     }
     this.screen = {
       rows: listAfter(this.screen.rows, rows),
+      headings: listAfter(this.screen.headings, headings),
       panels: panelsAfter(this.screen.panels, panels),
     };
     for (const listener of this.listeners) {
