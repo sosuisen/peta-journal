@@ -446,6 +446,32 @@ describe('what is done on the canvas', () => {
     expect([shown.style.left, shown.style.top]).toEqual(['30px', '40px']);
   });
 
+  // 全文のリンクを押すと、ページの本文のリンクと同じく、コアに渡す。
+  test('a click on a link of the whole text of a card goes to the core as on a page', async () => {
+    const page = card('a', true, {
+      text: '<a data-wikilink="" href="/pages/x">x</a>',
+    });
+    const { canvas, container, wasm } = await atlas('m/', {
+      kind: 'AtlasCards',
+      value: [page],
+    });
+    act(() =>
+      canvas().handlers.onShowText('a' as never, 0 as never, 0 as never),
+    );
+
+    fireEvent.click(container.querySelector('.atlas-text a') as Element, {
+      ctrlKey: true,
+    });
+
+    expect(wasm.events).toEqual([
+      eventLinkClicked(richLinkPage('/pages/x'), {
+        shift: false,
+        ctrl: true,
+        cmd: false,
+      }),
+    ]);
+  });
+
   // メニューは、外のクリックとEscapeで、何もせずに閉じる。
   test('the menu closes on a click outside and on Escape', async () => {
     const { canvas, wasm, container } = await atlas('m/');
