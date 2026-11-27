@@ -68,3 +68,26 @@ fn the_links_of_the_first_line_of_a_card_go_with_its_letters() {
         ]
     );
 }
+
+// カードは、2行目より後も含む本文の全体を持つ。右クリックのメニューから、全文を見せるためである。
+#[test]
+fn a_card_carries_the_whole_text_of_its_item() {
+    let h = atlas_of(
+        vec![child("one")],
+        vec![
+            atlas_item(
+                "i-one",
+                1,
+                "[[a/b/one]]\nmore of one",
+                &[("atlas_bounds", "0,0,0,40")],
+            ),
+            placed("p", "note\nmore of the note"),
+        ],
+    );
+
+    let view = h.view();
+    assert_eq!(
+        (view.atlas_cards[0].text.as_str(), view.atlas_links[0].text.as_str()),
+        ("[[a/b/one]]\nmore of one", "note\nmore of the note")
+    );
+}
