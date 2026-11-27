@@ -218,6 +218,28 @@ fn a_batch_update_writes_and_drops_the_properties_it_names() {
     );
 }
 
+// プロパティだけを書く更新も、消すだけの更新も、項目の更新日時を進める。2台の間で、項目ごとの突き合わせがその変更を新しいと見るためである。
+#[test]
+fn a_batch_update_of_the_properties_alone_dates_the_item() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("items-batch-properties-date");
+    let rows = notes.fill(&page, &["a"]);
+    let item = id(&rows[0]);
+    let modified = || notes.item(&item)["modifiedDate"].as_i64().unwrap();
+    let made = modified();
+
+    notes.batched(json!([{
+        "op": "update", "id": item, "properties": { "atlas_side": "left" },
+    }]));
+    let written = modified();
+    notes.batched(json!([{
+        "op": "update", "id": item, "droppedProperties": ["atlas_side"],
+    }]));
+
+    assert!(made < written, "{made} {written}");
+    assert!(written < modified(), "{written} {}", modified());
+}
+
 // 更新の操作が、定義のないキーや、型に合わない値を渡すと、断られて何も書かれない。
 #[test]
 fn a_batch_update_with_a_property_that_does_not_fit_is_refused_and_writes_nothing() {
