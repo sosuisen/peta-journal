@@ -353,6 +353,8 @@ fn every_body_of_a_request_goes_with_backslash_lines() {
                     level: None,
                     collapsed: None,
                     task: None,
+                    properties: Default::default(),
+                    dropped_properties: Vec::new(),
                 },
             ],
         },

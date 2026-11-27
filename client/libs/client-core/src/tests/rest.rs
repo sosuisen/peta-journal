@@ -1,4 +1,4 @@
-use crate::effects::{ApiError, ApiOp, ApiOutput, AtlasChange, FolderChoice};
+use crate::effects::{ApiError, ApiOp, ApiOutput, FolderChoice};
 use crate::model::{
     BatchOpInput, DocPage, ItemPosition, JournalBefore, MovedToJournal, Page, PageWithItems,
     PasteCursor, PasteMode, PropertyValue, ServerConfig, TaskState, TreeExport,
@@ -36,13 +36,6 @@ fn item_json(id: &str, body: &str) -> Value {
 
 fn id(item_id: &str) -> String {
     item_id.to_string()
-}
-
-fn atlas(change: AtlasChange) -> ApiOp {
-    ApiOp::ChangeAtlas {
-        atlas_id: id("m"),
-        change,
-    }
 }
 
 // 読み取りの問いは、サーバーが読む名前で、パスの後ろに付く。操作の場所そのものは、サーバーと同じ表（journal-api-typesのroutes）から取るので、ここでは確かめない。
@@ -214,90 +207,6 @@ fn an_operation_puts_its_values_into_the_path_and_the_body() {
         let request = call(op.clone()).request;
         assert_eq!((request.method, request.path.as_str()), place, "{op:?}");
         assert_eq!(request.body, body, "{op:?}");
-    }
-}
-
-// 地図の変更は、変更の種類ごとの場所へ、その内容を送る。
-#[test]
-fn a_change_of_an_atlas_goes_to_its_own_endpoint_with_its_fields() {
-    let cases = vec![
-        (
-            AtlasChange::AddLink {
-                target: id("t"),
-                bounds: id("b"),
-            },
-            "POST",
-            "/api/pages/m/atlas/links",
-            Some(json!({ "target": "t", "bounds": "b" })),
-        ),
-        (
-            AtlasChange::SetLink {
-                item_id: id("a"),
-                target: id("t"),
-            },
-            "PUT",
-            "/api/pages/m/atlas/links/a",
-            Some(json!({ "target": "t" })),
-        ),
-        (
-            AtlasChange::Group {
-                cards: vec![id("a")],
-                target: id("t"),
-            },
-            "POST",
-            "/api/pages/m/atlas/group",
-            Some(json!({ "cards": ["a"], "target": "t" })),
-        ),
-        (
-            AtlasChange::Ungroup {
-                cards: vec![id("a")],
-            },
-            "POST",
-            "/api/pages/m/atlas/ungroup",
-            Some(json!({ "cards": ["a"] })),
-        ),
-        (
-            AtlasChange::SetGroupTitle {
-                item_id: id("a"),
-                side: id("s"),
-                title: id("t"),
-            },
-            "PUT",
-            "/api/pages/m/atlas/groups/a",
-            Some(json!({ "side": "s", "title": "t" })),
-        ),
-        (
-            AtlasChange::AddCallout {
-                bounds: id("b"),
-                side: id("s"),
-                text: id("x"),
-            },
-            "POST",
-            "/api/pages/m/atlas/callouts",
-            Some(json!({ "bounds": "b", "side": "s", "text": "x" })),
-        ),
-        (
-            AtlasChange::SetCallout {
-                item_id: id("a"),
-                side: id("s"),
-                text: id("x"),
-            },
-            "PUT",
-            "/api/pages/m/atlas/callouts/a",
-            Some(json!({ "side": "s", "text": "x" })),
-        ),
-        (
-            AtlasChange::Remove { item_id: id("a") },
-            "DELETE",
-            "/api/pages/m/atlas/items/a",
-            None,
-        ),
-    ];
-    for (change, method, path, body) in cases {
-        let request = call(atlas(change)).request;
-        assert_eq!(request.method, method);
-        assert_eq!(request.path, path);
-        assert_eq!(request.body, body);
     }
 }
 
@@ -575,6 +484,8 @@ fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_ite
                     end: None,
                     plan: None,
                 }),
+                properties: Default::default(),
+                dropped_properties: Vec::new(),
             },
             BatchOpInput::Update {
                 id: id("s"),
@@ -582,6 +493,8 @@ fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_ite
                 level: None,
                 collapsed: None,
                 task: None,
+                properties: Default::default(),
+                dropped_properties: Vec::new(),
             },
             BatchOpInput::Create {
                 id: id("n"),

@@ -58,10 +58,12 @@ export class AskedOps {
           // Taken before the replay: a key it plays must not be kept again
           const keys = [...op.replay_keys, ...(this.lateKeys ?? [])];
           this.lateKeys = null;
+          // Answered before the replay: the core holds keys until the answer (ADR 087), and
+          // a key played while it holds would go back to it, again and again
+          this.answering.resolve(id, { kind: 'Done' });
           if (editor !== null && op.item_id !== null) {
             this.replay(editor, op.item_id, keys);
           }
-          this.answering.resolve(id, { kind: 'Done' });
         }, 0);
         break;
       }
@@ -110,9 +112,14 @@ export class AskedOps {
       autoResize(editor);
       checkWikiLink(core, itemId, editor);
     };
+    const holding = () =>
+      core.current().panels.Outline?.key_relay_holding === true;
+    // A hold that is there before the first key is for a later order: the keys were pressed
+    // before that move, and are this editor's
+    const holdingBefore = holding();
     for (const key of keys) {
       // A played Enter holds the keys again: those after it belong to the item it makes
-      if (core.current().panels.Outline?.key_relay_holding === true) {
+      if (!holdingBefore && holding()) {
         core.send({ kind: 'KeyHeld', value: key });
         continue;
       }

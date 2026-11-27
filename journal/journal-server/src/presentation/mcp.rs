@@ -21,10 +21,9 @@ use crate::presentation::date_format::DateFormat;
 use crate::presentation::rest::sync;
 use crate::state::{blocking, SharedState};
 use journal_api_types::{
-    AddPropertyDefinitionInput, AtlasCalloutInput, AtlasGroupInput, AtlasLinkInput,
-    AtlasTitleInput, BatchInput, DemotePageInput, FlatMarkdownInput, GetOrCreateDocInput,
-    MergeItemsInput, MoveToJournalInput, PasteInput, ShiftLevelsInput, SplitInput, StashInput,
-    UpdatePageInput,
+    AddPropertyDefinitionInput, BatchInput, DemotePageInput, FlatMarkdownInput,
+    GetOrCreateDocInput, MergeItemsInput, MoveToJournalInput, PasteInput, ShiftLevelsInput,
+    SplitInput, StashInput, UpdatePageInput,
 };
 use journal_core::dto::ItemFields;
 use journal_core::journal::{
@@ -229,24 +228,6 @@ pub struct RecentPagesArgs {
     #[serde(rename = "type", default)]
     pub page_type: String,
 }
-
-/// The arguments of a tool that changes one item of an atlas page: the atlas, the item, and
-/// beside them the fields of the body of the REST route.
-#[derive(Deserialize, JsonSchema)]
-pub struct OfAtlasItem<T> {
-    /// HMTID of the atlas page
-    #[serde(rename = "pageId")]
-    pub page_id: String,
-    /// ID of the item of the atlas: a link card, a group or a callout
-    #[serde(rename = "itemId")]
-    pub item_id: String,
-    #[serde(flatten)]
-    pub input: T,
-}
-
-/// An item of an atlas page with nothing to say about it.
-#[derive(Deserialize, JsonSchema, Default)]
-pub struct Nothing {}
 
 #[derive(Deserialize, JsonSchema)]
 pub struct ItemKeyArgs {
@@ -873,109 +854,6 @@ impl JournalMcp {
                 .delete_page_property(&a.page_id, &a.key, &ChangedBy::Mcp)
         })
         .await?;
-        dated(&r, dates)
-    }
-
-    // ---- atlas pages ----
-
-    #[tool(
-        description = "Add a link card to an atlas page (the index_atlas page of a folder): a card that shows a page or a URL. Returns the items of the atlas."
-    )]
-    async fn add_atlas_link(
-        &self,
-        Parameters(Dated { args: a, dates }): Parameters<Dated<OfPage<AtlasLinkInput>>>,
-    ) -> Result<CallToolResult, McpError> {
-        let state = Arc::clone(&self.state);
-        let r = run(move || state.journal.add_atlas_link(&a.page_id, a.input)).await?;
-        dated(&r, dates)
-    }
-
-    #[tool(description = "Change what a link card of an atlas page shows.")]
-    async fn set_atlas_link(
-        &self,
-        Parameters(Dated { args: a, dates }): Parameters<Dated<OfAtlasItem<AtlasLinkInput>>>,
-    ) -> Result<CallToolResult, McpError> {
-        let state = Arc::clone(&self.state);
-        let r = run(move || {
-            state
-                .journal
-                .set_atlas_link(&a.page_id, &a.item_id, a.input)
-        })
-        .await?;
-        dated(&r, dates)
-    }
-
-    #[tool(
-        description = "Put cards of an atlas page into one group, together with a target card or into a target group."
-    )]
-    async fn group_atlas_cards(
-        &self,
-        Parameters(Dated { args: a, dates }): Parameters<Dated<OfPage<AtlasGroupInput>>>,
-    ) -> Result<CallToolResult, McpError> {
-        let state = Arc::clone(&self.state);
-        let r = run(move || state.journal.group_atlas_cards(&a.page_id, a.input)).await?;
-        dated(&r, dates)
-    }
-
-    #[tool(description = "Take cards of an atlas page out of their groups.")]
-    async fn ungroup_atlas_cards(
-        &self,
-        Parameters(Dated { args: a, dates }): Parameters<Dated<OfPage<AtlasGroupInput>>>,
-    ) -> Result<CallToolResult, McpError> {
-        let state = Arc::clone(&self.state);
-        let r = run(move || state.journal.ungroup_atlas_cards(&a.page_id, a.input)).await?;
-        dated(&r, dates)
-    }
-
-    #[tool(description = "Set the title of a group of an atlas page and the side it is on.")]
-    async fn set_atlas_group_title(
-        &self,
-        Parameters(Dated { args: a, dates }): Parameters<Dated<OfAtlasItem<AtlasTitleInput>>>,
-    ) -> Result<CallToolResult, McpError> {
-        let state = Arc::clone(&self.state);
-        let r = run(move || {
-            state
-                .journal
-                .set_atlas_group_title(&a.page_id, &a.item_id, a.input)
-        })
-        .await?;
-        dated(&r, dates)
-    }
-
-    #[tool(description = "Add a callout (a bubble of text) to an atlas page.")]
-    async fn add_atlas_callout(
-        &self,
-        Parameters(Dated { args: a, dates }): Parameters<Dated<OfPage<AtlasCalloutInput>>>,
-    ) -> Result<CallToolResult, McpError> {
-        let state = Arc::clone(&self.state);
-        let r = run(move || state.journal.add_atlas_callout(&a.page_id, a.input)).await?;
-        dated(&r, dates)
-    }
-
-    #[tool(description = "Change the text or the side of a callout of an atlas page.")]
-    async fn set_atlas_callout(
-        &self,
-        Parameters(Dated { args: a, dates }): Parameters<Dated<OfAtlasItem<AtlasCalloutInput>>>,
-    ) -> Result<CallToolResult, McpError> {
-        let state = Arc::clone(&self.state);
-        let r = run(move || {
-            state
-                .journal
-                .set_atlas_callout(&a.page_id, &a.item_id, a.input)
-        })
-        .await?;
-        dated(&r, dates)
-    }
-
-    #[tool(
-        description = "Remove a link card, a group or a callout from an atlas page. The card of a page cannot be removed: it goes with its page."
-    )]
-    async fn remove_atlas_item(
-        &self,
-        Parameters(Dated { args: a, dates }): Parameters<Dated<OfAtlasItem<Nothing>>>,
-    ) -> Result<CallToolResult, McpError> {
-        let state = Arc::clone(&self.state);
-        let r = run(move || state.journal.remove_atlas_item(&a.page_id, &a.item_id)).await?;
         dated(&r, dates)
     }
 

@@ -8,16 +8,6 @@ fn ids(answer: &Value, list: &str) -> Vec<String> {
     strings(&Value::Array(field_of_each(answer, list, "id")))
 }
 
-fn body_of(rows: &Value, id: &str) -> String {
-    rows["items"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|r| r["id"] == json!(id))
-        .map(|r| r["body"].as_str().unwrap().to_string())
-        .unwrap_or_default()
-}
-
 // エディターの操作（貼り付け、分割、結合、字下げ、バッチ、まとめての削除、スタッシュ）が、ツールでもできる。
 #[tokio::test]
 async fn the_operations_of_an_editor_are_done_by_tools() {
@@ -162,79 +152,6 @@ async fn the_properties_and_the_children_of_a_page_are_handled_by_tools() {
         "{untagged}"
     );
     assert_eq!(demoted["page"]["name"], json!(dir));
-}
-
-// アトラスのカード、グループ、コールアウトが、ツールで作られ、変えられ、消される。
-#[tokio::test]
-async fn the_cards_the_groups_and_the_callouts_of_an_atlas_are_handled_by_tools() {
-    let mcp = connect().await;
-    let dir = format!("{}/", unique_name("mcp-atlas"));
-    let atlas = call(
-        &mcp,
-        "get_or_create_doc",
-        json!({ "title": "index_atlas", "dirPath": dir }),
-    )
-    .await;
-    let atlas = atlas["page"]["id"].as_str().unwrap().to_string();
-    let last = |rows: &Value| ids(rows, "items").pop().unwrap();
-    let link = |target: &str| json!({ "pageId": atlas, "target": target, "bounds": "0,0,0,40" });
-
-    let first = last(&call(&mcp, "add_atlas_link", link("elsewhere/a")).await);
-    let second = last(&call(&mcp, "add_atlas_link", link("elsewhere/b")).await);
-    let relinked = call(
-        &mcp,
-        "set_atlas_link",
-        json!({ "pageId": atlas, "itemId": first, "target": "far/a" }),
-    )
-    .await;
-    let grouped = call(
-        &mcp,
-        "group_atlas_cards",
-        json!({ "pageId": atlas, "cards": [second], "target": first }),
-    )
-    .await;
-    let group = ids(&grouped, "items")
-        .into_iter()
-        .find(|id| *id != first && *id != second)
-        .unwrap();
-    let titled = call(
-        &mcp,
-        "set_atlas_group_title",
-        json!({ "pageId": atlas, "itemId": group, "side": "left", "title": "T" }),
-    )
-    .await;
-    let ungrouped = call(
-        &mcp,
-        "ungroup_atlas_cards",
-        json!({ "pageId": atlas, "cards": [second] }),
-    )
-    .await;
-    let callout = last(
-        &call(
-            &mcp,
-            "add_atlas_callout",
-            json!({ "pageId": atlas, "bounds": "10,20,0,60", "side": "left", "text": "Hello" }),
-        )
-        .await,
-    );
-    let changed = call(
-        &mcp,
-        "set_atlas_callout",
-        json!({ "pageId": atlas, "itemId": callout, "side": "bottom", "text": "Bye" }),
-    )
-    .await;
-    let removed = call(
-        &mcp,
-        "remove_atlas_item",
-        json!({ "pageId": atlas, "itemId": callout }),
-    )
-    .await;
-
-    assert!(body_of(&relinked, &first).contains("far/a"), "{relinked}");
-    assert!(body_of(&titled, &group).contains('T'), "{titled}");
-    assert!(ids(&ungrouped, "items").contains(&second), "{ungrouped}");
-    assert!(body_of(&changed, &callout).contains("Bye"), "{changed}");
-    assert!(!ids(&removed, "items").contains(&callout), "{removed}");
 }
 
 // 週のジャーナルの検索、ジャーナルへの移動、タグでの検索が、ツールでもできる。

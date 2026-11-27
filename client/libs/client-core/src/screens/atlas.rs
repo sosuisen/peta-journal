@@ -1,43 +1,52 @@
-//! The canvas of an atlas page: the pages and folders of its directory as cards. The server
-//! writes the whole outline of the atlas page: an item for each page of the directory, the link
-//! cards, the groups and the callouts. A card lies where the `atlas_bounds` property of its
-//! item says, in coordinates whose origin is the center of the canvas. A card without the
-//! property waits in the list of unplaced cards.
-//! A link card is an item whose body is a wiki link to any page. A group is an item with the
-//! cards of the group under it; a callout is an item under the parent of the callouts.
-//! The place of a card or a callout is saved as a property of its item. Every other change
-//! goes to the server, which writes the outline again and answers with its items.
+//! The canvas of an atlas page: the pages and folders of its directory as cards. The atlas
+//! page is a plain page (ADR 053): the server writes nothing into it by itself, and its
+//! outline may be edited here, in the outline or in the `.md`.
+//! A card is an item whose first line is one wiki link. It stands for the page of the directory
+//! that the link names, or else it is a link card. A card lies where the `atlas_bounds`
+//! property of its item says, in coordinates whose origin is the center of the canvas. A card
+//! without the property waits in the list of unplaced cards, and so does a page of the
+//! directory that no card links to.
+//! A group is an item of level 1 with the cards of the group under it; a callout is an item
+//! whose `atlas_type` is `callout`.
+//! The canvas edits the page with the item APIs that the outline uses, and no other. The
+//! place of a card or a callout is saved as a property of its item. A change of the outline
+//! is one batch of item operations, however many items it writes, so one operation of the
+//! user is one change on the server. The outline is then read again and shown.
+//! A change that leaves an item with no item under it takes the `atlas_side` of that item
+//! away in the same batch: the side is of the title of a group, and the item is no group any
+//! more. Nothing is cleaned up for a change made in the outline or in the `.md`.
 
 use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model};
-use crate::effects::{AtlasChange, TimerOutput, UiOp};
+use crate::effects::{Api, ApiResult, TimerOutput, UiOp};
 use crate::model::ItemExt;
-use crate::model::{Item, Page, PropertyValue};
+use crate::model::{BatchOpInput, Item, ItemPosition, Page, PropertyValue};
 use crate::ops::file_reload;
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
 use crate::screens::sidebar;
 use crux_core::Command;
-use peta_atlas::Kind;
+use peta_atlas::plain::{self, Kind};
 
 pub use peta_atlas::marks::{
     callout_face_svg, group_color, link_blob_svg, tag_blob_svg, tag_icon_svg,
 };
 pub use peta_atlas::{
     card_label as link_label, link_target, Bounds, AUTO_WIDTH, BOUNDS_KEY, CARD_HEIGHT,
-    MIN_CARD_SCALE, PAGE_KEY, SIDES as TITLE_SIDES, SIDE_KEY, TYPE_KEY,
+    MIN_CARD_SCALE, SIDES as TITLE_SIDES, SIDE_KEY, TYPE_KEY,
 };
+use peta_atlas::{link_body, side_or_default, CALLOUT_TYPE};
 
 /// The width of a card in the list of unplaced cards, which a drop from the list reads.
 pub const CARD_WIDTH: f64 = 120.0;
 
-type Entry<'a> = peta_atlas::Entry<'a, Item>;
+type Entry<'a> = plain::Entry<'a, Item>;
 
-/// The items of the shown atlas page that are of a kind, in their order; none on any other
-/// page. A card at level 2 belongs to the group above it.
+/// The items of the shown atlas page that the canvas can show, in their order; none on any
+/// other page. A card below level 1 belongs to the group above it.
 fn entries(model: &Model) -> Vec<Entry<'_>> {
     let Some(atlas) = shown_atlas_page(model) else {
         return Vec::new();
     };
-    peta_atlas::entries(
+    plain::entries(
         model
             .state
             .items()
@@ -52,29 +61,74 @@ fn bounds_of(item: &Item) -> Option<Bounds> {
     item.prop_str(BOUNDS_KEY).and_then(Bounds::parse)
 }
 
-/// The item of a card: of a page card by the id of its page, of a link card by its own id.
-fn card_item(model: &Model, card_id: &str) -> Option<Item> {
+/// A card of the shown atlas page.
+struct Card<'a> {
+    item: &'a Item,
+    /// The group item the card is under
+    group: Option<&'a Item>,
+    /// The page of the directory the card stands for; none for a link card
+    page_id: Option<&'a str>,
+}
+
+impl Card<'_> {
+    /// The name the shell calls the card by: the id of its page, or of the item of a link card.
+    fn id(&self) -> &str {
+        self.page_id.unwrap_or(&self.item.id)
+    }
+}
+
+/// The page of the directory of the shown atlas that a link names by its path.
+fn page_of<'a>(model: &'a Model, target: &str) -> Option<&'a Page> {
+    let target = target.strip_suffix(".md").unwrap_or(target);
+    model
+        .sidebar
+        .index_pages
+        .iter()
+        .find(|p| format!("{}{}", p.dir_path, p.name) == target)
+}
+
+/// The cards of the shown atlas page, in the order of its items. The first card that links
+/// to a page of the directory stands for that page. Any other card is a link card: one that
+/// links out of the directory, to no page, or to a page that has a card already.
+fn card_entries(model: &Model) -> Vec<Card<'_>> {
+    let mut taken: Vec<&str> = Vec::new();
     entries(model)
         .into_iter()
-        .find(|e| match &e.kind {
-            Kind::Page(page_id) => page_id == card_id,
-            Kind::Link => e.item.id == card_id,
-            _ => false,
+        .filter(|e| e.kind == Kind::Card)
+        .map(|e| {
+            let page_id = plain::card_link(&e.item.body)
+                .and_then(|link| page_of(model, link.target))
+                .map(|page| page.id.as_str())
+                .filter(|id| !taken.contains(id));
+            taken.extend(page_id);
+            Card {
+                item: e.item,
+                group: e.group,
+                page_id,
+            }
         })
-        .map(|e| e.item.clone())
+        .collect()
+}
+
+/// The item of a card: of a page card by the id of its page, of a link card by its own id.
+fn card_item(model: &Model, card_id: &str) -> Option<Item> {
+    card_entries(model)
+        .into_iter()
+        .find(|card| card.id() == card_id)
+        .map(|card| card.item.clone())
 }
 
 /// Places a card with its center at the given point of the canvas. A card is named by its
 /// page, or a link card by its item. The shell knows where the card was grabbed, so it gives
 /// the center rather than the drop point. The card moves at once; a refusal of the server
-/// puts it back.
+/// puts it back. A page of the directory that has no card yet gets one there.
 pub fn place_card(model: &mut Model, card_id: String, x: f64, y: f64) -> Cmd {
-    let Some(item) = card_item(model, &card_id) else {
-        return done();
-    };
     if !x.is_finite() || !y.is_finite() {
         return done();
     }
+    let Some(item) = card_item(model, &card_id) else {
+        return add_page_card(model, &card_id, x, y);
+    };
     // A card keeps its size when it moves; whole pixels keep the stored value short
     let (width, height) = bounds_of(&item)
         .map(|b| (b.width, b.height))
@@ -86,6 +140,38 @@ pub fn place_card(model: &mut Model, card_id: String, x: f64, y: f64) -> Cmd {
         height,
     };
     save_bounds(model, &item, bounds)
+}
+
+/// Gives a page of the directory that no card links to a card with its center at the point:
+/// an item that links to the page. The card shows once the server has made the item.
+fn add_page_card(model: &Model, page_id: &str, x: f64, y: f64) -> Cmd {
+    let Some(page) = model.sidebar.index_pages.iter().find(|p| p.id == page_id) else {
+        return done();
+    };
+    // The path of a folder is the path of its index page, as the server once wrote it
+    let path = format!("{}{}", page.dir_path, page.name);
+    add_card(model, &path, x, y)
+}
+
+/// Makes an item that links to `target`, placed with its center at the point, at the end of
+/// the outline.
+fn add_card(model: &Model, target: &str, x: f64, y: f64) -> Cmd {
+    let bounds = Bounds {
+        x: x.round(),
+        y: y.round(),
+        width: AUTO_WIDTH,
+        height: CARD_HEIGHT,
+    };
+    let body = link_body(target);
+    change_with_new_item(model, move |atlas_id, id| {
+        vec![new_item(
+            atlas_id,
+            id,
+            ItemPosition::Last,
+            body,
+            &[(BOUNDS_KEY, bounds.to_string())],
+        )]
+    })
 }
 
 /// Places a card dropped from the list of unplaced cards. The card is placed by its center,
@@ -176,19 +262,172 @@ pub fn remove_card(model: &mut Model, page_id: String) -> Cmd {
     })
 }
 
-/// Sends a change of the outline to the server and shows the items it answers with. A card
-/// keeps the place shown for it. A change of the outline leaves the places as they are, and
-/// a card placed and grouped at once may be grouped before its place is saved.
-fn change(model: &Model, change: AtlasChange) -> Cmd {
+/// Sends a change of the outline of the shown atlas page as one batch and shows the outline
+/// as the server has it then. A change that writes nothing sends nothing.
+fn change(model: &Model, ops: Vec<BatchOpInput>) -> Cmd {
+    let Some(atlas_id) = shown_atlas_page(model).map(|p| p.id.clone()) else {
+        return done();
+    };
+    if ops.is_empty() {
+        return done();
+    }
+    run(move |api| async move { send(&api, atlas_id, ops).await })
+}
+
+/// Sends a change of the outline that makes an item. `make` takes the id of the atlas page
+/// and the id of the new item. The id is made here, so the operations that follow in the same
+/// batch can name the item.
+fn change_with_new_item(
+    model: &Model,
+    make: impl FnOnce(String, String) -> Vec<BatchOpInput> + Send + 'static,
+) -> Cmd {
     let Some(atlas_id) = shown_atlas_page(model).map(|p| p.id.clone()) else {
         return done();
     };
     run(move |api| async move {
-        match api.change_atlas(&atlas_id, change).await {
-            Ok(items) => api.send_event(Event::AtlasChanged { atlas_id, items }),
-            Err(e) => api.alert(e.0),
-        }
+        let (_, now_ms) = api.local_now().await;
+        // A generator of its own: the one of the model cannot be reached from here, and an
+        // id is unique by its random part
+        let id = hmtid::Generator::for_pages_and_items().generate_at(now_ms);
+        let ops = make(atlas_id.clone(), id.as_str().to_string());
+        send(&api, atlas_id, ops).await
     })
+}
+
+/// Sends the batch, reads the outline again and shows it. A card keeps the place shown for
+/// it: a card placed and grouped at once may be read before its place is saved.
+async fn send(api: &Api<Event>, atlas_id: String, ops: Vec<BatchOpInput>) {
+    match written(api, &atlas_id, ops).await {
+        Ok(items) => api.send_event(Event::AtlasChanged { atlas_id, items }),
+        Err(e) => api.alert(e.0),
+    }
+}
+
+/// Writes the batch and answers with the items of the atlas page as they are then.
+async fn written(api: &Api<Event>, atlas_id: &str, ops: Vec<BatchOpInput>) -> ApiResult<Vec<Item>> {
+    api.apply_batch(ops).await?;
+    Ok(api.get_page_by_id(atlas_id).await?.items)
+}
+
+/// The operation that makes an item of level 1 on the atlas page.
+fn new_item(
+    atlas_id: String,
+    id: String,
+    position: ItemPosition,
+    body: String,
+    properties: &[(&str, String)],
+) -> BatchOpInput {
+    BatchOpInput::Create {
+        id,
+        page_id: atlas_id,
+        position,
+        level: 1,
+        body,
+        transclude_item_id: None,
+        properties: properties
+            .iter()
+            .map(|(key, value)| (key.to_string(), PropertyValue::Text(value.clone())))
+            .collect(),
+    }
+}
+
+/// The operation that writes the body and the side of an item, each when it is given; none
+/// when neither is.
+fn rewritten(item_id: &str, body: Option<String>, side: Option<String>) -> Option<BatchOpInput> {
+    (body.is_some() || side.is_some()).then(|| BatchOpInput::Update {
+        id: item_id.to_string(),
+        body,
+        level: None,
+        collapsed: None,
+        task: None,
+        properties: side
+            .map(|side| (SIDE_KEY.to_string(), PropertyValue::Text(side)))
+            .into_iter()
+            .collect(),
+        dropped_properties: Vec::new(),
+    })
+}
+
+/// The item an item is under: the nearest item above it with a lower level.
+fn parent_of<'a>(model: &'a Model, item: &Item) -> Option<&'a Item> {
+    let items = model.state.items();
+    let at = items.iter().position(|i| i.id == item.id)?;
+    items[..at]
+        .iter()
+        .rev()
+        .take_while(|above| above.page_id == item.page_id)
+        .find(|above| above.level < item.level)
+        .map(|above| &**above)
+}
+
+/// The operation that takes the side away from `parent` when no item stays under it while
+/// the items `leaving` go: it is no parent then, and has no title to lay along a side. None
+/// for an item that keeps an item under it, for one without a side, and for a callout, whose
+/// side is of its own bubble.
+fn side_dropped(model: &Model, parent: &Item, leaving: &[&Item]) -> Option<BatchOpInput> {
+    let emptied = last_staying(model, parent, leaving).id == parent.id;
+    let has_side = parent.prop_str(SIDE_KEY).is_some();
+    let is_callout = parent.prop_str(TYPE_KEY) == Some(CALLOUT_TYPE);
+    (emptied && has_side && !is_callout).then(|| BatchOpInput::Update {
+        id: parent.id.clone(),
+        body: None,
+        level: None,
+        collapsed: None,
+        task: None,
+        properties: Default::default(),
+        dropped_properties: vec![SIDE_KEY.to_string()],
+    })
+}
+
+/// Deletes an item of the shown atlas page. The item it was under loses its side in the same
+/// batch when nothing else is under it.
+fn delete(model: &Model, item_id: String) -> Cmd {
+    let Some(item) = model.state.get_item_by_id(&item_id) else {
+        return done();
+    };
+    let side = parent_of(model, &item).and_then(|parent| side_dropped(model, parent, &[&*item]));
+    let ops = std::iter::once(BatchOpInput::Delete { id: item_id })
+        .chain(side)
+        .collect();
+    change(model, ops)
+}
+
+/// The operations that take items behind the item `after` at a level, in their order. The
+/// level is written first: the server checks the levels of the items it moves.
+fn taken_behind(atlas_id: &str, items: &[&Item], after: &str, level: i32) -> Vec<BatchOpInput> {
+    let mut ops: Vec<BatchOpInput> = items
+        .iter()
+        .map(|item| BatchOpInput::Update {
+            id: item.id.clone(),
+            body: None,
+            level: Some(level),
+            collapsed: None,
+            task: None,
+            properties: Default::default(),
+            dropped_properties: Vec::new(),
+        })
+        .collect();
+    ops.push(BatchOpInput::Move {
+        ids: items.iter().map(|item| item.id.clone()).collect(),
+        page_id: atlas_id.to_string(),
+        position: ItemPosition::after(after),
+    });
+    ops
+}
+
+/// The last item of the tree of `parent` that stays where it is while the items `leaving`
+/// move: the parent itself when every item under it leaves.
+fn last_staying<'a>(model: &'a Model, parent: &'a Item, leaving: &[&Item]) -> &'a Item {
+    let items = model.state.items();
+    let start = items.iter().position(|item| item.id == parent.id);
+    let under = items
+        .iter()
+        .skip(start.map_or(items.len(), |at| at + 1))
+        .take_while(|item| item.page_id == parent.page_id && item.level > parent.level);
+    under
+        .filter(|item| !leaving.iter().any(|l| l.id == item.id))
+        .last()
+        .map_or(parent, |item| &**item)
 }
 
 /// The server changed the outline of an atlas page: its items are shown. A card keeps the
@@ -204,38 +443,103 @@ pub fn show_changed(model: &mut Model, atlas_id: &str, mut items: Vec<Item>) -> 
     done()
 }
 
-/// Cards dropped on another card join its group. The target's group takes them, or a new
-/// group is made for them and the target. A card belongs to one group only, so the cards
-/// leave the groups they were in. A group left with one card is no group, and goes.
+/// Cards dropped on another card join its group: they go to the end of the group, under its
+/// item. When the target is in no group, a new item with an empty body is made where the
+/// target lies, and the target and the cards go under it. A card belongs to one group only,
+/// so the cards leave the groups they were in. The item of a group they leave stays, even
+/// with one card or none under it (ADR 053).
 pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) -> Cmd {
-    let cards: Vec<String> = card_ids.into_iter().filter(|id| *id != target_id).collect();
-    if cards.is_empty() || card_item(model, &target_id).is_none() {
+    let cards = card_entries(model);
+    let Some(target) = cards.iter().find(|card| card.id() == target_id) else {
+        return done();
+    };
+    let in_group_of_target = |card: &Card| {
+        target.group.is_some() && card.group.map(|g| &g.id) == target.group.map(|g| &g.id)
+    };
+    let joining: Vec<&Card> = cards
+        .iter()
+        .filter(|card| card.id() != target_id && card_ids.iter().any(|id| id == card.id()))
+        .filter(|card| !in_group_of_target(card))
+        .collect();
+    if joining.is_empty() {
         return done();
     }
-    change(
-        model,
-        AtlasChange::Group {
-            cards,
-            target: target_id,
-        },
-    )
+    let left = sides_dropped(model, &joining);
+    let joining: Vec<&Item> = joining.iter().map(|card| card.item).collect();
+    match target.group {
+        Some(group) => {
+            let last = last_staying(model, group, &joining);
+            let mut ops = taken_behind(&group.page_id, &joining, &last.id, group.level + 1);
+            ops.extend(left);
+            change(model, ops)
+        }
+        None => {
+            let target = target.item.clone();
+            let joining: Vec<Item> = joining.into_iter().cloned().collect();
+            change_with_new_item(model, move |atlas_id, group_id| {
+                let members: Vec<&Item> = std::iter::once(&target).chain(&joining).collect();
+                let mut ops = vec![new_item(
+                    atlas_id.clone(),
+                    group_id.clone(),
+                    ItemPosition::after(&target.id),
+                    String::new(),
+                    &[],
+                )];
+                ops.extend(taken_behind(&atlas_id, &members, &group_id, 2));
+                ops.extend(left);
+                ops
+            })
+        }
+    }
+}
+
+/// The groups the cards are in, each once, in the order of the cards.
+fn groups_of<'a>(cards: &[&Card<'a>]) -> Vec<&'a Item> {
+    let mut groups: Vec<&Item> = Vec::new();
+    for group in cards.iter().filter_map(|card| card.group) {
+        if !groups.iter().any(|g| g.id == group.id) {
+            groups.push(group);
+        }
+    }
+    groups
+}
+
+/// The operations that take the side away from each group that the cards leave with no item
+/// under it.
+fn sides_dropped(model: &Model, leaving: &[&Card]) -> Vec<BatchOpInput> {
+    let items: Vec<&Item> = leaving.iter().map(|card| card.item).collect();
+    groups_of(leaving)
+        .into_iter()
+        .filter_map(|group| side_dropped(model, group, &items))
+        .collect()
 }
 
 /// Cards taken out of their groups, as when they are dragged out of the outline of their
-/// group with Ctrl held. A group left with one card is no group, and goes.
+/// group with Ctrl held. A card goes behind the tree of its group, at the level of the group
+/// item. The item of the group stays, even with one card or none under it (ADR 053). With
+/// none, it loses its side.
 pub fn ungroup_cards(model: &mut Model, card_ids: Vec<String>) -> Cmd {
-    let grouped = entries(model).iter().any(|e| {
-        e.group.is_some()
-            && match &e.kind {
-                Kind::Page(page_id) => card_ids.contains(page_id),
-                Kind::Link => card_ids.contains(&e.item.id),
-                _ => false,
-            }
-    });
-    if !grouped {
-        return done();
-    }
-    change(model, AtlasChange::Ungroup { cards: card_ids })
+    let cards = card_entries(model);
+    let leaving: Vec<&Card> = cards
+        .iter()
+        .filter(|card| card.group.is_some() && card_ids.iter().any(|id| id == card.id()))
+        .collect();
+    let all: Vec<&Item> = leaving.iter().map(|card| card.item).collect();
+    let ops: Vec<BatchOpInput> = groups_of(&leaving)
+        .into_iter()
+        .flat_map(|group| {
+            let of_group: Vec<&Item> = leaving
+                .iter()
+                .filter(|card| card.group.is_some_and(|g| g.id == group.id))
+                .map(|card| card.item)
+                .collect();
+            let last = last_staying(model, group, &all);
+            let mut ops = taken_behind(&group.page_id, &of_group, &last.id, group.level);
+            ops.extend(side_dropped(model, group, &all));
+            ops
+        })
+        .collect();
+    change(model, ops)
 }
 
 /// The title of a group and the side of its outline it lies along.
@@ -252,14 +556,15 @@ fn side_of(item: &Item) -> String {
 
 /// The title of a group item; none while its body is empty.
 fn group_title(group: &Item) -> Option<GroupTitle> {
-    peta_atlas::group_title(group).map(|text| GroupTitle {
+    plain::group_title(group).map(|text| GroupTitle {
         side: side_of(group),
-        text: text.to_string(),
+        text,
     })
 }
 
 /// Gives a group of the shown atlas page a title along a side of its outline. An empty title
-/// takes the title away.
+/// takes the title away. The title is the body of the item of the group, and the side a
+/// property of it.
 pub fn set_group_title(model: &mut Model, group_id: String, side: String, title: String) -> Cmd {
     let Some(group) = entries(model)
         .into_iter()
@@ -268,23 +573,20 @@ pub fn set_group_title(model: &mut Model, group_id: String, side: String, title:
     else {
         return done();
     };
-    let side = peta_atlas::side_or_default(&side).to_string();
+    let side = side_or_default(&side).to_string();
     let title = title.trim().to_string();
-    if group.body.trim() == title && side_of(&group) == side {
-        return done();
-    }
+    // The title shown, and not the body: a body that is a link shows its label as the title
+    let shown = plain::group_title(&group).unwrap_or_default();
+    let body = (shown != title).then_some(title);
+    let side = (side_of(&group) != side).then_some(side);
     change(
         model,
-        AtlasChange::SetGroupTitle {
-            item_id: group_id,
-            side,
-            title,
-        },
+        rewritten(&group_id, body, side).into_iter().collect(),
     )
 }
 
 /// A callout on the canvas of an atlas page: a character at a point, with a speech bubble on
-/// one side of it. An item under the parent of the callouts, its text the body.
+/// one side of it. An item whose `atlas_type` is `callout`, its text the body.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Callout {
@@ -361,40 +663,43 @@ pub fn scale_callout(model: &mut Model, key: String, scale: f64) -> Cmd {
 }
 
 /// Puts a new callout on the shown atlas page with the center of its character at the
-/// point. An empty text puts nothing.
+/// point: an item of level 1 at the end of the outline. An empty text puts nothing.
 pub fn add_callout(model: &mut Model, x: f64, y: f64, side: String, text: String) -> Cmd {
     let text = text.trim().to_string();
     if text.is_empty() || !x.is_finite() || !y.is_finite() {
         return done();
     }
-    change(
-        model,
-        AtlasChange::AddCallout {
-            bounds: callout_bounds(x, y, 1.0).to_string(),
-            side,
+    let bounds = callout_bounds(x, y, 1.0).to_string();
+    let side = side_or_default(&side).to_string();
+    change_with_new_item(model, move |atlas_id, id| {
+        vec![new_item(
+            atlas_id,
+            id,
+            ItemPosition::Last,
             text,
-        },
-    )
+            &[
+                (TYPE_KEY, CALLOUT_TYPE.to_string()),
+                (BOUNDS_KEY, bounds),
+                (SIDE_KEY, side),
+            ],
+        )]
+    })
 }
 
 /// Changes the text and the side of a callout of the shown atlas page. It keeps its place and
-/// its scale. An empty text takes the callout away.
+/// its scale. An empty text takes the callout away: its item is deleted.
 pub fn set_callout(model: &mut Model, key: String, side: String, text: String) -> Cmd {
     let Some((_, callout)) = callout_item(model, &key) else {
         return done();
     };
     let text = text.trim().to_string();
-    if callout.text == text && callout.side == side {
-        return done();
+    if text.is_empty() {
+        return delete(model, key);
     }
-    change(
-        model,
-        AtlasChange::SetCallout {
-            item_id: key,
-            side,
-            text,
-        },
-    )
+    let side = side_or_default(&side).to_string();
+    let body = (callout.text != text).then_some(text);
+    let side = (callout.side != side).then_some(side);
+    change(model, rewritten(&key, body, side).into_iter().collect())
 }
 
 /// The tags the icon of a card is drawn from. A tag page stands for its tag, and so does a
@@ -423,9 +728,8 @@ pub fn icon_tags(page: &Page, tags_dir: &str) -> Vec<String> {
     }
 }
 
-/// Takes the items of the shown atlas page from the server again, after the server or a file
-/// changed them. The server writes the outline of an atlas page by itself, as when a page of
-/// its directory is made, so the reload is needed even while no items are shown.
+/// Takes the items of the shown atlas page from the server again, after a file or another
+/// client changed them. The reload is needed even while no items are shown.
 pub fn reload_atlas(model: &Model, page_id: &str) -> Cmd {
     if shown_atlas_page(model).is_none_or(|p| p.id != page_id) {
         return done();
@@ -433,8 +737,8 @@ pub fn reload_atlas(model: &Model, page_id: &str) -> Cmd {
     file_reload::read_again(model, page_id)
 }
 
-/// A link card: an item of the atlas page whose body is a wiki link to `target`, placed by
-/// its own `atlas_bounds`.
+/// A link card: an item of the atlas page whose body is a wiki link to `target`, which is no
+/// page of the directory, placed by its own `atlas_bounds`.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct LinkCard {
@@ -450,19 +754,16 @@ pub struct LinkCard {
 /// The link cards of the shown atlas page, in the order of its items. A link card without a
 /// place is left out.
 pub fn link_cards(model: &Model) -> Vec<LinkCard> {
-    entries(model)
+    card_entries(model)
         .into_iter()
-        .filter_map(|e| {
-            if e.kind != Kind::Link {
-                return None;
-            }
-            let target = link_target(&e.item.body)?.to_string();
+        .filter(|card| card.page_id.is_none())
+        .filter_map(|card| {
             Some(LinkCard {
-                item_id: e.item.id.clone(),
-                target,
-                bounds: bounds_of(e.item)?,
-                group: e.group.map(|g| g.id.clone()),
-                group_title: e.group.and_then(group_title),
+                item_id: card.item.id.clone(),
+                target: plain::card_link(&card.item.body)?.target.to_string(),
+                bounds: bounds_of(card.item)?,
+                group: card.group.map(|g| g.id.clone()),
+                group_title: card.group.and_then(group_title),
             })
         })
         .collect()
@@ -482,7 +783,7 @@ fn typed_link_target(target: &str) -> Option<String> {
 }
 
 /// Adds a link card to the shown atlas page with its center at the point. The card shows once
-/// the server has written it into the outline.
+/// the server has made its item.
 pub fn add_link(model: &mut Model, x: f64, y: f64, target: String) -> Cmd {
     let Some(target) = typed_link_target(&target) else {
         return done();
@@ -490,23 +791,11 @@ pub fn add_link(model: &mut Model, x: f64, y: f64, target: String) -> Cmd {
     if !x.is_finite() || !y.is_finite() {
         return done();
     }
-    let bounds = Bounds {
-        x: x.round(),
-        y: y.round(),
-        width: AUTO_WIDTH,
-        height: CARD_HEIGHT,
-    };
-    change(
-        model,
-        AtlasChange::AddLink {
-            target,
-            bounds: bounds.to_string(),
-        },
-    )
+    add_card(model, &target, x, y)
 }
 
 /// Links a link card to another page. An empty target changes nothing, as "Remove Link" takes
-/// a card away.
+/// a card away. The card keeps the label of its link and the lines after the first.
 pub fn set_link(model: &mut Model, item_id: String, target: String) -> Cmd {
     let Some(card) = link_cards(model).into_iter().find(|c| c.item_id == item_id) else {
         return done();
@@ -514,18 +803,26 @@ pub fn set_link(model: &mut Model, item_id: String, target: String) -> Cmd {
     let Some(target) = typed_link_target(&target) else {
         return done();
     };
-    if target == card.target {
+    let Some(item) = model
+        .state
+        .get_item_by_id(&item_id)
+        .filter(|_| target != card.target)
+    else {
         return done();
-    }
-    change(model, AtlasChange::SetLink { item_id, target })
+    };
+    let body = plain::relinked(&item.body, &target);
+    change(
+        model,
+        rewritten(&item_id, Some(body), None).into_iter().collect(),
+    )
 }
 
-/// Takes a link card off the atlas: the server deletes its item, and with it the link.
+/// Takes a link card off the atlas: its item is deleted, and with it the link.
 pub fn remove_link(model: &mut Model, item_id: String) -> Cmd {
     if !link_cards(model).iter().any(|c| c.item_id == item_id) {
         return done();
     }
-    change(model, AtlasChange::Remove { item_id })
+    delete(model, item_id)
 }
 
 /// How long typing in the dialog of a link may pause before the page names are searched.
@@ -570,29 +867,39 @@ pub fn show_link_suggestions(model: &mut Model, timer_id: u64, titles: Vec<Strin
     done()
 }
 
-/// The cards of the pages of the shown atlas page, in the order of the sidebar's index list,
-/// each with its place, the id of its group and the title of that group. Their item on the
-/// atlas page holds the place and the group.
-#[allow(clippy::type_complexity)]
-pub fn cards(model: &Model) -> Vec<(Page, Option<Bounds>, Option<String>, Option<GroupTitle>)> {
+/// The card of a page of the directory of the shown atlas page.
+pub struct PageCard {
+    pub page: Page,
+    /// The label of the link of the card; none for a link without one, or a page with no card
+    pub label: Option<String>,
+    pub bounds: Option<Bounds>,
+    /// The id of the group item the card is under
+    pub group: Option<String>,
+    pub group_title: Option<GroupTitle>,
+}
+
+/// The cards of the pages of the shown atlas page, in the order of the sidebar's index list.
+/// The item on the atlas page that links to the page holds the label, the place and the
+/// group. A page that no item links to has none of them: it waits in the list of unplaced
+/// cards until it is dropped on the canvas.
+pub fn cards(model: &Model) -> Vec<PageCard> {
     if shown_atlas_page(model).is_none() {
         return Vec::new();
     }
-    let entries = entries(model);
+    let cards = card_entries(model);
     sidebar::sorted_index_pages(&model.sidebar.index_pages, sidebar::index_sort(model))
         .into_iter()
-        .map(|p| {
-            let entry = entries
-                .iter()
-                .find(|e| matches!(&e.kind, Kind::Page(id) if *id == p.id));
-            let bounds = entry.and_then(|e| bounds_of(e.item));
-            let group = entry.and_then(|e| e.group);
-            (
-                p,
-                bounds,
-                group.map(|g| g.id.clone()),
-                group.and_then(group_title),
-            )
+        .map(|page| {
+            let card = cards.iter().find(|c| c.page_id == Some(page.id.as_str()));
+            let link = card.and_then(|c| plain::card_link(&c.item.body));
+            let group = card.and_then(|c| c.group);
+            PageCard {
+                label: link.and_then(|l| l.label).map(str::to_string),
+                bounds: card.and_then(|c| bounds_of(c.item)),
+                group: group.map(|g| g.id.clone()),
+                group_title: group.and_then(group_title),
+                page,
+            }
         })
         .collect()
 }

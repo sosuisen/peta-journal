@@ -1037,6 +1037,10 @@ describe('the keys of the editor', () => {
   // コアがキーを預かっている間は、キーをコアに預ける。CtrlとCommandのキーは、預けない。
   test('while the core holds keys, a key is held by it, but not a Ctrl or a Command key', () => {
     const { wasm, editor } = editing(true);
+    wasm.push(
+      [],
+      [{ kind: 'Outline', value: outline({ key_relay_holding: true }) }],
+    );
 
     const dropped = !fireEvent.keyDown(editor, { key: 'x', code: 'KeyX' });
     fireEvent.keyDown(editor, { key: 'z', ctrlKey: true });
@@ -1059,6 +1063,21 @@ describe('the keys of the editor', () => {
     expect(wasm.presses).toHaveLength(2);
   });
 
+  // コアがもう預かっていなければ、描き直す前でも、キーはコアに預けない。預かっていないコアは、キーを捨てるためである。
+  test('a key is not held by the core that no longer holds keys, before the editor is drawn again', () => {
+    const { wasm, editor } = editing(true);
+    wasm.push(
+      [],
+      [{ kind: 'Outline', value: outline({ key_relay_holding: false }) }],
+    );
+
+    const dropped = !fireEvent.keyDown(editor, { key: 'Enter' });
+
+    expect(dropped).toBe(true);
+    expect(wasm.events).toEqual([]);
+    expect(wasm.presses).toHaveLength(1);
+  });
+
   // 次の編集欄がフォーカスを待つ間のキーは、その編集欄のために取っておく。
   test('a key pressed while the next editor waits for its focus is kept for it', () => {
     vi.useFakeTimers();
@@ -1072,6 +1091,21 @@ describe('the keys of the editor', () => {
 
     expect(dropped).toBe(true);
     expect(wasm.presses).toEqual([]);
+  });
+
+  // コアが預かっていても、次の編集欄がフォーカスを待つ間のキーは、その編集欄のために取っておく。コアに預けると、答えのあとの注文で、再生するキーを追い越すためである。
+  test('a key pressed while the next editor waits for its focus is kept for it, though the core holds keys', () => {
+    vi.useFakeTimers();
+    const { wasm, editor } = editing(true);
+    act(() =>
+      wasm.ask(1, { kind: 'FocusEditor', item_id: 'b', replay_keys: [] }),
+    );
+
+    const dropped = !fireEvent.keyDown(editor, { key: 'x' });
+    vi.useRealTimers();
+
+    expect(dropped).toBe(true);
+    expect(wasm.events).toEqual([]);
   });
 });
 

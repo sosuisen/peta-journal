@@ -33,15 +33,6 @@ const TABLE: &[(Route, Mcp)] = &[
     (routes::OPEN_EXPORT_FOLDER, OnlyForScreens),
     (routes::UPSERT_PAGE_PROPERTY, Tool("upsert_page_property")),
     (routes::DELETE_PAGE_PROPERTY, Tool("delete_page_property")),
-    // atlas pages
-    (routes::ADD_ATLAS_LINK, Tool("add_atlas_link")),
-    (routes::SET_ATLAS_LINK, Tool("set_atlas_link")),
-    (routes::GROUP_ATLAS_CARDS, Tool("group_atlas_cards")),
-    (routes::UNGROUP_ATLAS_CARDS, Tool("ungroup_atlas_cards")),
-    (routes::SET_ATLAS_GROUP_TITLE, Tool("set_atlas_group_title")),
-    (routes::ADD_ATLAS_CALLOUT, Tool("add_atlas_callout")),
-    (routes::SET_ATLAS_CALLOUT, Tool("set_atlas_callout")),
-    (routes::REMOVE_ATLAS_ITEM, Tool("remove_atlas_item")),
     // items
     (routes::CREATE_ITEM, Tool("create_item")),
     (routes::ITEMS_BY_TYPES, Tool("get_items_by_type")),

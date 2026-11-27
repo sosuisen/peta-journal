@@ -12,7 +12,7 @@ pub use events::EventQueue;
 use std::path::Path;
 use std::sync::Arc;
 
-use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, AtlasChange};
+use client_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult};
 use client_core::rest::{rest_call, ClientId, HttpReply};
 use journal_core::application::confirm_service::ConfirmService;
 use journal_core::domain::client_id::ClientId as JournalClientId;
@@ -188,34 +188,6 @@ impl EmbeddedJournal {
             ApiOp::RemoveTransclusion { item_id } => {
                 json_of(journal.remove_transclusion(&item_id, by)?)
             }
-
-            // ---- atlas ----
-            ApiOp::ChangeAtlas { atlas_id, change } => match change {
-                AtlasChange::AddLink { .. } => {
-                    json_of(journal.add_atlas_link(&atlas_id, input(body)?)?)
-                }
-                AtlasChange::SetLink { item_id, .. } => {
-                    json_of(journal.set_atlas_link(&atlas_id, &item_id, input(body)?)?)
-                }
-                AtlasChange::Group { .. } => {
-                    json_of(journal.group_atlas_cards(&atlas_id, input(body)?)?)
-                }
-                AtlasChange::Ungroup { .. } => {
-                    json_of(journal.ungroup_atlas_cards(&atlas_id, input(body)?)?)
-                }
-                AtlasChange::SetGroupTitle { item_id, .. } => {
-                    json_of(journal.set_atlas_group_title(&atlas_id, &item_id, input(body)?)?)
-                }
-                AtlasChange::AddCallout { .. } => {
-                    json_of(journal.add_atlas_callout(&atlas_id, input(body)?)?)
-                }
-                AtlasChange::SetCallout { item_id, .. } => {
-                    json_of(journal.set_atlas_callout(&atlas_id, &item_id, input(body)?)?)
-                }
-                AtlasChange::Remove { item_id } => {
-                    json_of(journal.remove_atlas_item(&atlas_id, &item_id)?)
-                }
-            },
 
             // ---- search ----
             ApiOp::SearchCombined { query, max_results } => {
