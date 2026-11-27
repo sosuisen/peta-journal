@@ -295,8 +295,8 @@ pub struct SidebarPage {
     pub path: String,
 }
 
-/// A page or folder of the directory of an atlas page. A card without bounds waits in the
-/// list of unplaced cards.
+/// A page or folder of the directory of an atlas page. A card without bounds is not drawn:
+/// what waits beside the canvas is in [`UnplacedCard`].
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct AtlasCard {
@@ -316,6 +316,23 @@ pub struct AtlasCard {
     /// The whole body of the item of the card, which the menu of the card shows; empty for a
     /// card without an item.
     pub text: String,
+}
+
+/// What waits beside the canvas of an atlas page to be dropped on it (ADR 053): a page of the
+/// directory that no card links to, or an item of the atlas page without a place.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct UnplacedCard {
+    /// What a drop names it by: the id of the page, for a page and for its card, or else the
+    /// id of the item.
+    pub id: String,
+    pub label: String,
+    /// The path a click opens; none for what opens nothing.
+    pub path: Option<String>,
+    pub is_dir: bool,
+    /// False for a page not added, which gets its item when it is dropped. True for an item
+    /// without a place.
+    pub added: bool,
 }
 
 /// Whether a list of the sidebar is loading, loaded or failed (ADR 085). A list that is
@@ -449,6 +466,9 @@ pub struct ViewModel<B> {
     pub atlas_callouts: Vec<atlas::Callout>,
     /// The link cards of the atlas page on screen; empty on any other screen.
     pub atlas_links: Vec<atlas::LinkCard>,
+    /// What waits beside the canvas of the atlas page on screen: the pages not added, then
+    /// the items without a place. Empty on any other screen.
+    pub atlas_unplaced: Vec<UnplacedCard>,
     /// The page names offered in the dialog of a link.
     pub atlas_link_suggestions: Vec<String>,
     pub outline: OutlineView<B>,
@@ -483,7 +503,7 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
                 AtlasCard {
                     page_id: p.id.clone(),
                     label: label.unwrap_or_else(|| sidebar::index_page_name(&p)),
-                    path: atlas::opened_path(&p),
+                    path: atlas::opened_path(model, &p),
                     is_dir: sidebar::is_directory(&p),
                     bounds,
                     icon_tags: atlas::icon_tags(&p, &model.config.tags_dir),
@@ -495,6 +515,7 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
             .collect(),
         atlas_callouts: atlas::shown_callouts(model),
         atlas_links: atlas::link_cards(model),
+        atlas_unplaced: atlas::unplaced(model),
         atlas_link_suggestions: model.atlas_link_search.suggestions.clone(),
         outline: outline(model, bodies),
         index_pages: index_pages(model),

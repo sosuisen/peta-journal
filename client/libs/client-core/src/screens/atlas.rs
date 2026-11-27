@@ -5,8 +5,9 @@
 //! is one wiki link stands for the page of the directory that the link names, or else it is a
 //! link card; any other is a plain card, which shows its first line. A card lies where the `atlas_bounds`
 //! property of its item says, in coordinates whose origin is the center of the canvas. A card
-//! without the property waits in the list of unplaced cards, and so does a page of the
-//! directory that no card links to.
+//! or a callout without the property waits beside the canvas among the items without a place.
+//! A page of the directory that no card links to waits there too, among the pages not added:
+//! dropped on the canvas, it gets an item that links to it.
 //! A group is an item with items under it, at any depth, and a card is in every group above
 //! it; a callout is an item whose `atlas_type` is `callout`. A group that is a page card or a
 //! callout is drawn as one along its outline.
@@ -26,6 +27,7 @@ use crate::ops::file_reload;
 use crate::rich_text::{RichBlock, RichRun, RichText};
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
 use crate::screens::sidebar;
+use crate::view::UnplacedCard;
 use crate::BodyModel;
 use crux_core::Command;
 use peta_atlas::plain::{self, Kind};
@@ -83,14 +85,23 @@ impl Card<'_> {
     }
 }
 
+/// The pages of the directory of the shown atlas: the index page of the directory itself,
+/// once it is known, and the pages of the list of the directory.
+fn dir_pages(model: &Model) -> impl Iterator<Item = &Page> {
+    let sidebar = &model.sidebar;
+    sidebar.index_page.iter().chain(&sidebar.index_pages)
+}
+
 /// The page of the directory of the shown atlas that a link names by its path.
 fn page_of<'a>(model: &'a Model, target: &str) -> Option<&'a Page> {
     let target = target.strip_suffix(".md").unwrap_or(target);
-    model
-        .sidebar
-        .index_pages
-        .iter()
-        .find(|p| format!("{}{}", p.dir_path, p.name) == target)
+    dir_pages(model).find(|p| format!("{}{}", p.dir_path, p.name) == target)
+}
+
+/// Whether a page is the index page of the directory of the shown atlas itself.
+fn is_own_index(model: &Model, page: &Page) -> bool {
+    let index = model.sidebar.index_page.as_ref();
+    index.is_some_and(|index| index.id == page.id)
 }
 
 /// The cards of the shown atlas page, in the order of its items. The first card that links
@@ -126,15 +137,25 @@ fn card_item(model: &Model, card_id: &str) -> Option<Item> {
         .map(|card| card.item.clone())
 }
 
+/// The item of a callout that is no parent, by its id.
+fn callout_leaf(model: &Model, item_id: &str) -> Option<Item> {
+    entries(model)
+        .into_iter()
+        .find(|e| e.kind == Kind::Callout && !e.is_parent && e.item.id == item_id)
+        .map(|e| e.item.clone())
+}
+
 /// Places a card with its center at the given point of the canvas. A card is named by its
 /// page, or a link card by its item. The shell knows where the card was grabbed, so it gives
 /// the center rather than the drop point. The card moves at once; a refusal of the server
-/// puts it back. A page of the directory that has no card yet gets one there.
+/// puts it back. A page of the directory that has no card yet gets one there. A callout that
+/// waits for a place is named by its item, and is placed as a card is.
 pub fn place_card(model: &mut Model, card_id: String, x: f64, y: f64) -> Cmd {
     if !x.is_finite() || !y.is_finite() {
         return done();
     }
-    let Some(item) = card_item(model, &card_id) else {
+    let item = card_item(model, &card_id).or_else(|| callout_leaf(model, &card_id));
+    let Some(item) = item else {
         return add_page_card(model, &card_id, x, y);
     };
     // A card keeps its size when it moves; whole pixels keep the stored value short
@@ -153,7 +174,7 @@ pub fn place_card(model: &mut Model, card_id: String, x: f64, y: f64) -> Cmd {
 /// Gives a page of the directory that no card links to a card with its center at the point:
 /// an item that links to the page. The card shows once the server has made the item.
 fn add_page_card(model: &Model, page_id: &str, x: f64, y: f64) -> Cmd {
-    let Some(page) = model.sidebar.index_pages.iter().find(|p| p.id == page_id) else {
+    let Some(page) = dir_pages(model).find(|p| p.id == page_id) else {
         return done();
     };
     // The path of a folder is the path of its index page, as the server once wrote it
@@ -182,8 +203,9 @@ fn add_card(model: &Model, target: &str, x: f64, y: f64) -> Cmd {
     })
 }
 
-/// Places a card dropped from the list of unplaced cards. The card is placed by its center,
-/// which lies this far from the grabbed spot of a card of the list.
+/// Places what was dropped from the lists beside the canvas: a page not added, or an item
+/// without a place. It is placed by its center, which lies this far from the grabbed spot of
+/// a card of the list.
 pub fn drop_card(
     model: &mut Model,
     card_id: String,
@@ -253,8 +275,8 @@ fn set_property(model: &mut Model, item_id: &str, value: Option<PropertyValue>) 
     });
 }
 
-/// Takes the card of a page off the canvas: its bounds are removed, so it waits in the list
-/// of unplaced cards again. The card leaves at once; a refusal of the server puts it back.
+/// Takes the card of a page off the canvas: its bounds are removed, so it waits among the
+/// items without a place again. The card leaves at once; a refusal of the server puts it back.
 pub fn remove_card(model: &mut Model, page_id: String) -> Cmd {
     let Some(item) = card_item(model, &page_id).filter(|i| bounds_of(i).is_some()) else {
         return done();
@@ -616,24 +638,29 @@ fn group_look(model: &Model, parent: &Item) -> GroupLook {
     let Some(link) = plain::card_link(&parent.body) else {
         return GroupLook::Text;
     };
-    let page = page_of(model, link.target);
-    let tone = tone_of(model, Some(link));
     GroupLook::Page {
-        path: match page {
-            Some(page) => Some(opened_path(page)),
-            None => (tone != CardTone::Missing).then(|| link.target.to_string()),
-        },
-        tone,
-        icon_tags: page
+        path: link_path(model, link),
+        tone: tone_of(model, Some(link)),
+        icon_tags: page_of(model, link.target)
             .map(|page| icon_tags(page, &model.config.tags_dir))
             .unwrap_or_default(),
     }
 }
 
+/// The path a click on a link of a card opens: of a page of the directory as its card opens
+/// it, of any other page as the link names it. None for a page that is not there.
+fn link_path(model: &Model, link: plain::CardLink) -> Option<String> {
+    match page_of(model, link.target) {
+        Some(page) => Some(opened_path(model, page)),
+        None => (tone_of(model, Some(link)) != CardTone::Missing).then(|| link.target.to_string()),
+    }
+}
+
 /// The path a click on the card of a page of the directory opens. A folder opens as its atlas,
-/// so the map stays a map on the way down.
-pub fn opened_path(page: &Page) -> String {
-    if sidebar::is_directory(page) {
+/// so the map stays a map on the way down. The index page of the directory itself opens as
+/// the index page: its atlas is the map that is open.
+pub fn opened_path(model: &Model, page: &Page) -> String {
+    if sidebar::is_directory(page) && !is_own_index(model, page) {
         format!("{}{}", page.dir_path, ATLAS_NAME)
     } else {
         page.canonical_path()
@@ -912,8 +939,7 @@ fn index_loaded(model: &Model) -> bool {
 /// The runs of the first line of a body, as a page shows them: the letters with their looks
 /// and their links.
 fn first_line_runs(body: &str, tags_dir: &str) -> Vec<RichRun> {
-    let line = body.lines().next().unwrap_or("");
-    RichText::of_markdown(line, tags_dir)
+    RichText::of_markdown(first_line(body), tags_dir)
         .blocks
         .into_iter()
         .find_map(|block| match block {
@@ -1034,16 +1060,24 @@ pub struct PageCard {
     pub groups: Vec<AtlasGroup>,
 }
 
-/// The cards of the pages of the shown atlas page, in the order of the sidebar's index list.
-/// The item on the atlas page that links to the page holds the label, the place and the
-/// group. A page that no item links to has none of them: it waits in the list of unplaced
-/// cards until it is dropped on the canvas.
+/// The pages of the directory of the shown atlas in the order they are listed: the index page
+/// of the directory itself, then the pages in the order of the sidebar's index list.
+fn sorted_dir_pages(model: &Model) -> Vec<Page> {
+    let sidebar = &model.sidebar;
+    let listed = sidebar::sorted_index_pages(&sidebar.index_pages, sidebar::index_sort(model));
+    sidebar.index_page.iter().cloned().chain(listed).collect()
+}
+
+/// The cards of the pages of the shown atlas page, in the order the pages are listed. The
+/// item on the atlas page that links to the page holds the label, the place and the group. A
+/// page that no card links to has none of them, and neither has a card without a place: both
+/// wait beside the canvas ([`unplaced`]).
 pub fn cards(model: &Model) -> Vec<PageCard> {
     if shown_atlas_page(model).is_none() {
         return Vec::new();
     }
     let cards = card_entries(model);
-    sidebar::sorted_index_pages(&model.sidebar.index_pages, sidebar::index_sort(model))
+    sorted_dir_pages(model)
         .into_iter()
         .map(|page| {
             let card = cards.iter().find(|c| c.page_id == Some(page.id.as_str()));
@@ -1058,6 +1092,96 @@ pub fn cards(model: &Model) -> Vec<PageCard> {
             }
         })
         .collect()
+}
+
+/// What waits beside the canvas of the shown atlas page: the pages not added, then the items
+/// without a place (ADR 053).
+/// A page not added is a page of the directory that no page card links to, in the order the
+/// pages are listed. The link of a card without a place counts, and so does the link of a
+/// parent, so no page waits in both lists.
+/// An item without a place is a card or a callout without `atlas_bounds`, in the order of the
+/// items. A parent is not placed by bounds of its own, as it is drawn around what is under
+/// it, so it does not wait.
+pub fn unplaced(model: &Model) -> Vec<UnplacedCard> {
+    if shown_atlas_page(model).is_none() {
+        return Vec::new();
+    }
+    let entries = entries(model);
+    let linked: Vec<&str> = entries
+        .iter()
+        .filter(|e| e.kind == Kind::Card)
+        .filter_map(|e| plain::card_link(&e.item.body))
+        .filter_map(|link| page_of(model, link.target))
+        .map(|page| page.id.as_str())
+        .collect();
+    let not_added = sorted_dir_pages(model)
+        .into_iter()
+        .filter(|page| !linked.contains(&page.id.as_str()))
+        .map(|page| UnplacedCard {
+            added: false,
+            ..waiting_page(model, &page, None)
+        });
+    let cards = card_entries(model);
+    let no_place = entries
+        .iter()
+        .filter(|e| !e.is_parent && bounds_of(e.item).is_none())
+        .map(
+            |e| match cards.iter().find(|card| card.item.id == e.item.id) {
+                Some(card) => waiting_card(model, card),
+                None => waiting_text(e.item, first_line(&e.item.body).trim().to_string()),
+            },
+        );
+    not_added.chain(no_place).collect()
+}
+
+/// The first line of a body.
+fn first_line(body: &str) -> &str {
+    body.lines().next().unwrap_or("")
+}
+
+/// A page of the directory as it waits beside the canvas, shown by the label of its card when
+/// it has one, or else by its name.
+fn waiting_page(model: &Model, page: &Page, label: Option<&str>) -> UnplacedCard {
+    UnplacedCard {
+        id: page.id.clone(),
+        label: label.map_or_else(|| sidebar::index_page_name(page), str::to_string),
+        path: Some(opened_path(model, page)),
+        is_dir: sidebar::is_directory(page),
+        added: true,
+    }
+}
+
+/// An item that opens nothing as it waits beside the canvas.
+fn waiting_text(item: &Item, label: String) -> UnplacedCard {
+    UnplacedCard {
+        id: item.id.clone(),
+        label,
+        path: None,
+        is_dir: false,
+        added: true,
+    }
+}
+
+/// A card without a place as it waits beside the canvas, named as the canvas names it.
+fn waiting_card(model: &Model, card: &Card) -> UnplacedCard {
+    let link = plain::card_link(&card.item.body);
+    let page = card
+        .page_id
+        .and_then(|id| dir_pages(model).find(|page| page.id == id));
+    match (page, link) {
+        (Some(page), link) => waiting_page(model, page, link.and_then(|link| link.label)),
+        (None, Some(link)) => UnplacedCard {
+            path: link_path(model, link),
+            ..waiting_text(card.item, link.shown())
+        },
+        (None, None) => {
+            let runs = first_line_runs(&card.item.body, &model.config.tags_dir);
+            waiting_text(
+                card.item,
+                runs.iter().map(|run| run.text.as_str()).collect(),
+            )
+        }
+    }
 }
 
 /// The name of the directory above a directory, as the button that goes up shows it: its path

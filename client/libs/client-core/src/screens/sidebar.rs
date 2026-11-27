@@ -60,6 +60,7 @@ pub fn load_index_pages(model: &mut Model) -> Cmd {
         model.sidebar.index_folder = Some(folder);
         model.sidebar.index_header.clear();
         model.sidebar.index_pages.clear();
+        model.sidebar.index_page = None;
         model.sidebar.index_state = LoadState::Loading;
     }
     run(move |api| async move {
@@ -72,7 +73,7 @@ pub fn load_index_pages(model: &mut Model) -> Cmd {
             };
             api.get_child_pages(&page.id)
                 .await
-                .map(|children| (header, is_root, children))
+                .map(|children| (header, is_root, page, children))
         } else {
             match api.get_page_by_id(&page.parent_id).await {
                 Ok(parent) => {
@@ -84,15 +85,16 @@ pub fn load_index_pages(model: &mut Model) -> Cmd {
                     };
                     api.get_child_pages(&page.parent_id)
                         .await
-                        .map(|siblings| (header, is_root, siblings))
+                        .map(|siblings| (header, is_root, parent.page, siblings))
                 }
                 Err(e) => Err(e),
             }
         };
         match loaded {
-            Ok((header, is_root, pages)) => api.send_event(Event::IndexPagesLoaded {
+            Ok((header, is_root, index, pages)) => api.send_event(Event::IndexPagesLoaded {
                 header,
                 is_root,
+                index,
                 pages,
             }),
             Err(e) => {
@@ -108,6 +110,7 @@ fn no_folder(model: &mut Model) -> Cmd {
     model.sidebar.index_folder = None;
     model.sidebar.index_header.clear();
     model.sidebar.index_pages.clear();
+    model.sidebar.index_page = None;
     model.sidebar.index_state = LoadState::Loaded;
     done()
 }
@@ -120,10 +123,18 @@ pub fn index_pages_failed(model: &mut Model) -> Cmd {
 }
 
 /// The server answered the pages of the directory: the index list shows them. The root
-/// directory lists doc pages only.
-pub fn show_index_pages(model: &mut Model, header: String, is_root: bool, pages: Vec<Page>) -> Cmd {
+/// directory lists doc pages only. The index page of the directory itself is kept beside the
+/// list, for the atlas of the directory.
+pub fn show_index_pages(
+    model: &mut Model,
+    header: String,
+    is_root: bool,
+    index: Page,
+    pages: Vec<Page>,
+) -> Cmd {
     model.sidebar.index_state = LoadState::Loaded;
     model.sidebar.index_header = header;
+    model.sidebar.index_page = Some(index);
     // The atlas page is opened by the map button of the index page, not by name
     let pages = pages.into_iter().filter(|c| !page::is_atlas(c));
     model.sidebar.index_pages = if is_root {

@@ -279,17 +279,22 @@ fn a_link_card_and_a_plain_card_without_a_place_dropped_on_the_atlas_get_their_p
     assert!(no_place(&h).is_empty());
 }
 
-// フォルダ自身のindexのカードは、アトラスではなく、indexのページを開く。フォルダをマップとして見たあとでも同じである。
+// フォルダ自身のindexのカードのパスは、アトラスではなく、indexのページである。子のフォルダのカードのパスは、そのアトラスである。
 #[test]
-fn the_card_of_the_index_of_the_folder_itself_opens_the_index_page() {
-    let mut h = atlas_with_index(vec![], vec![]);
-    h.model.sidebar.atlas_dirs.insert("a/b/".into());
+fn the_card_of_the_index_of_the_folder_itself_names_the_index_page() {
+    let h = atlas_with_index(vec![doc("a/b/c/", "index")], vec![]);
 
-    let card = h.view().atlas_unplaced.remove(0);
-    assert_eq!(card.path.as_deref(), Some("a/b/index"));
-    h.send(Event::GoToPage {
-        path: "a/b/index".into(),
-        open_in: crate::keys::OpenIn::Here,
-    });
-    assert_eq!(h.navigations.last().unwrap().url, "/pages/a/b/index");
+    let paths: Vec<Option<String>> = h
+        .view()
+        .atlas_unplaced
+        .into_iter()
+        .map(|c| c.path)
+        .collect();
+    assert_eq!(
+        paths,
+        [
+            Some("a/b/index".to_string()),
+            Some("a/b/c/index_atlas".to_string())
+        ]
+    );
 }

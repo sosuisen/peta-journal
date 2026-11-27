@@ -799,6 +799,8 @@ pub enum Event {
     IndexPagesLoaded {
         header: String,
         is_root: bool,
+        /// The index page of the directory itself
+        index: Page,
         pages: Vec<Page>,
     },
     /// The server could not answer the pages of the directory the index list shows.
@@ -1063,6 +1065,9 @@ pub struct ConfigState {
 pub struct SidebarState {
     pub index_header: String,
     pub index_pages: Vec<Page>,
+    /// The index page of the directory the index list shows, which is not in the list. None
+    /// until the list arrived.
+    pub index_page: Option<Page>,
     /// The id of the page whose children the index list shows. None for a page that is not
     /// in a folder.
     pub index_folder: Option<String>,
@@ -1624,8 +1629,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         IndexPagesLoaded {
             header,
             is_root,
+            index,
             pages,
-        } => screens::sidebar::show_index_pages(model, header, is_root, pages),
+        } => screens::sidebar::show_index_pages(model, header, is_root, index, pages),
         IndexPagesFailed => screens::sidebar::index_pages_failed(model),
         SseReconnect => screens::sse::connect(model),
         NavigateHome => screens::settings::navigate_home(model),
