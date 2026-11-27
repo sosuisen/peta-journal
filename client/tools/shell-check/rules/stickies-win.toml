@@ -112,7 +112,7 @@ test = "client/apps/native-app/stickies-win/PetaBorder.Tests/ListChangesTests.cs
 excluded = "a native shell reads the border of client-native-bridge, not that of client-web-bridge"
 
 [common.border-native]
-pending = 1228
+test = "client/apps/native-app/stickies-win/PetaBorder.Tests/BorderValuesTests.cs"
 
 [common.border-emacs]
 excluded = "a native shell reads the border of client-native-bridge, not the JSON Lines of the Emacs shell"
