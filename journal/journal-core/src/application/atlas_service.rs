@@ -19,6 +19,7 @@ use crate::domain::model::{Item, ItemPatch, Page};
 use crate::domain::search::SearchIndex;
 use crate::error::AppError;
 use crate::infrastructure::export::export_service::MarkdownExportService;
+use crate::infrastructure::export::path_mapper;
 use crate::infrastructure::persistence::item_repository::parked_idx;
 use crate::infrastructure::persistence::property_repository::ScalarProps;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
@@ -93,6 +94,7 @@ impl AtlasService {
             let Some(migration) = atlas_migration::migration(&loaded.items, &loaded.props) else {
                 continue;
             };
+            self.back_up_file(&loaded.atlas);
             let mut conn = self.items.db().conn()?;
             let tx = conn.immediate()?;
             let now = self.items.db().now_millis();
@@ -124,6 +126,24 @@ impl AtlasService {
             self.events.atlas_changed(&loaded.atlas.id);
         }
         Ok(())
+    }
+
+    /// Keeps the file of an atlas next to it, as it is before the atlas moves to the plain
+    /// form. A device that still runs an old version may write the old form over the new
+    /// one; the atlas can be put back from this file then.
+    fn back_up_file(&self, atlas: &Page) {
+        let Some(root) = self.export.markdown_root() else {
+            return;
+        };
+        let file = root.join(path_mapper::to_rel_path_of(atlas));
+        let Ok(content) = std::fs::read_to_string(&file) else {
+            return;
+        };
+        let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+        let backup = file.with_file_name(path_mapper::conflict_file_name(&atlas.name, &ts));
+        if let Err(e) = std::fs::write(&backup, content) {
+            tracing::error!("Could not write the backup {}: {e}", backup.display());
+        }
     }
 
     /// Writes the outline of every atlas page again where the pages of its directory changed.
