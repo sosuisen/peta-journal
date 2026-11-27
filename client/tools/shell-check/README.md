@@ -81,7 +81,8 @@ runs. The check prints a line for each of these:
 - A test file that is not there.
 - A test file that the test tool does not run: it is outside the folders of `tests`, or in
   TypeScript its name does not end in `.test.ts` or `.test.tsx`.
-- A Rust test file that no `mod` in its folder declares, so cargo does not build it.
+- A Rust test file that no `mod` in its folder declares, so cargo does not build it. The Emacs
+  shell may name a test in Lisp (`.el`) too, which ERT runs and no `mod` declares.
 - A test file that does not name the file of its examples, so it cannot read them.
 
 The test itself checks that it ran every example of the file. `scripts/verification.test.mjs`
@@ -110,3 +111,26 @@ after the examples or the types of the border changed, run in `client/`:
 PETA_WRITE_EXAMPLES=1 cargo test -p client-web-bridge -p client-native-bridge examples
 PETA_WRITE_EXAMPLES=1 cargo test -p client-native-bridge --features facet_typegen --test border_examples
 ```
+
+`border-emacs.json` (D2) is not written by the core: the border of the Emacs shell is its own,
+the JSON Lines between its Rust and its Lisp (ADR 078). The Rust of the shell writes the part
+`outbound`: lines that it sends to the Lisp (`Outbound` of `src/protocol.rs`), each as the text
+of the line (`line`). The lines come from the samples of the core too
+(`client/apps/emacs/outliner/src/tests/border_examples.rs`), so they hold every kind of line and
+every variant of every enum inside. But every number is 1, not an edge (`small_samples`): the
+Lisp does at once what a line says, and a place at the edge of the numbers is in no buffer. The
+part `texts` holds every text that the samples use. A test of the crate fails when the file is
+not these examples. A test of ERT begins each example with rows that have the texts as their
+ids, so that the numbers and the texts of a line name a row. It hands the line to the Lisp as
+the shell would, and expects no error, one call of the function of its kind, and lists that can
+be drawn. To write the file again after the samples or the types of the lines changed, run in
+`client/`:
+
+```
+PETA_WRITE_EXAMPLES=1 cargo test -p outliner-emacs border_examples
+```
+
+The lines that the Lisp sends (`Inbound`) have no examples. The Lisp writes them by hand, from
+keys that nothing generates, so there is nothing of the Rust types to hold a line of the Lisp
+against. The tests of ERT check what each command sends, and the E2E tests send the lines to
+the real shell.

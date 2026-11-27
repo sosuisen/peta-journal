@@ -1641,6 +1641,75 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
           (should (<= least (length fields)))
           (should (or (eq most 'many) (<= (length fields) most))))))))
 
+(defconst peta-journal-test--border-examples
+  (expand-file-name "../../../../../tools/shell-check/common/border-emacs.json"
+                    (file-name-directory (or load-file-name buffer-file-name)))
+  "The file of the examples of the lines the shell sends, which its Rust writes (ADR 090).")
+
+(defun peta-journal-test--border-examples ()
+  "The file of the examples of the lines the shell sends, as a plist.
+Its :outbound holds the examples, each a plist of its :id and its :line.  Its
+:texts holds every text that the examples use, as for the id of an item."
+  (with-temp-buffer
+    (let ((coding-system-for-read 'utf-8))
+      (insert-file-contents peta-journal-test--border-examples))
+    (json-parse-buffer :object-type 'plist)))
+
+(defun peta-journal-test--counting (handlers count)
+  "HANDLERS, each calling the function COUNT before it does its work."
+  (let (counting)
+    (cl-loop for (kind handler) on handlers by #'cddr
+             do (let ((handler handler))
+                  (setq counting
+                        (append counting
+                                (list kind (lambda (&rest fields)
+                                             (funcall count)
+                                             (apply handler fields)))))))
+    counting))
+
+(defun peta-journal-test--draw-what-was-told ()
+  "Draw the lists that show what the shell told the current page.
+The handler of such a line only keeps it: its values are read when the list is drawn."
+  (let ((page (current-buffer)))
+    (save-window-excursion
+      (peta-journal--draw-properties page)
+      (peta-journal--sidebar-render page)
+      (peta-journal-backlinks))))
+
+;; 境界の例のどの行も、Emacsは誤りなく読み、その種類の関数がちょうど1回受け取る。受け取った値の一覧も、誤りなく描かれる。回した例のidは、ファイルの一覧と同じである（ADR 090のD2）。例は、シェルのRustが書いた行そのものである。例の数はどれも1で、文字はファイルの`texts`のどれかである。そこで、どの例も、`texts`の文字をidに持つ行から始める。例の数と文字が、ある行を指すようにするためである。
+(ert-deftest peta-journal-every-example-line-of-the-border-reaches-its-handler ()
+  (let* ((file (peta-journal-test--border-examples))
+         (examples (plist-get file :outbound))
+         (rows (mapcar (lambda (text) (peta-journal-test--row text 1 "x"))
+                       (plist-get file :texts)))
+         (ran nil))
+    (should (< 1 (length rows)))
+    (seq-doseq (example examples)
+      (ert-info ((plist-get example :id) :prefix "example: ")
+        (peta-journal-test--with-rows rows
+          (let* ((handled 0)
+                 (peta-journal--line-handlers
+                  (peta-journal-test--counting peta-journal--line-handlers
+                                               (lambda () (setq handled (1+ handled))))))
+            (unwind-protect
+                ;; A browser and a prompt are not for a test, and the prompt comes from a timer
+                (cl-letf (((symbol-function 'browse-url) #'ignore)
+                          ((symbol-function 'yes-or-no-p) #'always)
+                          ((symbol-function 'run-at-time)
+                           (lambda (_time _repeat function &rest args) (apply function args))))
+                  (peta-journal-test--with-search
+                    (peta-journal--read-output (concat (plist-get example :line) "\n")))
+                  (peta-journal-test--draw-what-was-told))
+              (dolist (list (list peta-journal--properties-buffer peta-journal--sidebar-buffer
+                                  "*PetaJournal Backlinks*"))
+                (when (get-buffer list)
+                  (kill-buffer list))))
+            (should (= handled 1))
+            (push (plist-get example :id) ran)))))
+    (should ran)
+    (should (equal (reverse ran)
+                   (mapcar (lambda (example) (plist-get example :id)) examples)))))
+
 ;;;; Two buffers
 
 ;; シェルからの行は、そのシェルのバッファだけを変える。

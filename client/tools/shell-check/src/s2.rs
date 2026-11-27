@@ -42,10 +42,12 @@ impl Language {
 
     /// True when the test tool of a shell in this language takes the file `name` as a test,
     /// in a folder of its tests. Vitest takes only `.test.ts` and `.test.tsx`; the tools of the
-    /// other languages take every source in the folders of the tests.
+    /// other languages take every source in the folders of the tests. The shell in Rust is the
+    /// Emacs shell, which is half in Lisp (ADR 078): ERT runs its `.el` tests.
     pub fn names_a_test(self, name: &str) -> bool {
         match self {
             Language::TypeScript => name.ends_with(".test.ts") || name.ends_with(".test.tsx"),
+            Language::Rust => self.reads(name) || name.ends_with(".el"),
             _ => self.reads(name),
         }
     }
