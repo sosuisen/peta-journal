@@ -7,6 +7,8 @@ import XCTest
 final class JournalScreenTests: XCTestCase {
     private var root: URL!
     private var app: XCUIApplication!
+    /// The tool that the test touched last, and how far down the screen it stood then.
+    private var touched = "none"
 
     private static let wait: TimeInterval = 15
 
@@ -95,6 +97,7 @@ final class JournalScreenTests: XCTestCase {
         let texts = { (query: XCUIElementQuery) in query.allElementsBoundByIndex.prefix(8).map(\.label) }
         return "The screen: the field \(field), the keyboard focus is on \(focus), "
             + "the keyboard is \(keyboard.exists ? "up at \(top(keyboard))" : "down"), the tools: \(tools), "
+            + "the tool touched last: \(touched), "
             + "selected: \(texts(selected)), the first texts: \(texts(app.staticTexts))"
     }
 
@@ -144,6 +147,7 @@ final class JournalScreenTests: XCTestCase {
     private func tool(_ name: String) {
         let tool = app.buttons[name]
         waitFor(tool)
+        touched = "\(name) at \(Int(tool.frame.minY))"
         tool.tap()
     }
 
@@ -160,6 +164,7 @@ final class JournalScreenTests: XCTestCase {
     private func pad(_ name: String, _ arrow: String) {
         let pad = app.buttons[name]
         waitFor(pad)
+        touched = "\(arrow) of \(name) at \(Int(pad.frame.minY))"
         near(arrow, of: pad).tap()
     }
 
