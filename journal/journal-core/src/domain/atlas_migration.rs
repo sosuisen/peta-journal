@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 
 use hmtid::Hmtid;
+use peta_atlas::PAGE_KEY;
 
 use super::model::Item;
 
@@ -19,8 +20,18 @@ pub fn migration(
     items: &[Item],
     props: &BTreeMap<String, BTreeMap<String, String>>,
 ) -> Option<Migration> {
-    let _ = (items, props);
-    None
+    let mut migration = Migration::default();
+    for item in items {
+        let has = |key| {
+            props
+                .get(item.id.as_str())
+                .is_some_and(|p| p.contains_key(key))
+        };
+        if has(PAGE_KEY) {
+            migration.dropped_props.push((item.id.clone(), PAGE_KEY));
+        }
+    }
+    (migration != Migration::default()).then_some(migration)
 }
 
 #[cfg(test)]
@@ -34,7 +45,7 @@ mod tests {
     fn item(n: u32, level: i32, body: &str) -> Item {
         Item {
             id: id(n),
-            page_id: id(99),
+            page_id: id(59),
             parent_item_id: None,
             dir_path: "d/".to_string(),
             name: "index_atlas".to_string(),
