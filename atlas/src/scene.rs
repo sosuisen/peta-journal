@@ -400,6 +400,31 @@ mod tests {
         );
     }
 
+    // ノーマルカードは、ラベルから描いた黄色のblobを持ち、何も開かず、1行目の文字の並びを持つ。
+    #[test]
+    fn a_plain_card_is_yellow_opens_nothing_and_has_the_runs_of_its_first_line() {
+        let runs = vec![
+            Run {
+                text: "see ".to_string(),
+                link: None,
+            },
+            Run {
+                text: "a".to_string(),
+                link: Some(RunLink {
+                    kind: "Page".to_string(),
+                    url: "/pages/x/a".to_string(),
+                }),
+            },
+        ];
+        let card = Card::plain("I1", "see a", runs.clone(), bounds(0.0, 0.0, 0.0, 40.0), &[]);
+
+        assert_eq!(
+            (&card.path, card.is_plain, card.is_link, &card.runs),
+            (&None, true, true, &runs)
+        );
+        assert_eq!(card.blob, plain_blob_svg("see a", ICON_DRAW_SIZE));
+    }
+
     // タグのないページのカードは、アイコンがなく、blobをラベルから描く
     #[test]
     fn a_page_without_tags_has_no_icon_and_a_blob_of_its_label() {
