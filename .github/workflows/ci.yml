@@ -352,9 +352,13 @@ jobs:
       # The targets of the phone and the emulator are not in rust-toolchain.toml: every machine
       # would download them
       - run: rustup target add aarch64-linux-android x86_64-linux-android
+      # A pull request reads only its own caches and those of main. The cache of this job is about
+      # 1GB: saved by a pull request, it serves that pull request alone, and fills the 10GB that the
+      # caches of the repository share. Only main saves it (#1279)
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: client
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       # The same version as the stickies-win job, kept in the cache for the same reason
       - id: boltffi
         uses: actions/cache@v6
@@ -367,7 +371,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      # Keeps what Gradle downloads in the cache
+      # Keeps what Gradle downloads in the cache. Only main saves it, as the action does by default
       - uses: gradle/actions/setup-gradle@v6
       # A runner lets only root use KVM, and the emulator is too slow without it
       - run: |
