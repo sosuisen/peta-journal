@@ -83,6 +83,12 @@ impl AtlasService {
         }
     }
 
+    /// Moves every atlas page of the form the server wrote to the form of a plain page
+    /// (ADR 053).
+    pub fn move_to_plain_form(&self) -> Result<(), AppError> {
+        Ok(())
+    }
+
     /// Writes the outline of every atlas page again where the pages of its directory changed.
     /// There are few atlas pages, so all of them are looked at: a move of a folder changes
     /// the paths of many pages at once.

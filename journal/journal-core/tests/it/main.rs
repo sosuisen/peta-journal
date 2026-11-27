@@ -6,6 +6,7 @@
 mod common;
 
 mod atlas;
+mod atlas_migration;
 mod atlas_sync;
 #[cfg(feature = "extensions")]
 mod auto_template;

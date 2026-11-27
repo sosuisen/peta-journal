@@ -8,7 +8,7 @@ use journal_core::infrastructure::export::import_service::Outcome;
 use crate::common::devices::{time_passes, two_devices, two_devices_with, Device, ATLAS, INDEX};
 
 impl Device {
-    fn atlas_id(&self) -> Hmtid {
+    pub(crate) fn atlas_id(&self) -> Hmtid {
         self.core
             .pages
             .find_by_type_dir_path_file_name("doc", "d/", "index_atlas")
@@ -18,7 +18,7 @@ impl Device {
     }
 
     /// The outline of the atlas, each item as `level:body`
-    fn outline(&self) -> Vec<String> {
+    pub(crate) fn outline(&self) -> Vec<String> {
         self.core
             .page_service
             .get_page_items(&self.atlas_id())
