@@ -126,6 +126,15 @@ export const JOBS = {
         env: { PETA_E2E_SERVER: join(ROOT, 'journal', 'target', 'debug', `journal-server${EXE}`) },
         run: `${emacs} -Q --batch -L lisp -L lisp/test -l lisp/test/peta-journal-e2e.el -f ert-run-tests-batch-and-exit`,
       },
+      // Runs the tests of the buffer and the E2E tests once more in one Emacs, and fails below 90%
+      // of the lines of the Lisp covered (coverage.mjs, which reads PETA_EMACS). Why once more: the
+      // measurement changes the code that runs, and the steps before this one test it as it is
+      {
+        cwd: 'client/apps/emacs/outliner',
+        programs: [`journal/target/debug/journal-server${EXE}`, `client/target/debug/outliner-emacs${EXE}`],
+        env: { PETA_E2E_SERVER: join(ROOT, 'journal', 'target', 'debug', `journal-server${EXE}`) },
+        run: 'node coverage.mjs',
+      },
     ],
   },
   todo: {
