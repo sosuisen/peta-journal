@@ -13,13 +13,23 @@ public sealed class AppliedTests
     private static Row Row(string id) => new() { Item = new Item { Id = id } };
 
     private static Changes Changes(IEnumerable<RowChange> rows, IEnumerable<Panel> panels) =>
-        new() { Rows = [.. rows], Panels = [.. panels] };
+        new()
+        {
+            Rows = [.. rows],
+            Headings = [],
+            Panels = [.. panels],
+        };
 
     private static RowChange Reset(params string[] ids) =>
         new RowChange.Reset(new ObservableCollection<Row>(ids.Select(Row)));
 
     private static Heading Heading(string id, string text) =>
-        new() { Id = id, Text = text, Level = 1 };
+        new()
+        {
+            Id = id,
+            Text = text,
+            Level = 1,
+        };
 
     private static List<string> Ids(IEnumerable<Row> rows) => [.. rows.Select(row => row.Item.Id)];
 
@@ -53,7 +63,7 @@ public sealed class AppliedTests
                     State = LoadState.Loaded,
                 }
             ),
-            new Panel.Headings(new HeadingsView { Headings = [], State = LoadState.Failed }),
+            new Panel.Headings(new HeadingsPanel { State = LoadState.Failed }),
             new Panel.RecentPages(new RecentPagesView { Pages = [], State = LoadState.Loading }),
             new Panel.Search(Search("first")),
             new Panel.Config(new ConfigView { TagsDir = "tags" }),
@@ -127,10 +137,7 @@ public sealed class AppliedTests
             new Changes
             {
                 Rows = [],
-                Headings =
-                [
-                    new HeadingChange.Reset([Heading("a", "One"), Heading("b", "Two")]),
-                ],
+                Headings = [new HeadingChange.Reset([Heading("a", "One"), Heading("b", "Two")])],
                 Panels = [.. EveryPanel()],
             }
         );
