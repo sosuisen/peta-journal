@@ -12,6 +12,10 @@ use super::model::Item;
 pub struct Migration {
     /// The scalar properties that go, by the id of their item.
     pub dropped_props: Vec<(Hmtid, &'static str)>,
+    /// The items that go.
+    pub removed: Vec<Hmtid>,
+    /// The new levels of the items whose level changes.
+    pub levels: Vec<(Hmtid, i32)>,
 }
 
 /// What moves the items of an atlas page to the form of a plain page, from the items in
@@ -94,6 +98,7 @@ mod tests {
             migration,
             Migration {
                 dropped_props: vec![(id(1), "atlas_page"), (id(2), "atlas_page")],
+                ..Migration::default()
             }
         );
     }
@@ -114,6 +119,35 @@ mod tests {
             migration,
             Migration {
                 dropped_props: vec![(id(1), "atlas_type")],
+                ..Migration::default()
+            }
+        );
+    }
+
+    // コールアウトの親が消え、子のコールアウトがレベル1に上がる。コールアウトのプロパティは変わらない。
+    #[test]
+    fn the_parent_of_the_callouts_goes_and_the_callouts_come_up() {
+        let items = [
+            item(1, 1, "[[d/a]]"),
+            item(2, 1, "callout"),
+            item(3, 2, "Hello"),
+            item(4, 2, "World"),
+        ];
+        let props = props(&[
+            (2, "atlas_type", "callouts"),
+            (3, "atlas_type", "callout"),
+            (3, "atlas_side", "left"),
+            (4, "atlas_type", "callout"),
+        ]);
+
+        let migration = migration(&items, &props).unwrap();
+
+        assert_eq!(
+            migration,
+            Migration {
+                removed: vec![id(2)],
+                levels: vec![(id(3), 1), (id(4), 1)],
+                ..Migration::default()
             }
         );
     }
