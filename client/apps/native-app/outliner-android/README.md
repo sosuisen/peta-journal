@@ -74,6 +74,10 @@ it at the end:
     is not kept in the repository.
   - `dropbox/SdkDropbox.kt` and `dropbox/DropboxSdk.kt`. They only pass each call on to the SDK
     of Dropbox, and a test of them needs a real account of Dropbox (#1088).
+- When tests on the device fail, `coverage.sh` runs only those tests once more, and passes when
+  they pass then: on the emulator of the CI, a test sometimes fails for the emulator alone. The
+  log keeps the first failure and names each test that passed only the second time, and the CI
+  shows them as warnings on the page of the run.
 - The tests of the JVM alone run only a few files, so the number needs the tests on a device.
 - Only this task counts the lines: `assembleDebug` and `debug.sh` build the app without the
   counting, which makes an app slower.

@@ -153,6 +153,9 @@ tasks.register<JacocoReport>("coverage") {
     executionData.from(
         fileTree(unitTests) { include("**/*.exec") },
         fileTree(deviceTests) { include("**/*.ec") },
+        // When tests on the device failed, coverage.sh runs only those once more, and keeps here
+        // the counts of the first try, which ran the others
+        fileTree(layout.buildDirectory.dir("coverage-first-try")) { include("**/*.ec") },
     )
     val report = layout.buildDirectory.file("reports/coverage/coverage.xml")
     reports {

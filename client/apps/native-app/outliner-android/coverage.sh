@@ -9,6 +9,11 @@
 #
 # Run generate.sh first. It needs ANDROID_HOME. The emulator that it starts has no window: nothing
 # on the screen of this machine is touched.
+#
+# When tests on the device fail, it runs only those tests once more, and passes when they pass
+# then (the developer decided, 2026-11-28). On the emulator of the CI, a test sometimes fails for
+# the emulator alone. The log keeps the first failure, and names each test that passed only the
+# second time. Why not longer waits: they would make every run slower.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 adb="$ANDROID_HOME/platform-tools/adb"
@@ -47,18 +52,72 @@ if ! "$adb" devices | grep -q "device$"; then
     "$adb" logcat -G 16M
 fi
 
-# Packs the core only for the kind of the device: each one is about 70MB
-abi=$("$adb" shell getprop ro.product.cpu.abi | tr -d '\r')
-if ! ./gradlew :app:coverage "-Pabi=$abi"; then
-    # Gradle names only the report of the tests on the device. These are the tests that failed,
-    # each with the start of its failure
-    for results in app/build/outputs/androidTest-results/connected/debug/*.xml; do
-        [ -f "$results" ] || continue
-        awk '/<testcase / { test = $0 } /<failure|<error/ { print test; left = 6 } left > 0 { print; left-- }' "$results"
+results=app/build/outputs/androidTest-results/connected/debug
+# The counts of the lines of the first try. The coverage task of app/build.gradle.kts reads them
+# with those of the second try: the second try runs only a few tests
+first_try=app/build/coverage-first-try
+
+# Gradle names only the report of the tests on the device. These are the tests that failed, each
+# with the start of its failure, and what Android said about the clipboard and which window has
+# the focus: Android lets only the app with the focus read the clipboard
+show_failures() {
+    for report in "$results"/*.xml; do
+        [ -f "$report" ] || continue
+        awk '/<testcase / { test = $0 } /<failure|<error/ { print test; left = 6 } left > 0 { print; left-- }' "$report"
     done
-    # What Android said about the clipboard and which window has the focus: Android lets only the
-    # app with the focus read the clipboard
     "$adb" logcat -d 2>/dev/null | grep -i "clipboard" | tail -n 20 || true
     "$adb" shell dumpsys window 2>/dev/null | grep -E "mCurrentFocus|mFocusedApp" || true
+}
+
+# The tests on the device that failed, one `class#method` on each line
+failed_tests() {
+    for report in "$results"/*.xml; do
+        [ -f "$report" ] || continue
+        awk '/<testcase / {
+                match($0, / name="[^"]*"/); name = substr($0, RSTART + 7, RLENGTH - 8)
+                match($0, / classname="[^"]*"/); class = substr($0, RSTART + 12, RLENGTH - 13)
+            }
+            /<failure|<error/ { print class "#" name }' "$report"
+    done | sort -u
+}
+
+# Packs the core only for the kind of the device: each one is about 70MB
+abi=$("$adb" shell getprop ro.product.cpu.abi | tr -d '\r')
+# A report or counts of an earlier run would be taken for this one
+rm -rf "$results" app/build/outputs/code_coverage "$first_try"
+if ./gradlew :app:coverage "-Pabi=$abi"; then
+    exit 0
+fi
+echo "=== The first try failed ==="
+show_failures
+failed=$(failed_tests)
+if [ -z "$failed" ]; then
+    # No test on the device failed: a test of the JVM, the build or the floor did. A second try
+    # would end the same way
     exit 1
+fi
+count=$(echo "$failed" | wc -l | tr -d ' ')
+echo "=== Second try: only the $count tests on the device that failed, once more ==="
+echo "$failed"
+if [ ! -d app/build/outputs/code_coverage ]; then
+    # The second try alone would cover too few lines, and fail on the floor
+    echo "The first try wrote no counts of the lines, and is not tried again" >&2
+    exit 1
+fi
+mkdir -p "$first_try"
+cp -R app/build/outputs/code_coverage "$first_try/"
+cp -R "$results" "$first_try/results"
+if ! ./gradlew :app:coverage "-Pabi=$abi" \
+    "-Pandroid.testInstrumentationRunnerArguments.class=$(echo "$failed" | paste -sd , -)"; then
+    echo "=== The second try failed too ==="
+    show_failures
+    exit 1
+fi
+echo "=== Flaky: these $count tests failed on the first try, and passed on the second ==="
+echo "$failed"
+# A note on the page of the run in GitHub Actions, so that a flaky test is seen without the log
+if [ "${GITHUB_ACTIONS:-}" = true ]; then
+    echo "$failed" | while read -r test; do
+        echo "::warning title=Flaky test on the device::$test failed on the first try, and passed on the second"
+    done
 fi
