@@ -218,7 +218,7 @@ private struct Results: View {
     let onPick: (SearchEntry) -> Void
 
     var body: some View {
-        List(entries, id: \.position) { entry in
+        List(entries, id: \.key) { entry in
             Button {
                 onPick(entry)
             } label: {

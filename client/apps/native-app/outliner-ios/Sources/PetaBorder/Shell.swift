@@ -142,7 +142,9 @@ public final class Shell: ObservableObject {
     /// The user chose a search result: its page opens. The results for the journal of today
     /// and for a new page make their page.
     public func pick(_ entry: SearchEntry) {
-        send(.searchResultClicked(position: entry.position))
+        // The core takes the place of the entry in the results, as this shell has them
+        guard let position = view.search.results.firstIndex(where: { $0.key == entry.key }) else { return }
+        send(.searchResultClicked(position: UInt64(position)))
     }
 
     // MARK: - Editing
