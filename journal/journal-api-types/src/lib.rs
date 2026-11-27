@@ -628,6 +628,7 @@ pub enum BatchOpInput {
         #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
         properties: std::collections::BTreeMap<String, PropertyValue>,
     },
+    #[serde(rename_all = "camelCase")]
     Update {
         id: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -638,6 +639,13 @@ pub enum BatchOpInput {
         collapsed: Option<bool>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         task: Option<TaskStateInput>,
+        /// The properties to write, each a defined key with a value of its type. The other
+        /// properties of the item stay as they are
+        #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+        properties: std::collections::BTreeMap<String, PropertyValue>,
+        /// The keys of the properties to take away from the item
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        dropped_properties: Vec<String>,
     },
     #[serde(rename_all = "camelCase")]
     Move {
@@ -1033,6 +1041,8 @@ mod tests {
                         task: true,
                         ..Default::default()
                     }),
+                    properties: [("side".to_string(), PropertyValue::Text("left".into()))].into(),
+                    dropped_properties: vec!["gone".into()],
                 },
             ],
         };
@@ -1044,7 +1054,8 @@ mod tests {
             json!({ "ops": [
                 { "op": "create", "id": "i", "pageId": "p", "position": "last", "level": 1,
                   "body": "text" },
-                { "op": "update", "id": "i", "level": 2, "task": { "task": true } },
+                { "op": "update", "id": "i", "level": 2, "task": { "task": true },
+                  "properties": { "side": "left" }, "droppedProperties": ["gone"] },
             ] })
         );
         assert_eq!(

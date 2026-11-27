@@ -10,14 +10,16 @@ use parking_lot::Mutex;
 use rusqlite::Connection;
 
 use crate::domain::atlas::{self, Outline, BOUNDS_KEY, PAGE_KEY, SIDE_KEY, TYPE_KEY};
+use crate::domain::atlas_migration;
 use crate::domain::bounds::Bounds;
 use crate::domain::fractional_index;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::item_body::{self, ItemBody};
-use crate::domain::model::{Item, Page};
+use crate::domain::model::{Item, ItemPatch, Page};
 use crate::domain::search::SearchIndex;
 use crate::error::AppError;
 use crate::infrastructure::export::export_service::MarkdownExportService;
+use crate::infrastructure::export::path_mapper;
 use crate::infrastructure::persistence::item_repository::parked_idx;
 use crate::infrastructure::persistence::property_repository::ScalarProps;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
@@ -80,6 +82,67 @@ impl AtlasService {
             ids,
             events,
             lock: Mutex::new(()),
+        }
+    }
+
+    /// Moves every atlas page of the form the server wrote to the form of a plain page
+    /// (ADR 053).
+    pub fn move_to_plain_form(&self) -> Result<(), AppError> {
+        let _guard = self.lock.lock();
+        for atlas in self.pages.find_all()?.into_iter().filter(Page::is_atlas) {
+            let loaded = self.load(atlas)?;
+            let Some(migration) = atlas_migration::migration(&loaded.items, &loaded.props) else {
+                continue;
+            };
+            self.back_up_file(&loaded.atlas);
+            let mut conn = self.items.db().conn()?;
+            let tx = conn.immediate()?;
+            let now = self.items.db().now_millis();
+            for (id, key) in &migration.dropped_props {
+                PropertyRepository::delete_property_in(&tx, ITEM_TARGET, id.as_str(), key)?;
+            }
+            let removed: Vec<String> = migration.removed.iter().map(Hmtid::to_string).collect();
+            for id in &migration.removed {
+                ItemRepository::delete_in(&tx, id)?;
+                ItemRepository::record_deleted_in(&tx, id, now)?;
+            }
+            PropertyRepository::delete_all_for_targets_in(&tx, ITEM_TARGET, &removed)?;
+            for (id, level) in &migration.levels {
+                let patch = ItemPatch::new(None, None, None, Some(*level), None, now)
+                    .map_err(AppError::bad_request)?;
+                ItemRepository::patch_in(&tx, id, &patch)?;
+            }
+            ItemRepository::recalculate_parent_ids_in(&tx, &loaded.atlas.id)?;
+            PageRepository::save_in(
+                &tx,
+                &Page {
+                    modified_date: now,
+                    ..loaded.atlas.clone()
+                },
+            )?;
+            tx.commit()?;
+            self.search.remove_items(&removed);
+            self.export.queue_export(&loaded.atlas.id);
+            self.events.atlas_changed(&loaded.atlas.id);
+        }
+        Ok(())
+    }
+
+    /// Keeps the file of an atlas next to it, as it is before the atlas moves to the plain
+    /// form. A device that still runs an old version may write the old form over the new
+    /// one; the atlas can be put back from this file then.
+    fn back_up_file(&self, atlas: &Page) {
+        let Some(root) = self.export.markdown_root() else {
+            return;
+        };
+        let file = root.join(path_mapper::to_rel_path_of(atlas));
+        let Ok(content) = std::fs::read_to_string(&file) else {
+            return;
+        };
+        let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+        let backup = file.with_file_name(path_mapper::conflict_file_name(&atlas.name, &ts));
+        if let Err(e) = std::fs::write(&backup, content) {
+            tracing::error!("Could not write the backup {}: {e}", backup.display());
         }
     }
 

@@ -1,5 +1,6 @@
 pub mod asset_name;
 pub mod atlas;
+pub mod atlas_migration;
 pub mod bounds;
 pub mod client_id;
 pub mod fractional_index;

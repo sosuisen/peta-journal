@@ -51,12 +51,6 @@ fn rows_of(changed: Result<ItemsAnswer, AppError>) -> Vec<Value> {
         .clone()
 }
 
-fn card_of<'a>(rows: &'a [Value], page_id: &str) -> &'a Value {
-    rows.iter()
-        .find(|r| r["properties"]["atlas_page"] == json!(page_id))
-        .unwrap_or_else(|| panic!("no card of {page_id} in {rows:?}"))
-}
-
 fn is_bad_request<T: std::fmt::Debug>(result: &Result<T, AppError>) -> bool {
     matches!(result, Err(AppError::BadRequest(_)))
 }
@@ -105,56 +99,6 @@ fn no_other_page_can_take_the_atlas_name() {
     assert!(is_bad_request(&renamed), "{renamed:?}");
 }
 
-// アトラスには、ディレクトリのフォルダが先に、次にページが名前順に並ぶ。
-#[test]
-fn an_atlas_lists_the_folders_and_then_the_pages_of_its_directory_by_name() {
-    let notes = Core::new();
-    let (dir, atlas_id) = notes.atlas_dir("atlas-list");
-
-    assert_eq!(
-        notes.outline_of(&atlas_id),
-        vs(&[
-            &format!("1:[[{dir}z/index]]"),
-            &format!("1:[[{dir}a]]"),
-            &format!("1:[[{dir}b]]"),
-        ])
-    );
-}
-
-// アトラスは、ページの追加、改名、削除に追随する。
-#[test]
-fn the_atlas_follows_a_new_a_renamed_and_a_deleted_page() {
-    let notes = Core::new();
-    let (dir, atlas_id) = notes.atlas_dir("atlas-follow");
-    let a = notes.doc_in(&dir, "a");
-    let b = notes.doc_in(&dir, "b");
-    let card = id(card_of(&notes.items(&atlas_id), &a));
-    notes
-        .set_item_property(&card, "atlas_bounds", value("bounds", "5,6,0,40"))
-        .unwrap();
-
-    notes.move_page(&a, Some("y"), None).unwrap();
-    notes
-        .core
-        .journal
-        .delete_page(&b, &by_the_client())
-        .unwrap();
-    notes.doc_in(&dir, "x");
-
-    let rows = notes.items(&atlas_id);
-    assert_eq!(
-        outline(&rows),
-        vs(&[
-            &format!("1:[[{dir}z/index]]"),
-            &format!("1:[[{dir}x]]"),
-            &format!("1:[[{dir}y]]"),
-        ])
-    );
-    let renamed = card_of(&rows, &a);
-    assert_eq!(renamed["id"], json!(card));
-    assert_eq!(renamed["properties"]["atlas_bounds"], json!("5,6,0,40"));
-}
-
 // カードを置いても、そのページは変わらない。
 #[test]
 fn placing_a_card_leaves_its_page_as_it_was() {
@@ -162,14 +106,14 @@ fn placing_a_card_leaves_its_page_as_it_was() {
     let (dir, atlas_id) = notes.atlas_dir("atlas-place");
     let a = notes.doc_in(&dir, "a");
     let before = notes.page(&a)["page"]["modifiedDate"].clone();
-    let card = id(card_of(&notes.items(&atlas_id), &a));
+    let card = id(&notes.create_item(&atlas_id, "last", 1, &format!("[[{dir}a]]")));
 
     notes
         .set_item_property(&card, "atlas_bounds", value("text", " 24, 24, 0 ,40 "))
         .unwrap();
 
     assert_eq!(
-        card_of(&notes.items(&atlas_id), &a)["properties"]["atlas_bounds"],
+        notes.item(&card)["properties"]["atlas_bounds"],
         json!("24,24,0,40")
     );
     assert_eq!(notes.page(&a)["page"]["modifiedDate"], before);

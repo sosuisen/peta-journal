@@ -135,14 +135,6 @@ impl PageService {
         }
     }
 
-    /// Writes the atlas pages again after the pages of a directory may have changed. A failure
-    /// leaves an atlas as it was, which does not undo the change of the pages.
-    pub fn sync_atlases(&self) {
-        if let Err(e) = self.atlas.sync_all() {
-            tracing::warn!("The atlas pages were not brought up to date: {e}");
-        }
-    }
-
     pub fn get_page(&self, page_id: &Hmtid) -> Result<Option<Page>, AppError> {
         self.pages.find_by_id(page_id)
     }
@@ -787,9 +779,6 @@ impl PageService {
         }
         for (before, after) in &effects.tag_changes {
             self.update_tag_pages(before, after);
-        }
-        if effects.atlases_stale {
-            self.sync_atlases();
         }
     }
 

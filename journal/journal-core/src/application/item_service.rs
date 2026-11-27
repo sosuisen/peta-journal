@@ -125,6 +125,11 @@ pub enum BatchOp {
         level: Option<i32>,
         collapsed: Option<bool>,
         task: Option<TaskState>,
+        /// The properties to write, by their keys: one value for a scalar key, the values of
+        /// a list key. The other properties stay.
+        properties: Vec<(String, Vec<String>)>,
+        /// The keys of the properties to take away.
+        dropped_properties: Vec<String>,
     },
     /// Moves items, in their order, to a position on a page: the undo of a move.
     Move {
@@ -1085,6 +1090,8 @@ impl ItemService {
                     level,
                     collapsed,
                     task,
+                    properties,
+                    dropped_properties,
                 } => {
                     let existing = find_all_in(&tx, std::slice::from_ref(id))?.remove(0);
                     self.update_item_in(
@@ -1097,6 +1104,16 @@ impl ItemService {
                     )?;
                     if let Some(state) = task {
                         put_task_in(&tx, &existing, state, self.items.db().now_millis())?;
+                    }
+                    for (key, value) in properties {
+                        write_property_in(&tx, id, key, value)?;
+                    }
+                    for key in dropped_properties {
+                        PropertyRepository::delete_property_in(&tx, ITEM_TARGET, id.as_str(), key)?;
+                    }
+                    if !properties.is_empty() || !dropped_properties.is_empty() {
+                        ItemRepository::touch_in(&tx, id, self.items.db().now_millis())?;
+                        effects.pages.insert(existing.page_id.clone());
                     }
                     // A transcluder shows the item as it is stored, so its page changed too
                     transcluder_pages.extend(
@@ -1532,6 +1549,25 @@ fn touched_in(tx: &Connection, existing: &Item, now: i64) -> Result<Item, AppErr
         modified_date: now,
         ..existing.clone()
     })
+}
+
+/// Writes a property of an item, as a client sets it: the key must be defined, and the value
+/// is taken by the type of the definition (ADR 047).
+fn write_property_in(
+    tx: &Connection,
+    item_id: &Hmtid,
+    key: &str,
+    values: &[String],
+) -> Result<(), AppError> {
+    let value_type = PropertyRepository::find_definition_in(tx, key)?
+        .map(|def| def.value_type)
+        .ok_or_else(|| AppError::bad_request(format!("Property '{key}' is not defined")))?;
+    let id = item_id.as_str();
+    if value_type == "tags" || value_type == "list" {
+        PropertyRepository::upsert_list_in(tx, ITEM_TARGET, id, key, values)
+    } else {
+        PropertyRepository::upsert_scalar_in(tx, ITEM_TARGET, id, key, &values.join(","))
+    }
 }
 
 /// Writes the properties of an item made again, as the file of its page would bring them

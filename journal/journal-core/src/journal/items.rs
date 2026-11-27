@@ -45,13 +45,7 @@ fn parse_batch_op(input: BatchOpInput) -> Result<BatchOp, AppError> {
             transclude: transclude_item_id.as_deref().map(parse_id).transpose()?,
             properties: properties
                 .into_iter()
-                .map(|(key, value)| {
-                    let values = match value {
-                        PropertyValue::Text(text) => vec![text],
-                        PropertyValue::List(values) => values,
-                    };
-                    Ok((PropertyKey::parse(&key)?, values))
-                })
+                .map(|(key, value)| Ok((PropertyKey::parse(&key)?, values_of(value))))
                 .collect::<Result<_, AppError>>()?,
         },
         BatchOpInput::Update {
@@ -60,11 +54,18 @@ fn parse_batch_op(input: BatchOpInput) -> Result<BatchOp, AppError> {
             level,
             collapsed,
             task,
+            properties,
+            dropped_properties,
         } => BatchOp::Update {
             id: parse_id(&id)?,
             body,
             level,
             collapsed,
+            properties: properties
+                .into_iter()
+                .map(|(key, value)| (key, values_of(value)))
+                .collect(),
+            dropped_properties,
             task: task.map(|task| TaskState {
                 task: task.task,
                 begin: task.begin,
@@ -83,6 +84,14 @@ fn parse_batch_op(input: BatchOpInput) -> Result<BatchOp, AppError> {
         },
         BatchOpInput::Delete { id } => BatchOp::Delete { id: parse_id(&id)? },
     })
+}
+
+/// The values of a property of a request: one for a text, each of a list.
+fn values_of(value: PropertyValue) -> Vec<String> {
+    match value {
+        PropertyValue::Text(text) => vec![text],
+        PropertyValue::List(values) => values,
+    }
 }
 
 // ---- answers ----
