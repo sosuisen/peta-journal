@@ -2,11 +2,14 @@
 //! model (ADR 078).
 
 use crate::changes::{
-    Changes, HeadingChange, HeadingsPanel, ListChange, OutlinePanel, Panel, RowChange, Shown,
+    Changes, HeadingChange, HeadingsPanel, IndexPagesPanel, ListChange, OutlinePanel, PageChange,
+    Panel, RecentPagesPanel, RowChange, Shown,
 };
 use crate::harness::Harness;
+use crate::model::Page;
 use crate::outline::Heading;
 use crate::testing::plain_item;
+use crate::view::SidebarPage;
 use crate::{PetaApp, RichText, ViewModel};
 use crux_core::App;
 
@@ -28,6 +31,8 @@ fn nothing_changed_gives_empty_changes() {
         Changes {
             rows: vec![],
             headings: vec![],
+            index_pages: vec![],
+            recent_pages: vec![],
             panels: vec![]
         }
     );
@@ -50,15 +55,16 @@ fn only_the_panels_that_changed_are_in_the_changes() {
     );
 }
 
-// 最初の差分は、行と見出しの入れ替えと、全部のパネルである。
+// 最初の差分は、行と見出しとページの一覧の入れ替えと、全部のパネルである。
 #[test]
-fn the_first_changes_are_a_reset_of_the_rows_and_the_headings_and_every_panel() {
+fn the_first_changes_are_a_reset_of_every_list_and_every_panel() {
     let view = first_view();
     let mut shown = Shown::default();
 
     let changes = shown.changes(view.clone());
 
     let outline = &view.outline;
+    let index = &view.index_pages;
     assert_eq!(
         changes,
         Changes {
@@ -67,6 +73,12 @@ fn the_first_changes_are_a_reset_of_the_rows_and_the_headings_and_every_panel() 
             }],
             headings: vec![HeadingChange::Reset {
                 items: view.headings.headings.clone()
+            }],
+            index_pages: vec![PageChange::Reset {
+                items: index.pages.clone()
+            }],
+            recent_pages: vec![PageChange::Reset {
+                items: view.recent_pages.pages.clone()
             }],
             panels: vec![
                 Panel::Screen(view.screen.clone()),
@@ -83,11 +95,20 @@ fn the_first_changes_are_a_reset_of_the_rows_and_the_headings_and_every_panel() 
                     wiki: outline.wiki.clone(),
                     scrolled_from_top: outline.scrolled_from_top,
                 }),
-                Panel::IndexPages(view.index_pages.clone()),
+                Panel::IndexPages(IndexPagesPanel {
+                    header: index.header.clone(),
+                    path: index.path.clone(),
+                    sort: index.sort,
+                    parent_path: index.parent_path.clone(),
+                    current_page_id: index.current_page_id.clone(),
+                    state: index.state,
+                }),
                 Panel::Headings(HeadingsPanel {
                     state: view.headings.state
                 }),
-                Panel::RecentPages(view.recent_pages.clone()),
+                Panel::RecentPages(RecentPagesPanel {
+                    state: view.recent_pages.state
+                }),
                 Panel::Search(view.search.clone()),
                 Panel::Config(view.config.clone()),
                 Panel::Connection(view.connection),
@@ -122,6 +143,62 @@ fn a_heading_whose_text_changed_is_an_update_of_the_headings_at_its_place() {
         vec![HeadingChange::Update {
             at: 1,
             item: heading("b", "Three")
+        }]
+    );
+    assert_eq!(changes.panels, vec![]);
+}
+
+/// A page of the sidebar, with the id `id`.
+fn sidebar_page(id: &str) -> SidebarPage {
+    SidebarPage {
+        page: Page {
+            id: id.into(),
+            ..Page::default()
+        },
+        label: id.into(),
+        published: false,
+        is_dir: false,
+        dir_label: None,
+        path: id.into(),
+    }
+}
+
+// 並べ替えを変えると、フォルダのページは、移動として差分に入る。フォルダのページのパネルは送られない。
+#[test]
+fn a_change_of_the_sort_moves_the_pages_of_the_folder() {
+    let mut before = first_view();
+    before.index_pages.pages = vec![sidebar_page("a"), sidebar_page("b")];
+    let mut after = before.clone();
+    after.index_pages.pages.reverse();
+    let mut shown = Shown::default();
+    shown.changes(before);
+
+    let changes = shown.changes(after);
+
+    assert_eq!(
+        changes.index_pages,
+        vec![PageChange::Move { from: 1, to: 0 }]
+    );
+    assert_eq!(changes.panels, vec![]);
+}
+
+// 新しく変わったページは、最近のページの先頭への挿入として、差分に入る。最近のページのパネルは送られない。
+#[test]
+fn a_page_changed_last_is_inserted_at_the_top_of_the_recent_pages() {
+    let mut before = first_view();
+    before.recent_pages.pages = vec![sidebar_page("a")];
+    let mut after = before.clone();
+    after.recent_pages.pages.insert(0, sidebar_page("b"));
+    let mut shown = Shown::default();
+    shown.changes(before);
+
+    let changes = shown.changes(after);
+
+    assert_eq!(
+        changes.recent_pages,
+        vec![PageChange::Insert {
+            at: 0,
+            item: sidebar_page("b")
         }]
     );
     assert_eq!(changes.panels, vec![]);

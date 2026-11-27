@@ -1,7 +1,7 @@
 //! The view model as a shell keeps it from the changes of the core (ADR 076), for the tests to
 //! hold against the view model of the core.
 
-use crate::{Changes, HeadingChange, Panel, RowChange};
+use crate::{Changes, HeadingChange, PageChange, Panel, RowChange};
 use client_core::{RichText, ViewModel};
 
 /// Applies `change`, of the change type `kind` of the border, to the list `list`. The change
@@ -44,9 +44,17 @@ pub(super) fn applied(mut view: ViewModel<RichText>, changes: Changes) -> ViewMo
                 outline.wiki = value.wiki;
                 outline.scrolled_from_top = value.scrolled_from_top;
             }
-            Panel::IndexPages(value) => view.index_pages = value,
+            Panel::IndexPages(value) => {
+                let index = &mut view.index_pages;
+                index.header = value.header;
+                index.path = value.path;
+                index.sort = value.sort;
+                index.parent_path = value.parent_path;
+                index.current_page_id = value.current_page_id;
+                index.state = value.state;
+            }
             Panel::Headings(value) => view.headings.state = value.state,
-            Panel::RecentPages(value) => view.recent_pages = value,
+            Panel::RecentPages(value) => view.recent_pages.state = value.state,
             Panel::Search(value) => view.search = value,
             Panel::Config(value) => view.config = value,
             Panel::Connection(value) => view.connection = value,
@@ -61,6 +69,12 @@ pub(super) fn applied(mut view: ViewModel<RichText>, changes: Changes) -> ViewMo
     }
     for change in changes.headings {
         applied!(HeadingChange, change, &mut view.headings.headings);
+    }
+    for change in changes.index_pages {
+        applied!(PageChange, change, &mut view.index_pages.pages);
+    }
+    for change in changes.recent_pages {
+        applied!(PageChange, change, &mut view.recent_pages.pages);
     }
     view
 }

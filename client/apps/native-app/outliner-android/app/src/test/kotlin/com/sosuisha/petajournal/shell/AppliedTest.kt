@@ -8,19 +8,22 @@ import com.sosuisha.petajournal.types.Heading
 import com.sosuisha.petajournal.types.HeadingChange
 import com.sosuisha.petajournal.types.HeadingsPanel
 import com.sosuisha.petajournal.types.HistoryView
-import com.sosuisha.petajournal.types.IndexPagesView
+import com.sosuisha.petajournal.types.IndexPagesPanel
 import com.sosuisha.petajournal.types.IndexSort
 import com.sosuisha.petajournal.types.IndexSortKey
 import com.sosuisha.petajournal.types.Item
 import com.sosuisha.petajournal.types.LoadState
 import com.sosuisha.petajournal.types.OutlinePanel
+import com.sosuisha.petajournal.types.Page
+import com.sosuisha.petajournal.types.PageChange
 import com.sosuisha.petajournal.types.Panel
-import com.sosuisha.petajournal.types.RecentPagesView
+import com.sosuisha.petajournal.types.RecentPagesPanel
 import com.sosuisha.petajournal.types.RichText
 import com.sosuisha.petajournal.types.Row
 import com.sosuisha.petajournal.types.RowChange
 import com.sosuisha.petajournal.types.ScreenView
 import com.sosuisha.petajournal.types.SearchView
+import com.sosuisha.petajournal.types.SidebarPage
 import com.sosuisha.petajournal.types.SortOrder
 import com.sosuisha.petajournal.types.WeekNumbering
 import com.sosuisha.petajournal.types.WikiView
@@ -28,7 +31,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /** The changes of the rows and the panels, with no change of the headings. */
-private fun Changes(rows: List<RowChange>, panels: List<Panel>) = Changes(rows, emptyList(), panels)
+private fun Changes(rows: List<RowChange>, panels: List<Panel>) =
+    Changes(rows, emptyList(), emptyList(), emptyList(), panels)
 
 /**
  * The view model that the changes of the core make (ADR 076). That the core sends the changes that
@@ -99,17 +103,16 @@ class AppliedTest {
             Panel.AtlasLinkSuggestions(listOf("suggested")),
             Panel.Outline(outline(selecting = true)),
             Panel.IndexPages(
-                IndexPagesView(
+                IndexPagesPanel(
                     header = "index",
                     path = "index",
                     sort = IndexSort(IndexSortKey.NAME, SortOrder.ASC),
-                    pages = emptyList(),
                     currentPageId = "current",
                     state = LoadState.LOADED,
                 ),
             ),
             Panel.Headings(HeadingsPanel(state = LoadState.FAILED)),
-            Panel.RecentPages(RecentPagesView(pages = emptyList(), state = LoadState.LOADING)),
+            Panel.RecentPages(RecentPagesPanel(state = LoadState.LOADING)),
             Panel.Search(search("first")),
             Panel.Config(
                 ConfigView(
@@ -224,27 +227,81 @@ class AppliedTest {
         val view =
             firstView(
                 Changes(
-                    emptyList(),
-                    listOf(
-                        HeadingChange.Reset(
-                            listOf(Heading("a", "One", 1u), Heading("b", "Two", 2u)),
+                    rows = emptyList(),
+                    headings =
+                        listOf(
+                            HeadingChange.Reset(
+                                listOf(Heading("a", "One", 1u), Heading("b", "Two", 2u)),
+                            ),
                         ),
-                    ),
-                    everyPanel(),
+                    indexPages = emptyList(),
+                    recentPages = emptyList(),
+                    panels = everyPanel(),
                 ),
             )
 
         val changed =
             view.with(
                 Changes(
-                    emptyList(),
-                    listOf(HeadingChange.Update(1u, Heading("b", "Three", 2u))),
-                    emptyList(),
+                    rows = emptyList(),
+                    headings = listOf(HeadingChange.Update(1u, Heading("b", "Three", 2u))),
+                    indexPages = emptyList(),
+                    recentPages = emptyList(),
+                    panels = emptyList(),
                 ),
             )
 
         assertEquals(listOf("One", "Three"), changed.headings.headings.map { it.text })
         assertEquals(LoadState.FAILED, changed.headings.state)
+    }
+
+    // 後の差分のページの操作は、今のフォルダのページと最近のページに当たる。それぞれのパネルの値は前のままである。
+    @Test
+    fun the_pages_of_a_later_change_are_applied_to_the_lists_there() {
+        fun page(id: String) =
+            SidebarPage(
+                page =
+                    Page(
+                        id = id,
+                        parentId = "",
+                        dirPath = "",
+                        name = id,
+                        pageType = "doc",
+                        createdDate = 0,
+                        modifiedDate = 0,
+                        properties = emptyMap(),
+                    ),
+                label = id,
+                published = false,
+                isDir = false,
+                path = id,
+            )
+        val view =
+            firstView(
+                Changes(
+                    rows = emptyList(),
+                    headings = emptyList(),
+                    indexPages = listOf(PageChange.Reset(listOf(page("a"), page("b")))),
+                    recentPages = listOf(PageChange.Reset(listOf(page("c")))),
+                    panels = everyPanel(),
+                ),
+            )
+
+        val changed =
+            view.with(
+                Changes(
+                    rows = emptyList(),
+                    headings = emptyList(),
+                    indexPages = listOf(PageChange.Remove(0u)),
+                    recentPages = listOf(PageChange.Insert(0u, page("d"))),
+                    panels = emptyList(),
+                ),
+            )
+
+        assertEquals(listOf("b"), changed.indexPages.pages.map { it.label })
+        assertEquals("current", changed.indexPages.currentPageId)
+        assertEquals(listOf("d", "c"), changed.recentPages.pages.map { it.label })
+        assertEquals(LoadState.LOADING, changed.recentPages.state)
     }
 
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。

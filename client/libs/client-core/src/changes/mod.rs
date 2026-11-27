@@ -25,13 +25,22 @@ crate::list_change!(
     Heading
 );
 
+crate::list_change!(
+    /// One change to a list of pages of the sidebar, as the shells take it.
+    #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+    #[derive(Debug, Clone, PartialEq, Serialize)]
+    PageChange,
+    SidebarPage
+);
+
 use crate::app::ConnectionState;
+use crate::model::IndexSort;
 use crate::outline::{FocusOrder, FocusRequest, Heading};
 use crate::screens::atlas::{Callout, LinkCard};
 use crate::screens::calendar::CalendarView;
 use crate::view::{
-    AtlasCard, ConfigView, HistoryView, IndexPagesView, LoadState, RecentPagesView, Row,
-    ScreenView, SearchView, WikiView,
+    AtlasCard, ConfigView, HistoryView, LoadState, Row, ScreenView, SearchView, SidebarPage,
+    WikiView,
 };
 use crate::ViewModel;
 use serde::Serialize;
@@ -44,6 +53,11 @@ pub struct Changes<B> {
     pub rows: Vec<RowChange<B>>,
     /// The changes to the headings of the page on screen, to apply in order (ADR 088).
     pub headings: Vec<HeadingChange>,
+    /// The changes to the pages of the folder of the page on screen, in the order of the sort,
+    /// to apply in order (ADR 088).
+    pub index_pages: Vec<PageChange>,
+    /// The changes to the doc pages changed last, to apply in order (ADR 088).
+    pub recent_pages: Vec<PageChange>,
     /// The panels that changed, each whole.
     pub panels: Vec<Panel>,
 }
@@ -59,9 +73,9 @@ pub enum Panel {
     AtlasLinks(Vec<LinkCard>),
     AtlasLinkSuggestions(Vec<String>),
     Outline(OutlinePanel),
-    IndexPages(IndexPagesView),
+    IndexPages(IndexPagesPanel),
     Headings(HeadingsPanel),
-    RecentPages(RecentPagesView),
+    RecentPages(RecentPagesPanel),
     Search(SearchView),
     Config(ConfigView),
     Connection(ConnectionState),
@@ -91,12 +105,38 @@ pub struct HeadingsPanel {
     pub state: LoadState,
 }
 
+/// The pages of the folder in the view model without their list, which changes as a list.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct IndexPagesPanel {
+    pub header: String,
+    /// The path of the index page that the header of the list opens.
+    pub path: String,
+    pub sort: IndexSort,
+    /// The path the `../` entry opens; None in the root directory.
+    pub parent_path: Option<String>,
+    /// The page on screen, which the list marks.
+    pub current_page_id: Option<String>,
+    pub state: LoadState,
+}
+
+/// The recent pages in the view model without their list, which changes as a list.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RecentPagesPanel {
+    pub state: LoadState,
+}
+
 /// What the shell was last told: the rows and the panels it has now.
 pub struct Shown<B> {
     /// The rows the shell has. None before it was first told.
     rows: Option<Vec<Row<B>>>,
     /// The headings the shell has. None before it was first told.
     headings: Option<Vec<Heading>>,
+    /// The pages of the folder the shell has. None before it was first told.
+    index_pages: Option<Vec<SidebarPage>>,
+    /// The recent pages the shell has. None before it was first told.
+    recent_pages: Option<Vec<SidebarPage>>,
     panels: ShownPanels,
 }
 
@@ -106,6 +146,8 @@ impl<B> Default for Shown<B> {
         Shown {
             rows: None,
             headings: None,
+            index_pages: None,
+            recent_pages: None,
             panels: ShownPanels::default(),
         }
     }
@@ -119,12 +161,21 @@ impl<B: Clone + PartialEq> Shown<B> {
         let headings = changes_of(&mut self.headings, view.headings.headings, |heading| {
             &heading.id
         });
+        let index_pages = changes_of(&mut self.index_pages, view.index_pages.pages, page_id);
+        let recent_pages = changes_of(&mut self.recent_pages, view.recent_pages.pages, page_id);
         Changes {
             rows: rows.into_iter().map(RowChange::from).collect(),
             headings: headings.into_iter().map(HeadingChange::from).collect(),
+            index_pages: index_pages.into_iter().map(PageChange::from).collect(),
+            recent_pages: recent_pages.into_iter().map(PageChange::from).collect(),
             panels,
         }
     }
+}
+
+/// The key of a page of the sidebar in its list.
+fn page_id(page: &SidebarPage) -> &str {
+    &page.page.id
 }
 
 /// The changes from the list the shell has to `now`: a reset the first time. The shell has
@@ -187,11 +238,20 @@ fn panels<B>(view: &ViewModel<B>) -> Vec<Panel> {
             wiki: outline.wiki.clone(),
             scrolled_from_top: outline.scrolled_from_top,
         }),
-        Panel::IndexPages(view.index_pages.clone()),
+        Panel::IndexPages(IndexPagesPanel {
+            header: view.index_pages.header.clone(),
+            path: view.index_pages.path.clone(),
+            sort: view.index_pages.sort,
+            parent_path: view.index_pages.parent_path.clone(),
+            current_page_id: view.index_pages.current_page_id.clone(),
+            state: view.index_pages.state,
+        }),
         Panel::Headings(HeadingsPanel {
             state: view.headings.state,
         }),
-        Panel::RecentPages(view.recent_pages.clone()),
+        Panel::RecentPages(RecentPagesPanel {
+            state: view.recent_pages.state,
+        }),
         Panel::Search(view.search.clone()),
         Panel::Config(view.config.clone()),
         Panel::Connection(view.connection),

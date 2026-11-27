@@ -473,7 +473,7 @@ public final class Shell: ObservableObject {
     private func show() {
         let changes = Shell.must { try border.changes() }
         // Not set when nothing changed: everything that watches the view would be drawn
-        guard !changes.rows.isEmpty || !changes.panels.isEmpty else { return }
+        guard !changes.isEmpty else { return }
         view.apply(changes)
     }
 

@@ -15,6 +15,7 @@ import {
   type DragMove,
   type Event,
   type HeadingChange,
+  type PageChange,
   type KeyPress,
   type RowChange,
   type Panel,
@@ -28,13 +29,25 @@ import * as json from '../border/serde/json';
 /** Nothing to load: the shell of the tests is plain TypeScript. */
 export default async function init(): Promise<void> {}
 
+/** The changes of the lists of the sidebar, each empty unless a test gives some. */
+export interface Lists {
+  readonly headings?: HeadingChange[];
+  readonly index_pages?: PageChange[];
+  readonly recent_pages?: PageChange[];
+}
+
 /** The changes the core answers: none, unless a test gives some. */
 function written(
   rows: RowChange[] = [],
   panels: Panel[] = [],
-  headings: HeadingChange[] = [],
+  lists: Lists = {},
 ): string {
-  return json.stringify(Changes.toJson(new Changes(rows, headings, panels)));
+  const { headings = [], index_pages = [], recent_pages = [] } = lists;
+  return json.stringify(
+    Changes.toJson(
+      new Changes(rows, headings, index_pages, recent_pages, panels),
+    ),
+  );
 }
 
 export class WebShell {
@@ -82,12 +95,8 @@ export class WebShell {
   }
 
   /** The screen changes outside a call of the shell, as an answer of the server does. */
-  push(
-    rows: RowChange[],
-    panels: Panel[] = [],
-    headings: HeadingChange[] = [],
-  ): void {
-    this.pending = written(rows, panels, headings);
+  push(rows: RowChange[], panels: Panel[] = [], lists: Lists = {}): void {
+    this.pending = written(rows, panels, lists);
     this.onRender();
   }
 

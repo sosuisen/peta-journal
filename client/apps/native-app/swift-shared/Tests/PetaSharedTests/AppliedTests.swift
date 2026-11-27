@@ -18,6 +18,14 @@ final class AppliedTests: XCTestCase {
             effectiveZoom: 1, dateHeader: nil, suggestionsVisible: false)
     }
 
+    /// The changes, each list without a change unless one is given.
+    private func changes(
+        rows: [RowChange] = [], headings: [HeadingChange] = [], indexPages: [PageChange] = [],
+        recentPages: [PageChange] = [], panels: [Panel] = []
+    ) -> Changes {
+        Changes(rows: rows, headings: headings, indexPages: indexPages, recentPages: recentPages, panels: panels)
+    }
+
     private func ids(_ rows: [Row]) -> [String] {
         rows.map(\.item.id)
     }
@@ -44,11 +52,11 @@ final class AppliedTests: XCTestCase {
             .atlasLinkSuggestions(["suggested"]),
             .outline(outline(selecting: true)),
             .indexPages(
-                IndexPagesView(
+                IndexPagesPanel(
                     header: "index", path: "index", sort: IndexSort(key: .name, order: .asc), parentPath: nil,
-                    pages: [], currentPageId: "current", state: .loaded)),
+                    currentPageId: "current", state: .loaded)),
             .headings(HeadingsPanel(state: .failed)),
-            .recentPages(RecentPagesView(pages: [], state: .loading)),
+            .recentPages(RecentPagesPanel(state: .loading)),
             .search(search("first")),
             .config(
                 ConfigView(
@@ -67,7 +75,7 @@ final class AppliedTests: XCTestCase {
 
     // 最初の差分から、すべての欄が、それぞれのパネルの値で作られる。行は、入れ替えで届いた行である。
     func testTheFirstChangesMakeEveryPartFromItsPanel() {
-        let view = ViewModel(first: Changes(rows: [.reset(items: [row("a")])], headings: [], panels: everyPanel()))
+        let view = ViewModel(first: changes(rows: [.reset(items: [row("a")])], panels: everyPanel()))
 
         XCTAssertEqual(view.screen, .settings)
         XCTAssertEqual(view.atlasLinkSuggestions, ["suggested"])
@@ -87,9 +95,9 @@ final class AppliedTests: XCTestCase {
 
     // 届いたパネルだけが入れ替わり、ほかの欄は前のままである。
     func testOnlyThePanelsThatCameTakeThePlaceOfTheirParts() {
-        var view = ViewModel(first: Changes(rows: [], headings: [], panels: everyPanel()))
+        var view = ViewModel(first: changes(panels: everyPanel()))
 
-        view.apply(Changes(rows: [], headings: [], panels: [.search(search("changed")), .title("another")]))
+        view.apply(changes(panels: [.search(search("changed")), .title("another")]))
 
         XCTAssertEqual(view.search.query, "changed")
         XCTAssertEqual(view.title, "another")
@@ -99,9 +107,9 @@ final class AppliedTests: XCTestCase {
 
     // 後の差分の行の操作は、今の行に当たる。
     func testTheRowsOfALaterChangeAreAppliedToTheRowsThere() {
-        var view = ViewModel(first: Changes(rows: [.reset(items: [row("a")])], headings: [], panels: everyPanel()))
+        var view = ViewModel(first: changes(rows: [.reset(items: [row("a")])], panels: everyPanel()))
 
-        view.apply(Changes(rows: [.insert(at: 1, item: row("b"))], headings: [], panels: []))
+        view.apply(changes(rows: [.insert(at: 1, item: row("b"))]))
 
         XCTAssertEqual(ids(view.outline.rows), ["a", "b"])
     }
@@ -110,21 +118,53 @@ final class AppliedTests: XCTestCase {
     func testTheHeadingsOfALaterChangeAreAppliedToTheHeadingsThere() {
         let one = Heading(id: "a", text: "One", level: 1)
         let two = Heading(id: "b", text: "Two", level: 2)
-        var view = ViewModel(first: Changes(rows: [], headings: [.reset(items: [one, two])], panels: everyPanel()))
+        var view = ViewModel(first: changes(headings: [.reset(items: [one, two])], panels: everyPanel()))
 
         let three = Heading(id: "b", text: "Three", level: 2)
-        view.apply(Changes(rows: [], headings: [.update(at: 1, item: three)], panels: []))
+        view.apply(changes(headings: [.update(at: 1, item: three)]))
 
         XCTAssertEqual(view.headings.headings.map(\.text), ["One", "Three"])
         XCTAssertEqual(view.headings.state, .failed)
     }
 
+    // 後の差分のページの操作は、今のフォルダのページと最近のページに当たる。それぞれのパネルの値は前のままである。
+    func testThePagesOfALaterChangeAreAppliedToTheListsThere() {
+        func page(_ id: String) -> SidebarPage {
+            SidebarPage(
+                page: Page(
+                    id: id, parentId: "", dirPath: "", name: id, pageType: "doc", createdDate: 0, modifiedDate: 0,
+                    properties: [:]),
+                label: id, published: false, isDir: false, dirLabel: nil, path: id)
+        }
+        var view = ViewModel(
+            first: changes(
+                indexPages: [.reset(items: [page("a"), page("b")])], recentPages: [.reset(items: [page("c")])],
+                panels: everyPanel()))
+
+        view.apply(changes(indexPages: [.remove(at: 0)], recentPages: [.insert(at: 0, item: page("d"))]))
+
+        XCTAssertEqual(view.indexPages.pages.map(\.label), ["b"])
+        XCTAssertEqual(view.indexPages.currentPageId, "current")
+        XCTAssertEqual(view.recentPages.pages.map(\.label), ["d", "c"])
+        XCTAssertEqual(view.recentPages.state, .loading)
+    }
+
+    // 見出しやページの差分だけの変更も、空ではない。シェルは、空の変更だけを当てずに捨ててよい。
+    func testChangesWithOnlyAListOfTheSidebarAreNotEmpty() {
+        let heading = Heading(id: "a", text: "One", level: 1)
+
+        XCTAssertTrue(changes().isEmpty)
+        XCTAssertFalse(changes(headings: [.reset(items: [heading])]).isEmpty)
+        XCTAssertFalse(changes(indexPages: [.remove(at: 0)]).isEmpty)
+        XCTAssertFalse(changes(recentPages: [.remove(at: 0)]).isEmpty)
+    }
+
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
     func testTheOutlinePanelKeepsTheRows() {
         var view = ViewModel(
-            first: Changes(rows: [.reset(items: [row("a"), row("b")])], headings: [], panels: everyPanel()))
+            first: changes(rows: [.reset(items: [row("a"), row("b")])], panels: everyPanel()))
 
-        view.apply(Changes(rows: [], headings: [], panels: [.outline(outline(selecting: false))]))
+        view.apply(changes(panels: [.outline(outline(selecting: false))]))
 
         XCTAssertEqual(view.outline.selectionMode, false)
         XCTAssertEqual(ids(view.outline.rows), ["a", "b"])

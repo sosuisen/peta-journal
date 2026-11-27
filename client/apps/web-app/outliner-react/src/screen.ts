@@ -1,6 +1,7 @@
 /**
  * A change of a list of any kind, as each change type of the border has it: `RowChange` for
- * the rows of the outline and `HeadingChange` for the headings of the page (ADR 088). The types have the same shape, so one function applies
+ * the rows of the outline and `HeadingChange` for the headings of the page, `PageChange` for the pages of the sidebar
+ * (ADR 088). The types have the same shape, so one function applies
  * them all.
  */
 export type ListChange<T> =

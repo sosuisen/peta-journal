@@ -1,7 +1,13 @@
 import { useCallback, useState, type MouseEvent, type ReactNode } from 'react';
 import type { IndexSort, LoadState, SidebarPage } from './border/peta-types';
 import Calendar from './Calendar';
-import { useCore, useHeadings, usePanel } from './context';
+import {
+  useCore,
+  useHeadings,
+  useIndexPages,
+  usePanel,
+  useRecentPages,
+} from './context';
 import Frame from './Frame';
 import { openInOf } from './keys';
 import { useClosesOnOutside } from './menu';
@@ -184,6 +190,7 @@ function ListSection({
 /** The pages of the folder of the page on screen, under the folder's name. */
 function IndexSection() {
   const index = usePanel('IndexPages');
+  const pages = useIndexPages();
   const go = useGo();
   const [collapsed, toggle] = useCollapsed('index');
   // The name of a folder still loading is not known yet
@@ -202,7 +209,7 @@ function IndexSection() {
     );
   }
   const parent = index.parent_path;
-  if (index.pages.length === 0 && parent === null) {
+  if (pages.length === 0 && parent === null) {
     return null;
   }
   return (
@@ -235,7 +242,7 @@ function IndexSection() {
               </span>
             </div>
           )}
-          <PageList pages={index.pages} current={index.current_page_id} />
+          <PageList pages={pages} current={index.current_page_id} />
         </div>
       )}
     </div>
@@ -280,6 +287,7 @@ function ContentsSection() {
 /** The doc pages changed last. The page on screen is not marked here. */
 function RecentSection() {
   const recent = usePanel('RecentPages');
+  const recentPages = useRecentPages();
   return (
     <ListSection
       section="recent"
@@ -287,7 +295,7 @@ function RecentSection() {
       state={recent?.state ?? LOADING}
       failed="The recent pages could not be loaded."
     >
-      <PageList pages={recent?.pages ?? []} current={null} />
+      <PageList pages={recentPages} current={null} />
     </ListSection>
   );
 }
