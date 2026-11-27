@@ -11,6 +11,7 @@
 pub mod marks;
 #[cfg(feature = "measure")]
 pub mod measure;
+pub mod plain;
 #[cfg(feature = "marks")]
 pub mod scene;
 
@@ -275,11 +276,11 @@ pub fn card_label(path: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
-    struct Item {
+    pub(crate) struct Item {
         level: i32,
         body: String,
         props: BTreeMap<String, String>,
@@ -297,7 +298,7 @@ mod tests {
         }
     }
 
-    fn item(level: i32, body: &str, props: &[(&str, &str)]) -> Item {
+    pub(crate) fn item(level: i32, body: &str, props: &[(&str, &str)]) -> Item {
         Item {
             level,
             body: body.to_string(),
