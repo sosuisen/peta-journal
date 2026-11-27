@@ -77,6 +77,16 @@ fn atlas_item(id: &str, level: i32, body: &str, props: &[(&str, &str)]) -> Item 
     item
 }
 
+/// An item that others are under, placed at the point its own bounds are counted from, so the
+/// items under it lie on the canvas where their bounds say. The given properties win.
+fn parent_item(id: &str, level: i32, body: &str, props: &[(&str, &str)]) -> Item {
+    let mut item = atlas_item(id, level, body, &[("atlas_bounds", "0,0,0,40")]);
+    for (key, value) in props {
+        item.properties.insert((*key).into(), (*value).into());
+    }
+    item
+}
+
 /// The item of the card of the page `a/b/<name>`, `i-<name>`, placed by the bounds if any.
 /// Its body links to the page, which is all that joins the two.
 fn card_item(name: &str, level: i32, bounds: Option<&str>) -> Item {

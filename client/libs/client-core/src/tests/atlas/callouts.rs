@@ -183,7 +183,7 @@ fn an_item_whose_last_child_was_a_deleted_callout_loses_its_side_in_the_same_bat
     let mut h = atlas_of(
         vec![],
         vec![
-            atlas_item("g", 1, "Tools", &[("atlas_side", "left")]),
+            parent_item("g", 1, "Tools", &[("atlas_side", "left")]),
             atlas_item(
                 "c",
                 2,

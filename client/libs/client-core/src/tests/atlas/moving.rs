@@ -8,7 +8,7 @@ fn atlas_with_parent(three: &str) -> Harness {
     atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("0,100,0,40")),
             card_item("three", 1, Some(three)),
@@ -88,7 +88,7 @@ fn a_sibling_without_a_place_is_not_compared_and_keeps_its_place_in_the_order() 
     let mut h = atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, None),
             atlas_item("note", 2, "sample", &[]),
             card_item("two", 2, Some("0,100,0,40")),
@@ -115,7 +115,7 @@ fn cards_dropped_at_once_go_in_each_by_where_it_lies_in_one_batch() {
             child("two"),
         ],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("0,100,0,40")),
             card_item("five", 1, Some("0,60,0,40")),
@@ -143,9 +143,9 @@ fn atlas_with_nested_parents(four: &str) -> Harness {
     atlas_of(
         vec![child("four"), child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
-            atlas_item("p", 2, "", &[("atlas_side", "left")]),
+            parent_item("p", 2, "", &[("atlas_side", "left")]),
             card_item("two", 3, Some("0,100,0,40")),
             card_item("three", 2, Some("0,300,0,40")),
             card_item("four", 1, Some(four)),
@@ -207,7 +207,7 @@ fn a_link_card_goes_under_a_parent_as_the_card_of_a_page_does() {
     let mut h = atlas_of(
         vec![child("one"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("0,100,0,40")),
             atlas_item("l", 1, "[[x/Sample]]", &[("atlas_bounds", "0,50,0,40")]),

@@ -55,7 +55,7 @@ fn a_link_card_under_a_group_item_belongs_to_the_group() {
     let h = atlas_of(
         vec![],
         vec![
-            atlas_item("g", 1, "Tools", &[]),
+            parent_item("g", 1, "Tools", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             atlas_item("l", 2, "[[x/Target]]", &[("atlas_bounds", "9,0,0,40")]),
         ],
@@ -184,21 +184,25 @@ fn an_item_whose_last_card_is_removed_loses_its_side_in_the_same_batch() {
         let mut h = atlas_of(
             vec![],
             vec![
-                atlas_item("alone", 1, "Tools", &side),
+                parent_item("alone", 1, "Tools", &side),
                 link("a"),
-                atlas_item("two", 1, "", &side),
+                parent_item("two", 1, "", &side),
                 link("b"),
                 link("b2"),
-                atlas_item("plain", 1, "", &[]),
+                parent_item("plain", 1, "", &[]),
                 link("c"),
                 atlas_item(
                     "callout",
                     1,
                     "Hi",
-                    &[("atlas_type", "callout"), ("atlas_side", "left")],
+                    &[
+                        ("atlas_type", "callout"),
+                        ("atlas_side", "left"),
+                        ("atlas_bounds", "0,0,0,40"),
+                    ],
                 ),
                 link("d"),
-                atlas_item("kept", 1, "", &[]),
+                parent_item("kept", 1, "", &[]),
                 // A side written by hand on a card, which is the parent of nothing
                 atlas_item(
                     "e",

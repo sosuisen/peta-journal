@@ -9,7 +9,7 @@ fn atlas_with_group(title: &str, side: Option<&str>) -> Harness {
     atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, title, &props),
+            parent_item("g", 1, title, &props),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("100,0,0,40")),
             card_item("three", 1, Some("200,0,0,40")),
@@ -50,8 +50,8 @@ fn a_card_is_counted_from_its_parent_and_its_groups_carry_the_places_of_the_pare
     let h = atlas_of(
         vec![child("one")],
         vec![
-            atlas_item("outer", 1, "", &[("atlas_bounds", "100,200,0,40")]),
-            atlas_item("inner", 2, "", &[("atlas_bounds", "10,20,0,40")]),
+            parent_item("outer", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            parent_item("inner", 2, "", &[("atlas_bounds", "10,20,0,40")]),
             card_item("one", 3, Some("1,2,0,40")),
         ],
     );
@@ -73,7 +73,7 @@ fn cards_dropped_on_a_card_go_under_a_new_item_in_one_batch() {
     answer_outline(
         &mut h,
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("two", 2, Some("0,0,0,40")),
             card_item("one", 2, Some("9,0,0,40")),
         ],
@@ -117,7 +117,7 @@ fn a_card_dropped_on_a_card_of_a_group_goes_in_before_the_first_card_below_it() 
     let mut h = atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("0,100,0,40")),
             card_item("three", 1, Some("0,50,0,40")),
@@ -163,10 +163,10 @@ fn a_card_taken_to_another_group_leaves_its_old_group_as_it_is() {
     let mut h = atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("100,0,0,40")),
-            atlas_item("h", 1, "", &[]),
+            parent_item("h", 1, "", &[]),
             card_item("three", 2, Some("50,0,0,40")),
         ],
     );
@@ -196,7 +196,7 @@ fn a_card_placed_and_grouped_at_once_keeps_the_place_shown_for_it() {
     answer_outline(
         &mut h,
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("two", 2, Some("9,0,0,40")),
             card_item("one", 2, None),
         ],
@@ -278,9 +278,9 @@ fn an_item_whose_last_card_goes_to_another_group_loses_its_side_in_the_same_batc
         let mut h = atlas_of(
             vec![child("one"), child("three"), child("two")],
             vec![
-                atlas_item("g", 1, "", &[("atlas_side", "left")]),
+                parent_item("g", 1, "", &[("atlas_side", "left")]),
                 card_item("one", 2, Some("300,0,0,40")),
-                atlas_item("h", 1, "", &[("atlas_side", "right")]),
+                parent_item("h", 1, "", &[("atlas_side", "right")]),
                 card_item("three", 2, Some("200,0,0,40")),
                 card_item("two", 1, Some("100,0,0,40")),
             ],
@@ -317,10 +317,10 @@ fn cards_that_leave_two_groups_at_once_go_behind_their_groups_in_one_batch() {
     let mut h = atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("100,0,0,40")),
-            atlas_item("h", 1, "", &[]),
+            parent_item("h", 1, "", &[]),
             card_item("three", 2, Some("200,0,0,40")),
         ],
     );
@@ -380,7 +380,7 @@ fn the_title_and_its_side_changed_at_once_are_saved_in_one_batch() {
     answer_outline(
         &mut h,
         vec![
-            atlas_item("g", 1, "Tools", &[("atlas_side", "left")]),
+            parent_item("g", 1, "Tools", &[("atlas_side", "left")]),
             card_item("one", 2, Some("0,0,0,40")),
         ],
     );
@@ -403,7 +403,7 @@ fn a_group_whose_body_is_a_link_keeps_the_link_while_its_title_stays() {
     let mut h = atlas_of(
         vec![child("one")],
         vec![
-            atlas_item("g", 1, "[[x/Tools]]", &[]),
+            parent_item("g", 1, "[[x/Tools]]", &[]),
             card_item("one", 2, Some("0,0,0,40")),
         ],
     );

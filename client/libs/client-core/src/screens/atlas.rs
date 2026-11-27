@@ -4,8 +4,10 @@
 //! A card is an item with something written in it and no item under it. One whose first line
 //! is one wiki link stands for the page of the directory that the link names, or else it is a
 //! link card; any other is a plain card, which shows its first line. A card lies where the `atlas_bounds`
-//! property of its item says, in coordinates whose origin is the center of the canvas. A card
-//! or a callout without the property waits beside the canvas among the items without a place.
+//! property of its item says. A parent has `atlas_bounds` too, and those of an item are counted
+//! from the item it is right under; at the top, from the center of the canvas. An item without
+//! the property is not drawn, and neither is any item under it: they wait beside the canvas
+//! among the items without a place.
 //! A page of the directory that no card links to waits there too, among the pages not added:
 //! dropped on the canvas, it gets an item that links to it.
 //! A group is an item with items under it, at any depth, and a card is in every group above
@@ -65,9 +67,10 @@ fn entries(model: &Model) -> Vec<Entry<'_>> {
     )
 }
 
-/// Where a card or a callout lies, read from its item.
+/// The `atlas_bounds` of an item as they are stored: counted from the item it is right under,
+/// or from the center of the canvas at the top (ADR 053).
 fn bounds_of(item: &Item) -> Option<Bounds> {
-    item.prop_str(BOUNDS_KEY).and_then(Bounds::parse)
+    peta_atlas::bounds_of(item)
 }
 
 /// A card of the shown atlas page.
@@ -79,12 +82,20 @@ struct Card<'a> {
     parents: Vec<&'a Item>,
     /// The page of the directory the card stands for; none for a link card
     page_id: Option<&'a str>,
+    /// Where the card lies on the canvas; none for a card that is not drawn
+    place: Option<Bounds>,
 }
 
 impl Card<'_> {
     /// The name the shell calls the card by: the id of its page, or of the item of a link card.
     fn id(&self) -> &str {
         self.page_id.unwrap_or(&self.item.id)
+    }
+
+    /// The bounds of the card as they are stored, when the card is drawn: a card is not drawn
+    /// while an item it is under has no place.
+    fn drawn_bounds(&self) -> Option<Bounds> {
+        self.place.and_then(|_| bounds_of(self.item))
     }
 }
 
@@ -127,6 +138,7 @@ fn card_entries(model: &Model) -> Vec<Card<'_>> {
                 group: e.group(),
                 parents: e.parents,
                 page_id,
+                place: e.place,
             }
         })
         .collect()
@@ -816,11 +828,12 @@ pub struct Callout {
     pub text: String,
 }
 
-/// The callouts of the shown atlas page, in their order. A callout without a place is left out.
+/// The callouts of the shown atlas page, in their order. A callout without a place is left
+/// out, and so is one under an item without a place.
 pub fn shown_callouts(model: &Model) -> Vec<Callout> {
     entries(model)
         .into_iter()
-        .filter(|e| e.kind == Kind::Callout && !e.is_parent)
+        .filter(|e| e.kind == Kind::Callout && !e.is_parent && e.place.is_some())
         .filter_map(|e| {
             let bounds = bounds_of(e.item).filter(|b| b.height > 0.0)?;
             Some(Callout {
@@ -988,7 +1001,8 @@ pub struct LinkCard {
 }
 
 /// The link cards of the shown atlas page, in the order of its items. A link card without a
-/// place is left out.
+/// place is left out, and so is one under an item without a place. The bounds of a card are
+/// counted from the item it is right under.
 pub fn link_cards(model: &Model) -> Vec<LinkCard> {
     card_entries(model)
         .into_iter()
@@ -1007,7 +1021,7 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
                 runs,
                 text: card.item.body.clone(),
                 tone: tone_of(model, link),
-                bounds: bounds_of(card.item)?,
+                bounds: card.drawn_bounds()?,
                 groups: groups(model, &card.parents),
             })
         })
@@ -1179,8 +1193,8 @@ fn sorted_dir_pages(model: &Model) -> Vec<Page> {
 
 /// The cards of the pages of the shown atlas page, in the order the pages are listed. The
 /// item on the atlas page that links to the page holds the label, the place and the group. A
-/// page that no card links to has none of them, and neither has a card without a place: both
-/// wait beside the canvas ([`unplaced`]).
+/// page that no card links to has none of them, and neither has a card without a place or
+/// under an item without one: they wait beside the canvas ([`unplaced`]).
 pub fn cards(model: &Model) -> Vec<PageCard> {
     if shown_atlas_page(model).is_none() {
         return Vec::new();
@@ -1195,7 +1209,7 @@ pub fn cards(model: &Model) -> Vec<PageCard> {
             PageCard {
                 label: link.and_then(|l| l.label).map(str::to_string),
                 text: card.map(|c| c.item.body.clone()).unwrap_or_default(),
-                bounds: card.and_then(|c| bounds_of(c.item)),
+                bounds: card.and_then(Card::drawn_bounds),
                 groups: card.map(|c| groups(model, &c.parents)).unwrap_or_default(),
                 page,
             }
@@ -1208,9 +1222,9 @@ pub fn cards(model: &Model) -> Vec<PageCard> {
 /// A page not added is a page of the directory that no page card links to, in the order the
 /// pages are listed. The link of a card without a place counts, and so does the link of a
 /// parent, so no page waits in both lists.
-/// An item without a place is a card or a callout without `atlas_bounds`, in the order of the
-/// items. A parent is not placed by bounds of its own, as it is drawn around what is under
-/// it, so it does not wait.
+/// An item without a place is one that is not drawn: an item without `atlas_bounds`, a parent
+/// too, and every item under such a parent, whatever its own `atlas_bounds`. They wait in the
+/// order of the items.
 pub fn unplaced(model: &Model) -> Vec<UnplacedCard> {
     if shown_atlas_page(model).is_none() {
         return Vec::new();
@@ -1231,15 +1245,16 @@ pub fn unplaced(model: &Model) -> Vec<UnplacedCard> {
             ..waiting_page(model, &page, None)
         });
     let cards = card_entries(model);
-    let no_place = entries
-        .iter()
-        .filter(|e| !e.is_parent && bounds_of(e.item).is_none())
-        .map(
-            |e| match cards.iter().find(|card| card.item.id == e.item.id) {
-                Some(card) => waiting_card(model, card),
-                None => waiting_text(e.item, first_line(&e.item.body).trim().to_string()),
-            },
-        );
+    let no_place = entries.iter().filter(|e| e.place.is_none()).map(|e| {
+        match cards.iter().find(|card| card.item.id == e.item.id) {
+            Some(card) => waiting_card(model, card.item, card.page_id),
+            None if e.kind == Kind::Callout => {
+                waiting_text(e.item, first_line(&e.item.body).trim().to_string())
+            }
+            // A parent is named as a card with its body would be
+            None => waiting_card(model, e.item, None),
+        }
+    });
     not_added.chain(no_place).collect()
 }
 
@@ -1271,24 +1286,20 @@ fn waiting_text(item: &Item, label: String) -> UnplacedCard {
     }
 }
 
-/// A card without a place as it waits beside the canvas, named as the canvas names it.
-fn waiting_card(model: &Model, card: &Card) -> UnplacedCard {
-    let link = plain::card_link(&card.item.body);
-    let page = card
-        .page_id
-        .and_then(|id| dir_pages(model).find(|page| page.id == id));
+/// The item of a card or of a parent as it waits beside the canvas, named as the canvas names
+/// it. `page_id` is the page of the directory a card stands for.
+fn waiting_card(model: &Model, item: &Item, page_id: Option<&str>) -> UnplacedCard {
+    let link = plain::card_link(&item.body);
+    let page = page_id.and_then(|id| dir_pages(model).find(|page| page.id == id));
     match (page, link) {
         (Some(page), link) => waiting_page(model, page, link.and_then(|link| link.label)),
         (None, Some(link)) => UnplacedCard {
             path: link_path(model, link),
-            ..waiting_text(card.item, link.shown())
+            ..waiting_text(item, link.shown())
         },
         (None, None) => {
-            let runs = first_line_runs(&card.item.body, &model.config.tags_dir);
-            waiting_text(
-                card.item,
-                runs.iter().map(|run| run.text.as_str()).collect(),
-            )
+            let runs = first_line_runs(&item.body, &model.config.tags_dir);
+            waiting_text(item, runs.iter().map(|run| run.text.as_str()).collect())
         }
     }
 }
