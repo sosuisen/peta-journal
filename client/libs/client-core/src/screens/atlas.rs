@@ -12,6 +12,9 @@
 //! place of a card or a callout is saved as a property of its item. A change of the outline
 //! is one batch of item operations, however many items it writes, so one operation of the
 //! user is one change on the server. The outline is then read again and shown.
+//! A change that leaves an item with no item under it takes the `atlas_side` of that item
+//! away in the same batch: the side is of the title of a group, and the item is no group any
+//! more. Nothing is cleaned up for a change made in the outline or in the `.md`.
 
 use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, ApiResult, TimerOutput, UiOp};
@@ -259,40 +262,16 @@ pub fn remove_card(model: &mut Model, page_id: String) -> Cmd {
     })
 }
 
-/// What one change of the outline of the atlas page sends to the server.
-#[derive(Default)]
-struct Change {
-    /// The item operations of the change, sent as one batch
-    ops: Vec<BatchOpInput>,
-    /// The side to save for an item, as `(item, side)`.
-    // Sent in a request of its own after the batch, as the batch of the server cannot write
-    // a property of an item that is there already (#1238). It belongs into the batch.
-    side: Option<(String, String)>,
-}
-
-impl From<Vec<BatchOpInput>> for Change {
-    fn from(ops: Vec<BatchOpInput>) -> Change {
-        Change { ops, side: None }
-    }
-}
-
-impl Change {
-    fn is_empty(&self) -> bool {
-        self.ops.is_empty() && self.side.is_none()
-    }
-}
-
-/// Sends a change of the outline of the shown atlas page and shows the outline as the server
-/// has it then. A change that writes nothing sends nothing.
-fn change(model: &Model, change: impl Into<Change>) -> Cmd {
-    let change = change.into();
+/// Sends a change of the outline of the shown atlas page as one batch and shows the outline
+/// as the server has it then. A change that writes nothing sends nothing.
+fn change(model: &Model, ops: Vec<BatchOpInput>) -> Cmd {
     let Some(atlas_id) = shown_atlas_page(model).map(|p| p.id.clone()) else {
         return done();
     };
-    if change.is_empty() {
+    if ops.is_empty() {
         return done();
     }
-    run(move |api| async move { send(&api, atlas_id, change).await })
+    run(move |api| async move { send(&api, atlas_id, ops).await })
 }
 
 /// Sends a change of the outline that makes an item. `make` takes the id of the atlas page
@@ -310,29 +289,23 @@ fn change_with_new_item(
         // A generator of its own: the one of the model cannot be reached from here, and an
         // id is unique by its random part
         let id = hmtid::Generator::for_pages_and_items().generate_at(now_ms);
-        let change = make(atlas_id.clone(), id.as_str().to_string()).into();
-        send(&api, atlas_id, change).await
+        let ops = make(atlas_id.clone(), id.as_str().to_string());
+        send(&api, atlas_id, ops).await
     })
 }
 
-/// Sends the change, reads the outline again and shows it. A card keeps the place shown for
+/// Sends the batch, reads the outline again and shows it. A card keeps the place shown for
 /// it: a card placed and grouped at once may be read before its place is saved.
-async fn send(api: &Api<Event>, atlas_id: String, change: Change) {
-    match written(api, &atlas_id, change).await {
+async fn send(api: &Api<Event>, atlas_id: String, ops: Vec<BatchOpInput>) {
+    match written(api, &atlas_id, ops).await {
         Ok(items) => api.send_event(Event::AtlasChanged { atlas_id, items }),
         Err(e) => api.alert(e.0),
     }
 }
 
-/// Writes the change and answers with the items of the atlas page as they are then.
-async fn written(api: &Api<Event>, atlas_id: &str, change: Change) -> ApiResult<Vec<Item>> {
-    if !change.ops.is_empty() {
-        api.apply_batch(change.ops).await?;
-    }
-    if let Some((item_id, side)) = change.side {
-        api.upsert_item_property(&item_id, SIDE_KEY, "text", &side)
-            .await?;
-    }
+/// Writes the batch and answers with the items of the atlas page as they are then.
+async fn written(api: &Api<Event>, atlas_id: &str, ops: Vec<BatchOpInput>) -> ApiResult<Vec<Item>> {
+    api.apply_batch(ops).await?;
     Ok(api.get_page_by_id(atlas_id).await?.items)
 }
 
@@ -358,17 +331,65 @@ fn new_item(
     }
 }
 
-/// The operation that writes the body of an item.
-fn new_body(item_id: &str, body: String) -> BatchOpInput {
-    BatchOpInput::Update {
+/// The operation that writes the body and the side of an item, each when it is given; none
+/// when neither is.
+fn rewritten(item_id: &str, body: Option<String>, side: Option<String>) -> Option<BatchOpInput> {
+    (body.is_some() || side.is_some()).then(|| BatchOpInput::Update {
         id: item_id.to_string(),
-        body: Some(body),
+        body,
+        level: None,
+        collapsed: None,
+        task: None,
+        properties: side
+            .map(|side| (SIDE_KEY.to_string(), PropertyValue::Text(side)))
+            .into_iter()
+            .collect(),
+        dropped_properties: Vec::new(),
+    })
+}
+
+/// The item an item is under: the nearest item above it with a lower level.
+fn parent_of<'a>(model: &'a Model, item: &Item) -> Option<&'a Item> {
+    let items = model.state.items();
+    let at = items.iter().position(|i| i.id == item.id)?;
+    items[..at]
+        .iter()
+        .rev()
+        .take_while(|above| above.page_id == item.page_id)
+        .find(|above| above.level < item.level)
+        .map(|above| &**above)
+}
+
+/// The operation that takes the side away from `parent` when no item stays under it while
+/// the items `leaving` go: it is no parent then, and has no title to lay along a side. None
+/// for an item that keeps an item under it, for one without a side, and for a callout, whose
+/// side is of its own bubble.
+fn side_dropped(model: &Model, parent: &Item, leaving: &[&Item]) -> Option<BatchOpInput> {
+    let emptied = last_staying(model, parent, leaving).id == parent.id;
+    let has_side = parent.prop_str(SIDE_KEY).is_some();
+    let is_callout = parent.prop_str(TYPE_KEY) == Some(CALLOUT_TYPE);
+    (emptied && has_side && !is_callout).then(|| BatchOpInput::Update {
+        id: parent.id.clone(),
+        body: None,
         level: None,
         collapsed: None,
         task: None,
         properties: Default::default(),
-        dropped_properties: Vec::new(),
-    }
+        dropped_properties: vec![SIDE_KEY.to_string()],
+    })
+}
+
+/// Deletes an item of the shown atlas page. The item it was under loses its side in the same
+/// batch when nothing else is under it.
+fn delete(model: &Model, item_id: String) -> Cmd {
+    let Some(item) = model.state.get_item_by_id(&item_id) else {
+        return done();
+    };
+    let side = parent_of(model, &item).and_then(|parent| side_dropped(model, parent, &[&*item]));
+    let ops = std::iter::once(BatchOpInput::Delete { id: item_id })
+        .chain(side)
+        .collect();
+    change(model, ops)
 }
 
 /// The operations that take items behind the item `after` at a level, in their order. The
@@ -435,22 +456,22 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
     let in_group_of_target = |card: &Card| {
         target.group.is_some() && card.group.map(|g| &g.id) == target.group.map(|g| &g.id)
     };
-    let joining: Vec<&Item> = cards
+    let joining: Vec<&Card> = cards
         .iter()
         .filter(|card| card.id() != target_id && card_ids.iter().any(|id| id == card.id()))
         .filter(|card| !in_group_of_target(card))
-        .map(|card| card.item)
         .collect();
     if joining.is_empty() {
         return done();
     }
+    let left = sides_dropped(model, &joining);
+    let joining: Vec<&Item> = joining.iter().map(|card| card.item).collect();
     match target.group {
         Some(group) => {
             let last = last_staying(model, group, &joining);
-            change(
-                model,
-                taken_behind(&group.page_id, &joining, &last.id, group.level + 1),
-            )
+            let mut ops = taken_behind(&group.page_id, &joining, &last.id, group.level + 1);
+            ops.extend(left);
+            change(model, ops)
         }
         None => {
             let target = target.item.clone();
@@ -465,39 +486,57 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
                     &[],
                 )];
                 ops.extend(taken_behind(&atlas_id, &members, &group_id, 2));
+                ops.extend(left);
                 ops
             })
         }
     }
 }
 
-/// Cards taken out of their groups, as when they are dragged out of the outline of their
-/// group with Ctrl held. A card goes behind the tree of its group, at the level of the group
-/// item. The item of the group stays, even with one card or none under it (ADR 053).
-pub fn ungroup_cards(model: &mut Model, card_ids: Vec<String>) -> Cmd {
-    let cards = card_entries(model);
-    let leaving: Vec<(&Item, &Item)> = cards
-        .iter()
-        .filter(|card| card_ids.iter().any(|id| id == card.id()))
-        .filter_map(|card| Some((card.group?, card.item)))
-        .collect();
-    let all: Vec<&Item> = leaving.iter().map(|(_, item)| *item).collect();
+/// The groups the cards are in, each once, in the order of the cards.
+fn groups_of<'a>(cards: &[&Card<'a>]) -> Vec<&'a Item> {
     let mut groups: Vec<&Item> = Vec::new();
-    for (group, _) in &leaving {
+    for group in cards.iter().filter_map(|card| card.group) {
         if !groups.iter().any(|g| g.id == group.id) {
             groups.push(group);
         }
     }
-    let ops: Vec<BatchOpInput> = groups
+    groups
+}
+
+/// The operations that take the side away from each group that the cards leave with no item
+/// under it.
+fn sides_dropped(model: &Model, leaving: &[&Card]) -> Vec<BatchOpInput> {
+    let items: Vec<&Item> = leaving.iter().map(|card| card.item).collect();
+    groups_of(leaving)
+        .into_iter()
+        .filter_map(|group| side_dropped(model, group, &items))
+        .collect()
+}
+
+/// Cards taken out of their groups, as when they are dragged out of the outline of their
+/// group with Ctrl held. A card goes behind the tree of its group, at the level of the group
+/// item. The item of the group stays, even with one card or none under it (ADR 053). With
+/// none, it loses its side.
+pub fn ungroup_cards(model: &mut Model, card_ids: Vec<String>) -> Cmd {
+    let cards = card_entries(model);
+    let leaving: Vec<&Card> = cards
+        .iter()
+        .filter(|card| card.group.is_some() && card_ids.iter().any(|id| id == card.id()))
+        .collect();
+    let all: Vec<&Item> = leaving.iter().map(|card| card.item).collect();
+    let ops: Vec<BatchOpInput> = groups_of(&leaving)
         .into_iter()
         .flat_map(|group| {
             let of_group: Vec<&Item> = leaving
                 .iter()
-                .filter(|(g, _)| g.id == group.id)
-                .map(|(_, item)| *item)
+                .filter(|card| card.group.is_some_and(|g| g.id == group.id))
+                .map(|card| card.item)
                 .collect();
             let last = last_staying(model, group, &all);
-            taken_behind(&group.page_id, &of_group, &last.id, group.level)
+            let mut ops = taken_behind(&group.page_id, &of_group, &last.id, group.level);
+            ops.extend(side_dropped(model, group, &all));
+            ops
         })
         .collect();
     change(model, ops)
@@ -538,15 +577,11 @@ pub fn set_group_title(model: &mut Model, group_id: String, side: String, title:
     let title = title.trim().to_string();
     // The title shown, and not the body: a body that is a link shows its label as the title
     let shown = plain::group_title(&group).unwrap_or_default();
+    let body = (shown != title).then_some(title);
+    let side = (side_of(&group) != side).then_some(side);
     change(
         model,
-        Change {
-            ops: (shown != title)
-                .then(|| new_body(&group_id, title))
-                .into_iter()
-                .collect(),
-            side: (side_of(&group) != side).then_some((group_id, side)),
-        },
+        rewritten(&group_id, body, side).into_iter().collect(),
     )
 }
 
@@ -659,19 +694,12 @@ pub fn set_callout(model: &mut Model, key: String, side: String, text: String) -
     };
     let text = text.trim().to_string();
     if text.is_empty() {
-        return change(model, vec![BatchOpInput::Delete { id: key }]);
+        return delete(model, key);
     }
     let side = side_or_default(&side).to_string();
-    change(
-        model,
-        Change {
-            ops: (callout.text != text)
-                .then(|| new_body(&key, text))
-                .into_iter()
-                .collect(),
-            side: (callout.side != side).then_some((key, side)),
-        },
-    )
+    let body = (callout.text != text).then_some(text);
+    let side = (callout.side != side).then_some(side);
+    change(model, rewritten(&key, body, side).into_iter().collect())
 }
 
 /// The tags the icon of a card is drawn from. A tag page stands for its tag, and so does a
@@ -783,7 +811,10 @@ pub fn set_link(model: &mut Model, item_id: String, target: String) -> Cmd {
         return done();
     };
     let body = plain::relinked(&item.body, &target);
-    change(model, vec![new_body(&item_id, body)])
+    change(
+        model,
+        rewritten(&item_id, Some(body), None).into_iter().collect(),
+    )
 }
 
 /// Takes a link card off the atlas: its item is deleted, and with it the link.
@@ -791,7 +822,7 @@ pub fn remove_link(model: &mut Model, item_id: String) -> Cmd {
     if !link_cards(model).iter().any(|c| c.item_id == item_id) {
         return done();
     }
-    change(model, vec![BatchOpInput::Delete { id: item_id }])
+    delete(model, item_id)
 }
 
 /// How long typing in the dialog of a link may pause before the page names are searched.

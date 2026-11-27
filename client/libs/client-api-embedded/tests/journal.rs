@@ -739,6 +739,56 @@ fn the_edits_of_an_atlas_go_through_as_batches_of_item_operations() {
     assert_eq!(made_here(&f), ["1:", "2:[[map/a]]"]);
 }
 
+// グループのタイトルと辺は、1回の送信で書かれる。辺は、最後のカードを消すのと同じ送信で、ほかのプロパティを残して消される。
+#[test]
+fn the_title_and_the_side_of_a_group_are_written_and_the_side_dropped_in_one_batch_each() {
+    let f = Fixture::new();
+    let atlas_id = f.doc("index_atlas", "map/").page.id;
+    let ids = client_core::app::Model::default();
+    let [group, card] = [0, 1].map(|_| ids.new_item_id(1_634_115_600_000));
+    let update = |body: Option<&str>, side: Option<&str>, dropped: &[&str]| BatchOpInput::Update {
+        id: group.clone(),
+        body: body.map(str::to_string),
+        level: None,
+        collapsed: None,
+        task: None,
+        properties: side
+            .map(|side| ("atlas_side".to_string(), side.into()))
+            .into_iter()
+            .collect(),
+        dropped_properties: dropped.iter().map(|key| key.to_string()).collect(),
+    };
+    batch(
+        &f,
+        vec![
+            made(&group, &atlas_id, "", &[("atlas_bounds", "1,2,0,40")]),
+            made(&card, &atlas_id, "[[map/a]]", &[]),
+            leveled(&card, 2),
+        ],
+    );
+
+    let titled = batch(&f, vec![update(Some("Tools"), Some("left"), &[])])
+        .items
+        .remove(0);
+    assert_eq!(titled.body, "Tools");
+    assert_eq!(titled.properties.get("atlas_side"), Some(&"left".into()));
+
+    let emptied = batch(
+        &f,
+        vec![
+            BatchOpInput::Delete { id: card.clone() },
+            update(None, None, &["atlas_side"]),
+        ],
+    )
+    .items
+    .remove(0);
+    assert_eq!(emptied.properties.get("atlas_side"), None);
+    assert_eq!(
+        emptied.properties.get("atlas_bounds"),
+        Some(&"1,2,0,40".into())
+    );
+}
+
 // アトラスの吹き出しは、種類と位置と辺を持つ項目として、1回の送信で作られる。
 #[test]
 fn a_callout_of_an_atlas_is_made_as_an_item_with_its_type_place_and_side() {
