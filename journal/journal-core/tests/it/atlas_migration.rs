@@ -1,6 +1,7 @@
 //! The move of the atlas pages from the form the server wrote to plain pages (ADR 053).
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 use hmtid::Hmtid;
 use journal_core::domain::model::ItemPosition;
@@ -17,12 +18,17 @@ impl Device {
             .item_service
             .create_item(&self.atlas_id(), &ItemPosition::Last, level, body, None)
             .unwrap();
+        self.give_atlas_props(&item.id, props);
+        item.id
+    }
+
+    /// Gives an item atlas properties that no client can set, as the server wrote them
+    fn give_atlas_props(&self, item_id: &Hmtid, props: &[(&str, &str)]) {
         let conn = self.core.items.db().conn().unwrap();
         for (key, value) in props {
-            PropertyRepository::write_scalar_in(&conn, "item", item.id.as_str(), key, value)
+            PropertyRepository::write_scalar_in(&conn, "item", item_id.as_str(), key, value)
                 .unwrap();
         }
-        item.id
     }
 
     /// The atlas properties of an item of the atlas
@@ -53,11 +59,20 @@ impl Device {
     }
 }
 
+/// Two devices that share the directory `d/`. On A, its atlas is as the server wrote it
+/// before the atlas became a plain page: the card of the page a.
+fn with_an_old_atlas(dir: &Path) -> (Device, Device) {
+    let (a, b) = two_devices(dir);
+    let page = a.page_in("d/", "a").unwrap();
+    a.old_item(1, "[[d/a]]", &[("atlas_page", page.as_str())]);
+    (a, b)
+}
+
 // 古い形のアトラスを移すと、ページのカードからatlas_pageが消える。項目は残る。
 #[test]
 fn an_atlas_of_the_old_form_moves_to_the_plain_form() {
     let dir = tempfile::tempdir().unwrap();
-    let (a, _b) = two_devices(dir.path());
+    let (a, _b) = with_an_old_atlas(dir.path());
     assert_eq!(a.atlas_keys(), BTreeSet::from(["atlas_page".to_string()]));
 
     a.core.atlas.move_to_plain_form().unwrap();
@@ -77,7 +92,7 @@ fn props(entries: &[(&str, &str)]) -> BTreeMap<String, String> {
 #[test]
 fn the_groups_and_the_callouts_of_an_old_atlas_move_to_the_plain_form() {
     let dir = tempfile::tempdir().unwrap();
-    let (a, _b) = two_devices(dir.path());
+    let (a, _b) = with_an_old_atlas(dir.path());
     let group = a.old_item(
         1,
         "Title",
@@ -106,7 +121,7 @@ fn the_groups_and_the_callouts_of_an_old_atlas_move_to_the_plain_form() {
 #[test]
 fn a_moved_atlas_is_dated_when_it_moved() {
     let dir = tempfile::tempdir().unwrap();
-    let (a, _b) = two_devices(dir.path());
+    let (a, _b) = with_an_old_atlas(dir.path());
     let modified = |device: &Device| {
         let atlas = device.core.pages.find_by_id(&device.atlas_id());
         atlas.unwrap().unwrap().modified_date
@@ -130,7 +145,7 @@ fn a_moved_atlas_is_dated_when_it_moved() {
 #[test]
 fn the_file_of_an_atlas_is_kept_as_a_backup_before_it_moves() {
     let dir = tempfile::tempdir().unwrap();
-    let (a, _b) = two_devices(dir.path());
+    let (a, _b) = with_an_old_atlas(dir.path());
     let old = a.file(ATLAS);
     assert!(old.contains("atlas_page"), "{old}");
 
@@ -149,7 +164,7 @@ fn the_file_of_an_atlas_is_kept_as_a_backup_before_it_moves() {
 #[test]
 fn an_old_atlas_moves_when_the_core_starts() {
     let dir = tempfile::tempdir().unwrap();
-    let (a, _b) = two_devices(dir.path());
+    let (a, _b) = with_an_old_atlas(dir.path());
     a.old_item(1, "Title", &[("atlas_type", "group")]);
     a.old_item(2, "[[x/b]]", &[("atlas_bounds", "0,0,0,40")]);
     a.old_item(2, "[[x/c]]", &[("atlas_bounds", "9,9,0,40")]);

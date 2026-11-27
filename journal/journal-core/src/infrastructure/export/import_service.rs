@@ -303,7 +303,6 @@ impl MarkdownImportService {
                 &union(&merge.tags_before, &page_tags_before),
                 &union(&merge.tags_after, &page_tags),
             );
-            self.page_service.sync_atlases();
             self.events.page_changed(&page.id);
         }
         std::fs::remove_file(&file)?;
@@ -507,13 +506,6 @@ impl MarkdownImportService {
             &union(&merge.tags_before, &page_tags_before),
             &union(&merge.tags_after, &page_tags),
         );
-        // A new or moved file changes the pages of a directory. An atlas file that only
-        // changed came from another device, which wrote it from its pages. Writing it again
-        // here from pages that differ for a while, as a rename on its way, would send it back
-        // and forth until the pages agree; a page file that comes writes it again anyway.
-        if page_changed && (is_new || renamed || !page.is_atlas()) {
-            self.page_service.sync_atlases();
-        }
         if page_changed {
             self.events.page_changed(&page.id);
             tracing::info!(
