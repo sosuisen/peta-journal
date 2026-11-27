@@ -354,7 +354,6 @@ fn the_kind_of_a_search_result_is_written_by_the_name_of_the_core() {
     ];
     for (kind, name) in kinds {
         let entry = CoreSearchEntry {
-            position: 0,
             key: "page:p1".into(),
             kind,
             title: "t".into(),
@@ -362,7 +361,7 @@ fn the_kind_of_a_search_result_is_written_by_the_name_of_the_core() {
             snippet: "s".into(),
         };
         let message = Outbound::Search {
-            results: vec![SearchEntry::of(&entry)],
+            results: vec![SearchEntry::of(0, &entry)],
             searching: false,
         };
         assert_eq!(written(&message)["results"][0]["kind"], json!(name));

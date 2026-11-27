@@ -355,9 +355,10 @@ pub struct SearchEntry {
 }
 
 impl SearchEntry {
-    pub fn of(entry: &CoreSearchEntry) -> SearchEntry {
+    /// The line of `entry`, which is at `position` in the results.
+    pub fn of(position: usize, entry: &CoreSearchEntry) -> SearchEntry {
         SearchEntry {
-            position: entry.position,
+            position,
             kind: SearchKind::of(entry.kind),
             title: entry.title.clone(),
             label: entry.label.clone(),
