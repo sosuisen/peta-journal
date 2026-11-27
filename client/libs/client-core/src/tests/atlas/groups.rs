@@ -3,12 +3,9 @@
 use super::*;
 
 /// A group item `g`, its title the body, with the cards of one and two under it, and the card
-/// of three alone
+/// of three alone. Nothing but the cards under it makes the item a group.
 fn atlas_with_group(title: &str, side: Option<&str>) -> Harness {
-    let mut props = vec![("atlas_type", "group")];
-    if let Some(side) = side {
-        props.push(("atlas_side", side));
-    }
+    let props: Vec<(&str, &str)> = side.map(|s| ("atlas_side", s)).into_iter().collect();
     atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
@@ -26,9 +23,9 @@ fn ungroup(h: &mut Harness, card_ids: &[&str]) {
     });
 }
 
-// グループアイテムの下にあるカードは、そのグループに属する。
+// 子を持つレベル1のアイテムはグループであり、その下にあるカードは、そのグループに属する。
 #[test]
-fn a_card_under_a_group_item_belongs_to_the_group() {
+fn a_card_under_an_item_of_level_1_belongs_to_its_group() {
     let h = atlas_with_group("", None);
 
     let groups: Vec<_> = h

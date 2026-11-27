@@ -24,19 +24,108 @@ fn a_page_without_bounds_waits_unplaced_and_a_page_with_them_lies_on_the_canvas(
     );
 }
 
-// カードの位置は、そのページを指すアイテムから読み取られる。同じページへのリンクを持つだけの他のアイテムの境界は使われない。
+// カードのページは、本文のwikilinkのパスから引かれる。リンク先がこのフォルダのページならページのカードであり、リンクカードにはならない。
 #[test]
-fn the_place_of_a_card_is_read_from_the_item_of_its_page() {
+fn the_page_of_a_card_is_found_from_the_path_of_its_link() {
     let h = atlas_of(
         vec![child("one"), child("two")],
+        vec![atlas_item(
+            "any",
+            1,
+            "[[a/b/two]]",
+            &[("atlas_bounds", "1,2,0,40")],
+        )],
+    );
+
+    assert_eq!(bounds_of(&h, "a/b/two").map(|b| b.x), Some(1.0));
+    assert!(h.view().atlas_links.is_empty());
+}
+
+// 子のフォルダへのカードは、そのフォルダのindexページへのリンクであり、フォルダのカードになる。
+#[test]
+fn a_card_that_links_to_the_index_of_a_child_folder_is_the_card_of_the_folder() {
+    let h = atlas_of(
+        vec![doc("a/b/c/", "index")],
+        vec![atlas_item(
+            "f",
+            1,
+            "[[a/b/c/index]]",
+            &[("atlas_bounds", "1,2,0,40")],
+        )],
+    );
+
+    let cards = h.view().atlas_cards;
+    assert_eq!(
+        (cards[0].is_dir, cards[0].bounds.map(|b| b.x)),
+        (true, Some(1.0))
+    );
+    assert!(h.view().atlas_links.is_empty());
+}
+
+// このフォルダにないページへのカードは、リンクカードである。パスがこのフォルダでも、ページがなければリンクカードである。
+#[test]
+fn a_card_that_links_to_no_page_of_the_folder_is_a_link_card() {
+    let h = atlas_of(
+        vec![child("one")],
         vec![
-            card_item("two", 1, Some("1,2,0,40")),
-            atlas_item("other", 1, "[[a/b/one]]", &[("atlas_bounds", "9,9,0,40")]),
+            atlas_item("out", 1, "[[x/one]]", &[("atlas_bounds", "1,2,0,40")]),
+            atlas_item("gone", 1, "[[a/b/gone]]", &[("atlas_bounds", "3,4,0,40")]),
         ],
     );
 
+    let links: Vec<_> = h
+        .view()
+        .atlas_links
+        .into_iter()
+        .map(|l| l.item_id)
+        .collect();
+    assert_eq!(links, ["out", "gone"]);
     assert_eq!(bounds_of(&h, "a/b/one"), None);
-    assert_eq!(bounds_of(&h, "a/b/two").map(|b| b.x), Some(1.0));
+}
+
+// 同じページへのカードが2つあるときは、先のものがページのカードで、後のものはリンクカードである。
+#[test]
+fn the_first_of_two_cards_of_a_page_is_its_card_and_the_second_a_link_card() {
+    let h = atlas_of(
+        vec![child("one")],
+        vec![
+            card_item("one", 1, Some("1,2,0,40")),
+            atlas_item("again", 1, "[[a/b/one]]", &[("atlas_bounds", "9,9,0,40")]),
+        ],
+    );
+
+    assert_eq!(bounds_of(&h, "a/b/one").map(|b| b.x), Some(1.0));
+    let links: Vec<_> = h
+        .view()
+        .atlas_links
+        .into_iter()
+        .map(|l| l.item_id)
+        .collect();
+    assert_eq!(links, ["again"]);
+}
+
+// カードのないページは、未追加の項目として、未配置の一覧に並ぶ。子のフォルダも並ぶ。座標のないカードのページは、1度だけ並ぶ。
+#[test]
+fn a_page_with_no_card_waits_in_the_list_with_the_pages_whose_card_has_no_place() {
+    let h = atlas_of(
+        vec![doc("a/b/c/", "index"), child("one"), child("two")],
+        vec![card_item("two", 1, None)],
+    );
+
+    let unplaced: Vec<_> = h
+        .view()
+        .atlas_cards
+        .into_iter()
+        .map(|c| (c.label, c.bounds))
+        .collect();
+    assert_eq!(
+        unplaced,
+        [
+            ("c/".to_string(), None),
+            ("one".to_string(), None),
+            ("two".to_string(), None)
+        ]
+    );
 }
 
 // フォルダのカードはそのフォルダのアトラスを開き、ページのカードはそのページを開く。

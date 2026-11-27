@@ -58,17 +58,14 @@ fn atlas_item(id: &str, level: i32, body: &str, props: &[(&str, &str)]) -> Item 
     item
 }
 
-/// The item of the card of the page `a/b/<name>`, `i-<name>`, placed by the bounds if any
+/// The item of the card of the page `a/b/<name>`, `i-<name>`, placed by the bounds if any.
+/// Its body links to the page, which is all that joins the two.
 fn card_item(name: &str, level: i32, bounds: Option<&str>) -> Item {
-    let page_id = format!("a/b/{name}");
-    let mut props = vec![("atlas_page", page_id.as_str())];
-    if let Some(b) = bounds {
-        props.push(("atlas_bounds", b));
-    }
+    let props: Vec<(&str, &str)> = bounds.map(|b| ("atlas_bounds", b)).into_iter().collect();
     atlas_item(
         &format!("i-{name}"),
         level,
-        &format!("[[{page_id}]]"),
+        &format!("[[a/b/{name}]]"),
         &props,
     )
 }

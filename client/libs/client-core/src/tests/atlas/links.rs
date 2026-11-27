@@ -20,11 +20,11 @@ fn atlas_with_link() -> Harness {
     )
 }
 
-// 本文がリンク一つだけで配置済みのアトラスのアイテムはリンクカードである。未配置のもの、リンク以外の文字を含むもの、リンクが複数あるもの、ページカードは除かれる。
+// 本文がリンク一つだけで配置済みのアトラスのアイテムのうち、リンク先がこのフォルダのページでないものはリンクカードである。未配置のもの、リンク以外の文字を含むもの、リンクが複数あるもの、ページカードは除かれる。
 #[test]
-fn an_item_of_the_atlas_that_is_one_placed_link_is_a_link_card() {
+fn an_item_of_the_atlas_that_is_one_placed_link_out_of_the_folder_is_a_link_card() {
     let h = atlas_of(
-        vec![],
+        vec![child("one")],
         vec![
             link_item("a", "[[x/Target]]", Some("10,20,0,40")),
             link_item("b", "[[x/Unplaced]]", None),
@@ -57,7 +57,7 @@ fn a_link_card_under_a_group_item_belongs_to_the_group() {
     let h = atlas_of(
         vec![],
         vec![
-            atlas_item("g", 1, "Tools", &[("atlas_type", "group")]),
+            atlas_item("g", 1, "Tools", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             atlas_item("l", 2, "[[x/Target]]", &[("atlas_bounds", "9,0,0,40")]),
         ],

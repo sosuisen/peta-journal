@@ -13,22 +13,15 @@ fn callout(key: &str, x: f64, y: f64, side: &str, text: &str) -> Callout {
     }
 }
 
-/// The parent of the callouts and the given callouts under it
+/// An atlas whose items are the given callouts
 fn atlas_with_callouts(callouts: Vec<Item>) -> Harness {
-    let mut items = vec![atlas_item(
-        "cp",
-        1,
-        "callout",
-        &[("atlas_type", "callouts")],
-    )];
-    items.extend(callouts);
-    atlas_of(vec![], items)
+    atlas_of(vec![], callouts)
 }
 
 fn callout_item(id: &str, text: &str, bounds: &str) -> Item {
     atlas_item(
         id,
-        2,
+        1,
         text,
         &[
             ("atlas_type", "callout"),
@@ -43,9 +36,9 @@ fn atlas_with_callout() -> Harness {
     atlas_with_callouts(vec![callout_item("c", "Hello", "10,20,0,60")])
 }
 
-// 吹き出しは吹き出しの親アイテムの下にあるアイテムであり、位置・倍率・辺・テキストを持って表示される。
+// 吹き出しは種類がcalloutのアイテムであり、レベル1にあっても、位置・倍率・辺・テキストを持って表示される。
 #[test]
-fn a_callout_is_an_item_under_the_parent_of_the_callouts() {
+fn a_callout_is_an_item_of_the_callout_type_at_level_1() {
     let h = atlas_with_callout();
 
     let shown = Callout {
@@ -61,7 +54,7 @@ fn a_callout_without_a_place_is_left_out() {
     let mut no_side = callout_item("b", "Hi", "1,2,0,40");
     no_side.properties.remove("atlas_side");
     let h = atlas_with_callouts(vec![
-        atlas_item("a", 2, "Hi", &[("atlas_type", "callout")]),
+        atlas_item("a", 1, "Hi", &[("atlas_type", "callout")]),
         no_side,
         callout_item("z", "Hi", "1,2,0,0"),
     ]);
