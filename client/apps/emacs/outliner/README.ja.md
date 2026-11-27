@@ -308,6 +308,23 @@ emacs -Q --batch -L lisp -L lisp/test -l lisp/test/peta-journal-e2e.el -f ert-ru
 
 Windowsでは、`emacs`は本物の`emacs.exe`でなければならない。`emacsclient`のラッパーは使えない。
 
+### Lispのカバレッジ
+
+`coverage.mjs`は、テストが通った`lisp/*.el`の行を数え、9割未満なら失敗する。すべてのファイルを合わせて数え、除くファイルはない。テストは、バッファのテストとE2Eテストで、1つのEmacsで回す。実際のキーで動かすコマンドと、シェルの起動は、E2Eテストだけが通るためである。そのため、E2Eテストに要るものが要る。先に両方のプログラムをビルドする。
+
+```powershell
+$env:PETA_EMACS = "emacs"
+$env:PETA_E2E_SERVER = "<peta-journal>\journal\target\debug\journal-server.exe"
+node coverage.mjs              # ファイルごとに、通った行を出す
+node coverage.mjs --uncovered  # どのテストも通らなかった行も出す
+```
+
+CIは、`emacs-e2e`のジョブの最後の段で回す。PRの前のフックも同じである（`scripts/checks.mjs`）。
+
+道具は[undercover.el](https://github.com/undercover-el/undercover.el) 0.8.1と、それが要る2つのライブラリー（dash.el 2.20.0、shut-up.el 0.3.3）である。どれも1つのファイルである。手で入れるものはない。`coverage.mjs`が、最初の実行で、3つのファイルをGitHubの決まったコミットから`client/target/elisp-coverage`に取ってくる。ファイルは、SHA-256が`coverage.mjs`に書いた値と同じときだけ使う。2回目からは、ネットワークは要らない。新しい版に移るには、そこのコミットとハッシュを変える。どのファイルを測るかは、`lisp/test/peta-journal-coverage.el`がundercover.elに伝える。
+
+undercover.elが数えるのは、ファイルの関数とマクロの中の、式が始まる行である。`defconst`と`defvar`は数えない。
+
 ### 整形
 
 フォーマッターは、ほかのプロジェクトと共有する[elisp-formatter](https://github.com/sosuisen/elisp-formatter)である。`emacs-lisp-mode`の字下げでファイルを整える。字下げは空白で行い、タブは使わない。行の終わりの空白も消す。そのため、EmacsのTABと同じ字下げになる。CIは、タグ`v0.1.0`を取ってきて、整形されているかを確かめる。

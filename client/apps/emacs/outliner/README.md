@@ -406,6 +406,33 @@ emacs -Q --batch -L lisp -L lisp/test -l lisp/test/peta-journal-e2e.el -f ert-ru
 
 On Windows, `emacs` must be the real `emacs.exe`, not an `emacsclient` wrapper.
 
+### Coverage of the Lisp
+
+`coverage.mjs` counts the lines of `lisp/*.el` that the tests run, and fails under 90% of them.
+It counts all the files together, and leaves no file out. The tests are those of the buffer and
+the E2E tests, in one Emacs: only the E2E tests run the commands on real keys and the start of the
+shell. So it needs what the E2E tests need. Build both programs first.
+
+```powershell
+$env:PETA_EMACS = "emacs"
+$env:PETA_E2E_SERVER = "<peta-journal>\journal\target\debug\journal-server.exe"
+node coverage.mjs              # prints the lines covered of each file
+node coverage.mjs --uncovered  # also prints the lines that no test ran
+```
+
+CI runs it as the last step of the `emacs-e2e` job, and the hook before a pull request does the
+same (`scripts/checks.mjs`).
+
+The tool is [undercover.el](https://github.com/undercover-el/undercover.el) 0.8.1, with the two
+libraries it needs, dash.el 2.20.0 and shut-up.el 0.3.3. Each is one file. Nothing is installed by
+hand: `coverage.mjs` fetches the three files from GitHub at fixed commits on its first run, into
+`client/target/elisp-coverage`, and uses a file only when its SHA-256 is the one written in
+`coverage.mjs`. Later runs need no network. To move to a new version, change the commit and the
+hash there. `lisp/test/peta-journal-coverage.el` tells undercover.el which files to measure.
+
+undercover.el counts the lines where a form starts, in the functions and macros of a file. It
+does not count a `defconst` or a `defvar`.
+
 ### Formatting
 
 The formatter is [elisp-formatter](https://github.com/sosuisen/elisp-formatter), shared with

@@ -4,7 +4,9 @@
 # each into client/tools/shell-check/common/. Each shell names its test of each in its own rules,
 # or the issue that writes it (`pending`), or why it needs none (`excluded`).
 #
-# - list-changes: D1, the shell applies the changes of a list as the core does (#1208)
+# - list-changes: D1, the shell applies the changes of a list as the core does (#1208). The
+#   lists and their changes are of the core. The Rust of the Emacs shell writes them in the
+#   form of its own border, as the part `emacs` (#1215)
 # - border-web: D2, the web shell reads and writes the values of its border back as they were
 #   (#1209)
 # - border-native: D2, a native shell reads and writes the values of its border back as they
