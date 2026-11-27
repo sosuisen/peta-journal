@@ -180,7 +180,7 @@ fn examples() -> Vec<Example> {
                     PropertyRow {
                         key: "created".into(),
                         label: "created (datetime)".into(),
-                        value: "2026-11-27 10:00".into(),
+                        value: "2026-11-27T01:00:00Z".into(),
                         removable: false,
                         editable: false,
                     },

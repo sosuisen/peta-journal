@@ -46,7 +46,7 @@
     },
     {
       "id": "Properties",
-      "line": "{\"t\":\"properties\",\"rows\":[{\"key\":\"rating\",\"label\":\"rating (number)\",\"value\":\"5\",\"removable\":true,\"editable\":true},{\"key\":\"created\",\"label\":\"created (datetime)\",\"value\":\"2026-11-27 10:00\",\"removable\":false,\"editable\":false}],\"free_keys\":[{\"key\":\"due\",\"label\":\"due (datetime)\"}],\"datetime_keys\":[\"created\",\"due\"]}"
+      "line": "{\"t\":\"properties\",\"rows\":[{\"key\":\"rating\",\"label\":\"rating (number)\",\"value\":\"5\",\"removable\":true,\"editable\":true},{\"key\":\"created\",\"label\":\"created (datetime)\",\"value\":\"2026-11-27T01:00:00Z\",\"removable\":false,\"editable\":false}],\"free_keys\":[{\"key\":\"due\",\"label\":\"due (datetime)\"}],\"datetime_keys\":[\"created\",\"due\"]}"
     },
     {
       "id": "Properties-2",
