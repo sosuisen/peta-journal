@@ -93,7 +93,7 @@ mod tests {
              "group":null,"group_color":null,"icon_tags":[],"group_title":null,"published":false}
         ]"#;
         let links = r#"[
-            {"item_id":"l","target":"x/Foo","label":"Shown","tone":"Link",
+            {"item_id":"l","target":"x/Foo","label":"Shown","tone":"Link","runs":[],
              "bounds":{"x":1.0,"y":2.0,"width":0.0,"height":0.0},
              "group":null,"group_title":null}
         ]"#;

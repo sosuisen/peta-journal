@@ -765,6 +765,8 @@ pub struct LinkCard {
     /// plain card shows the text of its first line.
     pub label: String,
     pub tone: CardTone,
+    /// The letters of the first line with their looks and their links, which a click follows
+    pub runs: Vec<RichRun>,
     pub bounds: Bounds,
     /// The id of the group item the card is under
     pub group: Option<String>,
@@ -779,14 +781,16 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
         .filter(|card| card.page_id.is_none())
         .filter_map(|card| {
             let link = plain::card_link(&card.item.body);
+            let runs = first_line_runs(&card.item.body, &model.config.tags_dir);
             let label = match link {
                 Some(link) => link.shown(),
-                None => first_line_text(&card.item.body, &model.config.tags_dir),
+                None => runs.iter().map(|run| run.text.as_str()).collect(),
             };
             Some(LinkCard {
                 item_id: card.item.id.clone(),
                 target: link.map(|link| link.target.to_string()),
                 label,
+                runs,
                 tone: if link.is_some() {
                     CardTone::Link
                 } else {
@@ -813,14 +817,6 @@ fn first_line_runs(body: &str, tags_dir: &str) -> Vec<RichRun> {
         })
         .map(|paragraph| paragraph.runs)
         .unwrap_or_default()
-}
-
-/// The text of the first line of a body, as a page shows it, without its marks.
-fn first_line_text(body: &str, tags_dir: &str) -> String {
-    first_line_runs(body, tags_dir)
-        .into_iter()
-        .map(|run| run.text)
-        .collect()
 }
 
 fn shown_atlas_page(model: &Model) -> Option<&Page> {
