@@ -1,10 +1,40 @@
 //! The move of the atlas pages from the form the server wrote to plain pages (ADR 053).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
+
+use hmtid::Hmtid;
+use journal_core::domain::model::ItemPosition;
+use journal_core::infrastructure::persistence::PropertyRepository;
 
 use crate::common::devices::{two_devices, Device};
 
 impl Device {
+    /// An item at the end of the atlas with the atlas properties `props`, as the server
+    /// wrote one before the atlas became a plain page
+    fn old_item(&self, level: i32, body: &str, props: &[(&str, &str)]) -> Hmtid {
+        let item = self
+            .core
+            .item_service
+            .create_item(&self.atlas_id(), &ItemPosition::Last, level, body, None)
+            .unwrap();
+        let conn = self.core.items.db().conn().unwrap();
+        for (key, value) in props {
+            PropertyRepository::write_scalar_in(&conn, "item", item.id.as_str(), key, value)
+                .unwrap();
+        }
+        item.id
+    }
+
+    /// The atlas properties of an item of the atlas
+    fn atlas_props(&self, item_id: &Hmtid) -> BTreeMap<String, String> {
+        self.core
+            .properties
+            .find_scalar_by_targets("item", &[item_id.to_string()])
+            .unwrap()
+            .remove(item_id.as_str())
+            .unwrap_or_default()
+    }
+
     /// The keys of the atlas properties that the items of the atlas have
     fn atlas_keys(&self) -> BTreeSet<String> {
         let items = self
@@ -34,4 +64,40 @@ fn an_atlas_of_the_old_form_moves_to_the_plain_form() {
 
     assert_eq!(a.atlas_keys(), BTreeSet::new());
     assert_eq!(a.outline(), ["1:[[d/a]]"]);
+}
+
+fn props(entries: &[(&str, &str)]) -> BTreeMap<String, String> {
+    entries
+        .iter()
+        .map(|(key, value)| (key.to_string(), value.to_string()))
+        .collect()
+}
+
+// 古い形のアトラスを移すと、グループからatlas_typeが消える。コールアウトの親は消え、コールアウトがレベル1に上がる。ほかのプロパティは変わらない。
+#[test]
+fn the_groups_and_the_callouts_of_an_old_atlas_move_to_the_plain_form() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let group = a.old_item(
+        1,
+        "Title",
+        &[("atlas_type", "group"), ("atlas_side", "left")],
+    );
+    a.old_item(2, "[[x/b]]", &[("atlas_bounds", "0,0,0,40")]);
+    a.old_item(1, "callout", &[("atlas_type", "callouts")]);
+    let callout = [
+        ("atlas_type", "callout"),
+        ("atlas_bounds", "9,9,0,40"),
+        ("atlas_side", "top"),
+    ];
+    let hello = a.old_item(2, "Hello", &callout);
+
+    a.core.atlas.move_to_plain_form().unwrap();
+
+    assert_eq!(
+        a.outline(),
+        ["1:[[d/a]]", "1:Title", "2:[[x/b]]", "1:Hello"]
+    );
+    assert_eq!(a.atlas_props(&group), props(&[("atlas_side", "left")]));
+    assert_eq!(a.atlas_props(&hello), props(&callout));
 }
