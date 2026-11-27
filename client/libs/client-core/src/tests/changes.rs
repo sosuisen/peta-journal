@@ -3,13 +3,13 @@
 
 use crate::changes::{
     Changes, HeadingChange, HeadingsPanel, IndexPagesPanel, ListChange, OutlinePanel, PageChange,
-    Panel, RecentPagesPanel, RowChange, Shown,
+    Panel, RecentPagesPanel, RowChange, SearchChange, Shown,
 };
 use crate::harness::Harness;
 use crate::model::Page;
 use crate::outline::Heading;
 use crate::testing::plain_item;
-use crate::view::SidebarPage;
+use crate::view::{SearchEntry, SearchKind, SidebarPage};
 use crate::{PetaApp, RichText, ViewModel};
 use crux_core::App;
 
@@ -199,6 +199,36 @@ fn a_page_changed_last_is_inserted_at_the_top_of_the_recent_pages() {
         vec![PageChange::Insert {
             at: 0,
             item: sidebar_page("b")
+        }]
+    );
+    assert_eq!(changes.panels, vec![]);
+}
+
+// 抜き出しの変わった検索の結果は、その場所の結果の更新として、差分に入る。検索のパネルは送られない。
+#[test]
+fn a_search_result_whose_snippet_changed_is_an_update_of_the_results_at_its_place() {
+    let result = |key: &str, snippet: &str| SearchEntry {
+        position: 0,
+        key: key.into(),
+        kind: SearchKind::Item,
+        title: "t".into(),
+        label: "t".into(),
+        snippet: snippet.into(),
+    };
+    let mut before = first_view();
+    before.search.results = vec![result("item:a", "one"), result("item:b", "two")];
+    let mut after = before.clone();
+    after.search.results[1] = result("item:b", "three");
+    let mut shown = Shown::default();
+    shown.changes(before);
+
+    let changes = shown.changes(after);
+
+    assert_eq!(
+        changes.search_results,
+        vec![SearchChange::Update {
+            at: 1,
+            item: result("item:b", "three")
         }]
     );
     assert_eq!(changes.panels, vec![]);
