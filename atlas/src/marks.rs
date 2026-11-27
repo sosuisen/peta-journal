@@ -69,6 +69,14 @@ pub fn link_blob_svg(target: &str, size: i32) -> String {
     blob_svg(target, LINK_BLOB_COLOR, size, false)
 }
 
+/// The light gray of the blob of a card to a page that is not there
+const MISSING_BLOB_COLOR: Color = Color::rgb(0xDD, 0xDD, 0xDD);
+
+/// The blob of a card to a page that is not there: drawn from its target, in light gray.
+pub fn missing_blob_svg(target: &str, size: i32) -> String {
+    blob_svg(target, MISSING_BLOB_COLOR, size, false)
+}
+
 /// The light yellow of the blob of a plain card, whose first line is no link
 const PLAIN_BLOB_COLOR: Color = Color::rgb(0xFF, 0xF1, 0xA8);
 

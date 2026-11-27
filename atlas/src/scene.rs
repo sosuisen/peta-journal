@@ -5,8 +5,8 @@
 use serde::Serialize;
 
 use crate::marks::{
-    callout_face_svg, group_color, hidden_blob_svg, link_blob_svg, plain_blob_svg, tag_blob_svg,
-    tag_icon_svg,
+    callout_face_svg, group_color, hidden_blob_svg, link_blob_svg, missing_blob_svg,
+    plain_blob_svg, tag_blob_svg, tag_icon_svg,
 };
 use crate::{card_label, Bounds};
 
@@ -115,6 +115,7 @@ pub struct Card {
     pub is_link: bool,
     /// True for a plain card, whose first line is no link
     pub is_plain: bool,
+    pub tone: Tone,
     /// The parts of the first line of a plain card, each with its link if it is one
     pub runs: Vec<Run>,
     pub x: f64,
@@ -132,6 +133,20 @@ pub struct Card {
     pub icon_draw_size: i32,
     /// The label is hidden: the card shows its place and its blob only
     pub masked: bool,
+}
+
+/// What a card links to, which gives the color of its blob and its label.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Tone {
+    /// A page of the folder of the atlas
+    Page,
+    /// A page of another folder
+    Link,
+    /// A page of the folder that is not there
+    Missing,
+    /// No page: a plain card
+    Plain,
 }
 
 /// A part of the first line of a card: its letters, and where a click on them leads.
@@ -177,18 +192,36 @@ impl Card {
 
     /// A link card: named by the last part of the path it links to, its blob drawn from that
     /// path in a color of its own.
-    pub fn link(item_id: &str, target: &str, bounds: Bounds, groups: &[GroupRef]) -> Card {
+    /// A link card: named by its target, in the color of `tone`. A card to a page that is not
+    /// there opens nothing.
+    pub fn link(
+        item_id: &str,
+        target: &str,
+        tone: Tone,
+        bounds: Bounds,
+        groups: &[GroupRef],
+    ) -> Card {
+        let blob = match tone {
+            Tone::Page => tag_blob_svg(target, ICON_DRAW_SIZE, false),
+            Tone::Missing => missing_blob_svg(target, ICON_DRAW_SIZE),
+            Tone::Link | Tone::Plain => link_blob_svg(target, ICON_DRAW_SIZE),
+        };
+        let card = Card::new(
+            item_id,
+            &card_label(target),
+            target,
+            bounds,
+            groups,
+            false,
+            true,
+        );
         Card {
-            blob: link_blob_svg(target, ICON_DRAW_SIZE),
-            ..Card::new(
-                item_id,
-                &card_label(target),
-                target,
-                bounds,
-                groups,
-                false,
-                true,
-            )
+            blob,
+            tone,
+            path: (tone != Tone::Missing)
+                .then_some(card.path.clone())
+                .flatten(),
+            ..card
         }
     }
 
@@ -204,6 +237,7 @@ impl Card {
         Card {
             path: None,
             is_plain: true,
+            tone: Tone::Plain,
             runs,
             blob: plain_blob_svg(label, ICON_DRAW_SIZE),
             ..Card::new(item_id, label, "", bounds, groups, false, true)
@@ -243,6 +277,7 @@ impl Card {
             is_dir,
             is_link,
             is_plain: false,
+            tone: Tone::Page,
             runs: Vec::new(),
             x: bounds.x,
             y: bounds.y,
@@ -510,7 +545,13 @@ mod tests {
     // リンクカードは、リンク先のパスの最後をラベルにし、オレンジのblobを持つ
     #[test]
     fn a_link_card_is_named_by_its_target() {
-        let card = Card::link("I1", "a/b/index", bounds(0.0, 0.0, 0.0, 40.0), &[group()]);
+        let card = Card::link(
+            "I1",
+            "a/b/index",
+            Tone::Link,
+            bounds(0.0, 0.0, 0.0, 40.0),
+            &[group()],
+        );
         assert_eq!(card.label, "b/");
         assert_eq!(card.path.as_deref(), Some("a/b/index"));
         assert!(card.is_link);
