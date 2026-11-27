@@ -794,17 +794,23 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
                 label,
                 runs,
                 text: card.item.body.clone(),
-                tone: if link.is_some() {
-                    CardTone::Link
-                } else {
-                    CardTone::Plain
-                },
+                tone: tone_of(model, link),
                 bounds: bounds_of(card.item)?,
                 group: card.group.map(|g| g.id.clone()),
                 group_title: card.group.and_then(group_title),
             })
         })
         .collect()
+}
+
+/// How a card that stands for no page of the directory is colored: blue for another card to
+/// a page of the directory, orange for a link out of it, yellow for a plain card.
+fn tone_of(model: &Model, link: Option<plain::CardLink>) -> CardTone {
+    match link {
+        Some(link) if page_of(model, link.target).is_some() => CardTone::Page,
+        Some(_) => CardTone::Link,
+        None => CardTone::Plain,
+    }
 }
 
 /// The runs of the first line of a body, as a page shows them: the letters with their looks

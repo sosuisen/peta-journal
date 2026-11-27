@@ -100,7 +100,10 @@ fn a_card_carries_the_whole_text_of_its_item() {
 fn a_second_card_to_a_page_of_the_folder_is_blue_too() {
     let h = atlas_of(
         vec![child("one")],
-        vec![placed("first", "[[a/b/one]]"), placed("second", "[[a/b/one|again]]")],
+        vec![
+            placed("first", "[[a/b/one]]"),
+            placed("second", "[[a/b/one|again]]"),
+        ],
     );
 
     let link = &h.view().atlas_links[0];
