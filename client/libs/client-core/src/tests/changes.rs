@@ -2,11 +2,14 @@
 //! model (ADR 078).
 
 use crate::changes::{
-    Changes, HeadingChange, HeadingsPanel, ListChange, OutlinePanel, Panel, RowChange, Shown,
+    Changes, HeadingChange, HeadingsPanel, ListChange, OutlinePanel, PageChange, Panel, RowChange,
+    Shown,
 };
 use crate::harness::Harness;
+use crate::model::Page;
 use crate::outline::Heading;
 use crate::testing::plain_item;
+use crate::view::SidebarPage;
 use crate::{PetaApp, RichText, ViewModel};
 use crux_core::App;
 
@@ -123,6 +126,40 @@ fn a_heading_whose_text_changed_is_an_update_of_the_headings_at_its_place() {
             at: 1,
             item: heading("b", "Three")
         }]
+    );
+    assert_eq!(changes.panels, vec![]);
+}
+
+/// A page of the sidebar, with the id `id`.
+fn sidebar_page(id: &str) -> SidebarPage {
+    SidebarPage {
+        page: Page {
+            id: id.into(),
+            ..Page::default()
+        },
+        label: id.into(),
+        published: false,
+        is_dir: false,
+        dir_label: None,
+        path: id.into(),
+    }
+}
+
+// 並べ替えを変えると、フォルダのページは、移動として差分に入る。フォルダのページのパネルは送られない。
+#[test]
+fn a_change_of_the_sort_moves_the_pages_of_the_folder() {
+    let mut before = first_view();
+    before.index_pages.pages = vec![sidebar_page("a"), sidebar_page("b")];
+    let mut after = before.clone();
+    after.index_pages.pages.reverse();
+    let mut shown = Shown::default();
+    shown.changes(before);
+
+    let changes = shown.changes(after);
+
+    assert_eq!(
+        changes.index_pages,
+        vec![PageChange::Move { from: 1, to: 0 }]
     );
     assert_eq!(changes.panels, vec![]);
 }
