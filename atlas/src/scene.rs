@@ -589,6 +589,38 @@ mod tests {
         );
     }
 
+    // グループは、自分の項目の位置を、1つ上のグループからの相対の座標で持つ。カードとコールアウトの座標は、すぐ上のグループからの相対である。
+    #[test]
+    fn a_group_carries_the_place_of_its_item_counted_from_the_group_above_it() {
+        let outer = GroupRef {
+            x: 100.0,
+            y: 200.0,
+            ..group()
+        };
+        let inner = GroupRef {
+            id: "G2".to_string(),
+            title: None,
+            look: GroupLook::Text,
+            x: 10.0,
+            y: 20.0,
+        };
+        let groups = [outer, inner];
+        let card = Card::page(
+            &page("P1", "One", &[], false),
+            bounds(1.0, 2.0, 0.0, 40.0),
+            &groups,
+        );
+        let callout = Callout::new("C1", 3.0, 4.0, 1.0, "top", "Hi").under(&groups);
+
+        let places = |groups: &[Group]| groups.iter().map(|g| (g.x, g.y)).collect::<Vec<_>>();
+        assert_eq!(places(&card.groups), [(100.0, 200.0), (10.0, 20.0)]);
+        assert_eq!((card.x, card.y), (1.0, 2.0));
+        assert_eq!(places(&callout.groups), [(100.0, 200.0), (10.0, 20.0)]);
+        let json: serde_json::Value = serde_json::from_str(&callouts_json(&[callout])).unwrap();
+        assert_eq!(json[0]["groups"][1]["id"], "G2");
+        assert_eq!(json[0]["groups"][1]["x"], 10.0);
+    }
+
     // コールアウトは、テキストの顔をキャラクターとして持つ
     #[test]
     fn a_callout_has_the_face_of_its_text() {
