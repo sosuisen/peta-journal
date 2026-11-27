@@ -39,8 +39,8 @@ final class AppliedTests: XCTestCase {
             wiki: WikiView(itemId: nil, suggestions: [], selectedIndex: 0, x: 0, y: 0), scrolledFromTop: false)
     }
 
-    private func search(_ query: String) -> SearchView {
-        SearchView(query: query, results: [], showDropdown: false, selectedIndex: nil, searching: false)
+    private func search(_ query: String) -> SearchPanel {
+        SearchPanel(query: query, showDropdown: false, selectedIndex: nil, searching: false)
     }
 
     /// Every panel once, as the first changes of a core hold them. Each panel has a value of
