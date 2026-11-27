@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::rich_text::RichLink;
-use crate::screens::atlas::CardTone;
+use crate::screens::atlas::{AtlasGroup, CardTone};
 use crate::view::LoadState;
 
 /// An item of level 1 placed at the origin
@@ -125,5 +125,38 @@ fn a_card_to_a_page_the_folder_does_not_have_is_gray_once_the_list_is_in() {
     assert_eq!(
         (before, h.view().atlas_links[0].tone),
         (CardTone::Link, CardTone::Missing)
+    );
+}
+
+/// The ids of the parents and their titles
+fn titled_groups(groups: &[AtlasGroup]) -> Vec<(&str, Option<&str>)> {
+    groups
+        .iter()
+        .map(|g| (g.id.as_str(), g.title.as_ref().map(|t| t.text.as_str())))
+        .collect()
+}
+
+// カードは、その上の親をすべて、外から順に、そのタイトルとともに持つ。入れ子の深さに上限はない。
+#[test]
+fn a_card_carries_all_its_parents_from_the_outermost() {
+    let h = atlas_of(
+        vec![child("one")],
+        vec![
+            atlas_item("outer", 1, "Outer", &[]),
+            atlas_item("inner", 2, "", &[]),
+            atlas_item("deep", 3, "Deep", &[]),
+            card_item("one", 4, Some("0,0,0,40")),
+            atlas_item("p", 2, "note", &[("atlas_bounds", "9,0,0,40")]),
+        ],
+    );
+
+    let view = h.view();
+    assert_eq!(
+        titled_groups(&view.atlas_cards[0].groups),
+        [("outer", Some("Outer")), ("inner", None), ("deep", Some("Deep"))]
+    );
+    assert_eq!(
+        titled_groups(&view.atlas_links[0].groups),
+        [("outer", Some("Outer"))]
     );
 }
