@@ -1755,6 +1755,19 @@ app-item-view blockquote {
 app-item-view blockquote p {
   margin: 0;
 }
+app-item-view table {
+  border-collapse: collapse;
+  margin: 4px 0;
+}
+app-item-view th,
+app-item-view td {
+  border: 1px solid #d0d7de;
+  padding: 4px 8px;
+}
+app-item-view th {
+  background: #f6f8fa;
+  font-weight: 600;
+}
 app-item-view .alert {
   margin: 8px 0;
   padding: 8px 16px;
