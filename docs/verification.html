@@ -53,7 +53,7 @@
 
 <h1>検証の仕組み</h1>
 <p>この文書は、peta-journalのコードを、何で、どこで確かめるかをまとめる。</p>
-<p class="date">更新日：2026-11-27</p>
+<p class="date">更新日：2026-11-28</p>
 
 <h2>方針</h2>
 <ul>
@@ -80,7 +80,7 @@
     <tr><td><code>memoview-win</code>（C#）</td><td class="ok">CSharpier</td><td class="ok">C#のコンパイラ</td><td class="ok">.NETのアナライザー（<code>latest-recommended</code>）</td><td class="na">対象外</td><td class="ok"><code>memoview-tests</code></td><td class="na">対象外<span class="note">WebViewのためのサンプルなので、今は9割の対象にしない。開発を進めるとき（#812）は、始める前に対象に足す。テストに入れたファイルだけは、今も測っている（<code>dotnet build -t:Coverage</code>）</span></td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
     <tr><td><code>stickies-mac</code>（Swift）</td><td class="ok">swift-format</td><td class="ok">Swiftのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">XCTest</td><td class="ok"><code>coverage.sh</code><span class="note">測らないのは<code>App/</code>（エントリーポイント）</span></td><td class="ok">swift-mutation-testing（<code>mutation-test.sh</code>）</td><td class="ok">あり</td></tr>
     <tr><td><code>outliner-ios</code>（Swift）</td><td class="ok">swift-format</td><td class="ok">Swiftのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">XCTest（パッケージ、<code>AppTests</code>、<code>UITests</code>（画面））</td><td class="ok"><code>coverage.sh</code></td><td class="ok">swift-mutation-testing（<code>mutation-test.sh</code>）</td><td class="ok">あり</td></tr>
-    <tr><td><code>outliner-android</code>（Kotlin）</td><td>ktfmt<span class="note">CIでは回らない</span></td><td>Kotlinのコンパイラ<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="ok">S2</td><td>JUnit、画面のテスト<span class="note">CIでは回らない</span></td><td class="missing">設定なし</td><td class="ok">PIT（<code>gradlew :app:pitestDebug</code>）</td><td class="missing">なし</td></tr>
+    <tr><td><code>outliner-android</code>（Kotlin）</td><td class="ok">ktfmt</td><td class="ok">Kotlinのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">JUnit、画面のテスト（エミュレーター）<span class="note">画面のテストが落ちたら、落ちたテストだけを1回だけ回し直し、通れば通す。回し直したテストは、ログとCIの警告に出る</span></td><td class="ok">JaCoCo（<code>coverage.sh</code>）<span class="note">測らないのは<code>generated/</code>と、Dropboxを呼ぶだけの2つのファイル（<code>SdkDropbox.kt</code>、<code>DropboxSdk.kt</code>。#1088）</span></td><td class="ok">PIT（<code>gradlew :app:pitestDebug</code>）</td><td class="ok">あり</td></tr>
   </tbody>
 </table>
 
@@ -89,7 +89,7 @@
   <li>Rustのカバレッジ：<code>journal/.cargo/config.toml</code>と<code>client/.cargo/config.toml</code>の<code>cov</code>。<br>測らないファイルと、その理由もここに書く。</li>
   <li>Rustのミューテーション：<code>journal/.cargo/mutants.toml</code>と<code>client/.cargo/mutants.toml</code>。</li>
   <li>Swiftの整形：<code>client/apps/native-app/.swift-format</code>（macOSとiOSで共有する）。</li>
-  <li>Kotlinの整形とPIT：<code>client/apps/native-app/outliner-android/app/build.gradle.kts</code>。</li>
+  <li>Kotlinの整形、カバレッジ、PIT：<code>client/apps/native-app/outliner-android/app/build.gradle.kts</code>。<br>カバレッジで測る範囲と、測らないファイルも、ここに書く。</li>
   <li><code>outliner-react</code>のカバレッジとStryker：<code>vitest.config.ts</code>と<code>stryker.config.mjs</code>。</li>
   <li><code>stickies-mac</code>のカバレッジ：<code>client/apps/native-app/stickies-mac/coverage.sh</code>。<br>測らないファイルと、その理由もここに書く。</li>
   <li><code>outliner-ios</code>のカバレッジ：<code>client/apps/native-app/outliner-ios/coverage.sh</code>。<br>測らないファイルと、その理由もここに書く。</li>
@@ -114,8 +114,8 @@ D系統は、どのシェルも回さなければならない共通のテスト�
     <tr><td>S（静的）</td><td>S2</td><td><code>Event</code>のすべての種類が、シェルのソースに出てくる</td><td class="ok"><code>cargo test</code>で回る（<code>tests/repository.rs</code>）<span class="note">対象は、<code>rules/</code>にルールのある6つのシェルすべて</span></td></tr>
     <tr><td>S（静的）</td><td>S3</td><td>OSの部品の編集コマンド</td><td class="missing">試す前（#1051）</td></tr>
     <tr><td>S（静的）</td><td>S4</td><td>関数の分岐の数</td><td class="missing">試す前（#1053）</td></tr>
-    <tr><td>D（動的）</td><td>D1</td><td>差分を当てた結果が、どのシェルでもコアと同じ（<code>common/list-changes.json</code>）</td><td class="ok">回る（6つのシェルすべて）<span class="note">Androidのテストは、CIでは回らない（#1205）。例は<code>client-web-bridge</code>と<code>client-native-bridge</code>の<code>cargo test</code>が確かめる。Emacsは、同じ例を<code>outliner-emacs</code>のRustが<code>rows</code>の行の形で書き（<code>emacs</code>の節）、その<code>cargo test</code>が確かめる。Lispがバッファに当てる</span></td></tr>
-    <tr><td>D（動的）</td><td>D2</td><td>境界の値を読んで書き直すと、どのシェルでも元に戻る（<code>common/border-web.json</code>、<code>common/border-native.json</code>）。Emacsは、Rustが送るすべての種類の行を、Lispが誤りなく読む（<code>common/border-emacs.json</code>）</td><td class="ok">回る（6つのシェルすべて）<span class="note">Androidのテストは、CIでは回らない（#1205）。Webとネイティブの例は<code>Changes</code>と<code>Event</code>の型の記述から作り、中のすべての列挙型のすべての変種を持つ。それを<code>client-web-bridge</code>と<code>client-native-bridge</code>の<code>cargo test</code>が確かめる。Emacsの例は、<code>outliner-emacs</code>のRustが書き、その<code>cargo test</code>が確かめる。Lispが送る行（<code>Inbound</code>）は、手書きのキーで作るので対象にしない</span></td></tr>
+    <tr><td>D（動的）</td><td>D1</td><td>差分を当てた結果が、どのシェルでもコアと同じ（<code>common/list-changes.json</code>）</td><td class="ok">回る（6つのシェルすべて）<span class="note">例は<code>client-web-bridge</code>と<code>client-native-bridge</code>の<code>cargo test</code>が確かめる。Emacsは、同じ例を<code>outliner-emacs</code>のRustが<code>rows</code>の行の形で書き（<code>emacs</code>の節）、その<code>cargo test</code>が確かめる。Lispがバッファに当てる</span></td></tr>
+    <tr><td>D（動的）</td><td>D2</td><td>境界の値を読んで書き直すと、どのシェルでも元に戻る（<code>common/border-web.json</code>、<code>common/border-native.json</code>）。Emacsは、Rustが送るすべての種類の行を、Lispが誤りなく読む（<code>common/border-emacs.json</code>）</td><td class="ok">回る（6つのシェルすべて）<span class="note">Webとネイティブの例は<code>Changes</code>と<code>Event</code>の型の記述から作り、中のすべての列挙型のすべての変種を持つ。それを<code>client-web-bridge</code>と<code>client-native-bridge</code>の<code>cargo test</code>が確かめる。Emacsの例は、<code>outliner-emacs</code>のRustが書き、その<code>cargo test</code>が確かめる。Lispが送る行（<code>Inbound</code>）は、手書きのキーで作るので対象にしない</span></td></tr>
   </tbody>
 </table>
 
@@ -130,8 +130,8 @@ D系統は、どのシェルも回さなければならない共通のテスト�
   </thead>
   <tbody>
     <tr><td>1</td><td>各シェルに、共通のテストのファイルがあり、例のファイルを読んでいる</td><td>shell-checkの<code>cargo test</code>（<code>tests/repository.rs</code>）</td><td class="ok">回る</td></tr>
-    <tr><td>2</td><td>各シェルのテストが、例をすべて回した</td><td>各シェルのテスト</td><td class="ok">回る（6つのシェルすべて）<span class="note"><code>outliner-android</code>のテストは、CIでは回らない（#1205）</span></td></tr>
-    <tr><td>3</td><td>各シェルのジョブ（<code>scripts/checks.mjs</code>）が、共通のテストを含むテストの段を持つ</td><td><code>scripts/verification.test.mjs</code>（<code>guard</code>）</td><td class="ok">回る（<code>COMMON_TESTS_STEP</code>）<span class="note"><code>outliner-android</code>はジョブがなく、<code>pending</code>（#1205）</span></td></tr>
+    <tr><td>2</td><td>各シェルのテストが、例をすべて回した</td><td>各シェルのテスト</td><td class="ok">回る（6つのシェルすべて）</td></tr>
+    <tr><td>3</td><td>各シェルのジョブ（<code>scripts/checks.mjs</code>）が、共通のテストを含むテストの段を持つ</td><td><code>scripts/verification.test.mjs</code>（<code>guard</code>）</td><td class="ok">回る（<code>COMMON_TESTS_STEP</code>）</td></tr>
   </tbody>
 </table>
 <p>テストが落ちうることは、各シェルのPRの前のミューテーションテストで確かめる。</p>
@@ -139,17 +139,25 @@ D系統は、どのシェルも回さなければならない共通のテスト�
 シェルを足すときは、<code>main</code>で何も出ない状態にしてから、ルールのファイルを置く。</p>
 
 <h2>手元だけで回すもの</h2>
-<p>次のテストは、CIでは回さない。<br>PRの前に、変えた範囲に関わるものを手元で回す。</p>
-<ul>
-  <li><code>outliner-android</code>の画面のテスト。<br>エミュレーター（<code>Medium_Phone_API_35</code>）で回す。</li>
-</ul>
+<p>CIで回さないテストは、ミューテーションテストのほかにない。</p>
+
+<h2>PRの前のフックが飛ばす段</h2>
+<p>PRの前のフックは、CIと同じ段（<code>scripts/checks.mjs</code>）を手元で回す。<br>ただし、次の印の段は飛ばし、飛ばした理由をログに書く。必須の<code>ci</code>のチェックが、CIで回す。</p>
+<table>
+  <thead>
+    <tr><th>印</th><th>意味</th><th>付いた段</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>screen: true</code></td><td>画面に触れる。回している間、開発者がPCを使えない（ADR 086）</td><td><code>stickies-win</code>のカバレッジの段</td></tr>
+    <tr><td><code>ciOnly: true</code></td><td>フックには重いので、CIだけが回す。画面には触れない</td><td><code>outliner-android</code>のカバレッジの段（エミュレーターで画面のテストを回す）</td></tr>
+  </tbody>
+</table>
+<p>どの段にどの印が付くかは、<code>scripts/verification.test.mjs</code>が見張る。</p>
 
 <h2>方針に足りないところ</h2>
 <p>2026-11-25の時点で、次の点が方針に届いていない。</p>
 <ul>
-  <li>カバレッジの9割を、Rust（<code>journal</code>、<code>client</code>、<code>atlas</code>）、TypeScript（<code>todo</code>、<code>outliner-react</code>）、<code>stickies-mac</code>、<code>outliner-ios</code>、<code>outliner-emacs</code>のほかは、ビルドで確かめていない（#1078）。</li>
-  <li>カバレッジを測る設定がないモジュールがある（Kotlin）。</li>
-  <li>CIに入っていないモジュールがある（<code>outliner-android</code>）。<br>その整形の確かめは、手元でしか行われていない。</li>
+  <li>カバレッジの9割を、Rust（<code>journal</code>、<code>client</code>、<code>atlas</code>）、TypeScript（<code>todo</code>、<code>outliner-react</code>）、<code>stickies-mac</code>、<code>outliner-ios</code>、<code>outliner-emacs</code>、<code>outliner-android</code>のほかは、ビルドで確かめていない（#1078）。</li>
 </ul>
 
 </body>
