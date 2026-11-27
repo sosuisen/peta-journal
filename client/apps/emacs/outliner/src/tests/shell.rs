@@ -2219,6 +2219,23 @@ fn the_sidebar_tells_emacs_the_headings_and_the_recent_pages() {
     assert!(sidebar.index.is_none());
 }
 
+// 見出しの文字を変えると、変わった見出しのサイドバーを、Emacsに伝える。見出しの並びは、パネルではなく差分で届くためである。
+#[test]
+fn a_heading_whose_text_changed_is_told_in_the_sidebar() {
+    let mut heading = item("a", 1, "# Top");
+    heading["types"] = json!(["heading"]);
+    let mut driver = Driver::open(&[heading]);
+
+    driver.send(Inbound::BodyChanged {
+        id: "a".into(),
+        body: "# Topic".into(),
+    });
+
+    let sidebar = sidebar_sent(&driver).unwrap();
+    let texts: Vec<&str> = sidebar.headings.iter().map(|h| h.text.as_str()).collect();
+    assert_eq!(texts, ["Topic"]);
+}
+
 // 変わらないサイドバーは、もう一度は伝えない。
 #[test]
 fn an_unchanged_sidebar_is_not_told_again() {
