@@ -881,14 +881,15 @@ fn a_file_without_item_dates_counts_by_the_date_of_the_page() {
     assert_eq!(modified_of(&written, &y), date_of_y);
 }
 
-// ページのファイルの項目には更新日が書かれ、アトラスのファイルには書かれない。
+// ページのファイルの項目には、更新日が書かれる。アトラスのファイルの項目にも、同じく書かれる。
 #[test]
-fn the_file_of_a_page_dates_its_items_and_the_file_of_an_atlas_does_not() {
+fn the_file_of_a_page_dates_its_items_and_so_does_the_file_of_an_atlas() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b, _, x, _) = two_devices_with_items(dir.path());
+    let card = a.add(&a.atlas_id(), "[[d/a]]");
 
     assert!(modified_of(&a.file(PAGE), &x).is_some());
-    assert!(!a.file(ATLAS).contains(" modified=\""));
+    assert!(modified_of(&a.file(ATLAS), &card).is_some());
 }
 
 const COPY: &str = "docs/d/a (PC's conflicted copy 2026-11-05).md";
