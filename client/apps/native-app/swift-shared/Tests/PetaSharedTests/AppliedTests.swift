@@ -106,6 +106,20 @@ final class AppliedTests: XCTestCase {
         XCTAssertEqual(ids(view.outline.rows), ["a", "b"])
     }
 
+    // 後の差分の見出しの操作は、今の見出しに当たる。見出しの状態は前のままである。
+    func testTheHeadingsOfALaterChangeAreAppliedToTheHeadingsThere() {
+        var view = ViewModel(
+            first: Changes(
+                rows: [],
+                headings: [.reset(items: [Heading(id: "a", text: "One", level: 1), Heading(id: "b", text: "Two", level: 2)])],
+                panels: everyPanel()))
+
+        view.apply(Changes(rows: [], headings: [.update(at: 1, item: Heading(id: "b", text: "Three", level: 2))], panels: []))
+
+        XCTAssertEqual(view.headings.headings.map(\.text), ["One", "Three"])
+        XCTAssertEqual(view.headings.state, .failed)
+    }
+
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
     func testTheOutlinePanelKeepsTheRows() {
         var view = ViewModel(first: Changes(rows: [.reset(items: [row("a"), row("b")])], panels: everyPanel()))
