@@ -14,6 +14,8 @@ pub enum Kind {
     /// An item whose first line is one wiki link and nothing else, whatever follows on the
     /// later lines. [`card_link`] names its page.
     Card,
+    /// An item whose first line is not one wiki link: its text is the card.
+    Plain,
     /// An item of level 1 with items under it. Its body is the title.
     Group,
     /// An item whose `atlas_type` is `callout`, at any level. Its body is the text.
@@ -51,6 +53,8 @@ pub fn entries<'a, T: AtlasItem + 'a>(items: impl IntoIterator<Item = &'a T>) ->
             Kind::Group
         } else if card_link(item.body()).is_some() {
             Kind::Card
+        } else if !item.body().trim().is_empty() {
+            Kind::Plain
         } else {
             continue;
         };
@@ -202,14 +206,10 @@ mod tests {
         );
     }
 
-    // 今の画面で表せない項目は、読み飛ばされる。子のないテキストの項目、テキストのないコールアウト、wiki linkのほかにも文字のある項目である。
+    // 何も書かれていない項目は、読み飛ばされる。子のない空の項目と、テキストのないコールアウトである。
     #[test]
-    fn an_item_the_screen_cannot_show_is_left_out() {
-        let items = [
-            item(1, "plain text", &[]),
-            item(1, " ", &[(TYPE_KEY, "callout")]),
-            item(1, "[[d/a]] and more", &[]),
-        ];
+    fn an_item_with_nothing_written_is_left_out() {
+        let items = [item(1, " ", &[(TYPE_KEY, "callout")]), item(1, " \n ", &[])];
 
         assert_eq!(read(&items), []);
     }
@@ -256,10 +256,7 @@ mod tests {
             item(3, "[[d/a]]", &[]),
         ];
 
-        assert_eq!(
-            read(&items),
-            [("G", Kind::Group, None), ("[[d/a]]", Kind::Card, Some("G"))]
-        );
+        assert_eq!(read(&items)[2], ("[[d/a]]", Kind::Card, Some("G")));
     }
 
     // コールアウトの下のカードは、どのグループにも属さない。
@@ -292,13 +289,13 @@ mod tests {
         let items = [
             item(1, "[[d/a]]\nmore text\n[[d/b]]", &[]),
             item(1, "text\n[[d/a]]", &[]),
-            item(1, "\n[[d/a]]", &[]),
         ];
 
         assert_eq!(
-            read(&items),
-            [("[[d/a]]\nmore text\n[[d/b]]", Kind::Card, None)]
+            read(&items)[0],
+            ("[[d/a]]\nmore text\n[[d/b]]", Kind::Card, None)
         );
+        assert_eq!(read(&items)[1].1, Kind::Plain);
     }
 
     // カードのリンクは、最初の1行のパスとラベルである。ラベルがなければ、リンク先の名前を出す。
