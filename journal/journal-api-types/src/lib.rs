@@ -771,59 +771,6 @@ pub struct FlatMarkdownInput {
     pub markdown: Option<String>,
 }
 
-// ---- atlas ----
-
-/// A link card: the page or the address it shows, and where it is.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct AtlasLinkInput {
-    /// What the link card shows: the name of a page, or a URL
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub target: String,
-    /// Where the card is, as four numbers 'x,y,width,height'
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub bounds: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct AtlasGroupInput {
-    /// Each a card by its item id, or a page card by the id of its page
-    pub cards: Vec<String>,
-    /// The card or the group the cards are put together with
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub target: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct AtlasTitleInput {
-    /// The side of the group its title is on: 'top', 'bottom', 'left' or 'right'
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub side: String,
-    /// The title of the group
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub title: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct AtlasCalloutInput {
-    /// Where the callout is, as four numbers 'x,y,width,height'
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub bounds: String,
-    /// The side of the callout its bubble is on: 'top', 'bottom', 'left' or 'right'
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub side: String,
-    /// The text of the callout
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub text: String,
-}
-
 // ---- settings ----
 
 /// The settings to change. A setting not given stays as it is.
@@ -990,18 +937,10 @@ mod tests {
             title: Some("New".into()),
             ..Default::default()
         };
-        let link = AtlasLinkInput {
-            target: "Page".into(),
-            ..Default::default()
-        };
 
         assert_eq!(
             serde_json::to_value(update).unwrap(),
             json!({ "title": "New" })
-        );
-        assert_eq!(
-            serde_json::to_value(link).unwrap(),
-            json!({ "target": "Page" })
         );
     }
 
