@@ -255,6 +255,29 @@ fn a_callout_without_a_place_dropped_on_the_atlas_gets_its_place() {
     assert!(no_place(&h).is_empty());
 }
 
+// 落としたコールアウトだけに位置が付く。ほかのコールアウトと、親になったコールアウトには付かない。
+#[test]
+fn only_the_callout_that_was_dropped_gets_a_place_and_a_parent_gets_none() {
+    let callout = [("atlas_type", "callout")];
+    let mut h = atlas_of(
+        vec![],
+        vec![
+            atlas_item("first", 1, "First", &callout),
+            atlas_item("parent", 1, "Parent", &callout),
+            atlas_item("under", 2, "Under", &callout),
+            atlas_item("text", 1, "plain", &[("atlas_bounds", "5,5,0,40")]),
+        ],
+    );
+    place(&mut h, "under", 1.0, 2.0);
+    place(&mut h, "parent", 3.0, 4.0);
+
+    assert_eq!(
+        upserts(&h),
+        vec![("under".into(), "atlas_bounds".into(), "1,2,0,40".into())]
+    );
+    assert!(batches(&h).is_empty());
+}
+
 // 座標のないリンクカードとノーマルカードを一覧からアトラスに落とすと、その項目に位置が付く。新しい項目は作られない。
 #[test]
 fn a_link_card_and_a_plain_card_without_a_place_dropped_on_the_atlas_get_their_places() {
