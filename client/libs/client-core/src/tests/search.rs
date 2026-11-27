@@ -107,6 +107,29 @@ fn the_query_is_searched_after_a_pause_and_the_results_are_listed_with_their_num
     assert_eq!(search.selected_index, None);
 }
 
+// 結果の行は、どれも一覧の中で重ならない鍵を持つ。今日は`today`、ページは`page:`とページのid、作る行は
+// `create:`と作るページのパス、項目は`item:`と項目のidである。
+#[test]
+fn every_entry_has_a_key_of_its_kind_and_what_it_opens() {
+    let mut h = Harness::new();
+    searched(
+        &mut h,
+        "today",
+        vec![item_hit("Diary", "i1"), page_hit("Today I learned")],
+    );
+
+    let keys: Vec<String> = h.view().search.results.into_iter().map(|r| r.key).collect();
+    assert_eq!(
+        keys,
+        [
+            "today",
+            "page:id-Today I learned",
+            "create:today",
+            "item:i1"
+        ]
+    );
+}
+
 // 検索語が `today` なら、答えを待たずに `Open Today` が出る。答えが届いたあとも、一覧の先頭にある。
 #[test]
 fn the_query_today_puts_open_today_at_the_top_of_the_list_before_the_answer_arrives() {
