@@ -343,6 +343,30 @@ fn scrolling_to_the_end_again_and_again_reaches_the_oldest_journal_past_collapse
     }
 }
 
+// 開いたジャーナルの下には、見えている行が足りるまで前のジャーナルが読み込まれる。折りたたまれて隠れた項目は数えない。行が画面を埋めなければ、スクロールで続きを読み込めないためである（#1256）。
+#[test]
+fn the_journals_before_fill_the_outline_by_the_rows_shown_not_by_the_hidden_items() {
+    let mut h = Harness::new();
+    // 150 items, of which 50 are shown
+    h.api.answer_next(
+        "GetMostRecentJournalBefore",
+        Ok(journal_of_parents("2026-02-09", 50, true)),
+    );
+    // 150 rows more: enough
+    h.api.answer_next(
+        "GetMostRecentJournalBefore",
+        Ok(journal_of_parents("2026-02-08", 50, false)),
+    );
+    h.api.answer_next(
+        "GetMostRecentJournalBefore",
+        Ok(older_journal("2026-02-07")),
+    );
+    visit(&mut h, TODAY);
+
+    assert_eq!(before_calls(&h), ["2026-02-10", "2026-02-09"]);
+    assert_eq!(h.view().outline.rows.len(), 1 + 50 + 150);
+}
+
 // 今日のジャーナルのウィンドウのタイトルは、今日の日付に「(Today)」を付けたものである。ほかの日のジャーナルでは、その日の日付だけである。
 #[test]
 fn the_window_title_of_a_journal_is_its_date_with_today_marked() {

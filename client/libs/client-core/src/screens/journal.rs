@@ -153,7 +153,9 @@ fn load_journal_before(
     let Some(journal) = journal_of_screen(model) else {
         return done();
     };
-    if model.state.items().len() >= target_item_count {
+    // The rows shown are counted, as the shell counts them in its scroll position: an item
+    // hidden under a collapsed one fills no row, and would end the load too early (#1256)
+    if model.state.visible_items().len() >= target_item_count {
         return previous_journals_loaded(model, &journal);
     }
     run(move |api| async move {
