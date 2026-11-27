@@ -171,6 +171,30 @@ fn a_rust_test_file_that_no_mod_declares_is_reported() {
     assert_eq!(problems(&declared), vec![]);
 }
 
+/// The rules of the Emacs shell: its Rust tests are modules under `app/src/tests`, and ERT runs
+/// the tests of its Lisp under `app/lisp/test`.
+const EMACS_SHELL: &str = "[s2]\nlanguage = \"rust\"\nsources = [\"app/src\"]\n\n\
+                           [common]\ntests = [\"app/src/tests\", \"app/lisp/test\"]\n\n\
+                           [common.list-changes]\ntest = \"app/lisp/test/app-test.el\"\n";
+
+// Rustのシェルは、Lispのテストのファイルも共通のテストにできる。EmacsのシェルはRustとLispでできていて、Lispのテストは、modで読まれなくてもERTが回す。
+#[test]
+fn a_rust_shell_may_have_a_common_test_in_lisp_that_no_mod_declares() {
+    let root = repository(
+        "rust-lisp",
+        EMACS_SHELL,
+        &[
+            (
+                "app/lisp/test/app-test.el",
+                "(insert-file-contents \"common/list-changes.json\")\n",
+            ),
+            ("app/src/tests/mod.rs", "mod protocol;\n"),
+        ],
+    );
+
+    assert_eq!(problems(&root), vec![]);
+}
+
 // pendingにissueの番号があれば、テストのファイルがなくても出ない。番号が0だと、出る。
 #[test]
 fn a_pending_test_needs_the_number_of_an_issue() {
