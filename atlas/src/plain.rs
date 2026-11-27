@@ -27,6 +27,48 @@ pub struct Entry<'a, T> {
     pub group: Option<&'a T>,
 }
 
+/// The items of a plain atlas page that the screen can show, in their order. A card below
+/// level 1 belongs to the group of level 1 above it, however deep it is: a blob inside a blob
+/// is not drawn yet.
+pub fn entries<'a, T: AtlasItem + 'a>(items: impl IntoIterator<Item = &'a T>) -> Vec<Entry<'a, T>> {
+    let mut open_group: Option<&'a T> = None;
+    let mut entries = Vec::new();
+    let mut items = items.into_iter().peekable();
+    while let Some(item) = items.next() {
+        let is_parent = items.peek().is_some_and(|next| next.level() > item.level());
+        if item.level() <= 1 {
+            open_group = None;
+        }
+        let kind = if item.prop(TYPE_KEY) == Some(CALLOUT_TYPE) {
+            // A callout says its text; without one there is nothing to draw
+            if item.body().trim().is_empty() {
+                continue;
+            }
+            Kind::Callout
+        } else if item.level() <= 1 && is_parent {
+            open_group = Some(item);
+            Kind::Group
+        } else if link_target(item.body()).is_some() {
+            Kind::Card
+        } else {
+            continue;
+        };
+        let group = (kind == Kind::Card).then_some(open_group).flatten();
+        entries.push(Entry { item, kind, group });
+    }
+    entries
+}
+
+/// The title of a group item; none while its body is empty. A group whose body is one wiki
+/// link is titled as the card of that link is named, as its brackets are no title.
+pub fn group_title<T: AtlasItem>(group: &T) -> Option<String> {
+    let text = group.body().trim();
+    match link_target(text) {
+        Some(target) => Some(card_label(target)),
+        None => (!text.is_empty()).then(|| text.to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,17 +154,30 @@ mod tests {
         );
     }
 
-    // 今の画面で表せない項目は、読み飛ばされる。子のないテキストの項目、テキストのないコールアウト、知らない種類の項目である。
+    // 今の画面で表せない項目は、読み飛ばされる。子のないテキストの項目、テキストのないコールアウト、wiki linkのほかにも文字のある項目である。
     #[test]
     fn an_item_the_screen_cannot_show_is_left_out() {
         let items = [
             item(1, "plain text", &[]),
             item(1, " ", &[(TYPE_KEY, "callout")]),
             item(1, "[[d/a]] and more", &[]),
-            item(1, "[[d/b]]", &[(TYPE_KEY, "other")]),
         ];
 
         assert_eq!(read(&items), []);
+    }
+
+    // 知らないatlas_typeの項目は、種類のない項目と同じに読まれる。移行の前のgroupも同じである。
+    #[test]
+    fn an_item_of_an_unknown_type_is_read_as_one_of_no_type() {
+        let items = [
+            item(1, "G", &[(TYPE_KEY, "group")]),
+            item(2, "[[d/a]]", &[(TYPE_KEY, "other")]),
+        ];
+
+        assert_eq!(
+            read(&items),
+            [("G", Kind::Group, None), ("[[d/a]]", Kind::Card, Some("G"))]
+        );
     }
 
     // レベル3より深いカードは、いちばん上の親のグループに属する。入れ子のblobは、まだ描かない。
