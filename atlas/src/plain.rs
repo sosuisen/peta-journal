@@ -365,6 +365,38 @@ mod tests {
         }
     }
 
+    fn places(items: &[crate::tests::Item]) -> Vec<(&str, Option<(f64, f64)>)> {
+        entries(items)
+            .iter()
+            .map(|e| (e.item.body(), e.place.map(|b| (b.x, b.y))))
+            .collect()
+    }
+
+    // 子の`atlas_bounds`は、すぐ上の親からの相対の座標である。項目の全体での位置は、親をたどって足したものである。入れ子でも同じである。
+    #[test]
+    fn the_place_of_an_item_is_counted_from_the_parents_above_it() {
+        let items = [
+            item(1, "outer", &[(BOUNDS_KEY, "100,200,0,40")]),
+            item(2, "inner", &[(BOUNDS_KEY, "10,20,0,40")]),
+            item(3, "[[d/a]]", &[(BOUNDS_KEY, "1,2,0,60")]),
+            item(2, "[[d/b]]", &[(BOUNDS_KEY, "-5,-6,0,40")]),
+            item(1, "[[d/c]]", &[(BOUNDS_KEY, "7,8,0,40")]),
+        ];
+
+        assert_eq!(
+            places(&items),
+            [
+                ("outer", Some((100.0, 200.0))),
+                ("inner", Some((110.0, 220.0))),
+                ("[[d/a]]", Some((111.0, 222.0))),
+                ("[[d/b]]", Some((95.0, 194.0))),
+                ("[[d/c]]", Some((7.0, 8.0))),
+            ]
+        );
+        // The size is the item's own
+        assert_eq!(entries(&items)[2].place.map(|b| b.height), Some(60.0));
+    }
+
     // 宛先を変えたカードの本文は、ラベルと2行目より後を保つ。
     #[test]
     fn a_card_linked_to_another_page_keeps_its_label_and_its_later_lines() {
