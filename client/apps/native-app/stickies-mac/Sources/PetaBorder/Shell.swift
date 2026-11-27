@@ -338,7 +338,7 @@ public final class Shell: ObservableObject {
     /// when nothing changed, so the views that watch the shell are not drawn again for it.
     private func refresh() {
         let changes = Shell.must { try border.changes() }
-        guard !changes.rows.isEmpty || !changes.panels.isEmpty else { return }
+        guard !changes.isEmpty else { return }
         view.apply(changes)
     }
 
