@@ -197,6 +197,50 @@ fn an_item_whose_last_child_was_a_deleted_callout_loses_its_side_in_the_same_bat
     assert_eq!(batches(&h), [[deleted("c"), unsided("g")]]);
 }
 
+// 親の下の吹き出しは、親からの相対の座標と、その上の親を持つ。動かすと、置いた点は親からの相対の座標で保存される。倍率を変えても、その座標は変わらない。
+#[test]
+fn a_callout_under_a_parent_is_counted_from_the_parent() {
+    let mut h = atlas_of(
+        vec![],
+        vec![
+            parent_item("g", 1, "Tools", &[("atlas_bounds", "100,200,0,40")]),
+            atlas_item(
+                "c",
+                2,
+                "Hi",
+                &[("atlas_type", "callout"), ("atlas_bounds", "1,2,0,40")],
+            ),
+        ],
+    );
+
+    let callout = h.view().atlas_callouts.remove(0);
+    assert_eq!((callout.x, callout.y), (1.0, 2.0));
+    let groups: Vec<_> = callout
+        .groups
+        .iter()
+        .map(|g| (g.id.as_str(), g.x, g.y))
+        .collect();
+    assert_eq!(groups, [("g", 100.0, 200.0)]);
+
+    h.send(Event::MoveAtlasCallout {
+        key: "c".into(),
+        x: 150.0,
+        y: 260.0,
+    });
+    h.send(Event::ScaleAtlasCallout {
+        key: "c".into(),
+        scale: 2.0,
+    });
+
+    assert_eq!(
+        upserts(&h),
+        vec![
+            ("c".into(), "atlas_bounds".into(), "50,60,0,40".into()),
+            ("c".into(), "atlas_bounds".into(), "50,60,0,80".into()),
+        ]
+    );
+}
+
 // 移動した吹き出しは倍率を保つ。座標は整数に丸められて保存される。
 #[test]
 fn a_moved_callout_keeps_its_scale() {
