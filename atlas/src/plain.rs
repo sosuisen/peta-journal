@@ -214,6 +214,25 @@ mod tests {
         assert_eq!(read(&items), []);
     }
 
+    // 最初の1行が1つのwiki linkだけでない項目は、ノーマルカードである。文中にリンクがあっても同じである。
+    #[test]
+    fn an_item_whose_first_line_is_not_one_wiki_link_is_a_plain_card() {
+        let items = [
+            item(1, "plain text", &[]),
+            item(1, "[[d/a]] and more", &[]),
+            item(1, "text\n[[d/a]]", &[]),
+        ];
+
+        assert_eq!(
+            read(&items),
+            [
+                ("plain text", Kind::Plain, None),
+                ("[[d/a]] and more", Kind::Plain, None),
+                ("text\n[[d/a]]", Kind::Plain, None),
+            ]
+        );
+    }
+
     // 知らないatlas_typeの項目は、種類のない項目と同じに読まれる。移行の前のgroupも同じである。
     #[test]
     fn an_item_of_an_unknown_type_is_read_as_one_of_no_type() {
