@@ -9,8 +9,10 @@ pub mod samples;
 
 pub use diff::{list_changes, ListChange};
 
-diff::list_change!(
+crate::list_change!(
     /// One change to the rows of the outline, as the shells take it.
+    #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+    #[derive(Debug, Clone, PartialEq, Serialize)]
     RowChange<B>,
     Row<B>
 );

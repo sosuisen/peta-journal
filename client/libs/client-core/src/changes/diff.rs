@@ -33,13 +33,20 @@ impl<T> ListChange<T> {
 /// Makes the type of the changes of one list, of the same shape as [`ListChange`], to give to
 /// the shells (ADR 088), with a `From` of the `ListChange` of its items. The types the shells
 /// take cannot use one generic type with items of two kinds, so each list has a type of its
-/// own; the core works with `ListChange` and moves the changes into it at the border.
+/// own; the core works with `ListChange` and moves the changes into it at the border. A type
+/// may take the type of the bodies, as `RowChange<B>` does. The attributes, such as the
+/// derives, come with the name: a crate derives what its own border writes the type with.
+#[macro_export]
 macro_rules! list_change {
-    ($(#[$doc:meta])* $name:ident<$b:ident>, $item:ty) => {
-        $(#[$doc])*
-        #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
-        #[derive(Debug, Clone, PartialEq, serde::Serialize)]
-        pub enum $name<$b> {
+    ($(#[$attr:meta])* $name:ident<$b:ident>, $item:ty) => {
+        $crate::list_change!(@make $(#[$attr])* $name [<$b>], $item);
+    };
+    ($(#[$attr:meta])* $name:ident, $item:ty) => {
+        $crate::list_change!(@make $(#[$attr])* $name [], $item);
+    };
+    (@make $(#[$attr:meta])* $name:ident [$($generics:tt)*], $item:ty) => {
+        $(#[$attr])*
+        pub enum $name $($generics)* {
             Insert { at: u32, item: $item },
             Remove { at: u32 },
             Move { from: u32, to: u32 },
@@ -47,22 +54,32 @@ macro_rules! list_change {
             Reset { items: Vec<$item> },
         }
 
+        $crate::list_change!(@from $name [$($generics)*], $item);
+    };
+    (@from $name:ident [<$b:ident>], $item:ty) => {
         impl<$b> From<$crate::changes::ListChange<$item>> for $name<$b> {
             fn from(change: $crate::changes::ListChange<$item>) -> $name<$b> {
-                use $crate::changes::ListChange;
-                match change {
-                    ListChange::Insert { at, item } => $name::Insert { at, item },
-                    ListChange::Remove { at } => $name::Remove { at },
-                    ListChange::Move { from, to } => $name::Move { from, to },
-                    ListChange::Update { at, item } => $name::Update { at, item },
-                    ListChange::Reset { items } => $name::Reset { items },
-                }
+                $crate::list_change!(@arms $name, change)
             }
         }
     };
+    (@from $name:ident [], $item:ty) => {
+        impl From<$crate::changes::ListChange<$item>> for $name {
+            fn from(change: $crate::changes::ListChange<$item>) -> $name {
+                $crate::list_change!(@arms $name, change)
+            }
+        }
+    };
+    (@arms $name:ident, $change:ident) => {
+        match $change {
+            $crate::changes::ListChange::Insert { at, item } => $name::Insert { at, item },
+            $crate::changes::ListChange::Remove { at } => $name::Remove { at },
+            $crate::changes::ListChange::Move { from, to } => $name::Move { from, to },
+            $crate::changes::ListChange::Update { at, item } => $name::Update { at, item },
+            $crate::changes::ListChange::Reset { items } => $name::Reset { items },
+        }
+    };
 }
-
-pub(crate) use list_change;
 
 /// The changes that make `before` into `after`. `id` gives the id of an item: no two items
 /// of one list have the same id.
