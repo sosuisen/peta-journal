@@ -283,25 +283,63 @@ fn a_callout_without_a_place_dropped_on_the_atlas_gets_its_place() {
     assert!(no_place(&h).is_empty());
 }
 
-// 落としたコールアウトだけに位置が付く。ほかのコールアウトと、親になったコールアウトには付かない。
+// 座標のない親を一覧からアトラスに落とすと、親に`atlas_bounds`が付き、座標を持つ子が、親からの相対の位置に一緒に出る。子の`atlas_bounds`は変わらない。
 #[test]
-fn only_the_callout_that_was_dropped_gets_a_place_and_a_parent_gets_none() {
+fn a_parent_without_a_place_dropped_on_the_atlas_gets_its_place_and_shows_what_is_under_it() {
+    let mut h = atlas_of(
+        vec![child("one")],
+        vec![
+            atlas_item("g", 1, "Tools", &[]),
+            card_item("one", 2, Some("10,20,0,40")),
+            atlas_item("not", 2, "not", &[]),
+        ],
+    );
+    h.send(Event::DropAtlasCard {
+        card_id: "g".into(),
+        x: 100.0,
+        y: 50.0,
+        grab_x: 0.5,
+        grab_y: 0.5,
+    });
+
+    assert_eq!(
+        upserts(&h),
+        vec![("g".into(), "atlas_bounds".into(), "100,50,0,40".into())]
+    );
+    assert!(batches(&h).is_empty());
+    let card = h.view().atlas_cards.remove(0);
+    assert_eq!(card.bounds.map(|b| (b.x, b.y)), Some((10.0, 20.0)));
+    assert_eq!((card.groups[0].x, card.groups[0].y), (100.0, 50.0));
+    let waiting: Vec<String> = no_place(&h).into_iter().map(|c| c.id).collect();
+    assert_eq!(waiting, ["not"]);
+}
+
+// 親が描かれていない項目を落としても、何も変わらない。座標を数える元になる親の位置がないためである。親になったコールアウトも、落とせば位置が付く。
+#[test]
+fn an_item_under_a_parent_without_a_place_is_not_placed_until_the_parent_is() {
     let callout = [("atlas_type", "callout")];
     let mut h = atlas_of(
         vec![],
         vec![
-            atlas_item("first", 1, "First", &callout),
             atlas_item("parent", 1, "Parent", &callout),
             atlas_item("under", 2, "Under", &callout),
-            atlas_item("text", 1, "plain", &[("atlas_bounds", "5,5,0,40")]),
+            atlas_item("deep", 3, "deep", &[]),
         ],
     );
     place(&mut h, "under", 1.0, 2.0);
+    place(&mut h, "deep", 1.0, 2.0);
+
+    assert!(upserts(&h).is_empty());
+
     place(&mut h, "parent", 3.0, 4.0);
+    place(&mut h, "under", 13.0, 24.0);
 
     assert_eq!(
         upserts(&h),
-        vec![("under".into(), "atlas_bounds".into(), "1,2,0,40".into())]
+        vec![
+            ("parent".into(), "atlas_bounds".into(), "3,4,0,40".into()),
+            ("under".into(), "atlas_bounds".into(), "10,20,0,40".into()),
+        ]
     );
     assert!(batches(&h).is_empty());
 }

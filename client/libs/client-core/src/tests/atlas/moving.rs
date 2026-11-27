@@ -23,6 +23,50 @@ fn move_under(h: &mut Harness, card_ids: &[&str], parent_id: &str) {
     });
 }
 
+/// The parent `outer` with the parent `g` under it, and the card of one under that
+fn atlas_with_placed_parents() -> Harness {
+    atlas_of(
+        vec![child("one")],
+        vec![
+            parent_item("outer", 1, "", &[("atlas_bounds", "10,10,0,40")]),
+            parent_item("g", 2, "", &[("atlas_bounds", "100,200,0,40")]),
+            card_item("one", 3, Some("1,2,0,40")),
+        ],
+    )
+}
+
+// 親の下のカードを動かすと、置いた点は、すぐ上の親からの相対の座標で保存される。親の`atlas_bounds`は変わらない。
+#[test]
+fn a_card_under_a_parent_is_placed_by_bounds_counted_from_the_parent() {
+    let mut h = atlas_with_placed_parents();
+    place(&mut h, "a/b/one", 150.4, 260.0);
+
+    assert_eq!(
+        upserts(&h),
+        vec![("i-one".into(), "atlas_bounds".into(), "40,50,0,40".into())]
+    );
+    assert_eq!(
+        bounds_of(&h, "a/b/one").map(|b| (b.x, b.y)),
+        Some((40.0, 50.0))
+    );
+}
+
+// 親を動かすと、変わるのは親の`atlas_bounds`だけである。子の`atlas_bounds`は変わらず、子は親と一緒に動く。
+#[test]
+fn a_parent_that_moves_changes_its_own_bounds_only() {
+    let mut h = atlas_with_placed_parents();
+    place(&mut h, "g", 300.0, 400.0);
+
+    assert_eq!(
+        upserts(&h),
+        vec![("g".into(), "atlas_bounds".into(), "290,390,0,40".into())]
+    );
+    assert!(batches(&h).is_empty());
+    let card = h.view().atlas_cards.remove(0);
+    assert_eq!(card.bounds.map(|b| (b.x, b.y)), Some((1.0, 2.0)));
+    assert_eq!((card.groups[1].x, card.groups[1].y), (290.0, 390.0));
+}
+
 // 親のblobに落とされたカードは、1回の送信で、その親の子になる。下に兄弟がなければ、親の木の末尾に入る。
 #[test]
 fn a_card_dropped_on_the_blob_of_a_parent_goes_under_it_behind_the_siblings_above_it() {
