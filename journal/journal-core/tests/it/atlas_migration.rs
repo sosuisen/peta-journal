@@ -6,7 +6,7 @@ use hmtid::Hmtid;
 use journal_core::domain::model::ItemPosition;
 use journal_core::infrastructure::persistence::PropertyRepository;
 
-use crate::common::devices::{two_devices, Device};
+use crate::common::devices::{time_passes, two_devices, Device};
 
 impl Device {
     /// An item at the end of the atlas with the atlas properties `props`, as the server
@@ -100,4 +100,28 @@ fn the_groups_and_the_callouts_of_an_old_atlas_move_to_the_plain_form() {
     );
     assert_eq!(a.atlas_props(&group), props(&[("atlas_side", "left")]));
     assert_eq!(a.atlas_props(&hello), props(&callout));
+}
+
+// 移したアトラスのページの修正日付は、移した時刻になる。移すもののないアトラスの日付は変わらない。
+#[test]
+fn a_moved_atlas_is_dated_when_it_moved() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let modified = |device: &Device| {
+        let atlas = device.core.pages.find_by_id(&device.atlas_id());
+        atlas.unwrap().unwrap().modified_date
+    };
+    let before = modified(&a);
+
+    time_passes(&[&a]);
+    a.core.atlas.move_to_plain_form().unwrap();
+
+    let moved = modified(&a);
+    assert_eq!(moved, a.core.items.db().now_millis());
+    assert!(moved > before);
+
+    time_passes(&[&a]);
+    a.core.atlas.move_to_plain_form().unwrap();
+
+    assert_eq!(modified(&a), moved);
 }
