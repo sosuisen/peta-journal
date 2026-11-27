@@ -142,7 +142,7 @@ export const JOBS = {
   },
   // The web shell in React. Its core is the wasm of client-web-bridge. The tests, the lint and the
   // types need that wasm and the types of the border, which `npm run border` makes from the Rust code.
-  // The e2e tests with Playwright run on a developer's machine only.
+  // The e2e tests with Playwright are in the outliner-react-e2e job.
   'outliner-react': {
     dir: 'client/apps/web-app/outliner-react',
     touchedBy: ['client/apps/web-app/outliner-react/', ...CLIENT_RUST],
@@ -156,6 +156,25 @@ export const JOBS = {
       { run: 'npm run coverage' },
       // `--ignore-scripts`: the step above built the border, and `prebuild` would build it again
       { run: 'npm run build --ignore-scripts' },
+    ],
+  },
+  // The e2e tests of the web shell. Playwright drives the built shell in a browser without a window,
+  // against a real journal server that it starts on a port of its own, with all its files in a
+  // temporary folder (e2e/playwright.config.ts). The template extension is copied into that server
+  'outliner-react-e2e': {
+    dir: 'client/apps/web-app/outliner-react/e2e',
+    touchedBy: ['client/apps/web-app/outliner-react/', 'ext-functions/auto-template/', ...CLIENT_RUST],
+    notTouchedBy: ['client/apps/web-app/todo/', 'client/apps/webview-app/', 'client/apps/emacs/'],
+    steps: [
+      // Playwright builds the server too, but gives the server and the shell 15 minutes together
+      // to come up. A first build of the server alone can take longer
+      { cwd: 'journal', run: 'cargo build --release' },
+      // The build of the shell that Playwright starts needs its packages
+      { cwd: 'client/apps/web-app/outliner-react', run: 'npm ci' },
+      { run: 'npm ci' },
+      // The browser of the version of Playwright in package-lock.json. It is downloaded once
+      { run: 'npx playwright install chromium' },
+      { run: 'npm run e2e' },
     ],
   },
   'memoview-win': {
