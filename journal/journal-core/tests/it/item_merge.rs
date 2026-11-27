@@ -1133,18 +1133,27 @@ fn a_copy_of_a_page_without_a_file_here_waits() {
     assert!(a.page_in("d/", "n").is_none());
 }
 
-// アトラスのコピーは合流せず、消さない。
+// アトラスのコピーも、ほかのページのコピーと同じく合流し、消える。コピーの新しい編集は入り、ここの新しい編集も残る。
 #[test]
-fn a_copy_of_an_atlas_is_left_alone() {
+fn a_copy_of_an_atlas_is_taken_in_as_the_copy_of_any_page_is() {
     let dir = tempfile::tempdir().unwrap();
-    let (a, _b, _, _, _) = two_devices_with_items(dir.path());
-    let file = a.file(ATLAS);
+    let (a, b) = two_devices(dir.path());
+    let atlas = a.atlas_id();
+    let x = a.add(&atlas, "[[d/x]]");
+    let y = a.add(&atlas, "[[d/y]]");
+    b.receive(&a, ATLAS);
+    time_passes(&[&a, &b]);
+    b.write(&y, "[[d/y-from-b]]");
+    let copy = b.file(ATLAS);
+    a.write(&x, "[[d/x-from-a]]");
     let name = ATLAS.replace(".md", " (PC's conflicted copy 2026-11-05).md");
-    std::fs::write(a.root.join(&name), file).unwrap();
+    std::fs::write(a.root.join(&name), copy).unwrap();
 
-    assert_eq!(a.sync(&name), Outcome::Ignored);
+    assert_eq!(a.sync(&name), Outcome::Imported);
 
-    assert!(a.root.join(&name).exists());
+    assert_eq!(a.bodies(&atlas), ["[[d/x-from-a]]", "[[d/y-from-b]]"]);
+    assert!(!a.root.join(&name).exists());
+    assert!(a.conflicts().is_empty());
 }
 
 // フォルダのスキャンは、届いていたコピーを合流する。

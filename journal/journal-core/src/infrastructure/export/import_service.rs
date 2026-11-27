@@ -12,8 +12,6 @@
 //! - The tags and the other properties of a page come from the front matter of a file newer
 //!   than the page. A device that got a page only from its file must hold them, or the file
 //!   loses them when that device writes it.
-//! - An atlas goes by its page: when the DB is newer than the file, the file is backed up and
-//!   overwritten from the DB.
 //! - A Dropbox conflicted copy is taken in as one more version of its page, and then
 //!   deleted. It never takes items away.
 //! - Nothing is deleted from the DB because a file disappeared; that goes through the
@@ -258,9 +256,6 @@ impl MarkdownImportService {
         let Some(page) = self.page_service.get_page(&state.page_id)? else {
             return Ok(Outcome::Waiting);
         };
-        if page.is_atlas() {
-            return Ok(Outcome::Ignored);
-        }
         let content = read_stable(&file)?;
         if content.trim().is_empty() {
             return Ok(Outcome::Error);
@@ -390,19 +385,6 @@ impl MarkdownImportService {
         // A page that never had a file on this device (e.g. the root index a fresh install
         // creates) is not "newer" in any meaningful way, so the file wins
         let had_file = !states.is_empty();
-        if had_file && page.is_atlas() && file_modified < page.modified_date {
-            // DB is newer: keep the DB, keep the file's content as a backup, then overwrite the file.
-            // A moved file still moves the page, so the export lands at the new path.
-            if renamed {
-                page = self
-                    .page_matcher
-                    .move_page(&page, loc, page.modified_date)?;
-            }
-            self.backup_conflict(root, rel_path, loc, &content, hash, &page, attrs)?;
-            self.export.queue_export(&page.id);
-            return Ok(Outcome::Conflict);
-        }
-
         let empty = [ParsedItem::empty()];
         let items: &[ParsedItem] = if parsed.items.is_empty() {
             &empty
@@ -410,9 +392,7 @@ impl MarkdownImportService {
             &parsed.items
         };
         let mode = match states.iter().map(|s| s.last_synced).max() {
-            Some(last_synced) if had_file && !page.is_atlas() => {
-                MergeMode::ItemByItem { last_synced }
-            }
+            Some(last_synced) if had_file => MergeMode::ItemByItem { last_synced },
             _ => MergeMode::WholeFile,
         };
         let merge = self
@@ -560,31 +540,6 @@ impl MarkdownImportService {
             ),
             Err(e) => tracing::error!("Could not write conflict backup {}: {e}", backup.display()),
         }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn backup_conflict(
-        &self,
-        root: &Path,
-        rel_path: &str,
-        loc: &PageLocation,
-        content: &str,
-        hash: &str,
-        page: &Page,
-        attrs: &FileAttrs,
-    ) -> Result<(), AppError> {
-        self.write_conflict_backup(root, rel_path, loc, content);
-        // Remember this content so we don't back it up again before the export overwrites it
-        // An atlas goes by the date of its page, so no date of the content is needed
-        self.file_sync_state.upsert_synced(
-            rel_path,
-            &page.id,
-            hash,
-            attrs.size,
-            attrs.mtime,
-            attrs.mtime,
-        )?;
-        Ok(())
     }
 }
 
