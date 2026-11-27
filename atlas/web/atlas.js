@@ -946,17 +946,24 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   // The card whose group an unplaced card let go here with Ctrl joins: the card under the
-  // pointer, or any card of the group whose area is under it. Null without Ctrl.
+  // pointer. Null without Ctrl.
   groupTargetFromList(clientX, clientY, ctrl) {
+    if (!this.world || !ctrl) {
+      return null;
+    }
+    const e = this.listDragPointer(clientX, clientY, ctrl);
+    return this.groupTargetAt({ origins: [] }, e)?.cardData.id ?? null;
+  }
+
+  // The item an unplaced card let go here with Ctrl goes under: the one of the innermost group
+  // whose area is under the pointer. Null without Ctrl, and on a card, whose group it joins.
+  parentFromList(clientX, clientY, ctrl) {
     if (!this.world || !ctrl) {
       return null;
     }
     const drag = { origins: [] };
     const e = this.listDragPointer(clientX, clientY, ctrl);
-    const target = this.groupTargetAt(drag, e);
-    const join = this.joinAreaAt(drag, e);
-    const joined = join && cardOfGroup(this.cards.children, join.label);
-    return target ? target.cardData.id : joined ? joined.cardData.id : null;
+    return this.groupTargetAt(drag, e) ? null : (this.joinAreaAt(drag, e)?.label ?? null);
   }
 
   // A point of the page as the pointer events of the canvas give it
@@ -979,6 +986,12 @@ window.AtlasCanvas = class AtlasCanvas {
   // { kind, url }: kind is Page, Web or File, as the core names the links of a page.
   setOnFollow(onFollow) {
     this.onFollow = onFollow;
+  }
+
+  // onMove(cardIdsJson, parentId) puts the cards let go with Ctrl in the area of another group
+  // under the item of that group
+  setOnMove(onMove) {
+    this.onMove = onMove;
   }
 
   // onUngroup(cardIdsJson) takes the cards let go outside their group with Ctrl out of it
@@ -1303,7 +1316,8 @@ window.AtlasCanvas = class AtlasCanvas {
 
   // While cards are dragged with Ctrl, the area of another group under the pointer is the
   // group they would join: its frame shows, in the color of a held group. Without `e`, no
-  // group is to be joined. The topmost area wins, as it is drawn over the others.
+  // group is to be joined. The topmost area wins, as it is drawn over the others: of groups
+  // one inside the other, the innermost.
   showJoinGroup(drag, e) {
     const join = e ? this.joinAreaAt(drag, e) : null;
     if (drag.join && drag.join !== join && !drag.join.destroyed) {
@@ -1427,13 +1441,13 @@ window.AtlasCanvas = class AtlasCanvas {
         const places = drag.origins.map(o => [o.view.cardData.id, o.view.x, o.view.y]);
         const moves = drag.extras.map(o => [o.view.saveMove, o.view.x, o.view.y]);
         // A card let go on a card joins the group of that card; let go in the area of another
-        // group, it joins that group, which any card of it stands for
-        const joined = ctrl && drag.join && cardOfGroup(this.cards.children, drag.join.label);
-        const targetId = target ? target.cardData.id : joined ? joined.cardData.id : null;
+        // group, it goes under the item of that group
+        const targetId = target ? target.cardData.id : null;
+        const parentId = !targetId && ctrl && drag.join ? drag.join.label : null;
         // Joining a group takes the cards out of their own; only the cards let go outside their
         // group without joining another leave it
         const leavers =
-          !targetId && ctrl && drag.outside
+          !targetId && !parentId && ctrl && drag.outside
             ? drag.origins.map(o => o.view.cardData).filter(d => drag.outside.has(d.group)).map(d => d.id)
             : [];
         for (const [id, x, y] of places) {
@@ -1444,6 +1458,9 @@ window.AtlasCanvas = class AtlasCanvas {
         }
         if (targetId && this.onGroup) {
           this.onGroup(JSON.stringify(places.map(([id]) => id)), targetId);
+        }
+        if (parentId && this.onMove) {
+          this.onMove(JSON.stringify(places.map(([id]) => id)), parentId);
         }
         if (leavers.length > 0 && this.onUngroup) {
           this.onUngroup(JSON.stringify(leavers));
@@ -1544,12 +1561,6 @@ function groupsOf(data) {
 // Whether a card is in the group, right under it or deeper
 function inGroup(data, group) {
   return groupsOf(data).some(g => g.id === group);
-}
-
-// The card of a group that stands for it when a card joins it: one right under it, or else
-// any card in it
-function cardOfGroup(views, group) {
-  return views.find(v => v.cardData.group === group) ?? views.find(v => inGroup(v.cardData, group));
 }
 
 // The page a press on the title of a group opens, from a character of the title; none for a
