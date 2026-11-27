@@ -74,17 +74,13 @@ fn a_link_card_under_a_group_item_belongs_to_the_group() {
     );
 }
 
-// 追加されたリンクは、丸めた位置とともにサーバーによって書き込まれ、返されたアウトラインが表示される。リンク先の括弧と空白は取り除かれる。
+// 追加されたリンクは、丸めた位置を持つwikilinkの項目として作られ、読み直したアウトラインが表示される。リンク先の括弧と空白は取り除かれる。
 #[test]
-fn an_added_link_is_written_by_the_server_with_its_place() {
+fn an_added_link_is_made_as_an_item_with_its_place() {
     let mut h = atlas_of(vec![], vec![]);
-    h.api.answer_next(
-        "ChangeAtlas",
-        Ok(ApiOutput::Items(vec![link_item(
-            "new",
-            "[[x/Target]]",
-            Some("10,-21,0,40"),
-        )])),
+    answer_outline(
+        &mut h,
+        vec![link_item("new", "[[x/Target]]", Some("10,-21,0,40"))],
     );
     h.send(Event::AddAtlasLink {
         x: 10.4,
@@ -93,11 +89,12 @@ fn an_added_link_is_written_by_the_server_with_its_place() {
     });
 
     assert_eq!(
-        changes(&h),
-        [AtlasChange::AddLink {
-            target: "x/Target".into(),
-            bounds: "10,-21,0,40".into()
-        }]
+        batches(&h),
+        [[made(
+            ItemPosition::Last,
+            "[[x/Target]]",
+            &[("atlas_bounds", "10,-21,0,40")]
+        )]]
     );
     let links = h.view().atlas_links;
     assert_eq!(links.len(), 1);
@@ -114,7 +111,7 @@ fn an_empty_link_is_not_added() {
         target: " [[ ]] ".into(),
     });
 
-    assert!(changes(&h).is_empty());
+    assert!(batches(&h).is_empty());
 }
 
 // リンクカードは、ページカードと同じように移動と拡大縮小ができる。
@@ -159,28 +156,25 @@ fn a_link_card_joins_a_group_as_a_card() {
     group(&mut h, &["l"], "a/b/one");
 
     assert_eq!(
-        changes(&h),
-        [AtlasChange::Group {
-            cards: vec!["l".into()],
-            target: "a/b/one".into()
-        }]
+        batches(&h),
+        [[
+            made(ItemPosition::after("i-one"), "", &[]),
+            leveled("i-one", 2),
+            leveled("l", 2),
+            moved(&["i-one", "l"], NEW),
+        ]]
     );
 }
 
-// 取り除かれたリンクカードは、サーバーによって取り去られる。
+// 取り除かれたリンクカードは、その項目が消される。
 #[test]
-fn a_removed_link_card_is_taken_away_by_the_server() {
+fn the_item_of_a_removed_link_card_is_deleted() {
     let mut h = atlas_with_link();
     h.send(Event::RemoveAtlasLink {
         item_id: "l".into(),
     });
 
-    assert_eq!(
-        changes(&h),
-        [AtlasChange::Remove {
-            item_id: "l".into()
-        }]
-    );
+    assert_eq!(batches(&h), [[deleted("l")]]);
 }
 
 // リンクとして取り除かれるのはリンクカードだけである。ページカードでは何も送られない。
@@ -191,7 +185,7 @@ fn only_a_link_card_is_removed_as_a_link() {
         item_id: "i-one".into(),
     });
 
-    assert!(changes(&h).is_empty());
+    assert!(batches(&h).is_empty());
 }
 
 // リンクカードを編集すると、新しいページへのリンクになる。リンク先の括弧と空白は取り除かれる。
@@ -203,13 +197,7 @@ fn editing_a_link_card_links_it_to_the_new_page() {
         target: " [[y/Other]] ".into(),
     });
 
-    assert_eq!(
-        changes(&h),
-        [AtlasChange::SetLink {
-            item_id: "l".into(),
-            target: "y/Other".into()
-        }]
-    );
+    assert_eq!(batches(&h), [[written("l", "[[y/Other]]")]]);
 }
 
 // 空のリンク先や同じページへの編集、ページカードへの編集では何も変わらない。
@@ -229,7 +217,7 @@ fn an_edit_of_a_link_to_nothing_or_to_the_same_page_changes_nothing() {
         target: "y/Other".into(),
     });
 
-    assert!(changes(&h).is_empty());
+    assert!(batches(&h).is_empty());
     assert_eq!(h.view().atlas_links[0].target, "x/Target");
 }
 

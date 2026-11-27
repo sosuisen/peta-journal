@@ -187,13 +187,83 @@ fn a_card_dropped_from_the_list_keeps_the_grabbed_spot_under_the_pointer() {
     );
 }
 
-// ページに対応するアイテムがまだないカードは配置されず、何も保存されない。
+// 未追加の項目をアトラスに置くと、そのページへのwikilinkの項目が、位置とともに作られ、読み直したアウトラインが表示される。
 #[test]
-fn a_card_whose_page_has_no_item_yet_is_not_placed() {
+fn a_page_with_no_card_dropped_on_the_atlas_gets_an_item_that_links_to_it() {
     let mut h = atlas_of(vec![child("one")], vec![]);
-    place(&mut h, "a/b/one", 0.0, 0.0);
+    answer_outline(&mut h, vec![card_item("one", 1, Some("10,-20,0,40"))]);
+    place(&mut h, "a/b/one", 10.4, -20.0);
+
+    assert_eq!(
+        batches(&h),
+        [[made(
+            ItemPosition::Last,
+            "[[a/b/one]]",
+            &[("atlas_bounds", "10,-20,0,40")]
+        )]]
+    );
+    assert!(upserts(&h).is_empty());
+    assert_eq!(bounds_of(&h, "a/b/one").map(|b| b.x), Some(10.0));
+}
+
+// 未追加のフォルダをアトラスに置くと、そのフォルダのindexページへのwikilinkの項目が作られる。
+#[test]
+fn a_folder_with_no_card_dropped_on_the_atlas_gets_an_item_that_links_to_its_index() {
+    let mut h = atlas_of(vec![doc("a/b/c/", "index")], vec![]);
+    place(&mut h, "a/b/c/index", 0.0, 0.0);
+
+    assert_eq!(
+        batches(&h),
+        [[made(
+            ItemPosition::Last,
+            "[[a/b/c/index]]",
+            &[("atlas_bounds", "0,0,0,40")]
+        )]]
+    );
+}
+
+// 一覧から落とした未追加の項目も、つかんだ点がポインターの下に残るように置かれる。
+#[test]
+fn a_page_with_no_card_dropped_from_the_list_keeps_the_grabbed_spot_under_the_pointer() {
+    let mut h = atlas_of(vec![child("one")], vec![]);
+    h.send(Event::DropAtlasCard {
+        card_id: "a/b/one".into(),
+        x: 100.0,
+        y: 50.0,
+        grab_x: 0.25,
+        grab_y: 1.0,
+    });
+
+    assert_eq!(
+        batches(&h),
+        [[made(
+            ItemPosition::Last,
+            "[[a/b/one]]",
+            &[("atlas_bounds", "130,30,0,40")]
+        )]]
+    );
+}
+
+// このフォルダのページでもカードでもないものは置かれず、何も送られない。
+#[test]
+fn what_is_neither_a_page_of_the_folder_nor_a_card_is_not_placed() {
+    let mut h = atlas_of(vec![child("one")], vec![]);
+    place(&mut h, "a/b/none", 0.0, 0.0);
 
     assert!(upserts(&h).is_empty());
+    assert!(batches(&h).is_empty());
+}
+
+// 項目を作れなかったときは、アラートが表示され、ページは未追加のまま残る。
+#[test]
+fn a_refused_item_leaves_the_page_in_the_list() {
+    let mut h = atlas_of(vec![child("one")], vec![]);
+    h.api.fail_next("ApplyBatch", "refused");
+    place(&mut h, "a/b/one", 0.0, 0.0);
+
+    assert_eq!(bounds_of(&h, "a/b/one"), None);
+    assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
+    assert!(!h.api.called("GetPageById"));
 }
 
 // 配置済みのカードは、移動してもその大きさを保つ。
