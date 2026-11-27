@@ -1059,6 +1059,21 @@ describe('the keys of the editor', () => {
     expect(wasm.presses).toHaveLength(2);
   });
 
+  // コアがもう預かっていなければ、描き直す前でも、キーはコアに預けない。預かっていないコアは、キーを捨てるためである。
+  test('a key is not held by the core that no longer holds keys, before the editor is drawn again', () => {
+    const { wasm, editor } = editing(true);
+    wasm.push(
+      [],
+      [{ kind: 'Outline', value: outline({ key_relay_holding: false }) }],
+    );
+
+    const dropped = !fireEvent.keyDown(editor, { key: 'Enter' });
+
+    expect(dropped).toBe(true);
+    expect(wasm.events).toEqual([]);
+    expect(wasm.presses).toHaveLength(1);
+  });
+
   // 次の編集欄がフォーカスを待つ間のキーは、その編集欄のために取っておく。
   test('a key pressed while the next editor waits for its focus is kept for it', () => {
     vi.useFakeTimers();
