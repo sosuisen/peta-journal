@@ -79,9 +79,9 @@
 
 ## アトラス
 
-- アトラスのルート（`/api/pages/{id}/atlas/...`）は、正しい要求に200で答え、アトラスの`items`を返す
-  - カードのリンクを足す、変える。カードをまとめる、まとまりを解く。まとまりの見出しを付ける
-  - コールアウトを足す、変える。アトラスの項目を消す
+- アトラスのページ（`index_atlas`）は普通のページで、項目のルートで編集する。アトラス専用のルートはない（ADR 053）
+- サーバーは、アトラスの本文を自分では書かない。ページを作っても、名前を変えても、消しても、カードは足されも消されもしない
+- 古い形のアトラスは、起動のときと、古い形のファイルを取り込んだときに、普通のページの形に移る。移す前のファイルは、1回だけバックアップされる
 
 ## ジャーナル・検索・設定
 
@@ -172,7 +172,6 @@
   - `get_recent_pages`は、最後に触ったページを先に返す。`type`が空ならすべての型、`maxResults`が0なら10件である
   - `get_backlinks`は、ウィキリンクで指すページと項目を返す
   - `get_child_pages`、`upsert_page_property`、`delete_page_property`、`demote_page`で、子ページ、ページのプロパティ、フォルダーのページを下ろす操作を扱う
-- アトラスのツール（`add_atlas_link`、`set_atlas_link`、`group_atlas_cards`、`ungroup_atlas_cards`、`set_atlas_group_title`、`add_atlas_callout`、`set_atlas_callout`、`remove_atlas_item`）で、カード、まとまり、コールアウトを作り、変え、消す
 - ジャーナルのツール
   - `get_or_create_journal`は、名前でジャーナルを作るか見つける。ジャーナルの名前でなければ`Not a journal filename`で断られる
   - `get_most_recent_journal_before`は、日付の前の直近の日を返す。なければ`found: false`で、日付でなければ`Invalid date`で断られる
