@@ -1,6 +1,6 @@
 import { act, fireEvent } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { SearchEntry, SearchView, type SearchKind } from './border/peta-types';
+import { SearchEntry, SearchPanel, type SearchKind } from './border/peta-types';
 import SearchBar from './SearchBar';
 import { draw, outline, shell } from './test/screens';
 
@@ -15,21 +15,43 @@ function entry(
   label = '',
   snippet = '',
 ): SearchEntry {
-  return new SearchEntry(BigInt(position), { kind }, title, label, snippet);
+  return new SearchEntry(
+    BigInt(position),
+    `${kind}:${title}`,
+    { kind },
+    title,
+    label,
+    snippet,
+  );
+}
+
+/** The search as a test shows it: the panel, and the results that come as a list beside it. */
+interface Shown {
+  readonly panel: SearchPanel;
+  readonly results: SearchEntry[];
 }
 
 /** The search of `query`, with no result shown. Each test changes what it needs. */
-function search(changes: Partial<SearchView> = {}): SearchView {
-  return Object.assign(new SearchView('', [], false, null, false), changes);
+function search(
+  changes: Partial<SearchPanel & { results: SearchEntry[] }> = {},
+): Shown {
+  const { results = [], ...panel } = changes;
+  return {
+    panel: Object.assign(new SearchPanel('', false, null, false), panel),
+    results,
+  };
 }
 
-function searchBar(shown: SearchView = search()) {
+function searchBar(shown: Shown = search()) {
   const ui = shell();
-  ui.wasm.push([], [{ kind: 'Search', value: shown }]);
+  const push = ({ panel, results }: Shown) =>
+    ui.wasm.push([], [{ kind: 'Search', value: panel }], {
+      search_results: [{ kind: 'Reset', items: results }],
+    });
+  push(shown);
   const drawn = draw(ui, <SearchBar />);
   const input = drawn.container.querySelector('input') as HTMLInputElement;
-  const show = (next: SearchView) =>
-    act(() => ui.wasm.push([], [{ kind: 'Search', value: next }]));
+  const show = (next: Shown) => act(() => push(next));
   return { ...ui, ...drawn, input, show };
 }
 

@@ -21,6 +21,7 @@ import {
   type Panel,
   type Replay,
   type Row,
+  type SearchEntry,
   type Typing,
   type UiOp,
   type UiOutput,
@@ -37,6 +38,7 @@ export interface Screen {
   readonly headings: readonly Heading[];
   readonly indexPages: readonly SidebarPage[];
   readonly recentPages: readonly SidebarPage[];
+  readonly searchResults: readonly SearchEntry[];
   readonly panels: Panels<Panel>;
 }
 
@@ -57,6 +59,7 @@ export class Core {
     headings: [],
     indexPages: [],
     recentPages: [],
+    searchResults: [],
     panels: {},
   };
   private readonly listeners = new Set<() => void>();
@@ -203,9 +206,22 @@ export class Core {
   readonly current = (): Screen => this.screen;
 
   private take(changes: string): void {
-    const { rows, headings, index_pages, recent_pages, panels } =
-      Changes.fromJson(json.parse(changes));
-    const lists = [rows, headings, index_pages, recent_pages, panels];
+    const {
+      rows,
+      headings,
+      index_pages,
+      recent_pages,
+      search_results,
+      panels,
+    } = Changes.fromJson(json.parse(changes));
+    const lists = [
+      rows,
+      headings,
+      index_pages,
+      recent_pages,
+      search_results,
+      panels,
+    ];
     if (lists.every(list => list.length === 0)) {
       return;
     }
@@ -214,6 +230,7 @@ export class Core {
       headings: listAfter(this.screen.headings, headings),
       indexPages: listAfter(this.screen.indexPages, index_pages),
       recentPages: listAfter(this.screen.recentPages, recent_pages),
+      searchResults: listAfter(this.screen.searchResults, search_results),
       panels: panelsAfter(this.screen.panels, panels),
     };
     for (const listener of this.listeners) {
