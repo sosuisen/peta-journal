@@ -1,7 +1,7 @@
 //! What the canvas of an atlas in the web shell draws: the cards and the callouts as the JSON
 //! that `atlas.js` reads, made by the scene of peta-atlas as the Leptos shell made them.
 
-use client_core::screens::atlas::{AtlasGroup, Callout, LinkCard};
+use client_core::screens::atlas::{self as core_atlas, AtlasGroup, Callout, LinkCard};
 use client_core::view::AtlasCard;
 use peta_atlas::scene::{self, GroupLook, GroupRef};
 
@@ -15,7 +15,16 @@ fn group_refs(groups: &[AtlasGroup]) -> Vec<GroupRef> {
                 .title
                 .as_ref()
                 .map(|t| (t.text.clone(), t.side.clone())),
-            look: GroupLook::Text,
+            look: match &group.look {
+                core_atlas::GroupLook::Text => GroupLook::Text,
+                core_atlas::GroupLook::Page {
+                    path, icon_tags, ..
+                } => GroupLook::Page {
+                    path: path.clone(),
+                    icon_tags: icon_tags.clone(),
+                },
+                core_atlas::GroupLook::Callout => GroupLook::Callout,
+            },
         })
         .collect()
 }

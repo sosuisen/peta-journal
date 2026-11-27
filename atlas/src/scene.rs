@@ -33,6 +33,14 @@ pub struct GroupRef {
 pub enum GroupLook {
     /// The text of the title, character by character along the outline
     Text,
+    /// The label of a page card: a click on it opens `path`, none for a page that is not
+    /// there. The icon of the tags stands before it.
+    Page {
+        path: Option<String>,
+        icon_tags: Vec<String>,
+    },
+    /// The character of a callout beside the outline, with the title in its bubble
+    Callout,
 }
 
 /// A group of a card as `atlas.js` reads it.
@@ -44,15 +52,36 @@ pub struct Group {
     pub color: String,
     pub title: Option<String>,
     pub title_side: Option<String>,
+    /// The page a click on the title opens; none for a title that opens nothing
+    pub path: Option<String>,
+    /// The icon of the page before the title, as SVG
+    pub icon: Option<String>,
+    /// The character of a callout that stands in place of the title, as SVG of `draw_size`
+    pub character: Option<String>,
+    pub draw_size: i32,
 }
 
 impl Group {
     fn of(group: &GroupRef) -> Group {
+        let title = group.title.as_ref();
+        let (path, icon) = match &group.look {
+            GroupLook::Page { path, icon_tags } => (
+                path.clone(),
+                (!icon_tags.is_empty()).then(|| tag_icon_svg(icon_tags, ICON_DRAW_SIZE)),
+            ),
+            _ => (None, None),
+        };
         Group {
             id: group.id.clone(),
             color: group_color(&group.id),
-            title: group.title.as_ref().map(|(text, _)| text.clone()),
-            title_side: group.title.as_ref().map(|(_, side)| side.clone()),
+            title: title.map(|(text, _)| text.clone()),
+            title_side: title.map(|(_, side)| side.clone()),
+            path,
+            icon,
+            character: (group.look == GroupLook::Callout)
+                .then(|| title.map(|(text, _)| callout_face_svg(text, CALLOUT_DRAW_SIZE)))
+                .flatten(),
+            draw_size: CALLOUT_DRAW_SIZE,
         }
     }
 }
@@ -358,8 +387,16 @@ mod tests {
             )
         );
         assert_eq!(
-            (&callout_group.path, &callout_group.icon, &callout_group.character),
-            (&None, &None, &Some(callout_face_svg("Hi", CALLOUT_DRAW_SIZE)))
+            (
+                &callout_group.path,
+                &callout_group.icon,
+                &callout_group.character
+            ),
+            (
+                &None,
+                &None,
+                &Some(callout_face_svg("Hi", CALLOUT_DRAW_SIZE))
+            )
         );
     }
 
