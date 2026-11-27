@@ -700,6 +700,10 @@ pub struct AtlasGroup {
     pub id: String,
     pub title: Option<GroupTitle>,
     pub look: GroupLook,
+    /// Where the item lies, counted from the item it is right under: the `x` and `y` of its
+    /// `atlas_bounds`. What is under the item is counted from here.
+    pub x: f64,
+    pub y: f64,
 }
 
 /// How the title of a group is drawn along its blob, by what its item is.
@@ -723,10 +727,15 @@ pub enum GroupLook {
 fn groups(model: &Model, parents: &[&Item]) -> Vec<AtlasGroup> {
     parents
         .iter()
-        .map(|parent| AtlasGroup {
-            id: parent.id.clone(),
-            title: group_title(parent),
-            look: group_look(model, parent),
+        .map(|parent| {
+            let place = bounds_of(parent);
+            AtlasGroup {
+                id: parent.id.clone(),
+                title: group_title(parent),
+                look: group_look(model, parent),
+                x: place.map_or(0.0, |b| b.x),
+                y: place.map_or(0.0, |b| b.y),
+            }
         })
         .collect()
 }
