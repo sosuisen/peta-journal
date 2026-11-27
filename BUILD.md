@@ -137,9 +137,17 @@ journal server on port 8187 that serves those files and the API:
 ```bash
 cd peta-journal/client/apps/web-app/outliner-react/e2e
 npm install
-npx playwright install chromium   # once
+npx playwright install chromium   # downloads the browser once for each version of Playwright
 npm run e2e
 ```
+
+The CI runs the suite in the `outliner-react-e2e` job on Linux, and the hook before a pull request
+runs the same steps on your machine (`scripts/checks.mjs`). The browser has no window, and the
+server has a port and a folder of its own, so the run touches neither your screen nor your notes.
+Two runs at once on one machine fail: both want port 8187. The version of the browser follows
+`@playwright/test` in `e2e/package-lock.json`. On Linux, the browser needs some packages of the
+OS: `npx playwright install-deps chromium` installs them, and the CI does the same. When a
+test fails in the CI, its trace is in the `outliner-react-e2e-test-results` artifact of the run.
 
 The test server runs with `--throwaway-dir <a temporary directory>`. Its data, its search index,
 its configuration and its markdown folder are all under that directory, and the server keeps the
