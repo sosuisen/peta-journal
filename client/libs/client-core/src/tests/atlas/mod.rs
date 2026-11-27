@@ -5,6 +5,9 @@
 // アトラスを開く
 mod navigation;
 
+// 項目を描き分ける
+mod kinds;
+
 // カードを置く
 mod cards;
 
