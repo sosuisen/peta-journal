@@ -129,8 +129,8 @@ pub fn journal_loaded(model: &mut Model, date: String, title: String, loaded: Jo
     Command::all([shown, load_previous_journals(model, date, BUFFER_ITEMS)])
 }
 
-/// Appends older journals, one page at a time, until the outline holds at least
-/// `target_item_count` items or there is no older journal. Only one load runs at a time.
+/// Appends older journals, one page at a time, until the outline shows at least
+/// `target_item_count` rows or there is no older journal. Only one load runs at a time.
 fn load_previous_journals(model: &mut Model, from_name: String, target_item_count: usize) -> Cmd {
     let weekly = match journal_mut(model) {
         Some(j) if !j.loading => {
@@ -142,7 +142,7 @@ fn load_previous_journals(model: &mut Model, from_name: String, target_item_coun
     load_journal_before(model, from_name, weekly, target_item_count)
 }
 
-/// Asks the server for the journal before `name`, unless the outline holds enough items.
+/// Asks the server for the journal before `name`, unless the outline shows enough rows.
 /// Each answer comes back as [`Event::OlderJournalLoaded`], which asks for the next one.
 fn load_journal_before(
     model: &mut Model,
@@ -153,7 +153,9 @@ fn load_journal_before(
     let Some(journal) = journal_of_screen(model) else {
         return done();
     };
-    if model.state.items().len() >= target_item_count {
+    // The rows shown are counted, as the shell counts them in its scroll position: an item
+    // hidden under a collapsed one fills no row, and would end the load too early (#1256)
+    if model.state.visible_items().len() >= target_item_count {
         return previous_journals_loaded(model, &journal);
     }
     run(move |api| async move {
