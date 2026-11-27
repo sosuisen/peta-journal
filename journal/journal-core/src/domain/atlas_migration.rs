@@ -93,4 +93,24 @@ mod tests {
             }
         );
     }
+
+    // グループからatlas_typeが消える。atlas_sideと、グループの下のカードのレベルは変わらない。
+    #[test]
+    fn a_group_loses_its_atlas_type() {
+        let items = [item(1, 1, "Title"), item(2, 2, "[[x/a]]")];
+        let props = props(&[
+            (1, "atlas_type", "group"),
+            (1, "atlas_side", "left"),
+            (2, "atlas_bounds", "0,0,0,40"),
+        ]);
+
+        let migration = migration(&items, &props).unwrap();
+
+        assert_eq!(
+            migration,
+            Migration {
+                dropped_props: vec![(id(1), "atlas_type")],
+            }
+        );
+    }
 }
