@@ -303,7 +303,7 @@ private fun HistoryButton(name: String, enabled: Boolean, onTouch: () -> Unit, l
 @Composable
 private fun Results(entries: List<SearchEntry>, onPick: (SearchEntry) -> Unit) {
     LazyColumn(Modifier.fillMaxSize()) {
-        items(entries, key = { it.position.toLong() }) { entry ->
+        items(entries, key = { it.key }) { entry ->
             Column(
                 Modifier.fillMaxWidth()
                     .clickable { onPick(entry) }

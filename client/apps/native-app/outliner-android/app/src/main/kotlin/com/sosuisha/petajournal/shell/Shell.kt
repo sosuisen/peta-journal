@@ -137,7 +137,9 @@ class Shell(
      * a new page make their page.
      */
     fun pick(entry: SearchEntry) {
-        send(Event.SearchResultClicked(entry.position))
+        // The core takes the place of the entry in the results, as this shell has them
+        val position = view.search.results.indexOfFirst { it.key == entry.key }
+        if (position >= 0) send(Event.SearchResultClicked(position.toULong()))
     }
 
     // The edit of an item
