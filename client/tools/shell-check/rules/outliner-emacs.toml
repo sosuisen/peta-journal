@@ -67,15 +67,21 @@ WikiKey = "none: C-M-i completes the name of a page with the completion of Emacs
 WikiPick = "none: C-M-i completes the name of a page with the completion of Emacs"
 ZoomStep = "none: no zoom of an item"
 
-# The common tests (ADR 089). `cargo test` of the client runs the modules under src/tests.
+# The common tests (ADR 089). `cargo test` of the client runs the modules under src/tests, and
+# ERT runs lisp/test/peta-journal-test.el.
 [common]
-tests = ["client/apps/emacs/outliner/src/tests"]
+tests = ["client/apps/emacs/outliner/src/tests", "client/apps/emacs/outliner/lisp/test"]
 
 [common.list-changes]
 pending = 1215
 
 [common.border-web]
-excluded = "the Emacs shell has a border of its own, the JSON Lines between its Rust and its Lisp (ADR 078); #1230 decides its D2"
+excluded = "the Emacs shell has a border of its own, the JSON Lines between its Rust and its Lisp (ADR 078); border-emacs covers it"
 
 [common.border-native]
-excluded = "the Emacs shell has a border of its own, the JSON Lines between its Rust and its Lisp (ADR 078); #1230 decides its D2"
+excluded = "the Emacs shell has a border of its own, the JSON Lines between its Rust and its Lisp (ADR 078); border-emacs covers it"
+
+# Only the lines to Emacs (`Outbound`) are read. The lines from Emacs (`Inbound`) have no
+# examples: see core.toml.
+[common.border-emacs]
+test = "client/apps/emacs/outliner/lisp/test/peta-journal-test.el"

@@ -43,7 +43,9 @@ ADR 088で、並びの差分の型を`list_change!`マクロで作り、アウ�
 | Emacs | `apps/emacs/outliner`のRustとLispの間 | facetのJSON Lines（ADR 078） |
 
 EmacsのRustの部分は、コアのRustの型を直接使う。
-生成された型の読み書きを持つのは、Lispの部分である。
+Lispの部分は、Rustが送る行（`Outbound`）を、Rustの型から書いた関数で読む（`lisp/peta-journal-protocol.el`）。
+Lispが送る行（`Inbound`）には、生成されたものがない。
+Lispが、手書きのキーで行を作る。
 
 ## Decision
 
@@ -85,16 +87,66 @@ Webの境界はJSONで、ネイティブの境界はbincodeのバイト列であ
 Webの例とネイティブの例は、別のファイルにする。
 各シェルは、自分の境界の例のファイルを読む。
 
-EmacsのD2は、Lispの部分が境界の値を読む処理を対象にする。
-ERTで回せるかは、D2を作るときに確かめる。
-回せないときは、ADR 089の`excluded`に理由を書く。
+### EmacsのD2. Rustが送るすべての種類の行を、Lispが誤りなく読む
+
+EmacsのD2は、Lispの部分が境界の値を読む処理を対象にする（#1230で決めた）。
+Emacsの境界は、`client-web-bridge`の境界でも`client-native-bridge`の境界でもない。
+そこで、Emacsだけの共通のテスト`border-emacs`を置き、例のファイルを`border-emacs.json`にする。
+
+例を作るのは、コアではなく、`outliner-emacs`のRustである。
+境界の型（`Outbound`）を持つのが、このクレートだからである。
+例は、`Outbound`のすべての変種の行で、それぞれidを持つ。
+行は、Rustが実際に書く文字列（`write_line`の結果）のまま、ファイルに書く。
+
+例の値は、ほかの境界と同じく、コアの見本（`samples.rs`）から作る。
+型の記述から作るので、`Outbound`に変種を足せば、その例が自動で加わる。
+`Outbound`から届くすべての列挙型の、すべての変種も、例に入る。
+例のファイルが古くなっていないかは、同じクレートの`cargo test`が確かめる。
+
+ただし、数は、端の値ではなく、すべて1にする（`small_samples`）。
+Lispは、読んだ行をその場でバッファに当てる。
+端の値（`u32::MAX`など）は、どの行も、どの文字も指さないので、読み方が正しくても誤りになる。
+1にするのは、2行以上の並びの中の位置になり、1から数える値（行のレベルなど）にもなるからである。
+0では、行のレベルが0になり、字下げを作れずに誤りになった。
+WebとネイティブのD2は、値を当てずに読んで書き直すだけなので、端の値のままにする。
+
+文字は、ふつうの見本と同じものを使う（`TEXTS`の5つ）。
+例のファイルは、この5つを`texts`の節に持つ。
+
+LispのテストはERTで回る。
+テストは、どの例も、`texts`の文字をidに持つ5つの行を表示したバッファから始める。
+例の数（1）と文字が、ある行を指すようにするためである。
+たとえば、`focus`と`scroll`の例のidは、この行のどれかを指し、ポイントが実際に動く。
+そのうえで、例の行を、シェルのプロセスから届いたときと同じ入口（`peta-journal--read-output`）に渡す。
+確かめるのは、次の3つである。
+
+- 誤りが出ない。
+- 行の種類の関数が、ちょうど1回呼ばれる。
+- 行の値を見せる一覧（プロパティ、サイドバー、バックリンク、検索の結果）を、誤りなく描ける。
+
+最後に、回した例のidの一覧が、ファイルの一覧と同じかを確かめる。
+
+ほかのシェルのD2と違い、「読んで書き直すと元に戻る」は確かめない。
+Lispは`Outbound`を書かないので、書き直すものがないからである。
+
+### EmacsのD2は、Lispが送る行（`Inbound`）を対象にしない
+
+Lispは、`Inbound`の行を、手書きのキーで作る。
+Rustの型から生成されたものがLispの側になく、例と比べる相手がない。
+Rustが`Inbound`の例を書いても、それを読むのはRustだけで、Lispの書く行は通らない。
+Lispの書く行が正しいかは、ERTの各コマンドのテスト（送った行を確かめる）と、本物のシェルに行を送るE2Eのテストが見る。
+`rules/core.toml`の`border-emacs`の説明に、この理由を書く。
+
+ほかのシェルの`rules/<シェル>.toml`は、`border-emacs`を`excluded`にする。
+自分のブリッジの境界を読み、EmacsのJSON Linesを読まないからである。
 
 ### 置き場所
 
-- 例のファイルは、`client/tools/shell-check/common/`に置く。D1は`list-changes.json`、D2は`border-web.json`と`border-native.json`である。
-- 例を作るのは、コアの側のコマンドである。`client-web-bridge`と`client-native-bridge`の、境界の型を持つクレートで作る。
+- 例のファイルは、`client/tools/shell-check/common/`に置く。D1は`list-changes.json`、D2は`border-web.json`、`border-native.json`、`border-emacs.json`である。
+- 例を作るのは、コアの側のコマンドである。`client-web-bridge`と`client-native-bridge`の、境界の型を持つクレートで作る。`border-emacs.json`は、同じ理由で`outliner-emacs`のクレートで作る。
 - 例が古くなっていないかを確かめるテストは、例を作るクレートの`cargo test`に置く。
-- `rules/core.toml`に、共通のテストとして`list-changes`、`border-web`、`border-native`を書く。
+- `rules/core.toml`に、共通のテストとして`list-changes`、`border-web`、`border-native`、`border-emacs`を書く。
+- shell-checkは、Emacsのシェルに限り、Lispのテストのファイル（`.el`）を共通のテストとして受け付ける。
 
 ### 順
 
@@ -129,7 +181,9 @@ e2eは、`docs/verification.html`の「テスト」の列の話として、こ�
 中くらい。
 D1は、`list_changes`と、5か所の当てる処理がすでにあるので、作れることは確かである。
 D2は、bincodeのバイト列を、各言語の生成されたコードで同じに書き直せるかを、まだ確かめていない。
-EmacsのLispでD2を回せるかも、まだ分からない。
+EmacsのLispでは、D2をERTで回せた（#1230）。
+ただし、EmacsのD2が見るのは、誤りと、関数に届いたかである。
+Lispが値を読み違えても、誤りにならず、違う表示になるだけの場合は、見つからない。
 
 次のときは見直す。
 
@@ -147,7 +201,9 @@ EmacsのLispでD2を回せるかも、まだ分からない。
 ### 悪い結果
 
 - #1200の前に、6つのシェルのテストと、例を作るコマンドを足す作業が入る。
-- 例のファイルが3つ、リポジトリに入る。コアや境界の型を変えるPRに、例の差分が混ざる。
+- 例のファイルが4つ、リポジトリに入る。コアや境界の型を変えるPRに、例の差分が混ざる。
+- Emacsの例は、値のない場合（`page_id`のない`rows`など）を持たない。見本は、浅いところでは、省ける値に必ず値を入れるからである。
+- Emacsの例の範囲は1から1までで、文字を含まない。見た目やリンクは、どの文字にも付かずに読まれる。
 
 ### 中立的な結果
 
