@@ -1,13 +1,15 @@
 //! The canvas of an atlas page: the pages and folders of its directory as cards. The atlas
 //! page is a plain page (ADR 053): the server writes nothing into it by itself, and its
 //! outline may be edited here, in the outline or in the `.md`.
-//! A card is an item whose first line is one wiki link. It stands for the page of the directory
-//! that the link names, or else it is a link card. A card lies where the `atlas_bounds`
+//! A card is an item with something written in it and no item under it. One whose first line
+//! is one wiki link stands for the page of the directory that the link names, or else it is a
+//! link card; any other is a plain card, which shows its first line. A card lies where the `atlas_bounds`
 //! property of its item says, in coordinates whose origin is the center of the canvas. A card
 //! without the property waits in the list of unplaced cards, and so does a page of the
 //! directory that no card links to.
-//! A group is an item of level 1 with the cards of the group under it; a callout is an item
-//! whose `atlas_type` is `callout`.
+//! A group is an item with items under it, at any depth, and a card is in every group above
+//! it; a callout is an item whose `atlas_type` is `callout`. A group that is a page card or a
+//! callout is drawn as one along its outline.
 //! The canvas edits the page with the item APIs that the outline uses, and no other. The
 //! place of a card or a callout is saved as a property of its item. A change of the outline
 //! is one batch of item operations, however many items it writes, so one operation of the
@@ -43,7 +45,7 @@ pub const CARD_WIDTH: f64 = 120.0;
 type Entry<'a> = plain::Entry<'a, Item>;
 
 /// The items of the shown atlas page that the canvas can show, in their order; none on any
-/// other page. A card below level 1 belongs to the group above it.
+/// other page. An item belongs to every item above it.
 fn entries(model: &Model) -> Vec<Entry<'_>> {
     let Some(atlas) = shown_atlas_page(model) else {
         return Vec::new();
