@@ -397,7 +397,7 @@ impl MarkdownImportService {
             &parsed.items
         };
         let mode = match states.iter().map(|s| s.last_synced).max() {
-            Some(last_synced) if had_file => MergeMode::ItemByItem { last_synced },
+            Some(last_synced) => MergeMode::ItemByItem { last_synced },
             _ => MergeMode::WholeFile,
         };
         let merge = self
