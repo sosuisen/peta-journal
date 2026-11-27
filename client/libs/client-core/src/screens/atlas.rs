@@ -152,34 +152,41 @@ fn card_item(model: &Model, card_id: &str) -> Option<Item> {
         .map(|card| card.item.clone())
 }
 
-/// The item of a callout that is no parent, by its id.
-fn callout_leaf(model: &Model, item_id: &str) -> Option<Item> {
+/// The item the shell names to place it, with the point of the canvas its bounds are counted
+/// from: a card by the id of its page or of its item, a callout or a parent by the id of its
+/// item. The point is none while an item it is under is not drawn.
+fn placeable(model: &Model, id: &str) -> Option<(Item, Option<(f64, f64)>)> {
+    let item_id = card_item(model, id).map_or_else(|| id.to_string(), |item| item.id);
     entries(model)
         .into_iter()
-        .find(|e| e.kind == Kind::Callout && !e.is_parent && e.item.id == item_id)
-        .map(|e| e.item.clone())
+        .find(|e| e.item.id == item_id)
+        .map(|e| (e.item.clone(), e.frame))
 }
 
-/// Places a card with its center at the given point of the canvas. A card is named by its
-/// page, or a link card by its item. The shell knows where the card was grabbed, so it gives
-/// the center rather than the drop point. The card moves at once; a refusal of the server
-/// puts it back. A page of the directory that has no card yet gets one there. A callout that
-/// waits for a place is named by its item, and is placed as a card is.
+/// Places an item with its center at the given point of the canvas: a card, named by its page
+/// or a link card by its item, or a callout or a parent, named by its item. The shell knows
+/// where it was grabbed, so it gives the center rather than the drop point. The point is saved
+/// counted from the item it is under (ADR 053). The item moves at once; a refusal of the server
+/// puts it back. A parent takes all that is under it along, as their bounds are counted from
+/// it and do not change. An item under an item that is not drawn is not placed: there is no
+/// place to count its own from. A page of the directory that has no card yet gets one there.
 pub fn place_card(model: &mut Model, card_id: String, x: f64, y: f64) -> Cmd {
     if !x.is_finite() || !y.is_finite() {
         return done();
     }
-    let item = card_item(model, &card_id).or_else(|| callout_leaf(model, &card_id));
-    let Some(item) = item else {
+    let Some((item, frame)) = placeable(model, &card_id) else {
         return add_page_card(model, &card_id, x, y);
+    };
+    let Some((frame_x, frame_y)) = frame else {
+        return done();
     };
     // A card keeps its size when it moves; whole pixels keep the stored value short
     let (width, height) = bounds_of(&item)
         .map(|b| (b.width, b.height))
         .unwrap_or((AUTO_WIDTH, CARD_HEIGHT));
     let bounds = Bounds {
-        x: x.round(),
-        y: y.round(),
+        x: (x - frame_x).round(),
+        y: (y - frame_y).round(),
         width,
         height,
     };
@@ -187,7 +194,8 @@ pub fn place_card(model: &mut Model, card_id: String, x: f64, y: f64) -> Cmd {
 }
 
 /// Gives a page of the directory that no card links to a card with its center at the point:
-/// an item that links to the page. The card shows once the server has made the item.
+/// an item that links to the page, at the top of the outline, so the point is counted from the
+/// center of the canvas. The card shows once the server has made the item.
 fn add_page_card(model: &Model, page_id: &str, x: f64, y: f64) -> Cmd {
     let Some(page) = dir_pages(model).find(|p| p.id == page_id) else {
         return done();
