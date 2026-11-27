@@ -1710,6 +1710,65 @@ The handler of such a line only keeps it: its values are read when the list is d
     (should (equal (reverse ran)
                    (mapcar (lambda (example) (plist-get example :id)) examples)))))
 
+(defconst peta-journal-test--list-examples
+  (expand-file-name "../../../../../tools/shell-check/common/list-changes.json"
+                    (file-name-directory (or load-file-name buffer-file-name)))
+  "The file of the examples of the changes to lists (ADR 090).
+The Rust of the shell writes its part of Emacs, from the lists of the core.")
+
+(defun peta-journal-test--list-examples ()
+  "The examples of the changes to the rows for Emacs, as a vector of plists.
+Each has its :id, and the rows before, the changes and the rows after as
+:before, :changes and :after: each the text of a line of the rows, as the shell
+writes it.  The rows before and after are one reset of the rows."
+  (with-temp-buffer
+    (let ((coding-system-for-read 'utf-8))
+      (insert-file-contents peta-journal-test--list-examples))
+    (plist-get (plist-get (json-parse-buffer :object-type 'plist) :emacs) :rows)))
+
+(defun peta-journal-test--rows-of-reset (line)
+  "The rows that LINE resets the rows to, as a vector.
+LINE is the text of a line of the rows with one reset, read as
+`peta-journal--read-output' reads a line."
+  (let ((changes (plist-get (json-parse-string line :object-type 'plist :array-type 'array
+                                               :null-object nil :false-object nil)
+                            :changes)))
+    (should (= (length changes) 1))
+    (should (eq (car (aref changes 0)) :Reset))
+    (plist-get (cadr (aref changes 0)) :items)))
+
+(defun peta-journal-test--ids-on-screen ()
+  "The ids of the rows in the buffer, from the top, read from their bullets."
+  (let ((pos (point-min))
+        (ids nil))
+    (while (< pos (point-max))
+      (when-let* ((id (get-text-property pos 'peta-bullet)))
+        (push id ids))
+      (setq pos (next-single-property-change pos 'peta-bullet nil (point-max))))
+    (nreverse ids)))
+
+;; コアの差分の例（ADR 090のD1）を、Emacsが当てると、すべてコアのあとの行になる。回した例は、例のファイルのすべてである。前の行も、差分も、シェルのRustが書いた行そのもので、シェルのプロセスから届いたときと同じ入口に渡す。あとの行と比べるのは、Emacsが持つ行の並び、バッファの行のidの並び、バッファの文字とその見た目の3つである。
+(ert-deftest peta-journal-every-list-change-example-of-the-core-gives-the-rows-of-the-core ()
+  (let ((examples (peta-journal-test--list-examples))
+        (ran nil))
+    (seq-doseq (example examples)
+      (ert-info ((plist-get example :id) :prefix "example: ")
+        (peta-journal-test--with-rows nil
+          (peta-journal--read-output (concat (plist-get example :before) "\n"))
+          (peta-journal--read-output (concat (plist-get example :changes) "\n"))
+          (let ((after (peta-journal-test--rows-of-reset (plist-get example :after))))
+            (should (equal peta-journal--rows after))
+            (should (equal (peta-journal-test--ids-on-screen)
+                           (mapcar #'peta-journal-protocol-row-view-id after)))
+            ;; Drawn here, after the changes: the row with the point shows its Markdown
+            (should (equal-including-properties
+                     (buffer-string)
+                     (mapconcat #'peta-journal--row-string after ""))))
+          (push (plist-get example :id) ran))))
+    (should ran)
+    (should (equal (reverse ran)
+                   (mapcar (lambda (example) (plist-get example :id)) examples)))))
+
 ;;;; Two buffers
 
 ;; シェルからの行は、そのシェルのバッファだけを変える。

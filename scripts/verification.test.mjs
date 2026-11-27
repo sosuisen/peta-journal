@@ -45,6 +45,8 @@ const COVERAGE_STEP = {
   journal: 'cargo cov --summary-only',
   client: 'cargo cov --summary-only',
   atlas: 'cargo cov --summary-only',
+  // The Lisp of outliner-emacs. Its Rust is measured with the client
+  'emacs-e2e': 'node coverage.mjs',
   todo: 'npm run coverage',
   'outliner-react': 'npm run coverage',
   'memoview-win': 'dotnet build -t:Coverage',
@@ -92,6 +94,16 @@ const XCCOV = {
     measured: 'App/ Sources/',
     excluded: 'Sources/PetaDropbox/SdkDropbox.swift Sources/PetaDropbox/DropboxSdk.swift',
   },
+};
+
+// The floor of coverage.mjs of outliner-emacs, the files that undercover.el measures and the tests
+// that it runs with. No file of lisp/ is left out
+const ELISP = {
+  script: 'client/apps/emacs/outliner/coverage.mjs',
+  floor: String(FLOOR),
+  setup: 'client/apps/emacs/outliner/lisp/test/peta-journal-coverage.el',
+  measured: ['"lisp/*.el"', "(:report-format 'lcov)", '(:report-file (getenv "PETA_COVERAGE_REPORT"))', '(:send-report nil)'],
+  tests: ['lisp/test/peta-journal-test.el', 'lisp/test/peta-journal-e2e.el'],
 };
 
 // The arguments of coverlet.console in the Coverage target of each C# test project
@@ -272,6 +284,24 @@ test('each xcodebuild coverage script fails under the floor and measures the agr
     assert.match(text, /for folder in \$measured; do/, script);
     assert.match(text, /-enableCodeCoverage YES/, script);
   }
+});
+
+// Emacs Lispのカバレッジのスクリプトは、9割未満で失敗し、lisp/のすべてのファイルを、バッファのテストとE2Eテストで測る。
+test('the emacs lisp coverage script fails under the floor and measures every file of lisp', () => {
+  const script = read(ELISP.script);
+  const floors = [...script.matchAll(/^const FLOOR = (.*);$/gm)].map((m) => m[1]);
+  assert.deepEqual(floors, [ELISP.floor]);
+  assert.match(script, /^if \(hit \* 100 < FLOOR \* total\) fail\(/m);
+  // A file of lisp/ that is not in the report fails the run
+  assert.match(script, /^if \(unmeasured\.length > 0\) fail\(/m);
+  const loaded = [...script.matchAll(/'-l', '([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(loaded, [ELISP.setup.replace('client/apps/emacs/outliner/', ''), ...ELISP.tests]);
+  // The one call of undercover, each argument on its own line: an (:exclude ...) would show here
+  const call = read(ELISP.setup).match(/^\(undercover ([\s\S]*?)\)\n\n/m)[1];
+  assert.deepEqual(
+    call.split(/\n\s*/).map((s) => s.trim()),
+    ELISP.measured,
+  );
 });
 
 // C#のテストのプロジェクトは、9割未満で失敗し、了解した範囲を測る。

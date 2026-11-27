@@ -72,8 +72,10 @@ ZoomStep = "none: no zoom of an item"
 [common]
 tests = ["client/apps/emacs/outliner/src/tests", "client/apps/emacs/outliner/lisp/test"]
 
+# The Lisp applies the changes of the rows, to a buffer. It reads the part `emacs` of the
+# examples: the lists of the core, as the lines that the Rust of the shell writes.
 [common.list-changes]
-pending = 1215
+test = "client/apps/emacs/outliner/lisp/test/peta-journal-test.el"
 
 [common.border-web]
 excluded = "the Emacs shell has a border of its own, the JSON Lines between its Rust and its Lisp (ADR 078); border-emacs covers it"

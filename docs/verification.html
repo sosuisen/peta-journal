@@ -53,7 +53,7 @@
 
 <h1>検証の仕組み</h1>
 <p>この文書は、peta-journalのコードを、何で、どこで確かめるかをまとめる。</p>
-<p class="date">更新日：2026-11-26</p>
+<p class="date">更新日：2026-11-27</p>
 
 <h2>方針</h2>
 <ul>
@@ -73,7 +73,7 @@
     <tr><td><code>journal</code>（Rust）</td><td class="ok">rustfmt</td><td class="ok">rustc</td><td class="ok">clippy</td><td class="na">対象外</td><td class="ok"><code>cargo test</code></td><td class="ok"><code>cargo cov</code></td><td class="ok">cargo-mutants（<code>scripts/mutants-parallel.py</code>）</td><td class="ok">あり</td></tr>
     <tr><td><code>client</code>（Rust）</td><td class="ok">rustfmt</td><td class="ok">rustc</td><td class="ok">clippy</td><td class="na">対象外</td><td class="ok"><code>cargo test</code></td><td class="ok"><code>cargo cov</code></td><td class="ok">cargo-mutants</td><td class="ok">あり</td></tr>
     <tr><td><code>atlas</code>（Rust）</td><td class="ok">rustfmt</td><td class="ok">rustc</td><td class="ok">clippy</td><td class="na">対象外</td><td class="ok"><code>cargo test</code></td><td class="ok"><code>cargo cov</code></td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
-    <tr><td><code>outliner-emacs</code>（Elisp）</td><td class="ok">elisp-formatter</td><td class="ok">Rustの部分はrustc<span class="note">Elispは静的な型を持たない</span></td><td class="missing">なし</td><td class="ok">S2</td><td class="ok">ERT、E2E</td><td>Rustの部分は<code>client</code>の<code>cargo cov</code><span class="note">Elispの部分は測らない</span></td><td>Rustの部分は<code>client</code>のcargo-mutants<span class="note">Elispの部分は試さない</span></td><td>あり<span class="note">部分的。Elispの部分のカバレッジは測らない</span></td></tr>
+    <tr><td><code>outliner-emacs</code>（Elisp）</td><td class="ok">elisp-formatter</td><td class="ok">Rustの部分はrustc<span class="note">Elispは静的な型を持たない</span></td><td class="missing">なし</td><td class="ok">S2</td><td class="ok">ERT、E2E</td><td class="ok">Rustの部分は<code>client</code>の<code>cargo cov</code>。Elispの部分はundercover.el（<code>coverage.mjs</code>、ERTとE2Eを合わせて測る）</td><td>Rustの部分は<code>client</code>のcargo-mutants<span class="note">Elispの部分は試さない</span></td><td class="ok">あり</td></tr>
     <tr><td><code>outliner-react</code>（TypeScript）</td><td class="ok">prettier</td><td class="ok"><code>tsc -b</code></td><td class="ok">eslint</td><td class="ok">S2</td><td>vitest、Playwright（e2e）<span class="note">e2eはCIでは回らない</span></td><td class="ok">Vitest（<code>npm run coverage</code>）</td><td class="ok">Stryker（<code>npm run mutants</code>）</td><td>あり<span class="note">部分的。e2eは回らない</span></td></tr>
     <tr><td><code>todo</code>（TypeScript）</td><td class="ok">prettier</td><td class="ok"><code>tsc -b</code>（<code>npm run build</code>）</td><td class="ok">eslint</td><td class="na">対象外</td><td class="ok">vitest</td><td class="ok">Vitest（<code>npm run coverage</code>）</td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
     <tr><td><code>stickies-win</code>（C#）</td><td class="ok">CSharpier</td><td class="ok">C#のコンパイラ</td><td class="ok">.NETのアナライザー（<code>latest-recommended</code>）</td><td class="ok">S2</td><td class="ok"><code>PetaBorder.Tests</code>、<code>PetaScreens.Tests</code>（画面）</td><td class="ok">coverlet.console（<code>dotnet build -t:Coverage</code>）</td><td class="ok">Stryker.NET（<code>mutation.ps1</code>）</td><td class="ok">あり</td></tr>
@@ -93,6 +93,7 @@
   <li><code>outliner-react</code>のカバレッジとStryker：<code>vitest.config.ts</code>と<code>stryker.config.mjs</code>。</li>
   <li><code>stickies-mac</code>のカバレッジ：<code>client/apps/native-app/stickies-mac/coverage.sh</code>。<br>測らないファイルと、その理由もここに書く。</li>
   <li><code>outliner-ios</code>のカバレッジ：<code>client/apps/native-app/outliner-ios/coverage.sh</code>。<br>測らないファイルと、その理由もここに書く。</li>
+  <li><code>outliner-emacs</code>のElispのカバレッジ：<code>client/apps/emacs/outliner/coverage.mjs</code>と<code>lisp/test/peta-journal-coverage.el</code>。<br>道具（undercover.el）の版もここに書く。測らないファイルはない。</li>
 </ul>
 
 <h2>シェルがコアを通っているかのチェック（shell-check）</h2>
@@ -113,8 +114,8 @@ D系統は、どのシェルも回さなければならない共通のテスト�
     <tr><td>S（静的）</td><td>S2</td><td><code>Event</code>のすべての種類が、シェルのソースに出てくる</td><td class="ok"><code>cargo test</code>で回る（<code>tests/repository.rs</code>）<span class="note">対象は、<code>rules/</code>にルールのある6つのシェルすべて</span></td></tr>
     <tr><td>S（静的）</td><td>S3</td><td>OSの部品の編集コマンド</td><td class="missing">試す前（#1051）</td></tr>
     <tr><td>S（静的）</td><td>S4</td><td>関数の分岐の数</td><td class="missing">試す前（#1053）</td></tr>
-    <tr><td>D（動的）</td><td>D1</td><td>差分を当てた結果が、どのシェルでもコアと同じ（<code>common/list-changes.json</code>）</td><td class="ok">回る（Web、iOS、macOS）<span class="note">Windowsは#1213、Androidは#1214、Emacsは#1215。例は<code>client-web-bridge</code>と<code>client-native-bridge</code>の<code>cargo test</code>が確かめる</span></td></tr>
-    <tr><td>D（動的）</td><td>D2</td><td>境界の値を読んで書き直すと、どのシェルでも元に戻る（<code>common/border-web.json</code>、<code>common/border-native.json</code>）。Emacsは、Rustが送るすべての種類の行を、Lispが誤りなく読む（<code>common/border-emacs.json</code>）</td><td class="ok">回る（Web、iOS、macOS、Emacs）<span class="note">Windowsは#1228、Androidは#1229。Webとネイティブの例は<code>Changes</code>と<code>Event</code>の型の記述から作り、中のすべての列挙型のすべての変種を持つ。それを<code>client-web-bridge</code>と<code>client-native-bridge</code>の<code>cargo test</code>が確かめる。Emacsの例は、<code>outliner-emacs</code>のRustが書き、その<code>cargo test</code>が確かめる。Lispが送る行（<code>Inbound</code>）は、手書きのキーで作るので対象にしない</span></td></tr>
+    <tr><td>D（動的）</td><td>D1</td><td>差分を当てた結果が、どのシェルでもコアと同じ（<code>common/list-changes.json</code>）</td><td class="ok">回る（6つのシェルすべて）<span class="note">Androidのテストは、CIでは回らない（#1205）。例は<code>client-web-bridge</code>と<code>client-native-bridge</code>の<code>cargo test</code>が確かめる。Emacsは、同じ例を<code>outliner-emacs</code>のRustが<code>rows</code>の行の形で書き（<code>emacs</code>の節）、その<code>cargo test</code>が確かめる。Lispがバッファに当てる</span></td></tr>
+    <tr><td>D（動的）</td><td>D2</td><td>境界の値を読んで書き直すと、どのシェルでも元に戻る（<code>common/border-web.json</code>、<code>common/border-native.json</code>）。Emacsは、Rustが送るすべての種類の行を、Lispが誤りなく読む（<code>common/border-emacs.json</code>）</td><td class="ok">回る（6つのシェルすべて）<span class="note">Androidのテストは、CIでは回らない（#1205）。Webとネイティブの例は<code>Changes</code>と<code>Event</code>の型の記述から作り、中のすべての列挙型のすべての変種を持つ。それを<code>client-web-bridge</code>と<code>client-native-bridge</code>の<code>cargo test</code>が確かめる。Emacsの例は、<code>outliner-emacs</code>のRustが書き、その<code>cargo test</code>が確かめる。Lispが送る行（<code>Inbound</code>）は、手書きのキーで作るので対象にしない</span></td></tr>
   </tbody>
 </table>
 
@@ -129,7 +130,7 @@ D系統は、どのシェルも回さなければならない共通のテスト�
   </thead>
   <tbody>
     <tr><td>1</td><td>各シェルに、共通のテストのファイルがあり、例のファイルを読んでいる</td><td>shell-checkの<code>cargo test</code>（<code>tests/repository.rs</code>）</td><td class="ok">回る</td></tr>
-    <tr><td>2</td><td>各シェルのテストが、例をすべて回した</td><td>各シェルのテスト</td><td class="ok">回る（D1とD2を入れたシェル）</td></tr>
+    <tr><td>2</td><td>各シェルのテストが、例をすべて回した</td><td>各シェルのテスト</td><td class="ok">回る（6つのシェルすべて）<span class="note"><code>outliner-android</code>のテストは、CIでは回らない（#1205）</span></td></tr>
     <tr><td>3</td><td>各シェルのジョブ（<code>scripts/checks.mjs</code>）が、共通のテストを含むテストの段を持つ</td><td><code>scripts/verification.test.mjs</code>（<code>guard</code>）</td><td class="ok">回る（<code>COMMON_TESTS_STEP</code>）<span class="note"><code>outliner-android</code>はジョブがなく、<code>pending</code>（#1205）</span></td></tr>
   </tbody>
 </table>
@@ -147,7 +148,7 @@ D系統は、どのシェルも回さなければならない共通のテスト�
 <h2>方針に足りないところ</h2>
 <p>2026-11-25の時点で、次の点が方針に届いていない。</p>
 <ul>
-  <li>カバレッジの9割を、Rust（<code>journal</code>、<code>client</code>、<code>atlas</code>）、TypeScript（<code>todo</code>、<code>outliner-react</code>）、<code>stickies-mac</code>、<code>outliner-ios</code>のほかは、ビルドで確かめていない（#1078）。</li>
+  <li>カバレッジの9割を、Rust（<code>journal</code>、<code>client</code>、<code>atlas</code>）、TypeScript（<code>todo</code>、<code>outliner-react</code>）、<code>stickies-mac</code>、<code>outliner-ios</code>、<code>outliner-emacs</code>のほかは、ビルドで確かめていない（#1078）。</li>
   <li>カバレッジを測る設定がないモジュールがある（Kotlin）。</li>
   <li>CIに入っていないモジュールがある（<code>outliner-android</code>）。<br>その整形の確かめは、手元でしか行われていない。</li>
 </ul>

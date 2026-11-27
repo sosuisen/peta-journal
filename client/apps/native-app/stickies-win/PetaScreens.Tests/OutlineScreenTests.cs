@@ -27,7 +27,11 @@ public sealed class OutlineScreenTests
         await screen.Type("typed 日本語");
 
         await Screen.Until("the core has the text", () => screen.Bodies()[0] == "typed 日本語");
-        Assert.AreEqual(screen.Rows[0].Item.Id, screen.Shell.View.Outline.FocusedItemId);
+        Assert.AreEqual(
+            screen.Rows[0].Item.Id,
+            screen.Shell.View.Outline.FocusedItemId,
+            screen.Looks
+        );
     }
 
     // Enterは、カーソルの位置で項目を分ける。カーソルは、新しい項目の先頭に移る。
