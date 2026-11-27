@@ -444,3 +444,21 @@ fn an_atlas_card_knows_whether_its_page_is_published() {
         ]
     );
 }
+
+// 座標のどちらかが数でない点には、カードも吹き出しも置かれない。
+#[test]
+fn nothing_is_placed_at_a_point_that_is_no_number() {
+    let mut h = atlas_with(&[("one", Some("0,0,0,40"))]);
+    for (x, y) in [(f64::NAN, 0.0), (0.0, f64::INFINITY)] {
+        place(&mut h, "a/b/one", x, y);
+        h.send(Event::AddAtlasCallout {
+            x,
+            y,
+            side: "top".into(),
+            text: "Hi".into(),
+        });
+    }
+
+    assert!(upserts(&h).is_empty());
+    assert!(batches(&h).is_empty());
+}
