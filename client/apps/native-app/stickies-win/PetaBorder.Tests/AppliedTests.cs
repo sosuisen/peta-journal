@@ -18,6 +18,9 @@ public sealed class AppliedTests
     private static RowChange Reset(params string[] ids) =>
         new RowChange.Reset(new ObservableCollection<Row>(ids.Select(Row)));
 
+    private static Heading Heading(string id, string text) =>
+        new() { Id = id, Text = text, Level = 1 };
+
     private static List<string> Ids(IEnumerable<Row> rows) => [.. rows.Select(row => row.Item.Id)];
 
     /// <summary>The outline panel, with <c>SelectionMode</c> to tell one from another.</summary>
@@ -114,6 +117,36 @@ public sealed class AppliedTests
         Assert.Equal("another", view.Title);
         Assert.Equal("tags", view.Config.TagsDir);
         Assert.Equal("/pages/back", view.History.Url);
+    }
+
+    // 後の差分の見出しの操作は、今の見出しに当たる。見出しの状態は前のままである。
+    [Fact]
+    public void The_headings_of_a_later_change_are_applied_to_the_headings_there()
+    {
+        var view = Applied.First(
+            new Changes
+            {
+                Rows = [],
+                Headings =
+                [
+                    new HeadingChange.Reset([Heading("a", "One"), Heading("b", "Two")]),
+                ],
+                Panels = [.. EveryPanel()],
+            }
+        );
+
+        Applied.To(
+            view,
+            new Changes
+            {
+                Rows = [],
+                Headings = [new HeadingChange.Update(1, Heading("b", "Three"))],
+                Panels = [],
+            }
+        );
+
+        Assert.Equal(["One", "Three"], view.Headings.Headings.Select(heading => heading.Text));
+        Assert.Equal(LoadState.Failed, view.Headings.State);
     }
 
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
