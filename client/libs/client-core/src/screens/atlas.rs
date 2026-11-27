@@ -471,9 +471,10 @@ pub fn show_changed(model: &mut Model, atlas_id: &str, mut items: Vec<Item>) -> 
     done()
 }
 
-/// Cards dropped on another card join its group: they go to the end of the group, under its
-/// item. When the target is in no group, a new item with an empty body is made where the
-/// target lies, and the target and the cards go under it. A card belongs to one group only,
+/// Cards dropped on another card join its group: they go under its item, each where it lies
+/// among the items under it ([`put_under`]). When the target is in no group, a new item with
+/// an empty body is made where the target lies, and the target and the cards go under it, the
+/// upper ones first. A card belongs to one group only,
 /// so the cards leave the groups they were in. The item of a group they leave stays, even
 /// with one card or none under it (ADR 053).
 pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) -> Cmd {
@@ -496,8 +497,7 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
     let joining: Vec<&Item> = joining.iter().map(|card| card.item).collect();
     match target.group {
         Some(group) => {
-            let last = last_staying(model, group, &joining);
-            let mut ops = taken_behind(&group.page_id, &joining, &last.id, group.level + 1);
+            let mut ops = put_under(model, group, &joining);
             ops.extend(left);
             change(model, ops)
         }
@@ -506,6 +506,7 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
             let joining: Vec<Item> = joining.into_iter().cloned().collect();
             change_with_new_item(model, move |atlas_id, group_id| {
                 let members: Vec<&Item> = std::iter::once(&target).chain(&joining).collect();
+                let members = in_reading_order(&members);
                 let mut ops = vec![new_item(
                     atlas_id.clone(),
                     group_id.clone(),
@@ -585,8 +586,9 @@ fn in_reading_order<'a>(cards: &[&'a Item]) -> Vec<&'a Item> {
 }
 
 /// The operations that put cards under `parent`: each goes in before the first item right
-/// under it that lies below the card, or else at the end of its tree. The other items keep
-/// their order, so the canvas does not write over an order made in the outline (ADR 053).
+/// under it that lies below the card, or else at the end of its tree. Cards that go in at
+/// the same place go in the upper ones first. The other items keep their order, so the
+/// canvas does not write over an order made in the outline (ADR 053).
 fn put_under(model: &Model, parent: &Item, joining: &[&Item]) -> Vec<BatchOpInput> {
     let level = parent.level + 1;
     let staying: Vec<&Item> = under(model, parent)
