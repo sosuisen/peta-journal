@@ -180,3 +180,17 @@ fn an_old_atlas_moves_when_the_core_starts() {
         ["1:[[d/a]]", "1:Title", "2:[[x/b]]", "2:[[x/c]]"]
     );
 }
+
+// 取り込んだindex_atlas.mdが古い形なら、新しい形に移してから取り込まれる。
+#[test]
+fn an_old_atlas_taken_in_from_a_file_moves_to_the_plain_form() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = with_an_old_atlas(dir.path());
+    a.old_item(1, "Title", &[("atlas_type", "group")]);
+    a.old_item(2, "[[x/b]]", &[("atlas_bounds", "0,0,0,40")]);
+
+    b.receive(&a, ATLAS);
+
+    assert_eq!(b.atlas_keys(), BTreeSet::from(["atlas_bounds".to_string()]));
+    assert_eq!(b.outline(), ["1:[[d/a]]", "1:Title", "2:[[x/b]]"]);
+}
