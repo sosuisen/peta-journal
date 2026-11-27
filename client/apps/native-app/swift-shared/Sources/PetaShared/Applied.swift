@@ -5,7 +5,7 @@
 
 extension ViewModel {
     /// The view model of the first changes of a core. They hold every panel and a reset of the
-    /// rows.
+    /// rows and of the headings.
     public init(first changes: Changes) {
         let panels = changes.panels
         func the<T>(_ value: (Panel) -> T?) -> T {
@@ -22,7 +22,9 @@ extension ViewModel {
             atlasLinkSuggestions: the { if case .atlasLinkSuggestions(let it) = $0 { it } else { nil } },
             outline: OutlineView(outline, rows: [Row]().applying(changes.rows)),
             indexPages: the { if case .indexPages(let it) = $0 { it } else { nil } },
-            headings: the { if case .headings(let it) = $0 { it } else { nil } },
+            headings: HeadingsView(
+                headings: [Heading]().after(changes.headings.map(\.change)),
+                state: the { if case .headings(let it) = $0 { it } else { nil } }.state),
             recentPages: the { if case .recentPages(let it) = $0 { it } else { nil } },
             search: the { if case .search(let it) = $0 { it } else { nil } },
             config: the { if case .config(let it) = $0 { it } else { nil } },
@@ -34,10 +36,11 @@ extension ViewModel {
     }
 
     /// Applies the changes: each panel that came takes the place of its part, and the changes
-    /// to the rows are applied in order.
+    /// to the rows and to the headings are applied in order.
     public mutating func apply(_ changes: Changes) {
         for panel in changes.panels { apply(panel) }
         if !changes.rows.isEmpty { outline.rows = outline.rows.applying(changes.rows) }
+        if !changes.headings.isEmpty { headings.headings = headings.headings.after(changes.headings.map(\.change)) }
     }
 
     private mutating func apply(_ panel: Panel) {
@@ -49,7 +52,7 @@ extension ViewModel {
         case .atlasLinkSuggestions(let value): atlasLinkSuggestions = value
         case .outline(let value): outline = OutlineView(value, rows: outline.rows)
         case .indexPages(let value): indexPages = value
-        case .headings(let value): headings = value
+        case .headings(let value): headings.state = value.state
         case .recentPages(let value): recentPages = value
         case .search(let value): search = value
         case .config(let value): config = value
@@ -100,6 +103,18 @@ extension Array {
 
 extension RowChange {
     fileprivate var change: Change<Row> {
+        switch self {
+        case .insert(let at, let item): .insert(at: Int(at), item: item)
+        case .remove(let at): .remove(at: Int(at))
+        case .move(let from, let to): .move(from: Int(from), to: Int(to))
+        case .update(let at, let item): .update(at: Int(at), item: item)
+        case .reset(let items): .reset(items: items)
+        }
+    }
+}
+
+extension HeadingChange {
+    fileprivate var change: Change<Heading> {
         switch self {
         case .insert(let at, let item): .insert(at: Int(at), item: item)
         case .remove(let at): .remove(at: Int(at))

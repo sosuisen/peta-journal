@@ -694,15 +694,10 @@ impl<H: Host> Shell<H> {
         if any(|panel| matches!(panel, Panel::Search(_))) {
             self.tell_search(&view.search);
         }
-        if any(|panel| {
-            matches!(
-                panel,
-                Panel::IndexPages(_) | Panel::Headings(_) | Panel::RecentPages(_)
-            )
-        }) {
-            self.tell_recent(&view);
-            self.tell_sidebar(&view);
-        }
+        // Each time: the headings come as changes of a list, not as a panel (ADR 088). Both
+        // tell Emacs only what differs from what it was told
+        self.tell_recent(&view);
+        self.tell_sidebar(&view);
     }
 
     fn tell_sidebar(&mut self, view: &ViewModel<SharedText>) {

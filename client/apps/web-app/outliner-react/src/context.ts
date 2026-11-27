@@ -1,5 +1,5 @@
 import { createContext, use, useContext, useSyncExternalStore } from 'react';
-import type { Panel, Row } from './border/peta-types';
+import type { Heading, Panel, Row } from './border/peta-types';
 import type { Core } from './core';
 import type { Panels } from './screen';
 
@@ -28,6 +28,15 @@ export function useCore(): Core {
 export function useRows(): readonly Row[] {
   const core = useCore();
   return useSyncExternalStore(core.subscribe, () => core.current().rows);
+}
+
+/**
+ * The headings of the page on screen as the core last told. They come as changes of a list,
+ * as the rows do (ADR 088).
+ */
+export function useHeadings(): readonly Heading[] {
+  const core = useCore();
+  return useSyncExternalStore(core.subscribe, () => core.current().headings);
 }
 
 /**

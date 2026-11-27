@@ -15,7 +15,7 @@ internal static class Applied
 
     /// <summary>
     /// The view model of the first changes of a core. They hold every panel and a reset of
-    /// the rows. Throws when a panel is missing or comes twice: the two sides of the border are
+    /// the rows and of the headings. Throws when a panel is missing or comes twice: the two sides of the border are
     /// then of two versions, and a part would stay empty.
     /// </summary>
     public static ViewModel First(Changes changes)
@@ -23,7 +23,11 @@ internal static class Applied
         var kinds = changes.Panels.Select(panel => panel.GetType()).ToList();
         if (kinds.Count != PanelKinds || kinds.Distinct().Count() != PanelKinds)
             throw new InvalidOperationException("the first changes have each panel once");
-        var view = new ViewModel { Outline = new OutlineView { Rows = [] } };
+        var view = new ViewModel
+        {
+            Outline = new OutlineView { Rows = [] },
+            Headings = new HeadingsView { Headings = [] },
+        };
         To(view, changes);
         return view;
     }
@@ -35,6 +39,13 @@ internal static class Applied
             Put(view, panel);
         var rows = view.Outline.Rows;
         ListChanges.Apply(rows, changes.Rows, row => row, (at, row) => rows[at] = row);
+        var headings = view.Headings.Headings;
+        ListChanges.Apply(
+            headings,
+            changes.Headings.Select(ListChanges.Of),
+            heading => heading,
+            (at, heading) => headings[at] = heading
+        );
     }
 
     private static void Put(ViewModel view, Panel panel)
@@ -69,7 +80,7 @@ internal static class Applied
                 view.IndexPages = indexPages.Value;
                 break;
             case Panel.Headings headings:
-                view.Headings = headings.Value;
+                view.Headings.State = headings.Value.State;
                 break;
             case Panel.RecentPages recentPages:
                 view.RecentPages = recentPages.Value;

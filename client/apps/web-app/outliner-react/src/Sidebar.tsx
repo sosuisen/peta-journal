@@ -1,7 +1,7 @@
 import { useCallback, useState, type MouseEvent, type ReactNode } from 'react';
 import type { IndexSort, LoadState, SidebarPage } from './border/peta-types';
 import Calendar from './Calendar';
-import { useCore, usePanel } from './context';
+import { useCore, useHeadings, usePanel } from './context';
 import Frame from './Frame';
 import { openInOf } from './keys';
 import { useClosesOnOutside } from './menu';
@@ -245,9 +245,8 @@ function IndexSection() {
 /** The headings of the doc page on screen. A page without headings has no section. */
 function ContentsSection() {
   const core = useCore();
-  const contents = usePanel('Headings');
-  const state = contents?.state ?? LOADING;
-  const headings = contents === undefined ? [] : contents.headings;
+  const state = usePanel('Headings')?.state ?? LOADING;
+  const headings = useHeadings();
   if (state.kind === 'Loaded' && headings.length === 0) {
     return null;
   }

@@ -1,8 +1,11 @@
 //! The changes of the screen since a shell was last told (ADR 076), for a shell of any body
 //! model (ADR 078).
 
-use crate::changes::{Changes, ListChange, OutlinePanel, Panel, RowChange, Shown};
+use crate::changes::{
+    Changes, HeadingChange, HeadingsPanel, ListChange, OutlinePanel, Panel, RowChange, Shown,
+};
 use crate::harness::Harness;
+use crate::outline::Heading;
 use crate::testing::plain_item;
 use crate::{PetaApp, RichText, ViewModel};
 use crux_core::App;
@@ -24,6 +27,7 @@ fn nothing_changed_gives_empty_changes() {
         changes,
         Changes {
             rows: vec![],
+            headings: vec![],
             panels: vec![]
         }
     );
@@ -46,9 +50,9 @@ fn only_the_panels_that_changed_are_in_the_changes() {
     );
 }
 
-// 最初の差分は、行の入れ替えと、全部のパネルである。
+// 最初の差分は、行と見出しの入れ替えと、全部のパネルである。
 #[test]
-fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
+fn the_first_changes_are_a_reset_of_the_rows_and_the_headings_and_every_panel() {
     let view = first_view();
     let mut shown = Shown::default();
 
@@ -60,6 +64,9 @@ fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
         Changes {
             rows: vec![RowChange::Reset {
                 items: outline.rows.clone()
+            }],
+            headings: vec![HeadingChange::Reset {
+                items: view.headings.headings.clone()
             }],
             panels: vec![
                 Panel::Screen(view.screen.clone()),
@@ -77,7 +84,9 @@ fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
                     scrolled_from_top: outline.scrolled_from_top,
                 }),
                 Panel::IndexPages(view.index_pages.clone()),
-                Panel::Headings(view.headings.clone()),
+                Panel::Headings(HeadingsPanel {
+                    state: view.headings.state
+                }),
                 Panel::RecentPages(view.recent_pages.clone()),
                 Panel::Search(view.search.clone()),
                 Panel::Config(view.config.clone()),
@@ -89,6 +98,33 @@ fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
             ],
         }
     );
+}
+
+// 文字の変わった見出しは、その場所の見出しの更新として、差分に入る。見出しのパネルは送られない。
+#[test]
+fn a_heading_whose_text_changed_is_an_update_of_the_headings_at_its_place() {
+    let heading = |id: &str, text: &str| Heading {
+        id: id.into(),
+        text: text.into(),
+        level: 1,
+    };
+    let mut before = first_view();
+    before.headings.headings = vec![heading("a", "One"), heading("b", "Two")];
+    let mut after = before.clone();
+    after.headings.headings[1] = heading("b", "Three");
+    let mut shown = Shown::default();
+    shown.changes(before);
+
+    let changes = shown.changes(after);
+
+    assert_eq!(
+        changes.headings,
+        vec![HeadingChange::Update {
+            at: 1,
+            item: heading("b", "Three")
+        }]
+    );
+    assert_eq!(changes.panels, vec![]);
 }
 
 // 本文が変わった行は、その場所の行の更新として、差分に入る。

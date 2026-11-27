@@ -83,6 +83,17 @@ public static class ListChanges
         }
     }
 
+    /// <summary>A change of the headings of the page, as <see cref="Change{TItem}"/>.</summary>
+    internal static Change<Heading> Of(HeadingChange change) =>
+        change switch
+        {
+            HeadingChange.Insert insert => new Change<Heading>.Insert((int)insert.At, insert.Item),
+            HeadingChange.Remove remove => new Change<Heading>.Remove((int)remove.At),
+            HeadingChange.Move move => new Change<Heading>.Move((int)move.From, (int)move.To),
+            HeadingChange.Update update => new Change<Heading>.Update((int)update.At, update.Item),
+            HeadingChange.Reset reset => new Change<Heading>.Reset(reset.Items),
+        };
+
     private static Change<Row> Of(RowChange change) =>
         change switch
         {

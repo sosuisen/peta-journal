@@ -4,7 +4,9 @@ import com.sosuisha.petajournal.types.CalendarView
 import com.sosuisha.petajournal.types.Changes
 import com.sosuisha.petajournal.types.ConfigView
 import com.sosuisha.petajournal.types.ConnectionState
-import com.sosuisha.petajournal.types.HeadingsView
+import com.sosuisha.petajournal.types.Heading
+import com.sosuisha.petajournal.types.HeadingChange
+import com.sosuisha.petajournal.types.HeadingsPanel
 import com.sosuisha.petajournal.types.HistoryView
 import com.sosuisha.petajournal.types.IndexPagesView
 import com.sosuisha.petajournal.types.IndexSort
@@ -24,6 +26,9 @@ import com.sosuisha.petajournal.types.WeekNumbering
 import com.sosuisha.petajournal.types.WikiView
 import org.junit.Assert.assertEquals
 import org.junit.Test
+
+/** The changes of the rows and the panels, with no change of the headings. */
+private fun Changes(rows: List<RowChange>, panels: List<Panel>) = Changes(rows, emptyList(), panels)
 
 /**
  * The view model that the changes of the core make (ADR 076). That the core sends the changes that
@@ -103,7 +108,7 @@ class AppliedTest {
                     state = LoadState.LOADED,
                 ),
             ),
-            Panel.Headings(HeadingsView(headings = emptyList(), state = LoadState.FAILED)),
+            Panel.Headings(HeadingsPanel(state = LoadState.FAILED)),
             Panel.RecentPages(RecentPagesView(pages = emptyList(), state = LoadState.LOADING)),
             Panel.Search(search("first")),
             Panel.Config(
@@ -211,6 +216,35 @@ class AppliedTest {
         val changed = view.with(Changes(listOf(RowChange.Insert(1u, row("b"))), emptyList()))
 
         assertEquals(listOf("a", "b"), ids(changed.outline.rows))
+    }
+
+    // 後の差分の見出しの操作は、今の見出しに当たる。見出しの状態は前のままである。
+    @Test
+    fun the_headings_of_a_later_change_are_applied_to_the_headings_there() {
+        val view =
+            firstView(
+                Changes(
+                    emptyList(),
+                    listOf(
+                        HeadingChange.Reset(
+                            listOf(Heading("a", "One", 1u), Heading("b", "Two", 2u)),
+                        ),
+                    ),
+                    everyPanel(),
+                ),
+            )
+
+        val changed =
+            view.with(
+                Changes(
+                    emptyList(),
+                    listOf(HeadingChange.Update(1u, Heading("b", "Three", 2u))),
+                    emptyList(),
+                ),
+            )
+
+        assertEquals(listOf("One", "Three"), changed.headings.headings.map { it.text })
+        assertEquals(LoadState.FAILED, changed.headings.state)
     }
 
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。

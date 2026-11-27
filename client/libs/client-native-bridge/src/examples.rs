@@ -30,6 +30,7 @@ fn list_changes() -> Value {
 fn crossing(rows: Vec<RowChange<RichText>>) -> String {
     let changes = Changes {
         rows,
+        headings: Vec::new(),
         panels: Vec::new(),
     };
     let mut bytes = Vec::new();

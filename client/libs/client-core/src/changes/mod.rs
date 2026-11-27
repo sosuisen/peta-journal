@@ -17,12 +17,20 @@ crate::list_change!(
     Row<B>
 );
 
+crate::list_change!(
+    /// One change to the headings of the page on screen, as the shells take it.
+    #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+    #[derive(Debug, Clone, PartialEq, Serialize)]
+    HeadingChange,
+    Heading
+);
+
 use crate::app::ConnectionState;
-use crate::outline::{FocusOrder, FocusRequest};
+use crate::outline::{FocusOrder, FocusRequest, Heading};
 use crate::screens::atlas::{Callout, LinkCard};
 use crate::screens::calendar::CalendarView;
 use crate::view::{
-    AtlasCard, ConfigView, HeadingsView, HistoryView, IndexPagesView, RecentPagesView, Row,
+    AtlasCard, ConfigView, HistoryView, IndexPagesView, LoadState, RecentPagesView, Row,
     ScreenView, SearchView, WikiView,
 };
 use crate::ViewModel;
@@ -34,6 +42,8 @@ use serde::Serialize;
 pub struct Changes<B> {
     /// The changes to the rows of the outline, to apply in order.
     pub rows: Vec<RowChange<B>>,
+    /// The changes to the headings of the page on screen, to apply in order (ADR 088).
+    pub headings: Vec<HeadingChange>,
     /// The panels that changed, each whole.
     pub panels: Vec<Panel>,
 }
@@ -50,7 +60,7 @@ pub enum Panel {
     AtlasLinkSuggestions(Vec<String>),
     Outline(OutlinePanel),
     IndexPages(IndexPagesView),
-    Headings(HeadingsView),
+    Headings(HeadingsPanel),
     RecentPages(RecentPagesView),
     Search(SearchView),
     Config(ConfigView),
@@ -74,10 +84,19 @@ pub struct OutlinePanel {
     pub scrolled_from_top: bool,
 }
 
+/// The headings of the view model without their list, which changes as a list.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct HeadingsPanel {
+    pub state: LoadState,
+}
+
 /// What the shell was last told: the rows and the panels it has now.
 pub struct Shown<B> {
     /// The rows the shell has. None before it was first told.
     rows: Option<Vec<Row<B>>>,
+    /// The headings the shell has. None before it was first told.
+    headings: Option<Vec<Heading>>,
     panels: ShownPanels,
 }
 
@@ -86,6 +105,7 @@ impl<B> Default for Shown<B> {
     fn default() -> Shown<B> {
         Shown {
             rows: None,
+            headings: None,
             panels: ShownPanels::default(),
         }
     }
@@ -95,20 +115,31 @@ impl<B: Clone + PartialEq> Shown<B> {
     /// What changed from what the shell has to `view`. The shell has `view` after this.
     pub fn changes(&mut self, view: ViewModel<B>) -> Changes<B> {
         let panels = self.panels.changes(&view);
-        let rows = view.outline.rows;
-        let changes = match &self.rows {
-            None => vec![ListChange::Reset {
-                items: rows.clone(),
-            }],
-            Some(had) => list_changes(had, &rows, |row| &row.item.id),
-        };
-        let changes = changes.into_iter().map(RowChange::from).collect();
-        self.rows = Some(rows);
+        let rows = changes_of(&mut self.rows, view.outline.rows, |row| &row.item.id);
+        let headings = changes_of(&mut self.headings, view.headings.headings, |heading| {
+            &heading.id
+        });
         Changes {
-            rows: changes,
+            rows: rows.into_iter().map(RowChange::from).collect(),
+            headings: headings.into_iter().map(HeadingChange::from).collect(),
             panels,
         }
     }
+}
+
+/// The changes from the list the shell has to `now`: a reset the first time. The shell has
+/// `now` after this.
+fn changes_of<T: Clone + PartialEq>(
+    had: &mut Option<Vec<T>>,
+    now: Vec<T>,
+    id: impl Fn(&T) -> &str,
+) -> Vec<ListChange<T>> {
+    let changes = match had {
+        None => vec![ListChange::Reset { items: now.clone() }],
+        Some(had) => list_changes(had, &now, id),
+    };
+    *had = Some(now);
+    changes
 }
 
 /// The panels the shell was last told, for a shell that tells its rows in its own way, as
@@ -157,7 +188,9 @@ fn panels<B>(view: &ViewModel<B>) -> Vec<Panel> {
             scrolled_from_top: outline.scrolled_from_top,
         }),
         Panel::IndexPages(view.index_pages.clone()),
-        Panel::Headings(view.headings.clone()),
+        Panel::Headings(HeadingsPanel {
+            state: view.headings.state,
+        }),
         Panel::RecentPages(view.recent_pages.clone()),
         Panel::Search(view.search.clone()),
         Panel::Config(view.config.clone()),

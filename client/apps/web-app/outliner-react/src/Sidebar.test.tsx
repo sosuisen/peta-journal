@@ -1,8 +1,8 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   Heading,
-  HeadingsView,
+  HeadingsPanel,
   IndexPagesView,
   IndexSort,
   Page,
@@ -57,7 +57,7 @@ const loaded: LoadState = { kind: 'Loaded' };
 /** What each list of the sidebar changes from the folder `work/`, with the page b open. */
 interface Changes {
   readonly index?: Partial<IndexPagesView>;
-  readonly headings?: Partial<HeadingsView>;
+  readonly headings?: Partial<HeadingsPanel & { headings: Heading[] }>;
   readonly recent?: Partial<RecentPagesView>;
 }
 
@@ -72,10 +72,10 @@ function sidebar(changes: Changes = {}) {
     'b',
     loaded,
   );
-  const headings = new HeadingsView(
-    [new Heading('h1', 'Goals', 1), new Heading('h2', 'Steps', 2)],
-    loaded,
-  );
+  const {
+    headings = [new Heading('h1', 'Goals', 1), new Heading('h2', 'Steps', 2)],
+    ...contents
+  } = changes.headings ?? {};
   const recent = new RecentPagesView(
     [page('b', 'notes'), page('c', 'diary')],
     loaded,
@@ -85,9 +85,13 @@ function sidebar(changes: Changes = {}) {
     [],
     [
       { kind: 'IndexPages', value: Object.assign(index, changes.index) },
-      { kind: 'Headings', value: Object.assign(headings, changes.headings) },
+      {
+        kind: 'Headings',
+        value: Object.assign(new HeadingsPanel(loaded), contents),
+      },
       { kind: 'RecentPages', value: Object.assign(recent, changes.recent) },
     ],
+    [{ kind: 'Reset', items: headings }],
   );
   return { ...ui, ...draw(ui, <Sidebar />) };
 }
@@ -283,6 +287,23 @@ describe('the contents section', () => {
     expect(wasm.events).toEqual([
       { kind: 'ScrollToItemRequested', item_id: 'h2' },
     ]);
+  });
+
+  // 文字の変わった見出しは、差分で届き、新しい文字で並ぶ。
+  test('a heading whose text changed comes as a change, and shows its new text', () => {
+    const { wasm, container } = sidebar();
+
+    act(() =>
+      wasm.push(
+        [],
+        [],
+        [{ kind: 'Update', at: 1, item: new Heading('h2', 'Plans', 2) }],
+      ),
+    );
+
+    expect(
+      [...container.querySelectorAll('.contents-item')].map(e => e.textContent),
+    ).toEqual(['Goals', 'Plans']);
   });
 
   // 見出しがなければ、節はない。
