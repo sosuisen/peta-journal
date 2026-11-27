@@ -1,7 +1,7 @@
 //! The changes of the screen since a shell was last told (ADR 076), for a shell of any body
 //! model (ADR 078).
 
-use crate::changes::{Changes, ListChange, OutlinePanel, Panel, Shown};
+use crate::changes::{Changes, ListChange, OutlinePanel, Panel, RowChange, Shown};
 use crate::harness::Harness;
 use crate::testing::plain_item;
 use crate::{PetaApp, RichText, ViewModel};
@@ -126,4 +126,32 @@ fn the_changes_are_made_from_a_screen_of_any_body_model() {
 
     assert!(changes.rows.is_empty());
     assert_eq!(changes.panels, vec![Panel::Title("notes".into())]);
+}
+
+// 境界に出す行の差分（RowChange）は、コアの差分（ListChange）から移しても中身が変わらず、同じJSONになる。
+#[test]
+fn a_row_change_made_from_a_list_change_writes_the_same_json() {
+    let view = Harness::with_items(vec![plain_item("a", 1, "one")]).view();
+    let row = view.outline.rows[0].clone();
+    let changes = [
+        ListChange::Insert {
+            at: 1,
+            item: row.clone(),
+        },
+        ListChange::Remove { at: 2 },
+        ListChange::Move { from: 3, to: 4 },
+        ListChange::Update {
+            at: 5,
+            item: row.clone(),
+        },
+        ListChange::Reset { items: vec![row] },
+    ];
+
+    for change in changes {
+        let written = serde_json::to_value(&change).unwrap();
+
+        let moved: RowChange<RichText> = change.into();
+
+        assert_eq!(serde_json::to_value(&moved).unwrap(), written);
+    }
 }
