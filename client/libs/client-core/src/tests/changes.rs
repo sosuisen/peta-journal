@@ -176,6 +176,28 @@ fn a_change_of_the_sort_moves_the_pages_of_the_folder() {
     assert_eq!(changes.panels, vec![]);
 }
 
+// 新しく変わったページは、最近のページの先頭への挿入として、差分に入る。最近のページのパネルは送られない。
+#[test]
+fn a_page_changed_last_is_inserted_at_the_top_of_the_recent_pages() {
+    let mut before = first_view();
+    before.recent_pages.pages = vec![sidebar_page("a")];
+    let mut after = before.clone();
+    after.recent_pages.pages.insert(0, sidebar_page("b"));
+    let mut shown = Shown::default();
+    shown.changes(before);
+
+    let changes = shown.changes(after);
+
+    assert_eq!(
+        changes.recent_pages,
+        vec![PageChange::Insert {
+            at: 0,
+            item: sidebar_page("b")
+        }]
+    );
+    assert_eq!(changes.panels, vec![]);
+}
+
 // 本文が変わった行は、その場所の行の更新として、差分に入る。
 #[test]
 fn a_row_whose_body_changed_is_an_update_at_its_place() {
