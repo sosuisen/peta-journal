@@ -472,6 +472,28 @@ mod tests {
         assert_eq!(card.blob, plain_blob_svg("see a", ICON_DRAW_SIZE));
     }
 
+    // リンクのカードは、リンク先の色のblobを持つ。同じフォルダのページは青、ほかのフォルダはオレンジ、ないページは灰色で何も開かない。
+    #[test]
+    fn a_link_card_takes_the_color_of_what_it_links_to() {
+        let card = |tone| Card::link("I1", "d/a", tone, bounds(0.0, 0.0, 0.0, 40.0), &[]);
+
+        let [page, link, missing] = [Tone::Page, Tone::Link, Tone::Missing].map(card);
+
+        assert_eq!(
+            [&page.blob, &link.blob, &missing.blob],
+            [
+                &tag_blob_svg("d/a", ICON_DRAW_SIZE, false),
+                &link_blob_svg("d/a", ICON_DRAW_SIZE),
+                &missing_blob_svg("d/a", ICON_DRAW_SIZE),
+            ]
+        );
+        assert_eq!(
+            [&page.path, &link.path, &missing.path],
+            [&Some("d/a".to_string()), &Some("d/a".to_string()), &None]
+        );
+        assert_eq!(missing.tone, Tone::Missing);
+    }
+
     // タグのないページのカードは、アイコンがなく、blobをラベルから描く
     #[test]
     fn a_page_without_tags_has_no_icon_and_a_blob_of_its_label() {
