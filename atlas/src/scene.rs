@@ -323,6 +323,46 @@ mod tests {
         );
     }
 
+    // ページカードのグループは、タイトルで開くページとアイコンを持つ。コールアウトのグループは、タイトルの文字から描いたキャラクターを持つ。
+    #[test]
+    fn a_group_of_a_page_has_its_page_and_icon_and_one_of_a_callout_its_character() {
+        let tags = vec!["sun".to_string()];
+        let of_page = GroupRef {
+            id: "G1".to_string(),
+            title: Some(("One".to_string(), "top".to_string())),
+            look: GroupLook::Page {
+                path: Some("d/One".to_string()),
+                icon_tags: tags.clone(),
+            },
+        };
+        let of_callout = GroupRef {
+            id: "G2".to_string(),
+            title: Some(("Hi".to_string(), "right".to_string())),
+            look: GroupLook::Callout,
+        };
+        let card = Card::page(
+            &page("P1", "Two", &[], false),
+            bounds(0.0, 0.0, 0.0, 40.0),
+            &[of_page, of_callout],
+        );
+
+        let [page_group, callout_group] = &card.groups[..] else {
+            panic!("two groups: {:?}", card.groups);
+        };
+        assert_eq!(
+            (&page_group.path, &page_group.icon, &page_group.character),
+            (
+                &Some("d/One".to_string()),
+                &Some(tag_icon_svg(&tags, ICON_DRAW_SIZE)),
+                &None
+            )
+        );
+        assert_eq!(
+            (&callout_group.path, &callout_group.icon, &callout_group.character),
+            (&None, &None, &Some(callout_face_svg("Hi", CALLOUT_DRAW_SIZE)))
+        );
+    }
+
     // タグのないページのカードは、アイコンがなく、blobをラベルから描く
     #[test]
     fn a_page_without_tags_has_no_icon_and_a_blob_of_its_label() {
