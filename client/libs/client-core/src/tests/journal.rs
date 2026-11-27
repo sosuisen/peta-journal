@@ -575,9 +575,9 @@ fn the_answer_for_a_day_the_user_has_moved_on_from_is_not_shown() {
     assert_ne!(journal_view(&h).page_id.as_deref(), Some("page-2026-02-08"));
 }
 
-// 前のジャーナルの読み込みは、アウトラインの項目が100個に届いたところで止まる。
+// 前のジャーナルの読み込みは、アウトラインに見えている行が100行に届いたところで止まる。
 #[test]
-fn the_journals_before_are_no_longer_loaded_once_the_outline_holds_enough_items() {
+fn the_journals_before_are_no_longer_loaded_once_the_outline_shows_enough_rows() {
     let mut h = Harness::new();
     let name = "2026-02-09";
     h.api.answer_next(
