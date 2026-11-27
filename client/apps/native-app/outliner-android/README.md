@@ -68,9 +68,12 @@ it at the end:
 ./gradlew :app:coverage   # the same on a device that runs already, also on Windows
 ```
 
-- Measured: every Kotlin file of `app/src/main`. No file of it is left out.
-- Not measured: `generated/`. `generate.sh` makes it from the Rust crates, the Rust tests check
-  it, and it is not kept in the repository.
+- Measured: the Kotlin files of `app/src/main/kotlin`.
+- Not measured, with the consent of the developer, as for `outliner-ios`:
+  - `generated/`. `generate.sh` makes it from the Rust crates, the Rust tests check it, and it
+    is not kept in the repository.
+  - `dropbox/SdkDropbox.kt` and `dropbox/DropboxSdk.kt`. They only pass each call on to the SDK
+    of Dropbox, and a test of them needs a real account of Dropbox (#1088).
 - The tests of the JVM alone run only a few files, so the number needs the tests on a device.
 - Only this task counts the lines: `assembleDebug` and `debug.sh` build the app without the
   counting, which makes an app slower.

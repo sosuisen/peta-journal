@@ -6,9 +6,9 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { JOBS, ROOT, commandOf, jobsFor, logFileFor, runJob } from './checks.mjs';
 
@@ -105,12 +105,14 @@ const XCCOV = {
 };
 
 // The floor, the folder and the files left out of the coverage task of outliner-android, which
-// reads the report of JaCoCo. generated/ is not in that folder
+// reads the report of JaCoCo. generated/ is not in that folder. The two files only pass each call
+// on to the SDK of Dropbox, as in outliner-ios, and are left out with the consent of the developer
+// (2026-11-28, #1088)
 const GRADLE = {
   'client/apps/native-app/outliner-android/app/build.gradle.kts': {
     floor: String(FLOOR),
-    measured: '"src/main/kotlin"',
-    excluded: 'listOf<String>()',
+    measured: 'src/main/kotlin',
+    excluded: ['com/sosuisha/petajournal/dropbox/SdkDropbox.kt', 'com/sosuisha/petajournal/dropbox/DropboxSdk.kt'],
   },
 };
 
@@ -337,8 +339,14 @@ test('each gradle coverage task fails under the floor and measures the agreed fo
     const text = read(script);
     const value = (name) => [...text.matchAll(new RegExp(`^val ${name} = (.*)$`, 'gm'))].map((m) => m[1]);
     assert.deepEqual(value('coverageFloor'), [expected.floor], script);
-    assert.deepEqual(value('coverageMeasured'), [expected.measured], script);
-    assert.deepEqual(value('coverageExcluded'), [expected.excluded], script);
+    assert.deepEqual(value('coverageMeasured'), [`"${expected.measured}"`], script);
+    const excluded = text.match(/^val coverageExcluded =\s*listOf(?:<String>)?\(([^)]*)\)/m);
+    assert.ok(excluded, script);
+    assert.deepEqual([...excluded[1].matchAll(/"([^"]*)"/g)].map((m) => m[1]), expected.excluded, script);
+    // A file left out that is gone would leave out nothing, and hide that the list is old
+    for (const file of expected.excluded) {
+      assert.ok(existsSync(join(ROOT, dirname(script), expected.measured, file)), file);
+    }
     assert.match(text, /if \(percent < floor\) throw GradleException\(/, script);
     // The tests on a device run most of the code. Without them, the number would be of a few files
     assert.match(text, /dependsOn\("testDebugUnitTest", "connectedDebugAndroidTest"\)/, script);

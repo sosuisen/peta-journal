@@ -28,14 +28,22 @@ val dropboxFolder = (findProperty("dropboxFolder") as String?).orEmpty()
 // less than 90% of the lines are covered. The lines are counted over the whole module, not file by
 // file. coverage.sh starts an emulator first when there is no device.
 //
-// Measured: every Kotlin file of src/main. generated/ is not in that folder: generate.sh makes it
-// from the Rust crates, the Rust tests check it, and it is not kept in the repository.
+// Measured: the Kotlin files of src/main/kotlin. Not measured, with the consent of the developer
+// (2026-11-28), as for outliner-ios:
+// - generated/: generate.sh makes it from the Rust crates, the Rust tests check it, and it is not
+//   kept in the repository. It is not in the folder measured.
+// - dropbox/SdkDropbox.kt and dropbox/DropboxSdk.kt (coverageExcluded): they only pass each call
+//   on to the SDK of Dropbox. A test of them needs a real account of Dropbox (#1088).
 //
 // A file of src/main is left out only with the consent of the developer, with the reason here.
 // scripts/verification.test.mjs guards these three values
 val coverageFloor = 90
 val coverageMeasured = "src/main/kotlin"
-val coverageExcluded = listOf<String>()
+val coverageExcluded =
+    listOf(
+        "com/sosuisha/petajournal/dropbox/SdkDropbox.kt",
+        "com/sosuisha/petajournal/dropbox/DropboxSdk.kt",
+    )
 
 val jacocoTool = "0.8.16"
 
