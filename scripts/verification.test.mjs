@@ -252,6 +252,7 @@ test('each job measures the coverage in a step that the ci never skips', () => {
     assert.equal(step.needs, undefined, job);
     assert.equal(step.os, COVERAGE_OS[job], job);
     assert.equal(step.tools, undefined, job);
+    assert.equal(step.hookOnly, undefined, job);
   }
 });
 
@@ -287,6 +288,7 @@ test('the e2e tests run in a step that neither the ci nor the hook skips, when t
     assert.equal(step.os, undefined, shell);
     assert.equal(step.screen, undefined, shell);
     assert.equal(step.ciOnly, undefined, shell);
+    assert.equal(step.hookOnly, undefined, shell);
     assert.equal(step.needs, undefined, shell);
     for (const file of [`${JOBS[job].dir}/tests/outline.spec.ts`, 'client/apps/web-app/outliner-react/src/App.tsx', 'journal/journal-server/src/main.rs']) {
       assert.ok(jobsFor([file]).includes(job), `${shell}: ${file}`);
@@ -472,6 +474,38 @@ test('a step for the ci only is skipped only by the hook', async () => {
 test('only the coverage step of outliner-android is for the ci only', () => {
   const ciOnly = Object.entries(JOBS).flatMap(([job, { steps }]) => steps.filter((s) => s.ciOnly).map((s) => `${job}: ${s.run}`));
   assert.deepEqual(ciOnly, ['outliner-android: ./coverage.sh']);
+});
+
+// フックだけが回す段は、CI（strict）でだけ飛ばす。手で回したときとフックでは回す（#1279）。
+test('a step for the hook only is skipped only in the CI', async () => {
+  const quiet = { log: () => {} };
+  JOBS['test-hook-only'] = { dir: '.', touchedBy: [], steps: [{ hookOnly: true, run: 'node -e "process.exit(3)"' }] };
+  try {
+    const ci = await runJob('test-hook-only', { ...quiet, strict: true });
+    assert.equal(ci.failed, undefined);
+    assert.deepEqual(
+      ci.skipped.map((s) => s.step),
+      ['node -e "process.exit(3)"'],
+    );
+    assert.notEqual((await runJob('test-hook-only', quiet)).failed, undefined);
+    assert.notEqual((await runJob('test-hook-only', { ...quiet, screen: false })).failed, undefined);
+  } finally {
+    delete JOBS['test-hook-only'];
+  }
+});
+
+// フックだけが回す段は、outliner-androidのJVMのテストとビルドの段だけである。CIでは、同じジョブのCIだけが回すカバレッジの段が、
+// JVMのテストを回し、アプリと画面のテストを作り直す（#1279）。
+test('only the jvm tests and the build of outliner-android are for the hook only, and the ci-only coverage step does them again', () => {
+  const hookOnly = Object.entries(JOBS).flatMap(([job, { steps }]) => steps.filter((s) => s.hookOnly).map((s) => `${job}: ${s.run}`));
+  assert.deepEqual(hookOnly, [
+    'outliner-android: ./gradlew :app:testDebugUnitTest',
+    'outliner-android: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest',
+  ]);
+  const coverage = JOBS['outliner-android'].steps.find((s) => s.run === './coverage.sh');
+  assert.equal(coverage.ciOnly, true);
+  // The coverage task runs the tests of the JVM, and builds the app and its tests for the device
+  assert.match(read('client/apps/native-app/outliner-android/app/build.gradle.kts'), /dependsOn\("testDebugUnitTest", "connectedDebugAndroidTest"\)/);
 });
 
 // 段の出力は、段が終わるのを待たずに、出たそばからログに渡る。開発者が進み具合を見られるようにするため。

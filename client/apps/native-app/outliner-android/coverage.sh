@@ -59,8 +59,11 @@ first_try=app/build/coverage-first-try
 
 # Gradle names only the report of the tests on the device. These are the tests that failed, each
 # with the start of its failure, and what Android said about the clipboard and which window has
-# the focus: Android lets only the app with the focus read the clipboard
+# the focus: Android lets only the app with the focus read the clipboard. The whole log of the
+# device goes to build/logcat-<try>.txt, which the CI keeps (#1279)
 show_failures() {
+    mkdir -p build
+    "$adb" logcat -d >"build/logcat-$1.txt" 2>/dev/null || true
     for report in "$results"/*.xml; do
         [ -f "$report" ] || continue
         awk '/<testcase / { test = $0 } /<failure|<error/ { print test; left = 6 } left > 0 { print; left-- }' "$report"
@@ -84,12 +87,12 @@ failed_tests() {
 # Packs the core only for the kind of the device: each one is about 70MB
 abi=$("$adb" shell getprop ro.product.cpu.abi | tr -d '\r')
 # A report or counts of an earlier run would be taken for this one
-rm -rf "$results" app/build/outputs/code_coverage "$first_try"
+rm -rf "$results" app/build/outputs/code_coverage "$first_try" build/logcat-*.txt
 if ./gradlew :app:coverage "-Pabi=$abi"; then
     exit 0
 fi
 echo "=== The first try failed ==="
-show_failures
+show_failures first-try
 failed=$(failed_tests)
 if [ -z "$failed" ]; then
     # No test on the device failed: a test of the JVM, the build or the floor did. A second try
@@ -110,7 +113,7 @@ cp -R "$results" "$first_try/results"
 if ! ./gradlew :app:coverage "-Pabi=$abi" \
     "-Pandroid.testInstrumentationRunnerArguments.class=$(echo "$failed" | paste -sd , -)"; then
     echo "=== The second try failed too ==="
-    show_failures
+    show_failures second-try
     exit 1
 fi
 echo "=== Flaky: these $count tests failed on the first try, and passed on the second ==="

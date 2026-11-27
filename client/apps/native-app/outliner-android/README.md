@@ -87,7 +87,10 @@ it at the end:
 
 The CI runs all of this in the `outliner-android` job of `scripts/checks.mjs`, on Linux, with
 an emulator on the runner. The hook before a pull request runs the same job without
-`coverage.sh` (`ciOnly: true`): the emulator is too heavy for the hook.
+`coverage.sh` (`ciOnly: true`): the emulator is too heavy for the hook. The CI skips the steps
+that `coverage.sh` does again, the tests of the JVM and the build (`hookOnly: true`). It builds
+the core only for its emulator (`PETA_ANDROID_ABIS=x86_64`), and keeps the results of the tests
+and the logs as the artifact `outliner-android-test-results`.
 
 The mutation tests are PIT, through the Gradle plugin `pl.droidsonroids.pitest`. Run them before
 each pull request. PIT runs only the tests in `app/src/test`, on the JVM, so it mutates only the
@@ -118,7 +121,9 @@ Rust. `generated/` is not kept in the repository:
 - `generated/kotlin`: the types that cross the border (`Event`, `ViewModel`, `Request`, ...),
   made by `facet_generate` 0.22.3, and the class `PetaCore` that calls the core, made by
   BoltFFI.
-- `generated/jniLibs`: the core as a library, for `arm64-v8a` and `x86_64`.
+- `generated/jniLibs`: the core as a library, for `arm64-v8a` and `x86_64`. With
+  `PETA_ANDROID_ABIS=x86_64` (or `arm64`), `generate.sh` builds only that kind, in less time.
+  The app then runs only on that kind of device.
 
 The tests of the screen need a running device or emulator: the core is a native library, and
 BoltFFI cannot pack it for the JVM of a Windows machine yet (ADR 030). The device must be
