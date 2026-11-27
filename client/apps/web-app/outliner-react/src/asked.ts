@@ -58,10 +58,12 @@ export class AskedOps {
           // Taken before the replay: a key it plays must not be kept again
           const keys = [...op.replay_keys, ...(this.lateKeys ?? [])];
           this.lateKeys = null;
+          // Answered before the replay: the core holds keys until the answer (ADR 087), and
+          // a key played while it holds would go back to it, again and again
+          this.answering.resolve(id, { kind: 'Done' });
           if (editor !== null && op.item_id !== null) {
             this.replay(editor, op.item_id, keys);
           }
-          this.answering.resolve(id, { kind: 'Done' });
         }, 0);
         break;
       }
