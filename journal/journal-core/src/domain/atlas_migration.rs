@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use hmtid::Hmtid;
-use peta_atlas::PAGE_KEY;
+use peta_atlas::{GROUP_TYPE, PAGE_KEY, TYPE_KEY};
 
 use super::model::Item;
 
@@ -22,13 +22,17 @@ pub fn migration(
 ) -> Option<Migration> {
     let mut migration = Migration::default();
     for item in items {
-        let has = |key| {
+        let prop = |key| {
             props
                 .get(item.id.as_str())
-                .is_some_and(|p| p.contains_key(key))
+                .and_then(|p| p.get(key))
+                .map(String::as_str)
         };
-        if has(PAGE_KEY) {
+        if prop(PAGE_KEY).is_some() {
             migration.dropped_props.push((item.id.clone(), PAGE_KEY));
+        }
+        if prop(TYPE_KEY) == Some(GROUP_TYPE) {
+            migration.dropped_props.push((item.id.clone(), TYPE_KEY));
         }
     }
     (migration != Migration::default()).then_some(migration)
