@@ -1073,6 +1073,21 @@ describe('the keys of the editor', () => {
     expect(dropped).toBe(true);
     expect(wasm.presses).toEqual([]);
   });
+
+  // コアが預かっていても、次の編集欄がフォーカスを待つ間のキーは、その編集欄のために取っておく。コアに預けると、答えのあとの注文で、再生するキーを追い越すためである。
+  test('a key pressed while the next editor waits for its focus is kept for it, though the core holds keys', () => {
+    vi.useFakeTimers();
+    const { wasm, editor } = editing(true);
+    act(() =>
+      wasm.ask(1, { kind: 'FocusEditor', item_id: 'b', replay_keys: [] }),
+    );
+
+    const dropped = !fireEvent.keyDown(editor, { key: 'x' });
+    vi.useRealTimers();
+
+    expect(dropped).toBe(true);
+    expect(wasm.events).toEqual([]);
+  });
 });
 
 // 編集欄への貼り付けと、落とした画像
