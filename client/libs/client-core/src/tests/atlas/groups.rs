@@ -346,8 +346,8 @@ fn an_empty_title_empties_the_body_to_take_the_title_away() {
 #[test]
 fn a_title_of_no_group_an_unknown_side_or_no_change_is_not_sent_as_given() {
     let mut h = atlas_with_group("Tools", None);
-    titled(&mut h, "none", "top", "Tools");
-    titled(&mut h, "i-one", "top", "Tools");
+    titled(&mut h, "none", "top", "Nobody");
+    titled(&mut h, "i-one", "top", "A card");
     titled(&mut h, "g", "top", "Tools");
     titled(&mut h, "g", "middle", "Tools");
     titled(&mut h, "g", "middle", "Other");
