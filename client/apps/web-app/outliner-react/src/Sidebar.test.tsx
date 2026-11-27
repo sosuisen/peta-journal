@@ -3,10 +3,10 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   Heading,
   HeadingsPanel,
-  IndexPagesView,
+  IndexPagesPanel,
   IndexSort,
   Page,
-  RecentPagesView,
+  RecentPagesPanel,
   SidebarPage,
   type LoadState,
 } from './border/peta-types';
@@ -56,19 +56,20 @@ const loaded: LoadState = { kind: 'Loaded' };
 
 /** What each list of the sidebar changes from the folder `work/`, with the page b open. */
 interface Changes {
-  readonly index?: Partial<IndexPagesView>;
+  readonly index?: Partial<IndexPagesPanel & { pages: SidebarPage[] }>;
   readonly headings?: Partial<HeadingsPanel & { headings: Heading[] }>;
-  readonly recent?: Partial<RecentPagesView>;
+  readonly recent?: Partial<RecentPagesPanel & { pages: SidebarPage[] }>;
 }
 
 /** The sidebar of the folder `work/`, with the page b open. Each test changes what it needs. */
 function sidebar(changes: Changes = {}) {
-  const index = new IndexPagesView(
+  const { pages = [page('a', 'plan'), page('b', 'notes')], ...folder } =
+    changes.index ?? {};
+  const index = new IndexPagesPanel(
     'work/',
     '/pages/work/index',
     new IndexSort({ kind: 'Name' }, { kind: 'Asc' }),
     '/pages/index',
-    [page('a', 'plan'), page('b', 'notes')],
     'b',
     loaded,
   );
@@ -76,22 +77,29 @@ function sidebar(changes: Changes = {}) {
     headings = [new Heading('h1', 'Goals', 1), new Heading('h2', 'Steps', 2)],
     ...contents
   } = changes.headings ?? {};
-  const recent = new RecentPagesView(
-    [page('b', 'notes'), page('c', 'diary')],
-    loaded,
-  );
+  const {
+    pages: recentPages = [page('b', 'notes'), page('c', 'diary')],
+    ...recent
+  } = changes.recent ?? {};
   const ui = shell();
   ui.wasm.push(
     [],
     [
-      { kind: 'IndexPages', value: Object.assign(index, changes.index) },
+      { kind: 'IndexPages', value: Object.assign(index, folder) },
       {
         kind: 'Headings',
         value: Object.assign(new HeadingsPanel(loaded), contents),
       },
-      { kind: 'RecentPages', value: Object.assign(recent, changes.recent) },
+      {
+        kind: 'RecentPages',
+        value: Object.assign(new RecentPagesPanel(loaded), recent),
+      },
     ],
-    { headings: [{ kind: 'Reset', items: headings }] },
+    {
+      headings: [{ kind: 'Reset', items: headings }],
+      index_pages: [{ kind: 'Reset', items: pages }],
+      recent_pages: [{ kind: 'Reset', items: recentPages }],
+    },
   );
   return { ...ui, ...draw(ui, <Sidebar />) };
 }

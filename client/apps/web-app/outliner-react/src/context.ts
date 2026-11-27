@@ -1,5 +1,5 @@
 import { createContext, use, useContext, useSyncExternalStore } from 'react';
-import type { Heading, Panel, Row } from './border/peta-types';
+import type { Heading, Panel, Row, SidebarPage } from './border/peta-types';
 import type { Core } from './core';
 import type { Panels } from './screen';
 
@@ -37,6 +37,18 @@ export function useRows(): readonly Row[] {
 export function useHeadings(): readonly Heading[] {
   const core = useCore();
   return useSyncExternalStore(core.subscribe, () => core.current().headings);
+}
+
+/** The pages of the folder of the page on screen, in the order of the sort, as the core last told. */
+export function useIndexPages(): readonly SidebarPage[] {
+  const core = useCore();
+  return useSyncExternalStore(core.subscribe, () => core.current().indexPages);
+}
+
+/** The doc pages changed last, as the core last told. */
+export function useRecentPages(): readonly SidebarPage[] {
+  const core = useCore();
+  return useSyncExternalStore(core.subscribe, () => core.current().recentPages);
 }
 
 /**
