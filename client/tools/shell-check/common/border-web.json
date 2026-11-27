@@ -527,16 +527,20 @@
       "json": "{\"UngroupAtlasCards\":{\"card_ids\":[\"\"]}}"
     },
     {
+      "id": "MoveAtlasCards",
+      "json": "{\"MoveAtlasCards\":{\"card_ids\":[\"日本語の文\"],\"parent_id\":\"é\"}}"
+    },
+    {
       "id": "AtlasBoundsRefused",
-      "json": "{\"AtlasBoundsRefused\":{\"item_id\":\"日本語の文\",\"before\":{\"Text\":\"é\"}}}"
+      "json": "{\"AtlasBoundsRefused\":{\"item_id\":\"😀👍🏽\",\"before\":{\"Text\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}}}"
     },
     {
       "id": "AtlasChanged",
-      "json": "{\"AtlasChanged\":{\"atlas_id\":\"😀👍🏽\",\"items\":[{\"id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"page_id\":\"\",\"dir_path\":\"日本語の文\",\"name\":\"é\",\"item_type\":\"😀👍🏽\",\"created_date\":9223372036854775807,\"modified_date\":-9223372036854775808,\"idx\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"level\":-2147483648,\"body\":\"\",\"collapsed\":true,\"types\":[\"日本語の文\"],\"properties\":{\"é\":{\"List\":[\"😀👍🏽\"]}},\"transclude_item_id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}]}}"
+      "json": "{\"AtlasChanged\":{\"atlas_id\":\"\",\"items\":[{\"id\":\"日本語の文\",\"page_id\":\"é\",\"dir_path\":\"😀👍🏽\",\"name\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"item_type\":\"\",\"created_date\":9223372036854775807,\"modified_date\":-9223372036854775808,\"idx\":\"日本語の文\",\"level\":-2147483648,\"body\":\"é\",\"collapsed\":true,\"types\":[\"😀👍🏽\"],\"properties\":{\"\\\"quoted\\\" \\\\ back\\nline\\ttab\":{\"List\":[\"\"]}},\"transclude_item_id\":\"日本語の文\"}]}}"
     },
     {
       "id": "AtlasLinksSuggested",
-      "json": "{\"AtlasLinksSuggested\":{\"timer_id\":18446744073709551615,\"titles\":[\"\"]}}"
+      "json": "{\"AtlasLinksSuggested\":{\"timer_id\":18446744073709551615,\"titles\":[\"é\"]}}"
     },
     {
       "id": "EditPageProperties",
@@ -544,27 +548,27 @@
     },
     {
       "id": "SetPageProperty",
-      "json": "{\"SetPageProperty\":{\"key\":\"日本語の文\",\"value_type\":\"é\",\"value\":\"😀👍🏽\"}}"
+      "json": "{\"SetPageProperty\":{\"key\":\"😀👍🏽\",\"value_type\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"value\":\"\"}}"
     },
     {
       "id": "DeletePageProperty",
-      "json": "{\"DeletePageProperty\":{\"key\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}}"
+      "json": "{\"DeletePageProperty\":{\"key\":\"日本語の文\"}}"
     },
     {
       "id": "RemovePageTag",
-      "json": "{\"RemovePageTag\":{\"key\":\"\",\"tag\":\"日本語の文\"}}"
+      "json": "{\"RemovePageTag\":{\"key\":\"é\",\"tag\":\"😀👍🏽\"}}"
     },
     {
       "id": "MovePageTag",
-      "json": "{\"MovePageTag\":{\"key\":\"é\",\"tag\":\"😀👍🏽\",\"target\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"after\":false}}"
+      "json": "{\"MovePageTag\":{\"key\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"tag\":\"\",\"target\":\"日本語の文\",\"after\":false}}"
     },
     {
       "id": "AddPageTags",
-      "json": "{\"AddPageTags\":{\"key\":\"\",\"typed\":\"日本語の文\"}}"
+      "json": "{\"AddPageTags\":{\"key\":\"é\",\"typed\":\"😀👍🏽\"}}"
     },
     {
       "id": "CreateNewPage",
-      "json": "{\"CreateNewPage\":{\"search_query\":\"é\"}}"
+      "json": "{\"CreateNewPage\":{\"search_query\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}}"
     },
     {
       "id": "DeleteCurrentPage",
@@ -580,11 +584,11 @@
     },
     {
       "id": "OpenPage",
-      "json": "{\"OpenPage\":{\"path\":\"😀👍🏽\"}}"
+      "json": "{\"OpenPage\":{\"path\":\"\"}}"
     },
     {
       "id": "SearchAnswered",
-      "json": "{\"SearchAnswered\":{\"timer_id\":9007199254740993,\"query\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"results\":[{\"page_id\":\"\",\"page_title\":\"日本語の文\",\"item_id\":\"é\",\"snippet\":\"😀👍🏽\",\"score\":0.5}]}}"
+      "json": "{\"SearchAnswered\":{\"timer_id\":9007199254740993,\"query\":\"日本語の文\",\"results\":[{\"page_id\":\"é\",\"page_title\":\"😀👍🏽\",\"item_id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"snippet\":\"\",\"score\":0.5}]}}"
     },
     {
       "id": "SearchFailed",
@@ -592,7 +596,7 @@
     },
     {
       "id": "RecentPagesLoaded",
-      "json": "{\"RecentPagesLoaded\":{\"pages\":[{\"id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"parent_id\":\"\",\"dir_path\":\"日本語の文\",\"name\":\"é\",\"page_type\":\"😀👍🏽\",\"created_date\":-1,\"modified_date\":9223372036854775807,\"properties\":{\"\\\"quoted\\\" \\\\ back\\nline\\ttab\":{\"Text\":\"\"}}}]}}"
+      "json": "{\"RecentPagesLoaded\":{\"pages\":[{\"id\":\"日本語の文\",\"parent_id\":\"é\",\"dir_path\":\"😀👍🏽\",\"name\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"page_type\":\"\",\"created_date\":-1,\"modified_date\":9223372036854775807,\"properties\":{\"日本語の文\":{\"Text\":\"é\"}}}]}}"
     },
     {
       "id": "RecentPagesFailed",
@@ -600,7 +604,7 @@
     },
     {
       "id": "IndexPagesLoaded",
-      "json": "{\"IndexPagesLoaded\":{\"header\":\"日本語の文\",\"is_root\":true,\"folder\":{\"id\":\"é\",\"parent_id\":\"😀👍🏽\",\"dir_path\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"name\":\"\",\"page_type\":\"日本語の文\",\"created_date\":-9223372036854775808,\"modified_date\":-1,\"properties\":{\"é\":{\"List\":[\"😀👍🏽\"]}}},\"pages\":[{\"id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"parent_id\":\"\",\"dir_path\":\"日本語の文\",\"name\":\"é\",\"page_type\":\"😀👍🏽\",\"created_date\":9223372036854775807,\"modified_date\":-9223372036854775808,\"properties\":{\"\\\"quoted\\\" \\\\ back\\nline\\ttab\":{\"Text\":\"\"}}}]}}"
+      "json": "{\"IndexPagesLoaded\":{\"header\":\"😀👍🏽\",\"is_root\":true,\"folder\":{\"id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"parent_id\":\"\",\"dir_path\":\"日本語の文\",\"name\":\"é\",\"page_type\":\"😀👍🏽\",\"created_date\":-9223372036854775808,\"modified_date\":-1,\"properties\":{\"\\\"quoted\\\" \\\\ back\\nline\\ttab\":{\"List\":[\"\"]}}},\"pages\":[{\"id\":\"日本語の文\",\"parent_id\":\"é\",\"dir_path\":\"😀👍🏽\",\"name\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"page_type\":\"\",\"created_date\":9223372036854775807,\"modified_date\":-9223372036854775808,\"properties\":{\"日本語の文\":{\"Text\":\"é\"}}}]}}"
     },
     {
       "id": "IndexPagesFailed",
@@ -624,7 +628,7 @@
     },
     {
       "id": "GoToPage",
-      "json": "{\"GoToPage\":{\"path\":\"日本語の文\",\"open_in\":\"Here\"}}"
+      "json": "{\"GoToPage\":{\"path\":\"😀👍🏽\",\"open_in\":\"Here\"}}"
     },
     {
       "id": "JournalNav",
@@ -636,7 +640,7 @@
     },
     {
       "id": "SearchQueryChanged",
-      "json": "{\"SearchQueryChanged\":\"é\"}"
+      "json": "{\"SearchQueryChanged\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}"
     },
     {
       "id": "SearchKey",
@@ -652,15 +656,15 @@
     },
     {
       "id": "IndexSortsRestored",
-      "json": "{\"IndexSortsRestored\":{\"😀👍🏽\":{\"key\":\"Name\",\"order\":\"Asc\"}}}"
+      "json": "{\"IndexSortsRestored\":{\"\":{\"key\":\"Name\",\"order\":\"Asc\"}}}"
     },
     {
       "id": "AtlasDirsRestored",
-      "json": "{\"AtlasDirsRestored\":[\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"]}"
+      "json": "{\"AtlasDirsRestored\":[\"日本語の文\"]}"
     },
     {
       "id": "SetIndexSort",
-      "json": "{\"SetIndexSort\":{\"dir\":\"\",\"sort\":{\"key\":\"Modified\",\"order\":\"Desc\"}}}"
+      "json": "{\"SetIndexSort\":{\"dir\":\"é\",\"sort\":{\"key\":\"Modified\",\"order\":\"Desc\"}}}"
     },
     {
       "id": "SetWeekNumbering",
@@ -672,11 +676,11 @@
     },
     {
       "id": "SetTagsDir",
-      "json": "{\"SetTagsDir\":\"日本語の文\"}"
+      "json": "{\"SetTagsDir\":\"😀👍🏽\"}"
     },
     {
       "id": "SetHomeLink",
-      "json": "{\"SetHomeLink\":\"é\"}"
+      "json": "{\"SetHomeLink\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}"
     },
     {
       "id": "BrowseFolder",
@@ -684,47 +688,47 @@
     },
     {
       "id": "AddPropertyDefinition",
-      "json": "{\"AddPropertyDefinition\":{\"body\":\"😀👍🏽\",\"value_type\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}}"
+      "json": "{\"AddPropertyDefinition\":{\"body\":\"\",\"value_type\":\"日本語の文\"}}"
     },
     {
       "id": "DeletePropertyDefinition",
-      "json": "{\"DeletePropertyDefinition\":{\"key\":\"\"}}"
+      "json": "{\"DeletePropertyDefinition\":{\"key\":\"é\"}}"
     },
     {
       "id": "ConfigLoaded",
-      "json": "{\"ConfigLoaded\":{\"config\":{\"markdown_dir\":\"日本語の文\",\"week_numbering\":\"é\",\"logical_outdent\":false,\"tags_dir\":\"😀👍🏽\",\"home_link\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}}}"
+      "json": "{\"ConfigLoaded\":{\"config\":{\"markdown_dir\":\"😀👍🏽\",\"week_numbering\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"logical_outdent\":false,\"tags_dir\":\"\",\"home_link\":\"日本語の文\"}}}"
     },
     {
       "id": "PropertyDefinitionsLoaded",
-      "json": "{\"PropertyDefinitionsLoaded\":{\"definitions\":[{\"key\":\"\",\"value_type\":\"日本語の文\",\"system\":true,\"page\":false}]}}"
+      "json": "{\"PropertyDefinitionsLoaded\":{\"definitions\":[{\"key\":\"é\",\"value_type\":\"😀👍🏽\",\"system\":true,\"page\":false}]}}"
     },
     {
       "id": "PropertyDefinitionAdded",
-      "json": "{\"PropertyDefinitionAdded\":{\"definitions\":[{\"key\":\"é\",\"value_type\":\"😀👍🏽\",\"system\":true,\"page\":false}]}}"
+      "json": "{\"PropertyDefinitionAdded\":{\"definitions\":[{\"key\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"value_type\":\"\",\"system\":true,\"page\":false}]}}"
     },
     {
       "id": "PropertyDefinitionRefused",
-      "json": "{\"PropertyDefinitionRefused\":{\"reason\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}}"
+      "json": "{\"PropertyDefinitionRefused\":{\"reason\":\"日本語の文\"}}"
     },
     {
       "id": "TagsDirSaved",
-      "json": "{\"TagsDirSaved\":{\"tags_dir\":\"\"}}"
+      "json": "{\"TagsDirSaved\":{\"tags_dir\":\"é\"}}"
     },
     {
       "id": "HomeLinkSaved",
-      "json": "{\"HomeLinkSaved\":{\"home_link\":\"日本語の文\"}}"
+      "json": "{\"HomeLinkSaved\":{\"home_link\":\"😀👍🏽\"}}"
     },
     {
       "id": "MarkdownDirChosen",
-      "json": "{\"MarkdownDirChosen\":{\"path\":\"é\"}}"
+      "json": "{\"MarkdownDirChosen\":{\"path\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}}"
     },
     {
       "id": "LinkClicked",
-      "json": "{\"LinkClicked\":{\"link\":{\"Page\":{\"url\":\"😀👍🏽\"}},\"held\":{\"shift\":true,\"ctrl\":false,\"cmd\":true}}}"
+      "json": "{\"LinkClicked\":{\"link\":{\"Page\":{\"url\":\"\"}},\"held\":{\"shift\":true,\"ctrl\":false,\"cmd\":true}}}"
     },
     {
       "id": "OpenExportFolder",
-      "json": "{\"OpenExportFolder\":{\"page_id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}}"
+      "json": "{\"OpenExportFolder\":{\"page_id\":\"日本語の文\"}}"
     },
     {
       "id": "Sse",
@@ -732,15 +736,15 @@
     },
     {
       "id": "Route-2",
-      "json": "{\"Route\":{\"route\":\"Settings\",\"today\":\"日本語の文\"}}"
+      "json": "{\"Route\":{\"route\":\"Settings\",\"today\":\"😀👍🏽\"}}"
     },
     {
       "id": "EditRequested-2",
-      "json": "{\"EditRequested\":{\"item_id\":\"日本語の文\",\"place\":{\"ShownLetter\":18446744073709551615}}}"
+      "json": "{\"EditRequested\":{\"item_id\":\"😀👍🏽\",\"place\":{\"ShownLetter\":18446744073709551615}}}"
     },
     {
       "id": "Moved-2",
-      "json": "{\"Moved\":{\"moved\":[{\"id\":\"é\",\"page_id\":\"😀👍🏽\",\"dir_path\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"name\":\"\",\"item_type\":\"日本語の文\",\"created_date\":-1,\"modified_date\":9223372036854775807,\"idx\":\"é\",\"level\":7,\"body\":\"😀👍🏽\",\"collapsed\":false,\"types\":[\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"],\"properties\":{\"\":{\"List\":[\"日本語の文\"]}},\"transclude_item_id\":\"é\"}],\"position\":\"Last\",\"edited\":\"😀👍🏽\",\"label\":\"MoveSelection\"}}"
+      "json": "{\"Moved\":{\"moved\":[{\"id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"page_id\":\"\",\"dir_path\":\"日本語の文\",\"name\":\"é\",\"item_type\":\"😀👍🏽\",\"created_date\":-1,\"modified_date\":9223372036854775807,\"idx\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"level\":7,\"body\":\"\",\"collapsed\":false,\"types\":[\"日本語の文\"],\"properties\":{\"é\":{\"List\":[\"😀👍🏽\"]}},\"transclude_item_id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}],\"position\":\"Last\",\"edited\":\"\",\"label\":\"MoveSelection\"}}"
     },
     {
       "id": "SelectionKey-2",
@@ -748,7 +752,7 @@
     },
     {
       "id": "GoToPage-2",
-      "json": "{\"GoToPage\":{\"path\":\"😀👍🏽\",\"open_in\":\"NewView\"}}"
+      "json": "{\"GoToPage\":{\"path\":\"é\",\"open_in\":\"NewView\"}}"
     },
     {
       "id": "JournalNav-2",
@@ -764,7 +768,7 @@
     },
     {
       "id": "IndexSortsRestored-2",
-      "json": "{\"IndexSortsRestored\":{\"\":{\"key\":\"Published\",\"order\":\"Asc\"}}}"
+      "json": "{\"IndexSortsRestored\":{\"\\\"quoted\\\" \\\\ back\\nline\\ttab\":{\"key\":\"Published\",\"order\":\"Asc\"}}}"
     },
     {
       "id": "SetWeekNumbering-2",
@@ -772,19 +776,19 @@
     },
     {
       "id": "LinkClicked-2",
-      "json": "{\"LinkClicked\":{\"link\":{\"Web\":{\"url\":\"\"}},\"held\":{\"shift\":false,\"ctrl\":true,\"cmd\":false}}}"
+      "json": "{\"LinkClicked\":{\"link\":{\"Web\":{\"url\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}},\"held\":{\"shift\":false,\"ctrl\":true,\"cmd\":false}}}"
     },
     {
       "id": "Sse-2",
-      "json": "{\"Sse\":{\"Message\":\"é\"}}"
+      "json": "{\"Sse\":{\"Message\":\"日本語の文\"}}"
     },
     {
       "id": "EditRequested-3",
-      "json": "{\"EditRequested\":{\"item_id\":\"日本語の文\",\"place\":{\"AfterShownText\":\"é\"}}}"
+      "json": "{\"EditRequested\":{\"item_id\":\"\",\"place\":{\"AfterShownText\":\"日本語の文\"}}}"
     },
     {
       "id": "Moved-3",
-      "json": "{\"Moved\":{\"moved\":[{\"id\":\"😀👍🏽\",\"page_id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"dir_path\":\"\",\"name\":\"日本語の文\",\"item_type\":\"é\",\"created_date\":9223372036854775807,\"modified_date\":-9223372036854775808,\"idx\":\"😀👍🏽\",\"level\":-2147483648,\"body\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"collapsed\":true,\"types\":[\"\"],\"properties\":{\"日本語の文\":{\"Text\":\"é\"}},\"transclude_item_id\":\"😀👍🏽\"}],\"position\":{\"After\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"},\"edited\":\"\",\"label\":\"Outdent\"}}"
+      "json": "{\"Moved\":{\"moved\":[{\"id\":\"é\",\"page_id\":\"😀👍🏽\",\"dir_path\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"name\":\"\",\"item_type\":\"日本語の文\",\"created_date\":9223372036854775807,\"modified_date\":-9223372036854775808,\"idx\":\"é\",\"level\":-2147483648,\"body\":\"😀👍🏽\",\"collapsed\":true,\"types\":[\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"],\"properties\":{\"\":{\"Text\":\"日本語の文\"}},\"transclude_item_id\":\"é\"}],\"position\":{\"After\":\"😀👍🏽\"},\"edited\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"label\":\"Outdent\"}}"
     },
     {
       "id": "SelectionKey-3",
@@ -792,7 +796,7 @@
     },
     {
       "id": "GoToPage-3",
-      "json": "{\"GoToPage\":{\"path\":\"\",\"open_in\":\"Browser\"}}"
+      "json": "{\"GoToPage\":{\"path\":\"日本語の文\",\"open_in\":\"Browser\"}}"
     },
     {
       "id": "CalendarNav-3",
@@ -804,7 +808,7 @@
     },
     {
       "id": "LinkClicked-3",
-      "json": "{\"LinkClicked\":{\"link\":{\"File\":{\"path\":\"é\"}},\"held\":{\"shift\":true,\"ctrl\":false,\"cmd\":true}}}"
+      "json": "{\"LinkClicked\":{\"link\":{\"File\":{\"path\":\"😀👍🏽\"}},\"held\":{\"shift\":true,\"ctrl\":false,\"cmd\":true}}}"
     },
     {
       "id": "Sse-3",
@@ -812,7 +816,7 @@
     },
     {
       "id": "EditRequested-4",
-      "json": "{\"EditRequested\":{\"item_id\":\"\",\"place\":\"Unplaced\"}}"
+      "json": "{\"EditRequested\":{\"item_id\":\"日本語の文\",\"place\":\"Unplaced\"}}"
     },
     {
       "id": "SelectionKey-4",
