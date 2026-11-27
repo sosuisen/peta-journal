@@ -1,7 +1,7 @@
 //! The view model as a shell keeps it from the changes of the core (ADR 076), for the tests to
 //! hold against the view model of the core.
 
-use crate::{Changes, ListChange, Panel};
+use crate::{Changes, Panel, RowChange};
 use client_core::{RichText, ViewModel};
 
 /// `view` after the changes, applied as a shell applies them. Each panel that came takes the
@@ -39,16 +39,16 @@ pub(super) fn applied(mut view: ViewModel<RichText>, changes: Changes) -> ViewMo
     for change in changes.rows {
         let rows = &mut view.outline.rows;
         match change {
-            ListChange::Insert { at, item } => rows.insert(at as usize, item),
-            ListChange::Remove { at } => {
+            RowChange::Insert { at, item } => rows.insert(at as usize, item),
+            RowChange::Remove { at } => {
                 rows.remove(at as usize);
             }
-            ListChange::Move { from, to } => {
+            RowChange::Move { from, to } => {
                 let row = rows.remove(from as usize);
                 rows.insert(to as usize, row);
             }
-            ListChange::Update { at, item } => rows[at as usize] = item,
-            ListChange::Reset { items } => *rows = items,
+            RowChange::Update { at, item } => rows[at as usize] = item,
+            RowChange::Reset { items } => *rows = items,
         }
     }
     view

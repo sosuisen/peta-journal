@@ -93,7 +93,7 @@ public sealed partial class Shell : IDisposable
     /// The rows of the outline changed: the changes, applied in order to the rows as they were,
     /// make them the rows of <see cref="View"/> now. It comes before <see cref="ViewChanged"/>.
     /// </summary>
-    public event Action<IReadOnlyList<ListChange>>? RowsChanged;
+    public event Action<IReadOnlyList<RowChange>>? RowsChanged;
     public event Action? TitleChanged;
     public event Action? UrlChanged;
     public event Action? QuestionChanged;

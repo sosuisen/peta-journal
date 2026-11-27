@@ -559,7 +559,7 @@ internal sealed class StickyWindow : Window
     /// the editor with the cursor is not made again at every key, and only a changed row is
     /// drawn again (ADR 076).
     /// </summary>
-    private void Apply(IReadOnlyList<ListChange> changes)
+    private void Apply(IReadOnlyList<RowChange> changes)
     {
         if (closed)
             return;

@@ -1,8 +1,8 @@
 import { expect, test } from 'vitest';
 import examples from '@common-tests/list-changes.json?raw';
-import { fromJsonListChange, Row } from './border/peta-types';
+import { fromJsonRowChange, Row } from './border/peta-types';
 import * as json from './border/serde/json';
-import { rowsAfter } from './screen';
+import { listAfter } from './screen';
 
 /** An example of the core: the rows before, their changes and the rows after, as JSON. */
 type Example = {
@@ -24,10 +24,10 @@ test('the shell applies every example of the core to the rows as the core does',
 
   for (const example of rowExamples()) {
     const before = example.before.map(row => Row.fromJson(row));
-    const changes = example.changes.map(change => fromJsonListChange(change));
+    const changes = example.changes.map(change => fromJsonRowChange(change));
     const after = example.after.map(row => Row.fromJson(row));
 
-    expect(rowsAfter(before, changes), example.id).toEqual(after);
+    expect(listAfter(before, changes), example.id).toEqual(after);
     ran.push(example.id);
   }
 

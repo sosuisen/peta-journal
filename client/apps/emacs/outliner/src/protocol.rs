@@ -2,7 +2,6 @@
 
 use crate::emacs_text::EmacsText;
 use client_core::app::SelectionKey as CoreSelectionKey;
-use client_core::changes::ListChange;
 use client_core::rich_text::RichLink;
 use client_core::view::{
     BacklinkGroup, HeadingsView, IndexPagesView, PageProperty, RecentPagesView, Row,
@@ -270,7 +269,7 @@ pub enum Outbound {
     Rows {
         ack: u64,
         page_id: Option<String>,
-        changes: Vec<ListChange<RowView>>,
+        changes: Vec<RowChange>,
     },
     /// Puts the point in an item. Without a cursor, a point already in the item stays.
     Focus {
@@ -389,6 +388,14 @@ impl SearchKind {
         }
     }
 }
+
+client_core::list_change!(
+    /// One change to the rows of the outline, as Emacs applies it to the buffer.
+    #[derive(Debug, Clone, PartialEq, Facet)]
+    #[repr(C)]
+    RowChange,
+    RowView
+);
 
 /// One row of the outline, as Emacs draws it.
 #[derive(Debug, Clone, PartialEq, Facet)]
