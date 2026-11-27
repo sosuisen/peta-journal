@@ -5,7 +5,7 @@
 
 extension ViewModel {
     /// The view model of the first changes of a core. They hold every panel and a reset of the
-    /// rows and of the headings.
+    /// rows, the headings and the pages of the sidebar.
     public init(first changes: Changes) {
         let panels = changes.panels
         func the<T>(_ value: (Panel) -> T?) -> T {
@@ -21,11 +21,15 @@ extension ViewModel {
             atlasLinks: the { if case .atlasLinks(let it) = $0 { it } else { nil } },
             atlasLinkSuggestions: the { if case .atlasLinkSuggestions(let it) = $0 { it } else { nil } },
             outline: OutlineView(outline, rows: [Row]().applying(changes.rows)),
-            indexPages: the { if case .indexPages(let it) = $0 { it } else { nil } },
+            indexPages: IndexPagesView(
+                the { if case .indexPages(let it) = $0 { it } else { nil } },
+                pages: [SidebarPage]().after(changes.indexPages.map(\.change))),
             headings: HeadingsView(
                 headings: [Heading]().after(changes.headings.map(\.change)),
                 state: the { if case .headings(let it) = $0 { it } else { nil } }.state),
-            recentPages: the { if case .recentPages(let it) = $0 { it } else { nil } },
+            recentPages: RecentPagesView(
+                pages: [SidebarPage]().after(changes.recentPages.map(\.change)),
+                state: the { if case .recentPages(let it) = $0 { it } else { nil } }.state),
             search: the { if case .search(let it) = $0 { it } else { nil } },
             config: the { if case .config(let it) = $0 { it } else { nil } },
             connection: the { if case .connection(let it) = $0 { it } else { nil } },
@@ -36,11 +40,15 @@ extension ViewModel {
     }
 
     /// Applies the changes: each panel that came takes the place of its part, and the changes
-    /// to the rows and to the headings are applied in order.
+    /// to the rows, the headings and the pages are applied in order.
     public mutating func apply(_ changes: Changes) {
         for panel in changes.panels { apply(panel) }
         if !changes.rows.isEmpty { outline.rows = outline.rows.applying(changes.rows) }
         if !changes.headings.isEmpty { headings.headings = headings.headings.after(changes.headings.map(\.change)) }
+        if !changes.indexPages.isEmpty { indexPages.pages = indexPages.pages.after(changes.indexPages.map(\.change)) }
+        if !changes.recentPages.isEmpty {
+            recentPages.pages = recentPages.pages.after(changes.recentPages.map(\.change))
+        }
     }
 
     private mutating func apply(_ panel: Panel) {
@@ -51,9 +59,9 @@ extension ViewModel {
         case .atlasLinks(let value): atlasLinks = value
         case .atlasLinkSuggestions(let value): atlasLinkSuggestions = value
         case .outline(let value): outline = OutlineView(value, rows: outline.rows)
-        case .indexPages(let value): indexPages = value
+        case .indexPages(let value): indexPages = IndexPagesView(value, pages: indexPages.pages)
         case .headings(let value): headings.state = value.state
-        case .recentPages(let value): recentPages = value
+        case .recentPages(let value): recentPages.state = value.state
         case .search(let value): search = value
         case .config(let value): config = value
         case .connection(let value): connection = value
@@ -122,6 +130,26 @@ extension HeadingChange {
         case .update(let at, let item): .update(at: Int(at), item: item)
         case .reset(let items): .reset(items: items)
         }
+    }
+}
+
+extension PageChange {
+    fileprivate var change: Change<SidebarPage> {
+        switch self {
+        case .insert(let at, let item): .insert(at: Int(at), item: item)
+        case .remove(let at): .remove(at: Int(at))
+        case .move(let from, let to): .move(from: Int(from), to: Int(to))
+        case .update(let at, let item): .update(at: Int(at), item: item)
+        case .reset(let items): .reset(items: items)
+        }
+    }
+}
+
+extension IndexPagesView {
+    fileprivate init(_ panel: IndexPagesPanel, pages: [SidebarPage]) {
+        self.init(
+            header: panel.header, path: panel.path, sort: panel.sort, parentPath: panel.parentPath, pages: pages,
+            currentPageId: panel.currentPageId, state: panel.state)
     }
 }
 
