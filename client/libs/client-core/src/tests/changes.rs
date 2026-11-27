@@ -2,8 +2,8 @@
 //! model (ADR 078).
 
 use crate::changes::{
-    Changes, HeadingChange, HeadingsPanel, ListChange, OutlinePanel, PageChange, Panel, RowChange,
-    Shown,
+    Changes, HeadingChange, HeadingsPanel, IndexPagesPanel, ListChange, OutlinePanel, PageChange,
+    Panel, RowChange, Shown,
 };
 use crate::harness::Harness;
 use crate::model::Page;
@@ -31,6 +31,7 @@ fn nothing_changed_gives_empty_changes() {
         Changes {
             rows: vec![],
             headings: vec![],
+            index_pages: vec![],
             panels: vec![]
         }
     );
@@ -53,15 +54,16 @@ fn only_the_panels_that_changed_are_in_the_changes() {
     );
 }
 
-// 最初の差分は、行と見出しの入れ替えと、全部のパネルである。
+// 最初の差分は、行と見出しとページの一覧の入れ替えと、全部のパネルである。
 #[test]
-fn the_first_changes_are_a_reset_of_the_rows_and_the_headings_and_every_panel() {
+fn the_first_changes_are_a_reset_of_every_list_and_every_panel() {
     let view = first_view();
     let mut shown = Shown::default();
 
     let changes = shown.changes(view.clone());
 
     let outline = &view.outline;
+    let index = &view.index_pages;
     assert_eq!(
         changes,
         Changes {
@@ -70,6 +72,9 @@ fn the_first_changes_are_a_reset_of_the_rows_and_the_headings_and_every_panel() 
             }],
             headings: vec![HeadingChange::Reset {
                 items: view.headings.headings.clone()
+            }],
+            index_pages: vec![PageChange::Reset {
+                items: index.pages.clone()
             }],
             panels: vec![
                 Panel::Screen(view.screen.clone()),
@@ -86,7 +91,14 @@ fn the_first_changes_are_a_reset_of_the_rows_and_the_headings_and_every_panel() 
                     wiki: outline.wiki.clone(),
                     scrolled_from_top: outline.scrolled_from_top,
                 }),
-                Panel::IndexPages(view.index_pages.clone()),
+                Panel::IndexPages(IndexPagesPanel {
+                    header: index.header.clone(),
+                    path: index.path.clone(),
+                    sort: index.sort,
+                    parent_path: index.parent_path.clone(),
+                    current_page_id: index.current_page_id.clone(),
+                    state: index.state,
+                }),
                 Panel::Headings(HeadingsPanel {
                     state: view.headings.state
                 }),
