@@ -881,14 +881,37 @@ fn a_file_without_item_dates_counts_by_the_date_of_the_page() {
     assert_eq!(modified_of(&written, &y), date_of_y);
 }
 
-// ページのファイルの項目には更新日が書かれ、アトラスのファイルには書かれない。
+// ページのファイルの項目には、更新日が書かれる。アトラスのファイルの項目にも、同じく書かれる。
 #[test]
-fn the_file_of_a_page_dates_its_items_and_the_file_of_an_atlas_does_not() {
+fn the_file_of_a_page_dates_its_items_and_so_does_the_file_of_an_atlas() {
     let dir = tempfile::tempdir().unwrap();
     let (a, _b, _, x, _) = two_devices_with_items(dir.path());
+    let card = a.add(&a.atlas_id(), "[[d/a]]");
 
     assert!(modified_of(&a.file(PAGE), &x).is_some());
-    assert!(!a.file(ATLAS).contains(" modified=\""));
+    assert!(modified_of(&a.file(ATLAS), &card).is_some());
+}
+
+// アトラスのページも、ほかのページと同じく項目ごとに取り込まれる。2台で別々のカードを変えると、両方の変更が残り、バックアップは作られない。
+#[test]
+fn an_atlas_is_taken_in_item_by_item_as_any_page_is() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let atlas = a.atlas_id();
+    let x = a.add(&atlas, "[[d/x]]");
+    let y = a.add(&atlas, "[[d/y]]");
+    b.receive(&a, ATLAS);
+    time_passes(&[&a, &b]);
+
+    a.write(&x, "[[d/x-from-a]]");
+    b.write(&y, "[[d/y-from-b]]");
+    assert_eq!(b.receive(&a, ATLAS), Outcome::Imported);
+    assert_eq!(a.receive(&b, ATLAS), Outcome::Imported);
+
+    assert_eq!(a.bodies(&atlas), ["[[d/x-from-a]]", "[[d/y-from-b]]"]);
+    assert_eq!(b.bodies(&atlas), ["[[d/x-from-a]]", "[[d/y-from-b]]"]);
+    assert_eq!(a.file(ATLAS), b.file(ATLAS));
+    assert!(a.conflicts().is_empty() && b.conflicts().is_empty());
 }
 
 const COPY: &str = "docs/d/a (PC's conflicted copy 2026-11-05).md";
@@ -1110,18 +1133,27 @@ fn a_copy_of_a_page_without_a_file_here_waits() {
     assert!(a.page_in("d/", "n").is_none());
 }
 
-// アトラスのコピーは合流せず、消さない。
+// アトラスのコピーも、ほかのページのコピーと同じく合流し、消える。コピーの新しい編集は入り、ここの新しい編集も残る。
 #[test]
-fn a_copy_of_an_atlas_is_left_alone() {
+fn a_copy_of_an_atlas_is_taken_in_as_the_copy_of_any_page_is() {
     let dir = tempfile::tempdir().unwrap();
-    let (a, _b, _, _, _) = two_devices_with_items(dir.path());
-    let file = a.file(ATLAS);
+    let (a, b) = two_devices(dir.path());
+    let atlas = a.atlas_id();
+    let x = a.add(&atlas, "[[d/x]]");
+    let y = a.add(&atlas, "[[d/y]]");
+    b.receive(&a, ATLAS);
+    time_passes(&[&a, &b]);
+    b.write(&y, "[[d/y-from-b]]");
+    let copy = b.file(ATLAS);
+    a.write(&x, "[[d/x-from-a]]");
     let name = ATLAS.replace(".md", " (PC's conflicted copy 2026-11-05).md");
-    std::fs::write(a.root.join(&name), file).unwrap();
+    std::fs::write(a.root.join(&name), copy).unwrap();
 
-    assert_eq!(a.sync(&name), Outcome::Ignored);
+    assert_eq!(a.sync(&name), Outcome::Imported);
 
-    assert!(a.root.join(&name).exists());
+    assert_eq!(a.bodies(&atlas), ["[[d/x-from-a]]", "[[d/y-from-b]]"]);
+    assert!(!a.root.join(&name).exists());
+    assert!(a.conflicts().is_empty());
 }
 
 // フォルダのスキャンは、届いていたコピーを合流する。

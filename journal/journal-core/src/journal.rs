@@ -10,7 +10,6 @@
 //! handlers of the journal server.
 
 mod assets;
-mod atlas;
 mod config;
 mod items;
 mod journals;
@@ -18,7 +17,6 @@ mod pages;
 mod search;
 
 pub use assets::{SavedAsset, ASSET_LIMIT_BYTES};
-pub use atlas::{AtlasCalloutInput, AtlasGroupInput, AtlasLinkInput, AtlasTitleInput};
 pub use config::{
     AddPropertyDefinitionInput, ConfigAnswer, FolderWatch, PropertyDefinitionDto,
     PropertyDefinitionsAnswer, UpdateConfigInput,

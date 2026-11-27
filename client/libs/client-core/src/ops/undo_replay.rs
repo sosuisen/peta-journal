@@ -313,6 +313,8 @@ impl Batch {
             level: Some(target.level),
             collapsed: Some(target.collapsed),
             task: own_task.then(|| target.task_state()),
+            properties: Default::default(),
+            dropped_properties: Vec::new(),
         });
         // An entry that kept the body and the task state also keeps its parse
         if before.body != after.body || own_task {
@@ -325,6 +327,8 @@ impl Batch {
                 level: None,
                 collapsed: None,
                 task: Some(target.task_state()),
+                properties: Default::default(),
+                dropped_properties: Vec::new(),
             });
             self.reparsed.push(task_target);
         }
@@ -351,6 +355,8 @@ impl Batch {
                 level: None,
                 collapsed: item.collapsed.then_some(true),
                 task: has_task.then_some(task),
+                properties: Default::default(),
+                dropped_properties: Vec::new(),
             });
         }
         self.recreated.push(item.id.clone());

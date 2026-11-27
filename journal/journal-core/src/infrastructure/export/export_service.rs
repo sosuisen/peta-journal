@@ -315,8 +315,7 @@ impl MarkdownExportService {
             &scalar_props,
             &list_props,
             &|body| page_link_converter::to_markdown_links(body, &rel_path),
-            // An atlas is written from its pages on each device, and goes by the page date
-            &|item| (!page.is_atlas()).then(|| format_instant(item.modified_date)),
+            &|item| Some(format_instant(item.modified_date)),
         ));
         Ok(sb)
     }

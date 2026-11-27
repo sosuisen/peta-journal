@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use client_api_embedded::{EmbeddedJournal, EventQueue};
-use client_core::effects::{ApiOp, ApiOutput, ApiResult, AtlasChange, SseEvent};
+use client_core::effects::{ApiOp, ApiOutput, ApiResult, SseEvent};
 use client_core::model::{
     BacklinkEntry, BatchOpInput, Batched, DocPage, Item, ItemPosition, JournalBefore, Page,
     PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split, Stashed,
@@ -459,6 +459,8 @@ fn an_item_takes_a_task_state_a_paste_a_stash_and_a_batch() {
                 level: None,
                 collapsed: None,
                 task: None,
+                properties: Default::default(),
+                dropped_properties: Vec::new(),
             }],
         }),
         Batched
@@ -631,117 +633,182 @@ fn a_page_is_found_by_a_word_of_an_item_and_by_its_name() {
 
 // ---- atlas ----
 
-/// A directory with the pages `a` and `b`, and its atlas page.
-fn atlas(f: &Fixture) -> (String, String) {
-    let a = f.doc("a", "map/").page.id;
-    f.doc("b", "map/");
-    (f.doc("index_atlas", "map/").page.id, a)
+fn batch(f: &Fixture, ops: Vec<BatchOpInput>) -> Batched {
+    *expect!(f.call(ApiOp::ApplyBatch { ops }), Batched)
 }
 
-fn change(f: &Fixture, atlas_id: &str, change: AtlasChange) -> Vec<Item> {
-    expect!(
-        f.call(ApiOp::ChangeAtlas {
-            atlas_id: atlas_id.into(),
-            change,
-        }),
-        Items
+/// The operation that makes an item of level 1 at the end of a page
+fn made(id: &str, page_id: &str, body: &str, props: &[(&str, &str)]) -> BatchOpInput {
+    BatchOpInput::Create {
+        id: id.into(),
+        page_id: page_id.into(),
+        position: ItemPosition::Last,
+        level: 1,
+        body: body.into(),
+        transclude_item_id: None,
+        properties: props
+            .iter()
+            .map(|(key, value)| ((*key).into(), (*value).into()))
+            .collect(),
+    }
+}
+
+fn leveled(id: &str, level: i32) -> BatchOpInput {
+    BatchOpInput::Update {
+        id: id.into(),
+        body: None,
+        level: Some(level),
+        collapsed: None,
+        task: None,
+        properties: Default::default(),
+        dropped_properties: Vec::new(),
+    }
+}
+
+fn moved(ids: &[&String], page_id: &str, after: &str) -> BatchOpInput {
+    BatchOpInput::Move {
+        ids: ids.iter().map(|id| id.to_string()).collect(),
+        page_id: page_id.into(),
+        position: ItemPosition::after(after),
+    }
+}
+
+// アトラスの編集は、ふつうの項目の操作をまとめた1回の送信として通る。カードは位置とともに作られ、新しい項目の下にまとめられ、その外へ出され、消される。
+#[test]
+fn the_edits_of_an_atlas_go_through_as_batches_of_item_operations() {
+    let f = Fixture::new();
+    let atlas_id = f.doc("index_atlas", "map/").page.id;
+    let ids = client_core::app::Model::default();
+    let [one, two, group] = [0, 1, 2].map(|_| ids.new_item_id(1_634_115_600_000));
+    // The items of the atlas that this test made, each as `level:body`
+    let made_here = |f: &Fixture| {
+        let page = expect!(
+            f.call(ApiOp::GetPageById {
+                page_id: atlas_id.clone()
+            }),
+            Page
+        );
+        let mine: Vec<Item> = page
+            .items
+            .into_iter()
+            .filter(|item| [&one, &two, &group].contains(&&item.id))
+            .collect();
+        outline(&mine)
+    };
+
+    // A card dropped on the canvas: an item that links to a page, with its place
+    let card = made(
+        &one,
+        &atlas_id,
+        "[[map/a]]",
+        &[("atlas_bounds", "1,2,0,40")],
+    );
+    let placed = batch(&f, vec![card]);
+    assert_eq!(
+        placed.items[0].properties.get("atlas_bounds"),
+        Some(&"1,2,0,40".into())
+    );
+    batch(&f, vec![made(&two, &atlas_id, "[[far/zz]]", &[])]);
+
+    // A card dropped on another: both go under a new item, in one batch
+    let new_group = BatchOpInput::Create {
+        id: group.clone(),
+        page_id: atlas_id.clone(),
+        position: ItemPosition::after(&one),
+        level: 1,
+        body: String::new(),
+        transclude_item_id: None,
+        properties: Default::default(),
+    };
+    batch(
+        &f,
+        vec![
+            new_group,
+            leveled(&one, 2),
+            leveled(&two, 2),
+            moved(&[&one, &two], &atlas_id, &group),
+        ],
+    );
+    assert_eq!(made_here(&f), ["1:", "2:[[map/a]]", "2:[[far/zz]]"]);
+
+    // A card dragged out of its group: it goes behind the group, at the level of the group
+    batch(&f, vec![leveled(&two, 1), moved(&[&two], &atlas_id, &one)]);
+    assert_eq!(made_here(&f), ["1:", "2:[[map/a]]", "1:[[far/zz]]"]);
+
+    batch(&f, vec![BatchOpInput::Delete { id: two.clone() }]);
+    assert_eq!(made_here(&f), ["1:", "2:[[map/a]]"]);
+}
+
+// グループのタイトルと辺は、1回の送信で書かれる。辺は、最後のカードを消すのと同じ送信で、ほかのプロパティを残して消される。
+#[test]
+fn the_title_and_the_side_of_a_group_are_written_and_the_side_dropped_in_one_batch_each() {
+    let f = Fixture::new();
+    let atlas_id = f.doc("index_atlas", "map/").page.id;
+    let ids = client_core::app::Model::default();
+    let [group, card] = [0, 1].map(|_| ids.new_item_id(1_634_115_600_000));
+    let update = |body: Option<&str>, side: Option<&str>, dropped: &[&str]| BatchOpInput::Update {
+        id: group.clone(),
+        body: body.map(str::to_string),
+        level: None,
+        collapsed: None,
+        task: None,
+        properties: side
+            .map(|side| ("atlas_side".to_string(), side.into()))
+            .into_iter()
+            .collect(),
+        dropped_properties: dropped.iter().map(|key| key.to_string()).collect(),
+    };
+    batch(
+        &f,
+        vec![
+            made(&group, &atlas_id, "", &[("atlas_bounds", "1,2,0,40")]),
+            made(&card, &atlas_id, "[[map/a]]", &[]),
+            leveled(&card, 2),
+        ],
+    );
+
+    let titled = batch(&f, vec![update(Some("Tools"), Some("left"), &[])])
+        .items
+        .remove(0);
+    assert_eq!(titled.body, "Tools");
+    assert_eq!(titled.properties.get("atlas_side"), Some(&"left".into()));
+
+    let emptied = batch(
+        &f,
+        vec![
+            BatchOpInput::Delete { id: card.clone() },
+            update(None, None, &["atlas_side"]),
+        ],
     )
+    .items
+    .remove(0);
+    assert_eq!(emptied.properties.get("atlas_side"), None);
+    assert_eq!(
+        emptied.properties.get("atlas_bounds"),
+        Some(&"1,2,0,40".into())
+    );
 }
 
-// アトラスのリンクカードは、足して、宛先を変えて、グループに入れて出して、消せる。
+// アトラスの吹き出しは、種類と位置と辺を持つ項目として、1回の送信で作られる。
 #[test]
-fn a_link_card_of_an_atlas_is_added_relinked_grouped_ungrouped_and_removed() {
+fn a_callout_of_an_atlas_is_made_as_an_item_with_its_type_place_and_side() {
     let f = Fixture::new();
-    let (atlas_id, a) = atlas(&f);
+    let atlas_id = f.doc("index_atlas", "map/").page.id;
+    let id = client_core::app::Model::default().new_item_id(1_634_115_600_000);
+    let props = [
+        ("atlas_type", "callout"),
+        ("atlas_bounds", "10,20,0,60"),
+        ("atlas_side", "left"),
+    ];
 
-    let items = change(
-        &f,
-        &atlas_id,
-        AtlasChange::AddLink {
-            target: "[[elsewhere/l]]".into(),
-            bounds: "1,2,0,40".into(),
-        },
-    );
-    let link = items
-        .iter()
-        .find(|i| i.body == "[[elsewhere/l]]")
-        .unwrap()
-        .id
-        .clone();
+    let callout = batch(&f, vec![made(&id, &atlas_id, "Hello", &props)])
+        .items
+        .remove(0);
 
-    let items = change(
-        &f,
-        &atlas_id,
-        AtlasChange::SetLink {
-            item_id: link.clone(),
-            target: "far/zz".into(),
-        },
-    );
-    assert!(items.iter().any(|i| i.body == "[[far/zz]]"), "{items:?}");
-
-    let items = change(
-        &f,
-        &atlas_id,
-        AtlasChange::Group {
-            cards: vec![link.clone()],
-            target: a,
-        },
-    );
-    assert_eq!(outline(&items[..3]), ["1:", "2:[[map/a]]", "2:[[far/zz]]"]);
-    let group = items[0].id.clone();
-
-    let items = change(
-        &f,
-        &atlas_id,
-        AtlasChange::SetGroupTitle {
-            item_id: group,
-            side: "left".into(),
-            title: "Tools".into(),
-        },
-    );
-    assert_eq!(items[0].body, "Tools");
-
-    let items = change(
-        &f,
-        &atlas_id,
-        AtlasChange::Ungroup {
-            cards: vec![link.clone()],
-        },
-    );
-    assert!(items.iter().all(|i| i.level == 1), "{items:?}");
-
-    let items = change(&f, &atlas_id, AtlasChange::Remove { item_id: link });
-    assert!(items.iter().all(|i| i.body != "[[far/zz]]"), "{items:?}");
-}
-
-// アトラスの吹き出しは、足して、書き換えられる。
-#[test]
-fn a_callout_of_an_atlas_is_added_and_rewritten() {
-    let f = Fixture::new();
-    let (atlas_id, _) = atlas(&f);
-
-    let items = change(
-        &f,
-        &atlas_id,
-        AtlasChange::AddCallout {
-            bounds: "10,20,0,60".into(),
-            side: "left".into(),
-            text: "Hello".into(),
-        },
-    );
-    let callout = items.last().unwrap().clone();
     assert_eq!(callout.body, "Hello");
-
-    let items = change(
-        &f,
-        &atlas_id,
-        AtlasChange::SetCallout {
-            item_id: callout.id,
-            side: "bottom".into(),
-            text: "Bye".into(),
-        },
-    );
-    assert_eq!(items.last().unwrap().body, "Bye");
+    for (key, value) in props {
+        assert_eq!(callout.properties.get(key), Some(&value.into()), "{key}");
+    }
 }
 
 // ---- settings ----

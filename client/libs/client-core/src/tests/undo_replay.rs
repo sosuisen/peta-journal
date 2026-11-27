@@ -18,6 +18,8 @@ fn update_op(id: &str, level: i32, body: &str) -> BatchOpInput {
         level: Some(level),
         collapsed: Some(false),
         task: None,
+        properties: Default::default(),
+        dropped_properties: Vec::new(),
     }
 }
 
@@ -285,6 +287,8 @@ fn undo_and_redo_of_a_task_cycle_send_the_task_state_to_the_server() {
             level: Some(1),
             collapsed: Some(false),
             task: Some(done_state()),
+            properties: Default::default(),
+            dropped_properties: Vec::new(),
         }]]
     );
 
@@ -549,6 +553,8 @@ fn undo_of_a_delete_puts_back_the_collapsed_state_and_the_task_state_in_the_same
                     end: None,
                     plan: None,
                 }),
+                properties: Default::default(),
+                dropped_properties: Vec::new(),
             },
         ]]
     );
@@ -578,6 +584,8 @@ fn undo_of_a_delete_puts_back_the_collapsed_state_of_an_item_that_is_no_task() {
                 level: None,
                 collapsed: Some(true),
                 task: None,
+                properties: Default::default(),
+                dropped_properties: Vec::new(),
             },
         ]]
     );

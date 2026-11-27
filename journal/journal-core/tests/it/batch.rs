@@ -191,6 +191,75 @@ fn a_batch_create_writes_the_properties_it_is_given() {
     assert_eq!(back["properties"]["owners_list"], json!(["ann", "bob"]));
 }
 
+// 更新の操作は、渡したプロパティを書き、名前を挙げたプロパティを消す。ほかのプロパティは変わらない。アトラスの1回の操作を、1回の送信にまとめるためである。
+#[test]
+fn a_batch_update_writes_and_drops_the_properties_it_names() {
+    let notes = Core::new();
+    notes.define_key("status");
+    notes.define_key("owners_list");
+    let page = notes.new_doc_page("items-batch-update-properties");
+    let rows = notes.fill(&page, &["a"]);
+    let item = id(&rows[0]);
+
+    notes.batched(json!([{
+        "op": "update", "id": item,
+        "properties": { "status": "open", "owners_list": ["ann", "bob"], "atlas_side": "left" },
+    }]));
+    notes.batched(json!([{
+        "op": "update", "id": item,
+        "properties": { "status": "done" },
+        "droppedProperties": ["atlas_side"],
+    }]));
+
+    let written = notes.item(&item)["properties"].clone();
+    assert_eq!(
+        written,
+        json!({ "status": "done", "owners_list": ["ann", "bob"] })
+    );
+}
+
+// プロパティだけを書く更新も、消すだけの更新も、項目の更新日時を進める。2台の間で、項目ごとの突き合わせがその変更を新しいと見るためである。
+#[test]
+fn a_batch_update_of_the_properties_alone_dates_the_item() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("items-batch-properties-date");
+    let rows = notes.fill(&page, &["a"]);
+    let item = id(&rows[0]);
+    let modified = || notes.item(&item)["modifiedDate"].as_i64().unwrap();
+    let made = modified();
+
+    notes.batched(json!([{
+        "op": "update", "id": item, "properties": { "atlas_side": "left" },
+    }]));
+    let written = modified();
+    notes.batched(json!([{
+        "op": "update", "id": item, "droppedProperties": ["atlas_side"],
+    }]));
+
+    assert!(made < written, "{made} {written}");
+    assert!(written < modified(), "{written} {}", modified());
+}
+
+// 更新の操作が、定義のないキーや、型に合わない値を渡すと、断られて何も書かれない。
+#[test]
+fn a_batch_update_with_a_property_that_does_not_fit_is_refused_and_writes_nothing() {
+    let notes = Core::new();
+    let page = notes.new_doc_page("items-batch-update-bad-properties");
+    let rows = notes.fill(&page, &["a"]);
+    let item = id(&rows[0]);
+
+    let no_definition = notes.batch(json!([{
+        "op": "update", "id": item, "body": "changed", "properties": { "no_such_key": "x" },
+    }]));
+    let not_bounds = notes.batch(json!([{
+        "op": "update", "id": item, "body": "changed", "properties": { "atlas_bounds": "x" },
+    }]));
+
+    assert!(is_bad_request(&no_definition), "{no_definition:?}");
+    assert!(is_bad_request(&not_bounds), "{not_bounds:?}");
+    assert_eq!(notes.item(&item)["body"], json!("a"));
+}
+
 // 作り直した項目は、もう「ここで消した項目」としては覚えられていない。Markdownの取り込みが、その項目を消されたものとして扱わないためである。
 #[test]
 fn an_item_made_again_is_no_longer_remembered_as_deleted() {
