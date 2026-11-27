@@ -227,6 +227,23 @@ mod tests {
         );
     }
 
+    // ノーマルカードのblobは薄い黄色、ないページへのカードのblobは薄い灰色で、同じ名前のカードと同じ形である
+    #[test]
+    fn the_blob_of_a_plain_card_is_light_yellow_and_of_a_missing_page_light_gray() {
+        let plain = plain_blob_svg("x/Target", 100);
+        let missing = missing_blob_svg("x/Target", 100);
+        let shape = tag_blob_svg("x/Target", 100, false);
+        assert!(plain.contains(r##"fill="#FFF1A8""##), "{plain}");
+        assert!(missing.contains(r##"fill="#DDDDDD""##), "{missing}");
+        assert_eq!(
+            [
+                plain.replace("#FFF1A8", "#CFE3FF"),
+                missing.replace("#DDDDDD", "#CFE3FF")
+            ],
+            [shape.clone(), shape]
+        );
+    }
+
     // blobはSVGの端まで広がる
     #[test]
     fn a_blob_fills_its_svg_to_the_edges() {

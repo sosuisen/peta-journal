@@ -501,8 +501,14 @@ mod tests {
         );
 
         assert_eq!(
-            (&card.path, card.is_plain, card.is_link, &card.runs),
-            (&None, true, true, &runs)
+            (
+                &card.path,
+                card.is_plain,
+                card.is_link,
+                card.tone,
+                &card.runs
+            ),
+            (&None, true, true, Tone::Plain, &runs)
         );
         assert_eq!(card.blob, plain_blob_svg("see a", ICON_DRAW_SIZE));
     }
