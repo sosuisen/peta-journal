@@ -44,6 +44,28 @@ fn a_card_under_an_item_of_level_1_belongs_to_its_group() {
     );
 }
 
+// 親も`atlas_bounds`を持つ。カードは親からの相対の座標を持ち、カードのグループは親の座標を持つ。入れ子でも、どの段も1つ上の親からの相対である。
+#[test]
+fn a_card_is_counted_from_its_parent_and_its_groups_carry_the_places_of_the_parents() {
+    let h = atlas_of(
+        vec![child("one")],
+        vec![
+            atlas_item("outer", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            atlas_item("inner", 2, "", &[("atlas_bounds", "10,20,0,40")]),
+            card_item("one", 3, Some("1,2,0,40")),
+        ],
+    );
+
+    let card = h.view().atlas_cards.remove(0);
+    let places: Vec<_> = card
+        .groups
+        .iter()
+        .map(|g| (g.id.as_str(), g.x, g.y))
+        .collect();
+    assert_eq!(places, [("outer", 100.0, 200.0), ("inner", 10.0, 20.0)]);
+    assert_eq!(card.bounds.map(|b| (b.x, b.y)), Some((1.0, 2.0)));
+}
+
 // どのグループにもないカードの上にカードをドロップすると、1回の送信で、ドロップ先の場所に空の項目が作られ、両方のカードがその下のレベル2に移される。読み直したアウトラインが表示に反映される。
 #[test]
 fn cards_dropped_on_a_card_go_under_a_new_item_in_one_batch() {
