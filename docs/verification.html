@@ -113,8 +113,8 @@ D系統は、どのシェルも回さなければならない共通のテスト�
     <tr><td>S（静的）</td><td>S2</td><td><code>Event</code>のすべての種類が、シェルのソースに出てくる</td><td class="ok"><code>cargo test</code>で回る（<code>tests/repository.rs</code>）<span class="note">対象は、<code>rules/</code>にルールのある6つのシェルすべて</span></td></tr>
     <tr><td>S（静的）</td><td>S3</td><td>OSの部品の編集コマンド</td><td class="missing">試す前（#1051）</td></tr>
     <tr><td>S（静的）</td><td>S4</td><td>関数の分岐の数</td><td class="missing">試す前（#1053）</td></tr>
-    <tr><td>D（動的）</td><td>D1</td><td>差分を当てた結果が、どのシェルでもコアと同じ（<code>common/list-changes.json</code>）</td><td class="ok">回る（Web、iOS、macOS）<span class="note">Windowsは#1213、Androidは#1214、Emacsは#1215。例は<code>client-web-bridge</code>と<code>client-native-bridge</code>の<code>cargo test</code>が確かめる</span></td></tr>
-    <tr><td>D（動的）</td><td>D2</td><td>境界の値を読んで書き直すと、どのシェルでも元に戻る（<code>common/border-web.json</code>、<code>common/border-native.json</code>）。Emacsは、Rustが送るすべての種類の行を、Lispが誤りなく読む（<code>common/border-emacs.json</code>）</td><td class="ok">回る（Web、iOS、macOS、Emacs）<span class="note">Windowsは#1228、Androidは#1229。Webとネイティブの例は<code>Changes</code>と<code>Event</code>の型の記述から作り、中のすべての列挙型のすべての変種を持つ。それを<code>client-web-bridge</code>と<code>client-native-bridge</code>の<code>cargo test</code>が確かめる。Emacsの例は、<code>outliner-emacs</code>のRustが書き、その<code>cargo test</code>が確かめる。Lispが送る行（<code>Inbound</code>）は、手書きのキーで作るので対象にしない</span></td></tr>
+    <tr><td>D（動的）</td><td>D1</td><td>差分を当てた結果が、どのシェルでもコアと同じ（<code>common/list-changes.json</code>）</td><td class="ok">回る（6つのシェルすべて）<span class="note">Androidのテストは、CIでは回らない（#1205）。例は<code>client-web-bridge</code>と<code>client-native-bridge</code>の<code>cargo test</code>が確かめる。Emacsは、同じ例を<code>outliner-emacs</code>のRustが<code>rows</code>の行の形で書き（<code>emacs</code>の節）、その<code>cargo test</code>が確かめる。Lispがバッファに当てる</span></td></tr>
+    <tr><td>D（動的）</td><td>D2</td><td>境界の値を読んで書き直すと、どのシェルでも元に戻る（<code>common/border-web.json</code>、<code>common/border-native.json</code>）。Emacsは、Rustが送るすべての種類の行を、Lispが誤りなく読む（<code>common/border-emacs.json</code>）</td><td class="ok">回る（6つのシェルすべて）<span class="note">Androidのテストは、CIでは回らない（#1205）。Webとネイティブの例は<code>Changes</code>と<code>Event</code>の型の記述から作り、中のすべての列挙型のすべての変種を持つ。それを<code>client-web-bridge</code>と<code>client-native-bridge</code>の<code>cargo test</code>が確かめる。Emacsの例は、<code>outliner-emacs</code>のRustが書き、その<code>cargo test</code>が確かめる。Lispが送る行（<code>Inbound</code>）は、手書きのキーで作るので対象にしない</span></td></tr>
   </tbody>
 </table>
 
@@ -129,7 +129,7 @@ D系統は、どのシェルも回さなければならない共通のテスト�
   </thead>
   <tbody>
     <tr><td>1</td><td>各シェルに、共通のテストのファイルがあり、例のファイルを読んでいる</td><td>shell-checkの<code>cargo test</code>（<code>tests/repository.rs</code>）</td><td class="ok">回る</td></tr>
-    <tr><td>2</td><td>各シェルのテストが、例をすべて回した</td><td>各シェルのテスト</td><td class="ok">回る（D1とD2を入れたシェル）</td></tr>
+    <tr><td>2</td><td>各シェルのテストが、例をすべて回した</td><td>各シェルのテスト</td><td class="ok">回る（6つのシェルすべて）<span class="note"><code>outliner-android</code>のテストは、CIでは回らない（#1205）</span></td></tr>
     <tr><td>3</td><td>各シェルのジョブ（<code>scripts/checks.mjs</code>）が、共通のテストを含むテストの段を持つ</td><td><code>scripts/verification.test.mjs</code>（<code>guard</code>）</td><td class="ok">回る（<code>COMMON_TESTS_STEP</code>）<span class="note"><code>outliner-android</code>はジョブがなく、<code>pending</code>（#1205）</span></td></tr>
   </tbody>
 </table>

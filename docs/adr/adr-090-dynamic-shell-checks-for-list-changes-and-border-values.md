@@ -76,6 +76,34 @@ D系統のチェックは、ADR 089の共通のテストとして置く。
 
 各シェルは、自分の差分を当てる処理で、前の並びに差分を当て、あとの並びと同じかを確かめる。
 
+### EmacsのD1. Lispが、行の差分をバッファに当てる
+
+Emacsのシェルで行の差分を当てるのは、Lispである（#1215で決めた）。
+Rustの部分は、コアの`list_changes`で差分を作り、`rows`の行としてLispへ送るだけである。
+Lispは、差分を、自分の持つ行の並びと、バッファの両方に当てる（`peta-journal--apply-rows`）。
+
+EmacsのD1は、共通のテスト`list-changes`をそのまま使い、`list-changes.json`の`emacs`の節を読む。
+前の並び、差分、あとの並びは、コアの例（`row_examples`）のままである。
+形だけを、Emacsの境界に合わせる。
+Emacsに届く行は、`RowView`で、本文は`EmacsText`である（ADR 078）。
+`web`の節の行（`HtmlBody`）も、`native`の節の行（bincode）も、Lispは読めないからである。
+
+`emacs`の節を書くのは、`outliner-emacs`のRustである。
+D2と同じく、境界の型を持つのが、このクレートだからである。
+前の並び、差分、あとの並びは、それぞれ、Rustが実際に書く`rows`の行の文字列にする。
+前の並びとあとの並びは、`native`の節と同じく、`Reset`にする。
+節が古くなっていないかは、同じクレートの`cargo test`が確かめる。
+
+LispのテストはERTで回る。
+前の並びの行と、差分の行を、シェルのプロセスから届いたときと同じ入口（`peta-journal--read-output`）に渡す。
+そのうえで、次の3つを、あとの並びと比べる。
+
+- Lispが持つ行の並び（`peta-journal--rows`）。
+- バッファの行のidの並び。行頭の印の文字のプロパティから読む。
+- バッファの文字と、その見た目。あとの並びをその場で描いたものと比べる。
+
+最後に、回した例のidの一覧が、ファイルの一覧と同じかを確かめる。
+
 ### D2. 境界の値を読んで書き直すと、元に戻る
 
 コアは、境界の値の例を作る。
@@ -143,7 +171,7 @@ Lispの書く行が正しいかは、ERTの各コマンドのテスト（送っ�
 ### 置き場所
 
 - 例のファイルは、`client/tools/shell-check/common/`に置く。D1は`list-changes.json`、D2は`border-web.json`、`border-native.json`、`border-emacs.json`である。
-- 例を作るのは、コアの側のコマンドである。`client-web-bridge`と`client-native-bridge`の、境界の型を持つクレートで作る。`border-emacs.json`は、同じ理由で`outliner-emacs`のクレートで作る。
+- 例を作るのは、コアの側のコマンドである。`client-web-bridge`と`client-native-bridge`の、境界の型を持つクレートで作る。`border-emacs.json`と、`list-changes.json`の`emacs`の節は、同じ理由で`outliner-emacs`のクレートで作る。
 - 例が古くなっていないかを確かめるテストは、例を作るクレートの`cargo test`に置く。
 - `rules/core.toml`に、共通のテストとして`list-changes`、`border-web`、`border-native`、`border-emacs`を書く。
 - shell-checkは、Emacsのシェルに限り、Lispのテストのファイル（`.el`）を共通のテストとして受け付ける。
@@ -204,6 +232,8 @@ Lispが値を読み違えても、誤りにならず、違う表示になるだ�
 - 例のファイルが4つ、リポジトリに入る。コアや境界の型を変えるPRに、例の差分が混ざる。
 - Emacsの例は、値のない場合（`page_id`のない`rows`など）を持たない。見本は、浅いところでは、省ける値に必ず値を入れるからである。
 - Emacsの例の範囲は1から1までで、文字を含まない。見た目やリンクは、どの文字にも付かずに読まれる。
+- EmacsのD1は、バッファの文字を、Lispの描く処理（`peta-journal--row-string`）の結果と比べる。描く処理の誤りは見つからない。
+- EmacsのD1の例の行は、コアの例のとおり、日付の見出しも、タスクも、字下げも持たない。日付の見出しのある行は、バッファで2行になるが、その並びは例にない。
 
 ### 中立的な結果
 
