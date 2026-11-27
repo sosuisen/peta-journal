@@ -78,43 +78,42 @@ impl AtlasService {
         self.move_locked(atlas.clone())
     }
 
+    /// Moves the atlas while the lock is held
     fn move_locked(&self, atlas: Page) -> Result<(), AppError> {
-        {
-            let loaded = self.load(atlas)?;
-            let Some(migration) = atlas_migration::migration(&loaded.items, &loaded.props) else {
-                return Ok(());
-            };
-            self.back_up_file(&loaded.atlas);
-            let mut conn = self.items.db().conn()?;
-            let tx = conn.immediate()?;
-            let now = self.items.db().now_millis();
-            for (id, key) in &migration.dropped_props {
-                PropertyRepository::delete_property_in(&tx, ITEM_TARGET, id.as_str(), key)?;
-            }
-            let removed: Vec<String> = migration.removed.iter().map(Hmtid::to_string).collect();
-            for id in &migration.removed {
-                ItemRepository::delete_in(&tx, id)?;
-                ItemRepository::record_deleted_in(&tx, id, now)?;
-            }
-            PropertyRepository::delete_all_for_targets_in(&tx, ITEM_TARGET, &removed)?;
-            for (id, level) in &migration.levels {
-                let patch = ItemPatch::new(None, None, None, Some(*level), None, now)
-                    .map_err(AppError::bad_request)?;
-                ItemRepository::patch_in(&tx, id, &patch)?;
-            }
-            ItemRepository::recalculate_parent_ids_in(&tx, &loaded.atlas.id)?;
-            PageRepository::save_in(
-                &tx,
-                &Page {
-                    modified_date: now,
-                    ..loaded.atlas.clone()
-                },
-            )?;
-            tx.commit()?;
-            self.search.remove_items(&removed);
-            self.export.queue_export(&loaded.atlas.id);
-            self.events.atlas_changed(&loaded.atlas.id);
+        let loaded = self.load(atlas)?;
+        let Some(migration) = atlas_migration::migration(&loaded.items, &loaded.props) else {
+            return Ok(());
+        };
+        self.back_up_file(&loaded.atlas);
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let now = self.items.db().now_millis();
+        for (id, key) in &migration.dropped_props {
+            PropertyRepository::delete_property_in(&tx, ITEM_TARGET, id.as_str(), key)?;
         }
+        let removed: Vec<String> = migration.removed.iter().map(Hmtid::to_string).collect();
+        for id in &migration.removed {
+            ItemRepository::delete_in(&tx, id)?;
+            ItemRepository::record_deleted_in(&tx, id, now)?;
+        }
+        PropertyRepository::delete_all_for_targets_in(&tx, ITEM_TARGET, &removed)?;
+        for (id, level) in &migration.levels {
+            let patch = ItemPatch::new(None, None, None, Some(*level), None, now)
+                .map_err(AppError::bad_request)?;
+            ItemRepository::patch_in(&tx, id, &patch)?;
+        }
+        ItemRepository::recalculate_parent_ids_in(&tx, &loaded.atlas.id)?;
+        PageRepository::save_in(
+            &tx,
+            &Page {
+                modified_date: now,
+                ..loaded.atlas.clone()
+            },
+        )?;
+        tx.commit()?;
+        self.search.remove_items(&removed);
+        self.export.queue_export(&loaded.atlas.id);
+        self.events.atlas_changed(&loaded.atlas.id);
         Ok(())
     }
 
