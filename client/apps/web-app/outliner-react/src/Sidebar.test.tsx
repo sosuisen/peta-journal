@@ -91,7 +91,7 @@ function sidebar(changes: Changes = {}) {
       },
       { kind: 'RecentPages', value: Object.assign(recent, changes.recent) },
     ],
-    [{ kind: 'Reset', items: headings }],
+    { headings: [{ kind: 'Reset', items: headings }] },
   );
   return { ...ui, ...draw(ui, <Sidebar />) };
 }
@@ -149,6 +149,15 @@ describe('the index section', () => {
       { kind: 'GoToPage', path: '/pages/index', open_in: here },
       { kind: 'GoToPage', path: '/pages/plan', open_in: { kind: 'Browser' } },
     ]);
+  });
+
+  // 消えたページは、差分で届き、一覧からなくなる。
+  test('a page that went away comes as a change, and leaves the list', () => {
+    const { wasm } = sidebar();
+
+    act(() => wasm.push([], [], { index_pages: [{ kind: 'Remove', at: 0 }] }));
+
+    expect(names(section('work/'))).toEqual(['../', 'notes']);
   });
 
   // 上のフォルダがなければ、../は出ない。
@@ -294,11 +303,11 @@ describe('the contents section', () => {
     const { wasm, container } = sidebar();
 
     act(() =>
-      wasm.push(
-        [],
-        [],
-        [{ kind: 'Update', at: 1, item: new Heading('h2', 'Plans', 2) }],
-      ),
+      wasm.push([], [], {
+        headings: [
+          { kind: 'Update', at: 1, item: new Heading('h2', 'Plans', 2) },
+        ],
+      }),
     );
 
     expect(
