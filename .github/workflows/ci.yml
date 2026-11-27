@@ -349,9 +349,9 @@ jobs:
       - uses: actions/checkout@v7
       # Installs the version, components and targets in rust-toolchain.toml
       - run: rustup toolchain install
-      # The targets of the phone and the emulator are not in rust-toolchain.toml: every machine
-      # would download them
-      - run: rustup target add aarch64-linux-android x86_64-linux-android
+      # The target of the emulator is not in rust-toolchain.toml: every machine would download it.
+      # The CI builds the core only for the emulator (PETA_ANDROID_ABIS below), not for a phone
+      - run: rustup target add x86_64-linux-android
       # A pull request reads only its own caches and those of main. The cache of this job is about
       # 1GB: saved by a pull request, it serves that pull request alone, and fills the 10GB that the
       # caches of the repository share. Only main saves it (#1279)
@@ -391,7 +391,10 @@ jobs:
           # All the cores and a quarter of the memory of the runner: with the defaults, a test
           # near the end of the run waited more than 10 seconds for the core, and failed
           printf 'hw.cpu.ncore=4\nhw.ramSize=4096\n' >> "$ANDROID_AVD_HOME/peta-api37.avd/config.ini"
+      # x86_64: the kind of the emulator above. generate.sh builds each kind for minutes
       - run: node scripts/checks.mjs run outliner-android
+        env:
+          PETA_ANDROID_ABIS: x86_64
 
   memoview-win:
     name: client/apps/webview-app/memoview-win
