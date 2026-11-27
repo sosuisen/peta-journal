@@ -237,6 +237,34 @@ fn atlas_with_nested_parents(four: &str) -> Harness {
     )
 }
 
+// 親を変えたカードは、読み直したアウトラインの`atlas_bounds`で表示される。その値は、同じ送信で新しい親からの相対に書き直されたものである。親を変えていないカードは、表示されていた位置を保つ。
+#[test]
+fn a_card_that_changed_its_parent_shows_the_bounds_the_batch_wrote() {
+    let mut h = atlas_of(
+        vec![child("one"), child("three")],
+        vec![
+            parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            card_item("one", 2, Some("0,0,0,40")),
+            card_item("three", 1, Some("130,250,0,40")),
+        ],
+    );
+    // The outline as the server has it after the batch: the place of one is not saved yet
+    answer_outline(
+        &mut h,
+        vec![
+            parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            card_item("one", 2, Some("0,0,0,40")),
+            card_item("three", 2, Some("30,50,0,40")),
+        ],
+    );
+    place(&mut h, "a/b/one", 105.0, 205.0);
+    move_under(&mut h, &["a/b/three"], "g");
+
+    let place_of = |id: &str| bounds_of(&h, id).map(|b| (b.x, b.y));
+    assert_eq!(place_of("a/b/three"), Some((30.0, 50.0)));
+    assert_eq!(place_of("a/b/one"), Some((5.0, 5.0)));
+}
+
 // 親の下の親にも入る。カードは、その親のすぐ下のレベルになる。
 #[test]
 fn a_card_goes_under_a_parent_that_is_under_a_parent_at_the_level_below_it() {
