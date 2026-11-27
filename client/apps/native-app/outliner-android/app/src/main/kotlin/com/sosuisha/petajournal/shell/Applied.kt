@@ -1,6 +1,9 @@
 package com.sosuisha.petajournal.shell
 
 import com.sosuisha.petajournal.types.Changes
+import com.sosuisha.petajournal.types.Heading
+import com.sosuisha.petajournal.types.HeadingChange
+import com.sosuisha.petajournal.types.HeadingsView
 import com.sosuisha.petajournal.types.OutlinePanel
 import com.sosuisha.petajournal.types.OutlineView
 import com.sosuisha.petajournal.types.Panel
@@ -11,7 +14,10 @@ import com.sosuisha.petajournal.types.ViewModel
 // The view model that the changes of the core make (ADR 076). The core sends only what changed;
 // the shell keeps the whole of it for the screen to read.
 
-/** The view model of the first changes of a core. They hold every panel and a reset of the rows. */
+/**
+ * The view model of the first changes of a core. They hold every panel and a reset of the rows and
+ * of the headings.
+ */
 internal fun firstView(changes: Changes): ViewModel {
     val panels = changes.panels
     return ViewModel(
@@ -23,7 +29,11 @@ internal fun firstView(changes: Changes): ViewModel {
         outline =
             outlineOf(panels.the<Panel.Outline>().value, emptyList<Row>().applied(changes.rows)),
         indexPages = panels.the<Panel.IndexPages>().value,
-        headings = panels.the<Panel.Headings>().value,
+        headings =
+            HeadingsView(
+                headings = emptyList<Heading>().after(changes.headings.map { it.change }),
+                state = panels.the<Panel.Headings>().value.state,
+            ),
         recentPages = panels.the<Panel.RecentPages>().value,
         search = panels.the<Panel.Search>().value,
         config = panels.the<Panel.Config>().value,
@@ -39,8 +49,15 @@ internal fun firstView(changes: Changes): ViewModel {
 internal fun ViewModel.with(changes: Changes): ViewModel {
     var view = this
     for (panel in changes.panels) view = view.with(panel)
-    if (changes.rows.isEmpty()) return view
-    return view.copy(outline = view.outline.copy(rows = view.outline.rows.applied(changes.rows)))
+    if (changes.rows.isNotEmpty()) {
+        view =
+            view.copy(outline = view.outline.copy(rows = view.outline.rows.applied(changes.rows)))
+    }
+    if (changes.headings.isNotEmpty()) {
+        val headings = view.headings.headings.after(changes.headings.map { it.change })
+        view = view.copy(headings = view.headings.copy(headings = headings))
+    }
+    return view
 }
 
 /** The rows after the changes, applied one after another. */
@@ -91,6 +108,16 @@ private val RowChange.change: Change<Row>
             is RowChange.Reset -> Change.Reset(items)
         }
 
+private val HeadingChange.change: Change<Heading>
+    get() =
+        when (this) {
+            is HeadingChange.Insert -> Change.Insert(at.toInt(), item)
+            is HeadingChange.Remove -> Change.Remove(at.toInt())
+            is HeadingChange.Move -> Change.Move(from.toInt(), to.toInt())
+            is HeadingChange.Update -> Change.Update(at.toInt(), item)
+            is HeadingChange.Reset -> Change.Reset(items)
+        }
+
 private inline fun <reified P : Panel> List<Panel>.the(): P = filterIsInstance<P>().single()
 
 private fun outlineOf(panel: OutlinePanel, rows: List<Row>) =
@@ -114,7 +141,7 @@ private fun ViewModel.with(panel: Panel): ViewModel =
         is Panel.AtlasLinkSuggestions -> copy(atlasLinkSuggestions = panel.value)
         is Panel.Outline -> copy(outline = outlineOf(panel.value, outline.rows))
         is Panel.IndexPages -> copy(indexPages = panel.value)
-        is Panel.Headings -> copy(headings = panel.value)
+        is Panel.Headings -> copy(headings = headings.copy(state = panel.value.state))
         is Panel.RecentPages -> copy(recentPages = panel.value)
         is Panel.Search -> copy(search = panel.value)
         is Panel.Config -> copy(config = panel.value)

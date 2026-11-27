@@ -6,7 +6,7 @@ import com.sosuisha.petajournal.types.ConfigView
 import com.sosuisha.petajournal.types.ConnectionState
 import com.sosuisha.petajournal.types.Heading
 import com.sosuisha.petajournal.types.HeadingChange
-import com.sosuisha.petajournal.types.HeadingsView
+import com.sosuisha.petajournal.types.HeadingsPanel
 import com.sosuisha.petajournal.types.HistoryView
 import com.sosuisha.petajournal.types.IndexPagesView
 import com.sosuisha.petajournal.types.IndexSort
@@ -26,6 +26,9 @@ import com.sosuisha.petajournal.types.WeekNumbering
 import com.sosuisha.petajournal.types.WikiView
 import org.junit.Assert.assertEquals
 import org.junit.Test
+
+/** The changes of the rows and the panels, with no change of the headings. */
+private fun Changes(rows: List<RowChange>, panels: List<Panel>) = Changes(rows, emptyList(), panels)
 
 /**
  * The view model that the changes of the core make (ADR 076). That the core sends the changes that
@@ -105,7 +108,7 @@ class AppliedTest {
                     state = LoadState.LOADED,
                 ),
             ),
-            Panel.Headings(HeadingsView(headings = emptyList(), state = LoadState.FAILED)),
+            Panel.Headings(HeadingsPanel(state = LoadState.FAILED)),
             Panel.RecentPages(RecentPagesView(pages = emptyList(), state = LoadState.LOADING)),
             Panel.Search(search("first")),
             Panel.Config(
