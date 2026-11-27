@@ -177,6 +177,29 @@ describe('the replay of the held keys', () => {
     expect(wasm.answers).toEqual([{ id: 1, output: { kind: 'Done' } }]);
   });
 
+  // 再生したEnterでコアが預かり始めると、残りのキーはコアに預ける。Enterが作る項目のキーだからである。
+  test('the keys after a replayed Enter go to the core once it starts to hold keys', () => {
+    const { wasm } = shell();
+    const el = editorOf('a');
+    // The core splits the item at the Enter, and holds the keys until the new editor is focused
+    el.addEventListener('keydown', () =>
+      wasm.push(
+        [],
+        [{ kind: 'Outline', value: outline({ key_relay_holding: true }) }],
+      ),
+    );
+
+    wasm.ask(1, {
+      kind: 'FocusEditor',
+      item_id: 'a',
+      replay_keys: [held('Enter'), held('b')],
+    });
+    vi.runAllTimers();
+
+    expect(wasm.replays.map(r => r.key.key)).toEqual(['Enter']);
+    expect(wasm.events).toEqual([{ kind: 'KeyHeld', value: held('b') }]);
+  });
+
   // 再生したEnterでコアがまたキーを預かると、残りのキーはコアに預ける。新しい項目のキーだからである。
   test('the keys after a replayed Enter go to the core while it holds the keys again', () => {
     const { wasm } = shell();
