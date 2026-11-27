@@ -15,7 +15,7 @@ internal static class Applied
 
     /// <summary>
     /// The view model of the first changes of a core. They hold every panel and a reset of
-    /// the rows and of the headings. Throws when a panel is missing or comes twice: the two sides of the border are
+    /// the rows, the headings and the pages of the sidebar. Throws when a panel is missing or comes twice: the two sides of the border are
     /// then of two versions, and a part would stay empty.
     /// </summary>
     public static ViewModel First(Changes changes)
@@ -27,6 +27,8 @@ internal static class Applied
         {
             Outline = new OutlineView { Rows = [] },
             Headings = new HeadingsView { Headings = [] },
+            IndexPages = new IndexPagesView { Pages = [] },
+            RecentPages = new RecentPagesView { Pages = [] },
         };
         To(view, changes);
         return view;
@@ -45,6 +47,22 @@ internal static class Applied
             changes.Headings.Select(ListChanges.Of),
             heading => heading,
             (at, heading) => headings[at] = heading
+        );
+        Pages(view.IndexPages.Pages, changes.IndexPages);
+        Pages(view.RecentPages.Pages, changes.RecentPages);
+    }
+
+    /// <summary>Applies the changes of a list of pages of the sidebar to <paramref name="pages"/>.</summary>
+    private static void Pages(
+        System.Collections.ObjectModel.ObservableCollection<SidebarPage> pages,
+        IEnumerable<PageChange> changes
+    )
+    {
+        ListChanges.Apply(
+            pages,
+            changes.Select(ListChanges.Of),
+            page => page,
+            (at, page) => pages[at] = page
         );
     }
 
@@ -76,14 +94,19 @@ internal static class Applied
                 view.Outline.Wiki = outline.Wiki;
                 view.Outline.ScrolledFromTop = outline.ScrolledFromTop;
                 break;
-            case Panel.IndexPages indexPages:
-                view.IndexPages = indexPages.Value;
+            case Panel.IndexPages { Value: var index }:
+                view.IndexPages.Header = index.Header;
+                view.IndexPages.Path = index.Path;
+                view.IndexPages.Sort = index.Sort;
+                view.IndexPages.ParentPath = index.ParentPath;
+                view.IndexPages.CurrentPageId = index.CurrentPageId;
+                view.IndexPages.State = index.State;
                 break;
             case Panel.Headings headings:
                 view.Headings.State = headings.Value.State;
                 break;
             case Panel.RecentPages recentPages:
-                view.RecentPages = recentPages.Value;
+                view.RecentPages.State = recentPages.Value.State;
                 break;
             case Panel.Search search:
                 view.Search = search.Value;

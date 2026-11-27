@@ -94,6 +94,17 @@ public static class ListChanges
             HeadingChange.Reset reset => new Change<Heading>.Reset(reset.Items),
         };
 
+    /// <summary>A change of a list of pages of the sidebar, as <see cref="Change{TItem}"/>.</summary>
+    internal static Change<SidebarPage> Of(PageChange change) =>
+        change switch
+        {
+            PageChange.Insert insert => new Change<SidebarPage>.Insert((int)insert.At, insert.Item),
+            PageChange.Remove remove => new Change<SidebarPage>.Remove((int)remove.At),
+            PageChange.Move move => new Change<SidebarPage>.Move((int)move.From, (int)move.To),
+            PageChange.Update update => new Change<SidebarPage>.Update((int)update.At, update.Item),
+            PageChange.Reset reset => new Change<SidebarPage>.Reset(reset.Items),
+        };
+
     private static Change<Row> Of(RowChange change) =>
         change switch
         {

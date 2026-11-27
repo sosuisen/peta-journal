@@ -17,6 +17,8 @@ public sealed class AppliedTests
         {
             Rows = [.. rows],
             Headings = [],
+            IndexPages = [],
+            RecentPages = [],
             Panels = [.. panels],
         };
 
@@ -72,7 +74,7 @@ public sealed class AppliedTests
             new Panel.AtlasLinkSuggestions(["suggested"]),
             new Panel.Outline(Outline(selecting: true)),
             new Panel.IndexPages(
-                new IndexPagesView
+                new IndexPagesPanel
                 {
                     Header = "index",
                     CurrentPageId = "current",
@@ -80,7 +82,7 @@ public sealed class AppliedTests
                 }
             ),
             new Panel.Headings(new HeadingsPanel { State = LoadState.Failed }),
-            new Panel.RecentPages(new RecentPagesView { Pages = [], State = LoadState.Loading }),
+            new Panel.RecentPages(new RecentPagesPanel { State = LoadState.Loading }),
             new Panel.Search(Search("first")),
             new Panel.Config(new ConfigView { TagsDir = "tags" }),
             new Panel.Connection(ConnectionState.Connected),
@@ -154,6 +156,8 @@ public sealed class AppliedTests
             {
                 Rows = [],
                 Headings = [new HeadingChange.Reset([Heading("a", "One"), Heading("b", "Two")])],
+                IndexPages = [],
+                RecentPages = [],
                 Panels = [.. EveryPanel()],
             }
         );
@@ -164,6 +168,8 @@ public sealed class AppliedTests
             {
                 Rows = [],
                 Headings = [new HeadingChange.Update(1, Heading("b", "Three"))],
+                IndexPages = [],
+                RecentPages = [],
                 Panels = [],
             }
         );
