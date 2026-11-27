@@ -5,12 +5,19 @@
 //
 // The hand tool moves the view: a drag with the right button, or with the left one
 // between the cards and the groups. It moves the container of the cards and the cross, not
-// the cards. A drag with the left button on the area of a group moves all its cards. A right
+// the cards. A drag with the left button on the area of a group moves the group with all that
+// is in it.
+// The canvas is a tree of frames, as the outline of the atlas page is a tree of items (ADR 053).
+// A frame is a Container: the canvas has one, and each group has one inside the frame of the
+// group it is under, placed where the item of the group lies. The cards, the callouts and the
+// outline of a group lie in its frame, so each is placed from its group, as its `atlas_bounds`
+// are stored, and a group that moves takes them along. A right
 // click on a group opens its menu, whose dialog gives the group a title. A double click on
 // the group opens that dialog too. A right click between the cards and the groups adds a
 // callout there: a character with a speech bubble beside it. The same menu adds a link card,
 // a card for any page, which the core keeps as a wiki link in the atlas page.
-// A callout or a link card is selected, dragged and scaled as a card is, but joins no group.
+// A callout or a link card is selected, dragged and scaled as a card is. A callout is not put
+// into a group or taken out of one on the canvas.
 // A double click on a callout or a link card, or its menu, opens its dialog.
 // The menus and the dialog are made with @pixi/ui, the global `PIXI.ui` of pixi-ui.js beside this file.
 // A canvas that is not editable only shows the atlas, as a static site does: a drag with
@@ -161,11 +168,11 @@ window.AtlasCanvas = class AtlasCanvas {
         }
         host.appendChild(this.app.canvas);
         this.world = new PIXI.Container();
-        this.cards = new PIXI.Container();
-        // The outlines of the groups lie behind the cards, the callouts above them
-        this.groups = new PIXI.Container();
-        this.callouts = new PIXI.Container();
-        this.world.addChild(cross(), this.groups, this.cards, this.callouts);
+        // The frame of the canvas, which what is in no group lies in, and the frames of the
+        // groups by the ids of their items
+        this.root = frame(null);
+        this.frames = new Map();
+        this.world.addChild(cross(), this.root);
         // The menu and the dialog, in pixels of the screen above the scaled view
         this.overlay = new PIXI.Container();
         this.app.stage.addChild(this.world, this.overlay);
@@ -179,12 +186,11 @@ window.AtlasCanvas = class AtlasCanvas {
         return labelFontReady;
       })
       .then(() => {
-        if (this.destroyed || !this.cards) {
+        if (this.destroyed || !this.root) {
           return;
         }
         this.started = true;
         this.build();
-        this.buildCallouts();
         this.loadTitleFont();
       });
   }
@@ -342,7 +348,7 @@ window.AtlasCanvas = class AtlasCanvas {
   // there. Only the outlines of their groups are drawn again. The scales are saved once the
   // wheel rests, as each save gives a new list of cards.
   scaleSelected(factor) {
-    const views = this.cards.children.filter(v => this.selected.has(v.cardData.id));
+    const views = this.cardViews().filter(v => this.selected.has(v.cardData.id));
     for (const view of views) {
       const scale = Math.max(MIN_CARD_SCALE, view.scale.x * factor);
       view.scale.set(scale);
@@ -353,8 +359,9 @@ window.AtlasCanvas = class AtlasCanvas {
     for (const view of extras) {
       view.scale.set(Math.max(MIN_CARD_SCALE, view.scale.x * factor));
     }
-    // Not a drag: the outlines of the groups of these cards only, with no frame shown
-    this.drawGroups({ origins: views.map(v => ({ view: v, x: v.x, y: v.y })), moved: false });
+    // Not a drag: the outlines of the groups of these cards and callouts only, with no frame shown
+    const still = list => list.map(v => ({ view: v, x: v.x, y: v.y }));
+    this.drawGroups({ origins: still(views), extras: still(extras), moved: false });
     clearTimeout(this.scaleTimer);
     this.scaleTimer = setTimeout(() => {
       this.sharpenText();
@@ -384,7 +391,7 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   sharpenText() {
-    for (const view of this.cards.children) {
+    for (const view of this.cardViews()) {
       const resolution = this.textResolution(view.scale.x);
       // The label, or each part of a row of them
       for (const text of view.cardLabel.anchor ? [view.cardLabel] : view.cardLabel.children) {
@@ -400,7 +407,7 @@ window.AtlasCanvas = class AtlasCanvas {
       }
     }
     const resolution = this.textResolution();
-    for (const area of this.groups.children) {
+    for (const area of this.areas()) {
       for (const char of area.titleChars?.children ?? []) {
         if (char.resolution !== resolution) {
           char.resolution = resolution;
@@ -553,8 +560,7 @@ window.AtlasCanvas = class AtlasCanvas {
     PIXI.Assets.load({ src: this.titleFont.url, data: { family: this.titleFont.family } })
       .then(() => {
         if (!this.destroyed && !this.drag && !this.groupDrag) {
-          this.drawGroups();
-          this.buildCallouts();
+          this.build();
         }
       })
       .catch(e => console.warn('atlas: cannot load the font of the group titles', e));
@@ -806,18 +812,21 @@ window.AtlasCanvas = class AtlasCanvas {
     }, 0);
   }
 
-  // A group is dragged as its cards are, without Ctrl: it keeps its cards and joins no other
+  // A group is dragged by its frame, without Ctrl: all that is in it moves with it, and nothing
+  // in it is placed anew. It keeps its cards and joins no other group.
   startGroupDrag(e, area) {
-    const views = this.cards.children.filter(v => inGroup(v.cardData, area.label));
+    const node = this.frames.get(area.label);
     this.groupDrag = {
       group: area.label,
+      node,
       start: { x: e.global.x, y: e.global.y },
-      origins: views.map(v => ({ view: v, x: v.x, y: v.y })),
+      origin: { x: node.x, y: node.y },
+      // No card moves in its own frame
+      origins: [],
       moved: false,
     };
     // Nothing else takes the press or shows its cursor while the group moves
-    this.cards.interactiveChildren = false;
-    this.groups.interactiveChildren = false;
+    this.root.interactiveChildren = false;
   }
 
   moveGroupDrag(e) {
@@ -832,17 +841,16 @@ window.AtlasCanvas = class AtlasCanvas {
       this.showFrames(drag);
       this.app.stage.cursor = 'grabbing';
     }
-    for (const o of drag.origins) {
-      o.view.position.set(o.x + dx / this.zoom, o.y + dy / this.zoom);
-    }
+    // The pointer moves in pixels of the screen, the frame in units of the scaled view
+    drag.node.position.set(drag.origin.x + dx / this.zoom, drag.origin.y + dy / this.zoom);
+    // Only the outlines of the groups around it change: its own moves with it
     this.drawGroups(drag);
   }
 
   endGroupDrag(e) {
     const drag = this.groupDrag;
     this.groupDrag = null;
-    this.cards.interactiveChildren = true;
-    this.groups.interactiveChildren = true;
+    this.root.interactiveChildren = true;
     this.app.stage.cursor = 'default';
     if (!drag.moved) {
       // A click on a group, as between the cards, lets go of the selection. A double click
@@ -858,11 +866,60 @@ window.AtlasCanvas = class AtlasCanvas {
       return;
     }
     this.showFrames(null);
-    // Read before placing any: placing one gives a new list of cards
-    const places = drag.origins.map(o => [o.view.cardData.id, o.view.x, o.view.y]);
-    for (const [id, x, y] of places) {
-      this.onPlace(id, x, y);
+    // The group is placed as a card is, by the id of its item: only its own place changes
+    const { x, y } = onCanvas(drag.node.outer, drag.node.x, drag.node.y);
+    this.onPlace(drag.group, x, y);
+  }
+
+  // The views of the cards, in the order they are drawn: those of a group before those of the
+  // group it is in, and the later of two after the earlier
+  cardViews() {
+    const out = [];
+    const walk = node => {
+      node.inner.children.forEach(walk);
+      out.push(...node.cardLayer.children);
+    };
+    walk(this.root);
+    return out;
+  }
+
+  // The areas of the groups, in the order they are drawn: that of a group before those of the
+  // groups in it
+  areas() {
+    return framesIn(this.root)
+      .map(node => node.area)
+      .filter(Boolean);
+  }
+
+  // The frame of the innermost group of a chain of groups, the outermost first; that of the
+  // canvas for no group. A frame that is not there yet is made in the frame of the group above
+  // it. Each lies where its group says, counted from the group above it.
+  frameOf(chain) {
+    let node = this.root;
+    for (const group of chain) {
+      let inner = this.frames.get(group.id);
+      if (!inner) {
+        inner = frame(node);
+        inner.groupId = group.id;
+        this.frames.set(group.id, inner);
+        node.inner.addChild(inner);
+      }
+      // A scene made before the groups had places gives none: the group lies at the origin
+      inner.position.set(group.x ?? 0, group.y ?? 0);
+      node = inner;
     }
+    return node;
+  }
+
+  // The ids of the groups whose outlines a drag changes: those of the dragged cards and
+  // callouts, or those around a dragged group, and with `own` that group itself
+  groupsOfDrag(drag, own = false) {
+    if (drag.node) {
+      const around = chainOf(drag.node.outer);
+      return new Set(own ? [...around, drag.group] : around);
+    }
+    const moving = [...drag.origins, ...(drag.extras ?? [])];
+    return new Set(moving.flatMap(o => groupsOf(dataOf(o.view)).map(g => g.id)));
   }
 
   select(ids) {
@@ -871,7 +928,7 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   showSelection() {
-    for (const view of this.cards.children) {
+    for (const view of this.cardViews()) {
       view.cardSelection.visible = this.selected.has(view.cardData.id);
     }
     for (const view of this.extras()) {
@@ -880,10 +937,10 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   // The views that are no cards: the callouts. They are selected, dragged and scaled as the
-  // cards are, but join no group. Each knows its id, its label, its selection ring, and how a
-  // move or a scale of it is saved.
+  // cards are, but are not put into a group or taken out of one. Each knows its id, its label,
+  // its selection ring, and how a move or a scale of it is saved.
   extras() {
-    return this.callouts.children;
+    return framesIn(this.root).flatMap(node => node.calloutLayer.children);
   }
 
   // A card or a callout taken off the canvas is no longer selected
@@ -899,9 +956,7 @@ window.AtlasCanvas = class AtlasCanvas {
 
   // While the hand tool is on, the cards neither take a press nor show their own cursors
   showHand() {
-    this.cards.interactiveChildren = this.panning === null;
-    this.groups.interactiveChildren = this.panning === null;
-    this.callouts.interactiveChildren = this.panning === null;
+    this.root.interactiveChildren = this.panning === null;
     // A press that has not moved yet may still be a click, so it keeps the plain cursor.
     // Not grab: that is the cursor of a card, which moves the card and not the view.
     const moving = this.panning !== null && this.panning.moved;
@@ -1029,22 +1084,19 @@ window.AtlasCanvas = class AtlasCanvas {
     this.onScaleCallout = onScaleCallout;
   }
 
-  // The callouts as JSON: [{ key, x, y, scale, side, text, character, drawSize }], where x and y
-  // are the center of the character, side is the side of it the bubble is on, and character is an SVG
-  // of drawSize pixels square
+  // The callouts as JSON: [{ key, x, y, scale, side, text, character, drawSize, groups }], where
+  // x and y are the center of the character, counted from the group the callout is right under,
+  // side is the side of it the bubble is on, and character is an SVG of drawSize pixels square.
+  // groups are the groups the callout is in, as those of a card.
   setCallouts(json) {
     this.calloutList = JSON.parse(json);
     if (this.started) {
-      this.buildCallouts();
+      this.build();
     }
   }
 
+  // The views of the callouts, each in the frame of its group
   buildCallouts() {
-    // A dragged callout is destroyed with the others: a new list wins over the drag
-    if (this.drag?.view.calloutData) {
-      this.drag = null;
-    }
-    this.callouts.removeChildren().forEach(c => c.destroy({ children: true }));
     for (const data of this.calloutList) {
       const scale = data.scale > 0 ? data.scale : 1;
       const view = callout(data, this.textResolution(scale), this.iconResolution() * Math.max(1, scale), this.fonts());
@@ -1056,9 +1108,9 @@ window.AtlasCanvas = class AtlasCanvas {
       if (this.editable) {
         this.makeDraggable(view, data);
       }
-      this.callouts.addChild(view);
+      view.frameNode = this.frameOf(groupsOf(data));
+      view.frameNode.calloutLayer.addChild(view);
     }
-    this.keepSelection();
   }
 
   // onAddLink(x, y, target) adds a link card with its center at a point; onSetLink(id, target)
@@ -1080,8 +1132,10 @@ window.AtlasCanvas = class AtlasCanvas {
 
   // The placed cards as JSON: [{ id, label, path, isDir, isLink, isPlain, tone, runs, x, y,
   // width, height, scale, group, groups, icon, blob, iconSize, iconDrawSize, masked }],
-  // where x and y are the center of the card. groups are the groups a card is in, the outermost
-  // first: [{ id, color, title, titleSide, path, icon, character, drawSize }]; group is the id
+  // where x and y are the center of the card, counted from the group it is right under, or from
+  // the center of the canvas in no group. groups are the groups a card is in, the outermost
+  // first: [{ id, color, title, titleSide, path, icon, character, drawSize, x, y }], where x and
+  // y are the place of the item of the group, counted from the group above it; group is the id
   // of the last of them. runs are the parts of the first line of a plain card: [{ text, link }],
   // where link is { kind, url } or null. A card with a null path opens nothing. A masked
   // card has its label hidden: its width is set, and only its blob shows, softened. The id of a link card is the id of its item, and its
@@ -1096,10 +1150,22 @@ window.AtlasCanvas = class AtlasCanvas {
     }
   }
 
+  // Everything on the canvas is made anew from the cards and the callouts: the frames of their
+  // groups, nested as the groups are, and their views in those frames.
   build() {
-    // The dragged card is destroyed with the others: a new list wins over the drag
+    // The dragged card is destroyed with the others: a new list wins over the drag, of a
+    // group too
     this.drag = null;
-    this.cards.removeChildren().forEach(c => c.destroy({ children: true }));
+    if (this.groupDrag) {
+      this.groupDrag = null;
+      this.app.stage.cursor = 'default';
+    }
+    // The whole tree of frames goes, with the Graphics of each view; no two share a context.
+    // The textures stay: the cards made next take the same ones.
+    this.root.destroy({ children: true, context: true });
+    this.root = this.world.addChild(frame(null));
+    this.root.interactiveChildren = this.panning === null;
+    this.frames = new Map();
     for (const data of this.data) {
       // The icons of a card scaled up are drawn in more pixels too
       const view = card(
@@ -1118,45 +1184,53 @@ window.AtlasCanvas = class AtlasCanvas {
         // The groups and the clicks find the data of a card here
         view.cardData = data;
       }
-      this.cards.addChild(view);
+      view.frameNode = this.frameOf(groupsOf(data));
+      view.frameNode.cardLayer.addChild(view);
     }
+    this.buildCallouts();
     this.keepSelection();
     this.drawGroups();
   }
 
-  // Each group is a smooth closed curve around all its cards, one Graphics for its area and one
-  // for its frame. The frame is drawn in white and colored by its tint, so a change of its
-  // color needs no new geometry. Given a drag, only the groups of the dragged cards are drawn again. With `ctrl`, the
+  // Each group is a smooth closed curve around all its cards and callouts, one Graphics for its
+  // area and one for its frame, drawn in the frame of the group: its points are counted from the
+  // place of the group, so the outline moves with the group and is not drawn again for it.
+  // The frame is drawn in white and colored by its tint, so a change of its
+  // color needs no new geometry. Given a drag, only the groups it changes are drawn again. With `ctrl`, the
   // outline of such a group stays as it was before the drag, with the dragged cards where
   // they were, so it shows whether they are let go in it. That shape does not change, so it
   // is drawn once while Ctrl is held; only a group dragged as a whole moves with its cards.
   // A group inside a group is drawn inside it: the outline of a group keeps a padding more
   // away from a card for each group between them, and lies behind the groups inside it.
   drawGroups(drag = null, ctrl = false) {
-    const origins = new Map(drag ? drag.origins.map(o => [o.view, o]) : []);
+    const origins = new Map(drag ? [...drag.origins, ...(drag.extras ?? [])].map(o => [o.view, o]) : []);
     const dragged = new Set(origins.keys());
-    const touched = new Set([...dragged].flatMap(v => groupsOf(v.cardData).map(g => g.id)));
+    const touched = drag ? this.groupsOfDrag(drag) : null;
+    const views = [...this.cardViews(), ...this.extras()];
     const staying = new Set();
-    for (const view of this.cards.children) {
+    for (const view of views) {
       if (!dragged.has(view)) {
-        groupsOf(view.cardData).forEach(g => staying.add(g.id));
+        groupsOf(dataOf(view)).forEach(g => staying.add(g.id));
       }
     }
     const corners = new Map();
     const groups = new Map();
-    for (const view of this.cards.children) {
-      const { width, height } = view.cardData;
-      const chain = groupsOf(view.cardData);
+    for (const view of views) {
+      const { width, height } = sizeOf(view);
+      const chain = groupsOf(dataOf(view));
       chain.forEach((data, depth) => {
         const group = data.id;
-        if (drag && !touched.has(group)) {
+        if (touched && !touched.has(group)) {
           return;
         }
         const kept = ctrl && staying.has(group);
         if (kept && drag.ctrlShape) {
           return;
         }
-        const { x, y } = kept && dragged.has(view) ? origins.get(view) : view;
+        // Where the view lies in the frame of this group: its place in its own frame, moved by
+        // every frame between the two
+        const from = kept && dragged.has(view) ? origins.get(view) : view;
+        const { x, y } = placeIn(view.frameNode, this.frames.get(group), from.x, from.y);
         const padding = GROUP_PADDING * (chain.length - depth);
         const left = x - width / 2 - padding;
         const right = x + width / 2 + padding;
@@ -1170,10 +1244,14 @@ window.AtlasCanvas = class AtlasCanvas {
       });
     }
     if (!drag) {
-      this.groups.removeChildren().forEach(g => g.destroy());
+      for (const node of this.frames.values()) {
+        node.outline.removeChildren().forEach(c => c.destroy({ children: true, context: true }));
+        node.area = null;
+      }
     }
     for (const [group, points] of corners) {
-      let area = this.groups.children.find(c => c.label === group);
+      const node = this.frames.get(group);
+      let area = node.area;
       if (!area) {
         area = new PIXI.Graphics({ label: group });
         // A press on the area drags the group. Not on its frame, which only shows the edge.
@@ -1183,7 +1261,8 @@ window.AtlasCanvas = class AtlasCanvas {
         area.frame = new PIXI.Graphics();
         // The frame shows only while a card of the group is dragged
         area.frame.visible = Boolean(drag && drag.moved);
-        this.groups.addChild(area, area.frame);
+        node.outline.addChild(area, area.frame);
+        node.area = area;
       }
       const data = groups.get(group);
       const color = data.color;
@@ -1203,7 +1282,7 @@ window.AtlasCanvas = class AtlasCanvas {
       const groupTitleSide = data.titleSide;
       // A callout that cards are under stands along the outline in place of a title
       if (groupTitle && data.character) {
-        area.calloutView ??= this.groups.addChild(this.groupCallout(data));
+        area.calloutView ??= node.outline.addChild(this.groupCallout(data));
         area.calloutView.position.set(...besideOutline(hull, groupTitleSide));
         continue;
       }
@@ -1252,7 +1331,7 @@ window.AtlasCanvas = class AtlasCanvas {
           before = upTo;
           area.titleChars.addChild(text);
         });
-        this.groups.addChild(area.titleChars);
+        node.outline.addChild(area.titleChars);
       }
       if (area.titleChars) {
         layTitle(area.titleChars, closedCurvePoints(hull), groupTitleSide);
@@ -1285,11 +1364,9 @@ window.AtlasCanvas = class AtlasCanvas {
   // The frame of a group shows while a card of it is dragged, so it is clear where the group
   // ends; at rest, and for the other groups, only the areas show. No drag hides every frame.
   showFrames(drag) {
-    const dragged = new Set(drag ? drag.origins.flatMap(o => groupsOf(o.view.cardData).map(g => g.id)) : []);
-    for (const area of this.groups.children) {
-      if (area.frame) {
-        area.frame.visible = dragged.has(area.label);
-      }
+    const dragged = drag ? this.groupsOfDrag(drag, true) : new Set();
+    for (const area of this.areas()) {
+      area.frame.visible = dragged.has(area.label);
     }
   }
 
@@ -1300,7 +1377,7 @@ window.AtlasCanvas = class AtlasCanvas {
   // they join that group.
   showHeldGroups(drag, e) {
     drag.outside = new Set();
-    for (const area of this.groups.children) {
+    for (const area of this.areas()) {
       if (!area.leavable) {
         continue;
       }
@@ -1335,7 +1412,7 @@ window.AtlasCanvas = class AtlasCanvas {
   joinAreaAt(drag, e) {
     // Not a group the cards are in already, however deep
     const own = new Set(drag.origins.flatMap(o => groupsOf(o.view.cardData).map(g => g.id)));
-    const areas = this.groups.children.filter(c => c.frame && !own.has(c.label));
+    const areas = this.areas().filter(c => !own.has(c.label));
     for (let i = areas.length - 1; i >= 0; i--) {
       if (areas[i].containsPoint(areas[i].toLocal(e.global))) {
         return areas[i];
@@ -1344,8 +1421,8 @@ window.AtlasCanvas = class AtlasCanvas {
     return null;
   }
 
-  // A drag moves the selected cards and callouts and places them where they are let
-  // go. A click on the label of a card or a link card opens its page, in a new tab with Ctrl. A
+  // A drag moves the selected cards and callouts, each in the frame of its group, and places
+  // them where they are let go. A click on the label of a card or a link card opens its page, in a new tab with Ctrl. A
   // click with Ctrl elsewhere adds it to the selection or takes it out. Only the cards take
   // part in the groups, the link cards too.
   makeDraggable(view, data) {
@@ -1370,7 +1447,7 @@ window.AtlasCanvas = class AtlasCanvas {
         this.selected = new Set([id]);
       }
       this.showSelection();
-      const views = this.cards.children.filter(v => this.selected.has(v.cardData.id));
+      const views = this.cardViews().filter(v => this.selected.has(v.cardData.id));
       const extras = this.extras().filter(v => this.selected.has(v.extraId));
       this.drag = {
         view,
@@ -1385,7 +1462,7 @@ window.AtlasCanvas = class AtlasCanvas {
         onLabel: Boolean(view.cardLabel) && e.target === view.cardLabel,
         runLink: runLinkOf(e.target),
       };
-      // On top of the others while they move
+      // On top of the others of their frame while they move
       for (const v of [...views, ...extras]) {
         v.parent.addChild(v);
       }
@@ -1405,7 +1482,8 @@ window.AtlasCanvas = class AtlasCanvas {
       }
       drag.moved = true;
       view.cursor = 'grabbing';
-      // The pointer moves in pixels of the screen, the cards in units of the scaled view
+      // The pointer moves in pixels of the screen, the cards in units of the scaled view. No
+      // frame is scaled or turned, so a card moves as far in its frame as on the canvas.
       for (const o of [...drag.origins, ...drag.extras]) {
         o.view.position.set(o.x + dx / this.zoom, o.y + dy / this.zoom);
       }
@@ -1436,10 +1514,12 @@ window.AtlasCanvas = class AtlasCanvas {
         this.showGroupTarget(drag, null);
         // The cards have moved with the pointer: they lie where they show. A position is the
         // center of a card, as the pivot is there, and the center of the character of a
-        // callout. Read before placing any: placing one gives a new list, which destroys these
-        // views.
-        const places = drag.origins.map(o => [o.view.cardData.id, o.view.x, o.view.y]);
-        const moves = drag.extras.map(o => [o.view.saveMove, o.view.x, o.view.y]);
+        // callout. The core takes the place on the canvas, not the one in the frame: it counts
+        // the place from the item the card is under, or will be. Read before placing any: placing
+        // one gives a new list, which destroys these views.
+        const at = view => onCanvas(view.frameNode, view.x, view.y);
+        const places = drag.origins.map(o => [o.view.cardData.id, at(o.view).x, at(o.view).y]);
+        const moves = drag.extras.map(o => [o.view.saveMove, at(o.view).x, at(o.view).y]);
         // A card let go on a card joins the group of that card; let go in the area of another
         // group, it goes under the item of that group
         const targetId = target ? target.cardData.id : null;
@@ -1506,7 +1586,7 @@ window.AtlasCanvas = class AtlasCanvas {
       return null;
     }
     const dragged = new Set(drag.origins.map(o => o.view));
-    const cards = this.cards.children;
+    const cards = this.cardViews();
     for (let i = cards.length - 1; i >= 0; i--) {
       const v = cards[i];
       const p = v.toLocal(e.global);
@@ -1547,7 +1627,7 @@ window.AtlasCanvas = class AtlasCanvas {
     clearTimeout(this.sharpenTimer);
     clearTimeout(this.scaleTimer);
     this.resizeObserver?.disconnect();
-    if (this.cards) {
+    if (this.root) {
       this.app.destroy({ removeView: true }, { children: true });
     }
   }
@@ -1558,9 +1638,69 @@ function groupsOf(data) {
   return data?.groups ?? [];
 }
 
-// Whether a card is in the group, right under it or deeper
-function inGroup(data, group) {
-  return groupsOf(data).some(g => g.id === group);
+// A frame: a Container that what lies in it is placed from. `outer` is the frame it lies in,
+// null for the frame of the canvas. Its layers keep what is in it in order: the outline of its
+// group lies behind the frames of the groups inside it, those behind its cards, and its
+// callouts above them.
+function frame(outer) {
+  const node = new PIXI.Container();
+  node.outer = outer;
+  node.outline = new PIXI.Container();
+  node.inner = new PIXI.Container();
+  node.cardLayer = new PIXI.Container();
+  node.calloutLayer = new PIXI.Container();
+  node.addChild(node.outline, node.inner, node.cardLayer, node.calloutLayer);
+  // The outline of its group, once it is drawn
+  node.area = null;
+  return node;
+}
+
+// A frame and every frame in it, itself first: the order their outlines are drawn in
+function framesIn(node, out = []) {
+  out.push(node);
+  for (const inner of node.inner.children) {
+    framesIn(inner, out);
+  }
+  return out;
+}
+
+// A point of the frame `from` as the frame `to` around it counts it: moved by the place of every
+// frame from the one up to the other. No frame is scaled or turned, so the places only add up.
+function placeIn(from, to, x, y) {
+  for (let node = from; node && node !== to; node = node.outer) {
+    x += node.x;
+    y += node.y;
+  }
+  return { x, y };
+}
+
+// A point of a frame as the canvas counts it, from its center
+function onCanvas(from, x, y) {
+  return placeIn(from, null, x, y);
+}
+
+// The ids of the groups a frame is in, itself included; none for the frame of the canvas
+function chainOf(node) {
+  const ids = [];
+  for (let n = node; n && n.outer; n = n.outer) {
+    ids.push(n.groupId);
+  }
+  return ids;
+}
+
+// The data of the view of a card or of a callout
+function dataOf(view) {
+  return view.cardData ?? view.calloutData;
+}
+
+// How much room a view takes in the outline of its group: a card its size as scaled, a callout
+// its character. The bubble of a callout may reach out of the outline.
+function sizeOf(view) {
+  if (view.cardData) {
+    return { width: view.cardData.width, height: view.cardData.height };
+  }
+  const size = CALLOUT_SIZE * view.scale.x;
+  return { width: size, height: size };
 }
 
 // The page a press on the title of a group opens, from a character of the title; none for a
