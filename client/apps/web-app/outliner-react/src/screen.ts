@@ -1,5 +1,9 @@
-/** A change of the rows, as `ListChange` of the border has it, for rows of any kind. */
-export type RowChange<T> =
+/**
+ * A change of a list of any kind, as each change type of the border has it: `RowChange` for
+ * the rows of the outline (ADR 088). The types have the same shape, so one function applies
+ * them all.
+ */
+export type ListChange<T> =
   | { readonly kind: 'Insert'; readonly at: number; readonly item: T }
   | { readonly kind: 'Remove'; readonly at: number }
   | { readonly kind: 'Move'; readonly from: number; readonly to: number }
@@ -7,12 +11,12 @@ export type RowChange<T> =
   | { readonly kind: 'Reset'; readonly items: readonly T[] };
 
 /**
- * The rows after the changes, applied in order. A row that no change touches stays the same
- * value, so React does not draw it again.
+ * The list after the changes, applied in order. An item that no change touches stays the
+ * same value, so React does not draw it again.
  */
-export function rowsAfter<T>(
+export function listAfter<T>(
   rows: readonly T[],
-  changes: readonly RowChange<T>[],
+  changes: readonly ListChange<T>[],
 ): readonly T[] {
   if (changes.length === 0) {
     return rows;
