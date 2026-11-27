@@ -6,8 +6,14 @@
 //! an item whose first line is one wiki link, a plain card one whose first line is anything
 //! else, and a callout an item whose `atlas_type` says so. An item with items under it is a
 //! parent: the screen draws a blob around them, with the text of the parent along it.
+//!
+//! The `atlas_bounds` of an item are counted from the item it is right under, and those of an
+//! item of the top from the center of the canvas. [`entries`] walks the parents, so a reader
+//! takes the place of an item on the canvas from [`Entry::place`] and does no walk of its own.
+//! An item without `atlas_bounds` is not drawn, and neither is any item under it.
 
-use crate::{card_label, link_body, link_target, AtlasItem, CALLOUT_TYPE, TYPE_KEY};
+use crate::{bounds_of, card_label, link_body, link_target, AtlasItem, Bounds};
+use crate::{CALLOUT_TYPE, TYPE_KEY};
 
 /// What an item of a plain atlas page is, by its body and its `atlas_type`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,6 +37,14 @@ pub struct Entry<'a, T> {
     pub is_parent: bool,
     /// The items it is under, the outermost first
     pub parents: Vec<&'a T>,
+    /// Where it lies on the canvas, with its own size: its `atlas_bounds` moved by those of
+    /// every item it is under. None when it or an item it is under has no `atlas_bounds`: it
+    /// is not drawn then.
+    pub place: Option<Bounds>,
+    /// The point of the canvas its `atlas_bounds` are counted from: where the item it is
+    /// right under lies, or the center of the canvas at the top. None when an item it is
+    /// under is not drawn.
+    pub frame: Option<(f64, f64)>,
 }
 
 impl<'a, T> Entry<'a, T> {
@@ -43,20 +57,26 @@ impl<'a, T> Entry<'a, T> {
 /// The items of a plain atlas page that the screen can show, in their order. An item with
 /// nothing written and nothing under it is left out: there is nothing to draw.
 pub fn entries<'a, T: AtlasItem + 'a>(items: impl IntoIterator<Item = &'a T>) -> Vec<Entry<'a, T>> {
-    let mut open: Vec<&'a T> = Vec::new();
+    // The items the next one may be under, each with where it lies on the canvas
+    let mut open: Vec<(&'a T, Option<Bounds>)> = Vec::new();
     let mut entries = Vec::new();
     let mut items = items.into_iter().peekable();
     while let Some(item) = items.next() {
         let is_parent = items.peek().is_some_and(|next| next.level() > item.level());
         while open
             .last()
-            .is_some_and(|above| above.level() >= item.level())
+            .is_some_and(|(above, _)| above.level() >= item.level())
         {
             open.pop();
         }
-        let parents = open.clone();
+        let parents = open.iter().map(|(parent, _)| *parent).collect();
+        let frame = match open.last() {
+            Some((_, place)) => place.map(|place| (place.x, place.y)),
+            None => Some((0.0, 0.0)),
+        };
+        let place = frame.and_then(|(x, y)| Some(bounds_of(item)?.moved_by(x, y)));
         if is_parent {
-            open.push(item);
+            open.push((item, place));
         } else if item.body().trim().is_empty() {
             continue;
         }
@@ -72,6 +92,8 @@ pub fn entries<'a, T: AtlasItem + 'a>(items: impl IntoIterator<Item = &'a T>) ->
             kind,
             is_parent,
             parents,
+            place,
+            frame,
         });
     }
     entries

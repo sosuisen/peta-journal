@@ -18,7 +18,8 @@ pub mod plain;
 #[cfg(feature = "marks")]
 pub mod scene;
 
-/// Where a card or a callout lies: `x,y,width,height`.
+/// Where an item lies: `x,y,width,height`, where `x` and `y` are counted from the place of the
+/// item it is right under, or from the center of the canvas at the top (ADR 053).
 pub const BOUNDS_KEY: &str = "atlas_bounds";
 /// The id of the page a page card stands for.
 pub const PAGE_KEY: &str = "atlas_page";
@@ -127,6 +128,15 @@ impl Bounds {
         value.parse().ok()
     }
 
+    /// The bounds moved by a distance, with the same size.
+    pub fn moved_by(self, dx: f64, dy: f64) -> Bounds {
+        Bounds {
+            x: self.x + dx,
+            y: self.y + dy,
+            ..self
+        }
+    }
+
     /// How much the card is scaled, read from the height: the width may be left to the label.
     pub fn scale(&self) -> f64 {
         self.height / CARD_HEIGHT
@@ -157,6 +167,13 @@ impl AtlasItem for journal_api_types::Item {
             .get(key)
             .and_then(journal_api_types::PropertyValue::as_text)
     }
+}
+
+/// The `atlas_bounds` of an item as they are stored: counted from the item it is right under
+/// ([`plain::Entry::place`] gives the place on the canvas). None without bounds that can be
+/// read.
+pub fn bounds_of<T: AtlasItem>(item: &T) -> Option<Bounds> {
+    item.prop(BOUNDS_KEY).and_then(Bounds::parse)
 }
 
 /// A side as stored: one of [`SIDES`], or the first.
