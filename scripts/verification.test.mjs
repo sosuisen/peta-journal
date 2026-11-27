@@ -64,10 +64,13 @@ const COVERAGE_OS = {
 
 // The job and the step that run the common tests of each shell that has rules in
 // client/tools/shell-check/rules (ADR 089). A shell whose job is not there yet names the issue
-// that makes it
+// that makes it. The common test of outliner-emacs is in Lisp, so ERT runs it (#1230)
 const COMMON_TESTS_STEP = {
   'outliner-react': { job: 'outliner-react', run: 'npm run coverage' },
-  'outliner-emacs': { job: 'client', run: 'cargo test --workspace' },
+  'outliner-emacs': {
+    job: 'client',
+    run: '"$PETA_EMACS" -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit',
+  },
   'outliner-android': { pending: 1205 },
   'outliner-ios': { job: 'outliner-ios', run: 'swift test' },
   'stickies-mac': { job: 'stickies-mac', run: 'swift test' },
