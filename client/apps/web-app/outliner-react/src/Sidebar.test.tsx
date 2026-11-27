@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import {
   Heading,
@@ -283,6 +283,23 @@ describe('the contents section', () => {
     expect(wasm.events).toEqual([
       { kind: 'ScrollToItemRequested', item_id: 'h2' },
     ]);
+  });
+
+  // 文字の変わった見出しは、差分で届き、新しい文字で並ぶ。
+  test('a heading whose text changed comes as a change, and shows its new text', () => {
+    const { wasm, container } = sidebar();
+
+    act(() =>
+      wasm.push(
+        [],
+        [],
+        [{ kind: 'Update', at: 1, item: new Heading('h2', 'Plans', 2) }],
+      ),
+    );
+
+    expect(
+      [...container.querySelectorAll('.contents-item')].map(e => e.textContent),
+    ).toEqual(['Goals', 'Plans']);
   });
 
   // 見出しがなければ、節はない。

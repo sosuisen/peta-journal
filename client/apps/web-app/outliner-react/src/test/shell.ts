@@ -14,6 +14,7 @@ import {
   toJsonUiOp,
   type DragMove,
   type Event,
+  type HeadingChange,
   type KeyPress,
   type RowChange,
   type Panel,
@@ -28,8 +29,12 @@ import * as json from '../border/serde/json';
 export default async function init(): Promise<void> {}
 
 /** The changes the core answers: none, unless a test gives some. */
-function written(rows: RowChange[] = [], panels: Panel[] = []): string {
-  return json.stringify(Changes.toJson(new Changes(rows, panels)));
+function written(
+  rows: RowChange[] = [],
+  panels: Panel[] = [],
+  headings: HeadingChange[] = [],
+): string {
+  return json.stringify(Changes.toJson(new Changes(rows, headings, panels)));
 }
 
 export class WebShell {
@@ -77,8 +82,12 @@ export class WebShell {
   }
 
   /** The screen changes outside a call of the shell, as an answer of the server does. */
-  push(rows: RowChange[], panels: Panel[] = []): void {
-    this.pending = written(rows, panels);
+  push(
+    rows: RowChange[],
+    panels: Panel[] = [],
+    headings: HeadingChange[] = [],
+  ): void {
+    this.pending = written(rows, panels, headings);
     this.onRender();
   }
 
