@@ -144,3 +144,21 @@ fn the_file_of_an_atlas_is_kept_as_a_backup_before_it_moves() {
 
     assert_eq!(a.conflicts(), backups);
 }
+
+// 起動のときに、古い形のアトラスが新しい形に移る。
+#[test]
+fn an_old_atlas_moves_when_the_core_starts() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    a.old_item(1, "Title", &[("atlas_type", "group")]);
+    a.old_item(2, "[[x/b]]", &[("atlas_bounds", "0,0,0,40")]);
+    a.old_item(2, "[[x/c]]", &[("atlas_bounds", "9,9,0,40")]);
+
+    a.core.start_up();
+
+    assert_eq!(a.atlas_keys(), BTreeSet::from(["atlas_bounds".to_string()]));
+    assert_eq!(
+        a.outline(),
+        ["1:[[d/a]]", "1:Title", "2:[[x/b]]", "2:[[x/c]]"]
+    );
+}
