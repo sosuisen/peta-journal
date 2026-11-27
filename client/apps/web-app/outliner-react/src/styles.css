@@ -994,6 +994,18 @@ app-page .page-title:hover {
   background: #f8f2e4;
 }
 /* At the pointer, as the browser's own menu would be */
+.atlas-text {
+  position: fixed;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-width: min(480px, calc(100vw - 32px));
+  max-height: 60vh;
+  overflow: auto;
+  padding: 8px 12px;
+}
 .atlas-menu {
   position: fixed;
   background: white;

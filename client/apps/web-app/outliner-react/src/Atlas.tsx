@@ -51,6 +51,9 @@ interface AtlasCanvas {
       newWindow: boolean,
     ) => void,
   ): void;
+  setOnShowText(
+    onShowText: (cardId: string, x: number, y: number) => void,
+  ): void;
   setCards(json: string): void;
   setCallouts(json: string): void;
   setLinkSuggestions(json: string): void;
@@ -140,6 +143,13 @@ interface Menu {
   readonly y: number;
 }
 
+/** The card whose whole text shows, and where it was asked for. */
+interface Shown {
+  readonly cardId: string;
+  readonly x: number;
+  readonly y: number;
+}
+
 /**
  * The canvas of an atlas page, ported from the Leptos shell: the pages and folders of its
  * directory as cards, drawn by PixiJS in atlas.js. A card without a place waits in the list
@@ -157,6 +167,19 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
   const [menu, setMenu] = useState<Menu | null>(null);
   // The same function on every drawing, so the menu adds its listeners only once
   const closeMenu = useCallback(() => setMenu(null), []);
+  const [shown, setShown] = useState<Shown | null>(null);
+  const closeText = useCallback(() => setShown(null), []);
+  const showText = useCallback(
+    (cardId: string, x: number, y: number) => setShown({ cardId, x, y }),
+    [],
+  );
+  // The text as it is now, also after the card was changed while it shows
+  const shownText =
+    shown === null
+      ? ''
+      : (cards.find(c => c.page_id === shown.cardId)?.text ??
+        links.find(l => l.item_id === shown.cardId)?.text ??
+        '');
 
   // The canvas keeps the view of the folder it was made for
   useEffect(() => {
@@ -172,6 +195,7 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
           dirPath,
           core,
           setMenu,
+          showText,
         );
         setCanvas(made);
       })
@@ -180,7 +204,7 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
       gone = true;
       made?.destroy();
     };
-  }, [core, dirPath]);
+  }, [core, dirPath, showText]);
 
   // Apart, so a change of a callout does not draw every card again
   useEffect(() => {
@@ -291,7 +315,12 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
           </button>
         )}
       </div>
-      {menu !== null && <CardMenu menu={menu} close={closeMenu} />}
+      {menu !== null && (
+        <CardMenu menu={menu} close={closeMenu} showText={showText} />
+      )}
+      {shown !== null && (
+        <CardText shown={shown} text={shownText} close={closeText} />
+      )}
     </div>
   );
 }
@@ -302,6 +331,7 @@ function makeCanvas(
   dir: string,
   core: ReturnType<typeof useCore>,
   setMenu: (menu: Menu) => void,
+  showText: (cardId: string, x: number, y: number) => void,
 ): AtlasCanvas {
   const start = loadViews()[dir] ?? { x: 0, y: 0, zoom: 1 };
   const made = new window.AtlasCanvas(
@@ -361,6 +391,7 @@ function makeCanvas(
     item_id => core.send({ kind: 'RemoveAtlasLink', item_id }),
     query => core.send({ kind: 'SearchAtlasLinks', query }),
   );
+  made.setOnShowText(showText);
   // As a click on a link of a page: Ctrl or Command as ctrl, Shift as shift (ADR 083)
   made.setOnFollow((link, newTab, newWindow) =>
     core.send(
@@ -423,9 +454,11 @@ function UnplacedCard({ card }: { readonly card: AtlasCard }) {
 function CardMenu({
   menu,
   close,
+  showText,
 }: {
   readonly menu: Menu;
   readonly close: () => void;
+  readonly showText: (cardId: string, x: number, y: number) => void;
 }) {
   const core = useCore();
   useClosesOnOutside('.atlas-menu', close);
@@ -443,6 +476,37 @@ function CardMenu({
       >
         Remove from Atlas
       </button>
+      <button
+        className="atlas-menu-item"
+        onClick={() => {
+          close();
+          showText(menu.pageId, menu.x, menu.y);
+        }}
+      >
+        Show Text
+      </button>
     </div>
+  );
+}
+
+/** The whole text of a card, drawn as the body of a row of a page is. */
+function CardText({
+  shown,
+  text,
+  close,
+}: {
+  readonly shown: Shown;
+  readonly text: string;
+  readonly close: () => void;
+}) {
+  const core = useCore();
+  const tagsDir = usePanel('Config')?.tags_dir ?? '';
+  useClosesOnOutside('.atlas-text', close);
+  return (
+    <div
+      className="atlas-text"
+      style={{ left: `${shown.x}px`, top: `${shown.y}px` }}
+      dangerouslySetInnerHTML={{ __html: core.bodyHtml(text, tagsDir) }}
+    />
   );
 }
