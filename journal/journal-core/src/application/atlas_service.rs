@@ -111,6 +111,13 @@ impl AtlasService {
                 ItemRepository::patch_in(&tx, id, &patch)?;
             }
             ItemRepository::recalculate_parent_ids_in(&tx, &loaded.atlas.id)?;
+            PageRepository::save_in(
+                &tx,
+                &Page {
+                    modified_date: now,
+                    ..loaded.atlas.clone()
+                },
+            )?;
             tx.commit()?;
             self.search.remove_items(&removed);
             self.export.queue_export(&loaded.atlas.id);

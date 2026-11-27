@@ -116,9 +116,10 @@ fn a_moved_atlas_is_dated_when_it_moved() {
     time_passes(&[&a]);
     a.core.atlas.move_to_plain_form().unwrap();
 
+    // The clock of a device steps on with each reading, so the date is told from the ones
+    // around it
     let moved = modified(&a);
-    assert_eq!(moved, a.core.items.db().now_millis());
-    assert!(moved > before);
+    assert!(before < moved && moved < a.core.items.db().now_millis());
 
     time_passes(&[&a]);
     a.core.atlas.move_to_plain_form().unwrap();
