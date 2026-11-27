@@ -15,6 +15,9 @@
 //! place of a card or a callout is saved as a property of its item. A change of the outline
 //! is one batch of item operations, however many items it writes, so one operation of the
 //! user is one change on the server. The outline is then read again and shown.
+//! A card that goes under an item goes in among the items under it by where it lies: before
+//! the first of them that lies below it. The others keep their order, so the canvas does not
+//! write over an order made in the outline (ADR 053).
 //! A change that leaves an item with no item under it takes the `atlas_side` of that item
 //! away in the same batch: the side is of the title of a group, and the item is no group any
 //! more. Nothing is cleaned up for a change made in the outline or in the `.md`.
