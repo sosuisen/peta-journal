@@ -20,6 +20,10 @@
 // - `screen: true`: the step touches the screen, and the developer could not use the PC meanwhile.
 // - `ciOnly: true`: the step is too heavy for the hook, such as the tests in an emulator, and only
 //   the CI runs it. It touches no screen.
+//
+// The CI skips one mark of steps, and says so in its log:
+// - `hookOnly: true`: a `ciOnly` step of the same job does the same again, so the CI would do it
+//   twice. The hook skips that step, so the hook needs this one.
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -324,11 +328,13 @@ export const JOBS = {
       // device, from the Rust code
       { os: 'linux', needs: ['ANDROID_NDK_HOME'], run: './generate.sh' },
       { os: 'linux', run: './gradlew ktfmtCheck' },
-      // The tests of the JVM, among them the common tests (ADR 089). They need no device
-      { os: 'linux', run: './gradlew :app:testDebugUnitTest' },
+      // The tests of the JVM, among them the common tests (ADR 089). They need no device. The
+      // coverage step runs them again, so the CI leaves this step to the hook (#1279)
+      { os: 'linux', hookOnly: true, run: './gradlew :app:testDebugUnitTest' },
       // The app and the tests of the screen, built as they are without the coverage. The hook
-      // does not run the step below, so only this step shows it what breaks in them
-      { os: 'linux', run: './gradlew :app:assembleDebug :app:assembleDebugAndroidTest' },
+      // does not run the step below, so only this step shows it what breaks in them. The coverage
+      // step builds both again, so the CI leaves this step to the hook (#1279)
+      { os: 'linux', hookOnly: true, run: './gradlew :app:assembleDebug :app:assembleDebugAndroidTest' },
       // Runs every test, those of the screen in an emulator without a window, and fails below 90%
       // of the lines covered (the coverage task of app/build.gradle.kts). The emulator is heavy,
       // so the hook leaves this step to the CI (#1205)
@@ -422,7 +428,8 @@ export function streamed(program, args, options, log) {
 // other machine runs the job by its own list of checks, from its first step. `remote` lists them.
 // With `screen: false`, a step that touches the screen is skipped too. With `ciOnly: false`, a
 // step for the CI only is skipped too. It follows `screen` unless it is given: the hook gives
-// `screen: false` alone, and skips both
+// `screen: false` alone, and skips both. With `strict`, in the CI, a step for the hook only is
+// skipped too
 export async function runJob(
   name,
   { root = ROOT, strict = false, remote, screen = true, ciOnly = screen, log = (s) => process.stdout.write(s) } = {},
@@ -463,6 +470,10 @@ async function runHere(name, { root, strict, screen, ciOnly, log }) {
     }
     if (step.ciOnly && !ciOnly) {
       skipped.push({ step: step.run, why: 'フックには重いので、CIだけが回す', of: step });
+      continue;
+    }
+    if (step.hookOnly && strict) {
+      skipped.push({ step: step.run, why: 'CIだけが回す段が、同じことをもう一度する', of: step });
       continue;
     }
     const why = otherOs(step);
