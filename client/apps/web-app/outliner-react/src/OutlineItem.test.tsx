@@ -1037,6 +1037,10 @@ describe('the keys of the editor', () => {
   // コアがキーを預かっている間は、キーをコアに預ける。CtrlとCommandのキーは、預けない。
   test('while the core holds keys, a key is held by it, but not a Ctrl or a Command key', () => {
     const { wasm, editor } = editing(true);
+    wasm.push(
+      [],
+      [{ kind: 'Outline', value: outline({ key_relay_holding: true }) }],
+    );
 
     const dropped = !fireEvent.keyDown(editor, { key: 'x', code: 'KeyX' });
     fireEvent.keyDown(editor, { key: 'z', ctrlKey: true });

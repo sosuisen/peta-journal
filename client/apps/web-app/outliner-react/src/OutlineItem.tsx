@@ -582,8 +582,11 @@ function ItemEditor({
       event.preventDefault();
       return;
     }
-    // Keys pressed between Enter and the focus of the next editor belong to that editor
-    if (holdingKeys && !event.ctrlKey && !event.metaKey) {
+    // Keys pressed between Enter and the focus of the next editor belong to that editor. The
+    // core is read afresh: an answer to its order may have ended the hold before this render
+    const holding =
+      holdingKeys && core.current().panels.Outline?.key_relay_holding === true;
+    if (holding && !event.ctrlKey && !event.metaKey) {
       event.preventDefault();
       core.send({
         kind: 'KeyHeld',
