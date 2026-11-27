@@ -233,6 +233,37 @@ mod tests {
         );
     }
 
+    // どの項目も、どのレベルでも親になれる。項目は、その上の親をすべて、外から順に持つ。
+    #[test]
+    fn any_item_can_be_a_parent_and_an_item_has_all_its_parents() {
+        let items = [
+            item(1, "[[d/top]]", &[]),
+            item(2, "inner", &[]),
+            item(3, "[[d/a]]", &[]),
+            item(2, "[[d/b]]", &[]),
+            item(1, "[[d/c]]", &[]),
+        ];
+
+        let read: Vec<(&str, bool, Vec<&str>)> = entries(&items)
+            .iter()
+            .map(|e| {
+                let parents = e.parents.iter().map(|p| p.body()).collect();
+                (e.item.body(), e.is_parent, parents)
+            })
+            .collect();
+
+        assert_eq!(
+            read,
+            [
+                ("[[d/top]]", true, vec![]),
+                ("inner", true, vec!["[[d/top]]"]),
+                ("[[d/a]]", false, vec!["[[d/top]]", "inner"]),
+                ("[[d/b]]", false, vec!["[[d/top]]"]),
+                ("[[d/c]]", false, vec![]),
+            ]
+        );
+    }
+
     // 知らないatlas_typeの項目は、種類のない項目と同じに読まれる。移行の前のgroupも同じである。
     #[test]
     fn an_item_of_an_unknown_type_is_read_as_one_of_no_type() {
