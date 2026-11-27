@@ -67,6 +67,46 @@ fn a_parent_that_moves_changes_its_own_bounds_only() {
     assert_eq!((card.groups[1].x, card.groups[1].y), (290.0, 390.0));
 }
 
+// 親に入るカードと、親を変えるカードの`atlas_bounds`は、同じ送信で、新しい親からの相対の座標に書き直される。見える位置は変わらない。兄弟とは、新しい親からの相対の座標で比べる。
+#[test]
+fn a_card_that_goes_under_a_parent_is_counted_from_it_in_the_same_batch() {
+    let atlas = || {
+        atlas_of(
+            vec![child("four"), child("one"), child("three"), child("two")],
+            vec![
+                parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+                card_item("one", 2, Some("0,0,0,40")),
+                card_item("two", 2, Some("0,100,0,40")),
+                parent_item("q", 1, "", &[("atlas_bounds", "-50,-50,0,40")]),
+                card_item("four", 2, Some("0,0,0,40")),
+                card_item("three", 1, Some("130,250,0,60")),
+            ],
+        )
+    };
+
+    // From the top: it lies between the two cards of the parent on the canvas
+    let mut h = atlas();
+    move_under(&mut h, &["a/b/three"], "g");
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-three", 2, "30,50,0,60"),
+            moved(&["i-three"], "i-one")
+        ]]
+    );
+
+    // From another parent
+    let mut h = atlas();
+    move_under(&mut h, &["a/b/one"], "q");
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-one", 2, "150,250,0,40"),
+            moved(&["i-one"], "i-four")
+        ]]
+    );
+}
+
 // 親のblobに落とされたカードは、1回の送信で、その親の子になる。下に兄弟がなければ、親の木の末尾に入る。
 #[test]
 fn a_card_dropped_on_the_blob_of_a_parent_goes_under_it_behind_the_siblings_above_it() {

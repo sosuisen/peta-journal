@@ -222,6 +222,19 @@ fn leveled(id: &str, level: i32) -> BatchOpInput {
     }
 }
 
+/// The operation that gives an item a level and the bounds counted from its new parent
+fn leveled_at(id: &str, level: i32, bounds: &str) -> BatchOpInput {
+    BatchOpInput::Update {
+        id: id.into(),
+        body: None,
+        level: Some(level),
+        collapsed: None,
+        task: None,
+        properties: [("atlas_bounds".to_string(), bounds.into())].into(),
+        dropped_properties: Vec::new(),
+    }
+}
+
 /// The operation that gives an item a body
 fn written(id: &str, body: &str) -> BatchOpInput {
     BatchOpInput::Update {
