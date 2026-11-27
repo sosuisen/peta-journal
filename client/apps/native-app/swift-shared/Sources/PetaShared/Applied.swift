@@ -73,6 +73,14 @@ extension ViewModel {
     }
 }
 
+extension Changes {
+    /// True when nothing changed: no change to any list, and no panel. A shell may skip these
+    /// changes; any others it must apply, or its lists go apart from those of the core.
+    public var isEmpty: Bool {
+        rows.isEmpty && headings.isEmpty && indexPages.isEmpty && recentPages.isEmpty && panels.isEmpty
+    }
+}
+
 extension Array where Element == Row {
     /// The rows after the changes, applied one after another. A place counts in the rows as the
     /// changes before it left them.
