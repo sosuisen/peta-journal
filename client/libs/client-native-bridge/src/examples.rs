@@ -33,6 +33,7 @@ fn crossing(rows: Vec<RowChange<RichText>>) -> String {
         headings: Vec::new(),
         index_pages: Vec::new(),
         recent_pages: Vec::new(),
+        search_results: Vec::new(),
         panels: Vec::new(),
     };
     let mut bytes = Vec::new();

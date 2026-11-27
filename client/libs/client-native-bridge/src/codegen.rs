@@ -45,12 +45,13 @@ pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
 }
 
 /// The enums with data that a shell takes apart with a `switch`.
-const CLOSED_RECORDS: [&str; 6] = [
+const CLOSED_RECORDS: [&str; 7] = [
     "RichBlock",
     "RichLink",
     "RowChange",
     "HeadingChange",
     "PageChange",
+    "SearchChange",
     "Panel",
 ];
 

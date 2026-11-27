@@ -33,13 +33,21 @@ crate::list_change!(
     SidebarPage
 );
 
+crate::list_change!(
+    /// One change to the results of the search, as the shells take it.
+    #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+    #[derive(Debug, Clone, PartialEq, Serialize)]
+    SearchChange,
+    SearchEntry
+);
+
 use crate::app::ConnectionState;
 use crate::model::IndexSort;
 use crate::outline::{FocusOrder, FocusRequest, Heading};
 use crate::screens::atlas::{Callout, LinkCard};
 use crate::screens::calendar::CalendarView;
 use crate::view::{
-    AtlasCard, ConfigView, HistoryView, LoadState, Row, ScreenView, SearchView, SidebarPage,
+    AtlasCard, ConfigView, HistoryView, LoadState, Row, ScreenView, SearchEntry, SidebarPage,
     WikiView,
 };
 use crate::ViewModel;
@@ -58,6 +66,9 @@ pub struct Changes<B> {
     pub index_pages: Vec<PageChange>,
     /// The changes to the doc pages changed last, to apply in order (ADR 088).
     pub recent_pages: Vec<PageChange>,
+    /// The changes to the results of the search, keyed by `SearchEntry::key`, to apply in
+    /// order (ADR 088).
+    pub search_results: Vec<SearchChange>,
     /// The panels that changed, each whole.
     pub panels: Vec<Panel>,
 }
@@ -76,7 +87,7 @@ pub enum Panel {
     IndexPages(IndexPagesPanel),
     Headings(HeadingsPanel),
     RecentPages(RecentPagesPanel),
-    Search(SearchView),
+    Search(SearchPanel),
     Config(ConfigView),
     Connection(ConnectionState),
     Today(String),
@@ -127,6 +138,17 @@ pub struct RecentPagesPanel {
     pub state: LoadState,
 }
 
+/// The search of the view model without its results, which change as a list.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SearchPanel {
+    pub query: String,
+    pub show_dropdown: bool,
+    pub selected_index: Option<usize>,
+    /// The results are still those of an older query, as the answer to this one is on its way.
+    pub searching: bool,
+}
+
 /// What the shell was last told: the rows and the panels it has now.
 pub struct Shown<B> {
     /// The rows the shell has. None before it was first told.
@@ -137,6 +159,8 @@ pub struct Shown<B> {
     index_pages: Option<Vec<SidebarPage>>,
     /// The recent pages the shell has. None before it was first told.
     recent_pages: Option<Vec<SidebarPage>>,
+    /// The results of the search the shell has. None before it was first told.
+    search_results: Option<Vec<SearchEntry>>,
     panels: ShownPanels,
 }
 
@@ -148,6 +172,7 @@ impl<B> Default for Shown<B> {
             headings: None,
             index_pages: None,
             recent_pages: None,
+            search_results: None,
             panels: ShownPanels::default(),
         }
     }
@@ -163,11 +188,15 @@ impl<B: Clone + PartialEq> Shown<B> {
         });
         let index_pages = changes_of(&mut self.index_pages, view.index_pages.pages, page_id);
         let recent_pages = changes_of(&mut self.recent_pages, view.recent_pages.pages, page_id);
+        let search_results = changes_of(&mut self.search_results, view.search.results, |entry| {
+            &entry.key
+        });
         Changes {
             rows: rows.into_iter().map(RowChange::from).collect(),
             headings: headings.into_iter().map(HeadingChange::from).collect(),
             index_pages: index_pages.into_iter().map(PageChange::from).collect(),
             recent_pages: recent_pages.into_iter().map(PageChange::from).collect(),
+            search_results: search_results.into_iter().map(SearchChange::from).collect(),
             panels,
         }
     }
@@ -252,7 +281,12 @@ fn panels<B>(view: &ViewModel<B>) -> Vec<Panel> {
         Panel::RecentPages(RecentPagesPanel {
             state: view.recent_pages.state,
         }),
-        Panel::Search(view.search.clone()),
+        Panel::Search(SearchPanel {
+            query: view.search.query.clone(),
+            show_dropdown: view.search.show_dropdown,
+            selected_index: view.search.selected_index,
+            searching: view.search.searching,
+        }),
         Panel::Config(view.config.clone()),
         Panel::Connection(view.connection),
         Panel::Today(view.today.clone()),

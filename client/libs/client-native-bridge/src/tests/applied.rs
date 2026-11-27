@@ -1,7 +1,7 @@
 //! The view model as a shell keeps it from the changes of the core (ADR 076), for the tests to
 //! hold against the view model of the core.
 
-use crate::{Changes, HeadingChange, PageChange, Panel, RowChange};
+use crate::{Changes, HeadingChange, PageChange, Panel, RowChange, SearchChange};
 use client_core::{RichText, ViewModel};
 
 /// Applies `change`, of the change type `kind` of the border, to the list `list`. The change
@@ -55,7 +55,13 @@ pub(super) fn applied(mut view: ViewModel<RichText>, changes: Changes) -> ViewMo
             }
             Panel::Headings(value) => view.headings.state = value.state,
             Panel::RecentPages(value) => view.recent_pages.state = value.state,
-            Panel::Search(value) => view.search = value,
+            Panel::Search(value) => {
+                let search = &mut view.search;
+                search.query = value.query;
+                search.show_dropdown = value.show_dropdown;
+                search.selected_index = value.selected_index;
+                search.searching = value.searching;
+            }
             Panel::Config(value) => view.config = value,
             Panel::Connection(value) => view.connection = value,
             Panel::Today(value) => view.today = value,
@@ -75,6 +81,9 @@ pub(super) fn applied(mut view: ViewModel<RichText>, changes: Changes) -> ViewMo
     }
     for change in changes.recent_pages {
         applied!(PageChange, change, &mut view.recent_pages.pages);
+    }
+    for change in changes.search_results {
+        applied!(SearchChange, change, &mut view.search.results);
     }
     view
 }

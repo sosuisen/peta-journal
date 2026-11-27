@@ -15,7 +15,7 @@ mod shell;
 
 pub use client_core::changes::{
     HeadingChange, HeadingsPanel, IndexPagesPanel, OutlinePanel, PageChange, Panel,
-    RecentPagesPanel, RowChange,
+    RecentPagesPanel, RowChange, SearchChange, SearchPanel,
 };
 /// The changes of the screen of a native shell, whose body model is [`RichText`](client_core::RichText).
 pub type Changes = client_core::changes::Changes<client_core::RichText>;
