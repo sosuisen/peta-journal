@@ -385,11 +385,11 @@ pub struct SearchView {
     pub searching: bool,
 }
 
-/// One line of the search results. `position` is what `Event::SearchResultClicked` takes.
+/// One line of the search results. `Event::SearchResultClicked` takes its place in the list,
+/// which the shell counts in the list it has.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SearchEntry {
-    pub position: usize,
     /// What the entry opens, which no other entry of the list opens: `today`, `page:` and the
     /// id of the page, `create:` and the path of the page to make, or `item:` and the id of the
     /// item. The shells take the changes of the list by it (ADR 088).
@@ -745,9 +745,7 @@ fn search(model: &Model) -> SearchView {
         .chain(hits(SearchKind::Page, &model.search.page_results))
         .chain(creates)
         .chain(hits(SearchKind::Item, &model.search.item_results))
-        .enumerate()
-        .map(|(position, (kind, title, snippet, key))| SearchEntry {
-            position,
+        .map(|(kind, title, snippet, key)| SearchEntry {
             key,
             kind,
             label: search_label(kind, &title),

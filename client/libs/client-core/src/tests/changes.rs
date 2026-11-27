@@ -217,7 +217,6 @@ fn a_page_changed_last_is_inserted_at_the_top_of_the_recent_pages() {
 #[test]
 fn a_search_result_whose_snippet_changed_is_an_update_of_the_results_at_its_place() {
     let result = |key: &str, snippet: &str| SearchEntry {
-        position: 0,
         key: key.into(),
         kind: SearchKind::Item,
         title: "t".into(),
