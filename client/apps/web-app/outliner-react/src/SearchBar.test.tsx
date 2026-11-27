@@ -9,20 +9,12 @@ afterEach(() => {
 });
 
 function entry(
-  position: number,
   kind: SearchKind['kind'],
   title: string,
   label = '',
   snippet = '',
 ): SearchEntry {
-  return new SearchEntry(
-    BigInt(position),
-    `${kind}:${title}`,
-    { kind },
-    title,
-    label,
-    snippet,
-  );
+  return new SearchEntry(`${kind}:${title}`, { kind }, title, label, snippet);
 }
 
 /** The search as a test shows it: the panel, and the results that come as a list beside it. */
@@ -104,8 +96,8 @@ describe('the results of the search', () => {
   // 結果は差分で届く。変わった結果だけが、新しい文言になる。
   test('the results come as changes, and a changed one shows its new label', () => {
     const { container, wasm } = searchBar(search({ show_dropdown: true }));
-    const plan = entry(0, 'Create', 'plan', 'Create page "plan"');
-    const diary = entry(1, 'Create', 'work/plan', 'Create page "work/plan"');
+    const plan = entry('Create', 'plan', 'Create page "plan"');
+    const diary = entry('Create', 'work/plan', 'Create page "work/plan"');
 
     act(() =>
       wasm.push([], [], {
@@ -178,10 +170,10 @@ describe('the keys of the search', () => {
 // 検索の候補
 describe('the results of the search', () => {
   const results = [
-    entry(0, 'Today', '', 'Today: 2026-11-23'),
-    entry(1, 'Page', 'notes'),
-    entry(2, 'Item', 'notes', '', 'the <mark>plan</mark>'),
-    entry(3, 'Create', '', 'Create "plan"'),
+    entry('Today', '', 'Today: 2026-11-23'),
+    entry('Page', 'notes'),
+    entry('Item', 'notes', '', 'the <mark>plan</mark>'),
+    entry('Create', '', 'Create "plan"'),
   ];
 
   // 候補は種類ごとの形で出る。項目は、ページの名前と、印のついた抜き書きを出す。選んだ候補に印がつく。
