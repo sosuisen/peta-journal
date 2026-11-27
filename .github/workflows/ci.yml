@@ -333,6 +333,9 @@ jobs:
           sdk="$ANDROID_HOME/cmdline-tools/latest/bin"
           echo y | "$sdk/sdkmanager" emulator "system-images;android-37.0;google_apis;x86_64" > /dev/null
           echo no | "$sdk/avdmanager" create avd -n peta-api37 -k "system-images;android-37.0;google_apis;x86_64" -d pixel_5
+          # All the cores and a quarter of the memory of the runner: with the defaults, a test
+          # near the end of the run waited more than 10 seconds for the core, and failed
+          printf 'hw.cpu.ncore=4\nhw.ramSize=4096\n' >> "$ANDROID_AVD_HOME/peta-api37.avd/config.ini"
       - run: node scripts/checks.mjs run outliner-android
 
   memoview-win:
