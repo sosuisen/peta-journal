@@ -10,6 +10,7 @@ use parking_lot::Mutex;
 use rusqlite::Connection;
 
 use crate::domain::atlas::{self, Outline, BOUNDS_KEY, PAGE_KEY, SIDE_KEY, TYPE_KEY};
+use crate::domain::atlas_migration;
 use crate::domain::bounds::Bounds;
 use crate::domain::fractional_index;
 use crate::domain::id_generator::IdGenerator;
@@ -86,6 +87,21 @@ impl AtlasService {
     /// Moves every atlas page of the form the server wrote to the form of a plain page
     /// (ADR 053).
     pub fn move_to_plain_form(&self) -> Result<(), AppError> {
+        let _guard = self.lock.lock();
+        for atlas in self.pages.find_all()?.into_iter().filter(Page::is_atlas) {
+            let loaded = self.load(atlas)?;
+            let Some(migration) = atlas_migration::migration(&loaded.items, &loaded.props) else {
+                continue;
+            };
+            let mut conn = self.items.db().conn()?;
+            let tx = conn.immediate()?;
+            for (id, key) in &migration.dropped_props {
+                PropertyRepository::delete_property_in(&tx, ITEM_TARGET, id.as_str(), key)?;
+            }
+            tx.commit()?;
+            self.export.queue_export(&loaded.atlas.id);
+            self.events.atlas_changed(&loaded.atlas.id);
+        }
         Ok(())
     }
 
