@@ -1111,10 +1111,6 @@ impl ItemService {
                     for key in dropped_properties {
                         PropertyRepository::delete_property_in(&tx, ITEM_TARGET, id.as_str(), key)?;
                     }
-                    if !properties.is_empty() || !dropped_properties.is_empty() {
-                        ItemRepository::touch_in(&tx, id, self.items.db().now_millis())?;
-                        effects.pages.insert(existing.page_id.clone());
-                    }
                     // A transcluder shows the item as it is stored, so its page changed too
                     transcluder_pages.extend(
                         ItemRepository::find_transcluders_in(&tx, id)?
