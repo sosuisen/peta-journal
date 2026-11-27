@@ -3,7 +3,8 @@
 
 use super::*;
 use crate::rich_text::RichLink;
-use crate::screens::atlas::{AtlasGroup, CardTone};
+use crate::model::PropertyValue;
+use crate::screens::atlas::{AtlasGroup, CardTone, GroupLook};
 use crate::view::LoadState;
 
 /// An item of level 1 placed at the origin
@@ -162,5 +163,50 @@ fn a_card_carries_all_its_parents_from_the_outermost() {
     assert_eq!(
         titled_groups(&view.atlas_links[0].groups),
         [("outer", Some("Outer"))]
+    );
+}
+
+/// An item of level 2 placed at the origin
+fn placed_under(id: &str, body: &str) -> Item {
+    atlas_item(id, 2, body, &[("atlas_bounds", "0,0,0,40")])
+}
+
+// 親がページカードなら、その親はページを開くパスと、アイコンのタグと、色を持つ。リンク先のページがない親は、何も開かない。
+#[test]
+fn a_parent_that_is_a_page_card_opens_its_page_and_has_its_icon() {
+    let mut one = child("one");
+    one.properties
+        .insert("tags".into(), PropertyValue::List(vec!["sun".into()]));
+    let mut h = atlas_of(
+        vec![one],
+        vec![
+            atlas_item("pa", 1, "[[a/b/one]]", &[]),
+            placed_under("na", "note"),
+            atlas_item("pb", 1, "[[a/b/gone]]", &[]),
+            placed_under("nb", "note"),
+        ],
+    );
+    h.model.sidebar.index_state = LoadState::Loaded;
+
+    let looks: Vec<GroupLook> = h
+        .view()
+        .atlas_links
+        .into_iter()
+        .map(|l| l.groups[0].look.clone())
+        .collect();
+    assert_eq!(
+        looks,
+        [
+            GroupLook::Page {
+                path: Some("a/b/one".into()),
+                tone: CardTone::Page,
+                icon_tags: vec!["sun".into()],
+            },
+            GroupLook::Page {
+                path: None,
+                tone: CardTone::Missing,
+                icon_tags: vec![],
+            },
+        ]
     );
 }
