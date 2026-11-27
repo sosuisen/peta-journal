@@ -4,6 +4,7 @@
 use super::*;
 use crate::rich_text::RichLink;
 use crate::screens::atlas::CardTone;
+use crate::view::LoadState;
 
 /// An item of level 1 placed at the origin
 fn placed(id: &str, body: &str) -> Item {
@@ -110,5 +111,19 @@ fn a_second_card_to_a_page_of_the_folder_is_blue_too() {
     assert_eq!(
         (link.item_id.as_str(), link.tone, link.label.as_str()),
         ("second", CardTone::Page, "again")
+    );
+}
+
+// 同じフォルダにないページへのカードは、フォルダの一覧が届いていれば、灰色のリンク先のないカードである。届く前は、オレンジのままである。
+#[test]
+fn a_card_to_a_page_the_folder_does_not_have_is_gray_once_the_list_is_in() {
+    let mut h = atlas_of(vec![child("one")], vec![placed("gone", "[[a/b/gone]]")]);
+    let before = h.view().atlas_links[0].tone;
+
+    h.model.sidebar.index_state = LoadState::Loaded;
+
+    assert_eq!(
+        (before, h.view().atlas_links[0].tone),
+        (CardTone::Link, CardTone::Missing)
     );
 }
