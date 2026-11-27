@@ -8,3 +8,7 @@ reports
 .stryker-tmp
 # npm writes it
 e2e/package-lock.json
+# Playwright writes them on each run of the e2e tests. The hook runs the e2e tests too, so they
+# are there when the next check of the format runs
+e2e/test-results
+e2e/playwright-report

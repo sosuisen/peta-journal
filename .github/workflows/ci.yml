@@ -177,7 +177,7 @@ jobs:
 
   # The web shell in React. Its core is the wasm of client-web-bridge. The tests, the lint and the
   # types need that wasm and the types of the border, which `npm run border` makes from the Rust
-  # code. The e2e tests with Playwright run on a developer's machine only.
+  # code. The e2e tests with Playwright are in the outliner-react-e2e job.
   outliner-react:
     name: client/apps/web-app/outliner-react
     needs: plan
@@ -199,6 +199,48 @@ jobs:
           cache: npm
           cache-dependency-path: client/apps/web-app/outliner-react/package-lock.json
       - run: node scripts/checks.mjs run outliner-react
+
+  # The e2e tests of the web shell: Playwright drives the built shell in a browser without a
+  # window, against a real journal server
+  outliner-react-e2e:
+    name: client/apps/web-app/outliner-react/e2e
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.jobs), 'outliner-react-e2e') && (github.event_name != 'workflow_dispatch' || inputs.linux) && !inputs.ios_only
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      # Installs the version, components and targets in rust-toolchain.toml
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            journal
+            client
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-pack@0.15.1
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            client/apps/web-app/outliner-react/package-lock.json
+            client/apps/web-app/outliner-react/e2e/package-lock.json
+      # The browser and the packages of Ubuntu that it needs, as Playwright documents for a CI.
+      # The version is that of Playwright in e2e/package-lock.json. The browser is not kept in a
+      # cache: Playwright advises against it, as a download takes about as long as the cache, and
+      # the packages of Ubuntu cannot be cached
+      - working-directory: client/apps/web-app/outliner-react/e2e
+        run: npm ci && npx playwright install --with-deps chromium
+      - run: node scripts/checks.mjs run outliner-react-e2e
+      # The trace of each failed test (playwright.config.ts), to open with `npx playwright show-trace`
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: outliner-react-e2e-test-results
+          path: client/apps/web-app/outliner-react/e2e/test-results
+          if-no-files-found: ignore
 
   # The sticky notes on Windows. The tests of PetaBorder need the core as a library, made from the
   # Rust code with BoltFFI, and a journal server. The tests of the windows run here too: they press
@@ -309,7 +351,7 @@ jobs:
   # The one check that the protection of main asks for
   ci:
     if: always()
-    needs: [plan, guard, rust, emacs-e2e, todo, outliner-react, stickies-win, stickies-mac, outliner-ios, memoview-win]
+    needs: [plan, guard, rust, emacs-e2e, todo, outliner-react, outliner-react-e2e, stickies-win, stickies-mac, outliner-ios, memoview-win]
     runs-on: ubuntu-latest
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
