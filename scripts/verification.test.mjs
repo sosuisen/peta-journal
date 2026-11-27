@@ -6,9 +6,9 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { JOBS, ROOT, commandOf, jobsFor, logFileFor, runJob } from './checks.mjs';
 
@@ -53,15 +53,17 @@ const COVERAGE_STEP = {
   'stickies-win': 'dotnet build -t:Coverage',
   'stickies-mac': './coverage.sh',
   'outliner-ios': './coverage.sh',
+  'outliner-android': './coverage.sh',
 };
 
 // The coverage steps that run on one OS only: stickies-mac and outliner-ios build nowhere else, and
-// the developer runs stickies-win on Windows only (#1085). The CI runs them on that OS, where a step
-// for another OS fails the job
+// the developer runs stickies-win on Windows only (#1085). The steps of outliner-android are shell
+// scripts, for Linux. The CI runs them on that OS, where a step for another OS fails the job
 const COVERAGE_OS = {
   'stickies-win': 'win32',
   'stickies-mac': 'darwin',
   'outliner-ios': 'darwin',
+  'outliner-android': 'linux',
 };
 
 // The job and the step that run the common tests of each shell that has rules in
@@ -73,7 +75,7 @@ const COMMON_TESTS_STEP = {
     job: 'client',
     run: '"$PETA_EMACS" -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit',
   },
-  'outliner-android': { pending: 1205 },
+  'outliner-android': { job: 'outliner-android', run: './gradlew :app:testDebugUnitTest' },
   'outliner-ios': { job: 'outliner-ios', run: 'swift test' },
   'stickies-mac': { job: 'stickies-mac', run: 'swift test' },
   'stickies-win': { job: 'stickies-win', run: 'dotnet build -t:Coverage' },
@@ -99,6 +101,18 @@ const XCCOV = {
     floor: String(FLOOR),
     measured: 'App/ Sources/',
     excluded: 'Sources/PetaDropbox/SdkDropbox.swift Sources/PetaDropbox/DropboxSdk.swift',
+  },
+};
+
+// The floor, the folder and the files left out of the coverage task of outliner-android, which
+// reads the report of JaCoCo. generated/ is not in that folder. The two files only pass each call
+// on to the SDK of Dropbox, as in outliner-ios, and are left out with the consent of the developer
+// (2026-11-28, #1088)
+const GRADLE = {
+  'client/apps/native-app/outliner-android/app/build.gradle.kts': {
+    floor: String(FLOOR),
+    measured: 'src/main/kotlin',
+    excluded: ['com/sosuisha/petajournal/dropbox/SdkDropbox.kt', 'com/sosuisha/petajournal/dropbox/DropboxSdk.kt'],
   },
 };
 
@@ -272,6 +286,7 @@ test('the e2e tests run in a step that neither the ci nor the hook skips, when t
     assert.ok(step, `${shell}: the job ${job} has no step "${run}"`);
     assert.equal(step.os, undefined, shell);
     assert.equal(step.screen, undefined, shell);
+    assert.equal(step.ciOnly, undefined, shell);
     assert.equal(step.needs, undefined, shell);
     for (const file of [`${JOBS[job].dir}/tests/outline.spec.ts`, 'client/apps/web-app/outliner-react/src/App.tsx', 'journal/journal-server/src/main.rs']) {
       assert.ok(jobsFor([file]).includes(job), `${shell}: ${file}`);
@@ -316,6 +331,28 @@ test('each xcodebuild coverage script fails under the floor and measures the agr
     // Each file of those folders is read, and the tests run with the coverage on
     assert.match(text, /for folder in \$measured; do/, script);
     assert.match(text, /-enableCodeCoverage YES/, script);
+  }
+});
+
+// Gradleのカバレッジのタスクは、9割未満で失敗し、了解したフォルダーを、JVMのテストと端末のテストの両方で測る。
+test('each gradle coverage task fails under the floor and measures the agreed folder with both kinds of tests', () => {
+  for (const [script, expected] of Object.entries(GRADLE)) {
+    const text = read(script);
+    const value = (name) => [...text.matchAll(new RegExp(`^val ${name} = (.*)$`, 'gm'))].map((m) => m[1]);
+    assert.deepEqual(value('coverageFloor'), [expected.floor], script);
+    assert.deepEqual(value('coverageMeasured'), [`"${expected.measured}"`], script);
+    const excluded = text.match(/^val coverageExcluded =\s*listOf(?:<String>)?\(([^)]*)\)/m);
+    assert.ok(excluded, script);
+    assert.deepEqual([...excluded[1].matchAll(/"([^"]*)"/g)].map((m) => m[1]), expected.excluded, script);
+    // A file left out that is gone would leave out nothing, and hide that the list is old
+    for (const file of expected.excluded) {
+      assert.ok(existsSync(join(ROOT, dirname(script), expected.measured, file)), file);
+    }
+    assert.match(text, /if \(percent < floor\) throw GradleException\(/, script);
+    // The tests on a device run most of the code. Without them, the number would be of a few files
+    assert.match(text, /dependsOn\("testDebugUnitTest", "connectedDebugAndroidTest"\)/, script);
+    // A filter of the classes would leave files out of that folder. The one filter is of ktfmt
+    assert.equal(text.match(/\bexcludes?\b/g)?.length, 1, script);
   }
 });
 
@@ -411,6 +448,30 @@ test('a step on the screen is skipped only when the screen is not to be touched'
 test('only the coverage step of stickies-win touches the screen', () => {
   const screen = Object.entries(JOBS).flatMap(([job, { steps }]) => steps.filter((s) => s.screen).map((s) => `${job}: ${s.run}`));
   assert.deepEqual(screen, ['stickies-win: dotnet build -t:Coverage']);
+});
+
+// CIだけが回す段は、screen: falseのとき（フック）だけ飛ばす。手で回したときとCIでは回す（開発者が決めた、2026-11-28）。
+test('a step for the ci only is skipped only by the hook', async () => {
+  const quiet = { log: () => {} };
+  JOBS['test-ci-only'] = { dir: '.', touchedBy: [], steps: [{ ciOnly: true, run: 'node -e "process.exit(3)"' }] };
+  try {
+    const hook = await runJob('test-ci-only', { ...quiet, screen: false });
+    assert.equal(hook.failed, undefined);
+    assert.deepEqual(
+      hook.skipped.map((s) => s.step),
+      ['node -e "process.exit(3)"'],
+    );
+    assert.notEqual((await runJob('test-ci-only', quiet)).failed, undefined);
+    assert.notEqual((await runJob('test-ci-only', { ...quiet, strict: true })).failed, undefined);
+  } finally {
+    delete JOBS['test-ci-only'];
+  }
+});
+
+// CIだけが回す段は、outliner-androidのカバレッジの段だけである。エミュレーターで画面のテストを回すので、フックには重い（開発者が決めた、2026-11-28、#1205）。
+test('only the coverage step of outliner-android is for the ci only', () => {
+  const ciOnly = Object.entries(JOBS).flatMap(([job, { steps }]) => steps.filter((s) => s.ciOnly).map((s) => `${job}: ${s.run}`));
+  assert.deepEqual(ciOnly, ['outliner-android: ./coverage.sh']);
 });
 
 // 段の出力は、段が終わるのを待たずに、出たそばからログに渡る。開発者が進み具合を見られるようにするため。
