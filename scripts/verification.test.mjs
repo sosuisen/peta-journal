@@ -237,7 +237,10 @@ test('each shell with rules runs the common tests in a step of its job', () => {
       JOBS[job]?.steps.some((s) => s.run === run),
       `${shell}: the job ${job} has no step "${run}"`,
     );
-    assert.ok(jobsFor(['client/tools/shell-check/common/list-changes.json']).includes(job), shell);
+    for (const examples of readdirSync(join(ROOT, 'client', 'tools', 'shell-check', 'common'))) {
+      const file = `client/tools/shell-check/common/${examples}`;
+      assert.ok(jobsFor([file]).includes(job), `${shell}: ${file}`);
+    }
   }
 });
 

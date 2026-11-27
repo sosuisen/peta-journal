@@ -87,13 +87,13 @@ export const JOBS = {
     notTouchedBy: ['client/apps/web-app/', 'client/apps/webview-app/'],
     steps: [
       ...rust('--workspace'),
-      // What only a native shell needs is behind features: the generation of its types, and the
-      // entrance for another language
+      // What only a native shell needs is behind features: the generation of its types, the
+      // examples of the values of its border, and the entrance for another language
       {
         run: 'cargo clippy -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi --all-targets',
       },
       {
-        run: 'cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi --test codegen --test ffi',
+        run: 'cargo test -p client-native-bridge -p client-shell-http --features client-native-bridge/facet_typegen,client-shell-http/ffi --test codegen --test border_examples --test ffi',
       },
       // The browser side of client-web-bridge (src/web.rs) is built for wasm only
       { run: 'cargo clippy --target wasm32-unknown-unknown -p client-web-bridge --lib' },

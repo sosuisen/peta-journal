@@ -58,7 +58,7 @@ tests = ["client/apps/web-app/outliner-react/src"]
 test = "client/apps/web-app/outliner-react/src/listChanges.test.ts"
 
 [common.border-web]
-pending = 1209
+test = "client/apps/web-app/outliner-react/src/borderValues.test.ts"
 
 [common.border-native]
 excluded = "the web shell reads the border of client-web-bridge, not that of client-native-bridge"

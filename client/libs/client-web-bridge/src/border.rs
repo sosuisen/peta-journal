@@ -140,4 +140,14 @@ mod tests {
 
         assert!(refused.is_err());
     }
+
+    // 1つの値だけを持つ型は、持つ値のままで境界を渡る。生成されたTypeScriptの型が、そう書くためである。
+    #[test]
+    fn a_type_of_one_value_crosses_as_that_value() {
+        let text = r#"{"Start":{"client_id":"c1"}}"#;
+
+        let event: Event = read(text).unwrap();
+
+        assert_eq!(facet_json::to_string(&event).unwrap(), text);
+    }
 }

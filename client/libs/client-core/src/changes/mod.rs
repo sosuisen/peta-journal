@@ -4,6 +4,8 @@
 
 mod diff;
 pub mod examples;
+#[cfg(feature = "border_examples")]
+pub mod samples;
 
 pub use diff::{list_changes, ListChange};
 

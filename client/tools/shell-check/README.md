@@ -94,10 +94,19 @@ as the JSON of facet that the web shell reads, and the part `native`, as the bin
 in hexadecimal that the native shells read. The examples are in
 `client-core/src/changes/examples.rs`.
 
+`border-web.json` and `border-native.json` (D2) hold values of `Changes` and `Event`, in the
+parts `changes` and `events`: as the text of the JSON of facet (`json`) for the web shell, and as
+the bincode in hexadecimal (`bytes`) for the native shells. A shell reads each with its generated
+types, writes it back, and expects what it began with. The values come from the description of
+the types (`client-core/src/changes/samples.rs`): one for each variant of `Event`, and more until
+every variant of every enum inside is held, with the numbers at their edges and texts that are
+hard to carry. A test of each crate checks that every variant is held.
+
 A test of the crate of each border fails when its part is not the examples of the core:
 `client-web-bridge` for `web`, `client-native-bridge` for `native`. To write the parts again
 after the examples or the types of the border changed, run in `client/`:
 
 ```
 PETA_WRITE_EXAMPLES=1 cargo test -p client-web-bridge -p client-native-bridge examples
+PETA_WRITE_EXAMPLES=1 cargo test -p client-native-bridge --features facet_typegen --test border_examples
 ```

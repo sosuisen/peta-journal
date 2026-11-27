@@ -1,0 +1,2004 @@
+[
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace samples -> Vec<Sample> with vec![]\n@@ -24,17 +24,17 @@\n /// An enum has a sample of each of its variants, named by it. Any other type has a sample\n /// named by the type, and a sample `empty` with no optional value and empty lists. More\n /// samples follow while they hold a variant of an enum inside that no sample held yet.\n ///\n /// A list holds a sample of each variant of its enum, and any other list one value. An\n /// option holds a value, and the values of a kind take turns: the samples hold the edges of\n /// the numbers, and text that is not ASCII.\n pub fn samples(registry: &Registry, root: &str) -> Vec<Sample> {\n-    Sampler::new(registry).samples(root)\n+    vec![] /* ~ changed by cargo-mutants ~ */\n }\n \n /// The variants of the enums reachable from `root` that no sample of `samples` holds, as the\n /// name of the enum and the name of the variant.\n pub fn uncovered(registry: &Registry, root: &str) -> Vec<(String, String)> {\n     let mut sampler = Sampler::new(registry);\n     sampler.samples(root);\n     let mut reachable = BTreeSet::new();\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "samples",
+      "return_type": "-> Vec<Sample>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 33
+        },
+        "start": {
+          "column": 1,
+          "line": 22
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:32:5: replace samples -> Vec<Sample> with vec![]",
+    "package": "client-core",
+    "replacement": "vec![]",
+    "span": {
+      "end": {
+        "column": 41,
+        "line": 32
+      },
+      "start": {
+        "column": 5,
+        "line": 32
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace samples -> Vec<Sample> with vec![Default::default()]\n@@ -24,17 +24,17 @@\n /// An enum has a sample of each of its variants, named by it. Any other type has a sample\n /// named by the type, and a sample `empty` with no optional value and empty lists. More\n /// samples follow while they hold a variant of an enum inside that no sample held yet.\n ///\n /// A list holds a sample of each variant of its enum, and any other list one value. An\n /// option holds a value, and the values of a kind take turns: the samples hold the edges of\n /// the numbers, and text that is not ASCII.\n pub fn samples(registry: &Registry, root: &str) -> Vec<Sample> {\n-    Sampler::new(registry).samples(root)\n+    vec![Default::default()] /* ~ changed by cargo-mutants ~ */\n }\n \n /// The variants of the enums reachable from `root` that no sample of `samples` holds, as the\n /// name of the enum and the name of the variant.\n pub fn uncovered(registry: &Registry, root: &str) -> Vec<(String, String)> {\n     let mut sampler = Sampler::new(registry);\n     sampler.samples(root);\n     let mut reachable = BTreeSet::new();\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "samples",
+      "return_type": "-> Vec<Sample>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 33
+        },
+        "start": {
+          "column": 1,
+          "line": 22
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:32:5: replace samples -> Vec<Sample> with vec![Default::default()]",
+    "package": "client-core",
+    "replacement": "vec![Default::default()]",
+    "span": {
+      "end": {
+        "column": 41,
+        "line": 32
+      },
+      "start": {
+        "column": 5,
+        "line": 32
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace uncovered -> Vec<(String, String)> with vec![]\n@@ -30,26 +30,17 @@\n /// the numbers, and text that is not ASCII.\n pub fn samples(registry: &Registry, root: &str) -> Vec<Sample> {\n     Sampler::new(registry).samples(root)\n }\n \n /// The variants of the enums reachable from `root` that no sample of `samples` holds, as the\n /// name of the enum and the name of the variant.\n pub fn uncovered(registry: &Registry, root: &str) -> Vec<(String, String)> {\n-    let mut sampler = Sampler::new(registry);\n-    sampler.samples(root);\n-    let mut reachable = BTreeSet::new();\n-    reach(\n-        registry,\n-        &named(registry, root),\n-        &mut BTreeSet::new(),\n-        &mut reachable,\n-    );\n-    reachable.difference(&sampler.covered).cloned().collect()\n+    vec![] /* ~ changed by cargo-mutants ~ */\n }\n \n /// This many types down, the samples hold no optional value, empty lists and maps, and the\n /// variants of an enum that hold nothing, so that a type that holds itself ends. Only the\n /// types count: every type that holds itself does so through a type.\n const DEEPEST: usize = 8;\n \n /// The most turns of samples that are made to hold every variant inside. A variant behind\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "uncovered",
+      "return_type": "-> Vec<(String, String)>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 48
+        },
+        "start": {
+          "column": 1,
+          "line": 35
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:38:5: replace uncovered -> Vec<(String, String)> with vec![]",
+    "package": "client-core",
+    "replacement": "vec![]",
+    "span": {
+      "end": {
+        "column": 62,
+        "line": 47
+      },
+      "start": {
+        "column": 5,
+        "line": 38
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace uncovered -> Vec<(String, String)> with vec![(String::new(), String::new())]\n@@ -30,26 +30,17 @@\n /// the numbers, and text that is not ASCII.\n pub fn samples(registry: &Registry, root: &str) -> Vec<Sample> {\n     Sampler::new(registry).samples(root)\n }\n \n /// The variants of the enums reachable from `root` that no sample of `samples` holds, as the\n /// name of the enum and the name of the variant.\n pub fn uncovered(registry: &Registry, root: &str) -> Vec<(String, String)> {\n-    let mut sampler = Sampler::new(registry);\n-    sampler.samples(root);\n-    let mut reachable = BTreeSet::new();\n-    reach(\n-        registry,\n-        &named(registry, root),\n-        &mut BTreeSet::new(),\n-        &mut reachable,\n-    );\n-    reachable.difference(&sampler.covered).cloned().collect()\n+    vec![(String::new(), String::new())] /* ~ changed by cargo-mutants ~ */\n }\n \n /// This many types down, the samples hold no optional value, empty lists and maps, and the\n /// variants of an enum that hold nothing, so that a type that holds itself ends. Only the\n /// types count: every type that holds itself does so through a type.\n const DEEPEST: usize = 8;\n \n /// The most turns of samples that are made to hold every variant inside. A variant behind\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "uncovered",
+      "return_type": "-> Vec<(String, String)>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 48
+        },
+        "start": {
+          "column": 1,
+          "line": 35
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:38:5: replace uncovered -> Vec<(String, String)> with vec![(String::new(), String::new())]",
+    "package": "client-core",
+    "replacement": "vec![(String::new(), String::new())]",
+    "span": {
+      "end": {
+        "column": 62,
+        "line": 47
+      },
+      "start": {
+        "column": 5,
+        "line": 38
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace uncovered -> Vec<(String, String)> with vec![(String::new(), \"xyzzy\".into())]\n@@ -30,26 +30,17 @@\n /// the numbers, and text that is not ASCII.\n pub fn samples(registry: &Registry, root: &str) -> Vec<Sample> {\n     Sampler::new(registry).samples(root)\n }\n \n /// The variants of the enums reachable from `root` that no sample of `samples` holds, as the\n /// name of the enum and the name of the variant.\n pub fn uncovered(registry: &Registry, root: &str) -> Vec<(String, String)> {\n-    let mut sampler = Sampler::new(registry);\n-    sampler.samples(root);\n-    let mut reachable = BTreeSet::new();\n-    reach(\n-        registry,\n-        &named(registry, root),\n-        &mut BTreeSet::new(),\n-        &mut reachable,\n-    );\n-    reachable.difference(&sampler.covered).cloned().collect()\n+    vec![(String::new(), \"xyzzy\".into())] /* ~ changed by cargo-mutants ~ */\n }\n \n /// This many types down, the samples hold no optional value, empty lists and maps, and the\n /// variants of an enum that hold nothing, so that a type that holds itself ends. Only the\n /// types count: every type that holds itself does so through a type.\n const DEEPEST: usize = 8;\n \n /// The most turns of samples that are made to hold every variant inside. A variant behind\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "uncovered",
+      "return_type": "-> Vec<(String, String)>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 48
+        },
+        "start": {
+          "column": 1,
+          "line": 35
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:38:5: replace uncovered -> Vec<(String, String)> with vec![(String::new(), \"xyzzy\".into())]",
+    "package": "client-core",
+    "replacement": "vec![(String::new(), \"xyzzy\".into())]",
+    "span": {
+      "end": {
+        "column": 62,
+        "line": 47
+      },
+      "start": {
+        "column": 5,
+        "line": 38
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace uncovered -> Vec<(String, String)> with vec![(\"xyzzy\".into(), String::new())]\n@@ -30,26 +30,17 @@\n /// the numbers, and text that is not ASCII.\n pub fn samples(registry: &Registry, root: &str) -> Vec<Sample> {\n     Sampler::new(registry).samples(root)\n }\n \n /// The variants of the enums reachable from `root` that no sample of `samples` holds, as the\n /// name of the enum and the name of the variant.\n pub fn uncovered(registry: &Registry, root: &str) -> Vec<(String, String)> {\n-    let mut sampler = Sampler::new(registry);\n-    sampler.samples(root);\n-    let mut reachable = BTreeSet::new();\n-    reach(\n-        registry,\n-        &named(registry, root),\n-        &mut BTreeSet::new(),\n-        &mut reachable,\n-    );\n-    reachable.difference(&sampler.covered).cloned().collect()\n+    vec![(\"xyzzy\".into(), String::new())] /* ~ changed by cargo-mutants ~ */\n }\n \n /// This many types down, the samples hold no optional value, empty lists and maps, and the\n /// variants of an enum that hold nothing, so that a type that holds itself ends. Only the\n /// types count: every type that holds itself does so through a type.\n const DEEPEST: usize = 8;\n \n /// The most turns of samples that are made to hold every variant inside. A variant behind\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "uncovered",
+      "return_type": "-> Vec<(String, String)>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 48
+        },
+        "start": {
+          "column": 1,
+          "line": 35
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:38:5: replace uncovered -> Vec<(String, String)> with vec![(\"xyzzy\".into(), String::new())]",
+    "package": "client-core",
+    "replacement": "vec![(\"xyzzy\".into(), String::new())]",
+    "span": {
+      "end": {
+        "column": 62,
+        "line": 47
+      },
+      "start": {
+        "column": 5,
+        "line": 38
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace uncovered -> Vec<(String, String)> with vec![(\"xyzzy\".into(), \"xyzzy\".into())]\n@@ -30,26 +30,17 @@\n /// the numbers, and text that is not ASCII.\n pub fn samples(registry: &Registry, root: &str) -> Vec<Sample> {\n     Sampler::new(registry).samples(root)\n }\n \n /// The variants of the enums reachable from `root` that no sample of `samples` holds, as the\n /// name of the enum and the name of the variant.\n pub fn uncovered(registry: &Registry, root: &str) -> Vec<(String, String)> {\n-    let mut sampler = Sampler::new(registry);\n-    sampler.samples(root);\n-    let mut reachable = BTreeSet::new();\n-    reach(\n-        registry,\n-        &named(registry, root),\n-        &mut BTreeSet::new(),\n-        &mut reachable,\n-    );\n-    reachable.difference(&sampler.covered).cloned().collect()\n+    vec![(\"xyzzy\".into(), \"xyzzy\".into())] /* ~ changed by cargo-mutants ~ */\n }\n \n /// This many types down, the samples hold no optional value, empty lists and maps, and the\n /// variants of an enum that hold nothing, so that a type that holds itself ends. Only the\n /// types count: every type that holds itself does so through a type.\n const DEEPEST: usize = 8;\n \n /// The most turns of samples that are made to hold every variant inside. A variant behind\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "uncovered",
+      "return_type": "-> Vec<(String, String)>",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 48
+        },
+        "start": {
+          "column": 1,
+          "line": 35
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:38:5: replace uncovered -> Vec<(String, String)> with vec![(\"xyzzy\".into(), \"xyzzy\".into())]",
+    "package": "client-core",
+    "replacement": "vec![(\"xyzzy\".into(), \"xyzzy\".into())]",
+    "span": {
+      "end": {
+        "column": 62,
+        "line": 47
+      },
+      "start": {
+        "column": 5,
+        "line": 38
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace + with -\n@@ -53,17 +53,17 @@\n const DEEPEST: usize = 8;\n \n /// The most turns of samples that are made to hold every variant inside. A variant behind\n /// other enums that take turns comes up only every few turns.\n const TURNS: usize = 64;\n \n /// The numbers at the edges that the shells may not hold as they are, as a JavaScript number\n /// beyond 2^53. Each kind takes the next in turn.\n-const U64S: &[u64] = &[u64::MAX, (1 << 53) + 1, 0, 1];\n+const U64S: &[u64] = &[u64::MAX, (1 << 53) - /* ~ changed by cargo-mutants ~ */ 1, 0, 1];\n const I64S: &[i64] = &[i64::MIN, -1, i64::MAX];\n const U32S: &[u32] = &[u32::MAX, 0];\n const I32S: &[i32] = &[i32::MIN, 7];\n const U8S: &[u8] = &[u8::MAX, 0];\n const F64S: &[f64] = &[0.1, -2.5, f64::MAX, 5e-324];\n const F32S: &[f32] = &[0.5, -1.25, f32::MAX, 1e-7];\n /// Text that a shell may change when it reads it: letters beyond ASCII, a letter and its\n /// accent apart (not NFC), letters beyond the 16 bits of UTF-16, and what JSON escapes.\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": null,
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:61:44: replace + with -",
+    "package": "client-core",
+    "replacement": "-",
+    "span": {
+      "end": {
+        "column": 45,
+        "line": 61
+      },
+      "start": {
+        "column": 44,
+        "line": 61
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace + with *\n@@ -53,17 +53,17 @@\n const DEEPEST: usize = 8;\n \n /// The most turns of samples that are made to hold every variant inside. A variant behind\n /// other enums that take turns comes up only every few turns.\n const TURNS: usize = 64;\n \n /// The numbers at the edges that the shells may not hold as they are, as a JavaScript number\n /// beyond 2^53. Each kind takes the next in turn.\n-const U64S: &[u64] = &[u64::MAX, (1 << 53) + 1, 0, 1];\n+const U64S: &[u64] = &[u64::MAX, (1 << 53) * /* ~ changed by cargo-mutants ~ */ 1, 0, 1];\n const I64S: &[i64] = &[i64::MIN, -1, i64::MAX];\n const U32S: &[u32] = &[u32::MAX, 0];\n const I32S: &[i32] = &[i32::MIN, 7];\n const U8S: &[u8] = &[u8::MAX, 0];\n const F64S: &[f64] = &[0.1, -2.5, f64::MAX, 5e-324];\n const F32S: &[f32] = &[0.5, -1.25, f32::MAX, 1e-7];\n /// Text that a shell may change when it reads it: letters beyond ASCII, a letter and its\n /// accent apart (not NFC), letters beyond the 16 bits of UTF-16, and what JSON escapes.\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": null,
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:61:44: replace + with *",
+    "package": "client-core",
+    "replacement": "*",
+    "span": {
+      "end": {
+        "column": 45,
+        "line": 61
+      },
+      "start": {
+        "column": 44,
+        "line": 61
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace << with >>\n@@ -53,17 +53,17 @@\n const DEEPEST: usize = 8;\n \n /// The most turns of samples that are made to hold every variant inside. A variant behind\n /// other enums that take turns comes up only every few turns.\n const TURNS: usize = 64;\n \n /// The numbers at the edges that the shells may not hold as they are, as a JavaScript number\n /// beyond 2^53. Each kind takes the next in turn.\n-const U64S: &[u64] = &[u64::MAX, (1 << 53) + 1, 0, 1];\n+const U64S: &[u64] = &[u64::MAX, (1 >> /* ~ changed by cargo-mutants ~ */ 53) + 1, 0, 1];\n const I64S: &[i64] = &[i64::MIN, -1, i64::MAX];\n const U32S: &[u32] = &[u32::MAX, 0];\n const I32S: &[i32] = &[i32::MIN, 7];\n const U8S: &[u8] = &[u8::MAX, 0];\n const F64S: &[f64] = &[0.1, -2.5, f64::MAX, 5e-324];\n const F32S: &[f32] = &[0.5, -1.25, f32::MAX, 1e-7];\n /// Text that a shell may change when it reads it: letters beyond ASCII, a letter and its\n /// accent apart (not NFC), letters beyond the 16 bits of UTF-16, and what JSON escapes.\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": null,
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:61:37: replace << with >>",
+    "package": "client-core",
+    "replacement": ">>",
+    "span": {
+      "end": {
+        "column": 39,
+        "line": 61
+      },
+      "start": {
+        "column": 37,
+        "line": 61
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ delete -\n@@ -54,17 +54,17 @@\n \n /// The most turns of samples that are made to hold every variant inside. A variant behind\n /// other enums that take turns comes up only every few turns.\n const TURNS: usize = 64;\n \n /// The numbers at the edges that the shells may not hold as they are, as a JavaScript number\n /// beyond 2^53. Each kind takes the next in turn.\n const U64S: &[u64] = &[u64::MAX, (1 << 53) + 1, 0, 1];\n-const I64S: &[i64] = &[i64::MIN, -1, i64::MAX];\n+const I64S: &[i64] = &[i64::MIN,  /* ~ changed by cargo-mutants ~ */1, i64::MAX];\n const U32S: &[u32] = &[u32::MAX, 0];\n const I32S: &[i32] = &[i32::MIN, 7];\n const U8S: &[u8] = &[u8::MAX, 0];\n const F64S: &[f64] = &[0.1, -2.5, f64::MAX, 5e-324];\n const F32S: &[f32] = &[0.5, -1.25, f32::MAX, 1e-7];\n /// Text that a shell may change when it reads it: letters beyond ASCII, a letter and its\n /// accent apart (not NFC), letters beyond the 16 bits of UTF-16, and what JSON escapes.\n const STRS: &[&str] = &[\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": null,
+    "genre": "UnaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:62:34: delete -",
+    "package": "client-core",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 62
+      },
+      "start": {
+        "column": 34,
+        "line": 62
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ delete -\n@@ -58,17 +58,17 @@\n \n /// The numbers at the edges that the shells may not hold as they are, as a JavaScript number\n /// beyond 2^53. Each kind takes the next in turn.\n const U64S: &[u64] = &[u64::MAX, (1 << 53) + 1, 0, 1];\n const I64S: &[i64] = &[i64::MIN, -1, i64::MAX];\n const U32S: &[u32] = &[u32::MAX, 0];\n const I32S: &[i32] = &[i32::MIN, 7];\n const U8S: &[u8] = &[u8::MAX, 0];\n-const F64S: &[f64] = &[0.1, -2.5, f64::MAX, 5e-324];\n+const F64S: &[f64] = &[0.1,  /* ~ changed by cargo-mutants ~ */2.5, f64::MAX, 5e-324];\n const F32S: &[f32] = &[0.5, -1.25, f32::MAX, 1e-7];\n /// Text that a shell may change when it reads it: letters beyond ASCII, a letter and its\n /// accent apart (not NFC), letters beyond the 16 bits of UTF-16, and what JSON escapes.\n const STRS: &[&str] = &[\n     \"日本語の文\",\n     \"e\\u{301}\",\n     \"😀👍🏽\",\n     \"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": null,
+    "genre": "UnaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:66:29: delete -",
+    "package": "client-core",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 66
+      },
+      "start": {
+        "column": 29,
+        "line": 66
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ delete -\n@@ -59,17 +59,17 @@\n /// The numbers at the edges that the shells may not hold as they are, as a JavaScript number\n /// beyond 2^53. Each kind takes the next in turn.\n const U64S: &[u64] = &[u64::MAX, (1 << 53) + 1, 0, 1];\n const I64S: &[i64] = &[i64::MIN, -1, i64::MAX];\n const U32S: &[u32] = &[u32::MAX, 0];\n const I32S: &[i32] = &[i32::MIN, 7];\n const U8S: &[u8] = &[u8::MAX, 0];\n const F64S: &[f64] = &[0.1, -2.5, f64::MAX, 5e-324];\n-const F32S: &[f32] = &[0.5, -1.25, f32::MAX, 1e-7];\n+const F32S: &[f32] = &[0.5,  /* ~ changed by cargo-mutants ~ */1.25, f32::MAX, 1e-7];\n /// Text that a shell may change when it reads it: letters beyond ASCII, a letter and its\n /// accent apart (not NFC), letters beyond the 16 bits of UTF-16, and what JSON escapes.\n const STRS: &[&str] = &[\n     \"日本語の文\",\n     \"e\\u{301}\",\n     \"😀👍🏽\",\n     \"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\n     \"\",\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": null,
+    "genre": "UnaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:67:29: delete -",
+    "package": "client-core",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 30,
+        "line": 67
+      },
+      "start": {
+        "column": 29,
+        "line": 67
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace Sampler<'r>::samples -> Vec<Sample> with vec![]\n@@ -88,67 +88,17 @@\n         Sampler {\n             registry,\n             turns: HashMap::new(),\n             covered: BTreeSet::new(),\n         }\n     }\n \n     fn samples(&mut self, root: &str) -> Vec<Sample> {\n-        let name = named(self.registry, root);\n-        let mut reachable = BTreeSet::new();\n-        reach(self.registry, &name, &mut BTreeSet::new(), &mut reachable);\n-        match &self.registry[&name] {\n-            ContainerFormat::Enum(variants, _, _) => {\n-                let mut samples: Vec<Sample> = variants\n-                    .values()\n-                    .map(|variant| Sample {\n-                        id: variant.name.clone(),\n-                        value: self.variant(&name, variant, 0),\n-                    })\n-                    .collect();\n-                for turn in 2..=TURNS {\n-                    if self.covered.is_superset(&reachable) {\n-                        break;\n-                    }\n-                    for variant in variants.values() {\n-                        let held = self.covered.len();\n-                        let value = self.variant(&name, variant, 0);\n-                        if self.covered.len() > held {\n-                            let id = format!(\"{}-{turn}\", variant.name);\n-                            samples.push(Sample { id, value });\n-                        }\n-                    }\n-                }\n-                samples\n-            }\n-            _ => {\n-                let mut samples = vec![Sample {\n-                    id: root.to_string(),\n-                    value: self.named(&name, 0),\n-                }];\n-                for turn in 2..=TURNS {\n-                    if self.covered.is_superset(&reachable) {\n-                        break;\n-                    }\n-                    let held = self.covered.len();\n-                    let value = self.named(&name, 0);\n-                    if self.covered.len() > held {\n-                        let id = format!(\"{root}-{turn}\");\n-                        samples.push(Sample { id, value });\n-                    }\n-                }\n-                let value = self.named(&name, DEEPEST);\n-                samples.push(Sample {\n-                    id: \"empty\".to_string(),\n-                    value,\n-                });\n-                samples\n-            }\n-        }\n+        vec![] /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn value(&mut self, format: &Format, depth: usize) -> Value {\n         let deep = depth >= DEEPEST;\n         match format {\n             Format::TypeName(name) => self.named(name, depth + 1),\n             Format::Unit => Value::Null,\n             Format::Bool => json!(self.turn(\"bool\", &[true, false])),\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::samples",
+      "return_type": "-> Vec<Sample>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 147
+        },
+        "start": {
+          "column": 5,
+          "line": 95
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:96:9: replace Sampler<'r>::samples -> Vec<Sample> with vec![]",
+    "package": "client-core",
+    "replacement": "vec![]",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 146
+      },
+      "start": {
+        "column": 9,
+        "line": 96
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace Sampler<'r>::samples -> Vec<Sample> with vec![Default::default()]\n@@ -88,67 +88,17 @@\n         Sampler {\n             registry,\n             turns: HashMap::new(),\n             covered: BTreeSet::new(),\n         }\n     }\n \n     fn samples(&mut self, root: &str) -> Vec<Sample> {\n-        let name = named(self.registry, root);\n-        let mut reachable = BTreeSet::new();\n-        reach(self.registry, &name, &mut BTreeSet::new(), &mut reachable);\n-        match &self.registry[&name] {\n-            ContainerFormat::Enum(variants, _, _) => {\n-                let mut samples: Vec<Sample> = variants\n-                    .values()\n-                    .map(|variant| Sample {\n-                        id: variant.name.clone(),\n-                        value: self.variant(&name, variant, 0),\n-                    })\n-                    .collect();\n-                for turn in 2..=TURNS {\n-                    if self.covered.is_superset(&reachable) {\n-                        break;\n-                    }\n-                    for variant in variants.values() {\n-                        let held = self.covered.len();\n-                        let value = self.variant(&name, variant, 0);\n-                        if self.covered.len() > held {\n-                            let id = format!(\"{}-{turn}\", variant.name);\n-                            samples.push(Sample { id, value });\n-                        }\n-                    }\n-                }\n-                samples\n-            }\n-            _ => {\n-                let mut samples = vec![Sample {\n-                    id: root.to_string(),\n-                    value: self.named(&name, 0),\n-                }];\n-                for turn in 2..=TURNS {\n-                    if self.covered.is_superset(&reachable) {\n-                        break;\n-                    }\n-                    let held = self.covered.len();\n-                    let value = self.named(&name, 0);\n-                    if self.covered.len() > held {\n-                        let id = format!(\"{root}-{turn}\");\n-                        samples.push(Sample { id, value });\n-                    }\n-                }\n-                let value = self.named(&name, DEEPEST);\n-                samples.push(Sample {\n-                    id: \"empty\".to_string(),\n-                    value,\n-                });\n-                samples\n-            }\n-        }\n+        vec![Default::default()] /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn value(&mut self, format: &Format, depth: usize) -> Value {\n         let deep = depth >= DEEPEST;\n         match format {\n             Format::TypeName(name) => self.named(name, depth + 1),\n             Format::Unit => Value::Null,\n             Format::Bool => json!(self.turn(\"bool\", &[true, false])),\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::samples",
+      "return_type": "-> Vec<Sample>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 147
+        },
+        "start": {
+          "column": 5,
+          "line": 95
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:96:9: replace Sampler<'r>::samples -> Vec<Sample> with vec![Default::default()]",
+    "package": "client-core",
+    "replacement": "vec![Default::default()]",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 146
+      },
+      "start": {
+        "column": 9,
+        "line": 96
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ delete match arm ContainerFormat::Enum(variants, _, _) in Sampler<'r>::samples\n@@ -92,39 +92,17 @@\n         }\n     }\n \n     fn samples(&mut self, root: &str) -> Vec<Sample> {\n         let name = named(self.registry, root);\n         let mut reachable = BTreeSet::new();\n         reach(self.registry, &name, &mut BTreeSet::new(), &mut reachable);\n         match &self.registry[&name] {\n-            ContainerFormat::Enum(variants, _, _) => {\n-                let mut samples: Vec<Sample> = variants\n-                    .values()\n-                    .map(|variant| Sample {\n-                        id: variant.name.clone(),\n-                        value: self.variant(&name, variant, 0),\n-                    })\n-                    .collect();\n-                for turn in 2..=TURNS {\n-                    if self.covered.is_superset(&reachable) {\n-                        break;\n-                    }\n-                    for variant in variants.values() {\n-                        let held = self.covered.len();\n-                        let value = self.variant(&name, variant, 0);\n-                        if self.covered.len() > held {\n-                            let id = format!(\"{}-{turn}\", variant.name);\n-                            samples.push(Sample { id, value });\n-                        }\n-                    }\n-                }\n-                samples\n-            }\n+             /* ~ changed by cargo-mutants ~ */\n             _ => {\n                 let mut samples = vec![Sample {\n                     id: root.to_string(),\n                     value: self.named(&name, 0),\n                 }];\n                 for turn in 2..=TURNS {\n                     if self.covered.is_superset(&reachable) {\n                         break;\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::samples",
+      "return_type": "-> Vec<Sample>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 147
+        },
+        "start": {
+          "column": 5,
+          "line": 95
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "libs/client-core/src/changes/samples.rs:100:13: delete match arm ContainerFormat::Enum(variants, _, _) in Sampler<'r>::samples",
+    "package": "client-core",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 14,
+        "line": 122
+      },
+      "start": {
+        "column": 13,
+        "line": 100
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace > with == in Sampler<'r>::samples\n@@ -107,17 +107,17 @@\n                     .collect();\n                 for turn in 2..=TURNS {\n                     if self.covered.is_superset(&reachable) {\n                         break;\n                     }\n                     for variant in variants.values() {\n                         let held = self.covered.len();\n                         let value = self.variant(&name, variant, 0);\n-                        if self.covered.len() > held {\n+                        if self.covered.len() == /* ~ changed by cargo-mutants ~ */ held {\n                             let id = format!(\"{}-{turn}\", variant.name);\n                             samples.push(Sample { id, value });\n                         }\n                     }\n                 }\n                 samples\n             }\n             _ => {\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::samples",
+      "return_type": "-> Vec<Sample>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 147
+        },
+        "start": {
+          "column": 5,
+          "line": 95
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:115:47: replace > with == in Sampler<'r>::samples",
+    "package": "client-core",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 48,
+        "line": 115
+      },
+      "start": {
+        "column": 47,
+        "line": 115
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace > with < in Sampler<'r>::samples\n@@ -107,17 +107,17 @@\n                     .collect();\n                 for turn in 2..=TURNS {\n                     if self.covered.is_superset(&reachable) {\n                         break;\n                     }\n                     for variant in variants.values() {\n                         let held = self.covered.len();\n                         let value = self.variant(&name, variant, 0);\n-                        if self.covered.len() > held {\n+                        if self.covered.len() < /* ~ changed by cargo-mutants ~ */ held {\n                             let id = format!(\"{}-{turn}\", variant.name);\n                             samples.push(Sample { id, value });\n                         }\n                     }\n                 }\n                 samples\n             }\n             _ => {\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::samples",
+      "return_type": "-> Vec<Sample>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 147
+        },
+        "start": {
+          "column": 5,
+          "line": 95
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:115:47: replace > with < in Sampler<'r>::samples",
+    "package": "client-core",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 48,
+        "line": 115
+      },
+      "start": {
+        "column": 47,
+        "line": 115
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace > with >= in Sampler<'r>::samples\n@@ -107,17 +107,17 @@\n                     .collect();\n                 for turn in 2..=TURNS {\n                     if self.covered.is_superset(&reachable) {\n                         break;\n                     }\n                     for variant in variants.values() {\n                         let held = self.covered.len();\n                         let value = self.variant(&name, variant, 0);\n-                        if self.covered.len() > held {\n+                        if self.covered.len() >= /* ~ changed by cargo-mutants ~ */ held {\n                             let id = format!(\"{}-{turn}\", variant.name);\n                             samples.push(Sample { id, value });\n                         }\n                     }\n                 }\n                 samples\n             }\n             _ => {\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::samples",
+      "return_type": "-> Vec<Sample>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 147
+        },
+        "start": {
+          "column": 5,
+          "line": 95
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:115:47: replace > with >= in Sampler<'r>::samples",
+    "package": "client-core",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 48,
+        "line": 115
+      },
+      "start": {
+        "column": 47,
+        "line": 115
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace > with == in Sampler<'r>::samples\n@@ -126,17 +126,17 @@\n                     value: self.named(&name, 0),\n                 }];\n                 for turn in 2..=TURNS {\n                     if self.covered.is_superset(&reachable) {\n                         break;\n                     }\n                     let held = self.covered.len();\n                     let value = self.named(&name, 0);\n-                    if self.covered.len() > held {\n+                    if self.covered.len() == /* ~ changed by cargo-mutants ~ */ held {\n                         let id = format!(\"{root}-{turn}\");\n                         samples.push(Sample { id, value });\n                     }\n                 }\n                 let value = self.named(&name, DEEPEST);\n                 samples.push(Sample {\n                     id: \"empty\".to_string(),\n                     value,\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::samples",
+      "return_type": "-> Vec<Sample>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 147
+        },
+        "start": {
+          "column": 5,
+          "line": 95
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:134:43: replace > with == in Sampler<'r>::samples",
+    "package": "client-core",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 44,
+        "line": 134
+      },
+      "start": {
+        "column": 43,
+        "line": 134
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace > with < in Sampler<'r>::samples\n@@ -126,17 +126,17 @@\n                     value: self.named(&name, 0),\n                 }];\n                 for turn in 2..=TURNS {\n                     if self.covered.is_superset(&reachable) {\n                         break;\n                     }\n                     let held = self.covered.len();\n                     let value = self.named(&name, 0);\n-                    if self.covered.len() > held {\n+                    if self.covered.len() < /* ~ changed by cargo-mutants ~ */ held {\n                         let id = format!(\"{root}-{turn}\");\n                         samples.push(Sample { id, value });\n                     }\n                 }\n                 let value = self.named(&name, DEEPEST);\n                 samples.push(Sample {\n                     id: \"empty\".to_string(),\n                     value,\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::samples",
+      "return_type": "-> Vec<Sample>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 147
+        },
+        "start": {
+          "column": 5,
+          "line": 95
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:134:43: replace > with < in Sampler<'r>::samples",
+    "package": "client-core",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 44,
+        "line": 134
+      },
+      "start": {
+        "column": 43,
+        "line": 134
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace > with >= in Sampler<'r>::samples\n@@ -126,17 +126,17 @@\n                     value: self.named(&name, 0),\n                 }];\n                 for turn in 2..=TURNS {\n                     if self.covered.is_superset(&reachable) {\n                         break;\n                     }\n                     let held = self.covered.len();\n                     let value = self.named(&name, 0);\n-                    if self.covered.len() > held {\n+                    if self.covered.len() >= /* ~ changed by cargo-mutants ~ */ held {\n                         let id = format!(\"{root}-{turn}\");\n                         samples.push(Sample { id, value });\n                     }\n                 }\n                 let value = self.named(&name, DEEPEST);\n                 samples.push(Sample {\n                     id: \"empty\".to_string(),\n                     value,\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::samples",
+      "return_type": "-> Vec<Sample>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 147
+        },
+        "start": {
+          "column": 5,
+          "line": 95
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:134:43: replace > with >= in Sampler<'r>::samples",
+    "package": "client-core",
+    "replacement": ">=",
+    "span": {
+      "end": {
+        "column": 44,
+        "line": 134
+      },
+      "start": {
+        "column": 43,
+        "line": 134
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace Sampler<'r>::value -> Value with Default::default()\n@@ -142,49 +142,17 @@\n                     value,\n                 });\n                 samples\n             }\n         }\n     }\n \n     fn value(&mut self, format: &Format, depth: usize) -> Value {\n-        let deep = depth >= DEEPEST;\n-        match format {\n-            Format::TypeName(name) => self.named(name, depth + 1),\n-            Format::Unit => Value::Null,\n-            Format::Bool => json!(self.turn(\"bool\", &[true, false])),\n-            Format::U8 => json!(self.turn(\"u8\", U8S)),\n-            Format::U32 => json!(self.turn(\"u32\", U32S)),\n-            Format::U64 => json!(self.turn(\"u64\", U64S)),\n-            Format::I32 => json!(self.turn(\"i32\", I32S)),\n-            Format::I64 => json!(self.turn(\"i64\", I64S)),\n-            Format::F32 => json!(self.turn(\"f32\", F32S)),\n-            Format::F64 => json!(self.turn(\"f64\", F64S)),\n-            Format::Str => json!(self.turn(\"str\", STRS)),\n-            Format::Option(_) if deep => Value::Null,\n-            Format::Option(inner) => self.value(inner, depth),\n-            Format::Seq(_) | Format::Set(_) if deep => json!([]),\n-            Format::Seq(inner) | Format::Set(inner) => Value::Array(self.elements(inner, depth)),\n-            Format::Map { .. } if deep => json!({}),\n-            Format::Map { key, value } => {\n-                let key = match self.value(key, depth) {\n-                    Value::String(key) => key,\n-                    key => key.to_string(),\n-                };\n-                let value = self.value(value, depth);\n-                Value::Object(Map::from_iter([(key, value)]))\n-            }\n-            Format::Tuple(formats) => self.all(formats, depth),\n-            Format::TupleArray { content, size } => {\n-                Value::Array((0..*size).map(|_| self.value(content, depth)).collect())\n-            }\n-            // None of these crosses the border now. A sample of one is to be made when it does\n-            other => panic!(\"no sample is made for the format {other:?}\"),\n-        }\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// The elements of a list of `inner`: a sample of each variant of an enum, or one value.\n     fn elements(&mut self, inner: &Format, depth: usize) -> Vec<Value> {\n         if let Format::TypeName(name) = inner {\n             if let ContainerFormat::Enum(variants, _, _) = &self.registry[name] {\n                 return variants\n                     .values()\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::value",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 183
+        },
+        "start": {
+          "column": 5,
+          "line": 149
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:150:9: replace Sampler<'r>::value -> Value with Default::default()",
+    "package": "client-core",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 182
+      },
+      "start": {
+        "column": 9,
+        "line": 150
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace >= with < in Sampler<'r>::value\n@@ -142,17 +142,17 @@\n                     value,\n                 });\n                 samples\n             }\n         }\n     }\n \n     fn value(&mut self, format: &Format, depth: usize) -> Value {\n-        let deep = depth >= DEEPEST;\n+        let deep = depth < /* ~ changed by cargo-mutants ~ */ DEEPEST;\n         match format {\n             Format::TypeName(name) => self.named(name, depth + 1),\n             Format::Unit => Value::Null,\n             Format::Bool => json!(self.turn(\"bool\", &[true, false])),\n             Format::U8 => json!(self.turn(\"u8\", U8S)),\n             Format::U32 => json!(self.turn(\"u32\", U32S)),\n             Format::U64 => json!(self.turn(\"u64\", U64S)),\n             Format::I32 => json!(self.turn(\"i32\", I32S)),\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::value",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 183
+        },
+        "start": {
+          "column": 5,
+          "line": 149
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:150:26: replace >= with < in Sampler<'r>::value",
+    "package": "client-core",
+    "replacement": "<",
+    "span": {
+      "end": {
+        "column": 28,
+        "line": 150
+      },
+      "start": {
+        "column": 26,
+        "line": 150
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace match guard deep with true in Sampler<'r>::value\n@@ -155,17 +155,17 @@\n             Format::U8 => json!(self.turn(\"u8\", U8S)),\n             Format::U32 => json!(self.turn(\"u32\", U32S)),\n             Format::U64 => json!(self.turn(\"u64\", U64S)),\n             Format::I32 => json!(self.turn(\"i32\", I32S)),\n             Format::I64 => json!(self.turn(\"i64\", I64S)),\n             Format::F32 => json!(self.turn(\"f32\", F32S)),\n             Format::F64 => json!(self.turn(\"f64\", F64S)),\n             Format::Str => json!(self.turn(\"str\", STRS)),\n-            Format::Option(_) if deep => Value::Null,\n+            Format::Option(_) if true /* ~ changed by cargo-mutants ~ */ => Value::Null,\n             Format::Option(inner) => self.value(inner, depth),\n             Format::Seq(_) | Format::Set(_) if deep => json!([]),\n             Format::Seq(inner) | Format::Set(inner) => Value::Array(self.elements(inner, depth)),\n             Format::Map { .. } if deep => json!({}),\n             Format::Map { key, value } => {\n                 let key = match self.value(key, depth) {\n                     Value::String(key) => key,\n                     key => key.to_string(),\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::value",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 183
+        },
+        "start": {
+          "column": 5,
+          "line": 149
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "libs/client-core/src/changes/samples.rs:163:34: replace match guard deep with true in Sampler<'r>::value",
+    "package": "client-core",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 38,
+        "line": 163
+      },
+      "start": {
+        "column": 34,
+        "line": 163
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace match guard deep with false in Sampler<'r>::value\n@@ -155,17 +155,17 @@\n             Format::U8 => json!(self.turn(\"u8\", U8S)),\n             Format::U32 => json!(self.turn(\"u32\", U32S)),\n             Format::U64 => json!(self.turn(\"u64\", U64S)),\n             Format::I32 => json!(self.turn(\"i32\", I32S)),\n             Format::I64 => json!(self.turn(\"i64\", I64S)),\n             Format::F32 => json!(self.turn(\"f32\", F32S)),\n             Format::F64 => json!(self.turn(\"f64\", F64S)),\n             Format::Str => json!(self.turn(\"str\", STRS)),\n-            Format::Option(_) if deep => Value::Null,\n+            Format::Option(_) if false /* ~ changed by cargo-mutants ~ */ => Value::Null,\n             Format::Option(inner) => self.value(inner, depth),\n             Format::Seq(_) | Format::Set(_) if deep => json!([]),\n             Format::Seq(inner) | Format::Set(inner) => Value::Array(self.elements(inner, depth)),\n             Format::Map { .. } if deep => json!({}),\n             Format::Map { key, value } => {\n                 let key = match self.value(key, depth) {\n                     Value::String(key) => key,\n                     key => key.to_string(),\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::value",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 183
+        },
+        "start": {
+          "column": 5,
+          "line": 149
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "libs/client-core/src/changes/samples.rs:163:34: replace match guard deep with false in Sampler<'r>::value",
+    "package": "client-core",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 38,
+        "line": 163
+      },
+      "start": {
+        "column": 34,
+        "line": 163
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace match guard deep with true in Sampler<'r>::value\n@@ -157,17 +157,17 @@\n             Format::U64 => json!(self.turn(\"u64\", U64S)),\n             Format::I32 => json!(self.turn(\"i32\", I32S)),\n             Format::I64 => json!(self.turn(\"i64\", I64S)),\n             Format::F32 => json!(self.turn(\"f32\", F32S)),\n             Format::F64 => json!(self.turn(\"f64\", F64S)),\n             Format::Str => json!(self.turn(\"str\", STRS)),\n             Format::Option(_) if deep => Value::Null,\n             Format::Option(inner) => self.value(inner, depth),\n-            Format::Seq(_) | Format::Set(_) if deep => json!([]),\n+            Format::Seq(_) | Format::Set(_) if true /* ~ changed by cargo-mutants ~ */ => json!([]),\n             Format::Seq(inner) | Format::Set(inner) => Value::Array(self.elements(inner, depth)),\n             Format::Map { .. } if deep => json!({}),\n             Format::Map { key, value } => {\n                 let key = match self.value(key, depth) {\n                     Value::String(key) => key,\n                     key => key.to_string(),\n                 };\n                 let value = self.value(value, depth);\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::value",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 183
+        },
+        "start": {
+          "column": 5,
+          "line": 149
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "libs/client-core/src/changes/samples.rs:165:48: replace match guard deep with true in Sampler<'r>::value",
+    "package": "client-core",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 52,
+        "line": 165
+      },
+      "start": {
+        "column": 48,
+        "line": 165
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace match guard deep with false in Sampler<'r>::value\n@@ -157,17 +157,17 @@\n             Format::U64 => json!(self.turn(\"u64\", U64S)),\n             Format::I32 => json!(self.turn(\"i32\", I32S)),\n             Format::I64 => json!(self.turn(\"i64\", I64S)),\n             Format::F32 => json!(self.turn(\"f32\", F32S)),\n             Format::F64 => json!(self.turn(\"f64\", F64S)),\n             Format::Str => json!(self.turn(\"str\", STRS)),\n             Format::Option(_) if deep => Value::Null,\n             Format::Option(inner) => self.value(inner, depth),\n-            Format::Seq(_) | Format::Set(_) if deep => json!([]),\n+            Format::Seq(_) | Format::Set(_) if false /* ~ changed by cargo-mutants ~ */ => json!([]),\n             Format::Seq(inner) | Format::Set(inner) => Value::Array(self.elements(inner, depth)),\n             Format::Map { .. } if deep => json!({}),\n             Format::Map { key, value } => {\n                 let key = match self.value(key, depth) {\n                     Value::String(key) => key,\n                     key => key.to_string(),\n                 };\n                 let value = self.value(value, depth);\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::value",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 183
+        },
+        "start": {
+          "column": 5,
+          "line": 149
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "libs/client-core/src/changes/samples.rs:165:48: replace match guard deep with false in Sampler<'r>::value",
+    "package": "client-core",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 52,
+        "line": 165
+      },
+      "start": {
+        "column": 48,
+        "line": 165
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace match guard deep with true in Sampler<'r>::value\n@@ -159,17 +159,17 @@\n             Format::I64 => json!(self.turn(\"i64\", I64S)),\n             Format::F32 => json!(self.turn(\"f32\", F32S)),\n             Format::F64 => json!(self.turn(\"f64\", F64S)),\n             Format::Str => json!(self.turn(\"str\", STRS)),\n             Format::Option(_) if deep => Value::Null,\n             Format::Option(inner) => self.value(inner, depth),\n             Format::Seq(_) | Format::Set(_) if deep => json!([]),\n             Format::Seq(inner) | Format::Set(inner) => Value::Array(self.elements(inner, depth)),\n-            Format::Map { .. } if deep => json!({}),\n+            Format::Map { .. } if true /* ~ changed by cargo-mutants ~ */ => json!({}),\n             Format::Map { key, value } => {\n                 let key = match self.value(key, depth) {\n                     Value::String(key) => key,\n                     key => key.to_string(),\n                 };\n                 let value = self.value(value, depth);\n                 Value::Object(Map::from_iter([(key, value)]))\n             }\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::value",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 183
+        },
+        "start": {
+          "column": 5,
+          "line": 149
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "libs/client-core/src/changes/samples.rs:167:35: replace match guard deep with true in Sampler<'r>::value",
+    "package": "client-core",
+    "replacement": "true",
+    "span": {
+      "end": {
+        "column": 39,
+        "line": 167
+      },
+      "start": {
+        "column": 35,
+        "line": 167
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace match guard deep with false in Sampler<'r>::value\n@@ -159,17 +159,17 @@\n             Format::I64 => json!(self.turn(\"i64\", I64S)),\n             Format::F32 => json!(self.turn(\"f32\", F32S)),\n             Format::F64 => json!(self.turn(\"f64\", F64S)),\n             Format::Str => json!(self.turn(\"str\", STRS)),\n             Format::Option(_) if deep => Value::Null,\n             Format::Option(inner) => self.value(inner, depth),\n             Format::Seq(_) | Format::Set(_) if deep => json!([]),\n             Format::Seq(inner) | Format::Set(inner) => Value::Array(self.elements(inner, depth)),\n-            Format::Map { .. } if deep => json!({}),\n+            Format::Map { .. } if false /* ~ changed by cargo-mutants ~ */ => json!({}),\n             Format::Map { key, value } => {\n                 let key = match self.value(key, depth) {\n                     Value::String(key) => key,\n                     key => key.to_string(),\n                 };\n                 let value = self.value(value, depth);\n                 Value::Object(Map::from_iter([(key, value)]))\n             }\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::value",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 183
+        },
+        "start": {
+          "column": 5,
+          "line": 149
+        }
+      }
+    },
+    "genre": "MatchArmGuard",
+    "name": "libs/client-core/src/changes/samples.rs:167:35: replace match guard deep with false in Sampler<'r>::value",
+    "package": "client-core",
+    "replacement": "false",
+    "span": {
+      "end": {
+        "column": 39,
+        "line": 167
+      },
+      "start": {
+        "column": 35,
+        "line": 167
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace + with - in Sampler<'r>::value\n@@ -144,17 +144,17 @@\n                 samples\n             }\n         }\n     }\n \n     fn value(&mut self, format: &Format, depth: usize) -> Value {\n         let deep = depth >= DEEPEST;\n         match format {\n-            Format::TypeName(name) => self.named(name, depth + 1),\n+            Format::TypeName(name) => self.named(name, depth - /* ~ changed by cargo-mutants ~ */ 1),\n             Format::Unit => Value::Null,\n             Format::Bool => json!(self.turn(\"bool\", &[true, false])),\n             Format::U8 => json!(self.turn(\"u8\", U8S)),\n             Format::U32 => json!(self.turn(\"u32\", U32S)),\n             Format::U64 => json!(self.turn(\"u64\", U64S)),\n             Format::I32 => json!(self.turn(\"i32\", I32S)),\n             Format::I64 => json!(self.turn(\"i64\", I64S)),\n             Format::F32 => json!(self.turn(\"f32\", F32S)),\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::value",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 183
+        },
+        "start": {
+          "column": 5,
+          "line": 149
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:152:62: replace + with - in Sampler<'r>::value",
+    "package": "client-core",
+    "replacement": "-",
+    "span": {
+      "end": {
+        "column": 63,
+        "line": 152
+      },
+      "start": {
+        "column": 62,
+        "line": 152
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace + with * in Sampler<'r>::value\n@@ -144,17 +144,17 @@\n                 samples\n             }\n         }\n     }\n \n     fn value(&mut self, format: &Format, depth: usize) -> Value {\n         let deep = depth >= DEEPEST;\n         match format {\n-            Format::TypeName(name) => self.named(name, depth + 1),\n+            Format::TypeName(name) => self.named(name, depth * /* ~ changed by cargo-mutants ~ */ 1),\n             Format::Unit => Value::Null,\n             Format::Bool => json!(self.turn(\"bool\", &[true, false])),\n             Format::U8 => json!(self.turn(\"u8\", U8S)),\n             Format::U32 => json!(self.turn(\"u32\", U32S)),\n             Format::U64 => json!(self.turn(\"u64\", U64S)),\n             Format::I32 => json!(self.turn(\"i32\", I32S)),\n             Format::I64 => json!(self.turn(\"i64\", I64S)),\n             Format::F32 => json!(self.turn(\"f32\", F32S)),\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::value",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 183
+        },
+        "start": {
+          "column": 5,
+          "line": 149
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:152:62: replace + with * in Sampler<'r>::value",
+    "package": "client-core",
+    "replacement": "*",
+    "span": {
+      "end": {
+        "column": 63,
+        "line": 152
+      },
+      "start": {
+        "column": 62,
+        "line": 152
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace Sampler<'r>::elements -> Vec<Value> with vec![]\n@@ -179,25 +179,17 @@\n             }\n             // None of these crosses the border now. A sample of one is to be made when it does\n             other => panic!(\"no sample is made for the format {other:?}\"),\n         }\n     }\n \n     /// The elements of a list of `inner`: a sample of each variant of an enum, or one value.\n     fn elements(&mut self, inner: &Format, depth: usize) -> Vec<Value> {\n-        if let Format::TypeName(name) = inner {\n-            if let ContainerFormat::Enum(variants, _, _) = &self.registry[name] {\n-                return variants\n-                    .values()\n-                    .map(|variant| self.variant(name, variant, depth + 1))\n-                    .collect();\n-            }\n-        }\n-        vec![self.value(inner, depth)]\n+        vec![] /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn named(&mut self, name: &QualifiedTypeName, depth: usize) -> Value {\n         assert!(\n             depth < DEEPEST * 4,\n             \"the samples of {} do not end: it holds itself with no option or list\",\n             name.name\n         );\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::elements",
+      "return_type": "-> Vec<Value>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 196
+        },
+        "start": {
+          "column": 5,
+          "line": 185
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:187:9: replace Sampler<'r>::elements -> Vec<Value> with vec![]",
+    "package": "client-core",
+    "replacement": "vec![]",
+    "span": {
+      "end": {
+        "column": 39,
+        "line": 195
+      },
+      "start": {
+        "column": 9,
+        "line": 187
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace Sampler<'r>::elements -> Vec<Value> with vec![Default::default()]\n@@ -179,25 +179,17 @@\n             }\n             // None of these crosses the border now. A sample of one is to be made when it does\n             other => panic!(\"no sample is made for the format {other:?}\"),\n         }\n     }\n \n     /// The elements of a list of `inner`: a sample of each variant of an enum, or one value.\n     fn elements(&mut self, inner: &Format, depth: usize) -> Vec<Value> {\n-        if let Format::TypeName(name) = inner {\n-            if let ContainerFormat::Enum(variants, _, _) = &self.registry[name] {\n-                return variants\n-                    .values()\n-                    .map(|variant| self.variant(name, variant, depth + 1))\n-                    .collect();\n-            }\n-        }\n-        vec![self.value(inner, depth)]\n+        vec![Default::default()] /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn named(&mut self, name: &QualifiedTypeName, depth: usize) -> Value {\n         assert!(\n             depth < DEEPEST * 4,\n             \"the samples of {} do not end: it holds itself with no option or list\",\n             name.name\n         );\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::elements",
+      "return_type": "-> Vec<Value>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 196
+        },
+        "start": {
+          "column": 5,
+          "line": 185
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:187:9: replace Sampler<'r>::elements -> Vec<Value> with vec![Default::default()]",
+    "package": "client-core",
+    "replacement": "vec![Default::default()]",
+    "span": {
+      "end": {
+        "column": 39,
+        "line": 195
+      },
+      "start": {
+        "column": 9,
+        "line": 187
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace + with - in Sampler<'r>::elements\n@@ -183,17 +183,17 @@\n     }\n \n     /// The elements of a list of `inner`: a sample of each variant of an enum, or one value.\n     fn elements(&mut self, inner: &Format, depth: usize) -> Vec<Value> {\n         if let Format::TypeName(name) = inner {\n             if let ContainerFormat::Enum(variants, _, _) = &self.registry[name] {\n                 return variants\n                     .values()\n-                    .map(|variant| self.variant(name, variant, depth + 1))\n+                    .map(|variant| self.variant(name, variant, depth - /* ~ changed by cargo-mutants ~ */ 1))\n                     .collect();\n             }\n         }\n         vec![self.value(inner, depth)]\n     }\n \n     fn named(&mut self, name: &QualifiedTypeName, depth: usize) -> Value {\n         assert!(\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::elements",
+      "return_type": "-> Vec<Value>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 196
+        },
+        "start": {
+          "column": 5,
+          "line": 185
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:191:70: replace + with - in Sampler<'r>::elements",
+    "package": "client-core",
+    "replacement": "-",
+    "span": {
+      "end": {
+        "column": 71,
+        "line": 191
+      },
+      "start": {
+        "column": 70,
+        "line": 191
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace + with * in Sampler<'r>::elements\n@@ -183,17 +183,17 @@\n     }\n \n     /// The elements of a list of `inner`: a sample of each variant of an enum, or one value.\n     fn elements(&mut self, inner: &Format, depth: usize) -> Vec<Value> {\n         if let Format::TypeName(name) = inner {\n             if let ContainerFormat::Enum(variants, _, _) = &self.registry[name] {\n                 return variants\n                     .values()\n-                    .map(|variant| self.variant(name, variant, depth + 1))\n+                    .map(|variant| self.variant(name, variant, depth * /* ~ changed by cargo-mutants ~ */ 1))\n                     .collect();\n             }\n         }\n         vec![self.value(inner, depth)]\n     }\n \n     fn named(&mut self, name: &QualifiedTypeName, depth: usize) -> Value {\n         assert!(\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::elements",
+      "return_type": "-> Vec<Value>",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 196
+        },
+        "start": {
+          "column": 5,
+          "line": 185
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:191:70: replace + with * in Sampler<'r>::elements",
+    "package": "client-core",
+    "replacement": "*",
+    "span": {
+      "end": {
+        "column": 71,
+        "line": 191
+      },
+      "start": {
+        "column": 70,
+        "line": 191
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace Sampler<'r>::named -> Value with Default::default()\n@@ -191,47 +191,17 @@\n                     .map(|variant| self.variant(name, variant, depth + 1))\n                     .collect();\n             }\n         }\n         vec![self.value(inner, depth)]\n     }\n \n     fn named(&mut self, name: &QualifiedTypeName, depth: usize) -> Value {\n-        assert!(\n-            depth < DEEPEST * 4,\n-            \"the samples of {} do not end: it holds itself with no option or list\",\n-            name.name\n-        );\n-        match &self.registry[name] {\n-            ContainerFormat::UnitStruct(_) => Value::Null,\n-            ContainerFormat::NewTypeStruct(format, _) => self.value(format, depth),\n-            ContainerFormat::TupleStruct(formats, _) => self.all(formats, depth),\n-            ContainerFormat::Struct(fields, _) => self.fields(fields, depth),\n-            ContainerFormat::Enum(variants, _, _) => {\n-                let variants: Vec<&Named<VariantFormat>> = variants.values().collect();\n-                // Deep down, only the variants that hold nothing, so that the sample ends, or all\n-                // of them when each holds something: there, what they hold is empty. They take\n-                // turns too: an enum may be reached only that deep\n-                let choices: Vec<usize> = (0..variants.len())\n-                    .filter(|&index| {\n-                        depth < DEEPEST || matches!(variants[index].value, VariantFormat::Unit)\n-                    })\n-                    .collect();\n-                let choices = if choices.is_empty() {\n-                    (0..variants.len()).collect()\n-                } else {\n-                    choices\n-                };\n-                let turn = self.turns.entry(name.to_string()).or_default();\n-                *turn += 1;\n-                let chosen = choices[(*turn - 1) % choices.len()];\n-                self.variant(name, variants[chosen], depth)\n-            }\n-        }\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// The variant as the JSON of facet: its name alone, or an object of its name and what\n     /// it holds.\n     fn variant(\n         &mut self,\n         name: &QualifiedTypeName,\n         variant: &Named<VariantFormat>,\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::named",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 230
+        },
+        "start": {
+          "column": 5,
+          "line": 198
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:199:9: replace Sampler<'r>::named -> Value with Default::default()",
+    "package": "client-core",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 229
+      },
+      "start": {
+        "column": 9,
+        "line": 199
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace || with && in Sampler<'r>::named\n@@ -208,17 +208,17 @@\n             ContainerFormat::Struct(fields, _) => self.fields(fields, depth),\n             ContainerFormat::Enum(variants, _, _) => {\n                 let variants: Vec<&Named<VariantFormat>> = variants.values().collect();\n                 // Deep down, only the variants that hold nothing, so that the sample ends, or all\n                 // of them when each holds something: there, what they hold is empty. They take\n                 // turns too: an enum may be reached only that deep\n                 let choices: Vec<usize> = (0..variants.len())\n                     .filter(|&index| {\n-                        depth < DEEPEST || matches!(variants[index].value, VariantFormat::Unit)\n+                        depth < DEEPEST && /* ~ changed by cargo-mutants ~ */ matches!(variants[index].value, VariantFormat::Unit)\n                     })\n                     .collect();\n                 let choices = if choices.is_empty() {\n                     (0..variants.len()).collect()\n                 } else {\n                     choices\n                 };\n                 let turn = self.turns.entry(name.to_string()).or_default();\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::named",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 230
+        },
+        "start": {
+          "column": 5,
+          "line": 198
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:216:41: replace || with && in Sampler<'r>::named",
+    "package": "client-core",
+    "replacement": "&&",
+    "span": {
+      "end": {
+        "column": 43,
+        "line": 216
+      },
+      "start": {
+        "column": 41,
+        "line": 216
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace < with == in Sampler<'r>::named\n@@ -208,17 +208,17 @@\n             ContainerFormat::Struct(fields, _) => self.fields(fields, depth),\n             ContainerFormat::Enum(variants, _, _) => {\n                 let variants: Vec<&Named<VariantFormat>> = variants.values().collect();\n                 // Deep down, only the variants that hold nothing, so that the sample ends, or all\n                 // of them when each holds something: there, what they hold is empty. They take\n                 // turns too: an enum may be reached only that deep\n                 let choices: Vec<usize> = (0..variants.len())\n                     .filter(|&index| {\n-                        depth < DEEPEST || matches!(variants[index].value, VariantFormat::Unit)\n+                        depth == /* ~ changed by cargo-mutants ~ */ DEEPEST || matches!(variants[index].value, VariantFormat::Unit)\n                     })\n                     .collect();\n                 let choices = if choices.is_empty() {\n                     (0..variants.len()).collect()\n                 } else {\n                     choices\n                 };\n                 let turn = self.turns.entry(name.to_string()).or_default();\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::named",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 230
+        },
+        "start": {
+          "column": 5,
+          "line": 198
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:216:31: replace < with == in Sampler<'r>::named",
+    "package": "client-core",
+    "replacement": "==",
+    "span": {
+      "end": {
+        "column": 32,
+        "line": 216
+      },
+      "start": {
+        "column": 31,
+        "line": 216
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace < with > in Sampler<'r>::named\n@@ -208,17 +208,17 @@\n             ContainerFormat::Struct(fields, _) => self.fields(fields, depth),\n             ContainerFormat::Enum(variants, _, _) => {\n                 let variants: Vec<&Named<VariantFormat>> = variants.values().collect();\n                 // Deep down, only the variants that hold nothing, so that the sample ends, or all\n                 // of them when each holds something: there, what they hold is empty. They take\n                 // turns too: an enum may be reached only that deep\n                 let choices: Vec<usize> = (0..variants.len())\n                     .filter(|&index| {\n-                        depth < DEEPEST || matches!(variants[index].value, VariantFormat::Unit)\n+                        depth > /* ~ changed by cargo-mutants ~ */ DEEPEST || matches!(variants[index].value, VariantFormat::Unit)\n                     })\n                     .collect();\n                 let choices = if choices.is_empty() {\n                     (0..variants.len()).collect()\n                 } else {\n                     choices\n                 };\n                 let turn = self.turns.entry(name.to_string()).or_default();\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::named",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 230
+        },
+        "start": {
+          "column": 5,
+          "line": 198
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:216:31: replace < with > in Sampler<'r>::named",
+    "package": "client-core",
+    "replacement": ">",
+    "span": {
+      "end": {
+        "column": 32,
+        "line": 216
+      },
+      "start": {
+        "column": 31,
+        "line": 216
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace < with <= in Sampler<'r>::named\n@@ -208,17 +208,17 @@\n             ContainerFormat::Struct(fields, _) => self.fields(fields, depth),\n             ContainerFormat::Enum(variants, _, _) => {\n                 let variants: Vec<&Named<VariantFormat>> = variants.values().collect();\n                 // Deep down, only the variants that hold nothing, so that the sample ends, or all\n                 // of them when each holds something: there, what they hold is empty. They take\n                 // turns too: an enum may be reached only that deep\n                 let choices: Vec<usize> = (0..variants.len())\n                     .filter(|&index| {\n-                        depth < DEEPEST || matches!(variants[index].value, VariantFormat::Unit)\n+                        depth <= /* ~ changed by cargo-mutants ~ */ DEEPEST || matches!(variants[index].value, VariantFormat::Unit)\n                     })\n                     .collect();\n                 let choices = if choices.is_empty() {\n                     (0..variants.len()).collect()\n                 } else {\n                     choices\n                 };\n                 let turn = self.turns.entry(name.to_string()).or_default();\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::named",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 230
+        },
+        "start": {
+          "column": 5,
+          "line": 198
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:216:31: replace < with <= in Sampler<'r>::named",
+    "package": "client-core",
+    "replacement": "<=",
+    "span": {
+      "end": {
+        "column": 32,
+        "line": 216
+      },
+      "start": {
+        "column": 31,
+        "line": 216
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace += with -= in Sampler<'r>::named\n@@ -217,17 +217,17 @@\n                     })\n                     .collect();\n                 let choices = if choices.is_empty() {\n                     (0..variants.len()).collect()\n                 } else {\n                     choices\n                 };\n                 let turn = self.turns.entry(name.to_string()).or_default();\n-                *turn += 1;\n+                *turn -= /* ~ changed by cargo-mutants ~ */ 1;\n                 let chosen = choices[(*turn - 1) % choices.len()];\n                 self.variant(name, variants[chosen], depth)\n             }\n         }\n     }\n \n     /// The variant as the JSON of facet: its name alone, or an object of its name and what\n     /// it holds.\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::named",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 230
+        },
+        "start": {
+          "column": 5,
+          "line": 198
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:225:23: replace += with -= in Sampler<'r>::named",
+    "package": "client-core",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 225
+      },
+      "start": {
+        "column": 23,
+        "line": 225
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace += with *= in Sampler<'r>::named\n@@ -217,17 +217,17 @@\n                     })\n                     .collect();\n                 let choices = if choices.is_empty() {\n                     (0..variants.len()).collect()\n                 } else {\n                     choices\n                 };\n                 let turn = self.turns.entry(name.to_string()).or_default();\n-                *turn += 1;\n+                *turn *= /* ~ changed by cargo-mutants ~ */ 1;\n                 let chosen = choices[(*turn - 1) % choices.len()];\n                 self.variant(name, variants[chosen], depth)\n             }\n         }\n     }\n \n     /// The variant as the JSON of facet: its name alone, or an object of its name and what\n     /// it holds.\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::named",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 230
+        },
+        "start": {
+          "column": 5,
+          "line": 198
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:225:23: replace += with *= in Sampler<'r>::named",
+    "package": "client-core",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 25,
+        "line": 225
+      },
+      "start": {
+        "column": 23,
+        "line": 225
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace % with / in Sampler<'r>::named\n@@ -218,17 +218,17 @@\n                     .collect();\n                 let choices = if choices.is_empty() {\n                     (0..variants.len()).collect()\n                 } else {\n                     choices\n                 };\n                 let turn = self.turns.entry(name.to_string()).or_default();\n                 *turn += 1;\n-                let chosen = choices[(*turn - 1) % choices.len()];\n+                let chosen = choices[(*turn - 1) / /* ~ changed by cargo-mutants ~ */ choices.len()];\n                 self.variant(name, variants[chosen], depth)\n             }\n         }\n     }\n \n     /// The variant as the JSON of facet: its name alone, or an object of its name and what\n     /// it holds.\n     fn variant(\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::named",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 230
+        },
+        "start": {
+          "column": 5,
+          "line": 198
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:226:50: replace % with / in Sampler<'r>::named",
+    "package": "client-core",
+    "replacement": "/",
+    "span": {
+      "end": {
+        "column": 51,
+        "line": 226
+      },
+      "start": {
+        "column": 50,
+        "line": 226
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace % with + in Sampler<'r>::named\n@@ -218,17 +218,17 @@\n                     .collect();\n                 let choices = if choices.is_empty() {\n                     (0..variants.len()).collect()\n                 } else {\n                     choices\n                 };\n                 let turn = self.turns.entry(name.to_string()).or_default();\n                 *turn += 1;\n-                let chosen = choices[(*turn - 1) % choices.len()];\n+                let chosen = choices[(*turn - 1) + /* ~ changed by cargo-mutants ~ */ choices.len()];\n                 self.variant(name, variants[chosen], depth)\n             }\n         }\n     }\n \n     /// The variant as the JSON of facet: its name alone, or an object of its name and what\n     /// it holds.\n     fn variant(\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::named",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 230
+        },
+        "start": {
+          "column": 5,
+          "line": 198
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:226:50: replace % with + in Sampler<'r>::named",
+    "package": "client-core",
+    "replacement": "+",
+    "span": {
+      "end": {
+        "column": 51,
+        "line": 226
+      },
+      "start": {
+        "column": 50,
+        "line": 226
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace - with + in Sampler<'r>::named\n@@ -218,17 +218,17 @@\n                     .collect();\n                 let choices = if choices.is_empty() {\n                     (0..variants.len()).collect()\n                 } else {\n                     choices\n                 };\n                 let turn = self.turns.entry(name.to_string()).or_default();\n                 *turn += 1;\n-                let chosen = choices[(*turn - 1) % choices.len()];\n+                let chosen = choices[(*turn + /* ~ changed by cargo-mutants ~ */ 1) % choices.len()];\n                 self.variant(name, variants[chosen], depth)\n             }\n         }\n     }\n \n     /// The variant as the JSON of facet: its name alone, or an object of its name and what\n     /// it holds.\n     fn variant(\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::named",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 230
+        },
+        "start": {
+          "column": 5,
+          "line": 198
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:226:45: replace - with + in Sampler<'r>::named",
+    "package": "client-core",
+    "replacement": "+",
+    "span": {
+      "end": {
+        "column": 46,
+        "line": 226
+      },
+      "start": {
+        "column": 45,
+        "line": 226
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace - with / in Sampler<'r>::named\n@@ -218,17 +218,17 @@\n                     .collect();\n                 let choices = if choices.is_empty() {\n                     (0..variants.len()).collect()\n                 } else {\n                     choices\n                 };\n                 let turn = self.turns.entry(name.to_string()).or_default();\n                 *turn += 1;\n-                let chosen = choices[(*turn - 1) % choices.len()];\n+                let chosen = choices[(*turn / /* ~ changed by cargo-mutants ~ */ 1) % choices.len()];\n                 self.variant(name, variants[chosen], depth)\n             }\n         }\n     }\n \n     /// The variant as the JSON of facet: its name alone, or an object of its name and what\n     /// it holds.\n     fn variant(\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::named",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 230
+        },
+        "start": {
+          "column": 5,
+          "line": 198
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:226:45: replace - with / in Sampler<'r>::named",
+    "package": "client-core",
+    "replacement": "/",
+    "span": {
+      "end": {
+        "column": 46,
+        "line": 226
+      },
+      "start": {
+        "column": 45,
+        "line": 226
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace Sampler<'r>::variant -> Value with Default::default()\n@@ -232,26 +232,17 @@\n     /// The variant as the JSON of facet: its name alone, or an object of its name and what\n     /// it holds.\n     fn variant(\n         &mut self,\n         name: &QualifiedTypeName,\n         variant: &Named<VariantFormat>,\n         depth: usize,\n     ) -> Value {\n-        self.covered\n-            .insert((name.name.clone(), variant.name.clone()));\n-        let held = match &variant.value {\n-            VariantFormat::Unit => return json!(variant.name),\n-            VariantFormat::NewType(format) => self.value(format, depth),\n-            VariantFormat::Tuple(formats) => self.all(formats, depth),\n-            VariantFormat::Struct(fields) => self.fields(fields, depth),\n-            VariantFormat::Variable(_) => unreachable!(\"the registry is built\"),\n-        };\n-        Value::Object(Map::from_iter([(variant.name.clone(), held)]))\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn fields(&mut self, fields: &[Named<Format>], depth: usize) -> Value {\n         Value::Object(\n             fields\n                 .iter()\n                 .map(|field| (field.name.clone(), self.value(&field.value, depth)))\n                 .collect(),\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::variant",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 250
+        },
+        "start": {
+          "column": 5,
+          "line": 232
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:240:9: replace Sampler<'r>::variant -> Value with Default::default()",
+    "package": "client-core",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 70,
+        "line": 249
+      },
+      "start": {
+        "column": 9,
+        "line": 240
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace Sampler<'r>::fields -> Value with Default::default()\n@@ -245,22 +245,17 @@\n             VariantFormat::Tuple(formats) => self.all(formats, depth),\n             VariantFormat::Struct(fields) => self.fields(fields, depth),\n             VariantFormat::Variable(_) => unreachable!(\"the registry is built\"),\n         };\n         Value::Object(Map::from_iter([(variant.name.clone(), held)]))\n     }\n \n     fn fields(&mut self, fields: &[Named<Format>], depth: usize) -> Value {\n-        Value::Object(\n-            fields\n-                .iter()\n-                .map(|field| (field.name.clone(), self.value(&field.value, depth)))\n-                .collect(),\n-        )\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n \n     fn all(&mut self, formats: &[Format], depth: usize) -> Value {\n         Value::Array(\n             formats\n                 .iter()\n                 .map(|format| self.value(format, depth))\n                 .collect(),\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::fields",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 259
+        },
+        "start": {
+          "column": 5,
+          "line": 252
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:253:9: replace Sampler<'r>::fields -> Value with Default::default()",
+    "package": "client-core",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 258
+      },
+      "start": {
+        "column": 9,
+        "line": 253
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace Sampler<'r>::all -> Value with Default::default()\n@@ -254,22 +254,17 @@\n             fields\n                 .iter()\n                 .map(|field| (field.name.clone(), self.value(&field.value, depth)))\n                 .collect(),\n         )\n     }\n \n     fn all(&mut self, formats: &[Format], depth: usize) -> Value {\n-        Value::Array(\n-            formats\n-                .iter()\n-                .map(|format| self.value(format, depth))\n-                .collect(),\n-        )\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n \n     /// The next of `values` for the kind `kind`.\n     fn turn<T: Copy>(&mut self, kind: &str, values: &[T]) -> T {\n         let turn = self.turns.entry(kind.to_string()).or_default();\n         let value = values[*turn % values.len()];\n         *turn += 1;\n         value\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::all",
+      "return_type": "-> Value",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 268
+        },
+        "start": {
+          "column": 5,
+          "line": 261
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:262:9: replace Sampler<'r>::all -> Value with Default::default()",
+    "package": "client-core",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 267
+      },
+      "start": {
+        "column": 9,
+        "line": 262
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace Sampler<'r>::turn -> T with Default::default()\n@@ -264,20 +264,17 @@\n                 .iter()\n                 .map(|format| self.value(format, depth))\n                 .collect(),\n         )\n     }\n \n     /// The next of `values` for the kind `kind`.\n     fn turn<T: Copy>(&mut self, kind: &str, values: &[T]) -> T {\n-        let turn = self.turns.entry(kind.to_string()).or_default();\n-        let value = values[*turn % values.len()];\n-        *turn += 1;\n-        value\n+        Default::default() /* ~ changed by cargo-mutants ~ */\n     }\n }\n \n /// The name of the type `root` in `registry`.\n fn named(registry: &Registry, root: &str) -> QualifiedTypeName {\n     registry\n         .keys()\n         .find(|name| name.name == root)\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::turn",
+      "return_type": "-> T",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 276
+        },
+        "start": {
+          "column": 5,
+          "line": 270
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:272:9: replace Sampler<'r>::turn -> T with Default::default()",
+    "package": "client-core",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 14,
+        "line": 275
+      },
+      "start": {
+        "column": 9,
+        "line": 272
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace % with / in Sampler<'r>::turn\n@@ -265,17 +265,17 @@\n                 .map(|format| self.value(format, depth))\n                 .collect(),\n         )\n     }\n \n     /// The next of `values` for the kind `kind`.\n     fn turn<T: Copy>(&mut self, kind: &str, values: &[T]) -> T {\n         let turn = self.turns.entry(kind.to_string()).or_default();\n-        let value = values[*turn % values.len()];\n+        let value = values[*turn / /* ~ changed by cargo-mutants ~ */ values.len()];\n         *turn += 1;\n         value\n     }\n }\n \n /// The name of the type `root` in `registry`.\n fn named(registry: &Registry, root: &str) -> QualifiedTypeName {\n     registry\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::turn",
+      "return_type": "-> T",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 276
+        },
+        "start": {
+          "column": 5,
+          "line": 270
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:273:34: replace % with / in Sampler<'r>::turn",
+    "package": "client-core",
+    "replacement": "/",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 273
+      },
+      "start": {
+        "column": 34,
+        "line": 273
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace % with + in Sampler<'r>::turn\n@@ -265,17 +265,17 @@\n                 .map(|format| self.value(format, depth))\n                 .collect(),\n         )\n     }\n \n     /// The next of `values` for the kind `kind`.\n     fn turn<T: Copy>(&mut self, kind: &str, values: &[T]) -> T {\n         let turn = self.turns.entry(kind.to_string()).or_default();\n-        let value = values[*turn % values.len()];\n+        let value = values[*turn + /* ~ changed by cargo-mutants ~ */ values.len()];\n         *turn += 1;\n         value\n     }\n }\n \n /// The name of the type `root` in `registry`.\n fn named(registry: &Registry, root: &str) -> QualifiedTypeName {\n     registry\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::turn",
+      "return_type": "-> T",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 276
+        },
+        "start": {
+          "column": 5,
+          "line": 270
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:273:34: replace % with + in Sampler<'r>::turn",
+    "package": "client-core",
+    "replacement": "+",
+    "span": {
+      "end": {
+        "column": 35,
+        "line": 273
+      },
+      "start": {
+        "column": 34,
+        "line": 273
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace += with -= in Sampler<'r>::turn\n@@ -266,17 +266,17 @@\n                 .collect(),\n         )\n     }\n \n     /// The next of `values` for the kind `kind`.\n     fn turn<T: Copy>(&mut self, kind: &str, values: &[T]) -> T {\n         let turn = self.turns.entry(kind.to_string()).or_default();\n         let value = values[*turn % values.len()];\n-        *turn += 1;\n+        *turn -= /* ~ changed by cargo-mutants ~ */ 1;\n         value\n     }\n }\n \n /// The name of the type `root` in `registry`.\n fn named(registry: &Registry, root: &str) -> QualifiedTypeName {\n     registry\n         .keys()\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::turn",
+      "return_type": "-> T",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 276
+        },
+        "start": {
+          "column": 5,
+          "line": 270
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:274:15: replace += with -= in Sampler<'r>::turn",
+    "package": "client-core",
+    "replacement": "-=",
+    "span": {
+      "end": {
+        "column": 17,
+        "line": 274
+      },
+      "start": {
+        "column": 15,
+        "line": 274
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace += with *= in Sampler<'r>::turn\n@@ -266,17 +266,17 @@\n                 .collect(),\n         )\n     }\n \n     /// The next of `values` for the kind `kind`.\n     fn turn<T: Copy>(&mut self, kind: &str, values: &[T]) -> T {\n         let turn = self.turns.entry(kind.to_string()).or_default();\n         let value = values[*turn % values.len()];\n-        *turn += 1;\n+        *turn *= /* ~ changed by cargo-mutants ~ */ 1;\n         value\n     }\n }\n \n /// The name of the type `root` in `registry`.\n fn named(registry: &Registry, root: &str) -> QualifiedTypeName {\n     registry\n         .keys()\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "Sampler<'r>::turn",
+      "return_type": "-> T",
+      "span": {
+        "end": {
+          "column": 6,
+          "line": 276
+        },
+        "start": {
+          "column": 5,
+          "line": 270
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:274:15: replace += with *= in Sampler<'r>::turn",
+    "package": "client-core",
+    "replacement": "*=",
+    "span": {
+      "end": {
+        "column": 17,
+        "line": 274
+      },
+      "start": {
+        "column": 15,
+        "line": 274
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace named -> QualifiedTypeName with Default::default()\n@@ -273,21 +273,17 @@\n         let value = values[*turn % values.len()];\n         *turn += 1;\n         value\n     }\n }\n \n /// The name of the type `root` in `registry`.\n fn named(registry: &Registry, root: &str) -> QualifiedTypeName {\n-    registry\n-        .keys()\n-        .find(|name| name.name == root)\n-        .unwrap_or_else(|| panic!(\"{root} is not in the registry\"))\n-        .clone()\n+    Default::default() /* ~ changed by cargo-mutants ~ */\n }\n \n /// Adds the variants of the enums reachable from `name` to `reachable`.\n fn reach(\n     registry: &Registry,\n     name: &QualifiedTypeName,\n     seen: &mut BTreeSet<QualifiedTypeName>,\n     reachable: &mut BTreeSet<(String, String)>,\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "named",
+      "return_type": "-> QualifiedTypeName",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 286
+        },
+        "start": {
+          "column": 1,
+          "line": 279
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:281:5: replace named -> QualifiedTypeName with Default::default()",
+    "package": "client-core",
+    "replacement": "Default::default()",
+    "span": {
+      "end": {
+        "column": 17,
+        "line": 285
+      },
+      "start": {
+        "column": 5,
+        "line": 281
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace == with != in named\n@@ -275,17 +275,17 @@\n         value\n     }\n }\n \n /// The name of the type `root` in `registry`.\n fn named(registry: &Registry, root: &str) -> QualifiedTypeName {\n     registry\n         .keys()\n-        .find(|name| name.name == root)\n+        .find(|name| name.name != /* ~ changed by cargo-mutants ~ */ root)\n         .unwrap_or_else(|| panic!(\"{root} is not in the registry\"))\n         .clone()\n }\n \n /// Adds the variants of the enums reachable from `name` to `reachable`.\n fn reach(\n     registry: &Registry,\n     name: &QualifiedTypeName,\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "named",
+      "return_type": "-> QualifiedTypeName",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 286
+        },
+        "start": {
+          "column": 1,
+          "line": 279
+        }
+      }
+    },
+    "genre": "BinaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:283:32: replace == with != in named",
+    "package": "client-core",
+    "replacement": "!=",
+    "span": {
+      "end": {
+        "column": 34,
+        "line": 283
+      },
+      "start": {
+        "column": 32,
+        "line": 283
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace reach with ()\n@@ -287,42 +287,17 @@\n \n /// Adds the variants of the enums reachable from `name` to `reachable`.\n fn reach(\n     registry: &Registry,\n     name: &QualifiedTypeName,\n     seen: &mut BTreeSet<QualifiedTypeName>,\n     reachable: &mut BTreeSet<(String, String)>,\n ) {\n-    if !seen.insert(name.clone()) {\n-        return;\n-    }\n-    let mut formats: Vec<&Format> = Vec::new();\n-    match &registry[name] {\n-        ContainerFormat::UnitStruct(_) => {}\n-        ContainerFormat::NewTypeStruct(format, _) => formats.push(format),\n-        ContainerFormat::TupleStruct(all, _) => formats.extend(all),\n-        ContainerFormat::Struct(fields, _) => formats.extend(fields.iter().map(|f| &f.value)),\n-        ContainerFormat::Enum(variants, _, _) => {\n-            for variant in variants.values() {\n-                reachable.insert((name.name.clone(), variant.name.clone()));\n-                match &variant.value {\n-                    VariantFormat::NewType(format) => formats.push(format),\n-                    VariantFormat::Tuple(all) => formats.extend(all),\n-                    VariantFormat::Struct(fields) => {\n-                        formats.extend(fields.iter().map(|f| &f.value))\n-                    }\n-                    VariantFormat::Unit | VariantFormat::Variable(_) => {}\n-                }\n-            }\n-        }\n-    }\n-    for format in formats {\n-        reach_format(registry, format, seen, reachable);\n-    }\n+    () /* ~ changed by cargo-mutants ~ */\n }\n \n fn reach_format(\n     registry: &Registry,\n     format: &Format,\n     seen: &mut BTreeSet<QualifiedTypeName>,\n     reachable: &mut BTreeSet<(String, String)>,\n ) {\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "reach",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 321
+        },
+        "start": {
+          "column": 1,
+          "line": 288
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:295:5: replace reach with ()",
+    "package": "client-core",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 320
+      },
+      "start": {
+        "column": 5,
+        "line": 295
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ delete ! in reach\n@@ -287,17 +287,17 @@\n \n /// Adds the variants of the enums reachable from `name` to `reachable`.\n fn reach(\n     registry: &Registry,\n     name: &QualifiedTypeName,\n     seen: &mut BTreeSet<QualifiedTypeName>,\n     reachable: &mut BTreeSet<(String, String)>,\n ) {\n-    if !seen.insert(name.clone()) {\n+    if  /* ~ changed by cargo-mutants ~ */seen.insert(name.clone()) {\n         return;\n     }\n     let mut formats: Vec<&Format> = Vec::new();\n     match &registry[name] {\n         ContainerFormat::UnitStruct(_) => {}\n         ContainerFormat::NewTypeStruct(format, _) => formats.push(format),\n         ContainerFormat::TupleStruct(all, _) => formats.extend(all),\n         ContainerFormat::Struct(fields, _) => formats.extend(fields.iter().map(|f| &f.value)),\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "reach",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 321
+        },
+        "start": {
+          "column": 1,
+          "line": 288
+        }
+      }
+    },
+    "genre": "UnaryOperator",
+    "name": "libs/client-core/src/changes/samples.rs:295:8: delete ! in reach",
+    "package": "client-core",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 9,
+        "line": 295
+      },
+      "start": {
+        "column": 8,
+        "line": 295
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ replace reach_format with ()\n@@ -321,33 +321,17 @@\n }\n \n fn reach_format(\n     registry: &Registry,\n     format: &Format,\n     seen: &mut BTreeSet<QualifiedTypeName>,\n     reachable: &mut BTreeSet<(String, String)>,\n ) {\n-    match format {\n-        Format::TypeName(name) => reach(registry, name, seen, reachable),\n-        Format::Option(inner) | Format::Seq(inner) | Format::Set(inner) => {\n-            reach_format(registry, inner, seen, reachable)\n-        }\n-        Format::TupleArray { content, .. } => reach_format(registry, content, seen, reachable),\n-        Format::Map { key, value } => {\n-            reach_format(registry, key, seen, reachable);\n-            reach_format(registry, value, seen, reachable);\n-        }\n-        Format::Tuple(all) => {\n-            for format in all {\n-                reach_format(registry, format, seen, reachable);\n-            }\n-        }\n-        _ => {}\n-    }\n+    () /* ~ changed by cargo-mutants ~ */\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n     use facet::Facet;\n     use facet_generate::reflection::RegistryBuilder;\n     use serde_json::json;\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "reach_format",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 346
+        },
+        "start": {
+          "column": 1,
+          "line": 323
+        }
+      }
+    },
+    "genre": "FnValue",
+    "name": "libs/client-core/src/changes/samples.rs:329:5: replace reach_format with ()",
+    "package": "client-core",
+    "replacement": "()",
+    "span": {
+      "end": {
+        "column": 6,
+        "line": 345
+      },
+      "start": {
+        "column": 5,
+        "line": 329
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ delete match arm Format::TypeName(name) in reach_format\n@@ -322,17 +322,17 @@\n \n fn reach_format(\n     registry: &Registry,\n     format: &Format,\n     seen: &mut BTreeSet<QualifiedTypeName>,\n     reachable: &mut BTreeSet<(String, String)>,\n ) {\n     match format {\n-        Format::TypeName(name) => reach(registry, name, seen, reachable),\n+         /* ~ changed by cargo-mutants ~ */\n         Format::Option(inner) | Format::Seq(inner) | Format::Set(inner) => {\n             reach_format(registry, inner, seen, reachable)\n         }\n         Format::TupleArray { content, .. } => reach_format(registry, content, seen, reachable),\n         Format::Map { key, value } => {\n             reach_format(registry, key, seen, reachable);\n             reach_format(registry, value, seen, reachable);\n         }\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "reach_format",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 346
+        },
+        "start": {
+          "column": 1,
+          "line": 323
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "libs/client-core/src/changes/samples.rs:330:9: delete match arm Format::TypeName(name) in reach_format",
+    "package": "client-core",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 74,
+        "line": 330
+      },
+      "start": {
+        "column": 9,
+        "line": 330
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ delete match arm Format::Option(inner) | Format::Seq(inner) | Format::Set(inner) in reach_format\n@@ -323,19 +323,17 @@\n fn reach_format(\n     registry: &Registry,\n     format: &Format,\n     seen: &mut BTreeSet<QualifiedTypeName>,\n     reachable: &mut BTreeSet<(String, String)>,\n ) {\n     match format {\n         Format::TypeName(name) => reach(registry, name, seen, reachable),\n-        Format::Option(inner) | Format::Seq(inner) | Format::Set(inner) => {\n-            reach_format(registry, inner, seen, reachable)\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n         Format::TupleArray { content, .. } => reach_format(registry, content, seen, reachable),\n         Format::Map { key, value } => {\n             reach_format(registry, key, seen, reachable);\n             reach_format(registry, value, seen, reachable);\n         }\n         Format::Tuple(all) => {\n             for format in all {\n                 reach_format(registry, format, seen, reachable);\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "reach_format",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 346
+        },
+        "start": {
+          "column": 1,
+          "line": 323
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "libs/client-core/src/changes/samples.rs:331:9: delete match arm Format::Option(inner) | Format::Seq(inner) | Format::Set(inner) in reach_format",
+    "package": "client-core",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 333
+      },
+      "start": {
+        "column": 9,
+        "line": 331
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ delete match arm Format::TupleArray{content, ..} in reach_format\n@@ -326,17 +326,17 @@\n     seen: &mut BTreeSet<QualifiedTypeName>,\n     reachable: &mut BTreeSet<(String, String)>,\n ) {\n     match format {\n         Format::TypeName(name) => reach(registry, name, seen, reachable),\n         Format::Option(inner) | Format::Seq(inner) | Format::Set(inner) => {\n             reach_format(registry, inner, seen, reachable)\n         }\n-        Format::TupleArray { content, .. } => reach_format(registry, content, seen, reachable),\n+         /* ~ changed by cargo-mutants ~ */\n         Format::Map { key, value } => {\n             reach_format(registry, key, seen, reachable);\n             reach_format(registry, value, seen, reachable);\n         }\n         Format::Tuple(all) => {\n             for format in all {\n                 reach_format(registry, format, seen, reachable);\n             }\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "reach_format",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 346
+        },
+        "start": {
+          "column": 1,
+          "line": 323
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "libs/client-core/src/changes/samples.rs:334:9: delete match arm Format::TupleArray{content, ..} in reach_format",
+    "package": "client-core",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 96,
+        "line": 334
+      },
+      "start": {
+        "column": 9,
+        "line": 334
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ delete match arm Format::Map{key, value} in reach_format\n@@ -327,20 +327,17 @@\n     reachable: &mut BTreeSet<(String, String)>,\n ) {\n     match format {\n         Format::TypeName(name) => reach(registry, name, seen, reachable),\n         Format::Option(inner) | Format::Seq(inner) | Format::Set(inner) => {\n             reach_format(registry, inner, seen, reachable)\n         }\n         Format::TupleArray { content, .. } => reach_format(registry, content, seen, reachable),\n-        Format::Map { key, value } => {\n-            reach_format(registry, key, seen, reachable);\n-            reach_format(registry, value, seen, reachable);\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n         Format::Tuple(all) => {\n             for format in all {\n                 reach_format(registry, format, seen, reachable);\n             }\n         }\n         _ => {}\n     }\n }\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "reach_format",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 346
+        },
+        "start": {
+          "column": 1,
+          "line": 323
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "libs/client-core/src/changes/samples.rs:335:9: delete match arm Format::Map{key, value} in reach_format",
+    "package": "client-core",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 338
+      },
+      "start": {
+        "column": 9,
+        "line": 335
+      }
+    }
+  },
+  {
+    "diff": "--- libs/client-core/src/changes/samples.rs\n+++ delete match arm Format::Tuple(all) in reach_format\n@@ -331,21 +331,17 @@\n         Format::Option(inner) | Format::Seq(inner) | Format::Set(inner) => {\n             reach_format(registry, inner, seen, reachable)\n         }\n         Format::TupleArray { content, .. } => reach_format(registry, content, seen, reachable),\n         Format::Map { key, value } => {\n             reach_format(registry, key, seen, reachable);\n             reach_format(registry, value, seen, reachable);\n         }\n-        Format::Tuple(all) => {\n-            for format in all {\n-                reach_format(registry, format, seen, reachable);\n-            }\n-        }\n+         /* ~ changed by cargo-mutants ~ */\n         _ => {}\n     }\n }\n \n #[cfg(test)]\n mod tests {\n     use super::*;\n     use facet::Facet;\n",
+    "file": "libs/client-core/src/changes/samples.rs",
+    "function": {
+      "function_name": "reach_format",
+      "return_type": "",
+      "span": {
+        "end": {
+          "column": 2,
+          "line": 346
+        },
+        "start": {
+          "column": 1,
+          "line": 323
+        }
+      }
+    },
+    "genre": "MatchArm",
+    "name": "libs/client-core/src/changes/samples.rs:339:9: delete match arm Format::Tuple(all) in reach_format",
+    "package": "client-core",
+    "replacement": "",
+    "span": {
+      "end": {
+        "column": 10,
+        "line": 343
+      },
+      "start": {
+        "column": 9,
+        "line": 339
+      }
+    }
+  }
+]
