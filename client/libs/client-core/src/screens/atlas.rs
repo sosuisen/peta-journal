@@ -1,10 +1,13 @@
-//! The canvas of an atlas page: the pages and folders of its directory as cards. The server
-//! writes the whole outline of the atlas page: an item for each page of the directory, the link
-//! cards, the groups and the callouts. A card lies where the `atlas_bounds` property of its
-//! item says, in coordinates whose origin is the center of the canvas. A card without the
-//! property waits in the list of unplaced cards.
-//! A link card is an item whose body is a wiki link to any page. A group is an item with the
-//! cards of the group under it; a callout is an item under the parent of the callouts.
+//! The canvas of an atlas page: the pages and folders of its directory as cards. The atlas
+//! page is a plain page (ADR 053): the server writes nothing into it by itself, and its
+//! outline may be edited here, in the outline or in the `.md`.
+//! A card is an item whose body is one wiki link. It stands for the page of the directory
+//! that the link names, or else it is a link card. A card lies where the `atlas_bounds`
+//! property of its item says, in coordinates whose origin is the center of the canvas. A card
+//! without the property waits in the list of unplaced cards, and so does a page of the
+//! directory that no card links to.
+//! A group is an item of level 1 with the cards of the group under it; a callout is an item
+//! whose `atlas_type` is `callout`.
 //! The place of a card or a callout is saved as a property of its item. Every other change
 //! goes to the server, which writes the outline again and answers with its items.
 
@@ -16,28 +19,28 @@ use crate::ops::file_reload;
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
 use crate::screens::sidebar;
 use crux_core::Command;
-use peta_atlas::Kind;
+use peta_atlas::plain::{self, Kind};
 
 pub use peta_atlas::marks::{
     callout_face_svg, group_color, link_blob_svg, tag_blob_svg, tag_icon_svg,
 };
 pub use peta_atlas::{
     card_label as link_label, link_target, Bounds, AUTO_WIDTH, BOUNDS_KEY, CARD_HEIGHT,
-    MIN_CARD_SCALE, PAGE_KEY, SIDES as TITLE_SIDES, SIDE_KEY, TYPE_KEY,
+    MIN_CARD_SCALE, SIDES as TITLE_SIDES, SIDE_KEY, TYPE_KEY,
 };
 
 /// The width of a card in the list of unplaced cards, which a drop from the list reads.
 pub const CARD_WIDTH: f64 = 120.0;
 
-type Entry<'a> = peta_atlas::Entry<'a, Item>;
+type Entry<'a> = plain::Entry<'a, Item>;
 
-/// The items of the shown atlas page that are of a kind, in their order; none on any other
-/// page. A card at level 2 belongs to the group above it.
+/// The items of the shown atlas page that the canvas can show, in their order; none on any
+/// other page. A card below level 1 belongs to the group above it.
 fn entries(model: &Model) -> Vec<Entry<'_>> {
     let Some(atlas) = shown_atlas_page(model) else {
         return Vec::new();
     };
-    peta_atlas::entries(
+    plain::entries(
         model
             .state
             .items()
@@ -52,16 +55,61 @@ fn bounds_of(item: &Item) -> Option<Bounds> {
     item.prop_str(BOUNDS_KEY).and_then(Bounds::parse)
 }
 
-/// The item of a card: of a page card by the id of its page, of a link card by its own id.
-fn card_item(model: &Model, card_id: &str) -> Option<Item> {
+/// A card of the shown atlas page.
+struct Card<'a> {
+    item: &'a Item,
+    /// The group item the card is under
+    group: Option<&'a Item>,
+    /// The page of the directory the card stands for; none for a link card
+    page_id: Option<&'a str>,
+}
+
+impl Card<'_> {
+    /// The name the shell calls the card by: the id of its page, or of the item of a link card.
+    fn id(&self) -> &str {
+        self.page_id.unwrap_or(&self.item.id)
+    }
+}
+
+/// The page of the directory of the shown atlas that a link names by its path.
+fn page_of<'a>(model: &'a Model, target: &str) -> Option<&'a Page> {
+    let target = target.strip_suffix(".md").unwrap_or(target);
+    model
+        .sidebar
+        .index_pages
+        .iter()
+        .find(|p| format!("{}{}", p.dir_path, p.name) == target)
+}
+
+/// The cards of the shown atlas page, in the order of its items. The first card that links
+/// to a page of the directory stands for that page. Any other card is a link card: one that
+/// links out of the directory, to no page, or to a page that has a card already.
+fn card_entries(model: &Model) -> Vec<Card<'_>> {
+    let mut taken: Vec<&str> = Vec::new();
     entries(model)
         .into_iter()
-        .find(|e| match &e.kind {
-            Kind::Page(page_id) => page_id == card_id,
-            Kind::Link => e.item.id == card_id,
-            _ => false,
+        .filter(|e| e.kind == Kind::Card)
+        .map(|e| {
+            let page_id = link_target(&e.item.body)
+                .and_then(|target| page_of(model, target))
+                .map(|page| page.id.as_str())
+                .filter(|id| !taken.contains(id));
+            taken.extend(page_id);
+            Card {
+                item: e.item,
+                group: e.group,
+                page_id,
+            }
         })
-        .map(|e| e.item.clone())
+        .collect()
+}
+
+/// The item of a card: of a page card by the id of its page, of a link card by its own id.
+fn card_item(model: &Model, card_id: &str) -> Option<Item> {
+    card_entries(model)
+        .into_iter()
+        .find(|card| card.id() == card_id)
+        .map(|card| card.item.clone())
 }
 
 /// Places a card with its center at the given point of the canvas. A card is named by its
@@ -224,14 +272,9 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
 /// Cards taken out of their groups, as when they are dragged out of the outline of their
 /// group with Ctrl held. A group left with one card is no group, and goes.
 pub fn ungroup_cards(model: &mut Model, card_ids: Vec<String>) -> Cmd {
-    let grouped = entries(model).iter().any(|e| {
-        e.group.is_some()
-            && match &e.kind {
-                Kind::Page(page_id) => card_ids.contains(page_id),
-                Kind::Link => card_ids.contains(&e.item.id),
-                _ => false,
-            }
-    });
+    let grouped = card_entries(model)
+        .iter()
+        .any(|card| card.group.is_some() && card_ids.iter().any(|id| id == card.id()));
     if !grouped {
         return done();
     }
@@ -252,9 +295,9 @@ fn side_of(item: &Item) -> String {
 
 /// The title of a group item; none while its body is empty.
 fn group_title(group: &Item) -> Option<GroupTitle> {
-    peta_atlas::group_title(group).map(|text| GroupTitle {
+    plain::group_title(group).map(|text| GroupTitle {
         side: side_of(group),
-        text: text.to_string(),
+        text,
     })
 }
 
@@ -284,7 +327,7 @@ pub fn set_group_title(model: &mut Model, group_id: String, side: String, title:
 }
 
 /// A callout on the canvas of an atlas page: a character at a point, with a speech bubble on
-/// one side of it. An item under the parent of the callouts, its text the body.
+/// one side of it. An item whose `atlas_type` is `callout`, its text the body.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Callout {
@@ -433,8 +476,8 @@ pub fn reload_atlas(model: &Model, page_id: &str) -> Cmd {
     file_reload::read_again(model, page_id)
 }
 
-/// A link card: an item of the atlas page whose body is a wiki link to `target`, placed by
-/// its own `atlas_bounds`.
+/// A link card: an item of the atlas page whose body is a wiki link to `target`, which is no
+/// page of the directory, placed by its own `atlas_bounds`.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct LinkCard {
@@ -450,19 +493,16 @@ pub struct LinkCard {
 /// The link cards of the shown atlas page, in the order of its items. A link card without a
 /// place is left out.
 pub fn link_cards(model: &Model) -> Vec<LinkCard> {
-    entries(model)
+    card_entries(model)
         .into_iter()
-        .filter_map(|e| {
-            if e.kind != Kind::Link {
-                return None;
-            }
-            let target = link_target(&e.item.body)?.to_string();
+        .filter(|card| card.page_id.is_none())
+        .filter_map(|card| {
             Some(LinkCard {
-                item_id: e.item.id.clone(),
-                target,
-                bounds: bounds_of(e.item)?,
-                group: e.group.map(|g| g.id.clone()),
-                group_title: e.group.and_then(group_title),
+                item_id: card.item.id.clone(),
+                target: link_target(&card.item.body)?.to_string(),
+                bounds: bounds_of(card.item)?,
+                group: card.group.map(|g| g.id.clone()),
+                group_title: card.group.and_then(group_title),
             })
         })
         .collect()
@@ -571,22 +611,21 @@ pub fn show_link_suggestions(model: &mut Model, timer_id: u64, titles: Vec<Strin
 }
 
 /// The cards of the pages of the shown atlas page, in the order of the sidebar's index list,
-/// each with its place, the id of its group and the title of that group. Their item on the
-/// atlas page holds the place and the group.
+/// each with its place, the id of its group and the title of that group. The item on the
+/// atlas page that links to the page holds the place and the group. A page that no item links
+/// to has neither: it waits in the list of unplaced cards until it is dropped on the canvas.
 #[allow(clippy::type_complexity)]
 pub fn cards(model: &Model) -> Vec<(Page, Option<Bounds>, Option<String>, Option<GroupTitle>)> {
     if shown_atlas_page(model).is_none() {
         return Vec::new();
     }
-    let entries = entries(model);
+    let cards = card_entries(model);
     sidebar::sorted_index_pages(&model.sidebar.index_pages, sidebar::index_sort(model))
         .into_iter()
         .map(|p| {
-            let entry = entries
-                .iter()
-                .find(|e| matches!(&e.kind, Kind::Page(id) if *id == p.id));
-            let bounds = entry.and_then(|e| bounds_of(e.item));
-            let group = entry.and_then(|e| e.group);
+            let card = cards.iter().find(|c| c.page_id == Some(p.id.as_str()));
+            let bounds = card.and_then(|c| bounds_of(c.item));
+            let group = card.and_then(|c| c.group);
             (
                 p,
                 bounds,
