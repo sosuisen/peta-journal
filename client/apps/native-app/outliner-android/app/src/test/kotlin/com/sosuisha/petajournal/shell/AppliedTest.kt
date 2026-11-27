@@ -22,6 +22,9 @@ import com.sosuisha.petajournal.types.RichText
 import com.sosuisha.petajournal.types.Row
 import com.sosuisha.petajournal.types.RowChange
 import com.sosuisha.petajournal.types.ScreenView
+import com.sosuisha.petajournal.types.SearchChange
+import com.sosuisha.petajournal.types.SearchEntry
+import com.sosuisha.petajournal.types.SearchKind
 import com.sosuisha.petajournal.types.SearchView
 import com.sosuisha.petajournal.types.SidebarPage
 import com.sosuisha.petajournal.types.SortOrder
@@ -302,6 +305,42 @@ class AppliedTest {
         assertEquals("current", changed.indexPages.currentPageId)
         assertEquals(listOf("d", "c"), changed.recentPages.pages.map { it.label })
         assertEquals(LoadState.LOADING, changed.recentPages.state)
+    }
+
+    // 後の差分の検索の結果の操作は、今の結果に当たる。検索のパネルの値は前のままである。
+    @Test
+    fun the_search_results_of_a_later_change_are_applied_to_the_results_there() {
+        fun result(key: String, snippet: String) =
+            SearchEntry(key = key, kind = SearchKind.ITEM, title = "t", label = "t", snippet = snippet)
+        val view =
+            firstView(
+                Changes(
+                    rows = emptyList(),
+                    headings = emptyList(),
+                    indexPages = emptyList(),
+                    recentPages = emptyList(),
+                    searchResults =
+                        listOf(
+                            SearchChange.Reset(listOf(result("item:a", "one"), result("item:b", "two"))),
+                        ),
+                    panels = everyPanel(),
+                ),
+            )
+
+        val changed =
+            view.with(
+                Changes(
+                    rows = emptyList(),
+                    headings = emptyList(),
+                    indexPages = emptyList(),
+                    recentPages = emptyList(),
+                    searchResults = listOf(SearchChange.Update(1u, result("item:b", "three"))),
+                    panels = emptyList(),
+                ),
+            )
+
+        assertEquals(listOf("one", "three"), changed.search.results.map { it.snippet })
+        assertEquals("first", changed.search.query)
     }
 
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
