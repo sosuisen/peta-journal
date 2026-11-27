@@ -1,6 +1,7 @@
 //! What the canvas of an atlas in the web shell draws: the cards and the callouts as the JSON
 //! that `atlas.js` reads, made by the scene of peta-atlas as the Leptos shell made them.
 
+use client_core::rich_text::{RichLink, RichRun};
 use client_core::screens::atlas::{self as core_atlas, AtlasGroup, Callout, LinkCard};
 use client_core::view::AtlasCard;
 use peta_atlas::scene::{self, GroupLook, GroupRef};
@@ -51,15 +52,39 @@ pub fn placed_json(cards: &str, links: &str) -> Result<String, String> {
         .collect();
     placed.extend(links.iter().map(|l| {
         let groups = group_refs(&l.groups);
-        // A plain card has no page to open; its blob is drawn from its text
-        let target = l.target.as_deref().unwrap_or(&l.label);
-        scene::Card {
-            label: l.label.clone(),
-            path: l.target.clone(),
-            ..scene::Card::link(&l.item_id, target, l.bounds, &groups)
+        match &l.target {
+            Some(target) => scene::Card {
+                label: l.label.clone(),
+                ..scene::Card::link(&l.item_id, target, l.bounds, &groups)
+            },
+            None => {
+                let runs = l.runs.iter().map(run).collect();
+                scene::Card::plain(&l.item_id, &l.label, runs, l.bounds, &groups)
+            }
         }
     }));
     Ok(scene::cards_json(&placed))
+}
+
+/// A part of the first line of a card as the scene takes it.
+fn run(run: &RichRun) -> scene::Run {
+    scene::Run {
+        text: run.text.clone(),
+        link: run.link.as_ref().map(|link| match link {
+            RichLink::Page { url } => scene::RunLink {
+                kind: "Page".to_string(),
+                url: url.clone(),
+            },
+            RichLink::Web { url } => scene::RunLink {
+                kind: "Web".to_string(),
+                url: url.clone(),
+            },
+            RichLink::File { path } => scene::RunLink {
+                kind: "File".to_string(),
+                url: path.clone(),
+            },
+        }),
+    }
 }
 
 /// The callouts, each with its character drawn from its text, as `setCallouts` of

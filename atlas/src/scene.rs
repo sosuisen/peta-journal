@@ -5,7 +5,8 @@
 use serde::Serialize;
 
 use crate::marks::{
-    callout_face_svg, group_color, hidden_blob_svg, link_blob_svg, tag_blob_svg, tag_icon_svg,
+    callout_face_svg, group_color, hidden_blob_svg, link_blob_svg, plain_blob_svg, tag_blob_svg,
+    tag_icon_svg,
 };
 use crate::{card_label, Bounds};
 
@@ -110,7 +111,12 @@ pub struct Card {
     /// The page that a click on the label opens; none for a card that opens nothing
     pub path: Option<String>,
     pub is_dir: bool,
+    /// True for a card named by its item and not by a page: a link card or a plain card
     pub is_link: bool,
+    /// True for a plain card, whose first line is no link
+    pub is_plain: bool,
+    /// The parts of the first line of a plain card, each with its link if it is one
+    pub runs: Vec<Run>,
     pub x: f64,
     pub y: f64,
     pub width: f64,
@@ -126,6 +132,21 @@ pub struct Card {
     pub icon_draw_size: i32,
     /// The label is hidden: the card shows its place and its blob only
     pub masked: bool,
+}
+
+/// A part of the first line of a card: its letters, and where a click on them leads.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Run {
+    pub text: String,
+    pub link: Option<RunLink>,
+}
+
+/// Where a link of a card leads: `kind` is `Page`, `Web` or `File`, as the core names the links
+/// of a page, and `url` is its address.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RunLink {
+    pub kind: String,
+    pub url: String,
 }
 
 impl Card {
@@ -171,6 +192,24 @@ impl Card {
         }
     }
 
+    /// A plain card: its label is its first line, which `runs` holds part by part. It opens no
+    /// page; a link in it does. Its blob is drawn from the label in a color of its own.
+    pub fn plain(
+        item_id: &str,
+        label: &str,
+        runs: Vec<Run>,
+        bounds: Bounds,
+        groups: &[GroupRef],
+    ) -> Card {
+        Card {
+            path: None,
+            is_plain: true,
+            runs,
+            blob: plain_blob_svg(label, ICON_DRAW_SIZE),
+            ..Card::new(item_id, label, "", bounds, groups, false, true)
+        }
+    }
+
     /// The card with its label hidden, as a site shows a page it does not publish. The label,
     /// the page it opens and the icon go, so none of them reaches the scene. The card keeps its
     /// place, its group and the shape of its blob, which turns white. `label_width` is the width
@@ -203,6 +242,8 @@ impl Card {
             path: Some(path.to_string()),
             is_dir,
             is_link,
+            is_plain: false,
+            runs: Vec::new(),
             x: bounds.x,
             y: bounds.y,
             width: bounds.width,
@@ -416,7 +457,13 @@ mod tests {
                 }),
             },
         ];
-        let card = Card::plain("I1", "see a", runs.clone(), bounds(0.0, 0.0, 0.0, 40.0), &[]);
+        let card = Card::plain(
+            "I1",
+            "see a",
+            runs.clone(),
+            bounds(0.0, 0.0, 0.0, 40.0),
+            &[],
+        );
 
         assert_eq!(
             (&card.path, card.is_plain, card.is_link, &card.runs),

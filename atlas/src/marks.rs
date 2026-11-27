@@ -69,6 +69,14 @@ pub fn link_blob_svg(target: &str, size: i32) -> String {
     blob_svg(target, LINK_BLOB_COLOR, size, false)
 }
 
+/// The light yellow of the blob of a plain card, whose first line is no link
+const PLAIN_BLOB_COLOR: Color = Color::rgb(0xFF, 0xF1, 0xA8);
+
+/// The blob of a plain card: drawn from its label as a tag blob is, in light yellow.
+pub fn plain_blob_svg(label: &str, size: i32) -> String {
+    blob_svg(label, PLAIN_BLOB_COLOR, size, false)
+}
+
 /// The white of the blob of a card whose label is hidden
 const HIDDEN_BLOB_COLOR: Color = Color::rgb(0xFF, 0xFF, 0xFF);
 
