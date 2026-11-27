@@ -153,7 +153,11 @@ fn a_card_carries_all_its_parents_from_the_outermost() {
     let view = h.view();
     assert_eq!(
         titled_groups(&view.atlas_cards[0].groups),
-        [("outer", Some("Outer")), ("inner", None), ("deep", Some("Deep"))]
+        [
+            ("outer", Some("Outer")),
+            ("inner", None),
+            ("deep", Some("Deep"))
+        ]
     );
     assert_eq!(
         titled_groups(&view.atlas_links[0].groups),

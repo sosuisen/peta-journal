@@ -62,9 +62,9 @@ fn a_link_card_under_a_group_item_belongs_to_the_group() {
     );
 
     let link = &h.view().atlas_links[0];
-    assert_eq!(link.group.as_deref(), Some("g"));
+    assert_eq!(group_of(&link.groups).as_deref(), Some("g"));
     assert_eq!(
-        link.group_title,
+        title_of(&link.groups),
         Some(GroupTitle {
             side: "top".into(),
             text: "Tools".into()

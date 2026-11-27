@@ -307,14 +307,10 @@ pub struct AtlasCard {
     pub path: String,
     pub is_dir: bool,
     pub bounds: Option<Bounds>,
-    /// The key of the group the card belongs to, if any.
-    pub group: Option<String>,
-    /// The color of that group as `#RRGGBB`.
-    pub group_color: Option<String>,
     /// The tags the icon of the card is drawn from; none for no icon.
     pub icon_tags: Vec<String>,
-    /// The title of the card's group, the same on every card of it.
-    pub group_title: Option<atlas::GroupTitle>,
+    /// The items the card is under, the outermost first.
+    pub groups: Vec<atlas::AtlasGroup>,
     /// True when the page has a `published` date; the blob of its card has a line around it.
     pub published: bool,
     /// The whole body of the item of the card, which the menu of the card shows; empty for a
@@ -482,8 +478,7 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
                     label,
                     text,
                     bounds,
-                    group,
-                    group_title,
+                    groups,
                 } = card;
                 AtlasCard {
                     page_id: p.id.clone(),
@@ -495,10 +490,8 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
                     },
                     is_dir: sidebar::is_directory(&p),
                     bounds,
-                    group_color: group.as_deref().map(atlas::group_color),
                     icon_tags: atlas::icon_tags(&p, &model.config.tags_dir),
-                    group,
-                    group_title,
+                    groups,
                     published: sidebar::is_published(&p),
                     text,
                 }

@@ -66,8 +66,10 @@ fn bounds_of(item: &Item) -> Option<Bounds> {
 /// A card of the shown atlas page.
 struct Card<'a> {
     item: &'a Item,
-    /// The group item the card is under
+    /// The group item the card is under: the last of its parents
     group: Option<&'a Item>,
+    /// The items the card is under, the outermost first
+    parents: Vec<&'a Item>,
     /// The page of the directory the card stands for; none for a link card
     page_id: Option<&'a str>,
 }
@@ -107,6 +109,7 @@ fn card_entries(model: &Model) -> Vec<Card<'_>> {
             Card {
                 item: e.item,
                 group: e.group(),
+                parents: e.parents,
                 page_id,
             }
         })
@@ -565,6 +568,26 @@ fn group_title(group: &Item) -> Option<GroupTitle> {
     })
 }
 
+/// An item that cards are under: a blob around them on the canvas, with its title along it.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AtlasGroup {
+    /// The id of the item
+    pub id: String,
+    pub title: Option<GroupTitle>,
+}
+
+/// The groups of the items a card is under, the outermost first.
+fn groups(parents: &[&Item]) -> Vec<AtlasGroup> {
+    parents
+        .iter()
+        .map(|parent| AtlasGroup {
+            id: parent.id.clone(),
+            title: group_title(parent),
+        })
+        .collect()
+}
+
 /// Gives a group of the shown atlas page a title along a side of its outline. An empty title
 /// takes the title away. The title is the body of the item of the group, and the side a
 /// property of it.
@@ -772,9 +795,8 @@ pub struct LinkCard {
     /// The whole body of the item, which the menu of the card shows
     pub text: String,
     pub bounds: Bounds,
-    /// The id of the group item the card is under
-    pub group: Option<String>,
-    pub group_title: Option<GroupTitle>,
+    /// The items the card is under, the outermost first
+    pub groups: Vec<AtlasGroup>,
 }
 
 /// The link cards of the shown atlas page, in the order of its items. A link card without a
@@ -798,8 +820,7 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
                 text: card.item.body.clone(),
                 tone: tone_of(model, link),
                 bounds: bounds_of(card.item)?,
-                group: card.group.map(|g| g.id.clone()),
-                group_title: card.group.and_then(group_title),
+                groups: groups(&card.parents),
             })
         })
         .collect()
@@ -957,9 +978,8 @@ pub struct PageCard {
     /// The whole body of the item of the card; empty for a page with no card
     pub text: String,
     pub bounds: Option<Bounds>,
-    /// The id of the group item the card is under
-    pub group: Option<String>,
-    pub group_title: Option<GroupTitle>,
+    /// The items the card is under, the outermost first
+    pub groups: Vec<AtlasGroup>,
 }
 
 /// The cards of the pages of the shown atlas page, in the order of the sidebar's index list.
@@ -976,13 +996,12 @@ pub fn cards(model: &Model) -> Vec<PageCard> {
         .map(|page| {
             let card = cards.iter().find(|c| c.page_id == Some(page.id.as_str()));
             let link = card.and_then(|c| plain::card_link(&c.item.body));
-            let group = card.and_then(|c| c.group);
+
             PageCard {
                 label: link.and_then(|l| l.label).map(str::to_string),
                 text: card.map(|c| c.item.body.clone()).unwrap_or_default(),
                 bounds: card.and_then(|c| bounds_of(c.item)),
-                group: group.map(|g| g.id.clone()),
-                group_title: group.and_then(group_title),
+                groups: card.map(|c| groups(&c.parents)).unwrap_or_default(),
                 page,
             }
         })

@@ -1,15 +1,18 @@
 //! What the canvas of an atlas in the web shell draws: the cards and the callouts as the JSON
 //! that `atlas.js` reads, made by the scene of peta-atlas as the Leptos shell made them.
 
-use client_core::screens::atlas::{Callout, GroupTitle, LinkCard};
+use client_core::screens::atlas::{AtlasGroup, Callout, LinkCard};
 use client_core::view::AtlasCard;
 use peta_atlas::scene::{self, GroupRef};
 
-/// The group of a card as the scene takes it.
-fn group_ref(group: Option<&String>, title: Option<&GroupTitle>) -> Option<GroupRef> {
-    group.map(|id| GroupRef {
-        id: id.clone(),
-        title: title.map(|t| (t.text.clone(), t.side.clone())),
+/// The group a card is right under, as the scene takes it.
+fn group_ref(groups: &[AtlasGroup]) -> Option<GroupRef> {
+    groups.last().map(|group| GroupRef {
+        id: group.id.clone(),
+        title: group
+            .title
+            .as_ref()
+            .map(|t| (t.text.clone(), t.side.clone())),
     })
 }
 
@@ -29,13 +32,13 @@ pub fn placed_json(cards: &str, links: &str) -> Result<String, String> {
                 icon_tags: &c.icon_tags,
                 published: c.published,
             };
-            let group = group_ref(c.group.as_ref(), c.group_title.as_ref());
+            let group = group_ref(&c.groups);
             c.bounds
                 .map(|b| scene::Card::page(&page, b, group.as_ref()))
         })
         .collect();
     placed.extend(links.iter().map(|l| {
-        let group = group_ref(l.group.as_ref(), l.group_title.as_ref());
+        let group = group_ref(&l.groups);
         // A plain card has no page to open; its blob is drawn from its text
         let target = l.target.as_deref().unwrap_or(&l.label);
         scene::Card {
@@ -87,15 +90,15 @@ mod tests {
         let cards = r#"[
             {"page_id":"a","label":"A","path":"m/a","is_dir":false,
              "bounds":{"x":10.0,"y":20.0,"width":0.0,"height":0.0},
-             "group":"g","group_color":null,"icon_tags":["sun"],
-             "group_title":{"side":"top","text":"Plan"},"published":false,"text":""},
+             "icon_tags":["sun"],
+             "groups":[{"id":"g","title":{"side":"top","text":"Plan"}}],"published":false,"text":""},
             {"page_id":"b","label":"B","path":"m/b","is_dir":true,"bounds":null,
-             "group":null,"group_color":null,"icon_tags":[],"group_title":null,"published":false,"text":""}
+             "icon_tags":[],"groups":[],"published":false,"text":""}
         ]"#;
         let links = r#"[
             {"item_id":"l","target":"x/Foo","label":"Shown","tone":"Link","runs":[],"text":"[[x/Foo|Shown]]",
              "bounds":{"x":1.0,"y":2.0,"width":0.0,"height":0.0},
-             "group":null,"group_title":null}
+             "groups":[]}
         ]"#;
 
         let json = placed_json(cards, links).unwrap();

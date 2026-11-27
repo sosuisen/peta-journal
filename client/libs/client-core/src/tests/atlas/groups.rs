@@ -32,7 +32,7 @@ fn a_card_under_an_item_of_level_1_belongs_to_its_group() {
         .view()
         .atlas_cards
         .into_iter()
-        .map(|c| (c.page_id, c.group))
+        .map(|c| (c.page_id, group_of(&c.groups)))
         .collect();
     assert_eq!(
         groups,
@@ -68,7 +68,12 @@ fn cards_dropped_on_a_card_go_under_a_new_item_in_one_batch() {
             moved(&["i-two", "i-one"], NEW),
         ]]
     );
-    let groups: Vec<_> = h.view().atlas_cards.into_iter().map(|c| c.group).collect();
+    let groups: Vec<_> = h
+        .view()
+        .atlas_cards
+        .into_iter()
+        .map(|c| group_of(&c.groups))
+        .collect();
     assert_eq!(groups, [Some("g".to_string()), Some("g".to_string())]);
 }
 
@@ -282,28 +287,6 @@ fn a_card_in_no_group_leaves_nothing() {
     assert!(batches(&h).is_empty());
 }
 
-// グループに属するカードはそのグループの色を持ち、属さないカードは色を持たない。
-#[test]
-fn a_card_in_a_group_has_the_color_of_its_group() {
-    let h = atlas_with_group("", None);
-    let color = Some(crate::screens::atlas::group_color("g"));
-
-    let colors: Vec<_> = h
-        .view()
-        .atlas_cards
-        .into_iter()
-        .map(|c| (c.page_id, c.group_color))
-        .collect();
-    assert_eq!(
-        colors,
-        [
-            ("a/b/one".to_string(), color.clone()),
-            ("a/b/three".to_string(), None),
-            ("a/b/two".to_string(), color),
-        ]
-    );
-}
-
 fn titled(h: &mut Harness, group_id: &str, side: &str, title: &str) {
     h.send(Event::SetAtlasGroupTitle {
         group_id: group_id.into(),
@@ -347,7 +330,7 @@ fn the_title_and_its_side_changed_at_once_are_saved_in_one_batch() {
     assert_eq!(batches(&h), [[sided("g", Some("Tools"), "left")]]);
     assert!(upserts(&h).is_empty());
     assert_eq!(
-        h.view().atlas_cards[0].group_title,
+        title_of(&h.view().atlas_cards[0].groups),
         Some(GroupTitle {
             side: "left".into(),
             text: "Tools".into()
@@ -383,7 +366,7 @@ fn every_card_of_a_group_carries_its_title_which_lies_along_the_top_by_default()
         .view()
         .atlas_cards
         .into_iter()
-        .map(|c| (c.page_id, c.group_title))
+        .map(|c| (c.page_id, title_of(&c.groups)))
         .collect();
     assert_eq!(
         titles,
