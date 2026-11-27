@@ -274,8 +274,8 @@ impl JournalCore {
     }
 
     /// The startup steps, in the order of the Java server: the pages go to a markdown
-    /// directory that is empty, the search index is rebuilt if it is empty, and the tag pages
-    /// and the atlas pages are brought up to date.
+    /// directory that is empty, the search index is rebuilt if it is empty, the tag pages
+    /// are brought up to date, and the atlas pages of the old form move to the plain form.
     pub fn start_up(&self) {
         let dir = self.config.markdown_dir();
         if !dir.trim().is_empty() {
@@ -285,6 +285,6 @@ impl JournalCore {
         // After the rebuild, which skips an index that is not empty: the new pages are indexed
         // one by one as they are created
         startup::ensure_tag_pages(&self.page_service);
-        startup::bring_atlases_up_to_date(&self.atlas);
+        startup::move_atlases_to_plain_form(&self.atlas);
     }
 }
