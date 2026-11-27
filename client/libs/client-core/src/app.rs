@@ -799,8 +799,9 @@ pub enum Event {
     IndexPagesLoaded {
         header: String,
         is_root: bool,
-        /// The index page of the directory itself
-        index: Page,
+        /// The index page of the directory itself. Not named `index`: the Kotlin types
+        /// cannot have a field of that name.
+        folder: Page,
         pages: Vec<Page>,
     },
     /// The server could not answer the pages of the directory the index list shows.
@@ -1629,9 +1630,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         IndexPagesLoaded {
             header,
             is_root,
-            index,
+            folder,
             pages,
-        } => screens::sidebar::show_index_pages(model, header, is_root, index, pages),
+        } => screens::sidebar::show_index_pages(model, header, is_root, folder, pages),
         IndexPagesFailed => screens::sidebar::index_pages_failed(model),
         SseReconnect => screens::sse::connect(model),
         NavigateHome => screens::settings::navigate_home(model),

@@ -91,10 +91,10 @@ pub fn load_index_pages(model: &mut Model) -> Cmd {
             }
         };
         match loaded {
-            Ok((header, is_root, index, pages)) => api.send_event(Event::IndexPagesLoaded {
+            Ok((header, is_root, folder, pages)) => api.send_event(Event::IndexPagesLoaded {
                 header,
                 is_root,
-                index,
+                folder,
                 pages,
             }),
             Err(e) => {
