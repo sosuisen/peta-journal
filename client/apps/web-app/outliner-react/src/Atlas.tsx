@@ -5,7 +5,15 @@ import {
   useState,
   type DragEvent,
 } from 'react';
-import type { AtlasCard, OpenIn } from './border/peta-types';
+import {
+  eventLinkClicked,
+  richLinkFile,
+  richLinkPage,
+  richLinkWeb,
+  type AtlasCard,
+  type OpenIn,
+  type RichLink,
+} from './border/peta-types';
 import { ATLAS_OPTIONS, loadAtlasScripts } from './atlasScripts';
 import { useCore, usePanel } from './context';
 import { openInOf } from './keys';
@@ -34,6 +42,14 @@ interface AtlasCanvas {
     onSet: (itemId: string, target: string) => void,
     onRemove: (itemId: string) => void,
     onQuery: (query: string) => void,
+  ): void;
+  /** link is a link of the first line of a card, as the core names the links of a page */
+  setOnFollow(
+    onFollow: (
+      link: { kind: string; url: string },
+      newTab: boolean,
+      newWindow: boolean,
+    ) => void,
   ): void;
   setCards(json: string): void;
   setCallouts(json: string): void;
@@ -345,7 +361,25 @@ function makeCanvas(
     item_id => core.send({ kind: 'RemoveAtlasLink', item_id }),
     query => core.send({ kind: 'SearchAtlasLinks', query }),
   );
+  // As a click on a link of a page: Ctrl or Command as ctrl, Shift as shift (ADR 083)
+  made.setOnFollow((link, newTab, newWindow) =>
+    core.send(
+      eventLinkClicked(richLinkOf(link), {
+        shift: newWindow,
+        ctrl: newTab,
+        cmd: false,
+      }),
+    ),
+  );
   return made;
+}
+
+/** A link of the text of a card as the core takes it. */
+function richLinkOf(link: { kind: string; url: string }): RichLink {
+  if (link.kind === 'Web') {
+    return richLinkWeb(link.url);
+  }
+  return link.kind === 'File' ? richLinkFile(link.url) : richLinkPage(link.url);
 }
 
 /** A card of the list of unplaced cards: dragged onto the canvas, it is placed there. */
