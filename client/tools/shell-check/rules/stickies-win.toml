@@ -112,4 +112,4 @@ pending = 1213
 excluded = "a native shell reads the border of client-native-bridge, not that of client-web-bridge"
 
 [common.border-native]
-pending = 1228
+test = "client/apps/native-app/stickies-win/PetaBorder.Tests/BorderValuesTests.cs"
