@@ -2,60 +2,77 @@
 //! in the outline or in the `.md`, so what an item is comes from its body, its place in the
 //! tree and its `atlas_type`, and not from marks the server once left on it.
 //!
-//! Only what the screen of today can show is read. A card is an item whose first line is one
-//! wiki link, a group is an item of level 1 with items under it, and a callout is an item
-//! whose `atlas_type` says so. Any other item is left out.
+//! Every item is a card, and any item may be the parent of others (ADR 053). A page card is
+//! an item whose first line is one wiki link, a plain card one whose first line is anything
+//! else, and a callout an item whose `atlas_type` says so. An item with items under it is a
+//! parent: the screen draws a blob around them, with the text of the parent along it.
 
 use crate::{card_label, link_body, link_target, AtlasItem, CALLOUT_TYPE, TYPE_KEY};
 
-/// What an item of a plain atlas page is drawn as.
+/// What an item of a plain atlas page is, by its body and its `atlas_type`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     /// An item whose first line is one wiki link and nothing else, whatever follows on the
     /// later lines. [`card_link`] names its page.
     Card,
-    /// An item of level 1 with items under it. Its body is the title.
-    Group,
+    /// An item whose first line is not one wiki link: its text is the card.
+    Plain,
     /// An item whose `atlas_type` is `callout`, at any level. Its body is the text.
     Callout,
 }
 
-/// An item of the atlas with what it is and, for a card, the group item it is under.
+/// An item of the atlas with what it is, whether items are under it, and the items it is
+/// under.
 #[derive(Debug)]
 pub struct Entry<'a, T> {
     pub item: &'a T,
     pub kind: Kind,
-    pub group: Option<&'a T>,
+    /// True when items are under it: it is drawn as a blob around them
+    pub is_parent: bool,
+    /// The items it is under, the outermost first
+    pub parents: Vec<&'a T>,
 }
 
-/// The items of a plain atlas page that the screen can show, in their order. A card below
-/// level 1 belongs to the group of level 1 above it, however deep it is: a blob inside a blob
-/// is not drawn yet.
+impl<'a, T> Entry<'a, T> {
+    /// The item it is right under; none at the top
+    pub fn group(&self) -> Option<&'a T> {
+        self.parents.last().copied()
+    }
+}
+
+/// The items of a plain atlas page that the screen can show, in their order. An item with
+/// nothing written and nothing under it is left out: there is nothing to draw.
 pub fn entries<'a, T: AtlasItem + 'a>(items: impl IntoIterator<Item = &'a T>) -> Vec<Entry<'a, T>> {
-    let mut open_group: Option<&'a T> = None;
+    let mut open: Vec<&'a T> = Vec::new();
     let mut entries = Vec::new();
     let mut items = items.into_iter().peekable();
     while let Some(item) = items.next() {
         let is_parent = items.peek().is_some_and(|next| next.level() > item.level());
-        if item.level() <= 1 {
-            open_group = None;
+        while open
+            .last()
+            .is_some_and(|above| above.level() >= item.level())
+        {
+            open.pop();
+        }
+        let parents = open.clone();
+        if is_parent {
+            open.push(item);
+        } else if item.body().trim().is_empty() {
+            continue;
         }
         let kind = if item.prop(TYPE_KEY) == Some(CALLOUT_TYPE) {
-            // A callout says its text; without one there is nothing to draw
-            if item.body().trim().is_empty() {
-                continue;
-            }
             Kind::Callout
-        } else if item.level() <= 1 && is_parent {
-            open_group = Some(item);
-            Kind::Group
         } else if card_link(item.body()).is_some() {
             Kind::Card
         } else {
-            continue;
+            Kind::Plain
         };
-        let group = (kind == Kind::Card).then_some(open_group).flatten();
-        entries.push(Entry { item, kind, group });
+        entries.push(Entry {
+            item,
+            kind,
+            is_parent,
+            parents,
+        });
     }
     entries
 }
@@ -126,7 +143,7 @@ mod tests {
     fn read(items: &[crate::tests::Item]) -> Vec<(&str, Kind, Option<&str>)> {
         entries(items)
             .iter()
-            .map(|e| (e.item.body(), e.kind, e.group.map(|g| g.body())))
+            .map(|e| (e.item.body(), e.kind, e.group().map(|g| g.body())))
             .collect()
     }
 
@@ -147,9 +164,9 @@ mod tests {
         );
     }
 
-    // 子を持つレベル1の項目は、atlas_typeがなくてもグループであり、その下のカードが属する。
+    // 子を持つ項目は親であり、その下のカードが属する。本文が空の親も読まれる。
     #[test]
-    fn an_item_of_level_1_with_items_under_it_is_a_group() {
+    fn an_item_with_items_under_it_is_a_parent_of_them() {
         let items = [
             item(1, "Tools", &[(SIDE_KEY, "left")]),
             item(2, "[[d/a]]", &[]),
@@ -161,10 +178,10 @@ mod tests {
         assert_eq!(
             read(&items),
             [
-                ("Tools", Kind::Group, None),
+                ("Tools", Kind::Plain, None),
                 ("[[d/a]]", Kind::Card, Some("Tools")),
                 ("[[x/b]]", Kind::Card, Some("Tools")),
-                ("", Kind::Group, None),
+                ("", Kind::Plain, None),
                 ("[[d/c]]", Kind::Card, Some("")),
             ]
         );
@@ -182,7 +199,7 @@ mod tests {
         assert_eq!(read(&items)[2], ("[[d/b]]", Kind::Card, None));
     }
 
-    // atlas_typeがcalloutの項目は、レベル1でもコールアウトである。子があってもグループにはならない。
+    // atlas_typeがcalloutの項目は、どのレベルでもコールアウトである。コールアウトも親になれる。
     #[test]
     fn an_item_of_the_callout_type_is_a_callout_at_any_level() {
         let callout = [(TYPE_KEY, "callout")];
@@ -197,21 +214,67 @@ mod tests {
             [
                 ("Hi", Kind::Callout, None),
                 ("Parent", Kind::Callout, None),
-                ("Deep", Kind::Callout, None),
+                ("Deep", Kind::Callout, Some("Parent")),
             ]
         );
     }
 
-    // 今の画面で表せない項目は、読み飛ばされる。子のないテキストの項目、テキストのないコールアウト、wiki linkのほかにも文字のある項目である。
+    // 何も書かれていない項目は、読み飛ばされる。子のない空の項目と、テキストのないコールアウトである。
     #[test]
-    fn an_item_the_screen_cannot_show_is_left_out() {
-        let items = [
-            item(1, "plain text", &[]),
-            item(1, " ", &[(TYPE_KEY, "callout")]),
-            item(1, "[[d/a]] and more", &[]),
-        ];
+    fn an_item_with_nothing_written_is_left_out() {
+        let items = [item(1, " ", &[(TYPE_KEY, "callout")]), item(1, " \n ", &[])];
 
         assert_eq!(read(&items), []);
+    }
+
+    // 最初の1行が1つのwiki linkだけでない項目は、ノーマルカードである。文中にリンクがあっても同じである。
+    #[test]
+    fn an_item_whose_first_line_is_not_one_wiki_link_is_a_plain_card() {
+        let items = [
+            item(1, "plain text", &[]),
+            item(1, "[[d/a]] and more", &[]),
+            item(1, "text\n[[d/a]]", &[]),
+        ];
+
+        assert_eq!(
+            read(&items),
+            [
+                ("plain text", Kind::Plain, None),
+                ("[[d/a]] and more", Kind::Plain, None),
+                ("text\n[[d/a]]", Kind::Plain, None),
+            ]
+        );
+    }
+
+    // どの項目も、どのレベルでも親になれる。項目は、その上の親をすべて、外から順に持つ。
+    #[test]
+    fn any_item_can_be_a_parent_and_an_item_has_all_its_parents() {
+        let items = [
+            item(1, "[[d/top]]", &[]),
+            item(2, "inner", &[]),
+            item(3, "[[d/a]]", &[]),
+            item(2, "[[d/b]]", &[]),
+            item(1, "[[d/c]]", &[]),
+        ];
+
+        let read: Vec<(&str, bool, Vec<&str>)> = entries(&items)
+            .iter()
+            .map(|e| {
+                let parents = e.parents.iter().map(|p| p.body()).collect();
+                (e.item.body(), e.is_parent, parents)
+            })
+            .collect();
+
+        assert_eq!(
+            read,
+            [
+                ("[[d/top]]", true, vec![]),
+                ("inner", true, vec!["[[d/top]]"]),
+                ("[[d/a]]", false, vec!["[[d/top]]", "inner"]),
+                ("[[d/b]]", false, vec!["[[d/top]]"]),
+                ("[[d/c]]", false, vec![]),
+            ]
+        );
     }
 
     // 知らないatlas_typeの項目は、種類のない項目と同じに読まれる。移行の前のgroupも同じである。
@@ -224,28 +287,13 @@ mod tests {
 
         assert_eq!(
             read(&items),
-            [("G", Kind::Group, None), ("[[d/a]]", Kind::Card, Some("G"))]
+            [("G", Kind::Plain, None), ("[[d/a]]", Kind::Card, Some("G"))]
         );
     }
 
-    // レベル3より深いカードは、いちばん上の親のグループに属する。入れ子のblobは、まだ描かない。
+    // コールアウトの下のカードは、そのコールアウトに属する。
     #[test]
-    fn a_deeper_card_belongs_to_the_group_of_level_1() {
-        let items = [
-            item(1, "G", &[]),
-            item(2, "inner", &[]),
-            item(3, "[[d/a]]", &[]),
-        ];
-
-        assert_eq!(
-            read(&items),
-            [("G", Kind::Group, None), ("[[d/a]]", Kind::Card, Some("G"))]
-        );
-    }
-
-    // コールアウトの下のカードは、どのグループにも属さない。
-    #[test]
-    fn a_card_under_a_callout_is_in_no_group() {
+    fn a_card_under_a_callout_belongs_to_it() {
         let items = [
             item(1, "G", &[]),
             item(2, "[[d/a]]", &[]),
@@ -253,7 +301,7 @@ mod tests {
             item(2, "[[d/b]]", &[]),
         ];
 
-        assert_eq!(read(&items)[3], ("[[d/b]]", Kind::Card, None));
+        assert_eq!(read(&items)[3], ("[[d/b]]", Kind::Card, Some("Hi")));
     }
 
     // グループのタイトルは本文である。本文がwiki linkだけなら、そのカードのラベルである。空ならタイトルはない。
@@ -273,13 +321,13 @@ mod tests {
         let items = [
             item(1, "[[d/a]]\nmore text\n[[d/b]]", &[]),
             item(1, "text\n[[d/a]]", &[]),
-            item(1, "\n[[d/a]]", &[]),
         ];
 
         assert_eq!(
-            read(&items),
-            [("[[d/a]]\nmore text\n[[d/b]]", Kind::Card, None)]
+            read(&items)[0],
+            ("[[d/a]]\nmore text\n[[d/b]]", Kind::Card, None)
         );
+        assert_eq!(read(&items)[1].1, Kind::Plain);
     }
 
     // カードのリンクは、最初の1行のパスとラベルである。ラベルがなければ、リンク先の名前を出す。

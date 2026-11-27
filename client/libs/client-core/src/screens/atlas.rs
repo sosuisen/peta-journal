@@ -1,13 +1,15 @@
 //! The canvas of an atlas page: the pages and folders of its directory as cards. The atlas
 //! page is a plain page (ADR 053): the server writes nothing into it by itself, and its
 //! outline may be edited here, in the outline or in the `.md`.
-//! A card is an item whose first line is one wiki link. It stands for the page of the directory
-//! that the link names, or else it is a link card. A card lies where the `atlas_bounds`
+//! A card is an item with something written in it and no item under it. One whose first line
+//! is one wiki link stands for the page of the directory that the link names, or else it is a
+//! link card; any other is a plain card, which shows its first line. A card lies where the `atlas_bounds`
 //! property of its item says, in coordinates whose origin is the center of the canvas. A card
 //! without the property waits in the list of unplaced cards, and so does a page of the
 //! directory that no card links to.
-//! A group is an item of level 1 with the cards of the group under it; a callout is an item
-//! whose `atlas_type` is `callout`.
+//! A group is an item with items under it, at any depth, and a card is in every group above
+//! it; a callout is an item whose `atlas_type` is `callout`. A group that is a page card or a
+//! callout is drawn as one along its outline.
 //! The canvas edits the page with the item APIs that the outline uses, and no other. The
 //! place of a card or a callout is saved as a property of its item. A change of the outline
 //! is one batch of item operations, however many items it writes, so one operation of the
@@ -18,11 +20,13 @@
 
 use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, ApiResult, TimerOutput, UiOp};
-use crate::model::ItemExt;
 use crate::model::{BatchOpInput, Item, ItemPosition, Page, PropertyValue};
+use crate::model::{ItemExt, PageExt};
 use crate::ops::file_reload;
+use crate::rich_text::{RichBlock, RichRun, RichText};
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
 use crate::screens::sidebar;
+use crate::BodyModel;
 use crux_core::Command;
 use peta_atlas::plain::{self, Kind};
 
@@ -41,7 +45,7 @@ pub const CARD_WIDTH: f64 = 120.0;
 type Entry<'a> = plain::Entry<'a, Item>;
 
 /// The items of the shown atlas page that the canvas can show, in their order; none on any
-/// other page. A card below level 1 belongs to the group above it.
+/// other page. An item belongs to every item above it.
 fn entries(model: &Model) -> Vec<Entry<'_>> {
     let Some(atlas) = shown_atlas_page(model) else {
         return Vec::new();
@@ -64,8 +68,10 @@ fn bounds_of(item: &Item) -> Option<Bounds> {
 /// A card of the shown atlas page.
 struct Card<'a> {
     item: &'a Item,
-    /// The group item the card is under
+    /// The group item the card is under: the last of its parents
     group: Option<&'a Item>,
+    /// The items the card is under, the outermost first
+    parents: Vec<&'a Item>,
     /// The page of the directory the card stands for; none for a link card
     page_id: Option<&'a str>,
 }
@@ -88,13 +94,14 @@ fn page_of<'a>(model: &'a Model, target: &str) -> Option<&'a Page> {
 }
 
 /// The cards of the shown atlas page, in the order of its items. The first card that links
-/// to a page of the directory stands for that page. Any other card is a link card: one that
-/// links out of the directory, to no page, or to a page that has a card already.
+/// to a page of the directory stands for that page. Any other card is a link card, one that
+/// links out of the directory, to no page, or to a page that has a card already, or a plain
+/// card.
 fn card_entries(model: &Model) -> Vec<Card<'_>> {
     let mut taken: Vec<&str> = Vec::new();
     entries(model)
         .into_iter()
-        .filter(|e| e.kind == Kind::Card)
+        .filter(|e| e.kind != Kind::Callout && !e.is_parent)
         .map(|e| {
             let page_id = plain::card_link(&e.item.body)
                 .and_then(|link| page_of(model, link.target))
@@ -103,7 +110,8 @@ fn card_entries(model: &Model) -> Vec<Card<'_>> {
             taken.extend(page_id);
             Card {
                 item: e.item,
-                group: e.group,
+                group: e.group(),
+                parents: e.parents,
                 page_id,
             }
         })
@@ -562,13 +570,83 @@ fn group_title(group: &Item) -> Option<GroupTitle> {
     })
 }
 
+/// An item that cards are under: a blob around them on the canvas, with its title along it.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct AtlasGroup {
+    /// The id of the item
+    pub id: String,
+    pub title: Option<GroupTitle>,
+    pub look: GroupLook,
+}
+
+/// How the title of a group is drawn along its blob, by what its item is.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub enum GroupLook {
+    /// The text of the item
+    Text,
+    /// The label of a page card, which opens its page, with the icon of the page. A link to a
+    /// page that is not there opens nothing.
+    Page {
+        path: Option<String>,
+        tone: CardTone,
+        icon_tags: Vec<String>,
+    },
+    /// The character of a callout, with the text in its bubble
+    Callout,
+}
+
+/// The groups of the items a card is under, the outermost first.
+fn groups(model: &Model, parents: &[&Item]) -> Vec<AtlasGroup> {
+    parents
+        .iter()
+        .map(|parent| AtlasGroup {
+            id: parent.id.clone(),
+            title: group_title(parent),
+            look: group_look(model, parent),
+        })
+        .collect()
+}
+
+fn group_look(model: &Model, parent: &Item) -> GroupLook {
+    if parent.prop_str(TYPE_KEY) == Some(CALLOUT_TYPE) {
+        return GroupLook::Callout;
+    }
+    let Some(link) = plain::card_link(&parent.body) else {
+        return GroupLook::Text;
+    };
+    let page = page_of(model, link.target);
+    let tone = tone_of(model, Some(link));
+    GroupLook::Page {
+        path: match page {
+            Some(page) => Some(opened_path(page)),
+            None => (tone != CardTone::Missing).then(|| link.target.to_string()),
+        },
+        tone,
+        icon_tags: page
+            .map(|page| icon_tags(page, &model.config.tags_dir))
+            .unwrap_or_default(),
+    }
+}
+
+/// The path a click on the card of a page of the directory opens. A folder opens as its atlas,
+/// so the map stays a map on the way down.
+pub fn opened_path(page: &Page) -> String {
+    if sidebar::is_directory(page) {
+        format!("{}{}", page.dir_path, ATLAS_NAME)
+    } else {
+        page.canonical_path()
+    }
+}
+
 /// Gives a group of the shown atlas page a title along a side of its outline. An empty title
 /// takes the title away. The title is the body of the item of the group, and the side a
 /// property of it.
 pub fn set_group_title(model: &mut Model, group_id: String, side: String, title: String) -> Cmd {
     let Some(group) = entries(model)
         .into_iter()
-        .find(|e| e.kind == Kind::Group && e.item.id == group_id)
+        .find(|e| e.is_parent && e.item.id == group_id)
         .map(|e| e.item.clone())
     else {
         return done();
@@ -606,7 +684,7 @@ pub struct Callout {
 pub fn shown_callouts(model: &Model) -> Vec<Callout> {
     entries(model)
         .into_iter()
-        .filter(|e| e.kind == Kind::Callout)
+        .filter(|e| e.kind == Kind::Callout && !e.is_parent)
         .filter_map(|e| {
             let bounds = bounds_of(e.item).filter(|b| b.height > 0.0)?;
             Some(Callout {
@@ -737,18 +815,40 @@ pub fn reload_atlas(model: &Model, page_id: &str) -> Cmd {
     file_reload::read_again(model, page_id)
 }
 
-/// A link card: an item of the atlas page whose body is a wiki link to `target`, which is no
-/// page of the directory, placed by its own `atlas_bounds`.
+/// How a card is colored, by what it stands for.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub enum CardTone {
+    /// A link to a page of the directory of the atlas: blue
+    Page,
+    /// A link to a page of another directory: orange
+    Link,
+    /// A link to a page that is not there: gray. A click opens nothing.
+    Missing,
+    /// A card whose first line is no link: yellow
+    Plain,
+}
+
+/// A card of the atlas page that stands for no page of the directory, placed by its own
+/// `atlas_bounds`: a link card, whose first line is a wiki link to `target`, or a plain card,
+/// whose first line is anything else.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct LinkCard {
     pub item_id: String,
-    /// The page the link names, as it is written in the link
-    pub target: String,
+    /// The page the link names, as it is written in the link; none for a plain card
+    pub target: Option<String>,
+    /// What the card shows: the label of the link, or else the name of the page it names. A
+    /// plain card shows the text of its first line.
+    pub label: String,
+    pub tone: CardTone,
+    /// The letters of the first line with their looks and their links, which a click follows
+    pub runs: Vec<RichRun>,
+    /// The whole body of the item, which the menu of the card shows
+    pub text: String,
     pub bounds: Bounds,
-    /// The id of the group item the card is under
-    pub group: Option<String>,
-    pub group_title: Option<GroupTitle>,
+    /// The items the card is under, the outermost first
+    pub groups: Vec<AtlasGroup>,
 }
 
 /// The link cards of the shown atlas page, in the order of its items. A link card without a
@@ -758,15 +858,70 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
         .into_iter()
         .filter(|card| card.page_id.is_none())
         .filter_map(|card| {
+            let link = plain::card_link(&card.item.body);
+            let runs = first_line_runs(&card.item.body, &model.config.tags_dir);
+            let label = match link {
+                Some(link) => link.shown(),
+                None => runs.iter().map(|run| run.text.as_str()).collect(),
+            };
             Some(LinkCard {
                 item_id: card.item.id.clone(),
-                target: plain::card_link(&card.item.body)?.target.to_string(),
+                target: link.map(|link| link.target.to_string()),
+                label,
+                runs,
+                text: card.item.body.clone(),
+                tone: tone_of(model, link),
                 bounds: bounds_of(card.item)?,
-                group: card.group.map(|g| g.id.clone()),
-                group_title: card.group.and_then(group_title),
+                groups: groups(model, &card.parents),
             })
         })
         .collect()
+}
+
+/// How a card that stands for no page of the directory is colored: blue for another card to
+/// a page of the directory, gray for one to a page the directory does not have, orange for a
+/// link out of it, yellow for a plain card. The directory is known to lack a page only once its
+/// list is in.
+fn tone_of(model: &Model, link: Option<plain::CardLink>) -> CardTone {
+    match link {
+        Some(link) if page_of(model, link.target).is_some() => CardTone::Page,
+        Some(link) if in_atlas_dir(model, link.target) && index_loaded(model) => CardTone::Missing,
+        Some(_) => CardTone::Link,
+        None => CardTone::Plain,
+    }
+}
+
+/// Whether a path names a page of the directory of the shown atlas, or the index of a folder
+/// in it: the pages the list of the directory holds.
+fn in_atlas_dir(model: &Model, target: &str) -> bool {
+    let Some(rest) =
+        shown_atlas_page(model).and_then(|atlas| target.strip_prefix(&*atlas.dir_path))
+    else {
+        return false;
+    };
+    match rest.split_once('/') {
+        None => true,
+        Some((folder, name)) => !folder.is_empty() && name == "index",
+    }
+}
+
+fn index_loaded(model: &Model) -> bool {
+    model.sidebar.index_state == crate::view::LoadState::Loaded
+}
+
+/// The runs of the first line of a body, as a page shows them: the letters with their looks
+/// and their links.
+fn first_line_runs(body: &str, tags_dir: &str) -> Vec<RichRun> {
+    let line = body.lines().next().unwrap_or("");
+    RichText::of_markdown(line, tags_dir)
+        .blocks
+        .into_iter()
+        .find_map(|block| match block {
+            RichBlock::Text { paragraphs } => paragraphs.into_iter().next(),
+            _ => None,
+        })
+        .map(|paragraph| paragraph.runs)
+        .unwrap_or_default()
 }
 
 fn shown_atlas_page(model: &Model) -> Option<&Page> {
@@ -806,7 +961,7 @@ pub fn set_link(model: &mut Model, item_id: String, target: String) -> Cmd {
     let Some(item) = model
         .state
         .get_item_by_id(&item_id)
-        .filter(|_| target != card.target)
+        .filter(|_| card.target.as_deref().is_some_and(|t| t != target))
     else {
         return done();
     };
@@ -872,10 +1027,11 @@ pub struct PageCard {
     pub page: Page,
     /// The label of the link of the card; none for a link without one, or a page with no card
     pub label: Option<String>,
+    /// The whole body of the item of the card; empty for a page with no card
+    pub text: String,
     pub bounds: Option<Bounds>,
-    /// The id of the group item the card is under
-    pub group: Option<String>,
-    pub group_title: Option<GroupTitle>,
+    /// The items the card is under, the outermost first
+    pub groups: Vec<AtlasGroup>,
 }
 
 /// The cards of the pages of the shown atlas page, in the order of the sidebar's index list.
@@ -892,12 +1048,12 @@ pub fn cards(model: &Model) -> Vec<PageCard> {
         .map(|page| {
             let card = cards.iter().find(|c| c.page_id == Some(page.id.as_str()));
             let link = card.and_then(|c| plain::card_link(&c.item.body));
-            let group = card.and_then(|c| c.group);
+
             PageCard {
                 label: link.and_then(|l| l.label).map(str::to_string),
+                text: card.map(|c| c.item.body.clone()).unwrap_or_default(),
                 bounds: card.and_then(|c| bounds_of(c.item)),
-                group: group.map(|g| g.id.clone()),
-                group_title: group.and_then(group_title),
+                groups: card.map(|c| groups(model, &c.parents)).unwrap_or_default(),
                 page,
             }
         })

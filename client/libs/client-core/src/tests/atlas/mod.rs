@@ -5,6 +5,9 @@
 // アトラスを開く
 mod navigation;
 
+// 項目を描き分ける
+mod kinds;
+
 // カードを置く
 mod cards;
 
@@ -23,8 +26,18 @@ use crate::effects::{ApiOp, ApiOutput, UiOp};
 use crate::harness::Harness;
 use crate::model::PageExt;
 use crate::model::{BatchOpInput, Item, ItemPosition, Page, PageWithItems};
-use crate::screens::atlas::{Bounds, Callout, GroupTitle};
+use crate::screens::atlas::{AtlasGroup, Bounds, Callout, GroupTitle};
 use crate::screens::page::{page_title, ATLAS_NAME};
+
+/// The id of the item a card is right under
+fn group_of(groups: &[AtlasGroup]) -> Option<String> {
+    groups.last().map(|g| g.id.clone())
+}
+
+/// The title of the item a card is right under
+fn title_of(groups: &[AtlasGroup]) -> Option<GroupTitle> {
+    groups.last().and_then(|g| g.title.clone())
+}
 
 fn doc(dir_path: &str, name: &str) -> Page {
     Page {

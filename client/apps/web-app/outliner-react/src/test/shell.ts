@@ -184,6 +184,11 @@ export class WebShell {
     );
   }
 
+  // The text as it is, so a test sees that the HTML comes from here
+  bodyHtml(text: string): string {
+    return `<p>${text}</p>`;
+  }
+
   parentDirLabel(dirPath: string): string {
     return `above ${dirPath}`;
   }

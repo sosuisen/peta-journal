@@ -551,6 +551,14 @@ impl WebShell {
         crate::atlas::placed_json(cards, links).map_err(|e| JsError::new(&e))
     }
 
+    /// The whole text of a card of an atlas as HTML, drawn as the body of a row of a page is.
+    /// The text is the Flat Markdown of its item; `tagsDir` is the folder of the tags.
+    #[wasm_bindgen(js_name = bodyHtml)]
+    pub fn body_html(&self, text: &str, tags_dir: &str) -> String {
+        use client_core::BodyModel;
+        crate::body::HtmlBody::of(client_core::asts::parse(text), tags_dir).0
+    }
+
     /// The callouts of an atlas as `setCallouts` of `atlas.js` takes them. The callouts are
     /// given as JSON.
     #[wasm_bindgen(js_name = atlasCallouts)]

@@ -1,16 +1,33 @@
 //! What the canvas of an atlas in the web shell draws: the cards and the callouts as the JSON
 //! that `atlas.js` reads, made by the scene of peta-atlas as the Leptos shell made them.
 
-use client_core::screens::atlas::{Callout, GroupTitle, LinkCard};
+use client_core::rich_text::{RichLink, RichRun};
+use client_core::screens::atlas::{self as core_atlas, AtlasGroup, Callout, CardTone, LinkCard};
 use client_core::view::AtlasCard;
-use peta_atlas::scene::{self, GroupRef};
+use peta_atlas::scene::{self, GroupLook, GroupRef};
 
-/// The group of a card as the scene takes it.
-fn group_ref(group: Option<&String>, title: Option<&GroupTitle>) -> Option<GroupRef> {
-    group.map(|id| GroupRef {
-        id: id.clone(),
-        title: title.map(|t| (t.text.clone(), t.side.clone())),
-    })
+/// The groups a card is in, as the scene takes them.
+fn group_refs(groups: &[AtlasGroup]) -> Vec<GroupRef> {
+    groups
+        .iter()
+        .map(|group| GroupRef {
+            id: group.id.clone(),
+            title: group
+                .title
+                .as_ref()
+                .map(|t| (t.text.clone(), t.side.clone())),
+            look: match &group.look {
+                core_atlas::GroupLook::Text => GroupLook::Text,
+                core_atlas::GroupLook::Page {
+                    path, icon_tags, ..
+                } => GroupLook::Page {
+                    path: path.clone(),
+                    icon_tags: icon_tags.clone(),
+                },
+                core_atlas::GroupLook::Callout => GroupLook::Callout,
+            },
+        })
+        .collect()
 }
 
 /// The placed cards, the link cards among them, as `setCards` of `atlas.js` takes them. The
@@ -29,16 +46,55 @@ pub fn placed_json(cards: &str, links: &str) -> Result<String, String> {
                 icon_tags: &c.icon_tags,
                 published: c.published,
             };
-            let group = group_ref(c.group.as_ref(), c.group_title.as_ref());
-            c.bounds
-                .map(|b| scene::Card::page(&page, b, group.as_ref()))
+            let groups = group_refs(&c.groups);
+            c.bounds.map(|b| scene::Card::page(&page, b, &groups))
         })
         .collect();
     placed.extend(links.iter().map(|l| {
-        let group = group_ref(l.group.as_ref(), l.group_title.as_ref());
-        scene::Card::link(&l.item_id, &l.target, l.bounds, group.as_ref())
+        let groups = group_refs(&l.groups);
+        match &l.target {
+            Some(target) => scene::Card {
+                label: l.label.clone(),
+                ..scene::Card::link(&l.item_id, target, tone(l.tone), l.bounds, &groups)
+            },
+            None => {
+                let runs = l.runs.iter().map(run).collect();
+                scene::Card::plain(&l.item_id, &l.label, runs, l.bounds, &groups)
+            }
+        }
     }));
     Ok(scene::cards_json(&placed))
+}
+
+/// What a card links to, as the scene takes it.
+fn tone(tone: CardTone) -> scene::Tone {
+    match tone {
+        CardTone::Page => scene::Tone::Page,
+        CardTone::Link => scene::Tone::Link,
+        CardTone::Missing => scene::Tone::Missing,
+        CardTone::Plain => scene::Tone::Plain,
+    }
+}
+
+/// A part of the first line of a card as the scene takes it.
+fn run(run: &RichRun) -> scene::Run {
+    scene::Run {
+        text: run.text.clone(),
+        link: run.link.as_ref().map(|link| match link {
+            RichLink::Page { url } => scene::RunLink {
+                kind: "Page".to_string(),
+                url: url.clone(),
+            },
+            RichLink::Web { url } => scene::RunLink {
+                kind: "Web".to_string(),
+                url: url.clone(),
+            },
+            RichLink::File { path } => scene::RunLink {
+                kind: "File".to_string(),
+                url: path.clone(),
+            },
+        }),
+    }
 }
 
 /// The callouts, each with its character drawn from its text, as `setCallouts` of
@@ -81,15 +137,15 @@ mod tests {
         let cards = r#"[
             {"page_id":"a","label":"A","path":"m/a","is_dir":false,
              "bounds":{"x":10.0,"y":20.0,"width":0.0,"height":0.0},
-             "group":"g","group_color":null,"icon_tags":["sun"],
-             "group_title":{"side":"top","text":"Plan"},"published":false},
+             "icon_tags":["sun"],
+             "groups":[{"id":"g","title":{"side":"top","text":"Plan"},"look":"Text"}],"published":false,"text":""},
             {"page_id":"b","label":"B","path":"m/b","is_dir":true,"bounds":null,
-             "group":null,"group_color":null,"icon_tags":[],"group_title":null,"published":false}
+             "icon_tags":[],"groups":[],"published":false,"text":""}
         ]"#;
         let links = r#"[
-            {"item_id":"l","target":"x/Foo",
+            {"item_id":"l","target":"x/Foo","label":"Shown","tone":"Link","runs":[],"text":"[[x/Foo|Shown]]",
              "bounds":{"x":1.0,"y":2.0,"width":0.0,"height":0.0},
-             "group":null,"group_title":null}
+             "groups":[]}
         ]"#;
 
         let json = placed_json(cards, links).unwrap();
@@ -102,13 +158,13 @@ mod tests {
         assert_eq!(
             (
                 &placed[0]["group"],
-                &placed[0]["groupTitle"],
-                &placed[0]["groupTitleSide"]
+                &placed[0]["groups"][0]["title"],
+                &placed[0]["groups"][0]["titleSide"]
             ),
             (&Value::from("g"), &Value::from("Plan"), &Value::from("top"))
         );
         assert!(placed[0]["icon"].is_string());
-        assert_eq!(placed[1]["label"], "Foo");
+        assert_eq!(placed[1]["label"], "Shown");
     }
 
     // 吹き出しは、文字から描いた顔とともに渡す。

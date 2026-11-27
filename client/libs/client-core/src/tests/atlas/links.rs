@@ -20,7 +20,7 @@ fn atlas_with_link() -> Harness {
     )
 }
 
-// 本文がリンク一つだけで配置済みのアトラスのアイテムのうち、リンク先がこのフォルダのページでないものはリンクカードである。未配置のもの、リンク以外の文字を含むもの、リンクが複数あるもの、ページカードは除かれる。
+// 1行目がリンク一つだけで配置済みのアトラスのアイテムのうち、リンク先がこのフォルダのページでないものはリンクカードである。未配置のものとページカードは除かれる。
 #[test]
 fn an_item_of_the_atlas_that_is_one_placed_link_out_of_the_folder_is_a_link_card() {
     let h = atlas_of(
@@ -28,8 +28,6 @@ fn an_item_of_the_atlas_that_is_one_placed_link_out_of_the_folder_is_a_link_card
         vec![
             link_item("a", "[[x/Target]]", Some("10,20,0,40")),
             link_item("b", "[[x/Unplaced]]", None),
-            link_item("c", "see [[x/Target]]", Some("0,0,0,40")),
-            link_item("d", "[[x/One]] [[x/Two]]", Some("0,0,0,40")),
             card_item("one", 1, Some("0,0,0,40")),
         ],
     );
@@ -37,8 +35,8 @@ fn an_item_of_the_atlas_that_is_one_placed_link_out_of_the_folder_is_a_link_card
     let links = h.view().atlas_links;
     assert_eq!(links.len(), 1);
     assert_eq!(
-        (links[0].item_id.as_str(), links[0].target.as_str()),
-        ("a", "x/Target")
+        (links[0].item_id.as_str(), links[0].target.as_deref()),
+        ("a", Some("x/Target"))
     );
     assert_eq!(
         links[0].bounds,
@@ -64,9 +62,9 @@ fn a_link_card_under_a_group_item_belongs_to_the_group() {
     );
 
     let link = &h.view().atlas_links[0];
-    assert_eq!(link.group.as_deref(), Some("g"));
+    assert_eq!(group_of(&link.groups).as_deref(), Some("g"));
     assert_eq!(
-        link.group_title,
+        title_of(&link.groups),
         Some(GroupTitle {
             side: "top".into(),
             text: "Tools".into()
@@ -98,7 +96,7 @@ fn an_added_link_is_made_as_an_item_with_its_place() {
     );
     let links = h.view().atlas_links;
     assert_eq!(links.len(), 1);
-    assert_eq!(links[0].target, "x/Target");
+    assert_eq!(links[0].target.as_deref(), Some("x/Target"));
 }
 
 // 空のリンクは追加されない。
@@ -263,7 +261,7 @@ fn atlas_with_labelled_link() -> Harness {
 fn the_target_of_a_link_card_with_a_label_is_its_path_alone() {
     let h = atlas_with_labelled_link();
 
-    assert_eq!(h.view().atlas_links[0].target, "x/Target");
+    assert_eq!(h.view().atlas_links[0].target.as_deref(), Some("x/Target"));
 }
 
 // リンクカードの宛先を変えても、ラベルと2行目より後は保たれる。同じパスへの編集では何も変わらない。
@@ -298,7 +296,7 @@ fn an_edit_of_a_link_to_nothing_or_to_the_same_page_changes_nothing() {
     });
 
     assert!(batches(&h).is_empty());
-    assert_eq!(h.view().atlas_links[0].target, "x/Target");
+    assert_eq!(h.view().atlas_links[0].target.as_deref(), Some("x/Target"));
 }
 
 // リンクのダイアログは、入力が一息置いた後にページ名の候補を示す。検索語が空になると候補は空になる。

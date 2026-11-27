@@ -3,9 +3,15 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import Atlas from './Atlas';
 import {
   AtlasCard,
+  cardToneLink,
+  cardTonePlain,
   Bounds,
   Callout,
+  eventLinkClicked,
   LinkCard,
+  richLinkFile,
+  richLinkPage,
+  richLinkWeb,
   type Panel,
 } from './border/peta-types';
 import { draw, shell } from './test/screens';
@@ -74,6 +80,12 @@ class FakeCanvas {
   setOnScaleCallout(f: Handler) {
     this.handlers.onScaleCallout = f;
   }
+  setOnFollow(f: Handler) {
+    this.handlers.onFollow = f;
+  }
+  setOnShowText(f: Handler) {
+    this.handlers.onShowText = f;
+  }
   setOnLink(add: Handler, set: Handler, remove: Handler, query: Handler) {
     Object.assign(this.handlers, {
       onAddLink: add,
@@ -134,11 +146,10 @@ function card(
       `m/${id}`,
       false,
       placed ? new Bounds(1, 2, 0, 0) : null,
-      null,
-      null,
       [],
-      null,
+      [],
       false,
+      '',
     ),
     changes,
   );
@@ -248,7 +259,16 @@ describe('the canvas of an atlas', () => {
 
   // 置いたカードとリンク、吹き出し、リンクの候補を、wasmが決めた形で、変わるたびにキャンバスに渡す。
   test('the cards, the callouts and the link suggestions go to the canvas whenever they change', async () => {
-    const link = new LinkCard('l', 'x/Foo', new Bounds(0, 0, 0, 0), null, null);
+    const link = new LinkCard(
+      'l',
+      'x/Foo',
+      'Foo',
+      cardToneLink(),
+      [],
+      '',
+      new Bounds(0, 0, 0, 0),
+      [],
+    );
     const { canvas, show } = await atlas(
       'm/',
       { kind: 'AtlasCards', value: [card('a', true)] },
@@ -316,6 +336,30 @@ describe('what is done on the canvas', () => {
     );
   });
 
+  // カードの1行目のリンクを押すと、ページのリンクと同じく、押していたキーとともにコアに渡す。CtrlはCtrl、ShiftはShiftである。
+  test('a click on a link in the text of a card goes to the core as a link of a page does', async () => {
+    const { canvas, wasm } = await atlas('m/');
+    const follow = canvas().handlers.onFollow as (
+      link: { kind: string; url: string },
+      tab: boolean,
+      window: boolean,
+    ) => void;
+    const none = { shift: false, ctrl: false, cmd: false };
+
+    follow({ kind: 'Page', url: '/pages/x/a' }, false, false);
+    follow({ kind: 'Web', url: 'https://example.com/' }, true, false);
+    follow({ kind: 'File', url: '/assets/a.pdf' }, false, true);
+
+    expect(wasm.events).toEqual([
+      eventLinkClicked(richLinkPage('/pages/x/a'), none),
+      eventLinkClicked(richLinkWeb('https://example.com/'), {
+        ...none,
+        ctrl: true,
+      }),
+      eventLinkClicked(richLinkFile('/assets/a.pdf'), { ...none, shift: true }),
+    ]);
+  });
+
   // カード、グループ、吹き出し、リンクの操作は、どれもコアに渡す。
   test('the changes of the cards, the groups, the callouts and the links go to the core', async () => {
     const { canvas, wasm } = await atlas('m/');
@@ -367,6 +411,65 @@ describe('what is done on the canvas', () => {
     expect(place).toEqual(['30px', '40px']);
     expect(container.querySelector('.atlas-menu')).toBeNull();
     expect(wasm.events).toEqual([{ kind: 'RemoveAtlasCard', page_id: 'a' }]);
+  });
+
+  // カードのメニューのShow Textで、項目の全文を、ページの本文と同じHTMLにして、押した場所に出す。リンクのカードでも、ページのカードでも出せる。
+  test('Show Text shows the whole text of a card where it was asked, as a page draws a body', async () => {
+    const page = card('a', true, { text: '- a\n  more' });
+    const link = new LinkCard(
+      'l',
+      null,
+      'note',
+      cardTonePlain(),
+      [],
+      'note [[x]]',
+      new Bounds(0, 0, 0, 0),
+      [],
+    );
+    const { canvas, container } = await atlas(
+      'm/',
+      { kind: 'AtlasCards', value: [page] },
+      { kind: 'AtlasLinks', value: [link] },
+    );
+
+    act(() => canvas().handlers.onMenu('a' as never, 0 as never, 0 as never));
+    fireEvent.click(screen.getByText('Show Text'));
+    const fromMenu = container.querySelector('.atlas-text')?.innerHTML;
+    fireEvent.keyDown(document, { key: 'Escape' });
+    act(() =>
+      canvas().handlers.onShowText('l' as never, 30 as never, 40 as never),
+    );
+    const shown = container.querySelector('.atlas-text') as HTMLElement;
+
+    expect(fromMenu).toBe('<p>- a\n  more</p>');
+    expect(shown.innerHTML).toBe('<p>note [[x]]</p>');
+    expect([shown.style.left, shown.style.top]).toEqual(['30px', '40px']);
+  });
+
+  // 全文のリンクを押すと、ページの本文のリンクと同じく、コアに渡す。
+  test('a click on a link of the whole text of a card goes to the core as on a page', async () => {
+    const page = card('a', true, {
+      text: '<a data-wikilink="" href="/pages/x">x</a>',
+    });
+    const { canvas, container, wasm } = await atlas('m/', {
+      kind: 'AtlasCards',
+      value: [page],
+    });
+    act(() =>
+      canvas().handlers.onShowText('a' as never, 0 as never, 0 as never),
+    );
+
+    fireEvent.click(container.querySelector('.atlas-text a') as Element, {
+      ctrlKey: true,
+    });
+
+    expect(wasm.events).toEqual([
+      eventLinkClicked(richLinkPage('/pages/x'), {
+        shift: false,
+        ctrl: true,
+        cmd: false,
+      }),
+    ]);
   });
 
   // メニューは、外のクリックとEscapeで、何もせずに閉じる。

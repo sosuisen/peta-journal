@@ -5,7 +5,8 @@
 use serde::Serialize;
 
 use crate::marks::{
-    callout_face_svg, group_color, hidden_blob_svg, link_blob_svg, tag_blob_svg, tag_icon_svg,
+    callout_face_svg, group_color, hidden_blob_svg, link_blob_svg, missing_blob_svg,
+    plain_blob_svg, tag_blob_svg, tag_icon_svg,
 };
 use crate::{card_label, Bounds};
 
@@ -18,12 +19,72 @@ pub const ICON_DRAW_SIZE: i32 = 100;
 /// The size the character of a callout is drawn at, as the icons are
 pub const CALLOUT_DRAW_SIZE: i32 = 100;
 
-/// The group a card is in: the id of its item and its title, if it has one.
+/// A group a card is in: the id of its item, its title, if it has one, and how the title is
+/// drawn.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupRef {
     pub id: String,
     /// The text of the title and the side of the outline it lies along
     pub title: Option<(String, String)>,
+    pub look: GroupLook,
+}
+
+/// How the title of a group is drawn along its outline.
+#[derive(Debug, Clone, PartialEq)]
+pub enum GroupLook {
+    /// The text of the title, character by character along the outline
+    Text,
+    /// The label of a page card: a click on it opens `path`, none for a page that is not
+    /// there. The icon of the tags stands before it.
+    Page {
+        path: Option<String>,
+        icon_tags: Vec<String>,
+    },
+    /// The character of a callout beside the outline, with the title in its bubble
+    Callout,
+}
+
+/// A group of a card as `atlas.js` reads it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Group {
+    /// The id of the item of the group
+    pub id: String,
+    pub color: String,
+    pub title: Option<String>,
+    pub title_side: Option<String>,
+    /// The page a click on the title opens; none for a title that opens nothing
+    pub path: Option<String>,
+    /// The icon of the page before the title, as SVG
+    pub icon: Option<String>,
+    /// The character of a callout that stands in place of the title, as SVG of `draw_size`
+    pub character: Option<String>,
+    pub draw_size: i32,
+}
+
+impl Group {
+    fn of(group: &GroupRef) -> Group {
+        let title = group.title.as_ref();
+        let (path, icon) = match &group.look {
+            GroupLook::Page { path, icon_tags } => (
+                path.clone(),
+                (!icon_tags.is_empty()).then(|| tag_icon_svg(icon_tags, ICON_DRAW_SIZE)),
+            ),
+            _ => (None, None),
+        };
+        Group {
+            id: group.id.clone(),
+            color: group_color(&group.id),
+            title: title.map(|(text, _)| text.clone()),
+            title_side: title.map(|(_, side)| side.clone()),
+            path,
+            icon,
+            character: (group.look == GroupLook::Callout)
+                .then(|| title.map(|(text, _)| callout_face_svg(text, CALLOUT_DRAW_SIZE)))
+                .flatten(),
+            draw_size: CALLOUT_DRAW_SIZE,
+        }
+    }
 }
 
 /// A page as its card shows it.
@@ -50,16 +111,22 @@ pub struct Card {
     /// The page that a click on the label opens; none for a card that opens nothing
     pub path: Option<String>,
     pub is_dir: bool,
+    /// True for a card named by its item and not by a page: a link card or a plain card
     pub is_link: bool,
+    /// True for a plain card, whose first line is no link
+    pub is_plain: bool,
+    pub tone: Tone,
+    /// The parts of the first line of a plain card, each with its link if it is one
+    pub runs: Vec<Run>,
     pub x: f64,
     pub y: f64,
     pub width: f64,
     pub height: f64,
     pub scale: f64,
+    /// The id of the group the card is right under, the last of `groups`
     pub group: Option<String>,
-    pub group_color: Option<String>,
-    pub group_title: Option<String>,
-    pub group_title_side: Option<String>,
+    /// The groups the card is in, the outermost first
+    pub groups: Vec<Group>,
     pub icon: Option<String>,
     pub blob: String,
     pub icon_size: i32,
@@ -68,11 +135,40 @@ pub struct Card {
     pub masked: bool,
 }
 
+/// What a card links to, which gives the color of its blob and its label.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Tone {
+    /// A page of the folder of the atlas
+    Page,
+    /// A page of another folder
+    Link,
+    /// A page of the folder that is not there
+    Missing,
+    /// No page: a plain card
+    Plain,
+}
+
+/// A part of the first line of a card: its letters, and where a click on them leads.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Run {
+    pub text: String,
+    pub link: Option<RunLink>,
+}
+
+/// Where a link of a card leads: `kind` is `Page`, `Web` or `File`, as the core names the links
+/// of a page, and `url` is its address.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct RunLink {
+    pub kind: String,
+    pub url: String,
+}
+
 impl Card {
     /// The card of a page. The icon is drawn from the icon tags of the page, and the blob from
     /// the first of them, or from the label when there are none, so every card has a blob. The
     /// blob of a published page has a line around it.
-    pub fn page(page: &Page, bounds: Bounds, group: Option<&GroupRef>) -> Card {
+    pub fn page(page: &Page, bounds: Bounds, groups: &[GroupRef]) -> Card {
         let blob_name = page
             .icon_tags
             .first()
@@ -87,7 +183,7 @@ impl Card {
                 page.label,
                 page.path,
                 bounds,
-                group,
+                groups,
                 page.is_dir,
                 false,
             )
@@ -96,18 +192,55 @@ impl Card {
 
     /// A link card: named by the last part of the path it links to, its blob drawn from that
     /// path in a color of its own.
-    pub fn link(item_id: &str, target: &str, bounds: Bounds, group: Option<&GroupRef>) -> Card {
+    /// A link card: named by its target, in the color of `tone`. A card to a page that is not
+    /// there opens nothing.
+    pub fn link(
+        item_id: &str,
+        target: &str,
+        tone: Tone,
+        bounds: Bounds,
+        groups: &[GroupRef],
+    ) -> Card {
+        let blob = match tone {
+            Tone::Page => tag_blob_svg(target, ICON_DRAW_SIZE, false),
+            Tone::Missing => missing_blob_svg(target, ICON_DRAW_SIZE),
+            Tone::Link | Tone::Plain => link_blob_svg(target, ICON_DRAW_SIZE),
+        };
+        let card = Card::new(
+            item_id,
+            &card_label(target),
+            target,
+            bounds,
+            groups,
+            false,
+            true,
+        );
         Card {
-            blob: link_blob_svg(target, ICON_DRAW_SIZE),
-            ..Card::new(
-                item_id,
-                &card_label(target),
-                target,
-                bounds,
-                group,
-                false,
-                true,
-            )
+            blob,
+            tone,
+            path: (tone != Tone::Missing)
+                .then_some(card.path.clone())
+                .flatten(),
+            ..card
+        }
+    }
+
+    /// A plain card: its label is its first line, which `runs` holds part by part. It opens no
+    /// page; a link in it does. Its blob is drawn from the label in a color of its own.
+    pub fn plain(
+        item_id: &str,
+        label: &str,
+        runs: Vec<Run>,
+        bounds: Bounds,
+        groups: &[GroupRef],
+    ) -> Card {
+        Card {
+            path: None,
+            is_plain: true,
+            tone: Tone::Plain,
+            runs,
+            blob: plain_blob_svg(label, ICON_DRAW_SIZE),
+            ..Card::new(item_id, label, "", bounds, groups, false, true)
         }
     }
 
@@ -133,26 +266,26 @@ impl Card {
         label: &str,
         path: &str,
         bounds: Bounds,
-        group: Option<&GroupRef>,
+        groups: &[GroupRef],
         is_dir: bool,
         is_link: bool,
     ) -> Card {
-        let title = group.and_then(|g| g.title.as_ref());
         Card {
             id: id.to_string(),
             label: label.to_string(),
             path: Some(path.to_string()),
             is_dir,
             is_link,
+            is_plain: false,
+            tone: Tone::Page,
+            runs: Vec::new(),
             x: bounds.x,
             y: bounds.y,
             width: bounds.width,
             height: bounds.height,
             scale: bounds.scale(),
-            group: group.map(|g| g.id.clone()),
-            group_color: group.map(|g| group_color(&g.id)),
-            group_title: title.map(|(text, _)| text.clone()),
-            group_title_side: title.map(|(_, side)| side.clone()),
+            group: groups.last().map(|g| g.id.clone()),
+            groups: groups.iter().map(Group::of).collect(),
             icon: None,
             blob: String::new(),
             icon_size: ICON_SIZE,
@@ -232,6 +365,7 @@ mod tests {
         GroupRef {
             id: "G1".to_string(),
             title: Some(("Tools".to_string(), "left".to_string())),
+            look: GroupLook::Text,
         }
     }
 
@@ -242,7 +376,7 @@ mod tests {
         let card = Card::page(
             &page("P1", "One", &tags, false),
             bounds(10.0, -20.0, 0.0, 60.0),
-            Some(&group()),
+            &[group()],
         );
         let json: serde_json::Value = serde_json::from_str(&cards_json(&[card])).unwrap();
         let card = &json[0];
@@ -252,13 +386,153 @@ mod tests {
         assert_eq!(card["x"], 10.0);
         assert_eq!(card["scale"], 1.5);
         assert_eq!(card["group"], "G1");
-        assert_eq!(card["groupColor"], group_color("G1"));
-        assert_eq!(card["groupTitle"], "Tools");
-        assert_eq!(card["groupTitleSide"], "left");
         assert_eq!(card["icon"], tag_icon_svg(&tags, ICON_DRAW_SIZE));
         assert_eq!(card["blob"], tag_blob_svg("JavaFX", ICON_DRAW_SIZE, false));
         assert_eq!(card["iconSize"], ICON_SIZE);
         assert_eq!(card["masked"], false);
+    }
+
+    // カードは、その上のグループをすべて、外から順に、色とタイトルとともに持つ。いちばん内のグループが、カードのグループである。
+    #[test]
+    fn a_card_carries_every_group_it_is_under_from_the_outermost() {
+        let inner = GroupRef {
+            id: "G2".to_string(),
+            title: None,
+            look: GroupLook::Text,
+        };
+        let card = Card::page(
+            &page("P1", "One", &[], false),
+            bounds(0.0, 0.0, 0.0, 40.0),
+            &[group(), inner],
+        );
+
+        let json: serde_json::Value = serde_json::from_str(&cards_json(&[card])).unwrap();
+        let groups = &json[0]["groups"];
+        assert_eq!(json[0]["group"], "G2");
+        assert_eq!(
+            (
+                &groups[0]["id"],
+                &groups[0]["title"],
+                &groups[0]["titleSide"]
+            ),
+            (
+                &serde_json::Value::from("G1"),
+                &serde_json::Value::from("Tools"),
+                &serde_json::Value::from("left")
+            )
+        );
+        assert_eq!(groups[0]["color"], group_color("G1"));
+        assert_eq!(
+            (&groups[1]["id"], &groups[1]["title"]),
+            (&serde_json::Value::from("G2"), &serde_json::Value::Null)
+        );
+    }
+
+    // ページカードのグループは、タイトルで開くページとアイコンを持つ。コールアウトのグループは、タイトルの文字から描いたキャラクターを持つ。
+    #[test]
+    fn a_group_of_a_page_has_its_page_and_icon_and_one_of_a_callout_its_character() {
+        let tags = vec!["sun".to_string()];
+        let of_page = GroupRef {
+            id: "G1".to_string(),
+            title: Some(("One".to_string(), "top".to_string())),
+            look: GroupLook::Page {
+                path: Some("d/One".to_string()),
+                icon_tags: tags.clone(),
+            },
+        };
+        let of_callout = GroupRef {
+            id: "G2".to_string(),
+            title: Some(("Hi".to_string(), "right".to_string())),
+            look: GroupLook::Callout,
+        };
+        let card = Card::page(
+            &page("P1", "Two", &[], false),
+            bounds(0.0, 0.0, 0.0, 40.0),
+            &[of_page, of_callout],
+        );
+
+        let [page_group, callout_group] = &card.groups[..] else {
+            panic!("two groups: {:?}", card.groups);
+        };
+        assert_eq!(
+            (&page_group.path, &page_group.icon, &page_group.character),
+            (
+                &Some("d/One".to_string()),
+                &Some(tag_icon_svg(&tags, ICON_DRAW_SIZE)),
+                &None
+            )
+        );
+        assert_eq!(
+            (
+                &callout_group.path,
+                &callout_group.icon,
+                &callout_group.character
+            ),
+            (
+                &None,
+                &None,
+                &Some(callout_face_svg("Hi", CALLOUT_DRAW_SIZE))
+            )
+        );
+    }
+
+    // ノーマルカードは、ラベルから描いた黄色のblobを持ち、何も開かず、1行目の文字の並びを持つ。
+    #[test]
+    fn a_plain_card_is_yellow_opens_nothing_and_has_the_runs_of_its_first_line() {
+        let runs = vec![
+            Run {
+                text: "see ".to_string(),
+                link: None,
+            },
+            Run {
+                text: "a".to_string(),
+                link: Some(RunLink {
+                    kind: "Page".to_string(),
+                    url: "/pages/x/a".to_string(),
+                }),
+            },
+        ];
+        let card = Card::plain(
+            "I1",
+            "see a",
+            runs.clone(),
+            bounds(0.0, 0.0, 0.0, 40.0),
+            &[],
+        );
+
+        assert_eq!(
+            (
+                &card.path,
+                card.is_plain,
+                card.is_link,
+                card.tone,
+                &card.runs
+            ),
+            (&None, true, true, Tone::Plain, &runs)
+        );
+        assert_eq!(card.blob, plain_blob_svg("see a", ICON_DRAW_SIZE));
+    }
+
+    // リンクのカードは、リンク先の色のblobを持つ。同じフォルダのページは青、ほかのフォルダはオレンジ、ないページは灰色で何も開かない。
+    #[test]
+    fn a_link_card_takes_the_color_of_what_it_links_to() {
+        let card = |tone| Card::link("I1", "d/a", tone, bounds(0.0, 0.0, 0.0, 40.0), &[]);
+
+        let [page, link, missing] = [Tone::Page, Tone::Link, Tone::Missing].map(card);
+
+        assert_eq!(
+            [&page.blob, &link.blob, &missing.blob],
+            [
+                &tag_blob_svg("d/a", ICON_DRAW_SIZE, false),
+                &link_blob_svg("d/a", ICON_DRAW_SIZE),
+                &missing_blob_svg("d/a", ICON_DRAW_SIZE),
+            ]
+        );
+        assert_eq!(
+            [&page.path, &link.path, &missing.path],
+            [&Some("d/a".to_string()), &Some("d/a".to_string()), &None]
+        );
+        assert_eq!(missing.tone, Tone::Missing);
     }
 
     // タグのないページのカードは、アイコンがなく、blobをラベルから描く
@@ -267,11 +541,11 @@ mod tests {
         let card = Card::page(
             &page("P1", "One", &[], true),
             bounds(0.0, 0.0, 0.0, 40.0),
-            None,
+            &[],
         );
         assert_eq!(card.icon, None);
         assert_eq!(card.blob, tag_blob_svg("One", ICON_DRAW_SIZE, true));
-        assert_eq!(card.group_color, None);
+        assert!(card.groups.is_empty());
     }
 
     // リンクカードは、リンク先のパスの最後をラベルにし、オレンジのblobを持つ
@@ -280,8 +554,9 @@ mod tests {
         let card = Card::link(
             "I1",
             "a/b/index",
+            Tone::Link,
             bounds(0.0, 0.0, 0.0, 40.0),
-            Some(&group()),
+            &[group()],
         );
         assert_eq!(card.label, "b/");
         assert_eq!(card.path.as_deref(), Some("a/b/index"));
@@ -297,7 +572,7 @@ mod tests {
         let shown = Card::page(
             &page("P1", "Draft", &tags, false),
             bounds(5.0, 6.0, 0.0, 60.0),
-            Some(&group()),
+            &[group()],
         );
         let hidden = shown.clone().hide_label(100.0);
         assert_eq!(hidden.label, "");

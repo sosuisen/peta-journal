@@ -3,6 +3,7 @@ import type { Asked } from './core';
 import { Core } from './core';
 import {
   AtlasCard,
+  cardToneLink,
   Bounds,
   Callout,
   LinkCard,
@@ -184,19 +185,17 @@ describe('the core in wasm', () => {
   // アトラスのキャンバスに描くカードと吹き出し、上のボタンの名前は、wasmが決める。
   test('wasm gives what the canvas of an atlas draws, and the name of the up button', () => {
     const { core } = shell();
-    const card = new AtlasCard(
-      'a',
-      'A',
-      'm/a',
-      false,
-      null,
-      null,
-      null,
+    const card = new AtlasCard('a', 'A', 'm/a', false, null, [], [], false, '');
+    const link = new LinkCard(
+      'l',
+      'x/Foo',
+      'Foo',
+      cardToneLink(),
       [],
-      null,
-      false,
+      '',
+      new Bounds(1, 2, 0, 0),
+      [],
     );
-    const link = new LinkCard('l', 'x/Foo', new Bounds(1, 2, 0, 0), null, null);
     const callout = new Callout('k', 1, 2, 1, 'left', 'hi');
 
     expect(JSON.parse(core.atlasCards([card], [link]))).toEqual({

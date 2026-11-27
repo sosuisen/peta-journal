@@ -386,8 +386,11 @@ window.AtlasCanvas = class AtlasCanvas {
   sharpenText() {
     for (const view of this.cards.children) {
       const resolution = this.textResolution(view.scale.x);
-      if (view.cardLabel.resolution !== resolution) {
-        view.cardLabel.resolution = resolution;
+      // The label, or each part of a row of them
+      for (const text of view.cardLabel.anchor ? [view.cardLabel] : view.cardLabel.children) {
+        if (text.resolution !== resolution) {
+          text.resolution = resolution;
+        }
       }
     }
     for (const view of this.extras()) {
@@ -441,6 +444,7 @@ window.AtlasCanvas = class AtlasCanvas {
       area: e.target?.groupArea ? e.target : null,
       extra: extraOf(e.target),
       point: this.world.toLocal(e.global),
+      titlePath: titlePathOf(e.target),
     };
     this.showHand();
   }
@@ -458,6 +462,8 @@ window.AtlasCanvas = class AtlasCanvas {
       moved: false,
       card,
       onLabel: Boolean(card) && e.target === card.cardLabel,
+      runLink: runLinkOf(e.target),
+      titlePath: titlePathOf(e.target),
     };
     this.showHand();
   }
@@ -497,21 +503,26 @@ window.AtlasCanvas = class AtlasCanvas {
     this.showHand();
     if (panning.moved) {
       this.keepView();
+    } else if (panning.button === 0 && panning.titlePath) {
+      this.onOpen(panning.titlePath, e.ctrlKey || e.metaKey, e.shiftKey);
     } else if (!this.editable) {
       const data = panning.card?.cardData;
-      if (panning.button === 0 && panning.onLabel && opens(data)) {
+      if (panning.button === 0 && panning.runLink && !data?.masked) {
+        this.onFollow?.(panning.runLink, e.ctrlKey || e.metaKey, e.shiftKey);
+      } else if (panning.button === 0 && panning.onLabel && opens(data)) {
         this.onOpen(data.path, e.ctrlKey || e.metaKey, e.shiftKey);
+      } else if (panning.button === 2 && data && !data.masked) {
+        // A page that cannot be changed still shows the whole text of its cards
+        this.openMenu([['Show Text', () => this.onShowText?.(data.id, e.clientX, e.clientY)]], e.global.x, e.global.y);
       }
     } else if (panning.button === 2 && panning.card?.linkData && !panning.card.destroyed) {
       const data = panning.card.linkData;
-      this.openMenu(
-        [
-          ['Edit Link', () => this.openLinkDialog(data)],
-          ['Remove Link', () => this.onRemoveLink?.(data.id)],
-        ],
-        e.global.x,
-        e.global.y,
-      );
+      const showText = ['Show Text', () => this.onShowText?.(data.id, e.clientX, e.clientY)];
+      // A plain card links to no page, so it has no link to edit
+      const items = data.isPlain
+        ? [showText]
+        : [['Edit Link', () => this.openLinkDialog(data)], ['Remove Link', () => this.onRemoveLink?.(data.id)], showText];
+      this.openMenu(items, e.global.x, e.global.y);
     } else if (panning.button === 2 && panning.card) {
       this.onMenu(panning.card.cardData.id, e.clientX, e.clientY);
     } else if (panning.button === 2 && panning.extra?.calloutData && !panning.extra.destroyed) {
@@ -604,14 +615,25 @@ window.AtlasCanvas = class AtlasCanvas {
 
   // The dialog of the title of a group: the title and the side of the outline it lies along
   openTitleDialog(group) {
-    const data = this.data.find(d => d.group === group);
+    const data = this.groupData(group);
     this.openTextDialog({
       name: 'Edit Title',
       placeholder: 'Title',
-      text: data?.groupTitle,
-      side: data?.groupTitleSide,
+      text: data?.title,
+      side: data?.titleSide,
       done: (side, text) => this.onGroupTitle?.(group, side, text),
     });
+  }
+
+  // A group as the cards in it carry it
+  groupData(group) {
+    for (const data of this.data) {
+      const found = groupsOf(data).find(g => g.id === group);
+      if (found) {
+        return found;
+      }
+    }
+    return null;
   }
 
   // The dialog of a callout: its text and the side of the character its bubble is on. A
@@ -786,7 +808,7 @@ window.AtlasCanvas = class AtlasCanvas {
 
   // A group is dragged as its cards are, without Ctrl: it keeps its cards and joins no other
   startGroupDrag(e, area) {
-    const views = this.cards.children.filter(v => v.cardData.group === area.label);
+    const views = this.cards.children.filter(v => inGroup(v.cardData, area.label));
     this.groupDrag = {
       group: area.label,
       start: { x: e.global.x, y: e.global.y },
@@ -933,7 +955,7 @@ window.AtlasCanvas = class AtlasCanvas {
     const e = this.listDragPointer(clientX, clientY, ctrl);
     const target = this.groupTargetAt(drag, e);
     const join = this.joinAreaAt(drag, e);
-    const joined = join && this.cards.children.find(v => v.cardData.group === join.label);
+    const joined = join && cardOfGroup(this.cards.children, join.label);
     return target ? target.cardData.id : joined ? joined.cardData.id : null;
   }
 
@@ -946,6 +968,17 @@ window.AtlasCanvas = class AtlasCanvas {
   // onGroup(cardIdsJson, targetId) puts the cards dropped with Ctrl on a card into its group
   setOnGroup(onGroup) {
     this.onGroup = onGroup;
+  }
+
+  // onShowText(cardId, clientX, clientY) shows the whole text of a card from its menu
+  setOnShowText(onShowText) {
+    this.onShowText = onShowText;
+  }
+
+  // onFollow(link, newTab, newWindow) follows a link in the text of a card. link is
+  // { kind, url }: kind is Page, Web or File, as the core names the links of a page.
+  setOnFollow(onFollow) {
+    this.onFollow = onFollow;
   }
 
   // onUngroup(cardIdsJson) takes the cards let go outside their group with Ctrl out of it
@@ -1032,9 +1065,12 @@ window.AtlasCanvas = class AtlasCanvas {
     this.showSuggestions?.(JSON.parse(json));
   }
 
-  // The placed cards as JSON: [{ id, label, path, isDir, isLink, x, y, width, height, scale,
-  // group, groupColor, groupTitle, groupTitleSide, icon, blob, iconSize, iconDrawSize, masked }],
-  // where x and y are the center of the card. A card with a null path opens nothing. A masked
+  // The placed cards as JSON: [{ id, label, path, isDir, isLink, isPlain, tone, runs, x, y,
+  // width, height, scale, group, groups, icon, blob, iconSize, iconDrawSize, masked }],
+  // where x and y are the center of the card. groups are the groups a card is in, the outermost
+  // first: [{ id, color, title, titleSide, path, icon, character, drawSize }]; group is the id
+  // of the last of them. runs are the parts of the first line of a plain card: [{ text, link }],
+  // where link is { kind, url } or null. A card with a null path opens nothing. A masked
   // card has its label hidden: its width is set, and only its blob shows, softened. The id of a link card is the id of its item, and its
   // path is the page it links to. width and height are its size as scaled, and a width of 0
   // leaves it to the label. icon and blob are SVGs or null, and iconDrawSize is the size of the
@@ -1081,39 +1117,44 @@ window.AtlasCanvas = class AtlasCanvas {
   // outline of such a group stays as it was before the drag, with the dragged cards where
   // they were, so it shows whether they are let go in it. That shape does not change, so it
   // is drawn once while Ctrl is held; only a group dragged as a whole moves with its cards.
+  // A group inside a group is drawn inside it: the outline of a group keeps a padding more
+  // away from a card for each group between them, and lies behind the groups inside it.
   drawGroups(drag = null, ctrl = false) {
     const origins = new Map(drag ? drag.origins.map(o => [o.view, o]) : []);
     const dragged = new Set(origins.keys());
-    const touched = new Set([...dragged].map(v => v.cardData.group).filter(Boolean));
+    const touched = new Set([...dragged].flatMap(v => groupsOf(v.cardData).map(g => g.id)));
     const staying = new Set();
     for (const view of this.cards.children) {
-      if (view.cardData.group && !dragged.has(view)) {
-        staying.add(view.cardData.group);
+      if (!dragged.has(view)) {
+        groupsOf(view.cardData).forEach(g => staying.add(g.id));
       }
     }
     const corners = new Map();
-    const colors = new Map();
-    const titles = new Map();
+    const groups = new Map();
     for (const view of this.cards.children) {
-      const { group, width, height } = view.cardData;
-      if (!group || (drag && !touched.has(group))) {
-        continue;
-      }
-      const kept = ctrl && staying.has(group);
-      if (kept && drag.ctrlShape) {
-        continue;
-      }
-      const { x, y } = kept && dragged.has(view) ? origins.get(view) : view;
-      const left = x - width / 2 - GROUP_PADDING;
-      const right = x + width / 2 + GROUP_PADDING;
-      const top = y - height / 2 - GROUP_PADDING;
-      const bottom = y + height / 2 + GROUP_PADDING;
-      if (!corners.has(group)) {
-        corners.set(group, []);
-        colors.set(group, view.cardData.groupColor);
-        titles.set(group, view.cardData);
-      }
-      corners.get(group).push([left, top], [right, top], [right, bottom], [left, bottom]);
+      const { width, height } = view.cardData;
+      const chain = groupsOf(view.cardData);
+      chain.forEach((data, depth) => {
+        const group = data.id;
+        if (drag && !touched.has(group)) {
+          return;
+        }
+        const kept = ctrl && staying.has(group);
+        if (kept && drag.ctrlShape) {
+          return;
+        }
+        const { x, y } = kept && dragged.has(view) ? origins.get(view) : view;
+        const padding = GROUP_PADDING * (chain.length - depth);
+        const left = x - width / 2 - padding;
+        const right = x + width / 2 + padding;
+        const top = y - height / 2 - padding;
+        const bottom = y + height / 2 + padding;
+        if (!corners.has(group)) {
+          corners.set(group, []);
+          groups.set(group, data);
+        }
+        corners.get(group).push([left, top], [right, top], [right, bottom], [left, bottom]);
+      });
     }
     if (!drag) {
       this.groups.removeChildren().forEach(g => g.destroy());
@@ -1131,7 +1172,8 @@ window.AtlasCanvas = class AtlasCanvas {
         area.frame.visible = Boolean(drag && drag.moved);
         this.groups.addChild(area, area.frame);
       }
-      const color = colors.get(group);
+      const data = groups.get(group);
+      const color = data.color;
       // One path for the area and its frame
       const curve = new PIXI.GraphicsPath();
       const hull = convexHull(points);
@@ -1144,11 +1186,21 @@ window.AtlasCanvas = class AtlasCanvas {
       area.outlineColor = color;
       // A group dragged as a whole has nothing to leave: it moves with its cards
       area.leavable = ctrl && staying.has(group);
-      const { groupTitle, groupTitleSide } = titles.get(group);
+      const groupTitle = data.title;
+      const groupTitleSide = data.titleSide;
+      // A callout that cards are under stands along the outline in place of a title
+      if (groupTitle && data.character) {
+        area.calloutView ??= this.groups.addChild(this.groupCallout(data));
+        area.calloutView.position.set(...besideOutline(hull, groupTitleSide));
+        continue;
+      }
       // One Text a character, made once; a drag only lays them again along the new outline
       if (groupTitle && !area.titleChars) {
         area.titleChars = new PIXI.Container();
-        area.titleChars.eventMode = 'none';
+        // The title of a page card opens its page, as the label of the card does
+        area.titleChars.eventMode = data.path ? 'static' : 'none';
+        area.titleChars.cursor = data.path ? 'pointer' : 'default';
+        area.titleChars.titlePath = data.path ?? null;
         area.titleChars.alpha = TITLE_ALPHA;
         const style = new PIXI.TextStyle({
           fontFamily: this.fonts().title,
@@ -1170,10 +1222,19 @@ window.AtlasCanvas = class AtlasCanvas {
         // How far each character moves the next one on, from the widths of the title up to it.
         // Not the width of the character alone: that holds the white edge at both its sides.
         const chars = Array.from(groupTitle);
+        if (data.icon) {
+          // The icon of the page stands before the title, as one more character
+          const size = metrics.height;
+          const icon = iconSprite(data.icon, size, size, this.iconResolution(), 0, 0, 1);
+          icon.advance = size;
+          area.titleChars.addChild(icon);
+        }
         let before = 0;
         chars.forEach((char, i) => {
           const upTo = PIXI.CanvasTextMetrics.measureText(chars.slice(0, i + 1).join(''), style).width;
           const text = new PIXI.Text({ text: char, resolution: this.textResolution(), style });
+          // A press on a character of a title that opens a page is a press on the title
+          text.eventMode = data.path ? 'static' : 'none';
           text.advance = upTo - before;
           before = upTo;
           area.titleChars.addChild(text);
@@ -1186,10 +1247,32 @@ window.AtlasCanvas = class AtlasCanvas {
     }
   }
 
+  // The character of a callout that cards are under, with its text in a bubble. It is drawn as a
+  // callout is, and only shows: it is moved and edited as its group.
+  groupCallout(data) {
+    const view = callout(
+      {
+        key: data.id,
+        x: 0,
+        y: 0,
+        scale: 1,
+        side: data.titleSide,
+        text: data.title,
+        character: data.character,
+        drawSize: data.drawSize,
+      },
+      this.textResolution(),
+      this.iconResolution(),
+      this.fonts(),
+    );
+    view.eventMode = 'none';
+    return view;
+  }
+
   // The frame of a group shows while a card of it is dragged, so it is clear where the group
   // ends; at rest, and for the other groups, only the areas show. No drag hides every frame.
   showFrames(drag) {
-    const dragged = new Set(drag ? drag.origins.map(o => o.view.cardData.group).filter(Boolean) : []);
+    const dragged = new Set(drag ? drag.origins.flatMap(o => groupsOf(o.view.cardData).map(g => g.id)) : []);
     for (const area of this.groups.children) {
       if (area.frame) {
         area.frame.visible = dragged.has(area.label);
@@ -1236,7 +1319,8 @@ window.AtlasCanvas = class AtlasCanvas {
 
   // The area of a group other than the dragged cards' own under the pointer, or null
   joinAreaAt(drag, e) {
-    const own = new Set(drag.origins.map(o => o.view.cardData.group).filter(Boolean));
+    // Not a group the cards are in already, however deep
+    const own = new Set(drag.origins.flatMap(o => groupsOf(o.view.cardData).map(g => g.id)));
     const areas = this.groups.children.filter(c => c.frame && !own.has(c.label));
     for (let i = areas.length - 1; i >= 0; i--) {
       if (areas[i].containsPoint(areas[i].toLocal(e.global))) {
@@ -1285,6 +1369,7 @@ window.AtlasCanvas = class AtlasCanvas {
         ctrl,
         wasSelected,
         onLabel: Boolean(view.cardLabel) && e.target === view.cardLabel,
+        runLink: runLinkOf(e.target),
       };
       // On top of the others while they move
       for (const v of [...views, ...extras]) {
@@ -1343,7 +1428,7 @@ window.AtlasCanvas = class AtlasCanvas {
         const moves = drag.extras.map(o => [o.view.saveMove, o.view.x, o.view.y]);
         // A card let go on a card joins the group of that card; let go in the area of another
         // group, it joins that group, which any card of it stands for
-        const joined = ctrl && drag.join && this.cards.children.find(v => v.cardData.group === drag.join.label);
+        const joined = ctrl && drag.join && cardOfGroup(this.cards.children, drag.join.label);
         const targetId = target ? target.cardData.id : joined ? joined.cardData.id : null;
         // Joining a group takes the cards out of their own; only the cards let go outside their
         // group without joining another leave it
@@ -1363,6 +1448,9 @@ window.AtlasCanvas = class AtlasCanvas {
         if (leavers.length > 0 && this.onUngroup) {
           this.onUngroup(JSON.stringify(leavers));
         }
+      } else if (drag.runLink && !data.masked) {
+        // A link in the text of a card opens as a link of a page does
+        this.onFollow?.(drag.runLink, drag.ctrl, e.shiftKey);
       } else if (drag.onLabel && opens(data)) {
         // A link, as it always was: Ctrl opens it in a new tab and leaves the selection
         // as it was before the press
@@ -1448,6 +1536,38 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 };
 
+// The groups a card is in, the outermost first
+function groupsOf(data) {
+  return data?.groups ?? [];
+}
+
+// Whether a card is in the group, right under it or deeper
+function inGroup(data, group) {
+  return groupsOf(data).some(g => g.id === group);
+}
+
+// The card of a group that stands for it when a card joins it: one right under it, or else
+// any card in it
+function cardOfGroup(views, group) {
+  return views.find(v => v.cardData.group === group) ?? views.find(v => inGroup(v.cardData, group));
+}
+
+// The page a press on the title of a group opens, from a character of the title; none for a
+// title that opens nothing
+function titlePathOf(target) {
+  for (let node = target; node; node = node.parent) {
+    if (node.titlePath !== undefined) {
+      return node.titlePath;
+    }
+  }
+  return null;
+}
+
+// The link of the part of the text of a card that a press landed on; none off a link
+function runLinkOf(target) {
+  return target?.runLink ?? null;
+}
+
 // The card a press landed on, from the label or the frame inside it
 function cardOf(target) {
   for (let node = target; node; node = node.parent) {
@@ -1515,6 +1635,54 @@ function dialogButton(text, main) {
       style: { fontFamily: uiFont(), fontSize: UI_FONT_SIZE, fill: main ? 0xffffff : 0x222222 },
     }),
   });
+}
+
+// The colors of the labels: a link out of the folder in blue, as it always was, and a link to
+// a page that is not there in gray
+const LABEL_COLORS = { link: LINK_LABEL_COLOR, missing: 0x888888 };
+
+// The label of a card: its text in one Text, wrapped to the width of the card. The text of a
+// plain card with links in it is a row of its parts instead, each link a part of its own that a
+// click follows. That row does not wrap: a long first line is for the user to shorten.
+function cardText(data, resolution, fontFamily, setWidth) {
+  const style = fill => ({
+    fontFamily,
+    fontSize: 13,
+    fill,
+    // A white edge keeps the label readable over the icon and the groups behind it. The
+    // padding keeps the edge from being cut off at the sides of the text.
+    stroke: { color: 0xffffff, width: 3, join: 'round' },
+    padding: 2,
+  });
+  const color = LABEL_COLORS[data.tone] ?? 0x222222;
+  const runs = data.runs ?? [];
+  if (!runs.some(run => run.link)) {
+    return new PIXI.Text({
+      text: data.label,
+      resolution,
+      style: {
+        ...style(color),
+        wordWrap: true,
+        wordWrapWidth: Math.max(1, (setWidth ?? CARD_MAX_WIDTH) - 2 * CARD_PADDING),
+        breakWords: true,
+        align: 'center',
+      },
+    });
+  }
+  const row = new PIXI.Container();
+  let x = 0;
+  for (const run of runs) {
+    const part = new PIXI.Text({ text: run.text, resolution, style: style(run.link ? LINK_LABEL_COLOR : color) });
+    part.position.set(x, 0);
+    if (run.link) {
+      part.eventMode = 'static';
+      part.cursor = 'pointer';
+      part.runLink = run.link;
+    }
+    x += part.width;
+    row.addChild(part);
+  }
+  return row;
 }
 
 // A group title stands on the outline, one character after another, each turned with the
@@ -1590,6 +1758,24 @@ function layTitle(title, outline, side) {
     char.position.set(cx, cy);
     distance += step;
   }
+}
+
+// Where the character of a callout stands beside an outline: just outside the middle of the
+// side its bubble is on, so the bubble faces away from the group
+function besideOutline(hull, side) {
+  const xs = hull.map(([x]) => x);
+  const ys = hull.map(([, y]) => y);
+  const [left, right, top, bottom] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const midX = (left + right) / 2;
+  const midY = (top + bottom) / 2;
+  const away = CALLOUT_SIZE / 2;
+  return (
+    {
+      bottom: [midX, bottom + away],
+      left: [left - away, midY],
+      right: [right + away, midY],
+    }[side] ?? [midX, top - away]
+  );
 }
 
 // Points along the closed curve of smoothClosedCurve, close enough to stand for it
@@ -1885,27 +2071,11 @@ function cross() {
 // width it takes on the canvas is written back into the data, which the outlines of the
 // groups read.
 function card(data, resolution, iconResolution, fontFamily) {
-  const { label, icon, blob, iconSize, iconDrawSize, isLink, masked } = data;
+  const { icon, blob, iconSize, iconDrawSize, masked } = data;
   const scale = data.scale > 0 ? data.scale : 1;
   const height = data.height / scale;
   const setWidth = data.width > 0 ? data.width / scale : null;
-  const text = new PIXI.Text({
-    text: label,
-    resolution,
-    style: {
-      fontFamily,
-      fontSize: 13,
-      fill: isLink ? LINK_LABEL_COLOR : 0x222222,
-      // A white edge keeps the label readable over the icon and the groups behind it. The
-      // padding keeps the edge from being cut off at the sides of the text.
-      stroke: { color: 0xffffff, width: 3, join: 'round' },
-      padding: 2,
-      wordWrap: true,
-      wordWrapWidth: Math.max(1, (setWidth ?? CARD_MAX_WIDTH) - 2 * CARD_PADDING),
-      breakWords: true,
-      align: 'center',
-    },
-  });
+  const text = cardText(data, resolution, fontFamily, setWidth);
   // A canvas Text knows its size as soon as it is made
   const width =
     setWidth ??
@@ -1951,7 +2121,11 @@ function card(data, resolution, iconResolution, fontFamily) {
       iconSprite(icon, iconSize, iconSize, rasterResolution, width / 2, height / 2, ICON_ALPHA),
     );
   }
-  text.anchor.set(0.5);
+  if (text.anchor) {
+    text.anchor.set(0.5);
+  } else {
+    text.pivot.set(text.width / 2, text.height / 2);
+  }
   text.position.set(width / 2, height / 2);
   // The card handles the press; the label only shows that it opens the page
   text.eventMode = 'static';

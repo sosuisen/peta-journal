@@ -168,6 +168,11 @@ export class Core {
     );
   }
 
+  /** The whole text of a card of an atlas as HTML, drawn as the body of a row of a page is. */
+  bodyHtml(text: string, tagsDir: string): string {
+    return this.shell.bodyHtml(text, tagsDir);
+  }
+
   /** The callouts of an atlas, as `setCallouts` of `atlas.js` takes them. */
   atlasCallouts(callouts: readonly Callout[]): string {
     return this.shell.atlasCallouts(

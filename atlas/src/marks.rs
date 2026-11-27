@@ -69,6 +69,22 @@ pub fn link_blob_svg(target: &str, size: i32) -> String {
     blob_svg(target, LINK_BLOB_COLOR, size, false)
 }
 
+/// The light gray of the blob of a card to a page that is not there
+const MISSING_BLOB_COLOR: Color = Color::rgb(0xDD, 0xDD, 0xDD);
+
+/// The blob of a card to a page that is not there: drawn from its target, in light gray.
+pub fn missing_blob_svg(target: &str, size: i32) -> String {
+    blob_svg(target, MISSING_BLOB_COLOR, size, false)
+}
+
+/// The light yellow of the blob of a plain card, whose first line is no link
+const PLAIN_BLOB_COLOR: Color = Color::rgb(0xFF, 0xF1, 0xA8);
+
+/// The blob of a plain card: drawn from its label as a tag blob is, in light yellow.
+pub fn plain_blob_svg(label: &str, size: i32) -> String {
+    blob_svg(label, PLAIN_BLOB_COLOR, size, false)
+}
+
 /// The white of the blob of a card whose label is hidden
 const HIDDEN_BLOB_COLOR: Color = Color::rgb(0xFF, 0xFF, 0xFF);
 
@@ -208,6 +224,23 @@ mod tests {
         assert_eq!(
             svg.replace("#FFD8A8", "#CFE3FF"),
             tag_blob_svg("x/Target", 100, false)
+        );
+    }
+
+    // ノーマルカードのblobは薄い黄色、ないページへのカードのblobは薄い灰色で、同じ名前のカードと同じ形である
+    #[test]
+    fn the_blob_of_a_plain_card_is_light_yellow_and_of_a_missing_page_light_gray() {
+        let plain = plain_blob_svg("x/Target", 100);
+        let missing = missing_blob_svg("x/Target", 100);
+        let shape = tag_blob_svg("x/Target", 100, false);
+        assert!(plain.contains(r##"fill="#FFF1A8""##), "{plain}");
+        assert!(missing.contains(r##"fill="#DDDDDD""##), "{missing}");
+        assert_eq!(
+            [
+                plain.replace("#FFF1A8", "#CFE3FF"),
+                missing.replace("#DDDDDD", "#CFE3FF")
+            ],
+            [shape.clone(), shape]
         );
     }
 
