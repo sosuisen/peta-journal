@@ -246,3 +246,37 @@ fn a_parent_that_is_a_callout_is_drawn_as_its_character_and_bubble() {
     );
     assert!(view.atlas_callouts.is_empty());
 }
+
+// ページの一覧を読んだあとも、灰色になるのは、atlasのフォルダの中のページか、子のフォルダのindexだけである。ほかのフォルダのページや、子のフォルダの中のページは、オレンジのままである。
+#[test]
+fn only_a_page_of_the_folder_or_the_index_of_a_child_folder_is_gray_when_it_is_not_there() {
+    let mut h = atlas_of(
+        vec![child("one")],
+        vec![
+            placed("other", "[[x/gone]]"),
+            placed("index", "[[a/b/sub/index]]"),
+            placed("deeper", "[[a/b/sub/gone]]"),
+        ],
+    );
+    h.model.sidebar.index_state = LoadState::Loaded;
+
+    let tones: Vec<CardTone> = h.view().atlas_links.iter().map(|l| l.tone).collect();
+    assert_eq!(tones, [CardTone::Link, CardTone::Missing, CardTone::Link]);
+}
+
+// 子を持つ項目は、置いてあっても、カードとしては描かれない。グループとして描かれる。
+#[test]
+fn an_item_with_items_under_it_is_no_card_even_when_placed() {
+    let h = atlas_of(
+        vec![],
+        vec![placed("parent", "Plan"), placed_under("leaf", "note")],
+    );
+
+    let ids: Vec<String> = h
+        .view()
+        .atlas_links
+        .iter()
+        .map(|l| l.item_id.clone())
+        .collect();
+    assert_eq!(ids, ["leaf"]);
+}
