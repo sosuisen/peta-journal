@@ -149,6 +149,16 @@ final class AppliedTests: XCTestCase {
         XCTAssertEqual(view.recentPages.state, .loading)
     }
 
+    // 見出しやページの差分だけの変更も、空ではない。シェルは、空の変更だけを当てずに捨ててよい。
+    func testChangesWithOnlyAListOfTheSidebarAreNotEmpty() {
+        let heading = Heading(id: "a", text: "One", level: 1)
+
+        XCTAssertTrue(changes().isEmpty)
+        XCTAssertFalse(changes(headings: [.reset(items: [heading])]).isEmpty)
+        XCTAssertFalse(changes(indexPages: [.remove(at: 0)]).isEmpty)
+        XCTAssertFalse(changes(recentPages: [.remove(at: 0)]).isEmpty)
+    }
+
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
     func testTheOutlinePanelKeepsTheRows() {
         var view = ViewModel(
