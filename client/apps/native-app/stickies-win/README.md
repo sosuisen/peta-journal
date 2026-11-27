@@ -301,6 +301,11 @@ windows (see "Tests of the windows" below).
 model: the first changes make every part, a panel that comes takes the place of its part only,
 and the outline panel keeps the rows.
 
+`ListChangesTests` need no journal server either. They apply every example of the core in
+`client/tools/shell-check/common/list-changes.json` (its part `native`) with
+`ListChanges.Apply`, and expect the rows of the core (ADR 090, D1). The rows are compared as the
+bytes that cross the border: a generated `Row` has no equality of its own.
+
 `BorderTests` need no journal server. They check that C# reads what Rust writes (the view
 model, the requests) and that Rust reads what C# writes (events, answers). `StickyTests` need
 none either. `ShownTextTests` need none but one: the test of every kind of node gets the AST

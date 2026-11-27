@@ -105,4 +105,4 @@ pending = 1214
 excluded = "a native shell reads the border of client-native-bridge, not that of client-web-bridge"
 
 [common.border-native]
-pending = 1229
+test = "client/apps/native-app/outliner-android/app/src/test/kotlin/com/sosuisha/petajournal/shell/BorderValuesTest.kt"

@@ -453,8 +453,43 @@ internal sealed class Screen : IAsyncDisposable
     /// <summary>Clicks the item and waits until its editor has the cursor.</summary>
     public async Task Edit(int item)
     {
-        await Click(Items()[item]);
-        await Until($"item {item} has the cursor", () => Focused == item);
+        var view = Items()[item];
+        var editor = EditorOf(view);
+        // Why the marks: the cursor did not come into a clicked item in the CI once, and never
+        // on a developer's PC (#1175). They tell which part of the click the item saw, and when
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var seen = new List<string>();
+        void Mark(string what) => seen.Add($"{what}@{clock.ElapsedMilliseconds}ms");
+        var pressed = new PointerEventHandler((_, _) => Mark("pressed"));
+        var released = new PointerEventHandler((_, _) => Mark("released"));
+        var tapped = new TappedEventHandler((_, _) => Mark("tapped"));
+        void GotFocus(object sender, RoutedEventArgs e) => Mark("editor got focus");
+        void LostFocus(object sender, RoutedEventArgs e) => Mark("editor lost focus");
+        view.AddHandler(UIElement.PointerPressedEvent, pressed, true);
+        view.AddHandler(UIElement.PointerReleasedEvent, released, true);
+        view.AddHandler(UIElement.TappedEvent, tapped, true);
+        editor.GotFocus += GotFocus;
+        editor.LostFocus += LostFocus;
+        try
+        {
+            await Click(view);
+            Mark("sent");
+            await Until(
+                $"item {item} has the cursor",
+                () => Focused == item,
+                () =>
+                    $"item saw=[{string.Join(", ", seen)}] "
+                    + $"editor visible={editor.Visibility == Visibility.Visible}"
+            );
+        }
+        finally
+        {
+            view.RemoveHandler(UIElement.PointerPressedEvent, pressed);
+            view.RemoveHandler(UIElement.PointerReleasedEvent, released);
+            view.RemoveHandler(UIElement.TappedEvent, tapped);
+            editor.GotFocus -= GotFocus;
+            editor.LostFocus -= LostFocus;
+        }
     }
 
     /// <summary>The editor that has the cursor.</summary>
