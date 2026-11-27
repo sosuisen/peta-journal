@@ -5,6 +5,7 @@ use std::path::Path;
 
 use hmtid::Hmtid;
 use journal_core::domain::model::ItemPosition;
+use journal_core::infrastructure::export::import_service::Outcome;
 use journal_core::infrastructure::persistence::PropertyRepository;
 
 use crate::common::devices::{time_passes, two_devices, Device, ATLAS};
@@ -193,4 +194,27 @@ fn an_old_atlas_taken_in_from_a_file_moves_to_the_plain_form() {
 
     assert_eq!(b.atlas_keys(), BTreeSet::from(["atlas_bounds".to_string()]));
     assert_eq!(b.outline(), ["1:[[d/a]]", "1:Title", "2:[[x/b]]"]);
+}
+
+// 2台が別々に古い形のアトラスを移してから同期すると、中身が同じになり、それ以上は送り合わない。
+#[test]
+fn two_devices_that_moved_an_atlas_each_agree_and_send_it_no_more() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = with_an_old_atlas(dir.path());
+    a.old_item(1, "Title", &[("atlas_type", "group")]);
+    a.old_item(1, "callout", &[("atlas_type", "callouts")]);
+    a.old_item(2, "Hello", &[("atlas_type", "callout")]);
+    // B takes in the old form and moves it; A moves its own later
+    b.receive(&a, ATLAS);
+    time_passes(&[&a, &b]);
+    a.core.atlas.move_to_plain_form().unwrap();
+
+    b.receive(&a, ATLAS);
+    a.receive(&b, ATLAS);
+
+    assert_eq!(a.outline(), ["1:[[d/a]]", "1:Title", "1:Hello"]);
+    assert_eq!(b.outline(), a.outline());
+    assert_eq!(a.file(ATLAS), b.file(ATLAS));
+    assert_eq!(b.receive(&a, ATLAS), Outcome::Unchanged);
+    assert_eq!(a.receive(&b, ATLAS), Outcome::Unchanged);
 }
