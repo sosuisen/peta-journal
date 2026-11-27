@@ -29,6 +29,7 @@ mod moving_items;
 mod page_properties;
 mod pages;
 mod paste;
+mod plain_atlas;
 mod properties;
 mod search;
 mod split;
