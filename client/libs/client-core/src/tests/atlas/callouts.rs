@@ -13,22 +13,15 @@ fn callout(key: &str, x: f64, y: f64, side: &str, text: &str) -> Callout {
     }
 }
 
-/// The parent of the callouts and the given callouts under it
+/// An atlas whose items are the given callouts
 fn atlas_with_callouts(callouts: Vec<Item>) -> Harness {
-    let mut items = vec![atlas_item(
-        "cp",
-        1,
-        "callout",
-        &[("atlas_type", "callouts")],
-    )];
-    items.extend(callouts);
-    atlas_of(vec![], items)
+    atlas_of(vec![], callouts)
 }
 
 fn callout_item(id: &str, text: &str, bounds: &str) -> Item {
     atlas_item(
         id,
-        2,
+        1,
         text,
         &[
             ("atlas_type", "callout"),
@@ -43,9 +36,9 @@ fn atlas_with_callout() -> Harness {
     atlas_with_callouts(vec![callout_item("c", "Hello", "10,20,0,60")])
 }
 
-// 吹き出しは吹き出しの親アイテムの下にあるアイテムであり、位置・倍率・辺・テキストを持って表示される。
+// 吹き出しは種類がcalloutのアイテムであり、レベル1にあっても、位置・倍率・辺・テキストを持って表示される。
 #[test]
-fn a_callout_is_an_item_under_the_parent_of_the_callouts() {
+fn a_callout_is_an_item_of_the_callout_type_at_level_1() {
     let h = atlas_with_callout();
 
     let shown = Callout {
@@ -61,7 +54,7 @@ fn a_callout_without_a_place_is_left_out() {
     let mut no_side = callout_item("b", "Hi", "1,2,0,40");
     no_side.properties.remove("atlas_side");
     let h = atlas_with_callouts(vec![
-        atlas_item("a", 2, "Hi", &[("atlas_type", "callout")]),
+        atlas_item("a", 1, "Hi", &[("atlas_type", "callout")]),
         no_side,
         callout_item("z", "Hi", "1,2,0,0"),
     ]);
@@ -73,16 +66,13 @@ fn a_callout_without_a_place_is_left_out() {
     );
 }
 
-// 吹き出しは、丸めた座標と辺、前後の空白を除いたテキストでサーバーによって追加され、返されたアウトラインが表示される。
+// 吹き出しは、丸めた座標と辺、前後の空白を除いたテキストを持つレベル1の項目として作られ、読み直したアウトラインが表示される。
 #[test]
-fn a_callout_is_added_by_the_server_at_the_point_with_its_side_and_text() {
+fn a_callout_is_made_as_an_item_at_the_point_with_its_side_and_text() {
     let mut h = atlas_with_callouts(vec![]);
-    h.api.answer_next(
-        "ChangeAtlas",
-        Ok(ApiOutput::Items(vec![
-            atlas_item("cp", 1, "callout", &[("atlas_type", "callouts")]),
-            callout_item("new", "Hi: there", "10,-21,0,40"),
-        ])),
+    answer_outline(
+        &mut h,
+        vec![callout_item("new", "Hi: there", "10,-21,0,40")],
     );
     h.send(Event::AddAtlasCallout {
         x: 10.4,
@@ -92,12 +82,16 @@ fn a_callout_is_added_by_the_server_at_the_point_with_its_side_and_text() {
     });
 
     assert_eq!(
-        changes(&h),
-        [AtlasChange::AddCallout {
-            bounds: "10,-21,0,40".into(),
-            side: "left".into(),
-            text: "Hi: there".into()
-        }]
+        batches(&h),
+        [[made(
+            ItemPosition::Last,
+            "Hi: there",
+            &[
+                ("atlas_type", "callout"),
+                ("atlas_bounds", "10,-21,0,40"),
+                ("atlas_side", "left")
+            ]
+        )]]
     );
     assert_eq!(h.view().atlas_callouts.len(), 1);
 }
@@ -113,53 +107,94 @@ fn an_empty_callout_is_not_added() {
         text: "  ".into(),
     });
 
-    assert!(changes(&h).is_empty());
+    assert!(batches(&h).is_empty());
 }
 
-// 編集された吹き出しは、辺とテキストとともに送られる。変更のない編集は送られない。
-#[test]
-fn an_edited_callout_is_sent_with_its_side_and_text() {
-    let mut h = atlas_with_callout();
+fn edit(h: &mut Harness, side: &str, text: &str) {
     h.send(Event::SetAtlasCallout {
         key: "c".into(),
-        side: "bottom".into(),
-        text: "Bye".into(),
+        side: side.into(),
+        text: text.into(),
     });
+}
+
+// テキストを編集された吹き出しは、項目の本文が書き換えられる。変更のない編集は送られない。
+#[test]
+fn the_body_of_the_item_of_an_edited_callout_is_written() {
+    let mut h = atlas_with_callout();
+    edit(&mut h, "top", "Bye");
     // No change
-    h.send(Event::SetAtlasCallout {
-        key: "c".into(),
-        side: "top".into(),
-        text: " Hello ".into(),
-    });
+    edit(&mut h, "top", " Hello ");
 
+    assert_eq!(batches(&h), [[written("c", "Bye")]]);
+}
+
+// 辺を変えられた吹き出しは、項目のプロパティが項目の操作で書き換えられる。知らない辺は上になる。
+#[test]
+fn the_side_of_an_edited_callout_is_saved_as_a_property_of_its_item() {
+    let mut h = atlas_with_callout();
+    edit(&mut h, "bottom", "Hello");
+    edit(&mut h, "middle", "Hello");
+
+    assert_eq!(batches(&h), [[sided("c", None, "bottom")]]);
+    assert!(upserts(&h).is_empty());
+}
+
+// テキストと辺を同時に変えられた吹き出しは、本文とプロパティが1回の送信で書き換えられ、そのあとアウトラインが読み直される。
+#[test]
+fn the_text_and_the_side_of_a_callout_edited_at_once_are_saved_in_one_batch() {
+    let mut h = atlas_with_callout();
+    answer_outline(
+        &mut h,
+        vec![atlas_item(
+            "c",
+            1,
+            "Bye",
+            &[
+                ("atlas_type", "callout"),
+                ("atlas_bounds", "10,20,0,60"),
+                ("atlas_side", "bottom"),
+            ],
+        )],
+    );
+    edit(&mut h, "bottom", "Bye");
+
+    assert_eq!(batches(&h), [[sided("c", Some("Bye"), "bottom")]]);
+    assert!(upserts(&h).is_empty());
+    let shown = &h.view().atlas_callouts[0];
     assert_eq!(
-        changes(&h),
-        [AtlasChange::SetCallout {
-            item_id: "c".into(),
-            side: "bottom".into(),
-            text: "Bye".into()
-        }]
+        (shown.side.as_str(), shown.text.as_str()),
+        ("bottom", "Bye")
     );
 }
 
-// 空のテキストは、吹き出しを取り去るために送られる。
+// テキストを空にされた吹き出しは、項目が消される。
 #[test]
-fn an_empty_text_is_sent_to_take_the_callout_away() {
+fn the_item_of_a_callout_whose_text_is_emptied_is_deleted() {
     let mut h = atlas_with_callout();
-    h.send(Event::SetAtlasCallout {
-        key: "c".into(),
-        side: "top".into(),
-        text: "".into(),
-    });
+    edit(&mut h, "bottom", "");
 
-    assert_eq!(
-        changes(&h),
-        [AtlasChange::SetCallout {
-            item_id: "c".into(),
-            side: "top".into(),
-            text: "".into()
-        }]
+    assert_eq!(batches(&h), [[deleted("c")]]);
+}
+
+// グループの最後の子だった吹き出しが消されると、親でなくなった項目は、同じ送信で辺のプロパティを失う。
+#[test]
+fn an_item_whose_last_child_was_a_deleted_callout_loses_its_side_in_the_same_batch() {
+    let mut h = atlas_of(
+        vec![],
+        vec![
+            atlas_item("g", 1, "Tools", &[("atlas_side", "left")]),
+            atlas_item(
+                "c",
+                2,
+                "Hello",
+                &[("atlas_type", "callout"), ("atlas_bounds", "10,20,0,60")],
+            ),
+        ],
     );
+    edit(&mut h, "top", "");
+
+    assert_eq!(batches(&h), [[deleted("c"), unsided("g")]]);
 }
 
 // 移動した吹き出しは倍率を保つ。座標は整数に丸められて保存される。

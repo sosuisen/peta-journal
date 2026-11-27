@@ -91,7 +91,6 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::CycleTask { .. } => "CycleTask",
         ApiOp::UpsertItemProperty { .. } => "UpsertItemProperty",
         ApiOp::DeleteItemProperty { .. } => "DeleteItemProperty",
-        ApiOp::ChangeAtlas { .. } => "ChangeAtlas",
         ApiOp::SearchCombined { .. } => "SearchCombined",
         ApiOp::SearchPageNames { .. } => "SearchPageNames",
         ApiOp::GetRecentPages { .. } => "GetRecentPages",
@@ -326,6 +325,7 @@ impl FakeApi {
                             level,
                             collapsed,
                             task,
+                            ..
                         } => {
                             let body = body.as_deref().unwrap_or("");
                             let mut item = plain_item(id, level.unwrap_or(1), body);
@@ -394,7 +394,6 @@ impl FakeApi {
             ApiOp::DeleteItemProperty { item_id, .. } => {
                 ApiOutput::Item(plain_item(item_id, 1, ""))
             }
-            ApiOp::ChangeAtlas { .. } => ApiOutput::Items(Vec::new()),
             ApiOp::GetPageById { page_id } => ApiOutput::Page(PageWithItems {
                 page: Page {
                     id: page_id.clone(),

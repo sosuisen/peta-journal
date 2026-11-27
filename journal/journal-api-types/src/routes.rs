@@ -108,17 +108,6 @@ pub const OPEN_EXPORT_FOLDER: Route = Route::post("/api/pages/{id}/open-folder")
 pub const UPSERT_PAGE_PROPERTY: Route = Route::put("/api/pages/{id}/properties/{key}");
 pub const DELETE_PAGE_PROPERTY: Route = Route::delete("/api/pages/{id}/properties/{key}");
 
-// ---- atlas pages ----
-
-pub const ADD_ATLAS_LINK: Route = Route::post("/api/pages/{id}/atlas/links");
-pub const SET_ATLAS_LINK: Route = Route::put("/api/pages/{id}/atlas/links/{item_id}");
-pub const GROUP_ATLAS_CARDS: Route = Route::post("/api/pages/{id}/atlas/group");
-pub const UNGROUP_ATLAS_CARDS: Route = Route::post("/api/pages/{id}/atlas/ungroup");
-pub const SET_ATLAS_GROUP_TITLE: Route = Route::put("/api/pages/{id}/atlas/groups/{item_id}");
-pub const ADD_ATLAS_CALLOUT: Route = Route::post("/api/pages/{id}/atlas/callouts");
-pub const SET_ATLAS_CALLOUT: Route = Route::put("/api/pages/{id}/atlas/callouts/{item_id}");
-pub const REMOVE_ATLAS_ITEM: Route = Route::delete("/api/pages/{id}/atlas/items/{item_id}");
-
 // ---- items ----
 
 pub const CREATE_ITEM: Route = Route::post("/api/items");

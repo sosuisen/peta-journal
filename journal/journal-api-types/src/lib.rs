@@ -628,6 +628,7 @@ pub enum BatchOpInput {
         #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
         properties: std::collections::BTreeMap<String, PropertyValue>,
     },
+    #[serde(rename_all = "camelCase")]
     Update {
         id: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -638,6 +639,13 @@ pub enum BatchOpInput {
         collapsed: Option<bool>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         task: Option<TaskStateInput>,
+        /// The properties to write, each a defined key with a value of its type. The other
+        /// properties of the item stay as they are
+        #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+        properties: std::collections::BTreeMap<String, PropertyValue>,
+        /// The keys of the properties to take away from the item
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        dropped_properties: Vec<String>,
     },
     #[serde(rename_all = "camelCase")]
     Move {
@@ -761,59 +769,6 @@ pub struct FlatMarkdownInput {
     /// Flat Markdown: items separated by '<!-- @@ -->' marker lines
     #[serde(skip_serializing_if = "Option::is_none")]
     pub markdown: Option<String>,
-}
-
-// ---- atlas ----
-
-/// A link card: the page or the address it shows, and where it is.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct AtlasLinkInput {
-    /// What the link card shows: the name of a page, or a URL
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub target: String,
-    /// Where the card is, as four numbers 'x,y,width,height'
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub bounds: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct AtlasGroupInput {
-    /// Each a card by its item id, or a page card by the id of its page
-    pub cards: Vec<String>,
-    /// The card or the group the cards are put together with
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub target: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct AtlasTitleInput {
-    /// The side of the group its title is on: 'top', 'bottom', 'left' or 'right'
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub side: String,
-    /// The title of the group
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub title: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-pub struct AtlasCalloutInput {
-    /// Where the callout is, as four numbers 'x,y,width,height'
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub bounds: String,
-    /// The side of the callout its bubble is on: 'top', 'bottom', 'left' or 'right'
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub side: String,
-    /// The text of the callout
-    #[serde(skip_serializing_if = "String::is_empty")]
-    pub text: String,
 }
 
 // ---- settings ----
@@ -982,18 +937,10 @@ mod tests {
             title: Some("New".into()),
             ..Default::default()
         };
-        let link = AtlasLinkInput {
-            target: "Page".into(),
-            ..Default::default()
-        };
 
         assert_eq!(
             serde_json::to_value(update).unwrap(),
             json!({ "title": "New" })
-        );
-        assert_eq!(
-            serde_json::to_value(link).unwrap(),
-            json!({ "target": "Page" })
         );
     }
 
@@ -1033,6 +980,8 @@ mod tests {
                         task: true,
                         ..Default::default()
                     }),
+                    properties: [("side".to_string(), PropertyValue::Text("left".into()))].into(),
+                    dropped_properties: vec!["gone".into()],
                 },
             ],
         };
@@ -1044,7 +993,8 @@ mod tests {
             json!({ "ops": [
                 { "op": "create", "id": "i", "pageId": "p", "position": "last", "level": 1,
                   "body": "text" },
-                { "op": "update", "id": "i", "level": 2, "task": { "task": true } },
+                { "op": "update", "id": "i", "level": 2, "task": { "task": true },
+                  "properties": { "side": "left" }, "droppedProperties": ["gone"] },
             ] })
         );
         assert_eq!(
