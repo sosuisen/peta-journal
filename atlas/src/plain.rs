@@ -2,16 +2,17 @@
 //! in the outline or in the `.md`, so what an item is comes from its body, its place in the
 //! tree and its `atlas_type`, and not from marks the server once left on it.
 //!
-//! Only what the screen of today can show is read. A card is an item whose body is one wiki
-//! link, a group is an item of level 1 with items under it, and a callout is an item whose
-//! `atlas_type` says so. Any other item is left out.
+//! Only what the screen of today can show is read. A card is an item whose first line is one
+//! wiki link, a group is an item of level 1 with items under it, and a callout is an item
+//! whose `atlas_type` says so. Any other item is left out.
 
-use crate::{card_label, link_target, AtlasItem, CALLOUT_TYPE, TYPE_KEY};
+use crate::{card_label, link_body, link_target, AtlasItem, CALLOUT_TYPE, TYPE_KEY};
 
 /// What an item of a plain atlas page is drawn as.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
-    /// An item whose body is one wiki link and nothing else. [`link_target`] names its page.
+    /// An item whose first line is one wiki link and nothing else, whatever follows on the
+    /// later lines. [`card_link`] names its page.
     Card,
     /// An item of level 1 with items under it. Its body is the title.
     Group,
@@ -48,7 +49,7 @@ pub fn entries<'a, T: AtlasItem + 'a>(items: impl IntoIterator<Item = &'a T>) ->
         } else if item.level() <= 1 && is_parent {
             open_group = Some(item);
             Kind::Group
-        } else if link_target(item.body()).is_some() {
+        } else if card_link(item.body()).is_some() {
             Kind::Card
         } else {
             continue;
@@ -59,12 +60,59 @@ pub fn entries<'a, T: AtlasItem + 'a>(items: impl IntoIterator<Item = &'a T>) ->
     entries
 }
 
-/// The title of a group item; none while its body is empty. A group whose body is one wiki
-/// link is titled as the card of that link is named, as its brackets are no title.
+/// The link of a card: the wiki link that is the first line of its body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CardLink<'a> {
+    /// The path of the page the link names. The page of the card is found by it.
+    pub target: &'a str,
+    /// The label of `[[path|label]]`; none without one
+    pub label: Option<&'a str>,
+}
+
+impl CardLink<'_> {
+    /// What the card shows: the label, or else the name of the page the link names.
+    pub fn shown(&self) -> String {
+        self.label
+            .map_or_else(|| card_label(self.target), str::to_string)
+    }
+}
+
+/// The first line of a body, and the rest from its line break on.
+fn first_line(body: &str) -> (&str, &str) {
+    body.split_at(body.find('\n').unwrap_or(body.len()))
+}
+
+/// The link of a card, when the first line of the body is one wiki link with a path and
+/// nothing else.
+pub fn card_link(body: &str) -> Option<CardLink<'_>> {
+    let inner = link_target(first_line(body).0)?;
+    let (target, label) = match inner.split_once('|') {
+        Some((target, label)) => (target.trim(), Some(label.trim())),
+        None => (inner, None),
+    };
+    (!target.is_empty()).then_some(CardLink {
+        target,
+        label: label.filter(|label| !label.is_empty()),
+    })
+}
+
+/// The body of a card when it links to the page at `target`: it keeps its label and the
+/// lines after the first.
+pub fn relinked(body: &str, target: &str) -> String {
+    let label = card_link(body).and_then(|link| link.label);
+    let link = match label {
+        Some(label) => link_body(&format!("{target}|{label}")),
+        None => link_body(target),
+    };
+    format!("{link}{}", first_line(body).1)
+}
+
+/// The title of a group item; none while its body is empty. A group whose body is the link
+/// of a card is titled as that card is named, as its brackets are no title.
 pub fn group_title<T: AtlasItem>(group: &T) -> Option<String> {
     let text = group.body().trim();
-    match link_target(text) {
-        Some(target) => Some(card_label(target)),
+    match card_link(text) {
+        Some(link) => Some(link.shown()),
         None => (!text.is_empty()).then(|| text.to_string()),
     }
 }
