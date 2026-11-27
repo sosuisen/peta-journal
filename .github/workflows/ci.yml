@@ -395,6 +395,22 @@ jobs:
       - run: node scripts/checks.mjs run outliner-android
         env:
           PETA_ANDROID_ABIS: x86_64
+      # The results of the tests, with the time of each, go with the runner otherwise: the XML of
+      # the tests on the device and of the JVM, the log of each test on the device, the whole log of
+      # the device after a failed try, and the log of the emulator. A test of the screen fails now
+      # and then on the runner (#1277)
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: outliner-android-test-results
+          path: |
+            client/apps/native-app/outliner-android/app/build/outputs/androidTest-results
+            client/apps/native-app/outliner-android/app/build/coverage-first-try/results
+            client/apps/native-app/outliner-android/app/build/test-results/testDebugUnitTest
+            client/apps/native-app/outliner-android/build/logcat-*.txt
+            client/apps/native-app/outliner-android/build/emulator.log
+          if-no-files-found: ignore
+          retention-days: 14
 
   memoview-win:
     name: client/apps/webview-app/memoview-win
