@@ -42,7 +42,6 @@ pub fn op_to_file(mut op: ApiOp) -> ApiOp {
         | ApiOp::CycleTask { .. }
         | ApiOp::UpsertItemProperty { .. }
         | ApiOp::DeleteItemProperty { .. }
-        | ApiOp::ChangeAtlas { .. }
         | ApiOp::SearchCombined { .. }
         | ApiOp::SearchPageNames { .. }
         | ApiOp::GetRecentPages { .. }
