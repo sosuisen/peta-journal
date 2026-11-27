@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use hmtid::Hmtid;
-use peta_atlas::{GROUP_TYPE, PAGE_KEY, TYPE_KEY};
+use peta_atlas::{CALLOUTS_TYPE, GROUP_TYPE, PAGE_KEY, TYPE_KEY};
 
 use super::model::Item;
 
@@ -25,6 +25,8 @@ pub fn migration(
     props: &BTreeMap<String, BTreeMap<String, String>>,
 ) -> Option<Migration> {
     let mut migration = Migration::default();
+    // The level of the parent of the callouts whose items are passed now
+    let mut under_callouts: Option<i32> = None;
     for item in items {
         let prop = |key| {
             props
@@ -32,11 +34,22 @@ pub fn migration(
                 .and_then(|p| p.get(key))
                 .map(String::as_str)
         };
+        if under_callouts.is_some_and(|parent| item.level <= parent) {
+            under_callouts = None;
+        }
+        if under_callouts.is_some() {
+            migration.levels.push((item.id.clone(), item.level - 1));
+        }
         if prop(PAGE_KEY).is_some() {
             migration.dropped_props.push((item.id.clone(), PAGE_KEY));
         }
-        if prop(TYPE_KEY) == Some(GROUP_TYPE) {
-            migration.dropped_props.push((item.id.clone(), TYPE_KEY));
+        match prop(TYPE_KEY) {
+            Some(GROUP_TYPE) => migration.dropped_props.push((item.id.clone(), TYPE_KEY)),
+            Some(CALLOUTS_TYPE) => {
+                migration.removed.push(item.id.clone());
+                under_callouts = Some(item.level);
+            }
+            _ => {}
         }
     }
     (migration != Migration::default()).then_some(migration)
