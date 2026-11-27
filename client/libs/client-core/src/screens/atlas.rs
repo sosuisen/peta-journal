@@ -41,7 +41,7 @@ pub use peta_atlas::{
 };
 use peta_atlas::{link_body, side_or_default, CALLOUT_TYPE};
 
-/// The width of a card in the list of unplaced cards, which a drop from the list reads.
+/// The width of a card in the lists beside the canvas, which a drop from a list reads.
 pub const CARD_WIDTH: f64 = 120.0;
 
 type Entry<'a> = plain::Entry<'a, Item>;

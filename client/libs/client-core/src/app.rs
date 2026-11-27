@@ -644,7 +644,7 @@ pub enum Event {
         x: f64,
         y: f64,
     },
-    /// A card of the list of unplaced cards let go on the canvas at `x`, `y`. `grab_x` and
+    /// A card of the lists beside the canvas let go on the canvas at `x`, `y`. `grab_x` and
     /// `grab_y` are where the card was grabbed, as a part of its width and its height. The
     /// grabbed spot stays under the pointer, so the card goes where the dragged image is.
     DropAtlasCard {
@@ -711,7 +711,8 @@ pub enum Event {
         side: String,
         text: String,
     },
-    /// The card menu's "Remove from Atlas": the page's card goes back to the unplaced list.
+    /// The card menu's "Remove from Atlas": the page's card goes back to the items without a
+    /// place.
     RemoveAtlasCard {
         page_id: String,
     },
