@@ -45,7 +45,13 @@ pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
 }
 
 /// The enums with data that a shell takes apart with a `switch`.
-const CLOSED_RECORDS: [&str; 4] = ["RichBlock", "RichLink", "RowChange", "Panel"];
+const CLOSED_RECORDS: [&str; 5] = [
+    "RichBlock",
+    "RichLink",
+    "RowChange",
+    "HeadingChange",
+    "Panel",
+];
 
 /// Writes the same types as the C# project `PetaTypes` under `out/csharp`, for the WinUI shell.
 ///
