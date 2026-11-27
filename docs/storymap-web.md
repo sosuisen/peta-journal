@@ -4,6 +4,8 @@
 
 ローカルの Markdown ファイルの上に載る、オフラインファーストのアウトライナー。毎日のジャーナルに書いたものが、ページ・リンク・タグ・地図（アトラス）へ育っていく。ジャーナルサーバーを中心に、拡張機能・外部アプリ・AI エージェント・別の PC がゆるくつながる。
 
+これは Web 版（`outliner-react`）とサーバーのストーリーマップで、PetaJournal 全体の地図も兼ねる。ほかのアプリのストーリーマップは、`storymap-emacs.md`、`storymap-smartphone.md`、`storymap-stickies.md` にある。
+
 このストーリーマップは、2026-11-02 時点のフロントエンド（`client`）の仕様から逆算して作った。出典は、コアのテスト（`client/libs/client-core/src/tests/*.rs` の日本語の説明）、E2E テスト（`client/apps/web-app/outliner-react/e2e/tests/*.spec.ts`）、画面のモジュールコメント、`docs/properties.md`、`docs/folder-sync-journeys.md` である。
 
 ## ペイン（仮）
