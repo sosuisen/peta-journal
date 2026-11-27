@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type DragEvent,
@@ -18,6 +19,7 @@ import { ATLAS_OPTIONS, loadAtlasScripts } from './atlasScripts';
 import { useCore, usePanel } from './context';
 import { openInOf } from './keys';
 import { useClosesOnOutside } from './menu';
+import { clickedLink, heldOf, highlightCode, sizeImages } from './drawnBody';
 
 /** The canvas of atlas.js, as this shell uses it. */
 interface AtlasCanvas {
@@ -502,11 +504,21 @@ function CardText({
   const core = useCore();
   const tagsDir = usePanel('Config')?.tags_dir ?? '';
   useClosesOnOutside('.atlas-text', close);
+  const html = core.bodyHtml(text, tagsDir);
+  const content = useRef<HTMLDivElement>(null);
+  // What the HTML leaves to the shell, as on a page
+  useLayoutEffect(() => {
+    const drawn = content.current as HTMLDivElement;
+    sizeImages(drawn);
+    highlightCode(drawn);
+  }, [html]);
   return (
     <div
+      ref={content}
       className="atlas-text"
+      onClick={event => clickedLink(core, event, heldOf(event))}
       style={{ left: `${shown.x}px`, top: `${shown.y}px` }}
-      dangerouslySetInnerHTML={{ __html: core.bodyHtml(text, tagsDir) }}
+      dangerouslySetInnerHTML={{ __html: html }}
     />
   );
 }
