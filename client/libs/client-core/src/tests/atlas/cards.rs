@@ -24,19 +24,156 @@ fn a_page_without_bounds_waits_unplaced_and_a_page_with_them_lies_on_the_canvas(
     );
 }
 
-// カードの位置は、そのページを指すアイテムから読み取られる。同じページへのリンクを持つだけの他のアイテムの境界は使われない。
+// カードのページは、本文のwikilinkのパスから引かれる。リンク先がこのフォルダのページならページのカードであり、リンクカードにはならない。
 #[test]
-fn the_place_of_a_card_is_read_from_the_item_of_its_page() {
+fn the_page_of_a_card_is_found_from_the_path_of_its_link() {
     let h = atlas_of(
         vec![child("one"), child("two")],
+        vec![atlas_item(
+            "any",
+            1,
+            "[[a/b/two]]",
+            &[("atlas_bounds", "1,2,0,40")],
+        )],
+    );
+
+    assert_eq!(bounds_of(&h, "a/b/two").map(|b| b.x), Some(1.0));
+    assert!(h.view().atlas_links.is_empty());
+}
+
+// 子のフォルダへのカードは、そのフォルダのindexページへのリンクであり、フォルダのカードになる。
+#[test]
+fn a_card_that_links_to_the_index_of_a_child_folder_is_the_card_of_the_folder() {
+    let h = atlas_of(
+        vec![doc("a/b/c/", "index")],
+        vec![atlas_item(
+            "f",
+            1,
+            "[[a/b/c/index]]",
+            &[("atlas_bounds", "1,2,0,40")],
+        )],
+    );
+
+    let cards = h.view().atlas_cards;
+    assert_eq!(
+        (cards[0].is_dir, cards[0].bounds.map(|b| b.x)),
+        (true, Some(1.0))
+    );
+    assert!(h.view().atlas_links.is_empty());
+}
+
+// 最初の1行がwikilinkだけの項目は、2行目より後に何があっても、そのページのカードである。
+#[test]
+fn an_item_whose_first_line_is_a_link_is_a_card_whatever_follows() {
+    let h = atlas_of(
+        vec![child("one")],
+        vec![atlas_item(
+            "any",
+            1,
+            "[[a/b/one]]\nnotes about it",
+            &[("atlas_bounds", "1,2,0,40")],
+        )],
+    );
+
+    assert_eq!(bounds_of(&h, "a/b/one").map(|b| b.x), Some(1.0));
+}
+
+// ラベルのあるwikilinkのカードは、ページをパスから引き、ラベルを出す。ラベルのないカードと、カードのないページは、ページの名前を出す。
+#[test]
+fn a_card_shows_the_label_of_its_link_and_finds_its_page_by_the_path() {
+    let h = atlas_of(
+        vec![child("one"), child("three"), child("two")],
         vec![
-            card_item("two", 1, Some("1,2,0,40")),
-            atlas_item("other", 1, "[[a/b/one]]", &[("atlas_bounds", "9,9,0,40")]),
+            atlas_item(
+                "any",
+                1,
+                "[[a/b/one|My one]]",
+                &[("atlas_bounds", "1,2,0,40")],
+            ),
+            card_item("two", 1, None),
         ],
     );
 
+    let cards: Vec<_> = h
+        .view()
+        .atlas_cards
+        .into_iter()
+        .map(|c| (c.page_id, c.label, c.bounds.map(|b| b.x)))
+        .collect();
+    assert_eq!(
+        cards,
+        [
+            ("a/b/one".to_string(), "My one".to_string(), Some(1.0)),
+            ("a/b/three".to_string(), "three".to_string(), None),
+            ("a/b/two".to_string(), "two".to_string(), None),
+        ]
+    );
+}
+
+// このフォルダにないページへのカードは、リンクカードである。パスがこのフォルダでも、ページがなければリンクカードである。
+#[test]
+fn a_card_that_links_to_no_page_of_the_folder_is_a_link_card() {
+    let h = atlas_of(
+        vec![child("one")],
+        vec![
+            atlas_item("out", 1, "[[x/one]]", &[("atlas_bounds", "1,2,0,40")]),
+            atlas_item("gone", 1, "[[a/b/gone]]", &[("atlas_bounds", "3,4,0,40")]),
+        ],
+    );
+
+    let links: Vec<_> = h
+        .view()
+        .atlas_links
+        .into_iter()
+        .map(|l| l.item_id)
+        .collect();
+    assert_eq!(links, ["out", "gone"]);
     assert_eq!(bounds_of(&h, "a/b/one"), None);
-    assert_eq!(bounds_of(&h, "a/b/two").map(|b| b.x), Some(1.0));
+}
+
+// 同じページへのカードが2つあるときは、先のものがページのカードで、後のものはリンクカードである。
+#[test]
+fn the_first_of_two_cards_of_a_page_is_its_card_and_the_second_a_link_card() {
+    let h = atlas_of(
+        vec![child("one")],
+        vec![
+            card_item("one", 1, Some("1,2,0,40")),
+            atlas_item("again", 1, "[[a/b/one]]", &[("atlas_bounds", "9,9,0,40")]),
+        ],
+    );
+
+    assert_eq!(bounds_of(&h, "a/b/one").map(|b| b.x), Some(1.0));
+    let links: Vec<_> = h
+        .view()
+        .atlas_links
+        .into_iter()
+        .map(|l| l.item_id)
+        .collect();
+    assert_eq!(links, ["again"]);
+}
+
+// カードのないページは、未追加の項目として、未配置の一覧に並ぶ。子のフォルダも並ぶ。座標のないカードのページは、1度だけ並ぶ。
+#[test]
+fn a_page_with_no_card_waits_in_the_list_with_the_pages_whose_card_has_no_place() {
+    let h = atlas_of(
+        vec![doc("a/b/c/", "index"), child("one"), child("two")],
+        vec![card_item("two", 1, None)],
+    );
+
+    let unplaced: Vec<_> = h
+        .view()
+        .atlas_cards
+        .into_iter()
+        .map(|c| (c.label, c.bounds))
+        .collect();
+    assert_eq!(
+        unplaced,
+        [
+            ("c/".to_string(), None),
+            ("one".to_string(), None),
+            ("two".to_string(), None)
+        ]
+    );
 }
 
 // フォルダのカードはそのフォルダのアトラスを開き、ページのカードはそのページを開く。
@@ -98,13 +235,83 @@ fn a_card_dropped_from_the_list_keeps_the_grabbed_spot_under_the_pointer() {
     );
 }
 
-// ページに対応するアイテムがまだないカードは配置されず、何も保存されない。
+// 未追加の項目をアトラスに置くと、そのページへのwikilinkの項目が、位置とともに作られ、読み直したアウトラインが表示される。
 #[test]
-fn a_card_whose_page_has_no_item_yet_is_not_placed() {
+fn a_page_with_no_card_dropped_on_the_atlas_gets_an_item_that_links_to_it() {
     let mut h = atlas_of(vec![child("one")], vec![]);
-    place(&mut h, "a/b/one", 0.0, 0.0);
+    answer_outline(&mut h, vec![card_item("one", 1, Some("10,-20,0,40"))]);
+    place(&mut h, "a/b/one", 10.4, -20.0);
+
+    assert_eq!(
+        batches(&h),
+        [[made(
+            ItemPosition::Last,
+            "[[a/b/one]]",
+            &[("atlas_bounds", "10,-20,0,40")]
+        )]]
+    );
+    assert!(upserts(&h).is_empty());
+    assert_eq!(bounds_of(&h, "a/b/one").map(|b| b.x), Some(10.0));
+}
+
+// 未追加のフォルダをアトラスに置くと、そのフォルダのindexページへのwikilinkの項目が作られる。
+#[test]
+fn a_folder_with_no_card_dropped_on_the_atlas_gets_an_item_that_links_to_its_index() {
+    let mut h = atlas_of(vec![doc("a/b/c/", "index")], vec![]);
+    place(&mut h, "a/b/c/index", 0.0, 0.0);
+
+    assert_eq!(
+        batches(&h),
+        [[made(
+            ItemPosition::Last,
+            "[[a/b/c/index]]",
+            &[("atlas_bounds", "0,0,0,40")]
+        )]]
+    );
+}
+
+// 一覧から落とした未追加の項目も、つかんだ点がポインターの下に残るように置かれる。
+#[test]
+fn a_page_with_no_card_dropped_from_the_list_keeps_the_grabbed_spot_under_the_pointer() {
+    let mut h = atlas_of(vec![child("one")], vec![]);
+    h.send(Event::DropAtlasCard {
+        card_id: "a/b/one".into(),
+        x: 100.0,
+        y: 50.0,
+        grab_x: 0.25,
+        grab_y: 1.0,
+    });
+
+    assert_eq!(
+        batches(&h),
+        [[made(
+            ItemPosition::Last,
+            "[[a/b/one]]",
+            &[("atlas_bounds", "130,30,0,40")]
+        )]]
+    );
+}
+
+// このフォルダのページでもカードでもないものは置かれず、何も送られない。
+#[test]
+fn what_is_neither_a_page_of_the_folder_nor_a_card_is_not_placed() {
+    let mut h = atlas_of(vec![child("one")], vec![]);
+    place(&mut h, "a/b/none", 0.0, 0.0);
 
     assert!(upserts(&h).is_empty());
+    assert!(batches(&h).is_empty());
+}
+
+// 項目を作れなかったときは、アラートが表示され、ページは未追加のまま残る。
+#[test]
+fn a_refused_item_leaves_the_page_in_the_list() {
+    let mut h = atlas_of(vec![child("one")], vec![]);
+    h.api.fail_next("ApplyBatch", "refused");
+    place(&mut h, "a/b/one", 0.0, 0.0);
+
+    assert_eq!(bounds_of(&h, "a/b/one"), None);
+    assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
+    assert!(!h.api.called("GetPageById"));
 }
 
 // 配置済みのカードは、移動してもその大きさを保つ。
@@ -284,4 +491,43 @@ fn an_atlas_card_knows_whether_its_page_is_published() {
             ("a/b/two".to_string(), false)
         ]
     );
+}
+
+// 座標のどちらかが数でない点には、カードもリンクも吹き出しも置かれず、吹き出しも動かない。
+#[test]
+fn nothing_is_placed_at_a_point_that_is_no_number() {
+    let mut h = atlas_of(
+        vec![child("one")],
+        vec![
+            card_item("one", 1, Some("0,0,0,40")),
+            atlas_item(
+                "c",
+                1,
+                "Hello",
+                &[("atlas_type", "callout"), ("atlas_bounds", "10,20,0,40")],
+            ),
+        ],
+    );
+    for (x, y) in [(f64::NAN, 0.0), (0.0, f64::INFINITY)] {
+        place(&mut h, "a/b/one", x, y);
+        h.send(Event::AddAtlasCallout {
+            x,
+            y,
+            side: "top".into(),
+            text: "Hi".into(),
+        });
+        h.send(Event::AddAtlasLink {
+            x,
+            y,
+            target: "x/Target".into(),
+        });
+        h.send(Event::MoveAtlasCallout {
+            key: "c".into(),
+            x,
+            y,
+        });
+    }
+
+    assert!(upserts(&h).is_empty());
+    assert!(batches(&h).is_empty());
 }

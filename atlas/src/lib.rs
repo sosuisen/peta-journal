@@ -2,7 +2,10 @@
 //! The server writes that outline; the frontend and other programs, such as a static site,
 //! read it and draw it with `atlas.js`.
 //!
-//! - The crate root reads the outline: what each item is and which group a card is in.
+//! - The crate root reads the outline as the server wrote it: what each item is and which
+//!   group a card is in. The server reads it so until it has moved every atlas to the plain
+//!   form (ADR 053).
+//! - [`plain`] reads the outline of an atlas that is a plain page, as the clients draw it.
 //! - [`marks`] draws the icons, blobs and faces as SVG (feature `marks`).
 //! - [`scene`] writes the cards and callouts as `atlas.js` reads them (feature `marks`).
 //! - [`measure`] measures the width of a card from its label in a font (feature `measure`).
@@ -11,6 +14,7 @@
 pub mod marks;
 #[cfg(feature = "measure")]
 pub mod measure;
+pub mod plain;
 #[cfg(feature = "marks")]
 pub mod scene;
 
@@ -275,11 +279,11 @@ pub fn card_label(path: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
-    struct Item {
+    pub(crate) struct Item {
         level: i32,
         body: String,
         props: BTreeMap<String, String>,
@@ -297,7 +301,7 @@ mod tests {
         }
     }
 
-    fn item(level: i32, body: &str, props: &[(&str, &str)]) -> Item {
+    pub(crate) fn item(level: i32, body: &str, props: &[(&str, &str)]) -> Item {
         Item {
             level,
             body: body.to_string(),

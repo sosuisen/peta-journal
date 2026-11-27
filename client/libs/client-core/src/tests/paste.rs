@@ -439,6 +439,8 @@ fn undoing_a_paste_into_a_transclusion_root_restores_the_source_item_and_deletes
                 level: Some(1),
                 collapsed: Some(false),
                 task: None,
+                properties: Default::default(),
+                dropped_properties: Vec::new(),
             },
             BatchOpInput::Delete { id: "n1".into() },
         ]]

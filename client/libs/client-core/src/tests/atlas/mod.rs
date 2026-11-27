@@ -19,10 +19,10 @@ mod links;
 mod sync;
 
 use crate::app::{Event, PageState, Screen};
-use crate::effects::{ApiOp, ApiOutput, AtlasChange, UiOp};
+use crate::effects::{ApiOp, ApiOutput, UiOp};
 use crate::harness::Harness;
 use crate::model::PageExt;
-use crate::model::{Item, Page};
+use crate::model::{BatchOpInput, Item, ItemPosition, Page, PageWithItems};
 use crate::screens::atlas::{Bounds, Callout, GroupTitle};
 use crate::screens::page::{page_title, ATLAS_NAME};
 
@@ -58,17 +58,14 @@ fn atlas_item(id: &str, level: i32, body: &str, props: &[(&str, &str)]) -> Item 
     item
 }
 
-/// The item of the card of the page `a/b/<name>`, `i-<name>`, placed by the bounds if any
+/// The item of the card of the page `a/b/<name>`, `i-<name>`, placed by the bounds if any.
+/// Its body links to the page, which is all that joins the two.
 fn card_item(name: &str, level: i32, bounds: Option<&str>) -> Item {
-    let page_id = format!("a/b/{name}");
-    let mut props = vec![("atlas_page", page_id.as_str())];
-    if let Some(b) = bounds {
-        props.push(("atlas_bounds", b));
-    }
+    let props: Vec<(&str, &str)> = bounds.map(|b| ("atlas_bounds", b)).into_iter().collect();
     atlas_item(
         &format!("i-{name}"),
         level,
-        &format!("[[{page_id}]]"),
+        &format!("[[a/b/{name}]]"),
         &props,
     )
 }
@@ -112,18 +109,152 @@ fn upserts(h: &Harness) -> Vec<(String, String, String)> {
         .collect()
 }
 
-fn changes(h: &Harness) -> Vec<AtlasChange> {
-    h.api
-        .calls_named("ChangeAtlas")
+/// The id a batch is shown with for the item it makes, whose real id is new each time
+const NEW: &str = "new";
+
+/// The batches sent to change the outline, each one operation of the user. The id of the
+/// item that a batch makes is written as [`NEW`].
+fn batches(h: &Harness) -> Vec<Vec<BatchOpInput>> {
+    crate::harness::batch_calls(&h.api)
         .into_iter()
-        .map(|op| match op {
-            ApiOp::ChangeAtlas { atlas_id, change } => {
-                assert_eq!(atlas_id, ATLAS_ID);
-                change.clone()
-            }
-            _ => unreachable!(),
+        .map(|ops| {
+            let made: Vec<String> = ops
+                .iter()
+                .filter_map(|op| match op {
+                    BatchOpInput::Create { id, .. } => Some(id.clone()),
+                    _ => None,
+                })
+                .collect();
+            let named = |position: ItemPosition| match position {
+                ItemPosition::After(id) if made.contains(&id) => ItemPosition::after(NEW),
+                position => position,
+            };
+            ops.into_iter()
+                .map(|op| match op {
+                    BatchOpInput::Create {
+                        page_id,
+                        position,
+                        level,
+                        body,
+                        transclude_item_id,
+                        properties,
+                        ..
+                    } => BatchOpInput::Create {
+                        id: NEW.into(),
+                        page_id,
+                        position: named(position),
+                        level,
+                        body,
+                        transclude_item_id,
+                        properties,
+                    },
+                    BatchOpInput::Move {
+                        ids,
+                        page_id,
+                        position,
+                    } => BatchOpInput::Move {
+                        ids,
+                        page_id,
+                        position: named(position),
+                    },
+                    op => op,
+                })
+                .collect()
         })
         .collect()
+}
+
+/// The operation that makes an item of level 1 on the atlas page
+fn made(position: ItemPosition, body: &str, props: &[(&str, &str)]) -> BatchOpInput {
+    BatchOpInput::Create {
+        id: NEW.into(),
+        page_id: ATLAS_ID.into(),
+        position,
+        level: 1,
+        body: body.into(),
+        transclude_item_id: None,
+        properties: props
+            .iter()
+            .map(|(key, value)| ((*key).into(), (*value).into()))
+            .collect(),
+    }
+}
+
+/// The operation that gives an item a level
+fn leveled(id: &str, level: i32) -> BatchOpInput {
+    BatchOpInput::Update {
+        id: id.into(),
+        body: None,
+        level: Some(level),
+        collapsed: None,
+        task: None,
+        properties: Default::default(),
+        dropped_properties: Vec::new(),
+    }
+}
+
+/// The operation that gives an item a body
+fn written(id: &str, body: &str) -> BatchOpInput {
+    BatchOpInput::Update {
+        id: id.into(),
+        body: Some(body.into()),
+        level: None,
+        collapsed: None,
+        task: None,
+        properties: Default::default(),
+        dropped_properties: Vec::new(),
+    }
+}
+
+/// The operation that moves items of the atlas page behind another
+fn moved(ids: &[&str], after: &str) -> BatchOpInput {
+    BatchOpInput::Move {
+        ids: ids.iter().map(|id| id.to_string()).collect(),
+        page_id: ATLAS_ID.into(),
+        position: ItemPosition::after(after),
+    }
+}
+
+fn deleted(id: &str) -> BatchOpInput {
+    BatchOpInput::Delete { id: id.into() }
+}
+
+/// The outline the server answers when the atlas page is read again after a change
+fn answer_outline(h: &mut Harness, items: Vec<Item>) {
+    h.api.answer_next(
+        "GetPageById",
+        Ok(ApiOutput::Page(PageWithItems {
+            page: doc("a/b/", ATLAS_NAME),
+            items,
+            ..Default::default()
+        })),
+    );
+}
+
+/// The operation that writes the side of an item, and its body when one is given
+fn sided(id: &str, body: Option<&str>, side: &str) -> BatchOpInput {
+    BatchOpInput::Update {
+        id: id.into(),
+        body: body.map(str::to_string),
+        level: None,
+        collapsed: None,
+        task: None,
+        properties: [("atlas_side".to_string(), side.into())].into(),
+        dropped_properties: Vec::new(),
+    }
+}
+
+/// The operation that takes the side away from an item that is no parent any more
+fn unsided(id: &str) -> BatchOpInput {
+    BatchOpInput::Update {
+        id: id.into(),
+        body: None,
+        level: None,
+        collapsed: None,
+        task: None,
+        properties: Default::default(),
+        dropped_properties: vec!["atlas_side".into()],
+    }
 }
 
 fn bounds_of(h: &Harness, page_id: &str) -> Option<Bounds> {
