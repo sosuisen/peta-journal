@@ -419,6 +419,46 @@ mod tests {
         assert_eq!(entries(&items)[2].place.map(|b| b.height), Some(60.0));
     }
 
+    // `atlas_bounds`のない親は描かれず、その下の項目も、自分の`atlas_bounds`の有無によらず、位置を持たない。読めない値も、ないものとして扱う。
+    #[test]
+    fn nothing_under_a_parent_without_bounds_has_a_place() {
+        let items = [
+            item(1, "outer", &[]),
+            item(2, "inner", &[(BOUNDS_KEY, "10,20,0,40")]),
+            item(3, "[[d/a]]", &[(BOUNDS_KEY, "1,2,0,40")]),
+            item(1, "broken", &[(BOUNDS_KEY, "1,2")]),
+            item(2, "[[d/b]]", &[(BOUNDS_KEY, "3,4,0,40")]),
+            item(1, "placed", &[(BOUNDS_KEY, "5,6,0,40")]),
+            item(2, "[[d/c]]", &[]),
+        ];
+
+        assert_eq!(
+            places(&items),
+            [
+                ("outer", None),
+                ("inner", None),
+                ("[[d/a]]", None),
+                ("broken", None),
+                ("[[d/b]]", None),
+                ("placed", Some((5.0, 6.0))),
+                ("[[d/c]]", None),
+            ]
+        );
+        let frames: Vec<Option<(f64, f64)>> = entries(&items).iter().map(|e| e.frame).collect();
+        assert_eq!(
+            frames,
+            [
+                Some((0.0, 0.0)),
+                None,
+                None,
+                Some((0.0, 0.0)),
+                None,
+                Some((0.0, 0.0)),
+                Some((5.0, 6.0)),
+            ]
+        );
+    }
+
     // 宛先を変えたカードの本文は、ラベルと2行目より後を保つ。
     #[test]
     fn a_card_linked_to_another_page_keeps_its_label_and_its_later_lines() {
