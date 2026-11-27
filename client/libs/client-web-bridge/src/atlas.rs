@@ -36,7 +36,10 @@ pub fn placed_json(cards: &str, links: &str) -> Result<String, String> {
         .collect();
     placed.extend(links.iter().map(|l| {
         let group = group_ref(l.group.as_ref(), l.group_title.as_ref());
-        scene::Card::link(&l.item_id, &l.target, l.bounds, group.as_ref())
+        scene::Card {
+            label: l.label.clone(),
+            ..scene::Card::link(&l.item_id, &l.target, l.bounds, group.as_ref())
+        }
     }));
     Ok(scene::cards_json(&placed))
 }
@@ -87,7 +90,7 @@ mod tests {
              "group":null,"group_color":null,"icon_tags":[],"group_title":null,"published":false}
         ]"#;
         let links = r#"[
-            {"item_id":"l","target":"x/Foo",
+            {"item_id":"l","target":"x/Foo","label":"Shown",
              "bounds":{"x":1.0,"y":2.0,"width":0.0,"height":0.0},
              "group":null,"group_title":null}
         ]"#;
@@ -108,7 +111,7 @@ mod tests {
             (&Value::from("g"), &Value::from("Plan"), &Value::from("top"))
         );
         assert!(placed[0]["icon"].is_string());
-        assert_eq!(placed[1]["label"], "Foo");
+        assert_eq!(placed[1]["label"], "Shown");
     }
 
     // 吹き出しは、文字から描いた顔とともに渡す。

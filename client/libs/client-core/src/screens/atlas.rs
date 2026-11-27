@@ -745,6 +745,8 @@ pub struct LinkCard {
     pub item_id: String,
     /// The page the link names, as it is written in the link
     pub target: String,
+    /// What the card shows: the label of the link, or else the name of the page it names
+    pub label: String,
     pub bounds: Bounds,
     /// The id of the group item the card is under
     pub group: Option<String>,
@@ -758,9 +760,11 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
         .into_iter()
         .filter(|card| card.page_id.is_none())
         .filter_map(|card| {
+            let link = plain::card_link(&card.item.body)?;
             Some(LinkCard {
                 item_id: card.item.id.clone(),
-                target: plain::card_link(&card.item.body)?.target.to_string(),
+                target: link.target.to_string(),
+                label: link.shown(),
                 bounds: bounds_of(card.item)?,
                 group: card.group.map(|g| g.id.clone()),
                 group_title: card.group.and_then(group_title),

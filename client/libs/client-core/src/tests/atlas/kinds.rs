@@ -19,11 +19,6 @@ fn a_card_to_a_page_of_another_folder_shows_the_label_of_its_link() {
         ],
     );
 
-    let labels: Vec<String> = h
-        .view()
-        .atlas_links
-        .into_iter()
-        .map(|l| l.label)
-        .collect();
+    let labels: Vec<String> = h.view().atlas_links.into_iter().map(|l| l.label).collect();
     assert_eq!(labels, ["Shown", "Other"]);
 }
