@@ -325,6 +325,7 @@ impl FakeApi {
                             level,
                             collapsed,
                             task,
+                            ..
                         } => {
                             let body = body.as_deref().unwrap_or("");
                             let mut item = plain_item(id, level.unwrap_or(1), body);

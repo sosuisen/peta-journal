@@ -484,6 +484,8 @@ fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_ite
                     end: None,
                     plan: None,
                 }),
+                properties: Default::default(),
+                dropped_properties: Vec::new(),
             },
             BatchOpInput::Update {
                 id: id("s"),
@@ -491,6 +493,8 @@ fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_ite
                 level: None,
                 collapsed: None,
                 task: None,
+                properties: Default::default(),
+                dropped_properties: Vec::new(),
             },
             BatchOpInput::Create {
                 id: id("n"),

@@ -188,6 +188,8 @@ fn leveled(id: &str, level: i32) -> BatchOpInput {
         level: Some(level),
         collapsed: None,
         task: None,
+        properties: Default::default(),
+        dropped_properties: Vec::new(),
     }
 }
 
@@ -199,6 +201,8 @@ fn written(id: &str, body: &str) -> BatchOpInput {
         level: None,
         collapsed: None,
         task: None,
+        properties: Default::default(),
+        dropped_properties: Vec::new(),
     }
 }
 

@@ -366,6 +366,8 @@ fn new_body(item_id: &str, body: String) -> BatchOpInput {
         level: None,
         collapsed: None,
         task: None,
+        properties: Default::default(),
+        dropped_properties: Vec::new(),
     }
 }
 
@@ -380,6 +382,8 @@ fn taken_behind(atlas_id: &str, items: &[&Item], after: &str, level: i32) -> Vec
             level: Some(level),
             collapsed: None,
             task: None,
+            properties: Default::default(),
+            dropped_properties: Vec::new(),
         })
         .collect();
     ops.push(BatchOpInput::Move {

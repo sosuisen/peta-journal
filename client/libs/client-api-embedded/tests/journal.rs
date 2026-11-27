@@ -459,6 +459,8 @@ fn an_item_takes_a_task_state_a_paste_a_stash_and_a_batch() {
                 level: None,
                 collapsed: None,
                 task: None,
+                properties: Default::default(),
+                dropped_properties: Vec::new(),
             }],
         }),
         Batched
@@ -658,6 +660,8 @@ fn leveled(id: &str, level: i32) -> BatchOpInput {
         level: Some(level),
         collapsed: None,
         task: None,
+        properties: Default::default(),
+        dropped_properties: Vec::new(),
     }
 }
 
