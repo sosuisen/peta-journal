@@ -3,7 +3,7 @@
 
 use crate::changes::{
     Changes, HeadingChange, HeadingsPanel, IndexPagesPanel, ListChange, OutlinePanel, PageChange,
-    Panel, RowChange, Shown,
+    Panel, RecentPagesPanel, RowChange, Shown,
 };
 use crate::harness::Harness;
 use crate::model::Page;
@@ -32,6 +32,7 @@ fn nothing_changed_gives_empty_changes() {
             rows: vec![],
             headings: vec![],
             index_pages: vec![],
+            recent_pages: vec![],
             panels: vec![]
         }
     );
@@ -76,6 +77,9 @@ fn the_first_changes_are_a_reset_of_every_list_and_every_panel() {
             index_pages: vec![PageChange::Reset {
                 items: index.pages.clone()
             }],
+            recent_pages: vec![PageChange::Reset {
+                items: view.recent_pages.pages.clone()
+            }],
             panels: vec![
                 Panel::Screen(view.screen.clone()),
                 Panel::AtlasCards(view.atlas_cards.clone()),
@@ -102,7 +106,9 @@ fn the_first_changes_are_a_reset_of_every_list_and_every_panel() {
                 Panel::Headings(HeadingsPanel {
                     state: view.headings.state
                 }),
-                Panel::RecentPages(view.recent_pages.clone()),
+                Panel::RecentPages(RecentPagesPanel {
+                    state: view.recent_pages.state
+                }),
                 Panel::Search(view.search.clone()),
                 Panel::Config(view.config.clone()),
                 Panel::Connection(view.connection),

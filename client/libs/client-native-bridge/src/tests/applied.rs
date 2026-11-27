@@ -54,7 +54,7 @@ pub(super) fn applied(mut view: ViewModel<RichText>, changes: Changes) -> ViewMo
                 index.state = value.state;
             }
             Panel::Headings(value) => view.headings.state = value.state,
-            Panel::RecentPages(value) => view.recent_pages = value,
+            Panel::RecentPages(value) => view.recent_pages.state = value.state,
             Panel::Search(value) => view.search = value,
             Panel::Config(value) => view.config = value,
             Panel::Connection(value) => view.connection = value,
@@ -72,6 +72,9 @@ pub(super) fn applied(mut view: ViewModel<RichText>, changes: Changes) -> ViewMo
     }
     for change in changes.index_pages {
         applied!(PageChange, change, &mut view.index_pages.pages);
+    }
+    for change in changes.recent_pages {
+        applied!(PageChange, change, &mut view.recent_pages.pages);
     }
     view
 }
