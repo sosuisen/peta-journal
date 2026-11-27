@@ -355,6 +355,7 @@ fn the_kind_of_a_search_result_is_written_by_the_name_of_the_core() {
     for (kind, name) in kinds {
         let entry = CoreSearchEntry {
             position: 0,
+            key: "page:p1".into(),
             kind,
             title: "t".into(),
             label: "l".into(),
