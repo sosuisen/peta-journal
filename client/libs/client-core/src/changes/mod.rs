@@ -31,7 +31,7 @@ use serde::Serialize;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Changes<B> {
     /// The changes to the rows of the outline, to apply in order.
-    pub rows: Vec<ListChange<Row<B>>>,
+    pub rows: Vec<RowChange<B>>,
     /// The panels that changed, each whole.
     pub panels: Vec<Panel>,
 }
@@ -100,6 +100,7 @@ impl<B: Clone + PartialEq> Shown<B> {
             }],
             Some(had) => list_changes(had, &rows, |row| &row.item.id),
         };
+        let changes = changes.into_iter().map(RowChange::from).collect();
         self.rows = Some(rows);
         Changes {
             rows: changes,

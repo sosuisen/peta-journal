@@ -45,7 +45,7 @@ pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
 }
 
 /// The enums with data that a shell takes apart with a `switch`.
-const CLOSED_RECORDS: [&str; 4] = ["RichBlock", "RichLink", "ListChange", "Panel"];
+const CLOSED_RECORDS: [&str; 4] = ["RichBlock", "RichLink", "RowChange", "Panel"];
 
 /// Writes the same types as the C# project `PetaTypes` under `out/csharp`, for the WinUI shell.
 ///
@@ -138,7 +138,7 @@ fn failed(error: impl std::fmt::Display) -> TypeGenError {
 mod tests {
     use super::*;
 
-    // C#の型では、RichBlock、RichLink、ListChange、Panelは閉じたrecordで、プロジェクトは.NET 11である。
+    // C#の型では、RichBlock、RichLink、RowChange、Panelは閉じたrecordで、プロジェクトは.NET 11である。
     #[test]
     fn the_enums_of_csharp_are_closed_records_of_dotnet_11() {
         let out = std::env::temp_dir().join(format!("peta-csharp-types-{}", std::process::id()));
@@ -168,7 +168,7 @@ mod tests {
         text
     }
 
-    // 画面の差分の型（Changes、Panel、ListChange）が、Swift、C#、Kotlinの型として書かれる（ADR 076）。
+    // 画面の差分の型（Changes、Panel、RowChange）が、Swift、C#、Kotlinの型として書かれる（ADR 076）。
     #[test]
     fn the_types_of_the_changes_are_written_for_every_shell() {
         let out = std::env::temp_dir().join(format!("peta-change-types-{}", std::process::id()));
@@ -179,7 +179,7 @@ mod tests {
         let languages = ["swift", "csharp", "kotlin"].map(|language| written(&out.join(language)));
         std::fs::remove_dir_all(&out).unwrap();
         for types in languages {
-            for name in ["Changes", "Panel", "OutlinePanel", "ListChange"] {
+            for name in ["Changes", "Panel", "OutlinePanel", "RowChange"] {
                 assert!(types.contains(name), "no {name}");
             }
         }

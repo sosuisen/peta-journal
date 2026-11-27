@@ -58,7 +58,7 @@ fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
     assert_eq!(
         changes,
         Changes {
-            rows: vec![ListChange::Reset {
+            rows: vec![RowChange::Reset {
                 items: outline.rows.clone()
             }],
             panels: vec![
@@ -104,7 +104,7 @@ fn a_row_whose_body_changed_is_an_update_at_its_place() {
 
     assert_eq!(
         changes.rows,
-        vec![ListChange::Update {
+        vec![RowChange::Update {
             at: 1,
             item: view.outline.rows[1].clone()
         }]
@@ -118,7 +118,7 @@ fn the_changes_are_made_from_a_screen_of_any_body_model() {
     let app = PetaApp::<()>::default();
     let mut shown = Shown::default();
     let first = shown.changes(app.view(&h.model));
-    assert!(matches!(first.rows[..], [ListChange::Reset { .. }]));
+    assert!(matches!(first.rows[..], [RowChange::Reset { .. }]));
 
     let mut view = app.view(&h.model);
     view.title = "notes".into();
