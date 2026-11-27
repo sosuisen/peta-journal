@@ -1055,7 +1055,7 @@ public sealed class ShellTests : IDisposable
         Assert.Equal("apple", shell.View.Search.Query);
         main.WaitUntil("the page is found", () => PagesFound(shell) is ["apple-pie"]);
         Assert.True(shell.View.Search.ShowDropdown);
-        shell.Pick(shell.View.Search.Results[0].Position);
+        shell.Pick(0);
 
         main.WaitUntil("the page found is shown", () => shell.Title == "apple-pie");
         Assert.Equal("", shell.View.Search.Query);
@@ -1103,7 +1103,7 @@ public sealed class ShellTests : IDisposable
 
         shell.Search("winui");
         main.WaitUntil("the page is found", () => PagesFound(shell) is ["winui-notes"]);
-        shell.Pick(shell.View.Search.Results[0].Position);
+        shell.Pick(0);
 
         main.WaitUntil("the page found is shown", () => shell.Title == "winui-notes");
         Assert.Equal("/pages/winui-notes", shell.Url);

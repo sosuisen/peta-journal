@@ -105,6 +105,23 @@ public static class ListChanges
             PageChange.Reset reset => new Change<SidebarPage>.Reset(reset.Items),
         };
 
+    /// <summary>A change of the results of the search, as <see cref="Change{TItem}"/>.</summary>
+    internal static Change<SearchEntry> Of(SearchChange change) =>
+        change switch
+        {
+            SearchChange.Insert insert => new Change<SearchEntry>.Insert(
+                (int)insert.At,
+                insert.Item
+            ),
+            SearchChange.Remove remove => new Change<SearchEntry>.Remove((int)remove.At),
+            SearchChange.Move move => new Change<SearchEntry>.Move((int)move.From, (int)move.To),
+            SearchChange.Update update => new Change<SearchEntry>.Update(
+                (int)update.At,
+                update.Item
+            ),
+            SearchChange.Reset reset => new Change<SearchEntry>.Reset(reset.Items),
+        };
+
     private static Change<Row> Of(RowChange change) =>
         change switch
         {

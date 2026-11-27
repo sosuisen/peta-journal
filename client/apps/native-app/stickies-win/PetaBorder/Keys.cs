@@ -156,8 +156,8 @@ public sealed partial class Shell
     public void Search(SearchKey key) => Send(new Event.SearchKey(key));
 
     /// <summary>
-    /// The user chose an entry of what was found. <paramref name="index"/> is the one the entry
-    /// carries.
+    /// The user chose an entry of what was found. <paramref name="index"/> is its place in the
+    /// results.
     /// </summary>
     public void Pick(ulong index) => Send(new Event.SearchResultClicked(index));
 }
