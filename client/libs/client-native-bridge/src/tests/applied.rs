@@ -1,8 +1,28 @@
 //! The view model as a shell keeps it from the changes of the core (ADR 076), for the tests to
 //! hold against the view model of the core.
 
-use crate::{Changes, Panel, RowChange};
+use crate::{Changes, HeadingChange, Panel, RowChange};
 use client_core::{RichText, ViewModel};
+
+/// Applies `change`, of the change type `kind` of the border, to the list `list`. The change
+/// types of the lists all have the same shape (ADR 088).
+macro_rules! applied {
+    ($kind:ident, $change:expr, $list:expr) => {{
+        let list = $list;
+        match $change {
+            $kind::Insert { at, item } => list.insert(at as usize, item),
+            $kind::Remove { at } => {
+                list.remove(at as usize);
+            }
+            $kind::Move { from, to } => {
+                let item = list.remove(from as usize);
+                list.insert(to as usize, item);
+            }
+            $kind::Update { at, item } => list[at as usize] = item,
+            $kind::Reset { items } => *list = items,
+        }
+    }};
+}
 
 /// `view` after the changes, applied as a shell applies them. Each panel that came takes the
 /// place of its part, and the changes to the rows are applied in order.
@@ -25,7 +45,7 @@ pub(super) fn applied(mut view: ViewModel<RichText>, changes: Changes) -> ViewMo
                 outline.scrolled_from_top = value.scrolled_from_top;
             }
             Panel::IndexPages(value) => view.index_pages = value,
-            Panel::Headings(value) => view.headings = value,
+            Panel::Headings(value) => view.headings.state = value.state,
             Panel::RecentPages(value) => view.recent_pages = value,
             Panel::Search(value) => view.search = value,
             Panel::Config(value) => view.config = value,
@@ -37,19 +57,10 @@ pub(super) fn applied(mut view: ViewModel<RichText>, changes: Changes) -> ViewMo
         }
     }
     for change in changes.rows {
-        let rows = &mut view.outline.rows;
-        match change {
-            RowChange::Insert { at, item } => rows.insert(at as usize, item),
-            RowChange::Remove { at } => {
-                rows.remove(at as usize);
-            }
-            RowChange::Move { from, to } => {
-                let row = rows.remove(from as usize);
-                rows.insert(to as usize, row);
-            }
-            RowChange::Update { at, item } => rows[at as usize] = item,
-            RowChange::Reset { items } => *rows = items,
-        }
+        applied!(RowChange, change, &mut view.outline.rows);
+    }
+    for change in changes.headings {
+        applied!(HeadingChange, change, &mut view.headings.headings);
     }
     view
 }

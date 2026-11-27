@@ -13,7 +13,7 @@ mod html;
 mod links;
 mod shell;
 
-pub use client_core::changes::{OutlinePanel, Panel, RowChange};
+pub use client_core::changes::{HeadingChange, HeadingsPanel, OutlinePanel, Panel, RowChange};
 /// The changes of the screen of a native shell, whose body model is [`RichText`](client_core::RichText).
 pub type Changes = client_core::changes::Changes<client_core::RichText>;
 pub use clock::{Clock, SystemClock};

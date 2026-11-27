@@ -2,10 +2,10 @@
 //! model (ADR 078).
 
 use crate::changes::{
-    Changes, HeadingChange, ListChange, OutlinePanel, Panel, RowChange, Shown,
+    Changes, HeadingChange, HeadingsPanel, ListChange, OutlinePanel, Panel, RowChange, Shown,
 };
-use crate::outline::state::Heading;
 use crate::harness::Harness;
+use crate::outline::Heading;
 use crate::testing::plain_item;
 use crate::{PetaApp, RichText, ViewModel};
 use crux_core::App;
@@ -27,6 +27,7 @@ fn nothing_changed_gives_empty_changes() {
         changes,
         Changes {
             rows: vec![],
+            headings: vec![],
             panels: vec![]
         }
     );
@@ -49,9 +50,9 @@ fn only_the_panels_that_changed_are_in_the_changes() {
     );
 }
 
-// 最初の差分は、行の入れ替えと、全部のパネルである。
+// 最初の差分は、行と見出しの入れ替えと、全部のパネルである。
 #[test]
-fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
+fn the_first_changes_are_a_reset_of_the_rows_and_the_headings_and_every_panel() {
     let view = first_view();
     let mut shown = Shown::default();
 
@@ -63,6 +64,9 @@ fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
         Changes {
             rows: vec![RowChange::Reset {
                 items: outline.rows.clone()
+            }],
+            headings: vec![HeadingChange::Reset {
+                items: view.headings.headings.clone()
             }],
             panels: vec![
                 Panel::Screen(view.screen.clone()),
@@ -80,7 +84,9 @@ fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
                     scrolled_from_top: outline.scrolled_from_top,
                 }),
                 Panel::IndexPages(view.index_pages.clone()),
-                Panel::Headings(view.headings.clone()),
+                Panel::Headings(HeadingsPanel {
+                    state: view.headings.state
+                }),
                 Panel::RecentPages(view.recent_pages.clone()),
                 Panel::Search(view.search.clone()),
                 Panel::Config(view.config.clone()),
