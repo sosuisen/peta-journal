@@ -54,6 +54,20 @@ public sealed class OutlineScreenTests
         Assert.AreEqual(screen.Rows[0].Item.Id, edited, screen.Looks);
     }
 
+    // 項目の横をクリックすると、コアは編集の始まりを1回だけ受け取る。あとから来るGotFocusは、
+    // もう一度は伝えない。コアは、項目を編集し始めるたびに、カーソルの要求の番号を1つ進める。
+    [UITestMethod]
+    public async Task A_click_beside_the_text_starts_the_edit_once()
+    {
+        await using var screen = await Screen.Open(Port);
+        var before = screen.Shell.View.Outline.FocusRequest?.Seq ?? 0;
+
+        await screen.Edit(0);
+        await Screen.Settled();
+
+        Assert.AreEqual(before + 1, screen.Shell.View.Outline.FocusRequest?.Seq, screen.Looks);
+    }
+
     // Enterは、カーソルの位置で項目を分ける。カーソルは、新しい項目の先頭に移る。
     [UITestMethod]
     public async Task Enter_splits_the_item_and_the_cursor_goes_to_the_new_one()
