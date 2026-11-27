@@ -25,6 +25,7 @@ import { clickedLink, heldOf, highlightCode, sizeImages } from './drawnBody';
 interface AtlasCanvas {
   setOnGroup(onGroup: (idsJson: string, targetId: string) => void): void;
   setOnUngroup(onUngroup: (idsJson: string) => void): void;
+  setOnMove(onMove: (idsJson: string, parentId: string) => void): void;
   setOnScale(onScale: (cardId: string, scale: number) => void): void;
   setOnGroupTitle(
     onGroupTitle: (groupId: string, side: string, title: string) => void,
@@ -65,6 +66,12 @@ interface AtlasCanvas {
   dragOverFromList(clientX: number, clientY: number, ctrl: boolean): void;
   endDragFromList(): void;
   groupTargetFromList(
+    clientX: number,
+    clientY: number,
+    ctrl: boolean,
+  ): string | null;
+  /** The item of the innermost blob under a point, unless a card is there; null without Ctrl. */
+  parentFromList(
     clientX: number,
     clientY: number,
     ctrl: boolean,
@@ -157,7 +164,8 @@ interface Shown {
  * directory as cards, drawn by PixiJS in atlas.js. What is not on the canvas waits beside it
  * in two groups (ADR 053): the pages that no card links to, and the items of the atlas page
  * without a place. Either is placed by dragging it onto the canvas. With Ctrl held, it also
- * joins the group of the card or the group area it is dropped on.
+ * joins the group of the card it is dropped on, or goes under the item of the blob it is
+ * dropped on.
  */
 export default function Atlas({ dirPath }: { readonly dirPath: string }) {
   const core = useCore();
@@ -234,7 +242,8 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
     if (x === null || y === null) {
       return;
     }
-    // With Ctrl, a card let go on a card or in the area of a group joins that group
+    // With Ctrl, a card let go on a card joins its group, and one let go on the blob of a
+    // parent goes under the item of that parent
     const ctrl = event.ctrlKey || event.metaKey;
     canvas.endDragFromList();
     const target = canvas.groupTargetFromList(
@@ -242,6 +251,7 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
       event.clientY,
       ctrl,
     );
+    const parent = canvas.parentFromList(event.clientX, event.clientY, ctrl);
     core.send({
       kind: 'DropAtlasCard',
       card_id: grab.card_id,
@@ -255,6 +265,12 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
         kind: 'GroupAtlasCards',
         card_ids: [grab.card_id],
         target_id: target,
+      });
+    } else if (parent !== null) {
+      core.send({
+        kind: 'MoveAtlasCards',
+        card_ids: [grab.card_id],
+        parent_id: parent,
       });
     }
   };
@@ -369,6 +385,13 @@ function makeCanvas(
     core.send({
       kind: 'UngroupAtlasCards',
       card_ids: JSON.parse(idsJson) as string[],
+    }),
+  );
+  made.setOnMove((idsJson, parent_id) =>
+    core.send({
+      kind: 'MoveAtlasCards',
+      card_ids: JSON.parse(idsJson) as string[],
+      parent_id,
     }),
   );
   made.setOnScale((card_id, scale) =>

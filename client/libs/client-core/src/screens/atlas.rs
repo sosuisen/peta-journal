@@ -15,6 +15,9 @@
 //! place of a card or a callout is saved as a property of its item. A change of the outline
 //! is one batch of item operations, however many items it writes, so one operation of the
 //! user is one change on the server. The outline is then read again and shown.
+//! A card that goes under an item goes in among the items under it by where it lies: before
+//! the first of them that lies below it. The others keep their order, so the canvas does not
+//! write over an order made in the outline (ADR 053).
 //! A change that leaves an item with no item under it takes the `atlas_side` of that item
 //! away in the same batch: the side is of the title of a group, and the item is no group any
 //! more. Nothing is cleaned up for a change made in the outline or in the `.md`.
@@ -422,9 +425,13 @@ fn delete(model: &Model, item_id: String) -> Cmd {
     change(model, ops)
 }
 
-/// The operations that take items behind the item `after` at a level, in their order. The
-/// level is written first: the server checks the levels of the items it moves.
+/// The operations that take items behind the item `after` at a level, in their order; none
+/// for no items. The level is written first: the server checks the levels of the items it
+/// moves.
 fn taken_behind(atlas_id: &str, items: &[&Item], after: &str, level: i32) -> Vec<BatchOpInput> {
+    if items.is_empty() {
+        return Vec::new();
+    }
     let mut ops: Vec<BatchOpInput> = items
         .iter()
         .map(|item| BatchOpInput::Update {
@@ -448,16 +455,10 @@ fn taken_behind(atlas_id: &str, items: &[&Item], after: &str, level: i32) -> Vec
 /// The last item of the tree of `parent` that stays where it is while the items `leaving`
 /// move: the parent itself when every item under it leaves.
 fn last_staying<'a>(model: &'a Model, parent: &'a Item, leaving: &[&Item]) -> &'a Item {
-    let items = model.state.items();
-    let start = items.iter().position(|item| item.id == parent.id);
-    let under = items
-        .iter()
-        .skip(start.map_or(items.len(), |at| at + 1))
-        .take_while(|item| item.page_id == parent.page_id && item.level > parent.level);
-    under
+    under(model, parent)
         .filter(|item| !leaving.iter().any(|l| l.id == item.id))
         .last()
-        .map_or(parent, |item| &**item)
+        .unwrap_or(parent)
 }
 
 /// The server changed the outline of an atlas page: its items are shown. A card keeps the
@@ -473,9 +474,10 @@ pub fn show_changed(model: &mut Model, atlas_id: &str, mut items: Vec<Item>) -> 
     done()
 }
 
-/// Cards dropped on another card join its group: they go to the end of the group, under its
-/// item. When the target is in no group, a new item with an empty body is made where the
-/// target lies, and the target and the cards go under it. A card belongs to one group only,
+/// Cards dropped on another card join its group: they go under its item, each where it lies
+/// among the items under it ([`put_under`]). When the target is in no group, a new item with
+/// an empty body is made where the target lies, and the target and the cards go under it, the
+/// upper ones first. A card belongs to one group only,
 /// so the cards leave the groups they were in. The item of a group they leave stays, even
 /// with one card or none under it (ADR 053).
 pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) -> Cmd {
@@ -498,8 +500,7 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
     let joining: Vec<&Item> = joining.iter().map(|card| card.item).collect();
     match target.group {
         Some(group) => {
-            let last = last_staying(model, group, &joining);
-            let mut ops = taken_behind(&group.page_id, &joining, &last.id, group.level + 1);
+            let mut ops = put_under(model, group, &joining);
             ops.extend(left);
             change(model, ops)
         }
@@ -508,6 +509,7 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
             let joining: Vec<Item> = joining.into_iter().cloned().collect();
             change_with_new_item(model, move |atlas_id, group_id| {
                 let members: Vec<&Item> = std::iter::once(&target).chain(&joining).collect();
+                let members = in_reading_order(&members);
                 let mut ops = vec![new_item(
                     atlas_id.clone(),
                     group_id.clone(),
@@ -521,6 +523,104 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
             })
         }
     }
+}
+
+/// Cards let go on the blob of a parent go under its item, each where it lies among the items
+/// under it ([`put_under`]). A card right under the parent already stays where it is in the
+/// outline. The parent a card leaves loses its side when nothing stays under it.
+pub fn move_cards(model: &mut Model, card_ids: Vec<String>, parent_id: String) -> Cmd {
+    let cards = card_entries(model);
+    let Some(parent) = entries(model)
+        .into_iter()
+        .find(|e| e.is_parent && e.item.id == parent_id)
+        .map(|e| e.item)
+    else {
+        return done();
+    };
+    let joining: Vec<&Card> = cards
+        .iter()
+        .filter(|card| card_ids.iter().any(|id| id == card.id()))
+        .filter(|card| card.group.is_none_or(|group| group.id != parent.id))
+        .collect();
+    let items: Vec<&Item> = joining.iter().map(|card| card.item).collect();
+    let mut ops = put_under(model, parent, &items);
+    ops.extend(sides_dropped(model, &joining));
+    change(model, ops)
+}
+
+/// The items under an item, at any depth, in their order.
+fn under<'a>(model: &'a Model, parent: &Item) -> impl Iterator<Item = &'a Item> {
+    let items = model.state.items();
+    let start = items.iter().position(|item| item.id == parent.id);
+    let (page_id, level) = (parent.page_id.clone(), parent.level);
+    items
+        .iter()
+        .skip(start.map_or(items.len(), |at| at + 1))
+        .take_while(move |item| item.page_id == page_id && item.level > level)
+        .map(|item| &**item)
+}
+
+/// Where an item lies as the order of the outline reads the canvas: the upper one comes
+/// first, and of two at the same height the left one (ADR 053). None for an item without a
+/// place.
+fn reading_place(item: &Item) -> Option<(f64, f64)> {
+    bounds_of(item).map(|b| (b.y, b.x))
+}
+
+/// Whether an item lies below a card. An item without a place lies nowhere, and neither is
+/// any item below a card without one.
+fn lies_below(item: &Item, card: &Item) -> bool {
+    match (reading_place(item), reading_place(card)) {
+        (Some(item), Some(card)) => item > card,
+        _ => false,
+    }
+}
+
+/// The cards in the order the outline reads the canvas. Two at the same place keep their
+/// order, and a card without a place comes last.
+fn in_reading_order<'a>(cards: &[&'a Item]) -> Vec<&'a Item> {
+    let place = |card: &Item| reading_place(card).unwrap_or((f64::MAX, f64::MAX));
+    let mut cards = cards.to_vec();
+    cards.sort_by(|a, b| {
+        let (a, b) = (place(a), place(b));
+        a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1))
+    });
+    cards
+}
+
+/// The operations that put cards under `parent`: each goes in before the first item right
+/// under it that lies below the card, or else at the end of its tree. Cards that go in at
+/// the same place go in the upper ones first. The other items keep their order, so the
+/// canvas does not write over an order made in the outline (ADR 053).
+fn put_under(model: &Model, parent: &Item, joining: &[&Item]) -> Vec<BatchOpInput> {
+    let level = parent.level + 1;
+    let staying: Vec<&Item> = under(model, parent)
+        .filter(|item| !joining.iter().any(|j| j.id == item.id))
+        .collect();
+    let joining = in_reading_order(joining);
+    let siblings = || staying.iter().filter(|item| item.level == level);
+    // The cards that go in before the sibling; before none, the ones no sibling lies below
+    let going_before = |sibling: Option<&Item>| -> Vec<&Item> {
+        let first_below = |card: &Item| siblings().find(|s| lies_below(s, card)).map(|s| &s.id);
+        joining
+            .iter()
+            .copied()
+            .filter(|card| first_below(card) == sibling.map(|s| &s.id))
+            .collect()
+    };
+    let mut ops = Vec::new();
+    // Behind the last item above the sibling: the end of the tree of the sibling before it
+    let mut above = parent;
+    for item in &staying {
+        if item.level == level {
+            let cards = going_before(Some(item));
+            ops.extend(taken_behind(&parent.page_id, &cards, &above.id, level));
+        }
+        above = item;
+    }
+    let cards = going_before(None);
+    ops.extend(taken_behind(&parent.page_id, &cards, &above.id, level));
+    ops
 }
 
 /// The groups the cards are in, each once, in the order of the cards.

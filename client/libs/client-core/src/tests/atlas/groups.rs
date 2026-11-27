@@ -47,13 +47,13 @@ fn a_card_under_an_item_of_level_1_belongs_to_its_group() {
 // どのグループにもないカードの上にカードをドロップすると、1回の送信で、ドロップ先の場所に空の項目が作られ、両方のカードがその下のレベル2に移される。読み直したアウトラインが表示に反映される。
 #[test]
 fn cards_dropped_on_a_card_go_under_a_new_item_in_one_batch() {
-    let mut h = atlas_with(&[("one", Some("0,0,0,40")), ("two", Some("9,0,0,40"))]);
+    let mut h = atlas_with(&[("one", Some("9,0,0,40")), ("two", Some("0,0,0,40"))]);
     answer_outline(
         &mut h,
         vec![
             atlas_item("g", 1, "", &[]),
-            card_item("two", 2, Some("9,0,0,40")),
-            card_item("one", 2, Some("0,0,0,40")),
+            card_item("two", 2, Some("0,0,0,40")),
+            card_item("one", 2, Some("9,0,0,40")),
         ],
     );
     // The target itself is not among the cards that join it
@@ -77,15 +77,52 @@ fn cards_dropped_on_a_card_go_under_a_new_item_in_one_batch() {
     assert_eq!(groups, [Some("g".to_string()), Some("g".to_string())]);
 }
 
-// グループのカードの上にドロップされたカードは、そのグループの木の末尾に、レベル2で移される。
+// グループのカードの上にドロップされたカードは、下に兄弟がなければ、そのグループの木の末尾に、レベル2で移される。
 #[test]
-fn a_card_dropped_on_a_card_of_a_group_goes_to_the_end_of_the_group() {
+fn a_card_dropped_on_a_card_of_a_group_goes_to_its_end_with_no_card_below_it() {
     let mut h = atlas_with_group("", None);
     group(&mut h, &["a/b/three"], "a/b/one");
 
     assert_eq!(
         batches(&h),
         [[leveled("i-three", 2), moved(&["i-three"], "i-two")]]
+    );
+}
+
+// グループのカードの上にドロップされたカードは、自分より下にある最初の兄弟の前に入る。
+#[test]
+fn a_card_dropped_on_a_card_of_a_group_goes_in_before_the_first_card_below_it() {
+    let mut h = atlas_of(
+        vec![child("one"), child("three"), child("two")],
+        vec![
+            atlas_item("g", 1, "", &[]),
+            card_item("one", 2, Some("0,0,0,40")),
+            card_item("two", 2, Some("0,100,0,40")),
+            card_item("three", 1, Some("0,50,0,40")),
+        ],
+    );
+    group(&mut h, &["a/b/three"], "a/b/one");
+
+    assert_eq!(
+        batches(&h),
+        [[leveled("i-three", 2), moved(&["i-three"], "i-one")]]
+    );
+}
+
+// 新しいグループでは、ドロップ先のカードより上にあるカードが、その前に並ぶ。
+#[test]
+fn a_card_that_lies_above_the_card_it_is_dropped_on_comes_before_it_in_the_new_group() {
+    let mut h = atlas_with(&[("one", Some("0,100,0,40")), ("two", Some("0,0,0,40"))]);
+    group(&mut h, &["a/b/two"], "a/b/one");
+
+    assert_eq!(
+        batches(&h),
+        [[
+            made(ItemPosition::after("i-one"), "", &[]),
+            leveled("i-two", 2),
+            leveled("i-one", 2),
+            moved(&["i-two", "i-one"], NEW),
+        ]]
     );
 }
 
@@ -108,7 +145,7 @@ fn a_card_taken_to_another_group_leaves_its_old_group_as_it_is() {
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("100,0,0,40")),
             atlas_item("h", 1, "", &[]),
-            card_item("three", 2, Some("200,0,0,40")),
+            card_item("three", 2, Some("50,0,0,40")),
         ],
     );
     group(&mut h, &["a/b/two"], "a/b/three");
@@ -220,7 +257,7 @@ fn an_item_whose_last_card_goes_to_another_group_loses_its_side_in_the_same_batc
             vec![child("one"), child("three"), child("two")],
             vec![
                 atlas_item("g", 1, "", &[("atlas_side", "left")]),
-                card_item("one", 2, Some("0,0,0,40")),
+                card_item("one", 2, Some("300,0,0,40")),
                 atlas_item("h", 1, "", &[("atlas_side", "right")]),
                 card_item("three", 2, Some("200,0,0,40")),
                 card_item("two", 1, Some("100,0,0,40")),

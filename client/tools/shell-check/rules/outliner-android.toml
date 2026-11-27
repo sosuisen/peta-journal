@@ -45,6 +45,7 @@ ItemMouseEnter = "none: no drag selection; a touch selects an item, by ShiftSele
 JournalNav = "none: no header of a journal"
 KeyHeld = "not yet: the keys typed while the edit moves to another item are not held, see #1146"
 MoveAtlasCallout = "none: no atlas"
+MoveAtlasCards = "none: no atlas"
 MovePageTag = "none: no properties of a page"
 NavigateDown = "key: EditorKey.DOWN on the last line, or EditorKey.RIGHT at the end"
 NavigateHome = "none: no Home button"

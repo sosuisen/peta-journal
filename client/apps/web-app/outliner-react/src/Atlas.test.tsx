@@ -40,6 +40,7 @@ class FakeCanvas {
   destroyed = false;
   ready = true;
   target: string | null = null;
+  parent: string | null = null;
 
   constructor(
     readonly host: HTMLElement,
@@ -62,6 +63,9 @@ class FakeCanvas {
   }
   setOnUngroup(f: Handler) {
     this.handlers.onUngroup = f;
+  }
+  setOnMove(f: Handler) {
+    this.handlers.onMove = f;
   }
   setOnScale(f: Handler) {
     this.handlers.onScale = f;
@@ -118,6 +122,9 @@ class FakeCanvas {
   }
   groupTargetFromList(_x: number, _y: number, ctrl: boolean) {
     return ctrl ? this.target : null;
+  }
+  parentFromList(_x: number, _y: number, ctrl: boolean) {
+    return ctrl ? this.parent : null;
   }
   destroy() {
     this.destroyed = true;
@@ -372,6 +379,7 @@ describe('what is done on the canvas', () => {
     on.onPlace('a', 1, 2);
     on.onGroup('["a","b"]', 'c');
     on.onUngroup('["a"]');
+    on.onMove('["a","b"]', 'g');
     on.onScale('a', 2);
     on.onGroupTitle('g', 'top', 'Plan');
     on.onAddCallout(1, 2, 'left', 'hi');
@@ -387,6 +395,7 @@ describe('what is done on the canvas', () => {
       { kind: 'PlaceAtlasCard', card_id: 'a', x: 1, y: 2 },
       { kind: 'GroupAtlasCards', card_ids: ['a', 'b'], target_id: 'c' },
       { kind: 'UngroupAtlasCards', card_ids: ['a'] },
+      { kind: 'MoveAtlasCards', card_ids: ['a', 'b'], parent_id: 'g' },
       { kind: 'ScaleAtlasCard', card_id: 'a', scale: 2 },
       { kind: 'SetAtlasGroupTitle', group_id: 'g', side: 'top', title: 'Plan' },
       { kind: 'AddAtlasCallout', x: 1, y: 2, side: 'left', text: 'hi' },
@@ -693,6 +702,35 @@ describe('what waits beside the canvas', () => {
     expect(wasm.events).toEqual([
       { kind: 'DropAtlasCard', card_id: 'b', x: 0, y: 0, grab_x: 0, grab_y: 0 },
       { kind: 'GroupAtlasCards', card_ids: ['b'], target_id: 'a' },
+    ]);
+  });
+
+  // Ctrlを押して親のblobに落とすと、その親の項目の子にもなる。カードの上では、そのカードのグループに入る。
+  test('a drop with Ctrl on the blob of a parent also goes under its item, and on a card joins the group of the card', async () => {
+    const { host, canvas, wasm } = await unplaced();
+    const moved = dataTransfer([CARD_MIME]);
+    moved.setData(CARD_MIME, JSON.stringify({ card_id: 'b', x: 0, y: 0 }));
+    canvas().parent = 'g';
+
+    drag('drop', host, { x: 100, y: 50, ctrl: true }, moved);
+    canvas().target = 'a';
+    drag('drop', host, { x: 100, y: 50, ctrl: true }, moved);
+    drag('drop', host, { x: 100, y: 50 }, moved);
+
+    const dropped = {
+      kind: 'DropAtlasCard',
+      card_id: 'b',
+      x: 0,
+      y: 0,
+      grab_x: 0,
+      grab_y: 0,
+    };
+    expect(wasm.events).toEqual([
+      dropped,
+      { kind: 'MoveAtlasCards', card_ids: ['b'], parent_id: 'g' },
+      dropped,
+      { kind: 'GroupAtlasCards', card_ids: ['b'], target_id: 'a' },
+      dropped,
     ]);
   });
 
