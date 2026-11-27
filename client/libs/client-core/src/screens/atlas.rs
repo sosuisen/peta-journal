@@ -748,6 +748,8 @@ pub enum CardTone {
     Page,
     /// A link to a page of another directory: orange
     Link,
+    /// A link to a page that is not there: gray. A click opens nothing.
+    Missing,
     /// A card whose first line is no link: yellow
     Plain,
 }
@@ -804,13 +806,34 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
 }
 
 /// How a card that stands for no page of the directory is colored: blue for another card to
-/// a page of the directory, orange for a link out of it, yellow for a plain card.
+/// a page of the directory, gray for one to a page the directory does not have, orange for a
+/// link out of it, yellow for a plain card. The directory is known to lack a page only once its
+/// list is in.
 fn tone_of(model: &Model, link: Option<plain::CardLink>) -> CardTone {
     match link {
         Some(link) if page_of(model, link.target).is_some() => CardTone::Page,
+        Some(link) if in_atlas_dir(model, link.target) && index_loaded(model) => CardTone::Missing,
         Some(_) => CardTone::Link,
         None => CardTone::Plain,
     }
+}
+
+/// Whether a path names a page of the directory of the shown atlas, or the index of a folder
+/// in it: the pages the list of the directory holds.
+fn in_atlas_dir(model: &Model, target: &str) -> bool {
+    let Some(rest) =
+        shown_atlas_page(model).and_then(|atlas| target.strip_prefix(&*atlas.dir_path))
+    else {
+        return false;
+    };
+    match rest.split_once('/') {
+        None => true,
+        Some((folder, name)) => !folder.is_empty() && name == "index",
+    }
+}
+
+fn index_loaded(model: &Model) -> bool {
+    model.sidebar.index_state == crate::view::LoadState::Loaded
 }
 
 /// The runs of the first line of a body, as a page shows them: the letters with their looks
