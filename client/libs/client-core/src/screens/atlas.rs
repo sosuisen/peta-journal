@@ -21,8 +21,10 @@ use crate::effects::{Api, ApiResult, TimerOutput, UiOp};
 use crate::model::ItemExt;
 use crate::model::{BatchOpInput, Item, ItemPosition, Page, PropertyValue};
 use crate::ops::file_reload;
+use crate::rich_text::{RichBlock, RichRun, RichText};
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
 use crate::screens::sidebar;
+use crate::BodyModel;
 use crux_core::Command;
 use peta_atlas::plain::{self, Kind};
 
@@ -88,13 +90,14 @@ fn page_of<'a>(model: &'a Model, target: &str) -> Option<&'a Page> {
 }
 
 /// The cards of the shown atlas page, in the order of its items. The first card that links
-/// to a page of the directory stands for that page. Any other card is a link card: one that
-/// links out of the directory, to no page, or to a page that has a card already.
+/// to a page of the directory stands for that page. Any other card is a link card, one that
+/// links out of the directory, to no page, or to a page that has a card already, or a plain
+/// card.
 fn card_entries(model: &Model) -> Vec<Card<'_>> {
     let mut taken: Vec<&str> = Vec::new();
     entries(model)
         .into_iter()
-        .filter(|e| e.kind == Kind::Card && !e.is_parent)
+        .filter(|e| e.kind != Kind::Callout && !e.is_parent)
         .map(|e| {
             let page_id = plain::card_link(&e.item.body)
                 .and_then(|link| page_of(model, link.target))
@@ -737,16 +740,31 @@ pub fn reload_atlas(model: &Model, page_id: &str) -> Cmd {
     file_reload::read_again(model, page_id)
 }
 
-/// A link card: an item of the atlas page whose body is a wiki link to `target`, which is no
-/// page of the directory, placed by its own `atlas_bounds`.
+/// How a card is colored, by what it stands for.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub enum CardTone {
+    /// A link to a page of the directory of the atlas: blue
+    Page,
+    /// A link to a page of another directory: orange
+    Link,
+    /// A card whose first line is no link: yellow
+    Plain,
+}
+
+/// A card of the atlas page that stands for no page of the directory, placed by its own
+/// `atlas_bounds`: a link card, whose first line is a wiki link to `target`, or a plain card,
+/// whose first line is anything else.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct LinkCard {
     pub item_id: String,
-    /// The page the link names, as it is written in the link
-    pub target: String,
-    /// What the card shows: the label of the link, or else the name of the page it names
+    /// The page the link names, as it is written in the link; none for a plain card
+    pub target: Option<String>,
+    /// What the card shows: the label of the link, or else the name of the page it names. A
+    /// plain card shows the text of its first line.
     pub label: String,
+    pub tone: CardTone,
     pub bounds: Bounds,
     /// The id of the group item the card is under
     pub group: Option<String>,
@@ -760,16 +778,48 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
         .into_iter()
         .filter(|card| card.page_id.is_none())
         .filter_map(|card| {
-            let link = plain::card_link(&card.item.body)?;
+            let link = plain::card_link(&card.item.body);
+            let label = match link {
+                Some(link) => link.shown(),
+                None => first_line_text(&card.item.body, &model.config.tags_dir),
+            };
             Some(LinkCard {
                 item_id: card.item.id.clone(),
-                target: link.target.to_string(),
-                label: link.shown(),
+                target: link.map(|link| link.target.to_string()),
+                label,
+                tone: if link.is_some() {
+                    CardTone::Link
+                } else {
+                    CardTone::Plain
+                },
                 bounds: bounds_of(card.item)?,
                 group: card.group.map(|g| g.id.clone()),
                 group_title: card.group.and_then(group_title),
             })
         })
+        .collect()
+}
+
+/// The runs of the first line of a body, as a page shows them: the letters with their looks
+/// and their links.
+fn first_line_runs(body: &str, tags_dir: &str) -> Vec<RichRun> {
+    let line = body.lines().next().unwrap_or("");
+    RichText::of_markdown(line, tags_dir)
+        .blocks
+        .into_iter()
+        .find_map(|block| match block {
+            RichBlock::Text { paragraphs } => paragraphs.into_iter().next(),
+            _ => None,
+        })
+        .map(|paragraph| paragraph.runs)
+        .unwrap_or_default()
+}
+
+/// The text of the first line of a body, as a page shows it, without its marks.
+fn first_line_text(body: &str, tags_dir: &str) -> String {
+    first_line_runs(body, tags_dir)
+        .into_iter()
+        .map(|run| run.text)
         .collect()
 }
 
@@ -810,7 +860,7 @@ pub fn set_link(model: &mut Model, item_id: String, target: String) -> Cmd {
     let Some(item) = model
         .state
         .get_item_by_id(&item_id)
-        .filter(|_| target != card.target)
+        .filter(|_| card.target.as_deref().is_some_and(|t| t != target))
     else {
         return done();
     };

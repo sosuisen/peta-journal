@@ -36,9 +36,12 @@ pub fn placed_json(cards: &str, links: &str) -> Result<String, String> {
         .collect();
     placed.extend(links.iter().map(|l| {
         let group = group_ref(l.group.as_ref(), l.group_title.as_ref());
+        // A plain card has no page to open; its blob is drawn from its text
+        let target = l.target.as_deref().unwrap_or(&l.label);
         scene::Card {
             label: l.label.clone(),
-            ..scene::Card::link(&l.item_id, &l.target, l.bounds, group.as_ref())
+            path: l.target.clone(),
+            ..scene::Card::link(&l.item_id, target, l.bounds, group.as_ref())
         }
     }));
     Ok(scene::cards_json(&placed))
@@ -90,7 +93,7 @@ mod tests {
              "group":null,"group_color":null,"icon_tags":[],"group_title":null,"published":false}
         ]"#;
         let links = r#"[
-            {"item_id":"l","target":"x/Foo","label":"Shown",
+            {"item_id":"l","target":"x/Foo","label":"Shown","tone":"Link",
              "bounds":{"x":1.0,"y":2.0,"width":0.0,"height":0.0},
              "group":null,"group_title":null}
         ]"#;
