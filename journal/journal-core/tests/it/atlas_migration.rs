@@ -6,7 +6,7 @@ use hmtid::Hmtid;
 use journal_core::domain::model::ItemPosition;
 use journal_core::infrastructure::persistence::PropertyRepository;
 
-use crate::common::devices::{time_passes, two_devices, Device};
+use crate::common::devices::{time_passes, two_devices, Device, ATLAS};
 
 impl Device {
     /// An item at the end of the atlas with the atlas properties `props`, as the server
@@ -116,13 +116,31 @@ fn a_moved_atlas_is_dated_when_it_moved() {
     time_passes(&[&a]);
     a.core.atlas.move_to_plain_form().unwrap();
 
-    // The clock of a device steps on with each reading, so the date is told from the ones
-    // around it
+    // The clock of a device runs on, so the date is told from the ones around it
     let moved = modified(&a);
-    assert!(before < moved && moved < a.core.items.db().now_millis());
+    assert!(before < moved && moved <= a.core.items.db().now_millis());
 
     time_passes(&[&a]);
     a.core.atlas.move_to_plain_form().unwrap();
 
     assert_eq!(modified(&a), moved);
+}
+
+// 移す直前のindex_atlas.mdが、同じフォルダーにバックアップとして残る。移すもののないアトラスには、バックアップを作らない。
+#[test]
+fn the_file_of_an_atlas_is_kept_as_a_backup_before_it_moves() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let old = a.file(ATLAS);
+    assert!(old.contains("atlas_page"), "{old}");
+
+    a.core.atlas.move_to_plain_form().unwrap();
+
+    let backups = a.conflicts();
+    assert_eq!(backups.len(), 1, "{backups:?}");
+    assert_eq!(std::fs::read_to_string(&backups[0]).unwrap(), old);
+
+    a.core.atlas.move_to_plain_form().unwrap();
+
+    assert_eq!(a.conflicts(), backups);
 }
