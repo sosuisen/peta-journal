@@ -162,7 +162,10 @@ fn check_file(
             file: file.to_path_buf(),
         });
     }
-    if shell.language == Language::Rust && !is_declared(root, file) {
+    // A test in Lisp needs no `mod`: ERT loads its file
+    let built_by_cargo =
+        shell.language == Language::Rust && Language::Rust.reads(&file.to_string_lossy());
+    if built_by_cargo && !is_declared(root, file) {
         return Some(Problem::NotDeclared {
             test: name.to_string(),
             file: file.to_path_buf(),
