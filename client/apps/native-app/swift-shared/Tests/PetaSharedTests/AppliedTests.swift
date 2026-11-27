@@ -47,7 +47,7 @@ final class AppliedTests: XCTestCase {
                 IndexPagesView(
                     header: "index", path: "index", sort: IndexSort(key: .name, order: .asc), parentPath: nil,
                     pages: [], currentPageId: "current", state: .loaded)),
-            .headings(HeadingsView(headings: [], state: .failed)),
+            .headings(HeadingsPanel(state: .failed)),
             .recentPages(RecentPagesView(pages: [], state: .loading)),
             .search(search("first")),
             .config(
@@ -67,7 +67,7 @@ final class AppliedTests: XCTestCase {
 
     // 最初の差分から、すべての欄が、それぞれのパネルの値で作られる。行は、入れ替えで届いた行である。
     func testTheFirstChangesMakeEveryPartFromItsPanel() {
-        let view = ViewModel(first: Changes(rows: [.reset(items: [row("a")])], panels: everyPanel()))
+        let view = ViewModel(first: Changes(rows: [.reset(items: [row("a")])], headings: [], panels: everyPanel()))
 
         XCTAssertEqual(view.screen, .settings)
         XCTAssertEqual(view.atlasLinkSuggestions, ["suggested"])
@@ -87,9 +87,9 @@ final class AppliedTests: XCTestCase {
 
     // 届いたパネルだけが入れ替わり、ほかの欄は前のままである。
     func testOnlyThePanelsThatCameTakeThePlaceOfTheirParts() {
-        var view = ViewModel(first: Changes(rows: [], panels: everyPanel()))
+        var view = ViewModel(first: Changes(rows: [], headings: [], panels: everyPanel()))
 
-        view.apply(Changes(rows: [], panels: [.search(search("changed")), .title("another")]))
+        view.apply(Changes(rows: [], headings: [], panels: [.search(search("changed")), .title("another")]))
 
         XCTAssertEqual(view.search.query, "changed")
         XCTAssertEqual(view.title, "another")
@@ -99,22 +99,21 @@ final class AppliedTests: XCTestCase {
 
     // 後の差分の行の操作は、今の行に当たる。
     func testTheRowsOfALaterChangeAreAppliedToTheRowsThere() {
-        var view = ViewModel(first: Changes(rows: [.reset(items: [row("a")])], panels: everyPanel()))
+        var view = ViewModel(first: Changes(rows: [.reset(items: [row("a")])], headings: [], panels: everyPanel()))
 
-        view.apply(Changes(rows: [.insert(at: 1, item: row("b"))], panels: []))
+        view.apply(Changes(rows: [.insert(at: 1, item: row("b"))], headings: [], panels: []))
 
         XCTAssertEqual(ids(view.outline.rows), ["a", "b"])
     }
 
     // 後の差分の見出しの操作は、今の見出しに当たる。見出しの状態は前のままである。
     func testTheHeadingsOfALaterChangeAreAppliedToTheHeadingsThere() {
-        var view = ViewModel(
-            first: Changes(
-                rows: [],
-                headings: [.reset(items: [Heading(id: "a", text: "One", level: 1), Heading(id: "b", text: "Two", level: 2)])],
-                panels: everyPanel()))
+        let one = Heading(id: "a", text: "One", level: 1)
+        let two = Heading(id: "b", text: "Two", level: 2)
+        var view = ViewModel(first: Changes(rows: [], headings: [.reset(items: [one, two])], panels: everyPanel()))
 
-        view.apply(Changes(rows: [], headings: [.update(at: 1, item: Heading(id: "b", text: "Three", level: 2))], panels: []))
+        let three = Heading(id: "b", text: "Three", level: 2)
+        view.apply(Changes(rows: [], headings: [.update(at: 1, item: three)], panels: []))
 
         XCTAssertEqual(view.headings.headings.map(\.text), ["One", "Three"])
         XCTAssertEqual(view.headings.state, .failed)
@@ -122,9 +121,10 @@ final class AppliedTests: XCTestCase {
 
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
     func testTheOutlinePanelKeepsTheRows() {
-        var view = ViewModel(first: Changes(rows: [.reset(items: [row("a"), row("b")])], panels: everyPanel()))
+        var view = ViewModel(
+            first: Changes(rows: [.reset(items: [row("a"), row("b")])], headings: [], panels: everyPanel()))
 
-        view.apply(Changes(rows: [], panels: [.outline(outline(selecting: false))]))
+        view.apply(Changes(rows: [], headings: [], panels: [.outline(outline(selecting: false))]))
 
         XCTAssertEqual(view.outline.selectionMode, false)
         XCTAssertEqual(ids(view.outline.rows), ["a", "b"])
