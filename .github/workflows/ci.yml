@@ -323,8 +323,13 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      # The emulator of coverage.sh: the same system image as in README.md, for the CPU of the runner
+      # The emulator of coverage.sh: the same system image as in README.md, for the CPU of the runner.
+      # Why ANDROID_AVD_HOME: without it, avdmanager and the emulator of the runner each look
+      # in a folder of their own, and the emulator finds nothing
       - run: |
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
           sdk="$ANDROID_HOME/cmdline-tools/latest/bin"
           echo y | "$sdk/sdkmanager" emulator "system-images;android-37.0;google_apis;x86_64" > /dev/null
           echo no | "$sdk/avdmanager" create avd -n peta-api37 -k "system-images;android-37.0;google_apis;x86_64" -d pixel_5
