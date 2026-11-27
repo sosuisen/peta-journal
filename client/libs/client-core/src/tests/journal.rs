@@ -279,6 +279,94 @@ fn scrolling_moves_the_header_date_and_loads_more_when_the_end_comes_near() {
     assert_eq!(before_calls(&h), ["2026-02-10", "2026-02-09", "2026-02-09"]);
 }
 
+/// The server's answer to "the journal before": the journal `name` with `parents` items
+/// that have two children each. The parents are collapsed or not.
+fn journal_of_parents(name: &str, parents: usize, collapsed: bool) -> ApiOutput {
+    let mut items = Vec::new();
+    for p in 0..parents {
+        let mut parent = journal_item(&format!("parent-{name}-{p}"), name);
+        parent.collapsed = collapsed;
+        items.push(parent);
+        for c in 0..2 {
+            let mut child = journal_item(&format!("child-{name}-{p}-{c}"), name);
+            child.level = 2;
+            items.push(child);
+        }
+    }
+    ApiOutput::JournalBefore(JournalBefore {
+        found: true,
+        page: Some(journal_page(name)),
+        items,
+        transcluded_trees: Default::default(),
+    })
+}
+
+/// The shell shows the last rows of the outline, at most 30 of them, as after a scroll to
+/// the end.
+fn scroll_to_the_end(h: &mut Harness) {
+    let rows = h.view().outline.rows.len();
+    let first = rows.saturating_sub(30);
+    h.send(Event::OutlineScrolled {
+        scrolled_from_top: first > 0,
+        top_visible_index: first,
+        rendered_start: first,
+        rendered_end: rows,
+    });
+}
+
+// 終わりまでのスクロールを繰り返すと、いちばん古いジャーナルまで読み込まれる。折りたたまれて隠れた項目が多いジャーナルを挟んでも、展開されているときと同じである（#1256）。
+#[test]
+fn scrolling_to_the_end_again_and_again_reaches_the_oldest_journal_past_collapsed_items() {
+    for collapsed in [false, true] {
+        let mut h = Harness::new();
+        for name in ["2026-02-09", "2026-02-08"] {
+            h.api.answer_next(
+                "GetMostRecentJournalBefore",
+                Ok(journal_of_parents(name, 60, collapsed)),
+            );
+        }
+        h.api.answer_next(
+            "GetMostRecentJournalBefore",
+            Ok(older_journal("2026-02-07")),
+        );
+        visit(&mut h, TODAY);
+
+        for _ in 0..3 {
+            scroll_to_the_end(&mut h);
+        }
+
+        assert!(
+            h.items_ids().contains(&"item-2026-02-07".to_string()),
+            "collapsed: {collapsed}, asked for the journals before {:?}",
+            before_calls(&h)
+        );
+    }
+}
+
+// 開いたジャーナルの下には、見えている行が足りるまで前のジャーナルが読み込まれる。折りたたまれて隠れた項目は数えない。行が画面を埋めなければ、スクロールで続きを読み込めないためである（#1256）。
+#[test]
+fn the_journals_before_fill_the_outline_by_the_rows_shown_not_by_the_hidden_items() {
+    let mut h = Harness::new();
+    // 150 items, of which 50 are shown
+    h.api.answer_next(
+        "GetMostRecentJournalBefore",
+        Ok(journal_of_parents("2026-02-09", 50, true)),
+    );
+    // 150 rows more: enough
+    h.api.answer_next(
+        "GetMostRecentJournalBefore",
+        Ok(journal_of_parents("2026-02-08", 50, false)),
+    );
+    h.api.answer_next(
+        "GetMostRecentJournalBefore",
+        Ok(older_journal("2026-02-07")),
+    );
+    visit(&mut h, TODAY);
+
+    assert_eq!(before_calls(&h), ["2026-02-10", "2026-02-09"]);
+    assert_eq!(h.view().outline.rows.len(), 1 + 50 + 150);
+}
+
 // 今日のジャーナルのウィンドウのタイトルは、今日の日付に「(Today)」を付けたものである。ほかの日のジャーナルでは、その日の日付だけである。
 #[test]
 fn the_window_title_of_a_journal_is_its_date_with_today_marked() {
@@ -487,9 +575,9 @@ fn the_answer_for_a_day_the_user_has_moved_on_from_is_not_shown() {
     assert_ne!(journal_view(&h).page_id.as_deref(), Some("page-2026-02-08"));
 }
 
-// 前のジャーナルの読み込みは、アウトラインの項目が100個に届いたところで止まる。
+// 前のジャーナルの読み込みは、アウトラインに見えている行が100行に届いたところで止まる。
 #[test]
-fn the_journals_before_are_no_longer_loaded_once_the_outline_holds_enough_items() {
+fn the_journals_before_are_no_longer_loaded_once_the_outline_shows_enough_rows() {
     let mut h = Harness::new();
     let name = "2026-02-09";
     h.api.answer_next(

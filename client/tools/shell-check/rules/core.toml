@@ -4,11 +4,17 @@
 # each into client/tools/shell-check/common/. Each shell names its test of each in its own rules,
 # or the issue that writes it (`pending`), or why it needs none (`excluded`).
 #
-# - list-changes: D1, the shell applies the changes of a list as the core does (#1208)
+# - list-changes: D1, the shell applies the changes of a list as the core does (#1208). The
+#   lists and their changes are of the core. The Rust of the Emacs shell writes them in the
+#   form of its own border, as the part `emacs` (#1215)
 # - border-web: D2, the web shell reads and writes the values of its border back as they were
 #   (#1209)
 # - border-native: D2, a native shell reads and writes the values of its border back as they
 #   were (#1209)
+# - border-emacs: D2, the Lisp of the Emacs shell reads every kind of line that its Rust sends
+#   (#1230). The Rust of the shell writes the examples, as the border is its own (ADR 078). The
+#   lines that the Lisp sends have none: the Lisp writes them by hand, from keys that nothing
+#   generates, so there is nothing to hold them against
 [common.list-changes]
 examples = "list-changes.json"
 
@@ -17,6 +23,9 @@ examples = "border-web.json"
 
 [common.border-native]
 examples = "border-native.json"
+
+[common.border-emacs]
+examples = "border-emacs.json"
 
 # S2: the kinds of `Event` that the core sends to itself. No shell sends them, so no shell
 # needs to name them. The reasons are of four kinds:

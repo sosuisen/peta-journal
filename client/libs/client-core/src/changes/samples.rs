@@ -32,6 +32,16 @@ pub fn samples(registry: &Registry, root: &str) -> Vec<Sample> {
     Sampler::new(registry).samples(root)
 }
 
+/// The samples of the type named `root` in `registry`, as [`samples`] makes them, but with
+/// every number 1.
+///
+/// They are for a shell that does at once what a value says, as the Emacs shell changes the
+/// row that a number names: there, a number at an edge names nothing. 1 is a place in any
+/// list of two or more, and a count that begins at 1, as the level of a row, can be 1 too.
+pub fn small_samples(registry: &Registry, root: &str) -> Vec<Sample> {
+    Sampler::small(registry).samples(root)
+}
+
 /// The variants of the enums reachable from `root` that no sample of `samples` holds, as the
 /// name of the enum and the name of the variant.
 pub fn uncovered(registry: &Registry, root: &str) -> Vec<(String, String)> {
@@ -66,8 +76,10 @@ const U8S: &[u8] = &[u8::MAX, 0];
 const F64S: &[f64] = &[0.1, -2.5, f64::MAX, 5e-324];
 const F32S: &[f32] = &[0.5, -1.25, f32::MAX, 1e-7];
 /// Text that a shell may change when it reads it: letters beyond ASCII, a letter and its
-/// accent apart (not NFC), letters beyond the 16 bits of UTF-16, and what JSON escapes.
-const STRS: &[&str] = &[
+/// accent apart (not NFC), letters beyond the 16 bits of UTF-16, and what JSON escapes. Every
+/// text of a sample is one of these, so a test can begin with what they name, as rows with
+/// these ids.
+pub const TEXTS: &[&str] = &[
     "日本語の文",
     "e\u{301}",
     "😀👍🏽",
@@ -81,6 +93,8 @@ struct Sampler<'r> {
     turns: HashMap<String, usize>,
     /// The variants that a sample held, as the name of the enum and of the variant.
     covered: BTreeSet<(String, String)>,
+    /// Every number is 1, not one of the edges.
+    small: bool,
 }
 
 impl<'r> Sampler<'r> {
@@ -89,6 +103,14 @@ impl<'r> Sampler<'r> {
             registry,
             turns: HashMap::new(),
             covered: BTreeSet::new(),
+            small: false,
+        }
+    }
+
+    fn small(registry: &'r Registry) -> Self {
+        Sampler {
+            small: true,
+            ..Sampler::new(registry)
         }
     }
 
@@ -152,6 +174,10 @@ impl<'r> Sampler<'r> {
             Format::TypeName(name) => self.named(name, depth + 1),
             Format::Unit => Value::Null,
             Format::Bool => json!(self.turn("bool", &[true, false])),
+            Format::U8 | Format::U32 | Format::U64 | Format::I32 | Format::I64 if self.small => {
+                json!(1)
+            }
+            Format::F32 | Format::F64 if self.small => json!(1.0),
             Format::U8 => json!(self.turn("u8", U8S)),
             Format::U32 => json!(self.turn("u32", U32S)),
             Format::U64 => json!(self.turn("u64", U64S)),
@@ -159,7 +185,7 @@ impl<'r> Sampler<'r> {
             Format::I64 => json!(self.turn("i64", I64S)),
             Format::F32 => json!(self.turn("f32", F32S)),
             Format::F64 => json!(self.turn("f64", F64S)),
-            Format::Str => json!(self.turn("str", STRS)),
+            Format::Str => json!(self.turn("str", TEXTS)),
             Format::Option(_) if deep => Value::Null,
             Format::Option(inner) => self.value(inner, depth),
             Format::Seq(_) | Format::Set(_) if deep => json!([]),
@@ -720,5 +746,47 @@ mod tests {
         assert_eq!(sample["d"], json!(0.1));
         assert_eq!(sample["e"], json!("日本語の文"));
         assert_eq!(sample["f"], json!("e\u{301}"));
+    }
+
+    #[derive(Facet)]
+    #[allow(dead_code)]
+    struct Place {
+        at: u32,
+        wide: u64,
+        deep: i32,
+        far: i64,
+        low: u8,
+        part: f64,
+        half: f32,
+        name: String,
+        shapes: Vec<Shape>,
+    }
+
+    // 小さい見本は、ふつうの見本と同じ名前と形で、数だけがすべて1である。文字は、ふつうの見本と同じ`TEXTS`のものである。
+    #[test]
+    fn the_small_samples_are_the_samples_with_every_number_1() {
+        let registry = registry::<Place>();
+
+        let small = small_samples(&registry, "Place");
+
+        let usual = samples(&registry, "Place");
+        let ids = |samples: &[Sample]| -> Vec<String> {
+            samples.iter().map(|sample| sample.id.clone()).collect()
+        };
+        assert_eq!(ids(&small), ids(&usual));
+        let place = &small[0].value;
+        for number in ["at", "wide", "deep", "far", "low"] {
+            assert_eq!(place[number], json!(1), "{number}");
+        }
+        assert_eq!(place["part"], json!(1.0));
+        assert_eq!(place["half"], json!(1.0));
+        assert_eq!(place["name"], json!(TEXTS[0]));
+        assert_eq!(place["name"], usual[0].value["name"]);
+        assert_eq!(place["shapes"][0], json!("Dot"));
+        assert_eq!(place["shapes"][1], json!({ "Circle": 1 }));
+        assert_eq!(
+            place["shapes"][2],
+            json!({ "Rect": { "wide": 1, "high": 1 } })
+        );
     }
 }
