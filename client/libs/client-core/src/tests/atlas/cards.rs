@@ -62,6 +62,54 @@ fn a_card_that_links_to_the_index_of_a_child_folder_is_the_card_of_the_folder() 
     assert!(h.view().atlas_links.is_empty());
 }
 
+// 最初の1行がwikilinkだけの項目は、2行目より後に何があっても、そのページのカードである。
+#[test]
+fn an_item_whose_first_line_is_a_link_is_a_card_whatever_follows() {
+    let h = atlas_of(
+        vec![child("one")],
+        vec![atlas_item(
+            "any",
+            1,
+            "[[a/b/one]]\nnotes about it",
+            &[("atlas_bounds", "1,2,0,40")],
+        )],
+    );
+
+    assert_eq!(bounds_of(&h, "a/b/one").map(|b| b.x), Some(1.0));
+}
+
+// ラベルのあるwikilinkのカードは、ページをパスから引き、ラベルを出す。ラベルのないカードと、カードのないページは、ページの名前を出す。
+#[test]
+fn a_card_shows_the_label_of_its_link_and_finds_its_page_by_the_path() {
+    let h = atlas_of(
+        vec![child("one"), child("three"), child("two")],
+        vec![
+            atlas_item(
+                "any",
+                1,
+                "[[a/b/one|My one]]",
+                &[("atlas_bounds", "1,2,0,40")],
+            ),
+            card_item("two", 1, None),
+        ],
+    );
+
+    let cards: Vec<_> = h
+        .view()
+        .atlas_cards
+        .into_iter()
+        .map(|c| (c.page_id, c.label, c.bounds.map(|b| b.x)))
+        .collect();
+    assert_eq!(
+        cards,
+        [
+            ("a/b/one".to_string(), "My one".to_string(), Some(1.0)),
+            ("a/b/three".to_string(), "three".to_string(), None),
+            ("a/b/two".to_string(), "two".to_string(), None),
+        ]
+    );
+}
+
 // このフォルダにないページへのカードは、リンクカードである。パスがこのフォルダでも、ページがなければリンクカードである。
 #[test]
 fn a_card_that_links_to_no_page_of_the_folder_is_a_link_card() {

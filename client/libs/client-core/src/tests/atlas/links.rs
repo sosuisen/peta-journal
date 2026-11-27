@@ -200,6 +200,40 @@ fn editing_a_link_card_links_it_to_the_new_page() {
     assert_eq!(batches(&h), [[written("l", "[[y/Other]]")]]);
 }
 
+/// An atlas whose only item is the link `l` to `x/Target`, shown as Shown, with a second line
+fn atlas_with_labelled_link() -> Harness {
+    atlas_of(
+        vec![],
+        vec![link_item(
+            "l",
+            "[[x/Target|Shown]]\nmore",
+            Some("10,20,0,40"),
+        )],
+    )
+}
+
+// ラベルのあるリンクカードのリンク先は、パスだけである。
+#[test]
+fn the_target_of_a_link_card_with_a_label_is_its_path_alone() {
+    let h = atlas_with_labelled_link();
+
+    assert_eq!(h.view().atlas_links[0].target, "x/Target");
+}
+
+// リンクカードの宛先を変えても、ラベルと2行目より後は保たれる。同じパスへの編集では何も変わらない。
+#[test]
+fn a_link_card_linked_to_another_page_keeps_its_label_and_its_later_lines() {
+    let mut h = atlas_with_labelled_link();
+    for target in ["x/Target", "y/Other"] {
+        h.send(Event::SetAtlasLink {
+            item_id: "l".into(),
+            target: target.into(),
+        });
+    }
+
+    assert_eq!(batches(&h), [[written("l", "[[y/Other|Shown]]\nmore")]]);
+}
+
 // 空のリンク先や同じページへの編集、ページカードへの編集では何も変わらない。
 #[test]
 fn an_edit_of_a_link_to_nothing_or_to_the_same_page_changes_nothing() {
