@@ -452,16 +452,10 @@ fn taken_behind(atlas_id: &str, items: &[&Item], after: &str, level: i32) -> Vec
 /// The last item of the tree of `parent` that stays where it is while the items `leaving`
 /// move: the parent itself when every item under it leaves.
 fn last_staying<'a>(model: &'a Model, parent: &'a Item, leaving: &[&Item]) -> &'a Item {
-    let items = model.state.items();
-    let start = items.iter().position(|item| item.id == parent.id);
-    let under = items
-        .iter()
-        .skip(start.map_or(items.len(), |at| at + 1))
-        .take_while(|item| item.page_id == parent.page_id && item.level > parent.level);
-    under
+    under(model, parent)
         .filter(|item| !leaving.iter().any(|l| l.id == item.id))
         .last()
-        .map_or(parent, |item| &**item)
+        .unwrap_or(parent)
 }
 
 /// The server changed the outline of an atlas page: its items are shown. A card keeps the
