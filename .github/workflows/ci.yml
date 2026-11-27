@@ -285,6 +285,15 @@ jobs:
       # Makes the Xcode project from project.yml
       - run: brew install xcodegen
       - run: node scripts/checks.mjs run outliner-ios
+      # The whole log of the tests, with the time of each, goes with the runner otherwise. The
+      # tests of the screens fail now and then on the runner, and the time tells why (#1174)
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: outliner-ios-coverage-log
+          path: client/apps/native-app/outliner-ios/build/coverage.log
+          if-no-files-found: ignore
+          retention-days: 14
 
   memoview-win:
     name: client/apps/webview-app/memoview-win
