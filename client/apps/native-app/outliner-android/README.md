@@ -119,7 +119,9 @@ Rust. `generated/` is not kept in the repository:
 - `generated/kotlin`: the types that cross the border (`Event`, `ViewModel`, `Request`, ...),
   made by `facet_generate` 0.22.3, and the class `PetaCore` that calls the core, made by
   BoltFFI.
-- `generated/jniLibs`: the core as a library, for `arm64-v8a` and `x86_64`.
+- `generated/jniLibs`: the core as a library, for `arm64-v8a` and `x86_64`. With
+  `PETA_ANDROID_ABIS=x86_64` (or `arm64`), `generate.sh` builds only that kind, in less time.
+  The app then runs only on that kind of device.
 
 The tests of the screen need a running device or emulator: the core is a native library, and
 BoltFFI cannot pack it for the JVM of a Windows machine yet (ADR 030). The device must be
