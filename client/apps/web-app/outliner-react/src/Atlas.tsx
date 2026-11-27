@@ -11,9 +11,9 @@ import {
   richLinkFile,
   richLinkPage,
   richLinkWeb,
-  type AtlasCard,
   type OpenIn,
   type RichLink,
+  type UnplacedCard,
 } from './border/peta-types';
 import { ATLAS_OPTIONS, loadAtlasScripts } from './atlasScripts';
 import { useCore, usePanel } from './context';
@@ -120,18 +120,18 @@ function saveView(dir: string, view: View): void {
 }
 
 /**
- * The drag data of an unplaced card. A type of its own keeps text dragged from elsewhere
- * from being taken as a card.
+ * The drag data of a card of the lists beside the canvas. A type of its own keeps text
+ * dragged from elsewhere from being taken as a card.
  */
 const CARD_MIME = 'application/x-peta-atlas-card';
 
 /**
- * An unplaced card being dragged: its page and where on the card it was grabbed, as a share
- * of the card's width and height. A share and not pixels, as a long label makes the card in
- * the list taller than on the canvas.
+ * A card of the lists being dragged: the id the core gave it and where on the card it was
+ * grabbed, as a share of the card's width and height. A share and not pixels, as a long label
+ * makes the card in the list taller than on the canvas.
  */
 interface Grab {
-  readonly page_id: string;
+  readonly card_id: string;
   readonly x: number;
   readonly y: number;
 }
@@ -154,14 +154,16 @@ interface Shown {
 
 /**
  * The canvas of an atlas page, ported from the Leptos shell: the pages and folders of its
- * directory as cards, drawn by PixiJS in atlas.js. A card without a place waits in the list
- * of unplaced cards beside the canvas, and is placed by dragging it onto the canvas. With
- * Ctrl held, it also joins the group of the card or the group area it is dropped on.
+ * directory as cards, drawn by PixiJS in atlas.js. What is not on the canvas waits beside it
+ * in two groups (ADR 053): the pages that no card links to, and the items of the atlas page
+ * without a place. Either is placed by dragging it onto the canvas. With Ctrl held, it also
+ * joins the group of the card or the group area it is dropped on.
  */
 export default function Atlas({ dirPath }: { readonly dirPath: string }) {
   const core = useCore();
   const cards = usePanel('AtlasCards') ?? NONE;
   const links = usePanel('AtlasLinks') ?? NONE;
+  const waiting = usePanel('AtlasUnplaced') ?? NONE;
   const callouts = usePanel('AtlasCallouts') ?? NONE;
   const suggestions = usePanel('AtlasLinkSuggestions') ?? NONE;
   const host = useRef<HTMLDivElement>(null);
@@ -242,7 +244,7 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
     );
     core.send({
       kind: 'DropAtlasCard',
-      card_id: grab.page_id,
+      card_id: grab.card_id,
       x,
       y,
       grab_x: grab.x,
@@ -251,7 +253,7 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
     if (target !== null) {
       core.send({
         kind: 'GroupAtlasCards',
-        card_ids: [grab.page_id],
+        card_ids: [grab.card_id],
         target_id: target,
       });
     }
@@ -273,13 +275,13 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
 
   return (
     <div className="atlas">
+      {/* The whole list scrolls, however many wait */}
       <div className="atlas-unplaced">
-        <div className="atlas-unplaced-title">Unplaced</div>
-        {cards
-          .filter(c => c.bounds === null)
-          .map(c => (
-            <UnplacedCard key={c.page_id} card={c} />
-          ))}
+        <UnplacedGroup
+          title="Not Added"
+          cards={waiting.filter(c => !c.added)}
+        />
+        <UnplacedGroup title="No Place" cards={waiting.filter(c => c.added)} />
       </div>
       {/* The browser's own menu would cover the menu of a card */}
       <div
@@ -415,9 +417,28 @@ function richLinkOf(link: { kind: string; url: string }): RichLink {
   return link.kind === 'File' ? richLinkFile(link.url) : richLinkPage(link.url);
 }
 
-/** A card of the list of unplaced cards: dragged onto the canvas, it is placed there. */
-function UnplacedCard({ card }: { readonly card: AtlasCard }) {
+/** A group of the list beside the canvas, under its title. */
+function UnplacedGroup({
+  title,
+  cards,
+}: {
+  readonly title: string;
+  readonly cards: readonly UnplacedCard[];
+}) {
+  return (
+    <div className="atlas-unplaced-group">
+      <div className="atlas-unplaced-title">{title}</div>
+      {cards.map(c => (
+        <Waiting key={c.id} card={c} />
+      ))}
+    </div>
+  );
+}
+
+/** A card of the list beside the canvas: dragged onto the canvas, it is placed there. */
+function Waiting({ card }: { readonly card: UnplacedCard }) {
   const core = useCore();
+  const path = card.path;
   return (
     <div
       className={card.is_dir ? 'atlas-card folder' : 'atlas-card'}
@@ -428,7 +449,7 @@ function UnplacedCard({ card }: { readonly card: AtlasCard }) {
         const share = (at: number, from: number, size: number) =>
           Math.min(Math.max((at - from) / size, 0), 1);
         const grab: Grab = {
-          page_id: card.page_id,
+          card_id: card.id,
           x: share(event.clientX, rect.left, rect.width),
           y: share(event.clientY, rect.top, rect.height),
         };
@@ -436,18 +457,22 @@ function UnplacedCard({ card }: { readonly card: AtlasCard }) {
         event.dataTransfer.effectAllowed = 'move';
       }}
     >
-      <span
-        className="atlas-card-label"
-        onClick={event =>
-          core.send({
-            kind: 'GoToPage',
-            path: card.path,
-            open_in: openInOf(event.nativeEvent),
-          })
-        }
-      >
-        {card.label}
-      </span>
+      {path === null ? (
+        <span>{card.label}</span>
+      ) : (
+        <span
+          className="atlas-card-label"
+          onClick={event =>
+            core.send({
+              kind: 'GoToPage',
+              path,
+              open_in: openInOf(event.nativeEvent),
+            })
+          }
+        >
+          {card.label}
+        </span>
+      )}
     </div>
   );
 }

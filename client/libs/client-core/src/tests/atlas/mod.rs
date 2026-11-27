@@ -11,6 +11,9 @@ mod kinds;
 // カードを置く
 mod cards;
 
+// 置かれるのを待つ
+mod waiting;
+
 // まとまりを作る
 mod groups;
 

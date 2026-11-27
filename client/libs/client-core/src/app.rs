@@ -644,7 +644,7 @@ pub enum Event {
         x: f64,
         y: f64,
     },
-    /// A card of the list of unplaced cards let go on the canvas at `x`, `y`. `grab_x` and
+    /// A card of the lists beside the canvas let go on the canvas at `x`, `y`. `grab_x` and
     /// `grab_y` are where the card was grabbed, as a part of its width and its height. The
     /// grabbed spot stays under the pointer, so the card goes where the dragged image is.
     DropAtlasCard {
@@ -711,7 +711,8 @@ pub enum Event {
         side: String,
         text: String,
     },
-    /// The card menu's "Remove from Atlas": the page's card goes back to the unplaced list.
+    /// The card menu's "Remove from Atlas": the page's card goes back to the items without a
+    /// place.
     RemoveAtlasCard {
         page_id: String,
     },
@@ -799,6 +800,9 @@ pub enum Event {
     IndexPagesLoaded {
         header: String,
         is_root: bool,
+        /// The index page of the directory itself. Not named `index`: the Kotlin types
+        /// cannot have a field of that name.
+        folder: Page,
         pages: Vec<Page>,
     },
     /// The server could not answer the pages of the directory the index list shows.
@@ -1063,6 +1067,9 @@ pub struct ConfigState {
 pub struct SidebarState {
     pub index_header: String,
     pub index_pages: Vec<Page>,
+    /// The index page of the directory the index list shows, which is not in the list. None
+    /// until the list arrived.
+    pub index_page: Option<Page>,
     /// The id of the page whose children the index list shows. None for a page that is not
     /// in a folder.
     pub index_folder: Option<String>,
@@ -1624,8 +1631,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         IndexPagesLoaded {
             header,
             is_root,
+            folder,
             pages,
-        } => screens::sidebar::show_index_pages(model, header, is_root, pages),
+        } => screens::sidebar::show_index_pages(model, header, is_root, folder, pages),
         IndexPagesFailed => screens::sidebar::index_pages_failed(model),
         SseReconnect => screens::sse::connect(model),
         NavigateHome => screens::settings::navigate_home(model),

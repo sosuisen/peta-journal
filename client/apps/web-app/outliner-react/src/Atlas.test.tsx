@@ -12,6 +12,7 @@ import {
   richLinkFile,
   richLinkPage,
   richLinkWeb,
+  UnplacedCard,
   type Panel,
 } from './border/peta-types';
 import { draw, shell } from './test/screens';
@@ -503,8 +504,8 @@ describe('what is done on the canvas', () => {
   });
 });
 
-// 置いていないカード
-describe('the unplaced cards', () => {
+// 横で待つもの: 未追加の項目と、座標のない項目
+describe('what waits beside the canvas', () => {
   const CARD_MIME = 'application/x-peta-atlas-card';
 
   function dataTransfer(types: string[] = []) {
@@ -536,15 +537,31 @@ describe('the unplaced cards', () => {
     return fireEvent(target, event);
   }
 
+  function waiting(
+    id: string,
+    added: boolean,
+    changes: Partial<UnplacedCard> = {},
+  ): UnplacedCard {
+    return Object.assign(
+      new UnplacedCard(id, id.toUpperCase(), `m/${id}`, false, added),
+      changes,
+    );
+  }
+
   async function unplaced() {
-    const drawn = await atlas('m/', {
-      kind: 'AtlasCards',
-      value: [
-        card('a', true),
-        card('b', false),
-        card('c', false, { is_dir: true }),
-      ],
-    });
+    const drawn = await atlas(
+      'm/',
+      { kind: 'AtlasCards', value: [card('a', true), card('b', false)] },
+      {
+        kind: 'AtlasUnplaced',
+        value: [
+          waiting('b', false),
+          waiting('c', false, { is_dir: true }),
+          waiting('d', true),
+          waiting('t', true, { path: null }),
+        ],
+      },
+    );
     const listed = () => [
       ...drawn.container.querySelectorAll('.atlas-unplaced .atlas-card'),
     ];
@@ -552,19 +569,66 @@ describe('the unplaced cards', () => {
     return { ...drawn, listed, host };
   }
 
-  // 置いていないカードは、横のリストに出る。フォルダには印がつく。名前を押すと、そのページを開く。
-  test('the unplaced cards are listed beside the canvas, and a click on a name opens its page', async () => {
-    const { listed, wasm } = await unplaced();
+  // 横のリストは、未追加の項目と、座標のない項目の2つのグループに分かれる。フォルダには印がつく。
+  test('the list beside the canvas has a group of the pages not added and a group of the items without a place', async () => {
+    const { container } = await unplaced();
+
+    const groups = [...container.querySelectorAll('.atlas-unplaced-group')];
+    expect(
+      groups.map(group => [
+        group.querySelector('.atlas-unplaced-title')?.textContent,
+        [...group.querySelectorAll('.atlas-card')].map(e => [
+          e.className,
+          e.textContent,
+        ]),
+      ]),
+    ).toEqual([
+      [
+        'Not Added',
+        [
+          ['atlas-card', 'B'],
+          ['atlas-card folder', 'C'],
+        ],
+      ],
+      [
+        'No Place',
+        [
+          ['atlas-card', 'D'],
+          ['atlas-card', 'T'],
+        ],
+      ],
+    ]);
+  });
+
+  // どちらのグループでも、名前を押すと、そのページを開く。何も開かない項目の名前は、押しても何も送らない。
+  test('a click on a name of either group opens its page, and a name that opens nothing sends nothing', async () => {
+    const { wasm } = await unplaced();
 
     fireEvent.click(screen.getByText('C'), { ctrlKey: true });
+    fireEvent.click(screen.getByText('D'));
+    fireEvent.click(screen.getByText('T'));
 
-    expect(listed().map(e => [e.className, e.textContent])).toEqual([
-      ['atlas-card', 'B'],
-      ['atlas-card folder', 'C'],
-    ]);
     expect(wasm.events).toEqual([
       { kind: 'GoToPage', path: 'm/c', open_in: { kind: 'NewView' } },
+      { kind: 'GoToPage', path: 'm/d', open_in: { kind: 'Here' } },
     ]);
+  });
+
+  // 座標のない項目も、リストから引ける。引いたものは、コアが付けた名前で持つ。
+  test('an item without a place is dragged from the list by the id the core gave it', async () => {
+    const { listed } = await unplaced();
+    const moved = dataTransfer();
+    const t = listed()[3];
+    t.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 100, height: 40 }) as DOMRect;
+
+    drag('dragStart', t, { x: 50, y: 20 }, moved);
+
+    expect(JSON.parse(moved.data.get(CARD_MIME) ?? '')).toEqual({
+      card_id: 't',
+      x: 0.5,
+      y: 0.5,
+    });
   });
 
   // リストのカードを引くと、つかんだ場所を、カードの幅と高さの割合で持つ。カードの外は端に寄せる。
@@ -579,9 +643,9 @@ describe('the unplaced cards', () => {
       const first = JSON.parse(moved.data.get(CARD_MIME) ?? '') as unknown;
       drag('dragStart', b, { x: 500, y: 0 }, moved);
 
-      expect(first).toEqual({ page_id: 'b', x: 0.25, y: 0.25 });
+      expect(first).toEqual({ card_id: 'b', x: 0.25, y: 0.25 });
       expect(JSON.parse(moved.data.get(CARD_MIME) ?? '')).toEqual({
-        page_id: 'b',
+        card_id: 'b',
         x: 1,
         y: 0,
       });
@@ -592,7 +656,7 @@ describe('the unplaced cards', () => {
   test('a listed card over the canvas shows its group there, and a drop without Ctrl gives only the place to the core', async () => {
     const { host, canvas, wasm } = await unplaced();
     const moved = dataTransfer([CARD_MIME]);
-    moved.setData(CARD_MIME, JSON.stringify({ page_id: 'b', x: 0.5, y: 0.25 }));
+    moved.setData(CARD_MIME, JSON.stringify({ card_id: 'b', x: 0.5, y: 0.25 }));
     canvas().target = 'a';
 
     drag('dragOver', host, { x: 140, y: 60 }, moved);
@@ -621,7 +685,7 @@ describe('the unplaced cards', () => {
   test('a drop with Ctrl also joins the group it lands on', async () => {
     const { host, canvas, wasm } = await unplaced();
     const moved = dataTransfer([CARD_MIME]);
-    moved.setData(CARD_MIME, JSON.stringify({ page_id: 'b', x: 0, y: 0 }));
+    moved.setData(CARD_MIME, JSON.stringify({ card_id: 'b', x: 0, y: 0 }));
     canvas().target = 'a';
 
     drag('drop', host, { x: 100, y: 50, ctrl: true }, moved);
@@ -640,7 +704,7 @@ describe('the unplaced cards', () => {
     drag('dragOver', host, { x: 0, y: 0 }, text);
     drag('drop', host, { x: 0, y: 0 }, text);
     const moved = dataTransfer([CARD_MIME]);
-    moved.setData(CARD_MIME, JSON.stringify({ page_id: 'b', x: 0, y: 0 }));
+    moved.setData(CARD_MIME, JSON.stringify({ card_id: 'b', x: 0, y: 0 }));
     canvas().ready = false;
     drag('drop', host, { x: 0, y: 0 }, moved);
 

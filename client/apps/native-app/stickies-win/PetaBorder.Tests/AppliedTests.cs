@@ -82,6 +82,7 @@ public sealed class AppliedTests
             new Panel.AtlasCards([]),
             new Panel.AtlasCallouts([]),
             new Panel.AtlasLinks([]),
+            new Panel.AtlasUnplaced([]),
             new Panel.AtlasLinkSuggestions(["suggested"]),
             new Panel.Outline(Outline(selecting: true)),
             new Panel.IndexPages(

@@ -48,7 +48,7 @@ use crate::screens::atlas::{Callout, LinkCard};
 use crate::screens::calendar::CalendarView;
 use crate::view::{
     AtlasCard, ConfigView, HistoryView, LoadState, Row, ScreenView, SearchEntry, SidebarPage,
-    WikiView,
+    UnplacedCard, WikiView,
 };
 use crate::ViewModel;
 use serde::Serialize;
@@ -82,6 +82,7 @@ pub enum Panel {
     AtlasCards(Vec<AtlasCard>),
     AtlasCallouts(Vec<Callout>),
     AtlasLinks(Vec<LinkCard>),
+    AtlasUnplaced(Vec<UnplacedCard>),
     AtlasLinkSuggestions(Vec<String>),
     Outline(OutlinePanel),
     IndexPages(IndexPagesPanel),
@@ -257,6 +258,7 @@ fn panels<B>(view: &ViewModel<B>) -> Vec<Panel> {
         Panel::AtlasCards(view.atlas_cards.clone()),
         Panel::AtlasCallouts(view.atlas_callouts.clone()),
         Panel::AtlasLinks(view.atlas_links.clone()),
+        Panel::AtlasUnplaced(view.atlas_unplaced.clone()),
         Panel::AtlasLinkSuggestions(view.atlas_link_suggestions.clone()),
         Panel::Outline(OutlinePanel {
             selection_mode: outline.selection_mode,

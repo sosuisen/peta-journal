@@ -51,6 +51,7 @@ final class AppliedTests: XCTestCase {
             .atlasCards([]),
             .atlasCallouts([]),
             .atlasLinks([]),
+            .atlasUnplaced([]),
             .atlasLinkSuggestions(["suggested"]),
             .outline(outline(selecting: true)),
             .indexPages(
