@@ -4,6 +4,7 @@ import Atlas from './Atlas';
 import {
   AtlasCard,
   cardToneLink,
+  cardTonePlain,
   Bounds,
   Callout,
   eventLinkClicked,
@@ -410,6 +411,39 @@ describe('what is done on the canvas', () => {
     expect(place).toEqual(['30px', '40px']);
     expect(container.querySelector('.atlas-menu')).toBeNull();
     expect(wasm.events).toEqual([{ kind: 'RemoveAtlasCard', page_id: 'a' }]);
+  });
+
+  // カードのメニューのShow Textで、項目の全文を、ページの本文と同じHTMLにして、押した場所に出す。リンクのカードでも、ページのカードでも出せる。
+  test('Show Text shows the whole text of a card where it was asked, as a page draws a body', async () => {
+    const page = card('a', true, { text: '- a\n  more' });
+    const link = new LinkCard(
+      'l',
+      null,
+      'note',
+      cardTonePlain(),
+      [],
+      'note [[x]]',
+      new Bounds(0, 0, 0, 0),
+      [],
+    );
+    const { canvas, container } = await atlas(
+      'm/',
+      { kind: 'AtlasCards', value: [page] },
+      { kind: 'AtlasLinks', value: [link] },
+    );
+
+    act(() => canvas().handlers.onMenu('a' as never, 0 as never, 0 as never));
+    fireEvent.click(screen.getByText('Show Text'));
+    const fromMenu = container.querySelector('.atlas-text')?.innerHTML;
+    fireEvent.keyDown(document, { key: 'Escape' });
+    act(() =>
+      canvas().handlers.onShowText('l' as never, 30 as never, 40 as never),
+    );
+    const shown = container.querySelector('.atlas-text') as HTMLElement;
+
+    expect(fromMenu).toBe('<p>- a\n  more</p>');
+    expect(shown.innerHTML).toBe('<p>note [[x]]</p>');
+    expect([shown.style.left, shown.style.top]).toEqual(['30px', '40px']);
   });
 
   // メニューは、外のクリックとEscapeで、何もせずに閉じる。
