@@ -521,18 +521,26 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
     }
 }
 
-/// Cards let go on the blob of a parent go under its item.
+/// Cards let go on the blob of a parent go under its item, each where it lies among the items
+/// under it ([`put_under`]). A card right under the parent already stays where it is in the
+/// outline. The parent a card leaves loses its side when nothing stays under it.
 pub fn move_cards(model: &mut Model, card_ids: Vec<String>, parent_id: String) -> Cmd {
     let cards = card_entries(model);
-    let Some(parent) = model.state.get_item_by_id(&parent_id) else {
+    let Some(parent) = entries(model)
+        .into_iter()
+        .find(|e| e.is_parent && e.item.id == parent_id)
+        .map(|e| e.item)
+    else {
         return done();
     };
-    let joining: Vec<&Item> = cards
+    let joining: Vec<&Card> = cards
         .iter()
         .filter(|card| card_ids.iter().any(|id| id == card.id()))
-        .map(|card| card.item)
+        .filter(|card| card.group.is_none_or(|group| group.id != parent.id))
         .collect();
-    let ops = put_under(model, &parent, &joining);
+    let items: Vec<&Item> = joining.iter().map(|card| card.item).collect();
+    let mut ops = put_under(model, parent, &items);
+    ops.extend(sides_dropped(model, &joining));
     change(model, ops)
 }
 
@@ -548,15 +556,32 @@ fn under<'a>(model: &'a Model, parent: &Item) -> impl Iterator<Item = &'a Item> 
         .map(|item| &**item)
 }
 
-/// Whether an item lies below a card, as the order of the outline reads the canvas: the
-/// upper one comes first, and of two at the same height the left one (ADR 053). An item
-/// without a place lies nowhere, and neither is any item below a card without one.
+/// Where an item lies as the order of the outline reads the canvas: the upper one comes
+/// first, and of two at the same height the left one (ADR 053). None for an item without a
+/// place.
+fn reading_place(item: &Item) -> Option<(f64, f64)> {
+    bounds_of(item).map(|b| (b.y, b.x))
+}
+
+/// Whether an item lies below a card. An item without a place lies nowhere, and neither is
+/// any item below a card without one.
 fn lies_below(item: &Item, card: &Item) -> bool {
-    let place = |item: &Item| bounds_of(item).map(|b| (b.y, b.x));
-    match (place(item), place(card)) {
+    match (reading_place(item), reading_place(card)) {
         (Some(item), Some(card)) => item > card,
         _ => false,
     }
+}
+
+/// The cards in the order the outline reads the canvas. Two at the same place keep their
+/// order, and a card without a place comes last.
+fn in_reading_order<'a>(cards: &[&'a Item]) -> Vec<&'a Item> {
+    let place = |card: &Item| reading_place(card).unwrap_or((f64::MAX, f64::MAX));
+    let mut cards = cards.to_vec();
+    cards.sort_by(|a, b| {
+        let (a, b) = (place(a), place(b));
+        a.0.total_cmp(&b.0).then(a.1.total_cmp(&b.1))
+    });
+    cards
 }
 
 /// The operations that put cards under `parent`: each goes in before the first item right
@@ -567,6 +592,7 @@ fn put_under(model: &Model, parent: &Item, joining: &[&Item]) -> Vec<BatchOpInpu
     let staying: Vec<&Item> = under(model, parent)
         .filter(|item| !joining.iter().any(|j| j.id == item.id))
         .collect();
+    let joining = in_reading_order(joining);
     let siblings = || staying.iter().filter(|item| item.level == level);
     // The cards that go in before the sibling; before none, the ones no sibling lies below
     let going_before = |sibling: Option<&Item>| -> Vec<&Item> {
