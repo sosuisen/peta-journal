@@ -56,3 +56,13 @@ fn a_card_stays_as_it_is_when_its_page_is_renamed_or_deleted() {
 
     assert_eq!(notes.outline_of(&atlas_id), before);
 }
+
+// 新しく作ったアトラスのページは、ほかのページと同じく、空の項目を1つ持つ。
+#[test]
+fn a_new_atlas_page_starts_with_one_empty_item_as_any_page_does() {
+    let notes = Core::new();
+
+    let (_dir, atlas_id) = notes.dir_with_atlas("plain-first-item");
+
+    assert_eq!(notes.outline_of(&atlas_id), ["1:"]);
+}
