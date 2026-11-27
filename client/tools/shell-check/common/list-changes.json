@@ -1,4 +1,80 @@
 {
+  "emacs": {
+    "rows": [
+      {
+        "after": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "before": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[]}}]}",
+        "changes": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "id": "insert-into-empty"
+      },
+      {
+        "after": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "before": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "changes": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Insert\":{\"at\":0,\"item\":{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}}}]}",
+        "id": "insert-first"
+      },
+      {
+        "after": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "before": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "changes": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Insert\":{\"at\":2,\"item\":{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}}}]}",
+        "id": "insert-last"
+      },
+      {
+        "after": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "before": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "changes": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Remove\":{\"at\":0}}]}",
+        "id": "remove-first"
+      },
+      {
+        "after": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "before": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "changes": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Remove\":{\"at\":2}}]}",
+        "id": "remove-last"
+      },
+      {
+        "after": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "before": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "changes": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Move\":{\"from\":2,\"to\":0}}]}",
+        "id": "move-last-to-first"
+      },
+      {
+        "after": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "before": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "changes": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Move\":{\"from\":1,\"to\":0}},{\"Move\":{\"from\":2,\"to\":1}}]}",
+        "id": "move-first-to-last"
+      },
+      {
+        "after": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b changed\",\"text\":{\"text\":\"b changed\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "before": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "changes": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Update\":{\"at\":1,\"item\":{\"id\":\"b\",\"level\":1,\"body\":\"b changed\",\"text\":{\"text\":\"b changed\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}}}]}",
+        "id": "update"
+      },
+      {
+        "after": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"d\",\"level\":1,\"body\":\"d\",\"text\":{\"text\":\"d\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "before": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "changes": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"d\",\"level\":1,\"body\":\"d\",\"text\":{\"text\":\"d\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "id": "reset-to-others"
+      },
+      {
+        "after": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[]}}]}",
+        "before": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "changes": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[]}}]}",
+        "id": "reset-to-empty"
+      },
+      {
+        "after": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[]}}]}",
+        "before": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[]}}]}",
+        "changes": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[]}",
+        "id": "empty-to-empty"
+      },
+      {
+        "after": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"e\",\"level\":1,\"body\":\"e\",\"text\":{\"text\":\"e\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"d\",\"level\":1,\"body\":\"d changed\",\"text\":{\"text\":\"d changed\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "before": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"a\",\"text\":{\"text\":\"a\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":1,\"body\":\"b\",\"text\":{\"text\":\"b\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"c\",\"level\":1,\"body\":\"c\",\"text\":{\"text\":\"c\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"d\",\"level\":1,\"body\":\"d\",\"text\":{\"text\":\"d\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}]}}]}",
+        "changes": "{\"t\":\"rows\",\"ack\":0,\"page_id\":\"page\",\"changes\":[{\"Remove\":{\"at\":0}},{\"Insert\":{\"at\":0,\"item\":{\"id\":\"e\",\"level\":1,\"body\":\"e\",\"text\":{\"text\":\"e\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}}},{\"Move\":{\"from\":3,\"to\":1}},{\"Update\":{\"at\":1,\"item\":{\"id\":\"d\",\"level\":1,\"body\":\"d changed\",\"text\":{\"text\":\"d changed\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}}}]}",
+        "id": "every-kind-at-once"
+      }
+    ]
+  },
   "native": {
     "rows": [
       {
