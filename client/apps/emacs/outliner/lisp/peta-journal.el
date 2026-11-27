@@ -495,7 +495,7 @@ Each applies its change to the buffer and to `peta-journal--rows', and returns
 the ids of the rows it wrote, or t when it wrote all.  TYPED is the body to
 keep, from `peta-journal--typed'.  The places count in the rows as the changes
 before left them.  The kinds and their fields are those of
-`peta-journal-protocol-list-change-fields'."
+`peta-journal-protocol-row-change-fields'."
   (list
    :insert
    (lambda (at item)
@@ -595,7 +595,7 @@ are rewritten, so what does not change stays where it is."
          (inhibit-modification-hooks t))
     (save-excursion
       (seq-doseq (change changes)
-        (let ((ids (peta-journal-protocol-handle-list-change change handlers)))
+        (let ((ids (peta-journal-protocol-handle-row-change change handlers)))
           (setq written (if (or (eq ids t) (eq written t)) t (append ids written))))))
     (setq peta-journal--page-id page-id)
     ;; The core has ended the edit of an item that is gone, for one deleted here or by

@@ -1,13 +1,12 @@
 //! How each [`ApiOp`] travels over the journal server's REST API. This knows the requests and the
 //! answers, and sends nothing: the shells do that, each with its own HTTP client.
 
-use crate::effects::{ApiError, ApiOp, ApiOutput, ApiResult, AtlasChange};
+use crate::effects::{ApiError, ApiOp, ApiOutput, ApiResult};
 use crate::model::{BacklinkEntry, Item, Page, PropertyDefinition, SearchResult};
 pub use journal_api_types::routes;
 use journal_api_types::routes::Route;
 use journal_api_types::{
-    AddPropertyDefinitionInput, AnswerConfirmInput, AtlasCalloutInput, AtlasGroupInput,
-    AtlasLinkInput, AtlasTitleInput, BatchInput, CreateItemInput, DemotePageInput,
+    AddPropertyDefinitionInput, AnswerConfirmInput, BatchInput, CreateItemInput, DemotePageInput,
     GetOrCreateDocInput, ItemIdsInput, MergeItemsInput, MoveItemsInput, MoveToJournalInput,
     PasteInput, PropertyInput, ShiftLevelsInput, SplitInput, StashInput, TransclusionInput,
     UpdateConfigInput, UpdateItemInput, UpdatePageInput,
@@ -111,66 +110,6 @@ fn parsed<T: DeserializeOwned>(reply: &HttpReply) -> ApiResult<T> {
 /// (`journal-api-types`). A field that is not set is not written.
 fn body(input: impl Serialize) -> Option<Value> {
     Some(serde_json::to_value(input).expect("a request is plain data"))
-}
-
-/// The route of a change of an atlas, the item it names in its path and its body.
-fn atlas_request(change: AtlasChange) -> (Route, Option<String>, Option<Value>) {
-    match change {
-        AtlasChange::AddLink { target, bounds } => (
-            routes::ADD_ATLAS_LINK,
-            None,
-            body(AtlasLinkInput { target, bounds }),
-        ),
-        AtlasChange::SetLink { item_id, target } => (
-            routes::SET_ATLAS_LINK,
-            Some(item_id),
-            body(AtlasLinkInput {
-                target,
-                ..Default::default()
-            }),
-        ),
-        AtlasChange::Group { cards, target } => (
-            routes::GROUP_ATLAS_CARDS,
-            None,
-            body(AtlasGroupInput { cards, target }),
-        ),
-        AtlasChange::Ungroup { cards } => (
-            routes::UNGROUP_ATLAS_CARDS,
-            None,
-            body(AtlasGroupInput {
-                cards,
-                ..Default::default()
-            }),
-        ),
-        AtlasChange::SetGroupTitle {
-            item_id,
-            side,
-            title,
-        } => (
-            routes::SET_ATLAS_GROUP_TITLE,
-            Some(item_id),
-            body(AtlasTitleInput { side, title }),
-        ),
-        AtlasChange::AddCallout { bounds, side, text } => (
-            routes::ADD_ATLAS_CALLOUT,
-            None,
-            body(AtlasCalloutInput { bounds, side, text }),
-        ),
-        AtlasChange::SetCallout {
-            item_id,
-            side,
-            text,
-        } => (
-            routes::SET_ATLAS_CALLOUT,
-            Some(item_id),
-            body(AtlasCalloutInput {
-                side,
-                text,
-                ..Default::default()
-            }),
-        ),
-        AtlasChange::Remove { item_id } => (routes::REMOVE_ATLAS_ITEM, Some(item_id), None),
-    }
 }
 
 #[derive(Deserialize)]
@@ -504,15 +443,6 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         ),
         ApiOp::DeleteItemProperty { item_id, key } => {
             call(routes::DELETE_ITEM_PROPERTY, &[&item_id, &key], None, item)
-        }
-        ApiOp::ChangeAtlas { atlas_id, change } => {
-            let (route, item_id, body) = atlas_request(change);
-            let args: Vec<&str> = [Some(&atlas_id), item_id.as_ref()]
-                .into_iter()
-                .flatten()
-                .map(String::as_str)
-                .collect();
-            call(route, &args, body, items)
         }
         ApiOp::SearchCombined { query, max_results } => {
             call(routes::SEARCH_COMBINED, &[], None, search_results)

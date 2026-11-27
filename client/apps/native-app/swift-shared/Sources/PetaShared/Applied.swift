@@ -65,18 +65,48 @@ extension ViewModel {
 extension Array where Element == Row {
     /// The rows after the changes, applied one after another. A place counts in the rows as the
     /// changes before it left them.
-    public func applying(_ changes: [ListChange]) -> [Row] {
-        var rows = self
+    public func applying(_ changes: [RowChange]) -> [Row] {
+        after(changes.map(\.change))
+    }
+}
+
+/// A change of a list of any kind (ADR 088). The border has a type of its own for the changes of
+/// each list, all of the same shape; each is made into this, and `after` applies them all.
+public enum Change<Element> {
+    case insert(at: Int, item: Element)
+    case remove(at: Int)
+    case move(from: Int, to: Int)
+    case update(at: Int, item: Element)
+    case reset(items: [Element])
+}
+
+extension Array {
+    /// The list after the changes, applied one after another. A place counts in the list as the
+    /// changes before it left it.
+    public func after(_ changes: [Change<Element>]) -> [Element] {
+        var items = self
         for change in changes {
             switch change {
-            case .insert(let at, let item): rows.insert(item, at: Int(at))
-            case .remove(let at): rows.remove(at: Int(at))
-            case .move(let from, let to): rows.insert(rows.remove(at: Int(from)), at: Int(to))
-            case .update(let at, let item): rows[Int(at)] = item
-            case .reset(let items): rows = items
+            case .insert(let at, let item): items.insert(item, at: at)
+            case .remove(let at): items.remove(at: at)
+            case .move(let from, let to): items.insert(items.remove(at: from), at: to)
+            case .update(let at, let item): items[at] = item
+            case .reset(let all): items = all
             }
         }
-        return rows
+        return items
+    }
+}
+
+extension RowChange {
+    fileprivate var change: Change<Row> {
+        switch self {
+        case .insert(let at, let item): .insert(at: Int(at), item: item)
+        case .remove(let at): .remove(at: Int(at))
+        case .move(let from, let to): .move(from: Int(from), to: Int(to))
+        case .update(let at, let item): .update(at: Int(at), item: item)
+        case .reset(let items): .reset(items: items)
+        }
     }
 }
 

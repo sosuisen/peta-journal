@@ -12,8 +12,6 @@
 //! - The tags and the other properties of a page come from the front matter of a file newer
 //!   than the page. A device that got a page only from its file must hold them, or the file
 //!   loses them when that device writes it.
-//! - An atlas goes by its page: when the DB is newer than the file, the file is backed up and
-//!   overwritten from the DB.
 //! - A Dropbox conflicted copy is taken in as one more version of its page, and then
 //!   deleted. It never takes items away.
 //! - Nothing is deleted from the DB because a file disappeared; that goes through the
@@ -26,6 +24,7 @@ use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
 
+use crate::application::atlas_service::AtlasService;
 use crate::application::page_service::PageService;
 use crate::domain::model::Page;
 use crate::error::AppError;
@@ -76,6 +75,8 @@ pub struct MarkdownImportService {
     page_service: Arc<PageService>,
     /// Takes in `settings/properties.json`, which holds the definitions of the user keys
     definitions: Arc<DefinitionsFileService>,
+    /// Moves an atlas page that a file brings in the form the server wrote (ADR 053)
+    atlas: Arc<AtlasService>,
     /// How long a file waits for the file of the same page to go before it is a copy.
     copy_wait: Duration,
     /// The files that wait, by path. They are lost on a restart; the scan brings them again.
@@ -104,6 +105,7 @@ impl MarkdownImportService {
         events: Arc<dyn ImportEvents>,
         page_service: Arc<PageService>,
         definitions: Arc<DefinitionsFileService>,
+        atlas: Arc<AtlasService>,
         copy_wait: Duration,
     ) -> MarkdownImportService {
         MarkdownImportService {
@@ -115,6 +117,7 @@ impl MarkdownImportService {
             events,
             page_service,
             definitions,
+            atlas,
             copy_wait,
             waiting: Mutex::new(BTreeMap::new()),
             waiting_transclusions: Mutex::new(Vec::new()),
@@ -258,9 +261,6 @@ impl MarkdownImportService {
         let Some(page) = self.page_service.get_page(&state.page_id)? else {
             return Ok(Outcome::Waiting);
         };
-        if page.is_atlas() {
-            return Ok(Outcome::Ignored);
-        }
         let content = read_stable(&file)?;
         if content.trim().is_empty() {
             return Ok(Outcome::Error);
@@ -303,7 +303,6 @@ impl MarkdownImportService {
                 &union(&merge.tags_before, &page_tags_before),
                 &union(&merge.tags_after, &page_tags),
             );
-            self.page_service.sync_atlases();
             self.events.page_changed(&page.id);
         }
         std::fs::remove_file(&file)?;
@@ -391,19 +390,6 @@ impl MarkdownImportService {
         // A page that never had a file on this device (e.g. the root index a fresh install
         // creates) is not "newer" in any meaningful way, so the file wins
         let had_file = !states.is_empty();
-        if had_file && page.is_atlas() && file_modified < page.modified_date {
-            // DB is newer: keep the DB, keep the file's content as a backup, then overwrite the file.
-            // A moved file still moves the page, so the export lands at the new path.
-            if renamed {
-                page = self
-                    .page_matcher
-                    .move_page(&page, loc, page.modified_date)?;
-            }
-            self.backup_conflict(root, rel_path, loc, &content, hash, &page, attrs)?;
-            self.export.queue_export(&page.id);
-            return Ok(Outcome::Conflict);
-        }
-
         let empty = [ParsedItem::empty()];
         let items: &[ParsedItem] = if parsed.items.is_empty() {
             &empty
@@ -411,9 +397,7 @@ impl MarkdownImportService {
             &parsed.items
         };
         let mode = match states.iter().map(|s| s.last_synced).max() {
-            Some(last_synced) if had_file && !page.is_atlas() => {
-                MergeMode::ItemByItem { last_synced }
-            }
+            Some(last_synced) => MergeMode::ItemByItem { last_synced },
             _ => MergeMode::WholeFile,
         };
         let merge = self
@@ -507,13 +491,6 @@ impl MarkdownImportService {
             &union(&merge.tags_before, &page_tags_before),
             &union(&merge.tags_after, &page_tags),
         );
-        // A new or moved file changes the pages of a directory. An atlas file that only
-        // changed came from another device, which wrote it from its pages. Writing it again
-        // here from pages that differ for a while, as a rename on its way, would send it back
-        // and forth until the pages agree; a page file that comes writes it again anyway.
-        if page_changed && (is_new || renamed || !page.is_atlas()) {
-            self.page_service.sync_atlases();
-        }
         if page_changed {
             self.events.page_changed(&page.id);
             tracing::info!(
@@ -528,6 +505,9 @@ impl MarkdownImportService {
                 },
                 started.elapsed().as_millis()
             );
+        }
+        if page.is_atlas() {
+            self.atlas.move_page_to_plain_form(&page)?;
         }
         Ok(if merge.file_lost {
             Outcome::Conflict
@@ -568,31 +548,6 @@ impl MarkdownImportService {
             ),
             Err(e) => tracing::error!("Could not write conflict backup {}: {e}", backup.display()),
         }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn backup_conflict(
-        &self,
-        root: &Path,
-        rel_path: &str,
-        loc: &PageLocation,
-        content: &str,
-        hash: &str,
-        page: &Page,
-        attrs: &FileAttrs,
-    ) -> Result<(), AppError> {
-        self.write_conflict_backup(root, rel_path, loc, content);
-        // Remember this content so we don't back it up again before the export overwrites it
-        // An atlas goes by the date of its page, so no date of the content is needed
-        self.file_sync_state.upsert_synced(
-            rel_path,
-            &page.id,
-            hash,
-            attrs.size,
-            attrs.mtime,
-            attrs.mtime,
-        )?;
-        Ok(())
     }
 }
 

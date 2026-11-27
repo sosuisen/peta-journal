@@ -57,7 +57,7 @@ mod tests {
         std::fs::remove_dir_all(&out).unwrap();
         for name in [
             "class Changes",
-            "type ListChange",
+            "type RowChange",
             "type Panel",
             "type Event",
             "type KeyPress",

@@ -6,7 +6,7 @@
 
 use crate::emacs_text::{EmacsText, SharedText};
 use crate::protocol::{
-    BacklinkEntry, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView,
+    BacklinkEntry, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowChange, RowView,
     SearchEntry, SidebarView,
 };
 use client_core::app::{JournalNav, WikiLinkContext};
@@ -727,7 +727,7 @@ impl<H: Host> Shell<H> {
             page_id,
             changes: changes
                 .into_iter()
-                .map(|change| change.map(SentRow::into_view))
+                .map(|change| RowChange::from(change.map(SentRow::into_view)))
                 .collect(),
         });
     }

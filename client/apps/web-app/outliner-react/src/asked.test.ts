@@ -151,14 +151,19 @@ describe('the replay of the held keys', () => {
     expect([pressed[0]?.bubbles, pressed[0]?.cancelable]).toEqual([true, true]);
   });
 
-  // 再生したEnterでコアがまたキーを預かると、残りのキーはコアに預ける。新しい項目のキーだからである。
-  test('the keys after a replayed Enter go to the core while it holds the keys again', () => {
+  // コアは、注文に答えるまでキーを預かり続ける（ADR 087）。答えてから再生するので、キーは編集欄に入る。
+  test('the keys play into the editor though the core holds keys until the answer', () => {
     const { wasm } = shell();
-    editorOf('a');
+    const el = editorOf('a');
     wasm.push(
       [],
       [{ kind: 'Outline', value: outline({ key_relay_holding: true }) }],
     );
+    wasm.answerNext(
+      [],
+      [{ kind: 'Outline', value: outline({ key_relay_holding: false }) }],
+    );
+    wasm.replay = () => ({ kind: 'Type', value: 'b' });
 
     wasm.ask(1, {
       kind: 'FocusEditor',
@@ -167,8 +172,53 @@ describe('the replay of the held keys', () => {
     });
     vi.runAllTimers();
 
-    expect(wasm.replays).toEqual([]);
+    expect(el.value).toBe('b');
+    expect(wasm.events.filter(e => e.kind === 'KeyHeld')).toEqual([]);
+    expect(wasm.answers).toEqual([{ id: 1, output: { kind: 'Done' } }]);
+  });
+
+  // 再生したEnterでコアが預かり始めると、残りのキーはコアに預ける。Enterが作る項目のキーだからである。
+  test('the keys after a replayed Enter go to the core once it starts to hold keys', () => {
+    const { wasm } = shell();
+    const el = editorOf('a');
+    // The core splits the item at the Enter, and holds the keys until the new editor is focused
+    el.addEventListener('keydown', () =>
+      wasm.push(
+        [],
+        [{ kind: 'Outline', value: outline({ key_relay_holding: true }) }],
+      ),
+    );
+
+    wasm.ask(1, {
+      kind: 'FocusEditor',
+      item_id: 'a',
+      replay_keys: [held('Enter'), held('b')],
+    });
+    vi.runAllTimers();
+
+    expect(wasm.replays.map(r => r.key.key)).toEqual(['Enter']);
     expect(wasm.events).toEqual([{ kind: 'KeyHeld', value: held('b') }]);
+  });
+
+  // 答えたあとも、コアがあとの注文のためにキーを預かっていれば、預けたキーはこの編集欄に入る。あとの移動より前に押したキーだからである。
+  test('the keys play into the editor while the core still holds keys for a later order', () => {
+    const { wasm } = shell();
+    const el = editorOf('a');
+    wasm.push(
+      [],
+      [{ kind: 'Outline', value: outline({ key_relay_holding: true }) }],
+    );
+    wasm.replay = () => ({ kind: 'Type', value: 'b' });
+
+    wasm.ask(1, {
+      kind: 'FocusEditor',
+      item_id: 'a',
+      replay_keys: [held('b')],
+    });
+    vi.runAllTimers();
+
+    expect(el.value).toBe('b');
+    expect(wasm.events.filter(e => e.kind === 'KeyHeld')).toEqual([]);
   });
 
   // フォーカスを待つ間に押したキーは、コアが預けたキーのあとに再生する。

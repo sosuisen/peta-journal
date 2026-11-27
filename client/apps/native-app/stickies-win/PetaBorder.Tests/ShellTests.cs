@@ -195,27 +195,27 @@ public sealed class ShellTests : IDisposable
     }
 
     /// <summary>The rows after the changes, applied one after another as a list does.</summary>
-    private static void Apply(List<Row> rows, IReadOnlyList<ListChange> changes)
+    private static void Apply(List<Row> rows, IReadOnlyList<RowChange> changes)
     {
         foreach (var change in changes)
         {
             switch (change)
             {
-                case ListChange.Insert insert:
+                case RowChange.Insert insert:
                     rows.Insert((int)insert.At, insert.Item);
                     break;
-                case ListChange.Remove remove:
+                case RowChange.Remove remove:
                     rows.RemoveAt((int)remove.At);
                     break;
-                case ListChange.Move move:
+                case RowChange.Move move:
                     var moved = rows[(int)move.From];
                     rows.RemoveAt((int)move.From);
                     rows.Insert((int)move.To, moved);
                     break;
-                case ListChange.Update update:
+                case RowChange.Update update:
                     rows[(int)update.At] = update.Item;
                     break;
-                case ListChange.Reset reset:
+                case RowChange.Reset reset:
                     rows.Clear();
                     rows.AddRange(reset.Items);
                     break;

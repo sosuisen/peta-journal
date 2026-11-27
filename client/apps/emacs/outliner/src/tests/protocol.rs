@@ -1,10 +1,10 @@
 use crate::emacs_text::EmacsText;
+use crate::protocol::RowChange;
 use crate::protocol::{
     read_line, write_line, Bullet, Inbound, Outbound, RowView, SearchEntry, SelectionKey,
     SidebarView, TaskMark,
 };
 use client_core::app::SelectionKey as CoreSelectionKey;
-use client_core::changes::ListChange;
 use client_core::view::{SearchEntry as CoreSearchEntry, SearchKind as CoreSearchKind, TaskState};
 use client_core::BodyModel;
 use serde_json::{json, Value};
@@ -177,14 +177,14 @@ fn the_changes_of_the_rows_are_written_as_json_for_emacs() {
         ack: 4,
         page_id: Some("p".into()),
         changes: vec![
-            ListChange::Update {
+            RowChange::Update {
                 at: 0,
                 item: RowView {
                     text: EmacsText::of_markdown("**本文**", "tags/"),
                     ..row(Bullet::Plain)
                 },
             },
-            ListChange::Move { from: 2, to: 1 },
+            RowChange::Move { from: 2, to: 1 },
         ],
     };
     assert_eq!(
@@ -233,7 +233,7 @@ fn the_state_of_a_task_goes_beside_the_bullet() {
     let message = Outbound::Rows {
         ack: 1,
         page_id: None,
-        changes: vec![ListChange::Reset { items: vec![task] }],
+        changes: vec![RowChange::Reset { items: vec![task] }],
     };
     assert_eq!(
         written(&message)["changes"][0]["Reset"]["items"][0]["task"],

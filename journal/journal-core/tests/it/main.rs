@@ -6,6 +6,7 @@
 mod common;
 
 mod atlas;
+mod atlas_migration;
 mod atlas_sync;
 #[cfg(feature = "extensions")]
 mod auto_template;
@@ -28,6 +29,7 @@ mod moving_items;
 mod page_properties;
 mod pages;
 mod paste;
+mod plain_atlas;
 mod properties;
 mod search;
 mod split;

@@ -24,11 +24,11 @@ pub fn ensure_tag_pages(page_service: &PageService) {
     }
 }
 
-/// Writes every atlas page for the pages its directory has now: they may have changed while
-/// the server was down.
-pub fn bring_atlases_up_to_date(atlas: &AtlasService) {
-    if let Err(e) = atlas.sync_all() {
-        tracing::warn!("The atlas pages were not brought up to date: {e}");
+/// Moves the atlas pages that the server wrote before to the form of plain pages (ADR 053).
+/// The server writes no atlas by itself any more.
+pub fn move_atlases_to_plain_form(atlas: &AtlasService) {
+    if let Err(e) = atlas.move_to_plain_form() {
+        tracing::warn!("The atlas pages were not moved to the plain form: {e}");
     }
 }
 

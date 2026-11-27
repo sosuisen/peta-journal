@@ -79,6 +79,12 @@ const COMMON_TESTS_STEP = {
   'stickies-win': { job: 'stickies-win', run: 'dotnet build -t:Coverage' },
 };
 
+// The job and the step that run the e2e tests of each shell that the developer decided to run in
+// the CI and in the hook (2026-11-27, #1083)
+const E2E_STEP = {
+  'outliner-react': { job: 'outliner-react-e2e', run: 'npm run e2e', config: 'client/apps/web-app/outliner-react/e2e/playwright.config.ts' },
+};
+
 // The floor and the folder measured by coverage.sh of stickies-mac. App/, generated/ and
 // ../swift-shared are left out, with the consent of the developer
 const SWIFT = {
@@ -256,6 +262,33 @@ test('each shell with rules runs the common tests in a step of its job', () => {
       const file = `client/tools/shell-check/common/${examples}`;
       assert.ok(jobsFor([file]).includes(job), `${shell}: ${file}`);
     }
+  }
+});
+
+// e2eのテストは、CIでもフックでも飛ばさない段で回り、シェルかサーバーのファイルが変われば回る（開発者が決めた、#1083）。
+test('the e2e tests run in a step that neither the ci nor the hook skips, when the shell or the server changes', () => {
+  for (const [shell, { job, run }] of Object.entries(E2E_STEP)) {
+    const step = JOBS[job]?.steps.find((s) => s.run === run);
+    assert.ok(step, `${shell}: the job ${job} has no step "${run}"`);
+    assert.equal(step.os, undefined, shell);
+    assert.equal(step.screen, undefined, shell);
+    assert.equal(step.needs, undefined, shell);
+    for (const file of [`${JOBS[job].dir}/tests/outline.spec.ts`, 'client/apps/web-app/outliner-react/src/App.tsx', 'journal/journal-server/src/main.rs']) {
+      assert.ok(jobsFor([file]).includes(job), `${shell}: ${file}`);
+    }
+  }
+});
+
+// e2eのテストは、自分で起こしたサーバーとだけ話す。そのサーバーは、開発者のサーバー（8087）と違うポートで、一時フォルダーだけに書く。動いているサーバーは使わない。
+test('the e2e tests talk only to a server of their own, on another port, in a throwaway folder', () => {
+  for (const [shell, { config }] of Object.entries(E2E_STEP)) {
+    const text = read(config);
+    assert.match(text, /^export const serverPort = 8187;$/m, shell);
+    assert.match(text, /^export const dataDir = mkdtempSync\(/m, shell);
+    assert.match(text, /'--throwaway-dir',\n\s*JSON\.stringify\(dataDir\),/, shell);
+    assert.match(text, /\n\s*reuseExistingServer: false,\n/, shell);
+    // The setup refuses a server whose markdown folder is outside dataDir
+    assert.match(text, /\n\s*globalSetup: '\.\/tests\/global-setup\.ts',\n/, shell);
   }
 });
 

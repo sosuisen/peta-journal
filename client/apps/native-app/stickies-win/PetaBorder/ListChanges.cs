@@ -3,23 +3,58 @@ using PetaTypes;
 
 namespace PetaBorder;
 
-/// <summary>The changes to the rows of the outline, as the core sends them (ADR 076).</summary>
+/// <summary>
+/// A change of a list of any kind (ADR 088). The border has a type of its own for the changes
+/// of each list, all of the same shape; each is made into this, and
+/// <see cref="ListChanges.Apply{T, TItem}"/> applies them all.
+/// </summary>
+public abstract record Change<TItem>
+{
+    private Change() { }
+
+    public sealed record Insert(int At, TItem Item) : Change<TItem>;
+
+    public sealed record Remove(int At) : Change<TItem>;
+
+    public sealed record Move(int From, int To) : Change<TItem>;
+
+    public sealed record Update(int At, TItem Item) : Change<TItem>;
+
+    public sealed record Reset(IReadOnlyList<TItem> Items) : Change<TItem>;
+}
+
+/// <summary>The changes to a list, as the core sends them (ADR 076).</summary>
 public static class ListChanges
 {
     /// <summary>
-    /// Applies the changes to <paramref name="rows"/>, one after another. A moved row is moved,
-    /// not taken out and put back: a list keeps the view of the row.
+    /// Applies the changes of the rows of the outline to <paramref name="rows"/>, one after
+    /// another, as <see cref="Apply{T, TItem}"/> does.
     /// </summary>
-    /// <param name="make">What the list keeps for a row that comes.</param>
-    /// <param name="update">Gives a new state of its row to what the list keeps at a place.</param>
     public static void Apply<T>(
         ObservableCollection<T> rows,
-        IEnumerable<ListChange> changes,
+        IEnumerable<RowChange> changes,
         Func<Row, T> make,
         Action<int, Row> update
     )
     {
-        ArgumentNullException.ThrowIfNull(rows);
+        ArgumentNullException.ThrowIfNull(changes);
+        Apply(rows, changes.Select(Of), make, update);
+    }
+
+    /// <summary>
+    /// Applies the changes to <paramref name="list"/>, one after another. A moved item is
+    /// moved, not taken out and put back: a list keeps the view of the item.
+    /// </summary>
+    /// <param name="make">What the list keeps for an item that comes.</param>
+    /// <param name="update">Gives a new state of its item to what the list keeps at a place.</param>
+    public static void Apply<T, TItem>(
+        ObservableCollection<T> list,
+        IEnumerable<Change<TItem>> changes,
+        Func<TItem, T> make,
+        Action<int, TItem> update
+    )
+    {
+        ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(changes);
         ArgumentNullException.ThrowIfNull(make);
         ArgumentNullException.ThrowIfNull(update);
@@ -27,24 +62,34 @@ public static class ListChanges
         {
             switch (change)
             {
-                case ListChange.Insert insert:
-                    rows.Insert((int)insert.At, make(insert.Item));
+                case Change<TItem>.Insert insert:
+                    list.Insert(insert.At, make(insert.Item));
                     break;
-                case ListChange.Remove remove:
-                    rows.RemoveAt((int)remove.At);
+                case Change<TItem>.Remove remove:
+                    list.RemoveAt(remove.At);
                     break;
-                case ListChange.Move move:
-                    rows.Move((int)move.From, (int)move.To);
+                case Change<TItem>.Move move:
+                    list.Move(move.From, move.To);
                     break;
-                case ListChange.Update changed:
-                    update((int)changed.At, changed.Item);
+                case Change<TItem>.Update changed:
+                    update(changed.At, changed.Item);
                     break;
-                case ListChange.Reset reset:
-                    rows.Clear();
-                    foreach (var row in reset.Items)
-                        rows.Add(make(row));
+                case Change<TItem>.Reset reset:
+                    list.Clear();
+                    foreach (var item in reset.Items)
+                        list.Add(make(item));
                     break;
             }
         }
     }
+
+    private static Change<Row> Of(RowChange change) =>
+        change switch
+        {
+            RowChange.Insert insert => new Change<Row>.Insert((int)insert.At, insert.Item),
+            RowChange.Remove remove => new Change<Row>.Remove((int)remove.At),
+            RowChange.Move move => new Change<Row>.Move((int)move.From, (int)move.To),
+            RowChange.Update update => new Change<Row>.Update((int)update.At, update.Item),
+            RowChange.Reset reset => new Change<Row>.Reset(reset.Items),
+        };
 }

@@ -15,7 +15,7 @@ import {
   type DragMove,
   type Event,
   type KeyPress,
-  type ListChange,
+  type RowChange,
   type Panel,
   type Replay,
   type Typing,
@@ -28,7 +28,7 @@ import * as json from '../border/serde/json';
 export default async function init(): Promise<void> {}
 
 /** The changes the core answers: none, unless a test gives some. */
-function written(rows: ListChange[] = [], panels: Panel[] = []): string {
+function written(rows: RowChange[] = [], panels: Panel[] = []): string {
   return json.stringify(Changes.toJson(new Changes(rows, panels)));
 }
 
@@ -72,12 +72,12 @@ export class WebShell {
   }
 
   /** The next call answers these changes. */
-  answerNext(rows: ListChange[], panels: Panel[] = []): void {
+  answerNext(rows: RowChange[], panels: Panel[] = []): void {
     this.reply = written(rows, panels);
   }
 
   /** The screen changes outside a call of the shell, as an answer of the server does. */
-  push(rows: ListChange[], panels: Panel[] = []): void {
+  push(rows: RowChange[], panels: Panel[] = []): void {
     this.pending = written(rows, panels);
     this.onRender();
   }

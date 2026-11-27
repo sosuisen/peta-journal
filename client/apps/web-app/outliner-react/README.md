@@ -33,6 +33,10 @@ The tests draw the components in jsdom with Testing Library. A fake wasm
 (`src/test/shell.ts`) stands in for the bridge. The real `Core` of `src/core.ts` runs on it,
 so the tests also read and write the JSON of the border.
 
+The e2e tests in `e2e/` drive the built shell in a real browser, with Playwright, against a real
+journal server. `BUILD.md` tells how to run them. The CI runs them in a job of their own,
+`outliner-react-e2e`, and the hook before a pull request runs the same steps.
+
 ## Coverage and mutation testing
 
 After a change, read the coverage for the lines no test reaches:
