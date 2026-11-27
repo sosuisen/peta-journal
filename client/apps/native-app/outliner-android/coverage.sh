@@ -39,6 +39,10 @@ if ! "$adb" devices | grep -q "device$"; then
     echo "The emulator started in $waited s"
     # A new emulator may show its lock screen, and no app can start under it
     "$adb" shell input keyevent 82
+    # A slow start makes the launcher not answer in time, and Android asks about it in a dialog.
+    # The dialog takes the focus from the app, and Android lets only the app with the focus read
+    # the clipboard: every test of the paste failed on a runner of the CI with that dialog up
+    "$adb" shell settings put global hide_error_dialogs 1
     # Keeps the log of the whole run, to read after a test failed
     "$adb" logcat -G 16M
 fi
