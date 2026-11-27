@@ -23,6 +23,22 @@ public sealed class AppliedTests
     private static RowChange Reset(params string[] ids) =>
         new RowChange.Reset(new ObservableCollection<Row>(ids.Select(Row)));
 
+    private static SidebarPage Page(string id) =>
+        new()
+        {
+            Page = new Page
+            {
+                Id = id,
+                ParentId = "",
+                DirPath = "",
+                Name = id,
+                PageType = "doc",
+                Properties = [],
+            },
+            Label = id,
+            Path = id,
+        };
+
     private static Heading Heading(string id, string text) =>
         new()
         {
@@ -154,6 +170,39 @@ public sealed class AppliedTests
 
         Assert.Equal(["One", "Three"], view.Headings.Headings.Select(heading => heading.Text));
         Assert.Equal(LoadState.Failed, view.Headings.State);
+    }
+
+    // 後の差分のページの操作は、今のフォルダのページと最近のページに当たる。それぞれのパネルの値は前のままである。
+    [Fact]
+    public void The_pages_of_a_later_change_are_applied_to_the_lists_there()
+    {
+        var view = Applied.First(
+            new Changes
+            {
+                Rows = [],
+                Headings = [],
+                IndexPages = [new PageChange.Reset([Page("a"), Page("b")])],
+                RecentPages = [new PageChange.Reset([Page("c")])],
+                Panels = [.. EveryPanel()],
+            }
+        );
+
+        Applied.To(
+            view,
+            new Changes
+            {
+                Rows = [],
+                Headings = [],
+                IndexPages = [new PageChange.Remove(0)],
+                RecentPages = [new PageChange.Insert(0, Page("d"))],
+                Panels = [],
+            }
+        );
+
+        Assert.Equal(["b"], view.IndexPages.Pages.Select(page => page.Label));
+        Assert.Equal("current", view.IndexPages.CurrentPageId);
+        Assert.Equal(["d", "c"], view.RecentPages.Pages.Select(page => page.Label));
+        Assert.Equal(LoadState.Loading, view.RecentPages.State);
     }
 
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
