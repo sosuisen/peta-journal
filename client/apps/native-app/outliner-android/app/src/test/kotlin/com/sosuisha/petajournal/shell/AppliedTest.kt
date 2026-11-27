@@ -14,6 +14,8 @@ import com.sosuisha.petajournal.types.IndexSortKey
 import com.sosuisha.petajournal.types.Item
 import com.sosuisha.petajournal.types.LoadState
 import com.sosuisha.petajournal.types.OutlinePanel
+import com.sosuisha.petajournal.types.Page
+import com.sosuisha.petajournal.types.PageChange
 import com.sosuisha.petajournal.types.Panel
 import com.sosuisha.petajournal.types.RecentPagesView
 import com.sosuisha.petajournal.types.RichText
@@ -21,6 +23,7 @@ import com.sosuisha.petajournal.types.Row
 import com.sosuisha.petajournal.types.RowChange
 import com.sosuisha.petajournal.types.ScreenView
 import com.sosuisha.petajournal.types.SearchView
+import com.sosuisha.petajournal.types.SidebarPage
 import com.sosuisha.petajournal.types.SortOrder
 import com.sosuisha.petajournal.types.WeekNumbering
 import com.sosuisha.petajournal.types.WikiView
@@ -245,6 +248,55 @@ class AppliedTest {
 
         assertEquals(listOf("One", "Three"), changed.headings.headings.map { it.text })
         assertEquals(LoadState.FAILED, changed.headings.state)
+    }
+
+    // 後の差分のページの操作は、今のフォルダのページと最近のページに当たる。それぞれのパネルの値は前のままである。
+    @Test
+    fun the_pages_of_a_later_change_are_applied_to_the_lists_there() {
+        fun page(id: String) =
+            SidebarPage(
+                page =
+                    Page(
+                        id = id,
+                        parentId = "",
+                        dirPath = "",
+                        name = id,
+                        pageType = "doc",
+                        createdDate = 0,
+                        modifiedDate = 0,
+                        properties = emptyMap(),
+                    ),
+                label = id,
+                published = false,
+                isDir = false,
+                path = id,
+            )
+        val view =
+            firstView(
+                Changes(
+                    rows = emptyList(),
+                    headings = emptyList(),
+                    indexPages = listOf(PageChange.Reset(listOf(page("a"), page("b")))),
+                    recentPages = listOf(PageChange.Reset(listOf(page("c")))),
+                    panels = everyPanel(),
+                ),
+            )
+
+        val changed =
+            view.with(
+                Changes(
+                    rows = emptyList(),
+                    headings = emptyList(),
+                    indexPages = listOf(PageChange.Remove(0u)),
+                    recentPages = listOf(PageChange.Insert(0u, page("d"))),
+                    panels = emptyList(),
+                ),
+            )
+
+        assertEquals(listOf("b"), changed.indexPages.pages.map { it.label })
+        assertEquals("current", changed.indexPages.currentPageId)
+        assertEquals(listOf("d", "c"), changed.recentPages.pages.map { it.label })
+        assertEquals(LoadState.LOADING, changed.recentPages.state)
     }
 
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。
