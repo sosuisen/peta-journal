@@ -60,12 +60,42 @@ final class JournalScreenTests: XCTestCase {
             line: line)
     }
 
-    private func waitUntil(_ what: String, file: StaticString = #filePath, line: UInt = #line, _ holds: () -> Bool) {
+    /// Waits until `holds`. A wait that runs out tells `what` as it is then, and not as it was
+    /// when the wait began, and what the screen shows.
+    private func waitUntil(
+        _ what: @autoclosure () -> String, file: StaticString = #filePath, line: UInt = #line, _ holds: () -> Bool
+    ) {
         let end = Date().addingTimeInterval(JournalScreenTests.wait)
         while !holds() {
-            if Date() > end { return XCTFail("Not in time: \(what)", file: file, line: line) }
+            if Date() > end { return XCTFail("Not in time: \(what()). \(screen())", file: file, line: line) }
             usleep(100_000)
         }
+    }
+
+    /// What the screen shows when a wait runs out, on one line: the log of the CI keeps only the
+    /// line of the failure. The waits fail now and then in the CI and not on a developer's Mac,
+    /// so the failure itself has to tell what the app did (#1174).
+    private func screen() -> String {
+        let focused = NSPredicate(format: "hasKeyboardFocus == true")
+        let focus =
+            if app.textViews.matching(focused).firstMatch.exists {
+                "the field of an item"
+            } else if app.textFields.matching(focused).firstMatch.exists {
+                "the search"
+            } else {
+                "nothing seen"
+            }
+        let field = editor.exists ? "edits \"\(editedText)\"" : "is not there"
+        let keyboard = app.keyboards.firstMatch
+        // The tools stand above the keyboard and move with it: a touch aims at where a tool was
+        let top = { (element: XCUIElement) in Int(element.frame.minY) }
+        let tools = ["Hide keyboard", "Show keyboard", "Move cursor", "Move selection", "Cut", "Expand tools"]
+            .filter { app.buttons[$0].exists }.map { "\($0) at \(top(app.buttons[$0]))" }
+        let selected = app.descendants(matching: .any).matching(identifier: "selected").staticTexts
+        let texts = { (query: XCUIElementQuery) in query.allElementsBoundByIndex.prefix(8).map(\.label) }
+        return "The screen: the field \(field), the keyboard focus is on \(focus), "
+            + "the keyboard is \(keyboard.exists ? "up at \(top(keyboard))" : "down"), the tools: \(tools), "
+            + "selected: \(texts(selected)), the first texts: \(texts(app.staticTexts))"
     }
 
     /// Starts the app on the page `notes`. A test of something else than the search does not
@@ -144,8 +174,10 @@ final class JournalScreenTests: XCTestCase {
     /// Types where the cursor is, and waits until the field edits `text`: so the cursor was
     /// where `text` shows the letters.
     private func typeAndSee(_ typed: String, _ text: String, file: StaticString = #filePath, line: UInt = #line) {
+        let before = editedText
         editor.typeText(typed)
-        waitUntil("the field edits \(text), not \(editedText)", file: file, line: line) { editedText == text }
+        waitUntil("the field edits \(text), not \(editedText), and it edited \(before) before", file: file, line: line)
+        { editedText == text }
     }
 
     /// The item that is selected and coloured shows the text.
