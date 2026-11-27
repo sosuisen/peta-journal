@@ -99,6 +99,55 @@ fn cards_dropped_on_a_card_go_under_a_new_item_in_one_batch() {
     assert_eq!(groups, [Some("g".to_string()), Some("g".to_string())]);
 }
 
+// 新しいグループの親は、子になるカードの座標の重心を、自分の`atlas_bounds`として持つ。カードの`atlas_bounds`は、同じ送信で、その親からの相対の座標に書き直される。重心は整数に丸められる。
+#[test]
+fn a_new_group_lies_at_the_centroid_of_its_cards_and_they_are_counted_from_it() {
+    let mut h = atlas_with(&[
+        ("one", Some("0,100,0,40")),
+        ("three", Some("61,50,0,60")),
+        ("two", Some("30,0,0,40")),
+    ]);
+    group(&mut h, &["a/b/two", "a/b/three"], "a/b/one");
+
+    assert_eq!(
+        batches(&h),
+        [[
+            made(
+                ItemPosition::after("i-one"),
+                "",
+                &[("atlas_bounds", "30,50,0,40")]
+            ),
+            leveled_at("i-two", 2, "0,-50,0,40"),
+            leveled_at("i-three", 2, "31,0,0,60"),
+            leveled_at("i-one", 2, "-30,50,0,40"),
+            moved(&["i-two", "i-three", "i-one"], NEW),
+        ]]
+    );
+}
+
+// グループのカードの上にドロップされたカードの`atlas_bounds`は、同じ送信で、そのグループの親からの相対の座標に書き直される。
+#[test]
+fn a_card_that_joins_a_group_is_counted_from_the_parent_of_the_group() {
+    let mut h = atlas_of(
+        vec![child("one"), child("three"), child("two")],
+        vec![
+            parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            card_item("one", 2, Some("0,0,0,40")),
+            card_item("two", 2, Some("0,100,0,40")),
+            card_item("three", 1, Some("130,250,0,40")),
+        ],
+    );
+    group(&mut h, &["a/b/three"], "a/b/one");
+
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-three", 2, "30,50,0,40"),
+            moved(&["i-three"], "i-one")
+        ]]
+    );
+}
+
 // グループのカードの上にドロップされたカードは、下に兄弟がなければ、そのグループの木の末尾に、レベル2で移される。
 #[test]
 fn a_card_dropped_on_a_card_of_a_group_goes_to_its_end_with_no_card_below_it() {
