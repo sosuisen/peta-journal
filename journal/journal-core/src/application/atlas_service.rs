@@ -66,9 +66,23 @@ impl AtlasService {
     pub fn move_to_plain_form(&self) -> Result<(), AppError> {
         let _guard = self.lock.lock();
         for atlas in self.pages.find_all()?.into_iter().filter(Page::is_atlas) {
+            self.move_locked(atlas)?;
+        }
+        Ok(())
+    }
+
+    /// Moves the atlas page to the form of a plain page, if it has the form the server wrote
+    /// (ADR 053). A device that still runs an old version may bring a file of that form.
+    pub fn move_page_to_plain_form(&self, atlas: &Page) -> Result<(), AppError> {
+        let _guard = self.lock.lock();
+        self.move_locked(atlas.clone())
+    }
+
+    fn move_locked(&self, atlas: Page) -> Result<(), AppError> {
+        {
             let loaded = self.load(atlas)?;
             let Some(migration) = atlas_migration::migration(&loaded.items, &loaded.props) else {
-                continue;
+                return Ok(());
             };
             self.back_up_file(&loaded.atlas);
             let mut conn = self.items.db().conn()?;

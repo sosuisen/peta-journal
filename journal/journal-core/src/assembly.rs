@@ -200,6 +200,7 @@ impl JournalCore {
             messages.clone(),
             Arc::clone(&page_service),
             Arc::clone(&definitions_file),
+            Arc::clone(&atlas),
             settings.import_copy_wait,
         ));
         let reconcile = Arc::new(MarkdownReconcileService::new(

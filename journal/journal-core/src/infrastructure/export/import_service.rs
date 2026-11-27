@@ -24,6 +24,7 @@ use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
 
+use crate::application::atlas_service::AtlasService;
 use crate::application::page_service::PageService;
 use crate::domain::model::Page;
 use crate::error::AppError;
@@ -74,6 +75,8 @@ pub struct MarkdownImportService {
     page_service: Arc<PageService>,
     /// Takes in `settings/properties.json`, which holds the definitions of the user keys
     definitions: Arc<DefinitionsFileService>,
+    /// Moves an atlas page that a file brings in the form the server wrote (ADR 053)
+    atlas: Arc<AtlasService>,
     /// How long a file waits for the file of the same page to go before it is a copy.
     copy_wait: Duration,
     /// The files that wait, by path. They are lost on a restart; the scan brings them again.
@@ -102,6 +105,7 @@ impl MarkdownImportService {
         events: Arc<dyn ImportEvents>,
         page_service: Arc<PageService>,
         definitions: Arc<DefinitionsFileService>,
+        atlas: Arc<AtlasService>,
         copy_wait: Duration,
     ) -> MarkdownImportService {
         MarkdownImportService {
@@ -113,6 +117,7 @@ impl MarkdownImportService {
             events,
             page_service,
             definitions,
+            atlas,
             copy_wait,
             waiting: Mutex::new(BTreeMap::new()),
             waiting_transclusions: Mutex::new(Vec::new()),
@@ -500,6 +505,9 @@ impl MarkdownImportService {
                 },
                 started.elapsed().as_millis()
             );
+        }
+        if page.is_atlas() {
+            self.atlas.move_page_to_plain_form(&page)?;
         }
         Ok(if merge.file_lost {
             Outcome::Conflict
