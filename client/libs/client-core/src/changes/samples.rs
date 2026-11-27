@@ -721,4 +721,46 @@ mod tests {
         assert_eq!(sample["e"], json!("日本語の文"));
         assert_eq!(sample["f"], json!("e\u{301}"));
     }
+
+    #[derive(Facet)]
+    #[allow(dead_code)]
+    struct Place {
+        at: u32,
+        wide: u64,
+        deep: i32,
+        far: i64,
+        low: u8,
+        part: f64,
+        half: f32,
+        name: String,
+        shapes: Vec<Shape>,
+    }
+
+    // 小さい見本は、ふつうの見本と同じ名前と形で、数だけがすべて1である。文字は、ふつうの見本と同じ`TEXTS`のものである。
+    #[test]
+    fn the_small_samples_are_the_samples_with_every_number_1() {
+        let registry = registry::<Place>();
+
+        let small = small_samples(&registry, "Place");
+
+        let usual = samples(&registry, "Place");
+        let ids = |samples: &[Sample]| -> Vec<String> {
+            samples.iter().map(|sample| sample.id.clone()).collect()
+        };
+        assert_eq!(ids(&small), ids(&usual));
+        let place = &small[0].value;
+        for number in ["at", "wide", "deep", "far", "low"] {
+            assert_eq!(place[number], json!(1), "{number}");
+        }
+        assert_eq!(place["part"], json!(1.0));
+        assert_eq!(place["half"], json!(1.0));
+        assert_eq!(place["name"], json!(TEXTS[0]));
+        assert_eq!(place["name"], usual[0].value["name"]);
+        assert_eq!(place["shapes"][0], json!("Dot"));
+        assert_eq!(place["shapes"][1], json!({ "Circle": 1 }));
+        assert_eq!(
+            place["shapes"][2],
+            json!({ "Rect": { "wide": 1, "high": 1 } })
+        );
+    }
 }
