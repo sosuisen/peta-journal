@@ -65,13 +65,33 @@ fn creates(h: &Harness) -> Vec<String> {
     creates.map(|r| r.title).collect()
 }
 
+/// The entry of a hit of `item_hit`.
+fn item_entry(position: usize, title: &str, item_id: &str) -> SearchEntry {
+    SearchEntry {
+        position,
+        key: format!("item:{item_id}"),
+        kind: SearchKind::Item,
+        title: title.into(),
+        label: title.into(),
+        snippet: String::new(),
+    }
+}
+
+/// The entry of a hit of `page_hit`, of the create entry, or of today's journal.
 fn entry(position: usize, kind: SearchKind, title: &str) -> SearchEntry {
     let label = match kind {
         SearchKind::Create => format!("Create page \"{title}\""),
         _ => title.into(),
     };
+    let key = match kind {
+        SearchKind::Today => "today".to_string(),
+        SearchKind::Page => format!("page:id-{title}"),
+        SearchKind::Create => format!("create:{title}"),
+        SearchKind::Item => panic!("an item entry is made by item_entry"),
+    };
     SearchEntry {
         position,
+        key,
         kind,
         title: title.into(),
         label,
@@ -101,7 +121,7 @@ fn the_query_is_searched_after_a_pause_and_the_results_are_listed_with_their_num
         [
             entry(0, SearchKind::Page, "Plans"),
             entry(1, SearchKind::Create, "plan"),
-            entry(2, SearchKind::Item, "Diary"),
+            item_entry(2, "Diary", "i1"),
         ]
     );
     assert_eq!(search.selected_index, None);
@@ -154,7 +174,7 @@ fn the_query_today_puts_open_today_at_the_top_of_the_list_before_the_answer_arri
             entry(0, SearchKind::Today, "Open Today"),
             entry(1, SearchKind::Page, "Today I learned"),
             entry(2, SearchKind::Create, "today"),
-            entry(3, SearchKind::Item, "Diary"),
+            item_entry(3, "Diary", "i1"),
         ]
     );
 }

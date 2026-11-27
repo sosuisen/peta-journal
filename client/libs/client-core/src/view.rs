@@ -390,6 +390,10 @@ pub struct SearchView {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SearchEntry {
     pub position: usize,
+    /// What the entry opens, which no other entry of the list opens: `today`, `page:` and the
+    /// id of the page, `create:` and the path of the page to make, or `item:` and the id of the
+    /// item. The shells take the changes of the list by it (ADR 088).
+    pub key: String,
     pub kind: SearchKind,
     /// The path of the page, or of the page to create.
     pub title: String,
@@ -717,15 +721,24 @@ fn search(model: &Model) -> SearchView {
     let hits = |kind, results: &[SearchResult]| {
         results
             .iter()
-            .map(|r| (kind, r.page_title.clone(), r.snippet.clone()))
+            .map(|r| {
+                let key = match kind {
+                    SearchKind::Item => format!("item:{}", r.item_id),
+                    _ => format!("page:{}", r.page_id),
+                };
+                (kind, r.page_title.clone(), r.snippet.clone(), key)
+            })
             .collect::<Vec<_>>()
     };
     let creates = crate::screens::search::create_titles(model)
         .into_iter()
-        .map(|title| (SearchKind::Create, title, String::new()));
+        .map(|title| {
+            let key = format!("create:{title}");
+            (SearchKind::Create, title, String::new(), key)
+        });
     let today = crate::screens::search::offers_today(model).then(|| {
         let title = "Open Today".to_string();
-        (SearchKind::Today, title, String::new())
+        (SearchKind::Today, title, String::new(), "today".to_string())
     });
     let results = today
         .into_iter()
@@ -733,8 +746,9 @@ fn search(model: &Model) -> SearchView {
         .chain(creates)
         .chain(hits(SearchKind::Item, &model.search.item_results))
         .enumerate()
-        .map(|(position, (kind, title, snippet))| SearchEntry {
+        .map(|(position, (kind, title, snippet, key))| SearchEntry {
             position,
+            key,
             kind,
             label: search_label(kind, &title),
             title,
