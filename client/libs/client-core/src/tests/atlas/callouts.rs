@@ -10,6 +10,7 @@ fn callout(key: &str, x: f64, y: f64, side: &str, text: &str) -> Callout {
         scale: 1.0,
         side: side.into(),
         text: text.into(),
+        groups: Vec::new(),
     }
 }
 

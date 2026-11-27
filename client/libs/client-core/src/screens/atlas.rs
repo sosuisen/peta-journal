@@ -826,7 +826,7 @@ pub fn set_group_title(model: &mut Model, group_id: String, side: String, title:
 pub struct Callout {
     /// The id of the item of the callout
     pub key: String,
-    /// The center of the character, in the coordinates of the canvas
+    /// The center of the character, counted from the item the callout is right under
     pub x: f64,
     pub y: f64,
     /// How large the whole callout is drawn, no smaller than `MIN_CARD_SCALE` as a card
@@ -834,6 +834,8 @@ pub struct Callout {
     /// The side of the character the bubble is on, one of `TITLE_SIDES`
     pub side: String,
     pub text: String,
+    /// The items the callout is under, the outermost first
+    pub groups: Vec<AtlasGroup>,
 }
 
 /// The callouts of the shown atlas page, in their order. A callout without a place is left
@@ -851,6 +853,7 @@ pub fn shown_callouts(model: &Model) -> Vec<Callout> {
                 scale: bounds.scale().max(MIN_CARD_SCALE),
                 side: side_of(e.item),
                 text: e.item.body.clone(),
+                groups: groups(model, &e.parents),
             })
         })
         .collect()
@@ -874,15 +877,21 @@ fn callout_item(model: &Model, key: &str) -> Option<(Item, Callout)> {
     Some(((*item).clone(), callout))
 }
 
-/// Moves a callout of the shown atlas page so the center of its character is at the point.
+/// Moves a callout of the shown atlas page so the center of its character is at the point of
+/// the canvas. The point is saved counted from the item the callout is under.
 pub fn move_callout(model: &mut Model, key: String, x: f64, y: f64) -> Cmd {
     let Some((item, callout)) = callout_item(model, &key) else {
+        return done();
+    };
+    // A callout that is shown is under items that are drawn, so there is a point to count from
+    let Some((_, Some((frame_x, frame_y)))) = placeable(model, &key) else {
         return done();
     };
     if !x.is_finite() || !y.is_finite() {
         return done();
     }
-    save_bounds(model, &item, callout_bounds(x, y, callout.scale))
+    let bounds = callout_bounds(x - frame_x, y - frame_y, callout.scale);
+    save_bounds(model, &item, bounds)
 }
 
 /// Scales a callout of the shown atlas page around the center of its character, no smaller
