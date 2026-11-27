@@ -1647,11 +1647,13 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   "The file of the examples of the lines the shell sends, which its Rust writes (ADR 090).")
 
 (defun peta-journal-test--border-examples ()
-  "The examples of the lines the shell sends, each a plist of its :id and its :line."
+  "The file of the examples of the lines the shell sends, as a plist.
+Its :outbound holds the examples, each a plist of its :id and its :line.  Its
+:texts holds every text that the examples use, as for the id of an item."
   (with-temp-buffer
     (let ((coding-system-for-read 'utf-8))
       (insert-file-contents peta-journal-test--border-examples))
-    (plist-get (json-parse-buffer :object-type 'plist) :outbound)))
+    (json-parse-buffer :object-type 'plist)))
 
 (defun peta-journal-test--counting (handlers count)
   "HANDLERS, each calling the function COUNT before it does its work."
@@ -1674,13 +1676,17 @@ The handler of such a line only keeps it: its values are read when the list is d
       (peta-journal--sidebar-render page)
       (peta-journal-backlinks))))
 
-;; 境界の例のどの行も、Emacsは誤りなく読み、その種類の関数がちょうど1回受け取る。受け取った値の一覧も、誤りなく描かれる。回した例のidは、ファイルの一覧と同じである（ADR 090のD2）。例は、シェルのRustが書いた行そのものである。
+;; 境界の例のどの行も、Emacsは誤りなく読み、その種類の関数がちょうど1回受け取る。受け取った値の一覧も、誤りなく描かれる。回した例のidは、ファイルの一覧と同じである（ADR 090のD2）。例は、シェルのRustが書いた行そのものである。例の数はどれも1で、文字はファイルの`texts`のどれかである。そこで、どの例も、`texts`の文字をidに持つ行から始める。例の数と文字が、ある行を指すようにするためである。
 (ert-deftest peta-journal-every-example-line-of-the-border-reaches-its-handler ()
-  (let ((examples (peta-journal-test--border-examples))
-        (ran nil))
+  (let* ((file (peta-journal-test--border-examples))
+         (examples (plist-get file :outbound))
+         (rows (mapcar (lambda (text) (peta-journal-test--row text 1 "x"))
+                       (plist-get file :texts)))
+         (ran nil))
+    (should (< 1 (length rows)))
     (seq-doseq (example examples)
       (ert-info ((plist-get example :id) :prefix "example: ")
-        (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+        (peta-journal-test--with-rows rows
           (let* ((handled 0)
                  (peta-journal--line-handlers
                   (peta-journal-test--counting peta-journal--line-handlers
