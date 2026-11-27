@@ -151,6 +151,32 @@ describe('the replay of the held keys', () => {
     expect([pressed[0]?.bubbles, pressed[0]?.cancelable]).toEqual([true, true]);
   });
 
+  // コアは、注文に答えるまでキーを預かり続ける（ADR 087）。答えてから再生するので、キーは編集欄に入る。
+  test('the keys play into the editor though the core holds keys until the answer', () => {
+    const { wasm } = shell();
+    const el = editorOf('a');
+    wasm.push(
+      [],
+      [{ kind: 'Outline', value: outline({ key_relay_holding: true }) }],
+    );
+    wasm.answerNext(
+      [],
+      [{ kind: 'Outline', value: outline({ key_relay_holding: false }) }],
+    );
+    wasm.replay = () => ({ kind: 'Type', value: 'b' });
+
+    wasm.ask(1, {
+      kind: 'FocusEditor',
+      item_id: 'a',
+      replay_keys: [held('b')],
+    });
+    vi.runAllTimers();
+
+    expect(el.value).toBe('b');
+    expect(wasm.events.filter(e => e.kind === 'KeyHeld')).toEqual([]);
+    expect(wasm.answers).toEqual([{ id: 1, output: { kind: 'Done' } }]);
+  });
+
   // 再生したEnterでコアがまたキーを預かると、残りのキーはコアに預ける。新しい項目のキーだからである。
   test('the keys after a replayed Enter go to the core while it holds the keys again', () => {
     const { wasm } = shell();
