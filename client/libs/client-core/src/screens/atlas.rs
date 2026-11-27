@@ -523,6 +523,22 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
     }
 }
 
+/// Cards let go on the blob of a parent go under its item.
+pub fn move_cards(model: &mut Model, card_ids: Vec<String>, parent_id: String) -> Cmd {
+    let cards = card_entries(model);
+    let Some(parent) = model.state.get_item_by_id(&parent_id) else {
+        return done();
+    };
+    let joining: Vec<&Item> = cards
+        .iter()
+        .filter(|card| card_ids.iter().any(|id| id == card.id()))
+        .map(|card| card.item)
+        .collect();
+    let last = last_staying(model, &parent, &joining);
+    let ops = taken_behind(&parent.page_id, &joining, &last.id, parent.level + 1);
+    change(model, ops)
+}
+
 /// The groups the cards are in, each once, in the order of the cards.
 fn groups_of<'a>(cards: &[&Card<'a>]) -> Vec<&'a Item> {
     let mut groups: Vec<&Item> = Vec::new();

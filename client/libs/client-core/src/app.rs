@@ -725,6 +725,12 @@ pub enum Event {
     UngroupAtlasCards {
         card_ids: Vec<String>,
     },
+    /// Cards let go on the blob of a parent with Ctrl held: they go under the item of that
+    /// parent, each among the items under it by where it lies (ADR 053).
+    MoveAtlasCards {
+        card_ids: Vec<String>,
+        parent_id: String,
+    },
     /// The server refused the new bounds of a card or a callout; `before` is what it had.
     AtlasBoundsRefused {
         item_id: String,
@@ -1593,6 +1599,10 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             target_id,
         } => screens::atlas::group_cards(model, card_ids, target_id),
         UngroupAtlasCards { card_ids } => screens::atlas::ungroup_cards(model, card_ids),
+        MoveAtlasCards {
+            card_ids,
+            parent_id,
+        } => screens::atlas::move_cards(model, card_ids, parent_id),
         AtlasBoundsRefused { item_id, before } => {
             screens::atlas::put_bounds_back(model, &item_id, before)
         }
