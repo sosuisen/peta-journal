@@ -33,3 +33,5 @@ serde_json = { workspace = true }
 facet_generate = "=0.22.3"
 # Bodies of every kind, to check that EmacsText counts the shown letters as RichText does
 proptest = "1.12.0"
+# The samples of the lines to Emacs, for the examples of its border (ADR 090)
+client-core = { path = "../../../libs/client-core", features = ["facet_typegen", "border_examples"] }

@@ -1,100 +1,99 @@
 {
   "outbound": [
     {
-      "id": "State",
-      "line": "{\"t\":\"state\",\"ack\":3,\"holding\":true}"
+      "id": "state",
+      "line": "{\"t\":\"state\",\"ack\":1,\"holding\":true}"
     },
     {
-      "id": "Rows",
-      "line": "{\"t\":\"rows\",\"ack\":4,\"page_id\":\"page-2\",\"changes\":[{\"Reset\":{\"items\":[{\"id\":\"a\",\"level\":1,\"body\":\"# 一\\n\\n## 二\\n\\n### 三\\n\\n#### 四\\n\\n##### 五\\n\\n###### 六\\n\\n**bold** *italic* ~~struck~~ __underlined__ ==marked== `code` x^raised^ x~lowered~ ||hidden|| [[page]] [web](https://example.com/) [file](assets/sample.pdf)\\n\\n![image](assets/sample.png)\\n\\n- entry\\n\\n> quoted\\n\\n---\\n\\n```\\nlet a;\\n```\\n\\n| name | value |\\n|---|---|\\n| a | b |\",\"text\":{\"text\":\"一\\n二\\n三\\n四\\n五\\n六\\nbold italic struck underlined marked code xraised xlowered hidden page web file\\nimage\\n• entry\\n▎ quoted\\n────────────────────\\nlet a;\\nname │ value\\na    │ b\\n\",\"spans\":[{\"from\":0,\"to\":1,\"looks\":[\"heading1\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":2,\"to\":3,\"looks\":[\"heading2\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":4,\"to\":5,\"looks\":[\"heading3\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":6,\"to\":7,\"looks\":[\"heading4\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":8,\"to\":9,\"looks\":[\"heading5\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":10,\"to\":11,\"looks\":[\"heading6\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":12,\"to\":16,\"looks\":[\"bold\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":17,\"to\":23,\"looks\":[\"italic\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":24,\"to\":30,\"looks\":[\"struck\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":31,\"to\":41,\"looks\":[\"underlined\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":42,\"to\":48,\"looks\":[\"marked\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":49,\"to\":53,\"looks\":[\"code\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":55,\"to\":61,\"looks\":[\"raised\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":63,\"to\":70,\"looks\":[\"lowered\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":71,\"to\":77,\"looks\":[\"hidden\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":78,\"to\":82,\"looks\":[],\"link\":{\"Page\":{\"url\":\"/pages/page\"}},\"image\":null,\"letters\":true},{\"from\":83,\"to\":86,\"looks\":[],\"link\":{\"Web\":{\"url\":\"https://example.com/\"}},\"image\":null,\"letters\":true},{\"from\":87,\"to\":91,\"looks\":[],\"link\":{\"File\":{\"path\":\"assets/sample.pdf\"}},\"image\":null,\"letters\":true},{\"from\":92,\"to\":98,\"looks\":[],\"link\":null,\"image\":{\"path\":\"assets/sample.png\",\"alt\":\"image\",\"width\":null,\"height\":null},\"letters\":false},{\"from\":98,\"to\":100,\"looks\":[\"mark\"],\"link\":null,\"image\":null,\"letters\":false},{\"from\":106,\"to\":108,\"looks\":[\"quote\"],\"link\":null,\"image\":null,\"letters\":false},{\"from\":115,\"to\":135,\"looks\":[\"rule\"],\"link\":null,\"image\":null,\"letters\":false},{\"from\":136,\"to\":142,\"looks\":[\"code_block\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":143,\"to\":147,\"looks\":[\"table_header\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":147,\"to\":148,\"looks\":[],\"link\":null,\"image\":null,\"letters\":false},{\"from\":149,\"to\":150,\"looks\":[],\"link\":null,\"image\":null,\"letters\":false},{\"from\":150,\"to\":155,\"looks\":[\"table_header\"],\"link\":null,\"image\":null,\"letters\":true},{\"from\":157,\"to\":161,\"looks\":[],\"link\":null,\"image\":null,\"letters\":false},{\"from\":162,\"to\":163,\"looks\":[],\"link\":null,\"image\":null,\"letters\":false}]},\"bullet\":\"plain\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false},{\"id\":\"b\",\"level\":2,\"body\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab 日本語 é 😀👍🏽\",\"text\":{\"text\":\"\\\"quoted\\\" \\\\ back line\\ttab 日本語 é 😀👍🏽\\n\",\"spans\":[]},\"bullet\":\"transclusion\",\"task\":\"task\",\"collapsed\":true,\"header\":null,\"selected\":false},{\"id\":\"c\",\"level\":1,\"body\":\"三つ目\",\"text\":{\"text\":\"三つ目\\n\",\"spans\":[]},\"bullet\":\"broken\",\"task\":\"running\",\"collapsed\":false,\"header\":\"2026-11-27 Fri\",\"selected\":false}]}},{\"Insert\":{\"at\":1,\"item\":{\"id\":\"d\",\"level\":1,\"body\":\"\",\"text\":{\"text\":\"\",\"spans\":[]},\"bullet\":\"hidden\",\"task\":null,\"collapsed\":false,\"header\":null,\"selected\":false}}},{\"Update\":{\"at\":3,\"item\":{\"id\":\"c\",\"level\":1,\"body\":\"変えた\",\"text\":{\"text\":\"変えた\\n\",\"spans\":[]},\"bullet\":\"plain\",\"task\":\"done\",\"collapsed\":false,\"header\":null,\"selected\":true}}},{\"Move\":{\"from\":0,\"to\":3}},{\"Remove\":{\"at\":1}}]}"
+      "id": "rows",
+      "line": "{\"t\":\"rows\",\"ack\":1,\"page_id\":\"日本語の文\",\"changes\":[{\"Insert\":{\"at\":1,\"item\":{\"id\":\"é\",\"level\":1,\"body\":\"😀👍🏽\",\"text\":{\"text\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"spans\":[{\"from\":1,\"to\":1,\"looks\":[\"bold\",\"italic\",\"struck\",\"underlined\",\"marked\",\"code\",\"raised\",\"lowered\",\"hidden\",\"heading1\",\"heading2\",\"heading3\",\"heading4\",\"heading5\",\"heading6\",\"mark\",\"quote\",\"rule\",\"code_block\",\"table_header\"],\"link\":{\"Page\":{\"url\":\"\"}},\"image\":{\"path\":\"日本語の文\",\"alt\":\"é\",\"width\":1,\"height\":1},\"letters\":false}]},\"bullet\":\"plain\",\"task\":\"task\",\"collapsed\":true,\"header\":\"😀👍🏽\",\"selected\":false}}},{\"Remove\":{\"at\":1}},{\"Move\":{\"from\":1,\"to\":1}},{\"Update\":{\"at\":1,\"item\":{\"id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"level\":1,\"body\":\"\",\"text\":{\"text\":\"日本語の文\",\"spans\":[{\"from\":1,\"to\":1,\"looks\":[\"bold\",\"italic\",\"struck\",\"underlined\",\"marked\",\"code\",\"raised\",\"lowered\",\"hidden\",\"heading1\",\"heading2\",\"heading3\",\"heading4\",\"heading5\",\"heading6\",\"mark\",\"quote\",\"rule\",\"code_block\",\"table_header\"],\"link\":{\"Web\":{\"url\":\"é\"}},\"image\":{\"path\":\"😀👍🏽\",\"alt\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"width\":1,\"height\":1},\"letters\":true}]},\"bullet\":\"transclusion\",\"task\":\"running\",\"collapsed\":false,\"header\":\"\",\"selected\":true}}},{\"Reset\":{\"items\":[{\"id\":\"日本語の文\",\"level\":1,\"body\":\"é\",\"text\":{\"text\":\"😀👍🏽\",\"spans\":[{\"from\":1,\"to\":1,\"looks\":[\"bold\",\"italic\",\"struck\",\"underlined\",\"marked\",\"code\",\"raised\",\"lowered\",\"hidden\",\"heading1\",\"heading2\",\"heading3\",\"heading4\",\"heading5\",\"heading6\",\"mark\",\"quote\",\"rule\",\"code_block\",\"table_header\"],\"link\":{\"File\":{\"path\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}},\"image\":{\"path\":\"\",\"alt\":\"日本語の文\",\"width\":1,\"height\":1},\"letters\":false}]},\"bullet\":\"broken\",\"task\":\"done\",\"collapsed\":true,\"header\":\"é\",\"selected\":false}]}}]}"
     },
     {
-      "id": "Rows-2",
-      "line": "{\"t\":\"rows\",\"ack\":0,\"page_id\":null,\"changes\":[]}"
+      "id": "focus",
+      "line": "{\"t\":\"focus\",\"ack\":1,\"id\":\"😀👍🏽\",\"cursor\":1}"
     },
     {
-      "id": "Focus",
-      "line": "{\"t\":\"focus\",\"ack\":5,\"id\":\"a\",\"cursor\":1}"
+      "id": "scroll",
+      "line": "{\"t\":\"scroll\",\"id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}"
     },
     {
-      "id": "Focus-2",
-      "line": "{\"t\":\"focus\",\"ack\":5,\"id\":\"a\",\"cursor\":null}"
+      "id": "title",
+      "line": "{\"t\":\"title\",\"title\":\"\"}"
     },
     {
-      "id": "Scroll",
-      "line": "{\"t\":\"scroll\",\"id\":\"a\"}"
+      "id": "page_path",
+      "line": "{\"t\":\"page_path\",\"path\":\"日本語の文\"}"
     },
     {
-      "id": "Title",
-      "line": "{\"t\":\"title\",\"title\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab 日本語 é 😀👍🏽\"}"
+      "id": "index",
+      "line": "{\"t\":\"index\",\"folder\":\"é\",\"demote_name\":\"😀👍🏽\"}"
     },
     {
-      "id": "PagePath",
-      "line": "{\"t\":\"page_path\",\"path\":\"仕事/メモ\"}"
+      "id": "properties",
+      "line": "{\"t\":\"properties\",\"rows\":[{\"key\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"label\":\"\",\"value\":\"日本語の文\",\"removable\":true,\"editable\":false}],\"free_keys\":[{\"key\":\"é\",\"label\":\"😀👍🏽\"}],\"datetime_keys\":[\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"]}"
     },
     {
-      "id": "PagePath-2",
-      "line": "{\"t\":\"page_path\",\"path\":null}"
+      "id": "status",
+      "line": "{\"t\":\"status\",\"connection\":\"\"}"
     },
     {
-      "id": "Index",
-      "line": "{\"t\":\"index\",\"folder\":\"仕事/メモ\",\"demote_name\":\"メモ\"}"
+      "id": "search",
+      "line": "{\"t\":\"search\",\"results\":[{\"position\":1,\"kind\":\"today\",\"title\":\"日本語の文\",\"label\":\"é\",\"snippet\":\"😀👍🏽\"}],\"searching\":true}"
     },
     {
-      "id": "Index-2",
-      "line": "{\"t\":\"index\",\"folder\":null,\"demote_name\":null}"
+      "id": "recent",
+      "line": "{\"t\":\"recent\",\"paths\":[\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"]}"
     },
     {
-      "id": "Properties",
-      "line": "{\"t\":\"properties\",\"rows\":[{\"key\":\"rating\",\"label\":\"rating (number)\",\"value\":\"5\",\"removable\":true,\"editable\":true},{\"key\":\"created\",\"label\":\"created (datetime)\",\"value\":\"2026-11-27T01:00:00Z\",\"removable\":false,\"editable\":false}],\"free_keys\":[{\"key\":\"due\",\"label\":\"due (datetime)\"}],\"datetime_keys\":[\"created\",\"due\"]}"
+      "id": "sidebar",
+      "line": "{\"t\":\"sidebar\",\"index\":{\"header\":\"\",\"path\":\"日本語の文\",\"parent\":\"é\",\"pages\":[{\"label\":\"😀👍🏽\",\"dir\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"path\":\"\",\"folder\":false,\"current\":true}]},\"headings\":[{\"id\":\"日本語の文\",\"text\":\"é\",\"level\":1}],\"recent\":[{\"label\":\"😀👍🏽\",\"dir\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"path\":\"\",\"folder\":false,\"current\":true}]}"
     },
     {
-      "id": "Properties-2",
-      "line": "{\"t\":\"properties\",\"rows\":null,\"free_keys\":[],\"datetime_keys\":[]}"
+      "id": "backlinks",
+      "line": "{\"t\":\"backlinks\",\"groups\":[{\"title\":\"日本語の文\",\"url\":\"é\",\"items\":[{\"text\":\"😀👍🏽\",\"url\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}]}]}"
     },
     {
-      "id": "Status",
-      "line": "{\"t\":\"status\",\"connection\":\"connected\"}"
+      "id": "message",
+      "line": "{\"t\":\"message\",\"text\":\"\"}"
     },
     {
-      "id": "Search",
-      "line": "{\"t\":\"search\",\"results\":[{\"position\":0,\"kind\":\"today\",\"title\":\"仕事/メモ\",\"label\":\"メモ\",\"snippet\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab 日本語 é 😀👍🏽\"},{\"position\":1,\"kind\":\"page\",\"title\":\"仕事/メモ\",\"label\":\"メモ\",\"snippet\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab 日本語 é 😀👍🏽\"},{\"position\":2,\"kind\":\"create\",\"title\":\"仕事/メモ\",\"label\":\"メモ\",\"snippet\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab 日本語 é 😀👍🏽\"},{\"position\":3,\"kind\":\"item\",\"title\":\"仕事/メモ\",\"label\":\"メモ\",\"snippet\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab 日本語 é 😀👍🏽\"}],\"searching\":true}"
+      "id": "copy",
+      "line": "{\"t\":\"copy\",\"text\":\"日本語の文\"}"
     },
     {
-      "id": "Recent",
-      "line": "{\"t\":\"recent\",\"paths\":[\"仕事/メモ\",\"sample\"]}"
+      "id": "browse",
+      "line": "{\"t\":\"browse\",\"address\":\"é\"}"
     },
     {
-      "id": "Sidebar",
-      "line": "{\"t\":\"sidebar\",\"index\":{\"header\":\"仕事/\",\"path\":\"仕事/index\",\"parent\":\"index\",\"pages\":[{\"label\":\"メモ\",\"dir\":null,\"path\":\"メモ\",\"folder\":false,\"current\":true},{\"label\":\"資料\",\"dir\":null,\"path\":\"資料\",\"folder\":true,\"current\":false}]},\"headings\":[{\"id\":\"a\",\"text\":\"一\",\"level\":1}],\"recent\":[{\"label\":\"メモ\",\"dir\":\"仕事/\",\"path\":\"仕事/メモ\",\"folder\":false,\"current\":false}]}"
+      "id": "page_names",
+      "line": "{\"t\":\"page_names\",\"query\":\"😀👍🏽\",\"titles\":[\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"]}"
     },
     {
-      "id": "Sidebar-2",
-      "line": "{\"t\":\"sidebar\",\"index\":null,\"headings\":[],\"recent\":[]}"
+      "id": "ask",
+      "line": "{\"t\":\"ask\",\"req\":1,\"message\":\"\"}"
     },
     {
-      "id": "Backlinks",
-      "line": "{\"t\":\"backlinks\",\"groups\":[{\"title\":\"仕事/メモ\",\"url\":\"/page/仕事/メモ\",\"items\":[{\"text\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab 日本語 é 😀👍🏽\",\"url\":\"/page/仕事/メモ#a\"}]}]}"
+      "id": "rows-2",
+      "line": "{\"t\":\"rows\",\"ack\":1,\"page_id\":\"日本語の文\",\"changes\":[{\"Insert\":{\"at\":1,\"item\":{\"id\":\"é\",\"level\":1,\"body\":\"😀👍🏽\",\"text\":{\"text\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"spans\":[{\"from\":1,\"to\":1,\"looks\":[\"bold\",\"italic\",\"struck\",\"underlined\",\"marked\",\"code\",\"raised\",\"lowered\",\"hidden\",\"heading1\",\"heading2\",\"heading3\",\"heading4\",\"heading5\",\"heading6\",\"mark\",\"quote\",\"rule\",\"code_block\",\"table_header\"],\"link\":{\"Page\":{\"url\":\"\"}},\"image\":{\"path\":\"日本語の文\",\"alt\":\"é\",\"width\":1,\"height\":1},\"letters\":true}]},\"bullet\":\"hidden\",\"task\":\"task\",\"collapsed\":false,\"header\":\"😀👍🏽\",\"selected\":true}}},{\"Remove\":{\"at\":1}},{\"Move\":{\"from\":1,\"to\":1}},{\"Update\":{\"at\":1,\"item\":{\"id\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"level\":1,\"body\":\"\",\"text\":{\"text\":\"日本語の文\",\"spans\":[{\"from\":1,\"to\":1,\"looks\":[\"bold\",\"italic\",\"struck\",\"underlined\",\"marked\",\"code\",\"raised\",\"lowered\",\"hidden\",\"heading1\",\"heading2\",\"heading3\",\"heading4\",\"heading5\",\"heading6\",\"mark\",\"quote\",\"rule\",\"code_block\",\"table_header\"],\"link\":{\"Web\":{\"url\":\"é\"}},\"image\":{\"path\":\"😀👍🏽\",\"alt\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\",\"width\":1,\"height\":1},\"letters\":false}]},\"bullet\":\"plain\",\"task\":\"running\",\"collapsed\":true,\"header\":\"\",\"selected\":false}}},{\"Reset\":{\"items\":[{\"id\":\"日本語の文\",\"level\":1,\"body\":\"é\",\"text\":{\"text\":\"😀👍🏽\",\"spans\":[{\"from\":1,\"to\":1,\"looks\":[\"bold\",\"italic\",\"struck\",\"underlined\",\"marked\",\"code\",\"raised\",\"lowered\",\"hidden\",\"heading1\",\"heading2\",\"heading3\",\"heading4\",\"heading5\",\"heading6\",\"mark\",\"quote\",\"rule\",\"code_block\",\"table_header\"],\"link\":{\"File\":{\"path\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab\"}},\"image\":{\"path\":\"\",\"alt\":\"日本語の文\",\"width\":1,\"height\":1},\"letters\":true}]},\"bullet\":\"transclusion\",\"task\":\"done\",\"collapsed\":false,\"header\":\"é\",\"selected\":true}]}}]}"
     },
     {
-      "id": "Message",
-      "line": "{\"t\":\"message\",\"text\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab 日本語 é 😀👍🏽\"}"
+      "id": "search-2",
+      "line": "{\"t\":\"search\",\"results\":[{\"position\":1,\"kind\":\"page\",\"title\":\"日本語の文\",\"label\":\"é\",\"snippet\":\"😀👍🏽\"}],\"searching\":false}"
     },
     {
-      "id": "Copy",
-      "line": "{\"t\":\"copy\",\"text\":\"\\\"quoted\\\" \\\\ back\\nline\\ttab 日本語 é 😀👍🏽\"}"
+      "id": "search-3",
+      "line": "{\"t\":\"search\",\"results\":[{\"position\":1,\"kind\":\"create\",\"title\":\"日本語の文\",\"label\":\"é\",\"snippet\":\"😀👍🏽\"}],\"searching\":true}"
     },
     {
-      "id": "Browse",
-      "line": "{\"t\":\"browse\",\"address\":\"/assets/sample%20a.pdf\"}"
-    },
-    {
-      "id": "PageNames",
-      "line": "{\"t\":\"page_names\",\"query\":\"メ\",\"titles\":[\"仕事/メモ\"]}"
-    },
-    {
-      "id": "Ask",
-      "line": "{\"t\":\"ask\",\"req\":7,\"message\":\"Delete the page?\"}"
+      "id": "search-4",
+      "line": "{\"t\":\"search\",\"results\":[{\"position\":1,\"kind\":\"item\",\"title\":\"日本語の文\",\"label\":\"é\",\"snippet\":\"😀👍🏽\"}],\"searching\":false}"
     }
+  ],
+  "texts": [
+    "日本語の文",
+    "é",
+    "😀👍🏽",
+    "\"quoted\" \\ back\nline\ttab",
+    ""
   ]
 }
