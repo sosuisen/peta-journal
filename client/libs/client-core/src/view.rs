@@ -317,6 +317,9 @@ pub struct AtlasCard {
     pub group_title: Option<atlas::GroupTitle>,
     /// True when the page has a `published` date; the blob of its card has a line around it.
     pub published: bool,
+    /// The whole body of the item of the card, which the menu of the card shows; empty for a
+    /// card without an item.
+    pub text: String,
 }
 
 /// Whether a list of the sidebar is loading, loaded or failed (ADR 085). A list that is
@@ -477,6 +480,7 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
                 let atlas::PageCard {
                     page: p,
                     label,
+                    text,
                     bounds,
                     group,
                     group_title,
@@ -496,6 +500,7 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
                     group,
                     group_title,
                     published: sidebar::is_published(&p),
+                    text,
                 }
             })
             .collect(),

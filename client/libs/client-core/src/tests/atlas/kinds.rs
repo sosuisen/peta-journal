@@ -87,7 +87,10 @@ fn a_card_carries_the_whole_text_of_its_item() {
 
     let view = h.view();
     assert_eq!(
-        (view.atlas_cards[0].text.as_str(), view.atlas_links[0].text.as_str()),
+        (
+            view.atlas_cards[0].text.as_str(),
+            view.atlas_links[0].text.as_str()
+        ),
         ("[[a/b/one]]\nmore of one", "note\nmore of the note")
     );
 }

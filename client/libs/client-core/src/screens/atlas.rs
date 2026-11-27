@@ -767,6 +767,8 @@ pub struct LinkCard {
     pub tone: CardTone,
     /// The letters of the first line with their looks and their links, which a click follows
     pub runs: Vec<RichRun>,
+    /// The whole body of the item, which the menu of the card shows
+    pub text: String,
     pub bounds: Bounds,
     /// The id of the group item the card is under
     pub group: Option<String>,
@@ -791,6 +793,7 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
                 target: link.map(|link| link.target.to_string()),
                 label,
                 runs,
+                text: card.item.body.clone(),
                 tone: if link.is_some() {
                     CardTone::Link
                 } else {
@@ -922,6 +925,8 @@ pub struct PageCard {
     pub page: Page,
     /// The label of the link of the card; none for a link without one, or a page with no card
     pub label: Option<String>,
+    /// The whole body of the item of the card; empty for a page with no card
+    pub text: String,
     pub bounds: Option<Bounds>,
     /// The id of the group item the card is under
     pub group: Option<String>,
@@ -945,6 +950,7 @@ pub fn cards(model: &Model) -> Vec<PageCard> {
             let group = card.and_then(|c| c.group);
             PageCard {
                 label: link.and_then(|l| l.label).map(str::to_string),
+                text: card.map(|c| c.item.body.clone()).unwrap_or_default(),
                 bounds: card.and_then(|c| bounds_of(c.item)),
                 group: group.map(|g| g.id.clone()),
                 group_title: group.and_then(group_title),

@@ -88,12 +88,12 @@ mod tests {
             {"page_id":"a","label":"A","path":"m/a","is_dir":false,
              "bounds":{"x":10.0,"y":20.0,"width":0.0,"height":0.0},
              "group":"g","group_color":null,"icon_tags":["sun"],
-             "group_title":{"side":"top","text":"Plan"},"published":false},
+             "group_title":{"side":"top","text":"Plan"},"published":false,"text":""},
             {"page_id":"b","label":"B","path":"m/b","is_dir":true,"bounds":null,
-             "group":null,"group_color":null,"icon_tags":[],"group_title":null,"published":false}
+             "group":null,"group_color":null,"icon_tags":[],"group_title":null,"published":false,"text":""}
         ]"#;
         let links = r#"[
-            {"item_id":"l","target":"x/Foo","label":"Shown","tone":"Link","runs":[],
+            {"item_id":"l","target":"x/Foo","label":"Shown","tone":"Link","runs":[],"text":"[[x/Foo|Shown]]",
              "bounds":{"x":1.0,"y":2.0,"width":0.0,"height":0.0},
              "group":null,"group_title":null}
         ]"#;
