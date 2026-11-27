@@ -177,6 +177,41 @@ fn the_item_of_a_removed_link_card_is_deleted() {
     assert_eq!(batches(&h), [[deleted("l")]]);
 }
 
+// グループの最後のカードだったリンクカードが取り除かれると、親でなくなった項目は、同じ送信で辺のプロパティを失う。ほかにカードが残る項目、辺を持たない項目、吹き出しの親は、何も失わない。
+#[test]
+fn an_item_whose_last_card_is_removed_loses_its_side_in_the_same_batch() {
+    let side = [("atlas_side", "left")];
+    let link = |id: &str| atlas_item(id, 2, "[[x/Target]]", &[("atlas_bounds", "9,0,0,40")]);
+    let removed = |id: &str| {
+        let mut h = atlas_of(
+            vec![],
+            vec![
+                atlas_item("alone", 1, "Tools", &side),
+                link("a"),
+                atlas_item("two", 1, "", &side),
+                link("b"),
+                link("b2"),
+                atlas_item("plain", 1, "", &[]),
+                link("c"),
+                atlas_item(
+                    "callout",
+                    1,
+                    "Hi",
+                    &[("atlas_type", "callout"), ("atlas_side", "left")],
+                ),
+                link("d"),
+            ],
+        );
+        h.send(Event::RemoveAtlasLink { item_id: id.into() });
+        batches(&h).remove(0)
+    };
+
+    assert_eq!(removed("a"), [deleted("a"), unsided("alone")]);
+    assert_eq!(removed("b"), [deleted("b")]);
+    assert_eq!(removed("c"), [deleted("c")]);
+    assert_eq!(removed("d"), [deleted("d")]);
+}
+
 // リンクとして取り除かれるのはリンクカードだけである。ページカードでは何も送られない。
 #[test]
 fn only_a_link_card_is_removed_as_a_link() {

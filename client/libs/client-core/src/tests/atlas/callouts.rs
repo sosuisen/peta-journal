@@ -127,23 +127,22 @@ fn the_body_of_the_item_of_an_edited_callout_is_written() {
     edit(&mut h, "top", " Hello ");
 
     assert_eq!(batches(&h), [[written("c", "Bye")]]);
-    assert!(sides(&h).is_empty());
 }
 
-// 辺を変えられた吹き出しは、項目のプロパティが書き換えられる。知らない辺は上になる。
+// 辺を変えられた吹き出しは、項目のプロパティが項目の操作で書き換えられる。知らない辺は上になる。
 #[test]
 fn the_side_of_an_edited_callout_is_saved_as_a_property_of_its_item() {
     let mut h = atlas_with_callout();
     edit(&mut h, "bottom", "Hello");
     edit(&mut h, "middle", "Hello");
 
-    assert_eq!(sides(&h), [("c".to_string(), "bottom".to_string())]);
-    assert!(batches(&h).is_empty());
+    assert_eq!(batches(&h), [[sided("c", None, "bottom")]]);
+    assert!(upserts(&h).is_empty());
 }
 
-// テキストと辺を同時に変えられた吹き出しは、本文とプロパティが続けて書き換えられ、そのあとアウトラインが読み直される。
+// テキストと辺を同時に変えられた吹き出しは、本文とプロパティが1回の送信で書き換えられ、そのあとアウトラインが読み直される。
 #[test]
-fn the_text_and_the_side_of_a_callout_edited_at_once_are_both_saved() {
+fn the_text_and_the_side_of_a_callout_edited_at_once_are_saved_in_one_batch() {
     let mut h = atlas_with_callout();
     answer_outline(
         &mut h,
@@ -160,8 +159,8 @@ fn the_text_and_the_side_of_a_callout_edited_at_once_are_both_saved() {
     );
     edit(&mut h, "bottom", "Bye");
 
-    assert_eq!(batches(&h), [[written("c", "Bye")]]);
-    assert_eq!(sides(&h), [("c".to_string(), "bottom".to_string())]);
+    assert_eq!(batches(&h), [[sided("c", Some("Bye"), "bottom")]]);
+    assert!(upserts(&h).is_empty());
     let shown = &h.view().atlas_callouts[0];
     assert_eq!(
         (shown.side.as_str(), shown.text.as_str()),
@@ -176,7 +175,26 @@ fn the_item_of_a_callout_whose_text_is_emptied_is_deleted() {
     edit(&mut h, "bottom", "");
 
     assert_eq!(batches(&h), [[deleted("c")]]);
-    assert!(sides(&h).is_empty());
+}
+
+// グループの最後の子だった吹き出しが消されると、親でなくなった項目は、同じ送信で辺のプロパティを失う。
+#[test]
+fn an_item_whose_last_child_was_a_deleted_callout_loses_its_side_in_the_same_batch() {
+    let mut h = atlas_of(
+        vec![],
+        vec![
+            atlas_item("g", 1, "Tools", &[("atlas_side", "left")]),
+            atlas_item(
+                "c",
+                2,
+                "Hello",
+                &[("atlas_type", "callout"), ("atlas_bounds", "10,20,0,60")],
+            ),
+        ],
+    );
+    edit(&mut h, "top", "");
+
+    assert_eq!(batches(&h), [[deleted("c"), unsided("g")]]);
 }
 
 // 移動した吹き出しは倍率を保つ。座標は整数に丸められて保存される。

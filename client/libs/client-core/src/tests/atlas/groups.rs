@@ -183,6 +183,70 @@ fn the_item_of_a_group_stays_when_all_its_cards_leave() {
     );
 }
 
+// カードがすべて外へ出て親でなくなった項目は、同じ送信で辺のプロパティを失う。カードが残る項目は、辺を保つ。
+#[test]
+fn an_item_that_all_its_cards_leave_loses_its_side_in_the_same_batch() {
+    let sent = |cards: &[&str]| {
+        let mut h = atlas_with_group("Tools", Some("left"));
+        ungroup(&mut h, cards);
+        batches(&h).remove(0)
+    };
+
+    assert_eq!(
+        sent(&["a/b/one"]),
+        [leveled("i-one", 1), moved(&["i-one"], "i-two")]
+    );
+    assert_eq!(
+        sent(&["a/b/two", "a/b/one"]),
+        [
+            leveled("i-one", 1),
+            leveled("i-two", 1),
+            moved(&["i-one", "i-two"], "g"),
+            unsided("g"),
+        ]
+    );
+}
+
+// 最後のカードがほかのグループへ移って親でなくなった項目は、同じ送信で辺のプロパティを失う。
+#[test]
+fn an_item_whose_last_card_goes_to_another_group_loses_its_side_in_the_same_batch() {
+    let sent = |card: &str, target: &str| {
+        let mut h = atlas_of(
+            vec![child("one"), child("three"), child("two")],
+            vec![
+                atlas_item("g", 1, "", &[("atlas_side", "left")]),
+                card_item("one", 2, Some("0,0,0,40")),
+                atlas_item("h", 1, "", &[("atlas_side", "right")]),
+                card_item("three", 2, Some("200,0,0,40")),
+                card_item("two", 1, Some("100,0,0,40")),
+            ],
+        );
+        group(&mut h, &[card], target);
+        batches(&h).remove(0)
+    };
+
+    // To a group that is there already
+    assert_eq!(
+        sent("a/b/one", "a/b/three"),
+        [
+            leveled("i-one", 2),
+            moved(&["i-one"], "i-three"),
+            unsided("g"),
+        ]
+    );
+    // To a group that is made for it
+    assert_eq!(
+        sent("a/b/three", "a/b/two"),
+        [
+            made(ItemPosition::after("i-two"), "", &[]),
+            leveled("i-two", 2),
+            leveled("i-three", 2),
+            moved(&["i-two", "i-three"], NEW),
+            unsided("h"),
+        ]
+    );
+}
+
 // 2つのグループから同時に出たカードは、1回の送信で、それぞれのグループの次に移される。
 #[test]
 fn cards_that_leave_two_groups_at_once_go_behind_their_groups_in_one_batch() {
@@ -255,22 +319,21 @@ fn the_title_of_a_group_is_written_as_the_body_of_its_item() {
     titled(&mut h, "g", "top", "  Tools  ");
 
     assert_eq!(batches(&h), [[written("g", "Tools")]]);
-    assert!(sides(&h).is_empty());
 }
 
-// タイトルの沿う辺は、グループの項目のプロパティとして保存される。
+// タイトルの沿う辺は、グループの項目のプロパティとして、項目の操作で保存される。
 #[test]
 fn the_side_of_the_title_of_a_group_is_saved_as_a_property_of_its_item() {
     let mut h = atlas_with_group("Tools", None);
     titled(&mut h, "g", "left", "Tools");
 
-    assert_eq!(sides(&h), [("g".to_string(), "left".to_string())]);
-    assert!(batches(&h).is_empty());
+    assert_eq!(batches(&h), [[sided("g", None, "left")]]);
+    assert!(upserts(&h).is_empty());
 }
 
-// タイトルと辺を同時に変えると、本文とプロパティが続けて書き換えられ、そのあとアウトラインが読み直される。
+// タイトルと辺を同時に変えると、本文とプロパティが1回の送信で書き換えられ、そのあとアウトラインが読み直される。
 #[test]
-fn the_title_and_its_side_changed_at_once_are_both_saved() {
+fn the_title_and_its_side_changed_at_once_are_saved_in_one_batch() {
     let mut h = atlas_with_group("", None);
     answer_outline(
         &mut h,
@@ -281,8 +344,8 @@ fn the_title_and_its_side_changed_at_once_are_both_saved() {
     );
     titled(&mut h, "g", "left", "Tools");
 
-    assert_eq!(batches(&h), [[written("g", "Tools")]]);
-    assert_eq!(sides(&h), [("g".to_string(), "left".to_string())]);
+    assert_eq!(batches(&h), [[sided("g", Some("Tools"), "left")]]);
+    assert!(upserts(&h).is_empty());
     assert_eq!(
         h.view().atlas_cards[0].group_title,
         Some(GroupTitle {
@@ -304,8 +367,7 @@ fn a_group_whose_body_is_a_link_keeps_the_link_while_its_title_stays() {
     );
     titled(&mut h, "g", "left", "Tools");
 
-    assert!(batches(&h).is_empty());
-    assert_eq!(sides(&h), [("g".to_string(), "left".to_string())]);
+    assert_eq!(batches(&h), [[sided("g", None, "left")]]);
 }
 
 // グループの各カードはそのタイトルを持ち、辺が指定されていなければタイトルは上辺に沿う。
@@ -353,5 +415,4 @@ fn a_title_of_no_group_an_unknown_side_or_no_change_is_not_sent_as_given() {
     titled(&mut h, "g", "middle", "Other");
 
     assert_eq!(batches(&h), [[written("g", "Other")]]);
-    assert!(sides(&h).is_empty());
 }

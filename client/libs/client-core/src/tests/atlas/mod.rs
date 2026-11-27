@@ -231,13 +231,30 @@ fn answer_outline(h: &mut Harness, items: Vec<Item>) {
     );
 }
 
-/// The sides saved as a property of an item, as `(item, side)`
-fn sides(h: &Harness) -> Vec<(String, String)> {
-    upserts(h)
-        .into_iter()
-        .filter(|(_, key, _)| key == "atlas_side")
-        .map(|(item_id, _, side)| (item_id, side))
-        .collect()
+/// The operation that writes the side of an item, and its body when one is given
+fn sided(id: &str, body: Option<&str>, side: &str) -> BatchOpInput {
+    BatchOpInput::Update {
+        id: id.into(),
+        body: body.map(str::to_string),
+        level: None,
+        collapsed: None,
+        task: None,
+        properties: [("atlas_side".to_string(), side.into())].into(),
+        dropped_properties: Vec::new(),
+    }
+}
+
+/// The operation that takes the side away from an item that is no parent any more
+fn unsided(id: &str) -> BatchOpInput {
+    BatchOpInput::Update {
+        id: id.into(),
+        body: None,
+        level: None,
+        collapsed: None,
+        task: None,
+        properties: Default::default(),
+        dropped_properties: vec!["atlas_side".into()],
+    }
 }
 
 fn bounds_of(h: &Harness, page_id: &str) -> Option<Bounds> {
