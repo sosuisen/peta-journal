@@ -3,17 +3,21 @@
 
 use client_core::screens::atlas::{AtlasGroup, Callout, LinkCard};
 use client_core::view::AtlasCard;
-use peta_atlas::scene::{self, GroupRef};
+use peta_atlas::scene::{self, GroupLook, GroupRef};
 
-/// The group a card is right under, as the scene takes it.
-fn group_ref(groups: &[AtlasGroup]) -> Option<GroupRef> {
-    groups.last().map(|group| GroupRef {
-        id: group.id.clone(),
-        title: group
-            .title
-            .as_ref()
-            .map(|t| (t.text.clone(), t.side.clone())),
-    })
+/// The groups a card is in, as the scene takes them.
+fn group_refs(groups: &[AtlasGroup]) -> Vec<GroupRef> {
+    groups
+        .iter()
+        .map(|group| GroupRef {
+            id: group.id.clone(),
+            title: group
+                .title
+                .as_ref()
+                .map(|t| (t.text.clone(), t.side.clone())),
+            look: GroupLook::Text,
+        })
+        .collect()
 }
 
 /// The placed cards, the link cards among them, as `setCards` of `atlas.js` takes them. The
@@ -32,19 +36,18 @@ pub fn placed_json(cards: &str, links: &str) -> Result<String, String> {
                 icon_tags: &c.icon_tags,
                 published: c.published,
             };
-            let group = group_ref(&c.groups);
-            c.bounds
-                .map(|b| scene::Card::page(&page, b, group.as_ref()))
+            let groups = group_refs(&c.groups);
+            c.bounds.map(|b| scene::Card::page(&page, b, &groups))
         })
         .collect();
     placed.extend(links.iter().map(|l| {
-        let group = group_ref(&l.groups);
+        let groups = group_refs(&l.groups);
         // A plain card has no page to open; its blob is drawn from its text
         let target = l.target.as_deref().unwrap_or(&l.label);
         scene::Card {
             label: l.label.clone(),
             path: l.target.clone(),
-            ..scene::Card::link(&l.item_id, target, l.bounds, group.as_ref())
+            ..scene::Card::link(&l.item_id, target, l.bounds, &groups)
         }
     }));
     Ok(scene::cards_json(&placed))
@@ -111,8 +114,8 @@ mod tests {
         assert_eq!(
             (
                 &placed[0]["group"],
-                &placed[0]["groupTitle"],
-                &placed[0]["groupTitleSide"]
+                &placed[0]["groups"][0]["title"],
+                &placed[0]["groups"][0]["titleSide"]
             ),
             (&Value::from("g"), &Value::from("Plan"), &Value::from("top"))
         );
