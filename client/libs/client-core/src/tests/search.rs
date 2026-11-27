@@ -65,13 +65,31 @@ fn creates(h: &Harness) -> Vec<String> {
     creates.map(|r| r.title).collect()
 }
 
-fn entry(position: usize, kind: SearchKind, title: &str) -> SearchEntry {
+/// The entry of a hit of `item_hit`.
+fn item_entry(title: &str, item_id: &str) -> SearchEntry {
+    SearchEntry {
+        key: format!("item:{item_id}"),
+        kind: SearchKind::Item,
+        title: title.into(),
+        label: title.into(),
+        snippet: String::new(),
+    }
+}
+
+/// The entry of a hit of `page_hit`, of the create entry, or of today's journal.
+fn entry(kind: SearchKind, title: &str) -> SearchEntry {
     let label = match kind {
         SearchKind::Create => format!("Create page \"{title}\""),
         _ => title.into(),
     };
+    let key = match kind {
+        SearchKind::Today => "today".to_string(),
+        SearchKind::Page => format!("page:id-{title}"),
+        SearchKind::Create => format!("create:{title}"),
+        SearchKind::Item => panic!("an item entry is made by item_entry"),
+    };
     SearchEntry {
-        position,
+        key,
         kind,
         title: title.into(),
         label,
@@ -79,9 +97,9 @@ fn entry(position: usize, kind: SearchKind, title: &str) -> SearchEntry {
     }
 }
 
-// 入力が一息置いた後に検索され、結果はページ、作成、項目の順に番号付きで並ぶ。選択はまだない。
+// 入力が一息置いた後に検索され、結果はページ、作成、項目の順に並ぶ。選択はまだない。
 #[test]
-fn the_query_is_searched_after_a_pause_and_the_results_are_listed_with_their_numbers() {
+fn the_query_is_searched_after_a_pause_and_the_results_are_listed_in_their_order() {
     let mut h = Harness::new();
     typed(&mut h, "plan");
     assert!(!h.api.called("SearchCombined"), "not before the pause");
@@ -99,12 +117,35 @@ fn the_query_is_searched_after_a_pause_and_the_results_are_listed_with_their_num
     assert_eq!(
         search.results,
         [
-            entry(0, SearchKind::Page, "Plans"),
-            entry(1, SearchKind::Create, "plan"),
-            entry(2, SearchKind::Item, "Diary"),
+            entry(SearchKind::Page, "Plans"),
+            entry(SearchKind::Create, "plan"),
+            item_entry("Diary", "i1"),
         ]
     );
     assert_eq!(search.selected_index, None);
+}
+
+// 結果の行は、どれも一覧の中で重ならない鍵を持つ。今日は`today`、ページは`page:`とページのid、作る行は
+// `create:`と作るページのパス、項目は`item:`と項目のidである。
+#[test]
+fn every_entry_has_a_key_of_its_kind_and_what_it_opens() {
+    let mut h = Harness::new();
+    searched(
+        &mut h,
+        "today",
+        vec![item_hit("Diary", "i1"), page_hit("Today I learned")],
+    );
+
+    let keys: Vec<String> = h.view().search.results.into_iter().map(|r| r.key).collect();
+    assert_eq!(
+        keys,
+        [
+            "today",
+            "page:id-Today I learned",
+            "create:today",
+            "item:i1"
+        ]
+    );
 }
 
 // 検索語が `today` なら、答えを待たずに `Open Today` が出る。答えが届いたあとも、一覧の先頭にある。
@@ -114,7 +155,7 @@ fn the_query_today_puts_open_today_at_the_top_of_the_list_before_the_answer_arri
     typed(&mut h, "today");
     assert_eq!(
         h.view().search.results,
-        [entry(0, SearchKind::Today, "Open Today")]
+        [entry(SearchKind::Today, "Open Today")]
     );
 
     h.api.answer_next(
@@ -128,10 +169,10 @@ fn the_query_today_puts_open_today_at_the_top_of_the_list_before_the_answer_arri
     assert_eq!(
         h.view().search.results,
         [
-            entry(0, SearchKind::Today, "Open Today"),
-            entry(1, SearchKind::Page, "Today I learned"),
-            entry(2, SearchKind::Create, "today"),
-            entry(3, SearchKind::Item, "Diary"),
+            entry(SearchKind::Today, "Open Today"),
+            entry(SearchKind::Page, "Today I learned"),
+            entry(SearchKind::Create, "today"),
+            item_entry("Diary", "i1"),
         ]
     );
 }

@@ -5,7 +5,7 @@
 
 extension ViewModel {
     /// The view model of the first changes of a core. They hold every panel and a reset of the
-    /// rows, the headings and the pages of the sidebar.
+    /// rows, the headings, the pages of the sidebar and the results of the search.
     public init(first changes: Changes) {
         let panels = changes.panels
         func the<T>(_ value: (Panel) -> T?) -> T {
@@ -30,7 +30,9 @@ extension ViewModel {
             recentPages: RecentPagesView(
                 pages: [SidebarPage]().after(changes.recentPages.map(\.change)),
                 state: the { if case .recentPages(let it) = $0 { it } else { nil } }.state),
-            search: the { if case .search(let it) = $0 { it } else { nil } },
+            search: SearchView(
+                the { if case .search(let it) = $0 { it } else { nil } },
+                results: [SearchEntry]().after(changes.searchResults.map(\.change))),
             config: the { if case .config(let it) = $0 { it } else { nil } },
             connection: the { if case .connection(let it) = $0 { it } else { nil } },
             today: the { if case .today(let it) = $0 { it } else { nil } },
@@ -40,7 +42,7 @@ extension ViewModel {
     }
 
     /// Applies the changes: each panel that came takes the place of its part, and the changes
-    /// to the rows, the headings and the pages are applied in order.
+    /// to the rows, the headings, the pages and the results of the search are applied in order.
     public mutating func apply(_ changes: Changes) {
         for panel in changes.panels { apply(panel) }
         if !changes.rows.isEmpty { outline.rows = outline.rows.applying(changes.rows) }
@@ -48,6 +50,9 @@ extension ViewModel {
         if !changes.indexPages.isEmpty { indexPages.pages = indexPages.pages.after(changes.indexPages.map(\.change)) }
         if !changes.recentPages.isEmpty {
             recentPages.pages = recentPages.pages.after(changes.recentPages.map(\.change))
+        }
+        if !changes.searchResults.isEmpty {
+            search.results = search.results.after(changes.searchResults.map(\.change))
         }
     }
 
@@ -62,7 +67,7 @@ extension ViewModel {
         case .indexPages(let value): indexPages = IndexPagesView(value, pages: indexPages.pages)
         case .headings(let value): headings.state = value.state
         case .recentPages(let value): recentPages.state = value.state
-        case .search(let value): search = value
+        case .search(let value): search = SearchView(value, results: search.results)
         case .config(let value): config = value
         case .connection(let value): connection = value
         case .today(let value): today = value
@@ -77,7 +82,8 @@ extension Changes {
     /// True when nothing changed: no change to any list, and no panel. A shell may skip these
     /// changes; any others it must apply, or its lists go apart from those of the core.
     public var isEmpty: Bool {
-        rows.isEmpty && headings.isEmpty && indexPages.isEmpty && recentPages.isEmpty && panels.isEmpty
+        rows.isEmpty && headings.isEmpty && indexPages.isEmpty && recentPages.isEmpty && searchResults.isEmpty
+            && panels.isEmpty
     }
 }
 
@@ -150,6 +156,26 @@ extension PageChange {
         case .update(let at, let item): .update(at: Int(at), item: item)
         case .reset(let items): .reset(items: items)
         }
+    }
+}
+
+extension SearchChange {
+    fileprivate var change: Change<SearchEntry> {
+        switch self {
+        case .insert(let at, let item): .insert(at: Int(at), item: item)
+        case .remove(let at): .remove(at: Int(at))
+        case .move(let from, let to): .move(from: Int(from), to: Int(to))
+        case .update(let at, let item): .update(at: Int(at), item: item)
+        case .reset(let items): .reset(items: items)
+        }
+    }
+}
+
+extension SearchView {
+    fileprivate init(_ panel: SearchPanel, results: [SearchEntry]) {
+        self.init(
+            query: panel.query, results: results, showDropdown: panel.showDropdown,
+            selectedIndex: panel.selectedIndex, searching: panel.searching)
     }
 }
 

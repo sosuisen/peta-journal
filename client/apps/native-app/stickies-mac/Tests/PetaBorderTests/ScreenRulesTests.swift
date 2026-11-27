@@ -27,7 +27,7 @@ final class ScreenRulesTests: XCTestCase {
     }
 
     private func entry(title: String, snippet: String) -> SearchEntry {
-        SearchEntry(position: 0, kind: .page, title: title, label: title, snippet: snippet)
+        SearchEntry(key: "page:\(title)", kind: .page, title: title, label: title, snippet: snippet)
     }
 
     // 入力した文字で探し終えて、何も見つからなかったときだけ、見つからないと出る。

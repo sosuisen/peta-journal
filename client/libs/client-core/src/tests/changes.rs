@@ -3,13 +3,13 @@
 
 use crate::changes::{
     Changes, HeadingChange, HeadingsPanel, IndexPagesPanel, ListChange, OutlinePanel, PageChange,
-    Panel, RecentPagesPanel, RowChange, Shown,
+    Panel, RecentPagesPanel, RowChange, SearchChange, SearchPanel, Shown,
 };
 use crate::harness::Harness;
 use crate::model::Page;
 use crate::outline::Heading;
 use crate::testing::plain_item;
-use crate::view::SidebarPage;
+use crate::view::{SearchEntry, SearchKind, SidebarPage};
 use crate::{PetaApp, RichText, ViewModel};
 use crux_core::App;
 
@@ -33,6 +33,7 @@ fn nothing_changed_gives_empty_changes() {
             headings: vec![],
             index_pages: vec![],
             recent_pages: vec![],
+            search_results: vec![],
             panels: vec![]
         }
     );
@@ -80,6 +81,9 @@ fn the_first_changes_are_a_reset_of_every_list_and_every_panel() {
             recent_pages: vec![PageChange::Reset {
                 items: view.recent_pages.pages.clone()
             }],
+            search_results: vec![SearchChange::Reset {
+                items: view.search.results.clone()
+            }],
             panels: vec![
                 Panel::Screen(view.screen.clone()),
                 Panel::AtlasCards(view.atlas_cards.clone()),
@@ -109,7 +113,12 @@ fn the_first_changes_are_a_reset_of_every_list_and_every_panel() {
                 Panel::RecentPages(RecentPagesPanel {
                     state: view.recent_pages.state
                 }),
-                Panel::Search(view.search.clone()),
+                Panel::Search(SearchPanel {
+                    query: view.search.query.clone(),
+                    show_dropdown: view.search.show_dropdown,
+                    selected_index: view.search.selected_index,
+                    searching: view.search.searching,
+                }),
                 Panel::Config(view.config.clone()),
                 Panel::Connection(view.connection),
                 Panel::Today(view.today.clone()),
@@ -199,6 +208,35 @@ fn a_page_changed_last_is_inserted_at_the_top_of_the_recent_pages() {
         vec![PageChange::Insert {
             at: 0,
             item: sidebar_page("b")
+        }]
+    );
+    assert_eq!(changes.panels, vec![]);
+}
+
+// 抜き出しの変わった検索の結果は、その場所の結果の更新として、差分に入る。検索のパネルは送られない。
+#[test]
+fn a_search_result_whose_snippet_changed_is_an_update_of_the_results_at_its_place() {
+    let result = |key: &str, snippet: &str| SearchEntry {
+        key: key.into(),
+        kind: SearchKind::Item,
+        title: "t".into(),
+        label: "t".into(),
+        snippet: snippet.into(),
+    };
+    let mut before = first_view();
+    before.search.results = vec![result("item:a", "one"), result("item:b", "two")];
+    let mut after = before.clone();
+    after.search.results[1] = result("item:b", "three");
+    let mut shown = Shown::default();
+    shown.changes(before);
+
+    let changes = shown.changes(after);
+
+    assert_eq!(
+        changes.search_results,
+        vec![SearchChange::Update {
+            at: 1,
+            item: result("item:b", "three")
         }]
     );
     assert_eq!(changes.panels, vec![]);

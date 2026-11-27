@@ -13,7 +13,7 @@ import {
   JournalView,
   Page,
   PageView,
-  SearchView,
+  SearchPanel,
   type JournalType,
   type Panel,
 } from './border/peta-types';
@@ -146,7 +146,7 @@ describe('the frame of the app', () => {
     fireEvent.click(button('+'));
     show({
       kind: 'Search',
-      value: new SearchView('idea', [], false, null, false),
+      value: new SearchPanel('idea', false, null, false),
     });
     fireEvent.click(button('+'));
 

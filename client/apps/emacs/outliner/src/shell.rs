@@ -826,7 +826,11 @@ impl<H: Host> Shell<H> {
             self.sent.search.clone_from(&now);
             if let Some((results, searching)) = now {
                 self.host.emit(Outbound::Search {
-                    results: results.iter().map(SearchEntry::of).collect(),
+                    results: results
+                        .iter()
+                        .enumerate()
+                        .map(|(position, entry)| SearchEntry::of(position, entry))
+                        .collect(),
                     searching,
                 });
             }

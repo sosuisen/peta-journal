@@ -21,9 +21,11 @@ final class AppliedTests: XCTestCase {
     /// The changes, each list without a change unless one is given.
     private func changes(
         rows: [RowChange] = [], headings: [HeadingChange] = [], indexPages: [PageChange] = [],
-        recentPages: [PageChange] = [], panels: [Panel] = []
+        recentPages: [PageChange] = [], searchResults: [SearchChange] = [], panels: [Panel] = []
     ) -> Changes {
-        Changes(rows: rows, headings: headings, indexPages: indexPages, recentPages: recentPages, panels: panels)
+        Changes(
+            rows: rows, headings: headings, indexPages: indexPages, recentPages: recentPages,
+            searchResults: searchResults, panels: panels)
     }
 
     private func ids(_ rows: [Row]) -> [String] {
@@ -37,8 +39,8 @@ final class AppliedTests: XCTestCase {
             wiki: WikiView(itemId: nil, suggestions: [], selectedIndex: 0, x: 0, y: 0), scrolledFromTop: false)
     }
 
-    private func search(_ query: String) -> SearchView {
-        SearchView(query: query, results: [], showDropdown: false, selectedIndex: nil, searching: false)
+    private func search(_ query: String) -> SearchPanel {
+        SearchPanel(query: query, showDropdown: false, selectedIndex: nil, searching: false)
     }
 
     /// Every panel once, as the first changes of a core hold them. Each panel has a value of
@@ -157,6 +159,23 @@ final class AppliedTests: XCTestCase {
         XCTAssertFalse(changes(headings: [.reset(items: [heading])]).isEmpty)
         XCTAssertFalse(changes(indexPages: [.remove(at: 0)]).isEmpty)
         XCTAssertFalse(changes(recentPages: [.remove(at: 0)]).isEmpty)
+    }
+
+    // 後の差分の検索の結果の操作は、今の結果に当たる。検索のパネルの値は前のままである。
+    func testTheSearchResultsOfALaterChangeAreAppliedToTheResultsThere() {
+        func result(_ key: String, _ snippet: String) -> SearchEntry {
+            SearchEntry(key: key, kind: .item, title: "t", label: "t", snippet: snippet)
+        }
+        var view = ViewModel(
+            first: changes(
+                searchResults: [.reset(items: [result("item:a", "one"), result("item:b", "two")])],
+                panels: everyPanel()))
+
+        view.apply(changes(searchResults: [.update(at: 1, item: result("item:b", "three"))]))
+
+        XCTAssertEqual(view.search.results.map(\.snippet), ["one", "three"])
+        XCTAssertEqual(view.search.query, "first")
+        XCTAssertFalse(changes(searchResults: [.remove(at: 0)]).isEmpty)
     }
 
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。

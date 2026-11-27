@@ -1,6 +1,6 @@
 import { useEffect, type KeyboardEvent } from 'react';
 import type { SearchEntry, SearchKey } from './border/peta-types';
-import { useCore, usePanel } from './context';
+import { useCore, usePanel, useSearchResults } from './context';
 import { isImeComposing } from './dom';
 import { useShownValue } from './shownValue';
 
@@ -18,6 +18,7 @@ const KEYS: Readonly<Record<string, SearchKey['kind']>> = {
 export default function SearchBar() {
   const core = useCore();
   const search = usePanel('Search');
+  const found = useSearchResults();
   const editing = usePanel('Outline')?.focused_item_id != null;
   // The query as the core has it, as cleared after a navigation
   const input = useShownValue(search?.query ?? '');
@@ -44,8 +45,7 @@ export default function SearchBar() {
     core.send({ kind: 'SearchKey', value: { kind } });
   };
 
-  const results =
-    search !== undefined && search.show_dropdown ? search.results : [];
+  const results = search !== undefined && search.show_dropdown ? found : [];
   const selected = search?.selected_index ?? null;
 
   return (
@@ -73,15 +73,15 @@ export default function SearchBar() {
         />
         {results.length > 0 && (
           <div className="search-dropdown">
-            {results.map(entry => (
+            {results.map((entry, at) => (
               <Result
-                key={String(entry.position)}
+                key={entry.key}
                 entry={entry}
-                selected={selected === entry.position}
+                selected={selected === BigInt(at)}
                 pressed={() =>
                   core.send({
                     kind: 'SearchResultClicked',
-                    position: entry.position,
+                    position: BigInt(at),
                   })
                 }
               />

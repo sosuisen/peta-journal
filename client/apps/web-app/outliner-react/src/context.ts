@@ -1,5 +1,11 @@
 import { createContext, use, useContext, useSyncExternalStore } from 'react';
-import type { Heading, Panel, Row, SidebarPage } from './border/peta-types';
+import type {
+  Heading,
+  Panel,
+  Row,
+  SearchEntry,
+  SidebarPage,
+} from './border/peta-types';
 import type { Core } from './core';
 import type { Panels } from './screen';
 
@@ -49,6 +55,15 @@ export function useIndexPages(): readonly SidebarPage[] {
 export function useRecentPages(): readonly SidebarPage[] {
   const core = useCore();
   return useSyncExternalStore(core.subscribe, () => core.current().recentPages);
+}
+
+/** The results of the search, in the order shown, as the core last told. */
+export function useSearchResults(): readonly SearchEntry[] {
+  const core = useCore();
+  return useSyncExternalStore(
+    core.subscribe,
+    () => core.current().searchResults,
+  );
 }
 
 /**

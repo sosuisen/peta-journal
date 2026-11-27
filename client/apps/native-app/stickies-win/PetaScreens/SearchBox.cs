@@ -109,10 +109,11 @@ internal sealed class SearchBox : StackPanel
                 : Visibility.Collapsed;
         if (!search.ShowDropdown)
             return;
-        foreach (var entry in search.Results)
+        // The core counts an entry by its place in the results
+        for (var at = 0; at < search.Results.Count; at++)
         {
-            var chosen = search.SelectedIndex == entry.Position;
-            var row = Entry(entry, chosen);
+            var chosen = search.SelectedIndex == (ulong)at;
+            var row = Entry(search.Results[at], (ulong)at, chosen);
             entries.Children.Add(row);
             // The arrow keys may choose an entry that is out of sight
             if (chosen)
@@ -120,7 +121,7 @@ internal sealed class SearchBox : StackPanel
         }
     }
 
-    private Border Entry(SearchEntry entry, bool chosen)
+    private Border Entry(SearchEntry entry, ulong index, bool chosen)
     {
         var lines = new StackPanel();
         lines.Children.Add(
@@ -154,7 +155,6 @@ internal sealed class SearchBox : StackPanel
             CornerRadius = new CornerRadius(3),
             Background = chosen ? Chosen : Clear,
         };
-        var index = entry.Position;
         row.Tapped += (_, e) =>
         {
             e.Handled = true;

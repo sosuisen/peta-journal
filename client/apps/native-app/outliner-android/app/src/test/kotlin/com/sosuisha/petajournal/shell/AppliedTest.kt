@@ -22,7 +22,10 @@ import com.sosuisha.petajournal.types.RichText
 import com.sosuisha.petajournal.types.Row
 import com.sosuisha.petajournal.types.RowChange
 import com.sosuisha.petajournal.types.ScreenView
-import com.sosuisha.petajournal.types.SearchView
+import com.sosuisha.petajournal.types.SearchChange
+import com.sosuisha.petajournal.types.SearchEntry
+import com.sosuisha.petajournal.types.SearchKind
+import com.sosuisha.petajournal.types.SearchPanel
 import com.sosuisha.petajournal.types.SidebarPage
 import com.sosuisha.petajournal.types.SortOrder
 import com.sosuisha.petajournal.types.WeekNumbering
@@ -32,7 +35,7 @@ import org.junit.Test
 
 /** The changes of the rows and the panels, with no change of the headings. */
 private fun Changes(rows: List<RowChange>, panels: List<Panel>) =
-    Changes(rows, emptyList(), emptyList(), emptyList(), panels)
+    Changes(rows, emptyList(), emptyList(), emptyList(), emptyList(), panels)
 
 /**
  * The view model that the changes of the core make (ADR 076). That the core sends the changes that
@@ -88,7 +91,7 @@ class AppliedTest {
         )
 
     private fun search(query: String) =
-        SearchView(query = query, results = emptyList(), showDropdown = false, searching = false)
+        SearchPanel(query = query, showDropdown = false, searching = false)
 
     /**
      * Every panel once, as the first changes of a core hold them. Each panel has a value of its
@@ -236,6 +239,7 @@ class AppliedTest {
                         ),
                     indexPages = emptyList(),
                     recentPages = emptyList(),
+                    searchResults = emptyList(),
                     panels = everyPanel(),
                 ),
             )
@@ -247,6 +251,7 @@ class AppliedTest {
                     headings = listOf(HeadingChange.Update(1u, Heading("b", "Three", 2u))),
                     indexPages = emptyList(),
                     recentPages = emptyList(),
+                    searchResults = emptyList(),
                     panels = emptyList(),
                 ),
             )
@@ -283,6 +288,7 @@ class AppliedTest {
                     headings = emptyList(),
                     indexPages = listOf(PageChange.Reset(listOf(page("a"), page("b")))),
                     recentPages = listOf(PageChange.Reset(listOf(page("c")))),
+                    searchResults = emptyList(),
                     panels = everyPanel(),
                 ),
             )
@@ -294,6 +300,7 @@ class AppliedTest {
                     headings = emptyList(),
                     indexPages = listOf(PageChange.Remove(0u)),
                     recentPages = listOf(PageChange.Insert(0u, page("d"))),
+                    searchResults = emptyList(),
                     panels = emptyList(),
                 ),
             )
@@ -302,6 +309,50 @@ class AppliedTest {
         assertEquals("current", changed.indexPages.currentPageId)
         assertEquals(listOf("d", "c"), changed.recentPages.pages.map { it.label })
         assertEquals(LoadState.LOADING, changed.recentPages.state)
+    }
+
+    // 後の差分の検索の結果の操作は、今の結果に当たる。検索のパネルの値は前のままである。
+    @Test
+    fun the_search_results_of_a_later_change_are_applied_to_the_results_there() {
+        fun result(key: String, snippet: String) =
+            SearchEntry(
+                key = key,
+                kind = SearchKind.ITEM,
+                title = "t",
+                label = "t",
+                snippet = snippet,
+            )
+        val view =
+            firstView(
+                Changes(
+                    rows = emptyList(),
+                    headings = emptyList(),
+                    indexPages = emptyList(),
+                    recentPages = emptyList(),
+                    searchResults =
+                        listOf(
+                            SearchChange.Reset(
+                                listOf(result("item:a", "one"), result("item:b", "two")),
+                            ),
+                        ),
+                    panels = everyPanel(),
+                ),
+            )
+
+        val changed =
+            view.with(
+                Changes(
+                    rows = emptyList(),
+                    headings = emptyList(),
+                    indexPages = emptyList(),
+                    recentPages = emptyList(),
+                    searchResults = listOf(SearchChange.Update(1u, result("item:b", "three"))),
+                    panels = emptyList(),
+                ),
+            )
+
+        assertEquals(listOf("one", "three"), changed.search.results.map { it.snippet })
+        assertEquals("first", changed.search.query)
     }
 
     // アウトラインのパネルは行を持たないので、届いても行は前のままである。

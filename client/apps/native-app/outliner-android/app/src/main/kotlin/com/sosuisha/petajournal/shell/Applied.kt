@@ -13,6 +13,10 @@ import com.sosuisha.petajournal.types.Panel
 import com.sosuisha.petajournal.types.RecentPagesView
 import com.sosuisha.petajournal.types.Row
 import com.sosuisha.petajournal.types.RowChange
+import com.sosuisha.petajournal.types.SearchChange
+import com.sosuisha.petajournal.types.SearchEntry
+import com.sosuisha.petajournal.types.SearchPanel
+import com.sosuisha.petajournal.types.SearchView
 import com.sosuisha.petajournal.types.SidebarPage
 import com.sosuisha.petajournal.types.ViewModel
 
@@ -21,7 +25,7 @@ import com.sosuisha.petajournal.types.ViewModel
 
 /**
  * The view model of the first changes of a core. They hold every panel and a reset of the rows, the
- * headings and the pages of the sidebar.
+ * headings, the pages of the sidebar and the results of the search.
  */
 internal fun firstView(changes: Changes): ViewModel {
     val panels = changes.panels
@@ -48,7 +52,11 @@ internal fun firstView(changes: Changes): ViewModel {
                 pages = emptyList<SidebarPage>().after(changes.recentPages.map { it.change }),
                 state = panels.the<Panel.RecentPages>().value.state,
             ),
-        search = panels.the<Panel.Search>().value,
+        search =
+            searchOf(
+                panels.the<Panel.Search>().value,
+                emptyList<SearchEntry>().after(changes.searchResults.map { it.change }),
+            ),
         config = panels.the<Panel.Config>().value,
         connection = panels.the<Panel.Connection>().value,
         today = panels.the<Panel.Today>().value,
@@ -77,6 +85,10 @@ internal fun ViewModel.with(changes: Changes): ViewModel {
     if (changes.recentPages.isNotEmpty()) {
         val pages = view.recentPages.pages.after(changes.recentPages.map { it.change })
         view = view.copy(recentPages = view.recentPages.copy(pages = pages))
+    }
+    if (changes.searchResults.isNotEmpty()) {
+        val results = view.search.results.after(changes.searchResults.map { it.change })
+        view = view.copy(search = view.search.copy(results = results))
     }
     return view
 }
@@ -149,6 +161,25 @@ private val PageChange.change: Change<SidebarPage>
             is PageChange.Reset -> Change.Reset(items)
         }
 
+private val SearchChange.change: Change<SearchEntry>
+    get() =
+        when (this) {
+            is SearchChange.Insert -> Change.Insert(at.toInt(), item)
+            is SearchChange.Remove -> Change.Remove(at.toInt())
+            is SearchChange.Move -> Change.Move(from.toInt(), to.toInt())
+            is SearchChange.Update -> Change.Update(at.toInt(), item)
+            is SearchChange.Reset -> Change.Reset(items)
+        }
+
+private fun searchOf(panel: SearchPanel, results: List<SearchEntry>) =
+    SearchView(
+        query = panel.query,
+        results = results,
+        showDropdown = panel.showDropdown,
+        selectedIndex = panel.selectedIndex,
+        searching = panel.searching,
+    )
+
 private fun indexPagesOf(panel: IndexPagesPanel, pages: List<SidebarPage>) =
     IndexPagesView(
         header = panel.header,
@@ -185,7 +216,7 @@ private fun ViewModel.with(panel: Panel): ViewModel =
         is Panel.IndexPages -> copy(indexPages = indexPagesOf(panel.value, indexPages.pages))
         is Panel.Headings -> copy(headings = headings.copy(state = panel.value.state))
         is Panel.RecentPages -> copy(recentPages = recentPages.copy(state = panel.value.state))
-        is Panel.Search -> copy(search = panel.value)
+        is Panel.Search -> copy(search = searchOf(panel.value, search.results))
         is Panel.Config -> copy(config = panel.value)
         is Panel.Connection -> copy(connection = panel.value)
         is Panel.Today -> copy(today = panel.value)

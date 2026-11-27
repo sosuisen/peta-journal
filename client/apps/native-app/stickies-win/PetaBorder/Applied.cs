@@ -15,7 +15,7 @@ internal static class Applied
 
     /// <summary>
     /// The view model of the first changes of a core. They hold every panel and a reset of
-    /// the rows, the headings and the pages of the sidebar. Throws when a panel is missing or comes twice: the two sides of the border are
+    /// the rows, the headings, the pages of the sidebar and the results of the search. Throws when a panel is missing or comes twice: the two sides of the border are
     /// then of two versions, and a part would stay empty.
     /// </summary>
     public static ViewModel First(Changes changes)
@@ -29,6 +29,7 @@ internal static class Applied
             Headings = new HeadingsView { Headings = [] },
             IndexPages = new IndexPagesView { Pages = [] },
             RecentPages = new RecentPagesView { Pages = [] },
+            Search = new SearchView { Results = [] },
         };
         To(view, changes);
         return view;
@@ -50,6 +51,13 @@ internal static class Applied
         );
         Pages(view.IndexPages.Pages, changes.IndexPages);
         Pages(view.RecentPages.Pages, changes.RecentPages);
+        var results = view.Search.Results;
+        ListChanges.Apply(
+            results,
+            changes.SearchResults.Select(ListChanges.Of),
+            result => result,
+            (at, result) => results[at] = result
+        );
     }
 
     /// <summary>Applies the changes of a list of pages of the sidebar to <paramref name="pages"/>.</summary>
@@ -108,8 +116,11 @@ internal static class Applied
             case Panel.RecentPages recentPages:
                 view.RecentPages.State = recentPages.Value.State;
                 break;
-            case Panel.Search search:
-                view.Search = search.Value;
+            case Panel.Search { Value: var search }:
+                view.Search.Query = search.Query;
+                view.Search.ShowDropdown = search.ShowDropdown;
+                view.Search.SelectedIndex = search.SelectedIndex;
+                view.Search.Searching = search.Searching;
                 break;
             case Panel.Config config:
                 view.Config = config.Value;

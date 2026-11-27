@@ -246,8 +246,8 @@ final class ShellTests: XCTestCase {
         try await waitUntil("the search offers to make the page") {
             shell.view.search.results.contains { $0.kind == .create }
         }
-        let create = try XCTUnwrap(shell.view.search.results.first { $0.kind == .create })
-        shell.pick(create.position)
+        let create = try XCTUnwrap(shell.view.search.results.firstIndex { $0.kind == .create })
+        shell.pick(UInt64(create))
 
         try await waitUntil("the core tells") { shell.question != nil }
         XCTAssertEqual(shell.question?.kind, .notice)
@@ -754,7 +754,7 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(shell.view.search.query, "apple")
         try await waitUntil("the page is found") { self.pagesFound(shell) == ["apple-pie"] }
         XCTAssertTrue(shell.view.search.showDropdown)
-        shell.pick(shell.view.search.results[0].position)
+        shell.pick(0)
 
         try await waitUntil("the page found is shown") { shell.title == "apple-pie" }
         XCTAssertEqual(shell.view.search.query, "")
@@ -796,7 +796,7 @@ final class ShellTests: XCTestCase {
 
         shell.search("swift")
         try await waitUntil("the page is found") { self.pagesFound(shell) == ["swift-notes"] }
-        shell.pick(shell.view.search.results[0].position)
+        shell.pick(0)
 
         try await waitUntil("the page found is shown") { shell.title == "swift-notes" }
         XCTAssertEqual(shell.url, "/pages/swift-notes")
