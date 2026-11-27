@@ -110,3 +110,6 @@ excluded = "a native shell reads the border of client-native-bridge, not that of
 
 [common.border-native]
 test = "client/apps/native-app/swift-shared/Tests/PetaSharedTests/BorderValuesTests.swift"
+
+[common.border-emacs]
+excluded = "a native shell reads the border of client-native-bridge, not the JSON Lines of the Emacs shell"

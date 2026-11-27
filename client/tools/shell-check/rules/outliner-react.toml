@@ -62,3 +62,6 @@ test = "client/apps/web-app/outliner-react/src/borderValues.test.ts"
 
 [common.border-native]
 excluded = "the web shell reads the border of client-web-bridge, not that of client-native-bridge"
+
+[common.border-emacs]
+excluded = "the web shell reads the border of client-web-bridge, not the JSON Lines of the Emacs shell"

@@ -113,3 +113,6 @@ excluded = "a native shell reads the border of client-native-bridge, not that of
 
 [common.border-native]
 pending = 1228
+
+[common.border-emacs]
+excluded = "a native shell reads the border of client-native-bridge, not the JSON Lines of the Emacs shell"
