@@ -226,6 +226,13 @@ internal sealed class Screen : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// What the test sees on the screen now, for the message of a check that comes after the
+    /// waits: such a check fails without telling where the focus went (#1175).
+    /// </summary>
+    public string Looks =>
+        $"{Describe()}\nthe item of the last edit saw=[{string.Join(", ", lastEdit)}]";
+
     /// <summary>What the test sees on the screen, and what the core holds.</summary>
     private string Describe()
     {
@@ -455,21 +462,38 @@ internal sealed class Screen : IAsyncDisposable
     {
         var view = Items()[item];
         var editor = EditorOf(view);
-        // Why the marks: the cursor did not come into a clicked item in the CI once, and never
-        // on a developer's PC (#1175). They tell which part of the click the item saw, and when
+        // Why the marks: the cursor did not come into a clicked item in the CI once, and the core
+        // did not hear of a click that put it there (#1175). They tell which part of the click
+        // the item saw, and when
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var seen = new List<string>();
         void Mark(string what) => seen.Add($"{what}@{clock.ElapsedMilliseconds}ms");
-        var pressed = new PointerEventHandler((_, _) => Mark("pressed"));
+        // With the focus of the editor: whether it had the cursor before the click, and after
+        // the view took the tap
+        var pressed = new PointerEventHandler((_, _) => Mark($"pressed ({editor.FocusState})"));
         var released = new PointerEventHandler((_, _) => Mark("released"));
-        var tapped = new TappedEventHandler((_, _) => Mark("tapped"));
-        void GotFocus(object sender, RoutedEventArgs e) => Mark("editor got focus");
+        var tapped = new TappedEventHandler((_, _) => Mark($"tapped ({editor.FocusState})"));
+        // The view tells the core before this handler runs, as it subscribed first. A core
+        // with no item that has the cursor here was not told (#1175)
+        void GotFocus(object sender, RoutedEventArgs e) =>
+            Mark(
+                $"editor got focus (core: {(Shell.View.Outline.FocusedItemId is null ? "no item" : "an item")})"
+            );
         void LostFocus(object sender, RoutedEventArgs e) => Mark("editor lost focus");
         view.AddHandler(UIElement.PointerPressedEvent, pressed, true);
         view.AddHandler(UIElement.PointerReleasedEvent, released, true);
         view.AddHandler(UIElement.TappedEvent, tapped, true);
+        // Not taken away when the click is done: a check after it tells whether the editor
+        // lost the cursor later (Looks). Taken away with the screen: once the windows close,
+        // GotFocus would read a sticky that is gone, and the throw would end the test run
         editor.GotFocus += GotFocus;
         editor.LostFocus += LostFocus;
+        untie.Add(() =>
+        {
+            editor.GotFocus -= GotFocus;
+            editor.LostFocus -= LostFocus;
+        });
+        lastEdit = seen;
         try
         {
             await Click(view);
@@ -487,10 +511,14 @@ internal sealed class Screen : IAsyncDisposable
             view.RemoveHandler(UIElement.PointerPressedEvent, pressed);
             view.RemoveHandler(UIElement.PointerReleasedEvent, released);
             view.RemoveHandler(UIElement.TappedEvent, tapped);
-            editor.GotFocus -= GotFocus;
-            editor.LostFocus -= LostFocus;
         }
     }
+
+    /// <summary>What the item of the last <see cref="Edit"/> saw, and when.</summary>
+    private List<string> lastEdit = [];
+
+    /// <summary>Takes away the handlers that <see cref="Edit"/> left on the editors.</summary>
+    private readonly List<Action> untie = [];
 
     /// <summary>The editor that has the cursor.</summary>
     public TextBox Editor
@@ -647,6 +675,8 @@ internal sealed class Screen : IAsyncDisposable
     {
         current = null;
         FocusManager.GotFocus -= FocusMoved;
+        foreach (var handlers in untie)
+            handlers();
         Desk.End();
         // The windows close on a later turn of the UI thread
         await Task.Delay(50);
