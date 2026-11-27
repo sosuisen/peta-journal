@@ -204,21 +204,49 @@ fn the_cards_and_callouts_without_a_place_wait_in_the_order_of_their_items() {
     );
 }
 
-// 親の項目は、座標のない項目に出ない。親はその下の項目を囲んで描かれ、自分の位置を持たない。その下の置かれていない項目は出る。
+// `atlas_bounds`のない親は描かれず、座標のない項目に出る。その下の項目もすべて、自分の`atlas_bounds`の有無によらず、座標のない項目に出て、アトラスには描かれない。座標のある親の下では、座標のない項目だけが出る。
 #[test]
-fn a_parent_does_not_wait_for_a_place_and_the_items_under_it_do() {
+fn a_parent_without_bounds_waits_for_a_place_with_everything_under_it() {
+    let placed = [("atlas_bounds", "1,2,0,40")];
     let h = atlas_of(
-        vec![],
+        vec![child("one")],
         vec![
             atlas_item("g", 1, "Tools", &[]),
-            atlas_item("in", 2, "inner", &[]),
-            atlas_item("deep", 3, "deep", &[]),
-            atlas_item("put", 2, "put", &[("atlas_bounds", "1,2,0,40")]),
+            atlas_item("in", 2, "[[x/far|Far]]", &placed),
+            card_item("one", 3, Some("1,2,0,40")),
+            atlas_item("put", 2, "put", &placed),
+            atlas_item(
+                "call",
+                2,
+                "Hi",
+                &[("atlas_type", "callout"), ("atlas_bounds", "1,2,0,40")],
+            ),
+            atlas_item("p", 1, "Placed", &placed),
+            atlas_item("shown", 2, "shown", &placed),
+            atlas_item("not", 2, "not", &[]),
         ],
     );
 
-    let ids: Vec<String> = no_place(&h).into_iter().map(|c| c.id).collect();
-    assert_eq!(ids, ["deep"]);
+    assert_eq!(
+        no_place(&h),
+        [
+            waiting("g", "Tools", None, false),
+            waiting("in", "Far", Some("x/far"), false),
+            waiting("a/b/one", "one", Some("a/b/one"), false),
+            waiting("put", "put", None, false),
+            waiting("call", "Hi", None, false),
+            waiting("not", "not", None, false),
+        ]
+    );
+    let view = h.view();
+    assert_eq!(bounds_of(&h, "a/b/one"), None);
+    let links: Vec<&str> = view
+        .atlas_links
+        .iter()
+        .map(|l| l.item_id.as_str())
+        .collect();
+    assert_eq!(links, ["shown"]);
+    assert!(view.atlas_callouts.is_empty());
 }
 
 // アトラスでないページでは、何も待たない。
