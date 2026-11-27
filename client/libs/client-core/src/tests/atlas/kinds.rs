@@ -211,3 +211,38 @@ fn a_parent_that_is_a_page_card_opens_its_page_and_has_its_icon() {
         ]
     );
 }
+
+// コールアウトの親は、グループのタイトルの代わりに、キャラクターとフキダシで描かれる。フキダシの文字は本文で、辺はatlas_sideである。ひとりで立つコールアウトには数えない。
+#[test]
+fn a_parent_that_is_a_callout_is_drawn_as_its_character_and_bubble() {
+    let h = atlas_of(
+        vec![],
+        vec![
+            atlas_item(
+                "c",
+                1,
+                "Hello",
+                &[
+                    ("atlas_type", "callout"),
+                    ("atlas_side", "right"),
+                    ("atlas_bounds", "5,5,0,40"),
+                ],
+            ),
+            placed_under("p", "note"),
+        ],
+    );
+
+    let view = h.view();
+    let group = &view.atlas_links[0].groups[0];
+    assert_eq!(
+        (&group.look, &group.title),
+        (
+            &GroupLook::Callout,
+            &Some(GroupTitle {
+                side: "right".into(),
+                text: "Hello".into()
+            })
+        )
+    );
+    assert!(view.atlas_callouts.is_empty());
+}
