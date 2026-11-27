@@ -9,6 +9,12 @@ pub mod samples;
 
 pub use diff::{list_changes, ListChange};
 
+diff::list_change!(
+    /// One change to the rows of the outline, as the shells take it.
+    RowChange<B>,
+    Row<B>
+);
+
 use crate::app::ConnectionState;
 use crate::outline::{FocusOrder, FocusRequest};
 use crate::screens::atlas::{Callout, LinkCard};

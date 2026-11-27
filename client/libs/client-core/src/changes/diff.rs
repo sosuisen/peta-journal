@@ -30,6 +30,40 @@ impl<T> ListChange<T> {
     }
 }
 
+/// Makes the type of the changes of one list, of the same shape as [`ListChange`], to give to
+/// the shells (ADR 088), with a `From` of the `ListChange` of its items. The types the shells
+/// take cannot use one generic type with items of two kinds, so each list has a type of its
+/// own; the core works with `ListChange` and moves the changes into it at the border.
+macro_rules! list_change {
+    ($(#[$doc:meta])* $name:ident<$b:ident>, $item:ty) => {
+        $(#[$doc])*
+        #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+        #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+        pub enum $name<$b> {
+            Insert { at: u32, item: $item },
+            Remove { at: u32 },
+            Move { from: u32, to: u32 },
+            Update { at: u32, item: $item },
+            Reset { items: Vec<$item> },
+        }
+
+        impl<$b> From<$crate::changes::ListChange<$item>> for $name<$b> {
+            fn from(change: $crate::changes::ListChange<$item>) -> $name<$b> {
+                use $crate::changes::ListChange;
+                match change {
+                    ListChange::Insert { at, item } => $name::Insert { at, item },
+                    ListChange::Remove { at } => $name::Remove { at },
+                    ListChange::Move { from, to } => $name::Move { from, to },
+                    ListChange::Update { at, item } => $name::Update { at, item },
+                    ListChange::Reset { items } => $name::Reset { items },
+                }
+            }
+        }
+    };
+}
+
+pub(crate) use list_change;
+
 /// The changes that make `before` into `after`. `id` gives the id of an item: no two items
 /// of one list have the same id.
 pub fn list_changes<T: Clone + PartialEq>(
