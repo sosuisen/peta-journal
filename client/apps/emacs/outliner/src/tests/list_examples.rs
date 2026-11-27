@@ -7,7 +7,7 @@
 //! makes it of a row of the core.
 
 use crate::emacs_text::{EmacsText, SharedText};
-use crate::protocol::{write_line, Outbound, RowView};
+use crate::protocol::{write_line, Outbound, RowChange, RowView};
 use client_core::changes::examples::{is_current, row_examples};
 use client_core::changes::ListChange;
 use client_core::view::Row;
@@ -28,7 +28,10 @@ fn line(changes: Vec<ListChange<Row<SharedText>>>) -> String {
     write_line(&Outbound::Rows {
         ack: 0,
         page_id: Some(PAGE.to_string()),
-        changes: changes.into_iter().map(|change| change.map(view)).collect(),
+        changes: changes
+            .into_iter()
+            .map(|change| RowChange::from(change.map(view)))
+            .collect(),
     })
 }
 

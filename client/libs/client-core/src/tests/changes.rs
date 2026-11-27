@@ -1,7 +1,7 @@
 //! The changes of the screen since a shell was last told (ADR 076), for a shell of any body
 //! model (ADR 078).
 
-use crate::changes::{Changes, ListChange, OutlinePanel, Panel, Shown};
+use crate::changes::{Changes, ListChange, OutlinePanel, Panel, RowChange, Shown};
 use crate::harness::Harness;
 use crate::testing::plain_item;
 use crate::{PetaApp, RichText, ViewModel};
@@ -58,7 +58,7 @@ fn the_first_changes_are_a_reset_of_the_rows_and_every_panel() {
     assert_eq!(
         changes,
         Changes {
-            rows: vec![ListChange::Reset {
+            rows: vec![RowChange::Reset {
                 items: outline.rows.clone()
             }],
             panels: vec![
@@ -104,7 +104,7 @@ fn a_row_whose_body_changed_is_an_update_at_its_place() {
 
     assert_eq!(
         changes.rows,
-        vec![ListChange::Update {
+        vec![RowChange::Update {
             at: 1,
             item: view.outline.rows[1].clone()
         }]
@@ -118,7 +118,7 @@ fn the_changes_are_made_from_a_screen_of_any_body_model() {
     let app = PetaApp::<()>::default();
     let mut shown = Shown::default();
     let first = shown.changes(app.view(&h.model));
-    assert!(matches!(first.rows[..], [ListChange::Reset { .. }]));
+    assert!(matches!(first.rows[..], [RowChange::Reset { .. }]));
 
     let mut view = app.view(&h.model);
     view.title = "notes".into();
@@ -126,4 +126,32 @@ fn the_changes_are_made_from_a_screen_of_any_body_model() {
 
     assert!(changes.rows.is_empty());
     assert_eq!(changes.panels, vec![Panel::Title("notes".into())]);
+}
+
+// 境界に出す行の差分（RowChange）は、コアの差分（ListChange）から移しても中身が変わらず、同じJSONになる。
+#[test]
+fn a_row_change_made_from_a_list_change_writes_the_same_json() {
+    let view = Harness::with_items(vec![plain_item("a", 1, "one")]).view();
+    let row = view.outline.rows[0].clone();
+    let changes = [
+        ListChange::Insert {
+            at: 1,
+            item: row.clone(),
+        },
+        ListChange::Remove { at: 2 },
+        ListChange::Move { from: 3, to: 4 },
+        ListChange::Update {
+            at: 5,
+            item: row.clone(),
+        },
+        ListChange::Reset { items: vec![row] },
+    ];
+
+    for change in changes {
+        let written = serde_json::to_value(&change).unwrap();
+
+        let moved: RowChange<RichText> = change.into();
+
+        assert_eq!(serde_json::to_value(&moved).unwrap(), written);
+    }
 }

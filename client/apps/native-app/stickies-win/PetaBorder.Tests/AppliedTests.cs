@@ -12,11 +12,11 @@ public sealed class AppliedTests
 {
     private static Row Row(string id) => new() { Item = new Item { Id = id } };
 
-    private static Changes Changes(IEnumerable<ListChange> rows, IEnumerable<Panel> panels) =>
+    private static Changes Changes(IEnumerable<RowChange> rows, IEnumerable<Panel> panels) =>
         new() { Rows = [.. rows], Panels = [.. panels] };
 
-    private static ListChange Reset(params string[] ids) =>
-        new ListChange.Reset(new ObservableCollection<Row>(ids.Select(Row)));
+    private static RowChange Reset(params string[] ids) =>
+        new RowChange.Reset(new ObservableCollection<Row>(ids.Select(Row)));
 
     private static List<string> Ids(IEnumerable<Row> rows) => [.. rows.Select(row => row.Item.Id)];
 

@@ -10,13 +10,13 @@ import com.sosuisha.petajournal.types.IndexPagesView
 import com.sosuisha.petajournal.types.IndexSort
 import com.sosuisha.petajournal.types.IndexSortKey
 import com.sosuisha.petajournal.types.Item
-import com.sosuisha.petajournal.types.ListChange
 import com.sosuisha.petajournal.types.LoadState
 import com.sosuisha.petajournal.types.OutlinePanel
 import com.sosuisha.petajournal.types.Panel
 import com.sosuisha.petajournal.types.RecentPagesView
 import com.sosuisha.petajournal.types.RichText
 import com.sosuisha.petajournal.types.Row
+import com.sosuisha.petajournal.types.RowChange
 import com.sosuisha.petajournal.types.ScreenView
 import com.sosuisha.petajournal.types.SearchView
 import com.sosuisha.petajournal.types.SortOrder
@@ -142,10 +142,10 @@ class AppliedTest {
         val applied =
             rows.applied(
                 listOf(
-                    ListChange.Insert(1u, row("x")),
-                    ListChange.Remove(0u),
-                    ListChange.Move(2u, 0u),
-                    ListChange.Update(1u, row("x", "changed")),
+                    RowChange.Insert(1u, row("x")),
+                    RowChange.Remove(0u),
+                    RowChange.Move(2u, 0u),
+                    RowChange.Update(1u, row("x", "changed")),
                 ),
             )
 
@@ -158,7 +158,7 @@ class AppliedTest {
     fun a_reset_puts_the_rows_that_came_in_place_of_all_before() {
         val rows = listOf(row("a"), row("b"))
 
-        val applied = rows.applied(listOf(ListChange.Reset(listOf(row("y"), row("z")))))
+        val applied = rows.applied(listOf(RowChange.Reset(listOf(row("y"), row("z")))))
 
         assertEquals(listOf("y", "z"), ids(applied))
     }
@@ -166,7 +166,7 @@ class AppliedTest {
     // 最初の差分から、すべての欄が、それぞれのパネルの値で作られる。行は、入れ替えで届いた行である。
     @Test
     fun the_first_changes_make_every_part_from_its_panel() {
-        val view = firstView(Changes(listOf(ListChange.Reset(listOf(row("a")))), everyPanel()))
+        val view = firstView(Changes(listOf(RowChange.Reset(listOf(row("a")))), everyPanel()))
 
         assertEquals(ScreenView.Settings, view.screen)
         assertEquals(listOf("suggested"), view.atlasLinkSuggestions)
@@ -206,9 +206,9 @@ class AppliedTest {
     // 後の差分の行の操作は、今の行に当たる。
     @Test
     fun the_rows_of_a_later_change_are_applied_to_the_rows_there() {
-        val view = firstView(Changes(listOf(ListChange.Reset(listOf(row("a")))), everyPanel()))
+        val view = firstView(Changes(listOf(RowChange.Reset(listOf(row("a")))), everyPanel()))
 
-        val changed = view.with(Changes(listOf(ListChange.Insert(1u, row("b"))), emptyList()))
+        val changed = view.with(Changes(listOf(RowChange.Insert(1u, row("b"))), emptyList()))
 
         assertEquals(listOf("a", "b"), ids(changed.outline.rows))
     }
@@ -217,7 +217,7 @@ class AppliedTest {
     @Test
     fun the_outline_panel_keeps_the_rows() {
         val view =
-            firstView(Changes(listOf(ListChange.Reset(listOf(row("a"), row("b")))), everyPanel()))
+            firstView(Changes(listOf(RowChange.Reset(listOf(row("a"), row("b")))), everyPanel()))
 
         val changed =
             view.with(Changes(emptyList(), listOf(Panel.Outline(outline(selecting = false)))))

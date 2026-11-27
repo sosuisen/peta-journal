@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { panelsAfter, rowsAfter } from './screen';
+import { panelsAfter, listAfter } from './screen';
 
 // 行の差分を当てる
 describe('rows after their changes', () => {
@@ -7,7 +7,7 @@ describe('rows after their changes', () => {
   test('the changes in order make the rows of the core, each counted after the one before', () => {
     const rows = ['a', 'b', 'c'];
 
-    const after = rowsAfter(rows, [
+    const after = listAfter(rows, [
       { kind: 'Remove', at: 0 },
       { kind: 'Insert', at: 2, item: 'd' },
       { kind: 'Move', from: 0, to: 1 },
@@ -19,7 +19,7 @@ describe('rows after their changes', () => {
 
   // 入れ替えは、前の行をすべて捨てる。
   test('a reset throws away every row before it', () => {
-    expect(rowsAfter(['a', 'b'], [{ kind: 'Reset', items: ['x'] }])).toEqual([
+    expect(listAfter(['a', 'b'], [{ kind: 'Reset', items: ['x'] }])).toEqual([
       'x',
     ]);
   });
@@ -30,7 +30,7 @@ describe('rows after their changes', () => {
     const b = { id: 'b' };
     const rows = [a, b];
 
-    const after = rowsAfter(rows, [
+    const after = listAfter(rows, [
       { kind: 'Update', at: 1, item: { id: 'B' } },
     ]);
 
@@ -42,7 +42,7 @@ describe('rows after their changes', () => {
   test('without a change the rows are the very same list', () => {
     const rows = ['a'];
 
-    expect(rowsAfter(rows, [])).toBe(rows);
+    expect(listAfter(rows, [])).toBe(rows);
   });
 });
 

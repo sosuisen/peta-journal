@@ -9,6 +9,14 @@ pub mod samples;
 
 pub use diff::{list_changes, ListChange};
 
+crate::list_change!(
+    /// One change to the rows of the outline, as the shells take it.
+    #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
+    #[derive(Debug, Clone, PartialEq, Serialize)]
+    RowChange<B>,
+    Row<B>
+);
+
 use crate::app::ConnectionState;
 use crate::outline::{FocusOrder, FocusRequest};
 use crate::screens::atlas::{Callout, LinkCard};
@@ -25,7 +33,7 @@ use serde::Serialize;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Changes<B> {
     /// The changes to the rows of the outline, to apply in order.
-    pub rows: Vec<ListChange<Row<B>>>,
+    pub rows: Vec<RowChange<B>>,
     /// The panels that changed, each whole.
     pub panels: Vec<Panel>,
 }
@@ -94,6 +102,7 @@ impl<B: Clone + PartialEq> Shown<B> {
             }],
             Some(had) => list_changes(had, &rows, |row| &row.item.id),
         };
+        let changes = changes.into_iter().map(RowChange::from).collect();
         self.rows = Some(rows);
         Changes {
             rows: changes,

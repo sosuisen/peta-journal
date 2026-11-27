@@ -1,7 +1,7 @@
 //! The examples that the native shells run in their tests as the core does (ADR 089, ADR 090),
 //! as the bytes that cross the border of a native shell.
 
-use crate::{Changes, ListChange};
+use crate::{Changes, RowChange};
 use client_core::changes::examples::row_examples;
 use client_core::RichText;
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat};
@@ -17,9 +17,9 @@ fn list_changes() -> Value {
         .map(|example| {
             json!({
                 "id": example.id,
-                "before": crossing(vec![ListChange::Reset { items: example.before }]),
-                "changes": crossing(example.changes),
-                "after": crossing(vec![ListChange::Reset { items: example.after }]),
+                "before": crossing(vec![RowChange::Reset { items: example.before }]),
+                "changes": crossing(example.changes.into_iter().map(RowChange::from).collect()),
+                "after": crossing(vec![RowChange::Reset { items: example.after }]),
             })
         })
         .collect();
@@ -27,7 +27,7 @@ fn list_changes() -> Value {
 }
 
 /// The changes `rows`, with no panel, as the hexadecimal of the bytes that cross the border.
-fn crossing(rows: Vec<ListChange<client_core::view::Row<RichText>>>) -> String {
+fn crossing(rows: Vec<RowChange<RichText>>) -> String {
     let changes = Changes {
         rows,
         panels: Vec::new(),

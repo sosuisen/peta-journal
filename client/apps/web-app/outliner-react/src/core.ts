@@ -24,7 +24,7 @@ import {
   type UiOutput,
 } from './border/peta-types';
 import * as json from './border/serde/json';
-import { panelsAfter, rowsAfter, type Panels } from './screen';
+import { panelsAfter, listAfter, type Panels } from './screen';
 
 /** What the shell draws: the rows of the outline and the panels, as the core last told. */
 export interface Screen {
@@ -194,7 +194,7 @@ export class Core {
       return;
     }
     this.screen = {
-      rows: rowsAfter(this.screen.rows, rows),
+      rows: listAfter(this.screen.rows, rows),
       panels: panelsAfter(this.screen.panels, panels),
     };
     for (const listener of this.listeners) {

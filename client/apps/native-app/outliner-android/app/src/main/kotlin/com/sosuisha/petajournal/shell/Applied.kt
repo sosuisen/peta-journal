@@ -1,11 +1,11 @@
 package com.sosuisha.petajournal.shell
 
 import com.sosuisha.petajournal.types.Changes
-import com.sosuisha.petajournal.types.ListChange
 import com.sosuisha.petajournal.types.OutlinePanel
 import com.sosuisha.petajournal.types.OutlineView
 import com.sosuisha.petajournal.types.Panel
 import com.sosuisha.petajournal.types.Row
+import com.sosuisha.petajournal.types.RowChange
 import com.sosuisha.petajournal.types.ViewModel
 
 // The view model that the changes of the core make (ADR 076). The core sends only what changed;
@@ -44,22 +44,52 @@ internal fun ViewModel.with(changes: Changes): ViewModel {
 }
 
 /** The rows after the changes, applied one after another. */
-internal fun List<Row>.applied(changes: List<ListChange>): List<Row> {
-    val rows = ArrayList(this)
+internal fun List<Row>.applied(changes: List<RowChange>): List<Row> =
+    after(changes.map { it.change })
+
+/**
+ * A change of a list of any kind (ADR 088). The border has a type of its own for the changes of
+ * each list, all of the same shape; each is made into this, and [after] applies them all.
+ */
+internal sealed interface Change<out T> {
+    data class Insert<T>(val at: Int, val item: T) : Change<T>
+
+    data class Remove(val at: Int) : Change<Nothing>
+
+    data class Move(val from: Int, val to: Int) : Change<Nothing>
+
+    data class Update<T>(val at: Int, val item: T) : Change<T>
+
+    data class Reset<T>(val items: List<T>) : Change<T>
+}
+
+/** The list after the changes, applied one after another. */
+internal fun <T> List<T>.after(changes: List<Change<T>>): List<T> {
+    val items = ArrayList(this)
     for (change in changes) {
         when (change) {
-            is ListChange.Insert -> rows.add(change.at.toInt(), change.item)
-            is ListChange.Remove -> rows.removeAt(change.at.toInt())
-            is ListChange.Move -> rows.add(change.to.toInt(), rows.removeAt(change.from.toInt()))
-            is ListChange.Update -> rows[change.at.toInt()] = change.item
-            is ListChange.Reset -> {
-                rows.clear()
-                rows.addAll(change.items)
+            is Change.Insert -> items.add(change.at, change.item)
+            is Change.Remove -> items.removeAt(change.at)
+            is Change.Move -> items.add(change.to, items.removeAt(change.from))
+            is Change.Update -> items[change.at] = change.item
+            is Change.Reset -> {
+                items.clear()
+                items.addAll(change.items)
             }
         }
     }
-    return rows
+    return items
 }
+
+private val RowChange.change: Change<Row>
+    get() =
+        when (this) {
+            is RowChange.Insert -> Change.Insert(at.toInt(), item)
+            is RowChange.Remove -> Change.Remove(at.toInt())
+            is RowChange.Move -> Change.Move(from.toInt(), to.toInt())
+            is RowChange.Update -> Change.Update(at.toInt(), item)
+            is RowChange.Reset -> Change.Reset(items)
+        }
 
 private inline fun <reified P : Panel> List<Panel>.the(): P = filterIsInstance<P>().single()
 

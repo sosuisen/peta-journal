@@ -1633,7 +1633,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   (pcase-dolist (`(,handlers . ,kinds)
                  (list (cons peta-journal--line-handlers peta-journal-protocol-outbound-fields)
                        (cons (peta-journal--change-handlers nil)
-                             peta-journal-protocol-list-change-fields)))
+                             peta-journal-protocol-row-change-fields)))
     (pcase-dolist (`(,kind . ,fields) kinds)
       (let ((handler (plist-get handlers kind)))
         (should (functionp handler))

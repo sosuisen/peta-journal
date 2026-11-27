@@ -1,6 +1,6 @@
 use crate::tests::applied::applied;
 use crate::BorderApp;
-use crate::{Changes, ListChange};
+use crate::{Changes, RowChange};
 use crate::{Clock, Host, NativeShell, ShellEffectFfi};
 use client_core::drag::DragMove;
 use client_core::effects::{
@@ -921,7 +921,7 @@ fn the_file_of_a_pasted_image_is_deleted_once_the_server_has_answered() {
 /// The ids of the rows a reset gives the shell.
 fn reset_ids(changes: &Changes) -> Vec<String> {
     match changes.rows.as_slice() {
-        [ListChange::Reset { items }] => items.iter().map(|row| row.item.id.clone()).collect(),
+        [RowChange::Reset { items }] => items.iter().map(|row| row.item.id.clone()).collect(),
         other => panic!("not one reset: {other:?}"),
     }
 }
@@ -1010,7 +1010,7 @@ fn a_typed_body_comes_as_an_update_of_its_row() {
     screen.shell.typed(&bytes).unwrap();
 
     let changes = screen.shell.take_changes();
-    let [ListChange::Update { at: 0, item }] = changes.rows.as_slice() else {
+    let [RowChange::Update { at: 0, item }] = changes.rows.as_slice() else {
         panic!("not one update of the first row: {:?}", changes.rows);
     };
     assert_eq!(item.item.body, "typed into a");

@@ -1,10 +1,10 @@
 use crate::emacs_text::EmacsText;
+use crate::protocol::RowChange;
 use crate::protocol::{
     Bullet, DateUnit, Envelope, FreeKey, Inbound, Outbound, PropertyRow, RowView, SelectionKey,
     SidebarHeading, SidebarView,
 };
 use crate::shell::{Host, Input, Now, Shell};
-use client_core::changes::ListChange;
 use client_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
 use client_core::model::{PropertyDefinition, TreeExport, Uploaded};
 use client_core::rest::ClientId;
@@ -14,19 +14,19 @@ use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
 
 /// Applies the changes to the rows in order, as `peta-journal.el` does.
-fn apply(rows: &mut Vec<RowView>, changes: &[ListChange<RowView>]) {
+fn apply(rows: &mut Vec<RowView>, changes: &[RowChange]) {
     for change in changes {
         match change {
-            ListChange::Insert { at, item } => rows.insert(*at as usize, item.clone()),
-            ListChange::Remove { at } => {
+            RowChange::Insert { at, item } => rows.insert(*at as usize, item.clone()),
+            RowChange::Remove { at } => {
                 rows.remove(*at as usize);
             }
-            ListChange::Move { from, to } => {
+            RowChange::Move { from, to } => {
                 let row = rows.remove(*from as usize);
                 rows.insert(*to as usize, row);
             }
-            ListChange::Update { at, item } => rows[*at as usize] = item.clone(),
-            ListChange::Reset { items } => rows.clone_from(items),
+            RowChange::Update { at, item } => rows[*at as usize] = item.clone(),
+            RowChange::Reset { items } => rows.clone_from(items),
         }
     }
 }
@@ -247,7 +247,7 @@ impl Driver {
     }
 
     /// The changes of the rows that Emacs was told last.
-    fn last_changes(&self) -> Option<Vec<ListChange<RowView>>> {
+    fn last_changes(&self) -> Option<Vec<RowChange>> {
         self.sent().iter().rev().find_map(|m| match m {
             Outbound::Rows { changes, .. } => Some(changes.clone()),
             _ => None,
@@ -445,7 +445,7 @@ fn an_opened_page_sends_all_its_rows_as_one_reset() {
     });
     driver.load_page(&[item("a", 1, "x"), item("b", 1, "y")]);
     let changes = driver.last_changes().unwrap();
-    let [ListChange::Reset { items }] = &changes[..] else {
+    let [RowChange::Reset { items }] = &changes[..] else {
         panic!("{changes:?}");
     };
     let ids: Vec<&str> = items.iter().map(|row| row.id.as_str()).collect();
@@ -459,7 +459,7 @@ fn a_key_that_changes_one_row_sends_only_its_update() {
     driver.send(Inbound::Indent { id: "b".into() });
     let changes = driver.last_changes().unwrap();
     assert!(
-        matches!(&changes[..], [ListChange::Update { at: 1, item }] if item.id == "b"),
+        matches!(&changes[..], [RowChange::Update { at: 1, item }] if item.id == "b"),
         "{changes:?}"
     );
 }
@@ -476,7 +476,7 @@ fn typed_text_comes_back_only_as_its_emacs_text() {
     assert_eq!(driver.rows_sent(), before + 1);
     let changes = driver.last_changes().unwrap();
     assert!(
-        matches!(&changes[..], [ListChange::Update { at: 1, item }] if item.id == "b"),
+        matches!(&changes[..], [RowChange::Update { at: 1, item }] if item.id == "b"),
         "{changes:?}"
     );
     let rows = driver.last_rows().unwrap();
