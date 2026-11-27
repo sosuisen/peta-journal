@@ -77,32 +77,6 @@ they are not letters of the shown text (ADR 044)."
   "The field label of the type free-key."
   (plist-get value :label))
 
-(defconst peta-journal-protocol-list-change-fields
-  '((:insert "at" "item") (:remove "at") (:move "from" "to") (:update "at" "item") (:reset "items"))
-  "The fields of each kind of the type list-change, in the order its handler
-takes them.")
-
-(defun peta-journal-protocol-handle-list-change (value handlers)
-  "Call the function in HANDLERS for the kind of VALUE, with its fields.
-HANDLERS is a plist from the keyword of each kind to its function.
-The fields come in the order of `peta-journal-protocol-list-change-fields'."
-  (pcase value
-    (`(:Insert ,fields)
-     (funcall (plist-get handlers :insert)
-              (plist-get fields :at) (plist-get fields :item)))
-    (`(:Remove ,fields)
-     (funcall (plist-get handlers :remove)
-              (plist-get fields :at)))
-    (`(:Move ,fields)
-     (funcall (plist-get handlers :move)
-              (plist-get fields :from) (plist-get fields :to)))
-    (`(:Update ,fields)
-     (funcall (plist-get handlers :update)
-              (plist-get fields :at) (plist-get fields :item)))
-    (`(:Reset ,fields)
-     (funcall (plist-get handlers :reset)
-              (plist-get fields :items)))))
-
 (defconst peta-journal-protocol-outbound-fields
   '((:state "ack" "holding") (:rows "ack" "page_id" "changes") (:focus "ack" "id" "cursor") (:scroll "id") (:title "title") (:page-path "path") (:index "folder" "demote_name") (:properties "rows" "free_keys" "datetime_keys") (:status "connection") (:search "results" "searching") (:recent "paths") (:sidebar "index" "headings" "recent") (:backlinks "groups") (:message "text") (:copy "text") (:browse "address") (:page-names "query" "titles") (:ask "req" "message"))
   "The fields of each kind of the type outbound, in the order its handler
@@ -226,6 +200,32 @@ The fields come in the order of `peta-journal-protocol-rich-link-fields'."
     (`(:File ,fields)
      (funcall (plist-get handlers :file)
               (plist-get fields :path)))))
+
+(defconst peta-journal-protocol-row-change-fields
+  '((:insert "at" "item") (:remove "at") (:move "from" "to") (:update "at" "item") (:reset "items"))
+  "The fields of each kind of the type row-change, in the order its handler
+takes them.")
+
+(defun peta-journal-protocol-handle-row-change (value handlers)
+  "Call the function in HANDLERS for the kind of VALUE, with its fields.
+HANDLERS is a plist from the keyword of each kind to its function.
+The fields come in the order of `peta-journal-protocol-row-change-fields'."
+  (pcase value
+    (`(:Insert ,fields)
+     (funcall (plist-get handlers :insert)
+              (plist-get fields :at) (plist-get fields :item)))
+    (`(:Remove ,fields)
+     (funcall (plist-get handlers :remove)
+              (plist-get fields :at)))
+    (`(:Move ,fields)
+     (funcall (plist-get handlers :move)
+              (plist-get fields :from) (plist-get fields :to)))
+    (`(:Update ,fields)
+     (funcall (plist-get handlers :update)
+              (plist-get fields :at) (plist-get fields :item)))
+    (`(:Reset ,fields)
+     (funcall (plist-get handlers :reset)
+              (plist-get fields :items)))))
 
 (defsubst peta-journal-protocol-row-view-id (value)
   "The field id of the type row-view."
