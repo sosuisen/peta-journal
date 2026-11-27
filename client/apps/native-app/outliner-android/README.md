@@ -56,6 +56,32 @@ writes it again. `./gradlew check` also runs `ktfmtCheck`.
 ./gradlew ktfmtCheck      # changes nothing, and fails when there is something to change
 ```
 
+The coverage is measured with JaCoCo 0.8.16, through the Android Gradle plugin. `coverage.sh`
+runs every test, those of `app/src/test` on the JVM and those of `app/src/androidTest` on a
+device, prints the lines covered of each file, and fails when less than 90% of the lines are
+covered. The lines are counted over the whole module, not file by file. It uses the device that
+adb sees. Without one, it starts the first emulator of the machine, without a window, and stops
+it at the end:
+
+```
+./coverage.sh             # or ./coverage.sh <avd>, as `emulator -list-avds` names it
+./gradlew :app:coverage   # the same on a device that runs already, also on Windows
+```
+
+- Measured: every Kotlin file of `app/src/main`. No file of it is left out.
+- Not measured: `generated/`. `generate.sh` makes it from the Rust crates, the Rust tests check
+  it, and it is not kept in the repository.
+- The tests of the JVM alone run only a few files, so the number needs the tests on a device.
+- Only this task counts the lines: `assembleDebug` and `debug.sh` build the app without the
+  counting, which makes an app slower.
+- The floor, the folder and the files left out are at the top of `app/build.gradle.kts`.
+  `scripts/verification.test.mjs` guards them. The report is in
+  `app/build/reports/coverage/html/index.html`.
+
+The CI runs all of this in the `outliner-android` job of `scripts/checks.mjs`, on Linux, with
+an emulator on the runner. The hook before a pull request runs the same job without
+`coverage.sh`: the emulator is heavy.
+
 The mutation tests are PIT, through the Gradle plugin `pl.droidsonroids.pitest`. Run them before
 each pull request. PIT runs only the tests in `app/src/test`, on the JVM, so it mutates only the
 classes that they test: they are listed in `app/build.gradle.kts`. Gradle fetches PIT, so
