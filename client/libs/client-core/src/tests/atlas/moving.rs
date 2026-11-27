@@ -302,6 +302,42 @@ fn a_link_card_goes_under_a_parent_as_the_card_of_a_page_does() {
     assert_eq!(batches(&h), [[leveled("l", 2), moved(&["l"], "i-one")]]);
 }
 
+// 親から出されたカードの`atlas_bounds`は、同じ送信で、1つ外の親からの相対の座標に書き直される。いちばん外に出たカードは、アトラスの中心からの座標になる。見える位置は変わらない。
+#[test]
+fn a_card_taken_out_of_a_parent_is_counted_from_the_parent_above_in_the_same_batch() {
+    let mut h = atlas_with_placed_parents();
+    h.send(Event::UngroupAtlasCards {
+        card_ids: vec!["a/b/one".into()],
+    });
+
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-one", 2, "101,202,0,40"),
+            moved(&["i-one"], "g")
+        ]]
+    );
+
+    let mut h = atlas_of(
+        vec![child("one")],
+        vec![
+            parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            card_item("one", 2, Some("1,2,0,40")),
+        ],
+    );
+    h.send(Event::UngroupAtlasCards {
+        card_ids: vec!["a/b/one".into()],
+    });
+
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-one", 1, "101,202,0,40"),
+            moved(&["i-one"], "g")
+        ]]
+    );
+}
+
 // 親の下の親から出されたカードは、元の親の木の末尾の次に、元の親と同じレベルで入る。外側の親の子のままである。
 #[test]
 fn a_card_taken_out_of_a_parent_under_a_parent_goes_behind_its_tree_at_its_level() {
