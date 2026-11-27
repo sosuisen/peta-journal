@@ -84,6 +84,9 @@ struct Card<'a> {
     page_id: Option<&'a str>,
     /// Where the card lies on the canvas; none for a card that is not drawn
     place: Option<Bounds>,
+    /// The point of the canvas its bounds are counted from: where its group lies. None while
+    /// an item it is under is not drawn.
+    frame: Option<(f64, f64)>,
 }
 
 /// An item that goes under another item, with the bounds it takes there.
@@ -177,6 +180,7 @@ fn card_entries(model: &Model) -> Vec<Card<'_>> {
                 parents: e.parents,
                 page_id,
                 place: e.place,
+                frame: e.frame,
             }
         })
         .collect()
@@ -541,8 +545,11 @@ pub fn show_changed(model: &mut Model, atlas_id: &str, mut items: Vec<Item>) -> 
 
 /// Cards dropped on another card join its group: they go under its item, each where it lies
 /// among the items under it ([`put_under`]). When the target is in no group, a new item with
-/// an empty body is made where the target lies, and the target and the cards go under it, the
-/// upper ones first. A card belongs to one group only,
+/// an empty body is made where the target lies in the outline, and the target and the cards go
+/// under it, the upper ones first. The new item lies at the centroid of the cards on the
+/// canvas. Either way, the bounds of the cards are written anew in the same batch, counted
+/// from the item they go under, so they stay where they lie (ADR 053). A card belongs to one
+/// group only,
 /// so the cards leave the groups they were in. The item of a group they leave stays, even
 /// with one card or none under it (ADR 053).
 pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) -> Cmd {
@@ -562,29 +569,50 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
         return done();
     }
     let left = sides_dropped(model, &joining);
-    let joining: Vec<&Item> = joining.iter().map(|card| card.item).collect();
     match target.group {
         Some(group) => {
-            let joining: Vec<Moving> = joining.into_iter().map(Moving::staying).collect();
+            // Counted from where the group of the target lies, as the target is
+            let joining: Vec<Moving> = joining
+                .iter()
+                .map(|card| Moving::of(card, target.frame))
+                .collect();
             let mut ops = put_under(model, group, &joining);
             ops.extend(left);
             change(model, ops)
         }
         None => {
-            let target = target.item.clone();
-            let joining: Vec<Item> = joining.into_iter().cloned().collect();
+            let members: Vec<&Card> = std::iter::once(target).chain(joining).collect();
+            let origin = centroid(&members);
+            let members: Vec<(Item, Option<Bounds>)> = members
+                .iter()
+                .map(|card| (card.item.clone(), Moving::of(card, origin).bounds))
+                .collect();
+            let target_id = target.item.id.clone();
             change_with_new_item(model, move |atlas_id, group_id| {
-                let members: Vec<Moving> = std::iter::once(&target)
-                    .chain(&joining)
-                    .map(Moving::staying)
+                let members: Vec<Moving> = members
+                    .iter()
+                    .map(|(item, bounds)| Moving {
+                        item,
+                        bounds: *bounds,
+                    })
                     .collect();
                 let members = in_reading_order(&members);
+                let bounds = origin.map(|(x, y)| Bounds {
+                    x,
+                    y,
+                    width: AUTO_WIDTH,
+                    height: CARD_HEIGHT,
+                });
+                let bounds: Vec<(&str, String)> = bounds
+                    .map(|bounds| (BOUNDS_KEY, bounds.to_string()))
+                    .into_iter()
+                    .collect();
                 let mut ops = vec![new_item(
                     atlas_id.clone(),
                     group_id.clone(),
-                    ItemPosition::after(&target.id),
+                    ItemPosition::after(&target_id),
                     String::new(),
-                    &[],
+                    &bounds,
                 )];
                 ops.extend(taken_behind(&atlas_id, &members, &group_id, 2));
                 ops.extend(left);
@@ -592,6 +620,16 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
             })
         }
     }
+}
+
+/// The centroid of where the cards lie on the canvas, in whole numbers: the place of a parent
+/// that is made for them (ADR 053). A card that is not drawn does not count; none when no
+/// card is drawn.
+fn centroid(cards: &[&Card]) -> Option<(f64, f64)> {
+    let places: Vec<Bounds> = cards.iter().filter_map(|card| card.place).collect();
+    let mean =
+        |of: fn(&Bounds) -> f64| (places.iter().map(of).sum::<f64>() / places.len() as f64).round();
+    (!places.is_empty()).then(|| (mean(|b| b.x), mean(|b| b.y)))
 }
 
 /// Cards let go on the blob of a parent go under its item, each where it lies among the items

@@ -84,9 +84,13 @@ fn cards_dropped_on_a_card_go_under_a_new_item_in_one_batch() {
     assert_eq!(
         batches(&h),
         [[
-            made(ItemPosition::after("i-two"), "", &[]),
-            leveled("i-two", 2),
-            leveled("i-one", 2),
+            made(
+                ItemPosition::after("i-two"),
+                "",
+                &[("atlas_bounds", "5,0,0,40")]
+            ),
+            leveled_at("i-two", 2, "-5,0,0,40"),
+            leveled_at("i-one", 2, "4,0,0,40"),
             moved(&["i-two", "i-one"], NEW),
         ]]
     );
@@ -189,9 +193,13 @@ fn a_card_that_lies_above_the_card_it_is_dropped_on_comes_before_it_in_the_new_g
     assert_eq!(
         batches(&h),
         [[
-            made(ItemPosition::after("i-one"), "", &[]),
-            leveled("i-two", 2),
-            leveled("i-one", 2),
+            made(
+                ItemPosition::after("i-one"),
+                "",
+                &[("atlas_bounds", "0,50,0,40")]
+            ),
+            leveled_at("i-two", 2, "0,-50,0,40"),
+            leveled_at("i-one", 2, "0,50,0,40"),
             moved(&["i-two", "i-one"], NEW),
         ]]
     );
