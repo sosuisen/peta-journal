@@ -9,7 +9,8 @@
 // - A job that passed on the same commit is not run again. The marks are in .git/peta-verify/.
 // - Only the steps that this machine can run are run. A step for another OS is skipped, and so is
 //   a step that touches the screen (`screen: true`): the developer could not use the PC meanwhile.
-//   No step runs on the Mac of the developer. A skipped step does not stop the pull request, as
+//   A step too heavy for the hook (`ciOnly: true`, such as the tests in an emulator) is skipped
+//   too: `screen: false` skips both, as `runJob` takes `ciOnly` from `screen`. No step runs on the Mac of the developer. A skipped step does not stop the pull request, as
 //   the CI runs it. A program that is not set up stops it.
 // - A hook that throws lets the command run: Claude Code does not take a crash as a "no". So an
 //   error in the checks answers "deny", and the pull request waits until it is fixed.
