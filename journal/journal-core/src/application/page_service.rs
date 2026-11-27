@@ -198,11 +198,7 @@ impl PageService {
         let id = self.ids.generate_page_id();
         let now = self.items.db().now_millis();
         let page = PageRepository::save_in(tx, &Page::new(id.clone(), dir, file_name, "doc", now))?;
-        // The items of an atlas page are its cards, which the server writes; an empty first
-        // item could take the index a card took already
-        if !page.is_atlas() {
-            ItemRepository::save_in(tx, &Item::new_on(self.ids.generate_item_id(), &page, now))?;
-        }
+        ItemRepository::save_in(tx, &Item::new_on(self.ids.generate_item_id(), &page, now))?;
         effects.indexed.push((page.clone(), Vec::new()));
         effects.exported.insert(id.clone());
         Ok(DocResult {

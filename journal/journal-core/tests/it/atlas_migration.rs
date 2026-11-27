@@ -65,6 +65,9 @@ fn with_an_old_atlas(dir: &Path) -> (Device, Device) {
     let (a, b) = two_devices(dir);
     let page = a.page_in("d/", "a").unwrap();
     a.old_item(1, "[[d/a]]", &[("atlas_page", page.as_str())]);
+    // The server wrote no empty item into an atlas
+    let items = a.core.page_service.get_page_items(&a.atlas_id()).unwrap();
+    a.core.item_service.delete_item(&items[0].id).unwrap();
     (a, b)
 }
 
