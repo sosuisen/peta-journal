@@ -64,7 +64,7 @@ ADR 064は、シェルがコアを通っているかを、ソースを読む静�
 ### 各シェルは、すべての例を回す
 
 各シェルは、ふだんのテストの道具で、共通のテストを回す。
-TypeScriptはvitest、SwiftはXCTest、KotlinはJUnit、C#はxUnit、EmacsはRustの部分の`cargo test`である。
+TypeScriptはvitest、SwiftはXCTest、KotlinはJUnit、C#はxUnit、EmacsはRustの部分の`cargo test`と、Lispの部分のERTである。
 テストは、例のファイルを読み、各例を自分の処理で回し、期待する結果と比べる。
 最後に、回した例のidの一覧が、ファイルの頭の一覧と同じかを確かめる。
 例を飛ばしたり、0件で終わったりすれば、そのシェルのテストが落ちる。
