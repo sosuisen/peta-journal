@@ -90,6 +90,9 @@ internal static class Applied
             case Panel.AtlasLinks links:
                 view.AtlasLinks = links.Value;
                 break;
+            case Panel.AtlasUnplaced unplaced:
+                view.AtlasUnplaced = unplaced.Value;
+                break;
             case Panel.AtlasLinkSuggestions suggestions:
                 view.AtlasLinkSuggestions = suggestions.Value;
                 break;

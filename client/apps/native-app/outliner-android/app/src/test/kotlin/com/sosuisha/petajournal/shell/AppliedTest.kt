@@ -103,6 +103,7 @@ class AppliedTest {
             Panel.AtlasCards(emptyList()),
             Panel.AtlasCallouts(emptyList()),
             Panel.AtlasLinks(emptyList()),
+            Panel.AtlasUnplaced(emptyList()),
             Panel.AtlasLinkSuggestions(listOf("suggested")),
             Panel.Outline(outline(selecting = true)),
             Panel.IndexPages(
