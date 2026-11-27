@@ -2,6 +2,7 @@
 //! blobs of the parents.
 
 use super::*;
+use crate::rich_text::RichLink;
 use crate::screens::atlas::CardTone;
 
 /// An item of level 1 placed at the origin
@@ -36,5 +37,34 @@ fn an_item_whose_first_line_is_not_one_link_is_a_plain_card_showing_its_first_li
     assert_eq!(
         (card.tone, card.label.as_str(), card.target.as_deref()),
         (CardTone::Plain, "Note with a link", None)
+    );
+}
+
+// カードの1行目のリンクは、ページのリンクもウェブのリンクも、押せる文字の並びとして渡される。
+#[test]
+fn the_links_of_the_first_line_of_a_card_go_with_its_letters() {
+    let h = atlas_of(
+        vec![],
+        vec![placed(
+            "p",
+            "see [[x/A|a page]] or [a site](https://example.com)\n[[x/B]]",
+        )],
+    );
+
+    let links: Vec<RichLink> = h.view().atlas_links[0]
+        .runs
+        .iter()
+        .filter_map(|run| run.link.clone())
+        .collect();
+    assert_eq!(
+        links,
+        [
+            RichLink::Page {
+                url: "/pages/x/A".into()
+            },
+            RichLink::Web {
+                url: "https://example.com".into()
+            },
+        ]
     );
 }
