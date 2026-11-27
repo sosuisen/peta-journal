@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.VisualStudio.TestTools.UnitTesting.AppContainer;
 using PetaBorder;
 using PetaTypes;
@@ -32,6 +33,39 @@ public sealed class OutlineScreenTests
             screen.Shell.View.Outline.FocusedItemId,
             screen.Looks
         );
+    }
+
+    // 項目の横をクリックすると、項目がそのクリックを受けた時点で、コアはその項目を編集中と数える。
+    // 編集欄がカーソルを受けたという知らせ（GotFocus）は、あとから来る。来ないこともある（#1175）。
+    [UITestMethod]
+    public async Task A_click_beside_the_text_tells_the_core_when_the_item_takes_it()
+    {
+        await using var screen = await Screen.Open(Port);
+        var item = screen.Items()[0];
+        string? edited = null;
+        item.AddHandler(
+            UIElement.TappedEvent,
+            new TappedEventHandler((_, _) => edited = screen.Shell.View.Outline.FocusedItemId),
+            true
+        );
+
+        await screen.Edit(0);
+
+        Assert.AreEqual(screen.Rows[0].Item.Id, edited, screen.Looks);
+    }
+
+    // 項目の横をクリックすると、コアは編集の始まりを1回だけ受け取る。あとから来るGotFocusは、
+    // もう一度は伝えない。コアは、項目を編集し始めるたびに、カーソルの要求の番号を1つ進める。
+    [UITestMethod]
+    public async Task A_click_beside_the_text_starts_the_edit_once()
+    {
+        await using var screen = await Screen.Open(Port);
+        var before = screen.Shell.View.Outline.FocusRequest?.Seq ?? 0;
+
+        await screen.Edit(0);
+        await Screen.Settled();
+
+        Assert.AreEqual(before + 1, screen.Shell.View.Outline.FocusRequest?.Seq, screen.Looks);
     }
 
     // Enterは、カーソルの位置で項目を分ける。カーソルは、新しい項目の先頭に移る。

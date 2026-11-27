@@ -584,7 +584,16 @@ internal sealed partial class RowView : Grid
     private void Edit(int place)
     {
         if (!TakeCursor(place))
+        {
             Draw();
+            return;
+        }
+        // Told at once, not left to GotFocus: it comes later, and after a click in a window
+        // that has just come up it does not come at all (#1175). When it comes, the window
+        // sees that the core already edits the item, and tells nothing again.
+        // Not in TakeCursor: the cursor that the core orders is put there too, and the core
+        // that ordered it knows already
+        GotCursor();
     }
 
     /// <summary>

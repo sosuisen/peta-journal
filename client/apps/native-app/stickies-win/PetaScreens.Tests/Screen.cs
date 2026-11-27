@@ -227,6 +227,21 @@ internal sealed class Screen : IAsyncDisposable
     }
 
     /// <summary>
+    /// Waits until the UI thread has done the work that waits before work of low priority, such
+    /// as the GotFocus that a Focus raises later.
+    /// </summary>
+    public static Task Settled()
+    {
+        var done = new TaskCompletionSource();
+        Assert.IsTrue(
+            Microsoft
+                .UI.Dispatching.DispatcherQueue.GetForCurrentThread()
+                .TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, done.SetResult)
+        );
+        return done.Task;
+    }
+
+    /// <summary>
     /// What the test sees on the screen now, for the message of a check that comes after the
     /// waits: such a check fails without telling where the focus went (#1175).
     /// </summary>
