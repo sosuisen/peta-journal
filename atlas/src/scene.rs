@@ -261,6 +261,38 @@ mod tests {
         assert_eq!(card["masked"], false);
     }
 
+    // カードは、その上のグループをすべて、外から順に、色とタイトルとともに持つ。いちばん内のグループが、カードのグループである。
+    #[test]
+    fn a_card_carries_every_group_it_is_under_from_the_outermost() {
+        let inner = GroupRef {
+            id: "G2".to_string(),
+            title: None,
+            look: GroupLook::Text,
+        };
+        let card = Card::page(
+            &page("P1", "One", &[], false),
+            bounds(0.0, 0.0, 0.0, 40.0),
+            &[group(), inner],
+        );
+
+        let json: serde_json::Value = serde_json::from_str(&cards_json(&[card])).unwrap();
+        let groups = &json[0]["groups"];
+        assert_eq!(json[0]["group"], "G2");
+        assert_eq!(
+            (&groups[0]["id"], &groups[0]["title"], &groups[0]["titleSide"]),
+            (
+                &serde_json::Value::from("G1"),
+                &serde_json::Value::from("Tools"),
+                &serde_json::Value::from("left")
+            )
+        );
+        assert_eq!(groups[0]["color"], group_color("G1"));
+        assert_eq!(
+            (&groups[1]["id"], &groups[1]["title"]),
+            (&serde_json::Value::from("G2"), &serde_json::Value::Null)
+        );
+    }
+
     // タグのないページのカードは、アイコンがなく、blobをラベルから描く
     #[test]
     fn a_page_without_tags_has_no_icon_and_a_blob_of_its_label() {
