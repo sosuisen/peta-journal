@@ -152,6 +152,16 @@ D系統は、どのシェルも回さなければならない共通のテスト�
     <tr><td><code>ciOnly: true</code></td><td>フックには重いので、CIだけが回す。画面には触れない</td><td><code>outliner-android</code>のカバレッジの段（エミュレーターで画面のテストを回す）</td></tr>
   </tbody>
 </table>
+<h2>CIが飛ばす段</h2>
+<p>CIは、次の印の段を飛ばし、飛ばした理由をログに書く。同じジョブの<code>ciOnly: true</code>の段が、同じことをもう一度するためである。フックはその段を飛ばすので、この印の段を回す。</p>
+<table>
+  <thead>
+    <tr><th>印</th><th>意味</th><th>付いた段</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>hookOnly: true</code></td><td>CIでは、<code>ciOnly: true</code>の段が同じことをするので、フックだけが回す（#1279）</td><td><code>outliner-android</code>のJVMのテストの段と、アプリと画面のテストを作る段（どちらも<code>coverage.sh</code>がもう一度する）</td></tr>
+  </tbody>
+</table>
 <p>どの段にどの印が付くかは、<code>scripts/verification.test.mjs</code>が見張る。</p>
 
 </body>

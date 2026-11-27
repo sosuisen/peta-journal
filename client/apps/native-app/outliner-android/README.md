@@ -87,7 +87,8 @@ it at the end:
 
 The CI runs all of this in the `outliner-android` job of `scripts/checks.mjs`, on Linux, with
 an emulator on the runner. The hook before a pull request runs the same job without
-`coverage.sh` (`ciOnly: true`): the emulator is too heavy for the hook.
+`coverage.sh` (`ciOnly: true`): the emulator is too heavy for the hook. The CI skips the steps
+that `coverage.sh` does again, the tests of the JVM and the build (`hookOnly: true`).
 
 The mutation tests are PIT, through the Gradle plugin `pl.droidsonroids.pitest`. Run them before
 each pull request. PIT runs only the tests in `app/src/test`, on the JVM, so it mutates only the
