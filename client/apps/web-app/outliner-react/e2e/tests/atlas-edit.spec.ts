@@ -58,11 +58,16 @@ test.describe('Edit and Add Card of the canvas', () => {
       all => all[0]?.body !== 'plain note',
     );
 
+    // The middle of the canvas may fall between two pixels of the screen
+    const place = (bounds: unknown) => {
+      const [x, y, width, height] = String(bounds).split(',').map(Number);
+      return [Math.abs(x) <= 1 ? 0 : x, y, width, height];
+    };
     expect(
-      added.map(i => [i.level, i.body, i.properties.atlas_bounds]),
+      added.map(i => [i.level, i.body, place(i.properties.atlas_bounds)]),
     ).toEqual([
-      [1, 'plain note', '0,0,0,40'],
-      [1, 'a new card', '0,120,0,40'],
+      [1, 'plain note', [0, 0, 0, 40]],
+      [1, 'a new card', [0, 120, 0, 40]],
     ]);
     expect(edited.map(i => i.body)).toEqual(['plain note more', 'a new card']);
   });
