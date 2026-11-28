@@ -452,8 +452,9 @@ fn set_property(model: &mut Model, item_id: &str, value: Option<PropertyValue>) 
     });
 }
 
-/// Takes the card of a page off the canvas: its bounds are removed, so it waits among the
-/// items without a place again. The card leaves at once; a refusal of the server puts it back.
+/// Takes a card off the canvas: its bounds are removed, and its item stays. A page's card
+/// waits among the pages again; a link card or a plain card waits among what is not on the
+/// atlas. The card leaves at once; a refusal of the server puts it back.
 pub fn remove_card(model: &mut Model, page_id: String) -> Cmd {
     let Some(item) = card_item(model, &page_id).filter(|i| bounds_of(i).is_some()) else {
         return done();
@@ -1550,7 +1551,7 @@ pub fn add_link(model: &mut Model, x: f64, y: f64, target: String) -> Cmd {
     add_card(model, &target, x, y)
 }
 
-/// Links a link card to another page. An empty target changes nothing, as "Remove Link" takes
+/// Links a link card to another page. An empty target changes nothing, as "Delete Card" takes
 /// a card away. The card keeps the label of its link and the lines after the first.
 pub fn set_link(model: &mut Model, item_id: String, target: String) -> Cmd {
     let Some(card) = link_cards(model).into_iter().find(|c| c.item_id == item_id) else {
@@ -1573,7 +1574,7 @@ pub fn set_link(model: &mut Model, item_id: String, target: String) -> Cmd {
     )
 }
 
-/// Takes a link card off the atlas: its item is deleted, and with it the link.
+/// Deletes a link card or a plain card: its item is deleted, and with it the link.
 pub fn remove_link(model: &mut Model, item_id: String) -> Cmd {
     if !link_cards(model).iter().any(|c| c.item_id == item_id) {
         return done();

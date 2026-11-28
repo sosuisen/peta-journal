@@ -702,7 +702,7 @@ pub enum Event {
         item_id: String,
         target: String,
     },
-    /// The link card menu's "Remove Link": the item of the link is deleted
+    /// The "Delete Card" of a link card or a plain card: its item is deleted
     RemoveAtlasLink {
         item_id: String,
     },
@@ -716,8 +716,9 @@ pub enum Event {
         side: String,
         text: String,
     },
-    /// The card menu's "Remove from Atlas": the page's card goes back to the items without a
-    /// place.
+    /// The card menu's "Remove from Atlas": the card's bounds are removed, and its item stays.
+    /// A page's card goes back to the pages; a link card or a plain card, named by its item,
+    /// waits among what is not on the atlas.
     RemoveAtlasCard {
         page_id: String,
     },
