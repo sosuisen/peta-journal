@@ -85,20 +85,22 @@ test('a dragged group can leave each group around it with Ctrl', () => {
   assert.deepEqual(sorted(held), ['inner', 'outer']);
 });
 
-// リンクカードとノーマルカードのメニュー
-// リンクカードのメニューは、Show Text、Edit Link、Remove from Atlas、Delete Cardである
-test('the menu of a link card has Show Text, Edit Link, Remove from Atlas and Delete Card', () => {
-  assert.deepEqual(plain(atlas.linkCardMenu({ isPlain: false })), [
-    'Show Text',
-    'Edit Link',
-    'Remove from Atlas',
-    'Delete Card',
-  ]);
+// カードとキャンバスのメニュー
+// ページのカードのメニューは、EditとRemove from Atlasである。項目を消すDelete Cardはない
+test('the menu of a page card has Edit and Remove from Atlas', () => {
+  assert.deepEqual(plain(atlas.cardMenu({ isLink: false, isPlain: false })), ['Edit', 'Remove from Atlas']);
 });
 
-// ノーマルカードには編集するリンクがない。ほかはリンクカードと同じである
-test('the menu of a plain card has the same items but Edit Link', () => {
-  assert.deepEqual(plain(atlas.linkCardMenu({ isPlain: true })), ['Show Text', 'Remove from Atlas', 'Delete Card']);
+// リンクカードとノーマルカードのメニューは、Edit、Remove from Atlas、Delete Cardである
+test('the menu of a link card or a plain card has Edit, Remove from Atlas and Delete Card', () => {
+  for (const isPlain of [false, true]) {
+    assert.deepEqual(plain(atlas.cardMenu({ isLink: true, isPlain })), ['Edit', 'Remove from Atlas', 'Delete Card']);
+  }
+});
+
+// キャンバスの何もない所のメニューは、Add CardとAdd Calloutである
+test('the menu of the canvas has Add Card and Add Callout', () => {
+  assert.deepEqual(plain(atlas.CANVAS_MENU), ['Add Card', 'Add Callout']);
 });
 
 // 円で描くグループ
