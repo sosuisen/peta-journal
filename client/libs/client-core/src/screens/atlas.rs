@@ -112,14 +112,6 @@ impl<'a> Moving<'a> {
         }
     }
 
-    /// The item with the bounds it has.
-    fn staying(item: &'a Item) -> Moving<'a> {
-        Moving {
-            item,
-            bounds: bounds_of(item),
-        }
-    }
-
     /// The bounds to write: none when they stay as they are stored.
     fn new_bounds(&self) -> Option<Bounds> {
         self.bounds
@@ -137,6 +129,14 @@ impl Card<'_> {
     /// while an item it is under has no place.
     fn drawn_bounds(&self) -> Option<Bounds> {
         self.place.and_then(|_| bounds_of(self.item))
+    }
+
+    /// The point of the canvas the bounds of its group are counted from: where the card is
+    /// counted from once it is taken out of the group.
+    fn frame_of_group(&self) -> Option<(f64, f64)> {
+        let (x, y) = self.frame?;
+        let group = bounds_of(self.group?)?;
+        Some((x - group.x, y - group.y))
     }
 }
 
@@ -390,7 +390,8 @@ fn change_with_new_item(
 }
 
 /// Sends the batch, reads the outline again and shows it. A card keeps the place shown for
-/// it: a card placed and grouped at once may be read before its place is saved.
+/// it, unless the batch put it under another item ([`show_changed`]): a card placed and then
+/// changed at once may be read before its place is saved.
 async fn send(api: &Api<Event>, atlas_id: String, ops: Vec<BatchOpInput>) {
     match written(api, &atlas_id, ops).await {
         Ok(items) => api.send_event(Event::AtlasChanged { atlas_id, items }),
@@ -531,12 +532,24 @@ fn last_staying<'a>(model: &'a Model, parent: &'a Item, leaving: &[&Item]) -> &'
 }
 
 /// The server changed the outline of an atlas page: its items are shown. A card keeps the
-/// place shown for it.
+/// place shown for it, as its move may not be saved yet. A card that went under another item
+/// takes the bounds of the server: the batch wrote them anew, counted from that item.
 pub fn show_changed(model: &mut Model, atlas_id: &str, mut items: Vec<Item>) -> Cmd {
-    for item in &mut items {
-        let shown = model.state.get_item_by_id(&item.id);
-        if let Some(bounds) = shown.and_then(|i| i.properties.get(BOUNDS_KEY).cloned()) {
-            item.properties.insert(BOUNDS_KEY.to_string(), bounds);
+    let parents: Vec<Option<String>> = (0..items.len())
+        .map(|at| {
+            let above = items[..at].iter().rev();
+            let parent = above.into_iter().find(|i| i.level < items[at].level);
+            parent.map(|parent| parent.id.clone())
+        })
+        .collect();
+    for (item, parent) in items.iter_mut().zip(parents) {
+        let Some(shown) = model.state.get_item_by_id(&item.id) else {
+            continue;
+        };
+        let stays = parent_of(model, &shown).map(|p| &p.id) == parent.as_ref();
+        if let Some(bounds) = shown.properties.get(BOUNDS_KEY).filter(|_| stays) {
+            item.properties
+                .insert(BOUNDS_KEY.to_string(), bounds.clone());
         }
     }
     file_reload::replace_page_items(model, atlas_id, items);
@@ -759,7 +772,8 @@ fn sides_dropped(model: &Model, leaving: &[&Card]) -> Vec<BatchOpInput> {
 
 /// Cards taken out of their groups, as when they are dragged out of the outline of their
 /// group with Ctrl held. A card goes behind the tree of its group, at the level of the group
-/// item. The item of the group stays, even with one card or none under it (ADR 053). With
+/// item. Its bounds are written anew in the same batch, counted from what the group is counted
+/// from, so it stays where it lies on the canvas (ADR 053). The item of the group stays, even with one card or none under it (ADR 053). With
 /// none, it loses its side.
 pub fn ungroup_cards(model: &mut Model, card_ids: Vec<String>) -> Cmd {
     let cards = card_entries(model);
@@ -774,7 +788,7 @@ pub fn ungroup_cards(model: &mut Model, card_ids: Vec<String>) -> Cmd {
             let of_group: Vec<Moving> = leaving
                 .iter()
                 .filter(|card| card.group.is_some_and(|g| g.id == group.id))
-                .map(|card| Moving::staying(card.item))
+                .map(|card| Moving::of(card, card.frame_of_group()))
                 .collect();
             let last = last_staying(model, group, &all);
             let mut ops = taken_behind(&group.page_id, &of_group, &last.id, group.level);

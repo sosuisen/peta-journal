@@ -245,23 +245,38 @@ fn a_card_dropped_on_itself_or_on_no_card_makes_no_group() {
     assert!(batches(&h).is_empty());
 }
 
-// 配置とグループ化が同時に行われたカードは、表示されていた位置を保つ。サーバーが位置の保存前にアウトラインを返すことがあるためである。
+// 配置とグループ化が同時に行われたカードは、置いた位置のまま、新しい親からの相対の座標で書かれる。位置の保存がサーバーに届く前でも、グループ化の送信が、表示されていた位置から座標を作るためである。
 #[test]
-fn a_card_placed_and_grouped_at_once_keeps_the_place_shown_for_it() {
+fn a_card_placed_and_grouped_at_once_is_written_where_it_was_placed() {
     let mut h = atlas_with(&[("one", None), ("two", Some("9,0,0,40"))]);
-    // The outline was read before the place was saved
     answer_outline(
         &mut h,
         vec![
-            parent_item("g", 1, "", &[]),
-            card_item("two", 2, Some("9,0,0,40")),
-            card_item("one", 2, None),
+            parent_item("g", 1, "", &[("atlas_bounds", "7,3,0,40")]),
+            card_item("two", 2, Some("2,-3,0,40")),
+            card_item("one", 2, Some("-2,2,0,40")),
         ],
     );
     place(&mut h, "a/b/one", 5.0, 5.0);
     group(&mut h, &["a/b/one"], "a/b/two");
 
-    assert_eq!(bounds_of(&h, "a/b/one").map(|b| b.x), Some(5.0));
+    assert_eq!(
+        batches(&h),
+        [[
+            made(
+                ItemPosition::after("i-two"),
+                "",
+                &[("atlas_bounds", "7,3,0,40")]
+            ),
+            leveled_at("i-two", 2, "2,-3,0,40"),
+            leveled_at("i-one", 2, "-2,2,0,40"),
+            moved(&["i-two", "i-one"], NEW),
+        ]]
+    );
+    assert_eq!(
+        bounds_of(&h, "a/b/one").map(|b| (b.x, b.y)),
+        Some((-2.0, 2.0))
+    );
 }
 
 // グループ化が拒否されると、アウトラインは元のまま保たれ、アラートが表示される。
@@ -359,9 +374,13 @@ fn an_item_whose_last_card_goes_to_another_group_loses_its_side_in_the_same_batc
     assert_eq!(
         sent("a/b/three", "a/b/two"),
         [
-            made(ItemPosition::after("i-two"), "", &[]),
-            leveled("i-two", 2),
-            leveled("i-three", 2),
+            made(
+                ItemPosition::after("i-two"),
+                "",
+                &[("atlas_bounds", "150,0,0,40")]
+            ),
+            leveled_at("i-two", 2, "-50,0,0,40"),
+            leveled_at("i-three", 2, "50,0,0,40"),
             moved(&["i-two", "i-three"], NEW),
             unsided("h"),
         ]

@@ -156,9 +156,13 @@ fn a_link_card_joins_a_group_as_a_card() {
     assert_eq!(
         batches(&h),
         [[
-            made(ItemPosition::after("i-one"), "", &[]),
-            leveled("i-one", 2),
-            leveled("l", 2),
+            made(
+                ItemPosition::after("i-one"),
+                "",
+                &[("atlas_bounds", "5,10,0,40")]
+            ),
+            leveled_at("i-one", 2, "-5,-10,0,40"),
+            leveled_at("l", 2, "5,10,0,40"),
             moved(&["i-one", "l"], NEW),
         ]]
     );
