@@ -316,6 +316,8 @@ public final class Shell: ObservableObject {
             ask(Question(id: id, message: message, kind: .notice))
         // No prompt is shown. The core asks one only for a new page without a name, and this
         // app has no way to make one: its search box makes a page with the typed name
+        case .prompt:
+            break
         case .copyMarkdown(let markdown, let ast):
             // The HTML is for other apps (ADR 027). Its links to pages open the web frontend,
             // as those of a copy made there: this app has no address that another app opens
@@ -329,7 +331,23 @@ public final class Shell: ObservableObject {
         // The bridge has put the address of the server before an address of the server
         case .openInBrowser(let address):
             browse(address)
-        default:
+        // `handle` answers it with the other orders of the cursor, so it never comes here
+        case .focusEditor:
+            break
+        // It waits for no answer, and a window shows the title of the view model instead
+        case .setTitle:
+            break
+        // It waits for no answer, and the app scrolls to no item
+        case .scrollToItem:
+            break
+        // The app has no atlas, so it keeps no folders seen as their atlas
+        case .saveAtlasDirs:
+            break
+        // The app writes the clipboard only for CopyMarkdown, so it began no write to give up
+        case .copyFailed:
+            break
+        // client-native-bridge answers it with the clock, so it never reaches the app
+        case .localNow:
             break
         }
     }
