@@ -88,13 +88,20 @@ test('a dragged group can leave each group around it with Ctrl', () => {
 // カードとキャンバスのメニュー
 // ページのカードのメニューは、EditとRemove from Atlasである。項目を消すDelete Cardはない
 test('the menu of a page card has Edit and Remove from Atlas', () => {
-  assert.deepEqual(plain(atlas.cardMenu({ isLink: false, isPlain: false })), ['Edit', 'Remove from Atlas']);
+  assert.deepEqual(plain(atlas.cardMenu({ isLink: false, isPlain: false }, true)), ['Edit', 'Remove from Atlas']);
 });
 
 // リンクカードとノーマルカードのメニューは、Edit、Remove from Atlas、Delete Cardである
 test('the menu of a link card or a plain card has Edit, Remove from Atlas and Delete Card', () => {
   for (const isPlain of [false, true]) {
-    assert.deepEqual(plain(atlas.cardMenu({ isLink: true, isPlain })), ['Edit', 'Remove from Atlas', 'Delete Card']);
+    assert.deepEqual(plain(atlas.cardMenu({ isLink: true, isPlain }, true)), ['Edit', 'Remove from Atlas', 'Delete Card']);
+  }
+});
+
+// 書き換えられないキャンバスでは、どのカードのメニューもView Textだけである
+test('on a canvas that is not editable, the menu of any card has View Text alone', () => {
+  for (const data of [{ isLink: false }, { isLink: true, isPlain: false }, { isLink: true, isPlain: true }]) {
+    assert.deepEqual(plain(atlas.cardMenu(data, false)), ['View Text']);
   }
 });
 
@@ -108,9 +115,19 @@ test('the menu of the canvas has Add Card and Add Callout', () => {
 test('the dialog asked of the shell has the name, the text, and no side for a card', () => {
   assert.deepEqual(plain(atlas.textAsked({ name: 'Add Card', sided: false })), {
     name: 'Add Card',
+    id: null,
     text: '',
     side: null,
+    mode: 'edit',
   });
+});
+
+// View Textのダイアログは、見るだけで、カードの id を持つ。辺はない
+test('the dialog of View Text is to view only, names its card and has no side', () => {
+  assert.deepEqual(
+    plain(atlas.textAsked({ name: 'View Text', id: 'c', text: 'read', side: 'left', sided: true, view: true })),
+    { name: 'View Text', id: 'c', text: 'read', side: null, mode: 'view' },
+  );
 });
 
 // グループと吹き出しには、今の辺がある。辺のないものや、知らない辺は、上である
