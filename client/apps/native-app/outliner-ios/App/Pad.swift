@@ -22,3 +22,25 @@ enum Pad {
         return down < 0 ? .up : .down
     }
 }
+
+extension Pad {
+    /// How long a touch is held before its arrow repeats, and how often it repeats then.
+    static let hold = Duration.milliseconds(400)
+    static let repeating = Duration.milliseconds(100)
+
+    /// What a touch on an arrow does: `step` once, and after `hold` again and again, until the
+    /// task is cancelled, as when the touch ends.
+    @MainActor
+    static func held(
+        hold: Duration = Pad.hold, repeating: Duration = Pad.repeating, _ step: @escaping @MainActor () -> Void
+    ) -> Task<Void, Never> {
+        Task { @MainActor in
+            step()
+            try? await Task.sleep(for: hold)
+            while !Task.isCancelled {
+                step()
+                try? await Task.sleep(for: repeating)
+            }
+        }
+    }
+}

@@ -169,10 +169,6 @@ private struct ArrowPad: View {
     /// True from the start of a touch to its end: a touch starts once, where it went down.
     @State private var touching = false
 
-    /// How long a touch is held before an arrow repeats, and how often it repeats then.
-    private static let hold = Duration.milliseconds(400)
-    private static let repeating = Duration.milliseconds(100)
-
     var body: some View {
         GeometryReader { space in
             Image(icon).resizable().frame(width: 88, height: 88)
@@ -185,7 +181,7 @@ private struct ArrowPad: View {
                             guard !touching else { return }
                             touching = true
                             guard let arrow = Pad.aim(at: touch.startLocation, in: space.size) else { return }
-                            held = repeated(arrow)
+                            held = Pad.held { onArrow(arrow) }
                         }
                         .onEnded { _ in
                             touching = false
@@ -200,17 +196,6 @@ private struct ArrowPad: View {
         .accessibilityActions {
             ForEach(moves, id: \.1) { arrow, said in
                 Button(said) { onArrow(arrow) }
-            }
-        }
-    }
-
-    private func repeated(_ arrow: Arrow) -> Task<Void, Never> {
-        Task { @MainActor in
-            onArrow(arrow)
-            try? await Task.sleep(for: ArrowPad.hold)
-            while !Task.isCancelled {
-                onArrow(arrow)
-                try? await Task.sleep(for: ArrowPad.repeating)
             }
         }
     }
