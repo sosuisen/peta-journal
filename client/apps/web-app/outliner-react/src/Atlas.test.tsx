@@ -3,12 +3,14 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import Atlas from './Atlas';
 import {
   AtlasCard,
+  AtlasGroup,
   AtlasPlace,
   cardToneLink,
   cardTonePlain,
   Bounds,
   Callout,
   eventLinkClicked,
+  groupLookText,
   LinkCard,
   richLinkFile,
   richLinkPage,
@@ -89,18 +91,15 @@ class FakeCanvas {
   setOnFollow(f: Handler) {
     this.handlers.onFollow = f;
   }
-  setOnShowText(f: Handler) {
-    this.handlers.onShowText = f;
-  }
   setOnRemove(f: Handler) {
     this.handlers.onRemove = f;
   }
-  setOnLink(add: Handler, set: Handler, remove: Handler, query: Handler) {
+  setOnCard(add: Handler, edit: Handler, remove: Handler, bodyOf: Handler) {
     Object.assign(this.handlers, {
-      onAddLink: add,
-      onSetLink: set,
+      onAddCard: add,
+      onEditCard: edit,
       onRemoveLink: remove,
-      onLinkQuery: query,
+      bodyOf,
     });
   }
   setCards(json: string) {
@@ -108,9 +107,6 @@ class FakeCanvas {
   }
   setCallouts(json: string) {
     this.given.push(['callouts', JSON.parse(json)]);
-  }
-  setLinkSuggestions(json: string) {
-    this.given.push(['suggestions', JSON.parse(json)]);
   }
   toWorldX(clientX: number) {
     return this.ready ? clientX - 100 : null;
@@ -269,8 +265,8 @@ describe('the canvas of an atlas', () => {
     expect(canvas().start).toEqual([0, 0, 1]);
   });
 
-  // 置いたカードとリンク、吹き出し、リンクの候補を、wasmが決めた形で、変わるたびにキャンバスに渡す。
-  test('the cards, the callouts and the link suggestions go to the canvas whenever they change', async () => {
+  // 置いたカードとリンク、吹き出しを、wasmが決めた形で、変わるたびにキャンバスに渡す。
+  test('the cards and the callouts go to the canvas whenever they change', async () => {
     const link = new LinkCard(
       'l',
       'x/Foo',
@@ -291,14 +287,11 @@ describe('the canvas of an atlas', () => {
       kind: 'AtlasCallouts',
       value: [new Callout('k', 1, 2, 1, 'left', 'hi', [])],
     });
-    show({ kind: 'AtlasLinkSuggestions', value: ['Foo'] });
 
     expect(canvas().given).toEqual([
       ['cards', { cards: ['a'], links: ['l'] }],
       ['callouts', []],
-      ['suggestions', []],
       ['callouts', ['k']],
-      ['suggestions', ['Foo']],
     ]);
   });
 
@@ -372,8 +365,8 @@ describe('what is done on the canvas', () => {
     ]);
   });
 
-  // カード、グループ、吹き出し、リンクの操作は、どれもコアに渡す。
-  test('the changes of the cards, the groups, the callouts and the links go to the core', async () => {
+  // カード、グループ、吹き出しの操作は、どれもコアに渡す。Add CardとEditは、書いたMarkdownを渡す。
+  test('the changes of the cards, the groups and the callouts go to the core', async () => {
     const { canvas, wasm } = await atlas('m/');
     const on = canvas().handlers as Record<
       string,
@@ -390,10 +383,9 @@ describe('what is done on the canvas', () => {
     on.onCallout('k', 'right', 'bye');
     on.onMoveCallout('k', 3, 4);
     on.onScaleCallout('k', 1.5);
-    on.onAddLink(5, 6, 'x/Foo');
-    on.onSetLink('l', 'x/Bar');
+    on.onAddCard(5, 6, '[[x/Foo]]');
+    on.onEditCard('l', 'note\nmore');
     on.onRemoveLink('l');
-    on.onLinkQuery('Fo');
     on.onRemove('p');
 
     expect(wasm.events).toEqual([
@@ -421,107 +413,62 @@ describe('what is done on the canvas', () => {
       { kind: 'SetAtlasCallout', key: 'k', side: 'right', text: 'bye' },
       { kind: 'MoveAtlasCallout', key: 'k', x: 3, y: 4 },
       { kind: 'ScaleAtlasCallout', key: 'k', scale: 1.5 },
-      { kind: 'AddAtlasLink', x: 5, y: 6, target: 'x/Foo' },
-      { kind: 'SetAtlasLink', item_id: 'l', target: 'x/Bar' },
+      { kind: 'AddAtlasCard', x: 5, y: 6, text: '[[x/Foo]]' },
+      { kind: 'SetAtlasCardText', card_id: 'l', text: 'note\nmore' },
       { kind: 'RemoveAtlasLink', item_id: 'l' },
-      { kind: 'SearchAtlasLinks', query: 'Fo' },
       { kind: 'RemoveAtlasCard', page_id: 'p' },
     ]);
   });
 
-  // カードを右クリックすると、その場所にメニューが出る。Remove from Atlasで、カードをキャンバスから外す。
-  test('the menu of a card opens where it was clicked, and takes the card off the canvas', async () => {
-    const { canvas, wasm, container } = await atlas('m/');
-
-    act(() => canvas().handlers.onMenu('a' as never, 30 as never, 40 as never));
-    const menu = container.querySelector('.atlas-menu') as HTMLElement;
-    const place = [menu.style.left, menu.style.top];
-    fireEvent.click(screen.getByText('Remove from Atlas'));
-
-    expect(place).toEqual(['30px', '40px']);
-    expect(container.querySelector('.atlas-menu')).toBeNull();
-    expect(wasm.events).toEqual([{ kind: 'RemoveAtlasCard', page_id: 'a' }]);
-  });
-
-  // カードのメニューのShow Textで、項目の全文を、ページの本文と同じHTMLにして、押した場所に出す。リンクのカードでも、ページのカードでも出せる。
-  test('Show Text shows the whole text of a card where it was asked, as a page draws a body', async () => {
-    const page = card('a', true, { text: '- a\n  more' });
+  // カード、グループ、吹き出しのEditには、その項目の本文を、Markdownのまま出す。ページのカードはページで、ほかは項目で名指す。今の本文である。
+  test('the Edit of a card, a group or a callout shows the body of its item as Markdown', async () => {
+    const group = new AtlasGroup(
+      'g',
+      null,
+      '[[x/Plan]]',
+      groupLookText(),
+      0,
+      0,
+    );
+    const page = card('a', true, { text: '[[m/a]]\nmore', groups: [group] });
     const link = new LinkCard(
       'l',
       null,
       'note',
       cardTonePlain(),
       [],
-      'note [[x]]',
+      'note **x**',
       new Bounds(0, 0, 0, 0),
       [],
     );
-    const { canvas, container } = await atlas(
+    const { canvas, show } = await atlas(
       'm/',
       { kind: 'AtlasCards', value: [page] },
       { kind: 'AtlasLinks', value: [link] },
+      {
+        kind: 'AtlasCallouts',
+        value: [new Callout('k', 1, 2, 1, 'left', 'hi', [])],
+      },
     );
-
-    act(() => canvas().handlers.onMenu('a' as never, 0 as never, 0 as never));
-    fireEvent.click(screen.getByText('Show Text'));
-    const fromMenu = container.querySelector('.atlas-text')?.innerHTML;
-    fireEvent.keyDown(document, { key: 'Escape' });
-    act(() =>
-      canvas().handlers.onShowText('l' as never, 30 as never, 40 as never),
-    );
-    const shown = container.querySelector('.atlas-text') as HTMLElement;
-
-    expect(fromMenu).toBe('<p>- a\n  more</p>');
-    expect(shown.innerHTML).toBe('<p>note [[x]]</p>');
-    expect([shown.style.left, shown.style.top]).toEqual(['30px', '40px']);
-  });
-
-  // 全文のリンクを押すと、ページの本文のリンクと同じく、コアに渡す。
-  test('a click on a link of the whole text of a card goes to the core as on a page', async () => {
-    const page = card('a', true, {
-      text: '<a data-wikilink="" href="/pages/x">x</a>',
-    });
-    const { canvas, container, wasm } = await atlas('m/', {
-      kind: 'AtlasCards',
-      value: [page],
-    });
-    act(() =>
-      canvas().handlers.onShowText('a' as never, 0 as never, 0 as never),
-    );
-
-    fireEvent.click(container.querySelector('.atlas-text a') as Element, {
-      ctrlKey: true,
+    const bodyOf = (id: string) =>
+      (canvas().handlers.bodyOf as (id: string) => string | undefined)(id);
+    const before = ['a', 'l', 'k', 'g', 'none'].map(bodyOf);
+    show({
+      kind: 'AtlasLinks',
+      value: [Object.assign(link, { text: 'note, edited' })],
     });
 
-    expect(wasm.events).toEqual([
-      eventLinkClicked(richLinkPage('/pages/x'), {
-        shift: false,
-        ctrl: true,
-        cmd: false,
-      }),
+    expect(before).toEqual([
+      '[[m/a]]\nmore',
+      'note **x**',
+      'hi',
+      '[[x/Plan]]',
+      undefined,
     ]);
+    expect(bodyOf('l')).toBe('note, edited');
   });
 
-  // メニューは、外を押すのとEscapeで、何もせずに閉じる。
-  test('the menu closes on a press outside and on Escape', async () => {
-    const { canvas, wasm, container } = await atlas('m/');
-    const open = () =>
-      act(() => canvas().handlers.onMenu('a' as never, 0 as never, 0 as never));
-
-    open();
-    fireEvent.pointerDown(document.body);
-    const outside = container.querySelector('.atlas-menu');
-    open();
-    fireEvent.keyDown(document, { key: 'Escape' });
-
-    expect([outside, container.querySelector('.atlas-menu')]).toEqual([
-      null,
-      null,
-    ]);
-    expect(wasm.events).toEqual([]);
-  });
-
-  // キャンバスでは、ブラウザのメニューを出さない。カードのメニューを覆うためである。
+  // キャンバスでは、ブラウザのメニューを出さない。キャンバスのメニューを覆うためである。
   test('the menu of the browser does not show on the canvas', async () => {
     const { container } = await atlas('m/');
 
