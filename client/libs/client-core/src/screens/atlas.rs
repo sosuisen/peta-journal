@@ -792,7 +792,9 @@ fn centroid(cards: &[&Card]) -> Option<(f64, f64)> {
 }
 
 /// Cards let go on the blob of a parent go under its item, each where it lies among the items
-/// under it ([`put_under`]). A card right under the parent already stays where it is in the
+/// under it ([`put_under`]). Cards let go on a card with Shift and Ctrl go under that card the
+/// same way: the card is named as the shell names it, and becomes a parent (ADR 053). Its own
+/// bounds stay, and those of its new children are counted from it. A card right under the parent already stays where it is in the
 /// outline. The bounds of a card are written anew in the same batch, counted from the parent,
 /// so the card stays where it lies on the canvas (ADR 053). The parent a card leaves loses its
 /// side when nothing stays under it.
@@ -806,16 +808,23 @@ pub fn move_cards(model: &mut Model, card_ids: Vec<String>, parent_id: String) -
         return done();
     }
     let cards = card_entries(model);
-    let Some((parent, origin)) = entries(model)
+    // A parent is named by its item, a card as the shell names it
+    let of_parent = entries(model)
         .into_iter()
         .find(|e| e.is_parent && e.item.id == parent_id)
-        .map(|e| (e.item, e.place.map(|place| (place.x, place.y))))
-    else {
+        .map(|e| (e.item, e.place));
+    let of_card = || {
+        let card = cards.iter().find(|card| card.id() == parent_id);
+        card.map(|card| (card.item, card.place))
+    };
+    let Some((parent, place)) = of_parent.or_else(of_card) else {
         return done();
     };
+    let origin = place.map(|place| (place.x, place.y));
     let joining: Vec<&Card> = cards
         .iter()
         .filter(|card| card_ids.iter().any(|id| id == card.id()))
+        .filter(|card| card.item.id != parent.id)
         .filter(|card| card.group.is_none_or(|group| group.id != parent.id))
         .collect();
     let items: Vec<Moving> = joining
