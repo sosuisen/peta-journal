@@ -891,16 +891,45 @@ window.AtlasCanvas = class AtlasCanvas {
     // With Ctrl or with Shift and Ctrl, it joins what it is let go on as a card does, with
     // all that is in it, and the same batch saves its place.
     const { x, y } = onCanvas(drag.node.outer, drag.node.x, drag.node.y);
-    const ids = JSON.stringify([drag.group]);
-    const places = JSON.stringify([{ id: drag.group, x, y }]);
-    if (target && mode === 'sibling') {
-      this.onGroup?.(ids, target.cardData.id, places);
-    } else if (target) {
-      this.onMove?.(ids, target.cardData.id, places);
-    } else if (join) {
-      this.onMove?.(ids, join.label, places);
-    } else {
-      this.onPlace(drag.group, x, y);
+    const pieces = [{ id: drag.group, x, y, group: chainOf(drag.node.outer)[0] ?? null }];
+    this.drop(
+      dropAction({
+        mode,
+        target: target?.cardData.id ?? null,
+        join: join?.label ?? null,
+        outside: drag.outside,
+        pieces,
+      }),
+      pieces,
+    );
+  }
+
+  // Tells what a drop does (dropAction). The pieces are those the action was made from, each
+  // with its place on the canvas, and a callout with how its move is saved. With Ctrl, what is
+  // let go on a card becomes a sibling of that card, and what is let go in the area of another
+  // group goes under the item of that group. With Shift and Ctrl, what is let go on a card goes
+  // under that card, and nothing else changes. One change does it and saves the places, so it
+  // is undone as one.
+  drop(action, pieces) {
+    const ids = list => JSON.stringify(list.map(piece => piece.id));
+    const places = list => JSON.stringify(list.map(({ id, x, y }) => ({ id, x, y })));
+    if (action.kind === 'group') {
+      this.onGroup?.(ids(pieces), action.target, places(pieces));
+      return;
+    }
+    if (action.kind === 'move') {
+      this.onMove?.(ids(pieces), action.parent, places(pieces));
+      return;
+    }
+    for (const piece of action.place) {
+      if (piece.save) {
+        piece.save(piece.x, piece.y);
+      } else {
+        this.onPlace(piece.id, piece.x, piece.y);
+      }
+    }
+    if (action.leave.length > 0) {
+      this.onUngroup?.(ids(action.leave), places(action.leave));
     }
   }
 
@@ -1288,12 +1317,12 @@ window.AtlasCanvas = class AtlasCanvas {
     const dragged = new Set(origins.keys());
     const touched = drag ? this.groupsOfDrag(drag) : null;
     const views = [...this.cardViews(), ...this.extras()];
-    const staying = new Set();
-    for (const view of views) {
-      if (!dragged.has(view)) {
-        groupsOf(dataOf(view)).forEach(g => staying.add(g.id));
-      }
-    }
+    const chains = list => list.map(view => groupsOf(dataOf(view)).map(g => g.id));
+    const held = heldGroups({
+      dragged: chains(views.filter(view => dragged.has(view))),
+      staying: chains(views.filter(view => !dragged.has(view))),
+      around: drag?.node ? chainOf(drag.node.outer) : [],
+    });
     const corners = new Map();
     const groups = new Map();
     for (const view of views) {
@@ -1304,7 +1333,7 @@ window.AtlasCanvas = class AtlasCanvas {
         if (touched && !touched.has(group)) {
           return;
         }
-        const kept = ctrl && staying.has(group);
+        const kept = ctrl && held.has(group);
         if (kept && drag.ctrlShape) {
           return;
         }
@@ -1358,7 +1387,7 @@ window.AtlasCanvas = class AtlasCanvas {
       // and a color written there turns the area black while it is drawn again
       area.outlineColor = color;
       // A group dragged as a whole has nothing to leave: it moves with its cards
-      area.leavable = ctrl && staying.has(group);
+      area.leavable = ctrl && held.has(group);
       const groupTitle = data.title;
       const groupTitleSide = data.titleSide;
       // A callout that cards are under stands along the outline in place of a title
@@ -1601,33 +1630,16 @@ window.AtlasCanvas = class AtlasCanvas {
           const group = groupsOf(data).at(-1)?.id ?? null;
           return { id: v.extraId ?? data.id, ...onCanvas(v.frameNode, v.x, v.y), group, save: v.saveMove };
         });
-        const ids = list => JSON.stringify(list.map(piece => piece.id));
-        const places = list => JSON.stringify(list.map(({ id, x, y }) => ({ id, x, y })));
-        // With Ctrl, what is let go on a card becomes a sibling of that card, and what is let
-        // go in the area of another group goes under the item of that group. With Shift and
-        // Ctrl, what is let go on a card goes under that card, and nothing else changes. One
-        // change does it and saves the places, so it is undone as one.
-        if (target && ctrl) {
-          this.onGroup?.(ids(pieces), target.cardData.id, places(pieces));
-          return;
-        }
-        if (target || join) {
-          this.onMove?.(ids(pieces), target ? target.cardData.id : join.label, places(pieces));
-          return;
-        }
-        // Only what is let go outside its group with Ctrl leaves it; the rest is placed
-        const leaves = piece => ctrl && Boolean(drag.outside?.has(piece.group));
-        const leavers = pieces.filter(leaves);
-        for (const piece of pieces.filter(piece => !leaves(piece))) {
-          if (piece.save) {
-            piece.save(piece.x, piece.y);
-          } else {
-            this.onPlace(piece.id, piece.x, piece.y);
-          }
-        }
-        if (leavers.length > 0) {
-          this.onUngroup?.(ids(leavers), places(leavers));
-        }
+        this.drop(
+          dropAction({
+            mode,
+            target: target?.cardData.id ?? null,
+            join: join?.label ?? null,
+            outside: drag.outside,
+            pieces,
+          }),
+          pieces,
+        );
       } else if (drag.runLink && !data.masked) {
         // A link in the text of a card opens as a link of a page does
         this.onFollow?.(drag.runLink, drag.ctrl, e.shiftKey);
@@ -1729,6 +1741,33 @@ function dropMode(e) {
     return null;
   }
   return e.shiftKey ? 'child' : 'sibling';
+}
+
+// The groups that what a drag moves can be taken out of with Ctrl: those the outlines of the
+// drag stand for. `dragged` holds the ids of the groups of each dragged card or callout, the
+// outermost first, `staying` those of each card or callout that stays, and `around` the ids
+// of the groups around a dragged group. A group only stays while something in it stays.
+function heldGroups({ dragged = [], staying = [], around = [] }) {
+  const stays = new Set(staying.flat());
+  return new Set([...dragged.flat(), ...around].filter(id => stays.has(id)));
+}
+
+// What a drop does, from the mode of its keys (dropMode), the id of the card under the
+// pointer, the id of the group whose area is under it, the ids of the groups the drag is
+// outside of, and the pieces let go, each { id, group }: `group` is the id of the group it
+// is right in, or null. With Ctrl, a card under the pointer takes them as its siblings
+// ('group'), and else the area of another group takes them under its item ('move'). With
+// Shift and Ctrl, the card takes them under it ('move'). Else each is placed, and with Ctrl
+// alone a piece let go outside its group leaves it ('place', with the pieces in `leave`).
+function dropAction({ mode, target = null, join = null, outside = null, pieces }) {
+  if (target && mode === 'sibling') {
+    return { kind: 'group', target };
+  }
+  if (target || join) {
+    return { kind: 'move', parent: target ?? join };
+  }
+  const leaves = piece => mode === 'sibling' && Boolean(outside?.has(piece.group));
+  return { kind: 'place', place: pieces.filter(piece => !leaves(piece)), leave: pieces.filter(leaves) };
 }
 
 // The groups a card is in, the outermost first
