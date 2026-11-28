@@ -8,6 +8,9 @@ name: CI
 # The jobs of every OS run. The repository is public, and its standard runners cost nothing, also
 # on macOS. A larger runner would cost: none of the jobs uses one.
 #
+# A beta job (`beta: true` in scripts/checks.mjs, ADR 092) is the exception: the plan never picks
+# it, and names it in its log. outliner-ios is beta. Its job here runs only by hand, with ios_only.
+#
 # The plan job picks the jobs that the changed files touch, with the same rule as the hook
 # (`node scripts/checks.mjs jobs`). The other jobs are skipped. A change only under docs/ touches
 # no job but the guard. By hand, every job is picked.
@@ -21,7 +24,8 @@ name: CI
 # `gh workflow run CI --ref <branch> -f linux=false -f macos=false`
 #
 # ios_only runs the guard and the outliner-ios job, and no other job, whatever the inputs of the
-# OS say: `gh workflow run CI --ref <branch> -f ios_only=true`
+# OS say: `gh workflow run CI --ref <branch> -f ios_only=true`. It is the one way to run that beta
+# job in the CI, for a change of outliner-ios made without a Mac that can run the simulator.
 on:
   workflow_dispatch:
     inputs:
@@ -301,10 +305,12 @@ jobs:
         run: cargo install boltffi_cli --version =0.32.1 --locked
       - run: node scripts/checks.mjs run stickies-mac
 
+  # Beta (ADR 092): no pull request and no push runs this job, and the plan does not pick it. It
+  # runs only when the CI is started by hand with ios_only. Skipped, it counts as passed for ci
   outliner-ios:
     name: client/apps/native-app/outliner-ios
     needs: plan
-    if: contains(fromJSON(needs.plan.outputs.jobs), 'outliner-ios') && (github.event_name != 'workflow_dispatch' || inputs.macos || inputs.ios_only)
+    if: github.event_name == 'workflow_dispatch' && inputs.ios_only
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7

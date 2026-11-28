@@ -19,6 +19,8 @@
 //   branch made before the hook still gets it. When main changed a file of the checks after the
 //   branch left it, the hook stops until the branch takes main in. Then the branch has the newest
 //   files, and its hook and its list of checks run. So a job that the branch adds runs too.
+// - A beta job is not run, whatever files changed (ADR 092). The answer names it in one line, so
+//   that its silence is not taken for a pass.
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -135,11 +137,19 @@ if (!process.env[HANDED]) {
 }
 
 // The list of checks of the branch. It is the newest: main has none newer (above)
-const { JOBS, jobsFor, runJob, logFileFor } = await import(pathToFileURL(join(root, 'scripts', 'checks.mjs')).href);
+const { JOBS, jobsFor, betaLeftOut, runJob, logFileFor } = await import(pathToFileURL(join(root, 'scripts', 'checks.mjs')).href);
 
 const files = git(root, 'diff', '--name-only', `origin/${base}...HEAD`).split('\n').filter(Boolean);
 const jobs = jobsFor(files);
 if (jobs.length === 0) process.exit(0);
+// The beta jobs that the files touch: neither this hook nor the CI runs them (ADR 092)
+const beta = betaLeftOut(files);
+const betaNotice =
+  beta.length === 0
+    ? []
+    : [
+        `betaのジョブは、フックもCIも回しません（ADR 092）: ${beta.join('、')}。通ったことにはなりません。そのモジュールを変えたPRでは、${beta.map((name) => `node scripts/checks.mjs run ${name}`).join('、')} を手で回し、結果をPRの本文に書いてください。`,
+      ];
 
 const head = git(root, 'rev-parse', 'HEAD');
 // Each step writes its output here as it comes (`node scripts/checks.mjs log` prints the path)
@@ -179,7 +189,7 @@ for (const name of jobs) {
   skipped.push(...result.skipped.map((s) => ({ job: name, ...s })));
 }
 
-const done = `CIと同じ検証が通りました（${jobs.join('、')}）。`;
+const done = [`CIと同じ検証が通りました（${jobs.join('、')}）。`, ...betaNotice].join('\n');
 if (skipped.length === 0) answer(undefined, undefined, done);
 answer(
   undefined,
