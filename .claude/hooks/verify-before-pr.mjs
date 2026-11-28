@@ -3,7 +3,7 @@
 //
 // Why a hook: the CI runs only after the pull request is made. The hook finds a failure before
 // it is made, without waiting for the CI. The required `ci` check of the CI is what proves that
-// every job passed on every OS (ADR 086).
+// every job passed on every OS (ADR 086), but for a beta job, which nothing runs (ADR 092).
 //
 // - The changes are those of the commits since the base branch (`--base`, or main).
 // - A job that passed on the same commit is not run again. The marks are in .git/peta-verify/.
