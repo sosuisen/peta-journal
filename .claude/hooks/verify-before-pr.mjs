@@ -30,14 +30,103 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 // `gh pr create`, or a pull request made through the REST API: a POST to `.../pulls`. gh api
 // sends a POST when it is given fields, unless the method says otherwise. A GET of the list of
 // pull requests is not one, with a query (`pulls?head=...`) or without
+// Only a part of the command that runs gh counts: the same words in a quoted text (a commit
+// message, a pattern of grep) or in the body of a here-document run nothing (#1317).
 function createsPr(command) {
-  if (/\bgh\s+pr\s+create\b/.test(command)) return true;
-  return command.split(/[\n|;&]/).some((part) => {
-    if (!/\bgh\s+api\b/.test(part) || !/\/pulls(?=["'\s]|$)/.test(part)) return false;
-    const method = part.match(/(?:-X|--method)[\s=]*["']?(\w+)/)?.[1]?.toUpperCase();
+  return commandParts(command).some(({ runs, text }) => {
+    if (/^gh\s+pr\s+create\b/.test(runs)) return true;
+    if (!/^gh\s+api\b/.test(runs) || !/\/pulls(?=["'\s]|$)/.test(text)) return false;
+    const method = text.match(/(?:-X|--method)[\s=]*["']?(\w+)/)?.[1]?.toUpperCase();
     if (method) return method === 'POST';
-    return /\s(?:-f|-F|--field|--raw-field|--input)(?=[\s=])/.test(part);
+    return /\s(?:-f|-F|--field|--raw-field|--input)(?=[\s=])/.test(text);
   });
+}
+
+// The simple commands of a shell command line. `runs` is the command with its leading variable
+// assignments left out and every quoted text blanked, so it starts with what runs; `text` is the
+// same part as it was written, quotes and all, for the arguments of gh api
+function commandParts(command) {
+  const blanked = blankTexts(command);
+  const parts = [];
+  let start = 0;
+  for (let i = 0; i <= blanked.length; i++) {
+    if (i < blanked.length && !/[\n|;&()]/.test(blanked[i])) continue;
+    const runs = blanked.slice(start, i);
+    const lead = runs.match(/^\s*(?:[A-Za-z_]\w*=(?:"[^"]*"|'[^']*'|\S)*\s+)*/)[0].length;
+    parts.push({ runs: runs.slice(lead), text: command.slice(start, i) });
+    start = i + 1;
+  }
+  return parts;
+}
+
+// The command with the inside of each quoted text and the body of each here-document turned into
+// spaces, so that every place keeps its index. A command substitution `$(...)` inside double
+// quotes still runs, so it is kept
+function blankTexts(command) {
+  const out = [...command];
+  const blank = (from, to) => {
+    for (let k = from; k < to; k++) if (out[k] !== '\n') out[k] = ' ';
+  };
+  const heredocs = [];
+  let i = 0;
+  while (i < command.length) {
+    const c = command[i];
+    if (c === '\\') {
+      i += 2;
+    } else if (c === "'") {
+      const end = command.indexOf("'", i + 1);
+      const close = end < 0 ? command.length : end;
+      blank(i + 1, close);
+      i = close + 1;
+    } else if (c === '"') {
+      let j = i + 1;
+      let from = j;
+      while (j < command.length && command[j] !== '"') {
+        if (command[j] === '\\') {
+          j += 2;
+        } else if (command.startsWith('$(', j)) {
+          blank(from, j);
+          let depth = 0;
+          do {
+            if (command[j] === '(') depth++;
+            else if (command[j] === ')') depth--;
+            j++;
+          } while (j < command.length && depth > 0);
+          from = j;
+        } else {
+          j++;
+        }
+      }
+      blank(from, Math.min(j, command.length));
+      i = j + 1;
+    } else if (command.startsWith('<<', i) && command[i + 2] !== '<') {
+      const word = command.slice(i + 2).match(/^(-?)\s*(["']?)(\w+)\2/);
+      if (word) {
+        heredocs.push({ end: word[3], tabs: word[1] === '-' });
+        i += 2 + word[0].length;
+      } else {
+        i += 2;
+      }
+    } else if (c === '\n' && heredocs.length > 0) {
+      // The bodies start on the next line, one after another, each up to its line of the end word
+      let line = i + 1;
+      for (const { end, tabs } of heredocs.splice(0)) {
+        while (line < command.length) {
+          const next = command.indexOf('\n', line);
+          const stop = next < 0 ? command.length : next;
+          const body = command.slice(line, stop);
+          blank(line, stop);
+          line = stop + 1;
+          if ((tabs ? body.replace(/^\t+/, '') : body) === end) break;
+        }
+      }
+      // On to the line break after the last body: the bodies are done, so it is passed next
+      i = line - 1;
+    } else {
+      i++;
+    }
+  }
+  return out.join('');
 }
 
 const lf = (s) => s.replace(/\r\n/g, '\n').trim();
