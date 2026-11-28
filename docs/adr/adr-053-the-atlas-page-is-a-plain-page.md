@@ -145,6 +145,10 @@ Accepted
   - キャンバスの何もない所：Add Card、Add Callout。
   - Editは、今までのShow Text、Edit Link、Edit Title、Edit Calloutを置き換える。Editのダイアログは、項目の本文をMarkdownのまま出し、OKで書いたMarkdownを本文にする（`.md`に書く）。カードには辺の選択がない。グループは、タイトルの沿う辺（`atlas_side`）を選ぶ。コールアウトは、フキダシの辺を選ぶ。
     - 全文を読むだけの箱（今までのShow Text）は、なくす。
+  - Edit、Add Card、グループとコールアウトのEditのダイアログは、複数行の入力を持つ。長い本文は縦にスクロールする。Previewのタブは、書いたMarkdownを、ページの本文と同じに描く。開いたときは編集のタブである（2026-11-29）。
+    - ダイアログはシェルのHTMLで描く（Web版ではReact）。`@pixi/ui`の入力は1行しか持たないためである。`atlas.js`は、ダイアログを描かず、シェルに開いてもらう（`setOnText`）。グループとコールアウトの辺の選択も、このダイアログにある。
+    - Enterは改行を入れる。Ctrl+Enter（macOSではCommand+Enterも）がOK、EscapeがCancelである。ページの確認のダイアログも、Escapeで閉じる。
+    - 書き換えられないアトラス（静的サイト）はダイアログを開かないので、Reactなしで動く。
   - Add Cardは、今までのAdd Linkを置き換える。空のEditのダイアログを開き、OKで、書いたMarkdownを本文に、ページの末尾にレベル1の項目を作る。`atlas_bounds`は右クリックした点である。1回の送信である。空のままのOKでは、何も作らない。1行目がwikilinkだけなら、いつもどおりリンクカードになる。
   - Remove from Atlasは、項目の`atlas_bounds`だけを消す。項目は残る。ページへのカードはPagesに、リンクカードとノーマルカードはNot on Atlasに戻る。
   - Delete Cardは、項目を消す。今までのリンクカードの「Remove Link」を置き換える。ページへのカードにはDelete Cardを出さない。
