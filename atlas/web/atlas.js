@@ -543,12 +543,16 @@ window.AtlasCanvas = class AtlasCanvas {
       }
     } else if (panning.button === 2 && panning.card?.linkData && !panning.card.destroyed) {
       const data = panning.card.linkData;
-      const showText = ['Show Text', () => this.onShowText?.(data.id, e.clientX, e.clientY)];
-      // A plain card links to no page, so it has no link to edit
-      const items = data.isPlain
-        ? [showText]
-        : [['Edit Link', () => this.openLinkDialog(data)], ['Remove Link', () => this.onRemoveLink?.(data.id)], showText];
-      this.openMenu(items, e.global.x, e.global.y);
+      const actions = {
+        'Edit Link': () => this.openLinkDialog(data),
+        'Remove Link': () => this.onRemoveLink?.(data.id),
+        'Show Text': () => this.onShowText?.(data.id, e.clientX, e.clientY),
+      };
+      this.openMenu(
+        linkCardMenu(data).map(name => [name, actions[name]]),
+        e.global.x,
+        e.global.y,
+      );
     } else if (panning.button === 2 && panning.card) {
       this.onMenu(panning.card.cardData.id, e.clientX, e.clientY);
     } else if (panning.button === 2 && panning.extra?.calloutData && !panning.extra.destroyed) {
@@ -1780,6 +1784,12 @@ function dropMode(e) {
     return null;
   }
   return e.shiftKey ? 'child' : 'sibling';
+}
+
+// The names of the items of the menu of a link card or a plain card, in their order. A plain
+// card links to no page, so it has no link to edit.
+function linkCardMenu(data) {
+  return data.isPlain ? ['Show Text'] : ['Edit Link', 'Remove Link', 'Show Text'];
 }
 
 // The groups that what a drag moves can be taken out of with Ctrl: every group a dragged card

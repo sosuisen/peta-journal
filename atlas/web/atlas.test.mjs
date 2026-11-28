@@ -85,6 +85,17 @@ test('a dragged group can leave each group around it with Ctrl', () => {
   assert.deepEqual(sorted(held), ['inner', 'outer']);
 });
 
+// リンクカードとノーマルカードのメニュー
+// リンクカードのメニューは、Edit Link、Remove Link、Show Textである
+test('the menu of a link card has Edit Link, Remove Link and Show Text', () => {
+  assert.deepEqual(plain(atlas.linkCardMenu({ isPlain: false })), ['Edit Link', 'Remove Link', 'Show Text']);
+});
+
+// ノーマルカードには編集するリンクがない
+test('the menu of a plain card has no link to edit', () => {
+  assert.deepEqual(plain(atlas.linkCardMenu({ isPlain: true })), ['Show Text']);
+});
+
 // 円で描くグループ
 const card = (...groups) => ({ groups, callout: false });
 const callout = (...groups) => ({ groups, callout: true });
