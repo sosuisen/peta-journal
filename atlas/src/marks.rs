@@ -227,17 +227,17 @@ mod tests {
         );
     }
 
-    // ノーマルカードのblobは薄い黄色、ないページへのカードのblobは薄い灰色で、同じ名前のカードと同じ形である
+    // ノーマルカードのblobはリンクカードと同じ薄いオレンジ、ないページへのカードのblobは薄い灰色で、同じ名前のカードと同じ形である
     #[test]
-    fn the_blob_of_a_plain_card_is_light_yellow_and_of_a_missing_page_light_gray() {
+    fn the_blob_of_a_plain_card_is_the_light_orange_of_a_link_card_and_of_a_missing_page_light_gray() {
         let plain = plain_blob_svg("x/Target", 100);
         let missing = missing_blob_svg("x/Target", 100);
         let shape = tag_blob_svg("x/Target", 100, false);
-        assert!(plain.contains(r##"fill="#FFF1A8""##), "{plain}");
+        assert_eq!(plain, link_blob_svg("x/Target", 100));
         assert!(missing.contains(r##"fill="#DDDDDD""##), "{missing}");
         assert_eq!(
             [
-                plain.replace("#FFF1A8", "#CFE3FF"),
+                plain.replace("#FFD8A8", "#CFE3FF"),
                 missing.replace("#DDDDDD", "#CFE3FF")
             ],
             [shape.clone(), shape]
