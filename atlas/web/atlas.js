@@ -857,11 +857,12 @@ window.AtlasCanvas = class AtlasCanvas {
     }
     // The pointer moves in pixels of the screen, the frame in units of the scaled view
     drag.node.position.set(drag.origin.x + dx / this.zoom, drag.origin.y + dy / this.zoom);
-    // Only the outlines of the groups around it change: its own moves with it
-    this.drawGroups(drag);
     // A plain copy: `global` is reused for the next event
     drag.pointer = new PIXI.Point(e.global.x, e.global.y);
-    this.showDropTargets(drag, e);
+    // Only the outlines of the groups around it change: its own moves with it. With Ctrl they
+    // keep the shape they had before the drag, and the group leaves the one it is right in
+    // when it is let go outside it, as a card does.
+    this.showDrag(drag, e);
   }
 
   endGroupDrag(e) {
@@ -1112,11 +1113,7 @@ window.AtlasCanvas = class AtlasCanvas {
       metaKey: event.metaKey,
       shiftKey: event.shiftKey,
     };
-    if (drag.node) {
-      this.showDropTargets(drag, e);
-    } else {
-      this.showDrag(drag, e);
-    }
+    this.showDrag(drag, e);
   }
 
   // The groups and the targets of a drag of cards on the canvas, for where the pointer is and
@@ -1337,7 +1334,12 @@ window.AtlasCanvas = class AtlasCanvas {
         // Where the view lies in the frame of this group: its place in its own frame, moved by
         // every frame between the two
         const from = kept && dragged.has(view) ? origins.get(view) : view;
-        const { x, y } = placeIn(view.frameNode, this.frames.get(group), from.x, from.y);
+        let { x, y } = placeIn(view.frameNode, this.frames.get(group), from.x, from.y);
+        // A dragged group lies, for the outlines around it, where it was before the drag
+        if (kept && drag.node && within(view, drag.node)) {
+          x -= drag.node.x - drag.origin.x;
+          y -= drag.node.y - drag.origin.y;
+        }
         const padding = GROUP_PADDING * (chain.length - depth);
         const left = x - width / 2 - padding;
         const right = x + width / 2 + padding;
