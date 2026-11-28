@@ -113,16 +113,13 @@ fn the_pages_that_no_card_links_to_wait_to_be_added() {
     );
 }
 
-// 座標のない項目がリンクしているページは、未追加の項目に出ない。同じページが2つのグループに出ないためである。
+// ページカードの項目に`atlas_bounds`がなければ、そのページは、座標のない項目ではなく、未追加の項目（Pages）に出る。ページカードは、いつもPagesに戻るためである。同じページが2つのグループに出ることはない。
 #[test]
-fn a_page_that_an_item_without_a_place_links_to_does_not_wait_to_be_added() {
+fn a_page_whose_card_has_no_bounds_waits_among_the_pages_and_not_unplaced() {
     let h = atlas_with(&[("one", None)]);
 
-    assert!(not_added(&h).is_empty());
-    assert_eq!(
-        no_place(&h),
-        [waiting("a/b/one", "one", Some("a/b/one"), false)]
-    );
+    assert_eq!(not_added(&h), ["a/b/one"]);
+    assert!(no_place(&h).is_empty());
 }
 
 // 親の項目だけからリンクされているページも、リンクされている。未追加の項目に出ない。
@@ -173,7 +170,7 @@ fn the_index_of_the_folder_itself_has_a_card_as_any_page_of_the_folder() {
     assert!(h.view().atlas_links.is_empty());
 }
 
-// 座標のない項目は、アトラスのページにあって置かれていないカードとコールアウトである。項目の順に並ぶ。
+// 座標のない項目（Not on Atlas）は、アトラスのページにあって置かれていないリンクカード、ノーマルカード、コールアウトである。項目の順に並ぶ。置かれていないページカードは、ページとしてPagesに並ぶ。
 #[test]
 fn the_cards_and_callouts_without_a_place_wait_in_the_order_of_their_items() {
     let h = atlas_of(
@@ -197,11 +194,10 @@ fn the_cards_and_callouts_without_a_place_wait_in_the_order_of_their_items() {
             waiting("out", "Far", Some("x/far"), false),
             waiting("gone", "gone", None, false),
             waiting("text", "plain text", None, false),
-            waiting("a/b/one", "one", Some("a/b/one"), false),
             waiting("call", "Hi", None, false),
-            waiting("a/b/c/index", "Folder", Some("a/b/c/index_atlas"), true),
         ]
     );
+    assert_eq!(not_added(&h), ["a/b/c/index", "a/b/one"]);
 }
 
 // `atlas_bounds`のない親は描かれず、座標のない項目に出る。その下の項目もすべて、自分の`atlas_bounds`の有無によらず、座標のない項目に出て、アトラスには描かれない。座標のある親の下では、座標のない項目だけが出る。

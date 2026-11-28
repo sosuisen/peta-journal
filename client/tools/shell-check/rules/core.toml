@@ -41,7 +41,6 @@ examples = "border-emacs.json"
 [s2.excluded]
 AtlasBoundsRefused = "answer: the server refused the new bounds of a card or a callout"
 AtlasChanged = "answer: the server changed the outline of an atlas page"
-AtlasLinksSuggested = "timer: the search for the link dialog ended"
 AutoSaveFired = "timer: the pause after typing ended"
 BacklinksLoaded = "answer: the backlinks of a doc page"
 BodySaved = "answer: the server saved a body"

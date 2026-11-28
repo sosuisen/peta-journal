@@ -475,19 +475,28 @@ fn the_title_and_its_side_changed_at_once_are_saved_in_one_batch() {
     );
 }
 
-// 本文がwikilinkだけのグループは、そのリンクのラベルをタイトルに持つ。同じタイトルのままなら、本文は書き換えられない。
+// 本文がwikilinkだけのグループは、そのリンクのラベルをタイトルに描き、Editにはその本文をMarkdownのまま渡す。同じ本文が返れば、本文は書き換えられない。ラベルが返れば、それが本文になる。
 #[test]
-fn a_group_whose_body_is_a_link_keeps_the_link_while_its_title_stays() {
-    let mut h = atlas_of(
-        vec![child("one")],
-        vec![
-            parent_item("g", 1, "[[x/Tools]]", &[]),
-            card_item("one", 2, Some("0,0,0,40")),
-        ],
-    );
-    titled(&mut h, "g", "left", "Tools");
+fn a_group_whose_body_is_a_link_gives_its_edit_the_body_and_keeps_it_while_it_comes_back() {
+    let linked = || {
+        atlas_of(
+            vec![child("one")],
+            vec![
+                parent_item("g", 1, "[[x/Tools]]", &[]),
+                card_item("one", 2, Some("0,0,0,40")),
+            ],
+        )
+    };
+    let mut same = linked();
+    let group = same.view().atlas_cards[0].groups[0].clone();
+    titled(&mut same, "g", "left", "[[x/Tools]]");
+    let mut label = linked();
+    titled(&mut label, "g", "top", "Tools");
 
-    assert_eq!(batches(&h), [[sided("g", None, "left")]]);
+    assert_eq!(group.body, "[[x/Tools]]");
+    assert_eq!(title_of(&[group]).map(|t| t.text).as_deref(), Some("Tools"));
+    assert_eq!(batches(&same), [[sided("g", None, "left")]]);
+    assert_eq!(batches(&label), [[written("g", "Tools")]]);
 }
 
 // グループの各カードはそのタイトルを持ち、辺が指定されていなければタイトルは上辺に沿う。

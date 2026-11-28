@@ -34,7 +34,6 @@ pub(super) fn applied(mut view: ViewModel<RichText>, changes: Changes) -> ViewMo
             Panel::AtlasCallouts(value) => view.atlas_callouts = value,
             Panel::AtlasLinks(value) => view.atlas_links = value,
             Panel::AtlasUnplaced(value) => view.atlas_unplaced = value,
-            Panel::AtlasLinkSuggestions(value) => view.atlas_link_suggestions = value,
             Panel::Outline(value) => {
                 let outline = &mut view.outline;
                 outline.selection_mode = value.selection_mode;

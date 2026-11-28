@@ -610,6 +610,15 @@ fn typing_told_after_the_same_body_closes_the_opening() {
     assert_eq!(h.model.state.get_item_by_id("a").unwrap().body, "[[]]");
 }
 
+// 項目でない文（アトラスのダイアログ）も、ページの編集欄と同じく閉じる。消して開き括弧の後ろに戻ったときは閉じない。位置は文字で数える。
+#[test]
+fn a_text_that_is_no_item_closes_an_opening_as_an_editor_does() {
+    use crate::ops::outline_events::closed_typing;
+    assert_eq!(closed_typing("日", "日[[", 3).as_deref(), Some("日[[]]"));
+    assert_eq!(closed_typing("[[a", "[[", 2), None);
+    assert_eq!(closed_typing("", "plain", 5), None);
+}
+
 // 打った本文は、閉じる側がなくても、本文の変更として自動保存の予定に入る。
 #[test]
 fn what_is_typed_is_saved_as_a_change_of_the_body() {

@@ -341,27 +341,22 @@ cargo test --all-features
 
 - `atlas.js`: draws the scene. It sets the global `AtlasCanvas`.
 - `pixi.min.js`: PixiJS, the global `PIXI`. `atlas.js` needs it.
-- `pixi-ui.js`: @pixi/ui, the global `PIXI.ui`. Only the menus and the dialogs of an atlas
-  that can be edited need it.
-- `tweedle.umd.js`: tweedle.js, the global `tweedle_js`. `pixi-ui.js` needs it.
 
-The web shell loads all four in `src/atlasScripts.ts` of `client/apps/web-app/outliner-react`.
-A page that only shows an atlas, such as a static site, needs `pixi.min.js` and `atlas.js`.
-Load `pixi.min.js` first.
+The web shell loads both in `src/atlasScripts.ts` of `client/apps/web-app/outliner-react`.
+A page that only shows an atlas, such as a static site, needs the same two. Load
+`pixi.min.js` first. The menus of the canvas are drawn with PixiJS alone, and the dialogs of
+a text are HTML of the page that draws the canvas, so no @pixi/ui is needed.
 
-The three libraries are the files that their npm packages ship in `dist/`. They are a set:
-@pixi/ui 2.4.1 works with PixiJS 8 and tweedle.js 2.1.0. To move to new versions, install
-them in a scratch directory and copy the three files over:
+`pixi.min.js` is the file that the npm package of PixiJS ships in `dist/`. To move to a new
+version, install it in a scratch directory and copy the file over:
 
 ```powershell
 mkdir pixi-build; cd pixi-build
-npm i pixi.js@8 @pixi/ui@2 tweedle.js@2
+npm i pixi.js@8
 cp node_modules/pixi.js/dist/pixi.min.js <peta-journal>/atlas/web/pixi.min.js
-cp node_modules/@pixi/ui/dist/pixi-ui.js <peta-journal>/atlas/web/pixi-ui.js
-cp node_modules/tweedle.js/dist/tweedle.umd.js <peta-journal>/atlas/web/tweedle.umd.js
 ```
 
-Then build the frontend, open an atlas, and check the drawing and a dialog.
+Then build the frontend, open an atlas, and check the drawing and a menu.
 
 ## CI
 

@@ -382,17 +382,6 @@ fn a_refused_place_puts_the_card_back() {
     assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
 }
 
-fn removed_properties(h: &Harness) -> Vec<(String, String)> {
-    h.api
-        .calls_named("DeleteItemProperty")
-        .into_iter()
-        .map(|op| match op {
-            ApiOp::DeleteItemProperty { item_id, key } => (item_id.clone(), key.clone()),
-            _ => unreachable!(),
-        })
-        .collect()
-}
-
 // 取り除かれたカードは境界のプロパティを失い、再び未配置のまま待機する。
 #[test]
 fn a_removed_card_loses_its_bounds_and_waits_unplaced_again() {
@@ -522,11 +511,6 @@ fn nothing_is_placed_at_a_point_that_is_no_number() {
             y,
             side: "top".into(),
             text: "Hi".into(),
-        });
-        h.send(Event::AddAtlasLink {
-            x,
-            y,
-            target: "x/Target".into(),
         });
         h.send(Event::MoveAtlasCallout {
             key: "c".into(),

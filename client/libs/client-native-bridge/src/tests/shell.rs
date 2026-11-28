@@ -1030,7 +1030,7 @@ fn the_first_changes_of_an_opened_page_are_a_reset_and_every_panel() {
     let changes = screen.shell.take_changes();
 
     assert_eq!(reset_ids(&changes), ["a"]);
-    assert_eq!(changes.panels.len(), 17);
+    assert_eq!(changes.panels.len(), 16);
 }
 
 // 続けて読んだ差分は、空である。

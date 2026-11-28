@@ -24,6 +24,8 @@ sosuisen.netは、アトラスをサイトに描くために、この2か所を�
 
 `pixi-ui.js`と`tweedle.umd.js`は、アトラスの編集のためのもので、表示だけのページは使わない。それでも、`pixi.min.js`と一緒に置く。3つは版が組になっているためである。
 
+（2026-11-29）`pixi-ui.js`と`tweedle.umd.js`は、置かなくなった。メニューはPixiJSだけで描き、テキストのダイアログは、キャンバスを描くページのHTMLになったためである（ADR 053、#1303）。`atlas/web/`のライブラリは`pixi.min.js`だけである。
+
 `highlight.min.js`と`highlight-github.css`は、アトラスと関係がない。シェルのクレートの`vendor/`に残す。
 
 Web版のシェルは、`index.html`から`../../../atlas/web/`のスクリプトを読む。Trunkは、クレートの外のスクリプトも、名前にハッシュを付けて`dist`に入れる。sosuisen.netは、`atlas/web/`からスクリプトをコピーする。

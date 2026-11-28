@@ -28,6 +28,7 @@ mod moving;
 
 // 書き込む
 mod callouts;
+mod editing;
 mod links;
 
 // ほかで眺める
@@ -312,6 +313,18 @@ fn drop_on(h: &mut Harness, card_id: &str, x: f64, y: f64) {
         target_id: None,
         parent_id: None,
     });
+}
+
+/// The properties deleted one at a time, each as the item and the key
+fn removed_properties(h: &Harness) -> Vec<(String, String)> {
+    h.api
+        .calls_named("DeleteItemProperty")
+        .into_iter()
+        .map(|op| match op {
+            ApiOp::DeleteItemProperty { item_id, key } => (item_id.clone(), key.clone()),
+            _ => unreachable!(),
+        })
+        .collect()
 }
 
 fn deleted(id: &str) -> BatchOpInput {
