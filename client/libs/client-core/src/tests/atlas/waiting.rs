@@ -170,7 +170,7 @@ fn the_index_of_the_folder_itself_has_a_card_as_any_page_of_the_folder() {
     assert!(h.view().atlas_links.is_empty());
 }
 
-// 座標のない項目は、アトラスのページにあって置かれていないカードとコールアウトである。項目の順に並ぶ。
+// 座標のない項目（Not on Atlas）は、アトラスのページにあって置かれていないリンクカード、ノーマルカード、コールアウトである。項目の順に並ぶ。置かれていないページカードは、ページとしてPagesに並ぶ。
 #[test]
 fn the_cards_and_callouts_without_a_place_wait_in_the_order_of_their_items() {
     let h = atlas_of(
@@ -194,11 +194,10 @@ fn the_cards_and_callouts_without_a_place_wait_in_the_order_of_their_items() {
             waiting("out", "Far", Some("x/far"), false),
             waiting("gone", "gone", None, false),
             waiting("text", "plain text", None, false),
-            waiting("a/b/one", "one", Some("a/b/one"), false),
             waiting("call", "Hi", None, false),
-            waiting("a/b/c/index", "Folder", Some("a/b/c/index_atlas"), true),
         ]
     );
+    assert_eq!(not_added(&h), ["a/b/c/index", "a/b/one"]);
 }
 
 // `atlas_bounds`のない親は描かれず、座標のない項目に出る。その下の項目もすべて、自分の`atlas_bounds`の有無によらず、座標のない項目に出て、アトラスには描かれない。座標のある親の下では、座標のない項目だけが出る。

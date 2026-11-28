@@ -1671,12 +1671,13 @@ pub fn cards(model: &Model) -> Vec<PageCard> {
 
 /// What waits beside the canvas of the shown atlas page: the pages not added, then the items
 /// without a place (ADR 053).
-/// A page not added is a page of the directory that no page card links to, in the order the
-/// pages are listed. The link of a card without a place counts, and so does the link of a
-/// parent, so no page waits in both lists.
-/// An item without a place is one that is not drawn: an item without `atlas_bounds`, a parent
-/// too, and every item under such a parent, whatever its own `atlas_bounds`. They wait in the
-/// order of the items.
+/// A page not added waits among the pages: a page of the directory that no card links to, or
+/// one whose page card has no `atlas_bounds` of its own, in the order the pages are listed. A
+/// page card always goes back to the pages, so the shell names it by its page and its item is
+/// placed again. The link of a parent counts as a link, so no page waits in both lists.
+/// An item without a place is one that is not drawn, but for those page cards: an item without
+/// `atlas_bounds`, a parent too, and every item under such a parent, whatever its own
+/// `atlas_bounds`. They wait in the order of the items.
 pub fn unplaced(model: &Model) -> Vec<UnplacedCard> {
     if shown_atlas_page(model).is_none() {
         return Vec::new();
@@ -1689,24 +1690,38 @@ pub fn unplaced(model: &Model) -> Vec<UnplacedCard> {
         .filter_map(|link| page_of(model, link.target))
         .map(|page| page.id.as_str())
         .collect();
+    let cards = card_entries(model);
+    // The cards of pages that have no bounds of their own: their pages wait among the pages
+    let back: Vec<&Card> = cards
+        .iter()
+        .filter(|card| card.page_id.is_some() && bounds_of(card.item).is_none())
+        .collect();
     let not_added = sorted_dir_pages(model)
         .into_iter()
-        .filter(|page| !linked.contains(&page.id.as_str()))
+        .filter(|page| {
+            !linked.contains(&page.id.as_str())
+                || back
+                    .iter()
+                    .any(|card| card.page_id == Some(page.id.as_str()))
+        })
         .map(|page| UnplacedCard {
             added: false,
             ..waiting_page(model, &page, None)
         });
-    let cards = card_entries(model);
-    let no_place = entries.iter().filter(|e| e.place.is_none()).map(|e| {
-        match cards.iter().find(|card| card.item.id == e.item.id) {
-            Some(card) => waiting_card(model, card.item, card.page_id),
-            None if e.kind == Kind::Callout => {
-                waiting_text(e.item, first_line(&e.item.body).trim().to_string())
+    let no_place = entries
+        .iter()
+        .filter(|e| e.place.is_none())
+        .filter(|e| !back.iter().any(|card| card.item.id == e.item.id))
+        .map(|e| {
+            match cards.iter().find(|card| card.item.id == e.item.id) {
+                Some(card) => waiting_card(model, card.item, card.page_id),
+                None if e.kind == Kind::Callout => {
+                    waiting_text(e.item, first_line(&e.item.body).trim().to_string())
+                }
+                // A parent is named as a card with its body would be
+                None => waiting_card(model, e.item, None),
             }
-            // A parent is named as a card with its body would be
-            None => waiting_card(model, e.item, None),
-        }
-    });
+        });
     not_added.chain(no_place).collect()
 }
 
