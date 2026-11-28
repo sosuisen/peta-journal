@@ -31,6 +31,8 @@ test.describe('Edit and Add Card of the canvas', () => {
     const server = new Server(request);
     const folder = await server.newDocPage('edit-card');
     const dir = `${folder.title}/`;
+    // A page that a link of the new card names
+    const target = await server.newDocPage('link-target');
     const atlas = await server.newAtlas(dir);
     const [plain] = await server.fill(atlas.id, ['plain note']);
     const placed = await request.put(
@@ -49,14 +51,22 @@ test.describe('Edit and Add Card of the canvas', () => {
     await page.keyboard.type('a new card');
     await page.keyboard.press('Enter');
     await page.keyboard.type('**second** line');
+    // A `[[` is closed as in the editor of a page, and the page names come to pick from
+    await page.keyboard.press('Enter');
+    await page.keyboard.type(`see [[${target.title.slice(0, 8)}`);
+    await dialog
+      .locator('.atlas-dialog-suggestion', { hasText: target.title })
+      .click();
     await dialog.getByRole('tab', { name: 'Preview' }).click();
     const preview = dialog.locator('.atlas-dialog-preview .item-content');
     await expect(preview).toContainText('a new card');
     await expect(preview.locator('strong')).toHaveText('second');
+    await expect(preview.locator('a[data-wikilink]')).toHaveText(target.title);
     await dialog.getByRole('button', { name: 'OK' }).click();
     const added = await server.itemsSettled(atlas.id, all => all.length === 2);
 
-    // Edit of the plain card, drawn by now: the cursor is at the end of its body
+    // Edit of the plain card. The new card may still be drawing the cards anew; a right click
+    // takes the card under it all the same. The cursor is at the end of its body.
     const [cx, cy] = await onScreen(page, 0, 0);
     await firstOfMenu(page, cx, cy);
     await expect(page.getByRole('dialog', { name: 'Edit' })).toBeVisible();
@@ -76,11 +86,15 @@ test.describe('Edit and Add Card of the canvas', () => {
       added.map(i => [i.level, i.body, place(i.properties.atlas_bounds)]),
     ).toEqual([
       [1, 'plain note', [0, 0, 0, 40]],
-      [1, 'a new card\n**second** line', [0, 120, 0, 40]],
+      [
+        1,
+        `a new card\n**second** line\nsee [[${target.title}]]`,
+        [0, 120, 0, 40],
+      ],
     ]);
     expect(edited.map(i => i.body)).toEqual([
       'plain note more',
-      'a new card\n**second** line',
+      `a new card\n**second** line\nsee [[${target.title}]]`,
     ]);
   });
 });
