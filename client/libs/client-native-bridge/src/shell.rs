@@ -288,7 +288,10 @@ impl NativeShell {
                 Effect::Navigate(request) => send(ShellEffect::Navigate(request)),
             }
         });
-        router.update(Event::Start { client_id });
+        router.update(Event::Start {
+            client_id,
+            opens_new_day: true,
+        });
         NativeShell {
             router,
             clock,

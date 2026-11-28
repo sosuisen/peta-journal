@@ -9,6 +9,7 @@ fn started() -> Harness {
     let mut h = Harness::new();
     h.send(Event::Start {
         client_id: crate::rest::ClientId::new(),
+        opens_new_day: true,
     });
     h
 }
@@ -279,6 +280,7 @@ fn the_first_open_of_the_stream_reads_no_page_again() {
     let mut h = Harness::with_items(vec![crate::harness::item("a", 1, "old")]);
     h.send(Event::Start {
         client_id: crate::rest::ClientId::new(),
+        opens_new_day: true,
     });
 
     sse(&mut h, SseEvent::Open);

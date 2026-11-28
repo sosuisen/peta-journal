@@ -146,7 +146,10 @@ impl<H: Host> Bridge<H> {
             self.send(Event::IndexSortsRestored(self.stored(INDEX_SORTS_KEY)));
             self.send(Event::AtlasDirsRestored(self.stored(ATLAS_DIRS_KEY)));
             let client_id = self.client_id.clone();
-            self.send(Event::Start { client_id });
+            self.send(Event::Start {
+                client_id,
+                opens_new_day: true,
+            });
             self.open(url);
         })
     }

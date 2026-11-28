@@ -20,6 +20,7 @@ fn the_events_of_the_shell_arrive_as_they_were_sent() {
     let events = [
         Event::Start {
             client_id: ClientId::new(),
+            opens_new_day: true,
         },
         Event::Route {
             route: Route::Page {

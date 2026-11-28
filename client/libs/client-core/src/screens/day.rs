@@ -53,7 +53,7 @@ pub fn seen(model: &mut Model, today: String) -> Cmd {
     // Opening a page closes the editor, and the text typed would be cut short. The next look
     // at the clock tries again
     let editing = !model.state.editing_item_ids().is_empty();
-    if !old_day || editing {
+    if !model.opens_new_day || !old_day || editing {
         return Command::done();
     }
     route::open(model, "today", None)

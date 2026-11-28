@@ -13,6 +13,7 @@ fn today_open() -> Harness {
     let mut h = Harness::new();
     h.send(Event::Start {
         client_id: ClientId::new(),
+        opens_new_day: true,
     });
     h.send(Event::Route {
         route: Route::Page {

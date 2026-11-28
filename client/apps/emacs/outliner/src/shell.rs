@@ -263,6 +263,7 @@ impl<H: Host> Shell<H> {
             Inbound::Start { url } => {
                 self.send(Event::Start {
                     client_id: self.client_id.clone(),
+                    opens_new_day: true,
                 });
                 self.open(url);
             }

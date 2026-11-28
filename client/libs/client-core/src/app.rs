@@ -133,6 +133,10 @@ pub enum Event {
     /// that the shell made for itself and sends with every change request (ADR-015).
     Start {
         client_id: ClientId,
+        /// False when the journal of today stays on its day after the date changes. A shell
+        /// whose journal core runs no extension says false: the journal it made would have no
+        /// template (#1307).
+        opens_new_day: bool,
     },
     /// The URL changed; `today` is the local date as `YYYY-MM-DD`.
     Route {
@@ -1144,6 +1148,8 @@ pub struct Model {
     pub clipboard: Option<(String, String)>,
     /// The local date the shell last reported, `YYYY-MM-DD`.
     pub today: String,
+    /// Whether the journal of today opens the new day when the date changes (#1307).
+    pub opens_new_day: bool,
     /// The year and the month the calendar was moved to; None while it shows the month of
     /// today.
     pub calendar_month: Option<(i32, u32)>,
@@ -1185,6 +1191,7 @@ impl Default for Model {
             scrolled_from_top: false,
             clipboard: None,
             today: String::new(),
+            opens_new_day: true,
             calendar_month: None,
             hmtid: hmtid::Generator::for_pages_and_items(),
             clock_ms: 0,
@@ -1267,8 +1274,12 @@ impl<B: crate::body_model::BodyModel> App for PetaApp<B> {
 fn dispatch(event: Event, model: &mut Model) -> Cmd {
     use Event::*;
     match event {
-        Start { client_id } => {
+        Start {
+            client_id,
+            opens_new_day,
+        } => {
             model.client_id = client_id;
+            model.opens_new_day = opens_new_day;
             screens::start::start(model)
         }
         Route { route, today } => screens::route::route(model, route, today),
