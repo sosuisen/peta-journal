@@ -605,10 +605,16 @@ describe('what waits beside the canvas', () => {
     return { ...drawn, listed, host };
   }
 
-  // 横のリストは、未追加の項目と、座標のない項目の2つのグループに分かれる。フォルダには印がつく。
-  test('the list beside the canvas has a group of the pages not added and a group of the items without a place', async () => {
+  // 横のリストは、ページ（Pages）と、アトラスにない項目（Not on Atlas）の2つのグループに分かれ、間に線がある。フォルダには印がつく。
+  test('the list beside the canvas has a group of the pages and a group of what is not on the atlas, with a line between', async () => {
     const { container } = await unplaced();
 
+    const list = container.querySelector('.atlas-unplaced') as HTMLElement;
+    expect([...list.children].map(e => e.className)).toEqual([
+      'atlas-unplaced-group',
+      'atlas-unplaced-separator',
+      'atlas-unplaced-group',
+    ]);
     const groups = [...container.querySelectorAll('.atlas-unplaced-group')];
     expect(
       groups.map(group => [
@@ -620,14 +626,14 @@ describe('what waits beside the canvas', () => {
       ]),
     ).toEqual([
       [
-        'Not Added',
+        'Pages',
         [
           ['atlas-card', 'B'],
           ['atlas-card folder', 'C'],
         ],
       ],
       [
-        'No Place',
+        'Not on Atlas',
         [
           ['atlas-card', 'D'],
           ['atlas-card', 'T'],
