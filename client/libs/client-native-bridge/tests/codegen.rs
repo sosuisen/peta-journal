@@ -83,7 +83,7 @@ fn the_csharp_types_of_the_border_are_written() {
     for declared in [
         "abstract record Event",
         "partial class ViewModel",
-        "abstract record ShellEffect",
+        "closed record ShellEffect",
         "partial class Requests",
         "abstract record UiOutput",
         "partial class PageView",
