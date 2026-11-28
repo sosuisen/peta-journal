@@ -544,9 +544,10 @@ window.AtlasCanvas = class AtlasCanvas {
     } else if (panning.button === 2 && panning.card?.linkData && !panning.card.destroyed) {
       const data = panning.card.linkData;
       const actions = {
-        'Edit Link': () => this.openLinkDialog(data),
-        'Remove Link': () => this.onRemoveLink?.(data.id),
         'Show Text': () => this.onShowText?.(data.id, e.clientX, e.clientY),
+        'Edit Link': () => this.openLinkDialog(data),
+        'Remove from Atlas': () => this.onRemove?.(data.id),
+        'Delete Card': () => this.onRemoveLink?.(data.id),
       };
       this.openMenu(
         linkCardMenu(data).map(name => [name, actions[name]]),
@@ -1231,15 +1232,21 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   // onAddLink(x, y, target) adds a link card with its center at a point; onSetLink(id, target)
-  // links one to another page; onRemoveLink(id) takes one away, deleting its link. A link card
-  // moves and scales as any card does. onLinkQuery(text) asks for the page names that match
-  // what is typed in the dialog of a link, which come back through setLinkSuggestions; an
-  // empty text clears them.
+  // links one to another page; onRemoveLink(id) is Delete Card of a link card or a plain card,
+  // which deletes its item. A link card moves and scales as any card does. onLinkQuery(text)
+  // asks for the page names that match what is typed in the dialog of a link, which come back
+  // through setLinkSuggestions; an empty text clears them.
   setOnLink(onAddLink, onSetLink, onRemoveLink, onLinkQuery) {
     this.onAddLink = onAddLink;
     this.onSetLink = onSetLink;
     this.onRemoveLink = onRemoveLink;
     this.onLinkQuery = onLinkQuery;
+  }
+
+  // onRemove(id) is Remove from Atlas of a link card or a plain card: the card leaves the
+  // canvas, and its item stays to be placed again. A page card has the menu of the shell.
+  setOnRemove(onRemove) {
+    this.onRemove = onRemove;
   }
 
   // The page names for the open dialog of a link, as a JSON list of strings
@@ -1787,9 +1794,11 @@ function dropMode(e) {
 }
 
 // The names of the items of the menu of a link card or a plain card, in their order. A plain
-// card links to no page, so it has no link to edit.
+// card links to no page, so it has no link to edit. Remove from Atlas only takes the card off
+// the canvas; Delete Card deletes its item.
 function linkCardMenu(data) {
-  return data.isPlain ? ['Show Text'] : ['Edit Link', 'Remove Link', 'Show Text'];
+  const edit = data.isPlain ? [] : ['Edit Link'];
+  return ['Show Text', ...edit, 'Remove from Atlas', 'Delete Card'];
 }
 
 // The groups that what a drag moves can be taken out of with Ctrl: every group a dragged card
