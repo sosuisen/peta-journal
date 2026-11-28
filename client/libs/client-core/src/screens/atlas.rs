@@ -1155,15 +1155,20 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
 /// How a card that stands for no page of the directory is colored: blue for another card to
 /// a page of the directory, gray for one to a page the directory does not have, orange for a
 /// link out of it, yellow for a plain card. The directory is known to lack a page only once its
-/// list is in.
+/// list is in. A link to `today` is orange on any atlas: today's page can always be opened, and
+/// the list of no directory holds it (2026-11-28).
 fn tone_of(model: &Model, link: Option<plain::CardLink>) -> CardTone {
     match link {
         Some(link) if page_of(model, link.target).is_some() => CardTone::Page,
+        Some(link) if link.target == TODAY => CardTone::Link,
         Some(link) if in_atlas_dir(model, link.target) && index_loaded(model) => CardTone::Missing,
         Some(_) => CardTone::Link,
         None => CardTone::Plain,
     }
 }
+
+/// The name a link opens today's page by.
+const TODAY: &str = "today";
 
 /// Whether a path names a page of the directory of the shown atlas, or the index of a folder
 /// in it: the pages the list of the directory holds.

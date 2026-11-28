@@ -8,6 +8,9 @@ mod navigation;
 // 項目を描き分ける
 mod kinds;
 
+// 今日のページへリンクする
+mod today;
+
 // カードを置く
 mod cards;
 
