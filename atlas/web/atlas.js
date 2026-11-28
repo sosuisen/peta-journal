@@ -114,7 +114,8 @@ const MASKED_ALPHA = 0.7;
 
 window.AtlasCanvas = class AtlasCanvas {
   // onOpen(path, newTab, newWindow) opens the page of a card whose label is clicked.
-  // onPlace(pageId, x, y) places the card of a page with its center at a point.
+  // onPlace(id, x, y) places a card with its center at a point of the canvas, or a group, named
+  // by the id of its item, with the place of its item there.
   // onMenu(pageId, clientX, clientY) opens the menu of a card that is right-clicked.
   // onView(panX, panY, zoom) keeps the view once the hand tool or the wheel has stopped.
   // panX, panY and zoom are the view to start with, as onView last gave them.
