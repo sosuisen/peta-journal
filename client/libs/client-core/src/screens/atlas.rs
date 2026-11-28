@@ -24,8 +24,8 @@
 //! away in the same batch: the side is of the title of a group, and the item is no group any
 //! more. Nothing is cleaned up for a change made in the outline or in the `.md`.
 
-use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model};
-use crate::effects::{Api, ApiResult, TimerOutput, UiOp};
+use crate::app::{done, run, Cmd, Event, Model};
+use crate::effects::{Api, ApiResult, UiOp};
 use crate::model::{BatchOpInput, Item, ItemPosition, Page, PropertyValue};
 use crate::model::{ItemExt, PageExt};
 use crate::ops::file_reload;
@@ -1531,15 +1531,6 @@ fn shown_atlas_page(model: &Model) -> Option<&Page> {
     super::page::shown_doc_page(model).filter(|p| super::page::is_atlas(p))
 }
 
-/// The target typed in the dialog of a link, without the brackets of a link around it, as the
-/// link adds its own. None when nothing is left, or when brackets are left inside.
-fn typed_link_target(target: &str) -> Option<String> {
-    let target = target.trim();
-    let target = link_target(target).unwrap_or(target).trim();
-    (!target.is_empty() && !target.contains("[[") && !target.contains("]]"))
-        .then(|| target.to_string())
-}
-
 /// Writes the Markdown of the Edit of a card as the body of its item. An empty text or the
 /// same body changes nothing: "Delete Card" takes a card away.
 pub fn set_card_text(model: &mut Model, card_id: String, text: String) -> Cmd {
@@ -1584,89 +1575,12 @@ pub fn add_text_card(model: &mut Model, x: f64, y: f64, text: String) -> Cmd {
     change(model, vec![card])
 }
 
-/// Adds a link card to the shown atlas page with its center at the point. The card shows once
-/// the server has made its item.
-pub fn add_link(model: &mut Model, x: f64, y: f64, target: String) -> Cmd {
-    let Some(target) = typed_link_target(&target) else {
-        return done();
-    };
-    if !x.is_finite() || !y.is_finite() {
-        return done();
-    }
-    add_card(model, &target, x, y)
-}
-
-/// Links a link card to another page. An empty target changes nothing, as "Delete Card" takes
-/// a card away. The card keeps the label of its link and the lines after the first.
-pub fn set_link(model: &mut Model, item_id: String, target: String) -> Cmd {
-    let Some(card) = link_cards(model).into_iter().find(|c| c.item_id == item_id) else {
-        return done();
-    };
-    let Some(target) = typed_link_target(&target) else {
-        return done();
-    };
-    let Some(item) = model
-        .state
-        .get_item_by_id(&item_id)
-        .filter(|_| card.target.as_deref().is_some_and(|t| t != target))
-    else {
-        return done();
-    };
-    let body = plain::relinked(&item.body, &target);
-    change(
-        model,
-        rewritten(&item_id, Some(body), None).into_iter().collect(),
-    )
-}
-
 /// Deletes a link card or a plain card: its item is deleted, and with it the link.
 pub fn remove_link(model: &mut Model, item_id: String) -> Cmd {
     if !link_cards(model).iter().any(|c| c.item_id == item_id) {
         return done();
     }
     delete(model, item_id)
-}
-
-/// How long typing in the dialog of a link may pause before the page names are searched.
-pub const LINK_SEARCH_DELAY_MS: u32 = 150;
-/// How many page names the dialog of a link offers.
-pub const LINK_SUGGESTIONS: u32 = 8;
-
-/// The page names that match the text typed in the dialog of a link, found after a pause in
-/// the typing. An empty text clears them.
-pub fn search_links(model: &mut Model, query: String) -> Cmd {
-    let cancel = cancel_timer(&mut model.atlas_link_search.timer_id);
-    let query = query.trim().to_string();
-    if query.is_empty() {
-        model.atlas_link_search.suggestions.clear();
-        return cancel;
-    }
-    let timer_id = model.next_timer_id();
-    model.atlas_link_search.timer_id = timer_id;
-    let search = run(move |api| async move {
-        if api.sleep(timer_id, LINK_SEARCH_DELAY_MS).await != TimerOutput::Fired {
-            return;
-        }
-        let titles = match api.search_page_names(&query, LINK_SUGGESTIONS).await {
-            Ok(results) => results.into_iter().map(|r| r.page_title).collect(),
-            Err(e) => {
-                log_error(format!("Atlas link search failed: {e}"));
-                Vec::new()
-            }
-        };
-        api.send_event(Event::AtlasLinksSuggested { timer_id, titles });
-    });
-    Command::all([cancel, search])
-}
-
-/// The page names the search the timer `timer_id` started found. The names of an older
-/// search are not shown.
-pub fn show_link_suggestions(model: &mut Model, timer_id: u64, titles: Vec<String>) -> Cmd {
-    if model.atlas_link_search.timer_id == timer_id {
-        model.atlas_link_search.timer_id = 0;
-        model.atlas_link_search.suggestions = titles;
-    }
-    done()
 }
 
 /// The card of a page of the directory of the shown atlas page.

@@ -20,7 +20,6 @@ extension ViewModel {
             atlasCallouts: the { if case .atlasCallouts(let it) = $0 { it } else { nil } },
             atlasLinks: the { if case .atlasLinks(let it) = $0 { it } else { nil } },
             atlasUnplaced: the { if case .atlasUnplaced(let it) = $0 { it } else { nil } },
-            atlasLinkSuggestions: the { if case .atlasLinkSuggestions(let it) = $0 { it } else { nil } },
             outline: OutlineView(outline, rows: [Row]().applying(changes.rows)),
             indexPages: IndexPagesView(
                 the { if case .indexPages(let it) = $0 { it } else { nil } },
@@ -64,7 +63,6 @@ extension ViewModel {
         case .atlasCallouts(let value): atlasCallouts = value
         case .atlasLinks(let value): atlasLinks = value
         case .atlasUnplaced(let value): atlasUnplaced = value
-        case .atlasLinkSuggestions(let value): atlasLinkSuggestions = value
         case .outline(let value): outline = OutlineView(value, rows: outline.rows)
         case .indexPages(let value): indexPages = IndexPagesView(value, pages: indexPages.pages)
         case .headings(let value): headings.state = value.state

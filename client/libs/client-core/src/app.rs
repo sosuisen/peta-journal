@@ -703,25 +703,9 @@ pub enum Event {
         y: f64,
         text: String,
     },
-    /// A link card with its center at the point, linking to the target page. The web shell
-    /// sends "Add Card" instead.
-    AddAtlasLink {
-        x: f64,
-        y: f64,
-        target: String,
-    },
-    /// A link card linked to another page. The web shell sends "Edit" instead.
-    SetAtlasLink {
-        item_id: String,
-        target: String,
-    },
     /// The "Delete Card" of a link card or a plain card: its item is deleted
     RemoveAtlasLink {
         item_id: String,
-    },
-    /// The text typed in a dialog of a link, to find page names for it
-    SearchAtlasLinks {
-        query: String,
     },
     /// The callout menu's "Edit". An empty text takes the callout away.
     SetAtlasCallout {
@@ -764,11 +748,6 @@ pub enum Event {
     AtlasChanged {
         atlas_id: String,
         items: Vec<Item>,
-    },
-    /// The page names the search the timer `timer_id` started found for the dialog of a link.
-    AtlasLinksSuggested {
-        timer_id: u64,
-        titles: Vec<String>,
     },
     /// The page menu: show the property rows of the doc page even while it has none.
     EditPageProperties,
@@ -1057,14 +1036,6 @@ pub struct SearchState {
     pub held_keys: Vec<SearchKey>,
 }
 
-/// The page names offered in the dialog of an atlas link, and the timer of the pause before
-/// they are searched.
-#[derive(Debug, Default)]
-pub struct AtlasLinkSearch {
-    pub suggestions: Vec<String>,
-    pub timer_id: u64,
-}
-
 #[derive(Debug, Default)]
 pub struct WikiState {
     pub item_id: Option<String>,
@@ -1145,7 +1116,6 @@ pub struct Model {
     pub sidebar: SidebarState,
     pub search: SearchState,
     pub wiki: WikiState,
-    pub atlas_link_search: AtlasLinkSearch,
     pub config: ConfigState,
     pub connection: ConnectionState,
     /// The ID this client names itself with. The server sends it back with the changes this
@@ -1191,7 +1161,6 @@ impl Default for Model {
             sidebar: SidebarState::default(),
             search: SearchState::default(),
             wiki: WikiState::default(),
-            atlas_link_search: AtlasLinkSearch::default(),
             config: ConfigState::default(),
             connection: ConnectionState::Disconnected,
             client_id: ClientId::new(),
@@ -1616,10 +1585,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         ScaleAtlasCallout { key, scale } => screens::atlas::scale_callout(model, key, scale),
         SetAtlasCardText { card_id, text } => screens::atlas::set_card_text(model, card_id, text),
         AddAtlasCard { x, y, text } => screens::atlas::add_text_card(model, x, y, text),
-        AddAtlasLink { x, y, target } => screens::atlas::add_link(model, x, y, target),
-        SetAtlasLink { item_id, target } => screens::atlas::set_link(model, item_id, target),
         RemoveAtlasLink { item_id } => screens::atlas::remove_link(model, item_id),
-        SearchAtlasLinks { query } => screens::atlas::search_links(model, query),
         SetAtlasCallout { key, side, text } => screens::atlas::set_callout(model, key, side, text),
         RemoveAtlasCard { page_id } => screens::atlas::remove_card(model, page_id),
         GroupAtlasCards {
@@ -1639,9 +1605,6 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             screens::atlas::put_bounds_back(model, &item_id, before)
         }
         AtlasChanged { atlas_id, items } => screens::atlas::show_changed(model, &atlas_id, items),
-        AtlasLinksSuggested { timer_id, titles } => {
-            screens::atlas::show_link_suggestions(model, timer_id, titles)
-        }
         EditPageProperties => screens::page::edit_properties(model),
         SetPageProperty {
             key,

@@ -72,46 +72,6 @@ fn a_link_card_under_a_group_item_belongs_to_the_group() {
     );
 }
 
-// 追加されたリンクは、丸めた位置を持つwikilinkの項目として作られ、読み直したアウトラインが表示される。リンク先の括弧と空白は取り除かれる。
-#[test]
-fn an_added_link_is_made_as_an_item_with_its_place() {
-    let mut h = atlas_of(vec![], vec![]);
-    answer_outline(
-        &mut h,
-        vec![link_item("new", "[[x/Target]]", Some("10,-21,0,40"))],
-    );
-    h.send(Event::AddAtlasLink {
-        x: 10.4,
-        y: -20.6,
-        target: " [[x/Target]] ".into(),
-    });
-
-    assert_eq!(
-        batches(&h),
-        [[made(
-            ItemPosition::Last,
-            "[[x/Target]]",
-            &[("atlas_bounds", "10,-21,0,40")]
-        )]]
-    );
-    let links = h.view().atlas_links;
-    assert_eq!(links.len(), 1);
-    assert_eq!(links[0].target.as_deref(), Some("x/Target"));
-}
-
-// 空のリンクは追加されない。
-#[test]
-fn an_empty_link_is_not_added() {
-    let mut h = atlas_of(vec![], vec![]);
-    h.send(Event::AddAtlasLink {
-        x: 0.0,
-        y: 0.0,
-        target: " [[ ]] ".into(),
-    });
-
-    assert!(batches(&h).is_empty());
-}
-
 // リンクカードは、ページカードと同じように移動と拡大縮小ができる。
 #[test]
 fn a_link_card_moves_and_scales_as_a_card() {
@@ -290,18 +250,6 @@ fn only_a_link_card_is_removed_as_a_link() {
     assert!(batches(&h).is_empty());
 }
 
-// リンクカードを編集すると、新しいページへのリンクになる。リンク先の括弧と空白は取り除かれる。
-#[test]
-fn editing_a_link_card_links_it_to_the_new_page() {
-    let mut h = atlas_with_link();
-    h.send(Event::SetAtlasLink {
-        item_id: "l".into(),
-        target: " [[y/Other]] ".into(),
-    });
-
-    assert_eq!(batches(&h), [[written("l", "[[y/Other]]")]]);
-}
-
 /// An atlas whose only item is the link `l` to `x/Target`, shown as Shown, with a second line
 fn atlas_with_labelled_link() -> Harness {
     atlas_of(
@@ -320,66 +268,4 @@ fn the_target_of_a_link_card_with_a_label_is_its_path_alone() {
     let h = atlas_with_labelled_link();
 
     assert_eq!(h.view().atlas_links[0].target.as_deref(), Some("x/Target"));
-}
-
-// リンクカードの宛先を変えても、ラベルと2行目より後は保たれる。同じパスへの編集では何も変わらない。
-#[test]
-fn a_link_card_linked_to_another_page_keeps_its_label_and_its_later_lines() {
-    let mut h = atlas_with_labelled_link();
-    for target in ["x/Target", "y/Other"] {
-        h.send(Event::SetAtlasLink {
-            item_id: "l".into(),
-            target: target.into(),
-        });
-    }
-
-    assert_eq!(batches(&h), [[written("l", "[[y/Other|Shown]]\nmore")]]);
-}
-
-// 空のリンク先や同じページへの編集、ページカードへの編集では何も変わらない。
-#[test]
-fn an_edit_of_a_link_to_nothing_or_to_the_same_page_changes_nothing() {
-    let mut h = atlas_with_link();
-    h.send(Event::SetAtlasLink {
-        item_id: "l".into(),
-        target: "  ".into(),
-    });
-    h.send(Event::SetAtlasLink {
-        item_id: "l".into(),
-        target: "x/Target".into(),
-    });
-    h.send(Event::SetAtlasLink {
-        item_id: "i-one".into(),
-        target: "y/Other".into(),
-    });
-
-    assert!(batches(&h).is_empty());
-    assert_eq!(h.view().atlas_links[0].target.as_deref(), Some("x/Target"));
-}
-
-// リンクのダイアログは、入力が一息置いた後にページ名の候補を示す。検索語が空になると候補は空になる。
-#[test]
-fn the_dialog_of_a_link_offers_page_names_after_a_pause() {
-    let mut h = atlas_with(&[]);
-    let found = |title: &str| crate::model::SearchResult {
-        page_title: title.into(),
-        ..Default::default()
-    };
-    h.api.answer_next(
-        "SearchPageNames",
-        Ok(ApiOutput::SearchResults(vec![
-            found("x/Target"),
-            found("x/Tea"),
-        ])),
-    );
-    h.send(Event::SearchAtlasLinks {
-        query: "x/T".into(),
-    });
-    assert!(h.view().atlas_link_suggestions.is_empty());
-
-    h.fire_timers();
-    assert_eq!(h.view().atlas_link_suggestions, ["x/Target", "x/Tea"]);
-
-    h.send(Event::SearchAtlasLinks { query: "".into() });
-    assert!(h.view().atlas_link_suggestions.is_empty());
 }

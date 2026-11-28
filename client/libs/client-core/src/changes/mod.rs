@@ -83,7 +83,6 @@ pub enum Panel {
     AtlasCallouts(Vec<Callout>),
     AtlasLinks(Vec<LinkCard>),
     AtlasUnplaced(Vec<UnplacedCard>),
-    AtlasLinkSuggestions(Vec<String>),
     Outline(OutlinePanel),
     IndexPages(IndexPagesPanel),
     Headings(HeadingsPanel),
@@ -259,7 +258,6 @@ fn panels<B>(view: &ViewModel<B>) -> Vec<Panel> {
         Panel::AtlasCallouts(view.atlas_callouts.clone()),
         Panel::AtlasLinks(view.atlas_links.clone()),
         Panel::AtlasUnplaced(view.atlas_unplaced.clone()),
-        Panel::AtlasLinkSuggestions(view.atlas_link_suggestions.clone()),
         Panel::Outline(OutlinePanel {
             selection_mode: outline.selection_mode,
             focus_request: outline.focus_request.clone(),

@@ -469,8 +469,6 @@ pub struct ViewModel<B> {
     /// What waits beside the canvas of the atlas page on screen: the pages not added, then
     /// the items without a place. Empty on any other screen.
     pub atlas_unplaced: Vec<UnplacedCard>,
-    /// The page names offered in the dialog of a link.
-    pub atlas_link_suggestions: Vec<String>,
     pub outline: OutlineView<B>,
     pub index_pages: IndexPagesView,
     pub headings: HeadingsView,
@@ -516,7 +514,6 @@ pub fn build<B: BodyModel>(model: &Model, bodies: &Bodies<B>) -> ViewModel<B> {
         atlas_callouts: atlas::shown_callouts(model),
         atlas_links: atlas::link_cards(model),
         atlas_unplaced: atlas::unplaced(model),
-        atlas_link_suggestions: model.atlas_link_search.suggestions.clone(),
         outline: outline(model, bodies),
         index_pages: index_pages(model),
         headings: headings(model),

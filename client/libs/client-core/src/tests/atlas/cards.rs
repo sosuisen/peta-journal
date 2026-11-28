@@ -512,11 +512,6 @@ fn nothing_is_placed_at_a_point_that_is_no_number() {
             side: "top".into(),
             text: "Hi".into(),
         });
-        h.send(Event::AddAtlasLink {
-            x,
-            y,
-            target: "x/Target".into(),
-        });
         h.send(Event::MoveAtlasCallout {
             key: "c".into(),
             x,

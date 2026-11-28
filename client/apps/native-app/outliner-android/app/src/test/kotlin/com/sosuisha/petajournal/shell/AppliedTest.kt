@@ -104,7 +104,6 @@ class AppliedTest {
             Panel.AtlasCallouts(emptyList()),
             Panel.AtlasLinks(emptyList()),
             Panel.AtlasUnplaced(emptyList()),
-            Panel.AtlasLinkSuggestions(listOf("suggested")),
             Panel.Outline(outline(selecting = true)),
             Panel.IndexPages(
                 IndexPagesPanel(
@@ -181,7 +180,6 @@ class AppliedTest {
         val view = firstView(Changes(listOf(RowChange.Reset(listOf(row("a")))), everyPanel()))
 
         assertEquals(ScreenView.Settings, view.screen)
-        assertEquals(listOf("suggested"), view.atlasLinkSuggestions)
         assertEquals(true, view.outline.selectionMode)
         assertEquals("current", view.indexPages.currentPageId)
         assertEquals(LoadState.FAILED, view.headings.state)

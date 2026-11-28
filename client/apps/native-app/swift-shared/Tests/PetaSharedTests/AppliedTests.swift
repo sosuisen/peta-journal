@@ -52,7 +52,6 @@ final class AppliedTests: XCTestCase {
             .atlasCallouts([]),
             .atlasLinks([]),
             .atlasUnplaced([]),
-            .atlasLinkSuggestions(["suggested"]),
             .outline(outline(selecting: true)),
             .indexPages(
                 IndexPagesPanel(
@@ -81,7 +80,6 @@ final class AppliedTests: XCTestCase {
         let view = ViewModel(first: changes(rows: [.reset(items: [row("a")])], panels: everyPanel()))
 
         XCTAssertEqual(view.screen, .settings)
-        XCTAssertEqual(view.atlasLinkSuggestions, ["suggested"])
         XCTAssertEqual(view.outline.selectionMode, true)
         XCTAssertEqual(view.indexPages.currentPageId, "current")
         XCTAssertEqual(view.headings.state, .failed)
