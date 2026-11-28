@@ -7,6 +7,7 @@ import {
   type DragEvent,
 } from 'react';
 import {
+  AtlasPlace,
   eventLinkClicked,
   richLinkFile,
   richLinkPage,
@@ -23,9 +24,14 @@ import { clickedLink, heldOf, highlightCode, sizeImages } from './drawnBody';
 
 /** The canvas of atlas.js, as this shell uses it. */
 interface AtlasCanvas {
-  setOnGroup(onGroup: (idsJson: string, targetId: string) => void): void;
-  setOnUngroup(onUngroup: (idsJson: string) => void): void;
-  setOnMove(onMove: (idsJson: string, parentId: string) => void): void;
+  /** placesJson is where each was let go on the canvas: [{ id, x, y }] */
+  setOnGroup(
+    onGroup: (idsJson: string, targetId: string, placesJson: string) => void,
+  ): void;
+  setOnUngroup(onUngroup: (idsJson: string, placesJson: string) => void): void;
+  setOnMove(
+    onMove: (idsJson: string, parentId: string, placesJson: string) => void,
+  ): void;
   setOnScale(onScale: (cardId: string, scale: number) => void): void;
   setOnGroupTitle(
     onGroupTitle: (groupId: string, side: string, title: string) => void,
@@ -248,10 +254,10 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
     if (x === null || y === null) {
       return;
     }
-    // With Ctrl, a card let go on a card joins its group, and one let go on the blob of a
-    // parent goes under the item of that parent: it becomes a sibling of what it is dropped
-    // on. With Shift too, a card let go on a card goes under that card, and nothing more
-    // happens on a blob (ADR 053).
+    // With Ctrl, what is dropped becomes a sibling of what it is dropped on: of a card, or of
+    // the cards of a blob, whose parent it goes under. With Shift too, it goes under the card
+    // it is dropped on, and nothing more happens on a blob (ADR 053). The core does the drop
+    // and this in one change.
     const ctrl = event.ctrlKey || event.metaKey;
     const child = ctrl && event.shiftKey;
     canvas.endDragFromList();
@@ -261,6 +267,7 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
       ctrl,
     );
     const parent = canvas.parentFromList(event.clientX, event.clientY, ctrl);
+    const under = child ? target : parent;
     core.send({
       kind: 'DropAtlasCard',
       card_id: grab.card_id,
@@ -268,26 +275,9 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
       y,
       grab_x: grab.x,
       grab_y: grab.y,
+      target_id: child ? null : target,
+      parent_id: target !== null && !child ? null : under,
     });
-    if (target !== null && child) {
-      core.send({
-        kind: 'MoveAtlasCards',
-        card_ids: [grab.card_id],
-        parent_id: target,
-      });
-    } else if (target !== null) {
-      core.send({
-        kind: 'GroupAtlasCards',
-        card_ids: [grab.card_id],
-        target_id: target,
-      });
-    } else if (parent !== null && !child) {
-      core.send({
-        kind: 'MoveAtlasCards',
-        card_ids: [grab.card_id],
-        parent_id: parent,
-      });
-    }
   };
   const draggedOver = (event: DragEvent) => {
     event.preventDefault();
@@ -392,24 +382,27 @@ function makeCanvas(
     start.zoom,
     ATLAS_OPTIONS,
   );
-  made.setOnGroup((idsJson, target_id) =>
+  made.setOnGroup((idsJson, target_id, placesJson) =>
     core.send({
       kind: 'GroupAtlasCards',
       card_ids: JSON.parse(idsJson) as string[],
       target_id,
+      places: placesOf(placesJson),
     }),
   );
-  made.setOnUngroup(idsJson =>
+  made.setOnUngroup((idsJson, placesJson) =>
     core.send({
       kind: 'UngroupAtlasCards',
       card_ids: JSON.parse(idsJson) as string[],
+      places: placesOf(placesJson),
     }),
   );
-  made.setOnMove((idsJson, parent_id) =>
+  made.setOnMove((idsJson, parent_id, placesJson) =>
     core.send({
       kind: 'MoveAtlasCards',
       card_ids: JSON.parse(idsJson) as string[],
       parent_id,
+      places: placesOf(placesJson),
     }),
   );
   made.setOnScale((card_id, scale) =>
@@ -448,6 +441,12 @@ function makeCanvas(
     ),
   );
   return made;
+}
+
+/** Where the canvas says each dragged card was let go, as the core takes it. */
+function placesOf(placesJson: string): AtlasPlace[] {
+  const places = JSON.parse(placesJson) as AtlasPlace[];
+  return places.map(place => new AtlasPlace(place.id, place.x, place.y));
 }
 
 /** A link of the text of a card as the core takes it. */

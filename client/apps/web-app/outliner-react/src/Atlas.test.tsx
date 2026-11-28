@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import Atlas from './Atlas';
 import {
   AtlasCard,
+  AtlasPlace,
   cardToneLink,
   cardTonePlain,
   Bounds,
@@ -377,9 +378,9 @@ describe('what is done on the canvas', () => {
     >;
 
     on.onPlace('a', 1, 2);
-    on.onGroup('["a","b"]', 'c');
-    on.onUngroup('["a"]');
-    on.onMove('["a","b"]', 'g');
+    on.onGroup('["a","b"]', 'c', '[{"id":"a","x":1,"y":2}]');
+    on.onUngroup('["a"]', '[{"id":"a","x":3,"y":4}]');
+    on.onMove('["a","b"]', 'g', '[]');
     on.onScale('a', 2);
     on.onGroupTitle('g', 'top', 'Plan');
     on.onAddCallout(1, 2, 'left', 'hi');
@@ -393,9 +394,23 @@ describe('what is done on the canvas', () => {
 
     expect(wasm.events).toEqual([
       { kind: 'PlaceAtlasCard', card_id: 'a', x: 1, y: 2 },
-      { kind: 'GroupAtlasCards', card_ids: ['a', 'b'], target_id: 'c' },
-      { kind: 'UngroupAtlasCards', card_ids: ['a'] },
-      { kind: 'MoveAtlasCards', card_ids: ['a', 'b'], parent_id: 'g' },
+      {
+        kind: 'GroupAtlasCards',
+        card_ids: ['a', 'b'],
+        target_id: 'c',
+        places: [new AtlasPlace('a', 1, 2)],
+      },
+      {
+        kind: 'UngroupAtlasCards',
+        card_ids: ['a'],
+        places: [new AtlasPlace('a', 3, 4)],
+      },
+      {
+        kind: 'MoveAtlasCards',
+        card_ids: ['a', 'b'],
+        parent_id: 'g',
+        places: [],
+      },
       { kind: 'ScaleAtlasCard', card_id: 'a', scale: 2 },
       { kind: 'SetAtlasGroupTitle', group_id: 'g', side: 'top', title: 'Plan' },
       { kind: 'AddAtlasCallout', x: 1, y: 2, side: 'left', text: 'hi' },
@@ -695,27 +710,14 @@ describe('what waits beside the canvas', () => {
         y: 20,
         grab_x: 0.5,
         grab_y: 0.25,
+        target_id: null,
+        parent_id: null,
       },
     ]);
   });
 
-  // Ctrlを押して落とすと、落とした先のグループにも入る。
-  test('a drop with Ctrl also joins the group it lands on', async () => {
-    const { host, canvas, wasm } = await unplaced();
-    const moved = dataTransfer([CARD_MIME]);
-    moved.setData(CARD_MIME, JSON.stringify({ card_id: 'b', x: 0, y: 0 }));
-    canvas().target = 'a';
-
-    drag('drop', host, { x: 100, y: 50, ctrl: true }, moved);
-
-    expect(wasm.events).toEqual([
-      { kind: 'DropAtlasCard', card_id: 'b', x: 0, y: 0, grab_x: 0, grab_y: 0 },
-      { kind: 'GroupAtlasCards', card_ids: ['b'], target_id: 'a' },
-    ]);
-  });
-
-  // Ctrlを押して親のblobに落とすと、その親の項目の子にもなる。カードの上では、そのカードのグループに入る。
-  test('a drop with Ctrl on the blob of a parent also goes under its item, and on a card joins the group of the card', async () => {
+  // Ctrlを押してドロップすると、1つの操作で、ドロップ先の兄弟になる。カードの上ではそのカードの兄弟に、親のblobの上ではその親の子になる。Ctrlなしでは、どちらにもならない。
+  test('a drop with Ctrl makes the card a sibling of what it lands on, in one event', async () => {
     const { host, canvas, wasm } = await unplaced();
     const moved = dataTransfer([CARD_MIME]);
     moved.setData(CARD_MIME, JSON.stringify({ card_id: 'b', x: 0, y: 0 }));
@@ -723,27 +725,27 @@ describe('what waits beside the canvas', () => {
 
     drag('drop', host, { x: 100, y: 50, ctrl: true }, moved);
     canvas().target = 'a';
-    drag('drop', host, { x: 100, y: 50, ctrl: true }, moved);
+    drag('drop', host, { x: 100, y: 50, meta: true }, moved);
     drag('drop', host, { x: 100, y: 50 }, moved);
 
-    const dropped = {
+    const dropped = (target_id: string | null, parent_id: string | null) => ({
       kind: 'DropAtlasCard',
       card_id: 'b',
       x: 0,
       y: 0,
       grab_x: 0,
       grab_y: 0,
-    };
+      target_id,
+      parent_id,
+    });
     expect(wasm.events).toEqual([
-      dropped,
-      { kind: 'MoveAtlasCards', card_ids: ['b'], parent_id: 'g' },
-      dropped,
-      { kind: 'GroupAtlasCards', card_ids: ['b'], target_id: 'a' },
-      dropped,
+      dropped(null, 'g'),
+      dropped('a', null),
+      dropped(null, null),
     ]);
   });
 
-  // ShiftとCtrlを押してカードの上にドロップすると、そのカードの子になる。blobの上では、Ctrlなしと同じで、親は変わらない。
+  // ShiftとCtrlを押してカードの上にドロップすると、1つの操作で、そのカードの子になる。blobの上では、Ctrlなしと同じで、親は変わらない。Shiftだけでも同じである。
   test('a drop with Shift and Ctrl on a card goes under the card, and on the blob of a parent changes no parent', async () => {
     const { host, canvas, wasm } = await unplaced();
     const moved = dataTransfer([CARD_MIME]);
@@ -756,20 +758,17 @@ describe('what waits beside the canvas', () => {
     drag('drop', host, held, moved);
     drag('drop', host, { x: 100, y: 50, shift: true }, moved);
 
-    const dropped = {
+    const dropped = (parent_id: string | null) => ({
       kind: 'DropAtlasCard',
       card_id: 'b',
       x: 0,
       y: 0,
       grab_x: 0,
       grab_y: 0,
-    };
-    expect(wasm.events).toEqual([
-      dropped,
-      dropped,
-      { kind: 'MoveAtlasCards', card_ids: ['b'], parent_id: 'a' },
-      dropped,
-    ]);
+      target_id: null,
+      parent_id,
+    });
+    expect(wasm.events).toEqual([dropped(null), dropped('a'), dropped(null)]);
   });
 
   // ほかから引いてきた文字は、グループを示さず、落としても何もしない。キャンバスの準備がなければ、落としても何もしない。
