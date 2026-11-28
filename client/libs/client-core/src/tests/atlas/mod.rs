@@ -28,6 +28,7 @@ mod moving;
 
 // 書き込む
 mod callouts;
+mod editing;
 mod links;
 
 // ほかで眺める
