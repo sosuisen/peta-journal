@@ -113,16 +113,13 @@ fn the_pages_that_no_card_links_to_wait_to_be_added() {
     );
 }
 
-// 座標のない項目がリンクしているページは、未追加の項目に出ない。同じページが2つのグループに出ないためである。
+// ページカードの項目に`atlas_bounds`がなければ、そのページは、座標のない項目ではなく、未追加の項目（Pages）に出る。ページカードは、いつもPagesに戻るためである。同じページが2つのグループに出ることはない。
 #[test]
-fn a_page_that_an_item_without_a_place_links_to_does_not_wait_to_be_added() {
+fn a_page_whose_card_has_no_bounds_waits_among_the_pages_and_not_unplaced() {
     let h = atlas_with(&[("one", None)]);
 
-    assert!(not_added(&h).is_empty());
-    assert_eq!(
-        no_place(&h),
-        [waiting("a/b/one", "one", Some("a/b/one"), false)]
-    );
+    assert_eq!(not_added(&h), ["a/b/one"]);
+    assert!(no_place(&h).is_empty());
 }
 
 // 親の項目だけからリンクされているページも、リンクされている。未追加の項目に出ない。
