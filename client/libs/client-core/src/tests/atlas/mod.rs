@@ -17,6 +17,9 @@ mod cards;
 // 置かれるのを待つ
 mod waiting;
 
+// 一覧からドロップする
+mod dropping;
+
 // まとまりを作る
 mod groups;
 
@@ -258,6 +261,26 @@ fn moved(ids: &[&str], after: &str) -> BatchOpInput {
         page_id: ATLAS_ID.into(),
         position: ItemPosition::after(after),
     }
+}
+
+/// The operation that moves items of the atlas page to the end of the page
+fn moved_last(ids: &[&str]) -> BatchOpInput {
+    BatchOpInput::Move {
+        ids: ids.iter().map(|id| id.to_string()).collect(),
+        page_id: ATLAS_ID.into(),
+        position: ItemPosition::Last,
+    }
+}
+
+/// Drops a card of the lists beside the canvas with its center at the point
+fn drop_on(h: &mut Harness, card_id: &str, x: f64, y: f64) {
+    h.send(Event::DropAtlasCard {
+        card_id: card_id.into(),
+        x,
+        y,
+        grab_x: 0.5,
+        grab_y: 0.5,
+    });
 }
 
 fn deleted(id: &str) -> BatchOpInput {

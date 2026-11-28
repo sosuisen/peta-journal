@@ -216,7 +216,7 @@ fn a_dropped_card_takes_the_label_width_and_scale_1_with_its_center_at_the_given
     );
 }
 
-// 一覧から落としたカードは、つかんだ点がポインターの下に残るように置かれる。中心は、つかんだ点から一覧のカードの幅と高さの割合だけずれる。
+// 一覧からドロップしたカードは、つかんだ点がポインターの下に残るように置かれる。中心は、つかんだ点から一覧のカードの幅と高さの割合だけずれる。
 #[test]
 fn a_card_dropped_from_the_list_keeps_the_grabbed_spot_under_the_pointer() {
     let mut h = atlas_with(&[("one", None)]);
@@ -230,8 +230,11 @@ fn a_card_dropped_from_the_list_keeps_the_grabbed_spot_under_the_pointer() {
 
     // 120 wide and 40 high: the center is 30 right of a spot a quarter in, and 20 above the bottom
     assert_eq!(
-        upserts(&h),
-        vec![("i-one".into(), "atlas_bounds".into(), "130,30,0,40".into())]
+        batches(&h),
+        [[
+            leveled_at("i-one", 1, "130,30,0,40"),
+            moved_last(&["i-one"])
+        ]]
     );
 }
 
@@ -270,7 +273,7 @@ fn a_folder_with_no_card_dropped_on_the_atlas_gets_an_item_that_links_to_its_ind
     );
 }
 
-// 一覧から落とした未追加の項目も、つかんだ点がポインターの下に残るように置かれる。
+// 一覧からドロップした未追加の項目も、つかんだ点がポインターの下に残るように置かれる。
 #[test]
 fn a_page_with_no_card_dropped_from_the_list_keeps_the_grabbed_spot_under_the_pointer() {
     let mut h = atlas_of(vec![child("one")], vec![]);
