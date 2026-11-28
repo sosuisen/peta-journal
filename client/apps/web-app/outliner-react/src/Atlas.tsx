@@ -1,14 +1,10 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type DragEvent,
-} from 'react';
+import { useEffect, useRef, useState, type DragEvent } from 'react';
 import {
   AtlasPlace,
   eventLinkClicked,
+  type AtlasCard,
+  type Callout,
+  type LinkCard,
   richLinkFile,
   richLinkPage,
   richLinkWeb,
@@ -19,8 +15,6 @@ import {
 import { ATLAS_OPTIONS, loadAtlasScripts } from './atlasScripts';
 import { useCore, usePanel } from './context';
 import { openInOf } from './keys';
-import { useClosesOnOutside } from './menu';
-import { clickedLink, heldOf, highlightCode, sizeImages } from './drawnBody';
 
 /** The canvas of atlas.js, as this shell uses it. */
 interface AtlasCanvas {
@@ -46,11 +40,16 @@ interface AtlasCanvas {
     onMoveCallout: (key: string, x: number, y: number) => void,
   ): void;
   setOnScaleCallout(onScaleCallout: (key: string, scale: number) => void): void;
-  setOnLink(
-    onAdd: (x: number, y: number, target: string) => void,
-    onSet: (itemId: string, target: string) => void,
+  /**
+   * Add Card, the Edit of a card and Delete Card. bodyOf is the body of the item of a card or a
+   * group as Markdown, which its Edit shows. A page card is named by its page, any other card
+   * and a group by its item.
+   */
+  setOnCard(
+    onAdd: (x: number, y: number, text: string) => void,
+    onEdit: (cardId: string, text: string) => void,
     onRemove: (itemId: string) => void,
-    onQuery: (query: string) => void,
+    bodyOf: (id: string) => string | undefined,
   ): void;
   /** link is a link of the first line of a card, as the core names the links of a page */
   setOnFollow(
@@ -60,14 +59,10 @@ interface AtlasCanvas {
       newWindow: boolean,
     ) => void,
   ): void;
-  setOnShowText(
-    onShowText: (cardId: string, x: number, y: number) => void,
-  ): void;
-  /** Remove from Atlas of a link card or a plain card, named by its item */
+  /** Remove from Atlas of a card: a page card named by its page, any other by its item */
   setOnRemove(onRemove: (cardId: string) => void): void;
   setCards(json: string): void;
   setCallouts(json: string): void;
-  setLinkSuggestions(json: string): void;
   /** The point of the cards under a point of the screen; null before PixiJS has started. */
   toWorldX(clientX: number): number | null;
   toWorldY(clientY: number): number | null;
@@ -98,7 +93,8 @@ declare global {
       host: HTMLElement,
       onOpen: (path: string, newTab: boolean, newWindow: boolean) => void,
       onPlace: (cardId: string, x: number, y: number) => void,
-      onMenu: (pageId: string, x: number, y: number) => void,
+      /** No longer called: every menu is drawn on the canvas */
+      onMenu: () => void,
       onView: (x: number, y: number, zoom: number) => void,
       panX: number,
       panY: number,
@@ -158,18 +154,11 @@ interface Grab {
 
 const NONE: readonly never[] = [];
 
-/** The menu of a right-clicked card: its page and where it opens on the screen. */
-interface Menu {
-  readonly pageId: string;
-  readonly x: number;
-  readonly y: number;
-}
-
-/** The card whose whole text shows, and where it was asked for. */
-interface Shown {
-  readonly cardId: string;
-  readonly x: number;
-  readonly y: number;
+/** The panels of the atlas as they are now, which the Edit of a card reads its body from */
+interface Panels {
+  readonly cards: readonly AtlasCard[];
+  readonly links: readonly LinkCard[];
+  readonly callouts: readonly Callout[];
 }
 
 /**
@@ -187,25 +176,13 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
   const links = usePanel('AtlasLinks') ?? NONE;
   const waiting = usePanel('AtlasUnplaced') ?? NONE;
   const callouts = usePanel('AtlasCallouts') ?? NONE;
-  const suggestions = usePanel('AtlasLinkSuggestions') ?? NONE;
   const host = useRef<HTMLDivElement>(null);
   const [canvas, setCanvas] = useState<AtlasCanvas | null>(null);
-  const [menu, setMenu] = useState<Menu | null>(null);
-  // The same function on every drawing, so the menu adds its listeners only once
-  const closeMenu = useCallback(() => setMenu(null), []);
-  const [shown, setShown] = useState<Shown | null>(null);
-  const closeText = useCallback(() => setShown(null), []);
-  const showText = useCallback(
-    (cardId: string, x: number, y: number) => setShown({ cardId, x, y }),
-    [],
-  );
-  // The text as it is now, also after the card was changed while it shows
-  const shownText =
-    shown === null
-      ? ''
-      : (cards.find(c => c.page_id === shown.cardId)?.text ??
-        links.find(l => l.item_id === shown.cardId)?.text ??
-        '');
+  // The Edit opened later shows the body as it is then
+  const panels = useRef<Panels>({ cards, links, callouts });
+  useEffect(() => {
+    panels.current = { cards, links, callouts };
+  }, [cards, links, callouts]);
 
   // The canvas keeps the view of the folder it was made for
   useEffect(() => {
@@ -216,12 +193,8 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
         if (gone) {
           return;
         }
-        made = makeCanvas(
-          host.current as HTMLDivElement,
-          dirPath,
-          core,
-          setMenu,
-          showText,
+        made = makeCanvas(host.current as HTMLDivElement, dirPath, core, id =>
+          bodyIn(panels.current, id),
         );
         setCanvas(made);
       })
@@ -230,7 +203,7 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
       gone = true;
       made?.destroy();
     };
-  }, [core, dirPath, showText]);
+  }, [core, dirPath]);
 
   // Apart, so a change of a callout does not draw every card again
   useEffect(() => {
@@ -239,9 +212,6 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
   useEffect(() => {
     canvas?.setCallouts(core.atlasCallouts(callouts));
   }, [canvas, core, callouts]);
-  useEffect(() => {
-    canvas?.setLinkSuggestions(JSON.stringify(suggestions));
-  }, [canvas, suggestions]);
 
   const dropped = (event: DragEvent) => {
     event.preventDefault();
@@ -309,7 +279,7 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
           cards={waiting.filter(c => c.added)}
         />
       </div>
-      {/* The browser's own menu would cover the menu of a card */}
+      {/* The browser's own menu would cover the menu of the canvas */}
       <div
         ref={host}
         className="atlas-canvas"
@@ -345,12 +315,6 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
           </button>
         )}
       </div>
-      {menu !== null && (
-        <CardMenu menu={menu} close={closeMenu} showText={showText} />
-      )}
-      {shown !== null && (
-        <CardText shown={shown} text={shownText} close={closeText} />
-      )}
     </div>
   );
 }
@@ -360,8 +324,7 @@ function makeCanvas(
   host: HTMLElement,
   dir: string,
   core: ReturnType<typeof useCore>,
-  setMenu: (menu: Menu) => void,
-  showText: (cardId: string, x: number, y: number) => void,
+  bodyOf: (id: string) => string | undefined,
 ): AtlasCanvas {
   const start = loadViews()[dir] ?? { x: 0, y: 0, zoom: 1 };
   const made = new window.AtlasCanvas(
@@ -378,7 +341,7 @@ function makeCanvas(
     },
     // A dragged group is placed as a card is, by the id of its item (ADR 053)
     (card_id, x, y) => core.send({ kind: 'PlaceAtlasCard', card_id, x, y }),
-    (pageId, x, y) => setMenu({ pageId, x, y }),
+    () => {},
     (x, y, zoom) => saveView(dir, { x, y, zoom }),
     start.x,
     start.y,
@@ -426,17 +389,16 @@ function makeCanvas(
   made.setOnScaleCallout((key, scale) =>
     core.send({ kind: 'ScaleAtlasCallout', key, scale }),
   );
-  made.setOnLink(
-    (x, y, target) => core.send({ kind: 'AddAtlasLink', x, y, target }),
-    (item_id, target) => core.send({ kind: 'SetAtlasLink', item_id, target }),
+  made.setOnCard(
+    (x, y, text) => core.send({ kind: 'AddAtlasCard', x, y, text }),
+    (card_id, text) => core.send({ kind: 'SetAtlasCardText', card_id, text }),
     item_id => core.send({ kind: 'RemoveAtlasLink', item_id }),
-    query => core.send({ kind: 'SearchAtlasLinks', query }),
+    bodyOf,
   );
   // The card stays as an item, and waits to be placed again
   made.setOnRemove(card_id =>
     core.send({ kind: 'RemoveAtlasCard', page_id: card_id }),
   );
-  made.setOnShowText(showText);
   // As a click on a link of a page: Ctrl or Command as ctrl, Shift as shift (ADR 083)
   made.setOnFollow((link, newTab, newWindow) =>
     core.send(
@@ -448,6 +410,23 @@ function makeCanvas(
     ),
   );
   return made;
+}
+
+/**
+ * The body of the item of a card, a callout or a group, as Markdown: a page card is named by its
+ * page, any other by its item. A group is the item that cards or callouts are under.
+ */
+function bodyIn(panels: Panels, id: string): string | undefined {
+  const { cards, links, callouts } = panels;
+  const group = [...cards, ...links, ...callouts]
+    .flatMap(c => c.groups)
+    .find(g => g.id === id);
+  return (
+    cards.find(c => c.page_id === id)?.text ??
+    links.find(l => l.item_id === id)?.text ??
+    callouts.find(c => c.key === id)?.text ??
+    group?.body
+  );
 }
 
 /** Where the canvas says each dragged card was let go, as the core takes it. */
@@ -521,76 +500,5 @@ function Waiting({ card }: { readonly card: UnplacedCard }) {
         </span>
       )}
     </div>
-  );
-}
-
-/** The menu of a right-clicked card on the canvas. */
-function CardMenu({
-  menu,
-  close,
-  showText,
-}: {
-  readonly menu: Menu;
-  readonly close: () => void;
-  readonly showText: (cardId: string, x: number, y: number) => void;
-}) {
-  const core = useCore();
-  useClosesOnOutside('.atlas-menu', close);
-  return (
-    <div
-      className="atlas-menu"
-      style={{ left: `${menu.x}px`, top: `${menu.y}px` }}
-    >
-      <button
-        className="atlas-menu-item"
-        onClick={() => {
-          core.send({ kind: 'RemoveAtlasCard', page_id: menu.pageId });
-          close();
-        }}
-      >
-        Remove from Atlas
-      </button>
-      <button
-        className="atlas-menu-item"
-        onClick={() => {
-          close();
-          showText(menu.pageId, menu.x, menu.y);
-        }}
-      >
-        Show Text
-      </button>
-    </div>
-  );
-}
-
-/** The whole text of a card, drawn as the body of a row of a page is. */
-function CardText({
-  shown,
-  text,
-  close,
-}: {
-  readonly shown: Shown;
-  readonly text: string;
-  readonly close: () => void;
-}) {
-  const core = useCore();
-  const tagsDir = usePanel('Config')?.tags_dir ?? '';
-  useClosesOnOutside('.atlas-text', close);
-  const html = core.bodyHtml(text, tagsDir);
-  const content = useRef<HTMLDivElement>(null);
-  // What the HTML leaves to the shell, as on a page
-  useLayoutEffect(() => {
-    const drawn = content.current as HTMLDivElement;
-    sizeImages(drawn);
-    highlightCode(drawn);
-  }, [html]);
-  return (
-    <div
-      ref={content}
-      className="atlas-text"
-      onClick={event => clickedLink(core, event, heldOf(event))}
-      style={{ left: `${shown.x}px`, top: `${shown.y}px` }}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
   );
 }

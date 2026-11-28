@@ -20,6 +20,7 @@ skipped = [
 # - "drag": the core makes it from a step of a drag that the shell gives to `drag`.
 # - "none": the app has no such part.
 [s2.excluded]
+AddAtlasLink = "none: Add Card writes a link card as Markdown (#1303)"
 AtlasDirsRestored = "bridge: WebShell.start, from what the browser keeps"
 Back = "none: the back button of the browser opens the page, by Route"
 BackspaceAtStart = "key: Backspace at the start of an item"
@@ -29,8 +30,8 @@ DeleteItem = "none: no tool deletes one item; Delete deletes the selected items,
 DragBeyondBounds = "drag: the drag leaves the outline above or below"
 EnterPressed = "key: Enter"
 Forward = "none: the forward button of the browser opens the page, by Route"
-IndexSortsRestored = "bridge: WebShell.start, from what the browser keeps"
 Indent = "key: Tab or Alt+Shift+Right"
+IndexSortsRestored = "bridge: WebShell.start, from what the browser keeps"
 ItemMouseEnter = "drag: the drag goes over another item"
 MoveDown = "key: Alt+Shift+Down"
 MoveUp = "key: Alt+Shift+Up"
@@ -42,8 +43,10 @@ Outdent = "key: Shift+Tab or Alt+Shift+Left"
 PasteImage = "bridge: WebShell.pasteImage"
 Redo = "key: Ctrl+Shift+Z, or Cmd+Shift+Z on a Mac"
 Route = "bridge: WebShell.start, WebShell.go and the back and forward buttons of the browser"
+SearchAtlasLinks = "none: no dialog offers page names for a link (#1303)"
 SelectionKey = "key: a key while items are selected"
 SelectionMouseUp = "drag: the drag that selects items ends"
+SetAtlasLink = "none: the Edit of a card writes its link as Markdown (#1303)"
 SetCollapsed = "key: Ctrl+Up folds an item and Ctrl+Down unfolds it, or Cmd on a Mac"
 ShiftSelect = "key: Shift+Up on the first line, or Shift+Down on the last line"
 Start = "bridge: WebShell.start"
