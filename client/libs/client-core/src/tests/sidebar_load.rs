@@ -20,6 +20,7 @@ fn doc(dir_path: &str, name: &str) -> Page {
 fn start(h: &mut Harness) {
     h.send(Event::Start {
         client_id: ClientId::new(),
+        opens_new_day: true,
     });
 }
 

@@ -144,7 +144,7 @@ mod tests {
     // 1つの値だけを持つ型は、持つ値のままで境界を渡る。生成されたTypeScriptの型が、そう書くためである。
     #[test]
     fn a_type_of_one_value_crosses_as_that_value() {
-        let text = r#"{"Start":{"client_id":"c1"}}"#;
+        let text = r#"{"Start":{"client_id":"c1","opens_new_day":true}}"#;
 
         let event: Event = read(text).unwrap();
 

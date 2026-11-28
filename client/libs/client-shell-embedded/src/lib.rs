@@ -100,6 +100,10 @@ impl Host for Embedded {
             None => Err(ApiError("the journal is closed".into())),
         }
     }
+
+    fn runs_extensions(&self) -> bool {
+        client_api_embedded::RUNS_EXTENSIONS
+    }
 }
 
 /// The characters before the place `units` UTF-16 units into `text`, as the core counts a
