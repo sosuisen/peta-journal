@@ -103,8 +103,26 @@ test('the menu of the canvas has Add Card and Add Callout', () => {
   assert.deepEqual(plain(atlas.canvasMenu()), ['Add Card', 'Add Callout']);
 });
 
+// テキストのダイアログ
+// シェルに開いてもらうダイアログは、名前と本文と辺を持つ。カードには辺がない
+test('the dialog asked of the shell has the name, the text, and no side for a card', () => {
+  assert.deepEqual(plain(atlas.textAsked({ name: 'Add Card', sided: false })), {
+    name: 'Add Card',
+    text: '',
+    side: null,
+  });
+});
+
+// グループと吹き出しには、今の辺がある。辺のないものや、知らない辺は、上である
+test('a group or a callout asks with its side, the top when it has none it knows', () => {
+  const sides = [undefined, 'sideways', 'right'].map(side =>
+    plain(atlas.textAsked({ name: 'Edit', text: 'Plan', side, sided: true })).side,
+  );
+  assert.deepEqual(sides, ['top', 'top', 'right']);
+});
+
 // 円で描くグループ
-const card = (...groups) => ({ groups, callout: false });
+const card =(...groups) => ({ groups, callout: false });
 const callout = (...groups) => ({ groups, callout: true });
 
 // 子がコールアウトだけのグループは、円で描く
