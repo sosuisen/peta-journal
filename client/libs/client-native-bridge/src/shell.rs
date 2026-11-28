@@ -53,6 +53,12 @@ pub trait Host: Send + Sync + 'static {
     fn app_url(&self) -> Option<String> {
         None
     }
+    /// Whether the journal runs the extension functions, such as auto-template, on a page it
+    /// makes. A journal server runs them. The journal of today does not open the new day on
+    /// a journal that does not, as the new journal would have no template (#1307).
+    fn runs_extensions(&self) -> bool {
+        true
+    }
 }
 
 /// Puts the address of the server before an address of the server that the core orders to
@@ -256,6 +262,7 @@ impl NativeShell {
         client_id: ClientId,
         to_shell: impl Fn(Vec<u8>) + Send + Sync + 'static,
     ) -> NativeShell {
+        let opens_new_day = host.runs_extensions();
         let host = Arc::new(host);
         let clock: Arc<dyn Clock> = Arc::new(clock);
         let of_effects = clock.clone();
@@ -290,7 +297,7 @@ impl NativeShell {
         });
         router.update(Event::Start {
             client_id,
-            opens_new_day: true,
+            opens_new_day,
         });
         NativeShell {
             router,

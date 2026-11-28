@@ -9,6 +9,10 @@ mod events;
 
 pub use events::EventQueue;
 
+/// Whether this build runs the extension functions, such as auto-template. A build without
+/// the `extensions` feature runs none (ADR 029).
+pub const RUNS_EXTENSIONS: bool = cfg!(feature = "extensions");
+
 use std::path::Path;
 use std::sync::Arc;
 
