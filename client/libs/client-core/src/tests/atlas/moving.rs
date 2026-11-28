@@ -267,6 +267,88 @@ fn a_card_that_changed_its_parent_shows_the_bounds_the_batch_wrote() {
     assert_eq!(place_of("a/b/one"), Some((5.0, 5.0)));
 }
 
+// カードの子にもなる（Shift+Ctrlでカードの上にドロップしたとき）。相手のカードは、ページのカードならページのidで、ほかは項目のidで名指しされ、親になる。動かしたカードの`atlas_bounds`は、同じ送信で、そのカードからの相対の座標に書き直される。相手のカードの`atlas_bounds`は変わらない。
+#[test]
+fn a_card_goes_under_a_card_which_becomes_its_parent() {
+    let atlas = || {
+        atlas_of(
+            vec![child("one"), child("three"), child("two")],
+            vec![
+                parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+                card_item("one", 2, Some("5,5,0,40")),
+                card_item("two", 1, Some("300,300,0,40")),
+                atlas_item("l", 1, "[[x/Sample]]", &[("atlas_bounds", "0,50,0,40")]),
+                card_item("three", 1, Some("330,350,0,60")),
+            ],
+        )
+    };
+
+    // Under the card of a page at the top
+    let mut h = atlas();
+    move_under(&mut h, &["a/b/three"], "a/b/two");
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-three", 2, "30,50,0,60"),
+            moved(&["i-three"], "i-two")
+        ]]
+    );
+
+    // Under a card in a group: counted from where that card lies on the canvas
+    let mut h = atlas();
+    move_under(&mut h, &["a/b/three"], "a/b/one");
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-three", 3, "225,145,0,60"),
+            moved(&["i-three"], "i-one")
+        ]]
+    );
+
+    // Under a link card, named by its item
+    let mut h = atlas();
+    move_under(&mut h, &["a/b/three"], "l");
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-three", 2, "330,300,0,60"),
+            moved(&["i-three"], "l")
+        ]]
+    );
+}
+
+// 自分自身の子にはならない。コールアウトの子にもならない。ページのカードは、項目のidでは名指しされない。どれも、何も送られない。
+#[test]
+fn a_card_goes_under_no_card_that_is_itself_a_callout_or_named_by_another_id() {
+    let mut h = atlas_of(
+        vec![child("one"), child("two")],
+        vec![
+            card_item("one", 1, Some("0,0,0,40")),
+            card_item("two", 1, Some("0,100,0,40")),
+            atlas_item(
+                "c",
+                1,
+                "Hi",
+                &[("atlas_type", "callout"), ("atlas_bounds", "9,9,0,40")],
+            ),
+        ],
+    );
+    move_under(&mut h, &["a/b/one"], "a/b/one");
+    move_under(&mut h, &["a/b/one"], "c");
+    move_under(&mut h, &["a/b/one"], "i-two");
+    assert!(batches(&h).is_empty());
+
+    // Of the cards let go on one of them, the others go under it
+    move_under(&mut h, &["a/b/one", "a/b/two"], "a/b/two");
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-one", 2, "0,-100,0,40"),
+            moved(&["i-one"], "i-two")
+        ]]
+    );
+}
+
 // 親の下の親にも入る。カードは、その親のすぐ下のレベルになる。
 #[test]
 fn a_card_goes_under_a_parent_that_is_under_a_parent_at_the_level_below_it() {
