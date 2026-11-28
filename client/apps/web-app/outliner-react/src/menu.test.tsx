@@ -29,7 +29,7 @@ const press = (target: EventTarget, type: string) =>
 // it is still on its way to the document. A test dispatches from a script, where the
 // microtasks wait for the whole dispatch: flushSync draws at the same point as the browser.
 
-// メニューの外にある別のボタンのクリックで開いた箱は、そのクリックでは閉じない（ページのカードの Show Text）。
+// メニューの外にある別のボタンのクリックで開いた箱は、そのクリックでは閉じない（メニューの項目が開く箱）。
 test('a box opened by a click of a button outside it is not closed by that click', () => {
   const close = vi.fn();
   function Opener() {
@@ -49,7 +49,7 @@ test('a box opened by a click of a button outside it is not closed by that click
   expect(close).not.toHaveBeenCalled();
 });
 
-// 押した瞬間（pointerdown）に開いた箱は、同じ押下のクリックでは閉じない。外を押すと閉じる（キャンバスのメニューの Show Text）。
+// 押した瞬間（pointerdown）に開いた箱は、同じ押下のクリックでは閉じない。外を押すと閉じる（PixiJSのボタンのように、押した瞬間に動くもの）。
 test('a box opened at the press of a pointer stays after the click of that press, and a press outside closes it', () => {
   const close = vi.fn();
   const canvas = document.createElement('canvas');
