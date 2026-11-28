@@ -595,7 +595,6 @@ describe('the dialog of a text', () => {
 
     const second = await dialogOf({ name: 'Edit', text: 'y', side: null });
     const beside = document.querySelector('.atlas-dialog-overlay') as Element;
-    fireEvent.mouseDown(beside);
     fireEvent.mouseDown(second.input());
     const kept = screen.queryByRole('dialog') !== null;
     fireEvent.mouseDown(beside);
@@ -614,7 +613,7 @@ describe('the dialog of a text', () => {
       side: 'left',
     });
     const picked = (name: string) =>
-      (screen.getByRole('radio', { name }) as HTMLInputElement).checked;
+      screen.getByRole<HTMLInputElement>('radio', { name }).checked;
     const before = ['Top', 'Bottom', 'Left', 'Right'].map(picked);
 
     fireEvent.click(screen.getByRole('radio', { name: 'Right' }));

@@ -13,6 +13,7 @@ import {
   type UnplacedCard,
 } from './border/peta-types';
 import { ATLAS_OPTIONS, loadAtlasScripts } from './atlasScripts';
+import AtlasTextDialog, { type TextAsked } from './AtlasTextDialog';
 import { useCore, usePanel } from './context';
 import { openInOf } from './keys';
 
@@ -50,6 +51,13 @@ interface AtlasCanvas {
     onEdit: (cardId: string, text: string) => void,
     onRemove: (itemId: string) => void,
     bodyOf: (id: string) => string | undefined,
+  ): void;
+  /** The dialog of a text that the canvas asks this shell to open; done is called on OK */
+  setOnText(
+    onText: (
+      asked: TextAsked,
+      done: (side: string | null, text: string) => void,
+    ) => void,
   ): void;
   /** link is a link of the first line of a card, as the core names the links of a page */
   setOnFollow(
@@ -154,6 +162,13 @@ interface Grab {
 
 const NONE: readonly never[] = [];
 
+/** A dialog of a text that the canvas asked for, open until it is closed */
+interface Asking {
+  readonly asked: TextAsked;
+  readonly done: (side: string | null, text: string) => void;
+  readonly count: number;
+}
+
 /** The panels of the atlas as they are now, which the Edit of a card reads its body from */
 interface Panels {
   readonly cards: readonly AtlasCard[];
@@ -178,6 +193,7 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
   const callouts = usePanel('AtlasCallouts') ?? NONE;
   const host = useRef<HTMLDivElement>(null);
   const [canvas, setCanvas] = useState<AtlasCanvas | null>(null);
+  const [asking, setAsking] = useState<Asking | null>(null);
   // The Edit opened later shows the body as it is then
   const panels = useRef<Panels>({ cards, links, callouts });
   useEffect(() => {
@@ -195,6 +211,10 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
         }
         made = makeCanvas(host.current as HTMLDivElement, dirPath, core, id =>
           bodyIn(panels.current, id),
+        );
+        // Each dialog starts from what it is asked, also one opened in place of another
+        made.setOnText((asked, done) =>
+          setAsking(last => ({ asked, done, count: (last?.count ?? 0) + 1 })),
         );
         setCanvas(made);
       })
@@ -315,6 +335,14 @@ export default function Atlas({ dirPath }: { readonly dirPath: string }) {
           </button>
         )}
       </div>
+      {asking !== null && (
+        <AtlasTextDialog
+          key={asking.count}
+          asked={asking.asked}
+          done={asking.done}
+          close={() => setAsking(null)}
+        />
+      )}
     </div>
   );
 }
