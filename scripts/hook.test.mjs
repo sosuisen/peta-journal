@@ -103,6 +103,29 @@ test('the hook runs before a command that makes a pull request, and not before o
   for (const command of makes) assert.equal(answered(command), true, command);
 });
 
+// フックは、PRを作る言葉が、引用符やヒアドキュメントの中の文字や、ほかのコマンドの引数にあるだけでは動かない。PRを作るghのコマンドを実行するときは、前に何が付いていても動く（#1317）。
+test('the hook runs only when a command runs gh to make a pull request, not when the words are only text', () => {
+  const repo = repository();
+  const makes = [
+    'cd x && gh pr create --title t',
+    'GH_TOKEN=abc gh pr create --base main',
+    'git push -q origin b 2>&1 | tail -1; gh pr create --assignee me --body-file pr.md 2>&1 | tail -15',
+    'gh pr create --title "fix: a; b" --body-file pr.md',
+    'git log -1\ngh pr create --fill',
+  ];
+  const texts = [
+    'git commit -m "docs: hand gh pr create to a subagent"',
+    "grep -n 'gh pr create' .claude/hooks/verify-before-pr.mjs",
+    "cat > body.md <<'E'\nthe hook runs before gh pr create\nE\ngh issue create --body-file body.md",
+    'cat > body.md <<E\nor a POST through gh api -X POST repos/o/r/pulls -f title=x\nE',
+    'echo "gh api -X POST repos/o/r/pulls -f title=x"',
+    'git commit -m \'why the hook stops gh pr create\' && git push',
+  ];
+  const answered = (command) => Object.keys(runHook(repo, command)).some((k) => k !== 'ran');
+  for (const command of texts) assert.equal(answered(command), false, command);
+  for (const command of makes) assert.equal(answered(command), true, command);
+});
+
 // mainが検証のファイルをあとで変えたら、ブランチに取り込むまでPRを止める。
 test('the hook stops when main has newer checks', () => {
   const repo = repository();
