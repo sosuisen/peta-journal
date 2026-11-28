@@ -58,15 +58,24 @@ fn place_in(model: &Model, item_id: &str, place: EditPlace) -> usize {
 /// closing. Not when the body got shorter, as by a delete back to an opening, or the closing
 /// would come back at every delete.
 pub fn typed(model: &mut Model, item_id: &str, body: String, cursor: usize) -> Cmd {
-    let shorter = model
+    let before = model
         .state
         .get_item_by_id(item_id)
-        .is_some_and(|item| body.chars().count() < item.body.chars().count());
-    let body = match shorter {
-        true => body,
-        false => auto_close(&body, cursor).unwrap_or(body),
-    };
+        .map(|item| item.body.clone())
+        .unwrap_or_default();
+    let body = closed_typing(&before, &body, cursor).unwrap_or(body);
     body_changed(model, item_id, body)
+}
+
+/// What a text typed from `before` to `body` becomes, with the cursor at the character index
+/// `cursor`: the opening just typed with its closing added, as [`auto_close`] adds it. None
+/// when it stays as it is, as when it got shorter. Also for a text the shell keeps and the core
+/// does not, as the dialog of a text of the atlas.
+pub fn closed_typing(before: &str, body: &str, cursor: usize) -> Option<String> {
+    if body.chars().count() < before.chars().count() {
+        return None;
+    }
+    auto_close(body, cursor)
 }
 
 /// The user typed in an editor: the state shows it, the auto-save is scheduled and the

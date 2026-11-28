@@ -525,6 +525,14 @@ impl WebShell {
         crate::wiki::query_at(text, cursor.into())
     }
 
+    /// What a text typed from `before` to `text` becomes with the cursor at the UTF-16 place
+    /// `cursor`: an opening just typed gets its closing, as in the editor of a page. Undefined
+    /// when it stays as it is.
+    #[wasm_bindgen(js_name = autoClosed)]
+    pub fn auto_closed(&self, before: &str, text: &str, cursor: u32) -> Option<String> {
+        crate::wiki::closed_at(before, text, cursor.into())
+    }
+
     /// The text with the page name `title` put into the `[[wiki link]]` that the cursor at the
     /// UTF-16 place `cursor` is in, as JSON: `{ text, cursor }`, where cursor is the UTF-16
     /// place right after the name. Undefined outside a link.

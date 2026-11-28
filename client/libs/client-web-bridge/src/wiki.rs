@@ -9,6 +9,13 @@ pub fn query_at(text: &str, cursor: u64) -> Option<String> {
     client_core::ops::wiki::query_at(text, chars_of_utf16(text, units))
 }
 
+/// What a text typed from `before` to `text` becomes with the cursor at the UTF-16 place
+/// `cursor`, as the editor of a page closes an opening just typed. None when it stays as it is.
+pub fn closed_at(before: &str, text: &str, cursor: u64) -> Option<String> {
+    let units = usize::try_from(cursor).unwrap_or(usize::MAX);
+    client_core::ops::outline_events::closed_typing(before, text, chars_of_utf16(text, units))
+}
+
 /// The text with the page name `title` put into the link that the cursor at the UTF-16 place
 /// `cursor` is in, and the UTF-16 place right after the name. None outside a link.
 pub fn picked_at(text: &str, cursor: u64, title: &str) -> Option<(String, usize)> {
