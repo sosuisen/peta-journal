@@ -24,7 +24,7 @@
 //! away in the same batch: the side is of the title of a group, and the item is no group any
 //! more. Nothing is cleaned up for a change made in the outline or in the `.md`.
 
-use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model};
+use crate::app::{cancel_timer, done, log_error, run, AtlasJoin, Cmd, Event, Model};
 use crate::effects::{Api, ApiResult, TimerOutput, UiOp};
 use crate::model::{BatchOpInput, Item, ItemPosition, Page, PropertyValue};
 use crate::model::{ItemExt, PageExt};
@@ -639,7 +639,8 @@ fn last_staying<'a>(model: &'a Model, parent: &'a Item, leaving: &[&Item]) -> &'
 
 /// The server changed the outline of an atlas page: its items are shown. A card keeps the
 /// place shown for it, as its move may not be saved yet. A card that went under another item
-/// takes the bounds of the server: the batch wrote them anew, counted from that item.
+/// takes the bounds of the server: the batch wrote them anew, counted from that item. What
+/// waited for a card to be made is done then ([`joined`]).
 pub fn show_changed(model: &mut Model, atlas_id: &str, mut items: Vec<Item>) -> Cmd {
     let parents: Vec<Option<String>> = (0..items.len())
         .map(|at| {
@@ -659,7 +660,28 @@ pub fn show_changed(model: &mut Model, atlas_id: &str, mut items: Vec<Item>) -> 
         }
     }
     file_reload::replace_page_items(model, atlas_id, items);
-    done()
+    joined(model)
+}
+
+/// Lets the cards that waited for a card join their groups, now that the outline is shown
+/// again. What still waits is given up: its card was not made.
+fn joined(model: &mut Model) -> Cmd {
+    let joins = std::mem::take(&mut model.atlas_joins);
+    let mut commands = Vec::new();
+    for join in joins {
+        commands.push(match join {
+            AtlasJoin::Card {
+                card_ids,
+                target_id,
+            } => group_cards(model, card_ids, target_id),
+            AtlasJoin::Parent {
+                card_ids,
+                parent_id,
+            } => move_cards(model, card_ids, parent_id),
+        });
+    }
+    model.atlas_joins.clear();
+    Command::all(commands)
 }
 
 /// Cards dropped on another card join its group: they go under its item, each where it lies
@@ -672,6 +694,14 @@ pub fn show_changed(model: &mut Model, atlas_id: &str, mut items: Vec<Item>) -> 
 /// so the cards leave the groups they were in. The item of a group they leave stays, even
 /// with one card or none under it (ADR 053).
 pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) -> Cmd {
+    if is_being_made(model, &card_ids) {
+        let join = AtlasJoin::Card {
+            card_ids,
+            target_id,
+        };
+        model.atlas_joins.push(join);
+        return done();
+    }
     let cards = card_entries(model);
     let Some(target) = cards.iter().find(|card| card.id() == target_id) else {
         return done();
@@ -741,6 +771,16 @@ pub fn group_cards(model: &mut Model, card_ids: Vec<String>, target_id: String) 
     }
 }
 
+/// Whether one of the cards is still being made: it is named by a page of the directory that
+/// has no card. A page dropped from the list beside the canvas gets its card once the server
+/// has made the item, and what the shell sends right behind the drop comes before that.
+fn is_being_made(model: &Model, card_ids: &[String]) -> bool {
+    let cards = card_entries(model);
+    let has_card = |id: &String| cards.iter().any(|card| card.id() == id);
+    let is_page = |id: &String| dir_pages(model).any(|page| &page.id == id);
+    card_ids.iter().any(|id| is_page(id) && !has_card(id))
+}
+
 /// The centroid of where the cards lie on the canvas, in whole numbers: the place of a parent
 /// that is made for them (ADR 053). A card that is not drawn does not count; none when no
 /// card is drawn.
@@ -757,6 +797,14 @@ fn centroid(cards: &[&Card]) -> Option<(f64, f64)> {
 /// so the card stays where it lies on the canvas (ADR 053). The parent a card leaves loses its
 /// side when nothing stays under it.
 pub fn move_cards(model: &mut Model, card_ids: Vec<String>, parent_id: String) -> Cmd {
+    if is_being_made(model, &card_ids) {
+        let join = AtlasJoin::Parent {
+            card_ids,
+            parent_id,
+        };
+        model.atlas_joins.push(join);
+        return done();
+    }
     let cards = card_entries(model);
     let Some((parent, origin)) = entries(model)
         .into_iter()

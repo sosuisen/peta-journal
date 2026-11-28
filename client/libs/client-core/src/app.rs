@@ -1041,6 +1041,23 @@ pub struct AtlasLinkSearch {
     pub timer_id: u64,
 }
 
+/// Cards that are to join a group of the atlas once all of them are there. A page dropped
+/// from the list beside the canvas with Ctrl gets its card from the server, and the shell
+/// sends what follows the drop before that card is made.
+#[derive(Debug, Clone, PartialEq)]
+pub enum AtlasJoin {
+    /// As [`Event::GroupAtlasCards`]
+    Card {
+        card_ids: Vec<String>,
+        target_id: String,
+    },
+    /// As [`Event::MoveAtlasCards`]
+    Parent {
+        card_ids: Vec<String>,
+        parent_id: String,
+    },
+}
+
 #[derive(Debug, Default)]
 pub struct WikiState {
     pub item_id: Option<String>,
@@ -1122,6 +1139,8 @@ pub struct Model {
     pub search: SearchState,
     pub wiki: WikiState,
     pub atlas_link_search: AtlasLinkSearch,
+    /// What waits for the card of a page that is being made on the atlas; see [`AtlasJoin`]
+    pub atlas_joins: Vec<AtlasJoin>,
     pub config: ConfigState,
     pub connection: ConnectionState,
     /// The ID this client names itself with. The server sends it back with the changes this
@@ -1168,6 +1187,7 @@ impl Default for Model {
             search: SearchState::default(),
             wiki: WikiState::default(),
             atlas_link_search: AtlasLinkSearch::default(),
+            atlas_joins: Vec::new(),
             config: ConfigState::default(),
             connection: ConnectionState::Disconnected,
             client_id: ClientId::new(),
