@@ -86,14 +86,19 @@ test('a dragged group can leave each group around it with Ctrl', () => {
 });
 
 // リンクカードとノーマルカードのメニュー
-// リンクカードのメニューは、Edit Link、Remove Link、Show Textである
-test('the menu of a link card has Edit Link, Remove Link and Show Text', () => {
-  assert.deepEqual(plain(atlas.linkCardMenu({ isPlain: false })), ['Edit Link', 'Remove Link', 'Show Text']);
+// リンクカードのメニューは、Show Text、Edit Link、Remove from Atlas、Delete Cardである
+test('the menu of a link card has Show Text, Edit Link, Remove from Atlas and Delete Card', () => {
+  assert.deepEqual(plain(atlas.linkCardMenu({ isPlain: false })), [
+    'Show Text',
+    'Edit Link',
+    'Remove from Atlas',
+    'Delete Card',
+  ]);
 });
 
-// ノーマルカードには編集するリンクがない
-test('the menu of a plain card has no link to edit', () => {
-  assert.deepEqual(plain(atlas.linkCardMenu({ isPlain: true })), ['Show Text']);
+// ノーマルカードには編集するリンクがない。ほかはリンクカードと同じである
+test('the menu of a plain card has the same items but Edit Link', () => {
+  assert.deepEqual(plain(atlas.linkCardMenu({ isPlain: true })), ['Show Text', 'Remove from Atlas', 'Delete Card']);
 });
 
 // 円で描くグループ
