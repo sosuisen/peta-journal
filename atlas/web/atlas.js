@@ -62,6 +62,11 @@ const SIBLING_COLOR = 0xef4444;
 const CHILD_COLOR = 0x16a34a;
 // How far the outline of a group keeps away from the cards in it
 const GROUP_PADDING = 14;
+// The radius of the circle that a group whose children are only callouts is drawn as, around
+// the place of its item: about the outline of a group around one card
+const CIRCLE_RADIUS = 40;
+// How many points make that circle before the outline smooths them
+const CIRCLE_POINTS = 16;
 // How much the background of a card hides what lies behind it, while it is a drop target
 const CARD_ALPHA = 0.4;
 // How strong the icon behind the label of a card is
@@ -1300,8 +1305,12 @@ window.AtlasCanvas = class AtlasCanvas {
     this.drawGroups();
   }
 
-  // Each group is a smooth closed curve around all its cards and callouts, one Graphics for its
-  // area and one for its frame, drawn in the frame of the group: its points are counted from the
+  // Each group is a smooth closed curve around all its cards and the groups in it, one Graphics
+  // for its area and one for its frame. A callout does not shape it, however deep in it: the
+  // callout is drawn at its own place in the frame of its group and moves with it. A group whose
+  // children are only callouts is drawn as a circle around the place of its item
+  // (circleGroups), and the groups around it are drawn around that circle. The outline is
+  // drawn in the frame of the group: its points are counted from the
   // place of the group, so the outline moves with the group and is not drawn again for it.
   // The frame is drawn in white and colored by its tint, so a change of its
   // color needs no new geometry. Given a drag, only the groups it changes are drawn again. With `ctrl`, the
@@ -1316,11 +1325,25 @@ window.AtlasCanvas = class AtlasCanvas {
     const dragged = new Set(origins.keys());
     const touched = drag ? this.groupsOfDrag(drag) : null;
     const views = [...this.cardViews(), ...this.extras()];
+    const circles = circleGroups(
+      views.map(view => ({ groups: groupsOf(dataOf(view)).map(g => g.id), callout: Boolean(view.calloutData) })),
+    );
+    // What shapes the outlines: each card, and the circle of each group of callouts only, which
+    // lies at the origin of the frame of its group
+    const shapes = views
+      .filter(view => !view.calloutData)
+      .map(view => ({ view, frameNode: view.frameNode, chain: groupsOf(dataOf(view)), ...sizeOf(view) }));
+    for (const view of views.filter(view => view.calloutData)) {
+      const chain = groupsOf(dataOf(view));
+      const circle = chain.at(-1);
+      if (circles.delete(circle?.id)) {
+        shapes.push({ view: null, frameNode: this.frames.get(circle.id), chain, x: 0, y: 0, circle: true });
+      }
+    }
     const corners = new Map();
     const groups = new Map();
-    for (const view of views) {
-      const { width, height } = sizeOf(view);
-      const chain = groupsOf(dataOf(view));
+    for (const shape of shapes) {
+      const { view, width, height, chain } = shape;
       chain.forEach((data, depth) => {
         const group = data.id;
         if (touched && !touched.has(group)) {
@@ -1333,22 +1356,31 @@ window.AtlasCanvas = class AtlasCanvas {
         }
         // Where the view lies in the frame of this group: its place in its own frame, moved by
         // every frame between the two
-        const from = kept && dragged.has(view) ? origins.get(view) : view;
-        let { x, y } = placeIn(view.frameNode, this.frames.get(group), from.x, from.y);
+        const from = kept && dragged.has(view) ? origins.get(view) : (view ?? shape);
+        let { x, y } = placeIn(shape.frameNode, this.frames.get(group), from.x, from.y);
         // A dragged group lies, for the outlines around it, where it was before the drag
-        if (kept && drag.node && within(view, drag.node)) {
+        if (kept && drag.node && within(shape.frameNode, drag.node)) {
           x -= drag.node.x - drag.origin.x;
           y -= drag.node.y - drag.origin.y;
+        }
+        if (!corners.has(group)) {
+          corners.set(group, []);
+          groups.set(group, data);
+        }
+        if (shape.circle) {
+          // The circle itself for its own group, and a padding more for each group around it
+          const radius = CIRCLE_RADIUS + GROUP_PADDING * (chain.length - 1 - depth);
+          for (let i = 0; i < CIRCLE_POINTS; i++) {
+            const angle = (2 * Math.PI * i) / CIRCLE_POINTS;
+            corners.get(group).push([x + radius * Math.cos(angle), y + radius * Math.sin(angle)]);
+          }
+          return;
         }
         const padding = GROUP_PADDING * (chain.length - depth);
         const left = x - width / 2 - padding;
         const right = x + width / 2 + padding;
         const top = y - height / 2 - padding;
         const bottom = y + height / 2 + padding;
-        if (!corners.has(group)) {
-          corners.set(group, []);
-          groups.set(group, data);
-        }
         corners.get(group).push([left, top], [right, top], [right, bottom], [left, bottom]);
       });
     }
@@ -1750,6 +1782,21 @@ function dropMode(e) {
 // of a group stays when the last of its children leaves it (ADR 053).
 function heldGroups({ dragged = [], around = [] }) {
   return new Set([...dragged.flat(), ...around]);
+}
+
+// The groups drawn as a circle: those whose children are only callouts. A callout does not
+// shape the outline of a group, so such a group has nothing else to be drawn around. Each view
+// is { groups, callout }: `groups` the ids of the groups of a card or a callout, the outermost
+// first. A group with a card under it, or a group under it, is drawn around them instead.
+function circleGroups(views) {
+  const circles = new Set(views.filter(view => view.callout).map(view => view.groups.at(-1)));
+  for (const view of views) {
+    // A card leaves no group of its own a circle, and a callout none above its own group
+    const shaping = view.callout ? view.groups.slice(0, -1) : view.groups;
+    shaping.forEach(id => circles.delete(id));
+  }
+  circles.delete(undefined);
+  return circles;
 }
 
 // What a drop does, from the mode of its keys (dropMode), the id of the card under the
