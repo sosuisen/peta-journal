@@ -973,15 +973,16 @@ window.AtlasCanvas = class AtlasCanvas {
     return node;
   }
 
-  // The ids of the groups whose outlines a drag changes: those of the dragged cards and
-  // callouts, or those around a dragged group, and with `own` that group itself
+  // The ids of the groups whose outlines a drag changes, which are those it can leave with Ctrl
+  // (heldGroups): those of the dragged cards and callouts, or those around a dragged group, and
+  // with `own` that group itself
   groupsOfDrag(drag, own = false) {
-    if (drag.node) {
-      const around = chainOf(drag.node.outer);
-      return new Set(own ? [...around, drag.group] : around);
-    }
     const moving = [...drag.origins, ...(drag.extras ?? [])];
-    return new Set(moving.flatMap(o => groupsOf(dataOf(o.view)).map(g => g.id)));
+    const held = heldGroups({
+      dragged: moving.map(o => groupsOf(dataOf(o.view)).map(g => g.id)),
+      around: drag.node ? chainOf(drag.node.outer) : [],
+    });
+    return own && drag.node ? new Set([...held, drag.group]) : held;
   }
 
   select(ids) {
@@ -1309,7 +1310,8 @@ window.AtlasCanvas = class AtlasCanvas {
   // color needs no new geometry. Given a drag, only the groups it changes are drawn again. With `ctrl`, the
   // outline of such a group stays as it was before the drag, with the dragged cards where
   // they were, so it shows whether they are let go in it. That shape does not change, so it
-  // is drawn once while Ctrl is held; only a group dragged as a whole moves with its cards.
+  // is drawn once while Ctrl is held. They are the groups the drag can leave, even one whose
+  // only child is dragged.
   // A group inside a group is drawn inside it: the outline of a group keeps a padding more
   // away from a card for each group between them, and lies behind the groups inside it.
   drawGroups(drag = null, ctrl = false) {
@@ -1317,11 +1319,6 @@ window.AtlasCanvas = class AtlasCanvas {
     const dragged = new Set(origins.keys());
     const touched = drag ? this.groupsOfDrag(drag) : null;
     const views = [...this.cardViews(), ...this.extras()];
-    const chains = list => list.map(view => groupsOf(dataOf(view)).map(g => g.id));
-    const held = heldGroups({
-      dragged: chains(views.filter(view => dragged.has(view))),
-      around: drag?.node ? chainOf(drag.node.outer) : [],
-    });
     const corners = new Map();
     const groups = new Map();
     for (const view of views) {
@@ -1332,7 +1329,8 @@ window.AtlasCanvas = class AtlasCanvas {
         if (touched && !touched.has(group)) {
           return;
         }
-        const kept = ctrl && held.has(group);
+        // Ctrl comes with a drag, and only the groups it touches are drawn for it
+        const kept = ctrl;
         if (kept && drag.ctrlShape) {
           return;
         }
@@ -1385,8 +1383,9 @@ window.AtlasCanvas = class AtlasCanvas {
       // Not `groupColor`: a Container uses that name for the tint it passes to its children,
       // and a color written there turns the area black while it is drawn again
       area.outlineColor = color;
-      // A group dragged as a whole has nothing to leave: it moves with its cards
-      area.leavable = ctrl && held.has(group);
+      // With Ctrl, what is dragged can leave each group drawn for the drag. The group dragged
+      // as a whole is not drawn again: it moves with its cards.
+      area.leavable = ctrl;
       const groupTitle = data.title;
       const groupTitleSide = data.titleSide;
       // A callout that cards are under stands along the outline in place of a title

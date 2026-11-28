@@ -61,24 +61,21 @@ test('a drop without Ctrl alone only places the pieces, outside their group too'
 });
 
 // Ctrlで出られるグループ
-// ほかのカードが残るグループは、ドラッグしたカードが出られる。入れ子のグループは、どれも出られる
-test('a drag with Ctrl can leave each group of its cards that other cards stay in', () => {
-  const held = atlas.heldGroups({
-    dragged: [['outer', 'inner']],
-    staying: [['outer', 'inner'], ['outer'], ['elsewhere']],
-  });
+// ドラッグしたカードは、自分の入っているグループを、入れ子のどれも出られる。ほかのグループは出られない
+test('a drag with Ctrl can leave each group its cards are in, however deep, and no other', () => {
+  const held = atlas.heldGroups({ dragged: [['outer', 'inner'], ['outer']] });
   assert.deepEqual(sorted(held), ['inner', 'outer']);
 });
 
 // グループのただ1つの子をドラッグしても、そのグループを出られる
 test('a drag with Ctrl can leave a group whose only card it drags', () => {
-  const held = atlas.heldGroups({ dragged: [['solo']], staying: [['elsewhere']] });
+  const held = atlas.heldGroups({ dragged: [['solo']] });
   assert.deepEqual(sorted(held), ['solo']);
 });
 
 // グループのすべての子をドラッグしても、そのグループを出られる
 test('a drag with Ctrl can leave a group all of whose cards it drags', () => {
-  const held = atlas.heldGroups({ dragged: [['pair'], ['pair']], staying: [] });
+  const held = atlas.heldGroups({ dragged: [['pair'], ['pair']] });
   assert.deepEqual(sorted(held), ['pair']);
 });
 
