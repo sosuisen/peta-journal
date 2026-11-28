@@ -5,16 +5,21 @@
 // Run with `node --test "scripts/*.test.mjs"`. The `guard` job of scripts/checks.mjs runs it.
 
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
-import { JOBS, ROOT, commandOf, jobsFor, logFileFor, runJob } from './checks.mjs';
+import { JOBS, ROOT, betaLeftOut, commandOf, jobsFor, logFileFor, runJob } from './checks.mjs';
 
 const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 
 const FLOOR = 90;
+
+// The beta jobs: neither the hook before a pull request nor the CI runs them, whatever files
+// changed. They are run by hand when their module is changed, and the pull request tells the
+// result. The developer decides each flag, with an ADR (ADR 092, 2026-11-28)
+const BETA = ['outliner-ios'];
 
 // The files left out of the measurement, with the consent of the developer. The reasons are in the
 // comments of each setting.
@@ -68,7 +73,9 @@ const COVERAGE_OS = {
 
 // The job and the step that run the common tests of each shell that has rules in
 // client/tools/shell-check/rules (ADR 089). A shell whose job is not there yet names the issue
-// that makes it. The common test of outliner-emacs is in Lisp, so ERT runs it (#1230)
+// that makes it. The common test of outliner-emacs is in Lisp, so ERT runs it (#1230). The job of
+// a beta shell keeps the step, to be run by hand, but a change of the examples does not run it
+// (ADR 092)
 const COMMON_TESTS_STEP = {
   'outliner-react': { job: 'outliner-react', run: 'npm run coverage' },
   'outliner-emacs': {
@@ -257,7 +264,8 @@ test('each job measures the coverage in a step that the ci never skips', () => {
 });
 
 // ルールのあるどのシェルも、共通のテストを回す段をジョブに持つか、ジョブを作るissueを持つ。共通のテストの例が変われば、そのジョブが回る（ADR 089）。
-test('each shell with rules runs the common tests in a step of its job', () => {
+// betaのジョブだけは、段を持つが、例が変わっても回らない（ADR 092）。
+test('each shell with rules runs the common tests in a step of its job, which runs when the examples change unless it is beta', () => {
   const rules = join(ROOT, 'client', 'tools', 'shell-check', 'rules');
   const shells = readdirSync(rules)
     .filter((name) => name.endsWith('.toml') && name !== 'core.toml')
@@ -275,7 +283,7 @@ test('each shell with rules runs the common tests in a step of its job', () => {
     );
     for (const examples of readdirSync(join(ROOT, 'client', 'tools', 'shell-check', 'common'))) {
       const file = `client/tools/shell-check/common/${examples}`;
-      assert.ok(jobsFor([file]).includes(job), `${shell}: ${file}`);
+      assert.equal(jobsFor([file]).includes(job), !BETA.includes(job), `${shell}: ${file}`);
     }
   }
 });
@@ -391,6 +399,69 @@ test('the CI runs every job of the list', () => {
   const matrix = rustWorkspaces(ci);
   assert.ok(ci.includes('node scripts/checks.mjs run ${{ matrix.workspace }}'));
   assert.deepEqual([...named, ...matrix].sort(), Object.keys(JOBS).sort());
+});
+
+// betaのジョブは、outliner-iosだけである。フラグを足すには、開発者の了解とADRが要る（ADR 092）。
+test('only outliner-ios is beta', () => {
+  const beta = Object.keys(JOBS).filter((name) => JOBS[name].beta !== undefined);
+  assert.deepEqual(beta, BETA);
+  for (const name of beta) assert.equal(JOBS[name].beta, true, name);
+});
+
+// betaのジョブは、どのファイルが変わっても選ばれない。フックもCIも、この決まりでジョブを選ぶ。ほかのジョブは、今までどおり選ばれる（ADR 092）。
+test('a beta job is never picked, whatever files changed, and the other jobs are picked as before', () => {
+  // The core of the client: it picked outliner-ios before the flag
+  const core = jobsFor(['client/libs/client-core/src/app.rs']);
+  assert.deepEqual(core, [
+    'guard',
+    'client',
+    'emacs-e2e',
+    'outliner-react',
+    'outliner-react-e2e',
+    'stickies-win',
+    'stickies-mac',
+    'outliner-android',
+  ]);
+  assert.deepEqual(betaLeftOut(['client/libs/client-core/src/app.rs']), BETA);
+  // The module itself, the package it shares, and a file that changes every job
+  const own = 'client/apps/native-app/outliner-ios/Sources/Shell/Shell.swift';
+  for (const file of [own, 'client/apps/native-app/swift-shared/Package.swift', 'scripts/checks.mjs']) {
+    assert.deepEqual(
+      jobsFor([file]).filter((name) => BETA.includes(name)),
+      [],
+      file,
+    );
+    assert.deepEqual(betaLeftOut([file]), BETA, file);
+  }
+  // swift-shared is still checked, by the job of stickies-mac
+  assert.ok(jobsFor(['client/apps/native-app/swift-shared/Package.swift']).includes('stickies-mac'));
+  // A file that touches no beta job leaves none out
+  assert.deepEqual(betaLeftOut(['client/apps/web-app/todo/src/main.tsx']), []);
+  assert.deepEqual(betaLeftOut(['docs/plans.md']), []);
+});
+
+// betaのジョブの定義と段は残り、手で回せる（ADR 092）。
+test('a beta job keeps its steps, and runs by hand', async () => {
+  for (const name of BETA) assert.ok(JOBS[name].steps.length > 0, name);
+  JOBS['test-beta'] = { dir: '.', beta: true, touchedBy: ['test-beta/'], steps: [{ run: 'node -e "process.exit(3)"' }] };
+  try {
+    assert.deepEqual(jobsFor(['test-beta/a.txt']), ['guard']);
+    assert.deepEqual(betaLeftOut(['test-beta/a.txt']), ['test-beta']);
+    assert.notEqual((await runJob('test-beta', { log: () => {} })).failed, undefined);
+  } finally {
+    delete JOBS['test-beta'];
+  }
+});
+
+// ジョブを選ぶコマンドは、betaのために外したジョブを、1行で知らせる。黙って外すと、通ったと取られるためである。
+// 知らせは標準エラーに出す。CIのplanは、標準出力をジョブの一覧として読む（ADR 092）。
+test('the jobs command tells in one line on stderr which jobs it left out as beta', () => {
+  const jobs = (...files) => spawnSync(process.execPath, [join(ROOT, 'scripts', 'checks.mjs'), 'jobs', ...files], { encoding: 'utf8' });
+  const core = jobs('client/libs/client-core/src/app.rs');
+  assert.equal(core.status, 0);
+  assert.deepEqual(core.stdout.trim().split('\n'), jobsFor(['client/libs/client-core/src/app.rs']));
+  assert.match(core.stderr, /^left out as beta \(ADR 092\): outliner-ios\b[^\n]*\n$/);
+  assert.equal(jobs('client/apps/web-app/todo/src/main.tsx').stderr, '');
 });
 
 // PRの前のフックが、Claude Codeの設定にある。
@@ -666,7 +737,8 @@ test('the plan job picks the jobs as the hook does, and the ci job waits for eve
 
 // 手で起こすときは、OSごとに回すかを選べる。既定はすべてのOSを回す（開発者が決めた。publicのリポジトリでは、macOSも無料である）。
 // ほかのジョブは、planが選んだときだけ回る。guardは毎回回る。ios_onlyのときは、outliner-iosだけが回る。
-test('the CI runs the jobs that the plan picks, each os when asked, only outliner-ios with ios_only, and the guard every time', () => {
+// outliner-iosはbetaなので、PRでもpushでも回らず、手で起こしたios_onlyのときにだけ回る（ADR 092）。
+test('the CI runs the jobs that the plan picks, each os when asked, outliner-ios only by hand with ios_only, and the guard every time', () => {
   const ci = read('.github/workflows/ci.yml');
   const INPUT = { linux: 'linux', win32: 'windows', darwin: 'macos' };
   const defaults = Object.fromEntries(
@@ -686,7 +758,7 @@ test('the CI runs the jobs that the plan picks, each os when asked, only outline
     const picked = name === 'rust' ? `needs.plan.outputs.rust != '[]'` : `contains(fromJSON(needs.plan.outputs.jobs), '${name}')`;
     const expected =
       name === 'outliner-ios'
-        ? `${picked} && (github.event_name != 'workflow_dispatch' || inputs.${input} || inputs.ios_only)`
+        ? `github.event_name == 'workflow_dispatch' && inputs.ios_only`
         : `${picked} && (github.event_name != 'workflow_dispatch' || inputs.${input}) && !inputs.ios_only`;
     assert.equal(cond, expected, name);
     assert.match(block, /\n {4}needs: plan\n/, name);

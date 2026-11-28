@@ -6,6 +6,7 @@
 //   node scripts/checks.mjs run <job>          runs the checks of the job
 //   node scripts/checks.mjs run <job> --result also prints the result as one line of JSON
 //   node scripts/checks.mjs jobs <file>...     prints the jobs that the files touch
+//                                              (a beta job is left out, and named on stderr)
 //   node scripts/checks.mjs log                prints the log that the hook writes for HEAD
 //
 // Only a step for another OS (`os`) is skipped on a developer's machine, and reported. In the CI
@@ -24,6 +25,11 @@
 // The CI skips one mark of steps, and says so in its log:
 // - `hookOnly: true`: a `ciOnly` step of the same job does the same again, so the CI would do it
 //   twice. The hook skips that step, so the hook needs this one.
+//
+// A job can be beta (`beta: true`, ADR 092). Neither the hook nor the CI runs a beta job, whatever
+// files changed: the rule that picks the jobs (`jobsFor`) leaves it out, and says so. Its steps
+// stay, to be run by hand (`run <job>`) when its module is changed. The pull request tells the
+// result, as no check shows it. A flag needs the consent of the developer and an ADR.
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -282,8 +288,13 @@ export const JOBS = {
   },
   // The outliner on iOS, in SwiftUI. Everything here needs Xcode and the simulator of an iPhone, so
   // every step is for macOS. The tests of the packages, of the app and of the screen all run in the
-  // simulator, in the coverage step
+  // simulator, in the coverage step.
+  // Beta (ADR 092): the app cannot be published and the developer does not use it daily, and this
+  // job is the heaviest, with tests of the screen that fail now and then. So the hook and the CI
+  // do not run it, and a change elsewhere may break it unseen. Run it by hand when you change
+  // the module (`node scripts/checks.mjs run outliner-ios`), and tell the result in the pull request
   'outliner-ios': {
+    beta: true,
     dir: 'client/apps/native-app/outliner-ios',
     touchedBy: ['client/apps/native-app/outliner-ios/', 'client/apps/native-app/swift-shared/', ...CLIENT_RUST],
     notTouchedBy: [
@@ -347,7 +358,7 @@ export const JOBS = {
 // a Markdown file as its data, and the name of a file does not tell which ones it reads. Only the
 // files under docs/ touch no job, as the developer decided: no check reads them.
 const NO_JOB = 'docs/';
-export function jobsFor(files) {
+function touchedJobs(files) {
   const checked = files.filter((f) => !f.startsWith(NO_JOB));
   return Object.keys(JOBS).filter((name) => {
     const { touchedBy, notTouchedBy = [] } = JOBS[name];
@@ -355,6 +366,18 @@ export function jobsFor(files) {
       (f) => ALL.includes(f) || (touchedBy.some((p) => f.startsWith(p)) && !notTouchedBy.some((p) => f.startsWith(p))),
     );
   });
+}
+
+// The jobs that the hook and the CI run for the changed files. A beta job is never one of them,
+// whatever files changed (ADR 092)
+export function jobsFor(files) {
+  return touchedJobs(files).filter((name) => !JOBS[name].beta);
+}
+
+// The beta jobs that the changed files touch, and that `jobsFor` left out. The hook and the CI
+// name them, so that nobody takes their silence for a pass
+export function betaLeftOut(files) {
+  return touchedJobs(files).filter((name) => JOBS[name].beta);
 }
 
 // The MSBuild of Visual Studio is not on the PATH of a developer's machine. vswhere finds it
@@ -516,6 +539,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     }
   } else if (command === 'jobs') {
     console.log(jobsFor(args).join('\n'));
+    // On stderr: the plan job of the CI reads stdout as the list of the jobs
+    const beta = betaLeftOut(args);
+    if (beta.length > 0) {
+      console.error(
+        `left out as beta (ADR 092): ${beta.join(', ')} - neither the hook nor the CI runs it; run it by hand with: node scripts/checks.mjs run <job>`,
+      );
+    }
   } else if (command === 'log' && args.length === 0) {
     console.log(logFileFor());
   } else {

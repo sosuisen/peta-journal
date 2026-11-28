@@ -79,7 +79,7 @@
     <tr><td><code>stickies-win</code>（C#）</td><td class="ok">CSharpier</td><td class="ok">C#のコンパイラ</td><td class="ok">.NETのアナライザー（<code>latest-recommended</code>）</td><td class="ok">S2</td><td class="ok"><code>PetaBorder.Tests</code>、<code>PetaScreens.Tests</code>（画面）</td><td class="ok">coverlet.console（<code>dotnet build -t:Coverage</code>）</td><td class="ok">Stryker.NET（<code>mutation.ps1</code>）</td><td class="ok">あり</td></tr>
     <tr><td><code>memoview-win</code>（C#）</td><td class="ok">CSharpier</td><td class="ok">C#のコンパイラ</td><td class="ok">.NETのアナライザー（<code>latest-recommended</code>）</td><td class="na">対象外</td><td class="ok"><code>memoview-tests</code></td><td class="na">対象外<span class="note">WebViewのためのサンプルなので、今は9割の対象にしない。開発を進めるとき（#812）は、始める前に対象に足す。テストに入れたファイルだけは、今も測っている（<code>dotnet build -t:Coverage</code>）</span></td><td class="missing">設定なし</td><td class="ok">あり</td></tr>
     <tr><td><code>stickies-mac</code>（Swift）</td><td class="ok">swift-format</td><td class="ok">Swiftのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">XCTest</td><td class="ok"><code>coverage.sh</code><span class="note">測らないのは<code>App/</code>（エントリーポイント）</span></td><td class="ok">swift-mutation-testing（<code>mutation-test.sh</code>）</td><td class="ok">あり</td></tr>
-    <tr><td><code>outliner-ios</code>（Swift）</td><td class="ok">swift-format</td><td class="ok">Swiftのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">XCTest（パッケージ、<code>AppTests</code>、<code>UITests</code>（画面））</td><td class="ok"><code>coverage.sh</code></td><td class="ok">swift-mutation-testing（<code>mutation-test.sh</code>）</td><td class="ok">あり</td></tr>
+    <tr><td><code>outliner-ios</code>（Swift）</td><td class="ok">swift-format</td><td class="ok">Swiftのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">XCTest（パッケージ、<code>AppTests</code>、<code>UITests</code>（画面））</td><td class="ok"><code>coverage.sh</code></td><td class="ok">swift-mutation-testing（<code>mutation-test.sh</code>）</td><td class="na">回さない<span class="note">beta（ADR 092）。フックもCIも回さない。変えたときに、ジョブを手で回す</span></td></tr>
     <tr><td><code>outliner-android</code>（Kotlin）</td><td class="ok">ktfmt</td><td class="ok">Kotlinのコンパイラ</td><td class="missing">設定なし</td><td class="ok">S2</td><td class="ok">JUnit、画面のテスト（エミュレーター）<span class="note">画面のテストが落ちたら、落ちたテストだけを1回だけ回し直し、通れば通す。回し直したテストは、ログとCIの警告に出る</span></td><td class="ok">JaCoCo（<code>coverage.sh</code>）<span class="note">測らないのは<code>generated/</code>と、Dropboxを呼ぶだけの2つのファイル（<code>SdkDropbox.kt</code>、<code>DropboxSdk.kt</code>。#1088）</span></td><td class="ok">PIT（<code>gradlew :app:pitestDebug</code>）</td><td class="ok">あり</td></tr>
   </tbody>
 </table>
@@ -131,7 +131,7 @@ D系統は、どのシェルも回さなければならない共通のテスト�
   <tbody>
     <tr><td>1</td><td>各シェルに、共通のテストのファイルがあり、例のファイルを読んでいる</td><td>shell-checkの<code>cargo test</code>（<code>tests/repository.rs</code>）</td><td class="ok">回る</td></tr>
     <tr><td>2</td><td>各シェルのテストが、例をすべて回した</td><td>各シェルのテスト</td><td class="ok">回る（6つのシェルすべて）</td></tr>
-    <tr><td>3</td><td>各シェルのジョブ（<code>scripts/checks.mjs</code>）が、共通のテストを含むテストの段を持つ</td><td><code>scripts/verification.test.mjs</code>（<code>guard</code>）</td><td class="ok">回る（<code>COMMON_TESTS_STEP</code>）</td></tr>
+    <tr><td>3</td><td>各シェルのジョブ（<code>scripts/checks.mjs</code>）が、共通のテストを含むテストの段を持つ</td><td><code>scripts/verification.test.mjs</code>（<code>guard</code>）</td><td class="ok">回る（<code>COMMON_TESTS_STEP</code>）<span class="note">betaのジョブは、段を持つが、例が変わっても回らない（ADR 092）</span></td></tr>
   </tbody>
 </table>
 <p>テストが落ちうることは、各シェルのPRの前のミューテーションテストで確かめる。</p>
@@ -139,7 +139,23 @@ D系統は、どのシェルも回さなければならない共通のテスト�
 シェルを足すときは、<code>main</code>で何も出ない状態にしてから、ルールのファイルを置く。</p>
 
 <h2>手元だけで回すもの</h2>
-<p>CIで回さないテストは、ミューテーションテストのほかにない。</p>
+<p>CIで回さないテストは、ミューテーションテストと、betaのモジュールのジョブである。</p>
+
+<h2>betaのモジュール（ADR 092）</h2>
+<p><code>scripts/checks.mjs</code>のジョブの定義に<code>beta: true</code>と書いたモジュールである。<br>
+betaのジョブは、PRの前のフックでも、CIでも回さない。どのファイルが変わっても、ジョブを選ぶ決まり（<code>node scripts/checks.mjs jobs</code>）が選ばない。<br>
+外したジョブは、フックとCIの<code>plan</code>が1行で知らせる。知らせが出ても、そのジョブは通ったことにならない。</p>
+<table>
+  <thead>
+    <tr><th>betaのジョブ</th><th>なくなるもの</th><th>残るもの</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>outliner-ios</code></td><td>継続的なリグレッションテスト。ほかのモジュールの変更（コアの境界の型、<code>swift-shared</code>など）で壊れても、フックもCIも気づかない。コンパイルできなくなることもある。壊れたことは、次に手を加えるときに見つかる</td><td>ジョブの定義と段。<code>outliner-ios</code>に手を加えるときは、<code>node scripts/checks.mjs run outliner-ios</code>を手で回し、結果をPRの本文に書く。必須の<code>ci</code>のチェックは、それを保証しない。<br>CIでは、手で起こした<code>ios_only</code>のときにだけ回る</td></tr>
+  </tbody>
+</table>
+<p><code>swift-shared</code>は、<code>stickies-mac</code>のジョブが今までどおり検証する。<br>
+上のshell-checkの表の「6つのシェルすべて」のうち、<code>outliner-ios</code>の分（S2を除く）は、ジョブを手で回したときにだけ回る。S2は、<code>client</code>の<code>cargo test</code>がソースを読むので、今までどおり回る。<br>
+フラグを足すには、開発者の了解とADRが要る。フラグのあるジョブの一覧は、<code>scripts/verification.test.mjs</code>が見張る。</p>
 
 <h2>PRの前のフックが飛ばす段</h2>
 <p>PRの前のフックは、CIと同じ段（<code>scripts/checks.mjs</code>）を手元で回す。<br>ただし、次の印の段は飛ばし、飛ばした理由をログに書く。必須の<code>ci</code>のチェックが、CIで回す。</p>

@@ -233,7 +233,19 @@ file by file. Not tested, and left out of the measurement: `SdkDropbox` and `Rea
 (`DropboxSdk.swift`). They only pass each call on to the SDK of Dropbox, and a test of them
 needs an account of Dropbox.
 
-The CI runs `generate.sh`, the format check and `coverage.sh` on macOS (the job `outliner-ios`
-of `scripts/checks.mjs`). To run this job alone, without the other jobs, start the CI with
-`ios_only=true`. On Windows, `node scripts/checks.mjs run outliner-ios` runs them on your Mac.
-The hook before a pull request does not run them on a Mac (ADR 086).
+The job `outliner-ios` of `scripts/checks.mjs` runs `generate.sh`, the format check,
+`coverage.sh` and the tests of `swift-shared`. The job is beta (ADR 092): neither the hook before
+a pull request nor the CI runs it, on a change of this module or of any other. So a change of
+the core or of `swift-shared` may break this module unseen, and it shows when you change the
+module next.
+
+When you change this module, run the job by hand, and write the result in the pull request:
+the required `ci` check does not show it.
+
+```
+node scripts/checks.mjs run outliner-ios
+```
+
+On Windows or Linux, this runs the steps on your Mac. Without a Mac that can run the simulator,
+start the CI by hand with `ios_only=true`: it runs this job alone on a macOS runner of GitHub
+(`gh workflow run CI --ref <branch> -f ios_only=true`).
