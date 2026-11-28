@@ -118,8 +118,8 @@
   <tbody>
     <tr><td><code>Effect</code>（コアの効果、6種類）</td><td>Rustのシェル（<code>client-web-bridge</code>、<code>client-native-bridge</code>、<code>outliner-emacs</code>）</td><td class="ok">網羅的な<code>match</code></td></tr>
     <tr><td><code>UiOp</code>（画面の操作、14種類）</td><td>Rustのシェル（Webの<code>lanes.rs</code>の<code>lane_of</code>、Emacs版の<code>shell.rs</code>の<code>on_ui_op</code>）</td><td class="ok">網羅的な<code>match</code></td></tr>
-    <tr><td><code>UiOp</code></td><td>4つのネイティブアプリ（<code>client-native-bridge</code>は、ほとんどを種類を見ずにアプリへ渡す）</td><td class="missing">まとめて受ける分岐がある（#1312）<span class="note">Swiftは<code>default:</code>、Kotlinは<code>else -&gt;</code>、C#は<code>switch</code>文で、<code>UiOp</code>は<code>closed record</code>でもない。種類を足してもコンパイルが通り、新しい種類は黙って何もされない</span></td></tr>
-    <tr><td><code>ShellEffect</code>（ネイティブへ渡る効果）</td><td><code>stickies-win</code>（C#）</td><td class="missing"><code>switch</code>文で、<code>closed record</code>でもない（#1312）</td></tr>
+    <tr><td><code>UiOp</code></td><td>4つのネイティブアプリ（<code>client-native-bridge</code>は、ほとんどを種類を見ずにアプリへ渡す）</td><td class="ok">すべての種類に分岐がある（#1312）<span class="note">Swiftは<code>default:</code>のない<code>switch</code>、Kotlinは<code>else -&gt;</code>のない<code>when</code>、C#は<code>closed record</code>と<code>switch</code>式。何もしない種類にも、名前と理由がある</span></td></tr>
+    <tr><td><code>ShellEffect</code>（ネイティブへ渡る効果）</td><td>4つのネイティブアプリ</td><td class="ok">網羅的（C#は#1312で<code>closed record</code>と<code>switch</code>式にした）</td></tr>
     <tr><td><code>RichBlock</code>、<code>RichLink</code>、<code>RowChange</code>、<code>HeadingChange</code>、<code>PageChange</code>、<code>SearchChange</code>、<code>Panel</code></td><td><code>stickies-win</code>（C#）</td><td class="ok"><code>closed record</code>と<code>switch</code>式、CS8509はエラー（ADR 041、ADR 042）</td></tr>
   </tbody>
 </table>

@@ -103,6 +103,34 @@ test('the hook runs before a command that makes a pull request, and not before o
   for (const command of makes) assert.equal(answered(command), true, command);
 });
 
+// フックは、PRを作る言葉が、引用符やヒアドキュメントの中の文字や、ほかのコマンドの引数にあるだけでは動かない。PRを作るghのコマンドを実行するときは、前に何が付いていても動く（#1317）。
+test('the hook runs only when a command runs gh to make a pull request, not when the words are only text', () => {
+  const repo = repository();
+  const makes = [
+    'cd x && gh pr create --title t',
+    'GH_TOKEN=abc gh pr create --base main',
+    'git push -q origin b 2>&1 | tail -1; gh pr create --assignee me --body-file pr.md 2>&1 | tail -15',
+    'gh pr create --title "fix: a; b" --body-file pr.md',
+    'git log -1\ngh pr create --fill',
+    'TITLE="a b" gh pr create --title "$TITLE"',
+    'echo "made $(gh pr create --fill)"',
+    "cat > pr.md <<'E'\nbody\nE\ngh pr create --body-file pr.md",
+  ];
+  const texts = [
+    'git commit -m "docs: hand gh pr create to a subagent"',
+    "grep -n 'gh pr create' .claude/hooks/verify-before-pr.mjs",
+    "cat > body.md <<'E'\nthe hook runs before gh pr create\nE\ngh issue create --body-file body.md",
+    'cat > body.md <<E\nor a POST through gh api -X POST repos/o/r/pulls -f title=x\nE',
+    'echo "gh api -X POST repos/o/r/pulls -f title=x"',
+    'git commit -m \'why the hook stops gh pr create\' && git push',
+    'cat <<-E\n\tgh pr create\n\tE',
+    'echo \\"gh pr create\\" is a text',
+  ];
+  const answered = (command) => Object.keys(runHook(repo, command)).some((k) => k !== 'ran');
+  for (const command of texts) assert.equal(answered(command), false, command);
+  for (const command of makes) assert.equal(answered(command), true, command);
+});
+
 // mainが検証のファイルをあとで変えたら、ブランチに取り込むまでPRを止める。
 test('the hook stops when main has newer checks', () => {
   const repo = repository();
@@ -255,9 +283,12 @@ test('the hook stops when it started from a file older than main, even if the fi
   const repo = repository();
   const onMain = readFileSync(join(repo.main, HOOK), 'utf8');
   // The running hook is older than main, and a pull puts the hook of main on disk right after it starts
+  // A function gives the text as it is: in a string, `$` and the mark after it would be read as a
+  // pattern of the replacement, and the hook has such marks in its comments
   const older = onMain.replace(
     "const input = JSON.parse(readFileSync(0, 'utf8'));",
-    `const input = JSON.parse(readFileSync(0, 'utf8'));\nwriteFileSync(fileURLToPath(import.meta.url), ${JSON.stringify(onMain)});`,
+    () =>
+      `const input = JSON.parse(readFileSync(0, 'utf8'));\nwriteFileSync(fileURLToPath(import.meta.url), ${JSON.stringify(onMain)});`,
   );
   assert.notEqual(older, onMain);
   write(repo.main, HOOK, older);
