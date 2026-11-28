@@ -299,6 +299,65 @@ fn a_page_with_no_card_dropped_with_a_key_gets_its_item_and_joins_in_one_batch()
     );
 }
 
+// 1回の送信で作る項目（ページのカードと、新しいグループの親）は、それぞれ新しいidを持つ。同じ送信の続きの操作は、そのidで項目を名指しする。今ある項目のidは変わらない。
+#[test]
+fn the_items_a_batch_makes_get_ids_of_their_own_that_the_rest_of_the_batch_names() {
+    let mut h = atlas_with_a_group_and_what_waits();
+    h.send(Event::DropAtlasCard {
+        card_id: "a/b/four".into(),
+        x: 130.0,
+        y: 250.0,
+        grab_x: 0.5,
+        grab_y: 0.5,
+        target_id: Some("a/b/three".into()),
+        parent_id: None,
+    });
+
+    let ops = crate::harness::batch_calls(&h.api).remove(0);
+    let [BatchOpInput::Create { id: card, .. }, BatchOpInput::Create {
+        id: group,
+        position,
+        ..
+    }, BatchOpInput::Update { id: first, .. }, BatchOpInput::Update { id: second, .. }, BatchOpInput::Move {
+        ids,
+        position: behind,
+        ..
+    }] = &ops[..]
+    else {
+        panic!("a card, a group, two levels and a move: {ops:?}");
+    };
+    assert_ne!(card, group);
+    for made in [card, group] {
+        assert!(hmtid::Hmtid::parse(made).is_ok(), "{made:?}");
+    }
+    assert_eq!(position, &ItemPosition::after("i-three"));
+    assert_eq!(
+        [first.as_str(), second.as_str()],
+        [card.as_str(), "i-three"]
+    );
+    assert_eq!(ids, &[card.clone(), "i-three".to_string()]);
+    assert_eq!(behind, &ItemPosition::after(group));
+    assert!(h.ui.iter().any(|op| matches!(op, UiOp::LocalNow)));
+}
+
+// 項目を作らない送信では、idを作らないので、シェルに時刻を尋ねない。
+#[test]
+fn a_batch_that_makes_no_item_asks_the_shell_for_no_time() {
+    let mut h = atlas_with_a_group_and_what_waits();
+    h.send(Event::DropAtlasCard {
+        card_id: "note".into(),
+        x: 130.0,
+        y: 250.0,
+        grab_x: 0.5,
+        grab_y: 0.5,
+        target_id: None,
+        parent_id: Some("g".into()),
+    });
+
+    assert_eq!(batches(&h).len(), 1);
+    assert!(!h.ui.iter().any(|op| matches!(op, UiOp::LocalNow)));
+}
+
 // キーを押していても、名指しされた相手が項目を受け取れなければ、Ctrlなしと同じに、ページの末尾のトップレベルに入る。相手が、ない項目、描かれていないカード、ドロップした項目自身、その下の項目のときである。
 #[test]
 fn a_drop_on_what_cannot_take_the_item_goes_to_the_top() {
