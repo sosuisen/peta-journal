@@ -304,6 +304,34 @@ fn what_waits_for_a_card_that_is_not_made_is_given_up() {
     assert_eq!(bounds_of(&h, "a/b/four").map(|b| b.x), Some(130.0));
 }
 
+// 待つのは、カードがこれからできるページだけである。カードでない項目（子を持つ項目）を名指しした操作は、待たずに捨てられ、あとでその項目がカードになっても、グループには入らない。
+#[test]
+fn only_a_page_whose_card_is_being_made_is_waited_for() {
+    let group = || {
+        vec![
+            parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            card_item("one", 2, Some("0,0,0,40")),
+        ]
+    };
+    let mut items = group();
+    items.push(parent_item("note", 1, "note", &[]));
+    items.push(atlas_item("sub", 2, "sub", &[]));
+    let mut h = atlas_of(vec![child("one"), child("two")], items);
+    h.send(Event::MoveAtlasCards {
+        card_ids: vec!["note".into()],
+        parent_id: "g".into(),
+    });
+    // The item under the note is gone: the note is a card now
+    let mut later = group();
+    later.push(parent_item("note", 1, "note", &[]));
+    h.send(Event::AtlasChanged {
+        atlas_id: ATLAS_ID.into(),
+        items: later,
+    });
+
+    assert!(batches(&h).is_empty());
+}
+
 // ドロップが拒否されると、アラートが表示され、項目は元の場所と元の`atlas_bounds`に戻る。
 #[test]
 fn a_refused_drop_puts_the_item_back_where_it_was() {
