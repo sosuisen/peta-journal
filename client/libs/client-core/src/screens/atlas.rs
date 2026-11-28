@@ -210,9 +210,9 @@ fn placeable(model: &Model, id: &str) -> Option<(Item, Option<(f64, f64)>)> {
 /// where it was grabbed, so it gives the center rather than the drop point. The point is saved
 /// counted from the item it is under (ADR 053). The item moves at once; a refusal of the server
 /// puts it back. A parent takes all that is under it along, as their bounds are counted from
-/// it and do not change. An item under an item that is not drawn has no place to count its
-/// own from: it comes out to the top of the outline and is placed there ([`taken_to_top`]).
-/// A page of the directory that has no card yet gets a card there.
+/// it and do not change. An item under an item that is not drawn is not on the canvas, and
+/// is not placed here: it is dropped from the list beside the canvas ([`drop_card`]). A page
+/// of the directory that has no card yet gets a card there.
 pub fn place_card(model: &mut Model, card_id: String, x: f64, y: f64) -> Cmd {
     if !x.is_finite() || !y.is_finite() {
         return done();
@@ -221,7 +221,7 @@ pub fn place_card(model: &mut Model, card_id: String, x: f64, y: f64) -> Cmd {
         return add_page_card(model, &card_id, x, y);
     };
     let Some((frame_x, frame_y)) = frame else {
-        return change(model, taken_to_top(model, &item, x, y));
+        return done();
     };
     let bounds = placed_at(&item, x - frame_x, y - frame_y);
     save_bounds(model, &item, bounds)
@@ -239,47 +239,6 @@ fn placed_at(item: &Item, x: f64, y: f64) -> Bounds {
         width,
         height,
     }
-}
-
-/// The operations that make an item under an item that is not drawn a card of the top, with
-/// its center at the point of the canvas (ADR 053). It leaves its parents: it goes behind the
-/// tree of the outermost of them, at level 1, as a card taken out of a parent does, and its
-/// bounds are counted from the center of the canvas. The items under it go with it, each as
-/// deep under it as before. The parent it leaves loses its side when nothing stays under it.
-fn taken_to_top(model: &Model, item: &Item, x: f64, y: f64) -> Vec<BatchOpInput> {
-    let Some(parent) = parent_of(model, item) else {
-        return Vec::new();
-    };
-    let mut outermost = parent;
-    while let Some(above) = parent_of(model, outermost) {
-        outermost = above;
-    }
-    let below: Vec<&Item> = under(model, item).collect();
-    let leaving: Vec<&Item> = std::iter::once(item).chain(below.iter().copied()).collect();
-    let leveled = |item: &Item, bounds: Option<Bounds>| BatchOpInput::Update {
-        id: item.id.clone(),
-        body: None,
-        level: Some(item.level - leaving[0].level + 1),
-        collapsed: None,
-        task: None,
-        properties: bounds
-            .map(|bounds| {
-                let value = PropertyValue::Text(bounds.to_string());
-                (BOUNDS_KEY.to_string(), value)
-            })
-            .into_iter()
-            .collect(),
-        dropped_properties: Vec::new(),
-    };
-    let mut ops = vec![leveled(item, Some(placed_at(item, x, y)))];
-    ops.extend(below.iter().map(|item| leveled(item, None)));
-    ops.push(BatchOpInput::Move {
-        ids: leaving.iter().map(|item| item.id.clone()).collect(),
-        page_id: item.page_id.clone(),
-        position: ItemPosition::after(&last_staying(model, outermost, &leaving).id),
-    });
-    ops.extend(side_dropped(model, parent, &leaving));
-    ops
 }
 
 /// Gives a page of the directory that no card links to a card with its center at the point:
@@ -318,6 +277,11 @@ fn add_card(model: &Model, target: &str, x: f64, y: f64) -> Cmd {
 /// Places what was dropped from the lists beside the canvas: a page not added, or an item
 /// without a place. It is placed by its center, which lies this far from the grabbed spot of
 /// a card of the list.
+/// Whatever is dropped becomes an item of the top at the end of the page, with the point of
+/// the drop as its bounds, wherever it was in the outline (ADR 053): a page not added gets its
+/// item there, and an item without a place moves there ([`take_to_top`]). With Ctrl held on a
+/// card or a group, the shell then sends what it sends for a card of the canvas let go there,
+/// so one rule joins both to a group.
 pub fn drop_card(
     model: &mut Model,
     card_id: String,
@@ -328,7 +292,102 @@ pub fn drop_card(
 ) -> Cmd {
     let center_x = x + (0.5 - grab_x) * CARD_WIDTH;
     let center_y = y + (0.5 - grab_y) * CARD_HEIGHT;
-    place_card(model, card_id, center_x, center_y)
+    if !center_x.is_finite() || !center_y.is_finite() {
+        return done();
+    }
+    match placeable(model, &card_id) {
+        Some((item, _)) => take_to_top(model, &item, center_x, center_y),
+        None => add_page_card(model, &card_id, center_x, center_y),
+    }
+}
+
+/// Makes an item an item of the top at the end of the page, with its center at the point of
+/// the canvas, in one batch. It leaves the item it is under, drawn or not. The items under it
+/// go with it, each as deep under it as before, and keep their bounds, which are counted from
+/// it. The parent it leaves loses its side when nothing stays under it.
+/// The outline shows the move at once, so what the shell sends next finds the item where it
+/// was dropped. A refusal of the server puts the outline back.
+fn take_to_top(model: &mut Model, item: &Item, x: f64, y: f64) -> Cmd {
+    let Some(atlas_id) = shown_atlas_page(model).map(|p| p.id.clone()) else {
+        return done();
+    };
+    let bounds = PropertyValue::Text(placed_at(item, x, y).to_string());
+    let below: Vec<&Item> = under(model, item).collect();
+    let leaving: Vec<&Item> = std::iter::once(item).chain(below.iter().copied()).collect();
+    let rise = item.level - 1;
+    let leveled = |item: &Item, bounds: Option<&PropertyValue>| BatchOpInput::Update {
+        id: item.id.clone(),
+        body: None,
+        level: Some(item.level - rise),
+        collapsed: None,
+        task: None,
+        properties: bounds
+            .map(|bounds| (BOUNDS_KEY.to_string(), bounds.clone()))
+            .into_iter()
+            .collect(),
+        dropped_properties: Vec::new(),
+    };
+    let mut ops = vec![leveled(item, Some(&bounds))];
+    ops.extend(below.iter().map(|below| leveled(below, None)));
+    ops.push(BatchOpInput::Move {
+        ids: leaving.iter().map(|item| item.id.clone()).collect(),
+        page_id: atlas_id.clone(),
+        position: ItemPosition::Last,
+    });
+    let parent = parent_of(model, item);
+    ops.extend(parent.and_then(|parent| side_dropped(model, parent, &leaving)));
+
+    let before: Vec<Item> = page_items(model, &atlas_id).cloned().collect();
+    let is_leaving = |shown: &Item| leaving.iter().any(|item| item.id == shown.id);
+    let moved = before
+        .iter()
+        .filter(|shown| is_leaving(shown))
+        .map(|shown| {
+            let mut moved = shown.clone();
+            moved.level -= rise;
+            if moved.id == item.id {
+                let bounds = bounds.clone();
+                moved.properties.insert(BOUNDS_KEY.to_string(), bounds);
+            }
+            moved
+        });
+    let staying = before.iter().filter(|shown| !is_leaving(shown)).cloned();
+    let after: Vec<Item> = staying.chain(moved).collect();
+    file_reload::replace_page_items(model, &atlas_id, after);
+
+    let item_id = item.id.clone();
+    let before_bounds = item.properties.get(BOUNDS_KEY).cloned();
+    run(move |api| async move {
+        if let Err(e) = api.apply_batch(ops).await {
+            api.alert(e.0);
+            // The bounds first: the outline that comes next keeps the bounds shown for an
+            // item that stays under the same item
+            api.send_event(Event::AtlasBoundsRefused {
+                item_id,
+                before: before_bounds,
+            });
+            api.send_event(Event::AtlasChanged {
+                atlas_id,
+                items: before,
+            });
+            return;
+        }
+        match api.get_page_by_id(&atlas_id).await {
+            Ok(page) => api.send_event(Event::AtlasChanged {
+                atlas_id,
+                items: page.items,
+            }),
+            Err(e) => api.alert(e.0),
+        }
+    })
+}
+
+/// The items of a page as they are shown, in their order.
+fn page_items<'a>(model: &'a Model, page_id: &'a str) -> impl Iterator<Item = &'a Item> {
+    let items = model.state.items().iter();
+    items
+        .filter(move |item| item.page_id == page_id)
+        .map(|item| &**item)
 }
 
 /// Scales a card, no smaller than [`MIN_CARD_SCALE`]. The card keeps its place. Its height is
