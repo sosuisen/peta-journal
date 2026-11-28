@@ -63,6 +63,8 @@ interface AtlasCanvas {
   setOnShowText(
     onShowText: (cardId: string, x: number, y: number) => void,
   ): void;
+  /** Remove from Atlas of a link card or a plain card, named by its item */
+  setOnRemove(onRemove: (cardId: string) => void): void;
   setCards(json: string): void;
   setCallouts(json: string): void;
   setLinkSuggestions(json: string): void;
@@ -428,6 +430,10 @@ function makeCanvas(
     (item_id, target) => core.send({ kind: 'SetAtlasLink', item_id, target }),
     item_id => core.send({ kind: 'RemoveAtlasLink', item_id }),
     query => core.send({ kind: 'SearchAtlasLinks', query }),
+  );
+  // The card stays as an item, and waits to be placed again
+  made.setOnRemove(card_id =>
+    core.send({ kind: 'RemoveAtlasCard', page_id: card_id }),
   );
   made.setOnShowText(showText);
   // As a click on a link of a page: Ctrl or Command as ctrl, Shift as shift (ADR 083)
