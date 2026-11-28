@@ -14,10 +14,12 @@ import { ROOT } from './checks.mjs';
 
 const HOOK = '.claude/hooks/verify-before-pr.mjs';
 
-// A list of checks with one job per entry of `jobs`. Each run appends the name of the job to RAN
-const stub = (jobs) => `import { appendFileSync } from 'node:fs';
+// A list of checks with one job per entry of `jobs`. Each run appends the name of the job to RAN.
+// `beta` are the jobs that it leaves out as beta
+const stub = (jobs, beta = []) => `import { appendFileSync } from 'node:fs';
 export const JOBS = ${JSON.stringify(Object.fromEntries(jobs.map((j) => [j, { dir: '.' }])))};
 export const jobsFor = () => Object.keys(JOBS);
+export const betaLeftOut = () => ${JSON.stringify(beta)};
 export const logFileFor = () => process.env.RAN + '.log';
 export function runJob(name) {
   appendFileSync(process.env.RAN, name + '\\n');
@@ -165,6 +167,7 @@ test('the hook uses no other machine, skips the steps on the screen, and leaves 
     'scripts/checks.mjs',
     `export const JOBS = { win: { dir: '.' } };
 export const jobsFor = () => ['win'];
+export const betaLeftOut = () => [];
 export const remoteFor = () => ({ platform: 'darwin' });
 export const logFileFor = () => process.env.RAN + '.log';
 export const runJob = (name, { remote, screen }) => ({
@@ -181,6 +184,29 @@ export const runJob = (name, { remote, screen }) => ({
   assert.doesNotMatch(answer.additionalContext, /issue/);
 });
 
+// betaのために外したジョブは、フックが1行で知らせる。黙って外すと、通ったと取られるためである（ADR 092）。
+test('the hook tells in one line which jobs it left out as beta', () => {
+  const repo = repository();
+  write(repo.branch, 'scripts/checks.mjs', stub(['old'], ['slow']));
+  commit(repo.branch, 'a beta job');
+
+  const answer = runHook(repo);
+  assert.equal(answer.permissionDecision, undefined);
+  assert.deepEqual(answer.ran, ['old']);
+  const lines = answer.additionalContext.split('\n').filter((line) => line.includes('slow'));
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /beta/);
+  assert.match(lines[0], /ADR 092/);
+  assert.match(lines[0], /node scripts\/checks\.mjs run slow/);
+});
+
+// betaのために外したジョブがなければ、フックはbetaに触れない。
+test('the hook says nothing of beta when no job is left out', () => {
+  const repo = repository();
+
+  assert.doesNotMatch(runHook(repo).additionalContext, /beta/);
+});
+
 // 検証の途中で例外が出たら、PRを止める。落ちたフックを、Claude Codeは止める答えとして扱わないため。
 test('the hook stops the pull request when a check throws', () => {
   const repo = repository();
@@ -189,6 +215,7 @@ test('the hook stops the pull request when a check throws', () => {
     'scripts/checks.mjs',
     `export const JOBS = { broken: { dir: '.' } };
 export const jobsFor = () => ['broken'];
+export const betaLeftOut = () => [];
 export const logFileFor = () => process.env.RAN + '.log';
 export async function runJob() {
   throw new Error('the check broke');
@@ -210,6 +237,7 @@ test('the hook stops and leaves no mark when a check answers in another shape', 
     'scripts/checks.mjs',
     `export const JOBS = { odd: { dir: '.' } };
 export const jobsFor = () => ['odd'];
+export const betaLeftOut = () => [];
 export const logFileFor = () => process.env.RAN + '.log';
 export const runJob = () => ({ remote: [] });
 `,
