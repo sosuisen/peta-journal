@@ -277,7 +277,7 @@ fn a_card_goes_under_a_parent_that_is_under_a_parent_at_the_level_below_it() {
     );
 }
 
-// 上の兄弟が親のときは、その木の後ろに入る。親には自分の`atlas_bounds`がないので、比べる相手にならない。
+// 上の兄弟が親のときは、その木の後ろに入る。兄弟が親のときは、その親の`atlas_bounds`で比べる。
 #[test]
 fn a_card_goes_in_behind_the_tree_of_a_sibling_above_it_that_is_a_parent() {
     let mut h = atlas_with_nested_parents("0,200,0,40");
