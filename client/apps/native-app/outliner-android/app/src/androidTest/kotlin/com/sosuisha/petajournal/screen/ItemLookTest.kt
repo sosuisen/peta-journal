@@ -47,7 +47,9 @@ class ItemLookTest : JournalScreenFixture() {
         val past = compose.onNode(hasText("2020年1月1日", substring = true)).getUnclippedBoundsInRoot()
         val now = compose.onNode(hasText(today)).getUnclippedBoundsInRoot()
 
-        assertEquals(now.bottom - now.top, past.bottom - past.top)
+        // Each height is the difference of where two edges are, so two equal heights may differ by
+        // the rounding of those places (#1314)
+        assertEquals((now.bottom - now.top).value, (past.bottom - past.top).value, 0.01f)
     }
 
     // 項目は、Markdownの記号ではなく、飾りの付いた文字で見える。
