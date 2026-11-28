@@ -97,6 +97,14 @@ export class WebShell {
     cursor: number,
     title: string,
   ) => string | undefined = () => undefined;
+  /** The text with the opening just typed closed, as the editor of a page closes it. */
+  autoClose: (
+    before: string,
+    text: string,
+    cursor: number,
+  ) => string | undefined = () => undefined;
+  /** What `autoClosed` was asked, in order. */
+  readonly closes: [string, string, number][] = [];
   /** What `wikiPicked` was asked, in order. */
   readonly picks: [string, number, string][] = [];
   /** The changes the next call answers, once. */
@@ -174,6 +182,11 @@ export class WebShell {
 
   wikiQueryAt(text: string, cursor: number): string | undefined {
     return this.wikiQuery(text, cursor);
+  }
+
+  autoClosed(before: string, text: string, cursor: number): string | undefined {
+    this.closes.push([before, text, cursor]);
+    return this.autoClose(before, text, cursor);
   }
 
   wikiPicked(text: string, cursor: number, title: string): string | undefined {

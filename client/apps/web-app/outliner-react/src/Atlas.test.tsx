@@ -568,7 +568,8 @@ describe('the dialog of a text', () => {
 
     expect(drawn.innerHTML).toBe('<p><a href="/x">x</a></p>');
     expect(click.defaultPrevented).toBe(true);
-    expect(wasm.events).toEqual([]);
+    // Only the queries of the typing, as in the editor of a page
+    expect(wasm.events.filter(e => e.kind !== 'WikiQuery')).toEqual([]);
   });
 
   // キャンバスが見るだけで頼むと、本文を変えられず、ボタンはCancelだけである
@@ -614,7 +615,7 @@ describe('the dialog of a text', () => {
       asked({ text: '[[To]]' }),
       offered('atlas-dialog', ['Todo', 'Tools'], 1),
     );
-    wasm.wikiPick = (text, cursor, title) =>
+    wasm.wikiPick = (_text, _cursor, title) =>
       JSON.stringify({ text: `[[${title}]]`, cursor: 2 + title.length });
     const names = [
       ...document.querySelectorAll('.atlas-dialog-suggestion'),
@@ -627,10 +628,27 @@ describe('the dialog of a text', () => {
     expect(names).toEqual(['Todo', 'Tools']);
     expect(wasm.picks).toEqual([['[[To]]', 4, 'Tools']]);
     expect(input().value).toBe('[[Tools]]');
-    expect(wasm.events).toEqual([
-      { kind: 'WikiKey', key: 'ArrowDown' },
-      { kind: 'WikiQuery', item_id: 'atlas-dialog', context: null },
-    ]);
+    expect(wasm.events[0]).toEqual({ kind: 'WikiKey', key: 'ArrowDown' });
+    expect(wasm.events).toContainEqual({
+      kind: 'WikiQuery',
+      item_id: 'atlas-dialog',
+      context: null,
+    });
+  });
+
+  // 打った`[[`は、ページの編集欄と同じく、コアの閉じ方で閉じる
+  test('a typed opening is closed as the core closes it in the editor of a page', async () => {
+    const { input, wasm } = await dialogOf(asked({ text: '' }));
+    wasm.autoClose = (before, text) =>
+      before === '' && text === '[[' ? '[[]]' : undefined;
+
+    fireEvent.input(input(), {
+      target: { value: '[[' },
+      inputType: 'insertText',
+    });
+
+    expect(wasm.closes).toEqual([['', '[[', 2]]);
+    expect(input().value).toBe('[[]]');
   });
 
   // ほかの項目に示された名前は、ダイアログに出ない

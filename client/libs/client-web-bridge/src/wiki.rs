@@ -38,6 +38,13 @@ mod tests {
         assert_eq!(query_at("ab [[no]]", 1), None);
     }
 
+    // 打った`[[`は、ページの編集欄と同じく閉じる。位置はUTF-16で数える。短くなった文は閉じない。
+    #[test]
+    fn an_opening_typed_is_closed_with_the_cursor_counted_in_utf16() {
+        assert_eq!(closed_at("👍", "👍[[", 4), Some("👍[[]]".into()));
+        assert_eq!(closed_at("👍[[a", "👍[[", 4), None);
+    }
+
     // 選んだページ名を入れた文と、その後のカーソルを答える。位置はUTF-16で数える。リンクの外では何も答えない。
     #[test]
     fn a_picked_name_gives_the_text_and_the_cursor_after_it_in_utf16() {

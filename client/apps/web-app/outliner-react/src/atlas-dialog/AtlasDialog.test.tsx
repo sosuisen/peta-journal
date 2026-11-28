@@ -5,7 +5,6 @@ import {
   screen,
   cleanup,
 } from '@testing-library/react';
-import { readdirSync, readFileSync } from 'node:fs';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { AtlasDialog, type AtlasDialogProps, type LinkSuggestions } from '.';
 
@@ -45,6 +44,10 @@ function links(shown: LinkSuggestions['shown']) {
       };
     },
     close: () => asked.push(['close']),
+    closed: (before, text, cursor) => {
+      asked.push(['closed', before, text, cursor]);
+      return text.endsWith('[[') ? `${text}]]` : undefined;
+    },
   };
   return { given, asked };
 }
@@ -188,6 +191,28 @@ describe('the page names offered for a link, alone', () => {
     expect(asked).toEqual([['typed', '[[To]]', 6]]);
   });
 
+  // 打った`[[`は、渡された閉じ方で閉じ、カーソルは括弧の間にある。消したときは閉じ方を聞かない。
+  test('a typed opening is closed as it is given, with the cursor inside, and a delete asks nothing', () => {
+    const { given, asked } = links(null);
+    const { input } = dialog({ text: 'a', links: given });
+
+    fireEvent.input(input(), {
+      target: { value: 'a[[' },
+      inputType: 'insertText',
+    });
+    const closed = [input().value, input().selectionStart];
+    fireEvent.input(input(), {
+      target: { value: 'a[[]' },
+      inputType: 'deleteContentBackward',
+    });
+
+    expect(closed).toEqual(['a[[]]', 3]);
+    expect(asked.filter(a => a[0] === 'closed')).toEqual([
+      ['closed', 'a', 'a[[', 3],
+    ]);
+    expect(input().value).toBe('a[[]');
+  });
+
   // 候補は、渡された位置に、選ばれたものに印を付けて出る。押した名前は、カーソルのリンクに入り、候補は閉じる。
   test('the names show where they are given, the selected one marked, and a click puts one in the link', () => {
     const { given, asked } = links({
@@ -254,18 +279,24 @@ describe('the page names offered for a link, alone', () => {
 
 // モジュールは、Reactと自分の中のものだけを読む。アプリの外のページが、そのまま使える。
 test('the module imports React and its own files alone', () => {
-  const dir = new URL('.', import.meta.url);
-  const sources = readdirSync(dir).filter(
-    name => /\.tsx?$/.test(name) && !name.includes('.test.'),
+  // The text of each file of the module but the tests, as Vite reads it
+  const sources = import.meta.glob<string>(
+    ['./*.ts', './*.tsx', '!./*.test.*'],
+    {
+      query: '?raw',
+      import: 'default',
+      eager: true,
+    },
   );
-  const imports = sources.flatMap(name =>
-    [
-      ...readFileSync(new URL(name, dir), 'utf8').matchAll(
-        /from\s+'([^']+)'|import\s+'([^']+)'/g,
-      ),
-    ].map(m => m[1] ?? m[2]),
+  const imports = Object.values(sources).flatMap(source =>
+    [...source.matchAll(/from\s+'([^']+)'|import\s+'([^']+)'/g)].map(
+      m => m[1] ?? m[2],
+    ),
   );
 
-  expect(sources.length).toBeGreaterThan(0);
+  expect(Object.keys(sources).sort()).toEqual([
+    './AtlasDialog.tsx',
+    './index.ts',
+  ]);
   expect(imports.filter(i => i !== 'react' && !i.startsWith('./'))).toEqual([]);
 });
