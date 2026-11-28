@@ -58,6 +58,7 @@ Accepted
   - リンク先がアトラスと同じ`dir_path`かどうかで、カードの色を変える。同じなら青、違えばオレンジとする。これは現在のページカードの青とリンクカードのオレンジを用いる。
   - 子のフォルダへのカードは、青とする。本文はそのフォルダの`index`へのwikilink（`[[d/a/index]]`）で、リンク先の`dir_path`はアトラスと違うが、今のフォルダのカードと同じに扱う（2026-11-27）。
 - ノーマルカードの色は、改めて検討する。第1候補は黄色である。
+  - ノーマルカードは、今のリンクカードの薄いオレンジで描く。それまでは薄い黄色だった（2026-11-28）。
 
 ### 入れ子
 
@@ -136,13 +137,17 @@ Accepted
   - 座標のない親をドロップすると、親に`atlas_bounds`が付く。
     `atlas_bounds`を持つ子は、親からの相対の位置に、一緒に出る。
 - 開発者が`.md`に直接書き足してもよい。
-- カードの右クリックメニューは、次のとおりである（2026-11-28）。
-  - ページへのカード：Show Text、Remove from Atlas。
-  - リンクカード：Show Text、Edit Link、Remove from Atlas、Delete Card。
-  - ノーマルカード：Show Text、Remove from Atlas、Delete Card。
+- 右クリックメニューは、次のとおりである（2026-11-28）。
+  - ページへのカード：Edit、Remove from Atlas。
+  - リンクカード、ノーマルカード：Edit、Remove from Atlas、Delete Card。
+  - グループ：Edit。
+  - コールアウト：Edit。
+  - キャンバスの何もない所：Add Card、Add Callout。
+  - Editは、今までのShow Text、Edit Link、Edit Title、Edit Calloutを置き換える。Editのダイアログは、項目の本文をMarkdownのまま出し、OKで書いたMarkdownを本文にする（`.md`に書く）。カードには辺の選択がない。グループは、タイトルの沿う辺（`atlas_side`）を選ぶ。コールアウトは、フキダシの辺を選ぶ。
+    - 全文を読むだけの箱（今までのShow Text）は、なくす。
+  - Add Cardは、今までのAdd Linkを置き換える。空のEditのダイアログを開き、OKで、書いたMarkdownを本文に、ページの末尾にレベル1の項目を作る。`atlas_bounds`は右クリックした点である。1回の送信である。空のままのOKでは、何も作らない。1行目がwikilinkだけなら、いつもどおりリンクカードになる。
   - Remove from Atlasは、項目の`atlas_bounds`だけを消す。項目は残る。ページへのカードはPagesに、リンクカードとノーマルカードはNot on Atlasに戻る。
   - Delete Cardは、項目を消す。今までのリンクカードの「Remove Link」を置き換える。ページへのカードにはDelete Cardを出さない。
-  - コールアウトと親の項目のメニューは、変えない。
 
 ### アトラス上の編集と`.md`
 
