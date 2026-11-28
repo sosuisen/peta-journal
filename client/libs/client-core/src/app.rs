@@ -664,8 +664,8 @@ pub enum Event {
         card_id: String,
         scale: f64,
     },
-    /// The group menu's "Edit Title": the group's title lies along a side of its outline.
-    /// An empty title takes it away.
+    /// The group menu's "Edit": the Markdown written is the body of the item of the group,
+    /// and the title lies along a side of its outline. An empty title takes it away.
     SetAtlasGroupTitle {
         group_id: String,
         side: String,
@@ -690,14 +690,27 @@ pub enum Event {
         key: String,
         scale: f64,
     },
-    /// The canvas menu's "Add Link": a link card with its center at the point, linking to the
-    /// target page
+    /// The card menu's "Edit": the Markdown written is the body of the card's item. A page
+    /// card is named by its page, a link card or a plain card by its item.
+    SetAtlasCardText {
+        card_id: String,
+        text: String,
+    },
+    /// The canvas menu's "Add Card": an item of level 1 at the end of the page, with its center
+    /// at the point and the Markdown written as its body. An empty text adds nothing.
+    AddAtlasCard {
+        x: f64,
+        y: f64,
+        text: String,
+    },
+    /// A link card with its center at the point, linking to the target page. The web shell
+    /// sends "Add Card" instead.
     AddAtlasLink {
         x: f64,
         y: f64,
         target: String,
     },
-    /// The link card menu's "Edit Link": the card links to another page
+    /// A link card linked to another page. The web shell sends "Edit" instead.
     SetAtlasLink {
         item_id: String,
         target: String,
@@ -706,11 +719,11 @@ pub enum Event {
     RemoveAtlasLink {
         item_id: String,
     },
-    /// The text typed in the dialog of a link, to find page names for it
+    /// The text typed in a dialog of a link, to find page names for it
     SearchAtlasLinks {
         query: String,
     },
-    /// The callout menu's "Edit Callout". An empty text takes the callout away.
+    /// The callout menu's "Edit". An empty text takes the callout away.
     SetAtlasCallout {
         key: String,
         side: String,
@@ -1601,6 +1614,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         }
         MoveAtlasCallout { key, x, y } => screens::atlas::move_callout(model, key, x, y),
         ScaleAtlasCallout { key, scale } => screens::atlas::scale_callout(model, key, scale),
+        SetAtlasCardText { card_id, text } => screens::atlas::set_card_text(model, card_id, text),
+        AddAtlasCard { x, y, text } => screens::atlas::add_text_card(model, x, y, text),
         AddAtlasLink { x, y, target } => screens::atlas::add_link(model, x, y, target),
         SetAtlasLink { item_id, target } => screens::atlas::set_link(model, item_id, target),
         RemoveAtlasLink { item_id } => screens::atlas::remove_link(model, item_id),

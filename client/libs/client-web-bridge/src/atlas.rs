@@ -144,7 +144,7 @@ mod tests {
             {"page_id":"a","label":"A","path":"m/a","is_dir":false,
              "bounds":{"x":10.0,"y":20.0,"width":0.0,"height":0.0},
              "icon_tags":["sun"],
-             "groups":[{"id":"g","title":{"side":"top","text":"Plan"},"look":"Text","x":100.0,"y":200.0}],"published":false,"text":""},
+             "groups":[{"id":"g","title":{"side":"top","text":"Plan"},"body":"Plan","look":"Text","x":100.0,"y":200.0}],"published":false,"text":""},
             {"page_id":"b","label":"B","path":"m/b","is_dir":true,"bounds":null,
              "icon_tags":[],"groups":[],"published":false,"text":""}
         ]"#;
@@ -182,7 +182,7 @@ mod tests {
     #[test]
     fn each_callout_goes_with_the_character_drawn_from_its_text() {
         let callouts = r#"[{"key":"k","x":1.0,"y":2.0,"scale":1.5,"side":"left","text":"hello",
-            "groups":[{"id":"g","title":null,"look":"Text","x":100.0,"y":200.0}]}]"#;
+            "groups":[{"id":"g","title":null,"body":"","look":"Text","x":100.0,"y":200.0}]}]"#;
 
         let json = callouts_json(callouts).unwrap();
         let shown: Vec<Value> = serde_json::from_str(&json).unwrap();

@@ -14,6 +14,7 @@ skipped = ["client/apps/emacs/outliner/src/tests"]
 # that the atlas, extensions and settings are not in this version.
 [s2.excluded]
 AddAtlasCallout = "none: no atlas"
+AddAtlasCard = "none: no atlas"
 AddAtlasLink = "none: no atlas"
 AddPageTags = "none: a list property is set whole, by SetPageProperty, with its values separated by commas"
 AddPropertyDefinition = "none: no settings; a new key is defined in the web app"
@@ -54,6 +55,7 @@ SearchKey = "none: the minibuffer moves among the results, and RET opens one, by
 SelectionClickOutside = "none: C-g, q or Escape ends a selection, by SelectionKey"
 SelectionMouseUp = "none: no drag selection; C-c SPC selects items, by ShiftSelect"
 SetAtlasCallout = "none: no atlas"
+SetAtlasCardText = "none: no atlas"
 SetAtlasGroupTitle = "none: no atlas"
 SetAtlasLink = "none: no atlas"
 SetCollapsed = "none: C-c C-f folds and unfolds an item, by CollapseToggle"

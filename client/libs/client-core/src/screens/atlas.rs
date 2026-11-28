@@ -1148,6 +1148,8 @@ pub struct AtlasGroup {
     /// The id of the item
     pub id: String,
     pub title: Option<GroupTitle>,
+    /// The body of the item as it is written, which the Edit of the group shows
+    pub body: String,
     pub look: GroupLook,
     /// Where the item lies, counted from the item it is right under: the `x` and `y` of its
     /// `atlas_bounds`. What is under the item is counted from here.
@@ -1181,6 +1183,7 @@ fn groups(model: &Model, parents: &[&Item]) -> Vec<AtlasGroup> {
             AtlasGroup {
                 id: parent.id.clone(),
                 title: group_title(parent),
+                body: parent.body.clone(),
                 look: group_look(model, parent),
                 x: place.map_or(0.0, |b| b.x),
                 y: place.map_or(0.0, |b| b.y),
@@ -1226,8 +1229,8 @@ pub fn opened_path(model: &Model, page: &Page) -> String {
 }
 
 /// Gives a group of the shown atlas page a title along a side of its outline. An empty title
-/// takes the title away. The title is the body of the item of the group, and the side a
-/// property of it.
+/// takes the title away. The title is the body of the item of the group, written as Markdown
+/// in its Edit, and the side a property of it.
 pub fn set_group_title(model: &mut Model, group_id: String, side: String, title: String) -> Cmd {
     let Some(group) = entries(model)
         .into_iter()
@@ -1238,9 +1241,7 @@ pub fn set_group_title(model: &mut Model, group_id: String, side: String, title:
     };
     let side = side_or_default(&side).to_string();
     let title = title.trim().to_string();
-    // The title shown, and not the body: a body that is a link shows its label as the title
-    let shown = plain::group_title(&group).unwrap_or_default();
-    let body = (shown != title).then_some(title);
+    let body = (group.body.trim() != title).then_some(title);
     let side = (side_of(&group) != side).then_some(side);
     change(
         model,
@@ -1422,7 +1423,7 @@ pub enum CardTone {
     Link,
     /// A link to a page that is not there: gray. A click opens nothing.
     Missing,
-    /// A card whose first line is no link: yellow
+    /// A card whose first line is no link: orange, as a link card
     Plain,
 }
 
@@ -1478,7 +1479,7 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
 
 /// How a card that stands for no page of the directory is colored: blue for another card to
 /// a page of the directory, gray for one to a page the directory does not have, orange for a
-/// link out of it, yellow for a plain card. The directory is known to lack a page only once its
+/// link out of it and for a plain card. The directory is known to lack a page only once its
 /// list is in. A link to `today` is orange on any atlas: today's page can always be opened, and
 /// the list of no directory holds it (2026-11-28).
 fn tone_of(model: &Model, link: Option<plain::CardLink>) -> CardTone {
@@ -1537,6 +1538,50 @@ fn typed_link_target(target: &str) -> Option<String> {
     let target = link_target(target).unwrap_or(target).trim();
     (!target.is_empty() && !target.contains("[[") && !target.contains("]]"))
         .then(|| target.to_string())
+}
+
+/// Writes the Markdown of the Edit of a card as the body of its item. An empty text or the
+/// same body changes nothing: "Delete Card" takes a card away.
+pub fn set_card_text(model: &mut Model, card_id: String, text: String) -> Cmd {
+    let text = text.trim().to_string();
+    let Some(item) = card_item(model, &card_id).filter(|i| i.body.trim() != text) else {
+        return done();
+    };
+    if text.is_empty() {
+        return done();
+    }
+    let item_id = item.id.clone();
+    change(
+        model,
+        rewritten(&item_id, Some(text), None).into_iter().collect(),
+    )
+}
+
+/// Adds a card to the shown atlas page with its center at the point: an item of level 1 at
+/// the end of the outline, the Markdown written in Add Card its body. A first line that is a
+/// link makes it a link card. An empty text adds nothing.
+pub fn add_text_card(model: &mut Model, x: f64, y: f64, text: String) -> Cmd {
+    let text = text.trim().to_string();
+    if text.is_empty() || !x.is_finite() || !y.is_finite() {
+        return done();
+    }
+    let Some(atlas_id) = shown_atlas_page(model).map(|p| p.id.clone()) else {
+        return done();
+    };
+    let bounds = Bounds {
+        x: x.round(),
+        y: y.round(),
+        width: AUTO_WIDTH,
+        height: CARD_HEIGHT,
+    };
+    let card = new_item(
+        atlas_id,
+        NEW_CARD.to_string(),
+        ItemPosition::Last,
+        text,
+        &[(BOUNDS_KEY, bounds.to_string())],
+    );
+    change(model, vec![card])
 }
 
 /// Adds a link card to the shown atlas page with its center at the point. The card shows once

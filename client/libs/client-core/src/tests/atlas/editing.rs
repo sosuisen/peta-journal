@@ -24,17 +24,23 @@ fn atlas_of_three() -> Harness {
 // Editで書いたMarkdownは、そのままカードの項目の本文になる。ページのカードはページで、リンクカードとノーマルカードは項目で名指す。前後の空白は取り除かれる。
 #[test]
 fn the_markdown_written_in_the_edit_of_a_card_is_the_body_of_its_item() {
-    let mut h = atlas_of_three();
-    edit(&mut h, "a/b/one", "[[a/b/one]]\nabout one ");
-    edit(&mut h, "l", " [[x/Target|Shown]]\nmore");
-    edit(&mut h, "p", "**plain** text");
+    // One atlas for each: the outline read again after a change has only what the test answers
+    let edited = |card_id: &str, text: &str| {
+        let mut h = atlas_of_three();
+        edit(&mut h, card_id, text);
+        batches(&h)
+    };
 
     assert_eq!(
-        batches(&h),
         [
-            [written("i-one", "[[a/b/one]]\nabout one")],
-            [written("l", "[[x/Target|Shown]]\nmore")],
-            [written("p", "**plain** text")],
+            edited("a/b/one", "[[a/b/one]]\nabout one "),
+            edited("l", " [[x/Target|Shown]]\nmore"),
+            edited("p", "**plain** text"),
+        ],
+        [
+            [[written("i-one", "[[a/b/one]]\nabout one")]],
+            [[written("l", "[[x/Target|Shown]]\nmore")]],
+            [[written("p", "**plain** text")]],
         ]
     );
 }

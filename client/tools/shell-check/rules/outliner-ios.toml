@@ -21,6 +21,7 @@ sources = [
 # - "not yet": the app does not offer it yet, though it could.
 [s2.excluded]
 AddAtlasCallout = "none: no atlas"
+AddAtlasCard = "none: no atlas"
 AddAtlasLink = "none: no atlas"
 AddPageTags = "none: no properties of a page"
 AddPropertyDefinition = "none: no settings"
@@ -77,6 +78,7 @@ SearchKey = "none: a touch picks a result, by SearchResultClicked"
 SelectionClickOutside = "none: a touch on an item or the Show keyboard tool edits it, and EditRequested ends the selection"
 SelectionMouseUp = "none: no drag selection; an item is selected by ShiftSelect"
 SetAtlasCallout = "none: no atlas"
+SetAtlasCardText = "none: no atlas"
 SetAtlasGroupTitle = "none: no atlas"
 SetAtlasLink = "none: no atlas"
 SetCollapsed = "none: no key folds; the Collapse tool folds, by CollapseToggle"
