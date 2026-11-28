@@ -366,6 +366,7 @@ function makeCanvas(
       }
       core.send({ kind: 'GoToPage', path, open_in });
     },
+    // A dragged group is placed as a card is, by the id of its item (ADR 053)
     (card_id, x, y) => core.send({ kind: 'PlaceAtlasCard', card_id, x, y }),
     (pageId, x, y) => setMenu({ pageId, x, y }),
     (x, y, zoom) => saveView(dir, { x, y, zoom }),

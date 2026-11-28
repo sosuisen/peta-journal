@@ -285,7 +285,7 @@ describe('the canvas of an atlas', () => {
 
     show({
       kind: 'AtlasCallouts',
-      value: [new Callout('k', 1, 2, 1, 'left', 'hi')],
+      value: [new Callout('k', 1, 2, 1, 'left', 'hi', [])],
     });
     show({ kind: 'AtlasLinkSuggestions', value: ['Foo'] });
 
