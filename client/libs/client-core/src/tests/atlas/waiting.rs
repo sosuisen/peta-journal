@@ -204,21 +204,50 @@ fn the_cards_and_callouts_without_a_place_wait_in_the_order_of_their_items() {
     );
 }
 
-// 親の項目は、座標のない項目に出ない。親はその下の項目を囲んで描かれ、自分の位置を持たない。その下の置かれていない項目は出る。
+// `atlas_bounds`のない親は描かれず、座標のない項目に出る。その下の項目もすべて、自分の`atlas_bounds`の有無によらず、座標のない項目に出て、アトラスには描かれない。座標のある親の下では、座標のない項目だけが出る。
 #[test]
-fn a_parent_does_not_wait_for_a_place_and_the_items_under_it_do() {
+fn a_parent_without_bounds_waits_for_a_place_with_everything_under_it() {
+    let placed = [("atlas_bounds", "1,2,0,40")];
     let h = atlas_of(
-        vec![],
+        vec![child("one")],
         vec![
             atlas_item("g", 1, "Tools", &[]),
-            atlas_item("in", 2, "inner", &[]),
-            atlas_item("deep", 3, "deep", &[]),
-            atlas_item("put", 2, "put", &[("atlas_bounds", "1,2,0,40")]),
+            atlas_item("in", 2, "[[x/far|Far]]", &placed),
+            card_item("one", 3, Some("1,2,0,40")),
+            atlas_item("put", 2, "put", &placed),
+            atlas_item(
+                "call",
+                2,
+                "[[x/far]]",
+                &[("atlas_type", "callout"), ("atlas_bounds", "1,2,0,40")],
+            ),
+            atlas_item("p", 1, "Placed", &placed),
+            atlas_item("shown", 2, "shown", &placed),
+            atlas_item("not", 2, "not", &[]),
         ],
     );
 
-    let ids: Vec<String> = no_place(&h).into_iter().map(|c| c.id).collect();
-    assert_eq!(ids, ["deep"]);
+    assert_eq!(
+        no_place(&h),
+        [
+            waiting("g", "Tools", None, false),
+            waiting("in", "Far", Some("x/far"), false),
+            waiting("a/b/one", "one", Some("a/b/one"), false),
+            waiting("put", "put", None, false),
+            // The text of a callout is no link, whatever it looks like
+            waiting("call", "[[x/far]]", None, false),
+            waiting("not", "not", None, false),
+        ]
+    );
+    let view = h.view();
+    assert_eq!(bounds_of(&h, "a/b/one"), None);
+    let links: Vec<&str> = view
+        .atlas_links
+        .iter()
+        .map(|l| l.item_id.as_str())
+        .collect();
+    assert_eq!(links, ["shown"]);
+    assert!(view.atlas_callouts.is_empty());
 }
 
 // アトラスでないページでは、何も待たない。
@@ -230,55 +259,7 @@ fn nothing_waits_on_a_page_that_is_no_atlas() {
     assert!(h.view().atlas_unplaced.is_empty());
 }
 
-// 座標のないコールアウトを一覧からアトラスに落とすと、その項目に位置が付き、コールアウトとして描かれる。
-#[test]
-fn a_callout_without_a_place_dropped_on_the_atlas_gets_its_place() {
-    let mut h = atlas_of(
-        vec![],
-        vec![atlas_item("call", 1, "Hi", &[("atlas_type", "callout")])],
-    );
-    h.send(Event::DropAtlasCard {
-        card_id: "call".into(),
-        x: 100.0,
-        y: 50.0,
-        grab_x: 0.5,
-        grab_y: 0.5,
-    });
-
-    assert_eq!(
-        upserts(&h),
-        vec![("call".into(), "atlas_bounds".into(), "100,50,0,40".into())]
-    );
-    assert!(batches(&h).is_empty());
-    let callouts = h.view().atlas_callouts;
-    assert_eq!((callouts[0].x, callouts[0].y), (100.0, 50.0));
-    assert!(no_place(&h).is_empty());
-}
-
-// 落としたコールアウトだけに位置が付く。ほかのコールアウトと、親になったコールアウトには付かない。
-#[test]
-fn only_the_callout_that_was_dropped_gets_a_place_and_a_parent_gets_none() {
-    let callout = [("atlas_type", "callout")];
-    let mut h = atlas_of(
-        vec![],
-        vec![
-            atlas_item("first", 1, "First", &callout),
-            atlas_item("parent", 1, "Parent", &callout),
-            atlas_item("under", 2, "Under", &callout),
-            atlas_item("text", 1, "plain", &[("atlas_bounds", "5,5,0,40")]),
-        ],
-    );
-    place(&mut h, "under", 1.0, 2.0);
-    place(&mut h, "parent", 3.0, 4.0);
-
-    assert_eq!(
-        upserts(&h),
-        vec![("under".into(), "atlas_bounds".into(), "1,2,0,40".into())]
-    );
-    assert!(batches(&h).is_empty());
-}
-
-// 座標のないリンクカードとノーマルカードを一覧からアトラスに落とすと、その項目に位置が付く。新しい項目は作られない。
+// 座標のないリンクカードとノーマルカードを、キャンバスの点に置くと、その項目に位置が付く。新しい項目は作られない。
 #[test]
 fn a_link_card_and_a_plain_card_without_a_place_dropped_on_the_atlas_get_their_places() {
     let mut h = atlas_of(

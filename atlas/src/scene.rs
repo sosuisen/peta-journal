@@ -1,6 +1,10 @@
 //! The scene of an atlas as `atlas.js` reads it: the cards, with the link cards among them, and
 //! the callouts. Each card carries its marks as SVG, so `atlas.js` draws no shape of its own
 //! from a name.
+//!
+//! The places of the scene are the `atlas_bounds` as they are stored (ADR 053): a card, a
+//! callout and a group are each counted from the group they are right under. `atlas.js` nests
+//! a container for each group, so it needs no place on the whole canvas.
 
 use serde::Serialize;
 
@@ -19,14 +23,18 @@ pub const ICON_DRAW_SIZE: i32 = 100;
 /// The size the character of a callout is drawn at, as the icons are
 pub const CALLOUT_DRAW_SIZE: i32 = 100;
 
-/// A group a card is in: the id of its item, its title, if it has one, and how the title is
-/// drawn.
+/// A group a card is in: the id of its item, its title, if it has one, how the title is
+/// drawn, and where its item lies.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupRef {
     pub id: String,
     /// The text of the title and the side of the outline it lies along
     pub title: Option<(String, String)>,
     pub look: GroupLook,
+    /// Where the item of the group lies, counted from the group it is right under: the `x`
+    /// and `y` of its `atlas_bounds`
+    pub x: f64,
+    pub y: f64,
 }
 
 /// How the title of a group is drawn along its outline.
@@ -60,6 +68,10 @@ pub struct Group {
     /// The character of a callout that stands in place of the title, as SVG of `draw_size`
     pub character: Option<String>,
     pub draw_size: i32,
+    /// Where the group lies, counted from the group it is right under. What is in the group
+    /// is counted from here.
+    pub x: f64,
+    pub y: f64,
 }
 
 impl Group {
@@ -83,6 +95,8 @@ impl Group {
                 .then(|| title.map(|(text, _)| callout_face_svg(text, CALLOUT_DRAW_SIZE)))
                 .flatten(),
             draw_size: CALLOUT_DRAW_SIZE,
+            x: group.x,
+            y: group.y,
         }
     }
 }
@@ -100,8 +114,9 @@ pub struct Page<'a> {
     pub published: bool,
 }
 
-/// A card as `atlas.js` reads it. `x` and `y` are its center; `width` and `height` are its
-/// size as scaled, and a width of 0 leaves it to the label.
+/// A card as `atlas.js` reads it. `x` and `y` are its center, counted from the group it is
+/// right under; `width` and `height` are its size as scaled, and a width of 0 leaves it to the
+/// label.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Card {
@@ -301,7 +316,7 @@ impl Card {
 pub struct Callout {
     /// The id of the item of the callout
     pub key: String,
-    /// The center of the character, in the coordinates of the canvas
+    /// The center of the character, counted from the group the callout is right under
     pub x: f64,
     pub y: f64,
     pub scale: f64,
@@ -310,6 +325,8 @@ pub struct Callout {
     pub text: String,
     pub character: String,
     pub draw_size: i32,
+    /// The groups the callout is in, the outermost first
+    pub groups: Vec<Group>,
 }
 
 impl Callout {
@@ -323,6 +340,15 @@ impl Callout {
             text: text.to_string(),
             character: callout_face_svg(text, CALLOUT_DRAW_SIZE),
             draw_size: CALLOUT_DRAW_SIZE,
+            groups: Vec::new(),
+        }
+    }
+
+    /// The callout under the groups, the outermost first.
+    pub fn under(self, groups: &[GroupRef]) -> Callout {
+        Callout {
+            groups: groups.iter().map(Group::of).collect(),
+            ..self
         }
     }
 }
@@ -334,7 +360,7 @@ pub fn cards_json(cards: &[Card]) -> String {
 
 /// The callouts as the JSON that `setCallouts` of `atlas.js` takes.
 pub fn callouts_json(callouts: &[Callout]) -> String {
-    serde_json::to_string(callouts).expect("a callout has only strings and numbers")
+    serde_json::to_string(callouts).expect("a callout has only strings, numbers and booleans")
 }
 
 #[cfg(test)]
@@ -366,6 +392,8 @@ mod tests {
             id: "G1".to_string(),
             title: Some(("Tools".to_string(), "left".to_string())),
             look: GroupLook::Text,
+            x: 0.0,
+            y: 0.0,
         }
     }
 
@@ -399,6 +427,8 @@ mod tests {
             id: "G2".to_string(),
             title: None,
             look: GroupLook::Text,
+            x: 0.0,
+            y: 0.0,
         };
         let card = Card::page(
             &page("P1", "One", &[], false),
@@ -439,11 +469,15 @@ mod tests {
                 path: Some("d/One".to_string()),
                 icon_tags: tags.clone(),
             },
+            x: 0.0,
+            y: 0.0,
         };
         let of_callout = GroupRef {
             id: "G2".to_string(),
             title: Some(("Hi".to_string(), "right".to_string())),
             look: GroupLook::Callout,
+            x: 0.0,
+            y: 0.0,
         };
         let card = Card::page(
             &page("P1", "Two", &[], false),
@@ -587,6 +621,38 @@ mod tests {
             (hidden.x, hidden.y, hidden.group),
             (shown.x, shown.y, shown.group)
         );
+    }
+
+    // グループは、自分の項目の位置を、1つ上のグループからの相対の座標で持つ。カードとコールアウトの座標は、すぐ上のグループからの相対である。
+    #[test]
+    fn a_group_carries_the_place_of_its_item_counted_from_the_group_above_it() {
+        let outer = GroupRef {
+            x: 100.0,
+            y: 200.0,
+            ..group()
+        };
+        let inner = GroupRef {
+            id: "G2".to_string(),
+            title: None,
+            look: GroupLook::Text,
+            x: 10.0,
+            y: 20.0,
+        };
+        let groups = [outer, inner];
+        let card = Card::page(
+            &page("P1", "One", &[], false),
+            bounds(1.0, 2.0, 0.0, 40.0),
+            &groups,
+        );
+        let callout = Callout::new("C1", 3.0, 4.0, 1.0, "top", "Hi").under(&groups);
+
+        let places = |groups: &[Group]| groups.iter().map(|g| (g.x, g.y)).collect::<Vec<_>>();
+        assert_eq!(places(&card.groups), [(100.0, 200.0), (10.0, 20.0)]);
+        assert_eq!((card.x, card.y), (1.0, 2.0));
+        assert_eq!(places(&callout.groups), [(100.0, 200.0), (10.0, 20.0)]);
+        let json: serde_json::Value = serde_json::from_str(&callouts_json(&[callout])).unwrap();
+        assert_eq!(json[0]["groups"][1]["id"], "G2");
+        assert_eq!(json[0]["groups"][1]["x"], 10.0);
     }
 
     // コールアウトは、テキストの顔をキャラクターとして持つ

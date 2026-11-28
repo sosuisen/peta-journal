@@ -1,11 +1,12 @@
 //! The atlas pages. An `index_atlas` page is a plain page (ADR 053): the server writes nothing
 //! into it by itself. What is left here moves the atlas pages that the server wrote before to
-//! the form of a plain page.
+//! the form of a plain page, and gives the parents that have none their `atlas_bounds`.
 
 use std::sync::Arc;
 
 use hmtid::Hmtid;
 use parking_lot::Mutex;
+use peta_atlas::BOUNDS_KEY;
 
 use crate::domain::atlas_migration;
 use crate::domain::model::{Item, ItemPatch, Page};
@@ -62,7 +63,7 @@ impl AtlasService {
     }
 
     /// Moves every atlas page of the form the server wrote to the form of a plain page
-    /// (ADR 053).
+    /// (ADR 053). A page of the plain form whose parents have no `atlas_bounds` yet moves too.
     pub fn move_to_plain_form(&self) -> Result<(), AppError> {
         let _guard = self.lock.lock();
         for atlas in self.pages.find_all()?.into_iter().filter(Page::is_atlas) {
@@ -90,6 +91,9 @@ impl AtlasService {
         let now = self.items.db().now_millis();
         for (id, key) in &migration.dropped_props {
             PropertyRepository::delete_property_in(&tx, ITEM_TARGET, id.as_str(), key)?;
+        }
+        for (id, bounds) in &migration.bounds {
+            PropertyRepository::write_scalar_in(&tx, ITEM_TARGET, id.as_str(), BOUNDS_KEY, bounds)?;
         }
         let removed: Vec<String> = migration.removed.iter().map(Hmtid::to_string).collect();
         for id in &migration.removed {

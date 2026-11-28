@@ -9,7 +9,7 @@ fn atlas_with_group(title: &str, side: Option<&str>) -> Harness {
     atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, title, &props),
+            parent_item("g", 1, title, &props),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("100,0,0,40")),
             card_item("three", 1, Some("200,0,0,40")),
@@ -20,6 +20,7 @@ fn atlas_with_group(title: &str, side: Option<&str>) -> Harness {
 fn ungroup(h: &mut Harness, card_ids: &[&str]) {
     h.send(Event::UngroupAtlasCards {
         card_ids: card_ids.iter().map(|id| id.to_string()).collect(),
+        places: vec![],
     });
 }
 
@@ -44,6 +45,28 @@ fn a_card_under_an_item_of_level_1_belongs_to_its_group() {
     );
 }
 
+// 親も`atlas_bounds`を持つ。カードは親からの相対の座標を持ち、カードのグループは親の座標を持つ。入れ子でも、どの段も1つ上の親からの相対である。
+#[test]
+fn a_card_is_counted_from_its_parent_and_its_groups_carry_the_places_of_the_parents() {
+    let h = atlas_of(
+        vec![child("one")],
+        vec![
+            parent_item("outer", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            parent_item("inner", 2, "", &[("atlas_bounds", "10,20,0,40")]),
+            card_item("one", 3, Some("1,2,0,40")),
+        ],
+    );
+
+    let card = h.view().atlas_cards.remove(0);
+    let places: Vec<_> = card
+        .groups
+        .iter()
+        .map(|g| (g.id.as_str(), g.x, g.y))
+        .collect();
+    assert_eq!(places, [("outer", 100.0, 200.0), ("inner", 10.0, 20.0)]);
+    assert_eq!(card.bounds.map(|b| (b.x, b.y)), Some((1.0, 2.0)));
+}
+
 // どのグループにもないカードの上にカードをドロップすると、1回の送信で、ドロップ先の場所に空の項目が作られ、両方のカードがその下のレベル2に移される。読み直したアウトラインが表示に反映される。
 #[test]
 fn cards_dropped_on_a_card_go_under_a_new_item_in_one_batch() {
@@ -51,7 +74,7 @@ fn cards_dropped_on_a_card_go_under_a_new_item_in_one_batch() {
     answer_outline(
         &mut h,
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("two", 2, Some("0,0,0,40")),
             card_item("one", 2, Some("9,0,0,40")),
         ],
@@ -62,9 +85,13 @@ fn cards_dropped_on_a_card_go_under_a_new_item_in_one_batch() {
     assert_eq!(
         batches(&h),
         [[
-            made(ItemPosition::after("i-two"), "", &[]),
-            leveled("i-two", 2),
-            leveled("i-one", 2),
+            made(
+                ItemPosition::after("i-two"),
+                "",
+                &[("atlas_bounds", "5,0,0,40")]
+            ),
+            leveled_at("i-two", 2, "-5,0,0,40"),
+            leveled_at("i-one", 2, "4,0,0,40"),
             moved(&["i-two", "i-one"], NEW),
         ]]
     );
@@ -75,6 +102,55 @@ fn cards_dropped_on_a_card_go_under_a_new_item_in_one_batch() {
         .map(|c| group_of(&c.groups))
         .collect();
     assert_eq!(groups, [Some("g".to_string()), Some("g".to_string())]);
+}
+
+// 新しいグループの親は、子になるカードの座標の重心を、自分の`atlas_bounds`として持つ。カードの`atlas_bounds`は、同じ送信で、その親からの相対の座標に書き直される。重心は整数に丸められる。
+#[test]
+fn a_new_group_lies_at_the_centroid_of_its_cards_and_they_are_counted_from_it() {
+    let mut h = atlas_with(&[
+        ("one", Some("0,100,0,40")),
+        ("three", Some("61,50,0,60")),
+        ("two", Some("30,0,0,40")),
+    ]);
+    group(&mut h, &["a/b/two", "a/b/three"], "a/b/one");
+
+    assert_eq!(
+        batches(&h),
+        [[
+            made(
+                ItemPosition::after("i-one"),
+                "",
+                &[("atlas_bounds", "30,50,0,40")]
+            ),
+            leveled_at("i-two", 2, "0,-50,0,40"),
+            leveled_at("i-three", 2, "31,0,0,60"),
+            leveled_at("i-one", 2, "-30,50,0,40"),
+            moved(&["i-two", "i-three", "i-one"], NEW),
+        ]]
+    );
+}
+
+// グループのカードの上にドロップされたカードの`atlas_bounds`は、同じ送信で、そのグループの親からの相対の座標に書き直される。
+#[test]
+fn a_card_that_joins_a_group_is_counted_from_the_parent_of_the_group() {
+    let mut h = atlas_of(
+        vec![child("one"), child("three"), child("two")],
+        vec![
+            parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            card_item("one", 2, Some("0,0,0,40")),
+            card_item("two", 2, Some("0,100,0,40")),
+            card_item("three", 1, Some("130,250,0,40")),
+        ],
+    );
+    group(&mut h, &["a/b/three"], "a/b/one");
+
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-three", 2, "30,50,0,40"),
+            moved(&["i-three"], "i-one")
+        ]]
+    );
 }
 
 // グループのカードの上にドロップされたカードは、下に兄弟がなければ、そのグループの木の末尾に、レベル2で移される。
@@ -95,7 +171,7 @@ fn a_card_dropped_on_a_card_of_a_group_goes_in_before_the_first_card_below_it() 
     let mut h = atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("0,100,0,40")),
             card_item("three", 1, Some("0,50,0,40")),
@@ -118,9 +194,13 @@ fn a_card_that_lies_above_the_card_it_is_dropped_on_comes_before_it_in_the_new_g
     assert_eq!(
         batches(&h),
         [[
-            made(ItemPosition::after("i-one"), "", &[]),
-            leveled("i-two", 2),
-            leveled("i-one", 2),
+            made(
+                ItemPosition::after("i-one"),
+                "",
+                &[("atlas_bounds", "0,50,0,40")]
+            ),
+            leveled_at("i-two", 2, "0,-50,0,40"),
+            leveled_at("i-one", 2, "0,50,0,40"),
             moved(&["i-two", "i-one"], NEW),
         ]]
     );
@@ -141,10 +221,10 @@ fn a_card_taken_to_another_group_leaves_its_old_group_as_it_is() {
     let mut h = atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("100,0,0,40")),
-            atlas_item("h", 1, "", &[]),
+            parent_item("h", 1, "", &[]),
             card_item("three", 2, Some("50,0,0,40")),
         ],
     );
@@ -166,23 +246,38 @@ fn a_card_dropped_on_itself_or_on_no_card_makes_no_group() {
     assert!(batches(&h).is_empty());
 }
 
-// 配置とグループ化が同時に行われたカードは、表示されていた位置を保つ。サーバーが位置の保存前にアウトラインを返すことがあるためである。
+// 配置とグループ化が同時に行われたカードは、置いた位置のまま、新しい親からの相対の座標で書かれる。位置の保存がサーバーに届く前でも、グループ化の送信が、表示されていた位置から座標を作るためである。
 #[test]
-fn a_card_placed_and_grouped_at_once_keeps_the_place_shown_for_it() {
+fn a_card_placed_and_grouped_at_once_is_written_where_it_was_placed() {
     let mut h = atlas_with(&[("one", None), ("two", Some("9,0,0,40"))]);
-    // The outline was read before the place was saved
     answer_outline(
         &mut h,
         vec![
-            atlas_item("g", 1, "", &[]),
-            card_item("two", 2, Some("9,0,0,40")),
-            card_item("one", 2, None),
+            parent_item("g", 1, "", &[("atlas_bounds", "7,3,0,40")]),
+            card_item("two", 2, Some("2,-3,0,40")),
+            card_item("one", 2, Some("-2,2,0,40")),
         ],
     );
     place(&mut h, "a/b/one", 5.0, 5.0);
     group(&mut h, &["a/b/one"], "a/b/two");
 
-    assert_eq!(bounds_of(&h, "a/b/one").map(|b| b.x), Some(5.0));
+    assert_eq!(
+        batches(&h),
+        [[
+            made(
+                ItemPosition::after("i-two"),
+                "",
+                &[("atlas_bounds", "7,3,0,40")]
+            ),
+            leveled_at("i-two", 2, "2,-3,0,40"),
+            leveled_at("i-one", 2, "-2,2,0,40"),
+            moved(&["i-two", "i-one"], NEW),
+        ]]
+    );
+    assert_eq!(
+        bounds_of(&h, "a/b/one").map(|b| (b.x, b.y)),
+        Some((-2.0, 2.0))
+    );
 }
 
 // グループ化が拒否されると、アウトラインは元のまま保たれ、アラートが表示される。
@@ -256,9 +351,9 @@ fn an_item_whose_last_card_goes_to_another_group_loses_its_side_in_the_same_batc
         let mut h = atlas_of(
             vec![child("one"), child("three"), child("two")],
             vec![
-                atlas_item("g", 1, "", &[("atlas_side", "left")]),
+                parent_item("g", 1, "", &[("atlas_side", "left")]),
                 card_item("one", 2, Some("300,0,0,40")),
-                atlas_item("h", 1, "", &[("atlas_side", "right")]),
+                parent_item("h", 1, "", &[("atlas_side", "right")]),
                 card_item("three", 2, Some("200,0,0,40")),
                 card_item("two", 1, Some("100,0,0,40")),
             ],
@@ -273,18 +368,22 @@ fn an_item_whose_last_card_goes_to_another_group_loses_its_side_in_the_same_batc
         [
             leveled("i-one", 2),
             moved(&["i-one"], "i-three"),
-            unsided("g"),
+            emptied("g", Some("no title"), true),
         ]
     );
     // To a group that is made for it
     assert_eq!(
         sent("a/b/three", "a/b/two"),
         [
-            made(ItemPosition::after("i-two"), "", &[]),
-            leveled("i-two", 2),
-            leveled("i-three", 2),
+            made(
+                ItemPosition::after("i-two"),
+                "",
+                &[("atlas_bounds", "150,0,0,40")]
+            ),
+            leveled_at("i-two", 2, "-50,0,0,40"),
+            leveled_at("i-three", 2, "50,0,0,40"),
             moved(&["i-two", "i-three"], NEW),
-            unsided("h"),
+            emptied("h", Some("no title"), true),
         ]
     );
 }
@@ -295,10 +394,10 @@ fn cards_that_leave_two_groups_at_once_go_behind_their_groups_in_one_batch() {
     let mut h = atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("100,0,0,40")),
-            atlas_item("h", 1, "", &[]),
+            parent_item("h", 1, "", &[]),
             card_item("three", 2, Some("200,0,0,40")),
         ],
     );
@@ -311,6 +410,7 @@ fn cards_that_leave_two_groups_at_once_go_behind_their_groups_in_one_batch() {
             moved(&["i-two"], "i-one"),
             leveled("i-three", 1),
             moved(&["i-three"], "h"),
+            emptied("h", Some("no title"), false),
         ]]
     );
 }
@@ -358,7 +458,7 @@ fn the_title_and_its_side_changed_at_once_are_saved_in_one_batch() {
     answer_outline(
         &mut h,
         vec![
-            atlas_item("g", 1, "Tools", &[("atlas_side", "left")]),
+            parent_item("g", 1, "Tools", &[("atlas_side", "left")]),
             card_item("one", 2, Some("0,0,0,40")),
         ],
     );
@@ -381,7 +481,7 @@ fn a_group_whose_body_is_a_link_keeps_the_link_while_its_title_stays() {
     let mut h = atlas_of(
         vec![child("one")],
         vec![
-            atlas_item("g", 1, "[[x/Tools]]", &[]),
+            parent_item("g", 1, "[[x/Tools]]", &[]),
             card_item("one", 2, Some("0,0,0,40")),
         ],
     );

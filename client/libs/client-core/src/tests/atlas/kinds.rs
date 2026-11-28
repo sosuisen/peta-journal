@@ -143,9 +143,9 @@ fn a_card_carries_all_its_parents_from_the_outermost() {
     let h = atlas_of(
         vec![child("one")],
         vec![
-            atlas_item("outer", 1, "Outer", &[]),
-            atlas_item("inner", 2, "", &[]),
-            atlas_item("deep", 3, "Deep", &[]),
+            parent_item("outer", 1, "Outer", &[]),
+            parent_item("inner", 2, "", &[]),
+            parent_item("deep", 3, "Deep", &[]),
             card_item("one", 4, Some("0,0,0,40")),
             atlas_item("p", 2, "note", &[("atlas_bounds", "9,0,0,40")]),
         ],
@@ -180,9 +180,9 @@ fn a_parent_that_is_a_page_card_opens_its_page_and_has_its_icon() {
     let mut h = atlas_of(
         vec![one],
         vec![
-            atlas_item("pa", 1, "[[a/b/one]]", &[]),
+            parent_item("pa", 1, "[[a/b/one]]", &[]),
             placed_under("na", "note"),
-            atlas_item("pb", 1, "[[a/b/gone]]", &[]),
+            parent_item("pb", 1, "[[a/b/gone]]", &[]),
             placed_under("nb", "note"),
         ],
     );

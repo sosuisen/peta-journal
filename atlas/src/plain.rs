@@ -6,8 +6,14 @@
 //! an item whose first line is one wiki link, a plain card one whose first line is anything
 //! else, and a callout an item whose `atlas_type` says so. An item with items under it is a
 //! parent: the screen draws a blob around them, with the text of the parent along it.
+//!
+//! The `atlas_bounds` of an item are counted from the item it is right under, and those of an
+//! item of the top from the center of the canvas. [`entries`] walks the parents, so a reader
+//! takes the place of an item on the canvas from [`Entry::place`] and does no walk of its own.
+//! An item without `atlas_bounds` is not drawn, and neither is any item under it.
 
-use crate::{card_label, link_body, link_target, AtlasItem, CALLOUT_TYPE, TYPE_KEY};
+use crate::{bounds_of, card_label, link_body, link_target, AtlasItem, Bounds};
+use crate::{CALLOUT_TYPE, TYPE_KEY};
 
 /// What an item of a plain atlas page is, by its body and its `atlas_type`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,6 +37,14 @@ pub struct Entry<'a, T> {
     pub is_parent: bool,
     /// The items it is under, the outermost first
     pub parents: Vec<&'a T>,
+    /// Where it lies on the canvas, with its own size: its `atlas_bounds` moved by those of
+    /// every item it is under. None when it or an item it is under has no `atlas_bounds`: it
+    /// is not drawn then.
+    pub place: Option<Bounds>,
+    /// The point of the canvas its `atlas_bounds` are counted from: where the item it is
+    /// right under lies, or the center of the canvas at the top. None when an item it is
+    /// under is not drawn.
+    pub frame: Option<(f64, f64)>,
 }
 
 impl<'a, T> Entry<'a, T> {
@@ -43,20 +57,26 @@ impl<'a, T> Entry<'a, T> {
 /// The items of a plain atlas page that the screen can show, in their order. An item with
 /// nothing written and nothing under it is left out: there is nothing to draw.
 pub fn entries<'a, T: AtlasItem + 'a>(items: impl IntoIterator<Item = &'a T>) -> Vec<Entry<'a, T>> {
-    let mut open: Vec<&'a T> = Vec::new();
+    // The items the next one may be under, each with where it lies on the canvas
+    let mut open: Vec<(&'a T, Option<Bounds>)> = Vec::new();
     let mut entries = Vec::new();
     let mut items = items.into_iter().peekable();
     while let Some(item) = items.next() {
         let is_parent = items.peek().is_some_and(|next| next.level() > item.level());
         while open
             .last()
-            .is_some_and(|above| above.level() >= item.level())
+            .is_some_and(|(above, _)| above.level() >= item.level())
         {
             open.pop();
         }
-        let parents = open.clone();
+        let parents = open.iter().map(|(parent, _)| *parent).collect();
+        let frame = match open.last() {
+            Some((_, place)) => place.map(|place| (place.x, place.y)),
+            None => Some((0.0, 0.0)),
+        };
+        let place = frame.and_then(|(x, y)| Some(bounds_of(item)?.moved_by(x, y)));
         if is_parent {
-            open.push(item);
+            open.push((item, place));
         } else if item.body().trim().is_empty() {
             continue;
         }
@@ -72,6 +92,8 @@ pub fn entries<'a, T: AtlasItem + 'a>(items: impl IntoIterator<Item = &'a T>) ->
             kind,
             is_parent,
             parents,
+            place,
+            frame,
         });
     }
     entries
@@ -363,6 +385,78 @@ mod tests {
         ] {
             assert_eq!(card_link(body), None, "{body}");
         }
+    }
+
+    fn places(items: &[crate::tests::Item]) -> Vec<(&str, Option<(f64, f64)>)> {
+        entries(items)
+            .iter()
+            .map(|e| (e.item.body(), e.place.map(|b| (b.x, b.y))))
+            .collect()
+    }
+
+    // 子の`atlas_bounds`は、すぐ上の親からの相対の座標である。項目の全体での位置は、親をたどって足したものである。入れ子でも同じである。
+    #[test]
+    fn the_place_of_an_item_is_counted_from_the_parents_above_it() {
+        let items = [
+            item(1, "outer", &[(BOUNDS_KEY, "100,200,0,40")]),
+            item(2, "inner", &[(BOUNDS_KEY, "10,20,0,40")]),
+            item(3, "[[d/a]]", &[(BOUNDS_KEY, "1,2,0,60")]),
+            item(2, "[[d/b]]", &[(BOUNDS_KEY, "-5,-6,0,40")]),
+            item(1, "[[d/c]]", &[(BOUNDS_KEY, "7,8,0,40")]),
+        ];
+
+        assert_eq!(
+            places(&items),
+            [
+                ("outer", Some((100.0, 200.0))),
+                ("inner", Some((110.0, 220.0))),
+                ("[[d/a]]", Some((111.0, 222.0))),
+                ("[[d/b]]", Some((95.0, 194.0))),
+                ("[[d/c]]", Some((7.0, 8.0))),
+            ]
+        );
+        // The size is the item's own
+        assert_eq!(entries(&items)[2].place.map(|b| b.height), Some(60.0));
+    }
+
+    // `atlas_bounds`のない親は描かれず、その下の項目も、自分の`atlas_bounds`の有無によらず、位置を持たない。読めない値も、ないものとして扱う。
+    #[test]
+    fn nothing_under_a_parent_without_bounds_has_a_place() {
+        let items = [
+            item(1, "outer", &[]),
+            item(2, "inner", &[(BOUNDS_KEY, "10,20,0,40")]),
+            item(3, "[[d/a]]", &[(BOUNDS_KEY, "1,2,0,40")]),
+            item(1, "broken", &[(BOUNDS_KEY, "1,2")]),
+            item(2, "[[d/b]]", &[(BOUNDS_KEY, "3,4,0,40")]),
+            item(1, "placed", &[(BOUNDS_KEY, "5,6,0,40")]),
+            item(2, "[[d/c]]", &[]),
+        ];
+
+        assert_eq!(
+            places(&items),
+            [
+                ("outer", None),
+                ("inner", None),
+                ("[[d/a]]", None),
+                ("broken", None),
+                ("[[d/b]]", None),
+                ("placed", Some((5.0, 6.0))),
+                ("[[d/c]]", None),
+            ]
+        );
+        let frames: Vec<Option<(f64, f64)>> = entries(&items).iter().map(|e| e.frame).collect();
+        assert_eq!(
+            frames,
+            [
+                Some((0.0, 0.0)),
+                None,
+                None,
+                Some((0.0, 0.0)),
+                None,
+                Some((0.0, 0.0)),
+                Some((5.0, 6.0)),
+            ]
+        );
     }
 
     // 宛先を変えたカードの本文は、ラベルと2行目より後を保つ。

@@ -653,6 +653,11 @@ pub enum Event {
         y: f64,
         grab_x: f64,
         grab_y: f64,
+        /// The card under the pointer while Ctrl is held: what is dropped becomes its sibling
+        target_id: Option<String>,
+        /// The item what is dropped goes under: the group under the pointer while Ctrl is
+        /// held, or the card under it while Shift and Ctrl are
+        parent_id: Option<String>,
     },
     /// The selected cards scaled with Ctrl and the wheel: the card takes the scale.
     ScaleAtlasCard {
@@ -720,16 +725,21 @@ pub enum Event {
     GroupAtlasCards {
         card_ids: Vec<String>,
         target_id: String,
+        /// Where each was let go on the canvas; the batch saves the places too
+        places: Vec<crate::screens::atlas::AtlasPlace>,
     },
     /// Cards dragged out of the outline of their group with Ctrl held: they leave it.
     UngroupAtlasCards {
         card_ids: Vec<String>,
+        places: Vec<crate::screens::atlas::AtlasPlace>,
     },
-    /// Cards let go on the blob of a parent with Ctrl held: they go under the item of that
-    /// parent, each among the items under it by where it lies (ADR 053).
+    /// Cards let go on the blob of a parent with Ctrl held, or on a card with Shift and Ctrl
+    /// held: they go under that item, each among the items under it by where it lies
+    /// (ADR 053). A callout or a group goes as a card does.
     MoveAtlasCards {
         card_ids: Vec<String>,
         parent_id: String,
+        places: Vec<crate::screens::atlas::AtlasPlace>,
     },
     /// The server refused the new bounds of a card or a callout; `before` is what it had.
     AtlasBoundsRefused {
@@ -1576,7 +1586,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             y,
             grab_x,
             grab_y,
-        } => screens::atlas::drop_card(model, card_id, x, y, grab_x, grab_y),
+            target_id,
+            parent_id,
+        } => screens::atlas::drop_card(model, card_id, x, y, grab_x, grab_y, target_id, parent_id),
         ScaleAtlasCard { card_id, scale } => screens::atlas::scale_card(model, card_id, scale),
         SetAtlasGroupTitle {
             group_id,
@@ -1597,12 +1609,16 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         GroupAtlasCards {
             card_ids,
             target_id,
-        } => screens::atlas::group_cards(model, card_ids, target_id),
-        UngroupAtlasCards { card_ids } => screens::atlas::ungroup_cards(model, card_ids),
+            places,
+        } => screens::atlas::group_cards(model, card_ids, target_id, places),
+        UngroupAtlasCards { card_ids, places } => {
+            screens::atlas::ungroup_cards(model, card_ids, places)
+        }
         MoveAtlasCards {
             card_ids,
             parent_id,
-        } => screens::atlas::move_cards(model, card_ids, parent_id),
+            places,
+        } => screens::atlas::move_cards(model, card_ids, parent_id, places),
         AtlasBoundsRefused { item_id, before } => {
             screens::atlas::put_bounds_back(model, &item_id, before)
         }

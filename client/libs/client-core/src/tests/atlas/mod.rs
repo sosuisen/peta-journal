@@ -17,6 +17,9 @@ mod cards;
 // 置かれるのを待つ
 mod waiting;
 
+// 一覧からドロップする
+mod dropping;
+
 // まとまりを作る
 mod groups;
 
@@ -74,6 +77,16 @@ const ATLAS_ID: &str = "a/b/index_atlas";
 fn atlas_item(id: &str, level: i32, body: &str, props: &[(&str, &str)]) -> Item {
     let mut item = crate::testing::plain_item(id, level, body);
     item.page_id = ATLAS_ID.into();
+    for (key, value) in props {
+        item.properties.insert((*key).into(), (*value).into());
+    }
+    item
+}
+
+/// An item that others are under, placed at the point its own bounds are counted from, so the
+/// items under it lie on the canvas where their bounds say. The given properties win.
+fn parent_item(id: &str, level: i32, body: &str, props: &[(&str, &str)]) -> Item {
+    let mut item = atlas_item(id, level, body, &[("atlas_bounds", "0,0,0,40")]);
     for (key, value) in props {
         item.properties.insert((*key).into(), (*value).into());
     }
@@ -151,6 +164,13 @@ fn batches(h: &Harness) -> Vec<Vec<BatchOpInput>> {
                 ItemPosition::After(id) if made.contains(&id) => ItemPosition::after(NEW),
                 position => position,
             };
+            let name = |id: String| {
+                if made.contains(&id) {
+                    NEW.to_string()
+                } else {
+                    id
+                }
+            };
             ops.into_iter()
                 .map(|op| match op {
                     BatchOpInput::Create {
@@ -175,9 +195,26 @@ fn batches(h: &Harness) -> Vec<Vec<BatchOpInput>> {
                         page_id,
                         position,
                     } => BatchOpInput::Move {
-                        ids,
+                        ids: ids.into_iter().map(name).collect(),
                         page_id,
                         position: named(position),
+                    },
+                    BatchOpInput::Update {
+                        id,
+                        body,
+                        level,
+                        collapsed,
+                        task,
+                        properties,
+                        dropped_properties,
+                    } => BatchOpInput::Update {
+                        id: name(id),
+                        body,
+                        level,
+                        collapsed,
+                        task,
+                        properties,
+                        dropped_properties,
                     },
                     op => op,
                 })
@@ -215,6 +252,24 @@ fn leveled(id: &str, level: i32) -> BatchOpInput {
     }
 }
 
+/// The operation that makes the item of a new group at the bounds
+fn made_group(position: ItemPosition, bounds: &str) -> BatchOpInput {
+    made(position, "", &[("atlas_bounds", bounds)])
+}
+
+/// The operation that gives an item a level and the bounds counted from its new parent
+fn leveled_at(id: &str, level: i32, bounds: &str) -> BatchOpInput {
+    BatchOpInput::Update {
+        id: id.into(),
+        body: None,
+        level: Some(level),
+        collapsed: None,
+        task: None,
+        properties: [("atlas_bounds".to_string(), bounds.into())].into(),
+        dropped_properties: Vec::new(),
+    }
+}
+
 /// The operation that gives an item a body
 fn written(id: &str, body: &str) -> BatchOpInput {
     BatchOpInput::Update {
@@ -235,6 +290,28 @@ fn moved(ids: &[&str], after: &str) -> BatchOpInput {
         page_id: ATLAS_ID.into(),
         position: ItemPosition::after(after),
     }
+}
+
+/// The operation that moves items of the atlas page to the end of the page
+fn moved_last(ids: &[&str]) -> BatchOpInput {
+    BatchOpInput::Move {
+        ids: ids.iter().map(|id| id.to_string()).collect(),
+        page_id: ATLAS_ID.into(),
+        position: ItemPosition::Last,
+    }
+}
+
+/// Drops a card of the lists beside the canvas with its center at the point
+fn drop_on(h: &mut Harness, card_id: &str, x: f64, y: f64) {
+    h.send(Event::DropAtlasCard {
+        card_id: card_id.into(),
+        x,
+        y,
+        grab_x: 0.5,
+        grab_y: 0.5,
+        target_id: None,
+        parent_id: None,
+    });
 }
 
 fn deleted(id: &str) -> BatchOpInput {
@@ -263,6 +340,20 @@ fn sided(id: &str, body: Option<&str>, side: &str) -> BatchOpInput {
         task: None,
         properties: [("atlas_side".to_string(), side.into())].into(),
         dropped_properties: Vec::new(),
+    }
+}
+
+/// The operation that tidies an item that is no parent any more: an empty body gets the given
+/// one, and with `side` its side goes
+fn emptied(id: &str, body: Option<&str>, side: bool) -> BatchOpInput {
+    BatchOpInput::Update {
+        id: id.into(),
+        body: body.map(str::to_string),
+        level: None,
+        collapsed: None,
+        task: None,
+        properties: Default::default(),
+        dropped_properties: side.then(|| "atlas_side".to_string()).into_iter().collect(),
     }
 }
 
@@ -306,5 +397,6 @@ fn group(h: &mut Harness, card_ids: &[&str], target_id: &str) {
     h.send(Event::GroupAtlasCards {
         card_ids: card_ids.iter().map(|id| id.to_string()).collect(),
         target_id: target_id.into(),
+        places: vec![],
     });
 }

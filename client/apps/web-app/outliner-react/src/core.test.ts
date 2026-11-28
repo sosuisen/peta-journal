@@ -196,7 +196,7 @@ describe('the core in wasm', () => {
       new Bounds(1, 2, 0, 0),
       [],
     );
-    const callout = new Callout('k', 1, 2, 1, 'left', 'hi');
+    const callout = new Callout('k', 1, 2, 1, 'left', 'hi', []);
 
     expect(JSON.parse(core.atlasCards([card], [link]))).toEqual({
       cards: ['a'],

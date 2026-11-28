@@ -6,7 +6,8 @@ use client_core::screens::atlas::{self as core_atlas, AtlasGroup, Callout, CardT
 use client_core::view::AtlasCard;
 use peta_atlas::scene::{self, GroupLook, GroupRef};
 
-/// The groups a card is in, as the scene takes them.
+/// The groups a card or a callout is in, as the scene takes them, each with the place of its
+/// item counted from the group above it.
 fn group_refs(groups: &[AtlasGroup]) -> Vec<GroupRef> {
     groups
         .iter()
@@ -26,6 +27,8 @@ fn group_refs(groups: &[AtlasGroup]) -> Vec<GroupRef> {
                 },
                 core_atlas::GroupLook::Callout => GroupLook::Callout,
             },
+            x: group.x,
+            y: group.y,
         })
         .collect()
 }
@@ -97,13 +100,16 @@ fn run(run: &RichRun) -> scene::Run {
     }
 }
 
-/// The callouts, each with its character drawn from its text, as `setCallouts` of
-/// `atlas.js` takes them. The callouts are given as the JSON of the border.
+/// The callouts, each with its character drawn from its text and the groups it is in, as
+/// `setCallouts` of `atlas.js` takes them. The callouts are given as the JSON of the border.
 pub fn callouts_json(callouts: &str) -> Result<String, String> {
     let callouts: Vec<Callout> = crate::border::read(callouts)?;
     let all: Vec<scene::Callout> = callouts
         .iter()
-        .map(|c| scene::Callout::new(&c.key, c.x, c.y, c.scale, &c.side, &c.text))
+        .map(|c| {
+            scene::Callout::new(&c.key, c.x, c.y, c.scale, &c.side, &c.text)
+                .under(&group_refs(&c.groups))
+        })
         .collect();
     Ok(scene::callouts_json(&all))
 }
@@ -131,14 +137,14 @@ mod tests {
             .collect()
     }
 
-    // 置いたカードだけを、リンクのカードとともに、グループとその題名をつけて渡す。置いていないカードは渡さない。
+    // 置いたカードだけを、リンクのカードとともに、グループとその題名と位置をつけて渡す。置いていないカードは渡さない。
     #[test]
     fn the_placed_cards_go_with_the_link_cards_and_their_groups() {
         let cards = r#"[
             {"page_id":"a","label":"A","path":"m/a","is_dir":false,
              "bounds":{"x":10.0,"y":20.0,"width":0.0,"height":0.0},
              "icon_tags":["sun"],
-             "groups":[{"id":"g","title":{"side":"top","text":"Plan"},"look":"Text"}],"published":false,"text":""},
+             "groups":[{"id":"g","title":{"side":"top","text":"Plan"},"look":"Text","x":100.0,"y":200.0}],"published":false,"text":""},
             {"page_id":"b","label":"B","path":"m/b","is_dir":true,"bounds":null,
              "icon_tags":[],"groups":[],"published":false,"text":""}
         ]"#;
@@ -163,14 +169,20 @@ mod tests {
             ),
             (&Value::from("g"), &Value::from("Plan"), &Value::from("top"))
         );
+        // The card is counted from its group, which carries its own place
+        assert_eq!(
+            (&placed[0]["x"], &placed[0]["groups"][0]["x"]),
+            (&Value::from(10.0), &Value::from(100.0))
+        );
         assert!(placed[0]["icon"].is_string());
         assert_eq!(placed[1]["label"], "Shown");
     }
 
-    // 吹き出しは、文字から描いた顔とともに渡す。
+    // 吹き出しは、文字から描いた顔と、属するグループとともに渡す。
     #[test]
     fn each_callout_goes_with_the_character_drawn_from_its_text() {
-        let callouts = r#"[{"key":"k","x":1.0,"y":2.0,"scale":1.5,"side":"left","text":"hello"}]"#;
+        let callouts = r#"[{"key":"k","x":1.0,"y":2.0,"scale":1.5,"side":"left","text":"hello",
+            "groups":[{"id":"g","title":null,"look":"Text","x":100.0,"y":200.0}]}]"#;
 
         let json = callouts_json(callouts).unwrap();
         let shown: Vec<Value> = serde_json::from_str(&json).unwrap();
@@ -180,6 +192,10 @@ mod tests {
             (&Value::from("k"), &Value::from(1.5), &Value::from("hello"))
         );
         assert!(shown[0]["character"].as_str().unwrap().contains("<svg"));
+        assert_eq!(
+            (&shown[0]["groups"][0]["id"], &shown[0]["groups"][0]["y"]),
+            (&Value::from("g"), &Value::from(200.0))
+        );
     }
 
     // 読めないカードや吹き出しは、理由とともに断る。

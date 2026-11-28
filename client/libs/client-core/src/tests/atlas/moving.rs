@@ -1,6 +1,7 @@
 //! Changing the parent and the order of an item by moving its card (ADR 053).
 
 use super::*;
+use crate::screens::atlas::AtlasPlace;
 
 /// The parent `g` with the cards of one and two under it, one above the other, and the card
 /// of three alone at the given bounds.
@@ -8,7 +9,7 @@ fn atlas_with_parent(three: &str) -> Harness {
     atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("0,100,0,40")),
             card_item("three", 1, Some(three)),
@@ -20,7 +21,92 @@ fn move_under(h: &mut Harness, card_ids: &[&str], parent_id: &str) {
     h.send(Event::MoveAtlasCards {
         card_ids: card_ids.iter().map(|id| id.to_string()).collect(),
         parent_id: parent_id.into(),
+        places: vec![],
     });
+}
+
+/// The parent `outer` with the parent `g` under it, and the card of one under that
+fn atlas_with_placed_parents() -> Harness {
+    atlas_of(
+        vec![child("one")],
+        vec![
+            parent_item("outer", 1, "", &[("atlas_bounds", "10,10,0,40")]),
+            parent_item("g", 2, "", &[("atlas_bounds", "100,200,0,40")]),
+            card_item("one", 3, Some("1,2,0,40")),
+        ],
+    )
+}
+
+// 親の下のカードを動かすと、置いた点は、すぐ上の親からの相対の座標で保存される。親の`atlas_bounds`は変わらない。
+#[test]
+fn a_card_under_a_parent_is_placed_by_bounds_counted_from_the_parent() {
+    let mut h = atlas_with_placed_parents();
+    place(&mut h, "a/b/one", 150.4, 260.0);
+
+    assert_eq!(
+        upserts(&h),
+        vec![("i-one".into(), "atlas_bounds".into(), "40,50,0,40".into())]
+    );
+    assert_eq!(
+        bounds_of(&h, "a/b/one").map(|b| (b.x, b.y)),
+        Some((40.0, 50.0))
+    );
+}
+
+// 親を動かすと、変わるのは親の`atlas_bounds`だけである。子の`atlas_bounds`は変わらず、子は親と一緒に動く。
+#[test]
+fn a_parent_that_moves_changes_its_own_bounds_only() {
+    let mut h = atlas_with_placed_parents();
+    place(&mut h, "g", 300.0, 400.0);
+
+    assert_eq!(
+        upserts(&h),
+        vec![("g".into(), "atlas_bounds".into(), "290,390,0,40".into())]
+    );
+    assert!(batches(&h).is_empty());
+    let card = h.view().atlas_cards.remove(0);
+    assert_eq!(card.bounds.map(|b| (b.x, b.y)), Some((1.0, 2.0)));
+    assert_eq!((card.groups[1].x, card.groups[1].y), (290.0, 390.0));
+}
+
+// 親に入るカードと、親を変えるカードの`atlas_bounds`は、同じ送信で、新しい親からの相対の座標に書き直される。見える位置は変わらない。兄弟とは、新しい親からの相対の座標で比べる。
+#[test]
+fn a_card_that_goes_under_a_parent_is_counted_from_it_in_the_same_batch() {
+    let atlas = || {
+        atlas_of(
+            vec![child("four"), child("one"), child("three"), child("two")],
+            vec![
+                parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+                card_item("one", 2, Some("0,0,0,40")),
+                card_item("two", 2, Some("0,100,0,40")),
+                parent_item("q", 1, "", &[("atlas_bounds", "-50,-50,0,40")]),
+                card_item("four", 2, Some("0,0,0,40")),
+                card_item("three", 1, Some("130,250,0,60")),
+            ],
+        )
+    };
+
+    // From the top: it lies between the two cards of the parent on the canvas
+    let mut h = atlas();
+    move_under(&mut h, &["a/b/three"], "g");
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-three", 2, "30,50,0,60"),
+            moved(&["i-three"], "i-one")
+        ]]
+    );
+
+    // From another parent
+    let mut h = atlas();
+    move_under(&mut h, &["a/b/one"], "q");
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-one", 2, "150,250,0,40"),
+            moved(&["i-one"], "i-four")
+        ]]
+    );
 }
 
 // 親のblobに落とされたカードは、1回の送信で、その親の子になる。下に兄弟がなければ、親の木の末尾に入る。
@@ -88,7 +174,7 @@ fn a_sibling_without_a_place_is_not_compared_and_keeps_its_place_in_the_order() 
     let mut h = atlas_of(
         vec![child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, None),
             atlas_item("note", 2, "sample", &[]),
             card_item("two", 2, Some("0,100,0,40")),
@@ -115,7 +201,7 @@ fn cards_dropped_at_once_go_in_each_by_where_it_lies_in_one_batch() {
             child("two"),
         ],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("0,100,0,40")),
             card_item("five", 1, Some("0,60,0,40")),
@@ -143,14 +229,266 @@ fn atlas_with_nested_parents(four: &str) -> Harness {
     atlas_of(
         vec![child("four"), child("one"), child("three"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
-            atlas_item("p", 2, "", &[("atlas_side", "left")]),
+            parent_item("p", 2, "", &[("atlas_side", "left")]),
             card_item("two", 3, Some("0,100,0,40")),
             card_item("three", 2, Some("0,300,0,40")),
             card_item("four", 1, Some(four)),
         ],
     )
+}
+
+// 親を変えたカードは、読み直したアウトラインの`atlas_bounds`で表示される。その値は、同じ送信で新しい親からの相対に書き直されたものである。親を変えていないカードは、表示されていた位置を保つ。
+#[test]
+fn a_card_that_changed_its_parent_shows_the_bounds_the_batch_wrote() {
+    let mut h = atlas_of(
+        vec![child("one"), child("three")],
+        vec![
+            parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            atlas_item("note", 2, "note", &[("atlas_bounds", "0,-100,0,40")]),
+            card_item("one", 2, Some("0,0,0,40")),
+            card_item("three", 1, Some("130,250,0,40")),
+        ],
+    );
+    // The outline as the server has it after the batch: the place of one is not saved yet
+    answer_outline(
+        &mut h,
+        vec![
+            parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            atlas_item("note", 2, "note", &[("atlas_bounds", "0,-100,0,40")]),
+            card_item("one", 2, Some("0,0,0,40")),
+            card_item("three", 2, Some("30,50,0,40")),
+        ],
+    );
+    place(&mut h, "a/b/one", 105.0, 205.0);
+    move_under(&mut h, &["a/b/three"], "g");
+
+    let place_of = |id: &str| bounds_of(&h, id).map(|b| (b.x, b.y));
+    assert_eq!(place_of("a/b/three"), Some((30.0, 50.0)));
+    assert_eq!(place_of("a/b/one"), Some((5.0, 5.0)));
+}
+
+// カードの子にもなる（Shift+Ctrlでカードの上にドロップしたとき）。相手のカードは、ページのカードならページのidで、ほかは項目のidで名指しされ、親になる。動かしたカードの`atlas_bounds`は、同じ送信で、そのカードからの相対の座標に書き直される。相手のカードの`atlas_bounds`は変わらない。
+#[test]
+fn a_card_goes_under_a_card_which_becomes_its_parent() {
+    let atlas = || {
+        atlas_of(
+            vec![child("one"), child("three"), child("two")],
+            vec![
+                parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+                card_item("one", 2, Some("5,5,0,40")),
+                card_item("two", 1, Some("300,300,0,40")),
+                atlas_item("l", 1, "[[x/Sample]]", &[("atlas_bounds", "0,50,0,40")]),
+                card_item("three", 1, Some("330,350,0,60")),
+            ],
+        )
+    };
+
+    // Under the card of a page at the top
+    let mut h = atlas();
+    move_under(&mut h, &["a/b/three"], "a/b/two");
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-three", 2, "30,50,0,60"),
+            moved(&["i-three"], "i-two")
+        ]]
+    );
+
+    // Under a card in a group: counted from where that card lies on the canvas
+    let mut h = atlas();
+    move_under(&mut h, &["a/b/three"], "a/b/one");
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-three", 3, "225,145,0,60"),
+            moved(&["i-three"], "i-one")
+        ]]
+    );
+
+    // Under a link card, named by its item
+    let mut h = atlas();
+    move_under(&mut h, &["a/b/three"], "l");
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-three", 2, "330,300,0,60"),
+            moved(&["i-three"], "l")
+        ]]
+    );
+}
+
+// 自分自身の子にはならない。コールアウトの子にもならない。ページのカードは、項目のidでは名指しされない。どれも、何も送られない。
+#[test]
+fn a_card_goes_under_no_card_that_is_itself_a_callout_or_named_by_another_id() {
+    let mut h = atlas_of(
+        vec![child("one"), child("two")],
+        vec![
+            card_item("one", 1, Some("0,0,0,40")),
+            card_item("two", 1, Some("0,100,0,40")),
+            atlas_item(
+                "c",
+                1,
+                "Hi",
+                &[("atlas_type", "callout"), ("atlas_bounds", "9,9,0,40")],
+            ),
+        ],
+    );
+    move_under(&mut h, &["a/b/one"], "a/b/one");
+    move_under(&mut h, &["a/b/one"], "c");
+    move_under(&mut h, &["a/b/one"], "i-two");
+    assert!(batches(&h).is_empty());
+
+    // Of the cards let go on one of them, the others go under it
+    move_under(&mut h, &["a/b/one", "a/b/two"], "a/b/two");
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-one", 2, "0,-100,0,40"),
+            moved(&["i-one"], "i-two")
+        ]]
+    );
+}
+
+fn at(id: &str, x: f64, y: f64) -> AtlasPlace {
+    AtlasPlace {
+        id: id.into(),
+        x,
+        y,
+    }
+}
+
+// キャンバスでキーを押して放したカードは、放した場所が、親を変えるのと同じ1回の送信で保存される。場所だけを先に保存することはない。グループに入るとき、新しいグループを作るとき、グループから出るとき、どれも同じである。
+#[test]
+fn a_card_let_go_with_a_key_is_placed_and_joined_in_one_batch() {
+    let sent = |event: Event| {
+        let mut h = atlas_of(
+            vec![child("four"), child("one"), child("three"), child("two")],
+            vec![
+                parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+                card_item("one", 2, Some("0,0,0,40")),
+                card_item("two", 2, Some("0,100,0,40")),
+                card_item("three", 1, Some("300,300,0,60")),
+                card_item("four", 1, Some("500,500,0,40")),
+            ],
+        );
+        h.send(event);
+        assert!(upserts(&h).is_empty());
+        batches(&h)
+    };
+
+    assert_eq!(
+        sent(Event::MoveAtlasCards {
+            card_ids: vec!["a/b/three".into()],
+            parent_id: "g".into(),
+            places: vec![at("a/b/three", 130.4, 250.0)],
+        }),
+        [[
+            leveled_at("i-three", 2, "30,50,0,60"),
+            moved(&["i-three"], "i-one")
+        ]]
+    );
+    assert_eq!(
+        sent(Event::GroupAtlasCards {
+            card_ids: vec!["a/b/three".into()],
+            target_id: "a/b/four".into(),
+            places: vec![at("a/b/three", 520.0, 540.0)],
+        }),
+        [[
+            made_group(ItemPosition::after("i-four"), "510,520,0,40"),
+            leveled_at("i-four", 2, "-10,-20,0,40"),
+            leveled_at("i-three", 2, "10,20,0,60"),
+            moved(&["i-four", "i-three"], NEW),
+        ]]
+    );
+    assert_eq!(
+        sent(Event::UngroupAtlasCards {
+            card_ids: vec!["a/b/one".into()],
+            places: vec![at("a/b/one", 400.0, 410.0)],
+        }),
+        [[
+            leveled_at("i-one", 1, "400,410,0,40"),
+            moved(&["i-one"], "i-two")
+        ]]
+    );
+}
+
+// コールアウトと、子を持つ項目（グループ）も、カードと同じに、グループに入り、カードの兄弟になり、グループから出る。項目のidで名指しされる。子を持つ項目は、下の項目ごと動き、下の項目は子のままである。自分の木の中には入らない。一緒に名指しされた下の項目は、上の項目と一緒に動くだけである。
+#[test]
+fn a_callout_and_an_item_with_items_under_it_join_and_leave_as_a_card_does() {
+    let sent = |event: Event| {
+        let mut h = atlas_of(
+            vec![child("one"), child("three"), child("two")],
+            vec![
+                parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+                card_item("one", 2, Some("0,0,0,40")),
+                parent_item("p", 1, "P", &[("atlas_bounds", "300,300,0,40")]),
+                card_item("two", 2, Some("5,5,0,40")),
+                parent_item("q", 2, "Q", &[("atlas_bounds", "10,10,0,40")]),
+                atlas_item("x", 3, "x", &[("atlas_bounds", "1,1,0,40")]),
+                atlas_item(
+                    "c",
+                    1,
+                    "Hi",
+                    &[("atlas_type", "callout"), ("atlas_bounds", "400,400,0,40")],
+                ),
+                card_item("three", 1, Some("500,500,0,40")),
+            ],
+        );
+        h.send(event);
+        batches(&h)
+    };
+    let under = |ids: &[&str], parent: &str| {
+        sent(Event::MoveAtlasCards {
+            card_ids: ids.iter().map(|id| id.to_string()).collect(),
+            parent_id: parent.into(),
+            places: vec![],
+        })
+    };
+    let group_under_g = [vec![
+        leveled_at("p", 2, "200,100,0,40"),
+        leveled("i-two", 3),
+        leveled("q", 3),
+        leveled("x", 4),
+        moved(&["p", "i-two", "q", "x"], "i-one"),
+    ]];
+
+    assert_eq!(
+        under(&["c"], "g"),
+        [[leveled_at("c", 2, "300,200,0,40"), moved(&["c"], "i-one")]]
+    );
+    assert_eq!(under(&["p"], "g"), group_under_g);
+    assert_eq!(under(&["q", "p", "x"], "g"), group_under_g);
+    assert!(under(&["p"], "q").is_empty());
+    assert!(under(&["p"], "a/b/two").is_empty());
+    assert_eq!(
+        sent(Event::GroupAtlasCards {
+            card_ids: vec!["p".into()],
+            target_id: "a/b/three".into(),
+            places: vec![],
+        }),
+        [[
+            made_group(ItemPosition::after("i-three"), "400,400,0,40"),
+            leveled_at("p", 2, "-100,-100,0,40"),
+            leveled("i-two", 3),
+            leveled("q", 3),
+            leveled("x", 4),
+            leveled_at("i-three", 2, "100,100,0,40"),
+            moved(&["p", "i-two", "q", "x", "i-three"], NEW),
+        ]]
+    );
+    assert_eq!(
+        sent(Event::UngroupAtlasCards {
+            card_ids: vec!["q".into()],
+            places: vec![],
+        }),
+        [[
+            leveled_at("q", 1, "310,310,0,40"),
+            leveled("x", 2),
+            moved(&["q", "x"], "i-two"),
+        ]]
+    );
 }
 
 // 親の下の親にも入る。カードは、その親のすぐ下のレベルになる。
@@ -165,7 +503,7 @@ fn a_card_goes_under_a_parent_that_is_under_a_parent_at_the_level_below_it() {
     );
 }
 
-// 上の兄弟が親のときは、その木の後ろに入る。親には自分の`atlas_bounds`がないので、比べる相手にならない。
+// 上の兄弟が親のときは、その木の後ろに入る。兄弟が親のときは、その親の`atlas_bounds`で比べる。
 #[test]
 fn a_card_goes_in_behind_the_tree_of_a_sibling_above_it_that_is_a_parent() {
     let mut h = atlas_with_nested_parents("0,200,0,40");
@@ -185,7 +523,11 @@ fn an_item_whose_last_card_goes_under_another_parent_loses_its_side_in_the_same_
 
     assert_eq!(
         batches(&h),
-        [[leveled("i-two", 2), moved(&["i-two"], "p"), unsided("p"),]]
+        [[
+            leveled("i-two", 2),
+            moved(&["i-two"], "p"),
+            emptied("p", Some("no title"), true),
+        ]]
     );
 }
 
@@ -207,7 +549,7 @@ fn a_link_card_goes_under_a_parent_as_the_card_of_a_page_does() {
     let mut h = atlas_of(
         vec![child("one"), child("two")],
         vec![
-            atlas_item("g", 1, "", &[]),
+            parent_item("g", 1, "", &[]),
             card_item("one", 2, Some("0,0,0,40")),
             card_item("two", 2, Some("0,100,0,40")),
             atlas_item("l", 1, "[[x/Sample]]", &[("atlas_bounds", "0,50,0,40")]),
@@ -218,16 +560,61 @@ fn a_link_card_goes_under_a_parent_as_the_card_of_a_page_does() {
     assert_eq!(batches(&h), [[leveled("l", 2), moved(&["l"], "i-one")]]);
 }
 
+// 親から出されたカードの`atlas_bounds`は、同じ送信で、1つ外の親からの相対の座標に書き直される。いちばん外に出たカードは、アトラスの中心からの座標になる。見える位置は変わらない。
+#[test]
+fn a_card_taken_out_of_a_parent_is_counted_from_the_parent_above_in_the_same_batch() {
+    let mut h = atlas_with_placed_parents();
+    h.send(Event::UngroupAtlasCards {
+        card_ids: vec!["a/b/one".into()],
+        places: vec![],
+    });
+
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-one", 2, "101,202,0,40"),
+            moved(&["i-one"], "g"),
+            emptied("g", Some("no title"), false),
+        ]]
+    );
+
+    let mut h = atlas_of(
+        vec![child("one")],
+        vec![
+            parent_item("g", 1, "", &[("atlas_bounds", "100,200,0,40")]),
+            card_item("one", 2, Some("1,2,0,40")),
+        ],
+    );
+    h.send(Event::UngroupAtlasCards {
+        card_ids: vec!["a/b/one".into()],
+        places: vec![],
+    });
+
+    assert_eq!(
+        batches(&h),
+        [[
+            leveled_at("i-one", 1, "101,202,0,40"),
+            moved(&["i-one"], "g"),
+            emptied("g", Some("no title"), false),
+        ]]
+    );
+}
+
 // 親の下の親から出されたカードは、元の親の木の末尾の次に、元の親と同じレベルで入る。外側の親の子のままである。
 #[test]
 fn a_card_taken_out_of_a_parent_under_a_parent_goes_behind_its_tree_at_its_level() {
     let mut h = atlas_with_nested_parents("0,200,0,40");
     h.send(Event::UngroupAtlasCards {
         card_ids: vec!["a/b/two".into()],
+        places: vec![],
     });
 
     assert_eq!(
         batches(&h),
-        [[leveled("i-two", 2), moved(&["i-two"], "p"), unsided("p"),]]
+        [[
+            leveled("i-two", 2),
+            moved(&["i-two"], "p"),
+            emptied("p", Some("no title"), true),
+        ]]
     );
 }

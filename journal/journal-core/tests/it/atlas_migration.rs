@@ -92,7 +92,7 @@ fn props(entries: &[(&str, &str)]) -> BTreeMap<String, String> {
         .collect()
 }
 
-// 古い形のアトラスを移すと、グループからatlas_typeが消える。コールアウトの親は消え、コールアウトがレベル1に上がる。ほかのプロパティは変わらない。
+// 古い形のアトラスを移すと、グループからatlas_typeが消える。コールアウトの親は消え、コールアウトがレベル1に上がる。グループは子の座標の重心を自分の座標として得て、子の座標はそこからの相対になる。ほかのプロパティは変わらない。
 #[test]
 fn the_groups_and_the_callouts_of_an_old_atlas_move_to_the_plain_form() {
     let dir = tempfile::tempdir().unwrap();
@@ -102,7 +102,8 @@ fn the_groups_and_the_callouts_of_an_old_atlas_move_to_the_plain_form() {
         "Title",
         &[("atlas_type", "group"), ("atlas_side", "left")],
     );
-    a.old_item(2, "[[x/b]]", &[("atlas_bounds", "0,0,0,40")]);
+    let first = a.old_item(2, "[[x/b]]", &[("atlas_bounds", "100,10,0,40")]);
+    let second = a.old_item(2, "[[x/c]]", &[("atlas_bounds", "300,50,0,60")]);
     a.old_item(1, "callout", &[("atlas_type", "callouts")]);
     let callout = [
         ("atlas_type", "callout"),
@@ -115,10 +116,52 @@ fn the_groups_and_the_callouts_of_an_old_atlas_move_to_the_plain_form() {
 
     assert_eq!(
         a.outline(),
-        ["1:[[d/a]]", "1:Title", "2:[[x/b]]", "1:Hello"]
+        ["1:[[d/a]]", "1:Title", "2:[[x/b]]", "2:[[x/c]]", "1:Hello"]
     );
-    assert_eq!(a.atlas_props(&group), props(&[("atlas_side", "left")]));
+    assert_eq!(
+        a.atlas_props(&group),
+        props(&[("atlas_side", "left"), ("atlas_bounds", "200,30,0,40")])
+    );
+    assert_eq!(
+        a.atlas_props(&first),
+        props(&[("atlas_bounds", "-100,-20,0,40")])
+    );
+    assert_eq!(
+        a.atlas_props(&second),
+        props(&[("atlas_bounds", "100,20,0,60")])
+    );
     assert_eq!(a.atlas_props(&hello), props(&callout));
+}
+
+// すでに新しい形に移したアトラスでも、`atlas_bounds`のない親は、座標のある子の重心を座標として得る。もう一度移しても、何も変わらない。
+#[test]
+fn a_parent_without_bounds_of_a_plain_atlas_gets_bounds_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b) = two_devices(dir.path());
+    let parent = a.old_item(1, "Title", &[]);
+    let card = a.old_item(2, "[[x/b]]", &[("atlas_bounds", "30,40,0,40")]);
+    let alone = a.old_item(1, "Alone", &[]);
+    let waiting = a.old_item(2, "[[x/c]]", &[]);
+
+    a.core.atlas.move_to_plain_form().unwrap();
+
+    let moved =
+        |device: &Device| [&parent, &card, &alone, &waiting].map(|id| device.atlas_props(id));
+    let once = moved(&a);
+    assert_eq!(
+        once,
+        [
+            props(&[("atlas_bounds", "30,40,0,40")]),
+            props(&[("atlas_bounds", "0,0,0,40")]),
+            props(&[]),
+            props(&[]),
+        ]
+    );
+
+    a.core.atlas.move_to_plain_form().unwrap();
+
+    assert_eq!(moved(&a), once);
+    assert_eq!(a.conflicts().len(), 1);
 }
 
 // 移したアトラスのページの修正日付は、移した時刻になる。移すもののないアトラスの日付は変わらない。
@@ -202,6 +245,8 @@ fn two_devices_that_moved_an_atlas_each_agree_and_send_it_no_more() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = with_an_old_atlas(dir.path());
     a.old_item(1, "Title", &[("atlas_type", "group")]);
+    a.old_item(2, "[[x/b]]", &[("atlas_bounds", "30,40,0,40")]);
+    a.old_item(2, "[[x/c]]", &[("atlas_bounds", "50,40,0,40")]);
     a.old_item(1, "callout", &[("atlas_type", "callouts")]);
     a.old_item(2, "Hello", &[("atlas_type", "callout")]);
     // B takes in the old form and moves it; A moves its own later
@@ -212,7 +257,11 @@ fn two_devices_that_moved_an_atlas_each_agree_and_send_it_no_more() {
     b.receive(&a, ATLAS);
     a.receive(&b, ATLAS);
 
-    assert_eq!(a.outline(), ["1:[[d/a]]", "1:Title", "1:Hello"]);
+    assert_eq!(
+        a.outline(),
+        ["1:[[d/a]]", "1:Title", "2:[[x/b]]", "2:[[x/c]]", "1:Hello"]
+    );
+    assert!(a.file(ATLAS).contains("40,40,0,40"), "{}", a.file(ATLAS));
     assert_eq!(b.outline(), a.outline());
     assert_eq!(a.file(ATLAS), b.file(ATLAS));
     assert_eq!(b.receive(&a, ATLAS), Outcome::Unchanged);
