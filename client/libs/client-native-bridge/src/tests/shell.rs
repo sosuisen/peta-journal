@@ -56,17 +56,11 @@ struct FakeHost {
     stream: Mutex<Option<Receiver<SseEvent>>>,
     /// What each file the server took held when it took it.
     uploads: Arc<Mutex<Vec<Vec<u8>>>>,
-    /// False for a journal that runs no extension, as the one inside the Android app.
-    runs_extensions: bool,
 }
 
 impl Host for FakeHost {
     fn app_url(&self) -> Option<String> {
         Some("http://localhost:8080".into())
-    }
-
-    fn runs_extensions(&self) -> bool {
-        self.runs_extensions
     }
 
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
@@ -130,6 +124,24 @@ impl Host for FakeHost {
         for event in stream.into_iter().flatten() {
             send(event);
         }
+    }
+}
+
+/// The fake server as a journal that runs no extension, as the one inside the Android app.
+/// The fake server itself says nothing of the extensions, so it runs them as a server does.
+struct WithoutExtensions(FakeHost);
+
+impl Host for WithoutExtensions {
+    fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
+        self.0.call(op)
+    }
+
+    fn events(&self, send: &mut dyn FnMut(SseEvent)) {
+        self.0.events(send);
+    }
+
+    fn runs_extensions(&self) -> bool {
+        false
     }
 }
 
@@ -214,13 +226,17 @@ impl Screen {
             answered: answered.clone(),
             stream: Mutex::new(Some(from_test)),
             uploads: uploads.clone(),
-            runs_extensions,
         };
         let kept = requests.clone();
-        let shell = NativeShell::new(host, clock, ClientId::new(), move |bytes| {
+        let to_shell = move |bytes: Vec<u8>| {
             let sent: Vec<Request<ShellEffectFfi>> = BincodeFfiFormat::deserialize(&bytes).unwrap();
             kept.lock().unwrap().extend(sent);
-        });
+        };
+        let shell = if runs_extensions {
+            NativeShell::new(host, clock, ClientId::new(), to_shell)
+        } else {
+            NativeShell::new(WithoutExtensions(host), clock, ClientId::new(), to_shell)
+        };
         Screen {
             shell,
             requests,
