@@ -114,8 +114,8 @@ class FakeCanvas {
   toWorldY(clientY: number) {
     return this.ready ? clientY - 50 : null;
   }
-  dragOverFromList(x: number, y: number, ctrl: boolean) {
-    this.given.push(['over', [x, y, ctrl]]);
+  dragOverFromList(x: number, y: number, ctrl: boolean, shift: boolean) {
+    this.given.push(['over', [x, y, ctrl, shift]]);
   }
   endDragFromList() {
     this.given.push(['end', null]);
@@ -533,7 +533,13 @@ describe('what waits beside the canvas', () => {
   function drag(
     kind: 'dragStart' | 'dragOver' | 'drop',
     target: Element,
-    at: { x: number; y: number; ctrl?: boolean; meta?: boolean },
+    at: {
+      x: number;
+      y: number;
+      ctrl?: boolean;
+      meta?: boolean;
+      shift?: boolean;
+    },
     moved: ReturnType<typeof dataTransfer>,
   ): boolean {
     const event = createEvent[kind](target, { dataTransfer: moved });
@@ -542,6 +548,7 @@ describe('what waits beside the canvas', () => {
       clientY: { value: at.y },
       ctrlKey: { value: at.ctrl ?? false },
       metaKey: { value: at.meta ?? false },
+      shiftKey: { value: at.shift ?? false },
     });
     return fireEvent(target, event);
   }
@@ -670,12 +677,14 @@ describe('what waits beside the canvas', () => {
 
     drag('dragOver', host, { x: 140, y: 60 }, moved);
     const over = drag('dragOver', host, { x: 150, y: 70, meta: true }, moved);
+    drag('dragOver', host, { x: 150, y: 70, ctrl: true, shift: true }, moved);
     const dropped = drag('drop', host, { x: 150, y: 70 }, moved);
 
     expect([over, dropped, moved.dropEffect]).toEqual([false, false, 'move']);
-    expect(canvas().given.slice(-3)).toEqual([
-      ['over', [140, 60, false]],
-      ['over', [150, 70, true]],
+    expect(canvas().given.slice(-4)).toEqual([
+      ['over', [140, 60, false, false]],
+      ['over', [150, 70, true, false]],
+      ['over', [150, 70, true, true]],
       ['end', null],
     ]);
     expect(wasm.events).toEqual([
@@ -730,6 +739,35 @@ describe('what waits beside the canvas', () => {
       { kind: 'MoveAtlasCards', card_ids: ['b'], parent_id: 'g' },
       dropped,
       { kind: 'GroupAtlasCards', card_ids: ['b'], target_id: 'a' },
+      dropped,
+    ]);
+  });
+
+  // ShiftとCtrlを押してカードの上にドロップすると、そのカードの子になる。blobの上では、Ctrlなしと同じで、親は変わらない。
+  test('a drop with Shift and Ctrl on a card goes under the card, and on the blob of a parent changes no parent', async () => {
+    const { host, canvas, wasm } = await unplaced();
+    const moved = dataTransfer([CARD_MIME]);
+    moved.setData(CARD_MIME, JSON.stringify({ card_id: 'b', x: 0, y: 0 }));
+    const held = { x: 100, y: 50, ctrl: true, shift: true };
+    canvas().parent = 'g';
+
+    drag('drop', host, held, moved);
+    canvas().target = 'a';
+    drag('drop', host, held, moved);
+    drag('drop', host, { x: 100, y: 50, shift: true }, moved);
+
+    const dropped = {
+      kind: 'DropAtlasCard',
+      card_id: 'b',
+      x: 0,
+      y: 0,
+      grab_x: 0,
+      grab_y: 0,
+    };
+    expect(wasm.events).toEqual([
+      dropped,
+      dropped,
+      { kind: 'MoveAtlasCards', card_ids: ['b'], parent_id: 'a' },
       dropped,
     ]);
   });
