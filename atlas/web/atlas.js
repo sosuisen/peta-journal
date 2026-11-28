@@ -538,13 +538,17 @@ window.AtlasCanvas = class AtlasCanvas {
       } else if (panning.button === 0 && panning.onLabel && opens(data)) {
         this.onOpen(data.path, e.ctrlKey || e.metaKey, e.shiftKey);
       } else if (panning.button === 2 && data && !data.masked) {
-        // A page that cannot be changed still shows the whole text of its cards
-        this.openMenu([['Show Text', () => this.onShowText?.(data.id, e.clientX, e.clientY)]], e.global.x, e.global.y);
+        // A page that cannot be changed still shows the whole text of its cards. Where it was
+        // asked is read now: PixiJS sends the next events in this same object.
+        const { clientX, clientY } = e;
+        this.openMenu([['Show Text', () => this.onShowText?.(data.id, clientX, clientY)]], e.global.x, e.global.y);
       }
     } else if (panning.button === 2 && panning.card?.linkData && !panning.card.destroyed) {
       const data = panning.card.linkData;
+      // Read now: PixiJS sends the next events in this same object
+      const { clientX, clientY } = e;
       const actions = {
-        'Show Text': () => this.onShowText?.(data.id, e.clientX, e.clientY),
+        'Show Text': () => this.onShowText?.(data.id, clientX, clientY),
         'Edit Link': () => this.openLinkDialog(data),
         'Remove from Atlas': () => this.onRemove?.(data.id),
         'Delete Card': () => this.onRemoveLink?.(data.id),
