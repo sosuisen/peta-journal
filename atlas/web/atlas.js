@@ -1320,7 +1320,6 @@ window.AtlasCanvas = class AtlasCanvas {
     const chains = list => list.map(view => groupsOf(dataOf(view)).map(g => g.id));
     const held = heldGroups({
       dragged: chains(views.filter(view => dragged.has(view))),
-      staying: chains(views.filter(view => !dragged.has(view))),
       around: drag?.node ? chainOf(drag.node.outer) : [],
     });
     const corners = new Map();
@@ -1743,13 +1742,13 @@ function dropMode(e) {
   return e.shiftKey ? 'child' : 'sibling';
 }
 
-// The groups that what a drag moves can be taken out of with Ctrl: those the outlines of the
-// drag stand for. `dragged` holds the ids of the groups of each dragged card or callout, the
-// outermost first, `staying` those of each card or callout that stays, and `around` the ids
-// of the groups around a dragged group. A group only stays while something in it stays.
-function heldGroups({ dragged = [], staying = [], around = [] }) {
-  const stays = new Set(staying.flat());
-  return new Set([...dragged.flat(), ...around].filter(id => stays.has(id)));
+// The groups that what a drag moves can be taken out of with Ctrl: every group a dragged card
+// or callout is in, however deep, and every group around a dragged group. `dragged` holds the
+// ids of the groups of each dragged card or callout, the outermost first, and `around` the ids
+// of the groups around a dragged group. Not only those that something else stays in: the item
+// of a group stays when the last of its children leaves it (ADR 053).
+function heldGroups({ dragged = [], around = [] }) {
+  return new Set([...dragged.flat(), ...around]);
 }
 
 // What a drop does, from the mode of its keys (dropMode), the id of the card under the
