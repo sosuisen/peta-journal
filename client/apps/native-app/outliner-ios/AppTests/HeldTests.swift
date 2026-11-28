@@ -46,45 +46,15 @@ final class HeldTests: XCTestCase {
     // メインスレッドが忙しい間に指が上がった短いタッチは、矢印を1回だけ行う。
     func testAShortTouchThatEndsWhileTheMainThreadIsBusyDoesItsArrowOnce() async {
         let held = touch()
-        let up = TouchUp { held.cancel() }
         await pass(.milliseconds(50))
 
-        // The finger goes up, and the main thread is busy until after the hold, as while the
-        // screen draws the next item
-        up.arrives()
+        // The main thread is busy until after the hold, as while the screen draws the next
+        // item. The finger went up meanwhile: the pad hears of it on the main queue, where the
+        // end of its wait stands first
         Thread.sleep(forTimeInterval: 0.3)
+        DispatchQueue.main.async { held.cancel() }
 
         await pass(.milliseconds(400))
         XCTAssertEqual(done, 1)
-    }
-}
-
-/// The end of a touch as UIKit brings it: an event that waits in a source of the main run loop
-/// until the main thread comes to it. The main queue, where a wait of the app ends, has a turn
-/// of its own.
-private final class TouchUp {
-    private let ends: () -> Void
-    private var source: CFRunLoopSource?
-
-    init(_ ends: @escaping () -> Void) {
-        self.ends = ends
-        var context = CFRunLoopSourceContext()
-        context.info = Unmanaged.passUnretained(self).toOpaque()
-        context.perform = { info in
-            guard let info else { return }
-            Unmanaged<TouchUp>.fromOpaque(info).takeUnretainedValue().ends()
-        }
-        source = CFRunLoopSourceCreate(nil, 0, &context)
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-    }
-
-    deinit {
-        if let source { CFRunLoopSourceInvalidate(source) }
-    }
-
-    func arrives() {
-        guard let source else { return }
-        CFRunLoopSourceSignal(source)
-        CFRunLoopWakeUp(CFRunLoopGetMain())
     }
 }
