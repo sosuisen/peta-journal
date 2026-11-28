@@ -55,6 +55,30 @@ fn the_journal_of_today_opens_the_new_day_when_the_date_changes() {
     assert_eq!(shown_date(&h), "2026-02-11");
 }
 
+// 新しい日を開かないと告げて始めたcoreは、日付が変わっても今日のジャーナルをサーバーに頼まない。
+// テンプレートを入れられない端末が、空のジャーナルを作らないためである（#1307）。
+#[test]
+fn a_core_told_not_to_open_the_new_day_asks_for_no_journal_when_the_date_changes() {
+    let mut h = Harness::new();
+    h.send(Event::Start {
+        client_id: ClientId::new(),
+        opens_new_day: false,
+    });
+    h.send(Event::Route {
+        route: Route::Page {
+            name: "today".into(),
+            fragment: None,
+        },
+        today: "2026-02-10".into(),
+    });
+
+    h.local_now.day = 11;
+    h.fire_timers();
+
+    assert_eq!(journals_asked(&h), ["2026-02-10"]);
+    assert_eq!(shown_date(&h), "2026-02-10");
+}
+
 // 日付が変わらなければ、時計を見たあとも、サーバーには何も頼まない。
 #[test]
 fn nothing_is_asked_while_the_date_stays_the_same() {
