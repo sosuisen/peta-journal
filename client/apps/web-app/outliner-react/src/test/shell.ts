@@ -91,6 +91,14 @@ export class WebShell {
   /** The text inside the wiki link at the cursor. */
   wikiQuery: (text: string, cursor: number) => string | undefined = () =>
     undefined;
+  /** The text with a page name put in the link at the cursor, as JSON. */
+  wikiPick: (
+    text: string,
+    cursor: number,
+    title: string,
+  ) => string | undefined = () => undefined;
+  /** What `wikiPicked` was asked, in order. */
+  readonly picks: [string, number, string][] = [];
   /** The changes the next call answers, once. */
   private reply: string | null = null;
   /** The changes that `changes()` gives after a render. */
@@ -166,6 +174,11 @@ export class WebShell {
 
   wikiQueryAt(text: string, cursor: number): string | undefined {
     return this.wikiQuery(text, cursor);
+  }
+
+  wikiPicked(text: string, cursor: number, title: string): string | undefined {
+    this.picks.push([text, cursor, title]);
+    return this.wikiPick(text, cursor, title);
   }
 
   // The ids alone, so a test sees which cards and callouts were given

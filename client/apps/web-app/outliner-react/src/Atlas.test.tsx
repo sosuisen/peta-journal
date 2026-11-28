@@ -16,9 +16,10 @@ import {
   richLinkPage,
   richLinkWeb,
   UnplacedCard,
+  WikiView,
   type Panel,
 } from './border/peta-types';
-import { draw, shell } from './test/screens';
+import { draw, outline, shell } from './test/screens';
 
 const scripts = vi.hoisted(() => ({
   loaded: Promise.resolve(),
@@ -484,186 +485,159 @@ describe('what is done on the canvas', () => {
 });
 
 // 横で待つもの: 未追加の項目と、座標のない項目
-/** What the canvas asks the dialog of a text to show, and what came back from it */
+/** What the canvas asks the dialog of a text to show */
 interface Asked {
   readonly name: string;
+  readonly id: string | null;
   readonly text: string;
   readonly side: string | null;
+  readonly mode: 'edit' | 'view';
 }
 
+const asked = (changes: Partial<Asked> = {}): Asked => ({
+  name: 'Edit',
+  id: null,
+  text: 'x',
+  side: null,
+  mode: 'edit',
+  ...changes,
+});
+
 /** The atlas with the dialog of a text opened by its canvas; `done` keeps what OK gave. */
-async function dialogOf(asked: Asked) {
-  const drawn = await atlas('m/');
+async function dialogOf(given: Asked, ...panels: Panel[]) {
+  const drawn = await atlas('m/', ...panels);
   const done: [string | null, string][] = [];
   const open = drawn.canvas().handlers.onText as (
     asked: Asked,
     done: (side: string | null, text: string) => void,
   ) => void;
-  act(() => open(asked, (side, text) => done.push([side, text])));
-  const input = () => screen.getByRole('textbox');
+  act(() => open(given, (side, text) => done.push([side, text])));
+  const input = () => screen.getByRole<HTMLTextAreaElement>('textbox');
   return { ...drawn, done, input };
 }
 
-// テキストのダイアログ（Edit、Add Card、グループと吹き出しのEdit）
+/** The panel of the outline with page names offered for the link typed in `itemId` */
+function offered(itemId: string, titles: string[], selected = 0) {
+  return {
+    kind: 'Outline' as const,
+    value: outline({
+      wiki: new WikiView(itemId, titles, BigInt(selected), 10, 20),
+    }),
+  };
+}
+
+// テキストのダイアログ（Edit、Add Card、View Text）
 describe('the dialog of a text', () => {
-  // キャンバスが頼むと、その名のダイアログを、編集のタブで開く。本文は複数行の入力に出る。
-  test('the canvas opens it by its name on the edit tab, with the text in a box of several lines', async () => {
-    const { input } = await dialogOf({
-      name: 'Edit',
-      text: 'one\ntwo',
-      side: null,
-    });
-
-    expect(screen.getByRole('dialog', { name: 'Edit' })).toBeTruthy();
-    expect(input().tagName).toBe('TEXTAREA');
-    expect((input() as HTMLTextAreaElement).value).toBe('one\ntwo');
-    expect(document.activeElement).toBe(input());
-    expect((input() as HTMLTextAreaElement).selectionStart).toBe(7);
-    expect(
-      screen.getByRole('tab', { name: 'Edit' }).getAttribute('aria-selected'),
-    ).toBe('true');
-    expect(screen.queryByRole('radio')).toBeNull();
-  });
-
-  // OKは書いたものを渡して閉じる。辺のないものは、辺をnullで渡す。
-  test('OK gives what is written and closes, with no side for a card', async () => {
-    const { done, input } = await dialogOf({
-      name: 'Add Card',
-      text: '',
-      side: null,
-    });
+  // キャンバスが頼むと、その名のダイアログを開く。OKは書いたものを渡して閉じる。辺のないものは、辺をnullで渡す。
+  test('the canvas opens it by its name, and OK gives what is written and closes it', async () => {
+    const { done, input } = await dialogOf(
+      asked({ name: 'Add Card', text: '' }),
+    );
+    const named = screen.queryByRole('dialog', { name: 'Add Card' }) !== null;
 
     fireEvent.change(input(), { target: { value: 'a\nb' } });
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
 
+    expect(named).toBe(true);
     expect(done).toEqual([[null, 'a\nb']]);
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  // Enterは改行を入れるだけで、閉じない。Ctrl+EnterかCommand+EnterがOK、EscapeがCancelである。
-  test('Enter only breaks the line; Ctrl or Command with Enter is OK, and Escape is Cancel', async () => {
-    const { done, input } = await dialogOf({
-      name: 'Edit',
-      text: 'x',
-      side: null,
-    });
-
-    const enter = createEvent.keyDown(input(), { key: 'Enter' });
-    fireEvent(input(), enter);
-    const open = screen.queryByRole('dialog') !== null;
-    fireEvent.keyDown(input(), { key: 'Enter', ctrlKey: true });
-    const first = [...done];
-
-    const again = await dialogOf({ name: 'Edit', text: 'y', side: null });
-    fireEvent.keyDown(again.input(), { key: 'Enter', metaKey: true });
-    const second = [...again.done];
-
-    const third = await dialogOf({ name: 'Edit', text: 'z', side: null });
-    fireEvent.keyDown(third.input(), { key: 'Escape' });
-
-    expect(enter.defaultPrevented).toBe(false);
-    expect(open).toBe(true);
-    expect(first).toEqual([[null, 'x']]);
-    expect(second).toEqual([[null, 'y']]);
-    expect(third.done).toEqual([]);
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  // IMEで変換している間のCtrl+Enterは、OKにならない
-  test('Ctrl with Enter while an IME composes is not OK', async () => {
-    const { done, input } = await dialogOf({
-      name: 'Edit',
-      text: 'x',
-      side: null,
-    });
-
-    fireEvent.keyDown(input(), {
-      key: 'Enter',
-      ctrlKey: true,
-      isComposing: true,
-    });
-
-    expect(done).toEqual([]);
-    expect(screen.queryByRole('dialog')).not.toBeNull();
-  });
-
-  // Cancelと、ダイアログの外の押下は、何も渡さずに閉じる
-  test('Cancel and a press beside the dialog close it and give nothing', async () => {
-    const first = await dialogOf({ name: 'Edit', text: 'x', side: null });
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    const closed = screen.queryByRole('dialog') === null;
-
-    const second = await dialogOf({ name: 'Edit', text: 'y', side: null });
-    const beside = document.querySelector('.atlas-dialog-overlay') as Element;
-    fireEvent.mouseDown(second.input());
-    const kept = screen.queryByRole('dialog') !== null;
-    fireEvent.mouseDown(beside);
-
-    expect(closed).toBe(true);
-    expect(kept).toBe(true);
-    expect([...first.done, ...second.done]).toEqual([]);
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  // グループと吹き出しは、辺を選べる。今の辺が選ばれていて、選んだ辺をOKが渡す。
-  test('a group or a callout picks its side in the dialog, starting at its own', async () => {
-    const { done } = await dialogOf({
-      name: 'Edit',
-      text: 'Plan',
-      side: 'left',
-    });
-    const picked = (name: string) =>
-      screen.getByRole<HTMLInputElement>('radio', { name }).checked;
-    const before = ['Top', 'Bottom', 'Left', 'Right'].map(picked);
+  // グループと吹き出しの辺は、OKが選んだものを渡す
+  test('the side picked goes with OK', async () => {
+    const { done } = await dialogOf(asked({ text: 'Plan', side: 'left' }));
 
     fireEvent.click(screen.getByRole('radio', { name: 'Right' }));
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
 
-    expect(before).toEqual([false, false, true, false]);
     expect(done).toEqual([['right', 'Plan']]);
   });
 
-  // Previewのタブは、書いたMarkdownを、ページの本文と同じに描く。編集に戻っても、書いたものはそのままである。
-  test('the Preview tab draws what is written as a body of a page is drawn, and the edit tab keeps it', async () => {
-    const { done, input } = await dialogOf({
-      name: 'Edit',
-      text: 'x',
-      side: null,
-    });
-    fireEvent.change(input(), { target: { value: 'a **b**' } });
-
-    fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
-    const drawn = document.querySelector(
-      '.atlas-dialog-preview app-item-view .item-content',
-    );
-    const html = drawn?.innerHTML;
-    const noBox = screen.queryByRole('textbox') === null;
-    fireEvent.click(screen.getByRole('tab', { name: 'Edit' }));
-    const back = (input() as HTMLTextAreaElement).value;
-    fireEvent.keyDown(input(), { key: 'Enter', ctrlKey: true });
-
-    expect(html).toBe('<p>a **b**</p>');
-    expect(noBox).toBe(true);
-    expect(back).toBe('a **b**');
-    expect(done).toEqual([[null, 'a **b**']]);
-  });
-
-  // Previewの中のリンクは、押しても開かない
-  test('a link in the Preview opens nothing', async () => {
-    const { input, wasm } = await dialogOf({
-      name: 'Edit',
-      text: '',
-      side: null,
-    });
+  // Previewは、書いたMarkdownを、コアがページの本文として描くHTMLで、ページの本文と同じ形に描く。中のリンクは開かない。
+  test('the Preview draws what is written with the HTML the core makes of a body of a page', async () => {
+    const { input, wasm } = await dialogOf(asked());
     fireEvent.change(input(), { target: { value: '<a href="/x">x</a>' } });
     fireEvent.click(screen.getByRole('tab', { name: 'Preview' }));
 
-    const link = document.querySelector('.atlas-dialog-preview a') as Element;
+    const drawn = document.querySelector(
+      '.atlas-dialog-preview app-item-view .item-content',
+    ) as Element;
+    const link = drawn.querySelector('a') as Element;
     const click = createEvent.click(link);
     fireEvent(link, click);
 
+    expect(drawn.innerHTML).toBe('<p><a href="/x">x</a></p>');
     expect(click.defaultPrevented).toBe(true);
     expect(wasm.events).toEqual([]);
+  });
+
+  // キャンバスが見るだけで頼むと、本文を変えられず、ボタンはCancelだけである
+  test('a dialog asked to view only cannot change the text and has Cancel alone', async () => {
+    const { done, input } = await dialogOf(
+      asked({ name: 'View Text', mode: 'view', text: 'read' }),
+    );
+    const buttons = screen.getAllByRole('button').map(b => b.textContent);
+    const readOnly = input().readOnly;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(buttons).toContain('Cancel');
+    expect(buttons).not.toContain('OK');
+    expect(readOnly).toBe(true);
+    expect(done).toEqual([]);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  // `[[`の中で打つと、ページの編集欄と同じく、コアにその問いを送る。ダイアログは、項目でない名で名乗る。
+  test('typing inside a link asks the core for page names, as the editor of a page does', async () => {
+    const { input, wasm } = await dialogOf(asked({ text: '' }));
+    wasm.wikiQuery = (text, cursor) =>
+      cursor === 4 && text === '[[To]]' ? 'To' : undefined;
+
+    fireEvent.change(input(), { target: { value: '[[To]]' } });
+    input().setSelectionRange(4, 4);
+    fireEvent.select(input());
+
+    expect(
+      wasm.events.map(e =>
+        e.kind === 'WikiQuery' ? [e.item_id, e.context?.query ?? null] : e.kind,
+      ),
+    ).toEqual([
+      ['atlas-dialog', null],
+      ['atlas-dialog', 'To'],
+    ]);
+  });
+
+  // コアが示した名前が出て、Enterで選んだ名前がカーソルのリンクに入り、候補は閉じる。矢印はコアに送る。
+  test('the names the core offers show, an arrow goes to the core, and Enter puts the selected one in the link', async () => {
+    const { input, wasm } = await dialogOf(
+      asked({ text: '[[To]]' }),
+      offered('atlas-dialog', ['Todo', 'Tools'], 1),
+    );
+    wasm.wikiPick = (text, cursor, title) =>
+      JSON.stringify({ text: `[[${title}]]`, cursor: 2 + title.length });
+    const names = [
+      ...document.querySelectorAll('.atlas-dialog-suggestion'),
+    ].map(n => n.textContent);
+    input().setSelectionRange(4, 4);
+
+    fireEvent.keyDown(input(), { key: 'ArrowDown' });
+    fireEvent.keyDown(input(), { key: 'Enter' });
+
+    expect(names).toEqual(['Todo', 'Tools']);
+    expect(wasm.picks).toEqual([['[[To]]', 4, 'Tools']]);
+    expect(input().value).toBe('[[Tools]]');
+    expect(wasm.events).toEqual([
+      { kind: 'WikiKey', key: 'ArrowDown' },
+      { kind: 'WikiQuery', item_id: 'atlas-dialog', context: null },
+    ]);
+  });
+
+  // ほかの項目に示された名前は、ダイアログに出ない
+  test('names offered for another item do not show in the dialog', async () => {
+    await dialogOf(asked(), offered('item', ['Todo']));
+
+    expect(document.querySelector('.atlas-dialog-suggestions')).toBeNull();
   });
 });
 
