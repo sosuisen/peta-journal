@@ -22,8 +22,9 @@
 // a group is made of them, and in the area of a group, they join it. A drop with Shift and
 // Ctrl makes them children of the card they are let go on, and does nothing more in the area
 // of a group. What would take the drop shows it in a color of its own for each of the two.
-// A double click on a callout or a link card, or its menu, opens its dialog.
-// The menus and the dialog are made with @pixi/ui, the global `PIXI.ui` of pixi-ui.js beside this file.
+// A double click on a callout or a link card, or its menu, opens its dialog, which the shell
+// draws (setOnText).
+// The menus are made with @pixi/ui, the global `PIXI.ui` of pixi-ui.js beside this file.
 // A canvas that is not editable only shows the atlas, as a static site does: a drag with
 // either button moves the view, the wheel scales it, and a click on a label opens its page.
 // It needs no @pixi/ui. A card whose label is hidden (`masked`) shows a softened blob only,
@@ -88,13 +89,8 @@ const TITLE_INSET = 1 / 3;
 const TITLE_ALPHA = 0.7;
 // How many points of each curve of an outline the title is laid along
 const CURVE_SAMPLES = 16;
-// The sides a group title can lie along, as the core stores them, with their names in the dialog
-const TITLE_SIDES = [
-  ['top', 'Top'],
-  ['bottom', 'Bottom'],
-  ['left', 'Left'],
-  ['right', 'Right'],
-];
+// The sides a group title can lie along, as the core stores them
+const TITLE_SIDES = [['top'], ['bottom'], ['left'], ['right']];
 const UI_FONT_SIZE = 13;
 // The size of the character of a callout on the canvas
 const CALLOUT_SIZE = 45;
@@ -185,7 +181,7 @@ window.AtlasCanvas = class AtlasCanvas {
         this.root = frame(null);
         this.frames = new Map();
         this.world.addChild(cross(), this.root);
-        // The menu and the dialog, in pixels of the screen above the scaled view
+        // The menu, in pixels of the screen above the scaled view
         this.overlay = new PIXI.Container();
         this.app.stage.addChild(this.world, this.overlay);
         this.app.renderer.on('resize', () => this.center());
@@ -286,9 +282,6 @@ window.AtlasCanvas = class AtlasCanvas {
 
   // The second finger ends the pan of the first: the view follows the pair from here
   startPinch() {
-    if (this.dialog) {
-      return;
-    }
     this.closeMenu();
     this.panning = null;
     this.showHand();
@@ -323,10 +316,7 @@ window.AtlasCanvas = class AtlasCanvas {
   // The point under the pointer stays where it is while the view is scaled
   zoomAt(e) {
     e.preventDefault();
-    // The view stays as it is under the dialog; the menu would be left behind
-    if (this.dialog) {
-      return;
-    }
+    // The menu would be left behind
     this.closeMenu();
     const delta = e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? e.deltaY : e.deltaY * LINE_HEIGHT;
     if ((e.ctrlKey || e.metaKey) && this.selected.size > 0) {
@@ -433,7 +423,7 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   startPan(e) {
-    // The menu and the dialog take their own presses. A press anywhere else closes the menu.
+    // The menu takes its own presses. A press anywhere else closes it.
     if (this.overlay.children.length > 0 && within(e.target, this.overlay)) {
       return;
     }
@@ -641,7 +631,6 @@ window.AtlasCanvas = class AtlasCanvas {
     const data = this.groupData(group);
     this.openTextDialog({
       name: 'Edit',
-      placeholder: 'Text',
       text: this.bodyOf?.(group) ?? data?.title,
       side: data?.titleSide,
       done: (side, text) => this.onGroupTitle?.(group, side, text),
@@ -664,7 +653,6 @@ window.AtlasCanvas = class AtlasCanvas {
   openCalloutDialog(callout) {
     this.openTextDialog({
       name: callout.key ? 'Edit' : 'Add Callout',
-      placeholder: 'Text',
       text: callout.text,
       side: callout.side,
       done: (side, text) => {
@@ -682,7 +670,6 @@ window.AtlasCanvas = class AtlasCanvas {
   openCardDialog({ id, x, y }) {
     this.openTextDialog({
       name: id ? 'Edit' : 'Add Card',
-      placeholder: 'Text',
       text: id ? this.bodyOf?.(id) : '',
       sided: false,
       done: (side, text) => {
@@ -695,114 +682,11 @@ window.AtlasCanvas = class AtlasCanvas {
     });
   }
 
-  // A dialog of a text, with a side to pick unless it is not `sided`. OK or Enter gives them to
-  // `done(side, text)`; the core takes an empty text as none. Cancel, Escape and a press beside
-  // the dialog leave things as they were.
-  openTextDialog({ name, placeholder, text, side, sided = true, done }) {
-    const sideIndex = Math.max(
-      0,
-      TITLE_SIDES.findIndex(([s]) => s === side),
-    );
-    const width = 340;
-    const height = sided ? 200 : 152;
-    const input = new PIXI.ui.Input({
-      bg: new PIXI.Graphics()
-        .roundRect(0, 0, width - 60, 32, 4)
-        .fill(0xffffff)
-        .stroke({ color: 0xc0c4cc, width: 1 }),
-      placeholder,
-      value: text ?? '',
-      padding: { left: 8, right: 8 },
-      // A long text is cut off inside the padding, and scrolls with the cursor while edited.
-      // Without the mask, it runs past the edge of the input.
-      addMask: true,
-      textStyle: { fontFamily: uiFont(), fontSize: UI_FONT_SIZE, fill: 0x222222 },
-    });
-    const sides = new PIXI.ui.RadioGroup({
-      items: TITLE_SIDES.map(([, name]) => new PIXI.ui.CheckBox({
-        text: name,
-        style: {
-          unchecked: new PIXI.Graphics().circle(8, 8, 7).fill(0xffffff).stroke({ color: 0x9aa0a6, width: 1.5 }),
-          checked: new PIXI.Graphics()
-            .circle(8, 8, 7).fill(0xffffff).stroke({ color: 0x1a73e8, width: 1.5 })
-            .circle(8, 8, 4).fill(0x1a73e8),
-          text: { fontFamily: uiFont(), fontSize: UI_FONT_SIZE, fill: 0x222222 },
-          textOffset: { x: 4 },
-        },
-      })),
-      type: 'horizontal',
-      elementsMargin: 16,
-      selectedItem: sideIndex,
-    });
-    sides.y = 48;
-    const content = new PIXI.Container();
-    content.addChild(input);
-    if (sided) {
-      content.addChild(sides);
-    }
-    const dialog = new PIXI.ui.Dialog({
-      background: new PIXI.Graphics()
-        .roundRect(0, 0, width, height, 10)
-        .fill(0xffffff)
-        .stroke({ color: 0xdddddd, width: 1 }),
-      backdropColor: 0x000000,
-      backdropAlpha: 0.15,
-      title: uiText(name, 15),
-      content,
-      width,
-      height,
-      padding: 20,
-      buttons: [dialogButton('Cancel', false), dialogButton('OK', true)],
-      closeOnBackdropClick: true,
-    });
-    dialog.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
-    // The Dialog puts its content in a ScrollBox. That box takes a drag once its content is even
-    // a little larger than it, as the edge of the input is, and the drag shifts the content
-    // around. The content fits, so the box is kept from taking a press; its items still take
-    // theirs. @pixi/ui has no option for this, and the box turns itself on again when it lays
-    // out its items, so that switch is turned off too.
-    dialog.scrollBox.setInteractive = () => {};
-    dialog.scrollBox.eventMode = 'passive';
-    const finish = ok => {
-      if (this.dialog !== dialog) {
-        return;
-      }
-      this.dialog = null;
-      window.removeEventListener('keydown', keys, true);
-      if (ok) {
-        done(TITLE_SIDES[sides.selected][0], input.value);
-      }
-      dialog.close();
-      // After the close has hidden it, which the next frame does
-      setTimeout(() => {
-        if (!dialog.destroyed) {
-          dialog.destroy({ children: true });
-        }
-      }, 0);
-    };
-    this.closeDialog = () => finish(false);
-    // Enter is taken only once the text is no longer being composed by an IME
-    const keys = e => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        finish(false);
-      } else if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
-        e.preventDefault();
-        finish(true);
-      }
-    };
-    dialog.onSelect.connect(index => finish(index === 1));
-    dialog.onClose.connect(() => finish(false));
-    window.addEventListener('keydown', keys, true);
-    this.dialog = dialog;
-    this.overlay.addChild(dialog);
-    dialog.open();
-    // After the click that opened the dialog: the input stops editing on a press elsewhere
-    setTimeout(() => {
-      if (this.dialog === dialog) {
-        input._startEditing();
-      }
-    }, 0);
+  // A dialog of a text, with a side to pick unless it is not `sided`, which the shell opens and
+  // draws: onText(asked, done) as setOnText gives it. OK gives them to `done(side, text)`; the
+  // core takes an empty text as none. A canvas that is not editable opens none.
+  openTextDialog({ name, text, side, sided = true, done }) {
+    this.onText?.(textAsked({ name, text, side, sided }), done);
   }
 
   // A group is dragged by its frame, without Ctrl: all that is in it moves with it, and nothing
@@ -1206,6 +1090,13 @@ window.AtlasCanvas = class AtlasCanvas {
     this.onEditCard = onEditCard;
     this.onRemoveLink = onRemoveLink;
     this.bodyOf = bodyOf;
+  }
+
+  // onText(asked, done) opens the dialog of a text: the Edit of a card, a group or a callout,
+  // Add Card or Add Callout. asked is { name, text, side }, where side is null for a card, which
+  // has none. done(side, text) is called on OK; Cancel calls nothing.
+  setOnText(onText) {
+    this.onText = onText;
   }
 
   // onRemove(id) is Remove from Atlas of a card: the card leaves the canvas, and its item stays
@@ -1728,8 +1619,6 @@ window.AtlasCanvas = class AtlasCanvas {
   destroy() {
     this.destroyed = true;
     this.closeMenu();
-    // The dialog listens on the window for its keys; a page left with it open would keep them
-    this.closeDialog?.();
     clearTimeout(this.sharpenTimer);
     clearTimeout(this.scaleTimer);
     this.resizeObserver?.disconnect();
@@ -1764,6 +1653,13 @@ function cardMenu(data) {
 // The names of the items of the menu of the canvas, where nothing is
 function canvasMenu() {
   return ['Add Card', 'Add Callout'];
+}
+
+// What the shell is asked to show in the dialog of a text: its name, its text, and the side to
+// start at, the top unless it is one of TITLE_SIDES. A dialog that is not `sided` has no side.
+function textAsked({ name, text, side, sided }) {
+  const known = TITLE_SIDES.some(([s]) => s === side);
+  return { name, text: text ?? '', side: sided ? (known ? side : 'top') : null };
 }
 
 // The groups that what a drag moves can be taken out of with Ctrl: every group a dragged card
@@ -1920,24 +1816,6 @@ function uiFont() {
 
 function uiText(text, fontSize = UI_FONT_SIZE) {
   return new PIXI.Text({ text, style: { fontFamily: uiFont(), fontSize, fill: 0x222222 } });
-}
-
-// A button of a dialog; the main one is filled with the color of the app
-function dialogButton(text, main) {
-  const view = (fill, line) =>
-    new PIXI.Graphics()
-      .roundRect(0, 0, 88, 32, 6)
-      .fill(fill)
-      .stroke({ color: line, width: 1 });
-  return new PIXI.ui.FancyButton({
-    defaultView: main ? view(0x1a73e8, 0x1a73e8) : view(0xffffff, 0xc0c4cc),
-    hoverView: main ? view(0x1765cc, 0x1765cc) : view(0xf0f0f0, 0xc0c4cc),
-    pressedView: main ? view(0x1558b0, 0x1558b0) : view(0xe4e4e4, 0xc0c4cc),
-    text: new PIXI.Text({
-      text,
-      style: { fontFamily: uiFont(), fontSize: UI_FONT_SIZE, fill: main ? 0xffffff : 0x222222 },
-    }),
-  });
 }
 
 // The colors of the labels: a link out of the folder in blue, as it always was, and a link to
